@@ -37,8 +37,18 @@ MODULES = \
  controllers \
 
 # GCP project to use for development
-export GCP_PROJECT_ID ?= $(shell gcloud config get-value project)
-export IMAGE_REPO ?= gcr.io/$(GCP_PROJECT_ID)
+
+ifeq ($(GCP_PROJECT_ID),)
+ifeq ($(shell command -v gcloud > /dev/null 2>&1; echo $$?), 0)
+export GCP_PROJECT_ID=$(shell gcloud config get-value project)
+else
+export GCP_PROJECT_ID=pure-faculty-367518
+endif
+endif
+
+export IMAGE_REPO ?= docker.io/nephio
+export USER ?= nephio
+
 export IMAGE_TAG
 ifndef IMAGE_TAG
   git_tag := $(shell git rev-parse --short HEAD || "latest" )
@@ -47,7 +57,7 @@ ifndef IMAGE_TAG
     git_tag := $(git_tag)-dirty
   endif
 
-  IMAGE_TAG=$(git_tag)
+  IMAGE_TAG=$(USER)-$(git_tag)
 endif
 
 PORCH_SERVER_IMAGE ?= porch-server
