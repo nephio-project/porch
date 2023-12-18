@@ -1,0 +1,85 @@
+I1130 18:10:58.774226       1 serving.go:342] Generated self-signed cert (/tmp/certs/apiserver.crt, /tmp/certs/apiserver.key)
+I1130 18:10:59.259075       1 plugins.go:158] Loaded 2 mutating admission controller(s) successfully in the following order: NamespaceLifecycle,MutatingAdmissionWebhook.
+I1130 18:10:59.259105       1 plugins.go:161] Loaded 2 validating admission controller(s) successfully in the following order: ValidatingAdmissionPolicy,ValidatingAdmissionWebhook.
+I1130 18:10:59.314313       1 grpcruntime.go:41] Dialing grpc function runner "function-runner:9445"
+I1130 18:10:59.328005       1 webhooks.go:69] creating self-signing TLS cert and key 
+I1130 18:10:59.328080       1 background.go:52] Background routine starting ...
+I1130 18:11:00.328889       1 background.go:76] Starting watch ... 
+I1130 18:11:00.354176       1 background.go:88] Watch successfully started.
+I1130 18:11:03.366790       1 webhooks.go:169] Creating validating webhook
+I1130 18:11:03.391381       1 webhooks.go:237] Starting webhook server
+I1130 18:11:03.402159       1 requestheader_controller.go:169] Starting RequestHeaderAuthRequestController
+I1130 18:11:03.402376       1 shared_informer.go:270] Waiting for caches to sync for RequestHeaderAuthRequestController
+I1130 18:11:03.402519       1 configmap_cafile_content.go:202] "Starting controller" name="client-ca::kube-system::extension-apiserver-authentication::client-ca-file"
+I1130 18:11:03.402601       1 shared_informer.go:270] Waiting for caches to sync for client-ca::kube-system::extension-apiserver-authentication::client-ca-file
+I1130 18:11:03.402686       1 configmap_cafile_content.go:202] "Starting controller" name="client-ca::kube-system::extension-apiserver-authentication::requestheader-client-ca-file"
+I1130 18:11:03.402731       1 shared_informer.go:270] Waiting for caches to sync for client-ca::kube-system::extension-apiserver-authentication::requestheader-client-ca-file
+I1130 18:11:03.402835       1 secure_serving.go:210] Serving securely on [::]:4443
+I1130 18:11:03.402911       1 dynamic_serving_content.go:132] "Starting controller" name="serving-cert::/tmp/certs/apiserver.crt::/tmp/certs/apiserver.key"
+I1130 18:11:03.403044       1 tlsconfig.go:240] "Starting DynamicServingCertificateController"
+I1130 18:11:03.403566       1 apf_controller.go:373] Starting API Priority and Fairness config controller
+I1130 18:11:03.503521       1 shared_informer.go:277] Caches are synced for client-ca::kube-system::extension-apiserver-authentication::requestheader-client-ca-file
+I1130 18:11:03.503550       1 shared_informer.go:277] Caches are synced for client-ca::kube-system::extension-apiserver-authentication::client-ca-file
+I1130 18:11:03.503629       1 shared_informer.go:277] Caches are synced for RequestHeaderAuthRequestController
+I1130 18:11:03.503685       1 apf_controller.go:378] Running API Priority and Fairness config worker
+I1130 18:11:03.503703       1 apf_controller.go:381] Running API Priority and Fairness periodic rebalancing process
+I1130 18:11:15.140538       1 background.go:134] Repository added: porch-test-1701367864418973:delete-and-recreate
+I1130 18:11:15.213767       1 background.go:137] Repository modified: porch-test-1701367864418973:delete-and-recreate
+I1130 18:11:15.228860       1 git.go:400] repo porch-test-1701367864418973/delete-and-recreate: 0 draftCache, 0 draftLoaded, 0 tagCache, 0 tagLoaded, 0 mainCache, 0 mainLoaded
+I1130 18:11:15.228895       1 repository.go:549] repo porch-test-1701367864418973/delete-and-recreate: addMeta 0, delMeta 0, addSent 0, modSent 0, delSent 0 for 0 in-cache and 0 in-storage package revisions
+I1130 18:11:15.228906       1 repository.go:379] repo porch-test-1701367864418973/delete-and-recreate: reconcile for poll finished in 0.050253 secs
+I1130 18:11:15.230966       1 repository.go:379] repo porch-test-1701367864418973/delete-and-recreate: reconcile for poll finished in 0.002033 secs
+I1130 18:11:15.264943       1 repository.go:379] repo porch-test-1701367864418973/delete-and-recreate: reconcile for create finished in 0.002310 secs
+I1130 18:11:15.274310       1 render.go:62] Package "/": 
+I1130 18:11:15.274996       1 render.go:62] Successfully executed 0 function(s) in 1 package(s).
+I1130 18:11:15.307538       1 git.go:400] repo porch-test-1701367864418973/delete-and-recreate: 0 draftCache, 1 draftLoaded, 0 tagCache, 0 tagLoaded, 0 mainCache, 0 mainLoaded
+I1130 18:11:15.307579       1 store.go:138] Creating packagerev porch-test-1701367864418973/delete-and-recreate-e92b26f0e6525dfcba06624ccf5f8754c8b64573
+I1130 18:11:15.327529       1 repository.go:549] repo porch-test-1701367864418973/delete-and-recreate: addMeta 1, delMeta 0, addSent 0, modSent 0, delSent 0 for 0 in-cache and 1 in-storage package revisions
+I1130 18:11:15.327556       1 repository.go:379] repo porch-test-1701367864418973/delete-and-recreate: reconcile for close-draft finished in 0.037639 secs
+I1130 18:11:15.327578       1 store.go:138] Creating packagerev porch-test-1701367864418973/delete-and-recreate-e92b26f0e6525dfcba06624ccf5f8754c8b64573
+I1130 18:11:15.446300       1 store.go:185] Updating packagerev porch-test-1701367864418973/delete-and-recreate-e92b26f0e6525dfcba06624ccf5f8754c8b64573
+I1130 18:11:15.532180       1 engine.go:346] engine: sent 0 for new PackageRevision porch-test-1701367864418973/delete-and-recreate-e92b26f0e6525dfcba06624ccf5f8754c8b64573
+I1130 18:11:15.802195       1 repository.go:379] repo porch-test-1701367864418973/delete-and-recreate: reconcile for update finished in 0.002182 secs
+I1130 18:11:15.824548       1 git.go:400] repo porch-test-1701367864418973/delete-and-recreate: 0 draftCache, 1 draftLoaded, 0 tagCache, 0 tagLoaded, 0 mainCache, 0 mainLoaded
+I1130 18:11:15.824593       1 repository.go:549] repo porch-test-1701367864418973/delete-and-recreate: addMeta 0, delMeta 0, addSent 0, modSent 0, delSent 0 for 1 in-cache and 1 in-storage package revisions
+I1130 18:11:15.824646       1 repository.go:379] repo porch-test-1701367864418973/delete-and-recreate: reconcile for close-draft finished in 0.015722 secs
+I1130 18:11:15.832580       1 store.go:185] Updating packagerev porch-test-1701367864418973/delete-and-recreate-e92b26f0e6525dfcba06624ccf5f8754c8b64573
+I1130 18:11:15.841678       1 engine.go:719] engine: sent 0 for updated PackageRevision porch-test-1701367864418973/delete-and-recreate-e92b26f0e6525dfcba06624ccf5f8754c8b64573
+I1130 18:11:15.965338       1 repository.go:379] repo porch-test-1701367864418973/delete-and-recreate: reconcile for update finished in 0.002363 secs
+I1130 18:11:15.968769       1 git.go:400] repo porch-test-1701367864418973/delete-and-recreate: 0 draftCache, 1 draftLoaded, 0 tagCache, 0 tagLoaded, 0 mainCache, 0 mainLoaded
+I1130 18:11:15.999931       1 git.go:400] repo porch-test-1701367864418973/delete-and-recreate: 0 draftCache, 0 draftLoaded, 0 tagCache, 1 tagLoaded, 0 mainCache, 1 mainLoaded
+I1130 18:11:16.000055       1 store.go:138] Creating packagerev porch-test-1701367864418973/delete-and-recreate-ea94fb01093e24716c93d22a4669b5b47915eea1
+I1130 18:11:16.014373       1 repository.go:549] repo porch-test-1701367864418973/delete-and-recreate: addMeta 1, delMeta 0, addSent 0, modSent 0, delSent 0 for 1 in-cache and 2 in-storage package revisions
+I1130 18:11:16.014408       1 repository.go:379] repo porch-test-1701367864418973/delete-and-recreate: reconcile for close-draft finished in 0.029353 secs
+I1130 18:11:16.020240       1 store.go:185] Updating packagerev porch-test-1701367864418973/delete-and-recreate-e92b26f0e6525dfcba06624ccf5f8754c8b64573
+I1130 18:11:16.037938       1 engine.go:719] engine: sent 0 for updated PackageRevision porch-test-1701367864418973/delete-and-recreate-e92b26f0e6525dfcba06624ccf5f8754c8b64573
+I1130 18:11:16.197159       1 store.go:185] Updating packagerev porch-test-1701367864418973/delete-and-recreate-e92b26f0e6525dfcba06624ccf5f8754c8b64573
+I1130 18:11:16.318201       1 engine.go:592] engine: sent 0 for updated PackageRevision metadata porch-test-1701367864418973/delete-and-recreate-e92b26f0e6525dfcba06624ccf5f8754c8b64573
+I1130 18:11:16.466104       1 webhooks.go:255] received request to validate deletion
+I1130 18:11:16.513242       1 store.go:209] Deleting packagerev porch-test-1701367864418973/delete-and-recreate-e92b26f0e6525dfcba06624ccf5f8754c8b64573
+I1130 18:11:16.528554       1 engine.go:873] PackageRevision delete-and-recreate-e92b26f0e6525dfcba06624ccf5f8754c8b64573 deleted for real since no finalizers
+I1130 18:11:16.563792       1 git.go:400] repo porch-test-1701367864418973/delete-and-recreate: 0 draftCache, 0 draftLoaded, 0 tagCache, 0 tagLoaded, 1 mainCache, 0 mainLoaded
+I1130 18:11:16.593768       1 store.go:209] Deleting packagerev porch-test-1701367864418973/delete-and-recreate-e92b26f0e6525dfcba06624ccf5f8754c8b64573
+I1130 18:11:16.598445       1 repository.go:549] repo porch-test-1701367864418973/delete-and-recreate: addMeta 0, delMeta 1, addSent 0, modSent 0, delSent 0 for 2 in-cache and 1 in-storage package revisions
+I1130 18:11:16.598472       1 repository.go:379] repo porch-test-1701367864418973/delete-and-recreate: reconcile for delete finished in 0.064118 secs
+I1130 18:11:16.603717       1 engine.go:898] engine: sent 0 for deleted PackageRevision porch-test-1701367864418973/delete-and-recreate-e92b26f0e6525dfcba06624ccf5f8754c8b64573
+I1130 18:11:16.709161       1 repository.go:379] repo porch-test-1701367864418973/delete-and-recreate: reconcile for create finished in 0.007366 secs
+I1130 18:11:16.715198       1 render.go:62] Package "/": 
+I1130 18:11:16.715596       1 render.go:62] Successfully executed 0 function(s) in 1 package(s).
+I1130 18:11:16.751761       1 git.go:400] repo porch-test-1701367864418973/delete-and-recreate: 0 draftCache, 1 draftLoaded, 0 tagCache, 0 tagLoaded, 1 mainCache, 0 mainLoaded
+I1130 18:11:16.751806       1 store.go:138] Creating packagerev porch-test-1701367864418973/delete-and-recreate-e92b26f0e6525dfcba06624ccf5f8754c8b64573
+I1130 18:11:16.762435       1 repository.go:549] repo porch-test-1701367864418973/delete-and-recreate: addMeta 1, delMeta 0, addSent 0, modSent 0, delSent 0 for 1 in-cache and 2 in-storage package revisions
+I1130 18:11:16.762459       1 repository.go:379] repo porch-test-1701367864418973/delete-and-recreate: reconcile for close-draft finished in 0.030684 secs
+I1130 18:11:16.762492       1 store.go:138] Creating packagerev porch-test-1701367864418973/delete-and-recreate-e92b26f0e6525dfcba06624ccf5f8754c8b64573
+I1130 18:11:16.776644       1 store.go:185] Updating packagerev porch-test-1701367864418973/delete-and-recreate-e92b26f0e6525dfcba06624ccf5f8754c8b64573
+I1130 18:11:16.784195       1 engine.go:346] engine: sent 0 for new PackageRevision porch-test-1701367864418973/delete-and-recreate-e92b26f0e6525dfcba06624ccf5f8754c8b64573
+I1130 18:11:16.942612       1 background.go:140] Repository deleted: porch-test-1701367864418973:delete-and-recreate
+I1130 18:11:16.951403       1 repository.go:307] repo porch-test-1701367864418973/delete-and-recreate: deleting packagerev porch-test-1701367864418973/delete-and-recreate-ea94fb01093e24716c93d22a4669b5b47915eea1 because repository is closed
+I1130 18:11:16.964418       1 store.go:185] Updating packagerev porch-test-1701367864418973/delete-and-recreate-ea94fb01093e24716c93d22a4669b5b47915eea1
+W1130 18:11:17.012346       1 repository.go:323] Error deleting PackageRev CR porch-test-1701367864418973/delete-and-recreate-ea94fb01093e24716c93d22a4669b5b47915eea1: Operation cannot be fulfilled on packagerevs.config.porch.kpt.dev "delete-and-recreate-ea94fb01093e24716c93d22a4669b5b47915eea1": the object has been modified; please apply your changes to the latest version and try again
+I1130 18:11:17.012414       1 repository.go:307] repo porch-test-1701367864418973/delete-and-recreate: deleting packagerev porch-test-1701367864418973/delete-and-recreate-e92b26f0e6525dfcba06624ccf5f8754c8b64573 because repository is closed
+I1130 18:11:17.042788       1 store.go:185] Updating packagerev porch-test-1701367864418973/delete-and-recreate-e92b26f0e6525dfcba06624ccf5f8754c8b64573
+I1130 18:11:17.071973       1 store.go:209] Deleting packagerev porch-test-1701367864418973/delete-and-recreate-e92b26f0e6525dfcba06624ccf5f8754c8b64573
+I1130 18:11:17.082806       1 repository.go:331] repo porch-test-1701367864418973/delete-and-recreate: sent 0 notifications for 2 package revisions during close
+I1130 18:11:30.421588       1 watchermanager.go:105] added watcher 0xc00278ccc0; there are now 1 active watchers and 1 slots
+I1130 18:11:30.507422       1 watch.go:201] watch 0xc0016cac60: moving watch into streaming mode after sentAdd 0, sentBacklog 0, sentNewBacklog 0
