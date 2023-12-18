@@ -18,8 +18,8 @@ import (
 	"errors"
 	"testing"
 
-	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/google/go-cmp/cmp"
+	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 )
 
 func TestNotFound(t *testing.T) {

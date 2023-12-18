@@ -24,10 +24,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/nephio-project/porch/pkg/repository"
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/nephio-project/porch/pkg/repository"
 )
 
 func OpenGitRepositoryFromArchive(t *testing.T, tarfile, tempdir string) *gogit.Repository {

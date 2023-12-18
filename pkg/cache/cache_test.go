@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	gogit "github.com/go-git/go-git/v5"
+	"github.com/google/go-cmp/cmp"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	fakecache "github.com/nephio-project/porch/pkg/cache/fake"
@@ -29,8 +31,6 @@ import (
 	"github.com/nephio-project/porch/pkg/meta"
 	fakemeta "github.com/nephio-project/porch/pkg/meta/fake"
 	"github.com/nephio-project/porch/pkg/repository"
-	gogit "github.com/go-git/go-git/v5"
-	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 )

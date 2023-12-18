@@ -19,9 +19,9 @@ import (
 	"fmt"
 
 	"github.com/GoogleContainerTools/kpt/pkg/kptpkg"
+	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"github.com/nephio-project/porch/pkg/kpt/printer/fake"
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 	"sigs.k8s.io/kustomize/kyaml/filesys"

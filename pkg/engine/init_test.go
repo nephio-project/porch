@@ -20,9 +20,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
-	"github.com/google/go-cmp/cmp"
 )
 
 func TestInit(t *testing.T) {

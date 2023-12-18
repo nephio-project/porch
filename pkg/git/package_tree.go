@@ -20,10 +20,10 @@ import (
 	"path"
 	"time"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/filemode"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"k8s.io/klog/v2"
 )
 

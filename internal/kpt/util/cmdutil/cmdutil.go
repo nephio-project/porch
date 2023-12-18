@@ -21,10 +21,10 @@ import (
 	"os"
 	"strings"
 
+	"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/util/function"
 	"github.com/nephio-project/porch/internal/kpt/util/httputil"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
-	"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1"
 	"github.com/spf13/cobra"
 	"golang.org/x/mod/semver"
 	"sigs.k8s.io/kustomize/kyaml/kio"

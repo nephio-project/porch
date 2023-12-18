@@ -22,9 +22,9 @@ import (
 	"github.com/GoogleContainerTools/kpt-functions-catalog/functions/go/set-namespace/transformer"
 	"github.com/GoogleContainerTools/kpt-functions-catalog/functions/go/starlark/starlark"
 	fnsdk "github.com/GoogleContainerTools/kpt-functions-sdk/go/fn"
+	"github.com/nephio-project/porch/pkg/kpt"
 	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
-	"github.com/nephio-project/porch/pkg/kpt"
 )
 
 // When updating the version for the builtin functions, please also update the image version

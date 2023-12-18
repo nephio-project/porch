@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/nephio-project/porch/api/porch/v1alpha1"
 )
 
 const (

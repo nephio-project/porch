@@ -18,8 +18,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/google/go-cmp/cmp"
+	"github.com/nephio-project/porch/pkg/repository"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/request"
 )

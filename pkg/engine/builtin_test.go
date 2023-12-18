@@ -20,8 +20,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/nephio-project/porch/internal/kpt/builtins"
 	"github.com/google/go-cmp/cmp"
+	"github.com/nephio-project/porch/internal/kpt/builtins"
 )
 
 const (

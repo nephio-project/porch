@@ -25,10 +25,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nephio-project/porch/func/evaluator"
 	"github.com/google/go-containerregistry/pkg/gcrane"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/nephio-project/porch/func/evaluator"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"gopkg.in/yaml.v2"

@@ -22,9 +22,9 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	pb "github.com/nephio-project/porch/func/evaluator"
 	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
-	pb "github.com/nephio-project/porch/func/evaluator"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gopkg.in/yaml.v2"
