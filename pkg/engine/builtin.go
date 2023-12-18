@@ -20,7 +20,7 @@ import (
 
 	"github.com/nephio-project/porch/internal/kpt/builtins"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
-	"github.com/GoogleContainerTools/kpt/pkg/fn"
+	"github.com/nephio-project/porch/pkg/kpt/fn"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"sigs.k8s.io/kustomize/kyaml/fn/runtime/runtimeutil"

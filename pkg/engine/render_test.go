@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
-	v1 "github.com/GoogleContainerTools/kpt/pkg/api/kptfile/v1"
+	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/google/go-cmp/cmp"

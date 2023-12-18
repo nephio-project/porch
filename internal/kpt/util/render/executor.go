@@ -28,9 +28,9 @@ import (
 	"github.com/nephio-project/porch/internal/kpt/types"
 	"github.com/nephio-project/porch/internal/kpt/util/attribution"
 	"github.com/nephio-project/porch/internal/kpt/util/printerutil"
-	fnresult "github.com/GoogleContainerTools/kpt/pkg/api/fnresult/v1"
-	kptfilev1 "github.com/GoogleContainerTools/kpt/pkg/api/kptfile/v1"
-	"github.com/GoogleContainerTools/kpt/pkg/fn"
+	fnresult "github.com/nephio-project/porch/pkg/kpt/api/fnresult/v1"
+	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/pkg/kpt/fn"
 	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 	"sigs.k8s.io/kustomize/kyaml/kio"
@@ -226,7 +226,7 @@ func newPkgNode(fsys filesys.FileSystem, path string, p *pkg.Pkg) (pn *pkgNode, 
 		return pn, errors.E(op, p.UniquePath, err)
 	}
 
-	if err := kf.Validate(fsys, p.UniquePath.String()); err != nil {
+	if err := kf.Validate(fsys, p.UniquePath); err != nil {
 		return pn, errors.E(op, p.UniquePath, err)
 	}
 

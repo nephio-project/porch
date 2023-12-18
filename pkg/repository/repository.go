@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	kptfile "github.com/GoogleContainerTools/kpt/pkg/api/kptfile/v1"
+	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/go-git/go-git/v5/plumbing/transport"

@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"strings"
 
-	kptfile "github.com/GoogleContainerTools/kpt/pkg/api/kptfile/v1"
+	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"golang.org/x/mod/semver"

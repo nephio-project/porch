@@ -18,8 +18,8 @@ import (
 	"context"
 	"io"
 
-	kptfilev1 "github.com/GoogleContainerTools/kpt/pkg/api/kptfile/v1"
-	"github.com/GoogleContainerTools/kpt/pkg/fn"
+	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/pkg/kpt/fn"
 	"github.com/nephio-project/porch/pkg/kpt/internal"
 	"sigs.k8s.io/kustomize/kyaml/fn/framework"
 	"sigs.k8s.io/kustomize/kyaml/kio"

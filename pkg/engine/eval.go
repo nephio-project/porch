@@ -19,8 +19,8 @@ import (
 	"fmt"
 
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
-	v1 "github.com/GoogleContainerTools/kpt/pkg/api/kptfile/v1"
-	"github.com/GoogleContainerTools/kpt/pkg/fn"
+	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/pkg/kpt/fn"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"

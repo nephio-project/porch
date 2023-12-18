@@ -24,7 +24,7 @@ import (
 	"strings"
 
 	"github.com/nephio-project/porch/internal/kpt/pkg"
-	v1 "github.com/GoogleContainerTools/kpt/pkg/api/kptfile/v1"
+	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/cpuguy83/go-md2man/v2/md2man"
 	"sigs.k8s.io/kustomize/kyaml/errors"
 	"sigs.k8s.io/kustomize/kyaml/filesys"

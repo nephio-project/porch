@@ -40,31 +40,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/nephio-project/porch/controllers/fleetsyncs/pkg/controllers/fleetsync"
-	"github.com/nephio-project/porch/controllers/functiondiscovery"
-	"github.com/nephio-project/porch/controllers/klippy/pkg/controllers/klippy"
 	"github.com/nephio-project/porch/controllers/packagevariants/pkg/controllers/packagevariant"
 	"github.com/nephio-project/porch/controllers/packagevariantsets/pkg/controllers/packagevariantset"
-	"github.com/nephio-project/porch/controllers/remoterootsyncsets/pkg/controllers/remoterootsyncset"
-	"github.com/nephio-project/porch/controllers/rootsyncdeployments/pkg/controllers/rootsyncdeployment"
-	"github.com/nephio-project/porch/controllers/rootsyncrollouts/pkg/controllers/rootsyncrollout"
-	"github.com/nephio-project/porch/controllers/rootsyncsets/pkg/controllers/rootsyncset"
-	"github.com/nephio-project/porch/controllers/workloadidentitybindings/pkg/controllers/workloadidentitybinding"
 	"github.com/nephio-project/porch/pkg/controllerrestmapper"
 	//+kubebuilder:scaffold:imports
 )
 
 var (
 	reconcilers = map[string]Reconciler{
-		"packagevariants":          &packagevariant.PackageVariantReconciler{},
-		"packagevariantsets":       &packagevariantset.PackageVariantSetReconciler{},
-		"rootsyncsets":             &rootsyncset.RootSyncSetReconciler{},
-		"remoterootsyncsets":       &remoterootsyncset.RemoteRootSyncSetReconciler{},
-		"workloadidentitybindings": &workloadidentitybinding.WorkloadIdentityBindingReconciler{},
-		"klippy":                   &klippy.KlippyReconciler{},
-		"rootsyncdeployments":      rootsyncdeployment.NewRootSyncDeploymentReconciler(),
-		"functiondiscovery":        &functiondiscovery.FunctionReconciler{},
-		"rootsyncrollouts":         rootsyncrollout.NewRootSyncRolloutReconciler(),
-		"fleetsyncs":               fleetsync.NewFleetSyncReconciler(),
+		"packagevariants":    &packagevariant.PackageVariantReconciler{},
+		"packagevariantsets": &packagevariantset.PackageVariantSetReconciler{},
+		"fleetsyncs":         fleetsync.NewFleetSyncReconciler(),
 	}
 )
 

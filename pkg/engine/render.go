@@ -22,8 +22,8 @@ import (
 	"strings"
 
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
-	fnresult "github.com/GoogleContainerTools/kpt/pkg/api/fnresult/v1"
-	"github.com/GoogleContainerTools/kpt/pkg/fn"
+	fnresult "github.com/nephio-project/porch/pkg/kpt/api/fnresult/v1"
+	"github.com/nephio-project/porch/pkg/kpt/fn"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/kpt"
 	"github.com/nephio-project/porch/pkg/repository"

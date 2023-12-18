@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"github.com/nephio-project/porch/internal/kpt/builtins"
-	v1 "github.com/GoogleContainerTools/kpt/pkg/api/kptfile/v1"
+	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/git"

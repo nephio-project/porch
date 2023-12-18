@@ -20,7 +20,7 @@ import (
 	"os"
 	"path/filepath"
 
-	fnresult "github.com/GoogleContainerTools/kpt/pkg/api/fnresult/v1"
+	fnresult "github.com/nephio-project/porch/pkg/kpt/api/fnresult/v1"
 )
 
 const (

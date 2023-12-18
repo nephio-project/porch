@@ -15,7 +15,7 @@
 package v1alpha1
 
 import (
-	kptfilev1 "github.com/GoogleContainerTools/kpt/pkg/api/kptfile/v1"
+	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

@@ -20,8 +20,8 @@ import (
 	"path/filepath"
 
 	"github.com/nephio-project/porch/internal/kpt/types"
-	fnresult "github.com/GoogleContainerTools/kpt/pkg/api/fnresult/v1"
-	kptfilev1 "github.com/GoogleContainerTools/kpt/pkg/api/kptfile/v1"
+	fnresult "github.com/nephio-project/porch/pkg/kpt/api/fnresult/v1"
+	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )

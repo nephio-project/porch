@@ -19,7 +19,7 @@ import (
 	"strings"
 	"testing"
 
-	kptfile "github.com/GoogleContainerTools/kpt/pkg/api/kptfile/v1"
+	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/engine/fake"
 	"github.com/nephio-project/porch/pkg/repository"

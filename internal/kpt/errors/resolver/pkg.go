@@ -20,7 +20,7 @@ import (
 
 	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
-	kptfile "github.com/GoogleContainerTools/kpt/pkg/api/kptfile/v1"
+	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 )
 
 //nolint:gochecknoinits

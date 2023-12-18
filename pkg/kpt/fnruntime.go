@@ -17,7 +17,7 @@ package kpt
 import (
 	"io"
 
-	"github.com/GoogleContainerTools/kpt/pkg/fn"
+	"github.com/nephio-project/porch/pkg/kpt/fn"
 )
 
 type FunctionRuntime interface {

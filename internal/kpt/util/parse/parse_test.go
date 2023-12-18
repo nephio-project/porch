@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"testing"
 
-	v1 "github.com/GoogleContainerTools/kpt/pkg/api/kptfile/v1"
+	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
