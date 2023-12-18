@@ -21,7 +21,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/util/function"
 	"github.com/nephio-project/porch/internal/kpt/util/httputil"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"

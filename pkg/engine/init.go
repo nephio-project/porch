@@ -18,8 +18,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/GoogleContainerTools/kpt/pkg/kptpkg"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/pkg/kpt/kptpkg"
 	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"github.com/nephio-project/porch/pkg/kpt/printer/fake"
 	"github.com/nephio-project/porch/pkg/repository"
