@@ -23,8 +23,8 @@ import (
 	"github.com/nephio-project/porch/internal/kpt/gitutil"
 	"github.com/nephio-project/porch/internal/kpt/testutil/pkgbuilder"
 	"github.com/nephio-project/porch/internal/kpt/util/get"
-	kptfilev1 "github.com/GoogleContainerTools/kpt/pkg/api/kptfile/v1"
-	"github.com/GoogleContainerTools/kpt/pkg/printer/fake"
+	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/pkg/kpt/printer/fake"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
