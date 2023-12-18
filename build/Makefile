@@ -12,23 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-IMAGE_TAG ?= latest
+IMAGE_TAG  ?= latest
 IMAGE_REPO ?= docker.io/nephio
-IMAGE_NAME ?= hello-server
-
-# This includes the following targets:
-#   test, unit, unit-clean,
-#   gosec, lint,
-#   fmt, vet
-include ../../../default-go.mk
-
-# This includes the 'help' target that prints out all targets with their descriptions organized by categories
-include ../../../default-help.mk
-
-.PHONY: push-image docker-push
-push-image docker-push:
-	docker buildx build --push --tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) .
+IMAGE_NAME ?= porch-server
 
 .PHONY: build-image docker-build
 build-image docker-build:
-	docker buildx build --load --tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) .
+	docker buildx build --load --tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) -f $(CURDIR)/Dockerfile ../..
+
+.PHONY: push-image docker-push
+push-image docker-push:
+	docker buildx build --push --tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) -f $(CURDIR)/Dockerfile ../..

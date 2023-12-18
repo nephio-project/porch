@@ -3,7 +3,6 @@ module github.com/GoogleContainerTools/kpt/porch/controllers
 go 1.21
 
 replace (
-	github.com/GoogleContainerTools/kpt => ../../
 	github.com/GoogleContainerTools/kpt/porch => ../
 	github.com/GoogleContainerTools/kpt/porch/api => ../api
 	github.com/go-git/go-git/v5 v5.4.3-0.20220408232334-4f916225cb2f => github.com/platkrm/go-git/v5 v5.4.3-0.20220410165046-c76b262044ce
@@ -11,7 +10,7 @@ replace (
 
 require (
 	cloud.google.com/go/container v1.24.0
-	github.com/GoogleContainerTools/kpt v0.0.0-00010101000000-000000000000
+	github.com/GoogleContainerTools/kpt v1.0.0-beta.48
 	github.com/GoogleContainerTools/kpt-functions-sdk/go/fn v0.0.0-20230427202446-3255accc518d
 	github.com/GoogleContainerTools/kpt/porch v0.0.0-00010101000000-000000000000
 	github.com/GoogleContainerTools/kpt/porch/api v0.0.0-20230121152246-dc44dbd18a33
@@ -24,7 +23,7 @@ require (
 	golang.org/x/mod v0.9.0
 	golang.org/x/oauth2 v0.12.0
 	google.golang.org/api v0.142.0
-	google.golang.org/genproto v0.0.0-20230803162519-f966b187b2e5
+	google.golang.org/genproto v0.0.0-20230822172742-b8732ec3820d
 	k8s.io/api v0.26.9
 	k8s.io/apimachinery v0.26.9
 	k8s.io/client-go v0.26.9
@@ -117,18 +116,18 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/otel/metric v1.16.0 // indirect
 	go.starlark.net v0.0.0-20210901212718-87f333178d59 // indirect
-	golang.org/x/crypto v0.13.0 // indirect
-	golang.org/x/net v0.15.0 // indirect
+	golang.org/x/crypto v0.14.0 // indirect
+	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
-	golang.org/x/sys v0.12.0 // indirect
-	golang.org/x/term v0.12.0 // indirect
+	golang.org/x/sys v0.13.0 // indirect
+	golang.org/x/term v0.13.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20230803162519-f966b187b2e5 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20230822172742-b8732ec3820d // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230913181813-007df8e322eb // indirect
-	google.golang.org/grpc v1.57.0 // indirect
+	google.golang.org/grpc v1.59.0 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect

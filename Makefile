@@ -20,6 +20,15 @@ DEPLOYCONFIGDIR=$(BUILDDIR)/deploy
 DEPLOYCONFIG_NO_SA_DIR=$(BUILDDIR)/deploy-no-sa
 KPTDIR=$(abspath $(CURDIR)/..)
 
+# This includes the following targets:
+#   test, unit, unit-clean,
+#   gosec, lint,
+#   fmt, vet
+include default-go.mk
+
+# This includes the 'help' target that prints out all targets with their descriptions organized by categories
+include default-help.mk
+
 # Modules are ordered in dependency order. A module precedes modules that depend on it.
 MODULES = \
  examples/apps/hello-server \
@@ -134,18 +143,9 @@ generate:
 tidy:
 	@for f in $(MODULES); do (cd $$f; echo "Tidying $$f"; go mod tidy) || exit 1; done
 
-.PHONY: test
-test:
+.PHONY: test-porch
+test-porch:
 	@for f in $(MODULES); do (cd $$f; echo "Testing $$f"; E2E=1 go test -race --count=1 ./...) || exit 1; done
-
-.PHONY: vet
-vet:
-	@for f in $(MODULES); do (cd $$f; echo "Checking $$f"; go run honnef.co/go/tools/cmd/staticcheck@latest ./...); done
-	@for f in $(MODULES); do (cd $$f; echo "Vetting $$f"; go vet ./...) || exit 1; done
-
-.PHONY: fmt
-fmt:
-	@for f in $(MODULES); do (cd $$f; echo "Formatting $$f"; gofmt -s -w .); done
 
 PORCH = $(BUILDDIR)/porch
 
@@ -179,21 +179,21 @@ fix-all: fix-headers fmt tidy
 
 .PHONY: push-images
 push-images:
-	docker buildx build --push --tag $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG) -f ./build/Dockerfile.porch "$(KPTDIR)"
+	docker buildx build --push --tag $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG) -f ./build/Dockerfile "$(KPTDIR)"
 	IMAGE_NAME="$(PORCH_CONTROLLERS_IMAGE)" make -C controllers/ push-image
 	IMAGE_NAME="$(PORCH_FUNCTION_RUNNER_IMAGE)" WRAPPER_SERVER_IMAGE_NAME="$(PORCH_WRAPPER_SERVER_IMAGE)" make -C func/ push-image
 	IMAGE_NAME="$(TEST_GIT_SERVER_IMAGE)" make -C test/ push-image
 
 .PHONY: build-images
 build-images:
-	docker buildx build --load --tag $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG) -f ./build/Dockerfile.porch "$(KPTDIR)"
+	docker buildx build --load --tag $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG) -f ./build/Dockerfile "$(KPTDIR)"
 	IMAGE_NAME="$(PORCH_CONTROLLERS_IMAGE)" make -C controllers/ build-image
 	IMAGE_NAME="$(PORCH_FUNCTION_RUNNER_IMAGE)" WRAPPER_SERVER_IMAGE_NAME="$(PORCH_WRAPPER_SERVER_IMAGE)" make -C func/ build-image
 	IMAGE_NAME="$(TEST_GIT_SERVER_IMAGE)" make -C test/ build-image
 
 .PHONY: dev-server
 dev-server:
-	docker buildx build --push --tag $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG) -f ./build/Dockerfile.porch "$(KPTDIR)"
+	docker buildx build --push --tag $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG) -f ./build/Dockerfile "$(KPTDIR)"
 	kubectl set image -n porch-system deployment/porch-server porch-server=$(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):${IMAGE_TAG}
 
 .PHONY: apply-dev-config

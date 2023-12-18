@@ -12,21 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# GCP project to use for development
-GCP_PROJECT_ID ?= $(shell gcloud config get-value project)
 IMAGE_TAG ?= latest
-IMAGE_REPO ?= gcr.io/$(GCP_PROJECT_ID)
+IMAGE_REPO ?= docker.io/nephio
 IMAGE_NAME ?= porch-controllers
 
-.PHONY: push-image
-push-image:
-	cd ../..; docker buildx build --push --tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) -f porch/controllers/Dockerfile .
+# This includes the following targets:
+#   test, unit, unit-clean,
+#   gosec, lint,
+#   fmt, vet
+include ../default-go.mk
 
-.PHONY: build-image
-build-image:
-	cd ../..; docker buildx build --load --tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) -f porch/controllers/Dockerfile .
+# This includes the 'help' target that prints out all targets with their descriptions organized by categories
+include ../default-help.mk
 
+.PHONY: build-image docker-build
+build-image docker-build:
+	cd ..; docker buildx build --load --tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) -f controllers/Dockerfile ..
 
-.PHONY: run-local
-run-local:
-	GCP_PROJECT_ID=${GCP_PROJECT_ID} go run .
+.PHONY: push-image docker-push
+push-image docker-push:
+	cd ..; docker buildx build --push --tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) -f controllers/Dockerfile ..
