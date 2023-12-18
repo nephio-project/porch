@@ -1,10 +1,10 @@
-module github.com/GoogleContainerTools/kpt/porch
+module github.com/nephio-project/porch
 
 go 1.21
 
 replace (
-	github.com/GoogleContainerTools/kpt/porch/api => ./api
 	github.com/go-git/go-git/v5 v5.4.3-0.20220408232334-4f916225cb2f => github.com/platkrm/go-git/v5 v5.4.3-0.20220410165046-c76b262044ce
+	github.com/nephio-project/porch/api => ./api
 )
 
 require (
@@ -15,7 +15,6 @@ require (
 	github.com/GoogleContainerTools/kpt-functions-catalog/functions/go/set-namespace v0.4.1
 	github.com/GoogleContainerTools/kpt-functions-catalog/functions/go/starlark v0.4.3
 	github.com/GoogleContainerTools/kpt-functions-sdk/go/fn v0.0.0-20220506190241-f85503febd54
-	github.com/GoogleContainerTools/kpt/porch/api v0.0.0-20230121152246-dc44dbd18a33
 	github.com/bluekeyes/go-gitdiff v0.6.1
 	github.com/go-git/go-billy/v5 v5.3.1
 	github.com/go-git/go-git/v5 v5.4.3-0.20220408232334-4f916225cb2f
@@ -24,6 +23,7 @@ require (
 	github.com/google/go-containerregistry v0.14.0
 	github.com/google/uuid v1.3.1
 	github.com/hexops/gotextdiff v1.0.3
+	github.com/nephio-project/porch/api v0.0.0-00010101000000-000000000000
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.3
@@ -59,6 +59,7 @@ require (
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	github.com/360EntSecGroup-Skylar/excelize v1.4.1 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
+	github.com/GoogleContainerTools/kpt/porch/api v0.0.0-20230121152246-dc44dbd18a33 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Microsoft/go-winio v0.6.0 // indirect
 	github.com/NYTimes/gziphandler v1.1.1 // indirect

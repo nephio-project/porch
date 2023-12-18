@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"strings"
 
-	pkgvarapi "github.com/GoogleContainerTools/kpt/porch/controllers/packagevariants/api/v1alpha1"
-	api "github.com/GoogleContainerTools/kpt/porch/controllers/packagevariantsets/api/v1alpha2"
+	pkgvarapi "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
+	api "github.com/nephio-project/porch/controllers/packagevariantsets/api/v1alpha2"
 )
 
 func validatePackageVariantSet(pvs *api.PackageVariantSet) []error {

@@ -16,7 +16,7 @@ package v1alpha1
 
 import (
 	kptfilev1 "github.com/GoogleContainerTools/kpt/pkg/api/kptfile/v1"
-	pkgvarapi "github.com/GoogleContainerTools/kpt/porch/controllers/packagevariants/api/v1alpha1"
+	pkgvarapi "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

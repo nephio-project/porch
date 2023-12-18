@@ -20,8 +20,8 @@ import (
 	"strings"
 	"testing"
 
-	api "github.com/GoogleContainerTools/kpt/porch/api/porchconfig/v1alpha1"
-	"github.com/GoogleContainerTools/kpt/porch/test/testhelpers"
+	api "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/test/testhelpers"
 	"github.com/google/go-containerregistry/pkg/crane"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"

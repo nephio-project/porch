@@ -22,10 +22,10 @@ import (
 	"flag"
 	"fmt"
 
-	porchapi "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1"
-	configapi "github.com/GoogleContainerTools/kpt/porch/api/porchconfig/v1alpha1"
-	pkgvarapi "github.com/GoogleContainerTools/kpt/porch/controllers/packagevariants/api/v1alpha1"
-	api "github.com/GoogleContainerTools/kpt/porch/controllers/packagevariantsets/api/v1alpha2"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	pkgvarapi "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
+	api "github.com/nephio-project/porch/controllers/packagevariantsets/api/v1alpha2"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

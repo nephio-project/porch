@@ -15,8 +15,8 @@
 package fake
 
 import (
-	"github.com/GoogleContainerTools/kpt/porch/pkg/meta"
-	"github.com/GoogleContainerTools/kpt/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/meta"
+	"github.com/nephio-project/porch/pkg/repository"
 	"k8s.io/apimachinery/pkg/watch"
 )
 

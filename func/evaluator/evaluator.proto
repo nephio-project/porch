@@ -18,7 +18,7 @@ package evaluator;
 
 import "struct.proto";
 
-option go_package = "github.com/GoogleContainerTools/kpt/porch/func/evaluator";
+option go_package = "github.com/nephio-project/porch/func/evaluator";
 
 // Evaluator of kpt functions
 service FunctionEvaluator {

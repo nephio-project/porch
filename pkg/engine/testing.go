@@ -21,7 +21,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/GoogleContainerTools/kpt/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/repository"
 )
 
 func readPackage(t *testing.T, packageDir string) repository.PackageResources {

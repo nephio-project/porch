@@ -22,8 +22,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/GoogleContainerTools/kpt/porch/controllers/remoterootsyncsets/pkg/remoteclient"
-	"github.com/GoogleContainerTools/kpt/porch/controllers/rootsyncsets/api/v1alpha1"
+	"github.com/nephio-project/porch/controllers/remoterootsyncsets/pkg/remoteclient"
+	"github.com/nephio-project/porch/controllers/rootsyncsets/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

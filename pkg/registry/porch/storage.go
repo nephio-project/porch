@@ -15,9 +15,9 @@
 package porch
 
 import (
-	"github.com/GoogleContainerTools/kpt/porch/api/porch"
-	apiv1alpha1 "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1"
-	"github.com/GoogleContainerTools/kpt/porch/pkg/engine"
+	"github.com/nephio-project/porch/api/porch"
+	apiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/pkg/engine"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"

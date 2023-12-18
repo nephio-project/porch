@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GoogleContainerTools/kpt/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
 	core "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GoogleContainerTools/kpt/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/filemode"
 	"github.com/go-git/go-git/v5/plumbing/object"

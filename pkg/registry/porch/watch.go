@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/GoogleContainerTools/kpt/porch/pkg/engine"
-	"github.com/GoogleContainerTools/kpt/porch/pkg/meta"
-	"github.com/GoogleContainerTools/kpt/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/engine"
+	"github.com/nephio-project/porch/pkg/meta"
+	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	"k8s.io/apimachinery/pkg/labels"

@@ -20,8 +20,8 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/GoogleContainerTools/kpt/porch/controllers/remoterootsyncsets/pkg/applyset"
-	api "github.com/GoogleContainerTools/kpt/porch/controllers/workloadidentitybindings/api/v1alpha1"
+	"github.com/nephio-project/porch/controllers/remoterootsyncsets/pkg/applyset"
+	api "github.com/nephio-project/porch/controllers/workloadidentitybindings/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

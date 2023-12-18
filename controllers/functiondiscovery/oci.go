@@ -18,9 +18,9 @@ import (
 	"context"
 	"fmt"
 
-	api "github.com/GoogleContainerTools/kpt/porch/api/porchconfig/v1alpha1"
-	"github.com/GoogleContainerTools/kpt/porch/pkg/oci"
-	"github.com/GoogleContainerTools/kpt/porch/pkg/repository"
+	api "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/pkg/oci"
+	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"sigs.k8s.io/controller-runtime/pkg/log"

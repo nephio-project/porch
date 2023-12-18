@@ -14,7 +14,7 @@
 
 package cache
 
-import "github.com/GoogleContainerTools/kpt/porch/pkg/repository"
+import "github.com/nephio-project/porch/pkg/repository"
 
 // We take advantage of the cache having a global view of all the packages
 // in a repository and compute the latest package revision in the cache

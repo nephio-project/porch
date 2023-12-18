@@ -22,9 +22,9 @@ import (
 
 	"k8s.io/client-go/tools/record"
 
-	"github.com/GoogleContainerTools/kpt/porch/controllers/fleetsyncs/api/v1alpha1"
-	"github.com/GoogleContainerTools/kpt/porch/controllers/fleetsyncs/pkg/controllers/fleetsync/fleetpoller"
-	"github.com/GoogleContainerTools/kpt/porch/pkg/util"
+	"github.com/nephio-project/porch/controllers/fleetsyncs/api/v1alpha1"
+	"github.com/nephio-project/porch/controllers/fleetsyncs/pkg/controllers/fleetsync/fleetpoller"
+	"github.com/nephio-project/porch/pkg/util"
 	gkehubv1 "google.golang.org/api/gkehub/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"

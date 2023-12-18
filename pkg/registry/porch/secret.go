@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/GoogleContainerTools/kpt/porch/pkg/registry/porch/wi"
-	"github.com/GoogleContainerTools/kpt/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/registry/porch/wi"
+	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"golang.org/x/oauth2"

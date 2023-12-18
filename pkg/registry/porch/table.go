@@ -17,8 +17,8 @@ package porch
 import (
 	"context"
 
-	"github.com/GoogleContainerTools/kpt/porch/api/porch"
-	api "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/api/porch"
+	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"

@@ -22,8 +22,8 @@ import (
 	"time"
 
 	kptoci "github.com/GoogleContainerTools/kpt/pkg/oci"
-	api "github.com/GoogleContainerTools/kpt/porch/api/porchconfig/v1alpha1"
-	"github.com/GoogleContainerTools/kpt/porch/controllers/remoterootsyncsets/pkg/applyset"
+	api "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/controllers/remoterootsyncsets/pkg/applyset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/discovery"
 	memory "k8s.io/client-go/discovery/cached"

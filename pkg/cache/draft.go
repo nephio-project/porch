@@ -17,7 +17,7 @@ package cache
 import (
 	"context"
 
-	"github.com/GoogleContainerTools/kpt/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/repository"
 )
 
 type cachedDraft struct {

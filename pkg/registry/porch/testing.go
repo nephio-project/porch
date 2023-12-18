@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"testing"
 
-	api "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1"
+	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 )
 
 func testValidateUpdate(t *testing.T, s SimpleRESTUpdateStrategy, old, new api.PackageRevisionLifecycle, valid bool) {

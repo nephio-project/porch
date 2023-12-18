@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/GoogleContainerTools/kpt/porch/controllers/rootsyncsets/api/v1alpha1"
+	"github.com/nephio-project/porch/controllers/rootsyncsets/api/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"

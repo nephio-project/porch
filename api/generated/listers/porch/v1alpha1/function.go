@@ -17,7 +17,7 @@
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1"
+	v1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"

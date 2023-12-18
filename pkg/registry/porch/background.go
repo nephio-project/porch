@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"time"
 
-	configapi "github.com/GoogleContainerTools/kpt/porch/api/porchconfig/v1alpha1"
-	"github.com/GoogleContainerTools/kpt/porch/pkg/cache"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/pkg/cache"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"

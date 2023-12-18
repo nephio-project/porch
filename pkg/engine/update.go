@@ -19,9 +19,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/GoogleContainerTools/kpt/internal/util/update"
-	"github.com/GoogleContainerTools/kpt/pkg/printer"
-	"github.com/GoogleContainerTools/kpt/porch/pkg/repository"
+	"github.com/nephio-project/porch/internal/kpt/util/update"
+	"github.com/nephio-project/porch/pkg/kpt/printer"
+	"github.com/nephio-project/porch/pkg/repository"
 )
 
 // packageUpdater knows how to update a local package given original and upstream package resources.

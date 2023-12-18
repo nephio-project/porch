@@ -39,17 +39,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/GoogleContainerTools/kpt/porch/controllers/fleetsyncs/pkg/controllers/fleetsync"
-	"github.com/GoogleContainerTools/kpt/porch/controllers/functiondiscovery"
-	"github.com/GoogleContainerTools/kpt/porch/controllers/klippy/pkg/controllers/klippy"
-	"github.com/GoogleContainerTools/kpt/porch/controllers/packagevariants/pkg/controllers/packagevariant"
-	"github.com/GoogleContainerTools/kpt/porch/controllers/packagevariantsets/pkg/controllers/packagevariantset"
-	"github.com/GoogleContainerTools/kpt/porch/controllers/remoterootsyncsets/pkg/controllers/remoterootsyncset"
-	"github.com/GoogleContainerTools/kpt/porch/controllers/rootsyncdeployments/pkg/controllers/rootsyncdeployment"
-	"github.com/GoogleContainerTools/kpt/porch/controllers/rootsyncrollouts/pkg/controllers/rootsyncrollout"
-	"github.com/GoogleContainerTools/kpt/porch/controllers/rootsyncsets/pkg/controllers/rootsyncset"
-	"github.com/GoogleContainerTools/kpt/porch/controllers/workloadidentitybindings/pkg/controllers/workloadidentitybinding"
-	"github.com/GoogleContainerTools/kpt/porch/pkg/controllerrestmapper"
+	"github.com/nephio-project/porch/controllers/fleetsyncs/pkg/controllers/fleetsync"
+	"github.com/nephio-project/porch/controllers/functiondiscovery"
+	"github.com/nephio-project/porch/controllers/klippy/pkg/controllers/klippy"
+	"github.com/nephio-project/porch/controllers/packagevariants/pkg/controllers/packagevariant"
+	"github.com/nephio-project/porch/controllers/packagevariantsets/pkg/controllers/packagevariantset"
+	"github.com/nephio-project/porch/controllers/remoterootsyncsets/pkg/controllers/remoterootsyncset"
+	"github.com/nephio-project/porch/controllers/rootsyncdeployments/pkg/controllers/rootsyncdeployment"
+	"github.com/nephio-project/porch/controllers/rootsyncrollouts/pkg/controllers/rootsyncrollout"
+	"github.com/nephio-project/porch/controllers/rootsyncsets/pkg/controllers/rootsyncset"
+	"github.com/nephio-project/porch/controllers/workloadidentitybindings/pkg/controllers/workloadidentitybinding"
+	"github.com/nephio-project/porch/pkg/controllerrestmapper"
 	//+kubebuilder:scaffold:imports
 )
 

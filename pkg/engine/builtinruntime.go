@@ -24,7 +24,7 @@ import (
 	fnsdk "github.com/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	v1 "github.com/GoogleContainerTools/kpt/pkg/api/kptfile/v1"
 	"github.com/GoogleContainerTools/kpt/pkg/fn"
-	"github.com/GoogleContainerTools/kpt/porch/pkg/kpt"
+	"github.com/nephio-project/porch/pkg/kpt"
 )
 
 // When updating the version for the builtin functions, please also update the image version

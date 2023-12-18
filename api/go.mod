@@ -1,4 +1,4 @@
-module github.com/GoogleContainerTools/kpt/porch/api
+module github.com/nephio-project/porch/api
 
 go 1.21
 

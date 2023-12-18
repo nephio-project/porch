@@ -27,9 +27,9 @@ import (
 	"time"
 
 	"github.com/GoogleContainerTools/kpt/pkg/oci"
-	"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1"
-	api "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1"
-	"github.com/GoogleContainerTools/kpt/porch/pkg/repository"
+	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/google/go-containerregistry/pkg/gcrane"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"

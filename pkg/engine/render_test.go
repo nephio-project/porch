@@ -20,10 +20,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/GoogleContainerTools/kpt/internal/fnruntime"
+	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	v1 "github.com/GoogleContainerTools/kpt/pkg/api/kptfile/v1"
-	"github.com/GoogleContainerTools/kpt/porch/pkg/kpt"
-	"github.com/GoogleContainerTools/kpt/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/kpt"
+	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/google/go-cmp/cmp"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 	"sigs.k8s.io/kustomize/kyaml/kio"

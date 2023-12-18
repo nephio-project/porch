@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/GoogleContainerTools/kpt/porch/test/ociserver/pkg/oci"
+	"github.com/nephio-project/porch/test/ociserver/pkg/oci"
 )
 
 func (h *Harness) StartOCIServer() *oci.Server {

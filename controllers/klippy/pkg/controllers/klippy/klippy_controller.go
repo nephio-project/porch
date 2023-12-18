@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"strings"
 
-	api "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1"
-	"github.com/GoogleContainerTools/kpt/porch/controllers/remoterootsyncsets/pkg/applyset"
-	"github.com/GoogleContainerTools/kpt/porch/pkg/objects"
+	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/controllers/remoterootsyncsets/pkg/applyset"
+	"github.com/nephio-project/porch/pkg/objects"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"

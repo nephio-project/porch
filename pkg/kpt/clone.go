@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"strings"
 
-	internalpkg "github.com/GoogleContainerTools/kpt/internal/pkg"
+	internalpkg "github.com/nephio-project/porch/internal/kpt/pkg"
 	kptfilev1 "github.com/GoogleContainerTools/kpt/pkg/api/kptfile/v1"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )

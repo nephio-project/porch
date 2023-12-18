@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"strings"
 
-	api "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1"
+	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"

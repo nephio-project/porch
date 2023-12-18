@@ -21,8 +21,8 @@ import (
 
 	v1 "github.com/GoogleContainerTools/kpt/pkg/api/kptfile/v1"
 	"github.com/GoogleContainerTools/kpt/pkg/fn"
-	"github.com/GoogleContainerTools/kpt/porch/func/evaluator"
-	"github.com/GoogleContainerTools/kpt/porch/pkg/kpt"
+	"github.com/nephio-project/porch/func/evaluator"
+	"github.com/nephio-project/porch/pkg/kpt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"k8s.io/klog/v2"
