@@ -20,8 +20,8 @@ import (
 	"path"
 	"testing"
 
-	"github.com/GoogleContainerTools/kpt/internal/fnruntime"
-	v1 "github.com/GoogleContainerTools/kpt/pkg/api/kptfile/v1"
+	"github.com/nephio-project/porch/internal/kpt/fnruntime"
+	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"sigs.k8s.io/kustomize/kyaml/kio"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )

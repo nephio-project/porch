@@ -21,9 +21,9 @@ import (
 	"testing"
 
 	"github.com/GoogleContainerTools/kpt-functions-sdk/go/fn"
-	kptfilev1 "github.com/GoogleContainerTools/kpt/pkg/api/kptfile/v1"
-	porchapi "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1"
-	api "github.com/GoogleContainerTools/kpt/porch/controllers/packagevariants/api/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	api "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
+	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
 )

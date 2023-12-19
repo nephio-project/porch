@@ -24,8 +24,8 @@ import (
 	"os/exec"
 
 	"github.com/GoogleContainerTools/kpt-functions-sdk/go/fn"
-	pb "github.com/GoogleContainerTools/kpt/porch/func/evaluator"
-	"github.com/GoogleContainerTools/kpt/porch/func/healthchecker"
+	pb "github.com/nephio-project/porch/func/evaluator"
+	"github.com/nephio-project/porch/func/healthchecker"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

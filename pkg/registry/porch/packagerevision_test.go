@@ -18,7 +18,7 @@ import (
 	"context"
 	"testing"
 
-	api "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1"
+	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/GoogleContainerTools/kpt/internal/util/porch"
-	"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/internal/kpt/util/porch"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"

@@ -15,8 +15,8 @@
 package server
 
 import (
-	porchv1alpha1 "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1"
-	"github.com/GoogleContainerTools/kpt/porch/pkg/apiserver"
+	porchv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/pkg/apiserver"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	genericoptions "k8s.io/apiserver/pkg/server/options"

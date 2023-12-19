@@ -22,9 +22,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GoogleContainerTools/kpt/porch/pkg/repository"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/nephio-project/porch/pkg/repository"
 )
 
 func TestPackageCommitEmptyRepo(t *testing.T) {

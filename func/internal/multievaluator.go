@@ -18,8 +18,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/GoogleContainerTools/kpt/pkg/fn"
-	pb "github.com/GoogleContainerTools/kpt/porch/func/evaluator"
+	pb "github.com/nephio-project/porch/func/evaluator"
+	"github.com/nephio-project/porch/pkg/kpt/fn"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

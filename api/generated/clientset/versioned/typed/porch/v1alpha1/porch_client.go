@@ -19,8 +19,8 @@ package v1alpha1
 import (
 	"net/http"
 
-	"github.com/GoogleContainerTools/kpt/porch/api/generated/clientset/versioned/scheme"
-	v1alpha1 "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/api/generated/clientset/versioned/scheme"
+	v1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	rest "k8s.io/client-go/rest"
 )
 

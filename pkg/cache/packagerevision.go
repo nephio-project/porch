@@ -17,8 +17,8 @@ package cache
 import (
 	"context"
 
-	"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1"
-	"github.com/GoogleContainerTools/kpt/porch/pkg/repository"
+	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/pkg/repository"
 )
 
 // We take advantage of the cache having a global view of all the packages

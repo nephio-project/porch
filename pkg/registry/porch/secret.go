@@ -19,10 +19,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/GoogleContainerTools/kpt/porch/pkg/registry/porch/wi"
-	"github.com/GoogleContainerTools/kpt/porch/pkg/repository"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	"github.com/nephio-project/porch/pkg/registry/porch/wi"
+	"github.com/nephio-project/porch/pkg/repository"
 	"golang.org/x/oauth2"
 	stsv1 "google.golang.org/api/sts/v1"
 	core "k8s.io/api/core/v1"

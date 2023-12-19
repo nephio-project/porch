@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/GoogleContainerTools/kpt/porch/controllers/fleetsyncs/api/v1alpha1"
+	"github.com/nephio-project/porch/controllers/fleetsyncs/api/v1alpha1"
 	gkehubv1 "google.golang.org/api/gkehub/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"

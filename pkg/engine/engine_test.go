@@ -19,11 +19,11 @@ import (
 	"strings"
 	"testing"
 
-	kptfile "github.com/GoogleContainerTools/kpt/pkg/api/kptfile/v1"
-	api "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1"
-	"github.com/GoogleContainerTools/kpt/porch/pkg/engine/fake"
-	"github.com/GoogleContainerTools/kpt/porch/pkg/repository"
 	"github.com/google/go-cmp/cmp"
+	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/pkg/engine/fake"
+	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/pkg/repository"
 )
 
 func TestSomething(t *testing.T) {

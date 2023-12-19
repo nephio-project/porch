@@ -8,7 +8,7 @@ presubmits:
         command:
         - make
         args:
-        - unit
+        - ci-unit
   - name: presubmit-porch-e2e
     decorate: true
     optional: true
@@ -19,4 +19,4 @@ presubmits:
         command:
         - make
         args:
-        - test-porch
+        - ci-test-porch

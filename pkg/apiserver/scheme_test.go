@@ -17,7 +17,7 @@ package apiserver
 import (
 	"testing"
 
-	"github.com/GoogleContainerTools/kpt/porch/api/porch/fuzzer"
+	"github.com/nephio-project/porch/api/porch/fuzzer"
 	"k8s.io/apimachinery/pkg/api/apitesting/roundtrip"
 )
 

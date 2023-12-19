@@ -37,8 +37,18 @@ MODULES = \
  controllers \
 
 # GCP project to use for development
-export GCP_PROJECT_ID ?= $(shell gcloud config get-value project)
-export IMAGE_REPO ?= gcr.io/$(GCP_PROJECT_ID)
+
+ifeq ($(GCP_PROJECT_ID),)
+ifeq ($(shell command -v gcloud > /dev/null 2>&1; echo $$?), 0)
+export GCP_PROJECT_ID=$(shell gcloud config get-value project)
+else
+export GCP_PROJECT_ID=pure-faculty-367518
+endif
+endif
+
+export IMAGE_REPO ?= docker.io/nephio
+export USER ?= nephio
+
 export IMAGE_TAG
 ifndef IMAGE_TAG
   git_tag := $(shell git rev-parse --short HEAD || "latest" )
@@ -47,7 +57,7 @@ ifndef IMAGE_TAG
     git_tag := $(git_tag)-dirty
   endif
 
-  IMAGE_TAG=$(git_tag)
+  IMAGE_TAG=$(USER)-$(git_tag)
 endif
 
 PORCH_SERVER_IMAGE ?= porch-server
@@ -59,9 +69,9 @@ TEST_GIT_SERVER_IMAGE ?= test-git-server
 # Only enable a subset of reconcilers in porch controllers by default. Use the RECONCILERS
 # env variable to specify a specific list of reconcilers or use
 # RECONCILERS=* to enable all known reconcilers.
-ALL_RECONCILERS="rootsyncsets,remoterootsyncsets,workloadidentitybindings,rootsyncdeployments,functiondiscovery,packagevariants,packagevariantsets,rootsyncrollouts,fleetsyncs"
+ALL_RECONCILERS="packagevariants,packagevariantsets,fleetsyncs"
 ifndef RECONCILERS
-  ENABLED_RECONCILERS="rootsyncsets,remoterootsyncsets,workloadidentitybindings,functiondiscovery,packagevariants,packagevariantsets"
+  ENABLED_RECONCILERS="packagevariants,packagevariantsets"
 else
   ifeq ($(RECONCILERS),*)
     ENABLED_RECONCILERS=${ALL_RECONCILERS}
@@ -146,6 +156,18 @@ tidy:
 .PHONY: test-porch
 test-porch:
 	@for f in $(MODULES); do (cd $$f; echo "Testing $$f"; E2E=1 go test -race --count=1 ./...) || exit 1; done
+
+.PHONY: configure-git
+configure-git:
+	git config --global --add user.name test
+	git config --global --add user.email test@nephio.org
+
+.PHONY: ci-test-porch
+ci-test-porch: configure-git test-porch
+
+.PHONY: ci-unit
+ci-unit: configure-git test
+
 
 PORCH = $(BUILDDIR)/porch
 

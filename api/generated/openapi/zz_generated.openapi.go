@@ -29,105 +29,105 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.Condition":                      schema_porch_api_porch_v1alpha1_Condition(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.Field":                          schema_porch_api_porch_v1alpha1_Field(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.File":                           schema_porch_api_porch_v1alpha1_File(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.Function":                       schema_porch_api_porch_v1alpha1_Function(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.FunctionConfig":                 schema_porch_api_porch_v1alpha1_FunctionConfig(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.FunctionEvalTaskSpec":           schema_porch_api_porch_v1alpha1_FunctionEvalTaskSpec(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.FunctionList":                   schema_porch_api_porch_v1alpha1_FunctionList(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.FunctionRef":                    schema_porch_api_porch_v1alpha1_FunctionRef(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.FunctionSpec":                   schema_porch_api_porch_v1alpha1_FunctionSpec(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.FunctionStatus":                 schema_porch_api_porch_v1alpha1_FunctionStatus(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.GitLock":                        schema_porch_api_porch_v1alpha1_GitLock(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.GitPackage":                     schema_porch_api_porch_v1alpha1_GitPackage(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.NameMeta":                       schema_porch_api_porch_v1alpha1_NameMeta(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.OciPackage":                     schema_porch_api_porch_v1alpha1_OciPackage(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.Package":                        schema_porch_api_porch_v1alpha1_Package(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageCloneTaskSpec":           schema_porch_api_porch_v1alpha1_PackageCloneTaskSpec(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageEditTaskSpec":            schema_porch_api_porch_v1alpha1_PackageEditTaskSpec(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageInitTaskSpec":            schema_porch_api_porch_v1alpha1_PackageInitTaskSpec(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageList":                    schema_porch_api_porch_v1alpha1_PackageList(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackagePatchTaskSpec":           schema_porch_api_porch_v1alpha1_PackagePatchTaskSpec(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageRevision":                schema_porch_api_porch_v1alpha1_PackageRevision(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageRevisionList":            schema_porch_api_porch_v1alpha1_PackageRevisionList(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageRevisionRef":             schema_porch_api_porch_v1alpha1_PackageRevisionRef(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageRevisionResources":       schema_porch_api_porch_v1alpha1_PackageRevisionResources(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageRevisionResourcesList":   schema_porch_api_porch_v1alpha1_PackageRevisionResourcesList(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageRevisionResourcesSpec":   schema_porch_api_porch_v1alpha1_PackageRevisionResourcesSpec(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageRevisionResourcesStatus": schema_porch_api_porch_v1alpha1_PackageRevisionResourcesStatus(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageRevisionSpec":            schema_porch_api_porch_v1alpha1_PackageRevisionSpec(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageRevisionStatus":          schema_porch_api_porch_v1alpha1_PackageRevisionStatus(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageSpec":                    schema_porch_api_porch_v1alpha1_PackageSpec(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageStatus":                  schema_porch_api_porch_v1alpha1_PackageStatus(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageUpdateTaskSpec":          schema_porch_api_porch_v1alpha1_PackageUpdateTaskSpec(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.ParentReference":                schema_porch_api_porch_v1alpha1_ParentReference(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PatchSpec":                      schema_porch_api_porch_v1alpha1_PatchSpec(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.ReadinessGate":                  schema_porch_api_porch_v1alpha1_ReadinessGate(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.RenderStatus":                   schema_porch_api_porch_v1alpha1_RenderStatus(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.RepositoryRef":                  schema_porch_api_porch_v1alpha1_RepositoryRef(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.ResourceIdentifier":             schema_porch_api_porch_v1alpha1_ResourceIdentifier(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.Result":                         schema_porch_api_porch_v1alpha1_Result(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.ResultItem":                     schema_porch_api_porch_v1alpha1_ResultItem(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.ResultList":                     schema_porch_api_porch_v1alpha1_ResultList(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.SecretRef":                      schema_porch_api_porch_v1alpha1_SecretRef(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.Selector":                       schema_porch_api_porch_v1alpha1_Selector(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.Task":                           schema_porch_api_porch_v1alpha1_Task(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.TaskResult":                     schema_porch_api_porch_v1alpha1_TaskResult(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.UpstreamLock":                   schema_porch_api_porch_v1alpha1_UpstreamLock(ref),
-		"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.UpstreamPackage":                schema_porch_api_porch_v1alpha1_UpstreamPackage(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                               schema_pkg_apis_meta_v1_APIGroup(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                           schema_pkg_apis_meta_v1_APIGroupList(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResource":                                            schema_pkg_apis_meta_v1_APIResource(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResourceList":                                        schema_pkg_apis_meta_v1_APIResourceList(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.APIVersions":                                            schema_pkg_apis_meta_v1_APIVersions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ApplyOptions":                                           schema_pkg_apis_meta_v1_ApplyOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Condition":                                              schema_pkg_apis_meta_v1_Condition(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.CreateOptions":                                          schema_pkg_apis_meta_v1_CreateOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.DeleteOptions":                                          schema_pkg_apis_meta_v1_DeleteOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Duration":                                               schema_pkg_apis_meta_v1_Duration(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.FieldsV1":                                               schema_pkg_apis_meta_v1_FieldsV1(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GetOptions":                                             schema_pkg_apis_meta_v1_GetOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupKind":                                              schema_pkg_apis_meta_v1_GroupKind(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupResource":                                          schema_pkg_apis_meta_v1_GroupResource(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersion":                                           schema_pkg_apis_meta_v1_GroupVersion(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionForDiscovery":                               schema_pkg_apis_meta_v1_GroupVersionForDiscovery(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionKind":                                       schema_pkg_apis_meta_v1_GroupVersionKind(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionResource":                                   schema_pkg_apis_meta_v1_GroupVersionResource(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.InternalEvent":                                          schema_pkg_apis_meta_v1_InternalEvent(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector":                                          schema_pkg_apis_meta_v1_LabelSelector(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelectorRequirement":                               schema_pkg_apis_meta_v1_LabelSelectorRequirement(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.List":                                                   schema_pkg_apis_meta_v1_List(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta":                                               schema_pkg_apis_meta_v1_ListMeta(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ListOptions":                                            schema_pkg_apis_meta_v1_ListOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ManagedFieldsEntry":                                     schema_pkg_apis_meta_v1_ManagedFieldsEntry(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.MicroTime":                                              schema_pkg_apis_meta_v1_MicroTime(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta":                                             schema_pkg_apis_meta_v1_ObjectMeta(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.OwnerReference":                                         schema_pkg_apis_meta_v1_OwnerReference(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadata":                                  schema_pkg_apis_meta_v1_PartialObjectMetadata(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadataList":                              schema_pkg_apis_meta_v1_PartialObjectMetadataList(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Patch":                                                  schema_pkg_apis_meta_v1_Patch(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.PatchOptions":                                           schema_pkg_apis_meta_v1_PatchOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Preconditions":                                          schema_pkg_apis_meta_v1_Preconditions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.RootPaths":                                              schema_pkg_apis_meta_v1_RootPaths(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.ServerAddressByClientCIDR":                              schema_pkg_apis_meta_v1_ServerAddressByClientCIDR(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Status":                                                 schema_pkg_apis_meta_v1_Status(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusCause":                                            schema_pkg_apis_meta_v1_StatusCause(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusDetails":                                          schema_pkg_apis_meta_v1_StatusDetails(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Table":                                                  schema_pkg_apis_meta_v1_Table(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableColumnDefinition":                                  schema_pkg_apis_meta_v1_TableColumnDefinition(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableOptions":                                           schema_pkg_apis_meta_v1_TableOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRow":                                               schema_pkg_apis_meta_v1_TableRow(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRowCondition":                                      schema_pkg_apis_meta_v1_TableRowCondition(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Time":                                                   schema_pkg_apis_meta_v1_Time(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.Timestamp":                                              schema_pkg_apis_meta_v1_Timestamp(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta":                                               schema_pkg_apis_meta_v1_TypeMeta(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.UpdateOptions":                                          schema_pkg_apis_meta_v1_UpdateOptions(ref),
-		"k8s.io/apimachinery/pkg/apis/meta/v1.WatchEvent":                                             schema_pkg_apis_meta_v1_WatchEvent(ref),
-		"k8s.io/apimachinery/pkg/runtime.RawExtension":                                                schema_k8sio_apimachinery_pkg_runtime_RawExtension(ref),
-		"k8s.io/apimachinery/pkg/runtime.TypeMeta":                                                    schema_k8sio_apimachinery_pkg_runtime_TypeMeta(ref),
-		"k8s.io/apimachinery/pkg/runtime.Unknown":                                                     schema_k8sio_apimachinery_pkg_runtime_Unknown(ref),
-		"k8s.io/apimachinery/pkg/version.Info":                                                        schema_k8sio_apimachinery_pkg_version_Info(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.Condition":                      schema_porch_api_porch_v1alpha1_Condition(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.Field":                          schema_porch_api_porch_v1alpha1_Field(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.File":                           schema_porch_api_porch_v1alpha1_File(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.Function":                       schema_porch_api_porch_v1alpha1_Function(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.FunctionConfig":                 schema_porch_api_porch_v1alpha1_FunctionConfig(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.FunctionEvalTaskSpec":           schema_porch_api_porch_v1alpha1_FunctionEvalTaskSpec(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.FunctionList":                   schema_porch_api_porch_v1alpha1_FunctionList(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.FunctionRef":                    schema_porch_api_porch_v1alpha1_FunctionRef(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.FunctionSpec":                   schema_porch_api_porch_v1alpha1_FunctionSpec(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.FunctionStatus":                 schema_porch_api_porch_v1alpha1_FunctionStatus(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.GitLock":                        schema_porch_api_porch_v1alpha1_GitLock(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.GitPackage":                     schema_porch_api_porch_v1alpha1_GitPackage(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.NameMeta":                       schema_porch_api_porch_v1alpha1_NameMeta(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.OciPackage":                     schema_porch_api_porch_v1alpha1_OciPackage(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.Package":                        schema_porch_api_porch_v1alpha1_Package(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageCloneTaskSpec":           schema_porch_api_porch_v1alpha1_PackageCloneTaskSpec(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageEditTaskSpec":            schema_porch_api_porch_v1alpha1_PackageEditTaskSpec(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageInitTaskSpec":            schema_porch_api_porch_v1alpha1_PackageInitTaskSpec(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageList":                    schema_porch_api_porch_v1alpha1_PackageList(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.PackagePatchTaskSpec":           schema_porch_api_porch_v1alpha1_PackagePatchTaskSpec(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevision":                schema_porch_api_porch_v1alpha1_PackageRevision(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionList":            schema_porch_api_porch_v1alpha1_PackageRevisionList(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionRef":             schema_porch_api_porch_v1alpha1_PackageRevisionRef(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionResources":       schema_porch_api_porch_v1alpha1_PackageRevisionResources(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionResourcesList":   schema_porch_api_porch_v1alpha1_PackageRevisionResourcesList(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionResourcesSpec":   schema_porch_api_porch_v1alpha1_PackageRevisionResourcesSpec(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionResourcesStatus": schema_porch_api_porch_v1alpha1_PackageRevisionResourcesStatus(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionSpec":            schema_porch_api_porch_v1alpha1_PackageRevisionSpec(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionStatus":          schema_porch_api_porch_v1alpha1_PackageRevisionStatus(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageSpec":                    schema_porch_api_porch_v1alpha1_PackageSpec(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageStatus":                  schema_porch_api_porch_v1alpha1_PackageStatus(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageUpdateTaskSpec":          schema_porch_api_porch_v1alpha1_PackageUpdateTaskSpec(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.ParentReference":                schema_porch_api_porch_v1alpha1_ParentReference(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.PatchSpec":                      schema_porch_api_porch_v1alpha1_PatchSpec(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.ReadinessGate":                  schema_porch_api_porch_v1alpha1_ReadinessGate(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.RenderStatus":                   schema_porch_api_porch_v1alpha1_RenderStatus(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.RepositoryRef":                  schema_porch_api_porch_v1alpha1_RepositoryRef(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.ResourceIdentifier":             schema_porch_api_porch_v1alpha1_ResourceIdentifier(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.Result":                         schema_porch_api_porch_v1alpha1_Result(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.ResultItem":                     schema_porch_api_porch_v1alpha1_ResultItem(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.ResultList":                     schema_porch_api_porch_v1alpha1_ResultList(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.SecretRef":                      schema_porch_api_porch_v1alpha1_SecretRef(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.Selector":                       schema_porch_api_porch_v1alpha1_Selector(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.Task":                           schema_porch_api_porch_v1alpha1_Task(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.TaskResult":                     schema_porch_api_porch_v1alpha1_TaskResult(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamLock":                   schema_porch_api_porch_v1alpha1_UpstreamLock(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamPackage":                schema_porch_api_porch_v1alpha1_UpstreamPackage(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                     schema_pkg_apis_meta_v1_APIGroup(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                 schema_pkg_apis_meta_v1_APIGroupList(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResource":                                  schema_pkg_apis_meta_v1_APIResource(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResourceList":                              schema_pkg_apis_meta_v1_APIResourceList(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.APIVersions":                                  schema_pkg_apis_meta_v1_APIVersions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ApplyOptions":                                 schema_pkg_apis_meta_v1_ApplyOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Condition":                                    schema_pkg_apis_meta_v1_Condition(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.CreateOptions":                                schema_pkg_apis_meta_v1_CreateOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.DeleteOptions":                                schema_pkg_apis_meta_v1_DeleteOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Duration":                                     schema_pkg_apis_meta_v1_Duration(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.FieldsV1":                                     schema_pkg_apis_meta_v1_FieldsV1(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GetOptions":                                   schema_pkg_apis_meta_v1_GetOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupKind":                                    schema_pkg_apis_meta_v1_GroupKind(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupResource":                                schema_pkg_apis_meta_v1_GroupResource(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersion":                                 schema_pkg_apis_meta_v1_GroupVersion(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionForDiscovery":                     schema_pkg_apis_meta_v1_GroupVersionForDiscovery(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionKind":                             schema_pkg_apis_meta_v1_GroupVersionKind(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.GroupVersionResource":                         schema_pkg_apis_meta_v1_GroupVersionResource(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.InternalEvent":                                schema_pkg_apis_meta_v1_InternalEvent(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector":                                schema_pkg_apis_meta_v1_LabelSelector(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelectorRequirement":                     schema_pkg_apis_meta_v1_LabelSelectorRequirement(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.List":                                         schema_pkg_apis_meta_v1_List(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta":                                     schema_pkg_apis_meta_v1_ListMeta(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ListOptions":                                  schema_pkg_apis_meta_v1_ListOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ManagedFieldsEntry":                           schema_pkg_apis_meta_v1_ManagedFieldsEntry(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.MicroTime":                                    schema_pkg_apis_meta_v1_MicroTime(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta":                                   schema_pkg_apis_meta_v1_ObjectMeta(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.OwnerReference":                               schema_pkg_apis_meta_v1_OwnerReference(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadata":                        schema_pkg_apis_meta_v1_PartialObjectMetadata(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.PartialObjectMetadataList":                    schema_pkg_apis_meta_v1_PartialObjectMetadataList(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Patch":                                        schema_pkg_apis_meta_v1_Patch(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.PatchOptions":                                 schema_pkg_apis_meta_v1_PatchOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Preconditions":                                schema_pkg_apis_meta_v1_Preconditions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.RootPaths":                                    schema_pkg_apis_meta_v1_RootPaths(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.ServerAddressByClientCIDR":                    schema_pkg_apis_meta_v1_ServerAddressByClientCIDR(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Status":                                       schema_pkg_apis_meta_v1_Status(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusCause":                                  schema_pkg_apis_meta_v1_StatusCause(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.StatusDetails":                                schema_pkg_apis_meta_v1_StatusDetails(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Table":                                        schema_pkg_apis_meta_v1_Table(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableColumnDefinition":                        schema_pkg_apis_meta_v1_TableColumnDefinition(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableOptions":                                 schema_pkg_apis_meta_v1_TableOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRow":                                     schema_pkg_apis_meta_v1_TableRow(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TableRowCondition":                            schema_pkg_apis_meta_v1_TableRowCondition(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Time":                                         schema_pkg_apis_meta_v1_Time(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.Timestamp":                                    schema_pkg_apis_meta_v1_Timestamp(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta":                                     schema_pkg_apis_meta_v1_TypeMeta(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.UpdateOptions":                                schema_pkg_apis_meta_v1_UpdateOptions(ref),
+		"k8s.io/apimachinery/pkg/apis/meta/v1.WatchEvent":                                   schema_pkg_apis_meta_v1_WatchEvent(ref),
+		"k8s.io/apimachinery/pkg/runtime.RawExtension":                                      schema_k8sio_apimachinery_pkg_runtime_RawExtension(ref),
+		"k8s.io/apimachinery/pkg/runtime.TypeMeta":                                          schema_k8sio_apimachinery_pkg_runtime_TypeMeta(ref),
+		"k8s.io/apimachinery/pkg/runtime.Unknown":                                           schema_k8sio_apimachinery_pkg_runtime_Unknown(ref),
+		"k8s.io/apimachinery/pkg/version.Info":                                              schema_k8sio_apimachinery_pkg_version_Info(ref),
 	}
 }
 
@@ -261,20 +261,20 @@ func schema_porch_api_porch_v1alpha1_Function(ref common.ReferenceCallback) comm
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.FunctionSpec"),
+							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.FunctionSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.FunctionStatus"),
+							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.FunctionStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.FunctionSpec", "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.FunctionStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.FunctionSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.FunctionStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -343,7 +343,7 @@ func schema_porch_api_porch_v1alpha1_FunctionEvalTaskSpec(ref common.ReferenceCa
 					"functionRef": {
 						SchemaProps: spec.SchemaProps{
 							Description: "`FunctionRef` specifies the function by reference to a Function resource. Mutually exclusive with `Image`.",
-							Ref:         ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.FunctionRef"),
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.FunctionRef"),
 						},
 					},
 					"configMap": {
@@ -387,14 +387,14 @@ func schema_porch_api_porch_v1alpha1_FunctionEvalTaskSpec(ref common.ReferenceCa
 						SchemaProps: spec.SchemaProps{
 							Description: "Match specifies the selection criteria for the function evaluation. Corresponds to `kpt fn eval --match-???` flgs (https://kpt.dev/reference/cli/fn/eval/).",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.Selector"),
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.Selector"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.FunctionRef", "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.Selector", "k8s.io/apimachinery/pkg/runtime.RawExtension"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.FunctionRef", "github.com/nephio-project/porch/api/porch/v1alpha1.Selector", "k8s.io/apimachinery/pkg/runtime.RawExtension"},
 	}
 }
 
@@ -432,7 +432,7 @@ func schema_porch_api_porch_v1alpha1_FunctionList(ref common.ReferenceCallback) 
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.Function"),
+										Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.Function"),
 									},
 								},
 							},
@@ -443,7 +443,7 @@ func schema_porch_api_porch_v1alpha1_FunctionList(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.Function", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.Function", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -488,7 +488,7 @@ func schema_porch_api_porch_v1alpha1_FunctionSpec(ref common.ReferenceCallback) 
 						SchemaProps: spec.SchemaProps{
 							Description: "RepositoryRef references the repository in which the function is located.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.RepositoryRef"),
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.RepositoryRef"),
 						},
 					},
 					"functionTypes": {
@@ -513,7 +513,7 @@ func schema_porch_api_porch_v1alpha1_FunctionSpec(ref common.ReferenceCallback) 
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.FunctionConfig"),
+										Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.FunctionConfig"),
 									},
 								},
 							},
@@ -554,7 +554,7 @@ func schema_porch_api_porch_v1alpha1_FunctionSpec(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.FunctionConfig", "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.RepositoryRef"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.FunctionConfig", "github.com/nephio-project/porch/api/porch/v1alpha1.RepositoryRef"},
 	}
 }
 
@@ -644,7 +644,7 @@ func schema_porch_api_porch_v1alpha1_GitPackage(ref common.ReferenceCallback) co
 						SchemaProps: spec.SchemaProps{
 							Description: "Reference to secret containing authentication credentials. Optional.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.SecretRef"),
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.SecretRef"),
 						},
 					},
 				},
@@ -652,7 +652,7 @@ func schema_porch_api_porch_v1alpha1_GitPackage(ref common.ReferenceCallback) co
 			},
 		},
 		Dependencies: []string{
-			"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.SecretRef"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.SecretRef"},
 	}
 }
 
@@ -735,20 +735,20 @@ func schema_porch_api_porch_v1alpha1_Package(ref common.ReferenceCallback) commo
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageSpec"),
+							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageStatus"),
+							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageSpec", "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.PackageSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -762,7 +762,7 @@ func schema_porch_api_porch_v1alpha1_PackageCloneTaskSpec(ref common.ReferenceCa
 						SchemaProps: spec.SchemaProps{
 							Description: "`Upstream` is the reference to the upstream package to clone.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.UpstreamPackage"),
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamPackage"),
 						},
 					},
 					"strategy": {
@@ -776,7 +776,7 @@ func schema_porch_api_porch_v1alpha1_PackageCloneTaskSpec(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.UpstreamPackage"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamPackage"},
 	}
 }
 
@@ -788,14 +788,14 @@ func schema_porch_api_porch_v1alpha1_PackageEditTaskSpec(ref common.ReferenceCal
 				Properties: map[string]spec.Schema{
 					"sourceRef": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageRevisionRef"),
+							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionRef"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageRevisionRef"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionRef"},
 	}
 }
 
@@ -882,7 +882,7 @@ func schema_porch_api_porch_v1alpha1_PackageList(ref common.ReferenceCallback) c
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.Package"),
+										Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.Package"),
 									},
 								},
 							},
@@ -893,7 +893,7 @@ func schema_porch_api_porch_v1alpha1_PackageList(ref common.ReferenceCallback) c
 			},
 		},
 		Dependencies: []string{
-			"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.Package", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.Package", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -911,7 +911,7 @@ func schema_porch_api_porch_v1alpha1_PackagePatchTaskSpec(ref common.ReferenceCa
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PatchSpec"),
+										Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.PatchSpec"),
 									},
 								},
 							},
@@ -921,7 +921,7 @@ func schema_porch_api_porch_v1alpha1_PackagePatchTaskSpec(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PatchSpec"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.PatchSpec"},
 	}
 }
 
@@ -955,20 +955,20 @@ func schema_porch_api_porch_v1alpha1_PackageRevision(ref common.ReferenceCallbac
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageRevisionSpec"),
+							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageRevisionStatus"),
+							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageRevisionSpec", "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageRevisionStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -1006,7 +1006,7 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionList(ref common.ReferenceCal
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageRevision"),
+										Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevision"),
 									},
 								},
 							},
@@ -1017,7 +1017,7 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionList(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageRevision", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevision", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -1073,20 +1073,20 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionResources(ref common.Referen
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageRevisionResourcesSpec"),
+							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionResourcesSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageRevisionResourcesStatus"),
+							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionResourcesStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageRevisionResourcesSpec", "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageRevisionResourcesStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionResourcesSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionResourcesStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -1124,7 +1124,7 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionResourcesList(ref common.Ref
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageRevisionResources"),
+										Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionResources"),
 									},
 								},
 							},
@@ -1135,7 +1135,7 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionResourcesList(ref common.Ref
 			},
 		},
 		Dependencies: []string{
-			"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageRevisionResources", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionResources", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -1207,14 +1207,14 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionResourcesStatus(ref common.R
 						SchemaProps: spec.SchemaProps{
 							Description: "RenderStatus contains the result of rendering the package resources.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.RenderStatus"),
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.RenderStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.RenderStatus"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.RenderStatus"},
 	}
 }
 
@@ -1256,7 +1256,7 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionSpec(ref common.ReferenceCal
 					"parent": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Parent references a package that provides resources to us",
-							Ref:         ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.ParentReference"),
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.ParentReference"),
 						},
 					},
 					"lifecycle": {
@@ -1273,7 +1273,7 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionSpec(ref common.ReferenceCal
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.Task"),
+										Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.Task"),
 									},
 								},
 							},
@@ -1286,7 +1286,7 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionSpec(ref common.ReferenceCal
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.ReadinessGate"),
+										Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.ReadinessGate"),
 									},
 								},
 							},
@@ -1296,7 +1296,7 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionSpec(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.ParentReference", "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.ReadinessGate", "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.Task"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.ParentReference", "github.com/nephio-project/porch/api/porch/v1alpha1.ReadinessGate", "github.com/nephio-project/porch/api/porch/v1alpha1.Task"},
 	}
 }
 
@@ -1310,7 +1310,7 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionStatus(ref common.ReferenceC
 					"upstreamLock": {
 						SchemaProps: spec.SchemaProps{
 							Description: "UpstreamLock identifies the upstream data for this package.",
-							Ref:         ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.UpstreamLock"),
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamLock"),
 						},
 					},
 					"publishedBy": {
@@ -1341,7 +1341,7 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionStatus(ref common.ReferenceC
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.Condition"),
+										Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.Condition"),
 									},
 								},
 							},
@@ -1351,7 +1351,7 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionStatus(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.Condition", "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.UpstreamLock", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.Condition", "github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamLock", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
@@ -1412,14 +1412,14 @@ func schema_porch_api_porch_v1alpha1_PackageUpdateTaskSpec(ref common.ReferenceC
 						SchemaProps: spec.SchemaProps{
 							Description: "`Upstream` is the reference to the upstream package.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.UpstreamPackage"),
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamPackage"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.UpstreamPackage"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamPackage"},
 	}
 }
 
@@ -1503,7 +1503,7 @@ func schema_porch_api_porch_v1alpha1_RenderStatus(ref common.ReferenceCallback) 
 					"result": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.ResultList"),
+							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.ResultList"),
 						},
 					},
 					"error": {
@@ -1518,7 +1518,7 @@ func schema_porch_api_porch_v1alpha1_RenderStatus(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.ResultList"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.ResultList"},
 	}
 }
 
@@ -1629,7 +1629,7 @@ func schema_porch_api_porch_v1alpha1_Result(ref common.ReferenceCallback) common
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.ResultItem"),
+										Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.ResultItem"),
 									},
 								},
 							},
@@ -1640,7 +1640,7 @@ func schema_porch_api_porch_v1alpha1_Result(ref common.ReferenceCallback) common
 			},
 		},
 		Dependencies: []string{
-			"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.ResultItem"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.ResultItem"},
 	}
 }
 
@@ -1668,19 +1668,19 @@ func schema_porch_api_porch_v1alpha1_ResultItem(ref common.ReferenceCallback) co
 					"resourceRef": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ResourceRef is a reference to a resource. Required fields: apiVersion, kind, name.",
-							Ref:         ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.ResourceIdentifier"),
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.ResourceIdentifier"),
 						},
 					},
 					"field": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Field is a reference to the field in a resource this result refers to",
-							Ref:         ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.Field"),
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.Field"),
 						},
 					},
 					"file": {
 						SchemaProps: spec.SchemaProps{
 							Description: "File references a file containing the resource this result refers to",
-							Ref:         ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.File"),
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.File"),
 						},
 					},
 					"tags": {
@@ -1703,7 +1703,7 @@ func schema_porch_api_porch_v1alpha1_ResultItem(ref common.ReferenceCallback) co
 			},
 		},
 		Dependencies: []string{
-			"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.Field", "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.File", "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.ResourceIdentifier"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.Field", "github.com/nephio-project/porch/api/porch/v1alpha1.File", "github.com/nephio-project/porch/api/porch/v1alpha1.ResourceIdentifier"},
 	}
 }
 
@@ -1749,7 +1749,7 @@ func schema_porch_api_porch_v1alpha1_ResultList(ref common.ReferenceCallback) co
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.Result"),
+										Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.Result"),
 									},
 								},
 							},
@@ -1760,7 +1760,7 @@ func schema_porch_api_porch_v1alpha1_ResultList(ref common.ReferenceCallback) co
 			},
 		},
 		Dependencies: []string{
-			"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.Result", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.Result", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -1841,32 +1841,32 @@ func schema_porch_api_porch_v1alpha1_Task(ref common.ReferenceCallback) common.O
 					},
 					"init": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageInitTaskSpec"),
+							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageInitTaskSpec"),
 						},
 					},
 					"clone": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageCloneTaskSpec"),
+							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageCloneTaskSpec"),
 						},
 					},
 					"patch": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackagePatchTaskSpec"),
+							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackagePatchTaskSpec"),
 						},
 					},
 					"edit": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageEditTaskSpec"),
+							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageEditTaskSpec"),
 						},
 					},
 					"eval": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.FunctionEvalTaskSpec"),
+							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.FunctionEvalTaskSpec"),
 						},
 					},
 					"update": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageUpdateTaskSpec"),
+							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageUpdateTaskSpec"),
 						},
 					},
 				},
@@ -1874,7 +1874,7 @@ func schema_porch_api_porch_v1alpha1_Task(ref common.ReferenceCallback) common.O
 			},
 		},
 		Dependencies: []string{
-			"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.FunctionEvalTaskSpec", "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageCloneTaskSpec", "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageEditTaskSpec", "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageInitTaskSpec", "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackagePatchTaskSpec", "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageUpdateTaskSpec"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.FunctionEvalTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageCloneTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageEditTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageInitTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackagePatchTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageUpdateTaskSpec"},
 	}
 }
 
@@ -1886,12 +1886,12 @@ func schema_porch_api_porch_v1alpha1_TaskResult(ref common.ReferenceCallback) co
 				Properties: map[string]spec.Schema{
 					"task": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.Task"),
+							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.Task"),
 						},
 					},
 					"renderStatus": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.RenderStatus"),
+							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.RenderStatus"),
 						},
 					},
 				},
@@ -1899,7 +1899,7 @@ func schema_porch_api_porch_v1alpha1_TaskResult(ref common.ReferenceCallback) co
 			},
 		},
 		Dependencies: []string{
-			"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.RenderStatus", "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.Task"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.RenderStatus", "github.com/nephio-project/porch/api/porch/v1alpha1.Task"},
 	}
 }
 
@@ -1920,14 +1920,14 @@ func schema_porch_api_porch_v1alpha1_UpstreamLock(ref common.ReferenceCallback) 
 					"git": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Git is the resolved locator for a package on Git.",
-							Ref:         ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.GitLock"),
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.GitLock"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.GitLock"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.GitLock"},
 	}
 }
 
@@ -1948,26 +1948,26 @@ func schema_porch_api_porch_v1alpha1_UpstreamPackage(ref common.ReferenceCallbac
 					"git": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Git upstream package specification. Required if `type` is `git`. Must be unspecified if `type` is not `git`.",
-							Ref:         ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.GitPackage"),
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.GitPackage"),
 						},
 					},
 					"oci": {
 						SchemaProps: spec.SchemaProps{
 							Description: "OCI upstream package specification. Required if `type` is `oci`. Must be unspecified if `type` is not `oci`.",
-							Ref:         ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.OciPackage"),
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.OciPackage"),
 						},
 					},
 					"upstreamRef": {
 						SchemaProps: spec.SchemaProps{
 							Description: "UpstreamRef is the reference to the package from a registered repository rather than external package.",
-							Ref:         ref("github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageRevisionRef"),
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionRef"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.GitPackage", "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.OciPackage", "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1.PackageRevisionRef"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.GitPackage", "github.com/nephio-project/porch/api/porch/v1alpha1.OciPackage", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionRef"},
 	}
 }
 

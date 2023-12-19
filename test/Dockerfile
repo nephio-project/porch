@@ -15,30 +15,13 @@
 
 FROM golang:1.21.4-bookworm as builder
 
-WORKDIR /go/src/github.com/GoogleContainerTools/kpt
+WORKDIR /go/src
 
 # cache deps before building and copying source so that we don't need to re-download as much
 # and so that source changes don't invalidate our downloaded layer
 
-COPY porch/go.mod porch/go.sum porch/
-COPY porch/api/go.mod porch/api/go.sum porch/api/
-
-RUN echo "Downloading porch modules ..." \
- && cd porch && go mod download
-RUN echo "Downloading api modules ..." \
- && cd porch/api && go mod download
-
-# Prebuild some library dependencies to warm the cache
-RUN cd porch/; go build -v \
-  k8s.io/klog/v2 \
-  github.com/go-git/go-git/v5
-
-COPY porch/api porch/api
-COPY porch/controllers porch/controllers
-COPY porch/pkg porch/pkg
-COPY porch/test porch/test
-
-RUN cd porch/test; go build -v -o /git-server ./git
+COPY porch/ .
+RUN cd test; go build -v -o /git-server ./git
 
 FROM debian:bookworm-slim
 RUN apt update && apt install -y ca-certificates && rm -rf /var/lib/apt && rm -rf /var/cache/apt

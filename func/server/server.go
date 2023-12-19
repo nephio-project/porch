@@ -22,9 +22,9 @@ import (
 	"strings"
 	"time"
 
-	pb "github.com/GoogleContainerTools/kpt/porch/func/evaluator"
-	"github.com/GoogleContainerTools/kpt/porch/func/healthchecker"
-	"github.com/GoogleContainerTools/kpt/porch/func/internal"
+	pb "github.com/nephio-project/porch/func/evaluator"
+	"github.com/nephio-project/porch/func/healthchecker"
+	"github.com/nephio-project/porch/func/internal"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"k8s.io/klog/v2"

@@ -31,13 +31,8 @@ WORKDIR /go/src
 RUN go install github.com/grpc-ecosystem/grpc-health-probe@v0.4.11
 RUN cp $GOPATH/bin/grpc-health-probe /grpc-health-probe
 
-COPY porch/go.mod porch/go.sum porch/
-COPY porch/api/go.mod porch/api/go.sum porch/api/
-
-RUN cd porch ; go build -v google.golang.org/grpc k8s.io/klog/v2
-
-COPY porch/func/ porch/func/
-RUN cd porch/func ; go build -v -o /server ./server
+COPY porch/ .
+RUN cd func ; go build -v -o /server ./server
 COPY porch/func/config.yaml /config.yaml
 
 FROM alpine:3.18

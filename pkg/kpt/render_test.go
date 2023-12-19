@@ -20,9 +20,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/GoogleContainerTools/kpt/internal/util/render"
-	"github.com/GoogleContainerTools/kpt/pkg/printer/fake"
 	"github.com/google/go-cmp/cmp"
+	"github.com/nephio-project/porch/internal/kpt/util/render"
+	"github.com/nephio-project/porch/pkg/kpt/printer/fake"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 )
 

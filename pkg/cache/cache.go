@@ -23,11 +23,11 @@ import (
 	"time"
 
 	kptoci "github.com/GoogleContainerTools/kpt/pkg/oci"
-	configapi "github.com/GoogleContainerTools/kpt/porch/api/porchconfig/v1alpha1"
-	"github.com/GoogleContainerTools/kpt/porch/pkg/git"
-	"github.com/GoogleContainerTools/kpt/porch/pkg/meta"
-	"github.com/GoogleContainerTools/kpt/porch/pkg/oci"
-	"github.com/GoogleContainerTools/kpt/porch/pkg/repository"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/pkg/git"
+	"github.com/nephio-project/porch/pkg/meta"
+	"github.com/nephio-project/porch/pkg/oci"
+	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/watch"
 )

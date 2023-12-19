@@ -14,32 +14,10 @@
 
 FROM golang:1.21.4-bookworm as builder
 
-WORKDIR /workspace
-COPY porch/go.mod porch/go.sum porch/
-COPY porch/api/go.mod porch/api/go.sum porch/api/
+WORKDIR /go/src
+COPY porch/ .
 
-WORKDIR /workspace/porch/controllers/
-RUN go mod download
-# Prebuild some libraries to warm the cache
-RUN CGO_ENABLED=0 go build -v \
-  k8s.io/klog/v2 \
-  k8s.io/klog/v2/klogr \
-  sigs.k8s.io/controller-runtime \
-  sigs.k8s.io/controller-runtime/pkg/client \
-  sigs.k8s.io/controller-runtime/pkg/controller/controllerutil \
-  k8s.io/client-go/kubernetes \
-  go.opentelemetry.io/otel \
-  github.com/google/go-containerregistry/pkg/gcrane \
-  github.com/google/go-containerregistry/pkg/v1 \
-  github.com/google/go-containerregistry/pkg/v1/cache \
-  k8s.io/client-go/discovery/cached
-
-WORKDIR /workspace
-COPY porch/api/ porch/api/
-COPY porch/controllers/ porch/controllers/
-COPY porch/pkg/ porch/pkg/
-
-WORKDIR /workspace/porch/controllers/
+WORKDIR /go/src/controllers/
 RUN CGO_ENABLED=0 go build -o /porch-controllers -v .
 
 FROM gcr.io/distroless/static

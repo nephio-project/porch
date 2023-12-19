@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"testing"
 
-	v1alpha1 "github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1"
+	v1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/stretchr/testify/assert"
 )
 

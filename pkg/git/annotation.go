@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/GoogleContainerTools/kpt/porch/api/porch/v1alpha1"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/nephio-project/porch/api/porch/v1alpha1"
 )
 
 // gitAnnotation is the structured data that we store with commits.
