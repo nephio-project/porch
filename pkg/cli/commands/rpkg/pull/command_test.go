@@ -23,9 +23,9 @@ import (
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	porchapi "nephio-project/porch/api/porch/v1alpha1"
-	"nephio-project/porch/pkg/kpt/printer"
-	fakeprint "nephio-project/porch/pkg/kpt/printer/fake"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/pkg/kpt/printer"
+	fakeprint "github.com/nephio-project/porch/pkg/kpt/printer/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
