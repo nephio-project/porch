@@ -166,7 +166,7 @@ configure-git:
 ci-test-porch: configure-git test-porch
 
 .PHONY: ci-unit
-ci-test-porch: configure-git test
+ci-unit: configure-git test
 
 
 PORCH = $(BUILDDIR)/porch
