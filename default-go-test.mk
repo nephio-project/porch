@@ -32,7 +32,9 @@ ifeq ($(CONTAINER_RUNNABLE), 0)
          go tool cover -html=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_HTML_FILE}; \
          go tool cover -func=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_FUNC_FILE}"
 else
-		go test ./... -v -coverprofile ${TEST_COVERAGE_FILE} 
+		git config --global --add user.name test
+		git config --global --add user.email test@nephio.org
+		go test ./... -v -coverprofile ${TEST_COVERAGE_FILE}
 		go tool cover -html=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_HTML_FILE}
 		go tool cover -func=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_FUNC_FILE}
 endif
