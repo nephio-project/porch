@@ -157,6 +157,18 @@ tidy:
 test-porch:
 	@for f in $(MODULES); do (cd $$f; echo "Testing $$f"; E2E=1 go test -race --count=1 ./...) || exit 1; done
 
+.PHONY: configure-git
+configure-git:
+	git config --global --add user.name test
+	git config --global --add user.email test@nephio.org
+
+.PHONY: ci-test-porch
+ci-test-porch: configure-git test-porch
+
+.PHONY: ci-unit
+ci-test-porch: configure-git test
+
+
 PORCH = $(BUILDDIR)/porch
 
 .PHONY: run-local
