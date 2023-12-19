@@ -1,4 +1,4 @@
-// Copyright 2019 The kpt Authors
+// Copyright 2019 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -251,7 +251,7 @@ func Diff(sourceDir, destDir string, addMergeCommentsToSource bool) (sets.String
 	return diff, nil
 }
 
-const trimPrefix = `# Copyright 2019 The kpt Authors
+const trimPrefix = `# Copyright 2019 The kpt and Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
