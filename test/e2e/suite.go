@@ -27,7 +27,6 @@ import (
 	"testing"
 	"time"
 
-	porchtest "github.com/GoogleContainerTools/kpt/pkg/test/porch"
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -40,6 +39,7 @@ import (
 	"github.com/nephio-project/porch/pkg/git"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
+	porchtest "github.com/nephio-project/porch/test/e2e/cli"
 	appsv1 "k8s.io/api/apps/v1"
 	coreapi "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
