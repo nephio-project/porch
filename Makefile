@@ -155,7 +155,8 @@ tidy:
 
 .PHONY: test-porch
 test-porch:
-	@for f in $(MODULES); do (cd $$f; echo "Testing $$f"; E2E=1 go test -race --count=1 ./...) || exit 1; done
+	#@for f in $(MODULES); do (cd $$f; echo "Testing $$f"; E2E=1 go test -v -race --count=1 ./...) || exit 1; done
+	@for f in $(MODULES); do (cd $$f; echo "Testing $$f"; go test -v -race --count=1 ./...) || exit 1; done
 
 .PHONY: configure-git
 configure-git:
