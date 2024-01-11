@@ -280,19 +280,21 @@ deploy-no-sa: deployment-config-no-sa
 .PHONY: push-and-deploy-no-sa
 push-and-deploy-no-sa: push-images deploy-no-sa
 
+KIND_CONTEXT_NAME ?= kind
+
 .PHONY: run-in-kind
 run-in-kind:
 	IMAGE_REPO=porch-kind make build-images
-	kind load docker-image porch-kind/porch-server:${IMAGE_TAG}
-	kind load docker-image porch-kind/porch-controllers:${IMAGE_TAG}
-	kind load docker-image porch-kind/porch-function-runner:${IMAGE_TAG}
-	kind load docker-image porch-kind/porch-wrapper-server:${IMAGE_TAG}
-	kind load docker-image porch-kind/test-git-server:${IMAGE_TAG}
+	kind load docker-image porch-kind/porch-server:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
+	kind load docker-image porch-kind/porch-controllers:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
+	kind load docker-image porch-kind/porch-function-runner:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
+	kind load docker-image porch-kind/porch-wrapper-server:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
+	kind load docker-image porch-kind/test-git-server:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
 	IMAGE_REPO=porch-kind make deployment-config
-	kubectl apply --wait --recursive --filename ./.build/deploy
-	kubectl rollout status deployment function-runner --namespace porch-system
-	kubectl rollout status deployment porch-controllers --namespace porch-system
-	kubectl rollout status deployment porch-server --namespace porch-system
+	KUBECONFIG=$(KUBECONFIG) kubectl apply --wait --recursive --filename ./.build/deploy
+	KUBECONFIG=$(KUBECONFIG) kubectl rollout status deployment function-runner --namespace porch-system
+	KUBECONFIG=$(KUBECONFIG) kubectl rollout status deployment porch-controllers --namespace porch-system
+	KUBECONFIG=$(KUBECONFIG) kubectl rollout status deployment porch-server --namespace porch-system
 
 .PHONY: vulncheck
 vulncheck: build
