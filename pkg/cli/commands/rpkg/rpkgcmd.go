@@ -39,7 +39,7 @@ import (
 )
 
 func NewCommand(ctx context.Context, version string) *cobra.Command {
-	repo := &cobra.Command{
+	rpkg := &cobra.Command{
 		Use:     "rpkg",
 		Aliases: []string{"rpackage"},
 		Short:   docs.RpkgShort,
@@ -57,7 +57,7 @@ func NewCommand(ctx context.Context, version string) *cobra.Command {
 		Hidden: porch.HidePorchCommands,
 	}
 
-	pf := repo.PersistentFlags()
+	pf := rpkg.PersistentFlags()
 
 	kubeflags := genericclioptions.NewConfigFlags(true)
 	kubeflags.AddFlags(pf)
@@ -69,7 +69,7 @@ func NewCommand(ctx context.Context, version string) *cobra.Command {
 
 	pf.AddGoFlagSet(flag.CommandLine)
 
-	repo.AddCommand(
+	rpkg.AddCommand(
 		get.NewCommand(ctx, kubeflags),
 		pull.NewCommand(ctx, kubeflags),
 		push.NewCommand(ctx, kubeflags),
@@ -84,5 +84,5 @@ func NewCommand(ctx context.Context, version string) *cobra.Command {
 		proposedelete.NewCommand(ctx, kubeflags),
 	)
 
-	return repo
+	return rpkg
 }
