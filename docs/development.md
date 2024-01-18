@@ -16,13 +16,12 @@ Porch comprises of several software components:
 * [apiserver](../pkg/apiserver/): The Porch apiserver implementation, REST handlers, Porch `main` function
 * [engine](../pkg/engine/): Core logic of Package Orchestration - operations on package contents
 * [func](../func): KRM function evaluator microservice; exposes gRPC API
-* [repository](../pkg/repository/): Repository integration packge
+* [repository](../pkg/repository/): Repository integration package
 * [git](../pkg/git/): Integration with Git repository.
 * [oci](../pkg/oci/): Integration with OCI repository.
 * [cache](../pkg/cache/): Package caching.
 * [controllers](../controllers): `Repository` CRD. No controller;
   Porch apiserver watches these resources for changes as repositories are (un-)registered.
-* [remoterootsync](../controllers/remoterootsync): CRD and controller for deploying packages
 * [test](../test): Test Git Server for Porch e2e testing, and
   [e2e](../test/e2e/) tests.
 
@@ -60,7 +59,7 @@ Follow [running-locally.md](./running-locally.md) to run Porch locally.
 ## Debugging
 
 To debug Porch, run Porch locally [running-locally.md](./running-locally.md), exit porch server running in the shell,
-and launch Porch under the debugger. VSCode debug session is preconfigured in [launch.json](../.vscode/launch.json).
+and launch Porch under the debugger. VSCode debug session is pre-configured in [launch.json](../.vscode/launch.json).
 
 Update the launch arguments to your needs.
 
