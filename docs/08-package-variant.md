@@ -105,7 +105,7 @@ under the control of the package variant controller.
 
 The simple clone operation is shown in *Figure 1*.
 
-| ![Figure 1: Basic Package Cloning](packagevariant-clone.png) | ![Legend](packagevariant-legend.png) |
+| ![Figure 1: Basic Package Cloning](./static/images/packagevariant-clone.png) | ![Legend](./static/images/packagevariant-legend.png) |
 | :---: | :---: |
 | *Figure 1: Basic Package Cloning* | *Legend* |
 
@@ -148,7 +148,7 @@ controller as well. Additionally, the author of the PackageVariant resource
 can specify additional key-value pairs to insert into the package
 context, as shown in *Figure 2*.
 
-| ![Figure 2: Package Context Mutation](packagevariant-context.png) |
+| ![Figure 2: Package Context Mutation](./static/images/packagevariant-context.png) |
 | :---: |
 | *Figure 2: Package Context Mutation * |
 
@@ -179,7 +179,7 @@ Similarly, the Kptfile pipeline editing feature provides an easy mechanism for
 the deployer to create and set the namespace if their downstream package
 application pipeline allows it, as seen in *Figure 3*.[^setns]
 
-| ![Figure 3: KRM Function Pipeline Editing](packagevariant-function.png) |
+| ![Figure 3: KRM Function Pipeline Editing](./static/images/packagevariant-function.png) |
 | :---: |
 | *Figure 3: Kptfile Function Pipeline Editing * |
 
@@ -213,7 +213,7 @@ this information. So, there is a protocol for facilitating this dance:
   in-cluster resource to the in-package resource, or the `data` field in the
   case of a ConfigMap.
 
-| ![Figure 4: Configuration Injection](packagevariant-config-injection.png) |
+| ![Figure 4: Configuration Injection](./static/images/packagevariant-config-injection.png) |
 | :---: |
 | *Figure 4: Configuration Injection* |
 
@@ -321,7 +321,7 @@ explicitly list of repositories. In this example, for the `cluster-01` and
 it simply takes the defaults. However, for `cluster-03`, a template is defined
 to change the downstream package name to `bar`.
 
-| ![Figure 5: PackageVariantSet with Repository List](packagevariantset-target-list.png) |
+| ![Figure 5: PackageVariantSet with Repository List](./static/images/packagevariantset-target-list.png) |
 | :---: |
 | *Figure 5: PackageVariantSet with Repository List* |
 
@@ -334,7 +334,7 @@ the repository `cluster-01` are generated, one for each listed package name.
 Since no `packageNames` field is listed for `cluster-02`, only one instance is
 created for that repository.
 
-| ![Figure 6: PackageVariantSet with Package List](packagevariantset-target-list-with-packages.png) |
+| ![Figure 6: PackageVariantSet with Package List](./static/images/packagevariantset-target-list-with-packages.png) |
 | :---: |
 | *Figure 6: PackageVariantSet with Package List* |
 
@@ -343,7 +343,7 @@ configuration injection that various based upon the target. The template for the
 PackageVariant includes a CEL expression for the one of the injectors, so that
 the injection varies systematically based upon attributes of the target.
 
-| ![Figure 7: PackageVariantSet with Repository Selector](packagevariantset-target-repo-selector.png) |
+| ![Figure 7: PackageVariantSet with Repository Selector](./static/images/packagevariantset-target-repo-selector.png) |
 | :---: |
 | *Figure 7: PackageVariantSet with Repository Selector* |
 

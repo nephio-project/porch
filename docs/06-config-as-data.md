@@ -22,7 +22,7 @@ configuration of infrastructure, policy, services, applications, etc.) which:
   upon the configuration data; clients manipulating configuration data don’t
   need to directly interact with storage (git, container images)
 
-![CaD Overview](./CaD%20Overview.svg)
+![CaD Overview](./static/images/CaD%20Overview.svg)
 
 ## Key Principles
 

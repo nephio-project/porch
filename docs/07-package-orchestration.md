@@ -101,7 +101,7 @@ At the high level, the Core CaD functionality comprises:
 * a task-specific UI supporting repository management, package discovery,
   authoring, and lifecycle
 
-![CaD Core Architecture](./CaD%20Core%20Architecture.svg)
+![CaD Core Architecture](./static/images/CaD%20Core%20Architecture.svg)
 
 ## CaD Concepts Elaborated
 
@@ -332,7 +332,7 @@ to UI interactions, the innermost authoring loop (depicted below) will require:
 * low latency [KRM function][krm functions] evaluation and package rendering
   (evaluation of package's function pipelines)
 
-![Inner Loop](./Porch%20Inner%20Loop.svg)
+![Inner Loop](./static/images/Porch%20Inner%20Loop.svg)
 
 #### Authoring & Access Control
 
@@ -357,7 +357,7 @@ The Package Orchestration service, **Porch** is designed to be hosted in a
 The overall architecture is shown below, and includes also existing components
 (k8s apiserver and Config Sync).
 
-![](./Porch%20Architecture.svg)
+![](./static/images/Porch%20Architecture.svg)
 
 In addition to satisfying requirements highlighted above, the focus of the
 architecture was to:
