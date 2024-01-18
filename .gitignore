@@ -8,3 +8,8 @@ default.etcd/
 
 # Local cache files
 .cache/
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+*.info
+coverage_unit.html
