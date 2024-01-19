@@ -1270,37 +1270,11 @@ status:
 
 The `porchtcl` command is an administration command for acting on Porch `Repository` (repo) and `PackageRevision` (rpkg) CRs. See its [documentation for usage information](https://github.com/nephio-project/porch/blob/main/docs/porchctl-cli-guide.md).
 
-The commands for administering repositories are:
-
-| Command               | Description                    |
-| --------------------- | ------------------------------ |
-| `porchctl repo get`   | List registered repositories.  |
-| `porchctl repo reg`   | Register a package repository. |
-| `porchctl repo unreg` | Unregister a repository.       |
-
-The commands for administering package revisions are:
-
-| Command                        | Description                                                                             |
-| ------------------------------ | --------------------------------------------------------------------------------------- |
-| `porchctl rpkg approve`        | Approve a proposal to publish a package revision.                                       |
-| `porchctl rpkg clone`          | Create a clone of an existing package revision.                                         |
-| `porchctl rpkg copy`           | Create a new package revision from an existing one.                                     |
-| `porchctl rpkg del`            | Delete a package revision.                                                              |
-| `porchctl rpkg get`            | List package revisions in registered repositories.                                      |
-| `porchctl rpkg init`           | Initializes a new package in a repository.                                              |
-| `porchctl rpkg propose`        | Propose that a package revision should be published.                                    |
-| `porchctl rpkg propose-delete` | Propose deletion of a published package revision.                                       |
-| `porchctl rpkg pull`           | Pull the content of the package revision.                                               |
-| `porchctl rpkg push`           | Push resources to a package revision.                                                   |
-| `porchctl rpkg reject`         | Reject a proposal to publish or delete a package revision.                              |
-| `porchctl rpkg update`         | Update a downstream package revision to a more recent revision of its upstream package. |
-
-
 <details>
 <summary>Check that <code>porchctl</code> lists our repos:</summary>
 
 ```
-build/porchctl repo -n porch-demo get
+porchctl repo -n porch-demo get
 NAME                  TYPE   CONTENT   DEPLOYMENT   READY   ADDRESS
 edge1                 git    Package   true         True    http://172.18.255.200:3000/nephio/edge1.git
 external-blueprints   git    Package   false        True    https://github.com/nephio-project/free5gc-packages.git
@@ -1312,7 +1286,7 @@ management            git    Package   false        True    http://172.18.255.20
 <summary>Check that <code>porchctl</code> lists our remote packages (PackageRevisions):</summary>
 
 ```
-build/porchctl rpkg -n porch-demo get
+porchctl rpkg -n porch-demo get
 NAME                                                           PACKAGE              WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
 external-blueprints-922121d0bcdd56bfa8cae6c375720e2b5f358ab0   free5gc-cp           main            main       false    Published   external-blueprints
 external-blueprints-dabbc422fdf0b8e5942e767d929b524e25f7eef9   free5gc-cp           v1              v1         true     Published   external-blueprints
@@ -1349,7 +1323,9 @@ The output above is similar to the output of `kubectl get packagerevision -n por
 
 ## Creating a blueprint in Porch
 
-Create a new package in our `management` repo using the sample `network-function` package provided.
+### Blueprint with no Kpt pipelines
+
+Create a new package in our `management` repo using the sample `network-function` package provided. This network function kpt package is a demo Kpt package that installs [nginx](https://github.com/nginx). 
 
 ```
 porchctl -n porch-demo rpkg init network-function --repository=management --workspace=v1
@@ -1395,54 +1371,90 @@ management-8b80738a6e0707e3718ae1db3668d0b8ca3f1c82   network-function   v1     
 
 Once we approve the package, the package is merged into the main branch in the `management` repo and the branch called `network-function/v1` in that repo is removed. Use the Gitea UI to verify this. We now have our blueprint package in our `management` repo and we can deploy this package into workload clusters.
 
+### Blueprint with a Kpt pipeline
+
+The second blueprint blueprint in the `blueprint` directory is called `network-function-auto-namespace`. This network function is exactly the same as the `network-function` package except that it has a Kpt function that automatically creates a namespace with the namespace configured in the `name` field in the `package-context.yaml` file. Note that no namespace is defined in the metadata of the `deployment.yaml` file of this Kpt package.
+
+We use the same sequence of commands again to publish our blueprint package for `network-function-auto-namespace`.
+
+```
+porchctl -n porch-demo rpkg init network-function-auto-namespace --repository=management --workspace=v1
+management-c97bc433db93f2e8a3d413bed57216c2a72fc7e3 created
+
+porchctl -n porch-demo rpkg pull management-c97bc433db93f2e8a3d413bed57216c2a72fc7e3 | yq '.items[0]' > blueprints/network-function-auto-namespace/.KptRevisionMetadata
+
+porchctl -n porch-demo rpkg push management-c97bc433db93f2e8a3d413bed57216c2a72fc7e3 blueprints/network-function-auto-namespace
+```
+
+Examine the `drafts/network-function-auto-namespace/v1` branch in Gitea. Notice that the `set-namespace` Kpt finction in the pipeline in the `Kptfile` has set the namespace in the `deployment.yaml` file to the value `default-namespace-name`, which it read from the `package-context.yaml` file.
+
+Now we propose and approve the package.
+
+```
+porchctl -n porch-demo rpkg propose management-c97bc433db93f2e8a3d413bed57216c2a72fc7e3
+management-c97bc433db93f2e8a3d413bed57216c2a72fc7e3 proposed
+
+porchctl -n porch-demo rpkg approve management-c97bc433db93f2e8a3d413bed57216c2a72fc7e3
+management-c97bc433db93f2e8a3d413bed57216c2a72fc7e3 approved
+
+porchctl -n porch-demo rpkg get --name network-function-auto-namespace
+NAME                                                  PACKAGE                           WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
+management-f9a6f2802111b9e81c296422c03aae279725f6df   network-function-auto-namespace   v1              main       false    Published   management
+management-c97bc433db93f2e8a3d413bed57216c2a72fc7e3   network-function-auto-namespace   v1              v1         true     Published   management
+
+```
+
 ## Deploying a blueprint onto a workload cluster
+
+### Blueprint with no Kpt pipelines
 
 The process of deploying a blueprint package from our `management` repo clones the package, then modifies it for use on the workload cluster. The cloned package is then initialized, pushed, proposed, and approved onto the `edge1` repo. Remember that the `edge1` repo is being monitored by Configsync from the `edge1` cluster, so once the package appears in the `edge1` repo on the management cluster, it will be pulled by Configsync and applied to the `edge1` cluster.
 
 ```
-porchctl -n porch-demo rpkg pull management-8b80738a6e0707e3718ae1db3668d0b8ca3f1c82 tmp_pacakges_for_deployment/edge1-network-function
+porchctl -n porch-demo rpkg pull management-8b80738a6e0707e3718ae1db3668d0b8ca3f1c82 tmp_pacakges_for_deployment/edge1-network-function-a
 
-find tmp_pacakges_for_deployment/edge1-network-function
+find tmp_pacakges_for_deployment/edge1-network-function-a
 
-tmp_pacakges_for_deployment/edge1-network-function
-tmp_pacakges_for_deployment/edge1-network-function/deployment.yaml
-tmp_pacakges_for_deployment/edge1-network-function/.KptRevisionMetadata
-tmp_pacakges_for_deployment/edge1-network-function/README.md
-tmp_pacakges_for_deployment/edge1-network-function/Kptfile
+tmp_pacakges_for_deployment/edge1-network-function-a
+tmp_pacakges_for_deployment/edge1-network-function-a/deployment.yaml
+tmp_pacakges_for_deployment/edge1-network-function-a/.KptRevisionMetadata
+tmp_pacakges_for_deployment/edge1-network-function-a/README.md
+tmp_pacakges_for_deployment/edge1-network-function-a/Kptfile
 ```
 The package we created in the last section is cloned. We now use a kpt function to change the namespace that will be used for the deployment of the network function.
 
 ```
-kpt fn eval --image=gcr.io/kpt-fn/set-namespace:v0.4.1 tmp_pacakges_for_deployment/edge1-network-function -- namespace=network-function-a 
+kpt fn eval --image=gcr.io/kpt-fn/set-namespace:v0.4.1 tmp_pacakges_for_deployment/edge1-network-function-a -- namespace=edge1-network-function-a 
+
 [RUNNING] "gcr.io/kpt-fn/set-namespace:v0.4.1"
-[PASS] "gcr.io/kpt-fn/set-namespace:v0.4.1" in 2.7s
+[PASS] "gcr.io/kpt-fn/set-namespace:v0.4.1" in 300ms
   Results:
-    [info]: namespace "","default" updated to "network-function-a", 2 value(s) changed
+    [info]: namespace "" updated to "edge1-network-function-a", 1 value(s) changed
 ```
 
 We now initialize and push the package to the `edge1` repo:
 
 ```
-porchctl -n porch-demo rpkg init network-function-a --repository=edge1 --workspace=v1
-edge1-9b4b4d99c43b5c5c8489a47bbce9a61f79904946 created
+porchctl -n porch-demo rpkg init edge1-network-function-a --repository=edge1 --workspace=v1
+edge1-d701be9b849b8b8724a6e052cbc74ca127b737c3 created
 
-porchctl -n porch-demo rpkg pull edge1-9b4b4d99c43b5c5c8489a47bbce9a61f79904946 | yq '.items[0]' >  tmp_pacakges_for_deployment/edge1-network-function/.KptRevisionMetadata
+porchctl -n porch-demo rpkg pull edge1-d701be9b849b8b8724a6e052cbc74ca127b737c3 | yq '.items[0]' >  tmp_pacakges_for_deployment/edge1-network-function-a/.KptRevisionMetadata
 
-porchctl -n porch-demo rpkg push edge1-9b4b4d99c43b5c5c8489a47bbce9a61f79904946 tmp_pacakges_for_deployment/edge1-network-function
+porchctl -n porch-demo rpkg push edge1-d701be9b849b8b8724a6e052cbc74ca127b737c3 tmp_pacakges_for_deployment/edge1-network-function-a
 
-porchctl -n porch-demo rpkg get --name network-function-a
+porchctl -n porch-demo rpkg get --name edge1-network-function-a
 NAME                                             PACKAGE              WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
-edge1-9b4b4d99c43b5c5c8489a47bbce9a61f79904946   network-function-a   v1                         false    Draft       edge1
+edge1-d701be9b849b8b8724a6e052cbc74ca127b737c3   network-function-a   v1                         false    Draft       edge1
 ```
 
 You can verify that the package is in the `network-function-a/v1` branch of the deployment repo using the Gitea web UI.
 
 
-Check that the `network-function-a` package is not deployed on the edge1 cluster yet:
+Check that the `edge1-network-function-a` package is not deployed on the edge1 cluster yet:
 ```
 export KUBECONFIG=~/.kube/kind-edge1-config
 
-kubectl get pod -n network-function-a
+kubectl get pod -n edge1-network-function-a
 No resources found in network-function-a namespace.
 
 ```
@@ -1452,30 +1464,116 @@ We now propose and approve the deployment package, which merges the package to t
 ```
 export KUBECONFIG=~/.kube/kind-management-config
 
-porchctl -n porch-demo rpkg propose edge1-9b4b4d99c43b5c5c8489a47bbce9a61f79904946
-edge1-9b4b4d99c43b5c5c8489a47bbce9a61f79904946 proposed
+porchctl -n porch-demo rpkg propose edge1-d701be9b849b8b8724a6e052cbc74ca127b737c3
+edge1-d701be9b849b8b8724a6e052cbc74ca127b737c3 proposed
 
-porchctl -n porch-demo rpkg approve edge1-9b4b4d99c43b5c5c8489a47bbce9a61f79904946
-edge1-9b4b4d99c43b5c5c8489a47bbce9a61f79904946 approved
+porchctl -n porch-demo rpkg approve edge1-d701be9b849b8b8724a6e052cbc74ca127b737c3
+edge1-d701be9b849b8b8724a6e052cbc74ca127b737c3 approved
 
-porchctl -n porch-demo rpkg get --name network-function-a
+porchctl -n porch-demo rpkg get --name edge1-network-function-a
 NAME                                             PACKAGE              WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
-edge1-9b4b4d99c43b5c5c8489a47bbce9a61f79904946   network-function-a   v1              v1         true     Published   edge1
+edge1-d701be9b849b8b8724a6e052cbc74ca127b737c3   network-function-a   v1              v1         true     Published   edge1
 ```
 
 We can now check that the `network-function-a` package is deployed on the edge1 cluster and that the pod is running
 ```
 export KUBECONFIG=~/.kube/kind-edge1-config
 
-kubectl get pod -n network-function-a
+kubectl get pod -n edge1-network-function-a
 No resources found in network-function-a namespace.
 
-kubectl get pod -n network-function-a
-network-function-9779fc9f5-2tswc   1/1     ContainerCreating   0          9s
+kubectl get pod -n edge1-network-function-a
+NAME                               READY   STATUS              RESTARTS   AGE
+network-function-9779fc9f5-4rqp2   1/1     ContainerCreating   0          9s
 
-kubectl get pod -n network-function-a
+kubectl get pod -n edge1-network-function-a
 NAME                               READY   STATUS    RESTARTS   AGE
-network-function-9779fc9f5-2tswc   1/1     Running   0          9s
+network-function-9779fc9f5-4rqp2   1/1     Running   0          44s
+```
+
+### Blueprint with a Kpt pipeline
+
+The process for deploying a blueprint with a Kpt pipeline runs the Kpt pipeline automatically with whatever configuration we give it. Rather than explicitly running a Kpt function to change the namespace, we will specify the namespace as configuration and the pipeline will apply it to the deployment.
+
+```
+porchctl -n porch-demo rpkg pull management-c97bc433db93f2e8a3d413bed57216c2a72fc7e3 tmp_pacakges_for_deployment/edge1-network-function-auto-namespace-a
+
+find tmp_pacakges_for_deployment/edge1-network-function-auto-namespace-a
+
+tmp_pacakges_for_deployment/edge1-network-function-auto-namespace-a
+tmp_pacakges_for_deployment/edge1-network-function-auto-namespace-a/deployment.yaml
+tmp_pacakges_for_deployment/edge1-network-function-auto-namespace-a/.KptRevisionMetadata
+tmp_pacakges_for_deployment/edge1-network-function-auto-namespace-a/README.md
+tmp_pacakges_for_deployment/edge1-network-function-auto-namespace-a/Kptfile
+tmp_pacakges_for_deployment/edge1-network-function-auto-namespace-a/package-context.yaml
+```
+The package we created in the last section is cloned. We now simply configure the namespace we want to apply. edit the `edge1-network-function-auto-namespace-a/package-context.yaml` file and set the namespace to use:
+
+```
+8c8
+<   name: default-namespace-name
+---
+>   name: edge1-network-function-auto-namespace-a
+```
+
+We now initialize and push the package to the `edge1` repo:
+
+```
+porchctl -n porch-demo rpkg init edge1-network-function-auto-namespace-a --repository=edge1 --workspace=v1
+edge1-48997da49ca0a733b0834c1a27943f1a0e075180 created
+
+porchctl -n porch-demo rpkg pull edge1-48997da49ca0a733b0834c1a27943f1a0e075180 | yq '.items[0]' >  tmp_pacakges_for_deployment/edge1-network-function-auto-namespace-a/.KptRevisionMetadata
+
+porchctl -n porch-demo rpkg push edge1-48997da49ca0a733b0834c1a27943f1a0e075180 tmp_pacakges_for_deployment/edge1-network-function-auto-namespace-a
+[RUNNING] "gcr.io/kpt-fn/set-namespace:v0.4.1" 
+[PASS] "gcr.io/kpt-fn/set-namespace:v0.4.1"
+  Results:
+    [info]: namespace "default-namespace-name" updated to "edge1-network-function-auto-namespace-a", 1 value(s) changed
+
+porchctl -n porch-demo rpkg get --name edge1-network-function-auto-namespace-a
+```
+
+You can verify that the package is in the `network-function-auto-namespace-a/v1` branch of the deployment repo using the Gitea web UI. You can see that the kpt pipeline fired and set the `edge1-network-function-auto-namespace-a` namespace in the `deployment.yaml` file on the `drafts/edge1-network-function-auto-namespace-a/v1` branch on the `edge1` repo in gitea.
+
+Check that the `edge1-network-function-auto-namespace-a` package is not deployed on the edge1 cluster yet:
+```
+export KUBECONFIG=~/.kube/kind-edge1-config
+
+kubectl get pod -n edge1-network-function-auto-namespace-a
+No resources found in network-function-auto-namespace-a namespace.
+
+```
+
+We now propose and approve the deployment package, which merges the package to the `edge1` repo and further triggers Configsync to apply the package to the `edge1` cluster.
+
+```
+export KUBECONFIG=~/.kube/kind-management-config
+
+porchctl -n porch-demo rpkg propose edge1-48997da49ca0a733b0834c1a27943f1a0e075180
+edge1-48997da49ca0a733b0834c1a27943f1a0e075180 proposed
+
+porchctl -n porch-demo rpkg approve edge1-48997da49ca0a733b0834c1a27943f1a0e075180
+edge1-48997da49ca0a733b0834c1a27943f1a0e075180 approved
+
+porchctl -n porch-demo rpkg get --name edge1-network-function-auto-namespace-a
+NAME                                             PACKAGE                                   WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
+edge1-48997da49ca0a733b0834c1a27943f1a0e075180   edge1-network-function-auto-namespace-a   v1              v1         true     Published   edge1
+```
+
+We can now check that the `network-function-auto-namespace-a` package is deployed on the edge1 cluster and that the pod is running
+```
+export KUBECONFIG=~/.kube/kind-edge1-config
+
+kubectl get pod -n edge1-network-function-auto-namespace-a
+No resources found in network-function-auto-namespace-a namespace.
+
+kubectl get pod -n edge1-network-function-auto-namespace-a
+NAME                                               READY   STATUS              RESTARTS   AGE
+network-function-auto-namespace-85bc658d67-rbzt6   1/1     ContainerCreating   0          3s
+
+kubectl get pod -n edge1-network-function-auto-namespace-a
+NAME                                               READY   STATUS    RESTARTS   AGE
+network-function-auto-namespace-85bc658d67-rbzt6   1/1     Running   0          10s
 ```
 
 ## Deploying using Package Variant Sets

@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: network-function-auto-namespace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: network-function-auto-namespace
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: network-function-auto-namespace
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
