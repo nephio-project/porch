@@ -474,7 +474,7 @@ external-blueprints-7757966cc7b965f1b9372370a4b382c8375a2b40   pkg-example-upf-b
 <summary>The PackageRevisionResources resource is an API Aggregation resource that Porch uses to wrap the GET URL for the package on its repo.</summary>
 
 ```
-k get packagerevisionresources  -n porch-demo
+kubectl get packagerevisionresources  -n porch-demo
 NAME                                                           PACKAGE              WORKSPACENAME   REVISION   REPOSITORY            FILES
 external-blueprints-922121d0bcdd56bfa8cae6c375720e2b5f358ab0   free5gc-cp           main            main       external-blueprints   28
 external-blueprints-dabbc422fdf0b8e5942e767d929b524e25f7eef9   free5gc-cp           v1              v1         external-blueprints   28
@@ -1268,57 +1268,7 @@ status:
 
 ## The porchctl command
 
-When Porch was ported to Nephio, the `kpt alpha rpkg` commands in kpt were moved into a new command called `porchctl`. Porch is as yet not released in Nephio, so we need to build the `porchctl` command from source.
-
-```
-git clone https://github.com/nephio-project/porch.git
-cd porch
-go build -o build/porchctl ./cmd/porchctl
-```
-
-<details>
-<summary>Check that porchctl is working:</summary>
-
-```
-build/porchctl --help
-
-porchctl interacts with a Kubernetes API server with the Porch
-server installed as an aggregated API server. It allows you to
-manage Porch repository registrations and the packages within
-those repositories.
-
-Usage:
-  porchctl [flags]
-  porchctl [command]
-
-Available Commands:
-  completion  Generate the autocompletion script for the specified shell
-  help        Help about any command
-  repo        Manage package repositories.
-  rpkg        Manage packages.
-  version     Print the version number of porchctl
-
-Flags:
-  -h, --help                           help for porchctl
-      --log-flush-frequency duration   Maximum number of seconds between log flushes (default 5s)
-      --truncate-output                Enable the truncation for output (default true)
-  -v, --v Level                        number for the log level verbosity
-
-Use "porchctl [command] --help" for more information about a command.
-
-```
-</details>
-
-_optional: Configure `porchctl` on your environment_
-
-1. Either add `porchctl` to your PATH or copy it to a directory already in the path
-```
-sudo cp ~/work/porch/porch/build/porchctl /usr/local/bin
-```
-2. Configure autocompletion on `porchctl` by editing your shell startup configuration file such as `.zshrc`
-
-
-The `porchtcl` command is an administration command for acting on Porch `Repository` (repo) and `PackageRevision` (rpkg) CRs.
+The `porchtcl` command is an administration command for acting on Porch `Repository` (repo) and `PackageRevision` (rpkg) CRs. See its [documentation for usage information](../../porchctl-cli-guide.md).
 
 The commands for administering repositories are:
 
