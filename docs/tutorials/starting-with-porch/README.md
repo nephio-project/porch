@@ -1268,7 +1268,7 @@ status:
 
 ## The porchctl command
 
-The `porchtcl` command is an administration command for acting on Porch `Repository` (repo) and `PackageRevision` (rpkg) CRs. See its [documentation for usage information](../../porchctl-cli-guide.md).
+The `porchtcl` command is an administration command for acting on Porch `Repository` (repo) and `PackageRevision` (rpkg) CRs. See its [documentation for usage information](https://github.com/nephio-project/porch/blob/main/docs/porchctl-cli-guide.md).
 
 The commands for administering repositories are:
 
