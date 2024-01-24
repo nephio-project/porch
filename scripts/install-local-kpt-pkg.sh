@@ -25,6 +25,7 @@ Usage: ${0} [flags]
 Supported Flags:
   --destination DIRECTORY             ... directory in which the kpt pkg will be copied to
   --pkg         PKG                   ... name of the kpt pkg
+  --kubeconfig  KUBECONFIG            ... the kubeconfig to use with kpt
 EOF
   exit 1
 }
@@ -32,6 +33,7 @@ EOF
 # Flag variables
 DESTINATION=""
 PKG=""
+KUBECONFIG=""
 
 while [[ $# -gt 0 ]]; do
   key="${1}"
@@ -43,6 +45,11 @@ while [[ $# -gt 0 ]]; do
 
     --pkg)
       PKG="${2}"
+      shift 2
+    ;;
+
+    --kubeconfig)
+      KUBECONFIG="${2}"
       shift 2
     ;;
 
@@ -59,9 +66,9 @@ function validate() {
 
 function deploy-local-pkg {
 	cp -R ./test/pkgs/${PKG} "${DESTINATION}"
-  kpt fn render ${DESTINATION}/${PKG}
-  kpt live init ${DESTINATION}/${PKG}
-  kpt live apply ${DESTINATION}/${PKG}
+  kpt fn render ${DESTINATION}/${PKG} --kubeconfig ${KUBECONFIG}
+  kpt live init ${DESTINATION}/${PKG} --kubeconfig ${KUBECONFIG}
+  kpt live apply ${DESTINATION}/${PKG} --kubeconfig ${KUBECONFIG}
 }
 
 function main() {

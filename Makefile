@@ -328,7 +328,8 @@ deploy-gitea-dev-pkg:
 	mkdir -p $(DEPLOYKPTCONFIGDIR)/${PKG}
 	./scripts/install-local-kpt-pkg.sh \
 	  --destination $(DEPLOYKPTCONFIGDIR) \
-	  --pkg ${PKG}
+	  --pkg ${PKG} \
+	  --kubeconfig $(KUBECONFIG)
 
 .PHONY: vulncheck
 vulncheck: build
