@@ -28,7 +28,7 @@ Supported Flags:
   --controllers-image IMAGE           ... address of the Porch controllers image
   --function-image IMAGE              ... address of the Porch function runtime image
   --wrapper-server-image IMAGE        ... address of the Porch function wrapper server image
-  --enabled-reconcilers RECONCILDERS  ... comma-separated list of reconcilers that should be enabled in porch controller
+  --enabled-reconcilers RECONCILERS   ... comma-separated list of reconcilers that should be enabled in porch controller
 EOF
   exit 1
 }
@@ -70,7 +70,12 @@ while [[ $# -gt 0 ]]; do
     --enabled-reconcilers)
       ENABLED_RECONCILERS="${2}"
       shift 2
-      ;;
+    ;;
+    
+    --kind-context)
+      KIND_CONTEXT_NAME="${2}"
+      shift 2
+    ;;
 
     *)
       error "Invalid argument: ${key}"
@@ -88,7 +93,7 @@ function validate() {
 }
 
 
-function customize_kpt {
+function customize-pkg-images {
 	kpt fn eval "${DESTINATION}" --image gcr.io/kpt-fn/search-replace:v0.2.0 -- by-value-regex="${1}" put-value="${2}"
 }
 
@@ -100,8 +105,30 @@ function customize-container-env {
   sed "/env:/a\            - name: ${ENV_KEY}\n              value: ${ENV_VAL}\n" -i "${DESTINATION}/porch/9-controllers.yaml"
 }
 
+function deploy-gitea-dev-pkg {
+	cp -R ./test/pkgs/gitea-dev "${DESTINATION}"
+  kpt fn render ${DESTINATION}/gitea-dev
+  kpt live init ${DESTINATION}/gitea-dev
+  kpt live apply ${DESTINATION}/gitea-dev
+}
+
+function deploy-porch-dev-pkg {
+  kpt fn render ${DESTINATION}/porch
+  kpt live init ${DESTINATION}/porch
+  kpt live apply ${DESTINATION}/porch
+}
+
+function load-custom-images {
+  kind load docker-image ${SERVER_IMAGE} -n ${KIND_CONTEXT_NAME}
+	kind load docker-image ${CONTROLLERS_IMAGE} -n ${KIND_CONTEXT_NAME}
+	kind load docker-image ${FUNCTION_IMAGE} -n ${KIND_CONTEXT_NAME}
+	kind load docker-image ${WRAPPER_SERVER_IMAGE} -n ${KIND_CONTEXT_NAME}
+}
+
 function main() {
   
+  load-custom-images
+
   kpt pkg get https://github.com/nephio-project/catalog/tree/main/nephio/core/porch ${DESTINATION}
 
   IFS=',' read -ra RECONCILERS <<< "$ENABLED_RECONCILERS"
@@ -112,21 +139,25 @@ function main() {
       "\"true\""
   done
 
-  customize_kpt \
+  customize-pkg-images \
   "porch-server:latest" \
   "${SERVER_IMAGE}"
 
-  customize_kpt \
+  customize-pkg-images \
   "porch-controllers:latest" \
   "${CONTROLLERS_IMAGE}"
 
-  customize_kpt \
+  customize-pkg-images \
   "porch-function-runner:latest" \
   "${FUNCTION_IMAGE}"
 
-  customize_kpt \
+  customize-pkg-images \
   "porch-wrapper-server:latest" \
   "${WRAPPER_SERVER_IMAGE}"
+
+  deploy-porch-dev-pkg
+
+  # deploy-gitea-dev-pkg
 }
 
 validate

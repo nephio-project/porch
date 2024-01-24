@@ -1,0 +1,22 @@
+# Source: gitea/templates/gitea/ssh-svc.yaml
+apiVersion: v1
+kind: Service
+metadata: # kpt-merge: gitea/gitea-ssh
+  name: gitea-ssh
+  namespace: gitea
+  labels:
+    app: gitea
+    app.kubernetes.io/name: gitea
+    app.kubernetes.io/instance: gitea
+  annotations:
+    internal.kpt.dev/upstream-identifier: '|Service|gitea|gitea-ssh'
+spec:
+  type: ClusterIP
+  ports:
+  - name: ssh
+    port: 22
+    targetPort: 2222
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: gitea
+    app.kubernetes.io/instance: gitea

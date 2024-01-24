@@ -310,6 +310,7 @@ deployment-config-kpt:
 	  --function-image "$(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):$(IMAGE_TAG)" \
 	  --wrapper-server-image "$(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):$(IMAGE_TAG)" \
 	  --enabled-reconcilers "$(ENABLED_RECONCILERS)" \
+	  --kind-context "$(KIND_CONTEXT_NAME)"
 
 .PHONY: run-in-kind-kpt
 run-in-kind-kpt: IMAGE_REPO=porch-kind
@@ -317,16 +318,17 @@ run-in-kind-kpt:
   ifeq ($(SKIP_IMG_BUILD), false)
 	make build-images; 
   endif
-	kind load docker-image $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
-	kind load docker-image $(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
-	kind load docker-image $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
-	kind load docker-image $(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
-	kind load docker-image $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
 	make deployment-config-kpt
-	KUBECONFIG=$(KUBECONFIG) kubectl apply --wait --recursive --filename $(DEPLOYKPTCONFIGDIR)/porch
-	KUBECONFIG=$(KUBECONFIG) kubectl rollout status deployment function-runner --namespace porch-system
-	KUBECONFIG=$(KUBECONFIG) kubectl rollout status deployment porch-controllers --namespace porch-system
-	KUBECONFIG=$(KUBECONFIG) kubectl rollout status deployment porch-server --namespace porch-system
+
+PKG=gitea-dev
+.PHONY: deploy-gitea-dev-pkg
+deploy-gitea-dev-pkg:
+	PKG=gitea-dev
+	rm -rf $(DEPLOYKPTCONFIGDIR)/${PKG} || true
+	mkdir -p $(DEPLOYKPTCONFIGDIR)/${PKG}
+	./scripts/install-local-kpt-pkg.sh \
+	  --destination $(DEPLOYKPTCONFIGDIR) \
+	  --pkg ${PKG}
 
 .PHONY: vulncheck
 vulncheck: build
