@@ -1578,6 +1578,8 @@ network-function-auto-namespace-85bc658d67-rbzt6   1/1     Running   0          
 
 ## Deploying using Package Variant Sets
 
+### Simple PackageVariantSet
+
 The PackageVariant CR is defined in the [simple-variant.yaml](simple-variant.yaml) file. In this very simple PackageVariant, the `network-function` package in the `management` repo is cloned into the `edge1` repo as the `network-function-b` and `network-function-c` package variants.
 
 > **_NOTE:_**  This simple package variant does not specify any configuration changes. Normally, as well as cloning and renaming, configuration changes would be applied on a package variant.
@@ -1713,7 +1715,6 @@ metadata:
 
 We now want to customize and deploy our two packages. To do this we must pull the pacakges locally, render the kpt functions, and then push the rendered packages back up to the `edge1` repo.
 
-> **_QUESTION_**: Can the Porch GUI can do this next sequence of steps more automatically?
 ```
 porchctl rpkg pull edge1-a31b56c7db509652f00724dd49746660757cd98a tmp_pacakges_for_deployment/edge1-network-function-b --namespace=porch-demo
 kpt fn eval --image=gcr.io/kpt-fn/set-namespace:v0.4.1 tmp_pacakges_for_deployment/edge1-network-function-b -- namespace=network-function-b
@@ -1724,7 +1725,7 @@ kpt fn eval --image=gcr.io/kpt-fn/set-namespace:v0.4.1 tmp_pacakges_for_deployme
 porchctl rpkg push edge1-ee14f7ce850ddb0a380cf201d86f48419dc291f4 tmp_pacakges_for_deployment/edge1-network-function-c --namespace=porch-demo
 ```
 
-Check that the namespace has been updated onthe two packages in the `edge1` repo using the Gitea web UI.
+Check that the namespace has been updated on the two packages in the `edge1` repo using the Gitea web UI.
 
 Now our two packages are ready for deployment:
 
@@ -1751,4 +1752,195 @@ NAMESPACE                      NAME                                             
 network-function-a             network-function-9779fc9f5-2tswc                    1/1     Running   0               19h
 network-function-b             network-function-9779fc9f5-6zwhh                    1/1     Running   0               76s
 network-function-c             network-function-9779fc9f5-h7nsb                    1/1     Running   0               41s
+```
+
+### Using a PackageVariantSet to automatically set the package name and package namespace
+
+The PackageVariant CR is defined in the [name-namespace-variant.yaml](name-namespace-variant.yaml) file. In this PackageVariant, the `network-function-auto-namespace` package in the `management` repo is cloned into the `edge1` repo as the `network-function-auto-namespace-x` and `network-function-auto-namespace-y` package variants, similar to the PackageVariant in `simple-variant.yaml`.
+
+Here note the extra `template` section provided for the repositories in the PackageVariant:
+
+```
+template:
+  downstream:
+    packageExpr: "target.package + '-cumulus'"
+```
+
+This template means that each package in the `spec.targets.repositories..packageNames` list will have the suffix `-cumulus` added to its name. This allows us to automatically generate unique package names. Applying the PackageVariantSet also automatically sets a unique namespace for each network function because applying the PackageVariantSet automatically triggers the Kpt pipeline in the `network-function-auto-namespace` Kpt package to gerenate unique namespaces for each deployed package.
+
+> Many other mutatinos can be performed using a PackageVariantSet. Use `kubectl explain PackageVariantSet` to get help on the structure of the PackageVariantSet CRD to see the various mutations that are possible.
+
+Applying the PackageVariantSet creates the new packages as draft packages:
+
+```
+kubectl apply -f name-namespace-variant.yaml 
+packagevariantset.config.porch.kpt.dev/network-function-auto-namespace created
+
+kunectl get -n porch-demo PackageVariantSet network-function-auto-namespace
+NAME                              AGE
+network-function-auto-namespace   38s
+
+kubectl get PackageRevisions -n porch-demo | grep auto-namespace
+edge1-1f521f05a684adfa8562bf330f7bc72b50e21cc5                 edge1-network-function-auto-namespace-a          v1                 main       false    Published   edge1
+edge1-48997da49ca0a733b0834c1a27943f1a0e075180                 edge1-network-function-auto-namespace-a          v1                 v1         true     Published   edge1
+edge1-009659a8532552b86263434f68618554e12f4f7c                 network-function-auto-namespace-x-cumulonimbus   packagevariant-1              false    Draft       edge1
+edge1-77dbfed49b6cb0723b7c672b224de04c0cead67e                 network-function-auto-namespace-y-cumulonimbus   packagevariant-1              false    Draft       edge1
+management-f9a6f2802111b9e81c296422c03aae279725f6df            network-function-auto-namespace                  v1                 main       false    Published   management
+management-c97bc433db93f2e8a3d413bed57216c2a72fc7e3            network-function-auto-namespace                  v1                 v1         true     Published   management
+```
+Note that the suffix `x-cumulonimbus` and `y-cumulonimbus` has been palced on the package names.
+
+Examine the `edge1` repo on Giea and you should see two new draft branches.
+
+- drafts/network-function-auto-namespace-x-cumulonimbus/packagevariant-1
+- drafts/network-function-auto-namespace-y-cumulonimbus/packagevariant-1
+
+In these packages, you will see that:
+
+1. The package name has been generated as `network-function-auto-namespace-x-cumulonimbus` and `network-function-auto-namespace-y-cumulonimbus`in all files in the packages
+2. The namespace has been generated as `network-function-auto-namespace-x-cumulonimbus` and `network-function-auto-namespace-y-cumulonimbus` respectively in the `demployment.yaml` files
+3. The PackageVariant has set the `data.name` field as `network-function-auto-namespace-x-cumulonimbus` and `network-function-auto-namespace-y-cumulonimbus` respectively in the `pckage-context.yaml` files
+
+Note that this has all been performed automatically; weh have not had to perform the `porchctl rpkg pull/kpt fn render/porchctl rpkg push` combination of commands to make these chages as we had to in the `simple-variant.yaml` case above.
+
+Now, let us explore the packages further:
+
+```
+porchctl -n porch-demo rpkg get --name network-function-auto-namespace-x-cumulonimbus
+NAME                                             PACKAGE                                          WORKSPACENAME      REVISION   LATEST   LIFECYCLE   REPOSITORY
+edge1-009659a8532552b86263434f68618554e12f4f7c   network-function-auto-namespace-x-cumulonimbus   packagevariant-1              false    Draft       edge1
+
+porchctl -n porch-demo rpkg get --name network-function-auto-namespace-y-cumulonimbus
+NAME                                             PACKAGE                                          WORKSPACENAME      REVISION   LATEST   LIFECYCLE   REPOSITORY
+edge1-77dbfed49b6cb0723b7c672b224de04c0cead67e   network-function-auto-namespace-y-cumulonimbus   packagevariant-1              false    Draft       edge1
+```
+
+We can see that our two new packages are created as draft packages on the edge1 repo. We can also examine the PacakgeVariant CRs that have been created:
+```
+kubectl get PackageVariant -n porch-demo
+NAME                                                              AGE
+network-function-auto-namespace-edge1-network-function-35079f9f   3m41s
+network-function-auto-namespace-edge1-network-function-d521d2c0   3m41s
+network-function-edge1-network-function-b                         38m
+network-function-edge1-network-function-c                         38m
+```
+
+<details>
+<summary>It is also interesting to examine the yaml of a PackageVariant:</summary>
+
+```
+kubectl get PackageVariant -n porch-demo network-function-auto-namespace-edge1-network-function-35079f9f -o yaml
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: PackageVariant
+metadata:
+  creationTimestamp: "2024-01-24T15:10:19Z"
+  finalizers:
+  - config.porch.kpt.dev/packagevariants
+  generation: 1
+  labels:
+    config.porch.kpt.dev/packagevariantset: 71edbdff-21c1-45f4-b9cb-6d2ecfc3da4e
+  name: network-function-auto-namespace-edge1-network-function-35079f9f
+  namespace: porch-demo
+  ownerReferences:
+  - apiVersion: config.porch.kpt.dev/v1alpha2
+    controller: true
+    kind: PackageVariantSet
+    name: network-function-auto-namespace
+    uid: 71edbdff-21c1-45f4-b9cb-6d2ecfc3da4e
+  resourceVersion: "404083"
+  uid: 5ae69c2d-6aac-4942-b717-918325650190
+spec:
+  downstream:
+    package: network-function-auto-namespace-x-cumulonimbus
+    repo: edge1
+  upstream:
+    package: network-function-auto-namespace
+    repo: management
+    revision: v1
+status:
+  conditions:
+  - lastTransitionTime: "2024-01-24T15:10:19Z"
+    message: all validation checks passed
+    reason: Valid
+    status: "False"
+    type: Stalled
+  - lastTransitionTime: "2024-01-24T15:10:49Z"
+    message: successfully ensured downstream package variant
+    reason: NoErrors
+    status: "True"
+    type: Ready
+  downstreamTargets:
+  - name: edge1-009659a8532552b86263434f68618554e12f4f7c
+```
+</details>
+
+Our two packages are ready for deployment:
+
+```
+porchctl rpkg propose edge1-009659a8532552b86263434f68618554e12f4f7c --namespace=porch-demo
+edge1-009659a8532552b86263434f68618554e12f4f7c proposed
+
+porchctl rpkg approve edge1-009659a8532552b86263434f68618554e12f4f7c --namespace=porch-demo
+edge1-009659a8532552b86263434f68618554e12f4f7c approved
+
+porchctl rpkg propose edge1-77dbfed49b6cb0723b7c672b224de04c0cead67e --namespace=porch-demo
+edge1-77dbfed49b6cb0723b7c672b224de04c0cead67e proposed
+
+porchctl rpkg approve edge1-77dbfed49b6cb0723b7c672b224de04c0cead67e --namespace=porch-demo
+edge1-77dbfed49b6cb0723b7c672b224de04c0cead67e approved
+```
+
+We can now check that the packages are deployed on the edge1 cluster and that the pods are running
+
+```
+export KUBECONFIG=~/.kube/kind-edge1-config
+
+kubectl get pod -A | egrep '(NAMESPACE|network-function)'
+NAMESPACE                                 NAME                                                READY   STATUS    RESTARTS       AGE
+edge1-network-function-a                  network-function-9779fc9f5-87scj                    1/1     Running   1 (2d1h ago)   4d22h
+edge1-network-function-auto-namespace-a   network-function-auto-namespace-85bc658d67-rbzt6    1/1     Running   1 (2d1h ago)   4d22h
+network-function-b                        network-function-9779fc9f5-twh2g                    1/1     Running   0              45m
+network-function-c                        network-function-9779fc9f5-whhr8                    1/1     Running   0              44m
+
+kubectl get pod -A | egrep '(NAMESPACE|network-function)'
+NAMESPACE                                        NAME                                                READY   STATUS              RESTARTS       AGE
+edge1-network-function-a                         network-function-9779fc9f5-87scj                    1/1     Running             1 (2d1h ago)   4d22h
+edge1-network-function-auto-namespace-a          network-function-auto-namespace-85bc658d67-rbzt6    1/1     Running             1 (2d1h ago)   4d22h
+network-function-auto-namespace-x-cumulonimbus   network-function-auto-namespace-85bc658d67-86gml    0/1     ContainerCreating   0              1s
+network-function-b                               network-function-9779fc9f5-twh2g                    1/1     Running             0              45m
+network-function-c                               network-function-9779fc9f5-whhr8                    1/1     Running             0              44m
+
+kubectl get pod -A | egrep '(NAMESPACE|network-function)'
+NAMESPACE                                        NAME                                                READY   STATUS    RESTARTS       AGE
+edge1-network-function-a                         network-function-9779fc9f5-87scj                    1/1     Running   1 (2d1h ago)   4d22h
+edge1-network-function-auto-namespace-a          network-function-auto-namespace-85bc658d67-rbzt6    1/1     Running   1 (2d1h ago)   4d22h
+network-function-auto-namespace-x-cumulonimbus   network-function-auto-namespace-85bc658d67-86gml    1/1     Running   0              10s
+network-function-b                               network-function-9779fc9f5-twh2g                    1/1     Running   0              45m
+network-function-c                               network-function-9779fc9f5-whhr8                    1/1     Running   0              45m
+
+kubectl get pod -A | egrep '(NAMESPACE|network-function)'
+NAMESPACE                                        NAME                                                READY   STATUS    RESTARTS       AGE
+edge1-network-function-a                         network-function-9779fc9f5-87scj                    1/1     Running   1 (2d1h ago)   4d22h
+edge1-network-function-auto-namespace-a          network-function-auto-namespace-85bc658d67-rbzt6    1/1     Running   1 (2d1h ago)   4d22h
+network-function-auto-namespace-x-cumulonimbus   network-function-auto-namespace-85bc658d67-86gml    1/1     Running   0              50s
+network-function-b                               network-function-9779fc9f5-twh2g                    1/1     Running   0              46m
+network-function-c                               network-function-9779fc9f5-whhr8                    1/1     Running   0              45m
+
+kubectl get pod -A | egrep '(NAMESPACE|network-function)'
+NAMESPACE                                        NAME                                                READY   STATUS              RESTARTS       AGE
+edge1-network-function-a                         network-function-9779fc9f5-87scj                    1/1     Running             1 (2d1h ago)   4d22h
+edge1-network-function-auto-namespace-a          network-function-auto-namespace-85bc658d67-rbzt6    1/1     Running             1 (2d1h ago)   4d22h
+network-function-auto-namespace-x-cumulonimbus   network-function-auto-namespace-85bc658d67-86gml    1/1     Running             0              51s
+network-function-auto-namespace-y-cumulonimbus   network-function-auto-namespace-85bc658d67-tp5m8    0/1     ContainerCreating   0              1s
+network-function-b                               network-function-9779fc9f5-twh2g                    1/1     Running             0              46m
+network-function-c                               network-function-9779fc9f5-whhr8                    1/1     Running             0              45m
+
+kubectl get pod -A | egrep '(NAMESPACE|network-function)'
+NAMESPACE                                        NAME                                                READY   STATUS    RESTARTS       AGE
+edge1-network-function-a                         network-function-9779fc9f5-87scj                    1/1     Running   1 (2d1h ago)   4d22h
+edge1-network-function-auto-namespace-a          network-function-auto-namespace-85bc658d67-rbzt6    1/1     Running   1 (2d1h ago)   4d22h
+network-function-auto-namespace-x-cumulonimbus   network-function-auto-namespace-85bc658d67-86gml    1/1     Running   0              54s
+network-function-auto-namespace-y-cumulonimbus   network-function-auto-namespace-85bc658d67-tp5m8    1/1     Running   0              4s
+network-function-b                               network-function-9779fc9f5-twh2g                    1/1     Running   0              46m
+network-function-c                               network-function-9779fc9f5-whhr8                    1/1     Running   0              45m
 ```
