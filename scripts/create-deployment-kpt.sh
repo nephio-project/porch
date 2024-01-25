@@ -85,6 +85,7 @@ done
 
 
 function validate() {
+  yq -v &> /dev/null            || error "'yq' command must be installed"
   [ -n "${DESTINATION}"       ] || error "--destination is required"
   [ -n "${SERVER_IMAGE}"      ] || error "--server-image is required"
   [ -n "${CONTROLLERS_IMAGE}" ] || error "--controllers-image is required"
@@ -95,14 +96,6 @@ function validate() {
 
 function customize-pkg-images {
 	kpt fn eval "${DESTINATION}" --image gcr.io/kpt-fn/search-replace:v0.2.0 -- by-value-regex="${1}" put-value="${2}"
-}
-
-function customize-container-env {
-  local ENV_KEY="${1}"
-  local ENV_VAL="${2}"
-
-  # TODO: This is terrible. Do we have a good way to handle this with kpt?
-  sed "/env:/a\            - name: ${ENV_KEY}\n              value: ${ENV_VAL}\n" -i "${DESTINATION}/porch/9-controllers.yaml"
 }
 
 function deploy-gitea-dev-pkg {
@@ -131,12 +124,16 @@ function main() {
 
   kpt pkg get https://github.com/nephio-project/catalog/tree/main/nephio/core/porch ${DESTINATION}
 
+  yq -i eval 'del(.spec.template.spec.containers[0].env)' "${DESTINATION}/porch/9-controllers.yaml"
+  yq -i eval '.spec.template.spec.containers[0].env = []' "${DESTINATION}/porch/9-controllers.yaml"
+
   IFS=',' read -ra RECONCILERS <<< "$ENABLED_RECONCILERS"
   for i in "${RECONCILERS[@]}"; do
     # Update the porch-controllers Deployment env variables to enable the reconciler.
-    customize-container-env \
-      "ENABLE_${i^^}" \
-      "\"true\""
+    RECONCILER_ENV_VAR="ENABLE_$(echo "$i" | tr '[:lower:]' '[:upper:]')"
+    reconciler="$RECONCILER_ENV_VAR" \
+      yq -i eval '.spec.template.spec.containers[0].env += {"name": env(reconciler), "value": "true"}' \
+      "${DESTINATION}/porch/9-controllers.yaml"
   done
 
   customize-pkg-images \
@@ -156,8 +153,6 @@ function main() {
   "${WRAPPER_SERVER_IMAGE}"
 
   deploy-porch-dev-pkg
-
-  # deploy-gitea-dev-pkg
 }
 
 validate

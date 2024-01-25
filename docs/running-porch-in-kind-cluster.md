@@ -11,6 +11,7 @@ Docker image load bug on v25.0.0 Use v24.0.7
 4. [The go programming language](https://go.dev/doc/install)
 5. [kind](https://kind.sigs.k8s.io/docs/user/quick-start#installation)
 6. [kpt-cli](https://kpt.dev/installation/kpt-cli)
+7. [yq](https://github.com/mikefarah/yq/#install)
 
 ## Create a default kind cluster
 
@@ -18,6 +19,13 @@ If one is not already available, create a kind cluster.
 
 ```
 kind create cluster -n dev
+```
+
+Optionally, save the config for the new cluster and set it as the default config in the current shell:
+
+```
+kind get kubeconfig --name=dev > ~/.kube/kind-dev-config
+export KUBECONFIG=~/.kube/kind-dev-config
 ```
 
 ## Clone Porch and deploy with custom images
@@ -250,4 +258,9 @@ Again, alternatively, we can use kubectl:
 
 ```
 kubectl delete --wait --recursive --filename ./.build/deploy/porch/
+```
+
+Finally, we can delete the kind cluster if necessary:
+```
+kind delete cluster -n dev
 ```
