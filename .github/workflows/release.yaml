@@ -33,6 +33,10 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: Setup release environment
+        id: setup-release-env
+        run: |-
+          echo 'GITHUB_TOKEN=${{secrets.GITHUB_TOKEN}}' > .release-env
       - name: Run GoReleaser
         id: run-goreleaser
         uses: goreleaser/goreleaser-action@v4
@@ -40,3 +44,5 @@ jobs:
           distribution: goreleaser
           version: latest
           args: release --skip-validate -f release/tag/goreleaser.yaml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
