@@ -81,6 +81,9 @@ changelog:
       - "(?i)^regenerate docs"
       - Merge pull request
       - Merge branch
+
+project_name: porchctl
+
 release:
   github:
     owner: nephio-project
