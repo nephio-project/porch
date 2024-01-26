@@ -67,9 +67,9 @@ porch-server        1/1     1            1           81m   porch-server        p
 
 
 
-## Deploy in memory gitea
+## Deploy a minimal, in memory gitea
 
-To facilitate testing towards a git repo, we can deploy a minimal in memory [gitea](https://docs.gitea.com/) installation.
+To facilitate testing towards a git repo, we can deploy a minimal, in memory [gitea](https://docs.gitea.com/) installation.
 
 Here, we pass the following vars to the make target:
 
