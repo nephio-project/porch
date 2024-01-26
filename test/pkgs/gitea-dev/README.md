@@ -1,4 +1,4 @@
 # gitea-dev
 
 ## Description
-Small in memory persistence gitea-dev package
+A small, in memory persistence gitea-dev package
