@@ -1,0 +1,6 @@
+apiVersion: v1
+kind: Namespace
+metadata: # kpt-merge: /gitea
+  name: gitea
+  annotations:
+    internal.kpt.dev/upstream-identifier: '|Namespace|default|gitea'

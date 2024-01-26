@@ -1,0 +1,57 @@
+# Source: gitea/templates/gitea/config.yaml
+apiVersion: v1
+kind: Secret
+metadata: # kpt-merge: gitea/gitea-inline-config
+  name: gitea-inline-config
+  namespace: gitea
+  labels:
+    app: gitea
+    app.kubernetes.io/name: gitea
+    app.kubernetes.io/instance: gitea
+  annotations:
+    internal.kpt.dev/upstream-identifier: '|Secret|gitea|gitea-inline-config'
+type: Opaque
+stringData:
+  _generals_: ""
+  cache: |-
+    ADAPTER=memory
+    HOST=
+  database: DB_TYPE=sqlite3
+  indexer: ISSUE_INDEXER_TYPE=db
+  metrics: ENABLED=false
+  queue: |-
+    CONN_STR=
+    TYPE=level
+  repository: ROOT=/data/git/gitea-repositories
+  security: INSTALL_LOCK=true
+  server: |-
+    APP_DATA_PATH=/data
+    DOMAIN=git.example.com
+    ENABLE_PPROF=false
+    HTTP_PORT=3000
+    PROTOCOL=http
+    ROOT_URL=http://git.example.com
+    SSH_DOMAIN=git.example.com
+    SSH_LISTEN_PORT=2222
+    SSH_PORT=22
+    START_SSH_SERVER=true
+  session: |-
+    PROVIDER=memory
+    PROVIDER_CONFIG=
+---
+# Source: gitea/templates/gitea/config.yaml
+apiVersion: v1
+kind: Secret
+metadata: # kpt-merge: gitea/gitea
+  name: gitea
+  namespace: gitea
+  labels:
+    app: gitea
+    app.kubernetes.io/name: gitea
+    app.kubernetes.io/instance: gitea
+  annotations:
+    internal.kpt.dev/upstream-identifier: '|Secret|gitea|gitea'
+type: Opaque
+stringData:
+  assertions: ""
+  config_environment.sh: "#!/usr/bin/env bash\nset -euo pipefail\n\nfunction env2ini::log() {\n  printf \"${1}\\n\"\n}\n\nfunction env2ini::read_config_to_env() {\n  local section=\"${1}\"\n  local line=\"${2}\"\n\n  if [[ -z \"${line}\" ]]; then\n    # skip empty line\n    return\n  fi\n  \n  # 'xargs echo -n' trims all leading/trailing whitespaces and a trailing new line\n  local setting=\"$(awk -F '=' '{print $1}' <<< \"${line}\" | xargs echo -n)\"\n\n  if [[ -z \"${setting}\" ]]; then\n    env2ini::log '  ! invalid setting'\n    exit 1\n  fi\n\n  local value=''\n  local regex=\"^${setting}(\\s*)=(\\s*)(.*)\"\n  if [[ $line =~ $regex ]]; then\n    value=\"${BASH_REMATCH[3]}\"\n  else\n    env2ini::log '  ! invalid setting'\n    exit 1\n  fi\n\n  env2ini::log \"    + '${setting}'\"\n\n  if [[ -z \"${section}\" ]]; then\n    export \"GITEA____${setting^^}=${value}\"                           # '^^' makes the variable content uppercase\n    return\n  fi\n\n  local masked_section=\"${section//./_0X2E_}\"                            # '//' instructs to replace all matches\n  masked_section=\"${masked_section//-/_0X2D_}\"\n\n  export \"GITEA__${masked_section^^}__${setting^^}=${value}\"        # '^^' makes the variable content uppercase\n}\n\nfunction env2ini::reload_preset_envs() {\n  env2ini::log \"Reloading preset envs...\"\n\n  while read -r line; do\n    if [[ -z \"${line}\" ]]; then\n      # skip empty line\n      return\n    fi\n\n    # 'xargs echo -n' trims all leading/trailing whitespaces and a trailing new line\n    local setting=\"$(awk -F '=' '{print $1}' <<< \"${line}\" | xargs echo -n)\"\n\n    if [[ -z \"${setting}\" ]]; then\n      env2ini::log '  ! invalid setting'\n      exit 1\n    fi\n\n    local value=''\n    local regex=\"^${setting}(\\s*)=(\\s*)(.*)\"\n    if [[ $line =~ $regex ]]; then\n      value=\"${BASH_REMATCH[3]}\"\n    else\n      env2ini::log '  ! invalid setting'\n      exit 1\n    fi\n\n    env2ini::log \"  + '${setting}'\"\n\n    export \"${setting^^}=${value}\"                           # '^^' makes the variable content uppercase\n  done < \"/tmp/existing-envs\"\n\n  rm /tmp/existing-envs\n}\n\n\nfunction env2ini::process_config_file() {\n  local config_file=\"${1}\"\n  local section=\"$(basename \"${config_file}\")\"\n\n  if [[ $section == '_generals_' ]]; then\n    env2ini::log \"  [ini root]\"\n    section=''\n  else\n    env2ini::log \"  ${section}\"\n  fi\n\n  while read -r line; do\n    env2ini::read_config_to_env \"${section}\" \"${line}\"\n  done < <(awk 1 \"${config_file}\")                             # Helm .toYaml trims the trailing new line which breaks line processing; awk 1 ... adds it back while reading\n}\n\nfunction env2ini::load_config_sources() {\n  local path=\"${1}\"\n\n  if [[ -d \"${path}\" ]]; then\n    env2ini::log \"Processing $(basename \"${path}\")...\"\n\n    while read -d '' configFile; do\n      env2ini::process_config_file \"${configFile}\"\n    done < <(find \"${path}\" -type l -not -name '..data' -print0)\n\n    env2ini::log \"\\n\"\n  fi\n}\n\nfunction env2ini::generate_initial_secrets() {\n  # These environment variables will either be\n  #   - overwritten with user defined values,\n  #   - initially used to set up Gitea\n  # Anyway, they won't harm existing app.ini files\n\n  export GITEA__SECURITY__INTERNAL_TOKEN=$(gitea generate secret INTERNAL_TOKEN)\n  export GITEA__SECURITY__SECRET_KEY=$(gitea generate secret SECRET_KEY)\n  export GITEA__OAUTH2__JWT_SECRET=$(gitea generate secret JWT_SECRET)\n  export GITEA__SERVER__LFS_JWT_SECRET=$(gitea generate secret LFS_JWT_SECRET)\n\n  env2ini::log \"...Initial secrets generated\\n\"\n}\n\n# save existing envs prior to script execution. Necessary to keep order of preexisting and custom envs\nenv | (grep -e '^GITEA__' || [[ $? == 1 ]]) > /tmp/existing-envs\n\n# MUST BE CALLED BEFORE OTHER CONFIGURATION\nenv2ini::generate_initial_secrets\n\nenv2ini::load_config_sources '/env-to-ini-mounts/inlines/'\nenv2ini::load_config_sources '/env-to-ini-mounts/additionals/'\n\n# load existing envs to override auto generated envs\nenv2ini::reload_preset_envs\n\nenv2ini::log \"=== All configuration sources loaded ===\\n\"\n\n# safety to prevent rewrite of secret keys if an app.ini already exists\nif [ -f ${GITEA_APP_INI} ]; then\n  env2ini::log 'An app.ini file already exists. To prevent overwriting secret keys, these settings are dropped and remain unchanged:'\n  env2ini::log '  - security.INTERNAL_TOKEN'\n  env2ini::log '  - security.SECRET_KEY'\n  env2ini::log '  - oauth2.JWT_SECRET'\n  env2ini::log '  - server.LFS_JWT_SECRET'\n\n  unset GITEA__SECURITY__INTERNAL_TOKEN\n  unset GITEA__SECURITY__SECRET_KEY\n  unset GITEA__OAUTH2__JWT_SECRET\n  unset GITEA__SERVER__LFS_JWT_SECRET\nfi\n\nenvironment-to-ini -o $GITEA_APP_INI"

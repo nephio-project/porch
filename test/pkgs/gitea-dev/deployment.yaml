@@ -1,0 +1,195 @@
+# Source: gitea/templates/gitea/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata: # kpt-merge: gitea/gitea
+  name: gitea
+  namespace: gitea
+  labels:
+    app: gitea
+    app.kubernetes.io/name: gitea
+    app.kubernetes.io/instance: gitea
+  annotations:
+    internal.kpt.dev/upstream-identifier: 'apps|Deployment|gitea|gitea'
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 100%
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gitea
+      app.kubernetes.io/instance: gitea
+  template:
+    metadata:
+      annotations:
+        checksum/config: 5393f07b5c0820e53347ffbe79db7183188eaf9bff38271d80f6e3e1904b15a5
+      labels:
+        app: gitea
+        app.kubernetes.io/name: gitea
+        app.kubernetes.io/instance: gitea
+    spec:
+      securityContext:
+        fsGroup: 1000
+      initContainers:
+        - name: init-directories
+          image: "gitea/gitea:1.21.4-rootless"
+          imagePullPolicy: IfNotPresent
+          command: ["/usr/sbin/init_directory_structure.sh"]
+          env:
+            - name: GITEA_APP_INI
+              value: /data/gitea/conf/app.ini
+            - name: GITEA_CUSTOM
+              value: /data/gitea
+            - name: GITEA_WORK_DIR
+              value: /data
+            - name: GITEA_TEMP
+              value: /tmp/gitea
+          volumeMounts:
+            - name: init
+              mountPath: /usr/sbin
+            - name: temp
+              mountPath: /tmp
+            - name: data
+              mountPath: /data
+          securityContext: {}
+          resources:
+            limits: {}
+            requests:
+              cpu: 100m
+              memory: 128Mi
+        - name: init-app-ini
+          image: "gitea/gitea:1.21.4-rootless"
+          imagePullPolicy: IfNotPresent
+          command: ["/usr/sbin/config_environment.sh"]
+          env:
+            - name: GITEA_APP_INI
+              value: /data/gitea/conf/app.ini
+            - name: GITEA_CUSTOM
+              value: /data/gitea
+            - name: GITEA_WORK_DIR
+              value: /data
+            - name: GITEA_TEMP
+              value: /tmp/gitea
+          volumeMounts:
+            - name: config
+              mountPath: /usr/sbin
+            - name: temp
+              mountPath: /tmp
+            - name: data
+              mountPath: /data
+            - name: inline-config-sources
+              mountPath: /env-to-ini-mounts/inlines/
+          securityContext: {}
+          resources:
+            limits: {}
+            requests:
+              cpu: 100m
+              memory: 128Mi
+        - name: configure-gitea
+          image: "gitea/gitea:1.21.4-rootless"
+          command: ["/usr/sbin/configure_gitea.sh"]
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 1000
+          env:
+            - name: GITEA_APP_INI
+              value: /data/gitea/conf/app.ini
+            - name: GITEA_CUSTOM
+              value: /data/gitea
+            - name: GITEA_WORK_DIR
+              value: /data
+            - name: GITEA_TEMP
+              value: /tmp/gitea
+            - name: HOME
+              value: /data/gitea/git
+            - name: GITEA_ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  key: username
+                  name: git-user-secret
+            - name: GITEA_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: git-user-secret
+          volumeMounts:
+            - name: init
+              mountPath: /usr/sbin
+            - name: temp
+              mountPath: /tmp
+            - name: data
+              mountPath: /data
+          resources:
+            limits: {}
+            requests:
+              cpu: 100m
+              memory: 128Mi
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: gitea
+          image: "gitea/gitea:1.21.4-rootless"
+          imagePullPolicy: IfNotPresent
+          env:
+            # SSH Port values have to be set here as well for openssh configuration
+            - name: SSH_LISTEN_PORT
+              value: "2222"
+            - name: SSH_PORT
+              value: "22"
+            - name: GITEA_APP_INI
+              value: /data/gitea/conf/app.ini
+            - name: GITEA_CUSTOM
+              value: /data/gitea
+            - name: GITEA_WORK_DIR
+              value: /data
+            - name: GITEA_TEMP
+              value: /tmp/gitea
+            - name: TMPDIR
+              value: /tmp/gitea
+            - name: HOME
+              value: /data/gitea/git
+          ports:
+            - name: ssh
+              containerPort: 2222
+            - name: http
+              containerPort: 3000
+          livenessProbe:
+            failureThreshold: 10
+            initialDelaySeconds: 200
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: http
+            timeoutSeconds: 1
+          readinessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: http
+            timeoutSeconds: 1
+          resources: {}
+          securityContext: {}
+          volumeMounts:
+            - name: temp
+              mountPath: /tmp
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: init
+          secret:
+            secretName: gitea-init
+            defaultMode: 110
+        - name: config
+          secret:
+            secretName: gitea
+            defaultMode: 110
+        - name: inline-config-sources
+          secret:
+            secretName: gitea-inline-config
+        - name: temp
+          emptyDir: {}
+        - name: data
+          emptyDir: {}
