@@ -1,0 +1,92 @@
+# Copyright 2024 The Nephio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This defines the build for goreleaser (https://goreleaser.com/). It is
+# executed through a Github Action that is triggered by new tags being created
+# in the porch repo.
+# As porch needs to be compiled with CGO, we cannot simply just provide a simple
+# matrix of GOOS and GOARCH combinations, but instead, we'd need to define separate
+# steps for each targeted OS and ARCH. This is because we need to specify the
+# platform specific C std library (libc) and cross-compiler to be used.
+env:
+  - CGO_ENABLED=0
+  - GO111MODULE=on
+builds:
+  - id: darwin-amd64
+    env:
+      - CGO_ENABLED=0
+      - GO111MODULE=on
+    goos:
+      - darwin
+    goarch:
+      - amd64
+    ldflags: -s -w
+    main: ./cmd/porchctl
+
+  - id: darwin-arm64
+    env:
+      - CGO_ENABLED=0
+      - GO111MODULE=on
+    goos:
+      - darwin
+    goarch:
+      - arm64
+    ldflags: -s -w
+    main: ./cmd/porchctl
+
+  - id: linux-amd64
+    env:
+      - CGO_ENABLED=0
+      - GO111MODULE=on
+    goos:
+      - linux
+    goarch:
+      - amd64
+    ldflags: -s -w -extldflags "-z noexecstack"
+    main: ./cmd/porchctl
+
+  - id: linux-arm64
+    env:
+      - CGO_ENABLED=0
+      - GO111MODULE=on
+    goos:
+      - linux
+    goarch:
+      - arm64
+    ldflags: -s -w -extldflags "-z noexecstack"
+    main: ./cmd/porchctl
+
+
+checksum:
+  name_template: "checksums.txt"
+snapshot:
+  name_template: "main"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "(?i)^docs:"
+      - "(?i)^test:"
+      - "(?i)^regenerate docs"
+      - Merge pull request
+      - Merge branch
+
+project_name: porchctl
+
+release:
+  github:
+    owner: nephio-project
+    name: porch
+  draft: false
+  prerelease: "true"
