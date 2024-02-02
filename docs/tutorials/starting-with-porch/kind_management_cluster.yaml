@@ -1,0 +1,16 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+
+name: management
+networking:
+  apiServerAddress: 127.0.0.1
+  apiServerPort: 31000
+  podSubnet: 10.97.0.0/16
+  serviceSubnet: 10.197.0.0/16
+nodes:
+- role: control-plane
+  extraPortMappings:
+  - containerPort: 30000
+    hostPort: 32000
+  - containerPort: 3000 # Gitea NodePort
+    hostPort: 30600
