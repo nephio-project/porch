@@ -1,18 +1,26 @@
 ## Using the porchctl cli
 
-When Porch was ported to Nephio, the `kpt alpha rpkg` commands in kpt were moved into a new command called `porchctl`. Porch is as yet not released in Nephio, so we need to build the `porchctl` command from source.
+When Porch was ported to Nephio, the `kpt alpha rpkg` commands in kpt were moved into a new command called `porchctl`. 
+
+See the [project releases](https://github.com/nephio-project/porch/releases) for information on the latest release.
+
+Once the preferred binary is downloaded and extracted, we can set it up for use locally.
+
+_optional: Configure `porchctl` on your environment_
+
+1. Either add `porchctl` to your PATH or copy it to a directory already in the path. 
+```
+cp porchctl /usr/local/bin/
+```
+2. Generate the autocompletion script for the specified shell to add to your profile.
+```
+porchctl completion bash
+```
+
+Check that porchctl is working:
 
 ```
-git clone https://github.com/nephio-project/porch.git
-cd porch
-go build -o build/porchctl ./cmd/porchctl
-```
-
-<details>
-<summary>Check that porchctl is working:</summary>
-
-```
-build/porchctl --help
+porchctl --help
 
 porchctl interacts with a Kubernetes API server with the Porch
 server installed as an aggregated API server. It allows you to
@@ -39,21 +47,6 @@ Flags:
 Use "porchctl [command] --help" for more information about a command.
 
 ```
-</details>
-
-
-
-_optional: Configure `porchctl` on your environment_
-
-1. Either add `porchctl` to your PATH or copy it to a directory already in the path
-```
-sudo cp build/porchctl /usr/local/bin/
-```
-2. Generate the autocompletion script for the specified shell to add to your profile.
-```
-porchctl completion bash
-```
-
 
 The `porchtcl` command is an administration command for acting on Porch `Repository` (repo) and `PackageRevision` (rpkg) CRs.
 
