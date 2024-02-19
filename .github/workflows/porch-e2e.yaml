@@ -69,3 +69,4 @@ jobs:
         with:
           name: porch-e2e-server.log
           path: porch-e2e-server.log
+          compression-level: 0
