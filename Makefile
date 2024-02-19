@@ -309,6 +309,7 @@ deployment-config-kpt:
 	  --controllers-image "$(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):$(IMAGE_TAG)" \
 	  --function-image "$(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):$(IMAGE_TAG)" \
 	  --wrapper-server-image "$(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):$(IMAGE_TAG)" \
+	  --test-git-server-image "$(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG}" \
 	  --enabled-reconcilers "$(ENABLED_RECONCILERS)" \
 	  --kind-context "$(KIND_CONTEXT_NAME)"
 

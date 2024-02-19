@@ -28,6 +28,7 @@ Supported Flags:
   --controllers-image IMAGE           ... address of the Porch controllers image
   --function-image IMAGE              ... address of the Porch function runtime image
   --wrapper-server-image IMAGE        ... address of the Porch function wrapper server image
+  --test-git-server-image             ... address of the test git server image
   --enabled-reconcilers RECONCILERS   ... comma-separated list of reconcilers that should be enabled in porch controller
 EOF
   exit 1
@@ -64,6 +65,11 @@ while [[ $# -gt 0 ]]; do
 
     --wrapper-server-image)
       WRAPPER_SERVER_IMAGE="${2}"
+      shift 2
+    ;;
+
+    --test-git-server-image)
+      TEST_GIT_SERVER_IMAGE="${2}"
       shift 2
     ;;
 
@@ -116,6 +122,7 @@ function load-custom-images {
 	kind load docker-image ${CONTROLLERS_IMAGE} -n ${KIND_CONTEXT_NAME}
 	kind load docker-image ${FUNCTION_IMAGE} -n ${KIND_CONTEXT_NAME}
 	kind load docker-image ${WRAPPER_SERVER_IMAGE} -n ${KIND_CONTEXT_NAME}
+  kind load docker-image ${TEST_GIT_SERVER_IMAGE} -n ${KIND_CONTEXT_NAME}
 }
 
 function main() {
@@ -137,19 +144,19 @@ function main() {
   done
 
   customize-pkg-images \
-  "porch-server:latest" \
+  "porch-server:v2.0.0" \
   "${SERVER_IMAGE}"
 
   customize-pkg-images \
-  "porch-controllers:latest" \
+  "porch-controllers:v2.0.0" \
   "${CONTROLLERS_IMAGE}"
 
   customize-pkg-images \
-  "porch-function-runner:latest" \
+  "porch-function-runner:v2.0.0" \
   "${FUNCTION_IMAGE}"
 
   customize-pkg-images \
-  "porch-wrapper-server:latest" \
+  "porch-wrapper-server:v2.0.0" \
   "${WRAPPER_SERVER_IMAGE}"
 
   deploy-porch-dev-pkg
