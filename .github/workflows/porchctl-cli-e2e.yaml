@@ -45,13 +45,11 @@ jobs:
           repo: kptdev/kpt
           tag: v1.0.0-beta.49
           chmod: 0755
-
       - name: Build and install porchctl
         run: |
           go build -o ${GITHUB_WORKSPACE}.build/ ./cmd/porchctl
           mv ${GITHUB_WORKSPACE}.build/porchctl /usr/local/bin/porchctl
           sudo chmod 755 /usr/local/bin/porchctl
-          porchctl -h
       - name: Create k8s Kind Cluster
         uses: helm/kind-action@v1
         with:
@@ -64,11 +62,11 @@ jobs:
         if: always()
         run: |
           name=$(kubectl -n porch-system get pod -l app=porch-server -o custom-columns=NAME:.metadata.name --no-headers=true)
-          kubectl -n porch-system logs $name > porch-e2e-server.log
+          kubectl -n porch-system logs $name > porch-cli-e2e-server.log
       - name: Archive logs
         if: always()
         uses: actions/upload-artifact@v4  
         with:
-          name: porch-e2e-server.log
-          path: porch-e2e-server.log
+          name: porch-cli-e2e-server.log
+          path: porch-cli-e2e-server.log
           compression-level: 0
