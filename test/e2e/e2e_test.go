@@ -23,7 +23,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
 	"github.com/google/go-cmp/cmp"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
