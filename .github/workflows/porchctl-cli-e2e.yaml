@@ -51,6 +51,8 @@ jobs:
           go build -o ${GITHUB_WORKSPACE}.build/ ./cmd/porchctl
           chmod -x ${GITHUB_WORKSPACE}.build/porchctl
           mv ${GITHUB_WORKSPACE}.build/porchctl /usr/local/bin/porchctl
+          echo $PATH
+          porchctl -h
       - name: Create k8s Kind Cluster
         uses: helm/kind-action@v1
         with:
