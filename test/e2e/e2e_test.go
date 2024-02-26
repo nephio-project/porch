@@ -121,7 +121,6 @@ func (t *PorchSuite) registerMainGitRepositoryF(ctx context.Context, name string
 			},
 			Type: corev1.SecretTypeBasicAuth,
 		})
-
 		t.Cleanup(func() {
 			t.DeleteE(ctx, &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
