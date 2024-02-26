@@ -5,15 +5,14 @@ and running to which a Porch instance running in Visual Studio Code can connect 
 
 # Setup kind with MetalLB and Gitea
 
-Follow steps 1-5 inclusive of the [Starting with Porch](https://github.com/nephio-project/porch/tree/main/docs/tutorials/starting-with-porch) tutorial. You now have 2 Kind clusters
-running with Gitea installed. Gitea has the repositories `management` and `edge1` defined.
+Follow steps 1-5 inclusive of the [Starting with Porch](https://github.com/nephio-project/porch/tree/main/docs/tutorials/starting-with-porch) tutorial. You now have two Kind clusters `management` and `edge1` running with Gitea installed on the `management` cluster. Gitea has the repositories `management` and `edge1` defined.
 
-> **_NOTE:_** The [setup script](bin/setup.sh) automates steps 1-5 of the Starting with Porch tutorial. You may need to adaot this script to your local environment.
+> **_NOTE:_** This [setup script](bin/setup.sh) automates steps 1-5 of the Starting with Porch tutorial. You may need to adaot this script to your local environment.
 
-> **_NOTE:_** The [cleardown script script](bin/cleardown.sh) clears everything down by deleting the `management` and `edge1` Kind clusters. USE WITH CARE.
+> **_NOTE:_** This [cleardown script script](bin/cleardown.sh) clears everything down by deleting the `management` and `edge1` Kind clusters. USE WITH CARE.
 
 
-You can reach the Gitea web interface on the address reported byt he following command:
+You can reach the Gitea web interface on the address reported by the following command:
 ```
 kubectl get svc -n gitea gitea        
 NAME    TYPE           CLUSTER-IP      EXTERNAL-IP      PORT(S)                       AGE
@@ -38,7 +37,7 @@ kubectl wait --namespace porch-system \
                 --timeout=300s
 ```
 
-The Porch function runner should now be executing
+The Porch function runner should now be executing:
 
 ```
 kubectl get pod -n porch-system --selector=app=function-runner
@@ -67,12 +66,11 @@ function-runner   LoadBalancer   10.197.168.148   172.18.255.201   9445:31794/TC
 
 # Install Porch resources for standalone execution
 
-The Porch server requires that the following resources are defined int he K8S cluster where it is executed:
+The Porch server requires that the following resources are defined in the K8S cluster where it is executed:
 
 - The `porch-system` namespace, an API Service called `apiservice.apiregistration.k8s.io/v1alpha1.porch.kpt.dev` and the `service.api` service to expose the API Service. These resources are defined in the the file `deployments/local/localconfig.yaml`
 - the `repositories.config.porch.kpt.dev` and `functions.config.porch.kpt.dev` CRDs. These CRDs are defined in the `api/porchconfig/v1alpha1/` directory.
 - the `packagerevs.config.porch.kpt.dev` CRD. This CRD is defined in the `internal/api/porchinternal/v1alpha1/` directory.
-- 
 
 ```
 kubectl apply -f https://raw.githubusercontent.com/nephio-project/porch/main/deployments/local/localconfig.yaml
@@ -124,7 +122,7 @@ You can now launch the Porch server locally in VSCode by selecting the "Launch S
 
 # Create Repositories using your local Porch server
 
-Follow step 6 to connect Gitea to Porch in the [Starting with Porch](https://github.com/nephio-project/porch/tree/main/docs/tutorials/starting-with-porch#connect-the-gitea-repositories-to-porch) tutorial to create the Gitea and external repositories in Porch.
+To connect Gitea to Porch follow [step 6 in the Starting with Porch](https://github.com/nephio-project/porch/tree/main/docs/tutorials/starting-with-porch#connect-the-gitea-repositories-to-porch) tutorial to create the Gitea and external repositories in Porch.
 
 You will notice logging messages in VSCode when you run the command `kubectl apply -f porch-repositories.yaml` command.
 
