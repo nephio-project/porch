@@ -88,3 +88,5 @@ popd || exit
 popd || exit
 
 rm -fr "$TMP_DIR"
+
+kubectl config use-context kind-management

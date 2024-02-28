@@ -95,6 +95,7 @@ Check out porch and start vscode in the root of your checked out Porch repo.
 Edit your local `.vscode.launch.json` file as follows:
 1. Change the `--kubeconfig` value to point at your local Kind cluster configuration file
 2. Change the `--function-runner` IP address to that of the function runner service running in the Kind `management` cluster
+3. You can specify `KUBECONFIG` in the `env` section of the configuration instead of using the `--kubeconfig` flag.
 
 ```
         {
@@ -107,18 +108,16 @@ Edit your local `.vscode.launch.json` file as follows:
                 "--secure-port=9443",
                 "--v=7",
                 "--standalone-debug-mode",
-                "--kubeconfig=/home/sean-citizen/.kube/kind-management-config",
+                "--kubeconfig=${userHome}/.kube/kind-management-config",
                 "--cache-directory=${workspaceFolder}/.cache",
                 "--function-runner=172.18.255.201:9445"
             ],
-            "env": {
-				"KUBECONFIG": "/Users/liam/.kube/kind-management-config"
-			},
             "cwd": "${workspaceFolder}"
         },
 ```
 
-You can now launch the Porch server locally in VSCode by selecting the "Launch Server" configuration on the VSCode "Run and Debug" window.
+You can now launch the Porch server locally in VSCode by selecting the "Launch Server" configuration on the VSCode "Run and Debug" window. for
+more information please refer to the [VSCode debugging documentation](https://code.visualstudio.com/docs/editor/debugging).
 
 # Create Repositories using your local Porch server
 
