@@ -36,7 +36,7 @@ func TestCreateCerts(t *testing.T) {
 		require.NoError(t, os.RemoveAll(dir))
 	}()
 
-	caCert, err := createCerts(dir)
+	caCert, err := createCerts("", dir)
 	require.NoError(t, err)
 
 	caStr := strings.TrimSpace(string(caCert))

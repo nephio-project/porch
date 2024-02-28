@@ -51,12 +51,12 @@ const (
 	serverEndpoint     = "/validate-deletion"
 )
 
-func setupWebhooks(ctx context.Context, certStorageDir string) error {
-	caBytes, err := createCerts(certStorageDir)
+func setupWebhooks(ctx context.Context, webhookNs string, certStorageDir string) error {
+	caBytes, err := createCerts(webhookNs, certStorageDir)
 	if err != nil {
 		return err
 	}
-	if err := createValidatingWebhook(ctx, caBytes); err != nil {
+	if err := createValidatingWebhook(ctx, webhookNs, caBytes); err != nil {
 		return err
 	}
 	if err := runWebhookServer(certStorageDir); err != nil {
@@ -65,11 +65,11 @@ func setupWebhooks(ctx context.Context, certStorageDir string) error {
 	return nil
 }
 
-func createCerts(certStorageDir string) ([]byte, error) {
-	klog.Infoln("creating self-signing TLS cert and key ")
+func createCerts(webhookNs string, certStorageDir string) ([]byte, error) {
+	klog.Infoln("creating self-signing TLS cert and key with namespace " + webhookNs + " in directory " + certStorageDir)
 	dnsNames := []string{"api",
-		"api.porch-system", "api.porch-system.svc"}
-	commonName := "api.porch-system.svc"
+		"api." + webhookNs, "api." + webhookNs + ".svc"}
+	commonName := "api." + webhookNs + ".svc"
 
 	var caPEM, serverCertPEM, serverPrivateKeyPEM *bytes.Buffer
 	// CA config
@@ -165,8 +165,8 @@ func WriteFile(filepath string, c []byte) error {
 	return nil
 }
 
-func createValidatingWebhook(ctx context.Context, caCert []byte) error {
-	klog.Infoln("Creating validating webhook")
+func createValidatingWebhook(ctx context.Context, webhookNs string, caCert []byte) error {
+	klog.Infoln("Creating validating webhook with namespace " + webhookNs)
 
 	cfg := ctrl.GetConfigOrDie()
 	kubeClient, err := kubernetes.NewForConfig(cfg)
@@ -175,7 +175,7 @@ func createValidatingWebhook(ctx context.Context, caCert []byte) error {
 	}
 
 	var (
-		webhookNamespace  = "porch-system"
+		webhookNamespace  = webhookNs
 		validationCfgName = "packagerev-deletion-validating-webhook"
 		webhookService    = "api"
 		path              = serverEndpoint
