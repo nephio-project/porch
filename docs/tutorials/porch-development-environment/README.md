@@ -7,7 +7,7 @@ and running to which a Porch instance running in Visual Studio Code can connect 
 
 Follow steps 1-5 inclusive of the [Starting with Porch](https://github.com/nephio-project/porch/tree/main/docs/tutorials/starting-with-porch) tutorial. You now have two Kind clusters `management` and `edge1` running with Gitea installed on the `management` cluster. Gitea has the repositories `management` and `edge1` defined.
 
-> **_NOTE:_** This [setup script](bin/setup.sh) automates steps 1-5 of the Starting with Porch tutorial. You may need to adaot this script to your local environment.
+> **_NOTE:_** This [setup script](bin/setup.sh) automates steps 1-5 of the Starting with Porch tutorial. You may need to adapt this script to your local environment.
 
 > **_NOTE:_** This [cleardown script script](bin/cleardown.sh) clears everything down by deleting the `management` and `edge1` Kind clusters. USE WITH CARE.
 
@@ -69,8 +69,8 @@ function-runner   LoadBalancer   10.197.168.148   172.18.255.201   9445:31794/TC
 The Porch server requires that the following resources are defined in the K8S cluster where it is executed:
 
 - The `porch-system` namespace, an API Service called `apiservice.apiregistration.k8s.io/v1alpha1.porch.kpt.dev` and the `service.api` service to expose the API Service. These resources are defined in the the file `deployments/local/localconfig.yaml`
-- the `repositories.config.porch.kpt.dev` and `functions.config.porch.kpt.dev` CRDs. These CRDs are defined in the `api/porchconfig/v1alpha1/` directory.
-- the `packagerevs.config.porch.kpt.dev` CRD. This CRD is defined in the `internal/api/porchinternal/v1alpha1/` directory.
+- The `repositories.config.porch.kpt.dev` and `functions.config.porch.kpt.dev` CRDs. These CRDs are defined in the `api/porchconfig/v1alpha1/` directory.
+- The `packagerevs.config.porch.kpt.dev` CRD. This CRD is defined in the `internal/api/porchinternal/v1alpha1/` directory.
 
 ```
 kubectl apply -f https://raw.githubusercontent.com/nephio-project/porch/main/deployments/local/localconfig.yaml
@@ -93,8 +93,8 @@ repositories                                   config.porch.kpt.dev/v1alpha1    
 Check out porch and start vscode in the root of your checked out Porch repo.
 
 Edit your local `.vscode.launch.json` file as follows:
-1. Change the `--kubeconfig` value to point at your local Kind cluster configuration file
-2. Change the `--function-runner` IP address to that of the function runner service running in the Kind `management` cluster
+1. Change the `--kubeconfig` value to point at your local Kind cluster configuration file.
+2. Change the `--function-runner` IP address to that of the function runner service running in the Kind `management` cluster.
 3. You can specify `KUBECONFIG` in the `env` section of the configuration instead of using the `--kubeconfig` flag.
 
 ```
