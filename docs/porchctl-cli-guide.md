@@ -1,18 +1,12 @@
 ## Using the porchctl cli
 
+
 When Porch was ported to Nephio, the `kpt alpha rpkg` commands in kpt were moved into a new command called `porchctl`. 
 
-See the [project releases](https://github.com/nephio-project/porch/releases) for information on the latest release.
+To use it locally, [download](https://github.com/nephio-project/porch/releases), unpack and add it to your PATH.
 
-Once the preferred binary is downloaded and extracted, we can set it up for use locally.
+_Optional: Generate the autocompletion script for the specified shell to add to your profile._
 
-_optional: Configure `porchctl` on your environment_
-
-1. Either add `porchctl` to your PATH or copy it to a directory already in the path. 
-```
-cp porchctl /usr/local/bin/
-```
-2. Generate the autocompletion script for the specified shell to add to your profile.
 ```
 porchctl completion bash
 ```

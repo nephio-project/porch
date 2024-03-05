@@ -1,0 +1,72 @@
+# Copyright 2024 The Nephio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Porch End-to-End Tests
+on:
+  push:
+    paths-ignore:
+      - "docs/**"
+      - "release/**"
+      - "deployments/**"
+  pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "release/**"
+      - "deployments/**"
+
+jobs:
+  tests:
+    name: Porch End-to-End Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Free up disk space
+        run: sudo rm -rf /usr/share/dotnet && sudo rm -rf /opt/ghc && sudo rm -rf "/usr/local/share/boost" && sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+      - name: Checkout Porch
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '>=1.21.5'
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+      - name: Install kpt
+        uses: jaxxstorm/action-install-gh-release@v1.10.0
+        with:
+          repo: kptdev/kpt
+          tag: v1.0.0-beta.49
+          chmod: 0755
+      - name: Create k8s Kind Cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: kind
+      - name: Build Images and Deploy porch kpt pkg
+        run: IMAGE_REPO=porch-kind IMAGE_TAG=${GITHUB_SHA:0:8} make run-in-kind-kpt
+      - name: Sleep for 15 seconds
+        run: sleep 15s
+        shell: bash
+      - name: e2e test
+        run: E2E=1 go test -v -timeout 20m ${GITHUB_WORKSPACE}/test/e2e
+      - name: Export porch server logs
+        if: always()
+        run: |
+          name=$(kubectl -n porch-system get pod -l app=porch-server -o custom-columns=NAME:.metadata.name --no-headers=true)
+          kubectl -n porch-system logs $name > porch-e2e-server.log
+      - name: Archive logs
+        if: always()
+        uses: actions/upload-artifact@v4  
+        with:
+          name: porch-e2e-server.log
+          path: porch-e2e-server.log
+          compression-level: 0
