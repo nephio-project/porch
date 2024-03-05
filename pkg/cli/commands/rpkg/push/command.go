@@ -163,6 +163,7 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 			r.printFnResult(result, printOpt)
 		}
 	}
+	fmt.Fprintf(cmd.OutOrStdout(), "Package: %s pushed successfully\n", packageName)
 	return nil
 }
 

@@ -227,7 +227,7 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 	if err := w.Flush(); err != nil {
 		return errors.E(op, err)
 	}
-
+	fmt.Fprintf(cmd.OutOrStdout(), "Package revision deleted successfully\n")
 	return nil
 }
 

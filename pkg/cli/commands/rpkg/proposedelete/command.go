@@ -109,7 +109,7 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 			messages = append(messages, err.Error())
 			fmt.Fprintf(r.Command.ErrOrStderr(), "%s failed (%s)\n", name, err)
 		} else {
-			fmt.Fprintf(r.Command.OutOrStderr(), "%s proposed for deletion\n", name)
+			fmt.Fprintf(r.Command.OutOrStdout(), "%s proposed for deletion\n", name)
 		}
 	}
 
