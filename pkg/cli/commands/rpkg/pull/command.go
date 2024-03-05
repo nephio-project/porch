@@ -127,7 +127,7 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 			return errors.E(op, err)
 		}
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "Package: %s pulled successfully\n", packageName)
+	fmt.Fprintf(cmd.OutOrStdout(), "Package: %s pulled\n", packageName)
 	return nil
 }
 
