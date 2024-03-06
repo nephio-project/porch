@@ -121,7 +121,7 @@ more information please refer to the [VSCode debugging documentation](https://co
 
 # Create Repositories using your local Porch server
 
-To connect Gitea to Porch follow [step 6 in the Starting with Porch](https://github.com/nephio-project/porch/tree/main/docs/tutorials/starting-with-porch#connect-the-gitea-repositories-to-porch) tutorial to create the Gitea and external repositories in Porch.
+To connect Gitea to Porch follow [step 7 in the Starting with Porch](https://github.com/nephio-project/porch/tree/main/docs/tutorials/starting-with-porch#Connect-the-Gitea-repositories-to-Porch) tutorial to create the Gitea and external repositories in Porch.
 
 You will notice logging messages in VSCode when you run the command `kubectl apply -f porch-repositories.yaml` command.
 
