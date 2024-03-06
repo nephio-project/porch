@@ -13,6 +13,7 @@ make generate
 Porch comprises of several software components:
 
 * [api](../api): Definition of the KRM API supported by the Porch extension apiserver
+* [porchctl](../cmd/porchctl): CLI command tool for administration of Porch `Repository` and `PackageRevision` custom resources.
 * [apiserver](../pkg/apiserver/): The Porch apiserver implementation, REST handlers, Porch `main` function
 * [engine](../pkg/engine/): Core logic of Package Orchestration - operations on package contents
 * [func](../func): KRM function evaluator microservice; exposes gRPC API
