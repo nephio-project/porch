@@ -16,7 +16,6 @@ package pull
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -97,7 +96,7 @@ func (r *runner) preRunE(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
-func (r *runner) runE(cmd *cobra.Command, args []string) error {
+func (r *runner) runE(_ *cobra.Command, args []string) error {
 	const op errors.Op = command + ".runE"
 
 	if len(args) == 0 {
@@ -127,7 +126,6 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 			return errors.E(op, err)
 		}
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "%s pulled\n", packageName)
 	return nil
 }
 
