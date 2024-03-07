@@ -24,14 +24,14 @@ commands:
       - propose
       - --namespace=rpkg-copy
       - git-eb5afe755bedd142f142c6a9363649c667ef77a5
-    stderr: "git-eb5afe755bedd142f142c6a9363649c667ef77a5 proposed\n"
+    stdout: "git-eb5afe755bedd142f142c6a9363649c667ef77a5 proposed\n"
   - args:
       - porchctl
       - rpkg
       - approve
       - --namespace=rpkg-copy
       - git-eb5afe755bedd142f142c6a9363649c667ef77a5
-    stderr: "git-eb5afe755bedd142f142c6a9363649c667ef77a5 approved\n"
+    stdout: "git-eb5afe755bedd142f142c6a9363649c667ef77a5 approved\n"
   - args:
       - porchctl
       - rpkg

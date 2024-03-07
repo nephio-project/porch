@@ -136,6 +136,7 @@ commands:
       - --namespace=rpkg-push
       - git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f
       - /tmp/porch-e2e/rpkg-push-git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f
+    stdout: "git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f pushed\n"
   - args:
       - porchctl
       - rpkg

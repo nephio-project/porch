@@ -45,14 +45,14 @@ commands:
       - propose
       - --namespace=rpkg-update
       - git-7fcdd499f0790ac3bd8f805e3e5e00825641eb60
-    stderr: "git-7fcdd499f0790ac3bd8f805e3e5e00825641eb60 proposed\n"
+    stdout: "git-7fcdd499f0790ac3bd8f805e3e5e00825641eb60 proposed\n"
   - args:
       - porchctl
       - rpkg
       - approve
       - --namespace=rpkg-update
       - git-7fcdd499f0790ac3bd8f805e3e5e00825641eb60
-    stderr: "git-7fcdd499f0790ac3bd8f805e3e5e00825641eb60 approved\n"
+    stdout: "git-7fcdd499f0790ac3bd8f805e3e5e00825641eb60 approved\n"
   - args:
       - porchctl
       - rpkg
@@ -139,6 +139,7 @@ commands:
       - --namespace=rpkg-update
       - git-7ab0219ace10c1081a8b40a6b97d5da58bdb62e0
       - /tmp/porch-e2e/pkg-update-git-7ab0219ace10c1081a8b40a6b97d5da58bdb62e0
+    stdout: "git-7ab0219ace10c1081a8b40a6b97d5da58bdb62e0 pushed\n"
   - args:
       - porchctl
       - rpkg
