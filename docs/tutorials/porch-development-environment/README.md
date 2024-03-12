@@ -3,6 +3,8 @@
 This tutorial gives short instructions on how to set up a development environment for Porch. It outlines the steps to get a [kind](https://kind.sigs.k8s.io/) cluster up
 and running to which a Porch instance running in Visual Studio Code can connect to and interact with.
 
+> **_NOTE:_**  The code itself can be run on a remote VM and we can use the [VSCode Remote SSH](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh) plugin to connect to it as our Dev environment.
+
 <br>
 
 # Setup kind with MetalLB and Gitea
@@ -394,7 +396,7 @@ packages                                       porch.kpt.dev/v1alpha1           
 
 Check to ensure that the apiserver is serving requests:
 ```
-curl https://172.17.0.1:9443/apis/porch.kpt.dev/v1alpha1 -k
+curl https://localhost:9443/apis/porch.kpt.dev/v1alpha1 -k
 ```
 
 <details closed>
