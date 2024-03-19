@@ -285,7 +285,7 @@ func validateDeletion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	admissionResponse := &admissionv1.AdmissionResponse{}
-	if pr.Spec.Lifecycle == v1alpha1.PackageRevisionLifecyclePublished {
+	if pr.Spec.Lifecycle == v1alpha1.PorchPkgRevisionLifecyclePublished {
 		admissionResponse.Allowed = false
 		admissionResponse.Result = &metav1.Status{
 			Status:  "Failure",
