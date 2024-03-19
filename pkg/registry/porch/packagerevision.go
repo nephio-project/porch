@@ -49,13 +49,13 @@ var _ rest.GracefulDeleter = &packageRevisions{}
 var _ rest.Watcher = &packageRevisions{}
 
 func (r *packageRevisions) New() runtime.Object {
-	return &api.PackageRevision{}
+	return &api.PorchPkgRevision{}
 }
 
 func (r *packageRevisions) Destroy() {}
 
 func (r *packageRevisions) NewList() runtime.Object {
-	return &api.PackageRevisionList{}
+	return &api.PorchPkgRevisionList{}
 }
 
 func (r *packageRevisions) NamespaceScoped() bool {
@@ -67,7 +67,7 @@ func (r *packageRevisions) List(ctx context.Context, options *metainternalversio
 	ctx, span := tracer.Start(ctx, "packageRevisions::List", trace.WithAttributes())
 	defer span.End()
 
-	result := &api.PackageRevisionList{
+	result := &api.PorchPkgRevisionList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevisionList",
 			APIVersion: api.SchemeGroupVersion.Identifier(),
@@ -121,7 +121,7 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 		return nil, apierrors.NewBadRequest("namespace must be specified")
 	}
 
-	newApiPkgRev, ok := runtimeObject.(*api.PackageRevision)
+	newApiPkgRev, ok := runtimeObject.(*api.PorchPkgRevision)
 	if !ok {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected PackageRevision object, got %T", runtimeObject))
 	}

@@ -221,7 +221,7 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 		}
 	}
 
-	var oldApiPkgRev runtime.Object // We have to be runtime.Object (and not *api.PackageRevision) or else nil-checks fail (because a nil object is not a nil interface)
+	var oldApiPkgRev runtime.Object // We have to be runtime.Object (and not *api.PorchPkgRevision) or else nil-checks fail (because a nil object is not a nil interface)
 	if !isCreate {
 		oldApiPkgRev, err = oldRepoPkgRev.GetPackageRevision(ctx)
 		if err != nil {
@@ -237,9 +237,9 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 
 	// This type conversion is necessary because mutations work with unversioned types
 	// (mostly for historical reasons).  So the server-side-apply library returns an unversioned object.
-	if unversioned, isUnversioned := newRuntimeObj.(*unversionedapi.PackageRevision); isUnversioned {
+	if unversioned, isUnversioned := newRuntimeObj.(*unversionedapi.PorchPkgRevision); isUnversioned {
 		klog.Warningf("converting from unversioned to versioned object")
-		typed := &api.PackageRevision{}
+		typed := &api.PorchPkgRevision{}
 		if err := r.scheme.Convert(unversioned, typed, nil); err != nil {
 			return nil, false, fmt.Errorf("failed to convert %T to %T: %w", unversioned, typed, err)
 		}
@@ -251,7 +251,7 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 		return nil, false, err
 	}
 
-	newApiPkgRev, ok := newRuntimeObj.(*api.PackageRevision)
+	newApiPkgRev, ok := newRuntimeObj.(*api.PorchPkgRevision)
 	if !ok {
 		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("expected PackageRevision object, got %T", newRuntimeObj))
 	}
@@ -286,7 +286,7 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 	}
 
 	if !isCreate {
-		rev, err := r.cad.UpdatePackageRevision(ctx, &repositoryObj, oldRepoPkgRev, oldApiPkgRev.(*api.PackageRevision), newApiPkgRev, parentPackage)
+		rev, err := r.cad.UpdatePackageRevision(ctx, &repositoryObj, oldRepoPkgRev, oldApiPkgRev.(*api.PorchPkgRevision), newApiPkgRev, parentPackage)
 		if err != nil {
 			return nil, false, apierrors.NewInternalError(err)
 		}
@@ -334,7 +334,7 @@ func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo 
 		}
 	}
 
-	var oldRuntimeObj runtime.Object // We have to be runtime.Object (and not *api.PackageRevision) or else nil-checks fail (because a nil object is not a nil interface)
+	var oldRuntimeObj runtime.Object // We have to be runtime.Object (and not *api.PorchPkgRevision) or else nil-checks fail (because a nil object is not a nil interface)
 	if !isCreate {
 		oldRuntimeObj = oldPackage.GetPackage()
 	}
@@ -347,9 +347,9 @@ func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo 
 
 	// This type conversion is necessary because mutations work with unversioned types
 	// (mostly for historical reasons).  So the server-side-apply library returns an unversioned object.
-	if unversioned, isUnversioned := newRuntimeObj.(*unversionedapi.PackageRevision); isUnversioned {
+	if unversioned, isUnversioned := newRuntimeObj.(*unversionedapi.PorchPkgRevision); isUnversioned {
 		klog.Warningf("converting from unversioned to versioned object")
-		typed := &api.PackageRevision{}
+		typed := &api.PorchPkgRevision{}
 		if err := r.scheme.Convert(unversioned, typed, nil); err != nil {
 			return nil, false, fmt.Errorf("failed to convert %T to %T: %w", unversioned, typed, err)
 		}
@@ -361,7 +361,7 @@ func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo 
 		return nil, false, err
 	}
 
-	newObj, ok := newRuntimeObj.(*api.Package)
+	newObj, ok := newRuntimeObj.(*api.PorchPkg)
 	if !ok {
 		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("expected Package object, got %T", newRuntimeObj))
 	}
@@ -387,7 +387,7 @@ func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo 
 	}
 
 	if !isCreate {
-		rev, err := r.cad.UpdatePackage(ctx, &repositoryObj, oldPackage, oldRuntimeObj.(*api.Package), newObj)
+		rev, err := r.cad.UpdatePackage(ctx, &repositoryObj, oldPackage, oldRuntimeObj.(*api.PorchPkg), newObj)
 		if err != nil {
 			return nil, false, apierrors.NewInternalError(err)
 		}

@@ -38,7 +38,7 @@ var _ rest.Updater = &packageRevisionsApproval{}
 // New returns an empty object that can be used with Create and Update after request data has been put into it.
 // This object must be a pointer type for use with Codec.DecodeInto([]byte, runtime.Object)
 func (a *packageRevisionsApproval) New() runtime.Object {
-	return &api.PackageRevision{}
+	return &api.PorchPkgRevision{}
 }
 
 func (a *packageRevisionsApproval) Destroy() {}
@@ -71,24 +71,24 @@ func (s packageRevisionApprovalStrategy) PrepareForUpdate(ctx context.Context, o
 
 func (s packageRevisionApprovalStrategy) ValidateUpdate(ctx context.Context, obj, old runtime.Object) field.ErrorList {
 	allErrs := field.ErrorList{}
-	oldRevision := old.(*api.PackageRevision)
-	newRevision := obj.(*api.PackageRevision)
+	oldRevision := old.(*api.PorchPkgRevision)
+	newRevision := obj.(*api.PorchPkgRevision)
 
 	switch lifecycle := oldRevision.Spec.Lifecycle; lifecycle {
 
-	case api.PackageRevisionLifecyclePublished:
-		if newRevision.Spec.Lifecycle != api.PackageRevisionLifecycleDeletionProposed {
+	case api.PorchPkgRevisionLifecyclePublished:
+		if newRevision.Spec.Lifecycle != api.PorchPkgRevisionLifecycleDeletionProposed {
 			allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle,
 				fmt.Sprintf("package with %s lifecycle value can only be updated to 'ProposeDeletion'", lifecycle)))
 		}
 
-	case api.PackageRevisionLifecycleDeletionProposed:
-		if newRevision.Spec.Lifecycle != api.PackageRevisionLifecyclePublished {
+	case api.PorchPkgRevisionLifecycleDeletionProposed:
+		if newRevision.Spec.Lifecycle != api.PorchPkgRevisionLifecyclePublished {
 			allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle,
 				fmt.Sprintf("package with %s lifecycle value can only be updated to 'Published'", lifecycle)))
 		}
 
-	case api.PackageRevisionLifecycleProposed:
+	case api.PorchPkgRevisionLifecycleProposed:
 		// valid
 
 	default:
@@ -98,11 +98,11 @@ func (s packageRevisionApprovalStrategy) ValidateUpdate(ctx context.Context, obj
 
 	switch lifecycle := newRevision.Spec.Lifecycle; lifecycle {
 	// TODO: signal rejection of the approval differently than by returning to draft?
-	case api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecyclePublished:
+	case api.PorchPkgRevisionLifecycleDraft, api.PorchPkgRevisionLifecyclePublished:
 		// valid
 
-	case api.PackageRevisionLifecycleDeletionProposed:
-		if oldRevision.Spec.Lifecycle != api.PackageRevisionLifecyclePublished {
+	case api.PorchPkgRevisionLifecycleDeletionProposed:
+		if oldRevision.Spec.Lifecycle != api.PorchPkgRevisionLifecyclePublished {
 			allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle,
 				fmt.Sprintf("cannot update lifecycle %s; only Published packages require approval for deletion", lifecycle)))
 		}
@@ -111,8 +111,8 @@ func (s packageRevisionApprovalStrategy) ValidateUpdate(ctx context.Context, obj
 		allErrs = append(allErrs,
 			field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle, fmt.Sprintf("value for approval can be only one of %s",
 				strings.Join([]string{
-					string(api.PackageRevisionLifecycleDraft),
-					string(api.PackageRevisionLifecyclePublished),
+					string(api.PorchPkgRevisionLifecycleDraft),
+					string(api.PorchPkgRevisionLifecyclePublished),
 				}, ",")),
 			))
 	}
@@ -130,7 +130,7 @@ var _ SimpleRESTCreateStrategy = packageRevisionApprovalStrategy{}
 func (s packageRevisionApprovalStrategy) Validate(ctx context.Context, runtimeObj runtime.Object) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	// obj := runtimeObj.(*api.PackageRevision)
+	// obj := runtimeObj.(*api.PorchPkgRevision)
 
 	return allErrs
 }

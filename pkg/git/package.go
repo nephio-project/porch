@@ -112,7 +112,7 @@ func (p *gitPackageRevision) uid() types.UID {
 	return types.UID(fmt.Sprintf("uid:%s:%s", p.path, s))
 }
 
-func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.PackageRevision, error) {
+func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.PorchPkgRevision, error) {
 	key := p.Key()
 
 	_, lock, _ := p.GetUpstreamLock(ctx)
@@ -135,7 +135,7 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 
 	kf, _ := p.GetKptfile(ctx)
 
-	status := v1alpha1.PackageRevisionStatus{
+	status := v1alpha1.PorchPkgRevisionStatus{
 		UpstreamLock: lockCopy,
 		Deployment:   p.repo.deployment,
 		Conditions:   repository.ToApiConditions(kf),
@@ -150,7 +150,7 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 		}
 	}
 
-	return &v1alpha1.PackageRevision{
+	return &v1alpha1.PorchPkgRevision{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevision",
 			APIVersion: v1alpha1.SchemeGroupVersion.Identifier(),
@@ -164,8 +164,8 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 				Time: p.updated,
 			},
 		},
-		Spec: v1alpha1.PackageRevisionSpec{
-			PackageName:    key.Package,
+		Spec: v1alpha1.PorchPkgRevisionSpec{
+			PorchPkgName:   key.Package,
 			RepositoryName: key.Repository,
 			Lifecycle:      p.Lifecycle(),
 			Tasks:          p.tasks,
@@ -177,7 +177,7 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 	}, nil
 }
 
-func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.PackageRevisionResources, error) {
+func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.PorchPkgRevisionResources, error) {
 	resources, err := p.repo.GetResources(p.tree)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load package resources: %w", err)
@@ -185,7 +185,7 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 
 	key := p.Key()
 
-	return &v1alpha1.PackageRevisionResources{
+	return &v1alpha1.PorchPkgRevisionResources{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevisionResources",
 			APIVersion: v1alpha1.SchemeGroupVersion.Identifier(),
@@ -200,8 +200,8 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 			},
 			OwnerReferences: []metav1.OwnerReference{}, // TODO: should point to repository resource
 		},
-		Spec: v1alpha1.PackageRevisionResourcesSpec{
-			PackageName:    key.Package,
+		Spec: v1alpha1.PorchPkgRevisionResourcesSpec{
+			PorchPkgName:   key.Package,
 			WorkspaceName:  key.WorkspaceName,
 			Revision:       key.Revision,
 			RepositoryName: key.Repository,
@@ -277,11 +277,11 @@ func (p *gitPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, 
 		}, nil
 }
 
-func (p *gitPackageRevision) Lifecycle() v1alpha1.PackageRevisionLifecycle {
+func (p *gitPackageRevision) Lifecycle() v1alpha1.PorchPkgRevisionLifecycle {
 	return p.repo.GetLifecycle(context.Background(), p)
 }
 
-func (p *gitPackageRevision) UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error {
+func (p *gitPackageRevision) UpdateLifecycle(ctx context.Context, new v1alpha1.PorchPkgRevisionLifecycle) error {
 	return p.repo.UpdateLifecycle(ctx, p, new)
 }
 

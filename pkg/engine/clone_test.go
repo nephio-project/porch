@@ -223,10 +223,10 @@ func TestCloneGitBasicAuth(t *testing.T) {
 	cpm := clonePackageMutation{
 		task: &v1alpha1.Task{
 			Type: "clone",
-			Clone: &v1alpha1.PackageCloneTaskSpec{
-				Upstream: v1alpha1.UpstreamPackage{
+			Clone: &v1alpha1.PorchPkgCloneTaskSpec{
+				Upstream: v1alpha1.UpstreamPorchPkg{
 					Type: "git",
-					Git: &v1alpha1.GitPackage{
+					Git: &v1alpha1.GitPorchPkg{
 						Repo:      addr,
 						Ref:       "main",
 						Directory: "configmap",

@@ -31,7 +31,7 @@ import (
 func TestFindInjectionPoints(t *testing.T) {
 
 	prrBase := `apiVersion: porch.kpt.dev/v1alpha1
-kind: PackageRevisionResources
+kind: PorchPkgRevisionResources
 metadata:
   name: prr
   namespace: default
@@ -220,7 +220,7 @@ spec:
 
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			var prr porchapi.PackageRevisionResources
+			var prr porchapi.PorchPkgRevisionResources
 			require.NoError(t, yaml.Unmarshal([]byte(prrBase+tc.resources), &prr))
 
 			actualFiles, actualErr := parseFiles(&prr)
@@ -635,7 +635,7 @@ spec:
 `
 
 	prrBase := `apiVersion: porch.kpt.dev/v1alpha1
-kind: PackageRevisionResources
+kind: PorchPkgRevisionResources
 metadata:
   name: prr
   namespace: default
@@ -843,9 +843,9 @@ spec:
 	}
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			var pv api.PackageVariant
+			var pv api.PorchPkgVariant
 			require.NoError(t, yaml.Unmarshal([]byte(pvBase+tc.injectors), &pv))
-			var prr porchapi.PackageRevisionResources
+			var prr porchapi.PorchPkgRevisionResources
 			require.NoError(t, yaml.Unmarshal([]byte(prrBase+baseKptfile+tc.injectionPoints), &prr))
 
 			c := &fakeClient{}
@@ -856,7 +856,7 @@ spec:
 				require.EqualError(t, actualErr, tc.expectedErr)
 			}
 
-			var expectedPRR porchapi.PackageRevisionResources
+			var expectedPRR porchapi.PorchPkgRevisionResources
 			require.NoError(t, yaml.Unmarshal([]byte(tc.expectedPRR), &expectedPRR))
 
 			require.Equal(t, expectedPRR, prr)

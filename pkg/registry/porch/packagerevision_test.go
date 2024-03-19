@@ -24,9 +24,9 @@ import (
 
 func TestUpdateStrategyForLifecycle(t *testing.T) {
 	type testCase struct {
-		old     api.PackageRevisionLifecycle
-		valid   []api.PackageRevisionLifecycle
-		invalid []api.PackageRevisionLifecycle
+		old     api.PorchPkgRevisionLifecycle
+		valid   []api.PorchPkgRevisionLifecycle
+		invalid []api.PorchPkgRevisionLifecycle
 	}
 
 	s := packageRevisionStrategy{}
@@ -34,28 +34,28 @@ func TestUpdateStrategyForLifecycle(t *testing.T) {
 	for _, tc := range []testCase{
 		{
 			old:     "",
-			valid:   []api.PackageRevisionLifecycle{"", api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed},
-			invalid: []api.PackageRevisionLifecycle{"Wrong", api.PackageRevisionLifecyclePublished},
+			valid:   []api.PorchPkgRevisionLifecycle{"", api.PorchPkgRevisionLifecycleDraft, api.PorchPkgRevisionLifecycleProposed},
+			invalid: []api.PorchPkgRevisionLifecycle{"Wrong", api.PorchPkgRevisionLifecyclePublished},
 		},
 		{
-			old:     api.PackageRevisionLifecycleDraft,
-			valid:   []api.PackageRevisionLifecycle{"", api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed},
-			invalid: []api.PackageRevisionLifecycle{"Wrong", api.PackageRevisionLifecyclePublished},
+			old:     api.PorchPkgRevisionLifecycleDraft,
+			valid:   []api.PorchPkgRevisionLifecycle{"", api.PorchPkgRevisionLifecycleDraft, api.PorchPkgRevisionLifecycleProposed},
+			invalid: []api.PorchPkgRevisionLifecycle{"Wrong", api.PorchPkgRevisionLifecyclePublished},
 		},
 		{
-			old:     api.PackageRevisionLifecycleProposed,
-			valid:   []api.PackageRevisionLifecycle{"", api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed},
-			invalid: []api.PackageRevisionLifecycle{"Wrong", api.PackageRevisionLifecyclePublished},
+			old:     api.PorchPkgRevisionLifecycleProposed,
+			valid:   []api.PorchPkgRevisionLifecycle{"", api.PorchPkgRevisionLifecycleDraft, api.PorchPkgRevisionLifecycleProposed},
+			invalid: []api.PorchPkgRevisionLifecycle{"Wrong", api.PorchPkgRevisionLifecyclePublished},
 		},
 		{
-			old:     api.PackageRevisionLifecyclePublished,
-			valid:   []api.PackageRevisionLifecycle{api.PackageRevisionLifecyclePublished},
-			invalid: []api.PackageRevisionLifecycle{"", "Wrong", api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed},
+			old:     api.PorchPkgRevisionLifecyclePublished,
+			valid:   []api.PorchPkgRevisionLifecycle{api.PorchPkgRevisionLifecyclePublished},
+			invalid: []api.PorchPkgRevisionLifecycle{"", "Wrong", api.PorchPkgRevisionLifecycleDraft, api.PorchPkgRevisionLifecycleProposed},
 		},
 		{
 			old:     "Wrong",
-			valid:   []api.PackageRevisionLifecycle{},
-			invalid: []api.PackageRevisionLifecycle{"", "Wrong", api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed, api.PackageRevisionLifecyclePublished},
+			valid:   []api.PorchPkgRevisionLifecycle{},
+			invalid: []api.PorchPkgRevisionLifecycle{"", "Wrong", api.PorchPkgRevisionLifecycleDraft, api.PorchPkgRevisionLifecycleProposed, api.PorchPkgRevisionLifecyclePublished},
 		},
 	} {
 		for _, new := range tc.valid {
@@ -71,37 +71,37 @@ func TestUpdateStrategy(t *testing.T) {
 	s := packageRevisionStrategy{}
 
 	testCases := map[string]struct {
-		old   *api.PackageRevision
-		new   *api.PackageRevision
+		old   *api.PorchPkgRevision
+		new   *api.PorchPkgRevision
 		valid bool
 	}{
 		"spec can be updated for draft": {
-			old: &api.PackageRevision{
-				Spec: api.PackageRevisionSpec{
-					Lifecycle: api.PackageRevisionLifecycleDraft,
+			old: &api.PorchPkgRevision{
+				Spec: api.PorchPkgRevisionSpec{
+					Lifecycle: api.PorchPkgRevisionLifecycleDraft,
 					Tasks: []api.Task{
 						{
 							Type: api.TaskTypeInit,
-							Init: &api.PackageInitTaskSpec{
+							Init: &api.PorchPkgInitTaskSpec{
 								Description: "This is a test",
 							},
 						},
 					},
 				},
 			},
-			new: &api.PackageRevision{
-				Spec: api.PackageRevisionSpec{
-					Lifecycle: api.PackageRevisionLifecycleDraft,
+			new: &api.PorchPkgRevision{
+				Spec: api.PorchPkgRevisionSpec{
+					Lifecycle: api.PorchPkgRevisionLifecycleDraft,
 					Tasks: []api.Task{
 						{
 							Type: api.TaskTypeInit,
-							Init: &api.PackageInitTaskSpec{
+							Init: &api.PorchPkgInitTaskSpec{
 								Description: "This is a test",
 							},
 						},
 						{
 							Type:  api.TaskTypePatch,
-							Patch: &api.PackagePatchTaskSpec{},
+							Patch: &api.PorchPkgPatchTaskSpec{},
 						},
 					},
 				},
@@ -109,32 +109,32 @@ func TestUpdateStrategy(t *testing.T) {
 			valid: true,
 		},
 		"spec can not be updated for published": {
-			old: &api.PackageRevision{
-				Spec: api.PackageRevisionSpec{
-					Lifecycle: api.PackageRevisionLifecyclePublished,
+			old: &api.PorchPkgRevision{
+				Spec: api.PorchPkgRevisionSpec{
+					Lifecycle: api.PorchPkgRevisionLifecyclePublished,
 					Tasks: []api.Task{
 						{
 							Type: api.TaskTypeInit,
-							Init: &api.PackageInitTaskSpec{
+							Init: &api.PorchPkgInitTaskSpec{
 								Description: "This is a test",
 							},
 						},
 					},
 				},
 			},
-			new: &api.PackageRevision{
-				Spec: api.PackageRevisionSpec{
-					Lifecycle: api.PackageRevisionLifecyclePublished,
+			new: &api.PorchPkgRevision{
+				Spec: api.PorchPkgRevisionSpec{
+					Lifecycle: api.PorchPkgRevisionLifecyclePublished,
 					Tasks: []api.Task{
 						{
 							Type: api.TaskTypeInit,
-							Init: &api.PackageInitTaskSpec{
+							Init: &api.PorchPkgInitTaskSpec{
 								Description: "This is a test",
 							},
 						},
 						{
 							Type:  api.TaskTypePatch,
-							Patch: &api.PackagePatchTaskSpec{},
+							Patch: &api.PorchPkgPatchTaskSpec{},
 						},
 					},
 				},
@@ -142,47 +142,47 @@ func TestUpdateStrategy(t *testing.T) {
 			valid: false,
 		},
 		"labels can be updated for published": {
-			old: &api.PackageRevision{
+			old: &api.PorchPkgRevision{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"foo": "bar",
 					},
 				},
-				Spec: api.PackageRevisionSpec{
-					Lifecycle: api.PackageRevisionLifecyclePublished,
+				Spec: api.PorchPkgRevisionSpec{
+					Lifecycle: api.PorchPkgRevisionLifecyclePublished,
 				},
 			},
-			new: &api.PackageRevision{
+			new: &api.PorchPkgRevision{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"bar": "foo",
 					},
 				},
-				Spec: api.PackageRevisionSpec{
-					Lifecycle: api.PackageRevisionLifecyclePublished,
+				Spec: api.PorchPkgRevisionSpec{
+					Lifecycle: api.PorchPkgRevisionLifecyclePublished,
 				},
 			},
 			valid: true,
 		},
 		"annotations can be updated for published": {
-			old: &api.PackageRevision{
+			old: &api.PorchPkgRevision{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						"foo": "bar",
 					},
 				},
-				Spec: api.PackageRevisionSpec{
-					Lifecycle: api.PackageRevisionLifecyclePublished,
+				Spec: api.PorchPkgRevisionSpec{
+					Lifecycle: api.PorchPkgRevisionLifecyclePublished,
 				},
 			},
-			new: &api.PackageRevision{
+			new: &api.PorchPkgRevision{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						"bar": "foo",
 					},
 				},
-				Spec: api.PackageRevisionSpec{
-					Lifecycle: api.PackageRevisionLifecyclePublished,
+				Spec: api.PorchPkgRevisionSpec{
+					Lifecycle: api.PorchPkgRevisionLifecyclePublished,
 				},
 			},
 			valid: true,

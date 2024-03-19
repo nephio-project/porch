@@ -71,7 +71,7 @@ type runner struct {
 
 	// there are multiple places where we need access to all package revisions, so
 	// we store it in the runner
-	prs []porchapi.PackageRevision
+	prs []porchapi.PorchPkgRevision
 }
 
 func (r *runner) preRunE(_ *cobra.Command, args []string) error {
@@ -97,7 +97,7 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 		return errors.E(op, fmt.Errorf("argument for 'discover' must be one of 'upstream' or 'downstream'"))
 	}
 
-	packageRevisionList := porchapi.PackageRevisionList{}
+	packageRevisionList := porchapi.PorchPkgRevisionList{}
 	if err := r.client.List(r.ctx, &packageRevisionList, &client.ListOptions{}); err != nil {
 		return errors.E(op, err)
 	}
@@ -126,10 +126,10 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func (r *runner) doUpdate(pr *porchapi.PackageRevision) error {
+func (r *runner) doUpdate(pr *porchapi.PorchPkgRevision) error {
 	cloneTask := r.findCloneTask(pr)
 	if cloneTask == nil {
-		return fmt.Errorf("upstream source not found for package rev %q; only cloned packages can be updated", pr.Spec.PackageName)
+		return fmt.Errorf("upstream source not found for package rev %q; only cloned packages can be updated", pr.Spec.PorchPkgName)
 	}
 
 	switch cloneTask.Clone.Upstream.Type {
@@ -142,13 +142,13 @@ func (r *runner) doUpdate(pr *porchapi.PackageRevision) error {
 		if upstreamPr == nil {
 			return fmt.Errorf("upstream package revision %s no longer exists", cloneTask.Clone.Upstream.UpstreamRef.Name)
 		}
-		newUpstreamPr := r.findPackageRevisionForRef(upstreamPr.Spec.PackageName)
+		newUpstreamPr := r.findPorchPkgRevisionForRef(upstreamPr.Spec.PorchPkgName)
 		if newUpstreamPr == nil {
-			return fmt.Errorf("revision %s does not exist for package %s", r.revision, pr.Spec.PackageName)
+			return fmt.Errorf("revision %s does not exist for package %s", r.revision, pr.Spec.PorchPkgName)
 		}
 		newTask := porchapi.Task{
 			Type: porchapi.TaskTypeUpdate,
-			Update: &porchapi.PackageUpdateTaskSpec{
+			Update: &porchapi.PorchPkgUpdateTaskSpec{
 				Upstream: cloneTask.Clone.Upstream,
 			},
 		}
@@ -159,7 +159,7 @@ func (r *runner) doUpdate(pr *porchapi.PackageRevision) error {
 	return r.client.Update(r.ctx, pr)
 }
 
-func (r *runner) findPackageRevision(prName string) *porchapi.PackageRevision {
+func (r *runner) findPackageRevision(prName string) *porchapi.PorchPkgRevision {
 	for i := range r.prs {
 		pr := r.prs[i]
 		if pr.Name == prName {
@@ -169,7 +169,7 @@ func (r *runner) findPackageRevision(prName string) *porchapi.PackageRevision {
 	return nil
 }
 
-func (r *runner) findCloneTask(pr *porchapi.PackageRevision) *porchapi.Task {
+func (r *runner) findCloneTask(pr *porchapi.PorchPkgRevision) *porchapi.Task {
 	if len(pr.Spec.Tasks) == 0 {
 		return nil
 	}
@@ -180,10 +180,10 @@ func (r *runner) findCloneTask(pr *porchapi.PackageRevision) *porchapi.Task {
 	return nil
 }
 
-func (r *runner) findPackageRevisionForRef(name string) *porchapi.PackageRevision {
+func (r *runner) findPorchPkgRevisionForRef(name string) *porchapi.PorchPkgRevision {
 	for i := range r.prs {
 		pr := r.prs[i]
-		if pr.Spec.PackageName == name && pr.Spec.Revision == r.revision {
+		if pr.Spec.PorchPkgName == name && pr.Spec.Revision == r.revision {
 			return &pr
 		}
 	}

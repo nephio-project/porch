@@ -38,9 +38,9 @@ import (
 )
 
 const (
-	kptRepo         = "github.com/GoogleContainerTools/kpt"
-	masterBranch    = "master"
-	testPackageName = "test-package"
+	kptRepo          = "github.com/GoogleContainerTools/kpt"
+	masterBranch     = "master"
+	testPorchPkgName = "test-package"
 )
 
 func TestMain(m *testing.M) {
@@ -951,8 +951,8 @@ func TestCommand_Run_noUpstreamReference(t *testing.T) {
 	})
 	defer clean()
 
-	w.PackageDir = testPackageName
-	kf := kptfileutil.DefaultKptfile(testPackageName)
+	w.PackageDir = testPorchPkgName
+	kf := kptfileutil.DefaultKptfile(testPorchPkgName)
 	testutil.AddKptfileToWorkspace(t, w, kf)
 
 	// Update the local package
@@ -3680,8 +3680,8 @@ func TestRootPackageIsUnfetched(t *testing.T) {
 			repos, w, clean := testutil.SetupReposAndWorkspace(t, tc.reposChanges)
 			defer clean()
 
-			w.PackageDir = testPackageName
-			kf := kptfileutil.DefaultKptfile(testPackageName)
+			w.PackageDir = testPorchPkgName
+			kf := kptfileutil.DefaultKptfile(testPorchPkgName)
 			kf.Upstream = &kptfilev1.Upstream{
 				Type: kptfilev1.GitOrigin,
 				Git: &kptfilev1.Git{
@@ -3700,7 +3700,7 @@ func TestRootPackageIsUnfetched(t *testing.T) {
 				t.FailNow()
 			}
 
-			expectedPath := tc.expectedLocal.ExpandPkgWithName(t, testPackageName, testutil.ToReposInfo(repos))
+			expectedPath := tc.expectedLocal.ExpandPkgWithName(t, testPorchPkgName, testutil.ToReposInfo(repos))
 			testutil.KptfileAwarePkgEqual(t, expectedPath, w.FullPackagePath(), true)
 		})
 	}
@@ -3752,8 +3752,8 @@ func TestMultiUpdateCache(t *testing.T) {
 	repos, w, clean := testutil.SetupReposAndWorkspace(t, reposChanges)
 	defer clean()
 
-	w.PackageDir = testPackageName
-	kf := kptfileutil.DefaultKptfile(testPackageName)
+	w.PackageDir = testPorchPkgName
+	kf := kptfileutil.DefaultKptfile(testPorchPkgName)
 	kf.Upstream = &kptfilev1.Upstream{
 		Type: kptfilev1.GitOrigin,
 		Git: &kptfilev1.Git{
@@ -3793,7 +3793,7 @@ func TestMultiUpdateCache(t *testing.T) {
 		}
 	}
 
-	expectedPath := expectedLocal.ExpandPkgWithName(t, testPackageName, testutil.ToReposInfo(repos))
+	expectedPath := expectedLocal.ExpandPkgWithName(t, testPorchPkgName, testutil.ToReposInfo(repos))
 	testutil.KptfileAwarePkgEqual(t, expectedPath, w.FullPackagePath(), true)
 }
 

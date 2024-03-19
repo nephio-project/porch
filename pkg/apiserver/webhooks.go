@@ -1,4 +1,4 @@
-// Copyright 2022,2024 The kpt and Nephio Authors
+// Copyright 2022 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,12 +51,12 @@ const (
 	serverEndpoint     = "/validate-deletion"
 )
 
-func setupWebhooks(ctx context.Context, webhookNs string, certStorageDir string) error {
-	caBytes, err := createCerts(webhookNs, certStorageDir)
+func setupWebhooks(ctx context.Context, certStorageDir string) error {
+	caBytes, err := createCerts(certStorageDir)
 	if err != nil {
 		return err
 	}
-	if err := createValidatingWebhook(ctx, webhookNs, caBytes); err != nil {
+	if err := createValidatingWebhook(ctx, caBytes); err != nil {
 		return err
 	}
 	if err := runWebhookServer(certStorageDir); err != nil {
@@ -65,11 +65,11 @@ func setupWebhooks(ctx context.Context, webhookNs string, certStorageDir string)
 	return nil
 }
 
-func createCerts(webhookNs string, certStorageDir string) ([]byte, error) {
-	klog.Infoln("creating self-signing TLS cert and key with namespace " + webhookNs + " in directory " + certStorageDir)
+func createCerts(certStorageDir string) ([]byte, error) {
+	klog.Infoln("creating self-signing TLS cert and key ")
 	dnsNames := []string{"api",
-		"api." + webhookNs, "api." + webhookNs + ".svc"}
-	commonName := "api." + webhookNs + ".svc"
+		"api.porch-system", "api.porch-system.svc"}
+	commonName := "api.porch-system.svc"
 
 	var caPEM, serverCertPEM, serverPrivateKeyPEM *bytes.Buffer
 	// CA config
@@ -165,8 +165,8 @@ func WriteFile(filepath string, c []byte) error {
 	return nil
 }
 
-func createValidatingWebhook(ctx context.Context, webhookNs string, caCert []byte) error {
-	klog.Infoln("Creating validating webhook with namespace " + webhookNs)
+func createValidatingWebhook(ctx context.Context, caCert []byte) error {
+	klog.Infoln("Creating validating webhook")
 
 	cfg := ctrl.GetConfigOrDie()
 	kubeClient, err := kubernetes.NewForConfig(cfg)
@@ -175,7 +175,7 @@ func createValidatingWebhook(ctx context.Context, webhookNs string, caCert []byt
 	}
 
 	var (
-		webhookNamespace  = webhookNs
+		webhookNamespace  = "porch-system"
 		validationCfgName = "packagerev-deletion-validating-webhook"
 		webhookService    = "api"
 		path              = serverEndpoint
@@ -276,7 +276,7 @@ func validateDeletion(w http.ResponseWriter, r *http.Request) {
 		writeErr(errMsg, &w)
 		return
 	}
-	pr := v1alpha1.PackageRevision{}
+	pr := v1alpha1.PorchPkgRevision{}
 	if err := porchClient.Get(context.Background(), client.ObjectKey{
 		Namespace: admissionReviewRequest.Request.Namespace,
 		Name:      admissionReviewRequest.Request.Name,
@@ -285,7 +285,7 @@ func validateDeletion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	admissionResponse := &admissionv1.AdmissionResponse{}
-	if pr.Spec.Lifecycle == v1alpha1.PackageRevisionLifecyclePublished {
+	if pr.Spec.Lifecycle == v1alpha1.PorchPkgRevisionLifecyclePublished {
 		admissionResponse.Allowed = false
 		admissionResponse.Result = &metav1.Status{
 			Status:  "Failure",

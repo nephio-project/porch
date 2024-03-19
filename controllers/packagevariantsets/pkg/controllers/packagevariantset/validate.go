@@ -22,12 +22,12 @@ import (
 	api "github.com/nephio-project/porch/controllers/packagevariantsets/api/v1alpha2"
 )
 
-func validatePackageVariantSet(pvs *api.PackageVariantSet) []error {
+func validatePackageVariantSet(pvs *api.PorchPkgVariantSet) []error {
 	var allErrs []error
 	if pvs.Spec.Upstream == nil {
 		allErrs = append(allErrs, fmt.Errorf("spec.upstream is a required field"))
 	} else {
-		if pvs.Spec.Upstream.Package == "" {
+		if pvs.Spec.Upstream.PorchPkg == "" {
 			allErrs = append(allErrs, fmt.Errorf("spec.upstream.package is a required field"))
 		}
 		if pvs.Spec.Upstream.Repo == "" {
@@ -63,7 +63,7 @@ func validateTarget(i int, target api.Target) []error {
 				allErrs = append(allErrs, fmt.Errorf("spec.targets[%d].repositories[%d].name cannot be empty", i, j))
 			}
 
-			for k, pn := range rt.PackageNames {
+			for k, pn := range rt.PorchPkgNames {
 				if pn == "" {
 					allErrs = append(allErrs, fmt.Errorf("spec.targets[%d].repositories[%d].packageNames[%d] cannot be empty", i, j, k))
 				}
@@ -96,7 +96,7 @@ func validateTarget(i int, target api.Target) []error {
 	return append(allErrs, validateTemplate(target.Template, fmt.Sprintf("spec.targets[%d].template", i))...)
 }
 
-func validateTemplate(template *api.PackageVariantTemplate, field string) []error {
+func validateTemplate(template *api.PorchPkgVariantTemplate, field string) []error {
 	var allErrs []error
 	if template.AdoptionPolicy != nil && *template.AdoptionPolicy != pkgvarapi.AdoptionPolicyAdoptNone &&
 		*template.AdoptionPolicy != pkgvarapi.AdoptionPolicyAdoptExisting {
@@ -114,7 +114,7 @@ func validateTemplate(template *api.PackageVariantTemplate, field string) []erro
 		if template.Downstream.Repo != nil && template.Downstream.RepoExpr != nil {
 			allErrs = append(allErrs, fmt.Errorf("%s may specify only one of `downstream.repo` and `downstream.repoExpr`", field))
 		}
-		if template.Downstream.Package != nil && template.Downstream.PackageExpr != nil {
+		if template.Downstream.PorchPkg != nil && template.Downstream.PorchPkgExpr != nil {
 			allErrs = append(allErrs, fmt.Errorf("%s may specify only one of `downstream.package` and `downstream.packageExpr`", field))
 		}
 	}
@@ -127,8 +127,8 @@ func validateTemplate(template *api.PackageVariantTemplate, field string) []erro
 		allErrs = append(allErrs, validateMapExpr(template.AnnotationExprs, fmt.Sprintf("%s.annotationExprs", field))...)
 	}
 
-	if template.PackageContext != nil && template.PackageContext.DataExprs != nil {
-		allErrs = append(allErrs, validateMapExpr(template.PackageContext.DataExprs, fmt.Sprintf("%s.packageContext.dataExprs", field))...)
+	if template.PorchPkgContext != nil && template.PorchPkgContext.DataExprs != nil {
+		allErrs = append(allErrs, validateMapExpr(template.PorchPkgContext.DataExprs, fmt.Sprintf("%s.packageContext.dataExprs", field))...)
 	}
 
 	for i, injector := range template.Injectors {

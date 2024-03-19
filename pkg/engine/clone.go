@@ -102,7 +102,7 @@ func (m *clonePackageMutation) Apply(ctx context.Context, resources repository.P
 	return result, &api.TaskResult{Task: m.task}, nil
 }
 
-func (m *clonePackageMutation) cloneFromRegisteredRepository(ctx context.Context, ref *api.PackageRevisionRef) (repository.PackageResources, error) {
+func (m *clonePackageMutation) cloneFromRegisteredRepository(ctx context.Context, ref *api.PorchPkgRevisionRef) (repository.PackageResources, error) {
 	if ref.Name == "" {
 		return repository.PackageResources{}, fmt.Errorf("upstreamRef.name is required")
 	}
@@ -135,7 +135,7 @@ func (m *clonePackageMutation) cloneFromRegisteredRepository(ctx context.Context
 	}, nil
 }
 
-func (m *clonePackageMutation) cloneFromGit(ctx context.Context, gitPackage *api.GitPackage) (repository.PackageResources, error) {
+func (m *clonePackageMutation) cloneFromGit(ctx context.Context, gitPackage *api.GitPorchPkg) (repository.PackageResources, error) {
 	// TODO: Cache unregistered repositories with appropriate cache eviction policy.
 	// TODO: Separate low-level repository access from Repository abstraction?
 
@@ -193,7 +193,7 @@ func (m *clonePackageMutation) cloneFromGit(ctx context.Context, gitPackage *api
 	}, nil
 }
 
-func (m *clonePackageMutation) cloneFromOci(ctx context.Context, ociPackage *api.OciPackage) (repository.PackageResources, error) {
+func (m *clonePackageMutation) cloneFromOci(ctx context.Context, ociPackage *api.OciPorchPkg) (repository.PackageResources, error) {
 	return repository.PackageResources{}, errors.New("clone from OCI is not implemented")
 }
 

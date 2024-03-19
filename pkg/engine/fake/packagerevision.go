@@ -29,9 +29,9 @@ type PackageRevision struct {
 	Namespace          string
 	Uid                types.UID
 	PackageRevisionKey repository.PackageRevisionKey
-	PackageLifecycle   v1alpha1.PackageRevisionLifecycle
-	PackageRevision    *v1alpha1.PackageRevision
-	Resources          *v1alpha1.PackageRevisionResources
+	PackageLifecycle   v1alpha1.PorchPkgRevisionLifecycle
+	PackageRevision    *v1alpha1.PorchPkgRevision
+	Resources          *v1alpha1.PorchPkgRevisionResources
 	Kptfile            kptfile.KptFile
 }
 
@@ -55,15 +55,15 @@ func (pr *PackageRevision) Key() repository.PackageRevisionKey {
 	return pr.PackageRevisionKey
 }
 
-func (pr *PackageRevision) Lifecycle() v1alpha1.PackageRevisionLifecycle {
+func (pr *PackageRevision) Lifecycle() v1alpha1.PorchPkgRevisionLifecycle {
 	return pr.PackageLifecycle
 }
 
-func (pr *PackageRevision) GetPackageRevision(context.Context) (*v1alpha1.PackageRevision, error) {
+func (pr *PackageRevision) GetPackageRevision(context.Context) (*v1alpha1.PorchPkgRevision, error) {
 	return pr.PackageRevision, nil
 }
 
-func (f *PackageRevision) GetResources(context.Context) (*v1alpha1.PackageRevisionResources, error) {
+func (f *PackageRevision) GetResources(context.Context) (*v1alpha1.PorchPkgRevisionResources, error) {
 	return f.Resources, nil
 }
 
@@ -79,6 +79,6 @@ func (f *PackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, err
 	return *f.Kptfile.Upstream, *f.Kptfile.UpstreamLock, nil
 }
 
-func (f *PackageRevision) UpdateLifecycle(context.Context, v1alpha1.PackageRevisionLifecycle) error {
+func (f *PackageRevision) UpdateLifecycle(context.Context, v1alpha1.PorchPkgRevisionLifecycle) error {
 	return nil
 }

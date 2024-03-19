@@ -42,10 +42,10 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func (r *ociRepository) CreatePackageRevision(ctx context.Context, obj *api.PackageRevision) (repository.PackageDraft, error) {
+func (r *ociRepository) CreatePackageRevision(ctx context.Context, obj *api.PorchPkgRevision) (repository.PackageDraft, error) {
 	base := empty.Image
 
-	packageName := obj.Spec.PackageName
+	packageName := obj.Spec.PorchPkgName
 	ociRepo, err := name.NewRepository(path.Join(r.spec.Registry, packageName))
 	if err != nil {
 		return nil, err
@@ -62,7 +62,7 @@ func (r *ociRepository) CreatePackageRevision(ctx context.Context, obj *api.Pack
 		tasks:       []api.Task{},
 		base:        base,
 		tag:         ociRepo.Tag(string(obj.Spec.WorkspaceName)),
-		lifecycle:   v1alpha1.PackageRevisionLifecycleDraft,
+		lifecycle:   v1alpha1.PorchPkgRevisionLifecycleDraft,
 	}, nil
 }
 
@@ -116,12 +116,12 @@ type ociPackageDraft struct {
 	tag       name.Tag
 	addendums []mutate.Addendum
 
-	lifecycle v1alpha1.PackageRevisionLifecycle // New value of the package revision lifecycle
+	lifecycle v1alpha1.PorchPkgRevisionLifecycle // New value of the package revision lifecycle
 }
 
 var _ repository.PackageDraft = (*ociPackageDraft)(nil)
 
-func (p *ociPackageDraft) UpdateResources(ctx context.Context, new *api.PackageRevisionResources, task *api.Task) error {
+func (p *ociPackageDraft) UpdateResources(ctx context.Context, new *api.PorchPkgRevisionResources, task *api.Task) error {
 	ctx, span := tracer.Start(ctx, "ociPackageDraft::UpdateResources", trace.WithAttributes())
 	defer span.End()
 
@@ -191,7 +191,7 @@ func (p *ociPackageDraft) UpdateResources(ctx context.Context, new *api.PackageR
 	return nil
 }
 
-func (p *ociPackageDraft) UpdateLifecycle(ctx context.Context, new api.PackageRevisionLifecycle) error {
+func (p *ociPackageDraft) UpdateLifecycle(ctx context.Context, new api.PorchPkgRevisionLifecycle) error {
 	p.lifecycle = new
 	return nil
 }
@@ -322,7 +322,7 @@ func (r *ociRepository) DeletePackageRevision(ctx context.Context, old repositor
 	return nil
 }
 
-func (r *ociRepository) CreatePackage(ctx context.Context, obj *v1alpha1.Package) (repository.Package, error) {
+func (r *ociRepository) CreatePackage(ctx context.Context, obj *v1alpha1.PorchPkg) (repository.Package, error) {
 	return nil, fmt.Errorf("CreatePackage not supported for OCI packages")
 }
 

@@ -89,8 +89,8 @@ func newInjectionPoint(file string, object *fn.KubeObject) *injectionPoint {
 
 func ensureConfigInjection(ctx context.Context,
 	c client.Client,
-	pv *api.PackageVariant,
-	prr *porchapi.PackageRevisionResources) error {
+	pv *api.PorchPkgVariant,
+	prr *porchapi.PorchPkgRevisionResources) error {
 
 	files, err := parseFiles(prr)
 	if err != nil {
@@ -134,7 +134,7 @@ func kubeobjectsToYaml(kos fn.KubeObjects) string {
 	return strings.Join(yamls, "---\n")
 }
 
-func parseFiles(prr *porchapi.PackageRevisionResources) (map[string]fn.KubeObjects, error) {
+func parseFiles(prr *porchapi.PorchPkgRevisionResources) (map[string]fn.KubeObjects, error) {
 	result := make(map[string]fn.KubeObjects)
 	for file, r := range prr.Spec.Resources {
 		if !includeFile(file) {

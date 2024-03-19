@@ -44,14 +44,14 @@ const (
 	TargetVarName         = "target"
 )
 
-func renderPackageVariantSpec(ctx context.Context, pvs *api.PackageVariantSet, repoList *configapi.RepositoryList,
-	upstreamPR *porchapi.PackageRevision, downstream pvContext) (*pkgvarapi.PackageVariantSpec, error) {
+func renderPackageVariantSpec(ctx context.Context, pvs *api.PorchPkgVariantSet, repoList *configapi.RepositoryList,
+	upstreamPR *porchapi.PorchPkgRevision, downstream pvContext) (*pkgvarapi.PorchPkgVariantSpec, error) {
 
-	spec := &pkgvarapi.PackageVariantSpec{
+	spec := &pkgvarapi.PorchPkgVariantSpec{
 		Upstream: pvs.Spec.Upstream,
 		Downstream: &pkgvarapi.Downstream{
-			Repo:    downstream.repoDefault,
-			Package: downstream.packageDefault,
+			Repo:     downstream.repoDefault,
+			PorchPkg: downstream.packageDefault,
 		},
 	}
 
@@ -98,12 +98,12 @@ func renderPackageVariantSpec(ctx context.Context, pvs *api.PackageVariantSet, r
 	}
 
 	if pvt.Downstream != nil {
-		if pvt.Downstream.Package != nil && *pvt.Downstream.Package != "" {
-			spec.Downstream.Package = *pvt.Downstream.Package
+		if pvt.Downstream.PorchPkg != nil && *pvt.Downstream.PorchPkg != "" {
+			spec.Downstream.PorchPkg = *pvt.Downstream.PorchPkg
 		}
 
-		if pvt.Downstream.PackageExpr != nil && *pvt.Downstream.PackageExpr != "" {
-			spec.Downstream.Package, err = evalExpr(*pvt.Downstream.PackageExpr, inputs)
+		if pvt.Downstream.PorchPkgExpr != nil && *pvt.Downstream.PorchPkgExpr != "" {
+			spec.Downstream.PorchPkg, err = evalExpr(*pvt.Downstream.PorchPkgExpr, inputs)
 			if err != nil {
 				return nil, fmt.Errorf("template.downstream.packageExpr: %s", err.Error())
 			}
@@ -127,18 +127,18 @@ func renderPackageVariantSpec(ctx context.Context, pvs *api.PackageVariantSet, r
 		return nil, err
 	}
 
-	if pvt.PackageContext != nil {
-		data, err := copyAndOverlayMapExpr("template.packageContext.dataExprs", pvt.PackageContext.Data, pvt.PackageContext.DataExprs, inputs)
+	if pvt.PorchPkgContext != nil {
+		data, err := copyAndOverlayMapExpr("template.packageContext.dataExprs", pvt.PorchPkgContext.Data, pvt.PorchPkgContext.DataExprs, inputs)
 		if err != nil {
 			return nil, err
 		}
 
-		removeKeys, err := copyAndOverlayStringSlice("template.packageContext.removeKeyExprs", pvt.PackageContext.RemoveKeys,
-			pvt.PackageContext.RemoveKeyExprs, inputs)
+		removeKeys, err := copyAndOverlayStringSlice("template.packageContext.removeKeyExprs", pvt.PorchPkgContext.RemoveKeys,
+			pvt.PorchPkgContext.RemoveKeyExprs, inputs)
 		if err != nil {
 			return nil, err
 		}
-		spec.PackageContext = &pkgvarapi.PackageContext{
+		spec.PorchPkgContext = &pkgvarapi.PorchPkgContext{
 			Data:       data,
 			RemoveKeys: removeKeys,
 		}
@@ -197,7 +197,7 @@ func renderFunctionTemplateList(field string, templateList []api.FunctionTemplat
 	return results, nil
 }
 
-func buildBaseInputs(upstreamPR *porchapi.PackageRevision, downstream pvContext) (map[string]interface{}, error) {
+func buildBaseInputs(upstreamPR *porchapi.PorchPkgRevision, downstream pvContext) (map[string]interface{}, error) {
 	inputs := make(map[string]interface{}, 5)
 	inputs[RepoDefaultVarName] = downstream.repoDefault
 	inputs[PackageDefaultVarName] = downstream.packageDefault

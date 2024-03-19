@@ -1,6 +1,8 @@
 module github.com/nephio-project/porch/controllers
 
-go 1.21
+go 1.22
+
+toolchain go1.22.1
 
 replace (
 	github.com/go-git/go-git/v5 v5.4.3-0.20220408232334-4f916225cb2f => github.com/platkrm/go-git/v5 v5.4.3-0.20220410165046-c76b262044ce

@@ -24,41 +24,41 @@ func TestApprovalUpdateStrategy(t *testing.T) {
 	s := packageRevisionApprovalStrategy{}
 
 	type testCase struct {
-		old     api.PackageRevisionLifecycle
-		valid   []api.PackageRevisionLifecycle
-		invalid []api.PackageRevisionLifecycle
+		old     api.PorchPkgRevisionLifecycle
+		valid   []api.PorchPkgRevisionLifecycle
+		invalid []api.PorchPkgRevisionLifecycle
 	}
 
 	for _, tc := range []testCase{
 		{
 			old:     "",
-			valid:   []api.PackageRevisionLifecycle{},
-			invalid: []api.PackageRevisionLifecycle{"", "Wrong", api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed, api.PackageRevisionLifecyclePublished, api.PackageRevisionLifecycleDeletionProposed},
+			valid:   []api.PorchPkgRevisionLifecycle{},
+			invalid: []api.PorchPkgRevisionLifecycle{"", "Wrong", api.PorchPkgRevisionLifecycleDraft, api.PorchPkgRevisionLifecycleProposed, api.PorchPkgRevisionLifecyclePublished, api.PorchPkgRevisionLifecycleDeletionProposed},
 		},
 		{
 			old:     "Wrong",
-			valid:   []api.PackageRevisionLifecycle{},
-			invalid: []api.PackageRevisionLifecycle{"", "Wrong", api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed, api.PackageRevisionLifecyclePublished, api.PackageRevisionLifecycleDeletionProposed},
+			valid:   []api.PorchPkgRevisionLifecycle{},
+			invalid: []api.PorchPkgRevisionLifecycle{"", "Wrong", api.PorchPkgRevisionLifecycleDraft, api.PorchPkgRevisionLifecycleProposed, api.PorchPkgRevisionLifecyclePublished, api.PorchPkgRevisionLifecycleDeletionProposed},
 		},
 		{
-			old:     api.PackageRevisionLifecycleDraft,
-			valid:   []api.PackageRevisionLifecycle{},
-			invalid: []api.PackageRevisionLifecycle{"", "Wrong", api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed, api.PackageRevisionLifecyclePublished, api.PackageRevisionLifecycleDeletionProposed},
+			old:     api.PorchPkgRevisionLifecycleDraft,
+			valid:   []api.PorchPkgRevisionLifecycle{},
+			invalid: []api.PorchPkgRevisionLifecycle{"", "Wrong", api.PorchPkgRevisionLifecycleDraft, api.PorchPkgRevisionLifecycleProposed, api.PorchPkgRevisionLifecyclePublished, api.PorchPkgRevisionLifecycleDeletionProposed},
 		},
 		{
-			old:     api.PackageRevisionLifecyclePublished,
-			valid:   []api.PackageRevisionLifecycle{api.PackageRevisionLifecycleDeletionProposed},
-			invalid: []api.PackageRevisionLifecycle{"", "Wrong", api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed, api.PackageRevisionLifecyclePublished},
+			old:     api.PorchPkgRevisionLifecyclePublished,
+			valid:   []api.PorchPkgRevisionLifecycle{api.PorchPkgRevisionLifecycleDeletionProposed},
+			invalid: []api.PorchPkgRevisionLifecycle{"", "Wrong", api.PorchPkgRevisionLifecycleDraft, api.PorchPkgRevisionLifecycleProposed, api.PorchPkgRevisionLifecyclePublished},
 		},
 		{
-			old:     api.PackageRevisionLifecycleDeletionProposed,
-			valid:   []api.PackageRevisionLifecycle{api.PackageRevisionLifecyclePublished},
-			invalid: []api.PackageRevisionLifecycle{"", "Wrong", api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed, api.PackageRevisionLifecycleDeletionProposed},
+			old:     api.PorchPkgRevisionLifecycleDeletionProposed,
+			valid:   []api.PorchPkgRevisionLifecycle{api.PorchPkgRevisionLifecyclePublished},
+			invalid: []api.PorchPkgRevisionLifecycle{"", "Wrong", api.PorchPkgRevisionLifecycleDraft, api.PorchPkgRevisionLifecycleProposed, api.PorchPkgRevisionLifecycleDeletionProposed},
 		},
 		{
-			old:     api.PackageRevisionLifecycleProposed,
-			valid:   []api.PackageRevisionLifecycle{api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecyclePublished},
-			invalid: []api.PackageRevisionLifecycle{"", "Wrong", api.PackageRevisionLifecycleProposed, api.PackageRevisionLifecycleDeletionProposed},
+			old:     api.PorchPkgRevisionLifecycleProposed,
+			valid:   []api.PorchPkgRevisionLifecycle{api.PorchPkgRevisionLifecycleDraft, api.PorchPkgRevisionLifecyclePublished},
+			invalid: []api.PorchPkgRevisionLifecycle{"", "Wrong", api.PorchPkgRevisionLifecycleProposed, api.PorchPkgRevisionLifecycleDeletionProposed},
 		},
 	} {
 		for _, new := range tc.valid {

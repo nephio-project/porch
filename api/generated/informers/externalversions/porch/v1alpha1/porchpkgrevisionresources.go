@@ -1,4 +1,4 @@
-// Copyright 2023 The kpt and Nephio Authors
+// Copyright 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,59 +30,59 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// PackageRevisionInformer provides access to a shared informer and lister for
-// PackageRevisions.
-type PackageRevisionInformer interface {
+// PorchPkgRevisionResourcesInformer provides access to a shared informer and lister for
+// PorchPkgRevisionResources.
+type PorchPkgRevisionResourcesInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.PackageRevisionLister
+	Lister() v1alpha1.PorchPkgRevisionResourcesLister
 }
 
-type packageRevisionInformer struct {
+type porchPkgRevisionResourcesInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 	namespace        string
 }
 
-// NewPackageRevisionInformer constructs a new informer for PackageRevision type.
+// NewPorchPkgRevisionResourcesInformer constructs a new informer for PorchPkgRevisionResources type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewPackageRevisionInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredPackageRevisionInformer(client, namespace, resyncPeriod, indexers, nil)
+func NewPorchPkgRevisionResourcesInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredPorchPkgRevisionResourcesInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredPackageRevisionInformer constructs a new informer for PackageRevision type.
+// NewFilteredPorchPkgRevisionResourcesInformer constructs a new informer for PorchPkgRevisionResources type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredPackageRevisionInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredPorchPkgRevisionResourcesInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PorchV1alpha1().PackageRevisions(namespace).List(context.TODO(), options)
+				return client.PorchV1alpha1().PorchPkgRevisionResources(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PorchV1alpha1().PackageRevisions(namespace).Watch(context.TODO(), options)
+				return client.PorchV1alpha1().PorchPkgRevisionResources(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&porchv1alpha1.PackageRevision{},
+		&porchv1alpha1.PorchPkgRevisionResources{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *packageRevisionInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredPackageRevisionInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *porchPkgRevisionResourcesInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredPorchPkgRevisionResourcesInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *packageRevisionInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&porchv1alpha1.PackageRevision{}, f.defaultInformer)
+func (f *porchPkgRevisionResourcesInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&porchv1alpha1.PorchPkgRevisionResources{}, f.defaultInformer)
 }
 
-func (f *packageRevisionInformer) Lister() v1alpha1.PackageRevisionLister {
-	return v1alpha1.NewPackageRevisionLister(f.Informer().GetIndexer())
+func (f *porchPkgRevisionResourcesInformer) Lister() v1alpha1.PorchPkgRevisionResourcesLister {
+	return v1alpha1.NewPorchPkgRevisionResourcesLister(f.Informer().GetIndexer())
 }

@@ -22,18 +22,18 @@ import (
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// PackageVariant represents an upstream and downstream porch package pair.
-// The upstream package should already exist. The PackageVariant controller is
+// PorchPkgVariant represents an upstream and downstream porch package pair.
+// The upstream package should already exist. The PorchPkgVariant controller is
 // responsible for creating the downstream package revisions based on the spec.
-type PackageVariant struct {
+type PorchPkgVariant struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   PackageVariantSpec   `json:"spec,omitempty"`
-	Status PackageVariantStatus `json:"status,omitempty"`
+	Spec   PorchPkgVariantSpec   `json:"spec,omitempty"`
+	Status PorchPkgVariantStatus `json:"status,omitempty"`
 }
 
-func (o *PackageVariant) GetSpec() *PackageVariantSpec {
+func (o *PorchPkgVariant) GetSpec() *PorchPkgVariantSpec {
 	if o == nil {
 		return nil
 	}
@@ -53,8 +53,8 @@ const (
 	Finalizer = "config.porch.kpt.dev/packagevariants"
 )
 
-// PackageVariantSpec defines the desired state of PackageVariant
-type PackageVariantSpec struct {
+// PorchPkgVariantSpec defines the desired state of PorchPkgVariant
+type PorchPkgVariantSpec struct {
 	Upstream   *Upstream   `json:"upstream,omitempty"`
 	Downstream *Downstream `json:"downstream,omitempty"`
 
@@ -64,25 +64,25 @@ type PackageVariantSpec struct {
 	Labels      map[string]string `json:"labels,omitempty"`
 	Annotations map[string]string `json:"annotations,omitempty"`
 
-	PackageContext *PackageContext     `json:"packageContext,omitempty"`
-	Pipeline       *kptfilev1.Pipeline `json:"pipeline,omitempty"`
-	Injectors      []InjectionSelector `json:"injectors,omitempty"`
+	PorchPkgContext *PorchPkgContext    `json:"packageContext,omitempty"`
+	Pipeline        *kptfilev1.Pipeline `json:"pipeline,omitempty"`
+	Injectors       []InjectionSelector `json:"injectors,omitempty"`
 }
 
 type Upstream struct {
 	Repo     string `json:"repo,omitempty"`
-	Package  string `json:"package,omitempty"`
+	PorchPkg string `json:"package,omitempty"`
 	Revision string `json:"revision,omitempty"`
 }
 
 type Downstream struct {
-	Repo    string `json:"repo,omitempty"`
-	Package string `json:"package,omitempty"`
+	Repo     string `json:"repo,omitempty"`
+	PorchPkg string `json:"package,omitempty"`
 }
 
-// PackageContext defines the data to be added or removed from the
+// PorchPkgContext defines the data to be added or removed from the
 // kptfile.kpt.dev ConfigMap during reconciliation.
-type PackageContext struct {
+type PorchPkgContext struct {
 	Data       map[string]string `json:"data,omitempty"`
 	RemoveKeys []string          `json:"removeKeys,omitempty"`
 }
@@ -96,12 +96,12 @@ type InjectionSelector struct {
 	Name    string  `json:"name"`
 }
 
-// PackageVariantStatus defines the observed state of PackageVariant
-type PackageVariantStatus struct {
+// PorchPkgVariantStatus defines the observed state of PorchPkgVariant
+type PorchPkgVariantStatus struct {
 	// Conditions describes the reconciliation state of the object.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
-	// DownstreamTargets contains the downstream targets that the PackageVariant
+	// DownstreamTargets contains the downstream targets that the PorchPkgVariant
 	// either created or adopted.
 	DownstreamTargets []DownstreamTarget `json:"downstreamTargets,omitempty"`
 }
@@ -112,13 +112,13 @@ type DownstreamTarget struct {
 
 //+kubebuilder:object:root=true
 
-// PackageVariantList contains a list of PackageVariant
-type PackageVariantList struct {
+// PorchPkgVariantList contains a list of PorchPkgVariant
+type PorchPkgVariantList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []PackageVariant `json:"items"`
+	Items           []PorchPkgVariant `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&PackageVariant{}, &PackageVariantList{})
+	SchemeBuilder.Register(&PorchPkgVariant{}, &PorchPkgVariantList{})
 }

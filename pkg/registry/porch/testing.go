@@ -22,16 +22,16 @@ import (
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 )
 
-func testValidateUpdate(t *testing.T, s SimpleRESTUpdateStrategy, old, new api.PackageRevisionLifecycle, valid bool) {
+func testValidateUpdate(t *testing.T, s SimpleRESTUpdateStrategy, old, new api.PorchPkgRevisionLifecycle, valid bool) {
 	ctx := context.Background()
 	t.Run(fmt.Sprintf("%s-%s", old, new), func(t *testing.T) {
-		oldRev := &api.PackageRevision{
-			Spec: api.PackageRevisionSpec{
+		oldRev := &api.PorchPkgRevision{
+			Spec: api.PorchPkgRevisionSpec{
 				Lifecycle: old,
 			},
 		}
-		newRev := &api.PackageRevision{
-			Spec: api.PackageRevisionSpec{
+		newRev := &api.PorchPkgRevision{
+			Spec: api.PorchPkgRevisionSpec{
 				Lifecycle: new,
 			},
 		}

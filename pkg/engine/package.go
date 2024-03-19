@@ -28,7 +28,7 @@ type PackageFetcher struct {
 	referenceResolver ReferenceResolver
 }
 
-func (p *PackageFetcher) FetchRevision(ctx context.Context, packageRef *api.PackageRevisionRef, namespace string) (repository.PackageRevision, error) {
+func (p *PackageFetcher) FetchRevision(ctx context.Context, packageRef *api.PorchPkgRevisionRef, namespace string) (repository.PackageRevision, error) {
 	repositoryName, err := parseUpstreamRepository(packageRef.Name)
 	if err != nil {
 		return nil, err
@@ -62,7 +62,7 @@ func (p *PackageFetcher) FetchRevision(ctx context.Context, packageRef *api.Pack
 	return revision, nil
 }
 
-func (p *PackageFetcher) FetchResources(ctx context.Context, packageRef *api.PackageRevisionRef, namespace string) (*api.PackageRevisionResources, error) {
+func (p *PackageFetcher) FetchResources(ctx context.Context, packageRef *api.PorchPkgRevisionRef, namespace string) (*api.PorchPkgRevisionResources, error) {
 	revision, err := p.FetchRevision(ctx, packageRef, namespace)
 	if err != nil {
 		return nil, err

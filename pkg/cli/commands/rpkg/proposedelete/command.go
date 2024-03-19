@@ -83,7 +83,7 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 	namespace := *r.cfg.Namespace
 
 	for _, name := range args {
-		pr := &v1alpha1.PackageRevision{}
+		pr := &v1alpha1.PorchPkgRevision{}
 		if err := r.client.Get(r.ctx, client.ObjectKey{
 			Namespace: namespace,
 			Name:      name,
@@ -92,9 +92,9 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 		}
 
 		switch pr.Spec.Lifecycle {
-		case v1alpha1.PackageRevisionLifecyclePublished:
+		case v1alpha1.PorchPkgRevisionLifecyclePublished:
 			// ok
-		case v1alpha1.PackageRevisionLifecycleDeletionProposed:
+		case v1alpha1.PorchPkgRevisionLifecycleDeletionProposed:
 			fmt.Fprintf(r.Command.OutOrStderr(), "%s is already proposed for deletion\n", name)
 			continue
 		default:
@@ -104,12 +104,12 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 			continue
 		}
 
-		pr.Spec.Lifecycle = v1alpha1.PackageRevisionLifecycleDeletionProposed
+		pr.Spec.Lifecycle = v1alpha1.PorchPkgRevisionLifecycleDeletionProposed
 		if err := r.client.Update(r.ctx, pr); err != nil {
 			messages = append(messages, err.Error())
 			fmt.Fprintf(r.Command.ErrOrStderr(), "%s failed (%s)\n", name, err)
 		} else {
-			fmt.Fprintf(r.Command.OutOrStdout(), "%s proposed for deletion\n", name)
+			fmt.Fprintf(r.Command.OutOrStderr(), "%s proposed for deletion\n", name)
 		}
 	}
 

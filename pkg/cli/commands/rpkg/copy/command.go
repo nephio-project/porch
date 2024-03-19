@@ -63,7 +63,7 @@ type runner struct {
 	client  client.Client
 	Command *cobra.Command
 
-	copy porchapi.PackageEditTaskSpec
+	copy porchapi.PorchPkgEditTaskSpec
 
 	workspace      string // Target package revision workspaceName
 	replayStrategy bool
@@ -84,7 +84,7 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 		return errors.E(op, fmt.Errorf("too many arguments; SOURCE_PACKAGE is the only accepted positional arguments"))
 	}
 
-	r.copy.Source = &porchapi.PackageRevisionRef{
+	r.copy.Source = &porchapi.PorchPkgRevisionRef{
 		Name: args[0],
 	}
 	return nil
@@ -98,7 +98,7 @@ func (r *runner) runE(cmd *cobra.Command, _ []string) error {
 		return errors.E(op, err)
 	}
 
-	pr := &porchapi.PackageRevision{
+	pr := &porchapi.PorchPkgRevision{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevision",
 			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
@@ -115,8 +115,8 @@ func (r *runner) runE(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-func (r *runner) getPackageRevisionSpec() (*porchapi.PackageRevisionSpec, error) {
-	packageRevision := porchapi.PackageRevision{}
+func (r *runner) getPackageRevisionSpec() (*porchapi.PorchPkgRevisionSpec, error) {
+	packageRevision := porchapi.PorchPkgRevision{}
 	err := r.client.Get(r.ctx, types.NamespacedName{
 		Name:      r.copy.Source.Name,
 		Namespace: *r.cfg.Namespace,
@@ -129,8 +129,8 @@ func (r *runner) getPackageRevisionSpec() (*porchapi.PackageRevisionSpec, error)
 		return nil, fmt.Errorf("--workspace is required to specify workspace name")
 	}
 
-	spec := &porchapi.PackageRevisionSpec{
-		PackageName:    packageRevision.Spec.PackageName,
+	spec := &porchapi.PorchPkgRevisionSpec{
+		PorchPkgName:   packageRevision.Spec.PorchPkgName,
 		WorkspaceName:  porchapi.WorkspaceName(r.workspace),
 		RepositoryName: packageRevision.Spec.RepositoryName,
 	}
@@ -139,8 +139,8 @@ func (r *runner) getPackageRevisionSpec() (*porchapi.PackageRevisionSpec, error)
 		spec.Tasks = []porchapi.Task{
 			{
 				Type: porchapi.TaskTypeEdit,
-				Edit: &porchapi.PackageEditTaskSpec{
-					Source: &porchapi.PackageRevisionRef{
+				Edit: &porchapi.PorchPkgEditTaskSpec{
+					Source: &porchapi.PorchPkgRevisionRef{
 						Name: packageRevision.Name,
 					},
 				},

@@ -113,7 +113,7 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 func (r *runner) runE(cmd *cobra.Command, _ []string) error {
 	const op errors.Op = command + ".runE"
 
-	pr := &porchapi.PackageRevision{
+	pr := &porchapi.PorchPkgRevision{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevision",
 			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
@@ -121,14 +121,14 @@ func (r *runner) runE(cmd *cobra.Command, _ []string) error {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: *r.cfg.Namespace,
 		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    r.name,
+		Spec: porchapi.PorchPkgRevisionSpec{
+			PorchPkgName:   r.name,
 			WorkspaceName:  porchapi.WorkspaceName(r.workspace),
 			RepositoryName: r.repository,
 			Tasks: []porchapi.Task{
 				{
 					Type: porchapi.TaskTypeInit,
-					Init: &porchapi.PackageInitTaskSpec{
+					Init: &porchapi.PorchPkgInitTaskSpec{
 						Description: r.Description,
 						Keywords:    r.Keywords,
 						Site:        r.Site,
@@ -136,7 +136,7 @@ func (r *runner) runE(cmd *cobra.Command, _ []string) error {
 				},
 			},
 		},
-		Status: porchapi.PackageRevisionStatus{},
+		Status: porchapi.PorchPkgRevisionStatus{},
 	}
 	if err := r.client.Create(r.ctx, pr); err != nil {
 		return errors.E(op, err)

@@ -68,19 +68,19 @@ type PackageRevision interface {
 	Key() PackageRevisionKey
 
 	// Lifecycle returns the current lifecycle state of the package.
-	Lifecycle() v1alpha1.PackageRevisionLifecycle
+	Lifecycle() v1alpha1.PorchPkgRevisionLifecycle
 
 	// UpdateLifecycle updates the desired lifecycle of the package. This can only
 	// be used for Published package revisions to go from Published to DeletionProposed
 	// or vice versa. Draft revisions should use PackageDraft.UpdateLifecycle.
-	UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error
+	UpdateLifecycle(ctx context.Context, new v1alpha1.PorchPkgRevisionLifecycle) error
 
 	// GetPackageRevision returns the PackageRevision ("DRY") API representation of this package-revision
-	GetPackageRevision(context.Context) (*v1alpha1.PackageRevision, error)
+	GetPackageRevision(context.Context) (*v1alpha1.PorchPkgRevision, error)
 
 	// GetResources returns the PackageRevisionResources ("WET") API representation of this package-revision
 	// TODO: return PackageResources or filesystem abstraction?
-	GetResources(context.Context) (*v1alpha1.PackageRevisionResources, error)
+	GetResources(context.Context) (*v1alpha1.PorchPkgRevisionResources, error)
 
 	// GetUpstreamLock returns the kpt lock information.
 	GetUpstreamLock(context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error)
@@ -106,7 +106,7 @@ type Package interface {
 	Key() PackageKey
 
 	// GetPackage returns the object representing this package
-	GetPackage() *v1alpha1.Package
+	GetPackage() *v1alpha1.PorchPkg
 
 	// GetLatestRevision returns the name of the package revision that is the "latest" package
 	// revision belonging to this package
@@ -114,9 +114,9 @@ type Package interface {
 }
 
 type PackageDraft interface {
-	UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, task *v1alpha1.Task) error
+	UpdateResources(ctx context.Context, new *v1alpha1.PorchPkgRevisionResources, task *v1alpha1.Task) error
 	// Updates desired lifecycle of the package. The lifecycle is applied on Close.
-	UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error
+	UpdateLifecycle(ctx context.Context, new v1alpha1.PorchPkgRevisionLifecycle) error
 	// Finish round of updates.
 	Close(ctx context.Context) (PackageRevision, error)
 }
@@ -189,7 +189,7 @@ type Repository interface {
 	ListPackageRevisions(ctx context.Context, filter ListPackageRevisionFilter) ([]PackageRevision, error)
 
 	// CreatePackageRevision creates a new package revision
-	CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (PackageDraft, error)
+	CreatePackageRevision(ctx context.Context, obj *v1alpha1.PorchPkgRevision) (PackageDraft, error)
 
 	// DeletePackageRevision deletes a package revision
 	DeletePackageRevision(ctx context.Context, old PackageRevision) error
@@ -201,7 +201,7 @@ type Repository interface {
 	ListPackages(ctx context.Context, filter ListPackageFilter) ([]Package, error)
 
 	// CreatePackage creates a new package
-	CreatePackage(ctx context.Context, obj *v1alpha1.Package) (Package, error)
+	CreatePackage(ctx context.Context, obj *v1alpha1.PorchPkg) (Package, error)
 
 	// DeletePackage deletes a package
 	DeletePackage(ctx context.Context, old Package) error

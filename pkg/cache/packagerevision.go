@@ -34,7 +34,7 @@ type cachedPackageRevision struct {
 	isLatestRevision bool
 }
 
-func (c *cachedPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.PackageRevision, error) {
+func (c *cachedPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.PorchPkgRevision, error) {
 	rev, err := c.PackageRevision.GetPackageRevision(ctx)
 	if err != nil {
 		return nil, err
@@ -45,7 +45,7 @@ func (c *cachedPackageRevision) GetPackageRevision(ctx context.Context) (*v1alph
 		for k, v := range rev.Labels {
 			labels[k] = v
 		}
-		labels[v1alpha1.LatestPackageRevisionKey] = v1alpha1.LatestPackageRevisionValue
+		labels[v1alpha1.LatestPorchPkgRevisionKey] = v1alpha1.LatestPorchPkgRevisionValue
 		rev.Labels = labels
 	}
 	return rev, nil

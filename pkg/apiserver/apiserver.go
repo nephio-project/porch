@@ -1,4 +1,4 @@
-// Copyright 2022,2024 The kpt and Nephio Authors
+// Copyright 2022 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/nephio-project/porch/api/porch/install"
@@ -282,14 +281,9 @@ func (c completedConfig) New() (*PorchServer, error) {
 
 func (s *PorchServer) Run(ctx context.Context) error {
 	porch.RunBackground(ctx, s.coreClient, s.cache)
-	webhookNs, found := os.LookupEnv("CERT_NAMESPACE")
-	if !found || strings.TrimSpace(webhookNs) == "" {
-		webhookNs = "porch-system"
-	}
-
 	certStorageDir, found := os.LookupEnv("CERT_STORAGE_DIR")
-	if found && strings.TrimSpace(certStorageDir) != "" {
-		if err := setupWebhooks(ctx, webhookNs, certStorageDir); err != nil {
+	if found && certStorageDir != "" {
+		if err := setupWebhooks(ctx, certStorageDir); err != nil {
 			klog.Errorf("%v\n", err)
 			return err
 		}

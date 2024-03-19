@@ -31,21 +31,21 @@ const (
 func PackageAlreadyExists(ctx context.Context, c client.Client, repository, packageName, namespace string) (bool, error) {
 	// only the first package revision can be created from init or clone, so
 	// we need to check that the package doesn't already exist.
-	packageRevisionList := api.PackageRevisionList{}
+	packageRevisionList := api.PorchPkgRevisionList{}
 	if err := c.List(ctx, &packageRevisionList, &client.ListOptions{
 		Namespace: namespace,
 	}); err != nil {
 		return false, err
 	}
 	for _, pr := range packageRevisionList.Items {
-		if pr.Spec.RepositoryName == repository && pr.Spec.PackageName == packageName {
+		if pr.Spec.RepositoryName == repository && pr.Spec.PorchPkgName == packageName {
 			return true, nil
 		}
 	}
 	return false, nil
 }
 
-func GetResourceFileKubeObject(prr *api.PackageRevisionResources, file, kind, name string) (*fnsdk.KubeObject, error) {
+func GetResourceFileKubeObject(prr *api.PorchPkgRevisionResources, file, kind, name string) (*fnsdk.KubeObject, error) {
 	if prr.Spec.Resources == nil {
 		return nil, fmt.Errorf("nil resources found for PackageRevisionResources '%s/%s'", prr.Namespace, prr.Name)
 	}
@@ -68,7 +68,7 @@ func GetResourceFileKubeObject(prr *api.PackageRevisionResources, file, kind, na
 	return ko, nil
 }
 
-func GetResourceVersion(prr *api.PackageRevisionResources) (string, error) {
+func GetResourceVersion(prr *api.PorchPkgRevisionResources) (string, error) {
 	ko, err := GetResourceFileKubeObject(prr, kptfilev1.RevisionMetaDataFileName, kptfilev1.RevisionMetaDataKind, "")
 	if err != nil {
 		return "", err
@@ -77,7 +77,7 @@ func GetResourceVersion(prr *api.PackageRevisionResources) (string, error) {
 	return rv, nil
 }
 
-func AddRevisionMetadata(prr *api.PackageRevisionResources) error {
+func AddRevisionMetadata(prr *api.PorchPkgRevisionResources) error {
 	kptMetaDataKo := fnsdk.NewEmptyKubeObject()
 	kptMetaDataKo.SetAPIVersion(prr.APIVersion)
 	kptMetaDataKo.SetKind(kptfilev1.RevisionMetaDataKind)
@@ -89,7 +89,7 @@ func AddRevisionMetadata(prr *api.PackageRevisionResources) error {
 	return nil
 }
 
-func RemoveRevisionMetadata(prr *api.PackageRevisionResources) error {
+func RemoveRevisionMetadata(prr *api.PorchPkgRevisionResources) error {
 	delete(prr.Spec.Resources, kptfilev1.RevisionMetaDataFileName)
 	return nil
 }

@@ -36,39 +36,39 @@ func (s packageRevisionStrategy) PrepareForUpdate(ctx context.Context, obj, old 
 
 func (s packageRevisionStrategy) ValidateUpdate(ctx context.Context, obj, old runtime.Object) field.ErrorList {
 	allErrs := field.ErrorList{}
-	oldRevision := old.(*api.PackageRevision)
-	newRevision := obj.(*api.PackageRevision)
+	oldRevision := old.(*api.PorchPkgRevision)
+	newRevision := obj.(*api.PorchPkgRevision)
 
 	// Verify that the new lifecycle value is valid.
 	switch lifecycle := newRevision.Spec.Lifecycle; lifecycle {
-	case "", api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed, api.PackageRevisionLifecyclePublished, api.PackageRevisionLifecycleDeletionProposed:
+	case "", api.PorchPkgRevisionLifecycleDraft, api.PorchPkgRevisionLifecycleProposed, api.PorchPkgRevisionLifecyclePublished, api.PorchPkgRevisionLifecycleDeletionProposed:
 		// valid
 	default:
 		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle, fmt.Sprintf("value can be only updated to %s",
 			strings.Join([]string{
-				string(api.PackageRevisionLifecycleDraft),
-				string(api.PackageRevisionLifecycleProposed),
-				string(api.PackageRevisionLifecyclePublished),
-				string(api.PackageRevisionLifecycleDeletionProposed),
+				string(api.PorchPkgRevisionLifecycleDraft),
+				string(api.PorchPkgRevisionLifecycleProposed),
+				string(api.PorchPkgRevisionLifecyclePublished),
+				string(api.PorchPkgRevisionLifecycleDeletionProposed),
 			}, ",")),
 		))
 	}
 
 	switch lifecycle := oldRevision.Spec.Lifecycle; lifecycle {
-	case "", api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed:
+	case "", api.PorchPkgRevisionLifecycleDraft, api.PorchPkgRevisionLifecycleProposed:
 		// Packages in a draft or proposed state can only be updated to draft or proposed.
 		newLifecycle := newRevision.Spec.Lifecycle
-		if !(newLifecycle == api.PackageRevisionLifecycleDraft ||
-			newLifecycle == api.PackageRevisionLifecycleProposed ||
+		if !(newLifecycle == api.PorchPkgRevisionLifecycleDraft ||
+			newLifecycle == api.PorchPkgRevisionLifecycleProposed ||
 			newLifecycle == "") {
 			allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle, fmt.Sprintf("value can be only updated to %s",
 				strings.Join([]string{
-					string(api.PackageRevisionLifecycleDraft),
-					string(api.PackageRevisionLifecycleProposed),
+					string(api.PorchPkgRevisionLifecycleDraft),
+					string(api.PorchPkgRevisionLifecycleProposed),
 				}, ",")),
 			))
 		}
-	case api.PackageRevisionLifecyclePublished, api.PackageRevisionLifecycleDeletionProposed:
+	case api.PorchPkgRevisionLifecyclePublished, api.PorchPkgRevisionLifecycleDeletionProposed:
 		// We don't allow any updates to the spec for packagerevision that have been published. That includes updates of the lifecycle. But
 		// we allow updates to metadata and status. The only exception is that the lifecycle
 		// can change between Published and DeletionProposed and vice versa.
@@ -81,8 +81,8 @@ func (s packageRevisionStrategy) ValidateUpdate(ctx context.Context, obj, old ru
 		if !equality.Semantic.DeepEqual(oldRevision.Spec, newRevision.Spec) {
 			allErrs = append(allErrs, field.Invalid(field.NewPath("spec"), newRevision.Spec, fmt.Sprintf("spec can only update package with lifecycle value one of %s",
 				strings.Join([]string{
-					string(api.PackageRevisionLifecycleDraft),
-					string(api.PackageRevisionLifecycleProposed),
+					string(api.PorchPkgRevisionLifecycleDraft),
+					string(api.PorchPkgRevisionLifecycleProposed),
 				}, ",")),
 			))
 		}
@@ -90,10 +90,10 @@ func (s packageRevisionStrategy) ValidateUpdate(ctx context.Context, obj, old ru
 	default:
 		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle, fmt.Sprintf("can only update package with lifecycle value one of %s",
 			strings.Join([]string{
-				string(api.PackageRevisionLifecycleDraft),
-				string(api.PackageRevisionLifecycleProposed),
-				string(api.PackageRevisionLifecyclePublished),
-				string(api.PackageRevisionLifecycleDeletionProposed),
+				string(api.PorchPkgRevisionLifecycleDraft),
+				string(api.PorchPkgRevisionLifecycleProposed),
+				string(api.PorchPkgRevisionLifecyclePublished),
+				string(api.PorchPkgRevisionLifecycleDeletionProposed),
 			}, ",")),
 		))
 	}
@@ -102,10 +102,10 @@ func (s packageRevisionStrategy) ValidateUpdate(ctx context.Context, obj, old ru
 }
 
 func (s packageRevisionStrategy) Canonicalize(obj runtime.Object) {
-	pr := obj.(*api.PackageRevision)
+	pr := obj.(*api.PorchPkgRevision)
 	if pr.Spec.Lifecycle == "" {
 		// Set default
-		pr.Spec.Lifecycle = api.PackageRevisionLifecycleDraft
+		pr.Spec.Lifecycle = api.PorchPkgRevisionLifecycleDraft
 	}
 }
 
@@ -118,16 +118,16 @@ var _ SimpleRESTCreateStrategy = packageRevisionStrategy{}
 func (s packageRevisionStrategy) Validate(ctx context.Context, runtimeObj runtime.Object) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	obj := runtimeObj.(*api.PackageRevision)
+	obj := runtimeObj.(*api.PorchPkgRevision)
 
 	switch lifecycle := obj.Spec.Lifecycle; lifecycle {
-	case "", api.PackageRevisionLifecycleDraft:
+	case "", api.PorchPkgRevisionLifecycleDraft:
 		// valid
 
 	default:
 		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle, fmt.Sprintf("value can be only created as %s",
 			strings.Join([]string{
-				string(api.PackageRevisionLifecycleDraft),
+				string(api.PorchPkgRevisionLifecycleDraft),
 			}, ",")),
 		))
 	}

@@ -105,7 +105,7 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 
 	packageName := args[0]
 
-	var resources porchapi.PackageRevisionResources
+	var resources porchapi.PorchPkgRevisionResources
 	if err := r.client.Get(r.ctx, client.ObjectKey{
 		Namespace: *r.cfg.Namespace,
 		Name:      packageName,

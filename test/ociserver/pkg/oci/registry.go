@@ -25,7 +25,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/google/uuid"
@@ -288,14 +287,13 @@ func (r *Registry) ListTags(ctx context.Context) (*Tags, error) {
 				if err != nil {
 					return nil, fmt.Errorf("error from os.Stat(%q): %w", p, err)
 				}
-				unixStat := stat.Sys().(*syscall.Stat_t)
 
 				hash := sha256.Sum256(b)
 				ref := "sha256:" + hex.EncodeToString(hash[:])
 				existing, found := tags.Manifests[ref]
 				if !found {
 					existing = ManifestInfo{}
-					ctime := time.Unix(int64(unixStat.Ctim.Sec), int64(unixStat.Ctim.Nsec))
+					ctime := time.Unix(int64(stat.ModTime().Second()), int64(stat.ModTime().Nanosecond()))
 					// TODO: What should these values really be?
 					existing.TimeCreatedMs = strconv.FormatInt(ctime.UnixMilli(), 10)
 					existing.TimeUploadedMS = strconv.FormatInt(ctime.UnixMilli(), 10)

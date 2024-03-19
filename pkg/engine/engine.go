@@ -61,17 +61,17 @@ type CaDEngine interface {
 	// ObjectCache() is a cache of all our objects.
 	ObjectCache() WatcherManager
 
-	UpdatePackageResources(ctx context.Context, repositoryObj *configapi.Repository, oldPackage *PackageRevision, old, new *api.PackageRevisionResources) (*PackageRevision, *api.RenderStatus, error)
+	UpdatePackageResources(ctx context.Context, repositoryObj *configapi.Repository, oldPackage *PackageRevision, old, new *api.PorchPkgRevisionResources) (*PackageRevision, *api.RenderStatus, error)
 	ListFunctions(ctx context.Context, repositoryObj *configapi.Repository) ([]*Function, error)
 
 	ListPackageRevisions(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageRevisionFilter) ([]*PackageRevision, error)
-	CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj *api.PackageRevision, parent *PackageRevision) (*PackageRevision, error)
-	UpdatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, oldPackage *PackageRevision, old, new *api.PackageRevision, parent *PackageRevision) (*PackageRevision, error)
+	CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj *api.PorchPkgRevision, parent *PackageRevision) (*PackageRevision, error)
+	UpdatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, oldPackage *PackageRevision, old, new *api.PorchPkgRevision, parent *PackageRevision) (*PackageRevision, error)
 	DeletePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj *PackageRevision) error
 
 	ListPackages(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageFilter) ([]*Package, error)
-	CreatePackage(ctx context.Context, repositoryObj *configapi.Repository, obj *api.Package) (*Package, error)
-	UpdatePackage(ctx context.Context, repositoryObj *configapi.Repository, oldPackage *Package, old, new *api.Package) (*Package, error)
+	CreatePackage(ctx context.Context, repositoryObj *configapi.Repository, obj *api.PorchPkg) (*Package, error)
+	UpdatePackage(ctx context.Context, repositoryObj *configapi.Repository, oldPackage *Package, old, new *api.PorchPkg) (*Package, error)
 	DeletePackage(ctx context.Context, repositoryObj *configapi.Repository, obj *Package) error
 }
 
@@ -79,7 +79,7 @@ type Package struct {
 	repoPackage repository.Package
 }
 
-func (p *Package) GetPackage() *api.Package {
+func (p *Package) GetPackage() *api.PorchPkg {
 	return p.repoPackage.GetPackage()
 }
 
@@ -102,13 +102,13 @@ type PackageRevision struct {
 	packageRevisionMeta meta.PackageRevisionMeta
 }
 
-func (p *PackageRevision) GetPackageRevision(ctx context.Context) (*api.PackageRevision, error) {
+func (p *PackageRevision) GetPackageRevision(ctx context.Context) (*api.PorchPkgRevision, error) {
 	repoPkgRev, err := p.repoPackageRevision.GetPackageRevision(ctx)
 	if err != nil {
 		return nil, err
 	}
 	var isLatest bool
-	if val, found := repoPkgRev.Labels[api.LatestPackageRevisionKey]; found && val == api.LatestPackageRevisionValue {
+	if val, found := repoPkgRev.Labels[api.LatestPorchPkgRevisionKey]; found && val == api.LatestPorchPkgRevisionValue {
 		isLatest = true
 	}
 	repoPkgRev.Labels = p.packageRevisionMeta.Labels
@@ -118,7 +118,7 @@ func (p *PackageRevision) GetPackageRevision(ctx context.Context) (*api.PackageR
 		for k, v := range repoPkgRev.Labels {
 			labels[k] = v
 		}
-		labels[api.LatestPackageRevisionKey] = api.LatestPackageRevisionValue
+		labels[api.LatestPorchPkgRevisionKey] = api.LatestPorchPkgRevisionValue
 		repoPkgRev.Labels = labels
 	}
 	repoPkgRev.Annotations = p.packageRevisionMeta.Annotations
@@ -133,7 +133,7 @@ func (p *PackageRevision) KubeObjectName() string {
 	return p.repoPackageRevision.KubeObjectName()
 }
 
-func (p *PackageRevision) GetResources(ctx context.Context) (*api.PackageRevisionResources, error) {
+func (p *PackageRevision) GetResources(ctx context.Context) (*api.PorchPkgRevisionResources, error) {
 	return p.repoPackageRevision.GetResources(ctx)
 }
 
@@ -226,7 +226,7 @@ func (cad *cadEngine) ListPackageRevisions(ctx context.Context, repositorySpec *
 	return packageRevisions, nil
 }
 
-func buildPackageConfig(ctx context.Context, obj *api.PackageRevision, parent *PackageRevision) (*builtins.PackageConfig, error) {
+func buildPackageConfig(ctx context.Context, obj *api.PorchPkgRevision, parent *PackageRevision) (*builtins.PackageConfig, error) {
 	config := &builtins.PackageConfig{}
 
 	parentPath := ""
@@ -237,7 +237,7 @@ func buildPackageConfig(ctx context.Context, obj *api.PackageRevision, parent *P
 		if err != nil {
 			return nil, err
 		}
-		parentPath = parentObj.Spec.PackageName
+		parentPath = parentObj.Spec.PorchPkgName
 
 		resources, err := parent.GetResources(ctx)
 		if err != nil {
@@ -262,15 +262,15 @@ func buildPackageConfig(ctx context.Context, obj *api.PackageRevision, parent *P
 	}
 
 	if parentPath == "" {
-		config.PackagePath = obj.Spec.PackageName
+		config.PackagePath = obj.Spec.PorchPkgName
 	} else {
-		config.PackagePath = parentPath + "/" + obj.Spec.PackageName
+		config.PackagePath = parentPath + "/" + obj.Spec.PorchPkgName
 	}
 
 	return config, nil
 }
 
-func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj *api.PackageRevision, parent *PackageRevision) (*PackageRevision, error) {
+func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj *api.PorchPkgRevision, parent *PackageRevision) (*PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cadEngine::CreatePackageRevision", trace.WithAttributes())
 	defer span.End()
 
@@ -283,10 +283,10 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	switch obj.Spec.Lifecycle {
 	case "":
 		// Set draft as default
-		obj.Spec.Lifecycle = api.PackageRevisionLifecycleDraft
-	case api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed:
+		obj.Spec.Lifecycle = api.PorchPkgRevisionLifecycleDraft
+	case api.PorchPkgRevisionLifecycleDraft, api.PorchPkgRevisionLifecycleProposed:
 		// These values are ok
-	case api.PackageRevisionLifecyclePublished, api.PackageRevisionLifecycleDeletionProposed:
+	case api.PorchPkgRevisionLifecyclePublished, api.PorchPkgRevisionLifecycleDeletionProposed:
 		// TODO: generate errors that can be translated to correct HTTP responses
 		return nil, fmt.Errorf("cannot create a package revision with lifecycle value 'Final'")
 	default:
@@ -303,7 +303,7 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	}
 
 	revs, err := repo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
-		Package: obj.Spec.PackageName})
+		Package: obj.Spec.PorchPkgName})
 	if err != nil {
 		return nil, fmt.Errorf("error listing package revisions: %w", err)
 	}
@@ -351,12 +351,12 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 }
 
 // The workspaceName must be unique, because it used to generate the package revision's metadata.name.
-func ensureUniqueWorkspaceName(obj *api.PackageRevision, existingRevs []repository.PackageRevision) error {
+func ensureUniqueWorkspaceName(obj *api.PorchPkgRevision, existingRevs []repository.PackageRevision) error {
 	for _, r := range existingRevs {
 		k := r.Key()
 		if k.WorkspaceName == obj.Spec.WorkspaceName {
 			return fmt.Errorf("package revision workspaceNames must be unique; package revision with name %s in repo %s with "+
-				"workspaceName %s already exists", obj.Spec.PackageName, obj.Spec.RepositoryName, obj.Spec.WorkspaceName)
+				"workspaceName %s already exists", obj.Spec.PorchPkgName, obj.Spec.RepositoryName, obj.Spec.WorkspaceName)
 		}
 	}
 	return nil
@@ -395,18 +395,18 @@ func taskTypeOneOf(taskType api.TaskType, oneOf ...api.TaskType) bool {
 	return false
 }
 
-func (cad *cadEngine) applyTasks(ctx context.Context, draft repository.PackageDraft, repositoryObj *configapi.Repository, obj *api.PackageRevision, packageConfig *builtins.PackageConfig) error {
+func (cad *cadEngine) applyTasks(ctx context.Context, draft repository.PackageDraft, repositoryObj *configapi.Repository, obj *api.PorchPkgRevision, packageConfig *builtins.PackageConfig) error {
 	var mutations []mutation
 
 	// Unless first task is Init or Clone, insert Init to create an empty package.
 	tasks := obj.Spec.Tasks
 	if len(tasks) == 0 || !taskTypeOneOf(tasks[0].Type, api.TaskTypeInit, api.TaskTypeClone, api.TaskTypeEdit) {
 		mutations = append(mutations, &initPackageMutation{
-			name: obj.Spec.PackageName,
+			name: obj.Spec.PorchPkgName,
 			task: &api.Task{
-				Init: &api.PackageInitTaskSpec{
+				Init: &api.PorchPkgInitTaskSpec{
 					Subpackage:  "",
-					Description: fmt.Sprintf("%s description", obj.Spec.PackageName),
+					Description: fmt.Sprintf("%s description", obj.Spec.PorchPkgName),
 				},
 			},
 		})
@@ -436,14 +436,14 @@ type RepositoryOpener interface {
 	OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (repository.Repository, error)
 }
 
-func (cad *cadEngine) mapTaskToMutation(ctx context.Context, obj *api.PackageRevision, task *api.Task, isDeployment bool, packageConfig *builtins.PackageConfig) (mutation, error) {
+func (cad *cadEngine) mapTaskToMutation(ctx context.Context, obj *api.PorchPkgRevision, task *api.Task, isDeployment bool, packageConfig *builtins.PackageConfig) (mutation, error) {
 	switch task.Type {
 	case api.TaskTypeInit:
 		if task.Init == nil {
 			return nil, fmt.Errorf("init not set for task of type %q", task.Type)
 		}
 		return &initPackageMutation{
-			name: obj.Spec.PackageName,
+			name: obj.Spec.PorchPkgName,
 			task: task,
 		}, nil
 	case api.TaskTypeClone:
@@ -453,7 +453,7 @@ func (cad *cadEngine) mapTaskToMutation(ctx context.Context, obj *api.PackageRev
 		return &clonePackageMutation{
 			task:               task,
 			namespace:          obj.Namespace,
-			name:               obj.Spec.PackageName,
+			name:               obj.Spec.PorchPkgName,
 			isDeployment:       isDeployment,
 			repoOpener:         cad,
 			credentialResolver: cad.credentialResolver,
@@ -467,7 +467,7 @@ func (cad *cadEngine) mapTaskToMutation(ctx context.Context, obj *api.PackageRev
 		}
 		cloneTask := findCloneTask(obj)
 		if cloneTask == nil {
-			return nil, fmt.Errorf("upstream source not found for package rev %q; only cloned packages can be updated", obj.Spec.PackageName)
+			return nil, fmt.Errorf("upstream source not found for package rev %q; only cloned packages can be updated", obj.Spec.PorchPkgName)
 		}
 		return &updatePackageMutation{
 			cloneTask:         cloneTask,
@@ -475,7 +475,7 @@ func (cad *cadEngine) mapTaskToMutation(ctx context.Context, obj *api.PackageRev
 			namespace:         obj.Namespace,
 			repoOpener:        cad,
 			referenceResolver: cad.referenceResolver,
-			pkgName:           obj.Spec.PackageName,
+			pkgName:           obj.Spec.PorchPkgName,
 		}, nil
 
 	case api.TaskTypePatch:
@@ -488,7 +488,7 @@ func (cad *cadEngine) mapTaskToMutation(ctx context.Context, obj *api.PackageRev
 		return &editPackageMutation{
 			task:              task,
 			namespace:         obj.Namespace,
-			packageName:       obj.Spec.PackageName,
+			packageName:       obj.Spec.PorchPkgName,
 			repositoryName:    obj.Spec.RepositoryName,
 			repoOpener:        cad,
 			referenceResolver: cad.referenceResolver,
@@ -520,7 +520,7 @@ func (cad *cadEngine) mapTaskToMutation(ctx context.Context, obj *api.PackageRev
 	}
 }
 
-func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, oldPackage *PackageRevision, oldObj, newObj *api.PackageRevision, parent *PackageRevision) (*PackageRevision, error) {
+func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, oldPackage *PackageRevision, oldObj, newObj *api.PorchPkgRevision, parent *PackageRevision) (*PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cadEngine::UpdatePackageRevision", trace.WithAttributes())
 	defer span.End()
 
@@ -562,9 +562,9 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, repositoryObj *
 	switch lifecycle := oldObj.Spec.Lifecycle; lifecycle {
 	default:
 		return nil, fmt.Errorf("invalid original lifecycle value: %q", lifecycle)
-	case api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed:
+	case api.PorchPkgRevisionLifecycleDraft, api.PorchPkgRevisionLifecycleProposed:
 		// Draft or proposed can be updated.
-	case api.PackageRevisionLifecyclePublished, api.PackageRevisionLifecycleDeletionProposed:
+	case api.PorchPkgRevisionLifecyclePublished, api.PorchPkgRevisionLifecycleDeletionProposed:
 		// Only metadata (currently labels and annotations) and lifecycle can be updated for published packages.
 		if oldObj.Spec.Lifecycle != newObj.Spec.Lifecycle {
 			if err := oldPackage.repoPackageRevision.UpdateLifecycle(ctx, newObj.Spec.Lifecycle); err != nil {
@@ -584,7 +584,7 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, repositoryObj *
 	switch lifecycle := newObj.Spec.Lifecycle; lifecycle {
 	default:
 		return nil, fmt.Errorf("invalid desired lifecycle value: %q", lifecycle)
-	case api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed, api.PackageRevisionLifecyclePublished, api.PackageRevisionLifecycleDeletionProposed:
+	case api.PorchPkgRevisionLifecycleDraft, api.PorchPkgRevisionLifecycleProposed, api.PorchPkgRevisionLifecyclePublished, api.PorchPkgRevisionLifecycleDeletionProposed:
 		// These values are ok
 	}
 
@@ -634,7 +634,7 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, repositoryObj *
 
 		cloneTask := findCloneTask(oldObj)
 		if cloneTask == nil {
-			return nil, fmt.Errorf("upstream source not found for package rev %q; only cloned packages can be updated", oldObj.Spec.PackageName)
+			return nil, fmt.Errorf("upstream source not found for package rev %q; only cloned packages can be updated", oldObj.Spec.PorchPkgName)
 		}
 
 		mutation := &updatePackageMutation{
@@ -675,7 +675,7 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, repositoryObj *
 
 	// TODO: Handle the case if alongside lifecycle change, tasks are changed too.
 	// Update package contents only if the package is in draft state
-	if oldObj.Spec.Lifecycle == api.PackageRevisionLifecycleDraft {
+	if oldObj.Spec.Lifecycle == api.PorchPkgRevisionLifecycleDraft {
 		apiResources, err := oldPackage.GetResources(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("cannot get package resources: %w", err)
@@ -709,7 +709,7 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, repositoryObj *
 	return ToPackageRevision(repoPkgRev, pkgRevMeta), nil
 }
 
-func (cad *cadEngine) updatePkgRevMeta(ctx context.Context, repoPkgRev repository.PackageRevision, apiPkgRev *api.PackageRevision) (meta.PackageRevisionMeta, error) {
+func (cad *cadEngine) updatePkgRevMeta(ctx context.Context, repoPkgRev repository.PackageRevision, apiPkgRev *api.PorchPkgRevision) (meta.PackageRevisionMeta, error) {
 	pkgRevMeta := meta.PackageRevisionMeta{
 		Name:            repoPkgRev.KubeObjectName(),
 		Namespace:       repoPkgRev.KubeObjectNamespace(),
@@ -721,7 +721,7 @@ func (cad *cadEngine) updatePkgRevMeta(ctx context.Context, repoPkgRev repositor
 	return cad.metadataStore.Update(ctx, pkgRevMeta)
 }
 
-func createKptfilePatchTask(ctx context.Context, oldPackage repository.PackageRevision, newObj *api.PackageRevision) (*api.Task, bool, error) {
+func createKptfilePatchTask(ctx context.Context, oldPackage repository.PackageRevision, newObj *api.PorchPkgRevision) (*api.Task, bool, error) {
 	kf, err := oldPackage.GetKptfile(ctx)
 	if err != nil {
 		return nil, false, err
@@ -788,7 +788,7 @@ func createKptfilePatchTask(ctx context.Context, oldPackage repository.PackageRe
 
 	return &api.Task{
 		Type: api.TaskTypePatch,
-		Patch: &api.PackagePatchTaskSpec{
+		Patch: &api.PorchPkgPatchTaskSpec{
 			Patches: []api.PatchSpec{
 				patchSpec,
 			},
@@ -911,7 +911,7 @@ func (cad *cadEngine) ListPackages(ctx context.Context, repositorySpec *configap
 	return packages, nil
 }
 
-func (cad *cadEngine) CreatePackage(ctx context.Context, repositoryObj *configapi.Repository, obj *api.Package) (*Package, error) {
+func (cad *cadEngine) CreatePackage(ctx context.Context, repositoryObj *configapi.Repository, obj *api.PorchPkg) (*Package, error) {
 	ctx, span := tracer.Start(ctx, "cadEngine::CreatePackage", trace.WithAttributes())
 	defer span.End()
 
@@ -929,7 +929,7 @@ func (cad *cadEngine) CreatePackage(ctx context.Context, repositoryObj *configap
 	}, nil
 }
 
-func (cad *cadEngine) UpdatePackage(ctx context.Context, repositoryObj *configapi.Repository, oldPackage *Package, oldObj, newObj *api.Package) (*Package, error) {
+func (cad *cadEngine) UpdatePackage(ctx context.Context, repositoryObj *configapi.Repository, oldPackage *Package, oldObj, newObj *api.PorchPkg) (*Package, error) {
 	ctx, span := tracer.Start(ctx, "cadEngine::UpdatePackage", trace.WithAttributes())
 	defer span.End()
 
@@ -954,7 +954,7 @@ func (cad *cadEngine) DeletePackage(ctx context.Context, repositoryObj *configap
 	return nil
 }
 
-func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj *configapi.Repository, oldPackage *PackageRevision, old, new *api.PackageRevisionResources) (*PackageRevision, *api.RenderStatus, error) {
+func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj *configapi.Repository, oldPackage *PackageRevision, old, new *api.PorchPkgRevisionResources) (*PackageRevision, *api.RenderStatus, error) {
 	ctx, span := tracer.Start(ctx, "cadEngine::UpdatePackageResources", trace.WithAttributes())
 	defer span.End()
 
@@ -976,9 +976,9 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 	switch lifecycle := rev.Spec.Lifecycle; lifecycle {
 	default:
 		return nil, nil, fmt.Errorf("invalid original lifecycle value: %q", lifecycle)
-	case api.PackageRevisionLifecycleDraft:
+	case api.PorchPkgRevisionLifecycleDraft:
 		// Only drafts can be updated.
-	case api.PackageRevisionLifecycleProposed, api.PackageRevisionLifecyclePublished, api.PackageRevisionLifecycleDeletionProposed:
+	case api.PorchPkgRevisionLifecycleProposed, api.PorchPkgRevisionLifecyclePublished, api.PorchPkgRevisionLifecycleDeletionProposed:
 		// TODO: generate errors that can be translated to correct HTTP responses
 		return nil, nil, fmt.Errorf("cannot update a package revision with lifecycle value %q; package must be Draft", lifecycle)
 	}
@@ -1063,8 +1063,8 @@ func applyResourceMutations(ctx context.Context, draft repository.PackageDraft, 
 		}
 		lastApplied = m
 
-		if err := draft.UpdateResources(ctx, &api.PackageRevisionResources{
-			Spec: api.PackageRevisionResourcesSpec{
+		if err := draft.UpdateResources(ctx, &api.PorchPkgRevisionResources{
+			Spec: api.PorchPkgRevisionResourcesSpec{
 				Resources: updatedResources.Contents,
 			},
 		}, task); err != nil {
@@ -1180,7 +1180,7 @@ func (m *updatePackageMutation) Apply(ctx context.Context, resources repository.
 // Currently assumption is that downstream packages will be forked from a porch package.
 // As per current implementation, upstream package ref is stored in a new update task but this may
 // change so the logic of figuring out current upstream will live in this function.
-func (m *updatePackageMutation) currUpstream() (*api.PackageRevisionRef, error) {
+func (m *updatePackageMutation) currUpstream() (*api.PorchPkgRevisionRef, error) {
 	if m.cloneTask == nil || m.cloneTask.Clone == nil {
 		return nil, fmt.Errorf("package %s does not have original upstream info", m.pkgName)
 	}
@@ -1191,7 +1191,7 @@ func (m *updatePackageMutation) currUpstream() (*api.PackageRevisionRef, error) 
 	return upstream.UpstreamRef, nil
 }
 
-func findCloneTask(pr *api.PackageRevision) *api.Task {
+func findCloneTask(pr *api.PorchPkgRevision) *api.Task {
 	if len(pr.Spec.Tasks) == 0 {
 		return nil
 	}
@@ -1247,15 +1247,15 @@ func loadResourcesFromDirectory(dir string) (repository.PackageResources, error)
 }
 
 type mutationReplaceResources struct {
-	newResources *api.PackageRevisionResources
-	oldResources *api.PackageRevisionResources
+	newResources *api.PorchPkgRevisionResources
+	oldResources *api.PorchPkgRevisionResources
 }
 
 func (m *mutationReplaceResources) Apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
 	ctx, span := tracer.Start(ctx, "mutationReplaceResources::Apply", trace.WithAttributes())
 	defer span.End()
 
-	patch := &api.PackagePatchTaskSpec{}
+	patch := &api.PorchPkgPatchTaskSpec{}
 
 	old := resources.Contents
 	new, err := healConfig(old, m.newResources.Spec.Resources)
@@ -1363,7 +1363,7 @@ func healConfig(old, new map[string]string) (map[string]string, error) {
 // isRecloneAndReplay determines if an update should be handled using reclone-and-replay semantics.
 // We detect this by checking if both old and new versions start by cloning a package, but the version has changed.
 // We may expand this scope in future.
-func isRecloneAndReplay(oldObj, newObj *api.PackageRevision) bool {
+func isRecloneAndReplay(oldObj, newObj *api.PorchPkgRevision) bool {
 	oldTasks := oldObj.Spec.Tasks
 	newTasks := newObj.Spec.Tasks
 	if len(oldTasks) == 0 || len(newTasks) == 0 {
@@ -1382,7 +1382,7 @@ func isRecloneAndReplay(oldObj, newObj *api.PackageRevision) bool {
 
 // recloneAndReplay performs an update by recloning the upstream package and replaying all tasks.
 // This is more like a git rebase operation than the "classic" kpt update algorithm, which is more like a git merge.
-func (cad *cadEngine) recloneAndReplay(ctx context.Context, repo repository.Repository, repositoryObj *configapi.Repository, newObj *api.PackageRevision, packageConfig *builtins.PackageConfig) (repository.PackageRevision, error) {
+func (cad *cadEngine) recloneAndReplay(ctx context.Context, repo repository.Repository, repositoryObj *configapi.Repository, newObj *api.PorchPkgRevision, packageConfig *builtins.PackageConfig) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cadEngine::recloneAndReplay", trace.WithAttributes())
 	defer span.End()
 

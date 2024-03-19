@@ -96,7 +96,7 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 	namespace := *r.cfg.Namespace
 
 	for _, name := range args {
-		pr := &v1alpha1.PackageRevision{}
+		pr := &v1alpha1.PorchPkgRevision{}
 		if err := r.porchClient.Get(r.ctx, client.ObjectKey{
 			Namespace: namespace,
 			Name:      name,
@@ -104,23 +104,23 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 			return errors.E(op, err)
 		}
 		switch pr.Spec.Lifecycle {
-		case v1alpha1.PackageRevisionLifecycleProposed:
-			if err := porch.UpdatePackageRevisionApproval(r.ctx, r.client, client.ObjectKey{
+		case v1alpha1.PorchPkgRevisionLifecycleProposed:
+			if err := porch.UpdatePorchPkgRevisionApproval(r.ctx, r.client, client.ObjectKey{
 				Namespace: namespace,
 				Name:      name,
-			}, v1alpha1.PackageRevisionLifecycleDraft); err != nil {
+			}, v1alpha1.PorchPkgRevisionLifecycleDraft); err != nil {
 				messages = append(messages, err.Error())
 				fmt.Fprintf(r.Command.ErrOrStderr(), "%s failed (%s)\n", name, err)
 			} else {
-				fmt.Fprintf(r.Command.OutOrStdout(), "%s rejected\n", name)
+				fmt.Fprintf(r.Command.OutOrStderr(), "%s rejected\n", name)
 			}
-		case v1alpha1.PackageRevisionLifecycleDeletionProposed:
-			pr.Spec.Lifecycle = v1alpha1.PackageRevisionLifecyclePublished
+		case v1alpha1.PorchPkgRevisionLifecycleDeletionProposed:
+			pr.Spec.Lifecycle = v1alpha1.PorchPkgRevisionLifecyclePublished
 			if err := r.porchClient.Update(r.ctx, pr); err != nil {
 				messages = append(messages, err.Error())
 				fmt.Fprintf(r.Command.ErrOrStderr(), "%s failed (%s)\n", name, err)
 			} else {
-				fmt.Fprintf(r.Command.OutOrStdout(), "%s no longer proposed for deletion\n", name)
+				fmt.Fprintf(r.Command.OutOrStderr(), "%s no longer proposed for deletion\n", name)
 			}
 		default:
 			msg := fmt.Sprintf("cannot reject %s with lifecycle '%s'", name, pr.Spec.Lifecycle)

@@ -84,7 +84,7 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 	var messages []string
 
 	for _, pkg := range args {
-		pr := &porchapi.PackageRevision{
+		pr := &porchapi.PorchPkgRevision{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "PackageRevision",
 				APIVersion: porchapi.SchemeGroupVersion.Identifier(),
@@ -99,7 +99,7 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 			messages = append(messages, err.Error())
 			fmt.Fprintf(r.Command.ErrOrStderr(), "%s failed (%s)\n", pkg, err)
 		} else {
-			fmt.Fprintf(r.Command.OutOrStdout(), "%s deleted\n", pkg)
+			fmt.Fprintf(r.Command.OutOrStderr(), "%s deleted\n", pkg)
 		}
 	}
 

@@ -79,7 +79,7 @@ type runner struct {
 	client  client.Client
 	Command *cobra.Command
 
-	clone porchapi.PackageCloneTaskSpec
+	clone porchapi.PorchPkgCloneTaskSpec
 
 	// Flags
 	strategy   string
@@ -131,7 +131,7 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 	switch {
 	case strings.HasPrefix(source, "oci://"):
 		r.clone.Upstream.Type = porchapi.RepositoryTypeOCI
-		r.clone.Upstream.Oci = &porchapi.OciPackage{
+		r.clone.Upstream.Oci = &porchapi.OciPorchPkg{
 			Image: source,
 		}
 
@@ -166,7 +166,7 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 			r.directory = "/"
 		}
 		r.clone.Upstream.Type = porchapi.RepositoryTypeGit
-		r.clone.Upstream.Git = &porchapi.GitPackage{
+		r.clone.Upstream.Git = &porchapi.GitPorchPkg{
 			Repo:      source,
 			Ref:       r.ref,
 			Directory: r.directory,
@@ -174,7 +174,7 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 		// TODO: support authn
 
 	default:
-		r.clone.Upstream.UpstreamRef = &porchapi.PackageRevisionRef{
+		r.clone.Upstream.UpstreamRef = &porchapi.PorchPkgRevisionRef{
 			Name: source,
 		}
 	}
@@ -186,7 +186,7 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 func (r *runner) runE(cmd *cobra.Command, _ []string) error {
 	const op errors.Op = command + ".runE"
 
-	pr := &porchapi.PackageRevision{
+	pr := &porchapi.PorchPkgRevision{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevision",
 			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
@@ -194,8 +194,8 @@ func (r *runner) runE(cmd *cobra.Command, _ []string) error {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: *r.cfg.Namespace,
 		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    r.target,
+		Spec: porchapi.PorchPkgRevisionSpec{
+			PorchPkgName:   r.target,
 			WorkspaceName:  porchapi.WorkspaceName(r.workspace),
 			RepositoryName: r.repository,
 			Tasks: []porchapi.Task{
@@ -214,7 +214,7 @@ func (r *runner) runE(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-func toMergeStrategy(strategy string) (porchapi.PackageMergeStrategy, error) {
+func toMergeStrategy(strategy string) (porchapi.PorchPkgMergeStrategy, error) {
 	switch strategy {
 	case string(porchapi.ResourceMerge):
 		return porchapi.ResourceMerge, nil

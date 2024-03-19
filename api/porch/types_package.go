@@ -21,36 +21,36 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Package
+// PorchPkg
 // +k8s:openapi-gen=true
-type Package struct {
+type PorchPkg struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   PackageSpec   `json:"spec,omitempty"`
-	Status PackageStatus `json:"status,omitempty"`
+	Spec   PorchPkgSpec   `json:"spec,omitempty"`
+	Status PorchPkgStatus `json:"status,omitempty"`
 }
 
-// PackageList
+// PorchPkgList
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type PackageList struct {
+type PorchPkgList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 
-	Items []Package `json:"items"`
+	Items []PorchPkg `json:"items"`
 }
 
-// PackageSpec defines the desired state of Package
-type PackageSpec struct {
-	// PackageName identifies the package in the repository.
-	PackageName string `json:"packageName,omitempty"`
+// PorchPkgSpec defines the desired state of PorchPkg
+type PorchPkgSpec struct {
+	// PorchPkgName identifies the package in the repository.
+	PorchPkgName string `json:"packageName,omitempty"`
 
 	// RepositoryName is the name of the Repository object containing this package.
 	RepositoryName string `json:"repository,omitempty"`
 }
 
-// PackageStatus defines the observed state of Package
-type PackageStatus struct {
+// PorchPkgStatus defines the observed state of PorchPkg
+type PorchPkgStatus struct {
 	// LatestRevision identifies the package revision that is the latest
 	// published package revision belonging to this package
 	LatestRevision string `json:"latestRevision,omitempty"`

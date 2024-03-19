@@ -29,7 +29,7 @@ import (
 func TestSomething(t *testing.T) {
 	testCases := map[string]struct {
 		repoPkgRev   repository.PackageRevision
-		newApiPkgRev *api.PackageRevision
+		newApiPkgRev *api.PorchPkgRevision
 		hasPatch     bool
 		patch        api.PatchSpec
 	}{
@@ -37,8 +37,8 @@ func TestSomething(t *testing.T) {
 			repoPkgRev: &fake.PackageRevision{
 				Kptfile: kptfile.KptFile{},
 			},
-			newApiPkgRev: &api.PackageRevision{
-				Spec: api.PackageRevisionSpec{},
+			newApiPkgRev: &api.PorchPkgRevision{
+				Spec: api.PorchPkgRevisionSpec{},
 			},
 			hasPatch: false,
 		},
@@ -46,15 +46,15 @@ func TestSomething(t *testing.T) {
 			repoPkgRev: &fake.PackageRevision{
 				Kptfile: kptfile.KptFile{},
 			},
-			newApiPkgRev: &api.PackageRevision{
-				Spec: api.PackageRevisionSpec{
+			newApiPkgRev: &api.PorchPkgRevision{
+				Spec: api.PorchPkgRevisionSpec{
 					ReadinessGates: []api.ReadinessGate{
 						{
 							ConditionType: "foo",
 						},
 					},
 				},
-				Status: api.PackageRevisionStatus{
+				Status: api.PorchPkgRevisionStatus{
 					Conditions: []api.Condition{
 						{
 							Type:   "foo",
@@ -102,8 +102,8 @@ func TestSomething(t *testing.T) {
 					},
 				},
 			},
-			newApiPkgRev: &api.PackageRevision{
-				Spec: api.PackageRevisionSpec{
+			newApiPkgRev: &api.PorchPkgRevision{
+				Spec: api.PorchPkgRevisionSpec{
 					ReadinessGates: []api.ReadinessGate{
 						{
 							ConditionType: "foo",
@@ -113,7 +113,7 @@ func TestSomething(t *testing.T) {
 						},
 					},
 				},
-				Status: api.PackageRevisionStatus{
+				Status: api.PorchPkgRevisionStatus{
 					Conditions: []api.Condition{
 						{
 							Type:    "foo",
@@ -186,8 +186,8 @@ func TestSomething(t *testing.T) {
 					},
 				},
 			},
-			newApiPkgRev: &api.PackageRevision{
-				Spec: api.PackageRevisionSpec{
+			newApiPkgRev: &api.PorchPkgRevision{
+				Spec: api.PorchPkgRevisionSpec{
 					ReadinessGates: []api.ReadinessGate{
 						{
 							ConditionType: "foo",
@@ -197,7 +197,7 @@ func TestSomething(t *testing.T) {
 						},
 					},
 				},
-				Status: api.PackageRevisionStatus{
+				Status: api.PorchPkgRevisionStatus{
 					Conditions: []api.Condition{
 						{
 							Type:    "foo",
@@ -247,15 +247,15 @@ func TestSomething(t *testing.T) {
 					},
 				},
 			},
-			newApiPkgRev: &api.PackageRevision{
-				Spec: api.PackageRevisionSpec{
+			newApiPkgRev: &api.PorchPkgRevision{
+				Spec: api.PorchPkgRevisionSpec{
 					ReadinessGates: []api.ReadinessGate{
 						{
 							ConditionType: "foo",
 						},
 					},
 				},
-				Status: api.PackageRevisionStatus{
+				Status: api.PorchPkgRevisionStatus{
 					Conditions: []api.Condition{
 						{
 							Type:   "foo",

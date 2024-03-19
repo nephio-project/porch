@@ -65,7 +65,7 @@ func TestWatcherClose(t *testing.T) {
 			select {
 			case <-ch:
 				pkgRev := &fake.PackageRevision{
-					PackageRevision: &v1alpha1.PackageRevision{
+					PackageRevision: &v1alpha1.PorchPkgRevision{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: make(map[string]string),
 						},

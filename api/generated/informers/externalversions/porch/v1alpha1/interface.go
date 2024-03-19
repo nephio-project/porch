@@ -1,4 +1,4 @@
-// Copyright 2023 The kpt and Nephio Authors
+// Copyright 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,12 +24,12 @@ import (
 type Interface interface {
 	// Functions returns a FunctionInformer.
 	Functions() FunctionInformer
-	// Packages returns a PackageInformer.
-	Packages() PackageInformer
-	// PackageRevisions returns a PackageRevisionInformer.
-	PackageRevisions() PackageRevisionInformer
-	// PackageRevisionResources returns a PackageRevisionResourcesInformer.
-	PackageRevisionResources() PackageRevisionResourcesInformer
+	// PorchPkgs returns a PorchPkgInformer.
+	PorchPkgs() PorchPkgInformer
+	// PorchPkgRevisions returns a PorchPkgRevisionInformer.
+	PorchPkgRevisions() PorchPkgRevisionInformer
+	// PorchPkgRevisionResources returns a PorchPkgRevisionResourcesInformer.
+	PorchPkgRevisionResources() PorchPkgRevisionResourcesInformer
 }
 
 type version struct {
@@ -48,17 +48,17 @@ func (v *version) Functions() FunctionInformer {
 	return &functionInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// Packages returns a PackageInformer.
-func (v *version) Packages() PackageInformer {
-	return &packageInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+// PorchPkgs returns a PorchPkgInformer.
+func (v *version) PorchPkgs() PorchPkgInformer {
+	return &porchPkgInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// PackageRevisions returns a PackageRevisionInformer.
-func (v *version) PackageRevisions() PackageRevisionInformer {
-	return &packageRevisionInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+// PorchPkgRevisions returns a PorchPkgRevisionInformer.
+func (v *version) PorchPkgRevisions() PorchPkgRevisionInformer {
+	return &porchPkgRevisionInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// PackageRevisionResources returns a PackageRevisionResourcesInformer.
-func (v *version) PackageRevisionResources() PackageRevisionResourcesInformer {
-	return &packageRevisionResourcesInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+// PorchPkgRevisionResources returns a PorchPkgRevisionResourcesInformer.
+func (v *version) PorchPkgRevisionResources() PorchPkgRevisionResourcesInformer {
+	return &porchPkgRevisionResourcesInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

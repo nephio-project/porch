@@ -120,7 +120,7 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 		return errors.E(op, err)
 	}
 
-	pkgResources := porchapi.PackageRevisionResources{
+	pkgResources := porchapi.PorchPkgRevisionResources{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevisionResources",
 			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
@@ -129,7 +129,7 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 			Name:      packageName,
 			Namespace: *r.cfg.Namespace,
 		},
-		Spec: porchapi.PackageRevisionResourcesSpec{
+		Spec: porchapi.PorchPkgRevisionResourcesSpec{
 			Resources: resources,
 		},
 	}
@@ -163,7 +163,6 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 			r.printFnResult(result, printOpt)
 		}
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "%s pushed\n", packageName)
 	return nil
 }
 

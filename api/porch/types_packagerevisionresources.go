@@ -21,29 +21,29 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// PackageRevisionResources
+// PorchPkgRevisionResources
 // +k8s:openapi-gen=true
-type PackageRevisionResources struct {
+type PorchPkgRevisionResources struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   PackageRevisionResourcesSpec   `json:"spec,omitempty"`
-	Status PackageRevisionResourcesStatus `json:"status,omitempty"`
+	Spec   PorchPkgRevisionResourcesSpec   `json:"spec,omitempty"`
+	Status PorchPkgRevisionResourcesStatus `json:"status,omitempty"`
 }
 
-// PackageRevisionResourcesList
+// PorchPkgRevisionResourcesList
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type PackageRevisionResourcesList struct {
+type PorchPkgRevisionResourcesList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 
-	Items []PackageRevisionResources `json:"items"`
+	Items []PorchPkgRevisionResources `json:"items"`
 }
 
-// PackageRevisionResourcesSpec represents resources (as ResourceList serialized as yaml string) of the PackageRevision.
-type PackageRevisionResourcesSpec struct {
-	// PackageName identifies the package in the repository.
-	PackageName string `json:"packageName,omitempty"`
+// PorchPkgRevisionResourcesSpec represents resources (as ResourceList serialized as yaml string) of the PorchPkgRevision.
+type PorchPkgRevisionResourcesSpec struct {
+	// PorchPkgName identifies the package in the repository.
+	PorchPkgName string `json:"packageName,omitempty"`
 
 	// WorkspaceName identifies the workspace of the package.
 	WorkspaceName WorkspaceName `json:"workspaceName,omitempty"`
@@ -58,8 +58,8 @@ type PackageRevisionResourcesSpec struct {
 	Resources map[string]string `json:"resources,omitempty"`
 }
 
-// PackageRevisionResourcesStatus represents state of the rendered package resources.
-type PackageRevisionResourcesStatus struct {
+// PorchPkgRevisionResourcesStatus represents state of the rendered package resources.
+type PorchPkgRevisionResourcesStatus struct {
 	// RenderStatus contains the result of rendering the package resources.
 	RenderStatus RenderStatus `json:"renderStatus,omitempty"`
 }

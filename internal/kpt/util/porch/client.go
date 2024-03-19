@@ -130,8 +130,8 @@ func createRESTMapper() meta.RESTMapper {
 		plural, singular string
 	}{
 		{kind: configapi.GroupVersion.WithKind("Repository"), plural: "repositories", singular: "repository"},
-		{kind: porchapi.SchemeGroupVersion.WithKind("PackageRevision"), plural: "packagerevisions", singular: "packagerevision"},
-		{kind: porchapi.SchemeGroupVersion.WithKind("PackageRevisionResources"), plural: "packagerevisionresources", singular: "packagerevisionresources"},
+		{kind: porchapi.SchemeGroupVersion.WithKind("PorchPkgRevision"), plural: "packagerevisions", singular: "packagerevision"},
+		{kind: porchapi.SchemeGroupVersion.WithKind("PorchPkgRevisionResources"), plural: "packagerevisionresources", singular: "packagerevisionresources"},
 		{kind: porchapi.SchemeGroupVersion.WithKind("Function"), plural: "functions", singular: "function"},
 		{kind: coreapi.SchemeGroupVersion.WithKind("Secret"), plural: "secrets", singular: "secret"},
 		{kind: metav1.SchemeGroupVersion.WithKind("Table"), plural: "tables", singular: "table"},

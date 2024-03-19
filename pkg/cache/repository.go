@@ -200,7 +200,7 @@ func (r *cachedRepository) getFunctions(ctx context.Context, force bool) ([]repo
 	return functions, nil
 }
 
-func (r *cachedRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageDraft, error) {
+func (r *cachedRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1.PorchPkgRevision) (repository.PackageDraft, error) {
 	created, err := r.repo.CreatePackageRevision(ctx, obj)
 	if err != nil {
 		return nil, err
@@ -294,7 +294,7 @@ func (r *cachedRepository) ListPackages(ctx context.Context, filter repository.L
 	return packages, nil
 }
 
-func (r *cachedRepository) CreatePackage(ctx context.Context, obj *v1alpha1.Package) (repository.Package, error) {
+func (r *cachedRepository) CreatePackage(ctx context.Context, obj *v1alpha1.PorchPkg) (repository.Package, error) {
 	klog.Infoln("cachedRepository::CreatePackage")
 	return r.repo.CreatePackage(ctx, obj)
 }

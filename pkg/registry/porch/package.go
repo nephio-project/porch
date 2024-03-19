@@ -45,13 +45,13 @@ var _ rest.Updater = &packages{}
 var _ rest.GracefulDeleter = &packages{}
 
 func (r *packages) New() runtime.Object {
-	return &api.Package{}
+	return &api.PorchPkg{}
 }
 
 func (r *packages) Destroy() {}
 
 func (r *packages) NewList() runtime.Object {
-	return &api.PackageList{}
+	return &api.PorchPkgList{}
 }
 
 func (r *packages) NamespaceScoped() bool {
@@ -63,7 +63,7 @@ func (r *packages) List(ctx context.Context, options *metainternalversion.ListOp
 	ctx, span := tracer.Start(ctx, "packages::List", trace.WithAttributes())
 	defer span.End()
 
-	result := &api.PackageList{
+	result := &api.PorchPkgList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageList",
 			APIVersion: api.SchemeGroupVersion.Identifier(),
@@ -110,7 +110,7 @@ func (r *packages) Create(ctx context.Context, runtimeObject runtime.Object, cre
 		return nil, apierrors.NewBadRequest("namespace must be specified")
 	}
 
-	obj, ok := runtimeObject.(*api.Package)
+	obj, ok := runtimeObject.(*api.PorchPkg)
 	if !ok {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected Package object, got %T", runtimeObject))
 	}

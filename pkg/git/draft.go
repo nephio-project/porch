@@ -33,7 +33,7 @@ type gitPackageDraft struct {
 	tasks         []v1alpha1.Task
 
 	// New value of the package revision lifecycle
-	lifecycle v1alpha1.PackageRevisionLifecycle
+	lifecycle v1alpha1.PorchPkgRevisionLifecycle
 
 	// ref to the base of the package update commit chain (used for conditional push)
 	base *plumbing.Reference
@@ -50,14 +50,14 @@ type gitPackageDraft struct {
 
 var _ repository.PackageDraft = &gitPackageDraft{}
 
-func (d *gitPackageDraft) UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, change *v1alpha1.Task) error {
+func (d *gitPackageDraft) UpdateResources(ctx context.Context, new *v1alpha1.PorchPkgRevisionResources, change *v1alpha1.Task) error {
 	ctx, span := tracer.Start(ctx, "gitPackageDraft::UpdateResources", trace.WithAttributes())
 	defer span.End()
 
 	return d.parent.UpdateDraftResources(ctx, d, new, change)
 }
 
-func (d *gitPackageDraft) UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error {
+func (d *gitPackageDraft) UpdateLifecycle(ctx context.Context, new v1alpha1.PorchPkgRevisionLifecycle) error {
 	d.lifecycle = new
 	return nil
 }

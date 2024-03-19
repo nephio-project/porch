@@ -224,7 +224,7 @@ spec:
 
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			var pv api.PackageVariant
+			var pv api.PorchPkgVariant
 			require.NoError(t, yaml.Unmarshal([]byte(tc.packageVariant), &pv))
 			actualErr := combineErrors(validatePackageVariant(&pv))
 			require.Equal(t, tc.expectedErr, actualErr)
@@ -234,7 +234,7 @@ spec:
 
 func TestNewWorkspaceName(t *testing.T) {
 	prListHeader := `apiVersion: porch.kpt.dev
-kind: PackageRevisionList
+kind: PorchPkgRevisionList
 metadata:
   name: my-pr-list`
 
@@ -251,13 +251,13 @@ metadata:
 			packageRevisionList: prListHeader + `
 items:
 - apiVersion: porch.kpt.dev
-  kind: PackageRevision
+  kind: PorchPkgRevision
   metadata:
     name: my-pr
   spec:
     workspaceName: packagevariant-1
 - apiVersion: porch.kpt.dev
-  kind: PackageRevision
+  kind: PorchPkgRevision
   metadata:
     name: my-pr
   spec:
@@ -269,13 +269,13 @@ items:
 			packageRevisionList: prListHeader + `
 items:
 - apiVersion: porch.kpt.dev
-  kind: PackageRevision
+  kind: PorchPkgRevision
   metadata:
     name: my-pr
   spec:
     workspaceName: packagevariant-1
 - apiVersion: porch.kpt.dev
-  kind: PackageRevision
+  kind: PorchPkgRevision
   metadata:
     name: my-pr
   spec:
@@ -287,13 +287,13 @@ items:
 			packageRevisionList: prListHeader + `
 items:
 - apiVersion: porch.kpt.dev
-  kind: PackageRevision
+  kind: PorchPkgRevision
   metadata:
     name: my-pr
   spec:
     workspaceName: foo-1
 - apiVersion: porch.kpt.dev
-  kind: PackageRevision
+  kind: PorchPkgRevision
   metadata:
     name: my-pr
   spec:
@@ -305,13 +305,13 @@ items:
 			packageRevisionList: prListHeader + `
 items:
 - apiVersion: porch.kpt.dev
-  kind: PackageRevision
+  kind: PorchPkgRevision
   metadata:
     name: my-pr
   spec:
     workspaceName: packagevariant-1
 - apiVersion: porch.kpt.dev
-  kind: PackageRevision
+  kind: PorchPkgRevision
   metadata:
     name: my-pr
   spec:
@@ -323,7 +323,7 @@ items:
 
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			var prList porchapi.PackageRevisionList
+			var prList porchapi.PorchPkgRevisionList
 			require.NoError(t, yaml.Unmarshal([]byte(tc.packageRevisionList), &prList))
 			actual := string(newWorkspaceName(&prList, "", ""))
 			require.Equal(t, tc.expected, actual)
@@ -333,7 +333,7 @@ items:
 
 func TestGetDownstreamPRs(t *testing.T) {
 	prListHeader := `apiVersion: porch.kpt.dev
-kind: PackageRevisionList
+kind: PorchPkgRevisionList
 metadata:
   name: my-pr-list`
 
@@ -368,7 +368,7 @@ spec:
 			packageRevisionList: prListHeader + `
 items:
 - apiVersion: porch.kpt.dev
-  kind: PackageRevision
+  kind: PorchPkgRevision
   metadata:
     name: my-pr
     ownerReferences:
@@ -382,7 +382,7 @@ items:
     repository: deployments
     packageName: bar
 - apiVersion: porch.kpt.dev
-  kind: PackageRevision
+  kind: PorchPkgRevision
   metadata:
     name: my-pr
   spec:
@@ -391,7 +391,7 @@ items:
     repository: deployments
     packageName: bar`,
 			expected: []string{`apiVersion: porch.kpt.dev
-kind: PackageRevision
+kind: PorchPkgRevision
 metadata:
   creationTimestamp: null
   name: my-pr
@@ -416,7 +416,7 @@ status:
 			packageRevisionList: prListHeader + `
 items:
 - apiVersion: porch.kpt.dev
-  kind: PackageRevision
+  kind: PorchPkgRevision
   metadata:
     name: my-pr
     ownerReferences:
@@ -431,7 +431,7 @@ items:
     repository: deployments
     packageName: bar
 - apiVersion: porch.kpt.dev
-  kind: PackageRevision
+  kind: PorchPkgRevision
   metadata:
     name: my-pr
     ownerReferences:
@@ -445,7 +445,7 @@ items:
     repository: deployments
     packageName: bar
 - apiVersion: porch.kpt.dev
-  kind: PackageRevision
+  kind: PorchPkgRevision
   metadata:
     name: my-pr
     ownerReferences:
@@ -459,7 +459,7 @@ items:
     repository: deployments
     packageName: bar`,
 			expected: []string{`apiVersion: porch.kpt.dev
-kind: PackageRevision
+kind: PorchPkgRevision
 metadata:
   creationTimestamp: null
   name: my-pr
@@ -476,7 +476,7 @@ spec:
 status:
   publishTimestamp: null
 `, `apiVersion: porch.kpt.dev
-kind: PackageRevision
+kind: PorchPkgRevision
 metadata:
   creationTimestamp: null
   name: my-pr
@@ -501,7 +501,7 @@ status:
 			packageRevisionList: prListHeader + `
 items:
 - apiVersion: porch.kpt.dev
-  kind: PackageRevision
+  kind: PorchPkgRevision
   metadata:
     name: my-pr
     ownerReferences:
@@ -516,7 +516,7 @@ items:
     repository: deployments
     packageName: bar
 - apiVersion: porch.kpt.dev
-  kind: PackageRevision
+  kind: PorchPkgRevision
   metadata:
     name: my-pr
     ownerReferences:
@@ -531,7 +531,7 @@ items:
     repository: deployments
     packageName: bar
 - apiVersion: porch.kpt.dev
-  kind: PackageRevision
+  kind: PorchPkgRevision
   metadata:
     name: my-pr
     ownerReferences:
@@ -551,7 +551,7 @@ items:
     repository: deployments
     packageName: bar`,
 			expected: []string{`apiVersion: porch.kpt.dev
-kind: PackageRevision
+kind: PorchPkgRevision
 metadata:
   creationTimestamp: null
   name: my-pr
@@ -577,7 +577,7 @@ status:
 			packageRevisionList: prListHeader + `
 items:
 - apiVersion: porch.kpt.dev
-  kind: PackageRevision
+  kind: PorchPkgRevision
   metadata:
     name: my-pr
     ownerReferences:
@@ -592,7 +592,7 @@ items:
     repository: deployments
     packageName: bar
 - apiVersion: porch.kpt.dev
-  kind: PackageRevision
+  kind: PorchPkgRevision
   metadata:
     name: my-pr-2
     ownerReferences:
@@ -606,7 +606,7 @@ items:
     repository: deployments
     packageName: foo
 - apiVersion: porch.kpt.dev
-  kind: PackageRevision
+  kind: PorchPkgRevision
   metadata:
     name: my-pr-3
     ownerReferences:
@@ -621,7 +621,7 @@ items:
     packageName: foo`,
 			fcOutput: []string{`deleting object: my-pr-2`, `deleting object: my-pr-3`},
 			expected: []string{`apiVersion: porch.kpt.dev
-kind: PackageRevision
+kind: PorchPkgRevision
 metadata:
   creationTimestamp: null
   name: my-pr
@@ -643,12 +643,12 @@ status:
 		},
 	}
 
-	var pv api.PackageVariant
+	var pv api.PorchPkgVariant
 	require.NoError(t, yaml.Unmarshal([]byte(pvStr), &pv))
 
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			var prList porchapi.PackageRevisionList
+			var prList porchapi.PorchPkgRevisionList
 			require.NoError(t, yaml.Unmarshal([]byte(tc.packageRevisionList), &prList))
 
 			fc := &fakeClient{}
@@ -670,7 +670,7 @@ status:
 
 func TestDeleteOrOrphan(t *testing.T) {
 	prStr := `apiVersion: porch.kpt.dev
-kind: PackageRevision
+kind: PorchPkgRevision
 metadata:
   name: my-pr
   ownerReferences:
@@ -714,24 +714,24 @@ spec:
 		// should delete the PR
 		"deletionPolicy delete, lifecycle draft": {
 			deletionPolicy: string(api.DeletionPolicyDelete),
-			prLifecycle:    string(porchapi.PackageRevisionLifecycleDraft),
+			prLifecycle:    string(porchapi.PorchPkgRevisionLifecycleDraft),
 			expectedOutput: []string{"deleting object: my-pr"},
 		},
 
 		// should delete the PR
 		"deletionPolicy delete, lifecycle proposed": {
 			deletionPolicy: string(api.DeletionPolicyDelete),
-			prLifecycle:    string(porchapi.PackageRevisionLifecycleProposed),
+			prLifecycle:    string(porchapi.PorchPkgRevisionLifecycleProposed),
 			expectedOutput: []string{"deleting object: my-pr"},
 		},
 
 		// should propose the PR for deletion
 		"deletionPolicy delete, lifecycle published": {
 			deletionPolicy: string(api.DeletionPolicyDelete),
-			prLifecycle:    string(porchapi.PackageRevisionLifecyclePublished),
+			prLifecycle:    string(porchapi.PorchPkgRevisionLifecyclePublished),
 			expectedOutput: []string{"updating object: my-pr"},
 			expectedPR: `apiVersion: porch.kpt.dev
-kind: PackageRevision
+kind: PorchPkgRevision
 metadata:
   creationTimestamp: null
   name: my-pr
@@ -757,17 +757,17 @@ status:
 		// should do nothing
 		"deletionPolicy delete, lifecycle deletionProposed": {
 			deletionPolicy: string(api.DeletionPolicyDelete),
-			prLifecycle:    string(porchapi.PackageRevisionLifecycleDeletionProposed),
+			prLifecycle:    string(porchapi.PorchPkgRevisionLifecycleDeletionProposed),
 			expectedOutput: nil,
 		},
 
 		// should remove the pv's owner reference from the pr
 		"deletionPolicy orphan, lifecycle draft": {
 			deletionPolicy: string(api.DeletionPolicyOrphan),
-			prLifecycle:    string(porchapi.PackageRevisionLifecycleDraft),
+			prLifecycle:    string(porchapi.PorchPkgRevisionLifecycleDraft),
 			expectedOutput: []string{"updating object: my-pr"},
 			expectedPR: `apiVersion: porch.kpt.dev
-kind: PackageRevision
+kind: PorchPkgRevision
 metadata:
   creationTimestamp: null
   name: my-pr
@@ -789,11 +789,11 @@ status:
 
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			var pv api.PackageVariant
+			var pv api.PorchPkgVariant
 			require.NoError(t, yaml.Unmarshal(
 				[]byte(fmt.Sprintf(pvStr, tc.deletionPolicy)), &pv))
 
-			var pr porchapi.PackageRevision
+			var pr porchapi.PorchPkgRevision
 			require.NoError(t, yaml.Unmarshal(
 				[]byte(fmt.Sprintf(prStr, tc.prLifecycle)), &pr))
 
@@ -814,7 +814,7 @@ status:
 
 func TestAdoptionPolicy(t *testing.T) {
 	prListHeader := `apiVersion: porch.kpt.dev
-kind: PackageRevisionList
+kind: PorchPkgRevisionList
 metadata:
   name: my-pr-list`
 
@@ -845,7 +845,7 @@ spec:
 			packageRevisionList: prListHeader + `
 items:
 - apiVersion: porch.kpt.dev
-  kind: PackageRevision
+  kind: PorchPkgRevision
   metadata:
     name: my-pr-1
     ownerReferences:
@@ -860,7 +860,7 @@ items:
     repository: deployments
     packageName: bar
 - apiVersion: porch.kpt.dev
-  kind: PackageRevision
+  kind: PorchPkgRevision
   metadata:
     name: my-pr-2
   spec:
@@ -871,7 +871,7 @@ items:
 			adoptionPolicy: string(api.AdoptionPolicyAdoptExisting),
 			clientOutput:   []string{"updating object: my-pr-2"},
 			expected: []string{`apiVersion: porch.kpt.dev
-kind: PackageRevision
+kind: PorchPkgRevision
 metadata:
   creationTimestamp: null
   name: my-pr-2
@@ -897,7 +897,7 @@ status:
 			packageRevisionList: prListHeader + `
 items:
 - apiVersion: porch.kpt.dev
-  kind: PackageRevision
+  kind: PorchPkgRevision
   metadata:
     name: my-pr-1
     ownerReferences:
@@ -911,7 +911,7 @@ items:
     repository: deployments
     packageName: bar
 - apiVersion: porch.kpt.dev
-  kind: PackageRevision
+  kind: PorchPkgRevision
   metadata:
     name: my-pr-2
   spec:
@@ -922,7 +922,7 @@ items:
 			adoptionPolicy: string(api.AdoptionPolicyAdoptNone),
 			clientOutput:   nil,
 			expected: []string{`apiVersion: porch.kpt.dev
-kind: PackageRevision
+kind: PorchPkgRevision
 metadata:
   creationTimestamp: null
   name: my-pr-1
@@ -948,7 +948,7 @@ status:
 			packageRevisionList: prListHeader + `
 items:
 - apiVersion: porch.kpt.dev
-  kind: PackageRevision
+  kind: PorchPkgRevision
   metadata:
     name: my-pr-1
   spec:
@@ -967,10 +967,10 @@ items:
 		t.Run(tn, func(t *testing.T) {
 			fc := &fakeClient{}
 			reconciler := &PackageVariantReconciler{Client: fc}
-			var prList porchapi.PackageRevisionList
+			var prList porchapi.PorchPkgRevisionList
 			require.NoError(t, yaml.Unmarshal([]byte(tc.packageRevisionList), &prList))
 
-			var pv api.PackageVariant
+			var pv api.PorchPkgVariant
 			require.NoError(t, yaml.Unmarshal(
 				[]byte(fmt.Sprintf(pvStr, tc.adoptionPolicy)), &pv))
 
@@ -1006,7 +1006,7 @@ spec:
 `
 
 	prrBase := `apiVersion: porch.kpt.dev/v1alpha1
-kind: PackageRevisionResources
+kind: PorchPkgRevisionResources
 metadata:
   name: prr
   namespace: default
@@ -1116,9 +1116,9 @@ spec:
 	}
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			var pv api.PackageVariant
+			var pv api.PorchPkgVariant
 			require.NoError(t, yaml.Unmarshal([]byte(pvBase+tc.spec), &pv))
-			var prr porchapi.PackageRevisionResources
+			var prr porchapi.PorchPkgRevisionResources
 			require.NoError(t, yaml.Unmarshal([]byte(prrBase+tc.initialData), &prr))
 
 			actualErr := ensurePackageContext(&pv, &prr)
@@ -1128,7 +1128,7 @@ spec:
 				require.EqualError(t, actualErr, tc.expectedErr)
 			}
 
-			var expectedPRR porchapi.PackageRevisionResources
+			var expectedPRR porchapi.PorchPkgRevisionResources
 			require.NoError(t, yaml.Unmarshal([]byte(tc.expectedPRR), &expectedPRR))
 
 			require.Equal(t, expectedPRR, prr)
@@ -1156,7 +1156,7 @@ spec:
 
 	prrBase := `
 apiVersion: porch.kpt.dev/v1alpha1
-kind: PackageRevisionResources
+kind: PorchPkgRevisionResources
 metadata:
   name: prr
   namespace: default
@@ -1461,9 +1461,9 @@ spec:
 			if tc.initialPipeline != "" {
 				locPrrBase += "      pipeline:\n"
 			}
-			var prr porchapi.PackageRevisionResources
+			var prr porchapi.PorchPkgRevisionResources
 			require.NoError(t, yaml.Unmarshal([]byte(locPrrBase+tc.initialPipeline), &prr))
-			var pv api.PackageVariant
+			var pv api.PorchPkgVariant
 			require.NoError(t, yaml.Unmarshal([]byte(pvBase+tc.pvPipeline), &pv))
 
 			actualErr := ensureKRMFunctions(&pv, &prr)
@@ -1472,7 +1472,7 @@ spec:
 			} else {
 				require.EqualError(t, actualErr, tc.expectedErr)
 			}
-			var expectedPRR porchapi.PackageRevisionResources
+			var expectedPRR porchapi.PorchPkgRevisionResources
 			require.NoError(t, yaml.Unmarshal([]byte(tc.expectedPrr), &expectedPRR))
 
 			require.Equal(t, expectedPRR, prr)

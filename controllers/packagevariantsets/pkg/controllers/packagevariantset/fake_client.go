@@ -110,7 +110,7 @@ items:
 		for _, o := range v.Items {
 			f.objects = append(f.objects, o.DeepCopy())
 		}
-	case *pkgvarapi.PackageVariantList:
+	case *pkgvarapi.PorchPkgVariantList:
 		err = yaml.Unmarshal([]byte(pvList), v)
 		for _, o := range v.Items {
 			f.objects = append(f.objects, o.DeepCopy())

@@ -399,12 +399,12 @@ type ociPackageRevision struct {
 	parent *ociRepository
 	tasks  []v1alpha1.Task
 
-	lifecycle v1alpha1.PackageRevisionLifecycle
+	lifecycle v1alpha1.PorchPkgRevisionLifecycle
 }
 
 var _ repository.PackageRevision = &ociPackageRevision{}
 
-func (p *ociPackageRevision) GetResources(ctx context.Context) (*v1alpha1.PackageRevisionResources, error) {
+func (p *ociPackageRevision) GetResources(ctx context.Context) (*v1alpha1.PorchPkgRevisionResources, error) {
 	resources, err := LoadResources(ctx, p.parent.storage, &p.digestName)
 	if err != nil {
 		return nil, err
@@ -412,7 +412,7 @@ func (p *ociPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 
 	key := p.Key()
 
-	return &v1alpha1.PackageRevisionResources{
+	return &v1alpha1.PorchPkgRevisionResources{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevisionResources",
 			APIVersion: v1alpha1.SchemeGroupVersion.Identifier(),
@@ -426,8 +426,8 @@ func (p *ociPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 			ResourceVersion: p.resourceVersion,
 			UID:             p.uid,
 		},
-		Spec: v1alpha1.PackageRevisionResourcesSpec{
-			PackageName:    key.Package,
+		Spec: v1alpha1.PorchPkgRevisionResourcesSpec{
+			PorchPkgName:   key.Package,
 			WorkspaceName:  key.WorkspaceName,
 			Revision:       key.Revision,
 			RepositoryName: key.Repository,
@@ -463,7 +463,7 @@ func (p *ociPackageRevision) Key() repository.PackageRevisionKey {
 	}
 }
 
-func (p *ociPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.PackageRevision, error) {
+func (p *ociPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.PorchPkgRevision, error) {
 	key := p.Key()
 
 	kf, err := p.GetKptfile(ctx)
@@ -471,7 +471,7 @@ func (p *ociPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 		return nil, err
 	}
 
-	return &v1alpha1.PackageRevision{
+	return &v1alpha1.PorchPkgRevision{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevision",
 			APIVersion: v1alpha1.SchemeGroupVersion.Identifier(),
@@ -485,8 +485,8 @@ func (p *ociPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 			ResourceVersion: p.resourceVersion,
 			UID:             p.uid,
 		},
-		Spec: v1alpha1.PackageRevisionSpec{
-			PackageName:    key.Package,
+		Spec: v1alpha1.PorchPkgRevisionSpec{
+			PorchPkgName:   key.Package,
 			RepositoryName: key.Repository,
 			Revision:       key.Revision,
 			WorkspaceName:  key.WorkspaceName,
@@ -495,7 +495,7 @@ func (p *ociPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 			Tasks:          p.tasks,
 			ReadinessGates: repository.ToApiReadinessGates(kf),
 		},
-		Status: v1alpha1.PackageRevisionStatus{
+		Status: v1alpha1.PorchPkgRevisionStatus{
 			// TODO:        UpstreamLock,
 			Deployment: p.parent.deployment,
 			Conditions: repository.ToApiConditions(kf),
@@ -527,7 +527,7 @@ func (p *ociPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, 
 	return kptfile.Upstream{}, kptfile.UpstreamLock{}, fmt.Errorf("Lock is not supported for OCI packages (%s)", p.KubeObjectName())
 }
 
-func (p *ociPackageRevision) Lifecycle() v1alpha1.PackageRevisionLifecycle {
+func (p *ociPackageRevision) Lifecycle() v1alpha1.PorchPkgRevisionLifecycle {
 	return p.lifecycle
 }
 
@@ -535,24 +535,24 @@ func (p *ociPackageRevision) Lifecycle() v1alpha1.PackageRevisionLifecycle {
 //
 //	This function is currently only partially implemented; it still needs to store whether the package has been
 //	proposed for deletion somewhere in OCI, probably as another OCI image with a "deletionProposed" tag.
-func (p *ociPackageRevision) UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error {
+func (p *ociPackageRevision) UpdateLifecycle(ctx context.Context, new v1alpha1.PorchPkgRevisionLifecycle) error {
 	old := p.Lifecycle()
 
-	if old == v1alpha1.PackageRevisionLifecyclePublished {
-		if new != v1alpha1.PackageRevisionLifecycleDeletionProposed {
+	if old == v1alpha1.PorchPkgRevisionLifecyclePublished {
+		if new != v1alpha1.PorchPkgRevisionLifecycleDeletionProposed {
 			return fmt.Errorf("invalid new lifecycle value: %q", new)
 		}
 
 		// TODO: Create a "deletionProposed" OCI image tag.
-		p.lifecycle = v1alpha1.PackageRevisionLifecycleDeletionProposed
+		p.lifecycle = v1alpha1.PorchPkgRevisionLifecycleDeletionProposed
 	}
-	if old == v1alpha1.PackageRevisionLifecycleDeletionProposed {
-		if new != v1alpha1.PackageRevisionLifecyclePublished {
+	if old == v1alpha1.PorchPkgRevisionLifecycleDeletionProposed {
+		if new != v1alpha1.PorchPkgRevisionLifecyclePublished {
 			return fmt.Errorf("invalid new lifecycle value: %q", new)
 		}
 
 		// TODO: Delete the "deletionProposed" OCI image tag.
-		p.lifecycle = v1alpha1.PackageRevisionLifecyclePublished
+		p.lifecycle = v1alpha1.PorchPkgRevisionLifecyclePublished
 	}
 	return nil
 }

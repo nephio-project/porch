@@ -69,14 +69,14 @@ status: {}
 }
 
 func TestUnrollDownstreamTargets(t *testing.T) {
-	pvs := &api.PackageVariantSet{
+	pvs := &api.PorchPkgVariantSet{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-pvs"},
-		Spec: api.PackageVariantSetSpec{
-			Upstream: &pkgvarapi.Upstream{Repo: "up", Package: "up", Revision: "up"},
+		Spec: api.PorchPkgVariantSetSpec{
+			Upstream: &pkgvarapi.Upstream{Repo: "up", PorchPkg: "up", Revision: "up"},
 			Targets: []api.Target{
 				{
 					Repositories: []api.RepositoryTarget{
-						{Name: "r1", PackageNames: []string{"p1", "p2", "p3"}},
+						{Name: "r1", PorchPkgNames: []string{"p1", "p2", "p3"}},
 						{Name: "r2"},
 					},
 				},
@@ -122,14 +122,14 @@ func TestEnsurePackageVariants(t *testing.T) {
 	fc := &fakeClient{}
 	reconciler := &PackageVariantSetReconciler{Client: fc}
 	require.NoError(t, reconciler.ensurePackageVariants(context.Background(),
-		&api.PackageVariantSet{
+		&api.PorchPkgVariantSet{
 			ObjectMeta: metav1.ObjectMeta{Name: "my-pvs"},
-			Spec: api.PackageVariantSetSpec{
-				Upstream: &pkgvarapi.Upstream{Repo: "up", Package: "up", Revision: "up"},
+			Spec: api.PorchPkgVariantSetSpec{
+				Upstream: &pkgvarapi.Upstream{Repo: "up", PorchPkg: "up", Revision: "up"},
 			},
 		},
 		&configapi.RepositoryList{},
-		&porchapi.PackageRevision{},
+		&porchapi.PorchPkgRevision{},
 		downstreams))
 	require.Equal(t, 1, len(fc.deleted))
 	require.Equal(t, "my-pvs-dnrepo1-dnpkg1", fc.deleted[0].GetName())

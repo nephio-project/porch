@@ -177,14 +177,14 @@ items:
 		t.Run(tn, func(t *testing.T) {
 			c := fake.NewClientBuilder().
 				WithScheme(scheme).
-				WithObjects(&porchapi.PackageRevisionResources{
+				WithObjects(&porchapi.PorchPkgRevisionResources{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      pkgRevName,
 						Namespace: "ns",
 					},
-					Spec: porchapi.PackageRevisionResourcesSpec{
-						PackageName: "foo",
-						Resources:   tc.resources,
+					Spec: porchapi.PorchPkgRevisionResourcesSpec{
+						PorchPkgName: "foo",
+						Resources:    tc.resources,
 					},
 				}).
 				Build()

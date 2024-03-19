@@ -25,14 +25,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func UpdatePackageRevisionApproval(ctx context.Context, client rest.Interface, key client.ObjectKey, new v1alpha1.PackageRevisionLifecycle) error {
+func UpdatePorchPkgRevisionApproval(ctx context.Context, client rest.Interface, key client.ObjectKey, new v1alpha1.PorchPkgRevisionLifecycle) error {
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.SchemeBuilder.AddToScheme(scheme); err != nil {
 		return err
 	}
 
 	codec := runtime.NewParameterCodec(scheme)
-	var pr v1alpha1.PackageRevision
+	var pr v1alpha1.PorchPkgRevision
 	if err := client.Get().
 		Namespace(key.Namespace).
 		Resource("packagerevisions").
@@ -44,7 +44,7 @@ func UpdatePackageRevisionApproval(ctx context.Context, client rest.Interface, k
 	}
 
 	switch lifecycle := pr.Spec.Lifecycle; lifecycle {
-	case v1alpha1.PackageRevisionLifecycleProposed, v1alpha1.PackageRevisionLifecycleDeletionProposed:
+	case v1alpha1.PorchPkgRevisionLifecycleProposed, v1alpha1.PorchPkgRevisionLifecycleDeletionProposed:
 		// ok
 	case new:
 		// already correct value
@@ -57,7 +57,7 @@ func UpdatePackageRevisionApproval(ctx context.Context, client rest.Interface, k
 	pr.Spec.Lifecycle = new
 
 	opts := metav1.UpdateOptions{}
-	result := &v1alpha1.PackageRevision{}
+	result := &v1alpha1.PorchPkgRevision{}
 	return client.Put().
 		Namespace(pr.Namespace).
 		Resource("packagerevisions").

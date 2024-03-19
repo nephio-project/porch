@@ -60,19 +60,19 @@ func TestLatestPackages(t *testing.T) {
 			t.Errorf("didn't expect error, but got %v", err)
 		}
 
-		if latest, ok := rev.Labels[api.LatestPackageRevisionKey]; ok {
-			if got, want := latest, api.LatestPackageRevisionValue; got != want {
-				t.Errorf("%s label value: got %q, want %q", api.LatestPackageRevisionKey, got, want)
+		if latest, ok := rev.Labels[api.LatestPorchPkgRevisionKey]; ok {
+			if got, want := latest, api.LatestPorchPkgRevisionValue; got != want {
+				t.Errorf("%s label value: got %q, want %q", api.LatestPorchPkgRevisionKey, got, want)
 				continue
 			}
 
-			if existing, ok := gotLatest[rev.Spec.PackageName]; ok {
+			if existing, ok := gotLatest[rev.Spec.PorchPkgName]; ok {
 				t.Errorf("Multiple latest package revisions for package %q: %q and %q",
-					rev.Spec.PackageName, rev.Spec.Revision, existing)
+					rev.Spec.PorchPkgName, rev.Spec.Revision, existing)
 			}
 
 			// latest package
-			gotLatest[rev.Spec.PackageName] = rev.Spec.Revision
+			gotLatest[rev.Spec.PorchPkgName] = rev.Spec.Revision
 		}
 	}
 
@@ -101,7 +101,7 @@ func TestPublishedLatest(t *testing.T) {
 
 	bucket := revisions[0]
 	// Expect draft package
-	if got, want := bucket.Lifecycle(), api.PackageRevisionLifecycleDraft; got != want {
+	if got, want := bucket.Lifecycle(), api.PorchPkgRevisionLifecycleDraft; got != want {
 		t.Fatalf("Bucket package lifecycle: got %s, want %s", got, want)
 	}
 
@@ -109,7 +109,7 @@ func TestPublishedLatest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpdatePackaeg(%s) failed: %v", bucket.Key(), err)
 	}
-	if err := update.UpdateLifecycle(ctx, api.PackageRevisionLifecyclePublished); err != nil {
+	if err := update.UpdateLifecycle(ctx, api.PorchPkgRevisionLifecyclePublished); err != nil {
 		t.Fatalf("UpdateLifecycle failed; %v", err)
 	}
 	closed, err := update.Close(ctx)
@@ -120,9 +120,9 @@ func TestPublishedLatest(t *testing.T) {
 	if err != nil {
 		t.Errorf("didn't expect error, but got %v", err)
 	}
-	if got, ok := resource.Labels[api.LatestPackageRevisionKey]; !ok {
-		t.Errorf("Label %s not found as expected", api.LatestPackageRevisionKey)
-	} else if want := api.LatestPackageRevisionValue; got != want {
+	if got, ok := resource.Labels[api.LatestPorchPkgRevisionKey]; !ok {
+		t.Errorf("Label %s not found as expected", api.LatestPorchPkgRevisionKey)
+	} else if want := api.LatestPorchPkgRevisionValue; got != want {
 		t.Errorf("Latest label: got %s, want %s", got, want)
 	}
 }

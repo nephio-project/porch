@@ -42,7 +42,7 @@ const (
 
 var tracer = otel.Tracer("oci")
 
-func (r *ociRepository) getLifecycle(ctx context.Context, imageRef oci.ImageDigestName) (v1alpha1.PackageRevisionLifecycle, error) {
+func (r *ociRepository) getLifecycle(ctx context.Context, imageRef oci.ImageDigestName) (v1alpha1.PorchPkgRevisionLifecycle, error) {
 	ctx, span := tracer.Start(ctx, "ociRepository::getLifecycle", trace.WithAttributes(
 		attribute.Stringer("image", imageRef),
 	))
@@ -60,14 +60,14 @@ func (r *ociRepository) getLifecycle(ctx context.Context, imageRef oci.ImageDige
 
 	lifecycleValue := manifest.Annotations[annotationKeyLifecycle]
 	switch lifecycleValue {
-	case "", string(v1alpha1.PackageRevisionLifecycleDraft):
-		return v1alpha1.PackageRevisionLifecycleDraft, nil
-	case string(v1alpha1.PackageRevisionLifecycleProposed):
-		return v1alpha1.PackageRevisionLifecycleProposed, nil
-	case string(v1alpha1.PackageRevisionLifecyclePublished):
-		return v1alpha1.PackageRevisionLifecyclePublished, nil
-	case string(v1alpha1.PackageRevisionLifecycleDeletionProposed):
-		return v1alpha1.PackageRevisionLifecycleDeletionProposed, nil
+	case "", string(v1alpha1.PorchPkgRevisionLifecycleDraft):
+		return v1alpha1.PorchPkgRevisionLifecycleDraft, nil
+	case string(v1alpha1.PorchPkgRevisionLifecycleProposed):
+		return v1alpha1.PorchPkgRevisionLifecycleProposed, nil
+	case string(v1alpha1.PorchPkgRevisionLifecyclePublished):
+		return v1alpha1.PorchPkgRevisionLifecyclePublished, nil
+	case string(v1alpha1.PorchPkgRevisionLifecycleDeletionProposed):
+		return v1alpha1.PorchPkgRevisionLifecycleDeletionProposed, nil
 	default:
 		return "", fmt.Errorf("unknown package revision lifecycle %q", lifecycleValue)
 	}

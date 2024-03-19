@@ -47,8 +47,8 @@ export GCP_PROJECT_ID=pure-faculty-367518
 endif
 endif
 
-export IMAGE_REPO ?= docker.io/nephio
-export USER ?= nephio
+export IMAGE_REPO ?= docker.io/liamfallon
+export USER ?= liamfallon
 
 export IMAGE_TAG
 ifndef IMAGE_TAG

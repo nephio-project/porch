@@ -39,10 +39,10 @@ func TestEdit(t *testing.T) {
 			Repository: repositoryName,
 			Revision:   revision,
 		},
-		PackageLifecycle: v1alpha1.PackageRevisionLifecyclePublished,
-		Resources: &v1alpha1.PackageRevisionResources{
-			Spec: v1alpha1.PackageRevisionResourcesSpec{
-				PackageName:    pkg,
+		PackageLifecycle: v1alpha1.PorchPkgRevisionLifecyclePublished,
+		Resources: &v1alpha1.PorchPkgRevisionResources{
+			Spec: v1alpha1.PorchPkgRevisionResourcesSpec{
+				PorchPkgName:   pkg,
 				Revision:       revision,
 				RepositoryName: repositoryName,
 				Resources: map[string]string{
@@ -72,8 +72,8 @@ info:
 	epm := editPackageMutation{
 		task: &v1alpha1.Task{
 			Type: "edit",
-			Edit: &v1alpha1.PackageEditTaskSpec{
-				Source: &v1alpha1.PackageRevisionRef{
+			Edit: &v1alpha1.PorchPkgEditTaskSpec{
+				Source: &v1alpha1.PorchPkgRevisionRef{
 					Name: packageName,
 				},
 			},

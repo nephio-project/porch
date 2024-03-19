@@ -34,13 +34,13 @@ func TestReplaceResources(t *testing.T) {
 	nocomment := removeComments(t, input)
 
 	replace := &mutationReplaceResources{
-		newResources: &v1alpha1.PackageRevisionResources{
-			Spec: v1alpha1.PackageRevisionResourcesSpec{
+		newResources: &v1alpha1.PorchPkgRevisionResources{
+			Spec: v1alpha1.PorchPkgRevisionResourcesSpec{
 				Resources: nocomment.Contents,
 			},
 		},
-		oldResources: &v1alpha1.PackageRevisionResources{
-			Spec: v1alpha1.PackageRevisionResourcesSpec{
+		oldResources: &v1alpha1.PorchPkgRevisionResources{
+			Spec: v1alpha1.PorchPkgRevisionResourcesSpec{
 				Resources: input.Contents,
 			},
 		},

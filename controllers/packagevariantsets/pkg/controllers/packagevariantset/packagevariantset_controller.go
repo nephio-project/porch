@@ -68,7 +68,7 @@ const (
 	PackageVariantNameHashLength = 8
 )
 
-//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.8.0 rbac:roleName=porch-controllers-packagevariantsets webhook paths="." output:rbac:artifacts:config=../../../config/rbac
+//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0 rbac:roleName=porch-controllers-packagevariantsets webhook paths="." output:rbac:artifacts:config=../../../config/rbac
 
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=packagevariantsets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=packagevariantsets/status,verbs=get;update;patch
@@ -101,7 +101,7 @@ func (r *PackageVariantSetReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	upstreamPR, err := r.getUpstreamPR(pvs.Spec.Upstream, prList)
 	if err != nil {
 		setStalledConditionsToTrue(pvs, "UpstreamNotFound", err.Error())
-		// Currently we watch all PackageRevisions, so no need to requeue
+		// Currently we watch all PorchPkgRevisions, so no need to requeue
 		// here, as we will get triggered if a new upstream appears
 		return ctrl.Result{}, nil
 	}
@@ -139,14 +139,14 @@ func (r *PackageVariantSetReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	return ctrl.Result{}, nil
 }
 
-func (r *PackageVariantSetReconciler) init(ctx context.Context, req ctrl.Request) (*api.PackageVariantSet,
-	*porchapi.PackageRevisionList, *configapi.RepositoryList, error) {
-	var pvs api.PackageVariantSet
+func (r *PackageVariantSetReconciler) init(ctx context.Context, req ctrl.Request) (*api.PorchPkgVariantSet,
+	*porchapi.PorchPkgRevisionList, *configapi.RepositoryList, error) {
+	var pvs api.PorchPkgVariantSet
 	if err := r.Client.Get(ctx, req.NamespacedName, &pvs); err != nil {
 		return nil, nil, nil, client.IgnoreNotFound(err)
 	}
 
-	var prList porchapi.PackageRevisionList
+	var prList porchapi.PorchPkgRevisionList
 	if err := r.Client.List(ctx, &prList, client.InNamespace(pvs.Namespace)); err != nil {
 		return nil, nil, nil, err
 	}
@@ -160,38 +160,38 @@ func (r *PackageVariantSetReconciler) init(ctx context.Context, req ctrl.Request
 }
 
 func (r *PackageVariantSetReconciler) getUpstreamPR(upstream *pkgvarapi.Upstream,
-	prList *porchapi.PackageRevisionList) (*porchapi.PackageRevision, error) {
+	prList *porchapi.PorchPkgRevisionList) (*porchapi.PorchPkgRevision, error) {
 
 	for _, pr := range prList.Items {
 		if pr.Spec.RepositoryName == upstream.Repo &&
-			pr.Spec.PackageName == upstream.Package &&
+			pr.Spec.PorchPkgName == upstream.PorchPkg &&
 			pr.Spec.Revision == upstream.Revision {
 			return &pr, nil
 		}
 	}
 	return nil, fmt.Errorf("could not find upstream package revision '%s/%s' in repo '%s'",
-		upstream.Package, upstream.Revision, upstream.Repo)
+		upstream.PorchPkg, upstream.Revision, upstream.Repo)
 }
 
 type pvContext struct {
-	template       *api.PackageVariantTemplate
+	template       *api.PorchPkgVariantTemplate
 	repoDefault    string
 	packageDefault string
 	object         *unstructured.Unstructured
 }
 
 func (r *PackageVariantSetReconciler) unrollDownstreamTargets(ctx context.Context,
-	pvs *api.PackageVariantSet) ([]pvContext, error) {
+	pvs *api.PorchPkgVariantSet) ([]pvContext, error) {
 
-	upstreamPackageName := pvs.Spec.Upstream.Package
+	upstreamPorchPkgName := pvs.Spec.Upstream.PorchPkg
 	var result []pvContext
 
 	for i, target := range pvs.Spec.Targets {
 		if len(target.Repositories) > 0 {
 			for _, rt := range target.Repositories {
-				pns := []string{upstreamPackageName}
-				if len(rt.PackageNames) > 0 {
-					pns = rt.PackageNames
+				pns := []string{upstreamPorchPkgName}
+				if len(rt.PorchPkgNames) > 0 {
+					pns = rt.PorchPkgNames
 				}
 
 				for _, pn := range pns {
@@ -244,7 +244,7 @@ func (r *PackageVariantSetReconciler) unrollDownstreamTargets(ctx context.Contex
 			result = append(result, pvContext{
 				template:       target.Template,
 				repoDefault:    u.GetName(),
-				packageDefault: upstreamPackageName,
+				packageDefault: upstreamPorchPkgName,
 				object:         u.DeepCopy(),
 			})
 
@@ -261,11 +261,11 @@ func (r *PackageVariantSetReconciler) convertObjectToRNode(obj runtime.Object) (
 	return yaml.Parse(buffer.String())
 }
 
-func (r *PackageVariantSetReconciler) ensurePackageVariants(ctx context.Context, pvs *api.PackageVariantSet,
-	repoList *configapi.RepositoryList, upstreamPR *porchapi.PackageRevision,
+func (r *PackageVariantSetReconciler) ensurePackageVariants(ctx context.Context, pvs *api.PorchPkgVariantSet,
+	repoList *configapi.RepositoryList, upstreamPR *porchapi.PorchPkgRevision,
 	downstreams []pvContext) error {
 
-	var pvList pkgvarapi.PackageVariantList
+	var pvList pkgvarapi.PorchPkgVariantList
 	if err := r.Client.List(ctx, &pvList,
 		client.InNamespace(pvs.Namespace),
 		client.MatchingLabels{
@@ -275,9 +275,9 @@ func (r *PackageVariantSetReconciler) ensurePackageVariants(ctx context.Context,
 	}
 
 	// existingPackageVariantMap holds the PackageVariant objects that currently exist.
-	existingPackageVariantMap := make(map[string]*pkgvarapi.PackageVariant, len(pvList.Items))
+	existingPackageVariantMap := make(map[string]*pkgvarapi.PorchPkgVariant, len(pvList.Items))
 	// desiredPackageVariantMap holds the PackageVariant objects that we want to exist.
-	desiredPackageVariantMap := make(map[string]*pkgvarapi.PackageVariant, len(downstreams))
+	desiredPackageVariantMap := make(map[string]*pkgvarapi.PorchPkgVariant, len(downstreams))
 
 	for _, pv := range pvList.Items {
 		pvId := packageVariantIdentifier(pvs.Name, &pv.Spec)
@@ -291,7 +291,7 @@ func (r *PackageVariantSetReconciler) ensurePackageVariants(ctx context.Context,
 			return err
 		}
 		pvId := packageVariantIdentifier(pvs.Name, pvSpec)
-		pv := pkgvarapi.PackageVariant{
+		pv := pkgvarapi.PorchPkgVariant{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "PackageVariant",
 				APIVersion: "config.porch.kpt.dev",
@@ -352,8 +352,8 @@ func (r *PackageVariantSetReconciler) ensurePackageVariants(ctx context.Context,
 	return nil
 }
 
-func packageVariantIdentifier(pvsName string, spec *pkgvarapi.PackageVariantSpec) string {
-	return pvsName + "-" + spec.Downstream.Repo + "-" + spec.Downstream.Package
+func packageVariantIdentifier(pvsName string, spec *pkgvarapi.PorchPkgVariantSpec) string {
+	return pvsName + "-" + spec.Downstream.Repo + "-" + spec.Downstream.PorchPkg
 }
 
 func packageVariantName(pvId string) string {
@@ -388,16 +388,16 @@ func (r *PackageVariantSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.serializer = json.NewSerializerWithOptions(json.DefaultMetaFactory, nil, nil, json.SerializerOptions{Yaml: true})
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&api.PackageVariantSet{}).
-		Watches(&source.Kind{Type: &pkgvarapi.PackageVariant{}},
+		For(&api.PorchPkgVariantSet{}).
+		Watches(&source.Kind{Type: &pkgvarapi.PorchPkgVariant{}},
 			handler.EnqueueRequestsFromMapFunc(r.mapObjectsToRequests)).
-		Watches(&source.Kind{Type: &porchapi.PackageRevision{}},
+		Watches(&source.Kind{Type: &porchapi.PorchPkgRevision{}},
 			handler.EnqueueRequestsFromMapFunc(r.mapObjectsToRequests)).
 		Complete(r)
 }
 
 func (r *PackageVariantSetReconciler) mapObjectsToRequests(obj client.Object) []reconcile.Request {
-	attachedPackageVariants := &api.PackageVariantSetList{}
+	attachedPackageVariants := &api.PorchPkgVariantSetList{}
 	err := r.List(context.TODO(), attachedPackageVariants, &client.ListOptions{
 		Namespace: obj.GetNamespace(),
 	})
@@ -416,7 +416,7 @@ func (r *PackageVariantSetReconciler) mapObjectsToRequests(obj client.Object) []
 	return requests
 }
 
-func setStalledConditionsToTrue(pvs *api.PackageVariantSet, reason, message string) {
+func setStalledConditionsToTrue(pvs *api.PorchPkgVariantSet, reason, message string) {
 	meta.SetStatusCondition(&pvs.Status.Conditions, metav1.Condition{
 		Type:    ConditionTypeStalled,
 		Status:  "True",

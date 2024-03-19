@@ -250,8 +250,8 @@ func (t *TestSuite) patch(ctx context.Context, obj client.Object, patch client.P
 	}
 }
 
-func (t *TestSuite) updateApproval(ctx context.Context, obj *porchapi.PackageRevision, opts metav1.UpdateOptions, eh ErrorHandler) *porchapi.PackageRevision {
-	if res, err := t.clientset.PorchV1alpha1().PackageRevisions(obj.Namespace).UpdateApproval(ctx, obj.Name, obj, opts); err != nil {
+func (t *TestSuite) updateApproval(ctx context.Context, obj *porchapi.PorchPkgRevision, opts metav1.UpdateOptions, eh ErrorHandler) *porchapi.PorchPkgRevision {
+	if res, err := t.clientset.PorchV1alpha1().PorchPkgRevisions(obj.Namespace).UpdateApproval(ctx, obj.Name, obj, opts); err != nil {
 		eh("failed to update approval of %s/%s: %v", obj.Namespace, obj.Name, err)
 		return nil
 	} else {
@@ -313,7 +313,7 @@ func (t *TestSuite) PatchE(ctx context.Context, obj client.Object, patch client.
 	t.patch(ctx, obj, patch, opts, t.Errorf)
 }
 
-func (t *TestSuite) UpdateApprovalF(ctx context.Context, pr *porchapi.PackageRevision, opts metav1.UpdateOptions) *porchapi.PackageRevision {
+func (t *TestSuite) UpdateApprovalF(ctx context.Context, pr *porchapi.PorchPkgRevision, opts metav1.UpdateOptions) *porchapi.PorchPkgRevision {
 	return t.updateApproval(ctx, pr, opts, t.Fatalf)
 }
 
@@ -647,7 +647,7 @@ func endpointIsReady(endpoints *coreapi.Endpoints) bool {
 	return true
 }
 
-func (t *TestSuite) ParseKptfileF(resources *porchapi.PackageRevisionResources) *kptfilev1.KptFile {
+func (t *TestSuite) ParseKptfileF(resources *porchapi.PorchPkgRevisionResources) *kptfilev1.KptFile {
 	contents, ok := resources.Spec.Resources[kptfilev1.KptFileName]
 	if !ok {
 		t.Fatalf("Kptfile not found in %s/%s package", resources.Namespace, resources.Name)
@@ -659,7 +659,7 @@ func (t *TestSuite) ParseKptfileF(resources *porchapi.PackageRevisionResources) 
 	return kptfile
 }
 
-func (t *TestSuite) SaveKptfileF(resources *porchapi.PackageRevisionResources, kptfile *kptfilev1.KptFile) {
+func (t *TestSuite) SaveKptfileF(resources *porchapi.PorchPkgRevisionResources, kptfile *kptfilev1.KptFile) {
 	b, err := yaml.MarshalWithOptions(kptfile, &yaml.EncoderOptions{SeqIndent: yaml.WideSequenceStyle})
 	if err != nil {
 		t.Fatalf("Failed saving Kptfile: %v", err)
@@ -667,7 +667,7 @@ func (t *TestSuite) SaveKptfileF(resources *porchapi.PackageRevisionResources, k
 	resources.Spec.Resources[kptfilev1.KptFileName] = string(b)
 }
 
-func (t *TestSuite) FindAndDecodeF(resources *porchapi.PackageRevisionResources, name string, value interface{}) {
+func (t *TestSuite) FindAndDecodeF(resources *porchapi.PorchPkgRevisionResources, name string, value interface{}) {
 	contents, ok := resources.Spec.Resources[name]
 	if !ok {
 		t.Fatalf("Cannot find %q in %s/%s package", name, resources.Namespace, resources.Name)
@@ -717,11 +717,11 @@ func normalizeYamlOrdering(t *testing.T, contents string) string {
 	return stable.String()
 }
 
-func MustFindPackageRevision(t *testing.T, packages *porchapi.PackageRevisionList, name repository.PackageRevisionKey) *porchapi.PackageRevision {
+func MustFindPorchPkgRevision(t *testing.T, packages *porchapi.PorchPkgRevisionList, name repository.PackageRevisionKey) *porchapi.PorchPkgRevision {
 	for i := range packages.Items {
 		pr := &packages.Items[i]
 		if pr.Spec.RepositoryName == name.Repository &&
-			pr.Spec.PackageName == name.Package &&
+			pr.Spec.PorchPkgName == name.Package &&
 			pr.Spec.Revision == name.Revision {
 			return pr
 		}

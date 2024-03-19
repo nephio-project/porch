@@ -14,6 +14,6 @@
 
 package v1alpha1
 
-func LifecycleIsPublished(lifecycle PackageRevisionLifecycle) bool {
-	return lifecycle == PackageRevisionLifecyclePublished || lifecycle == PackageRevisionLifecycleDeletionProposed
+func LifecycleIsPublished(lifecycle PorchPkgRevisionLifecycle) bool {
+	return lifecycle == PorchPkgRevisionLifecyclePublished || lifecycle == PorchPkgRevisionLifecycleDeletionProposed
 }

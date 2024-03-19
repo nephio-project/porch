@@ -29,7 +29,7 @@ func TestInit(t *testing.T) {
 	init := &initPackageMutation{
 		name: "testpkg",
 		task: &api.Task{
-			Init: &api.PackageInitTaskSpec{
+			Init: &api.PorchPkgInitTaskSpec{
 				Description: "test package",
 				Keywords:    []string{"test", "kpt", "pkg"},
 				Site:        "http://kpt.dev/testpkg",

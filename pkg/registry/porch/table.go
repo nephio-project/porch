@@ -87,13 +87,13 @@ var (
 	packageTableConvertor = tableConvertor{
 		resource: porch.Resource("packages"),
 		cells: func(obj runtime.Object) []interface{} {
-			pr, ok := obj.(*api.Package)
+			pr, ok := obj.(*api.PorchPkg)
 			if !ok {
 				return nil
 			}
 			return []interface{}{
 				pr.Name,
-				pr.Spec.PackageName,
+				pr.Spec.PorchPkgName,
 				pr.Spec.RepositoryName,
 				pr.Status.LatestRevision,
 			}
@@ -109,13 +109,13 @@ var (
 	packageRevisionTableConvertor = tableConvertor{
 		resource: porch.Resource("packagerevisions"),
 		cells: func(obj runtime.Object) []interface{} {
-			pr, ok := obj.(*api.PackageRevision)
+			pr, ok := obj.(*api.PorchPkgRevision)
 			if !ok {
 				return nil
 			}
 			return []interface{}{
 				pr.Name,
-				pr.Spec.PackageName,
+				pr.Spec.PorchPkgName,
 				pr.Spec.WorkspaceName,
 				pr.Spec.Revision,
 				isLatest(pr),
@@ -137,13 +137,13 @@ var (
 	packageRevisionResourcesTableConvertor = tableConvertor{
 		resource: porch.Resource("packagerevisionresources"),
 		cells: func(obj runtime.Object) []interface{} {
-			pr, ok := obj.(*api.PackageRevisionResources)
+			pr, ok := obj.(*api.PorchPkgRevisionResources)
 			if !ok {
 				return nil
 			}
 			return []interface{}{
 				pr.Name,
-				pr.Spec.PackageName,
+				pr.Spec.PorchPkgName,
 				pr.Spec.WorkspaceName,
 				pr.Spec.Revision,
 				pr.Spec.RepositoryName,
@@ -161,7 +161,7 @@ var (
 	}
 )
 
-func isLatest(pr *api.PackageRevision) bool {
-	val, ok := pr.Labels[api.LatestPackageRevisionKey]
-	return ok && val == api.LatestPackageRevisionValue
+func isLatest(pr *api.PorchPkgRevision) bool {
+	val, ok := pr.Labels[api.LatestPorchPkgRevisionKey]
+	return ok && val == api.LatestPorchPkgRevisionValue
 }

@@ -46,7 +46,7 @@ func GeneratePatch(fileName string, oldV, newV string) (api.PatchSpec, error) {
 }
 
 type applyPatchMutation struct {
-	patchTask *api.PackagePatchTaskSpec
+	patchTask *api.PorchPkgPatchTaskSpec
 	task      *api.Task
 }
 

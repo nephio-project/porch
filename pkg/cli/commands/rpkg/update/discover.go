@@ -28,7 +28,7 @@ import (
 )
 
 func (r *runner) discoverUpdates(cmd *cobra.Command, args []string) error {
-	var prs []porchapi.PackageRevision
+	var prs []porchapi.PorchPkgRevision
 	var errs []string
 	if len(args) == 0 || r.discover == downstream {
 		prs = r.prs
@@ -61,7 +61,7 @@ func (r *runner) discoverUpdates(cmd *cobra.Command, args []string) error {
 	}
 }
 
-func (r *runner) findUpstreamUpdates(prs []porchapi.PackageRevision, repositories *configapi.RepositoryList, w io.Writer) error {
+func (r *runner) findUpstreamUpdates(prs []porchapi.PorchPkgRevision, repositories *configapi.RepositoryList, w io.Writer) error {
 	var upstreamUpdates [][]string
 	for _, pr := range prs {
 		availableUpdates, upstreamName, _, err := r.availableUpdates(pr.Status.UpstreamLock, repositories)
@@ -81,10 +81,10 @@ func (r *runner) findUpstreamUpdates(prs []porchapi.PackageRevision, repositorie
 	return printUpstreamUpdates(upstreamUpdates, w)
 }
 
-func (r *runner) findDownstreamUpdates(prs []porchapi.PackageRevision, repositories *configapi.RepositoryList,
+func (r *runner) findDownstreamUpdates(prs []porchapi.PorchPkgRevision, repositories *configapi.RepositoryList,
 	args []string, w io.Writer) error {
 	// map from the upstream package revision to a list of its downstream package revisions
-	downstreamUpdatesMap := make(map[string][]porchapi.PackageRevision)
+	downstreamUpdatesMap := make(map[string][]porchapi.PorchPkgRevision)
 
 	for _, pr := range prs {
 		availableUpdates, _, draftName, err := r.availableUpdates(pr.Status.UpstreamLock, repositories)
@@ -99,8 +99,8 @@ func (r *runner) findDownstreamUpdates(prs []porchapi.PackageRevision, repositor
 	return printDownstreamUpdates(downstreamUpdatesMap, args, w)
 }
 
-func (r *runner) availableUpdates(upstreamLock *porchapi.UpstreamLock, repositories *configapi.RepositoryList) ([]porchapi.PackageRevision, string, string, error) {
-	var availableUpdates []porchapi.PackageRevision
+func (r *runner) availableUpdates(upstreamLock *porchapi.UpstreamLock, repositories *configapi.RepositoryList) ([]porchapi.PorchPkgRevision, string, string, error) {
+	var availableUpdates []porchapi.PorchPkgRevision
 	var upstream string
 
 	if upstreamLock == nil || upstreamLock.Git == nil {
@@ -136,7 +136,7 @@ func (r *runner) availableUpdates(upstreamLock *porchapi.UpstreamLock, repositor
 	}
 
 	// find a repo that matches the upstreamLock
-	var revisions []porchapi.PackageRevision
+	var revisions []porchapi.PorchPkgRevision
 	for _, repo := range repositories.Items {
 		if repo.Spec.Type != configapi.RepositoryTypeGit {
 			// we are not currently supporting non-git repos for updates
@@ -170,14 +170,14 @@ func (r *runner) getRepositories() (*configapi.RepositoryList, error) {
 }
 
 // fetches all package revision numbers for packages with the name upstreamPackageName from the repo
-func (r *runner) getUpstreamRevisions(repo configapi.Repository, upstreamPackageName string) []porchapi.PackageRevision {
-	var result []porchapi.PackageRevision
+func (r *runner) getUpstreamRevisions(repo configapi.Repository, upstreamPackageName string) []porchapi.PorchPkgRevision {
+	var result []porchapi.PorchPkgRevision
 	for _, pkgRev := range r.prs {
 		if !porchapi.LifecycleIsPublished(pkgRev.Spec.Lifecycle) {
 			// only consider published packages
 			continue
 		}
-		if pkgRev.Spec.RepositoryName == repo.Name && pkgRev.Spec.PackageName == upstreamPackageName {
+		if pkgRev.Spec.RepositoryName == repo.Name && pkgRev.Spec.PorchPkgName == upstreamPackageName {
 			result = append(result, pkgRev)
 		}
 	}
@@ -197,7 +197,7 @@ func printUpstreamUpdates(upstreamUpdates [][]string, w io.Writer) error {
 	return printer.Flush()
 }
 
-func printDownstreamUpdates(downstreamUpdatesMap map[string][]porchapi.PackageRevision, args []string, w io.Writer) error {
+func printDownstreamUpdates(downstreamUpdatesMap map[string][]porchapi.PorchPkgRevision, args []string, w io.Writer) error {
 	var downstreamUpdates [][]string
 	for upstreamPkgRev, downstreamPkgRevs := range downstreamUpdatesMap {
 		split := strings.Split(upstreamPkgRev, ":")

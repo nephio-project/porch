@@ -64,7 +64,7 @@ const (
 	requeueDuration = 30 * time.Second
 )
 
-//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.8.0 rbac:roleName=porch-controllers-packagevariants webhook paths="." output:rbac:artifacts:config=../../../config/rbac
+//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0 rbac:roleName=porch-controllers-packagevariants webhook paths="." output:rbac:artifacts:config=../../../config/rbac
 
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=packagevariants,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=packagevariants/status,verbs=get;update;patch
@@ -97,10 +97,10 @@ func (r *PackageVariantReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		for _, pr := range prList.Items {
 			if r.hasOurOwnerReference(pv, pr.OwnerReferences) {
 				r.deleteOrOrphan(ctx, &pr, pv)
-				if pr.Spec.Lifecycle == porchapi.PackageRevisionLifecycleDeletionProposed {
+				if pr.Spec.Lifecycle == porchapi.PorchPkgRevisionLifecycleDeletionProposed {
 					// We need to orphan this package revision; otherwise it will automatically
 					// get deleted after its parent PackageVariant object is deleted.
-					r.orphanPackageRevision(ctx, &pr, pv)
+					r.orphanPorchPkgRevision(ctx, &pr, pv)
 				}
 			}
 		}
@@ -156,13 +156,13 @@ func (r *PackageVariantReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 }
 
 func (r *PackageVariantReconciler) init(ctx context.Context,
-	req ctrl.Request) (*api.PackageVariant, *porchapi.PackageRevisionList, error) {
-	var pv api.PackageVariant
+	req ctrl.Request) (*api.PorchPkgVariant, *porchapi.PorchPkgRevisionList, error) {
+	var pv api.PorchPkgVariant
 	if err := r.Client.Get(ctx, req.NamespacedName, &pv); err != nil {
 		return nil, nil, client.IgnoreNotFound(err)
 	}
 
-	var prList porchapi.PackageRevisionList
+	var prList porchapi.PorchPkgRevisionList
 	if err := r.Client.List(ctx, &prList, client.InNamespace(pv.Namespace)); err != nil {
 		return nil, nil, err
 	}
@@ -170,7 +170,7 @@ func (r *PackageVariantReconciler) init(ctx context.Context,
 	return &pv, &prList, nil
 }
 
-func validatePackageVariant(pv *api.PackageVariant) []string {
+func validatePackageVariant(pv *api.PorchPkgVariant) []string {
 	var allErrs []string
 	if pv.Spec.Upstream == nil {
 		allErrs = append(allErrs, "missing required field spec.upstream")
@@ -178,7 +178,7 @@ func validatePackageVariant(pv *api.PackageVariant) []string {
 		if pv.Spec.Upstream.Repo == "" {
 			allErrs = append(allErrs, "missing required field spec.upstream.repo")
 		}
-		if pv.Spec.Upstream.Package == "" {
+		if pv.Spec.Upstream.PorchPkg == "" {
 			allErrs = append(allErrs, "missing required field spec.upstream.package")
 		}
 		if pv.Spec.Upstream.Revision == "" {
@@ -191,7 +191,7 @@ func validatePackageVariant(pv *api.PackageVariant) []string {
 		if pv.Spec.Downstream.Repo == "" {
 			allErrs = append(allErrs, "missing required field spec.downstream.repo")
 		}
-		if pv.Spec.Downstream.Package == "" {
+		if pv.Spec.Downstream.PorchPkg == "" {
 			allErrs = append(allErrs, "missing required field spec.downstream.package")
 		}
 	}
@@ -209,14 +209,14 @@ func validatePackageVariant(pv *api.PackageVariant) []string {
 		allErrs = append(allErrs, fmt.Sprintf("spec.deletionPolicy can only be %q or %q",
 			api.DeletionPolicyOrphan, api.DeletionPolicyDelete))
 	}
-	if pc := pv.Spec.PackageContext; pc != nil {
+	if pc := pv.Spec.PorchPkgContext; pc != nil {
 		invalidKeys := []string{"name", "package-path"}
 		for _, invalid := range invalidKeys {
 			if len(pc.Data) > 0 {
 				if _, ok := pc.Data[invalid]; ok {
 					allErrs = append(allErrs, field.Invalid(
 						field.NewPath("spec", "packageContext", "data"),
-						pv.Spec.PackageContext.Data,
+						pv.Spec.PorchPkgContext.Data,
 						fmt.Sprintf("must not contain the key %q", invalid)).Error())
 				}
 			}
@@ -225,7 +225,7 @@ func validatePackageVariant(pv *api.PackageVariant) []string {
 					if k == invalid {
 						allErrs = append(allErrs, field.Invalid(
 							field.NewPath("spec", "packageContext", "removeKeys"),
-							pv.Spec.PackageContext.RemoveKeys,
+							pv.Spec.PorchPkgContext.RemoveKeys,
 							fmt.Sprintf("must not contain the key %q", invalid)).Error())
 					}
 				}
@@ -253,19 +253,19 @@ func combineErrors(errs []string) string {
 }
 
 func (r *PackageVariantReconciler) getUpstreamPR(upstream *api.Upstream,
-	prList *porchapi.PackageRevisionList) (*porchapi.PackageRevision, error) {
+	prList *porchapi.PorchPkgRevisionList) (*porchapi.PorchPkgRevision, error) {
 	for _, pr := range prList.Items {
 		if pr.Spec.RepositoryName == upstream.Repo &&
-			pr.Spec.PackageName == upstream.Package &&
+			pr.Spec.PorchPkgName == upstream.PorchPkg &&
 			pr.Spec.Revision == upstream.Revision {
 			return &pr, nil
 		}
 	}
 	return nil, fmt.Errorf("could not find upstream package revision '%s/%s' in repo '%s'",
-		upstream.Package, upstream.Revision, upstream.Repo)
+		upstream.PorchPkg, upstream.Revision, upstream.Repo)
 }
 
-func setStalledConditionsToTrue(pv *api.PackageVariant, message string) {
+func setStalledConditionsToTrue(pv *api.PorchPkgVariant, message string) {
 	meta.SetStatusCondition(&pv.Status.Conditions, metav1.Condition{
 		Type:    ConditionTypeStalled,
 		Status:  "True",
@@ -291,9 +291,9 @@ func setStalledConditionsToTrue(pv *api.PackageVariant, message string) {
 //   - Delete or orphan other package revisions owned by this controller that are no
 //     longer needed.
 func (r *PackageVariantReconciler) ensurePackageVariant(ctx context.Context,
-	pv *api.PackageVariant,
-	upstream *porchapi.PackageRevision,
-	prList *porchapi.PackageRevisionList) ([]*porchapi.PackageRevision, error) {
+	pv *api.PorchPkgVariant,
+	upstream *porchapi.PorchPkgRevision,
+	prList *porchapi.PorchPkgRevisionList) ([]*porchapi.PorchPkgRevision, error) {
 
 	existing, err := r.findAndUpdateExistingRevisions(ctx, pv, upstream, prList)
 	if err != nil {
@@ -304,9 +304,9 @@ func (r *PackageVariantReconciler) ensurePackageVariant(ctx context.Context,
 	}
 
 	// No downstream package created by this controller exists. Create one.
-	newPR := &porchapi.PackageRevision{
+	newPR := &porchapi.PorchPkgRevision{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
+			Kind:       "PorchPkgRevision",
 			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -315,16 +315,16 @@ func (r *PackageVariantReconciler) ensurePackageVariant(ctx context.Context,
 			Labels:          pv.Spec.Labels,
 			Annotations:     pv.Spec.Annotations,
 		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    pv.Spec.Downstream.Package,
+		Spec: porchapi.PorchPkgRevisionSpec{
+			PorchPkgName:   pv.Spec.Downstream.PorchPkg,
 			RepositoryName: pv.Spec.Downstream.Repo,
-			WorkspaceName:  newWorkspaceName(prList, pv.Spec.Downstream.Package, pv.Spec.Downstream.Repo),
+			WorkspaceName:  newWorkspaceName(prList, pv.Spec.Downstream.PorchPkg, pv.Spec.Downstream.Repo),
 			Tasks: []porchapi.Task{
 				{
 					Type: porchapi.TaskTypeClone,
-					Clone: &porchapi.PackageCloneTaskSpec{
-						Upstream: porchapi.UpstreamPackage{
-							UpstreamRef: &porchapi.PackageRevisionRef{
+					Clone: &porchapi.PorchPkgCloneTaskSpec{
+						Upstream: porchapi.UpstreamPorchPkg{
+							UpstreamRef: &porchapi.PorchPkgRevisionRef{
 								Name: upstream.Name,
 							},
 						},
@@ -344,20 +344,20 @@ func (r *PackageVariantReconciler) ensurePackageVariant(ctx context.Context,
 		return nil, err
 	}
 	if changed {
-		// Save the updated PackageRevisionResources
+		// Save the updated PorchPkgRevisionResources
 		if err = r.Update(ctx, prr); err != nil {
 			return nil, err
 		}
 		klog.Infoln(fmt.Sprintf("package variant %q applied mutations to package revision %q", pv.Name, newPR.Name))
 	}
 
-	return []*porchapi.PackageRevision{newPR}, nil
+	return []*porchapi.PorchPkgRevision{newPR}, nil
 }
 
 func (r *PackageVariantReconciler) findAndUpdateExistingRevisions(ctx context.Context,
-	pv *api.PackageVariant,
-	upstream *porchapi.PackageRevision,
-	prList *porchapi.PackageRevisionList) ([]*porchapi.PackageRevision, error) {
+	pv *api.PorchPkgVariant,
+	upstream *porchapi.PorchPkgRevision,
+	prList *porchapi.PorchPkgRevisionList) ([]*porchapi.PorchPkgRevision, error) {
 	downstreams := r.getDownstreamPRs(ctx, pv, prList)
 	if downstreams == nil {
 		// If there are no existing target downstream packages, just return nil. The
@@ -367,10 +367,10 @@ func (r *PackageVariantReconciler) findAndUpdateExistingRevisions(ctx context.Co
 
 	var err error
 	for i, downstream := range downstreams {
-		if downstream.Spec.Lifecycle == porchapi.PackageRevisionLifecycleDeletionProposed {
+		if downstream.Spec.Lifecycle == porchapi.PorchPkgRevisionLifecycleDeletionProposed {
 			// We proposed this package revision for deletion in the past, but now it
 			// matches our target, so we no longer want it to be deleted.
-			downstream.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+			downstream.Spec.Lifecycle = porchapi.PorchPkgRevisionLifecyclePublished
 			// We update this now, because later we may use a Porch call to clone or update
 			// and we want to make sure the server is in sync with us
 			if err := r.Client.Update(ctx, downstream); err != nil {
@@ -426,7 +426,7 @@ func (r *PackageVariantReconciler) findAndUpdateExistingRevisions(ctx context.Co
 				}
 
 			}
-			// Save the updated PackageRevisionResources
+			// Save the updated PorchPkgRevisionResources
 			if err := r.Update(ctx, prr); err != nil {
 				return nil, err
 			}
@@ -440,12 +440,12 @@ func (r *PackageVariantReconciler) findAndUpdateExistingRevisions(ctx context.Co
 // revision, return them all. If there are no drafts, return the latest published
 // package revision owned by us.
 func (r *PackageVariantReconciler) getDownstreamPRs(ctx context.Context,
-	pv *api.PackageVariant,
-	prList *porchapi.PackageRevisionList) []*porchapi.PackageRevision {
+	pv *api.PorchPkgVariant,
+	prList *porchapi.PorchPkgRevisionList) []*porchapi.PorchPkgRevision {
 	downstream := pv.Spec.Downstream
 
-	var latestPublished *porchapi.PackageRevision
-	var drafts []*porchapi.PackageRevision
+	var latestPublished *porchapi.PorchPkgRevision
+	var drafts []*porchapi.PorchPkgRevision
 	// the first package revision number that porch assigns is "v1",
 	// so use v0 as a placeholder for comparison
 	latestVersion := "v0"
@@ -466,7 +466,7 @@ func (r *PackageVariantReconciler) getDownstreamPRs(ctx context.Context,
 
 		// check that the repo and package name match
 		if pr.Spec.RepositoryName != downstream.Repo ||
-			pr.Spec.PackageName != downstream.Package {
+			pr.Spec.PorchPkgName != downstream.PorchPkg {
 			if owned {
 				// We own this package, but it isn't a match for our downstream target,
 				// which means that we created it but no longer need it.
@@ -478,7 +478,7 @@ func (r *PackageVariantReconciler) getDownstreamPRs(ctx context.Context,
 		// this package matches, check if we need to adopt it
 		if !owned && pv.Spec.AdoptionPolicy == api.AdoptionPolicyAdoptExisting {
 			klog.Infoln(fmt.Sprintf("package variant %q is adopting package revision %q", pv.Name, pr.Name))
-			if err := r.adoptPackageRevision(ctx, &pr, pv); err != nil {
+			if err := r.adoptPorchPkgRevision(ctx, &pr, pv); err != nil {
 				klog.Errorf("error adopting package revision: %w", err)
 			}
 		}
@@ -494,12 +494,12 @@ func (r *PackageVariantReconciler) getDownstreamPRs(ctx context.Context,
 		return drafts
 	}
 	if latestPublished != nil {
-		return []*porchapi.PackageRevision{latestPublished}
+		return []*porchapi.PorchPkgRevision{latestPublished}
 	}
 	return nil
 }
 
-func compare(pr, latestPublished *porchapi.PackageRevision, latestVersion string) (*porchapi.PackageRevision, string) {
+func compare(pr, latestPublished *porchapi.PorchPkgRevision, latestVersion string) (*porchapi.PorchPkgRevision, string) {
 	switch cmp := semver.Compare(pr.Spec.Revision, latestVersion); {
 	case cmp == 0:
 		// Same revision.
@@ -514,7 +514,7 @@ func compare(pr, latestPublished *porchapi.PackageRevision, latestVersion string
 }
 
 // check that the downstream package was created by this PackageVariant object
-func (r *PackageVariantReconciler) hasOurOwnerReference(pv *api.PackageVariant, owners []metav1.OwnerReference) bool {
+func (r *PackageVariantReconciler) hasOurOwnerReference(pv *api.PorchPkgVariant, owners []metav1.OwnerReference) bool {
 	for _, owner := range owners {
 		if owner.UID == pv.UID {
 			return true
@@ -524,24 +524,24 @@ func (r *PackageVariantReconciler) hasOurOwnerReference(pv *api.PackageVariant, 
 }
 
 func (r *PackageVariantReconciler) deleteOrOrphan(ctx context.Context,
-	pr *porchapi.PackageRevision,
-	pv *api.PackageVariant) {
+	pr *porchapi.PorchPkgRevision,
+	pv *api.PorchPkgVariant) {
 	switch pv.Spec.DeletionPolicy {
 	case "", api.DeletionPolicyDelete:
 		klog.Infoln(fmt.Sprintf("package variant %q is deleting package revision %q", pv.Name, pr.Name))
-		r.deletePackageRevision(ctx, pr)
+		r.deletePorchPkgRevision(ctx, pr)
 	case api.DeletionPolicyOrphan:
 		klog.Infoln(fmt.Sprintf("package variant %q is orphaning package revision %q", pv.Name, pr.Name))
-		r.orphanPackageRevision(ctx, pr, pv)
+		r.orphanPorchPkgRevision(ctx, pr, pv)
 	default:
 		// this should never happen, because the pv should already be validated beforehand
 		klog.Errorf("invalid deletion policy %s", pv.Spec.DeletionPolicy)
 	}
 }
 
-func (r *PackageVariantReconciler) orphanPackageRevision(ctx context.Context,
-	pr *porchapi.PackageRevision,
-	pv *api.PackageVariant) {
+func (r *PackageVariantReconciler) orphanPorchPkgRevision(ctx context.Context,
+	pr *porchapi.PorchPkgRevision,
+	pv *api.PorchPkgVariant) {
 	pr.ObjectMeta.OwnerReferences = removeOwnerRefByUID(pr.OwnerReferences, pv.UID)
 	if err := r.Client.Update(ctx, pr); err != nil {
 		klog.Errorf("error orphaning package revision: %v", err)
@@ -561,9 +561,9 @@ func removeOwnerRefByUID(ownerRefs []metav1.OwnerReference,
 
 // When we adopt a package revision, we need to make sure that the package revision
 // has our owner reference and also the labels/annotations specified in pv.Spec.
-func (r *PackageVariantReconciler) adoptPackageRevision(ctx context.Context,
-	pr *porchapi.PackageRevision,
-	pv *api.PackageVariant) error {
+func (r *PackageVariantReconciler) adoptPorchPkgRevision(ctx context.Context,
+	pr *porchapi.PorchPkgRevision,
+	pv *api.PorchPkgVariant) error {
 	pr.ObjectMeta.OwnerReferences = append(pr.OwnerReferences, constructOwnerReference(pv))
 	if len(pv.Spec.Labels) > 0 && pr.ObjectMeta.Labels == nil {
 		pr.ObjectMeta.Labels = make(map[string]string)
@@ -580,18 +580,18 @@ func (r *PackageVariantReconciler) adoptPackageRevision(ctx context.Context,
 	return r.Client.Update(ctx, pr)
 }
 
-func (r *PackageVariantReconciler) deletePackageRevision(ctx context.Context, pr *porchapi.PackageRevision) {
+func (r *PackageVariantReconciler) deletePorchPkgRevision(ctx context.Context, pr *porchapi.PorchPkgRevision) {
 	switch pr.Spec.Lifecycle {
-	case "", porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecycleProposed:
+	case "", porchapi.PorchPkgRevisionLifecycleDraft, porchapi.PorchPkgRevisionLifecycleProposed:
 		if err := r.Client.Delete(ctx, pr); err != nil {
 			klog.Errorf("error deleting package revision: %v", err)
 		}
-	case porchapi.PackageRevisionLifecyclePublished:
-		pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
+	case porchapi.PorchPkgRevisionLifecyclePublished:
+		pr.Spec.Lifecycle = porchapi.PorchPkgRevisionLifecycleDeletionProposed
 		if err := r.Client.Update(ctx, pr); err != nil {
 			klog.Errorf("error proposing deletion for published package revision: %v", err)
 		}
-	case porchapi.PackageRevisionLifecycleDeletionProposed:
+	case porchapi.PorchPkgRevisionLifecycleDeletionProposed:
 		// we don't have to do anything
 	default:
 		// if this ever happens, there's something going wrong with porch
@@ -600,7 +600,7 @@ func (r *PackageVariantReconciler) deletePackageRevision(ctx context.Context, pr
 }
 
 // determine if the downstream PR needs to be updated
-func (r *PackageVariantReconciler) isUpToDate(pv *api.PackageVariant, downstream *porchapi.PackageRevision) bool {
+func (r *PackageVariantReconciler) isUpToDate(pv *api.PorchPkgVariant, downstream *porchapi.PorchPkgRevision) bool {
 	upstreamLock := downstream.Status.UpstreamLock
 	lastIndex := strings.LastIndex(upstreamLock.Git.Ref, "/")
 	if strings.HasPrefix(upstreamLock.Git.Ref, "drafts") {
@@ -613,12 +613,12 @@ func (r *PackageVariantReconciler) isUpToDate(pv *api.PackageVariant, downstream
 }
 
 func (r *PackageVariantReconciler) copyPublished(ctx context.Context,
-	source *porchapi.PackageRevision,
-	pv *api.PackageVariant,
-	prList *porchapi.PackageRevisionList) (*porchapi.PackageRevision, error) {
-	newPR := &porchapi.PackageRevision{
+	source *porchapi.PorchPkgRevision,
+	pv *api.PorchPkgVariant,
+	prList *porchapi.PorchPkgRevisionList) (*porchapi.PorchPkgRevision, error) {
+	newPR := &porchapi.PorchPkgRevision{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
+			Kind:       "PorchPkgRevision",
 			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -631,8 +631,8 @@ func (r *PackageVariantReconciler) copyPublished(ctx context.Context,
 	}
 
 	newPR.Spec.Revision = ""
-	newPR.Spec.WorkspaceName = newWorkspaceName(prList, newPR.Spec.PackageName, newPR.Spec.RepositoryName)
-	newPR.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDraft
+	newPR.Spec.WorkspaceName = newWorkspaceName(prList, newPR.Spec.PorchPkgName, newPR.Spec.RepositoryName)
+	newPR.Spec.Lifecycle = porchapi.PorchPkgRevisionLifecycleDraft
 
 	klog.Infoln(fmt.Sprintf("package variant %q is creating package revision %q", pv.Name, newPR.Name))
 	if err := r.Client.Create(ctx, newPR); err != nil {
@@ -642,11 +642,11 @@ func (r *PackageVariantReconciler) copyPublished(ctx context.Context,
 	return newPR, nil
 }
 
-func newWorkspaceName(prList *porchapi.PackageRevisionList,
+func newWorkspaceName(prList *porchapi.PorchPkgRevisionList,
 	packageName string, repo string) porchapi.WorkspaceName {
 	wsNum := 0
 	for _, pr := range prList.Items {
-		if pr.Spec.PackageName != packageName || pr.Spec.RepositoryName != repo {
+		if pr.Spec.PorchPkgName != packageName || pr.Spec.RepositoryName != repo {
 			continue
 		}
 		oldWorkspaceName := string(pr.Spec.WorkspaceName)
@@ -663,7 +663,7 @@ func newWorkspaceName(prList *porchapi.PackageRevisionList,
 	return porchapi.WorkspaceName(fmt.Sprintf(workspaceNamePrefix+"%d", wsNum))
 }
 
-func constructOwnerReference(pv *api.PackageVariant) metav1.OwnerReference {
+func constructOwnerReference(pv *api.PorchPkgVariant) metav1.OwnerReference {
 	tr := true
 	return metav1.OwnerReference{
 		APIVersion:         pv.APIVersion,
@@ -676,15 +676,15 @@ func constructOwnerReference(pv *api.PackageVariant) metav1.OwnerReference {
 }
 
 func (r *PackageVariantReconciler) updateDraft(ctx context.Context,
-	draft *porchapi.PackageRevision,
-	newUpstreamPR *porchapi.PackageRevision) (*porchapi.PackageRevision, error) {
+	draft *porchapi.PorchPkgRevision,
+	newUpstreamPR *porchapi.PorchPkgRevision) (*porchapi.PorchPkgRevision, error) {
 
 	draft = draft.DeepCopy()
 	tasks := draft.Spec.Tasks
 
 	updateTask := porchapi.Task{
 		Type: porchapi.TaskTypeUpdate,
-		Update: &porchapi.PackageUpdateTaskSpec{
+		Update: &porchapi.PorchPkgUpdateTaskSpec{
 			Upstream: tasks[0].Clone.Upstream,
 		},
 	}
@@ -698,7 +698,7 @@ func (r *PackageVariantReconciler) updateDraft(ctx context.Context,
 	return draft, nil
 }
 
-func setTargetStatusConditions(pv *api.PackageVariant, targets []*porchapi.PackageRevision) {
+func setTargetStatusConditions(pv *api.PorchPkgVariant, targets []*porchapi.PorchPkgRevision) {
 	pv.Status.DownstreamTargets = nil
 	for _, t := range targets {
 		pv.Status.DownstreamTargets = append(pv.Status.DownstreamTargets, api.DownstreamTarget{
@@ -730,14 +730,14 @@ func (r *PackageVariantReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	//TODO: establish watches on resource types injected in all the Package Revisions
 	//      we own, and use those to generate requests
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&api.PackageVariant{}).
-		Watches(&source.Kind{Type: &porchapi.PackageRevision{}},
+		For(&api.PorchPkgVariant{}).
+		Watches(&source.Kind{Type: &porchapi.PorchPkgRevision{}},
 			handler.EnqueueRequestsFromMapFunc(r.mapObjectsToRequests)).
 		Complete(r)
 }
 
 func (r *PackageVariantReconciler) mapObjectsToRequests(obj client.Object) []reconcile.Request {
-	attachedPackageVariants := &api.PackageVariantList{}
+	attachedPackageVariants := &api.PorchPkgVariantList{}
 	err := r.List(context.TODO(), attachedPackageVariants, &client.ListOptions{
 		Namespace: obj.GetNamespace(),
 	})
@@ -757,11 +757,11 @@ func (r *PackageVariantReconciler) mapObjectsToRequests(obj client.Object) []rec
 }
 
 func (r *PackageVariantReconciler) calculateDraftResources(ctx context.Context,
-	pv *api.PackageVariant,
-	draft *porchapi.PackageRevision) (*porchapi.PackageRevisionResources, bool, error) {
+	pv *api.PorchPkgVariant,
+	draft *porchapi.PorchPkgRevision) (*porchapi.PorchPkgRevisionResources, bool, error) {
 
-	// Load the PackageRevisionResources
-	var prr porchapi.PackageRevisionResources
+	// Load the PorchPkgRevisionResources
+	var prr porchapi.PorchPkgRevisionResources
 	prrKey := types.NamespacedName{Name: draft.GetName(), Namespace: draft.GetNamespace()}
 	if err := r.Client.Get(ctx, prrKey, &prr); err != nil {
 		return nil, false, err
@@ -769,7 +769,7 @@ func (r *PackageVariantReconciler) calculateDraftResources(ctx context.Context,
 
 	// Check if it's a valid PRR
 	if prr.Spec.Resources == nil {
-		return nil, false, fmt.Errorf("nil resources found for PackageRevisionResources '%s/%s'", prr.Namespace, prr.Name)
+		return nil, false, fmt.Errorf("nil resources found for PorchPkgRevisionResources '%s/%s'", prr.Namespace, prr.Name)
 	}
 
 	origResources := make(map[string]string, len(prr.Spec.Resources))
@@ -792,7 +792,7 @@ func (r *PackageVariantReconciler) calculateDraftResources(ctx context.Context,
 
 	if len(prr.Spec.Resources) != len(origResources) {
 		// files were added or deleted
-		klog.Infoln(fmt.Sprintf("PackageVariant %q, PackageRevision %q, resources changed: %d original files, %d new files", pv.Name, prr.Name, len(origResources), len(prr.Spec.Resources)))
+		klog.Infoln(fmt.Sprintf("PackageVariant %q, PorchPkgRevision %q, resources changed: %d original files, %d new files", pv.Name, prr.Name, len(origResources), len(prr.Spec.Resources)))
 		return &prr, true, nil
 	}
 
@@ -800,7 +800,7 @@ func (r *PackageVariantReconciler) calculateDraftResources(ctx context.Context,
 		newValue, ok := prr.Spec.Resources[k]
 		if !ok {
 			// a file was deleted
-			klog.Infoln(fmt.Sprintf("PackageVariant %q, PackageRevision %q, resources changed: %q in original files, not in new files", pv.Name, prr.Name, k))
+			klog.Infoln(fmt.Sprintf("PackageVariant %q, PorchPkgRevision %q, resources changed: %q in original files, not in new files", pv.Name, prr.Name, k))
 			return &prr, true, nil
 		}
 
@@ -811,19 +811,19 @@ func (r *PackageVariantReconciler) calculateDraftResources(ctx context.Context,
 			// we will parse and compare semantically.
 			//
 			if k == "Kptfile" && kptfilesEqual(v, newValue) {
-				klog.Infoln(fmt.Sprintf("PackageVariant %q, PackageRevision %q, resources changed: Kptfiles differ, but not semantically", pv.Name, prr.Name))
+				klog.Infoln(fmt.Sprintf("PackageVariant %q, PorchPkgRevision %q, resources changed: Kptfiles differ, but not semantically", pv.Name, prr.Name))
 				continue
 			}
 
 			// a file was changed
-			klog.Infoln(fmt.Sprintf("PackageVariant %q, PackageRevision %q, resources changed: %q different", pv.Name, prr.Name, k))
+			klog.Infoln(fmt.Sprintf("PackageVariant %q, PorchPkgRevision %q, resources changed: %q different", pv.Name, prr.Name, k))
 			return &prr, true, nil
 		}
 	}
 
 	// all files in orig are in new, no new files, and all contents match
 	// so no change
-	klog.Infoln(fmt.Sprintf("PackageVariant %q, PackageRevision %q, resources unchanged", pv.Name, prr.Name))
+	klog.Infoln(fmt.Sprintf("PackageVariant %q, PorchPkgRevision %q, resources unchanged", pv.Name, prr.Name))
 	return &prr, false, nil
 }
 
@@ -859,14 +859,14 @@ func kptfilesEqual(a, b string) bool {
 	return equal
 }
 
-func ensurePackageContext(pv *api.PackageVariant,
-	prr *porchapi.PackageRevisionResources) error {
+func ensurePackageContext(pv *api.PorchPkgVariant,
+	prr *porchapi.PorchPkgRevisionResources) error {
 
-	if pv.Spec.PackageContext == nil {
+	if pv.Spec.PorchPkgContext == nil {
 		return nil
 	}
 
-	if len(pv.Spec.PackageContext.Data) == 0 && len(pv.Spec.PackageContext.RemoveKeys) == 0 {
+	if len(pv.Spec.PorchPkgContext.Data) == 0 && len(pv.Spec.PorchPkgContext.RemoveKeys) == 0 {
 		return nil
 	}
 
@@ -878,20 +878,20 @@ func ensurePackageContext(pv *api.PackageVariant,
 	// Set the data fields
 	data, ok, err := cm.NestedStringMap("data")
 	if err != nil {
-		return fmt.Errorf("PackageRevisionResources %s/%s PackageContext invalid data field: %w", prr.Namespace, prr.Name, err)
+		return fmt.Errorf("PorchPkgRevisionResources %s/%s PackageContext invalid data field: %w", prr.Namespace, prr.Name, err)
 	}
 
 	if !ok {
-		return fmt.Errorf("PackageRevisionResources %s/%s PackageContext no data field found", prr.Namespace, prr.Name)
+		return fmt.Errorf("PorchPkgRevisionResources %s/%s PackageContext no data field found", prr.Namespace, prr.Name)
 	}
 
 	// set or add keys that should be there
-	for k, v := range pv.Spec.PackageContext.Data {
+	for k, v := range pv.Spec.PorchPkgContext.Data {
 		data[k] = v
 	}
 
 	// remove any keys that should go
-	for _, k := range pv.Spec.PackageContext.RemoveKeys {
+	for _, k := range pv.Spec.PorchPkgContext.RemoveKeys {
 		delete(data, k)
 	}
 
@@ -903,34 +903,34 @@ func ensurePackageContext(pv *api.PackageVariant,
 	return nil
 }
 
-func getFileKubeObject(prr *porchapi.PackageRevisionResources, file, kind, name string) (*fn.KubeObject, error) {
+func getFileKubeObject(prr *porchapi.PorchPkgRevisionResources, file, kind, name string) (*fn.KubeObject, error) {
 	if prr.Spec.Resources == nil {
-		return nil, fmt.Errorf("nil resources found for PackageRevisionResources '%s/%s'", prr.Namespace, prr.Name)
+		return nil, fmt.Errorf("nil resources found for PorchPkgRevisionResources '%s/%s'", prr.Namespace, prr.Name)
 	}
 
 	if _, ok := prr.Spec.Resources[file]; !ok {
-		return nil, fmt.Errorf("%q not found in PackageRevisionResources '%s/%s'", file, prr.Namespace, prr.Name)
+		return nil, fmt.Errorf("%q not found in PorchPkgRevisionResources '%s/%s'", file, prr.Namespace, prr.Name)
 	}
 
 	ko, err := fn.ParseKubeObject([]byte(prr.Spec.Resources[file]))
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse %q of PackageRevisionResources %s/%s: %w", file, prr.Namespace, prr.Name, err)
+		return nil, fmt.Errorf("failed to parse %q of PorchPkgRevisionResources %s/%s: %w", file, prr.Namespace, prr.Name, err)
 	}
 	if kind != "" && ko.GetKind() != kind {
-		return nil, fmt.Errorf("%q does not contain kind %q in PackageRevisionResources '%s/%s'", file, kind, prr.Namespace, prr.Name)
+		return nil, fmt.Errorf("%q does not contain kind %q in PorchPkgRevisionResources '%s/%s'", file, kind, prr.Namespace, prr.Name)
 	}
 	if name != "" && ko.GetName() != name {
-		return nil, fmt.Errorf("%q does not contain resource named %q in PackageRevisionResources '%s/%s'", file, name, prr.Namespace, prr.Name)
+		return nil, fmt.Errorf("%q does not contain resource named %q in PorchPkgRevisionResources '%s/%s'", file, name, prr.Namespace, prr.Name)
 	}
 
 	return ko, nil
 }
 
-// ensureKRMFunctions adds mutators and validators specified in the PackageVariant to the kptfile inside the PackageRevisionResources.
+// ensureKRMFunctions adds mutators and validators specified in the PackageVariant to the kptfile inside the PorchPkgRevisionResources.
 // It generates a unique name that identifies the func (see func generatePVFuncname) and moves it to the top of the mutator sequence.
 // It does not preserve yaml indent-style.
-func ensureKRMFunctions(pv *api.PackageVariant,
-	prr *porchapi.PackageRevisionResources) error {
+func ensureKRMFunctions(pv *api.PorchPkgVariant,
+	prr *porchapi.PorchPkgRevisionResources) error {
 
 	// parse kptfile
 	kptfile, err := getFileKubeObject(prr, kptfilev1.KptFileName, "", "")

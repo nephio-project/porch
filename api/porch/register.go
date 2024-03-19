@@ -38,12 +38,12 @@ var (
 
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		&Package{},
-		&PackageList{},
-		&PackageRevision{},
-		&PackageRevisionList{},
-		&PackageRevisionResources{},
-		&PackageRevisionResourcesList{},
+		&PorchPkg{},
+		&PorchPkgList{},
+		&PorchPkgRevision{},
+		&PorchPkgRevisionList{},
+		&PorchPkgRevisionResources{},
+		&PorchPkgRevisionResourcesList{},
 		&Function{},
 		&FunctionList{},
 	)

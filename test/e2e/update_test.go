@@ -30,34 +30,34 @@ func (t *PorchSuite) TestPackageUpdateRecloneAndReplay(ctx context.Context) {
 
 	t.registerGitRepositoryF(ctx, testBlueprintsRepo, "test-blueprints", "")
 
-	var list porchapi.PackageRevisionList
+	var list porchapi.PorchPkgRevisionList
 	t.ListE(ctx, &list, client.InNamespace(t.namespace))
 
-	basensV2 := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: "v2"})
+	basensV2 := MustFindPorchPkgRevision(t.T, &list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: "v2"})
 	t.Logf("basensV2 = %v", basensV2)
 
 	// Register the repository as 'downstream'
 	t.registerMainGitRepositoryF(ctx, gitRepository)
 
-	// Create PackageRevision from upstream repo
-	pr := &porchapi.PackageRevision{
+	// Create PorchPkgRevision from upstream repo
+	pr := &porchapi.PorchPkgRevision{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
+			Kind:       "PorchPkgRevision",
 			APIVersion: porchapi.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: t.namespace,
 		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "testRecloneAndReplay",
+		Spec: porchapi.PorchPkgRevisionSpec{
+			PorchPkgName:   "testRecloneAndReplay",
 			WorkspaceName:  "testdescr",
 			RepositoryName: gitRepository,
 			Tasks: []porchapi.Task{
 				{
 					Type: porchapi.TaskTypeClone,
-					Clone: &porchapi.PackageCloneTaskSpec{
-						Upstream: porchapi.UpstreamPackage{
-							Git: &porchapi.GitPackage{
+					Clone: &porchapi.PorchPkgCloneTaskSpec{
+						Upstream: porchapi.UpstreamPorchPkg{
+							Git: &porchapi.GitPorchPkg{
 								Repo:      testBlueprintsRepo,
 								Ref:       "v1",
 								Directory: "basens",
@@ -77,9 +77,9 @@ func (t *PorchSuite) TestPackageUpdateRecloneAndReplay(ctx context.Context) {
 	}, pr)
 
 	// Update the clone task
-	pr.Spec.Tasks[0].Clone = &porchapi.PackageCloneTaskSpec{
-		Upstream: porchapi.UpstreamPackage{
-			Git: &porchapi.GitPackage{
+	pr.Spec.Tasks[0].Clone = &porchapi.PorchPkgCloneTaskSpec{
+		Upstream: porchapi.UpstreamPorchPkg{
+			Git: &porchapi.GitPorchPkg{
 				Repo:      testBlueprintsRepo,
 				Ref:       "v2",
 				Directory: "basens",
@@ -94,7 +94,7 @@ func (t *PorchSuite) TestPackageUpdateRecloneAndReplay(ctx context.Context) {
 		Name:      pr.Name,
 	}, pr)
 
-	var revisionResources porchapi.PackageRevisionResources
+	var revisionResources porchapi.PorchPkgRevisionResources
 	t.GetF(ctx, client.ObjectKey{
 		Namespace: t.namespace,
 		Name:      pr.Name,

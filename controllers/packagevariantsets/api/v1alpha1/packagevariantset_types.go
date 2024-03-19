@@ -24,26 +24,26 @@ import (
 // +kubebuilder:subresource:status
 // +kubebuilder:unservedversion
 //
-// PackageVariantSet represents an upstream package revision and a way to
+// PorchPkgVariantSet represents an upstream package revision and a way to
 // target specific downstream repositories where a variant of the upstream
 // package should be created.
-type PackageVariantSet struct {
+type PorchPkgVariantSet struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   PackageVariantSetSpec   `json:"spec,omitempty"`
-	Status PackageVariantSetStatus `json:"status,omitempty"`
+	Spec   PorchPkgVariantSetSpec   `json:"spec,omitempty"`
+	Status PorchPkgVariantSetStatus `json:"status,omitempty"`
 }
 
-func (o *PackageVariantSet) GetSpec() *PackageVariantSetSpec {
+func (o *PorchPkgVariantSet) GetSpec() *PorchPkgVariantSetSpec {
 	if o == nil {
 		return nil
 	}
 	return &o.Spec
 }
 
-// PackageVariantSetSpec defines the desired state of PackageVariantSet
-type PackageVariantSetSpec struct {
+// PorchPkgVariantSetSpec defines the desired state of PorchPkgVariantSet
+type PorchPkgVariantSetSpec struct {
 	Upstream *Upstream `json:"upstream,omitempty"`
 	Targets  []Target  `json:"targets,omitempty"`
 
@@ -55,7 +55,7 @@ type PackageVariantSetSpec struct {
 }
 
 type Upstream struct {
-	Package *Package `json:"package,omitempty"`
+	PorchPkg *PorchPkg `json:"package,omitempty"`
 
 	Revision string `json:"revision,omitempty"`
 
@@ -64,7 +64,7 @@ type Upstream struct {
 
 type Target struct {
 	// option 1: an explicit repo/package name pair
-	Package *Package `json:"package,omitempty"`
+	PorchPkg *PorchPkg `json:"package,omitempty"`
 
 	// option 2: a label selector against a set of repositories
 	Repositories *metav1.LabelSelector `json:"repositories,omitempty"`
@@ -72,12 +72,12 @@ type Target struct {
 	// option 3: a selector against a set of arbitrary objects
 	Objects *ObjectSelector `json:"objects,omitempty"`
 
-	// For options 2 and 3, PackageName specifies how to create the name of the
+	// For options 2 and 3, PorchPkgName specifies how to create the name of the
 	// package variant
-	PackageName *PackageName `json:"packageName,omitempty"`
+	PorchPkgName *PorchPkgName `json:"packageName,omitempty"`
 }
 
-type Package struct {
+type PorchPkg struct {
 	Repo string `json:"repo,omitempty"`
 	Name string `json:"name,omitempty"`
 }
@@ -118,7 +118,7 @@ func (s *Selector) ToKptfileSelector() kptfilev1.Selector {
 	}
 }
 
-type PackageName struct {
+type PorchPkgName struct {
 	Name *ValueOrFromField `json:"baseName,omitempty"`
 
 	NameSuffix *ValueOrFromField `json:"nameSuffix,omitempty"`
@@ -131,21 +131,21 @@ type ValueOrFromField struct {
 	FromField string `json:"fromField,omitempty"`
 }
 
-// PackageVariantSetStatus defines the observed state of PackageVariantSet
-type PackageVariantSetStatus struct {
+// PorchPkgVariantSetStatus defines the observed state of PorchPkgVariantSet
+type PorchPkgVariantSetStatus struct {
 	// Conditions describes the reconciliation state of the object.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// PackageVariantSetList contains a list of PackageVariantSet
-type PackageVariantSetList struct {
+// PorchPkgVariantSetList contains a list of PorchPkgVariantSet
+type PorchPkgVariantSetList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []PackageVariantSet `json:"items"`
+	Items           []PorchPkgVariantSet `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&PackageVariantSet{}, &PackageVariantSetList{})
+	SchemeBuilder.Register(&PorchPkgVariantSet{}, &PorchPkgVariantSetList{})
 }

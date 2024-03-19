@@ -85,14 +85,14 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 	namespace := *r.cfg.Namespace
 
 	for _, name := range args {
-		if err := porch.UpdatePackageRevisionApproval(r.ctx, r.client, client.ObjectKey{
+		if err := porch.UpdatePorchPkgRevisionApproval(r.ctx, r.client, client.ObjectKey{
 			Namespace: namespace,
 			Name:      name,
-		}, v1alpha1.PackageRevisionLifecyclePublished); err != nil {
+		}, v1alpha1.PorchPkgRevisionLifecyclePublished); err != nil {
 			messages = append(messages, err.Error())
 			fmt.Fprintf(r.Command.ErrOrStderr(), "%s failed (%s)\n", name, err)
 		} else {
-			fmt.Fprintf(r.Command.OutOrStdout(), "%s approved\n", name)
+			fmt.Fprintf(r.Command.OutOrStderr(), "%s approved\n", name)
 		}
 	}
 

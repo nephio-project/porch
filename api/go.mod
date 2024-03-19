@@ -1,6 +1,6 @@
 module github.com/nephio-project/porch/api
 
-go 1.21
+go 1.22
 
 require (
 	golang.org/x/tools v0.1.12
