@@ -211,7 +211,7 @@ spec:
 
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			var pvs api.PorchPkgVariantSet
+			var pvs api.PackageVariantSet
 			require.NoError(t, yaml.Unmarshal([]byte(tc.packageVariant), &pvs))
 			actualErrs := validatePackageVariantSet(&pvs)
 			require.Equal(t, len(tc.expectedErrs), len(actualErrs))

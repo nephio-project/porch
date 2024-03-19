@@ -81,7 +81,7 @@ spec:
                 type: object
               packageContext:
                 description: |-
-                  PackageContext defines the data to be added or removed from the
+                  PorchPkgContext defines the data to be added or removed from the
                   kptfile.kpt.dev ConfigMap during reconciliation.
                 properties:
                   data:

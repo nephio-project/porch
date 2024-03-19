@@ -22,7 +22,7 @@ import (
 	api "github.com/nephio-project/porch/controllers/packagevariantsets/api/v1alpha2"
 )
 
-func validatePackageVariantSet(pvs *api.PorchPkgVariantSet) []error {
+func validatePackageVariantSet(pvs *api.PackageVariantSet) []error {
 	var allErrs []error
 	if pvs.Spec.Upstream == nil {
 		allErrs = append(allErrs, fmt.Errorf("spec.upstream is a required field"))
@@ -96,7 +96,7 @@ func validateTarget(i int, target api.Target) []error {
 	return append(allErrs, validateTemplate(target.Template, fmt.Sprintf("spec.targets[%d].template", i))...)
 }
 
-func validateTemplate(template *api.PorchPkgVariantTemplate, field string) []error {
+func validateTemplate(template *api.PackageVariantTemplate, field string) []error {
 	var allErrs []error
 	if template.AdoptionPolicy != nil && *template.AdoptionPolicy != pkgvarapi.AdoptionPolicyAdoptNone &&
 		*template.AdoptionPolicy != pkgvarapi.AdoptionPolicyAdoptExisting {

@@ -44,10 +44,10 @@ const (
 	TargetVarName         = "target"
 )
 
-func renderPackageVariantSpec(ctx context.Context, pvs *api.PorchPkgVariantSet, repoList *configapi.RepositoryList,
-	upstreamPR *porchapi.PorchPkgRevision, downstream pvContext) (*pkgvarapi.PorchPkgVariantSpec, error) {
+func renderPackageVariantSpec(ctx context.Context, pvs *api.PackageVariantSet, repoList *configapi.RepositoryList,
+	upstreamPR *porchapi.PorchPkgRevision, downstream pvContext) (*pkgvarapi.PackageVariantSpec, error) {
 
-	spec := &pkgvarapi.PorchPkgVariantSpec{
+	spec := &pkgvarapi.PackageVariantSpec{
 		Upstream: pvs.Spec.Upstream,
 		Downstream: &pkgvarapi.Downstream{
 			Repo:     downstream.repoDefault,

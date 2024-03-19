@@ -565,7 +565,7 @@ spec:
                             of the generated PackageVariant
                           type: object
                         packageContext:
-                          description: PackageContext allows specifying the spec.PackageContext
+                          description: PorchPkgContext allows specifying the spec.PorchPkgContext
                             field of the generated PackageVariant
                           properties:
                             data:

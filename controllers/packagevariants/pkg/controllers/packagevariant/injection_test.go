@@ -843,7 +843,7 @@ spec:
 	}
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			var pv api.PorchPkgVariant
+			var pv api.PackageVariant
 			require.NoError(t, yaml.Unmarshal([]byte(pvBase+tc.injectors), &pv))
 			var prr porchapi.PorchPkgRevisionResources
 			require.NoError(t, yaml.Unmarshal([]byte(prrBase+baseKptfile+tc.injectionPoints), &prr))

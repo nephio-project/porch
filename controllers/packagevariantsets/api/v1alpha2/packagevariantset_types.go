@@ -24,26 +24,26 @@ import (
 // +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 //
-// PorchPkgVariantSet represents an upstream package revision and a way to
+// PackageVariantSet represents an upstream package revision and a way to
 // target specific downstream repositories where a variant of the upstream
 // package should be created.
-type PorchPkgVariantSet struct {
+type PackageVariantSet struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   PorchPkgVariantSetSpec   `json:"spec,omitempty"`
-	Status PorchPkgVariantSetStatus `json:"status,omitempty"`
+	Spec   PackageVariantSetSpec   `json:"spec,omitempty"`
+	Status PackageVariantSetStatus `json:"status,omitempty"`
 }
 
-func (o *PorchPkgVariantSet) GetSpec() *PorchPkgVariantSetSpec {
+func (o *PackageVariantSet) GetSpec() *PackageVariantSetSpec {
 	if o == nil {
 		return nil
 	}
 	return &o.Spec
 }
 
-// PorchPkgVariantSetSpec defines the desired state of PorchPkgVariantSet
-type PorchPkgVariantSetSpec struct {
+// PackageVariantSetSpec defines the desired state of PackageVariantSet
+type PackageVariantSetSpec struct {
 	Upstream *pkgvarapi.Upstream `json:"upstream,omitempty"`
 	Targets  []Target            `json:"targets,omitempty"`
 }
@@ -60,13 +60,13 @@ type Target struct {
 	// option 3: a selector against a set of arbitrary objects
 	ObjectSelector *ObjectSelector `json:"objectSelector,omitempty"`
 
-	// Template specifies how to generate a PorchPkgVariant from a target
-	Template *PorchPkgVariantTemplate `json:"template,omitempty"`
+	// Template specifies how to generate a PackageVariant from a target
+	Template *PackageVariantTemplate `json:"template,omitempty"`
 }
 
 type RepositoryTarget struct {
 	// Name contains the name of the Repository resource, which must be in
-	// the same namespace as the PorchPkgVariantSet resource.
+	// the same namespace as the PackageVariantSet resource.
 	// +required
 	Name string `json:"name"`
 
@@ -90,51 +90,51 @@ type ObjectSelector struct {
 	Name *string `yaml:"name,omitempty" json:"name,omitempty"`
 
 	// Note: while v1alpha1 had Namespace, that is not allowed; the namespace
-	// must match the namespace of the PorchPkgVariantSet resource
+	// must match the namespace of the PackageVariantSet resource
 }
 
-type PorchPkgVariantTemplate struct {
+type PackageVariantTemplate struct {
 	// Downstream allows overriding the default downstream package and repository name
 	// +optional
 	Downstream *DownstreamTemplate `json:"downstream,omitempty"`
 
-	// AdoptionPolicy allows overriding the PorchPkgVariant adoption policy
+	// AdoptionPolicy allows overriding the PackageVariant adoption policy
 	// +optional
 	AdoptionPolicy *pkgvarapi.AdoptionPolicy `json:"adoptionPolicy,omitempty"`
 
-	// DeletionPolicy allows overriding the PorchPkgVariant deletion policy
+	// DeletionPolicy allows overriding the PackageVariant deletion policy
 	// +optional
 	DeletionPolicy *pkgvarapi.DeletionPolicy `json:"deletionPolicy,omitempty"`
 
-	// Labels allows specifying the spec.Labels field of the generated PorchPkgVariant
+	// Labels allows specifying the spec.Labels field of the generated PackageVariant
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
 
-	// LabelsExprs allows specifying the spec.Labels field of the generated PorchPkgVariant
+	// LabelsExprs allows specifying the spec.Labels field of the generated PackageVariant
 	// using CEL to dynamically create the keys and values. Entries in this field take precedent over
 	// those with the same keys that are present in Labels.
 	// +optional
 	LabelExprs []MapExpr `json:"labelExprs,omitempty"`
 
-	// Annotations allows specifying the spec.Annotations field of the generated PorchPkgVariant
+	// Annotations allows specifying the spec.Annotations field of the generated PackageVariant
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
 
-	// AnnotationsExprs allows specifying the spec.Annotations field of the generated PorchPkgVariant
+	// AnnotationsExprs allows specifying the spec.Annotations field of the generated PackageVariant
 	// using CEL to dynamically create the keys and values. Entries in this field take precedent over
 	// those with the same keys that are present in Annotations.
 	// +optional
 	AnnotationExprs []MapExpr `json:"annotationExprs,omitempty"`
 
-	// PorchPkgContext allows specifying the spec.PorchPkgContext field of the generated PorchPkgVariant
+	// PorchPkgContext allows specifying the spec.PorchPkgContext field of the generated PackageVariant
 	// +optional
 	PorchPkgContext *PorchPkgContextTemplate `json:"packageContext,omitempty"`
 
-	// Pipeline allows specifying the spec.Pipeline field of the generated PorchPkgVariant
+	// Pipeline allows specifying the spec.Pipeline field of the generated PackageVariant
 	// +optional
 	Pipeline *PipelineTemplate `json:"pipeline,omitempty"`
 
-	// Injectors allows specifying the spec.Injectors field of the generated PorchPkgVariant
+	// Injectors allows specifying the spec.Injectors field of the generated PackageVariant
 	// +optional
 	Injectors []InjectionSelectorTemplate `json:"injectors,omitempty"`
 }
@@ -207,21 +207,21 @@ type FunctionTemplate struct {
 	ConfigMapExprs []MapExpr `json:"configMapExprs,omitempty"`
 }
 
-// PorchPkgVariantSetStatus defines the observed state of PorchPkgVariantSet
-type PorchPkgVariantSetStatus struct {
+// PackageVariantSetStatus defines the observed state of PackageVariantSet
+type PackageVariantSetStatus struct {
 	// Conditions describes the reconciliation state of the object.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// PorchPkgVariantSetList contains a list of PorchPkgVariantSet
-type PorchPkgVariantSetList struct {
+// PackageVariantSetList contains a list of PackageVariantSet
+type PackageVariantSetList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []PorchPkgVariantSet `json:"items"`
+	Items           []PackageVariantSet `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&PorchPkgVariantSet{}, &PorchPkgVariantSetList{})
+	SchemeBuilder.Register(&PackageVariantSet{}, &PackageVariantSetList{})
 }

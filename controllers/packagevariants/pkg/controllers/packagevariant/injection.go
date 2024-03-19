@@ -18,9 +18,10 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"sigs.k8s.io/kustomize/kyaml/kio"
 	"sort"
 	"strings"
+
+	"sigs.k8s.io/kustomize/kyaml/kio"
 
 	"github.com/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -89,7 +90,7 @@ func newInjectionPoint(file string, object *fn.KubeObject) *injectionPoint {
 
 func ensureConfigInjection(ctx context.Context,
 	c client.Client,
-	pv *api.PorchPkgVariant,
+	pv *api.PackageVariant,
 	prr *porchapi.PorchPkgRevisionResources) error {
 
 	files, err := parseFiles(prr)

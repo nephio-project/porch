@@ -1776,7 +1776,7 @@ Applying the PackageVariantSet creates the new packages as draft packages:
 kubectl apply -f name-namespace-variant.yaml 
 packagevariantset.config.porch.kpt.dev/network-function-auto-namespace created
 
-kunectl get -n porch-demo PackageVariantSet network-function-auto-namespace
+kubectl get -n porch-demo PackageVariantSet network-function-auto-namespace
 NAME                              AGE
 network-function-auto-namespace   38s
 

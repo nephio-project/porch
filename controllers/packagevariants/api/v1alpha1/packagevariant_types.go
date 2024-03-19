@@ -22,18 +22,18 @@ import (
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// PorchPkgVariant represents an upstream and downstream porch package pair.
-// The upstream package should already exist. The PorchPkgVariant controller is
+// PackageVariant represents an upstream and downstream porch package pair.
+// The upstream package should already exist. The PackageVariant controller is
 // responsible for creating the downstream package revisions based on the spec.
-type PorchPkgVariant struct {
+type PackageVariant struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   PorchPkgVariantSpec   `json:"spec,omitempty"`
-	Status PorchPkgVariantStatus `json:"status,omitempty"`
+	Spec   PackageVariantSpec   `json:"spec,omitempty"`
+	Status PackageVariantStatus `json:"status,omitempty"`
 }
 
-func (o *PorchPkgVariant) GetSpec() *PorchPkgVariantSpec {
+func (o *PackageVariant) GetSpec() *PackageVariantSpec {
 	if o == nil {
 		return nil
 	}
@@ -53,8 +53,8 @@ const (
 	Finalizer = "config.porch.kpt.dev/packagevariants"
 )
 
-// PorchPkgVariantSpec defines the desired state of PorchPkgVariant
-type PorchPkgVariantSpec struct {
+// PackageVariantSpec defines the desired state of PackageVariant
+type PackageVariantSpec struct {
 	Upstream   *Upstream   `json:"upstream,omitempty"`
 	Downstream *Downstream `json:"downstream,omitempty"`
 
@@ -96,12 +96,12 @@ type InjectionSelector struct {
 	Name    string  `json:"name"`
 }
 
-// PorchPkgVariantStatus defines the observed state of PorchPkgVariant
-type PorchPkgVariantStatus struct {
+// PackageVariantStatus defines the observed state of PackageVariant
+type PackageVariantStatus struct {
 	// Conditions describes the reconciliation state of the object.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
-	// DownstreamTargets contains the downstream targets that the PorchPkgVariant
+	// DownstreamTargets contains the downstream targets that the PackageVariant
 	// either created or adopted.
 	DownstreamTargets []DownstreamTarget `json:"downstreamTargets,omitempty"`
 }
@@ -112,13 +112,13 @@ type DownstreamTarget struct {
 
 //+kubebuilder:object:root=true
 
-// PorchPkgVariantList contains a list of PorchPkgVariant
-type PorchPkgVariantList struct {
+// PackageVariantList contains a list of PackageVariant
+type PackageVariantList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []PorchPkgVariant `json:"items"`
+	Items           []PackageVariant `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&PorchPkgVariant{}, &PorchPkgVariantList{})
+	SchemeBuilder.Register(&PackageVariant{}, &PackageVariantList{})
 }

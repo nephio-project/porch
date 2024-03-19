@@ -69,9 +69,9 @@ status: {}
 }
 
 func TestUnrollDownstreamTargets(t *testing.T) {
-	pvs := &api.PorchPkgVariantSet{
+	pvs := &api.PackageVariantSet{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-pvs"},
-		Spec: api.PorchPkgVariantSetSpec{
+		Spec: api.PackageVariantSetSpec{
 			Upstream: &pkgvarapi.Upstream{Repo: "up", PorchPkg: "up", Revision: "up"},
 			Targets: []api.Target{
 				{
@@ -122,9 +122,9 @@ func TestEnsurePackageVariants(t *testing.T) {
 	fc := &fakeClient{}
 	reconciler := &PackageVariantSetReconciler{Client: fc}
 	require.NoError(t, reconciler.ensurePackageVariants(context.Background(),
-		&api.PorchPkgVariantSet{
+		&api.PackageVariantSet{
 			ObjectMeta: metav1.ObjectMeta{Name: "my-pvs"},
-			Spec: api.PorchPkgVariantSetSpec{
+			Spec: api.PackageVariantSetSpec{
 				Upstream: &pkgvarapi.Upstream{Repo: "up", PorchPkg: "up", Revision: "up"},
 			},
 		},

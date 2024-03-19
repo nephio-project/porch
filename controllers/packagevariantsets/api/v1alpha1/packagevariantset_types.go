@@ -24,26 +24,26 @@ import (
 // +kubebuilder:subresource:status
 // +kubebuilder:unservedversion
 //
-// PorchPkgVariantSet represents an upstream package revision and a way to
+// PackageVariantSet represents an upstream package revision and a way to
 // target specific downstream repositories where a variant of the upstream
 // package should be created.
-type PorchPkgVariantSet struct {
+type PackageVariantSet struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   PorchPkgVariantSetSpec   `json:"spec,omitempty"`
-	Status PorchPkgVariantSetStatus `json:"status,omitempty"`
+	Spec   PackageVariantSetSpec   `json:"spec,omitempty"`
+	Status PackageVariantSetStatus `json:"status,omitempty"`
 }
 
-func (o *PorchPkgVariantSet) GetSpec() *PorchPkgVariantSetSpec {
+func (o *PackageVariantSet) GetSpec() *PackageVariantSetSpec {
 	if o == nil {
 		return nil
 	}
 	return &o.Spec
 }
 
-// PorchPkgVariantSetSpec defines the desired state of PorchPkgVariantSet
-type PorchPkgVariantSetSpec struct {
+// PackageVariantSetSpec defines the desired state of PackageVariantSet
+type PackageVariantSetSpec struct {
 	Upstream *Upstream `json:"upstream,omitempty"`
 	Targets  []Target  `json:"targets,omitempty"`
 
@@ -131,21 +131,21 @@ type ValueOrFromField struct {
 	FromField string `json:"fromField,omitempty"`
 }
 
-// PorchPkgVariantSetStatus defines the observed state of PorchPkgVariantSet
-type PorchPkgVariantSetStatus struct {
+// PackageVariantSetStatus defines the observed state of PackageVariantSet
+type PackageVariantSetStatus struct {
 	// Conditions describes the reconciliation state of the object.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// PorchPkgVariantSetList contains a list of PorchPkgVariantSet
-type PorchPkgVariantSetList struct {
+// PackageVariantSetList contains a list of PackageVariantSet
+type PackageVariantSetList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []PorchPkgVariantSet `json:"items"`
+	Items           []PackageVariantSet `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&PorchPkgVariantSet{}, &PorchPkgVariantSetList{})
+	SchemeBuilder.Register(&PackageVariantSet{}, &PackageVariantSetList{})
 }

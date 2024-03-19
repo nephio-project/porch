@@ -224,7 +224,7 @@ spec:
 
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			var pv api.PorchPkgVariant
+			var pv api.PackageVariant
 			require.NoError(t, yaml.Unmarshal([]byte(tc.packageVariant), &pv))
 			actualErr := combineErrors(validatePackageVariant(&pv))
 			require.Equal(t, tc.expectedErr, actualErr)
@@ -643,7 +643,7 @@ status:
 		},
 	}
 
-	var pv api.PorchPkgVariant
+	var pv api.PackageVariant
 	require.NoError(t, yaml.Unmarshal([]byte(pvStr), &pv))
 
 	for tn, tc := range testCases {
@@ -789,7 +789,7 @@ status:
 
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			var pv api.PorchPkgVariant
+			var pv api.PackageVariant
 			require.NoError(t, yaml.Unmarshal(
 				[]byte(fmt.Sprintf(pvStr, tc.deletionPolicy)), &pv))
 
@@ -970,7 +970,7 @@ items:
 			var prList porchapi.PorchPkgRevisionList
 			require.NoError(t, yaml.Unmarshal([]byte(tc.packageRevisionList), &prList))
 
-			var pv api.PorchPkgVariant
+			var pv api.PackageVariant
 			require.NoError(t, yaml.Unmarshal(
 				[]byte(fmt.Sprintf(pvStr, tc.adoptionPolicy)), &pv))
 
@@ -1116,7 +1116,7 @@ spec:
 	}
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			var pv api.PorchPkgVariant
+			var pv api.PackageVariant
 			require.NoError(t, yaml.Unmarshal([]byte(pvBase+tc.spec), &pv))
 			var prr porchapi.PorchPkgRevisionResources
 			require.NoError(t, yaml.Unmarshal([]byte(prrBase+tc.initialData), &prr))
@@ -1463,7 +1463,7 @@ spec:
 			}
 			var prr porchapi.PorchPkgRevisionResources
 			require.NoError(t, yaml.Unmarshal([]byte(locPrrBase+tc.initialPipeline), &prr))
-			var pv api.PorchPkgVariant
+			var pv api.PackageVariant
 			require.NoError(t, yaml.Unmarshal([]byte(pvBase+tc.pvPipeline), &pv))
 
 			actualErr := ensureKRMFunctions(&pv, &prr)

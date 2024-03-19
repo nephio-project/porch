@@ -58,12 +58,12 @@ func TestRenderPackageVariantSpec(t *testing.T) {
 
 	adoptExisting := pkgvarapi.AdoptionPolicyAdoptExisting
 	deletionPolicyDelete := pkgvarapi.DeletionPolicyDelete
-	pvs := api.PorchPkgVariantSet{
+	pvs := api.PackageVariantSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "my-pvs",
 			Namespace: "default",
 		},
-		Spec: api.PorchPkgVariantSetSpec{
+		Spec: api.PackageVariantSetSpec{
 			Upstream: &pkgvarapi.Upstream{Repo: "up-repo", PorchPkg: "up-pkg", Revision: "v2"},
 		},
 	}
@@ -83,7 +83,7 @@ func TestRenderPackageVariantSpec(t *testing.T) {
 	}
 	testCases := map[string]struct {
 		downstream   pvContext
-		expectedSpec pkgvarapi.PorchPkgVariantSpec
+		expectedSpec pkgvarapi.PackageVariantSpec
 		expectedErrs []string
 	}{
 		"no template": {
@@ -91,7 +91,7 @@ func TestRenderPackageVariantSpec(t *testing.T) {
 				repoDefault:    "my-repo-1",
 				packageDefault: "p",
 			},
-			expectedSpec: pkgvarapi.PorchPkgVariantSpec{
+			expectedSpec: pkgvarapi.PackageVariantSpec{
 				Upstream: pvs.Spec.Upstream,
 				Downstream: &pkgvarapi.Downstream{
 					Repo:     "my-repo-1",
@@ -104,13 +104,13 @@ func TestRenderPackageVariantSpec(t *testing.T) {
 			downstream: pvContext{
 				repoDefault:    "my-repo-1",
 				packageDefault: "p",
-				template: &api.PorchPkgVariantTemplate{
+				template: &api.PackageVariantTemplate{
 					Downstream: &api.DownstreamTemplate{
 						Repo: pointer.String("my-repo-2"),
 					},
 				},
 			},
-			expectedSpec: pkgvarapi.PorchPkgVariantSpec{
+			expectedSpec: pkgvarapi.PackageVariantSpec{
 				Upstream: pvs.Spec.Upstream,
 				Downstream: &pkgvarapi.Downstream{
 					Repo:     "my-repo-2",
@@ -123,13 +123,13 @@ func TestRenderPackageVariantSpec(t *testing.T) {
 			downstream: pvContext{
 				repoDefault:    "my-repo-1",
 				packageDefault: "p",
-				template: &api.PorchPkgVariantTemplate{
+				template: &api.PackageVariantTemplate{
 					Downstream: &api.DownstreamTemplate{
 						PorchPkg: pointer.String("new-p"),
 					},
 				},
 			},
-			expectedSpec: pkgvarapi.PorchPkgVariantSpec{
+			expectedSpec: pkgvarapi.PackageVariantSpec{
 				Upstream: pvs.Spec.Upstream,
 				Downstream: &pkgvarapi.Downstream{
 					Repo:     "my-repo-1",
@@ -142,12 +142,12 @@ func TestRenderPackageVariantSpec(t *testing.T) {
 			downstream: pvContext{
 				repoDefault:    "my-repo-1",
 				packageDefault: "p",
-				template: &api.PorchPkgVariantTemplate{
+				template: &api.PackageVariantTemplate{
 					AdoptionPolicy: &adoptExisting,
 					DeletionPolicy: &deletionPolicyDelete,
 				},
 			},
-			expectedSpec: pkgvarapi.PorchPkgVariantSpec{
+			expectedSpec: pkgvarapi.PackageVariantSpec{
 				Upstream: pvs.Spec.Upstream,
 				Downstream: &pkgvarapi.Downstream{
 					Repo:     "my-repo-1",
@@ -162,7 +162,7 @@ func TestRenderPackageVariantSpec(t *testing.T) {
 			downstream: pvContext{
 				repoDefault:    "my-repo-1",
 				packageDefault: "p",
-				template: &api.PorchPkgVariantTemplate{
+				template: &api.PackageVariantTemplate{
 					Labels: map[string]string{
 						"foo":   "bar",
 						"hello": "there",
@@ -172,7 +172,7 @@ func TestRenderPackageVariantSpec(t *testing.T) {
 					},
 				},
 			},
-			expectedSpec: pkgvarapi.PorchPkgVariantSpec{
+			expectedSpec: pkgvarapi.PackageVariantSpec{
 				Upstream: pvs.Spec.Upstream,
 				Downstream: &pkgvarapi.Downstream{
 					Repo:     "my-repo-1",
@@ -192,7 +192,7 @@ func TestRenderPackageVariantSpec(t *testing.T) {
 			downstream: pvContext{
 				repoDefault:    "my-repo-1",
 				packageDefault: "p",
-				template: &api.PorchPkgVariantTemplate{
+				template: &api.PackageVariantTemplate{
 					PorchPkgContext: &api.PorchPkgContextTemplate{
 						Data: map[string]string{
 							"foo":   "bar",
@@ -202,7 +202,7 @@ func TestRenderPackageVariantSpec(t *testing.T) {
 					},
 				},
 			},
-			expectedSpec: pkgvarapi.PorchPkgVariantSpec{
+			expectedSpec: pkgvarapi.PackageVariantSpec{
 				Upstream: pvs.Spec.Upstream,
 				Downstream: &pkgvarapi.Downstream{
 					Repo:     "my-repo-1",
@@ -222,14 +222,14 @@ func TestRenderPackageVariantSpec(t *testing.T) {
 			downstream: pvContext{
 				repoDefault:    "my-repo-1",
 				packageDefault: "p",
-				template: &api.PorchPkgVariantTemplate{
+				template: &api.PackageVariantTemplate{
 					Downstream: &api.DownstreamTemplate{
 						RepoExpr:     pointer.String("'my-repo-2'"),
 						PorchPkgExpr: pointer.String("repoDefault + '-' + packageDefault"),
 					},
 				},
 			},
-			expectedSpec: pkgvarapi.PorchPkgVariantSpec{
+			expectedSpec: pkgvarapi.PackageVariantSpec{
 				Upstream: pvs.Spec.Upstream,
 				Downstream: &pkgvarapi.Downstream{
 					Repo:     "my-repo-2",
@@ -242,7 +242,7 @@ func TestRenderPackageVariantSpec(t *testing.T) {
 			downstream: pvContext{
 				repoDefault:    "my-repo-1",
 				packageDefault: "p",
-				template: &api.PorchPkgVariantTemplate{
+				template: &api.PackageVariantTemplate{
 					Downstream: &api.DownstreamTemplate{
 						RepoExpr:     pointer.String("'my-repo-2'"),
 						PorchPkgExpr: pointer.String("repoDefault + '-' + packageDefault"),
@@ -281,7 +281,7 @@ func TestRenderPackageVariantSpec(t *testing.T) {
 					},
 				},
 			},
-			expectedSpec: pkgvarapi.PorchPkgVariantSpec{
+			expectedSpec: pkgvarapi.PackageVariantSpec{
 				Upstream: pvs.Spec.Upstream,
 				Downstream: &pkgvarapi.Downstream{
 					Repo:     "my-repo-2",
@@ -304,7 +304,7 @@ func TestRenderPackageVariantSpec(t *testing.T) {
 			downstream: pvContext{
 				repoDefault:    "my-repo-1",
 				packageDefault: "p",
-				template: &api.PorchPkgVariantTemplate{
+				template: &api.PackageVariantTemplate{
 					PorchPkgContext: &api.PorchPkgContextTemplate{
 						Data: map[string]string{
 							"foo":   "bar",
@@ -329,7 +329,7 @@ func TestRenderPackageVariantSpec(t *testing.T) {
 					},
 				},
 			},
-			expectedSpec: pkgvarapi.PorchPkgVariantSpec{
+			expectedSpec: pkgvarapi.PackageVariantSpec{
 				Upstream: pvs.Spec.Upstream,
 				Downstream: &pkgvarapi.Downstream{
 					Repo:     "my-repo-1",
@@ -351,7 +351,7 @@ func TestRenderPackageVariantSpec(t *testing.T) {
 			downstream: pvContext{
 				repoDefault:    "my-repo-1",
 				packageDefault: "p",
-				template: &api.PorchPkgVariantTemplate{
+				template: &api.PackageVariantTemplate{
 					Injectors: []api.InjectionSelectorTemplate{
 						{
 							Group:   pointer.String("kpt.dev"),
@@ -371,7 +371,7 @@ func TestRenderPackageVariantSpec(t *testing.T) {
 					},
 				},
 			},
-			expectedSpec: pkgvarapi.PorchPkgVariantSpec{
+			expectedSpec: pkgvarapi.PackageVariantSpec{
 				Upstream: pvs.Spec.Upstream,
 				Downstream: &pkgvarapi.Downstream{
 					Repo:     "my-repo-1",
@@ -401,7 +401,7 @@ func TestRenderPackageVariantSpec(t *testing.T) {
 			downstream: pvContext{
 				repoDefault:    "my-repo-1",
 				packageDefault: "p",
-				template: &api.PorchPkgVariantTemplate{
+				template: &api.PackageVariantTemplate{
 					Pipeline: &api.PipelineTemplate{
 						Validators: []api.FunctionTemplate{
 							{
@@ -446,7 +446,7 @@ func TestRenderPackageVariantSpec(t *testing.T) {
 					},
 				},
 			},
-			expectedSpec: pkgvarapi.PorchPkgVariantSpec{
+			expectedSpec: pkgvarapi.PackageVariantSpec{
 				Upstream: pvs.Spec.Upstream,
 				Downstream: &pkgvarapi.Downstream{
 					Repo:     "my-repo-1",
