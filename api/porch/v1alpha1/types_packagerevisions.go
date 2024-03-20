@@ -33,7 +33,7 @@ type PorchPkgRevision struct {
 	Status PorchPkgRevisionStatus `json:"status,omitempty"`
 }
 
-// Key and value of the latest ppackage revision label:
+// Key and value of the latest package revision label:
 
 const (
 	LatestPorchPkgRevisionKey   = "kpt.dev/latest-revision"
@@ -62,40 +62,40 @@ type WorkspaceName string
 
 // PorchPkgRevisionSpec defines the desired state of PorchPkgRevision
 type PorchPkgRevisionSpec struct {
-	// PorchPkgName identifies the ppackage in the repository.
-	PorchPkgName string `json:"ppackageName,omitempty"`
+	// PorchPkgName identifies the package in the repository.
+	PorchPkgName string `json:"packageName,omitempty"`
 
-	// RepositoryName is the name of the Repository object containing this ppackage.
+	// RepositoryName is the name of the Repository object containing this package.
 	RepositoryName string `json:"repository,omitempty"`
 
-	// WorkspaceName is a short, unique description of the changes contained in this ppackage revision.
+	// WorkspaceName is a short, unique description of the changes contained in this package revision.
 	WorkspaceName WorkspaceName `json:"workspaceName,omitempty"`
 
-	// Revision identifies the version of the ppackage.
+	// Revision identifies the version of the package.
 	Revision string `json:"revision,omitempty"`
 
-	// Parent references a ppackage that provides resources to us
+	// Parent references a package that provides resources to us
 	Parent *ParentReference `json:"parent,omitempty"`
 
 	Lifecycle PorchPkgRevisionLifecycle `json:"lifecycle,omitempty"`
 
 	// The task slice holds zero or more tasks that describe the operations
-	// performed on the ppackagerevision. The are essentially a replayable history
-	// of the ppackagerevision,
+	// performed on the packagerevision. The are essentially a replayable history
+	// of the packagerevision,
 	//
 	// PorchPkgrevisions that were not created in Porch may have an
 	// empty task list.
 	//
 	// PorchPkgrevisions created and managed through Porch will always
 	// have either an Init, Edit, or a Clone task as the first entry in their
-	// task list. This represent ppackagerevisions created from scratch, based
-	// a copy of a different revision in the same ppackage, or a ppackagerevision
-	// cloned from another ppackage.
-	// Each change to the ppackagerevision will result in a correspondig
+	// task list. This represent packagerevisions created from scratch, based
+	// a copy of a different revision in the same package, or a packagerevision
+	// cloned from another package.
+	// Each change to the packagerevision will result in a correspondig
 	// task being added to the list of tasks. It will describe the operation
 	// performed and will have a corresponding entry (commit or layer) in git
 	// or oci.
-	// The task slice describes the history of the ppackagerevision, so it
+	// The task slice describes the history of the packagerevision, so it
 	// is an append only list (We might introduce some kind of compaction in the
 	// future to keep the number of tasks at a reasonable number).
 	Tasks []Task `json:"tasks,omitempty"`
@@ -107,9 +107,9 @@ type ReadinessGate struct {
 	ConditionType string `json:"conditionType,omitempty"`
 }
 
-// ParentReference is a reference to a parent ppackage
+// ParentReference is a reference to a parent package
 type ParentReference struct {
-	// TODO: Should this be a revision or a ppackage?
+	// TODO: Should this be a revision or a package?
 
 	// Name is the name of the parent PorchPkgRevision
 	Name string `json:"name"`
@@ -117,16 +117,16 @@ type ParentReference struct {
 
 // PorchPkgRevisionStatus defines the observed state of PorchPkgRevision
 type PorchPkgRevisionStatus struct {
-	// UpstreamLock identifies the upstream data for this ppackage.
+	// UpstreamLock identifies the upstream data for this package.
 	UpstreamLock *UpstreamLock `json:"upstreamLock,omitempty"`
 
-	// PublishedBy is the identity of the user who approved the ppackagerevision.
+	// PublishedBy is the identity of the user who approved the packagerevision.
 	PublishedBy string `json:"publishedBy,omitempty"`
 
-	// PublishedAt is the time when the ppackagerevision were approved.
+	// PublishedAt is the time when the packagerevision were approved.
 	PublishedAt metav1.Time `json:"publishTimestamp,omitempty"`
 
-	// Deployment is true if this is a deployment ppackage (in a deployment repository).
+	// Deployment is true if this is a deployment package (in a deployment repository).
 	Deployment bool `json:"deployment,omitempty"`
 
 	Conditions []Condition `json:"conditions,omitempty"`
@@ -159,37 +159,37 @@ type TaskResult struct {
 }
 
 // RenderStatus represents the result of performing render operation
-// on a ppackage resources.
+// on a package resources.
 type RenderStatus struct {
 	Result ResultList `json:"result,omitempty"`
 	Err    string     `json:"error"`
 }
 
-// PorchPkgInitTaskSpec defines the ppackage initialization task.
+// PorchPkgInitTaskSpec defines the package initialization task.
 type PorchPkgInitTaskSpec struct {
-	// `Subpackage` is a directory path to a subpackage to initialize. If unspecified, the main ppackage will be initialized.
+	// `Subpackage` is a directory path to a subpackage to initialize. If unspecified, the main package will be initialized.
 	Subpackage string `json:"subpackage,omitempty"`
-	// `Description` is a short description of the ppackage.
+	// `Description` is a short description of the package.
 	Description string `json:"description,omitempty"`
-	// `Keywords` is a list of keywords describing the ppackage.
+	// `Keywords` is a list of keywords describing the package.
 	Keywords []string `json:"keywords,omitempty"`
-	// `Site is a link to page with information about the ppackage.
+	// `Site is a link to page with information about the package.
 	Site string `json:"site,omitempty"`
 }
 
 type PorchPkgCloneTaskSpec struct {
-	// // `Subpackage` is a path to a directory where to clone the upstream ppackage.
+	// // `Subpackage` is a path to a directory where to clone the upstream package.
 	// Subpackage string `json:"subpackage,omitempty"`
 
-	// `Upstream` is the reference to the upstream ppackage to clone.
+	// `Upstream` is the reference to the upstream package to clone.
 	Upstream UpstreamPorchPkg `json:"upstreamRef,omitempty"`
 
-	// 	Defines which strategy should be used to update the ppackage. It defaults to 'resource-merge'.
+	// 	Defines which strategy should be used to update the package. It defaults to 'resource-merge'.
 	//  * resource-merge: Perform a structural comparison of the original /
-	//    updated resources, and merge the changes into the local ppackage.
-	//  * fast-forward: Fail without updating if the local ppackage was modified
+	//    updated resources, and merge the changes into the local package.
+	//  * fast-forward: Fail without updating if the local package was modified
 	//    since it was fetched.
-	//  * force-delete-replace: Wipe all the local changes to the ppackage and replace
+	//  * force-delete-replace: Wipe all the local changes to the package and replace
 	//    it with the remote version.
 	Strategy PorchPkgMergeStrategy `json:"strategy,omitempty"`
 }
@@ -197,7 +197,7 @@ type PorchPkgCloneTaskSpec struct {
 type PorchPkgMergeStrategy string
 
 type PorchPkgUpdateTaskSpec struct {
-	// `Upstream` is the reference to the upstream ppackage.
+	// `Upstream` is the reference to the upstream package.
 	Upstream UpstreamPorchPkg `json:"upstreamRef,omitempty"`
 }
 
@@ -242,13 +242,13 @@ type UpstreamPorchPkg struct {
 	// Type of the repository (i.e. git, OCI). If empty, `upstreamRef` will be used.
 	Type RepositoryType `json:"type,omitempty"`
 
-	// Git upstream ppackage specification. Required if `type` is `git`. Must be unspecified if `type` is not `git`.
+	// Git upstream package specification. Required if `type` is `git`. Must be unspecified if `type` is not `git`.
 	Git *GitPorchPkg `json:"git,omitempty"`
 
-	// OCI upstream ppackage specification. Required if `type` is `oci`. Must be unspecified if `type` is not `oci`.
+	// OCI upstream package specification. Required if `type` is `oci`. Must be unspecified if `type` is not `oci`.
 	Oci *OciPorchPkg `json:"oci,omitempty"`
 
-	// UpstreamRef is the reference to the ppackage from a registered repository rather than external ppackage.
+	// UpstreamRef is the reference to the package from a registered repository rather than external package.
 	UpstreamRef *PorchPkgRevisionRef `json:"upstreamRef,omitempty"`
 }
 
@@ -257,10 +257,10 @@ type GitPorchPkg struct {
 	//   `https://github.com/GoogleCloudPlatform/blueprints.git`
 	Repo string `json:"repo"`
 
-	// `Ref` is the git ref containing the ppackage. Ref can be a branch, tag, or commit SHA.
+	// `Ref` is the git ref containing the package. Ref can be a branch, tag, or commit SHA.
 	Ref string `json:"ref"`
 
-	// Directory within the Git repository where the ppackages are stored. A subdirectory of this directory containing a Kptfile is considered a ppackage.
+	// Directory within the Git repository where the packages are stored. A subdirectory of this directory containing a Kptfile is considered a package.
 	Directory string `json:"directory"`
 
 	// Reference to secret containing authentication credentials. Optional.
@@ -278,7 +278,7 @@ type OciPorchPkg struct {
 	Image string `json:"image"`
 }
 
-// PorchPkgRevisionRef is a reference to a ppackage revision.
+// PorchPkgRevisionRef is a reference to a package revision.
 type PorchPkgRevisionRef struct {
 	// `Name` is the name of the referenced PorchPkgRevision resource.
 	Name string `json:"name"`
@@ -332,16 +332,16 @@ type Selector struct {
 
 type OriginType string
 
-// UpstreamLock is a resolved locator for the last fetch of the ppackage.
+// UpstreamLock is a resolved locator for the last fetch of the package.
 type UpstreamLock struct {
 	// Type is the type of origin.
 	Type OriginType `json:"type,omitempty"`
 
-	// Git is the resolved locator for a ppackage on Git.
+	// Git is the resolved locator for a package on Git.
 	Git *GitLock `json:"git,omitempty"`
 }
 
-// GitLock is the resolved locator for a ppackage on Git.
+// GitLock is the resolved locator for a package on Git.
 type GitLock struct {
 	// Repo is the git repository that was fetched.
 	// e.g. 'https://github.com/kubernetes/examples.git'
@@ -355,7 +355,7 @@ type GitLock struct {
 	// e.g. 'master'
 	Ref string `json:"ref,omitempty"`
 
-	// Commit is the SHA-1 for the last fetch of the ppackage.
+	// Commit is the SHA-1 for the last fetch of the package.
 	// This is set by kpt for bookkeeping purposes.
 	Commit string `json:"commit,omitempty"`
 }
@@ -410,7 +410,7 @@ type Result struct {
 	ExecPath string `json:"exec,omitempty"`
 	// TODO(droot): This is required for making structured results subpackage aware.
 	// Enable this once test harness supports filepath based assertions.
-	// Pkg is OS specific Absolute path to the ppackage.
+	// Pkg is OS specific Absolute path to the package.
 	// Pkg string `yaml:"pkg,omitempty"`
 	// Stderr is the content in function stderr
 	Stderr string `json:"stderr,omitempty"`

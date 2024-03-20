@@ -572,7 +572,7 @@ func schema_porch_api_porch_v1alpha1_GitLock(ref common.ReferenceCallback) commo
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "GitLock is the resolved locator for a ppackage on Git.",
+				Description: "GitLock is the resolved locator for a package on Git.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"repo": {
@@ -598,7 +598,7 @@ func schema_porch_api_porch_v1alpha1_GitLock(ref common.ReferenceCallback) commo
 					},
 					"commit": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Commit is the SHA-1 for the last fetch of the ppackage. This is set by kpt for bookkeeping purposes.",
+							Description: "Commit is the SHA-1 for the last fetch of the package. This is set by kpt for bookkeeping purposes.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -625,7 +625,7 @@ func schema_porch_api_porch_v1alpha1_GitPorchPkg(ref common.ReferenceCallback) c
 					},
 					"ref": {
 						SchemaProps: spec.SchemaProps{
-							Description: "`Ref` is the git ref containing the ppackage. Ref can be a branch, tag, or commit SHA.",
+							Description: "`Ref` is the git ref containing the package. Ref can be a branch, tag, or commit SHA.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -633,7 +633,7 @@ func schema_porch_api_porch_v1alpha1_GitPorchPkg(ref common.ReferenceCallback) c
 					},
 					"directory": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Directory within the Git repository where the ppackages are stored. A subdirectory of this directory containing a Kptfile is considered a ppackage.",
+							Description: "Directory within the Git repository where the packages are stored. A subdirectory of this directory containing a Kptfile is considered a package.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -708,7 +708,7 @@ func schema_porch_api_porch_v1alpha1_ParentReference(ref common.ReferenceCallbac
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ParentReference is a reference to a parent ppackage",
+				Description: "ParentReference is a reference to a parent package",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"name": {
@@ -811,14 +811,14 @@ func schema_porch_api_porch_v1alpha1_PorchPkgCloneTaskSpec(ref common.ReferenceC
 				Properties: map[string]spec.Schema{
 					"upstreamRef": {
 						SchemaProps: spec.SchemaProps{
-							Description: "`Upstream` is the reference to the upstream ppackage to clone.",
+							Description: "`Upstream` is the reference to the upstream package to clone.",
 							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamPorchPkg"),
 						},
 					},
 					"strategy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "\tDefines which strategy should be used to update the ppackage. It defaults to 'resource-merge'.\n * resource-merge: Perform a structural comparison of the original /\n   updated resources, and merge the changes into the local ppackage.\n * fast-forward: Fail without updating if the local ppackage was modified\n   since it was fetched.\n * force-delete-replace: Wipe all the local changes to the ppackage and replace\n   it with the remote version.",
+							Description: "\tDefines which strategy should be used to update the package. It defaults to 'resource-merge'.\n * resource-merge: Perform a structural comparison of the original /\n   updated resources, and merge the changes into the local package.\n * fast-forward: Fail without updating if the local package was modified\n   since it was fetched.\n * force-delete-replace: Wipe all the local changes to the package and replace\n   it with the remote version.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -854,26 +854,26 @@ func schema_porch_api_porch_v1alpha1_PorchPkgInitTaskSpec(ref common.ReferenceCa
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "PorchPkgInitTaskSpec defines the ppackage initialization task.",
+				Description: "PorchPkgInitTaskSpec defines the package initialization task.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"subpackage": {
 						SchemaProps: spec.SchemaProps{
-							Description: "`Subpackage` is a directory path to a subpackage to initialize. If unspecified, the main ppackage will be initialized.",
+							Description: "`Subpackage` is a directory path to a subpackage to initialize. If unspecified, the main package will be initialized.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"description": {
 						SchemaProps: spec.SchemaProps{
-							Description: "`Description` is a short description of the ppackage.",
+							Description: "`Description` is a short description of the package.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"keywords": {
 						SchemaProps: spec.SchemaProps{
-							Description: "`Keywords` is a list of keywords describing the ppackage.",
+							Description: "`Keywords` is a list of keywords describing the package.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -888,7 +888,7 @@ func schema_porch_api_porch_v1alpha1_PorchPkgInitTaskSpec(ref common.ReferenceCa
 					},
 					"site": {
 						SchemaProps: spec.SchemaProps{
-							Description: "`Site is a link to page with information about the ppackage.",
+							Description: "`Site is a link to page with information about the package.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -1076,7 +1076,7 @@ func schema_porch_api_porch_v1alpha1_PorchPkgRevisionRef(ref common.ReferenceCal
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "PorchPkgRevisionRef is a reference to a ppackage revision.",
+				Description: "PorchPkgRevisionRef is a reference to a package revision.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"name": {
@@ -1276,37 +1276,37 @@ func schema_porch_api_porch_v1alpha1_PorchPkgRevisionSpec(ref common.ReferenceCa
 				Description: "PorchPkgRevisionSpec defines the desired state of PorchPkgRevision",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"ppackageName": {
+					"packageName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "PorchPkgName identifies the ppackage in the repository.",
+							Description: "PorchPkgName identifies the package in the repository.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"repository": {
 						SchemaProps: spec.SchemaProps{
-							Description: "RepositoryName is the name of the Repository object containing this ppackage.",
+							Description: "RepositoryName is the name of the Repository object containing this package.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"workspaceName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "WorkspaceName is a short, unique description of the changes contained in this ppackage revision.",
+							Description: "WorkspaceName is a short, unique description of the changes contained in this package revision.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"revision": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Revision identifies the version of the ppackage.",
+							Description: "Revision identifies the version of the package.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"parent": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Parent references a ppackage that provides resources to us",
+							Description: "Parent references a package that provides resources to us",
 							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.ParentReference"),
 						},
 					},
@@ -1318,7 +1318,7 @@ func schema_porch_api_porch_v1alpha1_PorchPkgRevisionSpec(ref common.ReferenceCa
 					},
 					"tasks": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The task slice holds zero or more tasks that describe the operations performed on the ppackagerevision. The are essentially a replayable history of the ppackagerevision,\n\nPorchPkgrevisions that were not created in Porch may have an empty task list.\n\nPorchPkgrevisions created and managed through Porch will always have either an Init, Edit, or a Clone task as the first entry in their task list. This represent ppackagerevisions created from scratch, based a copy of a different revision in the same ppackage, or a ppackagerevision cloned from another ppackage. Each change to the ppackagerevision will result in a correspondig task being added to the list of tasks. It will describe the operation performed and will have a corresponding entry (commit or layer) in git or oci. The task slice describes the history of the ppackagerevision, so it is an append only list (We might introduce some kind of compaction in the future to keep the number of tasks at a reasonable number).",
+							Description: "The task slice holds zero or more tasks that describe the operations performed on the packagerevision. The are essentially a replayable history of the packagerevision,\n\nPorchPkgrevisions that were not created in Porch may have an empty task list.\n\nPorchPkgrevisions created and managed through Porch will always have either an Init, Edit, or a Clone task as the first entry in their task list. This represent packagerevisions created from scratch, based a copy of a different revision in the same package, or a packagerevision cloned from another package. Each change to the packagerevision will result in a correspondig task being added to the list of tasks. It will describe the operation performed and will have a corresponding entry (commit or layer) in git or oci. The task slice describes the history of the packagerevision, so it is an append only list (We might introduce some kind of compaction in the future to keep the number of tasks at a reasonable number).",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -1360,26 +1360,26 @@ func schema_porch_api_porch_v1alpha1_PorchPkgRevisionStatus(ref common.Reference
 				Properties: map[string]spec.Schema{
 					"upstreamLock": {
 						SchemaProps: spec.SchemaProps{
-							Description: "UpstreamLock identifies the upstream data for this ppackage.",
+							Description: "UpstreamLock identifies the upstream data for this package.",
 							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamLock"),
 						},
 					},
 					"publishedBy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "PublishedBy is the identity of the user who approved the ppackagerevision.",
+							Description: "PublishedBy is the identity of the user who approved the packagerevision.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"publishTimestamp": {
 						SchemaProps: spec.SchemaProps{
-							Description: "PublishedAt is the time when the ppackagerevision were approved.",
+							Description: "PublishedAt is the time when the packagerevision were approved.",
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
 					"deployment": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Deployment is true if this is a deployment ppackage (in a deployment repository).",
+							Description: "Deployment is true if this is a deployment package (in a deployment repository).",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -1460,7 +1460,7 @@ func schema_porch_api_porch_v1alpha1_PorchPkgUpdateTaskSpec(ref common.Reference
 				Properties: map[string]spec.Schema{
 					"upstreamRef": {
 						SchemaProps: spec.SchemaProps{
-							Description: "`Upstream` is the reference to the upstream ppackage.",
+							Description: "`Upstream` is the reference to the upstream package.",
 							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamPorchPkg"),
 						},
@@ -1495,7 +1495,7 @@ func schema_porch_api_porch_v1alpha1_RenderStatus(ref common.ReferenceCallback) 
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "RenderStatus represents the result of performing render operation on a ppackage resources.",
+				Description: "RenderStatus represents the result of performing render operation on a package resources.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"result": {
@@ -1606,7 +1606,7 @@ func schema_porch_api_porch_v1alpha1_Result(ref common.ReferenceCallback) common
 					},
 					"stderr": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Enable this once test harness supports filepath based assertions. Pkg is OS specific Absolute path to the ppackage. Pkg string `yaml:\"pkg,omitempty\"` Stderr is the content in function stderr",
+							Description: "Enable this once test harness supports filepath based assertions. Pkg is OS specific Absolute path to the package. Pkg string `yaml:\"pkg,omitempty\"` Stderr is the content in function stderr",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -1905,7 +1905,7 @@ func schema_porch_api_porch_v1alpha1_UpstreamLock(ref common.ReferenceCallback) 
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "UpstreamLock is a resolved locator for the last fetch of the ppackage.",
+				Description: "UpstreamLock is a resolved locator for the last fetch of the package.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"type": {
@@ -1917,7 +1917,7 @@ func schema_porch_api_porch_v1alpha1_UpstreamLock(ref common.ReferenceCallback) 
 					},
 					"git": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Git is the resolved locator for a ppackage on Git.",
+							Description: "Git is the resolved locator for a package on Git.",
 							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.GitLock"),
 						},
 					},
@@ -1945,19 +1945,19 @@ func schema_porch_api_porch_v1alpha1_UpstreamPorchPkg(ref common.ReferenceCallba
 					},
 					"git": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Git upstream ppackage specification. Required if `type` is `git`. Must be unspecified if `type` is not `git`.",
+							Description: "Git upstream package specification. Required if `type` is `git`. Must be unspecified if `type` is not `git`.",
 							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.GitPorchPkg"),
 						},
 					},
 					"oci": {
 						SchemaProps: spec.SchemaProps{
-							Description: "OCI upstream ppackage specification. Required if `type` is `oci`. Must be unspecified if `type` is not `oci`.",
+							Description: "OCI upstream package specification. Required if `type` is `oci`. Must be unspecified if `type` is not `oci`.",
 							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.OciPorchPkg"),
 						},
 					},
 					"upstreamRef": {
 						SchemaProps: spec.SchemaProps{
-							Description: "UpstreamRef is the reference to the ppackage from a registered repository rather than external ppackage.",
+							Description: "UpstreamRef is the reference to the package from a registered repository rather than external package.",
 							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.PorchPkgRevisionRef"),
 						},
 					},

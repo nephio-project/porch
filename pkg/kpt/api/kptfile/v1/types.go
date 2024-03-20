@@ -228,7 +228,7 @@ type ReadinessGate struct {
 
 // Subpackages declares a local or remote subpackage.
 type Subpackage struct {
-	// Name of the immediate subdirectory relative to this Kptfile where the suppackage
+	// Name of the immediate subdirectory relative to this Kptfile where the subpackage
 	// either exists (local subpackages) or will be fetched to (remote subpckages).
 	// This must be unique across all subpckages of a package.
 	LocalDir string `yaml:"localDir,omitempty" json:"localDir,omitempty"`
