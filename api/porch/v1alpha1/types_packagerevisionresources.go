@@ -43,7 +43,7 @@ type PorchPkgRevisionResourcesList struct {
 // PorchPkgRevisionResourcesSpec represents resources (as ResourceList serialized as yaml string) of the PorchPkgRevision.
 type PorchPkgRevisionResourcesSpec struct {
 	// PorchPkgName identifies the PorchPkg in the repository.
-	PorchPkgName string `json:"PorchPkgName,omitempty"`
+	PorchPkgName string `json:"packageName,omitempty"`
 
 	// WorkspaceName identifies the workspace of the PorchPkg.
 	WorkspaceName WorkspaceName `json:"workspaceName,omitempty"`
