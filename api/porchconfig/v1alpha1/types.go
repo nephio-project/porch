@@ -75,13 +75,13 @@ type RepositorySpec struct {
 
 	// `Mutators` specifies list of functions to be added to the list of package's mutators on changes to the packages in the repository to ensure the packages meet constraints
 	// enforced by the mutators associated with the repository.
-	// Based on the Kubernetest Admission Controllers (https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/). The functions will be evaluated
+	// Based on the Kubernetes Admission Controllers (https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/). The functions will be evaluated
 	// in the order specified in the list.
 	Mutators []FunctionEval `json:"mutators,omitempty"`
 
 	// `Validators` specifies list of functions to be added to the list of package's validators on changes to the packages in the repository to ensure the packages meet constraints
 	// enforced by the validators associated with the repository.
-	// Based on the Kubernetest Admission Controllers (https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/). The functions will be evaluated
+	// Based on the Kubernetes Admission Controllers (https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/). The functions will be evaluated
 	// in the order specified in the list.
 	Validators []FunctionEval `json:"validators,omitempty"`
 }
