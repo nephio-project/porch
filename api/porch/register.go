@@ -38,8 +38,8 @@ var (
 
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		&Package{},
-		&PackageList{},
+		&PorchPackage{},
+		&PorchPackageList{},
 		&PackageRevision{},
 		&PackageRevisionList{},
 		&PackageRevisionResources{},

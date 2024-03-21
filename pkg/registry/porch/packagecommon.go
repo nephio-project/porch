@@ -361,7 +361,7 @@ func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo 
 		return nil, false, err
 	}
 
-	newObj, ok := newRuntimeObj.(*api.Package)
+	newObj, ok := newRuntimeObj.(*api.PorchPackage)
 	if !ok {
 		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("expected Package object, got %T", newRuntimeObj))
 	}
@@ -387,7 +387,7 @@ func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo 
 	}
 
 	if !isCreate {
-		rev, err := r.cad.UpdatePackage(ctx, &repositoryObj, oldPackage, oldRuntimeObj.(*api.Package), newObj)
+		rev, err := r.cad.UpdatePackage(ctx, &repositoryObj, oldPackage, oldRuntimeObj.(*api.PorchPackage), newObj)
 		if err != nil {
 			return nil, false, apierrors.NewInternalError(err)
 		}

@@ -1,4 +1,4 @@
-// Copyright 2023 The kpt and Nephio Authors
+// Copyright 2023-2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,9 +27,9 @@ import (
 type PorchV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	FunctionsGetter
-	PackagesGetter
 	PackageRevisionsGetter
 	PackageRevisionResourcesGetter
+	PorchPackagesGetter
 }
 
 // PorchV1alpha1Client is used to interact with features provided by the porch.kpt.dev group.
@@ -41,16 +41,16 @@ func (c *PorchV1alpha1Client) Functions(namespace string) FunctionInterface {
 	return newFunctions(c, namespace)
 }
 
-func (c *PorchV1alpha1Client) Packages(namespace string) PackageInterface {
-	return newPackages(c, namespace)
-}
-
 func (c *PorchV1alpha1Client) PackageRevisions(namespace string) PackageRevisionInterface {
 	return newPackageRevisions(c, namespace)
 }
 
 func (c *PorchV1alpha1Client) PackageRevisionResources(namespace string) PackageRevisionResourcesInterface {
 	return newPackageRevisionResources(c, namespace)
+}
+
+func (c *PorchV1alpha1Client) PorchPackages(namespace string) PorchPackageInterface {
+	return newPorchPackages(c, namespace)
 }
 
 // NewForConfig creates a new PorchV1alpha1Client for the given config.

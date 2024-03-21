@@ -30,13 +30,6 @@ include default-go.mk
 # This includes the 'help' target that prints out all targets with their descriptions organized by categories
 include default-help.mk
 
-# Modules are ordered in dependency order. A module precedes modules that depend on it.
-MODULES = \
- examples/apps/hello-server \
- api \
- . \
- controllers \
-
 # GCP project to use for development
 
 ifeq ($(GCP_PROJECT_ID),)
@@ -81,6 +74,13 @@ else
     ENABLED_RECONCILERS=$(RECONCILERS)
   endif
 endif
+
+# Modules are ordered in dependency order. A module precedes modules that depend on it.
+MODULES = \
+ examples/apps/hello-server \
+ api \
+ . \
+ controllers \
 
 .DEFAULT_GOAL := all
 
@@ -147,8 +147,12 @@ start-function-runner:
 	  $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):$(IMAGE_TAG) \
 	  -disable-runtimes pod
 
+.PHONY: generate-api
+generate-api:
+	KUBE_VERBOSE=2 $(CURDIR)/scripts/generate-api.sh
+
 .PHONY: generate
-generate:
+generate: generate-api
 	@for f in $(MODULES); do (cd $$f; echo "Generating $$f"; go generate -v ./...) || exit 1; done
 
 .PHONY: tidy

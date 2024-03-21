@@ -70,8 +70,8 @@ type CaDEngine interface {
 	DeletePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj *PackageRevision) error
 
 	ListPackages(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageFilter) ([]*Package, error)
-	CreatePackage(ctx context.Context, repositoryObj *configapi.Repository, obj *api.Package) (*Package, error)
-	UpdatePackage(ctx context.Context, repositoryObj *configapi.Repository, oldPackage *Package, old, new *api.Package) (*Package, error)
+	CreatePackage(ctx context.Context, repositoryObj *configapi.Repository, obj *api.PorchPackage) (*Package, error)
+	UpdatePackage(ctx context.Context, repositoryObj *configapi.Repository, oldPackage *Package, old, new *api.PorchPackage) (*Package, error)
 	DeletePackage(ctx context.Context, repositoryObj *configapi.Repository, obj *Package) error
 }
 
@@ -79,7 +79,7 @@ type Package struct {
 	repoPackage repository.Package
 }
 
-func (p *Package) GetPackage() *api.Package {
+func (p *Package) GetPackage() *api.PorchPackage {
 	return p.repoPackage.GetPackage()
 }
 
@@ -911,7 +911,7 @@ func (cad *cadEngine) ListPackages(ctx context.Context, repositorySpec *configap
 	return packages, nil
 }
 
-func (cad *cadEngine) CreatePackage(ctx context.Context, repositoryObj *configapi.Repository, obj *api.Package) (*Package, error) {
+func (cad *cadEngine) CreatePackage(ctx context.Context, repositoryObj *configapi.Repository, obj *api.PorchPackage) (*Package, error) {
 	ctx, span := tracer.Start(ctx, "cadEngine::CreatePackage", trace.WithAttributes())
 	defer span.End()
 
@@ -929,7 +929,7 @@ func (cad *cadEngine) CreatePackage(ctx context.Context, repositoryObj *configap
 	}, nil
 }
 
-func (cad *cadEngine) UpdatePackage(ctx context.Context, repositoryObj *configapi.Repository, oldPackage *Package, oldObj, newObj *api.Package) (*Package, error) {
+func (cad *cadEngine) UpdatePackage(ctx context.Context, repositoryObj *configapi.Repository, oldPackage *Package, oldObj, newObj *api.PorchPackage) (*Package, error) {
 	ctx, span := tracer.Start(ctx, "cadEngine::UpdatePackage", trace.WithAttributes())
 	defer span.End()
 

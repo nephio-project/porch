@@ -219,7 +219,7 @@ func createValidatingWebhook(ctx context.Context, webhookNs string, caCert []byt
 
 	if _, err := kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(ctx, validateConfig,
 		metav1.CreateOptions{}); err != nil {
-		klog.Infoln("failed to create validating webhook for package revision deletion: %s\n", err.Error())
+		klog.Infof("failed to create validating webhook for package revision deletion: %s\n", err.Error())
 		return err
 	}
 
@@ -245,7 +245,7 @@ func runWebhookServer(certStorageDir string) error {
 	go func() {
 		err = server.ListenAndServeTLS("", "")
 		if err != nil {
-			klog.Errorf("could not start server: %w", err)
+			klog.Errorf("could not start server: %v", err)
 		}
 	}()
 	return err

@@ -73,7 +73,7 @@ func (r *Repository) ListPackages(context.Context, repository.ListPackageFilter)
 	return r.Packages, nil
 }
 
-func (r *Repository) CreatePackage(_ context.Context, pr *v1alpha1.Package) (repository.Package, error) {
+func (r *Repository) CreatePackage(_ context.Context, pr *v1alpha1.PorchPackage) (repository.Package, error) {
 	return nil, nil
 }
 

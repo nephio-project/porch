@@ -87,7 +87,7 @@ var (
 	packageTableConvertor = tableConvertor{
 		resource: porch.Resource("packages"),
 		cells: func(obj runtime.Object) []interface{} {
-			pr, ok := obj.(*api.Package)
+			pr, ok := obj.(*api.PorchPackage)
 			if !ok {
 				return nil
 			}

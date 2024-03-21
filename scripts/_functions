@@ -1,0 +1,21 @@
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+RESET='\033[0m'
+
+# Colored messages (blue is the default)
+# Examples:
+#   m "hello world"
+#   m "hello world" "$GREEN"
+function m () {
+	local COLOR=${2:-$BLUE}
+	echo -e "$COLOR$1$RESET"
+}
+
+function copy_function () {
+	local ORIG_FUNC=$(declare -f $1)
+	local NEWNAME_FUNC="$2${ORIG_FUNC#$1}"
+	eval "$NEWNAME_FUNC"
+}

@@ -22,7 +22,7 @@ type FleetMembershipBindingData struct {
 	FullName   string `json:"name,omitempty"`
 	Project    string `json:"project,omitempty"`
 	Location   string `json:"location,omitempty"`
-	Membership string `json:"membership",omitempty"`
+	Membership string `json:"membership,omitempty"`
 	Binding    string `json:"binding,omitempty"`
 
 	ScopeFullName string `json:"scopeFullName,omitempty"`
