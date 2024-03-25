@@ -47,6 +47,14 @@ var _ rest.Creater = &packageRevisions{}
 var _ rest.Updater = &packageRevisions{}
 var _ rest.GracefulDeleter = &packageRevisions{}
 var _ rest.Watcher = &packageRevisions{}
+var _ rest.SingularNameProvider = &packageRevisions{}
+
+
+// GetSingularName implements the SingularNameProvider interface
+func (r *packageRevisions) GetSingularName() (string) {
+	return "packagerevision"
+}
+
 
 func (r *packageRevisions) New() runtime.Object {
 	return &api.PackageRevision{}

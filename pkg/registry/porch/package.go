@@ -43,6 +43,12 @@ var _ rest.Scoper = &packages{}
 var _ rest.Creater = &packages{}
 var _ rest.Updater = &packages{}
 var _ rest.GracefulDeleter = &packages{}
+var _ rest.SingularNameProvider = &packages{}
+
+// GetSingularName implements the SingularNameProvider interface
+func (r *packages) GetSingularName() (string) {
+	return "package"
+}
 
 func (r *packages) New() runtime.Object {
 	return &api.PorchPackage{}

@@ -44,7 +44,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	openapicommon "k8s.io/kube-openapi/pkg/common"
 )
 
 var (
@@ -93,7 +92,6 @@ type PorchServer struct {
 	GenericAPIServer *genericapiserver.GenericAPIServer
 	coreClient       client.WithWatch
 	cache            *cache.Cache
-	openAPIV3Config  *openapicommon.OpenAPIV3Config
 }
 
 type completedConfig struct {
@@ -272,7 +270,6 @@ func (c completedConfig) New() (*PorchServer, error) {
 		GenericAPIServer: genericServer,
 		coreClient:       coreClient,
 		cache:            cache,
-		openAPIV3Config:  c.GenericConfig.OpenAPIV3Config,
 	}
 
 	// Install the groups.
