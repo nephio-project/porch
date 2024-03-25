@@ -1,10 +1,17 @@
 #!/bin/bash
 set -e
 
-HERE=$(dirname "$(readlink --canonicalize "$BASH_SOURCE")")
+if [[ "$OSTYPE" == "darwin"* ]]
+then
+       READLINK=greadlink
+else
+       READLINK=readlink
+fi
+
+HERE=$(dirname "$($READLINK --canonicalize "$BASH_SOURCE")")
 . "$HERE/_trap"
 
-ROOT=$(readlink --canonicalize "$HERE/..")
+ROOT=$($READLINK --canonicalize "$HERE/..")
 
 ORG=github.com/nephio-project
 REPO=$ORG/porch
@@ -30,12 +37,12 @@ echo "work directory: $WORK"
 copy_function goodbye old_goodbye
 function goodbye () {
 	echo "deleting work directory: $WORK"
-	rm --recursive "$WORK"
+	rm -r "$WORK"
 	old_goodbye $1
 }
 
-mkdir --parents "$WORK/$ORG"
-ln --symbolic "$ROOT" "$WORK/$REPO"
+mkdir -p "$WORK/$ORG"
+ln -s "$ROOT" "$WORK/$REPO"
 
 echo 'gen_helpers...'
 
@@ -49,7 +56,7 @@ kube::codegen::gen_helpers \
 
 echo 'gen_openapi...'
 
-rm --recursive --force "$CLIENT_PKG/openapi"
+rm -fr "$CLIENT_PKG/openapi"
 
 # Note: lots of validation errors from Kubernetes meta package; can be ignored
 kube::codegen::gen_openapi \
@@ -62,7 +69,7 @@ kube::codegen::gen_openapi \
 
 echo 'gen_client...'
 
-#rm --recursive --force "$ROOT/api/kubernetes-client"
+#rm -fr "$ROOT/api/kubernetes-client"
 
 kube::codegen::gen_client \
 	--output-base "$WORK" \
