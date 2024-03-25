@@ -173,6 +173,7 @@ ci-unit: configure-git test
 
 
 PORCH = $(BUILDDIR)/porch
+PORCHCTL = $(BUILDDIR)/porchctl
 
 .PHONY: run-local
 run-local: porch
@@ -194,6 +195,10 @@ run-jaeger:
 .PHONY: porch
 porch:
 	go build -o $(PORCH) ./cmd/porch
+
+.PHONY: porchctl
+porchctl:
+	go build -o $(PORCHCTL) ./cmd/porchctl
 
 .PHONY: fix-headers
 fix-headers:
