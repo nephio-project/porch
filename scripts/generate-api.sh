@@ -2,8 +2,9 @@
 set -e
 
 HERE=$(dirname "$(readlink --canonicalize "$BASH_SOURCE")")
-. "$HERE/_env"
 . "$HERE/_trap"
+
+ROOT=$(readlink --canonicalize "$HERE/..")
 
 ORG=github.com/nephio-project
 REPO=$ORG/porch
@@ -14,6 +15,7 @@ CLIENT_PKG=$API_PKG/generated
 BOILERPLATE=$HERE/boilerplate.go.txt
 OPENAPI_REPORT=$ROOT/gen_openapi.report
 
+KUBERNETES_VERSION=0.29.2
 go get -d "k8s.io/code-generator@v$KUBERNETES_VERSION"
 CODE_GENERATOR=$(go list -f '{{.Dir}}' -m "k8s.io/code-generator@v$KUBERNETES_VERSION")
 # . "${CODE_GENERATOR}/kube_codegen.sh"
@@ -23,11 +25,11 @@ CODE_GENERATOR=$(go list -f '{{.Dir}}' -m "k8s.io/code-generator@v$KUBERNETES_VE
 
 WORK=$(mktemp --directory)
 
-m "work directory: $WORK"
+echo "work directory: $WORK"
 
 copy_function goodbye old_goodbye
 function goodbye () {
-	m "deleting work directory: $WORK"
+	echo "deleting work directory: $WORK"
 	rm --recursive "$WORK"
 	old_goodbye $1
 }
@@ -35,7 +37,7 @@ function goodbye () {
 mkdir --parents "$WORK/$ORG"
 ln --symbolic "$ROOT" "$WORK/$REPO"
 
-m 'gen_helpers...'
+echo 'gen_helpers...'
 
 kube::codegen::gen_helpers \
 	--output-base "$WORK" \
@@ -45,7 +47,7 @@ kube::codegen::gen_helpers \
 	--extra-peer-dir "k8s.io/apimachinery/pkg/runtime" \
 	--extra-peer-dir "k8s.io/apimachinery/pkg/version"
 
-m 'gen_openapi...'
+echo 'gen_openapi...'
 
 rm --recursive --force "$CLIENT_PKG/openapi"
 
@@ -58,7 +60,7 @@ kube::codegen::gen_openapi \
 	--report-filename "$OPENAPI_REPORT" \
 	--update-report
 
-m 'gen_client...'
+echo 'gen_client...'
 
 #rm --recursive --force "$ROOT/api/kubernetes-client"
 

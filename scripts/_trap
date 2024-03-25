@@ -4,12 +4,19 @@ function goodbye () {
 	local CODE=$1
 	cd "$TRAP_DIR"
 	if [ "$CODE" == 0 ]; then
-		m "$(realpath --relative-to="$ROOT" "$0") succeeded! $DURATION" "$GREEN"
+		echo "$(realpath --relative-to="$ROOT" "$0") succeeded! $DURATION"
 	elif [ "$CODE" == abort ]; then
-		m "Aborted $(realpath --relative-to="$ROOT" "$0")! $DURATION" "$RED"
+		echo "Aborted $(realpath --relative-to="$ROOT" "$0")! $DURATION"
 	else
-		m "Oh no! $(realpath --relative-to="$ROOT" "$0") failed! $DURATION" "$RED"
+		echo "Oh no! $(realpath --relative-to="$ROOT" "$0") failed! $DURATION"
 	fi
+}
+
+
+function copy_function () {
+	local ORIG_FUNC=$(declare -f $1)
+	local NEWNAME_FUNC="$2${ORIG_FUNC#$1}"
+	eval "$NEWNAME_FUNC"
 }
 
 function trap_EXIT () {
