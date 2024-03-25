@@ -27,7 +27,6 @@ import (
 	"github.com/GoogleContainerTools/kpt/pkg/oci"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -92,7 +91,7 @@ func (r *ociRepository) getRevisionNumber(ctx context.Context, imageRef oci.Imag
 	return manifest.Annotations[annotationKeyRevision], nil
 }
 
-func (r *ociRepository) loadTasks(ctx context.Context, imageRef oci.ImageDigestName) ([]api.Task, error) {
+func (r *ociRepository) loadTasks(ctx context.Context, imageRef oci.ImageDigestName) ([]v1alpha1.Task, error) {
 	ctx, span := tracer.Start(ctx, "ociRepository::loadTasks", trace.WithAttributes(
 		attribute.Stringer("image", imageRef),
 	))
@@ -103,15 +102,15 @@ func (r *ociRepository) loadTasks(ctx context.Context, imageRef oci.ImageDigestN
 		return nil, fmt.Errorf("error fetching config for image: %w", err)
 	}
 
-	var tasks []api.Task
+	var tasks []v1alpha1.Task
 	for i := range configFile.History {
 		history := &configFile.History[i]
 		command := history.CreatedBy
 		if strings.HasPrefix(command, "kpt:") {
-			task := api.Task{}
+			task := v1alpha1.Task{}
 			b := []byte(strings.TrimPrefix(command, "kpt:"))
 			if err := json.Unmarshal(b, &task); err != nil {
-				klog.Warningf("failed to unmarshal task command %q: %w", command, err)
+				klog.Warningf("failed to unmarshal task command %q: %v", command, err)
 				continue
 			}
 			tasks = append(tasks, task)
@@ -180,14 +179,14 @@ func LoadResources(ctx context.Context, s *oci.Storage, imageName *oci.ImageDige
 	tarReader := tar.NewReader(f)
 
 	// TODO: Check hash here?  Or otherwise handle error?
-	resources, err := loadResourcesFromTar(ctx, tarReader)
+	resources, err := loadResourcesFromTar(tarReader)
 	if err != nil {
 		return nil, err
 	}
 	return resources, nil
 }
 
-func loadResourcesFromTar(ctx context.Context, tarReader *tar.Reader) (*repository.PackageResources, error) {
+func loadResourcesFromTar(tarReader *tar.Reader) (*repository.PackageResources, error) {
 	resources := &repository.PackageResources{
 		Contents: map[string]string{},
 	}
