@@ -42,7 +42,7 @@ func (c tableConvertor) ConvertToTable(ctx context.Context, object runtime.Objec
 
 	fn := func(obj runtime.Object) error {
 		cells := c.cells(obj)
-		if cells == nil || len(cells) == 0 {
+		if len(cells) == 0 {
 			return newResourceNotAcceptableError(ctx, c.resource)
 		}
 		table.Rows = append(table.Rows, metav1.TableRow{
@@ -87,7 +87,7 @@ var (
 	packageTableConvertor = tableConvertor{
 		resource: porch.Resource("packages"),
 		cells: func(obj runtime.Object) []interface{} {
-			pr, ok := obj.(*api.Package)
+			pr, ok := obj.(*api.PorchPackage)
 			if !ok {
 				return nil
 			}

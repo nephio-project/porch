@@ -24,7 +24,6 @@ import (
 	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/repository"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -47,7 +46,8 @@ type packageCommon struct {
 	createStrategy SimpleRESTCreateStrategy
 }
 
-func (r *packageCommon) listPackageRevisions(ctx context.Context, filter packageRevisionFilter, selector labels.Selector, callback func(p *engine.PackageRevision) error) error {
+func (r *packageCommon) listPackageRevisions(ctx context.Context, filter packageRevisionFilter, 
+	selector labels.Selector, callback func(p *engine.PackageRevision) error) error {
 	var opts []client.ListOption
 	if ns, namespaced := genericapirequest.NamespaceFrom(ctx); namespaced {
 		opts = append(opts, client.InNamespace(ns))
@@ -200,7 +200,8 @@ func (r *packageCommon) getPackage(ctx context.Context, name string) (*engine.Pa
 }
 
 // Common implementation of PackageRevision update logic.
-func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
+func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, 
+	createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool) (runtime.Object, bool, error) {
 	// TODO: Is this all boilerplate??
 
 	ns, namespaced := genericapirequest.NamespaceFrom(ctx)
@@ -221,7 +222,8 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 		}
 	}
 
-	var oldApiPkgRev runtime.Object // We have to be runtime.Object (and not *api.PackageRevision) or else nil-checks fail (because a nil object is not a nil interface)
+    // We have to be runtime.Object (and not *api.PackageRevision) or else nil-checks fail (because a nil object is not a nil interface)
+	var oldApiPkgRev runtime.Object 
 	if !isCreate {
 		oldApiPkgRev, err = oldRepoPkgRev.GetPackageRevision(ctx)
 		if err != nil {
@@ -313,7 +315,8 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 }
 
 // Common implementation of Package update logic.
-func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
+func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, 
+	createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool) (runtime.Object, bool, error) {
 	// TODO: Is this all boilerplate??
 
 	ns, namespaced := genericapirequest.NamespaceFrom(ctx)
@@ -334,7 +337,8 @@ func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo 
 		}
 	}
 
-	var oldRuntimeObj runtime.Object // We have to be runtime.Object (and not *api.PackageRevision) or else nil-checks fail (because a nil object is not a nil interface)
+	// We have to be runtime.Object (and not *api.PackageRevision) or else nil-checks fail (because a nil object is not a nil interface)
+	var oldRuntimeObj runtime.Object 
 	if !isCreate {
 		oldRuntimeObj = oldPackage.GetPackage()
 	}
@@ -361,7 +365,7 @@ func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo 
 		return nil, false, err
 	}
 
-	newObj, ok := newRuntimeObj.(*api.Package)
+	newObj, ok := newRuntimeObj.(*api.PorchPackage)
 	if !ok {
 		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("expected Package object, got %T", newRuntimeObj))
 	}
@@ -387,7 +391,7 @@ func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo 
 	}
 
 	if !isCreate {
-		rev, err := r.cad.UpdatePackage(ctx, &repositoryObj, oldPackage, oldRuntimeObj.(*api.Package), newObj)
+		rev, err := r.cad.UpdatePackage(ctx, &repositoryObj, oldPackage, oldRuntimeObj.(*api.PorchPackage), newObj)
 		if err != nil {
 			return nil, false, apierrors.NewInternalError(err)
 		}

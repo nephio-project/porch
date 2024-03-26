@@ -43,8 +43,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	// +kubebuilder:scaffold:install
 
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		&Package{},
-		&PackageList{},
+		&PorchPackage{},
+		&PorchPackageList{},
 		&PackageRevision{},
 		&PackageRevisionList{},
 		&PackageRevisionResources{},

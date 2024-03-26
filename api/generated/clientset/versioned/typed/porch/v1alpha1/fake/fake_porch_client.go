@@ -1,4 +1,4 @@
-// Copyright 2023 The kpt and Nephio Authors
+// Copyright 2023-2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,16 +30,16 @@ func (c *FakePorchV1alpha1) Functions(namespace string) v1alpha1.FunctionInterfa
 	return &FakeFunctions{c, namespace}
 }
 
-func (c *FakePorchV1alpha1) Packages(namespace string) v1alpha1.PackageInterface {
-	return &FakePackages{c, namespace}
-}
-
 func (c *FakePorchV1alpha1) PackageRevisions(namespace string) v1alpha1.PackageRevisionInterface {
 	return &FakePackageRevisions{c, namespace}
 }
 
 func (c *FakePorchV1alpha1) PackageRevisionResources(namespace string) v1alpha1.PackageRevisionResourcesInterface {
 	return &FakePackageRevisionResources{c, namespace}
+}
+
+func (c *FakePorchV1alpha1) PorchPackages(namespace string) v1alpha1.PorchPackageInterface {
+	return &FakePorchPackages{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

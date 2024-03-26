@@ -89,7 +89,7 @@ func (p *gitPackageRevision) Key() repository.PackageRevisionKey {
 	if p.repo.directory != "" {
 		pn, err := filepath.Rel(p.repo.directory, packageName)
 		if err != nil {
-			klog.Errorf("error computing package name relative to registered directory: %w", err)
+			klog.Errorf("error computing package name relative to registered directory: %v", err)
 		}
 		packageName = strings.TrimLeft(pn, "./")
 	}

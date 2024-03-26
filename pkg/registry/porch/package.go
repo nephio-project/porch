@@ -43,15 +43,21 @@ var _ rest.Scoper = &packages{}
 var _ rest.Creater = &packages{}
 var _ rest.Updater = &packages{}
 var _ rest.GracefulDeleter = &packages{}
+var _ rest.SingularNameProvider = &packages{}
+
+// GetSingularName implements the SingularNameProvider interface
+func (r *packages) GetSingularName() (string) {
+	return "package"
+}
 
 func (r *packages) New() runtime.Object {
-	return &api.Package{}
+	return &api.PorchPackage{}
 }
 
 func (r *packages) Destroy() {}
 
 func (r *packages) NewList() runtime.Object {
-	return &api.PackageList{}
+	return &api.PorchPackageList{}
 }
 
 func (r *packages) NamespaceScoped() bool {
@@ -63,7 +69,7 @@ func (r *packages) List(ctx context.Context, options *metainternalversion.ListOp
 	ctx, span := tracer.Start(ctx, "packages::List", trace.WithAttributes())
 	defer span.End()
 
-	result := &api.PackageList{
+	result := &api.PorchPackageList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageList",
 			APIVersion: api.SchemeGroupVersion.Identifier(),
@@ -110,7 +116,7 @@ func (r *packages) Create(ctx context.Context, runtimeObject runtime.Object, cre
 		return nil, apierrors.NewBadRequest("namespace must be specified")
 	}
 
-	obj, ok := runtimeObject.(*api.Package)
+	obj, ok := runtimeObject.(*api.PorchPackage)
 	if !ok {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected Package object, got %T", runtimeObject))
 	}
@@ -151,11 +157,12 @@ func (r *packages) Create(ctx context.Context, runtimeObject runtime.Object, cre
 // Update finds a resource in the storage and updates it. Some implementations
 // may allow updates creates the object - they should set the created boolean
 // to true.
-func (r *packages) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
+func (r *packages) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, 
+	updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
 	ctx, span := tracer.Start(ctx, "packages::Update", trace.WithAttributes())
 	defer span.End()
 
-	return r.packageCommon.updatePackage(ctx, name, objInfo, createValidation, updateValidation, forceAllowCreate, options)
+	return r.packageCommon.updatePackage(ctx, name, objInfo, createValidation, updateValidation, forceAllowCreate)
 }
 
 // Delete implements the GracefulDeleter interface.

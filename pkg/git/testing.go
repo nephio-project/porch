@@ -442,7 +442,7 @@ func (s *GitServer) serveGitReceivePack(w http.ResponseWriter, r *http.Request, 
 	gitWriter.WriteLine("unpack ok")
 	gitWriter.WriteZeroPacketLine()
 	if err := gitWriter.Flush(); err != nil {
-		klog.Warningf("error flushing response: %w", err)
+		klog.Warningf("error flushing response: %v", err)
 		return nil // too late for real errors
 	}
 

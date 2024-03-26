@@ -12,41 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1alpha1
+package porch
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// +genclient
-// +genclient:method=UpdateApproval,verb=update,subresource=approval,input=github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevision,result=github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevision
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
 // PackageRevision
+// +genclient
 // +k8s:openapi-gen=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type PackageRevision struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta
+	metav1.ObjectMeta
 
-	Spec   PackageRevisionSpec   `json:"spec,omitempty"`
-	Status PackageRevisionStatus `json:"status,omitempty"`
+	Spec   PackageRevisionSpec
+	Status PackageRevisionStatus
 }
-
-// Key and value of the latest package revision label:
-
-const (
-	LatestPackageRevisionKey   = "kpt.dev/latest-revision"
-	LatestPackageRevisionValue = "true"
-)
 
 // PackageRevisionList
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type PackageRevisionList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta
+	metav1.ListMeta
 
-	Items []PackageRevision `json:"items"`
+	Items []PackageRevision
 }
 
 type PackageRevisionLifecycle string
@@ -79,25 +70,6 @@ type PackageRevisionSpec struct {
 
 	Lifecycle PackageRevisionLifecycle `json:"lifecycle,omitempty"`
 
-	// The task slice holds zero or more tasks that describe the operations
-	// performed on the packagerevision. The are essentially a replayable history
-	// of the packagerevision,
-	//
-	// Packagerevisions that were not created in Porch may have an
-	// empty task list.
-	//
-	// Packagerevisions created and managed through Porch will always
-	// have either an Init, Edit, or a Clone task as the first entry in their
-	// task list. This represent packagerevisions created from scratch, based
-	// a copy of a different revision in the same package, or a packagerevision
-	// cloned from another package.
-	// Each change to the packagerevision will result in a correspondig
-	// task being added to the list of tasks. It will describe the operation
-	// performed and will have a corresponding entry (commit or layer) in git
-	// or oci.
-	// The task slice describes the history of the packagerevision, so it
-	// is an append only list (We might introduce some kind of compaction in the
-	// future to keep the number of tasks at a reasonable number).
 	Tasks []Task `json:"tasks,omitempty"`
 
 	ReadinessGates []ReadinessGate `json:"readinessGates,omitempty"`
@@ -272,7 +244,7 @@ type SecretRef struct {
 	Name string `json:"name"`
 }
 
-// OciPackage describes a repository compatible with the Open Coutainer Registry standard.
+// OciPackage describes a repository compatible with the Open Container Registry standard.
 type OciPackage struct {
 	// Image is the address of an OCI image.
 	Image string `json:"image"`
@@ -295,8 +267,6 @@ type FunctionEvalTaskSpec struct {
 	Subpackage string `json:"subpackage,omitempty"`
 	// `Image` specifies the function image, such as `gcr.io/kpt-fn/gatekeeper:v0.2`. Use of `Image` is mutually exclusive with `FunctionRef`.
 	Image string `json:"image,omitempty"`
-	// `FunctionRef` specifies the function by reference to a Function resource. Mutually exclusive with `Image`.
-	FunctionRef *FunctionRef `json:"functionRef,omitempty"`
 	// `ConfigMap` specifies the function config (https://kpt.dev/reference/cli/fn/eval/). Mutually exclusive with Config.
 	ConfigMap map[string]string `json:"configMap,omitempty"`
 
@@ -309,12 +279,9 @@ type FunctionEvalTaskSpec struct {
 	// `EnableNetwork` controls whether the function has access to network. Defaults to `false`.
 	EnableNetwork bool `json:"enableNetwork,omitempty"`
 	// Match specifies the selection criteria for the function evaluation.
-	// Corresponds to `kpt fn eval --match-???` flgs (https://kpt.dev/reference/cli/fn/eval/).
 	Match Selector `json:"match,omitempty"`
 }
 
-// Selector corresponds to the `--match-???` set of flags of the `kpt fn eval` command:
-// See https://kpt.dev/reference/cli/fn/eval/ for additional information.
 type Selector struct {
 	// APIVersion of the target resources
 	APIVersion string `json:"apiVersion,omitempty"`
@@ -479,4 +446,182 @@ type NameMeta struct {
 	Name string `json:"name,omitempty"`
 	// Namespace is the metadata.namespace field of a Resource
 	Namespace string `json:"namespace,omitempty"`
+}
+
+
+// PackageRevisionResources
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type PackageRevisionResources struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   PackageRevisionResourcesSpec   `json:"spec,omitempty"`
+	Status PackageRevisionResourcesStatus `json:"status,omitempty"`
+}
+
+// PackageRevisionResourcesList
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type PackageRevisionResourcesList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+
+	Items []PackageRevisionResources `json:"items"`
+}
+
+// PackageRevisionResourcesSpec represents resources (as ResourceList serialized as yaml string) of the PackageRevision.
+type PackageRevisionResourcesSpec struct {
+	// PackageName identifies the package in the repository.
+	PackageName string `json:"packageName,omitempty"`
+
+	// WorkspaceName identifies the workspace of the package.
+	WorkspaceName WorkspaceName `json:"workspaceName,omitempty"`
+
+	// Revision identifies the version of the package.
+	Revision string `json:"revision,omitempty"`
+
+	// RepositoryName is the name of the Repository object containing this package.
+	RepositoryName string `json:"repository,omitempty"`
+
+	// Resources are the content of the package.
+	Resources map[string]string `json:"resources,omitempty"`
+}
+
+// PackageRevisionResourcesStatus represents state of the rendered package resources.
+type PackageRevisionResourcesStatus struct {
+	// RenderStatus contains the result of rendering the package resources.
+	RenderStatus RenderStatus `json:"renderStatus,omitempty"`
+}
+
+// Package
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type PorchPackage struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   PackageSpec   `json:"spec,omitempty"`
+	Status PackageStatus `json:"status,omitempty"`
+}
+
+// PackageList
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type PorchPackageList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+
+	Items []PorchPackage `json:"items"`
+}
+
+// PackageSpec defines the desired state of Package
+type PackageSpec struct {
+	// PackageName identifies the package in the repository.
+	PackageName string `json:"packageName,omitempty"`
+
+	// RepositoryName is the name of the Repository object containing this package.
+	RepositoryName string `json:"repository,omitempty"`
+}
+
+// PackageStatus defines the observed state of Package
+type PackageStatus struct {
+	// LatestRevision identifies the package revision that is the latest
+	// published package revision belonging to this package
+	LatestRevision string `json:"latestRevision,omitempty"`
+}
+
+
+// Function represents a kpt function discovered in a repository
+// Function resources are created automatically by discovery in a registered Repository.
+// Function resource names will be computed as <Repository Name>:<Function Name>
+// to ensure uniqueness of names, and will follow formatting of
+// [DNS Subdomain Names](https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-subdomain-names).
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type Function struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   FunctionSpec   `json:"spec,omitempty"`
+	Status FunctionStatus `json:"status,omitempty"`
+}
+
+// FunctionList
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type FunctionList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+
+	Items []Function `json:"items"`
+}
+
+type FunctionType string
+
+const (
+	FunctionTypeValidator FunctionType = "validator"
+	FunctionTypeMutator   FunctionType = "mutator"
+)
+
+// FunctionSpec defines the desired state of a Function
+type FunctionSpec struct {
+	// Image specifies the function image, such as 'gcr.io/kpt-fn/gatekeeper:v0.2'.
+	Image string `json:"image"`
+
+	// RepositoryRef references the repository in which the function is located.
+	RepositoryRef RepositoryRef `json:"repositoryRef"`
+
+	// FunctionType specifies the function types (mutator, validator or/and others).
+	FunctionTypes []FunctionType `json:"functionTypes,omitempty"`
+
+	FunctionConfigs []FunctionConfig `json:"functionConfigs,omitempty"`
+
+	// Keywords are used as filters to provide correlation in function discovery.
+	Keywords []string `json:"keywords,omitempty"`
+
+	// Description is a short description of the function.
+	Description string `json:"description"`
+
+	// `DocumentationUrl specifies the URL of comprehensive function documentation`
+	DocumentationUrl string `json:"documentationUrl,omitempty"`
+
+	// InputTypes specifies to which input KRM types the function applies. Specified as Group Version Kind.
+	// For example:
+	//
+	//    inputTypes:
+	//    - kind: RoleBinding
+	//      # If version is unspecified, applies to all versions
+	//      apiVersion: rbac.authorization.k8s.io
+	//    - kind: ClusterRoleBinding
+	//      apiVersion: rbac.authorization.k8s.io/v1
+	// InputTypes []metav1.TypeMeta
+
+	// OutputTypes specifies types of any KRM resources the function creates
+	// For example:
+	//
+	//     outputTypes:
+	//     - kind: ConfigMap
+	//       apiVersion: v1
+	// OutputTypes []metav1.TypeMeta
+
+}
+
+// FunctionConfig specifies all the valid types of the function config for this function.
+// If unspecified, defaults to v1/ConfigMap. For example, function `set-namespace` accepts both `ConfigMap` and `SetNamespace`
+type FunctionConfig struct {
+	metav1.TypeMeta `json:",inline"`
+	// Experimental: requiredFields tells necessary fields and is aimed to help users write the FunctionConfig.
+	// Otherwise, users can get the required fields info from the function evaluation error message.
+	RequiredFields []string `json:"requiredFields,omitempty"`
+}
+
+// FunctionRef is a reference to a Function resource.
+type FunctionRef struct {
+	// Name is the name of the Function resource referenced. The resource is expected to be within the same namespace.
+	Name string `json:"name"`
+}
+
+// FunctionStatus defines the observed state of Function
+type FunctionStatus struct {
 }

@@ -226,7 +226,7 @@ func (r *gitRepository) ListPackages(ctx context.Context, filter repository.List
 	return nil, fmt.Errorf("ListPackages not yet supported for git repos")
 }
 
-func (r *gitRepository) CreatePackage(ctx context.Context, obj *v1alpha1.Package) (repository.Package, error) {
+func (r *gitRepository) CreatePackage(ctx context.Context, obj *v1alpha1.PorchPackage) (repository.Package, error) {
 	ctx, span := tracer.Start(ctx, "gitRepository::CreatePackage", trace.WithAttributes())
 	defer span.End()
 
@@ -779,12 +779,12 @@ func (r *gitRepository) loadTaggedPackages(ctx context.Context, tag *plumbing.Re
 
 	commit, err := r.repo.CommitObject(tag.Hash())
 	if err != nil {
-		return nil, fmt.Errorf("cannot resolve tag %q to commit (corrupted repository?): %w", name, err)
+		return nil, fmt.Errorf("cannot resolve tag %q to commit (corrupted repository?): %v", name, err)
 	}
 
 	krmPackage, err := r.findPackage(commit, path)
 	if err != nil {
-		klog.Warningf("Skipping %q; cannot find %q (corrupted repository?): %w", name, path, err)
+		klog.Warningf("Skipping %q; cannot find %q (corrupted repository?): %v", name, path, err)
 		return nil, nil
 	}
 

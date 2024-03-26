@@ -149,7 +149,7 @@ func (b *background) updateCache(ctx context.Context, event watch.EventType, rep
 		}
 		return nil
 	default:
-		klog.Warning("Unhandled watch event type: %s", event)
+		klog.Warningf("Unhandled watch event type: %s", event)
 	}
 	return nil
 }

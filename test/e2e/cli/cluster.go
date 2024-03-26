@@ -165,6 +165,8 @@ func KubectlCreateNamespace(t *testing.T, name string) {
 }
 
 func KubectlDeleteNamespace(t *testing.T, name string) {
+	//Removing Finalizers from PackageRevs in the test NameSpace to avoid locking when deleting
+	RemovePackagerevFinalizers(t, name)
 	cmd := exec.Command("kubectl", "delete", "namespace", name)
 	t.Logf("running command %v", strings.Join(cmd.Args, " "))
 	out, err := cmd.CombinedOutput()
@@ -172,6 +174,40 @@ func KubectlDeleteNamespace(t *testing.T, name string) {
 		t.Logf("Failed to delete namespace %q: %v\n%s", name, err, string(out))
 	}
 	t.Logf("output: %v", string(out))
+}
+
+func RemovePackagerevFinalizers(t *testing.T, namespace string) {
+	cmd := exec.Command("kubectl", "get", "packagerevs", "--namespace", namespace, "--output=jsonpath={.items[*].metadata.name}")
+	var stderr bytes.Buffer
+	var stdout bytes.Buffer
+	cmd.Stderr = &stderr
+	cmd.Stdout = &stdout
+
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Error when getting packagerevs from namespace: %v: %s", err, stderr.String())
+	}
+
+	packagerevs := realySplit(stdout.String(), " ")
+	if len(packagerevs) == 0 {
+		t.Log("kubectl get packagerevs didn't return any objects - continue")
+		return
+	}
+	t.Logf("Removing Finalizers from PackagRevs: %v", packagerevs)
+
+	for _, pkgrev := range packagerevs {
+		cmd := exec.Command("kubectl", "patch", "packagerev", pkgrev, "--type", "json", "--patch=[{\"op\": \"remove\", \"path\": \"/metadata/finalizers\"}]", "--namespace", namespace)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("Failed to remove Finalizer from %q: %v\n%s", pkgrev, err, string(out))
+		}
+	}
+}
+
+func realySplit(s, sep string) []string {
+    if len(s) == 0 {
+        return []string{}
+    }
+    return strings.Split(s, sep)
 }
 
 func RegisterRepository(t *testing.T, repoURL, namespace, name string) {

@@ -68,7 +68,7 @@ data:
 apiVersion: config.kubernetes.io/v1
 kind: ResourceList
 items:
-- apiVersion: porch.kpt.dev/v1alpha1
+- apiVersion: ""
   kind: KptRevisionMetadata
   metadata:
     name: repo-fjdos9u2nfe2f32
@@ -132,7 +132,7 @@ data:
 apiVersion: config.kubernetes.io/v1
 kind: ResourceList
 items:
-- apiVersion: porch.kpt.dev/v1alpha1
+- apiVersion: ""
   kind: KptRevisionMetadata
   metadata:
     name: repo-fjdos9u2nfe2f32

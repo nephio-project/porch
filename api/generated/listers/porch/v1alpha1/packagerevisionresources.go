@@ -1,4 +1,4 @@
-// Copyright 2023 The kpt and Nephio Authors
+// Copyright 2023-2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,14 +23,14 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// PackageRevisionResourcesLister helps list PackageRevisionResourceses.
+// PackageRevisionResourcesLister helps list PackageRevisionResources.
 // All objects returned here must be treated as read-only.
 type PackageRevisionResourcesLister interface {
-	// List lists all PackageRevisionResourceses in the indexer.
+	// List lists all PackageRevisionResources in the indexer.
 	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.PackageRevisionResources, err error)
-	// PackageRevisionResourceses returns an object that can list and get PackageRevisionResourceses.
-	PackageRevisionResourceses(namespace string) PackageRevisionResourcesNamespaceLister
+	// PackageRevisionResources returns an object that can list and get PackageRevisionResources.
+	PackageRevisionResources(namespace string) PackageRevisionResourcesNamespaceLister
 	PackageRevisionResourcesListerExpansion
 }
 
@@ -44,7 +44,7 @@ func NewPackageRevisionResourcesLister(indexer cache.Indexer) PackageRevisionRes
 	return &packageRevisionResourcesLister{indexer: indexer}
 }
 
-// List lists all PackageRevisionResourceses in the indexer.
+// List lists all PackageRevisionResources in the indexer.
 func (s *packageRevisionResourcesLister) List(selector labels.Selector) (ret []*v1alpha1.PackageRevisionResources, err error) {
 	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
 		ret = append(ret, m.(*v1alpha1.PackageRevisionResources))
@@ -52,15 +52,15 @@ func (s *packageRevisionResourcesLister) List(selector labels.Selector) (ret []*
 	return ret, err
 }
 
-// PackageRevisionResourceses returns an object that can list and get PackageRevisionResourceses.
-func (s *packageRevisionResourcesLister) PackageRevisionResourceses(namespace string) PackageRevisionResourcesNamespaceLister {
+// PackageRevisionResources returns an object that can list and get PackageRevisionResources.
+func (s *packageRevisionResourcesLister) PackageRevisionResources(namespace string) PackageRevisionResourcesNamespaceLister {
 	return packageRevisionResourcesNamespaceLister{indexer: s.indexer, namespace: namespace}
 }
 
-// PackageRevisionResourcesNamespaceLister helps list and get PackageRevisionResourceses.
+// PackageRevisionResourcesNamespaceLister helps list and get PackageRevisionResources.
 // All objects returned here must be treated as read-only.
 type PackageRevisionResourcesNamespaceLister interface {
-	// List lists all PackageRevisionResourceses in the indexer for a given namespace.
+	// List lists all PackageRevisionResources in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.PackageRevisionResources, err error)
 	// Get retrieves the PackageRevisionResources from the indexer for a given namespace and name.
@@ -76,7 +76,7 @@ type packageRevisionResourcesNamespaceLister struct {
 	namespace string
 }
 
-// List lists all PackageRevisionResourceses in the indexer for a given namespace.
+// List lists all PackageRevisionResources in the indexer for a given namespace.
 func (s packageRevisionResourcesNamespaceLister) List(selector labels.Selector) (ret []*v1alpha1.PackageRevisionResources, err error) {
 	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
 		ret = append(ret, m.(*v1alpha1.PackageRevisionResources))

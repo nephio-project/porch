@@ -1,4 +1,4 @@
-// Copyright 2023 The kpt and Nephio Authors
+// Copyright 2023-2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,14 +24,6 @@ type FunctionListerExpansion interface{}
 // FunctionNamespaceLister.
 type FunctionNamespaceListerExpansion interface{}
 
-// PackageListerExpansion allows custom methods to be added to
-// PackageLister.
-type PackageListerExpansion interface{}
-
-// PackageNamespaceListerExpansion allows custom methods to be added to
-// PackageNamespaceLister.
-type PackageNamespaceListerExpansion interface{}
-
 // PackageRevisionListerExpansion allows custom methods to be added to
 // PackageRevisionLister.
 type PackageRevisionListerExpansion interface{}
@@ -47,3 +39,11 @@ type PackageRevisionResourcesListerExpansion interface{}
 // PackageRevisionResourcesNamespaceListerExpansion allows custom methods to be added to
 // PackageRevisionResourcesNamespaceLister.
 type PackageRevisionResourcesNamespaceListerExpansion interface{}
+
+// PorchPackageListerExpansion allows custom methods to be added to
+// PorchPackageLister.
+type PorchPackageListerExpansion interface{}
+
+// PorchPackageNamespaceListerExpansion allows custom methods to be added to
+// PorchPackageNamespaceLister.
+type PorchPackageNamespaceListerExpansion interface{}

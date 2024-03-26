@@ -363,7 +363,7 @@ func (r *ociRepository) ListFunctions(ctx context.Context) ([]repository.Functio
 				}
 				meta, err := GetFunctionMeta(repo.Digest(digest).Name(), ctx)
 				if err != nil {
-					klog.Warningf(" pull function %v error: %w", functionName, err)
+					klog.Warningf(" pull function %v error: %v", functionName, err)
 					continue
 				}
 				result = append(result, &ociFunction{
@@ -520,11 +520,11 @@ func (p *ociPackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, e
 }
 
 func (p *ociPackageRevision) GetUpstreamLock(context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error) {
-	return kptfile.Upstream{}, kptfile.UpstreamLock{}, fmt.Errorf("UpstreamLock is not supported for OCI packages (%s)", p.KubeObjectName())
+	return kptfile.Upstream{}, kptfile.UpstreamLock{}, fmt.Errorf("upstreamLock is not supported for OCI packages (%s)", p.KubeObjectName())
 }
 
 func (p *ociPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, error) {
-	return kptfile.Upstream{}, kptfile.UpstreamLock{}, fmt.Errorf("Lock is not supported for OCI packages (%s)", p.KubeObjectName())
+	return kptfile.Upstream{}, kptfile.UpstreamLock{}, fmt.Errorf("lock is not supported for oci packages (%s)", p.KubeObjectName())
 }
 
 func (p *ociPackageRevision) Lifecycle() v1alpha1.PackageRevisionLifecycle {
