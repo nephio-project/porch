@@ -737,7 +737,7 @@ func (r *PackageVariantReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func mapObjectsToRequests(mgrClient client.Reader) handler.MapFunc {
 	return func(ctx context.Context, obj client.Object) []reconcile.Request {
 		attachedPackageVariants := &api.PackageVariantList{}
-		err := mgrClient.List(context.TODO(), attachedPackageVariants, &client.ListOptions{
+		err := mgrClient.List(ctx, attachedPackageVariants, &client.ListOptions{
 			Namespace: obj.GetNamespace(),
 		})
 		if err != nil {
