@@ -1,4 +1,4 @@
-// Copyright 2023 The kpt and Nephio Authors
+// Copyright 2023-2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,59 +30,59 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// PackageInformer provides access to a shared informer and lister for
-// Packages.
-type PackageInformer interface {
+// PorchPackageInformer provides access to a shared informer and lister for
+// PorchPackages.
+type PorchPackageInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.PackageLister
+	Lister() v1alpha1.PorchPackageLister
 }
 
-type packageInformer struct {
+type porchPackageInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 	namespace        string
 }
 
-// NewPackageInformer constructs a new informer for Package type.
+// NewPorchPackageInformer constructs a new informer for PorchPackage type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewPackageInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredPackageInformer(client, namespace, resyncPeriod, indexers, nil)
+func NewPorchPackageInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredPorchPackageInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredPackageInformer constructs a new informer for Package type.
+// NewFilteredPorchPackageInformer constructs a new informer for PorchPackage type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredPackageInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredPorchPackageInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PorchV1alpha1().Packages(namespace).List(context.TODO(), options)
+				return client.PorchV1alpha1().PorchPackages(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PorchV1alpha1().Packages(namespace).Watch(context.TODO(), options)
+				return client.PorchV1alpha1().PorchPackages(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&porchv1alpha1.Package{},
+		&porchv1alpha1.PorchPackage{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *packageInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredPackageInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *porchPackageInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredPorchPackageInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *packageInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&porchv1alpha1.Package{}, f.defaultInformer)
+func (f *porchPackageInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&porchv1alpha1.PorchPackage{}, f.defaultInformer)
 }
 
-func (f *packageInformer) Lister() v1alpha1.PackageLister {
-	return v1alpha1.NewPackageLister(f.Informer().GetIndexer())
+func (f *porchPackageInformer) Lister() v1alpha1.PorchPackageLister {
+	return v1alpha1.NewPorchPackageLister(f.Informer().GetIndexer())
 }

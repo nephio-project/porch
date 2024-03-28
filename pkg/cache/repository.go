@@ -63,7 +63,6 @@ type cachedRepository struct {
 	// Error encountered on repository refresh by the refresh goroutine.
 	// This is returned back by the cache to the background goroutine when it calls periodicall to resync repositories.
 	refreshRevisionsError error
-	refreshPkgsError      error
 
 	objectNotifier objectNotifier
 
@@ -294,7 +293,7 @@ func (r *cachedRepository) ListPackages(ctx context.Context, filter repository.L
 	return packages, nil
 }
 
-func (r *cachedRepository) CreatePackage(ctx context.Context, obj *v1alpha1.Package) (repository.Package, error) {
+func (r *cachedRepository) CreatePackage(ctx context.Context, obj *v1alpha1.PorchPackage) (repository.Package, error) {
 	klog.Infoln("cachedRepository::CreatePackage")
 	return r.repo.CreatePackage(ctx, obj)
 }
@@ -332,7 +331,7 @@ func (r *cachedRepository) Close() error {
 			// There isn't much use in returning an error here, so we just log it
 			// and create a PackageRevisionMeta with just name and namespace. This
 			// makes sure that the Delete event is sent.
-			klog.Warningf("Error looking up PackageRev CR for %s: %v")
+			klog.Warningf("Error looking up PackageRev CR for %s: %v", nn.Name, err)
 			pkgRevMeta = meta.PackageRevisionMeta{
 				Name:      nn.Name,
 				Namespace: nn.Namespace,
@@ -430,7 +429,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 	for _, newPackage := range newPackageRevisions {
 		kname := newPackage.KubeObjectName()
 		if newPackageRevisionNames[kname] != nil {
-			klog.Warningf("repo %s: found duplicate packages with name %v", kname)
+			klog.Warningf("repo %s: found duplicate packages with name %v", r.repo, kname)
 		}
 
 		pkgRev := &cachedPackageRevision{
@@ -459,7 +458,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 			}, true); err != nil {
 				if !apierrors.IsNotFound(err) {
 					// This will be retried the next time the sync runs.
-					klog.Warningf("repo %s: unable to delete PackageRev CR for %s/%s: %w",
+					klog.Warningf("repo %s: unable to delete PackageRev CR for %s/%s: %v",
 						r.id, prm.Name, prm.Namespace, err)
 				}
 			}
@@ -478,7 +477,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 				// TODO: We should try to find a way to make these errors available through
 				// either the repository CR or the PackageRevision CR. This will be
 				// retried on the next sync.
-				klog.Warningf("unable to create PackageRev CR for %s/%s: %w",
+				klog.Warningf("unable to create PackageRev CR for %s/%s: %v",
 					r.repoSpec.Namespace, pkgRevName, err)
 			}
 		}

@@ -46,7 +46,7 @@ type TestCaseConfig struct {
 	ConfigFile string `yaml:"-"`
 	// Repository is the name of the k8s Repository resource to register the default Git repo.
 	Repository string `yaml:"repository,omitempty"`
-	// Commands is a list of kpt commands to be executed by the test.
+	// Commands is a list of porchctl commands to be executed by the test.
 	Commands []Command `yaml:"commands,omitempty"`
 	// Skip the test? If the value is not empty, it will be used as a message with which to skip the test.
 	Skip string `yaml:"skip,omitempty"`

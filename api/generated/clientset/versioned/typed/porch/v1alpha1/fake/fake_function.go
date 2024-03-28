@@ -1,4 +1,4 @@
-// Copyright 2023 The kpt and Nephio Authors
+// Copyright 2023-2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ import (
 	v1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -34,9 +33,9 @@ type FakeFunctions struct {
 	ns   string
 }
 
-var functionsResource = schema.GroupVersionResource{Group: "porch.kpt.dev", Version: "v1alpha1", Resource: "functions"}
+var functionsResource = v1alpha1.SchemeGroupVersion.WithResource("functions")
 
-var functionsKind = schema.GroupVersionKind{Group: "porch.kpt.dev", Version: "v1alpha1", Kind: "Function"}
+var functionsKind = v1alpha1.SchemeGroupVersion.WithKind("Function")
 
 // Get takes name of the function, and returns the corresponding function object, and an error if there is any.
 func (c *FakeFunctions) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Function, err error) {
