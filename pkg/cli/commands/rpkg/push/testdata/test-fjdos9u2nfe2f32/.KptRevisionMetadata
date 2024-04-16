@@ -1,0 +1,12 @@
+apiVersion: porch.kpt.dev/v1alpha1
+kind: KptRevisionMetadata
+metadata:
+  name: test-fjdos9u2nfe2f32
+  namespace: ns
+  creationTimestamp: null
+  resourceVersion: "999"
+  annotations:
+    config.kubernetes.io/index: '0'
+    internal.config.kubernetes.io/index: '0'
+    internal.config.kubernetes.io/path: '.KptRevisionMetadata'
+    config.kubernetes.io/path: '.KptRevisionMetadata'
