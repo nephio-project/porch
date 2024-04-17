@@ -35,14 +35,13 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/stream"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 )
 
-func (r *ociRepository) CreatePackageRevision(ctx context.Context, obj *api.PackageRevision) (repository.PackageDraft, error) {
+func (r *ociRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageDraft, error) {
 	base := empty.Image
 
 	packageName := obj.Spec.PackageName
@@ -59,7 +58,7 @@ func (r *ociRepository) CreatePackageRevision(ctx context.Context, obj *api.Pack
 	return &ociPackageDraft{
 		packageName: packageName,
 		parent:      r,
-		tasks:       []api.Task{},
+		tasks:       []v1alpha1.Task{},
 		base:        base,
 		tag:         ociRepo.Tag(string(obj.Spec.WorkspaceName)),
 		lifecycle:   v1alpha1.PackageRevisionLifecycleDraft,
@@ -96,7 +95,7 @@ func (r *ociRepository) UpdatePackageRevision(ctx context.Context, old repositor
 	return &ociPackageDraft{
 		packageName: packageName,
 		parent:      r,
-		tasks:       []api.Task{},
+		tasks:       []v1alpha1.Task{},
 		base:        base,
 		tag:         ref,
 		lifecycle:   oldPackage.Lifecycle(),
@@ -110,7 +109,7 @@ type ociPackageDraft struct {
 
 	parent *ociRepository
 
-	tasks []api.Task
+	tasks []v1alpha1.Task
 
 	base      v1.Image
 	tag       name.Tag
@@ -121,8 +120,8 @@ type ociPackageDraft struct {
 
 var _ repository.PackageDraft = (*ociPackageDraft)(nil)
 
-func (p *ociPackageDraft) UpdateResources(ctx context.Context, new *api.PackageRevisionResources, task *api.Task) error {
-	ctx, span := tracer.Start(ctx, "ociPackageDraft::UpdateResources", trace.WithAttributes())
+func (p *ociPackageDraft) UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, task *v1alpha1.Task) error {
+	_, span := tracer.Start(ctx, "ociPackageDraft::UpdateResources", trace.WithAttributes())
 	defer span.End()
 
 	buf := bytes.NewBuffer(nil)
@@ -191,7 +190,7 @@ func (p *ociPackageDraft) UpdateResources(ctx context.Context, new *api.PackageR
 	return nil
 }
 
-func (p *ociPackageDraft) UpdateLifecycle(ctx context.Context, new api.PackageRevisionLifecycle) error {
+func (p *ociPackageDraft) UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error {
 	p.lifecycle = new
 	return nil
 }
@@ -236,7 +235,7 @@ func (p *ociPackageDraft) Close(ctx context.Context) (repository.PackageRevision
 				}
 				var revs []string
 				for _, rev := range revisions {
-					if api.LifecycleIsPublished(rev.Lifecycle()) {
+					if v1alpha1.LifecycleIsPublished(rev.Lifecycle()) {
 						revs = append(revs, rev.Key().Revision)
 					}
 				}
@@ -322,7 +321,7 @@ func (r *ociRepository) DeletePackageRevision(ctx context.Context, old repositor
 	return nil
 }
 
-func (r *ociRepository) CreatePackage(ctx context.Context, obj *v1alpha1.Package) (repository.Package, error) {
+func (r *ociRepository) CreatePackage(ctx context.Context, obj *v1alpha1.PorchPackage) (repository.Package, error) {
 	return nil, fmt.Errorf("CreatePackage not supported for OCI packages")
 }
 

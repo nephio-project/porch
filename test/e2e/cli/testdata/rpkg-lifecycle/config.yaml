@@ -21,7 +21,7 @@ commands:
       - propose
       - --namespace=rpkg-lifecycle
       - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
-    stderr: |
+    stdout: |
       git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 proposed
   - args:
       - porchctl
@@ -50,7 +50,7 @@ commands:
       - reject
       - --namespace=rpkg-lifecycle
       - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
-    stderr: |
+    stdout: |
       git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 rejected
   - args:
       - porchctl
@@ -78,7 +78,7 @@ commands:
       - propose
       - --namespace=rpkg-lifecycle
       - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
-    stderr: |
+    stdout: |
       git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 proposed
   - args:
       - porchctl
@@ -95,7 +95,7 @@ commands:
       - approve
       - --namespace=rpkg-lifecycle
       - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
-    stderr: |
+    stdout: |
       git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 approved
   - args:
       - porchctl
@@ -123,7 +123,7 @@ commands:
       - propose-delete
       - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
       - --namespace=rpkg-lifecycle
-    stderr: |
+    stdout: |
       git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 proposed for deletion
   - args:
       - porchctl
@@ -148,7 +148,7 @@ commands:
       - reject
       - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
       - --namespace=rpkg-lifecycle
-    stderr: |
+    stdout: |
       git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 no longer proposed for deletion
   - args:
       - porchctl
@@ -176,7 +176,7 @@ commands:
       - propose-delete
       - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
       - --namespace=rpkg-lifecycle
-    stderr: |
+    stdout: |
       git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 proposed for deletion
   - args:
       - porchctl
@@ -193,7 +193,7 @@ commands:
       - delete
       - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
       - --namespace=rpkg-lifecycle
-    stderr: |
+    stdout: |
       git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 deleted
   - args:
       - porchctl

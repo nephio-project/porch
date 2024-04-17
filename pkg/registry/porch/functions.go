@@ -43,6 +43,14 @@ var _ rest.Storage = &functions{}
 var _ rest.Scoper = &functions{}
 var _ rest.Lister = &functions{}
 var _ rest.Getter = &functions{}
+var _ rest.SingularNameProvider = &functions{}
+
+
+// GetSingularName implements the SingularNameProvider interface
+func (r *functions) GetSingularName() (string) {
+	return "function"
+}
+
 
 func (f *functions) New() runtime.Object {
 	return &v1alpha1.Function{}

@@ -40,7 +40,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sigs.k8s.io/kustomize/kyaml/resid"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
@@ -68,7 +67,7 @@ const (
 	PackageVariantNameHashLength = 8
 )
 
-//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.8.0 rbac:roleName=porch-controllers-packagevariantsets webhook paths="." output:rbac:artifacts:config=../../../config/rbac
+//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0 rbac:headerFile=../../../../../scripts/boilerplate.yaml.txt,roleName=porch-controllers-packagevariantsets webhook paths="." output:rbac:artifacts:config=../../../config/rbac
 
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=packagevariantsets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=packagevariantsets/status,verbs=get;update;patch
@@ -89,7 +88,7 @@ func (r *PackageVariantSetReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	defer func() {
 		if err := r.Client.Status().Update(ctx, pvs); err != nil {
-			klog.Errorf("could not update status: %w\n", err)
+			klog.Errorf("could not update status: %v\n", err)
 		}
 	}()
 
@@ -389,31 +388,34 @@ func (r *PackageVariantSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&api.PackageVariantSet{}).
-		Watches(&source.Kind{Type: &pkgvarapi.PackageVariant{}},
-			handler.EnqueueRequestsFromMapFunc(r.mapObjectsToRequests)).
-		Watches(&source.Kind{Type: &porchapi.PackageRevision{}},
-			handler.EnqueueRequestsFromMapFunc(r.mapObjectsToRequests)).
+		Watches(&pkgvarapi.PackageVariant{},
+			handler.EnqueueRequestsFromMapFunc(mapObjectsToRequests(r.Client))).
+		Watches(&porchapi.PackageRevision{},
+			handler.EnqueueRequestsFromMapFunc(mapObjectsToRequests(r.Client))).
 		Complete(r)
 }
 
-func (r *PackageVariantSetReconciler) mapObjectsToRequests(obj client.Object) []reconcile.Request {
-	attachedPackageVariants := &api.PackageVariantSetList{}
-	err := r.List(context.TODO(), attachedPackageVariants, &client.ListOptions{
-		Namespace: obj.GetNamespace(),
-	})
-	if err != nil {
-		return []reconcile.Request{}
-	}
-	requests := make([]reconcile.Request, len(attachedPackageVariants.Items))
-	for i, item := range attachedPackageVariants.Items {
-		requests[i] = reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      item.GetName(),
-				Namespace: item.GetNamespace(),
-			},
+// https://github.com/kumahq/kuma/blob/abd89b44c5ee3bf5b57c13d7379b3c2b15ed5aba/pkg/plugins/runtime/k8s/controllers/configmap_controller.go#L100
+func mapObjectsToRequests(mgrClient client.Reader) handler.MapFunc {
+	return func(ctx context.Context, obj client.Object) []reconcile.Request {
+		attachedPackageVariants := &api.PackageVariantSetList{}
+		err := mgrClient.List(ctx, attachedPackageVariants, &client.ListOptions{
+			Namespace: obj.GetNamespace(),
+		})
+		if err != nil {
+			return []reconcile.Request{}
 		}
+		requests := make([]reconcile.Request, len(attachedPackageVariants.Items))
+		for i, item := range attachedPackageVariants.Items {
+			requests[i] = reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      item.GetName(),
+					Namespace: item.GetNamespace(),
+				},
+			}
+		}
+		return requests
 	}
-	return requests
 }
 
 func setStalledConditionsToTrue(pvs *api.PackageVariantSet, reason, message string) {

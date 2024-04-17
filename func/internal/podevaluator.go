@@ -106,7 +106,7 @@ func NewPodEvaluator(namespace, wrapperServerImage string, interval, ttl time.Du
 	err = pe.podCacheManager.warmupCache(podTTLConfig)
 	// If we can't warm up the cache, we can still proceed without it.
 	if err != nil {
-		klog.Warningf("unable to warm up the pod cache: %w", err)
+		klog.Warningf("unable to warm up the pod cache: %v", err)
 	}
 	return pe, nil
 }
@@ -211,7 +211,7 @@ func (pcm *podCacheManager) warmupCache(podTTLConfig string) error {
 
 		ttl, err := time.ParseDuration(ttlStr)
 		if err != nil {
-			klog.Warningf("unable to parse duration from the config file for function %v: %w", fnImage, err)
+			klog.Warningf("unable to parse duration from the config file for function %v: %v", fnImage, err)
 			ttl = pcm.podTTL
 		}
 
@@ -320,7 +320,7 @@ func (pcm *podCacheManager) garbageCollector() {
 	podList := &corev1.PodList{}
 	err = pcm.podManager.kubeClient.List(context.Background(), podList, client.InNamespace(pcm.podManager.namespace))
 	if err != nil {
-		klog.Warningf("unable to list pods in namespace %v: %w", pcm.podManager.namespace, err)
+		klog.Warningf("unable to list pods in namespace %v: %v", pcm.podManager.namespace, err)
 		return
 	}
 	for i, pod := range podList.Items {
@@ -339,7 +339,7 @@ func (pcm *podCacheManager) garbageCollector() {
 			// If the annotation is ill-formatted, we patch it with the current time and will try to GC it later.
 			// This should not happen, but if it happens, we give another TTL before deleting it.
 			if err != nil {
-				klog.Warningf("unable to convert the Unix time string to int64: %w", err)
+				klog.Warningf("unable to convert the Unix time string to int64: %v", err)
 				go patchPodWithUnixTimeAnnotation(pcm.podManager.kubeClient, client.ObjectKeyFromObject(&pod), pcm.podTTL)
 				continue
 			}
@@ -350,7 +350,7 @@ func (pcm *podCacheManager) garbageCollector() {
 					klog.Infof("deleting pod %v/%v", po.Namespace, po.Name)
 					err := pcm.podManager.kubeClient.Delete(context.Background(), &po)
 					if err != nil {
-						klog.Warningf("unable to delete pod %v/%v: %w", po.Namespace, po.Name, err)
+						klog.Warningf("unable to delete pod %v/%v: %v", po.Namespace, po.Name, err)
 					}
 				}(podList.Items[i])
 
@@ -501,7 +501,7 @@ func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl
 	podList := &corev1.PodList{}
 	err = pm.kubeClient.List(ctx, podList, client.InNamespace(pm.namespace), client.MatchingLabels(map[string]string{krmFunctionLabel: podId}))
 	if err != nil {
-		klog.Warningf("error when listing pods for %q: %w", image, err)
+		klog.Warningf("error when listing pods for %q: %v", image, err)
 	}
 	if err == nil && len(podList.Items) > 0 {
 		// TODO: maybe we should randomly pick one that is no being deleted.
@@ -645,7 +645,7 @@ func patchPodWithUnixTimeAnnotation(cl client.Client, podKey client.ObjectKey, t
 	pod.Namespace = podKey.Namespace
 	pod.Name = podKey.Name
 	if err := cl.Patch(context.Background(), pod, client.RawPatch(types.MergePatchType, patch)); err != nil {
-		klog.Warningf("unable to patch last-use annotation for pod %v/%v: %w", podKey.Namespace, podKey.Name, err)
+		klog.Warningf("unable to patch last-use annotation for pod %v/%v: %v", podKey.Namespace, podKey.Name, err)
 	}
 }
 

@@ -13,3 +13,6 @@ default.etcd/
 *.out
 *.info
 coverage_unit.html
+
+# Codegen artifacts
+*.report

@@ -106,7 +106,7 @@ type Package interface {
 	Key() PackageKey
 
 	// GetPackage returns the object representing this package
-	GetPackage() *v1alpha1.Package
+	GetPackage() *v1alpha1.PorchPackage
 
 	// GetLatestRevision returns the name of the package revision that is the "latest" package
 	// revision belonging to this package
@@ -201,7 +201,7 @@ type Repository interface {
 	ListPackages(ctx context.Context, filter ListPackageFilter) ([]Package, error)
 
 	// CreatePackage creates a new package
-	CreatePackage(ctx context.Context, obj *v1alpha1.Package) (Package, error)
+	CreatePackage(ctx context.Context, obj *v1alpha1.PorchPackage) (Package, error)
 
 	// DeletePackage deletes a package
 	DeletePackage(ctx context.Context, old Package) error

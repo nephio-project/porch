@@ -1,4 +1,4 @@
-# Copyright 2022 The kpt and Nephio Authors
+# Copyright 2022-2024 The kpt and Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,13 +29,6 @@ include default-go.mk
 
 # This includes the 'help' target that prints out all targets with their descriptions organized by categories
 include default-help.mk
-
-# Modules are ordered in dependency order. A module precedes modules that depend on it.
-MODULES = \
- examples/apps/hello-server \
- api \
- . \
- controllers \
 
 # GCP project to use for development
 
@@ -81,6 +74,13 @@ else
     ENABLED_RECONCILERS=$(RECONCILERS)
   endif
 endif
+
+# Modules are ordered in dependency order. A module precedes modules that depend on it.
+MODULES = \
+ examples/apps/hello-server \
+ api \
+ . \
+ controllers \
 
 .DEFAULT_GOAL := all
 
@@ -147,8 +147,12 @@ start-function-runner:
 	  $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):$(IMAGE_TAG) \
 	  -disable-runtimes pod
 
+.PHONY: generate-api
+generate-api:
+	KUBE_VERBOSE=2 $(CURDIR)/scripts/generate-api.sh
+
 .PHONY: generate
-generate:
+generate: generate-api
 	@for f in $(MODULES); do (cd $$f; echo "Generating $$f"; go generate -v ./...) || exit 1; done
 
 .PHONY: tidy
@@ -173,6 +177,7 @@ ci-unit: configure-git test
 
 
 PORCH = $(BUILDDIR)/porch
+PORCHCTL = $(BUILDDIR)/porchctl
 
 .PHONY: run-local
 run-local: porch
@@ -194,6 +199,10 @@ run-jaeger:
 .PHONY: porch
 porch:
 	go build -o $(PORCH) ./cmd/porch
+
+.PHONY: porchctl
+porchctl:
+	go build -o $(PORCHCTL) ./cmd/porchctl
 
 .PHONY: fix-headers
 fix-headers:
@@ -309,6 +318,7 @@ deployment-config-kpt:
 	  --controllers-image "$(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):$(IMAGE_TAG)" \
 	  --function-image "$(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):$(IMAGE_TAG)" \
 	  --wrapper-server-image "$(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):$(IMAGE_TAG)" \
+	  --test-git-server-image "$(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG}" \
 	  --enabled-reconcilers "$(ENABLED_RECONCILERS)" \
 	  --kind-context "$(KIND_CONTEXT_NAME)"
 
