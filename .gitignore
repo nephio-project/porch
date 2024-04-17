@@ -1,6 +1,7 @@
 vendor/
 apiserver.local.config/
 /apiserver/porch
+*.log
 
 # Development artifact path
 .build/
@@ -16,3 +17,14 @@ coverage_unit.html
 
 # Codegen artifacts
 *.report
+
+### VisualStudioCode ###
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+### VisualStudioCode Patch ###
+# Ignore all local history of files
+**/.history
