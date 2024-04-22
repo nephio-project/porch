@@ -3,6 +3,8 @@ kind: Kptfile
 
 metadata:
   name: network-function-auto-namespace
+  annotations:
+    config.kubernetes.io/local-config: "true"
 
 info:
   description: Network Function with automatic namespace setting Blueprint

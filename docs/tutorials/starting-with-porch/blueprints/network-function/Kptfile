@@ -1,8 +1,0 @@
-apiVersion: kpt.dev/v1
-kind: Kptfile
-
-metadata:
-  name: network-function
-
-info:
-  description: Network Function Blueprint
