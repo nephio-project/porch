@@ -136,7 +136,8 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 
 	rv, err := util.GetResourceVersion(&pkgResources)
 	if err != nil {
-		return errors.E(op, err)
+		errString := err.Error() + "\nuse \"porchctl rpkg pull\" to download the remote package metadata before pushing"
+		return errors.E(op, err, errString)
 	}
 	pkgResources.ResourceVersion = rv
 	if err = util.RemoveRevisionMetadata(&pkgResources); err != nil {
