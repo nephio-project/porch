@@ -1,6 +1,6 @@
 module github.com/nephio-project/porch/api
 
-go 1.21
+go 1.22
 
 require (
 	k8s.io/apimachinery v0.29.2
