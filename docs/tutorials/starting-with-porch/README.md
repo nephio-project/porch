@@ -32,7 +32,6 @@ The following software should be installed prior to running through the tutorial
 6. [The go programming language](https://go.dev/)
 7. [Visual Studio Code](https://code.visualstudio.com/download)
 8. [VS Code extensions for go](https://code.visualstudio.com/docs/languages/go)
-9. [yq yaml query utility](https://mikefarah.gitbook.io/yq/)
 
 ## Clone the repo and cd into the tutorial
 
@@ -1337,15 +1336,20 @@ management-8b80738a6e0707e3718ae1db3668d0b8ca3f1c82   network-function   v1     
 
 This command creates a new PackageRevision CR in porch and also creates a branch called `network-function/v1` in our gitea `management` repo. Use the Gitea web UI to confirm that the branch has been created and note that it only has default content as yet.
 
-> This step is a workaround for a possible bug. The `porchctl rpkg push` command expects a `.KptRevisionMetadata` file to exist in the directory from which we are pushing the package contents. The following command reads the `KptRevisionMetadata` from the PackageRevision we have just created and stores it in that file:
+We now pull the package we have initialized from Porch.
 
+``` 
+porchctl -n porch-demo rpkg pull management-8b80738a6e0707e3718ae1db3668d0b8ca3f1c82 blueprints/initialized/network-function
 ```
-porchctl -n porch-demo rpkg pull management-8b80738a6e0707e3718ae1db3668d0b8ca3f1c82 | yq '.items[0]' > blueprints/network-function/.KptRevisionMetadata
+
+We update the initialized package and add our local changes.
+```
+cp blueprints/local-changes/network-function/* blueprints/initialized/network-function 
 ```
 
 Now, we push the package contents to porch:
 ```
-porchctl -n porch-demo rpkg push management-8b80738a6e0707e3718ae1db3668d0b8ca3f1c82 blueprints/network-function
+porchctl -n porch-demo rpkg push management-8b80738a6e0707e3718ae1db3668d0b8ca3f1c82 blueprints/initialized/network-function
 ```
 
 Check on the Gitea web UI and we can see that the actual package contents have been pushed.
@@ -1381,9 +1385,11 @@ We use the same sequence of commands again to publish our blueprint package for 
 porchctl -n porch-demo rpkg init network-function-auto-namespace --repository=management --workspace=v1
 management-c97bc433db93f2e8a3d413bed57216c2a72fc7e3 created
 
-porchctl -n porch-demo rpkg pull management-c97bc433db93f2e8a3d413bed57216c2a72fc7e3 | yq '.items[0]' > blueprints/network-function-auto-namespace/.KptRevisionMetadata
+porchctl -n porch-demo rpkg pull management-c97bc433db93f2e8a3d413bed57216c2a72fc7e3 blueprints/initialized/network-function-auto-namespace
 
-porchctl -n porch-demo rpkg push management-c97bc433db93f2e8a3d413bed57216c2a72fc7e3 blueprints/network-function-auto-namespace
+cp blueprints/local-changes/network-function-auto-namespace/* blueprints/initialized/network-function-auto-namespace
+
+porchctl -n porch-demo rpkg push management-c97bc433db93f2e8a3d413bed57216c2a72fc7e3 blueprints/initialized/network-function-auto-namespace
 ```
 
 Examine the `drafts/network-function-auto-namespace/v1` branch in Gitea. Notice that the `set-namespace` Kpt finction in the pipeline in the `Kptfile` has set the namespace in the `deployment.yaml` file to the value `default-namespace-name`, which it read from the `package-context.yaml` file.
@@ -1411,20 +1417,26 @@ management-c97bc433db93f2e8a3d413bed57216c2a72fc7e3   network-function-auto-name
 The process of deploying a blueprint package from our `management` repo clones the package, then modifies it for use on the workload cluster. The cloned package is then initialized, pushed, proposed, and approved onto the `edge1` repo. Remember that the `edge1` repo is being monitored by Configsync from the `edge1` cluster, so once the package appears in the `edge1` repo on the management cluster, it will be pulled by Configsync and applied to the `edge1` cluster.
 
 ```
-porchctl -n porch-demo rpkg pull management-8b80738a6e0707e3718ae1db3668d0b8ca3f1c82 tmp_pacakges_for_deployment/edge1-network-function-a
+porchctl -n porch-demo rpkg pull management-8b80738a6e0707e3718ae1db3668d0b8ca3f1c82 tmp_packages_for_deployment/edge1-network-function-a.clone.tmp
 
-find tmp_pacakges_for_deployment/edge1-network-function-a
+find tmp_packages_for_deployment/edge1-network-function-a.clone.tmp
 
-tmp_pacakges_for_deployment/edge1-network-function-a
-tmp_pacakges_for_deployment/edge1-network-function-a/deployment.yaml
-tmp_pacakges_for_deployment/edge1-network-function-a/.KptRevisionMetadata
-tmp_pacakges_for_deployment/edge1-network-function-a/README.md
-tmp_pacakges_for_deployment/edge1-network-function-a/Kptfile
+tmp_packages_for_deployment/edge1-network-function-a.clone.tmp
+tmp_packages_for_deployment/edge1-network-function-a.clone.tmp/deployment.yaml
+tmp_packages_for_deployment/edge1-network-function-a.clone.tmp/.KptRevisionMetadata
+tmp_packages_for_deployment/edge1-network-function-a.clone.tmp/README.md
+tmp_packages_for_deployment/edge1-network-function-a.clone.tmp/Kptfile
+tmp_packages_for_deployment/edge1-network-function-a.clone.tmp/package-context.yaml
 ```
-The package we created in the last section is cloned. We now use a kpt function to change the namespace that will be used for the deployment of the network function.
+The package we created in the last section is cloned. We now remove the original metadata from the package.
+```
+rm tmp_packages_for_deployment/edge1-network-function-a.clone.tmp/.KptRevisionMetadata
+```
+
+We use a kpt function to change the namespace that will be used for the deployment of the network function.
 
 ```
-kpt fn eval --image=gcr.io/kpt-fn/set-namespace:v0.4.1 tmp_pacakges_for_deployment/edge1-network-function-a -- namespace=edge1-network-function-a 
+kpt fn eval --image=gcr.io/kpt-fn/set-namespace:v0.4.1 tmp_packages_for_deployment/edge1-network-function-a.clone.tmp -- namespace=edge1-network-function-a 
 
 [RUNNING] "gcr.io/kpt-fn/set-namespace:v0.4.1"
 [PASS] "gcr.io/kpt-fn/set-namespace:v0.4.1" in 300ms
@@ -1438,9 +1450,12 @@ We now initialize and push the package to the `edge1` repo:
 porchctl -n porch-demo rpkg init edge1-network-function-a --repository=edge1 --workspace=v1
 edge1-d701be9b849b8b8724a6e052cbc74ca127b737c3 created
 
-porchctl -n porch-demo rpkg pull edge1-d701be9b849b8b8724a6e052cbc74ca127b737c3 | yq '.items[0]' >  tmp_pacakges_for_deployment/edge1-network-function-a/.KptRevisionMetadata
+porchctl -n porch-demo rpkg pull edge1-d701be9b849b8b8724a6e052cbc74ca127b737c3 tmp_packages_for_deployment/edge1-network-function-a
 
-porchctl -n porch-demo rpkg push edge1-d701be9b849b8b8724a6e052cbc74ca127b737c3 tmp_pacakges_for_deployment/edge1-network-function-a
+cp tmp_packages_for_deployment/edge1-network-function-a.clone.tmp/* tmp_packages_for_deployment/edge1-network-function-a
+rm -fr tmp_packages_for_deployment/edge1-network-function-a.clone.tmp
+
+porchctl -n porch-demo rpkg push edge1-d701be9b849b8b8724a6e052cbc74ca127b737c3 tmp_packages_for_deployment/edge1-network-function-a
 
 porchctl -n porch-demo rpkg get --name edge1-network-function-a
 NAME                                             PACKAGE              WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
@@ -1496,18 +1511,37 @@ network-function-9779fc9f5-4rqp2   1/1     Running   0          44s
 The process for deploying a blueprint with a Kpt pipeline runs the Kpt pipeline automatically with whatever configuration we give it. Rather than explicitly running a Kpt function to change the namespace, we will specify the namespace as configuration and the pipeline will apply it to the deployment.
 
 ```
-porchctl -n porch-demo rpkg pull management-c97bc433db93f2e8a3d413bed57216c2a72fc7e3 tmp_pacakges_for_deployment/edge1-network-function-auto-namespace-a
+porchctl -n porch-demo rpkg pull management-c97bc433db93f2e8a3d413bed57216c2a72fc7e3 tmp_packages_for_deployment/edge1-network-function-auto-namespace-a.clone.tmp
 
-find tmp_pacakges_for_deployment/edge1-network-function-auto-namespace-a
+find tmp_packages_for_deployment/edge1-network-function-auto-namespace-a.clone.tmp
 
-tmp_pacakges_for_deployment/edge1-network-function-auto-namespace-a
-tmp_pacakges_for_deployment/edge1-network-function-auto-namespace-a/deployment.yaml
-tmp_pacakges_for_deployment/edge1-network-function-auto-namespace-a/.KptRevisionMetadata
-tmp_pacakges_for_deployment/edge1-network-function-auto-namespace-a/README.md
-tmp_pacakges_for_deployment/edge1-network-function-auto-namespace-a/Kptfile
-tmp_pacakges_for_deployment/edge1-network-function-auto-namespace-a/package-context.yaml
+tmp_packages_for_deployment/edge1-network-function-auto-namespace-a.clone.tmp
+tmp_packages_for_deployment/edge1-network-function-auto-namespace-a.clone.tmp/deployment.yaml
+tmp_packages_for_deployment/edge1-network-function-auto-namespace-a.clone.tmp/.KptRevisionMetadata
+tmp_packages_for_deployment/edge1-network-function-auto-namespace-a.clone.tmp/README.md
+tmp_packages_for_deployment/edge1-network-function-auto-namespace-a.clone.tmp/Kptfile
+tmp_packages_for_deployment/edge1-network-function-auto-namespace-a.clone.tmp/package-context.yaml
 ```
-The package we created in the last section is cloned. We now simply configure the namespace we want to apply. edit the `edge1-network-function-auto-namespace-a/package-context.yaml` file and set the namespace to use:
+
+We now remove the original metadata from the package.
+```
+rm tmp_packages_for_deployment/edge1-network-function-auto-namespace-a.clone.tmp/.KptRevisionMetadata
+```
+
+The package we created in the last section is cloned. We now initialize and push the package to the `edge1` repo:
+
+```
+porchctl -n porch-demo rpkg init edge1-network-function-auto-namespace-a --repository=edge1 --workspace=v1
+edge1-48997da49ca0a733b0834c1a27943f1a0e075180 created
+
+porchctl -n porch-demo rpkg pull edge1-48997da49ca0a733b0834c1a27943f1a0e075180 tmp_packages_for_deployment/edge1-network-function-auto-namespace-a
+
+cp tmp_packages_for_deployment/edge1-network-function-auto-namespace-a.clone.tmp/* tmp_packages_for_deployment/edge1-network-function-auto-namespace-a
+rm -fr tmp_packages_for_deployment/edge1-network-function-auto-namespace-a.clone.tmp
+```
+
+
+We now simply configure the namespace we want to apply. edit the `tmp_packages_for_deployment/edge1-network-function-auto-namespace-a/package-context.yaml` file and set the namespace to use:
 
 ```
 8c8
@@ -1516,15 +1550,10 @@ The package we created in the last section is cloned. We now simply configure th
 >   name: edge1-network-function-auto-namespace-a
 ```
 
-We now initialize and push the package to the `edge1` repo:
+We now push the package to the `edge1` repo:
 
 ```
-porchctl -n porch-demo rpkg init edge1-network-function-auto-namespace-a --repository=edge1 --workspace=v1
-edge1-48997da49ca0a733b0834c1a27943f1a0e075180 created
-
-porchctl -n porch-demo rpkg pull edge1-48997da49ca0a733b0834c1a27943f1a0e075180 | yq '.items[0]' >  tmp_pacakges_for_deployment/edge1-network-function-auto-namespace-a/.KptRevisionMetadata
-
-porchctl -n porch-demo rpkg push edge1-48997da49ca0a733b0834c1a27943f1a0e075180 tmp_pacakges_for_deployment/edge1-network-function-auto-namespace-a
+porchctl -n porch-demo rpkg push edge1-48997da49ca0a733b0834c1a27943f1a0e075180 tmp_packages_for_deployment/edge1-network-function-auto-namespace-a
 [RUNNING] "gcr.io/kpt-fn/set-namespace:v0.4.1" 
 [PASS] "gcr.io/kpt-fn/set-namespace:v0.4.1"
   Results:
@@ -1716,13 +1745,13 @@ metadata:
 We now want to customize and deploy our two packages. To do this we must pull the pacakges locally, render the kpt functions, and then push the rendered packages back up to the `edge1` repo.
 
 ```
-porchctl rpkg pull edge1-a31b56c7db509652f00724dd49746660757cd98a tmp_pacakges_for_deployment/edge1-network-function-b --namespace=porch-demo
-kpt fn eval --image=gcr.io/kpt-fn/set-namespace:v0.4.1 tmp_pacakges_for_deployment/edge1-network-function-b -- namespace=network-function-b
-porchctl rpkg push edge1-a31b56c7db509652f00724dd49746660757cd98a tmp_pacakges_for_deployment/edge1-network-function-b --namespace=porch-demo
+porchctl rpkg pull edge1-a31b56c7db509652f00724dd49746660757cd98a tmp_packages_for_deployment/edge1-network-function-b --namespace=porch-demo
+kpt fn eval --image=gcr.io/kpt-fn/set-namespace:v0.4.1 tmp_packages_for_deployment/edge1-network-function-b -- namespace=network-function-b
+porchctl rpkg push edge1-a31b56c7db509652f00724dd49746660757cd98a tmp_packages_for_deployment/edge1-network-function-b --namespace=porch-demo
 
-porchctl rpkg pull edge1-ee14f7ce850ddb0a380cf201d86f48419dc291f4 tmp_pacakges_for_deployment/edge1-network-function-c --namespace=porch-demo
-kpt fn eval --image=gcr.io/kpt-fn/set-namespace:v0.4.1 tmp_pacakges_for_deployment/edge1-network-function-c -- namespace=network-function-c
-porchctl rpkg push edge1-ee14f7ce850ddb0a380cf201d86f48419dc291f4 tmp_pacakges_for_deployment/edge1-network-function-c --namespace=porch-demo
+porchctl rpkg pull edge1-ee14f7ce850ddb0a380cf201d86f48419dc291f4 tmp_packages_for_deployment/edge1-network-function-c --namespace=porch-demo
+kpt fn eval --image=gcr.io/kpt-fn/set-namespace:v0.4.1 tmp_packages_for_deployment/edge1-network-function-c -- namespace=network-function-c
+porchctl rpkg push edge1-ee14f7ce850ddb0a380cf201d86f48419dc291f4 tmp_packages_for_deployment/edge1-network-function-c --namespace=porch-demo
 ```
 
 Check that the namespace has been updated on the two packages in the `edge1` repo using the Gitea web UI.
