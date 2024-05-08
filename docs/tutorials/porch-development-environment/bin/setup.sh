@@ -113,7 +113,8 @@ fi
 
 ############################################
 h1 Generate certs and keys
-"${self_dir}/../../../../deployments/local/makekeys.sh"
+cd "${self_dir}/../../../../"
+deployments/local/makekeys.sh
 
 ############################################
 h1 "Clean up"
