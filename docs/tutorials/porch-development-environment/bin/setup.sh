@@ -112,9 +112,12 @@ else
 fi
 
 ############################################
+h1 Generate certs and keys
+"${self_dir}/../../../../deployments/local/makekeys.sh"
+
+############################################
 h1 "Clean up"
 cd "$self_dir"
 rm -fr "$TMP_DIR"
-
 echo
 echo Done.
