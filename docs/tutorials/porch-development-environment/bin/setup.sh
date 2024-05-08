@@ -1,4 +1,4 @@
-#! /bin/bash
+#! /bin/bash -e
 
 # Copyright 2024 The kpt and Nephio Authors
 #
@@ -14,23 +14,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-os_type=$(uname)
-if [ "$os_type" = "Darwin" ]
-then
-  SED="gsed"
+porch_cluster_name=porch-test
+git_repo_name="$porch_cluster_name"
+gitea_ip=172.18.255.200  # should be from the address range specified here: https://github.com/nephio-project/porch/blob/main/docs/tutorials/starting-with-porch/metallb-conf.yaml
+self_dir="$(dirname "$(readlink -f "$0")")"
+
+function h1() {
+  echo
+  echo "** $*"
+  echo 
+}
+
+##############################################
+h1 "Install kind cluster: $porch_cluster_name"
+if ! kind get clusters | grep -q "^$porch_cluster_name\$" ; then
+  curl -s https://raw.githubusercontent.com/nephio-project/porch/main/docs/tutorials/starting-with-porch/kind_management_cluster.yaml | \
+    kind create cluster --config=- --name "$porch_cluster_name" || true
+
+  mkdir -p ~/.kube
+  kind get kubeconfig --name="$porch_cluster_name" > ~/.kube/"kind-$porch_cluster_name"
 else
-  SED="sed"
+  echo "Cluster already exists."
 fi
+kind export kubeconfig --name="$porch_cluster_name"
 
-# Create mgmt cluster in kind
-curl -s https://raw.githubusercontent.com/nephio-project/porch/main/docs/tutorials/starting-with-porch/kind_management_cluster.yaml | \
-  kind create cluster --config=-
-
-kind get kubeconfig --name=management > ~/.kube/kind-management-config
-
-export KUBECONFIG=~/.kube/kind-management-config
-
-# Instal MetalLB
+##############################################
+h1 Instal MetalLB
 kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.13.12/config/manifests/metallb-native.yaml
 kubectl wait --namespace metallb-system \
                 --for=condition=ready pod \
@@ -39,47 +48,51 @@ kubectl wait --namespace metallb-system \
 
 kubectl apply -f https://raw.githubusercontent.com/nephio-project/porch/main/docs/tutorials/starting-with-porch/metallb-conf.yaml
 
+############################################
+h1 Prepare tmp dir
 TMP_DIR=$(mktemp -d)
+echo "$TMP_DIR"
 
-pushd "$TMP_DIR" || exit
 
-mkdir kpt_packages
-pushd kpt_packages || exit
-
-# Install Gitea
+############################################
+h1 Install Gitea
+mkdir "$TMP_DIR/kpt_packages"
+cd "$TMP_DIR/kpt_packages"
 kpt pkg get https://github.com/nephio-project/catalog/tree/main/distros/sandbox/gitea
-$SED -i 's/ metallb.universe.tf/ #metallb.universe.tf/' gitea/service-gitea.yaml
+kpt fn eval gitea \
+  --image gcr.io/kpt-fn/set-annotations:v0.1.4 \
+  --match-kind Service \
+  --match-name gitea \
+  --match-namespace gitea \
+  -- "metallb.universe.tf/loadBalancerIPs=${gitea_ip}"
 kpt fn render gitea
 kpt live init gitea
 kpt live apply gitea
 
-popd || exit
+############################################
+h1 Create git repo in gitea
+curl -k -H "content-type: application/json" "http://nephio:secret@${gitea_ip}:3000/api/v1/user/repos" --data "{\"name\":\"$git_repo_name\"}"
 
-# Create management repo in gitea
-curl -k -H "content-type: application/json" "http://nephio:secret@172.18.255.200:3000/api/v1/user/repos" --data '{"name":"management"}'
+mkdir "$TMP_DIR/repos"
+cd "$TMP_DIR/repos"
 
-mkdir repos
-pushd repos || exit
+git clone "http://nephio:secret@${gitea_ip}:3000/nephio/$git_repo_name"
+cd "$git_repo_name"
 
-# Initialize management repo in Gitea
-git clone http://172.18.255.200:3000/nephio/management
-pushd management || exit
+if ! git rev-parse -q --verify refs/remotes/origin/main >/dev/null; then
+  git switch -c  main
+  touch README.md
+  git add README.md
+  git config user.name nephio
+  git commit -m "first commit"
+  git push -u origin main
+else
+  echo "main branch already exists in git repo."
+fi
 
-touch README.md
-git init
-git checkout -b main
-git config user.name nephio
-git add README.md
-
-git commit -m "first commit"
-git remote remove origin
-git remote add origin http://nephio:secret@172.18.255.200:3000/nephio/management.git
-git remote -v
-git push -u origin main
-popd || exit
-
-popd || exit
-
+h1 "Clean up"
+cd "$self_dir"
 rm -fr "$TMP_DIR"
 
-kubectl config use-context kind-management
+echo
+echo Done.
