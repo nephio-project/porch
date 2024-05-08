@@ -25,6 +25,18 @@ function h1() {
   echo 
 }
 
+# check if git user.name is set in your environment
+if ! git config --global user.name > /dev/null ; then
+  cat << ENDOFEMSG
+Please set the user.name and user.email global configuration values in your git environment.
+This is needed for porch tests to run correctly. 
+E.g:
+  git config --global user.name "My Name"
+  git config --global user.email "myemail@example.com"
+ENDOFEMSG
+  exit 128
+fi
+
 ##############################################
 h1 "Install kind cluster: $porch_cluster_name"
 if ! kind get clusters | grep -q "^$porch_cluster_name\$" ; then
@@ -46,14 +58,12 @@ echo "Waiting for controller to become ready..."
 kubectl wait --namespace metallb-system deploy controller \
                 --for=condition=available \
                 --timeout=90s
-
 kubectl apply -f https://raw.githubusercontent.com/nephio-project/porch/main/docs/tutorials/starting-with-porch/metallb-conf.yaml
 
 ############################################
 h1 Prepare tmp dir
 TMP_DIR=$(mktemp -d)
 echo "$TMP_DIR"
-
 
 ############################################
 h1 Install Gitea
@@ -73,7 +83,6 @@ kpt fn eval gitea \
   --match-kind Cluster \
   --match-api-version kind.x-k8s.io/v1alpha4 \
   -- "config.kubernetes.io/local-config=true"
-
 kpt fn eval gitea \
   --image gcr.io/kpt-fn/apply-replacements:v0.1.1 \
   --fn-config "${self_dir}/replace-gitea-service-ports.yaml"
@@ -83,12 +92,11 @@ kpt live init gitea
 kpt live apply gitea
 
 ############################################
-h1 Create git repo in gitea
+h1 Create git repos in gitea
 curl -k -H "content-type: application/json" "http://nephio:secret@${gitea_ip}:3000/api/v1/user/repos" --data "{\"name\":\"$git_repo_name\"}"
 
 mkdir "$TMP_DIR/repos"
 cd "$TMP_DIR/repos"
-
 git clone "http://nephio:secret@${gitea_ip}:3000/nephio/$git_repo_name"
 cd "$git_repo_name"
 
@@ -103,6 +111,7 @@ else
   echo "main branch already exists in git repo."
 fi
 
+############################################
 h1 "Clean up"
 cd "$self_dir"
 rm -fr "$TMP_DIR"
