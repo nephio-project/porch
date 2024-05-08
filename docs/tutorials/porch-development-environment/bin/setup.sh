@@ -41,9 +41,10 @@ kind export kubeconfig --name="$porch_cluster_name"
 ##############################################
 h1 Instal MetalLB
 kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.13.12/config/manifests/metallb-native.yaml
-kubectl wait --namespace metallb-system \
-                --for=condition=ready pod \
-                --selector=component=controller \
+sleep 1
+echo "Waiting for controller to become ready..."
+kubectl wait --namespace metallb-system deploy controller \
+                --for=condition=available \
                 --timeout=90s
 
 kubectl apply -f https://raw.githubusercontent.com/nephio-project/porch/main/docs/tutorials/starting-with-porch/metallb-conf.yaml
