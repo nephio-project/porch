@@ -22,15 +22,11 @@ else
   SED="sed"
 fi
 
-# Create mgmt and edge1 clusters in kind
+# Create mgmt cluster in kind
 curl -s https://raw.githubusercontent.com/nephio-project/porch/main/docs/tutorials/starting-with-porch/kind_management_cluster.yaml | \
   kind create cluster --config=-
 
-curl -s https://raw.githubusercontent.com/nephio-project/porch/main/docs/tutorials/starting-with-porch/kind_edge1_cluster.yaml | \
-  kind create cluster --config=-
-
 kind get kubeconfig --name=management > ~/.kube/kind-management-config
-kind get kubeconfig --name=edge1 > ~/.kube/kind-edge1-config
 
 export KUBECONFIG=~/.kube/kind-management-config
 
@@ -59,14 +55,13 @@ kpt live apply gitea
 
 popd || exit
 
-# Create management and edge1 repos in gitea
+# Create management repo in gitea
 curl -k -H "content-type: application/json" "http://nephio:secret@172.18.255.200:3000/api/v1/user/repos" --data '{"name":"management"}'
-curl -k -H "content-type: application/json" "http://nephio:secret@172.18.255.200:3000/api/v1/user/repos" --data '{"name":"edge1"}'
 
 mkdir repos
 pushd repos || exit
 
-# Initialize management and edge1 repos in Gitea
+# Initialize management repo in Gitea
 git clone http://172.18.255.200:3000/nephio/management
 pushd management || exit
 
@@ -79,22 +74,6 @@ git add README.md
 git commit -m "first commit"
 git remote remove origin
 git remote add origin http://nephio:secret@172.18.255.200:3000/nephio/management.git
-git remote -v
-git push -u origin main
-popd || exit
-
-git clone http://172.18.255.200:3000/nephio/edge1
-pushd edge1 || exit
-
-touch README.md
-git init
-git checkout -b main
-git config user.name nephio
-git add README.md
-
-git commit -m "first commit"
-git remote remove origin
-git remote add origin http://nephio:secret@172.18.255.200:3000/nephio/edge1.git
 git remote -v
 git push -u origin main
 popd || exit
