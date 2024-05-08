@@ -65,6 +65,18 @@ kpt fn eval gitea \
   --match-name gitea \
   --match-namespace gitea \
   -- "metallb.universe.tf/loadBalancerIPs=${gitea_ip}"
+curl -o gitea/cluster-config.yaml https://raw.githubusercontent.com/nephio-project/porch/main/docs/tutorials/starting-with-porch/kind_management_cluster.yaml
+echo "metadata: { name: "porch-test" }" >> gitea/cluster-config.yaml
+kpt fn eval gitea \
+  --image gcr.io/kpt-fn/set-annotations:v0.1.4 \
+  --match-kind Cluster \
+  --match-api-version kind.x-k8s.io/v1alpha4 \
+  -- "config.kubernetes.io/local-config=true"
+
+kpt fn eval gitea \
+  --image gcr.io/kpt-fn/apply-replacements:v0.1.1 \
+  --fn-config "${self_dir}/replace-gitea-service-ports.yaml"
+
 kpt fn render gitea
 kpt live init gitea
 kpt live apply gitea
