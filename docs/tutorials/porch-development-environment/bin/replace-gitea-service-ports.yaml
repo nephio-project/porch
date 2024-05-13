@@ -1,0 +1,21 @@
+apiVersion: fn.kpt.dev/v1alpha1
+kind: ApplyReplacements
+metadata:
+  name: replace-gitea-service
+replacements:
+- source:
+    group: kind.x-k8s.io
+    kind: Cluster
+    fieldPath: nodes.0.extraPortMappings.0.containerPort
+  targets:
+  - select: 
+      kind: Service
+      name: gitea
+      namespace: gitea
+    fieldPaths:
+    - spec.ports.[name=http].nodePort
+    options:
+      create: true
+    
+
+    
