@@ -218,16 +218,16 @@ function main() {
   done
 
   customize-image \
-    "gcr.io/example-google-project-id/porch-function-runner:latest" \
+    "nephio-project/porch-function-runner:latest" \
     "${FUNCTION_IMAGE}"
   customize-image \
-    "gcr.io/example-google-project-id/porch-server:latest" \
+    "nephio-project/porch-server:latest" \
     "${SERVER_IMAGE}"
   customize-image \
-    "gcr.io/example-google-project-id/porch-controllers:latest" \
+    "nephio-project/porch-controllers:latest" \
     "${CONTROLLERS_IMAGE}"
   customize-image-in-env \
-    "gcr.io/example-google-project-id/porch-wrapper-server:latest" \
+    "nephio-project/porch-wrapper-server:latest" \
     "${WRAPPER_SERVER_IMAGE}"
 
   if [ -n "${CONTROLLERS_SA}" ]; then
