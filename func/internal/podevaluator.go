@@ -318,7 +318,7 @@ func (pcm *podCacheManager) podCacheManager() {
 func (pcm *podCacheManager) garbageCollector() {
 	var err error
 	podList := &corev1.PodList{}
-	err = pcm.podManager.kubeClient.List(context.Background(), podList, client.InNamespace(pcm.podManager.namespace))
+	err = pcm.podManager.kubeClient.List(context.Background(), podList, client.InNamespace(pcm.podManager.namespace), client.HasLabels{krmFunctionLabel})
 	if err != nil {
 		klog.Warningf("unable to list pods in namespace %v: %v", pcm.podManager.namespace, err)
 		return
