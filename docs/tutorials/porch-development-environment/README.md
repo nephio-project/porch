@@ -9,11 +9,11 @@ and running to which a Porch instance running in Visual Studio Code can connect 
 
 # Setup kind with MetalLB and Gitea
 
-Follow steps 1-5 inclusive of the [Starting with Porch](https://github.com/nephio-project/porch/tree/main/docs/tutorials/starting-with-porch) tutorial. You now have two Kind clusters `management` and `edge1` running with Gitea installed on the `management` cluster. Gitea has the repositories `management` and `edge1` defined.
+Follow steps 1-5 inclusive of the [Starting with Porch](https://github.com/nephio-project/porch/tree/main/docs/tutorials/starting-with-porch) tutorial. You now have the Kind cluster `management` running with Gitea installed on it. Gitea has the repository `management` defined.
 
 > **_NOTE:_** This [setup script](bin/setup.sh) automates steps 1-5 of the Starting with Porch tutorial. You may need to adapt this script to your local environment and also have [pre requisites](https://github.com/nephio-project/porch/tree/main/docs/tutorials/starting-with-porch#prerequisites) installed on the target machine.
 
-> **_NOTE:_** This [cleardown script script](bin/cleardown.sh) clears everything down by deleting the `management` and `edge1` Kind clusters. USE WITH CARE.
+> **_NOTE:_** This [cleardown script script](bin/cleardown.sh) clears everything down by deleting the `management` Kind cluster. USE WITH CARE.
 
 Switch to use the kind-management context if necessary:
 ```
@@ -492,7 +492,6 @@ porchctl repo get -A
 Sample output:
 ```
 NAME                  TYPE   CONTENT   DEPLOYMENT   READY   ADDRESS
-edge1                 git    Package   true         True    http://172.18.255.200:3000/nephio/edge1.git
 external-blueprints   git    Package   false        True    https://github.com/nephio-project/free5gc-packages.git
 management            git    Package   false        True    http://172.18.255.200:3000/nephio/management.git
 ```
@@ -506,7 +505,6 @@ kubectl get  repositories -n porch-demo
 Sample output:
 ```
 NAME                  TYPE   CONTENT   DEPLOYMENT   READY   ADDRESS
-edge1                 git    Package   true         True    http://172.18.255.200:3000/nephio/edge1.git
 external-blueprints   git    Package   false        True    https://github.com/nephio-project/free5gc-packages.git
 management            git    Package   false        True    http://172.18.255.200:3000/nephio/management.git
 ```
