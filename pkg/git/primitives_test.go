@@ -403,7 +403,7 @@ func TestDeleteUpstreamBranches(t *testing.T) {
 	switch err := downstream.Fetch(&git.FetchOptions{
 		RemoteName: OriginName,
 		Tags:       git.NoTags,
-		Prune:      git.Prune,
+		Prune:      true,
 	}); err {
 	case nil, git.NoErrAlreadyUpToDate:
 		// ok
