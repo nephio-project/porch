@@ -49,12 +49,10 @@ var _ rest.GracefulDeleter = &packageRevisions{}
 var _ rest.Watcher = &packageRevisions{}
 var _ rest.SingularNameProvider = &packageRevisions{}
 
-
 // GetSingularName implements the SingularNameProvider interface
-func (r *packageRevisions) GetSingularName() (string) {
+func (r *packageRevisions) GetSingularName() string {
 	return "packagerevision"
 }
-
 
 func (r *packageRevisions) New() runtime.Object {
 	return &api.PackageRevision{}
@@ -120,7 +118,7 @@ func (r *packageRevisions) Get(ctx context.Context, name string, options *metav1
 }
 
 // Create implements the Creater interface.
-func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Object, createValidation rest.ValidateObjectFunc, 
+func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Object, createValidation rest.ValidateObjectFunc,
 	options *metav1.CreateOptions) (runtime.Object, error) {
 	ctx, span := tracer.Start(ctx, "packageRevisions::Create", trace.WithAttributes())
 	defer span.End()
@@ -184,13 +182,12 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 // Update finds a resource in the storage and updates it. Some implementations
 // may allow updates creates the object - they should set the created boolean
 // to true.
-func (r *packageRevisions) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, 
+func (r *packageRevisions) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc,
 	updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
 	ctx, span := tracer.Start(ctx, "packageRevisions::Update", trace.WithAttributes())
 	defer span.End()
 
-	return r.packageCommon.updatePackageRevision(ctx, name, objInfo, createValidation, updateValidation, forceAllowCreate,
-	)
+	return r.packageCommon.updatePackageRevision(ctx, name, objInfo, createValidation, updateValidation, forceAllowCreate)
 }
 
 // Delete implements the GracefulDeleter interface.

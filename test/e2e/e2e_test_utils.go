@@ -17,8 +17,6 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"time"
-	"strings"
 	"github.com/google/go-cmp/cmp"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -30,6 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
+	"time"
 )
 
 func (t *TestSuite) validateFinalizers(ctx context.Context, name string, finalizers []string) {

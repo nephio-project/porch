@@ -23,7 +23,7 @@ import (
 	"strings"
 	"testing"
 	"time"
-	
+
 	"github.com/google/go-cmp/cmp"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -2380,4 +2380,3 @@ func (t *PorchSuite) TestPackageRevisionFinalizers(ctx context.Context) {
 		Namespace: pr.Namespace,
 	}, 10*time.Second)
 }
-

@@ -46,7 +46,7 @@ type packageCommon struct {
 	createStrategy SimpleRESTCreateStrategy
 }
 
-func (r *packageCommon) listPackageRevisions(ctx context.Context, filter packageRevisionFilter, 
+func (r *packageCommon) listPackageRevisions(ctx context.Context, filter packageRevisionFilter,
 	selector labels.Selector, callback func(p *engine.PackageRevision) error) error {
 	var opts []client.ListOption
 	if ns, namespaced := genericapirequest.NamespaceFrom(ctx); namespaced {
@@ -200,7 +200,7 @@ func (r *packageCommon) getPackage(ctx context.Context, name string) (*engine.Pa
 }
 
 // Common implementation of PackageRevision update logic.
-func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, 
+func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo,
 	createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool) (runtime.Object, bool, error) {
 	// TODO: Is this all boilerplate??
 
@@ -222,8 +222,8 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 		}
 	}
 
-    // We have to be runtime.Object (and not *api.PackageRevision) or else nil-checks fail (because a nil object is not a nil interface)
-	var oldApiPkgRev runtime.Object 
+	// We have to be runtime.Object (and not *api.PackageRevision) or else nil-checks fail (because a nil object is not a nil interface)
+	var oldApiPkgRev runtime.Object
 	if !isCreate {
 		oldApiPkgRev, err = oldRepoPkgRev.GetPackageRevision(ctx)
 		if err != nil {
@@ -315,7 +315,7 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 }
 
 // Common implementation of Package update logic.
-func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, 
+func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo,
 	createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool) (runtime.Object, bool, error) {
 	// TODO: Is this all boilerplate??
 
@@ -338,7 +338,7 @@ func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo 
 	}
 
 	// We have to be runtime.Object (and not *api.PackageRevision) or else nil-checks fail (because a nil object is not a nil interface)
-	var oldRuntimeObj runtime.Object 
+	var oldRuntimeObj runtime.Object
 	if !isCreate {
 		oldRuntimeObj = oldPackage.GetPackage()
 	}
