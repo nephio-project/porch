@@ -31,7 +31,10 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
+
+	"github.com/fsnotify/fsnotify"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
@@ -67,6 +70,7 @@ type WebhookConfig struct {
 	Path             string
 	Port             int32
 	CertStorageDir   string
+	CertManWebhook 	 bool
 }
 
 func NewWebhookConfig() *WebhookConfig {
@@ -90,18 +94,28 @@ func NewWebhookConfig() *WebhookConfig {
 	cfg.Path = serverEndpoint
 	cfg.Port = getEnvInt32("WEBHOOK_PORT", 8443)
 	cfg.CertStorageDir = getEnv("CERT_STORAGE_DIR", "/tmp/cert")
+	cfg.CertManWebhook = getEnvBool("USE_CERT_MAN_FOR_WEBHOOK", false)
 	return &cfg
 }
 
+var (
+	mu          sync.Mutex
+	cert        tls.Certificate
+	certModTime time.Time
+)
+
 func setupWebhooks(ctx context.Context) error {
 	cfg := NewWebhookConfig()
-	caBytes, err := createCerts(cfg)
-	if err != nil {
-		return err
+	if !cfg.CertManWebhook {
+		caBytes, err := createCerts(cfg)
+		if err != nil {
+			return err
+		}
+		if err := createValidatingWebhook(ctx, cfg, caBytes); err != nil {
+			return err
+		}
 	}
-	if err := createValidatingWebhook(ctx, cfg, caBytes); err != nil {
-		return err
-	}
+	
 	if err := runWebhookServer(cfg); err != nil {
 		return err
 	}
@@ -279,29 +293,130 @@ func createValidatingWebhook(ctx context.Context, cfg *WebhookConfig, caCert []b
 	return nil
 }
 
+// load the certificate from the secret and update when secret cert data changes e.g.
+func loadCertificate(certPath, keyPath string) (tls.Certificate, error) {
+	// get info about cert manager certificate secret mounted as a volume on the porch server pod
+	certInfo, err := os.Stat(certPath)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	// if the last time this secret was modified was after the last time we loaded its cert files
+	// we lock access to the mount path and load the keypair from the files in our tls then release the lock
+	// set this new loaded cert as our current cert and note the modtime for next reload
+	if certInfo.ModTime().After(certModTime) {
+		mu.Lock()
+		defer mu.Unlock()
+		newCert, err := tls.LoadX509KeyPair(certPath, keyPath)
+		if err != nil {
+			return tls.Certificate{}, err
+		}
+		cert = newCert
+		certModTime = certInfo.ModTime()
+	}
+	return cert, nil
+}
+
+// watch for changes on the mount path of the secret as volume
+func watchCertificates(directory, certFile, keyFile string) {
+	//set up a watcher for the cert
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		klog.Fatalf("failed to start certificate watcher: %v", err)
+	}
+	defer watcher.Close()
+
+	// if the watcher notices any changes on the mount dir of the secret such as creations or writes to the files in this dir
+	// attempt to load tls cert using the new cert and key files provided and log output
+	done := make(chan bool)
+	go func() {
+		for {
+			select {
+			case event, ok := <-watcher.Events:
+				if !ok {
+					return
+				}
+				if event.Op&fsnotify.Create == fsnotify.Create || event.Op&fsnotify.Write == fsnotify.Write {
+					_, err := loadCertificate(certFile, keyFile)
+					if err != nil {
+						klog.Errorf("Failed to load updated certificate: %v", err)
+					} else {
+						klog.Info("Certificate reloaded successfully")
+					}
+				}
+			case err, ok := <-watcher.Errors:
+				if !ok {
+					return
+				}
+				klog.Errorf("Watcher error: %v", err)
+			}
+		}
+	}()
+	// start the watcher with the dir to watch
+	err = watcher.Add(directory)
+	if err != nil {
+		klog.Fatalf("Error in running watcher: %v", err)
+	}
+
+	<-done
+}
+// return current cert
+func getCertificate(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+	mu.Lock()
+	defer mu.Unlock()
+	return &cert, nil
+}
+
 func runWebhookServer(cfg *WebhookConfig) error {
 	certFile := filepath.Join(cfg.CertStorageDir, "tls.crt")
 	keyFile := filepath.Join(cfg.CertStorageDir, "tls.key")
+	// load the cert for the first time
 
-	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-	if err != nil {
+	if cfg.CertManWebhook {
+		_, err := loadCertificate(certFile, keyFile)
+		if err != nil {
+			klog.Errorf("failed to load certificate: %v", err)
+		}
+		// Start watching the certificate files for changes
+		// watch for changes in directory where secret is mounted
+		go watchCertificates(cfg.CertStorageDir, certFile, keyFile)
+
+		klog.Infoln("Starting webhook server")
+		http.HandleFunc(serverEndpoint, validateDeletion)
+		server := http.Server{
+			Addr: fmt.Sprintf(":%d", cfg.Port),
+			TLSConfig: &tls.Config{
+				GetCertificate: getCertificate,
+			},
+		}
+		go func() {
+			err = server.ListenAndServeTLS("", "")
+			if err != nil {
+				klog.Errorf("could not start server: %v", err)
+			}
+		}()
+		return err
+
+	} else {
+		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+		if err != nil {
+			return err
+		}
+		klog.Infoln("Starting webhook server")
+		http.HandleFunc(cfg.Path, validateDeletion)
+		server := http.Server{
+			Addr: fmt.Sprintf(":%d", cfg.Port),
+			TLSConfig: &tls.Config{
+				Certificates: []tls.Certificate{cert},
+			},
+		}
+		go func() {
+			err = server.ListenAndServeTLS("", "")
+			if err != nil {
+				klog.Errorf("could not start server: %v", err)
+			}
+		}()
 		return err
 	}
-	klog.Infoln("Starting webhook server")
-	http.HandleFunc(cfg.Path, validateDeletion)
-	server := http.Server{
-		Addr: fmt.Sprintf(":%d", cfg.Port),
-		TLSConfig: &tls.Config{
-			Certificates: []tls.Certificate{cert},
-		},
-	}
-	go func() {
-		err = server.ListenAndServeTLS("", "")
-		if err != nil {
-			klog.Errorf("could not start server: %v", err)
-		}
-	}()
-	return err
 }
 
 func validateDeletion(w http.ResponseWriter, r *http.Request) {
@@ -434,6 +549,18 @@ func getEnv(key string, defaultValue string) string {
 		return defaultValue
 	}
 	return value
+}
+
+func getEnvBool(key string, defaultValue bool) bool {
+	value, found := os.LookupEnv(key)
+	if !found {
+		return defaultValue
+	}
+	boolean, err := strconv.ParseBool(value)
+	if err != nil {
+		panic("could not parse boolean from environment variable: " + key)
+	}
+	return boolean
 }
 
 func getEnvInt32(key string, defaultValue int32) int32 {
