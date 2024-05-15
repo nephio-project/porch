@@ -1,6 +1,6 @@
 module github.com/nephio-project/porch
 
-go 1.21
+go 1.22
 
 replace github.com/nephio-project/porch/api => ./api
 

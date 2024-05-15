@@ -319,7 +319,7 @@ func evalExpr(expr string, inputs map[string]interface{}) (string, error) {
 		return "", err
 	}
 
-	result, err := val.ConvertToNative(reflect.TypeOf(""))
+	result, err := val.ConvertToNative(reflect.TypeFor[string]())
 	if err != nil {
 		return "", err
 	}
