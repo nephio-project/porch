@@ -25,7 +25,7 @@ unit: test
 .PHONY: test
 test: ## Run unit tests (go test)
 ifeq ($(CONTAINER_RUNNABLE), 0)
-		$(RUN_CONTAINER_COMMAND) docker.io/nephio/gotests:1671656214984921088 \
+		$(RUN_CONTAINER_COMMAND) docker.io/nephio/gotests:1782782171367346176 \
          sh -e -c "git config --global --add user.name test; \
 	 git config --global --add user.email test@nephio.org; \
 	 go test ./... -v -coverprofile ${TEST_COVERAGE_FILE}; \
