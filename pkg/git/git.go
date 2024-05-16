@@ -883,7 +883,7 @@ func (r *gitRepository) fetchRemoteRepository(ctx context.Context) error {
 		return r.repo.Fetch(&git.FetchOptions{
 			RemoteName: OriginName,
 			Auth:       auth,
-			Prune:      git.Prune,
+			Prune:      true,
 		})
 	}); err {
 	case nil: // OK

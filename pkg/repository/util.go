@@ -20,7 +20,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"golang.org/x/mod/semver"
@@ -110,7 +109,7 @@ func NextRevisionNumber(revs []string) (string, error) {
 //
 // '/ ' should never be allowed, because we use '/' to
 // delimit branch names (e.g. the 'drafts/' prefix).
-func ValidateWorkspaceName(workspace v1alpha1.WorkspaceName) error {
+func ValidateWorkspaceName(workspace api.WorkspaceName) error {
 	wn := string(workspace)
 	if len(wn) > 63 || len(wn) == 0 {
 		return fmt.Errorf("workspaceName %q must be at least 1 and at most 63 characters long", wn)
