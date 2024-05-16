@@ -97,6 +97,7 @@ func NewPodEvaluator(namespace, wrapperServerImage string, interval, ttl time.Du
 				namespace:          namespace,
 				wrapperServerImage: wrapperServerImage,
 				podReadyCh:         readyCh,
+				podReadyTimeout:    60 * time.Second,
 			},
 		},
 	}
@@ -392,6 +393,8 @@ type podManager struct {
 	// Only podManager is allowed to touch this cache.
 	// Its underlying type is map[string]*digestAndEntrypoint.
 	imageMetadataCache sync.Map
+
+	podReadyTimeout time.Duration
 }
 
 type digestAndEntrypoint struct {
@@ -618,7 +621,7 @@ func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl
 func (pm *podManager) podIpIfRunningAndReady(ctx context.Context, podKey client.ObjectKey) (ip string, e error) {
 	var pod corev1.Pod
 	// Wait until the pod is Running
-	if e := wait.PollImmediate(100*time.Millisecond, 60*time.Second, func() (done bool, err error) {
+	if e := wait.PollImmediate(100*time.Millisecond, pm.podReadyTimeout, func() (done bool, err error) {
 		err = pm.kubeClient.Get(ctx, podKey, &pod)
 		if err != nil {
 			return false, err
