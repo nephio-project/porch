@@ -204,10 +204,10 @@ func RemovePackagerevFinalizers(t *testing.T, namespace string) {
 }
 
 func realySplit(s, sep string) []string {
-    if len(s) == 0 {
-        return []string{}
-    }
-    return strings.Split(s, sep)
+	if len(s) == 0 {
+		return []string{}
+	}
+	return strings.Split(s, sep)
 }
 
 func RegisterRepository(t *testing.T, repoURL, namespace, name string) {

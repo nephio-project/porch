@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022-2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,7 +41,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/nephio-project/porch/controllers/fleetsyncs/pkg/controllers/fleetsync"
 	"github.com/nephio-project/porch/controllers/packagevariants/pkg/controllers/packagevariant"
 	"github.com/nephio-project/porch/controllers/packagevariantsets/pkg/controllers/packagevariantset"
 	"github.com/nephio-project/porch/pkg/controllerrestmapper"
@@ -52,7 +51,6 @@ var (
 	reconcilers = map[string]Reconciler{
 		"packagevariants":    &packagevariant.PackageVariantReconciler{},
 		"packagevariantsets": &packagevariantset.PackageVariantSetReconciler{},
-		"fleetsyncs":         fleetsync.NewFleetSyncReconciler(),
 	}
 )
 

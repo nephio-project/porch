@@ -59,7 +59,7 @@ func (a *packageRevisionsApproval) Get(ctx context.Context, name string, options
 // Update finds a resource in the storage and updates it. Some implementations
 // may allow updates creates the object - they should set the created boolean
 // to true.
-func (a *packageRevisionsApproval) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, 
+func (a *packageRevisionsApproval) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc,
 	updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
 	allowCreate := false // do not allow create on update
 	return a.common.updatePackageRevision(ctx, name, objInfo, createValidation, updateValidation, allowCreate)

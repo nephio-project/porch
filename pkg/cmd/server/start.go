@@ -43,8 +43,8 @@ import (
 
 const (
 	defaultEtcdPathPrefix = "/registry/porch.kpt.dev"
-	OpenAPITitle   = "Porch"
-	OpenAPIVersion = "0.1"
+	OpenAPITitle          = "Porch"
+	OpenAPIVersion        = "0.1"
 )
 
 // PorchServerOptions contains state for master/api server
@@ -168,7 +168,7 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 	}
 
 	serverConfig := genericapiserver.NewRecommendedConfig(apiserver.Codecs)
-	
+
 	serverConfig.OpenAPIConfig = genericapiserver.DefaultOpenAPIConfig(sampleopenapi.GetOpenAPIDefinitions, openapi.NewDefinitionNamer(apiserver.Scheme))
 	serverConfig.OpenAPIConfig.Info.Title = OpenAPITitle
 	serverConfig.OpenAPIConfig.Info.Version = OpenAPIVersion

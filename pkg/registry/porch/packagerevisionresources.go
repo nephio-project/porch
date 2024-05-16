@@ -46,12 +46,10 @@ var _ rest.Scoper = &packageRevisionResources{}
 var _ rest.Updater = &packageRevisionResources{}
 var _ rest.SingularNameProvider = &packageRevisionResources{}
 
-
 // GetSingularName implements the SingularNameProvider interface
-func (r *packageRevisionResources) GetSingularName() (string) {
+func (r *packageRevisionResources) GetSingularName() string {
 	return "packagerevisionresources"
 }
-
 
 func (r *packageRevisionResources) New() runtime.Object {
 	return &api.PackageRevisionResources{}

@@ -46,7 +46,7 @@ var _ rest.GracefulDeleter = &packages{}
 var _ rest.SingularNameProvider = &packages{}
 
 // GetSingularName implements the SingularNameProvider interface
-func (r *packages) GetSingularName() (string) {
+func (r *packages) GetSingularName() string {
 	return "package"
 }
 
@@ -157,7 +157,7 @@ func (r *packages) Create(ctx context.Context, runtimeObject runtime.Object, cre
 // Update finds a resource in the storage and updates it. Some implementations
 // may allow updates creates the object - they should set the created boolean
 // to true.
-func (r *packages) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, 
+func (r *packages) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc,
 	updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
 	ctx, span := tracer.Start(ctx, "packages::Update", trace.WithAttributes())
 	defer span.End()

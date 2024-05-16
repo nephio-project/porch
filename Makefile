@@ -64,7 +64,7 @@ SKIP_IMG_BUILD ?= false
 # Only enable a subset of reconcilers in porch controllers by default. Use the RECONCILERS
 # env variable to specify a specific list of reconcilers or use
 # RECONCILERS=* to enable all known reconcilers.
-ALL_RECONCILERS="packagevariants,packagevariantsets,fleetsyncs"
+ALL_RECONCILERS="packagevariants,packagevariantsets"
 ifndef RECONCILERS
   ENABLED_RECONCILERS="packagevariants,packagevariantsets"
 else
