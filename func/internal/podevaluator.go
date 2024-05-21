@@ -20,7 +20,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -101,7 +100,7 @@ func NewPodEvaluator(namespace, wrapperServerImage string, interval, ttl time.Du
 				wrapperServerImage:      wrapperServerImage,
 				podReadyCh:              readyCh,
 				functionPodTemplateName: functionPodTemplateName,
-				podReadyTimeout:    60 * time.Second,
+				podReadyTimeout:         60 * time.Second,
 			},
 		},
 	}
@@ -643,7 +642,7 @@ func (pm *podManager) getBasePodTemplate(ctx context.Context) (*corev1.Pod, erro
 
 // Patches the expected port, and the original entrypoint of the kpt function into the function container
 func (pm *podManager) patchNewPodArgs(pod *corev1.Pod, de digestAndEntrypoint) error {
-	slices.IndexFunc(pod.Spec.Containers, func(c corev1.Container)))
+	var patchedContainer bool
 	for _, container := range pod.Spec.Containers {
 		if container.Name == functionContainerName {
 			container.Args = append(container.Args,
@@ -651,17 +650,26 @@ func (pm *podManager) patchNewPodArgs(pod *corev1.Pod, de digestAndEntrypoint) e
 				"--",
 			)
 			container.Args = append(container.Args, de.entrypoint...)
+			patchedContainer = true
 		}
 	}
+	if !patchedContainer {
+		return fmt.Errorf("haven't found the function container in the pod")
+	}
+	return nil
 }
 
-//
-func (pm *podManager) patchNewPodImage(pod corev1.Pod, image string) error {
+func (pm *podManager) patchNewPodImage(pod *corev1.Pod, image string) error {
+	var patchedContainer bool
 	for _, container := range pod.Spec.Containers {
 		if container.Name == functionContainerName {
 			container.Image = image
 		}
 	}
+	if !patchedContainer {
+		return fmt.Errorf("haven't found the function container in the pod")
+	}
+	return nil
 }
 
 // Patch labels and annotations so the cache manager can keep track of the pod
