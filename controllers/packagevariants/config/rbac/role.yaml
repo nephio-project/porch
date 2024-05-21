@@ -67,3 +67,11 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - config.porch.kpt.dev
+  resources:
+  - repositories
+  verbs:
+  - list
+  - watch
+  - get
