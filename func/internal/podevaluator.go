@@ -20,6 +20,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -37,6 +38,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -51,6 +53,7 @@ const (
 	krmFunctionLabel         = "fn.kpt.dev/image"
 	reclaimAfterAnnotation   = "fn.kpt.dev/reclaim-after"
 	fieldManagerName         = "krm-function-runner"
+	functionContainerName    = "function"
 
 	channelBufferSize = 128
 )
@@ -63,7 +66,7 @@ type podEvaluator struct {
 
 var _ Evaluator = &podEvaluator{}
 
-func NewPodEvaluator(namespace, wrapperServerImage string, interval, ttl time.Duration, podTTLConfig string) (Evaluator, error) {
+func NewPodEvaluator(namespace, wrapperServerImage string, interval, ttl time.Duration, podTTLConfig string, functionPodTemplateName string) (Evaluator, error) {
 	restCfg, err := config.GetConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get rest config: %w", err)
@@ -93,10 +96,11 @@ func NewPodEvaluator(namespace, wrapperServerImage string, interval, ttl time.Du
 			waitlists:      map[string][]chan<- *clientConnAndError{},
 
 			podManager: &podManager{
-				kubeClient:         cl,
-				namespace:          namespace,
-				wrapperServerImage: wrapperServerImage,
-				podReadyCh:         readyCh,
+				kubeClient:              cl,
+				namespace:               namespace,
+				wrapperServerImage:      wrapperServerImage,
+				podReadyCh:              readyCh,
+				functionPodTemplateName: functionPodTemplateName,
 				podReadyTimeout:    60 * time.Second,
 			},
 		},
@@ -395,6 +399,13 @@ type podManager struct {
 	imageMetadataCache sync.Map
 
 	podReadyTimeout time.Duration
+
+	// The name of the configmap in the same namespace as the function-runner is running.
+	// It should contain a pod manifest yaml in .data.template
+	// The pod manifest is expected to set up wrapper-server as the entrypoint
+	// of the main container, which must be called "function".
+	// Pod manager will replace the image
+	functionPodTemplateName string
 }
 
 type digestAndEntrypoint struct {
@@ -516,87 +527,14 @@ func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl
 		}
 	}
 
-	cmd := append([]string{
-		filepath.Join(volumeMountPath, wrapperServerBin),
-		"--port", defaultWrapperServerPort, "--",
-	}, de.entrypoint...)
-
-	// Create a pod
-	pod := &corev1.Pod{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "Pod",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pm.namespace,
-			Annotations: map[string]string{
-				reclaimAfterAnnotation: fmt.Sprintf("%v", time.Now().Add(ttl).Unix()),
-				// Add the following annotation to make it work well with the cluster autoscaler.
-				// https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/FAQ.md#what-types-of-pods-can-prevent-ca-from-removing-a-node
-				"cluster-autoscaler.kubernetes.io/safe-to-evict": "true",
-			},
-			// The function runner can use the label to retrieve the pod. Label is function name + part of its digest.
-			// If a function has more than one tags pointing to the same digest, we can reuse the same pod.
-			// TODO: controller-runtime provides field indexer, we can potentially use it to index spec.containers[*].image field.
-			Labels: map[string]string{
-				krmFunctionLabel: podId,
-			},
-		},
-		Spec: corev1.PodSpec{
-			// We use initContainer to copy the wrapper server binary into the KRM function image.
-			InitContainers: []corev1.Container{
-				{
-					Name:  "copy-wrapper-server",
-					Image: pm.wrapperServerImage,
-					Command: []string{
-						"cp",
-						"-a",
-						"/wrapper-server/.",
-						volumeMountPath,
-					},
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      volumeName,
-							MountPath: volumeMountPath,
-						},
-					},
-				},
-			},
-			Containers: []corev1.Container{
-				{
-					Name:    "function",
-					Image:   image,
-					Command: cmd,
-					ReadinessProbe: &corev1.Probe{
-						ProbeHandler: corev1.ProbeHandler{
-							// TODO: use the k8s native GRPC prober when it has been rolled out in GKE.
-							// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-a-grpc-liveness-probe
-							Exec: &corev1.ExecAction{
-								Command: []string{
-									filepath.Join(volumeMountPath, gRPCProbeBin),
-									"-addr", net.JoinHostPort("localhost", defaultWrapperServerPort),
-								},
-							},
-						},
-					},
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      volumeName,
-							MountPath: volumeMountPath,
-						},
-					},
-				},
-			},
-			Volumes: []corev1.Volume{
-				{
-					Name: volumeName,
-					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
-					},
-				},
-			},
-		},
+	pod, err := pm.getBasePodTemplate(ctx)
+	if err != nil {
+		return client.ObjectKey{}, fmt.Errorf("Failed to generate a base pod template")
 	}
+	pm.patchNewPodImage(pod, image)
+	pm.patchNewPodArgs(pod, *de)
+	pm.patchNewPodMetadata(pod, ttl, podId)
+
 	// Server-side apply doesn't support name generation. We have to use Create
 	// if we need to use name generation.
 	if useGenerateName {
@@ -615,6 +553,133 @@ func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl
 
 	klog.Infof("created KRM function evaluator pod %v/%v for %q", pod.Namespace, pod.Name, image)
 	return client.ObjectKeyFromObject(pod), nil
+}
+
+// Either gets the pod template from configmap, or aligns it to the
+func (pm *podManager) getBasePodTemplate(ctx context.Context) (*corev1.Pod, error) {
+	if pm.functionPodTemplateName != "" {
+		podTemplateCm := &corev1.ConfigMap{}
+		err := pm.kubeClient.Get(ctx, client.ObjectKey{
+			Name: pm.functionPodTemplateName,
+		}, podTemplateCm)
+		if err != nil {
+			klog.Errorf("Could not get Configmap containing function pod template: %s", pm.functionPodTemplateName)
+			return nil, err
+		}
+		decoder := yamlutil.NewYAMLOrJSONDecoder(strings.NewReader(podTemplateCm.Data["template"]), 100)
+		var basePodTemplate corev1.Pod
+		decoder.Decode(&basePodTemplate)
+		return &basePodTemplate, nil
+	} else {
+
+		inlineBasePodTemplate := &corev1.Pod{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "v1",
+				Kind:       "Pod",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					"cluster-autoscaler.kubernetes.io/safe-to-evict": "true",
+				},
+			},
+			Spec: corev1.PodSpec{
+				InitContainers: []corev1.Container{
+					{
+						Name:  "copy-wrapper-server",
+						Image: pm.wrapperServerImage,
+						Command: []string{
+							"cp",
+							"-a",
+							"/wrapper-server/.",
+							volumeMountPath,
+						},
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      volumeName,
+								MountPath: volumeMountPath,
+							},
+						},
+					},
+				},
+				Containers: []corev1.Container{
+					{
+						Name:    functionContainerName,
+						Image:   "to-be-replaced",
+						Command: []string{filepath.Join(volumeMountPath, wrapperServerBin)},
+						ReadinessProbe: &corev1.Probe{
+							ProbeHandler: corev1.ProbeHandler{
+								// TODO: use the k8s native GRPC prober when it has been rolled out in GKE.
+								// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-a-grpc-liveness-probe
+								Exec: &corev1.ExecAction{
+									Command: []string{
+										filepath.Join(volumeMountPath, gRPCProbeBin),
+										"-addr", net.JoinHostPort("localhost", defaultWrapperServerPort),
+									},
+								},
+							},
+						},
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      volumeName,
+								MountPath: volumeMountPath,
+							},
+						},
+					},
+				},
+				Volumes: []corev1.Volume{
+					{
+						Name: volumeName,
+						VolumeSource: corev1.VolumeSource{
+							EmptyDir: &corev1.EmptyDirVolumeSource{},
+						},
+					},
+				},
+			},
+		}
+
+		return inlineBasePodTemplate, nil
+	}
+}
+
+// Patches the expected port, and the original entrypoint of the kpt function into the function container
+func (pm *podManager) patchNewPodArgs(pod *corev1.Pod, de digestAndEntrypoint) error {
+	slices.IndexFunc(pod.Spec.Containers, func(c corev1.Container)))
+	for _, container := range pod.Spec.Containers {
+		if container.Name == functionContainerName {
+			container.Args = append(container.Args,
+				"--port", defaultWrapperServerPort,
+				"--",
+			)
+			container.Args = append(container.Args, de.entrypoint...)
+		}
+	}
+}
+
+//
+func (pm *podManager) patchNewPodImage(pod corev1.Pod, image string) error {
+	for _, container := range pod.Spec.Containers {
+		if container.Name == functionContainerName {
+			container.Image = image
+		}
+	}
+}
+
+// Patch labels and annotations so the cache manager can keep track of the pod
+func (pm *podManager) patchNewPodMetadata(pod *corev1.Pod, ttl time.Duration, podId string) {
+	pod.ObjectMeta.Namespace = pm.namespace
+	annotations := pod.ObjectMeta.Annotations
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	annotations[reclaimAfterAnnotation] = fmt.Sprintf("%v", time.Now().Add(ttl).Unix())
+	pod.ObjectMeta.Annotations = annotations
+
+	labels := pod.ObjectMeta.Labels
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	labels[krmFunctionLabel] = podId
+	pod.ObjectMeta.Labels = labels
 }
 
 // podIpIfRunningAndReady waits for the pod to be running and ready and returns the pod IP and a potential error.
