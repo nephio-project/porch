@@ -32,6 +32,7 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
@@ -41,6 +42,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/nephio-project/porch/api/porch"
 	"github.com/nephio-project/porch/controllers/fleetsyncs/pkg/controllers/fleetsync"
 	"github.com/nephio-project/porch/controllers/packagevariants/pkg/controllers/packagevariant"
 	"github.com/nephio-project/porch/controllers/packagevariantsets/pkg/controllers/packagevariantset"
@@ -118,11 +120,11 @@ func run(ctx context.Context) error {
 	}
 
 	managerOptions := ctrl.Options{
-		Scheme:                     scheme,
-		Metrics: 					metricsserver.Options{
+		Scheme: scheme,
+		Metrics: metricsserver.Options{
 			BindAddress: ":8080",
 		},
-		WebhookServer: 				webhook.NewServer(webhook.Options{
+		WebhookServer: webhook.NewServer(webhook.Options{
 			Port: 9443,
 		}),
 		HealthProbeBindAddress:     ":8081",
@@ -130,6 +132,12 @@ func run(ctx context.Context) error {
 		LeaderElectionID:           "porch-operators.config.porch.kpt.dev",
 		LeaderElectionResourceLock: resourcelock.LeasesResourceLock,
 		MapperProvider:             controllerrestmapper.New,
+		Client: client.Options{
+			Cache: &client.CacheOptions{
+				DisableFor: []client.Object{
+					&porch.PackageRevisionResources{}},
+			},
+		},
 	}
 
 	ctrl.SetLogger(klogr.New())
