@@ -17,6 +17,8 @@
 porch_cluster_name=${PORCH_TEST_CLUSTER:-porch-test}
 git_repo_name="$porch_cluster_name"
 gitea_ip=172.18.255.200  # should be from the address range specified here: docs/tutorials/starting-with-porch/metallb-conf.yaml
+function_runner_ip=172.18.255.201
+
 self_dir="$(dirname "$(readlink -f "$0")")"
 git_root="$(readlink -f "${self_dir}/../../../..")"
 cd "${git_root}"
@@ -127,6 +129,110 @@ rm -fr "$TMP_DIR"
 h1 Generate certs and keys
 cd "${git_root}"
 deployments/local/makekeys.sh
+
+############################################
+h1 Install CRDs
+kubectl apply -f api/porchconfig/v1alpha1/config.porch.kpt.dev_repositories.yaml
+kubectl apply -f api/porchconfig/v1alpha1/config.porch.kpt.dev_functions.yaml
+kubectl apply -f controllers/config/crd/bases/config.porch.kpt.dev_packagevariants.yaml
+kubectl apply -f controllers/config/crd/bases/config.porch.kpt.dev_packagevariantsets.yaml
+kubectl apply -f internal/api/porchinternal/v1alpha1/config.porch.kpt.dev_packagerevs.yaml
+
+
+############################################
+h1 Load container images into kind cluster
+export IMAGE_TAG=v2.0.0
+export KIND_CONTEXT_NAME="$porch_cluster_name"
+if ! docker exec -it "$porch_cluster_name-control-plane" crictl images | grep -q docker.io/nephio/test-git-server ; then
+  make build-images 
+  kind load docker-image docker.io/nephio/porch-controllers:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
+  kind load docker-image docker.io/nephio/porch-function-runner:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
+  kind load docker-image docker.io/nephio/porch-wrapper-server:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
+  kind load docker-image docker.io/nephio/test-git-server:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
+else
+  echo "Images already loaded into kind cluster."
+fi
+
+############################################
+h1 Install all porch components, except porch-server
+
+make deployment-config-no-sa
+cd .build/deploy-no-sa
+# expose function-runner to local processes
+kpt fn eval \
+  --image gcr.io/kpt-fn/starlark:v0.5.0 \
+  --match-kind Service \
+  --match-name function-runner \
+  --match-namespace porch-system \
+  -- "ip=${function_runner_ip}"  'source=
+ip = ctx.resource_list["functionConfig"]["data"]["ip"]
+for resource in ctx.resource_list["items"]:
+  resource["metadata"].setdefault("annotations", {})["metallb.universe.tf/loadBalancerIPs"] = ip
+  resource["spec"]["type"] = "LoadBalancer"
+  resource["spec"]["ports"][0]["nodePort"] = 30001'
+# "remove" porch-server from package
+kpt fn eval \
+  --image gcr.io/kpt-fn/set-annotations:v0.1.4 \
+  --match-kind Deployment \
+  --match-name porch-server \
+  --match-namespace porch-system \
+  -- "config.kubernetes.io/local-config=true"
+# make the api service point to the local porch-server
+if [ "$(uname)" = "Darwin" ]
+then
+  # MAC
+  kpt fn eval \
+    --image gcr.io/kpt-fn/starlark:v0.5.0 \
+    --match-kind Service \
+    --match-name api \
+    --match-namespace porch-system \
+    -- 'source=
+for resource in ctx.resource_list["items"]:
+  resource["spec"] = {
+    "type": "ExternalName",
+    "externalName": "host.docker.internal"
+  }
+'
+
+else
+  # Linux
+  docker_bridge_ip="$(docker network inspect bridge --format='{{(index .IPAM.Config 0).Gateway}}')"
+  kpt fn eval \
+    --image gcr.io/kpt-fn/starlark:v0.5.0 \
+    --match-kind Service \
+    --match-name api \
+    --match-namespace porch-system \
+    -- "ip=$docker_bridge_ip" 'source=
+ip = ctx.resource_list["functionConfig"]["data"]["ip"]
+for resource in ctx.resource_list["items"]:
+  resource["spec"].pop("selector")
+ctx.resource_list["items"].append({
+    "apiVersion": "v1",
+    "kind": "Endpoints",
+    "metadata": {
+        "name": "api",
+        "namespace": "porch-system",
+    },
+    "subsets": [
+        {
+            "addresses": [{"ip": ip}],
+            "ports": [
+                {
+                    "appProtocol": "https",
+                    "port": 4443,
+                    "protocol": "TCP",
+                    "name": "api"
+                }
+            ]
+        }
+    ]
+})
+'
+fi
+kpt fn render 
+kpt live init || true
+kpt live apply --inventory-policy=adopt --output=table
+
 
 ############################################
 echo

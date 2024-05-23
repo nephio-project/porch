@@ -22,12 +22,12 @@
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/porch/main.go",
             "args": [
-                "--secure-port=9443",
+                "--secure-port=4443",
                 "--v=7",
                 "--standalone-debug-mode",
                 "--kubeconfig=${env:KUBECONFIG}",
                 "--cache-directory=${workspaceFolder}/.cache",
-                "--function-runner=localhost:30001",
+                "--function-runner=172.18.255.201:9445",
                 "--repo-sync-frequency=60s"
             ],
             "cwd": "${workspaceFolder}"
