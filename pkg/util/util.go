@@ -18,6 +18,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
+	"os"
 )
 
 // KubernetesName returns the passed id if it less than maxLen, otherwise
@@ -39,4 +40,12 @@ func KubernetesName(id string, hashLen, maxLen int) string {
 	hash := sha1.Sum([]byte(id))
 	stubIdx := maxLen - hashLen - 1
 	return fmt.Sprintf("%s-%s", id[:stubIdx], hex.EncodeToString(hash[:])[:hashLen])
+}
+
+func GetInClusterNamespace() (string, error) {
+	ns, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	if err != nil {
+		return "", fmt.Errorf("failed to read namespace: %w", err)
+	}
+	return string(ns), nil
 }

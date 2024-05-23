@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -11,6 +12,7 @@ import (
 
 	pb "github.com/nephio-project/porch/func/evaluator"
 	"google.golang.org/grpc"
+	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,18 +64,86 @@ func TestPodManager(t *testing.T) {
 		},
 	}
 
+	basePodTemplate := &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Pod",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				"cluster-autoscaler.kubernetes.io/safe-to-evict": "true",
+			},
+		},
+		Spec: corev1.PodSpec{
+			InitContainers: []corev1.Container{
+				{
+					Name:  "copy-wrapper-server",
+					Image: "wrapper-server-init",
+					Command: []string{
+						"cp",
+						"-a",
+						"/wrapper-server/.",
+						volumeMountPath,
+					},
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      volumeName,
+							MountPath: volumeMountPath,
+						},
+					},
+				},
+			},
+			Containers: []corev1.Container{
+				{
+					Name:    functionContainerName,
+					Image:   "to-be-replaced",
+					Command: []string{filepath.Join(volumeMountPath, wrapperServerBin)},
+					ReadinessProbe: &corev1.Probe{
+						ProbeHandler: corev1.ProbeHandler{
+							// TODO: use the k8s native GRPC prober when it has been rolled out in GKE.
+							// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-a-grpc-liveness-probe
+							Exec: &corev1.ExecAction{
+								Command: []string{
+									filepath.Join(volumeMountPath, gRPCProbeBin),
+									"-addr", net.JoinHostPort("localhost", defaultWrapperServerPort),
+								},
+							},
+						},
+					},
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      volumeName,
+							MountPath: volumeMountPath,
+						},
+					},
+				},
+			},
+			Volumes: []corev1.Volume{
+				{
+					Name: volumeName,
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				},
+			},
+		},
+	}
+
 	tests := []struct {
-		name               string
-		expectFail         bool
-		skip               bool
-		kubeClient         client.WithWatch
-		namespace          string
-		wrapperServerImage string
-		imageMetadataCache map[string]*digestAndEntrypoint
-		evalFunc           func(ctx context.Context, req *pb.EvaluateFunctionRequest) (*pb.EvaluateFunctionResponse, error)
-		functionImage      string
-		podPatch           *corev1.Pod
-		useGenerateName    bool
+		name                    string
+		expectFail              bool
+		skip                    bool
+		kubeClient              client.WithWatch
+		namespace               string
+		wrapperServerImage      string
+		imageMetadataCache      map[string]*digestAndEntrypoint
+		evalFunc                func(ctx context.Context, req *pb.EvaluateFunctionRequest) (*pb.EvaluateFunctionResponse, error)
+		functionImage           string
+		podPatch                *corev1.Pod
+		useGenerateName         bool
+		functionPodTemplateName string
+		managerNamespace        string
+		podPatchAfter           time.Duration
 	}{
 		{
 			name:          "Connect to existing pod",
@@ -114,6 +184,58 @@ func TestPodManager(t *testing.T) {
 			useGenerateName:    true,
 		},
 		{
+			name:          "Pod is in deleting state",
+			skip:          false,
+			expectFail:    false,
+			functionImage: "apply-replacements",
+			kubeClient: fake.NewClientBuilder().WithObjects([]client.Object{&corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "apply-replacements-5245a527",
+					Namespace: "porch-fn-system",
+					Labels: map[string]string{
+						krmFunctionLabel: "apply-replacements-5245a527",
+					},
+					DeletionTimestamp: &metav1.Time{Time: time.Now()},
+					Finalizers:        []string{"test-finalizer"},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "function",
+							Image: "apply-replacements",
+						},
+					},
+				},
+				Status: corev1.PodStatus{
+					Phase: corev1.PodRunning,
+					Conditions: []corev1.PodCondition{
+						{
+							Type:   corev1.PodReady,
+							Status: corev1.ConditionFalse,
+						},
+					},
+					PodIP: "localhost",
+				},
+			}}...).Build(),
+			namespace:          "porch-fn-system",
+			wrapperServerImage: "wrapper-server",
+			imageMetadataCache: defaultImageMetadataCache,
+			evalFunc:           defaultSuccessEvalFunc,
+			useGenerateName:    true,
+			podPatch: &corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase: corev1.PodRunning,
+					Conditions: []corev1.PodCondition{
+						{
+							Type:   corev1.PodReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+					PodIP: "localhost",
+				},
+			},
+		},
+		{
 			name:               "Create a new pod",
 			skip:               false,
 			expectFail:         false,
@@ -138,6 +260,32 @@ func TestPodManager(t *testing.T) {
 			},
 		},
 		{
+			name:          "Create pod without name generation",
+			skip:          false,
+			expectFail:    false,
+			functionImage: "apply-replacements",
+			kubeClient: fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
+				Patch: fakeClientPatchFixInterceptor,
+			}).Build(),
+			namespace:          "porch-fn-system",
+			wrapperServerImage: "wrapper-server",
+			imageMetadataCache: defaultImageMetadataCache,
+			evalFunc:           defaultSuccessEvalFunc,
+			useGenerateName:    false,
+			podPatch: &corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase: corev1.PodRunning,
+					Conditions: []corev1.PodCondition{
+						{
+							Type:   corev1.PodReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+					PodIP: "localhost",
+				},
+			},
+		},
+		{
 			name:               "Pod startup takes too long",
 			skip:               false,
 			expectFail:         true,
@@ -148,6 +296,31 @@ func TestPodManager(t *testing.T) {
 			imageMetadataCache: defaultImageMetadataCache,
 			evalFunc:           defaultSuccessEvalFunc,
 			useGenerateName:    true,
+			podPatch: &corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase: corev1.PodPending,
+					Conditions: []corev1.PodCondition{
+						{
+							Type:   corev1.PodScheduled,
+							Status: corev1.ConditionTrue,
+						},
+					},
+					PodIP: "localhost",
+				},
+			},
+		},
+		{
+			name:               "Pod startup takes some time",
+			skip:               false,
+			expectFail:         true,
+			functionImage:      "apply-replacements",
+			kubeClient:         fake.NewClientBuilder().Build(),
+			namespace:          "porch-fn-system",
+			wrapperServerImage: "wrapper-server",
+			imageMetadataCache: defaultImageMetadataCache,
+			evalFunc:           defaultSuccessEvalFunc,
+			useGenerateName:    true,
+			podPatchAfter:      100 * time.Millisecond,
 			podPatch: &corev1.Pod{
 				Status: corev1.PodStatus{
 					Phase: corev1.PodPending,
@@ -262,6 +435,110 @@ func TestPodManager(t *testing.T) {
 			evalFunc:           defaultSuccessEvalFunc,
 			useGenerateName:    true,
 		},
+		{
+			name:                    "Function template configmap not found",
+			skip:                    false,
+			expectFail:              true,
+			functionImage:           "apply-replacements",
+			kubeClient:              fake.NewClientBuilder().Build(),
+			namespace:               "porch-fn-system",
+			wrapperServerImage:      "wrapper-server",
+			imageMetadataCache:      defaultImageMetadataCache,
+			evalFunc:                defaultSuccessEvalFunc,
+			useGenerateName:         true,
+			functionPodTemplateName: "function-pod-template",
+			managerNamespace:        defaultManagerNamespace,
+		},
+		{
+			name:          "Function template invalid resource type",
+			skip:          false,
+			expectFail:    true,
+			functionImage: "apply-replacements",
+			kubeClient: fake.NewClientBuilder().WithObjects([]client.Object{&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "function-pod-template",
+					Namespace: defaultManagerNamespace,
+				},
+				Data: map[string]string{
+					"template": string(marshalToYamlOrPanic(&corev1.Secret{
+						TypeMeta: metav1.TypeMeta{
+							Kind:       "Secret",
+							APIVersion: "v1",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-secret",
+							Namespace: "test-namespace",
+						},
+						Data: map[string][]byte{
+							"test-key": []byte("test-value"),
+						},
+					})),
+				},
+			}}...).Build(),
+			namespace:               "porch-fn-system",
+			wrapperServerImage:      "wrapper-server",
+			imageMetadataCache:      defaultImageMetadataCache,
+			evalFunc:                defaultSuccessEvalFunc,
+			useGenerateName:         true,
+			functionPodTemplateName: "function-pod-template",
+			managerNamespace:        defaultManagerNamespace,
+		},
+		{
+			name:          "Function template under invalid key",
+			skip:          false,
+			expectFail:    true,
+			functionImage: "apply-replacements",
+			kubeClient: fake.NewClientBuilder().WithObjects([]client.Object{&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "function-pod-template",
+					Namespace: defaultManagerNamespace,
+				},
+				Data: map[string]string{
+					"not-template": string(marshalToYamlOrPanic(basePodTemplate)),
+				},
+			}}...).Build(),
+			namespace:               "porch-fn-system",
+			wrapperServerImage:      "wrapper-server",
+			imageMetadataCache:      defaultImageMetadataCache,
+			evalFunc:                defaultSuccessEvalFunc,
+			useGenerateName:         true,
+			functionPodTemplateName: "function-pod-template",
+			managerNamespace:        defaultManagerNamespace,
+		},
+		{
+			name:          "Function template under invalid key",
+			skip:          false,
+			expectFail:    false,
+			functionImage: "apply-replacements",
+			kubeClient: fake.NewClientBuilder().WithObjects([]client.Object{&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "function-pod-template",
+					Namespace: defaultManagerNamespace,
+				},
+				Data: map[string]string{
+					"template": string(marshalToYamlOrPanic(basePodTemplate)),
+				},
+			}}...).Build(),
+			namespace:               "porch-fn-system",
+			wrapperServerImage:      "wrapper-server",
+			imageMetadataCache:      defaultImageMetadataCache,
+			evalFunc:                defaultSuccessEvalFunc,
+			useGenerateName:         true,
+			functionPodTemplateName: "function-pod-template",
+			managerNamespace:        defaultManagerNamespace,
+			podPatch: &corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase: corev1.PodRunning,
+					Conditions: []corev1.PodCondition{
+						{
+							Type:   corev1.PodReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+					PodIP: "localhost",
+				},
+			},
+		},
 	}
 	fakeServer := &fakeFunctionEvalServer{
 		port: defaultWrapperServerPort,
@@ -286,12 +563,14 @@ func TestPodManager(t *testing.T) {
 			//Set up the pod manager
 			podReadyCh := make(chan *imagePodAndGRPCClient)
 			pm := &podManager{
-				kubeClient:         tt.kubeClient,
-				namespace:          tt.namespace,
-				wrapperServerImage: tt.wrapperServerImage,
-				imageMetadataCache: sync.Map{},
-				podReadyCh:         podReadyCh,
-				podReadyTimeout:    1 * time.Second,
+				kubeClient:              tt.kubeClient,
+				namespace:               tt.namespace,
+				wrapperServerImage:      tt.wrapperServerImage,
+				imageMetadataCache:      sync.Map{},
+				podReadyCh:              podReadyCh,
+				podReadyTimeout:         1 * time.Second,
+				functionPodTemplateName: tt.functionPodTemplateName,
+				managerNamespace:        tt.managerNamespace,
 			}
 
 			for k, v := range tt.imageMetadataCache {
@@ -312,6 +591,9 @@ func TestPodManager(t *testing.T) {
 					ev := <-watchPod.ResultChan()
 					watchPod.Stop()
 
+					if tt.podPatchAfter > 0 {
+						<-time.After(tt.podPatchAfter)
+					}
 					pod := ev.Object.(*corev1.Pod)
 					//Not ideal, but fakeClient.Patch doesn't seem to do merging correctly
 					pod.Status = tt.podPatch.Status
@@ -342,4 +624,31 @@ func TestPodManager(t *testing.T) {
 
 		})
 	}
+}
+
+// Fake client handles pod patches incorrectly in case the pod doesn't exist
+func fakeClientPatchFixInterceptor(ctx context.Context, kubeClient client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+	if obj.GetObjectKind().GroupVersionKind().Kind == "Pod" {
+		var canary corev1.Pod
+		err := kubeClient.Get(ctx, client.ObjectKeyFromObject(obj), &canary)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				err = kubeClient.Create(ctx, obj)
+				if err != nil {
+					return err
+				}
+				return nil
+			}
+			return err
+		}
+	}
+	return nil
+}
+
+func marshalToYamlOrPanic(obj interface{}) []byte {
+	data, err := yaml.Marshal(obj)
+	if err != nil {
+		panic(err)
+	}
+	return data
 }
