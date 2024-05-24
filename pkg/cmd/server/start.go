@@ -56,6 +56,7 @@ type PorchServerOptions struct {
 	FunctionRunnerAddress    string
 	DefaultImagePrefix       string
 	RepoSyncFrequency        time.Duration
+	UseGitCaBundle           bool
 
 	SharedInformerFactory informers.SharedInformerFactory
 	StdOut                io.Writer
@@ -189,6 +190,7 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 			RepoSyncFrequency:     o.RepoSyncFrequency,
 			FunctionRunnerAddress: o.FunctionRunnerAddress,
 			DefaultImagePrefix:    o.DefaultImagePrefix,
+			UseGitCaBundle:        o.UseGitCaBundle,
 		},
 	}
 	return config, nil
@@ -234,5 +236,6 @@ func (o *PorchServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.FunctionRunnerAddress, "function-runner", "", "Address of the function runner gRPC service.")
 	fs.StringVar(&o.DefaultImagePrefix, "default-image-prefix", "gcr.io/kpt-fn/", "Default prefix for unqualified function names")
 	fs.StringVar(&o.CacheDirectory, "cache-directory", "", "Directory where Porch server stores repository and package caches.")
+	fs.BoolVar(&o.UseGitCaBundle, "use-git-cabundle", false, "Determine whether to use a user-defined CaBundle for TLS towards git.")
 	fs.DurationVar(&o.RepoSyncFrequency, "repo-sync-frequency", 60*time.Second, "Frequency in seconds at which registered repositories will be synced.")
 }

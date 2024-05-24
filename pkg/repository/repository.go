@@ -225,6 +225,7 @@ type FunctionRepository interface {
 type Credential interface {
 	Valid() bool
 	ToAuthMethod() transport.AuthMethod
+	ToString() string
 }
 
 type CredentialResolver interface {

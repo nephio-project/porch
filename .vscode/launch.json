@@ -23,13 +23,14 @@
             "program": "${workspaceFolder}/cmd/porch/main.go",
             "args": [
                 "--secure-port=9443",
-                "--v=7",
+                "--v=6",
                 "--standalone-debug-mode",
-                "--kubeconfig=${workspaceFolder}/deployments/local/kubeconfig",
+                "--kubeconfig=${userHome}/.kube/kind-porch-test",
                 "--cache-directory=${workspaceFolder}/.cache",
-                "--function-runner=192.168.8.202:9445"
+                "--function-runner=172.18.255.202:9445",
+                "--use-git-cabundle=true"
             ],
-            "cwd": "${workspaceFolder}"
+            "cwd": "${workspaceFolder}",
         },
         {
             "name": "Launch Func Client",
