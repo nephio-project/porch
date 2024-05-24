@@ -96,7 +96,7 @@ kpt fn eval gitea \
 
 kpt fn render gitea
 kpt live init gitea || true
-kpt live apply gitea --inventory-policy=adopt --output=table
+kpt live apply gitea --inventory-policy=adopt
 echo "Waiting for gitea to become ready..."
 kubectl wait --namespace gitea statefulset gitea \
                 --for='jsonpath={.status.readyReplicas}=1' \
@@ -198,40 +198,26 @@ else
   # Linux
   docker_bridge_ip="$(docker network inspect bridge --format='{{(index .IPAM.Config 0).Gateway}}')"
   kpt fn eval \
+    --image upsert-resource:v0.2.0 \
+    --fn-config "${git_root}/deployments/local/porch-api-endpoints.yaml"
+  kpt fn eval \
+    --image gcr.io/kpt-fn/search-replace:v0.2.0 \
+    --match-kind Endpoints \
+    --match-name api \
+    --match-namespace porch-system \
+    -- 'by-path=subsets[0].addresses[0].ip' "put-value=$docker_bridge_ip"
+  kpt fn eval \
     --image gcr.io/kpt-fn/starlark:v0.5.0 \
     --match-kind Service \
     --match-name api \
     --match-namespace porch-system \
-    -- "ip=$docker_bridge_ip" 'source=
-ip = ctx.resource_list["functionConfig"]["data"]["ip"]
+    -- 'source=
 for resource in ctx.resource_list["items"]:
-  resource["spec"].pop("selector")
-ctx.resource_list["items"].append({
-    "apiVersion": "v1",
-    "kind": "Endpoints",
-    "metadata": {
-        "name": "api",
-        "namespace": "porch-system",
-    },
-    "subsets": [
-        {
-            "addresses": [{"ip": ip}],
-            "ports": [
-                {
-                    "appProtocol": "https",
-                    "port": 4443,
-                    "protocol": "TCP",
-                    "name": "api"
-                }
-            ]
-        }
-    ]
-})
-'
+  resource["spec"].pop("selector")'
 fi
 kpt fn render 
 kpt live init || true
-kpt live apply --inventory-policy=adopt --output=table
+kpt live apply --inventory-policy=adopt
 
 
 ############################################
