@@ -17,8 +17,9 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"time"
 	"strings"
+	"time"
+
 	"github.com/google/go-cmp/cmp"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -188,6 +189,7 @@ func (t *TestSuite) createPackageDraftF(ctx context.Context, repository, name, w
 }
 
 func (t *TestSuite) mustExist(ctx context.Context, key client.ObjectKey, obj client.Object) {
+	t.Logf("Checking existence of %q...", key)
 	t.GetF(ctx, key, obj)
 	if got, want := obj.GetName(), key.Name; got != want {
 		t.Errorf("%T.Name: got %q, want %q", obj, got, want)

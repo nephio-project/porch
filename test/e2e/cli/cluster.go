@@ -27,7 +27,7 @@ const (
 )
 
 func GetGitServerImageName(t *testing.T) string {
-	cmd := exec.Command("kubectl", "get", "pods", "--selector=app=porch-server", "--namespace=porch-system",
+	cmd := exec.Command("kubectl", "get", "pods", "--selector=app=function-runner", "--namespace=porch-system",
 		"--output=jsonpath={.items[*].spec.containers[*].image}")
 
 	var stderr bytes.Buffer
@@ -204,10 +204,10 @@ func RemovePackagerevFinalizers(t *testing.T, namespace string) {
 }
 
 func realySplit(s, sep string) []string {
-    if len(s) == 0 {
-        return []string{}
-    }
-    return strings.Split(s, sep)
+	if len(s) == 0 {
+		return []string{}
+	}
+	return strings.Split(s, sep)
 }
 
 func RegisterRepository(t *testing.T, repoURL, namespace, name string) {

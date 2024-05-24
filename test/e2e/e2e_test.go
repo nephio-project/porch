@@ -23,7 +23,7 @@ import (
 	"strings"
 	"testing"
 	"time"
-	
+
 	"github.com/google/go-cmp/cmp"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -1018,15 +1018,18 @@ func (t *PorchSuite) TestDeleteFinal(ctx context.Context) {
 	t.mustExist(ctx, client.ObjectKey{Namespace: t.namespace, Name: created.Name}, &pkg)
 
 	// Propose the package revision to be finalized
+	t.Log("Proposing package")
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 	t.UpdateF(ctx, &pkg)
 
+	t.Log("Approving package")
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	t.UpdateApprovalF(ctx, &pkg, metav1.UpdateOptions{})
 
 	t.mustExist(ctx, client.ObjectKey{Namespace: t.namespace, Name: created.Name}, &pkg)
 
 	// Try to delete the package. This should fail because it hasn't been proposed for deletion.
+	t.Log("Trying to delete package (should fail)")
 	t.DeleteL(ctx, &porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: t.namespace,
@@ -1036,9 +1039,11 @@ func (t *PorchSuite) TestDeleteFinal(ctx context.Context) {
 	t.mustExist(ctx, client.ObjectKey{Namespace: t.namespace, Name: created.Name}, &pkg)
 
 	// Propose deletion and then delete the package
+	t.Log("Proposing deletion of  package")
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
 	t.UpdateApprovalF(ctx, &pkg, metav1.UpdateOptions{})
 
+	t.Log("Deleting package")
 	t.DeleteE(ctx, &porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: t.namespace,
@@ -2380,4 +2385,3 @@ func (t *PorchSuite) TestPackageRevisionFinalizers(ctx context.Context) {
 		Namespace: pr.Namespace,
 	}, 10*time.Second)
 }
-
