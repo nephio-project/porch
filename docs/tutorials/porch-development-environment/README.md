@@ -123,9 +123,9 @@ The Porch api server requires that the following resources are defined in the K8
 
 Slight differences in docker networking require a secific setup depending on the host OS.
 
-## Mac OS example
+## Docker Desktop (Mac OS or Windows) example
 
-Docker networking on Mac allows traffic to be routed via a default DNS name `host.docker.internal`, which is not available on Linux.
+Docker Desktop on Mac/Windows allows traffic to be routed to the host machine via the domain name `host.docker.internal`. More details [here](https://docs.docker.com/desktop/networking/#i-want-to-connect-from-a-container-to-a-service-on-the-host).
 
 A sample configuration is available at `deployments/local/localconfig.yaml`
 
