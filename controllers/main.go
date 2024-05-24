@@ -42,7 +42,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/nephio-project/porch/api/porch"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/controllers/fleetsyncs/pkg/controllers/fleetsync"
 	"github.com/nephio-project/porch/controllers/packagevariants/pkg/controllers/packagevariant"
 	"github.com/nephio-project/porch/controllers/packagevariantsets/pkg/controllers/packagevariantset"
@@ -119,6 +119,10 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("error initializing scheme: %w", err)
 	}
 
+	if err := porchapi.AddToScheme(scheme); err != nil {
+		return fmt.Errorf("error initializing scheme: %w", err)
+	}
+
 	managerOptions := ctrl.Options{
 		Scheme: scheme,
 		Metrics: metricsserver.Options{
@@ -135,7 +139,7 @@ func run(ctx context.Context) error {
 		Client: client.Options{
 			Cache: &client.CacheOptions{
 				DisableFor: []client.Object{
-					&porch.PackageRevisionResources{}},
+					&porchapi.PackageRevisionResources{}},
 			},
 		},
 	}
