@@ -104,6 +104,7 @@ stop:
 .PHONY: start-etcd
 start-etcd:
 	docker buildx build -t etcd --output=type=docker -f ./build/Dockerfile.etcd ./build
+	rm -rf $(BUILDDIR)/data/etcd || true
 	mkdir -p $(BUILDDIR)/data/etcd
 	docker stop etcd || true
 	docker rm etcd || true

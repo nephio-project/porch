@@ -9,8 +9,7 @@ subsets:
 - addresses:
   - ip: 172.17.0.1
   ports:
-  - appProtocol: https
-    name: api
+  - name: api
     port: 4443
     protocol: TCP
   - name: webhooks

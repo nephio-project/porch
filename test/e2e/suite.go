@@ -130,7 +130,7 @@ func (t *TestSuite) Initialize(ctx context.Context) {
 		t.clientset = cs
 	}
 
-	t.local = t.IsUsingDevPorch()
+	_, t.local = t.IsUsingDevPorch()
 
 	namespace := fmt.Sprintf("porch-test-%d", time.Now().UnixMicro())
 	t.CreateF(ctx, &coreapi.Namespace{
@@ -154,7 +154,7 @@ func (t *TestSuite) Initialize(ctx context.Context) {
 	})
 }
 
-func (t *TestSuite) IsUsingDevPorch() bool {
+func (t *TestSuite) IsUsingDevPorch() (bool, bool) {
 	porch := aggregatorv1.APIService{}
 	ctx := context.TODO()
 	t.GetF(ctx, client.ObjectKey{
@@ -166,13 +166,20 @@ func (t *TestSuite) IsUsingDevPorch() bool {
 		Name:      porch.Spec.Service.Name,
 	}, &service)
 
-	return len(service.Spec.Selector) == 0
+	isPorchLocal := len(service.Spec.Selector) == 0
+	areAllLocal := service.Spec.Type == coreapi.ServiceTypeExternalName
+	return isPorchLocal, areAllLocal
 }
 
 func (t *TestSuite) CreateGitRepo() GitConfig {
 	// Deploy Git server via k8s client.
 	t.Logf("creating git server in cluster")
-	return t.createInClusterGitServer(context.TODO(), t.IsUsingDevPorch())
+	isPorchLocal, areAllLocal := t.IsUsingDevPorch()
+	if areAllLocal {
+		return createLocalGitServer(t.T)
+	} else {
+		return t.createInClusterGitServer(context.TODO(), isPorchLocal)
+	}
 }
 
 type ErrorHandler func(format string, args ...interface{})
@@ -549,7 +556,7 @@ func (t *TestSuite) createInClusterGitServer(ctx context.Context, exposeByLoadBa
 	giveUp := time.Now().Add(time.Minute)
 
 	for {
-		time.Sleep(5 * time.Second)
+		time.Sleep(1 * time.Second)
 
 		var deployment appsv1.Deployment
 		t.GetF(ctx, deploymentKey, &deployment)
@@ -599,7 +606,7 @@ func (t *TestSuite) createInClusterGitServer(ctx context.Context, exposeByLoadBa
 	gitUrl := fmt.Sprintf("http://%s.%s.svc.cluster.local:8080", serviceKey.Name, serviceKey.Namespace)
 	giveUp = time.Now().Add(time.Minute)
 	for {
-		time.Sleep(5 * time.Second)
+		time.Sleep(1 * time.Second)
 		if time.Now().After(giveUp) {
 			t.Fatalf("git-server-service not ready on time")
 			return GitConfig{}

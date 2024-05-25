@@ -1198,7 +1198,7 @@ func (t *PorchSuite) TestDeleteFromMain(ctx context.Context) {
 	// Register the repository
 	t.registerMainGitRepositoryF(ctx, repository)
 
-	// Create the first draft package
+	t.Logf("Create and approve package: %s", packageNameFirst)
 	createdFirst := t.createPackageDraftF(ctx, repository, packageNameFirst, workspace)
 
 	// Check the package exists
@@ -1214,7 +1214,7 @@ func (t *PorchSuite) TestDeleteFromMain(ctx context.Context) {
 
 	t.mustExist(ctx, client.ObjectKey{Namespace: t.namespace, Name: createdFirst.Name}, &pkgFirst)
 
-	// Create the second draft package
+	t.Logf("Create and approve package: %s", packageNameSecond)
 	createdSecond := t.createPackageDraftF(ctx, repository, packageNameSecond, workspace)
 
 	// Check the package exists
@@ -1230,31 +1230,38 @@ func (t *PorchSuite) TestDeleteFromMain(ctx context.Context) {
 
 	t.mustExist(ctx, client.ObjectKey{Namespace: t.namespace, Name: createdSecond.Name}, &pkgSecond)
 
-	// We need to wait for the sync for the "main" revisions to get created
-	time.Sleep(75 * time.Second)
-
-	var list porchapi.PackageRevisionList
-	t.ListE(ctx, &list, client.InNamespace(t.namespace))
-
+	t.Log("Wait for the 'main' revisions to get created")
 	var firstPkgRevFromMain porchapi.PackageRevision
 	var secondPkgRevFromMain porchapi.PackageRevision
-
-	for _, pkgrev := range list.Items {
-		if pkgrev.Spec.PackageName == packageNameFirst && pkgrev.Spec.Revision == "main" {
-			firstPkgRevFromMain = pkgrev
+	var list porchapi.PackageRevisionList
+	finalDeadline := time.Now().Add(5 * time.Minute)
+	for firstPkgRevFromMain.Spec.WorkspaceName == "" || secondPkgRevFromMain.Spec.WorkspaceName == "" {
+		if time.Now().After(finalDeadline) {
+			t.Fatal("'main' package revisions not created in time")
+			return
 		}
-		if pkgrev.Spec.PackageName == packageNameSecond && pkgrev.Spec.Revision == "main" {
-			secondPkgRevFromMain = pkgrev
+		time.Sleep(5 * time.Second)
+
+		t.ListE(ctx, &list, client.InNamespace(t.namespace))
+		for _, pkgrev := range list.Items {
+			if pkgrev.Spec.PackageName == packageNameFirst && pkgrev.Spec.Revision == "main" {
+				firstPkgRevFromMain = pkgrev
+				t.Logf("Found first package revision: %+v", firstPkgRevFromMain.Name)
+			}
+			if pkgrev.Spec.PackageName == packageNameSecond && pkgrev.Spec.Revision == "main" {
+				secondPkgRevFromMain = pkgrev
+				t.Logf("Found second package revision: %+v", secondPkgRevFromMain.Name)
+			}
 		}
 	}
 
-	// Propose deletion of both main packages
+	t.Log("Propose deletion of both main packages")
 	firstPkgRevFromMain.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
 	t.UpdateApprovalF(ctx, &firstPkgRevFromMain, metav1.UpdateOptions{})
 	secondPkgRevFromMain.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
 	t.UpdateApprovalF(ctx, &secondPkgRevFromMain, metav1.UpdateOptions{})
 
-	// Delete the first package revision from main
+	t.Log("Delete the first package revision from main")
 	t.DeleteE(ctx, &porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: t.namespace,
@@ -1262,10 +1269,10 @@ func (t *PorchSuite) TestDeleteFromMain(ctx context.Context) {
 		},
 	})
 
-	// We need to wait for the sync
-	time.Sleep(75 * time.Second)
+	// t.Log("Wait for the sync")
+	// time.Sleep(75 * time.Second)
 
-	// Delete the second package revision from main
+	t.Log("Delete the second package revision from main")
 	t.DeleteE(ctx, &porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: t.namespace,
@@ -1276,6 +1283,7 @@ func (t *PorchSuite) TestDeleteFromMain(ctx context.Context) {
 	// Propose and delete the original package revisions (cleanup)
 	t.ListE(ctx, &list, client.InNamespace(t.namespace))
 	for _, pkgrev := range list.Items {
+		t.Logf("Propose deletion and delete package revision: %s", pkgrev.Name)
 		pkgrev.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
 		t.UpdateApprovalF(ctx, &pkgrev, metav1.UpdateOptions{})
 		t.DeleteE(ctx, &porchapi.PackageRevision{
