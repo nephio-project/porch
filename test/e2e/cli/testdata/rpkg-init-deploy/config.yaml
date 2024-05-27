@@ -6,7 +6,7 @@ commands:
       - --namespace=rpkg-init-deploy
       - --name=git
       - --deployment
-      - http://git-server.test-git-namespace.svc.cluster.local:8080/rpkg-init-deploy
+      - http://172.18.255.203:8080/rpkg-init-deploy
   - args:
       - porchctl
       - repo
@@ -87,4 +87,4 @@ commands:
       - --namespace=rpkg-init-deploy
     stdout: |
       NAME   TYPE   CONTENT   DEPLOYMENT   READY   ADDRESS
-      git    git    Package   true         True    http://git-server.test-git-namespace.svc.cluster.local:8080/rpkg-init-deploy
+      git    git    Package   true         True    http://172.18.255.203:8080/rpkg-init-deploy

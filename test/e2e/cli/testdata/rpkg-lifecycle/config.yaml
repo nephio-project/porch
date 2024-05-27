@@ -5,7 +5,7 @@ commands:
       - register
       - --namespace=rpkg-lifecycle
       - --name=git
-      - http://git-server.test-git-namespace.svc.cluster.local:8080/rpkg-lifecycle
+      - http://172.18.255.203:8080/rpkg-lifecycle
   - args:
       - porchctl
       - rpkg
