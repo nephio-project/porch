@@ -29,4 +29,8 @@ kubectl rollout status deployment porch-controllers --namespace porch-system
 kubectl rollout status deployment porch-server --namespace porch-system
 kubectl rollout status deployment function-runner --namespace porch-system
 sleep 2
-E2E=1 go test -v ./test/e2e
+
+echo "--- test/e2e ---"
+E2E=1 go test -failfast -v ./test/e2e
+echo "--- test/e2e/cli ---"
+E2E=1 go test -failfast -v ./test/e2e/cli
