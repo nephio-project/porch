@@ -204,7 +204,7 @@ E2E=1 go test -v ./test/e2e
 
 To test porch via its CLI:
 ```
-E2E=1 go test -v ./test/e2e/cli
+E2E=local-server go test -v ./test/e2e/cli
 ```
 
 # Create Repositories using your local Porch server
