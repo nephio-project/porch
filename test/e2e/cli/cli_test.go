@@ -41,7 +41,14 @@ func TestPorch(t *testing.T) {
 		t.Skip("set E2E to run this test")
 	}
 
-	abs, err := filepath.Abs(filepath.Join(".", "testdata"))
+	var testdataDir string
+	if e2e == "local-server" {
+		testdataDir = "testdata-local-server"
+	} else {
+		testdataDir = "testdata"
+	}
+
+	abs, err := filepath.Abs(filepath.Join(".", testdataDir))
 	if err != nil {
 		t.Fatalf("Failed to get absolute path to testdata directory: %v", err)
 	}

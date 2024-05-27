@@ -30,7 +30,10 @@ kind: Service
 metadata:
   name: git-server
   namespace: test-git-namespace
+  annotations:
+    metallb.universe.tf/loadBalancerIPs: "172.18.255.203"
 spec:
+  type: LoadBalancer
   selector:
     app: git-server
   ports:
