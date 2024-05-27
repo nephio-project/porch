@@ -32,6 +32,7 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
@@ -41,6 +42,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/controllers/fleetsyncs/pkg/controllers/fleetsync"
 	"github.com/nephio-project/porch/controllers/packagevariants/pkg/controllers/packagevariant"
 	"github.com/nephio-project/porch/controllers/packagevariantsets/pkg/controllers/packagevariantset"
@@ -117,12 +119,16 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("error initializing scheme: %w", err)
 	}
 
+	if err := porchapi.AddToScheme(scheme); err != nil {
+		return fmt.Errorf("error initializing scheme: %w", err)
+	}
+
 	managerOptions := ctrl.Options{
-		Scheme:                     scheme,
-		Metrics: 					metricsserver.Options{
+		Scheme: scheme,
+		Metrics: metricsserver.Options{
 			BindAddress: ":8080",
 		},
-		WebhookServer: 				webhook.NewServer(webhook.Options{
+		WebhookServer: webhook.NewServer(webhook.Options{
 			Port: 9443,
 		}),
 		HealthProbeBindAddress:     ":8081",
@@ -130,6 +136,12 @@ func run(ctx context.Context) error {
 		LeaderElectionID:           "porch-operators.config.porch.kpt.dev",
 		LeaderElectionResourceLock: resourcelock.LeasesResourceLock,
 		MapperProvider:             controllerrestmapper.New,
+		Client: client.Options{
+			Cache: &client.CacheOptions{
+				DisableFor: []client.Object{
+					&porchapi.PackageRevisionResources{}},
+			},
+		},
 	}
 
 	ctrl.SetLogger(klogr.New())
