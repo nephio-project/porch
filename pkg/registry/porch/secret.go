@@ -42,7 +42,7 @@ const (
 	WIGCPSAAnnotation        = "iam.gke.io/gcp-service-account"
 	
 	//Secret.Data key required for the caBundle
-	CaBundleDataName         = "cabundle"
+	CaBundleDataName         = "ca.crt"
 )
 
 func NewCredentialResolver(coreClient client.Reader, resolverChain []Resolver) repository.CredentialResolver {
