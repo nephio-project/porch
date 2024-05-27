@@ -31,20 +31,23 @@ The setup script will perform the following steps:
 
 1. Install the MetalLB load balancer into the cluster, in order to `LoadBalancer` typed Services to work properly.
 
-1. Install the Gitea git server into the cluster. This can be used to test porch during development, but it is not used in automated end-to-end tests.
-
-   Gitea is exposed to the host via the port 3000. The GUI is accessible via the URL: http://localhost:3000/nephio , and also via: http://172.18.255.200:3000/nephio (username: nephio, password: secret).
+1. Install the Gitea git server into the cluster.  
+   This can be used to test porch during development, but it is not used in automated end-to-end tests.
+   Gitea is exposed to the host via port 3000. The GUI is accessible via http://localhost:3000/nephio, or http://172.18.255.200:3000/nephio (username: nephio, password: secret).
 
    > **_NOTE:_** If you are using WSL2 (Windows Subsystem for Linux), then Gitea is also accessible from the Windows host via the http://localhost:3000/nephio URL.
 
-1. Generate the PKI resources (key pairs and certificates) necessary for end-to-end tests.
+1. Generate the PKI resources (key pairs and certificates) required for end-to-end tests.
 
 1. Install porch CRDs into the cluster.
 
 1. Build the porch containers and loads them into the nodes of the kind cluster.
 
-1. Deploy all porch components in the kind cluster, except the porch-server (porch's aggregated API server). 
-   The script also exposes the function-runner service via 172.18.255.201:9445
+1. Deploy all porch components in the kind cluster, except the porch-server (porch's aggregated API server).  
+   The function-runner service will be exposed to the host via 172.18.255.201:9445.
+
+1. Build the porch CLI binary.  
+   The result will be generated as `.build/porchctl`.
 
 That's it. If you want to run the steps manually, please use the code of the script as a detailed description.
 

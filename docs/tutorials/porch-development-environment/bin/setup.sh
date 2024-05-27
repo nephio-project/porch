@@ -105,12 +105,10 @@ kubectl wait --namespace gitea statefulset gitea \
 ############################################
 h1 Create git repos in gitea
 curl -k -H "content-type: application/json" "http://nephio:secret@${gitea_ip}:3000/api/v1/user/repos" --data "{\"name\":\"$git_repo_name\"}"
-
 TMP_DIR=$(mktemp -d)
 cd "$TMP_DIR"
 git clone "http://nephio:secret@${gitea_ip}:3000/nephio/$git_repo_name"
 cd "$git_repo_name"
-
 if ! git rev-parse -q --verify refs/remotes/origin/main >/dev/null; then
   echo "Add main branch to git repo:"
   git switch -c  main
@@ -132,6 +130,7 @@ deployments/local/makekeys.sh
 
 ############################################
 h1 Install CRDs
+cd "${git_root}"
 kubectl apply -f api/porchconfig/v1alpha1/config.porch.kpt.dev_repositories.yaml
 kubectl apply -f api/porchconfig/v1alpha1/config.porch.kpt.dev_functions.yaml
 kubectl apply -f controllers/config/crd/bases/config.porch.kpt.dev_packagevariants.yaml
@@ -141,6 +140,7 @@ kubectl apply -f internal/api/porchinternal/v1alpha1/config.porch.kpt.dev_packag
 
 ############################################
 h1 Load container images into kind cluster
+cd "${git_root}"
 export IMAGE_TAG=v2.0.0
 export KIND_CONTEXT_NAME="$porch_cluster_name"
 if ! docker exec -it "$porch_cluster_name-control-plane" crictl images | grep -q docker.io/nephio/test-git-server ; then
@@ -155,7 +155,7 @@ fi
 
 ############################################
 h1 Install all porch components, except porch-server
-
+cd "${git_root}"
 make deployment-config-no-sa
 cd .build/deploy-no-sa
 # expose function-runner to local processes
@@ -218,6 +218,11 @@ fi
 kpt fn render 
 kpt live init || true
 kpt live apply --inventory-policy=adopt
+
+############################################
+h1 "Build the porch CLI (.build/porchctl)"
+cd "${git_root}"
+make porchctl
 
 
 ############################################
