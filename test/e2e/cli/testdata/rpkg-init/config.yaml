@@ -13,7 +13,7 @@ commands:
       - --namespace=rpkg-init
       - --output=custom-columns=NAME:.metadata.name,ADDRESS:.spec.git.repo,BRANCH:.spec.git.branch,DIR:.spec.git.directory
     stdout: |
-      NAME   ADDRESS                                                                 BRANCH   DIR
+      NAME   ADDRESS                                BRANCH   DIR
       git    http://172.18.255.203:8080/rpkg-init   main     /
   - args:
       - porchctl
