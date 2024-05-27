@@ -33,7 +33,7 @@
             "args": [
                 "-test.v",
                 "-test.run",
-                "TestE2E/PorchSuite/TestDeleteFinal"
+                "TestE2E/PorchSuite/TestGitRepositoryWithReleaseTagsAndDirectory"
             ],
             "env": { "E2E": "1"}
         },

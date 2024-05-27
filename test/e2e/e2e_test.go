@@ -41,7 +41,7 @@ import (
 
 const (
 	testBlueprintsRepo = "https://github.com/platkrm/test-blueprints.git"
-	kptRepo            = "https://github.com/GoogleContainerTools/kpt.git"
+	kptRepo            = "https://github.com/kptdev/kpt.git"
 )
 
 var (
