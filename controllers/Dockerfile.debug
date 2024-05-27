@@ -1,0 +1,38 @@
+# Copyright 2022 The kpt and Nephio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+FROM golang:1.21.4-bookworm as builder
+
+ENV CGO_ENABLED=0
+
+WORKDIR /go/src
+COPY porch/ .
+
+WORKDIR /go/src/controllers/
+# Build is cached in the docker daemon's space allowing for faster incremental builds
+# Built with no inlining and other optimizations, so debugger can correctly match running code to source code lines
+RUN --mount=type=cache,mode=0755,target=/root/.cache/go-build --mount=type=cache,mode=0755,target=/root/go CGO_ENABLED=0 go build -gcflags "all=-N -l" -o /porch-controllers -v .
+
+FROM golang:1.21.4-bookworm as delve-download
+ENV CGO_ENABLED=0
+RUN go install -ldflags "-s -w -extldflags '-static'" github.com/go-delve/delve/cmd/dlv@latest
+
+FROM gcr.io/distroless/static
+
+WORKDIR /data
+
+COPY --from=delve-download /go/bin/dlv /dlv
+COPY --from=builder /porch-controllers /porch-controllers
+USER nonroot:nonroot
+ENTRYPOINT ["/dlv", "--listen=:4001", "--headless=true", "--log=true", "--accept-multiclient", "--api-version=2", "exec", "/porch-controllers", "--"]

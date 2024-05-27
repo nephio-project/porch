@@ -25,6 +25,9 @@ coverage_unit.html
 !.vscode/launch.json
 !.vscode/extensions.json
 
+# Tilt config should be local to the developer
+tilt_config.json
+
 ### VisualStudioCode Patch ###
 # Ignore all local history of files
 **/.history
