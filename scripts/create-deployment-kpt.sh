@@ -126,22 +126,25 @@ function load-custom-images {
 }
 
 function main() {
-  
+  echo "Loading images into kind cluster ${KIND_CONTEXT_NAME}..."
   load-custom-images
 
+  echo "Preparing porch kpt package in ${DESTINATION}..."
+  rm -rf ${DESTINATION}/porch || true
   kpt pkg get https://github.com/nephio-project/catalog/tree/main/nephio/core/porch ${DESTINATION}
-
-  yq -i eval 'del(.spec.template.spec.containers[0].env)' "${DESTINATION}/porch/9-controllers.yaml"
-  yq -i eval '.spec.template.spec.containers[0].env = []' "${DESTINATION}/porch/9-controllers.yaml"
-
-  IFS=',' read -ra RECONCILERS <<< "$ENABLED_RECONCILERS"
-  for i in "${RECONCILERS[@]}"; do
-    # Update the porch-controllers Deployment env variables to enable the reconciler.
-    RECONCILER_ENV_VAR="ENABLE_$(echo "$i" | tr '[:lower:]' '[:upper:]')"
-    reconciler="$RECONCILER_ENV_VAR" \
-      yq -i eval '.spec.template.spec.containers[0].env += {"name": env(reconciler), "value": "true"}' \
-      "${DESTINATION}/porch/9-controllers.yaml"
-  done
+  kpt fn eval ${DESTINATION}/porch \
+    --image gcr.io/kpt-fn/starlark:v0.5.0 \
+    --match-kind Deployment \
+    --match-name porch-controllers \
+    --match-namespace porch-system \
+    -- "reconcilers=$ENABLED_RECONCILERS" 'source=
+reconcilers = ctx.resource_list["functionConfig"]["data"]["reconcilers"].split(",")
+for resource in ctx.resource_list["items"]:
+  c = resource["spec"]["template"]["spec"]["containers"][0]
+  c["env"] = []
+  for r in reconcilers:
+    c["env"].append({"name": "ENABLE_" + r.upper(), "value": "true"})
+'
 
   customize-pkg-images \
   "porch-server:v2.0.0" \
@@ -159,7 +162,12 @@ function main() {
   "porch-wrapper-server:v2.0.0" \
   "${WRAPPER_SERVER_IMAGE}"
 
+  echo "Deploying porch with newly built images..."
   deploy-porch-dev-pkg
+
+  echo
+  echo Done.
+  echo
 }
 
 validate
