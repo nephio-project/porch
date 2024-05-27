@@ -43,8 +43,8 @@ import (
 
 const (
 	defaultEtcdPathPrefix = "/registry/porch.kpt.dev"
-	OpenAPITitle   = "Porch"
-	OpenAPIVersion = "0.1"
+	OpenAPITitle          = "Porch"
+	OpenAPIVersion        = "0.1"
 )
 
 // PorchServerOptions contains state for master/api server
@@ -132,6 +132,10 @@ func (o *PorchServerOptions) Complete() error {
 			o.RecommendedOptions.Admission = nil
 			o.RecommendedOptions.Authentication.RemoteKubeConfigFileOptional = true
 		}
+	} else {
+		// This is needed in case the porch-server runs outside of the cluster, but without the --standalone-debug-mode flag.
+		o.RecommendedOptions.Authentication.RemoteKubeConfigFile = o.CoreAPIKubeconfigPath
+		o.RecommendedOptions.Authorization.RemoteKubeConfigFile = o.CoreAPIKubeconfigPath
 	}
 
 	if o.CacheDirectory == "" {
@@ -169,7 +173,7 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 	}
 
 	serverConfig := genericapiserver.NewRecommendedConfig(apiserver.Codecs)
-	
+
 	serverConfig.OpenAPIConfig = genericapiserver.DefaultOpenAPIConfig(sampleopenapi.GetOpenAPIDefinitions, openapi.NewDefinitionNamer(apiserver.Scheme))
 	serverConfig.OpenAPIConfig.Info.Title = OpenAPITitle
 	serverConfig.OpenAPIConfig.Info.Version = OpenAPIVersion

@@ -12,17 +12,15 @@
             "program": "${workspaceFolder}/cmd/porch/main.go",
             "args": [
                 "--secure-port=4443",
-                "--v=7",
-                "--standalone-debug-mode",
+                // "--v=7",
+                // "--standalone-debug-mode",
                 "--kubeconfig=${env:KUBECONFIG}",
-                "--cache-directory=${workspaceFolder}/.cache",
                 "--function-runner=172.18.255.201:9445",
                 "--repo-sync-frequency=60s",
-                // "--cert-dir=${workspaceFolder}/.build/pki/empty1",
             ],
             "cwd": "${workspaceFolder}",
             "env": { 
-                "CERT_STORAGE_DIR": "${workspaceFolder}/.build/pki/empty2", 
+                "CERT_STORAGE_DIR": "${workspaceFolder}/.build/pki/tmp", 
                 "CERT_NAMESPACE": "porch-system" 
             }
         },

@@ -134,7 +134,7 @@ func createCerts(webhookNs string, certStorageDir string) ([]byte, error) {
 		Bytes: x509.MarshalPKCS1PrivateKey(serverPrivateKey),
 	})
 
-	err = os.MkdirAll(certStorageDir, 0666)
+	err = os.MkdirAll(certStorageDir, 0777)
 	if err != nil {
 		return nil, err
 	}
