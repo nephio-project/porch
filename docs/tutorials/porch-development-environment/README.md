@@ -1,4 +1,17 @@
-# Setting up a development environment for Porch
+# Table of contents
+
+- [Table of contents](#table-of-contents)
+- [Setting up the development environment for Porch](#setting-up-the-development-environment-for-porch)
+   * [Setup the environment everything automatically](#setup-the-environment-everything-automatically)
+   * [Configure VSCode to run the Porch (api)server](#configure-vscode-to-run-the-porch-apiserver)
+   * [Build the CLI](#build-the-cli)
+   * [Test that everything works as expected](#test-that-everything-works-as-expected)
+      + [Run the porch unit tests](#run-the-porch-unit-tests)
+      + [Run the end-to-end tests](#run-the-end-to-end-tests)
+- [Create Repositories using your local Porch server](#create-repositories-using-your-local-porch-server)
+- [Restart from scratch](#restart-from-scratch)
+
+# Setting up the development environment for Porch
 
 This tutorial gives short instructions on how to set up a development environment for Porch. It outlines the steps to get 
 a [kind](https://kind.sigs.k8s.io/) cluster up and running to which a Porch instance running in Visual Studio Code can connect to and interact with.
@@ -6,16 +19,15 @@ It is highly recommended to go through the [Starting with Porch tutorial](https:
 
 > **_NOTE:_**  The code itself can be run on a remote VM and we can use the [VSCode Remote SSH](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh) plugin to connect to it as our Dev environment.
 
-<br>
 
-# Setup the environment everything automatically
+## Setup the environment everything automatically
 
 This [setup script](bin/setup.sh) automatically bulids a porch development environment. 
 Please note that this is not the only possible way to build a working porch development environment, and feel free to customize your own.
 The setup script will perform the following steps:
 1. Install a kind cluster.   
    The name of the cluster is read from PORCH_TEST_CLUSTER environment variable, otherwise it defaults to `porch-test`.
-   The configuration of the cluster is taken from [here](kind_porch_test_cluster.yaml).
+   The configuration of the cluster is taken from [here](bin/kind_porch_test_cluster.yaml).
 
 1. Install the MetalLB load balancer into the cluster, in order to `LoadBalancer` typed Services to work properly.
 
@@ -36,8 +48,10 @@ The setup script will perform the following steps:
 
 That's it. If you want to run the steps manually, please use the code of the script as a detailed description.
 
+The setup script is idempotent in the sense that you can rerun it without cleaning up first. This also means that if the script is interrupted for any reason, and you run it again it should continue the process where it left off.
 
-# Configure VSCode to run the Porch (api)server
+
+## Configure VSCode to run the Porch (api)server
 
 After the environemnt is set you can start the porch API server localy on your machine. There are multiple ways to do that, the simplest is to run it in a VSCode IDE:
 
@@ -151,7 +165,8 @@ curl https://localhost:4443/apis/porch.kpt.dev/v1alpha1 -k
 ```
 </details>
 
-# Build the CLI
+
+## Build the CLI
 
 Build the porchctl CLI in the git root folder by
 
@@ -162,19 +177,27 @@ make porchctl
 and then copy the result from `.build/porchctl` to somewhere in your $PATH.
 
 
-# Run the end-to-end test
-Make sure that the porch server is still running in VS Code and start the end-to-end tests from the git root folder as follows:
+## Test that everything works as expected
+
+Make sure that the porch server is still running in VS Code and than run the following tests from the git root folder.
+
+### Run the porch unit tests
+
+```
+make test
+```
+
+### Run the end-to-end tests
+
+Test porch directly via its API:
 ```
 E2E=1 go test -v ./test/e2e
 ```
 
-and also:
+Test porch via its CLI:
 ```
 E2E=1 go test -v ./test/e2e/cli
 ```
-
-Both of the above commands should succeed.
-
 
 # Create Repositories using your local Porch server
 
@@ -208,3 +231,17 @@ management            git    Package   false        True    http://172.18.255.20
 ```
 
 You now have a locally running Porch (api)server. Happy developing!
+
+
+# Restart from scratch
+
+Sometimes the development cluster gets cluttered and you may experience weird behaviour from porch. 
+In this case you might want to restart with a clean slate, by deleting the dvelopemnt cluster with the follwoing command:
+```
+kind delete cluster --name porch-test
+```
+
+and running the [setup script](bin/setup.sh) again:
+```
+docs/tutorials/porch-development-environment/bin/setup.sh
+```
