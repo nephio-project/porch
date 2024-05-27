@@ -191,13 +191,18 @@ make test
 ```
 
 ### Run the end-to-end tests
+In order for the end-to-end tests to run properly for a locally running API server, you have to add the following line to your `/etc/hosts` file:
+```
+127.0.0.1         api.porch-system.svc
+```
+TODO: remove this requirement
 
-Test porch directly via its API:
+To test porch directly via its API:
 ```
 E2E=1 go test -v ./test/e2e
 ```
 
-Test porch via its CLI:
+To test porch via its CLI:
 ```
 E2E=1 go test -v ./test/e2e/cli
 ```
