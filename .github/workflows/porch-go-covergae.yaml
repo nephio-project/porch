@@ -55,4 +55,4 @@ jobs:
           # Configure action using config file (option 1)
           config: ./.github/.testcoverage.yaml
           git-branch: badges
-          git-token: ${{ github.ref_name == 'main' && secrets.GITHUB_TOKEN || '' }}
+          git-token: ${{ secrets.GITHUB_TOKEN }}
