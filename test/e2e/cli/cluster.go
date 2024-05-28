@@ -26,6 +26,22 @@ const (
 	TestGitServerImage = "test-git-server"
 )
 
+func IsPorchServerRunningInCluster(t *testing.T) bool {
+	cmd := exec.Command("kubectl", "get", "--namespace=porch-system", "service", "api",
+		"--output=jsonpath={.spec.selector}")
+
+	var stderr bytes.Buffer
+	var stdout bytes.Buffer
+
+	cmd.Stderr = &stderr
+	cmd.Stdout = &stdout
+
+	if err := cmd.Run(); err != nil || stderr.String() != "" {
+		t.Fatalf("Error when getting porch api Service: %v: %s", err, stderr.String())
+	}
+	return stdout.String() != ""
+}
+
 func GetGitServerImageName(t *testing.T) string {
 	cmd := exec.Command("kubectl", "get", "pods", "--selector=app=function-runner", "--namespace=porch-system",
 		"--output=jsonpath={.items[0].spec.containers[0].image}")

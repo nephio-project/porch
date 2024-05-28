@@ -47,7 +47,7 @@ func TestPorch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get absolute path to testdata directory: %v", err)
 	}
-	runTests(t, abs, e2e != "local-server")
+	runTests(t, abs)
 }
 
 func runUtilityCommand(t *testing.T, command string, args ...string) error {
@@ -56,10 +56,10 @@ func runUtilityCommand(t *testing.T, command string, args ...string) error {
 	return cmd.Run()
 }
 
-func runTests(t *testing.T, path string, isPorchInCluster bool) {
+func runTests(t *testing.T, path string) {
 	var searchAndReplace = map[string]string{}
 
-	gitServerURL := startGitServer(t, path, isPorchInCluster)
+	gitServerURL := startGitServer(t, path)
 	if gitServerURL != defaultTestGitServerUrl {
 		searchAndReplace[defaultTestGitServerUrl] = gitServerURL
 	}
@@ -229,7 +229,8 @@ func reorderYamlStdout(t *testing.T, buf *bytes.Buffer) {
 	}
 }
 
-func startGitServer(t *testing.T, path string, isPorchInCluster bool) string {
+func startGitServer(t *testing.T, path string) string {
+	isPorchInCluster := IsPorchServerRunningInCluster(t)
 	gitServerImage := GetGitServerImageName(t)
 	t.Logf("Git Image: %s", gitServerImage)
 
