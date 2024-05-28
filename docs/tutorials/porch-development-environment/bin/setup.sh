@@ -162,11 +162,11 @@ for resource in ctx.resource_list["items"]:
   resource["spec"]["ports"][0]["nodePort"] = 30001'
 # "remove" porch-server from package
 kpt fn eval \
-  --image gcr.io/kpt-fn/set-annotations:v0.1.4 \
+  --image gcr.io/kpt-fn/starlark:v0.5.0 \
   --match-kind Deployment \
   --match-name porch-server \
   --match-namespace porch-system \
-  -- "config.kubernetes.io/local-config=true"
+  -- 'source=ctx.resource_list["items"] = []'
 # make the api service point to the local porch-server
 if [ "$(uname)" = "Darwin" ]
 then
