@@ -51,7 +51,7 @@ The setup script will perform the following steps:
 
 1. Install porch CRDs into the cluster.
 
-1. Build the porch containers and loads them into the nodes of the kind cluster.
+1. Build the porch containers and load them into the nodes of the kind cluster.
 
 1. Deploy all porch components in the kind cluster, except the porch-server (porch's aggregated API server).  
    The function-runner service will be exposed to the host via 172.18.255.201:9445.
