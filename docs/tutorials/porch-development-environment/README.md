@@ -36,7 +36,7 @@ This [setup script](bin/setup.sh) automatically bulids a porch development envir
 Please note that this is only one of many possible ways of building a working porch development environment so feel free to customize it to suit your own environment.
 The setup script will perform the following steps:
 1. Install a kind cluster.   
-   The name of the cluster is read from PORCH_TEST_CLUSTER environment variable, otherwise it defaults to `porch-test`.
+   The name of the cluster is read from the PORCH_TEST_CLUSTER environment variable, otherwise it defaults to `porch-test`.
    The configuration of the cluster is taken from [here](bin/kind_porch_test_cluster.yaml).
 
 1. Install the MetalLB load balancer into the cluster, in order to `LoadBalancer` typed Services to work properly.
