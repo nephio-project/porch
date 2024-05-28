@@ -66,7 +66,7 @@ The setup script is idempotent in the sense that you can rerun it without cleani
 
 ## Configure VSCode to run the Porch (api)server
 
-After the environemnt is set you can start the porch API server localy on your machine. There are multiple ways to do that, the simplest is to run it in a VSCode IDE:
+Once the environment is set up you can start the porch API server locally on your machine. There are multiple ways to do that, the simplest way is to run it in a VSCode IDE:
 
 1. Edit your local `.vscode.launch.json` file as follows: Change the `--kubeconfig` argument of the `Launch Server` configuration to point to a KUBECONFIG file that is set to the kind cluster as the current context.
 
