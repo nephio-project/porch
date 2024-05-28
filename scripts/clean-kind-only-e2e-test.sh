@@ -31,6 +31,9 @@ for deployment in porch-controllers porch-server function-runner; do
                 --for=condition=available \
                 --timeout=90s
 done
+kubectl wait --namespace porch-system pod --selector=app=function-runner \
+            --for=condition=ready \
+            --timeout=90s
 
 sleep 5
 
