@@ -30,6 +30,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -47,29 +48,77 @@ import (
 )
 
 const (
-	webhookServicePort = 8443
-	serverEndpoint     = "/validate-deletion"
+	webhookServicePort int32 = 8443
+	serverEndpoint           = "/validate-deletion"
 )
 
-func setupWebhooks(ctx context.Context, webhookNs string, certStorageDir string) error {
-	caBytes, err := createCerts(webhookNs, certStorageDir)
+type WebhookType string
+
+const (
+	WebhookTypeService WebhookType = "service"
+	WebhookTypeUrl     WebhookType = "url"
+)
+
+// WebhookConfig defines the configuration for the PackageRevision deletion webhook
+type WebhookConfig struct {
+	Type             WebhookType
+	ServiceName      string // only used if Type == WebhookTypeService
+	ServiceNamespace string // only used if Type == WebhookTypeService
+	Host             string // only used if Type == WebhookTypeUrl
+	Path             string
+	Port             int32
+	CertStorageDir   string
+}
+
+func NewWebhookConfig() *WebhookConfig {
+	var cfg WebhookConfig
+	// NOTE: CERT_NAMESPACE is supported for backward compatibility.
+	// TODO: We may consider using only WEBHOOK_SERVICE_NAMESPACE instead.
+	if hasEnv("CERT_NAMESPACE") ||
+		hasEnv("WEBHOOK_SERVICE_NAME") ||
+		hasEnv("WEBHOOK_SERVICE_NAMESPACE") ||
+		!hasEnv("WEBHOOK_HOST") {
+
+		cfg.Type = WebhookTypeService
+		cfg.ServiceName = getEnv("WEBHOOK_SERVICE_NAME", "api")
+		cfg.ServiceNamespace = getEnv("WEBHOOK_SERVICE_NAMESPACE", "porch-system")
+		cfg.ServiceNamespace = getEnv("CERT_NAMESPACE", cfg.ServiceNamespace)
+		cfg.Host = fmt.Sprintf("%s.%s.svc", cfg.ServiceName, cfg.ServiceNamespace)
+	} else {
+		cfg.Type = WebhookTypeUrl
+		cfg.Host = getEnv("WEBHOOK_HOST", "localhost")
+	}
+	cfg.Path = serverEndpoint
+	cfg.Port = getEnvInt32("WEBHOOK_PORT", webhookServicePort)
+	cfg.CertStorageDir = getEnv("CERT_STORAGE_DIR", "/tmp/cert")
+	return &cfg
+}
+
+func setupWebhooks(ctx context.Context) error {
+	cfg := NewWebhookConfig()
+	caBytes, err := createCerts(cfg)
 	if err != nil {
 		return err
 	}
-	if err := createValidatingWebhook(ctx, webhookNs, caBytes); err != nil {
+	if err := createValidatingWebhook(ctx, cfg, caBytes); err != nil {
 		return err
 	}
-	if err := runWebhookServer(certStorageDir); err != nil {
+	if err := runWebhookServer(cfg.CertStorageDir); err != nil {
 		return err
 	}
 	return nil
 }
 
-func createCerts(webhookNs string, certStorageDir string) ([]byte, error) {
-	klog.Infoln("creating self-signing TLS cert and key with namespace " + webhookNs + " in directory " + certStorageDir)
-	dnsNames := []string{"api",
-		"api." + webhookNs, "api." + webhookNs + ".svc"}
-	commonName := "api." + webhookNs + ".svc"
+func createCerts(cfg *WebhookConfig) ([]byte, error) {
+	klog.Infof("creating self-signing TLS cert and key for %q in directory %s", cfg.Host, cfg.CertStorageDir)
+	commonName := cfg.Host
+	dnsNames := []string{commonName}
+	if cfg.Type == WebhookTypeService {
+		dnsNames = append(dnsNames, cfg.ServiceName)
+		dnsNames = append(dnsNames, fmt.Sprintf("%s.%s", cfg.ServiceName, cfg.ServiceNamespace))
+		dnsNames = append(dnsNames, fmt.Sprintf("%s.%s.svc", cfg.ServiceName, cfg.ServiceNamespace))
+		dnsNames = append(dnsNames, fmt.Sprintf("%s.%s.svc.cluster.local", cfg.ServiceName, cfg.ServiceNamespace))
+	}
 
 	var caPEM, serverCertPEM, serverPrivateKeyPEM *bytes.Buffer
 	// CA config
@@ -134,15 +183,15 @@ func createCerts(webhookNs string, certStorageDir string) ([]byte, error) {
 		Bytes: x509.MarshalPKCS1PrivateKey(serverPrivateKey),
 	})
 
-	err = os.MkdirAll(certStorageDir, 0777)
+	err = os.MkdirAll(cfg.CertStorageDir, 0777)
 	if err != nil {
 		return nil, err
 	}
-	err = WriteFile(filepath.Join(certStorageDir, "tls.crt"), serverCertPEM.Bytes())
+	err = WriteFile(filepath.Join(cfg.CertStorageDir, "tls.crt"), serverCertPEM.Bytes())
 	if err != nil {
 		return nil, err
 	}
-	err = WriteFile(filepath.Join(certStorageDir, "tls.key"), serverPrivateKeyPEM.Bytes())
+	err = WriteFile(filepath.Join(cfg.CertStorageDir, "tls.key"), serverPrivateKeyPEM.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -165,23 +214,20 @@ func WriteFile(filepath string, c []byte) error {
 	return nil
 }
 
-func createValidatingWebhook(ctx context.Context, webhookNs string, caCert []byte) error {
-	klog.Infoln("Creating validating webhook with namespace " + webhookNs)
+func createValidatingWebhook(ctx context.Context, cfg *WebhookConfig, caCert []byte) error {
 
-	cfg := ctrl.GetConfigOrDie()
-	kubeClient, err := kubernetes.NewForConfig(cfg)
+	klog.Infof("Creating validating webhook for %s:%d", cfg.Host, cfg.Port)
+
+	kubeConfig := ctrl.GetConfigOrDie()
+	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
 	if err != nil {
 		return fmt.Errorf("failed to setup kubeClient: %v", err)
 	}
 
 	var (
-		webhookNamespace  = webhookNs
 		validationCfgName = "packagerev-deletion-validating-webhook"
-		webhookService    = "api"
-		path              = serverEndpoint
 		fail              = admissionregistrationv1.Fail
 		none              = admissionregistrationv1.SideEffectClassNone
-		port              = int32(webhookServicePort)
 	)
 
 	validateConfig := &admissionregistrationv1.ValidatingWebhookConfiguration{
@@ -192,12 +238,6 @@ func createValidatingWebhook(ctx context.Context, webhookNs string, caCert []byt
 			Name: "packagerevdeletion.google.com",
 			ClientConfig: admissionregistrationv1.WebhookClientConfig{
 				CABundle: caCert, // CA bundle created earlier
-				Service: &admissionregistrationv1.ServiceReference{
-					Name:      webhookService,
-					Namespace: webhookNamespace,
-					Path:      &path,
-					Port:      &port,
-				},
 			},
 			Rules: []admissionregistrationv1.RuleWithOperations{{Operations: []admissionregistrationv1.OperationType{
 				admissionregistrationv1.Delete},
@@ -211,6 +251,20 @@ func createValidatingWebhook(ctx context.Context, webhookNs string, caCert []byt
 			SideEffects:             &none,
 			FailurePolicy:           &fail,
 		}},
+	}
+	switch cfg.Type {
+	case WebhookTypeService:
+		validateConfig.Webhooks[0].ClientConfig.Service = &admissionregistrationv1.ServiceReference{
+			Name:      cfg.ServiceName,
+			Namespace: cfg.ServiceNamespace,
+			Path:      &cfg.Path,
+			Port:      &cfg.Port,
+		}
+	case WebhookTypeUrl:
+		url := fmt.Sprintf("https://%s:%d%s", cfg.Host, cfg.Port, cfg.Path)
+		validateConfig.Webhooks[0].ClientConfig.URL = &url
+	default:
+		return fmt.Errorf("invalid webhook type: %s", cfg.Type)
 	}
 
 	if err := kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(ctx, validationCfgName, metav1.DeleteOptions{}); err != nil {
@@ -368,4 +422,29 @@ func writeErr(errMsg string, w *http.ResponseWriter) {
 	if _, err := (*w).Write([]byte(errMsg)); err != nil {
 		klog.Errorf("could not write error message: %v", err)
 	}
+}
+
+func hasEnv(key string) bool {
+	_, found := os.LookupEnv(key)
+	return found
+}
+
+func getEnv(key string, defaultValue string) string {
+	value, found := os.LookupEnv(key)
+	if !found {
+		return defaultValue
+	}
+	return value
+}
+
+func getEnvInt32(key string, defaultValue int32) int32 {
+	value, found := os.LookupEnv(key)
+	if !found {
+		return defaultValue
+	}
+	i64, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		panic("could not parse int32 from environment variable: " + key)
+	}
+	return int32(i64) // this is safe because of the size parameter of the ParseInt call
 }

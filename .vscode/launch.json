@@ -21,7 +21,7 @@
             "cwd": "${workspaceFolder}",
             "env": { 
                 "CERT_STORAGE_DIR": "${workspaceFolder}/.build/pki/tmp", 
-                "CERT_NAMESPACE": "porch-system" 
+                "WEBHOOK_HOST": "localhost" 
             }
         },
         {

@@ -240,6 +240,7 @@ func (t *PorchSuite) TestGitRepository(ctx context.Context) {
 func (t *PorchSuite) TestGitRepositoryWithReleaseTagsAndDirectory(ctx context.Context) {
 	t.registerGitRepositoryF(ctx, kptRepo, "kpt-repo", "package-examples")
 
+	t.Log("Listing PackageRevisions in " + t.namespace)
 	var list porchapi.PackageRevisionList
 	t.ListF(ctx, &list, client.InNamespace(t.namespace))
 

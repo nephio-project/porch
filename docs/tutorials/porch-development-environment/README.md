@@ -197,7 +197,7 @@ make test
 
 ### Run the end-to-end tests
 
-To test porch directly via its API:
+To test porch directly via its Kubernetes API:
 ```
 E2E=1 go test -v ./test/e2e
 ```

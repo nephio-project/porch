@@ -31,22 +31,26 @@ import (
 )
 
 func TestCreateCerts(t *testing.T) {
-	dir := t.TempDir()
+	webhookCfg := WebhookConfig{
+		Type:           WebhookTypeUrl,
+		Host:           "localhost",
+		CertStorageDir: t.TempDir(),
+	}
 	defer func() {
-		require.NoError(t, os.RemoveAll(dir))
+		require.NoError(t, os.RemoveAll(webhookCfg.CertStorageDir))
 	}()
 
-	caCert, err := createCerts("", dir)
+	caCert, err := createCerts(&webhookCfg)
 	require.NoError(t, err)
 
 	caStr := strings.TrimSpace(string(caCert))
 	require.True(t, strings.HasPrefix(caStr, "-----BEGIN CERTIFICATE-----\n"))
 	require.True(t, strings.HasSuffix(caStr, "\n-----END CERTIFICATE-----"))
 
-	crt, err := os.ReadFile(filepath.Join(dir, "tls.crt"))
+	crt, err := os.ReadFile(filepath.Join(webhookCfg.CertStorageDir, "tls.crt"))
 	require.NoError(t, err)
 
-	key, err := os.ReadFile(filepath.Join(dir, "tls.key"))
+	key, err := os.ReadFile(filepath.Join(webhookCfg.CertStorageDir, "tls.key"))
 	require.NoError(t, err)
 
 	crtStr := strings.TrimSpace(string(crt))

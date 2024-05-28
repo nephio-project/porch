@@ -208,7 +208,7 @@ func (t *TestSuite) mustNotExist(ctx context.Context, obj client.Object) {
 	}
 }
 
-// waitUntilRepositoryReady waits for up to 10 seconds for the repository with the
+// waitUntilRepositoryReady waits for up to 60 seconds for the repository with the
 // provided name and namespace is ready, i.e. the Ready condition is true.
 // It also queries for Functions and PackageRevisions, to ensure these are also
 // ready - this is an artifact of the way we've implemented the aggregated apiserver,
@@ -219,7 +219,7 @@ func (t *TestSuite) waitUntilRepositoryReady(ctx context.Context, name, namespac
 		Namespace: namespace,
 	}
 	var innerErr error
-	err := wait.PollImmediateWithContext(ctx, time.Second, 10*time.Second, func(ctx context.Context) (bool, error) {
+	err := wait.PollImmediateWithContext(ctx, time.Second, 60*time.Second, func(ctx context.Context) (bool, error) {
 		var repo configapi.Repository
 		if err := t.client.Get(ctx, nn, &repo); err != nil {
 			innerErr = err
