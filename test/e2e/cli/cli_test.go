@@ -31,8 +31,10 @@ import (
 )
 
 const (
-	updateGoldenFiles = "UPDATE_GOLDEN_FILES"
-	testGitNamespace  = "test-git-namespace"
+	updateGoldenFiles       = "UPDATE_GOLDEN_FILES"
+	testGitName             = "git-server"
+	testGitNamespace        = "test-git-namespace"
+	defaultTestGitServerUrl = "http://" + testGitName + "." + testGitNamespace + ".svc.cluster.local:8080"
 )
 
 func TestPorch(t *testing.T) {
@@ -41,18 +43,11 @@ func TestPorch(t *testing.T) {
 		t.Skip("set E2E to run this test")
 	}
 
-	var testdataDir string
-	if e2e == "local-server" {
-		testdataDir = "testdata-local-server"
-	} else {
-		testdataDir = "testdata"
-	}
-
-	abs, err := filepath.Abs(filepath.Join(".", testdataDir))
+	abs, err := filepath.Abs(filepath.Join(".", "testdata"))
 	if err != nil {
 		t.Fatalf("Failed to get absolute path to testdata directory: %v", err)
 	}
-	runTests(t, abs)
+	runTests(t, abs, e2e != "local-server")
 }
 
 func runUtilityCommand(t *testing.T, command string, args ...string) error {
@@ -61,8 +56,14 @@ func runUtilityCommand(t *testing.T, command string, args ...string) error {
 	return cmd.Run()
 }
 
-func runTests(t *testing.T, path string) {
-	gitServerURL := startGitServer(t, path)
+func runTests(t *testing.T, path string, isPorchInCluster bool) {
+	var searchAndReplace = map[string]string{}
+
+	gitServerURL := startGitServer(t, path, isPorchInCluster)
+	if gitServerURL != defaultTestGitServerUrl {
+		searchAndReplace[defaultTestGitServerUrl] = gitServerURL
+	}
+
 	testCases := scanTestCases(t, path)
 
 	// remove any tmp files from previous test runs
@@ -81,12 +82,23 @@ func runTests(t *testing.T, path string) {
 				t.Skipf("Skipping test: %s", tc.Skip)
 			}
 			repoURL := gitServerURL + "/" + strings.ReplaceAll(tc.TestCase, "/", "-")
-			runTestCase(t, repoURL, tc)
+			runTestCase(t, repoURL, tc, searchAndReplace)
 		})
 	}
 }
 
-func runTestCase(t *testing.T, repoURL string, tc TestCaseConfig) {
+func normalizeWhitespace(s1 string) string {
+	parts := strings.Split(s1, " ")
+	words := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part != "" {
+			words = append(words, part)
+		}
+	}
+	return strings.Join(words, " ")
+}
+
+func runTestCase(t *testing.T, repoURL string, tc TestCaseConfig, searchAndReplace map[string]string) {
 	KubectlCreateNamespace(t, tc.TestCase)
 	t.Cleanup(func() {
 		KubectlDeleteNamespace(t, tc.TestCase)
@@ -99,6 +111,11 @@ func runTestCase(t *testing.T, repoURL string, tc TestCaseConfig) {
 	for i := range tc.Commands {
 		time.Sleep(1 * time.Second)
 		command := &tc.Commands[i]
+		for i, arg := range command.Args {
+			for search, replace := range searchAndReplace {
+				command.Args[i] = strings.ReplaceAll(arg, search, replace)
+			}
+		}
 		cmd := exec.Command(command.Args[0], command.Args[1:]...)
 
 		var stdout, stderr bytes.Buffer
@@ -117,6 +134,20 @@ func runTestCase(t *testing.T, repoURL string, tc TestCaseConfig) {
 
 		cleanupStderr(t, &stderr)
 
+		stdoutStr := stdout.String()
+		stderrStr := stderr.String()
+		for search, replace := range searchAndReplace {
+			command.Stdout = strings.ReplaceAll(command.Stdout, search, replace)
+			command.Stderr = strings.ReplaceAll(command.Stderr, search, replace)
+		}
+
+		if command.IgnoreWhitespace {
+			command.Stdout = normalizeWhitespace(command.Stdout)
+			command.Stderr = normalizeWhitespace(command.Stderr)
+			stdoutStr = normalizeWhitespace(stdoutStr)
+			stderrStr = normalizeWhitespace(stderrStr)
+		}
+
 		if os.Getenv(updateGoldenFiles) != "" {
 			updateCommand(command, err, stdout.String(), stderr.String())
 		}
@@ -124,10 +155,10 @@ func runTestCase(t *testing.T, repoURL string, tc TestCaseConfig) {
 		if got, want := exitCode(err), command.ExitCode; got != want {
 			t.Errorf("unexpected exit code from '%s'; got %d, want %d", strings.Join(command.Args, " "), got, want)
 		}
-		if got, want := stdout.String(), command.Stdout; got != want {
+		if got, want := stdoutStr, command.Stdout; got != want {
 			t.Errorf("unexpected stdout content from '%s'; (-want, +got) %s", strings.Join(command.Args, " "), cmp.Diff(want, got))
 		}
-		if got, want := stderr.String(), command.Stderr; got != want {
+		if got, want := stderrStr, command.Stderr; got != want {
 			t.Errorf("unexpected stderr content from '%s'; (-want, +got) %s", strings.Join(command.Args, " "), cmp.Diff(want, got))
 		}
 
@@ -198,9 +229,7 @@ func reorderYamlStdout(t *testing.T, buf *bytes.Buffer) {
 	}
 }
 
-func startGitServer(t *testing.T, path string) string {
-	gitServerURL := "http://git-server." + testGitNamespace + ".svc.cluster.local:8080"
-
+func startGitServer(t *testing.T, path string, isPorchInCluster bool) string {
 	gitServerImage := GetGitServerImageName(t)
 	t.Logf("Git Image: %s", gitServerImage)
 
@@ -211,15 +240,25 @@ func startGitServer(t *testing.T, path string) string {
 	}
 	config := string(configBytes)
 	config = strings.ReplaceAll(config, "GIT_SERVER_IMAGE", gitServerImage)
+	if !isPorchInCluster {
+		config = strings.ReplaceAll(config, "ClusterIP", "LoadBalancer")
+	}
 
 	t.Cleanup(func() {
 		KubectlDeleteNamespace(t, testGitNamespace)
 	})
 
 	KubectlApply(t, config)
-	KubectlWaitForDeployment(t, testGitNamespace, "git-server")
-	KubectlWaitForService(t, testGitNamespace, "git-server")
-	KubectlWaitForGitDNS(t, gitServerURL)
+	KubectlWaitForDeployment(t, testGitNamespace, testGitName)
+	KubectlWaitForService(t, testGitNamespace, testGitName)
+
+	gitServerURL := defaultTestGitServerUrl
+	if isPorchInCluster {
+		KubectlWaitForGitDNS(t, gitServerURL)
+	} else {
+		ip := KubectlWaitForLoadBalancerIp(t, testGitNamespace, testGitName)
+		gitServerURL = "http://" + ip + ":8080"
+	}
 
 	return gitServerURL
 }

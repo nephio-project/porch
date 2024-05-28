@@ -85,7 +85,7 @@ func KubectlWaitForDeployment(t *testing.T, namespace, name string) {
 }
 
 func KubectlWaitForService(t *testing.T, namespace, name string) {
-	args := []string{"get", "endpoints", "--namespace", namespace, name, "--output=jsonpath='{.subsets[*].addresses[*].ip}'"}
+	args := []string{"get", "endpoints", "--namespace", namespace, name, "--output=jsonpath={.subsets[*].addresses[*].ip}"}
 
 	giveUp := time.Now().Add(1 * time.Minute)
 	for {
@@ -107,6 +107,35 @@ func KubectlWaitForService(t *testing.T, namespace, name string) {
 				msg = err.Error()
 			}
 			t.Fatalf("Service endpoint %s/%s not ready on time. Giving up: %s", namespace, name, msg)
+		}
+
+		time.Sleep(5 * time.Second)
+	}
+}
+
+func KubectlWaitForLoadBalancerIp(t *testing.T, namespace, name string) string {
+	args := []string{"get", "service", "--namespace", namespace, name, "--output=jsonpath={.status.loadBalancer.ingress[0].ip}"}
+
+	giveUp := time.Now().Add(1 * time.Minute)
+	for {
+		cmd := exec.Command("kubectl", args...)
+		var stdout, stderr bytes.Buffer
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
+
+		err := cmd.Run()
+		ip := stdout.String()
+		if err == nil && len(ip) > 0 { // Loadbalancer assigned an external IP
+			t.Logf("LoadBalancer external IP: %s", ip)
+			return ip
+		}
+
+		if time.Now().After(giveUp) {
+			var msg string
+			if err != nil {
+				msg = err.Error()
+			}
+			t.Fatalf("LoadBalancer service %s/%s hasn't been assigned an external IP on time. Giving up: %s", namespace, name, msg)
 		}
 
 		time.Sleep(5 * time.Second)

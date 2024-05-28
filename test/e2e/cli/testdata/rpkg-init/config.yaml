@@ -10,11 +10,12 @@ commands:
       - porchctl
       - repo
       - get
+      - --no-headers
       - --namespace=rpkg-init
       - --output=custom-columns=NAME:.metadata.name,ADDRESS:.spec.git.repo,BRANCH:.spec.git.branch,DIR:.spec.git.directory
     stdout: |
-      NAME   ADDRESS                                                                 BRANCH   DIR
       git    http://git-server.test-git-namespace.svc.cluster.local:8080/rpkg-init   main     /
+    ignoreWhitespace: true
   - args:
       - porchctl
       - rpkg
