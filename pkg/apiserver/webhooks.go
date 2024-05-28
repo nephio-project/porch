@@ -48,8 +48,7 @@ import (
 )
 
 const (
-	webhookServicePort int32 = 8443
-	serverEndpoint           = "/validate-deletion"
+	serverEndpoint = "/validate-deletion"
 )
 
 type WebhookType string
@@ -89,7 +88,7 @@ func NewWebhookConfig() *WebhookConfig {
 		cfg.Host = getEnv("WEBHOOK_HOST", "localhost")
 	}
 	cfg.Path = serverEndpoint
-	cfg.Port = getEnvInt32("WEBHOOK_PORT", webhookServicePort)
+	cfg.Port = getEnvInt32("WEBHOOK_PORT", 8443)
 	cfg.CertStorageDir = getEnv("CERT_STORAGE_DIR", "/tmp/cert")
 	return &cfg
 }
@@ -103,7 +102,7 @@ func setupWebhooks(ctx context.Context) error {
 	if err := createValidatingWebhook(ctx, cfg, caBytes); err != nil {
 		return err
 	}
-	if err := runWebhookServer(cfg.CertStorageDir); err != nil {
+	if err := runWebhookServer(cfg); err != nil {
 		return err
 	}
 	return nil
@@ -280,9 +279,9 @@ func createValidatingWebhook(ctx context.Context, cfg *WebhookConfig, caCert []b
 	return nil
 }
 
-func runWebhookServer(certStorageDir string) error {
-	certFile := filepath.Join(certStorageDir, "tls.crt")
-	keyFile := filepath.Join(certStorageDir, "tls.key")
+func runWebhookServer(cfg *WebhookConfig) error {
+	certFile := filepath.Join(cfg.CertStorageDir, "tls.crt")
+	keyFile := filepath.Join(cfg.CertStorageDir, "tls.key")
 
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
@@ -291,7 +290,7 @@ func runWebhookServer(certStorageDir string) error {
 	klog.Infoln("Starting webhook server")
 	http.HandleFunc(serverEndpoint, validateDeletion)
 	server := http.Server{
-		Addr: fmt.Sprintf(":%d", webhookServicePort),
+		Addr: fmt.Sprintf(":%d", cfg.Port),
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{cert},
 		},
