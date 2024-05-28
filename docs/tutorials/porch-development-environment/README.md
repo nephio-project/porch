@@ -59,7 +59,7 @@ The setup script will perform the following steps:
 1. Build the porch CLI binary.  
    The result will be generated as `.build/porchctl`.
 
-That's it. If you want to run the steps manually, please use the code of the script as a detailed description.
+That's it! If you want to run the steps manually, please use the code of the script as a detailed description.
 
 The setup script is idempotent in the sense that you can rerun it without cleaning up first. This also means that if the script is interrupted for any reason, and you run it again it should continue the process where it left off.
 
