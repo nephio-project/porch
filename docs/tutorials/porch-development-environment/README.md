@@ -73,7 +73,7 @@ Once the environment is set up you can start the porch API server locally on you
 1. You can now launch the Porch server locally in VSCode by selecting the "Launch Server" configuration on the VSCode "Run and Debug" window. For
 more information please refer to the [VSCode debugging documentation](https://code.visualstudio.com/docs/editor/debugging).
 
-1. Check that the apiservice is now Ready:
+1. Check that the apiservice is ready:
 ```
 kubectl get apiservice v1alpha1.porch.kpt.dev
 ```
