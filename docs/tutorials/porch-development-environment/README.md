@@ -15,7 +15,7 @@
 
 This tutorial gives short instructions on how to set up a development environment for Porch. It outlines the steps to get 
 a [kind](https://kind.sigs.k8s.io/) cluster up and running to which a Porch instance running in Visual Studio Code can connect to and interact with.
-It is highly recommended to go through the [Starting with Porch tutorial](https://github.com/nephio-project/porch/tree/main/docs/tutorials/starting-with-porch) before this one, if you are not familiar with how porch works.
+if you are not familiar with how porch works, it is highly recommended that you go through the [Starting with Porch tutorial](https://github.com/nephio-project/porch/tree/main/docs/tutorials/starting-with-porch) before going through this one.
 
 > **_NOTE:_**  The code itself can be run on a remote VM and we can use the [VSCode Remote SSH](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh) plugin to connect to it as our Dev environment.
 
