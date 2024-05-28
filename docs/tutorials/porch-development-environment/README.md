@@ -30,7 +30,7 @@ The script the `make deployment-config-no-sa` target to generate the deployment 
 > **_NOTE:_**  The changes above **permanently** change the `bash` version and `sed` for **all** applications and may cause side effects. You may wish to revert the changes (particularly the `sed-->gsed` soft link) when you complete your work on Porch.
 
 
-## Setup the environment everything automatically
+## Setup the environment for everything automatically
 
 This [setup script](bin/setup.sh) automatically bulids a porch development environment. 
 Please note that this is only one of many possible ways of building a working porch development environment so feel free to customize it to suit your own environment.
