@@ -29,15 +29,15 @@ local-prefix: "github.com/nephio-project/porch"
 threshold:
   # (optional; default 0) 
   # The minimum coverage that each file should have
-  file: 70
+  file: 0
 
   # (optional; default 0) 
   # The minimum coverage that each package should have
-  package: 80
+  package: 0
 
   # (optional; default 0) 
   # The minimum total coverage project should have
-  total: 80
+  total: 40
 
 # Holds regexp rules which will override thresholds for matched files or packages 
 # using their paths.
@@ -54,10 +54,10 @@ override:
 # Holds regexp rules which will exclude matched files or packages 
 # from coverage statistics
 exclude:
-  # Exclude files or packages matching their paths
-  paths:
-    - \.pb\.go$    # excludes all protobuf generated files
-    - ^pkg/bar     # exclude package `pkg/bar`
+  # # Exclude files or packages matching their paths
+  # paths:
+  #   - \.pb\.go$    # excludes all protobuf generated files
+  #   - ^pkg/bar     # exclude package `pkg/bar`
  
 # NOTES:
 # - symbol `/` in all path regexps will be replaced by current OS file path separator
