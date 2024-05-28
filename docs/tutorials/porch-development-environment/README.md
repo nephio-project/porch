@@ -186,7 +186,7 @@ Copy the `.build/porchctl` binary (that was built by the setup script) to somewh
 
 ## Test that everything works as expected
 
-Make sure that the porch server is still running in VS Code and than run the following tests from the git root folder.
+Make sure that the porch server is still running in VS Code and than run the following tests from the project root.
 
 ### Run the porch unit tests
 
