@@ -621,7 +621,7 @@ func (t *TestSuite) createInClusterGitServer(ctx context.Context, exposeByLoadBa
 		if exposeByLoadBalancer {
 			var svc coreapi.Service
 			t.client.Get(ctx, serviceKey, &svc)
-			if len(svc.Status.LoadBalancer.Ingress) == 0 {
+			if len(svc.Status.LoadBalancer.Ingress) == 0 || svc.Status.LoadBalancer.Ingress[0].IP == "" {
 				t.Logf("waiting for LoadBalancer to be assigned: %+v", svc)
 				continue
 			}

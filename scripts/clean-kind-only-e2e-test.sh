@@ -25,10 +25,14 @@ cd $PORCH_DIR
 kind delete cluster --name dev || true
 kind create cluster --name dev 
 make run-in-kind-kpt IMAGE_TAG='test' KIND_CONTEXT_NAME='dev' KUBECONFIG=$KUBECONFIG
-kubectl rollout status deployment porch-controllers --namespace porch-system
-kubectl rollout status deployment porch-server --namespace porch-system
-kubectl rollout status deployment function-runner --namespace porch-system
-sleep 2
+for deployment in porch-controllers porch-server function-runner; do
+    kubectl rollout status deployment $deployment --namespace porch-system
+    kubectl wait --namespace porch-system deploy $deployment \
+                --for=condition=available \
+                --timeout=90s
+done
+
+sleep 5
 
 echo "--- test/e2e ---"
 E2E=1 go test -failfast -v ./test/e2e
