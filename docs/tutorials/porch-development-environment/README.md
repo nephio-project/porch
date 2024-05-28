@@ -179,7 +179,7 @@ curl https://localhost:4443/apis/porch.kpt.dev/v1alpha1 -k
 </details>
 
 
-## Build the CLI
+## Add the CLI binary to the path
 
 Build the porchctl CLI in the git root folder by
 
