@@ -70,7 +70,7 @@ Once the environment is set up you can start the porch API server locally on you
 
 1. Edit your local `.vscode/launch.json` file as follows: Change the `--kubeconfig` argument of the `Launch Server` configuration to point to a KUBECONFIG file that is set to the kind cluster as the current context.
 
-1. You can now launch the Porch server locally in VSCode by selecting the "Launch Server" configuration on the VSCode "Run and Debug" window. for
+1. You can now launch the Porch server locally in VSCode by selecting the "Launch Server" configuration on the VSCode "Run and Debug" window. For
 more information please refer to the [VSCode debugging documentation](https://code.visualstudio.com/docs/editor/debugging).
 
 1. Check that the apiservice is now Ready:
