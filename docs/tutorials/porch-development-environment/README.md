@@ -33,7 +33,7 @@ The script the `make deployment-config-no-sa` target to generate the deployment 
 ## Setup the environment everything automatically
 
 This [setup script](bin/setup.sh) automatically bulids a porch development environment. 
-Please note that this is not the only possible way to build a working porch development environment, and feel free to customize your own.
+Please note that this is only one of many possible ways of building a working porch development environment so feel free to customize it to suit your own environment.
 The setup script will perform the following steps:
 1. Install a kind cluster.   
    The name of the cluster is read from PORCH_TEST_CLUSTER environment variable, otherwise it defaults to `porch-test`.
