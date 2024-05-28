@@ -243,7 +243,7 @@ You now have a locally running Porch (api)server. Happy developing!
 # Restart from scratch
 
 Sometimes the development cluster gets cluttered and you may experience weird behaviour from porch. 
-In this case you might want to restart with a clean slate, by deleting the dvelopemnt cluster with the follwoing command:
+In this case you might want to restart with a clean slate, by deleting the development cluster with the following command:
 ```
 kind delete cluster --name porch-test
 ```
