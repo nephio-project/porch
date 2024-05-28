@@ -35,7 +35,7 @@ kubectl wait --namespace porch-system pod --selector=app=function-runner \
             --for=condition=ready \
             --timeout=90s
 
-sleep 5
+sleep 15
 
 echo "--- test/e2e ---"
 E2E=1 go test -failfast -v ./test/e2e
