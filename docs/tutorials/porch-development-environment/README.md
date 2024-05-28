@@ -179,15 +179,9 @@ curl https://localhost:4443/apis/porch.kpt.dev/v1alpha1 -k
 </details>
 
 
-## Add the CLI binary to the path
+## Add the CLI binary to your PATH
 
-Build the porchctl CLI in the git root folder by
-
-```
-make porchctl
-```
-
-Copy the .build/porchctl` binary to somewhere in your $PATH.
+Copy the `.build/porchctl` binary (that was built by the setup script) to somewhere in your $PATH.
 
 
 ## Test that everything works as expected
@@ -201,11 +195,6 @@ make test
 ```
 
 ### Run the end-to-end tests
-In order for the end-to-end tests to run properly for a locally running API server, you have to add the following line to your `/etc/hosts` file:
-```
-127.0.0.1         api.porch-system.svc
-```
-TODO: remove this requirement
 
 To test porch directly via its API:
 ```
