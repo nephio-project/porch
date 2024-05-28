@@ -187,7 +187,7 @@ Build the porchctl CLI in the git root folder by
 make porchctl
 ```
 
-and then copy the result from `.build/porchctl` to somewhere in your $PATH.
+Copy the .build/porchctl` binary to somewhere in your $PATH.
 
 
 ## Test that everything works as expected
