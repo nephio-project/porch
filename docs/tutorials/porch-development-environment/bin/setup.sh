@@ -129,16 +129,6 @@ cd "${git_root}"
 deployments/local/makekeys.sh
 
 ############################################
-h1 Install CRDs
-cd "${git_root}"
-kubectl apply -f api/porchconfig/v1alpha1/config.porch.kpt.dev_repositories.yaml
-kubectl apply -f api/porchconfig/v1alpha1/config.porch.kpt.dev_functions.yaml
-kubectl apply -f controllers/config/crd/bases/config.porch.kpt.dev_packagevariants.yaml
-kubectl apply -f controllers/config/crd/bases/config.porch.kpt.dev_packagevariantsets.yaml
-kubectl apply -f internal/api/porchinternal/v1alpha1/config.porch.kpt.dev_packagerevs.yaml
-
-
-############################################
 h1 Load container images into kind cluster
 cd "${git_root}"
 export IMAGE_TAG=v2.0.0
