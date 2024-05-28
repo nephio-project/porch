@@ -39,7 +39,7 @@ The setup script will perform the following steps:
    The name of the cluster is read from the PORCH_TEST_CLUSTER environment variable, otherwise it defaults to `porch-test`.
    The configuration of the cluster is taken from [here](bin/kind_porch_test_cluster.yaml).
 
-1. Install the MetalLB load balancer into the cluster, in order to `LoadBalancer` typed Services to work properly.
+1. Install the MetalLB load balancer into the cluster, in order to allow `LoadBalancer` typed Services to work properly.
 
 1. Install the Gitea git server into the cluster.  
    This can be used to test porch during development, but it is not used in automated end-to-end tests.
