@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Endpoints
+metadata:
+  annotations:
+    config.kubernetes.io/target-path: 3-porch-server-endpoints.yaml
+  name: api
+  namespace: porch-system
+subsets:
+- addresses:
+  - ip: 172.17.0.1
+  ports:
+  - appProtocol: https
+    name: api
+    port: 4443
+    protocol: TCP
+  - name: webhooks
+    port: 8443
+    protocol: TCP
