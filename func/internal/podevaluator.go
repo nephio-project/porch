@@ -543,6 +543,7 @@ func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl
 
 	pod, err := pm.getBasePodTemplate(ctx)
 	if err != nil {
+		klog.Errorf("failed to generate a base pod template: %v", err)
 		return client.ObjectKey{}, fmt.Errorf("failed to generate a base pod template: %w", err)
 	}
 	err = pm.patchNewPodContainer(pod, *de, image)
