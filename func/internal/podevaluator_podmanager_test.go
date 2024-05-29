@@ -617,9 +617,14 @@ func TestPodManager(t *testing.T) {
 				if tt.kubeClient.Get(ctx, cc.pod, &pod); err != nil {
 					t.Errorf("Failed to get pod: %v", err)
 				}
+
 				if !strings.HasPrefix(pod.Labels[krmFunctionLabel], tt.functionImage) {
 					t.Errorf("Expected pod to have label starting wiht %s, got %s", tt.functionImage, pod.Labels[krmFunctionLabel])
 				}
+				if pod.Spec.Containers[0].Image != tt.functionImage {
+					t.Errorf("Expected pod to have image %s, got %s", tt.functionImage, pod.Spec.Containers[0].Image)
+				}
+
 			}
 
 		})

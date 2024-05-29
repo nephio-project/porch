@@ -669,7 +669,8 @@ func (pm *podManager) getBasePodTemplate(ctx context.Context) (*corev1.Pod, erro
 // Patches the expected port, and the original entrypoint and image of the kpt function into the function container
 func (pm *podManager) patchNewPodContainer(pod *corev1.Pod, de digestAndEntrypoint, image string) error {
 	var patchedContainer bool
-	for _, container := range pod.Spec.Containers {
+	for i := range pod.Spec.Containers {
+		container := &pod.Spec.Containers[i]
 		if container.Name == functionContainerName {
 			container.Args = append(container.Args,
 				"--port", defaultWrapperServerPort,
