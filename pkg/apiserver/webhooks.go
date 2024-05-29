@@ -30,7 +30,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+
 	"time"
+
+	"github.com/fsnotify/fsnotify"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
@@ -51,15 +54,23 @@ const (
 	serverEndpoint     = "/validate-deletion"
 )
 
-func setupWebhooks(ctx context.Context, webhookNs string, certStorageDir string) error {
-	caBytes, err := createCerts(webhookNs, certStorageDir)
-	if err != nil {
-		return err
+var (
+	cert        tls.Certificate
+	certModTime time.Time
+)
+
+func setupWebhooks(ctx context.Context, webhookNs string, certStorageDir string, useCertManWebhook bool) error {
+	if !useCertManWebhook {
+		caBytes, err := createCerts(webhookNs, certStorageDir)
+		if err != nil {
+			return err
+		}
+		if err := createValidatingWebhook(ctx, webhookNs, caBytes); err != nil {
+			return err
+		}
+
 	}
-	if err := createValidatingWebhook(ctx, webhookNs, caBytes); err != nil {
-		return err
-	}
-	if err := runWebhookServer(certStorageDir); err != nil {
+	if err := runWebhookServer(certStorageDir, useCertManWebhook); err != nil {
 		return err
 	}
 	return nil
@@ -226,13 +237,75 @@ func createValidatingWebhook(ctx context.Context, webhookNs string, caCert []byt
 	return nil
 }
 
-func runWebhookServer(certStorageDir string) error {
+// load the certificate & keep note of time loaded for reload on new cert details
+func loadCertificate(certPath, keyPath string) (tls.Certificate, error) {
+	certInfo, err := os.Stat(certPath)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	if certInfo.ModTime().After(certModTime) {
+		newCert, err := tls.LoadX509KeyPair(certPath, keyPath)
+		if err != nil {
+			return tls.Certificate{}, err
+		}
+		cert = newCert
+		certModTime = certInfo.ModTime()
+	}
+	return cert, nil
+}
+
+// watch for changes on the mount path of the secret as volume
+func watchCertificates(directory, certFile, keyFile string) {
+	//set up a watcher for the cert
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		klog.Fatalf("failed to start certificate watcher: %v", err)
+	}
+	defer watcher.Close()
+	// start the watcher with the dir to watch
+	err = watcher.Add(directory)
+	if err != nil {
+		klog.Errorf("Error in running watcher: %v", err)
+	}
+	// if the watcher notices any changes on the mount dir of the secret such as creations or writes to the files in this dir
+	// attempt to load tls cert using the new cert and key files provided and log output
+	done := make(chan bool)
+	go func() {
+		for {
+			select {
+			case event, ok := <-watcher.Events:
+				if !ok {
+					return
+				}
+				if event.Op&fsnotify.Create == fsnotify.Create || event.Op&fsnotify.Write == fsnotify.Write {
+					_, err := loadCertificate(certFile, keyFile)
+					if err != nil {
+						klog.Errorf("Failed to load updated certificate: %v", err)
+					} else {
+						klog.Info("Certificate reloaded successfully")
+					}
+				}
+			case err, ok := <-watcher.Errors:
+				if !ok {
+					return
+				}
+				klog.Errorf("Watcher error: %v", err)
+			}
+		}
+	}()
+	<-done
+}
+
+func runWebhookServer(certStorageDir string, useCertManWebhook bool) error {
 	certFile := filepath.Join(certStorageDir, "tls.crt")
 	keyFile := filepath.Join(certStorageDir, "tls.key")
-
-	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	cert, err := loadCertificate(certFile, keyFile)
 	if err != nil {
+		klog.Errorf("failed to load certificate: %v", err)
 		return err
+	}
+	if useCertManWebhook {
+		go watchCertificates(certStorageDir, certFile, keyFile)
 	}
 	klog.Infoln("Starting webhook server")
 	http.HandleFunc(serverEndpoint, validateDeletion)

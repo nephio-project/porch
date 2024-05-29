@@ -289,7 +289,11 @@ func (s *PorchServer) Run(ctx context.Context) error {
 
 	certStorageDir, found := os.LookupEnv("CERT_STORAGE_DIR")
 	if found && strings.TrimSpace(certStorageDir) != "" {
-		if err := setupWebhooks(ctx, webhookNs, certStorageDir); err != nil {
+		useCertMan := false
+		if _, found := os.LookupEnv("USE_CERT_MAN_FOR_WEBHOOK"); found {
+			useCertMan = true
+		}
+		if err := setupWebhooks(ctx, webhookNs, certStorageDir, useCertMan); err != nil {
 			klog.Errorf("%v\n", err)
 			return err
 		}
