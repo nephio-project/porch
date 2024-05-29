@@ -22,12 +22,13 @@
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/porch/main.go",
             "args": [
-                "--secure-port=9443",
+                "--secure-port=4443",
                 "--v=7",
                 "--standalone-debug-mode",
-                "--kubeconfig=${workspaceFolder}/deployments/local/kubeconfig",
+                "--kubeconfig=${env:KUBECONFIG}",
                 "--cache-directory=${workspaceFolder}/.cache",
-                "--function-runner=192.168.8.202:9445"
+                "--function-runner=172.18.255.201:9445",
+                "--repo-sync-frequency=60s"
             ],
             "cwd": "${workspaceFolder}"
         },
@@ -43,29 +44,6 @@
                 "--image=gcr.io/kpt-fn/set-namespace:v0.2.0",
                 "--",
                 "namespace=foo"
-            ]
-        },
-        {
-            "name": "Launch kpt",
-            "type": "go",
-            "request": "launch",
-            "mode": "auto",
-            "program": "${workspaceFolder}/../main.go",
-            "args": [
-                "alpha", "rpkg", "get"
-            ],
-            "cwd": "${workspaceFolder}/.."
-        },
-        {
-            "name": "Launch kpt e2e test",
-            "type": "go",
-            "request": "launch",
-            "mode": "test",
-            "program": "${workspaceFolder}/../e2e",
-            "args": [
-                "-v",
-                "-test.run",
-                "TestPorch"
             ]
         }
     ]

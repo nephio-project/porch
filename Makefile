@@ -159,6 +159,10 @@ generate: generate-api
 tidy:
 	@for f in $(MODULES); do (cd $$f; echo "Tidying $$f"; go mod tidy) || exit 1; done
 
+.PHONY: test-e2e
+test-e2e:
+	E2E=1 go test -v -race --count=1 -failfast ./test/e2e 
+
 .PHONY: configure-git
 configure-git:
 	git config --global --add user.name test
@@ -266,8 +270,8 @@ push-and-deploy: push-images deploy
 # `push-and-deploy` etc.)
 .PHONY: deployment-config-no-sa
 deployment-config-no-sa:
-	rm -rf $(DEPLOYCONFIG_NO_SA_DIR) || true
 	mkdir -p $(DEPLOYCONFIG_NO_SA_DIR)
+	find $(DEPLOYCONFIG_NO_SA_DIR) ! -name 'resourcegroup.yaml' -type f -exec rm -f {} +
 	./scripts/create-deployment-blueprint.sh \
 	  --destination "$(DEPLOYCONFIG_NO_SA_DIR)" \
 	  --server-image "$(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG)" \

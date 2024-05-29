@@ -14,10 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-porch_cluster_name=porch-test
+porch_cluster_name=${PORCH_TEST_CLUSTER:-porch-test}
 git_repo_name="$porch_cluster_name"
-gitea_ip=172.18.255.200  # should be from the address range specified here: https://github.com/nephio-project/porch/blob/main/docs/tutorials/starting-with-porch/metallb-conf.yaml
+gitea_ip=172.18.255.200  # should be from the address range specified here: docs/tutorials/starting-with-porch/metallb-conf.yaml
+function_runner_ip=172.18.255.201
+
 self_dir="$(dirname "$(readlink -f "$0")")"
+git_root="$(readlink -f "${self_dir}/../../../..")"
+cd "${git_root}"
 
 function h1() {
   echo
@@ -40,8 +44,9 @@ fi
 ##############################################
 h1 "Install kind cluster: $porch_cluster_name"
 if ! kind get clusters | grep -q "^$porch_cluster_name\$" ; then
-  curl -s https://raw.githubusercontent.com/nephio-project/porch/main/docs/tutorials/starting-with-porch/kind_management_cluster.yaml | \
-    kind create cluster --config=- --name "$porch_cluster_name" || true
+  kind create cluster \
+    --config="${git_root}/docs/tutorials/porch-development-environment/bin/kind_porch_test_cluster.yaml" \
+    --name "$porch_cluster_name" || true
 
   mkdir -p ~/.kube
   kind get kubeconfig --name="$porch_cluster_name" > ~/.kube/"kind-$porch_cluster_name"
@@ -58,49 +63,54 @@ echo "Waiting for controller to become ready..."
 kubectl wait --namespace metallb-system deploy controller \
                 --for=condition=available \
                 --timeout=90s
-kubectl apply -f https://raw.githubusercontent.com/nephio-project/porch/main/docs/tutorials/starting-with-porch/metallb-conf.yaml
-
-############################################
-h1 Prepare tmp dir
-TMP_DIR=$(mktemp -d)
-echo "$TMP_DIR"
+kubectl apply -f "${git_root}/docs/tutorials/starting-with-porch/metallb-conf.yaml"
 
 ############################################
 h1 Install Gitea
-mkdir "$TMP_DIR/kpt_packages"
-cd "$TMP_DIR/kpt_packages"
-kpt pkg get https://github.com/nephio-project/catalog/tree/main/distros/sandbox/gitea
+mkdir -p "${git_root}/.build"
+cd "${git_root}/.build"
+if [ -d gitea ]; then
+  kpt pkg update gitea
+else
+  kpt pkg get https://github.com/nephio-project/catalog/tree/main/distros/sandbox/gitea
+fi
+
 kpt fn eval gitea \
   --image gcr.io/kpt-fn/set-annotations:v0.1.4 \
   --match-kind Service \
   --match-name gitea \
   --match-namespace gitea \
   -- "metallb.universe.tf/loadBalancerIPs=${gitea_ip}"
-curl -o gitea/cluster-config.yaml https://raw.githubusercontent.com/nephio-project/porch/main/docs/tutorials/starting-with-porch/kind_management_cluster.yaml
-echo "metadata: { name: "porch-test" }" >> gitea/cluster-config.yaml
-kpt fn eval gitea \
-  --image gcr.io/kpt-fn/set-annotations:v0.1.4 \
-  --match-kind Cluster \
-  --match-api-version kind.x-k8s.io/v1alpha4 \
-  -- "config.kubernetes.io/local-config=true"
+
+cp -f "${git_root}/docs/tutorials/porch-development-environment/bin/kind_porch_test_cluster.yaml" gitea/cluster-config.yaml
+# turn kind's cluster-config into a valid KRM
+cat >> gitea/cluster-config.yaml <<EOF1
+metadata: 
+  name: not-used 
+  annotations:
+    config.kubernetes.io/local-config: "true"
+EOF1
 kpt fn eval gitea \
   --image gcr.io/kpt-fn/apply-replacements:v0.1.1 \
   --fn-config "${self_dir}/replace-gitea-service-ports.yaml"
 
 kpt fn render gitea
-kpt live init gitea
-kpt live apply gitea
+kpt live init gitea || true
+kpt live apply gitea --inventory-policy=adopt
+echo "Waiting for gitea to become ready..."
+kubectl wait --namespace gitea statefulset gitea \
+                --for='jsonpath={.status.readyReplicas}=1' \
+                --timeout=90s
 
 ############################################
 h1 Create git repos in gitea
 curl -k -H "content-type: application/json" "http://nephio:secret@${gitea_ip}:3000/api/v1/user/repos" --data "{\"name\":\"$git_repo_name\"}"
-
-mkdir "$TMP_DIR/repos"
-cd "$TMP_DIR/repos"
+TMP_DIR=$(mktemp -d)
+cd "$TMP_DIR"
 git clone "http://nephio:secret@${gitea_ip}:3000/nephio/$git_repo_name"
 cd "$git_repo_name"
-
 if ! git rev-parse -q --verify refs/remotes/origin/main >/dev/null; then
+  echo "Add main branch to git repo:"
   git switch -c  main
   touch README.md
   git add README.md
@@ -110,11 +120,101 @@ if ! git rev-parse -q --verify refs/remotes/origin/main >/dev/null; then
 else
   echo "main branch already exists in git repo."
 fi
-
-############################################
-h1 "Clean up"
-cd "$self_dir"
+cd "${git_root}"
 rm -fr "$TMP_DIR"
 
+############################################
+h1 Generate certs and keys
+cd "${git_root}"
+deployments/local/makekeys.sh
+
+############################################
+h1 Load container images into kind cluster
+cd "${git_root}"
+export IMAGE_TAG=v2.0.0
+export KIND_CONTEXT_NAME="$porch_cluster_name"
+if ! docker exec -it "$porch_cluster_name-control-plane" crictl images | grep -q docker.io/nephio/test-git-server ; then
+  make build-images 
+  kind load docker-image docker.io/nephio/porch-controllers:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
+  kind load docker-image docker.io/nephio/porch-function-runner:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
+  kind load docker-image docker.io/nephio/porch-wrapper-server:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
+  kind load docker-image docker.io/nephio/test-git-server:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
+else
+  echo "Images already loaded into kind cluster."
+fi
+
+############################################
+h1 Install all porch components, except porch-server
+cd "${git_root}"
+make deployment-config-no-sa
+cd .build/deploy-no-sa
+# expose function-runner to local processes
+kpt fn eval \
+  --image gcr.io/kpt-fn/starlark:v0.5.0 \
+  --match-kind Service \
+  --match-name function-runner \
+  --match-namespace porch-system \
+  -- "ip=${function_runner_ip}"  'source=
+ip = ctx.resource_list["functionConfig"]["data"]["ip"]
+for resource in ctx.resource_list["items"]:
+  resource["metadata"].setdefault("annotations", {})["metallb.universe.tf/loadBalancerIPs"] = ip
+  resource["spec"]["type"] = "LoadBalancer"
+  resource["spec"]["ports"][0]["nodePort"] = 30001'
+# "remove" porch-server from package
+kpt fn eval \
+  --image gcr.io/kpt-fn/starlark:v0.5.0 \
+  --match-kind Deployment \
+  --match-name porch-server \
+  --match-namespace porch-system \
+  -- 'source=ctx.resource_list["items"] = []'
+# make the api service point to the local porch-server
+if [ "$(uname)" = "Darwin" ]
+then
+  # MAC
+  kpt fn eval \
+    --image gcr.io/kpt-fn/starlark:v0.5.0 \
+    --match-kind Service \
+    --match-name api \
+    --match-namespace porch-system \
+    -- 'source=
+for resource in ctx.resource_list["items"]:
+  resource["spec"] = {
+    "type": "ExternalName",
+    "externalName": "host.docker.internal"
+  }
+'
+
+else
+  # Linux
+  docker_bridge_ip="$(docker network inspect bridge --format='{{(index .IPAM.Config 0).Gateway}}')"
+  kpt fn eval \
+    --image upsert-resource:v0.2.0 \
+    --fn-config "${git_root}/deployments/local/porch-api-endpoints.yaml"
+  kpt fn eval \
+    --image gcr.io/kpt-fn/search-replace:v0.2.0 \
+    --match-kind Endpoints \
+    --match-name api \
+    --match-namespace porch-system \
+    -- 'by-path=subsets[0].addresses[0].ip' "put-value=$docker_bridge_ip"
+  kpt fn eval \
+    --image gcr.io/kpt-fn/starlark:v0.5.0 \
+    --match-kind Service \
+    --match-name api \
+    --match-namespace porch-system \
+    -- 'source=
+for resource in ctx.resource_list["items"]:
+  resource["spec"].pop("selector")'
+fi
+kpt fn render 
+kpt live init || true
+kpt live apply --inventory-policy=adopt
+
+############################################
+h1 "Build the porch CLI (.build/porchctl)"
+cd "${git_root}"
+make porchctl
+
+
+############################################
 echo
 echo Done.
