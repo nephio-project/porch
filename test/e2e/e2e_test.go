@@ -1055,10 +1055,11 @@ func (t *PorchSuite) TestDeleteAndRecreate(ctx context.Context) {
 	var pkg porchapi.PackageRevision
 	t.mustExist(ctx, client.ObjectKey{Namespace: t.namespace, Name: created.Name}, &pkg)
 
-	// Propose the package revision to be finalized
+	t.Log("Propose the package revision to be finalized")
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 	t.UpdateF(ctx, &pkg)
 
+	t.Log("Approve the package revision to be finalized")
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	t.UpdateApprovalF(ctx, &pkg, metav1.UpdateOptions{})
 

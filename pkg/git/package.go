@@ -15,6 +15,7 @@
 package git
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
@@ -24,6 +25,7 @@ import (
 	"time"
 
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/google/uuid"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
@@ -31,6 +33,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
+)
+
+const (
+	uuidSpace = "aac71d91-5c67-456f-8fd2-902ef6da820e"
 )
 
 type gitPackageRevision struct {
@@ -103,13 +109,15 @@ func (p *gitPackageRevision) Key() repository.PackageRevisionKey {
 }
 
 func (p *gitPackageRevision) uid() types.UID {
-	var s string
-	if p.revision == string(p.repo.branch) {
-		s = p.revision
-	} else {
-		s = string(p.workspaceName)
-	}
-	return types.UID(fmt.Sprintf("uid:%s:%s", p.path, s))
+	space := uuid.MustParse(uuidSpace)
+	buff := bytes.Buffer{}
+	buff.WriteString("packagerevisions.")
+	buff.WriteString(v1alpha1.SchemeGroupVersion.Identifier())
+	buff.WriteString("/")
+	buff.WriteString(p.KubeObjectNamespace())
+	buff.WriteString("/")
+	buff.WriteString(p.KubeObjectName()) // KubeObjectName() is unique in a given namespace
+	return types.UID(uuid.NewSHA1(space, buff.Bytes()).String())
 }
 
 func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.PackageRevision, error) {
