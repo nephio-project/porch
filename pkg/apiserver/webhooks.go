@@ -31,7 +31,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -99,7 +98,6 @@ func NewWebhookConfig() *WebhookConfig {
 }
 
 var (
-	mu          sync.Mutex
 	cert        tls.Certificate
 	certModTime time.Time
 )
@@ -293,19 +291,13 @@ func createValidatingWebhook(ctx context.Context, cfg *WebhookConfig, caCert []b
 	return nil
 }
 
-// load the certificate from the secret and update when secret cert data changes e.g.
+// load the certificate & keep note of time loaded for reload on new cert details
 func loadCertificate(certPath, keyPath string) (tls.Certificate, error) {
-	// get info about cert manager certificate secret mounted as a volume on the porch server pod
 	certInfo, err := os.Stat(certPath)
 	if err != nil {
 		return tls.Certificate{}, err
 	}
-	// if the last time this secret was modified was after the last time we loaded its cert files
-	// we lock access to the mount path and load the keypair from the files in our tls then release the lock
-	// set this new loaded cert as our current cert and note the modtime for next reload
 	if certInfo.ModTime().After(certModTime) {
-		mu.Lock()
-		defer mu.Unlock()
 		newCert, err := tls.LoadX509KeyPair(certPath, keyPath)
 		if err != nil {
 			return tls.Certificate{}, err
@@ -324,7 +316,11 @@ func watchCertificates(directory, certFile, keyFile string) {
 		klog.Fatalf("failed to start certificate watcher: %v", err)
 	}
 	defer watcher.Close()
-
+	// start the watcher with the dir to watch
+	err = watcher.Add(directory)
+	if err != nil {
+		klog.Errorf("Error in running watcher: %v", err)
+	}
 	// if the watcher notices any changes on the mount dir of the secret such as creations or writes to the files in this dir
 	// attempt to load tls cert using the new cert and key files provided and log output
 	done := make(chan bool)
@@ -351,19 +347,7 @@ func watchCertificates(directory, certFile, keyFile string) {
 			}
 		}
 	}()
-	// start the watcher with the dir to watch
-	err = watcher.Add(directory)
-	if err != nil {
-		klog.Fatalf("Error in running watcher: %v", err)
-	}
-
 	<-done
-}
-// return current cert
-func getCertificate(*tls.ClientHelloInfo) (*tls.Certificate, error) {
-	mu.Lock()
-	defer mu.Unlock()
-	return &cert, nil
 }
 
 func runWebhookServer(cfg *WebhookConfig) error {
@@ -371,52 +355,30 @@ func runWebhookServer(cfg *WebhookConfig) error {
 	keyFile := filepath.Join(cfg.CertStorageDir, "tls.key")
 	// load the cert for the first time
 
-	if cfg.CertManWebhook {
-		_, err := loadCertificate(certFile, keyFile)
-		if err != nil {
-			klog.Errorf("failed to load certificate: %v", err)
-		}
-		// Start watching the certificate files for changes
-		// watch for changes in directory where secret is mounted
-		go watchCertificates(cfg.CertStorageDir, certFile, keyFile)
-
-		klog.Infoln("Starting webhook server")
-		http.HandleFunc(serverEndpoint, validateDeletion)
-		server := http.Server{
-			Addr: fmt.Sprintf(":%d", cfg.Port),
-			TLSConfig: &tls.Config{
-				GetCertificate: getCertificate,
-			},
-		}
-		go func() {
-			err = server.ListenAndServeTLS("", "")
-			if err != nil {
-				klog.Errorf("could not start server: %v", err)
-			}
-		}()
-		return err
-
-	} else {
-		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-		if err != nil {
-			return err
-		}
-		klog.Infoln("Starting webhook server")
-		http.HandleFunc(cfg.Path, validateDeletion)
-		server := http.Server{
-			Addr: fmt.Sprintf(":%d", cfg.Port),
-			TLSConfig: &tls.Config{
-				Certificates: []tls.Certificate{cert},
-			},
-		}
-		go func() {
-			err = server.ListenAndServeTLS("", "")
-			if err != nil {
-				klog.Errorf("could not start server: %v", err)
-			}
-		}()
+	cert, err := loadCertificate(certFile, keyFile)
+	if err != nil {
+		klog.Errorf("failed to load certificate: %v", err)
 		return err
 	}
+	if cfg.CertManWebhook {
+		go watchCertificates(cfg.CertStorageDir, certFile, keyFile)
+	}
+	klog.Infoln("Starting webhook server")
+	http.HandleFunc(cfg.Path, validateDeletion)
+	server := http.Server{
+		Addr: fmt.Sprintf(":%d", cfg.Port),
+		TLSConfig: &tls.Config{
+			Certificates: []tls.Certificate{cert},
+		},
+	}
+	go func() {
+		err = server.ListenAndServeTLS("", "")
+		if err != nil {
+			klog.Errorf("could not start server: %v", err)
+		}
+	}()
+	return err
+	
 }
 
 func validateDeletion(w http.ResponseWriter, r *http.Request) {
