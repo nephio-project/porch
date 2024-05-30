@@ -112,11 +112,11 @@ func (p *gitPackageRevision) uid() types.UID {
 	space := uuid.MustParse(uuidSpace)
 	buff := bytes.Buffer{}
 	buff.WriteString("packagerevisions.")
-	buff.WriteString(v1alpha1.SchemeGroupVersion.Identifier())
+	buff.WriteString(strings.ToLower(v1alpha1.SchemeGroupVersion.Identifier()))
 	buff.WriteString("/")
-	buff.WriteString(p.KubeObjectNamespace())
+	buff.WriteString(strings.ToLower(p.KubeObjectNamespace()))
 	buff.WriteString("/")
-	buff.WriteString(p.KubeObjectName()) // KubeObjectName() is unique in a given namespace
+	buff.WriteString(strings.ToLower(p.KubeObjectName())) // KubeObjectName() is unique in a given namespace
 	return types.UID(uuid.NewSHA1(space, buff.Bytes()).String())
 }
 

@@ -14,7 +14,8 @@ commands:
       - --repository=git
       - --workspace=push
       - test-package
-    stdout: "git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f created\n"
+    stdout: |
+      git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f created
   - args:
       - porchctl
       - rpkg
@@ -34,7 +35,7 @@ commands:
             internal.config.kubernetes.io/path: .KptRevisionMetadata
           name: git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f
           namespace: rpkg-push
-          uid: uid:test-package:push
+          uid: 8d61685e-584c-5b89-bd30-a8d8dccb13f9
       - apiVersion: kpt.dev/v1
         info:
           description: sample description
@@ -106,9 +107,9 @@ commands:
             internal.config.kubernetes.io/path: package-context.yaml
           name: kptfile.kpt.dev
       kind: ResourceList
-    yaml: true
-    exitCode: 1
     stderr: "Error: Internal error occurred: resourceVersion must be specified for an update \n"
+    exitCode: 1
+    yaml: true
   - args:
       - porchctl
       - rpkg
@@ -128,7 +129,10 @@ commands:
       - --
       - by-path=info.description
       - put-value=Updated Test Package Description
-    stderr: "[RUNNING] \"gcr.io/kpt-fn/search-replace:v0.2.0\" on 1 resource(s)\n  Results:\n    [info] info.description: Mutated field value to \"Updated Test Package Description\"\n"
+    stderr: |
+      [RUNNING] "gcr.io/kpt-fn/search-replace:v0.2.0" on 1 resource(s)
+        Results:
+          [info] info.description: Mutated field value to "Updated Test Package Description"
   - args:
       - porchctl
       - rpkg
@@ -136,7 +140,8 @@ commands:
       - --namespace=rpkg-push
       - git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f
       - /tmp/porch-e2e/rpkg-push-git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f
-    stdout: "git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f pushed\n"
+    stdout: |
+      git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f pushed
   - args:
       - porchctl
       - rpkg
@@ -156,7 +161,7 @@ commands:
             internal.config.kubernetes.io/path: .KptRevisionMetadata
           name: git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f
           namespace: rpkg-push
-          uid: uid:test-package:push
+          uid: 8d61685e-584c-5b89-bd30-a8d8dccb13f9
       - apiVersion: kpt.dev/v1
         info:
           description: Updated Test Package Description

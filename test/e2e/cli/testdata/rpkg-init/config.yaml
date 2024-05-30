@@ -14,7 +14,7 @@ commands:
       - --namespace=rpkg-init
       - --output=custom-columns=NAME:.metadata.name,ADDRESS:.spec.git.repo,BRANCH:.spec.git.branch,DIR:.spec.git.directory
     stdout: |
-      git    http://git-server.test-git-namespace.svc.cluster.local:8080/rpkg-init   main     /
+      git   http://git-server.test-git-namespace.svc.cluster.local:8080/rpkg-init   main   /
     ignoreWhitespace: true
   - args:
       - porchctl
@@ -29,7 +29,8 @@ commands:
       - --repository=git
       - --workspace=init-1
       - init-package
-    stdout: "git-95686470a1fd3a3ba726cce4c8f449f6bbe2b02a created\n"
+    stdout: |
+      git-95686470a1fd3a3ba726cce4c8f449f6bbe2b02a created
   - args:
       - porchctl
       - rpkg
@@ -49,7 +50,7 @@ commands:
             internal.config.kubernetes.io/path: .KptRevisionMetadata
           name: git-95686470a1fd3a3ba726cce4c8f449f6bbe2b02a
           namespace: rpkg-init
-          uid: uid:init-package:init-1
+          uid: 58ce4be4-fa08-5780-aa59-20ec2e2e8d89
       - apiVersion: kpt.dev/v1
         info:
           description: Test Package Description
@@ -88,5 +89,6 @@ commands:
       - --repository=git
       - --workspace=init-2
       - init-package
-    stderr: "error: `init` cannot create a new revision for package \"init-package\" that already exists in repo \"git\"; make subsequent revisions using `copy`\n"
+    stderr: |
+      error: `init` cannot create a new revision for package "init-package" that already exists in repo "git"; make subsequent revisions using `copy`
     exitCode: 1
