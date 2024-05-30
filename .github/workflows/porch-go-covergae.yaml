@@ -47,7 +47,6 @@ jobs:
         with:
           app-id: ${{ vars.HELPER_APP_ID }}
           private-key: ${{ secrets.HELPER_APP_KEY }}
-          owner: ${{ github.repository_owner }}
       - name: setup go
         uses: actions/setup-go@v5
         with:
