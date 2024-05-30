@@ -135,9 +135,10 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 	repo, address := git.ServeGitRepository(t, tarfile, tempdir)
 	metadataStore := createMetadataStoreFromArchive(t, "", "")
 
-	cache := NewCache(t.TempDir(), 60*time.Second, false, CacheOptions{
+	cache := NewCache(t.TempDir(), 60*time.Second, true, CacheOptions{
 		MetadataStore:  metadataStore,
 		ObjectNotifier: &fakecache.ObjectNotifier{},
+		CredentialResolver: &fakecache.CredentialResolver{},
 	})
 	cachedGit, err := cache.OpenRepository(ctx, &v1alpha1.Repository{
 		TypeMeta: metav1.TypeMeta{
