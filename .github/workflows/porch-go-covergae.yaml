@@ -62,4 +62,4 @@ jobs:
           # Configure action using config file (option 1)
           config: ./.github/.testcoverage.yaml
           git-branch: badges
-          git-token: ${{ secrets.GITHUB_TOKEN }}
+          git-token: ${{ steps.generate-token.outputs.token }}
