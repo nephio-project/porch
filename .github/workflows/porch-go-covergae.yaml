@@ -42,7 +42,12 @@ jobs:
     steps:
       - name: checkout repo
         uses: actions/checkout@v4
-      
+     - uses: actions/create-github-app-token@v1
+        id: generate-token
+        with:
+          app-id: ${{ secrets.HELPER_APP_ID }}
+          private-key: ${{ secrets.HELPER_APP_KEY }}
+          owner: ${{ github.repository_owner }}
       - name: setup go
         uses: actions/setup-go@v5
         with:
