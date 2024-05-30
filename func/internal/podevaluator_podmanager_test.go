@@ -157,6 +157,9 @@ func TestPodManager(t *testing.T) {
 					Labels: map[string]string{
 						krmFunctionLabel: "apply-replacements-5245a527",
 					},
+					Annotations: map[string]string{
+						templateVersionAnnotation: inlineTemplateVersionv1,
+					},
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
@@ -506,7 +509,7 @@ func TestPodManager(t *testing.T) {
 			managerNamespace:        defaultManagerNamespace,
 		},
 		{
-			name:          "Function template under invalid key",
+			name:          "Function template generates pod",
 			skip:          false,
 			expectFail:    false,
 			functionImage: "apply-replacements",
@@ -519,6 +522,67 @@ func TestPodManager(t *testing.T) {
 					"template": string(marshalToYamlOrPanic(basePodTemplate)),
 				},
 			}}...).Build(),
+			namespace:               "porch-fn-system",
+			wrapperServerImage:      "wrapper-server",
+			imageMetadataCache:      defaultImageMetadataCache,
+			evalFunc:                defaultSuccessEvalFunc,
+			useGenerateName:         true,
+			functionPodTemplateName: "function-pod-template",
+			managerNamespace:        defaultManagerNamespace,
+			podPatch: &corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase: corev1.PodRunning,
+					Conditions: []corev1.PodCondition{
+						{
+							Type:   corev1.PodReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+					PodIP: "localhost",
+				},
+			},
+		},
+		{
+			name:          "Function template update is applied when pod is requested",
+			skip:          false,
+			expectFail:    false,
+			functionImage: "apply-replacements",
+			kubeClient: fake.NewClientBuilder().WithObjects([]client.Object{&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "function-pod-template",
+					Namespace: defaultManagerNamespace,
+				},
+				Data: map[string]string{
+					"template": string(marshalToYamlOrPanic(basePodTemplate)),
+				},
+			},
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "apply-replacements-5245a527",
+						Namespace: "porch-fn-system",
+						Labels: map[string]string{
+							krmFunctionLabel: "apply-replacements-5245a527",
+						},
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  "function",
+								Image: "apply-replacements",
+							},
+						},
+					},
+					Status: corev1.PodStatus{
+						Phase: corev1.PodRunning,
+						Conditions: []corev1.PodCondition{
+							{
+								Type:   corev1.PodReady,
+								Status: corev1.ConditionTrue,
+							},
+						},
+						PodIP: "localhost",
+					},
+				}}...).Build(),
 			namespace:               "porch-fn-system",
 			wrapperServerImage:      "wrapper-server",
 			imageMetadataCache:      defaultImageMetadataCache,

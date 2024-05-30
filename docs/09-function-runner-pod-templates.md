@@ -47,7 +47,6 @@ spec:
 ...
 ```
 
-
 ## Example pod template
 
 The below pod template Configmpa matches the default behavior:
@@ -79,7 +78,7 @@ data:
       - name: function
         image: image-replaced-by-kpt-func-image
         command: 
-          - /wrapper-server-tools/wrapper-server --port 9446 -- 
+          - /wrapper-server-tools/wrapper-server
         volumeMounts:
           - name: wrapper-server-tools
             mountPath: /wrapper-server-tools

@@ -45,16 +45,18 @@ import (
 )
 
 const (
-	defaultWrapperServerPort = "9446"
-	volumeName               = "wrapper-server-tools"
-	volumeMountPath          = "/wrapper-server-tools"
-	wrapperServerBin         = "wrapper-server"
-	gRPCProbeBin             = "grpc-health-probe"
-	krmFunctionLabel         = "fn.kpt.dev/image"
-	reclaimAfterAnnotation   = "fn.kpt.dev/reclaim-after"
-	fieldManagerName         = "krm-function-runner"
-	functionContainerName    = "function"
-	defaultManagerNamespace  = "porch-system"
+	defaultWrapperServerPort  = "9446"
+	volumeName                = "wrapper-server-tools"
+	volumeMountPath           = "/wrapper-server-tools"
+	wrapperServerBin          = "wrapper-server"
+	gRPCProbeBin              = "grpc-health-probe"
+	krmFunctionLabel          = "fn.kpt.dev/image"
+	reclaimAfterAnnotation    = "fn.kpt.dev/reclaim-after"
+	templateVersionAnnotation = "fn.kpt.dev/template-version"
+	inlineTemplateVersionv1   = "inline-v1"
+	fieldManagerName          = "krm-function-runner"
+	functionContainerName     = "function"
+	defaultManagerNamespace   = "porch-system"
 
 	channelBufferSize = 128
 )
@@ -506,6 +508,8 @@ func (pm *podManager) imageDigestAndEntrypoint(ctx context.Context, image string
 // retrieveOrCreatePod retrieves or creates a pod for an image.
 func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl time.Duration, useGenerateName bool) (client.ObjectKey, error) {
 	var de *digestAndEntrypoint
+	var replacePod bool
+	var currentPod *corev1.Pod
 	var err error
 	val, found := pm.imageMetadataCache.Load(image)
 	if !found {
@@ -527,6 +531,11 @@ func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl
 	// since the pod may be created by one the other instance and the current instance is not aware of it.
 	// TODO: It's possible to set up a Watch in the fn runner namespace, and always try to maintain a up-to-date local cache.
 	podList := &corev1.PodList{}
+	podTemplate, templateVersion, err := pm.getBasePodTemplate(ctx)
+	if err != nil {
+		klog.Errorf("failed to generate a base pod template: %v", err)
+		return client.ObjectKey{}, fmt.Errorf("failed to generate a base pod template: %w", err)
+	}
 	err = pm.kubeClient.List(ctx, podList, client.InNamespace(pm.namespace), client.MatchingLabels(map[string]string{krmFunctionLabel: podId}))
 	if err != nil {
 		klog.Warningf("error when listing pods for %q: %v", image, err)
@@ -535,45 +544,52 @@ func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl
 		// TODO: maybe we should randomly pick one that is no being deleted.
 		for _, pod := range podList.Items {
 			if pod.DeletionTimestamp == nil {
-				klog.Infof("retrieved function evaluator pod %v/%v for %q", pod.Namespace, pod.Name, image)
-				return client.ObjectKeyFromObject(&pod), nil
+				if isPodTemplateSameVersion(&pod, templateVersion) {
+					klog.Infof("retrieved function evaluator pod %v/%v for %q", pod.Namespace, pod.Name, image)
+					return client.ObjectKeyFromObject(&pod), nil
+				} else {
+					replacePod = true
+					currentPod = &pod
+					break
+				}
 			}
 		}
 	}
 
-	pod, err := pm.getBasePodTemplate(ctx)
-	if err != nil {
-		klog.Errorf("failed to generate a base pod template: %v", err)
-		return client.ObjectKey{}, fmt.Errorf("failed to generate a base pod template: %w", err)
-	}
-	err = pm.patchNewPodContainer(pod, *de, image)
+	err = pm.patchNewPodContainer(podTemplate, *de, image)
 	if err != nil {
 		return client.ObjectKey{}, fmt.Errorf("unable to apply the pod: %w", err)
 	}
-	pm.patchNewPodMetadata(pod, ttl, podId)
+	pm.patchNewPodMetadata(podTemplate, ttl, podId, templateVersion)
 
 	// Server-side apply doesn't support name generation. We have to use Create
 	// if we need to use name generation.
-	if useGenerateName {
-		pod.GenerateName = podId + "-"
-		err = pm.kubeClient.Create(ctx, pod, client.FieldOwner(fieldManagerName))
+	if useGenerateName || replacePod {
+		podTemplate.GenerateName = podId + "-"
+		err = pm.kubeClient.Create(ctx, podTemplate, client.FieldOwner(fieldManagerName))
 		if err != nil {
 			return client.ObjectKey{}, fmt.Errorf("unable to apply the pod: %w", err)
 		}
+		if replacePod {
+			err = pm.kubeClient.Delete(ctx, currentPod)
+			if err != nil {
+				return client.ObjectKey{}, fmt.Errorf("unable to clean up previous pod: %w", err)
+			}
+		}
 	} else {
-		pod.Name = podId
-		err = pm.kubeClient.Patch(ctx, pod, client.Apply, client.FieldOwner(fieldManagerName))
+		podTemplate.Name = podId
+		err = pm.kubeClient.Patch(ctx, podTemplate, client.Apply, client.FieldOwner(fieldManagerName))
 		if err != nil {
 			return client.ObjectKey{}, fmt.Errorf("unable to apply the pod: %w", err)
 		}
 	}
 
-	klog.Infof("created KRM function evaluator pod %v/%v for %q", pod.Namespace, pod.Name, image)
-	return client.ObjectKeyFromObject(pod), nil
+	klog.Infof("created KRM function evaluator pod %v/%v for %q", podTemplate.Namespace, podTemplate.Name, image)
+	return client.ObjectKeyFromObject(podTemplate), nil
 }
 
-// Either gets the pod template from configmap, or from an inlined pod template.
-func (pm *podManager) getBasePodTemplate(ctx context.Context) (*corev1.Pod, error) {
+// Either gets the pod template from configmap, or from an inlined pod template. Also provides the version of the template
+func (pm *podManager) getBasePodTemplate(ctx context.Context) (*corev1.Pod, string, error) {
 	if pm.functionPodTemplateName != "" {
 		podTemplateCm := &corev1.ConfigMap{}
 
@@ -583,7 +599,7 @@ func (pm *podManager) getBasePodTemplate(ctx context.Context) (*corev1.Pod, erro
 		}, podTemplateCm)
 		if err != nil {
 			klog.Errorf("Could not get Configmap containing function pod template: %s/%s", pm.managerNamespace, pm.functionPodTemplateName)
-			return nil, err
+			return nil, "", err
 		}
 
 		decoder := yamlutil.NewYAMLOrJSONDecoder(strings.NewReader(podTemplateCm.Data["template"]), 100)
@@ -592,10 +608,10 @@ func (pm *podManager) getBasePodTemplate(ctx context.Context) (*corev1.Pod, erro
 
 		if err != nil {
 			klog.Errorf("Could not decode function pod template: %s", pm.functionPodTemplateName)
-			return nil, fmt.Errorf("unable to decode function pod template: %w", err)
+			return nil, "", fmt.Errorf("unable to decode function pod template: %w", err)
 		}
 
-		return &basePodTemplate, nil
+		return &basePodTemplate, podTemplateCm.ResourceVersion, nil
 	} else {
 
 		inlineBasePodTemplate := &corev1.Pod{
@@ -663,7 +679,7 @@ func (pm *podManager) getBasePodTemplate(ctx context.Context) (*corev1.Pod, erro
 			},
 		}
 
-		return inlineBasePodTemplate, nil
+		return inlineBasePodTemplate, inlineTemplateVersionv1, nil
 	}
 }
 
@@ -689,13 +705,14 @@ func (pm *podManager) patchNewPodContainer(pod *corev1.Pod, de digestAndEntrypoi
 }
 
 // Patch labels and annotations so the cache manager can keep track of the pod
-func (pm *podManager) patchNewPodMetadata(pod *corev1.Pod, ttl time.Duration, podId string) {
+func (pm *podManager) patchNewPodMetadata(pod *corev1.Pod, ttl time.Duration, podId string, templateVersion string) {
 	pod.ObjectMeta.Namespace = pm.namespace
 	annotations := pod.ObjectMeta.Annotations
 	if annotations == nil {
 		annotations = make(map[string]string)
 	}
 	annotations[reclaimAfterAnnotation] = fmt.Sprintf("%v", time.Now().Add(ttl).Unix())
+	annotations[templateVersionAnnotation] = templateVersion
 	pod.ObjectMeta.Annotations = annotations
 
 	labels := pod.ObjectMeta.Labels
@@ -753,4 +770,12 @@ func podID(image, hash string) (string, error) {
 	parts := strings.Split(repoName, "/")
 	name := strings.ReplaceAll(parts[len(parts)-1], "_", "-")
 	return fmt.Sprintf("%v-%v", name, hash[:8]), nil
+}
+
+func isPodTemplateSameVersion(pod *corev1.Pod, templateVersion string) bool {
+	currVersion, found := pod.Annotations[templateVersionAnnotation]
+	if !found || currVersion != templateVersion {
+		return false
+	}
+	return true
 }
