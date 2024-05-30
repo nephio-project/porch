@@ -45,7 +45,7 @@ jobs:
       - uses: actions/create-github-app-token@v1
         id: generate-token
         with:
-          app-id: ${{ secrets.HELPER_APP_ID }}
+          app-id: ${{ vars.HELPER_APP_ID }}
           private-key: ${{ secrets.HELPER_APP_KEY }}
           owner: ${{ github.repository_owner }}
       - name: setup go
