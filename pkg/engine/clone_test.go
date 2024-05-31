@@ -170,6 +170,11 @@ type credential struct {
 	username, password string
 }
 
+// ToString implements repository.Credential.
+func (c *credential) ToString() string {
+	panic("unimplemented")
+}
+
 func (c *credential) Valid() bool {
 	return true
 }

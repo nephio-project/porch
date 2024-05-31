@@ -109,6 +109,80 @@ func TestCredentialResolver(t *testing.T) {
 	}
 }
 
+func TestCaBundleCredentialResolver(t *testing.T) {
+
+	testCases := map[string]struct {
+		readerSecret *core.Secret
+		readerErr    error
+
+		resolverCredential repository.Credential
+		resolverResolved   bool
+		resolverErr        error
+
+		expectedCredential repository.Credential
+		expectedErrString  string
+	}{
+		"secret has valid Data key": {
+			readerSecret: &core.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretName,
+					Namespace: secretNamespace,
+				},
+				Type: core.SecretTypeOpaque,
+				Data: map[string][]byte{
+					"ca.crt": []byte("blah"),
+				},
+			},
+			expectedCredential: &CaBundleCredential{
+				CaBundle: "blah",
+			},
+		},
+		"secret has invalid Data key": {
+			readerSecret: &core.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretName,
+					Namespace: secretNamespace,
+				},
+				Type: core.SecretTypeOpaque,
+				Data: map[string][]byte{
+					"invalid": []byte("blah"),
+				},
+			},
+			expectedCredential: nil,
+			expectedErrString: "error resolving credential: CaBundle secret.Data key must be set as ca.crt",
+		},
+	}
+
+	for tn := range testCases {
+		tc := testCases[tn]
+		t.Run(tn, func(t *testing.T) {
+			reader := &fakeReader{
+				expectedSecret: tc.readerSecret,
+				expectedErr:    tc.readerErr,
+			}
+			credResolver := NewCredentialResolver(reader, []Resolver{
+				NewCaBundleResolver(),
+				&fakeResolver{
+					credential: tc.resolverCredential,
+					resolved:   tc.resolverResolved,
+					err:        tc.resolverErr,
+				},
+			})
+
+			cred, err := credResolver.ResolveCredential(context.Background(), secretNamespace, secretName)
+			if err != nil {
+				assert.EqualErrorf(t, err, tc.expectedErrString, "Error should be: %v, got: %v", tc.expectedErrString, err)
+			}
+			assert.Equal(t, tc.expectedCredential, cred)
+			if cred != nil {
+				assert.Equal(t, cred.ToString(), "blah")
+				assert.Equal(t, cred.Valid(), true)
+				assert.Panics(t, func() {cred.ToAuthMethod()})
+			}
+		})
+	}
+}
+
 type fakeReader struct {
 	expectedSecret *core.Secret
 	expectedErr    error

@@ -79,6 +79,7 @@ type ExtraConfig struct {
 	FunctionRunnerAddress string
 	DefaultImagePrefix    string
 	RepoSyncFrequency     time.Duration
+	UseGitCaBundle        bool
 }
 
 // Config defines the config for the apiserver
@@ -212,6 +213,7 @@ func (c completedConfig) New() (*PorchServer, error) {
 
 	resolverChain := []porch.Resolver{
 		porch.NewBasicAuthResolver(),
+		porch.NewCaBundleResolver(),
 		porch.NewGcloudWIResolver(coreV1Client, stsClient),
 	}
 
@@ -223,7 +225,7 @@ func (c completedConfig) New() (*PorchServer, error) {
 
 	watcherMgr := engine.NewWatcherManager()
 
-	cache := cache.NewCache(c.ExtraConfig.CacheDirectory, c.ExtraConfig.RepoSyncFrequency, cache.CacheOptions{
+	cache := cache.NewCache(c.ExtraConfig.CacheDirectory, c.ExtraConfig.RepoSyncFrequency, c.ExtraConfig.UseGitCaBundle, cache.CacheOptions{
 		CredentialResolver: credentialResolver,
 		UserInfoProvider:   userInfoProvider,
 		MetadataStore:      metadataStore,

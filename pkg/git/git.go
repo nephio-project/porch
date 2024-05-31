@@ -71,6 +71,7 @@ type GitRepositoryOptions struct {
 	CredentialResolver repository.CredentialResolver
 	UserInfoProvider   repository.UserInfoProvider
 	MainBranchStrategy MainBranchStrategy
+	UseGitCaBundle     bool
 }
 
 func OpenRepository(ctx context.Context, name, namespace string, spec *configapi.GitRepository, deployment bool, root string, opts GitRepositoryOptions) (GitRepository, error) {
@@ -138,6 +139,14 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 		deployment:         deployment,
 	}
 
+	if opts.UseGitCaBundle {
+		if caBundle, err := opts.CredentialResolver.ResolveCredential(ctx, namespace, namespace + "-ca-bundle"); err != nil {
+			klog.Errorf("failed to obtain caBundle from secret %s/%s: %v", namespace, namespace + "-ca-bundle", err)
+		} else {
+			repository.caBundle = []byte(caBundle.ToString())
+		}
+	}
+
 	if err := repository.fetchRemoteRepository(ctx); err != nil {
 		return nil, err
 	}
@@ -178,6 +187,9 @@ type gitRepository struct {
 	deletionProposedCache map[BranchName]bool
 
 	mutex sync.Mutex
+
+	// caBundle to use for TLS communication towards git
+	caBundle []byte
 }
 
 var _ GitRepository = &gitRepository{}
@@ -884,6 +896,7 @@ func (r *gitRepository) fetchRemoteRepository(ctx context.Context) error {
 			RemoteName: OriginName,
 			Auth:       auth,
 			Prune:      true,
+			CABundle:   r.caBundle,
 		})
 	}); err {
 	case nil: // OK
@@ -1007,6 +1020,7 @@ func (r *gitRepository) createPackageDeleteCommit(ctx context.Context, branch pl
 			RefSpecs:   []config.RefSpec{config.RefSpec(fmt.Sprintf("+%s:%s", local, branch))},
 			Auth:       auth,
 			Tags:       git.NoTags,
+			CABundle:   r.caBundle,
 		})
 	}); err {
 	case nil, git.NoErrAlreadyUpToDate:
@@ -1082,6 +1096,7 @@ func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuild
 			RequireRemoteRefs: require,
 			// TODO(justinsb): Need to ensure this is a compare-and-swap
 			Force: true,
+			CABundle:          r.caBundle,
 		})
 	}); err != nil {
 		return err
@@ -1609,6 +1624,7 @@ func (r *gitRepository) commitPackageToMain(ctx context.Context, d *gitPackageDr
 			RemoteName: OriginName,
 			RefSpecs:   []config.RefSpec{branch.ForceFetchSpec()},
 			Auth:       auth,
+			CABundle:   r.caBundle,
 		})
 	}); err {
 	case nil, git.NoErrAlreadyUpToDate:

@@ -30,7 +30,7 @@
                 "--function-runner=172.18.255.201:9445",
                 "--repo-sync-frequency=60s"
             ],
-            "cwd": "${workspaceFolder}"
+            "cwd": "${workspaceFolder}",
         },
         {
             "name": "Launch Func Client",

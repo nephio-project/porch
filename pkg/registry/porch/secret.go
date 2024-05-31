@@ -34,12 +34,15 @@ import (
 )
 
 const (
-	// Values for scret types supported by porch.
+	// Values for secret types supported by porch.
 	BasicAuthType            = core.SecretTypeBasicAuth
 	WorkloadIdentityAuthType = "kpt.dev/workload-identity-auth"
 
 	// Annotation used to specify the gsa for a ksa.
-	WIGCPSAAnnotation = "iam.gke.io/gcp-service-account"
+	WIGCPSAAnnotation        = "iam.gke.io/gcp-service-account"
+	
+	//Secret.Data key required for the caBundle
+	CaBundleDataName         = "ca.crt"
 )
 
 func NewCredentialResolver(coreClient client.Reader, resolverChain []Resolver) repository.CredentialResolver {
@@ -123,6 +126,10 @@ type BasicAuthCredential struct {
 	Password string
 }
 
+func (b *BasicAuthCredential) ToString() string {
+	panic("unimplemented")
+}
+
 var _ repository.Credential = &BasicAuthCredential{}
 
 func (b *BasicAuthCredential) Valid() bool {
@@ -134,6 +141,42 @@ func (b *BasicAuthCredential) ToAuthMethod() transport.AuthMethod {
 		Username: string(b.Username),
 		Password: string(b.Password),
 	}
+}
+
+func NewCaBundleResolver() Resolver {
+	return &CaBundleResolver{}
+}
+
+var _ Resolver = &CaBundleResolver{}
+
+type CaBundleResolver struct{}
+
+func (c *CaBundleResolver) Resolve(_ context.Context, secret core.Secret) (repository.Credential, bool, error) {
+	if secret.Data[CaBundleDataName] == nil {
+		return nil, false, fmt.Errorf("CaBundle secret.Data key must be set as %s", CaBundleDataName)
+	}
+
+	return &CaBundleCredential{
+		CaBundle: string(secret.Data[CaBundleDataName]),
+	}, true, nil
+}
+
+type CaBundleCredential struct {
+	CaBundle string
+}
+
+func (c *CaBundleCredential) ToString() string {
+	return c.CaBundle
+}
+
+var _ repository.Credential = &CaBundleCredential{}
+
+func (c *CaBundleCredential) Valid() bool {
+	return true
+}
+
+func (c *CaBundleCredential) ToAuthMethod() transport.AuthMethod {
+	panic("unimplemented")
 }
 
 func NewGcloudWIResolver(corev1Client *corev1client.CoreV1Client, stsClient *stsv1.Service) Resolver {
@@ -211,6 +254,10 @@ func (g *GcloudWIResolver) lookupGSAEmail(ctx context.Context, name, namespace s
 
 type GcloudWICredential struct {
 	token *oauth2.Token
+}
+
+func (b *GcloudWICredential) ToString() string {
+	panic("unimplemented")
 }
 
 var _ repository.Credential = &GcloudWICredential{}

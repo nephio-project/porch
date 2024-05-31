@@ -51,6 +51,7 @@ type Cache struct {
 	metadataStore      meta.MetadataStore
 	repoSyncFrequency  time.Duration
 	objectNotifier     objectNotifier
+	useGitCaBundle     bool
 }
 
 type objectNotifier interface {
@@ -64,7 +65,7 @@ type CacheOptions struct {
 	ObjectNotifier     objectNotifier
 }
 
-func NewCache(cacheDir string, repoSyncFrequency time.Duration, opts CacheOptions) *Cache {
+func NewCache(cacheDir string, repoSyncFrequency time.Duration, useGitCaBundle bool, opts CacheOptions) *Cache {
 	return &Cache{
 		repositories:       make(map[string]*cachedRepository),
 		cacheDir:           cacheDir,
@@ -73,6 +74,7 @@ func NewCache(cacheDir string, repoSyncFrequency time.Duration, opts CacheOption
 		metadataStore:      opts.MetadataStore,
 		objectNotifier:     opts.ObjectNotifier,
 		repoSyncFrequency:  repoSyncFrequency,
+		useGitCaBundle:     useGitCaBundle,
 	}
 }
 
@@ -136,6 +138,7 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 				CredentialResolver: c.credentialResolver,
 				UserInfoProvider:   c.userInfoProvider,
 				MainBranchStrategy: mbs,
+				UseGitCaBundle:     c.useGitCaBundle,
 			}); err != nil {
 				return nil, err
 			} else {
