@@ -17,8 +17,9 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"time"
 	"strings"
+	"time"
+
 	"github.com/google/go-cmp/cmp"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -339,7 +340,6 @@ func (t *TestSuite) waitUntilMainBranchPackageRevisionExists(ctx context.Context
 			return false, nil
 		}
 		for _, pkgRev := range pkgRevList.Items {
-			pkgName := pkgRev.Spec.PackageName
 			pkgRevision := pkgRev.Spec.Revision
 			if pkgRevision == "main" &&
 				pkgName == pkgRev.Spec.PackageName {
@@ -350,5 +350,27 @@ func (t *TestSuite) waitUntilMainBranchPackageRevisionExists(ctx context.Context
 	})
 	if err != nil {
 		t.Fatalf("Main branch package revision for %s not found", pkgName)
+	}
+}
+
+func (t *TestSuite) waitUntilMainBranchPackageRevisionIsRemoved(ctx context.Context, pkgName string) {
+	err := wait.PollImmediateWithContext(ctx, time.Second, 120*time.Second, func(ctx context.Context) (done bool, err error) {
+		var pkgRevList porchapi.PackageRevisionList
+		if err := t.client.List(ctx, &pkgRevList); err != nil {
+			t.Logf("error listing packages: %v", err)
+			return false, nil
+		}
+		for _, pkgRev := range pkgRevList.Items {
+			pkgRevision := pkgRev.Spec.Revision
+			if pkgRevision == "main" &&
+				pkgName == pkgRev.Spec.PackageName {
+				t.Logf("Main branch package revision for %s still found", pkgName)
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+	if err != nil {
+		t.Fatalf("Main branch package revision for %s was still found after ", pkgName)
 	}
 }
