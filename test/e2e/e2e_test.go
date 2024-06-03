@@ -1080,7 +1080,7 @@ func (t *PorchSuite) TestProposeDeleteAndUndo(ctx context.Context) {
 	t.UpdateApprovalF(ctx, &pkg, metav1.UpdateOptions{})
 	t.mustExist(ctx, client.ObjectKey{Namespace: t.namespace, Name: created.Name}, &pkg)
 
-	t.waitUntilMainBranchPackageRevisionExists(ctx, packageName)
+	_ = t.waitUntilPackageRevisionExists(ctx, repository, packageName, "main")
 
 	var list porchapi.PackageRevisionList
 	t.ListF(ctx, &list, client.InNamespace(t.namespace))
@@ -1232,35 +1232,14 @@ func (t *PorchSuite) TestDeleteFromMain(ctx context.Context) {
 	t.mustExist(ctx, client.ObjectKey{Namespace: t.namespace, Name: createdSecond.Name}, &pkgSecond)
 
 	t.Log("Wait for the 'main' revisions to get created")
-	var firstPkgRevFromMain porchapi.PackageRevision
-	var secondPkgRevFromMain porchapi.PackageRevision
-	var list porchapi.PackageRevisionList
-	finalDeadline := time.Now().Add(5 * time.Minute)
-	for firstPkgRevFromMain.Spec.WorkspaceName == "" || secondPkgRevFromMain.Spec.WorkspaceName == "" {
-		if time.Now().After(finalDeadline) {
-			t.Fatal("'main' package revisions not created in time")
-			return
-		}
-		time.Sleep(5 * time.Second)
-
-		t.ListE(ctx, &list, client.InNamespace(t.namespace))
-		for _, pkgrev := range list.Items {
-			if pkgrev.Spec.PackageName == packageNameFirst && pkgrev.Spec.Revision == "main" {
-				firstPkgRevFromMain = pkgrev
-				t.Logf("Found first package revision: %+v", firstPkgRevFromMain.Name)
-			}
-			if pkgrev.Spec.PackageName == packageNameSecond && pkgrev.Spec.Revision == "main" {
-				secondPkgRevFromMain = pkgrev
-				t.Logf("Found second package revision: %+v", secondPkgRevFromMain.Name)
-			}
-		}
-	}
+	firstPkgRevFromMain := t.waitUntilPackageRevisionExists(ctx, repository, packageNameFirst, "main")
+	secondPkgRevFromMain := t.waitUntilPackageRevisionExists(ctx, repository, packageNameSecond, "main")
 
 	t.Log("Propose deletion of both main packages")
 	firstPkgRevFromMain.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-	t.UpdateApprovalF(ctx, &firstPkgRevFromMain, metav1.UpdateOptions{})
+	t.UpdateApprovalF(ctx, firstPkgRevFromMain, metav1.UpdateOptions{})
 	secondPkgRevFromMain.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-	t.UpdateApprovalF(ctx, &secondPkgRevFromMain, metav1.UpdateOptions{})
+	t.UpdateApprovalF(ctx, secondPkgRevFromMain, metav1.UpdateOptions{})
 
 	t.Log("Delete the first package revision from main")
 	t.DeleteE(ctx, &porchapi.PackageRevision{
@@ -1269,9 +1248,6 @@ func (t *PorchSuite) TestDeleteFromMain(ctx context.Context) {
 			Name:      firstPkgRevFromMain.Name,
 		},
 	})
-
-	// t.Log("Wait for the sync")
-	// time.Sleep(75 * time.Second)
 
 	t.Log("Delete the second package revision from main")
 	t.DeleteE(ctx, &porchapi.PackageRevision{
@@ -1282,6 +1258,7 @@ func (t *PorchSuite) TestDeleteFromMain(ctx context.Context) {
 	})
 
 	// Propose and delete the original package revisions (cleanup)
+	var list porchapi.PackageRevisionList
 	t.ListE(ctx, &list, client.InNamespace(t.namespace))
 	for _, pkgrev := range list.Items {
 		t.Logf("Propose deletion and delete package revision: %s", pkgrev.Name)

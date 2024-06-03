@@ -333,24 +333,29 @@ func (t *TestSuite) waitUntilObjectDeleted(ctx context.Context, gvk schema.Group
 	}
 }
 
-func (t *TestSuite) waitUntilMainBranchPackageRevisionExists(ctx context.Context, pkgName string) {
-	err := wait.PollImmediateWithContext(ctx, time.Second, 120*time.Second, func(ctx context.Context) (done bool, err error) {
+func (t *TestSuite) waitUntilPackageRevisionExists(ctx context.Context, repository string, pkgName string, revision string) *porchapi.PackageRevision {
+
+	var foundPkgRev *porchapi.PackageRevision
+	timeout := 120 * time.Second
+	err := wait.PollImmediateWithContext(ctx, time.Second, timeout, func(ctx context.Context) (done bool, err error) {
 		var pkgRevList porchapi.PackageRevisionList
 		if err := t.client.List(ctx, &pkgRevList); err != nil {
 			t.Logf("error listing packages: %v", err)
 			return false, nil
 		}
 		for _, pkgRev := range pkgRevList.Items {
-			pkgName := pkgRev.Spec.PackageName
-			pkgRevision := pkgRev.Spec.Revision
-			if pkgRevision == "main" &&
-				pkgName == pkgRev.Spec.PackageName {
+			if pkgRev.Spec.RepositoryName == repository &&
+				pkgRev.Spec.PackageName == pkgName &&
+				pkgRev.Spec.Revision == revision {
+
+				foundPkgRev = &pkgRev
 				return true, nil
 			}
 		}
 		return false, nil
 	})
 	if err != nil {
-		t.Fatalf("Main branch package revision for %s not found", pkgName)
+		t.Fatalf("Package revision (%v/%v/%v) not found in time (%v)", repository, pkgName, revision, timeout)
 	}
+	return foundPkgRev
 }
