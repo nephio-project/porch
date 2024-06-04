@@ -288,7 +288,7 @@ func runWebhookServer(cfg *WebhookConfig) error {
 		return err
 	}
 	klog.Infoln("Starting webhook server")
-	http.HandleFunc(serverEndpoint, validateDeletion)
+	http.HandleFunc(cfg.Path, validateDeletion)
 	server := http.Server{
 		Addr: fmt.Sprintf(":%d", cfg.Port),
 		TLSConfig: &tls.Config{

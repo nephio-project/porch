@@ -13,7 +13,6 @@
 # limitations under the License.
 
 MYGOBIN := $(shell go env GOPATH)/bin
-KUBECONFIG=$(CURDIR)/deployments/local/kubeconfig
 BUILDDIR=$(CURDIR)/.build
 CACHEDIR=$(CURDIR)/.cache
 DEPLOYCONFIGDIR=$(BUILDDIR)/deploy
@@ -163,6 +162,11 @@ tidy:
 .PHONY: test-e2e
 test-e2e:
 	E2E=1 go test -v -race --count=1 -failfast ./test/e2e 
+	E2E=1 go test -v -race --count=1 -failfast ./test/e2e/cli
+
+.PHONY: test-e2e-clean
+test-e2e-clean:
+	./scripts/clean-kind-only-e2e-test.sh
 
 .PHONY: configure-git
 configure-git:
@@ -178,13 +182,13 @@ PORCHCTL = $(BUILDDIR)/porchctl
 
 .PHONY: run-local
 run-local: porch
-	KUBECONFIG=$(KUBECONFIG) kubectl apply -f deployments/local/localconfig.yaml
-	KUBECONFIG=$(KUBECONFIG) kubectl apply -f api/porchconfig/v1alpha1/
-	KUBECONFIG=$(KUBECONFIG) kubectl apply -f internal/api/porchinternal/v1alpha1/
+	KUBECONFIG=$(CURDIR)/deployments/local/kubeconfig kubectl apply -f deployments/local/localconfig.yaml
+	KUBECONFIG=$(CURDIR)/deployments/local/kubeconfig kubectl apply -f api/porchconfig/v1alpha1/
+	KUBECONFIG=$(CURDIR)/deployments/local/kubeconfig kubectl apply -f internal/api/porchinternal/v1alpha1/
 	$(PORCH) \
 	--secure-port 9443 \
 	--standalone-debug-mode \
-	--kubeconfig="$(KUBECONFIG)" \
+	--kubeconfig="$(CURDIR)/deployments/local/kubeconfig" \
 	--cache-directory="$(CACHEDIR)" \
 	--function-runner 192.168.8.202:9445 \
 	--repo-sync-frequency=60s
