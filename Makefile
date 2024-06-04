@@ -161,8 +161,8 @@ tidy:
 
 .PHONY: test-e2e
 test-e2e:
-	E2E=1 go test -v -race --count=1 -failfast ./test/e2e 
-	E2E=1 go test -v -race --count=1 -failfast ./test/e2e/cli
+	E2E=1 go test -v -failfast ./test/e2e 
+	E2E=1 go test -v -failfast ./test/e2e/cli
 
 .PHONY: test-e2e-clean
 test-e2e-clean:
