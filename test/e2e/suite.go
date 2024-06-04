@@ -130,7 +130,7 @@ func (t *TestSuite) Initialize(ctx context.Context) {
 		t.clientset = cs
 	}
 
-	_, t.local = t.IsUsingDevPorch()
+	t.local = !t.IsTestRunnerInCluster()
 
 	namespace := fmt.Sprintf("porch-test-%d", time.Now().UnixMicro())
 	t.CreateF(ctx, &coreapi.Namespace{
@@ -154,7 +154,7 @@ func (t *TestSuite) Initialize(ctx context.Context) {
 	})
 }
 
-func (t *TestSuite) IsUsingDevPorch() (bool, bool) {
+func (t *TestSuite) IsPorchServerInCluster() bool {
 	porch := aggregatorv1.APIService{}
 	ctx := context.TODO()
 	t.GetF(ctx, client.ObjectKey{
@@ -166,19 +166,33 @@ func (t *TestSuite) IsUsingDevPorch() (bool, bool) {
 		Name:      porch.Spec.Service.Name,
 	}, &service)
 
-	isPorchLocal := len(service.Spec.Selector) == 0
-	areAllLocal := service.Spec.Type == coreapi.ServiceTypeExternalName
-	return isPorchLocal, areAllLocal
+	return len(service.Spec.Selector) > 0
+}
+
+func (t *TestSuite) IsTestRunnerInCluster() bool {
+	porch := aggregatorv1.APIService{}
+	ctx := context.TODO()
+	t.GetF(ctx, client.ObjectKey{
+		Name: "v1alpha1.porch.kpt.dev",
+	}, &porch)
+	service := coreapi.Service{}
+	err := t.client.Get(ctx, client.ObjectKey{
+		Namespace: porch.Spec.Service.Namespace,
+		Name:      "function-runner",
+	}, &service)
+	if err != nil {
+		return false
+	}
+	return len(service.Spec.Selector) > 0
 }
 
 func (t *TestSuite) CreateGitRepo() GitConfig {
 	// Deploy Git server via k8s client.
 	t.Logf("creating git server in cluster")
-	isPorchLocal, areAllLocal := t.IsUsingDevPorch()
-	if areAllLocal {
-		return createLocalGitServer(t.T)
+	if t.IsTestRunnerInCluster() {
+		return t.createInClusterGitServer(context.TODO(), !t.IsPorchServerInCluster())
 	} else {
-		return t.createInClusterGitServer(context.TODO(), isPorchLocal)
+		return createLocalGitServer(t.T)
 	}
 }
 
