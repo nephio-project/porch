@@ -23,7 +23,7 @@ import (
 	"strings"
 	"testing"
 	"time"
-	
+
 	"github.com/google/go-cmp/cmp"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -41,7 +41,7 @@ import (
 
 const (
 	testBlueprintsRepo = "https://github.com/platkrm/test-blueprints.git"
-	kptRepo            = "https://github.com/GoogleContainerTools/kpt.git"
+	kptRepo            = "https://github.com/kptdev/kpt.git"
 )
 
 var (
@@ -240,6 +240,7 @@ func (t *PorchSuite) TestGitRepository(ctx context.Context) {
 func (t *PorchSuite) TestGitRepositoryWithReleaseTagsAndDirectory(ctx context.Context) {
 	t.registerGitRepositoryF(ctx, kptRepo, "kpt-repo", "package-examples")
 
+	t.Log("Listing PackageRevisions in " + t.namespace)
 	var list porchapi.PackageRevisionList
 	t.ListF(ctx, &list, client.InNamespace(t.namespace))
 
@@ -1018,15 +1019,18 @@ func (t *PorchSuite) TestDeleteFinal(ctx context.Context) {
 	t.mustExist(ctx, client.ObjectKey{Namespace: t.namespace, Name: created.Name}, &pkg)
 
 	// Propose the package revision to be finalized
+	t.Log("Proposing package")
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 	t.UpdateF(ctx, &pkg)
 
+	t.Log("Approving package")
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	t.UpdateApprovalF(ctx, &pkg, metav1.UpdateOptions{})
 
 	t.mustExist(ctx, client.ObjectKey{Namespace: t.namespace, Name: created.Name}, &pkg)
 
 	// Try to delete the package. This should fail because it hasn't been proposed for deletion.
+	t.Log("Trying to delete package (should fail)")
 	t.DeleteL(ctx, &porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: t.namespace,
@@ -1036,9 +1040,11 @@ func (t *PorchSuite) TestDeleteFinal(ctx context.Context) {
 	t.mustExist(ctx, client.ObjectKey{Namespace: t.namespace, Name: created.Name}, &pkg)
 
 	// Propose deletion and then delete the package
+	t.Log("Proposing deletion of  package")
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
 	t.UpdateApprovalF(ctx, &pkg, metav1.UpdateOptions{})
 
+	t.Log("Deleting package")
 	t.DeleteE(ctx, &porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: t.namespace,
@@ -1074,7 +1080,7 @@ func (t *PorchSuite) TestProposeDeleteAndUndo(ctx context.Context) {
 	t.UpdateApprovalF(ctx, &pkg, metav1.UpdateOptions{})
 	t.mustExist(ctx, client.ObjectKey{Namespace: t.namespace, Name: created.Name}, &pkg)
 
-	t.waitUntilMainBranchPackageRevisionExists(ctx, packageName)
+	_ = t.waitUntilPackageRevisionExists(ctx, repository, packageName, "main")
 
 	var list porchapi.PackageRevisionList
 	t.ListF(ctx, &list, client.InNamespace(t.namespace))
@@ -1193,7 +1199,7 @@ func (t *PorchSuite) TestDeleteFromMain(ctx context.Context) {
 	// Register the repository
 	t.registerMainGitRepositoryF(ctx, repository)
 
-	// Create the first draft package
+	t.Logf("Create and approve package: %s", packageNameFirst)
 	createdFirst := t.createPackageDraftF(ctx, repository, packageNameFirst, workspace)
 
 	// Check the package exists
@@ -1209,7 +1215,7 @@ func (t *PorchSuite) TestDeleteFromMain(ctx context.Context) {
 
 	t.mustExist(ctx, client.ObjectKey{Namespace: t.namespace, Name: createdFirst.Name}, &pkgFirst)
 
-	// Create the second draft package
+	t.Logf("Create and approve package: %s", packageNameSecond)
 	createdSecond := t.createPackageDraftF(ctx, repository, packageNameSecond, workspace)
 
 	// Check the package exists
@@ -1225,31 +1231,17 @@ func (t *PorchSuite) TestDeleteFromMain(ctx context.Context) {
 
 	t.mustExist(ctx, client.ObjectKey{Namespace: t.namespace, Name: createdSecond.Name}, &pkgSecond)
 
-	// We need to wait for the sync for the "main" revisions to get created
-	time.Sleep(75 * time.Second)
+	t.Log("Wait for the 'main' revisions to get created")
+	firstPkgRevFromMain := t.waitUntilPackageRevisionExists(ctx, repository, packageNameFirst, "main")
+	secondPkgRevFromMain := t.waitUntilPackageRevisionExists(ctx, repository, packageNameSecond, "main")
 
-	var list porchapi.PackageRevisionList
-	t.ListE(ctx, &list, client.InNamespace(t.namespace))
-
-	var firstPkgRevFromMain porchapi.PackageRevision
-	var secondPkgRevFromMain porchapi.PackageRevision
-
-	for _, pkgrev := range list.Items {
-		if pkgrev.Spec.PackageName == packageNameFirst && pkgrev.Spec.Revision == "main" {
-			firstPkgRevFromMain = pkgrev
-		}
-		if pkgrev.Spec.PackageName == packageNameSecond && pkgrev.Spec.Revision == "main" {
-			secondPkgRevFromMain = pkgrev
-		}
-	}
-
-	// Propose deletion of both main packages
+	t.Log("Propose deletion of both main packages")
 	firstPkgRevFromMain.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-	t.UpdateApprovalF(ctx, &firstPkgRevFromMain, metav1.UpdateOptions{})
+	t.UpdateApprovalF(ctx, firstPkgRevFromMain, metav1.UpdateOptions{})
 	secondPkgRevFromMain.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-	t.UpdateApprovalF(ctx, &secondPkgRevFromMain, metav1.UpdateOptions{})
+	t.UpdateApprovalF(ctx, secondPkgRevFromMain, metav1.UpdateOptions{})
 
-	// Delete the first package revision from main
+	t.Log("Delete the first package revision from main")
 	t.DeleteE(ctx, &porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: t.namespace,
@@ -1257,10 +1249,7 @@ func (t *PorchSuite) TestDeleteFromMain(ctx context.Context) {
 		},
 	})
 
-	// We need to wait for the sync
-	time.Sleep(75 * time.Second)
-
-	// Delete the second package revision from main
+	t.Log("Delete the second package revision from main")
 	t.DeleteE(ctx, &porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: t.namespace,
@@ -1269,8 +1258,10 @@ func (t *PorchSuite) TestDeleteFromMain(ctx context.Context) {
 	})
 
 	// Propose and delete the original package revisions (cleanup)
+	var list porchapi.PackageRevisionList
 	t.ListE(ctx, &list, client.InNamespace(t.namespace))
 	for _, pkgrev := range list.Items {
+		t.Logf("Propose deletion and delete package revision: %s", pkgrev.Name)
 		pkgrev.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
 		t.UpdateApprovalF(ctx, &pkgrev, metav1.UpdateOptions{})
 		t.DeleteE(ctx, &porchapi.PackageRevision{
@@ -2380,4 +2371,3 @@ func (t *PorchSuite) TestPackageRevisionFinalizers(ctx context.Context) {
 		Namespace: pr.Namespace,
 	}, 10*time.Second)
 }
-

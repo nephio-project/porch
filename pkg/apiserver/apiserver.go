@@ -284,14 +284,12 @@ func (c completedConfig) New() (*PorchServer, error) {
 
 func (s *PorchServer) Run(ctx context.Context) error {
 	porch.RunBackground(ctx, s.coreClient, s.cache)
-	webhookNs, found := os.LookupEnv("CERT_NAMESPACE")
-	if !found || strings.TrimSpace(webhookNs) == "" {
-		webhookNs = "porch-system"
-	}
 
+	// TODO: Reconsider if the existence of CERT_STORAGE_DIR was a good inidcator for webhook setup,
+	// but for now we keep backward compatiblity
 	certStorageDir, found := os.LookupEnv("CERT_STORAGE_DIR")
 	if found && strings.TrimSpace(certStorageDir) != "" {
-		if err := setupWebhooks(ctx, webhookNs, certStorageDir); err != nil {
+		if err := setupWebhooks(ctx); err != nil {
 			klog.Errorf("%v\n", err)
 			return err
 		}

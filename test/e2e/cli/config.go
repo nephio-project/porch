@@ -36,6 +36,8 @@ type Command struct {
 	ExitCode int `yaml:"exitCode,omitempty"`
 	// Yaml indicates that stdout is yaml and the test will reformat it for stable ordering
 	Yaml bool `yaml:"yaml,omitempty"`
+	// IgnoreWhitespace inidicates that whitespace differences should be ignored in the output
+	IgnoreWhitespace bool `yaml:"ignoreWhitespace,omitempty"`
 }
 
 type TestCaseConfig struct {

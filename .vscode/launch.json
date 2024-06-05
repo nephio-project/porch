@@ -5,17 +5,6 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Launch test function",
-            "type": "go",
-            "request": "launch",
-            "mode": "test",
-            "program": "${workspaceFolder}/apiserver/pkg/e2e",
-            "args": [
-                "-test.run",
-                "TestE2E/PorchSuite/TestCloneIntoDeploymentRepository"
-            ]
-        },
-        {
             "name": "Launch Server",
             "type": "go",
             "request": "launch",
@@ -23,14 +12,31 @@
             "program": "${workspaceFolder}/cmd/porch/main.go",
             "args": [
                 "--secure-port=4443",
-                "--v=7",
-                "--standalone-debug-mode",
+                // "--v=7",
+                // "--standalone-debug-mode",
                 "--kubeconfig=${env:KUBECONFIG}",
                 "--cache-directory=${workspaceFolder}/.cache",
                 "--function-runner=172.18.255.201:9445",
                 "--repo-sync-frequency=60s"
             ],
             "cwd": "${workspaceFolder}",
+            "env": { 
+                "CERT_STORAGE_DIR": "${workspaceFolder}/.build/pki/tmp", 
+                "WEBHOOK_HOST": "localhost" 
+            }
+        },
+        {
+            "name": "Launch test function",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/test/e2e",
+            "args": [
+                "-test.v",
+                "-test.run",
+                "TestE2E/PorchSuite/TestGitRepositoryWithReleaseTagsAndDirectory"
+            ],
+            "env": { "E2E": "1"}
         },
         {
             "name": "Launch Func Client",

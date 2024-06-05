@@ -24,6 +24,7 @@ coverage_unit.html
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+__debug*
 
 ### VisualStudioCode Patch ###
 # Ignore all local history of files

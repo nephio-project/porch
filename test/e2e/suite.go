@@ -44,7 +44,6 @@ import (
 	coreapi "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -131,7 +130,7 @@ func (t *TestSuite) Initialize(ctx context.Context) {
 		t.clientset = cs
 	}
 
-	t.local = t.IsUsingDevPorch()
+	t.local = !t.IsTestRunnerInCluster()
 
 	namespace := fmt.Sprintf("porch-test-%d", time.Now().UnixMicro())
 	t.CreateF(ctx, &coreapi.Namespace{
@@ -155,7 +154,7 @@ func (t *TestSuite) Initialize(ctx context.Context) {
 	})
 }
 
-func (t *TestSuite) IsUsingDevPorch() bool {
+func (t *TestSuite) IsPorchServerInCluster() bool {
 	porch := aggregatorv1.APIService{}
 	ctx := context.TODO()
 	t.GetF(ctx, client.ObjectKey{
@@ -167,18 +166,33 @@ func (t *TestSuite) IsUsingDevPorch() bool {
 		Name:      porch.Spec.Service.Name,
 	}, &service)
 
-	return service.Spec.Type == coreapi.ServiceTypeExternalName && service.Spec.ExternalName == "host.docker.internal"
+	return len(service.Spec.Selector) > 0
+}
+
+func (t *TestSuite) IsTestRunnerInCluster() bool {
+	porch := aggregatorv1.APIService{}
+	ctx := context.TODO()
+	t.GetF(ctx, client.ObjectKey{
+		Name: "v1alpha1.porch.kpt.dev",
+	}, &porch)
+	service := coreapi.Service{}
+	err := t.client.Get(ctx, client.ObjectKey{
+		Namespace: porch.Spec.Service.Namespace,
+		Name:      "function-runner",
+	}, &service)
+	if err != nil {
+		return false
+	}
+	return len(service.Spec.Selector) > 0
 }
 
 func (t *TestSuite) CreateGitRepo() GitConfig {
-	if t.IsUsingDevPorch() {
-		// Create Git server on the local machine.
-		t.Logf("using dev porch; creating local git server")
-		return createLocalGitServer(t.T)
+	// Deploy Git server via k8s client.
+	t.Logf("creating git server in cluster")
+	if t.IsTestRunnerInCluster() {
+		return t.createInClusterGitServer(context.TODO(), !t.IsPorchServerInCluster())
 	} else {
-		// Deploy Git server via k8s client.
-		t.Logf("not using dev porch; creating git server in cluster")
-		return t.createInClusterGitServer(context.TODO())
+		return createLocalGitServer(t.T)
 	}
 }
 
@@ -186,13 +200,13 @@ type ErrorHandler func(format string, args ...interface{})
 
 func (t *TestSuite) get(ctx context.Context, key client.ObjectKey, obj client.Object, eh ErrorHandler) {
 	if err := t.client.Get(ctx, key, obj); err != nil {
-		eh("failed to get resource %s %s/%s: %v", obj.GetObjectKind().GroupVersionKind(), key.Name, key.Namespace, err)
+		eh("failed to get resource %T %s: %v", obj, key, err)
 	}
 }
 
 func (c *TestSuite) list(ctx context.Context, list client.ObjectList, opts []client.ListOption, eh ErrorHandler) {
 	if err := c.client.List(ctx, list, opts...); err != nil {
-		eh("failed to list resources %s %+v: %v", list.GetObjectKind().GroupVersionKind(), list, err)
+		eh("failed to list resources %T %+v: %v", list, list, err)
 	}
 }
 
@@ -251,6 +265,7 @@ func (t *TestSuite) patch(ctx context.Context, obj client.Object, patch client.P
 }
 
 func (t *TestSuite) updateApproval(ctx context.Context, obj *porchapi.PackageRevision, opts metav1.UpdateOptions, eh ErrorHandler) *porchapi.PackageRevision {
+	t.Logf("updating approval of %v", DebugFormat(obj))
 	if res, err := t.clientset.PorchV1alpha1().PackageRevisions(obj.Namespace).UpdateApproval(ctx, obj.Name, obj, opts); err != nil {
 		eh("failed to update approval of %s/%s: %v", obj.Namespace, obj.Name, err)
 		return nil
@@ -439,25 +454,30 @@ func createInitialCommit(t *testing.T, repo *gogit.Repository) {
 	}
 }
 
-func (t *TestSuite) createInClusterGitServer(ctx context.Context) GitConfig {
+func (t *TestSuite) createInClusterGitServer(ctx context.Context, exposeByLoadBalancer bool) GitConfig {
 	// Determine git-server image name. Use the same container registry and tag as the Porch server,
 	// replacing base image name with `git-server`. TODO: Make configurable?
 
 	var porch appsv1.Deployment
 	t.GetF(ctx, client.ObjectKey{
 		Namespace: "porch-system",
-		Name:      "porch-server",
+		Name:      "function-runner",
 	}, &porch)
 
 	gitImage := porchtest.InferGitServerImage(porch.Spec.Template.Spec.Containers[0].Image)
 
+	var deploymentKey = client.ObjectKey{
+		Namespace: t.namespace,
+		Name:      "git-server",
+	}
 	var replicas int32 = 1
-	var selector = strings.ReplaceAll(t.Name(), "/", "_")
-
+	var selector = map[string]string{
+		"git-server": strings.ReplaceAll(t.Name(), "/", "_"),
+	}
 	t.CreateF(ctx, &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "git-server",
-			Namespace: t.namespace,
+			Name:      deploymentKey.Name,
+			Namespace: deploymentKey.Namespace,
 			Annotations: map[string]string{
 				"kpt.dev/porch-test": t.Name(),
 			},
@@ -465,15 +485,11 @@ func (t *TestSuite) createInClusterGitServer(ctx context.Context) GitConfig {
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"git-server": selector,
-				},
+				MatchLabels: selector,
 			},
 			Template: coreapi.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"git-server": selector,
-					},
+					Labels: selector,
 				},
 				Spec: coreapi.PodSpec{
 					Containers: []coreapi.Container{
@@ -498,23 +514,24 @@ func (t *TestSuite) createInClusterGitServer(ctx context.Context) GitConfig {
 	t.Cleanup(func() {
 		t.DeleteE(ctx, &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "git-server",
-				Namespace: t.namespace,
+				Name:      deploymentKey.Name,
+				Namespace: deploymentKey.Namespace,
 			},
 		})
 	})
 
 	t.Cleanup(func() {
-		t.DumpLogsForDeployment(ctx, types.NamespacedName{
-			Name:      "git-server",
-			Namespace: t.namespace,
-		})
+		t.DumpLogsForDeployment(ctx, deploymentKey)
 	})
 
-	t.CreateF(ctx, &coreapi.Service{
+	serviceKey := client.ObjectKey{
+		Namespace: t.namespace,
+		Name:      "git-server-service",
+	}
+	service := coreapi.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "git-server-service",
-			Namespace: t.namespace,
+			Name:      serviceKey.Name,
+			Namespace: serviceKey.Namespace,
 			Annotations: map[string]string{
 				"kpt.dev/porch-test": t.Name(),
 			},
@@ -530,17 +547,19 @@ func (t *TestSuite) createInClusterGitServer(ctx context.Context) GitConfig {
 					},
 				},
 			},
-			Selector: map[string]string{
-				"git-server": selector,
-			},
+			Selector: selector,
 		},
-	})
+	}
+	if exposeByLoadBalancer {
+		service.Spec.Type = coreapi.ServiceTypeLoadBalancer
+	}
+	t.CreateF(ctx, &service)
 
 	t.Cleanup(func() {
 		t.DeleteE(ctx, &coreapi.Service{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "git-server-service",
-				Namespace: t.namespace,
+				Name:      serviceKey.Name,
+				Namespace: serviceKey.Namespace,
 			},
 		})
 	})
@@ -551,13 +570,10 @@ func (t *TestSuite) createInClusterGitServer(ctx context.Context) GitConfig {
 	giveUp := time.Now().Add(time.Minute)
 
 	for {
-		time.Sleep(5 * time.Second)
+		time.Sleep(1 * time.Second)
 
 		var deployment appsv1.Deployment
-		t.GetF(ctx, client.ObjectKey{
-			Namespace: t.namespace,
-			Name:      "git-server",
-		}, &deployment)
+		t.GetF(ctx, deploymentKey, &deployment)
 
 		ready := true
 		if ready && deployment.Generation != deployment.Status.ObservedGeneration {
@@ -600,31 +616,39 @@ func (t *TestSuite) createInClusterGitServer(ctx context.Context) GitConfig {
 
 	t.Logf("Waiting for git-server-service to be ready ...")
 
-	// Check the Endpoint resource for readiness
+	// Check the Endpoint and Service resources for readiness
+	gitUrl := fmt.Sprintf("http://%s.%s.svc.cluster.local:8080", serviceKey.Name, serviceKey.Namespace)
 	giveUp = time.Now().Add(time.Minute)
-
 	for {
-		time.Sleep(5 * time.Second)
-
-		var endpoint coreapi.Endpoints
-		err := t.client.Get(ctx, client.ObjectKey{
-			Namespace: t.namespace,
-			Name:      "git-server-service",
-		}, &endpoint)
-
-		if err == nil && endpointIsReady(&endpoint) {
-			t.Logf("git-server-service is ready")
-			break
-		}
-
+		time.Sleep(1 * time.Second)
 		if time.Now().After(giveUp) {
-			t.Fatalf("git-server-service not ready on time: %s", &endpoint)
+			t.Fatalf("git-server-service not ready on time")
 			return GitConfig{}
 		}
+
+		var endpoint coreapi.Endpoints
+		err := t.client.Get(ctx, serviceKey, &endpoint)
+		if err != nil || !endpointIsReady(&endpoint) {
+			t.Logf("waiting for Endpoint to be ready: %+v", endpoint)
+			continue
+		}
+		if exposeByLoadBalancer {
+			var svc coreapi.Service
+			t.client.Get(ctx, serviceKey, &svc)
+			if len(svc.Status.LoadBalancer.Ingress) == 0 || svc.Status.LoadBalancer.Ingress[0].IP == "" {
+				t.Logf("waiting for LoadBalancer to be assigned: %+v", svc)
+				continue
+			}
+			t.Logf("LoadBalancer IP was assigned to git-server-service: %s", svc.Status.LoadBalancer.Ingress[0].IP)
+			gitUrl = fmt.Sprintf("http://%s:8080", svc.Status.LoadBalancer.Ingress[0].IP)
+		}
+
+		t.Log("git-server-service is ready")
+		break
 	}
 
 	return GitConfig{
-		Repo:      fmt.Sprintf("http://git-server-service.%s.svc.cluster.local:8080", t.namespace),
+		Repo:      gitUrl,
 		Branch:    "main",
 		Directory: "/",
 	}

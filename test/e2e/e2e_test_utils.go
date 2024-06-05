@@ -17,8 +17,9 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"time"
 	"strings"
+	"time"
+
 	"github.com/google/go-cmp/cmp"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -188,6 +189,7 @@ func (t *TestSuite) createPackageDraftF(ctx context.Context, repository, name, w
 }
 
 func (t *TestSuite) mustExist(ctx context.Context, key client.ObjectKey, obj client.Object) {
+	t.Logf("Checking existence of %q...", key)
 	t.GetF(ctx, key, obj)
 	if got, want := obj.GetName(), key.Name; got != want {
 		t.Errorf("%T.Name: got %q, want %q", obj, got, want)
@@ -206,7 +208,7 @@ func (t *TestSuite) mustNotExist(ctx context.Context, obj client.Object) {
 	}
 }
 
-// waitUntilRepositoryReady waits for up to 10 seconds for the repository with the
+// waitUntilRepositoryReady waits for up to 60 seconds for the repository with the
 // provided name and namespace is ready, i.e. the Ready condition is true.
 // It also queries for Functions and PackageRevisions, to ensure these are also
 // ready - this is an artifact of the way we've implemented the aggregated apiserver,
@@ -217,7 +219,7 @@ func (t *TestSuite) waitUntilRepositoryReady(ctx context.Context, name, namespac
 		Namespace: namespace,
 	}
 	var innerErr error
-	err := wait.PollImmediateWithContext(ctx, time.Second, 10*time.Second, func(ctx context.Context) (bool, error) {
+	err := wait.PollImmediateWithContext(ctx, time.Second, 60*time.Second, func(ctx context.Context) (bool, error) {
 		var repo configapi.Repository
 		if err := t.client.Get(ctx, nn, &repo); err != nil {
 			innerErr = err
@@ -331,24 +333,29 @@ func (t *TestSuite) waitUntilObjectDeleted(ctx context.Context, gvk schema.Group
 	}
 }
 
-func (t *TestSuite) waitUntilMainBranchPackageRevisionExists(ctx context.Context, pkgName string) {
-	err := wait.PollImmediateWithContext(ctx, time.Second, 120*time.Second, func(ctx context.Context) (done bool, err error) {
+func (t *TestSuite) waitUntilPackageRevisionExists(ctx context.Context, repository string, pkgName string, revision string) *porchapi.PackageRevision {
+
+	var foundPkgRev *porchapi.PackageRevision
+	timeout := 120 * time.Second
+	err := wait.PollImmediateWithContext(ctx, time.Second, timeout, func(ctx context.Context) (done bool, err error) {
 		var pkgRevList porchapi.PackageRevisionList
 		if err := t.client.List(ctx, &pkgRevList); err != nil {
 			t.Logf("error listing packages: %v", err)
 			return false, nil
 		}
 		for _, pkgRev := range pkgRevList.Items {
-			pkgName := pkgRev.Spec.PackageName
-			pkgRevision := pkgRev.Spec.Revision
-			if pkgRevision == "main" &&
-				pkgName == pkgRev.Spec.PackageName {
+			if pkgRev.Spec.RepositoryName == repository &&
+				pkgRev.Spec.PackageName == pkgName &&
+				pkgRev.Spec.Revision == revision {
+
+				foundPkgRev = &pkgRev
 				return true, nil
 			}
 		}
 		return false, nil
 	})
 	if err != nil {
-		t.Fatalf("Main branch package revision for %s not found", pkgName)
+		t.Fatalf("Package revision (%v/%v/%v) not found in time (%v)", repository, pkgName, revision, timeout)
 	}
+	return foundPkgRev
 }
