@@ -25,7 +25,7 @@ kind_cluster="porch-e2e"
 
 kind delete cluster --name "$kind_cluster" || true
 kind create cluster --name "$kind_cluster" 
-make run-in-kind-kpt IMAGE_TAG='test' KIND_CONTEXT_NAME="$kind_cluster" KUBECONFIG="$KUBECONFIG"
+make run-in-kind-kpt IMAGE_TAG='test' KIND_CONTEXT_NAME="$kind_cluster" KUBECONFIG="$(kind get kubeconfig --name "$kind_cluster")"
 for deployment in porch-controllers porch-server function-runner; do
     kubectl rollout status deployment $deployment --namespace porch-system
     kubectl wait --namespace porch-system deploy $deployment \
@@ -42,3 +42,4 @@ echo "--- test/e2e ---"
 E2E=1 go test -failfast -v ./test/e2e
 echo "--- test/e2e/cli ---"
 E2E=1 go test -failfast -v ./test/e2e/cli
+echo "--- leaving e2e kind cluster $kind_cluster up for debugging ---"
