@@ -49,7 +49,7 @@ spec:
 
 ## Example pod template
 
-The below pod template Configmpa matches the default behavior:
+The below pod template Configmap matches the default behavior:
 
 ```yaml
 apiVersion: v1
