@@ -29,6 +29,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/nephio-project/porch/func/evaluator"
+	util "github.com/nephio-project/porch/pkg/util"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"gopkg.in/yaml.v2"
@@ -37,20 +38,25 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 const (
-	defaultWrapperServerPort = "9446"
-	volumeName               = "wrapper-server-tools"
-	volumeMountPath          = "/wrapper-server-tools"
-	wrapperServerBin         = "wrapper-server"
-	gRPCProbeBin             = "grpc-health-probe"
-	krmFunctionLabel         = "fn.kpt.dev/image"
-	reclaimAfterAnnotation   = "fn.kpt.dev/reclaim-after"
-	fieldManagerName         = "krm-function-runner"
+	defaultWrapperServerPort  = "9446"
+	volumeName                = "wrapper-server-tools"
+	volumeMountPath           = "/wrapper-server-tools"
+	wrapperServerBin          = "wrapper-server"
+	gRPCProbeBin              = "grpc-health-probe"
+	krmFunctionLabel          = "fn.kpt.dev/image"
+	reclaimAfterAnnotation    = "fn.kpt.dev/reclaim-after"
+	templateVersionAnnotation = "fn.kpt.dev/template-version"
+	inlineTemplateVersionv1   = "inline-v1"
+	fieldManagerName          = "krm-function-runner"
+	functionContainerName     = "function"
+	defaultManagerNamespace   = "porch-system"
 
 	channelBufferSize = 128
 )
@@ -63,7 +69,7 @@ type podEvaluator struct {
 
 var _ Evaluator = &podEvaluator{}
 
-func NewPodEvaluator(namespace, wrapperServerImage string, interval, ttl time.Duration, podTTLConfig string) (Evaluator, error) {
+func NewPodEvaluator(namespace, wrapperServerImage string, interval, ttl time.Duration, podTTLConfig string, functionPodTemplateName string) (Evaluator, error) {
 	restCfg, err := config.GetConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get rest config: %w", err)
@@ -77,6 +83,13 @@ func NewPodEvaluator(namespace, wrapperServerImage string, interval, ttl time.Du
 	cl, err := client.New(restCfg, client.Options{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client: %w", err)
+	}
+
+	managerNs, err := util.GetInClusterNamespace()
+	if err != nil {
+		klog.Errorf("failed to get the namespace where the function-runner is running: %v", err)
+		klog.Warningf("unable to get the namespace where the function-runner is running, assuming it's a test setup, defaulting to : %v", defaultManagerNamespace)
+		managerNs = defaultManagerNamespace
 	}
 
 	reqCh := make(chan *clientConnRequest, channelBufferSize)
@@ -93,10 +106,13 @@ func NewPodEvaluator(namespace, wrapperServerImage string, interval, ttl time.Du
 			waitlists:      map[string][]chan<- *clientConnAndError{},
 
 			podManager: &podManager{
-				kubeClient:         cl,
-				namespace:          namespace,
-				wrapperServerImage: wrapperServerImage,
-				podReadyCh:         readyCh,
+				kubeClient:              cl,
+				namespace:               namespace,
+				wrapperServerImage:      wrapperServerImage,
+				podReadyCh:              readyCh,
+				functionPodTemplateName: functionPodTemplateName,
+				podReadyTimeout:         60 * time.Second,
+				managerNamespace:        managerNs,
 			},
 		},
 	}
@@ -382,6 +398,10 @@ type podManager struct {
 	kubeClient client.Client
 	// namespace holds the namespace where the executors run
 	namespace string
+
+	//Namespace where the function-runner is running
+	managerNamespace string
+
 	// wrapperServerImage is the image name of the wrapper server
 	wrapperServerImage string
 
@@ -392,6 +412,16 @@ type podManager struct {
 	// Only podManager is allowed to touch this cache.
 	// Its underlying type is map[string]*digestAndEntrypoint.
 	imageMetadataCache sync.Map
+
+	// podReadyTimeout is the timeout podManager will wait for the pod to be ready before reporting an error
+	podReadyTimeout time.Duration
+
+	// The name of the configmap in the same namespace as the function-runner is running.
+	// It should contain a pod manifest yaml in .data.template
+	// The pod manifest is expected to set up wrapper-server as the entrypoint
+	// of the main container, which must be called "function".
+	// Pod manager will replace the image
+	functionPodTemplateName string
 }
 
 type digestAndEntrypoint struct {
@@ -440,7 +470,7 @@ func (pm *podManager) getFuncEvalPodClient(ctx context.Context, image string, tt
 func (pm *podManager) imageDigestAndEntrypoint(ctx context.Context, image string) (*digestAndEntrypoint, error) {
 	start := time.Now()
 	defer func() {
-		klog.Infof("getting image metadata for %v took %v", image, time.Now().Sub(start))
+		klog.Infof("getting image metadata for %v took %v", image, time.Since(start))
 	}()
 	var entrypoint []string
 	ref, err := name.ParseReference(image)
@@ -478,6 +508,8 @@ func (pm *podManager) imageDigestAndEntrypoint(ctx context.Context, image string
 // retrieveOrCreatePod retrieves or creates a pod for an image.
 func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl time.Duration, useGenerateName bool) (client.ObjectKey, error) {
 	var de *digestAndEntrypoint
+	var replacePod bool
+	var currentPod *corev1.Pod
 	var err error
 	val, found := pm.imageMetadataCache.Load(image)
 	if !found {
@@ -499,6 +531,11 @@ func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl
 	// since the pod may be created by one the other instance and the current instance is not aware of it.
 	// TODO: It's possible to set up a Watch in the fn runner namespace, and always try to maintain a up-to-date local cache.
 	podList := &corev1.PodList{}
+	podTemplate, templateVersion, err := pm.getBasePodTemplate(ctx)
+	if err != nil {
+		klog.Errorf("failed to generate a base pod template: %v", err)
+		return client.ObjectKey{}, fmt.Errorf("failed to generate a base pod template: %w", err)
+	}
 	err = pm.kubeClient.List(ctx, podList, client.InNamespace(pm.namespace), client.MatchingLabels(map[string]string{krmFunctionLabel: podId}))
 	if err != nil {
 		klog.Warningf("error when listing pods for %q: %v", image, err)
@@ -507,118 +544,191 @@ func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl
 		// TODO: maybe we should randomly pick one that is no being deleted.
 		for _, pod := range podList.Items {
 			if pod.DeletionTimestamp == nil {
-				klog.Infof("retrieved function evaluator pod %v/%v for %q", pod.Namespace, pod.Name, image)
-				return client.ObjectKeyFromObject(&pod), nil
+				if isPodTemplateSameVersion(&pod, templateVersion) {
+					klog.Infof("retrieved function evaluator pod %v/%v for %q", pod.Namespace, pod.Name, image)
+					return client.ObjectKeyFromObject(&pod), nil
+				} else {
+					replacePod = true
+					currentPod = &pod
+					break
+				}
 			}
 		}
 	}
 
-	cmd := append([]string{
-		filepath.Join(volumeMountPath, wrapperServerBin),
-		"--port", defaultWrapperServerPort, "--",
-	}, de.entrypoint...)
+	err = pm.patchNewPodContainer(podTemplate, *de, image)
+	if err != nil {
+		return client.ObjectKey{}, fmt.Errorf("unable to apply the pod: %w", err)
+	}
+	pm.patchNewPodMetadata(podTemplate, ttl, podId, templateVersion)
 
-	// Create a pod
-	pod := &corev1.Pod{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "Pod",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pm.namespace,
-			Annotations: map[string]string{
-				reclaimAfterAnnotation: fmt.Sprintf("%v", time.Now().Add(ttl).Unix()),
-				// Add the following annotation to make it work well with the cluster autoscaler.
-				// https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/FAQ.md#what-types-of-pods-can-prevent-ca-from-removing-a-node
-				"cluster-autoscaler.kubernetes.io/safe-to-evict": "true",
+	// Server-side apply doesn't support name generation. We have to use Create
+	// if we need to use name generation.
+	if useGenerateName || replacePod {
+		podTemplate.GenerateName = podId + "-"
+		err = pm.kubeClient.Create(ctx, podTemplate, client.FieldOwner(fieldManagerName))
+		if err != nil {
+			return client.ObjectKey{}, fmt.Errorf("unable to apply the pod: %w", err)
+		}
+		if replacePod {
+			err = pm.kubeClient.Delete(ctx, currentPod)
+			if err != nil {
+				return client.ObjectKey{}, fmt.Errorf("unable to clean up previous pod: %w", err)
+			}
+		}
+	} else {
+		podTemplate.Name = podId
+		err = pm.kubeClient.Patch(ctx, podTemplate, client.Apply, client.FieldOwner(fieldManagerName))
+		if err != nil {
+			return client.ObjectKey{}, fmt.Errorf("unable to apply the pod: %w", err)
+		}
+	}
+
+	klog.Infof("created KRM function evaluator pod %v/%v for %q", podTemplate.Namespace, podTemplate.Name, image)
+	return client.ObjectKeyFromObject(podTemplate), nil
+}
+
+// Either gets the pod template from configmap, or from an inlined pod template. Also provides the version of the template
+func (pm *podManager) getBasePodTemplate(ctx context.Context) (*corev1.Pod, string, error) {
+	if pm.functionPodTemplateName != "" {
+		podTemplateCm := &corev1.ConfigMap{}
+
+		err := pm.kubeClient.Get(ctx, client.ObjectKey{
+			Name:      pm.functionPodTemplateName,
+			Namespace: pm.managerNamespace,
+		}, podTemplateCm)
+		if err != nil {
+			klog.Errorf("Could not get Configmap containing function pod template: %s/%s", pm.managerNamespace, pm.functionPodTemplateName)
+			return nil, "", err
+		}
+
+		decoder := yamlutil.NewYAMLOrJSONDecoder(strings.NewReader(podTemplateCm.Data["template"]), 100)
+		var basePodTemplate corev1.Pod
+		err = decoder.Decode(&basePodTemplate)
+
+		if err != nil {
+			klog.Errorf("Could not decode function pod template: %s", pm.functionPodTemplateName)
+			return nil, "", fmt.Errorf("unable to decode function pod template: %w", err)
+		}
+
+		return &basePodTemplate, podTemplateCm.ResourceVersion, nil
+	} else {
+
+		inlineBasePodTemplate := &corev1.Pod{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "v1",
+				Kind:       "Pod",
 			},
-			// The function runner can use the label to retrieve the pod. Label is function name + part of its digest.
-			// If a function has more than one tags pointing to the same digest, we can reuse the same pod.
-			// TODO: controller-runtime provides field indexer, we can potentially use it to index spec.containers[*].image field.
-			Labels: map[string]string{
-				krmFunctionLabel: podId,
-			},
-		},
-		Spec: corev1.PodSpec{
-			// We use initContainer to copy the wrapper server binary into the KRM function image.
-			InitContainers: []corev1.Container{
-				{
-					Name:  "copy-wrapper-server",
-					Image: pm.wrapperServerImage,
-					Command: []string{
-						"cp",
-						"-a",
-						"/wrapper-server/.",
-						volumeMountPath,
-					},
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      volumeName,
-							MountPath: volumeMountPath,
-						},
-					},
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					"cluster-autoscaler.kubernetes.io/safe-to-evict": "true",
 				},
 			},
-			Containers: []corev1.Container{
-				{
-					Name:    "function",
-					Image:   image,
-					Command: cmd,
-					ReadinessProbe: &corev1.Probe{
-						ProbeHandler: corev1.ProbeHandler{
-							// TODO: use the k8s native GRPC prober when it has been rolled out in GKE.
-							// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-a-grpc-liveness-probe
-							Exec: &corev1.ExecAction{
-								Command: []string{
-									filepath.Join(volumeMountPath, gRPCProbeBin),
-									"-addr", net.JoinHostPort("localhost", defaultWrapperServerPort),
-								},
+			Spec: corev1.PodSpec{
+				InitContainers: []corev1.Container{
+					{
+						Name:  "copy-wrapper-server",
+						Image: pm.wrapperServerImage,
+						Command: []string{
+							"cp",
+							"-a",
+							"/wrapper-server/.",
+							volumeMountPath,
+						},
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      volumeName,
+								MountPath: volumeMountPath,
 							},
 						},
 					},
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      volumeName,
-							MountPath: volumeMountPath,
+				},
+				Containers: []corev1.Container{
+					{
+						Name:    functionContainerName,
+						Image:   "to-be-replaced",
+						Command: []string{filepath.Join(volumeMountPath, wrapperServerBin)},
+						ReadinessProbe: &corev1.Probe{
+							ProbeHandler: corev1.ProbeHandler{
+								// TODO: use the k8s native GRPC prober when it has been rolled out in GKE.
+								// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-a-grpc-liveness-probe
+								Exec: &corev1.ExecAction{
+									Command: []string{
+										filepath.Join(volumeMountPath, gRPCProbeBin),
+										"-addr", net.JoinHostPort("localhost", defaultWrapperServerPort),
+									},
+								},
+							},
+						},
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      volumeName,
+								MountPath: volumeMountPath,
+							},
+						},
+					},
+				},
+				Volumes: []corev1.Volume{
+					{
+						Name: volumeName,
+						VolumeSource: corev1.VolumeSource{
+							EmptyDir: &corev1.EmptyDirVolumeSource{},
 						},
 					},
 				},
 			},
-			Volumes: []corev1.Volume{
-				{
-					Name: volumeName,
-					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
-					},
-				},
-			},
-		},
-	}
-	// Server-side apply doesn't support name generation. We have to use Create
-	// if we need to use name generation.
-	if useGenerateName {
-		pod.GenerateName = podId + "-"
-		err = pm.kubeClient.Create(ctx, pod, client.FieldOwner(fieldManagerName))
-		if err != nil {
-			return client.ObjectKey{}, fmt.Errorf("unable to apply the pod: %w", err)
 		}
-	} else {
-		pod.Name = podId
-		err = pm.kubeClient.Patch(ctx, pod, client.Apply, client.FieldOwner(fieldManagerName))
-		if err != nil {
-			return client.ObjectKey{}, fmt.Errorf("unable to apply the pod: %w", err)
-		}
-	}
 
-	klog.Infof("created KRM function evaluator pod %v/%v for %q", pod.Namespace, pod.Name, image)
-	return client.ObjectKeyFromObject(pod), nil
+		return inlineBasePodTemplate, inlineTemplateVersionv1, nil
+	}
+}
+
+// Patches the expected port, and the original entrypoint and image of the kpt function into the function container
+func (pm *podManager) patchNewPodContainer(pod *corev1.Pod, de digestAndEntrypoint, image string) error {
+	var patchedContainer bool
+	for i := range pod.Spec.Containers {
+		container := &pod.Spec.Containers[i]
+		if container.Name == functionContainerName {
+			container.Args = append(container.Args,
+				"--port", defaultWrapperServerPort,
+				"--",
+			)
+			container.Args = append(container.Args, de.entrypoint...)
+			container.Image = image
+			patchedContainer = true
+		}
+	}
+	if !patchedContainer {
+		return fmt.Errorf("failed to find the %v container in the pod", functionContainerName)
+	}
+	return nil
+}
+
+// Patch labels and annotations so the cache manager can keep track of the pod
+func (pm *podManager) patchNewPodMetadata(pod *corev1.Pod, ttl time.Duration, podId string, templateVersion string) {
+	pod.ObjectMeta.Namespace = pm.namespace
+	annotations := pod.ObjectMeta.Annotations
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	annotations[reclaimAfterAnnotation] = fmt.Sprintf("%v", time.Now().Add(ttl).Unix())
+	annotations[templateVersionAnnotation] = templateVersion
+	pod.ObjectMeta.Annotations = annotations
+
+	labels := pod.ObjectMeta.Labels
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	labels[krmFunctionLabel] = podId
+	pod.ObjectMeta.Labels = labels
 }
 
 // podIpIfRunningAndReady waits for the pod to be running and ready and returns the pod IP and a potential error.
 func (pm *podManager) podIpIfRunningAndReady(ctx context.Context, podKey client.ObjectKey) (ip string, e error) {
 	var pod corev1.Pod
 	// Wait until the pod is Running
-	if e := wait.PollImmediate(100*time.Millisecond, 60*time.Second, func() (done bool, err error) {
+
+	if e := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, pm.podReadyTimeout, true, func(ctx context.Context) (done bool, err error) {
 		err = pm.kubeClient.Get(ctx, podKey, &pod)
 		if err != nil {
 			return false, err
@@ -660,4 +770,12 @@ func podID(image, hash string) (string, error) {
 	parts := strings.Split(repoName, "/")
 	name := strings.ReplaceAll(parts[len(parts)-1], "_", "-")
 	return fmt.Sprintf("%v-%v", name, hash[:8]), nil
+}
+
+func isPodTemplateSameVersion(pod *corev1.Pod, templateVersion string) bool {
+	currVersion, found := pod.Annotations[templateVersionAnnotation]
+	if !found || currVersion != templateVersion {
+		return false
+	}
+	return true
 }
