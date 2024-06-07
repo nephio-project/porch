@@ -83,99 +83,6 @@ func Run(suite interface{}, t *testing.T) {
 	})
 }
 
-type PorchSuite struct {
-	TestSuite
-	gitConfig GitConfig
-}
-
-var _ Initializer = &PorchSuite{}
-
-func (p *PorchSuite) Initialize(ctx context.Context) {
-	p.TestSuite.Initialize(ctx)
-	p.gitConfig = p.CreateGitRepo()
-}
-
-func (p *PorchSuite) GitConfig(repoID string) GitConfig {
-	config := p.gitConfig
-	config.Repo = config.Repo + "/" + repoID
-	return config
-}
-
-func (t *PorchSuite) registerMainGitRepositoryF(ctx context.Context, name string, opts ...repositoryOption) {
-	repoID := t.namespace + "-" + name
-	config := t.GitConfig(repoID)
-
-	var secret string
-	// Create auth secret if necessary
-	if config.Username != "" || config.Password != "" {
-		secret = fmt.Sprintf("%s-auth", name)
-		immutable := true
-		t.CreateF(ctx, &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      secret,
-				Namespace: t.namespace,
-			},
-			Immutable: &immutable,
-			Data: map[string][]byte{
-				"username": []byte(config.Username),
-				"password": []byte(config.Password),
-			},
-			Type: corev1.SecretTypeBasicAuth,
-		})
-		t.Cleanup(func() {
-			t.DeleteE(ctx, &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      secret,
-					Namespace: t.namespace,
-				},
-			})
-		})
-	}
-
-	repository := &configapi.Repository{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Repository",
-			APIVersion: configapi.GroupVersion.Identifier(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: t.namespace,
-		},
-		Spec: configapi.RepositorySpec{
-			Description: "Porch Test Repository Description",
-			Type:        configapi.RepositoryTypeGit,
-			Content:     configapi.RepositoryContentPackage,
-			Git: &configapi.GitRepository{
-				Repo:      config.Repo,
-				Branch:    config.Branch,
-				Directory: config.Directory,
-				SecretRef: configapi.SecretRef{
-					Name: secret,
-				},
-			},
-		},
-	}
-
-	// Apply options
-	for _, o := range opts {
-		o(repository)
-	}
-
-	// Register repository
-	t.CreateF(ctx, repository)
-
-	t.Cleanup(func() {
-		t.DeleteE(ctx, &configapi.Repository{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: t.namespace,
-			},
-		})
-		t.waitUntilRepositoryDeleted(ctx, name, t.namespace)
-		t.waitUntilAllPackagesDeleted(ctx, name)
-	})
-}
-
 func (t *PorchSuite) TestGitRepository(ctx context.Context) {
 	// Register the repository as 'git'
 	t.registerMainGitRepositoryF(ctx, "git")
@@ -846,6 +753,7 @@ func (t *PorchSuite) TestFunctionRepository(ctx context.Context) {
 	// the sync has (hopefully) finished.
 	// TODO(mortent): We need a better solution for this. This is only
 	// temporary to fix the current flakiness with the e2e tests.
+	t.Log("Waiting for 2 minutes for the repository to be cached")
 	<-time.NewTimer(2 * time.Minute).C
 
 	list := &porchapi.FunctionList{}

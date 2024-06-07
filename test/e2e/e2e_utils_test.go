@@ -24,6 +24,7 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -33,7 +34,33 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type PorchSuite struct {
+	TestSuite
+	gitConfig GitConfig
+}
+
+var _ Initializer = &PorchSuite{}
+
+func (p *PorchSuite) Initialize(ctx context.Context) {
+	p.TestSuite.Initialize(ctx)
+	p.gitConfig = p.CreateGitRepo()
+}
+
+func (p *PorchSuite) GitConfig(repoID string) GitConfig {
+	config := p.gitConfig
+	config.Repo = config.Repo + "/" + repoID
+	return config
+}
+
+func (t *PorchSuite) registerMainGitRepositoryF(ctx context.Context, name string, opts ...repositoryOption) {
+	t.Helper()
+	repoID := t.namespace + "-" + name
+	config := t.GitConfig(repoID)
+	t.registerGitRepositoryFromConfigF(ctx, name, config, opts...)
+}
+
 func (t *TestSuite) validateFinalizers(ctx context.Context, name string, finalizers []string) {
+	t.Helper()
 	var pr porchapi.PackageRevision
 	t.GetF(ctx, client.ObjectKey{
 		Namespace: t.namespace,
@@ -59,6 +86,7 @@ func (t *TestSuite) validateFinalizers(ctx context.Context, name string, finaliz
 }
 
 func (t *TestSuite) validateOwnerReferences(ctx context.Context, name string, ownerRefs []metav1.OwnerReference) {
+	t.Helper()
 	var pr porchapi.PackageRevision
 	t.GetF(ctx, client.ObjectKey{
 		Namespace: t.namespace,
@@ -84,6 +112,7 @@ func (t *TestSuite) validateOwnerReferences(ctx context.Context, name string, ow
 }
 
 func (t *TestSuite) validateLabelsAndAnnos(ctx context.Context, name string, labels, annos map[string]string) {
+	t.Helper()
 	var pr porchapi.PackageRevision
 	t.GetF(ctx, client.ObjectKey{
 		Namespace: t.namespace,
@@ -107,8 +136,47 @@ func (t *TestSuite) validateLabelsAndAnnos(ctx context.Context, name string, lab
 	}
 }
 
-func (t *TestSuite) registerGitRepositoryF(ctx context.Context, repo, name, directory string) {
-	t.CreateF(ctx, &configapi.Repository{
+func (t *TestSuite) registerGitRepositoryF(ctx context.Context, repo, name, directory string, opts ...repositoryOption) {
+	t.Helper()
+	config := GitConfig{
+		Repo:      repo,
+		Branch:    "main",
+		Directory: directory,
+	}
+	t.registerGitRepositoryFromConfigF(ctx, name, config, opts...)
+}
+
+func (t *TestSuite) registerGitRepositoryFromConfigF(ctx context.Context, name string, config GitConfig, opts ...repositoryOption) {
+	t.Helper()
+	var secret string
+	// Create auth secret if necessary
+	if config.Username != "" || config.Password != "" {
+		secret = fmt.Sprintf("%s-auth", name)
+		immutable := true
+		t.CreateF(ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secret,
+				Namespace: t.namespace,
+			},
+			Immutable: &immutable,
+			Data: map[string][]byte{
+				"username": []byte(config.Username),
+				"password": []byte(config.Password),
+			},
+			Type: corev1.SecretTypeBasicAuth,
+		})
+		t.Cleanup(func() {
+			t.Helper()
+			t.DeleteE(ctx, &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secret,
+					Namespace: t.namespace,
+				},
+			})
+		})
+	}
+
+	repository := &configapi.Repository{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Repository",
 			APIVersion: configapi.GroupVersion.Identifier(),
@@ -118,28 +186,38 @@ func (t *TestSuite) registerGitRepositoryF(ctx context.Context, repo, name, dire
 			Namespace: t.namespace,
 		},
 		Spec: configapi.RepositorySpec{
-			Type:    configapi.RepositoryTypeGit,
-			Content: configapi.RepositoryContentPackage,
+			Description: "Porch Test Repository Description",
+			Type:        configapi.RepositoryTypeGit,
+			Content:     configapi.RepositoryContentPackage,
 			Git: &configapi.GitRepository{
-				Repo:      repo,
-				Branch:    "main",
-				Directory: directory,
+				Repo:      config.Repo,
+				Branch:    config.Branch,
+				Directory: config.Directory,
+				SecretRef: configapi.SecretRef{
+					Name: secret,
+				},
 			},
 		},
-	})
+	}
+
+	// Apply options
+	for _, o := range opts {
+		o(repository)
+	}
+
+	// Register repository
+	t.CreateF(ctx, repository)
 
 	t.Cleanup(func() {
-		t.DeleteL(ctx, &configapi.Repository{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: t.namespace,
-			},
-		})
+		t.Helper()
+		t.DeleteE(ctx, repository)
+		t.waitUntilRepositoryDeleted(ctx, name, t.namespace)
+		t.waitUntilAllPackagesDeleted(ctx, name)
 	})
 
 	// Make sure the repository is ready before we test to (hopefully)
 	// avoid flakiness.
-	t.waitUntilRepositoryReady(ctx, name, t.namespace)
+	t.waitUntilRepositoryReady(ctx, repository.Name, repository.Namespace)
 }
 
 type repositoryOption func(*configapi.Repository)
@@ -162,8 +240,15 @@ func withContent(content configapi.RepositoryContent) repositoryOption {
 	}
 }
 
+func inNamespace(ns string) repositoryOption {
+	return func(repo *configapi.Repository) {
+		repo.Namespace = ns
+	}
+}
+
 // Creates an empty package draft by initializing an empty package
 func (t *TestSuite) createPackageDraftF(ctx context.Context, repository, name, workspace string) *porchapi.PackageRevision {
+	t.Helper()
 	pr := &porchapi.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevision",
@@ -189,6 +274,7 @@ func (t *TestSuite) createPackageDraftF(ctx context.Context, repository, name, w
 }
 
 func (t *TestSuite) mustExist(ctx context.Context, key client.ObjectKey, obj client.Object) {
+	t.Helper()
 	t.Logf("Checking existence of %q...", key)
 	t.GetF(ctx, key, obj)
 	if got, want := obj.GetName(), key.Name; got != want {
@@ -200,6 +286,7 @@ func (t *TestSuite) mustExist(ctx context.Context, key client.ObjectKey, obj cli
 }
 
 func (t *TestSuite) mustNotExist(ctx context.Context, obj client.Object) {
+	t.Helper()
 	switch err := t.client.Get(ctx, client.ObjectKeyFromObject(obj), obj); {
 	case err == nil:
 		t.Errorf("No error returned getting a deleted package; expected error")
@@ -214,12 +301,13 @@ func (t *TestSuite) mustNotExist(ctx context.Context, obj client.Object) {
 // ready - this is an artifact of the way we've implemented the aggregated apiserver,
 // where the first fetch can sometimes be synchronous.
 func (t *TestSuite) waitUntilRepositoryReady(ctx context.Context, name, namespace string) {
+	t.Helper()
 	nn := types.NamespacedName{
 		Name:      name,
 		Namespace: namespace,
 	}
 	var innerErr error
-	err := wait.PollImmediateWithContext(ctx, time.Second, 60*time.Second, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, time.Second, 60*time.Second, true, func(ctx context.Context) (bool, error) {
 		var repo configapi.Repository
 		if err := t.client.Get(ctx, nn, &repo); err != nil {
 			innerErr = err
@@ -227,7 +315,12 @@ func (t *TestSuite) waitUntilRepositoryReady(ctx context.Context, name, namespac
 		}
 		for _, c := range repo.Status.Conditions {
 			if c.Type == configapi.RepositoryReady {
-				return c.Status == metav1.ConditionTrue, nil
+				if c.Status == metav1.ConditionTrue {
+					return true, nil
+				} else {
+					innerErr = fmt.Errorf("error condition is false: %s", c.Message)
+					return false, nil
+				}
 			}
 		}
 		return false, nil
@@ -237,7 +330,7 @@ func (t *TestSuite) waitUntilRepositoryReady(ctx context.Context, name, namespac
 	}
 
 	// While we're using an aggregated apiserver, make sure we can query the generated objects
-	if err := wait.PollImmediateWithContext(ctx, time.Second, 10*time.Second, func(ctx context.Context) (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, time.Second, 10*time.Second, true, func(ctx context.Context) (bool, error) {
 		var revisions porchapi.PackageRevisionList
 		if err := t.client.List(ctx, &revisions, client.InNamespace(nn.Namespace)); err != nil {
 			innerErr = err
@@ -247,23 +340,11 @@ func (t *TestSuite) waitUntilRepositoryReady(ctx context.Context, name, namespac
 	}); err != nil {
 		t.Errorf("unable to query PackageRevisions after wait: %v", innerErr)
 	}
-
-	// Check for functions also (until we move them to CRDs)
-	if err := wait.PollImmediateWithContext(ctx, time.Second, 10*time.Second, func(ctx context.Context) (bool, error) {
-		var functions porchapi.FunctionList
-		if err := t.client.List(ctx, &functions, client.InNamespace(nn.Namespace)); err != nil {
-			innerErr = err
-			return false, nil
-		}
-		return true, nil
-	}); err != nil {
-		t.Errorf("unable to query Functions after wait: %v", innerErr)
-	}
-
 }
 
 func (t *TestSuite) waitUntilRepositoryDeleted(ctx context.Context, name, namespace string) {
-	err := wait.PollImmediateWithContext(ctx, time.Second, 20*time.Second, func(ctx context.Context) (done bool, err error) {
+	t.Helper()
+	err := wait.PollUntilContextTimeout(ctx, time.Second, 20*time.Second, true, func(ctx context.Context) (done bool, err error) {
 		var repo configapi.Repository
 		nn := types.NamespacedName{
 			Name:      name,
@@ -283,7 +364,9 @@ func (t *TestSuite) waitUntilRepositoryDeleted(ctx context.Context, name, namesp
 }
 
 func (t *TestSuite) waitUntilAllPackagesDeleted(ctx context.Context, repoName string) {
-	err := wait.PollImmediateWithContext(ctx, time.Second, 60*time.Second, func(ctx context.Context) (done bool, err error) {
+	t.Helper()
+	err := wait.PollUntilContextTimeout(ctx, time.Second, 60*time.Second, true, func(ctx context.Context) (done bool, err error) {
+		t.Helper()
 		var pkgRevList porchapi.PackageRevisionList
 		if err := t.client.List(ctx, &pkgRevList); err != nil {
 			t.Logf("error listing packages: %v", err)
@@ -315,8 +398,9 @@ func (t *TestSuite) waitUntilAllPackagesDeleted(ctx context.Context, repoName st
 }
 
 func (t *TestSuite) waitUntilObjectDeleted(ctx context.Context, gvk schema.GroupVersionKind, namespacedName types.NamespacedName, d time.Duration) {
+	t.Helper()
 	var innerErr error
-	err := wait.PollImmediateWithContext(ctx, time.Second, d, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, time.Second, d, true, func(ctx context.Context) (bool, error) {
 		var u unstructured.Unstructured
 		u.SetGroupVersionKind(gvk)
 		if err := t.client.Get(ctx, namespacedName, &u); err != nil {
@@ -334,10 +418,10 @@ func (t *TestSuite) waitUntilObjectDeleted(ctx context.Context, gvk schema.Group
 }
 
 func (t *TestSuite) waitUntilPackageRevisionExists(ctx context.Context, repository string, pkgName string, revision string) *porchapi.PackageRevision {
-
+	t.Helper()
 	var foundPkgRev *porchapi.PackageRevision
 	timeout := 120 * time.Second
-	err := wait.PollImmediateWithContext(ctx, time.Second, timeout, func(ctx context.Context) (done bool, err error) {
+	err := wait.PollUntilContextTimeout(ctx, time.Second, timeout, true, func(ctx context.Context) (done bool, err error) {
 		var pkgRevList porchapi.PackageRevisionList
 		if err := t.client.List(ctx, &pkgRevList); err != nil {
 			t.Logf("error listing packages: %v", err)

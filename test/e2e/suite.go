@@ -196,16 +196,40 @@ func (t *TestSuite) CreateGitRepo() GitConfig {
 	}
 }
 
+func (t *TestSuite) Error(args ...any) {
+	t.Helper()
+	args = append([]any{"ERROR:"}, args...)
+	t.T.Error(args...)
+}
+
+func (t *TestSuite) Errorf(format string, args ...any) {
+	t.Helper()
+	t.T.Errorf("ERROR: "+format, args...)
+}
+
+func (t *TestSuite) Fatal(args ...any) {
+	t.Helper()
+	args = append([]any{"ERROR:"}, args...)
+	t.T.Fatal(args...)
+}
+
+func (t *TestSuite) Fatalf(format string, args ...any) {
+	t.Helper()
+	t.T.Fatalf("ERROR: "+format, args...)
+}
+
 type ErrorHandler func(format string, args ...interface{})
 
 func (t *TestSuite) get(ctx context.Context, key client.ObjectKey, obj client.Object, eh ErrorHandler) {
+	t.Helper()
 	if err := t.client.Get(ctx, key, obj); err != nil {
 		eh("failed to get resource %T %s: %v", obj, key, err)
 	}
 }
 
-func (c *TestSuite) list(ctx context.Context, list client.ObjectList, opts []client.ListOption, eh ErrorHandler) {
-	if err := c.client.List(ctx, list, opts...); err != nil {
+func (t *TestSuite) list(ctx context.Context, list client.ObjectList, opts []client.ListOption, eh ErrorHandler) {
+	t.Helper()
+	if err := t.client.List(ctx, list, opts...); err != nil {
 		eh("failed to list resources %T %+v: %v", list, list, err)
 	}
 }
@@ -228,27 +252,31 @@ func DebugFormat(obj client.Object) string {
 	return s
 }
 
-func (c *TestSuite) create(ctx context.Context, obj client.Object, opts []client.CreateOption, eh ErrorHandler) {
-	c.Logf("creating object %v", DebugFormat(obj))
+func (t *TestSuite) create(ctx context.Context, obj client.Object, opts []client.CreateOption, eh ErrorHandler) {
+	t.Helper()
+	t.Logf("creating object %v", DebugFormat(obj))
 	start := time.Now()
 	defer func() {
-		c.Logf("took %v to create %s/%s", time.Since(start), obj.GetNamespace(), obj.GetName())
+		t.Helper()
+		t.Logf("took %v to create %s/%s", time.Since(start), obj.GetNamespace(), obj.GetName())
 	}()
 
-	if err := c.client.Create(ctx, obj, opts...); err != nil {
+	if err := t.client.Create(ctx, obj, opts...); err != nil {
 		eh("failed to create resource %s: %v", DebugFormat(obj), err)
 	}
 }
 
-func (c *TestSuite) delete(ctx context.Context, obj client.Object, opts []client.DeleteOption, eh ErrorHandler) {
-	c.Logf("deleting object %v", DebugFormat(obj))
+func (t *TestSuite) delete(ctx context.Context, obj client.Object, opts []client.DeleteOption, eh ErrorHandler) {
+	t.Helper()
+	t.Logf("deleting object %v", DebugFormat(obj))
 
-	if err := c.client.Delete(ctx, obj, opts...); err != nil {
+	if err := t.client.Delete(ctx, obj, opts...); err != nil {
 		eh("failed to delete resource %s: %v", DebugFormat(obj), err)
 	}
 }
 
 func (t *TestSuite) update(ctx context.Context, obj client.Object, opts []client.UpdateOption, eh ErrorHandler) {
+	t.Helper()
 	t.Logf("updating object %v", DebugFormat(obj))
 
 	if err := t.client.Update(ctx, obj, opts...); err != nil {
@@ -257,6 +285,7 @@ func (t *TestSuite) update(ctx context.Context, obj client.Object, opts []client
 }
 
 func (t *TestSuite) patch(ctx context.Context, obj client.Object, patch client.Patch, opts []client.PatchOption, eh ErrorHandler) {
+	t.Helper()
 	t.Logf("patching object %v", DebugFormat(obj))
 
 	if err := t.client.Patch(ctx, obj, patch, opts...); err != nil {
@@ -265,6 +294,7 @@ func (t *TestSuite) patch(ctx context.Context, obj client.Object, patch client.P
 }
 
 func (t *TestSuite) updateApproval(ctx context.Context, obj *porchapi.PackageRevision, opts metav1.UpdateOptions, eh ErrorHandler) *porchapi.PackageRevision {
+	t.Helper()
 	t.Logf("updating approval of %v", DebugFormat(obj))
 	if res, err := t.clientset.PorchV1alpha1().PackageRevisions(obj.Namespace).UpdateApproval(ctx, obj.Name, obj, opts); err != nil {
 		eh("failed to update approval of %s/%s: %v", obj.Namespace, obj.Name, err)
@@ -277,58 +307,72 @@ func (t *TestSuite) updateApproval(ctx context.Context, obj *porchapi.PackageRev
 // deleteAllOf(ctx context.Context, obj Object, opts ...DeleteAllOfOption) error
 
 func (t *TestSuite) GetE(ctx context.Context, key client.ObjectKey, obj client.Object) {
+	t.Helper()
 	t.get(ctx, key, obj, ErrorHandler(t.Errorf))
 }
 
 func (t *TestSuite) GetF(ctx context.Context, key client.ObjectKey, obj client.Object) {
+	t.Helper()
 	t.get(ctx, key, obj, ErrorHandler(t.Fatalf))
 }
 
 func (t *TestSuite) ListE(ctx context.Context, list client.ObjectList, opts ...client.ListOption) {
+	t.Helper()
 	t.list(ctx, list, opts, t.Errorf)
 }
 
 func (t *TestSuite) ListF(ctx context.Context, list client.ObjectList, opts ...client.ListOption) {
+	t.Helper()
 	t.list(ctx, list, opts, t.Fatalf)
 }
 
 func (t *TestSuite) CreateF(ctx context.Context, obj client.Object, opts ...client.CreateOption) {
+	t.Helper()
 	t.create(ctx, obj, opts, t.Fatalf)
 }
 
 func (t *TestSuite) CreateE(ctx context.Context, obj client.Object, opts ...client.CreateOption) {
+	t.Helper()
 	t.create(ctx, obj, opts, t.Errorf)
 }
 
 func (t *TestSuite) DeleteF(ctx context.Context, obj client.Object, opts ...client.DeleteOption) {
+	t.Helper()
 	t.delete(ctx, obj, opts, t.Fatalf)
 }
 
 func (t *TestSuite) DeleteE(ctx context.Context, obj client.Object, opts ...client.DeleteOption) {
+	t.Helper()
 	t.delete(ctx, obj, opts, t.Errorf)
 }
 
 func (t *TestSuite) DeleteL(ctx context.Context, obj client.Object, opts ...client.DeleteOption) {
+	t.Helper()
 	t.delete(ctx, obj, opts, t.Logf)
 }
 
 func (t *TestSuite) UpdateF(ctx context.Context, obj client.Object, opts ...client.UpdateOption) {
+	t.Helper()
 	t.update(ctx, obj, opts, t.Fatalf)
 }
 
 func (t *TestSuite) UpdateE(ctx context.Context, obj client.Object, opts ...client.UpdateOption) {
+	t.Helper()
 	t.update(ctx, obj, opts, t.Errorf)
 }
 
 func (t *TestSuite) PatchF(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) {
+	t.Helper()
 	t.patch(ctx, obj, patch, opts, t.Fatalf)
 }
 
 func (t *TestSuite) PatchE(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) {
+	t.Helper()
 	t.patch(ctx, obj, patch, opts, t.Errorf)
 }
 
 func (t *TestSuite) UpdateApprovalF(ctx context.Context, pr *porchapi.PackageRevision, opts metav1.UpdateOptions) *porchapi.PackageRevision {
+	t.Helper()
 	return t.updateApproval(ctx, pr, opts, t.Fatalf)
 }
 
@@ -521,7 +565,7 @@ func (t *TestSuite) createInClusterGitServer(ctx context.Context, exposeByLoadBa
 	})
 
 	t.Cleanup(func() {
-		t.DumpLogsForDeployment(ctx, deploymentKey)
+		t.DumpLogsForDeploymentE(ctx, deploymentKey)
 	})
 
 	serviceKey := client.ObjectKey{
@@ -672,6 +716,7 @@ func endpointIsReady(endpoints *coreapi.Endpoints) bool {
 }
 
 func (t *TestSuite) ParseKptfileF(resources *porchapi.PackageRevisionResources) *kptfilev1.KptFile {
+	t.Helper()
 	contents, ok := resources.Spec.Resources[kptfilev1.KptFileName]
 	if !ok {
 		t.Fatalf("Kptfile not found in %s/%s package", resources.Namespace, resources.Name)
@@ -684,6 +729,7 @@ func (t *TestSuite) ParseKptfileF(resources *porchapi.PackageRevisionResources) 
 }
 
 func (t *TestSuite) SaveKptfileF(resources *porchapi.PackageRevisionResources, kptfile *kptfilev1.KptFile) {
+	t.Helper()
 	b, err := yaml.MarshalWithOptions(kptfile, &yaml.EncoderOptions{SeqIndent: yaml.WideSequenceStyle})
 	if err != nil {
 		t.Fatalf("Failed saving Kptfile: %v", err)
@@ -692,6 +738,7 @@ func (t *TestSuite) SaveKptfileF(resources *porchapi.PackageRevisionResources, k
 }
 
 func (t *TestSuite) FindAndDecodeF(resources *porchapi.PackageRevisionResources, name string, value interface{}) {
+	t.Helper()
 	contents, ok := resources.Spec.Resources[name]
 	if !ok {
 		t.Fatalf("Cannot find %q in %s/%s package", name, resources.Namespace, resources.Name)
@@ -711,6 +758,7 @@ func (t *TestSuite) FindAndDecodeF(resources *porchapi.PackageRevisionResources,
 }
 
 func (t *TestSuite) CompareGoldenFileYAML(goldenPath string, gotContents string) string {
+	t.Helper()
 	gotContents = normalizeYamlOrdering(t.T, gotContents)
 
 	if os.Getenv(updateGoldenFiles) != "" {
@@ -726,6 +774,7 @@ func (t *TestSuite) CompareGoldenFileYAML(goldenPath string, gotContents string)
 }
 
 func normalizeYamlOrdering(t *testing.T, contents string) string {
+	t.Helper()
 	var data interface{}
 	if err := yaml.Unmarshal([]byte(contents), &data); err != nil {
 		// not yaml.
@@ -742,6 +791,7 @@ func normalizeYamlOrdering(t *testing.T, contents string) string {
 }
 
 func MustFindPackageRevision(t *testing.T, packages *porchapi.PackageRevisionList, name repository.PackageRevisionKey) *porchapi.PackageRevision {
+	t.Helper()
 	for i := range packages.Items {
 		pr := &packages.Items[i]
 		if pr.Spec.RepositoryName == name.Repository &&
