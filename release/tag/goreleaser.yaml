@@ -31,7 +31,7 @@ builds:
       - darwin
     goarch:
       - amd64
-    ldflags: -s -w
+    ldflags: -s -w -X github.com/nephio-project/porch/cmd/porchctl/run.version={{.Version}}
     main: ./cmd/porchctl
 
   - id: darwin-arm64
@@ -42,7 +42,7 @@ builds:
       - darwin
     goarch:
       - arm64
-    ldflags: -s -w
+    ldflags: -s -w -X github.com/nephio-project/porch/cmd/porchctl/run.version={{.Version}}
     main: ./cmd/porchctl
 
   - id: linux-amd64
@@ -53,7 +53,7 @@ builds:
       - linux
     goarch:
       - amd64
-    ldflags: -s -w -extldflags "-z noexecstack"
+    ldflags: -s -w -X github.com/nephio-project/porch/cmd/porchctl/run.version={{.Version}} -extldflags "-z noexecstack"
     main: ./cmd/porchctl
 
   - id: linux-arm64
@@ -64,7 +64,7 @@ builds:
       - linux
     goarch:
       - arm64
-    ldflags: -s -w -extldflags "-z noexecstack"
+    ldflags: -s -w -X github.com/nephio-project/porch/cmd/porchctl/run.version={{.Version}} -extldflags "-z noexecstack"
     main: ./cmd/porchctl
 
 
