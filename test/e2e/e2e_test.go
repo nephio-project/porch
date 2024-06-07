@@ -753,6 +753,7 @@ func (t *PorchSuite) TestFunctionRepository(ctx context.Context) {
 	// the sync has (hopefully) finished.
 	// TODO(mortent): We need a better solution for this. This is only
 	// temporary to fix the current flakiness with the e2e tests.
+	t.Log("Waiting for 2 minutes for the repository to be cached")
 	<-time.NewTimer(2 * time.Minute).C
 
 	list := &porchapi.FunctionList{}

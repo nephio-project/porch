@@ -340,19 +340,6 @@ func (t *TestSuite) waitUntilRepositoryReady(ctx context.Context, name, namespac
 	}); err != nil {
 		t.Errorf("unable to query PackageRevisions after wait: %v", innerErr)
 	}
-
-	// Check for functions also (until we move them to CRDs)
-	if err := wait.PollUntilContextTimeout(ctx, time.Second, 10*time.Second, true, func(ctx context.Context) (bool, error) {
-		var functions porchapi.FunctionList
-		if err := t.client.List(ctx, &functions, client.InNamespace(nn.Namespace)); err != nil {
-			innerErr = err
-			return false, nil
-		}
-		return true, nil
-	}); err != nil {
-		t.Errorf("unable to query Functions after wait: %v", innerErr)
-	}
-
 }
 
 func (t *TestSuite) waitUntilRepositoryDeleted(ctx context.Context, name, namespace string) {
