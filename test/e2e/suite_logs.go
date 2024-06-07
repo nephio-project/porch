@@ -27,18 +27,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (t *TestSuite) DumpLogsForDeployment(ctx context.Context, deploymentKey client.ObjectKey) {
+func (t *TestSuite) DumpLogsForDeploymentE(ctx context.Context, deploymentKey client.ObjectKey) {
+	t.Helper()
 	t.dumpLogsForDeployment(ctx, deploymentKey, t.Errorf)
 }
 
-func (c *TestSuite) hasOwner(child, parent runtime.Object) bool {
+func (t *TestSuite) hasOwner(child, parent runtime.Object) bool {
+	t.Helper()
 	childAccessor, err := meta.Accessor(child)
 	if err != nil {
-		c.Fatalf("could not get accessor for %T: %v", child, err)
+		t.Fatalf("could not get accessor for %T: %v", child, err)
 	}
 	parentAccessor, err := meta.Accessor(parent)
 	if err != nil {
-		c.Fatalf("could not get accessor for %T: %v", parent, err)
+		t.Fatalf("could not get accessor for %T: %v", parent, err)
 	}
 
 	for _, ownerRef := range childAccessor.GetOwnerReferences() {
@@ -52,53 +54,57 @@ func (c *TestSuite) hasOwner(child, parent runtime.Object) bool {
 	return false
 }
 
-func (c *TestSuite) dumpLogsForDeployment(ctx context.Context, deploymentKey client.ObjectKey, eh ErrorHandler) {
-	deployment, err := c.kubeClient.AppsV1().Deployments(deploymentKey.Namespace).Get(ctx, deploymentKey.Name, metav1.GetOptions{})
+func (t *TestSuite) dumpLogsForDeployment(ctx context.Context, deploymentKey client.ObjectKey, eh ErrorHandler) {
+	t.Helper()
+	deployment, err := t.kubeClient.AppsV1().Deployments(deploymentKey.Namespace).Get(ctx, deploymentKey.Name, metav1.GetOptions{})
 	if err != nil {
 		eh("failed to get deployemnt %v: %v", deploymentKey, err)
 	}
 
-	replicaSets, err := c.kubeClient.AppsV1().ReplicaSets(deployment.Namespace).List(ctx, metav1.ListOptions{})
+	replicaSets, err := t.kubeClient.AppsV1().ReplicaSets(deployment.Namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		eh("failed to list replicasets: %v", err)
 	}
 
 	for i := range replicaSets.Items {
 		replicaSet := &replicaSets.Items[i]
-		if !c.hasOwner(replicaSet, deployment) {
+		if !t.hasOwner(replicaSet, deployment) {
 			continue
 		}
-		c.dumpLogsForReplicaSet(ctx, replicaSet, eh)
+		t.dumpLogsForReplicaSet(ctx, replicaSet, eh)
 	}
 }
 
-func (c *TestSuite) dumpLogsForReplicaSet(ctx context.Context, replicaSet *appsv1.ReplicaSet, eh ErrorHandler) {
-	pods, err := c.kubeClient.CoreV1().Pods(replicaSet.Namespace).List(ctx, metav1.ListOptions{})
+func (t *TestSuite) dumpLogsForReplicaSet(ctx context.Context, replicaSet *appsv1.ReplicaSet, eh ErrorHandler) {
+	t.Helper()
+	pods, err := t.kubeClient.CoreV1().Pods(replicaSet.Namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		eh("failed to list pods: %v", err)
 	}
 
 	for i := range pods.Items {
 		pod := &pods.Items[i]
-		if !c.hasOwner(pod, replicaSet) {
+		if !t.hasOwner(pod, replicaSet) {
 			continue
 		}
-		c.dumpLogsForPod(ctx, pod, eh)
+		t.dumpLogsForPod(ctx, pod, eh)
 	}
 }
 
-func (c *TestSuite) dumpLogsForPod(ctx context.Context, pod *corev1.Pod, eh ErrorHandler) {
+func (t *TestSuite) dumpLogsForPod(ctx context.Context, pod *corev1.Pod, eh ErrorHandler) {
+	t.Helper()
 	for _, container := range pod.Spec.Containers {
 		podKey := client.ObjectKey{
 			Namespace: pod.Namespace,
 			Name:      pod.Name,
 		}
-		c.dumpLogsForPodContainer(ctx, podKey, container.Name, eh)
+		t.dumpLogsForPodContainer(ctx, podKey, container.Name, eh)
 	}
 }
 
-func (c *TestSuite) dumpLogsForPodContainer(ctx context.Context, podKey client.ObjectKey, containerName string, eh ErrorHandler) {
-	req := c.kubeClient.CoreV1().Pods(podKey.Namespace).GetLogs(podKey.Name, &corev1.PodLogOptions{Container: containerName})
+func (t *TestSuite) dumpLogsForPodContainer(ctx context.Context, podKey client.ObjectKey, containerName string, eh ErrorHandler) {
+	t.Helper()
+	req := t.kubeClient.CoreV1().Pods(podKey.Namespace).GetLogs(podKey.Name, &corev1.PodLogOptions{Container: containerName})
 	podLogs, err := req.Stream(ctx)
 	if err != nil {
 		eh("failed to open pod logs %v %s: %v", podKey, containerName, err)
@@ -110,5 +116,5 @@ func (c *TestSuite) dumpLogsForPodContainer(ctx context.Context, podKey client.O
 		eh("failed to copy pod logs %v %s: %v", podKey, containerName, err)
 	}
 
-	c.Logf("Logs from pod %v, container %s: %s", podKey, containerName, buf.String())
+	t.Logf("Logs from pod %v, container %s: %s", podKey, containerName, buf.String())
 }
