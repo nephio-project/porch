@@ -16,6 +16,7 @@ package apiserver
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -158,9 +159,12 @@ func TestWatchCertificates(t *testing.T) {
 	keyFile := filepath.Join(webhookCfg.CertStorageDir, "tls.key")
 	certFile := filepath.Join(webhookCfg.CertStorageDir, "tls.crt")
 
-	// firstly test error occuring from invalid entity for watcher to watch. aka invalid dir
-	// we expect an error
-	go watchCertificates("Dummy Directory that does not exist", certFile, keyFile)
+	// Create a context with a cancel function
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// firstly test error occuring from invalid entity for watcher to watch. aka invalid dir, err expected
+	go watchCertificates(ctx, "Dummy Directory that does not exist", certFile, keyFile)
 
 	invalid_watch_entity_logs := captureStderr(func() {
 		time.Sleep(100 * time.Millisecond) // Give some time for the logs to be flushed
@@ -169,7 +173,7 @@ func TestWatchCertificates(t *testing.T) {
 	err = assertLogMessages(invalid_watch_entity_logs)
 	require.Error(t, err)
 
-	go watchCertificates(webhookCfg.CertStorageDir, certFile, keyFile)
+	go watchCertificates(ctx, webhookCfg.CertStorageDir, certFile, keyFile)
 	time.Sleep(1 * time.Second)
 
 	//create file to trigger change but not alter the certificate contents
@@ -192,11 +196,21 @@ func TestWatchCertificates(t *testing.T) {
 	require.NoError(t, err)
 
 	invalid_reload_logs := captureStderr(func() {
-		time.Sleep(100 * time.Millisecond) // Give some time for the logs to be flushed
+		time.Sleep(100 * time.Millisecond)
 	})
 	t.Log(invalid_reload_logs)
 	err = assertLogMessages(invalid_reload_logs)
 	require.Error(t, err)
+
+	go watchCertificates(ctx, webhookCfg.CertStorageDir, certFile, keyFile)
+	// trigger graceful termination
+	cancel()
+	graceful_termination_logs := captureStderr(func() {
+		time.Sleep(100 * time.Millisecond)
+	})
+	t.Log(graceful_termination_logs)
+	err = assertLogMessages(graceful_termination_logs)
+	require.NoError(t, err)
 }
 
 func TestValidateDeletion(t *testing.T) {

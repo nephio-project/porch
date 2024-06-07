@@ -69,7 +69,7 @@ type WebhookConfig struct {
 	Path             string
 	Port             int32
 	CertStorageDir   string
-	CertManWebhook 	 bool
+	CertManWebhook   bool
 }
 
 func NewWebhookConfig() *WebhookConfig {
@@ -113,8 +113,8 @@ func setupWebhooks(ctx context.Context) error {
 			return err
 		}
 	}
-	
-	if err := runWebhookServer(cfg); err != nil {
+
+	if err := runWebhookServer(ctx, cfg); err != nil {
 		return err
 	}
 	return nil
@@ -309,27 +309,26 @@ func loadCertificate(certPath, keyPath string) (tls.Certificate, error) {
 }
 
 // watch for changes on the mount path of the secret as volume
-func watchCertificates(directory, certFile, keyFile string) {
-	//set up a watcher for the cert
+func watchCertificates(ctx context.Context, directory, certFile, keyFile string) {
+	// Set up a watcher for the certificate directory
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		klog.Fatalf("failed to start certificate watcher: %v", err)
+		klog.Errorf("failed to start certificate watcher: %v", err)
+		return
 	}
 	defer watcher.Close()
-	// start the watcher with the dir to watch
+	// Start watching the directory
 	err = watcher.Add(directory)
 	if err != nil {
-		klog.Errorf("Error in running watcher: %v", err)
+		klog.Errorf("invalid certificate watcher directory : %v", err)
+		return
 	}
-	// if the watcher notices any changes on the mount dir of the secret such as creations or writes to the files in this dir
-	// attempt to load tls cert using the new cert and key files provided and log output
-	done := make(chan bool)
 	go func() {
 		for {
 			select {
 			case event, ok := <-watcher.Events:
 				if !ok {
-					return
+					return // Exit if the watcher.Events channel was closed
 				}
 				if event.Op&fsnotify.Create == fsnotify.Create || event.Op&fsnotify.Write == fsnotify.Write {
 					_, err := loadCertificate(certFile, keyFile)
@@ -341,16 +340,20 @@ func watchCertificates(directory, certFile, keyFile string) {
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
-					return
+					return // Exit if the watcher.Errors channel was closed
 				}
-				klog.Errorf("Watcher error: %v", err)
+				klog.Errorf("Error watching certificates: %v", err)
+			case <-ctx.Done():
+				return
 			}
 		}
 	}()
-	<-done
+	// Wait for the context to be canceled before returning and cleaning up
+	<-ctx.Done()
+	klog.Info("Shutting down certificate watcher")
 }
 
-func runWebhookServer(cfg *WebhookConfig) error {
+func runWebhookServer(ctx context.Context, cfg *WebhookConfig) error {
 	certFile := filepath.Join(cfg.CertStorageDir, "tls.crt")
 	keyFile := filepath.Join(cfg.CertStorageDir, "tls.key")
 	// load the cert for the first time
@@ -361,7 +364,7 @@ func runWebhookServer(cfg *WebhookConfig) error {
 		return err
 	}
 	if cfg.CertManWebhook {
-		go watchCertificates(cfg.CertStorageDir, certFile, keyFile)
+		go watchCertificates(ctx, cfg.CertStorageDir, certFile, keyFile)
 	}
 	klog.Infoln("Starting webhook server")
 	http.HandleFunc(cfg.Path, validateDeletion)
@@ -378,7 +381,7 @@ func runWebhookServer(cfg *WebhookConfig) error {
 		}
 	}()
 	return err
-	
+
 }
 
 func validateDeletion(w http.ResponseWriter, r *http.Request) {
