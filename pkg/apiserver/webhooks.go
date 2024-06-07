@@ -33,6 +33,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
+
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -67,6 +69,7 @@ type WebhookConfig struct {
 	Path             string
 	Port             int32
 	CertStorageDir   string
+	CertManWebhook   bool
 }
 
 func NewWebhookConfig() *WebhookConfig {
@@ -90,19 +93,28 @@ func NewWebhookConfig() *WebhookConfig {
 	cfg.Path = serverEndpoint
 	cfg.Port = getEnvInt32("WEBHOOK_PORT", 8443)
 	cfg.CertStorageDir = getEnv("CERT_STORAGE_DIR", "/tmp/cert")
+	cfg.CertManWebhook = getEnvBool("USE_CERT_MAN_FOR_WEBHOOK", false)
 	return &cfg
 }
 
+var (
+	cert        tls.Certificate
+	certModTime time.Time
+)
+
 func setupWebhooks(ctx context.Context) error {
 	cfg := NewWebhookConfig()
-	caBytes, err := createCerts(cfg)
-	if err != nil {
-		return err
+	if !cfg.CertManWebhook {
+		caBytes, err := createCerts(cfg)
+		if err != nil {
+			return err
+		}
+		if err := createValidatingWebhook(ctx, cfg, caBytes); err != nil {
+			return err
+		}
 	}
-	if err := createValidatingWebhook(ctx, cfg, caBytes); err != nil {
-		return err
-	}
-	if err := runWebhookServer(cfg); err != nil {
+
+	if err := runWebhookServer(ctx, cfg); err != nil {
 		return err
 	}
 	return nil
@@ -279,13 +291,80 @@ func createValidatingWebhook(ctx context.Context, cfg *WebhookConfig, caCert []b
 	return nil
 }
 
-func runWebhookServer(cfg *WebhookConfig) error {
+// load the certificate & keep note of time loaded for reload on new cert details
+func loadCertificate(certPath, keyPath string) (tls.Certificate, error) {
+	certInfo, err := os.Stat(certPath)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	if certInfo.ModTime().After(certModTime) {
+		newCert, err := tls.LoadX509KeyPair(certPath, keyPath)
+		if err != nil {
+			return tls.Certificate{}, err
+		}
+		cert = newCert
+		certModTime = certInfo.ModTime()
+	}
+	return cert, nil
+}
+
+// watch for changes on the mount path of the secret as volume
+func watchCertificates(ctx context.Context, directory, certFile, keyFile string) {
+	// Set up a watcher for the certificate directory
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		klog.Errorf("failed to start certificate watcher: %v", err)
+		return
+	}
+	defer watcher.Close()
+	// Start watching the directory
+	err = watcher.Add(directory)
+	if err != nil {
+		klog.Errorf("invalid certificate watcher directory : %v", err)
+		return
+	}
+	go func() {
+		for {
+			select {
+			case event, ok := <-watcher.Events:
+				if !ok {
+					return // Exit if the watcher.Events channel was closed
+				}
+				if event.Op&fsnotify.Create == fsnotify.Create || event.Op&fsnotify.Write == fsnotify.Write {
+					_, err := loadCertificate(certFile, keyFile)
+					if err != nil {
+						klog.Errorf("Failed to load updated certificate: %v", err)
+					} else {
+						klog.Info("Certificate reloaded successfully")
+					}
+				}
+			case err, ok := <-watcher.Errors:
+				if !ok {
+					return // Exit if the watcher.Errors channel was closed
+				}
+				klog.Errorf("Error watching certificates: %v", err)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	// Wait for the context to be canceled before returning and cleaning up
+	<-ctx.Done()
+	klog.Info("Shutting down certificate watcher")
+}
+
+func runWebhookServer(ctx context.Context, cfg *WebhookConfig) error {
 	certFile := filepath.Join(cfg.CertStorageDir, "tls.crt")
 	keyFile := filepath.Join(cfg.CertStorageDir, "tls.key")
+	// load the cert for the first time
 
-	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	cert, err := loadCertificate(certFile, keyFile)
 	if err != nil {
+		klog.Errorf("failed to load certificate: %v", err)
 		return err
+	}
+	if cfg.CertManWebhook {
+		go watchCertificates(ctx, cfg.CertStorageDir, certFile, keyFile)
 	}
 	klog.Infoln("Starting webhook server")
 	http.HandleFunc(cfg.Path, validateDeletion)
@@ -302,6 +381,7 @@ func runWebhookServer(cfg *WebhookConfig) error {
 		}
 	}()
 	return err
+
 }
 
 func validateDeletion(w http.ResponseWriter, r *http.Request) {
@@ -434,6 +514,18 @@ func getEnv(key string, defaultValue string) string {
 		return defaultValue
 	}
 	return value
+}
+
+func getEnvBool(key string, defaultValue bool) bool {
+	value, found := os.LookupEnv(key)
+	if !found {
+		return defaultValue
+	}
+	boolean, err := strconv.ParseBool(value)
+	if err != nil {
+		panic("could not parse boolean from environment variable: " + key)
+	}
+	return boolean
 }
 
 func getEnvInt32(key string, defaultValue int32) int32 {
