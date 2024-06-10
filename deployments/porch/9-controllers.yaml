@@ -41,6 +41,7 @@ spec:
       containers:
       - name: porch-controllers
         # Update to the image of your porch-controllers build.
-        image: docker.io/porch-controllers:latest
+        image: docker.io/nephio/porch-controllers:latest
         env:
-
+        - name: EXAMPLE_ENV
+          value: "true"
