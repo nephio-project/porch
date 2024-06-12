@@ -15,8 +15,8 @@
 MYGOBIN := $(shell go env GOPATH)/bin
 BUILDDIR=$(CURDIR)/.build
 CACHEDIR=$(CURDIR)/.cache
-DEPLOYCONFIGDIR=$(BUILDDIR)/deploy
-DEPLOYKPTCONFIGDIR=$(DEPLOYCONFIGDIR)/kpt_pkgs
+DEPLOYPORCHCONFIGDIR=$(BUILDDIR)/deploy
+DEPLOYKPTCONFIGDIR=$(BUILDDIR)/kpt_pkgs
 KPTDIR=$(abspath $(CURDIR)/..)
 
 # This includes the following targets:
@@ -239,10 +239,10 @@ apply-dev-config:
 
 .PHONY: deployment-config
 deployment-config:
-	mkdir -p $(DEPLOYCONFIGDIR)
-	find $(DEPLOYCONFIGDIR) ! -name 'resourcegroup.yaml' -type f -exec rm -f {} +
+	mkdir -p $(DEPLOYPORCHCONFIGDIR)
+	find $(DEPLOYPORCHCONFIGDIR) ! -name 'resourcegroup.yaml' -type f -exec rm -f {} +
 	./scripts/create-deployment-blueprint.sh \
-	  --destination "$(DEPLOYCONFIGDIR)" \
+	  --destination "$(DEPLOYPORCHCONFIGDIR)" \
 	  --server-image "$(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG)" \
 	  --controllers-image "$(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):$(IMAGE_TAG)" \
 	  --function-image "$(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):$(IMAGE_TAG)" \
@@ -251,7 +251,7 @@ deployment-config:
 
 .PHONY: deploy
 deploy: deployment-config
-	kubectl apply -R -f $(DEPLOYCONFIGDIR)
+	kubectl apply -R -f $(DEPLOYPORCHCONFIGDIR)
 
 .PHONY: push-and-deploy
 push-and-deploy: push-images deploy
@@ -270,7 +270,7 @@ run-in-kind:
 	kind load docker-image $(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
 	kind load docker-image $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
 	make deployment-config
-	KUBECONFIG=$(KUBECONFIG) kubectl apply --wait --recursive --filename $(DEPLOYCONFIGDIR)
+	KUBECONFIG=$(KUBECONFIG) kubectl apply --wait --recursive --filename $(DEPLOYPORCHCONFIGDIR)
 	KUBECONFIG=$(KUBECONFIG) kubectl rollout status deployment function-runner --namespace porch-system
 	KUBECONFIG=$(KUBECONFIG) kubectl rollout status deployment porch-controllers --namespace porch-system
 	KUBECONFIG=$(KUBECONFIG) kubectl rollout status deployment porch-server --namespace porch-system
