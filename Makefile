@@ -270,10 +270,12 @@ run-in-kind:
 	kind load docker-image $(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
 	kind load docker-image $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
 	make deployment-config
-	KUBECONFIG=$(KUBECONFIG) kubectl apply --wait --recursive --filename $(DEPLOYPORCHCONFIGDIR)
-	KUBECONFIG=$(KUBECONFIG) kubectl rollout status deployment function-runner --namespace porch-system
-	KUBECONFIG=$(KUBECONFIG) kubectl rollout status deployment porch-controllers --namespace porch-system
-	KUBECONFIG=$(KUBECONFIG) kubectl rollout status deployment porch-server --namespace porch-system
+	kpt fn render $(DEPLOYPORCHCONFIGDIR)
+	kpt live init $(DEPLOYPORCHCONFIGDIR) || true
+	kpt live apply --inventory-policy=adopt $(DEPLOYPORCHCONFIGDIR)
+	kubectl rollout status deployment function-runner --namespace porch-system
+	kubectl rollout status deployment porch-controllers --namespace porch-system
+	kubectl rollout status deployment porch-server --namespace porch-system
 
 
 PKG=gitea-dev
