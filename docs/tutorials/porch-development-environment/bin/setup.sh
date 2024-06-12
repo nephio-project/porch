@@ -104,10 +104,10 @@ kubectl wait --namespace gitea statefulset gitea \
 
 ############################################
 h1 Create git repos in gitea
-curl -v -k -H "content-type: application/json" "http://nephio:secret@${gitea_ip}:3000/api/v1/user/repos" --data "{\"name\":\"$git_repo_name\"}"
+curl -v -k -H "content-type: application/json" "http://nephio:secret@localhost:3000/api/v1/user/repos" --data "{\"name\":\"$git_repo_name\"}"
 TMP_DIR=$(mktemp -d)
 cd "$TMP_DIR"
-git clone "http://nephio:secret@${gitea_ip}:3000/nephio/$git_repo_name"
+git clone "http://nephio:secret@localhost:3000/nephio/$git_repo_name"
 cd "$git_repo_name"
 if ! git rev-parse -q --verify refs/remotes/origin/main >/dev/null; then
   echo "Add main branch to git repo:"
