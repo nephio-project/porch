@@ -179,16 +179,16 @@ function main() {
   customize-container-env
   
   customize-image \
-    "docker.io/porch-function-runner:latest" \
+    "docker.io/nephio/porch-function-runner:latest" \
     "${FUNCTION_IMAGE}"
   customize-image \
-    "docker.io/porch-server:latest" \
+    "docker.io/nephio/porch-server:latest" \
     "${SERVER_IMAGE}"
   customize-image \
-    "docker.io/porch-controllers:latest" \
+    "docker.io/nephio/porch-controllers:latest" \
     "${CONTROLLERS_IMAGE}"
   customize-image-in-env \
-    "docker.io/porch-wrapper-server:latest" \
+    "docker.io/nephio/porch-wrapper-server:latest" \
     "${WRAPPER_SERVER_IMAGE}"
 }
 
