@@ -19,12 +19,15 @@ on:
       - "docs/**"
       - "release/**"
       - "deployments/**"
+      - ".prow.yaml"
+      - "OWNERS"
   pull_request:
     paths-ignore:
       - "docs/**"
       - "release/**"
       - "deployments/**"
-
+      - ".prow.yaml"
+      - "OWNERS"
 jobs:
   tests:
     name: Porch End-to-End Tests

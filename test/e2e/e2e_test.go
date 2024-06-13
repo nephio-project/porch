@@ -2280,3 +2280,77 @@ func (t *PorchSuite) TestPackageRevisionFinalizers(ctx context.Context) {
 		Namespace: pr.Namespace,
 	}, 10*time.Second)
 }
+
+func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces(ctx context.Context) {
+
+	registerRepoAndTestRevisions := func(repoName string, ns string, oldPRs []porchapi.PackageRevision) []porchapi.PackageRevision {
+
+		t.registerGitRepositoryF(ctx, testBlueprintsRepo, repoName, "", inNamespace(ns))
+		prList := porchapi.PackageRevisionList{}
+		t.ListF(ctx, &prList, client.InNamespace(ns))
+		newPRs := prList.Items
+		if len(newPRs) == 0 {
+			t.Errorf("no PackageRevisions found in repo: %s", repoName)
+		}
+
+		// remove PRs that were in the namespace before repo registration
+		for _, oldPR := range oldPRs {
+			for i, pr := range newPRs {
+				if pr.Name == oldPR.Name &&
+					pr.Namespace == oldPR.Namespace &&
+					pr.Spec.RepositoryName == oldPR.Spec.RepositoryName &&
+					pr.Spec.PackageName == oldPR.Spec.PackageName &&
+					pr.Spec.WorkspaceName == oldPR.Spec.WorkspaceName {
+
+					newPRs[i] = newPRs[len(newPRs)-1]
+					newPRs = newPRs[:len(newPRs)-1]
+					break // only remove oldPR once
+				}
+			}
+		}
+
+		// test PRs that came from the new repo
+		for _, pr := range newPRs {
+			if !strings.HasPrefix(pr.Name, repoName) {
+				t.Errorf("PR name: want prefix: %s, got %s", repoName, pr.Name)
+			}
+			if pr.Spec.RepositoryName != repoName {
+				t.Errorf("PR repository: want: %s, got %s", repoName, pr.Spec.RepositoryName)
+			}
+
+			if pr.Namespace != ns {
+				t.Errorf("PR %s namespace: want %s, got %s", pr.Name, ns, pr.Namespace)
+			}
+		}
+
+		return newPRs
+	}
+
+	ns2 := &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Namespace",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: t.namespace + "-2",
+		},
+	}
+	t.CreateF(ctx, ns2)
+	t.Cleanup(func() {
+		t.DeleteE(ctx, ns2)
+	})
+
+	prs1 := registerRepoAndTestRevisions("test-blueprints", t.namespace, nil)
+	nPRs := len(prs1)
+	t.Logf("Number of PRs in repo: %v", nPRs)
+
+	prs2 := registerRepoAndTestRevisions("test-2-blueprints", ns2.Name, nil)
+	if len(prs2) != nPRs {
+		t.Errorf("number of PackageRevisions in namespace %s: want %v, got %d", ns2.Name, nPRs, len(prs2))
+	}
+
+	prs3 := registerRepoAndTestRevisions("test-3-blueprints", t.namespace, prs1)
+	if len(prs3) != nPRs {
+		t.Errorf("number of PackageRevisions in repo-3: want %v, got %d", nPRs, len(prs2))
+	}
+}

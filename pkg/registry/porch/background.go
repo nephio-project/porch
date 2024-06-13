@@ -138,50 +138,15 @@ func (b *background) updateCache(ctx context.Context, event watch.EventType, rep
 		// TODO: implement
 	case watch.Deleted:
 		klog.Infof("Repository deleted: %s:%s", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name)
-		shared, err := b.isSharedRepository(ctx, repository)
-		if err != nil {
+		var repoList configapi.RepositoryList
+		if err := b.coreClient.List(ctx, &repoList); err != nil {
 			return err
 		}
-		// Only close the repository if no other k8s repository resources references
-		// the same underlying git/oci repo.
-		if !shared {
-			return b.cache.CloseRepository(repository)
-		}
-		return nil
+		return b.cache.CloseRepository(repository, repoList.Items)
 	default:
 		klog.Warningf("Unhandled watch event type: %s", event)
 	}
 	return nil
-}
-
-// isSharedRepository checks if the underlying git/oci repo of the provided
-// k8s repository is also used by another repository.
-func (b *background) isSharedRepository(ctx context.Context, repo *configapi.Repository) (bool, error) {
-	var obj configapi.RepositoryList
-	if err := b.coreClient.List(ctx, &obj); err != nil {
-		return false, err
-	}
-	for _, r := range obj.Items {
-		if r.Name == repo.Name && r.Namespace == repo.Namespace {
-			continue
-		}
-		if r.Spec.Type != repo.Spec.Type {
-			continue
-		}
-		switch r.Spec.Type {
-		case configapi.RepositoryTypeOCI:
-			if r.Spec.Oci.Registry == repo.Spec.Oci.Registry {
-				return true, nil
-			}
-		case configapi.RepositoryTypeGit:
-			if r.Spec.Git.Repo == repo.Spec.Git.Repo && r.Spec.Git.Directory == repo.Spec.Git.Directory {
-				return true, nil
-			}
-		default:
-			return false, fmt.Errorf("type %q not supported", r.Spec.Type)
-		}
-	}
-	return false, nil
 }
 
 func (b *background) runOnce(ctx context.Context) error {
