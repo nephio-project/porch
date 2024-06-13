@@ -78,7 +78,7 @@ func NewCache(cacheDir string, repoSyncFrequency time.Duration, useGitCaBundle b
 	}
 }
 
-func cacheKey(repositorySpec *configapi.Repository) (string, error) {
+func getCacheKey(repositorySpec *configapi.Repository) (string, error) {
 	switch repositoryType := repositorySpec.Spec.Type; repositoryType {
 	case configapi.RepositoryTypeOCI:
 		ociSpec := repositorySpec.Spec.Oci
@@ -106,18 +106,18 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 	ctx, span := tracer.Start(ctx, "Cache::OpenRepository", trace.WithAttributes())
 	defer span.End()
 
-	key, err := cacheKey(repositorySpec)
+	key, err := getCacheKey(repositorySpec)
 	if err != nil {
 		return nil, err
 	}
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	cr := c.repositories[key]
+	cachedRepo := c.repositories[key]
 
 	switch repositoryType := repositorySpec.Spec.Type; repositoryType {
 	case configapi.RepositoryTypeOCI:
 		ociSpec := repositorySpec.Spec.Oci
-		if cr == nil {
+		if cachedRepo == nil {
 			cacheDir := filepath.Join(c.cacheDir, "oci")
 			storage, err := kptoci.NewStorage(cacheDir)
 			if err != nil {
@@ -128,17 +128,17 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 			if err != nil {
 				return nil, err
 			}
-			cr = newRepository(key, repositorySpec, r, c.objectNotifier, c.metadataStore, c.repoSyncFrequency)
-			c.repositories[key] = cr
+			cachedRepo = newRepository(key, repositorySpec, r, c.objectNotifier, c.metadataStore, c.repoSyncFrequency)
+			c.repositories[key] = cachedRepo
 		}
-		return cr, nil
+		return cachedRepo, nil
 
 	case configapi.RepositoryTypeGit:
 		gitSpec := repositorySpec.Spec.Git
 		if !isPackageContent(repositorySpec.Spec.Content) {
 			return nil, fmt.Errorf("git repository supports Package content only; got %q", string(repositorySpec.Spec.Content))
 		}
-		if cr == nil {
+		if cachedRepo == nil {
 			var mbs git.MainBranchStrategy
 			if gitSpec.CreateBranch {
 				mbs = git.CreateIfMissing
@@ -153,16 +153,16 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 			}); err != nil {
 				return nil, err
 			} else {
-				cr = newRepository(key, repositorySpec, r, c.objectNotifier, c.metadataStore, c.repoSyncFrequency)
-				c.repositories[key] = cr
+				cachedRepo = newRepository(key, repositorySpec, r, c.objectNotifier, c.metadataStore, c.repoSyncFrequency)
+				c.repositories[key] = cachedRepo
 			}
 		} else {
 			// If there is an error from the background refresh goroutine, return it.
-			if err := cr.getRefreshError(); err != nil {
+			if err := cachedRepo.getRefreshError(); err != nil {
 				return nil, err
 			}
 		}
-		return cr, nil
+		return cachedRepo, nil
 
 	default:
 		return nil, fmt.Errorf("type %q not supported", repositoryType)
@@ -174,7 +174,7 @@ func isPackageContent(content configapi.RepositoryContent) bool {
 }
 
 func (c *Cache) CloseRepository(repositorySpec *configapi.Repository, allRepos []configapi.Repository) error {
-	key, err := cacheKey(repositorySpec)
+	key, err := getCacheKey(repositorySpec)
 	if err != nil {
 		return err
 	}
@@ -184,7 +184,7 @@ func (c *Cache) CloseRepository(repositorySpec *configapi.Repository, allRepos [
 		if r.Name == repositorySpec.Name && r.Namespace == repositorySpec.Namespace {
 			continue
 		}
-		otherKey, err := cacheKey(&r)
+		otherKey, err := getCacheKey(&r)
 		if err != nil {
 			return err
 		}
