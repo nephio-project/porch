@@ -22,7 +22,6 @@ import (
 	"testing"
 	"time"
 
-	gogit "github.com/go-git/go-git/v5"
 	"github.com/google/go-cmp/cmp"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -39,7 +38,7 @@ func TestLatestPackages(t *testing.T) {
 	ctx := context.Background()
 	testPath := filepath.Join("..", "git", "testdata")
 
-	_, cachedGit := openRepositoryFromArchive(t, ctx, testPath, "nested")
+	cachedRepo := openRepositoryFromArchive(t, ctx, testPath, "nested")
 
 	wantLatest := map[string]string{
 		"sample":                    "v2",
@@ -48,7 +47,7 @@ func TestLatestPackages(t *testing.T) {
 		"catalog/namespace/basens":  "v3",
 		"catalog/namespace/istions": "v3",
 	}
-	revisions, err := cachedGit.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
+	revisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	if err != nil {
 		t.Fatalf("ListPackageRevisions failed: %v", err)
 	}
@@ -84,9 +83,9 @@ func TestLatestPackages(t *testing.T) {
 func TestPublishedLatest(t *testing.T) {
 	ctx := context.Background()
 	testPath := filepath.Join("..", "git", "testdata")
-	_, cached := openRepositoryFromArchive(t, ctx, testPath, "nested")
+	cachedRepo := openRepositoryFromArchive(t, ctx, testPath, "nested")
 
-	revisions, err := cached.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
+	revisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
 		Package:       "catalog/gcp/bucket",
 		WorkspaceName: "v2",
 	})
@@ -105,7 +104,7 @@ func TestPublishedLatest(t *testing.T) {
 		t.Fatalf("Bucket package lifecycle: got %s, want %s", got, want)
 	}
 
-	update, err := cached.UpdatePackageRevision(ctx, bucket)
+	update, err := cachedRepo.UpdatePackageRevision(ctx, bucket)
 	if err != nil {
 		t.Fatalf("UpdatePackaeg(%s) failed: %v", bucket.Key(), err)
 	}
@@ -127,20 +126,20 @@ func TestPublishedLatest(t *testing.T) {
 	}
 }
 
-func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name string) (*gogit.Repository, *cachedRepository) {
+func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name string) *cachedRepository {
 	t.Helper()
 
 	tempdir := t.TempDir()
 	tarfile := filepath.Join(testPath, fmt.Sprintf("%s-repository.tar", name))
-	repo, address := git.ServeGitRepository(t, tarfile, tempdir)
-	metadataStore := createMetadataStoreFromArchive(t, "", "")
+	_, address := git.ServeGitRepository(t, tarfile, tempdir)
+	metadataStore := createMetadataStoreFromArchive(t, fmt.Sprintf("%s-metadata.yaml", name), name)
 
 	cache := NewCache(t.TempDir(), 60*time.Second, true, CacheOptions{
-		MetadataStore:  metadataStore,
-		ObjectNotifier: &fakecache.ObjectNotifier{},
+		MetadataStore:      metadataStore,
+		ObjectNotifier:     &fakecache.ObjectNotifier{},
 		CredentialResolver: &fakecache.CredentialResolver{},
 	})
-	cachedGit, err := cache.OpenRepository(ctx, &v1alpha1.Repository{
+	apiRepo := &v1alpha1.Repository{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       v1alpha1.TypeRepository.Kind,
 			APIVersion: v1alpha1.TypeRepository.APIVersion(),
@@ -157,18 +156,28 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 				Repo: address,
 			},
 		},
-	})
+	}
+	cachedRepo, err := cache.OpenRepository(ctx, apiRepo)
 	if err != nil {
 		t.Fatalf("OpenRepository(%q) of %q failed; %v", address, tarfile, err)
 	}
 
-	return repo, cachedGit
+	t.Cleanup(func() {
+		err := cache.CloseRepository(apiRepo, []v1alpha1.Repository{*apiRepo})
+		if err != nil {
+			t.Errorf("CloseRepository(%q) failed: %v", address, err)
+		}
+		if len(cache.repositories) != 0 {
+			t.Errorf("CloseRepository hasn't deleted repository from cache")
+		}
+	})
+	return cachedRepo
 }
 
 func createMetadataStoreFromArchive(t *testing.T, testPath, name string) meta.MetadataStore {
 	t.Helper()
 
-	f := filepath.Join("..", "git", "testdata", "nested-metadata.yaml")
+	f := filepath.Join("..", "git", "testdata", testPath)
 	c, err := os.ReadFile(f)
 	if err != nil && !os.IsNotExist(err) {
 		t.Fatalf("Error reading metadata file found for repository %s", name)

@@ -78,23 +78,46 @@ func NewCache(cacheDir string, repoSyncFrequency time.Duration, useGitCaBundle b
 	}
 }
 
-func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (*cachedRepository, error) {
-	ctx, span := tracer.Start(ctx, "Cache::OpenRepository", trace.WithAttributes())
-	defer span.End()
-
+func getCacheKey(repositorySpec *configapi.Repository) (string, error) {
 	switch repositoryType := repositorySpec.Spec.Type; repositoryType {
 	case configapi.RepositoryTypeOCI:
 		ociSpec := repositorySpec.Spec.Oci
 		if ociSpec == nil {
-			return nil, fmt.Errorf("oci not configured")
+			return "", fmt.Errorf("oci not configured")
 		}
-		key := "oci://" + ociSpec.Registry
-		c.mutex.Lock()
-		defer c.mutex.Unlock()
+		return "oci://" + ociSpec.Registry, nil
 
-		cr := c.repositories[key]
+	case configapi.RepositoryTypeGit:
+		gitSpec := repositorySpec.Spec.Git
+		if gitSpec == nil {
+			return "", errors.New("git property is required")
+		}
+		if gitSpec.Repo == "" {
+			return "", errors.New("git.repo property is required")
+		}
+		return fmt.Sprintf("git://%s/%s@%s/%s", gitSpec.Repo, gitSpec.Directory, repositorySpec.Namespace, repositorySpec.Name), nil
 
-		if cr == nil {
+	default:
+		return "", fmt.Errorf("repository type %q not supported", repositoryType)
+	}
+}
+
+func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (*cachedRepository, error) {
+	ctx, span := tracer.Start(ctx, "Cache::OpenRepository", trace.WithAttributes())
+	defer span.End()
+
+	key, err := getCacheKey(repositorySpec)
+	if err != nil {
+		return nil, err
+	}
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	cachedRepo := c.repositories[key]
+
+	switch repositoryType := repositorySpec.Spec.Type; repositoryType {
+	case configapi.RepositoryTypeOCI:
+		ociSpec := repositorySpec.Spec.Oci
+		if cachedRepo == nil {
 			cacheDir := filepath.Join(c.cacheDir, "oci")
 			storage, err := kptoci.NewStorage(cacheDir)
 			if err != nil {
@@ -105,29 +128,17 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 			if err != nil {
 				return nil, err
 			}
-			cr = newRepository(key, repositorySpec, r, c.objectNotifier, c.metadataStore, c.repoSyncFrequency)
-			c.repositories[key] = cr
+			cachedRepo = newRepository(key, repositorySpec, r, c.objectNotifier, c.metadataStore, c.repoSyncFrequency)
+			c.repositories[key] = cachedRepo
 		}
-		return cr, nil
+		return cachedRepo, nil
 
 	case configapi.RepositoryTypeGit:
 		gitSpec := repositorySpec.Spec.Git
-		if gitSpec == nil {
-			return nil, errors.New("git property is required")
-		}
-		if gitSpec.Repo == "" {
-			return nil, errors.New("git.repo property is required")
-		}
 		if !isPackageContent(repositorySpec.Spec.Content) {
 			return nil, fmt.Errorf("git repository supports Package content only; got %q", string(repositorySpec.Spec.Content))
 		}
-		key := "git://" + gitSpec.Repo + gitSpec.Directory
-
-		c.mutex.Lock()
-		defer c.mutex.Unlock()
-
-		cr := c.repositories[key]
-		if cr == nil {
+		if cachedRepo == nil {
 			var mbs git.MainBranchStrategy
 			if gitSpec.CreateBranch {
 				mbs = git.CreateIfMissing
@@ -142,16 +153,16 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 			}); err != nil {
 				return nil, err
 			} else {
-				cr = newRepository(key, repositorySpec, r, c.objectNotifier, c.metadataStore, c.repoSyncFrequency)
-				c.repositories[key] = cr
+				cachedRepo = newRepository(key, repositorySpec, r, c.objectNotifier, c.metadataStore, c.repoSyncFrequency)
+				c.repositories[key] = cachedRepo
 			}
 		} else {
 			// If there is an error from the background refresh goroutine, return it.
-			if err := cr.getRefreshError(); err != nil {
+			if err := cachedRepo.getRefreshError(); err != nil {
 				return nil, err
 			}
 		}
-		return cr, nil
+		return cachedRepo, nil
 
 	default:
 		return nil, fmt.Errorf("type %q not supported", repositoryType)
@@ -162,30 +173,26 @@ func isPackageContent(content configapi.RepositoryContent) bool {
 	return content == configapi.RepositoryContentPackage
 }
 
-func (c *Cache) CloseRepository(repositorySpec *configapi.Repository) error {
-	var key string
-
-	switch repositorySpec.Spec.Type {
-	case configapi.RepositoryTypeOCI:
-		oci := repositorySpec.Spec.Oci
-		if oci == nil {
-			return fmt.Errorf("oci not configured for %s:%s", repositorySpec.ObjectMeta.Namespace, repositorySpec.ObjectMeta.Name)
-		}
-		key = "oci://" + oci.Registry
-
-	case configapi.RepositoryTypeGit:
-		git := repositorySpec.Spec.Git
-		if git == nil {
-			return fmt.Errorf("git not configured for %s:%s", repositorySpec.ObjectMeta.Namespace, repositorySpec.ObjectMeta.Name)
-		}
-		key = "git://" + git.Repo + git.Directory
-
-	default:
-		return fmt.Errorf("unknown repository type: %q", repositorySpec.Spec.Type)
+func (c *Cache) CloseRepository(repositorySpec *configapi.Repository, allRepos []configapi.Repository) error {
+	key, err := getCacheKey(repositorySpec)
+	if err != nil {
+		return err
 	}
 
-	// TODO: Multiple Repository resources can point to the same underlying repository
-	// and therefore the same cache. Implement reference counting
+	// check if repositorySpec shares the underlying cached repo with another repository
+	for _, r := range allRepos {
+		if r.Name == repositorySpec.Name && r.Namespace == repositorySpec.Namespace {
+			continue
+		}
+		otherKey, err := getCacheKey(&r)
+		if err != nil {
+			return err
+		}
+		if otherKey == key {
+			// do not close cached repo if it is shared
+			return nil
+		}
+	}
 
 	var repository *cachedRepository
 	{
