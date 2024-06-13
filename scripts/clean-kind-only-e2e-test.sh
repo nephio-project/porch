@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright 2022 The kpt and Nephio Authors
+# Copyright 2022-2024 The kpt and Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,16 +27,7 @@ kubeconfig_file="$(mktemp)"
 kind delete cluster --name "$kind_cluster" || true
 kind create cluster --name "$kind_cluster" 
 kind get kubeconfig --name "$kind_cluster" > "$kubeconfig_file"
-make run-in-kind-kpt IMAGE_TAG='test' KIND_CONTEXT_NAME="$kind_cluster" KUBECONFIG="$kubeconfig_file"
-for deployment in porch-controllers porch-server function-runner; do
-    kubectl rollout status deployment $deployment --namespace porch-system
-    kubectl wait --namespace porch-system deploy $deployment \
-                --for=condition=available \
-                --timeout=90s
-done
-kubectl wait --namespace porch-system pod --selector=app=function-runner \
-            --for=condition=ready \
-            --timeout=90s
+make run-in-kind IMAGE_TAG='test' KIND_CONTEXT_NAME="$kind_cluster" KUBECONFIG="$kubeconfig_file"
 
 sleep 20
 
