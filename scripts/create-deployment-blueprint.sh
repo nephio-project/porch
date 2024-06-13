@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright 2022 The kpt and Nephio Authors
+# Copyright 2022-2024 The kpt and Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,14 +26,10 @@ Error: ${1}
 Usage: ${0} [flags]
 Supported Flags:
   --destination DIRECTORY             ... directory in which to create the Porch deploymetn blueprint
-  --project GCP_PROJECT               ... ID of GCP project in which Porch will be deployed; if set, will
-                                          customize deploymetn service accounts
   --server-image IMAGE                ... address of the Porch server image
   --controllers-image IMAGE           ... address of the Porch controllers image
   --function-image IMAGE              ... address of the Porch function runtime image
   --wrapper-server-image IMAGE        ... address of the Porch function wrapper server image
-  --server-sa SVC_ACCOUNT             ... GCP service account to run the Porch server
-  --controllers-sa SVC_ACCOUNT        ... GCP service account to run the Porch Controllers workload
   --enabled-reconcilers RECONCILDERS  ... comma-separated list of reconcilers that should be enabled in
                                           porch controller
 EOF
@@ -46,10 +42,6 @@ SERVER_IMAGE=""
 CONTROLLERS_IMAGE=""
 FUNCTION_IMAGE=""
 WRAPPER_SERVER_IMAGE=""
-SERVER_SA=""
-CONTROLLERS_SA=""
-FUNCTION_RUNNER_SA=""
-PROJECT=""
 ENABLED_RECONCILERS=""
 
 while [[ $# -gt 0 ]]; do
@@ -57,11 +49,6 @@ while [[ $# -gt 0 ]]; do
   case "${key}" in
     --destination)
       DESTINATION="${2}"
-      shift 2
-    ;;
-
-    --project)
-      PROJECT="${2}"
       shift 2
     ;;
 
@@ -85,16 +72,6 @@ while [[ $# -gt 0 ]]; do
       shift 2
     ;;
 
-     --server-sa)
-      SERVER_SA="${2}"
-      shift 2
-      ;;
-
-    --controllers-sa)
-      CONTROLLERS_SA="${2}"
-      shift 2
-      ;;
-
     --enabled-reconcilers)
       ENABLED_RECONCILERS="${2}"
       shift 2
@@ -106,16 +83,6 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Defaults
-
-if [ -n "${PROJECT}" ]; then
-  FUNCTION_RUNNER_SA="${FUNCTION_RUNNER_SA:-iam.gke.io/gcp-service-account=porch-function-runner@${PROJECT}.iam.gserviceaccount.com}"
-  CONTROLLERS_SA="${CONTROLLERS_SA:-iam.gke.io/gcp-service-account=porch-sync@${PROJECT}.iam.gserviceaccount.com}"
-  SERVER_SA="${SERVER_SA:-iam.gke.io/gcp-service-account=porch-server@${PROJECT}.iam.gserviceaccount.com}"
-fi
-
-echo ${CONTROLLERS_SA}
-echo ${SERVER_SA}
 
 function validate() {
   [ -n "${DESTINATION}"       ] || error "--destination is required"
@@ -164,30 +131,25 @@ EOF
   kpt fn eval "${DESTINATION}" --image set-image:v0.1.1 --fn-config "${FN_CONFIG}" || echo "kpt fn eval failed"
 }
 
-function customize-sa {
-  local NAME="${1}"
-  local SA="${2}"
-
-  kpt fn eval "${DESTINATION}" --image set-annotations:v0.1.4 \
-    --match-api-version=v1 \
-    --match-kind=ServiceAccount \
-    "--match-name=${NAME}" \
-    --match-namespace=porch-system -- \
-    "${SA}"
-}
 
 function customize-container-env {
-  local ENV_KEY="${1}"
-  local ENV_VAL="${2}"
-
-  # TODO: This is terrible. Do we have a good way to handle this with kpt?
-  sed "/env:/a\        - name: ${ENV_KEY}\n          value: ${ENV_VAL}\n" -i "${DESTINATION}/9-controllers.yaml"
+  kpt fn eval ${DESTINATION} \
+    --image gcr.io/kpt-fn/starlark:v0.5.0 \
+    --match-kind Deployment \
+    --match-name porch-controllers \
+    --match-namespace porch-system \
+    -- "reconcilers=$ENABLED_RECONCILERS" 'source=
+reconcilers = ctx.resource_list["functionConfig"]["data"]["reconcilers"].split(",")
+for resource in ctx.resource_list["items"]:
+  c = resource["spec"]["template"]["spec"]["containers"][0]
+  c["env"] = []
+  for r in reconcilers:
+    c["env"].append({"name": "ENABLE_" + r.upper(), "value": "true"})
+'
 }
 
 function main() {
   # Repository CRD
-  cp "./api/porchconfig/v1alpha1/config.porch.kpt.dev_functions.yaml" \
-     "${DESTINATION}/0-functions.yaml"
   cp "./api/porchconfig/v1alpha1/config.porch.kpt.dev_repositories.yaml" \
      "${DESTINATION}/0-repositories.yaml"
   cp "./internal/api/porchinternal/v1alpha1/config.porch.kpt.dev_packagerevs.yaml" \
@@ -205,10 +167,7 @@ function main() {
       cp "${PORCH_DIR}/controllers/config/crd/bases/config.porch.kpt.dev_${i}.yaml" \
          "${DESTINATION}/0-${i}.yaml"
     fi
-    # Update the porch-controllers Deployment env variables to enable the reconciler.
-    customize-container-env \
-      "ENABLE_${i^^}" \
-      "\"true\""
+
     # Copy over the rbac rules for the reconciler
     cp "${PORCH_DIR}/controllers/${i}/config/rbac/role.yaml" \
     "${DESTINATION}/9-porch-controller-${i}-clusterrole.yaml"
@@ -217,31 +176,20 @@ function main() {
     "${DESTINATION}/9-porch-controller-${i}-clusterrolebinding.yaml"
   done
 
+  customize-container-env
+  
   customize-image \
-    "gcr.io/example-google-project-id/porch-function-runner:latest" \
+    "docker.io/porch-function-runner:latest" \
     "${FUNCTION_IMAGE}"
   customize-image \
-    "gcr.io/example-google-project-id/porch-server:latest" \
+    "docker.io/porch-server:latest" \
     "${SERVER_IMAGE}"
   customize-image \
-    "gcr.io/example-google-project-id/porch-controllers:latest" \
+    "docker.io/porch-controllers:latest" \
     "${CONTROLLERS_IMAGE}"
   customize-image-in-env \
-    "gcr.io/example-google-project-id/porch-wrapper-server:latest" \
+    "docker.io/porch-wrapper-server:latest" \
     "${WRAPPER_SERVER_IMAGE}"
-
-  if [ -n "${CONTROLLERS_SA}" ]; then
-    customize-sa "porch-controllers" "${CONTROLLERS_SA}"
-  fi
-
-  if [ -n "${SERVER_SA}" ]; then
-    customize-sa "porch-server" "${SERVER_SA}"
-  fi
-
-  if [ -n "${FUNCTION_RUNNER_SA}" ]; then
-    # TODO: Rename serviceaccount for consistency (avoid abbreviations?)
-    customize-sa "porch-fn-runner" "${FUNCTION_RUNNER_SA}"
-  fi
 }
 
 validate

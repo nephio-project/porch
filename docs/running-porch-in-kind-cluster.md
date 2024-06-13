@@ -11,7 +11,6 @@ Docker image load bug on v25.0.0 Use v24.0.7
 4. [The go programming language](https://go.dev/doc/install)
 5. [kind](https://kind.sigs.k8s.io/docs/user/quick-start#installation)
 6. [kpt-cli](https://kpt.dev/installation/kpt-cli)
-7. [yq](https://github.com/mikefarah/yq/#install)
 
 ## Create a default kind cluster
 
@@ -32,7 +31,7 @@ export KUBECONFIG=~/.kube/kind-dev-config
 Clone the [porch project](https://github.com/nephio-project/porch.git)  from Github onto your environment using whatever cloning process for development your organization recommends. 
 Here, we assume Porch is cloned into a directory called `porch`.
 
-We will now use the make target `run-in-kind-kpt` to build the images and re deploy the porch deployments to use them.
+We will now use the make target `run-in-kind` to build the images and re deploy the porch deployments to use them.
 
 Here, we pass the following vars to the make target:
 
@@ -45,7 +44,7 @@ Here, we pass the following vars to the make target:
 ```
 cd porch
 
-make run-in-kind-kpt IMAGE_TAG='test' KUBECONFIG='/home/ubuntu/.kube/config' KIND_CONTEXT_NAME='dev'
+make run-in-kind IMAGE_TAG='test' KUBECONFIG='/home/ubuntu/.kube/config' KIND_CONTEXT_NAME='dev'
 ```
 This will build the porch images locally with the given tag, load them in to the kind docker ctr, update the [porch kpt pkg](https://github.com/nephio-project/catalog/tree/main/nephio/core/porch) to use those images and deploy the pkg to the cluster.
 
