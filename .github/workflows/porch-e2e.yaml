@@ -52,7 +52,7 @@ jobs:
         with:
           cluster_name: kind
       - name: Build Images and Deploy porch kpt pkg
-        run: IMAGE_REPO=porch-kind IMAGE_TAG=${GITHUB_SHA:0:8} make run-in-kind-kpt
+        run: IMAGE_REPO=porch-kind IMAGE_TAG=${GITHUB_SHA:0:8} make run-in-kind
       - name: Sleep for 15 seconds
         run: sleep 15s
         shell: bash

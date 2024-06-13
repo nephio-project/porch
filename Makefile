@@ -15,9 +15,8 @@
 MYGOBIN := $(shell go env GOPATH)/bin
 BUILDDIR=$(CURDIR)/.build
 CACHEDIR=$(CURDIR)/.cache
-DEPLOYCONFIGDIR=$(BUILDDIR)/deploy
-DEPLOYKPTCONFIGDIR=$(DEPLOYCONFIGDIR)/kpt_pkgs
-DEPLOYCONFIG_NO_SA_DIR=$(BUILDDIR)/deploy-no-sa
+DEPLOYPORCHCONFIGDIR=$(BUILDDIR)/deploy
+DEPLOYKPTCONFIGDIR=$(BUILDDIR)/kpt_pkgs
 KPTDIR=$(abspath $(CURDIR)/..)
 
 # This includes the following targets:
@@ -28,16 +27,6 @@ include default-go.mk
 
 # This includes the 'help' target that prints out all targets with their descriptions organized by categories
 include default-help.mk
-
-# GCP project to use for development
-
-ifeq ($(GCP_PROJECT_ID),)
-ifeq ($(shell command -v gcloud > /dev/null 2>&1; echo $$?), 0)
-export GCP_PROJECT_ID=$(shell gcloud config get-value project)
-else
-export GCP_PROJECT_ID=pure-faculty-367518
-endif
-endif
 
 export IMAGE_REPO ?= docker.io/nephio
 export USER ?= nephio
@@ -63,7 +52,7 @@ SKIP_IMG_BUILD ?= false
 # Only enable a subset of reconcilers in porch controllers by default. Use the RECONCILERS
 # env variable to specify a specific list of reconcilers or use
 # RECONCILERS=* to enable all known reconcilers.
-ALL_RECONCILERS="packagevariants,packagevariantsets,fleetsyncs"
+ALL_RECONCILERS="packagevariants,packagevariantsets"
 ifndef RECONCILERS
   ENABLED_RECONCILERS="packagevariants,packagevariantsets"
 else
@@ -166,7 +155,7 @@ test-e2e:
 
 .PHONY: test-e2e-clean
 test-e2e-clean:
-	./scripts/clean-kind-only-e2e-test.sh
+	./scripts/clean-kind-only-e2e-test.sh 
 
 .PHONY: configure-git
 configure-git:
@@ -247,89 +236,47 @@ apply-dev-config:
 	# TODO: Replace with kpt function
 	cat config/samples/deployment-repository.yaml | sed -e s/example-google-project-id/${GCP_PROJECT_ID}/g | kubectl apply -f -
 
+
 .PHONY: deployment-config
 deployment-config:
-	rm -rf $(DEPLOYCONFIGDIR) || true
-	mkdir -p $(DEPLOYCONFIGDIR)
+	mkdir -p $(DEPLOYPORCHCONFIGDIR)
+	find $(DEPLOYPORCHCONFIGDIR) ! -name 'resourcegroup.yaml' -type f -exec rm -f {} +
 	./scripts/create-deployment-blueprint.sh \
-	  --destination "$(DEPLOYCONFIGDIR)" \
-	  --server-image "$(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG)" \
-	  --controllers-image "$(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):$(IMAGE_TAG)" \
-	  --function-image "$(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):$(IMAGE_TAG)" \
-	  --wrapper-server-image "$(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):$(IMAGE_TAG)" \
-	  --enabled-reconcilers "$(ENABLED_RECONCILERS)" \
-	  --project "$(GCP_PROJECT_ID)"
-
-.PHONY: deploy
-deploy: deployment-config
-	kubectl apply -R -f $(DEPLOYCONFIGDIR)
-
-.PHONY: push-and-deploy
-push-and-deploy: push-images deploy
-
-# Builds deployment config without configuring GCP workload identity for
-# Porch server. This is sufficient for working with GitHub repositories.
-# Workload identity is currently required for Porch to integrate with GCP
-# Container and Artifact Registries; for those use cases, use the make
-# targets without the `-no-sa` suffix (i.e. `deployment-config`,
-# `push-and-deploy` etc.)
-.PHONY: deployment-config-no-sa
-deployment-config-no-sa:
-	mkdir -p $(DEPLOYCONFIG_NO_SA_DIR)
-	find $(DEPLOYCONFIG_NO_SA_DIR) ! -name 'resourcegroup.yaml' -type f -exec rm -f {} +
-	./scripts/create-deployment-blueprint.sh \
-	  --destination "$(DEPLOYCONFIG_NO_SA_DIR)" \
+	  --destination "$(DEPLOYPORCHCONFIGDIR)" \
 	  --server-image "$(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG)" \
 	  --controllers-image "$(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):$(IMAGE_TAG)" \
 	  --function-image "$(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):$(IMAGE_TAG)" \
 	  --wrapper-server-image "$(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):$(IMAGE_TAG)" \
 	  --enabled-reconcilers "$(ENABLED_RECONCILERS)"
 
-.PHONY: deploy-no-sa
-deploy-no-sa: deployment-config-no-sa
-	kubectl apply -R -f $(DEPLOYCONFIG_NO_SA_DIR)
+.PHONY: deploy
+deploy: deployment-config
+	kubectl apply -R -f $(DEPLOYPORCHCONFIGDIR)
 
-.PHONY: push-and-deploy-no-sa
-push-and-deploy-no-sa: push-images deploy-no-sa
+.PHONY: push-and-deploy
+push-and-deploy: push-images deploy
 
 KIND_CONTEXT_NAME ?= kind
 
 .PHONY: run-in-kind
 run-in-kind: IMAGE_REPO=porch-kind
 run-in-kind:
-	make build-images
+  ifeq ($(SKIP_IMG_BUILD), false)
+	make build-images; 
+  endif
 	kind load docker-image $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
 	kind load docker-image $(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
 	kind load docker-image $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
 	kind load docker-image $(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
 	kind load docker-image $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
 	make deployment-config
-	KUBECONFIG=$(KUBECONFIG) kubectl apply --wait --recursive --filename $(DEPLOYCONFIGDIR)
-	KUBECONFIG=$(KUBECONFIG) kubectl rollout status deployment function-runner --namespace porch-system
-	KUBECONFIG=$(KUBECONFIG) kubectl rollout status deployment porch-controllers --namespace porch-system
-	KUBECONFIG=$(KUBECONFIG) kubectl rollout status deployment porch-server --namespace porch-system
+	kpt fn render $(DEPLOYPORCHCONFIGDIR)
+	kpt live init $(DEPLOYPORCHCONFIGDIR) || true
+	kpt live apply --inventory-policy=adopt $(DEPLOYPORCHCONFIGDIR)
+	kubectl rollout status deployment function-runner --namespace porch-system
+	kubectl rollout status deployment porch-controllers --namespace porch-system
+	kubectl rollout status deployment porch-server --namespace porch-system
 
-.PHONY: deployment-config-kpt
-deployment-config-kpt:
-	rm -rf $(DEPLOYKPTCONFIGDIR) || true
-	mkdir -p $(DEPLOYKPTCONFIGDIR)
-	./scripts/create-deployment-kpt.sh \
-	  --destination $(DEPLOYKPTCONFIGDIR) \
-      --server-image "$(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG)" \
-	  --controllers-image "$(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):$(IMAGE_TAG)" \
-	  --function-image "$(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):$(IMAGE_TAG)" \
-	  --wrapper-server-image "$(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):$(IMAGE_TAG)" \
-	  --test-git-server-image "$(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG}" \
-	  --enabled-reconcilers "$(ENABLED_RECONCILERS)" \
-	  --kind-context "$(KIND_CONTEXT_NAME)"
-
-.PHONY: run-in-kind-kpt
-run-in-kind-kpt: IMAGE_REPO=porch-kind
-run-in-kind-kpt:
-  ifeq ($(SKIP_IMG_BUILD), false)
-	make build-images; 
-  endif
-	make deployment-config-kpt
 
 PKG=gitea-dev
 .PHONY: deploy-gitea-dev-pkg
