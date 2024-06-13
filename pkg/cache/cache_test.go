@@ -132,7 +132,7 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 	tempdir := t.TempDir()
 	tarfile := filepath.Join(testPath, fmt.Sprintf("%s-repository.tar", name))
 	_, address := git.ServeGitRepository(t, tarfile, tempdir)
-	metadataStore := createMetadataStoreFromArchive(t, "", "")
+	metadataStore := createMetadataStoreFromArchive(t, fmt.Sprintf("%s-metadata.yaml", name), name)
 
 	cache := NewCache(t.TempDir(), 60*time.Second, true, CacheOptions{
 		MetadataStore:      metadataStore,
@@ -177,7 +177,7 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 func createMetadataStoreFromArchive(t *testing.T, testPath, name string) meta.MetadataStore {
 	t.Helper()
 
-	f := filepath.Join("..", "git", "testdata", "nested-metadata.yaml")
+	f := filepath.Join("..", "git", "testdata", testPath)
 	c, err := os.ReadFile(f)
 	if err != nil && !os.IsNotExist(err) {
 		t.Fatalf("Error reading metadata file found for repository %s", name)
