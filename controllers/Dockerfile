@@ -15,7 +15,7 @@
 FROM golang:1.22.2-bookworm as builder
 
 WORKDIR /go/src
-COPY porch/ .
+COPY ./ .
 
 WORKDIR /go/src/controllers/
 RUN CGO_ENABLED=0 go build -o /porch-controllers -v .

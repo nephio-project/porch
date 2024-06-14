@@ -27,8 +27,8 @@ include ../default-help.mk
 
 .PHONY: build-image docker-build
 build-image docker-build:
-	cd ..; docker buildx build --load --tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) -f controllers/Dockerfile ..
+	docker buildx build --load --tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) -f Dockerfile ..
 
 .PHONY: push-image docker-push
 push-image docker-push:
-	cd ..; docker buildx build --push --tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) -f controllers/Dockerfile ..
+	docker buildx build --push --tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) -f Dockerfile ..
