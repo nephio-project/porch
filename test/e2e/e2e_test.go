@@ -2354,3 +2354,22 @@ func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces(ctx context.Context
 		t.Errorf("number of PackageRevisions in repo-3: want %v, got %d", nPRs, len(prs2))
 	}
 }
+
+func (t *PorchSuite) TestUniquenessOfUIDs(ctx context.Context) {
+
+	t.registerGitRepositoryF(ctx, testBlueprintsRepo, "test-blueprints", "")
+	t.registerGitRepositoryF(ctx, testBlueprintsRepo, "test-2-blueprints", "")
+
+	prList := porchapi.PackageRevisionList{}
+	t.ListE(ctx, &prList, client.InNamespace(t.namespace))
+
+	uids := make(map[types.UID]*porchapi.PackageRevision)
+	for _, pr := range prList.Items {
+		otherPr, found := uids[pr.UID]
+		if found {
+			t.Errorf("PackageRevision %s/%s has the same UID as %s/%s: %v", pr.Namespace, pr.Name, otherPr.Namespace, otherPr.Name, pr.UID)
+		}
+		uids[pr.UID] = &pr
+	}
+
+}
