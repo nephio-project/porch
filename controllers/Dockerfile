@@ -15,7 +15,35 @@
 FROM golang:1.22.2-bookworm as builder
 
 WORKDIR /go/src
-COPY ./ .
+
+# cache deps before building and copying source so that we don't need to re-download as much
+# and so that source changes don't invalidate our downloaded layer
+COPY go.mod go.sum ./
+COPY api/go.mod api/go.sum ./api/
+
+RUN echo "Downloading porch modules ..." \
+ && go mod download
+RUN echo "Downloading api modules ..." \
+ && cd api && go mod download
+
+ENV CGO_ENABLED=0
+# Prebuild some library dependencies to warm the cache
+RUN go build -v \
+  google.golang.org/grpc \
+  k8s.io/apiserver/pkg/server \
+  k8s.io/component-base/cli \
+  k8s.io/klog/v2 \
+  github.com/google/go-containerregistry/pkg/gcrane \
+  k8s.io/client-go/kubernetes/scheme \
+  github.com/go-git/go-git/v5 \
+  sigs.k8s.io/kustomize/kyaml/...
+
+COPY ./api ./api
+COPY ./cmd ./cmd
+COPY ./pkg ./pkg
+COPY ./internal ./internal
+COPY ./controllers ./controllers
+COPY ./func ./func
 
 WORKDIR /go/src/controllers/
 RUN CGO_ENABLED=0 go build -o /porch-controllers -v .

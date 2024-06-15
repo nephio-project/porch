@@ -48,9 +48,9 @@ kpt fn eval \
   -- 'source=ctx.resource_list["items"] = []'
 
 # make the api service point to the local porch-server
-if [ "$(uname)" = "Darwin" ]
+if [ "$(uname)" = "Darwin" -o -n "${DOCKER_HOST+x}" ]
 then
-  # MacBook - Docker Desktop setup
+  echo "--- Docker Desktop detected. ---"
   kpt fn eval \
     --image gcr.io/kpt-fn/starlark:v0.5.0 \
     --match-kind Service \
@@ -69,7 +69,7 @@ for resource in ctx.resource_list["items"]:
     --match-name v1alpha1.porch.kpt.dev \
     -- 'by-path=spec.service.port' "put-value=4443"
 else
-  # Linux
+  echo "--- Local Docker daemon detected. ---"
   docker_bridge_ip="$(docker network inspect bridge --format='{{(index .IPAM.Config 0).Gateway}}')"
   kpt fn eval \
     --image upsert-resource:v0.2.0 \
