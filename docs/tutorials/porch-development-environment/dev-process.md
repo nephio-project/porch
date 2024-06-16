@@ -18,7 +18,7 @@ After you ran the setup script as explained in the [first part of the tutorial](
 The following command will rebuild all of porch and deploy all of its components into your porch-test kind cluster (created in the [first part of the tutorial](README.md)):
 
 ```bash
-make run-in-kind-no-server
+make run-in-kind
 ```
 
 ## Troubleshoot the porch API server
