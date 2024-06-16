@@ -190,3 +190,22 @@ You can always use `make test` and `make test-e2e` to test your current setup, n
 ## Getting to know the make targets
 
 Try: `make help`
+
+## Restart with a clean-slate
+
+Sometimes the development kind cluster gets cluttered and you may experience weird behavior from porch.
+In this case you might want to restart with a clean slate:
+First, delete the development kind cluster with the following command:
+
+```bash
+kind delete cluster --name porch-test
+```
+
+then re-run the [setup script](../../../scripts/setup-dev-env.sh):
+
+```bash
+./scripts/setup-dev-env.sh
+```
+
+finally deploy porch into the kind cluster by any of the methods explained above.
+

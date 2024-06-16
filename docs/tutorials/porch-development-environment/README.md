@@ -154,7 +154,7 @@ In this case you might want to restart with a clean slate, by deleting the devel
 kind delete cluster --name porch-test
 ```
 
-and running the [setup script](bin/setup.sh) again:
+and running the [setup script](../../../scripts/setup-dev-env.sh) again:
 
 ```bash
 ./scripts/setup-dev-env.sh
