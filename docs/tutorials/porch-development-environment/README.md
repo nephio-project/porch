@@ -34,7 +34,7 @@ The script the `make deployment-config` target to generate the deployment files 
 
 ## Setup the environment automatically
 
-The [`./scripts/setup-dev-env.sh` setup script](../../../scripts/setup-dev-env.sh) automatically bulids a porch development environment.
+The [`./scripts/setup-dev-env.sh` setup script](../../../scripts/setup-dev-env.sh) automatically builds a porch development environment.
 Please note that this is only one of many possible ways of building a working porch development environment so feel free to customize it to suit your needs.
 The setup script will perform the following steps:
 
@@ -147,7 +147,7 @@ You now have a locally running Porch (api)server. Happy developing!
 
 # Restart from scratch
 
-Sometimes the development cluster gets cluttered and you may experience weird behaviour from porch.
+Sometimes the development cluster gets cluttered and you may experience weird behavior from porch.
 In this case you might want to restart with a clean slate, by deleting the development cluster with the following command:
 
 ```bash

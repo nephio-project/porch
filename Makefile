@@ -260,7 +260,7 @@ deployment-config-no-controller: deployment-config ## Generate a deployment kpt 
 .PHONY: load-images-to-kind
 load-images-to-kind: ## Build porch images and load them into a kind cluster
   ifeq ($(SKIP_IMG_BUILD), false)
-  # only build test-git-server & function-runner if thhaey are not already loaded into kind
+  # only build test-git-server & function-runner if they are not already loaded into kind
 	@if ! docker exec "${KIND_CONTEXT_NAME}-control-plane" crictl images | grep -q "$(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE)  *${IMAGE_TAG} " ; then \
 		IMAGE_NAME="$(TEST_GIT_SERVER_IMAGE)" make -C test/ build-image ; \
 		kind load docker-image $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} ; \
