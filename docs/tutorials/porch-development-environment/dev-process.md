@@ -10,6 +10,8 @@ After you ran the setup script as explained in the [first part of the tutorial](
   * [Run the unit tests](#run-the-unit-tests)
   * [Run the end-to-end tests](#run-the-end-to-end-tests)
   * [Switching between tasks](#switching-between-tasks)
+  * [Getting to know the make targets](#getting-to-know-the-make-targets)
+
 
 ## Build and deploy all of porch
 
@@ -185,3 +187,6 @@ You can always find the configuration of your current deployment in `.build/depl
 
 You can always use `make test` and `make test-e2e` to test your current setup, no matter which of the above detailed configurations it is.
 
+## Getting to know the make targets
+
+Try: `make help`
