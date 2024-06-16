@@ -11,7 +11,7 @@ After you ran the setup script as explained in the [first part of the tutorial](
   * [Run the end-to-end tests](#run-the-end-to-end-tests)
   * [Switching between tasks](#switching-between-tasks)
   * [Getting to know the make targets](#getting-to-know-the-make-targets)
-
+  * [Restart with a clean-slate](#restart-with-a-clean-slate)
 
 ## Build and deploy all of porch
 
