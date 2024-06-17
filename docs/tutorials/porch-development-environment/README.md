@@ -68,7 +68,7 @@ Copy the `.build/porchctl` binary (that was built by the setup script) to somewh
 You can build all of porch, and also deploy it into your newly created kind cluster with this command.
 
 ```bash
-make run-in-kpt
+make run-in-kind
 ```
 
 See more advanced variants of this command in the [detailed description of the development process](dev-process.md).
