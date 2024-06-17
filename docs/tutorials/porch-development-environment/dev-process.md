@@ -138,7 +138,7 @@ The following command will rebuild and deploy porch, except the porch-controller
 make run-in-kind-no-controllers
 ```
 
-After issuing this command you are expected to start the porch controllers process locally on your machine (outside of the kind cluster); probably in your IDE, potentially in a debugger.
+After issuing this command you are expected to start the porch controllers process locally on your machine (outside of the kind cluster); probably in your IDE, potentially in a debugger. If you are using VS Code you can use the "Launch Controllers" configuration that is defined in the [launch.json](../../../.vscode/launch.json) file of the porch git repo.
 
 ## Run the unit tests
 

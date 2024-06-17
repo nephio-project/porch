@@ -26,6 +26,18 @@
             }
         },
         {
+            "name": "Launch Controllers",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/controllers",
+            "cwd": "${workspaceFolder}",
+            "env": { 
+                "ENABLE_PACKAGEVARIANTS": "true", 
+                "ENABLE_PACKAGEVARIANTSETS": "true" 
+            }
+        },
+        {
             "name": "Launch test function",
             "type": "go",
             "request": "launch",
