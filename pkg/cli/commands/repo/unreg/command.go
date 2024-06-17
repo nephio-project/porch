@@ -71,6 +71,16 @@ type runner struct {
 
 func (r *runner) preRunE(_ *cobra.Command, _ []string) error {
 	const op errors.Op = command + ".preRunE"
+
+	if *r.cfg.Namespace == "" {
+		// Get the namespace from kubeconfig
+		namespace, _, err := r.cfg.ToRawKubeConfigLoader().Namespace()
+		if err != nil {
+			return fmt.Errorf("error getting namespace: %w", err)
+		}
+		r.cfg.Namespace = &namespace
+	}
+
 	client, err := porch.CreateClientWithFlags(r.cfg)
 	if err != nil {
 		return errors.E(op, err)
