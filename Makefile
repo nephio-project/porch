@@ -239,8 +239,8 @@ push-and-deploy: push-images deploy
 
 .PHONY: deployment-config 
 deployment-config: ## Generate a porch deployment kpt package into $(DEPLOYPORCHCONFIGDIR)
+	rm -rf $(DEPLOYPORCHCONFIGDIR) || true
 	mkdir -p $(DEPLOYPORCHCONFIGDIR)
-	find $(DEPLOYPORCHCONFIGDIR) ! -name 'resourcegroup.yaml' -type f -exec rm -f {} +
 	./scripts/create-deployment-blueprint.sh \
 	  --destination "$(DEPLOYPORCHCONFIGDIR)" \
 	  --server-image "$(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG)" \
@@ -284,8 +284,8 @@ load-images-to-kind: ## Build porch images and load them into a kind cluster
 .PHONY: deploy-current-config
 deploy-current-config: ## Deploy the configuration that is currently in $(DEPLOYPORCHCONFIGDIR)
 	kpt fn render $(DEPLOYPORCHCONFIGDIR)
-	kpt live init $(DEPLOYPORCHCONFIGDIR) || true
-	kpt live apply --inventory-policy=adopt $(DEPLOYPORCHCONFIGDIR)
+	kpt live init $(DEPLOYPORCHCONFIGDIR) --name porch --namespace porch-system --inventory-id porch-test || true
+	kpt live apply --inventory-policy=adopt --server-side $(DEPLOYPORCHCONFIGDIR)
 	@kubectl rollout status deployment function-runner --namespace porch-system 2>/dev/null || true
 	@kubectl rollout status deployment porch-controllers --namespace porch-system 2>/dev/null || true
 	@kubectl rollout status deployment porch-server --namespace porch-system 2>/dev/null || true
@@ -305,6 +305,11 @@ run-in-kind-no-server: load-images-to-kind deployment-config-no-server deploy-cu
 run-in-kind-no-controller: IMAGE_REPO=porch-kind
 run-in-kind-no-controller: IMAGE_TAG=test
 run-in-kind-no-controller: load-images-to-kind deployment-config-no-controller deploy-current-config ## Build and deploy porch without the controllers into a kind cluster
+
+.PHONY: destroy
+destroy: ## Deletes all porch resources installed by the last run-in-kind-* command
+	kpt live destroy $(DEPLOYPORCHCONFIGDIR)
+
 
 PKG=gitea-dev
 .PHONY: deploy-gitea-dev-pkg
