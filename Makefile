@@ -15,9 +15,9 @@
 MYGOBIN := $(shell go env GOPATH)/bin
 BUILDDIR=$(CURDIR)/.build
 CACHEDIR=$(CURDIR)/.cache
-DEPLOYPORCHCONFIGDIR=$(BUILDDIR)/deploy
+export DEPLOYPORCHCONFIGDIR ?= $(BUILDDIR)/deploy
 DEPLOYKPTCONFIGDIR=$(BUILDDIR)/kpt_pkgs
-KPTDIR=$(abspath $(CURDIR)/..)
+PORCHDIR=$(abspath $(CURDIR))
 
 # This includes the following targets:
 #   test, unit, unit-clean,
@@ -28,6 +28,7 @@ include default-go.mk
 # This includes the 'help' target that prints out all targets with their descriptions organized by categories
 include default-help.mk
 
+KIND_CONTEXT_NAME ?= porch-test
 export IMAGE_REPO ?= docker.io/nephio
 export USER ?= nephio
 
@@ -148,15 +149,6 @@ generate: generate-api
 tidy:
 	@for f in $(MODULES); do (cd $$f; echo "Tidying $$f"; go mod tidy) || exit 1; done
 
-.PHONY: test-e2e
-test-e2e:
-	E2E=1 go test -v -failfast ./test/e2e 
-	E2E=1 go test -v -failfast ./test/e2e/cli
-
-.PHONY: test-e2e-clean
-test-e2e-clean:
-	./scripts/clean-kind-only-e2e-test.sh 
-
 .PHONY: configure-git
 configure-git:
 	git config --global --add user.name test
@@ -203,21 +195,21 @@ fix-all: fix-headers fmt tidy
 
 .PHONY: push-images
 push-images:
-	docker buildx build --push --tag $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG) -f ./build/Dockerfile "$(KPTDIR)"
+	docker buildx build --push --tag $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG) -f ./build/Dockerfile "$(PORCHDIR)"
 	IMAGE_NAME="$(PORCH_CONTROLLERS_IMAGE)" make -C controllers/ push-image
 	IMAGE_NAME="$(PORCH_FUNCTION_RUNNER_IMAGE)" WRAPPER_SERVER_IMAGE_NAME="$(PORCH_WRAPPER_SERVER_IMAGE)" make -C func/ push-image
 	IMAGE_NAME="$(TEST_GIT_SERVER_IMAGE)" make -C test/ push-image
 
 .PHONY: build-images
 build-images:
-	docker buildx build --load --tag $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG) -f ./build/Dockerfile "$(KPTDIR)"
+	docker buildx build --load --tag $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG) -f ./build/Dockerfile "$(PORCHDIR)"
 	IMAGE_NAME="$(PORCH_CONTROLLERS_IMAGE)" make -C controllers/ build-image
 	IMAGE_NAME="$(PORCH_FUNCTION_RUNNER_IMAGE)" WRAPPER_SERVER_IMAGE_NAME="$(PORCH_WRAPPER_SERVER_IMAGE)" make -C func/ build-image
 	IMAGE_NAME="$(TEST_GIT_SERVER_IMAGE)" make -C test/ build-image
 
 .PHONY: dev-server
 dev-server:
-	docker buildx build --push --tag $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG) -f ./build/Dockerfile "$(KPTDIR)"
+	docker buildx build --push --tag $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG) -f ./build/Dockerfile "$(PORCHDIR)"
 	kubectl set image -n porch-system deployment/porch-server porch-server=$(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):${IMAGE_TAG}
 
 .PHONY: apply-dev-config
@@ -236,9 +228,17 @@ apply-dev-config:
 	# TODO: Replace with kpt function
 	cat config/samples/deployment-repository.yaml | sed -e s/example-google-project-id/${GCP_PROJECT_ID}/g | kubectl apply -f -
 
+##@ Build and deploy porch for development and testing
 
-.PHONY: deployment-config
-deployment-config:
+.PHONY: deploy
+deploy: deployment-config
+	kubectl apply -R -f $(DEPLOYPORCHCONFIGDIR)
+
+.PHONY: push-and-deploy
+push-and-deploy: push-images deploy
+
+.PHONY: deployment-config 
+deployment-config: ## Generate a porch deployment kpt package into $(DEPLOYPORCHCONFIGDIR)
 	mkdir -p $(DEPLOYPORCHCONFIGDIR)
 	find $(DEPLOYPORCHCONFIGDIR) ! -name 'resourcegroup.yaml' -type f -exec rm -f {} +
 	./scripts/create-deployment-blueprint.sh \
@@ -249,34 +249,62 @@ deployment-config:
 	  --wrapper-server-image "$(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):$(IMAGE_TAG)" \
 	  --enabled-reconcilers "$(ENABLED_RECONCILERS)"
 
-.PHONY: deploy
-deploy: deployment-config
-	kubectl apply -R -f $(DEPLOYPORCHCONFIGDIR)
+.PHONY: deployment-config-no-server
+deployment-config-no-server: deployment-config ## Generate a deployment kpt package that contains all of porch except the porch-server into $(DEPLOYPORCHCONFIGDIR)
+	./scripts/remove-porch-server-from-deployment-config.sh
 
-.PHONY: push-and-deploy
-push-and-deploy: push-images deploy
+.PHONY: deployment-config-no-controller
+deployment-config-no-controller: deployment-config ## Generate a deployment kpt package that contains all of porch except the controllers into $(DEPLOYPORCHCONFIGDIR)
+	./scripts/remove-controller-from-deployment-config.sh
 
-KIND_CONTEXT_NAME ?= kind
-
-.PHONY: run-in-kind
-run-in-kind: IMAGE_REPO=porch-kind
-run-in-kind:
+.PHONY: load-images-to-kind
+load-images-to-kind: ## Build porch images and load them into a kind cluster
   ifeq ($(SKIP_IMG_BUILD), false)
-	make build-images; 
+  # only build test-git-server & function-runner if they are not already loaded into kind
+	@if ! docker exec "${KIND_CONTEXT_NAME}-control-plane" crictl images | grep -q "$(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE)  *${IMAGE_TAG} " ; then \
+		IMAGE_NAME="$(TEST_GIT_SERVER_IMAGE)" make -C test/ build-image ; \
+		kind load docker-image $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} ; \
+	else \
+		echo "Skipping building $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG} as it is already loaded into kind" ; \
+	fi
+	@if ! docker exec "${KIND_CONTEXT_NAME}-control-plane" crictl images | grep -q "$(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE)  *${IMAGE_TAG} " ; then \
+		IMAGE_NAME="$(PORCH_FUNCTION_RUNNER_IMAGE)" WRAPPER_SERVER_IMAGE_NAME="$(PORCH_WRAPPER_SERVER_IMAGE)" make -C func/ build-image ; \
+		kind load docker-image $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} ; \
+		kind load docker-image $(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} ; \
+	else \
+		echo "Skipping building $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):${IMAGE_TAG} as it is already loaded into kind" ; \
+	fi
+  # always rebuild porch-server and controllers
+	docker buildx build --load --tag $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG) -f ./build/Dockerfile "$(PORCHDIR)"
+	IMAGE_NAME="$(PORCH_CONTROLLERS_IMAGE)" make -C controllers/ build-image
   endif
 	kind load docker-image $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
 	kind load docker-image $(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
-	kind load docker-image $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
-	kind load docker-image $(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
-	kind load docker-image $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
-	make deployment-config
+
+.PHONY: deploy-current-config
+deploy-current-config: ## Deploy the configuration that is currently in $(DEPLOYPORCHCONFIGDIR)
 	kpt fn render $(DEPLOYPORCHCONFIGDIR)
 	kpt live init $(DEPLOYPORCHCONFIGDIR) || true
 	kpt live apply --inventory-policy=adopt $(DEPLOYPORCHCONFIGDIR)
-	kubectl rollout status deployment function-runner --namespace porch-system
-	kubectl rollout status deployment porch-controllers --namespace porch-system
-	kubectl rollout status deployment porch-server --namespace porch-system
+	@kubectl rollout status deployment function-runner --namespace porch-system 2>/dev/null || true
+	@kubectl rollout status deployment porch-controllers --namespace porch-system 2>/dev/null || true
+	@kubectl rollout status deployment porch-server --namespace porch-system 2>/dev/null || true
+	@echo "Done."
 
+.PHONY: run-in-kind 
+run-in-kind: IMAGE_REPO=porch-kind
+run-in-kind: IMAGE_TAG=test
+run-in-kind: load-images-to-kind deployment-config deploy-current-config ## Build and deploy porch into a kind cluster
+
+.PHONY: run-in-kind-no-server
+run-in-kind-no-server: IMAGE_REPO=porch-kind
+run-in-kind-no-server: IMAGE_TAG=test
+run-in-kind-no-server: load-images-to-kind deployment-config-no-server deploy-current-config ## Build and deploy porch without the porch-server into a kind cluster
+
+.PHONY: run-in-kind-no-controller
+run-in-kind-no-controller: IMAGE_REPO=porch-kind
+run-in-kind-no-controller: IMAGE_TAG=test
+run-in-kind-no-controller: load-images-to-kind deployment-config-no-controller deploy-current-config ## Build and deploy porch without the controllers into a kind cluster
 
 PKG=gitea-dev
 .PHONY: deploy-gitea-dev-pkg
@@ -289,7 +317,18 @@ deploy-gitea-dev-pkg:
 	  --pkg ${PKG} \
 	  --kubeconfig $(KUBECONFIG)
 
+##@ Testing
+
 .PHONY: vulncheck
 vulncheck: build
 	# Scan the source
 	GOFLAGS= go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+.PHONY: test-e2e
+test-e2e: ## Run end-to-end tests
+	E2E=1 go test -v -failfast ./test/e2e
+	E2E=1 go test -v -failfast ./test/e2e/cli
+
+.PHONY: test-e2e-clean
+test-e2e-clean: ## Run end-to-end tests aginst a newly deployed porch in a newly created kind cluster
+	./scripts/clean-e2e-test.sh

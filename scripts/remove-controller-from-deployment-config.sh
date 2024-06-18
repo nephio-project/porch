@@ -18,24 +18,16 @@ set -e # Exit on error
 set -u # Must predefine variables
 set -o pipefail # Check errors in piped commands
 
-PORCH_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
-cd $PORCH_DIR
+function_runner_ip="${1:-172.18.255.201}"
+self_dir="$(dirname "$(readlink -f "$0")")"
+deployment_config_dir="${DEPLOYPORCHCONFIGDIR:-$(readlink -f "${self_dir}/../.build/deploy")}"
 
-kind_cluster="porch-e2e"
-kubeconfig_file="$(mktemp)"
+cd "${deployment_config_dir}"
 
-kind delete cluster --name "$kind_cluster" || true
-kind create cluster --name "$kind_cluster" 
-kind get kubeconfig --name "$kind_cluster" > "$kubeconfig_file"
-make run-in-kind IMAGE_TAG='test' KIND_CONTEXT_NAME="$kind_cluster" KUBECONFIG="$kubeconfig_file"
-
-sleep 20
-
-echo "--- test/e2e ---"
-E2E=1 go test -failfast -v ./test/e2e
-echo "--- test/e2e/cli ---"
-E2E=1 go test -failfast -v ./test/e2e/cli
-echo "--- deleting kind cluster that is dedicated for clean end-to-end tests ($kind_cluster) ---"
-kind delete cluster --name "$kind_cluster" || true
-
-rm -f "$kubeconfig_file"
+# remove porch-controllers Deployment from package
+kpt fn eval \
+  --image gcr.io/kpt-fn/starlark:v0.5.0 \
+  --match-kind Deployment \
+  --match-name porch-controllers \
+  --match-namespace porch-system \
+  -- 'source=ctx.resource_list["items"] = []'

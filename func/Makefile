@@ -18,7 +18,7 @@ IMAGE_NAME ?= function-runner
 WRAPPER_SERVER_IMAGE_NAME ?= wrapper-server
 COMPILED_PROTO=evaluator/evaluator_grpc.pb.go evaluator/evaluator.pb.go
 
-KPTDIR = $(abspath $(CURDIR)/../..)
+PORCHDIR = $(abspath $(CURDIR)/..)
 
 all: $(COMPILED_PROTO)
 
@@ -32,10 +32,10 @@ $(COMPILED_PROTO): evaluator/evaluator.proto
 
 .PHONY: build-image docker-build
 build-image docker-build:
-	docker buildx build --load --tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) -f ./Dockerfile "$(KPTDIR)"
-	docker buildx build --load --tag $(IMAGE_REPO)/$(WRAPPER_SERVER_IMAGE_NAME):$(IMAGE_TAG) -f ./Dockerfile-wrapperserver "$(KPTDIR)"
+	docker buildx build --load --tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) -f ./Dockerfile "$(PORCHDIR)"
+	docker buildx build --load --tag $(IMAGE_REPO)/$(WRAPPER_SERVER_IMAGE_NAME):$(IMAGE_TAG) -f ./Dockerfile-wrapperserver "$(PORCHDIR)"
 
 .PHONY: push-image docker-push
 push-image docker-push:
-	docker buildx build --push --tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) -f ./Dockerfile "$(KPTDIR)"
-	docker buildx build --push --tag $(IMAGE_REPO)/$(WRAPPER_SERVER_IMAGE_NAME):$(IMAGE_TAG) -f ./Dockerfile-wrapperserver "$(KPTDIR)"
+	docker buildx build --push --tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) -f ./Dockerfile "$(PORCHDIR)"
+	docker buildx build --push --tag $(IMAGE_REPO)/$(WRAPPER_SERVER_IMAGE_NAME):$(IMAGE_TAG) -f ./Dockerfile-wrapperserver "$(PORCHDIR)"
