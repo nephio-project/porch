@@ -159,7 +159,9 @@ func runTestCase(t *testing.T, repoURL string, tc TestCaseConfig, searchAndRepla
 			t.Errorf("unexpected stdout content from '%s'; (-want, +got) %s", strings.Join(command.Args, " "), cmp.Diff(want, got))
 		}
 		if got, want := stderrStr, command.Stderr; got != want {
-			t.Errorf("unexpected stderr content from '%s'; (-want, +got) %s", strings.Join(command.Args, " "), cmp.Diff(want, got))
+			if !ignoreArmPlatformWarning(got) {
+				t.Errorf("unexpected stderr content from '%s'; (-want, +got) %s", strings.Join(command.Args, " "), cmp.Diff(want, got))
+			}
 		}
 
 		// hack here; but if the command registered a repo, give a few extra seconds for the repo to reach readiness
@@ -173,6 +175,12 @@ func runTestCase(t *testing.T, repoURL string, tc TestCaseConfig, searchAndRepla
 	if os.Getenv(updateGoldenFiles) != "" {
 		WriteTestCaseConfig(t, &tc)
 	}
+}
+
+func ignoreArmPlatformWarning(got string) bool {
+	return strings.HasSuffix(
+		got,
+		"  Stderr:\n    \"WARNING: The requested image's platform (linux/amd64) does not match the detected host platform (linux/arm64/v8) and no specific platform was requested\"\n")
 }
 
 // remove PASS lines from kpt fn eval, which includes a duration and will vary
