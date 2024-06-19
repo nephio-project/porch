@@ -158,10 +158,11 @@ func runTestCase(t *testing.T, repoURL string, tc TestCaseConfig, searchAndRepla
 		if got, want := stdoutStr, command.Stdout; got != want {
 			t.Errorf("unexpected stdout content from '%s'; (-want, +got) %s", strings.Join(command.Args, " "), cmp.Diff(want, got))
 		}
-		if got, want := stderrStr, command.Stderr; got != want {
-			if !ignoreArmPlatformWarning(got) {
-				t.Errorf("unexpected stderr content from '%s'; (-want, +got) %s", strings.Join(command.Args, " "), cmp.Diff(want, got))
-			}
+		got, want := stderrStr, command.Stderr
+		got = removeArmPlatformWarning(got)
+
+		if got != want {
+			t.Errorf("unexpected stderr content from '%s'; (-want, +got) %s", strings.Join(command.Args, " "), cmp.Diff(want, got))
 		}
 
 		// hack here; but if the command registered a repo, give a few extra seconds for the repo to reach readiness
@@ -177,10 +178,20 @@ func runTestCase(t *testing.T, repoURL string, tc TestCaseConfig, searchAndRepla
 	}
 }
 
-func ignoreArmPlatformWarning(got string) bool {
-	return strings.HasSuffix(
+func removeArmPlatformWarning(got string) string {
+	got = strings.Replace(
 		got,
-		"  Stderr:\n    \"WARNING: The requested image's platform (linux/amd64) does not match the detected host platform (linux/arm64/v8) and no specific platform was requested\"\n")
+		"    \"WARNING: The requested image's platform (linux/amd64) does not match the detected host platform (linux/arm64/v8) and no specific platform was requested\"\n",
+		"",
+		1)
+
+	if strings.HasSuffix(got, "  Stderr:\n") {
+		// The warning message was the only message on stderr
+		return strings.Replace(got, "  Stderr:\n", "", 1)
+	} else {
+		// There are other messages on stderr, so leave the "Stderr:"" tag in place
+		return got
+	}
 }
 
 // remove PASS lines from kpt fn eval, which includes a duration and will vary
