@@ -49,6 +49,8 @@ PORCH_CONTROLLERS_IMAGE ?= porch-controllers
 PORCH_WRAPPER_SERVER_IMAGE ?= porch-wrapper-server
 TEST_GIT_SERVER_IMAGE ?= test-git-server
 SKIP_IMG_BUILD ?= false
+SKIP_PORCHSERVER_BUILD ?= false
+SKIP_CONTROLLER_BUILD ?= false
 
 # Only enable a subset of reconcilers in porch controllers by default. Use the RECONCILERS
 # env variable to specify a specific list of reconcilers or use
@@ -239,8 +241,8 @@ push-and-deploy: push-images deploy
 
 .PHONY: deployment-config 
 deployment-config: ## Generate a porch deployment kpt package into $(DEPLOYPORCHCONFIGDIR)
+	rm -rf $(DEPLOYPORCHCONFIGDIR) || true
 	mkdir -p $(DEPLOYPORCHCONFIGDIR)
-	find $(DEPLOYPORCHCONFIGDIR) ! -name 'resourcegroup.yaml' -type f -exec rm -f {} +
 	./scripts/create-deployment-blueprint.sh \
 	  --destination "$(DEPLOYPORCHCONFIGDIR)" \
 	  --server-image "$(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG)" \
@@ -262,30 +264,45 @@ load-images-to-kind: ## Build porch images and load them into a kind cluster
   ifeq ($(SKIP_IMG_BUILD), false)
   # only build test-git-server & function-runner if they are not already loaded into kind
 	@if ! docker exec "${KIND_CONTEXT_NAME}-control-plane" crictl images | grep -q "$(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE)  *${IMAGE_TAG} " ; then \
+		echo "Building $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG}" ; \
 		IMAGE_NAME="$(TEST_GIT_SERVER_IMAGE)" make -C test/ build-image ; \
 		kind load docker-image $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} ; \
 	else \
 		echo "Skipping building $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG} as it is already loaded into kind" ; \
 	fi
 	@if ! docker exec "${KIND_CONTEXT_NAME}-control-plane" crictl images | grep -q "$(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE)  *${IMAGE_TAG} " ; then \
+		echo "Building $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):${IMAGE_TAG}" ; \
 		IMAGE_NAME="$(PORCH_FUNCTION_RUNNER_IMAGE)" WRAPPER_SERVER_IMAGE_NAME="$(PORCH_WRAPPER_SERVER_IMAGE)" make -C func/ build-image ; \
 		kind load docker-image $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} ; \
 		kind load docker-image $(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} ; \
 	else \
 		echo "Skipping building $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):${IMAGE_TAG} as it is already loaded into kind" ; \
 	fi
-  # always rebuild porch-server and controllers
-	docker buildx build --load --tag $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG) -f ./build/Dockerfile "$(PORCHDIR)"
-	IMAGE_NAME="$(PORCH_CONTROLLERS_IMAGE)" make -C controllers/ build-image
-  endif
+    # NOTE: SKIP_PORCHSERVER_BUILD must be evaluated at runtime, hence the shell conditional (if) here
+	@if [ "$(SKIP_PORCHSERVER_BUILD)" = "false"	]; then \
+		echo "Building $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):${IMAGE_TAG}" ; \
+		docker buildx build --load --tag $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG) -f ./build/Dockerfile "$(PORCHDIR)" ; \
+		kind load docker-image $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} ; \
+	fi
+	@if [ "$(SKIP_CONTROLLER_BUILD)" = "false"	]; then \
+		echo "Building $(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):${IMAGE_TAG}" ; \
+		IMAGE_NAME="$(PORCH_CONTROLLERS_IMAGE)" make -C controllers/ build-image ; \
+		kind load docker-image $(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} ; \
+	fi
+
+  else
+	kind load docker-image $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} ; \
+	kind load docker-image $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} ; \
+	kind load docker-image $(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} ; \
 	kind load docker-image $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
 	kind load docker-image $(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
+  endif
 
 .PHONY: deploy-current-config
 deploy-current-config: ## Deploy the configuration that is currently in $(DEPLOYPORCHCONFIGDIR)
 	kpt fn render $(DEPLOYPORCHCONFIGDIR)
-	kpt live init $(DEPLOYPORCHCONFIGDIR) || true
-	kpt live apply --inventory-policy=adopt $(DEPLOYPORCHCONFIGDIR)
+	kpt live init $(DEPLOYPORCHCONFIGDIR) --name porch --namespace porch-system --inventory-id porch-test || true
+	kpt live apply --inventory-policy=adopt --server-side --force-conflicts $(DEPLOYPORCHCONFIGDIR)
 	@kubectl rollout status deployment function-runner --namespace porch-system 2>/dev/null || true
 	@kubectl rollout status deployment porch-controllers --namespace porch-system 2>/dev/null || true
 	@kubectl rollout status deployment porch-server --namespace porch-system 2>/dev/null || true
@@ -299,12 +316,19 @@ run-in-kind: load-images-to-kind deployment-config deploy-current-config ## Buil
 .PHONY: run-in-kind-no-server
 run-in-kind-no-server: IMAGE_REPO=porch-kind
 run-in-kind-no-server: IMAGE_TAG=test
+run-in-kind-no-server: SKIP_PORCHSERVER_BUILD=true
 run-in-kind-no-server: load-images-to-kind deployment-config-no-server deploy-current-config ## Build and deploy porch without the porch-server into a kind cluster
 
 .PHONY: run-in-kind-no-controller
 run-in-kind-no-controller: IMAGE_REPO=porch-kind
 run-in-kind-no-controller: IMAGE_TAG=test
+run-in-kind-no-controller: SKIP_CONTROLLER_BUILD=true
 run-in-kind-no-controller: load-images-to-kind deployment-config-no-controller deploy-current-config ## Build and deploy porch without the controllers into a kind cluster
+
+.PHONY: destroy
+destroy: ## Deletes all porch resources installed by the last run-in-kind-* command
+	kpt live destroy $(DEPLOYPORCHCONFIGDIR)
+
 
 PKG=gitea-dev
 .PHONY: deploy-gitea-dev-pkg

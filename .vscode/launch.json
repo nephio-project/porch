@@ -57,7 +57,7 @@
             "mode": "auto",
             "program": "${workspaceFolder}/func/client/main.go",
             "args": [
-                "--address=192.168.8.202:9445",
+                "--address=172.18.255.201:9445",
                 "--package=${workspaceFolder}/func/config/",
                 "--image=gcr.io/kpt-fn/set-namespace:v0.2.0",
                 "--",
