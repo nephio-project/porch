@@ -17,6 +17,7 @@ package porch
 import (
 	"fmt"
 
+	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
@@ -45,6 +46,8 @@ func convertPackageRevisionFieldSelector(label, value string) (internalLabel, in
 	case "metadata.namespace":
 		return label, value, nil
 	case "spec.revision", "spec.packageName", "spec.repository":
+		return label, value, nil
+	case "spec.workspaceName", "spec.lifecycle":
 		return label, value, nil
 	default:
 		return "", "", fmt.Errorf("%q is not a known field selector", label)
@@ -151,6 +154,19 @@ func parsePackageRevisionFieldSelector(fieldSelector fields.Selector) (packageRe
 			filter.Package = requirement.Value
 		case "spec.repository":
 			filter.Repository = requirement.Value
+		case "spec.workspaceName":
+			filter.WorkspaceName = v1alpha1.WorkspaceName(requirement.Value)
+		case "spec.lifecycle":
+			v := v1alpha1.PackageRevisionLifecycle(requirement.Value)
+			switch v {
+			case v1alpha1.PackageRevisionLifecycleDraft,
+				v1alpha1.PackageRevisionLifecycleProposed,
+				v1alpha1.PackageRevisionLifecyclePublished,
+				v1alpha1.PackageRevisionLifecycleDeletionProposed:
+				filter.Lifecycle = v
+			default:
+				return filter, apierrors.NewBadRequest(fmt.Sprintf("unsupported fieldSelector value %q for field %q", requirement.Value, requirement.Field))
+			}
 
 		default:
 			return filter, apierrors.NewBadRequest(fmt.Sprintf("unknown fieldSelector field %q", requirement.Field))

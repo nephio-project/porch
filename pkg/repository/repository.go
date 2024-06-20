@@ -142,6 +142,9 @@ type ListPackageRevisionFilter struct {
 
 	// Revision matches the revision of the package (spec.revision)
 	Revision string
+
+	// Lifecycle matches the spec.lifecycle of the package
+	Lifecycle v1alpha1.PackageRevisionLifecycle
 }
 
 // Matches returns true if the provided PackageRevision satisfies the conditions in the filter.
@@ -156,6 +159,9 @@ func (f *ListPackageRevisionFilter) Matches(p PackageRevision) bool {
 		return false
 	}
 	if f.KubeObjectName != "" && f.KubeObjectName != p.KubeObjectName() {
+		return false
+	}
+	if f.Lifecycle != "" && f.Lifecycle != p.Lifecycle() {
 		return false
 	}
 	return true
