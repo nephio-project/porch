@@ -16,7 +16,6 @@ package packagevariant
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"strconv"
@@ -59,7 +58,7 @@ const (
 	workspaceNamePrefix = "packagevariant-"
 
 	ConditionTypeStalled = "Stalled" // whether or not the packagevariant object is making progress or not
-	ConditionTypeReady   = "Ready"   // whether or notthe reconciliation succeded
+	ConditionTypeReady   = "Ready"   // whether or not the reconciliation succeeded
 
 	requeueDuration = 30 * time.Second
 )
@@ -698,12 +697,24 @@ func (r *PackageVariantReconciler) updateDraft(ctx context.Context,
 }
 
 func setTargetStatusConditions(pv *api.PackageVariant, targets []*porchapi.PackageRevision) {
-	pv.Status.DownstreamTargets = nil
+	downstreams := []api.DownstreamTarget{}
+	// keep downstream status when possible
 	for _, t := range targets {
-		pv.Status.DownstreamTargets = append(pv.Status.DownstreamTargets, api.DownstreamTarget{
-			Name: t.GetName(),
-		})
+		found := false
+		for _, d := range pv.Status.DownstreamTargets {
+			if d.Name == t.Name {
+				found = true
+				downstreams = append(downstreams, d)
+				break
+			}
+		}
+		if !found {
+			downstreams = append(downstreams, api.DownstreamTarget{
+				Name: t.GetName(),
+			})
+		}
 	}
+	pv.Status.DownstreamTargets = downstreams
 	meta.SetStatusCondition(&pv.Status.Conditions, metav1.Condition{
 		Type:    ConditionTypeReady,
 		Status:  "True",
@@ -897,7 +908,7 @@ func ensurePackageContext(pv *api.PackageVariant,
 
 	err = cm.SetNestedField(data, "data")
 	if err != nil {
-		return fmt.Errorf("could not set package conext data: %w", err)
+		return fmt.Errorf("could not set package context data: %w", err)
 	}
 	prr.Spec.Resources["package-context.yaml"] = cm.String()
 	return nil
@@ -1054,29 +1065,15 @@ func (r *PackageVariantReconciler) updatePackageResources(ctx context.Context, p
 	if err := r.Update(ctx, prr); err != nil {
 		return err
 	}
-	// save render status into a condition
-	// TODO: add renderStatus field to DownstreamTarget and use that instead
-	c := metav1.Condition{
-		Type: prr.Name + "/Render",
+	for i, target := range pv.Status.DownstreamTargets {
+		if target.Name == prr.Name {
+			pv.Status.DownstreamTargets[i].RenderStatus = prr.Status.RenderStatus
+			return nil
+		}
 	}
-	details := ""
-	jsonBytes, err := json.Marshal(prr.Status.RenderStatus.Result)
-	if err != nil {
-		details = fmt.Sprintf("JSON marshal error: %v", err)
-	} else {
-		details = string(jsonBytes)
-	}
-
-	if prr.Status.RenderStatus.Err != "" {
-		c.Status = "False"
-		c.Reason = "Error"
-		c.Message = fmt.Sprintf("%s, details: %s", prr.Status.RenderStatus.Err, details)
-	} else {
-		c.Status = "True"
-		c.Reason = "Success"
-		c.Message = details
-	}
-	meta.SetStatusCondition(&pv.Status.Conditions, c)
-	klog.Infoln(fmt.Sprintf("package variant %q applied mutations to package revision %q", pv.Name, prr.Name))
+	pv.Status.DownstreamTargets = append(pv.Status.DownstreamTargets, api.DownstreamTarget{
+		Name:         prr.Name,
+		RenderStatus: prr.Status.RenderStatus,
+	})
 	return nil
 }
