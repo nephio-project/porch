@@ -16,6 +16,7 @@ package packagevariant
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"strconv"
@@ -345,10 +346,9 @@ func (r *PackageVariantReconciler) ensurePackageVariant(ctx context.Context,
 	}
 	if changed {
 		// Save the updated PackageRevisionResources
-		if err = r.Update(ctx, prr); err != nil {
+		if err = r.updatePackageResources(ctx, prr, pv); err != nil {
 			return nil, err
 		}
-		klog.Infoln(fmt.Sprintf("package variant %q applied mutations to package revision %q", pv.Name, newPR.Name))
 	}
 
 	return []*porchapi.PackageRevision{newPR}, nil
@@ -427,10 +427,9 @@ func (r *PackageVariantReconciler) findAndUpdateExistingRevisions(ctx context.Co
 
 			}
 			// Save the updated PackageRevisionResources
-			if err := r.Update(ctx, prr); err != nil {
+			if err := r.updatePackageResources(ctx, prr, pv); err != nil {
 				return nil, err
 			}
-			klog.Infoln(fmt.Sprintf("package variant %q updated package revision %q for new mutations", pv.Name, downstream.Name))
 		}
 	}
 	return downstreams, nil
@@ -1049,4 +1048,35 @@ func isPackageVariantFunc(fn *fn.SubObject, pvName string) (bool, error) {
 
 func generatePVFuncName(funcName, pvName string, pos int) string {
 	return fmt.Sprintf("%s.%s.%s.%d", PackageVariantFuncPrefix, pvName, funcName, pos)
+}
+
+func (r *PackageVariantReconciler) updatePackageResources(ctx context.Context, prr *porchapi.PackageRevisionResources, pv *api.PackageVariant) error {
+	if err := r.Update(ctx, prr); err != nil {
+		return err
+	}
+	// save render status into a condition
+	// TODO: add renderStatus field to DownstreamTarget and use that instead
+	c := metav1.Condition{
+		Type: prr.Name + "/Render",
+	}
+	details := ""
+	jsonBytes, err := json.Marshal(prr.Status.RenderStatus.Result)
+	if err != nil {
+		details = fmt.Sprintf("JSON marshal error: %v", err)
+	} else {
+		details = string(jsonBytes)
+	}
+
+	if prr.Status.RenderStatus.Err != "" {
+		c.Status = "False"
+		c.Reason = "Error"
+		c.Message = fmt.Sprintf("%s, details: %s", prr.Status.RenderStatus.Err, details)
+	} else {
+		c.Status = "True"
+		c.Reason = "Success"
+		c.Message = details
+	}
+	meta.SetStatusCondition(&pv.Status.Conditions, c)
+	klog.Infoln(fmt.Sprintf("package variant %q applied mutations to package revision %q", pv.Name, prr.Name))
+	return nil
 }
