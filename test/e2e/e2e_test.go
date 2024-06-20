@@ -1055,10 +1055,11 @@ func (t *PorchSuite) TestDeleteAndRecreate(ctx context.Context) {
 	var pkg porchapi.PackageRevision
 	t.mustExist(ctx, client.ObjectKey{Namespace: t.namespace, Name: created.Name}, &pkg)
 
-	// Propose the package revision to be finalized
+	t.Log("Propose the package revision to be finalized")
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 	t.UpdateF(ctx, &pkg)
 
+	t.Log("Approve the package revision to be finalized")
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	t.UpdateApprovalF(ctx, &pkg, metav1.UpdateOptions{})
 
@@ -2352,4 +2353,23 @@ func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces(ctx context.Context
 	if len(prs3) != nPRs {
 		t.Errorf("number of PackageRevisions in repo-3: want %v, got %d", nPRs, len(prs2))
 	}
+}
+
+func (t *PorchSuite) TestUniquenessOfUIDs(ctx context.Context) {
+
+	t.registerGitRepositoryF(ctx, testBlueprintsRepo, "test-blueprints", "")
+	t.registerGitRepositoryF(ctx, testBlueprintsRepo, "test-2-blueprints", "")
+
+	prList := porchapi.PackageRevisionList{}
+	t.ListE(ctx, &prList, client.InNamespace(t.namespace))
+
+	uids := make(map[types.UID]*porchapi.PackageRevision)
+	for _, pr := range prList.Items {
+		otherPr, found := uids[pr.UID]
+		if found {
+			t.Errorf("PackageRevision %s/%s has the same UID as %s/%s: %v", pr.Namespace, pr.Name, otherPr.Namespace, otherPr.Name, pr.UID)
+		}
+		uids[pr.UID] = &pr
+	}
+
 }

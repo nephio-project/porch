@@ -15,7 +15,8 @@ commands:
       - --repository=git
       - --workspace=clone-2
       - basens-clone
-    stdout: "git-3465eed5831e5c372243d048631c8ef1666b47d6 created\n"
+    stdout: |
+      git-3465eed5831e5c372243d048631c8ef1666b47d6 created
   - args:
       - porchctl
       - rpkg
@@ -25,7 +26,8 @@ commands:
       - --repository=git
       - --workspace=clone-3
       - basens-clone
-    stderr: "error: `clone` cannot create a new revision for package \"basens-clone\" that already exists in repo \"git\"; make subsequent revisions using `copy`\n"
+    stderr: |
+      error: `clone` cannot create a new revision for package "basens-clone" that already exists in repo "git"; make subsequent revisions using `copy`
     exitCode: 1
   - args:
       - porchctl
@@ -51,7 +53,8 @@ commands:
       - --repository=git
       - --workspace=clone-1
       - empty-clone
-    stdout: "git-b67f9ce14d378317ba83c9504eab9cc024932dd3 created\n"
+    stdout: |
+      git-b67f9ce14d378317ba83c9504eab9cc024932dd3 created
   - args:
       - porchctl
       - rpkg
@@ -71,7 +74,7 @@ commands:
             internal.config.kubernetes.io/path: .KptRevisionMetadata
           name: git-3465eed5831e5c372243d048631c8ef1666b47d6
           namespace: rpkg-clone
-          uid: uid:basens-clone:clone-2
+          uid: b6f9301f-802a-5c46-ac3a-44084fcc5a50
       - apiVersion: kpt.dev/v1
         info:
           description: sample description
@@ -128,7 +131,7 @@ commands:
             internal.config.kubernetes.io/path: .KptRevisionMetadata
           name: git-b67f9ce14d378317ba83c9504eab9cc024932dd3
           namespace: rpkg-clone
-          uid: uid:empty-clone:clone-1
+          uid: 718a5693-255c-546f-ba56-4122224e7737
       - apiVersion: kpt.dev/v1
         info:
           description: Empty Blueprint
