@@ -33,12 +33,14 @@ jobs:
           fetch-depth: 0
       - name: Build
         run: make porchctl
+      - name: Pack binary
+        run: tar cvzf porchctl.tgz -C .build/ porchctl
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: .build/porchctl
-          asset_name: porchctl
+          file: porchctl.tgz
+          asset_name: porchctl.tgz
           tag: ${{ github.ref }}
           overwrite: true
           prerelease: true
