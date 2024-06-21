@@ -33,6 +33,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -2371,5 +2372,45 @@ func (t *PorchSuite) TestUniquenessOfUIDs(ctx context.Context) {
 		}
 		uids[pr.UID] = &pr
 	}
+}
 
+func (t *PorchSuite) TestPackageRevisionFieldselectors(ctx context.Context) {
+	t.registerGitRepositoryF(ctx, testBlueprintsRepo, "test-blueprints", "")
+
+	prList := porchapi.PackageRevisionList{}
+
+	wsName := "v1"
+	wsSelector := client.MatchingFields(fields.Set{"spec.workspaceName": wsName})
+	t.ListE(ctx, &prList, client.InNamespace(t.namespace), wsSelector)
+	if len(prList.Items) == 0 {
+		t.Errorf("Expected at least one PackageRevision with workspaceName=%q, but got none", wsName)
+	}
+	for _, pr := range prList.Items {
+		if pr.Spec.WorkspaceName != porchapi.WorkspaceName(wsName) {
+			t.Errorf("PackageRevision %s workspaceName: want %q, but got %q", pr.Name, wsName, pr.Spec.WorkspaceName)
+		}
+	}
+
+	publishedSelector := client.MatchingFields(fields.Set{"spec.lifecycle": string(porchapi.PackageRevisionLifecyclePublished)})
+	t.ListE(ctx, &prList, client.InNamespace(t.namespace), publishedSelector)
+	if len(prList.Items) == 0 {
+		t.Errorf("Expected at least one PackageRevision with lifecycle=%q, but got none", porchapi.PackageRevisionLifecyclePublished)
+	}
+	for _, pr := range prList.Items {
+		if pr.Spec.Lifecycle != porchapi.PackageRevisionLifecyclePublished {
+			t.Errorf("PackageRevision %s lifecycle: want %q, but got %q", pr.Name, porchapi.PackageRevisionLifecyclePublished, pr.Spec.Lifecycle)
+		}
+	}
+
+	draftSelector := client.MatchingFields(fields.Set{"spec.lifecycle": string(porchapi.PackageRevisionLifecycleDraft)})
+	t.ListE(ctx, &prList, client.InNamespace(t.namespace), draftSelector)
+	// TODO: add draft packages to the test repo
+	// if len(prList.Items) == 0 {
+	// 	t.Errorf("Expected at least one PackageRevision with lifecycle=%q, but got none", porchapi.PackageRevisionLifecycleDraft)
+	// }
+	for _, pr := range prList.Items {
+		if pr.Spec.Lifecycle != porchapi.PackageRevisionLifecycleDraft {
+			t.Errorf("PackageRevision %s lifecycle: want %q, but got %q", pr.Name, porchapi.PackageRevisionLifecycleDraft, pr.Spec.Lifecycle)
+		}
+	}
 }
