@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -59,8 +58,6 @@ const (
 
 	ConditionTypeStalled = "Stalled" // whether or not the packagevariant object is making progress or not
 	ConditionTypeReady   = "Ready"   // whether or not the reconciliation succeeded
-
-	requeueDuration = 30 * time.Second
 )
 
 //go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0 rbac:headerFile=../../../../../scripts/boilerplate.yaml.txt,roleName=porch-controllers-packagevariants webhook paths="." output:rbac:artifacts:config=../../../config/rbac
@@ -129,7 +126,7 @@ func (r *PackageVariantReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if err != nil {
 		setStalledConditionsToTrue(pv, err.Error())
 		// requeue, as the upstream may appear
-		return ctrl.Result{RequeueAfter: requeueDuration}, err
+		return ctrl.Result{}, err
 	}
 	meta.SetStatusCondition(&pv.Status.Conditions, metav1.Condition{
 		Type:    ConditionTypeStalled,
@@ -147,7 +144,7 @@ func (r *PackageVariantReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			Message: err.Error(),
 		})
 		// requeue; it may be an intermittent error
-		return ctrl.Result{RequeueAfter: requeueDuration}, nil
+		return ctrl.Result{}, err
 	}
 
 	setTargetStatusConditions(pv, targets)
