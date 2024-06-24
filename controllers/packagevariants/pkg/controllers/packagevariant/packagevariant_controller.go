@@ -57,7 +57,7 @@ const (
 	workspaceNamePrefix = "packagevariant-"
 
 	ConditionTypeStalled = "Stalled" // whether or not the packagevariant object is making progress or not
-	ConditionTypeReady   = "Ready"   // whether or notthe reconciliation succeded
+	ConditionTypeReady   = "Ready"   // whether or not the reconciliation succeeded
 )
 
 //go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0 rbac:headerFile=../../../../../scripts/boilerplate.yaml.txt,roleName=porch-controllers-packagevariants webhook paths="." output:rbac:artifacts:config=../../../config/rbac
@@ -342,10 +342,9 @@ func (r *PackageVariantReconciler) ensurePackageVariant(ctx context.Context,
 	}
 	if changed {
 		// Save the updated PackageRevisionResources
-		if err = r.Update(ctx, prr); err != nil {
+		if err = r.updatePackageResources(ctx, prr, pv); err != nil {
 			return nil, err
 		}
-		klog.Infoln(fmt.Sprintf("package variant %q applied mutations to package revision %q", pv.Name, newPR.Name))
 	}
 
 	return []*porchapi.PackageRevision{newPR}, nil
@@ -424,10 +423,9 @@ func (r *PackageVariantReconciler) findAndUpdateExistingRevisions(ctx context.Co
 
 			}
 			// Save the updated PackageRevisionResources
-			if err := r.Update(ctx, prr); err != nil {
+			if err := r.updatePackageResources(ctx, prr, pv); err != nil {
 				return nil, err
 			}
-			klog.Infoln(fmt.Sprintf("package variant %q updated package revision %q for new mutations", pv.Name, downstream.Name))
 		}
 	}
 	return downstreams, nil
@@ -696,12 +694,24 @@ func (r *PackageVariantReconciler) updateDraft(ctx context.Context,
 }
 
 func setTargetStatusConditions(pv *api.PackageVariant, targets []*porchapi.PackageRevision) {
-	pv.Status.DownstreamTargets = nil
+	downstreams := []api.DownstreamTarget{}
+	// keep downstream status when possible
 	for _, t := range targets {
-		pv.Status.DownstreamTargets = append(pv.Status.DownstreamTargets, api.DownstreamTarget{
-			Name: t.GetName(),
-		})
+		found := false
+		for _, d := range pv.Status.DownstreamTargets {
+			if d.Name == t.Name {
+				found = true
+				downstreams = append(downstreams, d)
+				break
+			}
+		}
+		if !found {
+			downstreams = append(downstreams, api.DownstreamTarget{
+				Name: t.GetName(),
+			})
+		}
 	}
+	pv.Status.DownstreamTargets = downstreams
 	meta.SetStatusCondition(&pv.Status.Conditions, metav1.Condition{
 		Type:    ConditionTypeReady,
 		Status:  "True",
@@ -895,7 +905,7 @@ func ensurePackageContext(pv *api.PackageVariant,
 
 	err = cm.SetNestedField(data, "data")
 	if err != nil {
-		return fmt.Errorf("could not set package conext data: %w", err)
+		return fmt.Errorf("could not set package context data: %w", err)
 	}
 	prr.Spec.Resources["package-context.yaml"] = cm.String()
 	return nil
@@ -1046,4 +1056,21 @@ func isPackageVariantFunc(fn *fn.SubObject, pvName string) (bool, error) {
 
 func generatePVFuncName(funcName, pvName string, pos int) string {
 	return fmt.Sprintf("%s.%s.%s.%d", PackageVariantFuncPrefix, pvName, funcName, pos)
+}
+
+func (r *PackageVariantReconciler) updatePackageResources(ctx context.Context, prr *porchapi.PackageRevisionResources, pv *api.PackageVariant) error {
+	if err := r.Update(ctx, prr); err != nil {
+		return err
+	}
+	for i, target := range pv.Status.DownstreamTargets {
+		if target.Name == prr.Name {
+			pv.Status.DownstreamTargets[i].RenderStatus = prr.Status.RenderStatus
+			return nil
+		}
+	}
+	pv.Status.DownstreamTargets = append(pv.Status.DownstreamTargets, api.DownstreamTarget{
+		Name:         prr.Name,
+		RenderStatus: prr.Status.RenderStatus,
+	})
+	return nil
 }

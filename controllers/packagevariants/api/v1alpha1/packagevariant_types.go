@@ -15,6 +15,7 @@
 package v1alpha1
 
 import (
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -107,7 +108,8 @@ type PackageVariantStatus struct {
 }
 
 type DownstreamTarget struct {
-	Name string `json:"name,omitempty"`
+	Name         string                `json:"name,omitempty"`
+	RenderStatus porchapi.RenderStatus `json:"renderStatus,omitempty"`
 }
 
 //+kubebuilder:object:root=true

@@ -144,7 +144,7 @@ generate-api:
 	KUBE_VERBOSE=2 $(CURDIR)/scripts/generate-api.sh
 
 .PHONY: generate
-generate: generate-api
+generate: generate-api ## Generate CRDs, other K8s manifests and helper go code
 	@for f in $(MODULES); do (cd $$f; echo "Generating $$f"; go generate -v ./...) || exit 1; done
 
 .PHONY: tidy
@@ -239,6 +239,27 @@ deploy: deployment-config
 .PHONY: push-and-deploy
 push-and-deploy: push-images deploy
 
+.PHONY: run-in-kind 
+run-in-kind: IMAGE_REPO=porch-kind
+run-in-kind: IMAGE_TAG=test
+run-in-kind: load-images-to-kind deployment-config deploy-current-config ## Build and deploy porch into a kind cluster
+
+.PHONY: run-in-kind-no-server
+run-in-kind-no-server: IMAGE_REPO=porch-kind
+run-in-kind-no-server: IMAGE_TAG=test
+run-in-kind-no-server: SKIP_PORCHSERVER_BUILD=true
+run-in-kind-no-server: load-images-to-kind deployment-config-no-server deploy-current-config ## Build and deploy porch without the porch-server into a kind cluster
+
+.PHONY: run-in-kind-no-controller
+run-in-kind-no-controller: IMAGE_REPO=porch-kind
+run-in-kind-no-controller: IMAGE_TAG=test
+run-in-kind-no-controller: SKIP_CONTROLLER_BUILD=true
+run-in-kind-no-controller: load-images-to-kind deployment-config-no-controller deploy-current-config ## Build and deploy porch without the controllers into a kind cluster
+
+.PHONY: destroy
+destroy: ## Deletes all porch resources installed by the last run-in-kind-* command
+	kpt live destroy $(DEPLOYPORCHCONFIGDIR)
+
 .PHONY: deployment-config 
 deployment-config: ## Generate a porch deployment kpt package into $(DEPLOYPORCHCONFIGDIR)
 	rm -rf $(DEPLOYPORCHCONFIGDIR) || true
@@ -307,28 +328,6 @@ deploy-current-config: ## Deploy the configuration that is currently in $(DEPLOY
 	@kubectl rollout status deployment porch-controllers --namespace porch-system 2>/dev/null || true
 	@kubectl rollout status deployment porch-server --namespace porch-system 2>/dev/null || true
 	@echo "Done."
-
-.PHONY: run-in-kind 
-run-in-kind: IMAGE_REPO=porch-kind
-run-in-kind: IMAGE_TAG=test
-run-in-kind: load-images-to-kind deployment-config deploy-current-config ## Build and deploy porch into a kind cluster
-
-.PHONY: run-in-kind-no-server
-run-in-kind-no-server: IMAGE_REPO=porch-kind
-run-in-kind-no-server: IMAGE_TAG=test
-run-in-kind-no-server: SKIP_PORCHSERVER_BUILD=true
-run-in-kind-no-server: load-images-to-kind deployment-config-no-server deploy-current-config ## Build and deploy porch without the porch-server into a kind cluster
-
-.PHONY: run-in-kind-no-controller
-run-in-kind-no-controller: IMAGE_REPO=porch-kind
-run-in-kind-no-controller: IMAGE_TAG=test
-run-in-kind-no-controller: SKIP_CONTROLLER_BUILD=true
-run-in-kind-no-controller: load-images-to-kind deployment-config-no-controller deploy-current-config ## Build and deploy porch without the controllers into a kind cluster
-
-.PHONY: destroy
-destroy: ## Deletes all porch resources installed by the last run-in-kind-* command
-	kpt live destroy $(DEPLOYPORCHCONFIGDIR)
-
 
 PKG=gitea-dev
 .PHONY: deploy-gitea-dev-pkg
