@@ -79,6 +79,13 @@ func (r *runner) preRunE(cmd *cobra.Command, _ []string) error {
 	} else {
 		r.requestTable = true
 	}
+
+	allNamespacesFlag := cmd.Flags().Lookup("all-namespaces").Value.String()
+	if strings.Contains(allNamespacesFlag, "true") {
+		r.printFlags.HumanReadableFlags.WithNamespace = true
+	} else {
+		r.printFlags.HumanReadableFlags.WithNamespace = false
+	}
 	return nil
 }
 
