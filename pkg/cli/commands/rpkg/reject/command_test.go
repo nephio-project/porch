@@ -122,7 +122,7 @@ func TestCmd(t *testing.T) {
 				defer write.Close()
 				err := r.runE(cmd, []string{pkgRevName})
 				if err != nil && !tc.wantErr {
-					t.Errorf("unexpected error: %v", err.Error())
+					t.Errorf("unexpected error: %v", err)
 				}
 			}()
 			out, _ := io.ReadAll(read)
