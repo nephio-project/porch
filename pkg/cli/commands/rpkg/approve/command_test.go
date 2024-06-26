@@ -26,7 +26,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 func createScheme() (*runtime.Scheme, error) {
@@ -51,57 +53,108 @@ func TestCmd(t *testing.T) {
 		t.Fatalf("error creating scheme: %v", err)
 	}
 	testCases := map[string]struct {
-		output  string
-		wantErr bool
-		lc      porchapi.PackageRevisionLifecycle
-		ns      string
+		output     string
+		wantErr    bool
+		fakeclient client.WithWatch
 	}{
 		"Package not found in ns": {
 			wantErr: true,
 			output:  pkgRevName + " failed (packagerevisions.porch.kpt.dev \"" + pkgRevName + "\" not found)\n",
-			ns:      "dummy",
+			fakeclient: fake.NewClientBuilder().WithScheme(scheme).
+				WithObjects(&porchapi.PackageRevision{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "PackageRevision",
+						APIVersion: porchapi.SchemeGroupVersion.Identifier(),
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "dummy",
+						Name:      pkgRevName,
+					}}).Build(),
 		},
 		"Approve draft package": {
 			wantErr: true,
 			output:  pkgRevName + " failed (cannot change approval from Draft to Published)\n",
-			ns:      ns,
-			lc:      porchapi.PackageRevisionLifecycleDraft,
-		},
-		"Approve published package": {
-			output: pkgRevName + " approved\n",
-			ns:     ns,
-			lc:     porchapi.PackageRevisionLifecyclePublished,
-		},
-		"Approve deletion-proposed package": {
-			output: pkgRevName + " approved\n",
-			ns:     ns,
-			lc:     porchapi.PackageRevisionLifecycleDeletionProposed,
-		},
-		"Approve proposed package": {
-			output: pkgRevName + " approved\n",
-			ns:     ns,
-			lc:     porchapi.PackageRevisionLifecycleProposed,
-		},
-	}
-
-	for tn := range testCases {
-		tc := testCases[tn]
-		t.Run(tn, func(t *testing.T) {
-
-			c := fake.NewClientBuilder().WithScheme(scheme).
+			fakeclient: fake.NewClientBuilder().WithScheme(scheme).
 				WithObjects(&porchapi.PackageRevision{
 					TypeMeta: metav1.TypeMeta{
 						Kind:       "PackageRevision",
 						APIVersion: porchapi.SchemeGroupVersion.Identifier(),
 					},
 					Spec: porchapi.PackageRevisionSpec{
-						Lifecycle:      tc.lc,
+						Lifecycle:      porchapi.PackageRevisionLifecycleDraft,
 						RepositoryName: repoName,
 					},
 					ObjectMeta: metav1.ObjectMeta{
-						Namespace: tc.ns,
+						Namespace: ns,
 						Name:      pkgRevName,
-					}}).Build()
+					}}).Build(),
+		},
+		"Approve published package": {
+			output: pkgRevName + " approved\n",
+			fakeclient: fake.NewClientBuilder().WithScheme(scheme).
+				WithObjects(&porchapi.PackageRevision{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "PackageRevision",
+						APIVersion: porchapi.SchemeGroupVersion.Identifier(),
+					},
+					Spec: porchapi.PackageRevisionSpec{
+						Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
+						RepositoryName: repoName,
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: ns,
+						Name:      pkgRevName,
+					}}).Build(),
+		},
+		"Approve deletion-proposed package": {
+			output: pkgRevName + " approved\n",
+			fakeclient: fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
+				//fake subresourceupdate
+				SubResourceUpdate: func(ctx context.Context, client client.Client, subResourceName string, obj client.Object, opts ...client.SubResourceUpdateOption) error {
+					return nil
+				},
+			}).WithScheme(scheme).
+				WithObjects(&porchapi.PackageRevision{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "PackageRevision",
+						APIVersion: porchapi.SchemeGroupVersion.Identifier(),
+					},
+					Spec: porchapi.PackageRevisionSpec{
+						Lifecycle:      porchapi.PackageRevisionLifecycleDeletionProposed,
+						RepositoryName: repoName,
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: ns,
+						Name:      pkgRevName,
+					}}).Build(),
+		},
+		"Approve proposed package": {
+			output: pkgRevName + " approved\n",
+			fakeclient: fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
+				//fake subresourceupdate
+				SubResourceUpdate: func(ctx context.Context, client client.Client, subResourceName string, obj client.Object, opts ...client.SubResourceUpdateOption) error {
+					return nil
+				},
+			}).WithScheme(scheme).
+				WithObjects(&porchapi.PackageRevision{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "PackageRevision",
+						APIVersion: porchapi.SchemeGroupVersion.Identifier(),
+					},
+					Spec: porchapi.PackageRevisionSpec{
+						Lifecycle:      porchapi.PackageRevisionLifecycleProposed,
+						RepositoryName: repoName,
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: ns,
+						Name:      pkgRevName,
+					}}).Build(),
+		},
+	}
+
+	for tn := range testCases {
+		tc := testCases[tn]
+		t.Run(tn, func(t *testing.T) {
 
 			cmd := &cobra.Command{}
 			o := os.Stdout
@@ -115,7 +168,7 @@ func TestCmd(t *testing.T) {
 				cfg: &genericclioptions.ConfigFlags{
 					Namespace: &ns,
 				},
-				client:  c,
+				client:  tc.fakeclient,
 				Command: cmd,
 			}
 			go func() {
