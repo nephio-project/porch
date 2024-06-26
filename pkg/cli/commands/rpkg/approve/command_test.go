@@ -58,19 +58,19 @@ func TestCmd(t *testing.T) {
 	}{
 		"Package not found in ns": {
 			wantErr: true,
-			output:  pkgRevName + " failed (packagerevisions.porch.kpt.dev \"" + pkgRevName + "\" not found)\n",
 			ns:      "dummy",
 		},
 		"Approve draft package": {
 			wantErr: true,
-			output:  pkgRevName + " failed (cannot change approval from Draft to Published)\n",
+			output:  "cannot approve " + pkgRevName + " with lifecycle 'Draft'\n",
 			ns:      ns,
 			lc:      porchapi.PackageRevisionLifecycleDraft,
 		},
 		"Approve published package": {
-			output: pkgRevName + " approved\n",
-			ns:     ns,
-			lc:     porchapi.PackageRevisionLifecyclePublished,
+			wantErr: true,
+			output:  "cannot approve " + pkgRevName + " with lifecycle 'Published'\n",
+			ns:      ns,
+			lc:      porchapi.PackageRevisionLifecyclePublished,
 		},
 		"Approve deletion-proposed package": {
 			output: pkgRevName + " approved\n",

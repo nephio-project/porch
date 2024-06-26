@@ -96,10 +96,8 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 		}
 		switch pr.Spec.Lifecycle {
 		case v1alpha1.PackageRevisionLifecycleProposed:
-			if err := porch.UpdatePackageRevisionApproval(r.ctx, r.client, client.ObjectKey{
-				Namespace: namespace,
-				Name:      name,
-			}, v1alpha1.PackageRevisionLifecycleDraft); err != nil {
+			pr.Spec.Lifecycle = v1alpha1.PackageRevisionLifecycleDraft
+			if err := r.client.Update(r.ctx, pr); err != nil {
 				messages = append(messages, err.Error())
 				fmt.Fprintf(r.Command.ErrOrStderr(), "%s failed (%s)\n", name, err)
 			} else {

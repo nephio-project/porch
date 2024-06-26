@@ -79,18 +79,30 @@ func (r *runner) preRunE(_ *cobra.Command, _ []string) error {
 func (r *runner) runE(_ *cobra.Command, args []string) error {
 	const op errors.Op = command + ".runE"
 	var messages []string
-
 	namespace := *r.cfg.Namespace
 
 	for _, name := range args {
-		if err := porch.UpdatePackageRevisionApproval(r.ctx, r.client, client.ObjectKey{
+		pr := &v1alpha1.PackageRevision{}
+		if err := r.client.Get(r.ctx, client.ObjectKey{
 			Namespace: namespace,
 			Name:      name,
-		}, v1alpha1.PackageRevisionLifecyclePublished); err != nil {
-			messages = append(messages, err.Error())
-			fmt.Fprintf(r.Command.ErrOrStderr(), "%s failed (%s)\n", name, err)
-		} else {
-			fmt.Fprintf(r.Command.OutOrStdout(), "%s approved\n", name)
+		}, pr); err != nil {
+			return errors.E(op, err)
+		}
+
+		switch pr.Spec.Lifecycle {
+		case v1alpha1.PackageRevisionLifecycleProposed, v1alpha1.PackageRevisionLifecycleDeletionProposed:
+			pr.Spec.Lifecycle = v1alpha1.PackageRevisionLifecyclePublished
+			if err := r.client.Update(r.ctx, pr); err != nil {
+				messages = append(messages, err.Error())
+				fmt.Fprintf(r.Command.ErrOrStderr(), "%s failed (%s)\n", name, err)
+			} else {
+				fmt.Fprintf(r.Command.OutOrStdout(), "%s approved\n", name)
+			}
+		default:
+			msg := fmt.Sprintf("cannot approve %s with lifecycle '%s'", name, pr.Spec.Lifecycle)
+			messages = append(messages, msg)
+			fmt.Fprintln(r.Command.ErrOrStderr(), msg)
 		}
 	}
 
