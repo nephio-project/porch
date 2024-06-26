@@ -26,7 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -44,7 +44,9 @@ func createScheme() (*runtime.Scheme, error) {
 }
 
 func TestCmd(t *testing.T) {
-	pkgRevName := "test-fjdos9u2nfe2f32"
+	pkgRevName := "test-pr"
+	repoName := "test-repo"
+	ns := "ns"
 	var scheme, err = createScheme()
 	if err != nil {
 		t.Fatalf("error creating scheme: %v", err)
@@ -52,36 +54,84 @@ func TestCmd(t *testing.T) {
 	testCases := map[string]struct {
 		output  string
 		wantErr bool
-		ns      string
-		lc      porchapi.PackageRevisionLifecycle
+		fc      client.WithWatch
 	}{
 		"Package not found in ns": {
-			ns:      "doesnotexist",
 			wantErr: true,
+			fc: fake.NewClientBuilder().WithScheme(scheme).
+				WithObjects(&porchapi.PackageRevision{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "PackageRevision",
+						APIVersion: porchapi.SchemeGroupVersion.Identifier(),
+					},
+					Spec: porchapi.PackageRevisionSpec{
+						Lifecycle: porchapi.PackageRevisionLifecycleDraft,
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "dummy-ns",
+						Name:      pkgRevName,
+					}}).Build(),
 		},
 		"Reject deletion proposed": {
-			ns: "ns",
-			lc: porchapi.PackageRevisionLifecycleDeletionProposed,
-
 			output: pkgRevName + " no longer proposed for deletion\n",
-		},
-		"Reject proposed": {
-			ns:      "ns",
-			wantErr: false,
-			lc:      porchapi.PackageRevisionLifecycleProposed,
-			output:  pkgRevName + " rejected\n",
+			fc: fake.NewClientBuilder().WithScheme(scheme).
+				WithObjects(&porchapi.PackageRevision{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "PackageRevision",
+						APIVersion: porchapi.SchemeGroupVersion.Identifier(),
+					},
+					Spec: porchapi.PackageRevisionSpec{
+						Lifecycle:      porchapi.PackageRevisionLifecycleDeletionProposed,
+						RepositoryName: repoName,
+						PackageName:    pkgRevName,
+						WorkspaceName:  "v1",
+						Revision:       "latest",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: ns,
+						Name:      pkgRevName,
+					}}).Build(),
 		},
 		"Reject draft": {
-			ns:      "ns",
-			lc:      porchapi.PackageRevisionLifecycleDraft,
-			output:  "cannot reject " + pkgRevName + " with lifecycle 'Draft'\n",
 			wantErr: true,
+			output:  "cannot reject " + pkgRevName + " with lifecycle 'Draft'\n",
+			fc: fake.NewClientBuilder().WithScheme(scheme).
+				WithObjects(&porchapi.PackageRevision{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "PackageRevision",
+						APIVersion: porchapi.SchemeGroupVersion.Identifier(),
+					},
+					Spec: porchapi.PackageRevisionSpec{
+						Lifecycle: porchapi.PackageRevisionLifecycleDraft,
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: ns,
+						Name:      pkgRevName,
+					}}).Build(),
+		},
+		"Reject proposed": {
+			wantErr: false,
+			output:  pkgRevName + " rejected\n",
+			fc: fake.NewClientBuilder().WithScheme(scheme).
+				WithObjects([]client.Object{&porchapi.PackageRevision{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "PackageRevision",
+						APIVersion: porchapi.SchemeGroupVersion.Identifier(),
+					},
+					Spec: porchapi.PackageRevisionSpec{
+						Lifecycle: porchapi.PackageRevisionLifecycleProposed,
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: ns,
+						Name:      pkgRevName,
+					}}}...).Build(),
 		},
 	}
 
 	for tn := range testCases {
 		tc := testCases[tn]
 		t.Run(tn, func(t *testing.T) {
+
 			cmd := &cobra.Command{}
 			o := os.Stdout
 			e := os.Stderr
@@ -89,28 +139,13 @@ func TestCmd(t *testing.T) {
 			os.Stdout = write
 			os.Stderr = write
 
-			c := fake.NewClientBuilder().WithScheme(scheme).
-				WithObjects(&porchapi.PackageRevision{
-					TypeMeta: metav1.TypeMeta{
-						Kind:       "PackageRevision",
-						APIVersion: porchapi.SchemeGroupVersion.Identifier(),
-					},
-					Spec: porchapi.PackageRevisionSpec{
-						Lifecycle: tc.lc,
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: "ns",
-						Name:      pkgRevName,
-					}}).Build()
-
 			r := &runner{
 				ctx: context.Background(),
 				cfg: &genericclioptions.ConfigFlags{
-					Namespace: &tc.ns,
+					Namespace: &ns,
 				},
-				client:      &rest.RESTClient{},
-				porchClient: c,
-				Command:     cmd,
+				client:  tc.fc,
+				Command: cmd,
 			}
 			go func() {
 				defer write.Close()
