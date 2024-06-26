@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package reject
+package approve
 
 import (
 	"context"
@@ -58,29 +58,29 @@ func TestCmd(t *testing.T) {
 	}{
 		"Package not found in ns": {
 			wantErr: true,
+			output:  pkgRevName + " failed (packagerevisions.porch.kpt.dev \"" + pkgRevName + "\" not found)\n",
+			ns:      "dummy",
 		},
-		"Reject deletion-proposed package": {
-			output: pkgRevName + " no longer proposed for deletion\n",
-			ns:     ns,
-			lc:     porchapi.PackageRevisionLifecycleDeletionProposed,
-		},
-		"Reject draft package": {
+		"Approve draft package": {
 			wantErr: true,
-			output:  "cannot reject " + pkgRevName + " with lifecycle 'Draft'\n",
+			output:  pkgRevName + " failed (cannot change approval from Draft to Published)\n",
 			ns:      ns,
 			lc:      porchapi.PackageRevisionLifecycleDraft,
 		},
-		"Reject published package": {
-			wantErr: true,
-			output:  "cannot reject " + pkgRevName + " with lifecycle 'Published'\n",
-			ns:      ns,
-			lc:      porchapi.PackageRevisionLifecyclePublished,
+		"Approve published package": {
+			output: pkgRevName + " approved\n",
+			ns:     ns,
+			lc:     porchapi.PackageRevisionLifecyclePublished,
 		},
-		"Reject proposed package": {
-			wantErr: false,
-			output:  pkgRevName + " rejected\n",
-			ns:      ns,
-			lc:      porchapi.PackageRevisionLifecycleProposed,
+		"Approve deletion-proposed package": {
+			output: pkgRevName + " approved\n",
+			ns:     ns,
+			lc:     porchapi.PackageRevisionLifecycleDeletionProposed,
+		},
+		"Approve proposed package": {
+			output: pkgRevName + " approved\n",
+			ns:     ns,
+			lc:     porchapi.PackageRevisionLifecycleProposed,
 		},
 	}
 
