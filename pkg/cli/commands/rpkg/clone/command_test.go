@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package init
+package clone
 
 import (
 	"context"
@@ -32,7 +32,6 @@ import (
 
 func createScheme() (*runtime.Scheme, error) {
 	scheme := runtime.NewScheme()
-
 	for _, api := range (runtime.SchemeBuilder{
 		porchapi.AddToScheme,
 	}) {
@@ -40,10 +39,13 @@ func createScheme() (*runtime.Scheme, error) {
 			return nil, err
 		}
 	}
+	scheme.AddKnownTypes(porchapi.SchemeGroupVersion, &porchapi.PackageRevision{})
 	return scheme, nil
 }
 
 func TestCmd(t *testing.T) {
+	repoName := "test-repo"
+	ns := "ns"
 	var scheme, err = createScheme()
 	if err != nil {
 		t.Fatalf("error creating scheme: %v", err)
@@ -55,17 +57,17 @@ func TestCmd(t *testing.T) {
 		fakeclient client.WithWatch
 	}{
 		"metadata.name required": {
-			ns:         "doesnotexist",
 			wantErr:    true,
 			fakeclient: fake.NewClientBuilder().WithScheme(scheme).Build(),
 		},
-		"successful init": {
-			ns:     "ns",
-			output: "pr created\n",
+		"clone package": {
+			wantErr: false,
+			ns:      ns,
+			output:  "pr-clone created\n",
 			fakeclient: fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
 				Create: func(ctx context.Context, client client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
 					if obj.GetObjectKind().GroupVersionKind().Kind == "PackageRevision" {
-						obj.SetName("pr")
+						obj.SetName("pr-clone")
 					}
 					return nil
 				},
@@ -89,14 +91,15 @@ func TestCmd(t *testing.T) {
 				cfg: &genericclioptions.ConfigFlags{
 					Namespace: &tc.ns,
 				},
-				client:  tc.fakeclient,
-				Command: cmd,
+				client:     tc.fakeclient,
+				Command:    cmd,
+				repository: repoName,
 			}
 			go func() {
 				defer write.Close()
 				err := r.runE(cmd, []string{})
 				if err != nil && !tc.wantErr {
-					t.Errorf("unexpected error: %v", err)
+					t.Errorf("unexpected error: %v", err.Error())
 				}
 			}()
 			out, _ := io.ReadAll(read)
