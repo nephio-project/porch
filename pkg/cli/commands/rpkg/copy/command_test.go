@@ -56,16 +56,45 @@ func TestCmd(t *testing.T) {
 		output     string
 		wantErr    bool
 		ns         string
+		workspace  string
 		fakeclient client.WithWatch
 	}{
 		"metadata.name required": {
 			wantErr:    true,
 			fakeclient: fake.NewClientBuilder().WithScheme(scheme).Build(),
 		},
+		"Workspace argument required": {
+			wantErr:   true,
+			ns:        ns,
+			workspace: "",
+			fakeclient: fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
+				Create: func(ctx context.Context, client client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+					if obj.GetObjectKind().GroupVersionKind().Kind == "PackageRevision" {
+						obj.SetName(pkgRevName)
+					}
+					return nil
+				},
+			}).WithScheme(scheme).
+				WithObjects(&porchapi.PackageRevision{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "PackageRevision",
+						APIVersion: porchapi.SchemeGroupVersion.Identifier(),
+					},
+					Spec: porchapi.PackageRevisionSpec{
+						Lifecycle:      porchapi.PackageRevisionLifecycleProposed,
+						RepositoryName: repoName,
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: ns,
+						Name:      pkgRevName,
+					}}).Build(),
+		},
+
 		"copy package": {
-			wantErr: false,
-			ns:      ns,
-			output:  pkgRevName + " created\n",
+			wantErr:   false,
+			ns:        ns,
+			output:    pkgRevName + " created\n",
+			workspace: "v2",
 			fakeclient: fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
 				Create: func(ctx context.Context, client client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
 					if obj.GetObjectKind().GroupVersionKind().Kind == "PackageRevision" {
@@ -112,7 +141,7 @@ func TestCmd(t *testing.T) {
 					},
 				},
 				client:    tc.fakeclient,
-				workspace: "v2",
+				workspace: tc.workspace,
 				Command:   cmd,
 			}
 			go func() {
