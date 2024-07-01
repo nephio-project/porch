@@ -353,12 +353,16 @@ func watchCertificates(ctx context.Context, directory, certFile, keyFile string)
 	klog.Info("Shutting down certificate watcher")
 }
 
+func getCertificate(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+	return &cert, nil
+}
+
 func runWebhookServer(ctx context.Context, cfg *WebhookConfig) error {
 	certFile := filepath.Join(cfg.CertStorageDir, "tls.crt")
 	keyFile := filepath.Join(cfg.CertStorageDir, "tls.key")
 	// load the cert for the first time
 
-	cert, err := loadCertificate(certFile, keyFile)
+	_, err := loadCertificate(certFile, keyFile)
 	if err != nil {
 		klog.Errorf("failed to load certificate: %v", err)
 		return err
@@ -371,7 +375,7 @@ func runWebhookServer(ctx context.Context, cfg *WebhookConfig) error {
 	server := http.Server{
 		Addr: fmt.Sprintf(":%d", cfg.Port),
 		TLSConfig: &tls.Config{
-			Certificates: []tls.Certificate{cert},
+			GetCertificate: getCertificate,
 		},
 	}
 	go func() {
