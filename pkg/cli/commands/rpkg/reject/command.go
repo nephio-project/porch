@@ -25,7 +25,6 @@ import (
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -39,9 +38,8 @@ func NewCommand(ctx context.Context, rcg *genericclioptions.ConfigFlags) *cobra.
 
 func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner {
 	r := &runner{
-		ctx:    ctx,
-		cfg:    rcg,
-		client: nil,
+		ctx: ctx,
+		cfg: rcg,
 	}
 
 	c := &cobra.Command{
@@ -59,11 +57,10 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 }
 
 type runner struct {
-	ctx         context.Context
-	cfg         *genericclioptions.ConfigFlags
-	client      rest.Interface
-	porchClient client.Client
-	Command     *cobra.Command
+	ctx     context.Context
+	cfg     *genericclioptions.ConfigFlags
+	client  client.Client
+	Command *cobra.Command
 
 	// Flags
 }
@@ -75,17 +72,11 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 		return errors.E(op, "PACKAGE_REVISION is a required positional argument")
 	}
 
-	client, err := porch.CreateRESTClient(r.cfg)
+	client, err := porch.CreateClientWithFlags(r.cfg)
 	if err != nil {
 		return errors.E(op, err)
 	}
 	r.client = client
-
-	porchClient, err := porch.CreateClientWithFlags(r.cfg)
-	if err != nil {
-		return errors.E(op, err)
-	}
-	r.porchClient = porchClient
 	return nil
 }
 
@@ -97,7 +88,7 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 
 	for _, name := range args {
 		pr := &v1alpha1.PackageRevision{}
-		if err := r.porchClient.Get(r.ctx, client.ObjectKey{
+		if err := r.client.Get(r.ctx, client.ObjectKey{
 			Namespace: namespace,
 			Name:      name,
 		}, pr); err != nil {
@@ -116,7 +107,7 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 			}
 		case v1alpha1.PackageRevisionLifecycleDeletionProposed:
 			pr.Spec.Lifecycle = v1alpha1.PackageRevisionLifecyclePublished
-			if err := r.porchClient.Update(r.ctx, pr); err != nil {
+			if err := r.client.Update(r.ctx, pr); err != nil {
 				messages = append(messages, err.Error())
 				fmt.Fprintf(r.Command.ErrOrStderr(), "%s failed (%s)\n", name, err)
 			} else {
