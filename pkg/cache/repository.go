@@ -87,6 +87,13 @@ func newRepository(id string, repoSpec *configapi.Repository, repo repository.Re
 	return r
 }
 
+func (r *cachedRepository) RefreshCache(ctx context.Context) error {
+
+	_, _, err := r.refreshAllCachedPackages(ctx)
+
+	return err
+}
+
 func (r *cachedRepository) Version(ctx context.Context) (string, error) {
 	return r.repo.Version(ctx)
 }
