@@ -24,6 +24,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/errors"
@@ -240,6 +241,13 @@ func readFromDir(dir string) (map[string]string, error) {
 		contents, err := os.ReadFile(path)
 		if err != nil {
 			return err
+		}
+		if !utf8.Valid(contents) {
+			// Since PackageRevisionResources' spec.Resources is a map of strings, during JSON serialization all file contents
+			// will be converted to valid UTF-8 by changing invalid bytes to the Unicode replacement character.
+			// This of course corrupts the contents of binary files.
+			// Return an early error here to prevent pushing corrupt content.
+			return fmt.Errorf("file %s is not a valid UTF-8 text file: current porch API doesn't support binary files", path)
 		}
 		resources[rel] = string(contents)
 		return nil
