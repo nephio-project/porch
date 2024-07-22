@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package del
+package clone
 
 import (
 	"context"
@@ -23,15 +23,15 @@ import (
 	"github.com/google/go-cmp/cmp"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/spf13/cobra"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 func createScheme() (*runtime.Scheme, error) {
 	scheme := runtime.NewScheme()
-
 	for _, api := range (runtime.SchemeBuilder{
 		porchapi.AddToScheme,
 	}) {
@@ -39,45 +39,45 @@ func createScheme() (*runtime.Scheme, error) {
 			return nil, err
 		}
 	}
+	scheme.AddKnownTypes(porchapi.SchemeGroupVersion, &porchapi.PackageRevision{})
 	return scheme, nil
 }
 
 func TestCmd(t *testing.T) {
-	pkgRevName := "test-fjdos9u2nfe2f32"
+	repoName := "test-repo"
+	ns := "ns"
 	var scheme, err = createScheme()
 	if err != nil {
 		t.Fatalf("error creating scheme: %v", err)
 	}
 	testCases := map[string]struct {
-		output  string
-		wantErr bool
-		ns      string
+		output     string
+		wantErr    bool
+		ns         string
+		fakeclient client.WithWatch
 	}{
-		"Package not found in ns": {
-			output:  pkgRevName + " failed (packagerevisions.porch.kpt.dev \"" + pkgRevName + "\" not found)\n",
-			ns:      "doesnotexist",
-			wantErr: true,
+		"metadata.name required": {
+			wantErr:    true,
+			fakeclient: fake.NewClientBuilder().WithScheme(scheme).Build(),
 		},
-		"delete package": {
-			output: pkgRevName + " deleted\n",
-			ns:     "ns",
+		"clone package": {
+			wantErr: false,
+			ns:      ns,
+			output:  "pr-clone created\n",
+			fakeclient: fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
+				Create: func(ctx context.Context, client client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+					if obj.GetObjectKind().GroupVersionKind().Kind == "PackageRevision" {
+						obj.SetName("pr-clone")
+					}
+					return nil
+				},
+			}).WithScheme(scheme).Build(),
 		},
 	}
 
 	for tn := range testCases {
 		tc := testCases[tn]
 		t.Run(tn, func(t *testing.T) {
-			c := fake.NewClientBuilder().
-				WithScheme(scheme).
-				WithObjects(&porchapi.PackageRevision{
-					TypeMeta: metav1.TypeMeta{
-						Kind:       "PackageRevision",
-						APIVersion: porchapi.SchemeGroupVersion.Identifier(),
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: "ns",
-						Name:      pkgRevName,
-					}}).Build()
 
 			cmd := &cobra.Command{}
 			o := os.Stdout
@@ -91,14 +91,15 @@ func TestCmd(t *testing.T) {
 				cfg: &genericclioptions.ConfigFlags{
 					Namespace: &tc.ns,
 				},
-				client:  c,
-				Command: cmd,
+				client:     tc.fakeclient,
+				Command:    cmd,
+				repository: repoName,
 			}
 			go func() {
 				defer write.Close()
-				err := r.runE(cmd, []string{pkgRevName})
+				err := r.runE(cmd, []string{})
 				if err != nil && !tc.wantErr {
-					t.Errorf("unexpected error: %v", err)
+					t.Errorf("unexpected error: %v", err.Error())
 				}
 			}()
 			out, _ := io.ReadAll(read)
