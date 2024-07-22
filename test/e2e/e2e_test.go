@@ -1066,7 +1066,9 @@ func (t *PorchSuite) TestDeleteAndRecreate(ctx context.Context) {
 
 	t.mustExist(ctx, client.ObjectKey{Namespace: t.namespace, Name: created.Name}, &pkg)
 
-	// Propose deletion and then delete the package
+	mainPkg := t.waitUntilPackageRevisionExists(ctx, repository, packageName, "main")
+
+	t.Log("Propose deletion and then delete the package with revision v1")
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
 	t.UpdateApprovalF(ctx, &pkg, metav1.UpdateOptions{})
 
@@ -1076,8 +1078,19 @@ func (t *PorchSuite) TestDeleteAndRecreate(ctx context.Context) {
 			Name:      created.Name,
 		},
 	})
-
 	t.mustNotExist(ctx, &pkg)
+
+	t.Log("Propose deletion and then delete the package with revision main")
+	mainPkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
+	t.UpdateApprovalF(ctx, mainPkg, metav1.UpdateOptions{})
+
+	t.DeleteE(ctx, &porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: t.namespace,
+			Name:      mainPkg.Name,
+		},
+	})
+	t.mustNotExist(ctx, mainPkg)
 
 	// Recreate the package with the same name and workspace
 	created = t.createPackageDraftF(ctx, repository, packageName, workspace)

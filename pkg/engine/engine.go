@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022,2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -706,6 +706,15 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, repositoryObj *
 
 	sent := cad.watcherManager.NotifyPackageRevisionChange(watch.Modified, repoPkgRev, pkgRevMeta)
 	klog.Infof("engine: sent %d for updated PackageRevision %s/%s", sent, repoPkgRev.KubeObjectNamespace(), repoPkgRev.KubeObjectName())
+
+	// Refresh Cache after package is approved so that 'main' package rev is available instantly after creation
+	if repoPkgRev.Lifecycle() == api.PackageRevisionLifecyclePublished {
+		err := repo.RefreshCache(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return ToPackageRevision(repoPkgRev, pkgRevMeta), nil
 }
 
