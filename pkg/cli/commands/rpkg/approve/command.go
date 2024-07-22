@@ -25,7 +25,6 @@ import (
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -39,9 +38,8 @@ func NewCommand(ctx context.Context, rcg *genericclioptions.ConfigFlags) *cobra.
 
 func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner {
 	r := &runner{
-		ctx:    ctx,
-		cfg:    rcg,
-		client: nil,
+		ctx: ctx,
+		cfg: rcg,
 	}
 
 	c := &cobra.Command{
@@ -61,7 +59,7 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 type runner struct {
 	ctx     context.Context
 	cfg     *genericclioptions.ConfigFlags
-	client  rest.Interface
+	client  client.Client
 	Command *cobra.Command
 
 	// Flags
@@ -70,7 +68,7 @@ type runner struct {
 func (r *runner) preRunE(_ *cobra.Command, _ []string) error {
 	const op errors.Op = command + ".preRunE"
 
-	client, err := porch.CreateRESTClient(r.cfg)
+	client, err := porch.CreateClientWithFlags(r.cfg)
 	if err != nil {
 		return errors.E(op, err)
 	}
