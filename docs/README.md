@@ -1,4 +1,3 @@
 # Docs
 
-These are rough docs, brought over from the [kpt](https://github.com/kptdev/kpt)
-repository when Porch moved here. They need some work.
+The documentation was moved to the [Nephio Docs repo](https://github.com/nephio-project/docs/tree/main/content/en/docs/porch) and rendered in the [Nephio documentation page](https://docs.nephio.org/docs/porch/). 
