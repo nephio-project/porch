@@ -1035,6 +1035,44 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 			runtime:       cad.runtime,
 		}})
 
+		var kptFileContents kptfile.KptFile
+	unmarshErr := yaml.Unmarshal([]byte(appliedResources.Contents["Kptfile"]), &kptFileContents)
+	if unmarshErr != nil {
+		klog.Errorf("Error in Umarshaling Kptfile: %v", unmarshErr)
+	}
+
+	kptFileContents.Status = &kptfile.Status{
+		RenderStatus: &api.RenderStatus{
+			Result: api.ResultList{
+				TypeMeta: renderStatus.Result.TypeMeta,
+				// ignore object meta (not relevant)
+				ExitCode: renderStatus.Result.ExitCode,
+				Items:    renderStatus.Result.Items,
+			},
+			Err: renderStatus.Err,
+		},
+	}
+
+	byteKptfile, marshErr := yaml.Marshal(&kptFileContents)
+	if marshErr != nil {
+		klog.Errorf("Error in Marshaling Kptfile: %v", marshErr)
+	}
+	postRenderPkgRev := new
+
+	postRenderPkgRev.Spec.Resources["Kptfile"] = string(byteKptfile)
+	postRenderPkgRev.Status.RenderStatus = *renderStatus
+
+	mutations = []mutation{
+		&mutationReplaceResources{
+			newResources: postRenderPkgRev,
+			oldResources: new,
+		},
+	}
+	_, _, err = applyResourceMutations(ctx, draft, appliedResources, mutations)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	// No lifecycle change when updating package resources; updates are done.
 	repoPkgRev, err := draft.Close(ctx)
 	if err != nil {

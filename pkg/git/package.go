@@ -193,6 +193,14 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 
 	key := p.Key()
 
+	kf, err := p.GetKptfile(ctx)
+	if err != nil {
+		klog.Errorf("error: %v", err)
+	}
+	var dummyrenderstatus v1alpha1.RenderStatus
+	if kf.Status != nil {
+		dummyrenderstatus = *kf.Status.RenderStatus
+	}
 	return &v1alpha1.PackageRevisionResources{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevisionResources",
@@ -215,6 +223,9 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 			RepositoryName: key.Repository,
 
 			Resources: resources,
+		},
+		Status: v1alpha1.PackageRevisionResourcesStatus{
+			RenderStatus: dummyrenderstatus,
 		},
 	}, nil
 }

@@ -20,6 +20,7 @@ package v1
 import (
 	"fmt"
 
+	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
@@ -379,6 +380,7 @@ func (i Inventory) IsValid() bool {
 
 type Status struct {
 	Conditions []Condition `yaml:"conditions,omitempty" json:"conditions,omitempty"`
+	RenderStatus *api.RenderStatus `json:"renderStatus,omitempty"`
 }
 
 type Condition struct {
