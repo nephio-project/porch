@@ -240,6 +240,23 @@ deploy: deployment-config
 .PHONY: push-and-deploy
 push-and-deploy: push-images deploy
 
+.PHONY: run-in-kind 
+run-in-kind: IMAGE_REPO=porch-kind
+run-in-kind: IMAGE_TAG=test
+run-in-kind: load-images-to-kind deployment-config deploy-current-config ## Build and deploy porch into a kind cluster
+
+.PHONY: run-in-kind-no-server
+run-in-kind-no-server: IMAGE_REPO=porch-kind
+run-in-kind-no-server: IMAGE_TAG=test
+run-in-kind-no-server: SKIP_PORCHSERVER_BUILD=true
+run-in-kind-no-server: load-images-to-kind deployment-config-no-server deploy-current-config ## Build and deploy porch without the porch-server into a kind cluster
+
+.PHONY: run-in-kind-no-controller
+run-in-kind-no-controller: IMAGE_REPO=porch-kind
+run-in-kind-no-controller: IMAGE_TAG=test
+run-in-kind-no-controller: SKIP_CONTROLLER_BUILD=true
+run-in-kind-no-controller: load-images-to-kind deployment-config-no-controller deploy-current-config ## Build and deploy porch without the controllers into a kind cluster
+
 .PHONY: run-default
 run-default: undeploy-config deploy-default-config ## Run the default deployment in $(DEFAULTPORCHCONFIGDIR) in kind
 
@@ -259,23 +276,6 @@ run-override-in-kind-no-controller: IMAGE_REPO=porch-kind
 run-override-in-kind-no-controller: IMAGE_TAG=test
 run-override-in-kind-no-controller: SKIP_CONTROLLER_BUILD=true
 run-override-in-kind-no-controller: undeploy-config load-images-to-kind deployment-config-no-controller deploy-override-config ## Run the override deployment in $(DEPLOYPORCHCONFIGDIR) in kind without the porch controller 
-
-.PHONY: run-in-kind 
-run-in-kind: IMAGE_REPO=porch-kind
-run-in-kind: IMAGE_TAG=test
-run-in-kind: load-images-to-kind deployment-config deploy-current-config ## Build and deploy porch into a kind cluster
-
-.PHONY: run-in-kind-no-server
-run-in-kind-no-server: IMAGE_REPO=porch-kind
-run-in-kind-no-server: IMAGE_TAG=test
-run-in-kind-no-server: SKIP_PORCHSERVER_BUILD=true
-run-in-kind-no-server: load-images-to-kind deployment-config-no-server deploy-current-config ## Build and deploy porch without the porch-server into a kind cluster
-
-.PHONY: run-in-kind-no-controller
-run-in-kind-no-controller: IMAGE_REPO=porch-kind
-run-in-kind-no-controller: IMAGE_TAG=test
-run-in-kind-no-controller: SKIP_CONTROLLER_BUILD=true
-run-in-kind-no-controller: load-images-to-kind deployment-config-no-controller deploy-current-config ## Build and deploy porch without the controllers into a kind cluster
 
 .PHONY: destroy
 destroy: ## Deletes all porch resources installed by the last run-in-kind-* command
