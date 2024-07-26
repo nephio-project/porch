@@ -12,11 +12,28 @@
             "program": "${workspaceFolder}/cmd/porch/main.go",
             "args": [
                 "--secure-port=4443",
-                // "--v=7",
-                // "--standalone-debug-mode",
                 "--kubeconfig=${env:KUBECONFIG}",
                 "--cache-directory=${workspaceFolder}/.cache",
                 "--function-runner=172.18.255.201:9445",
+                "--repo-sync-frequency=60s"
+            ],
+            "cwd": "${workspaceFolder}",
+            "env": { 
+                "CERT_STORAGE_DIR": "${workspaceFolder}/.build/pki/tmp", 
+                "WEBHOOK_HOST": "localhost" 
+            }
+        },
+        {
+            "name": "Launch Override Server",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/porch/main.go",
+            "args": [
+                "--secure-port=4443",
+                "--kubeconfig=${userHome}/.kube/config",
+                "--cache-directory=${workspaceFolder}/.cache",
+                "--function-runner=172.18.0.202:9445",
                 "--repo-sync-frequency=60s"
             ],
             "cwd": "${workspaceFolder}",
