@@ -29,9 +29,9 @@ include default-go.mk
 # This includes the 'help' target that prints out all targets with their descriptions organized by categories
 include default-help.mk
 
-KIND_CONTEXT_NAME ?= kind
+KIND_CONTEXT_NAME ?= porch-test
 export IMAGE_REPO ?= docker.io/nephio
-export USER ?= ubuntu
+export USER ?= nephio
 
 export IMAGE_TAG
 ifndef IMAGE_TAG
