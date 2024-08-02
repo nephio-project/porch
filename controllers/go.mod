@@ -2,15 +2,11 @@ module github.com/nephio-project/porch/controllers
 
 go 1.22
 
-replace (
-	github.com/go-git/go-git/v5 v5.4.3-0.20220408232334-4f916225cb2f => github.com/platkrm/go-git/v5 v5.4.3-0.20220410165046-c76b262044ce
-	github.com/nephio-project/porch => ../
-	github.com/nephio-project/porch/api => ../api
-)
-
 require (
 	github.com/GoogleContainerTools/kpt-functions-sdk/go/fn v0.0.0-20230427202446-3255accc518d
 	github.com/google/cel-go v0.17.7
+	github.com/nephio-project/porch v0.0.0-20240722132258-c4b36b7a5fb1
+	github.com/nephio-project/porch/api v0.0.0-20240722132258-c4b36b7a5fb1
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/exp v0.0.0-20220916125017-b168a2c6b86b
 	golang.org/x/mod v0.16.0
@@ -23,11 +19,6 @@ require (
 	sigs.k8s.io/controller-runtime v0.17.2
 	sigs.k8s.io/kustomize/kyaml v0.14.3-0.20230601165947-6ce0bf390ce3
 	sigs.k8s.io/yaml v1.4.0
-)
-
-require (
-	github.com/nephio-project/porch v0.0.0-00010101000000-000000000000
-	github.com/nephio-project/porch/api v0.0.0-00010101000000-000000000000
 )
 
 require (

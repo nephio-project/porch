@@ -2,8 +2,6 @@ module github.com/nephio-project/porch
 
 go 1.22
 
-replace github.com/nephio-project/porch/api => ./api
-
 require (
 	cloud.google.com/go/iam v1.1.1
 	github.com/GoogleContainerTools/kpt v1.0.0-beta.48
@@ -25,7 +23,7 @@ require (
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/google/uuid v1.6.0
 	github.com/hexops/gotextdiff v1.0.3
-	github.com/nephio-project/porch/api v0.0.0-00010101000000-000000000000
+	github.com/nephio-project/porch/api v0.0.0-20240722132258-c4b36b7a5fb1
 	github.com/otiai10/copy v1.7.0
 	github.com/philopon/go-toposort v0.0.0-20170620085441-9be86dbd762f
 	github.com/prep/wasmexec v0.0.0-20220807105708-6554945c1dec
