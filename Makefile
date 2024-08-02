@@ -15,7 +15,6 @@
 MYGOBIN := $(shell go env GOPATH)/bin
 BUILDDIR=$(CURDIR)/.build
 CACHEDIR=$(CURDIR)/.cache
-export DEFAULTPORCHCONFIGDIR ?= /tmp/kpt-pkg/nephio/core/porch
 export DEPLOYPORCHCONFIGDIR ?= $(BUILDDIR)/deploy
 DEPLOYKPTCONFIGDIR=$(BUILDDIR)/kpt_pkgs
 PORCHDIR=$(abspath $(CURDIR))
@@ -29,7 +28,7 @@ include default-go.mk
 # This includes the 'help' target that prints out all targets with their descriptions organized by categories
 include default-help.mk
 
-KIND_CONTEXT_NAME ?= porch-test
+KIND_CONTEXT_NAME ?= kind
 export IMAGE_REPO ?= docker.io/nephio
 export USER ?= nephio
 
@@ -257,26 +256,6 @@ run-in-kind-no-controller: IMAGE_TAG=test
 run-in-kind-no-controller: SKIP_CONTROLLER_BUILD=true
 run-in-kind-no-controller: load-images-to-kind deployment-config-no-controller deploy-current-config ## Build and deploy porch without the controllers into a kind cluster
 
-.PHONY: run-default
-run-default: undeploy-config deploy-default-config ## Run the default deployment in $(DEFAULTPORCHCONFIGDIR) in kind
-
-.PHONY: run-override-in-kind 
-run-override-in-kind: IMAGE_REPO=porch-kind
-run-override-in-kind: IMAGE_TAG=test
-run-override-in-kind: undeploy-config load-images-to-kind deployment-config deploy-override-config ## Run the override deployment in $(DEPLOYPORCHCONFIGDIR) in kind
-
-.PHONY: run-override-in-kind-no-server
-run-override-in-kind-no-server: IMAGE_REPO=porch-kind
-run-override-in-kind-no-server: IMAGE_TAG=test
-run-override-in-kind-no-server: SKIP_PORCHSERVER_BUILD=true
-run-override-in-kind-no-server: undeploy-config load-images-to-kind deployment-config-no-server deploy-override-config ## Run the override deployment in $(DEPLOYPORCHCONFIGDIR) in kind without the porch server 
-
-.PHONY: run-override-in-kind-no-controller
-run-override-in-kind-no-controller: IMAGE_REPO=porch-kind
-run-override-in-kind-no-controller: IMAGE_TAG=test
-run-override-in-kind-no-controller: SKIP_CONTROLLER_BUILD=true
-run-override-in-kind-no-controller: undeploy-config load-images-to-kind deployment-config-no-controller deploy-override-config ## Run the override deployment in $(DEPLOYPORCHCONFIGDIR) in kind without the porch controller 
-
 .PHONY: destroy
 destroy: ## Deletes all porch resources installed by the last run-in-kind-* command
 	kpt live destroy $(DEPLOYPORCHCONFIGDIR)
@@ -343,37 +322,12 @@ load-images-to-kind: ## Build porch images and load them into a kind cluster
 .PHONY: deploy-current-config
 deploy-current-config: ## Deploy the configuration that is currently in $(DEPLOYPORCHCONFIGDIR)
 	kpt fn render $(DEPLOYPORCHCONFIGDIR)
-	kpt live init $(DEPLOYPORCHCONFIGDIR) --name porch --namespace porch-system --inventory-id porch-test || true
+	kpt live init $(DEPLOYPORCHCONFIGDIR) --name porch --namespace porch-system --inventory-id nephio || true
 	kpt live apply --inventory-policy=adopt --server-side --force-conflicts $(DEPLOYPORCHCONFIGDIR)
 	@kubectl rollout status deployment function-runner --namespace porch-system 2>/dev/null || true
 	@kubectl rollout status deployment porch-controllers --namespace porch-system 2>/dev/null || true
 	@kubectl rollout status deployment porch-server --namespace porch-system 2>/dev/null || true
 	@echo "Done."
-
-.PHONY: deploy-default-config
-deploy-default-config: ## Deploy or redeploy the default Porch deployments in $(DEFAULTPORCHCONFIGDIR)
-	kubectl apply -f $(DEFAULTPORCHCONFIGDIR)/2-function-runner.yaml
-	kubectl apply -f $(DEFAULTPORCHCONFIGDIR)/3-porch-server.yaml
-	kubectl apply -f $(DEFAULTPORCHCONFIGDIR)/9-controllers.yaml
-
-.PHONY: deploy-override-config
-deploy-override-config: ## Deploy the override Porch deployments in $(DEPLOYPORCHCONFIGDIR)
-	kubectl apply -f $(DEPLOYPORCHCONFIGDIR)/9-controllers.yaml
-	kubectl apply -f $(DEPLOYPORCHCONFIGDIR)/3-porch-server.yaml
-	kubectl apply -f $(DEPLOYPORCHCONFIGDIR)/3-porch-server-endpoints.yaml || true
-	kubectl apply -f $(DEPLOYPORCHCONFIGDIR)/2-function-runner.yaml
-	kubectl expose svc -n porch-system function-runner --name=xfunction-runner --type=LoadBalancer --load-balancer-ip='172.18.0.202'
-
-.PHONY: undeploy-config
-undeploy-config: ## Undeploy the default Porch deployments in $(DEFAULTPORCHCONFIGDIR) and $(DEPLOYPORCHCONFIGDIR)
-	kubectl delete -f $(DEFAULTPORCHCONFIGDIR)/9-controllers.yaml || true
-	kubectl delete -f $(DEFAULTPORCHCONFIGDIR)/3-porch-server.yaml || true
-	kubectl delete -f $(DEFAULTPORCHCONFIGDIR)/2-function-runner.yaml || true
-	kubectl delete -f $(DEPLOYPORCHCONFIGDIR)/9-controllers.yaml || true
-	kubectl delete -f $(DEPLOYPORCHCONFIGDIR)/3-porch-server-endpoints.yaml || true
-	kubectl delete -f $(DEPLOYPORCHCONFIGDIR)/3-porch-server.yaml || true
-	kubectl delete -f $(DEPLOYPORCHCONFIGDIR)/2-function-runner.yaml || true
-	kubectl delete svc -n porch-system xfunction-runner || true
 
 PKG=gitea-dev
 .PHONY: deploy-gitea-dev-pkg
