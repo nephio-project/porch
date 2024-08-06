@@ -121,7 +121,7 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 		return nil, fmt.Errorf("error cloning git repository %q, cannot create remote: %v", spec.Repo, err)
 	}
 
-	// NOTE: the spec.git.branch field in the Repository CRD (OpenAPI schema) defined with
+	// NOTE: the spec.git.branch field in the Repository CRD (OpenAPI schema) is defined with
 	//		 MinLength=1 validation and its default value is set to "main". This means that
 	// 		 it should never be empty at this point. The following code is left here as a last resort failsafe.
 	branch := MainBranch
