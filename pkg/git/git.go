@@ -121,6 +121,9 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 		return nil, fmt.Errorf("error cloning git repository %q, cannot create remote: %v", spec.Repo, err)
 	}
 
+	// NOTE: the spec.git.branch field in the Repository CRD (OpenAPI schema) defined with
+	//		 MinLength=1 validation and its default value is set to "main". This means that
+	// 		 it should never be empty at this point. The following code is left here as a last resort failsafe.
 	branch := MainBranch
 	if spec.Branch != "" {
 		branch = BranchName(spec.Branch)
@@ -140,8 +143,8 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 	}
 
 	if opts.UseGitCaBundle {
-		if caBundle, err := opts.CredentialResolver.ResolveCredential(ctx, namespace, namespace + "-ca-bundle"); err != nil {
-			klog.Errorf("failed to obtain caBundle from secret %s/%s: %v", namespace, namespace + "-ca-bundle", err)
+		if caBundle, err := opts.CredentialResolver.ResolveCredential(ctx, namespace, namespace+"-ca-bundle"); err != nil {
+			klog.Errorf("failed to obtain caBundle from secret %s/%s: %v", namespace, namespace+"-ca-bundle", err)
 		} else {
 			repository.caBundle = []byte(caBundle.ToString())
 		}
@@ -1095,8 +1098,8 @@ func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuild
 			Auth:              auth,
 			RequireRemoteRefs: require,
 			// TODO(justinsb): Need to ensure this is a compare-and-swap
-			Force: true,
-			CABundle:          r.caBundle,
+			Force:    true,
+			CABundle: r.caBundle,
 		})
 	}); err != nil {
 		return err
