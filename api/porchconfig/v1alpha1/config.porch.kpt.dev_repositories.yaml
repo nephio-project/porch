@@ -77,9 +77,11 @@ spec:
                   Ignored if `type` is not `git`.
                 properties:
                   branch:
+                    default: main
                     description: Name of the branch containing the packages. Finalized
                       packages will be committed to this branch (if the repository
                       allows write access). If unspecified, defaults to "main".
+                    minLength: 1
                     type: string
                   createBranch:
                     description: CreateBranch specifies if Porch should create the
@@ -176,9 +178,11 @@ spec:
                       Must be unspecified if `type` is not `git`.
                     properties:
                       branch:
+                        default: main
                         description: Name of the branch containing the packages. Finalized
                           packages will be committed to this branch (if the repository
                           allows write access). If unspecified, defaults to "main".
+                        minLength: 1
                         type: string
                       createBranch:
                         description: CreateBranch specifies if Porch should create
