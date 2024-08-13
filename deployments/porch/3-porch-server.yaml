@@ -68,6 +68,8 @@ spec:
             value: porch-server
           - name: CERT_STORAGE_DIR
             value: "/etc/webhook/certs"
+          - name: GOOGLE_API_GO_EXPERIMENTAL_DISABLE_NEW_AUTH_LIB
+            value: "true"
           args:
             - --function-runner=function-runner:9445
             - --cache-directory=/cache
