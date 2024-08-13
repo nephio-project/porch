@@ -46,7 +46,7 @@ jobs:
         uses: jaxxstorm/action-install-gh-release@v1.10.0
         with:
           repo: kptdev/kpt
-          tag: v1.0.0-beta.49
+          tag: v1.0.0-beta.54
           chmod: 0755
       - name: Build and install porchctl
         run: |
