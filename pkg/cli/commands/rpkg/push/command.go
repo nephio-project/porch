@@ -254,7 +254,12 @@ func readFromDir(dir string) (map[string]string, error) {
 	}); err != nil {
 		return nil, err
 	}
-	return resources, nil
+	newRes := make(map[string]string)
+	for key, value := range resources {
+		newKey := strings.ReplaceAll(key, "\\", "/")
+		newRes[newKey] = value
+	}
+	return newRes, nil
 }
 
 func readFromReader(in io.Reader) (map[string]string, error) {
