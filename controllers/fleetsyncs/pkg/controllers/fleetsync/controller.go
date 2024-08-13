@@ -36,8 +36,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/source"
+	// "sigs.k8s.io/controller-runtime/pkg/handler"
+	// "sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
@@ -713,6 +713,6 @@ func (r *FleetSyncReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&v1alpha1.FleetMembership{}).
 		Owns(&v1alpha1.FleetScope{}).
 		Owns(&v1alpha1.FleetMembershipBinding{}).
-		WatchesRawSource(&source.Channel{Source: channel}, &handler.EnqueueRequestForObject{}).
+		//WatchesRawSource(&source.Channel{Source: channel}, &handler.EnqueueRequestForObject{}).
 		Complete(r)
 }
