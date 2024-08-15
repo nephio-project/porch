@@ -256,7 +256,7 @@ func readFromDir(dir string) (map[string]string, error) {
 	}
 	newRes := make(map[string]string)
 	for key, value := range resources {
-		newKey := strings.ReplaceAll(key, "\\", "/")
+		newKey := filepath.ToSlash(key)
 		newRes[newKey] = value
 	}
 	return newRes, nil
