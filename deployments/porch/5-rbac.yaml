@@ -22,7 +22,7 @@ rules:
     verbs: ["get", "watch", "list"]
   - apiGroups: ["admissionregistration.k8s.io"]
     resources:
-      ["mutatingwebhookconfigurations", "validatingwebhookconfigurations", "validatingadmissionpolicies", "validatingadmissionpolicybindings"]
+      ["mutatingwebhookconfigurations", "validatingwebhookconfigurations"]
     verbs: ["get", "watch", "list", "create", "patch", "delete"]
   - apiGroups: ["porch.kpt.dev"]
     resources: ["functions"]

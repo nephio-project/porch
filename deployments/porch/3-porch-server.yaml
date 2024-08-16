@@ -76,6 +76,7 @@ spec:
             - --cert-dir=/tmp/certs
             - --secure-port=4443
             - --repo-sync-frequency=60s
+            - --disable-validating-admissions-policy=true
 
 ---
 apiVersion: v1
