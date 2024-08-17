@@ -249,17 +249,12 @@ func readFromDir(dir string) (map[string]string, error) {
 			// Return an early error here to prevent pushing corrupt content.
 			return fmt.Errorf("file %s is not a valid UTF-8 text file: current porch API doesn't support binary files", path)
 		}
-		resources[rel] = string(contents)
+		resources[filepath.ToSlash(rel)] = string(contents)
 		return nil
 	}); err != nil {
 		return nil, err
 	}
-	newRes := make(map[string]string)
-	for key, value := range resources {
-		newKey := filepath.ToSlash(key)
-		newRes[newKey] = value
-	}
-	return newRes, nil
+	return resources, nil
 }
 
 func readFromReader(in io.Reader) (map[string]string, error) {
