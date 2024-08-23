@@ -63,7 +63,7 @@ func TestCmd(t *testing.T) {
 			lc:     porchapi.PackageRevisionLifecycleDraft,
 		},
 		"Cannot propose package": {
-			output:  "cannot propose Published package\n",
+			output:  pkgRevName + " failed (cannot propose Published package)\n",
 			lc:      porchapi.PackageRevisionLifecyclePublished,
 			wantErr: true,
 		},
