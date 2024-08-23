@@ -21,24 +21,25 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func UpdatePackageRevisionApproval(ctx context.Context, client client.Client, key client.ObjectKey, new v1alpha1.PackageRevisionLifecycle) error {
-
-	var pr v1alpha1.PackageRevision
-	if err := client.Get(ctx, key, &pr); err != nil {
-		return err
-	}
+func UpdatePackageRevisionApproval(ctx context.Context, client client.Client, pr *v1alpha1.PackageRevision, new v1alpha1.PackageRevisionLifecycle) error {
 
 	switch lifecycle := pr.Spec.Lifecycle; lifecycle {
-	case v1alpha1.PackageRevisionLifecycleProposed, v1alpha1.PackageRevisionLifecycleDeletionProposed:
-		// ok
+	case v1alpha1.PackageRevisionLifecycleProposed:
+		// Approve - change the package revision kind to 'final'.
+		if new != v1alpha1.PackageRevisionLifecyclePublished && new != v1alpha1.PackageRevisionLifecycleDraft {
+			return fmt.Errorf("cannot change approval from %s to %s", lifecycle, new)
+		}
+	case v1alpha1.PackageRevisionLifecycleDeletionProposed:
+		if new != v1alpha1.PackageRevisionLifecyclePublished {
+			return fmt.Errorf("cannot change approval from %s to %s", lifecycle, new)
+		}
 	case new:
 		// already correct value
 		return nil
 	default:
 		return fmt.Errorf("cannot change approval from %s to %s", lifecycle, new)
 	}
-	// Approve - change the package revision kind to "final".
-	pr.Spec.Lifecycle = new
-	return client.SubResource("approval").Update(ctx, &pr)
 
+	pr.Spec.Lifecycle = new
+	return client.SubResource("approval").Update(ctx, pr)
 }
