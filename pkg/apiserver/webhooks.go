@@ -35,7 +35,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
 	"github.com/nephio-project/porch/pkg/util"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -293,9 +293,9 @@ func createValidatingWebhook(ctx context.Context, cfg *WebhookConfig, caCert []b
 			Rules: []admissionregistrationv1.RuleWithOperations{{Operations: []admissionregistrationv1.OperationType{
 				admissionregistrationv1.Delete},
 				Rule: admissionregistrationv1.Rule{
-					APIGroups:   []string{"porch.kpt.dev"},
-					APIVersions: []string{"v1alpha1"},
-					Resources:   []string{"packagerevisions"},
+					APIGroups:   []string{porchapi.SchemeGroupVersion.Group},
+					APIVersions: []string{porchapi.SchemeGroupVersion.Version},
+					Resources:   []string{porchapi.PackageRevisionGVR.Resource},
 				},
 			}},
 			AdmissionReviewVersions: []string{"v1", "v1beta1"},
@@ -439,8 +439,7 @@ func validateDeletion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify that we have a PackageRevision resource
-	pkgRevGVK := metav1.GroupVersionResource{Group: "porch.kpt.dev", Version: "v1alpha1", Resource: "packagerevisions"}
-	if admissionReviewRequest.Request.Resource != pkgRevGVK {
+	if admissionReviewRequest.Request.Resource != util.SchemaToMetaGVR(porchapi.PackageRevisionGVR) {
 		errMsg := fmt.Sprintf("did not receive PackageRevision, got %s", admissionReviewRequest.Request.Resource.Resource)
 		writeErr(errMsg, &w)
 		return
@@ -453,7 +452,7 @@ func validateDeletion(w http.ResponseWriter, r *http.Request) {
 		writeErr(errMsg, &w)
 		return
 	}
-	pr := v1alpha1.PackageRevision{}
+	pr := porchapi.PackageRevision{}
 	if err := porchClient.Get(context.Background(), client.ObjectKey{
 		Namespace: admissionReviewRequest.Request.Namespace,
 		Name:      admissionReviewRequest.Request.Name,
@@ -462,7 +461,7 @@ func validateDeletion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	admissionResponse := &admissionv1.AdmissionResponse{}
-	if pr.Spec.Lifecycle == v1alpha1.PackageRevisionLifecyclePublished {
+	if pr.Spec.Lifecycle == porchapi.PackageRevisionLifecyclePublished {
 		admissionResponse.Allowed = false
 		admissionResponse.Result = &metav1.Status{
 			Status:  "Failure",

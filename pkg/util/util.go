@@ -21,7 +21,10 @@ import (
 	"fmt"
 	"os"
 
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	registrationapi "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -76,15 +79,24 @@ func GetPorchApiServiceKey(ctx context.Context) (client.ObjectKey, error) {
 	}
 
 	apiSvc := registrationapi.APIService{}
+	apiSvcName := porchapi.SchemeGroupVersion.Version + "." + porchapi.SchemeGroupVersion.Group
 	err = c.Get(ctx, client.ObjectKey{
-		Name: "v1alpha1.porch.kpt.dev",
+		Name: apiSvcName,
 	}, &apiSvc)
 	if err != nil {
-		return client.ObjectKey{}, fmt.Errorf("failed to get APIService 'v1alpha1.porch.kpt.dev': %w", err)
+		return client.ObjectKey{}, fmt.Errorf("failed to get APIService %q: %w", apiSvcName, err)
 	}
 
 	return client.ObjectKey{
 		Namespace: apiSvc.Spec.Service.Namespace,
 		Name:      apiSvc.Spec.Service.Name,
 	}, nil
+}
+
+func SchemaToMetaGVR(gvr schema.GroupVersionResource) metav1.GroupVersionResource {
+	return metav1.GroupVersionResource{
+		Group:    gvr.Group,
+		Version:  gvr.Version,
+		Resource: gvr.Resource,
+	}
 }
