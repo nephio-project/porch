@@ -39,6 +39,14 @@ const (
 	LatestPackageRevisionValue = "true"
 )
 
+// Porchfile
+type PorchFile struct {
+	metav1.TypeMeta   `yaml:",inline"`
+	metav1.ObjectMeta `yaml:"metadata,omitempty"`
+
+	Status *RenderStatus `yaml:"status,omitempty"`
+}
+
 // PackageRevisionList
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type PackageRevisionList struct {

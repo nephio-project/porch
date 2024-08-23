@@ -39,6 +39,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -1035,14 +1036,18 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 			runtime:       cad.runtime,
 		}})
 
-		var kptFileContents kptfile.KptFile
-	unmarshErr := yaml.Unmarshal([]byte(appliedResources.Contents["Kptfile"]), &kptFileContents)
-	if unmarshErr != nil {
-		klog.Errorf("Error in Umarshaling Kptfile: %v", unmarshErr)
-	}
-
-	kptFileContents.Status = &kptfile.Status{
-		RenderStatus: &api.RenderStatus{
+	porchFileContents := api.PorchFile{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1alpha1",
+			Kind:       "PorchFile",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "Porch-Metadata",
+			Annotations: map[string]string{
+				"config.kubernetes.io/local-config": "true",
+			},
+		},
+		Status: &api.RenderStatus{
 			Result: api.ResultList{
 				TypeMeta: renderStatus.Result.TypeMeta,
 				// ignore object meta (not relevant)
@@ -1053,14 +1058,20 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 		},
 	}
 
-	byteKptfile, marshErr := yaml.Marshal(&kptFileContents)
+	if value, ok := appliedResources.Contents["PorchFile"]; ok {
+		unmarshErr := yaml.Unmarshal([]byte(value), &porchFileContents)
+		if unmarshErr != nil {
+			klog.Errorf("Error in Umarshaling PorchFile: %v", unmarshErr)
+		}
+	}
+
+	bytePorchfile, marshErr := yaml.Marshal(&porchFileContents)
 	if marshErr != nil {
-		klog.Errorf("Error in Marshaling Kptfile: %v", marshErr)
+		klog.Errorf("Error in Marshaling PorchFile: %v", marshErr)
 	}
 	postRenderPkgRev := new
 
-	postRenderPkgRev.Spec.Resources["Kptfile"] = string(byteKptfile)
-	postRenderPkgRev.Status.RenderStatus = *renderStatus
+	postRenderPkgRev.Spec.Resources["PorchFile"] = string(bytePorchfile)
 
 	mutations = []mutation{
 		&mutationReplaceResources{
