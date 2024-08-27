@@ -2,3 +2,4 @@
 .cache/
 default.etcd/
 apiserver.local.config/
+__debug_bin*

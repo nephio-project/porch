@@ -286,15 +286,15 @@ load-images-to-kind: ## Build porch images and load them into a kind cluster
   # only build test-git-server & function-runner if they are not already loaded into kind
 	@if ! docker exec "${KIND_CONTEXT_NAME}-control-plane" crictl images | grep -q "$(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE)  *${IMAGE_TAG} " ; then \
 		echo "Building $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG}" ; \
-		IMAGE_NAME="$(TEST_GIT_SERVER_IMAGE)" make -C test/ build-image ; \
+		IMAGE_NAME="$(TEST_GIT_SERVER_IMAGE)" make -C test/ build-image && \
 		kind load docker-image $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} ; \
 	else \
 		echo "Skipping building $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG} as it is already loaded into kind" ; \
 	fi
 	@if ! docker exec "${KIND_CONTEXT_NAME}-control-plane" crictl images | grep -q "$(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE)  *${IMAGE_TAG} " ; then \
 		echo "Building $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):${IMAGE_TAG}" ; \
-		IMAGE_NAME="$(PORCH_FUNCTION_RUNNER_IMAGE)" WRAPPER_SERVER_IMAGE_NAME="$(PORCH_WRAPPER_SERVER_IMAGE)" make -C func/ build-image ; \
-		kind load docker-image $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} ; \
+		IMAGE_NAME="$(PORCH_FUNCTION_RUNNER_IMAGE)" WRAPPER_SERVER_IMAGE_NAME="$(PORCH_WRAPPER_SERVER_IMAGE)" make -C func/ build-image && \
+		kind load docker-image $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} && \
 		kind load docker-image $(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} ; \
 	else \
 		echo "Skipping building $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):${IMAGE_TAG} as it is already loaded into kind" ; \
@@ -302,19 +302,19 @@ load-images-to-kind: ## Build porch images and load them into a kind cluster
     # NOTE: SKIP_PORCHSERVER_BUILD must be evaluated at runtime, hence the shell conditional (if) here
 	@if [ "$(SKIP_PORCHSERVER_BUILD)" = "false"	]; then \
 		echo "Building $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):${IMAGE_TAG}" ; \
-		docker buildx build --load --tag $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG) -f ./build/Dockerfile "$(PORCHDIR)" ; \
+		docker buildx build --load --tag $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG) -f ./build/Dockerfile "$(PORCHDIR)" && \
 		kind load docker-image $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} ; \
 	fi
 	@if [ "$(SKIP_CONTROLLER_BUILD)" = "false"	]; then \
 		echo "Building $(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):${IMAGE_TAG}" ; \
-		IMAGE_NAME="$(PORCH_CONTROLLERS_IMAGE)" make -C controllers/ build-image ; \
+		IMAGE_NAME="$(PORCH_CONTROLLERS_IMAGE)" make -C controllers/ build-image && \
 		kind load docker-image $(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} ; \
 	fi
 
   else
-	kind load docker-image $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} ; \
-	kind load docker-image $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} ; \
-	kind load docker-image $(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} ; \
+	kind load docker-image $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} 
+	kind load docker-image $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
+	kind load docker-image $(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} 
 	kind load docker-image $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
 	kind load docker-image $(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
   endif
