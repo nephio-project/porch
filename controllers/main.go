@@ -43,7 +43,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/controllers/fleetsyncs/pkg/controllers/fleetsync"
 	"github.com/nephio-project/porch/controllers/packagevariants/pkg/controllers/packagevariant"
 	"github.com/nephio-project/porch/controllers/packagevariantsets/pkg/controllers/packagevariantset"
 	"github.com/nephio-project/porch/pkg/controllerrestmapper"
@@ -54,7 +53,6 @@ var (
 	reconcilers = map[string]Reconciler{
 		"packagevariants":    &packagevariant.PackageVariantReconciler{},
 		"packagevariantsets": &packagevariantset.PackageVariantSetReconciler{},
-		"fleetsyncs":         fleetsync.NewFleetSyncReconciler(),
 	}
 )
 
