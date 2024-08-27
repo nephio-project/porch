@@ -16,6 +16,7 @@ package e2e
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -31,10 +32,12 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
@@ -730,21 +733,52 @@ func (t *PorchSuite) TestFunctionRepository(ctx context.Context) {
 	// avoid flakiness.
 	t.WaitUntilRepositoryReady(ctx, repo.Name, repo.Namespace)
 
-	// Wait here for the repository to be cached in porch. We wait
-	// first one minute, since Porch waits 1 minute before it syncs
-	// the repo for the first time. Then wait another minute so that
-	// the sync has (hopefully) finished.
-	// TODO(mortent): We need a better solution for this. This is only
-	// temporary to fix the current flakiness with the e2e tests.
-	t.Log("Waiting for 2 minutes for the repository to be cached")
-	<-time.NewTimer(2 * time.Minute).C
+	t.Log("Waiting for 1 minute to avoid most of the initial transient period")
+	<-time.NewTimer(1 * time.Minute).C
 
-	list := &porchapi.FunctionList{}
-	t.ListE(ctx, list, client.InNamespace(t.Namespace))
-
+	t.Log("Waiting for the gcr.io/kpt-fn repository to be cached in porch")
+	timeout := 5 * time.Minute
+	list := porchapi.FunctionList{}
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, timeout, false, func(ctx context.Context) (bool, error) {
+		err := t.Client.List(ctx, &list, client.InNamespace(t.Namespace))
+		if err != nil {
+			if apierrors.IsTimeout(err) ||
+				errors.Is(err, os.ErrDeadlineExceeded) ||
+				errors.Is(err, context.DeadlineExceeded) {
+				// in case of a timeout, we simply retry
+				t.Logf("timeout -> retry: %v", err)
+				return false, nil
+			} else {
+				// unfortunately, transient errors can happen during normal operation, so we retry instead of failing
+				t.Logf("Warning: error listing functions in gcr.io/kpt-fn repository: %v", err)
+				return false, nil
+			}
+		}
+		if len(list.Items) == 0 {
+			// unfortunately, sometimes an empty list is returned without any errors during the transient period, so we retry instead of failing
+			t.Log("Warning: an empty list of functions was returned (temporarily?)")
+			return false, nil
+		}
+		return true, nil
+	})
+	if err != nil {
+		t.Errorf("Error listing functions in gcr.io/kpt-fn repository with timeout of %v: %v", timeout, err)
+	}
 	if got := len(list.Items); got == 0 {
 		t.Errorf("Found no functions in gcr.io/kpt-fn repository; expected at least one")
 	}
+}
+
+func (t *PorchSuite) newClientWithTimeout(timeout time.Duration) client.Client {
+	cfg := *t.kubeconfig
+	cfg.Timeout = timeout
+	c, err := client.New(&cfg, client.Options{
+		Scheme: t.Client.Scheme(),
+	})
+	if err != nil {
+		t.Fatalf("Failed to create client with timeout: %v", err)
+	}
+	return c
 }
 
 func (t *PorchSuite) TestPublicGitRepository(ctx context.Context) {
