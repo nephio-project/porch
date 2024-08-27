@@ -18,9 +18,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/GoogleContainerTools/kpt-functions-catalog/functions/go/apply-replacements/replacements"
-	"github.com/GoogleContainerTools/kpt-functions-catalog/functions/go/set-namespace/transformer"
-	"github.com/GoogleContainerTools/kpt-functions-catalog/functions/go/starlark/starlark"
 	fnsdk "github.com/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	"github.com/nephio-project/porch/pkg/kpt"
 	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
@@ -30,23 +27,7 @@ import (
 // When updating the version for the builtin functions, please also update the image version
 // in test TestBuiltinFunctionEvaluator in porch/test/e2e/e2e_test.go, if the versions mismatch
 // the e2e test will fail in local deployment mode.
-var (
-	applyReplacementsImageAliases = []string{
-		"gcr.io/kpt-fn/apply-replacements:v0.1.1",
-		"gcr.io/kpt-fn/apply-replacements:v0.1",
-		"gcr.io/kpt-fn/apply-replacements@sha256:85913d4ec8db62053eb060ff1b7e26d13ff8853b75cae4d0461b8a1c7ddd4947",
-	}
-	setNamespaceImageAliases = []string{
-		"gcr.io/kpt-fn/set-namespace:v0.4.1",
-		"gcr.io/kpt-fn/set-namespace:v0.4",
-		"gcr.io/kpt-fn/set-namespace@sha256:f930d9248001fa763799cc81cf2d89bbf83954fc65de0db20ab038a21784f323",
-	}
-	starlarkImageAliases = []string{
-		"gcr.io/kpt-fn/starlark:v0.4.3",
-		"gcr.io/kpt-fn/starlark:v0.4",
-		"gcr.io/kpt-fn/starlark@sha256:6ba3971c64abcd6c3d93039d45721bb5ab496c7fbbc9ac1e685b11577f368ce0",
-	}
-)
+var ()
 
 type builtinRuntime struct {
 	fnMapping map[string]fnsdk.ResourceListProcessor
@@ -54,15 +35,6 @@ type builtinRuntime struct {
 
 func newBuiltinRuntime() *builtinRuntime {
 	fnMap := map[string]fnsdk.ResourceListProcessor{}
-	for _, img := range applyReplacementsImageAliases {
-		fnMap[img] = fnsdk.ResourceListProcessorFunc(replacements.ApplyReplacements)
-	}
-	for _, img := range setNamespaceImageAliases {
-		fnMap[img] = fnsdk.ResourceListProcessorFunc(transformer.SetNamespace)
-	}
-	for _, img := range starlarkImageAliases {
-		fnMap[img] = fnsdk.ResourceListProcessorFunc(starlark.Process)
-	}
 	return &builtinRuntime{
 		fnMapping: fnMap,
 	}

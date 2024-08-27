@@ -156,7 +156,7 @@ GO_MODULES = \
  
 .PHONY: tidy
 tidy:
-	@for f in $(GO_MODULES); do (cd $$f; echo "Tidying $$f"; go mod tidy) || exit 1; done
+	go mod tidy
 
 .PHONY: configure-git
 configure-git:
