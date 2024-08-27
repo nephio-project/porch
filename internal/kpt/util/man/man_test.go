@@ -116,47 +116,32 @@ The \fBjava\fP package runs a container containing a java application.
 .PP
 Java server Deployment.
 
-.PP
-.RS
-
-.nf
+.EX
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: java
-
-.fi
-.RE
+.EE
 
 .PP
 Java server Service
 
-.PP
-.RS
-
-.nf
+.EX
 apiVersion: v1
 kind: Service
 metadata:
   name: java
-
-.fi
-.RE
+.EE
 
 .PP
 Java server ConfigMap
 
-.PP
-.RS
-
-.nf
+.EX
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: java-config
-
-.fi
-.RE
+.EE
 `, b.String())
 }
 
