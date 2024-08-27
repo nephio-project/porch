@@ -49,14 +49,15 @@ const (
 
 // PorchServerOptions contains state for master/api server
 type PorchServerOptions struct {
-	RecommendedOptions       *genericoptions.RecommendedOptions
-	LocalStandaloneDebugging bool // Enables local standalone running/debugging of the apiserver.
-	CacheDirectory           string
-	CoreAPIKubeconfigPath    string
-	FunctionRunnerAddress    string
-	DefaultImagePrefix       string
-	RepoSyncFrequency        time.Duration
-	UseGitCaBundle           bool
+	RecommendedOptions       			*genericoptions.RecommendedOptions
+	LocalStandaloneDebugging 			bool // Enables local standalone running/debugging of the apiserver.
+	CacheDirectory           			string
+	CoreAPIKubeconfigPath    			string
+	FunctionRunnerAddress    			string
+	DefaultImagePrefix       			string
+	RepoSyncFrequency        			time.Duration
+	UseGitCaBundle           			bool
+	DisableValidatingAdmissionPolicy 	bool
 
 	SharedInformerFactory informers.SharedInformerFactory
 	StdOut                io.Writer
@@ -172,6 +173,10 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 		return []admission.PluginInitializer{}, nil
 	}
 
+	if o.DisableValidatingAdmissionPolicy {
+		o.RecommendedOptions.Admission.DisablePlugins = []string{"ValidatingAdmissionPolicy"}
+	}
+
 	serverConfig := genericapiserver.NewRecommendedConfig(apiserver.Codecs)
 
 	serverConfig.OpenAPIConfig = genericapiserver.DefaultOpenAPIConfig(sampleopenapi.GetOpenAPIDefinitions, openapi.NewDefinitionNamer(apiserver.Scheme))
@@ -241,5 +246,6 @@ func (o *PorchServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.DefaultImagePrefix, "default-image-prefix", "gcr.io/kpt-fn/", "Default prefix for unqualified function names")
 	fs.StringVar(&o.CacheDirectory, "cache-directory", "", "Directory where Porch server stores repository and package caches.")
 	fs.BoolVar(&o.UseGitCaBundle, "use-git-cabundle", false, "Determine whether to use a user-defined CaBundle for TLS towards git.")
+	fs.BoolVar(&o.DisableValidatingAdmissionPolicy, "disable-validating-admissions-policy", true, "Determine whether to (dis|en)able the Validating Admission Policy, which requires k8s version >= v1.30")
 	fs.DurationVar(&o.RepoSyncFrequency, "repo-sync-frequency", 60*time.Second, "Frequency in seconds at which registered repositories will be synced.")
 }
