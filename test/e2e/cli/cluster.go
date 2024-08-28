@@ -17,6 +17,7 @@ package e2e
 import (
 	"bytes"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -80,6 +81,22 @@ func InferGitServerImage(porchImage string) string {
 	return repo + TestGitServerImage + ":" + tag
 }
 
+func PorchctlFullPath(t *testing.T) string {
+	porchctlFullPath, err := filepath.Abs(filepath.Join("..", "..", "..", ".build", "porchctl"))
+	if err != nil {
+		t.Fatalf("Failed to get absolute path to .build directory: %v", err)
+	}
+	return porchctlFullPath
+}
+
+func Porchctl(t *testing.T, args ...string) error {
+	cmd := exec.Command(PorchctlFullPath(t), args...)
+	t.Logf("running command: porchctl %v", strings.Join(cmd.Args, " "))
+	outBytes, err := cmd.CombinedOutput()
+	t.Logf("porchctl output: %v", string(outBytes))
+	return err
+}
+
 func KubectlApply(t *testing.T, config string) {
 	cmd := exec.Command("kubectl", "apply", "-f", "-")
 	cmd.Stdin = strings.NewReader(config)
@@ -141,7 +158,7 @@ func KubectlWaitForLoadBalancerIp(t *testing.T, namespace, name string) string {
 
 		err := cmd.Run()
 		ip := stdout.String()
-		if err == nil && len(ip) > 0 { // Loadbalancer assigned an external IP
+		if err == nil && len(ip) > 0 { // LoadBalancer assigned an external IP
 			t.Logf("LoadBalancer external IP: %s", ip)
 			return ip
 		}
@@ -169,11 +186,9 @@ func KubectlWaitForGitDNS(t *testing.T, gitServerURL string) {
 	// We expect repos to automatically be created (albeit empty)
 	repoURL := gitServerURL + "/" + name
 
-	cmd := exec.Command("porchctl", "repo", "register", "--namespace", name, "--name", name, repoURL)
-	t.Logf("running command %v", strings.Join(cmd.Args, " "))
-	out, err := cmd.CombinedOutput()
+	err := Porchctl(t, "repo", "register", "--namespace", name, "--name", name, repoURL)
 	if err != nil {
-		t.Fatalf("Failed to register probe repository: %v\n%s", err, string(out))
+		t.Fatalf("Failed to register probe repository: %v", err)
 	}
 
 	// Based on experience, DNS seems to get updated inside the cluster within
@@ -182,10 +197,7 @@ func KubectlWaitForGitDNS(t *testing.T, gitServerURL string) {
 	// IP address directly.
 	giveUp := time.Now().Add(1 * time.Minute)
 	for {
-		cmd := exec.Command("porchctl", "rpkg", "get", "--namespace", name)
-		t.Logf("running command %v", strings.Join(cmd.Args, " "))
-		out, err := cmd.CombinedOutput()
-		t.Logf("output: %v", string(out))
+		err := Porchctl(t, "rpkg", "get", "--namespace", name)
 
 		if err == nil {
 			break
@@ -232,12 +244,12 @@ func RemovePackagerevFinalizers(t *testing.T, namespace string) {
 		t.Fatalf("Error when getting packagerevs from namespace: %v: %s", err, stderr.String())
 	}
 
-	packagerevs := realySplit(stdout.String(), " ")
+	packagerevs := reallySplit(stdout.String(), " ")
 	if len(packagerevs) == 0 {
 		t.Log("kubectl get packagerevs didn't return any objects - continue")
 		return
 	}
-	t.Logf("Removing Finalizers from PackagRevs: %v", packagerevs)
+	t.Logf("Removing Finalizers from PackageRevs: %v", packagerevs)
 
 	for _, pkgrev := range packagerevs {
 		cmd := exec.Command("kubectl", "patch", "packagerev", pkgrev, "--type", "json", "--patch=[{\"op\": \"remove\", \"path\": \"/metadata/finalizers\"}]", "--namespace", namespace)
@@ -248,7 +260,7 @@ func RemovePackagerevFinalizers(t *testing.T, namespace string) {
 	}
 }
 
-func realySplit(s, sep string) []string {
+func reallySplit(s, sep string) []string {
 	if len(s) == 0 {
 		return []string{}
 	}
@@ -256,11 +268,8 @@ func realySplit(s, sep string) []string {
 }
 
 func RegisterRepository(t *testing.T, repoURL, namespace, name string) {
-	cmd := exec.Command("porchctl", "repo", "register", "--namespace", namespace, "--name", name, repoURL)
-	t.Logf("running command %v", strings.Join(cmd.Args, " "))
-	out, err := cmd.CombinedOutput()
+	err := Porchctl(t, "repo", "register", "--namespace", namespace, "--name", name, repoURL)
 	if err != nil {
-		t.Fatalf("Failed to register repository %q: %v\n%s", repoURL, err, string(out))
+		t.Fatalf("Failed to register repository %q: %v", repoURL, err)
 	}
-	t.Logf("output: %v", string(out))
 }
