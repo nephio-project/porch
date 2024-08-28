@@ -303,12 +303,14 @@ load-images-to-kind: ## Build porch images and load them into a kind cluster
 	@if [ "$(SKIP_PORCHSERVER_BUILD)" = "false"	]; then \
 		echo "Building $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):${IMAGE_TAG}" ; \
 		docker buildx build --load --tag $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG) -f ./build/Dockerfile "$(PORCHDIR)" && \
-		kind load docker-image $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} ; \
+		kind load docker-image $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} && \
+		kubectl delete deployment -n porch-system --ignore-not-found=true porch-server ; \
 	fi
 	@if [ "$(SKIP_CONTROLLER_BUILD)" = "false"	]; then \
 		echo "Building $(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):${IMAGE_TAG}" ; \
 		IMAGE_NAME="$(PORCH_CONTROLLERS_IMAGE)" make -C controllers/ build-image && \
-		kind load docker-image $(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} ; \
+		kind load docker-image $(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} && \
+		kubectl delete deployment -n porch-system --ignore-not-found=true porch-controllers ; \
 	fi
 
   else
@@ -353,5 +355,5 @@ test-e2e: ## Run end-to-end tests
 	E2E=1 go test -v -failfast ./test/e2e/cli
 
 .PHONY: test-e2e-clean
-test-e2e-clean: ## Run end-to-end tests aginst a newly deployed porch in a newly created kind cluster
+test-e2e-clean: porchctl ## Run end-to-end tests aginst a newly deployed porch in a newly created kind cluster
 	./scripts/clean-e2e-test.sh
