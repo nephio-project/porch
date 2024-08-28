@@ -50,15 +50,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
-const (
-	serverEndpoint = "/validate-deletion"
-)
-
 type WebhookType string
 
 const (
 	WebhookTypeService WebhookType = "service"
 	WebhookTypeUrl     WebhookType = "url"
+	serverEndpoint                 = "/validate-deletion"
+)
+
+var (
+	cert        tls.Certificate
+	certModTime time.Time
 )
 
 // WebhookConfig defines the configuration for the PackageRevision deletion webhook
@@ -73,6 +75,7 @@ type WebhookConfig struct {
 	CertManWebhook   bool
 }
 
+// NewWebhookConfig creates a new WebhookConfig object filled with values read from environment variables
 func NewWebhookConfig(ctx context.Context) *WebhookConfig {
 	var cfg WebhookConfig
 	// NOTE: CERT_NAMESPACE is supported for backward compatibility.
@@ -83,48 +86,7 @@ func NewWebhookConfig(ctx context.Context) *WebhookConfig {
 		!hasEnv("WEBHOOK_HOST") {
 
 		cfg.Type = WebhookTypeService
-
-		var apiSvcNs string
-		cfg.ServiceName = os.Getenv("WEBHOOK_SERVICE_NAME")
-		if cfg.ServiceName == "" { // empty value and unset envvar are the same for our purposes
-			// if WEBHOOK_SERVICE_NAME is not set, try to use the porch API service name
-			apiSvc, err := util.GetPorchApiServiceKey(ctx)
-			if err != nil {
-				panic(fmt.Sprintf("WEBHOOK_SERVICE_NAME environment variable is not set, and could not find porch APIservice: %v", err))
-			}
-			cfg.ServiceName = apiSvc.Name
-			apiSvcNs = apiSvc.Namespace // cache the namespace value to avoid duplicate calls of GetPorchApiServiceKey()
-		}
-		// the webhook service namespace gets it value from the following sources in order of precedence:
-		// - WEBHOOK_SERVICE_NAMESPACE environment variable
-		// - CERT_NAMESPACE environment variable
-		// - porch API service namespace
-		// - namespace of the current process (if running in a pod)
-		cfg.ServiceNamespace = os.Getenv("WEBHOOK_SERVICE_NAMESPACE")
-		if cfg.ServiceNamespace == "" {
-			cfg.ServiceNamespace = os.Getenv("CERT_NAMESPACE")
-		}
-		if cfg.ServiceNamespace == "" {
-			cfg.ServiceNamespace = apiSvcNs
-		}
-		if cfg.ServiceNamespace == "" {
-			apiSvc, err := util.GetPorchApiServiceKey(ctx)
-			if err == nil {
-				cfg.ServiceNamespace = apiSvc.Namespace
-			}
-		}
-		if cfg.ServiceNamespace == "" {
-			var err error
-			cfg.ServiceNamespace, err = util.GetInClusterNamespace()
-			if err != nil {
-				// this was our last resort, so panic if failed
-				panic(fmt.Sprintf("WEBHOOK_SERVICE_NAMESPACE environment variable is not set, and could determine in-cluster namespace: %v", err))
-			}
-		}
-		// theoretically this should never happen, but this is a failsafe
-		if cfg.ServiceName == "" || cfg.ServiceNamespace == "" {
-			panic("Couldn't automatically determine a valid value for WEBHOOK_SERVICE_NAME and WEBHOOK_SERVICE_NAMESPACE environment variables. Please set them explicitly!")
-		}
+		cfg.ServiceName, cfg.ServiceNamespace = WebhookServiceName(ctx)
 		cfg.Host = fmt.Sprintf("%s.%s.svc", cfg.ServiceName, cfg.ServiceNamespace)
 	} else {
 		cfg.Type = WebhookTypeUrl
@@ -137,10 +99,56 @@ func NewWebhookConfig(ctx context.Context) *WebhookConfig {
 	return &cfg
 }
 
-var (
-	cert        tls.Certificate
-	certModTime time.Time
-)
+// WebhookServiceName returns the name and namespace of Kubernetes service belonging to the webhook
+func WebhookServiceName(ctx context.Context) (serviceName, serviceNamespace string) {
+	var apiSvcNs string
+
+	// the webhook service namespace gets it value from the following sources in order of precedence:
+	// - WEBHOOK_SERVICE_NAME environment variable
+	// - the name of the service referenced in porch's APIService object
+	serviceName = os.Getenv("WEBHOOK_SERVICE_NAME")
+	if serviceName == "" { // empty value and unset envvar are the same for our purposes
+		// if WEBHOOK_SERVICE_NAME is not set, try to use the porch API service name
+		apiSvc, err := util.GetPorchApiServiceKey(ctx)
+		if err != nil {
+			panic(fmt.Sprintf("WEBHOOK_SERVICE_NAME environment variable is not set, and could not find porch's APIservice: %v", err))
+		}
+		serviceName = apiSvc.Name
+		apiSvcNs = apiSvc.Namespace // cache the namespace value to avoid duplicate calls of GetPorchApiServiceKey()
+	}
+
+	// the webhook service namespace gets it value from the following sources in order of precedence:
+	// - WEBHOOK_SERVICE_NAMESPACE environment variable
+	// - CERT_NAMESPACE environment variable
+	// - the namespace of the service referenced in porch's APIService object
+	// - namespace of the current process (if running in a pod)
+	serviceNamespace = os.Getenv("WEBHOOK_SERVICE_NAMESPACE")
+	if serviceNamespace == "" {
+		serviceNamespace = os.Getenv("CERT_NAMESPACE")
+	}
+	if serviceNamespace == "" {
+		serviceNamespace = apiSvcNs
+	}
+	if serviceNamespace == "" {
+		apiSvc, err := util.GetPorchApiServiceKey(ctx)
+		if err == nil {
+			serviceNamespace = apiSvc.Namespace
+		}
+	}
+	if serviceNamespace == "" {
+		var err error
+		serviceNamespace, err = util.GetInClusterNamespace()
+		if err != nil {
+			// this was our last resort, so panic if failed
+			panic(fmt.Sprintf("WEBHOOK_SERVICE_NAMESPACE environment variable is not set, and couldn't deduce its value either: %v", err))
+		}
+	}
+	// theoretically this should never happen, but this is a failsafe
+	if serviceName == "" || serviceNamespace == "" {
+		panic("Couldn't automatically determine a valid value for WEBHOOK_SERVICE_NAME and WEBHOOK_SERVICE_NAMESPACE environment variables. Please set them explicitly!")
+	}
+	return
+}
 
 func setupWebhooks(ctx context.Context) error {
 	cfg := NewWebhookConfig(ctx)
