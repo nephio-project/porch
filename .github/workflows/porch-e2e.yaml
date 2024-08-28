@@ -18,14 +18,12 @@ on:
     paths-ignore:
       - "docs/**"
       - "release/**"
-      - "deployments/**"
       - ".prow.yaml"
       - "OWNERS"
   pull_request:
     paths-ignore:
       - "docs/**"
       - "release/**"
-      - "deployments/**"
       - ".prow.yaml"
       - "OWNERS"
 jobs:
