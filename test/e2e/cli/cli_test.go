@@ -116,6 +116,14 @@ func runTestCase(t *testing.T, repoURL string, tc TestCaseConfig, searchAndRepla
 				command.Args[i] = strings.ReplaceAll(arg, search, replace)
 			}
 		}
+		if command.Args[0] == "porchctl" {
+			// make sure that we are testing the porchctl command built from this codebase
+			fullCmdPath, err := filepath.Abs(filepath.Join("..", "..", "..", ".build", "porchctl"))
+			if err != nil {
+				t.Fatalf("Failed to get absolute path to .build directory: %v", err)
+			}
+			command.Args[0] = fullCmdPath
+		}
 		cmd := exec.Command(command.Args[0], command.Args[1:]...)
 
 		var stdout, stderr bytes.Buffer
