@@ -75,8 +75,8 @@ type WebhookConfig struct {
 	CertManWebhook   bool
 }
 
-// NewWebhookConfig creates a new WebhookConfig object filled with values read from environment variables
-func NewWebhookConfig(ctx context.Context) *WebhookConfig {
+// newWebhookConfig creates a new WebhookConfig object filled with values read from environment variables
+func newWebhookConfig(ctx context.Context) *WebhookConfig {
 	var cfg WebhookConfig
 	// NOTE: CERT_NAMESPACE is supported for backward compatibility.
 	// TODO: We may consider using only WEBHOOK_SERVICE_NAMESPACE instead.
@@ -86,7 +86,7 @@ func NewWebhookConfig(ctx context.Context) *WebhookConfig {
 		!hasEnv("WEBHOOK_HOST") {
 
 		cfg.Type = WebhookTypeService
-		cfg.ServiceName, cfg.ServiceNamespace = WebhookServiceName(ctx)
+		cfg.ServiceName, cfg.ServiceNamespace = webhookServiceName(ctx)
 		cfg.Host = fmt.Sprintf("%s.%s.svc", cfg.ServiceName, cfg.ServiceNamespace)
 	} else {
 		cfg.Type = WebhookTypeUrl
@@ -99,8 +99,8 @@ func NewWebhookConfig(ctx context.Context) *WebhookConfig {
 	return &cfg
 }
 
-// WebhookServiceName returns the name and namespace of Kubernetes service belonging to the webhook
-func WebhookServiceName(ctx context.Context) (serviceName, serviceNamespace string) {
+// webhookServiceName returns the name and namespace of Kubernetes service belonging to the webhook
+func webhookServiceName(ctx context.Context) (serviceName, serviceNamespace string) {
 	var apiSvcNs string
 
 	// the webhook service namespace gets it value from the following sources in order of precedence:
@@ -151,7 +151,7 @@ func WebhookServiceName(ctx context.Context) (serviceName, serviceNamespace stri
 }
 
 func setupWebhooks(ctx context.Context) error {
-	cfg := NewWebhookConfig(ctx)
+	cfg := newWebhookConfig(ctx)
 	if !cfg.CertManWebhook {
 		caBytes, err := createCerts(cfg)
 		if err != nil {
