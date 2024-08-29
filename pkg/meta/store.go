@@ -116,13 +116,6 @@ func (c *crdMetadataStore) Create(ctx context.Context, pkgRevMeta PackageRevisio
 	}
 	labels[PkgRevisionRepoLabel] = repoName
 
-	ownerReferences := append(pkgRevMeta.OwnerReferences, metav1.OwnerReference{
-		APIVersion: packageRevisionGVK.GroupVersion().String(),
-		Kind:       packageRevisionGVK.Kind,
-		Name:       pkgRevMeta.Name,
-		UID:        pkgRevUID,
-	})
-
 	finalizers := append(pkgRevMeta.Finalizers, PkgRevisionFinalizer)
 
 	internalPkgRev := internalapi.PackageRev{
@@ -132,7 +125,7 @@ func (c *crdMetadataStore) Create(ctx context.Context, pkgRevMeta PackageRevisio
 			Labels:          labels,
 			Annotations:     pkgRevMeta.Annotations,
 			Finalizers:      finalizers,
-			OwnerReferences: ownerReferences,
+			OwnerReferences: pkgRevMeta.OwnerReferences,
 		},
 	}
 	klog.Infof("Creating packagerev %s/%s", internalPkgRev.Namespace, internalPkgRev.Name)
@@ -171,15 +164,7 @@ func (c *crdMetadataStore) Update(ctx context.Context, pkgRevMeta PackageRevisio
 	internalPkgRev.Labels = labels
 	internalPkgRev.Annotations = pkgRevMeta.Annotations
 
-	// Copy update ownerReferences to the CR and make sure to also
-	// add the ownerReferences pointing to the PackageRevision.
-	ownerReferences := pkgRevMeta.OwnerReferences
-	for _, or := range internalPkgRev.OwnerReferences {
-		if isPackageRevOwnerRef(or, internalPkgRev.Name) {
-			ownerReferences = append(ownerReferences, or)
-		}
-	}
-	internalPkgRev.OwnerReferences = ownerReferences
+	internalPkgRev.OwnerReferences = pkgRevMeta.OwnerReferences
 	internalPkgRev.Finalizers = append(pkgRevMeta.Finalizers, PkgRevisionFinalizer)
 
 	klog.Infof("Updating packagerev %s/%s", internalPkgRev.Namespace, internalPkgRev.Name)
@@ -217,15 +202,6 @@ func toPackageRevisionMeta(internalPkgRev *internalapi.PackageRev) PackageRevisi
 	labels := internalPkgRev.Labels
 	delete(labels, PkgRevisionRepoLabel)
 
-	var ownerReferences []metav1.OwnerReference
-	for _, or := range internalPkgRev.OwnerReferences {
-		// Don't include ownerReference to the PackageRevision itself. It is
-		// only used by Porch internally.
-		if !isPackageRevOwnerRef(or, internalPkgRev.Name) {
-			ownerReferences = append(ownerReferences, or)
-		}
-	}
-
 	var finalizers []string
 	for _, f := range internalPkgRev.Finalizers {
 		if f != PkgRevisionFinalizer {
@@ -239,13 +215,7 @@ func toPackageRevisionMeta(internalPkgRev *internalapi.PackageRev) PackageRevisi
 		Labels:            labels,
 		Annotations:       internalPkgRev.Annotations,
 		Finalizers:        finalizers,
-		OwnerReferences:   ownerReferences,
+		OwnerReferences:   internalPkgRev.OwnerReferences,
 		DeletionTimestamp: internalPkgRev.DeletionTimestamp,
 	}
-}
-
-func isPackageRevOwnerRef(or metav1.OwnerReference, pkgRevName string) bool {
-	return or.APIVersion == packageRevisionGVK.GroupVersion().String() &&
-		or.Kind == packageRevisionGVK.Kind &&
-		or.Name == pkgRevName
 }
