@@ -66,13 +66,6 @@ else
   endif
 endif
 
-# Modules are ordered in dependency order. A module precedes modules that depend on it.
-MODULES = \
- examples/apps/hello-server \
- api \
- . \
- controllers \
-
 .DEFAULT_GOAL := all
 
 .PHONY: all
@@ -139,17 +132,30 @@ start-function-runner:
 	  $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):$(IMAGE_TAG) \
 	  -disable-runtimes pod
 
+
+ # API Modules
+API_MODULES = \
+ api \
+ pkg/kpt/api \
+ controllers \
+
 .PHONY: generate-api
 generate-api:
 	KUBE_VERBOSE=2 $(CURDIR)/scripts/generate-api.sh
 
 .PHONY: generate
 generate: generate-api ## Generate CRDs, other K8s manifests and helper go code
-	@for f in $(MODULES); do (cd $$f; echo "Generating $$f"; go generate -v ./...) || exit 1; done
+	@for f in $(API_MODULES); do (cd $$f; echo "Generating for $$f ..."; go generate -v ./...) || exit 1; done
 
+# Go Modules are ordered in dependency order. A module precedes modules that depend on it.
+GO_MODULES = \
+ api \
+ . \
+ controllers \
+ 
 .PHONY: tidy
 tidy:
-	@for f in $(MODULES); do (cd $$f; echo "Tidying $$f"; go mod tidy) || exit 1; done
+	@for f in $(GO_MODULES); do (cd $$f; echo "Tidying $$f"; go mod tidy) || exit 1; done
 
 .PHONY: configure-git
 configure-git:
