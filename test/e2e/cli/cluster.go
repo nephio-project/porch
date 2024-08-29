@@ -17,7 +17,6 @@ package e2e
 import (
 	"bytes"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -79,22 +78,6 @@ func InferGitServerImage(porchImage string) string {
 	tag := image[colon+1:]
 
 	return repo + TestGitServerImage + ":" + tag
-}
-
-func PorchctlFullPath(t *testing.T) string {
-	porchctlFullPath, err := filepath.Abs(filepath.Join("..", "..", "..", ".build", "porchctl"))
-	if err != nil {
-		t.Fatalf("Failed to get absolute path to .build directory: %v", err)
-	}
-	return porchctlFullPath
-}
-
-func Porchctl(t *testing.T, args ...string) error {
-	cmd := exec.Command(PorchctlFullPath(t), args...)
-	t.Logf("running command: porchctl %v", strings.Join(cmd.Args, " "))
-	outBytes, err := cmd.CombinedOutput()
-	t.Logf("porchctl output: %v", string(outBytes))
-	return err
 }
 
 func KubectlApply(t *testing.T, config string) {
@@ -175,42 +158,6 @@ func KubectlWaitForLoadBalancerIp(t *testing.T, namespace, name string) string {
 	}
 }
 
-// Kubernetes DNS needs time to propagate the updated address
-// Wait until we can register the repository and list its contents.
-func KubectlWaitForGitDNS(t *testing.T, gitServerURL string) {
-	const name = "test-git-dns-resolve"
-
-	KubectlCreateNamespace(t, name)
-	defer KubectlDeleteNamespace(t, name)
-
-	// We expect repos to automatically be created (albeit empty)
-	repoURL := gitServerURL + "/" + name
-
-	err := Porchctl(t, "repo", "register", "--namespace", name, "--name", name, repoURL)
-	if err != nil {
-		t.Fatalf("Failed to register probe repository: %v", err)
-	}
-
-	// Based on experience, DNS seems to get updated inside the cluster within
-	// few seconds. We will wait about a minute.
-	// If this turns out to be an issue, we will sidestep DNS and use the Endpoints
-	// IP address directly.
-	giveUp := time.Now().Add(1 * time.Minute)
-	for {
-		err := Porchctl(t, "rpkg", "get", "--namespace", name)
-
-		if err == nil {
-			break
-		}
-
-		if time.Now().After(giveUp) {
-			t.Fatalf("Git service DNS resolution failed: %v", err)
-		}
-
-		time.Sleep(5 * time.Second)
-	}
-}
-
 func KubectlCreateNamespace(t *testing.T, name string) {
 	cmd := exec.Command("kubectl", "create", "namespace", name)
 	t.Logf("running command %v", strings.Join(cmd.Args, " "))
@@ -265,11 +212,4 @@ func reallySplit(s, sep string) []string {
 		return []string{}
 	}
 	return strings.Split(s, sep)
-}
-
-func RegisterRepository(t *testing.T, repoURL, namespace, name string) {
-	err := Porchctl(t, "repo", "register", "--namespace", namespace, "--name", name, repoURL)
-	if err != nil {
-		t.Fatalf("Failed to register repository %q: %v", repoURL, err)
-	}
 }

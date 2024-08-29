@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,37 +37,45 @@ const (
 	defaultTestGitServerUrl = "http://" + testGitName + "." + testGitNamespace + ".svc.cluster.local:8080"
 )
 
-func TestPorch(t *testing.T) {
-	e2e := os.Getenv("E2E")
-	if e2e == "" {
-		t.Skip("set E2E to run this test")
-	}
+type CliTestSuite struct {
+	// The path of the directory containing the test cases.
+	TestDataPath string
+	// SearchAndReplace contains (search, replace) pairs that will be applied to the command output before comparison.
+	SearchAndReplace map[string]string
+	// GitServerURL is the URL of the git server to use for the tests.
+	GitServerURL string
+	// PorchctlCommand is the full path to the porchctl command to be tested.
+	PorchctlCommand string
+}
 
-	abs, err := filepath.Abs(filepath.Join(".", "testdata"))
+// NewCliTestSuite creates a new CliTestSuite based on the configuration in the testdata directory.
+func NewCliTestSuite(t *testing.T, testdataDir string) *CliTestSuite {
+	var err error
+
+	s := &CliTestSuite{}
+	// set base dir
+	s.TestDataPath, err = filepath.Abs(testdataDir)
 	if err != nil {
 		t.Fatalf("Failed to get absolute path to testdata directory: %v", err)
 	}
-	runTests(t, abs)
-}
-
-func runUtilityCommand(t *testing.T, command string, args ...string) error {
-	cmd := exec.Command(command, args...)
-	t.Logf("running utility command %s %s", command, strings.Join(args, " "))
-	return cmd.Run()
-}
-
-func runTests(t *testing.T, path string) {
-	var searchAndReplace = map[string]string{}
-
-	gitServerURL := startGitServer(t, path)
-	if gitServerURL != defaultTestGitServerUrl {
-		searchAndReplace[defaultTestGitServerUrl] = gitServerURL
+	// find porchctl to test
+	s.PorchctlCommand, err = filepath.Abs(filepath.Join("..", "..", "..", ".build", "porchctl"))
+	if err != nil {
+		t.Fatalf("Failed to get absolute path to .build/porchctl command: %v", err)
+	}
+	if _, err := os.Stat(s.PorchctlCommand); err != nil {
+		t.Fatalf("porchctl command not found at %q: %v", s.PorchctlCommand, err)
 	}
 
-	testCases := scanTestCases(t, path)
+	// start git server
+	s.StartGitServer(t) // sets s.GitServerURL
+	s.SearchAndReplace = map[string]string{}
+	if s.GitServerURL != defaultTestGitServerUrl {
+		s.SearchAndReplace[defaultTestGitServerUrl] = s.GitServerURL
+	}
 
-	// remove any tmp files from previous test runs
-	err := runUtilityCommand(t, "rm", "-rf", "/tmp/porch-e2e")
+	// prepare tmp directory used by the commands in the test cases
+	err = runUtilityCommand(t, "rm", "-rf", "/tmp/porch-e2e")
 	if err != nil {
 		t.Fatalf("Failed to clean up older run: %v", err)
 	}
@@ -75,50 +83,46 @@ func runTests(t *testing.T, path string) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
+	return s
+}
 
+// RunTests runs the test cases in the testdata directory.
+func (s *CliTestSuite) RunTests(t *testing.T) {
+	testCases := s.ScanTestCases(t)
 	for _, tc := range testCases {
 		t.Run(tc.TestCase, func(t *testing.T) {
 			if tc.Skip != "" {
 				t.Skipf("Skipping test: %s", tc.Skip)
 			}
-			repoURL := gitServerURL + "/" + strings.ReplaceAll(tc.TestCase, "/", "-")
-			runTestCase(t, repoURL, tc, searchAndReplace)
+			s.RunTestCase(t, tc)
 		})
 	}
 }
 
-func normalizeWhitespace(s1 string) string {
-	parts := strings.Split(s1, " ")
-	words := make([]string, 0, len(parts))
-	for _, part := range parts {
-		if part != "" {
-			words = append(words, part)
-		}
-	}
-	return strings.Join(words, " ")
-}
+// RunTestCase runs a single test case.
+func (s *CliTestSuite) RunTestCase(t *testing.T, tc TestCaseConfig) {
+	repoURL := s.GitServerURL + "/" + strings.ReplaceAll(tc.TestCase, "/", "-")
 
-func runTestCase(t *testing.T, repoURL string, tc TestCaseConfig, searchAndReplace map[string]string) {
 	KubectlCreateNamespace(t, tc.TestCase)
 	t.Cleanup(func() {
 		KubectlDeleteNamespace(t, tc.TestCase)
 	})
 
 	if tc.Repository != "" {
-		RegisterRepository(t, repoURL, tc.TestCase, tc.Repository)
+		s.RegisterRepository(t, repoURL, tc.TestCase, tc.Repository)
 	}
 
 	for i := range tc.Commands {
 		time.Sleep(1 * time.Second)
 		command := &tc.Commands[i]
 		for i, arg := range command.Args {
-			for search, replace := range searchAndReplace {
+			for search, replace := range s.SearchAndReplace {
 				command.Args[i] = strings.ReplaceAll(arg, search, replace)
 			}
 		}
 		if command.Args[0] == "porchctl" {
 			// make sure that we are testing the porchctl command built from this codebase
-			command.Args[0] = PorchctlFullPath(t)
+			command.Args[0] = s.PorchctlCommand
 		}
 		cmd := exec.Command(command.Args[0], command.Args[1:]...)
 
@@ -140,7 +144,7 @@ func runTestCase(t *testing.T, repoURL string, tc TestCaseConfig, searchAndRepla
 
 		stdoutStr := stdout.String()
 		stderrStr := stderr.String()
-		for search, replace := range searchAndReplace {
+		for search, replace := range s.SearchAndReplace {
 			command.Stdout = strings.ReplaceAll(command.Stdout, search, replace)
 			command.Stderr = strings.ReplaceAll(command.Stderr, search, replace)
 		}
@@ -180,6 +184,134 @@ func runTestCase(t *testing.T, repoURL string, tc TestCaseConfig, searchAndRepla
 	if os.Getenv(updateGoldenFiles) != "" {
 		WriteTestCaseConfig(t, &tc)
 	}
+}
+
+func (s *CliTestSuite) StartGitServer(t *testing.T) {
+	isPorchInCluster := IsPorchServerRunningInCluster(t)
+	gitServerImage := GetGitServerImageName(t)
+	t.Logf("Git Image: %s", gitServerImage)
+
+	configFile := filepath.Join(s.TestDataPath, "git-server.yaml")
+	configBytes, err := os.ReadFile(configFile)
+	if err != nil {
+		t.Fatalf("Failed to read git server config file %q: %v", configFile, err)
+	}
+	config := string(configBytes)
+	config = strings.ReplaceAll(config, "GIT_SERVER_IMAGE", gitServerImage)
+	if !isPorchInCluster {
+		config = strings.ReplaceAll(config, "ClusterIP", "LoadBalancer")
+	}
+
+	t.Cleanup(func() {
+		KubectlDeleteNamespace(t, testGitNamespace)
+	})
+
+	KubectlApply(t, config)
+	KubectlWaitForDeployment(t, testGitNamespace, testGitName)
+	KubectlWaitForService(t, testGitNamespace, testGitName)
+
+	if isPorchInCluster {
+		s.GitServerURL = defaultTestGitServerUrl
+		s.KubectlWaitForGitDNS(t)
+	} else {
+		ip := KubectlWaitForLoadBalancerIp(t, testGitNamespace, testGitName)
+		s.GitServerURL = "http://" + ip + ":8080"
+	}
+}
+
+// ScanTestCases parses the test case configs from the testdata directory.
+func (s *CliTestSuite) ScanTestCases(t *testing.T) []TestCaseConfig {
+	testCases := []TestCaseConfig{}
+
+	if err := filepath.Walk(s.TestDataPath, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			return nil
+		}
+		if path == s.TestDataPath {
+			return nil
+		}
+
+		tc := ReadTestCaseConfig(t, info.Name(), path)
+		testCases = append(testCases, tc)
+
+		return nil
+	}); err != nil {
+		t.Fatalf("Failed to scan test cases: %v", err)
+	}
+
+	return testCases
+}
+
+// Porchctl runs the porchctl command under test with the given arguments.
+func (s *CliTestSuite) Porchctl(t *testing.T, args ...string) error {
+	cmd := exec.Command(s.PorchctlCommand, args...)
+	t.Logf("running command: porchctl %v", strings.Join(args, " "))
+	outBytes, err := cmd.CombinedOutput()
+	t.Logf("porchctl output: %v", string(outBytes))
+	return err
+}
+
+func (s *CliTestSuite) RegisterRepository(t *testing.T, repoURL, namespace, name string) {
+	err := s.Porchctl(t, "repo", "register", "--namespace", namespace, "--name", name, repoURL)
+	if err != nil {
+		t.Fatalf("Failed to register repository %q: %v", repoURL, err)
+	}
+}
+
+// Kubernetes DNS needs time to propagate the git server's domain name.
+// Wait until we can register the repository and list its contents.
+func (s *CliTestSuite) KubectlWaitForGitDNS(t *testing.T) {
+	const name = "test-git-dns-resolve"
+
+	KubectlCreateNamespace(t, name)
+	defer KubectlDeleteNamespace(t, name)
+
+	// We expect repos to automatically be created (albeit empty)
+	repoURL := s.GitServerURL + "/" + name
+
+	err := s.Porchctl(t, "repo", "register", "--namespace", name, "--name", name, repoURL)
+	if err != nil {
+		t.Fatalf("Failed to register probe repository: %v", err)
+	}
+
+	// Based on experience, DNS seems to get updated inside the cluster within
+	// few seconds. We will wait about a minute.
+	// If this turns out to be an issue, we will sidestep DNS and use the Endpoints
+	// IP address directly.
+	giveUp := time.Now().Add(1 * time.Minute)
+	for {
+		err := s.Porchctl(t, "rpkg", "get", "--namespace", name)
+
+		if err == nil {
+			break
+		}
+
+		if time.Now().After(giveUp) {
+			t.Fatalf("Git service DNS resolution failed: %v", err)
+		}
+
+		time.Sleep(5 * time.Second)
+	}
+}
+
+func runUtilityCommand(t *testing.T, command string, args ...string) error {
+	cmd := exec.Command(command, args...)
+	t.Logf("running utility command %s %s", command, strings.Join(args, " "))
+	return cmd.Run()
+}
+
+func normalizeWhitespace(s1 string) string {
+	parts := strings.Split(s1, " ")
+	words := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part != "" {
+			words = append(words, part)
+		}
+	}
+	return strings.Join(words, " ")
 }
 
 func removeArmPlatformWarning(got string) string {
@@ -250,66 +382,6 @@ func reorderYamlStdout(t *testing.T, buf *bytes.Buffer) {
 	if _, err := buf.Write(stable.Bytes()); err != nil {
 		t.Fatalf("Failed to update reordered yaml output: %v", err)
 	}
-}
-
-func startGitServer(t *testing.T, path string) string {
-	isPorchInCluster := IsPorchServerRunningInCluster(t)
-	gitServerImage := GetGitServerImageName(t)
-	t.Logf("Git Image: %s", gitServerImage)
-
-	configFile := filepath.Join(path, "git-server.yaml")
-	configBytes, err := os.ReadFile(configFile)
-	if err != nil {
-		t.Fatalf("Failed to read git server config file %q: %v", configFile, err)
-	}
-	config := string(configBytes)
-	config = strings.ReplaceAll(config, "GIT_SERVER_IMAGE", gitServerImage)
-	if !isPorchInCluster {
-		config = strings.ReplaceAll(config, "ClusterIP", "LoadBalancer")
-	}
-
-	t.Cleanup(func() {
-		KubectlDeleteNamespace(t, testGitNamespace)
-	})
-
-	KubectlApply(t, config)
-	KubectlWaitForDeployment(t, testGitNamespace, testGitName)
-	KubectlWaitForService(t, testGitNamespace, testGitName)
-
-	gitServerURL := defaultTestGitServerUrl
-	if isPorchInCluster {
-		KubectlWaitForGitDNS(t, gitServerURL)
-	} else {
-		ip := KubectlWaitForLoadBalancerIp(t, testGitNamespace, testGitName)
-		gitServerURL = "http://" + ip + ":8080"
-	}
-
-	return gitServerURL
-}
-
-func scanTestCases(t *testing.T, root string) []TestCaseConfig {
-	testCases := []TestCaseConfig{}
-
-	if err := filepath.Walk(root, func(path string, info fs.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() {
-			return nil
-		}
-		if path == root {
-			return nil
-		}
-
-		tc := ReadTestCaseConfig(t, info.Name(), path)
-		testCases = append(testCases, tc)
-
-		return nil
-	}); err != nil {
-		t.Fatalf("Failed to scan test cases: %v", err)
-	}
-
-	return testCases
 }
 
 func updateCommand(command *Command, exit error, stdout, stderr string) {
