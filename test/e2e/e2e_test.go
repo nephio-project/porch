@@ -769,8 +769,8 @@ func (t *PorchSuite) TestFunctionRepository(ctx context.Context) {
 	}
 }
 
-func (t *PorchSuite) newClientWithTimeout(timeout time.Duration) client.Client {
-	cfg := *t.kubeconfig
+func (t *PorchSuite) NewClientWithTimeout(timeout time.Duration) client.Client {
+	cfg := *t.Kubeconfig
 	cfg.Timeout = timeout
 	c, err := client.New(&cfg, client.Options{
 		Scheme: t.Client.Scheme(),
@@ -1538,7 +1538,7 @@ for resource in ctx.resource_list["items"]:
 }
 
 func (t *PorchSuite) TestPodFunctionEvaluatorWithDistrolessImage(ctx context.Context) {
-	if t.testRunnerIsLocal {
+	if t.TestRunnerIsLocal {
 		t.Skipf("Skipping due to not having pod evaluator in local mode")
 	}
 
@@ -1619,7 +1619,7 @@ data:
 }
 
 func (t *PorchSuite) TestPodEvaluator(ctx context.Context) {
-	if t.testRunnerIsLocal {
+	if t.TestRunnerIsLocal {
 		t.Skipf("Skipping due to not having pod evaluator in local mode")
 	}
 
@@ -1780,7 +1780,7 @@ func (t *PorchSuite) TestPodEvaluator(ctx context.Context) {
 }
 
 func (t *PorchSuite) TestPodEvaluatorWithFailure(ctx context.Context) {
-	if t.testRunnerIsLocal {
+	if t.TestRunnerIsLocal {
 		t.Skipf("Skipping due to not having pod evaluator in local mode")
 	}
 

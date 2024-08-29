@@ -80,16 +80,16 @@ func (p Password) String() string {
 
 type TestSuite struct {
 	*testing.T
-	kubeconfig *rest.Config
+	Kubeconfig *rest.Config
 	Client     client.Client
 
 	// Strongly-typed client handy for reading e.g. pod logs
-	kubeClient kubernetes.Interface
+	KubeClient kubernetes.Interface
 
-	clientset porchclient.Interface
+	Clientset porchclient.Interface
 
 	Namespace         string // K8s namespace for this test run
-	testRunnerIsLocal bool   // Tests running against local dev porch
+	TestRunnerIsLocal bool   // Tests running against local dev porch
 }
 
 type Initializer interface {
@@ -149,22 +149,22 @@ func (t *TestSuite) Initialize(ctx context.Context) {
 		t.Fatalf("Failed to initialize k8s client (%s): %v", cfg.Host, err)
 	} else {
 		t.Client = c
-		t.kubeconfig = cfg
+		t.Kubeconfig = cfg
 	}
 
 	if kubeClient, err := kubernetes.NewForConfig(cfg); err != nil {
 		t.Fatalf("failed to initialize kubernetes clientset: %v", err)
 	} else {
-		t.kubeClient = kubeClient
+		t.KubeClient = kubeClient
 	}
 
 	if cs, err := porchclient.NewForConfig(cfg); err != nil {
 		t.Fatalf("Failed to initialize Porch clientset: %v", err)
 	} else {
-		t.clientset = cs
+		t.Clientset = cs
 	}
 
-	t.testRunnerIsLocal = !t.IsTestRunnerInCluster()
+	t.TestRunnerIsLocal = !t.IsTestRunnerInCluster()
 
 	namespace := fmt.Sprintf("porch-test-%d", time.Now().UnixMicro())
 	t.CreateF(ctx, &coreapi.Namespace{
@@ -330,7 +330,7 @@ func (t *TestSuite) patch(ctx context.Context, obj client.Object, patch client.P
 func (t *TestSuite) updateApproval(ctx context.Context, obj *porchapi.PackageRevision, opts metav1.UpdateOptions, eh ErrorHandler) *porchapi.PackageRevision {
 	t.Helper()
 	t.Logf("updating approval of %v", DebugFormat(obj))
-	if res, err := t.clientset.PorchV1alpha1().PackageRevisions(obj.Namespace).UpdateApproval(ctx, obj.Name, obj, opts); err != nil {
+	if res, err := t.Clientset.PorchV1alpha1().PackageRevisions(obj.Namespace).UpdateApproval(ctx, obj.Name, obj, opts); err != nil {
 		eh("failed to update approval of %s/%s: %v", obj.Namespace, obj.Name, err)
 		return nil
 	} else {
