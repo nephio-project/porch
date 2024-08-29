@@ -40,7 +40,6 @@ import (
 	"github.com/nephio-project/porch/pkg/git"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
-	porchtest "github.com/nephio-project/porch/test/e2e/cli"
 	appsv1 "k8s.io/api/apps/v1"
 	coreapi "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,6 +57,7 @@ const (
 	// TODO: accept a flag?
 	PorchTestConfigFile = "porch-test-config.yaml"
 	updateGoldenFiles   = "UPDATE_GOLDEN_FILES"
+	TestGitServerImage  = "test-git-server"
 )
 
 type GitConfig struct {
@@ -542,7 +542,7 @@ func (t *TestSuite) createInClusterGitServer(ctx context.Context, exposeByLoadBa
 		Name:      "function-runner",
 	}, &porch)
 
-	gitImage := porchtest.InferGitServerImage(porch.Spec.Template.Spec.Containers[0].Image)
+	gitImage := InferGitServerImage(porch.Spec.Template.Spec.Containers[0].Image)
 
 	var deploymentKey = client.ObjectKey{
 		Namespace: t.Namespace,
@@ -730,6 +730,16 @@ func (t *TestSuite) createInClusterGitServer(ctx context.Context, exposeByLoadBa
 		Branch:    "main",
 		Directory: "/",
 	}
+}
+
+func InferGitServerImage(porchImage string) string {
+	slash := strings.LastIndex(porchImage, "/")
+	repo := porchImage[:slash+1]
+	image := porchImage[slash+1:]
+	colon := strings.LastIndex(image, ":")
+	tag := image[colon+1:]
+
+	return repo + TestGitServerImage + ":" + tag
 }
 
 func endpointIsReady(endpoints *coreapi.Endpoints) bool {

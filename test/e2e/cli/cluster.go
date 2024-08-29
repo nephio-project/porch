@@ -20,10 +20,8 @@ import (
 	"strings"
 	"testing"
 	"time"
-)
 
-const (
-	TestGitServerImage = "test-git-server"
+	e2etest "github.com/nephio-project/porch/test/e2e"
 )
 
 func IsPorchServerRunningInCluster(t *testing.T) bool {
@@ -67,17 +65,7 @@ func GetGitServerImageName(t *testing.T) string {
 	if image == "" {
 		t.Fatalf("Cannot determine Porch server image: output was %q", out)
 	}
-	return InferGitServerImage(image)
-}
-
-func InferGitServerImage(porchImage string) string {
-	slash := strings.LastIndex(porchImage, "/")
-	repo := porchImage[:slash+1]
-	image := porchImage[slash+1:]
-	colon := strings.LastIndex(image, ":")
-	tag := image[colon+1:]
-
-	return repo + TestGitServerImage + ":" + tag
+	return e2etest.InferGitServerImage(image)
 }
 
 func KubectlApply(t *testing.T, config string) {
