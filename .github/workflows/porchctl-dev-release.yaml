@@ -14,6 +14,7 @@
 
 name: porchctl dev release
 
+# build and update the porchctl on merge to main branch
 on:
   push:
     branches:
