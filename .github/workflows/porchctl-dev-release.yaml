@@ -15,21 +15,9 @@
 name: porchctl dev release
 
 on:
-  pull_request:
-    paths-ignore:
-      - "build/**"
-      - "controllers/**"
-      - "deployments/**"
-      - "docs/**"
-      - "examples/**"
-      - "release/**"
-      - "scripts/**"
-      - ".prow.yaml"
-      - "OWNERS"
+  push:
     branches:
       - main
-    types:
-      - closed
 
 jobs:
   build:
