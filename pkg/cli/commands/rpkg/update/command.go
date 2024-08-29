@@ -24,6 +24,7 @@ import (
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -114,7 +115,15 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 		if pr == nil {
 			return errors.E(op, fmt.Errorf("could not find package revision %s", args[0]))
 		}
-		if err := r.doUpdate(pr); err != nil {
+		key := client.ObjectKeyFromObject(pr)
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			var pr porchapi.PackageRevision
+			if err := r.client.Get(r.ctx, key, &pr); err != nil {
+				return err
+			}
+			return r.doUpdate(&pr)
+		})
+		if err != nil {
 			return errors.E(op, err)
 		}
 		if _, err := fmt.Fprintf(cmd.OutOrStdout(), "%s updated\n", pr.Name); err != nil {

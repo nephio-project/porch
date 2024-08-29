@@ -58,6 +58,7 @@ func TestCmd(t *testing.T) {
 		fakeclient client.WithWatch
 	}{
 		"Package not found in ns": {
+			output:  pkgRevName + " failed (packagerevisions.porch.kpt.dev \"" + pkgRevName + "\" not found)\n",
 			wantErr: true,
 			fakeclient: fake.NewClientBuilder().WithScheme(scheme).
 				WithObjects(&porchapi.PackageRevision{
@@ -93,7 +94,7 @@ func TestCmd(t *testing.T) {
 		},
 		"Reject draft package": {
 			wantErr: true,
-			output:  "cannot reject " + pkgRevName + " with lifecycle 'Draft'\n",
+			output:  pkgRevName + " failed (cannot reject " + pkgRevName + " with lifecycle 'Draft')\n",
 			fakeclient: fake.NewClientBuilder().WithScheme(scheme).
 				WithObjects(&porchapi.PackageRevision{
 					TypeMeta: metav1.TypeMeta{
@@ -111,7 +112,7 @@ func TestCmd(t *testing.T) {
 		},
 		"Reject published package": {
 			wantErr: true,
-			output:  "cannot reject " + pkgRevName + " with lifecycle 'Published'\n",
+			output:  pkgRevName + " failed (cannot reject " + pkgRevName + " with lifecycle 'Published')\n",
 			fakeclient: fake.NewClientBuilder().WithScheme(scheme).
 				WithObjects(&porchapi.PackageRevision{
 					TypeMeta: metav1.TypeMeta{
@@ -128,7 +129,7 @@ func TestCmd(t *testing.T) {
 					}}).Build(),
 		},
 		"Reject proposed package": {
-			output: pkgRevName + " rejected\n",
+			output: pkgRevName + " no longer proposed for approval\n",
 			fakeclient: fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
 				//fake subresourceupdate
 				SubResourceUpdate: func(ctx context.Context, client client.Client, subResourceName string, obj client.Object, opts ...client.SubResourceUpdateOption) error {
