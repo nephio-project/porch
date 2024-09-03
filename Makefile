@@ -18,6 +18,7 @@ CACHEDIR=$(CURDIR)/.cache
 export DEPLOYPORCHCONFIGDIR ?= $(BUILDDIR)/deploy
 DEPLOYKPTCONFIGDIR=$(BUILDDIR)/kpt_pkgs
 PORCHDIR=$(abspath $(CURDIR))
+PORCHCTL_VERSION := $(shell date '+development-%Y-%m-%dT%H:%M:%S')
 
 # This includes the following targets:
 #   test, unit, unit-clean,
@@ -192,7 +193,7 @@ porch:
 
 .PHONY: porchctl
 porchctl:
-	go build -o $(PORCHCTL) ./cmd/porchctl
+	go build -ldflags="-X github.com/nephio-project/porch/cmd/porchctl/run.version=$(PORCHCTL_VERSION)" -o $(PORCHCTL) ./cmd/porchctl
 
 .PHONY: fix-headers
 fix-headers:
