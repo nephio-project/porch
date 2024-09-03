@@ -2,6 +2,8 @@ module github.com/nephio-project/porch/api
 
 go 1.22.0
 
+retract v1.3.0
+
 require (
 	k8s.io/apimachinery v0.30.3
 	k8s.io/client-go v0.30.3

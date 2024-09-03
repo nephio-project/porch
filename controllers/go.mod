@@ -2,6 +2,8 @@ module github.com/nephio-project/porch/controllers
 
 go 1.22.0
 
+retract v1.3.0
+
 require (
 	github.com/GoogleContainerTools/kpt-functions-sdk/go/fn v0.0.0-20230427202446-3255accc518d
 	github.com/google/cel-go v0.21.0
