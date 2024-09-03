@@ -14,22 +14,11 @@
 
 name: porchctl dev release
 
+# build and update the porchctl on merge to main branch
 on:
-  pull_request:
-    paths-ignore:
-      - "build/**"
-      - "controllers/**"
-      - "deployments/**"
-      - "docs/**"
-      - "examples/**"
-      - "release/**"
-      - "scripts/**"
-      - ".prow.yaml"
-      - "OWNERS"
+  push:
     branches:
       - main
-    types:
-      - closed
 
 jobs:
   build:

@@ -9,4 +9,4 @@ rm -rf "$self_dir/../.cache"
 
 kubectl get packagerev -A --no-headers | awk '{ print "-n", $1, $2 }' | xargs -L 1 --no-run-if-empty kubectl patch packagerev --type='json' -p='[{"op": "remove", "path": "/metadata/finalizers"}]'
 
-kubectl get ns -o name --no-headers | grep test | xargs -L 1 --no-run-if-empty kubectl delete
+kubectl get ns -o name --no-headers | egrep '(test|rpkg-|repo-)' | xargs -L 1 --no-run-if-empty kubectl delete

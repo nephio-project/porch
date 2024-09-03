@@ -22,11 +22,10 @@ CLIENT_PKG=$API_PKG/generated
 BOILERPLATE=$HERE/boilerplate.go.txt
 OPENAPI_REPORT=$ROOT/gen_openapi.report
 
-KUBERNETES_VERSION=0.29.2
+KUBERNETES_VERSION=0.29.8
 go get -d "k8s.io/code-generator@v$KUBERNETES_VERSION"
 CODE_GENERATOR=$(go list -f '{{.Dir}}' -m "k8s.io/code-generator@v$KUBERNETES_VERSION")
-# . "${CODE_GENERATOR}/kube_codegen.sh"
-. "${HERE}/kube_code_gen.sh"
+. "${CODE_GENERATOR}/kube_codegen.sh"
 
 # kube_codegen expects a specific directory structure, so we will create it via a symlink
 
@@ -69,7 +68,7 @@ kube::codegen::gen_openapi \
 
 echo 'gen_client...'
 
-#rm -fr "$ROOT/api/kubernetes-client"
+. "${HERE}/kube_code_gen.sh"
 
 kube::codegen::gen_client \
 	--output-base "$WORK" \
@@ -80,6 +79,8 @@ kube::codegen::gen_client \
 	--plural-exceptions "PackageRevisionResources:PackageRevisionResources" \
 	--boilerplate "$BOILERPLATE"
 
+go get -d "k8s.io/kube-aggregator@v0.30.3"
+go get -d "sigs.k8s.io/controller-runtime@v0.18.5"
 # Our "go get" added dependencies that we don't need
 cd "$ROOT"
 go mod tidy

@@ -25,6 +25,7 @@ import (
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -83,33 +84,34 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 	namespace := *r.cfg.Namespace
 
 	for _, name := range args {
-		pr := &v1alpha1.PackageRevision{}
-		if err := r.client.Get(r.ctx, client.ObjectKey{
+		key := client.ObjectKey{
 			Namespace: namespace,
 			Name:      name,
-		}, pr); err != nil {
-			return errors.E(op, err)
 		}
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			var pr v1alpha1.PackageRevision
+			if err := r.client.Get(r.ctx, key, &pr); err != nil {
+				return err
+			}
 
-		switch pr.Spec.Lifecycle {
-		case v1alpha1.PackageRevisionLifecycleDraft:
-			// ok
-		case v1alpha1.PackageRevisionLifecycleProposed:
-			fmt.Fprintf(r.Command.OutOrStderr(), "%s is already proposed\n", name)
-			continue
-		default:
-			msg := fmt.Sprintf("cannot propose %s package", pr.Spec.Lifecycle)
-			messages = append(messages, msg)
-			fmt.Fprintln(r.Command.ErrOrStderr(), msg)
-			continue
-		}
-
-		pr.Spec.Lifecycle = v1alpha1.PackageRevisionLifecycleProposed
-		if err := r.client.Update(r.ctx, pr); err != nil {
+			switch pr.Spec.Lifecycle {
+			case v1alpha1.PackageRevisionLifecycleDraft:
+				pr.Spec.Lifecycle = v1alpha1.PackageRevisionLifecycleProposed
+				err := r.client.Update(r.ctx, &pr)
+				if err == nil {
+					fmt.Fprintf(r.Command.OutOrStdout(), "%s proposed\n", name)
+				}
+				return err
+			case v1alpha1.PackageRevisionLifecycleProposed:
+				fmt.Fprintf(r.Command.OutOrStderr(), "%s is already proposed\n", name)
+				return nil
+			default:
+				return fmt.Errorf("cannot propose %s package", pr.Spec.Lifecycle)
+			}
+		})
+		if err != nil {
 			messages = append(messages, err.Error())
 			fmt.Fprintf(r.Command.ErrOrStderr(), "%s failed (%s)\n", name, err)
-		} else {
-			fmt.Fprintf(r.Command.OutOrStdout(), "%s proposed\n", name)
 		}
 	}
 
