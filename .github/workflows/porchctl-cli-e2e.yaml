@@ -49,7 +49,7 @@ jobs:
       - name: Build and install porchctl
         run: |
           make porchctl
-          mv ${GITHUB_WORKSPACE}.build/porchctl /usr/local/bin/porchctl
+          mv ${GITHUB_WORKSPACE}/.build/porchctl /usr/local/bin/porchctl
           sudo chmod 755 /usr/local/bin/porchctl
           porchctl version
       - name: Create k8s Kind Cluster
