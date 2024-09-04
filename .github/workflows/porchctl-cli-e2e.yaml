@@ -48,9 +48,10 @@ jobs:
           chmod: 0755
       - name: Build and install porchctl
         run: |
-          go build -o ${GITHUB_WORKSPACE}.build/ ./cmd/porchctl
-          mv ${GITHUB_WORKSPACE}.build/porchctl /usr/local/bin/porchctl
+          make porchctl
+          mv ${GITHUB_WORKSPACE}/.build/porchctl /usr/local/bin/porchctl
           sudo chmod 755 /usr/local/bin/porchctl
+          porchctl version
       - name: Create k8s Kind Cluster
         uses: helm/kind-action@v1
         with:

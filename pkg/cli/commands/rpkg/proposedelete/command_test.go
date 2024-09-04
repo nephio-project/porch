@@ -55,11 +55,12 @@ func TestCmd(t *testing.T) {
 		ns      string
 	}{
 		"Package not found in ns": {
+			output:  pkgRevName + " failed (packagerevisions.porch.kpt.dev \"" + pkgRevName + "\" not found)\n",
 			ns:      "doesnotexist",
 			wantErr: true,
 		},
 		"Package not published": {
-			output:  "can only propose published packages for deletion; package " + pkgRevName + " is not published\n",
+			output:  pkgRevName + " failed (can only propose published packages for deletion; package " + pkgRevName + " is not published)\n",
 			ns:      "ns",
 			wantErr: true,
 		},
