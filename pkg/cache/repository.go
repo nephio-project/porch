@@ -472,8 +472,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 		}
 	}
 
-	// Send notification for packages that changed.
-	// Send notification first before creation of PkgRev to avoid race condition after an approve because of ownerReference.
+	// Send notification for packages that changed before the creation of PkgRev to avoid race conditions because of ownerReferences.
 	addSent := 0
 	modSent := 0
 	for kname, newPackage := range newPackageRevisionNames {
