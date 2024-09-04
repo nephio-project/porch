@@ -13,8 +13,12 @@
 # limitations under the License.
 
 name: porchctl dev release
+
+# build and update the porchctl on merge to main branch
 on:
   push:
+    branches:
+      - main
 
 jobs:
   build:

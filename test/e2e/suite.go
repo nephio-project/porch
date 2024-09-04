@@ -192,7 +192,7 @@ func (t *TestSuite) IsPorchServerInCluster() bool {
 	porch := aggregatorv1.APIService{}
 	ctx := context.TODO()
 	t.GetF(ctx, client.ObjectKey{
-		Name: "v1alpha1.porch.kpt.dev",
+		Name: porchapi.SchemeGroupVersion.Version + "." + porchapi.SchemeGroupVersion.Group,
 	}, &porch)
 	service := coreapi.Service{}
 	t.GetF(ctx, client.ObjectKey{
@@ -207,7 +207,7 @@ func (t *TestSuite) IsTestRunnerInCluster() bool {
 	porch := aggregatorv1.APIService{}
 	ctx := context.TODO()
 	t.GetF(ctx, client.ObjectKey{
-		Name: "v1alpha1.porch.kpt.dev",
+		Name: porchapi.SchemeGroupVersion.Version + "." + porchapi.SchemeGroupVersion.Group,
 	}, &porch)
 	service := coreapi.Service{}
 	err := t.Client.Get(ctx, client.ObjectKey{

@@ -14,9 +14,9 @@
 
 package main
 
-//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0 rbac:headerFile=../scripts/boilerplate.yaml.txt,roleName=porch-controllers webhook paths="."
+//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.1 rbac:headerFile=../scripts/boilerplate.yaml.txt,roleName=porch-controllers webhook paths="."
 
-//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0 crd:headerFile=../scripts/boilerplate.yaml.txt paths="./..." output:crd:artifacts:config=config/crd/bases
+//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.1 crd:headerFile=../scripts/boilerplate.yaml.txt paths="./..." output:crd:artifacts:config=config/crd/bases
 
 import (
 	"context"
@@ -43,7 +43,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/controllers/fleetsyncs/pkg/controllers/fleetsync"
 	"github.com/nephio-project/porch/controllers/packagevariants/pkg/controllers/packagevariant"
 	"github.com/nephio-project/porch/controllers/packagevariantsets/pkg/controllers/packagevariantset"
 	"github.com/nephio-project/porch/pkg/controllerrestmapper"
@@ -54,7 +53,6 @@ var (
 	reconcilers = map[string]Reconciler{
 		"packagevariants":    &packagevariant.PackageVariantReconciler{},
 		"packagevariantsets": &packagevariantset.PackageVariantSetReconciler{},
-		"fleetsyncs":         fleetsync.NewFleetSyncReconciler(),
 	}
 )
 
