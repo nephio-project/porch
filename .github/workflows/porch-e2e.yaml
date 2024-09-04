@@ -56,8 +56,8 @@ jobs:
           kubectl_version: v1.30.0
       - name: Build Images and Deploy porch kpt pkg
         run: IMAGE_REPO=porch-kind IMAGE_TAG=${GITHUB_SHA:0:8} KIND_CONTEXT_NAME=kind make run-in-kind
-      - name: Sleep for 15 seconds
-        run: sleep 15s
+      - name: Sleep for 30 seconds
+        run: sleep 30s
         shell: bash
       - name: e2e test
         run: E2E=1 go test -v -timeout 20m ${GITHUB_WORKSPACE}/test/e2e

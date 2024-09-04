@@ -28,16 +28,16 @@ func (t *PorchSuite) TestPackageUpdateRecloneAndReplay(ctx context.Context) {
 		gitRepository = "package-update"
 	)
 
-	t.registerGitRepositoryF(ctx, testBlueprintsRepo, "test-blueprints", "")
+	t.RegisterGitRepositoryF(ctx, testBlueprintsRepo, "test-blueprints", "")
 
 	var list porchapi.PackageRevisionList
-	t.ListE(ctx, &list, client.InNamespace(t.namespace))
+	t.ListE(ctx, &list, client.InNamespace(t.Namespace))
 
 	basensV2 := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: "v2"})
 	t.Logf("basensV2 = %v", basensV2)
 
 	// Register the repository as 'downstream'
-	t.registerMainGitRepositoryF(ctx, gitRepository)
+	t.RegisterMainGitRepositoryF(ctx, gitRepository)
 
 	// Create PackageRevision from upstream repo
 	pr := &porchapi.PackageRevision{
@@ -46,7 +46,7 @@ func (t *PorchSuite) TestPackageUpdateRecloneAndReplay(ctx context.Context) {
 			APIVersion: porchapi.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.namespace,
+			Namespace: t.Namespace,
 		},
 		Spec: porchapi.PackageRevisionSpec{
 			PackageName:    "testRecloneAndReplay",
@@ -72,7 +72,7 @@ func (t *PorchSuite) TestPackageUpdateRecloneAndReplay(ctx context.Context) {
 	t.CreateF(ctx, pr)
 
 	t.GetF(ctx, client.ObjectKey{
-		Namespace: t.namespace,
+		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, pr)
 
@@ -90,13 +90,13 @@ func (t *PorchSuite) TestPackageUpdateRecloneAndReplay(ctx context.Context) {
 	t.UpdateF(ctx, pr)
 
 	t.GetF(ctx, client.ObjectKey{
-		Namespace: t.namespace,
+		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, pr)
 
 	var revisionResources porchapi.PackageRevisionResources
 	t.GetF(ctx, client.ObjectKey{
-		Namespace: t.namespace,
+		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, &revisionResources)
 
