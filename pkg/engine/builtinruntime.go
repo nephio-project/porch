@@ -16,6 +16,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	fnsdk "github.com/GoogleContainerTools/kpt-functions-sdk/go/fn"
@@ -95,6 +96,12 @@ type builtinRunner struct {
 
 var _ fn.FunctionRunner = &builtinRunner{}
 
-func (br *builtinRunner) Run(r io.Reader, w io.Writer) error {
+func (br *builtinRunner) Run(r io.Reader, w io.Writer) (err error) {
+	// KRM functions often panic on input validation errors, so we need to convert panics to errors
+	defer func() {
+		if p := recover(); p != nil {
+			err = fmt.Errorf("KRM function panicked with: %v", p)
+		}
+	}()
 	return fnsdk.Execute(br.processor, r, w)
 }
