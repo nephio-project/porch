@@ -472,6 +472,24 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 		}
 	}
 
+	// Send notification for packages that changed before the creation of PkgRev to avoid race conditions because of ownerReferences.
+	addSent := 0
+	modSent := 0
+	for kname, newPackage := range newPackageRevisionNames {
+		oldPackage := oldPackageRevisionNames[kname]
+		metaPackage, found := existingPkgRevCRsMap[newPackage.KubeObjectName()]
+		if !found {
+			klog.Warningf("no PackageRev CR found for PackageRevision %s", newPackage.KubeObjectName())
+		}
+		if oldPackage == nil {
+			addSent += r.objectNotifier.NotifyPackageRevisionChange(watch.Added, newPackage, metaPackage)
+		} else {
+			if oldPackage.ResourceVersion() != newPackage.ResourceVersion() {
+				modSent += r.objectNotifier.NotifyPackageRevisionChange(watch.Modified, newPackage, metaPackage)
+			}
+		}
+	}
+
 	// We go through all the PackageRevisions and make sure they have
 	// a corresponding PackageRev CR.
 	for pkgRevName, pkgRev := range newPackageRevisionNames {
@@ -486,24 +504,6 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 				// retried on the next sync.
 				klog.Warningf("unable to create PackageRev CR for %s/%s: %v",
 					r.repoSpec.Namespace, pkgRevName, err)
-			}
-		}
-	}
-
-	// Send notification for packages that changed.
-	addSent := 0
-	modSent := 0
-	for kname, newPackage := range newPackageRevisionNames {
-		oldPackage := oldPackageRevisionNames[kname]
-		metaPackage, found := existingPkgRevCRsMap[newPackage.KubeObjectName()]
-		if !found {
-			klog.Warningf("no PackageRev CR found for PackageRevision %s", newPackage.KubeObjectName())
-		}
-		if oldPackage == nil {
-			addSent += r.objectNotifier.NotifyPackageRevisionChange(watch.Added, newPackage, metaPackage)
-		} else {
-			if oldPackage.ResourceVersion() != newPackage.ResourceVersion() {
-				modSent += r.objectNotifier.NotifyPackageRevisionChange(watch.Modified, newPackage, metaPackage)
 			}
 		}
 	}
