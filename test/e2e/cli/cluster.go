@@ -20,10 +20,8 @@ import (
 	"strings"
 	"testing"
 	"time"
-)
 
-const (
-	TestGitServerImage = "test-git-server"
+	e2etest "github.com/nephio-project/porch/test/e2e"
 )
 
 func IsPorchServerRunningInCluster(t *testing.T) bool {
@@ -67,17 +65,7 @@ func GetGitServerImageName(t *testing.T) string {
 	if image == "" {
 		t.Fatalf("Cannot determine Porch server image: output was %q", out)
 	}
-	return InferGitServerImage(image)
-}
-
-func InferGitServerImage(porchImage string) string {
-	slash := strings.LastIndex(porchImage, "/")
-	repo := porchImage[:slash+1]
-	image := porchImage[slash+1:]
-	colon := strings.LastIndex(image, ":")
-	tag := image[colon+1:]
-
-	return repo + TestGitServerImage + ":" + tag
+	return e2etest.InferGitServerImage(image)
 }
 
 func KubectlApply(t *testing.T, config string) {
@@ -141,7 +129,7 @@ func KubectlWaitForLoadBalancerIp(t *testing.T, namespace, name string) string {
 
 		err := cmd.Run()
 		ip := stdout.String()
-		if err == nil && len(ip) > 0 { // Loadbalancer assigned an external IP
+		if err == nil && len(ip) > 0 { // LoadBalancer assigned an external IP
 			t.Logf("LoadBalancer external IP: %s", ip)
 			return ip
 		}
@@ -152,47 +140,6 @@ func KubectlWaitForLoadBalancerIp(t *testing.T, namespace, name string) string {
 				msg = err.Error()
 			}
 			t.Fatalf("LoadBalancer service %s/%s hasn't been assigned an external IP on time. Giving up: %s", namespace, name, msg)
-		}
-
-		time.Sleep(5 * time.Second)
-	}
-}
-
-// Kubernetes DNS needs time to propagate the updated address
-// Wait until we can register the repository and list its contents.
-func KubectlWaitForGitDNS(t *testing.T, gitServerURL string) {
-	const name = "test-git-dns-resolve"
-
-	KubectlCreateNamespace(t, name)
-	defer KubectlDeleteNamespace(t, name)
-
-	// We expect repos to automatically be created (albeit empty)
-	repoURL := gitServerURL + "/" + name
-
-	cmd := exec.Command("porchctl", "repo", "register", "--namespace", name, "--name", name, repoURL)
-	t.Logf("running command %v", strings.Join(cmd.Args, " "))
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("Failed to register probe repository: %v\n%s", err, string(out))
-	}
-
-	// Based on experience, DNS seems to get updated inside the cluster within
-	// few seconds. We will wait about a minute.
-	// If this turns out to be an issue, we will sidestep DNS and use the Endpoints
-	// IP address directly.
-	giveUp := time.Now().Add(1 * time.Minute)
-	for {
-		cmd := exec.Command("porchctl", "rpkg", "get", "--namespace", name)
-		t.Logf("running command %v", strings.Join(cmd.Args, " "))
-		out, err := cmd.CombinedOutput()
-		t.Logf("output: %v", string(out))
-
-		if err == nil {
-			break
-		}
-
-		if time.Now().After(giveUp) {
-			t.Fatalf("Git service DNS resolution failed: %v", err)
 		}
 
 		time.Sleep(5 * time.Second)
@@ -232,12 +179,12 @@ func RemovePackagerevFinalizers(t *testing.T, namespace string) {
 		t.Fatalf("Error when getting packagerevs from namespace: %v: %s", err, stderr.String())
 	}
 
-	packagerevs := realySplit(stdout.String(), " ")
+	packagerevs := reallySplit(stdout.String(), " ")
 	if len(packagerevs) == 0 {
 		t.Log("kubectl get packagerevs didn't return any objects - continue")
 		return
 	}
-	t.Logf("Removing Finalizers from PackagRevs: %v", packagerevs)
+	t.Logf("Removing Finalizers from PackageRevs: %v", packagerevs)
 
 	for _, pkgrev := range packagerevs {
 		cmd := exec.Command("kubectl", "patch", "packagerev", pkgrev, "--type", "json", "--patch=[{\"op\": \"remove\", \"path\": \"/metadata/finalizers\"}]", "--namespace", namespace)
@@ -248,19 +195,9 @@ func RemovePackagerevFinalizers(t *testing.T, namespace string) {
 	}
 }
 
-func realySplit(s, sep string) []string {
+func reallySplit(s, sep string) []string {
 	if len(s) == 0 {
 		return []string{}
 	}
 	return strings.Split(s, sep)
-}
-
-func RegisterRepository(t *testing.T, repoURL, namespace, name string) {
-	cmd := exec.Command("porchctl", "repo", "register", "--namespace", namespace, "--name", name, repoURL)
-	t.Logf("running command %v", strings.Join(cmd.Args, " "))
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("Failed to register repository %q: %v\n%s", repoURL, err, string(out))
-	}
-	t.Logf("output: %v", string(out))
 }
