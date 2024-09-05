@@ -120,26 +120,12 @@ func (p *SetNamespace) Transform(objects fn.KubeObjects) fn.Results {
 	// resources depends on has its namespace changes.
 	dependsOnMap := MapGKNNBeforeChange(objects)
 
-	origins, warnResults, err := ListAllOrigins(objects)
-	if err != nil {
-		return []*fn.Result{fn.ErrorResult(err)}
-	}
-	if warnResults != nil {
-		results = append(results, warnResults...)
-	}
-
 	// Only replace matching namespace. This allows the resourcelist.items to have more than one origin namespace value.
 	if p.NamespaceMatcher != "" {
 		return append(results, ReplaceNamespace(objects, p.NewNamespace, dependsOnMap, p.NamespaceMatcher)...)
 	}
 
 	// Replace all namespaces. This requires the resource origin namespace to be the same.
-	if len(origins) > 1 {
-		return []*fn.Result{fn.ErrorResult(fmt.Errorf(
-			"unable to use origin `namespace` to match. expect a single upstream namespace, found %v. please switch to use `namespaceMatcher`"+
-				"to specify the namespace value you want to change",
-			origins))}
-	}
 	results = append(results, ReplaceNamespace(objects, p.NewNamespace, dependsOnMap)...)
 	return results
 }
