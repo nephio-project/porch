@@ -4,8 +4,6 @@ go 1.22.0
 
 retract v1.3.0
 
-replace github.com/GoogleContainerTools/kpt-functions-sdk/go/fn => github.com/GoogleContainerTools/kpt-functions-sdk/go/fn v0.0.0-20220506190241-f85503febd54
-
 require (
 	cloud.google.com/go/iam v1.1.12
 	github.com/GoogleContainerTools/kpt v1.0.0-beta.48
