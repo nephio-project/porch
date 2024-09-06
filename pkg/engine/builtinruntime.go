@@ -16,15 +16,16 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"io"
 
-	"github.com/GoogleContainerTools/kpt-functions-catalog/functions/go/apply-replacements/replacements"
-	"github.com/GoogleContainerTools/kpt-functions-catalog/functions/go/set-namespace/transformer"
-	"github.com/GoogleContainerTools/kpt-functions-catalog/functions/go/starlark/starlark"
 	fnsdk "github.com/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	"github.com/nephio-project/porch/pkg/kpt"
 	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
+	"github.com/nephio-project/porch/pkg/kpt/fn/third_party/GoogleContainerTools/kpt-functions-catalog/functions/go/apply_replacements"
+	"github.com/nephio-project/porch/pkg/kpt/fn/third_party/GoogleContainerTools/kpt-functions-catalog/functions/go/set_namespace"
+	"github.com/nephio-project/porch/pkg/kpt/fn/third_party/GoogleContainerTools/kpt-functions-catalog/functions/go/starlark/starlark"
 )
 
 // When updating the version for the builtin functions, please also update the image version
@@ -54,15 +55,17 @@ type builtinRuntime struct {
 
 func newBuiltinRuntime() *builtinRuntime {
 	fnMap := map[string]fnsdk.ResourceListProcessor{}
+
 	for _, img := range applyReplacementsImageAliases {
-		fnMap[img] = fnsdk.ResourceListProcessorFunc(replacements.ApplyReplacements)
+		fnMap[img] = fnsdk.ResourceListProcessorFunc(apply_replacements.ApplyReplacements)
 	}
 	for _, img := range setNamespaceImageAliases {
-		fnMap[img] = fnsdk.ResourceListProcessorFunc(transformer.SetNamespace)
+		fnMap[img] = fnsdk.ResourceListProcessorFunc(set_namespace.Run)
 	}
 	for _, img := range starlarkImageAliases {
 		fnMap[img] = fnsdk.ResourceListProcessorFunc(starlark.Process)
 	}
+
 	return &builtinRuntime{
 		fnMapping: fnMap,
 	}
@@ -93,6 +96,12 @@ type builtinRunner struct {
 
 var _ fn.FunctionRunner = &builtinRunner{}
 
-func (br *builtinRunner) Run(r io.Reader, w io.Writer) error {
+func (br *builtinRunner) Run(r io.Reader, w io.Writer) (err error) {
+	// KRM functions often panic on input validation errors, so we need to convert panics to errors
+	defer func() {
+		if p := recover(); p != nil {
+			err = fmt.Errorf("KRM function panicked with: %v", p)
+		}
+	}()
 	return fnsdk.Execute(br.processor, r, w)
 }

@@ -19,12 +19,9 @@ WORKDIR /go/src
 # cache deps before building and copying source so that we don't need to re-download as much
 # and so that source changes don't invalidate our downloaded layer
 COPY go.mod go.sum ./
-COPY api/go.mod api/go.sum ./api/
 
 RUN echo "Downloading porch modules ..." \
  && go mod download
-RUN echo "Downloading api modules ..." \
- && cd api && go mod download
 
 ENV CGO_ENABLED=0
 # Prebuild some library dependencies to warm the cache
