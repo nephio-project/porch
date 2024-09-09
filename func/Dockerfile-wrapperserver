@@ -6,7 +6,6 @@ WORKDIR /go/src
 ENV CGO_ENABLED=0
 
 COPY go.mod go.sum ./
-COPY api/go.mod api/go.sum api/
 
 RUN go install github.com/grpc-ecosystem/grpc-health-probe@v0.4.11
 COPY func/ func/
