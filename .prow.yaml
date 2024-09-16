@@ -34,7 +34,7 @@ postsubmits:
         - "/bin/sh"
         - "-c"
         - |
-          executor --context=/home/prow/go/src/porch_build/ --dockerfile=build/Dockerfile --destination=nephio/porch-server:${PULL_BASE_REF} --destination=nephio/porch-server:latest --cache=true --cleanup
+          executor --context=/home/prow/go/src/porch_build/ --dockerfile=build/Dockerfile --destination=nephio/porch-server:${PULL_BASE_REF} --destination=nephio/porch-server:latest --cache=false --cleanup
         volumeMounts:
           - name: kaniko-secret
             mountPath: /kaniko/.docker/
@@ -75,7 +75,7 @@ postsubmits:
         - "/bin/sh"
         - "-c"
         - |
-          executor --context=/home/prow/go/src/porch_build/ --dockerfile=controllers/Dockerfile --destination=nephio/porch-controllers:${PULL_BASE_REF} --destination=nephio/porch-controllers:latest  --cache=true --cleanup
+          executor --context=/home/prow/go/src/porch_build/ --dockerfile=controllers/Dockerfile --destination=nephio/porch-controllers:${PULL_BASE_REF} --destination=nephio/porch-controllers:latest  --cache=false --cleanup
         volumeMounts:
           - name: kaniko-secret
             mountPath: /kaniko/.docker/
@@ -116,7 +116,7 @@ postsubmits:
         - "/bin/sh"
         - "-c"
         - |
-          executor --context=/home/prow/go/src/porch_build/ --dockerfile=func/Dockerfile --destination=nephio/porch-function-runner:${PULL_BASE_REF} --destination=nephio/porch-function-runner:latest  --cache=true --cleanup
+          executor --context=/home/prow/go/src/porch_build/ --dockerfile=func/Dockerfile --destination=nephio/porch-function-runner:${PULL_BASE_REF} --destination=nephio/porch-function-runner:latest  --cache=false --cleanup
         volumeMounts:
           - name: kaniko-secret
             mountPath: /kaniko/.docker/
@@ -157,7 +157,7 @@ postsubmits:
         - "/bin/sh"
         - "-c"
         - |
-          executor --context=/home/prow/go/src/porch_build/ --dockerfile=func/Dockerfile-wrapperserver --destination=nephio/porch-wrapper-server:${PULL_BASE_REF} --destination=nephio/porch-wrapper-server:latest  --cache=true --cleanup
+          executor --context=/home/prow/go/src/porch_build/ --dockerfile=func/Dockerfile-wrapperserver --destination=nephio/porch-wrapper-server:${PULL_BASE_REF} --destination=nephio/porch-wrapper-server:latest  --cache=false --cleanup
         volumeMounts:
           - name: kaniko-secret
             mountPath: /kaniko/.docker/
