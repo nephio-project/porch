@@ -1,0 +1,79 @@
+name: Dev Image Build
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "docs/**"
+      - "release/**"
+      - ".prow.yaml"
+      - "OWNERS"
+  workflow_dispatch:
+
+env:
+  REGISTRY: docker.io
+  ORG: nephio
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-push-image:
+    if: github.repository_owner == 'nephio-project'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dockerfile: ./build/Dockerfile
+            image: docker.io/nephio/porch-server
+          - dockerfile: ./controllers/Dockerfile
+            image: docker.io/nephio/porch-controllers
+          - dockerfile: ./func/Dockerfile
+            image: docker.io/nephio/porch-function-runner
+          - dockerfile: ./func/Dockerfile-wrapperserver
+            image: docker.io/nephio/porch-wrapper-server
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7 # v2.10.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@988b5a0280414f521da01fcc63a27aeeb4b104db # v3.6.1
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
+        with:
+          images: ${{ matrix.image }}
+          tags: |
+            type=sha
+
+      - name: Build and push Docker images
+        uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85 # v6.7.0
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.tags }}
+            ${{ matrix.image }}:latest
+          labels: ${{ steps.meta.outputs.labels }}
+          no-cache: true
+          sbom: true
