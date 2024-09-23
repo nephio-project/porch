@@ -1,0 +1,14 @@
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: unready
+info:
+  description: sample description
+  readinessGates:
+  - conditionType: nephio.org.Specializer.specialize
+status:
+  conditions:
+  - type: nephio.org.Specializer.specialize
+    status: "False"
+    reason: Ready
+
