@@ -93,7 +93,9 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 			if err := r.client.Get(r.ctx, key, &pr); err != nil {
 				return err
 			}
-
+			if !v1alpha1.PackageRevisionIsReady(pr.Spec.ReadinessGates, pr.Status.Conditions) {
+				return fmt.Errorf("readiness conditions not met")
+			}
 			switch pr.Spec.Lifecycle {
 			case v1alpha1.PackageRevisionLifecycleDraft:
 				pr.Spec.Lifecycle = v1alpha1.PackageRevisionLifecycleProposed

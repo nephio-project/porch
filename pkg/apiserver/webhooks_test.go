@@ -167,7 +167,7 @@ func TestWatchCertificates(t *testing.T) {
 	go watchCertificates(ctx, "Dummy Directory that does not exist", certFile, keyFile)
 
 	invalid_watch_entity_logs := captureStderr(func() {
-		time.Sleep(100 * time.Millisecond) // Give some time for the logs to be flushed
+		time.Sleep(1 * time.Second) // Give some time for the logs to be flushed
 	})
 	t.Log(invalid_watch_entity_logs)
 	err = assertLogMessages(invalid_watch_entity_logs)
@@ -183,7 +183,7 @@ func TestWatchCertificates(t *testing.T) {
 	require.NoError(t, err)
 
 	valid_reload_logs := captureStderr(func() {
-		time.Sleep(100 * time.Millisecond) // Give some time for the logs to be flushed
+		time.Sleep(1 * time.Second) // Give some time for the logs to be flushed
 	})
 	t.Log(valid_reload_logs)
 	err = assertLogMessages(valid_reload_logs)
@@ -196,7 +196,7 @@ func TestWatchCertificates(t *testing.T) {
 	require.NoError(t, err)
 
 	invalid_reload_logs := captureStderr(func() {
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(1 * time.Second)
 	})
 	t.Log(invalid_reload_logs)
 	err = assertLogMessages(invalid_reload_logs)
@@ -206,7 +206,7 @@ func TestWatchCertificates(t *testing.T) {
 	// trigger graceful termination
 	cancel()
 	graceful_termination_logs := captureStderr(func() {
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(1 * time.Second)
 	})
 	t.Log(graceful_termination_logs)
 	err = assertLogMessages(graceful_termination_logs)

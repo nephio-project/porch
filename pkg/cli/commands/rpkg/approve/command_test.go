@@ -71,7 +71,7 @@ func TestCmd(t *testing.T) {
 						Name:      pkgRevName,
 					}}).Build(),
 		},
-		"Approve draft package": {
+		"Fail to Approve draft package": {
 			wantErr: true,
 			output:  pkgRevName + " failed (cannot change approval from Draft to Published)\n",
 			fakeclient: fake.NewClientBuilder().WithScheme(scheme).
@@ -83,6 +83,37 @@ func TestCmd(t *testing.T) {
 					Spec: porchapi.PackageRevisionSpec{
 						Lifecycle:      porchapi.PackageRevisionLifecycleDraft,
 						RepositoryName: repoName,
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: ns,
+						Name:      pkgRevName,
+					}}).Build(),
+		},
+		"Fail to Approve unready package": {
+			wantErr: true,
+			output:  pkgRevName + " failed (readiness conditions not met)\n",
+			fakeclient: fake.NewClientBuilder().WithScheme(scheme).
+				WithObjects(&porchapi.PackageRevision{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "PackageRevision",
+						APIVersion: porchapi.SchemeGroupVersion.Identifier(),
+					},
+					Spec: porchapi.PackageRevisionSpec{
+						Lifecycle:      porchapi.PackageRevisionLifecycleProposed,
+						RepositoryName: repoName,
+						ReadinessGates: []porchapi.ReadinessGate {
+							{
+								ConditionType: "nephio.org.Specializer.specialize",
+							},
+						},
+					},
+					Status: porchapi.PackageRevisionStatus{
+						Conditions: []porchapi.Condition {
+							{
+								Type: "nephio.org.Specializer.specialize",
+								Status: "False",
+							},
+						},
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: ns,

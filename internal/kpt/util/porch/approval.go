@@ -21,23 +21,25 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const ApproveErrorOut = "cannot change approval from %s to %s"
+
 func UpdatePackageRevisionApproval(ctx context.Context, client client.Client, pr *v1alpha1.PackageRevision, new v1alpha1.PackageRevisionLifecycle) error {
 
 	switch lifecycle := pr.Spec.Lifecycle; lifecycle {
 	case v1alpha1.PackageRevisionLifecycleProposed:
 		// Approve - change the package revision kind to 'final'.
 		if new != v1alpha1.PackageRevisionLifecyclePublished && new != v1alpha1.PackageRevisionLifecycleDraft {
-			return fmt.Errorf("cannot change approval from %s to %s", lifecycle, new)
+			return fmt.Errorf(ApproveErrorOut, lifecycle, new)
 		}
 	case v1alpha1.PackageRevisionLifecycleDeletionProposed:
 		if new != v1alpha1.PackageRevisionLifecyclePublished {
-			return fmt.Errorf("cannot change approval from %s to %s", lifecycle, new)
+			return fmt.Errorf(ApproveErrorOut, lifecycle, new)
 		}
 	case new:
 		// already correct value
 		return nil
 	default:
-		return fmt.Errorf("cannot change approval from %s to %s", lifecycle, new)
+		return fmt.Errorf(ApproveErrorOut, lifecycle, new)
 	}
 
 	pr.Spec.Lifecycle = new
