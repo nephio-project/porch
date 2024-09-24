@@ -93,6 +93,9 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 			if err := r.client.Get(r.ctx, key, &pr); err != nil {
 				return err
 			}
+			if !v1alpha1.PackageRevisionIsReady(pr.Spec.ReadinessGates, pr.Status.Conditions) {
+				return fmt.Errorf("readiness conditions not met")
+			}
 			return porch.UpdatePackageRevisionApproval(r.ctx, r.client, &pr, v1alpha1.PackageRevisionLifecyclePublished)
 		})
 		if err != nil {
