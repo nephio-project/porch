@@ -319,6 +319,7 @@ func (r *cachedRepository) DeletePackage(ctx context.Context, old repository.Pac
 }
 
 func (r *cachedRepository) Close() error {
+	r.pollOnce(context.TODO())
 	r.cancel()
 
 	// Make sure that watch events are sent for packagerevisions that are
@@ -338,12 +339,13 @@ func (r *cachedRepository) Close() error {
 			// There isn't much use in returning an error here, so we just log it
 			// and create a PackageRevisionMeta with just name and namespace. This
 			// makes sure that the Delete event is sent.
-			klog.Warningf("Error looking up PackageRev CR for %s: %v", nn.Name, err)
+			klog.Warningf("Error deleting PackageRev CR for %s: %v", nn.Name, err)
 			pkgRevMeta = meta.PackageRevisionMeta{
 				Name:      nn.Name,
 				Namespace: nn.Namespace,
 			}
 		}
+		klog.Infof("repo %s: successfully deleted packagerev %s/%s", r.id, nn.Namespace, nn.Name)
 		sent += r.objectNotifier.NotifyPackageRevisionChange(watch.Deleted, pr, pkgRevMeta)
 	}
 	klog.Infof("repo %s: sent %d notifications for %d package revisions during close", r.id, sent, len(r.cachedPackageRevisions))

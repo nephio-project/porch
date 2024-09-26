@@ -213,7 +213,7 @@ func (t *TestSuite) registerGitRepositoryFromConfigF(ctx context.Context, name s
 	t.Cleanup(func() {
 		t.DeleteE(ctx, repository)
 		t.WaitUntilRepositoryDeleted(ctx, name, t.Namespace)
-		t.WaitUntilAllPackagesDeleted(ctx, name)
+		t.WaitUntilAllPackagesDeleted(ctx, name, t.Namespace)
 	})
 
 	// Make sure the repository is ready before we test to (hopefully)
@@ -365,7 +365,31 @@ func (t *TestSuite) WaitUntilRepositoryDeleted(ctx context.Context, name, namesp
 	}
 }
 
+<<<<<<< HEAD:test/e2e/suite_utils.go
 func (t *TestSuite) WaitUntilAllPackagesDeleted(ctx context.Context, repoName string) {
+=======
+<<<<<<< HEAD:test/e2e/e2e_utils_test.go
+func (t *TestSuite) waitUntilAllPackagesDeleted(ctx context.Context, repoName string) {
+=======
+<<<<<<< HEAD:test/e2e/suite_utils.go
+func (t *TestSuite) WaitUntilAllPackagesDeleted(ctx context.Context, repoName string) {
+=======
+<<<<<<< HEAD:test/e2e/e2e_utils_test.go
+func (t *TestSuite) waitUntilAllPackagesDeleted(ctx context.Context, repoName string) {
+=======
+<<<<<<< HEAD:test/e2e/suite_utils.go
+func (t *TestSuite) WaitUntilAllPackagesDeleted(ctx context.Context, repoName string) {
+=======
+<<<<<<< HEAD:test/e2e/e2e_utils_test.go
+func (t *TestSuite) waitUntilAllPackagesDeleted(ctx context.Context, repoName string) {
+=======
+func (t *TestSuite) WaitUntilAllPackagesDeleted(ctx context.Context, repoName string, namespace string) {
+>>>>>>> 2ed49bf (Issue #657 - session conflict handling):test/e2e/suite_utils.go
+>>>>>>> 02825a0 (Issue #657 - session conflict handling):test/e2e/e2e_utils_test.go
+>>>>>>> 9835dc1 (Issue #657 - session conflict handling):test/e2e/suite_utils.go
+>>>>>>> 021ed5a (Issue #657 - session conflict handling):test/e2e/e2e_utils_test.go
+>>>>>>> aadf3eb (Issue #657 - session conflict handling):test/e2e/suite_utils.go
+>>>>>>> 6983ea7 (Issue #657 - session conflict handling):test/e2e/e2e_utils_test.go
 	t.Helper()
 	err := wait.PollUntilContextTimeout(ctx, time.Second, 60*time.Second, true, func(ctx context.Context) (done bool, err error) {
 		t.Helper()
@@ -375,7 +399,7 @@ func (t *TestSuite) WaitUntilAllPackagesDeleted(ctx context.Context, repoName st
 			return false, nil
 		}
 		for _, pkgRev := range pkgRevList.Items {
-			if strings.HasPrefix(fmt.Sprintf("%s-", pkgRev.Name), repoName) {
+			if pkgRev.Namespace == namespace && strings.HasPrefix(fmt.Sprintf("%s-", pkgRev.Name), repoName) {
 				t.Logf("Found package %s from repo %s", pkgRev.Name, repoName)
 				return false, nil
 			}
@@ -387,8 +411,8 @@ func (t *TestSuite) WaitUntilAllPackagesDeleted(ctx context.Context, repoName st
 			return false, nil
 		}
 		for _, internalPkgRev := range internalPkgRevList.Items {
-			if strings.HasPrefix(fmt.Sprintf("%s-", internalPkgRev.Name), repoName) {
-				t.Logf("Found internalPkg %s from repo %s", internalPkgRev.Name, repoName)
+			if internalPkgRev.Namespace == namespace && strings.HasPrefix(fmt.Sprintf("%s-", internalPkgRev.Name), repoName) {
+				t.Logf("Found internalPkg %s/%s from repo %s", internalPkgRev.Namespace, internalPkgRev.Name, repoName)
 				return false, nil
 			}
 		}

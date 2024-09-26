@@ -127,6 +127,27 @@ func RunSuite(suite interface{}, t *testing.T) {
 	})
 }
 
+func RunInParallel(functions ...func() any) []any {
+	var group sync.WaitGroup
+	var results []any
+	for _, eachFunction := range functions {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			if reflect.TypeOf(eachFunction).NumOut() == 0 {
+				results = append(results, nil)
+				eachFunction()
+			} else {
+				eachResult := eachFunction()
+
+				results = append(results, eachResult)
+			}
+		}()
+	}
+	group.Wait()
+	return results
+}
+
 func (t *TestSuite) SetT(tt *testing.T) {
 	t.T = tt
 }

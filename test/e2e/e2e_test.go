@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -260,7 +261,7 @@ func (t *PorchSuite) TestInitEmptyPackage(ctx context.Context) {
 			Namespace: t.Namespace,
 		},
 		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "empty-package",
+			PackageName:    packageName,
 			WorkspaceName:  workspace,
 			RepositoryName: repository,
 		},
@@ -283,6 +284,52 @@ func (t *PorchSuite) TestInitEmptyPackage(ctx context.Context) {
 	}); !cmp.Equal(want, got) {
 		t.Fatalf("unexpected %s/%s package info (-want, +got) %s", newPackage.Namespace, newPackage.Name, cmp.Diff(want, got))
 	}
+}
+
+func (t *PorchSuite) TestConcurrentInits(ctx context.Context) {
+	// Create a new package via init, no task specified
+	const (
+		repository  = "git"
+		packageName = "empty-package-concurrent"
+		revision    = "v1"
+		workspace   = "test-workspace"
+		description = "empty-package description"
+	)
+
+	// Register the repository
+	t.RegisterMainGitRepositoryF(ctx, repository)
+
+	// Create a new package (via init)
+	pr := &porchapi.PackageRevision{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PackageRevision",
+			APIVersion: porchapi.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: t.Namespace,
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			PackageName:    packageName,
+			WorkspaceName:  workspace,
+			RepositoryName: repository,
+		},
+	}
+	// Two clients try to create it at the same time
+	creationFunction := func() any {
+		return t.Client.Create(ctx, pr)
+	}
+	results := RunInParallel(creationFunction, creationFunction)
+
+	expectedResultCount := 2
+	actualResultCount := len(results)
+	assert.Equal(t, expectedResultCount, actualResultCount, "expected %d results but was %d", expectedResultCount, actualResultCount)
+
+	assert.Contains(t, results, nil, "expected one request to succeed, but did not happen - results: %v", results)
+
+	conflictFailurePresent := slices.ContainsFunc(results, func(eachResult any) bool {
+		return eachResult != nil && strings.Contains(eachResult.(error).Error(), "another request is already in progress")
+	})
+	assert.True(t, conflictFailurePresent, "expected one request to fail with a conflict, but did not happen")
 }
 
 func (t *PorchSuite) TestInitTaskPackage(ctx context.Context) {
@@ -554,6 +601,98 @@ func (t *PorchSuite) TestEditPackageRevision(ctx context.Context) {
 
 	// Create a new revision with the edit task.
 	t.CreateF(ctx, editPR)
+
+	// Check its task list
+	var pkgRev porchapi.PackageRevision
+	t.GetF(ctx, client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      editPR.Name,
+	}, &pkgRev)
+	tasks := pkgRev.Spec.Tasks
+	for _, tsk := range tasks {
+		t.Logf("Task: %s", tsk.Type)
+	}
+	assert.Equal(t, 2, len(tasks))
+}
+
+func (t *PorchSuite) TestConcurrentEdits(ctx context.Context) {
+	const (
+		repository  = "edit-test"
+		packageName = "simple-package-concurrent"
+		workspace   = "workspace"
+		workspace2  = "workspace2"
+	)
+
+	t.RegisterMainGitRepositoryF(ctx, repository)
+
+	// Create a new package (via init)
+	pr := &porchapi.PackageRevision{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PackageRevision",
+			APIVersion: porchapi.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: t.Namespace,
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			PackageName:    packageName,
+			WorkspaceName:  workspace,
+			RepositoryName: repository,
+		},
+	}
+	t.CreateF(ctx, pr)
+
+	// Publish and approve the source package to make it a valid source for edit.
+	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	t.UpdateF(ctx, pr)
+	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+	t.UpdateApprovalF(ctx, pr, metav1.UpdateOptions{})
+
+	// Create a new revision of the package with a source that is a revision
+	// of the same package.
+	editPR := &porchapi.PackageRevision{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PackageRevision",
+			APIVersion: porchapi.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: t.Namespace,
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			PackageName:    packageName,
+			WorkspaceName:  workspace2,
+			RepositoryName: repository,
+			Tasks: []porchapi.Task{
+				{
+					Type: porchapi.TaskTypeEdit,
+					Edit: &porchapi.PackageEditTaskSpec{
+						Source: &porchapi.PackageRevisionRef{
+							Name: pr.Name,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Two clients try to create the new package at the same time
+	editOperation := func() any {
+		return t.Client.Create(ctx, editPR)
+	}
+	results := RunInParallel(
+		editOperation,
+		editOperation)
+
+	expectedResultCount := 2
+	actualResultCount := len(results)
+	assert.Equal(t, expectedResultCount, actualResultCount, "expected %d results but was %d", expectedResultCount, actualResultCount)
+
+	assert.Contains(t, results, nil, "expected one request to succeed, but did not happen - results: %v", results)
+
+	conflictFailurePresent := slices.ContainsFunc(results, func(eachResult any) bool {
+		return eachResult != nil && strings.Contains(eachResult.(error).Error(), "another request is already in progress")
+	})
+	assert.True(t, conflictFailurePresent, "expected one request to fail with a conflict, but did not happen")
 
 	// Check its task list
 	var pkgRev porchapi.PackageRevision
