@@ -152,13 +152,13 @@ func (t *PorchSuite) TestCloneFromUpstream(ctx context.Context) {
 	var list porchapi.PackageRevisionList
 	t.ListE(ctx, &list, client.InNamespace(t.Namespace))
 
-	basens := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: "v1"})
+	upstreamPr := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: "v1"})
 
 	// Register the repository as 'downstream'
 	t.RegisterMainGitRepositoryF(ctx, "downstream")
 
 	// Create PackageRevision from upstream repo
-	pr := &porchapi.PackageRevision{
+	clonedPr := &porchapi.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevision",
 			APIVersion: porchapi.SchemeGroupVersion.String(),
@@ -176,7 +176,7 @@ func (t *PorchSuite) TestCloneFromUpstream(ctx context.Context) {
 					Clone: &porchapi.PackageCloneTaskSpec{
 						Upstream: porchapi.UpstreamPackage{
 							UpstreamRef: &porchapi.PackageRevisionRef{
-								Name: basens.Name,
+								Name: upstreamPr.Name,
 							},
 						},
 					},
@@ -185,13 +185,13 @@ func (t *PorchSuite) TestCloneFromUpstream(ctx context.Context) {
 		},
 	}
 
-	t.CreateF(ctx, pr)
+	t.CreateF(ctx, clonedPr)
 
 	// Get istions resources
 	var istions porchapi.PackageRevisionResources
 	t.GetF(ctx, client.ObjectKey{
 		Namespace: t.Namespace,
-		Name:      pr.Name,
+		Name:      clonedPr.Name,
 	}, &istions)
 
 	kptfile := t.ParseKptfileF(&istions)
@@ -236,6 +236,62 @@ func (t *PorchSuite) TestCloneFromUpstream(ctx context.Context) {
 	}); !cmp.Equal(want, got) {
 		t.Errorf("unexpected upstream returned (-want, +got) %s", cmp.Diff(want, got))
 	}
+}
+
+func (t *PorchSuite) TestConcurrentClones(ctx context.Context) {
+	const (
+		upstreamRepository   = "upstream"
+		upstreamPackage      = "basens"
+		downstreamRepository = "downstream"
+		downstreamPackage    = "istions-concurrent"
+		workspace            = "test-workspace"
+	)
+
+	// Register Upstream and Downstream Repositories
+	t.RegisterGitRepositoryF(ctx, testBlueprintsRepo, upstreamRepository, "")
+	t.RegisterMainGitRepositoryF(ctx, downstreamRepository)
+
+	var list porchapi.PackageRevisionList
+	t.ListE(ctx, &list, client.InNamespace(t.Namespace))
+	upstreamPr := MustFindPackageRevision(t.T,
+		&list,
+		repository.PackageRevisionKey{
+			Repository: upstreamRepository,
+			Package:    upstreamPackage,
+			Revision:   "v1"})
+
+	// Create PackageRevision from upstream repo
+	clonedPr := t.CreatePackageSkeleton(downstreamRepository, downstreamPackage, workspace)
+	clonedPr.Spec.Tasks = []porchapi.Task{
+		{
+			Type: porchapi.TaskTypeClone,
+			Clone: &porchapi.PackageCloneTaskSpec{
+				Upstream: porchapi.UpstreamPackage{
+					UpstreamRef: &porchapi.PackageRevisionRef{
+						Name: upstreamPr.Name,
+					},
+				},
+			},
+		},
+	}
+
+	// Two clients at the same time try to run the Create operation for the clone
+	cloneFunction := func() any {
+		return t.Client.Create(ctx, clonedPr)
+	}
+	results := RunInParallel(cloneFunction, cloneFunction)
+
+	expectedResultCount := 2
+	actualResultCount := len(results)
+	assert.Equal(t, expectedResultCount, actualResultCount, "expected %d results but was %d", expectedResultCount, actualResultCount)
+
+	assert.Contains(t, results, nil, "expected one request to succeed, but did not happen - results: %v", results)
+
+	conflictFailurePresent := slices.ContainsFunc(results, func(eachResult any) bool {
+		return eachResult != nil && strings.Contains(eachResult.(error).Error(), "another request is already in progress")
+	})
+	assert.True(t, conflictFailurePresent, "expected one request to fail with a conflict, but did not happen")
+
 }
 
 func (t *PorchSuite) TestInitEmptyPackage(ctx context.Context) {
@@ -299,27 +355,14 @@ func (t *PorchSuite) TestConcurrentInits(ctx context.Context) {
 	// Register the repository
 	t.RegisterMainGitRepositoryF(ctx, repository)
 
-	// Create a new package (via init)
-	pr := &porchapi.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
-			APIVersion: porchapi.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    packageName,
-			WorkspaceName:  workspace,
-			RepositoryName: repository,
-		},
-	}
-	// Two clients try to create it at the same time
+	// Two clients try to create the same new draft package
+	pr := t.CreatePackageSkeleton(repository, packageName, workspace)
 	creationFunction := func() any {
 		return t.Client.Create(ctx, pr)
 	}
 	results := RunInParallel(creationFunction, creationFunction)
 
+	// one client succeeds; one receives a conflict error
 	expectedResultCount := 2
 	actualResultCount := len(results)
 	assert.Equal(t, expectedResultCount, actualResultCount, "expected %d results but was %d", expectedResultCount, actualResultCount)
@@ -626,20 +669,7 @@ func (t *PorchSuite) TestConcurrentEdits(ctx context.Context) {
 	t.RegisterMainGitRepositoryF(ctx, repository)
 
 	// Create a new package (via init)
-	pr := &porchapi.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
-			APIVersion: porchapi.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    packageName,
-			WorkspaceName:  workspace,
-			RepositoryName: repository,
-		},
-	}
+	pr := t.CreatePackageSkeleton(repository, packageName, workspace)
 	t.CreateF(ctx, pr)
 
 	// Publish and approve the source package to make it a valid source for edit.
@@ -650,26 +680,13 @@ func (t *PorchSuite) TestConcurrentEdits(ctx context.Context) {
 
 	// Create a new revision of the package with a source that is a revision
 	// of the same package.
-	editPR := &porchapi.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
-			APIVersion: porchapi.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    packageName,
-			WorkspaceName:  workspace2,
-			RepositoryName: repository,
-			Tasks: []porchapi.Task{
-				{
-					Type: porchapi.TaskTypeEdit,
-					Edit: &porchapi.PackageEditTaskSpec{
-						Source: &porchapi.PackageRevisionRef{
-							Name: pr.Name,
-						},
-					},
+	editPR := t.CreatePackageSkeleton(repository, packageName, workspace2)
+	editPR.Spec.Tasks = []porchapi.Task{
+		{
+			Type: porchapi.TaskTypeEdit,
+			Edit: &porchapi.PackageEditTaskSpec{
+				Source: &porchapi.PackageRevisionRef{
+					Name: pr.Name,
 				},
 			},
 		},
@@ -701,9 +718,6 @@ func (t *PorchSuite) TestConcurrentEdits(ctx context.Context) {
 		Name:      editPR.Name,
 	}, &pkgRev)
 	tasks := pkgRev.Spec.Tasks
-	for _, tsk := range tasks {
-		t.Logf("Task: %s", tsk.Type)
-	}
 	assert.Equal(t, 2, len(tasks))
 }
 
@@ -1029,6 +1043,48 @@ func (t *PorchSuite) TestDeleteDraft(ctx context.Context) {
 		},
 	})
 
+	t.MustNotExist(ctx, &draft)
+}
+
+func (t *PorchSuite) TestConcurrentDeletes(ctx context.Context) {
+	const (
+		repository  = "delete-draft"
+		packageName = "test-delete-draft-concurrent"
+		revision    = "v1"
+		workspace   = "test-workspace"
+	)
+
+	// Register the repository and create a draft package
+	t.RegisterMainGitRepositoryF(ctx, repository)
+	created := t.CreatePackageDraftF(ctx, repository, packageName, workspace)
+
+	// Check the package exists
+	var draft porchapi.PackageRevision
+	t.MustExist(ctx, client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &draft)
+
+	// Delete the same package with two clients at the same time
+	deleteOperation := func() any {
+		return t.Client.Delete(ctx, &porchapi.PackageRevision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: t.Namespace,
+				Name:      created.Name,
+			},
+		})
+	}
+	results := RunInParallel(
+		deleteOperation,
+		deleteOperation)
+
+	expectedResultCount := 2
+	actualResultCount := len(results)
+	assert.Equal(t, expectedResultCount, actualResultCount, "expected %d results but was %d", expectedResultCount, actualResultCount)
+
+	assert.Contains(t, results, nil, "expected one request to succeed, but did not happen - results: %v", results)
+
+	conflictFailurePresent := slices.ContainsFunc(results, func(eachResult any) bool {
+		return eachResult != nil && strings.Contains(eachResult.(error).Error(), "another request is already in progress")
+	})
+	assert.True(t, conflictFailurePresent, "expected one request to fail with a conflict, but did not happen")
 	t.MustNotExist(ctx, &draft)
 }
 

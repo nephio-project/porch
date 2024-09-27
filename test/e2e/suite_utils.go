@@ -249,9 +249,21 @@ func InNamespace(ns string) RepositoryOption {
 }
 
 // Creates an empty package draft by initializing an empty package
-func (t *TestSuite) CreatePackageDraftF(ctx context.Context, repository, name, workspace string) *porchapi.PackageRevision {
+func (t *TestSuite) CreatePackageDraftF(ctx context.Context, repository, packageName, workspace string) *porchapi.PackageRevision {
 	t.Helper()
-	pr := &porchapi.PackageRevision{
+	pr := t.CreatePackageSkeleton(repository, packageName, workspace)
+	pr.Spec.Tasks = []porchapi.Task{
+		{
+			Type: porchapi.TaskTypeInit,
+			Init: &porchapi.PackageInitTaskSpec{},
+		},
+	}
+	t.CreateF(ctx, pr)
+	return pr
+}
+
+func (t *TestSuite) CreatePackageSkeleton(repository, packageName, workspace string) *porchapi.PackageRevision {
+	return &porchapi.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevision",
 			APIVersion: porchapi.SchemeGroupVersion.String(),
@@ -260,19 +272,13 @@ func (t *TestSuite) CreatePackageDraftF(ctx context.Context, repository, name, w
 			Namespace: t.Namespace,
 		},
 		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    name,
+			PackageName:    packageName,
 			WorkspaceName:  porchapi.WorkspaceName(workspace),
 			RepositoryName: repository,
-			Tasks: []porchapi.Task{
-				{
-					Type: porchapi.TaskTypeInit,
-					Init: &porchapi.PackageInitTaskSpec{},
-				},
-			},
+			// empty tasks list - set them as needed in the particular usage
+			Tasks: []porchapi.Task{},
 		},
 	}
-	t.CreateF(ctx, pr)
-	return pr
 }
 
 func (t *TestSuite) MustExist(ctx context.Context, key client.ObjectKey, obj client.Object) {
@@ -378,6 +384,7 @@ func (t *TestSuite) WaitUntilAllPackagesDeleted(ctx context.Context, repoName st
 func (t *TestSuite) waitUntilAllPackagesDeleted(ctx context.Context, repoName string) {
 =======
 <<<<<<< HEAD:test/e2e/suite_utils.go
+<<<<<<< HEAD:test/e2e/suite_utils.go
 func (t *TestSuite) WaitUntilAllPackagesDeleted(ctx context.Context, repoName string) {
 =======
 <<<<<<< HEAD:test/e2e/e2e_utils_test.go
@@ -386,10 +393,25 @@ func (t *TestSuite) waitUntilAllPackagesDeleted(ctx context.Context, repoName st
 func (t *TestSuite) WaitUntilAllPackagesDeleted(ctx context.Context, repoName string, namespace string) {
 >>>>>>> 2ed49bf (Issue #657 - session conflict handling):test/e2e/suite_utils.go
 >>>>>>> 02825a0 (Issue #657 - session conflict handling):test/e2e/e2e_utils_test.go
+<<<<<<< HEAD:test/e2e/e2e_utils_test.go
 >>>>>>> 9835dc1 (Issue #657 - session conflict handling):test/e2e/suite_utils.go
+<<<<<<< HEAD:test/e2e/suite_utils.go
 >>>>>>> 021ed5a (Issue #657 - session conflict handling):test/e2e/e2e_utils_test.go
+<<<<<<< HEAD:test/e2e/e2e_utils_test.go
 >>>>>>> aadf3eb (Issue #657 - session conflict handling):test/e2e/suite_utils.go
+<<<<<<< HEAD:test/e2e/suite_utils.go
 >>>>>>> 6983ea7 (Issue #657 - session conflict handling):test/e2e/e2e_utils_test.go
+=======
+=======
+=======
+=======
+=======
+func (t *TestSuite) WaitUntilAllPackagesDeleted(ctx context.Context, repoName string, namespace string) {
+>>>>>>> 90101d4 (Issue #657 - session conflict handling):test/e2e/e2e_utils_test.go
+>>>>>>> 5286ef6 (Issue #657 - session conflict handling):test/e2e/suite_utils.go
+>>>>>>> 7ed9d28 (Issue #657 - session conflict handling):test/e2e/e2e_utils_test.go
+>>>>>>> a9e3581 (Issue #657 - session conflict handling):test/e2e/suite_utils.go
+>>>>>>> 2bf829c (Issue #657 - session conflict handling):test/e2e/e2e_utils_test.go
 	t.Helper()
 	err := wait.PollUntilContextTimeout(ctx, time.Second, 60*time.Second, true, func(ctx context.Context) (done bool, err error) {
 		t.Helper()

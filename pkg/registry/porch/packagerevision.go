@@ -36,10 +36,11 @@ import (
 var tracer = otel.Tracer("apiserver")
 
 var mutexMapMutex sync.Mutex
-var packageRevisionCreationMutexes = map[string]*sync.Mutex{}
+var pkgRevOperationMutexes = map[string]*sync.Mutex{}
 
 const (
-	ConflictErrorMsg = "another request is already in progress to create %s with details %s"
+	CreateConflictErrorMsg = "another request is already in progress to create %s with details %s"
+	DeleteConflictErrorMsg = "another request is already in progress to delete %s \"%s\""
 )
 
 type packageRevisions struct {
@@ -172,17 +173,17 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 		parentPackage = p
 	}
 
-	uncreatedPackageKey := fmt.Sprintf("%s-%s-%s-%s",
+	packageMutexKey := fmt.Sprintf("%s-%s-%s-%s",
 		newApiPkgRev.Namespace,
 		newApiPkgRev.Spec.RepositoryName,
 		newApiPkgRev.Spec.PackageName,
 		newApiPkgRev.Spec.WorkspaceName)
 
 	mutexMapMutex.Lock()
-	packageMutex, alreadyPresent := packageRevisionCreationMutexes[uncreatedPackageKey]
+	packageMutex, alreadyPresent := pkgRevOperationMutexes[packageMutexKey]
 	if !alreadyPresent {
 		packageMutex = &sync.Mutex{}
-		packageRevisionCreationMutexes[uncreatedPackageKey] = packageMutex
+		pkgRevOperationMutexes[packageMutexKey] = packageMutex
 	}
 	mutexMapMutex.Unlock()
 
@@ -192,7 +193,7 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 			apierrors.NewConflict(
 				api.Resource("packagerevisions"),
 				fmt.Sprintf("(new creation)"),
-				fmt.Errorf(ConflictErrorMsg, "package revision", fmt.Sprintf(
+				fmt.Errorf(CreateConflictErrorMsg, "package revision", fmt.Sprintf(
 					"namespace=%s, repository=%s, package=%s,workspace=%s",
 					newApiPkgRev.Namespace,
 					newApiPkgRev.Spec.RepositoryName,
@@ -261,6 +262,25 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 	if err != nil {
 		return nil, false, err
 	}
+
+	packageMutexKey := fmt.Sprintf("%s/%s", ns, name)
+	mutexMapMutex.Lock()
+	packageMutex, alreadyPresent := pkgRevOperationMutexes[packageMutexKey]
+	if !alreadyPresent {
+		packageMutex = &sync.Mutex{}
+		pkgRevOperationMutexes[packageMutexKey] = packageMutex
+	}
+	mutexMapMutex.Unlock()
+
+	lockAcquired := packageMutex.TryLock()
+	if !lockAcquired {
+		return nil, false,
+			apierrors.NewConflict(
+				api.Resource("packagerevisions"),
+				name,
+				fmt.Errorf(DeleteConflictErrorMsg, "package revision", packageMutexKey))
+	}
+	defer packageMutex.Unlock()
 
 	if err := r.cad.DeletePackageRevision(ctx, repositoryObj, repoPkgRev); err != nil {
 		return nil, false, apierrors.NewInternalError(err)
