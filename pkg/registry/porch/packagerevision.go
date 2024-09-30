@@ -39,8 +39,8 @@ var mutexMapMutex sync.Mutex
 var pkgRevOperationMutexes = map[string]*sync.Mutex{}
 
 const (
-	CreateConflictErrorMsg = "another request is already in progress to create %s with details %s"
-	DeleteConflictErrorMsg = "another request is already in progress to delete %s \"%s\""
+	CreateConflictErrorMsg  = "another request is already in progress to create %s with details %s"
+	GenericConflictErrorMsg = "another request is already in progress on %s \"%s\""
 )
 
 type packageRevisions struct {
@@ -179,13 +179,7 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 		newApiPkgRev.Spec.PackageName,
 		newApiPkgRev.Spec.WorkspaceName)
 
-	mutexMapMutex.Lock()
-	packageMutex, alreadyPresent := pkgRevOperationMutexes[packageMutexKey]
-	if !alreadyPresent {
-		packageMutex = &sync.Mutex{}
-		pkgRevOperationMutexes[packageMutexKey] = packageMutex
-	}
-	mutexMapMutex.Unlock()
+	packageMutex := getMutexForPackage(packageMutexKey)
 
 	lockAcquired := packageMutex.TryLock()
 	if !lockAcquired {
@@ -264,13 +258,7 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 	}
 
 	packageMutexKey := fmt.Sprintf("%s/%s", ns, name)
-	mutexMapMutex.Lock()
-	packageMutex, alreadyPresent := pkgRevOperationMutexes[packageMutexKey]
-	if !alreadyPresent {
-		packageMutex = &sync.Mutex{}
-		pkgRevOperationMutexes[packageMutexKey] = packageMutex
-	}
-	mutexMapMutex.Unlock()
+	packageMutex := getMutexForPackage(packageMutexKey)
 
 	lockAcquired := packageMutex.TryLock()
 	if !lockAcquired {
@@ -278,7 +266,7 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 			apierrors.NewConflict(
 				api.Resource("packagerevisions"),
 				name,
-				fmt.Errorf(DeleteConflictErrorMsg, "package revision", packageMutexKey))
+				fmt.Errorf(GenericConflictErrorMsg, "package revision", packageMutexKey))
 	}
 	defer packageMutex.Unlock()
 
@@ -288,4 +276,15 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 
 	// TODO: Should we do an async delete?
 	return apiPkgRev, true, nil
+}
+
+func getMutexForPackage(packageMutexKey string) *sync.Mutex {
+	mutexMapMutex.Lock()
+	defer mutexMapMutex.Unlock()
+	packageMutex, alreadyPresent := pkgRevOperationMutexes[packageMutexKey]
+	if !alreadyPresent {
+		packageMutex = &sync.Mutex{}
+		pkgRevOperationMutexes[packageMutexKey] = packageMutex
+	}
+	return packageMutex
 }
