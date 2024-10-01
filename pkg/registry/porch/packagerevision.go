@@ -39,7 +39,7 @@ var mutexMapMutex sync.Mutex
 var pkgRevOperationMutexes = map[string]*sync.Mutex{}
 
 const (
-	CreateConflictErrorMsg  = "another request is already in progress to create %s with details %s"
+	CreateConflictErrorMsg  = "another request is already in progress to create package revision with details namespace=%q, repository=%q, package=%q,workspace=%q"
 	GenericConflictErrorMsg = "another request is already in progress on %s \"%s\""
 )
 
@@ -186,13 +186,12 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 		return nil,
 			apierrors.NewConflict(
 				api.Resource("packagerevisions"),
-				fmt.Sprintf("(new creation)"),
-				fmt.Errorf(CreateConflictErrorMsg, "package revision", fmt.Sprintf(
-					"namespace=%s, repository=%s, package=%s,workspace=%s",
+				"(new creation)",
+				fmt.Errorf(CreateConflictErrorMsg,
 					newApiPkgRev.Namespace,
 					newApiPkgRev.Spec.RepositoryName,
 					newApiPkgRev.Spec.PackageName,
-					newApiPkgRev.Spec.WorkspaceName)))
+					newApiPkgRev.Spec.WorkspaceName))
 	}
 	defer packageMutex.Unlock()
 

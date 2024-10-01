@@ -847,6 +847,40 @@ func (t *PorchSuite) TestUpdateResourcesEmptyPatch(ctx context.Context) {
 	assert.True(t, reflect.DeepEqual(tasksBeforeUpdate, tasksAfterUpdate))
 }
 
+func (t *PorchSuite) TestConcurrentResourceUpdates(ctx context.Context) {
+	const (
+		repository  = "concurrent-update-test"
+		packageName = "simple-package"
+		workspace   = "workspace"
+	)
+
+	t.RegisterMainGitRepositoryF(ctx, repository)
+
+	// Create a new package (via init)
+	pr := t.CreatePackageSkeleton(repository, packageName, workspace)
+	t.CreateF(ctx, pr)
+
+	// Get the package resources
+	var newPackageResources porchapi.PackageRevisionResources
+	t.GetF(ctx, client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      pr.Name,
+	}, &newPackageResources)
+
+	// "Update" the package resources with two clients at the same time
+	updateFunction := func() any {
+		return t.Client.Update(ctx, &newPackageResources)
+	}
+	results := RunInParallel(updateFunction, updateFunction)
+
+	assert.Contains(t, results, nil, "expected one request to succeed, but did not happen - results: %v", results)
+
+	conflictFailurePresent := slices.ContainsFunc(results, func(eachResult any) bool {
+		return eachResult != nil && strings.Contains(eachResult.(error).Error(), "another request is already in progress")
+	})
+	assert.True(t, conflictFailurePresent, "expected one request to fail with a conflict, but did not happen - results: %v", results)
+}
+
 func (t *PorchSuite) TestFunctionRepository(ctx context.Context) {
 	repo := &configapi.Repository{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1685,10 +1719,10 @@ func (t *PorchSuite) TestConcurrentPackageUpdates(ctx context.Context) {
 	})
 
 	// Two clients at the same time try to update the downstream package
-	cloneFunction := func() any {
+	updateFunction := func() any {
 		return t.Client.Update(ctx, pr, &client.UpdateOptions{})
 	}
-	results := RunInParallel(cloneFunction, cloneFunction)
+	results := RunInParallel(updateFunction, updateFunction)
 
 	assert.Contains(t, results, nil, "expected one request to succeed, but did not happen - results: %v", results)
 
