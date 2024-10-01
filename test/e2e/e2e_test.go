@@ -1011,7 +1011,7 @@ func (t *PorchSuite) TestProposeApprove(ctx context.Context) {
 func (t *PorchSuite) TestConcurrentProposeApprove(ctx context.Context) {
 	const (
 		repository  = "lifecycle"
-		packageName = "test-package"
+		packageName = "test-package-concurrent"
 		workspace   = "workspace"
 	)
 
@@ -1231,7 +1231,7 @@ func (t *PorchSuite) TestDeleteFinal(ctx context.Context) {
 func (t *PorchSuite) TestConcurrentProposeDeletes(ctx context.Context) {
 	const (
 		repository  = "delete-final"
-		packageName = "test-delete-final"
+		packageName = "test-delete-final-concurrent"
 		workspace   = "workspace"
 	)
 
@@ -1644,7 +1644,7 @@ func (t *PorchSuite) TestPackageUpdate(ctx context.Context) {
 func (t *PorchSuite) TestConcurrentPackageUpdates(ctx context.Context) {
 	const (
 		gitRepository = "package-update"
-		packageName   = "testns"
+		packageName   = "testns-concurrent"
 		workspace     = "test-workspace"
 	)
 
