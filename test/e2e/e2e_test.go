@@ -688,12 +688,12 @@ func (t *PorchSuite) TestConcurrentEdits(ctx context.Context) {
 	}
 
 	// Two clients try to create the new package at the same time
-	editOperation := func() any {
+	editFunction := func() any {
 		return t.Client.Create(ctx, editPR)
 	}
 	results := RunInParallel(
-		editOperation,
-		editOperation)
+		editFunction,
+		editFunction)
 
 	assert.Contains(t, results, nil, "expected one request to succeed, but did not happen - results: %v", results)
 
@@ -1150,7 +1150,7 @@ func (t *PorchSuite) TestConcurrentDeletes(ctx context.Context) {
 	t.MustExist(ctx, client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &draft)
 
 	// Delete the same package with two clients at the same time
-	deleteOperation := func() any {
+	deleteFunction := func() any {
 		return t.Client.Delete(ctx, &porchapi.PackageRevision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: t.Namespace,
@@ -1159,8 +1159,8 @@ func (t *PorchSuite) TestConcurrentDeletes(ctx context.Context) {
 		})
 	}
 	results := RunInParallel(
-		deleteOperation,
-		deleteOperation)
+		deleteFunction,
+		deleteFunction)
 
 	expectedResultCount := 2
 	actualResultCount := len(results)

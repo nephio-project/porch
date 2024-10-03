@@ -125,17 +125,17 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 		return nil, false, apierrors.NewBadRequest("namespace must be specified")
 	}
 
-	packageMutexKey := fmt.Sprintf("%s/%s", ns, name)
-	packageMutex := getMutexForPackage(packageMutexKey)
-	lockAcquired := packageMutex.TryLock()
-	if !lockAcquired {
+	pkgMutexKey := fmt.Sprintf("%s/%s", ns, name)
+	pkgMutex := getMutexForPackage(pkgMutexKey)
+	locked := pkgMutex.TryLock()
+	if !locked {
 		return nil, false,
 			apierrors.NewConflict(
 				api.Resource("packagerevisionresources"),
 				name,
-				fmt.Errorf(GenericConflictErrorMsg, "package revision resources", packageMutexKey))
+				fmt.Errorf(GenericConflictErrorMsg, "package revision resources", pkgMutexKey))
 	}
-	defer packageMutex.Unlock()
+	defer pkgMutex.Unlock()
 
 	oldRepoPkgRev, err := r.packageCommon.getRepoPkgRev(ctx, name)
 	if err != nil {

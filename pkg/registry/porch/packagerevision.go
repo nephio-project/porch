@@ -173,16 +173,16 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 		parentPackage = p
 	}
 
-	packageMutexKey := fmt.Sprintf("%s-%s-%s-%s",
+	pkgMutexKey := fmt.Sprintf("%s-%s-%s-%s",
 		newApiPkgRev.Namespace,
 		newApiPkgRev.Spec.RepositoryName,
 		newApiPkgRev.Spec.PackageName,
 		newApiPkgRev.Spec.WorkspaceName)
 
-	packageMutex := getMutexForPackage(packageMutexKey)
+	pkgMutex := getMutexForPackage(pkgMutexKey)
 
-	lockAcquired := packageMutex.TryLock()
-	if !lockAcquired {
+	locked := pkgMutex.TryLock()
+	if !locked {
 		return nil,
 			apierrors.NewConflict(
 				api.Resource("packagerevisions"),
@@ -193,7 +193,7 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 					newApiPkgRev.Spec.PackageName,
 					newApiPkgRev.Spec.WorkspaceName))
 	}
-	defer packageMutex.Unlock()
+	defer pkgMutex.Unlock()
 
 	createdRepoPkgRev, err := r.cad.CreatePackageRevision(ctx, repositoryObj, newApiPkgRev, parentPackage)
 	if err != nil {
@@ -256,18 +256,18 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 		return nil, false, err
 	}
 
-	packageMutexKey := fmt.Sprintf("%s/%s", ns, name)
-	packageMutex := getMutexForPackage(packageMutexKey)
+	pkgMutexKey := fmt.Sprintf("%s/%s", ns, name)
+	pkgMutex := getMutexForPackage(pkgMutexKey)
 
-	lockAcquired := packageMutex.TryLock()
-	if !lockAcquired {
+	locked := pkgMutex.TryLock()
+	if !locked {
 		return nil, false,
 			apierrors.NewConflict(
 				api.Resource("packagerevisions"),
 				name,
-				fmt.Errorf(GenericConflictErrorMsg, "package revision", packageMutexKey))
+				fmt.Errorf(GenericConflictErrorMsg, "package revision", pkgMutexKey))
 	}
-	defer packageMutex.Unlock()
+	defer pkgMutex.Unlock()
 
 	if err := r.cad.DeletePackageRevision(ctx, repositoryObj, repoPkgRev); err != nil {
 		return nil, false, apierrors.NewInternalError(err)
@@ -277,13 +277,13 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 	return apiPkgRev, true, nil
 }
 
-func getMutexForPackage(packageMutexKey string) *sync.Mutex {
+func getMutexForPackage(pkgMutexKey string) *sync.Mutex {
 	mutexMapMutex.Lock()
 	defer mutexMapMutex.Unlock()
-	packageMutex, alreadyPresent := pkgRevOperationMutexes[packageMutexKey]
+	pkgMutex, alreadyPresent := pkgRevOperationMutexes[pkgMutexKey]
 	if !alreadyPresent {
-		packageMutex = &sync.Mutex{}
-		pkgRevOperationMutexes[packageMutexKey] = packageMutex
+		pkgMutex = &sync.Mutex{}
+		pkgRevOperationMutexes[pkgMutexKey] = pkgMutex
 	}
-	return packageMutex
+	return pkgMutex
 }

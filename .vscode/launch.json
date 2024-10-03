@@ -14,14 +14,16 @@
                 "--secure-port=4443",
                 "--kubeconfig=${env:KUBECONFIG}",
                 "--cache-directory=${workspaceFolder}/.cache",
-                "--function-runner=${env:FUNCTION_RUNNER_IP}:9445",
+                "--function-runner=172.18.255.201:9445",
                 "--repo-sync-frequency=60s"
             ],
             "cwd": "${workspaceFolder}",
             "env": { 
                 "CERT_STORAGE_DIR": "${workspaceFolder}/.build/pki/tmp", 
                 "WEBHOOK_HOST": "localhost",
-                "GOOGLE_API_GO_EXPERIMENTAL_DISABLE_NEW_AUTH_LIB": "true"
+                "GOOGLE_API_GO_EXPERIMENTAL_DISABLE_NEW_AUTH_LIB": "true",
+                "OTEL_SERVICE_NAME": "porch-server",
+                "OTEL": "otel://localhost:4317"
             }
         },
         {
@@ -37,17 +39,6 @@
             }
         },
         {
-            "name": "Run Porchctl command",
-            "type": "go",
-            "request": "launch",
-            "mode": "auto",
-            "program": "${workspaceFolder}/cmd/porchctl/main.go",
-            "args": [
-                "-n", "porch", "rpkg", "approve", "blueprints-835222fccff6e9e042e3b01b8c554f394d6e55d1"
-            ],
-            "cwd": "${workspaceFolder}"
-        },
-        {
             "name": "Launch E2E tests",
             "type": "go",
             "request": "launch",
@@ -56,7 +47,7 @@
             "args": [
                 "-test.v",
                 "-test.run",
-                "TestE2E/PorchSuite/TestConcurrentDeletes"
+                "TestE2E/PorchSuite/TestGitRepositoryWithReleaseTagsAndDirectory"
             ],
             "env": { "E2E": "1"}
         },
@@ -74,12 +65,5 @@
                 "namespace=foo"
             ]
         }
-    ],
-    "compounds": [
-      {
-        "name": "Launch Server and Controllers",
-        "configurations": ["Launch Server", "Launch Controllers"],
-        "stopAll": true
-      }
     ]
 }
