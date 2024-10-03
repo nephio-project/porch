@@ -14,16 +14,14 @@
                 "--secure-port=4443",
                 "--kubeconfig=${env:KUBECONFIG}",
                 "--cache-directory=${workspaceFolder}/.cache",
-                "--function-runner=172.18.255.201:9445",
+                "--function-runner=${env:FUNCTION_RUNNER_IP}:9445",
                 "--repo-sync-frequency=60s"
             ],
             "cwd": "${workspaceFolder}",
             "env": { 
                 "CERT_STORAGE_DIR": "${workspaceFolder}/.build/pki/tmp", 
                 "WEBHOOK_HOST": "localhost",
-                "GOOGLE_API_GO_EXPERIMENTAL_DISABLE_NEW_AUTH_LIB": "true",
-                "OTEL_SERVICE_NAME": "porch-server",
-                "OTEL": "otel://localhost:4317"
+                "GOOGLE_API_GO_EXPERIMENTAL_DISABLE_NEW_AUTH_LIB": "true"
             }
         },
         {
@@ -39,7 +37,7 @@
             }
         },
         {
-            "name": "Launch E2E tests",
+            "name": "Launch test function",
             "type": "go",
             "request": "launch",
             "mode": "test",
