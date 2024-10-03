@@ -1,0 +1,18 @@
+apiVersion: config.porch.kpt.dev/v1alpha2
+kind: PackageVariantSet
+
+metadata:
+  name: network-function
+  namespace: porch-demo
+
+spec:
+  upstream:
+    repo: management
+    package: network-function
+    revision: v1
+  targets:
+  -  repositories:
+      - name: edge1
+        packageNames:
+        - network-function-b
+        - network-function-c

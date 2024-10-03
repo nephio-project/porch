@@ -1,0 +1,21 @@
+apiVersion: config.porch.kpt.dev/v1alpha2
+kind: PackageVariantSet
+
+metadata:
+  name: network-function-auto-namespace
+  namespace: porch-demo
+
+spec:
+  upstream:
+    repo: management
+    package: network-function-auto-namespace
+    revision: v1
+  targets:
+  - repositories:
+    - name: edge1
+      packageNames:
+      - network-function-auto-namespace-x
+      - network-function-auto-namespace-y
+    template:
+      downstream:
+        packageExpr: "target.package + '-cumulonimbus'"

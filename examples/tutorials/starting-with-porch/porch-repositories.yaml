@@ -1,0 +1,59 @@
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+
+metadata:
+  name: edge1
+  namespace: porch-demo
+
+spec:
+  description: edge1
+  content: Package
+  deployment: true
+  type: git
+  git:
+    repo: http://172.18.255.200:3000/nephio/edge1.git
+    directory: /
+    branch: main
+    createBranch: true
+    secretRef:
+      name: gitea
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+
+metadata:
+  name: management
+  namespace: porch-demo
+
+spec:
+  description: management
+  content: Package
+  deployment: false
+  type: git
+  git:
+    repo: http://172.18.255.200:3000/nephio/management.git
+    directory: /
+    branch: main
+    secretRef:
+      name: gitea
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+
+metadata:
+  name: external-blueprints
+  namespace: porch-demo
+
+spec:
+  description: External blueprints
+  content: Package
+  deployment: false
+  type: git
+  git:
+    repo: https://github.com/nephio-project/free5gc-packages.git
+    directory: /
+    branch: main
