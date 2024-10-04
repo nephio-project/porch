@@ -153,7 +153,6 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 		Spec: v1alpha1.RepositorySpec{
 			Deployment: false,
 			Type:       v1alpha1.RepositoryTypeGit,
-			Content:    v1alpha1.RepositoryContentPackage,
 			Git: &v1alpha1.GitRepository{
 				Repo: address,
 			},
