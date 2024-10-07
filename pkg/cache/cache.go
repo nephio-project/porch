@@ -152,10 +152,9 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 				UseGitCaBundle:     c.useGitCaBundle,
 			}); err != nil {
 				return nil, err
-			} else {
-				cachedRepo = newRepository(key, repositorySpec, r, c.objectNotifier, c.metadataStore, c.repoSyncFrequency)
-				c.repositories[key] = cachedRepo
 			}
+			cachedRepo = newRepository(key, repositorySpec, r, c.objectNotifier, c.metadataStore, c.repoSyncFrequency)
+			c.repositories[key] = cachedRepo
 		} else {
 			// If there is an error from the background refresh goroutine, return it.
 			if err := cachedRepo.getRefreshError(); err != nil {
