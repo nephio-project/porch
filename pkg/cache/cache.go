@@ -145,14 +145,17 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 			} else {
 				mbs = git.ErrorIfMissing
 			}
-			if r, err := git.OpenRepository(ctx, repositorySpec.Name, repositorySpec.Namespace, gitSpec, repositorySpec.Spec.Deployment, filepath.Join(c.cacheDir, "git"), git.GitRepositoryOptions{
+
+			r, err := git.OpenRepository(ctx, repositorySpec.Name, repositorySpec.Namespace, gitSpec, repositorySpec.Spec.Deployment, filepath.Join(c.cacheDir, "git"), git.GitRepositoryOptions{
 				CredentialResolver: c.credentialResolver,
 				UserInfoProvider:   c.userInfoProvider,
 				MainBranchStrategy: mbs,
 				UseGitCaBundle:     c.useGitCaBundle,
-			}); err != nil {
+			})
+			if err != nil {
 				return nil, err
 			}
+
 			cachedRepo = newRepository(key, repositorySpec, r, c.objectNotifier, c.metadataStore, c.repoSyncFrequency)
 			c.repositories[key] = cachedRepo
 		} else {
