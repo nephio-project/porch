@@ -262,7 +262,7 @@ func (t *TestSuite) CreatePackageDraftF(ctx context.Context, repository, package
 	return pr
 }
 
-func (t *TestSuite) CreatePackageSkeleton(repository, packageName, workspace string) *porchapi.PackageRevision {
+func (t *TestSuite) CreatePackageSkeleton(repoName, packageName, workspace string) *porchapi.PackageRevision {
 	return &porchapi.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevision",
@@ -274,7 +274,7 @@ func (t *TestSuite) CreatePackageSkeleton(repository, packageName, workspace str
 		Spec: porchapi.PackageRevisionSpec{
 			PackageName:    packageName,
 			WorkspaceName:  porchapi.WorkspaceName(workspace),
-			RepositoryName: repository,
+			RepositoryName: repoName,
 			// empty tasks list - set them as needed in the particular usage
 			Tasks: []porchapi.Task{},
 		},

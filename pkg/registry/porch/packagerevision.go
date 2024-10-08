@@ -17,7 +17,6 @@ package porch
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/engine"
@@ -34,14 +33,6 @@ import (
 )
 
 var tracer = otel.Tracer("apiserver")
-
-var mutexMapMutex sync.Mutex
-var pkgRevOperationMutexes = map[string]*sync.Mutex{}
-
-const (
-	CreateConflictErrorMsg  = "another request is already in progress to create package revision with details namespace=%q, repository=%q, package=%q,workspace=%q"
-	GenericConflictErrorMsg = "another request is already in progress on %s \"%s\""
-)
 
 type packageRevisions struct {
 	packageCommon
@@ -183,15 +174,18 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 
 	locked := pkgMutex.TryLock()
 	if !locked {
+
+		conflictError := fmt.Errorf(
+			fmt.Sprintf(ConflictErrorMsgBase, "to create package revision with details namespace=%q, repository=%q, package=%q,workspace=%q"),
+			newApiPkgRev.Namespace,
+			newApiPkgRev.Spec.RepositoryName,
+			newApiPkgRev.Spec.PackageName,
+			newApiPkgRev.Spec.WorkspaceName)
 		return nil,
 			apierrors.NewConflict(
 				api.Resource("packagerevisions"),
 				"(new creation)",
-				fmt.Errorf(CreateConflictErrorMsg,
-					newApiPkgRev.Namespace,
-					newApiPkgRev.Spec.RepositoryName,
-					newApiPkgRev.Spec.PackageName,
-					newApiPkgRev.Spec.WorkspaceName))
+				conflictError)
 	}
 	defer pkgMutex.Unlock()
 
@@ -275,15 +269,4 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 
 	// TODO: Should we do an async delete?
 	return apiPkgRev, true, nil
-}
-
-func getMutexForPackage(pkgMutexKey string) *sync.Mutex {
-	mutexMapMutex.Lock()
-	defer mutexMapMutex.Unlock()
-	pkgMutex, alreadyPresent := pkgRevOperationMutexes[pkgMutexKey]
-	if !alreadyPresent {
-		pkgMutex = &sync.Mutex{}
-		pkgRevOperationMutexes[pkgMutexKey] = pkgMutex
-	}
-	return pkgMutex
 }

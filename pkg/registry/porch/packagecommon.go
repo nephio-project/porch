@@ -17,6 +17,7 @@ package porch
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	unversionedapi "github.com/nephio-project/porch/api/porch"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -33,6 +34,13 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+const ConflictErrorMsgBase = "another request is already in progress %s"
+
+var GenericConflictErrorMsg = fmt.Sprintf(ConflictErrorMsgBase, "on %s \"%s\"")
+
+var mutexMapMutex sync.Mutex
+var pkgRevOperationMutexes = map[string]*sync.Mutex{}
 
 type packageCommon struct {
 	// scheme holds our scheme, for type conversions etc
@@ -480,4 +488,15 @@ func (r *packageCommon) validateUpdate(ctx context.Context, newRuntimeObj runtim
 
 	r.updateStrategy.Canonicalize(newRuntimeObj)
 	return nil
+}
+
+func getMutexForPackage(pkgMutexKey string) *sync.Mutex {
+	mutexMapMutex.Lock()
+	defer mutexMapMutex.Unlock()
+	pkgMutex, alreadyPresent := pkgRevOperationMutexes[pkgMutexKey]
+	if !alreadyPresent {
+		pkgMutex = &sync.Mutex{}
+		pkgRevOperationMutexes[pkgMutexKey] = pkgMutex
+	}
+	return pkgMutex
 }

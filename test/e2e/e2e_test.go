@@ -340,7 +340,7 @@ func (t *PorchSuite) TestInitEmptyPackage(ctx context.Context) {
 func (t *PorchSuite) TestConcurrentInits(ctx context.Context) {
 	// Create a new package via init, no task specified
 	const (
-		repository  = "git"
+		repository  = "git-concurrent"
 		packageName = "empty-package-concurrent"
 		revision    = "v1"
 		workspace   = "test-workspace"
