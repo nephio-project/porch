@@ -2516,7 +2516,7 @@ func (t *PorchSuite) TestLargePackageRevision(ctx context.Context) {
 
 	t.GetE(ctx, client.ObjectKey{Name: pr.Name, Namespace: pr.Namespace}, &prr)
 
-	prr.Spec.Resources["largefile.txt"] = strings.Repeat("a", 2*1024*1024)
+	prr.Spec.Resources["largefile.txt"] = strings.Repeat("a", 4*1024*1024)
 
 	t.UpdateE(ctx, &prr)
 }
