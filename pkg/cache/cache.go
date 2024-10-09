@@ -24,6 +24,7 @@ import (
 
 	kptoci "github.com/GoogleContainerTools/kpt/pkg/oci"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/pkg/db"
 	"github.com/nephio-project/porch/pkg/git"
 	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/oci"
@@ -97,6 +98,19 @@ func getCacheKey(repositorySpec *configapi.Repository) (string, error) {
 		}
 		return fmt.Sprintf("git://%s/%s@%s/%s", gitSpec.Repo, gitSpec.Directory, repositorySpec.Namespace, repositorySpec.Name), nil
 
+	case configapi.RepositoryTypeDB:
+		dbSpec := repositorySpec.Spec.DB
+		if dbSpec == nil {
+			return "", errors.New("db property is required")
+		}
+		if dbSpec.Driver == "" {
+			return "", errors.New("db.driver property is required")
+		}
+		if dbSpec.DataSource == "" {
+			return "", errors.New("db.dataSource property is required")
+		}
+		return fmt.Sprintf("db://%s(%s)", dbSpec.DataSource, dbSpec.Driver), nil
+
 	default:
 		return "", fmt.Errorf("repository type %q not supported", repositoryType)
 	}
@@ -152,10 +166,28 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 				MainBranchStrategy: mbs,
 				UseGitCaBundle:     c.useGitCaBundle,
 			})
+
 			if err != nil {
 				return nil, err
 			}
 
+			cachedRepo = newRepository(key, repositorySpec, r, c.objectNotifier, c.metadataStore, c.repoSyncFrequency)
+			c.repositories[key] = cachedRepo
+		} else {
+			// If there is an error from the background refresh goroutine, return it.
+			if err := cachedRepo.getRefreshError(); err != nil {
+				return nil, err
+			}
+		}
+		return cachedRepo, nil
+
+	case configapi.RepositoryTypeDB:
+		dbSpec := repositorySpec.Spec.DB
+		if cachedRepo == nil {
+			r, err := db.OpenRepository(ctx, repositorySpec.Name, repositorySpec.Namespace, dbSpec, repositorySpec.Spec.Deployment)
+			if err != nil {
+				return nil, err
+			}
 			cachedRepo = newRepository(key, repositorySpec, r, c.objectNotifier, c.metadataStore, c.repoSyncFrequency)
 			c.repositories[key] = cachedRepo
 		} else {
