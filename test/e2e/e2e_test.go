@@ -2480,3 +2480,43 @@ func (t *PorchSuite) TestPackageRevisionFieldSelectors(ctx context.Context) {
 		}
 	}
 }
+
+func (t *PorchSuite) TestLargePackageRevision(ctx context.Context) {
+	const (
+		repository = "large-pkg-rev"
+	)
+
+	t.registerMainGitRepositoryF(ctx, repository)
+	pr := porchapi.PackageRevision{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       porchapi.PackageRevisionGVR.Resource,
+			APIVersion: porchapi.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: t.namespace,
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			PackageName:    "new-package",
+			WorkspaceName:  "workspace",
+			RepositoryName: repository,
+			Tasks: []porchapi.Task{
+				{
+					Type: porchapi.TaskTypeInit,
+					Init: &porchapi.PackageInitTaskSpec{
+						Description: "this is a test",
+					},
+				},
+			},
+		},
+	}
+
+	t.CreateE(ctx, &pr)
+
+	var prr porchapi.PackageRevisionResources
+
+	t.GetE(ctx, client.ObjectKey{Name: pr.Name, Namespace: pr.Namespace}, &prr)
+
+	prr.Spec.Resources["largefile.txt"] = strings.Repeat("a", 2*1024*1024)
+
+	t.UpdateE(ctx, &prr)
+}
