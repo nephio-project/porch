@@ -31,21 +31,50 @@ type PackageResources struct {
 }
 
 type PackageRevisionKey struct {
-	Repository, Package, Revision string
-	WorkspaceName                 v1alpha1.WorkspaceName
+	Namespace, Repository, Package, Revision string
+	WorkspaceName                            v1alpha1.WorkspaceName
 }
 
 func (n PackageRevisionKey) String() string {
-	return fmt.Sprintf("Repository: %q, Package: %q, Revision: %q, WorkspaceName: %q",
-		n.Repository, n.Package, n.Revision, string(n.WorkspaceName))
+	return fmt.Sprintf("%s.%s.%s.%s.%s", n.Namespace, n.Repository, n.Package, n.Revision, string(n.WorkspaceName))
+}
+
+func (n PackageRevisionKey) PackageKey() PackageKey {
+	return PackageKey{
+		Namespace:  n.Namespace,
+		Repository: n.Repository,
+		Package:    n.Package,
+	}
+}
+
+func (n PackageRevisionKey) RepositoryKey() RepositoryKey {
+	return RepositoryKey{
+		Namespace:  n.Namespace,
+		Repository: n.Repository,
+	}
 }
 
 type PackageKey struct {
-	Repository, Package string
+	Namespace, Repository, Package string
 }
 
 func (n PackageKey) String() string {
-	return fmt.Sprintf("Repository: %q, Package: %q", n.Repository, n.Package)
+	return fmt.Sprintf("%s.%s.%s", n.Namespace, n.Repository, n.Package)
+}
+
+func (n PackageKey) RepositoryKey() RepositoryKey {
+	return RepositoryKey{
+		Namespace:  n.Namespace,
+		Repository: n.Repository,
+	}
+}
+
+type RepositoryKey struct {
+	Namespace, Repository string
+}
+
+func (n RepositoryKey) String() string {
+	return fmt.Sprintf("%s.%s", n.Namespace, n.Repository)
 }
 
 // PackageRevision is an abstract package version.
@@ -111,6 +140,13 @@ type Package interface {
 	// KubeObjectName returns an encoded name for the object that should be unique.
 	// More "readable" values are returned by Key()
 	KubeObjectName() string
+
+	// KubeObjectNamespace returns the namespace in which the PackageRevision
+	// belongs.
+	KubeObjectNamespace() string
+
+	// UID returns a unique identifier for the PackageRevision.
+	UID() types.UID
 
 	// Key returns the "primary key" of the package.
 	Key() PackageKey

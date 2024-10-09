@@ -1,0 +1,266 @@
+// Copyright 2024 The Nephio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package db
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/pkg/repository"
+	"go.opentelemetry.io/otel/trace"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/v2"
+)
+
+var _ repository.Repository = &dbRepository{}
+
+type dbRepository struct {
+	repoKey    repository.RepositoryKey
+	updated    time.Time
+	updatedBy  string
+	deployment bool
+}
+
+func (r dbRepository) KubeObjectName() string {
+	return r.Key().String()
+}
+
+func (r dbRepository) KubeObjectNamespace() string {
+	return r.repoKey.Namespace
+}
+
+func (r dbRepository) UID() types.UID {
+	return generateUid("repositories.", r.KubeObjectNamespace(), r.KubeObjectName())
+}
+
+func (r dbRepository) Key() repository.RepositoryKey {
+	return r.repoKey
+}
+
+func (r dbRepository) OpenRepository() (repository.Repository, error) {
+
+	klog.Infof("DB Repo OpenRepository: %q", r.Key().String())
+
+	var err error
+	if _, err = repoReadFromDB(r.Key()); err == nil {
+		return r, nil
+	} else if err != sql.ErrNoRows {
+		klog.Infof("DB Repo OpenRepository: %q DB read failed with error %q", r.Key().String(), err)
+		return nil, err
+	}
+
+	if err = repoWriteToDB(r); err != nil {
+		klog.Infof("DB Repo OpenRepository: %q DB write failed with error %q", r.Key().String(), err)
+		return nil, err
+	}
+
+	return r, nil
+}
+
+func (r dbRepository) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
+	klog.Infof("DB Repo ListPackageRevisions: %q", r.Key().String())
+
+	pkgs, err := pkgReadPkgsFromDB(r.Key())
+	if err != nil {
+		return nil, err
+	}
+
+	var foundPkgRevs []dbPackageRevision
+
+	for _, pkg := range pkgs {
+		pkgRevs, err := pkgRevReadPRsFromDB(pkg.Key())
+		if err != nil {
+			return nil, err
+		}
+
+		foundPkgRevs = append(foundPkgRevs, pkgRevs...)
+	}
+
+	genericPkgRevs := make([]repository.PackageRevision, len(foundPkgRevs))
+	for i, pkgRev := range foundPkgRevs {
+		genericPkgRevs[i] = repository.PackageRevision(pkgRev)
+	}
+
+	return genericPkgRevs, nil
+}
+
+func (r dbRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageDraft, error) {
+	klog.Infof("DB Repo CreatePackageRevision: %q", r.Key().String())
+
+	_, span := tracer.Start(ctx, "dbRepository::CreatePackageRevision", trace.WithAttributes())
+	defer span.End()
+
+	return &dbPackageDraft{
+		repo:          &r,
+		packageName:   obj.Spec.PackageName,
+		revision:      string(obj.Spec.WorkspaceName),
+		lifecycle:     v1alpha1.PackageRevisionLifecycleDraft,
+		updated:       time.Now(),
+		updatedBy:     getCurrentUser(),
+		workspaceName: obj.Spec.WorkspaceName,
+		tasks:         obj.Spec.Tasks,
+	}, nil
+}
+
+func (r dbRepository) DeletePackageRevision(ctx context.Context, old repository.PackageRevision) error {
+	klog.Infof("DB Repo DeletePackageRevision: %q", r.Key().String())
+
+	pk := repository.PackageKey{
+		Namespace:  old.Key().Namespace,
+		Repository: old.Key().Repository,
+		Package:    old.Key().Package,
+	}
+
+	foundPkg, err := pkgReadFromDB(pk)
+	if err != nil {
+		return err
+	}
+
+	if err := foundPkg.DeletePackageRevision(ctx, old); err != nil && err != sql.ErrNoRows {
+		return nil
+	}
+
+	foundPRs, err := pkgRevReadPRsFromDB(foundPkg.Key())
+	if err != nil {
+		return err
+	}
+
+	if len(foundPRs) != 0 {
+		return nil
+	}
+
+	return pkgDeleteFromDB(pk)
+}
+
+func (r dbRepository) UpdatePackageRevision(ctx context.Context, old repository.PackageRevision) (repository.PackageDraft, error) {
+	klog.Infof("DB Repo UpdatePackageRevision: %q", r.Key().String())
+	return nil, nil
+}
+
+func (r dbRepository) ListPackages(ctx context.Context, filter repository.ListPackageFilter) ([]repository.Package, error) {
+	klog.Infof("DB Repo ListPackages: %q", r.Key().String())
+
+	dbPkgs, err := pkgReadPkgsFromDB(r.Key())
+	if err != nil {
+		return nil, err
+	}
+
+	genericPkgs := make([]repository.Package, len(dbPkgs))
+	for i, pkg := range dbPkgs {
+		genericPkgs[i] = repository.Package(pkg)
+	}
+
+	return genericPkgs, nil
+}
+
+func (r dbRepository) CreatePackage(ctx context.Context, obj *v1alpha1.PorchPackage) (repository.Package, error) {
+	klog.Infof("DB Repo CreatePackage: %q", r.Key().String())
+	return nil, nil
+}
+
+func (r dbRepository) DeletePackage(ctx context.Context, old repository.Package) error {
+	klog.Infof("DB Repo DeletePackage: %q", r.Key().String())
+
+	foundPackage, err := pkgReadFromDB(old.Key())
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil
+		} else {
+			return err
+		}
+	}
+
+	foundPRs, err := pkgRevReadPRsFromDB(foundPackage.Key())
+	if err != nil {
+		return err
+	}
+
+	if len(foundPRs) != 0 {
+		errMsg := fmt.Sprintf("cannot delete package %q, it has %d package revisions", old.Key().String(), len(foundPRs))
+		return errors.New(errMsg)
+	}
+
+	return pkgDeleteFromDB(old.Key())
+}
+
+func (r dbRepository) Version(ctx context.Context) (string, error) {
+	klog.Infof("DB Repo version: %q", r.Key().String())
+	return "Undefined", nil
+}
+
+func (r dbRepository) Close() error {
+	klog.Infof("DB Repo close: %q", r.Key().String())
+
+	defer CloseDBConnection()
+
+	dbPkgs, err := pkgReadPkgsFromDB(r.Key())
+	if err != nil {
+		return err
+	}
+
+	for _, pkg := range dbPkgs {
+		if err := pkg.Close(); err != nil {
+			return err
+		}
+	}
+
+	return repoDeleteFromDB(r.Key())
+}
+
+func (r dbRepository) UpdateDraftResources(ctx context.Context, draft *dbPackageDraft, new *v1alpha1.PackageRevisionResources, change *v1alpha1.Task) error {
+	return nil
+}
+
+func (r dbRepository) CloseDraft(ctx context.Context, d *dbPackageDraft) (*dbPackageRevision, error) {
+	pk := repository.PackageKey{
+		Namespace:  r.repoKey.Namespace,
+		Repository: r.repoKey.Repository,
+		Package:    d.packageName,
+	}
+
+	dbPkg, err := pkgReadFromDB(pk)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			return nil, err
+		}
+
+		dbPkg = dbPackage{
+			pkgKey:    pk,
+			updated:   d.updated,
+			updatedBy: d.updatedBy,
+		}
+
+		if _, err := dbPkg.createPackage(); err != nil {
+			return nil, err
+		}
+	}
+
+	pkgRev, err := dbPkg.createPackageRevision(d)
+	if err != nil {
+		return nil, err
+	}
+
+	r.updated = d.updated
+	r.updatedBy = d.updatedBy
+	if err = repoUpdateDB(r); err != nil {
+		return nil, err
+	}
+
+	return pkgRev, nil
+}

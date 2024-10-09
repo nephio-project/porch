@@ -27,7 +27,7 @@ spec:
     - jsonPath: .status.conditions[?(@.type=='Ready')].status
       name: Ready
       type: string
-    - jsonPath: .spec['git','oci']['repo','registry']
+    - jsonPath: .spec['db','git','oci']['dataSource','repo','registry']
       name: Address
       type: string
     name: v1alpha1
@@ -69,6 +69,18 @@ spec:
                 - message: The 'content' field is deprecated, its only valid value
                     is 'Package'
                   rule: self == '' || self == 'Package'
+              db:
+                description: DB repository details. Required if `type` is `db`. Ignored
+                  if `type` is not `db`.
+                properties:
+                  dataSource:
+                    description: Address of the DB, for example "postgresql://porch:proch@10.10.10.10:5432/porch".
+                    type: string
+                  driver:
+                    description: SQL driver for connecting to the SQL RDBMS, use "pgx"
+                      for PostgreSQL.
+                    type: string
+                type: object
               deployment:
                 description: The repository is a deployment repository; final packages
                   in this repository are deployment ready.
@@ -77,8 +89,8 @@ spec:
                 description: User-friendly description of the repository
                 type: string
               git:
-                description: Git repository details. Required if `type` is `git`.
-                  Ignored if `type` is not `git`.
+                description: OCI repository details. Required if `type` is `oci`.
+                  Ignored if `type` is not `oci`.
                 properties:
                   branch:
                     default: main
@@ -164,9 +176,21 @@ spec:
                   repository. Specifying it per repository allows simpler UX when
                   creating packages.
                 properties:
+                  db:
+                    description: DB repository details. Required if `type` is `db`.
+                      Must be unspecified if `type` is not `db`.
+                    properties:
+                      dataSource:
+                        description: Address of the DB, for example "postgresql://porch:proch@10.10.10.10:5432/porch".
+                        type: string
+                      driver:
+                        description: SQL driver for connecting to the SQL RDBMS, use
+                          "pgx" for PostgreSQL.
+                        type: string
+                    type: object
                   git:
-                    description: Git repository details. Required if `type` is `git`.
-                      Must be unspecified if `type` is not `git`.
+                    description: OCI repository details. Required if `type` is `oci`.
+                      Must be unspecified if `type` is not `oci`.
                     properties:
                       branch:
                         default: main

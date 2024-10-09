@@ -25,7 +25,7 @@ import (
 //+kubebuilder:printcolumn:name="Content",type=string,JSONPath=`.spec.content`
 //+kubebuilder:printcolumn:name="Deployment",type=boolean,JSONPath=`.spec.deployment`
 //+kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=='Ready')].status`
-//+kubebuilder:printcolumn:name="Address",type=string,JSONPath=`.spec['git','oci']['repo','registry']`
+//+kubebuilder:printcolumn:name="Address",type=string,JSONPath=`.spec['db','git','oci']['dataSource','repo','registry']`
 
 // Repository
 type Repository struct {
@@ -39,6 +39,7 @@ type Repository struct {
 type RepositoryType string
 
 const (
+	RepositoryTypeDB  RepositoryType = "db"
 	RepositoryTypeGit RepositoryType = "git"
 	RepositoryTypeOCI RepositoryType = "oci"
 )
@@ -66,7 +67,9 @@ type RepositorySpec struct {
 	// +kubebuilder:default="Package"
 	Content *RepositoryContent `json:"content,omitempty"`
 
-	// Git repository details. Required if `type` is `git`. Ignored if `type` is not `git`.
+	// DB repository details. Required if `type` is `db`. Ignored if `type` is not `db`.
+	DB *DBRepository `json:"db,omitempty"`
+	// OCI repository details. Required if `type` is `oci`. Ignored if `type` is not `oci`.
 	Git *GitRepository `json:"git,omitempty"`
 	// OCI repository details. Required if `type` is `oci`. Ignored if `type` is not `oci`.
 	Oci *OciRepository `json:"oci,omitempty"`
@@ -86,6 +89,15 @@ type RepositorySpec struct {
 	// Based on the Kubernetest Admission Controllers (https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/). The functions will be evaluated
 	// in the order specified in the list.
 	Validators []FunctionEval `json:"validators,omitempty"`
+}
+
+// DBRepository describes a DB repository.
+// TODO: authentication methods
+type DBRepository struct {
+	// Address of the DB, for example "postgresql://porch:proch@10.10.10.10:5432/porch".
+	DataSource string `json:"dataSource,omitempty"`
+	// SQL driver for connecting to the SQL RDBMS, use "pgx" for PostgreSQL.
+	Driver string `json:"driver,omitempty"`
 }
 
 // GitRepository describes a Git repository.
@@ -120,7 +132,9 @@ type OciRepository struct {
 type UpstreamRepository struct {
 	// Type of the repository (i.e. git, OCI). If empty, repositoryRef will be used.
 	Type RepositoryType `json:"type,omitempty"`
-	// Git repository details. Required if `type` is `git`. Must be unspecified if `type` is not `git`.
+	// DB repository details. Required if `type` is `db`. Must be unspecified if `type` is not `db`.
+	DB *DBRepository `json:"db,omitempty"`
+	// OCI repository details. Required if `type` is `oci`. Must be unspecified if `type` is not `oci`.
 	Git *GitRepository `json:"git,omitempty"`
 	// OCI repository details. Required if `type` is `oci`. Must be unspecified if `type` is not `oci`.
 	Oci *OciRepository `json:"oci,omitempty"`

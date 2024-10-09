@@ -13,3 +13,6 @@ nodes:
     hostPort: 3000
   - containerPort: 30001 # function-runner NodePort
     hostPort: 30001
+  extraMounts:
+  - containerPath: /mnt/postgresql
+    hostPath: /tmp/porch/postgresql
