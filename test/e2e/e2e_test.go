@@ -2486,14 +2486,14 @@ func (t *PorchSuite) TestLargePackageRevision(ctx context.Context) {
 		repository = "large-pkg-rev"
 	)
 
-	t.registerMainGitRepositoryF(ctx, repository)
+	t.RegisterMainGitRepositoryF(ctx, repository)
 	pr := porchapi.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       porchapi.PackageRevisionGVR.Resource,
 			APIVersion: porchapi.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.namespace,
+			Namespace: t.Namespace,
 		},
 		Spec: porchapi.PackageRevisionSpec{
 			PackageName:    "new-package",
