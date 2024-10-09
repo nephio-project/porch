@@ -125,7 +125,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 		return nil, false, apierrors.NewBadRequest("namespace must be specified")
 	}
 
-	pkgMutexKey := fmt.Sprintf("%s/%s", ns, name)
+	pkgMutexKey := getPackageMutexKey(ns, name)
 	pkgMutex := getMutexForPackage(pkgMutexKey)
 	locked := pkgMutex.TryLock()
 	if !locked {

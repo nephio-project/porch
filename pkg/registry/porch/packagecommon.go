@@ -218,7 +218,7 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 		return nil, false, apierrors.NewBadRequest("namespace must be specified")
 	}
 
-	pkgMutexKey := fmt.Sprintf("%s/%s", ns, name)
+	pkgMutexKey := getPackageMutexKey(ns, name)
 	pkgMutex := getMutexForPackage(pkgMutexKey)
 
 	locked := pkgMutex.TryLock()
@@ -488,6 +488,10 @@ func (r *packageCommon) validateUpdate(ctx context.Context, newRuntimeObj runtim
 
 	r.updateStrategy.Canonicalize(newRuntimeObj)
 	return nil
+}
+
+func getPackageMutexKey(namespace, name string) string {
+	return fmt.Sprintf("%s/%s", namespace, name)
 }
 
 func getMutexForPackage(pkgMutexKey string) *sync.Mutex {
