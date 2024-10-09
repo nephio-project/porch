@@ -18,9 +18,6 @@ spec:
     - jsonPath: .spec.type
       name: Type
       type: string
-    - jsonPath: .spec.content
-      name: Content
-      type: string
     - jsonPath: .spec.deployment
       name: Deployment
       type: boolean
@@ -59,10 +56,6 @@ spec:
               Notes:
                 - deployment repository - in KRM API ConfigSync would be configured directly? (or via this API)
             properties:
-              content:
-                description: Content stored in the repository (i.e. Function, Package
-                  - the literal values correspond to the API resource names).
-                type: string
               deployment:
                 description: The repository is a deployment repository; final packages
                   in this repository are deployment ready.
@@ -122,22 +115,9 @@ spec:
                         type: string
                       description: '`ConfigMap` specifies the function config (https://kpt.dev/reference/cli/fn/eval/).'
                       type: object
-                    functionRef:
-                      description: '`FunctionRef` specifies the function by reference
-                        to a Function resource. Mutually exclusive with `Image`.'
-                      properties:
-                        name:
-                          description: '`Name` is the name of the `Function` resource
-                            referenced. The resource is expected to be within the
-                            same namespace.'
-                          type: string
-                      required:
-                      - name
-                      type: object
                     image:
                       description: '`Image` specifies the function image, such as
-                        `gcr.io/kpt-fn/gatekeeper:v0.2`. Use of `Image` is mutually
-                        exclusive with `FunctionRef`.'
+                        `gcr.io/kpt-fn/gatekeeper:v0.2`.'
                       type: string
                   type: object
                 type: array
@@ -262,22 +242,9 @@ spec:
                         type: string
                       description: '`ConfigMap` specifies the function config (https://kpt.dev/reference/cli/fn/eval/).'
                       type: object
-                    functionRef:
-                      description: '`FunctionRef` specifies the function by reference
-                        to a Function resource. Mutually exclusive with `Image`.'
-                      properties:
-                        name:
-                          description: '`Name` is the name of the `Function` resource
-                            referenced. The resource is expected to be within the
-                            same namespace.'
-                          type: string
-                      required:
-                      - name
-                      type: object
                     image:
                       description: '`Image` specifies the function image, such as
-                        `gcr.io/kpt-fn/gatekeeper:v0.2`. Use of `Image` is mutually
-                        exclusive with `FunctionRef`.'
+                        `gcr.io/kpt-fn/gatekeeper:v0.2`.'
                       type: string
                   type: object
                 type: array

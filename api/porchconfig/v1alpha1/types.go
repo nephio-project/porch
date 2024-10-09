@@ -22,7 +22,6 @@ import (
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:path=repositories,singular=repository
 //+kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type`
-//+kubebuilder:printcolumn:name="Content",type=string,JSONPath=`.spec.content`
 //+kubebuilder:printcolumn:name="Deployment",type=boolean,JSONPath=`.spec.deployment`
 //+kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=='Ready')].status`
 //+kubebuilder:printcolumn:name="Address",type=string,JSONPath=`.spec['git','oci']['repo','registry']`
@@ -43,13 +42,6 @@ const (
 	RepositoryTypeOCI RepositoryType = "oci"
 )
 
-type RepositoryContent string
-
-const (
-	RepositoryContentFunction RepositoryContent = "Function"
-	RepositoryContentPackage  RepositoryContent = "Package"
-)
-
 // RepositorySpec defines the desired state of Repository
 //
 // Notes:
@@ -61,9 +53,6 @@ type RepositorySpec struct {
 	Deployment bool `json:"deployment,omitempty"`
 	// Type of the repository (i.e. git, OCI)
 	Type RepositoryType `json:"type,omitempty"`
-	// Content stored in the repository (i.e. Function, Package - the literal values correspond to the API resource names).
-	// TODO: support repository with mixed content?
-	Content RepositoryContent `json:"content,omitempty"`
 	// Git repository details. Required if `type` is `git`. Ignored if `type` is not `git`.
 	Git *GitRepository `json:"git,omitempty"`
 	// OCI repository details. Required if `type` is `oci`. Ignored if `type` is not `oci`.
@@ -138,18 +127,10 @@ type SecretRef struct {
 }
 
 type FunctionEval struct {
-	// `Image` specifies the function image, such as `gcr.io/kpt-fn/gatekeeper:v0.2`. Use of `Image` is mutually exclusive with `FunctionRef`.
+	// `Image` specifies the function image, such as `gcr.io/kpt-fn/gatekeeper:v0.2`.
 	Image string `json:"image,omitempty"`
-	// `FunctionRef` specifies the function by reference to a Function resource. Mutually exclusive with `Image`.
-	FunctionRef *FunctionRef `json:"functionRef,omitempty"`
 	// `ConfigMap` specifies the function config (https://kpt.dev/reference/cli/fn/eval/).
 	ConfigMap map[string]string `json:"configMap,omitempty"`
-}
-
-// `FunctionRef` is a reference to a `Function` resource.
-type FunctionRef struct {
-	// `Name` is the name of the `Function` resource referenced. The resource is expected to be within the same namespace.
-	Name string `json:"name"`
 }
 
 const (

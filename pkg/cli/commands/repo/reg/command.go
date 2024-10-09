@@ -165,7 +165,6 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 		Spec: configapi.RepositorySpec{
 			Description: r.description,
 			Type:        rt,
-			Content:     configapi.RepositoryContentPackage,
 			Deployment:  r.deployment,
 			Git:         git,
 			Oci:         oci,
