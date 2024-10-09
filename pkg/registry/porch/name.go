@@ -20,9 +20,19 @@ import (
 )
 
 func ParseRepositoryName(name string) (string, error) {
-	lastDash := strings.LastIndex(name, "-")
-	if lastDash < 0 {
-		return "", fmt.Errorf("malformed package revision name; expected at least one hyphen: %q", name)
+	if strings.Contains(name, ".") {
+		// New type of parseable package revision name
+		parsedName := strings.Split(name, ".")
+		if len(parsedName) != 5 {
+			return "", fmt.Errorf("malformed package revision name; expected five elements delimited by \".\" characters: %q", name)
+		}
+		return parsedName[1], nil
+	} else {
+		// Old type of package revision name
+		lastDash := strings.LastIndex(name, "-")
+		if lastDash < 0 {
+			return "", fmt.Errorf("malformed package revision name; expected at least one hyphen: %q", name)
+		}
+		return name[:lastDash], nil
 	}
-	return name[:lastDash], nil
 }
