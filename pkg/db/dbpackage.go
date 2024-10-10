@@ -99,6 +99,7 @@ func (p dbPackage) createPackageRevision(d *dbPackageDraft) (*dbPackageRevision,
 			WorkspaceName: d.workspaceName,
 		},
 		lifecycle: d.lifecycle,
+		resources: d.resources,
 		updated:   d.updated,
 		updatedBy: d.updatedBy,
 	}
