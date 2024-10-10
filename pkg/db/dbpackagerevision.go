@@ -38,36 +38,7 @@ type dbPackageRevision struct {
 	updated   time.Time
 	updatedBy string
 	lifecycle v1alpha1.PackageRevisionLifecycle
-}
-
-var resources = map[string]string{
-	".KptRevisionMetadata": `
-apiVersion: ""
-kind: KptRevisionMetadata
-metadata:
-  name: management-2eeaaf7c1c41c8202687da7420d2a6a1cdaba051
-  namespace: porch-demo
-  creationTimestamp: "2024-10-03T08:26:27Z"
-  resourceVersion: fbca69287dbea10209db39e1b2ff2f225dbce4dc
-  uid: d1afbd4a-91d3-5ae5-892f-7dfba7351b79`,
-	"Kptfile": `
-apiVersion: kpt.dev/v1
-kind: Kptfile
-metadata:
-  name: network-function
-  annotations:
-    config.kubernetes.io/local-config: "true"
-info:
-  description: sample description`,
-	"package-context.yaml": `
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: kptfile.kpt.dev
-  annotations:
-    config.kubernetes.io/local-config: "true"
-data:
-  name: example`,
+	resources map[string]string
 }
 
 func (pr dbPackageRevision) KubeObjectName() string {
@@ -191,7 +162,7 @@ func (pr dbPackageRevision) GetResources(context.Context) (*v1alpha1.PackageRevi
 			WorkspaceName:  key.WorkspaceName,
 			Revision:       key.Revision,
 			RepositoryName: key.Repository,
-			Resources:      resources,
+			Resources:      pr.resources,
 		},
 	}, nil
 }
@@ -201,7 +172,7 @@ func (pr dbPackageRevision) GetUpstreamLock(context.Context) (kptfile.Upstream, 
 }
 
 func (pr dbPackageRevision) GetKptfile(context.Context) (kptfile.KptFile, error) {
-	kfString, found := resources[kptfile.KptFileName]
+	kfString, found := pr.resources[kptfile.KptFileName]
 	if !found {
 		return kptfile.KptFile{}, fmt.Errorf("packagerevision does not have a Kptfile")
 	}
