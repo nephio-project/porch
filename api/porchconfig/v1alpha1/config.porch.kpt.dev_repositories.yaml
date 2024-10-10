@@ -80,6 +80,10 @@ spec:
                     description: SQL driver for connecting to the SQL RDBMS, use "pgx"
                       for PostgreSQL.
                     type: string
+                  packageResourceEncoding:
+                    description: Encoding scheme to use for package resources in the
+                      database, defaults to "cbor" if not specified.
+                    type: string
                 type: object
               deployment:
                 description: The repository is a deployment repository; final packages
@@ -186,6 +190,10 @@ spec:
                       driver:
                         description: SQL driver for connecting to the SQL RDBMS, use
                           "pgx" for PostgreSQL.
+                        type: string
+                      packageResourceEncoding:
+                        description: Encoding scheme to use for package resources
+                          in the database, defaults to "cbor" if not specified.
                         type: string
                     type: object
                   git:

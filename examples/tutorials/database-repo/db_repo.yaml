@@ -13,4 +13,5 @@ spec:
   db:
     driver: pgx
     dataSource: postgresql://porch:porch@172.18.255.201:55432/porch
+    packageResourceEncoding: yaml
  

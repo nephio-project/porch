@@ -91,6 +91,13 @@ type RepositorySpec struct {
 	Validators []FunctionEval `json:"validators,omitempty"`
 }
 
+type PackageResourceEncoding string
+
+const (
+	PackageResourceEncodingYAML PackageResourceEncoding = "yaml"
+	PackageResourceEncodingCBOR PackageResourceEncoding = "cbor"
+)
+
 // DBRepository describes a DB repository.
 // TODO: authentication methods
 type DBRepository struct {
@@ -98,6 +105,8 @@ type DBRepository struct {
 	DataSource string `json:"dataSource,omitempty"`
 	// SQL driver for connecting to the SQL RDBMS, use "pgx" for PostgreSQL.
 	Driver string `json:"driver,omitempty"`
+	// Encoding scheme to use for package resources in the database, defaults to "cbor" if not specified.
+	PackageResourceEncoding PackageResourceEncoding `json:"packageResourceEncoding,omitempty"`
 }
 
 // GitRepository describes a Git repository.
