@@ -37,7 +37,6 @@ CREATE TABLE IF NOT EXISTS package_revisions (
     updated        TIMESTAMPTZ NOT NULL,
     updatedby      TEXT NOT NULL,
 	lifecycle      package_rev_lifecycle NOT NULL,
-    resources      BYTEA,
     PRIMARY KEY (namespace, repo_name, package_name, package_rev),
     CONSTRAINT fk_package
         FOREIGN KEY (namespace, repo_name, package_name)
