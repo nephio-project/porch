@@ -28,8 +28,6 @@ type Interface interface {
 	PackageRevisions() PackageRevisionInformer
 	// PackageRevisionResources returns a PackageRevisionResourcesInformer.
 	PackageRevisionResources() PackageRevisionResourcesInformer
-	// PorchPackages returns a PorchPackageInformer.
-	PorchPackages() PorchPackageInformer
 }
 
 type version struct {
@@ -56,9 +54,4 @@ func (v *version) PackageRevisions() PackageRevisionInformer {
 // PackageRevisionResources returns a PackageRevisionResourcesInformer.
 func (v *version) PackageRevisionResources() PackageRevisionResourcesInformer {
 	return &packageRevisionResourcesInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
-// PorchPackages returns a PorchPackageInformer.
-func (v *version) PorchPackages() PorchPackageInformer {
-	return &porchPackageInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

@@ -523,45 +523,6 @@ type PackageRevisionResourcesStatus struct {
 	RenderStatus RenderStatus `json:"renderStatus,omitempty"`
 }
 
-
-// Package
-// +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +k8s:openapi-gen=true
-type PorchPackage struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec   PackageSpec   `json:"spec,omitempty"`
-	Status PackageStatus `json:"status,omitempty"`
-}
-
-// PackageList
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type PorchPackageList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-
-	Items []PorchPackage `json:"items"`
-}
-
-// PackageSpec defines the desired state of Package
-type PackageSpec struct {
-	// PackageName identifies the package in the repository.
-	PackageName string `json:"packageName,omitempty"`
-
-	// RepositoryName is the name of the Repository object containing this package.
-	RepositoryName string `json:"repository,omitempty"`
-}
-
-// PackageStatus defines the observed state of Package
-type PackageStatus struct {
-	// LatestRevision identifies the package revision that is the latest
-	// published package revision belonging to this package
-	LatestRevision string `json:"latestRevision,omitempty"`
-}
-
-
 // Function represents a kpt function discovered in a repository
 // Function resources are created automatically by discovery in a registered Repository.
 // Function resource names will be computed as <Repository Name>:<Function Name>
@@ -655,4 +616,3 @@ type FunctionRef struct {
 // FunctionStatus defines the observed state of Function
 type FunctionStatus struct {
 }
-

@@ -101,19 +101,3 @@ func toPackageRevisionSlice(cached map[repository.PackageRevisionKey]*cachedPack
 	})
 	return result
 }
-
-func toPackageSlice(cached map[repository.PackageKey]*cachedPackage, filter repository.ListPackageFilter) []repository.Package {
-	result := make([]repository.Package, 0, len(cached))
-	for _, p := range cached {
-		if filter.Matches(p) {
-			result = append(result, p)
-		}
-	}
-	sort.Slice(result, func(i, j int) bool {
-		ki, kj := result[i].Key(), result[j].Key()
-		// We assume they all have the same repository
-		return ki.Package < kj.Package
-	})
-
-	return result
-}

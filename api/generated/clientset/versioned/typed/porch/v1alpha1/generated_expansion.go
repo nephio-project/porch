@@ -21,5 +21,3 @@ type FunctionExpansion interface{}
 type PackageRevisionExpansion interface{}
 
 type PackageRevisionResourcesExpansion interface{}
-
-type PorchPackageExpansion interface{}

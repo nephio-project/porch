@@ -202,10 +202,6 @@ func (r *ociRepository) ListPackageRevisions(ctx context.Context, filter reposit
 	return result, nil
 }
 
-func (r *ociRepository) ListPackages(ctx context.Context, filter repository.ListPackageFilter) ([]repository.Package, error) {
-	return nil, fmt.Errorf("ListPackages not supported for OCI packages")
-}
-
 func (r *ociRepository) buildPackageRevision(ctx context.Context, name oci.ImageDigestName, packageName string,
 	workspace v1alpha1.WorkspaceName, revision string, created time.Time) (repository.PackageRevision, error) {
 

@@ -94,43 +94,6 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter package
 	return nil
 }
 
-func (r *packageCommon) listPackages(ctx context.Context, filter packageFilter, callback func(p *engine.Package) error) error {
-	var opts []client.ListOption
-	if ns, namespaced := genericapirequest.NamespaceFrom(ctx); namespaced {
-		opts = append(opts, client.InNamespace(ns))
-
-		if filter.Namespace != "" && ns != filter.Namespace {
-			return fmt.Errorf("conflicting namespaces specified: %q and %q", ns, filter.Namespace)
-		}
-	}
-
-	// TODO: Filter on filter.Repository?
-	var repositories configapi.RepositoryList
-	if err := r.coreClient.List(ctx, &repositories, opts...); err != nil {
-		return fmt.Errorf("error listing repository objects: %w", err)
-	}
-
-	for i := range repositories.Items {
-		repositoryObj := &repositories.Items[i]
-
-		if filter.Repository != "" && filter.Repository != repositoryObj.GetName() {
-			continue
-		}
-
-		revisions, err := r.cad.ListPackages(ctx, repositoryObj, filter.ListPackageFilter)
-		if err != nil {
-			klog.Warningf("error listing packages from repository %s/%s: %s", repositoryObj.GetNamespace(), repositoryObj.GetName(), err)
-			continue
-		}
-		for _, rev := range revisions {
-			if err := callback(rev); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 func (r *packageCommon) watchPackages(ctx context.Context, filter packageRevisionFilter, callback engine.ObjectWatcher) error {
 	if err := r.cad.ObjectCache().WatchPackageRevisions(ctx, filter.ListPackageRevisionFilter, callback); err != nil {
 		return err
@@ -169,25 +132,6 @@ func (r *packageCommon) getRepoPkgRev(ctx context.Context, name string) (*engine
 		return nil, err
 	}
 	revisions, err := r.cad.ListPackageRevisions(ctx, repositoryObj, repository.ListPackageRevisionFilter{KubeObjectName: name})
-	if err != nil {
-		return nil, err
-	}
-	for _, rev := range revisions {
-		if rev.KubeObjectName() == name {
-			return rev, nil
-		}
-	}
-
-	return nil, apierrors.NewNotFound(r.gr, name)
-}
-
-func (r *packageCommon) getPackage(ctx context.Context, name string) (*engine.Package, error) {
-	repositoryObj, err := r.getRepositoryObjFromName(ctx, name)
-	if err != nil {
-		return nil, err
-	}
-
-	revisions, err := r.cad.ListPackages(ctx, repositoryObj, repository.ListPackageFilter{KubeObjectName: name})
 	if err != nil {
 		return nil, err
 	}
@@ -312,103 +256,6 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 		}
 
 		return createdApiPkgRev, true, nil
-	}
-}
-
-// Common implementation of Package update logic.
-func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo,
-	createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool) (runtime.Object, bool, error) {
-	// TODO: Is this all boilerplate??
-
-	ns, namespaced := genericapirequest.NamespaceFrom(ctx)
-	if !namespaced {
-		return nil, false, apierrors.NewBadRequest("namespace must be specified")
-	}
-
-	// isCreate tracks whether this is an update that creates an object (this happens in server-side apply)
-	isCreate := false
-
-	oldPackage, err := r.getPackage(ctx, name)
-	if err != nil {
-		if forceAllowCreate && apierrors.IsNotFound(err) {
-			// For server-side apply, we can create the object here
-			isCreate = true
-		} else {
-			return nil, false, err
-		}
-	}
-
-	// We have to be runtime.Object (and not *api.PackageRevision) or else nil-checks fail (because a nil object is not a nil interface)
-	var oldRuntimeObj runtime.Object
-	if !isCreate {
-		oldRuntimeObj = oldPackage.GetPackage()
-	}
-
-	newRuntimeObj, err := objInfo.UpdatedObject(ctx, oldRuntimeObj)
-	if err != nil {
-		klog.Infof("update failed to construct UpdatedObject: %v", err)
-		return nil, false, err
-	}
-
-	// This type conversion is necessary because mutations work with unversioned types
-	// (mostly for historical reasons).  So the server-side-apply library returns an unversioned object.
-	if unversioned, isUnversioned := newRuntimeObj.(*unversionedapi.PackageRevision); isUnversioned {
-		klog.Warningf("converting from unversioned to versioned object")
-		typed := &api.PackageRevision{}
-		if err := r.scheme.Convert(unversioned, typed, nil); err != nil {
-			return nil, false, fmt.Errorf("failed to convert %T to %T: %w", unversioned, typed, err)
-		}
-		newRuntimeObj = typed
-	}
-
-	if err := r.validateUpdate(ctx, newRuntimeObj, oldRuntimeObj, isCreate, createValidation,
-		updateValidation, "Package", name); err != nil {
-		return nil, false, err
-	}
-
-	newObj, ok := newRuntimeObj.(*api.PorchPackage)
-	if !ok {
-		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("expected Package object, got %T", newRuntimeObj))
-	}
-
-	repositoryName, err := ParseRepositoryName(name)
-	if err != nil {
-		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("invalid name %q", name))
-	}
-	if isCreate {
-		repositoryName = newObj.Spec.RepositoryName
-		if repositoryName == "" {
-			return nil, false, apierrors.NewBadRequest(fmt.Sprintf("invalid repositoryName %q", name))
-		}
-	}
-
-	var repositoryObj configapi.Repository
-	repositoryID := types.NamespacedName{Namespace: ns, Name: repositoryName}
-	if err := r.coreClient.Get(ctx, repositoryID, &repositoryObj); err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil, false, apierrors.NewNotFound(configapi.TypeRepository.GroupResource(), repositoryID.Name)
-		}
-		return nil, false, apierrors.NewInternalError(fmt.Errorf("error getting repository %v: %w", repositoryID, err))
-	}
-
-	if !isCreate {
-		rev, err := r.cad.UpdatePackage(ctx, &repositoryObj, oldPackage, oldRuntimeObj.(*api.PorchPackage), newObj)
-		if err != nil {
-			return nil, false, apierrors.NewInternalError(err)
-		}
-
-		updated := rev.GetPackage()
-
-		return updated, false, nil
-	} else {
-		rev, err := r.cad.CreatePackage(ctx, &repositoryObj, newObj)
-		if err != nil {
-			klog.Infof("error creating package: %v", err)
-			return nil, false, apierrors.NewInternalError(err)
-		}
-
-		created := rev.GetPackage()
-		return created, true, nil
 	}
 }
 

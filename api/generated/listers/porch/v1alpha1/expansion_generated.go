@@ -39,11 +39,3 @@ type PackageRevisionResourcesListerExpansion interface{}
 // PackageRevisionResourcesNamespaceListerExpansion allows custom methods to be added to
 // PackageRevisionResourcesNamespaceLister.
 type PackageRevisionResourcesNamespaceListerExpansion interface{}
-
-// PorchPackageListerExpansion allows custom methods to be added to
-// PorchPackageLister.
-type PorchPackageListerExpansion interface{}
-
-// PorchPackageNamespaceListerExpansion allows custom methods to be added to
-// PorchPackageNamespaceLister.
-type PorchPackageNamespaceListerExpansion interface{}

@@ -233,30 +233,6 @@ func (r *gitRepository) Version(ctx context.Context) (string, error) {
 	return hex.EncodeToString(hash[:]), nil
 }
 
-func (r *gitRepository) ListPackages(ctx context.Context, filter repository.ListPackageFilter) ([]repository.Package, error) {
-	ctx, span := tracer.Start(ctx, "gitRepository::ListPackages", trace.WithAttributes())
-	defer span.End()
-
-	// TODO
-	return nil, fmt.Errorf("ListPackages not yet supported for git repos")
-}
-
-func (r *gitRepository) CreatePackage(ctx context.Context, obj *v1alpha1.PorchPackage) (repository.Package, error) {
-	ctx, span := tracer.Start(ctx, "gitRepository::CreatePackage", trace.WithAttributes())
-	defer span.End()
-
-	// TODO: Create a 'Package' resource and an initial, empty 'PackageRevision'
-	return nil, fmt.Errorf("CreatePackage not yet supported for git repos")
-}
-
-func (r *gitRepository) DeletePackage(ctx context.Context, obj repository.Package) error {
-	ctx, span := tracer.Start(ctx, "gitRepository::DeletePackage", trace.WithAttributes())
-	defer span.End()
-
-	// TODO: Support package deletion using subresources (similar to the package revision approval flow)
-	return fmt.Errorf("DeletePackage not yet supported for git repos")
-}
-
 func (r *gitRepository) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "gitRepository::ListPackageRevisions", trace.WithAttributes())
 	defer span.End()

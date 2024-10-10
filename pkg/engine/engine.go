@@ -67,23 +67,6 @@ type CaDEngine interface {
 	CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj *api.PackageRevision, parent *PackageRevision) (*PackageRevision, error)
 	UpdatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, oldPackage *PackageRevision, old, new *api.PackageRevision, parent *PackageRevision) (*PackageRevision, error)
 	DeletePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj *PackageRevision) error
-
-	ListPackages(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageFilter) ([]*Package, error)
-	CreatePackage(ctx context.Context, repositoryObj *configapi.Repository, obj *api.PorchPackage) (*Package, error)
-	UpdatePackage(ctx context.Context, repositoryObj *configapi.Repository, oldPackage *Package, old, new *api.PorchPackage) (*Package, error)
-	DeletePackage(ctx context.Context, repositoryObj *configapi.Repository, obj *Package) error
-}
-
-type Package struct {
-	repoPackage repository.Package
-}
-
-func (p *Package) GetPackage() *api.PorchPackage {
-	return p.repoPackage.GetPackage()
-}
-
-func (p *Package) KubeObjectName() string {
-	return p.repoPackage.KubeObjectName()
 }
 
 // TODO: This is a bit awkward, and we should see if there is a way to avoid
@@ -881,72 +864,6 @@ func (cad *cadEngine) deletePackageRevision(ctx context.Context, repo repository
 
 	sent := cad.watcherManager.NotifyPackageRevisionChange(watch.Deleted, repoPkgRev, pkgRevMeta)
 	klog.Infof("engine: sent %d for deleted PackageRevision %s/%s", sent, repoPkgRev.KubeObjectNamespace(), repoPkgRev.KubeObjectName())
-	return nil
-}
-
-func (cad *cadEngine) ListPackages(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageFilter) ([]*Package, error) {
-	ctx, span := tracer.Start(ctx, "cadEngine::ListPackages", trace.WithAttributes())
-	defer span.End()
-
-	repo, err := cad.cache.OpenRepository(ctx, repositorySpec)
-	if err != nil {
-		return nil, err
-	}
-
-	pkgs, err := repo.ListPackages(ctx, filter)
-	if err != nil {
-		return nil, err
-	}
-	var packages []*Package
-	for _, p := range pkgs {
-		packages = append(packages, &Package{
-			repoPackage: p,
-		})
-	}
-
-	return packages, nil
-}
-
-func (cad *cadEngine) CreatePackage(ctx context.Context, repositoryObj *configapi.Repository, obj *api.PorchPackage) (*Package, error) {
-	ctx, span := tracer.Start(ctx, "cadEngine::CreatePackage", trace.WithAttributes())
-	defer span.End()
-
-	repo, err := cad.cache.OpenRepository(ctx, repositoryObj)
-	if err != nil {
-		return nil, err
-	}
-	pkg, err := repo.CreatePackage(ctx, obj)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Package{
-		repoPackage: pkg,
-	}, nil
-}
-
-func (cad *cadEngine) UpdatePackage(ctx context.Context, repositoryObj *configapi.Repository, oldPackage *Package, oldObj, newObj *api.PorchPackage) (*Package, error) {
-	ctx, span := tracer.Start(ctx, "cadEngine::UpdatePackage", trace.WithAttributes())
-	defer span.End()
-
-	// TODO
-	var pkg *Package
-	return pkg, fmt.Errorf("Updating packages is not yet supported")
-}
-
-func (cad *cadEngine) DeletePackage(ctx context.Context, repositoryObj *configapi.Repository, oldPackage *Package) error {
-	ctx, span := tracer.Start(ctx, "cadEngine::DeletePackage", trace.WithAttributes())
-	defer span.End()
-
-	repo, err := cad.cache.OpenRepository(ctx, repositoryObj)
-	if err != nil {
-		return err
-	}
-
-	if err := repo.DeletePackage(ctx, oldPackage.repoPackage); err != nil {
-		return err
-	}
-
 	return nil
 }
 

@@ -38,10 +38,6 @@ func (c *FakePorchV1alpha1) PackageRevisionResources(namespace string) v1alpha1.
 	return &FakePackageRevisionResources{c, namespace}
 }
 
-func (c *FakePorchV1alpha1) PorchPackages(namespace string) v1alpha1.PorchPackageInterface {
-	return &FakePorchPackages{c, namespace}
-}
-
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakePorchV1alpha1) RESTClient() rest.Interface {
