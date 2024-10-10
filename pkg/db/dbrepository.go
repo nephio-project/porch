@@ -223,10 +223,6 @@ func (r dbRepository) Close() error {
 	return repoDeleteFromDB(r.Key())
 }
 
-func (r dbRepository) UpdateDraftResources(ctx context.Context, draft *dbPackageDraft, new *v1alpha1.PackageRevisionResources, change *v1alpha1.Task) error {
-	return nil
-}
-
 func (r dbRepository) CloseDraft(ctx context.Context, d *dbPackageDraft) (*dbPackageRevision, error) {
 	pk := repository.PackageKey{
 		Namespace:  r.repoKey.Namespace,
