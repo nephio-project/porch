@@ -109,6 +109,11 @@ func getCacheKey(repositorySpec *configapi.Repository) (string, error) {
 		if dbSpec.DataSource == "" {
 			return "", errors.New("db.dataSource property is required")
 		}
+		if dbSpec.PackageResourceEncoding == "" {
+			dbSpec.PackageResourceEncoding = configapi.PackageResourceEncodingCBOR
+		} else if dbSpec.PackageResourceEncoding != configapi.PackageResourceEncodingCBOR && dbSpec.PackageResourceEncoding != configapi.PackageResourceEncodingYAML {
+			return "", errors.New("db.packageResourceEncoding must be either \"cbor\" or \"yaml\"")
+		}
 		return fmt.Sprintf("db://%s(%s)", dbSpec.DataSource, dbSpec.Driver), nil
 
 	default:

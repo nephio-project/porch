@@ -20,6 +20,7 @@ import (
 	"k8s.io/klog/v2"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 )
 
 // TODO: Add connection pooling
@@ -27,34 +28,36 @@ import (
 const MAX_MODIFICATION_DURATION = 10
 
 type DBConnection struct {
-	driver                  string
-	dataSource              string
+	spec                    *configapi.DBRepository
 	db                      *sql.DB
+	encoder                 encoder
 	maxModificationDuration int64
 }
 
 var dbConnection *DBConnection = nil
 
-func OpenDBConnection(driver string, dataSource string) error {
-	klog.Infof("DBConnection: %q %q", driver, dataSource)
+func OpenDBConnection(dbSpec *configapi.DBRepository) error {
+	klog.Infof("DBConnection: %q", dbSpec)
 
 	if dbConnection != nil {
-		klog.Infof("DB Connection: connection to database %s using driver %s, already open", dataSource, driver)
+		klog.Infof("DB Connection: connection to database %q, already open", dbSpec)
 		return nil
 	}
 
-	db, err := sql.Open(driver, dataSource)
+	db, err := sql.Open(dbSpec.Driver, dbSpec.DataSource)
 	if err != nil {
-		klog.Infof("DB Connection: connection to database %s failed using driver %s, error %q", dataSource, driver, err)
+		klog.Infof("DB Connection: connection to database %q failed: err=%q", dbSpec, err)
 		return err
 	}
 
-	klog.Infof("DB Connection: connected to database %s using driver %s", dataSource, driver)
+	klog.Infof("DB Connection: connected to database %s", dbSpec)
 
 	dbConnection = &DBConnection{
-		driver:                  driver,
-		dataSource:              dataSource,
-		db:                      db,
+		spec: dbSpec,
+		db:   db,
+		encoder: encoder{
+			encoding: dbSpec.PackageResourceEncoding,
+		},
 		maxModificationDuration: int64(MAX_MODIFICATION_DURATION * 1_000_000.0),
 	}
 
@@ -78,9 +81,9 @@ func CloseDBConnection() error {
 
 	var err error
 	if err = dbConnection.db.Close(); err == nil {
-		klog.Infof("DB Connection: connection to database %s using driver %s closed", dbConnection.dataSource, dbConnection.driver)
+		klog.Infof("DB Connection: connection to database %s closed", dbConnection.spec)
 	} else {
-		klog.Infof("DB Connection: close failed on connection to database %s using driver %s: %q", dbConnection.dataSource, dbConnection.driver, err)
+		klog.Infof("DB Connection: close failed on connection to database %s: %q", dbConnection.spec, err)
 	}
 
 	dbConnection = nil
