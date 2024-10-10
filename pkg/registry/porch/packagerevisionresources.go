@@ -46,12 +46,10 @@ var _ rest.Scoper = &packageRevisionResources{}
 var _ rest.Updater = &packageRevisionResources{}
 var _ rest.SingularNameProvider = &packageRevisionResources{}
 
-
 // GetSingularName implements the SingularNameProvider interface
-func (r *packageRevisionResources) GetSingularName() (string) {
+func (r *packageRevisionResources) GetSingularName() string {
 	return "packagerevisionresources"
 }
-
 
 func (r *packageRevisionResources) New() runtime.Object {
 	return &api.PackageRevisionResources{}
@@ -126,6 +124,18 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 	if !namespaced {
 		return nil, false, apierrors.NewBadRequest("namespace must be specified")
 	}
+
+	pkgMutexKey := getPackageMutexKey(ns, name)
+	pkgMutex := getMutexForPackage(pkgMutexKey)
+	locked := pkgMutex.TryLock()
+	if !locked {
+		return nil, false,
+			apierrors.NewConflict(
+				api.Resource("packagerevisionresources"),
+				name,
+				fmt.Errorf(GenericConflictErrorMsg, "package revision resources", pkgMutexKey))
+	}
+	defer pkgMutex.Unlock()
 
 	oldRepoPkgRev, err := r.packageCommon.getRepoPkgRev(ctx, name)
 	if err != nil {

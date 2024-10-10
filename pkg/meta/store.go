@@ -25,6 +25,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -194,16 +195,22 @@ func (c *crdMetadataStore) Delete(ctx context.Context, namespacedName types.Name
 	defer span.End()
 
 	var internalPkgRev internalapi.PackageRev
-	err := c.coreClient.Get(ctx, namespacedName, &internalPkgRev)
-	if err != nil {
-		return PackageRevisionMeta{}, err
-	}
-
-	if clearFinalizers {
-		internalPkgRev.Finalizers = []string{}
-		if err = c.coreClient.Update(ctx, &internalPkgRev); err != nil {
-			return PackageRevisionMeta{}, err
+	retriedErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		err := c.coreClient.Get(ctx, namespacedName, &internalPkgRev)
+		if err != nil {
+			return err
 		}
+
+		if clearFinalizers {
+			internalPkgRev.Finalizers = []string{}
+			if err = c.coreClient.Update(ctx, &internalPkgRev); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if retriedErr != nil {
+		return PackageRevisionMeta{}, retriedErr
 	}
 
 	klog.Infof("Deleting packagerev %s/%s", internalPkgRev.Namespace, internalPkgRev.Name)
