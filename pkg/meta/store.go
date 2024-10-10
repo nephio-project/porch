@@ -209,10 +209,13 @@ func (c *crdMetadataStore) Delete(ctx context.Context, namespacedName types.Name
 		}
 		return nil
 	})
+	if retriedErr != nil {
+		return PackageRevisionMeta{}, retriedErr
+	}
 
 	klog.Infof("Deleting packagerev %s/%s", internalPkgRev.Namespace, internalPkgRev.Name)
-	if retriedErr = c.coreClient.Delete(ctx, &internalPkgRev); retriedErr != nil {
-		return PackageRevisionMeta{}, retriedErr
+	if err := c.coreClient.Delete(ctx, &internalPkgRev); err != nil {
+		return PackageRevisionMeta{}, err
 	}
 	return toPackageRevisionMeta(&internalPkgRev), nil
 }
