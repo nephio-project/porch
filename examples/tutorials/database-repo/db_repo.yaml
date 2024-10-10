@@ -1,0 +1,16 @@
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+
+metadata:
+  name: db-repo
+  namespace: porch-demo
+
+spec:
+  description: db-repo
+  content: Package
+  deployment: false
+  type: db
+  db:
+    driver: pgx
+    dataSource: postgresql://porch:porch@172.18.255.201:55432/porch
+ 
