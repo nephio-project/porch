@@ -5,7 +5,6 @@ metadata:
     name: test-blueprints
     namespace: default
 spec:
-    content: Package
     git:
         branch: main
         directory: /

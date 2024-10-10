@@ -20,7 +20,6 @@ import (
 
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -96,36 +95,12 @@ type PackageRevision interface {
 	ResourceVersion() string
 }
 
-// Package is an abstract package.
-type Package interface {
-	// KubeObjectName returns an encoded name for the object that should be unique.
-	// More "readable" values are returned by Key()
-	KubeObjectName() string
-
-	// Key returns the "primary key" of the package.
-	Key() PackageKey
-
-	// GetPackage returns the object representing this package
-	GetPackage() *v1alpha1.PorchPackage
-
-	// GetLatestRevision returns the name of the package revision that is the "latest" package
-	// revision belonging to this package
-	GetLatestRevision() string
-}
-
 type PackageDraft interface {
 	UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, task *v1alpha1.Task) error
 	// Updates desired lifecycle of the package. The lifecycle is applied on Close.
 	UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error
 	// Finish round of updates.
 	Close(ctx context.Context) (PackageRevision, error)
-}
-
-// Function is an abstract function.
-type Function interface {
-	Name() string
-	GetFunction() (*v1alpha1.Function, error)
-	GetCRD() (*configapi.Function, error)
 }
 
 // ListPackageRevisionFilter is a predicate for filtering PackageRevision objects;
@@ -177,17 +152,6 @@ type ListPackageFilter struct {
 	Package string
 }
 
-// Matches returns true if the provided Package satisfies the conditions in the filter.
-func (f *ListPackageFilter) Matches(p Package) bool {
-	if f.Package != "" && f.Package != p.Key().Package {
-		return false
-	}
-	if f.KubeObjectName != "" && f.KubeObjectName != p.KubeObjectName() {
-		return false
-	}
-	return true
-}
-
 // Repository is the interface for interacting with packages in repositories
 // TODO: we may need interface to manage repositories too. Stay tuned.
 type Repository interface {
@@ -203,25 +167,11 @@ type Repository interface {
 	// UpdatePackageRevision updates a package
 	UpdatePackageRevision(ctx context.Context, old PackageRevision) (PackageDraft, error)
 
-	// ListPackages lists all packages in the repository
-	ListPackages(ctx context.Context, filter ListPackageFilter) ([]Package, error)
-
-	// CreatePackage creates a new package
-	CreatePackage(ctx context.Context, obj *v1alpha1.PorchPackage) (Package, error)
-
-	// DeletePackage deletes a package
-	DeletePackage(ctx context.Context, old Package) error
-
 	// Version returns a string that is guaranteed to be different if any change has been made to the repo contents
 	Version(ctx context.Context) (string, error)
 
 	// Close cleans up any resources associated with the repository
 	Close() error
-}
-
-type FunctionRepository interface {
-	// TODO: Should repository understand functions, or just packages (and function is just a package in an OCI repo?)
-	ListFunctions(ctx context.Context) ([]Function, error)
 }
 
 // The definitions below would be more appropriately located in a package usable by any Porch component.

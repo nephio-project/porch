@@ -60,13 +60,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionResourcesStatus": schema_porch_api_porch_v1alpha1_PackageRevisionResourcesStatus(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionSpec":            schema_porch_api_porch_v1alpha1_PackageRevisionSpec(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionStatus":          schema_porch_api_porch_v1alpha1_PackageRevisionStatus(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageSpec":                    schema_porch_api_porch_v1alpha1_PackageSpec(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageStatus":                  schema_porch_api_porch_v1alpha1_PackageStatus(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageUpdateTaskSpec":          schema_porch_api_porch_v1alpha1_PackageUpdateTaskSpec(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.ParentReference":                schema_porch_api_porch_v1alpha1_ParentReference(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PatchSpec":                      schema_porch_api_porch_v1alpha1_PatchSpec(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.PorchPackage":                   schema_porch_api_porch_v1alpha1_PorchPackage(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.PorchPackageList":               schema_porch_api_porch_v1alpha1_PorchPackageList(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.ReadinessGate":                  schema_porch_api_porch_v1alpha1_ReadinessGate(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.RenderStatus":                   schema_porch_api_porch_v1alpha1_RenderStatus(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.RepositoryRef":                  schema_porch_api_porch_v1alpha1_RepositoryRef(ref),
@@ -1436,53 +1432,6 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionStatus(ref common.ReferenceC
 	}
 }
 
-func schema_porch_api_porch_v1alpha1_PackageSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "PackageSpec defines the desired state of Package",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"packageName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "PackageName identifies the package in the repository.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"repository": {
-						SchemaProps: spec.SchemaProps{
-							Description: "RepositoryName is the name of the Repository object containing this package.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func schema_porch_api_porch_v1alpha1_PackageStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "PackageStatus defines the observed state of Package",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"latestRevision": {
-						SchemaProps: spec.SchemaProps{
-							Description: "LatestRevision identifies the package revision that is the latest published package revision belonging to this package",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 func schema_porch_api_porch_v1alpha1_PackageUpdateTaskSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1553,102 +1502,6 @@ func schema_porch_api_porch_v1alpha1_PatchSpec(ref common.ReferenceCallback) com
 				},
 			},
 		},
-	}
-}
-
-func schema_porch_api_porch_v1alpha1_PorchPackage(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "Package",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-						},
-					},
-					"spec": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageSpec"),
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageStatus"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.PackageSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
-	}
-}
-
-func schema_porch_api_porch_v1alpha1_PorchPackageList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "PackageList",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
-						},
-					},
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.PorchPackage"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.PorchPackage", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 

@@ -28,17 +28,6 @@ import (
 )
 
 func NewRESTStorage(scheme *runtime.Scheme, codecs serializer.CodecFactory, cad engine.CaDEngine, coreClient client.WithWatch) (genericapiserver.APIGroupInfo, error) {
-	packages := &packages{
-		TableConvertor: packageTableConvertor,
-		packageCommon: packageCommon{
-			scheme:         scheme,
-			cad:            cad,
-			gr:             porch.Resource("packages"),
-			coreClient:     coreClient,
-			updateStrategy: packageStrategy{},
-			createStrategy: packageStrategy{},
-		},
-	}
 
 	packageRevisions := &packageRevisions{
 		TableConvertor: packageRevisionTableConvertor,
@@ -73,21 +62,13 @@ func NewRESTStorage(scheme *runtime.Scheme, codecs serializer.CodecFactory, cad 
 		},
 	}
 
-	functions := &functions{
-		TableConvertor: rest.NewDefaultTableConvertor(porch.Resource("functions")),
-		cad:            cad,
-		coreClient:     coreClient,
-	}
-
 	group := genericapiserver.NewDefaultAPIGroupInfo(porch.GroupName, scheme, metav1.ParameterCodec, codecs)
 
 	group.VersionedResourcesStorageMap = map[string]map[string]rest.Storage{
 		apiv1alpha1.SchemeGroupVersion.Version: {
-			"packages":                  packages,
 			"packagerevisions":          packageRevisions,
 			"packagerevisions/approval": packageRevisionsApproval,
 			"packagerevisionresources":  packageRevisionResources,
-			"functions":                 functions,
 		},
 	}
 

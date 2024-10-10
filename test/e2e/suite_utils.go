@@ -190,7 +190,6 @@ func (t *TestSuite) registerGitRepositoryFromConfigF(ctx context.Context, name s
 		Spec: configapi.RepositorySpec{
 			Description: "Porch Test Repository Description",
 			Type:        configapi.RepositoryTypeGit,
-			Content:     configapi.RepositoryContentPackage,
 			Git: &configapi.GitRepository{
 				Repo:      config.Repo,
 				Branch:    config.Branch,
@@ -233,12 +232,6 @@ func WithDeployment() RepositoryOption {
 func withType(t configapi.RepositoryType) RepositoryOption {
 	return func(r *configapi.Repository) {
 		r.Spec.Type = t
-	}
-}
-
-func withContent(content configapi.RepositoryContent) RepositoryOption {
-	return func(r *configapi.Repository) {
-		r.Spec.Content = content
 	}
 }
 

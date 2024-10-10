@@ -29,7 +29,6 @@ type PorchV1alpha1Interface interface {
 	FunctionsGetter
 	PackageRevisionsGetter
 	PackageRevisionResourcesGetter
-	PorchPackagesGetter
 }
 
 // PorchV1alpha1Client is used to interact with features provided by the porch.kpt.dev group.
@@ -47,10 +46,6 @@ func (c *PorchV1alpha1Client) PackageRevisions(namespace string) PackageRevision
 
 func (c *PorchV1alpha1Client) PackageRevisionResources(namespace string) PackageRevisionResourcesInterface {
 	return newPackageRevisionResources(c, namespace)
-}
-
-func (c *PorchV1alpha1Client) PorchPackages(namespace string) PorchPackageInterface {
-	return newPorchPackages(c, namespace)
 }
 
 // NewForConfig creates a new PorchV1alpha1Client for the given config.
