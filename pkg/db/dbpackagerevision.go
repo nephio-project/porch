@@ -68,6 +68,15 @@ func (pr dbPackageRevision) createPackageRevision() (*dbPackageRevision, error) 
 	return &pr, pkgRevWriteToDB(pr)
 }
 
+func (pr dbPackageRevision) UpdatePackageRevision() error {
+	if readPr, err := pkgRevReadFromDB(pr.Key()); err == nil {
+		pr.copyToThis(&readPr)
+		return nil
+	} else {
+		return err
+	}
+}
+
 func (pr dbPackageRevision) Lifecycle() v1alpha1.PackageRevisionLifecycle {
 	if pr, err := pkgRevReadFromDB(pr.Key()); err != nil {
 		klog.Infof("Lifecycle read from DB failed on PackageRevision %q, %q", pr.Key().String(), err)
@@ -193,4 +202,16 @@ func (pr dbPackageRevision) ResourceVersion() string {
 
 func (pr dbPackageRevision) Close() error {
 	return pkgRevDeleteFromDB(pr.Key())
+}
+
+func (pr dbPackageRevision) copyToThis(otherPr *dbPackageRevision) {
+	pr.pkgRevKey.Namespace = otherPr.pkgRevKey.Namespace
+	pr.pkgRevKey.Repository = otherPr.pkgRevKey.Repository
+	pr.pkgRevKey.Package = otherPr.pkgRevKey.Package
+	pr.pkgRevKey.Revision = otherPr.pkgRevKey.Revision
+	pr.pkgRevKey.WorkspaceName = otherPr.pkgRevKey.WorkspaceName
+	pr.updated = otherPr.updated
+	pr.updatedBy = otherPr.updatedBy
+	pr.lifecycle = otherPr.lifecycle
+	pr.resources = otherPr.resources
 }
