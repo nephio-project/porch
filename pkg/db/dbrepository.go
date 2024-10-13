@@ -100,7 +100,7 @@ func (r dbRepository) ListPackageRevisions(ctx context.Context, filter repositor
 	return genericPkgRevs, nil
 }
 
-func (r dbRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageDraft, error) {
+func (r dbRepository) CreatePackageRevision(ctx context.Context, newPR *v1alpha1.PackageRevision) (repository.PackageDraft, error) {
 	klog.Infof("DB Repo CreatePackageRevision: %q", r.Key().String())
 
 	_, span := tracer.Start(ctx, "dbRepository::CreatePackageRevision", trace.WithAttributes())
@@ -108,13 +108,13 @@ func (r dbRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1.P
 
 	return &dbPackageDraft{
 		repo:          &r,
-		packageName:   obj.Spec.PackageName,
-		revision:      string(obj.Spec.WorkspaceName),
+		packageName:   newPR.Spec.PackageName,
+		revision:      string(newPR.Spec.WorkspaceName),
 		lifecycle:     v1alpha1.PackageRevisionLifecycleDraft,
 		updated:       time.Now(),
 		updatedBy:     getCurrentUser(),
-		workspaceName: obj.Spec.WorkspaceName,
-		tasks:         obj.Spec.Tasks,
+		workspaceName: newPR.Spec.WorkspaceName,
+		tasks:         newPR.Spec.Tasks,
 	}, nil
 }
 
@@ -148,9 +148,28 @@ func (r dbRepository) DeletePackageRevision(ctx context.Context, old repository.
 	return pkgDeleteFromDB(pk)
 }
 
-func (r dbRepository) UpdatePackageRevision(ctx context.Context, old repository.PackageRevision) (repository.PackageDraft, error) {
+func (r dbRepository) UpdatePackageRevision(ctx context.Context, updatePR repository.PackageRevision) (repository.PackageDraft, error) {
 	klog.Infof("DB Repo UpdatePackageRevision: %q", r.Key().String())
-	return nil, nil
+
+	updatePkgRev, ok := updatePR.(*dbPackageRevision)
+	if !ok {
+		return nil, fmt.Errorf("cannot update DB package revision %T", updatePR)
+	}
+
+	if err := updatePkgRev.UpdatePackageRevision(); err != nil {
+		return nil, err
+	}
+
+	return &dbPackageDraft{
+		repo:          &r,
+		packageName:   updatePkgRev.Key().Package,
+		revision:      updatePkgRev.Key().Revision,
+		lifecycle:     updatePkgRev.lifecycle,
+		updated:       time.Now(),
+		updatedBy:     getCurrentUser(),
+		workspaceName: updatePkgRev.Key().WorkspaceName,
+		tasks:         nil,
+	}, nil
 }
 
 func (r dbRepository) ListPackages(ctx context.Context, filter repository.ListPackageFilter) ([]repository.Package, error) {
