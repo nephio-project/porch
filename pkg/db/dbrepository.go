@@ -169,6 +169,7 @@ func (r dbRepository) UpdatePackageRevision(ctx context.Context, updatePR reposi
 		updatedBy:     getCurrentUser(),
 		workspaceName: updatePkgRev.Key().WorkspaceName,
 		tasks:         nil,
+		resources:     updatePkgRev.resources,
 	}, nil
 }
 
