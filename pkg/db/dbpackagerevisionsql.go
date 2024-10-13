@@ -132,6 +132,7 @@ func pkgRevWriteToDB(pr dbPackageRevision) error {
 }
 
 func pkgRevUpdateDB(pr dbPackageRevision) error {
+
 	klog.Infof("pkgRevUpdateDB: updating package revision %q", pr.Key())
 
 	rawResources, err := GetDBConnection().encoder.EncodePackage(pr.resources)
