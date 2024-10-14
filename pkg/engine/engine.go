@@ -1094,7 +1094,7 @@ func (m *updatePackageMutation) Apply(ctx context.Context, resources repository.
 	}
 
 	targetUpstream := m.updateTask.Update.Upstream
-	if targetUpstream.Type == api.RepositoryTypeGit || targetUpstream.Type == api.RepositoryTypeOCI || targetUpstream.Type == api.RepositoryTypeDB {
+	if targetUpstream.Type == api.RepositoryTypeGit || targetUpstream.Type == api.RepositoryTypeOCI {
 		return repository.PackageResources{}, nil, fmt.Errorf("update is not supported for non-porch upstream packages")
 	}
 
@@ -1159,7 +1159,7 @@ func (m *updatePackageMutation) currUpstream() (*api.PackageRevisionRef, error) 
 		return nil, fmt.Errorf("package %s does not have original upstream info", m.pkgName)
 	}
 	upstream := m.cloneTask.Clone.Upstream
-	if upstream.Type == api.RepositoryTypeGit || upstream.Type == api.RepositoryTypeOCI || upstream.Type == api.RepositoryTypeDB {
+	if upstream.Type == api.RepositoryTypeGit || upstream.Type == api.RepositoryTypeOCI {
 		return nil, fmt.Errorf("upstream package must be porch native package. Found it to be %s", upstream.Type)
 	}
 	return upstream.UpstreamRef, nil
