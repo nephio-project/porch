@@ -100,23 +100,26 @@ func (pr dbPackageRevision) UpdateLifecycle(ctx context.Context, newLifecycle v1
 }
 
 func (pr dbPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.PackageRevision, error) {
-	key := pr.Key()
-
 	lockCopy := &v1alpha1.UpstreamLock{}
 
-	kf, _ := pr.GetKptfile(ctx)
+	readPr, err := pkgRevReadFromDB(pr.Key())
+	if err != nil {
+		return nil, fmt.Errorf("package revision read on DB failed %q, %q", pr.Key().String(), err)
+	}
+
+	kf, _ := readPr.GetKptfile(ctx)
 
 	status := v1alpha1.PackageRevisionStatus{
 		UpstreamLock: lockCopy,
 		Conditions:   repository.ToApiConditions(kf),
 	}
 
-	if v1alpha1.LifecycleIsPublished(pr.Lifecycle()) {
-		if !pr.updated.IsZero() {
-			status.PublishedAt = metav1.Time{Time: pr.updated}
+	if v1alpha1.LifecycleIsPublished(readPr.Lifecycle()) {
+		if !readPr.updated.IsZero() {
+			status.PublishedAt = metav1.Time{Time: readPr.updated}
 		}
-		if pr.updatedBy != "" {
-			status.PublishedBy = pr.updatedBy
+		if readPr.updatedBy != "" {
+			status.PublishedBy = readPr.updatedBy
 		}
 	}
 
@@ -126,30 +129,34 @@ func (pr dbPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.P
 			APIVersion: v1alpha1.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            pr.KubeObjectName(),
-			Namespace:       pr.pkgRevKey.Namespace,
-			UID:             pr.UID(),
-			ResourceVersion: pr.ResourceVersion(),
+			Name:            readPr.KubeObjectName(),
+			Namespace:       readPr.pkgRevKey.Namespace,
+			UID:             readPr.UID(),
+			ResourceVersion: readPr.ResourceVersion(),
 			CreationTimestamp: metav1.Time{
-				Time: pr.updated,
+				Time: readPr.updated,
 			},
 		},
 		Spec: v1alpha1.PackageRevisionSpec{
-			PackageName:    key.Package,
-			RepositoryName: key.Repository,
-			Lifecycle:      pr.Lifecycle(),
+			PackageName:    readPr.Key().Package,
+			RepositoryName: readPr.Key().Repository,
+			Lifecycle:      readPr.Lifecycle(),
 			Tasks:          nil,
 			ReadinessGates: repository.ToApiReadinessGates(kf),
-			WorkspaceName:  key.WorkspaceName,
-			Revision:       key.Revision,
+			WorkspaceName:  readPr.Key().WorkspaceName,
+			Revision:       readPr.Key().Revision,
 		},
 		Status: status,
 	}, nil
 }
 
 func (pr dbPackageRevision) GetResources(context.Context) (*v1alpha1.PackageRevisionResources, error) {
+	readPr, err := pkgRevReadFromDB(pr.Key())
+	if err != nil {
+		return nil, fmt.Errorf("package revision read on DB failed %q, %q", pr.Key().String(), err)
+	}
 
-	key := pr.Key()
+	key := readPr.Key()
 
 	return &v1alpha1.PackageRevisionResources{
 		TypeMeta: metav1.TypeMeta{
@@ -157,12 +164,12 @@ func (pr dbPackageRevision) GetResources(context.Context) (*v1alpha1.PackageRevi
 			APIVersion: v1alpha1.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            pr.KubeObjectName(),
-			Namespace:       pr.pkgRevKey.Namespace,
-			UID:             pr.UID(),
-			ResourceVersion: pr.ResourceVersion(),
+			Name:            readPr.KubeObjectName(),
+			Namespace:       readPr.pkgRevKey.Namespace,
+			UID:             readPr.UID(),
+			ResourceVersion: readPr.ResourceVersion(),
 			CreationTimestamp: metav1.Time{
-				Time: pr.updated,
+				Time: readPr.updated,
 			},
 			OwnerReferences: []metav1.OwnerReference{}, // TODO: should point to repository resource
 		},
@@ -171,7 +178,7 @@ func (pr dbPackageRevision) GetResources(context.Context) (*v1alpha1.PackageRevi
 			WorkspaceName:  key.WorkspaceName,
 			Revision:       key.Revision,
 			RepositoryName: key.Repository,
-			Resources:      pr.resources,
+			Resources:      readPr.resources,
 		},
 	}, nil
 }
@@ -181,7 +188,12 @@ func (pr dbPackageRevision) GetUpstreamLock(context.Context) (kptfile.Upstream, 
 }
 
 func (pr dbPackageRevision) GetKptfile(context.Context) (kptfile.KptFile, error) {
-	kfString, found := pr.resources[kptfile.KptFileName]
+	readPr, err := pkgRevReadFromDB(pr.Key())
+	if err != nil {
+		return kptfile.KptFile{}, fmt.Errorf("package revision read on DB failed %q, %q", pr.Key().String(), err)
+	}
+
+	kfString, found := readPr.resources[kptfile.KptFileName]
 	if !found {
 		return kptfile.KptFile{}, fmt.Errorf("packagerevision does not have a Kptfile")
 	}
