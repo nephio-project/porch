@@ -533,7 +533,9 @@ func applyResourceMutations(ctx context.Context, draft repository.PackageDraft, 
 		updatedResources, taskResult, err := m.Apply(ctx, baseResources)
 		if taskResult == nil && err == nil {
 			// a nil taskResult means nothing changed
-			return baseResources, nil, nil
+			baseResources = updatedResources
+			applied = updatedResources
+			continue
 		}
 
 		var task *api.Task
