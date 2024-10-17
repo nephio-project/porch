@@ -17,6 +17,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -31,13 +32,13 @@ type PackageResources struct {
 }
 
 type PackageRevisionKey struct {
-	Repository, Package, Revision string
-	WorkspaceName                 v1alpha1.WorkspaceName
+	Repository, Directory, Package, Revision string
+	WorkspaceName                            v1alpha1.WorkspaceName
 }
 
 func (n PackageRevisionKey) String() string {
-	return fmt.Sprintf("Repository: %q, Package: %q, Revision: %q, WorkspaceName: %q",
-		n.Repository, n.Package, n.Revision, string(n.WorkspaceName))
+	return fmt.Sprintf("Repository: %q, Directory: %q, Package: %q, Revision: %q, WorkspaceName: %q",
+		n.Repository, n.Directory, n.Package, n.Revision, string(n.WorkspaceName))
 }
 
 type PackageKey struct {
@@ -149,13 +150,18 @@ type ListPackageRevisionFilter struct {
 
 // Matches returns true if the provided PackageRevision satisfies the conditions in the filter.
 func (f *ListPackageRevisionFilter) Matches(p PackageRevision) bool {
-	if f.Package != "" && f.Package != p.Key().Package {
+	packageKey := p.Key()
+
+	fullPackagePath := strings.TrimPrefix(
+		fmt.Sprintf("%s/%s", packageKey.Directory, packageKey.Package),
+		"/")
+	if f.Package != "" && f.Package != fullPackagePath {
 		return false
 	}
-	if f.Revision != "" && f.Revision != p.Key().Revision {
+	if f.Revision != "" && f.Revision != packageKey.Revision {
 		return false
 	}
-	if f.WorkspaceName != "" && f.WorkspaceName != p.Key().WorkspaceName {
+	if f.WorkspaceName != "" && f.WorkspaceName != packageKey.WorkspaceName {
 		return false
 	}
 	if f.KubeObjectName != "" && f.KubeObjectName != p.KubeObjectName() {

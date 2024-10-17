@@ -102,6 +102,7 @@ func (p *gitPackageRevision) Key() repository.PackageRevisionKey {
 
 	return repository.PackageRevisionKey{
 		Repository:    p.repo.name,
+		Directory:     p.repo.directory,
 		Package:       packageName,
 		Revision:      p.revision,
 		WorkspaceName: p.workspaceName,
