@@ -48,7 +48,8 @@ func (p *TestSuiteWithGit) Initialize(ctx context.Context) {
 	p.gitConfig = p.CreateGitRepo()
 }
 
-func (p *TestSuiteWithGit) GitConfig(repoID string) GitConfig {
+func (p *TestSuiteWithGit) GitConfig(name string) GitConfig {
+	repoID := p.Namespace + "-" + name
 	config := p.gitConfig
 	config.Repo = config.Repo + "/" + repoID
 	return config
@@ -56,8 +57,14 @@ func (p *TestSuiteWithGit) GitConfig(repoID string) GitConfig {
 
 func (t *TestSuiteWithGit) RegisterMainGitRepositoryF(ctx context.Context, name string, opts ...RepositoryOption) {
 	t.Helper()
-	repoID := t.Namespace + "-" + name
-	config := t.GitConfig(repoID)
+	config := t.GitConfig(name)
+	t.registerGitRepositoryFromConfigF(ctx, name, config, opts...)
+}
+
+func (t *TestSuiteWithGit) RegisterGitRepositoryWithDirectoryF(ctx context.Context, name string, directory string, opts ...RepositoryOption) {
+	t.Helper()
+	config := t.GitConfig(name)
+	config.Directory = directory
 	t.registerGitRepositoryFromConfigF(ctx, name, config, opts...)
 }
 
@@ -213,7 +220,7 @@ func (t *TestSuite) registerGitRepositoryFromConfigF(ctx context.Context, name s
 	t.Cleanup(func() {
 		t.DeleteE(ctx, repository)
 		t.WaitUntilRepositoryDeleted(ctx, name, t.Namespace)
-		t.WaitUntilAllPackagesDeleted(ctx, name)
+		t.WaitUntilAllPackagesDeleted(ctx, name, t.Namespace)
 	})
 
 	// Make sure the repository is ready before we test to (hopefully)
@@ -249,9 +256,21 @@ func InNamespace(ns string) RepositoryOption {
 }
 
 // Creates an empty package draft by initializing an empty package
-func (t *TestSuite) CreatePackageDraftF(ctx context.Context, repository, name, workspace string) *porchapi.PackageRevision {
+func (t *TestSuite) CreatePackageDraftF(ctx context.Context, repository, packageName, workspace string) *porchapi.PackageRevision {
 	t.Helper()
-	pr := &porchapi.PackageRevision{
+	pr := t.CreatePackageSkeleton(repository, packageName, workspace)
+	pr.Spec.Tasks = []porchapi.Task{
+		{
+			Type: porchapi.TaskTypeInit,
+			Init: &porchapi.PackageInitTaskSpec{},
+		},
+	}
+	t.CreateF(ctx, pr)
+	return pr
+}
+
+func (t *TestSuite) CreatePackageSkeleton(repoName, packageName, workspace string) *porchapi.PackageRevision {
+	return &porchapi.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevision",
 			APIVersion: porchapi.SchemeGroupVersion.String(),
@@ -260,19 +279,13 @@ func (t *TestSuite) CreatePackageDraftF(ctx context.Context, repository, name, w
 			Namespace: t.Namespace,
 		},
 		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    name,
+			PackageName:    packageName,
 			WorkspaceName:  porchapi.WorkspaceName(workspace),
-			RepositoryName: repository,
-			Tasks: []porchapi.Task{
-				{
-					Type: porchapi.TaskTypeInit,
-					Init: &porchapi.PackageInitTaskSpec{},
-				},
-			},
+			RepositoryName: repoName,
+			// empty tasks list - set them as needed in the particular usage
+			Tasks: []porchapi.Task{},
 		},
 	}
-	t.CreateF(ctx, pr)
-	return pr
 }
 
 func (t *TestSuite) MustExist(ctx context.Context, key client.ObjectKey, obj client.Object) {
@@ -365,7 +378,7 @@ func (t *TestSuite) WaitUntilRepositoryDeleted(ctx context.Context, name, namesp
 	}
 }
 
-func (t *TestSuite) WaitUntilAllPackagesDeleted(ctx context.Context, repoName string) {
+func (t *TestSuite) WaitUntilAllPackagesDeleted(ctx context.Context, repoName string, namespace string) {
 	t.Helper()
 	err := wait.PollUntilContextTimeout(ctx, time.Second, 60*time.Second, true, func(ctx context.Context) (done bool, err error) {
 		t.Helper()
@@ -375,20 +388,19 @@ func (t *TestSuite) WaitUntilAllPackagesDeleted(ctx context.Context, repoName st
 			return false, nil
 		}
 		for _, pkgRev := range pkgRevList.Items {
-			if strings.HasPrefix(fmt.Sprintf("%s-", pkgRev.Name), repoName) {
+			if pkgRev.Namespace == namespace && strings.HasPrefix(fmt.Sprintf("%s-", pkgRev.Name), repoName) {
 				t.Logf("Found package %s from repo %s", pkgRev.Name, repoName)
 				return false, nil
 			}
 		}
-
 		var internalPkgRevList internalapi.PackageRevList
 		if err := t.Client.List(ctx, &internalPkgRevList); err != nil {
 			t.Logf("error list internal packages: %v", err)
 			return false, nil
 		}
 		for _, internalPkgRev := range internalPkgRevList.Items {
-			if strings.HasPrefix(fmt.Sprintf("%s-", internalPkgRev.Name), repoName) {
-				t.Logf("Found internalPkg %s from repo %s", internalPkgRev.Name, repoName)
+			if internalPkgRev.Namespace == namespace && strings.HasPrefix(fmt.Sprintf("%s-", internalPkgRev.Name), repoName) {
+				t.Logf("Found internalPkg %s/%s from repo %s", internalPkgRev.Namespace, internalPkgRev.Name, repoName)
 				return false, nil
 			}
 		}
