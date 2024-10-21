@@ -16,6 +16,7 @@ package internal
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -25,7 +26,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/go-containerregistry/pkg/gcrane"
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/nephio-project/porch/func/evaluator"
@@ -57,6 +58,9 @@ const (
 	fieldManagerName          = "krm-function-runner"
 	functionContainerName     = "function"
 	defaultManagerNamespace   = "porch-system"
+	defaultRepository         = "gcr.io/kpt-fn/"
+	// perhaps should try and get the name of the dockerconfig secret given by user and match this secret name to that to avoid hard coded value?
+	customRepoImgPullSecret   = "auth-secret" 
 
 	channelBufferSize = 128
 )
@@ -69,7 +73,7 @@ type podEvaluator struct {
 
 var _ Evaluator = &podEvaluator{}
 
-func NewPodEvaluator(namespace, wrapperServerImage string, interval, ttl time.Duration, podTTLConfig string, functionPodTemplateName string) (Evaluator, error) {
+func NewPodEvaluator(namespace, wrapperServerImage string, interval, ttl time.Duration, podTTLConfig string, functionPodTemplateName string, customRepoAuth string) (Evaluator, error) {
 	restCfg, err := config.GetConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get rest config: %w", err)
@@ -100,6 +104,7 @@ func NewPodEvaluator(namespace, wrapperServerImage string, interval, ttl time.Du
 		podCacheManager: &podCacheManager{
 			gcScanInternal: interval,
 			podTTL:         ttl,
+			customRepoAuth: customRepoAuth,
 			requestCh:      reqCh,
 			podReadyCh:     readyCh,
 			cache:          map[string]*podAndGRPCClient{},
@@ -167,6 +172,8 @@ func (pe *podEvaluator) EvaluateFunction(ctx context.Context, req *evaluator.Eva
 type podCacheManager struct {
 	gcScanInternal time.Duration
 	podTTL         time.Duration
+
+	customRepoAuth string
 
 	// requestCh is a receive-only channel to receive
 	requestCh <-chan *clientConnRequest
@@ -236,7 +243,7 @@ func (pcm *podCacheManager) warmupCache(podTTLConfig string) error {
 
 		// We invoke the function with useGenerateName=false so that the pod name is fixed,
 		// since we want to ensure only one pod is created for each function.
-		pcm.podManager.getFuncEvalPodClient(ctx, fnImage, ttl, false)
+		pcm.podManager.getFuncEvalPodClient(ctx, fnImage, ttl, false, pcm.customRepoAuth)
 		klog.Infof("preloaded pod cache for function %v", fnImage)
 	})
 
@@ -304,7 +311,7 @@ func (pcm *podCacheManager) podCacheManager() {
 			pcm.waitlists[req.image] = append(list, req.grpcClientCh)
 			// We invoke the function with useGenerateName=true to avoid potential name collision, since if pod foo is
 			// being deleted and we can't use the same name.
-			go pcm.podManager.getFuncEvalPodClient(context.Background(), req.image, pcm.podTTL, true)
+			go pcm.podManager.getFuncEvalPodClient(context.Background(), req.image, pcm.podTTL, true, pcm.customRepoAuth)
 		case resp := <-pcm.podReadyCh:
 			if resp.err != nil {
 				klog.Warningf("received error from the pod manager: %v", resp.err)
@@ -436,9 +443,9 @@ type digestAndEntrypoint struct {
 // time-to-live period for the pod. If useGenerateName is false, it will try to
 // create a pod with a fixed name. Otherwise, it will create a pod and let the
 // apiserver to generate the name from a template.
-func (pm *podManager) getFuncEvalPodClient(ctx context.Context, image string, ttl time.Duration, useGenerateName bool) {
+func (pm *podManager) getFuncEvalPodClient(ctx context.Context, image string, ttl time.Duration, useGenerateName bool, customRepoAuth string) {
 	c, err := func() (*podAndGRPCClient, error) {
-		podKey, err := pm.retrieveOrCreatePod(ctx, image, ttl, useGenerateName)
+		podKey, err := pm.retrieveOrCreatePod(ctx, image, ttl, useGenerateName, customRepoAuth)
 		if err != nil {
 			return nil, err
 		}
@@ -466,18 +473,120 @@ func (pm *podManager) getFuncEvalPodClient(ctx context.Context, image string, tt
 	}
 }
 
+func (pm *podManager) InspectOrCreateSecret(ctx context.Context, customRepoAuth string) error {
+	secret := &corev1.Secret{}
+	// using pod manager client since this secret is only related to these pods and nothing else
+	err := pm.kubeClient.Get(context.Background(), client.ObjectKey{
+		Name:      "auth-secret",
+		Namespace: pm.namespace,
+	}, secret)
+	if err != nil {
+		if client.IgnoreNotFound(err) != nil {
+			// Error other than "not found" occurred
+			return err
+		}
+		klog.Infof("Secret for private repo pods does not exist and is required.\nGenerating Secret Now")
+		dockerConfigBytes, err := os.ReadFile(customRepoAuth)
+		if err != nil {
+			return err
+		}
+		// Secret does not exist, create it
+		secret = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "auth-secret",
+				Namespace: pm.namespace,
+			},
+			Data: map[string][]byte{
+				".dockerconfigjson": dockerConfigBytes,
+			},
+			Type: corev1.SecretTypeDockerConfigJson,
+		}
+		err = pm.kubeClient.Create(ctx, secret)
+		if err != nil {
+			return err
+		}
+
+		klog.Infof("Secret created successfully")
+	} else {
+		klog.Infof("Secret already exists")
+	}
+	return nil
+}
+
+// DockerConfig represents the structure of Docker config.json
+type DockerConfig struct {
+	Auths map[string]authn.AuthConfig `json:"auths"`
+}
+
 // imageDigestAndEntrypoint gets the entrypoint of a container image by looking at its metadata.
-func (pm *podManager) imageDigestAndEntrypoint(ctx context.Context, image string) (*digestAndEntrypoint, error) {
+func (pm *podManager) imageDigestAndEntrypoint(ctx context.Context, image string, customRepoAuth string) (*digestAndEntrypoint, error) {
 	start := time.Now()
-	defer func() {
-		klog.Infof("getting image metadata for %v took %v", image, time.Since(start))
-	}()
-	var entrypoint []string
+	defer klog.Infof("getting image metadata for %v took %v", image, time.Since(start))
+
 	ref, err := name.ParseReference(image)
 	if err != nil {
+		klog.Errorf("we got an error parsing the ref %v", err)
 		return nil, err
 	}
-	img, err := remote.Image(ref, remote.WithAuthFromKeychain(gcrane.Keychain), remote.WithContext(ctx))
+
+	var auth authn.Authenticator
+	if customRepoAuth != "" && !strings.HasPrefix(image, defaultRepository) {
+		if err := pm.handleCustomAuth(ctx, customRepoAuth); err != nil {
+			return nil, err
+		}
+
+		auth, err = pm.getCustomAuth(ref, customRepoAuth)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		auth, err = authn.DefaultKeychain.Resolve(ref.Context())
+		if err != nil {
+			klog.Errorf("error resolving default keychain: %v", err)
+			return nil, err
+		}
+	}
+
+	return pm.getImageMetadata(ctx, ref, auth, image)
+}
+
+// handleCustomAuth ensures if images from custom repo's are requested their appropriate credentials are passed onto a secret for fn pods to use when pulling if it doesnt already exist
+func (pm *podManager) handleCustomAuth(ctx context.Context, customRepoAuth string) error {
+	if err := pm.InspectOrCreateSecret(ctx, customRepoAuth); err != nil {
+		return err
+	}
+	return nil
+}
+
+// if a custom image is requested use the secret provided to authenticate
+func (pm *podManager) appendImagePullSecret(image string, customRepoAuth string, podTemplate *corev1.Pod) {
+	if customRepoAuth != "" && !strings.HasPrefix(image, defaultRepository) {
+		podTemplate.Spec.ImagePullSecrets = []corev1.LocalObjectReference{
+			{Name: "auth-secret"},
+		}
+	}
+}
+
+// getCustomAuth reads and parses the custom repo auth file from the mounted secret.
+func (pm *podManager) getCustomAuth(ref name.Reference, customRepoAuth string) (authn.Authenticator, error) {
+	dockerConfigBytes, err := os.ReadFile(customRepoAuth)
+	if err != nil {
+		klog.Errorf("error reading authentication file %v", err)
+		return nil, err
+	}
+
+	var dockerConfig DockerConfig
+	if err := json.Unmarshal(dockerConfigBytes, &dockerConfig); err != nil {
+		klog.Errorf("error unmarshalling authentication file %v", err)
+		return nil, err
+	}
+
+	return authn.FromConfig(dockerConfig.Auths[ref.Context().RegistryStr()]), nil
+}
+
+// getImageMetadata retrieves the image digest and entrypoint.
+func (pm *podManager) getImageMetadata(ctx context.Context, ref name.Reference, auth authn.Authenticator, image string) (*digestAndEntrypoint, error) {
+	img, err := remote.Image(ref, remote.WithAuth(auth), remote.WithContext(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -485,16 +594,14 @@ func (pm *podManager) imageDigestAndEntrypoint(ctx context.Context, image string
 	if err != nil {
 		return nil, err
 	}
-	cf, err := img.ConfigFile()
+	configFile, err := img.ConfigFile()
 	if err != nil {
 		return nil, err
 	}
-
-	cfg := cf.Config
 	// TODO: to handle all scenario, we should follow https://docs.docker.com/engine/reference/builder/#understand-how-cmd-and-entrypoint-interact.
-	if len(cfg.Entrypoint) != 0 {
-		entrypoint = cfg.Entrypoint
-	} else {
+	cfg := configFile.Config
+	entrypoint := cfg.Entrypoint
+	if len(entrypoint) == 0 {
 		entrypoint = cfg.Cmd
 	}
 	de := &digestAndEntrypoint{
@@ -506,14 +613,14 @@ func (pm *podManager) imageDigestAndEntrypoint(ctx context.Context, image string
 }
 
 // retrieveOrCreatePod retrieves or creates a pod for an image.
-func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl time.Duration, useGenerateName bool) (client.ObjectKey, error) {
+func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl time.Duration, useGenerateName bool, customRepoAuth string) (client.ObjectKey, error) {
 	var de *digestAndEntrypoint
 	var replacePod bool
 	var currentPod *corev1.Pod
 	var err error
 	val, found := pm.imageMetadataCache.Load(image)
 	if !found {
-		de, err = pm.imageDigestAndEntrypoint(ctx, image)
+		de, err = pm.imageDigestAndEntrypoint(ctx, image, customRepoAuth)
 		if err != nil {
 			return client.ObjectKey{}, fmt.Errorf("unable to get the entrypoint for %v: %w", image, err)
 		}
@@ -532,6 +639,7 @@ func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl
 	// TODO: It's possible to set up a Watch in the fn runner namespace, and always try to maintain a up-to-date local cache.
 	podList := &corev1.PodList{}
 	podTemplate, templateVersion, err := pm.getBasePodTemplate(ctx)
+	pm.appendImagePullSecret(image, customRepoAuth, podTemplate)
 	if err != nil {
 		klog.Errorf("failed to generate a base pod template: %v", err)
 		return client.ObjectKey{}, fmt.Errorf("failed to generate a base pod template: %w", err)

@@ -41,6 +41,7 @@ var (
 	port                    = flag.Int("port", 9445, "The server port")
 	functions               = flag.String("functions", "./functions", "Path to cached functions.")
 	config                  = flag.String("config", "./config.yaml", "Path to the config file.")
+	customRepoAuth          = flag.String("custom-repo-secret-path", "", "Path to means of authentication for using images from custom repositories e.g. docker config file")
 	podCacheConfig          = flag.String("pod-cache-config", "/pod-cache-config/pod-cache-config.yaml", "Path to the pod cache config file. The file is map of function name to TTL.")
 	podNamespace            = flag.String("pod-namespace", "porch-fn-system", "Namespace to run KRM functions pods.")
 	podTTL                  = flag.Duration("pod-ttl", 30*time.Minute, "TTL for pods before GC.")
@@ -89,7 +90,7 @@ func run() error {
 			if wrapperServerImage == "" {
 				return fmt.Errorf("environment variable %v must be set to use pod function evaluator runtime", wrapperServerImageEnv)
 			}
-			podEval, err := internal.NewPodEvaluator(*podNamespace, wrapperServerImage, *scanInterval, *podTTL, *podCacheConfig, *functionPodTemplateName)
+			podEval, err := internal.NewPodEvaluator(*podNamespace, wrapperServerImage, *scanInterval, *podTTL, *podCacheConfig, *functionPodTemplateName, *customRepoAuth)
 			if err != nil {
 				return fmt.Errorf("failed to initialize pod evaluator: %w", err)
 			}
