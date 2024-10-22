@@ -512,10 +512,42 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 		return nil, nil, err
 	}
 
-	renderStatus, err := cad.taskHandler.DoPRResourceMutations(ctx, pr2Update, draft, oldRes, newRes)
-	if err != nil {
-		return nil, renderStatus, err
+	runnerOptions := cad.runnerOptionsResolver(old.GetNamespace())
+
+	mutations := []mutation{
+		&mutationReplaceResources{
+			newResources: new,
+			oldResources: old,
+		},
 	}
+	prevResources, err := oldPackage.repoPackageRevision.GetResources(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("cannot get package resources: %w", err)
+	}
+	resources := repository.PackageResources{
+		Contents: prevResources.Spec.Resources,
+	}
+	appliedResources, renderStatus, err := applyResourceMutations(ctx, draft, resources, mutations)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if len(appliedResources.Contents) > 0 {
+		// render the package
+		// Render failure will not fail the overall API operation.
+		// The render error and result is captured as part of renderStatus above
+		// and is returned in packageresourceresources API's status field. We continue with
+		// saving the non-rendered resources to avoid losing user's changes.
+		// and supress this err.
+		_, renderStatus, _ = applyResourceMutations(ctx,
+			draft,
+			appliedResources,
+			[]mutation{&renderPackageMutation{
+				runnerOptions: runnerOptions,
+				runtime:       cad.runtime,
+			}})
+	}
+
 	// No lifecycle change when updating package resources; updates are done.
 	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, "")
 	if err != nil {
@@ -533,8 +565,6 @@ func applyResourceMutations(ctx context.Context, draft repository.PackageDraft, 
 		updatedResources, taskResult, err := m.Apply(ctx, baseResources)
 		if taskResult == nil && err == nil {
 			// a nil taskResult means nothing changed
-			baseResources = updatedResources
-			applied = updatedResources
 			continue
 		}
 
