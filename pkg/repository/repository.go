@@ -17,7 +17,6 @@ package repository
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -32,13 +31,13 @@ type PackageResources struct {
 }
 
 type PackageRevisionKey struct {
-	Repository, Directory, Package, Revision string
-	WorkspaceName                            v1alpha1.WorkspaceName
+	Repository, Package, Revision string
+	WorkspaceName                 v1alpha1.WorkspaceName
 }
 
 func (n PackageRevisionKey) String() string {
-	return fmt.Sprintf("Repository: %q, Directory: %q, Package: %q, Revision: %q, WorkspaceName: %q",
-		n.Repository, n.Directory, n.Package, n.Revision, string(n.WorkspaceName))
+	return fmt.Sprintf("Repository: %q, Package: %q, Revision: %q, WorkspaceName: %q",
+		n.Repository, n.Package, n.Revision, string(n.WorkspaceName))
 }
 
 type PackageKey struct {
@@ -152,10 +151,7 @@ type ListPackageRevisionFilter struct {
 func (f *ListPackageRevisionFilter) Matches(p PackageRevision) bool {
 	packageKey := p.Key()
 
-	fullPackagePath := strings.TrimPrefix(
-		fmt.Sprintf("%s/%s", packageKey.Directory, packageKey.Package),
-		"/")
-	if f.Package != "" && f.Package != fullPackagePath {
+	if f.Package != "" && f.Package != packageKey.Package {
 		return false
 	}
 	if f.Revision != "" && f.Revision != packageKey.Revision {
