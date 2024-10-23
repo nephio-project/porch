@@ -36,7 +36,7 @@ type dbPackage struct {
 }
 
 func (p dbPackage) KubeObjectName() string {
-	return p.Key().String()
+	return p.Key().NonNSString()
 }
 
 func (p dbPackage) KubeObjectNamespace() string {
