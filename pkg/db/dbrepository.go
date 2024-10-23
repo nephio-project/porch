@@ -38,7 +38,7 @@ type dbRepository struct {
 }
 
 func (r dbRepository) KubeObjectName() string {
-	return r.Key().String()
+	return r.Key().NonNSString()
 }
 
 func (r dbRepository) KubeObjectNamespace() string {
