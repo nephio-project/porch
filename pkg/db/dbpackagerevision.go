@@ -42,7 +42,7 @@ type dbPackageRevision struct {
 }
 
 func (pr dbPackageRevision) KubeObjectName() string {
-	return pr.Key().String()
+	return pr.Key().NonNSString()
 }
 
 func (pr dbPackageRevision) KubeObjectNamespace() string {
