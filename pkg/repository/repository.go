@@ -39,6 +39,10 @@ func (n PackageRevisionKey) String() string {
 	return fmt.Sprintf("%s.%s.%s.%s.%s", n.Namespace, n.Repository, n.Package, n.Revision, string(n.WorkspaceName))
 }
 
+func (n PackageRevisionKey) NonNSString() string {
+	return fmt.Sprintf("%s.%s.%s.%s", n.Repository, n.Package, n.Revision, string(n.WorkspaceName))
+}
+
 func (n PackageRevisionKey) PackageKey() PackageKey {
 	return PackageKey{
 		Namespace:  n.Namespace,
@@ -62,6 +66,10 @@ func (n PackageKey) String() string {
 	return fmt.Sprintf("%s.%s.%s", n.Namespace, n.Repository, n.Package)
 }
 
+func (n PackageKey) NonNSString() string {
+	return fmt.Sprintf("%s.%s", n.Repository, n.Package)
+}
+
 func (n PackageKey) RepositoryKey() RepositoryKey {
 	return RepositoryKey{
 		Namespace:  n.Namespace,
@@ -75,6 +83,10 @@ type RepositoryKey struct {
 
 func (n RepositoryKey) String() string {
 	return fmt.Sprintf("%s.%s", n.Namespace, n.Repository)
+}
+
+func (n RepositoryKey) NonNSString() string {
+	return fmt.Sprintf("%s", n.Repository)
 }
 
 // PackageRevision is an abstract package version.
