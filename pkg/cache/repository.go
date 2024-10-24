@@ -265,22 +265,20 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 	// TODO: Just updated package?
 	identifyLatestRevisions(r.cachedPackageRevisions)
 
-	if (updated.Lifecycle() == (v1alpha1.PackageRevisionLifecycleProposed)) || (updated.Lifecycle() == v1alpha1.PackageRevisionLifecycleDraft) {
-		version, err := r.repo.Version(ctx)
-		if err != nil {
-			return nil, err
-		}
-		r.lastVersion = version
-	}
-
 	if updated.Lifecycle() == (v1alpha1.PackageRevisionLifecyclePublished) {
 		updatedMain := updated.ToMainPackageRevision()
-		oldMainKey := repository.PackageRevisionKey{
-			Repository: updatedMain.Key().Repository,
-			Package:    updatedMain.Key().Package,
-			Revision:   updatedMain.Key().Revision,
+		//Search and delete any old main pkgRev in the cache
+		for k := range r.cachedPackageRevisions {
+			if (k.Repository == updatedMain.Key().Repository) && (k.Package == updatedMain.Key().Package) && (k.Revision == updatedMain.Key().Revision) {
+				oldMainKey := repository.PackageRevisionKey{
+					Repository:    updatedMain.Key().Repository,
+					Package:       updatedMain.Key().Package,
+					Revision:      updatedMain.Key().Revision,
+					WorkspaceName: v1alpha1.WorkspaceName(string(k.WorkspaceName)),
+				}
+				delete(r.cachedPackageRevisions, oldMainKey)
+			}
 		}
-		delete(r.cachedPackageRevisions, oldMainKey)
 		cachedMain := &cachedPackageRevision{PackageRevision: updatedMain}
 		r.cachedPackageRevisions[updatedMain.Key()] = cachedMain
 
@@ -302,6 +300,12 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 					updatedMain.KubeObjectNamespace(), updatedMain.KubeObjectName(), err)
 			}
 		}
+		version, err := r.repo.Version(ctx)
+		if err != nil {
+			return nil, err
+		}
+		r.lastVersion = version
+	} else {
 		version, err := r.repo.Version(ctx)
 		if err != nil {
 			return nil, err

@@ -152,13 +152,15 @@ type ListPackageRevisionFilter struct {
 
 // Matches returns true if the provided PackageRevision satisfies the conditions in the filter.
 func (f *ListPackageRevisionFilter) Matches(p PackageRevision) bool {
-	if f.Package != "" && f.Package != p.Key().Package {
+	packageKey := p.Key()
+
+	if f.Package != "" && f.Package != packageKey.Package {
 		return false
 	}
-	if f.Revision != "" && f.Revision != p.Key().Revision {
+	if f.Revision != "" && f.Revision != packageKey.Revision {
 		return false
 	}
-	if f.WorkspaceName != "" && f.WorkspaceName != p.Key().WorkspaceName {
+	if f.WorkspaceName != "" && f.WorkspaceName != packageKey.WorkspaceName {
 		return false
 	}
 	if f.KubeObjectName != "" && f.KubeObjectName != p.KubeObjectName() {
