@@ -232,6 +232,7 @@ type PackageEditTaskSpec struct {
 type RepositoryType string
 
 const (
+	RepositoryTypeDB  RepositoryType = "db"
 	RepositoryTypeGit RepositoryType = "git"
 	RepositoryTypeOCI RepositoryType = "oci"
 )
@@ -523,7 +524,6 @@ type PackageRevisionResourcesStatus struct {
 	RenderStatus RenderStatus `json:"renderStatus,omitempty"`
 }
 
-
 // Package
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -560,7 +560,6 @@ type PackageStatus struct {
 	// published package revision belonging to this package
 	LatestRevision string `json:"latestRevision,omitempty"`
 }
-
 
 // Function represents a kpt function discovered in a repository
 // Function resources are created automatically by discovery in a registered Repository.
@@ -655,4 +654,3 @@ type FunctionRef struct {
 // FunctionStatus defines the observed state of Function
 type FunctionStatus struct {
 }
-

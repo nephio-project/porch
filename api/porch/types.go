@@ -205,13 +205,14 @@ type PackageEditTaskSpec struct {
 type RepositoryType string
 
 const (
+	RepositoryTypeDB  RepositoryType = "db"
 	RepositoryTypeGit RepositoryType = "git"
 	RepositoryTypeOCI RepositoryType = "oci"
 )
 
 // UpstreamRepository repository may be specified directly or by referencing another Repository resource.
 type UpstreamPackage struct {
-	// Type of the repository (i.e. git, OCI). If empty, `upstreamRef` will be used.
+	// Type of the repository (i.e. git, OCI, db). If empty, `upstreamRef` will be used.
 	Type RepositoryType `json:"type,omitempty"`
 
 	// Git upstream package specification. Required if `type` is `git`. Must be unspecified if `type` is not `git`.
@@ -448,7 +449,6 @@ type NameMeta struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-
 // PackageRevisionResources
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -530,7 +530,6 @@ type PackageStatus struct {
 	// published package revision belonging to this package
 	LatestRevision string `json:"latestRevision,omitempty"`
 }
-
 
 // Function represents a kpt function discovered in a repository
 // Function resources are created automatically by discovery in a registered Repository.
