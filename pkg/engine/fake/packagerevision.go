@@ -39,6 +39,13 @@ func (pr *PackageRevision) KubeObjectName() string {
 	return pr.Name
 }
 
+var _ repository.PackageRevision = &PackageRevision{}
+
+// ToMainPackageRevision implements repository.PackageRevision.
+func (f *PackageRevision) ToMainPackageRevision() repository.PackageRevision {
+	panic("unimplemented")
+}
+
 func (pr *PackageRevision) KubeObjectNamespace() string {
 	return pr.Namespace
 }

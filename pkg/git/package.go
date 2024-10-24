@@ -219,6 +219,24 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 	}, nil
 }
 
+// Workspace name needs to be changed as well.
+func (p *gitPackageRevision) ToMainPackageRevision() repository.PackageRevision {
+	p1 := &gitPackageRevision{
+		repo:          p.repo,
+		path:          p.path,
+		revision:      string(p.repo.branch),
+		workspaceName: p.workspaceName,
+		updated:       p.updated,
+		updatedBy:     p.updatedBy,
+		ref:           p.ref,
+		tree:          p.tree,
+		commit:        p.commit,
+		tasks:         p.tasks,
+	}
+	return p1
+
+}
+
 func (p *gitPackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, error) {
 	resources, err := p.repo.GetResources(p.tree)
 	if err != nil {

@@ -63,9 +63,13 @@ func (d *gitPackageDraft) UpdateLifecycle(ctx context.Context, new v1alpha1.Pack
 }
 
 // Finish round of updates.
-func (d *gitPackageDraft) Close(ctx context.Context) (repository.PackageRevision, error) {
+func (d *gitPackageDraft) Close(ctx context.Context, version string) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "gitPackageDraft::Close", trace.WithAttributes())
 	defer span.End()
 
-	return d.parent.CloseDraft(ctx, d)
+	return d.parent.CloseDraft(ctx, version, d)
+}
+
+func (d *gitPackageDraft) GetName() string {
+	return d.path
 }

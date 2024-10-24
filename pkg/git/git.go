@@ -1480,7 +1480,7 @@ func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPack
 	return nil
 }
 
-func (r *gitRepository) CloseDraft(ctx context.Context, d *gitPackageDraft) (*gitPackageRevision, error) {
+func (r *gitRepository) CloseDraft(ctx context.Context, version string, d *gitPackageDraft) (*gitPackageRevision, error) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -1492,25 +1492,8 @@ func (r *gitRepository) CloseDraft(ctx context.Context, d *gitPackageDraft) (*gi
 
 	switch d.lifecycle {
 	case v1alpha1.PackageRevisionLifecyclePublished, v1alpha1.PackageRevisionLifecycleDeletionProposed:
-		// Finalize the package revision. Assign it a revision number of latest + 1.
-		revisions, err := r.listPackageRevisions(ctx, repository.ListPackageRevisionFilter{
-			Package: d.path,
-		})
-		if err != nil {
-			return nil, err
-		}
 
-		var revs []string
-		for _, rev := range revisions {
-			if v1alpha1.LifecycleIsPublished(r.getLifecycle(ctx, rev)) {
-				revs = append(revs, rev.Key().Revision)
-			}
-		}
-
-		d.revision, err = repository.NextRevisionNumber(revs)
-		if err != nil {
-			return nil, err
-		}
+		d.revision = version
 
 		// Finalize the package revision. Commit it to main branch.
 		commitHash, newTreeHash, commitBase, err := r.commitPackageToMain(ctx, d)

@@ -27,6 +27,7 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
+	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
@@ -263,6 +264,50 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 	// Recompute latest package revisions.
 	// TODO: Just updated package?
 	identifyLatestRevisions(r.cachedPackageRevisions)
+
+	if (updated.Lifecycle() == (v1alpha1.PackageRevisionLifecycleProposed)) || (updated.Lifecycle() == v1alpha1.PackageRevisionLifecycleDraft) {
+		version, err := r.repo.Version(ctx)
+		if err != nil {
+			return nil, err
+		}
+		r.lastVersion = version
+	}
+
+	if updated.Lifecycle() == (v1alpha1.PackageRevisionLifecyclePublished) {
+		updatedMain := updated.ToMainPackageRevision()
+		oldMainKey := repository.PackageRevisionKey{
+			Repository: updatedMain.Key().Repository,
+			Package:    updatedMain.Key().Package,
+			Revision:   updatedMain.Key().Revision,
+		}
+		delete(r.cachedPackageRevisions, oldMainKey)
+		cachedMain := &cachedPackageRevision{PackageRevision: updatedMain}
+		r.cachedPackageRevisions[updatedMain.Key()] = cachedMain
+
+		pkgRevMetaNN := types.NamespacedName{
+			Name:      updatedMain.KubeObjectName(),
+			Namespace: updatedMain.KubeObjectNamespace(),
+		}
+		// TODO: error handling for metadataStore.Get
+		_, err := r.metadataStore.Get(ctx, pkgRevMetaNN)
+		// Error can be different
+		if errors.IsNotFound(err) {
+			pkgRevMeta := meta.PackageRevisionMeta{
+				Name:      updatedMain.KubeObjectName(),
+				Namespace: updatedMain.KubeObjectNamespace(),
+			}
+			_, err := r.metadataStore.Create(ctx, pkgRevMeta, r.repoSpec.Name, updatedMain.UID())
+			if err != nil {
+				klog.Warningf("unable to create PackageRev CR for %s/%s: %v",
+					updatedMain.KubeObjectNamespace(), updatedMain.KubeObjectName(), err)
+			}
+		}
+		version, err := r.repo.Version(ctx)
+		if err != nil {
+			return nil, err
+		}
+		r.lastVersion = version
+	}
 
 	// TODO: Update the latest revisions for the r.cachedPackages
 	return cached, nil

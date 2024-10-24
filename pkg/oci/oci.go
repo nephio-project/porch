@@ -314,6 +314,11 @@ func GetSingleFromAnnotation(key string, manifest *v1.Manifest) string {
 	return fmt.Sprintf("annotation %v unset", key)
 }
 
+// ToMainPackageRevision implements repository.PackageRevision.
+func (p *ociPackageRevision) ToMainPackageRevision() repository.PackageRevision {
+	panic("unimplemented")
+}
+
 func (r *ociRepository) ListFunctions(ctx context.Context) ([]repository.Function, error) {
 	// Repository whose content type is not Function contains no Function resources.
 	if r.content != configapi.RepositoryContentFunction {
