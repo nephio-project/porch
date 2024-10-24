@@ -1493,8 +1493,10 @@ func (r *gitRepository) CloseDraft(ctx context.Context, d *gitPackageDraft) (*gi
 	switch d.lifecycle {
 	case v1alpha1.PackageRevisionLifecyclePublished, v1alpha1.PackageRevisionLifecycleDeletionProposed:
 		// Finalize the package revision. Assign it a revision number of latest + 1.
+		packageDirectory := d.parent.directory
+		packageName := strings.TrimPrefix(d.path, packageDirectory+"/")
 		revisions, err := r.listPackageRevisions(ctx, repository.ListPackageRevisionFilter{
-			Package: d.path,
+			Package: packageName,
 		})
 		if err != nil {
 			return nil, err

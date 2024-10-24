@@ -48,7 +48,8 @@ func (p *TestSuiteWithGit) Initialize(ctx context.Context) {
 	p.gitConfig = p.CreateGitRepo()
 }
 
-func (p *TestSuiteWithGit) GitConfig(repoID string) GitConfig {
+func (p *TestSuiteWithGit) GitConfig(name string) GitConfig {
+	repoID := p.Namespace + "-" + name
 	config := p.gitConfig
 	config.Repo = config.Repo + "/" + repoID
 	return config
@@ -56,8 +57,14 @@ func (p *TestSuiteWithGit) GitConfig(repoID string) GitConfig {
 
 func (t *TestSuiteWithGit) RegisterMainGitRepositoryF(ctx context.Context, name string, opts ...RepositoryOption) {
 	t.Helper()
-	repoID := t.Namespace + "-" + name
-	config := t.GitConfig(repoID)
+	config := t.GitConfig(name)
+	t.registerGitRepositoryFromConfigF(ctx, name, config, opts...)
+}
+
+func (t *TestSuiteWithGit) RegisterGitRepositoryWithDirectoryF(ctx context.Context, name string, directory string, opts ...RepositoryOption) {
+	t.Helper()
+	config := t.GitConfig(name)
+	config.Directory = directory
 	t.registerGitRepositoryFromConfigF(ctx, name, config, opts...)
 }
 
@@ -386,7 +393,6 @@ func (t *TestSuite) WaitUntilAllPackagesDeleted(ctx context.Context, repoName st
 				return false, nil
 			}
 		}
-
 		var internalPkgRevList internalapi.PackageRevList
 		if err := t.Client.List(ctx, &internalPkgRevList); err != nil {
 			t.Logf("error list internal packages: %v", err)
