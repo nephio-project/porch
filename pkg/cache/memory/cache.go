@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cache
+package memory
 
 import (
 	"context"
@@ -24,6 +24,7 @@ import (
 
 	kptoci "github.com/GoogleContainerTools/kpt/pkg/oci"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/pkg/cache"
 	"github.com/nephio-project/porch/pkg/git"
 	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/oci"
@@ -53,6 +54,8 @@ type Cache struct {
 	objectNotifier     objectNotifier
 	useGitCaBundle     bool
 }
+
+var _ cache.Cache = &Cache{}
 
 type objectNotifier interface {
 	NotifyPackageRevisionChange(eventType watch.EventType, obj repository.PackageRevision, objMeta meta.PackageRevisionMeta) int
@@ -102,7 +105,7 @@ func getCacheKey(repositorySpec *configapi.Repository) (string, error) {
 	}
 }
 
-func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (*cachedRepository, error) {
+func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (cache.CachedRepository, error) {
 	ctx, span := tracer.Start(ctx, "Cache::OpenRepository", trace.WithAttributes())
 	defer span.End()
 

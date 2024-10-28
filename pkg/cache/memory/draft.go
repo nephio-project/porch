@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cache
+package memory
 
 import (
 	"context"
 
+	"github.com/nephio-project/porch/pkg/cache"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
@@ -26,6 +27,7 @@ type cachedDraft struct {
 }
 
 var _ repository.PackageDraft = &cachedDraft{}
+var _ cache.CachedPackageDraft = &cachedDraft{}
 
 func (cd *cachedDraft) Close(ctx context.Context) (repository.PackageRevision, error) {
 	if closed, err := cd.PackageDraft.Close(ctx); err != nil {

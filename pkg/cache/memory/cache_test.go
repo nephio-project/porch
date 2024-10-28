@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cache
+package memory
 
 import (
 	"context"
@@ -25,6 +25,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/pkg/cache"
+
 	fakecache "github.com/nephio-project/porch/pkg/cache/fake"
 	"github.com/nephio-project/porch/pkg/git"
 	"github.com/nephio-project/porch/pkg/meta"
@@ -126,7 +128,7 @@ func TestPublishedLatest(t *testing.T) {
 	}
 }
 
-func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name string) *cachedRepository {
+func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name string) cache.CachedRepository {
 	t.Helper()
 
 	tempdir := t.TempDir()
