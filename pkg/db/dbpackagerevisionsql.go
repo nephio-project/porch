@@ -61,10 +61,10 @@ func pkgRevReadFromDB(prk repository.PackageRevisionKey) (dbPackageRevision, err
 	return dbPkgRev, err
 }
 
-func pkgRevReadPRsFromDB(pk repository.PackageKey) ([]dbPackageRevision, error) {
+func pkgRevReadPRsFromDB(pk repository.PackageKey) ([]*dbPackageRevision, error) {
 	sqlStatement := `SELECT * FROM package_revisions WHERE namespace=$1 AND repo_name=$2 AND package_name=$3`
 
-	var dbPkgRevs []dbPackageRevision
+	var dbPkgRevs []*dbPackageRevision
 
 	klog.Infof("pkgReadPRsFromDB: running query [%q] on %q", sqlStatement, pk)
 
@@ -98,7 +98,7 @@ func pkgRevReadPRsFromDB(pk repository.PackageKey) ([]dbPackageRevision, error) 
 			klog.Infof("pkgRevReadFromDB: reading package revision resources %q returned err: %q", pkgRev.Key(), err)
 		}
 
-		dbPkgRevs = append(dbPkgRevs, pkgRev)
+		dbPkgRevs = append(dbPkgRevs, &pkgRev)
 	}
 
 	return dbPkgRevs, nil
