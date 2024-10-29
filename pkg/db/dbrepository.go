@@ -81,7 +81,7 @@ func (r dbRepository) ListPackageRevisions(ctx context.Context, filter repositor
 		return nil, err
 	}
 
-	var foundPkgRevs []dbPackageRevision
+	var foundPkgRevs []*dbPackageRevision
 
 	for _, pkg := range pkgs {
 		pkgRevs, err := pkgRevReadPRsFromDB(pkg.Key())
