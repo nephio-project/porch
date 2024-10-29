@@ -26,6 +26,7 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
+	"github.com/nephio-project/porch/pkg/cache"
 	memorycache "github.com/nephio-project/porch/pkg/cache/memory"
 	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/meta"
@@ -92,7 +93,7 @@ type Config struct {
 type PorchServer struct {
 	GenericAPIServer *genericapiserver.GenericAPIServer
 	coreClient       client.WithWatch
-	cache            *memorycache.Cache
+	cache            cache.Cache
 }
 
 type completedConfig struct {

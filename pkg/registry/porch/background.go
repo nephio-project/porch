@@ -20,7 +20,7 @@ import (
 	"time"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	memorycache "github.com/nephio-project/porch/pkg/cache/memory"
+	"github.com/nephio-project/porch/pkg/cache"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func RunBackground(ctx context.Context, coreClient client.WithWatch, cache *memorycache.Cache) {
+func RunBackground(ctx context.Context, coreClient client.WithWatch, cache cache.Cache) {
 	b := background{
 		coreClient: coreClient,
 		cache:      cache,
@@ -39,7 +39,7 @@ func RunBackground(ctx context.Context, coreClient client.WithWatch, cache *memo
 // background manages background tasks
 type background struct {
 	coreClient client.WithWatch
-	cache      *memorycache.Cache
+	cache      cache.Cache
 }
 
 const (
