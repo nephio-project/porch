@@ -37,7 +37,7 @@ func (f EngineOptionFunc) apply(engine *cadEngine) error {
 	return f(engine)
 }
 
-func WithCache(cache *cache.Cache) EngineOption {
+func WithCache(cache cache.Cache) EngineOption {
 	return EngineOptionFunc(func(engine *cadEngine) error {
 		engine.cache = cache
 		return nil

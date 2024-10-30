@@ -12,9 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cache
+package memory
 
-import "github.com/nephio-project/porch/pkg/repository"
+import (
+	"github.com/nephio-project/porch/pkg/cache"
+	"github.com/nephio-project/porch/pkg/repository"
+)
 
 // We take advantage of the cache having a global view of all the packages
 // in a repository and compute the latest package revision in the cache
@@ -23,6 +26,7 @@ import "github.com/nephio-project/porch/pkg/repository"
 // between Git and OCI.
 
 var _ repository.Package = &cachedPackage{}
+var _ cache.CachedPackage = &cachedPackage{}
 
 type cachedPackage struct {
 	repository.Package

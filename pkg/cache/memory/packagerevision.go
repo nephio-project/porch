@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cache
+package memory
 
 import (
 	"context"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/pkg/cache"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
@@ -28,6 +29,7 @@ import (
 // between Git and OCI.
 
 var _ repository.PackageRevision = &cachedPackageRevision{}
+var _ cache.CachedPackageRevision = &cachedPackageRevision{}
 
 type cachedPackageRevision struct {
 	repository.PackageRevision
