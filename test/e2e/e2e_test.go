@@ -1104,6 +1104,84 @@ func (t *PorchSuite) TestConcurrentProposeApprove(ctx context.Context) {
 	assert.True(t, conflictFailurePresent, "expected one 'approve' request to fail with a conflict, but did not happen - results: %v", approveResults)
 }
 
+func (t *PorchSuite) TestSubfolderPackageRevisionIncrementation(ctx context.Context) {
+	const (
+		repository           = "lifecycle"
+		subfolderRepository  = "repo-in-subfolder"
+		subfolderDirectory   = "randomRepoFolder"
+		normalPackageName    = "test-package"
+		subfolderPackageName = "randomPackageFolder/test-package"
+		workspace            = "workspace"
+		workspace2           = "workspace2"
+	)
+
+	// Register the repositories
+	t.RegisterMainGitRepositoryF(ctx, repository)
+	t.RegisterGitRepositoryWithDirectoryF(ctx, subfolderRepository, subfolderDirectory)
+
+	// Create a new package (via init)
+	subfolderPr := t.CreatePackageDraftF(ctx, repository, subfolderPackageName, workspace)
+	prInSubfolder := t.CreatePackageDraftF(ctx, subfolderRepository, normalPackageName, workspace)
+
+	// Propose and approve the package revisions
+	subfolderPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	prInSubfolder.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	t.UpdateF(ctx, subfolderPr)
+	t.UpdateF(ctx, prInSubfolder)
+
+	subfolderPr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+	prInSubfolder.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+	subfolderPr = t.UpdateApprovalF(ctx, subfolderPr, metav1.UpdateOptions{})
+	prInSubfolder = t.UpdateApprovalF(ctx, prInSubfolder, metav1.UpdateOptions{})
+
+	assert.Equal(t, porchapi.PackageRevisionLifecyclePublished, subfolderPr.Spec.Lifecycle)
+	assert.Equal(t, "v1", subfolderPr.Spec.Revision)
+	assert.Equal(t, porchapi.PackageRevisionLifecyclePublished, prInSubfolder.Spec.Lifecycle)
+	assert.Equal(t, "v1", prInSubfolder.Spec.Revision)
+
+	// Create new package revisions via edit/copy
+	editedSubfolderPr := t.CreatePackageSkeleton(repository, subfolderPackageName, workspace2)
+	editedSubfolderPr.Spec.Tasks = []porchapi.Task{
+		{
+			Type: porchapi.TaskTypeEdit,
+			Edit: &porchapi.PackageEditTaskSpec{
+				Source: &porchapi.PackageRevisionRef{
+					Name: subfolderPr.Name,
+				},
+			},
+		},
+	}
+	t.CreateF(ctx, editedSubfolderPr)
+	editedPrInSubfolder := t.CreatePackageSkeleton(subfolderRepository, normalPackageName, workspace2)
+	editedPrInSubfolder.Spec.Tasks = []porchapi.Task{
+		{
+			Type: porchapi.TaskTypeEdit,
+			Edit: &porchapi.PackageEditTaskSpec{
+				Source: &porchapi.PackageRevisionRef{
+					Name: prInSubfolder.Name,
+				},
+			},
+		},
+	}
+	t.CreateF(ctx, editedPrInSubfolder)
+
+	// Propose and approve these package revisions as well
+	editedSubfolderPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	editedPrInSubfolder.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	t.UpdateF(ctx, editedSubfolderPr)
+	t.UpdateF(ctx, editedPrInSubfolder)
+
+	editedSubfolderPr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+	editedPrInSubfolder.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+	editedSubfolderPr = t.UpdateApprovalF(ctx, editedSubfolderPr, metav1.UpdateOptions{})
+	editedPrInSubfolder = t.UpdateApprovalF(ctx, editedPrInSubfolder, metav1.UpdateOptions{})
+
+	assert.Equal(t, porchapi.PackageRevisionLifecyclePublished, editedSubfolderPr.Spec.Lifecycle)
+	assert.Equal(t, "v2", editedSubfolderPr.Spec.Revision)
+	assert.Equal(t, porchapi.PackageRevisionLifecyclePublished, editedPrInSubfolder.Spec.Lifecycle)
+	assert.Equal(t, "v2", editedPrInSubfolder.Spec.Revision)
+}
+
 func (t *PorchSuite) TestDeleteDraft(ctx context.Context) {
 	const (
 		repository  = "delete-draft"
