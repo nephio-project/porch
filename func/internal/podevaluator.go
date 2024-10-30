@@ -477,7 +477,7 @@ func (pm *podManager) InspectOrCreateSecret(ctx context.Context, registryAuthSec
 	secret := &corev1.Secret{}
 	// using pod manager client since this secret is only related to these pods and nothing else
 	err := pm.kubeClient.Get(context.Background(), client.ObjectKey{
-		Name:      "auth-secret",
+		Name:      customRegistryImgPullSecret,
 		Namespace: pm.namespace,
 	}, secret)
 	if err != nil {
@@ -493,7 +493,7 @@ func (pm *podManager) InspectOrCreateSecret(ctx context.Context, registryAuthSec
 		// Secret does not exist, create it
 		secret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "auth-secret",
+				Name:      customRegistryImgPullSecret,
 				Namespace: pm.namespace,
 			},
 			Data: map[string][]byte{
@@ -506,9 +506,32 @@ func (pm *podManager) InspectOrCreateSecret(ctx context.Context, registryAuthSec
 			return err
 		}
 
-		klog.Infof("Secret created successfully")
+		klog.Infof("Private registry secret created successfully")
 	} else {
-		klog.Infof("Secret already exists")
+		klog.Infof("Private registry secret already exists")
+		// Fetch "customRegistryImgPullSecret" from "porch-fn-runner" namespace
+		podAuthSecret := &corev1.Secret{}
+		err = pm.kubeClient.Get(ctx, client.ObjectKey{
+			Name:      customRegistryImgPullSecret,
+			Namespace: pm.namespace,
+		}, podAuthSecret)
+
+		if err != nil {
+			return err
+		}
+		// Compare the data of the two secrets
+		if string(secret.Data[".dockerconfigjson"]) == string(podAuthSecret.Data[".dockerconfigjson"]) {
+			klog.Infof("The data content of the user given secret matches the private registry secret.")
+		} else {
+			klog.Infof("The data content of the private registry secret does not match given secret")
+			// Patch "secret-1" with the data from the existing secret
+			podAuthSecret.Data[".dockerconfigjson"] = secret.Data[".dockerconfigjson"]
+			err = pm.kubeClient.Update(ctx, podAuthSecret)
+			if err != nil {
+				return err
+			}
+			klog.Infof("Private registry secret patched successfully.")
+		}
 	}
 	return nil
 }
@@ -533,7 +556,7 @@ func (pm *podManager) imageDigestAndEntrypoint(ctx context.Context, image string
 
 	var auth authn.Authenticator
 	if registryAuthSecretPath != "" && !strings.HasPrefix(image, defaultRegistry) {
-		if err := pm.handleCustomAuth(ctx, registryAuthSecretPath); err != nil {
+		if err := pm.ensureCustomAuthSecret(ctx, registryAuthSecretPath); err != nil {
 			return nil, err
 		}
 
@@ -552,21 +575,12 @@ func (pm *podManager) imageDigestAndEntrypoint(ctx context.Context, image string
 	return pm.getImageMetadata(ctx, ref, auth, image)
 }
 
-// handleCustomAuth ensures if images from custom registry's are requested their appropriate credentials are passed onto a secret for fn pods to use when pulling if it doesnt already exist
-func (pm *podManager) handleCustomAuth(ctx context.Context, registryAuthSecretPath string) error {
+// ensureCustomAuthSecret ensures that, if an image from a custom registry is requested, the appropriate credentials are passed into a secret for function pods to use when pulling. If the secret does not already exist, it is created.
+func (pm *podManager) ensureCustomAuthSecret(ctx context.Context, registryAuthSecretPath string) error {
 	if err := pm.InspectOrCreateSecret(ctx, registryAuthSecretPath); err != nil {
 		return err
 	}
 	return nil
-}
-
-// if a custom image is requested use the secret provided to authenticate
-func (pm *podManager) appendImagePullSecret(image string, registryAuthSecretPath string, podTemplate *corev1.Pod) {
-	if registryAuthSecretPath != "" && !strings.HasPrefix(image, defaultRegistry) {
-		podTemplate.Spec.ImagePullSecrets = []corev1.LocalObjectReference{
-			{Name: "auth-secret"},
-		}
-	}
 }
 
 // getCustomAuth reads and parses the custom registry auth file from the mounted secret.
@@ -793,6 +807,15 @@ func (pm *podManager) getBasePodTemplate(ctx context.Context) (*corev1.Pod, stri
 	}
 }
 
+// if a custom image is requested, use the secret provided to authenticate
+func (pm *podManager) appendImagePullSecret(image string, registryAuthSecretPath string, podTemplate *corev1.Pod) {
+	if registryAuthSecretPath != "" && !strings.HasPrefix(image, defaultRegistry) {
+		podTemplate.Spec.ImagePullSecrets = []corev1.LocalObjectReference{
+			{Name: customRegistryImgPullSecret},
+		}
+	}
+}
+
 // Patches the expected port, and the original entrypoint and image of the kpt function into the function container
 func (pm *podManager) patchNewPodContainer(pod *corev1.Pod, de digestAndEntrypoint, image string) error {
 	var patchedContainer bool
@@ -875,9 +898,9 @@ func podID(image, hash string) (string, error) {
 		return "", fmt.Errorf("unable to parse image reference %v: %w", image, err)
 	}
 
-	// registryName will be something like gcr.io/kpt-fn/set-namespace
-	registryName := ref.Context().Name()
-	parts := strings.Split(registryName, "/")
+	// repoName will be something like gcr.io/kpt-fn/set-namespace
+	repoName := ref.Context().Name()
+	parts := strings.Split(repoName, "/")
 	name := strings.ReplaceAll(parts[len(parts)-1], "_", "-")
 	return fmt.Sprintf("%v-%v", name, hash[:8]), nil
 }
