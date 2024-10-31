@@ -152,7 +152,7 @@ func TestDeletePublishedMain(t *testing.T) {
 
 	update, err := cachedRepo.UpdatePackageRevision(ctx, bucket)
 	if err != nil {
-		t.Fatalf("UpdatePackaeg(%s) failed: %v", bucket.Key(), err)
+		t.Fatalf("UpdatePackage(%s) failed: %v", bucket.Key(), err)
 	}
 	if err := update.UpdateLifecycle(ctx, api.PackageRevisionLifecyclePublished); err != nil {
 		t.Fatalf("UpdateLifecycle failed; %v", err)
