@@ -474,24 +474,24 @@ func (pm *podManager) getFuncEvalPodClient(ctx context.Context, image string, tt
 }
 
 func (pm *podManager) InspectOrCreateSecret(ctx context.Context, registryAuthSecretPath string) error {
-	secret := &corev1.Secret{}
+	podSecret := &corev1.Secret{}
 	// using pod manager client since this secret is only related to these pods and nothing else
 	err := pm.kubeClient.Get(context.Background(), client.ObjectKey{
 		Name:      customRegistryImgPullSecret,
 		Namespace: pm.namespace,
-	}, secret)
+	}, podSecret)
 	if err != nil {
 		if client.IgnoreNotFound(err) != nil {
 			// Error other than "not found" occurred
 			return err
 		}
-		klog.Infof("Secret for private registry pods does not exist and is required.\nGenerating Secret Now")
+		klog.Infof("Secret for private registry pods does not exist and is required. Generating Secret Now")
 		dockerConfigBytes, err := os.ReadFile(registryAuthSecretPath)
 		if err != nil {
 			return err
 		}
 		// Secret does not exist, create it
-		secret = &corev1.Secret{
+		podSecret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      customRegistryImgPullSecret,
 				Namespace: pm.namespace,
@@ -501,7 +501,7 @@ func (pm *podManager) InspectOrCreateSecret(ctx context.Context, registryAuthSec
 			},
 			Type: corev1.SecretTypeDockerConfigJson,
 		}
-		err = pm.kubeClient.Create(ctx, secret)
+		err = pm.kubeClient.Create(ctx, podSecret)
 		if err != nil {
 			return err
 		}
@@ -509,24 +509,19 @@ func (pm *podManager) InspectOrCreateSecret(ctx context.Context, registryAuthSec
 		klog.Infof("Private registry secret created successfully")
 	} else {
 		klog.Infof("Private registry secret already exists")
-		// Fetch "customRegistryImgPullSecret" from "porch-fn-runner" namespace
-		podAuthSecret := &corev1.Secret{}
-		err = pm.kubeClient.Get(ctx, client.ObjectKey{
-			Name:      customRegistryImgPullSecret,
-			Namespace: pm.namespace,
-		}, podAuthSecret)
-
+		// use the bytes Data of the user secret and compare it to the data of the pod secret
+		dockerConfigBytes, err := os.ReadFile(registryAuthSecretPath)
 		if err != nil {
 			return err
 		}
 		// Compare the data of the two secrets
-		if string(secret.Data[".dockerconfigjson"]) == string(podAuthSecret.Data[".dockerconfigjson"]) {
+		if string(podSecret.Data[".dockerconfigjson"]) == string(dockerConfigBytes) {
 			klog.Infof("The data content of the user given secret matches the private registry secret.")
 		} else {
 			klog.Infof("The data content of the private registry secret does not match given secret")
-			// Patch "secret-1" with the data from the existing secret
-			podAuthSecret.Data[".dockerconfigjson"] = secret.Data[".dockerconfigjson"]
-			err = pm.kubeClient.Update(ctx, podAuthSecret)
+			// Patch the secret on the pods with the data from the user secret
+			podSecret.Data[".dockerconfigjson"] = dockerConfigBytes
+			err = pm.kubeClient.Update(ctx, podSecret)
 			if err != nil {
 				return err
 			}

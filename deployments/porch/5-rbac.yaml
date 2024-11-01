@@ -70,4 +70,4 @@ rules:
     verbs: ["create", "delete", "patch", "get", "watch", "list"]
   - apiGroups: [""]
     resources: ["secrets"]
-    verbs: ["create", "delete", "patch", "get"]
+    verbs: ["create", "delete", "update", "get"]
