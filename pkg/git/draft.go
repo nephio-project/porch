@@ -16,6 +16,7 @@ package git
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/go-git/go-git/v5/plumbing"
@@ -71,5 +72,7 @@ func (d *gitPackageDraft) Close(ctx context.Context, version string) (repository
 }
 
 func (d *gitPackageDraft) GetName() string {
-	return d.path
+	packageDirectory := d.parent.directory
+	packageName := strings.TrimPrefix(d.path, packageDirectory+"/")
+	return packageName
 }
