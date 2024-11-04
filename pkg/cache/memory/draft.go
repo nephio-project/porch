@@ -21,7 +21,6 @@ import (
 	"github.com/nephio-project/porch/pkg/cache"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
-	"k8s.io/klog/v2"
 )
 
 type cachedDraft struct {
@@ -44,7 +43,6 @@ func (cd *cachedDraft) Close(ctx context.Context, version string) (repository.Pa
 		if err != nil {
 			return nil, err
 		}
-		klog.Infof("Pkgrev version mismatch in cache and repo - Refreshing cache.")
 	}
 
 	revisions, err := cd.cache.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
@@ -61,12 +59,12 @@ func (cd *cachedDraft) Close(ctx context.Context, version string) (repository.Pa
 		}
 	}
 
-	v, err = repository.NextRevisionNumber(revs)
+	nextVersion, err := repository.NextRevisionNumber(revs)
 	if err != nil {
 		return nil, err
 	}
 
-	if closed, err := cd.PackageDraft.Close(ctx, v); err != nil {
+	if closed, err := cd.PackageDraft.Close(ctx, nextVersion); err != nil {
 		return nil, err
 	} else {
 		return cd.cache.update(ctx, closed)

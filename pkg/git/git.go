@@ -1493,6 +1493,9 @@ func (r *gitRepository) CloseDraft(ctx context.Context, version string, d *gitPa
 	switch d.lifecycle {
 	case v1alpha1.PackageRevisionLifecyclePublished, v1alpha1.PackageRevisionLifecycleDeletionProposed:
 
+		if version == "" {
+			return nil, errors.New("Version cannot be empty for the next package revision")
+		}
 		d.revision = version
 
 		// Finalize the package revision. Commit it to main branch.
