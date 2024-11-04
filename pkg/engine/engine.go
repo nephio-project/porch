@@ -28,7 +28,7 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/builtins"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
-	"github.com/nephio-project/porch/pkg/cache"
+	cache "github.com/nephio-project/porch/pkg/cache"
 	"github.com/nephio-project/porch/pkg/kpt"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
@@ -160,7 +160,7 @@ func NewCaDEngine(opts ...EngineOption) (CaDEngine, error) {
 }
 
 type cadEngine struct {
-	cache *cache.Cache
+	cache cache.Cache
 
 	// runnerOptionsResolver returns the RunnerOptions for function execution in the specified namespace.
 	runnerOptionsResolver func(namespace string) fnruntime.RunnerOptions

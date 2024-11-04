@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cache
+package memory
 
 import (
 	"context"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/pkg/cache"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
@@ -29,6 +30,7 @@ type cachedDraft struct {
 }
 
 var _ repository.PackageDraft = &cachedDraft{}
+var _ cache.CachedPackageDraft = &cachedDraft{}
 
 func (cd *cachedDraft) Close(ctx context.Context, version string) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cachedDraft::Close", trace.WithAttributes())

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cache
+package memory
 
 import (
 	"context"
@@ -22,6 +22,7 @@ import (
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/pkg/cache"
 	"github.com/nephio-project/porch/pkg/git"
 	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -43,6 +44,7 @@ var tracer = otel.Tracer("cache")
 // between Git and OCI.
 
 var _ repository.Repository = &cachedRepository{}
+var _ cache.CachedRepository = &cachedRepository{}
 var _ repository.FunctionRepository = &cachedRepository{}
 
 type cachedRepository struct {

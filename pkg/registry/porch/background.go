@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func RunBackground(ctx context.Context, coreClient client.WithWatch, cache *cache.Cache) {
+func RunBackground(ctx context.Context, coreClient client.WithWatch, cache cache.Cache) {
 	b := background{
 		coreClient: coreClient,
 		cache:      cache,
@@ -39,7 +39,7 @@ func RunBackground(ctx context.Context, coreClient client.WithWatch, cache *cach
 // background manages background tasks
 type background struct {
 	coreClient client.WithWatch
-	cache      *cache.Cache
+	cache      cache.Cache
 }
 
 const (
