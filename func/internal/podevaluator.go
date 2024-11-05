@@ -59,8 +59,6 @@ const (
 	functionContainerName     = "function"
 	defaultManagerNamespace   = "porch-system"
 	defaultRegistry           = "gcr.io/kpt-fn/"
-	// perhaps should try and get the name of the dockerconfig secret given by user and match this secret name to that to avoid hard coded value?
-	customRegistryImgPullSecret = "auth-secret"
 
 	channelBufferSize = 128
 )
@@ -73,7 +71,7 @@ type podEvaluator struct {
 
 var _ Evaluator = &podEvaluator{}
 
-func NewPodEvaluator(namespace, wrapperServerImage string, interval, ttl time.Duration, podTTLConfig string, functionPodTemplateName string, registryAuthSecretPath string) (Evaluator, error) {
+func NewPodEvaluator(namespace, wrapperServerImage string, interval, ttl time.Duration, podTTLConfig string, functionPodTemplateName string, registryAuthSecretPath string, registryAuthSecretName string) (Evaluator, error) {
 	restCfg, err := config.GetConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get rest config: %w", err)
@@ -105,6 +103,7 @@ func NewPodEvaluator(namespace, wrapperServerImage string, interval, ttl time.Du
 			gcScanInternal:         interval,
 			podTTL:                 ttl,
 			registryAuthSecretPath: registryAuthSecretPath,
+			registryAuthSecretName: registryAuthSecretName,
 			requestCh:              reqCh,
 			podReadyCh:             readyCh,
 			cache:                  map[string]*podAndGRPCClient{},
@@ -174,6 +173,7 @@ type podCacheManager struct {
 	podTTL         time.Duration
 
 	registryAuthSecretPath string
+	registryAuthSecretName string
 
 	// requestCh is a receive-only channel to receive
 	requestCh <-chan *clientConnRequest
@@ -243,7 +243,7 @@ func (pcm *podCacheManager) warmupCache(podTTLConfig string) error {
 
 		// We invoke the function with useGenerateName=false so that the pod name is fixed,
 		// since we want to ensure only one pod is created for each function.
-		pcm.podManager.getFuncEvalPodClient(ctx, fnImage, ttl, false, pcm.registryAuthSecretPath)
+		pcm.podManager.getFuncEvalPodClient(ctx, fnImage, ttl, false, pcm.registryAuthSecretPath, pcm.registryAuthSecretName)
 		klog.Infof("preloaded pod cache for function %v", fnImage)
 	})
 
@@ -311,7 +311,7 @@ func (pcm *podCacheManager) podCacheManager() {
 			pcm.waitlists[req.image] = append(list, req.grpcClientCh)
 			// We invoke the function with useGenerateName=true to avoid potential name collision, since if pod foo is
 			// being deleted and we can't use the same name.
-			go pcm.podManager.getFuncEvalPodClient(context.Background(), req.image, pcm.podTTL, true, pcm.registryAuthSecretPath)
+			go pcm.podManager.getFuncEvalPodClient(context.Background(), req.image, pcm.podTTL, true, pcm.registryAuthSecretPath, pcm.registryAuthSecretName)
 		case resp := <-pcm.podReadyCh:
 			if resp.err != nil {
 				klog.Warningf("received error from the pod manager: %v", resp.err)
@@ -443,9 +443,9 @@ type digestAndEntrypoint struct {
 // time-to-live period for the pod. If useGenerateName is false, it will try to
 // create a pod with a fixed name. Otherwise, it will create a pod and let the
 // apiserver to generate the name from a template.
-func (pm *podManager) getFuncEvalPodClient(ctx context.Context, image string, ttl time.Duration, useGenerateName bool, registryAuthSecretPath string) {
+func (pm *podManager) getFuncEvalPodClient(ctx context.Context, image string, ttl time.Duration, useGenerateName bool, registryAuthSecretPath string, registryAuthSecretName string) {
 	c, err := func() (*podAndGRPCClient, error) {
-		podKey, err := pm.retrieveOrCreatePod(ctx, image, ttl, useGenerateName, registryAuthSecretPath)
+		podKey, err := pm.retrieveOrCreatePod(ctx, image, ttl, useGenerateName, registryAuthSecretPath, registryAuthSecretName)
 		if err != nil {
 			return nil, err
 		}
@@ -473,11 +473,11 @@ func (pm *podManager) getFuncEvalPodClient(ctx context.Context, image string, tt
 	}
 }
 
-func (pm *podManager) InspectOrCreateSecret(ctx context.Context, registryAuthSecretPath string) error {
+func (pm *podManager) InspectOrCreateSecret(ctx context.Context, registryAuthSecretPath string, registryAuthSecretName string) error {
 	podSecret := &corev1.Secret{}
 	// using pod manager client since this secret is only related to these pods and nothing else
 	err := pm.kubeClient.Get(context.Background(), client.ObjectKey{
-		Name:      customRegistryImgPullSecret,
+		Name:      registryAuthSecretName,
 		Namespace: pm.namespace,
 	}, podSecret)
 	if err != nil {
@@ -493,7 +493,7 @@ func (pm *podManager) InspectOrCreateSecret(ctx context.Context, registryAuthSec
 		// Secret does not exist, create it
 		podSecret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      customRegistryImgPullSecret,
+				Name:      registryAuthSecretName,
 				Namespace: pm.namespace,
 			},
 			Data: map[string][]byte{
@@ -537,7 +537,7 @@ type DockerConfig struct {
 }
 
 // imageDigestAndEntrypoint gets the entrypoint of a container image by looking at its metadata.
-func (pm *podManager) imageDigestAndEntrypoint(ctx context.Context, image string, registryAuthSecretPath string) (*digestAndEntrypoint, error) {
+func (pm *podManager) imageDigestAndEntrypoint(ctx context.Context, image string, registryAuthSecretPath string, registryAuthSecretName string) (*digestAndEntrypoint, error) {
 	start := time.Now()
 	defer func() {
 		klog.Infof("getting image metadata for %v took %v", image, time.Since(start))
@@ -551,7 +551,7 @@ func (pm *podManager) imageDigestAndEntrypoint(ctx context.Context, image string
 
 	var auth authn.Authenticator
 	if registryAuthSecretPath != "" && !strings.HasPrefix(image, defaultRegistry) {
-		if err := pm.ensureCustomAuthSecret(ctx, registryAuthSecretPath); err != nil {
+		if err := pm.ensureCustomAuthSecret(ctx, registryAuthSecretPath, registryAuthSecretName); err != nil {
 			return nil, err
 		}
 
@@ -571,8 +571,8 @@ func (pm *podManager) imageDigestAndEntrypoint(ctx context.Context, image string
 }
 
 // ensureCustomAuthSecret ensures that, if an image from a custom registry is requested, the appropriate credentials are passed into a secret for function pods to use when pulling. If the secret does not already exist, it is created.
-func (pm *podManager) ensureCustomAuthSecret(ctx context.Context, registryAuthSecretPath string) error {
-	if err := pm.InspectOrCreateSecret(ctx, registryAuthSecretPath); err != nil {
+func (pm *podManager) ensureCustomAuthSecret(ctx context.Context, registryAuthSecretPath string, registryAuthSecretName string) error {
+	if err := pm.InspectOrCreateSecret(ctx, registryAuthSecretPath, registryAuthSecretName); err != nil {
 		return err
 	}
 	return nil
@@ -624,14 +624,14 @@ func (pm *podManager) getImageMetadata(ctx context.Context, ref name.Reference, 
 }
 
 // retrieveOrCreatePod retrieves or creates a pod for an image.
-func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl time.Duration, useGenerateName bool, registryAuthSecretPath string) (client.ObjectKey, error) {
+func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl time.Duration, useGenerateName bool, registryAuthSecretPath string, registryAuthSecretName string) (client.ObjectKey, error) {
 	var de *digestAndEntrypoint
 	var replacePod bool
 	var currentPod *corev1.Pod
 	var err error
 	val, found := pm.imageMetadataCache.Load(image)
 	if !found {
-		de, err = pm.imageDigestAndEntrypoint(ctx, image, registryAuthSecretPath)
+		de, err = pm.imageDigestAndEntrypoint(ctx, image, registryAuthSecretPath, registryAuthSecretName)
 		if err != nil {
 			return client.ObjectKey{}, fmt.Errorf("unable to get the entrypoint for %v: %w", image, err)
 		}
@@ -650,7 +650,7 @@ func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl
 	// TODO: It's possible to set up a Watch in the fn runner namespace, and always try to maintain a up-to-date local cache.
 	podList := &corev1.PodList{}
 	podTemplate, templateVersion, err := pm.getBasePodTemplate(ctx)
-	pm.appendImagePullSecret(image, registryAuthSecretPath, podTemplate)
+	pm.appendImagePullSecret(image, registryAuthSecretPath, registryAuthSecretName, podTemplate)
 	if err != nil {
 		klog.Errorf("failed to generate a base pod template: %v", err)
 		return client.ObjectKey{}, fmt.Errorf("failed to generate a base pod template: %w", err)
@@ -803,10 +803,10 @@ func (pm *podManager) getBasePodTemplate(ctx context.Context) (*corev1.Pod, stri
 }
 
 // if a custom image is requested, use the secret provided to authenticate
-func (pm *podManager) appendImagePullSecret(image string, registryAuthSecretPath string, podTemplate *corev1.Pod) {
+func (pm *podManager) appendImagePullSecret(image string, registryAuthSecretPath string, registryAuthSecretName string, podTemplate *corev1.Pod) {
 	if registryAuthSecretPath != "" && !strings.HasPrefix(image, defaultRegistry) {
 		podTemplate.Spec.ImagePullSecrets = []corev1.LocalObjectReference{
-			{Name: customRegistryImgPullSecret},
+			{Name: registryAuthSecretName},
 		}
 	}
 }
