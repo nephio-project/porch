@@ -244,6 +244,11 @@ func (r *ociRepository) buildPackageRevision(ctx context.Context, name oci.Image
 	return p, nil
 }
 
+// ToMainPackageRevision implements repository.PackageRevision.
+func (p *ociPackageRevision) ToMainPackageRevision() repository.PackageRevision {
+	panic("unimplemented")
+}
+
 type ociPackageRevision struct {
 	digestName      oci.ImageDigestName
 	packageName     string

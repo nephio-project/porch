@@ -93,6 +93,8 @@ type PackageRevision interface {
 
 	// ResourceVersion returns the Kube resource version of the package
 	ResourceVersion() string
+
+	ToMainPackageRevision() PackageRevision
 }
 
 // Package is an abstract package.
@@ -117,7 +119,8 @@ type PackageDraft interface {
 	// Updates desired lifecycle of the package. The lifecycle is applied on Close.
 	UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error
 	// Finish round of updates.
-	Close(ctx context.Context) (PackageRevision, error)
+	Close(ctx context.Context, version string) (PackageRevision, error)
+	GetName() string
 }
 
 // ListPackageRevisionFilter is a predicate for filtering PackageRevision objects;

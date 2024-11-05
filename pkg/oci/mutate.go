@@ -195,8 +195,12 @@ func (p *ociPackageDraft) UpdateLifecycle(ctx context.Context, new v1alpha1.Pack
 	return nil
 }
 
+func (p *ociPackageDraft) GetName() string {
+	return p.packageName
+}
+
 // Finish round of updates.
-func (p *ociPackageDraft) Close(ctx context.Context) (repository.PackageRevision, error) {
+func (p *ociPackageDraft) Close(ctx context.Context, version string) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "ociPackageDraft::Close", trace.WithAttributes())
 	defer span.End()
 
