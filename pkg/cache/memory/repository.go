@@ -45,7 +45,6 @@ var tracer = otel.Tracer("cache")
 
 var _ repository.Repository = &cachedRepository{}
 var _ cache.CachedRepository = &cachedRepository{}
-var _ repository.FunctionRepository = &cachedRepository{}
 
 type cachedRepository struct {
 	id string
@@ -60,9 +59,6 @@ type cachedRepository struct {
 	mutex                  sync.Mutex
 	cachedPackageRevisions map[repository.PackageRevisionKey]*cachedPackageRevision
 	cachedPackages         map[repository.PackageKey]*cachedPackage
-
-	// TODO: Currently we support repositories with homogenous content (only packages xor functions). Model this more optimally?
-	cachedFunctions []repository.Function
 	// Error encountered on repository refresh by the refresh goroutine.
 	// This is returned back by the cache to the background goroutine when it calls periodicall to resync repositories.
 	refreshRevisionsError error
@@ -108,14 +104,6 @@ func (r *cachedRepository) ListPackageRevisions(ctx context.Context, filter repo
 	}
 
 	return packages, nil
-}
-
-func (r *cachedRepository) ListFunctions(ctx context.Context) ([]repository.Function, error) {
-	functions, err := r.getFunctions(ctx, false)
-	if err != nil {
-		return nil, err
-	}
-	return functions, nil
 }
 
 func (r *cachedRepository) getRefreshError() error {
@@ -178,35 +166,6 @@ func (r *cachedRepository) getCachedPackages(ctx context.Context, forceRefresh b
 	}
 
 	return packages, packageRevisions, err
-}
-
-func (r *cachedRepository) getFunctions(ctx context.Context, force bool) ([]repository.Function, error) {
-	var functions []repository.Function
-
-	if !force {
-		r.mutex.Lock()
-		functions = r.cachedFunctions
-		r.mutex.Unlock()
-	}
-
-	if functions == nil {
-		fr, ok := (r.repo).(repository.FunctionRepository)
-		if !ok {
-			return []repository.Function{}, nil
-		}
-
-		if f, err := fr.ListFunctions(ctx); err != nil {
-			return nil, err
-		} else {
-			functions = f
-		}
-
-		r.mutex.Lock()
-		r.cachedFunctions = functions
-		r.mutex.Unlock()
-	}
-
-	return functions, nil
 }
 
 func (r *cachedRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageDraft, error) {
@@ -437,9 +396,6 @@ func (r *cachedRepository) pollOnce(ctx context.Context) {
 	//if _, err := r.getPackages(ctx, repository.ListPackageRevisionFilter{}, true); err != nil {
 	//	klog.Warningf("error polling repo packages %s: %v", r.id, err)
 	//}
-	if _, err := r.getFunctions(ctx, true); err != nil {
-		klog.Warningf("error polling repo functions %s: %v", r.id, err)
-	}
 }
 
 func (r *cachedRepository) flush() {

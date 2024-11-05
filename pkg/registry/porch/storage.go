@@ -73,12 +73,6 @@ func NewRESTStorage(scheme *runtime.Scheme, codecs serializer.CodecFactory, cad 
 		},
 	}
 
-	functions := &functions{
-		TableConvertor: rest.NewDefaultTableConvertor(porch.Resource("functions")),
-		cad:            cad,
-		coreClient:     coreClient,
-	}
-
 	group := genericapiserver.NewDefaultAPIGroupInfo(porch.GroupName, scheme, metav1.ParameterCodec, codecs)
 
 	group.VersionedResourcesStorageMap = map[string]map[string]rest.Storage{
@@ -87,7 +81,6 @@ func NewRESTStorage(scheme *runtime.Scheme, codecs serializer.CodecFactory, cad 
 			"packagerevisions":          packageRevisions,
 			"packagerevisions/approval": packageRevisionsApproval,
 			"packagerevisionresources":  packageRevisionResources,
-			"functions":                 functions,
 		},
 	}
 

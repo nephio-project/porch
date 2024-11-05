@@ -37,13 +37,7 @@ var (
 		objects:  []runtime.Object{&Repository{}, &RepositoryList{}},
 	}
 
-	TypeFunction = TypeInfo{
-		Kind:     "Function",
-		Resource: GroupVersion.WithResource("functions"),
-		objects:  []runtime.Object{&Function{}, &FunctionList{}},
-	}
-
-	AllKinds = []TypeInfo{TypeRepository, TypeFunction}
+	AllKinds = []TypeInfo{TypeRepository}
 )
 
 //+kubebuilder:object:generate=false

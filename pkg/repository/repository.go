@@ -20,7 +20,6 @@ import (
 
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -124,13 +123,6 @@ type PackageDraft interface {
 	GetName() string
 }
 
-// Function is an abstract function.
-type Function interface {
-	Name() string
-	GetFunction() (*v1alpha1.Function, error)
-	GetCRD() (*configapi.Function, error)
-}
-
 // ListPackageRevisionFilter is a predicate for filtering PackageRevision objects;
 // only matching PackageRevision objects will be returned.
 type ListPackageRevisionFilter struct {
@@ -222,11 +214,6 @@ type Repository interface {
 
 	// Close cleans up any resources associated with the repository
 	Close() error
-}
-
-type FunctionRepository interface {
-	// TODO: Should repository understand functions, or just packages (and function is just a package in an OCI repo?)
-	ListFunctions(ctx context.Context) ([]Function, error)
 }
 
 // The definitions below would be more appropriately located in a package usable by any Porch component.

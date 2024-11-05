@@ -62,7 +62,6 @@ type CaDEngine interface {
 	ObjectCache() WatcherManager
 
 	UpdatePackageResources(ctx context.Context, repositoryObj *configapi.Repository, oldPackage *PackageRevision, old, new *api.PackageRevisionResources) (*PackageRevision, *api.RenderStatus, error)
-	ListFunctions(ctx context.Context, repositoryObj *configapi.Repository) ([]*Function, error)
 
 	ListPackageRevisions(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageRevisionFilter) ([]*PackageRevision, error)
 	CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj *api.PackageRevision, parent *PackageRevision) (*PackageRevision, error)
@@ -135,18 +134,6 @@ func (p *PackageRevision) KubeObjectName() string {
 
 func (p *PackageRevision) GetResources(ctx context.Context) (*api.PackageRevisionResources, error) {
 	return p.repoPackageRevision.GetResources(ctx)
-}
-
-type Function struct {
-	RepoFunction repository.Function
-}
-
-func (f *Function) Name() string {
-	return f.RepoFunction.Name()
-}
-
-func (f *Function) GetFunction() (*api.Function, error) {
-	return f.RepoFunction.GetFunction()
 }
 
 func NewCaDEngine(opts ...EngineOption) (CaDEngine, error) {
@@ -1076,30 +1063,6 @@ func applyResourceMutations(ctx context.Context, draft repository.PackageDraft, 
 	}
 
 	return applied, renderStatus, nil
-}
-
-func (cad *cadEngine) ListFunctions(ctx context.Context, repositoryObj *configapi.Repository) ([]*Function, error) {
-	ctx, span := tracer.Start(ctx, "cadEngine::ListFunctions", trace.WithAttributes())
-	defer span.End()
-
-	repo, err := cad.cache.OpenRepository(ctx, repositoryObj)
-	if err != nil {
-		return nil, err
-	}
-
-	fns, err := repo.ListFunctions(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	var functions []*Function
-	for _, f := range fns {
-		functions = append(functions, &Function{
-			RepoFunction: f,
-		})
-	}
-
-	return functions, nil
 }
 
 type updatePackageMutation struct {
