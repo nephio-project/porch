@@ -93,8 +93,8 @@ spec:
                 description: User-friendly description of the repository
                 type: string
               git:
-                description: OCI repository details. Required if `type` is `oci`.
-                  Ignored if `type` is not `oci`.
+                description: Git repository details. Required if `type` is `git`.
+                  Ignored if `type` is not `git`.
                 properties:
                   branch:
                     default: main

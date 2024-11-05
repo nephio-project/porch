@@ -69,7 +69,7 @@ type RepositorySpec struct {
 
 	// DB repository details. Required if `type` is `db`. Ignored if `type` is not `db`.
 	DB *DBRepository `json:"db,omitempty"`
-	// OCI repository details. Required if `type` is `oci`. Ignored if `type` is not `oci`.
+	// Git repository details. Required if `type` is `git`. Ignored if `type` is not `git`.
 	Git *GitRepository `json:"git,omitempty"`
 	// OCI repository details. Required if `type` is `oci`. Ignored if `type` is not `oci`.
 	Oci *OciRepository `json:"oci,omitempty"`
@@ -143,7 +143,7 @@ type UpstreamRepository struct {
 	Type RepositoryType `json:"type,omitempty"`
 	// DB repository details. Required if `type` is `db`. Must be unspecified if `type` is not `db`.
 	DB *DBRepository `json:"db,omitempty"`
-	// OCI repository details. Required if `type` is `oci`. Must be unspecified if `type` is not `oci`.
+	// Git repository details. Required if `type` is `git`. Must be unspecified if `type` is not `git`.
 	Git *GitRepository `json:"git,omitempty"`
 	// OCI repository details. Required if `type` is `oci`. Must be unspecified if `type` is not `oci`.
 	Oci *OciRepository `json:"oci,omitempty"`
