@@ -127,7 +127,7 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 				return nil, err
 			}
 
-			r, err := oci.OpenRepository(repositorySpec.Name, repositorySpec.Namespace, repositorySpec.Spec.Content, ociSpec, repositorySpec.Spec.Deployment, storage)
+			r, err := oci.OpenRepository(repositorySpec.Name, repositorySpec.Namespace, ociSpec, repositorySpec.Spec.Deployment, storage)
 			if err != nil {
 				return nil, err
 			}
@@ -138,9 +138,6 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 
 	case configapi.RepositoryTypeGit:
 		gitSpec := repositorySpec.Spec.Git
-		if !isPackageContent(repositorySpec.Spec.Content) {
-			return nil, fmt.Errorf("git repository supports Package content only; got %q", string(repositorySpec.Spec.Content))
-		}
 		if cachedRepo == nil {
 			var mbs git.MainBranchStrategy
 			if gitSpec.CreateBranch {
@@ -172,10 +169,6 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 	default:
 		return nil, fmt.Errorf("type %q not supported", repositoryType)
 	}
-}
-
-func isPackageContent(content configapi.RepositoryContent) bool {
-	return content == configapi.RepositoryContentPackage
 }
 
 func (c *Cache) CloseRepository(repositorySpec *configapi.Repository, allRepos []configapi.Repository) error {

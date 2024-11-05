@@ -31,8 +31,8 @@ commands:
       - get
       - --namespace=repo-register
     stdout: |
-      NAME              TYPE   DEPLOYMENT   READY   ADDRESS
-      test-blueprints   git                 True    https://github.com/platkrm/test-blueprints.git
+      NAME              TYPE   CONTENT   DEPLOYMENT   READY   ADDRESS
+      test-blueprints   git    Package                True    https://github.com/platkrm/test-blueprints.git
   - args:
       - porchctl
       - repo

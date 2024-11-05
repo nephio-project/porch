@@ -18,6 +18,9 @@ spec:
     - jsonPath: .spec.type
       name: Type
       type: string
+    - jsonPath: .spec.content
+      name: Content
+      type: string
     - jsonPath: .spec.deployment
       name: Deployment
       type: boolean
@@ -56,6 +59,16 @@ spec:
               Notes:
                 - deployment repository - in KRM API ConfigSync would be configured directly? (or via this API)
             properties:
+              content:
+                default: Package
+                description: |-
+                  The Content field is deprecated, please do not specify it in new manifests.
+                  For partial backward compatibility it is still recognized, but its only valid value is "Package", and if not specified its default value is also "Package".
+                type: string
+                x-kubernetes-validations:
+                - message: The 'content' field is deprecated, its only valid value
+                    is 'Package'
+                  rule: self == '' || self == 'Package'
               deployment:
                 description: The repository is a deployment repository; final packages
                   in this repository are deployment ready.

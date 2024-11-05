@@ -22,6 +22,7 @@ import (
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:path=repositories,singular=repository
 //+kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type`
+//+kubebuilder:printcolumn:name="Content",type=string,JSONPath=`.spec.content`
 //+kubebuilder:printcolumn:name="Deployment",type=boolean,JSONPath=`.spec.deployment`
 //+kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=='Ready')].status`
 //+kubebuilder:printcolumn:name="Address",type=string,JSONPath=`.spec['git','oci']['repo','registry']`
@@ -42,6 +43,12 @@ const (
 	RepositoryTypeOCI RepositoryType = "oci"
 )
 
+type RepositoryContent string
+
+const (
+	RepositoryContentPackage  RepositoryContent = "Package"
+)
+
 // RepositorySpec defines the desired state of Repository
 //
 // Notes:
@@ -53,6 +60,12 @@ type RepositorySpec struct {
 	Deployment bool `json:"deployment,omitempty"`
 	// Type of the repository (i.e. git, OCI)
 	Type RepositoryType `json:"type,omitempty"`
+	// The Content field is deprecated, please do not specify it in new manifests. 
+	// For partial backward compatibility it is still recognized, but its only valid value is "Package", and if not specified its default value is also "Package".
+	// +kubebuilder:validation:XValidation:message="The 'content' field is deprecated, its only valid value is 'Package'",rule="self == '' || self == 'Package'"
+	// +kubebuilder:default="Package"
+	Content *RepositoryContent `json:"content,omitempty"`
+	
 	// Git repository details. Required if `type` is `git`. Ignored if `type` is not `git`.
 	Git *GitRepository `json:"git,omitempty"`
 	// OCI repository details. Required if `type` is `oci`. Ignored if `type` is not `oci`.
