@@ -264,49 +264,12 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 	r.cachedPackageRevisions[k] = cached
 
 	// Recompute latest package revisions.
-	// TODO: Just updated package?
 	identifyLatestRevisions(r.cachedPackageRevisions)
 
+	// Create the main package revision
 	if updated.Lifecycle() == (v1alpha1.PackageRevisionLifecyclePublished) {
 		updatedMain := updated.ToMainPackageRevision()
-		//Search and delete any old main pkgRev in the cache
-		for k := range r.cachedPackageRevisions {
-			if (k.Repository == updatedMain.Key().Repository) && (k.Package == updatedMain.Key().Package) && (k.Revision == updatedMain.Key().Revision) {
-				oldMainKey := repository.PackageRevisionKey{
-					Repository:    updatedMain.Key().Repository,
-					Package:       updatedMain.Key().Package,
-					Revision:      updatedMain.Key().Revision,
-					WorkspaceName: v1alpha1.WorkspaceName(string(k.WorkspaceName)),
-				}
-				delete(r.cachedPackageRevisions, oldMainKey)
-			}
-		}
-		cachedMain := &cachedPackageRevision{PackageRevision: updatedMain}
-		r.cachedPackageRevisions[updatedMain.Key()] = cachedMain
-
-		pkgRevMetaNN := types.NamespacedName{
-			Name:      updatedMain.KubeObjectName(),
-			Namespace: updatedMain.KubeObjectNamespace(),
-		}
-		// TODO: error handling for metadataStore.Get
-		_, err := r.metadataStore.Get(ctx, pkgRevMetaNN)
-		// Error can be different
-		if errors.IsNotFound(err) {
-			pkgRevMeta := meta.PackageRevisionMeta{
-				Name:      updatedMain.KubeObjectName(),
-				Namespace: updatedMain.KubeObjectNamespace(),
-			}
-			_, err := r.metadataStore.Create(ctx, pkgRevMeta, r.repoSpec.Name, updatedMain.UID())
-			if err != nil {
-				klog.Warningf("unable to create PackageRev CR for %s/%s: %v",
-					updatedMain.KubeObjectNamespace(), updatedMain.KubeObjectName(), err)
-			}
-		}
-		version, err := r.repo.Version(ctx)
-		if err != nil {
-			return nil, err
-		}
-		r.lastVersion = version
+		r.createMainPackageRevision(ctx, updatedMain)
 	} else {
 		version, err := r.repo.Version(ctx)
 		if err != nil {
@@ -315,8 +278,51 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 		r.lastVersion = version
 	}
 
-	// TODO: Update the latest revisions for the r.cachedPackages
 	return cached, nil
+}
+
+func (r *cachedRepository) createMainPackageRevision(ctx context.Context, updatedMain repository.PackageRevision) error {
+
+	//Search and delete any old main pkgRev of an older worksapce in the cache
+	for k := range r.cachedPackageRevisions {
+		if (k.Repository == updatedMain.Key().Repository) && (k.Package == updatedMain.Key().Package) && (k.Revision == updatedMain.Key().Revision) {
+			oldMainKey := repository.PackageRevisionKey{
+				Repository:    updatedMain.Key().Repository,
+				Package:       updatedMain.Key().Package,
+				Revision:      updatedMain.Key().Revision,
+				WorkspaceName: v1alpha1.WorkspaceName(string(k.WorkspaceName)),
+			}
+			delete(r.cachedPackageRevisions, oldMainKey)
+		}
+	}
+	cachedMain := &cachedPackageRevision{PackageRevision: updatedMain}
+	r.cachedPackageRevisions[updatedMain.Key()] = cachedMain
+
+	pkgRevMetaNN := types.NamespacedName{
+		Name:      updatedMain.KubeObjectName(),
+		Namespace: updatedMain.KubeObjectNamespace(),
+	}
+
+	// Create the package if it doesn't exist
+	_, err := r.metadataStore.Get(ctx, pkgRevMetaNN)
+	if errors.IsNotFound(err) {
+		pkgRevMeta := meta.PackageRevisionMeta{
+			Name:      updatedMain.KubeObjectName(),
+			Namespace: updatedMain.KubeObjectNamespace(),
+		}
+		_, err := r.metadataStore.Create(ctx, pkgRevMeta, r.repoSpec.Name, updatedMain.UID())
+		if err != nil {
+			klog.Warningf("unable to create PackageRev CR for %s/%s: %v",
+				updatedMain.KubeObjectNamespace(), updatedMain.KubeObjectName(), err)
+		}
+	}
+	version, err := r.repo.Version(ctx)
+	if err != nil {
+		return err
+	}
+	r.lastVersion = version
+
+	return nil
 }
 
 func (r *cachedRepository) DeletePackageRevision(ctx context.Context, old repository.PackageRevision) error {
