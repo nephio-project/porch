@@ -25,11 +25,8 @@ import (
 	"time"
 
 	"github.com/GoogleContainerTools/kpt/pkg/oci"
-	"github.com/google/go-containerregistry/pkg/gcrane"
 	"github.com/google/go-containerregistry/pkg/name"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/google"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
@@ -40,11 +37,10 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func OpenRepository(name string, namespace string, content configapi.RepositoryContent, spec *configapi.OciRepository, deployment bool, storage *oci.Storage) (repository.Repository, error) {
+func OpenRepository(name string, namespace string, spec *configapi.OciRepository, deployment bool, storage *oci.Storage) (repository.Repository, error) {
 	return &ociRepository{
 		name:       name,
 		namespace:  namespace,
-		content:    content,
 		spec:       *spec.DeepCopy(),
 		deployment: deployment,
 		storage:    storage,
@@ -55,7 +51,6 @@ func OpenRepository(name string, namespace string, content configapi.RepositoryC
 type ociRepository struct {
 	name       string
 	namespace  string
-	content    configapi.RepositoryContent
 	spec       configapi.OciRepository
 	deployment bool
 
@@ -63,7 +58,6 @@ type ociRepository struct {
 }
 
 var _ repository.Repository = &ociRepository{}
-var _ repository.FunctionRepository = &ociRepository{}
 
 func (r *ociRepository) Close() error {
 	return nil
@@ -73,10 +67,6 @@ func (r *ociRepository) Close() error {
 func (r *ociRepository) Version(ctx context.Context) (string, error) {
 	ctx, span := tracer.Start(ctx, "ociRepository::Version")
 	defer span.End()
-
-	if r.content != configapi.RepositoryContentPackage {
-		return "", nil
-	}
 
 	ociRepo, err := name.NewRepository(r.spec.Registry)
 	if err != nil {
@@ -123,10 +113,6 @@ func (r *ociRepository) Version(ctx context.Context) (string, error) {
 }
 
 func (r *ociRepository) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
-	if r.content != configapi.RepositoryContentPackage {
-		return []repository.PackageRevision{}, nil
-	}
-
 	ctx, span := tracer.Start(ctx, "ociRepository::ListPackageRevisions")
 	defer span.End()
 
@@ -222,9 +208,6 @@ func (r *ociRepository) ListPackages(ctx context.Context, filter repository.List
 
 func (r *ociRepository) buildPackageRevision(ctx context.Context, name oci.ImageDigestName, packageName string,
 	workspace v1alpha1.WorkspaceName, revision string, created time.Time) (repository.PackageRevision, error) {
-	if r.content != configapi.RepositoryContentPackage {
-		return nil, fmt.Errorf("repository is not a package repo, type is %v", r.content)
-	}
 
 	ctx, span := tracer.Start(ctx, "ociRepository::buildPackageRevision")
 	defer span.End()
@@ -259,132 +242,6 @@ func (r *ociRepository) buildPackageRevision(ctx context.Context, name oci.Image
 	p.tasks = tasks
 
 	return p, nil
-}
-
-func GetFunctionMeta(reference string, ctx context.Context) (*functionMeta, error) {
-	ref, err := name.ParseReference(reference)
-	if err != nil {
-		return nil, fmt.Errorf("parse image reference %v: %v", reference, err)
-	}
-	image, err := remote.Image(ref, remote.WithAuthFromKeychain(gcrane.Keychain), remote.WithContext(ctx))
-	if err != nil {
-		return nil, fmt.Errorf("pull remote image %v: %v", reference, err)
-	}
-	manifest, err := image.Manifest()
-	if err != nil {
-		return nil, fmt.Errorf("get manifest from image %v: %v", reference, err)
-	}
-	return &functionMeta{
-		FunctionTypes:    GetSliceFromAnnotation(FunctionTypesKey, manifest),
-		Description:      GetSingleFromAnnotation(DescriptionKey, manifest),
-		DocumentationUrl: GetSingleFromAnnotation(DocumentationURLKey, manifest),
-		Keywords:         GetSliceFromAnnotation(keywordsKey, manifest),
-		FunctionConfigs:  GetDefaultFunctionConfig(manifest),
-	}, nil
-}
-
-func GetDefaultFunctionConfig(manifest *v1.Manifest) []functionConfig {
-	val, ok := manifest.Annotations[ConfigMapFnKey]
-	if !ok {
-		return nil
-	}
-	return []functionConfig{
-		{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "ConfigMap",
-				APIVersion: "v1",
-			},
-			RequiredFields: AnnotationToSlice(val),
-		},
-	}
-}
-
-func GetSliceFromAnnotation(key string, manifest *v1.Manifest) []string {
-	slice, ok := manifest.Annotations[key]
-	if !ok {
-		return nil
-	}
-	return AnnotationToSlice(slice)
-}
-
-func GetSingleFromAnnotation(key string, manifest *v1.Manifest) string {
-	if val, ok := manifest.Annotations[key]; ok {
-		return val
-	}
-	return fmt.Sprintf("annotation %v unset", key)
-}
-
-func (r *ociRepository) ListFunctions(ctx context.Context) ([]repository.Function, error) {
-	// Repository whose content type is not Function contains no Function resources.
-	if r.content != configapi.RepositoryContentFunction {
-		klog.Infof("Repository %q doesn't contain functions; contains %s", r.name, r.content)
-		return []repository.Function{}, nil
-	}
-
-	ctx, span := tracer.Start(ctx, "ociRepository::ListFunctions")
-	defer span.End()
-
-	ociRepo, err := name.NewRepository(r.spec.Registry)
-	if err != nil {
-		return nil, err
-	}
-
-	options := r.storage.CreateOptions(ctx)
-
-	result := []repository.Function{}
-
-	err = google.Walk(ociRepo, func(repo name.Repository, tags *google.Tags, err error) error {
-		if err != nil {
-			klog.Warningf(" Walk %s encountered error: %v", repo, err)
-			return err
-		}
-
-		if tags == nil {
-			return nil
-		}
-
-		if cl := len(tags.Children); cl > 0 {
-			// Expect no manifests or tags
-			if ml, tl := len(tags.Manifests), len(tags.Tags); ml != 0 || tl != 0 {
-				return fmt.Errorf("OCI repository with children (%d) as well as Manifests (%d) or Tags (%d)", cl, ml, tl)
-			}
-			return nil
-		}
-
-		functionName := parseFunctionName(repo.RepositoryStr())
-
-		for digest, manifest := range tags.Manifests {
-			// Only consider tagged images.
-			for _, tag := range manifest.Tags {
-
-				created := manifest.Created
-				if created.IsZero() {
-					created = manifest.Uploaded
-				}
-				meta, err := GetFunctionMeta(repo.Digest(digest).Name(), ctx)
-				if err != nil {
-					klog.Warningf(" pull function %v error: %v", functionName, err)
-					continue
-				}
-				result = append(result, &ociFunction{
-					ref:     repo.Digest(digest),
-					tag:     repo.Tag(tag),
-					name:    functionName,
-					version: tag,
-					meta:    meta,
-					created: created,
-					parent:  r,
-				})
-			}
-		}
-
-		return nil
-	}, options...)
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
 }
 
 type ociPackageRevision struct {

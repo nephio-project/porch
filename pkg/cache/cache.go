@@ -14,8 +14,6 @@ type Cache interface {
 
 type CachedRepository interface {
 	repository.Repository
-	// TODO: Remove this once https://github.com/nephio-project/porch/pull/119 is merged
-	repository.FunctionRepository
 	RefreshCache(ctx context.Context) error
 }
 

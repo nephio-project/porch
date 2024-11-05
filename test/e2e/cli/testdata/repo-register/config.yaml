@@ -21,10 +21,10 @@ commands:
       - repo
       - get
       - --namespace=repo-register
-      - --output=custom-columns=NAME:.metadata.name,CONTENT:.spec.content,DESC:.spec.description
+      - --output=custom-columns=NAME:.metadata.name,DESC:.spec.description
     stdout: |
-      NAME              CONTENT   DESC
-      test-blueprints   Package   Test Blueprints
+      NAME              DESC
+      test-blueprints   Test Blueprints
   - args:
       - porchctl
       - repo
