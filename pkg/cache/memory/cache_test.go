@@ -130,7 +130,7 @@ func TestPublishedLatest(t *testing.T) {
 
 func TestDeletePublishedMain(t *testing.T) {
 	ctx := context.Background()
-	testPath := filepath.Join("..", "git", "testdata")
+	testPath := filepath.Join("../..", "git", "testdata")
 	cachedRepo := openRepositoryFromArchive(t, ctx, testPath, "nested")
 
 	revisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
