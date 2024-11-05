@@ -267,7 +267,7 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 	identifyLatestRevisions(r.cachedPackageRevisions)
 
 	// Create the main package revision
-	if updated.Lifecycle() == (v1alpha1.PackageRevisionLifecyclePublished) {
+	if v1alpha1.LifecycleIsPublished(updated.Lifecycle()) {
 		updatedMain := updated.ToMainPackageRevision()
 		r.createMainPackageRevision(ctx, updatedMain)
 	} else {
@@ -283,14 +283,14 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 
 func (r *cachedRepository) createMainPackageRevision(ctx context.Context, updatedMain repository.PackageRevision) error {
 
-	//Search and delete any old main pkgRev of an older worksapce in the cache
-	for k := range r.cachedPackageRevisions {
-		if (k.Repository == updatedMain.Key().Repository) && (k.Package == updatedMain.Key().Package) && (k.Revision == updatedMain.Key().Revision) {
+	//Search and delete any old main pkgRev of an older workspace in the cache
+	for pkgRevKey := range r.cachedPackageRevisions {
+		if (pkgRevKey.Repository == updatedMain.Key().Repository) && (pkgRevKey.Package == updatedMain.Key().Package) && (pkgRevKey.Revision == updatedMain.Key().Revision) {
 			oldMainKey := repository.PackageRevisionKey{
 				Repository:    updatedMain.Key().Repository,
 				Package:       updatedMain.Key().Package,
 				Revision:      updatedMain.Key().Revision,
-				WorkspaceName: v1alpha1.WorkspaceName(string(k.WorkspaceName)),
+				WorkspaceName: v1alpha1.WorkspaceName(string(pkgRevKey.WorkspaceName)),
 			}
 			delete(r.cachedPackageRevisions, oldMainKey)
 		}

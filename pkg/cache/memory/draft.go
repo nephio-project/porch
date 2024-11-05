@@ -52,14 +52,14 @@ func (cd *cachedDraft) Close(ctx context.Context, version string) (repository.Pa
 		return nil, err
 	}
 
-	var revs []string
+	var publishedRevisions []string
 	for _, rev := range revisions {
 		if v1alpha1.LifecycleIsPublished(rev.Lifecycle()) {
-			revs = append(revs, rev.Key().Revision)
+			publishedRevisions = append(publishedRevisions, rev.Key().Revision)
 		}
 	}
 
-	nextVersion, err := repository.NextRevisionNumber(revs)
+	nextVersion, err := repository.NextRevisionNumber(publishedRevisions)
 	if err != nil {
 		return nil, err
 	}
