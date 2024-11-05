@@ -197,8 +197,8 @@ spec:
                         type: string
                     type: object
                   git:
-                    description: OCI repository details. Required if `type` is `oci`.
-                      Must be unspecified if `type` is not `oci`.
+                    description: Git repository details. Required if `type` is `git`.
+                      Must be unspecified if `type` is not `git`.
                     properties:
                       branch:
                         default: main
