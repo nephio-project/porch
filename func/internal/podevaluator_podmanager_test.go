@@ -644,7 +644,7 @@ func TestPodManager(t *testing.T) {
 			fakeServer.evalFunc = tt.evalFunc
 
 			//Execute the function under test
-			go pm.getFuncEvalPodClient(ctx, tt.functionImage, time.Hour, tt.useGenerateName)
+			go pm.getFuncEvalPodClient(ctx, tt.functionImage, time.Hour, tt.useGenerateName, false, "", "auth-secret")
 
 			if tt.podPatch != nil {
 				go func() {
