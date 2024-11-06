@@ -814,34 +814,44 @@ func (t *PorchSuite) TestUpdateResourcesEmptyPatch(ctx context.Context) {
 	t.CreateF(ctx, pr)
 
 	// Check its task list
-	var newPackage porchapi.PackageRevision
+	var pkgBeforeUpdate porchapi.PackageRevision
 	t.GetF(ctx, client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
-	}, &newPackage)
-	tasksBeforeUpdate := newPackage.Spec.Tasks
+	}, &pkgBeforeUpdate)
+	tasksBeforeUpdate := pkgBeforeUpdate.Spec.Tasks
 	assert.Equal(t, 2, len(tasksBeforeUpdate))
 
 	// Get the package resources
-	var newPackageResources porchapi.PackageRevisionResources
+	var resourcesBeforeUpdate porchapi.PackageRevisionResources
 	t.GetF(ctx, client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
-	}, &newPackageResources)
+	}, &resourcesBeforeUpdate)
 
 	// "Update" the package resources, without changing anything
-	t.UpdateF(ctx, &newPackageResources)
+	t.UpdateF(ctx, &resourcesBeforeUpdate)
 
 	// Check the task list
-	var newPackageUpdated porchapi.PackageRevision
+	var pkgAfterUpdate porchapi.PackageRevision
 	t.GetF(ctx, client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
-	}, &newPackageUpdated)
-	tasksAfterUpdate := newPackageUpdated.Spec.Tasks
+	}, &pkgAfterUpdate)
+	tasksAfterUpdate := pkgAfterUpdate.Spec.Tasks
 	assert.Equal(t, 2, len(tasksAfterUpdate))
 
 	assert.True(t, reflect.DeepEqual(tasksBeforeUpdate, tasksAfterUpdate))
+
+	// Get the package resources
+	var resourcesAfterUpdate porchapi.PackageRevisionResources
+	t.GetF(ctx, client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      pr.Name,
+	}, &resourcesAfterUpdate)
+
+	assert.Equal(t, 3, len(resourcesAfterUpdate.Spec.Resources))
+	assert.True(t, reflect.DeepEqual(resourcesBeforeUpdate, resourcesAfterUpdate))
 }
 
 func (t *PorchSuite) TestConcurrentResourceUpdates(ctx context.Context) {
