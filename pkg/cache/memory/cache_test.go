@@ -113,7 +113,7 @@ func TestPublishedLatest(t *testing.T) {
 	if err := update.UpdateLifecycle(ctx, api.PackageRevisionLifecyclePublished); err != nil {
 		t.Fatalf("UpdateLifecycle failed; %v", err)
 	}
-	closed, err := update.Close(ctx)
+	closed, err := update.Close(ctx, "")
 	if err != nil {
 		t.Fatalf("Close failed: %v", err)
 	}
@@ -126,6 +126,94 @@ func TestPublishedLatest(t *testing.T) {
 	} else if want := api.LatestPackageRevisionValue; got != want {
 		t.Errorf("Latest label: got %s, want %s", got, want)
 	}
+}
+
+func TestDeletePublishedMain(t *testing.T) {
+	ctx := context.Background()
+	testPath := filepath.Join("../..", "git", "testdata")
+	cachedRepo := openRepositoryFromArchive(t, ctx, testPath, "nested")
+
+	revisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
+		Package:       "catalog/gcp/bucket",
+		WorkspaceName: "v2",
+	})
+	if err != nil {
+		t.Fatalf("ListPackageRevisions failed: %v", err)
+	}
+
+	// Expect a single result
+	if got, want := len(revisions), 1; got != want {
+		t.Fatalf("ListPackageRevisions returned %d packages; want %d", got, want)
+	}
+
+	bucket := revisions[0]
+	// Expect draft package
+	if got, want := bucket.Lifecycle(), api.PackageRevisionLifecycleDraft; got != want {
+		t.Fatalf("Bucket package lifecycle: got %s, want %s", got, want)
+	}
+
+	update, err := cachedRepo.UpdatePackageRevision(ctx, bucket)
+	if err != nil {
+		t.Fatalf("UpdatePackage(%s) failed: %v", bucket.Key(), err)
+	}
+	if err := update.UpdateLifecycle(ctx, api.PackageRevisionLifecyclePublished); err != nil {
+		t.Fatalf("UpdateLifecycle failed; %v", err)
+	}
+	closed, err := update.Close(ctx, "")
+	if err != nil {
+		t.Fatalf("Close failed: %v", err)
+	}
+	_, err = closed.GetPackageRevision(ctx)
+	if err != nil {
+		t.Errorf("didn't expect error, but got %v", err)
+	}
+
+	publishedRevisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
+		Package:       "catalog/gcp/bucket",
+		WorkspaceName: "v2",
+		Lifecycle:     api.PackageRevisionLifecyclePublished,
+		Revision:      "main",
+	})
+	if err != nil {
+		t.Fatalf("ListPackageRevisions failed: %v", err)
+	}
+
+	// Expect a single result
+	if got, want := len(publishedRevisions), 1; got != want {
+		t.Fatalf("ListPackageRevisions returned %d packages; want %d", got, want)
+	}
+
+	approvedBucket := publishedRevisions[0]
+
+	if got, want := approvedBucket.Lifecycle(), api.PackageRevisionLifecyclePublished; got != want {
+		t.Fatalf("Approved Bucket package lifecycle: got %s, want %s", got, want)
+	}
+
+	err = approvedBucket.UpdateLifecycle(ctx, api.PackageRevisionLifecycleDeletionProposed)
+	if err != nil {
+		t.Fatalf("Deletion proposal for approved Bucket failed; %v", err)
+	}
+	err = cachedRepo.DeletePackageRevision(ctx, approvedBucket)
+	if err != nil {
+		t.Fatalf("Deleting Main packageRevision failed; %v", err)
+	}
+
+	postDeletePublishedRevisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
+		Package:       "catalog/gcp/bucket",
+		WorkspaceName: "v2",
+		Lifecycle:     api.PackageRevisionLifecyclePublished,
+		Revision:      "main",
+	})
+
+	if err != nil {
+		t.Fatalf("ListPackageRevisions failed: %v", err)
+	}
+
+	//Expect 0 entries
+	if got, want := len(postDeletePublishedRevisions), 0; got != want {
+		t.Fatalf("ListPackageRevisions returned %d packages; want %d", got, want)
+	}
+
 }
 
 func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name string) cache.CachedRepository {
@@ -153,7 +241,6 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 		Spec: v1alpha1.RepositorySpec{
 			Deployment: false,
 			Type:       v1alpha1.RepositoryTypeGit,
-			Content:    v1alpha1.RepositoryContentPackage,
 			Git: &v1alpha1.GitRepository{
 				Repo: address,
 			},

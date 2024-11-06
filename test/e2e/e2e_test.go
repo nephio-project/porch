@@ -16,7 +16,6 @@ package e2e
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -33,12 +32,10 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
@@ -879,72 +876,6 @@ func (t *PorchSuite) TestConcurrentResourceUpdates(ctx context.Context) {
 		return eachResult != nil && strings.Contains(eachResult.(error).Error(), "another request is already in progress")
 	})
 	assert.True(t, conflictFailurePresent, "expected one request to fail with a conflict, but did not happen - results: %v", results)
-}
-
-func (t *PorchSuite) TestFunctionRepository(ctx context.Context) {
-	repo := &configapi.Repository{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "function-repository",
-			Namespace: t.Namespace,
-		},
-		Spec: configapi.RepositorySpec{
-			Description: "Test Function Repository",
-			Type:        configapi.RepositoryTypeOCI,
-			Content:     configapi.RepositoryContentFunction,
-			Oci: &configapi.OciRepository{
-				Registry: "gcr.io/kpt-fn",
-			},
-		},
-	}
-	t.CreateF(ctx, repo)
-
-	t.Cleanup(func() {
-		t.DeleteL(ctx, &configapi.Repository{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      repo.Name,
-				Namespace: repo.Namespace,
-			},
-		})
-	})
-
-	// Make sure the repository is ready before we test to (hopefully)
-	// avoid flakiness.
-	t.WaitUntilRepositoryReady(ctx, repo.Name, repo.Namespace)
-
-	t.Log("Waiting for 1 minute to avoid most of the initial transient period")
-	<-time.NewTimer(1 * time.Minute).C
-
-	t.Log("Waiting for the gcr.io/kpt-fn repository to be cached in porch")
-	timeout := 5 * time.Minute
-	list := porchapi.FunctionList{}
-	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, timeout, false, func(ctx context.Context) (bool, error) {
-		err := t.Client.List(ctx, &list, client.InNamespace(t.Namespace))
-		if err != nil {
-			if apierrors.IsTimeout(err) ||
-				errors.Is(err, os.ErrDeadlineExceeded) ||
-				errors.Is(err, context.DeadlineExceeded) {
-				// in case of a timeout, we simply retry
-				t.Logf("timeout -> retry: %v", err)
-				return false, nil
-			} else {
-				// unfortunately, transient errors can happen during normal operation, so we retry instead of failing
-				t.Logf("Warning: error listing functions in gcr.io/kpt-fn repository: %v", err)
-				return false, nil
-			}
-		}
-		if len(list.Items) == 0 {
-			// unfortunately, sometimes an empty list is returned without any errors during the transient period, so we retry instead of failing
-			t.Log("Warning: an empty list of functions was returned (temporarily?)")
-			return false, nil
-		}
-		return true, nil
-	})
-	if err != nil {
-		t.Errorf("Error listing functions in gcr.io/kpt-fn repository with timeout of %v: %v", timeout, err)
-	}
-	if got := len(list.Items); got == 0 {
-		t.Errorf("Found no functions in gcr.io/kpt-fn repository; expected at least one")
-	}
 }
 
 func (t *PorchSuite) NewClientWithTimeout(timeout time.Duration) client.Client {
@@ -1815,7 +1746,6 @@ func (t *PorchSuite) TestRegisterRepository(ctx context.Context) {
 		repository = "register"
 	)
 	t.RegisterMainGitRepositoryF(ctx, repository,
-		withContent(configapi.RepositoryContentPackage),
 		withType(configapi.RepositoryTypeGit),
 		WithDeployment())
 
@@ -1825,9 +1755,6 @@ func (t *PorchSuite) TestRegisterRepository(ctx context.Context) {
 		Name:      repository,
 	}, &repo)
 
-	if got, want := repo.Spec.Content, configapi.RepositoryContentPackage; got != want {
-		t.Errorf("Repo Content: got %q, want %q", got, want)
-	}
 	if got, want := repo.Spec.Type, configapi.RepositoryTypeGit; got != want {
 		t.Errorf("Repo Type: got %q, want %q", got, want)
 	}
@@ -2296,7 +2223,6 @@ func (t *PorchSuite) TestRepositoryError(ctx context.Context) {
 		Spec: configapi.RepositorySpec{
 			Description: "Repository With Error",
 			Type:        configapi.RepositoryTypeGit,
-			Content:     configapi.RepositoryContentPackage,
 			Git: &configapi.GitRepository{
 				// Use `invalid` domain: https://www.rfc-editor.org/rfc/rfc6761#section-6.4
 				Repo: "https://repo.invalid/repository.git",

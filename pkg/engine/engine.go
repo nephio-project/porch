@@ -62,11 +62,10 @@ type CaDEngine interface {
 	ObjectCache() WatcherManager
 
 	UpdatePackageResources(ctx context.Context, repositoryObj *configapi.Repository, oldPackage *PackageRevision, old, new *api.PackageRevisionResources) (*PackageRevision, *api.RenderStatus, error)
-	ListFunctions(ctx context.Context, repositoryObj *configapi.Repository) ([]*Function, error)
 
 	ListPackageRevisions(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageRevisionFilter) ([]*PackageRevision, error)
 	CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj *api.PackageRevision, parent *PackageRevision) (*PackageRevision, error)
-	UpdatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, oldPackage *PackageRevision, old, new *api.PackageRevision, parent *PackageRevision) (*PackageRevision, error)
+	UpdatePackageRevision(ctx context.Context, version string, repositoryObj *configapi.Repository, oldPackage *PackageRevision, old, new *api.PackageRevision, parent *PackageRevision) (*PackageRevision, error)
 	DeletePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj *PackageRevision) error
 
 	ListPackages(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageFilter) ([]*Package, error)
@@ -135,18 +134,6 @@ func (p *PackageRevision) KubeObjectName() string {
 
 func (p *PackageRevision) GetResources(ctx context.Context) (*api.PackageRevisionResources, error) {
 	return p.repoPackageRevision.GetResources(ctx)
-}
-
-type Function struct {
-	RepoFunction repository.Function
-}
-
-func (f *Function) Name() string {
-	return f.RepoFunction.Name()
-}
-
-func (f *Function) GetFunction() (*api.Function, error) {
-	return f.RepoFunction.GetFunction()
 }
 
 func NewCaDEngine(opts ...EngineOption) (CaDEngine, error) {
@@ -326,7 +313,7 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	}
 
 	// Updates are done.
-	repoPkgRev, err := draft.Close(ctx)
+	repoPkgRev, err := draft.Close(ctx, "")
 	if err != nil {
 		return nil, err
 	}
@@ -520,7 +507,7 @@ func (cad *cadEngine) mapTaskToMutation(ctx context.Context, obj *api.PackageRev
 	}
 }
 
-func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, oldPackage *PackageRevision, oldObj, newObj *api.PackageRevision, parent *PackageRevision) (*PackageRevision, error) {
+func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version string, repositoryObj *configapi.Repository, oldPackage *PackageRevision, oldObj, newObj *api.PackageRevision, parent *PackageRevision) (*PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cadEngine::UpdatePackageRevision", trace.WithAttributes())
 	defer span.End()
 
@@ -593,7 +580,7 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, repositoryObj *
 		if err != nil {
 			return nil, err
 		}
-		repoPkgRev, err := cad.recloneAndReplay(ctx, repo, repositoryObj, newObj, packageConfig)
+		repoPkgRev, err := cad.recloneAndReplay(ctx, version, repo, repositoryObj, newObj, packageConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -694,7 +681,7 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, repositoryObj *
 	}
 
 	// Updates are done.
-	repoPkgRev, err = draft.Close(ctx)
+	repoPkgRev, err = draft.Close(ctx, version)
 	if err != nil {
 		return nil, err
 	}
@@ -706,14 +693,6 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, repositoryObj *
 
 	sent := cad.watcherManager.NotifyPackageRevisionChange(watch.Modified, repoPkgRev, pkgRevMeta)
 	klog.Infof("engine: sent %d for updated PackageRevision %s/%s", sent, repoPkgRev.KubeObjectNamespace(), repoPkgRev.KubeObjectName())
-
-	// Refresh Cache after package is approved so that 'main' package rev is available instantly after creation
-	if repoPkgRev.Lifecycle() == api.PackageRevisionLifecyclePublished {
-		err := repo.RefreshCache(ctx)
-		if err != nil {
-			return nil, err
-		}
-	}
 
 	return ToPackageRevision(repoPkgRev, pkgRevMeta), nil
 }
@@ -1036,7 +1015,7 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 		}})
 
 	// No lifecycle change when updating package resources; updates are done.
-	repoPkgRev, err := draft.Close(ctx)
+	repoPkgRev, err := draft.Close(ctx, "")
 	if err != nil {
 		return nil, renderStatus, err
 	}
@@ -1084,30 +1063,6 @@ func applyResourceMutations(ctx context.Context, draft repository.PackageDraft, 
 	}
 
 	return applied, renderStatus, nil
-}
-
-func (cad *cadEngine) ListFunctions(ctx context.Context, repositoryObj *configapi.Repository) ([]*Function, error) {
-	ctx, span := tracer.Start(ctx, "cadEngine::ListFunctions", trace.WithAttributes())
-	defer span.End()
-
-	repo, err := cad.cache.OpenRepository(ctx, repositoryObj)
-	if err != nil {
-		return nil, err
-	}
-
-	fns, err := repo.ListFunctions(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	var functions []*Function
-	for _, f := range fns {
-		functions = append(functions, &Function{
-			RepoFunction: f,
-		})
-	}
-
-	return functions, nil
 }
 
 type updatePackageMutation struct {
@@ -1391,7 +1346,7 @@ func isRecloneAndReplay(oldObj, newObj *api.PackageRevision) bool {
 
 // recloneAndReplay performs an update by recloning the upstream package and replaying all tasks.
 // This is more like a git rebase operation than the "classic" kpt update algorithm, which is more like a git merge.
-func (cad *cadEngine) recloneAndReplay(ctx context.Context, repo repository.Repository, repositoryObj *configapi.Repository, newObj *api.PackageRevision, packageConfig *builtins.PackageConfig) (repository.PackageRevision, error) {
+func (cad *cadEngine) recloneAndReplay(ctx context.Context, version string, repo repository.Repository, repositoryObj *configapi.Repository, newObj *api.PackageRevision, packageConfig *builtins.PackageConfig) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cadEngine::recloneAndReplay", trace.WithAttributes())
 	defer span.End()
 
@@ -1410,7 +1365,7 @@ func (cad *cadEngine) recloneAndReplay(ctx context.Context, repo repository.Repo
 		return nil, err
 	}
 
-	return draft.Close(ctx)
+	return draft.Close(ctx, version)
 }
 
 // ExtractContextConfigMap returns the package-context configmap, if found
