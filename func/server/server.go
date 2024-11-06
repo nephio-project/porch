@@ -41,7 +41,7 @@ var (
 	port                    = flag.Int("port", 9445, "The server port")
 	functions               = flag.String("functions", "./functions", "Path to cached functions.")
 	config                  = flag.String("config", "./config.yaml", "Path to the config file.")
-	registryAuthSecretPath  = flag.String("registry-auth-secret-path", "", "The path of the secret used in custom registry authentication")
+	registryAuthSecretPath  = flag.String("registry-auth-secret-path", "/var/tmp/config-secret/.dockerconfigjson", "The path of the secret used in custom registry authentication")
 	registryAuthSecretName  = flag.String("registry-auth-secret-name", "auth-secret", "The name of the secret used in custom registry authentication")
 	podCacheConfig          = flag.String("pod-cache-config", "/pod-cache-config/pod-cache-config.yaml", "Path to the pod cache config file. The file is map of function name to TTL.")
 	podNamespace            = flag.String("pod-namespace", "porch-fn-system", "Namespace to run KRM functions pods.")

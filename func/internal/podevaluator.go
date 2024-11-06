@@ -550,7 +550,7 @@ func (pm *podManager) imageDigestAndEntrypoint(ctx context.Context, image string
 	}
 
 	var auth authn.Authenticator
-	if registryAuthSecretPath != "" && !strings.HasPrefix(image, defaultRegistry) {
+	if !strings.HasPrefix(image, defaultRegistry) {
 		if err := pm.ensureCustomAuthSecret(ctx, registryAuthSecretPath, registryAuthSecretName); err != nil {
 			return nil, err
 		}
@@ -650,11 +650,11 @@ func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl
 	// TODO: It's possible to set up a Watch in the fn runner namespace, and always try to maintain a up-to-date local cache.
 	podList := &corev1.PodList{}
 	podTemplate, templateVersion, err := pm.getBasePodTemplate(ctx)
-	pm.appendImagePullSecret(image, registryAuthSecretPath, registryAuthSecretName, podTemplate)
 	if err != nil {
 		klog.Errorf("failed to generate a base pod template: %v", err)
 		return client.ObjectKey{}, fmt.Errorf("failed to generate a base pod template: %w", err)
 	}
+	pm.appendImagePullSecret(image, registryAuthSecretPath, registryAuthSecretName, podTemplate)
 	err = pm.kubeClient.List(ctx, podList, client.InNamespace(pm.namespace), client.MatchingLabels(map[string]string{krmFunctionLabel: podId}))
 	if err != nil {
 		klog.Warningf("error when listing pods for %q: %v", image, err)
@@ -804,7 +804,7 @@ func (pm *podManager) getBasePodTemplate(ctx context.Context) (*corev1.Pod, stri
 
 // if a custom image is requested, use the secret provided to authenticate
 func (pm *podManager) appendImagePullSecret(image string, registryAuthSecretPath string, registryAuthSecretName string, podTemplate *corev1.Pod) {
-	if registryAuthSecretPath != "" && !strings.HasPrefix(image, defaultRegistry) {
+	if !strings.HasPrefix(image, defaultRegistry) {
 		podTemplate.Spec.ImagePullSecrets = []corev1.LocalObjectReference{
 			{Name: registryAuthSecretName},
 		}
