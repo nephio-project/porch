@@ -50,9 +50,13 @@ func (d *dbPackageDraft) UpdateLifecycle(ctx context.Context, new v1alpha1.Packa
 }
 
 // Finish round of updates.
-func (d *dbPackageDraft) Close(ctx context.Context) (repository.PackageRevision, error) {
+func (d *dbPackageDraft) Close(ctx context.Context, version string) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "dbPackageDraft::Close", trace.WithAttributes())
 	defer span.End()
 
 	return d.repo.CloseDraft(ctx, d)
+}
+
+func (d *dbPackageDraft) GetName() string {
+	return d.packageName
 }
