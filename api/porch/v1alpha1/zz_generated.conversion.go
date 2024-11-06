@@ -64,26 +64,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*Function)(nil), (*porch.Function)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_Function_To_porch_Function(a.(*Function), b.(*porch.Function), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*porch.Function)(nil), (*Function)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_porch_Function_To_v1alpha1_Function(a.(*porch.Function), b.(*Function), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*FunctionConfig)(nil), (*porch.FunctionConfig)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_FunctionConfig_To_porch_FunctionConfig(a.(*FunctionConfig), b.(*porch.FunctionConfig), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*porch.FunctionConfig)(nil), (*FunctionConfig)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_porch_FunctionConfig_To_v1alpha1_FunctionConfig(a.(*porch.FunctionConfig), b.(*FunctionConfig), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*FunctionEvalTaskSpec)(nil), (*porch.FunctionEvalTaskSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha1_FunctionEvalTaskSpec_To_porch_FunctionEvalTaskSpec(a.(*FunctionEvalTaskSpec), b.(*porch.FunctionEvalTaskSpec), scope)
 	}); err != nil {
@@ -91,46 +71,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*porch.FunctionEvalTaskSpec)(nil), (*FunctionEvalTaskSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_porch_FunctionEvalTaskSpec_To_v1alpha1_FunctionEvalTaskSpec(a.(*porch.FunctionEvalTaskSpec), b.(*FunctionEvalTaskSpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*FunctionList)(nil), (*porch.FunctionList)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_FunctionList_To_porch_FunctionList(a.(*FunctionList), b.(*porch.FunctionList), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*porch.FunctionList)(nil), (*FunctionList)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_porch_FunctionList_To_v1alpha1_FunctionList(a.(*porch.FunctionList), b.(*FunctionList), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*FunctionRef)(nil), (*porch.FunctionRef)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_FunctionRef_To_porch_FunctionRef(a.(*FunctionRef), b.(*porch.FunctionRef), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*porch.FunctionRef)(nil), (*FunctionRef)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_porch_FunctionRef_To_v1alpha1_FunctionRef(a.(*porch.FunctionRef), b.(*FunctionRef), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*FunctionSpec)(nil), (*porch.FunctionSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_FunctionSpec_To_porch_FunctionSpec(a.(*FunctionSpec), b.(*porch.FunctionSpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*porch.FunctionSpec)(nil), (*FunctionSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_porch_FunctionSpec_To_v1alpha1_FunctionSpec(a.(*porch.FunctionSpec), b.(*FunctionSpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*FunctionStatus)(nil), (*porch.FunctionStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_FunctionStatus_To_porch_FunctionStatus(a.(*FunctionStatus), b.(*porch.FunctionStatus), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*porch.FunctionStatus)(nil), (*FunctionStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_porch_FunctionStatus_To_v1alpha1_FunctionStatus(a.(*porch.FunctionStatus), b.(*FunctionStatus), scope)
 	}); err != nil {
 		return err
 	}
@@ -579,58 +519,6 @@ func Convert_porch_File_To_v1alpha1_File(in *porch.File, out *File, s conversion
 	return autoConvert_porch_File_To_v1alpha1_File(in, out, s)
 }
 
-func autoConvert_v1alpha1_Function_To_porch_Function(in *Function, out *porch.Function, s conversion.Scope) error {
-	out.ObjectMeta = in.ObjectMeta
-	if err := Convert_v1alpha1_FunctionSpec_To_porch_FunctionSpec(&in.Spec, &out.Spec, s); err != nil {
-		return err
-	}
-	if err := Convert_v1alpha1_FunctionStatus_To_porch_FunctionStatus(&in.Status, &out.Status, s); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Convert_v1alpha1_Function_To_porch_Function is an autogenerated conversion function.
-func Convert_v1alpha1_Function_To_porch_Function(in *Function, out *porch.Function, s conversion.Scope) error {
-	return autoConvert_v1alpha1_Function_To_porch_Function(in, out, s)
-}
-
-func autoConvert_porch_Function_To_v1alpha1_Function(in *porch.Function, out *Function, s conversion.Scope) error {
-	out.ObjectMeta = in.ObjectMeta
-	if err := Convert_porch_FunctionSpec_To_v1alpha1_FunctionSpec(&in.Spec, &out.Spec, s); err != nil {
-		return err
-	}
-	if err := Convert_porch_FunctionStatus_To_v1alpha1_FunctionStatus(&in.Status, &out.Status, s); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Convert_porch_Function_To_v1alpha1_Function is an autogenerated conversion function.
-func Convert_porch_Function_To_v1alpha1_Function(in *porch.Function, out *Function, s conversion.Scope) error {
-	return autoConvert_porch_Function_To_v1alpha1_Function(in, out, s)
-}
-
-func autoConvert_v1alpha1_FunctionConfig_To_porch_FunctionConfig(in *FunctionConfig, out *porch.FunctionConfig, s conversion.Scope) error {
-	out.RequiredFields = *(*[]string)(unsafe.Pointer(&in.RequiredFields))
-	return nil
-}
-
-// Convert_v1alpha1_FunctionConfig_To_porch_FunctionConfig is an autogenerated conversion function.
-func Convert_v1alpha1_FunctionConfig_To_porch_FunctionConfig(in *FunctionConfig, out *porch.FunctionConfig, s conversion.Scope) error {
-	return autoConvert_v1alpha1_FunctionConfig_To_porch_FunctionConfig(in, out, s)
-}
-
-func autoConvert_porch_FunctionConfig_To_v1alpha1_FunctionConfig(in *porch.FunctionConfig, out *FunctionConfig, s conversion.Scope) error {
-	out.RequiredFields = *(*[]string)(unsafe.Pointer(&in.RequiredFields))
-	return nil
-}
-
-// Convert_porch_FunctionConfig_To_v1alpha1_FunctionConfig is an autogenerated conversion function.
-func Convert_porch_FunctionConfig_To_v1alpha1_FunctionConfig(in *porch.FunctionConfig, out *FunctionConfig, s conversion.Scope) error {
-	return autoConvert_porch_FunctionConfig_To_v1alpha1_FunctionConfig(in, out, s)
-}
-
 func autoConvert_v1alpha1_FunctionEvalTaskSpec_To_porch_FunctionEvalTaskSpec(in *FunctionEvalTaskSpec, out *porch.FunctionEvalTaskSpec, s conversion.Scope) error {
 	out.Subpackage = in.Subpackage
 	out.Image = in.Image
@@ -665,102 +553,6 @@ func autoConvert_porch_FunctionEvalTaskSpec_To_v1alpha1_FunctionEvalTaskSpec(in 
 // Convert_porch_FunctionEvalTaskSpec_To_v1alpha1_FunctionEvalTaskSpec is an autogenerated conversion function.
 func Convert_porch_FunctionEvalTaskSpec_To_v1alpha1_FunctionEvalTaskSpec(in *porch.FunctionEvalTaskSpec, out *FunctionEvalTaskSpec, s conversion.Scope) error {
 	return autoConvert_porch_FunctionEvalTaskSpec_To_v1alpha1_FunctionEvalTaskSpec(in, out, s)
-}
-
-func autoConvert_v1alpha1_FunctionList_To_porch_FunctionList(in *FunctionList, out *porch.FunctionList, s conversion.Scope) error {
-	out.ListMeta = in.ListMeta
-	out.Items = *(*[]porch.Function)(unsafe.Pointer(&in.Items))
-	return nil
-}
-
-// Convert_v1alpha1_FunctionList_To_porch_FunctionList is an autogenerated conversion function.
-func Convert_v1alpha1_FunctionList_To_porch_FunctionList(in *FunctionList, out *porch.FunctionList, s conversion.Scope) error {
-	return autoConvert_v1alpha1_FunctionList_To_porch_FunctionList(in, out, s)
-}
-
-func autoConvert_porch_FunctionList_To_v1alpha1_FunctionList(in *porch.FunctionList, out *FunctionList, s conversion.Scope) error {
-	out.ListMeta = in.ListMeta
-	out.Items = *(*[]Function)(unsafe.Pointer(&in.Items))
-	return nil
-}
-
-// Convert_porch_FunctionList_To_v1alpha1_FunctionList is an autogenerated conversion function.
-func Convert_porch_FunctionList_To_v1alpha1_FunctionList(in *porch.FunctionList, out *FunctionList, s conversion.Scope) error {
-	return autoConvert_porch_FunctionList_To_v1alpha1_FunctionList(in, out, s)
-}
-
-func autoConvert_v1alpha1_FunctionRef_To_porch_FunctionRef(in *FunctionRef, out *porch.FunctionRef, s conversion.Scope) error {
-	out.Name = in.Name
-	return nil
-}
-
-// Convert_v1alpha1_FunctionRef_To_porch_FunctionRef is an autogenerated conversion function.
-func Convert_v1alpha1_FunctionRef_To_porch_FunctionRef(in *FunctionRef, out *porch.FunctionRef, s conversion.Scope) error {
-	return autoConvert_v1alpha1_FunctionRef_To_porch_FunctionRef(in, out, s)
-}
-
-func autoConvert_porch_FunctionRef_To_v1alpha1_FunctionRef(in *porch.FunctionRef, out *FunctionRef, s conversion.Scope) error {
-	out.Name = in.Name
-	return nil
-}
-
-// Convert_porch_FunctionRef_To_v1alpha1_FunctionRef is an autogenerated conversion function.
-func Convert_porch_FunctionRef_To_v1alpha1_FunctionRef(in *porch.FunctionRef, out *FunctionRef, s conversion.Scope) error {
-	return autoConvert_porch_FunctionRef_To_v1alpha1_FunctionRef(in, out, s)
-}
-
-func autoConvert_v1alpha1_FunctionSpec_To_porch_FunctionSpec(in *FunctionSpec, out *porch.FunctionSpec, s conversion.Scope) error {
-	out.Image = in.Image
-	if err := Convert_v1alpha1_RepositoryRef_To_porch_RepositoryRef(&in.RepositoryRef, &out.RepositoryRef, s); err != nil {
-		return err
-	}
-	out.FunctionTypes = *(*[]porch.FunctionType)(unsafe.Pointer(&in.FunctionTypes))
-	out.FunctionConfigs = *(*[]porch.FunctionConfig)(unsafe.Pointer(&in.FunctionConfigs))
-	out.Keywords = *(*[]string)(unsafe.Pointer(&in.Keywords))
-	out.Description = in.Description
-	out.DocumentationUrl = in.DocumentationUrl
-	return nil
-}
-
-// Convert_v1alpha1_FunctionSpec_To_porch_FunctionSpec is an autogenerated conversion function.
-func Convert_v1alpha1_FunctionSpec_To_porch_FunctionSpec(in *FunctionSpec, out *porch.FunctionSpec, s conversion.Scope) error {
-	return autoConvert_v1alpha1_FunctionSpec_To_porch_FunctionSpec(in, out, s)
-}
-
-func autoConvert_porch_FunctionSpec_To_v1alpha1_FunctionSpec(in *porch.FunctionSpec, out *FunctionSpec, s conversion.Scope) error {
-	out.Image = in.Image
-	if err := Convert_porch_RepositoryRef_To_v1alpha1_RepositoryRef(&in.RepositoryRef, &out.RepositoryRef, s); err != nil {
-		return err
-	}
-	out.FunctionTypes = *(*[]FunctionType)(unsafe.Pointer(&in.FunctionTypes))
-	out.FunctionConfigs = *(*[]FunctionConfig)(unsafe.Pointer(&in.FunctionConfigs))
-	out.Keywords = *(*[]string)(unsafe.Pointer(&in.Keywords))
-	out.Description = in.Description
-	out.DocumentationUrl = in.DocumentationUrl
-	return nil
-}
-
-// Convert_porch_FunctionSpec_To_v1alpha1_FunctionSpec is an autogenerated conversion function.
-func Convert_porch_FunctionSpec_To_v1alpha1_FunctionSpec(in *porch.FunctionSpec, out *FunctionSpec, s conversion.Scope) error {
-	return autoConvert_porch_FunctionSpec_To_v1alpha1_FunctionSpec(in, out, s)
-}
-
-func autoConvert_v1alpha1_FunctionStatus_To_porch_FunctionStatus(in *FunctionStatus, out *porch.FunctionStatus, s conversion.Scope) error {
-	return nil
-}
-
-// Convert_v1alpha1_FunctionStatus_To_porch_FunctionStatus is an autogenerated conversion function.
-func Convert_v1alpha1_FunctionStatus_To_porch_FunctionStatus(in *FunctionStatus, out *porch.FunctionStatus, s conversion.Scope) error {
-	return autoConvert_v1alpha1_FunctionStatus_To_porch_FunctionStatus(in, out, s)
-}
-
-func autoConvert_porch_FunctionStatus_To_v1alpha1_FunctionStatus(in *porch.FunctionStatus, out *FunctionStatus, s conversion.Scope) error {
-	return nil
-}
-
-// Convert_porch_FunctionStatus_To_v1alpha1_FunctionStatus is an autogenerated conversion function.
-func Convert_porch_FunctionStatus_To_v1alpha1_FunctionStatus(in *porch.FunctionStatus, out *FunctionStatus, s conversion.Scope) error {
-	return autoConvert_porch_FunctionStatus_To_v1alpha1_FunctionStatus(in, out, s)
 }
 
 func autoConvert_v1alpha1_GitLock_To_porch_GitLock(in *GitLock, out *porch.GitLock, s conversion.Scope) error {

@@ -31,7 +31,6 @@ var (
 	PackageGVR                  = SchemeGroupVersion.WithResource("packages")
 	PackageRevisionGVR          = SchemeGroupVersion.WithResource("packagerevisions")
 	PackageRevisionResourcesGVR = SchemeGroupVersion.WithResource("packagerevisionresources")
-	FunctionGVR                 = SchemeGroupVersion.WithResource("functions")
 )
 
 func init() {
@@ -49,8 +48,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&PackageRevisionList{},
 		&PackageRevisionResources{},
 		&PackageRevisionResourcesList{},
-		&Function{},
-		&FunctionList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

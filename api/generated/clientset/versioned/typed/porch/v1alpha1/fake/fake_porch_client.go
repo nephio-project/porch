@@ -26,10 +26,6 @@ type FakePorchV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakePorchV1alpha1) Functions(namespace string) v1alpha1.FunctionInterface {
-	return &FakeFunctions{c, namespace}
-}
-
 func (c *FakePorchV1alpha1) PackageRevisions(namespace string) v1alpha1.PackageRevisionInterface {
 	return &FakePackageRevisions{c, namespace}
 }
