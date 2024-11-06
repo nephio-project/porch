@@ -187,6 +187,16 @@ func (pr dbPackageRevision) GetUpstreamLock(context.Context) (kptfile.Upstream, 
 	return kptfile.Upstream{}, kptfile.UpstreamLock{}, nil
 }
 
+func (p *dbPackageRevision) ToMainPackageRevision() repository.PackageRevision {
+	return &dbPackageRevision{
+		pkgRevKey: p.pkgRevKey,
+		updated:   p.updated,
+		updatedBy: p.updatedBy,
+		lifecycle: p.lifecycle,
+		resources: p.resources,
+	}
+}
+
 func (pr dbPackageRevision) GetKptfile(context.Context) (kptfile.KptFile, error) {
 	readPr, err := pkgRevReadFromDB(pr.Key())
 	if err != nil {
