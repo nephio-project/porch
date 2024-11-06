@@ -16,8 +16,6 @@
 
 package v1alpha1
 
-type FunctionExpansion interface{}
-
 type PackageRevisionExpansion interface{}
 
 type PackageRevisionResourcesExpansion interface{}

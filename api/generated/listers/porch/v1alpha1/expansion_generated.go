@@ -16,14 +16,6 @@
 
 package v1alpha1
 
-// FunctionListerExpansion allows custom methods to be added to
-// FunctionLister.
-type FunctionListerExpansion interface{}
-
-// FunctionNamespaceListerExpansion allows custom methods to be added to
-// FunctionNamespaceLister.
-type FunctionNamespaceListerExpansion interface{}
-
 // PackageRevisionListerExpansion allows custom methods to be added to
 // PackageRevisionLister.
 type PackageRevisionListerExpansion interface{}
