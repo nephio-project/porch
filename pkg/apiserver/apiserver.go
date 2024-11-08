@@ -81,6 +81,7 @@ type ExtraConfig struct {
 	DefaultImagePrefix    string
 	RepoSyncFrequency     time.Duration
 	UseGitCaBundle        bool
+	BackgroundJobInterval time.Duration
 }
 
 // Config defines the config for the apiserver
@@ -91,9 +92,10 @@ type Config struct {
 
 // PorchServer contains state for a Kubernetes cluster master/api server.
 type PorchServer struct {
-	GenericAPIServer *genericapiserver.GenericAPIServer
-	coreClient       client.WithWatch
-	cache            cache.Cache
+	GenericAPIServer      *genericapiserver.GenericAPIServer
+	coreClient            client.WithWatch
+	cache                 cache.Cache
+	BackgroundJobInterval time.Duration
 }
 
 type completedConfig struct {
@@ -264,9 +266,10 @@ func (c completedConfig) New() (*PorchServer, error) {
 	}
 
 	s := &PorchServer{
-		GenericAPIServer: genericServer,
-		coreClient:       coreClient,
-		cache:            memoryCache,
+		GenericAPIServer:      genericServer,
+		coreClient:            coreClient,
+		cache:                 memoryCache,
+		BackgroundJobInterval: c.ExtraConfig.BackgroundJobInterval,
 	}
 
 	// Install the groups.
@@ -278,7 +281,7 @@ func (c completedConfig) New() (*PorchServer, error) {
 }
 
 func (s *PorchServer) Run(ctx context.Context) error {
-	porch.RunBackground(ctx, s.coreClient, s.cache)
+	porch.RunBackground(ctx, s.coreClient, s.cache, s.BackgroundJobInterval)
 
 	// TODO: Reconsider if the existence of CERT_STORAGE_DIR was a good inidcator for webhook setup,
 	// but for now we keep backward compatiblity

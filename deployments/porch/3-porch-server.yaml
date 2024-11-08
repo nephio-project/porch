@@ -77,6 +77,7 @@ spec:
             - --secure-port=4443
             - --repo-sync-frequency=60s
             - --disable-validating-admissions-policy=true
+            - --background-job-interval=10m
 
 ---
 apiVersion: v1

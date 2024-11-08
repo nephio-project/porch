@@ -28,18 +28,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func RunBackground(ctx context.Context, coreClient client.WithWatch, cache cache.Cache) {
+func RunBackground(ctx context.Context, coreClient client.WithWatch, cache cache.Cache, backgroundJobInterval time.Duration) {
 	b := background{
-		coreClient: coreClient,
-		cache:      cache,
+		coreClient:            coreClient,
+		cache:                 cache,
+		backgroundJobInterval: backgroundJobInterval,
 	}
 	go b.run(ctx)
 }
 
 // background manages background tasks
 type background struct {
-	coreClient client.WithWatch
-	cache      cache.Cache
+	coreClient            client.WithWatch
+	cache                 cache.Cache
+	backgroundJobInterval time.Duration
 }
 
 const (
@@ -50,6 +52,7 @@ const (
 // run will run until ctx is done
 func (b *background) run(ctx context.Context) {
 	klog.Infof("Background routine starting ...")
+	klog.Infof("\n\n\n\n\n------------------- Time-Interval  %v     -------------\n\n\n\n\n", b.backgroundJobInterval)
 
 	// Repository watch.
 	var events <-chan watch.Event
@@ -65,7 +68,7 @@ func (b *background) run(ctx context.Context) {
 	defer reconnect.Stop()
 
 	// Start ticker
-	ticker := time.NewTicker(1 * time.Minute)
+	ticker := time.NewTicker(b.backgroundJobInterval)
 	defer ticker.Stop()
 
 loop:
