@@ -19,59 +19,45 @@
 # matrix of GOOS and GOARCH combinations, but instead, we'd need to define separate
 # steps for each targeted OS and ARCH. This is because we need to specify the
 # platform specific C std library (libc) and cross-compiler to be used.
+version: 2
 env:
   - CGO_ENABLED=0
   - GO111MODULE=on
 builds:
-  - id: darwin-amd64
-    env:
-      - CGO_ENABLED=0
-      - GO111MODULE=on
+  - id: porchctl_darwin
     goos:
       - darwin
     goarch:
       - amd64
-    ldflags: -s -w -X github.com/nephio-project/porch/cmd/porchctl/run.version={{.Version}}
-    main: ./cmd/porchctl
-
-  - id: darwin-arm64
-    env:
-      - CGO_ENABLED=0
-      - GO111MODULE=on
-    goos:
-      - darwin
-    goarch:
       - arm64
     ldflags: -s -w -X github.com/nephio-project/porch/cmd/porchctl/run.version={{.Version}}
     main: ./cmd/porchctl
+    binary: porchctl
 
-  - id: linux-amd64
-    env:
-      - CGO_ENABLED=0
-      - GO111MODULE=on
+  - id: porchctl_linux
     goos:
       - linux
     goarch:
       - amd64
-    ldflags: -s -w -X github.com/nephio-project/porch/cmd/porchctl/run.version={{.Version}} -extldflags "-z noexecstack"
-    main: ./cmd/porchctl
-
-  - id: linux-arm64
-    env:
-      - CGO_ENABLED=0
-      - GO111MODULE=on
-    goos:
-      - linux
-    goarch:
       - arm64
     ldflags: -s -w -X github.com/nephio-project/porch/cmd/porchctl/run.version={{.Version}} -extldflags "-z noexecstack"
     main: ./cmd/porchctl
+    binary: porchctl
 
+archives:
+  - name_template: 'porchctl_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+  - id: blueprint
+    meta: true
+    files:
+      - src: ".build/deploy/*"
+        dst: "."
+        strip_parent: true
+    name_template: '{{ .ProjectName }}_blueprint'
 
 checksum:
   name_template: "checksums.txt"
 snapshot:
-  name_template: "main"
+  version_template: "main"
 changelog:
   sort: asc
   filters:
@@ -82,7 +68,7 @@ changelog:
       - Merge pull request
       - Merge branch
 
-project_name: porchctl
+project_name: porch
 
 release:
   github:
