@@ -52,7 +52,6 @@ const (
 // run will run until ctx is done
 func (b *background) run(ctx context.Context) {
 	klog.Infof("Background routine starting ...")
-	klog.Infof("\n\n\n\n\n------------------- Time-Interval  %v     -------------\n\n\n\n\n", b.backgroundJobInterval)
 
 	// Repository watch.
 	var events <-chan watch.Event
