@@ -28,20 +28,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func RunBackground(ctx context.Context, coreClient client.WithWatch, cache cache.Cache, backgroundJobInterval time.Duration) {
+func RunBackground(ctx context.Context, coreClient client.WithWatch, cache cache.Cache, RepoSyncFrequency time.Duration) {
 	b := background{
-		coreClient:            coreClient,
-		cache:                 cache,
-		backgroundJobInterval: backgroundJobInterval,
+		coreClient:        coreClient,
+		cache:             cache,
+		RepoSyncFrequency: RepoSyncFrequency,
 	}
 	go b.run(ctx)
 }
 
 // background manages background tasks
 type background struct {
-	coreClient            client.WithWatch
-	cache                 cache.Cache
-	backgroundJobInterval time.Duration
+	coreClient        client.WithWatch
+	cache             cache.Cache
+	RepoSyncFrequency time.Duration
 }
 
 const (
@@ -67,7 +67,7 @@ func (b *background) run(ctx context.Context) {
 	defer reconnect.Stop()
 
 	// Start ticker
-	ticker := time.NewTicker(b.backgroundJobInterval)
+	ticker := time.NewTicker(b.RepoSyncFrequency)
 	defer ticker.Stop()
 
 loop:

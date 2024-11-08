@@ -75,9 +75,8 @@ spec:
             - --cache-directory=/cache
             - --cert-dir=/tmp/certs
             - --secure-port=4443
-            - --repo-sync-frequency=60s
+            - --repo-sync-frequency=10m
             - --disable-validating-admissions-policy=true
-            - --background-job-interval=10m
 
 ---
 apiVersion: v1

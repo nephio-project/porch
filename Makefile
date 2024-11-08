@@ -181,8 +181,7 @@ run-local: porch
 	--kubeconfig="$(CURDIR)/deployments/local/kubeconfig" \
 	--cache-directory="$(CACHEDIR)" \
 	--function-runner 192.168.8.202:9445 \
-	--repo-sync-frequency=60s \
-	--background-job-interval=10m
+	--repo-sync-frequency=10m
 
 .PHONY: run-jaeger
 run-jaeger:

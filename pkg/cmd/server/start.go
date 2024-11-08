@@ -59,7 +59,6 @@ type PorchServerOptions struct {
 	UseGitCaBundle                   bool
 	DisableValidatingAdmissionPolicy bool
 	MaxRequestBodySize               int64
-	BackgroundJobInterval            time.Duration
 
 	SharedInformerFactory informers.SharedInformerFactory
 	StdOut                io.Writer
@@ -201,7 +200,6 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 			FunctionRunnerAddress: o.FunctionRunnerAddress,
 			DefaultImagePrefix:    o.DefaultImagePrefix,
 			UseGitCaBundle:        o.UseGitCaBundle,
-			BackgroundJobInterval: o.BackgroundJobInterval,
 		},
 	}
 	return config, nil
@@ -243,12 +241,12 @@ func (o *PorchServerOptions) AddFlags(fs *pflag.FlagSet) {
 			"Under the local-debug mode the apiserver will allow all access to its resources without "+
 				"authorizing the requests, this flag is only intended for debugging in your workstation.")
 	}
-	fs.DurationVar(&o.BackgroundJobInterval, "background-job-interval", 10*time.Minute, "Time interval in minutes at which the background job will poll the git repository to maintain the correct state.")
+
 	fs.StringVar(&o.FunctionRunnerAddress, "function-runner", "", "Address of the function runner gRPC service.")
 	fs.StringVar(&o.DefaultImagePrefix, "default-image-prefix", "gcr.io/kpt-fn/", "Default prefix for unqualified function names")
 	fs.StringVar(&o.CacheDirectory, "cache-directory", "", "Directory where Porch server stores repository and package caches.")
 	fs.Int64Var(&o.MaxRequestBodySize, "max-request-body-size", 6*1024*1024, "Maximum size of the request body in bytes.")
 	fs.BoolVar(&o.UseGitCaBundle, "use-git-cabundle", false, "Determine whether to use a user-defined CaBundle for TLS towards git.")
 	fs.BoolVar(&o.DisableValidatingAdmissionPolicy, "disable-validating-admissions-policy", true, "Determine whether to (dis|en)able the Validating Admission Policy, which requires k8s version >= v1.30")
-	fs.DurationVar(&o.RepoSyncFrequency, "repo-sync-frequency", 60*time.Second, "Frequency in seconds at which registered repositories will be synced.")
+	fs.DurationVar(&o.RepoSyncFrequency, "repo-sync-frequency", 10*time.Minute, "Frequency in seconds at which registered repositories will be synced.")
 }
