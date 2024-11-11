@@ -115,7 +115,7 @@ func createRepoWithContents(t *testing.T, contentDir string) *gogit.Repository {
 	return repo
 }
 
-func startGitServer(t *testing.T, repo *git.Repo, _ ...git.GitServerOption) string {
+func startGitServer(t *testing.T, repo *git.Repo, opts ...git.GitServerOption) string {
 	key := "default"
 	repos := git.NewStaticRepos()
 	if err := repos.Add(key, repo); err != nil {
