@@ -14,15 +14,14 @@
                 "--secure-port=4443",
                 "--kubeconfig=${env:KUBECONFIG}",
                 "--cache-directory=${workspaceFolder}/.cache",
-                "--function-runner=localhost:30001",
+                "--function-runner=${env:FUNCTION_RUNNER_IP}:9445",
                 "--repo-sync-frequency=60s"
             ],
             "cwd": "${workspaceFolder}",
             "env": { 
                 "CERT_STORAGE_DIR": "${workspaceFolder}/.build/pki/tmp", 
                 "WEBHOOK_HOST": "localhost",
-                "GOOGLE_API_GO_EXPERIMENTAL_DISABLE_NEW_AUTH_LIB": "true",
-                "OTEL": "otel://localhost:4317"
+                "GOOGLE_API_GO_EXPERIMENTAL_DISABLE_NEW_AUTH_LIB": "true"
             }
         },
         {
