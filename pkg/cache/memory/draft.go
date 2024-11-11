@@ -16,6 +16,7 @@ package memory
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache"
@@ -38,8 +39,9 @@ func (cd *cachedDraft) Close(ctx context.Context, version string) (repository.Pa
 	if err != nil {
 		return nil, err
 	}
+
 	if v != cd.cache.lastVersion {
-		_, _, err = cd.cache.refreshAllCachedPackages(ctx)
+		err = cd.cache.reconcileCache(ctx, "draft-version")
 		if err != nil {
 			return nil, err
 		}
@@ -64,9 +66,20 @@ func (cd *cachedDraft) Close(ctx context.Context, version string) (repository.Pa
 		return nil, err
 	}
 
-	if closed, err := cd.PackageDraft.Close(ctx, nextVersion); err != nil {
+	closed, err := cd.PackageDraft.Close(ctx, nextVersion)
+	if err != nil {
 		return nil, err
-	} else {
-		return cd.cache.update(ctx, closed)
 	}
+
+	err = cd.cache.reconcileCache(ctx, "close-draft")
+	if err != nil {
+		return nil, err
+	}
+
+	cpr := cd.cache.getPackageRevision(closed.Key())
+	if cpr == nil {
+		return nil, fmt.Errorf("closed draft not found")
+	}
+
+	return cpr, nil
 }

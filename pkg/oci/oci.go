@@ -249,6 +249,10 @@ func (p *ociPackageRevision) ToMainPackageRevision() repository.PackageRevision 
 	panic("unimplemented")
 }
 
+func (p *ociPackageRevision) CachedIdentifier() repository.CachedIdentifier {
+	return repository.CachedIdentifier{Key: p.packageName + ":" + string(p.workspaceName), Version: p.resourceVersion}
+}
+
 type ociPackageRevision struct {
 	digestName      oci.ImageDigestName
 	packageName     string
