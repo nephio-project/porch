@@ -53,7 +53,7 @@ type applyPatchMutation struct {
 var _ mutation = &applyPatchMutation{}
 
 func (m *applyPatchMutation) Apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
-	ctx, span := tracer.Start(ctx, "applyPatchMutation:::Apply", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "applyPatchMutation:::Apply", trace.WithAttributes())
 	defer span.End()
 
 	result := repository.PackageResources{
