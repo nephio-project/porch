@@ -15,7 +15,6 @@
 package memory
 
 import (
-	"github.com/nephio-project/porch/pkg/cache"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
@@ -26,7 +25,6 @@ import (
 // between Git and OCI.
 
 var _ repository.Package = &cachedPackage{}
-var _ cache.CachedPackage = &cachedPackage{}
 
 type cachedPackage struct {
 	repository.Package
