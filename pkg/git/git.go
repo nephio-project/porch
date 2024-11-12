@@ -1107,7 +1107,7 @@ func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuild
 	return nil
 }
 
-func (r *gitRepository) loadTasks(ctx context.Context, startCommit *object.Commit, packagePath string,
+func (r *gitRepository) loadTasks(_ context.Context, startCommit *object.Commit, packagePath string,
 	workspaceName v1alpha1.WorkspaceName) ([]v1alpha1.Task, error) {
 
 	var logOptions = git.LogOptions{
@@ -1707,6 +1707,10 @@ func (r *gitRepository) discoverPackagesInTree(commit *object.Commit, opt Discov
 		klog.Infof("discovered %d packages @%v", len(t.packages), commit.Hash)
 	}
 	return t, nil
+}
+
+func (r *gitRepository) Refresh(_ context.Context) error {
+	return nil
 }
 
 // See https://eli.thegreenplace.net/2021/generic-functions-on-slices-with-go-type-parameters/

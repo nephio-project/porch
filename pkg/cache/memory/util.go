@@ -57,6 +57,7 @@ func identifyLatestRevisions(result map[repository.PackageRevisionKey]*cachedPac
 			latest[currentKey.Package] = current
 		}
 	}
+
 	// Mark the winners as latest
 	for _, v := range latest {
 		v.isLatestRevision = true

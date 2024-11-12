@@ -12,30 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package porch
+package repository
 
 import (
 	"context"
 
-	"github.com/nephio-project/porch/pkg/repository"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
-func NewReferenceResolver(coreClient client.Reader) repository.ReferenceResolver {
-	return &referenceResolver{
-		coreClient: coreClient,
-	}
+type Object interface {
+	metav1.Object
+	runtime.Object
 }
 
-type referenceResolver struct {
-	coreClient client.Reader
+type RepositoryOpener interface {
+	OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (Repository, error)
 }
 
-var _ repository.ReferenceResolver = &referenceResolver{}
-
-func (r *referenceResolver) ResolveReference(ctx context.Context, namespace, name string, result repository.Object) error {
-	return r.coreClient.Get(ctx, client.ObjectKey{
-		Namespace: namespace,
-		Name:      name,
-	}, result)
+type ReferenceResolver interface {
+	ResolveReference(ctx context.Context, namespace, name string, result Object) error
 }

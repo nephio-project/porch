@@ -17,8 +17,7 @@ package memory
 import (
 	"context"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/pkg/cache"
+	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
@@ -29,26 +28,60 @@ import (
 // between Git and OCI.
 
 var _ repository.PackageRevision = &cachedPackageRevision{}
-var _ cache.CachedPackageRevision = &cachedPackageRevision{}
 
 type cachedPackageRevision struct {
 	repository.PackageRevision
 	isLatestRevision bool
 }
 
-func (c *cachedPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.PackageRevision, error) {
-	rev, err := c.PackageRevision.GetPackageRevision(ctx)
+func (c *cachedPackageRevision) GetPackageRevision(ctx context.Context) (*api.PackageRevision, error) {
+	apiPR, err := c.PackageRevision.GetPackageRevision(ctx)
 	if err != nil {
 		return nil, err
 	}
+
+	apiPR.Annotations = c.GetMeta().Annotations
+	apiPR.Finalizers = c.GetMeta().Finalizers
+	apiPR.OwnerReferences = c.GetMeta().OwnerReferences
+	apiPR.DeletionTimestamp = c.GetMeta().DeletionTimestamp
+	apiPR.Labels = c.GetMeta().Labels
+
 	if c.isLatestRevision {
 		// copy the labels in case the cached object is being read by another go routine
-		labels := make(map[string]string, len(rev.Labels))
-		for k, v := range rev.Labels {
+		labels := make(map[string]string, len(apiPR.Labels))
+		for k, v := range apiPR.Labels {
 			labels[k] = v
 		}
-		labels[v1alpha1.LatestPackageRevisionKey] = v1alpha1.LatestPackageRevisionValue
-		rev.Labels = labels
+		labels[api.LatestPackageRevisionKey] = api.LatestPackageRevisionValue
+		apiPR.Labels = labels
 	}
-	return rev, nil
+
+	return apiPR, nil
+}
+
+func (c *cachedPackageRevision) GetCachedPackageRevision(ctx context.Context) (*api.PackageRevision, error) {
+	repoPkgRev, err := c.GetPackageRevision(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var isLatest bool
+	if val, found := repoPkgRev.Labels[api.LatestPackageRevisionKey]; found && val == api.LatestPackageRevisionValue {
+		isLatest = true
+	}
+	repoPkgRev.Labels = c.GetMeta().Labels
+	if isLatest {
+		// copy the labels in case the cached object is being read by another go routine
+		labels := make(map[string]string, len(repoPkgRev.Labels))
+		for k, v := range repoPkgRev.Labels {
+			labels[k] = v
+		}
+		labels[api.LatestPackageRevisionKey] = api.LatestPackageRevisionValue
+		repoPkgRev.Labels = labels
+	}
+	repoPkgRev.Annotations = c.GetMeta().Annotations
+	repoPkgRev.Finalizers = c.GetMeta().Finalizers
+	repoPkgRev.OwnerReferences = c.GetMeta().OwnerReferences
+	repoPkgRev.DeletionTimestamp = c.GetMeta().DeletionTimestamp
+
+	return repoPkgRev, nil
 }

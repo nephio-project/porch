@@ -58,7 +58,7 @@ type Cache struct {
 var _ cache.Cache = &Cache{}
 
 type objectNotifier interface {
-	NotifyPackageRevisionChange(eventType watch.EventType, obj repository.PackageRevision, objMeta meta.PackageRevisionMeta) int
+	NotifyPackageRevisionChange(eventType watch.EventType, obj repository.PackageRevision) int
 }
 
 type CacheOptions struct {
@@ -105,7 +105,7 @@ func getCacheKey(repositorySpec *configapi.Repository) (string, error) {
 	}
 }
 
-func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (cache.CachedRepository, error) {
+func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (repository.Repository, error) {
 	ctx, span := tracer.Start(ctx, "Cache::OpenRepository", trace.WithAttributes())
 	defer span.End()
 

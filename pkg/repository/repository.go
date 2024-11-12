@@ -21,6 +21,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/pkg/meta"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -95,6 +96,9 @@ type PackageRevision interface {
 	ResourceVersion() string
 
 	ToMainPackageRevision() PackageRevision
+
+	GetMeta() meta.PackageRevisionMeta
+	SetMeta(meta.PackageRevisionMeta)
 }
 
 // Package is an abstract package.
@@ -214,6 +218,9 @@ type Repository interface {
 
 	// Close cleans up any resources associated with the repository
 	Close() error
+
+	// Refresh the repository
+	Refresh(ctx context.Context) error
 }
 
 // The definitions below would be more appropriately located in a package usable by any Porch component.

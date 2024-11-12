@@ -34,6 +34,7 @@ type EngineOptionFunc func(engine *cadEngine) error
 var _ EngineOption = EngineOptionFunc(nil)
 
 func (f EngineOptionFunc) apply(engine *cadEngine) error {
+	engine.taskHandler.RepoOpener = engine
 	return f(engine)
 }
 
@@ -47,12 +48,12 @@ func WithCache(cache cache.Cache) EngineOption {
 func WithBuiltinFunctionRuntime() EngineOption {
 	return EngineOptionFunc(func(engine *cadEngine) error {
 		runtime := newBuiltinRuntime()
-		if engine.runtime == nil {
-			engine.runtime = runtime
-		} else if mr, ok := engine.runtime.(*fn.MultiRuntime); ok {
+		if engine.taskHandler.Runtime == nil {
+			engine.taskHandler.Runtime = runtime
+		} else if mr, ok := engine.taskHandler.Runtime.(*fn.MultiRuntime); ok {
 			mr.Add(runtime)
 		} else {
-			engine.runtime = fn.NewMultiRuntime([]fn.FunctionRuntime{engine.runtime, runtime})
+			engine.taskHandler.Runtime = fn.NewMultiRuntime([]fn.FunctionRuntime{engine.taskHandler.Runtime, runtime})
 		}
 		return nil
 	})
@@ -64,12 +65,12 @@ func WithGRPCFunctionRuntime(address string) EngineOption {
 		if err != nil {
 			return fmt.Errorf("failed to create function runtime: %w", err)
 		}
-		if engine.runtime == nil {
-			engine.runtime = runtime
-		} else if mr, ok := engine.runtime.(*fn.MultiRuntime); ok {
+		if engine.taskHandler.Runtime == nil {
+			engine.taskHandler.Runtime = runtime
+		} else if mr, ok := engine.taskHandler.Runtime.(*fn.MultiRuntime); ok {
 			mr.Add(runtime)
 		} else {
-			engine.runtime = fn.NewMultiRuntime([]fn.FunctionRuntime{engine.runtime, runtime})
+			engine.taskHandler.Runtime = fn.NewMultiRuntime([]fn.FunctionRuntime{engine.taskHandler.Runtime, runtime})
 		}
 		return nil
 	})
@@ -77,14 +78,14 @@ func WithGRPCFunctionRuntime(address string) EngineOption {
 
 func WithFunctionRuntime(runtime fn.FunctionRuntime) EngineOption {
 	return EngineOptionFunc(func(engine *cadEngine) error {
-		engine.runtime = runtime
+		engine.taskHandler.Runtime = runtime
 		return nil
 	})
 }
 
 func WithSimpleFunctionRuntime() EngineOption {
 	return EngineOptionFunc(func(engine *cadEngine) error {
-		engine.runtime = kpt.NewSimpleFunctionRuntime()
+		engine.taskHandler.Runtime = kpt.NewSimpleFunctionRuntime()
 		return nil
 	})
 }
@@ -95,21 +96,21 @@ func WithRunnerOptions(options fnruntime.RunnerOptions) EngineOption {
 
 func WithRunnerOptionsResolver(fn func(namespace string) fnruntime.RunnerOptions) EngineOption {
 	return EngineOptionFunc(func(engine *cadEngine) error {
-		engine.runnerOptionsResolver = fn
+		engine.taskHandler.RunnerOptionsResolver = fn
 		return nil
 	})
 }
 
 func WithCredentialResolver(resolver repository.CredentialResolver) EngineOption {
 	return EngineOptionFunc(func(engine *cadEngine) error {
-		engine.credentialResolver = resolver
+		engine.taskHandler.CredentialResolver = resolver
 		return nil
 	})
 }
 
-func WithReferenceResolver(resolver ReferenceResolver) EngineOption {
+func WithReferenceResolver(resolver repository.ReferenceResolver) EngineOption {
 	return EngineOptionFunc(func(engine *cadEngine) error {
-		engine.referenceResolver = resolver
+		engine.taskHandler.ReferenceResolver = resolver
 		return nil
 	})
 }
