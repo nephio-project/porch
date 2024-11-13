@@ -22,8 +22,6 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// Functions returns a FunctionInformer.
-	Functions() FunctionInformer
 	// PackageRevisions returns a PackageRevisionInformer.
 	PackageRevisions() PackageRevisionInformer
 	// PackageRevisionResources returns a PackageRevisionResourcesInformer.
@@ -41,11 +39,6 @@ type version struct {
 // New returns a new Interface.
 func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakListOptions internalinterfaces.TweakListOptionsFunc) Interface {
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
-}
-
-// Functions returns a FunctionInformer.
-func (v *version) Functions() FunctionInformer {
-	return &functionInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // PackageRevisions returns a PackageRevisionInformer.

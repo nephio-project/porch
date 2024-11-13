@@ -35,8 +35,9 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
+	"github.com/nephio-project/porch/pkg/util"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,15 +50,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
-const (
-	serverEndpoint = "/validate-deletion"
-)
-
 type WebhookType string
 
 const (
 	WebhookTypeService WebhookType = "service"
 	WebhookTypeUrl     WebhookType = "url"
+	serverEndpoint                 = "/validate-deletion"
+)
+
+var (
+	cert        tls.Certificate
+	certModTime time.Time
 )
 
 // WebhookConfig defines the configuration for the PackageRevision deletion webhook
@@ -72,7 +75,8 @@ type WebhookConfig struct {
 	CertManWebhook   bool
 }
 
-func NewWebhookConfig() *WebhookConfig {
+// newWebhookConfig creates a new WebhookConfig object filled with values read from environment variables
+func newWebhookConfig(ctx context.Context) *WebhookConfig {
 	var cfg WebhookConfig
 	// NOTE: CERT_NAMESPACE is supported for backward compatibility.
 	// TODO: We may consider using only WEBHOOK_SERVICE_NAMESPACE instead.
@@ -82,9 +86,7 @@ func NewWebhookConfig() *WebhookConfig {
 		!hasEnv("WEBHOOK_HOST") {
 
 		cfg.Type = WebhookTypeService
-		cfg.ServiceName = getEnv("WEBHOOK_SERVICE_NAME", "api")
-		cfg.ServiceNamespace = getEnv("WEBHOOK_SERVICE_NAMESPACE", "porch-system")
-		cfg.ServiceNamespace = getEnv("CERT_NAMESPACE", cfg.ServiceNamespace)
+		cfg.ServiceName, cfg.ServiceNamespace = webhookServiceName(ctx)
 		cfg.Host = fmt.Sprintf("%s.%s.svc", cfg.ServiceName, cfg.ServiceNamespace)
 	} else {
 		cfg.Type = WebhookTypeUrl
@@ -97,13 +99,59 @@ func NewWebhookConfig() *WebhookConfig {
 	return &cfg
 }
 
-var (
-	cert        tls.Certificate
-	certModTime time.Time
-)
+// webhookServiceName returns the name and namespace of Kubernetes service belonging to the webhook
+func webhookServiceName(ctx context.Context) (serviceName, serviceNamespace string) {
+	var apiSvcNs string
+
+	// the webhook service namespace gets it value from the following sources in order of precedence:
+	// - WEBHOOK_SERVICE_NAME environment variable
+	// - the name of the service referenced in porch's APIService object
+	serviceName = os.Getenv("WEBHOOK_SERVICE_NAME")
+	if serviceName == "" { // empty value and unset envvar are the same for our purposes
+		// if WEBHOOK_SERVICE_NAME is not set, try to use the porch API service name
+		apiSvc, err := util.GetPorchApiServiceKey(ctx)
+		if err != nil {
+			panic(fmt.Sprintf("WEBHOOK_SERVICE_NAME environment variable is not set, and could not find porch's APIservice: %v", err))
+		}
+		serviceName = apiSvc.Name
+		apiSvcNs = apiSvc.Namespace // cache the namespace value to avoid duplicate calls of GetPorchApiServiceKey()
+	}
+
+	// the webhook service namespace gets it value from the following sources in order of precedence:
+	// - WEBHOOK_SERVICE_NAMESPACE environment variable
+	// - CERT_NAMESPACE environment variable
+	// - the namespace of the service referenced in porch's APIService object
+	// - namespace of the current process (if running in a pod)
+	serviceNamespace = os.Getenv("WEBHOOK_SERVICE_NAMESPACE")
+	if serviceNamespace == "" {
+		serviceNamespace = os.Getenv("CERT_NAMESPACE")
+	}
+	if serviceNamespace == "" {
+		serviceNamespace = apiSvcNs
+	}
+	if serviceNamespace == "" {
+		apiSvc, err := util.GetPorchApiServiceKey(ctx)
+		if err == nil {
+			serviceNamespace = apiSvc.Namespace
+		}
+	}
+	if serviceNamespace == "" {
+		var err error
+		serviceNamespace, err = util.GetInClusterNamespace()
+		if err != nil {
+			// this was our last resort, so panic if failed
+			panic(fmt.Sprintf("WEBHOOK_SERVICE_NAMESPACE environment variable is not set, and couldn't deduce its value either: %v", err))
+		}
+	}
+	// theoretically this should never happen, but this is a failsafe
+	if serviceName == "" || serviceNamespace == "" {
+		panic("Couldn't automatically determine a valid value for WEBHOOK_SERVICE_NAME and WEBHOOK_SERVICE_NAMESPACE environment variables. Please set them explicitly!")
+	}
+	return
+}
 
 func setupWebhooks(ctx context.Context) error {
-	cfg := NewWebhookConfig()
+	cfg := newWebhookConfig(ctx)
 	if !cfg.CertManWebhook {
 		caBytes, err := createCerts(cfg)
 		if err != nil {
@@ -253,9 +301,9 @@ func createValidatingWebhook(ctx context.Context, cfg *WebhookConfig, caCert []b
 			Rules: []admissionregistrationv1.RuleWithOperations{{Operations: []admissionregistrationv1.OperationType{
 				admissionregistrationv1.Delete},
 				Rule: admissionregistrationv1.Rule{
-					APIGroups:   []string{"porch.kpt.dev"},
-					APIVersions: []string{"v1alpha1"},
-					Resources:   []string{"packagerevisions"},
+					APIGroups:   []string{porchapi.SchemeGroupVersion.Group},
+					APIVersions: []string{porchapi.SchemeGroupVersion.Version},
+					Resources:   []string{porchapi.PackageRevisionGVR.Resource},
 				},
 			}},
 			AdmissionReviewVersions: []string{"v1", "v1beta1"},
@@ -353,12 +401,16 @@ func watchCertificates(ctx context.Context, directory, certFile, keyFile string)
 	klog.Info("Shutting down certificate watcher")
 }
 
+func getCertificate(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+	return &cert, nil
+}
+
 func runWebhookServer(ctx context.Context, cfg *WebhookConfig) error {
 	certFile := filepath.Join(cfg.CertStorageDir, "tls.crt")
 	keyFile := filepath.Join(cfg.CertStorageDir, "tls.key")
 	// load the cert for the first time
 
-	cert, err := loadCertificate(certFile, keyFile)
+	_, err := loadCertificate(certFile, keyFile)
 	if err != nil {
 		klog.Errorf("failed to load certificate: %v", err)
 		return err
@@ -371,7 +423,7 @@ func runWebhookServer(ctx context.Context, cfg *WebhookConfig) error {
 	server := http.Server{
 		Addr: fmt.Sprintf(":%d", cfg.Port),
 		TLSConfig: &tls.Config{
-			Certificates: []tls.Certificate{cert},
+			GetCertificate: getCertificate,
 		},
 	}
 	go func() {
@@ -395,8 +447,7 @@ func validateDeletion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify that we have a PackageRevision resource
-	pkgRevGVK := metav1.GroupVersionResource{Group: "porch.kpt.dev", Version: "v1alpha1", Resource: "packagerevisions"}
-	if admissionReviewRequest.Request.Resource != pkgRevGVK {
+	if admissionReviewRequest.Request.Resource != util.SchemaToMetaGVR(porchapi.PackageRevisionGVR) {
 		errMsg := fmt.Sprintf("did not receive PackageRevision, got %s", admissionReviewRequest.Request.Resource.Resource)
 		writeErr(errMsg, &w)
 		return
@@ -409,7 +460,7 @@ func validateDeletion(w http.ResponseWriter, r *http.Request) {
 		writeErr(errMsg, &w)
 		return
 	}
-	pr := v1alpha1.PackageRevision{}
+	pr := porchapi.PackageRevision{}
 	if err := porchClient.Get(context.Background(), client.ObjectKey{
 		Namespace: admissionReviewRequest.Request.Namespace,
 		Name:      admissionReviewRequest.Request.Name,
@@ -418,7 +469,7 @@ func validateDeletion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	admissionResponse := &admissionv1.AdmissionResponse{}
-	if pr.Spec.Lifecycle == v1alpha1.PackageRevisionLifecyclePublished {
+	if pr.Spec.Lifecycle == porchapi.PackageRevisionLifecyclePublished {
 		admissionResponse.Allowed = false
 		admissionResponse.Result = &metav1.Status{
 			Status:  "Failure",

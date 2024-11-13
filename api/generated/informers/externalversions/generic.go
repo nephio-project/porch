@@ -51,8 +51,6 @@ func (f *genericInformer) Lister() cache.GenericLister {
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
 	// Group=porch.kpt.dev, Version=v1alpha1
-	case v1alpha1.SchemeGroupVersion.WithResource("functions"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Porch().V1alpha1().Functions().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("packagerevisions"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Porch().V1alpha1().PackageRevisions().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("packagerevisionresources"):

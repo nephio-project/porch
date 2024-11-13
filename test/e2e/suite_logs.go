@@ -56,12 +56,12 @@ func (t *TestSuite) hasOwner(child, parent runtime.Object) bool {
 
 func (t *TestSuite) dumpLogsForDeployment(ctx context.Context, deploymentKey client.ObjectKey, eh ErrorHandler) {
 	t.Helper()
-	deployment, err := t.kubeClient.AppsV1().Deployments(deploymentKey.Namespace).Get(ctx, deploymentKey.Name, metav1.GetOptions{})
+	deployment, err := t.KubeClient.AppsV1().Deployments(deploymentKey.Namespace).Get(ctx, deploymentKey.Name, metav1.GetOptions{})
 	if err != nil {
 		eh("failed to get deployemnt %v: %v", deploymentKey, err)
 	}
 
-	replicaSets, err := t.kubeClient.AppsV1().ReplicaSets(deployment.Namespace).List(ctx, metav1.ListOptions{})
+	replicaSets, err := t.KubeClient.AppsV1().ReplicaSets(deployment.Namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		eh("failed to list replicasets: %v", err)
 	}
@@ -77,7 +77,7 @@ func (t *TestSuite) dumpLogsForDeployment(ctx context.Context, deploymentKey cli
 
 func (t *TestSuite) dumpLogsForReplicaSet(ctx context.Context, replicaSet *appsv1.ReplicaSet, eh ErrorHandler) {
 	t.Helper()
-	pods, err := t.kubeClient.CoreV1().Pods(replicaSet.Namespace).List(ctx, metav1.ListOptions{})
+	pods, err := t.KubeClient.CoreV1().Pods(replicaSet.Namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		eh("failed to list pods: %v", err)
 	}
@@ -104,7 +104,7 @@ func (t *TestSuite) dumpLogsForPod(ctx context.Context, pod *corev1.Pod, eh Erro
 
 func (t *TestSuite) dumpLogsForPodContainer(ctx context.Context, podKey client.ObjectKey, containerName string, eh ErrorHandler) {
 	t.Helper()
-	req := t.kubeClient.CoreV1().Pods(podKey.Namespace).GetLogs(podKey.Name, &corev1.PodLogOptions{Container: containerName})
+	req := t.KubeClient.CoreV1().Pods(podKey.Namespace).GetLogs(podKey.Name, &corev1.PodLogOptions{Container: containerName})
 	podLogs, err := req.Stream(ctx)
 	if err != nil {
 		eh("failed to open pod logs %v %s: %v", podKey, containerName, err)

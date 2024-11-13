@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0 object:headerFile="../../../scripts/boilerplate.go.txt" crd:crdVersions=v1 output:crd:artifacts:config=. paths=./...
+//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.1 object:headerFile="../../../scripts/boilerplate.go.txt" crd:crdVersions=v1 output:crd:artifacts:config=. paths=./...
 
 var (
 	// GroupVersion is group version used to register these objects
@@ -37,13 +37,7 @@ var (
 		objects:  []runtime.Object{&Repository{}, &RepositoryList{}},
 	}
 
-	TypeFunction = TypeInfo{
-		Kind:     "Function",
-		Resource: GroupVersion.WithResource("functions"),
-		objects:  []runtime.Object{&Function{}, &FunctionList{}},
-	}
-
-	AllKinds = []TypeInfo{TypeRepository, TypeFunction}
+	AllKinds = []TypeInfo{TypeRepository}
 )
 
 //+kubebuilder:object:generate=false

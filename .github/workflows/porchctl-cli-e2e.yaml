@@ -18,14 +18,12 @@ on:
     paths-ignore:
       - "docs/**"
       - "release/**"
-      - "deployments/**"
       - ".prow.yaml"
       - "OWNERS"
   pull_request:
     paths-ignore:
       - "docs/**"
       - "release/**"
-      - "deployments/**"
       - ".prow.yaml"
       - "OWNERS"
 jobs:
@@ -46,17 +44,18 @@ jobs:
         uses: jaxxstorm/action-install-gh-release@v1.10.0
         with:
           repo: kptdev/kpt
-          tag: v1.0.0-beta.49
+          tag: v1.0.0-beta.54
           chmod: 0755
       - name: Build and install porchctl
         run: |
-          go build -o ${GITHUB_WORKSPACE}.build/ ./cmd/porchctl
-          mv ${GITHUB_WORKSPACE}.build/porchctl /usr/local/bin/porchctl
-          sudo chmod 755 /usr/local/bin/porchctl
+          make porchctl
+          .build/porchctl version
       - name: Create k8s Kind Cluster
         uses: helm/kind-action@v1
         with:
           cluster_name: kind
+          version: v0.23.0
+          kubectl_version: v1.30.0
       - name: Build Images and Deploy porch kpt pkg
         run: IMAGE_REPO=porch-kind IMAGE_TAG=${GITHUB_SHA:0:8} KIND_CONTEXT_NAME=kind make run-in-kind
       - name: porchctl e2e test

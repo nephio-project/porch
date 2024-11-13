@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: repositories.config.porch.kpt.dev
 spec:
   group: config.porch.kpt.dev
@@ -56,15 +56,19 @@ spec:
             description: |-
               RepositorySpec defines the desired state of Repository
 
-
               Notes:
                 - deployment repository - in KRM API ConfigSync would be configured directly? (or via this API)
             properties:
               content:
+                default: Package
                 description: |-
-                  Content stored in the repository (i.e. Function, Package - the literal values correspond to the API resource names).
-                  TODO: support repository with mixed content?
+                  The Content field is deprecated, please do not specify it in new manifests.
+                  For partial backward compatibility it is still recognized, but its only valid value is "Package", and if not specified its default value is also "Package".
                 type: string
+                x-kubernetes-validations:
+                - message: The 'content' field is deprecated, its only valid value
+                    is 'Package'
+                  rule: self == '' || self == 'Package'
               deployment:
                 description: The repository is a deployment repository; final packages
                   in this repository are deployment ready.
@@ -77,9 +81,11 @@ spec:
                   Ignored if `type` is not `git`.
                 properties:
                   branch:
+                    default: main
                     description: Name of the branch containing the packages. Finalized
                       packages will be committed to this branch (if the repository
                       allows write access). If unspecified, defaults to "main".
+                    minLength: 1
                     type: string
                   createBranch:
                     description: CreateBranch specifies if Porch should create the
@@ -122,22 +128,9 @@ spec:
                         type: string
                       description: '`ConfigMap` specifies the function config (https://kpt.dev/reference/cli/fn/eval/).'
                       type: object
-                    functionRef:
-                      description: '`FunctionRef` specifies the function by reference
-                        to a Function resource. Mutually exclusive with `Image`.'
-                      properties:
-                        name:
-                          description: '`Name` is the name of the `Function` resource
-                            referenced. The resource is expected to be within the
-                            same namespace.'
-                          type: string
-                      required:
-                      - name
-                      type: object
                     image:
                       description: '`Image` specifies the function image, such as
-                        `gcr.io/kpt-fn/gatekeeper:v0.2`. Use of `Image` is mutually
-                        exclusive with `FunctionRef`.'
+                        `gcr.io/kpt-fn/gatekeeper:v0.2`.'
                       type: string
                   type: object
                 type: array
@@ -176,9 +169,11 @@ spec:
                       Must be unspecified if `type` is not `git`.
                     properties:
                       branch:
+                        default: main
                         description: Name of the branch containing the packages. Finalized
                           packages will be committed to this branch (if the repository
                           allows write access). If unspecified, defaults to "main".
+                        minLength: 1
                         type: string
                       createBranch:
                         description: CreateBranch specifies if Porch should create
@@ -260,22 +255,9 @@ spec:
                         type: string
                       description: '`ConfigMap` specifies the function config (https://kpt.dev/reference/cli/fn/eval/).'
                       type: object
-                    functionRef:
-                      description: '`FunctionRef` specifies the function by reference
-                        to a Function resource. Mutually exclusive with `Image`.'
-                      properties:
-                        name:
-                          description: '`Name` is the name of the `Function` resource
-                            referenced. The resource is expected to be within the
-                            same namespace.'
-                          type: string
-                      required:
-                      - name
-                      type: object
                     image:
                       description: '`Image` specifies the function image, such as
-                        `gcr.io/kpt-fn/gatekeeper:v0.2`. Use of `Image` is mutually
-                        exclusive with `FunctionRef`.'
+                        `gcr.io/kpt-fn/gatekeeper:v0.2`.'
                       type: string
                   type: object
                 type: array
@@ -287,16 +269,8 @@ spec:
                 description: Conditions describes the reconciliation state of the
                   object.
                 items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource.\n---\nThis struct is intended for
-                    direct use as an array at the field path .status.conditions.  For
-                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                    observations of a foo's current state.\n\t    // Known .status.conditions.type
-                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                    \   // other fields\n\t}"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
                       description: |-
@@ -337,12 +311,7 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: |-
-                        type of condition in CamelCase or in foo.example.com/CamelCase.
-                        ---
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                        useful (see .node.status.conditions), the ability to deconflict is important.
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string

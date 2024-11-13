@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -55,11 +55,12 @@ func TestCmd(t *testing.T) {
 		ns      string
 	}{
 		"Package not found in ns": {
+			output:  pkgRevName + " failed (packagerevisions.porch.kpt.dev \"" + pkgRevName + "\" not found)\n",
 			ns:      "doesnotexist",
 			wantErr: true,
 		},
 		"Package not published": {
-			output:  "can only propose published packages for deletion; package " + pkgRevName + " is not published\n",
+			output:  pkgRevName + " failed (can only propose published packages for deletion; package " + pkgRevName + " is not published)\n",
 			ns:      "ns",
 			wantErr: true,
 		},

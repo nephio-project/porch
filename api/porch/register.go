@@ -44,8 +44,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&PackageRevisionList{},
 		&PackageRevisionResources{},
 		&PackageRevisionResourcesList{},
-		&Function{},
-		&FunctionList{},
 	)
 	return nil
 }

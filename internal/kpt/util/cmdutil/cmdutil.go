@@ -15,18 +15,12 @@
 package cmdutil
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/util/function"
-	"github.com/nephio-project/porch/internal/kpt/util/httputil"
-	"github.com/nephio-project/porch/internal/kpt/util/porch"
 	"github.com/spf13/cobra"
-	"golang.org/x/mod/semver"
 	"sigs.k8s.io/kustomize/kyaml/kio"
 	"sigs.k8s.io/kustomize/kyaml/kio/kioutil"
 )
@@ -130,80 +124,4 @@ func GetKeywordsFromFlag(cmd *cobra.Command) []string {
 		trimmed = append(trimmed, strings.TrimSpace(val))
 	}
 	return trimmed
-}
-
-// SuggestFunctions looks for functions from kpt curated catalog list as well as the Porch
-// orchestrator to suggest functions.
-func SuggestFunctions(cmd *cobra.Command) []string {
-	matchers := []function.Matcher{
-		function.TypeMatcher{FnType: cmd.Flag("type").Value.String()},
-		function.KeywordsMatcher{Keywords: GetKeywordsFromFlag(cmd)},
-	}
-	functions := DiscoverFunctions(cmd)
-	matched := function.MatchFunctions(functions, matchers...)
-	return function.GetNames(matched)
-}
-
-// SuggestKeywords looks for all the unique keywords from Porch functions. This keywords
-// can later help users to select functions.
-func SuggestKeywords(cmd *cobra.Command) []string {
-	functions := DiscoverFunctions(cmd)
-	matched := function.MatchFunctions(functions, function.TypeMatcher{FnType: cmd.Flag("type").Value.String()})
-	return porch.UnifyKeywords(matched)
-}
-
-func DiscoverFunctions(cmd *cobra.Command) []v1alpha1.Function {
-	porchFns := porch.FunctionListGetter{}.Get(cmd.Context())
-	catalogV2Fns := fetchCatalogFunctions()
-	return append(porchFns, catalogV2Fns...)
-}
-
-// fetchCatalogFunctions returns the list of latest function images from catalog.kpt.dev.
-func fetchCatalogFunctions() []v1alpha1.Function {
-	content, err := httputil.FetchContent(FunctionsCatalogURL)
-	if err != nil {
-		return nil
-	}
-	return parseFunctions(content)
-}
-
-// fnName -> v<major>.<minor> -> catalogEntry
-type catalogV2 map[string]map[string]struct {
-	LatestPatchVersion string
-	Examples           interface{}
-	Types              []string
-	Keywords           []string
-}
-
-// listImages returns the list of latest images from the input catalog content
-func parseFunctions(content string) []v1alpha1.Function {
-	var jsonData catalogV2
-	err := json.Unmarshal([]byte(content), &jsonData)
-	if err != nil {
-		return nil
-	}
-	var functions []v1alpha1.Function
-	for fnName, fnInfo := range jsonData {
-		var latestVersion string
-		var keywords []string
-		var fnTypes []v1alpha1.FunctionType
-		for _, catalogEntry := range fnInfo {
-			version := catalogEntry.LatestPatchVersion
-			if semver.Compare(version, latestVersion) == 1 {
-				latestVersion = version
-				keywords = catalogEntry.Keywords
-				for _, tp := range catalogEntry.Types {
-					switch tp {
-					case "validator":
-						fnTypes = append(fnTypes, v1alpha1.FunctionTypeValidator)
-					case "mutator":
-						fnTypes = append(fnTypes, v1alpha1.FunctionTypeMutator)
-					}
-				}
-			}
-		}
-		fnName := fmt.Sprintf("%s:%s", fnName, latestVersion)
-		functions = append(functions, function.CatalogFunction(fnName, keywords, fnTypes))
-	}
-	return functions
 }

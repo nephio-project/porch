@@ -25,7 +25,7 @@ import (
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"k8s.io/client-go/rest"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -39,9 +39,8 @@ func NewCommand(ctx context.Context, rcg *genericclioptions.ConfigFlags) *cobra.
 
 func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner {
 	r := &runner{
-		ctx:    ctx,
-		cfg:    rcg,
-		client: nil,
+		ctx: ctx,
+		cfg: rcg,
 	}
 
 	c := &cobra.Command{
@@ -61,7 +60,7 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 type runner struct {
 	ctx     context.Context
 	cfg     *genericclioptions.ConfigFlags
-	client  rest.Interface
+	client  client.Client
 	Command *cobra.Command
 
 	// Flags
@@ -70,7 +69,7 @@ type runner struct {
 func (r *runner) preRunE(_ *cobra.Command, _ []string) error {
 	const op errors.Op = command + ".preRunE"
 
-	client, err := porch.CreateRESTClient(r.cfg)
+	client, err := porch.CreateClientWithFlags(r.cfg)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -85,17 +84,27 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 	namespace := *r.cfg.Namespace
 
 	for _, name := range args {
-		if err := porch.UpdatePackageRevisionApproval(r.ctx, r.client, client.ObjectKey{
+		key := client.ObjectKey{
 			Namespace: namespace,
 			Name:      name,
-		}, v1alpha1.PackageRevisionLifecyclePublished); err != nil {
+		}
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			var pr v1alpha1.PackageRevision
+			if err := r.client.Get(r.ctx, key, &pr); err != nil {
+				return err
+			}
+			if !v1alpha1.PackageRevisionIsReady(pr.Spec.ReadinessGates, pr.Status.Conditions) {
+				return fmt.Errorf("readiness conditions not met")
+			}
+			return porch.UpdatePackageRevisionApproval(r.ctx, r.client, &pr, v1alpha1.PackageRevisionLifecyclePublished)
+		})
+		if err != nil {
 			messages = append(messages, err.Error())
 			fmt.Fprintf(r.Command.ErrOrStderr(), "%s failed (%s)\n", name, err)
 		} else {
 			fmt.Fprintf(r.Command.OutOrStdout(), "%s approved\n", name)
 		}
 	}
-
 	if len(messages) > 0 {
 		return errors.E(op, fmt.Errorf("errors:\n  %s", strings.Join(messages, "\n  ")))
 	}

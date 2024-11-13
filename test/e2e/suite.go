@@ -22,6 +22,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -39,7 +40,6 @@ import (
 	"github.com/nephio-project/porch/pkg/git"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
-	porchtest "github.com/nephio-project/porch/test/e2e/cli"
 	appsv1 "k8s.io/api/apps/v1"
 	coreapi "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -57,6 +57,7 @@ const (
 	// TODO: accept a flag?
 	PorchTestConfigFile = "porch-test-config.yaml"
 	updateGoldenFiles   = "UPDATE_GOLDEN_FILES"
+	TestGitServerImage  = "test-git-server"
 )
 
 type GitConfig struct {
@@ -79,16 +80,16 @@ func (p Password) String() string {
 
 type TestSuite struct {
 	*testing.T
-	kubeconfig *rest.Config
-	client     client.Client
+	Kubeconfig *rest.Config
+	Client     client.Client
 
 	// Strongly-typed client handy for reading e.g. pod logs
-	kubeClient kubernetes.Interface
+	KubeClient kubernetes.Interface
 
-	clientset porchclient.Interface
+	Clientset porchclient.Interface
 
-	namespace string // K8s namespace for this test run
-	local     bool   // Tests running against local dev porch
+	Namespace         string // K8s namespace for this test run
+	TestRunnerIsLocal bool   // Tests running against local dev porch
 }
 
 type Initializer interface {
@@ -96,6 +97,60 @@ type Initializer interface {
 }
 
 var _ Initializer = &TestSuite{}
+
+type TSetter interface {
+	SetT(tt *testing.T)
+}
+
+var _ TSetter = &TestSuite{}
+
+// RunSuite runs a test suite by calling each Test* method in the suite.
+// Before each Test* method, it sets the T field of the suite to the current test.
+// Before running the suite, it initializes the suite by calling Initialize.
+func RunSuite(suite interface{}, t *testing.T) {
+	suiteType := reflect.TypeOf(suite)
+	ctx := context.Background()
+
+	t.Run(suiteType.Elem().Name(), func(t *testing.T) {
+		suite.(TSetter).SetT(t)             // panic if SetT() is not implemented
+		suite.(Initializer).Initialize(ctx) // panic if Initialize() is not implemented
+
+		for i, max := 0, suiteType.NumMethod(); i < max; i++ {
+			method := suiteType.Method(i)
+			if strings.HasPrefix(method.Name, "Test") {
+				t.Run(method.Name, func(t *testing.T) {
+					suite.(TSetter).SetT(t)
+					method.Func.Call([]reflect.Value{reflect.ValueOf(suite), reflect.ValueOf(ctx)})
+				})
+			}
+		}
+	})
+}
+
+func RunInParallel(functions ...func() any) []any {
+	var group sync.WaitGroup
+	var results []any
+	for _, eachFunction := range functions {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			if reflect.TypeOf(eachFunction).NumOut() == 0 {
+				results = append(results, nil)
+				eachFunction()
+			} else {
+				eachResult := eachFunction()
+
+				results = append(results, eachResult)
+			}
+		}()
+	}
+	group.Wait()
+	return results
+}
+
+func (t *TestSuite) SetT(tt *testing.T) {
+	t.T = tt
+}
 
 func (t *TestSuite) Initialize(ctx context.Context) {
 	cfg, err := config.GetConfig()
@@ -114,23 +169,23 @@ func (t *TestSuite) Initialize(ctx context.Context) {
 	}); err != nil {
 		t.Fatalf("Failed to initialize k8s client (%s): %v", cfg.Host, err)
 	} else {
-		t.client = c
-		t.kubeconfig = cfg
+		t.Client = c
+		t.Kubeconfig = cfg
 	}
 
 	if kubeClient, err := kubernetes.NewForConfig(cfg); err != nil {
 		t.Fatalf("failed to initialize kubernetes clientset: %v", err)
 	} else {
-		t.kubeClient = kubeClient
+		t.KubeClient = kubeClient
 	}
 
 	if cs, err := porchclient.NewForConfig(cfg); err != nil {
 		t.Fatalf("Failed to initialize Porch clientset: %v", err)
 	} else {
-		t.clientset = cs
+		t.Clientset = cs
 	}
 
-	t.local = !t.IsTestRunnerInCluster()
+	t.TestRunnerIsLocal = !t.IsTestRunnerInCluster()
 
 	namespace := fmt.Sprintf("porch-test-%d", time.Now().UnixMicro())
 	t.CreateF(ctx, &coreapi.Namespace{
@@ -139,8 +194,8 @@ func (t *TestSuite) Initialize(ctx context.Context) {
 		},
 	})
 
-	t.namespace = namespace
-	c := t.client
+	t.Namespace = namespace
+	c := t.Client
 	t.Cleanup(func() {
 		if err := c.Delete(ctx, &coreapi.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -158,7 +213,7 @@ func (t *TestSuite) IsPorchServerInCluster() bool {
 	porch := aggregatorv1.APIService{}
 	ctx := context.TODO()
 	t.GetF(ctx, client.ObjectKey{
-		Name: "v1alpha1.porch.kpt.dev",
+		Name: porchapi.SchemeGroupVersion.Version + "." + porchapi.SchemeGroupVersion.Group,
 	}, &porch)
 	service := coreapi.Service{}
 	t.GetF(ctx, client.ObjectKey{
@@ -173,10 +228,10 @@ func (t *TestSuite) IsTestRunnerInCluster() bool {
 	porch := aggregatorv1.APIService{}
 	ctx := context.TODO()
 	t.GetF(ctx, client.ObjectKey{
-		Name: "v1alpha1.porch.kpt.dev",
+		Name: porchapi.SchemeGroupVersion.Version + "." + porchapi.SchemeGroupVersion.Group,
 	}, &porch)
 	service := coreapi.Service{}
-	err := t.client.Get(ctx, client.ObjectKey{
+	err := t.Client.Get(ctx, client.ObjectKey{
 		Namespace: porch.Spec.Service.Namespace,
 		Name:      "function-runner",
 	}, &service)
@@ -222,14 +277,14 @@ type ErrorHandler func(format string, args ...interface{})
 
 func (t *TestSuite) get(ctx context.Context, key client.ObjectKey, obj client.Object, eh ErrorHandler) {
 	t.Helper()
-	if err := t.client.Get(ctx, key, obj); err != nil {
+	if err := t.Client.Get(ctx, key, obj); err != nil {
 		eh("failed to get resource %T %s: %v", obj, key, err)
 	}
 }
 
 func (t *TestSuite) list(ctx context.Context, list client.ObjectList, opts []client.ListOption, eh ErrorHandler) {
 	t.Helper()
-	if err := t.client.List(ctx, list, opts...); err != nil {
+	if err := t.Client.List(ctx, list, opts...); err != nil {
 		eh("failed to list resources %T %+v: %v", list, list, err)
 	}
 }
@@ -261,7 +316,7 @@ func (t *TestSuite) create(ctx context.Context, obj client.Object, opts []client
 		t.Logf("took %v to create %s/%s", time.Since(start), obj.GetNamespace(), obj.GetName())
 	}()
 
-	if err := t.client.Create(ctx, obj, opts...); err != nil {
+	if err := t.Client.Create(ctx, obj, opts...); err != nil {
 		eh("failed to create resource %s: %v", DebugFormat(obj), err)
 	}
 }
@@ -270,7 +325,7 @@ func (t *TestSuite) delete(ctx context.Context, obj client.Object, opts []client
 	t.Helper()
 	t.Logf("deleting object %v", DebugFormat(obj))
 
-	if err := t.client.Delete(ctx, obj, opts...); err != nil {
+	if err := t.Client.Delete(ctx, obj, opts...); err != nil {
 		eh("failed to delete resource %s: %v", DebugFormat(obj), err)
 	}
 }
@@ -279,7 +334,7 @@ func (t *TestSuite) update(ctx context.Context, obj client.Object, opts []client
 	t.Helper()
 	t.Logf("updating object %v", DebugFormat(obj))
 
-	if err := t.client.Update(ctx, obj, opts...); err != nil {
+	if err := t.Client.Update(ctx, obj, opts...); err != nil {
 		eh("failed to update resource %s: %v", DebugFormat(obj), err)
 	}
 }
@@ -288,7 +343,7 @@ func (t *TestSuite) patch(ctx context.Context, obj client.Object, patch client.P
 	t.Helper()
 	t.Logf("patching object %v", DebugFormat(obj))
 
-	if err := t.client.Patch(ctx, obj, patch, opts...); err != nil {
+	if err := t.Client.Patch(ctx, obj, patch, opts...); err != nil {
 		eh("failed to patch resource %s: %v", DebugFormat(obj), err)
 	}
 }
@@ -296,7 +351,7 @@ func (t *TestSuite) patch(ctx context.Context, obj client.Object, patch client.P
 func (t *TestSuite) updateApproval(ctx context.Context, obj *porchapi.PackageRevision, opts metav1.UpdateOptions, eh ErrorHandler) *porchapi.PackageRevision {
 	t.Helper()
 	t.Logf("updating approval of %v", DebugFormat(obj))
-	if res, err := t.clientset.PorchV1alpha1().PackageRevisions(obj.Namespace).UpdateApproval(ctx, obj.Name, obj, opts); err != nil {
+	if res, err := t.Clientset.PorchV1alpha1().PackageRevisions(obj.Namespace).UpdateApproval(ctx, obj.Name, obj, opts); err != nil {
 		eh("failed to update approval of %s/%s: %v", obj.Namespace, obj.Name, err)
 		return nil
 	} else {
@@ -508,10 +563,10 @@ func (t *TestSuite) createInClusterGitServer(ctx context.Context, exposeByLoadBa
 		Name:      "function-runner",
 	}, &porch)
 
-	gitImage := porchtest.InferGitServerImage(porch.Spec.Template.Spec.Containers[0].Image)
+	gitImage := InferGitServerImage(porch.Spec.Template.Spec.Containers[0].Image)
 
 	var deploymentKey = client.ObjectKey{
-		Namespace: t.namespace,
+		Namespace: t.Namespace,
 		Name:      "git-server",
 	}
 	var replicas int32 = 1
@@ -569,7 +624,7 @@ func (t *TestSuite) createInClusterGitServer(ctx context.Context, exposeByLoadBa
 	})
 
 	serviceKey := client.ObjectKey{
-		Namespace: t.namespace,
+		Namespace: t.Namespace,
 		Name:      "git-server-service",
 	}
 	service := coreapi.Service{
@@ -671,14 +726,14 @@ func (t *TestSuite) createInClusterGitServer(ctx context.Context, exposeByLoadBa
 		}
 
 		var endpoint coreapi.Endpoints
-		err := t.client.Get(ctx, serviceKey, &endpoint)
+		err := t.Client.Get(ctx, serviceKey, &endpoint)
 		if err != nil || !endpointIsReady(&endpoint) {
 			t.Logf("waiting for Endpoint to be ready: %+v", endpoint)
 			continue
 		}
 		if exposeByLoadBalancer {
 			var svc coreapi.Service
-			t.client.Get(ctx, serviceKey, &svc)
+			t.Client.Get(ctx, serviceKey, &svc)
 			if len(svc.Status.LoadBalancer.Ingress) == 0 || svc.Status.LoadBalancer.Ingress[0].IP == "" {
 				t.Logf("waiting for LoadBalancer to be assigned: %+v", svc)
 				continue
@@ -696,6 +751,16 @@ func (t *TestSuite) createInClusterGitServer(ctx context.Context, exposeByLoadBa
 		Branch:    "main",
 		Directory: "/",
 	}
+}
+
+func InferGitServerImage(porchImage string) string {
+	slash := strings.LastIndex(porchImage, "/")
+	repo := porchImage[:slash+1]
+	image := porchImage[slash+1:]
+	colon := strings.LastIndex(image, ":")
+	tag := image[colon+1:]
+
+	return repo + TestGitServerImage + ":" + tag
 }
 
 func endpointIsReady(endpoints *coreapi.Endpoints) bool {

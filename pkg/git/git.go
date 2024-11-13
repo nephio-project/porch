@@ -121,6 +121,9 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 		return nil, fmt.Errorf("error cloning git repository %q, cannot create remote: %v", spec.Repo, err)
 	}
 
+	// NOTE: the spec.git.branch field in the Repository CRD (OpenAPI schema) is defined with
+	//		 MinLength=1 validation and its default value is set to "main". This means that
+	// 		 it should never be empty at this point. The following code is left here as a last resort failsafe.
 	branch := MainBranch
 	if spec.Branch != "" {
 		branch = BranchName(spec.Branch)
@@ -140,8 +143,8 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 	}
 
 	if opts.UseGitCaBundle {
-		if caBundle, err := opts.CredentialResolver.ResolveCredential(ctx, namespace, namespace + "-ca-bundle"); err != nil {
-			klog.Errorf("failed to obtain caBundle from secret %s/%s: %v", namespace, namespace + "-ca-bundle", err)
+		if caBundle, err := opts.CredentialResolver.ResolveCredential(ctx, namespace, namespace+"-ca-bundle"); err != nil {
+			klog.Errorf("failed to obtain caBundle from secret %s/%s: %v", namespace, namespace+"-ca-bundle", err)
 		} else {
 			repository.caBundle = []byte(caBundle.ToString())
 		}
@@ -1095,8 +1098,8 @@ func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuild
 			Auth:              auth,
 			RequireRemoteRefs: require,
 			// TODO(justinsb): Need to ensure this is a compare-and-swap
-			Force: true,
-			CABundle:          r.caBundle,
+			Force:    true,
+			CABundle: r.caBundle,
 		})
 	}); err != nil {
 		return err
@@ -1477,7 +1480,7 @@ func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPack
 	return nil
 }
 
-func (r *gitRepository) CloseDraft(ctx context.Context, d *gitPackageDraft) (*gitPackageRevision, error) {
+func (r *gitRepository) CloseDraft(ctx context.Context, version string, d *gitPackageDraft) (*gitPackageRevision, error) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -1489,25 +1492,11 @@ func (r *gitRepository) CloseDraft(ctx context.Context, d *gitPackageDraft) (*gi
 
 	switch d.lifecycle {
 	case v1alpha1.PackageRevisionLifecyclePublished, v1alpha1.PackageRevisionLifecycleDeletionProposed:
-		// Finalize the package revision. Assign it a revision number of latest + 1.
-		revisions, err := r.listPackageRevisions(ctx, repository.ListPackageRevisionFilter{
-			Package: d.path,
-		})
-		if err != nil {
-			return nil, err
-		}
 
-		var revs []string
-		for _, rev := range revisions {
-			if v1alpha1.LifecycleIsPublished(r.getLifecycle(ctx, rev)) {
-				revs = append(revs, rev.Key().Revision)
-			}
+		if version == "" {
+			return nil, errors.New("Version cannot be empty for the next package revision")
 		}
-
-		d.revision, err = repository.NextRevisionNumber(revs)
-		if err != nil {
-			return nil, err
-		}
+		d.revision = version
 
 		// Finalize the package revision. Commit it to main branch.
 		commitHash, newTreeHash, commitBase, err := r.commitPackageToMain(ctx, d)

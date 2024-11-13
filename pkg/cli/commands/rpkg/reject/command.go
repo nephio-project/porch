@@ -25,7 +25,7 @@ import (
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"k8s.io/client-go/rest"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -39,9 +39,8 @@ func NewCommand(ctx context.Context, rcg *genericclioptions.ConfigFlags) *cobra.
 
 func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner {
 	r := &runner{
-		ctx:    ctx,
-		cfg:    rcg,
-		client: nil,
+		ctx: ctx,
+		cfg: rcg,
 	}
 
 	c := &cobra.Command{
@@ -59,11 +58,10 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 }
 
 type runner struct {
-	ctx         context.Context
-	cfg         *genericclioptions.ConfigFlags
-	client      rest.Interface
-	porchClient client.Client
-	Command     *cobra.Command
+	ctx     context.Context
+	cfg     *genericclioptions.ConfigFlags
+	client  client.Client
+	Command *cobra.Command
 
 	// Flags
 }
@@ -75,17 +73,11 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 		return errors.E(op, "PACKAGE_REVISION is a required positional argument")
 	}
 
-	client, err := porch.CreateRESTClient(r.cfg)
+	client, err := porch.CreateClientWithFlags(r.cfg)
 	if err != nil {
 		return errors.E(op, err)
 	}
 	r.client = client
-
-	porchClient, err := porch.CreateClientWithFlags(r.cfg)
-	if err != nil {
-		return errors.E(op, err)
-	}
-	r.porchClient = porchClient
 	return nil
 }
 
@@ -94,41 +86,37 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 	var messages []string
 
 	namespace := *r.cfg.Namespace
-
+	var proposedFor string
 	for _, name := range args {
-		pr := &v1alpha1.PackageRevision{}
-		if err := r.porchClient.Get(r.ctx, client.ObjectKey{
+		key := client.ObjectKey{
 			Namespace: namespace,
 			Name:      name,
-		}, pr); err != nil {
-			return errors.E(op, err)
 		}
-		switch pr.Spec.Lifecycle {
-		case v1alpha1.PackageRevisionLifecycleProposed:
-			if err := porch.UpdatePackageRevisionApproval(r.ctx, r.client, client.ObjectKey{
-				Namespace: namespace,
-				Name:      name,
-			}, v1alpha1.PackageRevisionLifecycleDraft); err != nil {
-				messages = append(messages, err.Error())
-				fmt.Fprintf(r.Command.ErrOrStderr(), "%s failed (%s)\n", name, err)
-			} else {
-				fmt.Fprintf(r.Command.OutOrStdout(), "%s rejected\n", name)
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			var pr v1alpha1.PackageRevision
+			if err := r.client.Get(r.ctx, key, &pr); err != nil {
+				return err
 			}
-		case v1alpha1.PackageRevisionLifecycleDeletionProposed:
-			pr.Spec.Lifecycle = v1alpha1.PackageRevisionLifecyclePublished
-			if err := r.porchClient.Update(r.ctx, pr); err != nil {
-				messages = append(messages, err.Error())
-				fmt.Fprintf(r.Command.ErrOrStderr(), "%s failed (%s)\n", name, err)
-			} else {
-				fmt.Fprintf(r.Command.OutOrStdout(), "%s no longer proposed for deletion\n", name)
+			switch pr.Spec.Lifecycle {
+			case v1alpha1.PackageRevisionLifecycleProposed:
+				proposedFor = "approval"
+				return porch.UpdatePackageRevisionApproval(r.ctx, r.client, &pr, v1alpha1.PackageRevisionLifecycleDraft)
+			case v1alpha1.PackageRevisionLifecycleDeletionProposed:
+				proposedFor = "deletion"
+				// NOTE(kispaljr): should we use UpdatePackageRevisionApproval() here?
+				pr.Spec.Lifecycle = v1alpha1.PackageRevisionLifecyclePublished
+				return r.client.Update(r.ctx, &pr)
+			default:
+				return fmt.Errorf("cannot reject %s with lifecycle '%s'", name, pr.Spec.Lifecycle)
 			}
-		default:
-			msg := fmt.Sprintf("cannot reject %s with lifecycle '%s'", name, pr.Spec.Lifecycle)
-			messages = append(messages, msg)
-			fmt.Fprintln(r.Command.ErrOrStderr(), msg)
+		})
+		if err != nil {
+			messages = append(messages, err.Error())
+			fmt.Fprintf(r.Command.ErrOrStderr(), "%s failed (%s)\n", name, err)
+		} else {
+			fmt.Fprintf(r.Command.OutOrStdout(), "%s no longer proposed for %s\n", name, proposedFor)
 		}
 	}
-
 	if len(messages) > 0 {
 		return errors.E(op, fmt.Errorf("errors:\n  %s", strings.Join(messages, "\n  ")))
 	}

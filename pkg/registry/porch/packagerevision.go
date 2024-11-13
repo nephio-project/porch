@@ -49,12 +49,10 @@ var _ rest.GracefulDeleter = &packageRevisions{}
 var _ rest.Watcher = &packageRevisions{}
 var _ rest.SingularNameProvider = &packageRevisions{}
 
-
 // GetSingularName implements the SingularNameProvider interface
-func (r *packageRevisions) GetSingularName() (string) {
+func (r *packageRevisions) GetSingularName() string {
 	return "packagerevision"
 }
-
 
 func (r *packageRevisions) New() runtime.Object {
 	return &api.PackageRevision{}
@@ -120,7 +118,7 @@ func (r *packageRevisions) Get(ctx context.Context, name string, options *metav1
 }
 
 // Create implements the Creater interface.
-func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Object, createValidation rest.ValidateObjectFunc, 
+func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Object, createValidation rest.ValidateObjectFunc,
 	options *metav1.CreateOptions) (runtime.Object, error) {
 	ctx, span := tracer.Start(ctx, "packageRevisions::Create", trace.WithAttributes())
 	defer span.End()
@@ -166,6 +164,20 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 		parentPackage = p
 	}
 
+	pkgMutexKey := uncreatedPackageMutexKey(newApiPkgRev)
+	pkgMutex := getMutexForPackage(pkgMutexKey)
+
+	locked := pkgMutex.TryLock()
+	if !locked {
+		conflictError := creationConflictError(newApiPkgRev)
+		return nil,
+			apierrors.NewConflict(
+				api.Resource("packagerevisions"),
+				"(new creation)",
+				conflictError)
+	}
+	defer pkgMutex.Unlock()
+
 	createdRepoPkgRev, err := r.cad.CreatePackageRevision(ctx, repositoryObj, newApiPkgRev, parentPackage)
 	if err != nil {
 		return nil, apierrors.NewInternalError(err)
@@ -184,13 +196,12 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 // Update finds a resource in the storage and updates it. Some implementations
 // may allow updates creates the object - they should set the created boolean
 // to true.
-func (r *packageRevisions) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, 
+func (r *packageRevisions) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc,
 	updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
 	ctx, span := tracer.Start(ctx, "packageRevisions::Update", trace.WithAttributes())
 	defer span.End()
 
-	return r.packageCommon.updatePackageRevision(ctx, name, objInfo, createValidation, updateValidation, forceAllowCreate,
-	)
+	return r.packageCommon.updatePackageRevision(ctx, name, objInfo, createValidation, updateValidation, forceAllowCreate)
 }
 
 // Delete implements the GracefulDeleter interface.
@@ -228,10 +239,45 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 		return nil, false, err
 	}
 
+	pkgMutexKey := getPackageMutexKey(ns, name)
+	pkgMutex := getMutexForPackage(pkgMutexKey)
+
+	locked := pkgMutex.TryLock()
+	if !locked {
+		return nil, false,
+			apierrors.NewConflict(
+				api.Resource("packagerevisions"),
+				name,
+				fmt.Errorf(GenericConflictErrorMsg, "package revision", pkgMutexKey))
+	}
+	defer pkgMutex.Unlock()
+
 	if err := r.cad.DeletePackageRevision(ctx, repositoryObj, repoPkgRev); err != nil {
 		return nil, false, apierrors.NewInternalError(err)
 	}
 
 	// TODO: Should we do an async delete?
 	return apiPkgRev, true, nil
+}
+
+func uncreatedPackageMutexKey(newApiPkgRev *api.PackageRevision) string {
+	return fmt.Sprintf("%s-%s-%s-%s",
+		newApiPkgRev.Namespace,
+		newApiPkgRev.Spec.RepositoryName,
+		newApiPkgRev.Spec.PackageName,
+		newApiPkgRev.Spec.WorkspaceName,
+	)
+}
+
+func creationConflictError(newApiPkgRev *api.PackageRevision) error {
+	return fmt.Errorf(
+		fmt.Sprintf(
+			ConflictErrorMsgBase,
+			"to create package revision with details namespace=%q, repository=%q, package=%q,workspace=%q",
+		),
+		newApiPkgRev.Namespace,
+		newApiPkgRev.Spec.RepositoryName,
+		newApiPkgRev.Spec.PackageName,
+		newApiPkgRev.Spec.WorkspaceName,
+	)
 }

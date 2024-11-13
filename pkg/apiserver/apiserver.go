@@ -27,6 +27,7 @@ import (
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/pkg/cache"
+	memorycache "github.com/nephio-project/porch/pkg/cache/memory"
 	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/registry/porch"
@@ -92,7 +93,7 @@ type Config struct {
 type PorchServer struct {
 	GenericAPIServer *genericapiserver.GenericAPIServer
 	coreClient       client.WithWatch
-	cache            *cache.Cache
+	cache            cache.Cache
 }
 
 type completedConfig struct {
@@ -225,7 +226,7 @@ func (c completedConfig) New() (*PorchServer, error) {
 
 	watcherMgr := engine.NewWatcherManager()
 
-	cache := cache.NewCache(c.ExtraConfig.CacheDirectory, c.ExtraConfig.RepoSyncFrequency, c.ExtraConfig.UseGitCaBundle, cache.CacheOptions{
+	memoryCache := memorycache.NewCache(c.ExtraConfig.CacheDirectory, c.ExtraConfig.RepoSyncFrequency, c.ExtraConfig.UseGitCaBundle, memorycache.CacheOptions{
 		CredentialResolver: credentialResolver,
 		UserInfoProvider:   userInfoProvider,
 		MetadataStore:      metadataStore,
@@ -235,18 +236,12 @@ func (c completedConfig) New() (*PorchServer, error) {
 	runnerOptionsResolver := func(namespace string) fnruntime.RunnerOptions {
 		runnerOptions := fnruntime.RunnerOptions{}
 		runnerOptions.InitDefaults()
-		r := &KubeFunctionResolver{
-			client:             coreClient,
-			defaultImagePrefix: c.ExtraConfig.DefaultImagePrefix,
-			namespace:          namespace,
-		}
-		runnerOptions.ResolveToImage = r.resolveToImagePorch
 
 		return runnerOptions
 	}
 
 	cad, err := engine.NewCaDEngine(
-		engine.WithCache(cache),
+		engine.WithCache(memoryCache),
 		// The order of registering the function runtimes matters here. When
 		// evaluating a function, the runtimes will be tried in the same
 		// order as they are registered.
@@ -271,7 +266,7 @@ func (c completedConfig) New() (*PorchServer, error) {
 	s := &PorchServer{
 		GenericAPIServer: genericServer,
 		coreClient:       coreClient,
-		cache:            cache,
+		cache:            memoryCache,
 	}
 
 	// Install the groups.

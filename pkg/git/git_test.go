@@ -180,7 +180,7 @@ func (g GitSuite) TestGitPackageRoundTrip(t *testing.T) {
 			t.Fatalf("draft.UpdateResources(%#v, %#v) failed: %v", newResources, task, err)
 		}
 
-		revision, err := draft.Close(ctx)
+		revision, err := draft.Close(ctx, "v1")
 		if err != nil {
 			t.Fatalf("draft.Close() failed: %v", err)
 		}
@@ -207,7 +207,7 @@ func (g GitSuite) TestGitPackageRoundTrip(t *testing.T) {
 		if err := update.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished); err != nil {
 			t.Fatalf("UpdateLifecycle failed: %v", err)
 		}
-		approved, err := update.Close(ctx)
+		approved, err := update.Close(ctx, "v1")
 		if err != nil {
 			t.Fatalf("Close() of %q, %q failed: %v", packageName, workspace, err)
 		}
@@ -418,7 +418,7 @@ func (g GitSuite) TestListPackagesTrivial(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("UpdateResources() failed: %v", err)
 	}
-	newRevision, err := draft.Close(ctx)
+	newRevision, err := draft.Close(ctx, "")
 	if err != nil {
 		t.Fatalf("draft.Close() failed: %v", err)
 	}
@@ -506,7 +506,7 @@ func (g GitSuite) TestCreatePackageInTrivialRepository(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("UpdateResources() failed: %v", err)
 	}
-	newRevision, err := draft.Close(ctx)
+	newRevision, err := draft.Close(ctx, "")
 	if err != nil {
 		t.Fatalf("draft.Close() failed: %v", err)
 	}
@@ -688,7 +688,7 @@ func (g GitSuite) TestApproveDraft(t *testing.T) {
 
 	update.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
 
-	new, err := update.Close(ctx)
+	new, err := update.Close(ctx, "v1")
 	if err != nil {
 		t.Fatalf("Close failed: %v", err)
 	}
@@ -750,7 +750,7 @@ func (g GitSuite) TestApproveDraftWithHistory(t *testing.T) {
 
 	update.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
 
-	new, err := update.Close(ctx)
+	new, err := update.Close(ctx, "v1")
 	if err != nil {
 		t.Fatalf("Close failed: %v", err)
 	}

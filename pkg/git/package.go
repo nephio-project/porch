@@ -219,6 +219,29 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 	}, nil
 }
 
+// Creates a gitPackageRevision reference that is acting as the main branch package revision.
+// It doesn't do any git operations, so this package should only be used if the actual git updates
+// were exectued on the main branch.
+func (p *gitPackageRevision) ToMainPackageRevision() repository.PackageRevision {
+	//Need to compute a separate reference, otherwise the ref will be the same as the versioned package,
+	//while the main gitPackageRevision needs to point at the main branch.
+	mainBranchRef := plumbing.NewHashReference(p.repo.branch.RefInLocal(), p.commit)
+	p1 := &gitPackageRevision{
+		repo:          p.repo,
+		path:          p.path,
+		revision:      string(p.repo.branch),
+		workspaceName: p.workspaceName,
+		updated:       p.updated,
+		updatedBy:     p.updatedBy,
+		ref:           mainBranchRef,
+		tree:          p.tree,
+		commit:        p.commit,
+		tasks:         p.tasks,
+	}
+	return p1
+
+}
+
 func (p *gitPackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, error) {
 	resources, err := p.repo.GetResources(p.tree)
 	if err != nil {

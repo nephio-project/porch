@@ -26,7 +26,6 @@ import (
 
 type PorchV1alpha1Interface interface {
 	RESTClient() rest.Interface
-	FunctionsGetter
 	PackageRevisionsGetter
 	PackageRevisionResourcesGetter
 	PorchPackagesGetter
@@ -35,10 +34,6 @@ type PorchV1alpha1Interface interface {
 // PorchV1alpha1Client is used to interact with features provided by the porch.kpt.dev group.
 type PorchV1alpha1Client struct {
 	restClient rest.Interface
-}
-
-func (c *PorchV1alpha1Client) Functions(namespace string) FunctionInterface {
-	return newFunctions(c, namespace)
 }
 
 func (c *PorchV1alpha1Client) PackageRevisions(namespace string) PackageRevisionInterface {

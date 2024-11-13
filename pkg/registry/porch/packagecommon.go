@@ -17,6 +17,7 @@ package porch
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	unversionedapi "github.com/nephio-project/porch/api/porch"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -33,6 +34,13 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+const ConflictErrorMsgBase = "another request is already in progress %s"
+
+var GenericConflictErrorMsg = fmt.Sprintf(ConflictErrorMsgBase, "on %s \"%s\"")
+
+var mutexMapMutex sync.Mutex
+var pkgRevOperationMutexes = map[string]*sync.Mutex{}
 
 type packageCommon struct {
 	// scheme holds our scheme, for type conversions etc
@@ -210,9 +218,21 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 		return nil, false, apierrors.NewBadRequest("namespace must be specified")
 	}
 
+	pkgMutexKey := getPackageMutexKey(ns, name)
+	pkgMutex := getMutexForPackage(pkgMutexKey)
+
+	locked := pkgMutex.TryLock()
+	if !locked {
+		return nil, false,
+			apierrors.NewConflict(
+				api.Resource("packagerevisions"),
+				name,
+				fmt.Errorf(GenericConflictErrorMsg, "package revision", pkgMutexKey))
+	}
+	defer pkgMutex.Unlock()
+
 	// isCreate tracks whether this is an update that creates an object (this happens in server-side apply)
 	isCreate := false
-
 	oldRepoPkgRev, err := r.getRepoPkgRev(ctx, name)
 	if err != nil {
 		if forceAllowCreate && apierrors.IsNotFound(err) {
@@ -289,7 +309,7 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 	}
 
 	if !isCreate {
-		rev, err := r.cad.UpdatePackageRevision(ctx, &repositoryObj, oldRepoPkgRev, oldApiPkgRev.(*api.PackageRevision), newApiPkgRev, parentPackage)
+		rev, err := r.cad.UpdatePackageRevision(ctx, "", &repositoryObj, oldRepoPkgRev, oldApiPkgRev.(*api.PackageRevision), newApiPkgRev, parentPackage)
 		if err != nil {
 			return nil, false, apierrors.NewInternalError(err)
 		}
@@ -468,4 +488,19 @@ func (r *packageCommon) validateUpdate(ctx context.Context, newRuntimeObj runtim
 
 	r.updateStrategy.Canonicalize(newRuntimeObj)
 	return nil
+}
+
+func getPackageMutexKey(namespace, name string) string {
+	return fmt.Sprintf("%s/%s", namespace, name)
+}
+
+func getMutexForPackage(pkgMutexKey string) *sync.Mutex {
+	mutexMapMutex.Lock()
+	defer mutexMapMutex.Unlock()
+	pkgMutex, alreadyPresent := pkgRevOperationMutexes[pkgMutexKey]
+	if !alreadyPresent {
+		pkgMutex = &sync.Mutex{}
+		pkgRevOperationMutexes[pkgMutexKey] = pkgMutex
+	}
+	return pkgMutex
 }

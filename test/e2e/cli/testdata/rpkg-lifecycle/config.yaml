@@ -14,7 +14,8 @@ commands:
       - --repository=git
       - --workspace=lifecycle
       - lifecycle-package
-    stdout: "git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 created\n"
+    stdout: |
+      git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 created
   - args:
       - porchctl
       - rpkg
@@ -29,11 +30,8 @@ commands:
       - propose-delete
       - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
       - --namespace=rpkg-lifecycle
+    stderr: "git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 failed (can only propose published packages for deletion; package git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 is not published)\nError: errors:\n  can only propose published packages for deletion; package git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 is not published \n"
     exitCode: 1
-    stderr: |
-      can only propose published packages for deletion; package git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 is not published
-      Error: errors:
-        can only propose published packages for deletion; package git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 is not published 
   - args:
       - porchctl
       - rpkg
@@ -51,7 +49,7 @@ commands:
       - --namespace=rpkg-lifecycle
       - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
     stdout: |
-      git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 rejected
+      git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 no longer proposed for approval
   - args:
       - porchctl
       - rpkg
@@ -67,11 +65,8 @@ commands:
       - propose-delete
       - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
       - --namespace=rpkg-lifecycle
+    stderr: "git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 failed (can only propose published packages for deletion; package git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 is not published)\nError: errors:\n  can only propose published packages for deletion; package git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 is not published \n"
     exitCode: 1
-    stderr: |
-      can only propose published packages for deletion; package git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 is not published
-      Error: errors:
-        can only propose published packages for deletion; package git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 is not published 
   - args:
       - porchctl
       - rpkg
@@ -112,11 +107,8 @@ commands:
       - delete
       - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
       - --namespace=rpkg-lifecycle
+    stderr: "git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 failed (admission webhook \"packagerevdeletion.google.com\" denied the request: failed to delete package revision \"git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034\": published PackageRevisions must be proposed for deletion by setting spec.lifecycle to 'DeletionProposed' prior to deletion)\nError: errors:\n  admission webhook \"packagerevdeletion.google.com\" denied the request: failed to delete package revision \"git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034\": published PackageRevisions must be proposed for deletion by setting spec.lifecycle to 'DeletionProposed' prior to deletion \n"
     exitCode: 1
-    stderr: |
-      git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 failed (admission webhook "packagerevdeletion.google.com" denied the request: failed to delete package revision "git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034": published PackageRevisions must be proposed for deletion by setting spec.lifecycle to 'DeletionProposed' prior to deletion)
-      Error: errors:
-        admission webhook "packagerevdeletion.google.com" denied the request: failed to delete package revision "git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034": published PackageRevisions must be proposed for deletion by setting spec.lifecycle to 'DeletionProposed' prior to deletion 
   - args:
       - porchctl
       - rpkg
@@ -156,10 +148,7 @@ commands:
       - reject
       - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
       - --namespace=rpkg-lifecycle
-    stderr: |
-      cannot reject git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 with lifecycle 'Published'
-      Error: errors:
-        cannot reject git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 with lifecycle 'Published' 
+    stderr: "git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 failed (cannot reject git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 with lifecycle 'Published')\nError: errors:\n  cannot reject git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 with lifecycle 'Published' \n"
     exitCode: 1
   - args:
       - porchctl
