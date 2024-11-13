@@ -87,7 +87,6 @@ func NewPodEvaluator(
 	registryAuthSecretName string,
 	enableTlsRegistries bool,
 	tlsSecretPath string,
-	// tlsSecretName string
 ) (Evaluator, error) {
 
 	restCfg, err := config.GetConfig()
