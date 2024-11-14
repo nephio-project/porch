@@ -238,9 +238,6 @@ func (w *watcher) sendWatchEvent(ev watch.Event) {
 	// TODO: Handle the case that the watch channel is full?
 	w.resultChan <- ev
 	w.totalSent += 1
-	if (w.totalSent % 100) == 0 {
-		klog.Infof("watch %p: total sent: %d", w, w.totalSent)
-	}
 }
 
 // OnPackageRevisionChange is the callback called when a PackageRevision changes.
