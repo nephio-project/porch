@@ -193,7 +193,7 @@ func (m *clonePackageMutation) cloneFromGit(ctx context.Context, gitPackage *api
 	}, nil
 }
 
-func (m *clonePackageMutation) cloneFromOci(ctx context.Context, ociPackage *api.OciPackage) (repository.PackageResources, error) {
+func (m *clonePackageMutation) cloneFromOci(_ context.Context, _ *api.OciPackage) (repository.PackageResources, error) {
 	return repository.PackageResources{}, errors.New("clone from OCI is not implemented")
 }
 

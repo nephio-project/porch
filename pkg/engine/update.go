@@ -20,14 +20,8 @@ import (
 	"path/filepath"
 
 	"github.com/nephio-project/porch/internal/kpt/util/update"
-	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"github.com/nephio-project/porch/pkg/repository"
 )
-
-// packageUpdater knows how to update a local package given original and upstream package resources.
-type packageUpdater interface {
-	Update(ctx context.Context, localResources, originalResources, upstreamResources repository.PackageResources) (updatedResources repository.PackageResources, err error)
-}
 
 // defaultPackageUpdater implements packageUpdater interface.
 type defaultPackageUpdater struct{}
@@ -76,29 +70,24 @@ func (m *defaultPackageUpdater) Update(
 }
 
 // PkgUpdate is a wrapper around `kpt pkg update`, running it against the package in packageDir
-func (m *defaultPackageUpdater) do(ctx context.Context, localPkgDir, originalPkgDir, upstreamPkgDir string) error {
-	// TODO: Printer should be a logr
-	pr := printer.New(os.Stdout, os.Stderr)
-	ctx = printer.WithContext(ctx, pr)
+func (m *defaultPackageUpdater) do(_ context.Context, localPkgDir, originalPkgDir, upstreamPkgDir string) error {
+	relPath := "."
+	localPath := filepath.Join(localPkgDir, relPath)
+	updatedPath := filepath.Join(upstreamPkgDir, relPath)
+	originPath := filepath.Join(originalPkgDir, relPath)
+	isRoot := true
 
-	{
-		relPath := "."
-		localPath := filepath.Join(localPkgDir, relPath)
-		updatedPath := filepath.Join(upstreamPkgDir, relPath)
-		originPath := filepath.Join(originalPkgDir, relPath)
-		isRoot := true
-
-		updateOptions := update.Options{
-			RelPackagePath: relPath,
-			LocalPath:      localPath,
-			UpdatedPath:    updatedPath,
-			OriginPath:     originPath,
-			IsRoot:         isRoot,
-		}
-		updater := update.ResourceMergeUpdater{}
-		if err := updater.Update(updateOptions); err != nil {
-			return err
-		}
+	updateOptions := update.Options{
+		RelPackagePath: relPath,
+		LocalPath:      localPath,
+		UpdatedPath:    updatedPath,
+		OriginPath:     originPath,
+		IsRoot:         isRoot,
 	}
+	updater := update.ResourceMergeUpdater{}
+	if err := updater.Update(updateOptions); err != nil {
+		return err
+	}
+
 	return nil
 }

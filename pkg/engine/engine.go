@@ -17,6 +17,7 @@ package engine
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -349,30 +350,6 @@ func ensureUniqueWorkspaceName(obj *api.PackageRevision, existingRevs []reposito
 	return nil
 }
 
-func getPackageRevision(ctx context.Context, repo repository.Repository, name string) (repository.PackageRevision, bool, error) {
-	repoPkgRevs, err := repo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
-		KubeObjectName: name,
-	})
-	if err != nil {
-		return nil, false, err
-	}
-	if len(repoPkgRevs) == 0 {
-		return nil, false, nil
-	}
-	return repoPkgRevs[0], true, nil
-}
-
-// TODO: See if we can use a library here for parsing OCI image urls
-func getBaseImage(image string) string {
-	if s := strings.Split(image, "@sha256:"); len(s) > 1 {
-		return s[0]
-	}
-	if s := strings.Split(image, ":"); len(s) > 1 {
-		return s[0]
-	}
-	return image
-}
-
 func taskTypeOneOf(taskType api.TaskType, oneOf ...api.TaskType) bool {
 	for _, tt := range oneOf {
 		if taskType == tt {
@@ -517,7 +494,7 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version string,
 	}
 
 	if newRV != oldObj.GetResourceVersion() {
-		return nil, apierrors.NewConflict(api.Resource("packagerevisions"), oldObj.GetName(), fmt.Errorf(OptimisticLockErrorMsg))
+		return nil, apierrors.NewConflict(api.Resource("packagerevisions"), oldObj.GetName(), errors.New(OptimisticLockErrorMsg))
 	}
 
 	repo, err := cad.cache.OpenRepository(ctx, repositoryObj)
@@ -918,12 +895,12 @@ func (cad *cadEngine) CreatePackage(ctx context.Context, repositoryObj *configap
 }
 
 func (cad *cadEngine) UpdatePackage(ctx context.Context, repositoryObj *configapi.Repository, oldPackage *Package, oldObj, newObj *api.PorchPackage) (*Package, error) {
-	ctx, span := tracer.Start(ctx, "cadEngine::UpdatePackage", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "cadEngine::UpdatePackage", trace.WithAttributes())
 	defer span.End()
 
 	// TODO
 	var pkg *Package
-	return pkg, fmt.Errorf("Updating packages is not yet supported")
+	return pkg, errors.New("updating packages is not yet supported")
 }
 
 func (cad *cadEngine) DeletePackage(ctx context.Context, repositoryObj *configapi.Repository, oldPackage *Package) error {
@@ -957,7 +934,7 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 	}
 
 	if newRV != old.GetResourceVersion() {
-		return nil, nil, apierrors.NewConflict(api.Resource("packagerevisionresources"), old.GetName(), fmt.Errorf(OptimisticLockErrorMsg))
+		return nil, nil, apierrors.NewConflict(api.Resource("packagerevisionresources"), old.GetName(), errors.New(OptimisticLockErrorMsg))
 	}
 
 	// Validate package lifecycle. Can only update a draft.
@@ -1222,7 +1199,7 @@ type mutationReplaceResources struct {
 }
 
 func (m *mutationReplaceResources) Apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
-	ctx, span := tracer.Start(ctx, "mutationReplaceResources::Apply", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "mutationReplaceResources::Apply", trace.WithAttributes())
 	defer span.End()
 
 	patch := &api.PackagePatchTaskSpec{}
