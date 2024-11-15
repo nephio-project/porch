@@ -15,13 +15,14 @@
 package server
 
 import (
+	"testing"
+	"time"
+
 	porchv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/apiserver"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
-	"testing"
-	"time"
 )
 
 func TestAddFlags(t *testing.T) {
@@ -35,7 +36,7 @@ func TestAddFlags(t *testing.T) {
 		),
 	}
 	o.AddFlags(&pflag.FlagSet{})
-	if o.RepoSyncFrequency < 30*time.Second {
-		t.Fatalf("AddFlags(): repo-sync-frequency cannot be less that 30 seconds.")
+	if o.RepoSyncFrequency < 5*time.Minute {
+		t.Fatalf("AddFlags(): repo-sync-frequency cannot be less that 5 minutes.")
 	}
 }
