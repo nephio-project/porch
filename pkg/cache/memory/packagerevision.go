@@ -58,30 +58,3 @@ func (c *cachedPackageRevision) GetPackageRevision(ctx context.Context) (*api.Pa
 
 	return apiPR, nil
 }
-
-func (c *cachedPackageRevision) GetCachedPackageRevision(ctx context.Context) (*api.PackageRevision, error) {
-	repoPkgRev, err := c.GetPackageRevision(ctx)
-	if err != nil {
-		return nil, err
-	}
-	var isLatest bool
-	if val, found := repoPkgRev.Labels[api.LatestPackageRevisionKey]; found && val == api.LatestPackageRevisionValue {
-		isLatest = true
-	}
-	repoPkgRev.Labels = c.GetMeta().Labels
-	if isLatest {
-		// copy the labels in case the cached object is being read by another go routine
-		labels := make(map[string]string, len(repoPkgRev.Labels))
-		for k, v := range repoPkgRev.Labels {
-			labels[k] = v
-		}
-		labels[api.LatestPackageRevisionKey] = api.LatestPackageRevisionValue
-		repoPkgRev.Labels = labels
-	}
-	repoPkgRev.Annotations = c.GetMeta().Annotations
-	repoPkgRev.Finalizers = c.GetMeta().Finalizers
-	repoPkgRev.OwnerReferences = c.GetMeta().OwnerReferences
-	repoPkgRev.DeletionTimestamp = c.GetMeta().DeletionTimestamp
-
-	return repoPkgRev, nil
-}

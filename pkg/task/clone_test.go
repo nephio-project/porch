@@ -250,14 +250,14 @@ func TestCloneGitBasicAuth(t *testing.T) {
 		},
 	}
 
-	_, _, err = cpm.Apply(context.Background(), repository.PackageResources{})
+	_, _, err = cpm.apply(context.Background(), repository.PackageResources{})
 	if err == nil {
 		t.Errorf("Expected error (unauthorized); got none")
 	}
 
 	cpm.credentialResolver = auth
 
-	r, _, err := cpm.Apply(context.Background(), repository.PackageResources{})
+	r, _, err := cpm.apply(context.Background(), repository.PackageResources{})
 	if err != nil {
 		t.Errorf("task apply failed: %v", err)
 	}

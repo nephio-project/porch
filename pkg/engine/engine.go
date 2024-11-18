@@ -59,7 +59,10 @@ type CaDEngine interface {
 }
 
 func NewCaDEngine(opts ...EngineOption) (CaDEngine, error) {
-	engine := &cadEngine{}
+	engine := &cadEngine{
+		taskHandler: task.GetDefaultTaskHandler(),
+	}
+
 	for _, opt := range opts {
 		if err := opt.apply(engine); err != nil {
 			return nil, err

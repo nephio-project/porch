@@ -48,7 +48,7 @@ type clonePackageMutation struct {
 	packageConfig *builtins.PackageConfig
 }
 
-func (m *clonePackageMutation) Apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
+func (m *clonePackageMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
 	ctx, span := tracer.Start(ctx, "clonePackageMutation::Apply", trace.WithAttributes())
 	defer span.End()
 
@@ -83,7 +83,7 @@ func (m *clonePackageMutation) Apply(ctx context.Context, resources repository.P
 		if err != nil {
 			return repository.PackageResources{}, nil, err
 		}
-		cloned, _, err = genPkgContextMutation.Apply(ctx, cloned)
+		cloned, _, err = genPkgContextMutation.apply(ctx, cloned)
 		if err != nil {
 			return repository.PackageResources{}, nil, fmt.Errorf("failed to generate deployment context %w", err)
 		}

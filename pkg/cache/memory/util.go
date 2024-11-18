@@ -62,8 +62,6 @@ func identifyLatestRevisions(result map[repository.PackageRevisionKey]*cachedPac
 	for _, v := range latest {
 		v.isLatestRevision = true
 	}
-
-	// If the
 }
 
 func toPackageRevisionSlice(cached map[repository.PackageRevisionKey]*cachedPackageRevision, filter repository.ListPackageRevisionFilter) []repository.PackageRevision {
