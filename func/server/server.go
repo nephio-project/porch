@@ -38,20 +38,20 @@ const (
 )
 
 var (
-	port                    = flag.Int("port", 9445, "The server port")
-	functions               = flag.String("functions", "./functions", "Path to cached functions.")
-	config                  = flag.String("config", "./config.yaml", "Path to the config file.")
-	enablePrivateRegistries = flag.Bool("enable-private-registry", false, "if true enables the use of private registries and their authentication")
-	registryAuthSecretPath  = flag.String("registry-auth-secret-path", "/var/tmp/config-secret/.dockerconfigjson", "The path of the secret used in custom registry authentication")
-	registryAuthSecretName  = flag.String("registry-auth-secret-name", "auth-secret", "The name of the secret used in custom registry authentication")
-	enableTlsRegistries     = flag.Bool("enable-tls-registry", false, "if true enables tls configuration of registries")
-	tlsSecretPath           = flag.String("tls-secret-path", "/var/tmp/tls-secret/", "The path of the secret used in tls configuration")
-	podCacheConfig          = flag.String("pod-cache-config", "/pod-cache-config/pod-cache-config.yaml", "Path to the pod cache config file. The file is map of function name to TTL.")
-	podNamespace            = flag.String("pod-namespace", "porch-fn-system", "Namespace to run KRM functions pods.")
-	podTTL                  = flag.Duration("pod-ttl", 30*time.Minute, "TTL for pods before GC.")
-	scanInterval            = flag.Duration("scan-interval", time.Minute, "The interval of GC between scans.")
-	disableRuntimes         = flag.String("disable-runtimes", "", fmt.Sprintf("The runtime(s) to disable. Multiple runtimes should separated by `,`. Available runtimes: `%v`, `%v`.", execRuntime, podRuntime))
-	functionPodTemplateName = flag.String("function-pod-template", "", "Configmap that contains a pod specification")
+	port                       = flag.Int("port", 9445, "The server port")
+	functions                  = flag.String("functions", "./functions", "Path to cached functions.")
+	config                     = flag.String("config", "./config.yaml", "Path to the config file.")
+	enablePrivateRegistries    = flag.Bool("enable-private-registry", false, "if true enables the use of private registries and their authentication")
+	registryAuthSecretPath     = flag.String("registry-auth-secret-path", "/var/tmp/config-secret/.dockerconfigjson", "The path of the secret used in custom registry authentication")
+	registryAuthSecretName     = flag.String("registry-auth-secret-name", "auth-secret", "The name of the secret used in custom registry authentication")
+	enablePrivateRegistriesTls = flag.Bool("enable-private-registry-tls", false, "if enabled, will prioritize use of user provided TLS secret when accessing registries")
+	tlsSecretPath              = flag.String("tls-secret-path", "/var/tmp/tls-secret/", "The path of the secret used in tls configuration")
+	podCacheConfig             = flag.String("pod-cache-config", "/pod-cache-config/pod-cache-config.yaml", "Path to the pod cache config file. The file is map of function name to TTL.")
+	podNamespace               = flag.String("pod-namespace", "porch-fn-system", "Namespace to run KRM functions pods.")
+	podTTL                     = flag.Duration("pod-ttl", 30*time.Minute, "TTL for pods before GC.")
+	scanInterval               = flag.Duration("scan-interval", time.Minute, "The interval of GC between scans.")
+	disableRuntimes            = flag.String("disable-runtimes", "", fmt.Sprintf("The runtime(s) to disable. Multiple runtimes should separated by `,`. Available runtimes: `%v`, `%v`.", execRuntime, podRuntime))
+	functionPodTemplateName    = flag.String("function-pod-template", "", "Configmap that contains a pod specification")
 )
 
 func main() {
@@ -94,7 +94,7 @@ func run() error {
 			if wrapperServerImage == "" {
 				return fmt.Errorf("environment variable %v must be set to use pod function evaluator runtime", wrapperServerImageEnv)
 			}
-			podEval, err := internal.NewPodEvaluator(*podNamespace, wrapperServerImage, *scanInterval, *podTTL, *podCacheConfig, *functionPodTemplateName, *enablePrivateRegistries, *registryAuthSecretPath, *registryAuthSecretName, *enableTlsRegistries, *tlsSecretPath)
+			podEval, err := internal.NewPodEvaluator(*podNamespace, wrapperServerImage, *scanInterval, *podTTL, *podCacheConfig, *functionPodTemplateName, *enablePrivateRegistries, *registryAuthSecretPath, *registryAuthSecretName, *enablePrivateRegistriesTls, *tlsSecretPath)
 			if err != nil {
 				return fmt.Errorf("failed to initialize pod evaluator: %w", err)
 			}
