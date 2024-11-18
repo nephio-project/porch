@@ -19,6 +19,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	goerrors "errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -31,7 +32,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
+	containerregistry "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/nephio-project/porch/func/evaluator"
 	util "github.com/nephio-project/porch/pkg/util"
@@ -619,67 +620,6 @@ func (pm *podManager) getCustomAuth(ref name.Reference, registryAuthSecretPath s
 	return authn.FromConfig(dockerConfig.Auths[ref.Context().RegistryStr()]), nil
 }
 
-func loadTLSConfig(caCertPath string) (*tls.Config, error) {
-	// Read the CA certificate file
-	caCert, err := os.ReadFile(caCertPath)
-	if err != nil {
-		return nil, err
-	}
-	// Append the CA certificate to the system pool
-	caCertPool := x509.NewCertPool()
-	if !caCertPool.AppendCertsFromPEM(caCert) {
-		return nil, err
-	}
-	// Create a tls.Config with the CA pool
-	tlsConfig := &tls.Config{
-		RootCAs: caCertPool,
-	}
-	return tlsConfig, nil
-}
-
-func createTransport(tlsConfig *tls.Config) *http.Transport {
-	return &http.Transport{
-		TLSClientConfig: tlsConfig,
-	}
-}
-
-func getImage(ctx context.Context, ref name.Reference, auth authn.Authenticator, image string, enablePrivateRegistries bool, enableTlsRegistries bool, tlsSecretPath string) (v1.Image, error) {
-	if enablePrivateRegistries && !strings.HasPrefix(image, defaultRegistry) && enableTlsRegistries {
-		tlsFile := "ca.crt"
-		// Check if mounted secret location contains CA file.
-		_, err := os.Stat(tlsSecretPath)
-		if os.IsNotExist(err) {
-			return nil, err
-		}
-		if _, err := os.Stat(filepath.Join(tlsSecretPath, "ca.crt")); os.IsNotExist(err) {
-			klog.Error(err)
-			if _, err := os.Stat(filepath.Join(tlsSecretPath, "ca.pem")); os.IsNotExist(err) {
-				return nil, err
-			}
-			tlsFile = "ca.pem"
-		}
-		// Load the custom TLS configuration
-		tlsConfig, err := loadTLSConfig(filepath.Join(tlsSecretPath, tlsFile))
-		if err != nil {
-			return nil, err
-		}
-		// Create a custom HTTP transport
-		transport := createTransport(tlsConfig)
-
-		// Attempt image pull with TLS
-		img, tlsErr := remote.Image(ref, remote.WithAuth(auth), remote.WithContext(ctx), remote.WithTransport(transport))
-		if tlsErr != nil {
-			// Attempt without TLS
-			klog.Errorf("Pulling image %s with the provided TLS Cert has failed with error %v", image, tlsErr)
-			klog.Infof("Attempting image pull without TLS")
-			return remote.Image(ref, remote.WithAuth(auth), remote.WithContext(ctx))
-		}
-		return img, tlsErr
-	} else {
-		return remote.Image(ref, remote.WithAuth(auth), remote.WithContext(ctx))
-	}
-}
-
 // getImageMetadata retrieves the image digest and entrypoint.
 func (pm *podManager) getImageMetadata(ctx context.Context, ref name.Reference, auth authn.Authenticator, image string, enablePrivateRegistries bool, enableTlsRegistries bool, tlsSecretPath string) (*digestAndEntrypoint, error) {
 	img, err := getImage(ctx, ref, auth, image, enablePrivateRegistries, enableTlsRegistries, tlsSecretPath)
@@ -706,6 +646,65 @@ func (pm *podManager) getImageMetadata(ctx context.Context, ref name.Reference, 
 	}
 	pm.imageMetadataCache.Store(image, de)
 	return de, nil
+}
+
+func getImage(ctx context.Context, ref name.Reference, auth authn.Authenticator, image string, enablePrivateRegistries bool, enableTlsRegistries bool, tlsSecretPath string) (containerregistry.Image, error) {
+	if enablePrivateRegistries && !strings.HasPrefix(image, defaultRegistry) && enableTlsRegistries {
+		tlsFile := "ca.crt"
+		// Check if mounted secret location contains CA file.
+		if _, err := os.Stat(tlsSecretPath); os.IsNotExist(err) {
+			return nil, err
+		}
+		if _, err := os.Stat(filepath.Join(tlsSecretPath, "ca.crt")); os.IsNotExist(err) {
+			if _, err := os.Stat(filepath.Join(tlsSecretPath, "ca.pem")); os.IsNotExist(err) {
+				return nil, goerrors.New("failed to find TLS files ca.crt or ca.pem")
+			}
+			tlsFile = "ca.pem"
+		}
+		// Load the custom TLS configuration
+		tlsConfig, err := loadTLSConfig(filepath.Join(tlsSecretPath, tlsFile))
+		if err != nil {
+			return nil, err
+		}
+		// Create a custom HTTPS transport
+		transport := createTransport(tlsConfig)
+
+		// Attempt image pull with TLS
+		img, tlsErr := remote.Image(ref, remote.WithAuth(auth), remote.WithContext(ctx), remote.WithTransport(transport))
+		if tlsErr != nil {
+			// Attempt without TLS
+			klog.Errorf("Pulling image %s with the provided TLS Cert has failed with error %v", image, tlsErr)
+			klog.Infof("Attempting image pull without TLS")
+			return remote.Image(ref, remote.WithAuth(auth), remote.WithContext(ctx))
+		}
+		return img, tlsErr
+	} else {
+		return remote.Image(ref, remote.WithAuth(auth), remote.WithContext(ctx))
+	}
+}
+
+func loadTLSConfig(caCertPath string) (*tls.Config, error) {
+	// Read the CA certificate file
+	caCert, err := os.ReadFile(caCertPath)
+	if err != nil {
+		return nil, err
+	}
+	// Append the CA certificate to the system pool
+	caCertPool := x509.NewCertPool()
+	if !caCertPool.AppendCertsFromPEM(caCert) {
+		return nil, goerrors.New("failed to append certificates from PEM")
+	}
+	// Create a tls.Config with the CA pool
+	tlsConfig := &tls.Config{
+		RootCAs: caCertPool,
+	}
+	return tlsConfig, nil
+}
+
+func createTransport(tlsConfig *tls.Config) *http.Transport {
+	return &http.Transport{
+		TLSClientConfig: tlsConfig,
+	}
 }
 
 // retrieveOrCreatePod retrieves or creates a pod for an image.
