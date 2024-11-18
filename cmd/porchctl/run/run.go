@@ -213,6 +213,7 @@ func hideFlags(cmd *cobra.Command) {
 		"password",
 		"token",
 		"username",
+		"request-timeout",
 	}
 	for _, f := range flags {
 		_ = cmd.PersistentFlags().MarkHidden(f)

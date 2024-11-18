@@ -16,18 +16,14 @@ package engine
 
 import (
 	"context"
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 
 	"github.com/nephio-project/porch/internal/kpt/util/update"
-	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"github.com/nephio-project/porch/pkg/repository"
 )
-
-// packageUpdater knows how to update a local package given original and upstream package resources.
-type packageUpdater interface {
-	Update(ctx context.Context, localResources, originalResources, upstreamResources repository.PackageResources) (updatedResources repository.PackageResources, err error)
-}
 
 // defaultPackageUpdater implements packageUpdater interface.
 type defaultPackageUpdater struct{}
@@ -76,29 +72,68 @@ func (m *defaultPackageUpdater) Update(
 }
 
 // PkgUpdate is a wrapper around `kpt pkg update`, running it against the package in packageDir
-func (m *defaultPackageUpdater) do(ctx context.Context, localPkgDir, originalPkgDir, upstreamPkgDir string) error {
-	// TODO: Printer should be a logr
-	pr := printer.New(os.Stdout, os.Stderr)
-	ctx = printer.WithContext(ctx, pr)
+func (m *defaultPackageUpdater) do(_ context.Context, localPkgDir, originalPkgDir, upstreamPkgDir string) error {
+	relPath := "."
+	localPath := filepath.Join(localPkgDir, relPath)
+	updatedPath := filepath.Join(upstreamPkgDir, relPath)
+	originPath := filepath.Join(originalPkgDir, relPath)
+	isRoot := true
 
-	{
-		relPath := "."
-		localPath := filepath.Join(localPkgDir, relPath)
-		updatedPath := filepath.Join(upstreamPkgDir, relPath)
-		originPath := filepath.Join(originalPkgDir, relPath)
-		isRoot := true
+	updateOptions := update.Options{
+		RelPackagePath: relPath,
+		LocalPath:      localPath,
+		UpdatedPath:    updatedPath,
+		OriginPath:     originPath,
+		IsRoot:         isRoot,
+	}
+	updater := update.ResourceMergeUpdater{}
+	if err := updater.Update(updateOptions); err != nil {
+		return err
+	}
 
-		updateOptions := update.Options{
-			RelPackagePath: relPath,
-			LocalPath:      localPath,
-			UpdatedPath:    updatedPath,
-			OriginPath:     originPath,
-			IsRoot:         isRoot,
+	return nil
+}
+
+func writeResourcesToDirectory(dir string, resources repository.PackageResources) error {
+	for k, v := range resources.Contents {
+		p := filepath.Join(dir, k)
+		dir := filepath.Dir(p)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("failed to create directory %q: %w", dir, err)
 		}
-		updater := update.ResourceMergeUpdater{}
-		if err := updater.Update(updateOptions); err != nil {
-			return err
+		if err := os.WriteFile(p, []byte(v), 0644); err != nil {
+			return fmt.Errorf("failed to write file %q: %w", dir, err)
 		}
 	}
 	return nil
+}
+
+func loadResourcesFromDirectory(dir string) (repository.PackageResources, error) {
+	// TODO: return abstraction instead of loading everything
+	result := repository.PackageResources{
+		Contents: map[string]string{},
+	}
+	if err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel(dir, path)
+		if err != nil {
+			return fmt.Errorf("cannot compute relative path %q, %q, %w", dir, path, err)
+		}
+
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("cannot read file %q: %w", dir, err)
+		}
+		result.Contents[rel] = string(contents)
+		return nil
+	}); err != nil {
+		return repository.PackageResources{}, err
+	}
+
+	return result, nil
 }

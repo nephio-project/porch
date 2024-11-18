@@ -28,7 +28,6 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
-	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
@@ -214,9 +213,7 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 			Package:       k.Package,
 			WorkspaceName: k.WorkspaceName,
 		}
-		if _, ok := r.cachedPackageRevisions[oldKey]; ok {
-			delete(r.cachedPackageRevisions, oldKey)
-		}
+		delete(r.cachedPackageRevisions, oldKey)
 	}
 
 	cached := &cachedPackageRevision{PackageRevision: updated}
@@ -264,7 +261,7 @@ func (r *cachedRepository) createMainPackageRevision(ctx context.Context, update
 
 	// Create the package if it doesn't exist
 	_, err := r.metadataStore.Get(ctx, pkgRevMetaNN)
-	if errors.IsNotFound(err) {
+	if apierrors.IsNotFound(err) {
 		pkgRevMeta := meta.PackageRevisionMeta{
 			Name:      updatedMain.KubeObjectName(),
 			Namespace: updatedMain.KubeObjectNamespace(),

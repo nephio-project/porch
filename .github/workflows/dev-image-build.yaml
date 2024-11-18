@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]"
+      - "v[0-9]+.[0-9]+.[0-9]-pre[0-9]+"
     paths-ignore:
       - "docs/**"
       - "release/**"
@@ -73,7 +76,7 @@ jobs:
           push: true
           tags: |
             ${{ steps.meta.outputs.tags }}
-            ${{ matrix.image }}:latest
+            ${{ matrix.image }}:${{ github.ref_name == 'main' && 'latest' || github.ref_name }}
           labels: ${{ steps.meta.outputs.labels }}
           no-cache: true
           sbom: true

@@ -27,7 +27,7 @@ import (
 // identity of resources in a downstream package with the ones in upstream package
 // This is required to ensure package update is able to merge resources in
 // downstream package with upstream.
-func ensureMergeKey(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, error) {
+func ensureMergeKey(_ context.Context, resources repository.PackageResources) (repository.PackageResources, error) {
 	pr := &packageReader{
 		input: resources,
 		extra: map[string]string{},
