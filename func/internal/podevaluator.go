@@ -19,7 +19,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
-	goerrors "errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -655,9 +654,9 @@ func getImage(ctx context.Context, ref name.Reference, auth authn.Authenticator,
 		if _, err := os.Stat(tlsSecretPath); os.IsNotExist(err) {
 			return nil, err
 		}
-		if _, err := os.Stat(filepath.Join(tlsSecretPath, "ca.crt")); os.IsNotExist(err) {
-			if _, err := os.Stat(filepath.Join(tlsSecretPath, "ca.pem")); os.IsNotExist(err) {
-				return nil, goerrors.New("failed to find TLS files ca.crt or ca.pem")
+		if _, errCRT := os.Stat(filepath.Join(tlsSecretPath, "ca.crt")); os.IsNotExist(errCRT) {
+			if _, errPEM := os.Stat(filepath.Join(tlsSecretPath, "ca.pem")); os.IsNotExist(errPEM) {
+				return nil, fmt.Errorf("ca.crt not found: %v, and ca.pem also not found: %v", errCRT, errPEM)
 			}
 			tlsFile = "ca.pem"
 		}
@@ -692,7 +691,7 @@ func loadTLSConfig(caCertPath string) (*tls.Config, error) {
 	// Append the CA certificate to the system pool
 	caCertPool := x509.NewCertPool()
 	if !caCertPool.AppendCertsFromPEM(caCert) {
-		return nil, goerrors.New("failed to append certificates from PEM")
+		return nil, fmt.Errorf("failed to append certificates from PEM")
 	}
 	// Create a tls.Config with the CA pool
 	tlsConfig := &tls.Config{
