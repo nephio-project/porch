@@ -97,10 +97,3 @@ func (f *FakePackageRevision) GetMeta() meta.PackageRevisionMeta {
 
 func (f *FakePackageRevision) SetMeta(meta.PackageRevisionMeta) {
 }
-
-func (f *FakePackageRevision) IsLatest() bool {
-	return false
-}
-
-func (f *FakePackageRevision) SetLatest(latest bool) {
-}

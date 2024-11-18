@@ -39,7 +39,7 @@ type renderPackageMutation struct {
 
 var _ mutation = &renderPackageMutation{}
 
-func (m *renderPackageMutation) Apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
+func (m *renderPackageMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
 	ctx, span := tracer.Start(ctx, "renderPackageMutation::Apply", trace.WithAttributes())
 	defer span.End()
 

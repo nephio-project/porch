@@ -45,7 +45,7 @@ func TestPackageContext(t *testing.T) {
 		t.Fatalf("Failed to get builtin function mutation: %v", err)
 	}
 
-	got, _, err := m.Apply(context.Background(), input)
+	got, _, err := m.apply(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Failed to apply builtin function mutation: %v", err)
 	}

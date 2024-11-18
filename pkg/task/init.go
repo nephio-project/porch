@@ -35,7 +35,7 @@ type initPackageMutation struct {
 
 var _ mutation = &initPackageMutation{}
 
-func (m *initPackageMutation) Apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
+func (m *initPackageMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
 	ctx, span := tracer.Start(ctx, "initPackageMutation::Apply", trace.WithAttributes())
 	defer span.End()
 
