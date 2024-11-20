@@ -34,6 +34,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      
+      - name: Build porch blueprint
+        run: IMAGE_REPO=docker.io/nephio IMAGE_TAG=${{ github.ref_name }} make deployment-config
+
       - name: Run GoReleaser
         id: run-goreleaser
         uses: goreleaser/goreleaser-action@v5
