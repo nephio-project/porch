@@ -612,7 +612,7 @@ func (pm *podManager) getCustomAuth(ref name.Reference, registryAuthSecretPath s
 
 	var dockerConfig DockerConfig
 	if err := json.Unmarshal(dockerConfigBytes, &dockerConfig); err != nil {
-		klog.Errorf("error unmarshalling authentication file %v", err)
+		klog.Errorf("error unmarshaling authentication file %v", err)
 		return nil, err
 	}
 
@@ -648,7 +648,10 @@ func (pm *podManager) getImageMetadata(ctx context.Context, ref name.Reference, 
 }
 
 func getImage(ctx context.Context, ref name.Reference, auth authn.Authenticator, image string, enablePrivateRegistries bool, enablePrivateRegistriesTls bool, tlsSecretPath string) (containerregistry.Image, error) {
-	if enablePrivateRegistries && !strings.HasPrefix(image, defaultRegistry) && enablePrivateRegistriesTls {
+	// if private registries or their appropriate tls configuration are disabled in the config we pull image with default operation otherwise try and use their tls cert's
+	if !enablePrivateRegistries || strings.HasPrefix(image, defaultRegistry) || !enablePrivateRegistriesTls {
+		return remote.Image(ref, remote.WithAuth(auth), remote.WithContext(ctx))
+	} else {
 		tlsFile := "ca.crt"
 		// Check if mounted secret location contains CA file.
 		if _, err := os.Stat(tlsSecretPath); os.IsNotExist(err) {
@@ -668,17 +671,15 @@ func getImage(ctx context.Context, ref name.Reference, auth authn.Authenticator,
 		// Create a custom HTTPS transport
 		transport := createTransport(tlsConfig)
 
-		// Attempt image pull with TLS
+		// Attempt image pull with given custom TLS cert
 		img, tlsErr := remote.Image(ref, remote.WithAuth(auth), remote.WithContext(ctx), remote.WithTransport(transport))
 		if tlsErr != nil {
-			// Attempt without TLS
+			// Attempt without given custom TLS cert but with default keychain
 			klog.Errorf("Pulling image %s with the provided TLS Cert has failed with error %v", image, tlsErr)
-			klog.Infof("Attempting image pull without TLS")
+			klog.Infof("Attempting image pull with default keychain instead of provided TLS Cert")
 			return remote.Image(ref, remote.WithAuth(auth), remote.WithContext(ctx))
 		}
 		return img, tlsErr
-	} else {
-		return remote.Image(ref, remote.WithAuth(auth), remote.WithContext(ctx))
 	}
 }
 
