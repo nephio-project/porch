@@ -651,36 +651,35 @@ func getImage(ctx context.Context, ref name.Reference, auth authn.Authenticator,
 	// if private registries or their appropriate tls configuration are disabled in the config we pull image with default operation otherwise try and use their tls cert's
 	if !enablePrivateRegistries || strings.HasPrefix(image, defaultRegistry) || !enablePrivateRegistriesTls {
 		return remote.Image(ref, remote.WithAuth(auth), remote.WithContext(ctx))
-	} else {
-		tlsFile := "ca.crt"
-		// Check if mounted secret location contains CA file.
-		if _, err := os.Stat(tlsSecretPath); os.IsNotExist(err) {
-			return nil, err
-		}
-		if _, errCRT := os.Stat(filepath.Join(tlsSecretPath, "ca.crt")); os.IsNotExist(errCRT) {
-			if _, errPEM := os.Stat(filepath.Join(tlsSecretPath, "ca.pem")); os.IsNotExist(errPEM) {
-				return nil, fmt.Errorf("ca.crt not found: %v, and ca.pem also not found: %v", errCRT, errPEM)
-			}
-			tlsFile = "ca.pem"
-		}
-		// Load the custom TLS configuration
-		tlsConfig, err := loadTLSConfig(filepath.Join(tlsSecretPath, tlsFile))
-		if err != nil {
-			return nil, err
-		}
-		// Create a custom HTTPS transport
-		transport := createTransport(tlsConfig)
-
-		// Attempt image pull with given custom TLS cert
-		img, tlsErr := remote.Image(ref, remote.WithAuth(auth), remote.WithContext(ctx), remote.WithTransport(transport))
-		if tlsErr != nil {
-			// Attempt without given custom TLS cert but with default keychain
-			klog.Errorf("Pulling image %s with the provided TLS Cert has failed with error %v", image, tlsErr)
-			klog.Infof("Attempting image pull with default keychain instead of provided TLS Cert")
-			return remote.Image(ref, remote.WithAuth(auth), remote.WithContext(ctx))
-		}
-		return img, tlsErr
 	}
+	tlsFile := "ca.crt"
+	// Check if mounted secret location contains CA file.
+	if _, err := os.Stat(tlsSecretPath); os.IsNotExist(err) {
+		return nil, err
+	}
+	if _, errCRT := os.Stat(filepath.Join(tlsSecretPath, "ca.crt")); os.IsNotExist(errCRT) {
+		if _, errPEM := os.Stat(filepath.Join(tlsSecretPath, "ca.pem")); os.IsNotExist(errPEM) {
+			return nil, fmt.Errorf("ca.crt not found: %v, and ca.pem also not found: %v", errCRT, errPEM)
+		}
+		tlsFile = "ca.pem"
+	}
+	// Load the custom TLS configuration
+	tlsConfig, err := loadTLSConfig(filepath.Join(tlsSecretPath, tlsFile))
+	if err != nil {
+		return nil, err
+	}
+	// Create a custom HTTPS transport
+	transport := createTransport(tlsConfig)
+
+	// Attempt image pull with given custom TLS cert
+	img, tlsErr := remote.Image(ref, remote.WithAuth(auth), remote.WithContext(ctx), remote.WithTransport(transport))
+	if tlsErr != nil {
+		// Attempt without given custom TLS cert but with default keychain
+		klog.Errorf("Pulling image %s with the provided TLS Cert has failed with error %v", image, tlsErr)
+		klog.Infof("Attempting image pull with default keychain instead of provided TLS Cert")
+		return remote.Image(ref, remote.WithAuth(auth), remote.WithContext(ctx))
+	}
+	return img, tlsErr
 }
 
 func loadTLSConfig(caCertPath string) (*tls.Config, error) {
