@@ -16,9 +16,12 @@ package internal
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -28,6 +31,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
+	containerregistry "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/nephio-project/porch/func/evaluator"
 	util "github.com/nephio-project/porch/pkg/util"
@@ -71,7 +75,20 @@ type podEvaluator struct {
 
 var _ Evaluator = &podEvaluator{}
 
-func NewPodEvaluator(namespace, wrapperServerImage string, interval, ttl time.Duration, podTTLConfig string, functionPodTemplateName string, enablePrivateRegistries bool, registryAuthSecretPath string, registryAuthSecretName string) (Evaluator, error) {
+func NewPodEvaluator(
+	namespace,
+	wrapperServerImage string,
+	interval,
+	ttl time.Duration,
+	podTTLConfig string,
+	functionPodTemplateName string,
+	enablePrivateRegistries bool,
+	registryAuthSecretPath string,
+	registryAuthSecretName string,
+	enablePrivateRegistriesTls bool,
+	tlsSecretPath string,
+) (Evaluator, error) {
+
 	restCfg, err := config.GetConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get rest config: %w", err)
@@ -100,15 +117,17 @@ func NewPodEvaluator(namespace, wrapperServerImage string, interval, ttl time.Du
 	pe := &podEvaluator{
 		requestCh: reqCh,
 		podCacheManager: &podCacheManager{
-			gcScanInternal:          interval,
-			podTTL:                  ttl,
-			enablePrivateRegistries: enablePrivateRegistries,
-			registryAuthSecretPath:  registryAuthSecretPath,
-			registryAuthSecretName:  registryAuthSecretName,
-			requestCh:               reqCh,
-			podReadyCh:              readyCh,
-			cache:                   map[string]*podAndGRPCClient{},
-			waitlists:               map[string][]chan<- *clientConnAndError{},
+			gcScanInternal:             interval,
+			podTTL:                     ttl,
+			enablePrivateRegistries:    enablePrivateRegistries,
+			registryAuthSecretPath:     registryAuthSecretPath,
+			registryAuthSecretName:     registryAuthSecretName,
+			enablePrivateRegistriesTls: enablePrivateRegistriesTls,
+			tlsSecretPath:              tlsSecretPath,
+			requestCh:                  reqCh,
+			podReadyCh:                 readyCh,
+			cache:                      map[string]*podAndGRPCClient{},
+			waitlists:                  map[string][]chan<- *clientConnAndError{},
 
 			podManager: &podManager{
 				kubeClient:              cl,
@@ -176,6 +195,9 @@ type podCacheManager struct {
 	enablePrivateRegistries bool
 	registryAuthSecretPath  string
 	registryAuthSecretName  string
+
+	enablePrivateRegistriesTls bool
+	tlsSecretPath              string
 
 	// requestCh is a receive-only channel to receive
 	requestCh <-chan *clientConnRequest
@@ -245,7 +267,7 @@ func (pcm *podCacheManager) warmupCache(podTTLConfig string) error {
 
 		// We invoke the function with useGenerateName=false so that the pod name is fixed,
 		// since we want to ensure only one pod is created for each function.
-		pcm.podManager.getFuncEvalPodClient(ctx, fnImage, ttl, false, pcm.enablePrivateRegistries, pcm.registryAuthSecretPath, pcm.registryAuthSecretName)
+		pcm.podManager.getFuncEvalPodClient(ctx, fnImage, ttl, false, pcm.enablePrivateRegistries, pcm.registryAuthSecretPath, pcm.registryAuthSecretName, pcm.enablePrivateRegistriesTls, pcm.tlsSecretPath)
 		klog.Infof("preloaded pod cache for function %v", fnImage)
 	})
 
@@ -313,7 +335,7 @@ func (pcm *podCacheManager) podCacheManager() {
 			pcm.waitlists[req.image] = append(list, req.grpcClientCh)
 			// We invoke the function with useGenerateName=true to avoid potential name collision, since if pod foo is
 			// being deleted and we can't use the same name.
-			go pcm.podManager.getFuncEvalPodClient(context.Background(), req.image, pcm.podTTL, true, pcm.enablePrivateRegistries, pcm.registryAuthSecretPath, pcm.registryAuthSecretName)
+			go pcm.podManager.getFuncEvalPodClient(context.Background(), req.image, pcm.podTTL, true, pcm.enablePrivateRegistries, pcm.registryAuthSecretPath, pcm.registryAuthSecretName, pcm.enablePrivateRegistriesTls, pcm.tlsSecretPath)
 		case resp := <-pcm.podReadyCh:
 			if resp.err != nil {
 				klog.Warningf("received error from the pod manager: %v", resp.err)
@@ -445,9 +467,9 @@ type digestAndEntrypoint struct {
 // time-to-live period for the pod. If useGenerateName is false, it will try to
 // create a pod with a fixed name. Otherwise, it will create a pod and let the
 // apiserver to generate the name from a template.
-func (pm *podManager) getFuncEvalPodClient(ctx context.Context, image string, ttl time.Duration, useGenerateName bool, enablePrivateRegistries bool, registryAuthSecretPath string, registryAuthSecretName string) {
+func (pm *podManager) getFuncEvalPodClient(ctx context.Context, image string, ttl time.Duration, useGenerateName bool, enablePrivateRegistries bool, registryAuthSecretPath string, registryAuthSecretName string, enablePrivateRegistriesTls bool, tlsSecretPath string) {
 	c, err := func() (*podAndGRPCClient, error) {
-		podKey, err := pm.retrieveOrCreatePod(ctx, image, ttl, useGenerateName, enablePrivateRegistries, registryAuthSecretPath, registryAuthSecretName)
+		podKey, err := pm.retrieveOrCreatePod(ctx, image, ttl, useGenerateName, enablePrivateRegistries, registryAuthSecretPath, registryAuthSecretName, enablePrivateRegistriesTls, tlsSecretPath)
 		if err != nil {
 			return nil, err
 		}
@@ -539,7 +561,7 @@ type DockerConfig struct {
 }
 
 // imageDigestAndEntrypoint gets the entrypoint of a container image by looking at its metadata.
-func (pm *podManager) imageDigestAndEntrypoint(ctx context.Context, image string, enablePrivateRegistries bool, registryAuthSecretPath string, registryAuthSecretName string) (*digestAndEntrypoint, error) {
+func (pm *podManager) imageDigestAndEntrypoint(ctx context.Context, image string, enablePrivateRegistries bool, registryAuthSecretPath string, registryAuthSecretName string, enablePrivateRegistriesTls bool, tlsSecretPath string) (*digestAndEntrypoint, error) {
 	start := time.Now()
 	defer func() {
 		klog.Infof("getting image metadata for %v took %v", image, time.Since(start))
@@ -569,7 +591,7 @@ func (pm *podManager) imageDigestAndEntrypoint(ctx context.Context, image string
 		}
 	}
 
-	return pm.getImageMetadata(ctx, ref, auth, image)
+	return pm.getImageMetadata(ctx, ref, auth, image, enablePrivateRegistries, enablePrivateRegistriesTls, tlsSecretPath)
 }
 
 // ensureCustomAuthSecret ensures that, if an image from a custom registry is requested, the appropriate credentials are passed into a secret for function pods to use when pulling. If the secret does not already exist, it is created.
@@ -590,7 +612,7 @@ func (pm *podManager) getCustomAuth(ref name.Reference, registryAuthSecretPath s
 
 	var dockerConfig DockerConfig
 	if err := json.Unmarshal(dockerConfigBytes, &dockerConfig); err != nil {
-		klog.Errorf("error unmarshalling authentication file %v", err)
+		klog.Errorf("error unmarshaling authentication file %v", err)
 		return nil, err
 	}
 
@@ -598,8 +620,8 @@ func (pm *podManager) getCustomAuth(ref name.Reference, registryAuthSecretPath s
 }
 
 // getImageMetadata retrieves the image digest and entrypoint.
-func (pm *podManager) getImageMetadata(ctx context.Context, ref name.Reference, auth authn.Authenticator, image string) (*digestAndEntrypoint, error) {
-	img, err := remote.Image(ref, remote.WithAuth(auth), remote.WithContext(ctx))
+func (pm *podManager) getImageMetadata(ctx context.Context, ref name.Reference, auth authn.Authenticator, image string, enablePrivateRegistries bool, enablePrivateRegistriesTls bool, tlsSecretPath string) (*digestAndEntrypoint, error) {
+	img, err := getImage(ctx, ref, auth, image, enablePrivateRegistries, enablePrivateRegistriesTls, tlsSecretPath)
 	if err != nil {
 		return nil, err
 	}
@@ -625,15 +647,74 @@ func (pm *podManager) getImageMetadata(ctx context.Context, ref name.Reference, 
 	return de, nil
 }
 
+func getImage(ctx context.Context, ref name.Reference, auth authn.Authenticator, image string, enablePrivateRegistries bool, enablePrivateRegistriesTls bool, tlsSecretPath string) (containerregistry.Image, error) {
+	// if private registries or their appropriate tls configuration are disabled in the config we pull image with default operation otherwise try and use their tls cert's
+	if !enablePrivateRegistries || strings.HasPrefix(image, defaultRegistry) || !enablePrivateRegistriesTls {
+		return remote.Image(ref, remote.WithAuth(auth), remote.WithContext(ctx))
+	}
+	tlsFile := "ca.crt"
+	// Check if mounted secret location contains CA file.
+	if _, err := os.Stat(tlsSecretPath); os.IsNotExist(err) {
+		return nil, err
+	}
+	if _, errCRT := os.Stat(filepath.Join(tlsSecretPath, "ca.crt")); os.IsNotExist(errCRT) {
+		if _, errPEM := os.Stat(filepath.Join(tlsSecretPath, "ca.pem")); os.IsNotExist(errPEM) {
+			return nil, fmt.Errorf("ca.crt not found: %v, and ca.pem also not found: %v", errCRT, errPEM)
+		}
+		tlsFile = "ca.pem"
+	}
+	// Load the custom TLS configuration
+	tlsConfig, err := loadTLSConfig(filepath.Join(tlsSecretPath, tlsFile))
+	if err != nil {
+		return nil, err
+	}
+	// Create a custom HTTPS transport
+	transport := createTransport(tlsConfig)
+
+	// Attempt image pull with given custom TLS cert
+	img, tlsErr := remote.Image(ref, remote.WithAuth(auth), remote.WithContext(ctx), remote.WithTransport(transport))
+	if tlsErr != nil {
+		// Attempt without given custom TLS cert but with default keychain
+		klog.Errorf("Pulling image %s with the provided TLS Cert has failed with error %v", image, tlsErr)
+		klog.Infof("Attempting image pull with default keychain instead of provided TLS Cert")
+		return remote.Image(ref, remote.WithAuth(auth), remote.WithContext(ctx))
+	}
+	return img, tlsErr
+}
+
+func loadTLSConfig(caCertPath string) (*tls.Config, error) {
+	// Read the CA certificate file
+	caCert, err := os.ReadFile(caCertPath)
+	if err != nil {
+		return nil, err
+	}
+	// Append the CA certificate to the system pool
+	caCertPool := x509.NewCertPool()
+	if !caCertPool.AppendCertsFromPEM(caCert) {
+		return nil, fmt.Errorf("failed to append certificates from PEM")
+	}
+	// Create a tls.Config with the CA pool
+	tlsConfig := &tls.Config{
+		RootCAs: caCertPool,
+	}
+	return tlsConfig, nil
+}
+
+func createTransport(tlsConfig *tls.Config) *http.Transport {
+	return &http.Transport{
+		TLSClientConfig: tlsConfig,
+	}
+}
+
 // retrieveOrCreatePod retrieves or creates a pod for an image.
-func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl time.Duration, useGenerateName bool, enablePrivateRegistries bool, registryAuthSecretPath string, registryAuthSecretName string) (client.ObjectKey, error) {
+func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl time.Duration, useGenerateName bool, enablePrivateRegistries bool, registryAuthSecretPath string, registryAuthSecretName string, enablePrivateRegistriesTls bool, tlsSecretPath string) (client.ObjectKey, error) {
 	var de *digestAndEntrypoint
 	var replacePod bool
 	var currentPod *corev1.Pod
 	var err error
 	val, found := pm.imageMetadataCache.Load(image)
 	if !found {
-		de, err = pm.imageDigestAndEntrypoint(ctx, image, enablePrivateRegistries, registryAuthSecretPath, registryAuthSecretName)
+		de, err = pm.imageDigestAndEntrypoint(ctx, image, enablePrivateRegistries, registryAuthSecretPath, registryAuthSecretName, enablePrivateRegistriesTls, tlsSecretPath)
 		if err != nil {
 			return client.ObjectKey{}, fmt.Errorf("unable to get the entrypoint for %v: %w", image, err)
 		}
