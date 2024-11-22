@@ -37,35 +37,49 @@ const (
 	wrapperServerImageEnv = "WRAPPER_SERVER_IMAGE"
 )
 
-var (
-	port                       = flag.Int("port", 9445, "The server port")
-	functions                  = flag.String("functions", "./functions", "Path to cached functions.")
-	config                     = flag.String("config", "./config.yaml", "Path to the config file.")
-	enablePrivateRegistries    = flag.Bool("enable-private-registries", false, "if true enables the use of private registries and their authentication")
-	registryAuthSecretPath     = flag.String("registry-auth-secret-path", "/var/tmp/config-secret/.dockerconfigjson", "The path of the secret used for authenticating to custom registries")
-	registryAuthSecretName     = flag.String("registry-auth-secret-name", "auth-secret", "The name of the secret used for authenticating to custom registries")
-	enablePrivateRegistriesTls = flag.Bool("enable-private-registries-tls", false, "if enabled, will prioritize use of user provided TLS secret when accessing registries")
-	tlsSecretPath              = flag.String("tls-secret-path", "/var/tmp/tls-secret/", "The path of the secret used in tls configuration")
-	podCacheConfig             = flag.String("pod-cache-config", "/pod-cache-config/pod-cache-config.yaml", "Path to the pod cache config file. The file is map of function name to TTL.")
-	podNamespace               = flag.String("pod-namespace", "porch-fn-system", "Namespace to run KRM functions pods.")
-	podTTL                     = flag.Duration("pod-ttl", 30*time.Minute, "TTL for pods before GC.")
-	scanInterval               = flag.Duration("scan-interval", time.Minute, "The interval of GC between scans.")
-	disableRuntimes            = flag.String("disable-runtimes", "", fmt.Sprintf("The runtime(s) to disable. Multiple runtimes should separated by `,`. Available runtimes: `%v`, `%v`.", execRuntime, podRuntime))
-	functionPodTemplateName    = flag.String("function-pod-template", "", "Configmap that contains a pod specification")
-	maxGrpcMessageSize         = flag.Int("max-request-body-size", 6*1024*1024, "Maximum size of grpc messages in bytes.")
-)
+type options struct {
+	// The server port
+	port int
+	// The runtime(s) to disable. Multiple runtimes should separated by `,`.
+	disableRuntimes string
+
+	// Parameters of ExecEvaluator
+	exec internal.ExecutableEvaluatorOptions
+	// Parameters of PodEvaluator
+	pod internal.PodEvaluatorOptions
+}
 
 func main() {
+	o := &options{}
+	// generic flags
+	flag.IntVar(&o.port, "port", 9445, "The server port")
+	flag.StringVar(&o.disableRuntimes, "disable-runtimes", "", fmt.Sprintf("The runtime(s) to disable. Multiple runtimes should separated by `,`. Available runtimes: `%v`, `%v`.", execRuntime, podRuntime))
+	// flags for the exec runtime
+	flag.StringVar(&o.exec.FunctionCacheDir, "functions", "./functions", "Path to cached functions.")
+	flag.StringVar(&o.exec.ConfigFileName, "config", "./config.yaml", "Path to the config file of the exec runtime.")
+	// flags for the pod runtime
+	flag.StringVar(&o.pod.PodCacheConfigFileName, "pod-cache-config", "/pod-cache-config/pod-cache-config.yaml", "Path to the pod cache config file. The file is map of function name to TTL.")
+	flag.StringVar(&o.pod.PodNamespace, "pod-namespace", "porch-fn-system", "Namespace to run KRM functions pods.")
+	flag.DurationVar(&o.pod.PodTTL, "pod-ttl", 30*time.Minute, "TTL for pods before GC.")
+	flag.DurationVar(&o.pod.GcScanInterval, "scan-interval", time.Minute, "The interval of GC between scans.")
+	flag.StringVar(&o.pod.FunctionPodTemplateName, "function-pod-template", "", "Configmap that contains a pod specification")
+	flag.BoolVar(&o.pod.EnablePrivateRegistries, "enable-private-registries", false, "if true enables the use of private registries and their authentication")
+	flag.StringVar(&o.pod.RegistryAuthSecretPath, "registry-auth-secret-path", "/var/tmp/config-secret/.dockerconfigjson", "The path of the secret used for authenticating to custom registries")
+	flag.StringVar(&o.pod.RegistryAuthSecretName, "registry-auth-secret-name", "auth-secret", "The name of the secret used for authenticating to custom registries")
+	flag.BoolVar(&o.pod.EnablePrivateRegistriesTls, "enable-private-registries-tls", false, "if enabled, will prioritize use of user provided TLS secret when accessing registries")
+	flag.StringVar(&o.pod.TlsSecretPath, "tls-secret-path", "/var/tmp/tls-secret/", "The path of the secret used in tls configuration")
+	flag.IntVar(&o.pod.MaxGrpcMessageSize, "max-request-body-size", 6*1024*1024, "Maximum size of grpc messages in bytes.")
+
 	flag.Parse()
 
-	if err := run(); err != nil {
+	if err := run(o); err != nil {
 		fmt.Fprintf(os.Stderr, "unexpected error: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func run() error {
-	address := fmt.Sprintf(":%d", *port)
+func run(o *options) error {
+	address := fmt.Sprintf(":%d", o.port)
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
 		return fmt.Errorf("failed to listen: %w", err)
@@ -75,8 +89,8 @@ func run() error {
 		execRuntime: {},
 		podRuntime:  {},
 	}
-	if disableRuntimes != nil {
-		runtimesFromFlag := strings.Split(*disableRuntimes, ",")
+	if o.disableRuntimes != "" {
+		runtimesFromFlag := strings.Split(o.disableRuntimes, ",")
 		for _, rt := range runtimesFromFlag {
 			delete(availableRuntimes, rt)
 		}
@@ -85,17 +99,17 @@ func run() error {
 	for rt := range availableRuntimes {
 		switch rt {
 		case execRuntime:
-			execEval, err := internal.NewExecutableEvaluator(*functions, *config)
+			execEval, err := internal.NewExecutableEvaluator(o.exec)
 			if err != nil {
 				return fmt.Errorf("failed to initialize executable evaluator: %w", err)
 			}
 			runtimes = append(runtimes, execEval)
 		case podRuntime:
-			wrapperServerImage := os.Getenv(wrapperServerImageEnv)
-			if wrapperServerImage == "" {
+			o.pod.WrapperServerImage = os.Getenv(wrapperServerImageEnv)
+			if o.pod.WrapperServerImage == "" {
 				return fmt.Errorf("environment variable %v must be set to use pod function evaluator runtime", wrapperServerImageEnv)
 			}
-			podEval, err := internal.NewPodEvaluator(*podNamespace, wrapperServerImage, *scanInterval, *podTTL, *podCacheConfig, *functionPodTemplateName, *enablePrivateRegistries, *registryAuthSecretPath, *registryAuthSecretName, *enablePrivateRegistriesTls, *tlsSecretPath, *maxGrpcMessageSize)
+			podEval, err := internal.NewPodEvaluator(o.pod)
 			if err != nil {
 				return fmt.Errorf("failed to initialize pod evaluator: %w", err)
 			}
@@ -111,8 +125,8 @@ func run() error {
 
 	// Start the gRPC server
 	server := grpc.NewServer(
-		grpc.MaxRecvMsgSize(*maxGrpcMessageSize),
-		grpc.MaxSendMsgSize(*maxGrpcMessageSize),
+		grpc.MaxRecvMsgSize(o.pod.MaxGrpcMessageSize),
+		grpc.MaxSendMsgSize(o.pod.MaxGrpcMessageSize),
 	)
 	pb.RegisterFunctionEvaluatorServer(server, evaluator)
 	healthService := healthchecker.NewHealthChecker()

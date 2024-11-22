@@ -31,6 +31,11 @@ import (
 	"k8s.io/klog/v2"
 )
 
+type ExecutableEvaluatorOptions struct {
+	ConfigFileName   string // Path to the config file
+	FunctionCacheDir string // Path to cached functions
+}
+
 type executableEvaluator struct {
 	// Fast-path function cache
 	cache map[string]string
@@ -47,17 +52,17 @@ type function struct {
 
 var _ Evaluator = &executableEvaluator{}
 
-func NewExecutableEvaluator(functions string, config string) (Evaluator, error) {
+func NewExecutableEvaluator(o ExecutableEvaluatorOptions) (Evaluator, error) {
 	cache := map[string]string{}
 
-	if config != "" {
-		bytes, err := os.ReadFile(config)
+	if o.ConfigFileName != "" {
+		bytes, err := os.ReadFile(o.ConfigFileName)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read configuration file %q: %w", config, err)
+			return nil, fmt.Errorf("failed to read configuration file %q: %w", o.ConfigFileName, err)
 		}
 		var cfg configuration
 		if err := yaml.Unmarshal(bytes, &cfg); err != nil {
-			return nil, fmt.Errorf("failed to parse configuration file %q: %w", config, err)
+			return nil, fmt.Errorf("failed to parse configuration file %q: %w", o.ConfigFileName, err)
 		}
 
 		for _, fn := range cfg.Functions {
@@ -65,7 +70,7 @@ func NewExecutableEvaluator(functions string, config string) (Evaluator, error) 
 				if _, exists := cache[img]; exists {
 					klog.Warningf("Ignoring duplicate image %q (%s)", img, fn.Function)
 				} else {
-					abs, err := filepath.Abs(filepath.Join(functions, fn.Function))
+					abs, err := filepath.Abs(filepath.Join(o.FunctionCacheDir, fn.Function))
 					if err != nil {
 						return nil, fmt.Errorf("failed to determine path to the cached function %q: %w", img, err)
 					}

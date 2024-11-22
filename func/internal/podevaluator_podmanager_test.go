@@ -635,6 +635,15 @@ func TestPodManager(t *testing.T) {
 				podReadyTimeout:         1 * time.Second,
 				functionPodTemplateName: tt.functionPodTemplateName,
 				managerNamespace:        tt.managerNamespace,
+
+				maxGrpcMessageSize: 4 * 1024 * 1024,
+
+				enablePrivateRegistries: false,
+				registryAuthSecretPath:  "/var/tmp/config-secret/.dockerconfigjson",
+				registryAuthSecretName:  "auth-secret",
+
+				enablePrivateRegistriesTls: false,
+				tlsSecretPath:              "/var/tmp/tls-secret/",
 			}
 
 			for k, v := range tt.imageMetadataCache {
@@ -644,7 +653,7 @@ func TestPodManager(t *testing.T) {
 			fakeServer.evalFunc = tt.evalFunc
 
 			//Execute the function under test
-			go pm.getFuncEvalPodClient(ctx, tt.functionImage, time.Hour, tt.useGenerateName, false, "/var/tmp/config-secret/.dockerconfigjson", "auth-secret", false, "/var/tmp/tls-secret/")
+			go pm.getFuncEvalPodClient(ctx, tt.functionImage, time.Hour, tt.useGenerateName)
 
 			if tt.podPatch != nil {
 				go func() {
@@ -683,7 +692,7 @@ func TestPodManager(t *testing.T) {
 				}
 
 				if !strings.HasPrefix(pod.Labels[krmFunctionLabel], tt.functionImage) {
-					t.Errorf("Expected pod to have label starting wiht %s, got %s", tt.functionImage, pod.Labels[krmFunctionLabel])
+					t.Errorf("Expected pod to have label starting with %s, got %s", tt.functionImage, pod.Labels[krmFunctionLabel])
 				}
 				if pod.Spec.Containers[0].Image != tt.functionImage {
 					t.Errorf("Expected pod to have image %s, got %s", tt.functionImage, pod.Spec.Containers[0].Image)
