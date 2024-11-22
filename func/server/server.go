@@ -52,6 +52,7 @@ var (
 	scanInterval               = flag.Duration("scan-interval", time.Minute, "The interval of GC between scans.")
 	disableRuntimes            = flag.String("disable-runtimes", "", fmt.Sprintf("The runtime(s) to disable. Multiple runtimes should separated by `,`. Available runtimes: `%v`, `%v`.", execRuntime, podRuntime))
 	functionPodTemplateName    = flag.String("function-pod-template", "", "Configmap that contains a pod specification")
+	maxGrpcMessageSize         = flag.Int("max-request-body-size", 6*1024*1024, "Maximum size of grpc messages in bytes.")
 )
 
 func main() {
@@ -94,7 +95,7 @@ func run() error {
 			if wrapperServerImage == "" {
 				return fmt.Errorf("environment variable %v must be set to use pod function evaluator runtime", wrapperServerImageEnv)
 			}
-			podEval, err := internal.NewPodEvaluator(*podNamespace, wrapperServerImage, *scanInterval, *podTTL, *podCacheConfig, *functionPodTemplateName, *enablePrivateRegistries, *registryAuthSecretPath, *registryAuthSecretName, *enablePrivateRegistriesTls, *tlsSecretPath)
+			podEval, err := internal.NewPodEvaluator(*podNamespace, wrapperServerImage, *scanInterval, *podTTL, *podCacheConfig, *functionPodTemplateName, *enablePrivateRegistries, *registryAuthSecretPath, *registryAuthSecretName, *enablePrivateRegistriesTls, *tlsSecretPath, *maxGrpcMessageSize)
 			if err != nil {
 				return fmt.Errorf("failed to initialize pod evaluator: %w", err)
 			}
@@ -109,7 +110,10 @@ func run() error {
 	klog.Infof("Listening on %s", address)
 
 	// Start the gRPC server
-	server := grpc.NewServer()
+	server := grpc.NewServer(
+		grpc.MaxRecvMsgSize(*maxGrpcMessageSize),
+		grpc.MaxSendMsgSize(*maxGrpcMessageSize),
+	)
 	pb.RegisterFunctionEvaluatorServer(server, evaluator)
 	healthService := healthchecker.NewHealthChecker()
 	grpc_health_v1.RegisterHealthServer(server, healthService)

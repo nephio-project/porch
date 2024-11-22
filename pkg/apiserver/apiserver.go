@@ -81,6 +81,7 @@ type ExtraConfig struct {
 	DefaultImagePrefix    string
 	RepoSyncFrequency     time.Duration
 	UseGitCaBundle        bool
+	MaxGrpcMessageSize    int
 }
 
 // Config defines the config for the apiserver
@@ -247,7 +248,7 @@ func (c completedConfig) New() (*PorchServer, error) {
 		// evaluating a function, the runtimes will be tried in the same
 		// order as they are registered.
 		engine.WithBuiltinFunctionRuntime(),
-		engine.WithGRPCFunctionRuntime(c.ExtraConfig.FunctionRunnerAddress),
+		engine.WithGRPCFunctionRuntime(c.ExtraConfig.FunctionRunnerAddress, c.ExtraConfig.MaxGrpcMessageSize),
 		engine.WithCredentialResolver(credentialResolver),
 		engine.WithRunnerOptionsResolver(runnerOptionsResolver),
 		engine.WithReferenceResolver(referenceResolver),

@@ -33,14 +33,20 @@ type grpcRuntime struct {
 	client evaluator.FunctionEvaluatorClient
 }
 
-func newGRPCFunctionRuntime(address string) (*grpcRuntime, error) {
+func newGRPCFunctionRuntime(address string, maxGrpcMessageSize int) (*grpcRuntime, error) {
 	if address == "" {
 		return nil, fmt.Errorf("address is required to instantiate gRPC function runtime")
 	}
 
 	klog.Infof("Dialing grpc function runner %q", address)
 
-	cc, err := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	cc, err := grpc.Dial(address,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(
+			grpc.MaxCallRecvMsgSize(maxGrpcMessageSize),
+			grpc.MaxCallSendMsgSize(maxGrpcMessageSize),
+		),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial grpc function evaluator: %w", err)
 	}

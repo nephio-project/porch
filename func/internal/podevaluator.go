@@ -87,6 +87,7 @@ func NewPodEvaluator(
 	registryAuthSecretName string,
 	enablePrivateRegistriesTls bool,
 	tlsSecretPath string,
+	maxGrpcMessageSize int,
 ) (Evaluator, error) {
 
 	restCfg, err := config.GetConfig()
@@ -137,6 +138,7 @@ func NewPodEvaluator(
 				functionPodTemplateName: functionPodTemplateName,
 				podReadyTimeout:         60 * time.Second,
 				managerNamespace:        managerNs,
+				maxGrpcMessageSize:      maxGrpcMessageSize,
 			},
 		},
 	}
@@ -154,9 +156,9 @@ func NewPodEvaluator(
 func (pe *podEvaluator) EvaluateFunction(ctx context.Context, req *evaluator.EvaluateFunctionRequest) (*evaluator.EvaluateFunctionResponse, error) {
 	starttime := time.Now()
 	defer func() {
-		klog.Infof("evaluating %v in pod took %v", req.Image, time.Now().Sub(starttime))
+		klog.Infof("evaluating %v in pod took %v", req.Image, time.Since(starttime))
 	}()
-	// make a buffer for the channel to prevent unnecessary blocking when the pod cache manager sends it to multiple waiting gorouthine in batch.
+	// make a buffer for the channel to prevent unnecessary blocking when the pod cache manager sends it to multiple waiting goroutine in batch.
 	ccChan := make(chan *clientConnAndError, 1)
 	// Send a request to request a grpc client.
 	pe.requestCh <- &clientConnRequest{
@@ -207,7 +209,7 @@ type podCacheManager struct {
 	// cache is a mapping from image name to <pod + grpc client>.
 	cache map[string]*podAndGRPCClient
 	// waitlists is a mapping from image name to a list of channels that are
-	// waiting for the GPRC client connections.
+	// waiting for the GRPC client connections.
 	waitlists map[string][]chan<- *clientConnAndError
 
 	podManager *podManager
@@ -240,7 +242,7 @@ type imagePodAndGRPCClient struct {
 func (pcm *podCacheManager) warmupCache(podTTLConfig string) error {
 	start := time.Now()
 	defer func() {
-		klog.Infof("cache warning is completed and it took %v", time.Now().Sub(start))
+		klog.Infof("cache warning is completed and it took %v", time.Since(start))
 	}()
 	content, err := os.ReadFile(podTTLConfig)
 	if err != nil {
@@ -303,7 +305,7 @@ func (pcm *podCacheManager) podCacheManager() {
 		case req := <-pcm.requestCh:
 			podAndCl, found := pcm.cache[req.image]
 			if found && podAndCl != nil {
-				// Ensure the pod still exists and is not being deleted before sending the gprc client back to the channel.
+				// Ensure the pod still exists and is not being deleted before sending the grpc client back to the channel.
 				// We can't simply return grpc client from the cache and let evaluator try to connect to the pod.
 				// If the pod is deleted by others, it will take ~10 seconds for the evaluator to fail.
 				// Wasting 10 second is so much, so we check if the pod still exist first.
@@ -390,7 +392,7 @@ func (pcm *podCacheManager) garbageCollector() {
 				go patchPodWithUnixTimeAnnotation(pcm.podManager.kubeClient, client.ObjectKeyFromObject(&pod), pcm.podTTL)
 				continue
 			}
-			// If the current time is after the reclaim-ater annotation in the pod, we delete the pod and remove the corresponding cache entry.
+			// If the current time is after the reclaim-later annotation in the pod, we delete the pod and remove the corresponding cache entry.
 			if time.Now().After(time.Unix(reclaimAfter, 0)) {
 				podIP := pod.Status.PodIP
 				go func(po corev1.Pod) {
@@ -453,6 +455,9 @@ type podManager struct {
 	// of the main container, which must be called "function".
 	// Pod manager will replace the image
 	functionPodTemplateName string
+
+	// The maximum size of grpc messages sent to KRM function evaluator pods
+	maxGrpcMessageSize int
 }
 
 type digestAndEntrypoint struct {
@@ -481,7 +486,13 @@ func (pm *podManager) getFuncEvalPodClient(ctx context.Context, image string, tt
 			return nil, fmt.Errorf("pod %s/%s did not have podIP", podKey.Namespace, podKey.Name)
 		}
 		address := net.JoinHostPort(podIP, defaultWrapperServerPort)
-		cc, err := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		cc, err := grpc.Dial(address,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithDefaultCallOptions(
+				grpc.MaxCallRecvMsgSize(pm.maxGrpcMessageSize),
+				grpc.MaxCallSendMsgSize(pm.maxGrpcMessageSize),
+			),
+		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to dial grpc function evaluator on %q for pod %s/%s: %w", address, podKey.Namespace, podKey.Name, err)
 		}
@@ -902,6 +913,7 @@ func (pm *podManager) patchNewPodContainer(pod *corev1.Pod, de digestAndEntrypoi
 		if container.Name == functionContainerName {
 			container.Args = append(container.Args,
 				"--port", defaultWrapperServerPort,
+				"--max-request-body-size", strconv.Itoa(pm.maxGrpcMessageSize),
 				"--",
 			)
 			container.Args = append(container.Args, de.entrypoint...)
@@ -954,7 +966,7 @@ func (pm *podManager) podIpIfRunningAndReady(ctx context.Context, podKey client.
 		}
 		return false, nil
 	}); e != nil {
-		return "", fmt.Errorf("error occured when waiting the pod to be ready. If the error is caused by timeout, you may want to examine the pods in namespace %q. Error: %w", pm.namespace, e)
+		return "", fmt.Errorf("error occurred when waiting the pod to be ready. If the error is caused by timeout, you may want to examine the pods in namespace %q. Error: %w", pm.namespace, e)
 	}
 	return pod.Status.PodIP, nil
 }

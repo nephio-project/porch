@@ -48,6 +48,7 @@ func main() {
 		},
 	}
 	cmd.Flags().IntVar(&op.port, "port", 9446, "The server port")
+	cmd.Flags().IntVar(&op.maxGrpcMessageSize, "max-request-body-size", 6*1024*1024, "Maximum size of grpc messages in bytes.")
 	if err := cmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "unexpected error: %v\n", err)
 		os.Exit(1)
@@ -55,8 +56,9 @@ func main() {
 }
 
 type options struct {
-	port       int
-	entrypoint []string
+	port               int
+	maxGrpcMessageSize int
+	entrypoint         []string
 }
 
 func (o *options) run() error {
@@ -73,7 +75,10 @@ func (o *options) run() error {
 	klog.Infof("Listening on %s", address)
 
 	// Start the gRPC server
-	server := grpc.NewServer()
+	server := grpc.NewServer(
+		grpc.MaxRecvMsgSize(o.maxGrpcMessageSize),
+		grpc.MaxSendMsgSize(o.maxGrpcMessageSize),
+	)
 	pb.RegisterFunctionEvaluatorServer(server, evaluator)
 	healthService := healthchecker.NewHealthChecker()
 	grpc_health_v1.RegisterHealthServer(server, healthService)

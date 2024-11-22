@@ -159,7 +159,7 @@ func startGitServer(t *testing.T, repo *git.Repo, _ ...git.GitServerOption) stri
 	return fmt.Sprintf("http://%s/%s", address, key)
 }
 
-// TODO(mortent): See if we can restruture the packages to
+// TODO(mortent): See if we can restructure the packages to
 // avoid having to create separate implementations of the auth
 // interfaces here.
 type credentialResolver struct {
