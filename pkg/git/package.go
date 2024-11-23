@@ -193,6 +193,14 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 
 	key := p.Key()
 
+	pf, err := p.GetPorchfile(ctx)
+	if err != nil {
+		klog.Errorf("error: %v", err)
+	}
+	var rs v1alpha1.RenderStatus
+	if pf.Status != nil {
+		rs = *pf.Status
+	}
 	return &v1alpha1.PackageRevisionResources{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevisionResources",
@@ -215,6 +223,9 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 			RepositoryName: key.Repository,
 
 			Resources: resources,
+		},
+		Status: v1alpha1.PackageRevisionResourcesStatus{
+			RenderStatus: rs,
 		},
 	}, nil
 }
@@ -256,6 +267,22 @@ func (p *gitPackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, e
 		return kptfile.KptFile{}, fmt.Errorf("error decoding Kptfile: %w", err)
 	}
 	return *kf, nil
+}
+
+func (p *gitPackageRevision) GetPorchfile(ctx context.Context) (v1alpha1.PorchFile, error) {
+	resources, err := p.repo.GetResources(p.tree)
+	if err != nil {
+		return v1alpha1.PorchFile{}, fmt.Errorf("error loading package resources: %w", err)
+	}
+	pfString, found := resources["PorchFile"]
+	if !found {
+		return v1alpha1.PorchFile{}, nil
+	}
+	pf, err := pkg.DecodePorchfile(strings.NewReader(pfString))
+	if err != nil {
+		return v1alpha1.PorchFile{}, fmt.Errorf("error decoding PorchFile: %w", err)
+	}
+	return *pf, nil
 }
 
 // GetUpstreamLock returns the upstreamLock info present in the Kptfile of the package.

@@ -37,6 +37,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -992,6 +993,54 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 			}})
 	} else {
 		renderStatus = nil
+	}
+
+	porchFileContents := api.PorchFile{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1alpha1",
+			Kind:       "PorchFile",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "Porch-Metadata",
+			Annotations: map[string]string{
+				"config.kubernetes.io/local-config": "true",
+			},
+		},
+		Status: &api.RenderStatus{
+			Result: api.ResultList{
+				TypeMeta: renderStatus.Result.TypeMeta,
+				// ignore object meta (not relevant)
+				ExitCode: renderStatus.Result.ExitCode,
+				Items:    renderStatus.Result.Items,
+			},
+			Err: renderStatus.Err,
+		},
+	}
+
+	if value, ok := appliedResources.Contents["PorchFile"]; ok {
+		unmarshErr := yaml.Unmarshal([]byte(value), &porchFileContents)
+		if unmarshErr != nil {
+			klog.Errorf("Error in Umarshaling PorchFile: %v", unmarshErr)
+		}
+	}
+
+	bytePorchfile, marshErr := yaml.Marshal(&porchFileContents)
+	if marshErr != nil {
+		klog.Errorf("Error in Marshaling PorchFile: %v", marshErr)
+	}
+	postRenderPkgRev := new
+
+	postRenderPkgRev.Spec.Resources["PorchFile"] = string(bytePorchfile)
+
+	mutations = []mutation{
+		&mutationReplaceResources{
+			newResources: postRenderPkgRev,
+			oldResources: new,
+		},
+	}
+	_, _, err = applyResourceMutations(ctx, draft, appliedResources, mutations)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	// No lifecycle change when updating package resources; updates are done.
