@@ -2297,10 +2297,7 @@ data:
 		if err != nil {
 			t.Errorf("failed to parse object: %v", err)
 		}
-		switch node.GetName() {
-		case "kptfile.kpt.dev":
-			continue
-		case "test-data":
+		if node.GetName() == "test-data" {
 			f := node.Field("data")
 			if f.IsNilOrEmpty() {
 				t.Fatalf("couldn't find data field in test-data")
