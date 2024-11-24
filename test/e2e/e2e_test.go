@@ -2016,7 +2016,7 @@ func (t *PorchSuite) TestPodEvaluator(ctx context.Context) {
 
 	const (
 		generateFolderImage = "gcr.io/kpt-fn/generate-folders:v0.1.1" // This function is a TS based function.
-		setAnnotationsImage = "gcr.io/kpt-fn/set-annotations:v0.1.3"  // set-annotations:v0.1.3 is an older version that porch maps it neither to built-in nor exec.
+		setAnnotationsImage = "gcr.io/kpt-fn/set-annotations:v0.1.3"  // set-annotations:v0.1.3 is an older version that porch maps neither to built-in nor exec.
 	)
 
 	// Register the repository as 'git-fn'
@@ -2214,6 +2214,108 @@ func (t *PorchSuite) TestPodEvaluatorWithFailure(ctx context.Context) {
 	expectedErrMsg := "Validating arbitrary CRDs is not supported"
 	if err == nil || !strings.Contains(err.Error(), expectedErrMsg) {
 		t.Fatalf("expected the error to contain %q, but got %v", expectedErrMsg, err)
+	}
+}
+
+func (t *PorchSuite) TestPodEvaluatorWithLargeObjects(ctx context.Context) {
+	if t.TestRunnerIsLocal {
+		t.Skipf("Skipping due to not having pod evaluator in local mode")
+	}
+	const (
+		setAnnotationsImage = "gcr.io/kpt-fn/set-annotations:v0.1.3" // set-annotations:v0.1.3 is an older version that porch maps neither to built-in nor exec.
+	)
+
+	t.RegisterMainGitRepositoryF(ctx, "git-fn-pod-large")
+
+	// Create Package Revision
+	pr := &porchapi.PackageRevision{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       porchapi.PackageRevisionGVR.Resource,
+			APIVersion: porchapi.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: t.Namespace,
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			PackageName:    "new-package",
+			WorkspaceName:  "workspace",
+			RepositoryName: "git-fn-pod-large",
+			Tasks: []porchapi.Task{
+				{
+					Type: porchapi.TaskTypeInit,
+					Init: &porchapi.PackageInitTaskSpec{
+						Description: "this is a test",
+					},
+				},
+			},
+		},
+	}
+
+	t.CreateF(ctx, pr)
+
+	var prr porchapi.PackageRevisionResources
+	t.GetF(ctx, client.ObjectKeyFromObject(pr), &prr)
+
+	testDataSize := 5 * 1024 * 1024
+
+	// set-annotations:v0.1.3 is an older version that porch maps neither to built-in nor exec runtimes.
+	prr.Spec.Resources["Kptfile"] += `
+pipeline:
+  mutators:
+  - image: ` + setAnnotationsImage + `
+    configMap:
+      test-key: test-val
+    selectors:
+       - name: test-data
+`
+	prr.Spec.Resources["largefile.yaml"] = `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-data
+  labels:
+    something: somewhere
+data:
+  value: "` + strings.Repeat("a", testDataSize) + `"
+`
+
+	t.UpdateF(ctx, &prr)
+
+	rs := prr.Status.RenderStatus
+	if rs.Err != "" || rs.Result.ExitCode != 0 {
+		t.Fatalf("Couldn't render large package! exit code: %v,\n%v", rs.Result.ExitCode, rs.Err)
+	}
+
+	// Get package resources
+	t.GetF(ctx, client.ObjectKeyFromObject(pr), &prr)
+
+	for name, obj := range prr.Spec.Resources {
+		if !strings.HasSuffix(name, ".yaml") {
+			continue
+		}
+		node, err := yaml.Parse(obj)
+		if err != nil {
+			t.Errorf("failed to parse object: %v", err)
+		}
+		switch node.GetName() {
+		case "kptfile.kpt.dev":
+			continue
+		case "test-data":
+			f := node.Field("data")
+			if f.IsNilOrEmpty() {
+				t.Fatalf("couldn't find data field in test-data")
+			}
+			long_string, err := f.Value.GetString("value")
+			if err != nil {
+				t.Fatalf("couldn't find large string in test-data: %v", err)
+			}
+			if len(long_string) != testDataSize {
+				t.Fatalf("large string size mismatch. want: %v, got: %v", testDataSize, len(long_string))
+			}
+			if node.GetAnnotations()["test-key"] != "test-val" {
+				t.Errorf("Object (%s %q) should contain annotation `test-key:test-val`, but we got: %v", node.GetKind(), node.GetName(), node.GetAnnotations())
+			}
+		}
 	}
 }
 
