@@ -2217,12 +2217,10 @@ func (t *PorchSuite) TestPodEvaluatorWithFailure(ctx context.Context) {
 	}
 }
 
-func (t *PorchSuite) TestPodEvaluatorWithLargeObjects(ctx context.Context) {
-	if t.TestRunnerIsLocal {
-		t.Skipf("Skipping due to not having pod evaluator in local mode")
-	}
+func (t *PorchSuite) TestLargePackageRevision(ctx context.Context) {
 	const (
 		setAnnotationsImage = "gcr.io/kpt-fn/set-annotations:v0.1.3" // set-annotations:v0.1.3 is an older version that porch maps neither to built-in nor exec.
+		testDataSize        = 5 * 1024 * 1024
 	)
 
 	t.RegisterMainGitRepositoryF(ctx, "git-fn-pod-large")
@@ -2256,10 +2254,9 @@ func (t *PorchSuite) TestPodEvaluatorWithLargeObjects(ctx context.Context) {
 	var prr porchapi.PackageRevisionResources
 	t.GetF(ctx, client.ObjectKeyFromObject(pr), &prr)
 
-	testDataSize := 5 * 1024 * 1024
-
-	// set-annotations:v0.1.3 is an older version that porch maps neither to built-in nor exec runtimes.
-	prr.Spec.Resources["Kptfile"] += `
+	if !t.TestRunnerIsLocal {
+		// pod evaluator is not available in local test mode, skip testing it
+		prr.Spec.Resources["Kptfile"] += `
 pipeline:
   mutators:
   - image: ` + setAnnotationsImage + `
@@ -2268,6 +2265,8 @@ pipeline:
     selectors:
        - name: test-data
 `
+	}
+
 	prr.Spec.Resources["largefile.yaml"] = `
 apiVersion: v1
 kind: ConfigMap
@@ -2309,7 +2308,7 @@ data:
 			if len(long_string) != testDataSize {
 				t.Fatalf("large string size mismatch. want: %v, got: %v", testDataSize, len(long_string))
 			}
-			if node.GetAnnotations()["test-key"] != "test-val" {
+			if !t.TestRunnerIsLocal && (node.GetAnnotations()["test-key"] != "test-val") {
 				t.Errorf("Object (%s %q) should contain annotation `test-key:test-val`, but we got: %v", node.GetKind(), node.GetName(), node.GetAnnotations())
 			}
 		}
@@ -2968,44 +2967,4 @@ func (t *PorchSuite) TestPackageRevisionFieldSelectors(ctx context.Context) {
 			t.Errorf("PackageRevision %s: want %v/%v, but got %v/%v", pr.Name, pkgName, revName, pr.Spec.PackageName, pr.Spec.Revision)
 		}
 	}
-}
-
-func (t *PorchSuite) TestLargePackageRevision(ctx context.Context) {
-	const (
-		repository = "large-pkg-rev"
-	)
-
-	t.RegisterMainGitRepositoryF(ctx, repository)
-	pr := porchapi.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       porchapi.PackageRevisionGVR.Resource,
-			APIVersion: porchapi.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "new-package",
-			WorkspaceName:  "workspace",
-			RepositoryName: repository,
-			Tasks: []porchapi.Task{
-				{
-					Type: porchapi.TaskTypeInit,
-					Init: &porchapi.PackageInitTaskSpec{
-						Description: "this is a test",
-					},
-				},
-			},
-		},
-	}
-
-	t.CreateE(ctx, &pr)
-
-	var prr porchapi.PackageRevisionResources
-
-	t.GetE(ctx, client.ObjectKey{Name: pr.Name, Namespace: pr.Namespace}, &prr)
-
-	prr.Spec.Resources["largefile.txt"] = strings.Repeat("a", 4*1024*1024)
-
-	t.UpdateE(ctx, &prr)
 }
