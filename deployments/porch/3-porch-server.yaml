@@ -61,15 +61,15 @@ spec:
             - name: api-server-certs
               mountPath: /tmp/certs
           env:
-          # Uncomment to enable trace-reporting to jaeger
-          #- name: OTEL
-          #  value: otel://jaeger-oltp:4317
-          - name: OTEL_SERVICE_NAME
-            value: porch-server
-          - name: CERT_STORAGE_DIR
-            value: "/etc/webhook/certs"
-          - name: GOOGLE_API_GO_EXPERIMENTAL_DISABLE_NEW_AUTH_LIB
-            value: "true"
+            # Uncomment to enable trace-reporting to jaeger
+            #- name: OTEL
+            #  value: otel://jaeger-oltp:4317
+            - name: OTEL_SERVICE_NAME
+              value: porch-server
+            - name: CERT_STORAGE_DIR
+              value: "/etc/webhook/certs"
+            - name: GOOGLE_API_GO_EXPERIMENTAL_DISABLE_NEW_AUTH_LIB
+              value: "true"
           args:
             - --function-runner=function-runner:9445
             - --cache-directory=/cache
@@ -77,6 +77,7 @@ spec:
             - --secure-port=4443
             - --repo-sync-frequency=10m
             - --disable-validating-admissions-policy=true
+            - --max-request-body-size=6291456 # Keep this in sync with function-runner's corresponding argument
 
 ---
 apiVersion: v1
