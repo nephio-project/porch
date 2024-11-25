@@ -1,4 +1,4 @@
-#! /opt/homebrew/bin/bash
+#! /usr/bin/env bash
 
 script_name=$(basename "$0")
 
@@ -6,9 +6,9 @@ git_repo_server=""
 git_repo_count=0
 package_count=0
 package_revision_count=0
-result_file=scalability_results.txt
-repo_result_file=scalability_repo_results.csv
-log_file=scalability.log
+result_file=load_test_results.txt
+repo_result_file=load_test_repo_results.csv
+log_file=load_test.log
 dirty_mode=false
 
 usage()
@@ -110,7 +110,7 @@ then
     exit 1
 fi
 
-echo "running scalability test towards git server http://nephio:secret@$git_repo_server:3000/nephio/" 
+echo "running load test towards git server http://nephio:secret@$git_repo_server:3000/nephio/" 
 echo "  $git_repo_count repos will be created"
 echo "  $package_count packages in each repo"
 echo "  $package_revision_count pacakge revisions in each package" 
@@ -347,27 +347,6 @@ delete_repo () {
     echo "deleted repo $git_repo_name"
 }
 
-delete_namespace_secret() {
-    kubectl delete -f - << EOF >> "$log_file" 2>&1
-apiVersion: v1
-kind: Secret
-metadata:
-  name: gitea
-  namespace: porch-scale
-type: kubernetes.io/basic-auth
-data:
-  username: bmVwaGlv
-  password: c2VjcmV0
-
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: porch-scale
-
-EOF
-}
-
 split_repo_results() {
     TMP_DIR=$(mktemp -d)
     CURRENT_DIR=$(pwd)
@@ -412,9 +391,9 @@ then
         delete_repo "$i" >> "$result_file"
     done
 
-    delete_namespace_secret
+    kubectl delete ns porch-scale
 fi
 
 split_repo_results > "$repo_result_file"
 
-echo "scalability test towards git server http://nephio:secret@$git_repo_server:3000/nephio/ completed" 
+echo "load test towards git server http://nephio:secret@$git_repo_server:3000/nephio/ completed" 
