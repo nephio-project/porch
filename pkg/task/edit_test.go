@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package engine
+package task
 
 import (
 	"context"
@@ -22,9 +22,9 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/pkg/engine/fake"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/repository/fake"
 )
 
 func TestEdit(t *testing.T) {
@@ -32,7 +32,7 @@ func TestEdit(t *testing.T) {
 	packageName := "repo-1234567890"
 	repositoryName := "repo"
 	revision := "v1"
-	packageRevision := &fake.PackageRevision{
+	packageRevision := &fake.FakePackageRevision{
 		Name: packageName,
 		PackageRevisionKey: repository.PackageRevisionKey{
 			Package:    pkg,
@@ -86,7 +86,7 @@ info:
 		repoOpener:        repoOpener,
 	}
 
-	res, _, err := epm.Apply(context.Background(), repository.PackageResources{})
+	res, _, err := epm.apply(context.Background(), repository.PackageResources{})
 	if err != nil {
 		t.Errorf("task apply failed: %v", err)
 	}
@@ -110,7 +110,7 @@ info:
 // Implementation of the ReferenceResolver interface for testing.
 type fakeReferenceResolver struct{}
 
-func (f *fakeReferenceResolver) ResolveReference(ctx context.Context, namespace, name string, result Object) error {
+func (f *fakeReferenceResolver) ResolveReference(ctx context.Context, namespace, name string, result repository.Object) error {
 	return nil
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package engine
+package task
 
 import (
 	"context"
@@ -42,7 +42,7 @@ func TestInit(t *testing.T) {
 		t.Fatalf("Failed to find testdata: %v", err)
 	}
 
-	initializedPkg, _, err := init.Apply(context.Background(), repository.PackageResources{})
+	initializedPkg, _, err := init.apply(context.Background(), repository.PackageResources{})
 	if err != nil {
 		t.Errorf("package init failed: %v", err)
 	}

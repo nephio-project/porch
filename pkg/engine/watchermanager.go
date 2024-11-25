@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ import (
 	"context"
 	"sync"
 
-	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/repository"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog/v2"
@@ -31,7 +30,7 @@ type WatcherManager interface {
 
 // PackageRevisionWatcher is the callback interface for watchers.
 type ObjectWatcher interface {
-	OnPackageRevisionChange(eventType watch.EventType, obj repository.PackageRevision, objMeta meta.PackageRevisionMeta) bool
+	OnPackageRevisionChange(eventType watch.EventType, obj repository.PackageRevision) bool
 }
 
 func NewWatcherManager() *watcherManager {
@@ -95,7 +94,7 @@ func (r *watcherManager) WatchPackageRevisions(ctx context.Context, filter repos
 }
 
 // notifyPackageRevisionChange is called to send a change notification to all interested listeners.
-func (r *watcherManager) NotifyPackageRevisionChange(eventType watch.EventType, obj repository.PackageRevision, objMeta meta.PackageRevisionMeta) int {
+func (r *watcherManager) NotifyPackageRevisionChange(eventType watch.EventType, obj repository.PackageRevision) int {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -109,7 +108,7 @@ func (r *watcherManager) NotifyPackageRevisionChange(eventType watch.EventType, 
 			r.watchers[i] = nil
 			continue
 		}
-		if keepGoing := watcher.callback.OnPackageRevisionChange(eventType, obj, objMeta); !keepGoing {
+		if keepGoing := watcher.callback.OnPackageRevisionChange(eventType, obj); !keepGoing {
 			klog.Infof("stopping watcher in response to !keepGoing")
 			r.watchers[i] = nil
 		}

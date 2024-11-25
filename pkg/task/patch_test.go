@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package engine
+package task
 
 import (
 	"context"
@@ -21,9 +21,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/pkg/engine/fake"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/repository/fake"
 )
 
 func TestSomething(t *testing.T) {
@@ -34,7 +34,7 @@ func TestSomething(t *testing.T) {
 		patch        api.PatchSpec
 	}{
 		"no gates or conditions": {
-			repoPkgRev: &fake.PackageRevision{
+			repoPkgRev: &fake.FakePackageRevision{
 				Kptfile: kptfile.KptFile{},
 			},
 			newApiPkgRev: &api.PackageRevision{
@@ -43,7 +43,7 @@ func TestSomething(t *testing.T) {
 			hasPatch: false,
 		},
 		"first gate and condition added": {
-			repoPkgRev: &fake.PackageRevision{
+			repoPkgRev: &fake.FakePackageRevision{
 				Kptfile: kptfile.KptFile{},
 			},
 			newApiPkgRev: &api.PackageRevision{
@@ -83,7 +83,7 @@ func TestSomething(t *testing.T) {
 			},
 		},
 		"additional readinessGates and conditions added": {
-			repoPkgRev: &fake.PackageRevision{
+			repoPkgRev: &fake.FakePackageRevision{
 				Kptfile: kptfile.KptFile{
 					Info: &kptfile.PackageInfo{
 						ReadinessGates: []kptfile.ReadinessGate{
@@ -156,7 +156,7 @@ func TestSomething(t *testing.T) {
 			},
 		},
 		"no changes": {
-			repoPkgRev: &fake.PackageRevision{
+			repoPkgRev: &fake.FakePackageRevision{
 				Kptfile: kptfile.KptFile{
 					Info: &kptfile.PackageInfo{
 						ReadinessGates: []kptfile.ReadinessGate{
@@ -217,7 +217,7 @@ func TestSomething(t *testing.T) {
 			hasPatch: false,
 		},
 		"readinessGates and conditions removed": {
-			repoPkgRev: &fake.PackageRevision{
+			repoPkgRev: &fake.FakePackageRevision{
 				Kptfile: kptfile.KptFile{
 					Info: &kptfile.PackageInfo{
 						ReadinessGates: []kptfile.ReadinessGate{

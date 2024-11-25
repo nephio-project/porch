@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -78,5 +78,9 @@ func (r *Repository) CreatePackage(_ context.Context, pr *v1alpha1.PorchPackage)
 }
 
 func (r *Repository) DeletePackage(_ context.Context, pr repository.Package) error {
+	return nil
+}
+
+func (r *Repository) Refresh(_ context.Context) error {
 	return nil
 }

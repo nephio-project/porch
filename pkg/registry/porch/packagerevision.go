@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import (
 	"fmt"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/pkg/engine"
+	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -85,7 +85,7 @@ func (r *packageRevisions) List(ctx context.Context, options *metainternalversio
 		return nil, err
 	}
 
-	if err := r.packageCommon.listPackageRevisions(ctx, filter, options.LabelSelector, func(p *engine.PackageRevision) error {
+	if err := r.packageCommon.listPackageRevisions(ctx, filter, options.LabelSelector, func(p repository.PackageRevision) error {
 		item, err := p.GetPackageRevision(ctx)
 		if err != nil {
 			return err
@@ -155,7 +155,7 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 		return nil, apierrors.NewInvalid(api.SchemeGroupVersion.WithKind("PackageRevision").GroupKind(), newApiPkgRev.Name, fieldErrors)
 	}
 
-	var parentPackage *engine.PackageRevision
+	var parentPackage repository.PackageRevision
 	if newApiPkgRev.Spec.Parent != nil && newApiPkgRev.Spec.Parent.Name != "" {
 		p, err := r.packageCommon.getRepoPkgRev(ctx, newApiPkgRev.Spec.Parent.Name)
 		if err != nil {

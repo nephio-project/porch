@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,8 +22,8 @@ import (
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/engine"
-	"github.com/nephio-project/porch/pkg/engine/fake"
-	"github.com/nephio-project/porch/pkg/meta"
+	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/repository/fake"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -64,14 +64,14 @@ func TestWatcherClose(t *testing.T) {
 		for {
 			select {
 			case <-ch:
-				pkgRev := &fake.PackageRevision{
+				pkgRev := &fake.FakePackageRevision{
 					PackageRevision: &v1alpha1.PackageRevision{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: make(map[string]string),
 						},
 					},
 				}
-				if cont := r.callback.OnPackageRevisionChange(watch.Modified, pkgRev, meta.PackageRevisionMeta{}); !cont {
+				if cont := r.callback.OnPackageRevisionChange(watch.Modified, pkgRev); !cont {
 					return
 				}
 			case <-timer.C:
@@ -97,6 +97,6 @@ func (f *fakePackageReader) watchPackages(ctx context.Context, filter packageRev
 	return nil
 }
 
-func (f *fakePackageReader) listPackageRevisions(ctx context.Context, filter packageRevisionFilter, selector labels.Selector, callback func(p *engine.PackageRevision) error) error {
+func (f *fakePackageReader) listPackageRevisions(ctx context.Context, filter packageRevisionFilter, selector labels.Selector, callback func(p repository.PackageRevision) error) error {
 	return nil
 }

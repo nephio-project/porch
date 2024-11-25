@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/repository"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -244,6 +245,10 @@ func (r *ociRepository) buildPackageRevision(ctx context.Context, name oci.Image
 	return p, nil
 }
 
+func (r *ociRepository) Refresh(_ context.Context) error {
+	return nil
+}
+
 // ToMainPackageRevision implements repository.PackageRevision.
 func (p *ociPackageRevision) ToMainPackageRevision() repository.PackageRevision {
 	panic("unimplemented")
@@ -257,6 +262,7 @@ type ociPackageRevision struct {
 	created         time.Time
 	resourceVersion string
 	uid             types.UID
+	metadata        meta.PackageRevisionMeta
 
 	parent *ociRepository
 	tasks  []v1alpha1.Task
@@ -417,4 +423,12 @@ func (p *ociPackageRevision) UpdateLifecycle(ctx context.Context, new v1alpha1.P
 		p.lifecycle = v1alpha1.PackageRevisionLifecyclePublished
 	}
 	return nil
+}
+
+func (p *ociPackageRevision) GetMeta() meta.PackageRevisionMeta {
+	return p.metadata
+}
+
+func (p *ociPackageRevision) SetMeta(metadata meta.PackageRevisionMeta) {
+	p.metadata = metadata
 }

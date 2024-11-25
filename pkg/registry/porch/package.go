@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import (
 	"fmt"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/pkg/engine"
+	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
@@ -46,7 +46,7 @@ var _ rest.GracefulDeleter = &packages{}
 var _ rest.SingularNameProvider = &packages{}
 
 // GetSingularName implements the SingularNameProvider interface
-func (r *packages) GetSingularName() (string) {
+func (r *packages) GetSingularName() string {
 	return "package"
 }
 
@@ -81,7 +81,7 @@ func (r *packages) List(ctx context.Context, options *metainternalversion.ListOp
 		return nil, err
 	}
 
-	if err := r.packageCommon.listPackages(ctx, filter, func(p *engine.Package) error {
+	if err := r.packageCommon.listPackages(ctx, filter, func(p repository.Package) error {
 		item := p.GetPackage()
 		result.Items = append(result.Items, *item)
 		return nil
@@ -157,7 +157,7 @@ func (r *packages) Create(ctx context.Context, runtimeObject runtime.Object, cre
 // Update finds a resource in the storage and updates it. Some implementations
 // may allow updates creates the object - they should set the created boolean
 // to true.
-func (r *packages) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, 
+func (r *packages) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc,
 	updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
 	ctx, span := tracer.Start(ctx, "packages::Update", trace.WithAttributes())
 	defer span.End()

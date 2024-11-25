@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,14 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package engine
+package task
 
 import (
 	"context"
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -41,15 +40,15 @@ type clonePackageMutation struct {
 
 	name               string // package target name
 	isDeployment       bool   // is the package deployable instance
-	repoOpener         RepositoryOpener
+	repoOpener         repository.RepositoryOpener
 	credentialResolver repository.CredentialResolver
-	referenceResolver  ReferenceResolver
+	referenceResolver  repository.ReferenceResolver
 
 	// packageConfig contains the package configuration.
 	packageConfig *builtins.PackageConfig
 }
 
-func (m *clonePackageMutation) Apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
+func (m *clonePackageMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
 	ctx, span := tracer.Start(ctx, "clonePackageMutation::Apply", trace.WithAttributes())
 	defer span.End()
 
@@ -84,7 +83,7 @@ func (m *clonePackageMutation) Apply(ctx context.Context, resources repository.P
 		if err != nil {
 			return repository.PackageResources{}, nil, err
 		}
-		cloned, _, err = genPkgContextMutation.Apply(ctx, cloned)
+		cloned, _, err = genPkgContextMutation.apply(ctx, cloned)
 		if err != nil {
 			return repository.PackageResources{}, nil, fmt.Errorf("failed to generate deployment context %w", err)
 		}
@@ -107,9 +106,9 @@ func (m *clonePackageMutation) cloneFromRegisteredRepository(ctx context.Context
 		return repository.PackageResources{}, fmt.Errorf("upstreamRef.name is required")
 	}
 
-	upstreamRevision, err := (&PackageFetcher{
-		repoOpener:        m.repoOpener,
-		referenceResolver: m.referenceResolver,
+	upstreamRevision, err := (&repository.PackageFetcher{
+		RepoOpener:        m.repoOpener,
+		ReferenceResolver: m.referenceResolver,
 	}).FetchRevision(ctx, ref, m.namespace)
 	if err != nil {
 		return repository.PackageResources{}, fmt.Errorf("failed to fetch package revision %q: %w", ref.Name, err)
@@ -195,12 +194,4 @@ func (m *clonePackageMutation) cloneFromGit(ctx context.Context, gitPackage *api
 
 func (m *clonePackageMutation) cloneFromOci(_ context.Context, _ *api.OciPackage) (repository.PackageResources, error) {
 	return repository.PackageResources{}, errors.New("clone from OCI is not implemented")
-}
-
-func parseUpstreamRepository(name string) (string, error) {
-	lastDash := strings.LastIndex(name, "-")
-	if lastDash < 0 {
-		return "", fmt.Errorf("malformed package revision name; expected at least one hyphen: %q", name)
-	}
-	return name[:lastDash], nil
 }

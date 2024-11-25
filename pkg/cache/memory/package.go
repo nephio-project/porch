@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 package memory
 
 import (
-	"github.com/nephio-project/porch/pkg/cache"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
@@ -26,7 +25,6 @@ import (
 // between Git and OCI.
 
 var _ repository.Package = &cachedPackage{}
-var _ cache.CachedPackage = &cachedPackage{}
 
 type cachedPackage struct {
 	repository.Package

@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import (
 	"sync"
 
 	"github.com/nephio-project/porch/pkg/engine"
-	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
@@ -72,7 +71,7 @@ type watcher struct {
 	// mutex that protects the eventCallback and done fields
 	// from concurrent access.
 	mutex         sync.Mutex
-	eventCallback func(eventType watch.EventType, pr engine.PackageRevision) bool
+	eventCallback func(eventType watch.EventType, pr repository.PackageRevision) bool
 	done          bool
 	totalSent     int
 }
@@ -94,7 +93,7 @@ func (w *watcher) ResultChan() <-chan watch.Event {
 
 type packageReader interface {
 	watchPackages(ctx context.Context, filter packageRevisionFilter, callback engine.ObjectWatcher) error
-	listPackageRevisions(ctx context.Context, filter packageRevisionFilter, selector labels.Selector, callback func(p *engine.PackageRevision) error) error
+	listPackageRevisions(ctx context.Context, filter packageRevisionFilter, selector labels.Selector, callback func(p repository.PackageRevision) error) error
 }
 
 // listAndWatch implements watch by doing a list, then sending any observed changes.
@@ -120,7 +119,7 @@ func (w *watcher) listAndWatchInner(ctx context.Context, r packageReader, filter
 	// Make sure we hold the lock when setting the eventCallback, as it
 	// will be read by other goroutines when events happen.
 	w.mutex.Lock()
-	w.eventCallback = func(eventType watch.EventType, pr engine.PackageRevision) bool {
+	w.eventCallback = func(eventType watch.EventType, pr repository.PackageRevision) bool {
 		if w.done {
 			return false
 		}
@@ -146,7 +145,7 @@ func (w *watcher) listAndWatchInner(ctx context.Context, r packageReader, filter
 
 	sentAdd := 0
 	// TODO: Only if rv == 0?
-	if err := r.listPackageRevisions(ctx, filter, selector, func(p *engine.PackageRevision) error {
+	if err := r.listPackageRevisions(ctx, filter, selector, func(p repository.PackageRevision) error {
 		obj, err := p.GetPackageRevision(ctx)
 		if err != nil {
 			w.mutex.Lock()
@@ -199,7 +198,7 @@ func (w *watcher) listAndWatchInner(ctx context.Context, r packageReader, filter
 	}
 
 	klog.Infof("watch %p: moving watch into streaming mode after sentAdd %d, sentBacklog %d, sentNewBacklog %d", w, sentAdd, sentBacklog, sentNewBacklog)
-	w.eventCallback = func(eventType watch.EventType, pr engine.PackageRevision) bool {
+	w.eventCallback = func(eventType watch.EventType, pr repository.PackageRevision) bool {
 		if w.done {
 			return false
 		}
@@ -239,15 +238,12 @@ func (w *watcher) sendWatchEvent(ev watch.Event) {
 	// TODO: Handle the case that the watch channel is full?
 	w.resultChan <- ev
 	w.totalSent += 1
-	if (w.totalSent % 100) == 0 {
-		klog.Infof("watch %p: total sent: %d", w, w.totalSent)
-	}
 }
 
 // OnPackageRevisionChange is the callback called when a PackageRevision changes.
-func (w *watcher) OnPackageRevisionChange(eventType watch.EventType, pr repository.PackageRevision, objMeta meta.PackageRevisionMeta) bool {
+func (w *watcher) OnPackageRevisionChange(eventType watch.EventType, pr repository.PackageRevision) bool {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
-	return w.eventCallback(eventType, *engine.ToPackageRevision(pr, objMeta))
+	return w.eventCallback(eventType, pr)
 }

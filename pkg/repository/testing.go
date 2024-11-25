@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package engine
+package repository
 
 import (
 	"fmt"
@@ -20,11 +20,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/nephio-project/porch/pkg/repository"
 )
 
-func readPackage(t *testing.T, packageDir string) repository.PackageResources {
+func ReadPackage(t *testing.T, packageDir string) PackageResources {
 	results := map[string]string{}
 
 	if err := filepath.Walk(packageDir, func(p string, info fs.FileInfo, err error) error {
@@ -49,12 +47,12 @@ func readPackage(t *testing.T, packageDir string) repository.PackageResources {
 	}); err != nil {
 		t.Errorf("Failed to read package from disk %q: %v", packageDir, err)
 	}
-	return repository.PackageResources{
+	return PackageResources{
 		Contents: results,
 	}
 }
 
-func writePackage(t *testing.T, packageDir string, contents repository.PackageResources) {
+func WritePackage(t *testing.T, packageDir string, contents PackageResources) {
 	for k, v := range contents.Contents {
 		abs := filepath.Join(packageDir, k)
 		dir := filepath.Dir(abs)

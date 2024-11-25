@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package engine
+package task
 
 import (
 	"context"
@@ -46,7 +46,7 @@ func newPackageContextGeneratorMutation(packageConfig *builtins.PackageConfig) (
 
 var _ mutation = &builtinEvalMutation{}
 
-func (m *builtinEvalMutation) Apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
+func (m *builtinEvalMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
 	ff := &runtimeutil.FunctionFilter{
 		Run:     m.runner.Run,
 		Results: &yaml.RNode{},

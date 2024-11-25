@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,12 +19,13 @@ import (
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/repository"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 // Implementation of the repository.PackageRevision interface for testing.
-type PackageRevision struct {
+type FakePackageRevision struct {
 	Name               string
 	Namespace          string
 	Uid                types.UID
@@ -35,57 +36,64 @@ type PackageRevision struct {
 	Kptfile            kptfile.KptFile
 }
 
-func (pr *PackageRevision) KubeObjectName() string {
+func (pr *FakePackageRevision) KubeObjectName() string {
 	return pr.Name
 }
 
-var _ repository.PackageRevision = &PackageRevision{}
+var _ repository.PackageRevision = &FakePackageRevision{}
 
 // ToMainPackageRevision implements repository.PackageRevision.
-func (f *PackageRevision) ToMainPackageRevision() repository.PackageRevision {
+func (f *FakePackageRevision) ToMainPackageRevision() repository.PackageRevision {
 	panic("unimplemented")
 }
 
-func (pr *PackageRevision) KubeObjectNamespace() string {
+func (pr *FakePackageRevision) KubeObjectNamespace() string {
 	return pr.Namespace
 }
 
-func (pr *PackageRevision) UID() types.UID {
+func (pr *FakePackageRevision) UID() types.UID {
 	return pr.Uid
 }
 
-func (pr *PackageRevision) ResourceVersion() string {
+func (pr *FakePackageRevision) ResourceVersion() string {
 	return pr.PackageRevision.ResourceVersion
 }
 
-func (pr *PackageRevision) Key() repository.PackageRevisionKey {
+func (pr *FakePackageRevision) Key() repository.PackageRevisionKey {
 	return pr.PackageRevisionKey
 }
 
-func (pr *PackageRevision) Lifecycle() v1alpha1.PackageRevisionLifecycle {
+func (pr *FakePackageRevision) Lifecycle() v1alpha1.PackageRevisionLifecycle {
 	return pr.PackageLifecycle
 }
 
-func (pr *PackageRevision) GetPackageRevision(context.Context) (*v1alpha1.PackageRevision, error) {
+func (pr *FakePackageRevision) GetPackageRevision(context.Context) (*v1alpha1.PackageRevision, error) {
 	return pr.PackageRevision, nil
 }
 
-func (f *PackageRevision) GetResources(context.Context) (*v1alpha1.PackageRevisionResources, error) {
+func (f *FakePackageRevision) GetResources(context.Context) (*v1alpha1.PackageRevisionResources, error) {
 	return f.Resources, nil
 }
 
-func (f *PackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, error) {
+func (f *FakePackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, error) {
 	return f.Kptfile, nil
 }
 
-func (f *PackageRevision) GetUpstreamLock(context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error) {
+func (f *FakePackageRevision) GetUpstreamLock(context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error) {
 	return *f.Kptfile.Upstream, *f.Kptfile.UpstreamLock, nil
 }
 
-func (f *PackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, error) {
+func (f *FakePackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, error) {
 	return *f.Kptfile.Upstream, *f.Kptfile.UpstreamLock, nil
 }
 
-func (f *PackageRevision) UpdateLifecycle(context.Context, v1alpha1.PackageRevisionLifecycle) error {
+func (f *FakePackageRevision) UpdateLifecycle(context.Context, v1alpha1.PackageRevisionLifecycle) error {
 	return nil
+}
+
+func (f *FakePackageRevision) GetMeta() meta.PackageRevisionMeta {
+	return meta.PackageRevisionMeta{}
+}
+
+func (f *FakePackageRevision) SetMeta(meta.PackageRevisionMeta) {
 }

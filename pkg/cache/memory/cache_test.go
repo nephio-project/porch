@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/pkg/cache"
 
 	fakecache "github.com/nephio-project/porch/pkg/cache/fake"
 	"github.com/nephio-project/porch/pkg/git"
@@ -216,7 +215,7 @@ func TestDeletePublishedMain(t *testing.T) {
 
 }
 
-func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name string) cache.CachedRepository {
+func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name string) repository.Repository {
 	t.Helper()
 
 	tempdir := t.TempDir()

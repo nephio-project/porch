@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package engine
+package repository
 
 import (
 	"context"
 
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -24,6 +25,10 @@ import (
 type Object interface {
 	metav1.Object
 	runtime.Object
+}
+
+type RepositoryOpener interface {
+	OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (Repository, error)
 }
 
 type ReferenceResolver interface {

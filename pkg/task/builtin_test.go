@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package engine
+package task
 
 import (
 	"context"
@@ -22,6 +22,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/nephio-project/porch/internal/kpt/builtins"
+	"github.com/nephio-project/porch/pkg/repository"
 )
 
 const (
@@ -34,7 +35,7 @@ func TestPackageContext(t *testing.T) {
 		t.Fatalf("Failed to find testdata: %v", err)
 	}
 
-	input := readPackage(t, filepath.Join(testdata, "input"))
+	input := repository.ReadPackage(t, filepath.Join(testdata, "input"))
 
 	packageConfig := &builtins.PackageConfig{
 		PackagePath: "parent1/parent1.2/parent1.2.3/me",
@@ -44,7 +45,7 @@ func TestPackageContext(t *testing.T) {
 		t.Fatalf("Failed to get builtin function mutation: %v", err)
 	}
 
-	got, _, err := m.Apply(context.Background(), input)
+	got, _, err := m.apply(context.Background(), input)
 	if err != nil {
 		t.Fatalf("Failed to apply builtin function mutation: %v", err)
 	}
@@ -56,10 +57,10 @@ func TestPackageContext(t *testing.T) {
 			t.Fatalf("Failed to update golden files: %v", err)
 		}
 
-		writePackage(t, expectedPackage, got)
+		repository.WritePackage(t, expectedPackage, got)
 	}
 
-	want := readPackage(t, expectedPackage)
+	want := repository.ReadPackage(t, expectedPackage)
 
 	if !cmp.Equal(want, got) {
 		t.Errorf("Unexpected result of builtin function mutation (-want, +got): %s", cmp.Diff(want, got))

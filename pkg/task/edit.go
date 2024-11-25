@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package engine
+package task
 
 import (
 	"context"
@@ -28,21 +28,21 @@ type editPackageMutation struct {
 	namespace         string
 	repositoryName    string
 	packageName       string
-	repoOpener        RepositoryOpener
-	referenceResolver ReferenceResolver
+	repoOpener        repository.RepositoryOpener
+	referenceResolver repository.ReferenceResolver
 }
 
 var _ mutation = &editPackageMutation{}
 
-func (m *editPackageMutation) Apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
+func (m *editPackageMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
 	ctx, span := tracer.Start(ctx, "editPackageMutation::Apply", trace.WithAttributes())
 	defer span.End()
 
 	sourceRef := m.task.Edit.Source
 
-	revision, err := (&PackageFetcher{
-		repoOpener:        m.repoOpener,
-		referenceResolver: m.referenceResolver,
+	revision, err := (&repository.PackageFetcher{
+		RepoOpener:        m.repoOpener,
+		ReferenceResolver: m.referenceResolver,
 	}).FetchRevision(ctx, sourceRef, m.namespace)
 	if err != nil {
 		return repository.PackageResources{}, nil, fmt.Errorf("failed to fetch package %q: %w", sourceRef.Name, err)

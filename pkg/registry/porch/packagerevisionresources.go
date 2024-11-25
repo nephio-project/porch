@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,8 @@ import (
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/pkg/engine"
+	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
@@ -82,7 +83,7 @@ func (r *packageRevisionResources) List(ctx context.Context, options *metaintern
 		return nil, err
 	}
 
-	if err := r.packageCommon.listPackageRevisions(ctx, filter, options.LabelSelector, func(p *engine.PackageRevision) error {
+	if err := r.packageCommon.listPackageRevisions(ctx, filter, options.LabelSelector, func(p repository.PackageRevision) error {
 		apiPkgResources, err := p.GetResources(ctx)
 		if err != nil {
 			return err
@@ -166,7 +167,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 		}
 	}
 
-	repositoryName, err := ParseRepositoryName(name)
+	repositoryName, err := util.ParseRepositoryName(name)
 	if err != nil {
 		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("invalid name %q", name))
 	}

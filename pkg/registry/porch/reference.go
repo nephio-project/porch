@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,11 +17,11 @@ package porch
 import (
 	"context"
 
-	"github.com/nephio-project/porch/pkg/engine"
+	"github.com/nephio-project/porch/pkg/repository"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewReferenceResolver(coreClient client.Reader) engine.ReferenceResolver {
+func NewReferenceResolver(coreClient client.Reader) repository.ReferenceResolver {
 	return &referenceResolver{
 		coreClient: coreClient,
 	}
@@ -31,9 +31,9 @@ type referenceResolver struct {
 	coreClient client.Reader
 }
 
-var _ engine.ReferenceResolver = &referenceResolver{}
+var _ repository.ReferenceResolver = &referenceResolver{}
 
-func (r *referenceResolver) ResolveReference(ctx context.Context, namespace, name string, result engine.Object) error {
+func (r *referenceResolver) ResolveReference(ctx context.Context, namespace, name string, result repository.Object) error {
 	return r.coreClient.Get(ctx, client.ObjectKey{
 		Namespace: namespace,
 		Name:      name,

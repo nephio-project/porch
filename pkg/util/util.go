@@ -1,4 +1,4 @@
-// Copyright 2023 The kpt and Nephio Authors
+// Copyright 2023, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"strings"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -99,4 +100,12 @@ func SchemaToMetaGVR(gvr schema.GroupVersionResource) metav1.GroupVersionResourc
 		Version:  gvr.Version,
 		Resource: gvr.Resource,
 	}
+}
+
+func ParseRepositoryName(name string) (string, error) {
+	lastDash := strings.LastIndex(name, "-")
+	if lastDash < 0 {
+		return "", fmt.Errorf("malformed package revision name; expected at least one hyphen: %q", name)
+	}
+	return name[:lastDash], nil
 }
