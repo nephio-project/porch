@@ -183,6 +183,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 
 	rev, renderStatus, err := r.cad.UpdatePackageResources(ctx, &repositoryObj, oldRepoPkgRev, oldApiPkgRevResources, newObj)
 	if err != nil {
+		err := fmt.Errorf("%w%s%s%s", err, "\n\nKpt function pipeline error occurred during render.", "\nPackage has NOT been pushed to remote.", "\nAmend local package using error message above & retry.")
 		return nil, false, apierrors.NewInternalError(err)
 	}
 

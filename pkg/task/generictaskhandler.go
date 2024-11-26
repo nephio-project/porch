@@ -225,19 +225,26 @@ func (th *genericTaskHandler) DoPRResourceMutations(ctx context.Context, pr2Upda
 
 	var renderStatus *api.RenderStatus
 	if len(appliedResources.Contents) > 0 {
+		// a porch package which fails render validation will no longer be accepted.
 		// render the package
-		// Render failure will not fail the overall API operation.
+		// Render failure WILL fail the overall API operation.
 		// The render error and result is captured as part of renderStatus above
-		// and is returned in packageresourceresources API's status field. We continue with
-		// saving the non-rendered resources to avoid losing user's changes.
-		// and supress this err.
-		_, renderStatus, _ = applyResourceMutations(ctx,
+		// and is returned in PackageRevisionResources API's status field.
+		// We do not push the package further to remote
+		// the users changes are captured on their local
+		// and can be amended using the error returned to properly validate/mutate the package before retrying
+		// we no longer suppress this err.
+		_, renderStatus, err = applyResourceMutations(ctx,
 			draft,
 			appliedResources,
 			[]mutation{&renderPackageMutation{
 				runnerOptions: runnerOptions,
 				runtime:       th.runtime,
 			}})
+		if err != nil {
+			klog.Errorf("Kpt function pipeline error occurred in render. Package has NOT been pushed to remote. Modify and Fix local package and retry.")
+			return renderStatus, err
+		}
 	} else {
 		renderStatus = nil
 	}
