@@ -57,7 +57,7 @@ func (r *Repository) ListPackageRevisions(_ context.Context, filter repository.L
 	return revs, nil
 }
 
-func (r *Repository) CreatePackageRevision(_ context.Context, pr *v1alpha1.PackageRevision) (repository.PackageDraft, error) {
+func (r *Repository) CreatePackageRevision(_ context.Context, pr *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
 	return nil, nil
 }
 
@@ -65,7 +65,7 @@ func (r *Repository) DeletePackageRevision(context.Context, repository.PackageRe
 	return nil
 }
 
-func (r *Repository) UpdatePackageRevision(context.Context, repository.PackageRevision) (repository.PackageDraft, error) {
+func (r *Repository) UpdatePackageRevision(context.Context, repository.PackageRevision) (repository.PackageRevisionDraft, error) {
 	return nil, nil
 }
 
