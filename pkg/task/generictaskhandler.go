@@ -462,6 +462,7 @@ func applyResourceMutations(ctx context.Context, draft repository.PackageDraft, 
 			renderStatus = taskResult.RenderStatus
 		}
 		if err != nil {
+			err = fmt.Errorf("%w%s%s%s", err, "\n\nKpt function pipeline error occured during render.", "\nPackage has NOT been pushed to remote.", "\nAmend local package using error message above & retry.")
 			return updatedResources, renderStatus, err
 		}
 
