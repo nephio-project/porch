@@ -1709,10 +1709,6 @@ func (r *gitRepository) discoverPackagesInTree(commit *object.Commit, opt Discov
 	return t, nil
 }
 
-func (r *gitRepository) Refresh(_ context.Context) error {
-	return nil
-}
-
 // See https://eli.thegreenplace.net/2021/generic-functions-on-slices-with-go-type-parameters/
 // func ReverseSlice[T any](s []T) { // Ready for generics!
 func reverseSlice(s []v1alpha1.Task) {

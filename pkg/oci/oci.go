@@ -245,10 +245,6 @@ func (r *ociRepository) buildPackageRevision(ctx context.Context, name oci.Image
 	return p, nil
 }
 
-func (r *ociRepository) Refresh(_ context.Context) error {
-	return nil
-}
-
 // ToMainPackageRevision implements repository.PackageRevision.
 func (p *ociPackageRevision) ToMainPackageRevision() repository.PackageRevision {
 	panic("unimplemented")
