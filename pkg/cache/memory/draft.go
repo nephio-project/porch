@@ -73,8 +73,7 @@ func (cd *cachedDraft) refreshCache(ctx context.Context) error {
 	//refreshAllCachedPackages requires mutex to be held.
 	cd.cache.mutex.Lock()
 	defer cd.cache.mutex.Unlock()
-	_, _, err := cd.cache.refreshAllCachedPackages(ctx)
-	if err != nil {
+	if _, _, err := cd.cache.refreshAllCachedPackages(ctx); err != nil {
 		return err
 	}
 	return nil
