@@ -1,4 +1,4 @@
-// Copyright 2024 The Nephio Authors
+// Copyright 2022, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package db
+package dbcache
 
 import (
 	"bytes"
@@ -22,6 +22,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
+)
+
+const (
+	uuidSpace = "aac71d91-5c67-456f-8fd2-902ef6da820e"
 )
 
 func getCurrentUser() string {

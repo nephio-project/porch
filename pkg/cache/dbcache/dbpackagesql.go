@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package db
+package dbcache
 
 import (
 	"github.com/nephio-project/porch/pkg/repository"

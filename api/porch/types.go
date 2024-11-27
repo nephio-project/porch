@@ -205,14 +205,13 @@ type PackageEditTaskSpec struct {
 type RepositoryType string
 
 const (
-	RepositoryTypeDB  RepositoryType = "db"
 	RepositoryTypeGit RepositoryType = "git"
 	RepositoryTypeOCI RepositoryType = "oci"
 )
 
 // UpstreamRepository repository may be specified directly or by referencing another Repository resource.
 type UpstreamPackage struct {
-	// Type of the repository (i.e. git, OCI, db). If empty, `upstreamRef` will be used.
+	// Type of the repository (i.e. git, OCI). If empty, `upstreamRef` will be used.
 	Type RepositoryType `json:"type,omitempty"`
 
 	// Git upstream package specification. Required if `type` is `git`. Must be unspecified if `type` is not `git`.
@@ -448,6 +447,7 @@ type NameMeta struct {
 	// Namespace is the metadata.namespace field of a Resource
 	Namespace string `json:"namespace,omitempty"`
 }
+
 
 // PackageRevisionResources
 // +genclient

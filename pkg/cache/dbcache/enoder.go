@@ -12,18 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package db
+package dbcache
 
 import (
 	"fmt"
 
 	"github.com/fxamacker/cbor/v2"
-	"github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"gopkg.in/yaml.v2"
 )
 
+type PackageResourceEncoding string
+
+const (
+	PackageResourceEncodingYAML PackageResourceEncoding = "yaml"
+	PackageResourceEncodingCBOR PackageResourceEncoding = "cbor"
+)
+
 type encoder struct {
-	encoding v1alpha1.PackageResourceEncoding
+	encoding PackageResourceEncoding
 }
 
 func (e encoder) EncodePackage(resources map[string]string) ([]byte, error) {
@@ -32,10 +38,10 @@ func (e encoder) EncodePackage(resources map[string]string) ([]byte, error) {
 	}
 
 	switch e.encoding {
-	case v1alpha1.PackageResourceEncodingYAML:
+	case PackageResourceEncodingYAML:
 		return yaml.Marshal(resources)
 
-	case v1alpha1.PackageResourceEncodingCBOR:
+	case PackageResourceEncodingCBOR:
 		return cbor.Marshal(resources)
 
 	default:
@@ -47,14 +53,14 @@ func (e encoder) DecodePackage(rawResources []byte) (map[string]string, error) {
 	resources := make(map[string]string)
 
 	switch e.encoding {
-	case v1alpha1.PackageResourceEncodingYAML:
+	case PackageResourceEncodingYAML:
 		if err := yaml.Unmarshal(rawResources, resources); err == nil {
 			return resources, nil
 		} else {
 			return nil, err
 		}
 
-	case v1alpha1.PackageResourceEncodingCBOR:
+	case PackageResourceEncodingCBOR:
 		if err := cbor.Unmarshal(rawResources, &resources); err == nil {
 			return resources, nil
 		} else {
