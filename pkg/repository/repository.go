@@ -218,6 +218,9 @@ type Repository interface {
 
 	// Close cleans up any resources associated with the repository
 	Close() error
+
+	// Refresh the repository
+	Refresh(ctx context.Context) error
 }
 
 // The definitions below would be more appropriately located in a package usable by any Porch component.
