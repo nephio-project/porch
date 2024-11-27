@@ -225,15 +225,14 @@ func (th *genericTaskHandler) DoPRResourceMutations(ctx context.Context, pr2Upda
 
 	var renderStatus *api.RenderStatus
 	if len(appliedResources.Contents) > 0 {
-		// a porch package which fails render validation will no longer be accepted.
-		// render the package
-		// Render failure WILL fail the overall API operation.
-		// The render error and result is captured as part of renderStatus above
-		// and is returned in PackageRevisionResources API's status field.
-		// We do not push the package further to remote
-		// the users changes are captured on their local
-		// and can be amended using the error returned to properly validate/mutate the package before retrying
-		// we no longer suppress this err.
+		// Render the package
+		// Render failure will fail the overall API operation.
+		// The render error and result are captured as part of renderStatus above
+		// and are returned in the PackageRevisionResources API's status field.
+		// We do not push the package further to remote:
+		// the user's changes are captured on their local package,
+		// and can be amended using the error returned as a reference point to ensure
+		// the package renders properly, before retrying the push.
 		_, renderStatus, err = applyResourceMutations(ctx,
 			draft,
 			appliedResources,
@@ -242,7 +241,6 @@ func (th *genericTaskHandler) DoPRResourceMutations(ctx context.Context, pr2Upda
 				runtime:       th.runtime,
 			}})
 		if err != nil {
-			klog.Errorf("Kpt function pipeline error occurred in render. Package has NOT been pushed to remote. Modify and Fix local package and retry.")
 			return renderStatus, err
 		}
 	} else {
@@ -462,7 +460,8 @@ func applyResourceMutations(ctx context.Context, draft repository.PackageDraft, 
 			renderStatus = taskResult.RenderStatus
 		}
 		if err != nil {
-			err = fmt.Errorf("%w%s%s%s", err, "\n\nKpt function pipeline error occured during render.", "\nPackage has NOT been pushed to remote.", "\nAmend local package using error message above & retry.")
+			klog.Error(err)
+			err = fmt.Errorf("%w\n\n%s\n%s\n%s", err, "Error occurred rendering package in kpt function pipeline.", "Package has NOT been pushed to remote.", "Please fix package locally (modify until 'kpt fn render' succeeds) and retry.")
 			return updatedResources, renderStatus, err
 		}
 
