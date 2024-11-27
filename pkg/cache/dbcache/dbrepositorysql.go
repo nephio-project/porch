@@ -12,39 +12,45 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package db
+package dbcache
 
 import (
 	"github.com/nephio-project/porch/pkg/repository"
 	"k8s.io/klog/v2"
 )
 
-func repoReadFromDB(rk repository.RepositoryKey) (dbRepository, error) {
-	sqlStatement := `SELECT namespace, repo_name, updated, updatedby, deployment FROM repositories WHERE namespace=$1 AND repo_name=$2`
+func repoReadFromDB(rk repository.RepositoryKey) (*dbRepository, error) {
+	sqlStatement := `SELECT namespace, repo_name, meta, spec, updated, updatedby, deployment FROM repositories WHERE namespace=$1 AND repo_name=$2`
 
 	var dbRepo dbRepository
+	var metaAsJson, specAsJson string
 
 	err := GetDBConnection().db.QueryRow(sqlStatement, rk.Namespace, rk.Repository).Scan(
 		&dbRepo.repoKey.Namespace,
 		&dbRepo.repoKey.Repository,
+		&metaAsJson,
+		&specAsJson,
 		&dbRepo.updated,
 		&dbRepo.updatedBy,
 		&dbRepo.deployment)
 
-	return dbRepo, err
+	dbRepo.setMetaFromJson(metaAsJson)
+	dbRepo.setSpecFromJson(specAsJson)
+
+	return &dbRepo, err
 }
 
-func repoWriteToDB(r dbRepository) error {
+func repoWriteToDB(r *dbRepository) error {
 	sqlStatement := `
-        INSERT INTO repositories (namespace, repo_name, updated, updatedby, deployment)
-        VALUES ($1, $2, $3, $4, $5)`
+        INSERT INTO repositories (namespace, repo_name, meta, spec, updated, updatedby, deployment)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)`
 
 	klog.Infof("DB Connection: running query [%q] on repository (%#v)", sqlStatement, r)
 
 	rk := r.Key()
 	if returnedVal := GetDBConnection().db.QueryRow(
 		sqlStatement,
-		rk.Namespace, rk.Repository, r.updated, r.updatedBy, r.deployment); returnedVal.Err() == nil {
+		rk.Namespace, rk.Repository, r.metaAsJson(), r.specAsJson(), r.updated, r.updatedBy, r.deployment); returnedVal.Err() == nil {
 		klog.Infof("DB Connection: query succeeded, row created")
 		return nil
 	} else {
@@ -53,9 +59,9 @@ func repoWriteToDB(r dbRepository) error {
 	}
 }
 
-func repoUpdateDB(r dbRepository) error {
+func repoUpdateDB(r *dbRepository) error {
 	sqlStatement := `
-        UPDATE repositories SET updated=$3, updatedby=$4
+        UPDATE repositories SET meta=$3, spec=$4, updated=$5, updatedby=$6, deployment=$7
         WHERE namespace=$1 AND repo_name=$2`
 
 	klog.Infof("repoUpdateDB: running query [%q] on %q)", sqlStatement, r.Key())
@@ -63,8 +69,7 @@ func repoUpdateDB(r dbRepository) error {
 	rk := r.Key()
 	if returnedVal := GetDBConnection().db.QueryRow(
 		sqlStatement,
-
-		rk.Namespace, rk.Repository, r.updated, r.updatedBy); returnedVal.Err() == nil {
+		rk.Namespace, rk.Repository, r.specAsJson(), r.updated, r.updatedBy, r.deployment); returnedVal.Err() == nil {
 		klog.Infof("repoUpdateDB: query succeeded for %q", rk)
 		return nil
 	} else {
