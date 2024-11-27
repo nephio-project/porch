@@ -27,7 +27,7 @@ import (
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/pkg/cache"
-	memorycache "github.com/nephio-project/porch/pkg/cache/memory"
+	"github.com/nephio-project/porch/pkg/cache/dbcache"
 	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/registry/porch"
@@ -227,8 +227,17 @@ func (c completedConfig) New() (*PorchServer, error) {
 	userInfoProvider := &porch.ApiserverUserInfoProvider{}
 
 	watcherMgr := engine.NewWatcherManager()
-
-	memoryCache := memorycache.NewCache(c.ExtraConfig.CacheDirectory, c.ExtraConfig.RepoSyncFrequency, c.ExtraConfig.UseUserDefinedCaBundle, memorycache.CacheOptions{
+	/*
+		cacheImpl := memorycache.NewCache(c.ExtraConfig.CacheDirectory, c.ExtraConfig.RepoSyncFrequency, c.ExtraConfig.UseGitCaBundle, memorycache.CacheOptions{
+			CredentialResolver: credentialResolver,
+			UserInfoProvider:   userInfoProvider,
+			MetadataStore:      metadataStore,
+			ObjectNotifier:     watcherMgr,
+		})
+	*/
+	cacheImpl := dbcache.NewCache(c.ExtraConfig.CacheDirectory, c.ExtraConfig.RepoSyncFrequency, c.ExtraConfig.UseGitCaBundle, dbcache.CacheOptions{
+		Driver:             "pgx",
+		DataSource:         "postgresql://porch:porch@172.18.255.202:55432/porch",
 		CredentialResolver: credentialResolver,
 		UserInfoProvider:   userInfoProvider,
 		MetadataStore:      metadataStore,
@@ -243,7 +252,7 @@ func (c completedConfig) New() (*PorchServer, error) {
 	}
 
 	cad, err := engine.NewCaDEngine(
-		engine.WithCache(memoryCache),
+		engine.WithCache(cacheImpl),
 		// The order of registering the function runtimes matters here. When
 		// evaluating a function, the runtimes will be tried in the same
 		// order as they are registered.
@@ -268,7 +277,7 @@ func (c completedConfig) New() (*PorchServer, error) {
 	s := &PorchServer{
 		GenericAPIServer: genericServer,
 		coreClient:       coreClient,
-		cache:            memoryCache,
+		cache:            cacheImpl,
 		// Set background job periodic frequency the same as repo sync frequency.
 		PeriodicRepoSyncFrequency: c.ExtraConfig.RepoSyncFrequency,
 	}

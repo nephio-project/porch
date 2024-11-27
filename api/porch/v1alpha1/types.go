@@ -232,7 +232,6 @@ type PackageEditTaskSpec struct {
 type RepositoryType string
 
 const (
-	RepositoryTypeDB  RepositoryType = "db"
 	RepositoryTypeGit RepositoryType = "git"
 	RepositoryTypeOCI RepositoryType = "oci"
 )

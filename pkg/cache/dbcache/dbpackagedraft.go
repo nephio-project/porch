@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package db
+package dbcache
 
 import (
 	"context"
@@ -23,9 +23,9 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-var _ repository.PackageDraft = &dbPackageDraft{}
+var _ repository.PackageRevisionDraft = &dbPackageRevisionDraft{}
 
-type dbPackageDraft struct {
+type dbPackageRevisionDraft struct {
 	repo          *dbRepository
 	packageName   string
 	revision      string
@@ -37,26 +37,26 @@ type dbPackageDraft struct {
 	resources     map[string]string
 }
 
-var _ repository.PackageDraft = &dbPackageDraft{}
+var _ repository.PackageRevisionDraft = &dbPackageRevisionDraft{}
 
-func (d *dbPackageDraft) UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, change *v1alpha1.Task) error {
+func (d *dbPackageRevisionDraft) UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, change *v1alpha1.Task) error {
 	d.resources = new.Spec.Resources
 	return nil
 }
 
-func (d *dbPackageDraft) UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error {
+func (d *dbPackageRevisionDraft) UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error {
 	d.lifecycle = new
 	return nil
 }
 
 // Finish round of updates.
-func (d *dbPackageDraft) Close(ctx context.Context, version string) (repository.PackageRevision, error) {
-	ctx, span := tracer.Start(ctx, "dbPackageDraft::Close", trace.WithAttributes())
+func (d *dbPackageRevisionDraft) Close(ctx context.Context, version string) (repository.PackageRevision, error) {
+	ctx, span := tracer.Start(ctx, "dbPackageRevisionDraft::Close", trace.WithAttributes())
 	defer span.End()
 
 	return d.repo.CloseDraft(ctx, d)
 }
 
-func (d *dbPackageDraft) GetName() string {
+func (d *dbPackageRevisionDraft) GetName() string {
 	return d.packageName
 }

@@ -7,6 +7,8 @@ DROP TYPE IF EXISTS package_rev_lifecycle;
 CREATE TABLE IF NOT EXISTS repositories (
     namespace  TEXT NOT NULL,
     repo_name  TEXT NOT NULL,
+    meta       JSONB NOT NULL,
+    spec       JSONB NOT NULL,
     updated    TIMESTAMPTZ,
     updatedby  TEXT NOT NULL,
     deployment BOOLEAN,

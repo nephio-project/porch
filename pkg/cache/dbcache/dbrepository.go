@@ -12,18 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package db
+package dbcache
 
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 )
@@ -32,28 +35,30 @@ var _ repository.Repository = &dbRepository{}
 
 type dbRepository struct {
 	repoKey    repository.RepositoryKey
+	meta       *metav1.ObjectMeta
+	spec       *configapi.RepositorySpec
 	updated    time.Time
 	updatedBy  string
 	deployment bool
 }
 
-func (r dbRepository) KubeObjectName() string {
+func (r *dbRepository) KubeObjectName() string {
 	return r.Key().NonNSString()
 }
 
-func (r dbRepository) KubeObjectNamespace() string {
+func (r *dbRepository) KubeObjectNamespace() string {
 	return r.repoKey.Namespace
 }
 
-func (r dbRepository) UID() types.UID {
+func (r *dbRepository) UID() types.UID {
 	return generateUid("repositories.", r.KubeObjectNamespace(), r.KubeObjectName())
 }
 
-func (r dbRepository) Key() repository.RepositoryKey {
+func (r *dbRepository) Key() repository.RepositoryKey {
 	return r.repoKey
 }
 
-func (r dbRepository) OpenRepository() (repository.Repository, error) {
+func (r *dbRepository) OpenRepository() (repository.Repository, error) {
 
 	klog.Infof("DB Repo OpenRepository: %q", r.Key().String())
 
@@ -73,7 +78,7 @@ func (r dbRepository) OpenRepository() (repository.Repository, error) {
 	return r, nil
 }
 
-func (r dbRepository) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
+func (r *dbRepository) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
 	klog.Infof("DB Repo ListPackageRevisions: %q", r.Key().String())
 
 	pkgs, err := pkgReadPkgsFromDB(r.Key())
@@ -100,14 +105,14 @@ func (r dbRepository) ListPackageRevisions(ctx context.Context, filter repositor
 	return genericPkgRevs, nil
 }
 
-func (r dbRepository) CreatePackageRevision(ctx context.Context, newPR *v1alpha1.PackageRevision) (repository.PackageDraft, error) {
+func (r *dbRepository) CreatePackageRevision(ctx context.Context, newPR *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
 	klog.Infof("DB Repo CreatePackageRevision: %q", r.Key().String())
 
 	_, span := tracer.Start(ctx, "dbRepository::CreatePackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	return &dbPackageDraft{
-		repo:          &r,
+	return &dbPackageRevisionDraft{
+		repo:          r,
 		packageName:   newPR.Spec.PackageName,
 		revision:      string(newPR.Spec.WorkspaceName),
 		lifecycle:     v1alpha1.PackageRevisionLifecycleDraft,
@@ -118,7 +123,7 @@ func (r dbRepository) CreatePackageRevision(ctx context.Context, newPR *v1alpha1
 	}, nil
 }
 
-func (r dbRepository) DeletePackageRevision(ctx context.Context, old repository.PackageRevision) error {
+func (r *dbRepository) DeletePackageRevision(ctx context.Context, old repository.PackageRevision) error {
 	klog.Infof("DB Repo DeletePackageRevision: %q", r.Key().String())
 
 	pk := repository.PackageKey{
@@ -148,7 +153,7 @@ func (r dbRepository) DeletePackageRevision(ctx context.Context, old repository.
 	return pkgDeleteFromDB(pk)
 }
 
-func (r dbRepository) UpdatePackageRevision(ctx context.Context, updatePR repository.PackageRevision) (repository.PackageDraft, error) {
+func (r *dbRepository) UpdatePackageRevision(ctx context.Context, updatePR repository.PackageRevision) (repository.PackageRevisionDraft, error) {
 	klog.Infof("DB Repo UpdatePackageRevision: %q", r.Key().String())
 
 	updatePkgRev, ok := updatePR.(*dbPackageRevision)
@@ -160,8 +165,8 @@ func (r dbRepository) UpdatePackageRevision(ctx context.Context, updatePR reposi
 		return nil, err
 	}
 
-	return &dbPackageDraft{
-		repo:          &r,
+	return &dbPackageRevisionDraft{
+		repo:          r,
 		packageName:   updatePkgRev.Key().Package,
 		revision:      updatePkgRev.Key().Revision,
 		lifecycle:     updatePkgRev.lifecycle,
@@ -173,7 +178,7 @@ func (r dbRepository) UpdatePackageRevision(ctx context.Context, updatePR reposi
 	}, nil
 }
 
-func (r dbRepository) ListPackages(ctx context.Context, filter repository.ListPackageFilter) ([]repository.Package, error) {
+func (r *dbRepository) ListPackages(ctx context.Context, filter repository.ListPackageFilter) ([]repository.Package, error) {
 	klog.Infof("DB Repo ListPackages: %q", r.Key().String())
 
 	dbPkgs, err := pkgReadPkgsFromDB(r.Key())
@@ -189,12 +194,12 @@ func (r dbRepository) ListPackages(ctx context.Context, filter repository.ListPa
 	return genericPkgs, nil
 }
 
-func (r dbRepository) CreatePackage(ctx context.Context, obj *v1alpha1.PorchPackage) (repository.Package, error) {
+func (r *dbRepository) CreatePackage(ctx context.Context, obj *v1alpha1.PorchPackage) (repository.Package, error) {
 	klog.Infof("DB Repo CreatePackage: %q", r.Key().String())
 	return nil, nil
 }
 
-func (r dbRepository) DeletePackage(ctx context.Context, old repository.Package) error {
+func (r *dbRepository) DeletePackage(ctx context.Context, old repository.Package) error {
 	klog.Infof("DB Repo DeletePackage: %q", r.Key().String())
 
 	foundPackage, err := pkgReadFromDB(old.Key())
@@ -219,15 +224,13 @@ func (r dbRepository) DeletePackage(ctx context.Context, old repository.Package)
 	return pkgDeleteFromDB(old.Key())
 }
 
-func (r dbRepository) Version(ctx context.Context) (string, error) {
+func (r *dbRepository) Version(ctx context.Context) (string, error) {
 	klog.Infof("DB Repo version: %q", r.Key().String())
 	return "Undefined", nil
 }
 
-func (r dbRepository) Close() error {
+func (r *dbRepository) Close() error {
 	klog.Infof("DB Repo close: %q", r.Key().String())
-
-	defer CloseDBConnection()
 
 	dbPkgs, err := pkgReadPkgsFromDB(r.Key())
 	if err != nil {
@@ -243,7 +246,7 @@ func (r dbRepository) Close() error {
 	return repoDeleteFromDB(r.Key())
 }
 
-func (r dbRepository) CloseDraft(ctx context.Context, d *dbPackageDraft) (*dbPackageRevision, error) {
+func (r *dbRepository) CloseDraft(ctx context.Context, d *dbPackageRevisionDraft) (*dbPackageRevision, error) {
 	pk := repository.PackageKey{
 		Namespace:  r.repoKey.Namespace,
 		Repository: r.repoKey.Repository,
@@ -279,4 +282,28 @@ func (r dbRepository) CloseDraft(ctx context.Context, d *dbPackageDraft) (*dbPac
 	}
 
 	return pkgRev, nil
+}
+
+func (r *dbRepository) Refresh(ctx context.Context) error {
+	return nil
+}
+
+func (r *dbRepository) metaAsJson() string {
+	jsonMeta, _ := json.Marshal(r.meta)
+	return string(jsonMeta)
+}
+
+func (r *dbRepository) setMetaFromJson(jsonMeta string) {
+	r.meta = &metav1.ObjectMeta{}
+	json.Unmarshal([]byte(jsonMeta), r.meta)
+}
+
+func (r *dbRepository) specAsJson() string {
+	jsonSpec, _ := json.Marshal(r.spec)
+	return string(jsonSpec)
+}
+
+func (r *dbRepository) setSpecFromJson(jsonSpec string) {
+	r.spec = &configapi.RepositorySpec{}
+	json.Unmarshal([]byte(jsonSpec), r.spec)
 }

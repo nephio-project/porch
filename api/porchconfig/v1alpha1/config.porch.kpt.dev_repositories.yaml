@@ -27,7 +27,7 @@ spec:
     - jsonPath: .status.conditions[?(@.type=='Ready')].status
       name: Ready
       type: string
-    - jsonPath: .spec['db','git','oci']['dataSource','repo','registry']
+    - jsonPath: .spec['git','oci']['repo','registry']
       name: Address
       type: string
     name: v1alpha1
@@ -69,22 +69,6 @@ spec:
                 - message: The 'content' field is deprecated, its only valid value
                     is 'Package'
                   rule: self == '' || self == 'Package'
-              db:
-                description: DB repository details. Required if `type` is `db`. Ignored
-                  if `type` is not `db`.
-                properties:
-                  dataSource:
-                    description: Address of the DB, for example "postgresql://porch:proch@10.10.10.10:5432/porch".
-                    type: string
-                  driver:
-                    description: SQL driver for connecting to the SQL RDBMS, use "pgx"
-                      for PostgreSQL.
-                    type: string
-                  packageResourceEncoding:
-                    description: Encoding scheme to use for package resources in the
-                      database, defaults to "cbor" if not specified.
-                    type: string
-                type: object
               deployment:
                 description: The repository is a deployment repository; final packages
                   in this repository are deployment ready.
@@ -180,22 +164,6 @@ spec:
                   repository. Specifying it per repository allows simpler UX when
                   creating packages.
                 properties:
-                  db:
-                    description: DB repository details. Required if `type` is `db`.
-                      Must be unspecified if `type` is not `db`.
-                    properties:
-                      dataSource:
-                        description: Address of the DB, for example "postgresql://porch:proch@10.10.10.10:5432/porch".
-                        type: string
-                      driver:
-                        description: SQL driver for connecting to the SQL RDBMS, use
-                          "pgx" for PostgreSQL.
-                        type: string
-                      packageResourceEncoding:
-                        description: Encoding scheme to use for package resources
-                          in the database, defaults to "cbor" if not specified.
-                        type: string
-                    type: object
                   git:
                     description: Git repository details. Required if `type` is `git`.
                       Must be unspecified if `type` is not `git`.

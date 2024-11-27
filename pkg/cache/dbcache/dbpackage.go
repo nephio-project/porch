@@ -12,13 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package db
+package dbcache
 
 import (
 	"context"
 	"database/sql"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -89,7 +87,7 @@ func (p dbPackage) GetPackage() *v1alpha1.PorchPackage {
 	}
 }
 
-func (p dbPackage) createPackageRevision(d *dbPackageDraft) (*dbPackageRevision, error) {
+func (p dbPackage) createPackageRevision(d *dbPackageRevisionDraft) (*dbPackageRevision, error) {
 	dbPkgRev := dbPackageRevision{
 		pkgRevKey: repository.PackageRevisionKey{
 			Namespace:     p.Key().Namespace,
@@ -125,21 +123,7 @@ func (p dbPackage) DeletePackageRevision(ctx context.Context, old repository.Pac
 }
 
 func (p dbPackage) GetLatestRevision() string {
-	latestRevision := 0
-
-	packageRevisions, err := pkgRevReadPRsFromDB(p.Key())
-	if err != nil {
-		return ""
-	}
-
-	for _, pr := range packageRevisions {
-		thisRevision, _ := strconv.Atoi(strings.Replace(pr.Key().Revision, "v", "", 1))
-		if thisRevision > latestRevision {
-			latestRevision = thisRevision
-		}
-	}
-
-	return strconv.Itoa(latestRevision)
+	return pkgRevReadLatestPRFromDB(p.Key()).ResourceVersion()
 }
 
 func (p dbPackage) Close() error {

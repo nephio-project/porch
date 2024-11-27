@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package db
+package dbcache
 
 import (
 	"database/sql"
@@ -102,6 +102,10 @@ func pkgRevReadPRsFromDB(pk repository.PackageKey) ([]*dbPackageRevision, error)
 	}
 
 	return dbPkgRevs, nil
+}
+
+func pkgRevReadLatestPRFromDB(pk repository.PackageKey) *dbPackageRevision {
+	return nil
 }
 
 func pkgRevWriteToDB(pr dbPackageRevision) error {

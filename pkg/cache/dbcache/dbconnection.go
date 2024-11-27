@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package db
+package dbcache
 
 import (
 	"database/sql"
@@ -20,7 +20,6 @@ import (
 	"k8s.io/klog/v2"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 )
 
 // TODO: Add connection pooling
@@ -28,7 +27,8 @@ import (
 const MAX_MODIFICATION_DURATION = 10
 
 type DBConnection struct {
-	spec                    *configapi.DBRepository
+	driver                  string
+	dataSource              string
 	db                      *sql.DB
 	encoder                 encoder
 	maxModificationDuration int64
@@ -36,27 +36,28 @@ type DBConnection struct {
 
 var dbConnection *DBConnection = nil
 
-func OpenDBConnection(dbSpec *configapi.DBRepository) error {
-	klog.Infof("DBConnection: %q", dbSpec)
+func OpenDBConnection(opts CacheOptions) error {
+	klog.Infof("DBConnection: %s %s", opts.Driver, opts.DataSource)
 
 	if dbConnection != nil {
-		klog.Infof("DB Connection: connection to database %q, already open", dbSpec)
+		klog.Infof("DB Connection: connection to database %s, already open", opts.DataSource)
 		return nil
 	}
 
-	db, err := sql.Open(dbSpec.Driver, dbSpec.DataSource)
+	db, err := sql.Open(opts.Driver, opts.DataSource)
 	if err != nil {
-		klog.Infof("DB Connection: connection to database %q failed: err=%q", dbSpec, err)
+		klog.Infof("DB Connection: connection to database %s failed: err=%s", opts.DataSource, err)
 		return err
 	}
 
-	klog.Infof("DB Connection: connected to database %s", dbSpec)
+	klog.Infof("DB Connection: connected to database %s", opts.DataSource)
 
 	dbConnection = &DBConnection{
-		spec: dbSpec,
-		db:   db,
+		driver:     opts.Driver,
+		dataSource: opts.DataSource,
+		db:         db,
 		encoder: encoder{
-			encoding: dbSpec.PackageResourceEncoding,
+			encoding: PackageResourceEncodingYAML,
 		},
 		maxModificationDuration: int64(MAX_MODIFICATION_DURATION * 1_000_000.0),
 	}
@@ -81,9 +82,9 @@ func CloseDBConnection() error {
 
 	var err error
 	if err = dbConnection.db.Close(); err == nil {
-		klog.Infof("DB Connection: connection to database %s closed", dbConnection.spec)
+		klog.Infof("DB Connection: connection to database %s closed", dbConnection.dataSource)
 	} else {
-		klog.Infof("DB Connection: close failed on connection to database %s: %q", dbConnection.spec, err)
+		klog.Infof("DB Connection: close failed on connection to database %s: %q", dbConnection.dataSource, err)
 	}
 
 	dbConnection = nil

@@ -36,11 +36,11 @@ type PackageRevisionKey struct {
 }
 
 func (n PackageRevisionKey) String() string {
-	return fmt.Sprintf("%s.%s.%s.%s.%s", n.Namespace, n.Repository, n.Package, n.Revision, string(n.WorkspaceName))
+	return fmt.Sprintf("%s.%s.%s.v%s.%s", n.Namespace, n.Repository, n.Package, n.Revision, string(n.WorkspaceName))
 }
 
 func (n PackageRevisionKey) NonNSString() string {
-	return fmt.Sprintf("%s.%s.%s.%s", n.Repository, n.Package, n.Revision, string(n.WorkspaceName))
+	return fmt.Sprintf("%s.%s.v%s.%s", n.Repository, n.Package, n.Revision, string(n.WorkspaceName))
 }
 
 func (n PackageRevisionKey) PackageKey() PackageKey {
@@ -86,7 +86,7 @@ func (n RepositoryKey) String() string {
 }
 
 func (n RepositoryKey) NonNSString() string {
-	return fmt.Sprintf("%s", n.Repository)
+	return n.Repository
 }
 
 // PackageRevision is an abstract package version.
@@ -152,13 +152,6 @@ type Package interface {
 	// KubeObjectName returns an encoded name for the object that should be unique.
 	// More "readable" values are returned by Key()
 	KubeObjectName() string
-
-	// KubeObjectNamespace returns the namespace in which the PackageRevision
-	// belongs.
-	KubeObjectNamespace() string
-
-	// UID returns a unique identifier for the PackageRevision.
-	UID() types.UID
 
 	// Key returns the "primary key" of the package.
 	Key() PackageKey
