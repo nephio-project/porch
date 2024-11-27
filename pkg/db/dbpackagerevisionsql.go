@@ -28,7 +28,6 @@ func pkgRevReadFromDB(prk repository.PackageRevisionKey) (dbPackageRevision, err
      WHERE namespace=$1 AND repo_name=$2 AND package_name=$3 AND package_rev=$4`
 
 	var dbPkgRev dbPackageRevision
-	var rawResources []byte
 
 	err := GetDBConnection().db.QueryRow(
 		sqlStatement, prk.Namespace, prk.Repository, prk.Package, prk.Revision).Scan(
@@ -39,32 +38,21 @@ func pkgRevReadFromDB(prk repository.PackageRevisionKey) (dbPackageRevision, err
 		&dbPkgRev.pkgRevKey.WorkspaceName,
 		&dbPkgRev.updated,
 		&dbPkgRev.updatedBy,
-		&dbPkgRev.lifecycle,
-		&rawResources)
+		&dbPkgRev.lifecycle)
 
-	if err != nil {
-		if err == sql.ErrNoRows {
-			klog.Infof("pkgRevReadFromDB: package not found in db %q", prk)
-		} else {
-			klog.Infof("pkgRevReadFromDB: reading package revision %q returned err: %q", prk, err)
-		}
-		return dbPkgRev, err
-	}
-
-	klog.Infof("pkgRevReadFromDB: reading package succeeded %q", prk)
-
-	dbPkgRev.resources, err = GetDBConnection().encoder.DecodePackage(rawResources)
-	if err != nil {
-		klog.Infof("pkgRevReadFromDB: reading package revision resources %q returned err: %q", prk, err)
+	if err == nil || err == sql.ErrNoRows {
+		klog.Infof("pkgRevReadFromDB: reading package succeeded %q", prk)
+	} else {
+		klog.Infof("pkgRevReadFromDB: reading package revision %q returned err: %q", prk, err)
 	}
 
 	return dbPkgRev, err
 }
 
-func pkgRevReadPRsFromDB(pk repository.PackageKey) ([]*dbPackageRevision, error) {
+func pkgRevReadPRsFromDB(pk repository.PackageKey) ([]dbPackageRevision, error) {
 	sqlStatement := `SELECT * FROM package_revisions WHERE namespace=$1 AND repo_name=$2 AND package_name=$3`
 
-	var dbPkgRevs []*dbPackageRevision
+	var dbPkgRevs []dbPackageRevision
 
 	klog.Infof("pkgReadPRsFromDB: running query [%q] on %q", sqlStatement, pk)
 
@@ -80,7 +68,6 @@ func pkgRevReadPRsFromDB(pk repository.PackageKey) ([]*dbPackageRevision, error)
 
 	for rows.Next() {
 		var pkgRev dbPackageRevision
-		var rawResources []byte
 
 		rows.Scan(
 			&pkgRev.pkgRevKey.Namespace,
@@ -90,15 +77,9 @@ func pkgRevReadPRsFromDB(pk repository.PackageKey) ([]*dbPackageRevision, error)
 			&pkgRev.pkgRevKey.WorkspaceName,
 			&pkgRev.updated,
 			&pkgRev.updatedBy,
-			&pkgRev.lifecycle,
-			&rawResources)
+			&pkgRev.lifecycle)
 
-		pkgRev.resources, err = GetDBConnection().encoder.DecodePackage(rawResources)
-		if err != nil {
-			klog.Infof("pkgRevReadFromDB: reading package revision resources %q returned err: %q", pkgRev.Key(), err)
-		}
-
-		dbPkgRevs = append(dbPkgRevs, &pkgRev)
+		dbPkgRevs = append(dbPkgRevs, pkgRev)
 	}
 
 	return dbPkgRevs, nil
@@ -107,14 +88,9 @@ func pkgRevReadPRsFromDB(pk repository.PackageKey) ([]*dbPackageRevision, error)
 func pkgRevWriteToDB(pr dbPackageRevision) error {
 	klog.Infof("pkgRevWriteToDB: writing package revision %q", pr.Key())
 
-	rawResources, err := GetDBConnection().encoder.EncodePackage(pr.resources)
-	if err != nil {
-		return err
-	}
-
 	sqlStatement := `
-        INSERT INTO package_revisions (namespace, repo_name, package_name, package_rev, workspace_name, updated, updatedby, lifecycle, resources)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+        INSERT INTO package_revisions (namespace, repo_name, package_name, package_rev, workspace_name, updated, updatedby, lifecycle)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 
 	klog.Infof("pkgRevWriteToDB: running query [%q] on repository (%#v)", sqlStatement, pr)
 
@@ -122,7 +98,7 @@ func pkgRevWriteToDB(pr dbPackageRevision) error {
 	if returnedVal := GetDBConnection().db.QueryRow(
 		sqlStatement,
 		prk.Namespace, prk.Repository, prk.Package, prk.Revision, prk.WorkspaceName,
-		pr.updated, pr.updatedBy, pr.lifecycle, rawResources); returnedVal.Err() == nil {
+		pr.updated, pr.updatedBy, pr.lifecycle); returnedVal.Err() == nil {
 		klog.Infof("pkgRevWriteToDB: query succeeded, row created")
 		return nil
 	} else {
@@ -132,16 +108,10 @@ func pkgRevWriteToDB(pr dbPackageRevision) error {
 }
 
 func pkgRevUpdateDB(pr dbPackageRevision) error {
-
 	klog.Infof("pkgRevUpdateDB: updating package revision %q", pr.Key())
 
-	rawResources, err := GetDBConnection().encoder.EncodePackage(pr.resources)
-	if err != nil {
-		return err
-	}
-
 	sqlStatement := `
-        UPDATE package_revisions SET updated=$5, updatedby=$6, lifecycle=$7, resources=$8
+        UPDATE package_revisions SET updated=$5, updatedby=$6, lifecycle=$7
         WHERE namespace=$1 AND repo_name=$2 AND package_name=$3 AND package_rev=$4`
 
 	klog.Infof("pkgRevUpdateDB: running query [%q] on repository (%#v)", sqlStatement, pr)
@@ -150,7 +120,7 @@ func pkgRevUpdateDB(pr dbPackageRevision) error {
 	if returnedVal := GetDBConnection().db.QueryRow(
 		sqlStatement,
 		prk.Namespace, prk.Repository, prk.Package, prk.Revision,
-		pr.updated, pr.updatedBy, pr.lifecycle, rawResources); returnedVal.Err() == nil {
+		pr.updated, pr.updatedBy, pr.lifecycle); returnedVal.Err() == nil {
 		klog.Infof("pkgRevUpdateDB:: query succeeded, row created")
 		return nil
 	} else {
