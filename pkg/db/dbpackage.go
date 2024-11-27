@@ -36,7 +36,7 @@ type dbPackage struct {
 }
 
 func (p dbPackage) KubeObjectName() string {
-	return p.Key().NonNSString()
+	return p.Key().String()
 }
 
 func (p dbPackage) KubeObjectNamespace() string {
@@ -99,7 +99,6 @@ func (p dbPackage) createPackageRevision(d *dbPackageDraft) (*dbPackageRevision,
 			WorkspaceName: d.workspaceName,
 		},
 		lifecycle: d.lifecycle,
-		resources: d.resources,
 		updated:   d.updated,
 		updatedBy: d.updatedBy,
 	}
