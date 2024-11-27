@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package db
+package dbcache
 
 import (
 	"context"
@@ -25,6 +25,7 @@ import (
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/repository"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -195,6 +196,13 @@ func (p *dbPackageRevision) ToMainPackageRevision() repository.PackageRevision {
 		lifecycle: p.lifecycle,
 		resources: p.resources,
 	}
+}
+
+func (p *dbPackageRevision) GetMeta() meta.PackageRevisionMeta {
+	return meta.PackageRevisionMeta{}
+}
+
+func (p *dbPackageRevision) SetMeta(meta.PackageRevisionMeta) {
 }
 
 func (pr dbPackageRevision) GetKptfile(context.Context) (kptfile.KptFile, error) {
