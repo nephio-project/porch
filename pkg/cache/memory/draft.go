@@ -36,15 +36,12 @@ func (cd *cachedDraft) Close(ctx context.Context, version string) (repository.Pa
 	if err != nil {
 		return nil, err
 	}
-	//refreshAllCachedPackages requires mutex to be held.
-	cd.cache.mutex.Lock()
+
 	if v != cd.cache.lastVersion {
-		_, _, err = cd.cache.refreshAllCachedPackages(ctx)
-		if err != nil {
+		if err = cd.refreshCache(ctx); err != nil {
 			return nil, err
 		}
 	}
-	cd.cache.mutex.Unlock()
 
 	revisions, err := cd.cache.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
 		Package: cd.GetName(),
@@ -70,4 +67,15 @@ func (cd *cachedDraft) Close(ctx context.Context, version string) (repository.Pa
 	} else {
 		return cd.cache.update(ctx, closed)
 	}
+}
+
+func (cd *cachedDraft) refreshCache(ctx context.Context) error {
+	//refreshAllCachedPackages requires mutex to be held.
+	cd.cache.mutex.Lock()
+	defer cd.cache.mutex.Unlock()
+	_, _, err := cd.cache.refreshAllCachedPackages(ctx)
+	if err != nil {
+		return err
+	}
+	return nil
 }
