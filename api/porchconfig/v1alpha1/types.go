@@ -25,7 +25,7 @@ import (
 //+kubebuilder:printcolumn:name="Content",type=string,JSONPath=`.spec.content`
 //+kubebuilder:printcolumn:name="Deployment",type=boolean,JSONPath=`.spec.deployment`
 //+kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=='Ready')].status`
-//+kubebuilder:printcolumn:name="Address",type=string,JSONPath=`.spec['db','git','oci']['dataSource','repo','registry']`
+//+kubebuilder:printcolumn:name="Address",type=string,JSONPath=`.spec['git','oci']['repo','registry']`
 
 // Repository
 type Repository struct {
@@ -39,7 +39,6 @@ type Repository struct {
 type RepositoryType string
 
 const (
-	RepositoryTypeDB  RepositoryType = "db"
 	RepositoryTypeGit RepositoryType = "git"
 	RepositoryTypeOCI RepositoryType = "oci"
 )
@@ -47,7 +46,7 @@ const (
 type RepositoryContent string
 
 const (
-	RepositoryContentPackage RepositoryContent = "Package"
+	RepositoryContentPackage  RepositoryContent = "Package"
 )
 
 // RepositorySpec defines the desired state of Repository
@@ -61,14 +60,12 @@ type RepositorySpec struct {
 	Deployment bool `json:"deployment,omitempty"`
 	// Type of the repository (i.e. git, OCI)
 	Type RepositoryType `json:"type,omitempty"`
-	// The Content field is deprecated, please do not specify it in new manifests.
+	// The Content field is deprecated, please do not specify it in new manifests. 
 	// For partial backward compatibility it is still recognized, but its only valid value is "Package", and if not specified its default value is also "Package".
 	// +kubebuilder:validation:XValidation:message="The 'content' field is deprecated, its only valid value is 'Package'",rule="self == '' || self == 'Package'"
 	// +kubebuilder:default="Package"
 	Content *RepositoryContent `json:"content,omitempty"`
-
-	// DB repository details. Required if `type` is `db`. Ignored if `type` is not `db`.
-	DB *DBRepository `json:"db,omitempty"`
+	
 	// Git repository details. Required if `type` is `git`. Ignored if `type` is not `git`.
 	Git *GitRepository `json:"git,omitempty"`
 	// OCI repository details. Required if `type` is `oci`. Ignored if `type` is not `oci`.
@@ -89,24 +86,6 @@ type RepositorySpec struct {
 	// Based on the Kubernetest Admission Controllers (https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/). The functions will be evaluated
 	// in the order specified in the list.
 	Validators []FunctionEval `json:"validators,omitempty"`
-}
-
-type PackageResourceEncoding string
-
-const (
-	PackageResourceEncodingYAML PackageResourceEncoding = "yaml"
-	PackageResourceEncodingCBOR PackageResourceEncoding = "cbor"
-)
-
-// DBRepository describes a DB repository.
-// TODO: authentication methods
-type DBRepository struct {
-	// Address of the DB, for example "postgresql://porch:proch@10.10.10.10:5432/porch".
-	DataSource string `json:"dataSource,omitempty"`
-	// SQL driver for connecting to the SQL RDBMS, use "pgx" for PostgreSQL.
-	Driver string `json:"driver,omitempty"`
-	// Encoding scheme to use for package resources in the database, defaults to "cbor" if not specified.
-	PackageResourceEncoding PackageResourceEncoding `json:"packageResourceEncoding,omitempty"`
 }
 
 // GitRepository describes a Git repository.
@@ -141,8 +120,6 @@ type OciRepository struct {
 type UpstreamRepository struct {
 	// Type of the repository (i.e. git, OCI). If empty, repositoryRef will be used.
 	Type RepositoryType `json:"type,omitempty"`
-	// DB repository details. Required if `type` is `db`. Must be unspecified if `type` is not `db`.
-	DB *DBRepository `json:"db,omitempty"`
 	// Git repository details. Required if `type` is `git`. Must be unspecified if `type` is not `git`.
 	Git *GitRepository `json:"git,omitempty"`
 	// OCI repository details. Required if `type` is `oci`. Must be unspecified if `type` is not `oci`.
