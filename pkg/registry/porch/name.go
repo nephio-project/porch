@@ -23,10 +23,10 @@ func ParseRepositoryName(name string) (string, error) {
 	if strings.Contains(name, ".") {
 		// New type of parseable package revision name
 		parsedName := strings.Split(name, ".")
-		if len(parsedName) != 4 {
-			return "", fmt.Errorf("malformed package revision name; expected 4 elements delimited by \".\" characters: %q", name)
+		if len(parsedName) != 5 {
+			return "", fmt.Errorf("malformed package revision name; expected five elements delimited by \".\" characters: %q", name)
 		}
-		return parsedName[0], nil
+		return parsedName[1], nil
 	} else {
 		// Old type of package revision name
 		lastDash := strings.LastIndex(name, "-")

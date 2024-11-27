@@ -34,7 +34,7 @@ var tracer = otel.Tracer("db")
 func OpenRepository(ctx context.Context, name, namespace string, spec *configapi.DBRepository, deployment bool) (repository.Repository, error) {
 	klog.Infof("DB Repo: %q -n %q %q %q", name, namespace, spec.Driver, spec.DataSource)
 
-	if err := OpenDBConnection(spec); err != nil {
+	if err := OpenDBConnection(spec.Driver, spec.DataSource); err != nil {
 		return nil, err
 	}
 

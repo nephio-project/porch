@@ -80,10 +80,6 @@ spec:
                     description: SQL driver for connecting to the SQL RDBMS, use "pgx"
                       for PostgreSQL.
                     type: string
-                  packageResourceEncoding:
-                    description: Encoding scheme to use for package resources in the
-                      database, defaults to "cbor" if not specified.
-                    type: string
                 type: object
               deployment:
                 description: The repository is a deployment repository; final packages
@@ -93,8 +89,8 @@ spec:
                 description: User-friendly description of the repository
                 type: string
               git:
-                description: Git repository details. Required if `type` is `git`.
-                  Ignored if `type` is not `git`.
+                description: OCI repository details. Required if `type` is `oci`.
+                  Ignored if `type` is not `oci`.
                 properties:
                   branch:
                     default: main
@@ -191,14 +187,10 @@ spec:
                         description: SQL driver for connecting to the SQL RDBMS, use
                           "pgx" for PostgreSQL.
                         type: string
-                      packageResourceEncoding:
-                        description: Encoding scheme to use for package resources
-                          in the database, defaults to "cbor" if not specified.
-                        type: string
                     type: object
                   git:
-                    description: Git repository details. Required if `type` is `git`.
-                      Must be unspecified if `type` is not `git`.
+                    description: OCI repository details. Required if `type` is `oci`.
+                      Must be unspecified if `type` is not `oci`.
                     properties:
                       branch:
                         default: main

@@ -34,14 +34,15 @@ type dbPackageDraft struct {
 	updatedBy     string
 	workspaceName v1alpha1.WorkspaceName
 	tasks         []v1alpha1.Task
-	resources     map[string]string
 }
 
 var _ repository.PackageDraft = &dbPackageDraft{}
 
 func (d *dbPackageDraft) UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, change *v1alpha1.Task) error {
-	d.resources = new.Spec.Resources
-	return nil
+	ctx, span := tracer.Start(ctx, "dbPackageDraft::UpdateResources", trace.WithAttributes())
+	defer span.End()
+
+	return d.repo.UpdateDraftResources(ctx, d, new, change)
 }
 
 func (d *dbPackageDraft) UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error {
@@ -50,13 +51,9 @@ func (d *dbPackageDraft) UpdateLifecycle(ctx context.Context, new v1alpha1.Packa
 }
 
 // Finish round of updates.
-func (d *dbPackageDraft) Close(ctx context.Context, version string) (repository.PackageRevision, error) {
+func (d *dbPackageDraft) Close(ctx context.Context) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "dbPackageDraft::Close", trace.WithAttributes())
 	defer span.End()
 
 	return d.repo.CloseDraft(ctx, d)
-}
-
-func (d *dbPackageDraft) GetName() string {
-	return d.packageName
 }
