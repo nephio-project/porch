@@ -172,7 +172,7 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 }
 
 func (c *Cache) CloseRepository(ctx context.Context, repositorySpec *configapi.Repository, allRepos []configapi.Repository) error {
-	_, span := tracer.Start(ctx, "Cache::CloseRepository", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "Cache::OpenRepository", trace.WithAttributes())
 	defer span.End()
 
 	key, err := getCacheKey(repositorySpec)
@@ -181,7 +181,6 @@ func (c *Cache) CloseRepository(ctx context.Context, repositorySpec *configapi.R
 	}
 
 	// check if repositorySpec shares the underlying cached repo with another repository
-	// TODO: Do in a DB way
 	for _, r := range allRepos {
 		if r.Name == repositorySpec.Name && r.Namespace == repositorySpec.Namespace {
 			continue
