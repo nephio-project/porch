@@ -251,7 +251,7 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 	}
 
 	t.Cleanup(func() {
-		err := cache.CloseRepository(apiRepo, []v1alpha1.Repository{*apiRepo})
+		err := cache.CloseRepository(ctx, apiRepo, []v1alpha1.Repository{*apiRepo})
 		if err != nil {
 			t.Errorf("CloseRepository(%q) failed: %v", address, err)
 		}
