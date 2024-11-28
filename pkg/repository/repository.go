@@ -95,9 +95,14 @@ type PackageRevision interface {
 	// ResourceVersion returns the Kube resource version of the package
 	ResourceVersion() string
 
+	// Create the main package revision
+	// TODO: This is a git thing and probably shouldn't be on the generic PackageRevision interface
 	ToMainPackageRevision() PackageRevision
 
+	// Get the Kubernetes metadata for the package revision
 	GetMeta() meta.PackageRevisionMeta
+
+	// Set the Kubernetes metadata for the package revision
 	SetMeta(meta.PackageRevisionMeta)
 }
 
@@ -118,7 +123,7 @@ type Package interface {
 	GetLatestRevision() string
 }
 
-type PackageDraft interface {
+type PackageRevisionDraft interface {
 	UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, task *v1alpha1.Task) error
 	// Updates desired lifecycle of the package. The lifecycle is applied on Close.
 	UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error
@@ -196,13 +201,13 @@ type Repository interface {
 	ListPackageRevisions(ctx context.Context, filter ListPackageRevisionFilter) ([]PackageRevision, error)
 
 	// CreatePackageRevision creates a new package revision
-	CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (PackageDraft, error)
+	CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (PackageRevisionDraft, error)
 
 	// DeletePackageRevision deletes a package revision
 	DeletePackageRevision(ctx context.Context, old PackageRevision) error
 
 	// UpdatePackageRevision updates a package
-	UpdatePackageRevision(ctx context.Context, old PackageRevision) (PackageDraft, error)
+	UpdatePackageRevision(ctx context.Context, old PackageRevision) (PackageRevisionDraft, error)
 
 	// ListPackages lists all packages in the repository
 	ListPackages(ctx context.Context, filter ListPackageFilter) ([]Package, error)

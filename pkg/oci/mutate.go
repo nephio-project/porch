@@ -41,7 +41,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func (r *ociRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageDraft, error) {
+func (r *ociRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
 	base := empty.Image
 
 	packageName := obj.Spec.PackageName
@@ -65,7 +65,7 @@ func (r *ociRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1
 	}, nil
 }
 
-func (r *ociRepository) UpdatePackageRevision(ctx context.Context, old repository.PackageRevision) (repository.PackageDraft, error) {
+func (r *ociRepository) UpdatePackageRevision(ctx context.Context, old repository.PackageRevision) (repository.PackageRevisionDraft, error) {
 	oldPackage := old.(*ociPackageRevision)
 	packageName := oldPackage.packageName
 	workspace := oldPackage.workspaceName
@@ -118,7 +118,7 @@ type ociPackageDraft struct {
 	lifecycle v1alpha1.PackageRevisionLifecycle // New value of the package revision lifecycle
 }
 
-var _ repository.PackageDraft = (*ociPackageDraft)(nil)
+var _ repository.PackageRevisionDraft = (*ociPackageDraft)(nil)
 
 func (p *ociPackageDraft) UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, task *v1alpha1.Task) error {
 	_, span := tracer.Start(ctx, "ociPackageDraft::UpdateResources", trace.WithAttributes())

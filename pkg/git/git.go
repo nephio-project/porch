@@ -350,7 +350,7 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 	return result, nil
 }
 
-func (r *gitRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageDraft, error) {
+func (r *gitRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
 	ctx, span := tracer.Start(ctx, "gitRepository::CreatePackageRevision", trace.WithAttributes())
 	defer span.End()
 	r.mutex.Lock()
@@ -378,7 +378,7 @@ func (r *gitRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1
 
 	// TODO: This should also create a new 'Package' resource if one does not already exist
 
-	return &gitPackageDraft{
+	return &gitPackageRevisionDraft{
 		parent:        r,
 		path:          packagePath,
 		workspaceName: obj.Spec.WorkspaceName,
@@ -391,7 +391,7 @@ func (r *gitRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1
 	}, nil
 }
 
-func (r *gitRepository) UpdatePackageRevision(ctx context.Context, old repository.PackageRevision) (repository.PackageDraft, error) {
+func (r *gitRepository) UpdatePackageRevision(ctx context.Context, old repository.PackageRevision) (repository.PackageRevisionDraft, error) {
 	ctx, span := tracer.Start(ctx, "gitRepository::UpdatePackageRevision", trace.WithAttributes())
 	defer span.End()
 	r.mutex.Lock()
@@ -424,7 +424,7 @@ func (r *gitRepository) UpdatePackageRevision(ctx context.Context, old repositor
 	// sure we don't end up requesting the same lock twice.
 	lifecycle := r.getLifecycle(ctx, oldGitPackage)
 
-	return &gitPackageDraft{
+	return &gitPackageRevisionDraft{
 		parent:        r,
 		path:          oldGitPackage.path,
 		revision:      oldGitPackage.revision,
@@ -1427,7 +1427,7 @@ func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageR
 	return nil
 }
 
-func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPackageDraft, new *v1alpha1.PackageRevisionResources, change *v1alpha1.Task) error {
+func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPackageRevisionDraft, new *v1alpha1.PackageRevisionResources, change *v1alpha1.Task) error {
 	ctx, span := tracer.Start(ctx, "gitPackageDraft::UpdateResources", trace.WithAttributes())
 	defer span.End()
 	r.mutex.Lock()
@@ -1480,7 +1480,7 @@ func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPack
 	return nil
 }
 
-func (r *gitRepository) CloseDraft(ctx context.Context, version string, d *gitPackageDraft) (*gitPackageRevision, error) {
+func (r *gitRepository) CloseDraft(ctx context.Context, version string, d *gitPackageRevisionDraft) (*gitPackageRevision, error) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -1601,7 +1601,7 @@ func (r *gitRepository) doGitWithAuth(ctx context.Context, op func(transport.Aut
 	return nil
 }
 
-func (r *gitRepository) commitPackageToMain(ctx context.Context, d *gitPackageDraft) (commitHash, newPackageTreeHash plumbing.Hash, base *plumbing.Reference, err error) {
+func (r *gitRepository) commitPackageToMain(ctx context.Context, d *gitPackageRevisionDraft) (commitHash, newPackageTreeHash plumbing.Hash, base *plumbing.Reference, err error) {
 	branch := r.branch
 	localRef := branch.RefInLocal()
 

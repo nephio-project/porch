@@ -165,19 +165,19 @@ func (r *cachedRepository) getCachedPackages(ctx context.Context, forceRefresh b
 	return packages, packageRevisions, err
 }
 
-func (r *cachedRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageDraft, error) {
+func (r *cachedRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
 	created, err := r.repo.CreatePackageRevision(ctx, obj)
 	if err != nil {
 		return nil, err
 	}
 
 	return &cachedDraft{
-		PackageDraft: created,
-		cache:        r,
+		PackageRevisionDraft: created,
+		cache:                r,
 	}, nil
 }
 
-func (r *cachedRepository) UpdatePackageRevision(ctx context.Context, old repository.PackageRevision) (repository.PackageDraft, error) {
+func (r *cachedRepository) UpdatePackageRevision(ctx context.Context, old repository.PackageRevision) (repository.PackageRevisionDraft, error) {
 	// Unwrap
 	unwrapped := old.(*cachedPackageRevision).PackageRevision
 	created, err := r.repo.UpdatePackageRevision(ctx, unwrapped)
@@ -186,8 +186,8 @@ func (r *cachedRepository) UpdatePackageRevision(ctx context.Context, old reposi
 	}
 
 	return &cachedDraft{
-		PackageDraft: created,
-		cache:        r,
+		PackageRevisionDraft: created,
+		cache:                r,
 	}, nil
 }
 
