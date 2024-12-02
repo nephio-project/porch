@@ -504,7 +504,9 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 	}
 
 	renderStatus, err := cad.taskHandler.DoPRResourceMutations(ctx, pr2Update, draft, oldRes, newRes)
-
+	if err != nil {
+		return nil, renderStatus, err
+	}
 	// No lifecycle change when updating package resources; updates are done.
 	repoPkgRev, err := draft.Close(ctx, "")
 	if err != nil {

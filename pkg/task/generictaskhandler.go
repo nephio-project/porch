@@ -225,19 +225,24 @@ func (th *genericTaskHandler) DoPRResourceMutations(ctx context.Context, pr2Upda
 
 	var renderStatus *api.RenderStatus
 	if len(appliedResources.Contents) > 0 {
-		// render the package
-		// Render failure will not fail the overall API operation.
-		// The render error and result is captured as part of renderStatus above
-		// and is returned in packageresourceresources API's status field. We continue with
-		// saving the non-rendered resources to avoid losing user's changes.
-		// and supress this err.
-		_, renderStatus, _ = applyResourceMutations(ctx,
+		// Render the package
+		// Render failure will fail the overall API operation.
+		// The render error and result are captured as part of renderStatus above
+		// and are returned in the PackageRevisionResources API's status field.
+		// We do not push the package further to remote:
+		// the user's changes are captured on their local package,
+		// and can be amended using the error returned as a reference point to ensure
+		// the package renders properly, before retrying the push.
+		_, renderStatus, err = applyResourceMutations(ctx,
 			draft,
 			appliedResources,
 			[]mutation{&renderPackageMutation{
 				runnerOptions: runnerOptions,
 				runtime:       th.runtime,
 			}})
+		if err != nil {
+			return renderStatus, err
+		}
 	} else {
 		renderStatus = nil
 	}
@@ -455,6 +460,8 @@ func applyResourceMutations(ctx context.Context, draft repository.PackageRevisio
 			renderStatus = taskResult.RenderStatus
 		}
 		if err != nil {
+			klog.Error(err)
+			err = fmt.Errorf("%w\n\n%s\n%s\n%s", err, "Error occurred rendering package in kpt function pipeline.", "Package has NOT been pushed to remote.", "Please fix package locally (modify until 'kpt fn render' succeeds) and retry.")
 			return updatedResources, renderStatus, err
 		}
 
