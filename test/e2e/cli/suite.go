@@ -148,6 +148,10 @@ func (s *CliTestSuite) RunTestCase(t *testing.T, tc TestCaseConfig) {
 			command.Stdout = strings.ReplaceAll(command.Stdout, search, replace)
 			command.Stderr = strings.ReplaceAll(command.Stderr, search, replace)
 		}
+				
+		if command.StdErrTabToWhitespace {
+			stderrStr = strings.ReplaceAll(stderrStr, "\t", "  ") // Replace tabs with spaces
+		}
 
 		if command.IgnoreWhitespace {
 			command.Stdout = normalizeWhitespace(command.Stdout)

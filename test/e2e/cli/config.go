@@ -38,6 +38,8 @@ type Command struct {
 	Yaml bool `yaml:"yaml,omitempty"`
 	// IgnoreWhitespace indicates that whitespace differences should be ignored in the output
 	IgnoreWhitespace bool `yaml:"ignoreWhitespace,omitempty"`
+	// StdErrTabToWhitespace replaces "\t" (tab) character with whitespace "  "
+	StdErrTabToWhitespace bool `yaml:"stdErrTabToWhitespace,omitempty"`
 }
 
 type TestCaseConfig struct {
