@@ -69,7 +69,7 @@ func (th *genericTaskHandler) SetReferenceResolver(referenceResolver repository.
 	th.referenceResolver = referenceResolver
 }
 
-func (th *genericTaskHandler) ApplyTasks(ctx context.Context, draft repository.PackageDraft, repositoryObj *configapi.Repository, obj *api.PackageRevision, packageConfig *builtins.PackageConfig) error {
+func (th *genericTaskHandler) ApplyTasks(ctx context.Context, draft repository.PackageRevisionDraft, repositoryObj *configapi.Repository, obj *api.PackageRevision, packageConfig *builtins.PackageConfig) error {
 	var mutations []mutation
 
 	// Unless first task is Init or Clone, insert Init to create an empty package.
@@ -106,7 +106,7 @@ func (th *genericTaskHandler) ApplyTasks(ctx context.Context, draft repository.P
 	return nil
 }
 
-func (th *genericTaskHandler) DoPRMutations(ctx context.Context, namespace string, repoPR repository.PackageRevision, oldObj *api.PackageRevision, newObj *api.PackageRevision, draft repository.PackageDraft) error {
+func (th *genericTaskHandler) DoPRMutations(ctx context.Context, namespace string, repoPR repository.PackageRevision, oldObj *api.PackageRevision, newObj *api.PackageRevision, draft repository.PackageRevisionDraft) error {
 	ctx, span := tracer.Start(ctx, "genericTaskHandler::DoPRMutations", trace.WithAttributes())
 	defer span.End()
 
@@ -198,7 +198,7 @@ func taskTypeOneOf(taskType api.TaskType, oneOf ...api.TaskType) bool {
 	return false
 }
 
-func (th *genericTaskHandler) DoPRResourceMutations(ctx context.Context, pr2Update repository.PackageRevision, draft repository.PackageDraft, oldRes, newRes *api.PackageRevisionResources) (*api.RenderStatus, error) {
+func (th *genericTaskHandler) DoPRResourceMutations(ctx context.Context, pr2Update repository.PackageRevision, draft repository.PackageRevisionDraft, oldRes, newRes *api.PackageRevisionResources) (*api.RenderStatus, error) {
 	ctx, span := tracer.Start(ctx, "genericTaskHandler::DoPRResourceMutations", trace.WithAttributes())
 	defer span.End()
 
@@ -443,7 +443,7 @@ func isRenderMutation(m mutation) bool {
 }
 
 // applyResourceMutations mutates the resources and returns the most recent renderResult.
-func applyResourceMutations(ctx context.Context, draft repository.PackageDraft, baseResources repository.PackageResources, mutations []mutation) (applied repository.PackageResources, renderStatus *api.RenderStatus, err error) {
+func applyResourceMutations(ctx context.Context, draft repository.PackageRevisionDraft, baseResources repository.PackageResources, mutations []mutation) (applied repository.PackageResources, renderStatus *api.RenderStatus, err error) {
 	var lastApplied mutation
 	for _, m := range mutations {
 		updatedResources, taskResult, err := m.apply(ctx, baseResources)

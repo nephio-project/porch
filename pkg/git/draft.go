@@ -25,7 +25,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-type gitPackageDraft struct {
+type gitPackageRevisionDraft struct {
 	parent        *gitRepository // repo is repo containing the package
 	path          string         // the path to the package from the repo root
 	revision      string
@@ -49,29 +49,29 @@ type gitPackageDraft struct {
 	tree plumbing.Hash
 }
 
-var _ repository.PackageDraft = &gitPackageDraft{}
+var _ repository.PackageRevisionDraft = &gitPackageRevisionDraft{}
 
-func (d *gitPackageDraft) UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, change *v1alpha1.Task) error {
+func (d *gitPackageRevisionDraft) UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, change *v1alpha1.Task) error {
 	ctx, span := tracer.Start(ctx, "gitPackageDraft::UpdateResources", trace.WithAttributes())
 	defer span.End()
 
 	return d.parent.UpdateDraftResources(ctx, d, new, change)
 }
 
-func (d *gitPackageDraft) UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error {
+func (d *gitPackageRevisionDraft) UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error {
 	d.lifecycle = new
 	return nil
 }
 
 // Finish round of updates.
-func (d *gitPackageDraft) Close(ctx context.Context, version string) (repository.PackageRevision, error) {
+func (d *gitPackageRevisionDraft) Close(ctx context.Context, version string) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "gitPackageDraft::Close", trace.WithAttributes())
 	defer span.End()
 
 	return d.parent.CloseDraft(ctx, version, d)
 }
 
-func (d *gitPackageDraft) GetName() string {
+func (d *gitPackageRevisionDraft) GetName() string {
 	packageDirectory := d.parent.directory
 	packageName := strings.TrimPrefix(d.path, packageDirectory+"/")
 	return packageName

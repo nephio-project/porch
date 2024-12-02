@@ -23,11 +23,11 @@ import (
 )
 
 type cachedDraft struct {
-	repository.PackageDraft
+	repository.PackageRevisionDraft
 	cache *cachedRepository
 }
 
-var _ repository.PackageDraft = &cachedDraft{}
+var _ repository.PackageRevisionDraft = &cachedDraft{}
 
 func (cd *cachedDraft) Close(ctx context.Context, version string) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cachedDraft::Close", trace.WithAttributes())
@@ -36,6 +36,7 @@ func (cd *cachedDraft) Close(ctx context.Context, version string) (repository.Pa
 	if err != nil {
 		return nil, err
 	}
+
 	if v != cd.cache.lastVersion {
 		_, _, err = cd.cache.refreshAllCachedPackages(ctx)
 		if err != nil {
@@ -62,7 +63,7 @@ func (cd *cachedDraft) Close(ctx context.Context, version string) (repository.Pa
 		return nil, err
 	}
 
-	if closed, err := cd.PackageDraft.Close(ctx, nextVersion); err != nil {
+	if closed, err := cd.PackageRevisionDraft.Close(ctx, nextVersion); err != nil {
 		return nil, err
 	} else {
 		return cd.cache.update(ctx, closed)

@@ -114,26 +114,24 @@ func (r *cachedRepository) getRefreshError() error {
 }
 
 func (r *cachedRepository) getPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter, forceRefresh bool) ([]repository.PackageRevision, error) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
 
 	_, packageRevisions, err := r.getCachedPackages(ctx, forceRefresh)
 	if err != nil {
 		return nil, err
 	}
-
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 	return toPackageRevisionSlice(packageRevisions, filter), nil
 }
 
 func (r *cachedRepository) getPackages(ctx context.Context, filter repository.ListPackageFilter, forceRefresh bool) ([]repository.Package, error) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
 
 	packages, _, err := r.getCachedPackages(ctx, forceRefresh)
 	if err != nil {
 		return nil, err
 	}
-
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 	return toPackageSlice(packages, filter), nil
 }
 
@@ -141,6 +139,8 @@ func (r *cachedRepository) getPackages(ctx context.Context, filter repository.Li
 // mutex must be held.
 func (r *cachedRepository) getCachedPackages(ctx context.Context, forceRefresh bool) (map[repository.PackageKey]*cachedPackage, map[repository.PackageRevisionKey]*cachedPackageRevision, error) {
 	// must hold mutex
+
+	r.mutex.Lock()
 	packages := r.cachedPackages
 	packageRevisions := r.cachedPackageRevisions
 	err := r.refreshRevisionsError
@@ -157,6 +157,7 @@ func (r *cachedRepository) getCachedPackages(ctx context.Context, forceRefresh b
 			}
 		}
 	}
+	r.mutex.Unlock()
 
 	if packages == nil {
 		packages, packageRevisions, err = r.refreshAllCachedPackages(ctx)
@@ -165,19 +166,19 @@ func (r *cachedRepository) getCachedPackages(ctx context.Context, forceRefresh b
 	return packages, packageRevisions, err
 }
 
-func (r *cachedRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageDraft, error) {
+func (r *cachedRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
 	created, err := r.repo.CreatePackageRevision(ctx, obj)
 	if err != nil {
 		return nil, err
 	}
 
 	return &cachedDraft{
-		PackageDraft: created,
-		cache:        r,
+		PackageRevisionDraft: created,
+		cache:                r,
 	}, nil
 }
 
-func (r *cachedRepository) UpdatePackageRevision(ctx context.Context, old repository.PackageRevision) (repository.PackageDraft, error) {
+func (r *cachedRepository) UpdatePackageRevision(ctx context.Context, old repository.PackageRevision) (repository.PackageRevisionDraft, error) {
 	// Unwrap
 	unwrapped := old.(*cachedPackageRevision).PackageRevision
 	created, err := r.repo.UpdatePackageRevision(ctx, unwrapped)
@@ -186,14 +187,12 @@ func (r *cachedRepository) UpdatePackageRevision(ctx context.Context, old reposi
 	}
 
 	return &cachedDraft{
-		PackageDraft: created,
-		cache:        r,
+		PackageRevisionDraft: created,
+		cache:                r,
 	}, nil
 }
 
 func (r *cachedRepository) update(ctx context.Context, updated repository.PackageRevision) (*cachedPackageRevision, error) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
 
 	// TODO: Technically we only need this package, not all packages
 	if _, _, err := r.getCachedPackages(ctx, false); err != nil {
@@ -201,6 +200,8 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 		// TODO: Invalidate all watches? We're dropping an add/update event
 		return nil, err
 	}
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 
 	k := updated.Key()
 	// previous := r.cachedPackageRevisions[k]
@@ -236,7 +237,6 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 }
 
 func (r *cachedRepository) createMainPackageRevision(ctx context.Context, updatedMain repository.PackageRevision) error {
-
 	//Search and delete any old main pkgRev of an older workspace in the cache
 	for pkgRevKey := range r.cachedPackageRevisions {
 		if (pkgRevKey.Repository == updatedMain.Key().Repository) && (pkgRevKey.Package == updatedMain.Key().Package) && (pkgRevKey.Revision == updatedMain.Key().Revision) {
@@ -403,6 +403,8 @@ func (r *cachedRepository) flush() {
 func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[repository.PackageKey]*cachedPackage, map[repository.PackageRevisionKey]*cachedPackageRevision, error) {
 	// TODO: Avoid simultaneous fetches?
 	// TODO: Push-down partial refresh?
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 
 	start := time.Now()
 	defer func() { klog.Infof("repo %s: refresh finished in %f secs", r.id, time.Since(start).Seconds()) }()
