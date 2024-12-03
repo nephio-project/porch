@@ -144,7 +144,7 @@ func (b *background) updateCache(ctx context.Context, event watch.EventType, rep
 		if err := b.coreClient.List(ctx, &repoList); err != nil {
 			return err
 		}
-		return b.cache.CloseRepository(repository, repoList.Items)
+		return b.cache.CloseRepository(ctx, repository, repoList.Items)
 	default:
 		klog.Warningf("Unhandled watch event type: %s", event)
 	}
