@@ -458,10 +458,14 @@ func applyResourceMutations(ctx context.Context, draft repository.PackageRevisio
 		}
 		if taskResult != nil && task.Type == api.TaskTypeEval {
 			renderStatus = taskResult.RenderStatus
+			if err != nil {
+				klog.Error(err)
+				err = fmt.Errorf("%w\n\n%s\n%s\n%s", err, "Error occurred rendering package in kpt function pipeline.", "Package has NOT been pushed to remote.", "Please fix package locally (modify until 'kpt fn render' succeeds) and retry.")
+				return updatedResources, renderStatus, err
+			}
 		}
 		if err != nil {
 			klog.Error(err)
-			err = fmt.Errorf("%w\n\n%s\n%s\n%s", err, "Error occurred rendering package in kpt function pipeline.", "Package has NOT been pushed to remote.", "Please fix package locally (modify until 'kpt fn render' succeeds) and retry.")
 			return updatedResources, renderStatus, err
 		}
 
