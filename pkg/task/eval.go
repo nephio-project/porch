@@ -29,6 +29,8 @@ import (
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
+var _ mutation = &evalFunctionMutation{}
+
 type evalFunctionMutation struct {
 	runtime       fn.FunctionRuntime
 	runnerOptions fnruntime.RunnerOptions
