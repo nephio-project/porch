@@ -31,6 +31,8 @@ import (
 	"k8s.io/klog/v2"
 )
 
+var _ mutation = &clonePackageMutation{}
+
 type clonePackageMutation struct {
 	task *api.Task
 

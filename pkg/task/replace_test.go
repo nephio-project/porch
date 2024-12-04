@@ -33,7 +33,7 @@ func TestReplaceResources(t *testing.T) {
 	input := repository.ReadPackage(t, filepath.Join("testdata", "replace"))
 	nocomment := removeComments(t, input)
 
-	replace := &mutationReplaceResources{
+	replace := &replaceResourcesMutation{
 		newResources: &v1alpha1.PackageRevisionResources{
 			Spec: v1alpha1.PackageRevisionResourcesSpec{
 				Resources: nocomment.Contents,
@@ -48,7 +48,7 @@ func TestReplaceResources(t *testing.T) {
 
 	output, _, err := replace.apply(ctx, input)
 	if err != nil {
-		t.Fatalf("mutationReplaceResources.Apply failed: %v", err)
+		t.Fatalf("replaceResourcesMutation.Apply failed: %v", err)
 	}
 
 	if !cmp.Equal(input, output) {
