@@ -646,3 +646,34 @@ func TestPrintFnStderr(t *testing.T) {
 		})
 	}
 }
+
+func TestRunnerOptions_InitDefaults(t *testing.T) {
+	tests := map[string]struct {
+		prefix string
+	}{
+		"empty":             {prefix: ""},
+		"trailing_slash":    {prefix: "example.org/kpt-fn/"},
+		"no_trailing_slash": {prefix: "example.org/kpt-fn"},
+	}
+
+	const fnName = "my-krm-function"
+
+	for testName, tc := range tests {
+		t.Run(testName, func(t *testing.T) {
+			opts := &RunnerOptions{}
+			opts.InitDefaults(tc.prefix)
+
+			result, err := opts.ResolveToImage(context.TODO(), fnName)
+
+			assert.NoError(t, err)
+			assert.Equal(t, getExpectedPrefix(tc.prefix)+fnName, result)
+		})
+	}
+}
+
+func getExpectedPrefix(prefix string) string {
+	if prefix != "" && !strings.HasSuffix(prefix, "/") {
+		return prefix + "/"
+	}
+	return prefix
+}

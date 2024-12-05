@@ -106,7 +106,7 @@ spec:
 		FileSystem: fs,
 		Runtime:    &runtime{},
 	}
-	r.RunnerOptions.InitDefaults()
+	r.RunnerOptions.InitDefaults(fnruntime.GCRImagePrefix)
 	r.RunnerOptions.ImagePullPolicy = fnruntime.IfNotPresentPull
 	_, err := r.Execute(fake.CtxWithDefaultPrinter())
 	if err != nil {
@@ -220,7 +220,7 @@ spec:
 		FileSystem: fs,
 		Runtime:    &runtime{},
 	}
-	r.RunnerOptions.InitDefaults()
+	r.RunnerOptions.InitDefaults(fnruntime.GCRImagePrefix)
 	r.RunnerOptions.ImagePullPolicy = fnruntime.IfNotPresentPull
 
 	_, err := r.Execute(fake.CtxWithDefaultPrinter())
