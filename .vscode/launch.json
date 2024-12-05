@@ -43,7 +43,7 @@
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/porchctl/main.go",
             "args": [
-                "rpkg", "init", "porch-package-name", "--workspace=v1", "--namespace=default", "--repository=repo-name"
+                "rpkg", "init", "porch-package-name", "--workspace=v1", "--namespace=repository-namespace", "--repository=repo-name"
             ],
             "cwd": "${workspaceFolder}"
         },
