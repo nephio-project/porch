@@ -31,7 +31,7 @@ import (
 
 func TestRender(t *testing.T) {
 	runnerOptions := fnruntime.RunnerOptions{}
-	runnerOptions.InitDefaults()
+	runnerOptions.InitDefaults(fnruntime.GCRImagePrefix)
 
 	render := &renderPackageMutation{
 		runnerOptions: runnerOptions,

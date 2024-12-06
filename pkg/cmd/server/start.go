@@ -22,6 +22,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -244,7 +245,7 @@ func (o *PorchServerOptions) AddFlags(fs *pflag.FlagSet) {
 	}
 
 	fs.StringVar(&o.FunctionRunnerAddress, "function-runner", "", "Address of the function runner gRPC service.")
-	fs.StringVar(&o.DefaultImagePrefix, "default-image-prefix", "gcr.io/kpt-fn/", "Default prefix for unqualified function names")
+	fs.StringVar(&o.DefaultImagePrefix, "default-image-prefix", fnruntime.GCRImagePrefix, "Default prefix for unqualified function names")
 	fs.StringVar(&o.CacheDirectory, "cache-directory", "", "Directory where Porch server stores repository and package caches.")
 	fs.IntVar(&o.MaxRequestBodySize, "max-request-body-size", 6*1024*1024, "Maximum size of the request body in bytes. Keep this in sync with function-runner's corresponding argument.")
 	fs.BoolVar(&o.UseGitCaBundle, "use-git-cabundle", false, "Determine whether to use a user-defined CaBundle for TLS towards git.")
