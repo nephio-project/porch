@@ -40,6 +40,8 @@ type Command struct {
 	IgnoreWhitespace bool `yaml:"ignoreWhitespace,omitempty"`
 	// StdErrTabToWhitespace replaces "\t" (tab) character with whitespace "  "
 	StdErrTabToWhitespace bool `yaml:"stdErrTabToWhitespace,omitempty"`
+	// ContainsErrorString changes Stderr check from exact string match to contains string match
+	ContainsErrorString bool `yaml:"containsErrorString,omitempty"`
 }
 
 type TestCaseConfig struct {

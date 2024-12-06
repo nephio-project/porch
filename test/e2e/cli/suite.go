@@ -148,7 +148,7 @@ func (s *CliTestSuite) RunTestCase(t *testing.T, tc TestCaseConfig) {
 			command.Stdout = strings.ReplaceAll(command.Stdout, search, replace)
 			command.Stderr = strings.ReplaceAll(command.Stderr, search, replace)
 		}
-				
+
 		if command.StdErrTabToWhitespace {
 			stderrStr = strings.ReplaceAll(stderrStr, "\t", "  ") // Replace tabs with spaces
 		}
@@ -173,8 +173,14 @@ func (s *CliTestSuite) RunTestCase(t *testing.T, tc TestCaseConfig) {
 		got, want := stderrStr, command.Stderr
 		got = removeArmPlatformWarning(got)
 
-		if got != want {
-			t.Errorf("unexpected stderr content from '%s'; (-want, +got) %s", strings.Join(command.Args, " "), cmp.Diff(want, got))
+		if command.ContainsErrorString {
+			if !strings.Contains(got, want) {
+				t.Errorf("unexpected stderr content from '%s'; \n Error we got = \n(%s) \n Should contain substring = \n(%s)\n", strings.Join(command.Args, " "), got, want)
+			}
+		} else {
+			if got != want {
+				t.Errorf("unexpected stderr content from '%s'; (-want, +got) %s", strings.Join(command.Args, " "), cmp.Diff(want, got))
+			}
 		}
 
 		// hack here; but if the command registered a repo, give a few extra seconds for the repo to reach readiness
