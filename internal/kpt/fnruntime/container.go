@@ -224,9 +224,9 @@ func NewContainerEnvFromStringSlice(envStr []string) *runtimeutil.ContainerEnv {
 	return ce
 }
 
-// ResolveToImageForCLIFunc returns a func that converts the function short path to the full image url.
-// `prefix` must end with a "/".
-// If the function is Catalog function, it adds `prefix` .e.g. "set-namespace:v0.1" --> prefix + "set-namespace:v0.1"
+// ResolveToImageForCLIFunc returns a func that converts the KRM function short path to the full image url.
+// If the function is a catalog function, it prepends `prefix`, e.g. "set-namespace:v0.1" --> prefix + "set-namespace:v0.1".
+// A "/" is appended to `prefix` if it is not an empty string and does not end with a "/".
 func ResolveToImageForCLIFunc(prefix string) func(_ context.Context, image string) (string, error) {
 	prefix = strings.TrimSuffix(prefix, "/")
 	if prefix == "" {
