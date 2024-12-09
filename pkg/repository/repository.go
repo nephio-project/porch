@@ -21,7 +21,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
-	"github.com/nephio-project/porch/pkg/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -100,10 +100,10 @@ type PackageRevision interface {
 	ToMainPackageRevision() PackageRevision
 
 	// Get the Kubernetes metadata for the package revision
-	GetMeta() meta.PackageRevisionMeta
+	GetMeta() metav1.ObjectMeta
 
 	// Set the Kubernetes metadata for the package revision
-	SetMeta(meta.PackageRevisionMeta)
+	SetMeta(metav1.ObjectMeta)
 }
 
 // Package is an abstract package.

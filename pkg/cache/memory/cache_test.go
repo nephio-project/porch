@@ -272,11 +272,11 @@ func createMetadataStoreFromArchive(t *testing.T, testPath, name string) meta.Me
 	}
 	if os.IsNotExist(err) {
 		return &fakemeta.MemoryMetadataStore{
-			Metas: []meta.PackageRevisionMeta{},
+			Metas: []metav1.ObjectMeta{},
 		}
 	}
 
-	var metas []meta.PackageRevisionMeta
+	var metas []metav1.ObjectMeta
 	if err := yaml.Unmarshal(c, &metas); err != nil {
 		t.Fatalf("Error unmarshalling metadata file for repository %s", name)
 	}
