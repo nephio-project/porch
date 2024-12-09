@@ -28,6 +28,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog/v2"
@@ -260,7 +261,7 @@ func (r *cachedRepository) createMainPackageRevision(ctx context.Context, update
 	// Create the package if it doesn't exist
 	_, err := r.metadataStore.Get(ctx, pkgRevMetaNN)
 	if errors.IsNotFound(err) {
-		pkgRevMeta := meta.PackageRevisionMeta{
+		pkgRevMeta := metav1.ObjectMeta{
 			Name:      updatedMain.KubeObjectName(),
 			Namespace: updatedMain.KubeObjectNamespace(),
 		}
@@ -426,7 +427,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 		return nil, nil, err
 	}
 	// Create a map so we can quickly check if a specific PackageRevisionMeta exists.
-	existingPkgRevCRsMap := make(map[string]meta.PackageRevisionMeta)
+	existingPkgRevCRsMap := make(map[string]metav1.ObjectMeta)
 	for i := range existingPkgRevCRs {
 		pr := existingPkgRevCRs[i]
 		existingPkgRevCRsMap[pr.Name] = pr
@@ -497,7 +498,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 	// a corresponding PackageRev CR.
 	for pkgRevName, pkgRev := range newPackageRevisionNames {
 		if _, found := existingPkgRevCRsMap[pkgRevName]; !found {
-			pkgRevMeta := meta.PackageRevisionMeta{
+			pkgRevMeta := metav1.ObjectMeta{
 				Name:      pkgRevName,
 				Namespace: r.repoSpec.Namespace,
 			}

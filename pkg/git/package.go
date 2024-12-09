@@ -29,7 +29,6 @@ import (
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
-	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/repository"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -51,7 +50,7 @@ type gitPackageRevision struct {
 	tree          plumbing.Hash       // Cached tree of the package itself, some descendent of commit.Tree()
 	commit        plumbing.Hash       // Current version of the package (commit sha)
 	tasks         []v1alpha1.Task
-	metadata      meta.PackageRevisionMeta
+	metadata      metav1.ObjectMeta
 }
 
 var _ repository.PackageRevision = &gitPackageRevision{}
@@ -318,11 +317,11 @@ func (p *gitPackageRevision) UpdateLifecycle(ctx context.Context, new v1alpha1.P
 	return p.repo.UpdateLifecycle(ctx, p, new)
 }
 
-func (p *gitPackageRevision) GetMeta() meta.PackageRevisionMeta {
+func (p *gitPackageRevision) GetMeta() metav1.ObjectMeta {
 	return p.metadata
 }
 
-func (p *gitPackageRevision) SetMeta(metadata meta.PackageRevisionMeta) {
+func (p *gitPackageRevision) SetMeta(metadata metav1.ObjectMeta) {
 	p.metadata = metadata
 }
 
