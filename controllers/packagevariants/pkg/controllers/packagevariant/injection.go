@@ -18,9 +18,10 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"sigs.k8s.io/kustomize/kyaml/kio"
 	"sort"
 	"strings"
+
+	"sigs.k8s.io/kustomize/kyaml/kio"
 
 	"github.com/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -124,7 +125,11 @@ func ensureConfigInjection(ctx context.Context,
 		return err
 	}
 
-	prr.Spec.Resources["Kptfile"] = kptfile.String()
+	kptfileYaml, err := kptfilev1.ToYamlString(kptfile)
+	if err != nil {
+		return err
+	}
+	prr.Spec.Resources[kptfilev1.KptFileName] = kptfileYaml
 
 	return nil
 }
