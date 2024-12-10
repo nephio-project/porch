@@ -1,4 +1,4 @@
-// Copyright 2022,2024 The kpt and Nephio Authors
+// Copyright 2022, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog/v2"
@@ -183,11 +184,11 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	}
 
 	// Updates are done.
-	repoPkgRev, err := draft.Close(ctx, "")
+	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, "")
 	if err != nil {
 		return nil, err
 	}
-	pkgRevMeta := meta.PackageRevisionMeta{
+	pkgRevMeta := metav1.ObjectMeta{
 		Name:            repoPkgRev.KubeObjectName(),
 		Namespace:       repoPkgRev.KubeObjectNamespace(),
 		Labels:          obj.Labels,
@@ -308,7 +309,7 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version string,
 	}
 
 	// Updates are done.
-	repoPkgRev, err = draft.Close(ctx, version)
+	repoPkgRev, err = repo.ClosePackageRevisionDraft(ctx, draft, version)
 	if err != nil {
 		return nil, err
 	}
@@ -325,7 +326,7 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version string,
 }
 
 func (cad *cadEngine) updatePkgRevMeta(ctx context.Context, repoPkgRev repository.PackageRevision, apiPkgRev *api.PackageRevision) error {
-	pkgRevMeta := meta.PackageRevisionMeta{
+	pkgRevMeta := metav1.ObjectMeta{
 		Name:            repoPkgRev.KubeObjectName(),
 		Namespace:       repoPkgRev.KubeObjectNamespace(),
 		Labels:          apiPkgRev.Labels,
@@ -508,7 +509,7 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 		return nil, renderStatus, err
 	}
 	// No lifecycle change when updating package resources; updates are done.
-	repoPkgRev, err := draft.Close(ctx, "")
+	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, "")
 	if err != nil {
 		return nil, renderStatus, err
 	}
@@ -561,7 +562,7 @@ func (cad *cadEngine) RecloneAndReplay(ctx context.Context, parentPR repository.
 		return nil, err
 	}
 
-	repoPkgRev, err := draft.Close(ctx, version)
+	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, version)
 
 	if err != nil {
 		return nil, err

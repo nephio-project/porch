@@ -45,23 +45,11 @@ var (
 // examples of metadata we want to keep is labels, annotations, owner references, and
 // finalizers.
 type MetadataStore interface {
-	Get(ctx context.Context, namespacedName types.NamespacedName) (PackageRevisionMeta, error)
-	List(ctx context.Context, repo *configapi.Repository) ([]PackageRevisionMeta, error)
-	Create(ctx context.Context, pkgRevMeta PackageRevisionMeta, repoName string, pkgRevUID types.UID) (PackageRevisionMeta, error)
-	Update(ctx context.Context, pkgRevMeta PackageRevisionMeta) (PackageRevisionMeta, error)
-	Delete(ctx context.Context, namespacedName types.NamespacedName, clearFinalizer bool) (PackageRevisionMeta, error)
-}
-
-// PackageRevisionMeta contains metadata about a specific PackageRevision. The
-// PackageRevision is identified by the name and namespace.
-type PackageRevisionMeta struct {
-	Name              string
-	Namespace         string
-	Labels            map[string]string
-	Annotations       map[string]string
-	Finalizers        []string
-	OwnerReferences   []metav1.OwnerReference
-	DeletionTimestamp *metav1.Time
+	Get(ctx context.Context, namespacedName types.NamespacedName) (metav1.ObjectMeta, error)
+	List(ctx context.Context, repo *configapi.Repository) ([]metav1.ObjectMeta, error)
+	Create(ctx context.Context, pkgRevMeta metav1.ObjectMeta, repoName string, pkgRevUID types.UID) (metav1.ObjectMeta, error)
+	Update(ctx context.Context, pkgRevMeta metav1.ObjectMeta) (metav1.ObjectMeta, error)
+	Delete(ctx context.Context, namespacedName types.NamespacedName, clearFinalizer bool) (metav1.ObjectMeta, error)
 }
 
 var _ MetadataStore = &crdMetadataStore{}
@@ -78,20 +66,20 @@ type crdMetadataStore struct {
 	coreClient client.Client
 }
 
-func (c *crdMetadataStore) Get(ctx context.Context, namespacedName types.NamespacedName) (PackageRevisionMeta, error) {
+func (c *crdMetadataStore) Get(ctx context.Context, namespacedName types.NamespacedName) (metav1.ObjectMeta, error) {
 	ctx, span := tracer.Start(ctx, "crdMetadataStore::Get", trace.WithAttributes())
 	defer span.End()
 
 	var internalPkgRev internalapi.PackageRev
 	err := c.coreClient.Get(ctx, namespacedName, &internalPkgRev)
 	if err != nil {
-		return PackageRevisionMeta{}, err
+		return metav1.ObjectMeta{}, err
 	}
 
 	return toPackageRevisionMeta(&internalPkgRev), nil
 }
 
-func (c *crdMetadataStore) List(ctx context.Context, repo *configapi.Repository) ([]PackageRevisionMeta, error) {
+func (c *crdMetadataStore) List(ctx context.Context, repo *configapi.Repository) ([]metav1.ObjectMeta, error) {
 	ctx, span := tracer.Start(ctx, "crdMetadataStore::List", trace.WithAttributes())
 	defer span.End()
 
@@ -100,14 +88,14 @@ func (c *crdMetadataStore) List(ctx context.Context, repo *configapi.Repository)
 	if err != nil {
 		return nil, err
 	}
-	var pkgRevMetas []PackageRevisionMeta
+	var pkgRevMetas []metav1.ObjectMeta
 	for _, ipr := range internalPkgRevList.Items {
 		pkgRevMetas = append(pkgRevMetas, toPackageRevisionMeta(&ipr))
 	}
 	return pkgRevMetas, nil
 }
 
-func (c *crdMetadataStore) Create(ctx context.Context, pkgRevMeta PackageRevisionMeta, repoName string, pkgRevUID types.UID) (PackageRevisionMeta, error) {
+func (c *crdMetadataStore) Create(ctx context.Context, pkgRevMeta metav1.ObjectMeta, repoName string, pkgRevUID types.UID) (metav1.ObjectMeta, error) {
 	ctx, span := tracer.Start(ctx, "crdMetadataStore::Create", trace.WithAttributes())
 	defer span.End()
 
@@ -141,12 +129,12 @@ func (c *crdMetadataStore) Create(ctx context.Context, pkgRevMeta PackageRevisio
 		if apierrors.IsAlreadyExists(err) {
 			return c.Update(ctx, pkgRevMeta)
 		}
-		return PackageRevisionMeta{}, err
+		return metav1.ObjectMeta{}, err
 	}
 	return toPackageRevisionMeta(&internalPkgRev), nil
 }
 
-func (c *crdMetadataStore) Update(ctx context.Context, pkgRevMeta PackageRevisionMeta) (PackageRevisionMeta, error) {
+func (c *crdMetadataStore) Update(ctx context.Context, pkgRevMeta metav1.ObjectMeta) (metav1.ObjectMeta, error) {
 	ctx, span := tracer.Start(ctx, "crdMetadataStore::Update", trace.WithAttributes())
 	defer span.End()
 
@@ -157,7 +145,7 @@ func (c *crdMetadataStore) Update(ctx context.Context, pkgRevMeta PackageRevisio
 	}
 	err := c.coreClient.Get(ctx, namespacedName, &internalPkgRev)
 	if err != nil {
-		return PackageRevisionMeta{}, err
+		return metav1.ObjectMeta{}, err
 	}
 
 	// Copy updated labels to the CR and add the repository label
@@ -185,12 +173,12 @@ func (c *crdMetadataStore) Update(ctx context.Context, pkgRevMeta PackageRevisio
 
 	klog.Infof("Updating packagerev %s/%s", internalPkgRev.Namespace, internalPkgRev.Name)
 	if err := c.coreClient.Update(ctx, &internalPkgRev); err != nil {
-		return PackageRevisionMeta{}, err
+		return metav1.ObjectMeta{}, err
 	}
 	return toPackageRevisionMeta(&internalPkgRev), nil
 }
 
-func (c *crdMetadataStore) Delete(ctx context.Context, namespacedName types.NamespacedName, clearFinalizers bool) (PackageRevisionMeta, error) {
+func (c *crdMetadataStore) Delete(ctx context.Context, namespacedName types.NamespacedName, clearFinalizers bool) (metav1.ObjectMeta, error) {
 	ctx, span := tracer.Start(ctx, "crdMetadataStore::Delete", trace.WithAttributes())
 	defer span.End()
 
@@ -210,17 +198,17 @@ func (c *crdMetadataStore) Delete(ctx context.Context, namespacedName types.Name
 		return nil
 	})
 	if retriedErr != nil {
-		return PackageRevisionMeta{}, retriedErr
+		return metav1.ObjectMeta{}, retriedErr
 	}
 
 	klog.Infof("Deleting packagerev %s/%s", internalPkgRev.Namespace, internalPkgRev.Name)
 	if err := c.coreClient.Delete(ctx, &internalPkgRev); err != nil {
-		return PackageRevisionMeta{}, err
+		return metav1.ObjectMeta{}, err
 	}
 	return toPackageRevisionMeta(&internalPkgRev), nil
 }
 
-func toPackageRevisionMeta(internalPkgRev *internalapi.PackageRev) PackageRevisionMeta {
+func toPackageRevisionMeta(internalPkgRev *internalapi.PackageRev) metav1.ObjectMeta {
 	labels := internalPkgRev.Labels
 	delete(labels, PkgRevisionRepoLabel)
 
@@ -232,6 +220,7 @@ func toPackageRevisionMeta(internalPkgRev *internalapi.PackageRev) PackageRevisi
 			ownerReferences = append(ownerReferences, or)
 		}
 	}
+	internalPkgRev.OwnerReferences = ownerReferences
 
 	var finalizers []string
 	for _, f := range internalPkgRev.Finalizers {
@@ -240,15 +229,8 @@ func toPackageRevisionMeta(internalPkgRev *internalapi.PackageRev) PackageRevisi
 		}
 	}
 
-	return PackageRevisionMeta{
-		Name:              internalPkgRev.Name,
-		Namespace:         internalPkgRev.Namespace,
-		Labels:            labels,
-		Annotations:       internalPkgRev.Annotations,
-		Finalizers:        finalizers,
-		OwnerReferences:   ownerReferences,
-		DeletionTimestamp: internalPkgRev.DeletionTimestamp,
-	}
+	internalPkgRev.Finalizers = finalizers
+	return internalPkgRev.ObjectMeta
 }
 
 func isPackageRevOwnerRef(or metav1.OwnerReference, pkgRevName string) bool {

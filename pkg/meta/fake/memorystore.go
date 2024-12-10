@@ -20,6 +20,7 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/meta"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -27,28 +28,28 @@ import (
 // MemoryMetadataStore is an in-memory implementation of the MetadataStore interface. It
 // means metadata about packagerevisions will be stored in memory, which is useful for testing.
 type MemoryMetadataStore struct {
-	Metas []meta.PackageRevisionMeta
+	Metas []metav1.ObjectMeta
 }
 
 var _ meta.MetadataStore = &MemoryMetadataStore{}
 
-func (m *MemoryMetadataStore) Get(ctx context.Context, namespacedName types.NamespacedName) (meta.PackageRevisionMeta, error) {
+func (m *MemoryMetadataStore) Get(ctx context.Context, namespacedName types.NamespacedName) (metav1.ObjectMeta, error) {
 	for _, meta := range m.Metas {
 		if meta.Name == namespacedName.Name && meta.Namespace == namespacedName.Namespace {
 			return meta, nil
 		}
 	}
-	return meta.PackageRevisionMeta{}, apierrors.NewNotFound(
+	return metav1.ObjectMeta{}, apierrors.NewNotFound(
 		schema.GroupResource{Group: "config.kpt.dev", Resource: "packagerevisions"},
 		namespacedName.Name,
 	)
 }
 
-func (m *MemoryMetadataStore) List(ctx context.Context, repo *configapi.Repository) ([]meta.PackageRevisionMeta, error) {
+func (m *MemoryMetadataStore) List(ctx context.Context, repo *configapi.Repository) ([]metav1.ObjectMeta, error) {
 	return m.Metas, nil
 }
 
-func (m *MemoryMetadataStore) Create(ctx context.Context, pkgRevMeta meta.PackageRevisionMeta, repoName string, pkgRevUID types.UID) (meta.PackageRevisionMeta, error) {
+func (m *MemoryMetadataStore) Create(ctx context.Context, pkgRevMeta metav1.ObjectMeta, repoName string, pkgRevUID types.UID) (metav1.ObjectMeta, error) {
 	for _, m := range m.Metas {
 		if m.Name == pkgRevMeta.Name && m.Namespace == pkgRevMeta.Namespace {
 			return m, apierrors.NewAlreadyExists(
@@ -61,7 +62,7 @@ func (m *MemoryMetadataStore) Create(ctx context.Context, pkgRevMeta meta.Packag
 	return pkgRevMeta, nil
 }
 
-func (m *MemoryMetadataStore) Update(ctx context.Context, pkgRevMeta meta.PackageRevisionMeta) (meta.PackageRevisionMeta, error) {
+func (m *MemoryMetadataStore) Update(ctx context.Context, pkgRevMeta metav1.ObjectMeta) (metav1.ObjectMeta, error) {
 	i := -1
 	for j, m := range m.Metas {
 		if m.Name == pkgRevMeta.Name && m.Namespace == pkgRevMeta.Namespace {
@@ -69,7 +70,7 @@ func (m *MemoryMetadataStore) Update(ctx context.Context, pkgRevMeta meta.Packag
 		}
 	}
 	if i < 0 {
-		return meta.PackageRevisionMeta{}, apierrors.NewNotFound(
+		return metav1.ObjectMeta{}, apierrors.NewNotFound(
 			schema.GroupResource{Group: "config.porch.kpt.dev", Resource: "packagerevisions"},
 			pkgRevMeta.Name,
 		)
@@ -78,10 +79,10 @@ func (m *MemoryMetadataStore) Update(ctx context.Context, pkgRevMeta meta.Packag
 	return pkgRevMeta, nil
 }
 
-func (m *MemoryMetadataStore) Delete(ctx context.Context, namespacedName types.NamespacedName, _ bool) (meta.PackageRevisionMeta, error) {
-	var metas []meta.PackageRevisionMeta
+func (m *MemoryMetadataStore) Delete(ctx context.Context, namespacedName types.NamespacedName, _ bool) (metav1.ObjectMeta, error) {
+	var metas []metav1.ObjectMeta
 	found := false
-	var deletedMeta meta.PackageRevisionMeta
+	var deletedMeta metav1.ObjectMeta
 	for _, m := range m.Metas {
 		if m.Name == namespacedName.Name && m.Namespace == namespacedName.Namespace {
 			found = true
@@ -91,7 +92,7 @@ func (m *MemoryMetadataStore) Delete(ctx context.Context, namespacedName types.N
 		}
 	}
 	if !found {
-		return meta.PackageRevisionMeta{}, apierrors.NewNotFound(
+		return metav1.ObjectMeta{}, apierrors.NewNotFound(
 			schema.GroupResource{Group: "config.kpt.dev", Resource: "packagerevisions"},
 			namespacedName.Name,
 		)

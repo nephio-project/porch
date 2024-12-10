@@ -1,4 +1,4 @@
-// Copyright 2022,2024 The kpt and Nephio Authors
+// Copyright 2022, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog/v2"
@@ -167,29 +168,56 @@ func (r *cachedRepository) getCachedPackages(ctx context.Context, forceRefresh b
 }
 
 func (r *cachedRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
-	created, err := r.repo.CreatePackageRevision(ctx, obj)
+	return r.repo.CreatePackageRevision(ctx, obj)
+}
+
+func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version string) (repository.PackageRevision, error) {
+	ctx, span := tracer.Start(ctx, "cachedRepository::ClosePackageRevisionDraft", trace.WithAttributes())
+	defer span.End()
+
+	v, err := r.Version(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return &cachedDraft{
-		PackageRevisionDraft: created,
-		cache:                r,
-	}, nil
+	if v != r.lastVersion {
+		_, _, err = r.refreshAllCachedPackages(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	revisions, err := r.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
+		Package: prd.GetName(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var publishedRevisions []string
+	for _, rev := range revisions {
+		if v1alpha1.LifecycleIsPublished(rev.Lifecycle()) {
+			publishedRevisions = append(publishedRevisions, rev.Key().Revision)
+		}
+	}
+
+	nextVersion, err := repository.NextRevisionNumber(publishedRevisions)
+	if err != nil {
+		return nil, err
+	}
+
+	if closed, err := r.repo.ClosePackageRevisionDraft(ctx, prd, nextVersion); err != nil {
+		return nil, err
+	} else {
+		return r.update(ctx, closed)
+	}
 }
 
 func (r *cachedRepository) UpdatePackageRevision(ctx context.Context, old repository.PackageRevision) (repository.PackageRevisionDraft, error) {
 	// Unwrap
 	unwrapped := old.(*cachedPackageRevision).PackageRevision
-	created, err := r.repo.UpdatePackageRevision(ctx, unwrapped)
-	if err != nil {
-		return nil, err
-	}
 
-	return &cachedDraft{
-		PackageRevisionDraft: created,
-		cache:                r,
-	}, nil
+	return r.repo.UpdatePackageRevision(ctx, unwrapped)
 }
 
 func (r *cachedRepository) update(ctx context.Context, updated repository.PackageRevision) (*cachedPackageRevision, error) {
@@ -260,7 +288,7 @@ func (r *cachedRepository) createMainPackageRevision(ctx context.Context, update
 	// Create the package if it doesn't exist
 	_, err := r.metadataStore.Get(ctx, pkgRevMetaNN)
 	if errors.IsNotFound(err) {
-		pkgRevMeta := meta.PackageRevisionMeta{
+		pkgRevMeta := metav1.ObjectMeta{
 			Name:      updatedMain.KubeObjectName(),
 			Namespace: updatedMain.KubeObjectNamespace(),
 		}
@@ -426,7 +454,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 		return nil, nil, err
 	}
 	// Create a map so we can quickly check if a specific PackageRevisionMeta exists.
-	existingPkgRevCRsMap := make(map[string]meta.PackageRevisionMeta)
+	existingPkgRevCRsMap := make(map[string]metav1.ObjectMeta)
 	for i := range existingPkgRevCRs {
 		pr := existingPkgRevCRs[i]
 		existingPkgRevCRsMap[pr.Name] = pr
@@ -497,7 +525,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 	// a corresponding PackageRev CR.
 	for pkgRevName, pkgRev := range newPackageRevisionNames {
 		if _, found := existingPkgRevCRsMap[pkgRevName]; !found {
-			pkgRevMeta := meta.PackageRevisionMeta{
+			pkgRevMeta := metav1.ObjectMeta{
 				Name:      pkgRevName,
 				Namespace: r.repoSpec.Namespace,
 			}

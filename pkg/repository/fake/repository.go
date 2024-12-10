@@ -61,6 +61,10 @@ func (r *Repository) CreatePackageRevision(_ context.Context, pr *v1alpha1.Packa
 	return nil, nil
 }
 
+func (r *Repository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version string) (repository.PackageRevision, error) {
+	return nil, nil
+}
+
 func (r *Repository) DeletePackageRevision(context.Context, repository.PackageRevision) error {
 	return nil
 }
