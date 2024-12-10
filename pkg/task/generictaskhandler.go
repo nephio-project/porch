@@ -15,10 +15,10 @@
 package task
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 
+	sdkfn "github.com/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/builtins"
@@ -346,14 +346,9 @@ func createKptfilePatchTask(ctx context.Context, oldPackage repository.PackageRe
 		return nil, false, err
 	}
 
-	var orgKfString string
-	{
-		var buf bytes.Buffer
-		d := yaml.NewEncoder(&buf)
-		if err := d.Encode(kf); err != nil {
-			return nil, false, err
-		}
-		orgKfString = buf.String()
+	var origKfString string
+	if origKfString, err = kf.ToYamlString(); err != nil {
+		return nil, false, fmt.Errorf("cannot read original Kptfile: %w", err)
 	}
 
 	var readinessGates []kptfile.ReadinessGate
@@ -388,15 +383,11 @@ func createKptfilePatchTask(ctx context.Context, oldPackage repository.PackageRe
 	}
 
 	var newKfString string
-	{
-		var buf bytes.Buffer
-		d := yaml.NewEncoder(&buf)
-		if err := d.Encode(kf); err != nil {
-			return nil, false, err
-		}
-		newKfString = buf.String()
+	if newKfString, err = kf.ToYamlString(); err != nil {
+		return nil, false, fmt.Errorf("cannot read Kptfile after updating: %w", err)
 	}
-	patchSpec, err := GeneratePatch(kptfile.KptFileName, orgKfString, newKfString)
+
+	patchSpec, err := GeneratePatch(kptfile.KptFileName, origKfString, newKfString)
 	if err != nil {
 		return nil, false, err
 	}
@@ -546,6 +537,17 @@ func healConfig(old, new map[string]string) (map[string]string, error) {
 	}
 
 	healed := out.output.Contents
+
+	var kptfileKubeObject *sdkfn.KubeObject
+	if kptfileKubeObject, err = sdkfn.ParseKubeObject([]byte(healed[kptfile.KptFileName])); err != nil {
+		return nil, err
+	}
+
+	kptfileYaml, err := kptfile.ToYamlString(kptfileKubeObject)
+	if err != nil {
+		return nil, err
+	}
+	healed[kptfile.KptFileName] = kptfileYaml
 
 	for k, v := range extra {
 		healed[k] = v

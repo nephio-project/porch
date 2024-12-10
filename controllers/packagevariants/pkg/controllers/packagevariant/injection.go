@@ -125,7 +125,11 @@ func ensureConfigInjection(ctx context.Context,
 		return err
 	}
 
-	prr.Spec.Resources["Kptfile"] = kptfile.String()
+	kptfileYaml, err := kptfilev1.ToYamlString(kptfile)
+	if err != nil {
+		return err
+	}
+	prr.Spec.Resources[kptfilev1.KptFileName] = kptfileYaml
 
 	return nil
 }

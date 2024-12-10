@@ -797,11 +797,11 @@ func (t *TestSuite) ParseKptfileF(resources *porchapi.PackageRevisionResources) 
 
 func (t *TestSuite) SaveKptfileF(resources *porchapi.PackageRevisionResources, kptfile *kptfilev1.KptFile) {
 	t.T().Helper()
-	b, err := yaml.MarshalWithOptions(kptfile, &yaml.EncoderOptions{SeqIndent: yaml.WideSequenceStyle})
+	kptfileYaml, err := kptfile.ToYamlString()
 	if err != nil {
 		t.Fatalf("Failed saving Kptfile: %v", err)
 	}
-	resources.Spec.Resources[kptfilev1.KptFileName] = string(b)
+	resources.Spec.Resources[kptfilev1.KptFileName] = kptfileYaml
 }
 
 func (t *TestSuite) FindAndDecodeF(resources *porchapi.PackageRevisionResources, name string, value interface{}) {

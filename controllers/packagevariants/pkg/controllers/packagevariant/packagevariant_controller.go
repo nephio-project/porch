@@ -56,8 +56,24 @@ type PackageVariantReconciler struct {
 const (
 	workspaceNamePrefix = "packagevariant-"
 
-	ConditionTypeStalled = "Stalled" // whether or not the packagevariant object is making progress or not
-	ConditionTypeReady   = "Ready"   // whether or not the reconciliation succeeded
+	ConditionTypeStalled        = "Stalled"                // whether or not the packagevariant object is making progress or not
+	ConditionTypeReady          = "Ready"                  // whether or not the reconciliation succeeded
+	ConditionTypePipelinePassed = "MutationPipelinePassed" // whether or not the mutation pipeline has completed successufully
+)
+
+var (
+	conditionPipelineNotPassed = porchapi.Condition{
+		Type:    ConditionTypePipelinePassed,
+		Status:  porchapi.ConditionFalse,
+		Reason:  "WaitingOnPipeline",
+		Message: "waiting for mutation pipeline to pass",
+	}
+	conditionPipelinePassed = porchapi.Condition{
+		Type:    ConditionTypePipelinePassed,
+		Status:  porchapi.ConditionTrue,
+		Reason:  "PipelinePassed",
+		Message: "mutation pipeline completed successfully",
+	}
 )
 
 //go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.1 rbac:headerFile=../../../../../scripts/boilerplate.yaml.txt,roleName=porch-controllers-packagevariants webhook paths="." output:rbac:artifacts:config=../../../config/rbac
@@ -359,6 +375,13 @@ func (r *PackageVariantReconciler) ensurePackageVariant(ctx context.Context,
 	if err = r.Client.Create(ctx, newPR); err != nil {
 		return nil, err
 	}
+
+	setPrReadinessGate(newPR, ConditionTypePipelinePassed)
+	setPrStatusCondition(newPR, conditionPipelineNotPassed)
+	if err := r.Client.Update(ctx, newPR); err != nil {
+		return nil, err
+	}
+
 	klog.Infoln(fmt.Sprintf("package variant %q created package revision %q", pv.Name, newPR.Name))
 
 	prr, changed, err := r.calculateDraftResources(ctx, pv, newPR)
@@ -370,6 +393,29 @@ func (r *PackageVariantReconciler) ensurePackageVariant(ctx context.Context,
 		if err = r.updatePackageResources(ctx, prr, pv); err != nil {
 			return nil, err
 		}
+	}
+
+	// TODO: remove if OK to exclude PackageRevision from cache of r.Client
+	//
+	// var tmpClient client.Client
+	// if tmpClient, err = client.New(config.GetConfigOrDie(), client.Options{
+	// 	Cache: &client.CacheOptions{
+	// 		DisableFor: []client.Object{
+	// 			&porchapi.PackageRevisionResources{}},
+	// 	},
+	// }); err != nil {
+	// 	return nil, err
+	// }
+	var refreshedPR porchapi.PackageRevision
+	if err := r.Client.Get(ctx, types.NamespacedName{Name: newPR.GetName(), Namespace: newPR.GetNamespace()}, &refreshedPR); err != nil {
+		return nil, err
+	}
+	newPR.ResourceVersion = refreshedPR.ResourceVersion
+	newPR.Spec.Tasks = refreshedPR.Spec.Tasks
+
+	setPrStatusCondition(newPR, conditionPipelinePassed)
+	if err := r.Client.Update(ctx, newPR); err != nil {
+		return nil, err
 	}
 
 	return []*porchapi.PackageRevision{newPR}, nil
@@ -743,8 +789,31 @@ func setTargetStatusConditions(pv *api.PackageVariant, targets []*porchapi.Packa
 		Type:    ConditionTypeReady,
 		Status:  "True",
 		Reason:  "NoErrors",
-		Message: "successfully ensured downstream package variant",
+		Message: "successfully ensured downstream target package revision",
 	})
+}
+
+func setPrReadinessGate(pr *porchapi.PackageRevision, conditionType string) {
+	for _, aGate := range pr.Spec.ReadinessGates {
+		if aGate.ConditionType == conditionType {
+			return
+		}
+	}
+
+	pr.Spec.ReadinessGates = append(pr.Spec.ReadinessGates, porchapi.ReadinessGate{
+		ConditionType: conditionType,
+	})
+}
+
+func setPrStatusCondition(pr *porchapi.PackageRevision, condition porchapi.Condition) {
+	for index, aCondition := range pr.Status.Conditions {
+		if aCondition.Type == condition.Type {
+			pr.Status.Conditions[index] = condition
+			return
+		}
+	}
+
+	pr.Status.Conditions = append(pr.Status.Conditions, condition)
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -1038,7 +1107,11 @@ func ensureKRMFunctions(pv *api.PackageVariant,
 	}
 
 	// update kptfile
-	prr.Spec.Resources[kptfilev1.KptFileName] = kptfile.String()
+	kptfileYaml, err := kptfilev1.ToYamlString(kptfile)
+	if err != nil {
+		return err
+	}
+	prr.Spec.Resources[kptfilev1.KptFileName] = kptfileYaml
 
 	return nil
 }

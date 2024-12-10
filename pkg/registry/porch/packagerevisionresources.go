@@ -154,13 +154,13 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 		klog.Infof("update failed to construct UpdatedObject: %v", err)
 		return nil, false, err
 	}
-	newObj, ok := newRuntimeObj.(*api.PackageRevisionResources)
+	newPkgRevResources, ok := newRuntimeObj.(*api.PackageRevisionResources)
 	if !ok {
 		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("expected PackageRevisionResources object, got %T", newRuntimeObj))
 	}
 
 	if updateValidation != nil {
-		err := updateValidation(ctx, newObj, oldApiPkgRevResources)
+		err := updateValidation(ctx, newPkgRevResources, oldApiPkgRevResources)
 		if err != nil {
 			klog.Infof("update failed validation: %v", err)
 			return nil, false, err
@@ -181,7 +181,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 		return nil, false, apierrors.NewInternalError(fmt.Errorf("error getting repository %v: %w", repositoryID, err))
 	}
 
-	rev, renderStatus, err := r.cad.UpdatePackageResources(ctx, &repositoryObj, oldRepoPkgRev, oldApiPkgRevResources, newObj)
+	rev, renderStatus, err := r.cad.UpdatePackageResources(ctx, &repositoryObj, oldRepoPkgRev, oldApiPkgRevResources, newPkgRevResources)
 	if err != nil {
 		return nil, false, apierrors.NewInternalError(err)
 	}
