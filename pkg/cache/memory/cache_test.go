@@ -112,7 +112,7 @@ func TestPublishedLatest(t *testing.T) {
 	if err := update.UpdateLifecycle(ctx, api.PackageRevisionLifecyclePublished); err != nil {
 		t.Fatalf("UpdateLifecycle failed; %v", err)
 	}
-	closed, err := update.Close(ctx, "")
+	closed, err := cachedRepo.ClosePackageRevisionDraft(ctx, update, "")
 	if err != nil {
 		t.Fatalf("Close failed: %v", err)
 	}
@@ -158,7 +158,7 @@ func TestDeletePublishedMain(t *testing.T) {
 	if err := update.UpdateLifecycle(ctx, api.PackageRevisionLifecyclePublished); err != nil {
 		t.Fatalf("UpdateLifecycle failed; %v", err)
 	}
-	closed, err := update.Close(ctx, "")
+	closed, err := cachedRepo.ClosePackageRevisionDraft(ctx, update, "")
 	if err != nil {
 		t.Fatalf("Close failed: %v", err)
 	}

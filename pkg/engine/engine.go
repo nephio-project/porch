@@ -184,7 +184,7 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	}
 
 	// Updates are done.
-	repoPkgRev, err := draft.Close(ctx, "")
+	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, "")
 	if err != nil {
 		return nil, err
 	}
@@ -309,7 +309,7 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version string,
 	}
 
 	// Updates are done.
-	repoPkgRev, err = draft.Close(ctx, version)
+	repoPkgRev, err = repo.ClosePackageRevisionDraft(ctx, draft, version)
 	if err != nil {
 		return nil, err
 	}
@@ -509,7 +509,7 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 		return nil, renderStatus, err
 	}
 	// No lifecycle change when updating package resources; updates are done.
-	repoPkgRev, err := draft.Close(ctx, "")
+	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, "")
 	if err != nil {
 		return nil, renderStatus, err
 	}
@@ -562,7 +562,7 @@ func (cad *cadEngine) RecloneAndReplay(ctx context.Context, parentPR repository.
 		return nil, err
 	}
 
-	repoPkgRev, err := draft.Close(ctx, version)
+	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, version)
 
 	if err != nil {
 		return nil, err
