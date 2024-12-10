@@ -172,7 +172,7 @@ func (r *cachedRepository) CreatePackageRevision(ctx context.Context, obj *v1alp
 }
 
 func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version string) (repository.PackageRevision, error) {
-	ctx, span := tracer.Start(ctx, "cachedDraft::Close", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "cachedRepository::ClosePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
 
 	v, err := r.Version(ctx)
