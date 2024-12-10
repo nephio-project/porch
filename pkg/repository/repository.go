@@ -127,8 +127,6 @@ type PackageRevisionDraft interface {
 	UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, task *v1alpha1.Task) error
 	// Updates desired lifecycle of the package. The lifecycle is applied on Close.
 	UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error
-	// Finish round of updates.
-	Close(ctx context.Context, version string) (PackageRevision, error)
 	GetName() string
 }
 
@@ -202,6 +200,9 @@ type Repository interface {
 
 	// CreatePackageRevision creates a new package revision
 	CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (PackageRevisionDraft, error)
+
+	// ClosePackageRevisionDraft closes out a Package Revision Draft
+	ClosePackageRevisionDraft(ctx context.Context, prd PackageRevisionDraft, version string) (PackageRevision, error)
 
 	// DeletePackageRevision deletes a package revision
 	DeletePackageRevision(ctx context.Context, old PackageRevision) error

@@ -168,29 +168,56 @@ func (r *cachedRepository) getCachedPackages(ctx context.Context, forceRefresh b
 }
 
 func (r *cachedRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
-	created, err := r.repo.CreatePackageRevision(ctx, obj)
+	return r.repo.CreatePackageRevision(ctx, obj)
+}
+
+func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version string) (repository.PackageRevision, error) {
+	ctx, span := tracer.Start(ctx, "cachedDraft::Close", trace.WithAttributes())
+	defer span.End()
+
+	v, err := r.Version(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return &cachedDraft{
-		PackageRevisionDraft: created,
-		cache:                r,
-	}, nil
+	if v != r.lastVersion {
+		_, _, err = r.refreshAllCachedPackages(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	revisions, err := r.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
+		Package: prd.GetName(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var publishedRevisions []string
+	for _, rev := range revisions {
+		if v1alpha1.LifecycleIsPublished(rev.Lifecycle()) {
+			publishedRevisions = append(publishedRevisions, rev.Key().Revision)
+		}
+	}
+
+	nextVersion, err := repository.NextRevisionNumber(publishedRevisions)
+	if err != nil {
+		return nil, err
+	}
+
+	if closed, err := r.repo.ClosePackageRevisionDraft(ctx, prd, nextVersion); err != nil {
+		return nil, err
+	} else {
+		return r.update(ctx, closed)
+	}
 }
 
 func (r *cachedRepository) UpdatePackageRevision(ctx context.Context, old repository.PackageRevision) (repository.PackageRevisionDraft, error) {
 	// Unwrap
 	unwrapped := old.(*cachedPackageRevision).PackageRevision
-	created, err := r.repo.UpdatePackageRevision(ctx, unwrapped)
-	if err != nil {
-		return nil, err
-	}
 
-	return &cachedDraft{
-		PackageRevisionDraft: created,
-		cache:                r,
-	}, nil
+	return r.repo.UpdatePackageRevision(ctx, unwrapped)
 }
 
 func (r *cachedRepository) update(ctx context.Context, updated repository.PackageRevision) (*cachedPackageRevision, error) {
