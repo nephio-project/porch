@@ -52,18 +52,6 @@ type MetadataStore interface {
 	Delete(ctx context.Context, namespacedName types.NamespacedName, clearFinalizer bool) (metav1.ObjectMeta, error)
 }
 
-// PackageRevisionMeta contains metadata about a specific PackageRevision. The
-// PackageRevision is identified by the name and namespace.
-type PackageRevisionMeta struct {
-	Name              string
-	Namespace         string
-	Labels            map[string]string
-	Annotations       map[string]string
-	Finalizers        []string
-	OwnerReferences   []metav1.OwnerReference
-	DeletionTimestamp *metav1.Time
-}
-
 var _ MetadataStore = &crdMetadataStore{}
 
 func NewCrdMetadataStore(coreClient client.Client) *crdMetadataStore {
