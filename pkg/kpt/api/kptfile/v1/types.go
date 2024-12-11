@@ -20,6 +20,7 @@ package v1
 import (
 	"fmt"
 
+	"github.com/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
@@ -83,6 +84,31 @@ type KptFile struct {
 	Inventory *Inventory `yaml:"inventory,omitempty" json:"inventory,omitempty"`
 
 	Status *Status `yaml:"status,omitempty" json:"status,omitempty"`
+}
+
+func FromKubeObject(kptfileKubeObject *fn.KubeObject) (KptFile, error) {
+	var apiKptfile KptFile
+	if err := kptfileKubeObject.As(&apiKptfile); err != nil {
+		return KptFile{}, err
+	}
+	return apiKptfile, nil
+}
+
+func (file *KptFile) ToYamlString() (string, error) {
+	b, err := yaml.MarshalWithOptions(file, &yaml.EncoderOptions{SeqIndent: yaml.WideSequenceStyle})
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+func ToYamlString(kptfileKubeObject *fn.KubeObject) (string, error) {
+	kptfile, err := FromKubeObject(kptfileKubeObject)
+	if err != nil {
+		return "", err
+	}
+
+	return kptfile.ToYamlString()
 }
 
 // OriginType defines the type of origin for a package.

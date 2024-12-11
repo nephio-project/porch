@@ -201,6 +201,7 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 		return nil, err
 	}
 	repoPkgRev.SetMeta(pkgRevMeta)
+
 	sent := cad.watcherManager.NotifyPackageRevisionChange(watch.Added, repoPkgRev)
 	klog.Infof("engine: sent %d for new PackageRevision %s/%s", sent, repoPkgRev.KubeObjectNamespace(), repoPkgRev.KubeObjectName())
 	return repoPkgRev, nil
@@ -302,7 +303,9 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version string,
 		return nil, err
 	}
 
-	cad.taskHandler.DoPRMutations(ctx, repositoryObj.Namespace, repoPr, oldObj, newObj, draft)
+	if err := cad.taskHandler.DoPRMutations(ctx, repositoryObj.Namespace, repoPr, oldObj, newObj, draft); err != nil {
+		return nil, err
+	}
 
 	if err := draft.UpdateLifecycle(ctx, newObj.Spec.Lifecycle); err != nil {
 		return nil, err
