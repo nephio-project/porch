@@ -237,7 +237,7 @@ func (c completedConfig) New() (*PorchServer, error) {
 
 	runnerOptionsResolver := func(namespace string) fnruntime.RunnerOptions {
 		runnerOptions := fnruntime.RunnerOptions{}
-		runnerOptions.InitDefaults()
+		runnerOptions.InitDefaults(c.ExtraConfig.DefaultImagePrefix)
 
 		return runnerOptions
 	}

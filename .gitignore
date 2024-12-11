@@ -29,3 +29,6 @@ __debug*
 ### VisualStudioCode Patch ###
 # Ignore all local history of files
 **/.history
+
+### Jetbrains IDEs ###
+.idea/*

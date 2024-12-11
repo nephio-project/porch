@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/internal/kpt/util/render"
 	"github.com/nephio-project/porch/pkg/kpt/printer/fake"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
@@ -65,7 +66,7 @@ func TestRender(t *testing.T) {
 				FileSystem: filesys.FileSystemOrOnDisk{},
 				Output:     &output,
 			}
-			r.RunnerOptions.InitDefaults()
+			r.RunnerOptions.InitDefaults(fnruntime.GCRImagePrefix)
 
 			if _, err := r.Execute(fake.CtxWithDefaultPrinter()); err != nil {
 				t.Errorf("Render failed: %v", err)

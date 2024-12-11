@@ -61,6 +61,10 @@ type Command struct {
 	// Kptfile. This determines how changes will be merged when updating the
 	// package.
 	UpdateStrategy kptfilev1.UpdateStrategyType
+
+	// DefaultKrmFunctionImagePrefix is the prefix to be used with unqualified
+	// KRM function image names. Defaults to "gcr.io/kpt-fn/".
+	DefaultKrmFunctionImagePrefix string
 }
 
 // Run runs the Command.
@@ -127,7 +131,7 @@ func (c Command) Run(ctx context.Context) error {
 		pr := printer.FromContextOrDie(ctx)
 		pr.Printf("\nCustomizing package for deployment.\n")
 		hookCmd := hook.Executor{}
-		hookCmd.RunnerOptions.InitDefaults()
+		hookCmd.RunnerOptions.InitDefaults(c.DefaultKrmFunctionImagePrefix)
 		hookCmd.PkgPath = c.Destination
 
 		builtinHooks := []kptfilev1.Function{
@@ -219,6 +223,10 @@ func (c *Command) DefaultValues() error {
 	// default the update strategy to resource-merge
 	if len(c.UpdateStrategy) == 0 {
 		c.UpdateStrategy = kptfilev1.ResourceMerge
+	}
+
+	if len(c.DefaultKrmFunctionImagePrefix) == 0 {
+		c.DefaultKrmFunctionImagePrefix = fnruntime.GCRImagePrefix
 	}
 
 	return nil
