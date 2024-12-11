@@ -133,7 +133,7 @@ func captureStderr(f func()) string {
 	return out
 }
 
-func TestWatchCertificates(t *testing.T) {
+func TestWatchCertificatesInvalidDirectory(t *testing.T) {
 	// method for processing klog output
 	assertLogMessages := func(log string) error {
 		if len(log) > 0 {
@@ -163,50 +163,152 @@ func TestWatchCertificates(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// firstly test error occuring from invalid entity for watcher to watch. aka invalid dir, err expected
-	go watchCertificates(ctx, "Dummy Directory that does not exist", certFile, keyFile)
-
 	invalid_watch_entity_logs := captureStderr(func() {
-		time.Sleep(1 * time.Second) // Give some time for the logs to be flushed
+		// firstly test error occurring from invalid entity for watcher to watch. aka invalid dir, err expected
+		go watchCertificates(ctx, "/random-dir-that-does-not-exist", certFile, keyFile)
+		time.Sleep(5 * time.Second) // Give some time for the logs to be flushed
 	})
 	t.Log(invalid_watch_entity_logs)
 	err = assertLogMessages(invalid_watch_entity_logs)
 	require.Error(t, err)
+}
 
-	go watchCertificates(ctx, webhookCfg.CertStorageDir, certFile, keyFile)
-	time.Sleep(1 * time.Second)
+func TestWatchCertificatesSuccessfulReload(t *testing.T) {
+	// method for processing klog output
+	assertLogMessages := func(log string) error {
+		if len(log) > 0 {
+			if log[0] == 'E' || log[0] == 'W' || log[0] == 'F' {
+				return errors.New("Error Occured in Watcher")
+			}
+		}
+		return nil
+	}
+	// Set up the temp directory with dummy certificate files
+	webhookCfg := WebhookConfig{
+		Type:           WebhookTypeUrl,
+		Host:           "localhost",
+		CertStorageDir: t.TempDir(),
+	}
+	defer func() {
+		require.NoError(t, os.RemoveAll(webhookCfg.CertStorageDir))
+	}()
 
-	//create file to trigger change but not alter the certificate contents
-	//should trigger reload and certificate reloaded successfully
-	newFilePath := filepath.Join(webhookCfg.CertStorageDir, "new_temp_file.txt")
-	_, err = os.Create(newFilePath)
+	_, err := createCerts(&webhookCfg)
 	require.NoError(t, err)
 
+	keyFile := filepath.Join(webhookCfg.CertStorageDir, "tls.key")
+	certFile := filepath.Join(webhookCfg.CertStorageDir, "tls.crt")
+
+	// Create a context with a cancel function
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	valid_reload_logs := captureStderr(func() {
-		time.Sleep(1 * time.Second) // Give some time for the logs to be flushed
+		go watchCertificates(ctx, webhookCfg.CertStorageDir, certFile, keyFile)
+		// give some time for watchCertificates method to spin up
+		time.Sleep(3 * time.Second)
+
+		//create file to trigger change but not alter the certificate contents
+		//should trigger reload and certificate reloaded successfully
+		newFilePath := filepath.Join(webhookCfg.CertStorageDir, "new_temp_file.txt")
+		_, err = os.Create(newFilePath)
+		require.NoError(t, err)
+
+		time.Sleep(5 * time.Second) // Give some time for the logs to be flushed
 	})
 	t.Log(valid_reload_logs)
 	err = assertLogMessages(valid_reload_logs)
 	require.NoError(t, err)
+}
 
-	// Modify the certificate file to trigger a file system event
-	// should cause an error log since cert contents are not valid anymore
-	certModTime = time.Time{}
-	err = os.WriteFile(certFile, []byte("dummy text"), 0660)
+func TestWatchCertificatesInvalidCertReload(t *testing.T) {
+
+	// method for processing klog output
+	assertLogMessages := func(log string) error {
+		if len(log) > 0 {
+			if log[0] == 'E' || log[0] == 'W' || log[0] == 'F' {
+				return errors.New("Error Occured in Watcher")
+			}
+		}
+		return nil
+	}
+	// Set up the temp directory with dummy certificate files
+	webhookCfg := WebhookConfig{
+		Type:           WebhookTypeUrl,
+		Host:           "localhost",
+		CertStorageDir: t.TempDir(),
+	}
+	defer func() {
+		require.NoError(t, os.RemoveAll(webhookCfg.CertStorageDir))
+	}()
+
+	_, err := createCerts(&webhookCfg)
 	require.NoError(t, err)
 
+	keyFile := filepath.Join(webhookCfg.CertStorageDir, "tls.key")
+	certFile := filepath.Join(webhookCfg.CertStorageDir, "tls.crt")
+
+	// Create a context with a cancel function
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	invalid_reload_logs := captureStderr(func() {
-		time.Sleep(1 * time.Second)
+		go watchCertificates(ctx, webhookCfg.CertStorageDir, certFile, keyFile)
+		// give some time for watchCertificates method to spin up
+		time.Sleep(3 * time.Second)
+
+		// Modify the certificate file to trigger a file system event
+		// should cause an error log since cert contents are not valid anymore
+		certModTime = time.Time{}
+		err = os.WriteFile(certFile, []byte("dummy text"), 0660)
+		require.NoError(t, err)
+
+		time.Sleep(5 * time.Second)
 	})
 	t.Log(invalid_reload_logs)
 	err = assertLogMessages(invalid_reload_logs)
 	require.Error(t, err)
+}
 
-	go watchCertificates(ctx, webhookCfg.CertStorageDir, certFile, keyFile)
-	// trigger graceful termination
-	cancel()
+func TestWatchCertificatesGracefulTermination(t *testing.T) {
+	// method for processing klog output
+	assertLogMessages := func(log string) error {
+		if len(log) > 0 {
+			if log[0] == 'E' || log[0] == 'W' || log[0] == 'F' {
+				return errors.New("Error Occured in Watcher")
+			}
+		}
+		return nil
+	}
+	// Set up the temp directory with dummy certificate files
+	webhookCfg := WebhookConfig{
+		Type:           WebhookTypeUrl,
+		Host:           "localhost",
+		CertStorageDir: t.TempDir(),
+	}
+	defer func() {
+		require.NoError(t, os.RemoveAll(webhookCfg.CertStorageDir))
+	}()
+
+	_, err := createCerts(&webhookCfg)
+	require.NoError(t, err)
+
+	keyFile := filepath.Join(webhookCfg.CertStorageDir, "tls.key")
+	certFile := filepath.Join(webhookCfg.CertStorageDir, "tls.crt")
+
+	// Create a context with a cancel function
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	graceful_termination_logs := captureStderr(func() {
-		time.Sleep(1 * time.Second)
+		go watchCertificates(ctx, webhookCfg.CertStorageDir, certFile, keyFile)
+		// give some time for watchCertificates method to spin up
+		time.Sleep(3 * time.Second)
+
+		// trigger graceful termination
+		cancel()
+
+		time.Sleep(5 * time.Second)
 	})
 	t.Log(graceful_termination_logs)
 	err = assertLogMessages(graceful_termination_logs)
