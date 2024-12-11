@@ -3,6 +3,12 @@
     // Hover to view descriptions of existing attributes.
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
+
+    // A configuration for running the porch server through vscode for the use of debugging.
+    // Assumes a cluster is set up alongside Git (./scripts/setup-dev-env.sh) and porch components (make ../porch/run-in-kind-no-server) are pre-configured
+    // With the configuration above one can use Vscode (Run & Debug) and launch server.
+    // This launches the porch server through vscode outside the cluster and the logs can be viewed in the debug console.
+    // Breakpoints can be added throughout the porch server code to debug.
     "configurations": [
         {
             "name": "Launch Server",
@@ -36,6 +42,10 @@
                 "ENABLE_PACKAGEVARIANTSETS": "true"
             }
         },
+        // A configuration for running a porchctl command using the vscode debugger.
+        // Assumes a cluster is set up alongside Git (scripts/setup-dev-env.sh) and porch components (make run-in-kind) in the /porch directory are pre-configured
+        // This allows for the running of porchctl commands through vscode outside the cluster and the logs can be viewed in the debug console.
+        // Breakpoints can be added throughout the porch server code to debug.
         {
             "name": "Run Porchctl command",
             "type": "go",
