@@ -43,6 +43,7 @@ import (
 
 const (
 	FuncGenPkgContext = "builtins/gen-pkg-context"
+	GCRImagePrefix    = "gcr.io/kpt-fn/"
 )
 
 type RunnerOptions struct {
@@ -79,9 +80,9 @@ type RunnerOptions struct {
 // ImageResolveFunc is the type for a function that can resolve a partial image to a (more) fully-qualified name
 type ImageResolveFunc func(ctx context.Context, image string) (string, error)
 
-func (o *RunnerOptions) InitDefaults() {
+func (o *RunnerOptions) InitDefaults(defaultImagePrefix string) {
 	o.ImagePullPolicy = IfNotPresentPull
-	o.ResolveToImage = ResolveToImageForCLI
+	o.ResolveToImage = ResolveToImageForCLIFunc(defaultImagePrefix)
 }
 
 // NewRunner returns a FunctionRunner given a specification of a function

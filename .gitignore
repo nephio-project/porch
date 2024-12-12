@@ -32,3 +32,8 @@ __debug*
 
 # gosec artifacts
 *results.html
+=======
+
+### Jetbrains IDEs ###
+.idea/*
+

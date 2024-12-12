@@ -19,8 +19,8 @@ import (
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
-	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/repository"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -91,9 +91,9 @@ func (f *FakePackageRevision) UpdateLifecycle(context.Context, v1alpha1.PackageR
 	return nil
 }
 
-func (f *FakePackageRevision) GetMeta() meta.PackageRevisionMeta {
-	return meta.PackageRevisionMeta{}
+func (f *FakePackageRevision) GetMeta() metav1.ObjectMeta {
+	return metav1.ObjectMeta{}
 }
 
-func (f *FakePackageRevision) SetMeta(meta.PackageRevisionMeta) {
+func (f *FakePackageRevision) SetMeta(metav1.ObjectMeta) {
 }

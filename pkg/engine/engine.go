@@ -30,6 +30,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog/v2"
@@ -187,7 +188,7 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	if err != nil {
 		return nil, err
 	}
-	pkgRevMeta := meta.PackageRevisionMeta{
+	pkgRevMeta := metav1.ObjectMeta{
 		Name:            repoPkgRev.KubeObjectName(),
 		Namespace:       repoPkgRev.KubeObjectNamespace(),
 		Labels:          obj.Labels,
@@ -325,7 +326,7 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version string,
 }
 
 func (cad *cadEngine) updatePkgRevMeta(ctx context.Context, repoPkgRev repository.PackageRevision, apiPkgRev *api.PackageRevision) error {
-	pkgRevMeta := meta.PackageRevisionMeta{
+	pkgRevMeta := metav1.ObjectMeta{
 		Name:            repoPkgRev.KubeObjectName(),
 		Namespace:       repoPkgRev.KubeObjectNamespace(),
 		Labels:          apiPkgRev.Labels,

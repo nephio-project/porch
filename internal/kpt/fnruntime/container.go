@@ -224,13 +224,22 @@ func NewContainerEnvFromStringSlice(envStr []string) *runtimeutil.ContainerEnv {
 	return ce
 }
 
-// ResolveToImageForCLI converts the function short path to the full image url.
-// If the function is Catalog function, it adds "gcr.io/kpt-fn/".e.g. set-namespace:v0.1 --> gcr.io/kpt-fn/set-namespace:v0.1
-func ResolveToImageForCLI(_ context.Context, image string) (string, error) {
-	if !strings.Contains(image, "/") {
-		return fmt.Sprintf("gcr.io/kpt-fn/%s", image), nil
+// ResolveToImageForCLIFunc returns a func that converts the KRM function short path to the full image url.
+// If the function is a catalog function, it prepends `prefix`, e.g. "set-namespace:v0.1" --> prefix + "set-namespace:v0.1".
+// A "/" is appended to `prefix` if it is not an empty string and does not end with a "/".
+func ResolveToImageForCLIFunc(prefix string) func(_ context.Context, image string) (string, error) {
+	prefix = strings.TrimSuffix(prefix, "/")
+	if prefix == "" {
+		return func(_ context.Context, image string) (string, error) {
+			return image, nil
+		}
 	}
-	return image, nil
+	return func(_ context.Context, image string) (string, error) {
+		if !strings.Contains(image, "/") {
+			return fmt.Sprintf("%s/%s", prefix, image), nil
+		}
+		return image, nil
+	}
 }
 
 // ContainerImageError is an error type which will be returned when
