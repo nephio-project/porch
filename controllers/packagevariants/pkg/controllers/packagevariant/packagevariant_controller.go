@@ -1,4 +1,4 @@
-// Copyright 2023-2025 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,11 +24,12 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	api "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
+	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
 	"github.com/nephio-project/porch/pkg/repository"
-	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
+	"github.com/nephio-project/porch/pkg/util"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1107,11 +1108,7 @@ func ensureKRMFunctions(pv *api.PackageVariant,
 	}
 
 	// update kptfile
-	kptfileYaml, err := kptfilev1.ToYamlString(kptfile)
-	if err != nil {
-		return err
-	}
-	prr.Spec.Resources[kptfilev1.KptFileName] = kptfileYaml
+	prr.Spec.Resources[kptfilev1.KptFileName] = util.KubeObjectToYaml(kptfile)
 
 	return nil
 }

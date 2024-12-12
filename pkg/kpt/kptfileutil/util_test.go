@@ -1,4 +1,4 @@
-// Copyright 2020 The kpt and Nephio Authors
+// Copyright 2020, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -364,8 +364,8 @@ status:
   conditions:
     - type: foo
       status: "True"
-      reason: reason
       message: message
+      reason: reason
 `,
 		},
 		"additional readinessGate and condition added in upstream": {
@@ -381,8 +381,8 @@ status:
   conditions:
     - type: foo
       status: "True"
-      reason: reason
       message: message
+      reason: reason
 `,
 			updated: `
 apiVersion: kpt.dev/v1
@@ -397,12 +397,12 @@ status:
   conditions:
     - type: foo
       status: "True"
-      reason: reason
       message: message
+      reason: reason
     - type: bar
       status: "False"
-      reason: reason
       message: message
+      reason: reason
 `,
 			local: `
 apiVersion: kpt.dev/v1
@@ -416,8 +416,8 @@ status:
   conditions:
     - type: foo
       status: "True"
-      reason: reason
       message: message
+      reason: reason
 `,
 			updateUpstream: false,
 			expected: `
@@ -433,12 +433,12 @@ status:
   conditions:
     - type: foo
       status: "True"
-      reason: reason
       message: message
+      reason: reason
     - type: bar
       status: "False"
-      reason: reason
       message: message
+      reason: reason
 		`,
 		},
 		"readinessGate added removed in upstream": {
@@ -502,12 +502,12 @@ status:
   conditions:
     - type: foo
       status: "True"
-      reason: reason
       message: message
+      reason: reason
     - type: bar
       status: "False"
-      reason: reason
       message: message
+      reason: reason
 `,
 			updated: `
 apiVersion: kpt.dev/v1
@@ -522,12 +522,12 @@ status:
   conditions:
     - type: foo
       status: "True"
-      reason: reason
       message: message
+      reason: reason
     - type: zork
       status: "Unknown"
-      reason: reason
       message: message
+      reason: reason
 `,
 			local: `
 apiVersion: kpt.dev/v1
@@ -542,12 +542,12 @@ status:
   conditions:
     - type: xandar
       status: "True"
-      reason: reason
       message: message
+      reason: reason
     - type: foo
       status: "True"
-      reason: reason
       message: message  
+      reason: reason
 `,
 			updateUpstream: false,
 			expected: `
@@ -563,12 +563,12 @@ status:
   conditions:
     - type: foo
       status: "True"
-      reason: reason
       message: message
+      reason: reason
     - type: zork
       status: Unknown
-      reason: reason
       message: message
+      reason: reason
 `,
 		},
 	}

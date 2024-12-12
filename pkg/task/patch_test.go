@@ -26,7 +26,7 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
-func TestSomething(t *testing.T) {
+func TestGenerateKptfilePatches(t *testing.T) {
 	testCases := map[string]struct {
 		repoPkgRev   repository.PackageRevision
 		newApiPkgRev *api.PackageRevision
@@ -145,12 +145,12 @@ func TestSomething(t *testing.T) {
    conditions:
    - type: foo
      status: "True"
-+    reason: reason
 +    message: message
++    reason: reason
 +  - type: bar
 +    status: "False"
-+    reason: reason
 +    message: message
++    reason: reason
 `) + "\n",
 				PatchType: api.PatchTypePatchFile,
 			},
@@ -279,12 +279,12 @@ func TestSomething(t *testing.T) {
    conditions:
    - type: foo
      status: "True"
--    reason: reason
 -    message: message
+-    reason: reason
 -  - type: bar
 -    status: "False"
--    reason: reason
 -    message: message
+-    reason: reason
 `) + "\n",
 				PatchType: api.PatchTypePatchFile,
 			},

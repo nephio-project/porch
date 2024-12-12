@@ -27,6 +27,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -296,4 +297,22 @@ func RetryOnErrorConditional(retries int, shouldRetryFunc func(error) bool, f fu
 		}
 	}
 	return err
+}
+
+// Parses valid YAML into a KubeObject using the kpt-functions-sdk's fn package.
+// Wrapped in this function to unify deserialisation into a single approach
+// everywhere in Porch.
+func YamlToKubeObject(yaml string) (kubeObject *fn.KubeObject, err error) {
+	if kubeObject, err = fn.ParseKubeObject([]byte(yaml)); err != nil {
+		return nil, err
+	}
+
+	return kubeObject, nil
+}
+
+// Writes a KubeObject out to string-form YAML.
+// Wrapped in this function to unify serialisation into a single approach
+// everywhere in Porch.
+func KubeObjectToYaml(kptfileKubeObject *fn.KubeObject) string {
+	return kptfileKubeObject.String()
 }

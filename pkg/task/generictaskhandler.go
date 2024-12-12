@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 
-	sdkfn "github.com/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/builtins"
@@ -537,17 +536,6 @@ func healConfig(old, new map[string]string) (map[string]string, error) {
 	}
 
 	healed := out.output.Contents
-
-	var kptfileKubeObject *sdkfn.KubeObject
-	if kptfileKubeObject, err = sdkfn.ParseKubeObject([]byte(healed[kptfile.KptFileName])); err != nil {
-		return nil, err
-	}
-
-	kptfileYaml, err := kptfile.ToYamlString(kptfileKubeObject)
-	if err != nil {
-		return nil, err
-	}
-	healed[kptfile.KptFileName] = kptfileYaml
 
 	for k, v := range extra {
 		healed[k] = v

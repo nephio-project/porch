@@ -51,6 +51,9 @@ func (r *packageReader) Read() ([]*yaml.RNode, error) {
 				kioutil.PathAnnotation: k,
 			},
 			DisableUnwrapping: true,
+			// need to preserve indentation to avoid Git conflicts
+			// in written-out YAML
+			PreserveSeqIndent: true,
 		}
 		nodes, err := reader.Read()
 		if err != nil {
