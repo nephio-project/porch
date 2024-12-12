@@ -39,10 +39,10 @@ const (
 	WorkloadIdentityAuthType = "kpt.dev/workload-identity-auth"
 
 	// Annotation used to specify the gsa for a ksa.
-	WIGCPSAAnnotation        = "iam.gke.io/gcp-service-account"
-	
+	WIGCPSAAnnotation = "iam.gke.io/gcp-service-account"
+
 	//Secret.Data key required for the caBundle
-	CaBundleDataName         = "ca.crt"
+	CaBundleDataName = "ca.crt"
 )
 
 func NewCredentialResolver(coreClient client.Reader, resolverChain []Resolver) repository.CredentialResolver {

@@ -149,7 +149,7 @@ func TestCaBundleCredentialResolver(t *testing.T) {
 				},
 			},
 			expectedCredential: nil,
-			expectedErrString: "error resolving credential: CaBundle secret.Data key must be set as ca.crt",
+			expectedErrString:  "error resolving credential: CaBundle secret.Data key must be set as ca.crt",
 		},
 	}
 
@@ -177,7 +177,7 @@ func TestCaBundleCredentialResolver(t *testing.T) {
 			if cred != nil {
 				assert.Equal(t, cred.ToString(), "blah")
 				assert.Equal(t, cred.Valid(), true)
-				assert.Panics(t, func() {cred.ToAuthMethod()})
+				assert.Panics(t, func() { cred.ToAuthMethod() })
 			}
 		})
 	}

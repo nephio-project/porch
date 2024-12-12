@@ -101,16 +101,16 @@ func TestCmd(t *testing.T) {
 					Spec: porchapi.PackageRevisionSpec{
 						Lifecycle:      porchapi.PackageRevisionLifecycleProposed,
 						RepositoryName: repoName,
-						ReadinessGates: []porchapi.ReadinessGate {
+						ReadinessGates: []porchapi.ReadinessGate{
 							{
 								ConditionType: "nephio.org.Specializer.specialize",
 							},
 						},
 					},
 					Status: porchapi.PackageRevisionStatus{
-						Conditions: []porchapi.Condition {
+						Conditions: []porchapi.Condition{
 							{
-								Type: "nephio.org.Specializer.specialize",
+								Type:   "nephio.org.Specializer.specialize",
 								Status: "False",
 							},
 						},

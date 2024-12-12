@@ -16,8 +16,8 @@ package fake
 
 import (
 	"context"
-	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/go-git/go-git/v5/plumbing/transport"
+	"github.com/nephio-project/porch/pkg/repository"
 )
 
 type credential struct {
@@ -36,7 +36,7 @@ func (c *credential) ToAuthMethod() transport.AuthMethod {
 	panic("unimplemented")
 }
 
-type CredentialResolver struct{
+type CredentialResolver struct {
 	cabundle string
 }
 
