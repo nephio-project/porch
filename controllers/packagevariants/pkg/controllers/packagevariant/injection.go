@@ -27,6 +27,7 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	api "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/pkg/util"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -125,11 +126,7 @@ func ensureConfigInjection(ctx context.Context,
 		return err
 	}
 
-	kptfileYaml, err := kptfilev1.ToYamlString(kptfile)
-	if err != nil {
-		return err
-	}
-	prr.Spec.Resources[kptfilev1.KptFileName] = kptfileYaml
+	prr.Spec.Resources[kptfilev1.KptFileName] = util.KubeObjectToYaml(kptfile)
 
 	return nil
 }

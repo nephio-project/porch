@@ -1,4 +1,4 @@
-// Copyright 2023-2024 The kpt and Nephio Authors
+// Copyright 2022, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import (
 	"github.com/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
+	"github.com/nephio-project/porch/pkg/util"
 
 	"golang.org/x/mod/semver"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -1088,11 +1089,7 @@ func ensureKRMFunctions(pv *api.PackageVariant,
 	}
 
 	// update kptfile
-	kptfileYaml, err := kptfilev1.ToYamlString(kptfile)
-	if err != nil {
-		return err
-	}
-	prr.Spec.Resources[kptfilev1.KptFileName] = kptfileYaml
+	prr.Spec.Resources[kptfilev1.KptFileName] = util.KubeObjectToYaml(kptfile)
 
 	return nil
 }
