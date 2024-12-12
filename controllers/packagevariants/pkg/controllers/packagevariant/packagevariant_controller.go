@@ -597,12 +597,12 @@ func (r *PackageVariantReconciler) deletePackageRevision(ctx context.Context, pr
 // determine if the downstream PR needs to be updated
 func (r *PackageVariantReconciler) isUpToDate(pv *api.PackageVariant, downstream *porchapi.PackageRevision) bool {
 	if downstream.Status.UpstreamLock == nil {
-		klog.Warningf("status.upstreamLock is nil for PackageRevision %s.", pv.ObjectMeta.Name)
+		klog.Warningf("status.upstreamLock field is empty/missing in downstream PackageRevision: %s", pv.ObjectMeta.Name)
 		return true
 	}
 	upstreamLock := downstream.Status.UpstreamLock
 	if upstreamLock.Git == nil || upstreamLock.Git.Ref == "" {
-		klog.Warningf("status.upstreamLock.git or status.upstreamLock.git.ref is nil for PackageRevision %s.", pv.ObjectMeta.Name)
+		klog.Warningf("status.upstreamLock.git or status.upstreamLock.git.ref field is empty/missing in downstream PackageRevision: %s", pv.ObjectMeta.Name)
 		return true
 	}
 	lastIndex := strings.LastIndex(upstreamLock.Git.Ref, "/")
