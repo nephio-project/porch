@@ -41,7 +41,9 @@ func setNamespace(rl *framework.ResourceList) error {
 	}
 
 	for _, n := range rl.Items {
-		n.SetNamespace(namespace)
+		if err := n.SetNamespace(namespace); err != nil {
+			return err
+		}
 	}
 
 	return nil

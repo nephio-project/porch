@@ -119,7 +119,10 @@ func ensureConfigInjection(ctx context.Context,
 		return err
 	}
 
-	setInjectionPointConditionsAndGates(kptfile, injectionPoints)
+	err = setInjectionPointConditionsAndGates(kptfile, injectionPoints)
+	if err != nil {
+		return err
+	}
 
 	prr.Spec.Resources["Kptfile"] = kptfile.String()
 

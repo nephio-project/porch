@@ -335,6 +335,7 @@ func (g GitSuite) initRepo(repo *gogit.Repository) error {
 		}
 
 		// gogit uses suboptimal default reference name; delete it
+		//nolint:errcheck
 		repo.Storer.RemoveReference(plumbing.Master)
 
 		// create correct HEAD as a symbolic reference of the branch
@@ -685,8 +686,10 @@ func (g GitSuite) TestApproveDraft(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpdatePackageRevision failed: %v", err)
 	}
-
-	update.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
+	err = update.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
+	if err != nil {
+		t.Fatalf("UpdateLifecycle failed: %v", err)
+	}
 
 	new, err := update.Close(ctx, "v1")
 	if err != nil {
@@ -747,8 +750,10 @@ func (g GitSuite) TestApproveDraftWithHistory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpdatePackageRevision failed: %v", err)
 	}
-
-	update.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
+	err = update.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
+	if err != nil {
+		t.Fatalf("UpdateLifecycle failed: %v", err)
+	}
 
 	new, err := update.Close(ctx, "v1")
 	if err != nil {

@@ -69,12 +69,10 @@ func (c tableConvertor) ConvertToTable(ctx context.Context, object runtime.Objec
 	table.Kind = "Table"
 	if l, err := meta.ListAccessor(object); err == nil {
 		table.ResourceVersion = l.GetResourceVersion()
-		table.SelfLink = l.GetSelfLink()
 		table.Continue = l.GetContinue()
 		table.RemainingItemCount = l.GetRemainingItemCount()
 	} else if c, err := meta.CommonAccessor(object); err == nil {
 		table.ResourceVersion = c.GetResourceVersion()
-		table.SelfLink = c.GetSelfLink()
 	}
 	if opt, ok := tableOptions.(*metav1.TableOptions); !ok || !opt.NoHeaders {
 		table.ColumnDefinitions = c.columns

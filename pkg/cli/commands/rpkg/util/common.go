@@ -79,8 +79,12 @@ func GetResourceVersion(prr *api.PackageRevisionResources) (string, error) {
 
 func AddRevisionMetadata(prr *api.PackageRevisionResources) error {
 	kptMetaDataKo := fnsdk.NewEmptyKubeObject()
-	kptMetaDataKo.SetAPIVersion(prr.APIVersion)
-	kptMetaDataKo.SetKind(kptfilev1.RevisionMetaDataKind)
+	if err := kptMetaDataKo.SetAPIVersion(prr.APIVersion); err != nil {
+		return fmt.Errorf("cannot set Api Version: %v", err)
+	}
+	if err := kptMetaDataKo.SetKind(kptfilev1.RevisionMetaDataKind); err != nil {
+		return fmt.Errorf("cannot set Kind: %v", err)
+	}
 	if err := kptMetaDataKo.SetNestedField(prr.GetObjectMeta(), "metadata"); err != nil {
 		return fmt.Errorf("cannot set metadata: %v", err)
 	}

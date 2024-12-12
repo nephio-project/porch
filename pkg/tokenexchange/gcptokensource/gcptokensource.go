@@ -20,10 +20,12 @@ import (
 	"time"
 
 	iamv1 "cloud.google.com/go/iam/credentials/apiv1"
+	//nolint:staticcheck
 	"github.com/golang/protobuf/ptypes"
+	//nolint:staticcheck
+	iampb "google.golang.org/genproto/googleapis/iam/credentials/v1"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/option"
-	iampb "google.golang.org/genproto/googleapis/iam/credentials/v1"
 	"k8s.io/klog/v2"
 )
 
@@ -70,6 +72,7 @@ func (ts *gcpTokenSource) Token() (*oauth2.Token, error) {
 
 	klog.Infof("got GCP token for %v", ts.gcpServiceAccount)
 
+	//nolint:staticcheck
 	expiry, err := ptypes.Timestamp(resp.ExpireTime)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse expire time on returned token: %w", err)

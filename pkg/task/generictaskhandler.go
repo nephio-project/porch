@@ -505,7 +505,10 @@ func healConfig(old, new map[string]string) (map[string]string, error) {
 					n.GetName() == original.GetName() &&
 					n.GetApiVersion() == original.GetApiVersion() &&
 					n.GetKind() == original.GetKind() {
-					comments.CopyComments(original, n)
+					err = comments.CopyComments(original, n)
+					if err != nil {
+						return nil, fmt.Errorf("failed to copy comments: %w", err)
+					}
 				}
 			}
 		}

@@ -234,7 +234,8 @@ func (r *gitRepository) Version(ctx context.Context) (string, error) {
 }
 
 func (r *gitRepository) ListPackages(ctx context.Context, filter repository.ListPackageFilter) ([]repository.Package, error) {
-	ctx, span := tracer.Start(ctx, "gitRepository::ListPackages", trace.WithAttributes())
+	//nolint:staticcheck
+	_, span := tracer.Start(ctx, "gitRepository::ListPackages", trace.WithAttributes())
 	defer span.End()
 
 	// TODO
@@ -242,7 +243,8 @@ func (r *gitRepository) ListPackages(ctx context.Context, filter repository.List
 }
 
 func (r *gitRepository) CreatePackage(ctx context.Context, obj *v1alpha1.PorchPackage) (repository.Package, error) {
-	ctx, span := tracer.Start(ctx, "gitRepository::CreatePackage", trace.WithAttributes())
+	//nolint:staticcheck
+	_, span := tracer.Start(ctx, "gitRepository::CreatePackage", trace.WithAttributes())
 	defer span.End()
 
 	// TODO: Create a 'Package' resource and an initial, empty 'PackageRevision'
@@ -250,7 +252,8 @@ func (r *gitRepository) CreatePackage(ctx context.Context, obj *v1alpha1.PorchPa
 }
 
 func (r *gitRepository) DeletePackage(ctx context.Context, obj repository.Package) error {
-	ctx, span := tracer.Start(ctx, "gitRepository::DeletePackage", trace.WithAttributes())
+	//nolint:staticcheck
+	_, span := tracer.Start(ctx, "gitRepository::DeletePackage", trace.WithAttributes())
 	defer span.End()
 
 	// TODO: Support package deletion using subresources (similar to the package revision approval flow)
@@ -351,7 +354,7 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 }
 
 func (r *gitRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
-	ctx, span := tracer.Start(ctx, "gitRepository::CreatePackageRevision", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "gitRepository::CreatePackageRevision", trace.WithAttributes())
 	defer span.End()
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
@@ -1235,31 +1238,6 @@ func (r *gitRepository) findLatestPackageCommit(ctx context.Context, startCommit
 // commitCallback is the function type that needs to be provided to the history iterator functions.
 type commitCallback func(*object.Commit) error
 
-// packageRevisionHistoryIterator traverses the git history from the provided commit, and invokes
-// the callback function for every commit pertaining to the provided packagerevision.
-func (r *gitRepository) packageRevisionHistoryIterator(startCommit *object.Commit, packagePath, revision string, cb commitCallback) error {
-	return r.traverseHistory(startCommit, func(commit *object.Commit) error {
-		gitAnnotations, err := ExtractGitAnnotations(commit)
-		if err != nil {
-			return err
-		}
-
-		for _, gitAnnotation := range gitAnnotations {
-			if gitAnnotation.PackagePath == packagePath && gitAnnotation.Revision == revision {
-
-				if err := cb(commit); err != nil {
-					return err
-				}
-
-				if gitAnnotation.Task != nil && (gitAnnotation.Task.Type == v1alpha1.TaskTypeClone || gitAnnotation.Task.Type == v1alpha1.TaskTypeInit) {
-					break
-				}
-			}
-		}
-		return nil
-	})
-}
-
 // packageHistoryIterator traverses the git history from the provided commit and invokes
 // the callback function for every commit pertaining to the provided package.
 func (r *gitRepository) packageHistoryIterator(startCommit *object.Commit, packagePath string, cb commitCallback) error {
@@ -1439,7 +1417,9 @@ func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPack
 	}
 
 	for k, v := range new.Spec.Resources {
-		ch.storeFile(path.Join(draft.path, k), v)
+		if err := ch.storeFile(path.Join(draft.path, k), v); err != nil {
+			return err
+		}
 	}
 
 	// Because we can't read the package back without a Kptfile, make sure one is present

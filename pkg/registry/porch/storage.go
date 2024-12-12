@@ -90,8 +90,9 @@ func NewRESTStorage(scheme *runtime.Scheme, codecs serializer.CodecFactory, cad 
 			Version: apiv1alpha1.SchemeGroupVersion.Version,
 			Kind:    "Package",
 		}
-
-		scheme.AddFieldLabelConversionFunc(gvk, convertPackageFieldSelector)
+		if err := scheme.AddFieldLabelConversionFunc(gvk, convertPackageFieldSelector); err != nil {
+			return group, err
+		}
 	}
 	{
 		gvk := schema.GroupVersionKind{
@@ -99,8 +100,9 @@ func NewRESTStorage(scheme *runtime.Scheme, codecs serializer.CodecFactory, cad 
 			Version: apiv1alpha1.SchemeGroupVersion.Version,
 			Kind:    "PackageRevision",
 		}
-
-		scheme.AddFieldLabelConversionFunc(gvk, convertPackageRevisionFieldSelector)
+		if err := scheme.AddFieldLabelConversionFunc(gvk, convertPackageRevisionFieldSelector); err != nil {
+			return group, err
+		}
 	}
 	{
 		gvk := schema.GroupVersionKind{
@@ -108,8 +110,9 @@ func NewRESTStorage(scheme *runtime.Scheme, codecs serializer.CodecFactory, cad 
 			Version: apiv1alpha1.SchemeGroupVersion.Version,
 			Kind:    "PackageRevisionResources",
 		}
-
-		scheme.AddFieldLabelConversionFunc(gvk, convertPackageRevisionResourcesFieldSelector)
+		if err := scheme.AddFieldLabelConversionFunc(gvk, convertPackageRevisionFieldSelector); err != nil {
+			return group, err
+		}
 	}
 
 	return group, nil
