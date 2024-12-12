@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -596,24 +596,20 @@ func (r *PackageVariantReconciler) deletePackageRevision(ctx context.Context, pr
 
 // determine if the downstream PR needs to be updated
 func (r *PackageVariantReconciler) isUpToDate(pv *api.PackageVariant, downstream *porchapi.PackageRevision) bool {
-	if downstream.Status != nil && downstream.Status.UpstreamLock != nil {
-		upstreamLock := downstream.Status.UpstreamLock
-		if upstreamLock.Git != nil && upstreamLock.Git.Ref != nil {
-			lastIndex := strings.LastIndex(upstreamLock.Git.Ref, "/")
-			if strings.HasPrefix(upstreamLock.Git.Ref, "drafts") {
-				// The current upstream is a draft, and the target upstream
-				// will always be a published revision, so we will need to do an update.
-				return false
-			}
-			currentUpstreamRevision := upstreamLock.Git.Ref[lastIndex+1:]
-			return currentUpstreamRevision == pv.Spec.Upstream.Revision
-		} else {
-			klog.Warningf("status.upstreamLock.git or status.upstreamLock.git.ref is nil for PackageRevision %s.", pv.ObjectMeta.Name)
-			return true
-		}
-	} else {
-		klog.Warningf("status or status.upstreamLock is nil for PackageRevision %s.", pv.ObjectMeta.Name)
+	if downstream.Status.UpstreamLock == nil {
+		klog.Warningf("status.upstreamLock is nil for PackageRevision %s.", pv.ObjectMeta.Name)
 		return true
+	}
+	upstreamLock := downstream.Status.UpstreamLock
+	if upstreamLock.Git == nil || upstreamLock.Git.Ref == "" {
+		klog.Warningf("status.upstreamLock.git or status.upstreamLock.git.ref is nil for PackageRevision %s.", pv.ObjectMeta.Name)
+		return true
+	}
+	lastIndex := strings.LastIndex(upstreamLock.Git.Ref, "/")
+	if strings.HasPrefix(upstreamLock.Git.Ref, "drafts") {
+		// The current upstream is a draft, and the target upstream
+		// will always be a published revision, so we will need to do an update.
+		return false
 	}
 }
 
