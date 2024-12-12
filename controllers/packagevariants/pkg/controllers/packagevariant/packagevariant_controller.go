@@ -596,15 +596,25 @@ func (r *PackageVariantReconciler) deletePackageRevision(ctx context.Context, pr
 
 // determine if the downstream PR needs to be updated
 func (r *PackageVariantReconciler) isUpToDate(pv *api.PackageVariant, downstream *porchapi.PackageRevision) bool {
-	upstreamLock := downstream.Status.UpstreamLock
-	lastIndex := strings.LastIndex(upstreamLock.Git.Ref, "/")
-	if strings.HasPrefix(upstreamLock.Git.Ref, "drafts") {
-		// The current upstream is a draft, and the target upstream
-		// will always be a published revision, so we will need to do an update.
-		return false
+	if downstream.Status != nil && downstream.Status.UpstreamLock != nil {
+		upstreamLock := downstream.Status.UpstreamLock
+		if upstreamLock.Git != nil && upstreamLock.Git.Ref != nil {
+			lastIndex := strings.LastIndex(upstreamLock.Git.Ref, "/")
+			if strings.HasPrefix(upstreamLock.Git.Ref, "drafts") {
+				// The current upstream is a draft, and the target upstream
+				// will always be a published revision, so we will need to do an update.
+				return false
+			}
+			currentUpstreamRevision := upstreamLock.Git.Ref[lastIndex+1:]
+			return currentUpstreamRevision == pv.Spec.Upstream.Revision
+		} else {
+			klog.Warningf("status.upstreamLock.git or status.upstreamLock.git.ref is nil for PackageRevision %s.", pv.ObjectMeta.Name)
+			return true
+		}
+	} else {
+		klog.Warningf("status or status.upstreamLock is nil for PackageRevision %s.", pv.ObjectMeta.Name)
+		return true
 	}
-	currentUpstreamRevision := upstreamLock.Git.Ref[lastIndex+1:]
-	return currentUpstreamRevision == pv.Spec.Upstream.Revision
 }
 
 func (r *PackageVariantReconciler) copyPublished(ctx context.Context,
