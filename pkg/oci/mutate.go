@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ func (r *ociRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1
 	}
 
 	// digestName := ImageDigestName{}
-	return &ociPackageDraft{
+	return &ociPackageRevisionDraft{
 		packageName: packageName,
 		parent:      r,
 		tasks:       []v1alpha1.Task{},
@@ -92,7 +92,7 @@ func (r *ociRepository) UpdatePackageRevision(ctx context.Context, old repositor
 		return nil, fmt.Errorf("error fetching image %q: %w", ref, err)
 	}
 
-	return &ociPackageDraft{
+	return &ociPackageRevisionDraft{
 		packageName: packageName,
 		parent:      r,
 		tasks:       []v1alpha1.Task{},
@@ -102,7 +102,7 @@ func (r *ociRepository) UpdatePackageRevision(ctx context.Context, old repositor
 	}, nil
 }
 
-type ociPackageDraft struct {
+type ociPackageRevisionDraft struct {
 	packageName string
 
 	created time.Time
@@ -118,10 +118,10 @@ type ociPackageDraft struct {
 	lifecycle v1alpha1.PackageRevisionLifecycle // New value of the package revision lifecycle
 }
 
-var _ repository.PackageRevisionDraft = (*ociPackageDraft)(nil)
+var _ repository.PackageRevisionDraft = (*ociPackageRevisionDraft)(nil)
 
-func (p *ociPackageDraft) UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, task *v1alpha1.Task) error {
-	_, span := tracer.Start(ctx, "ociPackageDraft::UpdateResources", trace.WithAttributes())
+func (p *ociPackageRevisionDraft) UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, task *v1alpha1.Task) error {
+	_, span := tracer.Start(ctx, "ociPackageRevisionDraft::UpdateResources", trace.WithAttributes())
 	defer span.End()
 
 	buf := bytes.NewBuffer(nil)
@@ -190,19 +190,21 @@ func (p *ociPackageDraft) UpdateResources(ctx context.Context, new *v1alpha1.Pac
 	return nil
 }
 
-func (p *ociPackageDraft) UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error {
+func (p *ociPackageRevisionDraft) UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error {
 	p.lifecycle = new
 	return nil
 }
 
-func (p *ociPackageDraft) GetName() string {
+func (p *ociPackageRevisionDraft) GetName() string {
 	return p.packageName
 }
 
 // Finish round of updates.
-func (p *ociPackageDraft) Close(ctx context.Context, version string) (repository.PackageRevision, error) {
-	ctx, span := tracer.Start(ctx, "ociPackageDraft::Close", trace.WithAttributes())
+func (r *ociRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version string) (repository.PackageRevision, error) {
+	ctx, span := tracer.Start(ctx, "ociRepository::ClosePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
+
+	p := prd.(*ociPackageRevisionDraft)
 
 	ref := p.tag
 	option := remote.WithAuthFromKeychain(gcrane.Keychain)

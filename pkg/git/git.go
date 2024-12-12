@@ -1480,9 +1480,14 @@ func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPack
 	return nil
 }
 
-func (r *gitRepository) CloseDraft(ctx context.Context, version string, d *gitPackageRevisionDraft) (*gitPackageRevision, error) {
+func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version string) (repository.PackageRevision, error) {
+	ctx, span := tracer.Start(ctx, "GitRepository::UpdateLifecycle", trace.WithAttributes())
+	defer span.End()
+
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
+
+	d := prd.(*gitPackageRevisionDraft)
 
 	refSpecs := newPushRefSpecBuilder()
 	draftBranch := createDraftName(d.path, d.workspaceName)

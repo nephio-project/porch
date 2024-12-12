@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2024 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -61,14 +61,6 @@ func (d *gitPackageRevisionDraft) UpdateResources(ctx context.Context, new *v1al
 func (d *gitPackageRevisionDraft) UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error {
 	d.lifecycle = new
 	return nil
-}
-
-// Finish round of updates.
-func (d *gitPackageRevisionDraft) Close(ctx context.Context, version string) (repository.PackageRevision, error) {
-	ctx, span := tracer.Start(ctx, "gitPackageDraft::Close", trace.WithAttributes())
-	defer span.End()
-
-	return d.parent.CloseDraft(ctx, version, d)
 }
 
 func (d *gitPackageRevisionDraft) GetName() string {
