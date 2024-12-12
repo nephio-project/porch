@@ -611,6 +611,8 @@ func (r *PackageVariantReconciler) isUpToDate(pv *api.PackageVariant, downstream
 		// will always be a published revision, so we will need to do an update.
 		return false
 	}
+	currentUpstreamRevision := upstreamLock.Git.Ref[lastIndex+1:]
+	return currentUpstreamRevision == pv.Spec.Upstream.Revision
 }
 
 func (r *PackageVariantReconciler) copyPublished(ctx context.Context,
