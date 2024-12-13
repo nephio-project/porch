@@ -687,8 +687,7 @@ func TestPodManager(t *testing.T) {
 					t.Errorf("Expected to get error, got ready pod")
 				}
 				var pod corev1.Pod
-				//nolint:errcheck
-				if tt.kubeClient.Get(ctx, cc.pod, &pod); err != nil {
+				if err := tt.kubeClient.Get(ctx, cc.pod, &pod); err != nil {
 					t.Errorf("Failed to get pod: %v", err)
 				}
 
