@@ -40,7 +40,7 @@ func newGRPCFunctionRuntime(address string, maxGrpcMessageSize int) (*grpcRuntim
 
 	klog.Infof("Dialing grpc function runner %q", address)
 
-	cc, err := grpc.Dial(address,
+	cc, err := grpc.NewClient(address,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(maxGrpcMessageSize),

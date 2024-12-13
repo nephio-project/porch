@@ -54,11 +54,6 @@ func convertPackageRevisionFieldSelector(label, value string) (internalLabel, in
 	}
 }
 
-// convertPackageRevisionResourcesFieldSelector is the schema conversion function for normalizing the the FieldSelector for PackageRevisionResources
-func convertPackageRevisionResourcesFieldSelector(label, value string) (internalLabel, internalValue string, err error) {
-	return convertPackageRevisionFieldSelector(label, value)
-}
-
 // packageRevisionFilter filters packages, extending repository.ListPackageRevisionFilter
 type packageRevisionFilter struct {
 	repository.ListPackageRevisionFilter

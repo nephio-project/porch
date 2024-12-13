@@ -118,6 +118,7 @@ func captureStderr(f func()) string {
 	// Copy the output in a separate goroutine so printing can't block indefinitely.
 	go func() {
 		var buf bytes.Buffer
+		//nolint:errcheck
 		io.Copy(&buf, read)
 		outputChannel <- buf.String()
 	}()

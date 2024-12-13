@@ -295,6 +295,7 @@ func forEachConcurrently(m map[string]string, fn func(k string, v string)) {
 // We must run this method in one single goroutine. Doing it this way simplify
 // design around concurrency.
 func (pcm *podCacheManager) podCacheManager() {
+	//nolint:staticcheck
 	tick := time.Tick(pcm.gcScanInterval)
 	for {
 		select {
@@ -493,7 +494,7 @@ func (pm *podManager) getFuncEvalPodClient(ctx context.Context, image string, tt
 			return nil, fmt.Errorf("pod %s/%s did not have podIP", podKey.Namespace, podKey.Name)
 		}
 		address := net.JoinHostPort(podIP, defaultWrapperServerPort)
-		cc, err := grpc.Dial(address,
+		cc, err := grpc.NewClient(address,
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 			grpc.WithDefaultCallOptions(
 				grpc.MaxCallRecvMsgSize(pm.maxGrpcMessageSize),

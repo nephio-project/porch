@@ -98,6 +98,7 @@ func TestCmd(t *testing.T) {
 					t.Errorf("unexpected error: %v", err)
 				}
 			}()
+			//nolint:errcheck
 			io.Copy(output, read)
 			os.Stdout = o
 			os.Stderr = e

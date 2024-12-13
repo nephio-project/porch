@@ -80,6 +80,7 @@ func createRepoWithContents(t *testing.T, contentDir string) *gogit.Repository {
 		if _, err := io.Copy(dst, src); err != nil {
 			return fmt.Errorf("failed to copy file contents %q -> %q: %w", path, rel, err)
 		}
+		//nolint:errcheck
 		wt.Add(rel)
 		return nil
 	}); err != nil {

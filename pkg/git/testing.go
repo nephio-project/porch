@@ -453,8 +453,8 @@ func (s *GitServer) serveGitReceivePack(w http.ResponseWriter, r *http.Request, 
 		switch {
 		case refUpdate.To.IsZero():
 			klog.Infof("Deleting reference %s", refUpdate.Ref)
+			//nolint:errcheck
 			repo.gogit.Storer.RemoveReference(plumbing.ReferenceName(refUpdate.Ref))
-
 		default:
 			ref := plumbing.NewHashReference(plumbing.ReferenceName(refUpdate.Ref), refUpdate.To)
 			if err := repo.gogit.Storer.SetReference(ref); err != nil {

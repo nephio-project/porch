@@ -252,7 +252,10 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 	// Create the main package revision
 	if v1alpha1.LifecycleIsPublished(updated.Lifecycle()) {
 		updatedMain := updated.ToMainPackageRevision()
-		r.createMainPackageRevision(ctx, updatedMain)
+		err := r.createMainPackageRevision(ctx, updatedMain)
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		version, err := r.repo.Version(ctx)
 		if err != nil {

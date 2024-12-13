@@ -21,7 +21,6 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/nephio-project/porch/pkg/cmd/server"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -44,7 +43,9 @@ func main() {
 
 func run() int {
 	t := &telemetry{}
-	t.Start()
+	if err := t.Start(); err != nil {
+		klog.Warningf("failed to start telemetry: %v", err)
+	}
 	defer t.Stop()
 
 	http.DefaultTransport = otelhttp.NewTransport(http.DefaultClient.Transport)
@@ -92,12 +93,8 @@ func (t *telemetry) Start() error {
 
 		klog.Infof("tracing to %q", config)
 
-		// See https://github.com/open-telemetry/opentelemetry-go/issues/1484
-		ctx, cancel := context.WithTimeout(ctx, time.Second)
-		defer cancel()
-		conn, err := grpc.DialContext(ctx, endpoint,
+		conn, err := grpc.NewClient(endpoint,
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
-			grpc.WithBlock(),
 		)
 		if err != nil {
 			return fmt.Errorf("failed to create gRPC connection to collector: %w", err)

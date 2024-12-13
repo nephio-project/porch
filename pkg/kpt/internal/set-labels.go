@@ -38,7 +38,9 @@ func setLabels(rl *framework.ResourceList) error {
 		for k, v := range labels {
 			l[k] = v
 		}
-		n.SetLabels(l)
+		if err := n.SetLabels(l); err != nil {
+			return err
+		}
 	}
 
 	return nil

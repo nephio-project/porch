@@ -25,7 +25,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"net/http"
 	"os"
@@ -492,7 +492,12 @@ func validateDeletion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(resp)
+	_, err = w.Write(resp)
+	if err != nil {
+		errMsg := fmt.Sprintf("error writing response: %v", err)
+		writeErr(errMsg, &w)
+		return
+	}
 }
 
 func decodeAdmissionReview(r *http.Request) (*admissionv1.AdmissionReview, error) {
@@ -502,7 +507,7 @@ func decodeAdmissionReview(r *http.Request) (*admissionv1.AdmissionReview, error
 	var requestData []byte
 	if r.Body != nil {
 		var err error
-		requestData, err = ioutil.ReadAll(r.Body)
+		requestData, err = io.ReadAll(r.Body)
 		if err != nil {
 			return nil, err
 		}
@@ -547,7 +552,7 @@ func createPorchClient() (client.Client, error) {
 }
 
 func writeErr(errMsg string, w *http.ResponseWriter) {
-	klog.Errorf(errMsg)
+	klog.Errorf("%s", errMsg)
 	(*w).WriteHeader(500)
 	if _, err := (*w).Write([]byte(errMsg)); err != nil {
 		klog.Errorf("could not write error message: %v", err)

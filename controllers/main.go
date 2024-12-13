@@ -31,7 +31,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/klog/v2"
-	"k8s.io/klog/v2/klogr"
+	"k8s.io/klog/v2/textlogger"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -141,8 +141,12 @@ func run(ctx context.Context) error {
 			},
 		},
 	}
-
-	ctrl.SetLogger(klogr.New())
+	
+	config := textlogger.NewConfig(
+		textlogger.Verbosity(4),
+		textlogger.Output(os.Stdout),
+	)
+	ctrl.SetLogger(textlogger.NewLogger(config))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), managerOptions)
 	if err != nil {

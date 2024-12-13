@@ -228,7 +228,7 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version string,
 	}
 
 	if newRV != oldObj.GetResourceVersion() {
-		return nil, apierrors.NewConflict(api.Resource("packagerevisions"), oldObj.GetName(), fmt.Errorf(OptimisticLockErrorMsg))
+		return nil, apierrors.NewConflict(api.Resource("packagerevisions"), oldObj.GetName(), fmt.Errorf("%s", OptimisticLockErrorMsg))
 	}
 
 	repo, err := cad.cache.OpenRepository(ctx, repositoryObj)
@@ -302,7 +302,9 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version string,
 		return nil, err
 	}
 
-	cad.taskHandler.DoPRMutations(ctx, repositoryObj.Namespace, repoPr, oldObj, newObj, draft)
+	if err := cad.taskHandler.DoPRMutations(ctx, repositoryObj.Namespace, repoPr, oldObj, newObj, draft); err != nil {
+		return nil, err
+	}
 
 	if err := draft.UpdateLifecycle(ctx, newObj.Spec.Lifecycle); err != nil {
 		return nil, err
@@ -418,9 +420,7 @@ func (cad *cadEngine) ListPackages(ctx context.Context, repositorySpec *configap
 		return nil, err
 	}
 	var packages []repository.Package
-	for _, p := range pkgs {
-		packages = append(packages, p)
-	}
+	packages = append(packages, pkgs...)
 
 	return packages, nil
 }

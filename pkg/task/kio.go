@@ -84,6 +84,7 @@ func (w *packageWriter) Write(nodes []*yaml.RNode) error {
 			Writer: buf,
 			ClearAnnotations: []string{
 				kioutil.PathAnnotation,
+				//nolint:staticcheck
 				kioutil.LegacyPathAnnotation,
 			},
 		}

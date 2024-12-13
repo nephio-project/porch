@@ -92,7 +92,7 @@ func createResourceList(args []string) ([]byte, error) {
 }
 
 func call(rl []byte) (*pb.EvaluateFunctionResponse, error) {
-	cc, err := grpc.Dial(*addressFlag, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	cc, err := grpc.NewClient(*addressFlag, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to %s: %w", *addressFlag, err)
 	}
