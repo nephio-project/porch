@@ -112,7 +112,7 @@ func TestPublishedLatest(t *testing.T) {
 	if err := update.UpdateLifecycle(ctx, api.PackageRevisionLifecyclePublished); err != nil {
 		t.Fatalf("UpdateLifecycle failed; %v", err)
 	}
-	closed, err := update.Close(ctx, "")
+	closed, err := cachedRepo.ClosePackageRevisionDraft(ctx, update, "")
 	if err != nil {
 		t.Fatalf("Close failed: %v", err)
 	}
@@ -158,7 +158,7 @@ func TestDeletePublishedMain(t *testing.T) {
 	if err := update.UpdateLifecycle(ctx, api.PackageRevisionLifecyclePublished); err != nil {
 		t.Fatalf("UpdateLifecycle failed; %v", err)
 	}
-	closed, err := update.Close(ctx, "")
+	closed, err := cachedRepo.ClosePackageRevisionDraft(ctx, update, "")
 	if err != nil {
 		t.Fatalf("Close failed: %v", err)
 	}
@@ -274,11 +274,11 @@ func createMetadataStoreFromArchive(t *testing.T, testPath, name string) meta.Me
 	}
 	if os.IsNotExist(err) {
 		return &fakemeta.MemoryMetadataStore{
-			Metas: []meta.PackageRevisionMeta{},
+			Metas: []metav1.ObjectMeta{},
 		}
 	}
 
-	var metas []meta.PackageRevisionMeta
+	var metas []metav1.ObjectMeta
 	if err := yaml.Unmarshal(c, &metas); err != nil {
 		t.Fatalf("Error unmarshalling metadata file for repository %s", name)
 	}
