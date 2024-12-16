@@ -29,38 +29,50 @@ var _ repository.Package = &dbPackage{}
 
 type dbPackage struct {
 	pkgKey    repository.PackageKey
+	meta      metav1.ObjectMeta
+	spec      v1alpha1.PackageSpec
 	updated   time.Time
 	updatedBy string
 }
 
-func (p dbPackage) KubeObjectName() string {
+func (p *dbPackage) KubeObjectName() string {
 	return p.Key().NonNSString()
 }
 
-func (p dbPackage) KubeObjectNamespace() string {
+func (p *dbPackage) KubeObjectNamespace() string {
 	return p.Key().Namespace
 }
 
-func (p dbPackage) UID() types.UID {
+func (p *dbPackage) UID() types.UID {
 	return generateUid("packages.", p.KubeObjectNamespace(), p.KubeObjectName())
 }
 
-func (p dbPackage) Key() repository.PackageKey {
+func (p *dbPackage) Key() repository.PackageKey {
 	return p.pkgKey
 }
 
-func (p dbPackage) createPackage() (*dbPackage, error) {
+func (p *dbPackage) createPackage() (*dbPackage, error) {
 	_, err := pkgReadFromDB(p.Key())
 	if err == nil {
-		return &p, pkgUpdateDB(p)
+		return p, pkgUpdateDB(p)
 	} else if err != sql.ErrNoRows {
-		return &p, err
+		return p, err
 	}
 
-	return &p, pkgWriteToDB(p)
+	p.meta = metav1.ObjectMeta{
+		Name:      p.KubeObjectName(),
+		Namespace: p.KubeObjectNamespace(),
+	}
+
+	p.spec = v1alpha1.PackageSpec{
+		PackageName:    p.pkgKey.Package,
+		RepositoryName: p.Key().Repository,
+	}
+
+	return p, pkgWriteToDB(p)
 }
 
-func (p dbPackage) GetPackage() *v1alpha1.PorchPackage {
+func (p *dbPackage) GetPackage() *v1alpha1.PorchPackage {
 	key := p.Key()
 
 	return &v1alpha1.PorchPackage{
@@ -87,25 +99,11 @@ func (p dbPackage) GetPackage() *v1alpha1.PorchPackage {
 	}
 }
 
-func (p dbPackage) createPackageRevision(d *dbPackageRevisionDraft) (*dbPackageRevision, error) {
-	dbPkgRev := dbPackageRevision{
-		pkgRevKey: repository.PackageRevisionKey{
-			Namespace:     p.Key().Namespace,
-			Repository:    p.Key().Repository,
-			Package:       p.Key().Package,
-			Revision:      d.revision,
-			WorkspaceName: d.workspaceName,
-		},
-		lifecycle: d.lifecycle,
-		resources: d.resources,
-		updated:   d.updated,
-		updatedBy: d.updatedBy,
-	}
-
-	return dbPkgRev.createPackageRevision()
+func (p *dbPackage) createPackageRevision(d *dbPackageRevision) (*dbPackageRevision, error) {
+	return d.createPackageRevision()
 }
 
-func (p dbPackage) DeletePackageRevision(ctx context.Context, old repository.PackageRevision) error {
+func (p *dbPackage) DeletePackageRevision(ctx context.Context, old repository.PackageRevision) error {
 	if err := pkgRevDeleteFromDB(old.Key()); err != nil && err != sql.ErrNoRows {
 		return err
 	}
@@ -122,18 +120,18 @@ func (p dbPackage) DeletePackageRevision(ctx context.Context, old repository.Pac
 	return nil
 }
 
-func (p dbPackage) GetLatestRevision() string {
+func (p *dbPackage) GetLatestRevision() string {
 	return pkgRevReadLatestPRFromDB(p.Key()).ResourceVersion()
 }
 
-func (p dbPackage) Close() error {
+func (p *dbPackage) Delete() error {
 	dbPkgRevs, err := pkgRevReadPRsFromDB(p.Key())
 	if err != nil {
 		return err
 	}
 
 	for _, pkgRev := range dbPkgRevs {
-		if err := pkgRev.Close(); err != nil {
+		if err := pkgRev.Delete(); err != nil {
 			return err
 		}
 	}

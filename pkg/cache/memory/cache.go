@@ -171,6 +171,10 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 	}
 }
 
+func (c *Cache) UpdateRepository(ctx context.Context, repositorySpec *configapi.Repository) error {
+	return errors.New("update on memory cached repositories is not supported")
+}
+
 func (c *Cache) CloseRepository(ctx context.Context, repositorySpec *configapi.Repository, allRepos []configapi.Repository) error {
 	_, span := tracer.Start(ctx, "Cache::OpenRepository", trace.WithAttributes())
 	defer span.End()

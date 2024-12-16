@@ -66,7 +66,7 @@ func pkgReadPkgsFromDB(rk repository.RepositoryKey) ([]dbPackage, error) {
 	return dbPkgs, nil
 }
 
-func pkgWriteToDB(p dbPackage) error {
+func pkgWriteToDB(p *dbPackage) error {
 	sqlStatement := `
         INSERT INTO packages (namespace, repo_name, package_name, updated, updatedby)
         VALUES ($1, $2, $3, $4, $5)`
@@ -84,7 +84,7 @@ func pkgWriteToDB(p dbPackage) error {
 	}
 }
 
-func pkgUpdateDB(p dbPackage) error {
+func pkgUpdateDB(p *dbPackage) error {
 	sqlStatement := `
         UPDATE packages SET updated=$4, updatedby=$5
         WHERE namespace=$1 AND repo_name=$2 AND package_name=$3`

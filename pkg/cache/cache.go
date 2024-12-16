@@ -23,5 +23,6 @@ import (
 
 type Cache interface {
 	OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (repository.Repository, error)
+	UpdateRepository(ctx context.Context, repositorySpec *configapi.Repository) error
 	CloseRepository(ctx context.Context, repositorySpec *configapi.Repository, allRepos []configapi.Repository) error
 }

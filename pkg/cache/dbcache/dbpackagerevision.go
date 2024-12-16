@@ -25,7 +25,6 @@ import (
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
-	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/repository"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -33,43 +32,47 @@ import (
 )
 
 var _ repository.PackageRevision = &dbPackageRevision{}
+var _ repository.PackageRevisionDraft = &dbPackageRevision{}
 
 type dbPackageRevision struct {
 	pkgRevKey repository.PackageRevisionKey
+	meta      metav1.ObjectMeta
+	spec      v1alpha1.PackageRevisionSpec
 	updated   time.Time
 	updatedBy string
 	lifecycle v1alpha1.PackageRevisionLifecycle
+	tasks     []v1alpha1.Task
 	resources map[string]string
 }
 
-func (pr dbPackageRevision) KubeObjectName() string {
+func (pr *dbPackageRevision) KubeObjectName() string {
 	return pr.Key().NonNSString()
 }
 
-func (pr dbPackageRevision) KubeObjectNamespace() string {
+func (pr *dbPackageRevision) KubeObjectNamespace() string {
 	return pr.pkgRevKey.Namespace
 }
 
-func (pr dbPackageRevision) UID() types.UID {
+func (pr *dbPackageRevision) UID() types.UID {
 	return generateUid("packagerevisions.", pr.KubeObjectNamespace(), pr.KubeObjectName())
 }
 
-func (pr dbPackageRevision) Key() repository.PackageRevisionKey {
+func (pr *dbPackageRevision) Key() repository.PackageRevisionKey {
 	return pr.pkgRevKey
 }
 
-func (pr dbPackageRevision) createPackageRevision() (*dbPackageRevision, error) {
+func (pr *dbPackageRevision) createPackageRevision() (*dbPackageRevision, error) {
 	_, err := pkgRevReadFromDB(pr.Key())
 	if err == nil {
-		return &pr, pkgRevUpdateDB(pr)
+		return pr, pkgRevUpdateDB(pr)
 	} else if err != sql.ErrNoRows {
-		return &pr, err
+		return pr, err
 	}
 
-	return &pr, pkgRevWriteToDB(pr)
+	return pr, pkgRevWriteToDB(pr)
 }
 
-func (pr dbPackageRevision) UpdatePackageRevision() error {
+func (pr *dbPackageRevision) UpdatePackageRevision() error {
 	if readPr, err := pkgRevReadFromDB(pr.Key()); err == nil {
 		pr.copyToThis(&readPr)
 		return nil
@@ -78,7 +81,7 @@ func (pr dbPackageRevision) UpdatePackageRevision() error {
 	}
 }
 
-func (pr dbPackageRevision) Lifecycle() v1alpha1.PackageRevisionLifecycle {
+func (pr *dbPackageRevision) Lifecycle() v1alpha1.PackageRevisionLifecycle {
 	if pr, err := pkgRevReadFromDB(pr.Key()); err != nil {
 		klog.Infof("Lifecycle read from DB failed on PackageRevision %q, %q", pr.Key().String(), err)
 		return ""
@@ -87,7 +90,7 @@ func (pr dbPackageRevision) Lifecycle() v1alpha1.PackageRevisionLifecycle {
 	return pr.lifecycle
 }
 
-func (pr dbPackageRevision) UpdateLifecycle(ctx context.Context, newLifecycle v1alpha1.PackageRevisionLifecycle) error {
+func (pr *dbPackageRevision) UpdateLifecycle(ctx context.Context, newLifecycle v1alpha1.PackageRevisionLifecycle) error {
 	if pr, err := pkgRevReadFromDB(pr.Key()); err != nil {
 		errorMsg := fmt.Sprintf("Lifecycle update on DB failed on PackageRevision %q, %q", pr.Key().String(), err)
 		return errors.New(errorMsg)
@@ -100,7 +103,7 @@ func (pr dbPackageRevision) UpdateLifecycle(ctx context.Context, newLifecycle v1
 	return pkgRevUpdateDB(pr)
 }
 
-func (pr dbPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.PackageRevision, error) {
+func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.PackageRevision, error) {
 	lockCopy := &v1alpha1.UpstreamLock{}
 
 	readPr, err := pkgRevReadFromDB(pr.Key())
@@ -151,7 +154,7 @@ func (pr dbPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.P
 	}, nil
 }
 
-func (pr dbPackageRevision) GetResources(context.Context) (*v1alpha1.PackageRevisionResources, error) {
+func (pr *dbPackageRevision) GetResources(context.Context) (*v1alpha1.PackageRevisionResources, error) {
 	readPr, err := pkgRevReadFromDB(pr.Key())
 	if err != nil {
 		return nil, fmt.Errorf("package revision read on DB failed %q, %q", pr.Key().String(), err)
@@ -184,7 +187,7 @@ func (pr dbPackageRevision) GetResources(context.Context) (*v1alpha1.PackageRevi
 	}, nil
 }
 
-func (pr dbPackageRevision) GetUpstreamLock(context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error) {
+func (pr *dbPackageRevision) GetUpstreamLock(context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error) {
 	return kptfile.Upstream{}, kptfile.UpstreamLock{}, nil
 }
 
@@ -198,14 +201,14 @@ func (p *dbPackageRevision) ToMainPackageRevision() repository.PackageRevision {
 	}
 }
 
-func (p *dbPackageRevision) GetMeta() meta.PackageRevisionMeta {
-	return meta.PackageRevisionMeta{}
+func (pr *dbPackageRevision) GetMeta() metav1.ObjectMeta {
+	return metav1.ObjectMeta{}
 }
 
-func (p *dbPackageRevision) SetMeta(meta.PackageRevisionMeta) {
+func (pr *dbPackageRevision) SetMeta(metav1.ObjectMeta) {
 }
 
-func (pr dbPackageRevision) GetKptfile(context.Context) (kptfile.KptFile, error) {
+func (pr *dbPackageRevision) GetKptfile(context.Context) (kptfile.KptFile, error) {
 	readPr, err := pkgRevReadFromDB(pr.Key())
 	if err != nil {
 		return kptfile.KptFile{}, fmt.Errorf("package revision read on DB failed %q, %q", pr.Key().String(), err)
@@ -222,19 +225,19 @@ func (pr dbPackageRevision) GetKptfile(context.Context) (kptfile.KptFile, error)
 	return *kf, nil
 }
 
-func (pr dbPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, error) {
+func (pr *dbPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, error) {
 	return kptfile.Upstream{}, kptfile.UpstreamLock{}, nil
 }
 
-func (pr dbPackageRevision) ResourceVersion() string {
+func (pr *dbPackageRevision) ResourceVersion() string {
 	return fmt.Sprintf("%s.%d", pr.KubeObjectName(), pr.updated.Unix())
 }
 
-func (pr dbPackageRevision) Close() error {
+func (pr *dbPackageRevision) Delete() error {
 	return pkgRevDeleteFromDB(pr.Key())
 }
 
-func (pr dbPackageRevision) copyToThis(otherPr *dbPackageRevision) {
+func (pr *dbPackageRevision) copyToThis(otherPr *dbPackageRevision) {
 	pr.pkgRevKey.Namespace = otherPr.pkgRevKey.Namespace
 	pr.pkgRevKey.Repository = otherPr.pkgRevKey.Repository
 	pr.pkgRevKey.Package = otherPr.pkgRevKey.Package
@@ -244,4 +247,13 @@ func (pr dbPackageRevision) copyToThis(otherPr *dbPackageRevision) {
 	pr.updatedBy = otherPr.updatedBy
 	pr.lifecycle = otherPr.lifecycle
 	pr.resources = otherPr.resources
+}
+
+func (pr *dbPackageRevision) UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, change *v1alpha1.Task) error {
+	pr.resources = new.Spec.Resources
+	return nil
+}
+
+func (pr *dbPackageRevision) GetName() string {
+	return pr.pkgRevKey.Package
 }
