@@ -79,6 +79,26 @@ spec:
             - --disable-validating-admissions-policy=true
             - --max-request-body-size=6291456 # Keep this in sync with function-runner's corresponding argument
 
+          #adding livenessProbes and readinessProbes for porch server
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 4443
+              scheme: HTTPS
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 4443
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+            timeoutSeconds: 3              
+
 ---
 apiVersion: v1
 kind: Service
