@@ -1,6 +1,7 @@
 DROP TABLE IF EXISTS package_revisions;
 DROP TABLE IF EXISTS packages;
 DROP TABLE IF EXISTS repositories;
+DROP TABLE IF EXISTS resources;
 
 DROP TYPE IF EXISTS package_rev_lifecycle;
 
@@ -17,8 +18,10 @@ CREATE TABLE IF NOT EXISTS repositories (
 
 CREATE TABLE IF NOT EXISTS packages (
     namespace    TEXT NOT NULL,
-	repo_name   TEXT NOT NULL,
+	repo_name    TEXT NOT NULL,
     package_name TEXT NOT NULL,
+    meta         JSONB NOT NULL,
+    spec         JSONB NOT NULL,
     updated      TIMESTAMPTZ NOT NULL,
     updatedby    TEXT NOT NULL,
     PRIMARY KEY (namespace, repo_name, package_name),
@@ -36,8 +39,26 @@ CREATE TABLE IF NOT EXISTS package_revisions (
     package_name   TEXT NOT NULL,
     package_rev    TEXT NOT NULL,
     workspace_name TEXT NOT NULL,
+    meta           JSONB NOT NULL,
+    spec           JSONB NOT NULL,
     updated        TIMESTAMPTZ NOT NULL,
     updatedby      TEXT NOT NULL,
+	lifecycle      package_rev_lifecycle NOT NULL,
+    PRIMARY KEY (namespace, repo_name, package_name, package_rev),
+    CONSTRAINT fk_package
+        FOREIGN KEY (namespace, repo_name, package_name)
+        REFERENCES packages (namespace, repo_name, package_name)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS resources (
+    namespace      TEXT NOT NULL,
+	repo_name      TEXT NOT NULL,
+    package_name   TEXT NOT NULL,
+    package_rev    TEXT NOT NULL,
+    workspace_name TEXT NOT NULL,
+    resource_key   TEXT NOT NULL,
+    resource_value JSONB NOT NULL,
 	lifecycle      package_rev_lifecycle NOT NULL,
     resources      BYTEA,
     PRIMARY KEY (namespace, repo_name, package_name, package_rev),
