@@ -237,7 +237,7 @@ create_package () {
     echo "$1:$2:1 $pkg_v1 initialized" >> "$result_file"
 
     create_package_revision "$pkg_v1"
-    echo "$1:$2:1 $pkg_v1 approved, took $(echo $EPOCHREALTIME-$start_prv1 | bc -l) seconds" >> "$result_file"
+    echo "$(date "+%Y:%m:%d %T") $1:$2:1 $pkg_v1 approved, took $(echo $EPOCHREALTIME-$start_prv1 | bc -l) seconds" >> "$result_file"
 
     for k in $(seq 2 "$package_revision_count")
     do
@@ -246,7 +246,7 @@ create_package () {
         pkg_vx=$(porchctl rpkg copy -n porch-scale "$pkg_v1"  "--workspace=v$k" | cut -f1 -d' ' )
         echo "$1:$2:$k $pkg_vx copied" >> "$result_file"
         create_package_revision "$pkg_vx"
-        echo "$1:$2:$k $pkg_vx approved, took $(echo $EPOCHREALTIME-$start_prvx | bc -l) seconds"  >> "$result_file"
+        echo "$(date "+%Y:%m:%d %T") $1:$2:$k $pkg_vx approved, took $(echo $EPOCHREALTIME-$start_prvx | bc -l) seconds"  >> "$result_file"
     done
 }
 
@@ -334,7 +334,7 @@ delete_package_revisions () {
         start_prvd=$EPOCHREALTIME
         porchctl -n porch-scale rpkg propose-delete "$pkg" >> "$log_file" 2>&1
         porchctl -n porch-scale rpkg delete "$pkg" >> "$log_file" 2>&1
-        echo "$pkg deleted, took $(echo $EPOCHREALTIME-$start_prvd | bc -l) seconds"
+        echo "$(date "+%Y:%m:%d %T") $pkg deleted, took $(echo $EPOCHREALTIME-$start_prvd | bc -l) seconds"
     done
 }
 
@@ -351,17 +351,17 @@ split_repo_results() {
     TMP_DIR=$(mktemp -d)
     CURRENT_DIR=$(pwd)
 
-    grep "approved, took" "$result_file" | sed -e 's/\(:[0-9]* \).*, took /\1/' -e 's/ seconds$//' -e 's/ /,/' > "$TMP_DIR/approved.csv"
-    grep "deleted, took" "$result_file" | sed -e 's/deleted, took //' -e 's/ seconds$//' -e 's/ /,/' > "$TMP_DIR/deleted.csv"
+    grep "approved, took" "$result_file" | awk '{printf("%s,%s,%s\n", $2, $3, $7)}' > "$TMP_DIR/approved.csv"
+    grep "deleted, took" "$result_file" | awk '{printf("%s,%s,%s\n", $2, $3, $6)}' > "$TMP_DIR/deleted.csv"
 
     cd "$TMP_DIR" || exit
 
     for i in $(seq 1 "$git_repo_count")
     do
         repo_suffix=$(printf "%0${#git_repo_count}d" "$i")
-        echo "REPO-$repo_suffix-TEST,REPO-$repo_suffix-TIME" > "repo_$repo_suffix.csv"
-        grep "^porch-scale-test-$i\:" approved.csv | sed "s/^porch-scale-test-$i://" >> "repo_$repo_suffix.csv"
-        grep "^porch-scale-test-$i-" deleted.csv | sed "s/^porch-scale-test-$i-/del-/" >> "repo_$repo_suffix.csv"
+        echo "REPO-$repo_suffix-TIME,REPO-$repo_suffix-TEST,REPO-$repo_suffix-DURATION" > "repo_$repo_suffix.csv"
+        grep ",porch-scale-test-$i\:" approved.csv | sed "s/,porch-scale-test-$i:/,/" >> "repo_$repo_suffix.csv"
+        grep ",porch-scale-test-$i-" deleted.csv | sed "s/,porch-scale-test-$i-/,del-/" >> "repo_$repo_suffix.csv"
     done
 
     paste -d',' ./repo_*.csv
@@ -391,7 +391,7 @@ then
         delete_repo "$i" >> "$result_file"
     done
 
-    kubectl delete ns porch-scale
+    kubectl delete ns porch-scale >> "$log_file" 2>&1
 fi
 
 split_repo_results > "$repo_result_file"
