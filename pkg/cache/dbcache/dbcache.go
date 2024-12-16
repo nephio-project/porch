@@ -99,6 +99,25 @@ func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.
 	return dbRepo.OpenRepository()
 }
 
+func (c *dbCache) UpdateRepository(ctx context.Context, repositorySpec *configapi.Repository) error {
+	_, span := tracer.Start(ctx, "dbCache::OpenRepository", trace.WithAttributes())
+	defer span.End()
+
+	dbRepo := dbRepository{
+		repoKey: repository.RepositoryKey{
+			Namespace:  repositorySpec.Namespace,
+			Repository: repositorySpec.Name,
+		},
+		meta:       &repositorySpec.ObjectMeta,
+		spec:       &repositorySpec.Spec,
+		updated:    time.Now(),
+		updatedBy:  getCurrentUser(),
+		deployment: repositorySpec.Spec.Deployment,
+	}
+
+	return repoUpdateDB(&dbRepo)
+}
+
 func (c *dbCache) CloseRepository(ctx context.Context, repositorySpec *configapi.Repository, allRepos []configapi.Repository) error {
 	_, span := tracer.Start(ctx, "dbCache::OpenRepository", trace.WithAttributes())
 	defer span.End()
