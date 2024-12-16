@@ -69,7 +69,7 @@ func repoUpdateDB(r *dbRepository) error {
 	rk := r.Key()
 	if returnedVal := GetDBConnection().db.QueryRow(
 		sqlStatement,
-		rk.Namespace, rk.Repository, r.specAsJson(), r.updated, r.updatedBy, r.deployment); returnedVal.Err() == nil {
+		rk.Namespace, rk.Repository, r.metaAsJson(), r.specAsJson(), r.updated, r.updatedBy, r.deployment); returnedVal.Err() == nil {
 		klog.Infof("repoUpdateDB: query succeeded for %q", rk)
 		return nil
 	} else {

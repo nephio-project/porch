@@ -111,15 +111,20 @@ func (r *dbRepository) CreatePackageRevision(ctx context.Context, newPR *v1alpha
 	_, span := tracer.Start(ctx, "dbRepository::CreatePackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	return &dbPackageRevisionDraft{
-		repo:          r,
-		packageName:   newPR.Spec.PackageName,
-		revision:      string(newPR.Spec.WorkspaceName),
-		lifecycle:     v1alpha1.PackageRevisionLifecycleDraft,
-		updated:       time.Now(),
-		updatedBy:     getCurrentUser(),
-		workspaceName: newPR.Spec.WorkspaceName,
-		tasks:         newPR.Spec.Tasks,
+	return &dbPackageRevision{
+		pkgRevKey: repository.PackageRevisionKey{
+			Namespace:     r.repoKey.Repository,
+			Repository:    r.repoKey.Repository,
+			Package:       newPR.Spec.PackageName,
+			Revision:      "",
+			WorkspaceName: newPR.Spec.WorkspaceName,
+		},
+		meta:      newPR.ObjectMeta,
+		spec:      newPR.Spec,
+		lifecycle: v1alpha1.PackageRevisionLifecycleDraft,
+		updated:   time.Now(),
+		updatedBy: getCurrentUser(),
+		tasks:     newPR.Spec.Tasks,
 	}, nil
 }
 
@@ -165,16 +170,13 @@ func (r *dbRepository) UpdatePackageRevision(ctx context.Context, updatePR repos
 		return nil, err
 	}
 
-	return &dbPackageRevisionDraft{
-		repo:          r,
-		packageName:   updatePkgRev.Key().Package,
-		revision:      updatePkgRev.Key().Revision,
-		lifecycle:     updatePkgRev.lifecycle,
-		updated:       time.Now(),
-		updatedBy:     getCurrentUser(),
-		workspaceName: updatePkgRev.Key().WorkspaceName,
-		tasks:         nil,
-		resources:     updatePkgRev.resources,
+	return &dbPackageRevision{
+		pkgRevKey: updatePR.Key(),
+		lifecycle: updatePkgRev.lifecycle,
+		updated:   time.Now(),
+		updatedBy: getCurrentUser(),
+		tasks:     nil,
+		resources: updatePkgRev.resources,
 	}, nil
 }
 
@@ -188,7 +190,7 @@ func (r *dbRepository) ListPackages(ctx context.Context, filter repository.ListP
 
 	genericPkgs := make([]repository.Package, len(dbPkgs))
 	for i, pkg := range dbPkgs {
-		genericPkgs[i] = repository.Package(pkg)
+		genericPkgs[i] = repository.Package(&pkg)
 	}
 
 	return genericPkgs, nil
@@ -238,7 +240,7 @@ func (r *dbRepository) Close() error {
 	}
 
 	for _, pkg := range dbPkgs {
-		if err := pkg.Close(); err != nil {
+		if err := pkg.Delete(); err != nil {
 			return err
 		}
 	}
@@ -246,21 +248,20 @@ func (r *dbRepository) Close() error {
 	return repoDeleteFromDB(r.Key())
 }
 
-func (r *dbRepository) CloseDraft(ctx context.Context, d *dbPackageRevisionDraft) (*dbPackageRevision, error) {
-	pk := repository.PackageKey{
-		Namespace:  r.repoKey.Namespace,
-		Repository: r.repoKey.Repository,
-		Package:    d.packageName,
-	}
+func (r *dbRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version string) (repository.PackageRevision, error) {
+	ctx, span := tracer.Start(ctx, "dbRepository::ClosePackageRevisionDraft", trace.WithAttributes())
+	defer span.End()
 
-	dbPkg, err := pkgReadFromDB(pk)
+	d := prd.(*dbPackageRevision)
+
+	dbPkg, err := pkgReadFromDB(d.Key().PackageKey())
 	if err != nil {
 		if err != sql.ErrNoRows {
 			return nil, err
 		}
 
 		dbPkg = dbPackage{
-			pkgKey:    pk,
+			pkgKey:    d.Key().PackageKey(),
 			updated:   d.updated,
 			updatedBy: d.updatedBy,
 		}

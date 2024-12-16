@@ -1464,7 +1464,7 @@ func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPack
 }
 
 func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version string) (repository.PackageRevision, error) {
-	ctx, span := tracer.Start(ctx, "GitRepository::UpdateLifecycle", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "GitRepository::ClosePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
 
 	r.mutex.Lock()
