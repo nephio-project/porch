@@ -30,5 +30,9 @@ __debug*
 # Ignore all local history of files
 **/.history
 
+# gosec artifacts
+*results.html
+
 ### Jetbrains IDEs ###
 .idea/*
+

@@ -1,4 +1,4 @@
-#  Copyright 2023 The Nephio Authors.
+#  Copyright 2023-2024 The Nephio Authors.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-GOSEC_VER ?= 2.19.0
+GOSEC_VER ?= 2.21.4
 GIT_ROOT_DIR ?= $(dir $(lastword $(MAKEFILE_LIST)))
 include $(GIT_ROOT_DIR)/detect-container-runtime.mk
 
@@ -20,7 +20,8 @@ include $(GIT_ROOT_DIR)/detect-container-runtime.mk
 .PHONY: gosec
 gosec: ## Inspect the source code for security problems by scanning the Go Abstract Syntax Tree
 ifeq ($(CONTAINER_RUNNABLE), 0)
-		$(RUN_CONTAINER_COMMAND) docker.io/securego/gosec:${GOSEC_VER} ./...
+		$(RUN_CONTAINER_COMMAND) docker.io/securego/gosec:${GOSEC_VER} -fmt=html -out=gosec-results.html \
+		-stdout -verbose=text -exclude-dir=generated -exclude-dir=test -exclude-generated ./...
 else
-		gosec ./...
+		gosec -fmt=html -out=gosec-results.html -stdout -verbose=text -exclude-dir=generated -exclude-dir=test -exclude-generated ./...
 endif
