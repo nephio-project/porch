@@ -508,6 +508,7 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, old repositor
 	if err := r.pushAndCleanup(ctx, refSpecs); err != nil {
 		return fmt.Errorf("failed to update git references: %v", err)
 	}
+
 	return nil
 }
 
@@ -524,6 +525,8 @@ func (r *gitRepository) removeDeletionProposedBranchIfExists(ctx context.Context
 			return err
 		}
 	}
+	delete(r.deletionProposedCache, deletionProposedBranch)
+
 	return nil
 }
 
