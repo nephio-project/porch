@@ -309,19 +309,7 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 		parentPackage = p
 	}
 
-	if !isCreate {
-		rev, err := r.cad.UpdatePackageRevision(ctx, "", &repositoryObj, oldRepoPkgRev, oldApiPkgRev.(*api.PackageRevision), newApiPkgRev, parentPackage)
-		if err != nil {
-			return nil, false, apierrors.NewInternalError(err)
-		}
-
-		updated, err := rev.GetPackageRevision(ctx)
-		if err != nil {
-			return nil, false, apierrors.NewInternalError(err)
-		}
-
-		return updated, false, nil
-	} else {
+	if isCreate {
 		rev, err := r.cad.CreatePackageRevision(ctx, &repositoryObj, newApiPkgRev, parentPackage)
 		if err != nil {
 			klog.Infof("error creating package: %v", err)
@@ -334,6 +322,18 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 
 		return createdApiPkgRev, true, nil
 	}
+
+	rev, err := r.cad.UpdatePackageRevision(ctx, "", &repositoryObj, oldRepoPkgRev, oldApiPkgRev.(*api.PackageRevision), newApiPkgRev, parentPackage)
+	if err != nil {
+		return nil, false, apierrors.NewInternalError(err)
+	}
+
+	updated, err := rev.GetPackageRevision(ctx)
+	if err != nil {
+		return nil, false, apierrors.NewInternalError(err)
+	}
+
+	return updated, false, nil
 }
 
 // Common implementation of Package update logic.
