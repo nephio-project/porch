@@ -16,7 +16,10 @@ package task
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"reflect"
+	"slices"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -33,7 +36,26 @@ import (
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
-var _ TaskHandler = &genericTaskHandler{}
+var (
+	_ TaskHandler = &genericTaskHandler{}
+
+	conditionPipelineNotPassed = api.Condition{
+		Type:    ConditionTypePipelinePassed,
+		Status:  api.ConditionFalse,
+		Reason:  "WaitingOnPipeline",
+		Message: "waiting for package pipeline to pass",
+	}
+	conditionPipelinePassed = api.Condition{
+		Type:    ConditionTypePipelinePassed,
+		Status:  api.ConditionTrue,
+		Reason:  "PipelinePassed",
+		Message: "package pipeline completed successfully",
+	}
+)
+
+const (
+	ConditionTypePipelinePassed = "PackagePipelinePassed" // whether or not the package's pipeline has completed successfully
+)
 
 type genericTaskHandler struct {
 	runnerOptionsResolver func(namespace string) fnruntime.RunnerOptions
@@ -160,20 +182,29 @@ func (th *genericTaskHandler) DoPRMutations(ctx context.Context, namespace strin
 
 	// If any of the fields in the API that are projections from the Kptfile
 	// must be updated in the Kptfile as well.
-	kfPatchTask, created, err := createKptfilePatchTask(ctx, repoPR, newObj)
+	kfPatchTask, kfPatchCreated, err := createKptfilePatchTask(ctx, repoPR, newObj)
 	if err != nil {
 		return err
 	}
-	if created {
-		kfPatchMutation, err := buildPatchMutation(ctx, kfPatchTask, th.cloneStrategy)
+	var kfPatchMutation mutation
+	if kfPatchCreated {
+		kfPatchMutation, err = buildPatchMutation(ctx, kfPatchTask, th.cloneStrategy)
 		if err != nil {
 			return err
 		}
+
 		mutations = append(mutations, kfPatchMutation)
 	}
 
 	// Re-render if we are making changes.
 	mutations = th.conditionalAddRender(newObj, mutations)
+
+	// if all this update does is set the PackagePipelinePassed
+	// readiness condition, we don't need to run the full mutation
+	// pipeline - just update the Kptfile and leave it at that
+	if updateOnlySetsPipelineCondition(oldObj, newObj) {
+		mutations = []mutation{kfPatchMutation}
+	}
 
 	// TODO: Handle the case if alongside lifecycle change, tasks are changed too.
 	// Update package contents only if the package is in draft state
@@ -436,6 +467,32 @@ func (th *genericTaskHandler) conditionalAddRender(subject client.Object, mutati
 func isRenderMutation(m mutation) bool {
 	_, isRender := m.(*renderPackageMutation)
 	return isRender
+}
+
+func updateOnlySetsPipelineCondition(oldObj *api.PackageRevision, newObj *api.PackageRevision) bool {
+	setsCondition := func() bool {
+		oldObjHasCondNotPassed := slices.Contains(oldObj.Status.Conditions, conditionPipelineNotPassed)
+		oldObjHasCondPassed := slices.Contains(oldObj.Status.Conditions, conditionPipelinePassed)
+		newObjHasCondNotPassed := slices.Contains(newObj.Status.Conditions, conditionPipelineNotPassed)
+		newObjHasCondPassed := slices.Contains(newObj.Status.Conditions, conditionPipelinePassed)
+		return (!oldObjHasCondNotPassed && newObjHasCondNotPassed) ||
+			(!oldObjHasCondPassed && newObjHasCondPassed) ||
+			(oldObjHasCondNotPassed && newObjHasCondPassed) ||
+			(oldObjHasCondPassed && newObjHasCondNotPassed)
+	}()
+
+	noOtherChanges := func() bool {
+		copyOld := oldObj.DeepCopy()
+		copyOld.Spec.ReadinessGates = newObj.Spec.ReadinessGates
+		copyOld.Status.Conditions = newObj.Status.Conditions
+
+		oldJson, _ := json.Marshal(copyOld)
+		newJson, _ := json.Marshal(newObj)
+		equalExceptReadinessInfo := reflect.DeepEqual(oldJson, newJson)
+		return equalExceptReadinessInfo
+	}()
+
+	return setsCondition && noOtherChanges
 }
 
 // applyResourceMutations mutates the resources and returns the most recent renderResult.

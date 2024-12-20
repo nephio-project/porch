@@ -313,6 +313,6 @@ func YamlToKubeObject(yaml string) (kubeObject *fn.KubeObject, err error) {
 // Writes a KubeObject out to string-form YAML.
 // Wrapped in this function to unify serialisation into a single approach
 // everywhere in Porch.
-func KubeObjectToYaml(kptfileKubeObject *fn.KubeObject) string {
-	return kptfileKubeObject.String()
+func KubeObjectToYaml(kubeObject *fn.KubeObject) string {
+	return kubeObject.String()
 }

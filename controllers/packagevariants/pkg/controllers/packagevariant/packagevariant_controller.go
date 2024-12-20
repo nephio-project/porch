@@ -57,9 +57,9 @@ type PackageVariantReconciler struct {
 const (
 	workspaceNamePrefix = "packagevariant-"
 
-	ConditionTypeStalled        = "Stalled"                // whether or not the packagevariant object is making progress or not
-	ConditionTypeReady          = "Ready"                  // whether or not the reconciliation succeeded
-	ConditionTypePipelinePassed = "MutationPipelinePassed" // whether or not the mutation pipeline has completed successufully
+	ConditionTypeStalled        = "Stalled"               // whether or not the packagevariant object is making progress
+	ConditionTypeReady          = "Ready"                 // whether or not the reconciliation succeeded
+	ConditionTypePipelinePassed = "PackagePipelinePassed" // whether or not the package's pipeline has completed successfully
 )
 
 var (
@@ -67,13 +67,13 @@ var (
 		Type:    ConditionTypePipelinePassed,
 		Status:  porchapi.ConditionFalse,
 		Reason:  "WaitingOnPipeline",
-		Message: "waiting for mutation pipeline to pass",
+		Message: "waiting for package pipeline to pass",
 	}
 	conditionPipelinePassed = porchapi.Condition{
 		Type:    ConditionTypePipelinePassed,
 		Status:  porchapi.ConditionTrue,
 		Reason:  "PipelinePassed",
-		Message: "mutation pipeline completed successfully",
+		Message: "package pipeline completed successfully",
 	}
 )
 
@@ -396,23 +396,9 @@ func (r *PackageVariantReconciler) ensurePackageVariant(ctx context.Context,
 		}
 	}
 
-	// TODO: remove if OK to exclude PackageRevision from cache of r.Client
-	//
-	// var tmpClient client.Client
-	// if tmpClient, err = client.New(config.GetConfigOrDie(), client.Options{
-	// 	Cache: &client.CacheOptions{
-	// 		DisableFor: []client.Object{
-	// 			&porchapi.PackageRevisionResources{}},
-	// 	},
-	// }); err != nil {
-	// 	return nil, err
-	// }
-	var refreshedPR porchapi.PackageRevision
-	if err := r.Client.Get(ctx, types.NamespacedName{Name: newPR.GetName(), Namespace: newPR.GetNamespace()}, &refreshedPR); err != nil {
+	if err := r.Client.Get(ctx, types.NamespacedName{Name: newPR.GetName(), Namespace: newPR.GetNamespace()}, newPR); err != nil {
 		return nil, err
 	}
-	newPR.ResourceVersion = refreshedPR.ResourceVersion
-	newPR.Spec.Tasks = refreshedPR.Spec.Tasks
 
 	setPrStatusCondition(newPR, conditionPipelinePassed)
 	if err := r.Client.Update(ctx, newPR); err != nil {
@@ -441,8 +427,16 @@ func (r *PackageVariantReconciler) findAndUpdateExistingRevisions(ctx context.Co
 			downstream.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 			// We update this now, because later we may use a Porch call to clone or update
 			// and we want to make sure the server is in sync with us
+
+			setPrReadinessGate(downstream, ConditionTypePipelinePassed)
+			setPrStatusCondition(downstream, conditionPipelineNotPassed)
 			if err := r.Client.Update(ctx, downstream); err != nil {
 				klog.Errorf("error updating package revision lifecycle: %v", err)
+				return nil, err
+			}
+
+			setPrStatusCondition(downstream, conditionPipelinePassed)
+			if err := r.Client.Update(ctx, downstream); err != nil {
 				return nil, err
 			}
 		}
@@ -495,7 +489,18 @@ func (r *PackageVariantReconciler) findAndUpdateExistingRevisions(ctx context.Co
 
 			}
 			// Save the updated PackageRevisionResources
+
+			setPrReadinessGate(downstream, ConditionTypePipelinePassed)
+			setPrStatusCondition(downstream, conditionPipelineNotPassed)
+			if err := r.Client.Update(ctx, downstream); err != nil {
+				return nil, err
+			}
 			if err := r.updatePackageResources(ctx, prr, pv); err != nil {
+				return nil, err
+			}
+
+			setPrStatusCondition(downstream, conditionPipelinePassed)
+			if err := r.Client.Update(ctx, downstream); err != nil {
 				return nil, err
 			}
 		}
@@ -760,8 +765,15 @@ func (r *PackageVariantReconciler) updateDraft(ctx context.Context,
 	updateTask.Update.Upstream.UpstreamRef.Name = newUpstreamPR.Name
 	draft.Spec.Tasks = append(tasks, updateTask)
 
-	err := r.Client.Update(ctx, draft)
-	if err != nil {
+	setPrReadinessGate(draft, ConditionTypePipelinePassed)
+	setPrStatusCondition(draft, conditionPipelineNotPassed)
+
+	if err := r.Client.Update(ctx, draft); err != nil {
+		return nil, err
+	}
+
+	setPrStatusCondition(draft, conditionPipelinePassed)
+	if err := r.Client.Update(ctx, draft); err != nil {
 		return nil, err
 	}
 	return draft, nil
