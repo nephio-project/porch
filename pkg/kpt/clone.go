@@ -31,6 +31,10 @@ func UpdateUpstream(kptfileContents string, name string, upstream kptfilev1.Upst
 		return "", fmt.Errorf("cannot parse Kptfile: %w", err)
 	}
 
+	// Normalize the repository URL and directory path
+	normalizeGitFields(&upstream)
+	normalizeGitLockFields(&lock) // Use separate function for lock
+
 	// populate the cloneFrom values so we know where the package came from
 	kptfile.UpstreamLock = &lock
 	kptfile.Upstream = &upstream
@@ -44,6 +48,26 @@ func UpdateUpstream(kptfileContents string, name string, upstream kptfilev1.Upst
 	}
 
 	return string(b), nil
+}
+
+// normalizeGitFields ensures consistent formatting of git repository URLs and directory paths
+func normalizeGitFields(u *kptfilev1.Upstream) {
+	if u.Git != nil {
+		// Remove .git suffix if present
+		u.Git.Repo = strings.TrimSuffix(u.Git.Repo, ".git")
+		// Ensure directory doesn't start with a slash
+		u.Git.Directory = strings.TrimPrefix(u.Git.Directory, "/")
+	}
+}
+
+// normalizeGitLockFields ensures consistent formatting for UpstreamLock git fields
+func normalizeGitLockFields(l *kptfilev1.UpstreamLock) {
+	if l.Git != nil {
+		// Remove .git suffix if present
+		l.Git.Repo = strings.TrimSuffix(l.Git.Repo, ".git")
+		// Ensure directory doesn't start with a slash
+		l.Git.Directory = strings.TrimPrefix(l.Git.Directory, "/")
+	}
 }
 
 func UpdateName(kptfileContents string, name string) (string, error) {
