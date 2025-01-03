@@ -32,6 +32,7 @@ import (
 	porchclient "github.com/nephio-project/porch/api/generated/clientset/versioned"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	variantapi "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	internalpkg "github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/pkg/externalrepo/git"
@@ -488,6 +489,7 @@ func createClientScheme(t *testing.T) *runtime.Scheme {
 		coreapi.AddToScheme,
 		aggregatorv1.AddToScheme,
 		appsv1.AddToScheme,
+		variantapi.AddToScheme,
 	}) {
 		if err := api(scheme); err != nil {
 			t.Fatalf("Failed to initialize test k8s api client")
