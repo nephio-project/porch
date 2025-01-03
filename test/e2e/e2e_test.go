@@ -3369,7 +3369,6 @@ func (t *PorchSuite) TestPackageVariantReadinessGate(ctx context.Context) {
 			return functions
 		}()
 	)
-	t.Namespace = "porch"
 
 	// Set up the repo and create/propose/approve the upstream package
 	t.RegisterMainGitRepositoryF(ctx, repository)
