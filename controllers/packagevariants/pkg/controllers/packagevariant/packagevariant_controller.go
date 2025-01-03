@@ -63,13 +63,13 @@ const (
 )
 
 var (
-	conditionPipelineNotPassed = porchapi.Condition{
+	ConditionPipelineNotPassed = porchapi.Condition{
 		Type:    ConditionTypePipelinePassed,
 		Status:  porchapi.ConditionFalse,
 		Reason:  "WaitingOnPipeline",
 		Message: "waiting for package pipeline to pass",
 	}
-	conditionPipelinePassed = porchapi.Condition{
+	ConditionPipelinePassed = porchapi.Condition{
 		Type:    ConditionTypePipelinePassed,
 		Status:  porchapi.ConditionTrue,
 		Reason:  "PipelinePassed",
@@ -378,7 +378,7 @@ func (r *PackageVariantReconciler) ensurePackageVariant(ctx context.Context,
 	}
 
 	setPrReadinessGate(newPR, ConditionTypePipelinePassed)
-	setPrStatusCondition(newPR, conditionPipelineNotPassed)
+	setPrStatusCondition(newPR, ConditionPipelineNotPassed)
 	if err := r.Client.Update(ctx, newPR); err != nil {
 		return nil, err
 	}
@@ -400,7 +400,7 @@ func (r *PackageVariantReconciler) ensurePackageVariant(ctx context.Context,
 		return nil, err
 	}
 
-	setPrStatusCondition(newPR, conditionPipelinePassed)
+	setPrStatusCondition(newPR, ConditionPipelinePassed)
 	if err := r.Client.Update(ctx, newPR); err != nil {
 		return nil, err
 	}
@@ -429,13 +429,13 @@ func (r *PackageVariantReconciler) findAndUpdateExistingRevisions(ctx context.Co
 			// and we want to make sure the server is in sync with us
 
 			setPrReadinessGate(downstream, ConditionTypePipelinePassed)
-			setPrStatusCondition(downstream, conditionPipelineNotPassed)
+			setPrStatusCondition(downstream, ConditionPipelineNotPassed)
 			if err := r.Client.Update(ctx, downstream); err != nil {
 				klog.Errorf("error updating package revision lifecycle: %v", err)
 				return nil, err
 			}
 
-			setPrStatusCondition(downstream, conditionPipelinePassed)
+			setPrStatusCondition(downstream, ConditionPipelinePassed)
 			if err := r.Client.Update(ctx, downstream); err != nil {
 				return nil, err
 			}
@@ -491,7 +491,7 @@ func (r *PackageVariantReconciler) findAndUpdateExistingRevisions(ctx context.Co
 			// Save the updated PackageRevisionResources
 
 			setPrReadinessGate(downstream, ConditionTypePipelinePassed)
-			setPrStatusCondition(downstream, conditionPipelineNotPassed)
+			setPrStatusCondition(downstream, ConditionPipelineNotPassed)
 			if err := r.Client.Update(ctx, downstream); err != nil {
 				return nil, err
 			}
@@ -499,7 +499,7 @@ func (r *PackageVariantReconciler) findAndUpdateExistingRevisions(ctx context.Co
 				return nil, err
 			}
 
-			setPrStatusCondition(downstream, conditionPipelinePassed)
+			setPrStatusCondition(downstream, ConditionPipelinePassed)
 			if err := r.Client.Update(ctx, downstream); err != nil {
 				return nil, err
 			}
@@ -766,13 +766,13 @@ func (r *PackageVariantReconciler) updateDraft(ctx context.Context,
 	draft.Spec.Tasks = append(tasks, updateTask)
 
 	setPrReadinessGate(draft, ConditionTypePipelinePassed)
-	setPrStatusCondition(draft, conditionPipelineNotPassed)
+	setPrStatusCondition(draft, ConditionPipelineNotPassed)
 
 	if err := r.Client.Update(ctx, draft); err != nil {
 		return nil, err
 	}
 
-	setPrStatusCondition(draft, conditionPipelinePassed)
+	setPrStatusCondition(draft, ConditionPipelinePassed)
 	if err := r.Client.Update(ctx, draft); err != nil {
 		return nil, err
 	}
