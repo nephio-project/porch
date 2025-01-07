@@ -300,8 +300,9 @@ func (t *TestSuite) registerGitRepositoryFromConfigF(name string, config GitConf
 
 	t.Cleanup(func() {
 		t.DeleteE(repo)
-		t.WaitUntilRepositoryDeleted(name, t.Namespace)
-		t.WaitUntilAllPackagesDeleted(name, t.Namespace)
+		t.DeleteVariantsForRepo(name)
+		t.WaitUntilRepositoryDeleted(name)
+		t.WaitUntilAllPackagesDeleted(name)
 	})
 
 	// Make sure the repository is ready before we test to (hopefully)
@@ -478,8 +479,41 @@ func (t *TestSuite) WaitUntilRepositoryReady(name, namespace string) {
 	}
 }
 
-func (t *TestSuite) WaitUntilRepositoryDeleted(name, namespace string) {
+func (t *TestSuite) DeleteVariantsForRepo(repoName string) {
 	t.T().Helper()
+	namespace := t.Namespace
+	var variantList variantapi.PackageVariantList
+	if err := t.Client.List(t.GetContext(), &variantList, client.InNamespace(namespace)); err != nil {
+		t.Errorf("error listing package variants: %v", err)
+	}
+	for _, variant := range variantList.Items {
+		if variant.Spec.Upstream.Repo == repoName {
+			t.DeleteE(&variant)
+		}
+	}
+
+	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 60*time.Second, true, func(ctx context.Context) (done bool, err error) {
+		t.T().Helper()
+		if err := t.Client.List(ctx, &variantList, client.InNamespace(namespace)); err != nil {
+			t.Logf("error listing packages: %v", err)
+			return false, nil
+		}
+		for _, variant := range variantList.Items {
+			if variant.Spec.Upstream.Repo == repoName {
+				t.Logf("Found package variant %s using repo %s as upstream", variant.Name, repoName)
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+	if err != nil {
+		t.Fatalf("Package variant(s) still remain using repo %s as upstream", repoName)
+	}
+}
+
+func (t *TestSuite) WaitUntilRepositoryDeleted(name string) {
+	t.T().Helper()
+	namespace := t.Namespace
 	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 20*time.Second, true, func(ctx context.Context) (done bool, err error) {
 		var repo configapi.Repository
 		nn := types.NamespacedName{
@@ -499,8 +533,9 @@ func (t *TestSuite) WaitUntilRepositoryDeleted(name, namespace string) {
 	}
 }
 
-func (t *TestSuite) WaitUntilAllPackagesDeleted(repoName string, namespace string) {
+func (t *TestSuite) WaitUntilAllPackagesDeleted(repoName string) {
 	t.T().Helper()
+	namespace := t.Namespace
 	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 60*time.Second, true, func(ctx context.Context) (done bool, err error) {
 		t.T().Helper()
 		var pkgRevList porchapi.PackageRevisionList
@@ -561,7 +596,7 @@ func (t *TestSuite) WaitUntilPackageRevisionFulfillingConditionExists(
 	var foundPkgRev *porchapi.PackageRevision
 	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, timeout, true, func(ctx context.Context) (done bool, err error) {
 		var pkgRevList porchapi.PackageRevisionList
-		if err := t.Client.List(ctx, &pkgRevList); err != nil {
+		if err := t.Client.List(ctx, &pkgRevList, client.InNamespace(t.Namespace)); err != nil {
 			t.Logf("error listing packages: %v", err)
 			return false, nil
 		}
