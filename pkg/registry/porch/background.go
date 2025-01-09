@@ -137,7 +137,7 @@ func (b *background) updateCache(ctx context.Context, event watch.EventType, rep
 		return b.cacheRepository(ctx, repository)
 	case watch.Modified:
 		klog.Infof("Repository modified: %s:%s", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name)
-		// TODO: implement
+		return b.cacheRepository(ctx, repository)
 	case watch.Deleted:
 		klog.Infof("Repository deleted: %s:%s", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name)
 		var repoList configapi.RepositoryList
