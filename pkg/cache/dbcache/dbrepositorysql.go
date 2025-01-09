@@ -20,7 +20,7 @@ import (
 )
 
 func repoReadFromDB(rk repository.RepositoryKey) (*dbRepository, error) {
-	sqlStatement := `SELECT namespace, repo_name, meta, spec, updated, updatedby, deployment FROM repositories WHERE namespace=$1 AND repo_name=$2`
+	sqlStatement := `SELECT name_space, repo_name, meta, spec, updated, updatedby, deployment FROM repositories WHERE name_space=$1 AND repo_name=$2`
 
 	var dbRepo dbRepository
 	var metaAsJson, specAsJson string
@@ -42,7 +42,7 @@ func repoReadFromDB(rk repository.RepositoryKey) (*dbRepository, error) {
 
 func repoWriteToDB(r *dbRepository) error {
 	sqlStatement := `
-        INSERT INTO repositories (namespace, repo_name, meta, spec, updated, updatedby, deployment)
+        INSERT INTO repositories (name_space, repo_name, meta, spec, updated, updatedby, deployment)
         VALUES ($1, $2, $3, $4, $5, $6, $7)`
 
 	klog.Infof("DB Connection: running query [%q] on repository (%#v)", sqlStatement, r)
@@ -62,7 +62,7 @@ func repoWriteToDB(r *dbRepository) error {
 func repoUpdateDB(r *dbRepository) error {
 	sqlStatement := `
         UPDATE repositories SET meta=$3, spec=$4, updated=$5, updatedby=$6, deployment=$7
-        WHERE namespace=$1 AND repo_name=$2`
+        WHERE name_space=$1 AND repo_name=$2`
 
 	klog.Infof("repoUpdateDB: running query [%q] on %q)", sqlStatement, r.Key())
 
@@ -79,7 +79,7 @@ func repoUpdateDB(r *dbRepository) error {
 }
 
 func repoDeleteFromDB(rk repository.RepositoryKey) error {
-	sqlStatement := `DELETE FROM repositories WHERE namespace=$1 AND repo_name=$2`
+	sqlStatement := `DELETE FROM repositories WHERE name_space=$1 AND repo_name=$2`
 
 	returnedVal := GetDBConnection().db.QueryRow(sqlStatement, rk.Namespace, rk.Repository)
 

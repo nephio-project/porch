@@ -15,30 +15,45 @@
 package dbcache
 
 import (
+	"database/sql"
+
 	"github.com/nephio-project/porch/pkg/repository"
 	"k8s.io/klog/v2"
 )
 
 func pkgReadFromDB(pk repository.PackageKey) (dbPackage, error) {
-	sqlStatement := `SELECT * FROM packages WHERE namespace=$1 AND repo_name=$2 AND package_name=$3`
+	sqlStatement := `SELECT * FROM packages WHERE name_space=$1 AND repo_name=$2 AND package_name=$3`
 
 	var dbPkg dbPackage
+	var metaAsJson, specAsJson string
 
 	klog.Infof("pkgReadFromDB: running query [%q] on %q", sqlStatement, pk)
 	err := GetDBConnection().db.QueryRow(sqlStatement, pk.Namespace, pk.Repository, pk.Package).Scan(
 		&dbPkg.pkgKey.Namespace,
 		&dbPkg.pkgKey.Repository,
 		&dbPkg.pkgKey.Package,
+		&metaAsJson,
+		&specAsJson,
 		&dbPkg.updated,
 		&dbPkg.updatedBy)
 
-	klog.Infof("pkgReadFromDB: query result on %q: err=%q", pk, err)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			klog.Infof("pkgReadFromDB: package not found in db %q", pk)
+		} else {
+			klog.Infof("pkgReadFromDB: reading package %q returned err: %q", pk, err)
+		}
+		return dbPkg, err
+	}
+
+	dbPkg.setMetaFromJson(metaAsJson)
+	dbPkg.setSpecFromJson(specAsJson)
 
 	return dbPkg, err
 }
 
 func pkgReadPkgsFromDB(rk repository.RepositoryKey) ([]dbPackage, error) {
-	sqlStatement := `SELECT * FROM packages WHERE namespace=$1 AND repo_name=$2`
+	sqlStatement := `SELECT * FROM packages WHERE name_space=$1 AND repo_name=$2`
 
 	var dbPkgs []dbPackage
 
@@ -52,13 +67,19 @@ func pkgReadPkgsFromDB(rk repository.RepositoryKey) ([]dbPackage, error) {
 
 	for rows.Next() {
 		var pkg dbPackage
+		var metaAsJson, specAsJson string
 
 		rows.Scan(
 			&pkg.pkgKey.Namespace,
 			&pkg.pkgKey.Repository,
 			&pkg.pkgKey.Package,
+			&metaAsJson,
+			&specAsJson,
 			&pkg.updated,
 			&pkg.updatedBy)
+
+		pkg.setMetaFromJson(metaAsJson)
+		pkg.setSpecFromJson(specAsJson)
 
 		dbPkgs = append(dbPkgs, pkg)
 	}
@@ -68,14 +89,14 @@ func pkgReadPkgsFromDB(rk repository.RepositoryKey) ([]dbPackage, error) {
 
 func pkgWriteToDB(p *dbPackage) error {
 	sqlStatement := `
-        INSERT INTO packages (namespace, repo_name, package_name, updated, updatedby)
-        VALUES ($1, $2, $3, $4, $5)`
+        INSERT INTO packages (name_space, repo_name, package_name, meta, spec, updated, updatedby)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)`
 
 	klog.Infof("pkgWriteToDB: running query [%q] on %q", sqlStatement, p.Key())
 
 	pk := p.Key()
 	if returnedVal := GetDBConnection().db.QueryRow(
-		sqlStatement, pk.Namespace, pk.Repository, pk.Package, p.updated, p.updatedBy); returnedVal.Err() == nil {
+		sqlStatement, pk.Namespace, pk.Repository, pk.Package, p.metaAsJson(), p.specAsJson(), p.updated, p.updatedBy); returnedVal.Err() == nil {
 		klog.Infof("pkgWriteToDB: query succeeded for %q", p.Key())
 		return nil
 	} else {
@@ -86,15 +107,15 @@ func pkgWriteToDB(p *dbPackage) error {
 
 func pkgUpdateDB(p *dbPackage) error {
 	sqlStatement := `
-        UPDATE packages SET updated=$4, updatedby=$5
-        WHERE namespace=$1 AND repo_name=$2 AND package_name=$3`
+        UPDATE packages SET meta=$4, spec=$5, updated=$6, updatedby=$7
+        WHERE name_space=$1 AND repo_name=$2 AND package_name=$3`
 
 	klog.Infof("pkgUpdateDB: running query [%q] on %q)", sqlStatement, p.Key())
 
 	pk := p.Key()
 	if returnedVal := GetDBConnection().db.QueryRow(
 		sqlStatement,
-		pk.Namespace, pk.Repository, pk.Package, p.updated, p.updatedBy); returnedVal.Err() == nil {
+		pk.Namespace, pk.Repository, pk.Package, p.metaAsJson(), p.specAsJson(), p.updated, p.updatedBy); returnedVal.Err() == nil {
 		klog.Infof("pkgUpdateDB: query succeeded for %q", pk)
 		return nil
 	} else {
@@ -104,7 +125,7 @@ func pkgUpdateDB(p *dbPackage) error {
 }
 
 func pkgDeleteFromDB(pk repository.PackageKey) error {
-	sqlStatement := `DELETE FROM packages WHERE namespace=$1 AND repo_name=$2 AND package_name=$3`
+	sqlStatement := `DELETE FROM packages WHERE name_space=$1 AND repo_name=$2 AND package_name=$3`
 
 	klog.Infof("DB Connection: running query [%q] on %q", sqlStatement, pk)
 	if returnedVal := GetDBConnection().db.QueryRow(sqlStatement, pk.Namespace, pk.Repository, pk.Package); returnedVal.Err() == nil {
