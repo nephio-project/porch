@@ -111,9 +111,9 @@ func (r *dbRepository) CreatePackageRevision(ctx context.Context, newPR *v1alpha
 	_, span := tracer.Start(ctx, "dbRepository::CreatePackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	return &dbPackageRevision{
+	dbPkgRev := &dbPackageRevision{
 		pkgRevKey: repository.PackageRevisionKey{
-			Namespace:     r.repoKey.Repository,
+			Namespace:     r.repoKey.Namespace,
 			Repository:    r.repoKey.Repository,
 			Package:       newPR.Spec.PackageName,
 			Revision:      "",
@@ -125,7 +125,11 @@ func (r *dbRepository) CreatePackageRevision(ctx context.Context, newPR *v1alpha
 		updated:   time.Now(),
 		updatedBy: getCurrentUser(),
 		tasks:     newPR.Spec.Tasks,
-	}, nil
+	}
+
+	prDraft, err := r.savePackageRevision(ctx, dbPkgRev, "")
+
+	return repository.PackageRevisionDraft(prDraft), err
 }
 
 func (r *dbRepository) DeletePackageRevision(ctx context.Context, old repository.PackageRevision) error {
@@ -249,7 +253,16 @@ func (r *dbRepository) Close() error {
 }
 
 func (r *dbRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version string) (repository.PackageRevision, error) {
-	ctx, span := tracer.Start(ctx, "dbRepository::ClosePackageRevisionDraft", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "dbRepository::ClosePackageRevisionDraft", trace.WithAttributes())
+	defer span.End()
+
+	pr, err := r.savePackageRevision(ctx, prd, version)
+
+	return repository.PackageRevision(pr), err
+}
+
+func (r *dbRepository) savePackageRevision(ctx context.Context, prd repository.PackageRevisionDraft, _ string) (*dbPackageRevision, error) {
+	_, span := tracer.Start(ctx, "dbRepository::savePackageRevision", trace.WithAttributes())
 	defer span.End()
 
 	d := prd.(*dbPackageRevision)
@@ -266,12 +279,12 @@ func (r *dbRepository) ClosePackageRevisionDraft(ctx context.Context, prd reposi
 			updatedBy: d.updatedBy,
 		}
 
-		if _, err := dbPkg.createPackage(); err != nil {
+		if _, err := dbPkg.savePackage(); err != nil {
 			return nil, err
 		}
 	}
 
-	pkgRev, err := dbPkg.createPackageRevision(d)
+	pkgRev, err := dbPkg.savePackageRevision(d)
 	if err != nil {
 		return nil, err
 	}

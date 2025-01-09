@@ -17,6 +17,7 @@ package dbcache
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"time"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -51,7 +52,7 @@ func (p *dbPackage) Key() repository.PackageKey {
 	return p.pkgKey
 }
 
-func (p *dbPackage) createPackage() (*dbPackage, error) {
+func (p *dbPackage) savePackage() (*dbPackage, error) {
 	_, err := pkgReadFromDB(p.Key())
 	if err == nil {
 		return p, pkgUpdateDB(p)
@@ -99,8 +100,8 @@ func (p *dbPackage) GetPackage() *v1alpha1.PorchPackage {
 	}
 }
 
-func (p *dbPackage) createPackageRevision(d *dbPackageRevision) (*dbPackageRevision, error) {
-	return d.createPackageRevision()
+func (p *dbPackage) savePackageRevision(d *dbPackageRevision) (*dbPackageRevision, error) {
+	return d.savePackageRevision()
 }
 
 func (p *dbPackage) DeletePackageRevision(ctx context.Context, old repository.PackageRevision) error {
@@ -137,4 +138,24 @@ func (p *dbPackage) Delete() error {
 	}
 
 	return pkgDeleteFromDB(p.Key())
+}
+
+func (p *dbPackage) metaAsJson() string {
+	jsonMeta, _ := json.Marshal(p.meta)
+	return string(jsonMeta)
+}
+
+func (p *dbPackage) setMetaFromJson(jsonMeta string) {
+	p.meta = metav1.ObjectMeta{}
+	json.Unmarshal([]byte(jsonMeta), p.meta)
+}
+
+func (p *dbPackage) specAsJson() string {
+	jsonSpec, _ := json.Marshal(p.spec)
+	return string(jsonSpec)
+}
+
+func (p *dbPackage) setSpecFromJson(jsonSpec string) {
+	p.spec = v1alpha1.PackageSpec{}
+	json.Unmarshal([]byte(jsonSpec), p.spec)
 }

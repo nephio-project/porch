@@ -25,44 +25,49 @@ func pkgRevReadFromDB(prk repository.PackageRevisionKey) (dbPackageRevision, err
 	klog.Infof("pkgRevReadFromDB: reading package revision %q", prk)
 
 	sqlStatement := `SELECT * FROM package_revisions
-     WHERE namespace=$1 AND repo_name=$2 AND package_name=$3 AND package_rev=$4`
+     WHERE name_space=$1 AND repo_name=$2 AND package_name=$3 AND package_rev=$4 AND workspace_name=$5`
 
-	var dbPkgRev dbPackageRevision
-	var rawResources []byte
+	var pkgRev dbPackageRevision
+	var metaAsJson, specAsJson string
 
 	err := GetDBConnection().db.QueryRow(
-		sqlStatement, prk.Namespace, prk.Repository, prk.Package, prk.Revision).Scan(
-		&dbPkgRev.pkgRevKey.Namespace,
-		&dbPkgRev.pkgRevKey.Repository,
-		&dbPkgRev.pkgRevKey.Package,
-		&dbPkgRev.pkgRevKey.Revision,
-		&dbPkgRev.pkgRevKey.WorkspaceName,
-		&dbPkgRev.updated,
-		&dbPkgRev.updatedBy,
-		&dbPkgRev.lifecycle,
-		&rawResources)
+		sqlStatement, prk.Namespace, prk.Repository, prk.Package, prk.Revision, prk.WorkspaceName).Scan(
+		&pkgRev.pkgRevKey.Namespace,
+		&pkgRev.pkgRevKey.Repository,
+		&pkgRev.pkgRevKey.Package,
+		&pkgRev.pkgRevKey.Revision,
+		&pkgRev.pkgRevKey.WorkspaceName,
+		&metaAsJson,
+		&specAsJson,
+		&pkgRev.updated,
+		&pkgRev.updatedBy,
+		&pkgRev.lifecycle)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			klog.Infof("pkgRevReadFromDB: package not found in db %q", prk)
+			klog.Infof("pkgRevReadFromDB: package revision not found in db %q", prk)
 		} else {
 			klog.Infof("pkgRevReadFromDB: reading package revision %q returned err: %q", prk, err)
 		}
-		return dbPkgRev, err
+		return pkgRev, err
+	}
+
+	pkgRev.resources, err = pkgRevResourcesReadFromDB(prk)
+	if err != nil {
+		klog.Infof("pkgRevReadFromDB: reading package revision %q resources returned err: %q", prk, err)
+		return pkgRev, err
 	}
 
 	klog.Infof("pkgRevReadFromDB: reading package succeeded %q", prk)
 
-	dbPkgRev.resources, err = GetDBConnection().encoder.DecodePackage(rawResources)
-	if err != nil {
-		klog.Infof("pkgRevReadFromDB: reading package revision resources %q returned err: %q", prk, err)
-	}
+	pkgRev.setMetaFromJson(metaAsJson)
+	pkgRev.setSpecFromJson(specAsJson)
 
-	return dbPkgRev, err
+	return pkgRev, err
 }
 
 func pkgRevReadPRsFromDB(pk repository.PackageKey) ([]*dbPackageRevision, error) {
-	sqlStatement := `SELECT * FROM package_revisions WHERE namespace=$1 AND repo_name=$2 AND package_name=$3`
+	sqlStatement := `SELECT * FROM package_revisions WHERE name_space=$1 AND repo_name=$2 AND package_name=$3`
 
 	var dbPkgRevs []*dbPackageRevision
 
@@ -80,7 +85,7 @@ func pkgRevReadPRsFromDB(pk repository.PackageKey) ([]*dbPackageRevision, error)
 
 	for rows.Next() {
 		var pkgRev dbPackageRevision
-		var rawResources []byte
+		var metaAsJson, specAsJson string
 
 		rows.Scan(
 			&pkgRev.pkgRevKey.Namespace,
@@ -88,15 +93,22 @@ func pkgRevReadPRsFromDB(pk repository.PackageKey) ([]*dbPackageRevision, error)
 			&pkgRev.pkgRevKey.Package,
 			&pkgRev.pkgRevKey.Revision,
 			&pkgRev.pkgRevKey.WorkspaceName,
+			&metaAsJson,
+			&specAsJson,
 			&pkgRev.updated,
 			&pkgRev.updatedBy,
-			&pkgRev.lifecycle,
-			&rawResources)
+			&pkgRev.lifecycle)
 
-		pkgRev.resources, err = GetDBConnection().encoder.DecodePackage(rawResources)
+		pkgRev.resources, err = pkgRevResourcesReadFromDB(pkgRev.pkgRevKey)
 		if err != nil {
-			klog.Infof("pkgRevReadFromDB: reading package revision resources %q returned err: %q", pkgRev.Key(), err)
+			klog.Infof("pkgRevReadFromDB: reading package revision %q resources returned err: %q", pkgRev.pkgRevKey, err)
+			return nil, err
 		}
+
+		klog.Infof("pkgRevReadFromDB: reading package succeeded %q", pkgRev.pkgRevKey)
+
+		pkgRev.setMetaFromJson(metaAsJson)
+		pkgRev.setSpecFromJson(specAsJson)
 
 		dbPkgRevs = append(dbPkgRevs, &pkgRev)
 	}
@@ -104,21 +116,16 @@ func pkgRevReadPRsFromDB(pk repository.PackageKey) ([]*dbPackageRevision, error)
 	return dbPkgRevs, nil
 }
 
-func pkgRevReadLatestPRFromDB(pk repository.PackageKey) *dbPackageRevision {
+func pkgRevReadLatestPRFromDB(_ repository.PackageKey) *dbPackageRevision {
 	return nil
 }
 
 func pkgRevWriteToDB(pr *dbPackageRevision) error {
 	klog.Infof("pkgRevWriteToDB: writing package revision %q", pr.Key())
 
-	rawResources, err := GetDBConnection().encoder.EncodePackage(pr.resources)
-	if err != nil {
-		return err
-	}
-
 	sqlStatement := `
-        INSERT INTO package_revisions (namespace, repo_name, package_name, package_rev, workspace_name, updated, updatedby, lifecycle, resources)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+        INSERT INTO package_revisions (name_space, repo_name, package_name, package_rev, workspace_name, meta, spec, updated, updatedby, lifecycle)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
 
 	klog.Infof("pkgRevWriteToDB: running query [%q] on repository (%#v)", sqlStatement, pr)
 
@@ -126,50 +133,65 @@ func pkgRevWriteToDB(pr *dbPackageRevision) error {
 	if returnedVal := GetDBConnection().db.QueryRow(
 		sqlStatement,
 		prk.Namespace, prk.Repository, prk.Package, prk.Revision, prk.WorkspaceName,
-		pr.updated, pr.updatedBy, pr.lifecycle, rawResources); returnedVal.Err() == nil {
+		pr.metaAsJson(), pr.specAsJson(), pr.updated, pr.updatedBy, pr.lifecycle); returnedVal.Err() == nil {
 		klog.Infof("pkgRevWriteToDB: query succeeded, row created")
-		return nil
 	} else {
 		klog.Infof("pkgRevWriteToDB: query failed %q", returnedVal.Err())
 		return returnedVal.Err()
 	}
+
+	if err := pkgRevResourcesWriteToDB(pr); err == nil {
+		klog.Infof("pkgRevWriteToDB: resources written to DB")
+		return nil
+	} else {
+		klog.Infof("pkgRevWriteToDB: resource write to DB failed: %q", err)
+		return err
+	}
 }
 
 func pkgRevUpdateDB(pr *dbPackageRevision) error {
-
 	klog.Infof("pkgRevUpdateDB: updating package revision %q", pr.Key())
 
-	rawResources, err := GetDBConnection().encoder.EncodePackage(pr.resources)
-	if err != nil {
-		return err
-	}
-
 	sqlStatement := `
-        UPDATE package_revisions SET updated=$5, updatedby=$6, lifecycle=$7, resources=$8
-        WHERE namespace=$1 AND repo_name=$2 AND package_name=$3 AND package_rev=$4`
+        UPDATE package_revisions SET meta=$6, spec=$7, updated=$8, updatedby=$9, lifecycle=$10
+        WHERE name_space=$1 AND repo_name=$2 AND package_name=$3 AND package_rev=$4 AND workspace_name=$5`
 
 	klog.Infof("pkgRevUpdateDB: running query [%q] on repository (%#v)", sqlStatement, pr)
 
 	prk := pr.Key()
 	if returnedVal := GetDBConnection().db.QueryRow(
 		sqlStatement,
-		prk.Namespace, prk.Repository, prk.Package, prk.Revision,
-		pr.updated, pr.updatedBy, pr.lifecycle, rawResources); returnedVal.Err() == nil {
+		prk.Namespace, prk.Repository, prk.Package, prk.Revision, prk.WorkspaceName,
+		pr.metaAsJson(), pr.specAsJson(), pr.updated, pr.updatedBy, pr.lifecycle); returnedVal.Err() == nil {
 		klog.Infof("pkgRevUpdateDB:: query succeeded, row created")
-		return nil
 	} else {
 		klog.Infof("pkgRevUpdateDB:: query failed %q", returnedVal.Err())
 		return returnedVal.Err()
+	}
+
+	if err := pkgRevResourcesWriteToDB(pr); err == nil {
+		klog.Infof("pkgRevWriteToDB: resources written to DB")
+		return nil
+	} else {
+		klog.Infof("pkgRevWriteToDB: resources write to DB failed: %q", err)
+		return err
 	}
 }
 
 func pkgRevDeleteFromDB(prk repository.PackageRevisionKey) error {
 	klog.Infof("pkgRevDeleteFromDB: deleting package revision %q", prk)
 
-	sqlStatement := `DELETE FROM package_revisions WHERE namespace=$1 AND repo_name=$2 AND package_name=$3 AND package_rev=$4`
+	if err := pkgRevResourcesDeleteFromDB(prk); err == nil {
+		klog.Infof("pkgRevDeleteFromDB: resources deleted from DB")
+	} else {
+		klog.Infof("pkgRevWriteToDB: resources delete from DB failed: %q", err)
+		return err
+	}
+
+	sqlStatement := `DELETE FROM package_revisions WHERE name_space=$1 AND repo_name=$2 AND package_name=$3 AND package_rev=$4 AND workspace_name=$5`
 
 	returnedVal := GetDBConnection().db.QueryRow(sqlStatement,
-		prk.Namespace, prk.Repository, prk.Package, prk.Revision)
+		prk.Namespace, prk.Repository, prk.Package, prk.Revision, prk.WorkspaceName)
 
 	if returnedVal.Err() == nil {
 		klog.Infof("pkgRevDeleteFromDB: deleted package revision %q", prk)
