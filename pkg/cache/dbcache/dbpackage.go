@@ -147,7 +147,7 @@ func (p *dbPackage) metaAsJson() string {
 
 func (p *dbPackage) setMetaFromJson(jsonMeta string) {
 	p.meta = metav1.ObjectMeta{}
-	json.Unmarshal([]byte(jsonMeta), p.meta)
+	json.Unmarshal([]byte(jsonMeta), &p.meta)
 }
 
 func (p *dbPackage) specAsJson() string {
@@ -157,5 +157,5 @@ func (p *dbPackage) specAsJson() string {
 
 func (p *dbPackage) setSpecFromJson(jsonSpec string) {
 	p.spec = v1alpha1.PackageSpec{}
-	json.Unmarshal([]byte(jsonSpec), p.spec)
+	json.Unmarshal([]byte(jsonSpec), &p.spec)
 }
