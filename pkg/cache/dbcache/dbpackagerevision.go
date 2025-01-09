@@ -17,6 +17,7 @@ package dbcache
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -61,7 +62,7 @@ func (pr *dbPackageRevision) Key() repository.PackageRevisionKey {
 	return pr.pkgRevKey
 }
 
-func (pr *dbPackageRevision) createPackageRevision() (*dbPackageRevision, error) {
+func (pr *dbPackageRevision) savePackageRevision() (*dbPackageRevision, error) {
 	_, err := pkgRevReadFromDB(pr.Key())
 	if err == nil {
 		return pr, pkgRevUpdateDB(pr)
@@ -191,13 +192,13 @@ func (pr *dbPackageRevision) GetUpstreamLock(context.Context) (kptfile.Upstream,
 	return kptfile.Upstream{}, kptfile.UpstreamLock{}, nil
 }
 
-func (p *dbPackageRevision) ToMainPackageRevision() repository.PackageRevision {
+func (pr *dbPackageRevision) ToMainPackageRevision() repository.PackageRevision {
 	return &dbPackageRevision{
-		pkgRevKey: p.pkgRevKey,
-		updated:   p.updated,
-		updatedBy: p.updatedBy,
-		lifecycle: p.lifecycle,
-		resources: p.resources,
+		pkgRevKey: pr.pkgRevKey,
+		updated:   pr.updated,
+		updatedBy: pr.updatedBy,
+		lifecycle: pr.lifecycle,
+		resources: pr.resources,
 	}
 }
 
@@ -256,4 +257,24 @@ func (pr *dbPackageRevision) UpdateResources(ctx context.Context, new *v1alpha1.
 
 func (pr *dbPackageRevision) GetName() string {
 	return pr.pkgRevKey.Package
+}
+
+func (pr *dbPackageRevision) metaAsJson() string {
+	jsonMeta, _ := json.Marshal(pr.meta)
+	return string(jsonMeta)
+}
+
+func (pr *dbPackageRevision) setMetaFromJson(jsonMeta string) {
+	pr.meta = metav1.ObjectMeta{}
+	json.Unmarshal([]byte(jsonMeta), pr.meta)
+}
+
+func (pr *dbPackageRevision) specAsJson() string {
+	jsonSpec, _ := json.Marshal(pr.spec)
+	return string(jsonSpec)
+}
+
+func (pr *dbPackageRevision) setSpecFromJson(jsonSpec string) {
+	pr.spec = v1alpha1.PackageRevisionSpec{}
+	json.Unmarshal([]byte(jsonSpec), pr.spec)
 }

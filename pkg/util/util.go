@@ -103,9 +103,16 @@ func SchemaToMetaGVR(gvr schema.GroupVersionResource) metav1.GroupVersionResourc
 }
 
 func ParseRepositoryName(name string) (string, error) {
-	lastDash := strings.LastIndex(name, "-")
-	if lastDash < 0 {
-		return "", fmt.Errorf("malformed package revision name; expected at least one hyphen: %q", name)
+	if strings.Contains(name, ".") {
+		// Distringuished handling of package names
+		firstDot := strings.Index(name, ".")
+		return name[:firstDot], nil
+	} else {
+		// Default handling of package names
+		lastDash := strings.LastIndex(name, "-")
+		if lastDash < 0 {
+			return "", fmt.Errorf("malformed package revision name; expected at least one hyphen: %q", name)
+		}
+		return name[:lastDash], nil
 	}
-	return name[:lastDash], nil
 }
