@@ -266,7 +266,7 @@ func (pr *dbPackageRevision) metaAsJson() string {
 
 func (pr *dbPackageRevision) setMetaFromJson(jsonMeta string) {
 	pr.meta = metav1.ObjectMeta{}
-	json.Unmarshal([]byte(jsonMeta), pr.meta)
+	json.Unmarshal([]byte(jsonMeta), &pr.meta)
 }
 
 func (pr *dbPackageRevision) specAsJson() string {
@@ -276,5 +276,5 @@ func (pr *dbPackageRevision) specAsJson() string {
 
 func (pr *dbPackageRevision) setSpecFromJson(jsonSpec string) {
 	pr.spec = v1alpha1.PackageRevisionSpec{}
-	json.Unmarshal([]byte(jsonSpec), pr.spec)
+	json.Unmarshal([]byte(jsonSpec), &pr.spec)
 }
