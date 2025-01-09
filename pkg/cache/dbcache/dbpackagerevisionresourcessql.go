@@ -48,7 +48,7 @@ func pkgRevResourceReadFromDB(prk repository.PackageRevisionKey, resKey string) 
 }
 
 func pkgRevResourcesReadFromDB(prk repository.PackageRevisionKey) (map[string]string, error) {
-	sqlStatement := `SELECT * FROM resources WHERE name_space=$1 AND repo_name=$2 AND package_name=$3 AND package_rev=$4 AND workspace_name=$5`
+	sqlStatement := `SELECT resource_key, resource_value FROM resources WHERE name_space=$1 AND repo_name=$2 AND package_name=$3 AND package_rev=$4 AND workspace_name=$5`
 
 	resources := make(map[string]string)
 
