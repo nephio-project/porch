@@ -172,7 +172,7 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 }
 
 func (c *Cache) CloseRepository(ctx context.Context, repositorySpec *configapi.Repository, allRepos []configapi.Repository) error {
-	_, span := tracer.Start(ctx, "Cache::OpenRepository", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "Cache::CloseRepository", trace.WithAttributes())
 	defer span.End()
 
 	key, err := getCacheKey(repositorySpec)
