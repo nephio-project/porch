@@ -211,4 +211,3 @@ func (c *Cache) CloseRepository(ctx context.Context, repositorySpec *configapi.R
 		return nil
 	}
 }
-
