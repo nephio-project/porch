@@ -23,6 +23,7 @@ import (
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
 	"github.com/nephio-project/porch/pkg/repository"
+	"go.opentelemetry.io/otel/trace"
 	"sigs.k8s.io/kustomize/kyaml/fn/runtime/runtimeutil"
 	"sigs.k8s.io/kustomize/kyaml/kio"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
@@ -47,6 +48,9 @@ func newPackageContextGeneratorMutation(packageConfig *builtins.PackageConfig) (
 var _ mutation = &builtinEvalMutation{}
 
 func (m *builtinEvalMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
+	ctx, span := tracer.Start(ctx, "builtinEvalMutation::Apply", trace.WithAttributes())
+	defer span.End()
+
 	ff := &runtimeutil.FunctionFilter{
 		Run:     m.runner.Run,
 		Results: &yaml.RNode{},

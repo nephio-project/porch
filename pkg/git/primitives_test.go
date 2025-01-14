@@ -467,7 +467,7 @@ func createTestCommit(t *testing.T, repo *git.Repository, parent plumbing.Hash, 
 		Email: "test@kpt.dev",
 		When:  time.Now(),
 	}
-	commit, err := wt.Commit("Hello", &git.CommitOptions{
+	commit, err := wt.Commit(message, &git.CommitOptions{
 		Author:    &sig,
 		Committer: &sig,
 		Parents:   []plumbing.Hash{parent},

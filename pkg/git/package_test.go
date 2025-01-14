@@ -66,7 +66,7 @@ func (g GitSuite) TestLock(t *testing.T) {
 	}
 
 	for _, rev := range revisions {
-		if rev.Lifecycle() != v1alpha1.PackageRevisionLifecyclePublished {
+		if rev.Lifecycle(ctx) != v1alpha1.PackageRevisionLifecyclePublished {
 			continue
 		}
 

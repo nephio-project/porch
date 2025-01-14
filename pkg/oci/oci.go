@@ -32,6 +32,7 @@ import (
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
@@ -192,7 +193,7 @@ func (r *ociRepository) ListPackageRevisions(ctx context.Context, filter reposit
 				}
 				p.tasks = tasks
 
-				if filter.Matches(p) {
+				if filter.Matches(ctx, p) {
 					result = append(result, p)
 				}
 			}
@@ -331,6 +332,9 @@ func (p *ociPackageRevision) Key() repository.PackageRevisionKey {
 }
 
 func (p *ociPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.PackageRevision, error) {
+	ctx, span := tracer.Start(ctx, "ociPackageRevision::GetPackageRevision", trace.WithAttributes())
+	defer span.End()
+
 	key := p.Key()
 
 	kf, err := p.GetKptfile(ctx)
@@ -358,7 +362,7 @@ func (p *ociPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 			Revision:       key.Revision,
 			WorkspaceName:  key.WorkspaceName,
 
-			Lifecycle:      p.Lifecycle(),
+			Lifecycle:      p.Lifecycle(ctx),
 			Tasks:          p.tasks,
 			ReadinessGates: repository.ToApiReadinessGates(kf),
 		},
@@ -394,7 +398,7 @@ func (p *ociPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, 
 	return kptfile.Upstream{}, kptfile.UpstreamLock{}, fmt.Errorf("lock is not supported for oci packages (%s)", p.KubeObjectName())
 }
 
-func (p *ociPackageRevision) Lifecycle() v1alpha1.PackageRevisionLifecycle {
+func (p *ociPackageRevision) Lifecycle(ctx context.Context) v1alpha1.PackageRevisionLifecycle {
 	return p.lifecycle
 }
 
@@ -403,7 +407,10 @@ func (p *ociPackageRevision) Lifecycle() v1alpha1.PackageRevisionLifecycle {
 //	This function is currently only partially implemented; it still needs to store whether the package has been
 //	proposed for deletion somewhere in OCI, probably as another OCI image with a "deletionProposed" tag.
 func (p *ociPackageRevision) UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error {
-	old := p.Lifecycle()
+	ctx, span := tracer.Start(ctx, "ociPackageRevision::UpdateLifecycle", trace.WithAttributes())
+	defer span.End()
+
+	old := p.Lifecycle(ctx)
 
 	if old == v1alpha1.PackageRevisionLifecyclePublished {
 		if new != v1alpha1.PackageRevisionLifecycleDeletionProposed {

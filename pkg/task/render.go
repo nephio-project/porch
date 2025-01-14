@@ -40,7 +40,7 @@ type renderPackageMutation struct {
 var _ mutation = &renderPackageMutation{}
 
 func (m *renderPackageMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
-	ctx, span := tracer.Start(ctx, "renderPackageMutation::Apply", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "renderPackageMutation::apply", trace.WithAttributes())
 	defer span.End()
 
 	fs := filesys.MakeFsInMemory()

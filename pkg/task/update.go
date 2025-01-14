@@ -37,7 +37,7 @@ type updatePackageMutation struct {
 }
 
 func (m *updatePackageMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
-	ctx, span := tracer.Start(ctx, "updatePackageMutation::Apply", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "updatePackageMutation::apply", trace.WithAttributes())
 	defer span.End()
 
 	currUpstreamPkgRef, err := m.currUpstream()

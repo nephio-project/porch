@@ -30,6 +30,7 @@ import (
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
@@ -122,6 +123,9 @@ func (p *gitPackageRevision) uid() types.UID {
 }
 
 func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.PackageRevision, error) {
+	ctx, span := tracer.Start(ctx, "gitPackageRevision::GetPackageRevision", trace.WithAttributes())
+	defer span.End()
+
 	key := p.Key()
 
 	_, lock, _ := p.GetUpstreamLock(ctx)
@@ -150,7 +154,7 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 		Conditions:   repository.ToApiConditions(kf),
 	}
 
-	if v1alpha1.LifecycleIsPublished(p.Lifecycle()) {
+	if v1alpha1.LifecycleIsPublished(p.Lifecycle(ctx)) {
 		if !p.updated.IsZero() {
 			status.PublishedAt = metav1.Time{Time: p.updated}
 		}
@@ -176,7 +180,7 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 		Spec: v1alpha1.PackageRevisionSpec{
 			PackageName:    key.Package,
 			RepositoryName: key.Repository,
-			Lifecycle:      p.Lifecycle(),
+			Lifecycle:      p.Lifecycle(ctx),
 			Tasks:          p.tasks,
 			ReadinessGates: repository.ToApiReadinessGates(kf),
 			WorkspaceName:  key.WorkspaceName,
@@ -309,11 +313,14 @@ func (p *gitPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, 
 		}, nil
 }
 
-func (p *gitPackageRevision) Lifecycle() v1alpha1.PackageRevisionLifecycle {
-	return p.repo.GetLifecycle(context.Background(), p)
+func (p *gitPackageRevision) Lifecycle(ctx context.Context) v1alpha1.PackageRevisionLifecycle {
+	return p.repo.GetLifecycle(ctx, p)
 }
 
 func (p *gitPackageRevision) UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error {
+	ctx, span := tracer.Start(ctx, "gitPackageRevision::UpdateLifecycle", trace.WithAttributes())
+	defer span.End()
+
 	return p.repo.UpdateLifecycle(ctx, p, new)
 }
 

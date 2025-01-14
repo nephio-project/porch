@@ -75,7 +75,7 @@ type GitRepositoryOptions struct {
 }
 
 func OpenRepository(ctx context.Context, name, namespace string, spec *configapi.GitRepository, deployment bool, root string, opts GitRepositoryOptions) (GitRepository, error) {
-	ctx, span := tracer.Start(ctx, "OpenRepository", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "git.go::OpenRepository", trace.WithAttributes())
 	defer span.End()
 
 	replace := strings.NewReplacer("/", "-", ":", "-")
@@ -263,6 +263,7 @@ func (r *gitRepository) DeletePackage(ctx context.Context, obj repository.Packag
 func (r *gitRepository) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "gitRepository::ListPackageRevisions", trace.WithAttributes())
 	defer span.End()
+
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -324,7 +325,7 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 				continue
 			}
 			for _, p := range tagged {
-				if filter.Matches(p) {
+				if filter.Matches(ctx, p) {
 					result = append(result, p)
 				}
 			}
@@ -338,14 +339,14 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 			return nil, err
 		}
 		for _, p := range mainpkgs {
-			if filter.Matches(p) {
+			if filter.Matches(ctx, p) {
 				result = append(result, p)
 			}
 		}
 	}
 
 	for _, p := range drafts {
-		if filter.Matches(p) {
+		if filter.Matches(ctx, p) {
 			result = append(result, p)
 		}
 	}
@@ -425,7 +426,7 @@ func (r *gitRepository) UpdatePackageRevision(ctx context.Context, old repositor
 
 	// Fetch lifecycle directly from the repository rather than from the gitPackageRevision. This makes
 	// sure we don't end up requesting the same lock twice.
-	lifecycle := r.getLifecycle(ctx, oldGitPackage)
+	lifecycle := r.getLifecycle(oldGitPackage)
 
 	return &gitPackageRevisionDraft{
 		parent:        r,
@@ -628,7 +629,7 @@ func (r *gitRepository) loadPackageRevision(ctx context.Context, version, path s
 		} else {
 			revision = version[last+1:]
 		}
-		workspace, err = getPkgWorkspace(ctx, commit, krmPackage, ref)
+		workspace, err = getPkgWorkspace(commit, krmPackage, ref)
 		if err != nil {
 			return nil, kptfilev1.GitLock{}, err
 		}
@@ -667,7 +668,7 @@ func (r *gitRepository) discoverFinalizedPackages(ctx context.Context, ref *plum
 
 	var result []*gitPackageRevision
 	for _, krmPackage := range krmPackages.packages {
-		workspace, err := getPkgWorkspace(ctx, commit, krmPackage, ref)
+		workspace, err := getPkgWorkspace(commit, krmPackage, ref)
 		if err != nil {
 			return nil, err
 		}
@@ -814,7 +815,7 @@ func (r *gitRepository) loadTaggedPackages(ctx context.Context, tag *plumbing.Re
 		return nil, nil
 	}
 
-	workspaceName, err := getPkgWorkspace(ctx, commit, krmPackage, tag)
+	workspaceName, err := getPkgWorkspace(commit, krmPackage, tag)
 	if err != nil {
 		return nil, err
 	}
@@ -1083,6 +1084,9 @@ func (r *gitRepository) createPackageDeleteCommit(ctx context.Context, branch pl
 }
 
 func (r *gitRepository) PushAndCleanup(ctx context.Context, ph *pushRefSpecBuilder) error {
+	ctx, span := tracer.Start(ctx, "gitRepository::PushAndCleanup", trace.WithAttributes())
+	defer span.End()
+
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -1090,6 +1094,9 @@ func (r *gitRepository) PushAndCleanup(ctx context.Context, ph *pushRefSpecBuild
 }
 
 func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuilder) error {
+	ctx, span := tracer.Start(ctx, "gitRepository::pushAndCleanup", trace.WithAttributes())
+	defer span.End()
+
 	specs, require, err := ph.BuildRefSpecs()
 	if err != nil {
 		return err
@@ -1229,7 +1236,7 @@ func (r *gitRepository) GetResources(hash plumbing.Hash) (map[string]string, err
 
 // findLatestPackageCommit returns the latest commit from the history that pertains
 // to the package given by the packagePath. If no commit is found, it will return nil.
-func (r *gitRepository) findLatestPackageCommit(ctx context.Context, startCommit *object.Commit, packagePath string) (*object.Commit, error) {
+func (r *gitRepository) findLatestPackageCommit(startCommit *object.Commit, packagePath string) (*object.Commit, error) {
 	var commit *object.Commit
 	err := r.packageHistoryIterator(startCommit, packagePath, func(c *object.Commit) error {
 		commit = c
@@ -1330,15 +1337,15 @@ func (r *gitRepository) storeTree(tree *object.Tree) (plumbing.Hash, error) {
 }
 
 func (r *gitRepository) GetLifecycle(ctx context.Context, pkgRev *gitPackageRevision) v1alpha1.PackageRevisionLifecycle {
-	ctx, span := tracer.Start(ctx, "GitRepository::GetLifecycle", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "gitRepository::GetLifecycle", trace.WithAttributes())
 	defer span.End()
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	return r.getLifecycle(ctx, pkgRev)
+	return r.getLifecycle(pkgRev)
 }
 
-func (r *gitRepository) getLifecycle(ctx context.Context, pkgRev *gitPackageRevision) v1alpha1.PackageRevisionLifecycle {
+func (r *gitRepository) getLifecycle(pkgRev *gitPackageRevision) v1alpha1.PackageRevisionLifecycle {
 	switch ref := pkgRev.ref; {
 	case ref == nil:
 		return r.checkPublishedLifecycle(pkgRev)
@@ -1368,12 +1375,13 @@ func (r *gitRepository) checkPublishedLifecycle(pkgRev *gitPackageRevision) v1al
 }
 
 func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageRevision, newLifecycle v1alpha1.PackageRevisionLifecycle) error {
-	ctx, span := tracer.Start(ctx, "GitRepository::UpdateLifecycle", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "gitRepository::UpdateLifecycle", trace.WithAttributes())
 	defer span.End()
+
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	old := r.getLifecycle(ctx, pkgRev)
+	old := r.getLifecycle(pkgRev)
 	if !v1alpha1.LifecycleIsPublished(old) {
 		return fmt.Errorf("cannot update lifecycle for draft package revision")
 	}
@@ -1409,7 +1417,7 @@ func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageR
 }
 
 func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPackageRevisionDraft, new *v1alpha1.PackageRevisionResources, change *v1alpha1.Task) error {
-	ctx, span := tracer.Start(ctx, "gitPackageDraft::UpdateResources", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "gitRepository::UpdateResources", trace.WithAttributes())
 	defer span.End()
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
@@ -1464,7 +1472,7 @@ func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPack
 }
 
 func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version string) (repository.PackageRevision, error) {
-	ctx, span := tracer.Start(ctx, "GitRepository::UpdateLifecycle", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "gitRepository::ClosePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
 
 	r.mutex.Lock()
@@ -1590,6 +1598,8 @@ func (r *gitRepository) doGitWithAuth(ctx context.Context, op func(transport.Aut
 }
 
 func (r *gitRepository) commitPackageToMain(ctx context.Context, d *gitPackageRevisionDraft) (commitHash, newPackageTreeHash plumbing.Hash, base *plumbing.Reference, err error) {
+	ctx, span := tracer.Start(ctx, "gitRepository::commitPackageToMain", trace.WithAttributes())
+	defer span.End()
 	branch := r.branch
 	localRef := branch.RefInLocal()
 
@@ -1713,10 +1723,10 @@ func reverseSlice(s []v1alpha1.Task) {
 	}
 }
 
-func getPkgWorkspace(ctx context.Context, commit *object.Commit, p *packageListEntry, ref *plumbing.Reference) (v1alpha1.WorkspaceName, error) {
+func getPkgWorkspace(commit *object.Commit, p *packageListEntry, ref *plumbing.Reference) (v1alpha1.WorkspaceName, error) {
 	if ref == nil || (!isTagInLocalRepo(ref.Name()) && !isDraftBranchNameInLocal(ref.Name()) && !isProposedBranchNameInLocal(ref.Name())) {
 		// packages on the main branch may have unrelated commits, we need to find the latest commit relevant to this package
-		c, err := p.parent.parent.findLatestPackageCommit(ctx, p.parent.commit, p.path)
+		c, err := p.parent.parent.findLatestPackageCommit(p.parent.commit, p.path)
 		if err != nil {
 			return "", err
 		}

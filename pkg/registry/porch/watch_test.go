@@ -97,6 +97,6 @@ func (f *fakePackageReader) watchPackages(ctx context.Context, filter packageRev
 	return nil
 }
 
-func (f *fakePackageReader) listPackageRevisions(ctx context.Context, filter packageRevisionFilter, selector labels.Selector, callback func(p repository.PackageRevision) error) error {
+func (f *fakePackageReader) listPackageRevisions(ctx context.Context, filter packageRevisionFilter, selector labels.Selector, callback func(ctx context.Context, p repository.PackageRevision) error) error {
 	return nil
 }

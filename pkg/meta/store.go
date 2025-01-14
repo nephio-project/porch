@@ -76,7 +76,7 @@ func (c *crdMetadataStore) Get(ctx context.Context, namespacedName types.Namespa
 		return metav1.ObjectMeta{}, err
 	}
 
-	return toPackageRevisionMeta(&internalPkgRev), nil
+	return toPackageRevisionMeta(ctx, &internalPkgRev), nil
 }
 
 func (c *crdMetadataStore) List(ctx context.Context, repo *configapi.Repository) ([]metav1.ObjectMeta, error) {
@@ -90,7 +90,7 @@ func (c *crdMetadataStore) List(ctx context.Context, repo *configapi.Repository)
 	}
 	var pkgRevMetas []metav1.ObjectMeta
 	for _, ipr := range internalPkgRevList.Items {
-		pkgRevMetas = append(pkgRevMetas, toPackageRevisionMeta(&ipr))
+		pkgRevMetas = append(pkgRevMetas, toPackageRevisionMeta(ctx, &ipr))
 	}
 	return pkgRevMetas, nil
 }
@@ -131,7 +131,7 @@ func (c *crdMetadataStore) Create(ctx context.Context, pkgRevMeta metav1.ObjectM
 		}
 		return metav1.ObjectMeta{}, err
 	}
-	return toPackageRevisionMeta(&internalPkgRev), nil
+	return toPackageRevisionMeta(ctx, &internalPkgRev), nil
 }
 
 func (c *crdMetadataStore) Update(ctx context.Context, pkgRevMeta metav1.ObjectMeta) (metav1.ObjectMeta, error) {
@@ -175,7 +175,7 @@ func (c *crdMetadataStore) Update(ctx context.Context, pkgRevMeta metav1.ObjectM
 	if err := c.coreClient.Update(ctx, &internalPkgRev); err != nil {
 		return metav1.ObjectMeta{}, err
 	}
-	return toPackageRevisionMeta(&internalPkgRev), nil
+	return toPackageRevisionMeta(ctx, &internalPkgRev), nil
 }
 
 func (c *crdMetadataStore) Delete(ctx context.Context, namespacedName types.NamespacedName, clearFinalizers bool) (metav1.ObjectMeta, error) {
@@ -205,10 +205,13 @@ func (c *crdMetadataStore) Delete(ctx context.Context, namespacedName types.Name
 	if err := c.coreClient.Delete(ctx, &internalPkgRev); err != nil {
 		return metav1.ObjectMeta{}, err
 	}
-	return toPackageRevisionMeta(&internalPkgRev), nil
+	return toPackageRevisionMeta(ctx, &internalPkgRev), nil
 }
 
-func toPackageRevisionMeta(internalPkgRev *internalapi.PackageRev) metav1.ObjectMeta {
+func toPackageRevisionMeta(ctx context.Context, internalPkgRev *internalapi.PackageRev) metav1.ObjectMeta {
+	ctx, span := tracer.Start(ctx, "store.go::toPackageRevisionMeta", trace.WithAttributes())
+	defer span.End()
+
 	labels := internalPkgRev.Labels
 	delete(labels, PkgRevisionRepoLabel)
 

@@ -38,7 +38,7 @@ type evalFunctionMutation struct {
 }
 
 func (m *evalFunctionMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
-	ctx, span := tracer.Start(ctx, "evalFunctionMutation::Apply", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "evalFunctionMutation::apply", trace.WithAttributes())
 	defer span.End()
 
 	e := m.task.Eval
