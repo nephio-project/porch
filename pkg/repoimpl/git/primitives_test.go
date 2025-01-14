@@ -438,7 +438,7 @@ func initRepositoryWithRemote(t *testing.T, dir, address string) *git.Repository
 	return repo
 }
 
-func createTestCommit(t *testing.T, repo *git.Repository, parent plumbing.Hash, message, name, contents string) plumbing.Hash {
+func createTestCommit(t *testing.T, repo *git.Repository, parent plumbing.Hash, _, name, contents string) plumbing.Hash {
 	wt, err := repo.Worktree()
 	if err != nil {
 		t.Fatalf("Failed getting worktree: %v", err)
