@@ -31,6 +31,7 @@ import (
 	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/registry/porch"
+	repoimpltypes "github.com/nephio-project/porch/pkg/repoimpl/types"
 	"google.golang.org/api/option"
 	"google.golang.org/api/sts/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -228,11 +229,14 @@ func (c completedConfig) New() (*PorchServer, error) {
 
 	watcherMgr := engine.NewWatcherManager()
 
-	memoryCache := memorycache.NewCache(c.ExtraConfig.CacheDirectory, c.ExtraConfig.RepoSyncFrequency, c.ExtraConfig.UseUserDefinedCaBundle, memorycache.CacheOptions{
-		CredentialResolver: credentialResolver,
-		UserInfoProvider:   userInfoProvider,
-		MetadataStore:      metadataStore,
-		ObjectNotifier:     watcherMgr,
+	memoryCache := memorycache.NewCache(repoimpltypes.RepoImplOptions{
+		LocalDirectory:         c.ExtraConfig.CacheDirectory,
+		RepoSyncFrequency:      c.ExtraConfig.RepoSyncFrequency,
+		UseUserDefinedCaBundle: c.ExtraConfig.UseUserDefinedCaBundle,
+		CredentialResolver:     credentialResolver,
+		UserInfoProvider:       userInfoProvider,
+		MetadataStore:          metadataStore,
+		ObjectNotifier:         watcherMgr,
 	})
 
 	runnerOptionsResolver := func(namespace string) fnruntime.RunnerOptions {

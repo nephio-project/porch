@@ -22,8 +22,8 @@ import (
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/engine"
+	"github.com/nephio-project/porch/pkg/repoimpl/fake"
 	"github.com/nephio-project/porch/pkg/repository"
-	"github.com/nephio-project/porch/pkg/repository/fake"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
