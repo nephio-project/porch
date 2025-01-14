@@ -27,9 +27,10 @@ import (
 	"github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 
 	fakecache "github.com/nephio-project/porch/pkg/cache/fake"
-	"github.com/nephio-project/porch/pkg/git"
 	"github.com/nephio-project/porch/pkg/meta"
 	fakemeta "github.com/nephio-project/porch/pkg/meta/fake"
+	"github.com/nephio-project/porch/pkg/repoimpl/git"
+	repoimpltypes "github.com/nephio-project/porch/pkg/repoimpl/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
@@ -37,7 +38,7 @@ import (
 
 func TestLatestPackages(t *testing.T) {
 	ctx := context.Background()
-	testPath := filepath.Join("..", "..", "git", "testdata")
+	testPath := filepath.Join("..", "..", "repoimpl", "git", "testdata")
 
 	cachedRepo := openRepositoryFromArchive(t, ctx, testPath, "nested")
 
@@ -83,7 +84,7 @@ func TestLatestPackages(t *testing.T) {
 
 func TestPublishedLatest(t *testing.T) {
 	ctx := context.Background()
-	testPath := filepath.Join("..", "..", "git", "testdata")
+	testPath := filepath.Join("..", "..", "repoimpl", "git", "testdata")
 	cachedRepo := openRepositoryFromArchive(t, ctx, testPath, "nested")
 
 	revisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
@@ -129,7 +130,7 @@ func TestPublishedLatest(t *testing.T) {
 
 func TestDeletePublishedMain(t *testing.T) {
 	ctx := context.Background()
-	testPath := filepath.Join("../..", "git", "testdata")
+	testPath := filepath.Join("../..", "repoimpl", "git", "testdata")
 	cachedRepo := openRepositoryFromArchive(t, ctx, testPath, "nested")
 
 	revisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
@@ -223,10 +224,13 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 	_, address := git.ServeGitRepository(t, tarfile, tempdir)
 	metadataStore := createMetadataStoreFromArchive(t, fmt.Sprintf("%s-metadata.yaml", name), name)
 
-	cache := NewCache(t.TempDir(), 60*time.Second, true, CacheOptions{
-		MetadataStore:      metadataStore,
-		ObjectNotifier:     &fakecache.ObjectNotifier{},
-		CredentialResolver: &fakecache.CredentialResolver{},
+	cache := NewCache(repoimpltypes.RepoImplOptions{
+		LocalDirectory:         t.TempDir(),
+		RepoSyncFrequency:      60 * time.Second,
+		UseUserDefinedCaBundle: true,
+		MetadataStore:          metadataStore,
+		ObjectNotifier:         &fakecache.ObjectNotifier{},
+		CredentialResolver:     &fakecache.CredentialResolver{},
 	})
 	apiRepo := &v1alpha1.Repository{
 		TypeMeta: metav1.TypeMeta{
