@@ -16,19 +16,35 @@ package cachetypes
 
 import (
 	"context"
+	"time"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/pkg/meta"
 	repoimpltypes "github.com/nephio-project/porch/pkg/repoimpl/types"
 	"github.com/nephio-project/porch/pkg/repository"
+	"k8s.io/apimachinery/pkg/watch"
 )
+
+type CacheOptions struct {
+	RepoImplOptions      repoimpltypes.RepoImplOptions
+	RepoSyncFrequency    time.Duration
+	MetadataStore        meta.MetadataStore
+	RepoPRChangeNotifier RepoPRChangeNotifier
+	Driver               string
+	DataSource           string
+}
 
 type Cache interface {
 	OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (repository.Repository, error)
 	CloseRepository(ctx context.Context, repositorySpec *configapi.Repository, allRepos []configapi.Repository) error
 	GetRepositories(ctx context.Context) []configapi.Repository
-	GetRepository(ctx context.Context, repositoryName string) *configapi.Repository
+	UpdateRepository(ctx context.Context, repositorySpec *configapi.Repository) error
 }
 
 type CacheFactory interface {
-	NewCache(ctx context.Context, options repoimpltypes.RepoImplOptions) (Cache, error)
+	NewCache(ctx context.Context, options CacheOptions) (Cache, error)
+}
+
+type RepoPRChangeNotifier interface {
+	NotifyPackageRevisionChange(eventType watch.EventType, obj repository.PackageRevision) int
 }

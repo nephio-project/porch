@@ -16,12 +16,12 @@ package memorycache
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repoimpl"
-	repoimpltypes "github.com/nephio-project/porch/pkg/repoimpl/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -42,7 +42,7 @@ var tracer = otel.Tracer("memorycache")
 type Cache struct {
 	mutex        sync.Mutex
 	repositories map[string]*cachedRepository
-	options      repoimpltypes.RepoImplOptions
+	options      cachetypes.CacheOptions
 }
 
 var _ cachetypes.Cache = &Cache{}
@@ -68,7 +68,7 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 		}
 	}
 
-	repoImpl, err := repoimpl.CreateRepositoryImpl(ctx, repositorySpec, c.options)
+	repoImpl, err := repoimpl.CreateRepositoryImpl(ctx, repositorySpec, c.options.RepoImplOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -77,6 +77,10 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 	c.repositories[key] = cachedRepo
 
 	return cachedRepo, nil
+}
+
+func (c *Cache) UpdateRepository(ctx context.Context, repositorySpec *configapi.Repository) error {
+	return errors.New("update on memory cached repositories is not supported")
 }
 
 func (c *Cache) CloseRepository(ctx context.Context, repositorySpec *configapi.Repository, allRepos []configapi.Repository) error {
@@ -127,12 +131,4 @@ func (c *Cache) GetRepositories(ctx context.Context) []configapi.Repository {
 		repoSlice = append(repoSlice, *repo.repoSpec)
 	}
 	return repoSlice
-}
-
-func (c *Cache) GetRepository(ctx context.Context, repositoryName string) *configapi.Repository {
-	if repo := c.repositories[repositoryName]; repo != nil {
-		return repo.repoSpec
-	} else {
-		return nil
-	}
 }

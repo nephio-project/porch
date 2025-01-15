@@ -16,12 +16,9 @@ package repoimpltypes
 
 import (
 	"context"
-	"time"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/repository"
-	"k8s.io/apimachinery/pkg/watch"
 )
 
 type RepoImplFactory interface {
@@ -30,14 +27,7 @@ type RepoImplFactory interface {
 
 type RepoImplOptions struct {
 	LocalDirectory         string
-	RepoSyncFrequency      time.Duration
 	UseUserDefinedCaBundle bool
 	CredentialResolver     repository.CredentialResolver
 	UserInfoProvider       repository.UserInfoProvider
-	MetadataStore          meta.MetadataStore
-	RepoPRNotifier         RepoPRNotifier
-}
-
-type RepoPRNotifier interface {
-	NotifyPackageRevisionChange(eventType watch.EventType, obj repository.PackageRevision) int
 }
