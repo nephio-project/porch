@@ -377,7 +377,7 @@ func schema_porch_api_porch_v1alpha1_FunctionEvalTaskSpec(ref common.ReferenceCa
 					},
 					"image": {
 						SchemaProps: spec.SchemaProps{
-							Description: "`Image` specifies the function image, such as `gcr.io/kpt-fn/gatekeeper:v0.2`. Use of `Image` is mutually exclusive with `FunctionRef`.",
+							Description: "`Image` specifies the function image, such as `gcr.io/kpt-fn/gatekeeper:v0.2`.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

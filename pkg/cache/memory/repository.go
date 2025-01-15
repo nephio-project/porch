@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package memory
+package memorycache
 
 import (
 	"context"
@@ -24,7 +24,6 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	repoimpltypes "github.com/nephio-project/porch/pkg/repoimpl/types"
 	"github.com/nephio-project/porch/pkg/repository"
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,8 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog/v2"
 )
-
-var tracer = otel.Tracer("cache")
 
 // We take advantage of the cache having a global view of all the packages
 // in a repository and compute the latest package revision in the cache
@@ -378,7 +375,7 @@ func (r *cachedRepository) Close() error {
 			klog.Warningf("repo %s: error deleting packagerev for %s: %v", r.id, nn.Name, err)
 		}
 		klog.Infof("repo %s: successfully deleted packagerev %s/%s", r.id, nn.Namespace, nn.Name)
-		sent += r.options.ObjectNotifier.NotifyPackageRevisionChange(watch.Deleted, pr)
+		sent += r.options.RepoPRNotifier.NotifyPackageRevisionChange(watch.Deleted, pr)
 	}
 	klog.Infof("repo %s: sent %d notifications for %d package revisions during close", r.id, sent, len(r.cachedPackageRevisions))
 	return r.repo.Close()
@@ -514,10 +511,10 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 	for kname, newPackage := range newPackageRevisionNames {
 		oldPackage := oldPackageRevisionNames[kname]
 		if oldPackage == nil {
-			addSent += r.options.ObjectNotifier.NotifyPackageRevisionChange(watch.Added, newPackage)
+			addSent += r.options.RepoPRNotifier.NotifyPackageRevisionChange(watch.Added, newPackage)
 		} else {
 			if oldPackage.ResourceVersion() != newPackage.ResourceVersion() {
-				modSent += r.options.ObjectNotifier.NotifyPackageRevisionChange(watch.Modified, newPackage)
+				modSent += r.options.RepoPRNotifier.NotifyPackageRevisionChange(watch.Modified, newPackage)
 			}
 		}
 	}
@@ -550,7 +547,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 			}
 			klog.Infof("repo %s: deleting PackageRev %s/%s because PackageRevision was removed from SoT",
 				r.id, nn.Namespace, nn.Name)
-			delSent += r.options.ObjectNotifier.NotifyPackageRevisionChange(watch.Deleted, oldPackage)
+			delSent += r.options.RepoPRNotifier.NotifyPackageRevisionChange(watch.Deleted, oldPackage)
 		}
 	}
 	klog.Infof("repo %s: addSent %d, modSent %d, delSent for %d old and %d new repo packages", r.id, addSent, modSent, len(oldPackageRevisionNames), len(newPackageRevisionNames))

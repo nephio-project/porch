@@ -30,20 +30,24 @@ import (
 
 var tracer = otel.Tracer("repoimpl")
 
-func RepositoryFactory(ctx context.Context, repositorySpec *configapi.Repository, options repoimpltypes.RepoImplOptions) (repository.Repository, error) {
+func CreateRepositoryImpl(ctx context.Context, repositorySpec *configapi.Repository, options repoimpltypes.RepoImplOptions) (repository.Repository, error) {
 	ctx, span := tracer.Start(ctx, "Repository::RepositoryFactory", trace.WithAttributes())
 	defer span.End()
 
+	var repoFactory repoimpltypes.RepoImplFactory
+
 	switch repositoryType := repositorySpec.Spec.Type; repositoryType {
 	case configapi.RepositoryTypeOCI:
-		return oci.GetRepositoryImpl(ctx, repositorySpec, options)
+		repoFactory = new(oci.OciRepoFactory)
 
 	case configapi.RepositoryTypeGit:
-		return git.GetRepositoryImpl(ctx, repositorySpec, options)
+		repoFactory = new(git.GitRepoFactory)
 
 	default:
 		return nil, fmt.Errorf("type %q not supported", repositoryType)
 	}
+
+	return repoFactory.NewRepositoryImpl(ctx, repositorySpec, options)
 }
 
 func RepositoryKey(repositorySpec *configapi.Repository) (string, error) {

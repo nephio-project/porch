@@ -27,7 +27,7 @@ import (
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/pkg/cache"
-	memorycache "github.com/nephio-project/porch/pkg/cache/memory"
+	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/registry/porch"
@@ -95,7 +95,7 @@ type Config struct {
 type PorchServer struct {
 	GenericAPIServer          *genericapiserver.GenericAPIServer
 	coreClient                client.WithWatch
-	cache                     cache.Cache
+	cache                     cachetypes.Cache
 	PeriodicRepoSyncFrequency time.Duration
 }
 
@@ -229,15 +229,17 @@ func (c completedConfig) New() (*PorchServer, error) {
 
 	watcherMgr := engine.NewWatcherManager()
 
-	memoryCache := memorycache.NewCache(repoimpltypes.RepoImplOptions{
-		LocalDirectory:         c.ExtraConfig.CacheDirectory,
-		RepoSyncFrequency:      c.ExtraConfig.RepoSyncFrequency,
-		UseUserDefinedCaBundle: c.ExtraConfig.UseUserDefinedCaBundle,
-		CredentialResolver:     credentialResolver,
-		UserInfoProvider:       userInfoProvider,
-		MetadataStore:          metadataStore,
-		ObjectNotifier:         watcherMgr,
-	})
+	cache, err := cache.CreateCacheImpl(
+		context.TODO(),
+		repoimpltypes.RepoImplOptions{
+			LocalDirectory:         c.ExtraConfig.CacheDirectory,
+			RepoSyncFrequency:      c.ExtraConfig.RepoSyncFrequency,
+			UseUserDefinedCaBundle: c.ExtraConfig.UseUserDefinedCaBundle,
+			CredentialResolver:     credentialResolver,
+			UserInfoProvider:       userInfoProvider,
+			MetadataStore:          metadataStore,
+			RepoPRNotifier:         watcherMgr,
+		})
 
 	runnerOptionsResolver := func(namespace string) fnruntime.RunnerOptions {
 		runnerOptions := fnruntime.RunnerOptions{}
@@ -247,7 +249,7 @@ func (c completedConfig) New() (*PorchServer, error) {
 	}
 
 	cad, err := engine.NewCaDEngine(
-		engine.WithCache(memoryCache),
+		engine.WithCache(cache),
 		// The order of registering the function runtimes matters here. When
 		// evaluating a function, the runtimes will be tried in the same
 		// order as they are registered.
@@ -272,7 +274,7 @@ func (c completedConfig) New() (*PorchServer, error) {
 	s := &PorchServer{
 		GenericAPIServer: genericServer,
 		coreClient:       coreClient,
-		cache:            memoryCache,
+		cache:            cache,
 		// Set background job periodic frequency the same as repo sync frequency.
 		PeriodicRepoSyncFrequency: c.ExtraConfig.RepoSyncFrequency,
 	}

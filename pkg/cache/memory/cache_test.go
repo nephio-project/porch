@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package memory
+package memorycache
 
 import (
 	"context"
@@ -224,12 +224,12 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 	_, address := git.ServeGitRepository(t, tarfile, tempdir)
 	metadataStore := createMetadataStoreFromArchive(t, fmt.Sprintf("%s-metadata.yaml", name), name)
 
-	cache := NewCache(repoimpltypes.RepoImplOptions{
+	cache, _ := new(MemoryCacheFactory).NewCache(ctx, repoimpltypes.RepoImplOptions{
 		LocalDirectory:         t.TempDir(),
 		RepoSyncFrequency:      60 * time.Second,
 		UseUserDefinedCaBundle: true,
 		MetadataStore:          metadataStore,
-		ObjectNotifier:         &fakecache.ObjectNotifier{},
+		RepoPRNotifier:         &fakecache.ObjectNotifier{},
 		CredentialResolver:     &fakecache.CredentialResolver{},
 	})
 	apiRepo := &v1alpha1.Repository{
@@ -259,7 +259,7 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 		if err != nil {
 			t.Errorf("CloseRepository(%q) failed: %v", address, err)
 		}
-		if len(cache.repositories) != 0 {
+		if len(cache.GetRepositories(ctx)) != 0 {
 			t.Errorf("CloseRepository hasn't deleted repository from cache")
 		}
 	})

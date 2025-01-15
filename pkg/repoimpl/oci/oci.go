@@ -21,47 +21,22 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/GoogleContainerTools/kpt/pkg/oci"
-	kptoci "github.com/GoogleContainerTools/kpt/pkg/oci"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/google"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
-	repoimpltypes "github.com/nephio-project/porch/pkg/repoimpl/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 )
-
-func GetRepositoryImpl(ctx context.Context, repositorySpec *configapi.Repository, options repoimpltypes.RepoImplOptions) (repository.Repository, error) {
-	if repositorySpec.Spec.Oci == nil {
-		return nil, fmt.Errorf("oci not configured")
-	}
-
-	ociSpec := repositorySpec.Spec.Oci
-	localDir := filepath.Join(options.LocalDirectory, "oci")
-	storage, err := kptoci.NewStorage(localDir)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ociRepository{
-		name:       repositorySpec.Name,
-		namespace:  repositorySpec.Namespace,
-		spec:       *ociSpec.DeepCopy(),
-		deployment: repositorySpec.Spec.Deployment,
-		storage:    storage,
-	}, nil
-
-}
 
 type ociRepository struct {
 	name       string

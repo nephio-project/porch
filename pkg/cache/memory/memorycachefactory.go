@@ -1,4 +1,4 @@
-// Copyright 2024 The Nephio Authors
+// Copyright 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,24 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cache
+package memorycache
 
 import (
 	"context"
 
-	memorycache "github.com/nephio-project/porch/pkg/cache/memory"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	repoimpltypes "github.com/nephio-project/porch/pkg/repoimpl/types"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/trace"
 )
 
-var tracer = otel.Tracer("cache")
+var _ cachetypes.CacheFactory = &MemoryCacheFactory{}
 
-func CreateCacheImpl(ctx context.Context, options repoimpltypes.RepoImplOptions) (cachetypes.Cache, error) {
-	ctx, span := tracer.Start(ctx, "Repository::RepositoryFactory", trace.WithAttributes())
-	defer span.End()
+type MemoryCacheFactory struct {
+}
 
-	var cacheFactory = new(memorycache.MemoryCacheFactory)
-	return cacheFactory.NewCache(ctx, options)
+func (f *MemoryCacheFactory) NewCache(_ context.Context, options repoimpltypes.RepoImplOptions) (cachetypes.Cache, error) {
+	return &Cache{
+		repositories: make(map[string]*cachedRepository),
+		options:      options,
+	}, nil
 }
