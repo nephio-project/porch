@@ -88,3 +88,7 @@ func (r *Repository) DeletePackage(_ context.Context, pr repository.Package) err
 func (r *Repository) Refresh(_ context.Context) error {
 	return nil
 }
+
+func (r *Repository) Key() string {
+	return ""
+}

@@ -23,7 +23,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/nephio-project/porch/pkg/git"
+	"github.com/nephio-project/porch/pkg/repoimpl/git"
 	"k8s.io/klog/v2"
 )
 

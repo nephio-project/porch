@@ -20,6 +20,7 @@ import (
 	"k8s.io/klog/v2"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 )
 
 // TODO: Add connection pooling
@@ -36,7 +37,7 @@ type DBConnection struct {
 
 var dbConnection *DBConnection = nil
 
-func OpenDBConnection(opts CacheOptions) error {
+func OpenDBConnection(opts cachetypes.CacheOptions) error {
 	klog.Infof("DBConnection: %s %s", opts.Driver, opts.DataSource)
 
 	if dbConnection != nil {

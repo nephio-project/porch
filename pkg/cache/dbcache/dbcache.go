@@ -16,68 +16,20 @@ package dbcache
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/pkg/cache"
-	"github.com/nephio-project/porch/pkg/meta"
+	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
-	"k8s.io/apimachinery/pkg/watch"
 )
 
-var _ cache.Cache = &dbCache{}
+var _ cachetypes.Cache = &dbCache{}
 var tracer = otel.Tracer("dbcache")
 
-// Cache allows us to keep state for repositories, rather than querying them every time.
-//
-// Cache Structure:
-// <cacheDir>/git/
-// * Caches bare git repositories in directories named based on the repository address.
-// <cacheDir>/oci/
-// * Caches oci images with further hierarchy underneath
-// * We Cache image layers in <cacheDir>/oci/layers/ (this might be obsolete with the flattened Cache)
-// * We Cache flattened tar files in <cacheDir>/oci/ (so we don't need to pull to read resources)
-// * We poll the repositories (every minute) and Cache the discovered images in memory.
 type dbCache struct {
-	mutex              sync.Mutex
-	cacheDir           string
-	credentialResolver repository.CredentialResolver
-	userInfoProvider   repository.UserInfoProvider
-	repoSyncFrequency  time.Duration
-	objectNotifier     objectNotifier
-	useGitCaBundle     bool
-}
-
-type objectNotifier interface {
-	NotifyPackageRevisionChange(eventType watch.EventType, obj repository.PackageRevision) int
-}
-
-type CacheOptions struct {
-	Driver             string
-	DataSource         string
-	CredentialResolver repository.CredentialResolver
-	UserInfoProvider   repository.UserInfoProvider
-	MetadataStore      meta.MetadataStore
-	ObjectNotifier     objectNotifier
-}
-
-func NewCache(cacheDir string, repoSyncFrequency time.Duration, useGitCaBundle bool, opts CacheOptions) cache.Cache {
-
-	if err := OpenDBConnection(opts); err != nil {
-		return nil
-	}
-
-	return &dbCache{
-		cacheDir:           cacheDir,
-		credentialResolver: opts.CredentialResolver,
-		userInfoProvider:   opts.UserInfoProvider,
-		objectNotifier:     opts.ObjectNotifier,
-		repoSyncFrequency:  repoSyncFrequency,
-		useGitCaBundle:     useGitCaBundle,
-	}
+	options cachetypes.CacheOptions
 }
 
 func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (repository.Repository, error) {
@@ -130,4 +82,11 @@ func (c *dbCache) CloseRepository(ctx context.Context, repositorySpec *configapi
 	} else {
 		return err
 	}
+}
+
+func (c *dbCache) GetRepositories(ctx context.Context) []configapi.Repository {
+	_, span := tracer.Start(ctx, "dbCache::GetRepositories", trace.WithAttributes())
+	defer span.End()
+
+	return []configapi.Repository{}
 }
