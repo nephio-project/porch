@@ -38,17 +38,6 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func OpenRepository(name string, namespace string, spec *configapi.OciRepository, deployment bool, storage *oci.Storage) (repository.Repository, error) {
-	return &ociRepository{
-		name:       name,
-		namespace:  namespace,
-		spec:       *spec.DeepCopy(),
-		deployment: deployment,
-		storage:    storage,
-	}, nil
-
-}
-
 type ociRepository struct {
 	name       string
 	namespace  string
@@ -247,6 +236,10 @@ func (r *ociRepository) buildPackageRevision(ctx context.Context, name oci.Image
 
 func (r *ociRepository) Refresh(_ context.Context) error {
 	return nil
+}
+
+func (r *ociRepository) Key() string {
+	return "oci://" + r.spec.Registry
 }
 
 // ToMainPackageRevision implements repository.PackageRevision.

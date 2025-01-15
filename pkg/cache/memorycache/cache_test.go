@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package memory
+package memorycache
 
 import (
 	"context"
@@ -27,9 +27,11 @@ import (
 	"github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 
 	fakecache "github.com/nephio-project/porch/pkg/cache/fake"
-	"github.com/nephio-project/porch/pkg/git"
+	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/meta"
 	fakemeta "github.com/nephio-project/porch/pkg/meta/fake"
+	"github.com/nephio-project/porch/pkg/repoimpl/git"
+	repoimpltypes "github.com/nephio-project/porch/pkg/repoimpl/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
@@ -37,7 +39,7 @@ import (
 
 func TestLatestPackages(t *testing.T) {
 	ctx := context.Background()
-	testPath := filepath.Join("..", "..", "git", "testdata")
+	testPath := filepath.Join("..", "..", "repoimpl", "git", "testdata")
 
 	cachedRepo := openRepositoryFromArchive(t, ctx, testPath, "nested")
 
@@ -83,7 +85,7 @@ func TestLatestPackages(t *testing.T) {
 
 func TestPublishedLatest(t *testing.T) {
 	ctx := context.Background()
-	testPath := filepath.Join("..", "..", "git", "testdata")
+	testPath := filepath.Join("..", "..", "repoimpl", "git", "testdata")
 	cachedRepo := openRepositoryFromArchive(t, ctx, testPath, "nested")
 
 	revisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
@@ -129,7 +131,7 @@ func TestPublishedLatest(t *testing.T) {
 
 func TestDeletePublishedMain(t *testing.T) {
 	ctx := context.Background()
-	testPath := filepath.Join("../..", "git", "testdata")
+	testPath := filepath.Join("../..", "repoimpl", "git", "testdata")
 	cachedRepo := openRepositoryFromArchive(t, ctx, testPath, "nested")
 
 	revisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
@@ -223,10 +225,15 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 	_, address := git.ServeGitRepository(t, tarfile, tempdir)
 	metadataStore := createMetadataStoreFromArchive(t, fmt.Sprintf("%s-metadata.yaml", name), name)
 
-	cache := NewCache(t.TempDir(), 60*time.Second, true, CacheOptions{
-		MetadataStore:      metadataStore,
-		ObjectNotifier:     &fakecache.ObjectNotifier{},
-		CredentialResolver: &fakecache.CredentialResolver{},
+	cache, _ := new(MemoryCacheFactory).NewCache(ctx, cachetypes.CacheOptions{
+		RepoImplOptions: repoimpltypes.RepoImplOptions{
+			LocalDirectory:         t.TempDir(),
+			UseUserDefinedCaBundle: true,
+			CredentialResolver:     &fakecache.CredentialResolver{},
+		},
+		RepoSyncFrequency:    60 * time.Second,
+		MetadataStore:        metadataStore,
+		RepoPRChangeNotifier: &fakecache.ObjectNotifier{},
 	})
 	apiRepo := &v1alpha1.Repository{
 		TypeMeta: metav1.TypeMeta{
@@ -255,7 +262,7 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 		if err != nil {
 			t.Errorf("CloseRepository(%q) failed: %v", address, err)
 		}
-		if len(cache.repositories) != 0 {
+		if len(cache.GetRepositories(ctx)) != 0 {
 			t.Errorf("CloseRepository hasn't deleted repository from cache")
 		}
 	})

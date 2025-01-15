@@ -39,6 +39,7 @@ import (
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	repoimpltypes "github.com/nephio-project/porch/pkg/repoimpl/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -68,10 +69,8 @@ const (
 )
 
 type GitRepositoryOptions struct {
-	CredentialResolver     repository.CredentialResolver
-	UserInfoProvider       repository.UserInfoProvider
-	MainBranchStrategy     MainBranchStrategy
-	UseUserDefinedCaBundle bool
+	repoimpltypes.RepoImplOptions
+	MainBranchStrategy MainBranchStrategy
 }
 
 func OpenRepository(ctx context.Context, name, namespace string, spec *configapi.GitRepository, deployment bool, root string, opts GitRepositoryOptions) (GitRepository, error) {
@@ -136,14 +135,14 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 		branch:             branch,
 		directory:          strings.Trim(spec.Directory, "/"),
 		secret:             spec.SecretRef.Name,
-		credentialResolver: opts.CredentialResolver,
-		userInfoProvider:   opts.UserInfoProvider,
+		credentialResolver: opts.RepoImplOptions.CredentialResolver,
+		userInfoProvider:   opts.RepoImplOptions.UserInfoProvider,
 		cacheDir:           dir,
 		deployment:         deployment,
 	}
 
-	if opts.UseUserDefinedCaBundle {
-		if caBundle, err := opts.CredentialResolver.ResolveCredential(ctx, namespace, namespace+"-ca-bundle"); err != nil {
+	if opts.RepoImplOptions.UseUserDefinedCaBundle {
+		if caBundle, err := opts.RepoImplOptions.CredentialResolver.ResolveCredential(ctx, namespace, namespace+"-ca-bundle"); err != nil {
 			klog.Errorf("failed to obtain caBundle from secret %s/%s: %v", namespace, namespace+"-ca-bundle", err)
 		} else {
 			repository.caBundle = []byte(caBundle.ToString())
@@ -1236,7 +1235,7 @@ func (r *gitRepository) GetResources(hash plumbing.Hash) (map[string]string, err
 
 // findLatestPackageCommit returns the latest commit from the history that pertains
 // to the package given by the packagePath. If no commit is found, it will return nil.
-func (r *gitRepository) findLatestPackageCommit(startCommit *object.Commit, packagePath string) (*object.Commit, error) {
+func (r *gitRepository) findLatestPackageCommit(_ context.Context, startCommit *object.Commit, packagePath string) (*object.Commit, error) {
 	var commit *object.Commit
 	err := r.packageHistoryIterator(startCommit, packagePath, func(c *object.Commit) error {
 		commit = c
@@ -1345,7 +1344,7 @@ func (r *gitRepository) GetLifecycle(ctx context.Context, pkgRev *gitPackageRevi
 	return r.getLifecycle(pkgRev)
 }
 
-func (r *gitRepository) getLifecycle(pkgRev *gitPackageRevision) v1alpha1.PackageRevisionLifecycle {
+func (r *gitRepository) getLifecycle(_ context.Context, pkgRev *gitPackageRevision) v1alpha1.PackageRevisionLifecycle {
 	switch ref := pkgRev.ref; {
 	case ref == nil:
 		return r.checkPublishedLifecycle(pkgRev)
@@ -1472,7 +1471,7 @@ func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPack
 }
 
 func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version string) (repository.PackageRevision, error) {
-	ctx, span := tracer.Start(ctx, "GitRepository::ClosePackageRevisionDraft", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "GitRepository::UpdateLifecycle", trace.WithAttributes())
 	defer span.End()
 
 	r.mutex.Lock()
@@ -1708,7 +1707,11 @@ func (r *gitRepository) discoverPackagesInTree(commit *object.Commit, opt Discov
 }
 
 func (r *gitRepository) Refresh(_ context.Context) error {
-	return nil
+	return r.UpdateDeletionProposedCache()
+}
+
+func (r *gitRepository) Key() string {
+	return fmt.Sprintf("git://%s/%s@%s/%s", r.repo, r.directory, r.namespace, r.name)
 }
 
 // See https://eli.thegreenplace.net/2021/generic-functions-on-slices-with-go-type-parameters/

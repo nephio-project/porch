@@ -523,7 +523,6 @@ type PackageRevisionResourcesStatus struct {
 	RenderStatus RenderStatus `json:"renderStatus,omitempty"`
 }
 
-
 // Package
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
