@@ -27,6 +27,7 @@ import (
 	"github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 
 	fakecache "github.com/nephio-project/porch/pkg/cache/fake"
+	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/meta"
 	fakemeta "github.com/nephio-project/porch/pkg/meta/fake"
 	"github.com/nephio-project/porch/pkg/repoimpl/git"
@@ -224,13 +225,15 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 	_, address := git.ServeGitRepository(t, tarfile, tempdir)
 	metadataStore := createMetadataStoreFromArchive(t, fmt.Sprintf("%s-metadata.yaml", name), name)
 
-	cache, _ := new(MemoryCacheFactory).NewCache(ctx, repoimpltypes.RepoImplOptions{
-		LocalDirectory:         t.TempDir(),
-		RepoSyncFrequency:      60 * time.Second,
-		UseUserDefinedCaBundle: true,
-		MetadataStore:          metadataStore,
-		RepoPRNotifier:         &fakecache.ObjectNotifier{},
-		CredentialResolver:     &fakecache.CredentialResolver{},
+	cache, _ := new(MemoryCacheFactory).NewCache(ctx, cachetypes.CacheOptions{
+		RepoImplOptions: repoimpltypes.RepoImplOptions{
+			LocalDirectory:         t.TempDir(),
+			UseUserDefinedCaBundle: true,
+			CredentialResolver:     &fakecache.CredentialResolver{},
+		},
+		RepoSyncFrequency:    60 * time.Second,
+		MetadataStore:        metadataStore,
+		RepoPRChangeNotifier: &fakecache.ObjectNotifier{},
 	})
 	apiRepo := &v1alpha1.Repository{
 		TypeMeta: metav1.TypeMeta{

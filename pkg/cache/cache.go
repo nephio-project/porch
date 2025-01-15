@@ -17,16 +17,15 @@ package cache
 import (
 	"context"
 
-	memorycache "github.com/nephio-project/porch/pkg/cache/memory"
+	memorycache "github.com/nephio-project/porch/pkg/cache/memorycache"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
-	repoimpltypes "github.com/nephio-project/porch/pkg/repoimpl/types"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 )
 
 var tracer = otel.Tracer("cache")
 
-func CreateCacheImpl(ctx context.Context, options repoimpltypes.RepoImplOptions) (cachetypes.Cache, error) {
+func CreateCacheImpl(ctx context.Context, options cachetypes.CacheOptions) (cachetypes.Cache, error) {
 	ctx, span := tracer.Start(ctx, "Repository::RepositoryFactory", trace.WithAttributes())
 	defer span.End()
 
