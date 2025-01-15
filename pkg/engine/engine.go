@@ -23,7 +23,7 @@ import (
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	cache "github.com/nephio-project/porch/pkg/cache"
+	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/task"
@@ -73,7 +73,7 @@ func NewCaDEngine(opts ...EngineOption) (CaDEngine, error) {
 }
 
 type cadEngine struct {
-	cache cache.Cache
+	cache cachetypes.Cache
 
 	userInfoProvider repository.UserInfoProvider
 	metadataStore    meta.MetadataStore

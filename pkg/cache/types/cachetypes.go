@@ -12,32 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package repoimpltypes
+package cachetypes
 
 import (
 	"context"
-	"time"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/pkg/meta"
+	repoimpltypes "github.com/nephio-project/porch/pkg/repoimpl/types"
 	"github.com/nephio-project/porch/pkg/repository"
-	"k8s.io/apimachinery/pkg/watch"
 )
 
-type RepoImplFactory interface {
-	NewRepositoryImpl(ctx context.Context, repositorySpec *configapi.Repository, options RepoImplOptions) (repository.Repository, error)
+type Cache interface {
+	OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (repository.Repository, error)
+	CloseRepository(ctx context.Context, repositorySpec *configapi.Repository, allRepos []configapi.Repository) error
+	GetRepositories(ctx context.Context) []configapi.Repository
+	GetRepository(ctx context.Context, repositoryName string) *configapi.Repository
 }
 
-type RepoImplOptions struct {
-	LocalDirectory         string
-	RepoSyncFrequency      time.Duration
-	UseUserDefinedCaBundle bool
-	CredentialResolver     repository.CredentialResolver
-	UserInfoProvider       repository.UserInfoProvider
-	MetadataStore          meta.MetadataStore
-	RepoPRNotifier         RepoPRNotifier
-}
-
-type RepoPRNotifier interface {
-	NotifyPackageRevisionChange(eventType watch.EventType, obj repository.PackageRevision) int
+type CacheFactory interface {
+	NewCache(ctx context.Context, options repoimpltypes.RepoImplOptions) (Cache, error)
 }

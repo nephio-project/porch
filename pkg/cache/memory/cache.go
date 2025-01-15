@@ -12,19 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package memory
+package memorycache
 
 import (
 	"context"
 	"sync"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/pkg/cache"
+	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repoimpl"
 	repoimpltypes "github.com/nephio-project/porch/pkg/repoimpl/types"
 	"github.com/nephio-project/porch/pkg/repository"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 )
+
+var tracer = otel.Tracer("memorycache")
 
 // Cache allows us to keep state for repositories, rather than querying them every time.
 //
@@ -42,14 +45,7 @@ type Cache struct {
 	options      repoimpltypes.RepoImplOptions
 }
 
-var _ cache.Cache = &Cache{}
-
-func NewCache(options repoimpltypes.RepoImplOptions) *Cache {
-	return &Cache{
-		repositories: make(map[string]*cachedRepository),
-		options:      options,
-	}
-}
+var _ cachetypes.Cache = &Cache{}
 
 func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (repository.Repository, error) {
 	ctx, span := tracer.Start(ctx, "Cache::OpenRepository", trace.WithAttributes())
@@ -72,7 +68,7 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 		}
 	}
 
-	repoImpl, err := repoimpl.RepositoryFactory(ctx, repositorySpec, c.options)
+	repoImpl, err := repoimpl.CreateRepositoryImpl(ctx, repositorySpec, c.options)
 	if err != nil {
 		return nil, err
 	}
@@ -119,6 +115,23 @@ func (c *Cache) CloseRepository(ctx context.Context, repositorySpec *configapi.R
 
 	if repository != nil {
 		return repository.Close()
+	} else {
+		return nil
+	}
+}
+
+func (c *Cache) GetRepositories(ctx context.Context) []configapi.Repository {
+	repoSlice := []configapi.Repository{}
+
+	for _, repo := range c.repositories {
+		repoSlice = append(repoSlice, *repo.repoSpec)
+	}
+	return repoSlice
+}
+
+func (c *Cache) GetRepository(ctx context.Context, repositoryName string) *configapi.Repository {
+	if repo := c.repositories[repositoryName]; repo != nil {
+		return repo.repoSpec
 	} else {
 		return nil
 	}
