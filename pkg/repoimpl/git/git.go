@@ -73,32 +73,6 @@ type GitRepositoryOptions struct {
 	MainBranchStrategy MainBranchStrategy
 }
 
-func GetRepositoryImpl(ctx context.Context, repositorySpec *configapi.Repository, options repoimpltypes.RepoImplOptions) (repository.Repository, error) {
-	if repositorySpec.Spec.Git == nil {
-		return nil, errors.New("git property is required")
-	}
-	if repositorySpec.Spec.Git.Repo == "" {
-		return nil, errors.New("git.repo property is required")
-	}
-
-	var mbs MainBranchStrategy
-	if repositorySpec.Spec.Git.CreateBranch {
-		mbs = CreateIfMissing
-	} else {
-		mbs = ErrorIfMissing
-	}
-
-	repo, err := OpenRepository(ctx, repositorySpec.Name, repositorySpec.Namespace, repositorySpec.Spec.Git, repositorySpec.Spec.Deployment, filepath.Join(options.LocalDirectory, "git"), GitRepositoryOptions{
-		RepoImplOptions:    options,
-		MainBranchStrategy: mbs,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return repo, nil
-}
-
 func OpenRepository(ctx context.Context, name, namespace string, spec *configapi.GitRepository, deployment bool, root string, opts GitRepositoryOptions) (GitRepository, error) {
 	ctx, span := tracer.Start(ctx, "git.go::OpenRepository", trace.WithAttributes())
 	defer span.End()
