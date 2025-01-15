@@ -12,12 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package memory
+package memorycache
 
 import (
-	"context"
-
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
@@ -27,34 +24,16 @@ import (
 // This also reuses the revision comparison code and ensures same behavior
 // between Git and OCI.
 
-var _ repository.PackageRevision = &cachedPackageRevision{}
+var _ repository.Package = &cachedPackage{}
 
-type cachedPackageRevision struct {
-	repository.PackageRevision
-	isLatestRevision bool
+type cachedPackage struct {
+	repository.Package
+	latestPackageRevision string
 }
 
-func (c *cachedPackageRevision) GetPackageRevision(ctx context.Context) (*api.PackageRevision, error) {
-	apiPR, err := c.PackageRevision.GetPackageRevision(ctx)
-	if err != nil {
-		return nil, err
+func (c *cachedPackage) GetLatestRevision() string {
+	if c.latestPackageRevision != "" {
+		return c.latestPackageRevision
 	}
-
-	apiPR.Annotations = c.GetMeta().Annotations
-	apiPR.Finalizers = c.GetMeta().Finalizers
-	apiPR.OwnerReferences = c.GetMeta().OwnerReferences
-	apiPR.DeletionTimestamp = c.GetMeta().DeletionTimestamp
-	apiPR.Labels = c.GetMeta().Labels
-
-	if c.isLatestRevision {
-		// copy the labels in case the cached object is being read by another go routine
-		labels := make(map[string]string, len(apiPR.Labels))
-		for k, v := range apiPR.Labels {
-			labels[k] = v
-		}
-		labels[api.LatestPackageRevisionKey] = api.LatestPackageRevisionValue
-		apiPR.Labels = labels
-	}
-
-	return apiPR, nil
+	return c.Package.GetLatestRevision()
 }
