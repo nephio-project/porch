@@ -18,7 +18,6 @@ import (
 	"context"
 
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
-	repoimpltypes "github.com/nephio-project/porch/pkg/repoimpl/types"
 )
 
 var _ cachetypes.CacheFactory = &MemoryCacheFactory{}
@@ -26,7 +25,7 @@ var _ cachetypes.CacheFactory = &MemoryCacheFactory{}
 type MemoryCacheFactory struct {
 }
 
-func (f *MemoryCacheFactory) NewCache(_ context.Context, options repoimpltypes.RepoImplOptions) (cachetypes.Cache, error) {
+func (f *MemoryCacheFactory) NewCache(_ context.Context, options cachetypes.CacheOptions) (cachetypes.Cache, error) {
 	return &Cache{
 		repositories: make(map[string]*cachedRepository),
 		options:      options,

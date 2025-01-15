@@ -228,18 +228,22 @@ func (c completedConfig) New() (*PorchServer, error) {
 	userInfoProvider := &porch.ApiserverUserInfoProvider{}
 
 	watcherMgr := engine.NewWatcherManager()
-
-	cache, err := cache.CreateCacheImpl(
+	cacheImpl, err := cache.CreateCacheImpl(
 		context.TODO(),
-		repoimpltypes.RepoImplOptions{
-			LocalDirectory:         c.ExtraConfig.CacheDirectory,
-			RepoSyncFrequency:      c.ExtraConfig.RepoSyncFrequency,
-			UseUserDefinedCaBundle: c.ExtraConfig.UseUserDefinedCaBundle,
-			CredentialResolver:     credentialResolver,
-			UserInfoProvider:       userInfoProvider,
-			MetadataStore:          metadataStore,
-			RepoPRNotifier:         watcherMgr,
+		cachetypes.CacheOptions{
+			RepoImplOptions: repoimpltypes.RepoImplOptions{
+				LocalDirectory:         c.ExtraConfig.CacheDirectory,
+				UseUserDefinedCaBundle: c.ExtraConfig.UseUserDefinedCaBundle,
+				CredentialResolver:     credentialResolver,
+				UserInfoProvider:       userInfoProvider,
+			},
+			RepoSyncFrequency:    c.ExtraConfig.RepoSyncFrequency,
+			MetadataStore:        metadataStore,
+			RepoPRChangeNotifier: watcherMgr,
 		})
+	if err != nil {
+		return nil, fmt.Errorf("failed to creeate repository cache: %w", err)
+	}
 
 	runnerOptionsResolver := func(namespace string) fnruntime.RunnerOptions {
 		runnerOptions := fnruntime.RunnerOptions{}
@@ -249,7 +253,7 @@ func (c completedConfig) New() (*PorchServer, error) {
 	}
 
 	cad, err := engine.NewCaDEngine(
-		engine.WithCache(cache),
+		engine.WithCache(cacheImpl),
 		// The order of registering the function runtimes matters here. When
 		// evaluating a function, the runtimes will be tried in the same
 		// order as they are registered.
@@ -274,7 +278,7 @@ func (c completedConfig) New() (*PorchServer, error) {
 	s := &PorchServer{
 		GenericAPIServer: genericServer,
 		coreClient:       coreClient,
-		cache:            cache,
+		cache:            cacheImpl,
 		// Set background job periodic frequency the same as repo sync frequency.
 		PeriodicRepoSyncFrequency: c.ExtraConfig.RepoSyncFrequency,
 	}
