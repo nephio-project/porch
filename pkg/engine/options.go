@@ -18,7 +18,7 @@ import (
 	"fmt"
 
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
-	"github.com/nephio-project/porch/pkg/cache"
+	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/kpt"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
 	"github.com/nephio-project/porch/pkg/meta"
@@ -38,7 +38,7 @@ func (f EngineOptionFunc) apply(engine *cadEngine) error {
 	return f(engine)
 }
 
-func WithCache(cache cache.Cache) EngineOption {
+func WithCache(cache cachetypes.Cache) EngineOption {
 	return EngineOptionFunc(func(engine *cadEngine) error {
 		engine.cache = cache
 		return nil

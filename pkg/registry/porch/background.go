@@ -20,7 +20,7 @@ import (
 	"time"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/pkg/cache"
+	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func RunBackground(ctx context.Context, coreClient client.WithWatch, cache cache.Cache, PeriodicRepoSyncFrequency time.Duration) {
+func RunBackground(ctx context.Context, coreClient client.WithWatch, cache cachetypes.Cache, PeriodicRepoSyncFrequency time.Duration) {
 	b := background{
 		coreClient:                coreClient,
 		cache:                     cache,
@@ -40,7 +40,7 @@ func RunBackground(ctx context.Context, coreClient client.WithWatch, cache cache
 // background manages background tasks
 type background struct {
 	coreClient                client.WithWatch
-	cache                     cache.Cache
+	cache                     cachetypes.Cache
 	PeriodicRepoSyncFrequency time.Duration
 }
 
@@ -137,7 +137,11 @@ func (b *background) updateCache(ctx context.Context, event watch.EventType, rep
 		return b.cacheRepository(ctx, repository)
 	case watch.Modified:
 		klog.Infof("Repository modified: %s:%s", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name)
-		// TODO: implement
+		var repoList configapi.RepositoryList
+		if err := b.coreClient.List(ctx, &repoList); err != nil {
+			return err
+		}
+		return b.cache.UpdateRepository(ctx, repository)
 	case watch.Deleted:
 		klog.Infof("Repository deleted: %s:%s", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name)
 		var repoList configapi.RepositoryList
