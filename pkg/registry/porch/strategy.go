@@ -36,7 +36,7 @@ func (s packageRevisionStrategy) PrepareForUpdate(ctx context.Context, obj, old 
 }
 
 func (s packageRevisionStrategy) ValidateUpdate(ctx context.Context, obj, old runtime.Object) field.ErrorList {
-	ctx, span := tracer.Start(ctx, "packageRevisionStrategy::ValidateUpdate", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "packageRevisionStrategy::ValidateUpdate", trace.WithAttributes())
 	defer span.End()
 
 	allErrs := field.ErrorList{}

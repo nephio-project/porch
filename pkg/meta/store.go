@@ -209,7 +209,7 @@ func (c *crdMetadataStore) Delete(ctx context.Context, namespacedName types.Name
 }
 
 func toPackageRevisionMeta(ctx context.Context, internalPkgRev *internalapi.PackageRev) metav1.ObjectMeta {
-	ctx, span := tracer.Start(ctx, "store.go::toPackageRevisionMeta", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "store.go::toPackageRevisionMeta", trace.WithAttributes())
 	defer span.End()
 
 	labels := internalPkgRev.Labels

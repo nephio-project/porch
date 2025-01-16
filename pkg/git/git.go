@@ -1337,7 +1337,7 @@ func (r *gitRepository) storeTree(tree *object.Tree) (plumbing.Hash, error) {
 }
 
 func (r *gitRepository) GetLifecycle(ctx context.Context, pkgRev *gitPackageRevision) v1alpha1.PackageRevisionLifecycle {
-	ctx, span := tracer.Start(ctx, "gitRepository::GetLifecycle", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "gitRepository::GetLifecycle", trace.WithAttributes())
 	defer span.End()
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
