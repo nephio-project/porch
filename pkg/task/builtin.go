@@ -48,7 +48,7 @@ func newPackageContextGeneratorMutation(packageConfig *builtins.PackageConfig) (
 var _ mutation = &builtinEvalMutation{}
 
 func (m *builtinEvalMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
-	ctx, span := tracer.Start(ctx, "builtinEvalMutation::Apply", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "builtinEvalMutation::Apply", trace.WithAttributes())
 	defer span.End()
 
 	ff := &runtimeutil.FunctionFilter{

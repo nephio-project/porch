@@ -120,7 +120,7 @@ var _ SimpleRESTCreateStrategy = packageRevisionStrategy{}
 // before the object is persisted.  This method should not mutate the
 // object.
 func (s packageRevisionStrategy) Validate(ctx context.Context, runtimeObj runtime.Object) field.ErrorList {
-	ctx, span := tracer.Start(ctx, "packageRevisionStrategy::Validate", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "packageRevisionStrategy::Validate", trace.WithAttributes())
 	defer span.End()
 
 	allErrs := field.ErrorList{}

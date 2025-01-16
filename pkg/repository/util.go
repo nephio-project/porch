@@ -71,7 +71,7 @@ func toApiConditionStatus(s kptfile.ConditionStatus) api.ConditionStatus {
 }
 
 func NextRevisionNumber(ctx context.Context, revs []string) (string, error) {
-	ctx, span := tracer.Start(ctx, "draft.go::NextRevisionNumber", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "util.go::NextRevisionNumber", trace.WithAttributes())
 	defer span.End()
 
 	// Computes the next revision number as the latest revision number + 1.
