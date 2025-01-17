@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	variantapi "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -218,8 +219,9 @@ func (t *TestSuite) registerGitRepositoryFromConfigF(ctx context.Context, name s
 
 	t.Cleanup(func() {
 		t.DeleteE(ctx, repository)
-		t.WaitUntilRepositoryDeleted(ctx, name, t.Namespace)
-		t.WaitUntilAllPackagesDeleted(ctx, name, t.Namespace)
+		t.DeleteVariantsForRepo(ctx, name)
+		t.WaitUntilRepositoryDeleted(ctx, name)
+		t.WaitUntilAllPackagesDeleted(ctx, name)
 	})
 
 	// Make sure the repository is ready before we test to (hopefully)
@@ -350,8 +352,41 @@ func (t *TestSuite) WaitUntilRepositoryReady(ctx context.Context, name, namespac
 	}
 }
 
-func (t *TestSuite) WaitUntilRepositoryDeleted(ctx context.Context, name, namespace string) {
+func (t *TestSuite) DeleteVariantsForRepo(ctx context.Context, repoName string) {
 	t.Helper()
+	namespace := t.Namespace
+	var variantList variantapi.PackageVariantList
+	if err := t.Client.List(ctx, &variantList, client.InNamespace(namespace)); err != nil {
+		t.Errorf("error listing package variants: %v", err)
+	}
+	for _, variant := range variantList.Items {
+		if variant.Spec.Upstream.Repo == repoName {
+			t.DeleteE(ctx, &variant)
+		}
+	}
+
+	err := wait.PollUntilContextTimeout(ctx, time.Second, 60*time.Second, true, func(ctx context.Context) (done bool, err error) {
+		t.Helper()
+		if err := t.Client.List(ctx, &variantList, client.InNamespace(namespace)); err != nil {
+			t.Logf("error listing packages: %v", err)
+			return false, nil
+		}
+		for _, variant := range variantList.Items {
+			if variant.Spec.Upstream.Repo == repoName {
+				t.Logf("Found package variant %s using repo %s as upstream", variant.Name, repoName)
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+	if err != nil {
+		t.Fatalf("Package variant(s) still remain using repo %s as upstream", repoName)
+	}
+}
+
+func (t *TestSuite) WaitUntilRepositoryDeleted(ctx context.Context, name string) {
+	t.Helper()
+	namespace := t.Namespace
 	err := wait.PollUntilContextTimeout(ctx, time.Second, 20*time.Second, true, func(ctx context.Context) (done bool, err error) {
 		var repo configapi.Repository
 		nn := types.NamespacedName{
@@ -371,8 +406,9 @@ func (t *TestSuite) WaitUntilRepositoryDeleted(ctx context.Context, name, namesp
 	}
 }
 
-func (t *TestSuite) WaitUntilAllPackagesDeleted(ctx context.Context, repoName string, namespace string) {
+func (t *TestSuite) WaitUntilAllPackagesDeleted(ctx context.Context, repoName string) {
 	t.Helper()
+	namespace := t.Namespace
 	err := wait.PollUntilContextTimeout(ctx, time.Second, 60*time.Second, true, func(ctx context.Context) (done bool, err error) {
 		t.Helper()
 		var pkgRevList porchapi.PackageRevisionList
@@ -434,7 +470,7 @@ func (t *TestSuite) WaitUntilPackageRevisionFulfillingConditionExists(
 	var foundPkgRev *porchapi.PackageRevision
 	err := wait.PollUntilContextTimeout(ctx, time.Second, timeout, true, func(ctx context.Context) (done bool, err error) {
 		var pkgRevList porchapi.PackageRevisionList
-		if err := t.Client.List(ctx, &pkgRevList); err != nil {
+		if err := t.Client.List(ctx, &pkgRevList, client.InNamespace(t.Namespace)); err != nil {
 			t.Logf("error listing packages: %v", err)
 			return false, nil
 		}

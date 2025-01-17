@@ -28,6 +28,9 @@ import (
 	"github.com/google/go-cmp/cmp"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+
+	variantapi "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
+	"github.com/nephio-project/porch/controllers/packagevariants/pkg/controllers/packagevariant"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
@@ -48,6 +51,7 @@ const (
 
 var (
 	packageRevisionGVK = porchapi.SchemeGroupVersion.WithKind("PackageRevision")
+	packageVariantGVK  = variantapi.GroupVersion.WithKind("PackageVariant")
 	configMapGVK       = corev1.SchemeGroupVersion.WithKind("ConfigMap")
 )
 
@@ -59,10 +63,10 @@ var _ TSetter = &PorchSuite{}
 var _ Initializer = &PorchSuite{}
 
 func TestE2E(t *testing.T) {
-	e2e := os.Getenv("E2E")
-	if e2e == "" {
-		t.Skip("set E2E to run this test")
-	}
+	// e2e := os.Getenv("E2E")
+	// if e2e == "" {
+	// 	t.Skip("set E2E to run this test")
+	// }
 
 	RunSuite(&PorchSuite{}, t)
 }
@@ -2967,4 +2971,114 @@ func (t *PorchSuite) TestPackageRevisionFieldSelectors(ctx context.Context) {
 			t.Errorf("PackageRevision %s: want %v/%v, but got %v/%v", pr.Name, pkgName, revName, pr.Spec.PackageName, pr.Spec.Revision)
 		}
 	}
+}
+
+func (t *PorchSuite) TestPackageVariantReadinessGate(ctx context.Context) {
+	const (
+		repository     = "variant"
+		variantName    = "testing-variant"
+		upstreamName   = "variant-package-upstream"
+		downstreamName = "variant-package-downstream"
+		workspace      = "workspace"
+
+		setAnnoImage     = "gcr.io/kpt-fn/set-annotations:v0.1.4"
+		applySetterImage = "gcr.io/kpt-fn/apply-setters:v0.2.0"
+	)
+
+	var (
+		setAnnoMap = map[string]string{
+			"nephio.org/cluster-name": "example",
+		}
+		setAnnoFunction = kptfilev1.Function{
+			Image:     setAnnoImage,
+			ConfigMap: setAnnoMap,
+		}
+		applySetterMap = map[string]string{
+			"name":          "updated-bucket-name",
+			"namespace":     "updated-namespace",
+			"project-id":    "updated-project-id",
+			"storage-class": "updated-storage-class",
+		}
+		applySetterFunction = kptfilev1.Function{
+			Image:     applySetterImage,
+			ConfigMap: applySetterMap,
+		}
+		mutatorFunctions = func() []kptfilev1.Function {
+			functions := []kptfilev1.Function{
+				setAnnoFunction,
+			}
+			// add several repetitions of the applySetter function
+			// to make sure the pipeline takes enough time to detect
+			// the Condition changing from False to True
+			for i := 0; i < 80; i++ {
+				functions = append(functions, applySetterFunction)
+			}
+			return functions
+		}()
+	)
+
+	// Set up the repo and create/propose/approve the upstream package
+	t.RegisterMainGitRepositoryF(ctx, repository)
+	upstreamPr := t.CreatePackageSkeleton(repository, upstreamName, workspace)
+	t.CreateF(ctx, upstreamPr)
+	upstreamPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	t.UpdateF(ctx, upstreamPr)
+	upstreamPr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+	t.UpdateApprovalF(ctx, upstreamPr, metav1.UpdateOptions{})
+
+	// Create a new package variant (via init)
+	pv := &variantapi.PackageVariant{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       packageVariantGVK.Kind,
+			APIVersion: packageVariantGVK.GroupVersion().String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: t.Namespace,
+			Name:      variantName,
+		},
+		Spec: variantapi.PackageVariantSpec{
+			Downstream: &variantapi.Downstream{
+				Package: downstreamName,
+				Repo:    repository,
+			},
+			Upstream: &variantapi.Upstream{
+				Package:  upstreamName,
+				Repo:     repository,
+				Revision: "v1",
+			},
+			Pipeline: &kptfilev1.Pipeline{
+				Mutators: mutatorFunctions,
+			},
+			Injectors: []variantapi.InjectionSelector{
+				{
+					Name: "nrf-overrides-values",
+				},
+			},
+		},
+	}
+	t.CreateF(ctx, pv)
+
+	// Wait till the package variant has created the downstream PR and set the condition to False,
+	// then get the PR
+	downstreamPr, _ := t.WaitUntilPackageRevisionFulfillingConditionExists(ctx, 1*time.Minute, func(pr porchapi.PackageRevision) bool {
+		return pr.Spec.PackageName == pv.Spec.Downstream.Package &&
+			slices.Contains(pr.Status.Conditions, packagevariant.ConditionPipelineNotPassed)
+	})
+	assert.Containsf(t, downstreamPr.Spec.ReadinessGates,
+		porchapi.ReadinessGate{ConditionType: packagevariant.ConditionTypePipelinePassed}, "PackageVariant controller should have set a readiness gate on the downstream package revision")
+
+	// Attempt to propose the PR - should fail
+	downstreamPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	proposeError := t.Client.Update(ctx, downstreamPr)
+	assert.ErrorContains(t, proposeError, "another request is already in progress")
+
+	// Wait for the pipeline to finish and the condition to be set to True
+	downstreamPr, _ = t.WaitUntilPackageRevisionFulfillingConditionExists(ctx, 10*time.Second, func(pr porchapi.PackageRevision) bool {
+		return slices.Contains(pr.Status.Conditions, packagevariant.ConditionPipelinePassed)
+	})
+
+	// Propose the PR again - should succeed this time
+	downstreamPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	proposeError = t.Client.Update(ctx, downstreamPr)
+	assert.NoError(t, proposeError, "propose operation should have succeeded now that the pipeline has passed")
 }

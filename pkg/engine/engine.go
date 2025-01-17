@@ -201,6 +201,7 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 		return nil, err
 	}
 	repoPkgRev.SetMeta(pkgRevMeta)
+
 	sent := cad.watcherManager.NotifyPackageRevisionChange(watch.Added, repoPkgRev)
 	klog.Infof("engine: sent %d for new PackageRevision %s/%s", sent, repoPkgRev.KubeObjectNamespace(), repoPkgRev.KubeObjectName())
 	return repoPkgRev, nil
