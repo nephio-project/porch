@@ -443,6 +443,9 @@ func isRenderMutation(m mutation) bool {
 
 // applyResourceMutations mutates the resources and returns the most recent renderResult.
 func applyResourceMutations(ctx context.Context, draft repository.PackageRevisionDraft, baseResources repository.PackageResources, mutations []mutation) (applied repository.PackageResources, renderStatus *api.RenderStatus, err error) {
+	ctx, span := tracer.Start(ctx, "genericTaskHandler::applyResourceMutations", trace.WithAttributes())
+	defer span.End()
+
 	var lastApplied mutation
 	for _, m := range mutations {
 		updatedResources, taskResult, err := m.apply(ctx, baseResources)

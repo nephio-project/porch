@@ -68,7 +68,7 @@ func (r *packageRevisionResources) NamespaceScoped() bool {
 
 // List selects resources in the storage which match to the selector. 'options' can be nil.
 func (r *packageRevisionResources) List(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
-	ctx, span := tracer.Start(ctx, "packageRevisionResources::List", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::List", trace.WithAttributes())
 	defer span.End()
 
 	result := &api.PackageRevisionResourcesList{
@@ -83,7 +83,7 @@ func (r *packageRevisionResources) List(ctx context.Context, options *metaintern
 		return nil, err
 	}
 
-	if err := r.packageCommon.listPackageRevisions(ctx, filter, options.LabelSelector, func(p repository.PackageRevision) error {
+	if err := r.packageCommon.listPackageRevisions(ctx, filter, options.LabelSelector, func(ctx context.Context, p repository.PackageRevision) error {
 		apiPkgResources, err := p.GetResources(ctx)
 		if err != nil {
 			return err
@@ -99,7 +99,7 @@ func (r *packageRevisionResources) List(ctx context.Context, options *metaintern
 
 // Get implements the Getter interface
 func (r *packageRevisionResources) Get(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
-	ctx, span := tracer.Start(ctx, "packageRevisionResources::Get", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::Get", trace.WithAttributes())
 	defer span.End()
 
 	pkg, err := r.packageCommon.getRepoPkgRev(ctx, name)
@@ -118,7 +118,7 @@ func (r *packageRevisionResources) Get(ctx context.Context, name string, options
 // may allow updates creates the object - they should set the created boolean
 // to true.
 func (r *packageRevisionResources) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
-	ctx, span := tracer.Start(ctx, "packageRevisionResources::Update", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::Update", trace.WithAttributes())
 	defer span.End()
 
 	ns, namespaced := genericapirequest.NamespaceFrom(ctx)

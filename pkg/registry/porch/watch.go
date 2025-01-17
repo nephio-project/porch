@@ -36,7 +36,7 @@ func (r *packageRevisions) Watch(ctx context.Context, options *metainternalversi
 	// isn't supported. 'resourceVersion' allows for continuing/starting a watch at a
 	// particular version.
 
-	ctx, span := tracer.Start(ctx, "packageRevisions::Watch", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Watch", trace.WithAttributes())
 	defer span.End()
 
 	filter, err := parsePackageRevisionFieldSelector(options.FieldSelector)
@@ -93,7 +93,7 @@ func (w *watcher) ResultChan() <-chan watch.Event {
 
 type packageReader interface {
 	watchPackages(ctx context.Context, filter packageRevisionFilter, callback engine.ObjectWatcher) error
-	listPackageRevisions(ctx context.Context, filter packageRevisionFilter, selector labels.Selector, callback func(p repository.PackageRevision) error) error
+	listPackageRevisions(ctx context.Context, filter packageRevisionFilter, selector labels.Selector, callback func(ctx context.Context, p repository.PackageRevision) error) error
 }
 
 // listAndWatch implements watch by doing a list, then sending any observed changes.
@@ -145,7 +145,7 @@ func (w *watcher) listAndWatchInner(ctx context.Context, r packageReader, filter
 
 	sentAdd := 0
 	// TODO: Only if rv == 0?
-	if err := r.listPackageRevisions(ctx, filter, selector, func(p repository.PackageRevision) error {
+	if err := r.listPackageRevisions(ctx, filter, selector, func(ctx context.Context, p repository.PackageRevision) error {
 		obj, err := p.GetPackageRevision(ctx)
 		if err != nil {
 			w.mutex.Lock()

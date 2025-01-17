@@ -19,6 +19,7 @@ import (
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // We take advantage of the cache having a global view of all the packages
@@ -35,6 +36,9 @@ type cachedPackageRevision struct {
 }
 
 func (c *cachedPackageRevision) GetPackageRevision(ctx context.Context) (*api.PackageRevision, error) {
+	ctx, span := tracer.Start(ctx, "cachedPackageRevision::GetPackageRevision", trace.WithAttributes())
+	defer span.End()
+
 	apiPR, err := c.PackageRevision.GetPackageRevision(ctx)
 	if err != nil {
 		return nil, err
