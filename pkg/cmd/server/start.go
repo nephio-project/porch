@@ -57,7 +57,7 @@ type PorchServerOptions struct {
 	FunctionRunnerAddress            string
 	DefaultImagePrefix               string
 	RepoSyncFrequency                time.Duration
-	UseGitCaBundle                   bool
+	UseUserDefinedCaBundle           bool
 	DisableValidatingAdmissionPolicy bool
 	MaxRequestBodySize               int
 
@@ -195,13 +195,13 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 	config := &apiserver.Config{
 		GenericConfig: serverConfig,
 		ExtraConfig: apiserver.ExtraConfig{
-			CoreAPIKubeconfigPath: o.CoreAPIKubeconfigPath,
-			CacheDirectory:        o.CacheDirectory,
-			RepoSyncFrequency:     o.RepoSyncFrequency,
-			FunctionRunnerAddress: o.FunctionRunnerAddress,
-			DefaultImagePrefix:    o.DefaultImagePrefix,
-			UseGitCaBundle:        o.UseGitCaBundle,
-			MaxGrpcMessageSize:    o.MaxRequestBodySize,
+			CoreAPIKubeconfigPath:  o.CoreAPIKubeconfigPath,
+			CacheDirectory:         o.CacheDirectory,
+			RepoSyncFrequency:      o.RepoSyncFrequency,
+			FunctionRunnerAddress:  o.FunctionRunnerAddress,
+			DefaultImagePrefix:     o.DefaultImagePrefix,
+			UseUserDefinedCaBundle: o.UseUserDefinedCaBundle,
+			MaxGrpcMessageSize:     o.MaxRequestBodySize,
 		},
 	}
 	return config, nil
@@ -248,7 +248,7 @@ func (o *PorchServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.DefaultImagePrefix, "default-image-prefix", fnruntime.GCRImagePrefix, "Default prefix for unqualified function names")
 	fs.StringVar(&o.CacheDirectory, "cache-directory", "", "Directory where Porch server stores repository and package caches.")
 	fs.IntVar(&o.MaxRequestBodySize, "max-request-body-size", 6*1024*1024, "Maximum size of the request body in bytes. Keep this in sync with function-runner's corresponding argument.")
-	fs.BoolVar(&o.UseGitCaBundle, "use-git-cabundle", false, "Determine whether to use a user-defined CaBundle for TLS towards git.")
+	fs.BoolVar(&o.UseUserDefinedCaBundle, "use-user-cabundle", false, "Determine whether to use a user-defined CaBundle for TLS towards the repository system.")
 	fs.BoolVar(&o.DisableValidatingAdmissionPolicy, "disable-validating-admissions-policy", true, "Determine whether to (dis|en)able the Validating Admission Policy, which requires k8s version >= v1.30")
 	fs.DurationVar(&o.RepoSyncFrequency, "repo-sync-frequency", 10*time.Minute, "Frequency in seconds at which registered repositories will be synced and the background job repository refresh runs.")
 }

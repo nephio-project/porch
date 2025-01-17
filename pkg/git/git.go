@@ -68,10 +68,10 @@ const (
 )
 
 type GitRepositoryOptions struct {
-	CredentialResolver repository.CredentialResolver
-	UserInfoProvider   repository.UserInfoProvider
-	MainBranchStrategy MainBranchStrategy
-	UseGitCaBundle     bool
+	CredentialResolver     repository.CredentialResolver
+	UserInfoProvider       repository.UserInfoProvider
+	MainBranchStrategy     MainBranchStrategy
+	UseUserDefinedCaBundle bool
 }
 
 func OpenRepository(ctx context.Context, name, namespace string, spec *configapi.GitRepository, deployment bool, root string, opts GitRepositoryOptions) (GitRepository, error) {
@@ -142,7 +142,7 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 		deployment:         deployment,
 	}
 
-	if opts.UseGitCaBundle {
+	if opts.UseUserDefinedCaBundle {
 		if caBundle, err := opts.CredentialResolver.ResolveCredential(ctx, namespace, namespace+"-ca-bundle"); err != nil {
 			klog.Errorf("failed to obtain caBundle from secret %s/%s: %v", namespace, namespace+"-ca-bundle", err)
 		} else {

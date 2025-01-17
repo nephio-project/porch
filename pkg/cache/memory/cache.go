@@ -44,15 +44,15 @@ import (
 // * We Cache flattened tar files in <cacheDir>/oci/ (so we don't need to pull to read resources)
 // * We poll the repositories (every minute) and Cache the discovered images in memory.
 type Cache struct {
-	mutex              sync.Mutex
-	repositories       map[string]*cachedRepository
-	cacheDir           string
-	credentialResolver repository.CredentialResolver
-	userInfoProvider   repository.UserInfoProvider
-	metadataStore      meta.MetadataStore
-	repoSyncFrequency  time.Duration
-	objectNotifier     objectNotifier
-	useGitCaBundle     bool
+	mutex                  sync.Mutex
+	repositories           map[string]*cachedRepository
+	cacheDir               string
+	credentialResolver     repository.CredentialResolver
+	userInfoProvider       repository.UserInfoProvider
+	metadataStore          meta.MetadataStore
+	repoSyncFrequency      time.Duration
+	objectNotifier         objectNotifier
+	useUserDefinedCaBundle bool
 }
 
 var _ cache.Cache = &Cache{}
@@ -68,16 +68,16 @@ type CacheOptions struct {
 	ObjectNotifier     objectNotifier
 }
 
-func NewCache(cacheDir string, repoSyncFrequency time.Duration, useGitCaBundle bool, opts CacheOptions) *Cache {
+func NewCache(cacheDir string, repoSyncFrequency time.Duration, useUserDefinedCaBundle bool, opts CacheOptions) *Cache {
 	return &Cache{
-		repositories:       make(map[string]*cachedRepository),
-		cacheDir:           cacheDir,
-		credentialResolver: opts.CredentialResolver,
-		userInfoProvider:   opts.UserInfoProvider,
-		metadataStore:      opts.MetadataStore,
-		objectNotifier:     opts.ObjectNotifier,
-		repoSyncFrequency:  repoSyncFrequency,
-		useGitCaBundle:     useGitCaBundle,
+		repositories:           make(map[string]*cachedRepository),
+		cacheDir:               cacheDir,
+		credentialResolver:     opts.CredentialResolver,
+		userInfoProvider:       opts.UserInfoProvider,
+		metadataStore:          opts.MetadataStore,
+		objectNotifier:         opts.ObjectNotifier,
+		repoSyncFrequency:      repoSyncFrequency,
+		useUserDefinedCaBundle: useUserDefinedCaBundle,
 	}
 }
 
@@ -147,10 +147,10 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 			}
 
 			r, err := git.OpenRepository(ctx, repositorySpec.Name, repositorySpec.Namespace, gitSpec, repositorySpec.Spec.Deployment, filepath.Join(c.cacheDir, "git"), git.GitRepositoryOptions{
-				CredentialResolver: c.credentialResolver,
-				UserInfoProvider:   c.userInfoProvider,
-				MainBranchStrategy: mbs,
-				UseGitCaBundle:     c.useGitCaBundle,
+				CredentialResolver:     c.credentialResolver,
+				UserInfoProvider:       c.userInfoProvider,
+				MainBranchStrategy:     mbs,
+				UseUserDefinedCaBundle: c.useUserDefinedCaBundle,
 			})
 			if err != nil {
 				return nil, err
