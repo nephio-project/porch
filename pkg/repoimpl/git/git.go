@@ -1235,7 +1235,7 @@ func (r *gitRepository) GetResources(hash plumbing.Hash) (map[string]string, err
 
 // findLatestPackageCommit returns the latest commit from the history that pertains
 // to the package given by the packagePath. If no commit is found, it will return nil.
-func (r *gitRepository) findLatestPackageCommit(_ context.Context, startCommit *object.Commit, packagePath string) (*object.Commit, error) {
+func (r *gitRepository) findLatestPackageCommit(startCommit *object.Commit, packagePath string) (*object.Commit, error) {
 	var commit *object.Commit
 	err := r.packageHistoryIterator(startCommit, packagePath, func(c *object.Commit) error {
 		commit = c
@@ -1344,7 +1344,7 @@ func (r *gitRepository) GetLifecycle(ctx context.Context, pkgRev *gitPackageRevi
 	return r.getLifecycle(pkgRev)
 }
 
-func (r *gitRepository) getLifecycle(_ context.Context, pkgRev *gitPackageRevision) v1alpha1.PackageRevisionLifecycle {
+func (r *gitRepository) getLifecycle(pkgRev *gitPackageRevision) v1alpha1.PackageRevisionLifecycle {
 	switch ref := pkgRev.ref; {
 	case ref == nil:
 		return r.checkPublishedLifecycle(pkgRev)
