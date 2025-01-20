@@ -15,6 +15,7 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -22,8 +23,12 @@ import (
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/mod/semver"
 )
+
+var tracer = otel.Tracer("repository/util")
 
 func ToApiReadinessGates(kf kptfile.KptFile) []api.ReadinessGate {
 	var readinessGates []api.ReadinessGate
@@ -65,7 +70,10 @@ func toApiConditionStatus(s kptfile.ConditionStatus) api.ConditionStatus {
 	}
 }
 
-func NextRevisionNumber(revs []string) (string, error) {
+func NextRevisionNumber(ctx context.Context, revs []string) (string, error) {
+	_, span := tracer.Start(ctx, "util.go::NextRevisionNumber", trace.WithAttributes())
+	defer span.End()
+
 	// Computes the next revision number as the latest revision number + 1.
 	// This function only understands strict versioning format, e.g. v1, v2, etc. It will
 	// ignore all revision numbers it finds that do not adhere to this format.

@@ -75,7 +75,7 @@ func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revision
 		// the last commit for the package based on the porch commit tags. We don't
 		// use the revision here, since we are looking at the package branch while
 		// the revisions only helps identify the tags.
-		commit, err := repo.findLatestPackageCommit(ctx, p.parent.commit, p.path)
+		commit, err := repo.findLatestPackageCommit(p.parent.commit, p.path)
 		if err != nil {
 			return nil, err
 		}

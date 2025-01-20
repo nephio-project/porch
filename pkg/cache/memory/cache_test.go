@@ -101,7 +101,7 @@ func TestPublishedLatest(t *testing.T) {
 
 	bucket := revisions[0]
 	// Expect draft package
-	if got, want := bucket.Lifecycle(), api.PackageRevisionLifecycleDraft; got != want {
+	if got, want := bucket.Lifecycle(ctx), api.PackageRevisionLifecycleDraft; got != want {
 		t.Fatalf("Bucket package lifecycle: got %s, want %s", got, want)
 	}
 
@@ -147,7 +147,7 @@ func TestDeletePublishedMain(t *testing.T) {
 
 	bucket := revisions[0]
 	// Expect draft package
-	if got, want := bucket.Lifecycle(), api.PackageRevisionLifecycleDraft; got != want {
+	if got, want := bucket.Lifecycle(ctx), api.PackageRevisionLifecycleDraft; got != want {
 		t.Fatalf("Bucket package lifecycle: got %s, want %s", got, want)
 	}
 
@@ -184,7 +184,7 @@ func TestDeletePublishedMain(t *testing.T) {
 
 	approvedBucket := publishedRevisions[0]
 
-	if got, want := approvedBucket.Lifecycle(), api.PackageRevisionLifecyclePublished; got != want {
+	if got, want := approvedBucket.Lifecycle(ctx), api.PackageRevisionLifecyclePublished; got != want {
 		t.Fatalf("Approved Bucket package lifecycle: got %s, want %s", got, want)
 	}
 

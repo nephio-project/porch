@@ -36,7 +36,7 @@ type initPackageMutation struct {
 var _ mutation = &initPackageMutation{}
 
 func (m *initPackageMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
-	ctx, span := tracer.Start(ctx, "initPackageMutation::Apply", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "initPackageMutation::apply", trace.WithAttributes())
 	defer span.End()
 
 	fs := filesys.MakeFsInMemory()

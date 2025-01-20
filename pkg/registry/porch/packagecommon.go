@@ -25,6 +25,7 @@ import (
 	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
+	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -56,7 +57,10 @@ type packageCommon struct {
 }
 
 func (r *packageCommon) listPackageRevisions(ctx context.Context, filter packageRevisionFilter,
-	selector labels.Selector, callback func(p repository.PackageRevision) error) error {
+	selector labels.Selector, callback func(ctx context.Context, p repository.PackageRevision) error) error {
+	ctx, span := tracer.Start(ctx, "packageCommon::listPackageRevisions", trace.WithAttributes())
+	defer span.End()
+
 	var opts []client.ListOption
 	ns, namespaced := genericapirequest.NamespaceFrom(ctx)
 	if namespaced && ns != "" {
@@ -95,7 +99,7 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter package
 				continue
 			}
 
-			if err := callback(rev); err != nil {
+			if err := callback(ctx, rev); err != nil {
 				return err
 			}
 		}
@@ -173,6 +177,9 @@ func (r *packageCommon) getRepositoryObj(ctx context.Context, repositoryID types
 }
 
 func (r *packageCommon) getRepoPkgRev(ctx context.Context, name string) (repository.PackageRevision, error) {
+	ctx, span := tracer.Start(ctx, "packageCommon::getRepoPkgRev", trace.WithAttributes())
+	defer span.End()
+
 	repositoryObj, err := r.getRepositoryObjFromName(ctx, name)
 	if err != nil {
 		return nil, err
@@ -212,6 +219,9 @@ func (r *packageCommon) getPackage(ctx context.Context, name string) (repository
 // Common implementation of PackageRevision update logic.
 func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo,
 	createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool) (runtime.Object, bool, error) {
+	ctx, span := tracer.Start(ctx, "packageCommon::updatePackageRevision", trace.WithAttributes())
+	defer span.End()
+
 	// TODO: Is this all boilerplate??
 
 	ns, namespaced := genericapirequest.NamespaceFrom(ctx)
@@ -309,19 +319,7 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 		parentPackage = p
 	}
 
-	if !isCreate {
-		rev, err := r.cad.UpdatePackageRevision(ctx, "", &repositoryObj, oldRepoPkgRev, oldApiPkgRev.(*api.PackageRevision), newApiPkgRev, parentPackage)
-		if err != nil {
-			return nil, false, apierrors.NewInternalError(err)
-		}
-
-		updated, err := rev.GetPackageRevision(ctx)
-		if err != nil {
-			return nil, false, apierrors.NewInternalError(err)
-		}
-
-		return updated, false, nil
-	} else {
+	if isCreate {
 		rev, err := r.cad.CreatePackageRevision(ctx, &repositoryObj, newApiPkgRev, parentPackage)
 		if err != nil {
 			klog.Infof("error creating package: %v", err)
@@ -334,6 +332,18 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 
 		return createdApiPkgRev, true, nil
 	}
+
+	rev, err := r.cad.UpdatePackageRevision(ctx, "", &repositoryObj, oldRepoPkgRev, oldApiPkgRev.(*api.PackageRevision), newApiPkgRev, parentPackage)
+	if err != nil {
+		return nil, false, apierrors.NewInternalError(err)
+	}
+
+	updated, err := rev.GetPackageRevision(ctx)
+	if err != nil {
+		return nil, false, apierrors.NewInternalError(err)
+	}
+
+	return updated, false, nil
 }
 
 // Common implementation of Package update logic.

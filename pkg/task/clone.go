@@ -51,7 +51,7 @@ type clonePackageMutation struct {
 }
 
 func (m *clonePackageMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
-	ctx, span := tracer.Start(ctx, "clonePackageMutation::Apply", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "clonePackageMutation::apply", trace.WithAttributes())
 	defer span.End()
 
 	var cloned repository.PackageResources
