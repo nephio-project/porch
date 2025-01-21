@@ -95,5 +95,6 @@ func (f *FakePackageRevision) GetMeta() metav1.ObjectMeta {
 	return metav1.ObjectMeta{}
 }
 
-func (f *FakePackageRevision) SetMeta(metav1.ObjectMeta) {
+func (f *FakePackageRevision) SetMeta(context.Context, metav1.ObjectMeta) error {
+	return nil
 }

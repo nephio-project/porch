@@ -105,13 +105,14 @@ func (r *dbRepository) ListPackageRevisions(ctx context.Context, filter reposito
 	return genericPkgRevs, nil
 }
 
-func (r *dbRepository) CreatePackageRevision(ctx context.Context, newPR *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
-	klog.Infof("DB Repo CreatePackageRevision: %q", r.Key().String())
+func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
+	klog.Infof("DB Repo CreatePackageRevisionDraft: %q", r.Key().String())
 
-	_, span := tracer.Start(ctx, "dbRepository::CreatePackageRevision", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "dbRepository::CreatePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
 
 	dbPkgRev := &dbPackageRevision{
+		definition: newPR,
 		pkgRevKey: repository.PackageRevisionKey{
 			Namespace:     r.repoKey.Namespace,
 			Repository:    r.repoKey.Repository,

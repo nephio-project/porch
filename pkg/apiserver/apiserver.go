@@ -29,7 +29,6 @@ import (
 	"github.com/nephio-project/porch/pkg/cache"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/engine"
-	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/registry/porch"
 	repoimpltypes "github.com/nephio-project/porch/pkg/repoimpl/types"
 	"google.golang.org/api/option"
@@ -221,8 +220,6 @@ func (c completedConfig) New() (*PorchServer, error) {
 		porch.NewGcloudWIResolver(coreV1Client, stsClient),
 	}
 
-	metadataStore := meta.NewCrdMetadataStore(coreClient)
-
 	credentialResolver := porch.NewCredentialResolver(coreClient, resolverChain)
 	referenceResolver := porch.NewReferenceResolver(coreClient)
 	userInfoProvider := &porch.ApiserverUserInfoProvider{}
@@ -238,7 +235,7 @@ func (c completedConfig) New() (*PorchServer, error) {
 				UserInfoProvider:       userInfoProvider,
 			},
 			RepoSyncFrequency:    c.ExtraConfig.RepoSyncFrequency,
-			MetadataStore:        metadataStore,
+			CoreClient:           coreClient,
 			RepoPRChangeNotifier: watcherMgr,
 		})
 	if err != nil {
@@ -263,7 +260,6 @@ func (c completedConfig) New() (*PorchServer, error) {
 		engine.WithRunnerOptionsResolver(runnerOptionsResolver),
 		engine.WithReferenceResolver(referenceResolver),
 		engine.WithUserInfoProvider(userInfoProvider),
-		engine.WithMetadataStore(metadataStore),
 		engine.WithWatcherManager(watcherMgr),
 	)
 	if err != nil {

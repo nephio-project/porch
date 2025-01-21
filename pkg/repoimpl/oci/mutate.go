@@ -37,11 +37,12 @@ import (
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 )
 
-func (r *ociRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
+func (r *ociRepository) CreatePackageRevisionDraft(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
 	base := empty.Image
 
 	packageName := obj.Spec.PackageName
@@ -56,6 +57,7 @@ func (r *ociRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1
 
 	// digestName := ImageDigestName{}
 	return &ociPackageRevisionDraft{
+		metadata:    obj.ObjectMeta,
 		packageName: packageName,
 		parent:      r,
 		tasks:       []v1alpha1.Task{},
@@ -93,6 +95,7 @@ func (r *ociRepository) UpdatePackageRevision(ctx context.Context, old repositor
 	}
 
 	return &ociPackageRevisionDraft{
+		metadata:    old.GetMeta(),
 		packageName: packageName,
 		parent:      r,
 		tasks:       []v1alpha1.Task{},
@@ -103,19 +106,15 @@ func (r *ociRepository) UpdatePackageRevision(ctx context.Context, old repositor
 }
 
 type ociPackageRevisionDraft struct {
+	metadata    metav1.ObjectMeta
 	packageName string
-
-	created time.Time
-
-	parent *ociRepository
-
-	tasks []v1alpha1.Task
-
-	base      v1.Image
-	tag       name.Tag
-	addendums []mutate.Addendum
-
-	lifecycle v1alpha1.PackageRevisionLifecycle // New value of the package revision lifecycle
+	created     time.Time
+	parent      *ociRepository
+	tasks       []v1alpha1.Task
+	base        v1.Image
+	tag         name.Tag
+	addendums   []mutate.Addendum
+	lifecycle   v1alpha1.PackageRevisionLifecycle // New value of the package revision lifecycle
 }
 
 var _ repository.PackageRevisionDraft = (*ociPackageRevisionDraft)(nil)
@@ -197,6 +196,10 @@ func (p *ociPackageRevisionDraft) UpdateLifecycle(ctx context.Context, new v1alp
 
 func (p *ociPackageRevisionDraft) GetName() string {
 	return p.packageName
+}
+
+func (p *ociPackageRevisionDraft) GetMeta() metav1.ObjectMeta {
+	return p.metadata
 }
 
 // Finish round of updates.
