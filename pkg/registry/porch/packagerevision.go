@@ -32,7 +32,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-var tracer = otel.Tracer("apiserver")
+var tracer = otel.Tracer("packagerevision")
 
 type packageRevisions struct {
 	packageCommon
@@ -70,7 +70,7 @@ func (r *packageRevisions) NamespaceScoped() bool {
 
 // List selects resources in the storage which match to the selector. 'options' can be nil.
 func (r *packageRevisions) List(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
-	ctx, span := tracer.Start(ctx, "packageRevisions::List", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::List", trace.WithAttributes())
 	defer span.End()
 
 	result := &api.PackageRevisionList{
@@ -85,7 +85,7 @@ func (r *packageRevisions) List(ctx context.Context, options *metainternalversio
 		return nil, err
 	}
 
-	if err := r.packageCommon.listPackageRevisions(ctx, filter, options.LabelSelector, func(p repository.PackageRevision) error {
+	if err := r.packageCommon.listPackageRevisions(ctx, filter, options.LabelSelector, func(ctx context.Context, p repository.PackageRevision) error {
 		item, err := p.GetPackageRevision(ctx)
 		if err != nil {
 			return err
@@ -101,7 +101,7 @@ func (r *packageRevisions) List(ctx context.Context, options *metainternalversio
 
 // Get implements the Getter interface
 func (r *packageRevisions) Get(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
-	ctx, span := tracer.Start(ctx, "packageRevisions::Get", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Get", trace.WithAttributes())
 	defer span.End()
 
 	repoPkgRev, err := r.getRepoPkgRev(ctx, name)
@@ -120,7 +120,7 @@ func (r *packageRevisions) Get(ctx context.Context, name string, options *metav1
 // Create implements the Creater interface.
 func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Object, createValidation rest.ValidateObjectFunc,
 	options *metav1.CreateOptions) (runtime.Object, error) {
-	ctx, span := tracer.Start(ctx, "packageRevisions::Create", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Create", trace.WithAttributes())
 	defer span.End()
 
 	ns, namespaced := genericapirequest.NamespaceFrom(ctx)
@@ -198,7 +198,7 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 // to true.
 func (r *packageRevisions) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc,
 	updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
-	ctx, span := tracer.Start(ctx, "packageRevisions::Update", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Update", trace.WithAttributes())
 	defer span.End()
 
 	return r.packageCommon.updatePackageRevision(ctx, name, objInfo, createValidation, updateValidation, forceAllowCreate)
@@ -216,7 +216,7 @@ func (r *packageRevisions) Update(ctx context.Context, name string, objInfo rest
 // It also returns a boolean which is set to true if the resource was instantly
 // deleted or false if it will be deleted asynchronously.
 func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
-	ctx, span := tracer.Start(ctx, "packageRevisions::Delete", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Delete", trace.WithAttributes())
 	defer span.End()
 
 	ns, namespaced := genericapirequest.NamespaceFrom(ctx)

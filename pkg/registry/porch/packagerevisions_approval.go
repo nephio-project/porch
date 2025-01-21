@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -61,6 +62,9 @@ func (a *packageRevisionsApproval) Get(ctx context.Context, name string, options
 // to true.
 func (a *packageRevisionsApproval) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc,
 	updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisionsApproval::Update", trace.WithAttributes())
+	defer span.End()
+
 	allowCreate := false // do not allow create on update
 	return a.common.updatePackageRevision(ctx, name, objInfo, createValidation, updateValidation, allowCreate)
 }

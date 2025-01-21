@@ -63,7 +63,7 @@ func (pr *FakePackageRevision) Key() repository.PackageRevisionKey {
 	return pr.PackageRevisionKey
 }
 
-func (pr *FakePackageRevision) Lifecycle() v1alpha1.PackageRevisionLifecycle {
+func (pr *FakePackageRevision) Lifecycle(ctx context.Context) v1alpha1.PackageRevisionLifecycle {
 	return pr.PackageLifecycle
 }
 

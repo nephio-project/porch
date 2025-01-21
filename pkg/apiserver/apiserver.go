@@ -75,13 +75,13 @@ func init() {
 
 // ExtraConfig holds custom apiserver config
 type ExtraConfig struct {
-	CoreAPIKubeconfigPath string
-	CacheDirectory        string
-	FunctionRunnerAddress string
-	DefaultImagePrefix    string
-	RepoSyncFrequency     time.Duration
-	UseGitCaBundle        bool
-	MaxGrpcMessageSize    int
+	CoreAPIKubeconfigPath  string
+	CacheDirectory         string
+	FunctionRunnerAddress  string
+	DefaultImagePrefix     string
+	RepoSyncFrequency      time.Duration
+	UseUserDefinedCaBundle bool
+	MaxGrpcMessageSize     int
 }
 
 // Config defines the config for the apiserver
@@ -228,7 +228,7 @@ func (c completedConfig) New() (*PorchServer, error) {
 
 	watcherMgr := engine.NewWatcherManager()
 
-	memoryCache := memorycache.NewCache(c.ExtraConfig.CacheDirectory, c.ExtraConfig.RepoSyncFrequency, c.ExtraConfig.UseGitCaBundle, memorycache.CacheOptions{
+	memoryCache := memorycache.NewCache(c.ExtraConfig.CacheDirectory, c.ExtraConfig.RepoSyncFrequency, c.ExtraConfig.UseUserDefinedCaBundle, memorycache.CacheOptions{
 		CredentialResolver: credentialResolver,
 		UserInfoProvider:   userInfoProvider,
 		MetadataStore:      metadataStore,

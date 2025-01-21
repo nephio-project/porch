@@ -98,7 +98,7 @@ func (r *ociRepository) UpdatePackageRevision(ctx context.Context, old repositor
 		tasks:       []v1alpha1.Task{},
 		base:        base,
 		tag:         ref,
-		lifecycle:   oldPackage.Lifecycle(),
+		lifecycle:   oldPackage.Lifecycle(ctx),
 	}, nil
 }
 
@@ -241,11 +241,11 @@ func (r *ociRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 				}
 				var revs []string
 				for _, rev := range revisions {
-					if v1alpha1.LifecycleIsPublished(rev.Lifecycle()) {
+					if v1alpha1.LifecycleIsPublished(rev.Lifecycle(ctx)) {
 						revs = append(revs, rev.Key().Revision)
 					}
 				}
-				nextRevisionNumber, err := repository.NextRevisionNumber(revs)
+				nextRevisionNumber, err := repository.NextRevisionNumber(ctx, revs)
 				if err != nil {
 					return nil, err
 				}

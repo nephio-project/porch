@@ -15,6 +15,7 @@
 package memory
 
 import (
+	"context"
 	"sort"
 	"strings"
 
@@ -24,7 +25,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func identifyLatestRevisions(result map[repository.PackageRevisionKey]*cachedPackageRevision) {
+func identifyLatestRevisions(ctx context.Context, result map[repository.PackageRevisionKey]*cachedPackageRevision) {
 	// Compute the latest among the different revisions of the same package.
 	// The map is keyed by the package name; Values are the latest revision found so far.
 
@@ -35,7 +36,7 @@ func identifyLatestRevisions(result map[repository.PackageRevisionKey]*cachedPac
 
 		// Check if the current package revision is more recent than the one seen so far.
 		// Only consider Published packages
-		if !v1alpha1.LifecycleIsPublished(current.Lifecycle()) {
+		if !v1alpha1.LifecycleIsPublished(current.Lifecycle(ctx)) {
 			continue
 		}
 
@@ -64,10 +65,11 @@ func identifyLatestRevisions(result map[repository.PackageRevisionKey]*cachedPac
 	}
 }
 
-func toPackageRevisionSlice(cached map[repository.PackageRevisionKey]*cachedPackageRevision, filter repository.ListPackageRevisionFilter) []repository.PackageRevision {
+func toPackageRevisionSlice(
+	ctx context.Context, cached map[repository.PackageRevisionKey]*cachedPackageRevision, filter repository.ListPackageRevisionFilter) []repository.PackageRevision {
 	result := make([]repository.PackageRevision, 0, len(cached))
 	for _, p := range cached {
-		if filter.Matches(p) {
+		if filter.Matches(ctx, p) {
 			result = append(result, p)
 		}
 	}
@@ -89,7 +91,7 @@ func toPackageRevisionSlice(cached map[repository.PackageRevisionKey]*cachedPack
 		default:
 			// Equal. Compare next element
 		}
-		switch res := strings.Compare(string(result[i].Lifecycle()), string(result[j].Lifecycle())); {
+		switch res := strings.Compare(string(result[i].Lifecycle(ctx)), string(result[j].Lifecycle(ctx))); {
 		case res < 0:
 			return true
 		case res > 0:

@@ -68,7 +68,7 @@ type PackageRevision interface {
 	Key() PackageRevisionKey
 
 	// Lifecycle returns the current lifecycle state of the package.
-	Lifecycle() v1alpha1.PackageRevisionLifecycle
+	Lifecycle(ctx context.Context) v1alpha1.PackageRevisionLifecycle
 
 	// UpdateLifecycle updates the desired lifecycle of the package. This can only
 	// be used for Published package revisions to go from Published to DeletionProposed
@@ -150,7 +150,7 @@ type ListPackageRevisionFilter struct {
 }
 
 // Matches returns true if the provided PackageRevision satisfies the conditions in the filter.
-func (f *ListPackageRevisionFilter) Matches(p PackageRevision) bool {
+func (f *ListPackageRevisionFilter) Matches(ctx context.Context, p PackageRevision) bool {
 	packageKey := p.Key()
 
 	if f.Package != "" && f.Package != packageKey.Package {
@@ -165,7 +165,7 @@ func (f *ListPackageRevisionFilter) Matches(p PackageRevision) bool {
 	if f.KubeObjectName != "" && f.KubeObjectName != p.KubeObjectName() {
 		return false
 	}
-	if f.Lifecycle != "" && f.Lifecycle != p.Lifecycle() {
+	if f.Lifecycle != "" && f.Lifecycle != p.Lifecycle(ctx) {
 		return false
 	}
 	return true

@@ -92,6 +92,9 @@ func (r *cachedRepository) Refresh(ctx context.Context) error {
 }
 
 func (r *cachedRepository) Version(ctx context.Context) (string, error) {
+	ctx, span := tracer.Start(ctx, "cachedRepository::Version", trace.WithAttributes())
+	defer span.End()
+
 	return r.repo.Version(ctx)
 }
 
@@ -122,7 +125,7 @@ func (r *cachedRepository) getPackageRevisions(ctx context.Context, filter repos
 	}
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
-	return toPackageRevisionSlice(packageRevisions, filter), nil
+	return toPackageRevisionSlice(ctx, packageRevisions, filter), nil
 }
 
 func (r *cachedRepository) getPackages(ctx context.Context, filter repository.ListPackageFilter, forceRefresh bool) ([]repository.Package, error) {
@@ -196,12 +199,12 @@ func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd re
 
 	var publishedRevisions []string
 	for _, rev := range revisions {
-		if v1alpha1.LifecycleIsPublished(rev.Lifecycle()) {
+		if v1alpha1.LifecycleIsPublished(rev.Lifecycle(ctx)) {
 			publishedRevisions = append(publishedRevisions, rev.Key().Revision)
 		}
 	}
 
-	nextVersion, err := repository.NextRevisionNumber(publishedRevisions)
+	nextVersion, err := repository.NextRevisionNumber(ctx, publishedRevisions)
 	if err != nil {
 		return nil, err
 	}
@@ -234,7 +237,7 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 	k := updated.Key()
 	// previous := r.cachedPackageRevisions[k]
 
-	if v1alpha1.LifecycleIsPublished(updated.Lifecycle()) {
+	if v1alpha1.LifecycleIsPublished(updated.Lifecycle(ctx)) {
 		oldKey := repository.PackageRevisionKey{
 			Repository:    k.Repository,
 			Package:       k.Package,
@@ -247,10 +250,10 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 	r.cachedPackageRevisions[k] = cached
 
 	// Recompute latest package revisions.
-	identifyLatestRevisions(r.cachedPackageRevisions)
+	identifyLatestRevisions(ctx, r.cachedPackageRevisions)
 
 	// Create the main package revision
-	if v1alpha1.LifecycleIsPublished(updated.Lifecycle()) {
+	if v1alpha1.LifecycleIsPublished(updated.Lifecycle(ctx)) {
 		updatedMain := updated.ToMainPackageRevision()
 		err := r.createMainPackageRevision(ctx, updatedMain)
 		if err != nil {
@@ -325,7 +328,7 @@ func (r *cachedRepository) DeletePackageRevision(ctx context.Context, old reposi
 
 		// Recompute latest package revisions.
 		// TODO: Only for affected object / key?
-		identifyLatestRevisions(r.cachedPackageRevisions)
+		identifyLatestRevisions(ctx, r.cachedPackageRevisions)
 	}
 
 	r.mutex.Unlock()
@@ -408,7 +411,7 @@ func (r *cachedRepository) pollOnce(ctx context.Context) {
 	start := time.Now()
 	klog.Infof("repo %s: poll started", r.id)
 	defer func() { klog.Infof("repo %s: poll finished in %f secs", r.id, time.Since(start).Seconds()) }()
-	ctx, span := tracer.Start(ctx, "Repository::pollOnce", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "[START]::Repository::pollOnce", trace.WithAttributes())
 	defer span.End()
 
 	if _, err := r.getPackageRevisions(ctx, repository.ListPackageRevisionFilter{}, true); err != nil {
@@ -432,6 +435,9 @@ func (r *cachedRepository) flush() {
 // it also triggers notifications for all package changes.
 // mutex must be held.
 func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[repository.PackageKey]*cachedPackage, map[repository.PackageRevisionKey]*cachedPackageRevision, error) {
+	ctx, span := tracer.Start(ctx, "cachedRepository::refreshAllCachedPackages", trace.WithAttributes())
+	defer span.End()
+
 	// TODO: Avoid simultaneous fetches?
 	// TODO: Push-down partial refresh?
 	r.mutex.Lock()
@@ -567,7 +573,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 		newPackageRevisionMap[k] = pkgRev
 	}
 
-	identifyLatestRevisions(newPackageRevisionMap)
+	identifyLatestRevisions(ctx, newPackageRevisionMap)
 
 	newPackageMap := make(map[repository.PackageKey]*cachedPackage)
 

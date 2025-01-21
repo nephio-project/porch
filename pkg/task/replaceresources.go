@@ -31,7 +31,7 @@ type replaceResourcesMutation struct {
 }
 
 func (m *replaceResourcesMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
-	_, span := tracer.Start(ctx, "mutationReplaceResources::Apply", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "mutationReplaceResources::apply", trace.WithAttributes())
 	defer span.End()
 
 	patch := &api.PackagePatchTaskSpec{}

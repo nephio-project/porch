@@ -35,7 +35,7 @@ type editPackageMutation struct {
 var _ mutation = &editPackageMutation{}
 
 func (m *editPackageMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
-	ctx, span := tracer.Start(ctx, "editPackageMutation::Apply", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "editPackageMutation::apply", trace.WithAttributes())
 	defer span.End()
 
 	sourceRef := m.task.Edit.Source
@@ -55,7 +55,7 @@ func (m *editPackageMutation) apply(ctx context.Context, resources repository.Pa
 	}
 
 	// We only allow edit to create new revisions from published packages.
-	if !api.LifecycleIsPublished(revision.Lifecycle()) {
+	if !api.LifecycleIsPublished(revision.Lifecycle(ctx)) {
 		return repository.PackageResources{}, nil, fmt.Errorf("source revision must be published")
 	}
 
