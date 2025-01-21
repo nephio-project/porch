@@ -17,6 +17,7 @@ package memorycache
 import (
 	"context"
 
+	"github.com/nephio-project/porch/pkg/cache/memorycache/meta"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 )
 
@@ -27,7 +28,8 @@ type MemoryCacheFactory struct {
 
 func (f *MemoryCacheFactory) NewCache(_ context.Context, options cachetypes.CacheOptions) (cachetypes.Cache, error) {
 	return &Cache{
-		repositories: make(map[string]*cachedRepository),
-		options:      options,
+		repositories:  make(map[string]*cachedRepository),
+		metadataStore: meta.NewCrdMetadataStore(options.CoreClient),
+		options:       options,
 	}, nil
 }

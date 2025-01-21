@@ -17,15 +17,17 @@ package memorycache
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/pkg/cache/memorycache/meta"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
@@ -57,17 +59,19 @@ type cachedRepository struct {
 	// This is returned back by the cache to the background goroutine when it calls periodicall to resync repositories.
 	refreshRevisionsError error
 
-	options cachetypes.CacheOptions
+	metadataStore        meta.MetadataStore
+	repoPRChangeNotifier cachetypes.RepoPRChangeNotifier
 }
 
-func newRepository(id string, repoSpec *configapi.Repository, repo repository.Repository, options cachetypes.CacheOptions) *cachedRepository {
+func newRepository(id string, repoSpec *configapi.Repository, repo repository.Repository, metadataStore meta.MetadataStore, options cachetypes.CacheOptions) *cachedRepository {
 	ctx, cancel := context.WithCancel(context.Background())
 	r := &cachedRepository{
-		id:       id,
-		repoSpec: repoSpec,
-		repo:     repo,
-		cancel:   cancel,
-		options:  options,
+		id:                   id,
+		repoSpec:             repoSpec,
+		repo:                 repo,
+		metadataStore:        metadataStore,
+		repoPRChangeNotifier: options.RepoPRChangeNotifier,
+		cancel:               cancel,
 	}
 
 	// TODO: Should we fetch the packages here?
@@ -95,6 +99,24 @@ func (r *cachedRepository) ListPackageRevisions(ctx context.Context, filter repo
 	packages, err := r.getPackageRevisions(ctx, filter, false)
 	if err != nil {
 		return nil, err
+	}
+
+	for _, pr := range packages {
+		pkgRevMeta, err := r.metadataStore.Get(ctx, types.NamespacedName{
+			Name:      pr.KubeObjectName(),
+			Namespace: pr.KubeObjectNamespace(),
+		})
+		if err != nil {
+			// If a PackageRev CR doesn't exist, we treat the
+			// Packagerevision as not existing.
+			if apierrors.IsNotFound(err) {
+				continue
+			}
+			return nil, err
+		}
+		if err := pr.SetMeta(ctx, pkgRevMeta); err != nil {
+			return nil, err
+		}
 	}
 
 	return packages, nil
@@ -159,8 +181,8 @@ func (r *cachedRepository) getCachedPackages(ctx context.Context, forceRefresh b
 	return packages, packageRevisions, err
 }
 
-func (r *cachedRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
-	return r.repo.CreatePackageRevision(ctx, obj)
+func (r *cachedRepository) CreatePackageRevisionDraft(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
+	return r.repo.CreatePackageRevisionDraft(ctx, obj)
 }
 
 func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version string) (repository.PackageRevision, error) {
@@ -198,11 +220,38 @@ func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd re
 		return nil, err
 	}
 
-	if closed, err := r.repo.ClosePackageRevisionDraft(ctx, prd, nextVersion); err != nil {
+	closedPr, err := r.repo.ClosePackageRevisionDraft(ctx, prd, nextVersion)
+	if err != nil {
 		return nil, err
-	} else {
-		return r.update(ctx, closed)
 	}
+
+	cachedPr, err := r.update(ctx, closedPr)
+	if err != nil {
+		return nil, err
+	}
+
+	pkgRevMeta := metav1.ObjectMeta{
+		Name:            cachedPr.KubeObjectName(),
+		Namespace:       cachedPr.KubeObjectNamespace(),
+		Labels:          prd.GetMeta().Labels,
+		Annotations:     prd.GetMeta().Annotations,
+		Finalizers:      prd.GetMeta().Finalizers,
+		OwnerReferences: prd.GetMeta().OwnerReferences,
+	}
+
+	pkgRevMeta, err = r.metadataStore.Create(ctx, pkgRevMeta, r.repoSpec.Name, cachedPr.UID())
+	if err != nil {
+		return nil, err
+	}
+
+	if err := cachedPr.SetMeta(ctx, pkgRevMeta); err != nil {
+		return nil, err
+	}
+
+	sent := r.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Added, cachedPr)
+	klog.Infof("cache: sent %d for new PackageRevision %s/%s", sent, cachedPr.KubeObjectNamespace(), cachedPr.KubeObjectName())
+	return cachedPr, nil
+
 }
 
 func (r *cachedRepository) UpdatePackageRevision(ctx context.Context, old repository.PackageRevision) (repository.PackageRevisionDraft, error) {
@@ -235,7 +284,10 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 		delete(r.cachedPackageRevisions, oldKey)
 	}
 
-	cached := &cachedPackageRevision{PackageRevision: updated}
+	cached := &cachedPackageRevision{
+		PackageRevision: updated,
+		metadataStore:   r.metadataStore}
+
 	r.cachedPackageRevisions[k] = cached
 
 	// Recompute latest package revisions.
@@ -272,7 +324,10 @@ func (r *cachedRepository) createMainPackageRevision(ctx context.Context, update
 			delete(r.cachedPackageRevisions, oldMainKey)
 		}
 	}
-	cachedMain := &cachedPackageRevision{PackageRevision: updatedMain}
+	cachedMain := &cachedPackageRevision{
+		PackageRevision: updatedMain,
+		metadataStore:   r.metadataStore,
+	}
 	r.cachedPackageRevisions[updatedMain.Key()] = cachedMain
 
 	pkgRevMetaNN := types.NamespacedName{
@@ -281,13 +336,13 @@ func (r *cachedRepository) createMainPackageRevision(ctx context.Context, update
 	}
 
 	// Create the package if it doesn't exist
-	_, err := r.options.MetadataStore.Get(ctx, pkgRevMetaNN)
-	if errors.IsNotFound(err) {
+	_, err := r.metadataStore.Get(ctx, pkgRevMetaNN)
+	if apierrors.IsNotFound(err) {
 		pkgRevMeta := metav1.ObjectMeta{
 			Name:      updatedMain.KubeObjectName(),
 			Namespace: updatedMain.KubeObjectNamespace(),
 		}
-		_, err := r.options.MetadataStore.Create(ctx, pkgRevMeta, r.repoSpec.Name, updatedMain.UID())
+		_, err := r.metadataStore.Create(ctx, pkgRevMeta, r.repoSpec.Name, updatedMain.UID())
 		if err != nil {
 			klog.Warningf("unable to create PackageRev CR for %s/%s: %v",
 				updatedMain.KubeObjectNamespace(), updatedMain.KubeObjectName(), err)
@@ -302,16 +357,39 @@ func (r *cachedRepository) createMainPackageRevision(ctx context.Context, update
 	return nil
 }
 
-func (r *cachedRepository) DeletePackageRevision(ctx context.Context, old repository.PackageRevision) error {
+func (r *cachedRepository) DeletePackageRevision(ctx context.Context, prToDelete repository.PackageRevision) error {
+	// We delete the PackageRev regardless of any finalizers, since it
+	// will always have the same finalizers as the PackageRevision. This
+	// will put the PackageRev, and therefore the PackageRevision in the
+	// terminating state.
+	// But we only delete the PackageRevision from the repo once all finalizers
+	// have been removed.
+	namespacedName := types.NamespacedName{
+		Name:      prToDelete.KubeObjectName(),
+		Namespace: prToDelete.KubeObjectNamespace(),
+	}
+	pkgRevMeta, err := r.metadataStore.Delete(ctx, namespacedName, false)
+	if err != nil {
+		return err
+	}
+
+	if len(pkgRevMeta.Finalizers) > 0 {
+		klog.Infof("PackageRevision %s deleted, but still have finalizers: %s", prToDelete.KubeObjectName(), strings.Join(pkgRevMeta.Finalizers, ","))
+		sent := r.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Modified, prToDelete)
+		klog.Infof("memorycache: sent %d modified for deleted PackageRevision %s/%s with finalizers", sent, prToDelete.KubeObjectNamespace(), prToDelete.KubeObjectName())
+		return nil
+	}
+	klog.Infof("PackageRevision %s deleted for real since no finalizers", prToDelete.KubeObjectName())
+
 	// Unwrap
-	unwrapped := old.(*cachedPackageRevision).PackageRevision
+	unwrapped := prToDelete.(*cachedPackageRevision).PackageRevision
 	if err := r.repo.DeletePackageRevision(ctx, unwrapped); err != nil {
 		return err
 	}
 
 	r.mutex.Lock()
 	if r.cachedPackages != nil {
-		k := old.Key()
+		k := prToDelete.Key()
 		// previous := r.cachedPackages[k]
 		delete(r.cachedPackageRevisions, k)
 
@@ -321,6 +399,9 @@ func (r *cachedRepository) DeletePackageRevision(ctx context.Context, old reposi
 	}
 
 	r.mutex.Unlock()
+
+	sent := r.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Deleted, prToDelete)
+	klog.Infof("memorycache: sent %d for deleted PackageRevision %s/%s", sent, prToDelete.KubeObjectNamespace(), prToDelete.KubeObjectName())
 
 	return nil
 }
@@ -367,7 +448,7 @@ func (r *cachedRepository) Close() error {
 		// the repository, so we have to just delete the PackageRevision regardless of any
 		// finalizers.
 		klog.Infof("repo %s: deleting packagerev %s/%s because repository is closed", r.id, nn.Namespace, nn.Name)
-		_, err := r.options.MetadataStore.Delete(context.TODO(), nn, true)
+		_, err := r.metadataStore.Delete(context.TODO(), nn, true)
 		if err != nil {
 			// There isn't much use in returning an error here, so we just log it
 			// and create a PackageRevisionMeta with just name and namespace. This
@@ -375,7 +456,7 @@ func (r *cachedRepository) Close() error {
 			klog.Warningf("repo %s: error deleting packagerev for %s: %v", r.id, nn.Name, err)
 		}
 		klog.Infof("repo %s: successfully deleted packagerev %s/%s", r.id, nn.Namespace, nn.Name)
-		sent += r.options.RepoPRChangeNotifier.NotifyPackageRevisionChange(watch.Deleted, pr)
+		sent += r.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Deleted, pr)
 	}
 	klog.Infof("repo %s: sent %d notifications for %d package revisions during close", r.id, sent, len(r.cachedPackageRevisions))
 	return r.repo.Close()
@@ -447,7 +528,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 	// Look up all existing PackageRevCRs so we an compare those to the
 	// actual Packagerevisions found in git/oci, and add/prune PackageRevCRs
 	// as necessary.
-	existingPkgRevCRs, err := r.options.MetadataStore.List(ctx, r.repoSpec)
+	existingPkgRevCRs, err := r.metadataStore.List(ctx, r.repoSpec)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -474,6 +555,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 
 		pkgRev := &cachedPackageRevision{
 			PackageRevision:  newPackage,
+			metadataStore:    r.metadataStore,
 			isLatestRevision: false,
 		}
 		newPackageRevisionNames[newPackage.KubeObjectName()] = pkgRev
@@ -492,11 +574,11 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 		if _, found := newPackageRevisionNames[prm.Name]; !found {
 			klog.Infof("repo %s: deleting PackageRev %s/%s because parent PackageRevision was not found",
 				r.id, prm.Namespace, prm.Name)
-			if _, err := r.options.MetadataStore.Delete(ctx, types.NamespacedName{
+			if _, err := r.metadataStore.Delete(ctx, types.NamespacedName{
 				Name:      prm.Name,
 				Namespace: prm.Namespace,
 			}, true); err != nil {
-				if !errors.IsNotFound(err) {
+				if !apierrors.IsNotFound(err) {
 					// This will be retried the next time the sync runs.
 					klog.Warningf("repo %s: unable to delete PackageRev CR for %s/%s: %v",
 						r.id, prm.Name, prm.Namespace, err)
@@ -511,10 +593,10 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 	for kname, newPackage := range newPackageRevisionNames {
 		oldPackage := oldPackageRevisionNames[kname]
 		if oldPackage == nil {
-			addSent += r.options.RepoPRChangeNotifier.NotifyPackageRevisionChange(watch.Added, newPackage)
+			addSent += r.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Added, newPackage)
 		} else {
 			if oldPackage.ResourceVersion() != newPackage.ResourceVersion() {
-				modSent += r.options.RepoPRChangeNotifier.NotifyPackageRevisionChange(watch.Modified, newPackage)
+				modSent += r.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Modified, newPackage)
 			}
 		}
 	}
@@ -527,7 +609,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 				Name:      pkgRevName,
 				Namespace: r.repoSpec.Namespace,
 			}
-			if _, err := r.options.MetadataStore.Create(ctx, pkgRevMeta, r.repoSpec.Name, pkgRev.UID()); err != nil {
+			if _, err := r.metadataStore.Create(ctx, pkgRevMeta, r.repoSpec.Name, pkgRev.UID()); err != nil {
 				// TODO: We should try to find a way to make these errors available through
 				// either the repository CR or the PackageRevision CR. This will be
 				// retried on the next sync.
@@ -547,7 +629,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 			}
 			klog.Infof("repo %s: deleting PackageRev %s/%s because PackageRevision was removed from SoT",
 				r.id, nn.Namespace, nn.Name)
-			delSent += r.options.RepoPRChangeNotifier.NotifyPackageRevisionChange(watch.Deleted, oldPackage)
+			delSent += r.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Deleted, oldPackage)
 		}
 	}
 	klog.Infof("repo %s: addSent %d, modSent %d, delSent for %d old and %d new repo packages", r.id, addSent, modSent, len(oldPackageRevisionNames), len(newPackageRevisionNames))
@@ -557,6 +639,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 		k := newPackage.Key()
 		pkgRev := &cachedPackageRevision{
 			PackageRevision:  newPackage,
+			metadataStore:    r.metadataStore,
 			isLatestRevision: false,
 		}
 		newPackageRevisionMap[k] = pkgRev
@@ -570,10 +653,6 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 		if !newPackageRevision.isLatestRevision {
 			continue
 		}
-		// TODO: Build package?
-		// newPackage := &cachedPackage{
-		// }
-		// newPackageMap[newPackage.Key()] = newPackage
 	}
 
 	r.cachedPackageRevisions = newPackageRevisionMap

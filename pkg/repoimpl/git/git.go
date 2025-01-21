@@ -353,7 +353,7 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 	return result, nil
 }
 
-func (r *gitRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
+func (r *gitRepository) CreatePackageRevisionDraft(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
 	_, span := tracer.Start(ctx, "gitRepository::CreatePackageRevision", trace.WithAttributes())
 	defer span.End()
 	r.mutex.Lock()
@@ -382,6 +382,7 @@ func (r *gitRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1
 	// TODO: This should also create a new 'Package' resource if one does not already exist
 
 	return &gitPackageRevisionDraft{
+		metadata:      obj.ObjectMeta,
 		parent:        r,
 		path:          packagePath,
 		workspaceName: obj.Spec.WorkspaceName,
@@ -428,6 +429,7 @@ func (r *gitRepository) UpdatePackageRevision(ctx context.Context, old repositor
 	lifecycle := r.getLifecycle(oldGitPackage)
 
 	return &gitPackageRevisionDraft{
+		metadata:      old.GetMeta(),
 		parent:        r,
 		path:          oldGitPackage.path,
 		revision:      oldGitPackage.revision,

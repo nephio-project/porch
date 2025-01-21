@@ -428,6 +428,7 @@ func (p *ociPackageRevision) GetMeta() metav1.ObjectMeta {
 	return p.metadata
 }
 
-func (p *ociPackageRevision) SetMeta(metadata metav1.ObjectMeta) {
+func (p *ociPackageRevision) SetMeta(_ context.Context, metadata metav1.ObjectMeta) error {
 	p.metadata = metadata
+	return nil
 }
