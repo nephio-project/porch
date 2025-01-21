@@ -23,9 +23,11 @@ import (
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type gitPackageRevisionDraft struct {
+	metadata      metav1.ObjectMeta
 	parent        *gitRepository // repo is repo containing the package
 	path          string         // the path to the package from the repo root
 	revision      string
@@ -51,6 +53,16 @@ type gitPackageRevisionDraft struct {
 
 var _ repository.PackageRevisionDraft = &gitPackageRevisionDraft{}
 
+func (d *gitPackageRevisionDraft) GetName() string {
+	packageDirectory := d.parent.directory
+	packageName := strings.TrimPrefix(d.path, packageDirectory+"/")
+	return packageName
+}
+
+func (d *gitPackageRevisionDraft) GetMeta() metav1.ObjectMeta {
+	return d.metadata
+}
+
 func (d *gitPackageRevisionDraft) UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, change *v1alpha1.Task) error {
 	ctx, span := tracer.Start(ctx, "gitPackageDraft::UpdateResources", trace.WithAttributes())
 	defer span.End()
@@ -61,10 +73,4 @@ func (d *gitPackageRevisionDraft) UpdateResources(ctx context.Context, new *v1al
 func (d *gitPackageRevisionDraft) UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error {
 	d.lifecycle = new
 	return nil
-}
-
-func (d *gitPackageRevisionDraft) GetName() string {
-	packageDirectory := d.parent.directory
-	packageName := strings.TrimPrefix(d.path, packageDirectory+"/")
-	return packageName
 }

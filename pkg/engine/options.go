@@ -21,7 +21,6 @@ import (
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/kpt"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
-	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
@@ -118,13 +117,6 @@ func WithReferenceResolver(resolver repository.ReferenceResolver) EngineOption {
 func WithUserInfoProvider(provider repository.UserInfoProvider) EngineOption {
 	return EngineOptionFunc(func(engine *cadEngine) error {
 		engine.userInfoProvider = provider
-		return nil
-	})
-}
-
-func WithMetadataStore(metadataStore meta.MetadataStore) EngineOption {
-	return EngineOptionFunc(func(engine *cadEngine) error {
-		engine.metadataStore = metadataStore
 		return nil
 	})
 }

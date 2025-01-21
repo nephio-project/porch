@@ -18,8 +18,9 @@ import (
 	"context"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/pkg/cache/memorycache/meta"
 	"github.com/nephio-project/porch/pkg/repository"
-	"go.opentelemetry.io/otel/trace"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // We take advantage of the cache having a global view of all the packages
@@ -32,6 +33,7 @@ var _ repository.PackageRevision = &cachedPackageRevision{}
 
 type cachedPackageRevision struct {
 	repository.PackageRevision
+	metadataStore    meta.MetadataStore
 	isLatestRevision bool
 }
 
@@ -61,4 +63,13 @@ func (c *cachedPackageRevision) GetPackageRevision(ctx context.Context) (*api.Pa
 	}
 
 	return apiPR, nil
+}
+
+func (c *cachedPackageRevision) SetMeta(ctx context.Context, pkgRevMeta metav1.ObjectMeta) error {
+
+	if storedPkgRevMeta, err := c.metadataStore.Update(ctx, pkgRevMeta); err == nil {
+		return c.PackageRevision.SetMeta(ctx, storedPkgRevMeta)
+	} else {
+		return err
+	}
 }

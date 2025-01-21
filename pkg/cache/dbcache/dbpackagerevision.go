@@ -36,14 +36,15 @@ var _ repository.PackageRevision = &dbPackageRevision{}
 var _ repository.PackageRevisionDraft = &dbPackageRevision{}
 
 type dbPackageRevision struct {
-	pkgRevKey repository.PackageRevisionKey
-	meta      metav1.ObjectMeta
-	spec      v1alpha1.PackageRevisionSpec
-	updated   time.Time
-	updatedBy string
-	lifecycle v1alpha1.PackageRevisionLifecycle
-	tasks     []v1alpha1.Task
-	resources map[string]string
+	definition *v1alpha1.PackageRevision
+	pkgRevKey  repository.PackageRevisionKey
+	meta       metav1.ObjectMeta
+	spec       v1alpha1.PackageRevisionSpec
+	updated    time.Time
+	updatedBy  string
+	lifecycle  v1alpha1.PackageRevisionLifecycle
+	tasks      []v1alpha1.Task
+	resources  map[string]string
 }
 
 func (pr *dbPackageRevision) KubeObjectName() string {
@@ -206,7 +207,8 @@ func (pr *dbPackageRevision) GetMeta() metav1.ObjectMeta {
 	return metav1.ObjectMeta{}
 }
 
-func (pr *dbPackageRevision) SetMeta(metav1.ObjectMeta) {
+func (pr *dbPackageRevision) SetMeta(context.Context, metav1.ObjectMeta) error {
+	return nil
 }
 
 func (pr *dbPackageRevision) GetKptfile(context.Context) (kptfile.KptFile, error) {

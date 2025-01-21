@@ -144,7 +144,7 @@ type PackageRevision interface {
 	GetMeta() metav1.ObjectMeta
 
 	// Set the Kubernetes metadata for the package revision
-	SetMeta(metav1.ObjectMeta)
+	SetMeta(context.Context, metav1.ObjectMeta) error
 }
 
 // Package is an abstract package.
@@ -165,10 +165,11 @@ type Package interface {
 }
 
 type PackageRevisionDraft interface {
+	GetName() string
+	GetMeta() metav1.ObjectMeta
 	UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, task *v1alpha1.Task) error
 	// Updates desired lifecycle of the package. The lifecycle is applied on Close.
 	UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error
-	GetName() string
 }
 
 // ListPackageRevisionFilter is a predicate for filtering PackageRevision objects;
@@ -240,7 +241,7 @@ type Repository interface {
 	ListPackageRevisions(ctx context.Context, filter ListPackageRevisionFilter) ([]PackageRevision, error)
 
 	// CreatePackageRevision creates a new package revision
-	CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (PackageRevisionDraft, error)
+	CreatePackageRevisionDraft(ctx context.Context, obj *v1alpha1.PackageRevision) (PackageRevisionDraft, error)
 
 	// ClosePackageRevisionDraft closes out a Package Revision Draft
 	ClosePackageRevisionDraft(ctx context.Context, prd PackageRevisionDraft, version string) (PackageRevision, error)

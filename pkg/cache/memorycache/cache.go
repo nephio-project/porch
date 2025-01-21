@@ -20,6 +20,7 @@ import (
 	"sync"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/pkg/cache/memorycache/meta"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repoimpl"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -40,9 +41,10 @@ var tracer = otel.Tracer("memorycache")
 // * We Cache flattened tar files in <cacheDir>/oci/ (so we don't need to pull to read resources)
 // * We poll the repositories (every minute) and Cache the discovered images in memory.
 type Cache struct {
-	mutex        sync.Mutex
-	repositories map[string]*cachedRepository
-	options      cachetypes.CacheOptions
+	mutex         sync.Mutex
+	repositories  map[string]*cachedRepository
+	metadataStore meta.MetadataStore
+	options       cachetypes.CacheOptions
 }
 
 var _ cachetypes.Cache = &Cache{}
@@ -73,7 +75,7 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 		return nil, err
 	}
 
-	cachedRepo := newRepository(key, repositorySpec, repoImpl, c.options)
+	cachedRepo := newRepository(key, repositorySpec, repoImpl, c.metadataStore, c.options)
 	c.repositories[key] = cachedRepo
 
 	return cachedRepo, nil

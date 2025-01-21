@@ -19,19 +19,16 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strings"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
-	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/task"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog/v2"
 )
@@ -76,7 +73,6 @@ type cadEngine struct {
 	cache cachetypes.Cache
 
 	userInfoProvider repository.UserInfoProvider
-	metadataStore    meta.MetadataStore
 	watcherManager   *watcherManager
 	taskHandler      task.TaskHandler
 }
@@ -103,29 +99,8 @@ func (cad *cadEngine) ListPackageRevisions(ctx context.Context, repositorySpec *
 	if err != nil {
 		return nil, err
 	}
-	pkgRevs, err := repo.ListPackageRevisions(ctx, filter)
-	if err != nil {
-		return nil, err
-	}
 
-	var packageRevisions []repository.PackageRevision
-	for _, pr := range pkgRevs {
-		pkgRevMeta, err := cad.metadataStore.Get(ctx, types.NamespacedName{
-			Name:      pr.KubeObjectName(),
-			Namespace: pr.KubeObjectNamespace(),
-		})
-		if err != nil {
-			// If a PackageRev CR doesn't exist, we treat the
-			// Packagerevision as not existing.
-			if apierrors.IsNotFound(err) {
-				continue
-			}
-			return nil, err
-		}
-		pr.SetMeta(pkgRevMeta)
-		packageRevisions = append(packageRevisions, pr)
-	}
-	return packageRevisions, nil
+	return repo.ListPackageRevisions(ctx, filter)
 }
 
 func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
@@ -170,7 +145,7 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 		return nil, err
 	}
 
-	draft, err := repo.CreatePackageRevision(ctx, obj)
+	draft, err := repo.CreatePackageRevisionDraft(ctx, obj)
 	if err != nil {
 		return nil, err
 	}
@@ -184,30 +159,7 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	}
 
 	// Updates are done.
-	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, "")
-	if err != nil {
-		return nil, err
-	}
-	pkgRevMeta := metav1.ObjectMeta{
-		Name:            repoPkgRev.KubeObjectName(),
-		Namespace:       repoPkgRev.KubeObjectNamespace(),
-		Labels:          obj.Labels,
-		Annotations:     obj.Annotations,
-		Finalizers:      obj.Finalizers,
-		OwnerReferences: obj.OwnerReferences,
-	}
-	pkgRevMeta, err = cad.metadataStore.Create(ctx, pkgRevMeta, repositoryObj.Name, repoPkgRev.UID())
-	if err != nil {
-		if (apierrors.IsUnauthorized(err) || apierrors.IsForbidden(err)) && repository.AnyBlockOwnerDeletionSet(obj) {
-			return nil, fmt.Errorf("failed to create internal PackageRev object, because blockOwnerDeletion is enabled for some ownerReference "+
-				"(it is likely that the serviceaccount of porch-server does not have the rights to update finalizers in the owner object): %w", err)
-		}
-		return nil, err
-	}
-	repoPkgRev.SetMeta(pkgRevMeta)
-	sent := cad.watcherManager.NotifyPackageRevisionChange(watch.Added, repoPkgRev)
-	klog.Infof("engine: sent %d for new PackageRevision %s/%s", sent, repoPkgRev.KubeObjectNamespace(), repoPkgRev.KubeObjectName())
-	return repoPkgRev, nil
+	return repo.ClosePackageRevisionDraft(ctx, draft, "")
 }
 
 // The workspaceName must be unique, because it used to generate the package revision's metadata.name.
@@ -243,18 +195,10 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version string,
 	// Check if the PackageRevision is in the terminating state and
 	// and this request removes the last finalizer.
 	repoPkgRev := repoPr
-	pkgRevMetaNN := types.NamespacedName{
-		Name:      repoPkgRev.KubeObjectName(),
-		Namespace: repoPkgRev.KubeObjectNamespace(),
-	}
-	pkgRevMeta, err := cad.metadataStore.Get(ctx, pkgRevMetaNN)
-	if err != nil {
-		return nil, err
-	}
-	repoPkgRev.SetMeta(pkgRevMeta)
-	// If this is in the terminating state and we are removing the last finalizer,
+
+	// If the PR is in the terminating state and we are removing the last finalizer,
 	// we delete the resource instead of updating it.
-	if pkgRevMeta.DeletionTimestamp != nil && len(newObj.Finalizers) == 0 {
+	if repoPkgRev.GetMeta().DeletionTimestamp != nil && len(newObj.Finalizers) == 0 {
 		if err := cad.deletePackageRevision(ctx, repo, repoPkgRev); err != nil {
 			return nil, err
 		}
@@ -345,14 +289,7 @@ func (cad *cadEngine) updatePkgRevMeta(ctx context.Context, repoPkgRev repositor
 		OwnerReferences: apiPkgRev.OwnerReferences,
 	}
 
-	repoPkgRev.SetMeta(pkgRevMeta)
-
-	if storedPkgRevMeta, err := cad.metadataStore.Update(ctx, pkgRevMeta); err == nil {
-		repoPkgRev.SetMeta(storedPkgRevMeta)
-		return nil
-	} else {
-		return err
-	}
+	return repoPkgRev.SetMeta(ctx, pkgRevMeta)
 }
 
 func (cad *cadEngine) DeletePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, pr2Del repository.PackageRevision) error {
@@ -363,29 +300,6 @@ func (cad *cadEngine) DeletePackageRevision(ctx context.Context, repositoryObj *
 	if err != nil {
 		return err
 	}
-
-	// We delete the PackageRev regardless of any finalizers, since it
-	// will always have the same finalizers as the PackageRevision. This
-	// will put the PackageRev, and therefore the PackageRevision in the
-	// terminating state.
-	// But we only delete the PackageRevision from the repo once all finalizers
-	// have been removed.
-	namespacedName := types.NamespacedName{
-		Name:      pr2Del.KubeObjectName(),
-		Namespace: pr2Del.KubeObjectNamespace(),
-	}
-	pkgRevMeta, err := cad.metadataStore.Delete(ctx, namespacedName, false)
-	if err != nil {
-		return err
-	}
-
-	if len(pkgRevMeta.Finalizers) > 0 {
-		klog.Infof("PackageRevision %s deleted, but still have finalizers: %s", pr2Del.KubeObjectName(), strings.Join(pkgRevMeta.Finalizers, ","))
-		sent := cad.watcherManager.NotifyPackageRevisionChange(watch.Modified, pr2Del)
-		klog.Infof("engine: sent %d modified for deleted PackageRevision %s/%s with finalizers", sent, pr2Del.KubeObjectNamespace(), pr2Del.KubeObjectName())
-		return nil
-	}
-	klog.Infof("PackageRevision %s deleted for real since no finalizers", pr2Del.KubeObjectName())
 
 	return cad.deletePackageRevision(ctx, repo, pr2Del)
 }
@@ -398,19 +312,6 @@ func (cad *cadEngine) deletePackageRevision(ctx context.Context, repo repository
 		return err
 	}
 
-	nn := types.NamespacedName{
-		Name:      repoPkgRev.GetMeta().Name,
-		Namespace: repoPkgRev.GetMeta().Namespace,
-	}
-	if _, err := cad.metadataStore.Delete(ctx, nn, true); err != nil {
-		// If this fails, the CR will be cleaned up by the background job.
-		if !apierrors.IsNotFound(err) {
-			klog.Warningf("Error deleting PkgRevMeta %s: %v", nn.String(), err)
-		}
-	}
-
-	sent := cad.watcherManager.NotifyPackageRevisionChange(watch.Deleted, repoPkgRev)
-	klog.Infof("engine: sent %d for deleted PackageRevision %s/%s", sent, repoPkgRev.KubeObjectNamespace(), repoPkgRev.KubeObjectName())
 	return nil
 }
 
@@ -557,7 +458,7 @@ func (cad *cadEngine) RecloneAndReplay(ctx context.Context, parentPR repository.
 
 	// For reclone and replay, we create a new package every time
 	// the version should be in newObj so we will overwrite.
-	draft, err := repo.CreatePackageRevision(ctx, newObj)
+	draft, err := repo.CreatePackageRevisionDraft(ctx, newObj)
 	if err != nil {
 		return nil, err
 	}
