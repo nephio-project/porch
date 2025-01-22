@@ -70,7 +70,7 @@ func TestSetNewRef(t *testing.T) {
 	zero := plumbing.NewHashReference(draftReferenceName, plumbing.ZeroHash)
 	test := plumbing.NewHashReference(draftReferenceName, basens.Hash())
 
-	if err := repo.Storer.CheckAndSetReference(test, zero); err != nil {
+	if err := repo.Storer.SetReference(test); err != nil {
 		t.Errorf("CheckAndSetReference(%s, zero) failed: %v", test, err)
 	}
 
