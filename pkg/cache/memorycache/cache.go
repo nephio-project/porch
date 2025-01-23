@@ -38,7 +38,7 @@ var tracer = otel.Tracer("memorycache")
 // * Caches oci images with further hierarchy underneath
 // * We Cache image layers in <cacheDir>/oci/layers/ (this might be obsolete with the flattened Cache)
 // * We Cache flattened tar files in <cacheDir>/oci/ (so we don't need to pull to read resources)
-// * We poll the repositories (every minute) and Cache the discovered images in memory.
+// * We poll the repositories periodically (configurable) and cache the discovered images in memory.
 type Cache struct {
 	mutex        sync.Mutex
 	repositories map[string]*cachedRepository
