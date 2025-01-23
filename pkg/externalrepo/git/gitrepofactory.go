@@ -20,16 +20,16 @@ import (
 	"path/filepath"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	repoimpltypes "github.com/nephio-project/porch/pkg/repoimpl/types"
+	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
-var _ repoimpltypes.RepoImplFactory = &GitRepoFactory{}
+var _ externalrepotypes.ExternalRepoFactory = &GitRepoFactory{}
 
 type GitRepoFactory struct {
 }
 
-func (f *GitRepoFactory) NewRepositoryImpl(ctx context.Context, repositorySpec *configapi.Repository, options repoimpltypes.RepoImplOptions) (repository.Repository, error) {
+func (f *GitRepoFactory) NewRepositoryImpl(ctx context.Context, repositorySpec *configapi.Repository, options externalrepotypes.ExternalRepoOptions) (repository.Repository, error) {
 	if repositorySpec.Spec.Git == nil {
 		return nil, errors.New("git property is required")
 	}
@@ -45,8 +45,8 @@ func (f *GitRepoFactory) NewRepositoryImpl(ctx context.Context, repositorySpec *
 	}
 
 	repo, err := OpenRepository(ctx, repositorySpec.Name, repositorySpec.Namespace, repositorySpec.Spec.Git, repositorySpec.Spec.Deployment, filepath.Join(options.LocalDirectory, "git"), GitRepositoryOptions{
-		RepoImplOptions:    options,
-		MainBranchStrategy: mbs,
+		ExternalRepoOptions: options,
+		MainBranchStrategy:  mbs,
 	})
 	if err != nil {
 		return nil, err

@@ -28,10 +28,10 @@ import (
 
 	fakecache "github.com/nephio-project/porch/pkg/cache/fake"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
+	"github.com/nephio-project/porch/pkg/externalrepo/git"
+	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/meta"
 	fakemeta "github.com/nephio-project/porch/pkg/meta/fake"
-	"github.com/nephio-project/porch/pkg/repoimpl/git"
-	repoimpltypes "github.com/nephio-project/porch/pkg/repoimpl/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
@@ -39,7 +39,7 @@ import (
 
 func TestLatestPackages(t *testing.T) {
 	ctx := context.Background()
-	testPath := filepath.Join("..", "..", "repoimpl", "git", "testdata")
+	testPath := filepath.Join("..", "..", "externalrepo", "git", "testdata")
 
 	cachedRepo := openRepositoryFromArchive(t, ctx, testPath, "nested")
 
@@ -85,7 +85,7 @@ func TestLatestPackages(t *testing.T) {
 
 func TestPublishedLatest(t *testing.T) {
 	ctx := context.Background()
-	testPath := filepath.Join("..", "..", "repoimpl", "git", "testdata")
+	testPath := filepath.Join("..", "..", "externalrepo", "git", "testdata")
 	cachedRepo := openRepositoryFromArchive(t, ctx, testPath, "nested")
 
 	revisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
@@ -131,7 +131,7 @@ func TestPublishedLatest(t *testing.T) {
 
 func TestDeletePublishedMain(t *testing.T) {
 	ctx := context.Background()
-	testPath := filepath.Join("../..", "repoimpl", "git", "testdata")
+	testPath := filepath.Join("../..", "externalrepo", "git", "testdata")
 	cachedRepo := openRepositoryFromArchive(t, ctx, testPath, "nested")
 
 	revisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
@@ -226,7 +226,7 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 	metadataStore := createMetadataStoreFromArchive(t, fmt.Sprintf("%s-metadata.yaml", name), name)
 
 	cache, _ := new(MemoryCacheFactory).NewCache(ctx, cachetypes.CacheOptions{
-		RepoImplOptions: repoimpltypes.RepoImplOptions{
+		ExternalRepoOptions: externalrepotypes.ExternalRepoOptions{
 			LocalDirectory:         t.TempDir(),
 			UseUserDefinedCaBundle: true,
 			CredentialResolver:     &fakecache.CredentialResolver{},

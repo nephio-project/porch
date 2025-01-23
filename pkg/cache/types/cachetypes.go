@@ -19,14 +19,14 @@ import (
 	"time"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/meta"
-	repoimpltypes "github.com/nephio-project/porch/pkg/repoimpl/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	"k8s.io/apimachinery/pkg/watch"
 )
 
 type CacheOptions struct {
-	RepoImplOptions      repoimpltypes.RepoImplOptions
+	ExternalRepoOptions  externalrepotypes.ExternalRepoOptions
 	RepoSyncFrequency    time.Duration
 	MetadataStore        meta.MetadataStore
 	RepoPRChangeNotifier RepoPRChangeNotifier

@@ -21,7 +21,7 @@ import (
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
-	"github.com/nephio-project/porch/pkg/repoimpl"
+	"github.com/nephio-project/porch/pkg/externalrepo"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -51,7 +51,7 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 	ctx, span := tracer.Start(ctx, "Cache::OpenRepository", trace.WithAttributes())
 	defer span.End()
 
-	key, err := repoimpl.RepositoryKey(repositorySpec)
+	key, err := externalrepo.RepositoryKey(repositorySpec)
 	if err != nil {
 		return nil, err
 	}
@@ -68,12 +68,12 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 		}
 	}
 
-	repoImpl, err := repoimpl.CreateRepositoryImpl(ctx, repositorySpec, c.options.RepoImplOptions)
+	externalRepo, err := externalrepo.CreateRepositoryImpl(ctx, repositorySpec, c.options.ExternalRepoOptions)
 	if err != nil {
 		return nil, err
 	}
 
-	cachedRepo := newRepository(key, repositorySpec, repoImpl, c.options)
+	cachedRepo := newRepository(key, repositorySpec, externalRepo, c.options)
 	c.repositories[key] = cachedRepo
 
 	return cachedRepo, nil
@@ -87,7 +87,7 @@ func (c *Cache) CloseRepository(ctx context.Context, repositorySpec *configapi.R
 	_, span := tracer.Start(ctx, "Cache::CloseRepository", trace.WithAttributes())
 	defer span.End()
 
-	key, err := repoimpl.RepositoryKey(repositorySpec)
+	key, err := externalrepo.RepositoryKey(repositorySpec)
 	if err != nil {
 		return err
 	}
@@ -97,7 +97,7 @@ func (c *Cache) CloseRepository(ctx context.Context, repositorySpec *configapi.R
 		if r.Name == repositorySpec.Name && r.Namespace == repositorySpec.Namespace {
 			continue
 		}
-		otherKey, err := repoimpl.RepositoryKey(&r)
+		otherKey, err := externalrepo.RepositoryKey(&r)
 		if err != nil {
 			return err
 		}

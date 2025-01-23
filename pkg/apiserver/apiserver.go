@@ -29,9 +29,9 @@ import (
 	"github.com/nephio-project/porch/pkg/cache"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/engine"
+	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/registry/porch"
-	repoimpltypes "github.com/nephio-project/porch/pkg/repoimpl/types"
 	"google.golang.org/api/option"
 	"google.golang.org/api/sts/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -231,7 +231,7 @@ func (c completedConfig) New() (*PorchServer, error) {
 	cacheImpl, err := cache.CreateCacheImpl(
 		context.TODO(),
 		cachetypes.CacheOptions{
-			RepoImplOptions: repoimpltypes.RepoImplOptions{
+			ExternalRepoOptions: externalrepotypes.ExternalRepoOptions{
 				LocalDirectory:         c.ExtraConfig.CacheDirectory,
 				UseUserDefinedCaBundle: c.ExtraConfig.UseUserDefinedCaBundle,
 				CredentialResolver:     credentialResolver,
