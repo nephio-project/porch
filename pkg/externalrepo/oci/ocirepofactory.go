@@ -21,16 +21,16 @@ import (
 
 	kptoci "github.com/GoogleContainerTools/kpt/pkg/oci"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	repoimpltypes "github.com/nephio-project/porch/pkg/repoimpl/types"
+	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
-var _ repoimpltypes.RepoImplFactory = &OciRepoFactory{}
+var _ externalrepotypes.ExternalRepoFactory = &OciRepoFactory{}
 
 type OciRepoFactory struct {
 }
 
-func (f *OciRepoFactory) NewRepositoryImpl(ctx context.Context, repositorySpec *configapi.Repository, options repoimpltypes.RepoImplOptions) (repository.Repository, error) {
+func (f *OciRepoFactory) NewRepositoryImpl(ctx context.Context, repositorySpec *configapi.Repository, options externalrepotypes.ExternalRepoOptions) (repository.Repository, error) {
 	if repositorySpec.Spec.Oci == nil {
 		return nil, fmt.Errorf("oci not configured")
 	}

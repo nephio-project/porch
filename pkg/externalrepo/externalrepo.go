@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package repoimpl
+package externalrepo
 
 import (
 	"context"
@@ -20,21 +20,21 @@ import (
 	"fmt"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/pkg/repoimpl/git"
-	"github.com/nephio-project/porch/pkg/repoimpl/oci"
-	repoimpltypes "github.com/nephio-project/porch/pkg/repoimpl/types"
+	"github.com/nephio-project/porch/pkg/externalrepo/git"
+	"github.com/nephio-project/porch/pkg/externalrepo/oci"
+	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 )
 
-var tracer = otel.Tracer("repoimpl")
+var tracer = otel.Tracer("externalrepo")
 
-func CreateRepositoryImpl(ctx context.Context, repositorySpec *configapi.Repository, options repoimpltypes.RepoImplOptions) (repository.Repository, error) {
+func CreateRepositoryImpl(ctx context.Context, repositorySpec *configapi.Repository, options externalrepotypes.ExternalRepoOptions) (repository.Repository, error) {
 	ctx, span := tracer.Start(ctx, "Repository::RepositoryFactory", trace.WithAttributes())
 	defer span.End()
 
-	var repoFactory repoimpltypes.RepoImplFactory
+	var repoFactory externalrepotypes.ExternalRepoFactory
 
 	switch repositoryType := repositorySpec.Spec.Type; repositoryType {
 	case configapi.RepositoryTypeOCI:
