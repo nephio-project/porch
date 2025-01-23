@@ -21,8 +21,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/pkg/externalrepo/fake"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
-	"github.com/nephio-project/porch/pkg/repoimpl/fake"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
