@@ -17,6 +17,7 @@ package task
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/kpt/kptpkg"
@@ -29,11 +30,15 @@ import (
 
 type initPackageMutation struct {
 	kptpkg.DefaultInitializer
-	name string
-	task *api.Task
+	pkgRev *api.PackageRevision
+	task   *api.Task
 }
 
 var _ mutation = &initPackageMutation{}
+
+var defaultConditions = []api.Condition{
+	ConditionPipelineNotPassed,
+}
 
 func (m *initPackageMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
 	ctx, span := tracer.Start(ctx, "initPackageMutation::apply", trace.WithAttributes())
@@ -49,21 +54,27 @@ func (m *initPackageMutation) apply(ctx context.Context, resources repository.Pa
 	if err := fs.Mkdir(pkgPath); err != nil {
 		return repository.PackageResources{}, nil, err
 	}
+
+	readinessConditions := slices.Concat(defaultConditions, m.pkgRev.Status.Conditions)
+
+	name := m.pkgRev.Spec.PackageName
+	initSpec := m.task.Init
 	err := m.Initialize(printer.WithContext(ctx, &fake.Printer{}), fs, kptpkg.InitOptions{
-		PkgPath:  pkgPath,
-		PkgName:  m.name,
-		Desc:     m.task.Init.Description,
-		Keywords: m.task.Init.Keywords,
-		Site:     m.task.Init.Site,
+		PkgPath:             pkgPath,
+		PkgName:             name,
+		Desc:                initSpec.Description,
+		Keywords:            initSpec.Keywords,
+		Site:                initSpec.Site,
+		ReadinessConditions: readinessConditions,
 	})
 	if err != nil {
-		return repository.PackageResources{}, nil, fmt.Errorf("failed to initialize pkg %q: %w", m.name, err)
+		return repository.PackageResources{}, nil, fmt.Errorf("failed to initialize pkg %q: %w", name, err)
 	}
 
-	result, err := readResources(fs)
+	initializedResources, err := readResources(fs)
 	if err != nil {
 		return repository.PackageResources{}, nil, err
 	}
 
-	return result, &api.TaskResult{Task: m.task}, nil
+	return initializedResources, &api.TaskResult{Task: m.task}, nil
 }

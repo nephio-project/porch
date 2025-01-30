@@ -65,7 +65,7 @@ func (m *renderPackageMutation) apply(ctx context.Context, resources repository.
 		klog.Warningf("skipping render as no package was found")
 	} else {
 		renderer := kpt.NewRenderer(m.runnerOptions)
-		result, err := renderer.Render(ctx, fs, fn.RenderOptions{
+		result, renderErr := renderer.Render(ctx, fs, fn.RenderOptions{
 			PkgPath: pkgPath,
 			Runtime: m.runtime,
 		})
@@ -77,15 +77,21 @@ func (m *renderPackageMutation) apply(ctx context.Context, resources repository.
 			}
 			taskResult.RenderStatus.Result = rr
 		}
-		if err != nil {
-			taskResult.RenderStatus.Err = err.Error()
-			return repository.PackageResources{}, taskResult, err
+		if renderErr != nil {
+			taskResult.RenderStatus.Err = renderErr.Error()
+			return repository.PackageResources{}, taskResult, renderErr
 		}
 	}
 
 	renderedResources, err := readResources(fs)
 	if err != nil {
 		return repository.PackageResources{}, taskResult, err
+	}
+
+	if taskResult.RenderStatus == nil || taskResult.RenderStatus.Err == "" {
+		_, innerSpan := tracer.Start(ctx, "renderedResources.SetPrStatusCondition", trace.WithAttributes())
+		defer innerSpan.End()
+		renderedResources.SetPrStatusCondition(conditionPipelinePassed)
 	}
 
 	// TODO: There are internal tasks not represented in the API; Update the Apply interface to enable them.

@@ -133,7 +133,7 @@ func (r *packages) Create(ctx context.Context, runtimeObject runtime.Object, cre
 		return nil, apierrors.NewBadRequest("spec.repository is required")
 	}
 
-	repositoryObj, err := r.packageCommon.getRepositoryObj(ctx, types.NamespacedName{Name: repositoryName, Namespace: ns})
+	repositoryObj, err := r.packageCommon.getApiRepo(ctx, types.NamespacedName{Name: repositoryName, Namespace: ns})
 	if err != nil {
 		return nil, err
 	}

@@ -19,13 +19,14 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/builtins"
 	"github.com/nephio-project/porch/pkg/git"
 	"github.com/nephio-project/porch/pkg/kpt"
-	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
@@ -34,7 +35,8 @@ import (
 var _ mutation = &clonePackageMutation{}
 
 type clonePackageMutation struct {
-	task *api.Task
+	pkgRev *api.PackageRevision
+	task   *api.Task
 
 	// namespace is the namespace against which we resolve references.
 	// TODO: merge namespace into referenceResolver?
@@ -90,6 +92,14 @@ func (m *clonePackageMutation) apply(ctx context.Context, resources repository.P
 			return repository.PackageResources{}, nil, fmt.Errorf("failed to generate deployment context %w", err)
 		}
 	}
+
+	cloned.EditKptfile(func(file kptfile.KptFile) {
+		if file.Status == nil {
+			file.Status = &kptfile.Status{}
+		}
+		file.Status.Conditions = slices.Concat(file.Status.Conditions, kptfile.ConvertApiConditions(m.pkgRev.Status.Conditions))
+		file.Info.ReadinessGates = slices.Concat(file.Info.ReadinessGates, kptfile.ConvertApiReadinessGates(m.pkgRev.Spec.ReadinessGates))
+	})
 
 	// ensure merge-key comment is added to newly added resources.
 	// this operation is done on best effort basis because if upstream contains
@@ -175,15 +185,15 @@ func (m *clonePackageMutation) cloneFromGit(ctx context.Context, gitPackage *api
 	contents := resources.Spec.Resources
 
 	// Update Kptfile
-	if err := kpt.UpdateKptfileUpstream(m.name, contents, v1.Upstream{
-		Type: v1.GitOrigin,
-		Git: &v1.Git{
+	if err := kpt.UpdateKptfileUpstream(m.name, contents, kptfile.Upstream{
+		Type: kptfile.GitOrigin,
+		Git: &kptfile.Git{
 			Repo:      lock.Repo,
 			Directory: lock.Directory,
 			Ref:       lock.Ref,
 		},
-	}, v1.UpstreamLock{
-		Type: v1.GitOrigin,
+	}, kptfile.UpstreamLock{
+		Type: kptfile.GitOrigin,
 		Git:  &lock,
 	}); err != nil {
 		return repository.PackageResources{}, fmt.Errorf("failed to clone package %s@%s: %w", gitPackage.Directory, gitPackage.Ref, err)

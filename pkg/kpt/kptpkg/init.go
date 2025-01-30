@@ -21,10 +21,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/builtins"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/internal/kpt/util/man"
-	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"sigs.k8s.io/kustomize/kyaml/errors"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
@@ -43,10 +44,11 @@ type InitOptions struct {
 	PkgPath string
 	// RelPath is used purely for printing info relative to current working dir of user.
 	// It may or may not be same as PkgPath.
-	RelPath  string
-	Desc     string
-	Keywords []string
-	Site     string
+	RelPath             string
+	Desc                string
+	Keywords            []string
+	Site                string
+	ReadinessConditions []api.Condition
 }
 
 // DefaultInitilizer implements Initializer interface.
@@ -76,9 +78,20 @@ func (i *DefaultInitializer) Initialize(
 
 	pr := printer.FromContextOrDie(ctx)
 
-	if !fsys.Exists(filepath.Join(up, kptfilev1.KptFileName)) {
+	if !fsys.Exists(filepath.Join(up, kptfile.KptFileName)) {
 		pr.Printf("writing %s\n", filepath.Join(opts.RelPath, "Kptfile"))
-		k := kptfilev1.KptFile{
+
+		kptfileConditions := kptfile.ConvertApiConditions(opts.ReadinessConditions)
+		readinessGates := func() (kptfileGates []kptfile.ReadinessGate) {
+			for _, each := range kptfileConditions {
+				kptfileGates = append(kptfileGates, kptfile.ReadinessGate{
+					ConditionType: each.Type,
+				})
+			}
+			return kptfileGates
+		}()
+
+		k := kptfile.KptFile{
 			ResourceMeta: yaml.ResourceMeta{
 				ObjectMeta: yaml.ObjectMeta{
 					NameMeta: yaml.NameMeta{
@@ -90,19 +103,23 @@ func (i *DefaultInitializer) Initialize(
 					},
 				},
 			},
-			Info: &kptfilev1.PackageInfo{
-				Description: opts.Desc,
-				Site:        opts.Site,
-				Keywords:    opts.Keywords,
+			Info: &kptfile.PackageInfo{
+				Description:    opts.Desc,
+				Site:           opts.Site,
+				Keywords:       opts.Keywords,
+				ReadinessGates: readinessGates,
+			},
+			Status: &kptfile.Status{
+				Conditions: kptfileConditions,
 			},
 		}
 
 		// serialize the gvk when writing the Kptfile
-		k.Kind = kptfilev1.TypeMeta.Kind
-		k.APIVersion = kptfilev1.TypeMeta.APIVersion
+		k.Kind = kptfile.TypeMeta.Kind
+		k.APIVersion = kptfile.TypeMeta.APIVersion
 
 		err = func() error {
-			f, err := fsys.Create(filepath.Join(up, kptfilev1.KptFileName))
+			f, err := fsys.Create(filepath.Join(up, kptfile.KptFileName))
 			if err != nil {
 				return err
 			}

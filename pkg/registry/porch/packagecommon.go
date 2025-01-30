@@ -162,18 +162,18 @@ func (r *packageCommon) getRepositoryObjFromName(ctx context.Context, name strin
 		return nil, apierrors.NewNotFound(r.gr, name)
 	}
 
-	return r.getRepositoryObj(ctx, types.NamespacedName{Name: repositoryName, Namespace: ns})
+	return r.getApiRepo(ctx, types.NamespacedName{Name: repositoryName, Namespace: ns})
 }
 
-func (r *packageCommon) getRepositoryObj(ctx context.Context, repositoryID types.NamespacedName) (*configapi.Repository, error) {
-	var repositoryObj configapi.Repository
-	if err := r.coreClient.Get(ctx, repositoryID, &repositoryObj); err != nil {
+func (r *packageCommon) getApiRepo(ctx context.Context, repositoryID types.NamespacedName) (*configapi.Repository, error) {
+	var apiRepo configapi.Repository
+	if err := r.coreClient.Get(ctx, repositoryID, &apiRepo); err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil, apierrors.NewNotFound(configapi.TypeRepository.GroupResource(), repositoryID.Name)
 		}
 		return nil, apierrors.NewInternalError(fmt.Errorf("error getting repository %v: %w", repositoryID, err))
 	}
-	return &repositoryObj, nil
+	return &apiRepo, nil
 }
 
 func (r *packageCommon) getRepoPkgRev(ctx context.Context, name string) (repository.PackageRevision, error) {
@@ -456,7 +456,7 @@ func (r *packageCommon) validateDelete(ctx context.Context, deleteValidation res
 	if err != nil {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid name %q", repoName))
 	}
-	repositoryObj, err := r.getRepositoryObj(ctx, types.NamespacedName{Name: repositoryName, Namespace: ns})
+	repositoryObj, err := r.getApiRepo(ctx, types.NamespacedName{Name: repositoryName, Namespace: ns})
 	if err != nil {
 		return nil, err
 	}

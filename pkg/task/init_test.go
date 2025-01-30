@@ -26,8 +26,14 @@ import (
 )
 
 func TestInit(t *testing.T) {
+	testpkg := &api.PackageRevision{
+		Spec: api.PackageRevisionSpec{
+			PackageName: "testpkg",
+		},
+	}
+
 	init := &initPackageMutation{
-		name: "testpkg",
+		pkgRev: testpkg,
 		task: &api.Task{
 			Init: &api.PackageInitTaskSpec{
 				Description: "test package",
