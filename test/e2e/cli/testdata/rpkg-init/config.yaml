@@ -59,6 +59,8 @@ commands:
           keywords:
           - test
           - package
+          readinessGates:
+          - conditionType: PackagePipelinePassed
           site: http://kpt.dev/init-package
         kind: Kptfile
         metadata:
@@ -69,6 +71,12 @@ commands:
             internal.config.kubernetes.io/index: "0"
             internal.config.kubernetes.io/path: Kptfile
           name: init-package
+        status:
+          conditions:
+          - message: package pipeline completed successfully
+            reason: PipelinePassed
+            status: "True"
+            type: PackagePipelinePassed
       - apiVersion: v1
         data:
           name: example

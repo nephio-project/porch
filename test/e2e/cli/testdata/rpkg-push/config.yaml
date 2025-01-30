@@ -41,6 +41,8 @@ commands:
       - apiVersion: kpt.dev/v1
         info:
           description: sample description
+          readinessGates:
+          - conditionType: PackagePipelinePassed
         kind: Kptfile
         metadata:
           annotations:
@@ -50,6 +52,12 @@ commands:
             internal.config.kubernetes.io/index: "0"
             internal.config.kubernetes.io/path: Kptfile
           name: test-package
+        status:
+          conditions:
+          - message: package pipeline completed successfully
+            reason: PipelinePassed
+            status: "True"
+            type: PackagePipelinePassed
       - apiVersion: v1
         data:
           name: example
@@ -168,6 +176,8 @@ commands:
       - apiVersion: kpt.dev/v1
         info:
           description: Updated Test Package Description
+          readinessGates:
+          - conditionType: PackagePipelinePassed
         kind: Kptfile
         metadata:
           annotations:
@@ -177,6 +187,12 @@ commands:
             internal.config.kubernetes.io/index: "0"
             internal.config.kubernetes.io/path: Kptfile
           name: test-package
+        status:
+          conditions:
+          - message: package pipeline completed successfully
+            reason: PipelinePassed
+            status: "True"
+            type: PackagePipelinePassed
       - apiVersion: v1
         data:
           name: example

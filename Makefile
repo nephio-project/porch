@@ -376,5 +376,5 @@ test-e2e-cli: run-in-kind-no-git
 	E2E=1 go test -v -failfast ./test/e2e/cli
 
 .PHONY: test-e2e-clean
-test-e2e-clean: porchctl ## Run end-to-end tests against a newly deployed porch in a newly created kind cluster
+test-e2e-clean: porchctl ## Run end-to-end tests aginst a newly deployed porch in a newly created kind cluster
 	./scripts/clean-e2e-test.sh

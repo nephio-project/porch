@@ -336,7 +336,8 @@ func (t *PorchSuite) TestInitEmptyPackage() {
 		t.Fatalf("New package name: got %q, want %q", got, want)
 	}
 	if got, want := kptfile.Info, (&kptfilev1.PackageInfo{
-		Description: description,
+		Description:    description,
+		ReadinessGates: []kptfilev1.ReadinessGate{{ConditionType: "PackagePipelinePassed"}},
 	}); !cmp.Equal(want, got) {
 		t.Fatalf("unexpected %s/%s package info (-want, +got) %s", newPackage.Namespace, newPackage.Name, cmp.Diff(want, got))
 	}
@@ -428,9 +429,10 @@ func (t *PorchSuite) TestInitTaskPackage() {
 		t.Fatalf("New package name: got %q, want %q", got, want)
 	}
 	if got, want := kptfile.Info, (&kptfilev1.PackageInfo{
-		Site:        site,
-		Description: description,
-		Keywords:    keywords,
+		Site:           site,
+		Description:    description,
+		Keywords:       keywords,
+		ReadinessGates: []kptfilev1.ReadinessGate{{ConditionType: "PackagePipelinePassed"}},
 	}); !cmp.Equal(want, got) {
 		t.Fatalf("unexpected %s/%s package info (-want, +got) %s", newPackage.Namespace, newPackage.Name, cmp.Diff(want, got))
 	}
@@ -3415,10 +3417,12 @@ func (t *PorchSuite) TestPackageVariantReadinessGate(ctx context.Context) {
 	// then get the PR
 	downstreamPr, _ := t.WaitUntilPackageRevisionFulfillingConditionExists(ctx, 1*time.Minute, func(pr porchapi.PackageRevision) bool {
 		return pr.Spec.PackageName == pv.Spec.Downstream.Package &&
-			slices.Contains(pr.Status.Conditions, packagevariant.ConditionPipelineNotPassed)
+			slices.Contains(pr.Status.Conditions, packagevariant.ConditionPipelinePVRevisionNotReady)
 	})
+	assert.NotNil(t, downstreamPr, "no PackageRevision found with Condition of Type %q, Status %q", packagevariant.ConditionTypeAtomicPVOperations, packagevariant.ConditionPipelinePVRevisionNotReady)
 	assert.Containsf(t, downstreamPr.Spec.ReadinessGates,
-		porchapi.ReadinessGate{ConditionType: packagevariant.ConditionTypePipelinePassed}, "PackageVariant controller should have set a readiness gate on the downstream package revision")
+		porchapi.ReadinessGate{ConditionType: packagevariant.ConditionTypeAtomicPVOperations},
+		"PackageVariant controller should have set a readiness gate with ConditionType==%q on the downstream PackageRevision", packagevariant.ConditionTypeAtomicPVOperations)
 
 	// Attempt to propose the PR - should fail
 	downstreamPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
@@ -3426,12 +3430,13 @@ func (t *PorchSuite) TestPackageVariantReadinessGate(ctx context.Context) {
 	assert.ErrorContains(t, proposeError, "another request is already in progress")
 
 	// Wait for the pipeline to finish and the condition to be set to True
-	downstreamPr, _ = t.WaitUntilPackageRevisionFulfillingConditionExists(ctx, 10*time.Second, func(pr porchapi.PackageRevision) bool {
-		return slices.Contains(pr.Status.Conditions, packagevariant.ConditionPipelinePassed)
+	downstreamPr, _ = t.WaitUntilPackageRevisionFulfillingConditionExists(ctx, 20*time.Second, func(pr porchapi.PackageRevision) bool {
+		return slices.Contains(pr.Status.Conditions, packagevariant.ConditionPipelinePVRevisionReady)
 	})
+	assert.NotNil(t, downstreamPr, "no PackageRevision found with Condition of Type %q, Status %q", packagevariant.ConditionTypeAtomicPVOperations, packagevariant.ConditionPipelinePVRevisionReady)
 
 	// Propose the PR again - should succeed this time
 	downstreamPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 	proposeError = t.Client.Update(ctx, downstreamPr)
-	assert.NoError(t, proposeError, "propose operation should have succeeded now that the pipeline has passed")
+	assert.NoError(t, proposeError, "propose operation should have succeeded now that all Conditions have been set to True")
 }

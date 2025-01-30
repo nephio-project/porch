@@ -140,6 +140,16 @@ const (
 	TaskTypeUpdate TaskType = "update"
 )
 
+func (task *Task) TaskTypeOneOf(oneOf ...TaskType) bool {
+	taskType := task.Type
+	for _, tt := range oneOf {
+		if taskType == tt {
+			return true
+		}
+	}
+	return false
+}
+
 type Task struct {
 	Type   TaskType               `json:"type"`
 	Init   *PackageInitTaskSpec   `json:"init,omitempty"`

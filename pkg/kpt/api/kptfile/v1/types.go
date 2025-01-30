@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/GoogleContainerTools/kpt-functions-sdk/go/fn"
+	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/util"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
@@ -250,6 +251,19 @@ type PackageInfo struct {
 	Man string `yaml:"man,omitempty" json:"man,omitempty"`
 }
 
+func ConvertApiReadinessGates(apiGates []api.ReadinessGate) (converted []ReadinessGate) {
+	for _, each := range apiGates {
+		converted = append(converted, ConvertApiReadinessGate(each))
+	}
+	return converted
+}
+
+func ConvertApiReadinessGate(apiGate api.ReadinessGate) ReadinessGate {
+	return ReadinessGate{
+		ConditionType: apiGate.ConditionType,
+	}
+}
+
 type ReadinessGate struct {
 	ConditionType string `yaml:"conditionType" json:"conditionType"`
 }
@@ -410,6 +424,12 @@ type Status struct {
 	Conditions []Condition `yaml:"conditions,omitempty" json:"conditions,omitempty"`
 }
 
+func ConvertApiStatus(apiStatus api.PackageRevisionStatus) Status {
+	return Status{
+		ConvertApiConditions(apiStatus.Conditions),
+	}
+}
+
 type Condition struct {
 	Type string `yaml:"type" json:"type"`
 
@@ -418,6 +438,22 @@ type Condition struct {
 	Message string `yaml:"message,omitempty" json:"message,omitempty"`
 
 	Reason string `yaml:"reason,omitempty" json:"reason,omitempty"`
+}
+
+func ConvertApiConditions(apiConditions []api.Condition) (converted []Condition) {
+	for _, each := range apiConditions {
+		converted = append(converted, ConvertApiCondition(each))
+	}
+	return converted
+}
+
+func ConvertApiCondition(apiCondition api.Condition) Condition {
+	return Condition{
+		Type:    apiCondition.Type,
+		Reason:  apiCondition.Reason,
+		Status:  ConditionStatus(apiCondition.Status),
+		Message: apiCondition.Message,
+	}
 }
 
 type ConditionStatus string

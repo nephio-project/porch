@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"slices"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -39,7 +38,7 @@ import (
 var (
 	_ TaskHandler = &genericTaskHandler{}
 
-	conditionPipelineNotPassed = api.Condition{
+	ConditionPipelineNotPassed = api.Condition{
 		Type:    ConditionTypePipelinePassed,
 		Status:  api.ConditionFalse,
 		Reason:  "WaitingOnPipeline",
@@ -90,32 +89,26 @@ func (th *genericTaskHandler) SetReferenceResolver(referenceResolver repository.
 	th.referenceResolver = referenceResolver
 }
 
-func (th *genericTaskHandler) ApplyTasks(ctx context.Context, draft repository.PackageRevisionDraft, repositoryObj *configapi.Repository, obj *api.PackageRevision, packageConfig *builtins.PackageConfig) error {
+func (th *genericTaskHandler) ApplyTasks(
+	ctx context.Context, draft repository.PackageRevisionDraft,
+	repo *configapi.Repository, pkgRev *api.PackageRevision,
+	packageConfig *builtins.PackageConfig) error {
 	var mutations []mutation
 
 	// Unless first task is Init or Clone, insert Init to create an empty package.
-	tasks := obj.Spec.Tasks
-	if len(tasks) == 0 || !taskTypeOneOf(tasks[0].Type, api.TaskTypeInit, api.TaskTypeClone, api.TaskTypeEdit) {
-		mutations = append(mutations, &initPackageMutation{
-			name: obj.Spec.PackageName,
-			task: &api.Task{
-				Init: &api.PackageInitTaskSpec{
-					Subpackage:  "",
-					Description: fmt.Sprintf("%s description", obj.Spec.PackageName),
-				},
-			},
-		})
-	}
+	mutations = th.conditionalAddInit(pkgRev, mutations)
+
+	tasks := pkgRev.Spec.Tasks
+
 	if len(tasks) > 0 {
-		cloneTask := obj.Spec.Tasks[0].Clone
+		cloneTask := pkgRev.Spec.Tasks[0].Clone
 		if cloneTask != nil {
 			klog.Infof("Clone strategy is %s", cloneTask.Strategy)
 			th.cloneStrategy = cloneTask.Strategy
 		}
 	}
-	for i := range tasks {
-		task := &tasks[i]
-		mutation, err := th.mapTaskToMutation(ctx, obj, task, repositoryObj.Spec.Deployment, packageConfig)
+	for _, task := range tasks {
+		mutation, err := th.mapTaskToMutation(ctx, pkgRev, &task, repo.Spec.Deployment, packageConfig)
 		if err != nil {
 			return err
 		}
@@ -123,7 +116,7 @@ func (th *genericTaskHandler) ApplyTasks(ctx context.Context, draft repository.P
 	}
 
 	// Render package after creation.
-	mutations = th.conditionalAddRender(obj, mutations)
+	mutations = th.conditionalAddRender(pkgRev, mutations)
 
 	baseResources := repository.PackageResources{}
 	if _, _, err := applyResourceMutations(ctx, draft, baseResources, mutations); err != nil {
@@ -131,6 +124,22 @@ func (th *genericTaskHandler) ApplyTasks(ctx context.Context, draft repository.P
 	}
 
 	return nil
+}
+
+func (th *genericTaskHandler) conditionalAddInit(pkgRev *api.PackageRevision, mutations []mutation) []mutation {
+	tasks := pkgRev.Spec.Tasks
+	if len(tasks) == 0 || !tasks[0].TaskTypeOneOf(api.TaskTypeInit, api.TaskTypeClone, api.TaskTypeEdit) {
+		mutations = append(mutations, &initPackageMutation{
+			pkgRev: pkgRev,
+			task: &api.Task{
+				Init: &api.PackageInitTaskSpec{
+					Subpackage:  "",
+					Description: fmt.Sprintf("%s description", pkgRev.Spec.PackageName),
+				},
+			},
+		})
+	}
+	return mutations
 }
 
 func (th *genericTaskHandler) DoPRMutations(ctx context.Context, namespace string, repoPR repository.PackageRevision, oldObj *api.PackageRevision, newObj *api.PackageRevision, draft repository.PackageRevisionDraft) error {
@@ -199,10 +208,10 @@ func (th *genericTaskHandler) DoPRMutations(ctx context.Context, namespace strin
 	// Re-render if we are making changes.
 	mutations = th.conditionalAddRender(newObj, mutations)
 
-	// if all this update does is set the PackagePipelinePassed
-	// readiness condition, we don't need to run the full mutation
-	// pipeline - just update the Kptfile and leave it at that
-	if updateOnlySetsPipelineCondition(oldObj, newObj) {
+	// if all this update does is set Conditions and/or ReadinessGates,
+	// we don't need to run the full mutation pipeline - just update
+	// the Kptfile and leave it at that
+	if UpdateOnlySetsReadinessConditions(oldObj, newObj) {
 		mutations = []mutation{kfPatchMutation}
 	}
 
@@ -223,15 +232,6 @@ func (th *genericTaskHandler) DoPRMutations(ctx context.Context, namespace strin
 	}
 
 	return nil
-}
-
-func taskTypeOneOf(taskType api.TaskType, oneOf ...api.TaskType) bool {
-	for _, tt := range oneOf {
-		if taskType == tt {
-			return true
-		}
-	}
-	return false
 }
 
 func (th *genericTaskHandler) DoPRResourceMutations(ctx context.Context, pr2Update repository.PackageRevision, draft repository.PackageRevisionDraft, oldRes, newRes *api.PackageRevisionResources) (*api.RenderStatus, error) {
@@ -286,24 +286,25 @@ func (th *genericTaskHandler) DoPRResourceMutations(ctx context.Context, pr2Upda
 	return renderStatus, nil
 }
 
-func (th *genericTaskHandler) mapTaskToMutation(ctx context.Context, obj *api.PackageRevision, task *api.Task, isDeployment bool, packageConfig *builtins.PackageConfig) (mutation, error) {
+func (th *genericTaskHandler) mapTaskToMutation(ctx context.Context, pkgRev *api.PackageRevision, task *api.Task, isDeployment bool, packageConfig *builtins.PackageConfig) (mutation, error) {
 	switch task.Type {
 	case api.TaskTypeInit:
 		if task.Init == nil {
 			return nil, fmt.Errorf("init not set for task of type %q", task.Type)
 		}
 		return &initPackageMutation{
-			name: obj.Spec.PackageName,
-			task: task,
+			pkgRev: pkgRev,
+			task:   task,
 		}, nil
 	case api.TaskTypeClone:
 		if task.Clone == nil {
 			return nil, fmt.Errorf("clone not set for task of type %q", task.Type)
 		}
 		return &clonePackageMutation{
+			pkgRev:             pkgRev,
 			task:               task,
-			namespace:          obj.Namespace,
-			name:               obj.Spec.PackageName,
+			namespace:          pkgRev.Namespace,
+			name:               pkgRev.Spec.PackageName,
 			isDeployment:       isDeployment,
 			repoOpener:         th.repoOpener,
 			credentialResolver: th.credentialResolver,
@@ -315,17 +316,17 @@ func (th *genericTaskHandler) mapTaskToMutation(ctx context.Context, obj *api.Pa
 		if task.Update == nil {
 			return nil, fmt.Errorf("update not set for task of type %q", task.Type)
 		}
-		cloneTask := findCloneTask(obj)
+		cloneTask := findCloneTask(pkgRev)
 		if cloneTask == nil {
-			return nil, fmt.Errorf("upstream source not found for package rev %q; only cloned packages can be updated", obj.Spec.PackageName)
+			return nil, fmt.Errorf("upstream source not found for package rev %q; only cloned packages can be updated", pkgRev.Spec.PackageName)
 		}
 		return &updatePackageMutation{
 			cloneTask:         cloneTask,
 			updateTask:        task,
-			namespace:         obj.Namespace,
+			namespace:         pkgRev.Namespace,
 			repoOpener:        th.repoOpener,
 			referenceResolver: th.referenceResolver,
-			pkgName:           obj.Spec.PackageName,
+			pkgName:           pkgRev.Spec.PackageName,
 		}, nil
 
 	case api.TaskTypePatch:
@@ -337,9 +338,9 @@ func (th *genericTaskHandler) mapTaskToMutation(ctx context.Context, obj *api.Pa
 		}
 		return &editPackageMutation{
 			task:              task,
-			namespace:         obj.Namespace,
-			packageName:       obj.Spec.PackageName,
-			repositoryName:    obj.Spec.RepositoryName,
+			namespace:         pkgRev.Namespace,
+			packageName:       pkgRev.Spec.PackageName,
+			repositoryName:    pkgRev.Spec.RepositoryName,
 			repoOpener:        th.repoOpener,
 			referenceResolver: th.referenceResolver,
 		}, nil
@@ -350,20 +351,19 @@ func (th *genericTaskHandler) mapTaskToMutation(ctx context.Context, obj *api.Pa
 		}
 		// TODO: We should find a different way to do this. Probably a separate
 		// task for render.
+		runnerOptions := th.runnerOptionsResolver(pkgRev.Namespace)
+		runtime := th.runtime
 		if task.Eval.Image == "render" {
-			runnerOptions := th.runnerOptionsResolver(obj.Namespace)
 			return &renderPackageMutation{
 				runnerOptions: runnerOptions,
-				runtime:       th.runtime,
-			}, nil
-		} else {
-			runnerOptions := th.runnerOptionsResolver(obj.Namespace)
-			return &evalFunctionMutation{
-				runnerOptions: runnerOptions,
-				runtime:       th.runtime,
-				task:          task,
+				runtime:       runtime,
 			}, nil
 		}
+		return &evalFunctionMutation{
+			runnerOptions: runnerOptions,
+			runtime:       runtime,
+			task:          task,
+		}, nil
 
 	default:
 		return nil, fmt.Errorf("task of type %q not supported", task.Type)
@@ -469,39 +469,29 @@ func isRenderMutation(m mutation) bool {
 	return isRender
 }
 
-func updateOnlySetsPipelineCondition(oldObj *api.PackageRevision, newObj *api.PackageRevision) bool {
-	setsCondition := func() bool {
-		oldObjHasCondNotPassed := slices.Contains(oldObj.Status.Conditions, conditionPipelineNotPassed)
-		oldObjHasCondPassed := slices.Contains(oldObj.Status.Conditions, conditionPipelinePassed)
-		newObjHasCondNotPassed := slices.Contains(newObj.Status.Conditions, conditionPipelineNotPassed)
-		newObjHasCondPassed := slices.Contains(newObj.Status.Conditions, conditionPipelinePassed)
-		return (!oldObjHasCondNotPassed && newObjHasCondNotPassed) ||
-			(!oldObjHasCondPassed && newObjHasCondPassed) ||
-			(oldObjHasCondNotPassed && newObjHasCondPassed) ||
-			(oldObjHasCondPassed && newObjHasCondNotPassed)
-	}()
-
-	noOtherChanges := func() bool {
-		copyOld := oldObj.DeepCopy()
-		copyOld.Spec.ReadinessGates = newObj.Spec.ReadinessGates
-		copyOld.Status.Conditions = newObj.Status.Conditions
+func UpdateOnlySetsReadinessConditions(old *api.PackageRevision, new *api.PackageRevision) bool {
+	noChangesExceptReadinessInfo := func() bool {
+		copyOld := old.DeepCopy()
+		copyOld.Spec.ReadinessGates = new.Spec.ReadinessGates
+		copyOld.Status.Conditions = new.Status.Conditions
 
 		oldJson, _ := json.Marshal(copyOld)
-		newJson, _ := json.Marshal(newObj)
+		newJson, _ := json.Marshal(new)
 		equalExceptReadinessInfo := reflect.DeepEqual(oldJson, newJson)
 		return equalExceptReadinessInfo
 	}()
 
-	return setsCondition && noOtherChanges
+	return noChangesExceptReadinessInfo
 }
 
 // applyResourceMutations mutates the resources and returns the most recent renderResult.
 func applyResourceMutations(ctx context.Context, draft repository.PackageRevisionDraft, baseResources repository.PackageResources, mutations []mutation) (applied repository.PackageResources, renderStatus *api.RenderStatus, err error) {
-	ctx, span := tracer.Start(ctx, "genericTaskHandler::applyResourceMutations", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "generictaskhandler.go::applyResourceMutations", trace.WithAttributes())
 	defer span.End()
 
 	var lastApplied mutation
 	for _, m := range mutations {
+		klog.Infof("applying %T", m)
 		updatedResources, taskResult, err := m.apply(ctx, baseResources)
 		if taskResult == nil && err == nil {
 			// a nil taskResult means nothing changed

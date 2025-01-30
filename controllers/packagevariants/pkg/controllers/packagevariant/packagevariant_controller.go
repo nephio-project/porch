@@ -57,23 +57,23 @@ type PackageVariantReconciler struct {
 const (
 	workspaceNamePrefix = "packagevariant-"
 
-	ConditionTypeStalled        = "Stalled"               // whether or not the packagevariant object is making progress
-	ConditionTypeReady          = "Ready"                 // whether or not the reconciliation succeeded
-	ConditionTypePipelinePassed = "PackagePipelinePassed" // whether or not the package's pipeline has completed successfully
+	ConditionTypeStalled            = "Stalled"              // whether or not the packagevariant object is making progress
+	ConditionTypeReady              = "Ready"                // whether or not the reconciliation succeeded
+	ConditionTypeAtomicPVOperations = "PVOperationsComplete" // whether or not the package's pipeline has completed successfully
 )
 
 var (
-	ConditionPipelineNotPassed = porchapi.Condition{
-		Type:    ConditionTypePipelinePassed,
+	ConditionPipelinePVRevisionNotReady = porchapi.Condition{
+		Type:    ConditionTypeAtomicPVOperations,
 		Status:  porchapi.ConditionFalse,
-		Reason:  "WaitingOnPipeline",
-		Message: "waiting for package pipeline to pass",
+		Reason:  "WaitingOnPVOperations",
+		Message: "waiting for completion of operations by managing PackageVariant",
 	}
-	ConditionPipelinePassed = porchapi.Condition{
-		Type:    ConditionTypePipelinePassed,
+	ConditionPipelinePVRevisionReady = porchapi.Condition{
+		Type:    ConditionTypeAtomicPVOperations,
 		Status:  porchapi.ConditionTrue,
-		Reason:  "PipelinePassed",
-		Message: "package pipeline completed successfully",
+		Reason:  "PVOperationsComplete",
+		Message: "managing PackageVariant has successfully completed all operations",
 	}
 )
 
@@ -98,6 +98,13 @@ func (r *PackageVariantReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	defer func() {
+		pv.ResourceVersion = func() string {
+			var latestVariant api.PackageVariant
+			if err := r.Client.Get(ctx, types.NamespacedName{Name: pv.GetName(), Namespace: pv.GetNamespace()}, &latestVariant); err != nil {
+				klog.Errorf("could not retrieve latest resource version for final status update: %s\n", err.Error())
+			}
+			return latestVariant.ResourceVersion
+		}()
 		if err := r.Client.Status().Update(ctx, pv); err != nil {
 			klog.Errorf("could not update status: %s\n", err.Error())
 		}
@@ -370,16 +377,20 @@ func (r *PackageVariantReconciler) ensurePackageVariant(ctx context.Context,
 					},
 				},
 			},
+			ReadinessGates: []porchapi.ReadinessGate{
+				{
+					ConditionType: ConditionTypeAtomicPVOperations,
+				},
+			},
+		},
+		Status: porchapi.PackageRevisionStatus{
+			Conditions: []porchapi.Condition{
+				ConditionPipelinePVRevisionNotReady,
+			},
 		},
 	}
 
 	if err = r.Client.Create(ctx, newPR); err != nil {
-		return nil, err
-	}
-
-	setPrReadinessGate(newPR, ConditionTypePipelinePassed)
-	setPrStatusCondition(newPR, ConditionPipelineNotPassed)
-	if err := r.Client.Update(ctx, newPR); err != nil {
 		return nil, err
 	}
 
@@ -399,8 +410,7 @@ func (r *PackageVariantReconciler) ensurePackageVariant(ctx context.Context,
 	if err := r.Client.Get(ctx, types.NamespacedName{Name: newPR.GetName(), Namespace: newPR.GetNamespace()}, newPR); err != nil {
 		return nil, err
 	}
-
-	setPrStatusCondition(newPR, ConditionPipelinePassed)
+	setPrStatusCondition(newPR, ConditionPipelinePVRevisionReady)
 	if err := r.Client.Update(ctx, newPR); err != nil {
 		return nil, err
 	}
@@ -428,14 +438,15 @@ func (r *PackageVariantReconciler) findAndUpdateExistingRevisions(ctx context.Co
 			// We update this now, because later we may use a Porch call to clone or update
 			// and we want to make sure the server is in sync with us
 
-			setPrReadinessGate(downstream, ConditionTypePipelinePassed)
-			setPrStatusCondition(downstream, ConditionPipelineNotPassed)
+			setPrReadinessGate(downstream, ConditionTypeAtomicPVOperations)
+			setPrStatusCondition(downstream, ConditionPipelinePVRevisionNotReady)
 			if err := r.Client.Update(ctx, downstream); err != nil {
-				klog.Errorf("error updating package revision lifecycle: %v", err)
+				klog.Errorf("error updating package revision lifecycle to %s: %v",
+					porchapi.PackageRevisionLifecyclePublished, err)
 				return nil, err
 			}
 
-			setPrStatusCondition(downstream, ConditionPipelinePassed)
+			setPrStatusCondition(downstream, ConditionPipelinePVRevisionReady)
 			if err := r.Client.Update(ctx, downstream); err != nil {
 				return nil, err
 			}
@@ -490,8 +501,8 @@ func (r *PackageVariantReconciler) findAndUpdateExistingRevisions(ctx context.Co
 			}
 			// Save the updated PackageRevisionResources
 
-			setPrReadinessGate(downstream, ConditionTypePipelinePassed)
-			setPrStatusCondition(downstream, ConditionPipelineNotPassed)
+			setPrReadinessGate(downstream, ConditionTypeAtomicPVOperations)
+			setPrStatusCondition(downstream, ConditionPipelinePVRevisionNotReady)
 			if err := r.Client.Update(ctx, downstream); err != nil {
 				return nil, err
 			}
@@ -499,7 +510,7 @@ func (r *PackageVariantReconciler) findAndUpdateExistingRevisions(ctx context.Co
 				return nil, err
 			}
 
-			setPrStatusCondition(downstream, ConditionPipelinePassed)
+			setPrStatusCondition(downstream, ConditionPipelinePVRevisionReady)
 			if err := r.Client.Update(ctx, downstream); err != nil {
 				return nil, err
 			}
@@ -765,17 +776,18 @@ func (r *PackageVariantReconciler) updateDraft(ctx context.Context,
 	updateTask.Update.Upstream.UpstreamRef.Name = newUpstreamPR.Name
 	draft.Spec.Tasks = append(tasks, updateTask)
 
-	setPrReadinessGate(draft, ConditionTypePipelinePassed)
-	setPrStatusCondition(draft, ConditionPipelineNotPassed)
+	setPrReadinessGate(draft, ConditionTypeAtomicPVOperations)
+	setPrStatusCondition(draft, ConditionPipelinePVRevisionNotReady)
 
 	if err := r.Client.Update(ctx, draft); err != nil {
 		return nil, err
 	}
 
-	setPrStatusCondition(draft, ConditionPipelinePassed)
+	setPrStatusCondition(draft, ConditionPipelinePVRevisionReady)
 	if err := r.Client.Update(ctx, draft); err != nil {
 		return nil, err
 	}
+
 	return draft, nil
 }
 
