@@ -19,6 +19,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   build:
@@ -30,7 +31,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '>=1.22.2'
+          go-version: ">=1.22.2"
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -45,9 +46,8 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: porchctl.tgz
           asset_name: porchctl.tgz
-          tag: ${{ github.ref }}
+          tag: dev
           overwrite: true
           prerelease: true
           release_name: Porchctl build from main
           body: "This is dev porchctl binary built from main each merge"
-
