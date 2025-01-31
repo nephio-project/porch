@@ -227,6 +227,7 @@ func TestCloneGitBasicAuth(t *testing.T) {
 	addr := startGitServer(t, repo)
 
 	cpm := clonePackageMutation{
+		pkgRev: &v1alpha1.PackageRevision{},
 		task: &v1alpha1.Task{
 			Type: "clone",
 			Clone: &v1alpha1.PackageCloneTaskSpec{
