@@ -44,7 +44,7 @@ func (s packageRevisionStrategy) ValidateUpdate(ctx context.Context, obj, old ru
 	oldRevision := old.(*api.PackageRevision)
 	newRevision := obj.(*api.PackageRevision)
 
-	// Verify that the new newLifecycle value is valid.
+	// Verify that the new lifecycle value is valid.
 	switch newLifecycle := newRevision.Spec.Lifecycle; newLifecycle {
 	case "", api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed, api.PackageRevisionLifecyclePublished, api.PackageRevisionLifecycleDeletionProposed:
 		// valid
