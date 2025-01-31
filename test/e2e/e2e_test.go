@@ -3365,7 +3365,7 @@ func (t *PorchSuite) TestPackageVariantReadinessGate(ctx context.Context) {
 			// add several repetitions of the applySetter function
 			// to make sure the pipeline takes enough time to detect
 			// the Condition changing from False to True
-			for i := 0; i < 80; i++ {
+			for i := 0; i < 40; i++ {
 				functions = append(functions, applySetterFunction)
 			}
 			return functions
@@ -3427,7 +3427,7 @@ func (t *PorchSuite) TestPackageVariantReadinessGate(ctx context.Context) {
 	// Attempt to propose the PR - should fail
 	downstreamPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 	proposeError := t.Client.Update(ctx, downstreamPr)
-	assert.ErrorContains(t, proposeError, "another request is already in progress")
+	assert.ErrorContains(t, proposeError, "readiness conditions not met")
 
 	// Wait for the pipeline to finish and the condition to be set to True
 	downstreamPr, _ = t.WaitUntilPackageRevisionFulfillingConditionExists(ctx, 20*time.Second, func(pr porchapi.PackageRevision) bool {

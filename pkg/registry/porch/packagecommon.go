@@ -230,19 +230,6 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 		return nil, false, apierrors.NewBadRequest("namespace must be specified")
 	}
 
-	pkgMutexKey := getPackageMutexKey(ns, name)
-	pkgMutex := getMutexForPackage(pkgMutexKey)
-
-	locked := pkgMutex.TryLock()
-	if !locked {
-		return nil, false,
-			apierrors.NewConflict(
-				api.Resource("packagerevisions"),
-				name,
-				fmt.Errorf(GenericConflictErrorMsg, "package revision", pkgMutexKey))
-	}
-	defer pkgMutex.Unlock()
-
 	// isCreate tracks whether this is an update that creates an object (this happens in server-side apply)
 	isCreate := false
 	oldRepoPkgRev, err := r.getRepoPkgRev(ctx, name)
@@ -285,6 +272,19 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 		updateValidation, "PackageRevision", name); err != nil {
 		return nil, false, err
 	}
+
+	pkgMutexKey := getPackageMutexKey(ns, name)
+	pkgMutex := getMutexForPackage(pkgMutexKey)
+
+	locked := pkgMutex.TryLock()
+	if !locked {
+		return nil, false,
+			apierrors.NewConflict(
+				api.Resource("packagerevisions"),
+				name,
+				fmt.Errorf(GenericConflictErrorMsg, "package revision", pkgMutexKey))
+	}
+	defer pkgMutex.Unlock()
 
 	newApiPkgRev, ok := newRuntimeObj.(*api.PackageRevision)
 	if !ok {

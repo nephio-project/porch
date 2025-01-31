@@ -34,7 +34,10 @@ commands:
       - propose
       - --namespace=rpkg-unready
       - git.unready-edit.copy-2
-    stderr: "git.unready-edit.copy-2 failed (readiness conditions not met)\nError: errors:\n  readiness conditions not met \n"
+    stderr: |
+      git.unready-edit.copy-2 failed (PackageRevision.porch.kpt.dev "git.unready-edit.copy-2" is invalid: spec.lifecycle: Forbidden: unable to propose package: readiness conditions not met)
+      Error: errors:
+        PackageRevision.porch.kpt.dev "git.unready-edit.copy-2" is invalid: spec.lifecycle: Forbidden: unable to propose package: readiness conditions not met 
     exitCode: 1
   - args:
       - porchctl

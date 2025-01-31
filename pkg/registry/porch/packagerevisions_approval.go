@@ -79,42 +79,46 @@ func (s packageRevisionApprovalStrategy) ValidateUpdate(ctx context.Context, obj
 	oldRevision := old.(*api.PackageRevision)
 	newRevision := obj.(*api.PackageRevision)
 
-	switch lifecycle := oldRevision.Spec.Lifecycle; lifecycle {
+	switch oldLifecycle := oldRevision.Spec.Lifecycle; oldLifecycle {
 
 	case api.PackageRevisionLifecyclePublished:
 		if newRevision.Spec.Lifecycle != api.PackageRevisionLifecycleDeletionProposed {
-			allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle,
-				fmt.Sprintf("package with %s lifecycle value can only be updated to 'ProposeDeletion'", lifecycle)))
+			allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), oldLifecycle,
+				fmt.Sprintf("package with %s lifecycle value can only be updated to 'ProposeDeletion'", oldLifecycle)))
 		}
 
 	case api.PackageRevisionLifecycleDeletionProposed:
 		if newRevision.Spec.Lifecycle != api.PackageRevisionLifecyclePublished {
-			allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle,
-				fmt.Sprintf("package with %s lifecycle value can only be updated to 'Published'", lifecycle)))
+			allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), oldLifecycle,
+				fmt.Sprintf("package with %s lifecycle value can only be updated to 'Published'", oldLifecycle)))
 		}
 
 	case api.PackageRevisionLifecycleProposed:
 		// valid
 
 	default:
-		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle,
-			fmt.Sprintf("cannot approve package with %s lifecycle value; only Proposed packages can be approved", lifecycle)))
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), oldLifecycle,
+			fmt.Sprintf("cannot approve package with %s lifecycle value; only Proposed packages can be approved", oldLifecycle)))
 	}
 
-	switch lifecycle := newRevision.Spec.Lifecycle; lifecycle {
+	switch newLifecycle := newRevision.Spec.Lifecycle; newLifecycle {
 	// TODO: signal rejection of the approval differently than by returning to draft?
 	case api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecyclePublished:
 		// valid
+		// if approving, check readiness state as well
+		if newLifecycle == api.PackageRevisionLifecyclePublished && !api.PackageRevisionIsReady(oldRevision.Spec.ReadinessGates, oldRevision.Status.Conditions) {
+			allErrs = append(allErrs, field.Forbidden(field.NewPath("spec", "lifecycle"), "cannot approve package: readiness conditions not met"))
+		}
 
 	case api.PackageRevisionLifecycleDeletionProposed:
 		if oldRevision.Spec.Lifecycle != api.PackageRevisionLifecyclePublished {
-			allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle,
-				fmt.Sprintf("cannot update lifecycle %s; only Published packages require approval for deletion", lifecycle)))
+			allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), newLifecycle,
+				fmt.Sprintf("cannot update lifecycle %s; only Published packages require approval for deletion", newLifecycle)))
 		}
 
 	default:
 		allErrs = append(allErrs,
-			field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle, fmt.Sprintf("value for approval can be only one of %s",
+			field.Invalid(field.NewPath("spec", "lifecycle"), newLifecycle, fmt.Sprintf("value for approval can be only one of %s",
 				strings.Join([]string{
 					string(api.PackageRevisionLifecycleDraft),
 					string(api.PackageRevisionLifecyclePublished),
