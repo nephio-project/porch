@@ -14,7 +14,7 @@
 
 
 GOLANG_CI_VER ?= v1.62.2
-GO_VERSION ?= 1.22.0
+GO_VERSION ?= 1.23.5
 GIT_ROOT_DIR ?= $(dir $(lastword $(MAKEFILE_LIST)))
 include $(GIT_ROOT_DIR)/detect-container-runtime.mk
 
