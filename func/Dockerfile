@@ -1,4 +1,4 @@
-# Copyright 2022 The kpt and Nephio Authors
+# Copyright 2022-2025 The kpt and Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ FROM gcr.io/kpt-fn/set-project-id:v0.2.0 AS set-project-id
 FROM gcr.io/kpt-fn/starlark:v0.3.0 AS starlark
 FROM gcr.io/kpt-fn/upsert-resource:v0.2.0 AS upsert-resource
 
-FROM golang:1.22.1-alpine3.18 AS builder
+FROM golang:1.23.5-alpine3.21 AS builder
 WORKDIR /go/src
 
 RUN go install github.com/grpc-ecosystem/grpc-health-probe@v0.4.11
@@ -35,7 +35,7 @@ COPY . .
 RUN cd func ; go build -v -o /server ./server
 COPY func/config.yaml /config.yaml
 
-FROM alpine:3.18
+FROM alpine:3.21
 
 COPY --from=apply-setters          /usr/local/bin/function /functions/apply-setters
 COPY --from=apply-setters-v1       /usr/local/bin/function /functions/apply-setters-v1
