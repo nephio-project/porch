@@ -1,6 +1,6 @@
 module github.com/nephio-project/porch
 
-go 1.22.0
+go 1.23.5
 
 retract v1.3.0
 
