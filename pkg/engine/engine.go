@@ -198,6 +198,9 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	}
 	pkgRevMeta, err = cad.metadataStore.Create(ctx, pkgRevMeta, repositoryObj.Name, repoPkgRev.UID())
 	if err != nil {
+		if (apierrors.IsUnauthorized(err) || apierrors.IsForbidden(err)) && repository.AnyBlockOwnerDeletionSet(obj) {
+			return nil, fmt.Errorf("failed to create PackageRev because blockOwnerDeletion is enabled for some ownerReference: %w", err)
+		}
 		return nil, err
 	}
 	repoPkgRev.SetMeta(pkgRevMeta)
@@ -318,6 +321,9 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version string,
 
 	err = cad.updatePkgRevMeta(ctx, repoPkgRev, newObj)
 	if err != nil {
+		if (apierrors.IsUnauthorized(err) || apierrors.IsForbidden(err)) && repository.AnyBlockOwnerDeletionSet(newObj) {
+			return nil, fmt.Errorf("failed to update PackageRev because blockOwnerDeletion is set for some ownerReference: %w", err)
+		}
 		return nil, err
 	}
 
