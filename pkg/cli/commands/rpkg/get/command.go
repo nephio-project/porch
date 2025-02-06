@@ -37,7 +37,8 @@ import (
 )
 
 const (
-	command = "cmdrpkgget"
+	command      = "cmdrpkgget"
+	resourceName = "packagerevisions.porch.kpt.dev"
 )
 
 func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner {
@@ -126,12 +127,12 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 
 	useSelectors := true
 	if len(args) > 0 {
-		b = b.ResourceNames("packagerevisions", args...)
+		b = b.ResourceNames(resourceName, args...)
 		// We can't pass selectors here, get an error "Error: selectors and the all flag cannot be used when passing resource/name arguments"
 		// TODO: cli-utils bug?  I think there is a metadata.name field selector (used for single object watch)
 		useSelectors = false
 	} else {
-		b = b.ResourceTypes("packagerevisions")
+		b = b.ResourceTypes(resourceName)
 	}
 
 	if useSelectors {
