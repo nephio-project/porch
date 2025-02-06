@@ -34,7 +34,10 @@ commands:
       - propose
       - --namespace=rpkg-unready
       - git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c
-    stderr: "git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c failed (readiness conditions not met)\nError: errors:\n  readiness conditions not met \n"
+    stderr: |
+      git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c failed (PackageRevision.porch.kpt.dev "git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c" is invalid: spec.lifecycle: Forbidden: unable to propose package: readiness conditions not met)
+      Error: errors:
+        PackageRevision.porch.kpt.dev "git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c" is invalid: spec.lifecycle: Forbidden: unable to propose package: readiness conditions not met 
     exitCode: 1
   - args:
       - porchctl
@@ -42,7 +45,10 @@ commands:
       - approve
       - --namespace=rpkg-unready
       - git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c
-    stderr: "git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c failed (readiness conditions not met)\nError: errors:\n  readiness conditions not met \n"
+    stderr: |
+      git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c failed (cannot change approval from Draft to Published)
+      Error: errors:
+        cannot change approval from Draft to Published 
     exitCode: 1
   - args:
       - porchctl
