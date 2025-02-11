@@ -289,7 +289,7 @@ func (p *ociPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 			Name:      p.KubeObjectName(),
 			Namespace: p.parent.namespace,
 			CreationTimestamp: metav1.Time{
-				Time: p.created,
+				Time: p.metadata.CreationTimestamp.Time,
 			},
 			ResourceVersion: p.resourceVersion,
 			UID:             p.uid,
@@ -351,7 +351,7 @@ func (p *ociPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 			Name:      p.KubeObjectName(),
 			Namespace: p.parent.namespace,
 			CreationTimestamp: metav1.Time{
-				Time: p.created,
+				Time: p.metadata.CreationTimestamp.Time,
 			},
 			ResourceVersion: p.resourceVersion,
 			UID:             p.uid,

@@ -851,7 +851,7 @@ func (t *PorchSuite) TestUpdateResourcesEmptyPatch(ctx context.Context) {
 	}, &resourcesAfterUpdate)
 
 	assert.Equal(t, 3, len(resourcesAfterUpdate.Spec.Resources))
-	assert.True(t, reflect.DeepEqual(resourcesBeforeUpdate, resourcesAfterUpdate))
+	assert.EqualValues(t, resourcesBeforeUpdate, resourcesAfterUpdate)
 }
 
 func (t *PorchSuite) TestConcurrentResourceUpdates(ctx context.Context) {
