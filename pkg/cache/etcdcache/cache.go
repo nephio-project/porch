@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package memorycache
+package etcdcache
 
 import (
 	"context"
@@ -27,7 +27,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-var tracer = otel.Tracer("memorycache")
+var tracer = otel.Tracer("etcdcache")
 
 // Cache allows us to keep state for repositories, rather than querying them every time.
 //
@@ -38,7 +38,7 @@ var tracer = otel.Tracer("memorycache")
 // * Caches oci images with further hierarchy underneath
 // * We Cache image layers in <cacheDir>/oci/layers/ (this might be obsolete with the flattened Cache)
 // * We Cache flattened tar files in <cacheDir>/oci/ (so we don't need to pull to read resources)
-// * We poll the repositories periodically (configurable) and cache the discovered images in memory.
+// * We poll the repositories periodically (configurable) and cache the discovered images in etcd.
 type Cache struct {
 	mutex        sync.Mutex
 	repositories map[string]*cachedRepository
@@ -80,7 +80,7 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 }
 
 func (c *Cache) UpdateRepository(ctx context.Context, repositorySpec *configapi.Repository) error {
-	return errors.New("update on memory cached repositories is not supported")
+	return errors.New("update on etcd cached repositories is not supported")
 }
 
 func (c *Cache) CloseRepository(ctx context.Context, repositorySpec *configapi.Repository, allRepos []configapi.Repository) error {
