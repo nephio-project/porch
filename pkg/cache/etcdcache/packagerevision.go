@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,14 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package memorycache
+package etcdcache
 
 import (
 	"context"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/pkg/cache/memorycache/meta"
+	"github.com/nephio-project/porch/pkg/cache/etcdcache/meta"
 	"github.com/nephio-project/porch/pkg/repository"
+	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

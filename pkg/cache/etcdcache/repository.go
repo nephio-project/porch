@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package memorycache
+package etcdcache
 
 import (
 	"context"
@@ -23,7 +23,7 @@ import (
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/pkg/cache/memorycache/meta"
+	"github.com/nephio-project/porch/pkg/cache/etcdcache/meta"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
@@ -376,7 +376,7 @@ func (r *cachedRepository) DeletePackageRevision(ctx context.Context, prToDelete
 	if len(pkgRevMeta.Finalizers) > 0 {
 		klog.Infof("PackageRevision %s deleted, but still have finalizers: %s", prToDelete.KubeObjectName(), strings.Join(pkgRevMeta.Finalizers, ","))
 		sent := r.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Modified, prToDelete)
-		klog.Infof("memorycache: sent %d modified for deleted PackageRevision %s/%s with finalizers", sent, prToDelete.KubeObjectNamespace(), prToDelete.KubeObjectName())
+		klog.Infof("etcdcache: sent %d modified for deleted PackageRevision %s/%s with finalizers", sent, prToDelete.KubeObjectNamespace(), prToDelete.KubeObjectName())
 		return nil
 	}
 	klog.Infof("PackageRevision %s deleted for real since no finalizers", prToDelete.KubeObjectName())
@@ -401,7 +401,7 @@ func (r *cachedRepository) DeletePackageRevision(ctx context.Context, prToDelete
 	r.mutex.Unlock()
 
 	sent := r.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Deleted, prToDelete)
-	klog.Infof("memorycache: sent %d for deleted PackageRevision %s/%s", sent, prToDelete.KubeObjectNamespace(), prToDelete.KubeObjectName())
+	klog.Infof("etcdcache: sent %d for deleted PackageRevision %s/%s", sent, prToDelete.KubeObjectNamespace(), prToDelete.KubeObjectName())
 
 	return nil
 }

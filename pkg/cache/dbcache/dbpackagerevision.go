@@ -83,7 +83,7 @@ func (pr *dbPackageRevision) UpdatePackageRevision() error {
 	}
 }
 
-func (pr *dbPackageRevision) Lifecycle() v1alpha1.PackageRevisionLifecycle {
+func (pr *dbPackageRevision) Lifecycle(_ context.Context) v1alpha1.PackageRevisionLifecycle {
 	if pr, err := pkgRevReadFromDB(pr.Key()); err != nil {
 		klog.Infof("Lifecycle read from DB failed on PackageRevision %q, %q", pr.Key().String(), err)
 		return ""
@@ -120,7 +120,7 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 		Conditions:   repository.ToApiConditions(kf),
 	}
 
-	if v1alpha1.LifecycleIsPublished(readPr.Lifecycle()) {
+	if v1alpha1.LifecycleIsPublished(readPr.Lifecycle(ctx)) {
 		if !readPr.updated.IsZero() {
 			status.PublishedAt = metav1.Time{Time: readPr.updated}
 		}
@@ -146,7 +146,7 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 		Spec: v1alpha1.PackageRevisionSpec{
 			PackageName:    readPr.Key().Package,
 			RepositoryName: readPr.Key().Repository,
-			Lifecycle:      readPr.Lifecycle(),
+			Lifecycle:      readPr.Lifecycle(ctx),
 			Tasks:          nil,
 			ReadinessGates: repository.ToApiReadinessGates(kf),
 			WorkspaceName:  readPr.Key().WorkspaceName,
