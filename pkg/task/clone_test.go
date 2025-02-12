@@ -36,7 +36,7 @@ import (
 	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/pkg/repoimpl/git"
+	"github.com/nephio-project/porch/pkg/externalrepo/git"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 

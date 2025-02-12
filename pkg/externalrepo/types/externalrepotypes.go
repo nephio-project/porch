@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package repoimpltypes
+package externalrepotypes
 
 import (
 	"context"
@@ -21,11 +21,11 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
-type RepoImplFactory interface {
-	NewRepositoryImpl(ctx context.Context, repositorySpec *configapi.Repository, options RepoImplOptions) (repository.Repository, error)
+type ExternalRepoFactory interface {
+	NewRepositoryImpl(ctx context.Context, repositorySpec *configapi.Repository, options ExternalRepoOptions) (repository.Repository, error)
 }
 
-type RepoImplOptions struct {
+type ExternalRepoOptions struct {
 	LocalDirectory         string
 	UseUserDefinedCaBundle bool
 	CredentialResolver     repository.CredentialResolver

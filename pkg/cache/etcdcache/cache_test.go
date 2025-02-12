@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package memorycache
+package etcdcache
 
 import (
 	"context"
@@ -26,12 +26,12 @@ import (
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 
+	"github.com/nephio-project/porch/pkg/cache/etcdcache/meta"
+	fakemeta "github.com/nephio-project/porch/pkg/cache/etcdcache/meta/fake"
 	fakecache "github.com/nephio-project/porch/pkg/cache/fake"
-	"github.com/nephio-project/porch/pkg/cache/memorycache/meta"
-	fakemeta "github.com/nephio-project/porch/pkg/cache/memorycache/meta/fake"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
-	"github.com/nephio-project/porch/pkg/repoimpl/git"
-	repoimpltypes "github.com/nephio-project/porch/pkg/repoimpl/types"
+	"github.com/nephio-project/porch/pkg/externalrepo/git"
+	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
@@ -39,7 +39,7 @@ import (
 
 func TestLatestPackages(t *testing.T) {
 	ctx := context.Background()
-	testPath := filepath.Join("..", "..", "repoimpl", "git", "testdata")
+	testPath := filepath.Join("..", "..", "externalrepo", "git", "testdata")
 
 	cachedRepo := openRepositoryFromArchive(t, ctx, testPath, "nested")
 
@@ -85,7 +85,7 @@ func TestLatestPackages(t *testing.T) {
 
 func TestPublishedLatest(t *testing.T) {
 	ctx := context.Background()
-	testPath := filepath.Join("..", "..", "repoimpl", "git", "testdata")
+	testPath := filepath.Join("..", "..", "externalrepo", "git", "testdata")
 	cachedRepo := openRepositoryFromArchive(t, ctx, testPath, "nested")
 
 	revisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
@@ -131,7 +131,7 @@ func TestPublishedLatest(t *testing.T) {
 
 func TestDeletePublishedMain(t *testing.T) {
 	ctx := context.Background()
-	testPath := filepath.Join("../..", "repoimpl", "git", "testdata")
+	testPath := filepath.Join("../..", "externalrepo", "git", "testdata")
 	cachedRepo := openRepositoryFromArchive(t, ctx, testPath, "nested")
 
 	revisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
@@ -229,7 +229,7 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 		repositories:  make(map[string]*cachedRepository),
 		metadataStore: metadataStore,
 		options: cachetypes.CacheOptions{
-			RepoImplOptions: repoimpltypes.RepoImplOptions{
+			ExternalRepoOptions: externalrepotypes.ExternalRepoOptions{
 				LocalDirectory:         t.TempDir(),
 				UseUserDefinedCaBundle: true,
 				CredentialResolver:     &fakecache.CredentialResolver{},

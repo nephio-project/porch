@@ -38,8 +38,8 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
-	repoimpltypes "github.com/nephio-project/porch/pkg/repoimpl/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -69,7 +69,7 @@ const (
 )
 
 type GitRepositoryOptions struct {
-	repoimpltypes.RepoImplOptions
+	externalrepotypes.ExternalRepoOptions
 	MainBranchStrategy MainBranchStrategy
 }
 
@@ -135,14 +135,14 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 		branch:             branch,
 		directory:          strings.Trim(spec.Directory, "/"),
 		secret:             spec.SecretRef.Name,
-		credentialResolver: opts.RepoImplOptions.CredentialResolver,
-		userInfoProvider:   opts.RepoImplOptions.UserInfoProvider,
+		credentialResolver: opts.ExternalRepoOptions.CredentialResolver,
+		userInfoProvider:   opts.ExternalRepoOptions.UserInfoProvider,
 		cacheDir:           dir,
 		deployment:         deployment,
 	}
 
-	if opts.RepoImplOptions.UseUserDefinedCaBundle {
-		if caBundle, err := opts.RepoImplOptions.CredentialResolver.ResolveCredential(ctx, namespace, namespace+"-ca-bundle"); err != nil {
+	if opts.ExternalRepoOptions.UseUserDefinedCaBundle {
+		if caBundle, err := opts.ExternalRepoOptions.CredentialResolver.ResolveCredential(ctx, namespace, namespace+"-ca-bundle"); err != nil {
 			klog.Errorf("failed to obtain caBundle from secret %s/%s: %v", namespace, namespace+"-ca-bundle", err)
 		} else {
 			repository.caBundle = []byte(caBundle.ToString())
@@ -1237,7 +1237,7 @@ func (r *gitRepository) GetResources(hash plumbing.Hash) (map[string]string, err
 
 // findLatestPackageCommit returns the latest commit from the history that pertains
 // to the package given by the packagePath. If no commit is found, it will return nil.
-func (r *gitRepository) findLatestPackageCommit(_ context.Context, startCommit *object.Commit, packagePath string) (*object.Commit, error) {
+func (r *gitRepository) findLatestPackageCommit(startCommit *object.Commit, packagePath string) (*object.Commit, error) {
 	var commit *object.Commit
 	err := r.packageHistoryIterator(startCommit, packagePath, func(c *object.Commit) error {
 		commit = c
@@ -1346,7 +1346,7 @@ func (r *gitRepository) GetLifecycle(ctx context.Context, pkgRev *gitPackageRevi
 	return r.getLifecycle(pkgRev)
 }
 
-func (r *gitRepository) getLifecycle(_ context.Context, pkgRev *gitPackageRevision) v1alpha1.PackageRevisionLifecycle {
+func (r *gitRepository) getLifecycle(pkgRev *gitPackageRevision) v1alpha1.PackageRevisionLifecycle {
 	switch ref := pkgRev.ref; {
 	case ref == nil:
 		return r.checkPublishedLifecycle(pkgRev)

@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package memorycache
+package etcdcache
 
 import (
 	"context"
@@ -20,15 +20,15 @@ import (
 	"sync"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/pkg/cache/memorycache/meta"
+	"github.com/nephio-project/porch/pkg/cache/etcdcache/meta"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
-	"github.com/nephio-project/porch/pkg/repoimpl"
+	"github.com/nephio-project/porch/pkg/externalrepo"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 )
 
-var tracer = otel.Tracer("memorycache")
+var tracer = otel.Tracer("etcdcache")
 
 // Cache allows us to keep state for repositories, rather than querying them every time.
 //
@@ -39,7 +39,7 @@ var tracer = otel.Tracer("memorycache")
 // * Caches oci images with further hierarchy underneath
 // * We Cache image layers in <cacheDir>/oci/layers/ (this might be obsolete with the flattened Cache)
 // * We Cache flattened tar files in <cacheDir>/oci/ (so we don't need to pull to read resources)
-// * We poll the repositories (every minute) and Cache the discovered images in memory.
+// * We poll the repositories periodically (configurable) and cache the discovered images in etcd.
 type Cache struct {
 	mutex         sync.Mutex
 	repositories  map[string]*cachedRepository
@@ -53,7 +53,7 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 	ctx, span := tracer.Start(ctx, "Cache::OpenRepository", trace.WithAttributes())
 	defer span.End()
 
-	key, err := repoimpl.RepositoryKey(repositorySpec)
+	key, err := externalrepo.RepositoryKey(repositorySpec)
 	if err != nil {
 		return nil, err
 	}
@@ -70,26 +70,26 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 		}
 	}
 
-	repoImpl, err := repoimpl.CreateRepositoryImpl(ctx, repositorySpec, c.options.RepoImplOptions)
+	externalRepo, err := externalrepo.CreateRepositoryImpl(ctx, repositorySpec, c.options.ExternalRepoOptions)
 	if err != nil {
 		return nil, err
 	}
 
-	cachedRepo := newRepository(key, repositorySpec, repoImpl, c.metadataStore, c.options)
+	cachedRepo := newRepository(key, repositorySpec, externalRepo, c.metadataStore, c.options)
 	c.repositories[key] = cachedRepo
 
 	return cachedRepo, nil
 }
 
 func (c *Cache) UpdateRepository(ctx context.Context, repositorySpec *configapi.Repository) error {
-	return errors.New("update on memory cached repositories is not supported")
+	return errors.New("update on etcd cached repositories is not supported")
 }
 
 func (c *Cache) CloseRepository(ctx context.Context, repositorySpec *configapi.Repository, allRepos []configapi.Repository) error {
 	_, span := tracer.Start(ctx, "Cache::CloseRepository", trace.WithAttributes())
 	defer span.End()
 
-	key, err := repoimpl.RepositoryKey(repositorySpec)
+	key, err := externalrepo.RepositoryKey(repositorySpec)
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func (c *Cache) CloseRepository(ctx context.Context, repositorySpec *configapi.R
 		if r.Name == repositorySpec.Name && r.Namespace == repositorySpec.Namespace {
 			continue
 		}
-		otherKey, err := repoimpl.RepositoryKey(&r)
+		otherKey, err := externalrepo.RepositoryKey(&r)
 		if err != nil {
 			return err
 		}

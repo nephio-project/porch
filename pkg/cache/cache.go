@@ -1,4 +1,4 @@
-// Copyright 2024 The Nephio Authors
+// Copyright 2024-2025 The Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ package cache
 import (
 	"context"
 
-	memorycache "github.com/nephio-project/porch/pkg/cache/memorycache"
+	etcdcache "github.com/nephio-project/porch/pkg/cache/etcdcache"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -29,6 +29,6 @@ func CreateCacheImpl(ctx context.Context, options cachetypes.CacheOptions) (cach
 	ctx, span := tracer.Start(ctx, "Repository::RepositoryFactory", trace.WithAttributes())
 	defer span.End()
 
-	var cacheFactory = new(memorycache.MemoryCacheFactory)
+	var cacheFactory = new(etcdcache.EtcdCacheFactory)
 	return cacheFactory.NewCache(ctx, options)
 }
