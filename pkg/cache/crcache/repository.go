@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package etcdcache
+package crcache
 
 import (
 	"context"
@@ -23,7 +23,7 @@ import (
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/pkg/cache/etcdcache/meta"
+	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
@@ -369,14 +369,16 @@ func (r *cachedRepository) DeletePackageRevision(ctx context.Context, prToDelete
 		Namespace: prToDelete.KubeObjectNamespace(),
 	}
 	pkgRevMeta, err := r.metadataStore.Delete(ctx, namespacedName, false)
-	if err != nil {
-		return err
+	if err == nil {
+		klog.Infof("PackageRev %s deleted", prToDelete.KubeObjectName())
+	} else {
+		klog.Infof("PackageRev %s was already deleted", prToDelete.KubeObjectName())
 	}
 
 	if len(pkgRevMeta.Finalizers) > 0 {
 		klog.Infof("PackageRevision %s deleted, but still have finalizers: %s", prToDelete.KubeObjectName(), strings.Join(pkgRevMeta.Finalizers, ","))
 		sent := r.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Modified, prToDelete)
-		klog.Infof("etcdcache: sent %d modified for deleted PackageRevision %s/%s with finalizers", sent, prToDelete.KubeObjectNamespace(), prToDelete.KubeObjectName())
+		klog.Infof("crcache: sent %d modified for deleted PackageRevision %s/%s with finalizers", sent, prToDelete.KubeObjectNamespace(), prToDelete.KubeObjectName())
 		return nil
 	}
 	klog.Infof("PackageRevision %s deleted for real since no finalizers", prToDelete.KubeObjectName())
@@ -400,8 +402,15 @@ func (r *cachedRepository) DeletePackageRevision(ctx context.Context, prToDelete
 
 	r.mutex.Unlock()
 
+	if _, err := r.metadataStore.Delete(ctx, namespacedName, true); err != nil {
+		// If this fails, the CR will be cleaned up by the background job.
+		if !apierrors.IsNotFound(err) {
+			klog.Warningf("Error deleting PkgRevMeta %s: %v", namespacedName.String(), err)
+		}
+	}
+
 	sent := r.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Deleted, prToDelete)
-	klog.Infof("etcdcache: sent %d for deleted PackageRevision %s/%s", sent, prToDelete.KubeObjectNamespace(), prToDelete.KubeObjectName())
+	klog.Infof("crcache: sent %d for deleted PackageRevision %s/%s", sent, prToDelete.KubeObjectNamespace(), prToDelete.KubeObjectName())
 
 	return nil
 }

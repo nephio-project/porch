@@ -12,23 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package etcdcache
+package crcache
 
 import (
 	"context"
-	"errors"
 	"sync"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/pkg/cache/etcdcache/meta"
+	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
+	"k8s.io/klog/v2"
 )
 
-var tracer = otel.Tracer("etcdcache")
+var tracer = otel.Tracer("crcache")
 
 // Cache allows us to keep state for repositories, rather than querying them every time.
 //
@@ -82,7 +82,9 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 }
 
 func (c *Cache) UpdateRepository(ctx context.Context, repositorySpec *configapi.Repository) error {
-	return errors.New("update on etcd cached repositories is not supported")
+	klog.Infof("Update on etcd cached repositories is not applicable")
+
+	return nil
 }
 
 func (c *Cache) CloseRepository(ctx context.Context, repositorySpec *configapi.Repository, allRepos []configapi.Repository) error {

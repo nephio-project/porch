@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package etcdcache
+package crcache
 
 import (
 	"context"
@@ -26,8 +26,8 @@ import (
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 
-	"github.com/nephio-project/porch/pkg/cache/etcdcache/meta"
-	fakemeta "github.com/nephio-project/porch/pkg/cache/etcdcache/meta/fake"
+	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
+	fakemeta "github.com/nephio-project/porch/pkg/cache/crcache/meta/fake"
 	fakecache "github.com/nephio-project/porch/pkg/cache/fake"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo/git"

@@ -12,21 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package etcdcache
+package crcache
 
 import (
 	"context"
 
-	"github.com/nephio-project/porch/pkg/cache/etcdcache/meta"
+	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 )
 
-var _ cachetypes.CacheFactory = &EtcdCacheFactory{}
+var _ cachetypes.CacheFactory = &CrCacheFactory{}
 
-type EtcdCacheFactory struct {
+type CrCacheFactory struct {
 }
 
-func (f *EtcdCacheFactory) NewCache(_ context.Context, options cachetypes.CacheOptions) (cachetypes.Cache, error) {
+func (f *CrCacheFactory) NewCache(_ context.Context, options cachetypes.CacheOptions) (cachetypes.Cache, error) {
 	return &Cache{
 		repositories:  make(map[string]*cachedRepository),
 		metadataStore: meta.NewCrdMetadataStore(options.CoreClient),

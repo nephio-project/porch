@@ -27,7 +27,8 @@
             "env": {
                 "CERT_STORAGE_DIR": "${workspaceFolder}/.build/pki/tmp",
                 "WEBHOOK_HOST": "localhost",
-                "GOOGLE_API_GO_EXPERIMENTAL_DISABLE_NEW_AUTH_LIB": "true"
+                "GOOGLE_API_GO_EXPERIMENTAL_DISABLE_NEW_AUTH_LIB": "true" //,
+                //"OTEL": "otel://localhost:4317"
             }
         },
         {
