@@ -17,7 +17,6 @@ package dbcache
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"time"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -138,24 +137,4 @@ func (p *dbPackage) Delete() error {
 	}
 
 	return pkgDeleteFromDB(p.Key())
-}
-
-func (p *dbPackage) metaAsJson() string {
-	jsonMeta, _ := json.Marshal(p.meta)
-	return string(jsonMeta)
-}
-
-func (p *dbPackage) setMetaFromJson(jsonMeta string) {
-	p.meta = metav1.ObjectMeta{}
-	json.Unmarshal([]byte(jsonMeta), &p.meta)
-}
-
-func (p *dbPackage) specAsJson() string {
-	jsonSpec, _ := json.Marshal(p.spec)
-	return string(jsonSpec)
-}
-
-func (p *dbPackage) setSpecFromJson(jsonSpec string) {
-	p.spec = v1alpha1.PackageSpec{}
-	json.Unmarshal([]byte(jsonSpec), &p.spec)
 }

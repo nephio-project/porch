@@ -60,8 +60,8 @@ func pkgRevReadFromDB(prk repository.PackageRevisionKey) (dbPackageRevision, err
 
 	klog.Infof("pkgRevReadFromDB: reading package succeeded %q", prk)
 
-	pkgRev.setMetaFromJson(metaAsJson)
-	pkgRev.setSpecFromJson(specAsJson)
+	setValueFromJson(metaAsJson, pkgRev.meta)
+	setValueFromJson(specAsJson, pkgRev.spec)
 
 	return pkgRev, err
 }
@@ -87,7 +87,7 @@ func pkgRevReadPRsFromDB(pk repository.PackageKey) ([]*dbPackageRevision, error)
 		var pkgRev dbPackageRevision
 		var metaAsJson, specAsJson string
 
-		rows.Scan(
+		if err := rows.Scan(
 			&pkgRev.pkgRevKey.Namespace,
 			&pkgRev.pkgRevKey.Repository,
 			&pkgRev.pkgRevKey.Package,
@@ -97,7 +97,9 @@ func pkgRevReadPRsFromDB(pk repository.PackageKey) ([]*dbPackageRevision, error)
 			&specAsJson,
 			&pkgRev.updated,
 			&pkgRev.updatedBy,
-			&pkgRev.lifecycle)
+			&pkgRev.lifecycle); err != nil {
+			return nil, err
+		}
 
 		pkgRev.resources, err = pkgRevResourcesReadFromDB(pkgRev.pkgRevKey)
 		if err != nil {
@@ -107,8 +109,8 @@ func pkgRevReadPRsFromDB(pk repository.PackageKey) ([]*dbPackageRevision, error)
 
 		klog.Infof("pkgRevReadFromDB: reading package succeeded %q", pkgRev.pkgRevKey)
 
-		pkgRev.setMetaFromJson(metaAsJson)
-		pkgRev.setSpecFromJson(specAsJson)
+		setValueFromJson(metaAsJson, pkgRev.meta)
+		setValueFromJson(specAsJson, pkgRev.spec)
 
 		dbPkgRevs = append(dbPkgRevs, &pkgRev)
 	}
@@ -133,7 +135,7 @@ func pkgRevWriteToDB(pr *dbPackageRevision) error {
 	if returnedVal := GetDBConnection().db.QueryRow(
 		sqlStatement,
 		prk.Namespace, prk.Repository, prk.Package, prk.Revision, prk.WorkspaceName,
-		pr.metaAsJson(), pr.specAsJson(), pr.updated, pr.updatedBy, pr.lifecycle); returnedVal.Err() == nil {
+		valueAsJson(pr.meta), valueAsJson(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle); returnedVal.Err() == nil {
 		klog.Infof("pkgRevWriteToDB: query succeeded, row created")
 	} else {
 		klog.Infof("pkgRevWriteToDB: query failed %q", returnedVal.Err())
@@ -162,7 +164,7 @@ func pkgRevUpdateDB(pr *dbPackageRevision) error {
 	if returnedVal := GetDBConnection().db.QueryRow(
 		sqlStatement,
 		prk.Namespace, prk.Repository, prk.Package, prk.Revision, prk.WorkspaceName,
-		pr.metaAsJson(), pr.specAsJson(), pr.updated, pr.updatedBy, pr.lifecycle); returnedVal.Err() == nil {
+		valueAsJson(pr.meta), valueAsJson(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle); returnedVal.Err() == nil {
 		klog.Infof("pkgRevUpdateDB:: query succeeded, row created")
 	} else {
 		klog.Infof("pkgRevUpdateDB:: query failed %q", returnedVal.Err())

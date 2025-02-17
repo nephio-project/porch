@@ -16,12 +16,14 @@ package dbcache
 
 import (
 	"bytes"
+	"encoding/json"
 	"os/user"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -47,4 +49,19 @@ func generateUid(prefix string, kubeNs string, kubeName string) types.UID {
 	buff.WriteString("/")
 	buff.WriteString(strings.ToLower(kubeName))
 	return types.UID(uuid.NewSHA1(space, buff.Bytes()).String())
+}
+
+func valueAsJson(value any) string {
+	if jsonValue, err := json.Marshal(value); err == nil {
+		return string(jsonValue)
+	} else {
+		klog.Errorf("marshal of value %v failed, %v ", value, err)
+		return ""
+	}
+}
+
+func setValueFromJson(jsonValue string, value any) {
+	if err := json.Unmarshal([]byte(jsonValue), &value); err != nil {
+		klog.Errorf("unmarshal of json value %v failed, %v ", jsonValue, err)
+	}
 }

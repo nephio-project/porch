@@ -34,8 +34,8 @@ func repoReadFromDB(rk repository.RepositoryKey) (*dbRepository, error) {
 		&dbRepo.updatedBy,
 		&dbRepo.deployment)
 
-	dbRepo.setMetaFromJson(metaAsJson)
-	dbRepo.setSpecFromJson(specAsJson)
+	setValueFromJson(metaAsJson, dbRepo.meta)
+	setValueFromJson(specAsJson, dbRepo.spec)
 
 	return &dbRepo, err
 }
@@ -50,7 +50,7 @@ func repoWriteToDB(r *dbRepository) error {
 	rk := r.Key()
 	if returnedVal := GetDBConnection().db.QueryRow(
 		sqlStatement,
-		rk.Namespace, rk.Repository, r.metaAsJson(), r.specAsJson(), r.updated, r.updatedBy, r.deployment); returnedVal.Err() == nil {
+		rk.Namespace, rk.Repository, valueAsJson(r.meta), valueAsJson(r.spec), r.updated, r.updatedBy, r.deployment); returnedVal.Err() == nil {
 		klog.Infof("DB Connection: query succeeded, row created")
 		return nil
 	} else {
@@ -69,7 +69,7 @@ func repoUpdateDB(r *dbRepository) error {
 	rk := r.Key()
 	if returnedVal := GetDBConnection().db.QueryRow(
 		sqlStatement,
-		rk.Namespace, rk.Repository, r.metaAsJson(), r.specAsJson(), r.updated, r.updatedBy, r.deployment); returnedVal.Err() == nil {
+		rk.Namespace, rk.Repository, valueAsJson(r.meta), valueAsJson(r.spec), r.updated, r.updatedBy, r.deployment); returnedVal.Err() == nil {
 		klog.Infof("repoUpdateDB: query succeeded for %q", rk)
 		return nil
 	} else {

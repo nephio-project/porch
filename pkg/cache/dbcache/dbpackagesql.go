@@ -46,8 +46,8 @@ func pkgReadFromDB(pk repository.PackageKey) (dbPackage, error) {
 		return dbPkg, err
 	}
 
-	dbPkg.setMetaFromJson(metaAsJson)
-	dbPkg.setSpecFromJson(specAsJson)
+	setValueFromJson(metaAsJson, dbPkg.meta)
+	setValueFromJson(specAsJson, dbPkg.spec)
 
 	return dbPkg, err
 }
@@ -69,17 +69,19 @@ func pkgReadPkgsFromDB(rk repository.RepositoryKey) ([]dbPackage, error) {
 		var pkg dbPackage
 		var metaAsJson, specAsJson string
 
-		rows.Scan(
+		if err := rows.Scan(
 			&pkg.pkgKey.Namespace,
 			&pkg.pkgKey.Repository,
 			&pkg.pkgKey.Package,
 			&metaAsJson,
 			&specAsJson,
 			&pkg.updated,
-			&pkg.updatedBy)
+			&pkg.updatedBy); err != nil {
+			return nil, err
+		}
 
-		pkg.setMetaFromJson(metaAsJson)
-		pkg.setSpecFromJson(specAsJson)
+		setValueFromJson(metaAsJson, pkg.meta)
+		setValueFromJson(specAsJson, pkg.spec)
 
 		dbPkgs = append(dbPkgs, pkg)
 	}
@@ -96,7 +98,7 @@ func pkgWriteToDB(p *dbPackage) error {
 
 	pk := p.Key()
 	if returnedVal := GetDBConnection().db.QueryRow(
-		sqlStatement, pk.Namespace, pk.Repository, pk.Package, p.metaAsJson(), p.specAsJson(), p.updated, p.updatedBy); returnedVal.Err() == nil {
+		sqlStatement, pk.Namespace, pk.Repository, pk.Package, valueAsJson(p.meta), valueAsJson(p.spec), p.updated, p.updatedBy); returnedVal.Err() == nil {
 		klog.Infof("pkgWriteToDB: query succeeded for %q", p.Key())
 		return nil
 	} else {
@@ -115,7 +117,7 @@ func pkgUpdateDB(p *dbPackage) error {
 	pk := p.Key()
 	if returnedVal := GetDBConnection().db.QueryRow(
 		sqlStatement,
-		pk.Namespace, pk.Repository, pk.Package, p.metaAsJson(), p.specAsJson(), p.updated, p.updatedBy); returnedVal.Err() == nil {
+		pk.Namespace, pk.Repository, pk.Package, valueAsJson(p.meta), valueAsJson(p.spec), p.updated, p.updatedBy); returnedVal.Err() == nil {
 		klog.Infof("pkgUpdateDB: query succeeded for %q", pk)
 		return nil
 	} else {

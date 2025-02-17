@@ -199,7 +199,9 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version string,
 	// If the PR is in the terminating state and we are removing the last finalizer,
 	// we delete the resource instead of updating it.
 	if repoPkgRev.GetMeta().DeletionTimestamp != nil && len(newObj.Finalizers) == 0 {
-		cad.updatePkgRevMeta(ctx, repoPkgRev, newObj)
+		if err := cad.updatePkgRevMeta(ctx, repoPkgRev, newObj); err != nil {
+			return nil, err
+		}
 		if err := cad.deletePackageRevision(ctx, repo, repoPkgRev); err != nil {
 			return nil, err
 		}

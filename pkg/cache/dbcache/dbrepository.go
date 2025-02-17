@@ -17,7 +17,6 @@ package dbcache
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -301,24 +300,4 @@ func (r *dbRepository) savePackageRevision(ctx context.Context, prd repository.P
 
 func (r *dbRepository) Refresh(ctx context.Context) error {
 	return nil
-}
-
-func (r *dbRepository) metaAsJson() string {
-	jsonMeta, _ := json.Marshal(r.meta)
-	return string(jsonMeta)
-}
-
-func (r *dbRepository) setMetaFromJson(jsonMeta string) {
-	r.meta = &metav1.ObjectMeta{}
-	json.Unmarshal([]byte(jsonMeta), r.meta)
-}
-
-func (r *dbRepository) specAsJson() string {
-	jsonSpec, _ := json.Marshal(r.spec)
-	return string(jsonSpec)
-}
-
-func (r *dbRepository) setSpecFromJson(jsonSpec string) {
-	r.spec = &configapi.RepositorySpec{}
-	json.Unmarshal([]byte(jsonSpec), r.spec)
 }

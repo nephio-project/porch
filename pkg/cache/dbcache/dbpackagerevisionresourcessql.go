@@ -21,6 +21,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
+//lint:ignore U1000 Ignore unused function temporarily for debugging
 func pkgRevResourceReadFromDB(prk repository.PackageRevisionKey, resKey string) (string, string, error) {
 	klog.Infof("pkgRevResourceReadFromDB: reading package revision resource %q:%s", prk, resKey)
 
@@ -67,10 +68,9 @@ func pkgRevResourcesReadFromDB(prk repository.PackageRevisionKey) (map[string]st
 	for rows.Next() {
 		var resKey, resVal string
 
-		rows.Scan(
-			&resKey,
-			&resVal)
-
+		if err := rows.Scan(&resKey, &resVal); err != nil {
+			return nil, err
+		}
 		resources[resKey] = resVal
 	}
 
@@ -131,6 +131,7 @@ func pkgRevResourcesDeleteFromDB(prk repository.PackageRevisionKey) error {
 	return returnedVal.Err()
 }
 
+//lint:ignore U1000 Ignore unused function temporarily for debugging
 func pkgRevResourceDeleteFromDB(prk repository.PackageRevisionKey, resKey string) error {
 	klog.Infof("pkgRevResourceDeleteFromDB: deleting package revision %q", prk)
 
