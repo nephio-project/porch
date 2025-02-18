@@ -26,6 +26,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/mod/semver"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var tracer = otel.Tracer("repository/util")
@@ -135,4 +136,15 @@ func ValidateWorkspaceName(workspace api.WorkspaceName) error {
 	}
 
 	return nil
+}
+
+// AnyBlockOwnerDeletionSet checks whether there are any ownerReferences in the Object
+// which have blockOwnerDeletion enabled (meaning either nil or true).
+func AnyBlockOwnerDeletionSet(obj client.Object) bool {
+	for _, owner := range obj.GetOwnerReferences() {
+		if owner.BlockOwnerDeletion == nil || *owner.BlockOwnerDeletion {
+			return true
+		}
+	}
+	return false
 }

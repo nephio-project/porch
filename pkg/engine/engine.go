@@ -198,6 +198,10 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, apiRepo *config
 	}
 	pkgRevMeta, err = cad.metadataStore.Create(ctx, pkgRevMeta, apiRepo.Name, repoPkgRev.UID())
 	if err != nil {
+		if (apierrors.IsUnauthorized(err) || apierrors.IsForbidden(err)) && repository.AnyBlockOwnerDeletionSet(obj) {
+			return nil, fmt.Errorf("failed to create internal PackageRev object, because blockOwnerDeletion is enabled for some ownerReference "+
+				"(it is likely that the serviceaccount of porch-server does not have the rights to update finalizers in the owner object): %w", err)
+		}
 		return nil, err
 	}
 	repoPkgRev.SetMeta(pkgRevMeta)
@@ -332,6 +336,10 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version string,
 
 	err = cad.updatePkgRevMeta(ctx, repoPkgRev, newObj)
 	if err != nil {
+		if (apierrors.IsUnauthorized(err) || apierrors.IsForbidden(err)) && repository.AnyBlockOwnerDeletionSet(newObj) {
+			return nil, fmt.Errorf("failed to update internal PackageRev object, because blockOwnerDeletion is enabled for some ownerReference "+
+				"(it is likely that the serviceaccount of porch-server does not have the rights to update finalizers in the owner object): %w", err)
+		}
 		return nil, err
 	}
 

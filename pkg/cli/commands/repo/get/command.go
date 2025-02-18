@@ -30,7 +30,8 @@ import (
 )
 
 const (
-	command = "cmdrepoget"
+	command      = "cmdrepoget"
+	resourceName = "repositories.config.porch.kpt.dev"
 )
 
 func NewCommand(ctx context.Context, rcg *genericclioptions.ConfigFlags) *cobra.Command {
@@ -108,10 +109,10 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 	b = b.Unstructured()
 
 	if len(args) > 0 {
-		b.ResourceNames("repository", args...)
+		b.ResourceNames(resourceName, args...)
 	} else {
 		b = b.SelectAllParam(true).
-			ResourceTypes("repository")
+			ResourceTypes(resourceName)
 	}
 
 	b = b.ContinueOnError().Latest().Flatten()
