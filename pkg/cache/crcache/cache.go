@@ -72,7 +72,7 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 }
 
 func (c *Cache) UpdateRepository(ctx context.Context, repositorySpec *configapi.Repository) error {
-	klog.Infof("Update on etcd cached repositories is not applicable")
+	klog.Infof("Update on CR cached repositories is not applicable")
 
 	return nil
 }
