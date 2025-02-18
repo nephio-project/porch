@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import (
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	cache "github.com/nephio-project/porch/pkg/cache"
+	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/task"
@@ -73,7 +73,7 @@ func NewCaDEngine(opts ...EngineOption) (CaDEngine, error) {
 }
 
 type cadEngine struct {
-	cache cache.Cache
+	cache cachetypes.Cache
 
 	userInfoProvider repository.UserInfoProvider
 	metadataStore    meta.MetadataStore

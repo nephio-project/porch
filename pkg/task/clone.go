@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,8 @@ import (
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/builtins"
-	"github.com/nephio-project/porch/pkg/git"
+	"github.com/nephio-project/porch/pkg/externalrepo/git"
+	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/kpt"
 	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -155,7 +156,9 @@ func (m *clonePackageMutation) cloneFromGit(ctx context.Context, gitPackage *api
 	defer os.RemoveAll(dir)
 
 	r, err := git.OpenRepository(ctx, "", "", &spec, false, dir, git.GitRepositoryOptions{
-		CredentialResolver: m.credentialResolver,
+		ExternalRepoOptions: externalrepotypes.ExternalRepoOptions{
+			CredentialResolver: m.credentialResolver,
+		},
 		MainBranchStrategy: git.SkipVerification, // We are only reading so we don't need the main branch to exist.
 	})
 	if err != nil {
