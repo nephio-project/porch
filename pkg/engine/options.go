@@ -58,9 +58,9 @@ func WithBuiltinFunctionRuntime() EngineOption {
 	})
 }
 
-func WithGRPCFunctionRuntime(address string, maxGrpcMessageSize int) EngineOption {
+func WithGRPCFunctionRuntime(options GRPCRuntimeOptions) EngineOption {
 	return EngineOptionFunc(func(engine *cadEngine) error {
-		runtime, err := newGRPCFunctionRuntime(address, maxGrpcMessageSize)
+		runtime, err := newGRPCFunctionRuntime(options)
 		if err != nil {
 			return fmt.Errorf("failed to create function runtime: %w", err)
 		}

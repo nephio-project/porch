@@ -30,16 +30,6 @@ import (
 
 var tracer = otel.Tracer("crcache")
 
-// Cache allows us to keep state for repositories, rather than querying them every time.
-//
-// Cache Structure:
-// <cacheDir>/git/
-// * Caches bare git repositories in directories named based on the repository address.
-// <cacheDir>/oci/
-// * Caches oci images with further hierarchy underneath
-// * We Cache image layers in <cacheDir>/oci/layers/ (this might be obsolete with the flattened Cache)
-// * We Cache flattened tar files in <cacheDir>/oci/ (so we don't need to pull to read resources)
-// * We poll the repositories periodically (configurable) and cache the discovered images in etcd.
 type Cache struct {
 	mutex         sync.Mutex
 	repositories  map[string]*cachedRepository

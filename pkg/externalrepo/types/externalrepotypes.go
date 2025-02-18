@@ -26,7 +26,7 @@ type ExternalRepoFactory interface {
 }
 
 type ExternalRepoOptions struct {
-	LocalDirectory         string
+	CacheDirectory         string
 	UseUserDefinedCaBundle bool
 	CredentialResolver     repository.CredentialResolver
 	UserInfoProvider       repository.UserInfoProvider

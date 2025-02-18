@@ -28,7 +28,7 @@ import (
 const MAX_MODIFICATION_DURATION = 10
 
 type DBConnection struct {
-	driver                  string
+	dBCacheOptions          cachetypes.DBCacheOptions
 	dataSource              string
 	db                      *sql.DB
 	encoder                 encoder
@@ -38,25 +38,24 @@ type DBConnection struct {
 var dbConnection *DBConnection = nil
 
 func OpenDBConnection(opts cachetypes.CacheOptions) error {
-	klog.Infof("DBConnection: %s %s", opts.Driver, opts.DataSource)
+	klog.Infof("DBConnection: %s %s", opts.DBCacheOptions.Driver, opts.DBCacheOptions.DataSource)
 
 	if dbConnection != nil {
-		klog.Infof("DB Connection: connection to database %s, already open", opts.DataSource)
+		klog.Infof("DB Connection: connection to database %s, already open", opts.DBCacheOptions.DataSource)
 		return nil
 	}
 
-	db, err := sql.Open(opts.Driver, opts.DataSource)
+	db, err := sql.Open(opts.DBCacheOptions.Driver, opts.DBCacheOptions.DataSource)
 	if err != nil {
-		klog.Infof("DB Connection: connection to database %s failed: err=%s", opts.DataSource, err)
+		klog.Infof("DB Connection: connection to database %s failed: err=%s", opts.DBCacheOptions.DataSource, err)
 		return err
 	}
 
-	klog.Infof("DB Connection: connected to database %s", opts.DataSource)
+	klog.Infof("DB Connection: connected to database %s", opts.DBCacheOptions.DataSource)
 
 	dbConnection = &DBConnection{
-		driver:     opts.Driver,
-		dataSource: opts.DataSource,
-		db:         db,
+		dBCacheOptions: opts.DBCacheOptions,
+		db:             db,
 		encoder: encoder{
 			encoding: PackageResourceEncodingYAML,
 		},

@@ -230,7 +230,7 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 		metadataStore: metadataStore,
 		options: cachetypes.CacheOptions{
 			ExternalRepoOptions: externalrepotypes.ExternalRepoOptions{
-				LocalDirectory:         t.TempDir(),
+				CacheDirectory:         t.TempDir(),
 				UseUserDefinedCaBundle: true,
 				CredentialResolver:     &fakecache.CredentialResolver{},
 			},

@@ -25,13 +25,28 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type CacheType string
+
+const (
+	CRCacheType      CacheType = "CR"
+	DBCacheType      CacheType = "DB"
+	DefaultCacheType CacheType = "CR"
+)
+
 type CacheOptions struct {
 	ExternalRepoOptions  externalrepotypes.ExternalRepoOptions
 	RepoSyncFrequency    time.Duration
 	RepoPRChangeNotifier RepoPRChangeNotifier
-	Driver               string
-	DataSource           string
 	CoreClient           client.WithWatch
+	CacheType            CacheType
+	DBCacheOptions       DBCacheOptions
+}
+
+const DefaultDBCacheDriver string = "pgx"
+
+type DBCacheOptions struct {
+	Driver     string
+	DataSource string
 }
 
 type Cache interface {
