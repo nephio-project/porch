@@ -174,7 +174,7 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 			UID:             p.uid(),
 			ResourceVersion: p.commit.String(),
 			CreationTimestamp: metav1.Time{
-				Time: p.updated,
+				Time: p.metadata.CreationTimestamp.Time,
 			},
 		},
 		Spec: v1alpha1.PackageRevisionSpec{
@@ -209,7 +209,7 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 			UID:             p.uid(),
 			ResourceVersion: p.commit.String(),
 			CreationTimestamp: metav1.Time{
-				Time: p.updated,
+				Time: p.metadata.CreationTimestamp.Time,
 			},
 			OwnerReferences: []metav1.OwnerReference{}, // TODO: should point to repository resource
 		},
