@@ -17,7 +17,7 @@ package cache
 import (
 	"context"
 
-	etcdcache "github.com/nephio-project/porch/pkg/cache/etcdcache"
+	crcache "github.com/nephio-project/porch/pkg/cache/crcache"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -29,6 +29,6 @@ func CreateCacheImpl(ctx context.Context, options cachetypes.CacheOptions) (cach
 	ctx, span := tracer.Start(ctx, "Repository::RepositoryFactory", trace.WithAttributes())
 	defer span.End()
 
-	var cacheFactory = new(etcdcache.EtcdCacheFactory)
+	var cacheFactory = new(crcache.CrCacheFactory)
 	return cacheFactory.NewCache(ctx, options)
 }
