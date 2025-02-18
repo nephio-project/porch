@@ -158,8 +158,7 @@ func (r *cachedRepository) getPackages(ctx context.Context, filter repository.Li
 // mutex must be held.
 func (r *cachedRepository) getCachedPackages(ctx context.Context, forceRefresh bool) (map[repository.PackageKey]*cachedPackage, map[repository.PackageRevisionKey]*cachedPackageRevision, error) {
 	// must hold mutex
-	
-	r.mutex.Lock()
+
 	packages := r.cachedPackages
 	packageRevisions := r.cachedPackageRevisions
 	err := r.refreshRevisionsError
@@ -168,11 +167,14 @@ func (r *cachedRepository) getCachedPackages(ctx context.Context, forceRefresh b
 		packages = nil
 		packageRevisions = nil
 
-		if err := r.repo.Refresh(ctx); err != nil {
+		r.mutex.Lock()
+		err := r.repo.Refresh(ctx)
+		r.mutex.Unlock()
+
+		if err != nil {
 			return nil, nil, err
 		}
 	}
-	r.mutex.Unlock()
 
 	if packages == nil {
 		packages, packageRevisions, err = r.refreshAllCachedPackages(ctx)
