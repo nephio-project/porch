@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package etcdcache
+package crcache
 
 import (
 	"context"
@@ -225,7 +225,7 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 	_, address := git.ServeGitRepository(t, tarfile, tempdir)
 	metadataStore := createMetadataStoreFromArchive(t, fmt.Sprintf("%s-metadata.yaml", name), name)
 
-	cache, _ := new(EtcdCacheFactory).NewCache(ctx, cachetypes.CacheOptions{
+	cache, _ := new(CrCacheFactory).NewCache(ctx, cachetypes.CacheOptions{
 		ExternalRepoOptions: externalrepotypes.ExternalRepoOptions{
 			LocalDirectory:         t.TempDir(),
 			UseUserDefinedCaBundle: true,
