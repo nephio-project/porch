@@ -54,7 +54,7 @@ type cachedRepository struct {
 
 	lastVersion string
 
-	mutex                  sync.Mutex
+	mutex                  sync.RWMutex
 	cachedPackageRevisions map[repository.PackageRevisionKey]*cachedPackageRevision
 	cachedPackages         map[repository.PackageKey]*cachedPackage
 	// Error encountered on repository refresh by the refresh goroutine.
@@ -108,8 +108,8 @@ func (r *cachedRepository) ListPackageRevisions(ctx context.Context, filter repo
 }
 
 func (r *cachedRepository) getRefreshError() error {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
 
 	// TODO: This should also check r.refreshPkgsError when
 	//   the package resource is fully supported.
@@ -123,8 +123,8 @@ func (r *cachedRepository) getPackageRevisions(ctx context.Context, filter repos
 	if err != nil {
 		return nil, err
 	}
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
 	return toPackageRevisionSlice(ctx, packageRevisions, filter), nil
 }
 
@@ -134,8 +134,8 @@ func (r *cachedRepository) getPackages(ctx context.Context, filter repository.Li
 	if err != nil {
 		return nil, err
 	}
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
 	return toPackageSlice(packages, filter), nil
 }
 
@@ -143,7 +143,7 @@ func (r *cachedRepository) getPackages(ctx context.Context, filter repository.Li
 // mutex must be held.
 func (r *cachedRepository) getCachedPackages(ctx context.Context, forceRefresh bool) (map[repository.PackageKey]*cachedPackage, map[repository.PackageRevisionKey]*cachedPackageRevision, error) {
 	// must hold mutex
-
+	
 	r.mutex.Lock()
 	packages := r.cachedPackages
 	packageRevisions := r.cachedPackageRevisions
@@ -157,6 +157,7 @@ func (r *cachedRepository) getCachedPackages(ctx context.Context, forceRefresh b
 			// TODO: Figure out a way to do this without the cache layer
 			//  needing to know what type of repo we are working with.
 			if err := gitRepo.UpdateDeletionProposedCache(); err != nil {
+				r.mutex.Unlock()
 				return nil, nil, err
 			}
 		}
