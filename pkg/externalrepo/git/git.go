@@ -38,6 +38,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel"
@@ -68,10 +69,8 @@ const (
 )
 
 type GitRepositoryOptions struct {
-	CredentialResolver     repository.CredentialResolver
-	UserInfoProvider       repository.UserInfoProvider
-	MainBranchStrategy     MainBranchStrategy
-	UseUserDefinedCaBundle bool
+	externalrepotypes.ExternalRepoOptions
+	MainBranchStrategy MainBranchStrategy
 }
 
 func OpenRepository(ctx context.Context, name, namespace string, spec *configapi.GitRepository, deployment bool, root string, opts GitRepositoryOptions) (GitRepository, error) {
@@ -136,14 +135,14 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 		branch:             branch,
 		directory:          strings.Trim(spec.Directory, "/"),
 		secret:             spec.SecretRef.Name,
-		credentialResolver: opts.CredentialResolver,
-		userInfoProvider:   opts.UserInfoProvider,
+		credentialResolver: opts.ExternalRepoOptions.CredentialResolver,
+		userInfoProvider:   opts.ExternalRepoOptions.UserInfoProvider,
 		cacheDir:           dir,
 		deployment:         deployment,
 	}
 
-	if opts.UseUserDefinedCaBundle {
-		if caBundle, err := opts.CredentialResolver.ResolveCredential(ctx, namespace, namespace+"-ca-bundle"); err != nil {
+	if opts.ExternalRepoOptions.UseUserDefinedCaBundle {
+		if caBundle, err := opts.ExternalRepoOptions.CredentialResolver.ResolveCredential(ctx, namespace, namespace+"-ca-bundle"); err != nil {
 			klog.Errorf("failed to obtain caBundle from secret %s/%s: %v", namespace, namespace+"-ca-bundle", err)
 		} else {
 			repository.caBundle = []byte(caBundle.ToString())
@@ -354,7 +353,7 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 	return result, nil
 }
 
-func (r *gitRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
+func (r *gitRepository) CreatePackageRevisionDraft(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
 	_, span := tracer.Start(ctx, "gitRepository::CreatePackageRevision", trace.WithAttributes())
 	defer span.End()
 	r.mutex.Lock()
@@ -383,6 +382,7 @@ func (r *gitRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1
 	// TODO: This should also create a new 'Package' resource if one does not already exist
 
 	return &gitPackageRevisionDraft{
+		metadata:      obj.ObjectMeta,
 		parent:        r,
 		path:          packagePath,
 		workspaceName: obj.Spec.WorkspaceName,
@@ -429,6 +429,7 @@ func (r *gitRepository) UpdatePackageRevision(ctx context.Context, old repositor
 	lifecycle := r.getLifecycle(oldGitPackage)
 
 	return &gitPackageRevisionDraft{
+		metadata:      old.GetMeta(),
 		parent:        r,
 		path:          oldGitPackage.path,
 		revision:      oldGitPackage.revision,
@@ -1472,7 +1473,7 @@ func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPack
 }
 
 func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version string) (repository.PackageRevision, error) {
-	ctx, span := tracer.Start(ctx, "gitRepository::ClosePackageRevisionDraft", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "GitRepository::UpdateLifecycle", trace.WithAttributes())
 	defer span.End()
 
 	r.mutex.Lock()
@@ -1708,7 +1709,11 @@ func (r *gitRepository) discoverPackagesInTree(commit *object.Commit, opt Discov
 }
 
 func (r *gitRepository) Refresh(_ context.Context) error {
-	return nil
+	return r.UpdateDeletionProposedCache()
+}
+
+func (r *gitRepository) Key() string {
+	return fmt.Sprintf("git://%s/%s@%s/%s", r.repo, r.directory, r.namespace, r.name)
 }
 
 // See https://eli.thegreenplace.net/2021/generic-functions-on-slices-with-go-type-parameters/

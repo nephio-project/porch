@@ -18,10 +18,9 @@ import (
 	"fmt"
 
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
-	"github.com/nephio-project/porch/pkg/cache"
+	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/kpt"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
-	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
@@ -38,7 +37,7 @@ func (f EngineOptionFunc) apply(engine *cadEngine) error {
 	return f(engine)
 }
 
-func WithCache(cache cache.Cache) EngineOption {
+func WithCache(cache cachetypes.Cache) EngineOption {
 	return EngineOptionFunc(func(engine *cadEngine) error {
 		engine.cache = cache
 		return nil
@@ -59,9 +58,9 @@ func WithBuiltinFunctionRuntime() EngineOption {
 	})
 }
 
-func WithGRPCFunctionRuntime(address string, maxGrpcMessageSize int) EngineOption {
+func WithGRPCFunctionRuntime(options GRPCRuntimeOptions) EngineOption {
 	return EngineOptionFunc(func(engine *cadEngine) error {
-		runtime, err := newGRPCFunctionRuntime(address, maxGrpcMessageSize)
+		runtime, err := newGRPCFunctionRuntime(options)
 		if err != nil {
 			return fmt.Errorf("failed to create function runtime: %w", err)
 		}
@@ -118,13 +117,6 @@ func WithReferenceResolver(resolver repository.ReferenceResolver) EngineOption {
 func WithUserInfoProvider(provider repository.UserInfoProvider) EngineOption {
 	return EngineOptionFunc(func(engine *cadEngine) error {
 		engine.userInfoProvider = provider
-		return nil
-	})
-}
-
-func WithMetadataStore(metadataStore meta.MetadataStore) EngineOption {
-	return EngineOptionFunc(func(engine *cadEngine) error {
-		engine.metadataStore = metadataStore
 		return nil
 	})
 }

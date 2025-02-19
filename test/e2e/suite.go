@@ -37,7 +37,7 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	internalpkg "github.com/nephio-project/porch/internal/kpt/pkg"
-	"github.com/nephio-project/porch/pkg/git"
+	"github.com/nephio-project/porch/pkg/externalrepo/git"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	appsv1 "k8s.io/api/apps/v1"
@@ -733,7 +733,7 @@ func (t *TestSuite) createInClusterGitServer(ctx context.Context, exposeByLoadBa
 		}
 		if exposeByLoadBalancer {
 			var svc coreapi.Service
-			t.Client.Get(ctx, serviceKey, &svc)
+			_ = t.Client.Get(ctx, serviceKey, &svc)
 			if len(svc.Status.LoadBalancer.Ingress) == 0 || svc.Status.LoadBalancer.Ingress[0].IP == "" {
 				t.Logf("waiting for LoadBalancer to be assigned: %+v", svc)
 				continue
