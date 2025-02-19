@@ -526,6 +526,9 @@ type PackageSpec struct {
 // PackageStatus defines the observed state of Package
 type PackageStatus struct {
 	// LatestRevision identifies the package revision that is the latest
-	// published package revision belonging to this package
+	// published package revision belonging to this package. Latest is determined by comparing
+	// packages that have valid semantic version as their revision. In case of git backend, branch tracking
+	// revisions like "main" and in case of oci backend, revisions tracking "latest" are not considered during
+	// selection of the latest revision.
 	LatestRevision string `json:"latestRevision,omitempty"`
 }
