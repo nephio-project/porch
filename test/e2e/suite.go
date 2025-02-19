@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ import (
 	porchclient "github.com/nephio-project/porch/api/generated/clientset/versioned"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	variantapi "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	internalpkg "github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/pkg/git"
@@ -443,6 +444,7 @@ func createClientScheme(t *testing.T) *runtime.Scheme {
 		coreapi.AddToScheme,
 		aggregatorv1.AddToScheme,
 		appsv1.AddToScheme,
+		variantapi.AddToScheme,
 	}) {
 		if err := api(scheme); err != nil {
 			t.Fatalf("Failed to initialize test k8s api client")
@@ -795,11 +797,11 @@ func (t *TestSuite) ParseKptfileF(resources *porchapi.PackageRevisionResources) 
 
 func (t *TestSuite) SaveKptfileF(resources *porchapi.PackageRevisionResources, kptfile *kptfilev1.KptFile) {
 	t.Helper()
-	b, err := yaml.MarshalWithOptions(kptfile, &yaml.EncoderOptions{SeqIndent: yaml.WideSequenceStyle})
+	kptfileYaml, err := kptfile.ToYamlString()
 	if err != nil {
 		t.Fatalf("Failed saving Kptfile: %v", err)
 	}
-	resources.Spec.Resources[kptfilev1.KptFileName] = string(b)
+	resources.Spec.Resources[kptfilev1.KptFileName] = kptfileYaml
 }
 
 func (t *TestSuite) FindAndDecodeF(resources *porchapi.PackageRevisionResources, name string, value interface{}) {

@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -137,11 +137,12 @@ func run(ctx context.Context) error {
 		Client: client.Options{
 			Cache: &client.CacheOptions{
 				DisableFor: []client.Object{
-					&porchapi.PackageRevisionResources{}},
+					&porchapi.PackageRevisionResources{},
+					&porchapi.PackageRevision{}},
 			},
 		},
 	}
-	
+
 	config := textlogger.NewConfig(
 		textlogger.Verbosity(4),
 		textlogger.Output(os.Stdout),
