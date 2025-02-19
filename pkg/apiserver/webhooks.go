@@ -242,7 +242,7 @@ func createCerts(cfg *WebhookConfig) ([]byte, error) {
 		Bytes: x509.MarshalPKCS1PrivateKey(serverPrivateKey),
 	})
 
-	err = os.MkdirAll(cfg.CertStorageDir, 0777)
+	err = os.MkdirAll(cfg.CertStorageDir, 0750)
 	if err != nil {
 		return nil, err
 	}
@@ -424,7 +424,9 @@ func runWebhookServer(ctx context.Context, cfg *WebhookConfig) error {
 		Addr: fmt.Sprintf(":%d", cfg.Port),
 		TLSConfig: &tls.Config{
 			GetCertificate: getCertificate,
+			MinVersion: tls.VersionTLS12,
 		},
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 	go func() {
 		err = server.ListenAndServeTLS("", "")
