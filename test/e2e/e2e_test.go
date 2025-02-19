@@ -2968,3 +2968,68 @@ func (t *PorchSuite) TestPackageRevisionFieldSelectors(ctx context.Context) {
 		}
 	}
 }
+
+func (t *PorchSuite) TestLatestVersionOnDelete(ctx context.Context) {
+	const (
+		repositoryName = "test-latest-on-delete-repository"
+		workspacev1    = "test-latest-on-delete-workspace-v1"
+		workspacev2    = "test-latest-on-delete-workspace-v2"
+		packageName    = "test-latest-on-delete-package"
+	)
+
+	t.RegisterMainGitRepositoryF(ctx, repositoryName)
+
+	pr1 := t.CreatePackageDraftF(ctx, repositoryName, packageName, workspacev1)
+
+	pr1.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	t.UpdateF(ctx, pr1)
+
+	t.UpdateApprovalF(ctx, pr1, metav1.UpdateOptions{})
+
+	//After approval of the first revision, the package should be labeled as latest
+	t.MustHaveLabels(ctx, pr1.Name, map[string]string{
+		porchapi.LatestPackageRevisionKey: porchapi.LatestPackageRevisionValue,
+	})
+
+	pr2 := t.CreatePackageDraftF(ctx, repositoryName, packageName, workspacev2)
+
+	pr1.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	t.UpdateF(ctx, pr1)
+
+	t.UpdateApprovalF(ctx, pr1, metav1.UpdateOptions{})
+
+	//After approval of the second revision, the latest label should migrate to the
+	//v2 packageRevision
+	t.MustNotHaveLabels(ctx, pr1.Name, []string{
+		porchapi.LatestPackageRevisionKey,
+	})
+
+	t.MustHaveLabels(ctx, pr2.Name, map[string]string{
+		porchapi.LatestPackageRevisionKey: porchapi.LatestPackageRevisionValue,
+	})
+
+	t.GetF(ctx, client.ObjectKeyFromObject(pr2), pr2)
+
+	pr2.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
+	t.UpdateF(ctx, pr2)
+
+	t.DeleteF(ctx, pr2)
+	//After deletion of the v2 pacakgeRevision,
+	//the label should migrate back to the v2 packageRevision
+	t.MustHaveLabels(ctx, pr1.Name, map[string]string{
+		porchapi.LatestPackageRevisionKey: porchapi.LatestPackageRevisionValue,
+	})
+
+	t.GetF(ctx, client.ObjectKeyFromObject(pr1), pr1)
+
+	pr1.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
+	t.UpdateF(ctx, pr1)
+
+	t.DeleteF(ctx, pr1)
+	//After the removal of all versioned packageRevisions, the main branch
+	//packageRevision should still not get the latest label.
+	mainPr := t.GetPackageRevision(ctx, repositoryName, packageName, "main")
+	t.MustNotHaveLabels(ctx, mainPr.Name, []string{
+		porchapi.LatestPackageRevisionKey,
+	})
+}
