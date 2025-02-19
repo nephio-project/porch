@@ -133,14 +133,14 @@ func writeToDir(resources map[string]string, dir string) error {
 	if err := cmdutil.CheckDirectoryNotPresent(dir); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return err
 	}
 
 	for k, v := range resources {
 		f := filepath.Join(dir, k)
 		d := filepath.Dir(f)
-		if err := os.MkdirAll(d, 0755); err != nil {
+		if err := os.MkdirAll(d, 0750); err != nil {
 			return err
 		}
 		if err := os.WriteFile(f, []byte(v), 0644); err != nil {
