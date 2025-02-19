@@ -30,7 +30,7 @@ func pkgRevReadFromDB(prk repository.PackageRevisionKey) (dbPackageRevision, err
 	var pkgRev dbPackageRevision
 	var metaAsJson, specAsJson string
 
-	err := GetDBConnection().db.QueryRow(
+	err := GetDB().db.QueryRow(
 		sqlStatement, prk.Namespace, prk.Repository, prk.Package, prk.Revision, prk.WorkspaceName).Scan(
 		&pkgRev.pkgRevKey.Namespace,
 		&pkgRev.pkgRevKey.Repository,
@@ -73,15 +73,14 @@ func pkgRevReadPRsFromDB(pk repository.PackageKey) ([]*dbPackageRevision, error)
 
 	klog.Infof("pkgReadPRsFromDB: running query [%q] on %q", sqlStatement, pk)
 
-	rows, err := GetDBConnection().db.Query(sqlStatement, pk.Namespace, pk.Repository, pk.Package)
+	rows, err := GetDB().db.Query(sqlStatement, pk.Namespace, pk.Repository, pk.Package)
 	if err != nil {
 		klog.Infof("pkgReadPRsFromDB: query failed for %q: %q", pk, err)
 		return nil, err
 	}
+	defer rows.Close()
 
 	klog.Infof("pkgReadPRsFromDB: query succeeded for %q", pk)
-
-	defer rows.Close()
 
 	for rows.Next() {
 		var pkgRev dbPackageRevision
@@ -132,14 +131,14 @@ func pkgRevWriteToDB(pr *dbPackageRevision) error {
 	klog.Infof("pkgRevWriteToDB: running query [%q] on repository (%#v)", sqlStatement, pr)
 
 	prk := pr.Key()
-	if returnedVal := GetDBConnection().db.QueryRow(
+	if _, err := GetDB().db.Exec(
 		sqlStatement,
 		prk.Namespace, prk.Repository, prk.Package, prk.Revision, prk.WorkspaceName,
-		valueAsJson(pr.meta), valueAsJson(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle); returnedVal.Err() == nil {
+		valueAsJson(pr.meta), valueAsJson(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle); err == nil {
 		klog.Infof("pkgRevWriteToDB: query succeeded, row created")
 	} else {
-		klog.Infof("pkgRevWriteToDB: query failed %q", returnedVal.Err())
-		return returnedVal.Err()
+		klog.Infof("pkgRevWriteToDB: query failed %q", err)
+		return err
 	}
 
 	if err := pkgRevResourcesWriteToDB(pr); err == nil {
@@ -161,14 +160,14 @@ func pkgRevUpdateDB(pr *dbPackageRevision) error {
 	klog.Infof("pkgRevUpdateDB: running query [%q] on repository (%#v)", sqlStatement, pr)
 
 	prk := pr.Key()
-	if returnedVal := GetDBConnection().db.QueryRow(
+	if _, err := GetDB().db.Exec(
 		sqlStatement,
 		prk.Namespace, prk.Repository, prk.Package, prk.Revision, prk.WorkspaceName,
-		valueAsJson(pr.meta), valueAsJson(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle); returnedVal.Err() == nil {
+		valueAsJson(pr.meta), valueAsJson(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle); err == nil {
 		klog.Infof("pkgRevUpdateDB:: query succeeded, row created")
 	} else {
-		klog.Infof("pkgRevUpdateDB:: query failed %q", returnedVal.Err())
-		return returnedVal.Err()
+		klog.Infof("pkgRevUpdateDB:: query failed %q", err)
+		return err
 	}
 
 	if err := pkgRevResourcesWriteToDB(pr); err == nil {
@@ -192,14 +191,13 @@ func pkgRevDeleteFromDB(prk repository.PackageRevisionKey) error {
 
 	sqlStatement := `DELETE FROM package_revisions WHERE name_space=$1 AND repo_name=$2 AND package_name=$3 AND package_rev=$4 AND workspace_name=$5`
 
-	returnedVal := GetDBConnection().db.QueryRow(sqlStatement,
-		prk.Namespace, prk.Repository, prk.Package, prk.Revision, prk.WorkspaceName)
+	_, err := GetDB().db.Exec(sqlStatement, prk.Namespace, prk.Repository, prk.Package, prk.Revision, prk.WorkspaceName)
 
-	if returnedVal.Err() == nil {
+	if err == nil {
 		klog.Infof("pkgRevDeleteFromDB: deleted package revision %q", prk)
 	} else {
-		klog.Infof("pkgRevDeleteFromDB: deletion of package revision %q failed: %q", prk, returnedVal.Err())
+		klog.Infof("pkgRevDeleteFromDB: deletion of package revision %q failed: %q", prk, err)
 	}
 
-	return returnedVal.Err()
+	return err
 }

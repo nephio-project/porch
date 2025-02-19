@@ -228,7 +228,7 @@ func (c completedConfig) New() (*PorchServer, error) {
 
 	cacheImpl, err := cache.CreateCacheImpl(context.TODO(), c.ExtraConfig.CacheOptions)
 	if err != nil {
-		return nil, fmt.Errorf("failed to creeate repository cache: %w", err)
+		return nil, fmt.Errorf("failed to create repository cache: %w", err)
 	}
 
 	runnerOptionsResolver := func(namespace string) fnruntime.RunnerOptions {

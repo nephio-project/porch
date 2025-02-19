@@ -27,7 +27,7 @@ type DbCacheFactory struct {
 
 func (f *DbCacheFactory) NewCache(_ context.Context, options cachetypes.CacheOptions) (cachetypes.Cache, error) {
 
-	if err := OpenDBConnection(options); err != nil {
+	if err := OpenDB(options); err != nil {
 		return nil, err
 	}
 

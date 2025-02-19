@@ -371,10 +371,8 @@ func (r *cachedRepository) DeletePackageRevision(ctx context.Context, prToDelete
 		Namespace: prToDelete.KubeObjectNamespace(),
 	}
 	pkgRevMeta, err := r.metadataStore.Delete(ctx, namespacedName, false)
-	if err == nil {
-		klog.Infof("PackageRev %s deleted", prToDelete.KubeObjectName())
-	} else {
-		klog.Infof("PackageRev %s was already deleted", prToDelete.KubeObjectName())
+	if err != nil && !apierrors.IsNotFound(err) {
+		klog.Warningf("Error deleting PkgRevMeta %s: %v", namespacedName.String(), err)
 	}
 
 	if len(pkgRevMeta.Finalizers) > 0 {

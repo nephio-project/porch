@@ -28,7 +28,7 @@ func pkgReadFromDB(pk repository.PackageKey) (dbPackage, error) {
 	var metaAsJson, specAsJson string
 
 	klog.Infof("pkgReadFromDB: running query [%q] on %q", sqlStatement, pk)
-	err := GetDBConnection().db.QueryRow(sqlStatement, pk.Namespace, pk.Repository, pk.Package).Scan(
+	err := GetDB().db.QueryRow(sqlStatement, pk.Namespace, pk.Repository, pk.Package).Scan(
 		&dbPkg.pkgKey.Namespace,
 		&dbPkg.pkgKey.Repository,
 		&dbPkg.pkgKey.Package,
@@ -57,13 +57,14 @@ func pkgReadPkgsFromDB(rk repository.RepositoryKey) ([]dbPackage, error) {
 
 	var dbPkgs []dbPackage
 
-	rows, err := GetDBConnection().db.Query(
+	rows, err := GetDB().db.Query(
 		sqlStatement, rk.Namespace, rk.Repository)
 	if err != nil {
 		return nil, err
 	}
-
 	defer rows.Close()
+
+	klog.Infof("pkgReadPkgsFromDB: query succeeded for %q", rk)
 
 	for rows.Next() {
 		var pkg dbPackage
@@ -97,13 +98,13 @@ func pkgWriteToDB(p *dbPackage) error {
 	klog.Infof("pkgWriteToDB: running query [%q] on %q", sqlStatement, p.Key())
 
 	pk := p.Key()
-	if returnedVal := GetDBConnection().db.QueryRow(
-		sqlStatement, pk.Namespace, pk.Repository, pk.Package, valueAsJson(p.meta), valueAsJson(p.spec), p.updated, p.updatedBy); returnedVal.Err() == nil {
+	if _, err := GetDB().db.Exec(
+		sqlStatement, pk.Namespace, pk.Repository, pk.Package, valueAsJson(p.meta), valueAsJson(p.spec), p.updated, p.updatedBy); err == nil {
 		klog.Infof("pkgWriteToDB: query succeeded for %q", p.Key())
 		return nil
 	} else {
-		klog.Infof("pkgWriteToDB: query failed for %q: %q", p.Key(), returnedVal.Err())
-		return returnedVal.Err()
+		klog.Infof("pkgWriteToDB: query failed for %q: %q", p.Key(), err)
+		return err
 	}
 }
 
@@ -115,14 +116,14 @@ func pkgUpdateDB(p *dbPackage) error {
 	klog.Infof("pkgUpdateDB: running query [%q] on %q)", sqlStatement, p.Key())
 
 	pk := p.Key()
-	if returnedVal := GetDBConnection().db.QueryRow(
+	if _, err := GetDB().db.Exec(
 		sqlStatement,
-		pk.Namespace, pk.Repository, pk.Package, valueAsJson(p.meta), valueAsJson(p.spec), p.updated, p.updatedBy); returnedVal.Err() == nil {
+		pk.Namespace, pk.Repository, pk.Package, valueAsJson(p.meta), valueAsJson(p.spec), p.updated, p.updatedBy); err == nil {
 		klog.Infof("pkgUpdateDB: query succeeded for %q", pk)
 		return nil
 	} else {
-		klog.Infof("pkgUpdateDB: query failed for %q: %q", pk, returnedVal.Err())
-		return returnedVal.Err()
+		klog.Infof("pkgUpdateDB: query failed for %q: %q", pk, err)
+		return err
 	}
 }
 
@@ -130,11 +131,11 @@ func pkgDeleteFromDB(pk repository.PackageKey) error {
 	sqlStatement := `DELETE FROM packages WHERE name_space=$1 AND repo_name=$2 AND package_name=$3`
 
 	klog.Infof("DB Connection: running query [%q] on %q", sqlStatement, pk)
-	if returnedVal := GetDBConnection().db.QueryRow(sqlStatement, pk.Namespace, pk.Repository, pk.Package); returnedVal.Err() == nil {
+	if _, err := GetDB().db.Exec(sqlStatement, pk.Namespace, pk.Repository, pk.Package); err == nil {
 		klog.Infof("pkgDeleteFromDB: query succeeded for %q", pk)
 		return nil
 	} else {
-		klog.Infof("pkgDeleteFromDB: query failed for %q: %q", pk, returnedVal.Err())
-		return returnedVal.Err()
+		klog.Infof("pkgDeleteFromDB: query failed for %q: %q", pk, err)
+		return err
 	}
 }

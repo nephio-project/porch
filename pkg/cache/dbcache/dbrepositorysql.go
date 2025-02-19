@@ -25,7 +25,7 @@ func repoReadFromDB(rk repository.RepositoryKey) (*dbRepository, error) {
 	var dbRepo dbRepository
 	var metaAsJson, specAsJson string
 
-	err := GetDBConnection().db.QueryRow(sqlStatement, rk.Namespace, rk.Repository).Scan(
+	err := GetDB().db.QueryRow(sqlStatement, rk.Namespace, rk.Repository).Scan(
 		&dbRepo.repoKey.Namespace,
 		&dbRepo.repoKey.Repository,
 		&metaAsJson,
@@ -33,6 +33,10 @@ func repoReadFromDB(rk repository.RepositoryKey) (*dbRepository, error) {
 		&dbRepo.updated,
 		&dbRepo.updatedBy,
 		&dbRepo.deployment)
+
+	if err != nil {
+		return nil, err
+	}
 
 	setValueFromJson(metaAsJson, dbRepo.meta)
 	setValueFromJson(specAsJson, dbRepo.spec)
@@ -48,14 +52,14 @@ func repoWriteToDB(r *dbRepository) error {
 	klog.Infof("DB Connection: running query [%q] on repository (%#v)", sqlStatement, r)
 
 	rk := r.Key()
-	if returnedVal := GetDBConnection().db.QueryRow(
+	if _, err := GetDB().db.Exec(
 		sqlStatement,
-		rk.Namespace, rk.Repository, valueAsJson(r.meta), valueAsJson(r.spec), r.updated, r.updatedBy, r.deployment); returnedVal.Err() == nil {
+		rk.Namespace, rk.Repository, valueAsJson(r.meta), valueAsJson(r.spec), r.updated, r.updatedBy, r.deployment); err == nil {
 		klog.Infof("DB Connection: query succeeded, row created")
 		return nil
 	} else {
-		klog.Infof("DB Connection: query failed %q", returnedVal.Err())
-		return returnedVal.Err()
+		klog.Infof("DB Connection: query failed %q", err)
+		return err
 	}
 }
 
@@ -67,21 +71,21 @@ func repoUpdateDB(r *dbRepository) error {
 	klog.Infof("repoUpdateDB: running query [%q] on %q)", sqlStatement, r.Key())
 
 	rk := r.Key()
-	if returnedVal := GetDBConnection().db.QueryRow(
+	if _, err := GetDB().db.Exec(
 		sqlStatement,
-		rk.Namespace, rk.Repository, valueAsJson(r.meta), valueAsJson(r.spec), r.updated, r.updatedBy, r.deployment); returnedVal.Err() == nil {
+		rk.Namespace, rk.Repository, valueAsJson(r.meta), valueAsJson(r.spec), r.updated, r.updatedBy, r.deployment); err == nil {
 		klog.Infof("repoUpdateDB: query succeeded for %q", rk)
 		return nil
 	} else {
-		klog.Infof("repoUpdateDB: query failed for %q: %q", rk, returnedVal.Err())
-		return returnedVal.Err()
+		klog.Infof("repoUpdateDB: query failed for %q: %q", rk, err)
+		return err
 	}
 }
 
 func repoDeleteFromDB(rk repository.RepositoryKey) error {
 	sqlStatement := `DELETE FROM repositories WHERE name_space=$1 AND repo_name=$2`
 
-	returnedVal := GetDBConnection().db.QueryRow(sqlStatement, rk.Namespace, rk.Repository)
+	_, err := GetDB().db.Exec(sqlStatement, rk.Namespace, rk.Repository)
 
-	return returnedVal.Err()
+	return err
 }

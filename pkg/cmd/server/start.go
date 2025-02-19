@@ -157,6 +157,7 @@ func (o *PorchServerOptions) Complete() error {
 		o.CacheDirectory = cache + "/porch"
 	}
 
+	o.CacheType = strings.ToUpper(o.CacheType)
 	if o.CacheType == string(cachetypes.DBCacheType) {
 		if strings.TrimSpace(o.DbCacheDriver) == "" {
 			klog.Fatalf("--db-cache-driver must be specified when using the database cache")
