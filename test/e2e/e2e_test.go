@@ -2984,6 +2984,7 @@ func (t *PorchSuite) TestLatestVersionOnDelete(ctx context.Context) {
 	pr1.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 	t.UpdateF(ctx, pr1)
 
+	pr1.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	t.UpdateApprovalF(ctx, pr1, metav1.UpdateOptions{})
 
 	//After approval of the first revision, the package should be labeled as latest
@@ -2993,10 +2994,11 @@ func (t *PorchSuite) TestLatestVersionOnDelete(ctx context.Context) {
 
 	pr2 := t.CreatePackageDraftF(ctx, repositoryName, packageName, workspacev2)
 
-	pr1.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	t.UpdateF(ctx, pr1)
+	pr2.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	t.UpdateF(ctx, pr2)
 
-	t.UpdateApprovalF(ctx, pr1, metav1.UpdateOptions{})
+	pr2.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+	t.UpdateApprovalF(ctx, pr2, metav1.UpdateOptions{})
 
 	//After approval of the second revision, the latest label should migrate to the
 	//v2 packageRevision
