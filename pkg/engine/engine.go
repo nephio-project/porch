@@ -521,6 +521,8 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 	if err != nil {
 		return nil, renderStatus, err
 	}
+	repoPkgRev.SetMeta(rev.ObjectMeta)
+
 	return repoPkgRev, renderStatus, nil
 }
 
