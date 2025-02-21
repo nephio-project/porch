@@ -168,7 +168,7 @@ func (g GitSuite) TestGitPackageRoundTrip(t *testing.T) {
 			Status: v1alpha1.PackageRevisionStatus{},
 		}
 
-		draft, err := repo.CreatePackageRevision(ctx, packageRevision)
+		draft, err := repo.CreatePackageRevisionDraft(ctx, packageRevision)
 		if err != nil {
 			t.Fatalf("CreatePackageRevision(%#v) failed: %v", packageRevision, err)
 		}
@@ -400,7 +400,7 @@ func (g GitSuite) TestListPackagesTrivial(t *testing.T) {
 	}
 
 	// Create a package draft
-	draft, err := git.CreatePackageRevision(ctx, packageRevision)
+	draft, err := git.CreatePackageRevisionDraft(ctx, packageRevision)
 	if err != nil {
 		t.Fatalf("CreatePackageRevision() failed: %v", err)
 	}
@@ -488,7 +488,7 @@ func (g GitSuite) TestCreatePackageInTrivialRepository(t *testing.T) {
 	}
 
 	// Create a package draft
-	draft, err := git.CreatePackageRevision(ctx, packageRevision)
+	draft, err := git.CreatePackageRevisionDraft(ctx, packageRevision)
 	if err != nil {
 		t.Fatalf("CreatePackageRevision() failed: %v", err)
 	}
