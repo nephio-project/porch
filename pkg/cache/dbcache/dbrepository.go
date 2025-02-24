@@ -23,6 +23,8 @@ import (
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/pkg/externalrepo"
+	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,12 +35,13 @@ import (
 var _ repository.Repository = &dbRepository{}
 
 type dbRepository struct {
-	repoKey    repository.RepositoryKey
-	meta       *metav1.ObjectMeta
-	spec       *configapi.RepositorySpec
-	updated    time.Time
-	updatedBy  string
-	deployment bool
+	repoKey      repository.RepositoryKey
+	meta         *metav1.ObjectMeta
+	spec         *configapi.Repository
+	externalRepo repository.Repository
+	updated      time.Time
+	updatedBy    string
+	deployment   bool
 }
 
 func (r *dbRepository) KubeObjectName() string {
@@ -57,24 +60,54 @@ func (r *dbRepository) Key() repository.RepositoryKey {
 	return r.repoKey
 }
 
-func (r *dbRepository) OpenRepository() (repository.Repository, error) {
+func (r *dbRepository) OpenRepository(ctx context.Context, externalRepoOptions externalrepotypes.ExternalRepoOptions) error {
+	_, span := tracer.Start(ctx, "dbCache::OpenRepository", trace.WithAttributes())
+	defer span.End()
 
 	klog.Infof("DB Repo OpenRepository: %q", r.Key().String())
 
-	var err error
+	externalRepo, err := externalrepo.CreateRepositoryImpl(ctx, r.spec, externalRepoOptions)
+	if err != nil {
+		return err
+	}
+
+	r.externalRepo = externalRepo
+
 	if _, err = repoReadFromDB(r.Key()); err == nil {
-		return r, nil
+		return nil
 	} else if err != sql.ErrNoRows {
 		klog.Infof("DB Repo OpenRepository: %q DB read failed with error %q", r.Key().String(), err)
-		return nil, err
+		return err
 	}
 
 	if err = repoWriteToDB(r); err != nil {
 		klog.Infof("DB Repo OpenRepository: %q DB write failed with error %q", r.Key().String(), err)
-		return nil, err
+		return err
 	}
 
-	return r, nil
+	return nil
+}
+
+func (r *dbRepository) Close() error {
+	klog.Infof("DB Repo close: %q", r.Key().String())
+
+	dbPkgs, err := pkgReadPkgsFromDB(r.Key())
+	if err != nil {
+		return err
+	}
+
+	for _, pkg := range dbPkgs {
+		if err := pkg.Delete(); err != nil {
+			return err
+		}
+	}
+
+	err = repoDeleteFromDB(r.Key())
+	if err != nil {
+		return err
+	}
+
+	return r.externalRepo.Close()
 }
 
 func (r *dbRepository) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
@@ -111,6 +144,7 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *v1
 	defer span.End()
 
 	dbPkgRev := &dbPackageRevision{
+		repo:       r,
 		definition: newPR,
 		pkgRevKey: repository.PackageRevisionKey{
 			Namespace:     r.repoKey.Namespace,
@@ -175,6 +209,7 @@ func (r *dbRepository) UpdatePackageRevision(ctx context.Context, updatePR repos
 	}
 
 	return &dbPackageRevision{
+		repo:      r,
 		pkgRevKey: updatePR.Key(),
 		lifecycle: updatePkgRev.lifecycle,
 		updated:   time.Now(),
@@ -235,23 +270,6 @@ func (r *dbRepository) Version(ctx context.Context) (string, error) {
 	return "Undefined", nil
 }
 
-func (r *dbRepository) Close() error {
-	klog.Infof("DB Repo close: %q", r.Key().String())
-
-	dbPkgs, err := pkgReadPkgsFromDB(r.Key())
-	if err != nil {
-		return err
-	}
-
-	for _, pkg := range dbPkgs {
-		if err := pkg.Delete(); err != nil {
-			return err
-		}
-	}
-
-	return repoDeleteFromDB(r.Key())
-}
-
 func (r *dbRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version string) (repository.PackageRevision, error) {
 	_, span := tracer.Start(ctx, "dbRepository::ClosePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
@@ -259,6 +277,10 @@ func (r *dbRepository) ClosePackageRevisionDraft(ctx context.Context, prd reposi
 	pr, err := r.savePackageRevision(ctx, prd, version)
 
 	return repository.PackageRevision(pr), err
+}
+
+func (r *dbRepository) PushPackageRevision(ctx context.Context, pr repository.PackageRevision) error {
+	return fmt.Errorf("dbRepository:PushPackageRevision: function should not be invoked on caches")
 }
 
 func (r *dbRepository) savePackageRevision(ctx context.Context, prd repository.PackageRevisionDraft, _ string) (*dbPackageRevision, error) {
@@ -274,6 +296,7 @@ func (r *dbRepository) savePackageRevision(ctx context.Context, prd repository.P
 		}
 
 		dbPkg = dbPackage{
+			repo:      r,
 			pkgKey:    d.Key().PackageKey(),
 			updated:   d.updated,
 			updatedBy: d.updatedBy,

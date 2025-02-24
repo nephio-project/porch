@@ -1575,6 +1575,42 @@ func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 	}, nil
 }
 
+func (r *gitRepository) PushPackageRevision(ctx context.Context, pr repository.PackageRevision) error {
+	ctx, span := tracer.Start(ctx, "GitRepository::PushPackageRevision", trace.WithAttributes())
+	defer span.End()
+
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	gitDraft := &gitPackageRevisionDraft{}
+
+	refSpecs := newPushRefSpecBuilder()
+
+	commitHash, newTreeHash, commitBase, err := r.commitPackageToMain(ctx, gitDraft)
+	if err != nil {
+		return err
+	}
+
+	tag := createFinalTagNameInLocal(gitDraft.path, gitDraft.revision)
+	refSpecs.AddRefToPush(commitHash, r.branch.RefInLocal()) // Push new main branch
+	refSpecs.AddRefToPush(commitHash, tag)                   // Push the tag
+	refSpecs.RequireRef(commitBase)                          // Make sure main didn't advance
+
+	// Update package draft
+	gitDraft.commit = commitHash
+	gitDraft.tree = newTreeHash
+
+	if err := r.pushAndCleanup(ctx, refSpecs); err != nil {
+		// No changes is fine. No need to return an error.
+		if !errors.Is(err, git.NoErrAlreadyUpToDate) {
+			return err
+		}
+	}
+
+	klog.Infof("GitRepository::PushPackageRevision package %q pushed to main", pr.Key().String())
+	return nil
+}
+
 // doGitWithAuth fetches auth information for git and provides it
 // to the provided function which performs the operation against a git repo.
 func (r *gitRepository) doGitWithAuth(ctx context.Context, op func(transport.AuthMethod) error) error {

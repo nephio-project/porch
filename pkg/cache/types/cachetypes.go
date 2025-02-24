@@ -52,7 +52,7 @@ type DBCacheOptions struct {
 type Cache interface {
 	OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (repository.Repository, error)
 	CloseRepository(ctx context.Context, repositorySpec *configapi.Repository, allRepos []configapi.Repository) error
-	GetRepositories(ctx context.Context) []configapi.Repository
+	GetRepositories(ctx context.Context) []*configapi.Repository
 	UpdateRepository(ctx context.Context, repositorySpec *configapi.Repository) error
 }
 

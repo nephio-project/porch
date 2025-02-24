@@ -118,11 +118,11 @@ func (c *Cache) CloseRepository(ctx context.Context, repositorySpec *configapi.R
 	}
 }
 
-func (c *Cache) GetRepositories(ctx context.Context) []configapi.Repository {
-	repoSlice := []configapi.Repository{}
+func (c *Cache) GetRepositories(ctx context.Context) []*configapi.Repository {
+	repoSlice := []*configapi.Repository{}
 
 	for _, repo := range c.repositories {
-		repoSlice = append(repoSlice, *repo.repoSpec)
+		repoSlice = append(repoSlice, repo.repoSpec)
 	}
 	return repoSlice
 }

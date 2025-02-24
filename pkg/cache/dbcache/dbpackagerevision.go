@@ -35,6 +35,7 @@ var _ repository.PackageRevision = &dbPackageRevision{}
 var _ repository.PackageRevisionDraft = &dbPackageRevision{}
 
 type dbPackageRevision struct {
+	repo       *dbRepository
 	definition *v1alpha1.PackageRevision
 	pkgRevKey  repository.PackageRevisionKey
 	meta       metav1.ObjectMeta
@@ -93,11 +94,20 @@ func (pr *dbPackageRevision) Lifecycle(_ context.Context) v1alpha1.PackageRevisi
 
 func (pr *dbPackageRevision) UpdateLifecycle(ctx context.Context, newLifecycle v1alpha1.PackageRevisionLifecycle) error {
 	if pr, err := pkgRevReadFromDB(pr.Key()); err != nil {
-		errorMsg := fmt.Sprintf("Lifecycle update on DB failed on PackageRevision %q, %q", pr.Key().String(), err)
+		errorMsg := fmt.Sprintf("Lifecycle read on DB failed on PackageRevision %q, %q", pr.Key().String(), err)
 		return errors.New(errorMsg)
 	}
 
 	pr.lifecycle = newLifecycle
+
+	if newLifecycle == v1alpha1.PackageRevisionLifecyclePublished {
+		if err := pr.repo.externalRepo.PushPackageRevision(ctx, pr); err != nil {
+			klog.Warningf("Push of PackageRevision %q to external repo failed, %q", pr.Key().String(), err)
+			pr.lifecycle = v1alpha1.PackageRevisionLifecycleProposed
+			return err
+		}
+	}
+
 	pr.updated = time.Now()
 	pr.updatedBy = getCurrentUser()
 
@@ -193,13 +203,8 @@ func (pr *dbPackageRevision) GetUpstreamLock(context.Context) (kptfile.Upstream,
 }
 
 func (pr *dbPackageRevision) ToMainPackageRevision() repository.PackageRevision {
-	return &dbPackageRevision{
-		pkgRevKey: pr.pkgRevKey,
-		updated:   pr.updated,
-		updatedBy: pr.updatedBy,
-		lifecycle: pr.lifecycle,
-		resources: pr.resources,
-	}
+	klog.Infof("ToMainPackageRevision: %q, main package revisions are not required when using the DB cache", pr.pkgRevKey.Package)
+	return nil
 }
 
 func (pr *dbPackageRevision) GetMeta() metav1.ObjectMeta {

@@ -292,6 +292,11 @@ func (r *ociRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 	return p.parent.buildPackageRevision(ctx, digestName, p.packageName, v1alpha1.WorkspaceName(p.tag.TagStr()), revision, configFile.Created.Time)
 }
 
+func (r *ociRepository) PushPackageRevision(ctx context.Context, pr repository.PackageRevision) error {
+	klog.Warningf("ociRepository:PushPackageRevision function not implemented")
+	return nil
+}
+
 func constructResourceVersion(t time.Time) string {
 	return strconv.FormatInt(t.UnixNano(), 10)
 }

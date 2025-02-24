@@ -23,11 +23,13 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog"
 )
 
 var _ repository.Package = &dbPackage{}
 
 type dbPackage struct {
+	repo      *dbRepository
 	pkgKey    repository.PackageKey
 	meta      metav1.ObjectMeta
 	spec      v1alpha1.PackageSpec
@@ -105,7 +107,11 @@ func (p *dbPackage) savePackageRevision(d *dbPackageRevision) (*dbPackageRevisio
 
 func (p *dbPackage) DeletePackageRevision(ctx context.Context, old repository.PackageRevision) error {
 	if err := pkgRevDeleteFromDB(old.Key()); err != nil && err != sql.ErrNoRows {
-		return err
+		klog.Warningf("dbPackage:DeletePackageRevision: deletion of %q failed on database %q", old.Key().String(), err)
+	}
+
+	if err := p.repo.externalRepo.DeletePackageRevision(ctx, old); err != nil && err != sql.ErrNoRows {
+		klog.Warningf("dbPackage:DeletePackageRevision: deletion of %q failed on external repository %q", old.Key().String(), err)
 	}
 
 	prSlice, err := pkgRevReadPRsFromDB(p.Key())

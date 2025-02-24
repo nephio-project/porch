@@ -256,6 +256,10 @@ func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd re
 
 }
 
+func (r *cachedRepository) PushPackageRevision(ctx context.Context, pr repository.PackageRevision) error {
+	return fmt.Errorf("cachedRepository:PushPackageRevision: function should not be invoked on caches")
+}
+
 func (r *cachedRepository) UpdatePackageRevision(ctx context.Context, old repository.PackageRevision) (repository.PackageRevisionDraft, error) {
 	// Unwrap
 	unwrapped := old.(*cachedPackageRevision).PackageRevision

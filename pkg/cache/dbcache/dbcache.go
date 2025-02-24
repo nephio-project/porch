@@ -16,6 +16,7 @@ package dbcache
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -25,68 +26,91 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-var _ cachetypes.Cache = &dbCache{}
 var tracer = otel.Tracer("dbcache")
 
+var _ cachetypes.Cache = &dbCache{}
+
 type dbCache struct {
-	options cachetypes.CacheOptions
+	repositories map[string]*dbRepository
+	options      cachetypes.CacheOptions
 }
 
 func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (repository.Repository, error) {
 	_, span := tracer.Start(ctx, "dbCache::OpenRepository", trace.WithAttributes())
 	defer span.End()
 
-	dbRepo := dbRepository{
-		repoKey: repository.RepositoryKey{
-			Namespace:  repositorySpec.Namespace,
-			Repository: repositorySpec.Name,
-		},
+	repoKey := repository.RepositoryKey{
+		Namespace:  repositorySpec.Namespace,
+		Repository: repositorySpec.Name,
+	}
+
+	if dbRepo, ok := c.repositories[repoKey.String()]; ok {
+		return dbRepo, nil
+	}
+
+	dbRepo := &dbRepository{
+		repoKey:    repoKey,
 		meta:       &repositorySpec.ObjectMeta,
-		spec:       &repositorySpec.Spec,
+		spec:       repositorySpec,
 		updated:    time.Now(),
 		updatedBy:  getCurrentUser(),
 		deployment: repositorySpec.Spec.Deployment,
 	}
 
-	return dbRepo.OpenRepository()
+	err := dbRepo.OpenRepository(ctx, c.options.ExternalRepoOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	c.repositories[repoKey.String()] = dbRepo
+
+	return dbRepo, nil
 }
 
 func (c *dbCache) UpdateRepository(ctx context.Context, repositorySpec *configapi.Repository) error {
 	_, span := tracer.Start(ctx, "dbCache::OpenRepository", trace.WithAttributes())
 	defer span.End()
 
-	dbRepo := dbRepository{
-		repoKey: repository.RepositoryKey{
-			Namespace:  repositorySpec.Namespace,
-			Repository: repositorySpec.Name,
-		},
-		meta:       &repositorySpec.ObjectMeta,
-		spec:       &repositorySpec.Spec,
-		updated:    time.Now(),
-		updatedBy:  getCurrentUser(),
-		deployment: repositorySpec.Spec.Deployment,
+	repoKey := repository.RepositoryKey{
+		Namespace:  repositorySpec.Namespace,
+		Repository: repositorySpec.Name,
 	}
 
-	return repoUpdateDB(&dbRepo)
+	dbRepo, ok := c.repositories[repoKey.String()]
+	if !ok {
+		return fmt.Errorf("dbcache.UpdateRepository: repo %q not found", repoKey.String())
+	}
+
+	return repoUpdateDB(dbRepo)
 }
 
 func (c *dbCache) CloseRepository(ctx context.Context, repositorySpec *configapi.Repository, allRepos []configapi.Repository) error {
 	_, span := tracer.Start(ctx, "dbCache::OpenRepository", trace.WithAttributes())
 	defer span.End()
 
-	if dbRepo, err := repoReadFromDB(repository.RepositoryKey{
+	repoKey := repository.RepositoryKey{
 		Namespace:  repositorySpec.Namespace,
 		Repository: repositorySpec.Name,
-	}); err == nil {
-		return dbRepo.Close()
-	} else {
-		return err
 	}
+
+	dbRepo, ok := c.repositories[repoKey.String()]
+	if !ok {
+		return fmt.Errorf("dbcache.CloseRepository: repo %q not found", repoKey.String())
+	}
+
+	delete(c.repositories, repoKey.String())
+	return dbRepo.Close()
 }
 
-func (c *dbCache) GetRepositories(ctx context.Context) []configapi.Repository {
+func (c *dbCache) GetRepositories(ctx context.Context) []*configapi.Repository {
 	_, span := tracer.Start(ctx, "dbCache::GetRepositories", trace.WithAttributes())
 	defer span.End()
 
-	return []configapi.Repository{}
+	var repositories []*configapi.Repository
+
+	for _, repo := range c.repositories {
+		repositories = append(repositories, repo.spec)
+	}
+
+	return repositories
 }

@@ -32,6 +32,7 @@ func (f *DbCacheFactory) NewCache(_ context.Context, options cachetypes.CacheOpt
 	}
 
 	return &dbCache{
-		options: options,
+		repositories: make(map[string]*dbRepository),
+		options:      options,
 	}, nil
 }
