@@ -27,9 +27,8 @@ import (
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/pkg/cache"
-	memorycache "github.com/nephio-project/porch/pkg/cache/memory"
+	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/engine"
-	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/registry/porch"
 	"google.golang.org/api/option"
 	"google.golang.org/api/sts/v1"
@@ -75,13 +74,9 @@ func init() {
 
 // ExtraConfig holds custom apiserver config
 type ExtraConfig struct {
-	CoreAPIKubeconfigPath  string
-	CacheDirectory         string
-	FunctionRunnerAddress  string
-	DefaultImagePrefix     string
-	RepoSyncFrequency      time.Duration
-	UseUserDefinedCaBundle bool
-	MaxGrpcMessageSize     int
+	CoreAPIKubeconfigPath string
+	GRPCRuntimeOptions    engine.GRPCRuntimeOptions
+	CacheOptions          cachetypes.CacheOptions
 }
 
 // Config defines the config for the apiserver
@@ -94,7 +89,7 @@ type Config struct {
 type PorchServer struct {
 	GenericAPIServer          *genericapiserver.GenericAPIServer
 	coreClient                client.WithWatch
-	cache                     cache.Cache
+	cache                     cachetypes.Cache
 	PeriodicRepoSyncFrequency time.Duration
 }
 
@@ -220,40 +215,40 @@ func (c completedConfig) New() (*PorchServer, error) {
 		porch.NewGcloudWIResolver(coreV1Client, stsClient),
 	}
 
-	metadataStore := meta.NewCrdMetadataStore(coreClient)
-
 	credentialResolver := porch.NewCredentialResolver(coreClient, resolverChain)
 	referenceResolver := porch.NewReferenceResolver(coreClient)
 	userInfoProvider := &porch.ApiserverUserInfoProvider{}
 
 	watcherMgr := engine.NewWatcherManager()
 
-	memoryCache := memorycache.NewCache(c.ExtraConfig.CacheDirectory, c.ExtraConfig.RepoSyncFrequency, c.ExtraConfig.UseUserDefinedCaBundle, memorycache.CacheOptions{
-		CredentialResolver: credentialResolver,
-		UserInfoProvider:   userInfoProvider,
-		MetadataStore:      metadataStore,
-		ObjectNotifier:     watcherMgr,
-	})
+	c.ExtraConfig.CacheOptions.CoreClient = coreClient
+	c.ExtraConfig.CacheOptions.RepoPRChangeNotifier = watcherMgr
+	c.ExtraConfig.CacheOptions.ExternalRepoOptions.CredentialResolver = credentialResolver
+	c.ExtraConfig.CacheOptions.ExternalRepoOptions.UserInfoProvider = userInfoProvider
+
+	cacheImpl, err := cache.CreateCacheImpl(context.TODO(), c.ExtraConfig.CacheOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create repository cache: %w", err)
+	}
 
 	runnerOptionsResolver := func(namespace string) fnruntime.RunnerOptions {
 		runnerOptions := fnruntime.RunnerOptions{}
-		runnerOptions.InitDefaults(c.ExtraConfig.DefaultImagePrefix)
+		runnerOptions.InitDefaults(c.ExtraConfig.GRPCRuntimeOptions.DefaultImagePrefix)
 
 		return runnerOptions
 	}
 
 	cad, err := engine.NewCaDEngine(
-		engine.WithCache(memoryCache),
+		engine.WithCache(cacheImpl),
 		// The order of registering the function runtimes matters here. When
 		// evaluating a function, the runtimes will be tried in the same
 		// order as they are registered.
 		engine.WithBuiltinFunctionRuntime(),
-		engine.WithGRPCFunctionRuntime(c.ExtraConfig.FunctionRunnerAddress, c.ExtraConfig.MaxGrpcMessageSize),
+		engine.WithGRPCFunctionRuntime(c.ExtraConfig.GRPCRuntimeOptions),
 		engine.WithCredentialResolver(credentialResolver),
 		engine.WithRunnerOptionsResolver(runnerOptionsResolver),
 		engine.WithReferenceResolver(referenceResolver),
 		engine.WithUserInfoProvider(userInfoProvider),
-		engine.WithMetadataStore(metadataStore),
 		engine.WithWatcherManager(watcherMgr),
 	)
 	if err != nil {
@@ -268,9 +263,9 @@ func (c completedConfig) New() (*PorchServer, error) {
 	s := &PorchServer{
 		GenericAPIServer: genericServer,
 		coreClient:       coreClient,
-		cache:            memoryCache,
+		cache:            cacheImpl,
 		// Set background job periodic frequency the same as repo sync frequency.
-		PeriodicRepoSyncFrequency: c.ExtraConfig.RepoSyncFrequency,
+		PeriodicRepoSyncFrequency: c.ExtraConfig.CacheOptions.RepoSyncFrequency,
 	}
 
 	// Install the groups.

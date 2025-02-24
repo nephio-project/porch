@@ -1,4 +1,4 @@
-// Copyright 2024 The Nephio Authors
+// Copyright 2024-2025 The Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,12 +16,33 @@ package cache
 
 import (
 	"context"
+	"fmt"
 
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/pkg/repository"
+	crcache "github.com/nephio-project/porch/pkg/cache/crcache"
+	"github.com/nephio-project/porch/pkg/cache/dbcache"
+	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 )
 
-type Cache interface {
-	OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (repository.Repository, error)
-	CloseRepository(ctx context.Context, repositorySpec *configapi.Repository, allRepos []configapi.Repository) error
+var tracer = otel.Tracer("cache")
+
+func CreateCacheImpl(ctx context.Context, options cachetypes.CacheOptions) (cachetypes.Cache, error) {
+	ctx, span := tracer.Start(ctx, "Repository::RepositoryFactory", trace.WithAttributes())
+	defer span.End()
+
+	var cacheFactory cachetypes.CacheFactory
+
+	switch cacheType := options.CacheType; cacheType {
+	case cachetypes.CRCacheType:
+		cacheFactory = new(crcache.CrCacheFactory)
+
+	case cachetypes.DBCacheType:
+		cacheFactory = new(dbcache.DbCacheFactory)
+
+	default:
+		return nil, fmt.Errorf("type %q not supported", cacheType)
+	}
+
+	return cacheFactory.NewCache(ctx, options)
 }
