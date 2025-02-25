@@ -1,4 +1,4 @@
-// Copyright 2023, 2024 The kpt and Nephio Authors
+// Copyright 2023-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -108,4 +109,22 @@ func ParseRepositoryName(name string) (string, error) {
 		return "", fmt.Errorf("malformed package revision name; expected at least one hyphen: %q", name)
 	}
 	return name[:lastDash], nil
+}
+
+// Parses valid YAML into a KubeObject using the kpt-functions-sdk's fn package.
+// Wrapped in this function to unify deserialisation into a single approach
+// everywhere in Porch.
+func YamlToKubeObject(yaml string) (kubeObject *fn.KubeObject, err error) {
+	if kubeObject, err = fn.ParseKubeObject([]byte(yaml)); err != nil {
+		return nil, err
+	}
+
+	return kubeObject, nil
+}
+
+// Writes a KubeObject out to string-form YAML.
+// Wrapped in this function to unify serialisation into a single approach
+// everywhere in Porch.
+func KubeObjectToYaml(kubeObject *fn.KubeObject) string {
+	return kubeObject.String()
 }

@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -141,6 +141,16 @@ const (
 	TaskTypeEval   TaskType = "eval"
 	TaskTypeUpdate TaskType = "update"
 )
+
+func (task *Task) TaskTypeOneOf(oneOf ...TaskType) bool {
+	taskType := task.Type
+	for _, tt := range oneOf {
+		if taskType == tt {
+			return true
+		}
+	}
+	return false
+}
 
 type Task struct {
 	Type   TaskType               `json:"type"`
