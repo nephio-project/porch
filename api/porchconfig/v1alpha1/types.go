@@ -70,22 +70,6 @@ type RepositorySpec struct {
 	Git *GitRepository `json:"git,omitempty"`
 	// OCI repository details. Required if `type` is `oci`. Ignored if `type` is not `oci`.
 	Oci *OciRepository `json:"oci,omitempty"`
-	// Upstream is the default upstream repository for packages in this
-	// repository. Specifying it per repository allows simpler UX when
-	// creating packages.
-	Upstream *UpstreamRepository `json:"upstream,omitempty"`
-
-	// `Mutators` specifies list of functions to be added to the list of package's mutators on changes to the packages in the repository to ensure the packages meet constraints
-	// enforced by the mutators associated with the repository.
-	// Based on the Kubernetest Admission Controllers (https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/). The functions will be evaluated
-	// in the order specified in the list.
-	Mutators []FunctionEval `json:"mutators,omitempty"`
-
-	// `Validators` specifies list of functions to be added to the list of package's validators on changes to the packages in the repository to ensure the packages meet constraints
-	// enforced by the validators associated with the repository.
-	// Based on the Kubernetest Admission Controllers (https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/). The functions will be evaluated
-	// in the order specified in the list.
-	Validators []FunctionEval `json:"validators,omitempty"`
 }
 
 // GitRepository describes a Git repository.

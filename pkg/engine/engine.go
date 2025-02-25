@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import (
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	cache "github.com/nephio-project/porch/pkg/cache"
+	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/task"
@@ -73,7 +73,7 @@ func NewCaDEngine(opts ...EngineOption) (CaDEngine, error) {
 }
 
 type cadEngine struct {
-	cache cache.Cache
+	cache cachetypes.Cache
 
 	userInfoProvider repository.UserInfoProvider
 	metadataStore    meta.MetadataStore
@@ -198,6 +198,10 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	}
 	pkgRevMeta, err = cad.metadataStore.Create(ctx, pkgRevMeta, repositoryObj.Name, repoPkgRev.UID())
 	if err != nil {
+		if (apierrors.IsUnauthorized(err) || apierrors.IsForbidden(err)) && repository.AnyBlockOwnerDeletionSet(obj) {
+			return nil, fmt.Errorf("failed to create internal PackageRev object, because blockOwnerDeletion is enabled for some ownerReference "+
+				"(it is likely that the serviceaccount of porch-server does not have the rights to update finalizers in the owner object): %w", err)
+		}
 		return nil, err
 	}
 	repoPkgRev.SetMeta(pkgRevMeta)
@@ -318,6 +322,10 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version string,
 
 	err = cad.updatePkgRevMeta(ctx, repoPkgRev, newObj)
 	if err != nil {
+		if (apierrors.IsUnauthorized(err) || apierrors.IsForbidden(err)) && repository.AnyBlockOwnerDeletionSet(newObj) {
+			return nil, fmt.Errorf("failed to update internal PackageRev object, because blockOwnerDeletion is enabled for some ownerReference "+
+				"(it is likely that the serviceaccount of porch-server does not have the rights to update finalizers in the owner object): %w", err)
+		}
 		return nil, err
 	}
 
@@ -513,6 +521,8 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 	if err != nil {
 		return nil, renderStatus, err
 	}
+	repoPkgRev.SetMeta(rev.ObjectMeta)
+
 	return repoPkgRev, renderStatus, nil
 }
 

@@ -851,7 +851,7 @@ func (t *PorchSuite) TestUpdateResourcesEmptyPatch(ctx context.Context) {
 	}, &resourcesAfterUpdate)
 
 	assert.Equal(t, 3, len(resourcesAfterUpdate.Spec.Resources))
-	assert.True(t, reflect.DeepEqual(resourcesBeforeUpdate, resourcesAfterUpdate))
+	assert.EqualValues(t, resourcesBeforeUpdate, resourcesAfterUpdate)
 }
 
 func (t *PorchSuite) TestConcurrentResourceUpdates(ctx context.Context) {
@@ -3034,4 +3034,88 @@ func (t *PorchSuite) TestLatestVersionOnDelete(ctx context.Context) {
 	t.MustNotHaveLabels(ctx, mainPr.Name, []string{
 		porchapi.LatestPackageRevisionKey,
 	})
+
+func (t *PorchSuite) TestRepositoryModify(ctx context.Context) {
+	const (
+		repositoryName = "repo-modify-test"
+		newDescription = "Updated Repository Description"
+	)
+
+	// Create initial repository
+	t.CreateF(ctx, &configapi.Repository{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       configapi.TypeRepository.Kind,
+			APIVersion: configapi.TypeRepository.APIVersion(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      repositoryName,
+			Namespace: t.Namespace,
+		},
+		Spec: configapi.RepositorySpec{
+			Description: "Initial Repository",
+			Type:        configapi.RepositoryTypeGit,
+			Git: &configapi.GitRepository{
+				Repo: testBlueprintsRepo,
+			},
+		},
+	})
+
+	// Clean up after test
+	t.Cleanup(func() {
+		t.DeleteL(ctx, &configapi.Repository{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      repositoryName,
+				Namespace: t.Namespace,
+			},
+		})
+	})
+
+	// Get the repository to modify
+	var repository configapi.Repository
+	t.GetF(ctx, client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      repositoryName,
+	}, &repository)
+
+	// Modify the repository
+	repository.Spec.Description = newDescription
+	t.UpdateF(ctx, &repository)
+
+	// Wait and verify the repository condition
+	giveUp := time.Now().Add(60 * time.Second)
+	for {
+		if time.Now().After(giveUp) {
+			t.Errorf("Timed out waiting for Repository Condition")
+			break
+		}
+
+		time.Sleep(5 * time.Second)
+
+		var updatedRepo configapi.Repository
+		t.GetF(ctx, client.ObjectKey{
+			Namespace: t.Namespace,
+			Name:      repositoryName,
+		}, &updatedRepo)
+
+		// Verify description was updated
+		if updatedRepo.Spec.Description != newDescription {
+			t.Errorf("Repository description not updated; got %q, want %q",
+				updatedRepo.Spec.Description, newDescription)
+		}
+
+		ready := meta.FindStatusCondition(updatedRepo.Status.Conditions, configapi.RepositoryReady)
+		if ready == nil {
+			t.Logf("Repository condition not yet available")
+			continue
+		}
+
+		if got, want := ready.Status, metav1.ConditionTrue; got != want {
+			t.Errorf("Repository Ready Condition Status; got %q, want %q", got, want)
+		}
+		if got, want := ready.Reason, configapi.ReasonReady; got != want {
+			t.Errorf("Repository Ready Condition Reason: got %q, want %q", got, want)
+		}
+		break
+	}
+
 }

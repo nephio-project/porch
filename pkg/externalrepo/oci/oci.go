@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,17 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 )
-
-func OpenRepository(name string, namespace string, spec *configapi.OciRepository, deployment bool, storage *oci.Storage) (repository.Repository, error) {
-	return &ociRepository{
-		name:       name,
-		namespace:  namespace,
-		spec:       *spec.DeepCopy(),
-		deployment: deployment,
-		storage:    storage,
-	}, nil
-
-}
 
 type ociRepository struct {
 	name       string
@@ -249,6 +238,10 @@ func (r *ociRepository) Refresh(_ context.Context) error {
 	return nil
 }
 
+func (r *ociRepository) Key() string {
+	return "oci://" + r.spec.Registry
+}
+
 // ToMainPackageRevision implements repository.PackageRevision.
 func (p *ociPackageRevision) ToMainPackageRevision() repository.PackageRevision {
 	panic("unimplemented")
@@ -289,7 +282,7 @@ func (p *ociPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 			Name:      p.KubeObjectName(),
 			Namespace: p.parent.namespace,
 			CreationTimestamp: metav1.Time{
-				Time: p.created,
+				Time: p.metadata.CreationTimestamp.Time,
 			},
 			ResourceVersion: p.resourceVersion,
 			UID:             p.uid,
@@ -351,7 +344,7 @@ func (p *ociPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 			Name:      p.KubeObjectName(),
 			Namespace: p.parent.namespace,
 			CreationTimestamp: metav1.Time{
-				Time: p.created,
+				Time: p.metadata.CreationTimestamp.Time,
 			},
 			ResourceVersion: p.resourceVersion,
 			UID:             p.uid,
