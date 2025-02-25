@@ -3034,6 +3034,7 @@ func (t *PorchSuite) TestLatestVersionOnDelete(ctx context.Context) {
 	t.MustNotHaveLabels(ctx, mainPr.Name, []string{
 		porchapi.LatestPackageRevisionKey,
 	})
+}
 
 func (t *PorchSuite) TestRepositoryModify(ctx context.Context) {
 	const (
