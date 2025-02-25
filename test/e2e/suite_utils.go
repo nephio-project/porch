@@ -145,6 +145,41 @@ func (t *TestSuite) ValidateLabelsAndAnnos(ctx context.Context, name string, lab
 	}
 }
 
+func (t *TestSuite) MustHaveLabels(ctx context.Context, name string, labels map[string]string) {
+	t.Helper()
+	var pr porchapi.PackageRevision
+	t.GetF(ctx, client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      name,
+	}, &pr)
+
+	for labelKey, labelValue := range labels {
+		actualValue, ok := pr.Labels[labelKey]
+		if !ok {
+			t.Errorf("Expected PR %s to have label %s, but didn't find it", pr.Name, labelKey)
+		}
+		if actualValue != labelValue {
+			t.Errorf("Expected PR %s to have label %s value %s but got %s", pr.Name, labelKey, labelValue, actualValue)
+		}
+	}
+}
+
+func (t *TestSuite) MustNotHaveLabels(ctx context.Context, name string, labels []string) {
+	t.Helper()
+	var pr porchapi.PackageRevision
+	t.GetF(ctx, client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      name,
+	}, &pr)
+
+	for _, label := range labels {
+		_, ok := pr.Labels[label]
+		if ok {
+			t.Errorf("Expected PR %s not to have label %s, but found it", pr.Name, label)
+		}
+	}
+}
+
 func (t *TestSuite) RegisterGitRepositoryF(ctx context.Context, repo, name, directory string, opts ...RepositoryOption) {
 	t.Helper()
 	config := GitConfig{
@@ -506,6 +541,25 @@ func (t *TestSuite) WaitUntilPackageRevisionResourcesExists(
 		t.Fatalf("PackageRevisionResources object wasn't found for package %v in time (%v)", key, timeout)
 	}
 	return foundPrr
+}
+
+func (t *TestSuite) GetPackageRevision(ctx context.Context, repository string, pkgName string, revision string) *porchapi.PackageRevision {
+	t.Helper()
+	var prList porchapi.PackageRevisionList
+	selector := client.MatchingFields(fields.Set{
+		"spec.repository":  repository,
+		"spec.packageName": pkgName,
+		"spec.revision":    revision,
+	})
+	t.ListF(ctx, &prList, selector, client.InNamespace(t.Namespace))
+
+	if len(prList.Items) == 0 {
+		t.Fatalf("PackageRevision object wasn't found for package revision %v/%v/%v", repository, pkgName, revision)
+	}
+	if len(prList.Items) > 1 {
+		t.Fatalf("Multiple PackageRevision objects were found for package revision %v/%v/%v", repository, pkgName, revision)
+	}
+	return &prList.Items[0]
 }
 
 func (t *TestSuite) GetContentsOfPackageRevision(ctx context.Context, repository string, pkgName string, revision string) map[string]string {
