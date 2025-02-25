@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel"
@@ -68,10 +69,8 @@ const (
 )
 
 type GitRepositoryOptions struct {
-	CredentialResolver     repository.CredentialResolver
-	UserInfoProvider       repository.UserInfoProvider
-	MainBranchStrategy     MainBranchStrategy
-	UseUserDefinedCaBundle bool
+	externalrepotypes.ExternalRepoOptions
+	MainBranchStrategy MainBranchStrategy
 }
 
 func OpenRepository(ctx context.Context, name, namespace string, spec *configapi.GitRepository, deployment bool, root string, opts GitRepositoryOptions) (GitRepository, error) {
@@ -136,14 +135,14 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 		branch:             branch,
 		directory:          strings.Trim(spec.Directory, "/"),
 		secret:             spec.SecretRef.Name,
-		credentialResolver: opts.CredentialResolver,
-		userInfoProvider:   opts.UserInfoProvider,
+		credentialResolver: opts.ExternalRepoOptions.CredentialResolver,
+		userInfoProvider:   opts.ExternalRepoOptions.UserInfoProvider,
 		cacheDir:           dir,
 		deployment:         deployment,
 	}
 
-	if opts.UseUserDefinedCaBundle {
-		if caBundle, err := opts.CredentialResolver.ResolveCredential(ctx, namespace, namespace+"-ca-bundle"); err != nil {
+	if opts.ExternalRepoOptions.UseUserDefinedCaBundle {
+		if caBundle, err := opts.ExternalRepoOptions.CredentialResolver.ResolveCredential(ctx, namespace, namespace+"-ca-bundle"); err != nil {
 			klog.Errorf("failed to obtain caBundle from secret %s/%s: %v", namespace, namespace+"-ca-bundle", err)
 		} else {
 			repository.caBundle = []byte(caBundle.ToString())
@@ -1708,7 +1707,11 @@ func (r *gitRepository) discoverPackagesInTree(commit *object.Commit, opt Discov
 }
 
 func (r *gitRepository) Refresh(_ context.Context) error {
-	return nil
+	return r.UpdateDeletionProposedCache()
+}
+
+func (r *gitRepository) Key() string {
+	return fmt.Sprintf("git://%s/%s@%s/%s", r.repo, r.directory, r.namespace, r.name)
 }
 
 // See https://eli.thegreenplace.net/2021/generic-functions-on-slices-with-go-type-parameters/
