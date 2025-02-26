@@ -82,7 +82,7 @@ spec:
           #adding livenessProbes and readinessProbes for porch server
           livenessProbe:
             httpGet:
-              path: /healthz
+              path: /livez
               port: 4443
               scheme: HTTPS
             initialDelaySeconds: 30
