@@ -3081,7 +3081,7 @@ func (t *PorchSuite) TestPackageVariantReadinessGate(ctx context.Context) {
 	downstreamPr, _ = t.WaitUntilPackageRevisionFulfillingConditionExists(ctx, 20*time.Second, func(pr porchapi.PackageRevision) bool {
 		return slices.Contains(pr.Status.Conditions, packagevariant.ConditionPipelinePVRevisionReady)
 	})
-	require.NotNil(t, downstreamPr, "no PackageRevision found with Condition of Type %q, Status %q (err: %q)", packagevariant.ConditionTypeAtomicPVOperations, packagevariant.ConditionPipelinePVRevisionReady, err)
+	require.NotNil(t, downstreamPr, "no PackageRevision found with Condition of Type %q, Status %q", packagevariant.ConditionTypeAtomicPVOperations, packagevariant.ConditionPipelinePVRevisionReady)
 
 	// Propose the PR again - should succeed this time
 	downstreamPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
