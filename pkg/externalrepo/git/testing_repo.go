@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -170,7 +170,7 @@ func ServeExistingRepository(t *testing.T, git *gogit.Repository) string {
 func extractTar(t *testing.T, tarfile string, dir string) {
 	t.Helper()
 
-	reader, err := os.Open(tarfile)
+	reader, err := os.Open(tarfile) // #nosec G304
 	if err != nil {
 		t.Fatalf("Open(%q) failed: %v", tarfile, err)
 	}
@@ -186,16 +186,20 @@ func extractTar(t *testing.T, tarfile string, dir string) {
 			t.Fatalf("Reading tar file %q failed: %v", tarfile, err)
 		}
 		if hdr.FileInfo().IsDir() {
+			// #nosec G305
 			path := filepath.Join(dir, hdr.Name)
+			// #nosec G301
 			if err := os.MkdirAll(path, 0755); err != nil {
 				t.Fatalf("MkdirAll(%q) failed: %v", path, err)
 			}
 			continue
 		}
 		path := filepath.Join(dir, filepath.Dir(hdr.Name))
+		// #nosec G301
 		if err := os.MkdirAll(path, 0755); err != nil {
 			t.Fatalf("MkdirAll(%q) failed: %v", path, err)
 		}
+		// #nosec G305
 		path = filepath.Join(dir, hdr.Name)
 		saveToFile(t, path, tr)
 	}
@@ -204,7 +208,7 @@ func extractTar(t *testing.T, tarfile string, dir string) {
 func saveToFile(t *testing.T, path string, src io.Reader) {
 	t.Helper()
 
-	dst, err := os.Create(path)
+	dst, err := os.Create(path) // #nosec G304
 	if err != nil {
 		t.Fatalf("Create(%q) failed; %v", path, err)
 	}

@@ -34,7 +34,7 @@ type WasmNodejsFn struct {
 
 func NewNodejsFn(loader WasmLoader) (*WasmNodejsFn, error) {
 	cacheDir := filepath.Join(os.TempDir(), "kpt-wasm-fn")
-	err := os.MkdirAll(cacheDir, 0755)
+	err := os.MkdirAll(cacheDir, 0750)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create cache dir: %w", err)
 	}
@@ -43,7 +43,7 @@ func NewNodejsFn(loader WasmLoader) (*WasmNodejsFn, error) {
 		return nil, fmt.Errorf("unable to create temp dir: %w", err)
 	}
 	jsPath := filepath.Join(tempDir, "kpt-fn-wasm-glue-runner.js")
-	if err = os.WriteFile(jsPath, []byte(golangWasmJSCode+glueCode), 0644); err != nil {
+	if err = os.WriteFile(jsPath, []byte(golangWasmJSCode+glueCode), 0600); err != nil {
 		return nil, fmt.Errorf("unable to write the js glue code file: %w", err)
 	}
 

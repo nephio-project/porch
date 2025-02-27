@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,8 @@ import (
 	"github.com/nephio-project/porch/internal/kpt/util/update"
 )
 
+const LocalUpdateDir = "kpt-pkg-update-*"
+
 // defaultPackageUpdater implements packageUpdater interface.
 type DefaultPackageUpdater struct{}
 
@@ -33,19 +35,19 @@ func (m *DefaultPackageUpdater) Update(
 	originalResources,
 	upstreamResources PackageResources) (updatedResources PackageResources, err error) {
 
-	localDir, err := os.MkdirTemp("", "kpt-pkg-update-*")
+	localDir, err := os.MkdirTemp("", LocalUpdateDir)
 	if err != nil {
 		return PackageResources{}, err
 	}
 	defer os.RemoveAll(localDir)
 
-	originalDir, err := os.MkdirTemp("", "kpt-pkg-update-*")
+	originalDir, err := os.MkdirTemp("", LocalUpdateDir)
 	if err != nil {
 		return PackageResources{}, err
 	}
 	defer os.RemoveAll(originalDir)
 
-	upstreamDir, err := os.MkdirTemp("", "kpt-pkg-update-*")
+	upstreamDir, err := os.MkdirTemp("", LocalUpdateDir)
 	if err != nil {
 		return PackageResources{}, err
 	}
@@ -97,7 +99,7 @@ func writeResourcesToDirectory(dir string, resources PackageResources) error {
 	for k, v := range resources.Contents {
 		p := filepath.Join(dir, k)
 		dir := filepath.Dir(p)
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(dir, 0750); err != nil {
 			return fmt.Errorf("failed to create directory %q: %w", dir, err)
 		}
 		if err := os.WriteFile(p, []byte(v), 0644); err != nil {

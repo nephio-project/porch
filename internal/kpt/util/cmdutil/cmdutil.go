@@ -81,7 +81,7 @@ func WriteFnOutput(dest, content string, fromStdin bool, w io.Writer) error {
 func WriteToOutput(r io.Reader, w io.Writer, outDir string) error {
 	var outputs []kio.Writer
 	if outDir != "" {
-		err := os.MkdirAll(outDir, 0755)
+		err := os.MkdirAll(outDir, 0750)
 		if err != nil {
 			return fmt.Errorf("failed to create output directory %q: %q", outDir, err.Error())
 		}
