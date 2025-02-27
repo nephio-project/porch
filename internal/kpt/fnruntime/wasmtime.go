@@ -194,7 +194,10 @@ func (f *WasmtimeFn) GetSP() (uint32, error) {
 		return 0, fmt.Errorf("getsp: %T: expected an int32 return value", sp)
 	}
 
-	return uint32(sp), nil
+	if sp >= 0 {
+		return uint32(sp), nil
+	}
+	return 0, fmt.Errorf("getsp: %T: expected a positive return value", sp)
 }
 
 func (f *WasmtimeFn) Resume() error {

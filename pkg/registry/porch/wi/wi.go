@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@ func (w *WITokenExchanger) findWorkloadIdentityPool(ctx context.Context, kubeSer
 
 	// First, see if we have a valid token mounted locally in our pod
 	{
-		const tokenFilePath = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+		const tokenFilePath = "/var/run/secrets/kubernetes.io/serviceaccount/token" // #nosec G101
 
 		tokenBytes, err := os.ReadFile(tokenFilePath)
 		if err != nil {

@@ -715,6 +715,7 @@ func loadTLSConfig(caCertPath string) (*tls.Config, error) {
 	// Create a tls.Config with the CA pool
 	tlsConfig := &tls.Config{
 		RootCAs: caCertPool,
+		MinVersion: tls.VersionTLS12,
 	}
 	return tlsConfig, nil
 }

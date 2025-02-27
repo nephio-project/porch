@@ -131,7 +131,7 @@ func (o *OciLoader) getFilePath() (string, error) {
 		return "", fmt.Errorf("unable to create temp dir in %v: %w", o.cacheDir, err)
 	}
 	wasmFile := filepath.Join(o.tempDir, "fn.wasm")
-	err = os.WriteFile(wasmFile, data, 0644)
+	err = os.WriteFile(wasmFile, data, 0600)
 	if err != nil {
 		return "", fmt.Errorf("unable to write wasm content to %v: %w", wasmFile, err)
 	}
