@@ -17,13 +17,13 @@ package task
 import (
 	"context"
 	"fmt"
-	"slices"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/kpt/kptpkg"
 	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"github.com/nephio-project/porch/pkg/kpt/printer/fake"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel/trace"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 )
@@ -55,7 +55,9 @@ func (m *initPackageMutation) apply(ctx context.Context, resources repository.Pa
 		return repository.PackageResources{}, nil, err
 	}
 
-	readinessConditions := slices.Concat(defaultConditions, m.pkgRev.Status.Conditions)
+	readinessConditions := util.MergeFunc(defaultConditions, m.pkgRev.Status.Conditions, func(aDefault, anInput api.Condition) bool {
+		return aDefault.Type == anInput.Type
+	})
 
 	name := m.pkgRev.Spec.PackageName
 	initSpec := m.task.Init

@@ -1,4 +1,4 @@
-// Copyright 2022, 2025 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,6 +51,12 @@ func (o *Options) BindFlags(_ string, _ *flag.FlagSet) {}
 // PackageVariantReconciler reconciles a PackageVariant object
 type PackageVariantReconciler struct {
 	client.Client
+
+	// Reader goes directly to the Kubernetes API server and
+	// may be used for Get and List operations if you need to
+	// bypass the cache in Client (which may be stale).
+	client.Reader
+
 	Options
 }
 
@@ -184,7 +190,7 @@ func (r *PackageVariantReconciler) init(ctx context.Context,
 	}
 
 	var prList porchapi.PackageRevisionList
-	if err := r.Client.List(ctx, &prList, client.InNamespace(pv.Namespace)); err != nil {
+	if err := r.Reader.List(ctx, &prList, client.InNamespace(pv.Namespace)); err != nil {
 		return nil, nil, err
 	}
 
@@ -382,7 +388,7 @@ func (r *PackageVariantReconciler) ensurePackageVariant(ctx context.Context,
 		}
 	}
 
-	if err := r.Client.Get(ctx, types.NamespacedName{Name: newPR.GetName(), Namespace: newPR.GetNamespace()}, newPR); err != nil {
+	if err := r.Reader.Get(ctx, types.NamespacedName{Name: newPR.GetName(), Namespace: newPR.GetNamespace()}, newPR); err != nil {
 		return nil, err
 	}
 	setPrStatusCondition(newPR, ConditionPipelinePVRevisionReady)
@@ -835,6 +841,7 @@ func (r *PackageVariantReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	r.Client = mgr.GetClient()
+	r.Reader = mgr.GetAPIReader()
 
 	//TODO: establish watches on resource types injected in all the Package Revisions
 	//      we own, and use those to generate requests

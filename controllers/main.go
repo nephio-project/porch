@@ -137,8 +137,7 @@ func run(ctx context.Context) error {
 		Client: client.Options{
 			Cache: &client.CacheOptions{
 				DisableFor: []client.Object{
-					&porchapi.PackageRevisionResources{},
-					&porchapi.PackageRevision{}},
+					&porchapi.PackageRevisionResources{}},
 			},
 		},
 	}

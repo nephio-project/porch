@@ -34,6 +34,7 @@ import (
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -3080,7 +3081,7 @@ func (t *PorchSuite) TestPackageVariantReadinessGate(ctx context.Context) {
 	downstreamPr, _ = t.WaitUntilPackageRevisionFulfillingConditionExists(ctx, 20*time.Second, func(pr porchapi.PackageRevision) bool {
 		return slices.Contains(pr.Status.Conditions, packagevariant.ConditionPipelinePVRevisionReady)
 	})
-	assert.NotNil(t, downstreamPr, "no PackageRevision found with Condition of Type %q, Status %q", packagevariant.ConditionTypeAtomicPVOperations, packagevariant.ConditionPipelinePVRevisionReady)
+	require.NotNil(t, downstreamPr, "no PackageRevision found with Condition of Type %q, Status %q (err: %q)", packagevariant.ConditionTypeAtomicPVOperations, packagevariant.ConditionPipelinePVRevisionReady, err)
 
 	// Propose the PR again - should succeed this time
 	downstreamPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
