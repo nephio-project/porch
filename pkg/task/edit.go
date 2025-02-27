@@ -19,15 +19,15 @@ import (
 	"fmt"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel/trace"
 )
 
 type editPackageMutation struct {
+	pkgRev            *api.PackageRevision
 	task              *api.Task
-	namespace         string
-	repositoryName    string
-	packageName       string
 	repoOpener        repository.RepositoryOpener
 	referenceResolver repository.ReferenceResolver
 }
@@ -39,32 +39,63 @@ func (m *editPackageMutation) apply(ctx context.Context, resources repository.Pa
 	defer span.End()
 
 	sourceRef := m.task.Edit.Source
+	oldPkgRev := m.pkgRev
 
-	revision, err := (&repository.PackageFetcher{
+	newPkgRev, err := (&repository.PackageFetcher{
 		RepoOpener:        m.repoOpener,
 		ReferenceResolver: m.referenceResolver,
-	}).FetchRevision(ctx, sourceRef, m.namespace)
+	}).FetchRevision(ctx, sourceRef, oldPkgRev.Namespace)
 	if err != nil {
 		return repository.PackageResources{}, nil, fmt.Errorf("failed to fetch package %q: %w", sourceRef.Name, err)
 	}
 
 	// We only allow edit to create new revision from the same package.
-	if revision.Key().PkgKey.ToPkgPathname() != m.packageName ||
-		revision.Key().PkgKey.RepoKey.Name != m.repositoryName {
-		return repository.PackageResources{}, nil, fmt.Errorf("source revision must be from same package %s/%s", m.repositoryName, m.packageName)
+	if newPkgRev.Key().PkgKey.Package != oldPkgRev.Spec.PackageName ||
+		newPkgRev.Key().PkgKey.RepoKey.Name != oldPkgRev.Spec.RepositoryName {
+		return repository.PackageResources{}, nil, fmt.Errorf(
+			"source revision must be from same package %s/%s (got: %s/%s)",
+			oldPkgRev.Spec.RepositoryName,
+			oldPkgRev.Spec.PackageName,
+			newPkgRev.Key().PkgKey.RepoKey.Name,
+			newPkgRev.Key().PkgKey.Package)
 	}
 
 	// We only allow edit to create new revisions from published packages.
-	if !api.LifecycleIsPublished(revision.Lifecycle(ctx)) {
+	if !api.LifecycleIsPublished(newPkgRev.Lifecycle(ctx)) {
 		return repository.PackageResources{}, nil, fmt.Errorf("source revision must be published")
 	}
 
-	sourceResources, err := revision.GetResources(ctx)
+	sourceResources, err := newPkgRev.GetResources(ctx)
 	if err != nil {
 		return repository.PackageResources{}, nil, fmt.Errorf("cannot read contents of package %q: %w", sourceRef.Name, err)
 	}
 
-	return repository.PackageResources{
+	editedResources := repository.PackageResources{
 		Contents: sourceResources.Spec.Resources,
-	}, &api.TaskResult{Task: m.task}, nil
+	}
+	editedResources.EditKptfile(func(file kptfile.KptFile) {
+		file.Status = &kptfile.Status{
+			Conditions: func() (inputConditions []kptfile.Condition) {
+				if file.Status == nil || file.Status.Conditions == nil {
+					inputConditions = kptfile.ConvertApiConditions(defaultConditions)
+				} else {
+					inputConditions = file.Status.Conditions
+				}
+
+				return util.MergeFunc(inputConditions, kptfile.ConvertApiConditions(oldPkgRev.Status.Conditions), func(inputCondition, oldCondition kptfile.Condition) bool {
+					return oldCondition.Type == inputCondition.Type
+				})
+			}(),
+		}
+		file.Info.ReadinessGates = func() (kptfileGates []kptfile.ReadinessGate) {
+			for _, each := range oldPkgRev.Status.Conditions {
+				kptfileGates = append(kptfileGates, kptfile.ReadinessGate{
+					ConditionType: each.Type,
+				})
+			}
+			return kptfileGates
+		}()
+	})
+
+	return editedResources, &api.TaskResult{Task: m.task}, nil
 }

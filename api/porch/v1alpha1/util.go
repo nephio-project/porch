@@ -14,6 +14,8 @@
 
 package v1alpha1
 
+import "slices"
+
 func LifecycleIsPublished(lifecycle PackageRevisionLifecycle) bool {
 	return lifecycle == PackageRevisionLifecyclePublished || lifecycle == PackageRevisionLifecycleDeletionProposed
 }
@@ -37,4 +39,9 @@ func PackageRevisionIsReady(readinessGates []ReadinessGate, conditions []Conditi
 	}
 
 	return true
+}
+
+func (task *Task) TaskTypeOneOf(oneOf ...TaskType) bool {
+	taskType := task.Type
+	return slices.Contains(oneOf, taskType)
 }

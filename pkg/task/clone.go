@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"slices"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -28,6 +27,7 @@ import (
 	"github.com/nephio-project/porch/pkg/kpt"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/util"
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
@@ -39,12 +39,7 @@ type clonePackageMutation struct {
 	pkgRev *api.PackageRevision
 	task   *api.Task
 
-	// namespace is the namespace against which we resolve references.
-	// TODO: merge namespace into referenceResolver?
-	namespace string
-
-	name               string // package target name
-	isDeployment       bool   // is the package deployable instance
+	isDeployment       bool // is the package deployable instance
 	repoOpener         repository.RepositoryOpener
 	credentialResolver repository.CredentialResolver
 	referenceResolver  repository.ReferenceResolver
@@ -98,8 +93,10 @@ func (m *clonePackageMutation) apply(ctx context.Context, resources repository.P
 		if file.Status == nil {
 			file.Status = &kptfile.Status{}
 		}
-		file.Status.Conditions = slices.Concat(file.Status.Conditions, kptfile.ConvertApiConditions(m.pkgRev.Status.Conditions))
-		file.Info.ReadinessGates = slices.Concat(file.Info.ReadinessGates, kptfile.ConvertApiReadinessGates(m.pkgRev.Spec.ReadinessGates))
+		file.Status.Conditions = util.MergeFunc(file.Status.Conditions, kptfile.ConvertApiConditions(m.pkgRev.Status.Conditions), func(existingCondition, cloneInput kptfile.Condition) bool {
+			return existingCondition.Type == cloneInput.Type
+		})
+		file.Info.ReadinessGates = util.Merge(file.Info.ReadinessGates, kptfile.ConvertApiReadinessGates(m.pkgRev.Spec.ReadinessGates))
 	})
 
 	// ensure merge-key comment is added to newly added resources.
@@ -122,7 +119,7 @@ func (m *clonePackageMutation) cloneFromRegisteredRepository(ctx context.Context
 	upstreamRevision, err := (&repository.PackageFetcher{
 		RepoOpener:        m.repoOpener,
 		ReferenceResolver: m.referenceResolver,
-	}).FetchRevision(ctx, ref, m.namespace)
+	}).FetchRevision(ctx, ref, m.pkgRev.Namespace)
 	if err != nil {
 		return repository.PackageResources{}, fmt.Errorf("failed to fetch package revision %q: %w", ref.Name, err)
 	}
@@ -138,7 +135,7 @@ func (m *clonePackageMutation) cloneFromRegisteredRepository(ctx context.Context
 	}
 
 	// Update Kptfile
-	if err := kpt.UpdateKptfileUpstream(m.name, resources.Spec.Resources, upstream, lock); err != nil {
+	if err := kpt.UpdateKptfileUpstream(m.pkgRev.Spec.PackageName, resources.Spec.Resources, upstream, lock); err != nil {
 		return repository.PackageResources{}, fmt.Errorf("failed to apply upstream lock to package %q: %w", ref.Name, err)
 	}
 
@@ -188,7 +185,7 @@ func (m *clonePackageMutation) cloneFromGit(ctx context.Context, gitPackage *api
 	contents := resources.Spec.Resources
 
 	// Update Kptfile
-	if err := kpt.UpdateKptfileUpstream(m.name, contents, kptfile.Upstream{
+	if err := kpt.UpdateKptfileUpstream(m.pkgRev.Spec.PackageName, contents, kptfile.Upstream{
 		Type: kptfile.GitOrigin,
 		Git: &kptfile.Git{
 			Repo:      lock.Repo,

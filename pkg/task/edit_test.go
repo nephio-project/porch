@@ -21,6 +21,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
@@ -74,7 +75,19 @@ info:
 		repository: repo,
 	}
 
+	testpkg := &api.PackageRevision{
+		Spec: api.PackageRevisionSpec{
+			PackageName:    pkg,
+			RepositoryName: repositoryName,
+			ReadinessGates: []api.ReadinessGate{},
+		},
+		Status: api.PackageRevisionStatus{
+			Conditions: []api.Condition{},
+		},
+	}
+
 	epm := editPackageMutation{
+		pkgRev: testpkg,
 		task: &v1alpha1.Task{
 			Type: "edit",
 			Edit: &v1alpha1.PackageEditTaskSpec{
@@ -84,9 +97,6 @@ info:
 			},
 		},
 
-		namespace:         "test-namespace",
-		packageName:       pkg,
-		repositoryName:    repositoryName,
 		referenceResolver: &fakeReferenceResolver{},
 		repoOpener:        repoOpener,
 	}

@@ -303,8 +303,6 @@ func (th *genericTaskHandler) mapTaskToMutation(ctx context.Context, pkgRev *api
 		return &clonePackageMutation{
 			pkgRev:             pkgRev,
 			task:               task,
-			namespace:          pkgRev.Namespace,
-			name:               pkgRev.Spec.PackageName,
 			isDeployment:       isDeployment,
 			repoOpener:         th.repoOpener,
 			credentialResolver: th.credentialResolver,
@@ -337,10 +335,8 @@ func (th *genericTaskHandler) mapTaskToMutation(ctx context.Context, pkgRev *api
 			return nil, fmt.Errorf("edit not set for task of type %q", task.Type)
 		}
 		return &editPackageMutation{
+			pkgRev:            pkgRev,
 			task:              task,
-			namespace:         pkgRev.Namespace,
-			packageName:       pkgRev.Spec.PackageName,
-			repositoryName:    pkgRev.Spec.RepositoryName,
 			repoOpener:        th.repoOpener,
 			referenceResolver: th.referenceResolver,
 		}, nil
