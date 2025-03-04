@@ -15,180 +15,180 @@ commands:
       - --workspace=lifecycle
       - lifecycle-package
     stdout: |
-      git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 created
+      git.lifecycle-package.lifecycle created
   - args:
       - porchctl
       - rpkg
       - propose
       - --namespace=rpkg-lifecycle
-      - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
+      - git.lifecycle-package.lifecycle
     stdout: |
-      git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 proposed
+      git.lifecycle-package.lifecycle proposed
   - args:
       - porchctl
       - rpkg
       - propose-delete
-      - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
+      - git.lifecycle-package.lifecycle
       - --namespace=rpkg-lifecycle
-    stderr: "git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 failed (can only propose published packages for deletion; package git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 is not published)\nError: errors:\n  can only propose published packages for deletion; package git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 is not published \n"
+    stderr: "git.lifecycle-package.lifecycle failed (can only propose published packages for deletion; package git.lifecycle-package.lifecycle is not published)\nError: errors:\n  can only propose published packages for deletion; package git.lifecycle-package.lifecycle is not published \n"
     exitCode: 1
   - args:
       - porchctl
       - rpkg
       - get
-      - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
+      - git.lifecycle-package.lifecycle
       - --namespace=rpkg-lifecycle
       - --output=custom-columns=NAME:.metadata.name,PKG:.spec.packageName,REV:.spec.revision,LIFECYCLE:.spec.lifecycle
     stdout: |
-      NAME                                           PKG                 REV      LIFECYCLE
-      git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034   lifecycle-package   <none>   Proposed
+      NAME                              PKG                 REV      LIFECYCLE
+      git.lifecycle-package.lifecycle   lifecycle-package   <none>   Proposed
   - args:
       - porchctl
       - rpkg
       - reject
       - --namespace=rpkg-lifecycle
-      - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
+      - git.lifecycle-package.lifecycle
     stdout: |
-      git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 no longer proposed for approval
+      git.lifecycle-package.lifecycle no longer proposed for approval
   - args:
       - porchctl
       - rpkg
       - get
-      - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
+      - git.lifecycle-package.lifecycle
       - --namespace=rpkg-lifecycle
     stdout: |
-      NAME                                           PACKAGE             WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
-      git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034   lifecycle-package   lifecycle                  false    Draft       git
+      NAME                              PACKAGE             WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
+      git.lifecycle-package.lifecycle   lifecycle-package   lifecycle                  false    Draft       git
   - args:
       - porchctl
       - rpkg
       - propose-delete
-      - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
+      - git.lifecycle-package.lifecycle
       - --namespace=rpkg-lifecycle
-    stderr: "git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 failed (can only propose published packages for deletion; package git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 is not published)\nError: errors:\n  can only propose published packages for deletion; package git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 is not published \n"
+    stderr: "git.lifecycle-package.lifecycle failed (can only propose published packages for deletion; package git.lifecycle-package.lifecycle is not published)\nError: errors:\n  can only propose published packages for deletion; package git.lifecycle-package.lifecycle is not published \n"
     exitCode: 1
   - args:
       - porchctl
       - rpkg
       - propose
       - --namespace=rpkg-lifecycle
-      - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
+      - git.lifecycle-package.lifecycle
     stdout: |
-      git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 proposed
+      git.lifecycle-package.lifecycle proposed
   - args:
       - porchctl
       - rpkg
       - get
-      - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
+      - git.lifecycle-package.lifecycle
       - --namespace=rpkg-lifecycle
     stdout: |
-      NAME                                           PACKAGE             WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
-      git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034   lifecycle-package   lifecycle                  false    Proposed    git
+      NAME                              PACKAGE             WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
+      git.lifecycle-package.lifecycle   lifecycle-package   lifecycle                  false    Proposed    git
   - args:
       - porchctl
       - rpkg
       - approve
       - --namespace=rpkg-lifecycle
-      - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
+      - git.lifecycle-package.lifecycle
     stdout: |
-      git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 approved
+      git.lifecycle-package.lifecycle approved
   - args:
       - porchctl
       - rpkg
       - get
-      - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
+      - git.lifecycle-package.lifecycle
       - --namespace=rpkg-lifecycle
     stdout: |
-      NAME                                           PACKAGE             WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
-      git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034   lifecycle-package   lifecycle       v1         true     Published   git
+      NAME                              PACKAGE             WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
+      git.lifecycle-package.lifecycle   lifecycle-package   lifecycle       v1         true     Published   git
   - args:
       - porchctl
       - rpkg
       - delete
-      - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
+      - git.lifecycle-package.lifecycle
       - --namespace=rpkg-lifecycle
-    stderr: "git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 failed (admission webhook \"packagerevdeletion.google.com\" denied the request: failed to delete package revision \"git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034\": published PackageRevisions must be proposed for deletion by setting spec.lifecycle to 'DeletionProposed' prior to deletion)\nError: errors:\n  admission webhook \"packagerevdeletion.google.com\" denied the request: failed to delete package revision \"git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034\": published PackageRevisions must be proposed for deletion by setting spec.lifecycle to 'DeletionProposed' prior to deletion \n"
+    stderr: "git.lifecycle-package.lifecycle failed (admission webhook \"packagerevdeletion.google.com\" denied the request: failed to delete package revision \"git.lifecycle-package.lifecycle\": published PackageRevisions must be proposed for deletion by setting spec.lifecycle to 'DeletionProposed' prior to deletion)\nError: errors:\n  admission webhook \"packagerevdeletion.google.com\" denied the request: failed to delete package revision \"git.lifecycle-package.lifecycle\": published PackageRevisions must be proposed for deletion by setting spec.lifecycle to 'DeletionProposed' prior to deletion \n"
     exitCode: 1
   - args:
       - porchctl
       - rpkg
       - propose-delete
-      - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
+      - git.lifecycle-package.lifecycle
       - --namespace=rpkg-lifecycle
     stdout: |
-      git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 proposed for deletion
+      git.lifecycle-package.lifecycle proposed for deletion
   - args:
       - porchctl
       - rpkg
       - propose-delete
-      - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
+      - git.lifecycle-package.lifecycle
       - --namespace=rpkg-lifecycle
     stderr: |
-      git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 is already proposed for deletion
+      git.lifecycle-package.lifecycle is already proposed for deletion
   - args:
       - porchctl
       - rpkg
       - get
-      - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
+      - git.lifecycle-package.lifecycle
       - --namespace=rpkg-lifecycle
     stdout: |
-      NAME                                           PACKAGE             WORKSPACENAME   REVISION   LATEST   LIFECYCLE          REPOSITORY
-      git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034   lifecycle-package   lifecycle       v1         true     DeletionProposed   git
+      NAME                              PACKAGE             WORKSPACENAME   REVISION   LATEST   LIFECYCLE          REPOSITORY
+      git.lifecycle-package.lifecycle   lifecycle-package   lifecycle       v1         true     DeletionProposed   git
   - args:
       - porchctl
       - rpkg
       - reject
-      - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
+      - git.lifecycle-package.lifecycle
       - --namespace=rpkg-lifecycle
     stdout: |
-      git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 no longer proposed for deletion
+      git.lifecycle-package.lifecycle no longer proposed for deletion
   - args:
       - porchctl
       - rpkg
       - reject
-      - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
+      - git.lifecycle-package.lifecycle
       - --namespace=rpkg-lifecycle
-    stderr: "git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 failed (cannot reject git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 with lifecycle 'Published')\nError: errors:\n  cannot reject git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 with lifecycle 'Published' \n"
+    stderr: "git.lifecycle-package.lifecycle failed (cannot reject git.lifecycle-package.lifecycle with lifecycle 'Published')\nError: errors:\n  cannot reject git.lifecycle-package.lifecycle with lifecycle 'Published' \n"
     exitCode: 1
   - args:
       - porchctl
       - rpkg
       - get
-      - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
+      - git.lifecycle-package.lifecycle
       - --namespace=rpkg-lifecycle
     stdout: |
-      NAME                                           PACKAGE             WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
-      git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034   lifecycle-package   lifecycle       v1         true     Published   git
+      NAME                              PACKAGE             WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
+      git.lifecycle-package.lifecycle   lifecycle-package   lifecycle       v1         true     Published   git
   - args:
       - porchctl
       - rpkg
       - propose-delete
-      - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
+      - git.lifecycle-package.lifecycle
       - --namespace=rpkg-lifecycle
     stdout: |
-      git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 proposed for deletion
+      git.lifecycle-package.lifecycle proposed for deletion
   - args:
       - porchctl
       - rpkg
       - get
-      - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
+      - git.lifecycle-package.lifecycle
       - --namespace=rpkg-lifecycle
     stdout: |
-      NAME                                           PACKAGE             WORKSPACENAME   REVISION   LATEST   LIFECYCLE          REPOSITORY
-      git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034   lifecycle-package   lifecycle       v1         true     DeletionProposed   git
+      NAME                              PACKAGE             WORKSPACENAME   REVISION   LATEST   LIFECYCLE          REPOSITORY
+      git.lifecycle-package.lifecycle   lifecycle-package   lifecycle       v1         true     DeletionProposed   git
   - args:
       - porchctl
       - rpkg
       - delete
-      - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
+      - git.lifecycle-package.lifecycle
       - --namespace=rpkg-lifecycle
     stdout: |
-      git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034 deleted
+      git.lifecycle-package.lifecycle deleted
   - args:
       - porchctl
       - rpkg
       - get
-      - git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034
+      - git.lifecycle-package.lifecycle
       - --namespace=rpkg-lifecycle
-    stderr: "Error: the server could not find the requested resource (get packagerevisions.porch.kpt.dev git-017a8366a5e0d9b35ae6dc489d4d3f68046d6034) \n"
+    stderr: "Error: the server could not find the requested resource (get packagerevisions.porch.kpt.dev git.lifecycle-package.lifecycle) \n"
     exitCode: 1
