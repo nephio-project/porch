@@ -15,12 +15,12 @@ commands:
       - --output=custom-columns=NAME:.metadata.name,PKG:.spec.packageName,REPO:.spec.repository,REV:.spec.revision
     stdout: |
       NAME                          PKG      REPO              REV
-      test-blueprints.basens.main   basens   test-blueprints   -1
-      test-blueprints.basens.v1     basens   test-blueprints   1
-      test-blueprints.basens.v2     basens   test-blueprints   2
-      test-blueprints.basens.v3     basens   test-blueprints   3
-      test-blueprints.empty.main    empty    test-blueprints   -1
-      test-blueprints.empty.v1      empty    test-blueprints   1
+      test-blueprints.basens.main   basens   test-blueprints   main
+      test-blueprints.basens.v1     basens   test-blueprints   v1
+      test-blueprints.basens.v2     basens   test-blueprints   v2
+      test-blueprints.basens.v3     basens   test-blueprints   v3
+      test-blueprints.empty.main    empty    test-blueprints   main
+      test-blueprints.empty.v1      empty    test-blueprints   v1
   - args:
       - porchctl
       - rpkg
@@ -29,7 +29,7 @@ commands:
       - test-blueprints.basens.v1
     stdout: |
       NAME                        PACKAGE   WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
-      test-blueprints.basens.v1   basens    v1              1          false    Published   test-blueprints
+      test-blueprints.basens.v1   basens    v1              v1         false    Published   test-blueprints
   - args:
       - porchctl
       - rpkg
@@ -38,7 +38,7 @@ commands:
       - --name=basens
     stdout: |
       NAME                          PACKAGE   WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
-      test-blueprints.basens.main   basens    main            -1         false    Published   test-blueprints
-      test-blueprints.basens.v1     basens    v1              1          false    Published   test-blueprints
-      test-blueprints.basens.v2     basens    v2              2          false    Published   test-blueprints
-      test-blueprints.basens.v3     basens    v3              3          true     Published   test-blueprints
+      test-blueprints.basens.main   basens    main            main       false    Published   test-blueprints
+      test-blueprints.basens.v1     basens    v1              v1         false    Published   test-blueprints
+      test-blueprints.basens.v2     basens    v2              v2         false    Published   test-blueprints
+      test-blueprints.basens.v3     basens    v3              v3         true     Published   test-blueprints

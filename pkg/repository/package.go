@@ -35,13 +35,13 @@ type PackageFetcher struct {
 }
 
 func (p *PackageFetcher) FetchRevision(ctx context.Context, packageRef *api.PackageRevisionRef, namespace string) (PackageRevision, error) {
-	repoName, err := util.ParsePkgRevObjNameField(packageRef.Name, 0)
+	parsedRevName, err := util.ParseRevisionName(packageRef.Name)
 	if err != nil {
 		return nil, err
 	}
 	var resolved configapi.Repository
-	if err := p.ReferenceResolver.ResolveReference(ctx, namespace, repoName, &resolved); err != nil {
-		return nil, fmt.Errorf("cannot find repository %s/%s: %w", namespace, repoName, err)
+	if err := p.ReferenceResolver.ResolveReference(ctx, namespace, parsedRevName[0], &resolved); err != nil {
+		return nil, fmt.Errorf("cannot find repository %s/%s: %w", namespace, parsedRevName[0], err)
 	}
 
 	repo, err := p.RepoOpener.OpenRepository(ctx, &resolved)
