@@ -20,49 +20,80 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestKubernetesName(t *testing.T) {
+func TestParseRepositoryNameOK(t *testing.T) {
+	const myRepo = "my-repo"
+	const myWS = "my-workspace"
+
 	testCases := map[string]struct {
-		id       string
-		hashLen  int
-		maxLen   int
-		expected string
+		pkgRevId string
+		expected []string
+		err      bool
 	}{
-		"short-id": {
-			id:       "my-k8s-object-name",
-			hashLen:  4,
-			maxLen:   20,
-			expected: "my-k8s-object-name",
+		"three-dots": {
+			pkgRevId: "my-repo.my-package-name.my-workspace",
+			expected: []string{myRepo, "my-package-name", myWS},
+			err:      false,
 		},
-		"long-id": {
-			id:       "my-kubernetes-object-name",
-			hashLen:  4,
-			maxLen:   20,
-			expected: "my-kubernetes-o-71d0",
+		"four-dots": {
+			pkgRevId: "my-repo.my-root-dir.my-package-name.my-workspace",
+			expected: []string{myRepo, "my-root-dir.my-package-name", myWS},
+			err:      false,
 		},
-		"long-id, long-hash": {
-			id:       "my-kubernetes-object-name",
-			hashLen:  8,
-			maxLen:   20,
-			expected: "my-kubernet-71d0e1e4",
-		},
-		"maxLen too small": {
-			id:       "my-kubernetes-object-name",
-			hashLen:  8,
-			maxLen:   8,
-			expected: "my-k-71d0e1e4",
-		},
-		"hashLen too small": {
-			id:       "my-kubernetes-object-name",
-			hashLen:  3,
-			maxLen:   20,
-			expected: "my-kubernetes-o-71d0",
+		"five-dots": {
+			pkgRevId: "my-repo.my-root-dir.my-sub-dir.my-package-name.my-workspace",
+			expected: []string{myRepo, "my-root-dir.my-sub-dir.my-package-name", myWS},
+			err:      false,
 		},
 	}
 
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			if diff := cmp.Diff(tc.expected, KubernetesName(tc.id, tc.hashLen, tc.maxLen)); diff != "" {
+			parsedRepo, _ := ParseRevisionName(tc.pkgRevId)
+			if diff := cmp.Diff(tc.expected, parsedRepo); diff != "" {
 				t.Errorf("unexpected diff (+got,-want): %s", diff)
+			}
+		})
+	}
+}
+
+func TestParseRepositoryNameErr(t *testing.T) {
+	testCases := map[string]struct {
+		pkgRevId string
+	}{
+		"no-dot": {
+			pkgRevId: "my-repomy-package-namemy-workspace",
+		},
+		"one-dot-one": {
+			pkgRevId: "my-repomy-package-name.my-workspace",
+		},
+		"one-dot-two": {
+			pkgRevId: "my-repo.my-package-namemy-workspace",
+		},
+		"rev-3-dash": {
+			pkgRevId: "my-package-name-akoshjadfhijao[ifj[adsfj[adsf",
+		},
+		"rev-1-dash": {
+			pkgRevId: "mypackagename-akoshjadfhijao[ifj[adsfj[adsf",
+		},
+		"rev-1-dash-no-suffix": {
+			pkgRevId: "mypackagename-",
+		},
+		"no-dash": {
+			pkgRevId: "mypackagenameakoshjadfhijao[ifj[adsfj[adsf",
+		},
+		"empty": {
+			pkgRevId: "",
+		},
+		"white-space": {
+			pkgRevId: "   \t \n  ",
+		},
+	}
+
+	for tn, tc := range testCases {
+		t.Run(tn, func(t *testing.T) {
+			_, err := ParseRevisionName(tc.pkgRevId)
+			if err == nil {
+				t.Errorf("expected an error but got no error")
 			}
 		})
 	}

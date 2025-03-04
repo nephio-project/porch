@@ -17,12 +17,14 @@ package porch
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -132,29 +134,52 @@ loop:
 
 func (b *background) updateCache(ctx context.Context, event watch.EventType, repository *configapi.Repository) error {
 	switch event {
-	case watch.Added:
-		klog.Infof("Repository added: %s:%s", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name)
-		return b.cacheRepository(ctx, repository)
-	case watch.Modified:
-		klog.Infof("Repository modified: %s:%s", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name)
-		// First verify repositories can be listed (core client is alive)
-		var repoList configapi.RepositoryList
-		if err := b.coreClient.List(ctx, &repoList); err != nil {
-			return err
-		}
-		// Update the cache with modified repository
-		return b.cacheRepository(ctx, repository)
+	case watch.Added, watch.Modified:
+		return b.repositoryChange(ctx, repository)
+
 	case watch.Deleted:
-		klog.Infof("Repository deleted: %s:%s", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name)
-		var repoList configapi.RepositoryList
-		if err := b.coreClient.List(ctx, &repoList); err != nil {
-			return err
-		}
-		return b.cache.CloseRepository(ctx, repository, repoList.Items)
+		return b.repositoryDelete(ctx, repository)
+
 	default:
 		klog.Warningf("Unhandled watch event type: %s", event)
 	}
 	return nil
+}
+
+func (b *background) repositoryChange(ctx context.Context, repository *configapi.Repository) error {
+	klog.Infof("changing repository: %s:%s", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name)
+
+	if err := validateRepository(repository); err != nil {
+		return fmt.Errorf("changing repository failed: %s:%s:%q", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name, err)
+	}
+
+	if err := b.cacheRepository(ctx, repository); err == nil {
+		klog.Infof("changing repository: %s:%s", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name)
+		return nil
+	} else {
+		return fmt.Errorf("changing repository failed: %s:%s:%q", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name, err)
+	}
+}
+
+func (b *background) repositoryDelete(ctx context.Context, repository *configapi.Repository) error {
+	klog.Infof("deleting repository: %s:%s", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name)
+
+	if err := validateRepository(repository); err != nil {
+		klog.Infof("deleted repository: %s:%s", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name)
+		return nil
+	}
+
+	var repoList configapi.RepositoryList
+	if err := b.coreClient.List(ctx, &repoList); err != nil {
+		return fmt.Errorf("deleting repository failed: %s:%s:%q", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name, err)
+	}
+
+	if err := b.cache.CloseRepository(ctx, repository, repoList.Items); err == nil {
+		klog.Infof("deleted repository: %s:%s", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name)
+		return nil
+	} else {
+		return fmt.Errorf("deleting repository failed: %s:%s:%q", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name, err)
+	}
 }
 
 func (b *background) runOnce(ctx context.Context) error {
@@ -236,4 +261,29 @@ func (t *backoffTimer) backoff() bool {
 	}
 	t.curr = curr
 	return t.timer.Reset(curr)
+}
+
+func validateRepository(repository *configapi.Repository) error {
+	// The repo name must follow the rules for RFC 1123 DNS labels
+	nameErrs := validation.IsDNS1123Label(repository.ObjectMeta.Name)
+
+	// The repo name must follow the rules for RFC 1123 DNS labels except that we allow '/' characters
+	dirNoSlash := strings.ReplaceAll(repository.Spec.Git.Directory, "/", "")
+	var dirErrs []string
+	if len(dirNoSlash) > 0 {
+		dirErrs = validation.IsDNS1123Label(dirNoSlash)
+	} else {
+		// The directory is "/"
+		dirErrs = nil
+	}
+
+	if nameErrs == nil && dirErrs == nil {
+		return nil
+	}
+
+	return fmt.Errorf("repository name %q and/or directory %q is invalid: %s, %s",
+		repository.ObjectMeta.Name,
+		repository.Spec.Git.Directory,
+		strings.Join(nameErrs, ","),
+		strings.Join(dirErrs, ","))
 }
