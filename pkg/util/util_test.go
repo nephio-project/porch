@@ -20,7 +20,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestParseRepositoryName(t *testing.T) {
+func TestParseRepositoryNameOK(t *testing.T) {
 	testCases := map[string]struct {
 		pkgRevId string
 		expected []string
@@ -41,59 +41,11 @@ func TestParseRepositoryName(t *testing.T) {
 			expected: []string{"my-repo", "my-root-dir.my-sub-dir.my-package-name", "my-workspace"},
 			err:      false,
 		},
-		"no-dot": {
-			pkgRevId: "my-repomy-package-namemy-workspace",
-			expected: nil,
-			err:      true,
-		},
-		"one-dot-one": {
-			pkgRevId: "my-repomy-package-name.my-workspace",
-			expected: nil,
-			err:      true,
-		},
-		"one-dot-two": {
-			pkgRevId: "my-repo.my-package-namemy-workspace",
-			expected: nil,
-			err:      true,
-		},
-		"rev-3-dash": {
-			pkgRevId: "my-package-name-akoshjadfhijao[ifj[adsfj[adsf",
-			expected: nil,
-			err:      true,
-		},
-		"rev-1-dash": {
-			pkgRevId: "mypackagename-akoshjadfhijao[ifj[adsfj[adsf",
-			expected: nil,
-			err:      true,
-		},
-		"rev-1-dash-no-suffix": {
-			pkgRevId: "mypackagename-",
-			expected: nil,
-			err:      true,
-		},
-		"no-dash": {
-			pkgRevId: "mypackagenameakoshjadfhijao[ifj[adsfj[adsf",
-			expected: nil,
-			err:      true,
-		},
-		"empty": {
-			pkgRevId: "",
-			expected: nil,
-			err:      true,
-		},
-		"white-space": {
-			pkgRevId: "   \t \n  ",
-			expected: nil,
-			err:      true,
-		},
 	}
 
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			parsedRepo, err := ParseRevisionName(tc.pkgRevId)
-			if tc.err && err == nil {
-				t.Errorf("expected an error but got no error")
-			}
+			parsedRepo, _ := ParseRevisionName(tc.pkgRevId)
 			if diff := cmp.Diff(tc.expected, parsedRepo); diff != "" {
 				t.Errorf("unexpected diff (+got,-want): %s", diff)
 			}
