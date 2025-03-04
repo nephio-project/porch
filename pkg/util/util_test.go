@@ -15,53 +15,47 @@
 package util
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestKubernetesName(t *testing.T) {
+func TestParseRepositoryName(t *testing.T) {
 	testCases := map[string]struct {
-		id       string
-		hashLen  int
-		maxLen   int
+		pkgRevId string
 		expected string
+		err      error
 	}{
-		"short-id": {
-			id:       "my-k8s-object-name",
-			hashLen:  4,
-			maxLen:   20,
-			expected: "my-k8s-object-name",
+		"correct-rev-3-dash": {
+			pkgRevId: "my-package-name-akoshjadfhijao[ifj[adsfj[adsf",
+			expected: "my-package-name",
+			err:      nil,
 		},
-		"long-id": {
-			id:       "my-kubernetes-object-name",
-			hashLen:  4,
-			maxLen:   20,
-			expected: "my-kubernetes-o-71d0",
+		"correct-rev-1-dash": {
+			pkgRevId: "mypackagename-akoshjadfhijao[ifj[adsfj[adsf",
+			expected: "mypackagename",
+			err:      nil,
 		},
-		"long-id, long-hash": {
-			id:       "my-kubernetes-object-name",
-			hashLen:  8,
-			maxLen:   20,
-			expected: "my-kubernet-71d0e1e4",
+		"correct-rev-1-dash-no-suffix": {
+			pkgRevId: "mypackagename-",
+			expected: "mypackagename",
+			err:      nil,
 		},
-		"maxLen too small": {
-			id:       "my-kubernetes-object-name",
-			hashLen:  8,
-			maxLen:   8,
-			expected: "my-k-71d0e1e4",
-		},
-		"hashLen too small": {
-			id:       "my-kubernetes-object-name",
-			hashLen:  3,
-			maxLen:   20,
-			expected: "my-kubernetes-o-71d0",
+		"no-dash": {
+			pkgRevId: "mypackagenameakoshjadfhijao[ifj[adsfj[adsf",
+			expected: "",
+			err:      fmt.Errorf("malformed package revision name; expected at least one hyphen: \"mypackagenameakoshjadfhijao[ifj[adsfj[adsf\""),
 		},
 	}
 
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			if diff := cmp.Diff(tc.expected, KubernetesName(tc.id, tc.hashLen, tc.maxLen)); diff != "" {
+			repoName, err := ParseRevisionName(tc.pkgRevId)
+			if tc.err != err && tc.err.Error() != err.Error() {
+				t.Errorf("unexpected error: expected %q, got %q", tc.err, err)
+			}
+			if diff := cmp.Diff(tc.expected, repoName); diff != "" {
 				t.Errorf("unexpected diff (+got,-want): %s", diff)
 			}
 		})
