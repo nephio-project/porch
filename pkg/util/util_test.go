@@ -23,6 +23,9 @@ import (
 )
 
 func TestParseRepositoryNameOK(t *testing.T) {
+	const myRepo = "my-repo"
+	const myWS = "my-workspace"
+
 	testCases := map[string]struct {
 		pkgRevId string
 		expected []string
@@ -30,17 +33,17 @@ func TestParseRepositoryNameOK(t *testing.T) {
 	}{
 		"three-dots": {
 			pkgRevId: "my-repo.my-package-name.my-workspace",
-			expected: []string{"my-repo", "my-package-name", "my-workspace"},
+			expected: []string{myRepo, "my-package-name", myWS},
 			err:      false,
 		},
 		"four-dots": {
 			pkgRevId: "my-repo.my-root-dir.my-package-name.my-workspace",
-			expected: []string{"my-repo", "my-root-dir.my-package-name", "my-workspace"},
+			expected: []string{myRepo, "my-root-dir.my-package-name", myWS},
 			err:      false,
 		},
 		"five-dots": {
 			pkgRevId: "my-repo.my-root-dir.my-sub-dir.my-package-name.my-workspace",
-			expected: []string{"my-repo", "my-root-dir.my-sub-dir.my-package-name", "my-workspace"},
+			expected: []string{myRepo, "my-root-dir.my-sub-dir.my-package-name", myWS},
 			err:      false,
 		},
 	}
