@@ -1048,7 +1048,7 @@ func (t *PorchSuite) TestSubfolderPackageRevisionIncrementation() {
 		subfolderRepository  = "repo-in-subfolder"
 		subfolderDirectory   = "random/repo/folder"
 		normalPackageName    = "test-package"
-		subfolderPackageName = "randompackagefolder/test-package"
+		subfolderPackageName = "randompackagefoldertest-package"
 		workspace            = "workspace"
 		workspace2           = "workspace2"
 	)
