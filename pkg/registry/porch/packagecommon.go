@@ -295,6 +295,7 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 	if err != nil {
 		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("invalid name %q", name))
 	}
+	repositoryName := parsedRevName[0]
 	if isCreate {
 		repoName = newApiPkgRev.Spec.RepositoryName
 		if repoName == "" {
