@@ -157,12 +157,12 @@ func (r *packageCommon) getRepositoryObjFromName(ctx context.Context, name strin
 	if !namespaced {
 		return nil, fmt.Errorf("namespace must be specified")
 	}
-	repositoryName, err := util.ParseRepositoryName(name)
+	parsedRevName, err := util.ParseRevisionName(name)
 	if err != nil {
 		return nil, apierrors.NewNotFound(r.gr, name)
 	}
 
-	return r.getRepositoryObj(ctx, types.NamespacedName{Name: repositoryName, Namespace: ns})
+	return r.getRepositoryObj(ctx, types.NamespacedName{Name: parsedRevName[0], Namespace: ns})
 }
 
 func (r *packageCommon) getRepositoryObj(ctx context.Context, repositoryID types.NamespacedName) (*configapi.Repository, error) {
@@ -290,10 +290,11 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("expected PackageRevision object, got %T", newRuntimeObj))
 	}
 
-	repositoryName, err := util.ParseRepositoryName(name)
+	parsedRevName, err := util.ParseRevisionName(name)
 	if err != nil {
 		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("invalid name %q", name))
 	}
+	repositoryName := parsedRevName[0]
 	if isCreate {
 		repositoryName = newApiPkgRev.Spec.RepositoryName
 		if repositoryName == "" {
@@ -402,10 +403,11 @@ func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo 
 		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("expected Package object, got %T", newRuntimeObj))
 	}
 
-	repositoryName, err := util.ParseRepositoryName(name)
+	parsedRevName, err := util.ParseRevisionName(name)
 	if err != nil {
 		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("invalid name %q", name))
 	}
+	repositoryName := parsedRevName[0]
 	if isCreate {
 		repositoryName = newObj.Spec.RepositoryName
 		if repositoryName == "" {
@@ -452,11 +454,11 @@ func (r *packageCommon) validateDelete(ctx context.Context, deleteValidation res
 			return nil, err
 		}
 	}
-	repositoryName, err := util.ParseRepositoryName(repoName)
+	parsedRevName, err := util.ParseRevisionName(repoName)
 	if err != nil {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid name %q", repoName))
 	}
-	repositoryObj, err := r.getRepositoryObj(ctx, types.NamespacedName{Name: repositoryName, Namespace: ns})
+	repositoryObj, err := r.getRepositoryObj(ctx, types.NamespacedName{Name: parsedRevName[0], Namespace: ns})
 	if err != nil {
 		return nil, err
 	}

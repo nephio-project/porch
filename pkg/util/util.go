@@ -16,8 +16,6 @@ package util
 
 import (
 	"context"
-	"crypto/sha1"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"strings"
@@ -30,27 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
-
-// KubernetesName returns the passed id if it less than maxLen, otherwise
-// a truncated version of id with a unique hash of length hashLen appended
-// with length maxLen. maxLen must be at least 5 + hashLen, and hashLen
-// must be at least 4.
-func KubernetesName(id string, hashLen, maxLen int) string {
-	if hashLen < 4 {
-		hashLen = 4
-	}
-	if maxLen < hashLen+5 {
-		maxLen = hashLen + 5
-	}
-
-	if len(id) <= maxLen {
-		return id
-	}
-
-	hash := sha1.Sum([]byte(id))
-	stubIdx := maxLen - hashLen - 1
-	return fmt.Sprintf("%s-%s", id[:stubIdx], hex.EncodeToString(hash[:])[:hashLen])
-}
 
 func GetInClusterNamespace() (string, error) {
 	ns, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
@@ -102,10 +79,22 @@ func SchemaToMetaGVR(gvr schema.GroupVersionResource) metav1.GroupVersionResourc
 	}
 }
 
-func ParseRepositoryName(name string) (string, error) {
-	lastDash := strings.LastIndex(name, "-")
-	if lastDash < 0 {
-		return "", fmt.Errorf("malformed package revision name; expected at least one hyphen: %q", name)
+func ParseRevisionName(name string) ([]string, error) {
+	firstDot := strings.Index(name, ".")
+	if firstDot < 0 {
+		return nil, fmt.Errorf("malformed package revision name; expected at least one dot: %q", name)
 	}
-	return name[:lastDash], nil
+
+	lastDot := strings.LastIndex(name, ".")
+	if lastDot < 0 {
+		return nil, fmt.Errorf("malformed package revision name; expected at least one dot: %q", name)
+	}
+
+	parsedName := make([]string, 3)
+
+	parsedName[0] = name[:firstDot]
+	parsedName[1] = name[firstDot:lastDot]
+	parsedName[2] = name[lastDot:]
+
+	return parsedName, nil
 }

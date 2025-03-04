@@ -17,8 +17,6 @@ package git
 import (
 	"bytes"
 	"context"
-	"crypto/sha1"
-	"encoding/hex"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -74,8 +72,11 @@ func (p *gitPackageRevision) KubeObjectName() string {
 	} else {
 		s = string(p.workspaceName)
 	}
-	hash := sha1.Sum([]byte(fmt.Sprintf("%s:%s:%s", p.repo.name, p.path, s)))
-	return p.repo.name + "-" + hex.EncodeToString(hash[:])
+
+	// Deleet all leading and trailing dots and replace slashes with dots
+	dottedPath := strings.ReplaceAll(p.path, "/", ".")
+
+	return p.repo.name + "." + dottedPath + "." + s
 }
 
 func (p *gitPackageRevision) KubeObjectNamespace() string {
