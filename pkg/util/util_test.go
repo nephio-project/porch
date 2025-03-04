@@ -15,7 +15,6 @@
 package util
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -26,38 +25,78 @@ import (
 func TestParseRepositoryName(t *testing.T) {
 	testCases := map[string]struct {
 		pkgRevId string
-		expected string
-		err      error
+		expected []string
+		err      bool
 	}{
-		"correct-rev-3-dash": {
+		"three-dots": {
+			pkgRevId: "my-repo.my-package-name.my-workspace",
+			expected: []string{"my-repo", "my-package-name", "my-workspace"},
+			err:      false,
+		},
+		"four-dots": {
+			pkgRevId: "my-repo.my-root-dir.my-package-name.my-workspace",
+			expected: []string{"my-repo", "my-root-dir.my-package-name", "my-workspace"},
+			err:      false,
+		},
+		"five-dots": {
+			pkgRevId: "my-repo.my-root-dir.my-sub-dir.my-package-name.my-workspace",
+			expected: []string{"my-repo", "my-root-dir.my-sub-dir.my-package-name", "my-workspace"},
+			err:      false,
+		},
+		"no-dot": {
+			pkgRevId: "my-repomy-package-namemy-workspace",
+			expected: nil,
+			err:      true,
+		},
+		"one-dot-one": {
+			pkgRevId: "my-repomy-package-name.my-workspace",
+			expected: nil,
+			err:      true,
+		},
+		"one-dot-two": {
+			pkgRevId: "my-repo.my-package-namemy-workspace",
+			expected: nil,
+			err:      true,
+		},
+		"rev-3-dash": {
 			pkgRevId: "my-package-name-akoshjadfhijao[ifj[adsfj[adsf",
-			expected: "my-package-name",
-			err:      nil,
+			expected: nil,
+			err:      true,
 		},
-		"correct-rev-1-dash": {
+		"rev-1-dash": {
 			pkgRevId: "mypackagename-akoshjadfhijao[ifj[adsfj[adsf",
-			expected: "mypackagename",
-			err:      nil,
+			expected: nil,
+			err:      true,
 		},
-		"correct-rev-1-dash-no-suffix": {
+		"rev-1-dash-no-suffix": {
 			pkgRevId: "mypackagename-",
-			expected: "mypackagename",
-			err:      nil,
+			expected: nil,
+			err:      true,
 		},
 		"no-dash": {
 			pkgRevId: "mypackagenameakoshjadfhijao[ifj[adsfj[adsf",
-			expected: "",
-			err:      fmt.Errorf("malformed package revision name; expected at least one hyphen: \"mypackagenameakoshjadfhijao[ifj[adsfj[adsf\""),
+			expected: nil,
+			err:      true,
+		},
+		"empty": {
+			pkgRevId: "",
+			expected: nil,
+			err:      true,
+		},
+		"white-space": {
+			pkgRevId: "   \t \n  ",
+			expected: nil,
+			err:      true,
 		},
 	}
 
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			repoName, err := ParseRevisionName(tc.pkgRevId)
-			if tc.err != err && tc.err.Error() != err.Error() {
-				t.Errorf("unexpected error: expected %q, got %q", tc.err, err)
+			parsedRepo, err := ParseRevisionName(tc.pkgRevId)
+			if tc.err && err == nil {
+				t.Errorf("expected an error but got no error")
 			}
-			if diff := cmp.Diff(tc.expected, repoName); diff != "" {
+			if diff := cmp.Diff(tc.expected, parsedRepo); diff != "" {
 				t.Errorf("unexpected diff (+got,-want): %s", diff)
 			}
 		})
