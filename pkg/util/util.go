@@ -175,16 +175,16 @@ func ParsePkgRevObjName(name string) ([]string, error) {
 
 	firstDot := strings.Index(name, ".")
 	if firstDot < 0 {
-		return nil, fmt.Errorf("malformed package revision name; expected at least two dots: %q", name)
+		return nil, fmt.Errorf(twoDotErrMsg, name)
 	}
 
 	lastDot := strings.LastIndex(name, ".")
 	if lastDot < 0 {
-		return nil, fmt.Errorf("malformed package revision name; expected at least two dots: %q", name)
+		return nil, fmt.Errorf(twoDotErrMsg, name)
 	}
 
 	if firstDot >= lastDot {
-		return nil, fmt.Errorf("malformed package revision name; expected at least two dots: %q", name)
+		return nil, fmt.Errorf(twoDotErrMsg, name)
 	}
 
 	parsedName := make([]string, 3)
