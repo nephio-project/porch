@@ -49,7 +49,7 @@ func (t *PorchSuite) TestPackageUpdateRecloneAndReplay(ctx context.Context) {
 			Namespace: t.Namespace,
 		},
 		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "testRecloneAndReplay",
+			PackageName:    "testrecloneandreplay",
 			WorkspaceName:  "testdescr",
 			RepositoryName: gitRepository,
 			Tasks: []porchapi.Task{

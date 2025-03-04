@@ -1049,9 +1049,9 @@ func (t *PorchSuite) TestSubfolderPackageRevisionIncrementation(ctx context.Cont
 	const (
 		repository           = "lifecycle"
 		subfolderRepository  = "repo-in-subfolder"
-		subfolderDirectory   = "randomRepoFolder"
+		subfolderDirectory   = "random/repo/folder"
 		normalPackageName    = "test-package"
-		subfolderPackageName = "randomPackageFolder/test-package"
+		subfolderPackageName = "randompackagefolder/test-package"
 		workspace            = "workspace"
 		workspace2           = "workspace2"
 	)
