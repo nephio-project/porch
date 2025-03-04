@@ -15,41 +15,47 @@
 package util
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestParseRepositoryNameOK(t *testing.T) {
-	const myRepo = "my-repo"
-	const myWS = "my-workspace"
-
+func TestParseRepositoryName(t *testing.T) {
 	testCases := map[string]struct {
 		pkgRevId string
-		expected []string
-		err      bool
+		expected string
+		err      error
 	}{
-		"three-dots": {
-			pkgRevId: "my-repo.my-package-name.my-workspace",
-			expected: []string{myRepo, "my-package-name", myWS},
-			err:      false,
+		"correct-rev-3-dash": {
+			pkgRevId: "my-package-name-akoshjadfhijao[ifj[adsfj[adsf",
+			expected: "my-package-name",
+			err:      nil,
 		},
-		"four-dots": {
-			pkgRevId: "my-repo.my-root-dir.my-package-name.my-workspace",
-			expected: []string{myRepo, "my-root-dir.my-package-name", myWS},
-			err:      false,
+		"correct-rev-1-dash": {
+			pkgRevId: "mypackagename-akoshjadfhijao[ifj[adsfj[adsf",
+			expected: "mypackagename",
+			err:      nil,
 		},
-		"five-dots": {
-			pkgRevId: "my-repo.my-root-dir.my-sub-dir.my-package-name.my-workspace",
-			expected: []string{myRepo, "my-root-dir.my-sub-dir.my-package-name", myWS},
-			err:      false,
+		"correct-rev-1-dash-no-suffix": {
+			pkgRevId: "mypackagename-",
+			expected: "mypackagename",
+			err:      nil,
+		},
+		"no-dash": {
+			pkgRevId: "mypackagenameakoshjadfhijao[ifj[adsfj[adsf",
+			expected: "",
+			err:      fmt.Errorf("malformed package revision name; expected at least one hyphen: \"mypackagenameakoshjadfhijao[ifj[adsfj[adsf\""),
 		},
 	}
 
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			parsedRepo, _ := ParseRevisionName(tc.pkgRevId)
-			if diff := cmp.Diff(tc.expected, parsedRepo); diff != "" {
+			repoName, err := ParseRevisionName(tc.pkgRevId)
+			if tc.err != err && tc.err.Error() != err.Error() {
+				t.Errorf("unexpected error: expected %q, got %q", tc.err, err)
+			}
+			if diff := cmp.Diff(tc.expected, repoName); diff != "" {
 				t.Errorf("unexpected diff (+got,-want): %s", diff)
 			}
 		})
