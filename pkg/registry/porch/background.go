@@ -135,60 +135,11 @@ loop:
 
 func (b *background) updateCache(ctx context.Context, event watch.EventType, repository *configapi.Repository) error {
 	switch event {
-	case watch.Added:
-		klog.Infof("adding repository: %s:%s", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name)
-
-		if err := validateRepository(repository); err != nil {
-			return fmt.Errorf("adding repository failed: %s:%s:%q", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name, err)
-		}
-
-		if err := b.cacheRepository(ctx, repository); err == nil {
-			klog.Infof("added repository: %s:%s", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name)
-			return nil
-		} else {
-			return fmt.Errorf("adding repository failed: %s:%s:%q", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name, err)
-		}
-
-	case watch.Modified:
-		klog.Infof("modifying repository: %s:%s", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name)
-
-		if err := validateRepository(repository); err != nil {
-			return fmt.Errorf("modifying repository failed, dots are not allowed in repo names: %s:%s", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name)
-		}
-
-		// First verify repositories can be listed (core client is alive)
-		var repoList configapi.RepositoryList
-		if err := b.coreClient.List(ctx, &repoList); err != nil {
-			return fmt.Errorf("modifying repository failed: %s:%s:%q", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name, err)
-		}
-
-		// Update the cache with modified repository
-		if err := b.cacheRepository(ctx, repository); err == nil {
-			klog.Infof("modified repository: %s:%s", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name)
-			return nil
-		} else {
-			return fmt.Errorf("modifying repository failed: %s:%s:%q", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name, err)
-		}
+	case watch.Added, watch.Modified:
+		return b.repositoryChange(ctx, repository)
 
 	case watch.Deleted:
-		klog.Infof("deleting repository: %s:%s", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name)
-
-		if err := validateRepository(repository); err != nil {
-			klog.Infof("deleted repository: %s:%s", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name)
-			return nil
-		}
-
-		var repoList configapi.RepositoryList
-		if err := b.coreClient.List(ctx, &repoList); err != nil {
-			return fmt.Errorf("deleting repository failed: %s:%s:%q", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name, err)
-		}
-
-		if err := b.cache.CloseRepository(ctx, repository, repoList.Items); err == nil {
-			klog.Infof("deleted repository: %s:%s", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name)
-			return nil
-		} else {
-			return fmt.Errorf("deleting repository failed: %s:%s:%q", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name, err)
-		}
+		return b.repositoryDelete(ctx, repository)
 
 	default:
 		klog.Warningf("Unhandled watch event type: %s", event)
