@@ -30,8 +30,8 @@ func TestParseRepositoryNameOK(t *testing.T) {
 
 	testCases := map[string]struct {
 		pkgRevId string
-		expected string
-		err      error
+		expected []string
+		err      bool
 	}{
 		"three-dots": {
 			pkgRevId: "my-repo.my-package-name.my-workspace",
