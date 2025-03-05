@@ -454,7 +454,7 @@ func (r *packageCommon) validateDelete(ctx context.Context, deleteValidation res
 			return nil, err
 		}
 	}
-	parsedRevName, err := util.ParseRevisionName(repoName)
+	parsedRevName, err := util.ParseRevisionName(name)
 	if err != nil {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid name %q", name))
 	}
