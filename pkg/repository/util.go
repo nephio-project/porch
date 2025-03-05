@@ -22,7 +22,7 @@ import (
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
-	"github.com/nephio-project/porch/pkg/util"
+	"go.opentelemetry.io/otel"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -116,12 +116,4 @@ func Revision2Int(revisionStr string) int {
 
 func Revision2Str(revision int) string {
 	return strconv.Itoa(revision)
-}
-
-func ComposePkgRevObjName(key PackageRevisionKey) string {
-	if key.Revision != -1 { // Then it's a regular PackageRevision
-		return util.ComposePkgRevObjName(key.Repository, key.Path, key.Package, string(key.WorkspaceName))
-	} else { // Then it's the placeholder PackageRevision
-		return util.ComposePkgRevObjName(key.Repository, key.Path, key.Package, string(key.PlaceholderWSname))
-	}
 }

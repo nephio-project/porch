@@ -919,7 +919,7 @@ func (g GitSuite) TestRefreshRepo(t *testing.T) {
 	}
 
 	// Confirm we listed some package(s)
-	findPackageRevision(t, all, repository.ListPackageRevisionFilter{Repository: "refresh", Package: "basens",
+	findPackageRevision(t, all, repository.PackageRevisionKey{Repository: "refresh", Package: "basens",
 		Revision: 2, WorkspaceName: "v2"})
 	packageMustNotExist(t, all, newPackageName)
 
