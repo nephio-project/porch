@@ -24,6 +24,8 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/filemode"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/pkg/repository"
 	"k8s.io/klog/v2"
 )
 
@@ -99,7 +101,7 @@ func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revision
 	}
 
 	// for backwards compatibility with packages that existed before porch supported
-	// workspaceNames, we populate the workspaceName as the revision number if it is empty
+	// workspaceNames, we populate the workspaceName as the branch if it is empty
 	if workspace == "" {
 		workspace = revision
 	}
@@ -108,7 +110,7 @@ func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revision
 		repo:          repo,
 		path:          p.path,
 		workspaceName: workspace,
-		revision:      revision,
+		revision:      repository.Revision2Int(revision),
 		updated:       updated,
 		updatedBy:     updatedBy,
 		ref:           ref,

@@ -64,7 +64,7 @@ func TestRenderPackageVariantSpec(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: api.PackageVariantSetSpec{
-			Upstream: &pkgvarapi.Upstream{Repo: "up-repo", Package: "up-pkg", Revision: "v2"},
+			Upstream: &pkgvarapi.Upstream{Repo: "up-repo", Package: "up-pkg", Revision: 2},
 		},
 	}
 	upstreamPR := porchapi.PackageRevision{

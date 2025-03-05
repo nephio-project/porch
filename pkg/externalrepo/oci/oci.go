@@ -196,8 +196,8 @@ func (r *ociRepository) ListPackages(ctx context.Context, filter repository.List
 	return nil, fmt.Errorf("ListPackages not supported for OCI packages")
 }
 
-func (r *ociRepository) buildPackageRevision(ctx context.Context, name oci.ImageDigestName, packageName, workspace,
-	revision string, created time.Time) (repository.PackageRevision, error) {
+func (r *ociRepository) buildPackageRevision(ctx context.Context, name oci.ImageDigestName, packageName string,
+	workspace v1alpha1.WorkspaceName, revision int, created time.Time) (repository.PackageRevision, error) {
 
 	ctx, span := tracer.Start(ctx, "ociRepository::buildPackageRevision")
 	defer span.End()
@@ -250,8 +250,8 @@ func (p *ociPackageRevision) ToMainPackageRevision() repository.PackageRevision 
 type ociPackageRevision struct {
 	digestName      oci.ImageDigestName
 	packageName     string
-	revision        string
-	workspaceName   string
+	revision        int
+	workspaceName   v1alpha1.WorkspaceName
 	created         time.Time
 	resourceVersion string
 	uid             types.UID

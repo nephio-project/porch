@@ -146,7 +146,7 @@ func (t *PorchSuite) TestCloneFromUpstream() {
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
 
-	upstreamPr := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: "v1"})
+	upstreamPr := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: 1})
 
 	// Register the repository as 'downstream'
 	t.RegisterMainGitRepositoryF("downstream")
@@ -252,7 +252,7 @@ func (t *PorchSuite) TestConcurrentClones() {
 		repository.PackageRevisionKey{
 			Repository: upstreamRepository,
 			Package:    upstreamPackage,
-			Revision:   "v1"})
+			Revision:   1})
 
 	// Create PackageRevision from upstream repo
 	clonedPr := t.CreatePackageSkeleton(downstreamRepository, downstreamPackage, workspace)
@@ -441,7 +441,7 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 	upstreamPackage := t.MustFindPackageRevision(&upstreamPackages, repository.PackageRevisionKey{
 		Repository:    "test-blueprints",
 		Package:       "basens",
-		Revision:      "v1",
+		Revision:      1,
 		WorkspaceName: "v1",
 	})
 
@@ -975,7 +975,7 @@ func (t *PorchSuite) TestProposeApprove() {
 	}
 
 	// Check its revision number
-	if got, want := approved.Spec.Revision, "v1"; got != want {
+	if got, want := approved.Spec.Revision, 1; got != want {
 		t.Fatalf("Approved package revision value: got %s, want %s", got, want)
 	}
 }
@@ -1341,14 +1341,22 @@ func (t *PorchSuite) TestProposeDeleteAndUndo() {
 	t.UpdateApprovalF(&pkg, metav1.UpdateOptions{})
 	t.MustExist(client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
 
-	_ = t.WaitUntilPackageRevisionExists(repository, packageName, "main")
+	_ = t.WaitUntilPackageRevisionExists(ctx, repository, packageName, -1)
 
 	var list porchapi.PackageRevisionList
 	t.ListF(&list, client.InNamespace(t.Namespace))
 
 	for i := range list.Items {
 		pkgRev := list.Items[i]
-		t.Run(fmt.Sprintf("revision %s", pkgRev.Spec.Revision), func() {
+		t.Run(fmt.Sprintf("revision %d", pkgRev.Spec.Revision), func(newT *testing.T) {
+			// This is a bit awkward, we should find a better way to allow subtests
+			// with our custom implementation of t.
+			oldT := t.T
+			t.T = newT
+			defer func() {
+				t.T = oldT
+			}()
+
 			// Propose deletion
 			pkgRev.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
 			t.UpdateApprovalF(&pkgRev, metav1.UpdateOptions{})
@@ -1410,7 +1418,7 @@ func (t *PorchSuite) TestDeleteAndRecreate() {
 
 	t.MustExist(client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
 
-	mainPkg := t.WaitUntilPackageRevisionExists(repository, packageName, "main")
+	mainPkg := t.WaitUntilPackageRevisionExists(ctx, repository, packageName, -1)
 
 	t.Log("Propose deletion and then delete the package with revision v1")
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
@@ -1499,8 +1507,8 @@ func (t *PorchSuite) TestDeleteFromMain() {
 	t.MustExist(client.ObjectKey{Namespace: t.Namespace, Name: createdSecond.Name}, &pkgSecond)
 
 	t.Log("Wait for the 'main' revisions to get created")
-	firstPkgRevFromMain := t.WaitUntilPackageRevisionExists(repository, packageNameFirst, "main")
-	secondPkgRevFromMain := t.WaitUntilPackageRevisionExists(repository, packageNameSecond, "main")
+	firstPkgRevFromMain := t.WaitUntilPackageRevisionExists(ctx, repository, packageNameFirst, -1)
+	secondPkgRevFromMain := t.WaitUntilPackageRevisionExists(ctx, repository, packageNameSecond, -1)
 
 	t.Log("Propose deletion of both main packages")
 	firstPkgRevFromMain.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
@@ -1598,8 +1606,8 @@ func (t *PorchSuite) TestPackageUpdate() {
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
 
-	basensV1 := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: "v1"})
-	basensV2 := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: "v2"})
+	basensV1 := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: 1})
+	basensV2 := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: 2})
 
 	// Register the repository as 'downstream'
 	t.RegisterMainGitRepositoryF(gitRepository)
@@ -1695,8 +1703,8 @@ func (t *PorchSuite) TestConcurrentPackageUpdates() {
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
 
-	basensV1 := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: "v1"})
-	basensV2 := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: "v2"})
+	basensV1 := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: 1})
+	basensV2 := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: 2})
 
 	// Register the repository as 'downstream'
 	t.RegisterMainGitRepositoryF(gitRepository)
@@ -2468,9 +2476,9 @@ func (t *PorchSuite) TestNewPackageRevisionLabels() {
 	delete(pr.ObjectMeta.Labels, labelKey1)
 	pr.ObjectMeta.Labels[labelKey2] = labelVal2
 	delete(pr.ObjectMeta.Annotations, annoKey2)
-	pr.Spec.Revision = "v1"
-	t.UpdateF(&pr)
-	t.ValidateLabelsAndAnnos(pr.Name,
+	pr.Spec.Revision = 1
+	t.UpdateF(ctx, &pr)
+	t.ValidateLabelsAndAnnos(ctx, pr.Name,
 		map[string]string{
 			labelKey2:                         labelVal2,
 			porchapi.LatestPackageRevisionKey: porchapi.LatestPackageRevisionValue,
@@ -2528,7 +2536,7 @@ func (t *PorchSuite) TestRegisteredPackageRevisionLabels() {
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
 
-	basens := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: "v1"})
+	basens := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: 1})
 	if basens.ObjectMeta.Labels == nil {
 		basens.ObjectMeta.Labels = make(map[string]string)
 	}
@@ -2894,14 +2902,14 @@ func (t *PorchSuite) TestPackageRevisionFieldSelectors() {
 		}
 	}
 
-	revName := "v1"
-	revSelector := client.MatchingFields(fields.Set{"spec.revision": revName})
-	t.ListE(&prList, client.InNamespace(t.Namespace), revSelector)
+	revNo := 1
+	revSelector := client.MatchingFields(fields.Set{"spec.revision": repository.Revision2Str(revNo)})
+	t.ListE(ctx, &prList, client.InNamespace(t.Namespace), revSelector)
 	if len(prList.Items) == 0 {
-		t.Errorf("Expected at least one PackageRevision with revision=%q, but got none", revName)
+		t.Errorf("Expected at least one PackageRevision with revision=%q, but got none", revNo)
 	}
 	for _, pr := range prList.Items {
-		if pr.Spec.Revision != revName {
+		if pr.Spec.Revision != revNo {
 			t.Errorf("PackageRevision %s revision: want %q, but got %q", pr.Name, pkgName, pr.Spec.PackageName)
 		}
 	}
@@ -2942,14 +2950,14 @@ func (t *PorchSuite) TestPackageRevisionFieldSelectors() {
 	}
 
 	// test combined selectors
-	combinedSelector := client.MatchingFields(fields.Set{"spec.revision": revName, "spec.packageName": pkgName})
-	t.ListE(&prList, client.InNamespace(t.Namespace), combinedSelector)
+	combinedSelector := client.MatchingFields(fields.Set{"spec.revision": repository.Revision2Str(revNo), "spec.packageName": pkgName})
+	t.ListE(ctx, &prList, client.InNamespace(t.Namespace), combinedSelector)
 	if len(prList.Items) == 0 {
-		t.Errorf("Expected at least one PackageRevision with packageName=%q and revision=%q, but got none", pkgName, revName)
+		t.Errorf("Expected at least one PackageRevision with packageName=%q and revision=%q, but got none", pkgName, revNo)
 	}
 	for _, pr := range prList.Items {
-		if pr.Spec.PackageName != pkgName || pr.Spec.Revision != revName {
-			t.Errorf("PackageRevision %s: want %v/%v, but got %v/%v", pr.Name, pkgName, revName, pr.Spec.PackageName, pr.Spec.Revision)
+		if pr.Spec.PackageName != pkgName || pr.Spec.Revision != revNo {
+			t.Errorf("PackageRevision %s: want %v/%v, but got %v/%v", pr.Name, pkgName, revNo, pr.Spec.PackageName, pr.Spec.Revision)
 		}
 	}
 }

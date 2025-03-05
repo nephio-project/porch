@@ -31,15 +31,17 @@ type PackageResources struct {
 }
 
 type PackageRevisionKey struct {
-	Namespace, Repository, Package, WorkspaceName, Revision string
+	Namespace, Repository, Package string
+	Revision                       int
+	WorkspaceName                  v1alpha1.WorkspaceName
 }
 
 func (n PackageRevisionKey) String() string {
-	return fmt.Sprintf("%s.%s.%s.v%s.%s", n.Namespace, n.Repository, n.Package, n.Revision, n.WorkspaceName)
+	return fmt.Sprintf("%s.%s.%s.%d.%s", n.Namespace, n.Repository, n.Package, n.Revision, string(n.WorkspaceName))
 }
 
 func (n PackageRevisionKey) NonNSString() string {
-	return fmt.Sprintf("%s.%s.v%s.%s", n.Repository, n.Package, n.Revision, n.WorkspaceName)
+	return fmt.Sprintf("%s.%s.%d.%s", n.Repository, n.Package, n.Revision, string(n.WorkspaceName))
 }
 
 func (n PackageRevisionKey) PackageKey() PackageKey {
@@ -183,7 +185,7 @@ type ListPackageRevisionFilter struct {
 	WorkspaceName string
 
 	// Revision matches the revision of the package (spec.revision)
-	Revision string
+	Revision int
 
 	// Lifecycle matches the spec.lifecycle of the package
 	Lifecycle v1alpha1.PackageRevisionLifecycle
@@ -196,7 +198,7 @@ func (f *ListPackageRevisionFilter) Matches(ctx context.Context, p PackageRevisi
 	if f.Package != "" && f.Package != packageKey.Package {
 		return false
 	}
-	if f.Revision != "" && f.Revision != packageKey.Revision {
+	if f.Revision != 0 && f.Revision != packageKey.Revision {
 		return false
 	}
 	if f.WorkspaceName != "" && f.WorkspaceName != packageKey.WorkspaceName {
@@ -242,7 +244,7 @@ type Repository interface {
 	CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (PackageRevisionDraft, error)
 
 	// ClosePackageRevisionDraft closes out a Package Revision Draft
-	ClosePackageRevisionDraft(ctx context.Context, prd PackageRevisionDraft, version string) (PackageRevision, error)
+	ClosePackageRevisionDraft(ctx context.Context, prd PackageRevisionDraft, version int) (PackageRevision, error)
 
 	// DeletePackageRevision deletes a package revision
 	DeletePackageRevision(ctx context.Context, old PackageRevision) error
