@@ -162,7 +162,7 @@ func (r *cachedRepository) CreatePackageRevision(ctx context.Context, obj *v1alp
 	return r.repo.CreatePackageRevision(ctx, obj)
 }
 
-func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version string) (repository.PackageRevision, error) {
+func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version int) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cachedRepository::ClosePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
 
@@ -185,19 +185,14 @@ func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd re
 		return nil, err
 	}
 
-	var publishedRevisions []string
+	highestRevision := 0
 	for _, rev := range revisions {
-		if v1alpha1.LifecycleIsPublished(rev.Lifecycle(ctx)) {
-			publishedRevisions = append(publishedRevisions, rev.Key().Revision)
+		if v1alpha1.LifecycleIsPublished(rev.Lifecycle(ctx)) && rev.Key().Revision > highestRevision {
+			highestRevision = rev.Key().Revision
 		}
 	}
 
-	nextVersion, err := repository.NextRevisionNumber(ctx, publishedRevisions)
-	if err != nil {
-		return nil, err
-	}
-
-	if closed, err := r.repo.ClosePackageRevisionDraft(ctx, prd, nextVersion); err != nil {
+	if closed, err := r.repo.ClosePackageRevisionDraft(ctx, prd, highestRevision+1); err != nil {
 		return nil, err
 	} else {
 		return r.update(ctx, closed)

@@ -51,7 +51,7 @@ type CaDEngine interface {
 
 	ListPackageRevisions(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error)
 	CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error)
-	UpdatePackageRevision(ctx context.Context, version string, repositoryObj *configapi.Repository, oldPackage repository.PackageRevision, old, new *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error)
+	UpdatePackageRevision(ctx context.Context, version int, repositoryObj *configapi.Repository, oldPackage repository.PackageRevision, old, new *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error)
 	DeletePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj repository.PackageRevision) error
 
 	ListPackages(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageFilter) ([]repository.Package, error)
@@ -185,7 +185,7 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	}
 
 	// Updates are done.
-	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, "")
+	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -223,7 +223,7 @@ func ensureUniqueWorkspaceName(obj *api.PackageRevision, existingRevs []reposito
 	return nil
 }
 
-func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version string, repositoryObj *configapi.Repository, repoPr repository.PackageRevision, oldObj, newObj *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
+func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version int, repositoryObj *configapi.Repository, repoPr repository.PackageRevision, oldObj, newObj *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cadEngine::UpdatePackageRevision", trace.WithAttributes())
 	defer span.End()
 
@@ -518,7 +518,7 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 		return nil, renderStatus, err
 	}
 	// No lifecycle change when updating package resources; updates are done.
-	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, "")
+	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, 0)
 	if err != nil {
 		return nil, renderStatus, err
 	}
@@ -549,7 +549,7 @@ func isRecloneAndReplay(oldObj, newObj *api.PackageRevision) bool {
 
 // recloneAndReplay performs an update by recloning the upstream package and replaying all tasks.
 // This is more like a git rebase operation than the "classic" kpt update algorithm, which is more like a git merge.
-func (cad *cadEngine) RecloneAndReplay(ctx context.Context, parentPR repository.PackageRevision, version string, repo repository.Repository, repositoryObj *configapi.Repository, newObj *api.PackageRevision) (repository.PackageRevision, error) {
+func (cad *cadEngine) RecloneAndReplay(ctx context.Context, parentPR repository.PackageRevision, version int, repo repository.Repository, repositoryObj *configapi.Repository, newObj *api.PackageRevision) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cadEngine::recloneAndReplay", trace.WithAttributes())
 	defer span.End()
 

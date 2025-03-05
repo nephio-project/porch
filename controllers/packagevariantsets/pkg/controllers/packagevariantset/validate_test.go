@@ -43,7 +43,7 @@ metadata:
 spec:
   upstream:
     repo: foo
-    revision: v1`,
+    revision: 1`,
 			expectedErrs: []string{"spec.upstream.package is a required field",
 				"must specify at least one item in spec.targets",
 			},
@@ -53,7 +53,7 @@ spec:
 spec:
   upstream:
     package: foopkg
-    revision: v3`,
+    revision: 3`,
 			expectedErrs: []string{"spec.upstream.repo is a required field",
 				"must specify at least one item in spec.targets",
 			},

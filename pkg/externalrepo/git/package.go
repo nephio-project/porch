@@ -42,7 +42,7 @@ const (
 type gitPackageRevision struct {
 	repo          *gitRepository // repo is repo containing the package
 	path          string         // the path to the package from the repo root
-	revision      string
+	revision      int
 	workspaceName v1alpha1.WorkspaceName
 	updated       time.Time
 	updatedBy     string
@@ -64,12 +64,12 @@ var _ repository.PackageRevision = &gitPackageRevision{}
 // layer, the prefix will be removed (this may happen without notice) so it should not
 // be relied upon by clients.
 func (p *gitPackageRevision) KubeObjectName() string {
-	// The published package revisions on the main branch will have the same workspaceName
+	// The published package revisions on the working branch will have the same workspaceName
 	// as the most recently published package revision, so we need to ensure it has a unique
 	// and unchanging name.
 	var s string
-	if p.Key().Revision == string(p.repo.branch) {
-		s = p.Key().Revision
+	if p.revision == -1 {
+		s = string(p.repo.branch)
 	} else {
 		s = string(p.Key().WorkspaceName)
 	}
@@ -233,7 +233,7 @@ func (p *gitPackageRevision) ToMainPackageRevision() repository.PackageRevision 
 	p1 := &gitPackageRevision{
 		repo:          p.repo,
 		path:          p.path,
-		revision:      string(p.repo.branch),
+		revision:      -1,
 		workspaceName: p.workspaceName,
 		updated:       p.updated,
 		updatedBy:     p.updatedBy,

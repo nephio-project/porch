@@ -43,19 +43,19 @@ func TestLatestPackages(t *testing.T) {
 
 	cachedRepo := openRepositoryFromArchive(t, ctx, testPath, "nested")
 
-	wantLatest := map[string]string{
-		"sample":                    "v2",
-		"catalog/empty":             "v1",
-		"catalog/gcp/bucket":        "v1",
-		"catalog/namespace/basens":  "v3",
-		"catalog/namespace/istions": "v3",
+	wantLatest := map[string]int{
+		"sample":                    2,
+		"catalog/empty":             1,
+		"catalog/gcp/bucket":        1,
+		"catalog/namespace/basens":  3,
+		"catalog/namespace/istions": 3,
 	}
 	revisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	if err != nil {
 		t.Fatalf("ListPackageRevisions failed: %v", err)
 	}
 
-	gotLatest := map[string]string{}
+	gotLatest := map[string]int{}
 	for _, pr := range revisions {
 		rev, err := pr.GetPackageRevision(ctx)
 		if err != nil {
@@ -114,7 +114,7 @@ func TestPublishedLatest(t *testing.T) {
 	if err := update.UpdateLifecycle(ctx, api.PackageRevisionLifecyclePublished); err != nil {
 		t.Fatalf("UpdateLifecycle failed; %v", err)
 	}
-	closed, err := cachedRepo.ClosePackageRevisionDraft(ctx, update, "")
+	closed, err := cachedRepo.ClosePackageRevisionDraft(ctx, update, 0)
 	if err != nil {
 		t.Fatalf("Close failed: %v", err)
 	}
@@ -160,7 +160,7 @@ func TestDeletePublishedMain(t *testing.T) {
 	if err := update.UpdateLifecycle(ctx, api.PackageRevisionLifecyclePublished); err != nil {
 		t.Fatalf("UpdateLifecycle failed; %v", err)
 	}
-	closed, err := cachedRepo.ClosePackageRevisionDraft(ctx, update, "")
+	closed, err := cachedRepo.ClosePackageRevisionDraft(ctx, update, 0)
 	if err != nil {
 		t.Fatalf("Close failed: %v", err)
 	}
@@ -173,7 +173,7 @@ func TestDeletePublishedMain(t *testing.T) {
 		Package:       "catalog/gcp/bucket",
 		WorkspaceName: "v2",
 		Lifecycle:     api.PackageRevisionLifecyclePublished,
-		Revision:      "main",
+		Revision:      -1,
 	})
 	if err != nil {
 		t.Fatalf("ListPackageRevisions failed: %v", err)
@@ -203,7 +203,7 @@ func TestDeletePublishedMain(t *testing.T) {
 		Package:       "catalog/gcp/bucket",
 		WorkspaceName: "v2",
 		Lifecycle:     api.PackageRevisionLifecyclePublished,
-		Revision:      "main",
+		Revision:      -1,
 	})
 
 	if err != nil {
