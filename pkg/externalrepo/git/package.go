@@ -73,7 +73,7 @@ func (p *gitPackageRevision) KubeObjectName() string {
 		s = string(p.workspaceName)
 	}
 
-	// Delete all leading and trailing dots and replace slashes with dots
+	// Replace slashes with dots
 	dottedPath := strings.ReplaceAll(p.path, "/", ".")
 
 	return p.repo.name + "." + dottedPath + "." + s
