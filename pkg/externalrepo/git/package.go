@@ -68,8 +68,8 @@ func (p *gitPackageRevision) KubeObjectName() string {
 	// as the most recently published package revision, so we need to ensure it has a unique
 	// and unchanging name.
 	var s string
-	if p.Key().Revision == string(p.repo.branch) {
-		s = p.Key().Revision
+	if p.revision == -1 {
+		s = string(p.repo.branch)
 	} else {
 		s = string(p.Key().WorkspaceName)
 	}

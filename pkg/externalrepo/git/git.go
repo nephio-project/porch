@@ -862,7 +862,14 @@ func (r *gitRepository) loadTaggedPackage(ctx context.Context, tag *plumbing.Ref
 		klog.Warningf("Error building git package revision %q: %s", path, err)
 	}
 
-	return packageRevision, nil
+	packageRevision, err := krmPackage.buildGitPackageRevision(ctx, revisionStr, workspaceName, tag)
+	if err != nil {
+		return nil, err
+	}
+
+	return []*gitPackageRevision{
+		packageRevision,
+	}, nil
 
 }
 
