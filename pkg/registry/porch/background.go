@@ -191,7 +191,7 @@ func (b *background) repositoryDelete(ctx context.Context, repository *configapi
 	// Verify repositories can be listed (core client is alive)
 	var repoList configapi.RepositoryList
 	if err := b.coreClient.List(ctx, &repoList); err != nil {
-		return fmt.Errorf("%s :%q", msgErr, err)
+		return fmt.Errorf("%s, handling failed, could not list repos using core client :%q", msgPreamble, err)
 	}
 
 	var err error
@@ -205,7 +205,7 @@ func (b *background) repositoryDelete(ctx context.Context, repository *configapi
 		klog.Infof("%s, handling completed", msgPreamble)
 		return nil
 	} else {
-		return fmt.Errorf("%s :%q", msgErr, err)
+		return fmt.Errorf("%s, handling failed, cache could not process repo event :%q", msgPreamble, err)
 	}
 }
 
