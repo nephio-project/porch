@@ -135,11 +135,14 @@ loop:
 
 func (b *background) updateCache(ctx context.Context, event watch.EventType, repository *configapi.Repository) error {
 	switch event {
-	case watch.Added, watch.Modified:
-		return b.repositoryChange(ctx, repository)
+	case watch.Added:
+		return b.handleRepositoryEvent(ctx, repository, watch.Added)
+
+	case watch.Modified:
+		return b.handleRepositoryEvent(ctx, repository, watch.Modified)
 
 	case watch.Deleted:
-		return b.repositoryDelete(ctx, repository)
+		return b.handleRepositoryEvent(ctx, repository, watch.Deleted)
 
 	default:
 		klog.Warningf("Unhandled watch event type: %s", event)
