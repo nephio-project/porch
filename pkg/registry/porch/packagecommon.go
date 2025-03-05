@@ -446,7 +446,7 @@ func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo 
 }
 
 func (r *packageCommon) validateDelete(ctx context.Context, deleteValidation rest.ValidateObjectFunc, obj runtime.Object,
-	repoName string, ns string) (*configapi.Repository, error) {
+	name string, ns string) (*configapi.Repository, error) {
 	if deleteValidation != nil {
 		err := deleteValidation(ctx, obj)
 		if err != nil {
@@ -454,9 +454,9 @@ func (r *packageCommon) validateDelete(ctx context.Context, deleteValidation res
 			return nil, err
 		}
 	}
-	parsedRevName, err := util.ParseRevisionName(repoName)
+	parsedRevName, err := util.ParseRevisionName(name)
 	if err != nil {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid name %q", repoName))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid name %q", name))
 	}
 	repositoryObj, err := r.getRepositoryObj(ctx, types.NamespacedName{Name: parsedRevName[0], Namespace: ns})
 	if err != nil {
