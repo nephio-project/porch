@@ -121,6 +121,9 @@ const (
 	FastForward UpdateStrategyType = "fast-forward"
 	// ForceDeleteReplace wipes all local changes to the package.
 	ForceDeleteReplace UpdateStrategyType = "force-delete-replace"
+	// ComprehensiveMerge performs a 3-way merge of the local package, the
+	// original package, and the upstream package. Similar to cp command.
+	ComprehensiveMerge UpdateStrategyType = "comprehensive-merge"
 )
 
 // UpdateStrategies is a slice with all the supported update strategies.
@@ -128,6 +131,7 @@ var UpdateStrategies = []UpdateStrategyType{
 	ResourceMerge,
 	FastForward,
 	ForceDeleteReplace,
+	ComprehensiveMerge,
 }
 
 // UpdateStrategiesAsStrings returns a list of update strategies as strings.
