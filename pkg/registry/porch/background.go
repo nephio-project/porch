@@ -152,18 +152,17 @@ func (b *background) updateCache(ctx context.Context, event watch.EventType, rep
 
 func (b *background) handleRepositoryEvent(ctx context.Context, repository *configapi.Repository, eventType watch.EventType) error {
 	msgPreamble := fmt.Sprintf("repository %s event handling: repo %s:%s", eventType, repository.ObjectMeta.Namespace, repository.ObjectMeta.Name)
-	msgErr := fmt.Sprintf("%s, handling failed", msgPreamble)
 
 	klog.Infof("%s, handling starting", msgPreamble)
 
 	if err := validateRepository(repository); err != nil {
-		return fmt.Errorf("%s :%q", msgErr, err)
+		return fmt.Errorf("%s, handling failed, repo specification invalid :%q", msgPreamble, err)
 	}
 
 	// Verify repositories can be listed (core client is alive)
 	var repoList configapi.RepositoryList
 	if err := b.coreClient.List(ctx, &repoList); err != nil {
-		return fmt.Errorf("%s :%q", msgErr, err)
+		return fmt.Errorf("%s, handling failed, could not list repos using core client :%q", msgPreamble, err)
 	}
 
 	var err error
@@ -177,7 +176,7 @@ func (b *background) handleRepositoryEvent(ctx context.Context, repository *conf
 		klog.Infof("%s, handling completed", msgPreamble)
 		return nil
 	} else {
-		return fmt.Errorf("%s :%q", msgErr, err)
+		return fmt.Errorf("%s, handling failed, cache could not process repo event :%q", msgPreamble, err)
 	}
 }
 
