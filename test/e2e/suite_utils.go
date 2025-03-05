@@ -24,6 +24,7 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
+	"github.com/nephio-project/porch/pkg/repository"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -539,21 +540,21 @@ func (t *TestSuite) WaitUntilPackageRevisionResourcesExists(
 	return foundPrr
 }
 
-func (t *TestSuite) GetPackageRevision(repository string, pkgName string, revision string) *porchapi.PackageRevision {
-	t.T().Helper()
+func (t *TestSuite) GetPackageRevision(ctx context.Context, repo string, pkgName string, revision int) *porchapi.PackageRevision {
+	t.Helper()
 	var prList porchapi.PackageRevisionList
 	selector := client.MatchingFields(fields.Set{
-		"spec.repository":  repository,
+		"spec.repository":  repo,
 		"spec.packageName": pkgName,
-		"spec.revision":    revision,
+		"spec.revision":    repository.Revision2Str(revision),
 	})
 	t.ListF(&prList, selector, client.InNamespace(t.Namespace))
 
 	if len(prList.Items) == 0 {
-		t.Fatalf("PackageRevision object wasn't found for package revision %v/%v/%v", repository, pkgName, revision)
+		t.Fatalf("PackageRevision object wasn't found for package revision %v/%v/%d", repo, pkgName, revision)
 	}
 	if len(prList.Items) > 1 {
-		t.Fatalf("Multiple PackageRevision objects were found for package revision %v/%v/%v", repository, pkgName, revision)
+		t.Fatalf("Multiple PackageRevision objects were found for package revision %v/%v/%d", repo, pkgName, revision)
 	}
 	return &prList.Items[0]
 }

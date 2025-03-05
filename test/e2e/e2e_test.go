@@ -288,7 +288,7 @@ func (t *PorchSuite) TestInitEmptyPackage() {
 	const (
 		repository  = "git"
 		packageName = "empty-package"
-		revision    = "v1"
+		revision    = 1
 		workspace   = "test-workspace"
 		description = "empty-package description"
 	)
@@ -336,7 +336,7 @@ func (t *PorchSuite) TestConcurrentInits() {
 	const (
 		repository  = "git-concurrent"
 		packageName = "empty-package-concurrent"
-		revision    = "v1"
+		revision    = 1
 		workspace   = "test-workspace"
 		description = "empty-package description"
 	)
@@ -368,7 +368,7 @@ func (t *PorchSuite) TestInitTaskPackage() {
 	const (
 		repository  = "git"
 		packageName = "new-package"
-		revision    = "v1"
+		revision    = 1
 		workspace   = "test-workspace"
 		description = "New Package"
 		site        = "https://kpt.dev/new-package"
@@ -1073,9 +1073,9 @@ func (t *PorchSuite) TestSubfolderPackageRevisionIncrementation() {
 	prInSubfolder = t.UpdateApprovalF(prInSubfolder, metav1.UpdateOptions{})
 
 	assert.Equal(t, porchapi.PackageRevisionLifecyclePublished, subfolderPr.Spec.Lifecycle)
-	assert.Equal(t, "v1", subfolderPr.Spec.Revision)
+	assert.Equal(t, 1, subfolderPr.Spec.Revision)
 	assert.Equal(t, porchapi.PackageRevisionLifecyclePublished, prInSubfolder.Spec.Lifecycle)
-	assert.Equal(t, "v1", prInSubfolder.Spec.Revision)
+	assert.Equal(t, 1, prInSubfolder.Spec.Revision)
 
 	// Create new package revisions via edit/copy
 	editedSubfolderPr := t.CreatePackageSkeleton(repository, subfolderPackageName, workspace2)
@@ -1115,16 +1115,16 @@ func (t *PorchSuite) TestSubfolderPackageRevisionIncrementation() {
 	editedPrInSubfolder = t.UpdateApprovalF(editedPrInSubfolder, metav1.UpdateOptions{})
 
 	assert.Equal(t, porchapi.PackageRevisionLifecyclePublished, editedSubfolderPr.Spec.Lifecycle)
-	assert.Equal(t, "v2", editedSubfolderPr.Spec.Revision)
+	assert.Equal(t, 2, editedSubfolderPr.Spec.Revision)
 	assert.Equal(t, porchapi.PackageRevisionLifecyclePublished, editedPrInSubfolder.Spec.Lifecycle)
-	assert.Equal(t, "v2", editedPrInSubfolder.Spec.Revision)
+	assert.Equal(t, 2, editedPrInSubfolder.Spec.Revision)
 }
 
 func (t *PorchSuite) TestDeleteDraft() {
 	const (
 		repository  = "delete-draft"
 		packageName = "test-delete-draft"
-		revision    = "v1"
+		revision    = 1
 		workspace   = "test-workspace"
 	)
 
@@ -1153,7 +1153,7 @@ func (t *PorchSuite) TestConcurrentDeletes() {
 	const (
 		repository  = "delete-draft"
 		packageName = "test-delete-draft-concurrent"
-		revision    = "v1"
+		revision    = 1
 		workspace   = "test-workspace"
 	)
 
@@ -1195,7 +1195,7 @@ func (t *PorchSuite) TestDeleteProposed() {
 	const (
 		repository  = "delete-proposed"
 		packageName = "test-delete-proposed"
-		revision    = "v1"
+		revision    = 1
 		workspace   = "workspace"
 	)
 
@@ -1394,7 +1394,7 @@ func (t *PorchSuite) TestDeleteAndRecreate() {
 	const (
 		repository  = "delete-and-recreate"
 		packageName = "test-delete-and-recreate"
-		revision    = "v1"
+		revision    = 1
 		workspace   = "work"
 	)
 
@@ -1552,7 +1552,7 @@ func (t *PorchSuite) TestCloneLeadingSlash() {
 	const (
 		repository  = "clone-ls"
 		packageName = "test-clone-ls"
-		revision    = "v1"
+		revision    = 1
 		workspace   = "workspace"
 	)
 
@@ -3023,8 +3023,8 @@ func (t *PorchSuite) TestLatestVersionOnDelete() {
 	t.DeleteF(pr1)
 	//After the removal of all versioned packageRevisions, the main branch
 	//packageRevision should still not get the latest label.
-	mainPr := t.GetPackageRevision(repositoryName, packageName, "main")
-	t.MustNotHaveLabels(mainPr.Name, []string{
+	mainPr := t.GetPackageRevision(ctx, repositoryName, packageName, -1)
+	t.MustNotHaveLabels(ctx, mainPr.Name, []string{
 		porchapi.LatestPackageRevisionKey,
 	})
 }
