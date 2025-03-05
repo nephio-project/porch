@@ -87,8 +87,7 @@ func (m *DefaultPackageUpdater) do(_ context.Context, localPkgDir, originalPkgDi
 		OriginPath:     originPath,
 		IsRoot:         isRoot,
 	}
-	// updater := update.ResourceMergeUpdater{}
-	updater := update.ComprehensiveUpdater{}
+	updater := update.ResourceMergeUpdater{}
 	if err := updater.Update(updateOptions); err != nil {
 		return err
 	}
