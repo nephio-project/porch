@@ -45,7 +45,7 @@ func identifyLatestRevisions(ctx context.Context, result map[repository.PackageR
 				// currentKey.Revision > previousKey.Revision; update latest
 				latest[currentKey.Package] = current
 			}
-		} else {
+		} else if currentKey.Revision != -1 { // The working repository PR (usually main) can never be the latest PR
 			// First revision of the specific package; candidate for the latest.
 			latest[currentKey.Package] = current
 		}
