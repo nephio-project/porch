@@ -21,6 +21,7 @@ import (
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/pkg/repository"
 )
 
 const (
@@ -128,8 +129,8 @@ func createProposedName(pkg string, wn v1alpha1.WorkspaceName) BranchName {
 	return BranchName(proposedPrefix + pkg + "/" + string(wn))
 }
 
-func createDeletionProposedName(pkg string, revision string) BranchName {
-	return BranchName(deletionProposedPrefix + pkg + "/" + revision)
+func createDeletionProposedName(pkg string, revision int) BranchName {
+	return BranchName(deletionProposedPrefix + pkg + "/v" + repository.Revision2Str(revision))
 }
 
 func trimOptionalPrefix(s, prefix string) (string, bool) {
@@ -139,8 +140,8 @@ func trimOptionalPrefix(s, prefix string) (string, bool) {
 	return "", false
 }
 
-func createFinalTagNameInLocal(pkg, rev string) plumbing.ReferenceName {
-	return plumbing.ReferenceName(tagsPrefixInLocalRepo + pkg + "/" + rev)
+func createFinalTagNameInLocal(pkg string, rev int) plumbing.ReferenceName {
+	return plumbing.ReferenceName(tagsPrefixInLocalRepo + pkg + "/v" + repository.Revision2Str(rev))
 }
 
 func refInLocalFromRefInRemote(n plumbing.ReferenceName) (plumbing.ReferenceName, error) {

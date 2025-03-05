@@ -28,7 +28,7 @@ import (
 type gitPackageRevisionDraft struct {
 	parent        *gitRepository // repo is repo containing the package
 	path          string         // the path to the package from the repo root
-	revision      string
+	revision      int
 	workspaceName v1alpha1.WorkspaceName
 	updated       time.Time
 	tasks         []v1alpha1.Task

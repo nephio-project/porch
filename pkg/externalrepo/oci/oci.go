@@ -197,7 +197,7 @@ func (r *ociRepository) ListPackages(ctx context.Context, filter repository.List
 }
 
 func (r *ociRepository) buildPackageRevision(ctx context.Context, name oci.ImageDigestName, packageName string,
-	workspace v1alpha1.WorkspaceName, revision string, created time.Time) (repository.PackageRevision, error) {
+	workspace v1alpha1.WorkspaceName, revision int, created time.Time) (repository.PackageRevision, error) {
 
 	ctx, span := tracer.Start(ctx, "ociRepository::buildPackageRevision")
 	defer span.End()
@@ -250,7 +250,7 @@ func (p *ociPackageRevision) ToMainPackageRevision() repository.PackageRevision 
 type ociPackageRevision struct {
 	digestName      oci.ImageDigestName
 	packageName     string
-	revision        string
+	revision        int
 	workspaceName   v1alpha1.WorkspaceName
 	created         time.Time
 	resourceVersion string

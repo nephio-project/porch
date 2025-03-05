@@ -86,7 +86,7 @@ items:
     upstream:
       repo: up
       package: up
-      revision: up
+      revision: 0
     downstream:
       repo: dnrepo1
       package: dnpkg1
@@ -98,7 +98,7 @@ items:
     upstream:
       repo: up
       package: up
-      revision: up
+      revision: 0
     downstream:
       repo: dnrepo2
       package: dnpkg2`

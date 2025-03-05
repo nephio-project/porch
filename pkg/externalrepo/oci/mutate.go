@@ -201,7 +201,7 @@ func (p *ociPackageRevisionDraft) GetName() string {
 }
 
 // Finish round of updates.
-func (r *ociRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version string) (repository.PackageRevision, error) {
+func (r *ociRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version int) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "ociRepository::ClosePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
 
@@ -212,7 +212,7 @@ func (r *ociRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 
 	klog.Infof("pushing %s", ref)
 
-	revision := ""
+	revision := -1
 	addendums := append([]mutate.Addendum{}, p.addendums...)
 	if p.lifecycle != "" {
 		if len(addendums) == 0 {
@@ -240,18 +240,15 @@ func (r *ociRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 				if err != nil {
 					return nil, err
 				}
-				var revs []string
+
+				highestRev := -1
 				for _, rev := range revisions {
-					if v1alpha1.LifecycleIsPublished(rev.Lifecycle(ctx)) {
-						revs = append(revs, rev.Key().Revision)
+					if v1alpha1.LifecycleIsPublished(rev.Lifecycle(ctx)) && rev.Key().Revision > highestRev {
+						highestRev = rev.Key().Revision
 					}
 				}
-				nextRevisionNumber, err := repository.NextRevisionNumber(ctx, revs)
-				if err != nil {
-					return nil, err
-				}
-				addendum.Annotations[annotationKeyRevision] = nextRevisionNumber
-				revision = nextRevisionNumber
+				revision = highestRev + 1
+				addendum.Annotations[annotationKeyRevision] = repository.Revision2Str(revision)
 			}
 		}
 	}

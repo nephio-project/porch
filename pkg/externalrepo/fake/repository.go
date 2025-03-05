@@ -47,7 +47,7 @@ func (r *Repository) ListPackageRevisions(_ context.Context, filter repository.L
 		if filter.Package != "" && filter.Package == rev.Key().Package {
 			revs = append(revs, rev)
 		}
-		if filter.Revision != "" && filter.Revision == rev.Key().Revision {
+		if filter.Revision != 0 && filter.Revision == rev.Key().Revision {
 			revs = append(revs, rev)
 		}
 		if filter.WorkspaceName != "" && filter.WorkspaceName == rev.Key().WorkspaceName {
@@ -61,7 +61,7 @@ func (r *Repository) CreatePackageRevision(_ context.Context, pr *v1alpha1.Packa
 	return nil, nil
 }
 
-func (r *Repository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version string) (repository.PackageRevision, error) {
+func (r *Repository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version int) (repository.PackageRevision, error) {
 	return nil, nil
 }
 
