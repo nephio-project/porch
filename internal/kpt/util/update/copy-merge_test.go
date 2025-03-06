@@ -220,8 +220,6 @@ func TestCopyMerge(t *testing.T) {
 				t.FailNow()
 			}
 
-			printLogs(t, local, expected, updated)
-
 			assertElementsMatch(t, local, expected)
 			testutil.KptfileAwarePkgEqual(t, local, expected, false)
 
@@ -230,17 +228,14 @@ func TestCopyMerge(t *testing.T) {
 }
 
 func assertElementsMatch(t *testing.T, local string, expected string) {
-	// Just compares file names
 	localFiles, err := collectFilePaths(local)
 	if err != nil {
 		t.Fatalf("Error collecting file paths from local: %v\n", err)
 	}
-	t.Logf("Local files: %v\n", localFiles)
 	expectedFiles, err := collectFilePaths(expected)
 	if err != nil {
 		t.Fatalf("Error collecting file paths from expected: %v\n", err)
 	}
-	t.Logf("Expected files: %v\n", expectedFiles)
 	t.Helper()
 	assert.ElementsMatch(t, localFiles, expectedFiles)
 }
@@ -261,33 +256,4 @@ func collectFilePaths(root string) ([]string, error) {
 		return nil
 	})
 	return paths, err
-}
-
-func logFiles(t *testing.T, path string) {
-	err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() {
-			content, err := os.ReadFile(path)
-			if err != nil {
-				return err
-			}
-			t.Logf("File: %s\nContent:\n%s\n", path, string(content))
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("Error walking the path %q: %v\n", path, err)
-	}
-}
-
-func printLogs(t *testing.T, local, expected, updated string) {
-	// Log the content of each file
-	t.Logf("Log Local files:")
-	logFiles(t, local)
-	t.Logf("Log Expected files:")
-	logFiles(t, expected)
-	t.Logf("Log Updated files:")
-	logFiles(t, updated)
 }

@@ -15,12 +15,13 @@
 package update
 
 import (
-	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/nephio-project/porch/internal/kpt/errors"
-	"github.com/nephio-project/porch/internal/kpt/util/merge"
+	"github.com/nephio-project/porch/internal/kpt/pkg"
+	"github.com/nephio-project/porch/internal/kpt/types"
+	"github.com/nephio-project/porch/internal/kpt/util/pkgutil"
 )
 
 type ComprehensiveUpdater struct{}
@@ -28,7 +29,7 @@ type ComprehensiveUpdater struct{}
 func (u ComprehensiveUpdater) Update(options Options) error {
 	const op errors.Op = "update.Update"
 
-	err := copyDir(options.OriginPath, options.UpdatedPath, options.LocalPath)
+	err := copyDir(options.UpdatedPath, options.LocalPath, options.IsRoot)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -36,8 +37,8 @@ func (u ComprehensiveUpdater) Update(options Options) error {
 	return nil
 }
 
-// Simple version of pkgutil.CopyPackage
-func copyDir(org string, src string, dst string) error {
+func copyDir(src string, dst string, isRoot bool) error {
+	const op errors.Op = "update.Update"
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -47,63 +48,15 @@ func copyDir(org string, src string, dst string) error {
 			return err
 		}
 		dstPath := filepath.Join(dst, relPath)
-		//orgPath := filepath.Join(org, relPath)
-		//srcPath := filepath.Join(src, relPath)
+		updPath := filepath.Join(src, relPath)
 		if info.IsDir() {
 			return os.MkdirAll(dstPath, info.Mode())
 		} else {
-			// if _, err := os.Stat(dstPath); err == nil {
-			// 	// File exists in destination
-			// 	if _, err := os.Stat(orgPath); err == nil {
-			// 		// File also exists in origin, perform special merge
-			// 		return mergeFile(orgPath, srcPath, dstPath)
-			// 	}
-			// 	// File does not exist in origin, perform simple copy
-			// 	return copyFile(path, dstPath)
-			// } else if os.IsNotExist(err) {
-			// File does not exist in destination, perform simple copy
-			return copyFile(path, dstPath)
-			// } else {
-			// 	return err
-			// }
+			//return copyFile(path, dstPath)
+			if err = pkgutil.CopyPackage(updPath, dstPath, isRoot, pkg.None); err != nil {
+				return errors.E(op, types.UniquePath(dstPath), err)
+			}
+			return nil
 		}
 	})
-}
-
-func copyFile(src, dst string) error {
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-
-	out, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	_, err = io.Copy(out, in)
-	if err != nil {
-		return err
-	}
-
-	return out.Close()
-}
-
-func mergeFile(org, src, dst string) error {
-	const op errors.Op = "update.mergeFile"
-
-	// Call the merge3 tool to perform a 3-way merge
-	err := merge.Merge3{
-		OriginalPath: org,
-		UpdatedPath:  src,
-		DestPath:     dst,
-		MergeOnPath:  false,
-	}.Merge()
-	if err != nil {
-		return errors.E(op, err)
-	}
-
-	return nil
 }
