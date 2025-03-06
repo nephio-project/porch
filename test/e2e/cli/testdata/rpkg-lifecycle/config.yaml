@@ -58,7 +58,7 @@ commands:
       - --namespace=rpkg-lifecycle
     stdout: |
       NAME                              PACKAGE             WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
-      git.lifecycle-package.lifecycle   lifecycle-package   lifecycle                  false    Draft       git
+      git.lifecycle-package.lifecycle   lifecycle-package   lifecycle       0          false    Draft       git
   - args:
       - porchctl
       - rpkg
@@ -83,7 +83,7 @@ commands:
       - --namespace=rpkg-lifecycle
     stdout: |
       NAME                              PACKAGE             WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
-      git.lifecycle-package.lifecycle   lifecycle-package   lifecycle                  false    Proposed    git
+      git.lifecycle-package.lifecycle   lifecycle-package   lifecycle       0          false    Proposed    git
   - args:
       - porchctl
       - rpkg
@@ -100,7 +100,7 @@ commands:
       - --namespace=rpkg-lifecycle
     stdout: |
       NAME                              PACKAGE             WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
-      git.lifecycle-package.lifecycle   lifecycle-package   lifecycle       v1         true     Published   git
+      git.lifecycle-package.lifecycle   lifecycle-package   lifecycle       1          true     Published   git
   - args:
       - porchctl
       - rpkg
@@ -133,7 +133,7 @@ commands:
       - --namespace=rpkg-lifecycle
     stdout: |
       NAME                              PACKAGE             WORKSPACENAME   REVISION   LATEST   LIFECYCLE          REPOSITORY
-      git.lifecycle-package.lifecycle   lifecycle-package   lifecycle       v1         true     DeletionProposed   git
+      git.lifecycle-package.lifecycle   lifecycle-package   lifecycle       1          true     DeletionProposed   git
   - args:
       - porchctl
       - rpkg
@@ -158,7 +158,7 @@ commands:
       - --namespace=rpkg-lifecycle
     stdout: |
       NAME                              PACKAGE             WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
-      git.lifecycle-package.lifecycle   lifecycle-package   lifecycle       v1         true     Published   git
+      git.lifecycle-package.lifecycle   lifecycle-package   lifecycle       1          true     Published   git
   - args:
       - porchctl
       - rpkg
@@ -175,7 +175,7 @@ commands:
       - --namespace=rpkg-lifecycle
     stdout: |
       NAME                              PACKAGE             WORKSPACENAME   REVISION   LATEST   LIFECYCLE          REPOSITORY
-      git.lifecycle-package.lifecycle   lifecycle-package   lifecycle       v1         true     DeletionProposed   git
+      git.lifecycle-package.lifecycle   lifecycle-package   lifecycle       1          true     DeletionProposed   git
   - args:
       - porchctl
       - rpkg
