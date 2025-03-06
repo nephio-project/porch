@@ -207,7 +207,7 @@ func TestCopyMerge(t *testing.T) {
 			updated := tc.updated.ExpandPkg(t, repos)
 			expected := tc.expected.ExpandPkg(t, repos)
 
-			updater := &ComprehensiveUpdater{}
+			updater := &CopyMergeUpdater{}
 
 			err := updater.Update(Options{
 				RelPackagePath: tc.relPackagePath,

@@ -24,9 +24,9 @@ import (
 	"github.com/nephio-project/porch/internal/kpt/util/pkgutil"
 )
 
-type ComprehensiveUpdater struct{}
+type CopyMergeUpdater struct{}
 
-func (u ComprehensiveUpdater) Update(options Options) error {
+func (u CopyMergeUpdater) Update(options Options) error {
 	const op errors.Op = "update.Update"
 
 	err := copyDir(options.UpdatedPath, options.LocalPath, options.IsRoot)
@@ -52,7 +52,6 @@ func copyDir(src string, dst string, isRoot bool) error {
 		if info.IsDir() {
 			return os.MkdirAll(dstPath, info.Mode())
 		} else {
-			//return copyFile(path, dstPath)
 			if err = pkgutil.CopyPackage(updPath, dstPath, isRoot, pkg.None); err != nil {
 				return errors.E(op, types.UniquePath(dstPath), err)
 			}
