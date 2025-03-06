@@ -92,7 +92,7 @@ func (r *runner) findDownstreamUpdates(prs []porchapi.PackageRevision, repositor
 			return fmt.Errorf("could not parse upstreamLock in Kptfile of package %q: %s", pr.Name, err.Error())
 		}
 		for _, update := range availableUpdates {
-			key := fmt.Sprintf("%s:%s:%s", update.Name, update.Spec.Revision, draftName)
+			key := fmt.Sprintf("%s:%d:%s", update.Name, update.Spec.Revision, draftName)
 			downstreamUpdatesMap[key] = append(downstreamUpdatesMap[key], pr)
 		}
 	}

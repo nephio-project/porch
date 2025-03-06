@@ -154,7 +154,7 @@ func (r *runner) doUpdate(pr *porchapi.PackageRevision) error {
 		}
 		newUpstreamPr := r.findPackageRevisionForRef(upstreamPr.Spec.PackageName)
 		if newUpstreamPr == nil {
-			return fmt.Errorf("revision %s does not exist for package %s", r.revision, pr.Spec.PackageName)
+			return fmt.Errorf("revision %d does not exist for package %s", r.revision, pr.Spec.PackageName)
 		}
 		newTask := porchapi.Task{
 			Type: porchapi.TaskTypeUpdate,

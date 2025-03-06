@@ -258,7 +258,7 @@ func (r *PackageVariantReconciler) getUpstreamPR(upstream *api.Upstream,
 			return &pr, nil
 		}
 	}
-	return nil, fmt.Errorf("could not find upstream package revision '%s/%s' in repo '%s'",
+	return nil, fmt.Errorf("could not find upstream package revision '%s/%d' in repo '%s'",
 		upstream.Package, upstream.Revision, upstream.Repo)
 }
 
@@ -392,7 +392,7 @@ func (r *PackageVariantReconciler) findAndUpdateExistingRevisions(ctx context.Co
 			if err != nil {
 				return nil, err
 			}
-			klog.Infoln(fmt.Sprintf("package variant %q updated package revision %q to upstream revision %s", pv.Name, downstream.Name, upstream.Spec.Revision))
+			klog.Infoln(fmt.Sprintf("package variant %q updated package revision %q to upstream revision %d", pv.Name, downstream.Name, upstream.Spec.Revision))
 		}
 
 		// finally, see if any other changes are needed to the resources
