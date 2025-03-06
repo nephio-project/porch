@@ -41,7 +41,7 @@ commands:
       - get
       - --namespace=rpkg-clone
       - --name=empty
-      - --revision=v1
+      - --revision=1
       - --output=jsonpath={.metadata.name}
     stdout: test-blueprints.empty.v1
   - args:

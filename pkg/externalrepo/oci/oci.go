@@ -205,7 +205,7 @@ func (r *ociRepository) buildPackageRevision(ctx context.Context, name oci.Image
 	// for backwards compatibility with packages that existed before porch supported
 	// workspaces, we populate the workspaceName as the revision number if it is empty
 	if workspace == "" {
-		workspace = v1alpha1.WorkspaceName(revision)
+		workspace = v1alpha1.WorkspaceName(repository.Revision2Str(revision))
 	}
 
 	p := &ociPackageRevision{
