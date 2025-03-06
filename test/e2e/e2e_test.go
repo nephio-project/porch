@@ -2219,7 +2219,9 @@ func (t *PorchSuite) TestPodEvaluatorWithFailure(ctx context.Context) {
 
 func (t *PorchSuite) TestLargePackageRevision(ctx context.Context) {
 	const (
-		setAnnotationsImage = "gcr.io/kpt-fn/set-annotations:v0.1.3" // set-annotations:v0.1.3 is an older version that porch maps neither to built-in nor exec.
+		// set-annotations:v0.1.3 is an older version of the fn that porch maps to "pod" function evaluator,
+		// and not to "built-in", or to "executable" function evaluator.
+		setAnnotationsImage = "gcr.io/kpt-fn/set-annotations:v0.1.3"
 		testDataSize        = 5 * 1024 * 1024
 	)
 

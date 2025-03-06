@@ -41,6 +41,7 @@ COPY ./pkg ./pkg
 COPY ./internal ./internal
 COPY ./controllers ./controllers
 COPY ./func ./func
+COPY ./third_party ./third_party
 
 WORKDIR /go/src/controllers/
 RUN CGO_ENABLED=0 go build -o /porch-controllers -v .
