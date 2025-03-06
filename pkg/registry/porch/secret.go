@@ -17,6 +17,7 @@ package porch
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-git/go-git/v5/plumbing/transport"
@@ -43,6 +44,9 @@ const (
 
 	//Secret.Data key required for the caBundle
 	CaBundleDataName = "ca.crt"
+
+	//Secret.Data key substring required for the token
+	TokenDataName = "token"
 )
 
 func NewCredentialResolver(coreClient client.Reader, resolverChain []Resolver) repository.CredentialResolver {
@@ -137,6 +141,50 @@ func (b *BasicAuthCredential) Valid() bool {
 }
 
 func (b *BasicAuthCredential) ToAuthMethod() transport.AuthMethod {
+	return &http.BasicAuth{
+		Username: string(b.Username),
+		Password: string(b.Password),
+	}
+}
+
+// token based secret verification
+// same as basic auth e.g. username:password
+// but in token based auth username does not matter and password is the token itself
+func NewTokenAuthResolver() Resolver {
+	return &TokenAuthResolver{}
+}
+
+var _ Resolver = &TokenAuthResolver{}
+
+type TokenAuthResolver struct{}
+
+type TokenAuthCredentials struct {
+	Username string
+	Password string
+}
+
+func (b *TokenAuthResolver) Resolve(_ context.Context, secret core.Secret) (repository.Credential, bool, error) {
+	if secret.Data[strings.ToLower(TokenDataName)] == nil && secret.Type == core.SecretTypeOpaque{
+		return nil, false, fmt.Errorf("Token secret.Data key must be set as %s", TokenDataName)
+	}
+
+	return &TokenAuthCredentials{
+		Username: string("Username"),
+		Password: string(secret.Data[TokenDataName]),
+	}, true, nil
+}
+
+func (b *TokenAuthCredentials) ToString() string {
+	return b.Password
+}
+
+var _ repository.Credential = &TokenAuthCredentials{}
+
+func (b *TokenAuthCredentials) Valid() bool {
+	return true
+}
+
+func (b *TokenAuthCredentials) ToAuthMethod() transport.AuthMethod {
 	return &http.BasicAuth{
 		Username: string(b.Username),
 		Password: string(b.Password),
