@@ -80,6 +80,9 @@ spec:
                 description: Git repository details. Required if `type` is `git`.
                   Ignored if `type` is not `git`.
                 properties:
+                  author:
+                    description: Author to use for commits
+                    type: string
                   branch:
                     default: main
                     description: Name of the branch containing the packages. Finalized
@@ -95,6 +98,9 @@ spec:
                     description: Directory within the Git repository where the packages
                       are stored. A subdirectory of this directory containing a Kptfile
                       is considered a package. If unspecified, defaults to root directory.
+                    type: string
+                  email:
+                    description: Email to use for commits
                     type: string
                   repo:
                     description: |-
