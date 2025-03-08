@@ -17,7 +17,6 @@ package porch
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -25,7 +24,6 @@ import (
 	"github.com/nephio-project/porch/pkg/util"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -259,29 +257,4 @@ func (t *backoffTimer) backoff() bool {
 	}
 	t.curr = curr
 	return t.timer.Reset(curr)
-}
-
-func validateRepository(repository *configapi.Repository) error {
-	// The repo name must follow the rules for RFC 1123 DNS labels
-	nameErrs := validation.IsDNS1123Label(repository.ObjectMeta.Name)
-
-	// The repo name must follow the rules for RFC 1123 DNS labels except that we allow '/' characters
-	dirNoSlash := strings.ReplaceAll(repository.Spec.Git.Directory, "/", "")
-	var dirErrs []string
-	if len(dirNoSlash) > 0 {
-		dirErrs = validation.IsDNS1123Label(dirNoSlash)
-	} else {
-		// The directory is "/"
-		dirErrs = nil
-	}
-
-	if nameErrs == nil && dirErrs == nil {
-		return nil
-	}
-
-	return fmt.Errorf("repository name %q and/or directory %q is invalid: %s, %s",
-		repository.ObjectMeta.Name,
-		repository.Spec.Git.Directory,
-		strings.Join(nameErrs, ","),
-		strings.Join(dirErrs, ","))
 }
