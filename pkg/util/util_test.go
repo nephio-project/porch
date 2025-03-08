@@ -24,7 +24,6 @@ import (
 
 func TestParseRepositoryNameOK(t *testing.T) {
 	const myRepo = "my-repo"
-	const myWS = "my-workspace"
 
 	testCases := map[string]struct {
 		pkgRevId string
