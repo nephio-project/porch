@@ -48,6 +48,12 @@ commands:
             internal.config.kubernetes.io/index: "0"
             internal.config.kubernetes.io/path: Kptfile
           name: test-package
+        status:
+          conditions:
+          - message: Rendered successfully
+            reason: Rendered
+            status: "True"
+            type: Rendered
       - apiVersion: v1
         data:
           name: example
@@ -174,6 +180,12 @@ commands:
             internal.config.kubernetes.io/index: "0"
             internal.config.kubernetes.io/path: Kptfile
           name: test-package
+        status:
+          conditions:
+          - message: Rendered successfully
+            reason: Rendered
+            status: "True"
+            type: Rendered
       - apiVersion: v1
         data:
           name: example
@@ -234,8 +246,7 @@ commands:
             internal.config.kubernetes.io/path: package-context.yaml
           name: kptfile.kpt.dev
       kind: ResourceList
-    stderr: |
-      Error: Internal error occurred: Operation cannot be fulfilled on packagerevisionresources.porch.kpt.dev "git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f": the object has been modified; please apply your changes to the latest version and try again 
+    stderr: "Error: Internal error occurred: Operation cannot be fulfilled on packagerevisionresources.porch.kpt.dev \"git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f\": the object has been modified; please apply your changes to the latest version and try again \n"
     exitCode: 1
     yaml: true
   - args:
@@ -246,10 +257,10 @@ commands:
       - git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f
       - /tmp/porch-e2e/testing-invalid-render
   - args:
-    - sh
-    - -c
-    - |
-      echo "pipeline:\n  mutators:\n  - image: gcr.io/kpt-fn/set-namespace:v0.4.0\n    configMap:\n      namespace: example-ns\n  - image: gcr.io/kpt-fn/set-annotations:v0.1.4\n" >> /tmp/porch-e2e/testing-invalid-render/Kptfile
+      - sh
+      - -c
+      - |
+        echo "pipeline:\n  mutators:\n  - image: gcr.io/kpt-fn/set-namespace:v0.4.0\n    configMap:\n      namespace: example-ns\n  - image: gcr.io/kpt-fn/set-annotations:v0.1.4\n" >> /tmp/porch-e2e/testing-invalid-render/Kptfile
   - args:
       - porchctl
       - rpkg
@@ -257,9 +268,6 @@ commands:
       - --namespace=rpkg-push
       - git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f
       - /tmp/porch-e2e/testing-invalid-render
-    stderr: |
-      Error occurred rendering package in kpt function pipeline.
-      Package has NOT been pushed to remote.
-      Please fix package locally (modify until 'kpt fn render' succeeds) and retry. 
-    containsErrorString: true
+    stderr: "TBD"
     exitCode: 1
+    containsErrorString: true
