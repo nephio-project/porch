@@ -28,6 +28,7 @@ import (
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -67,16 +68,13 @@ func (p *gitPackageRevision) KubeObjectName() string {
 	// as the most recently published package revision, so we need to ensure it has a unique
 	// and unchanging name.
 	var s string
-	if p.revision == string(p.repo.branch) {
-		s = p.revision
+	if p.Key().Revision == string(p.repo.branch) {
+		s = p.Key().Revision
 	} else {
-		s = string(p.workspaceName)
+		s = string(p.Key().WorkspaceName)
 	}
 
-	// Replace slashes with dots
-	dottedPath := strings.ReplaceAll(p.path, "/", ".")
-
-	return p.repo.name + "." + dottedPath + "." + s
+	return util.ComposePkgRevObjName(p.repo.name, p.repo.directory, p.Key().Package, s)
 }
 
 func (p *gitPackageRevision) KubeObjectNamespace() string {
