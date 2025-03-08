@@ -17,7 +17,8 @@ commands:
       - --repository=git
       - --workspace=update-1
       - basens-edit
-    stdout: "git-3f036055f7ba68706372cbe0c4b14d553794f7c4 created\n"
+    stdout: |
+      git-3f036055f7ba68706372cbe0c4b14d553794f7c4 created
   - args:
       - porchctl
       - rpkg
@@ -29,7 +30,8 @@ commands:
       - --repository=git
       - --workspace=update-2
       - basens-edit-clone
-    stdout: "git-7ab0219ace10c1081a8b40a6b97d5da58bdb62e0 created\n"
+    stdout: |
+      git-7ab0219ace10c1081a8b40a6b97d5da58bdb62e0 created
   - args:
       - porchctl
       - rpkg
@@ -38,21 +40,24 @@ commands:
       - --workspace=update-3
       - --replay-strategy=true
       - git-3f036055f7ba68706372cbe0c4b14d553794f7c4
-    stdout: "git-7fcdd499f0790ac3bd8f805e3e5e00825641eb60 created\n"
+    stdout: |
+      git-7fcdd499f0790ac3bd8f805e3e5e00825641eb60 created
   - args:
       - porchctl
       - rpkg
       - propose
       - --namespace=rpkg-update
       - git-7fcdd499f0790ac3bd8f805e3e5e00825641eb60
-    stdout: "git-7fcdd499f0790ac3bd8f805e3e5e00825641eb60 proposed\n"
+    stdout: |
+      git-7fcdd499f0790ac3bd8f805e3e5e00825641eb60 proposed
   - args:
       - porchctl
       - rpkg
       - approve
       - --namespace=rpkg-update
       - git-7fcdd499f0790ac3bd8f805e3e5e00825641eb60
-    stdout: "git-7fcdd499f0790ac3bd8f805e3e5e00825641eb60 approved\n"
+    stdout: |
+      git-7fcdd499f0790ac3bd8f805e3e5e00825641eb60 approved
   - args:
       - porchctl
       - rpkg
@@ -102,7 +107,8 @@ commands:
       - --namespace=rpkg-update
       - --revision=v1
       - git-7ab0219ace10c1081a8b40a6b97d5da58bdb62e0
-    stdout: "git-7ab0219ace10c1081a8b40a6b97d5da58bdb62e0 updated\n"
+    stdout: |
+      git-7ab0219ace10c1081a8b40a6b97d5da58bdb62e0 updated
   - args:
       - porchctl
       - rpkg
@@ -134,7 +140,10 @@ commands:
       - --
       - by-path=upstreamLock.git.ref
       - put-value=invalid
-    stderr: "[RUNNING] \"gcr.io/kpt-fn/search-replace:v0.2.0\" on 1 resource(s)\n  Results:\n    [info] upstreamLock.git.ref: Mutated field value to \"invalid\"\n"
+    stderr: |
+      [RUNNING] "gcr.io/kpt-fn/search-replace:v0.2.0" on 1 resource(s)
+        Results:
+          [info] upstreamLock.git.ref: Mutated field value to "invalid"
   - args:
       - porchctl
       - rpkg
@@ -142,7 +151,8 @@ commands:
       - --namespace=rpkg-update
       - git-7ab0219ace10c1081a8b40a6b97d5da58bdb62e0
       - /tmp/porch-e2e/pkg-update-git-7ab0219ace10c1081a8b40a6b97d5da58bdb62e0
-    stdout: "git-7ab0219ace10c1081a8b40a6b97d5da58bdb62e0 pushed\n"
+    stdout: |
+      git-7ab0219ace10c1081a8b40a6b97d5da58bdb62e0 pushed
   - args:
       - porchctl
       - rpkg

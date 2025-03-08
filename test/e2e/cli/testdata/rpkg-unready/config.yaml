@@ -27,7 +27,8 @@ commands:
       - --workspace=copy-2
       - --replay-strategy=true
       - git-0e15bfcaef2194d2369902c6e77c8905e9190cbb
-    stdout: "git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c created\n"
+    stdout: |
+      git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c created
   - args:
       - porchctl
       - rpkg
@@ -61,9 +62,12 @@ commands:
       - Kptfile
       - /tmp/porch-e2e/pkg-unready-git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c
       - --
-      - by-path=status.conditions[0].status
+      - by-path=status.conditions[1].status
       - put-value=True
-    stderr: "[RUNNING] \"gcr.io/kpt-fn/search-replace:v0.2.0\" on 1 resource(s)\n  Results:\n    [info] status.conditions[0].status: Mutated field value to \"\\\"True\\\"\"\n"
+    stderr: |
+      [RUNNING] "gcr.io/kpt-fn/search-replace:v0.2.0" on 1 resource(s)
+        Results:
+          [info] status.conditions[1].status: Mutated field value to "\"True\""
   - args:
       - porchctl
       - rpkg
@@ -81,7 +85,6 @@ commands:
       - git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c
     stdout: |
       git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c proposed
-    exitCode: 0
   - args:
       - porchctl
       - rpkg
@@ -90,5 +93,3 @@ commands:
       - git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c
     stdout: |
       git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c approved
-    exitCode: 0
-  
