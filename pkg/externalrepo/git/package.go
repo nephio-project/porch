@@ -68,16 +68,13 @@ func (p *gitPackageRevision) KubeObjectName() string {
 	// as the most recently published package revision, so we need to ensure it has a unique
 	// and unchanging name.
 	var s string
-	if p.revision == -1 {
-		s = string(p.repo.branch)
+	if p.Key().Revision == string(p.repo.branch) {
+		s = p.Key().Revision
 	} else {
 		s = string(p.Key().WorkspaceName)
 	}
 
-	// Replace slashes with dots
-	dottedPath := strings.ReplaceAll(p.path, "/", ".")
-
-	return p.repo.name + "." + dottedPath + "." + s
+	return util.ComposePkgRevObjName(p.repo.name, p.repo.directory, p.Key().Package, s)
 }
 
 func (p *gitPackageRevision) KubeObjectNamespace() string {

@@ -24,7 +24,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -129,12 +128,12 @@ func (s packageRevisionStrategy) Validate(ctx context.Context, runtimeObj runtim
 
 	obj := runtimeObj.(*api.PackageRevision)
 
-	if pkgNameErrs := validation.IsDNS1123Label(obj.Spec.PackageName); pkgNameErrs != nil {
-		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "packageName"), obj.Spec.PackageName, fmt.Sprintf("package name invalid %s", strings.Join(pkgNameErrs, ","))))
+	if pkgNameErr := util.ValidateK8SName(obj.Spec.PackageName); pkgNameErr != nil {
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "packageName"), obj.Spec.PackageName, pkgNameErr.Error()))
 	}
 
-	if wsNameErrs := validation.IsDNS1123Label(string(obj.Spec.WorkspaceName)); wsNameErrs != nil {
-		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "workspaceName"), obj.Spec.PackageName, fmt.Sprintf("package name invalid %s", strings.Join(wsNameErrs, ","))))
+	if wsNameErr := util.ValidateK8SName(string(obj.Spec.WorkspaceName)); wsNameErr != nil {
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "workspaceName"), obj.Spec.WorkspaceName, wsNameErr.Error()))
 	}
 
 	switch lifecycle := obj.Spec.Lifecycle; lifecycle {
