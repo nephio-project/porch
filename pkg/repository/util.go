@@ -16,9 +16,7 @@ package repository
 
 import (
 	"fmt"
-	"regexp"
 	"strconv"
-	"strings"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
