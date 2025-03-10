@@ -331,7 +331,7 @@ spec:
                   repo:
                     type: string
                   revision:
-                    type: string
+                    type: integer
                 type: object
             type: object
           status:
