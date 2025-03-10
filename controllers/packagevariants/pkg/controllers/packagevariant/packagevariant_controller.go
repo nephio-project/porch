@@ -964,12 +964,12 @@ func (r *PackageVariantReconciler) calculateDraftResources(ctx context.Context,
 }
 
 func parseKptfile(kf string) (*kptfilev1.KptFile, error) {
-	ko, err := fn.ParseKubeObject([]byte(kf))
+	ko, err := util.YamlToKubeObject(kf)
 	if err != nil {
 		return nil, err
 	}
-	var kptfile kptfilev1.KptFile
-	err = ko.As(&kptfile)
+
+	kptfile, err := kptfilev1.FromKubeObject(ko)
 	if err != nil {
 		return nil, err
 	}

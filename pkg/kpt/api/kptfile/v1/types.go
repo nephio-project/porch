@@ -19,6 +19,7 @@ package v1
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -255,6 +256,7 @@ func ConvertApiReadinessGates(apiGates []api.ReadinessGate) (converted []Readine
 	for _, each := range apiGates {
 		converted = append(converted, ConvertApiReadinessGate(each))
 	}
+	sort.SliceStable(converted, func(i, j int) bool { return converted[i].ConditionType < converted[j].ConditionType })
 	return converted
 }
 
@@ -444,6 +446,7 @@ func ConvertApiConditions(apiConditions []api.Condition) (converted []Condition)
 	for _, each := range apiConditions {
 		converted = append(converted, ConvertApiCondition(each))
 	}
+	sort.SliceStable(converted, func(i, j int) bool { return converted[i].Type < converted[j].Type })
 	return converted
 }
 
