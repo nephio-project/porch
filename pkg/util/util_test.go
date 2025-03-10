@@ -15,10 +15,13 @@
 package util
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"gopkg.in/yaml.v2"
 	"gotest.tools/assert"
 )
 
@@ -95,194 +98,40 @@ func TestParseRepositoryNameErr(t *testing.T) {
 		})
 	}
 }
+
 func TestValidatePkgRevName(t *testing.T) {
 	testCases := map[string]struct {
-		repo          string
-		dir           string
-		pkg           string
-		ws            string
-		err           bool
-		prErrString   string
-		repoErrString string
-		dirErrString  string
-		pkgErrString  string
-		wsErrString   string
-	}{
-		"empty string": {
-			repo:          "",
-			dir:           "",
-			pkg:           "",
-			ws:            "",
-			err:           true,
-			prErrString:   "",
-			repoErrString: "must start and end with an alphanumeric character",
-			dirErrString:  "",
-			pkgErrString:  "must start and end with an alphanumeric character",
-			wsErrString:   "must start and end with an alphanumeric character",
-		},
-		"64 characters long": {
-			repo:          "abcedfhglaasdkfuaweoihfjghldhsgufhgaakjsdhaflkasdjflksadjfsalsdk",
-			dir:           "abcedfhglaasdkfuaweoihfjghldhsgufhgaakjsdhaflkasdjflksadjfsalsdk",
-			pkg:           "abcedfhglaasdkfuaweoihfjghldhsgufhgaakjsdhaflkasdjflksadjfsalsdk",
-			ws:            "abcedfhglaasdkfuaweoihfjghldhsgufhgaakjsdhaflkasdjflksadjfsalsdk",
-			err:           true,
-			prErrString:   "",
-			repoErrString: "must be no more than 63 characters",
-			dirErrString:  "must be no more than 63 characters",
-			pkgErrString:  "must be no more than 63 characters",
-			wsErrString:   "must be no more than 63 characters",
-		},
-		"all 63 characters long": {
-			repo:          "abcedfhglaasdkfuaweoihfjghldhsgufhgaakjsdhaflkasdjflksadjfsalsk",
-			dir:           "abcedfhglaasdkfuaweoihfjghldhsgufhgaakjsdhaflkasdjflksadjfsalsk",
-			pkg:           "abcedfhglaasdkfuaweoihfjghldhsgufhgaakjsdhaflkasdjflksadjfsalsk",
-			ws:            "abcedfhglaasdkfuaweoihfjghldhsgufhgaakjsdhaflkasdjflksadjfsalsk",
-			err:           true,
-			prErrString:   "must be no more than 253 characters",
-			repoErrString: "",
-			dirErrString:  "",
-			pkgErrString:  "",
-			wsErrString:   "",
-		},
-		"first two 63 characters long": {
-			repo:          "abcedfhglaasdkfuaweoihfjghldhsgufhgaakjsdhaflkasdjflksadjfsalsk",
-			dir:           "abcedfhglaasdkfuaweoihfjghldhsgufhgaakjsdhaflkasdjflksadjfsalsk",
-			pkg:           "abc",
-			ws:            "abc",
-			err:           false,
-			prErrString:   "",
-			repoErrString: "",
-			dirErrString:  "",
-			pkgErrString:  "",
-			wsErrString:   "",
-		},
-		"last two 63 characters long": {
-			repo:          "abc",
-			dir:           "abc",
-			pkg:           "abcedfhglaasdkfuaweoihfjghldhsgufhgaakjsdhaflkasdjflksadjfsalsk",
-			ws:            "abcedfhglaasdkfuaweoihfjghldhsgufhgaakjsdhaflkasdjflksadjfsalsk",
-			err:           false,
-			prErrString:   "",
-			repoErrString: "",
-			dirErrString:  "",
-			pkgErrString:  "",
-			wsErrString:   "",
-		},
-		"starts with -": {
-			repo:          "-hello",
-			dir:           "-hello",
-			pkg:           "-hello",
-			ws:            "-hello",
-			err:           true,
-			prErrString:   "",
-			repoErrString: "and must start and end with an alphanumeric character",
-			dirErrString:  "and must start and end with an alphanumeric character",
-			pkgErrString:  "and must start and end with an alphanumeric character",
-			wsErrString:   "and must start and end with an alphanumeric character",
-		},
-		"ends with -": {
-			repo:          "hello-",
-			dir:           "hello-",
-			pkg:           "hello-",
-			ws:            "hello-",
-			err:           true,
-			prErrString:   "",
-			repoErrString: "and must start and end with an alphanumeric character",
-			dirErrString:  "and must start and end with an alphanumeric character",
-			pkgErrString:  "and must start and end with an alphanumeric character",
-			wsErrString:   "and must start and end with an alphanumeric character",
-		},
-		"has - in the middle": {
-			repo:          "hel-lo-wor-ld",
-			dir:           "hel-lo-wor-ld",
-			pkg:           "hel-lo-wor-ld",
-			ws:            "hel-lo-wor-ld",
-			err:           false,
-			prErrString:   "",
-			repoErrString: "",
-			dirErrString:  "",
-			pkgErrString:  "",
-			wsErrString:   "",
-		},
-		"has uppercase alphanumeric characters": {
-			repo:          "hElLo",
-			dir:           "hElLo",
-			pkg:           "hElLo",
-			ws:            "hElLo",
-			err:           true,
-			prErrString:   "",
-			repoErrString: "must consist of lower case alphanumeric characters",
-			dirErrString:  "must consist of lower case alphanumeric characters",
-			pkgErrString:  "must consist of lower case alphanumeric characters",
-			wsErrString:   "must consist of lower case alphanumeric characters",
-		},
-		"has other characters": {
-			repo:          "hEzzo",
-			dir:           "hel_o",
-			pkg:           "hE^lo",
-			ws:            "hE(lo",
-			err:           true,
-			prErrString:   "",
-			repoErrString: "must consist of lower case alphanumeric characters",
-			dirErrString:  "must consist of lower case alphanumeric characters",
-			pkgErrString:  "must consist of lower case alphanumeric characters",
-			wsErrString:   "must consist of lower case alphanumeric characters",
-		},
-		"has slashes": {
-			repo:          "he/lo",
-			dir:           "he/lo",
-			pkg:           "he/lo",
-			ws:            "he/lo",
-			err:           true,
-			prErrString:   "",
-			repoErrString: "must consist of lower case alphanumeric characters",
-			dirErrString:  "",
-			pkgErrString:  "must consist of lower case alphanumeric characters",
-			wsErrString:   "must consist of lower case alphanumeric characters",
-		},
-		"has repeated slashes": {
-			repo:          "he//lo",
-			dir:           "he//lo",
-			pkg:           "he//lo",
-			ws:            "he//lo",
-			err:           true,
-			prErrString:   "",
-			repoErrString: "must consist of lower case alphanumeric characters",
-			dirErrString:  "consecutive '/' characters are not allowed",
-			pkgErrString:  "must consist of lower case alphanumeric characters",
-			wsErrString:   "must consist of lower case alphanumeric characters",
-		},
-		"has repeated dots": {
-			repo:          "he..lo",
-			dir:           "he..lo",
-			pkg:           "he..lo",
-			ws:            "he..lo",
-			err:           true,
-			prErrString:   "",
-			repoErrString: "must consist of lower case alphanumeric characters",
-			dirErrString:  "must consist of lower case alphanumeric characters",
-			pkgErrString:  "must consist of lower case alphanumeric characters",
-			wsErrString:   "must consist of lower case alphanumeric characters",
-		},
-		"has repeated dots in composed": {
-			repo:          "hello",
-			dir:           "/h/e/l/l/o/",
-			pkg:           "hello",
-			ws:            "hello",
-			err:           false,
-			prErrString:   "",
-			repoErrString: "",
-			dirErrString:  "",
-			pkgErrString:  "",
-			wsErrString:   "",
-		},
+		Repo          string
+		Dir           string
+		Pkg           string
+		Ws            string
+		Err           bool
+		PrErrString   string
+		RepoErrString string
+		DirErrString  string
+		PkgErrString  string
+		WsErrString   string
+	}{}
+
+	testFileName := filepath.Join("testdata", "pkg-rev-name.yaml")
+
+	testCasesBA, err := os.ReadFile(testFileName)
+	if err != nil {
+		t.Errorf("could not read test case data from %s: %v", testFileName, err)
+		return
+	}
+
+	err = yaml.Unmarshal(testCasesBA, &testCases)
+	if err != nil {
+		t.Errorf("could not unmarshal test case data from %s: %v", testFileName, err)
+		return
 	}
 
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			got := ValidPkgRevObjName(tc.repo, tc.dir, tc.pkg, tc.ws)
+			got := ValidPkgRevObjName(tc.Repo, tc.Dir, tc.Pkg, tc.Ws)
 			if got == nil {
-				if tc.err == true {
+				if tc.Err == true {
 					t.Errorf("didn't get an an error when expecting one")
 				}
 				return
@@ -293,29 +142,29 @@ func TestValidatePkgRevName(t *testing.T) {
 			assert.Equal(t, errorSlice[0], "package revision object name invalid:")
 
 			assertExpectedPartErrExists(t, errorSlice,
-				tc.prErrString,
+				tc.PrErrString,
 				"complete object name ",
-				ComposePkgRevObjName(tc.repo, tc.dir, tc.pkg, tc.ws))
+				ComposePkgRevObjName(tc.Repo, tc.Dir, tc.Pkg, tc.Ws))
 
 			assertExpectedPartErrExists(t, errorSlice,
-				tc.repoErrString,
+				tc.RepoErrString,
 				"repository name ",
-				tc.repo)
+				tc.Repo)
 
 			assertExpectedPartErrExists(t, errorSlice,
-				tc.dirErrString,
+				tc.DirErrString,
 				"directory name ",
-				tc.dir)
+				tc.Dir)
 
 			assertExpectedPartErrExists(t, errorSlice,
-				tc.pkgErrString,
+				tc.PkgErrString,
 				"package name ",
-				tc.pkg)
+				tc.Pkg)
 
 			assertExpectedPartErrExists(t, errorSlice,
-				tc.wsErrString,
+				tc.WsErrString,
 				"workspace name ",
-				tc.ws)
+				tc.Ws)
 		})
 	}
 }
@@ -331,7 +180,9 @@ func assertExpectedPartErrExists(t *testing.T, errorSlice []string, errString, p
 	if len(partErrMsg) == 0 {
 		t.Errorf("expected to find error message starting with: %q", errStart)
 	} else {
-		assert.Assert(t, strings.Contains(partErrMsg, errString))
+		if result := strings.Contains(partErrMsg, errString); result != true {
+			t.Errorf("error message %q should contain %q", partErrMsg, errString)
+		}
 	}
 }
 
