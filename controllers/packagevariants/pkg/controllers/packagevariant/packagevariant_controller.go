@@ -1048,7 +1048,7 @@ func getFileKubeObject(prr *porchapi.PackageRevisionResources, file, kind, name 
 		return nil, fmt.Errorf("%q not found in PackageRevisionResources '%s/%s'", file, prr.Namespace, prr.Name)
 	}
 
-	ko, err := fn.ParseKubeObject([]byte(prr.Spec.Resources[file]))
+	ko, err := util.YamlToKubeObject(prr.Spec.Resources[file])
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse %q of PackageRevisionResources %s/%s: %w", file, prr.Namespace, prr.Name, err)
 	}

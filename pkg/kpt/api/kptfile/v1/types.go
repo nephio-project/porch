@@ -94,10 +94,29 @@ func FromKubeObject(kptfileKubeObject *fn.KubeObject) (KptFile, error) {
 	if err := kptfileKubeObject.As(&apiKptfile); err != nil {
 		return KptFile{}, err
 	}
+
+	if apiKptfile.Info != nil {
+		gates := apiKptfile.Info.ReadinessGates
+		sort.SliceStable(gates, func(i, j int) bool { return gates[i].ConditionType < gates[j].ConditionType })
+	}
+	if apiKptfile.Status != nil {
+		conditions := apiKptfile.Status.Conditions
+		sort.SliceStable(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
+	}
+
 	return apiKptfile, nil
 }
 
 func (file *KptFile) ToYamlString() (string, error) {
+	if file.Info != nil {
+		gates := file.Info.ReadinessGates
+		sort.SliceStable(gates, func(i, j int) bool { return gates[i].ConditionType < gates[j].ConditionType })
+	}
+	if file.Status != nil {
+		conditions := file.Status.Conditions
+		sort.SliceStable(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
+	}
+
 	b, err := yaml.MarshalWithOptions(file, &yaml.EncoderOptions{SeqIndent: yaml.WideSequenceStyle})
 	if err != nil {
 		return "", err

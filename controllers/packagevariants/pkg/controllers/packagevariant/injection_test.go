@@ -607,8 +607,7 @@ func TestSetInjectionPointConditionsAndGates(t *testing.T) {
 			err = setInjectionPointConditionsAndGates(ko, tc.injectionPoints)
 			if tc.expectedErr == "" {
 				require.NoError(t, err)
-				var actualKptfile kptfilev1.KptFile
-				err = ko.As(&actualKptfile)
+				actualKptfile, err := kptfilev1.FromKubeObject(ko)
 				require.NoError(t, err)
 				require.Equal(t, tc.expectedKptfile, &actualKptfile)
 			} else {
