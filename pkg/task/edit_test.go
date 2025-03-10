@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,9 +29,9 @@ import (
 
 func TestEdit(t *testing.T) {
 	pkg := "pkg"
-	packageName := "repo-1234567890"
+	packageName := "repo.1234567890.ws"
 	repositoryName := "repo"
-	revision := "v1"
+	revision := 1
 	packageRevision := &fake.FakePackageRevision{
 		Name: packageName,
 		PackageRevisionKey: repository.PackageRevisionKey{

@@ -32,6 +32,8 @@ import (
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo/git"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
+	"github.com/nephio-project/porch/pkg/meta"
+	fakemeta "github.com/nephio-project/porch/pkg/meta/fake"
 	"github.com/nephio-project/porch/pkg/repository"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
@@ -43,19 +45,19 @@ func TestLatestPackages(t *testing.T) {
 
 	cachedRepo := openRepositoryFromArchive(t, ctx, testPath, "nested")
 
-	wantLatest := map[string]string{
-		"sample":                    "v2",
-		"catalog/empty":             "v1",
-		"catalog/gcp/bucket":        "v1",
-		"catalog/namespace/basens":  "v3",
-		"catalog/namespace/istions": "v3",
+	wantLatest := map[string]int{
+		"sample":                    2,
+		"catalog/empty":             1,
+		"catalog/gcp/bucket":        1,
+		"catalog/namespace/basens":  3,
+		"catalog/namespace/istions": 3,
 	}
 	revisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	if err != nil {
 		t.Fatalf("ListPackageRevisions failed: %v", err)
 	}
 
-	gotLatest := map[string]string{}
+	gotLatest := map[string]int{}
 	for _, pr := range revisions {
 		rev, err := pr.GetPackageRevision(ctx)
 		if err != nil {
@@ -114,7 +116,7 @@ func TestPublishedLatest(t *testing.T) {
 	if err := update.UpdateLifecycle(ctx, api.PackageRevisionLifecyclePublished); err != nil {
 		t.Fatalf("UpdateLifecycle failed; %v", err)
 	}
-	closed, err := cachedRepo.ClosePackageRevisionDraft(ctx, update, "")
+	closed, err := cachedRepo.ClosePackageRevisionDraft(ctx, update, 0)
 	if err != nil {
 		t.Fatalf("Close failed: %v", err)
 	}
@@ -160,7 +162,7 @@ func TestDeletePublishedMain(t *testing.T) {
 	if err := update.UpdateLifecycle(ctx, api.PackageRevisionLifecyclePublished); err != nil {
 		t.Fatalf("UpdateLifecycle failed; %v", err)
 	}
-	closed, err := cachedRepo.ClosePackageRevisionDraft(ctx, update, "")
+	closed, err := cachedRepo.ClosePackageRevisionDraft(ctx, update, 0)
 	if err != nil {
 		t.Fatalf("Close failed: %v", err)
 	}
@@ -173,7 +175,7 @@ func TestDeletePublishedMain(t *testing.T) {
 		Package:       "catalog/gcp/bucket",
 		WorkspaceName: "v2",
 		Lifecycle:     api.PackageRevisionLifecyclePublished,
-		Revision:      "main",
+		Revision:      -1,
 	})
 	if err != nil {
 		t.Fatalf("ListPackageRevisions failed: %v", err)
@@ -203,7 +205,7 @@ func TestDeletePublishedMain(t *testing.T) {
 		Package:       "catalog/gcp/bucket",
 		WorkspaceName: "v2",
 		Lifecycle:     api.PackageRevisionLifecyclePublished,
-		Revision:      "main",
+		Revision:      -1,
 	})
 
 	if err != nil {
@@ -225,19 +227,16 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 	_, address := git.ServeGitRepository(t, tarfile, tempdir)
 	metadataStore := createMetadataStoreFromArchive(t, fmt.Sprintf("%s-metadata.yaml", name), name)
 
-	cache := &Cache{
-		repositories:  make(map[string]*cachedRepository),
-		metadataStore: metadataStore,
-		options: cachetypes.CacheOptions{
-			ExternalRepoOptions: externalrepotypes.ExternalRepoOptions{
-				CacheDirectory:         t.TempDir(),
-				UseUserDefinedCaBundle: true,
-				CredentialResolver:     &fakecache.CredentialResolver{},
-			},
-			RepoSyncFrequency:    60 * time.Second,
-			RepoPRChangeNotifier: &fakecache.ObjectNotifier{},
-		}}
-
+	cache, _ := new(CrCacheFactory).NewCache(ctx, cachetypes.CacheOptions{
+		ExternalRepoOptions: externalrepotypes.ExternalRepoOptions{
+			LocalDirectory:         t.TempDir(),
+			UseUserDefinedCaBundle: true,
+			CredentialResolver:     &fakecache.CredentialResolver{},
+		},
+		RepoSyncFrequency:    60 * time.Second,
+		MetadataStore:        metadataStore,
+		RepoPRChangeNotifier: &fakecache.ObjectNotifier{},
+	})
 	apiRepo := &v1alpha1.Repository{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       v1alpha1.TypeRepository.Kind,

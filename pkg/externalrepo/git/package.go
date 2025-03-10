@@ -17,8 +17,6 @@ package git
 import (
 	"bytes"
 	"context"
-	"crypto/sha1"
-	"encoding/hex"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -30,6 +28,7 @@ import (
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -43,7 +42,7 @@ const (
 type gitPackageRevision struct {
 	repo          *gitRepository // repo is repo containing the package
 	path          string         // the path to the package from the repo root
-	revision      string
+	revision      int
 	workspaceName v1alpha1.WorkspaceName
 	updated       time.Time
 	updatedBy     string
@@ -65,17 +64,17 @@ var _ repository.PackageRevision = &gitPackageRevision{}
 // layer, the prefix will be removed (this may happen without notice) so it should not
 // be relied upon by clients.
 func (p *gitPackageRevision) KubeObjectName() string {
-	// The published package revisions on the main branch will have the same workspaceName
+	// The published package revisions on the working branch will have the same workspaceName
 	// as the most recently published package revision, so we need to ensure it has a unique
 	// and unchanging name.
 	var s string
-	if p.revision == string(p.repo.branch) {
-		s = p.revision
+	if p.revision == -1 {
+		s = string(p.repo.branch)
 	} else {
-		s = string(p.workspaceName)
+		s = string(p.Key().WorkspaceName)
 	}
-	hash := sha1.Sum([]byte(fmt.Sprintf("%s:%s:%s", p.repo.name, p.path, s)))
-	return p.repo.name + "-" + hex.EncodeToString(hash[:])
+
+	return util.ComposePkgRevObjName(p.repo.name, p.repo.directory, p.Key().Package, s)
 }
 
 func (p *gitPackageRevision) KubeObjectNamespace() string {
@@ -174,7 +173,7 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 			UID:             p.uid(),
 			ResourceVersion: p.commit.String(),
 			CreationTimestamp: metav1.Time{
-				Time: p.updated,
+				Time: p.metadata.CreationTimestamp.Time,
 			},
 		},
 		Spec: v1alpha1.PackageRevisionSpec{
@@ -209,7 +208,7 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 			UID:             p.uid(),
 			ResourceVersion: p.commit.String(),
 			CreationTimestamp: metav1.Time{
-				Time: p.updated,
+				Time: p.metadata.CreationTimestamp.Time,
 			},
 			OwnerReferences: []metav1.OwnerReference{}, // TODO: should point to repository resource
 		},
@@ -234,7 +233,7 @@ func (p *gitPackageRevision) ToMainPackageRevision() repository.PackageRevision 
 	p1 := &gitPackageRevision{
 		repo:          p.repo,
 		path:          p.path,
-		revision:      string(p.repo.branch),
+		revision:      -1,
 		workspaceName: p.workspaceName,
 		updated:       p.updated,
 		updatedBy:     p.updatedBy,

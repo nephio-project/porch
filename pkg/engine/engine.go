@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,8 +23,10 @@ import (
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
+	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/task"
+	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -47,7 +49,7 @@ type CaDEngine interface {
 
 	ListPackageRevisions(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error)
 	CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error)
-	UpdatePackageRevision(ctx context.Context, version string, repositoryObj *configapi.Repository, oldPackage repository.PackageRevision, old, new *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error)
+	UpdatePackageRevision(ctx context.Context, version int, repositoryObj *configapi.Repository, oldPackage repository.PackageRevision, old, new *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error)
 	DeletePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj repository.PackageRevision) error
 
 	ListPackages(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageFilter) ([]repository.Package, error)
@@ -131,7 +133,7 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 		return nil, err
 	}
 
-	if err := repository.ValidateWorkspaceName(obj.Spec.WorkspaceName); err != nil {
+	if err := util.ValidPkgRevObjName(repositoryObj.ObjectMeta.Name, repositoryObj.Spec.Git.Directory, obj.Spec.PackageName, string(obj.Spec.WorkspaceName)); err != nil {
 		return nil, fmt.Errorf("failed to create packagerevision: %w", err)
 	}
 
@@ -159,7 +161,30 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	}
 
 	// Updates are done.
-	return repo.ClosePackageRevisionDraft(ctx, draft, "")
+	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, 0)
+	if err != nil {
+		return nil, err
+	}
+	pkgRevMeta := metav1.ObjectMeta{
+		Name:            repoPkgRev.KubeObjectName(),
+		Namespace:       repoPkgRev.KubeObjectNamespace(),
+		Labels:          obj.Labels,
+		Annotations:     obj.Annotations,
+		Finalizers:      obj.Finalizers,
+		OwnerReferences: obj.OwnerReferences,
+	}
+	pkgRevMeta, err = cad.metadataStore.Create(ctx, pkgRevMeta, repositoryObj.Name, repoPkgRev.UID())
+	if err != nil {
+		if (apierrors.IsUnauthorized(err) || apierrors.IsForbidden(err)) && repository.AnyBlockOwnerDeletionSet(obj) {
+			return nil, fmt.Errorf("failed to create internal PackageRev object, because blockOwnerDeletion is enabled for some ownerReference "+
+				"(it is likely that the serviceaccount of porch-server does not have the rights to update finalizers in the owner object): %w", err)
+		}
+		return nil, err
+	}
+	repoPkgRev.SetMeta(pkgRevMeta)
+	sent := cad.watcherManager.NotifyPackageRevisionChange(watch.Added, repoPkgRev)
+	klog.Infof("engine: sent %d for new PackageRevision %s/%s", sent, repoPkgRev.KubeObjectNamespace(), repoPkgRev.KubeObjectName())
+	return repoPkgRev, nil
 }
 
 // The workspaceName must be unique, because it used to generate the package revision's metadata.name.
@@ -174,7 +199,7 @@ func ensureUniqueWorkspaceName(obj *api.PackageRevision, existingRevs []reposito
 	return nil
 }
 
-func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version string, repositoryObj *configapi.Repository, repoPr repository.PackageRevision, oldObj, newObj *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
+func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version int, repositoryObj *configapi.Repository, repoPr repository.PackageRevision, oldObj, newObj *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cadEngine::UpdatePackageRevision", trace.WithAttributes())
 	defer span.End()
 
@@ -421,10 +446,12 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 		return nil, renderStatus, err
 	}
 	// No lifecycle change when updating package resources; updates are done.
-	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, "")
+	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, 0)
 	if err != nil {
 		return nil, renderStatus, err
 	}
+	repoPkgRev.SetMeta(rev.ObjectMeta)
+
 	return repoPkgRev, renderStatus, nil
 }
 
@@ -450,7 +477,7 @@ func isRecloneAndReplay(oldObj, newObj *api.PackageRevision) bool {
 
 // recloneAndReplay performs an update by recloning the upstream package and replaying all tasks.
 // This is more like a git rebase operation than the "classic" kpt update algorithm, which is more like a git merge.
-func (cad *cadEngine) RecloneAndReplay(ctx context.Context, parentPR repository.PackageRevision, version string, repo repository.Repository, repositoryObj *configapi.Repository, newObj *api.PackageRevision) (repository.PackageRevision, error) {
+func (cad *cadEngine) RecloneAndReplay(ctx context.Context, parentPR repository.PackageRevision, version int, repo repository.Repository, repositoryObj *configapi.Repository, newObj *api.PackageRevision) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cadEngine::recloneAndReplay", trace.WithAttributes())
 	defer span.End()
 

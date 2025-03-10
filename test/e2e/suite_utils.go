@@ -24,6 +24,7 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
+	"github.com/nephio-project/porch/pkg/repository"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -141,6 +142,41 @@ func (t *TestSuite) ValidateLabelsAndAnnos(ctx context.Context, name string, lab
 	if !(len(annos) == 0 && len(actualAnnos) == 0) {
 		if diff := cmp.Diff(actualAnnos, annos); diff != "" {
 			t.Errorf("Unexpected result (-want, +got): %s", diff)
+		}
+	}
+}
+
+func (t *TestSuite) MustHaveLabels(ctx context.Context, name string, labels map[string]string) {
+	t.Helper()
+	var pr porchapi.PackageRevision
+	t.GetF(ctx, client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      name,
+	}, &pr)
+
+	for labelKey, labelValue := range labels {
+		actualValue, ok := pr.Labels[labelKey]
+		if !ok {
+			t.Errorf("Expected PR %s to have label %s, but didn't find it", pr.Name, labelKey)
+		}
+		if actualValue != labelValue {
+			t.Errorf("Expected PR %s to have label %s value %s but got %s", pr.Name, labelKey, labelValue, actualValue)
+		}
+	}
+}
+
+func (t *TestSuite) MustNotHaveLabels(ctx context.Context, name string, labels []string) {
+	t.Helper()
+	var pr porchapi.PackageRevision
+	t.GetF(ctx, client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      name,
+	}, &pr)
+
+	for _, label := range labels {
+		_, ok := pr.Labels[label]
+		if ok {
+			t.Errorf("Expected PR %s not to have label %s, but found it", pr.Name, label)
 		}
 	}
 }
@@ -449,7 +485,7 @@ func (t *TestSuite) WaitUntilPackageRevisionFulfillingConditionExists(
 	return foundPkgRev, err
 }
 
-func (t *TestSuite) WaitUntilPackageRevisionExists(ctx context.Context, repository string, pkgName string, revision string) *porchapi.PackageRevision {
+func (t *TestSuite) WaitUntilPackageRevisionExists(ctx context.Context, repository string, pkgName string, revision int) *porchapi.PackageRevision {
 	t.Helper()
 	t.Logf("Waiting for package revision (%v/%v/%v) to exist", repository, pkgName, revision)
 	timeout := 120 * time.Second
@@ -506,6 +542,25 @@ func (t *TestSuite) WaitUntilPackageRevisionResourcesExists(
 		t.Fatalf("PackageRevisionResources object wasn't found for package %v in time (%v)", key, timeout)
 	}
 	return foundPrr
+}
+
+func (t *TestSuite) GetPackageRevision(ctx context.Context, repo string, pkgName string, revision int) *porchapi.PackageRevision {
+	t.Helper()
+	var prList porchapi.PackageRevisionList
+	selector := client.MatchingFields(fields.Set{
+		"spec.repository":  repo,
+		"spec.packageName": pkgName,
+		"spec.revision":    repository.Revision2Str(revision),
+	})
+	t.ListF(ctx, &prList, selector, client.InNamespace(t.Namespace))
+
+	if len(prList.Items) == 0 {
+		t.Fatalf("PackageRevision object wasn't found for package revision %v/%v/%d", repo, pkgName, revision)
+	}
+	if len(prList.Items) > 1 {
+		t.Fatalf("Multiple PackageRevision objects were found for package revision %v/%v/%d", repo, pkgName, revision)
+	}
+	return &prList.Items[0]
 }
 
 func (t *TestSuite) GetContentsOfPackageRevision(ctx context.Context, repository string, pkgName string, revision string) map[string]string {

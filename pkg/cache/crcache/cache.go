@@ -16,25 +16,33 @@ package crcache
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
-	"k8s.io/klog/v2"
 )
 
-var tracer = otel.Tracer("crcache")
+var tracer = otel.Tracer("crCache")
 
+// Cache allows us to keep state for repositories, rather than querying them every time.
+//
+// Cache Structure:
+// <cacheDir>/git/
+// * Caches bare git repositories in directories named based on the repository address.
+// <cacheDir>/oci/
+// * Caches oci images with further hierarchy underneath
+// * We Cache image layers in <cacheDir>/oci/layers/ (this might be obsolete with the flattened Cache)
+// * We Cache flattened tar files in <cacheDir>/oci/ (so we don't need to pull to read resources)
+// * We poll the repositories periodically (configurable) and cache the discovered images in a PackageRev CR.
 type Cache struct {
-	mutex         sync.Mutex
-	repositories  map[string]*cachedRepository
-	metadataStore meta.MetadataStore
-	options       cachetypes.CacheOptions
+	mutex        sync.Mutex
+	repositories map[string]*cachedRepository
+	options      cachetypes.CacheOptions
 }
 
 var _ cachetypes.Cache = &Cache{}
@@ -65,16 +73,14 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 		return nil, err
 	}
 
-	cachedRepo := newRepository(key, repositorySpec, externalRepo, c.metadataStore, c.options)
+	cachedRepo := newRepository(key, repositorySpec, externalRepo, c.options)
 	c.repositories[key] = cachedRepo
 
 	return cachedRepo, nil
 }
 
 func (c *Cache) UpdateRepository(ctx context.Context, repositorySpec *configapi.Repository) error {
-	klog.Infof("Update on CR cached repositories is not applicable")
-
-	return nil
+	return errors.New("update on CR cached repositories is not supported")
 }
 
 func (c *Cache) CloseRepository(ctx context.Context, repositorySpec *configapi.Repository, allRepos []configapi.Repository) error {
@@ -118,11 +124,11 @@ func (c *Cache) CloseRepository(ctx context.Context, repositorySpec *configapi.R
 	}
 }
 
-func (c *Cache) GetRepositories(ctx context.Context) []*configapi.Repository {
-	repoSlice := []*configapi.Repository{}
+func (c *Cache) GetRepositories(ctx context.Context) []configapi.Repository {
+	repoSlice := []configapi.Repository{}
 
 	for _, repo := range c.repositories {
-		repoSlice = append(repoSlice, repo.repoSpec)
+		repoSlice = append(repoSlice, *repo.repoSpec)
 	}
 	return repoSlice
 }

@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -197,7 +197,7 @@ func (r *ociRepository) ListPackages(ctx context.Context, filter repository.List
 }
 
 func (r *ociRepository) buildPackageRevision(ctx context.Context, name oci.ImageDigestName, packageName string,
-	workspace v1alpha1.WorkspaceName, revision string, created time.Time) (repository.PackageRevision, error) {
+	workspace v1alpha1.WorkspaceName, revision int, created time.Time) (repository.PackageRevision, error) {
 
 	ctx, span := tracer.Start(ctx, "ociRepository::buildPackageRevision")
 	defer span.End()
@@ -205,7 +205,7 @@ func (r *ociRepository) buildPackageRevision(ctx context.Context, name oci.Image
 	// for backwards compatibility with packages that existed before porch supported
 	// workspaces, we populate the workspaceName as the revision number if it is empty
 	if workspace == "" {
-		workspace = v1alpha1.WorkspaceName(revision)
+		workspace = v1alpha1.WorkspaceName(repository.Revision2Str(revision))
 	}
 
 	p := &ociPackageRevision{
@@ -250,7 +250,7 @@ func (p *ociPackageRevision) ToMainPackageRevision() repository.PackageRevision 
 type ociPackageRevision struct {
 	digestName      oci.ImageDigestName
 	packageName     string
-	revision        string
+	revision        int
 	workspaceName   v1alpha1.WorkspaceName
 	created         time.Time
 	resourceVersion string
@@ -282,7 +282,7 @@ func (p *ociPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 			Name:      p.KubeObjectName(),
 			Namespace: p.parent.namespace,
 			CreationTimestamp: metav1.Time{
-				Time: p.created,
+				Time: p.metadata.CreationTimestamp.Time,
 			},
 			ResourceVersion: p.resourceVersion,
 			UID:             p.uid,
@@ -344,7 +344,7 @@ func (p *ociPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 			Name:      p.KubeObjectName(),
 			Namespace: p.parent.namespace,
 			CreationTimestamp: metav1.Time{
-				Time: p.created,
+				Time: p.metadata.CreationTimestamp.Time,
 			},
 			ResourceVersion: p.resourceVersion,
 			UID:             p.uid,

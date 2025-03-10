@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ func ReadPackage(t *testing.T, packageDir string) PackageResources {
 		if err != nil {
 			return fmt.Errorf("failed to get relative path from %q to %q: %w", packageDir, p, err)
 		}
-		contents, err := os.ReadFile(p)
+		contents, err := os.ReadFile(p) // #nosec G304
 		if err != nil {
 			return fmt.Errorf("failed to open the source file %q: %w", p, err)
 		}
@@ -56,9 +56,11 @@ func WritePackage(t *testing.T, packageDir string, contents PackageResources) {
 	for k, v := range contents.Contents {
 		abs := filepath.Join(packageDir, k)
 		dir := filepath.Dir(abs)
+		// #nosec G301
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			t.Fatalf("Failed to crete directory %q: %v", dir, err)
 		}
+		// #nosec G306
 		if err := os.WriteFile(abs, []byte(v), 0644); err != nil {
 			t.Errorf("Failed to write package file %q: %v", abs, err)
 		}

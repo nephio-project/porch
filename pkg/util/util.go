@@ -16,41 +16,25 @@ package util
 
 import (
 	"context"
-	"crypto/sha1"
-	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation"
 	registrationapi "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
-// KubernetesName returns the passed id if it less than maxLen, otherwise
-// a truncated version of id with a unique hash of length hashLen appended
-// with length maxLen. maxLen must be at least 5 + hashLen, and hashLen
-// must be at least 4.
-func KubernetesName(id string, hashLen, maxLen int) string {
-	if hashLen < 4 {
-		hashLen = 4
-	}
-	if maxLen < hashLen+5 {
-		maxLen = hashLen + 5
-	}
-
-	if len(id) <= maxLen {
-		return id
-	}
-
-	hash := sha1.Sum([]byte(id))
-	stubIdx := maxLen - hashLen - 1
-	return fmt.Sprintf("%s-%s", id[:stubIdx], hex.EncodeToString(hash[:])[:hashLen])
-}
+const (
+	invalidConst string = " invalid:"
+)
 
 func GetInClusterNamespace() (string, error) {
 	ns, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
@@ -102,17 +86,115 @@ func SchemaToMetaGVR(gvr schema.GroupVersionResource) metav1.GroupVersionResourc
 	}
 }
 
-func ParseRepositoryName(name string) (string, error) {
-	if strings.Contains(name, ".") {
-		// Distringuished handling of package names
-		firstDot := strings.Index(name, ".")
-		return name[:firstDot], nil
+func ValidateK8SName(k8sName string) error {
+	if k8sNameErrs := validation.IsDNS1123Label(k8sName); k8sNameErrs != nil {
+		return errors.New(strings.Join(k8sNameErrs, ","))
+	}
+
+	return nil
+}
+
+func ValidateRepository(repoName, directory string) error {
+	// The repo name must follow the rules for RFC 1123 DNS labels
+	nameErrs := validation.IsDNS1123Label(repoName)
+
+	// The repo name must follow the rules for RFC 1123 DNS labels except that we allow '/' characters
+	var dirErrs []string
+	if strings.Contains(directory, "//") {
+		dirErrs = append(dirErrs, "consecutive '/' characters are not allowed")
+	}
+	dirNoSlash := strings.ReplaceAll(directory, "/", "")
+	if len(dirNoSlash) > 0 {
+		dirErrs = append(dirErrs, validation.IsDNS1123Label(dirNoSlash)...)
 	} else {
-		// Default handling of package names
-		lastDash := strings.LastIndex(name, "-")
-		if lastDash < 0 {
-			return "", fmt.Errorf("malformed package revision name; expected at least one hyphen: %q", name)
+		// The directory is "/"
+		dirErrs = nil
+	}
+
+	if nameErrs == nil && dirErrs == nil {
+		return nil
+	}
+
+	repoErrString := ""
+
+	if nameErrs != nil {
+		repoErrString = "repository name " + repoName + invalidConst + strings.Join(nameErrs, ",") + "\n"
+	}
+
+	dirErrString := ""
+	if dirErrs != nil {
+		dirErrString = "directory name " + directory + invalidConst + strings.Join(dirErrs, ",") + "\n"
+	}
+
+	return errors.New(repoErrString + dirErrString)
+}
+
+func ComposePkgRevObjName(repoName, directory, packageName, workspace string) string {
+	dottedPath := strings.ReplaceAll(filepath.Join(directory, packageName), "/", ".")
+	dottedPath = strings.Trim(dottedPath, ".")
+	return fmt.Sprintf("%s.%s.%s", repoName, dottedPath, workspace)
+}
+
+func ValidPkgRevObjName(repoName, directory, packageName, workspace string) error {
+	var errSlice []string
+
+	if err := ValidateRepository(repoName, directory); err != nil {
+		errSlice = append(errSlice, err.Error())
+	}
+
+	if err := ValidateK8SName(packageName); err != nil {
+		errSlice = append(errSlice, "package name "+packageName+invalidConst+err.Error()+"\n")
+	}
+
+	if err := ValidateK8SName(string(workspace)); err != nil {
+		errSlice = append(errSlice, "workspace name "+workspace+invalidConst+err.Error())
+	}
+
+	if len(errSlice) == 0 {
+		objName := ComposePkgRevObjName(repoName, directory, packageName, workspace)
+
+		if objNameErrs := validation.IsDNS1123Subdomain(objName); objNameErrs != nil {
+			errSlice = append(errSlice, "complete object name "+objName+invalidConst+strings.Join(objNameErrs, "")+"\n")
 		}
-		return name[:lastDash], nil
+	}
+
+	if len(errSlice) == 0 {
+		return nil
+	} else {
+		return errors.New("package revision object name invalid:\n" + strings.Join(errSlice, ""))
+	}
+}
+
+func ParsePkgRevObjName(name string) ([]string, error) {
+	const twoDotErrMsg = "malformed package revision name; expected at least two dots: %q"
+
+	firstDot := strings.Index(name, ".")
+	if firstDot < 0 {
+		return nil, fmt.Errorf(twoDotErrMsg, name)
+	}
+
+	lastDot := strings.LastIndex(name, ".")
+	if lastDot < 0 {
+		return nil, fmt.Errorf(twoDotErrMsg, name)
+	}
+
+	if firstDot >= lastDot {
+		return nil, fmt.Errorf(twoDotErrMsg, name)
+	}
+
+	parsedName := make([]string, 3)
+
+	parsedName[0] = name[:firstDot]
+	parsedName[1] = name[firstDot+1 : lastDot]
+	parsedName[2] = name[lastDot+1:]
+
+	return parsedName, nil
+}
+
+func ParsePkgRevObjNameField(pkgRevObjName string, field int) (string, error) {
+	if parsedSlice, err := ParsePkgRevObjName(pkgRevObjName); err == nil {
+		return parsedSlice[field], nil
+	} else {
+		return "", err
 	}
 }

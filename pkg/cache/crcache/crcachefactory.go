@@ -17,7 +17,6 @@ package crcache
 import (
 	"context"
 
-	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 )
 
@@ -28,8 +27,7 @@ type CrCacheFactory struct {
 
 func (f *CrCacheFactory) NewCache(_ context.Context, options cachetypes.CacheOptions) (cachetypes.Cache, error) {
 	return &Cache{
-		repositories:  make(map[string]*cachedRepository),
-		metadataStore: meta.NewCrdMetadataStore(options.CoreClient),
-		options:       options,
+		repositories: make(map[string]*cachedRepository),
+		options:      options,
 	}, nil
 }

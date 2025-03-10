@@ -628,7 +628,7 @@ spec:
   upstream:
     repo: blueprints
     package: foo
-    revision: v1
+    revision: 1
   downstream:
     repo: deployments
     package: bar
