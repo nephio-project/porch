@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	invalidConst string = " invalid "
+	invalidConst string = " invalid:"
 )
 
 func GetInClusterNamespace() (string, error) {
