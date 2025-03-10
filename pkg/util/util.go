@@ -32,6 +32,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
+const (
+	invalidConst string = " invalid "
+)
+
 func GetInClusterNamespace() (string, error) {
 	ns, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 	if err != nil {
@@ -114,12 +118,12 @@ func ValidateRepository(repoName, directory string) error {
 	repoErrString := ""
 
 	if nameErrs != nil {
-		repoErrString = "repository name " + repoName + " invalid: " + strings.Join(nameErrs, ",") + "\n"
+		repoErrString = "repository name " + repoName + invalidConst + strings.Join(nameErrs, ",") + "\n"
 	}
 
 	dirErrString := ""
 	if dirErrs != nil {
-		dirErrString = "directory name " + directory + " invalid: " + strings.Join(dirErrs, ",") + "\n"
+		dirErrString = "directory name " + directory + invalidConst + strings.Join(dirErrs, ",") + "\n"
 	}
 
 	return errors.New(repoErrString + dirErrString)
@@ -139,18 +143,18 @@ func ValidPkgRevObjName(repoName, directory, packageName, workspace string) erro
 	}
 
 	if err := ValidateK8SName(packageName); err != nil {
-		errSlice = append(errSlice, "package name "+packageName+" invalid: "+err.Error()+"\n")
+		errSlice = append(errSlice, "package name "+packageName+invalidConst+err.Error()+"\n")
 	}
 
 	if err := ValidateK8SName(string(workspace)); err != nil {
-		errSlice = append(errSlice, "workspace name "+workspace+" invalid: "+err.Error())
+		errSlice = append(errSlice, "workspace name "+workspace+invalidConst+err.Error())
 	}
 
 	if len(errSlice) == 0 {
 		objName := ComposePkgRevObjName(repoName, directory, packageName, workspace)
 
 		if objNameErrs := validation.IsDNS1123Subdomain(objName); objNameErrs != nil {
-			errSlice = append(errSlice, "complete object name "+objName+" invalid: "+strings.Join(objNameErrs, "")+"\n")
+			errSlice = append(errSlice, "complete object name "+objName+invalidConst+strings.Join(objNameErrs, "")+"\n")
 		}
 	}
 

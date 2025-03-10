@@ -2301,12 +2301,12 @@ data:
 			if f.IsNilOrEmpty() {
 				t.Fatalf("couldn't find data field in test-data")
 			}
-			long_string, err := f.Value.GetString("value")
+			longString, err := f.Value.GetString("value")
 			if err != nil {
 				t.Fatalf("couldn't find large string in test-data: %v", err)
 			}
-			if len(long_string) != testDataSize {
-				t.Fatalf("large string size mismatch. want: %v, got: %v", testDataSize, len(long_string))
+			if len(longString) != testDataSize {
+				t.Fatalf("large string size mismatch. want: %v, got: %v", testDataSize, len(longString))
 			}
 			if !t.TestRunnerIsLocal && (node.GetAnnotations()["test-key"] != "test-val") {
 				t.Errorf("Object (%s %q) should contain annotation `test-key:test-val`, but we got: %v", node.GetKind(), node.GetName(), node.GetAnnotations())
