@@ -889,7 +889,7 @@ func Convert_v1alpha1_PackageRevisionResourcesSpec_To_porch_PackageRevisionResou
 
 func autoConvert_porch_PackageRevisionResourcesSpec_To_v1alpha1_PackageRevisionResourcesSpec(in *porch.PackageRevisionResourcesSpec, out *PackageRevisionResourcesSpec, s conversion.Scope) error {
 	out.PackageName = in.PackageName
-	out.WorkspaceName = WorkspaceName(in.WorkspaceName)
+	out.WorkspaceName = string(in.WorkspaceName)
 	out.Revision = in.Revision
 	out.RepositoryName = in.RepositoryName
 	out.Resources = *(*map[string]string)(unsafe.Pointer(&in.Resources))
@@ -945,7 +945,7 @@ func Convert_v1alpha1_PackageRevisionSpec_To_porch_PackageRevisionSpec(in *Packa
 func autoConvert_porch_PackageRevisionSpec_To_v1alpha1_PackageRevisionSpec(in *porch.PackageRevisionSpec, out *PackageRevisionSpec, s conversion.Scope) error {
 	out.PackageName = in.PackageName
 	out.RepositoryName = in.RepositoryName
-	out.WorkspaceName = WorkspaceName(in.WorkspaceName)
+	out.WorkspaceName = string(in.WorkspaceName)
 	out.Revision = in.Revision
 	out.Parent = (*ParentReference)(unsafe.Pointer(in.Parent))
 	out.Lifecycle = PackageRevisionLifecycle(in.Lifecycle)

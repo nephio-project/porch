@@ -2928,7 +2928,7 @@ func (t *PorchSuite) TestPackageRevisionFieldSelectors(ctx context.Context) {
 		t.Errorf("Expected at least one PackageRevision with workspaceName=%q, but got none", wsName)
 	}
 	for _, pr := range prList.Items {
-		if pr.Spec.WorkspaceName != porchapi.WorkspaceName(wsName) {
+		if pr.Spec.WorkspaceName != wsName {
 			t.Errorf("PackageRevision %s workspaceName: want %q, but got %q", pr.Name, wsName, pr.Spec.WorkspaceName)
 		}
 	}
