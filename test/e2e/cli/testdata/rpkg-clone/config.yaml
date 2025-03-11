@@ -74,7 +74,7 @@ commands:
             internal.config.kubernetes.io/path: .KptRevisionMetadata
           name: git.basens-clone.clone-2
           namespace: rpkg-clone
-          uid: 488cf229-e634-5842-a337-cf02a78ea35d
+          uid: 710e4f9b-b21f-5786-bf04-1d1d9b32d57c
       - apiVersion: kpt.dev/v1
         info:
           description: sample description
@@ -131,7 +131,7 @@ commands:
             internal.config.kubernetes.io/path: .KptRevisionMetadata
           name: git.empty-clone.clone-1
           namespace: rpkg-clone
-          uid: 08181701-9b48-5dc5-879b-78b73de4c482
+          uid: e8317a47-90ce-5c75-b548-26e7de2e2508
       - apiVersion: kpt.dev/v1
         info:
           description: Empty Blueprint
