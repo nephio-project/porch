@@ -269,15 +269,15 @@ func findFile(t *testing.T, tree *object.Tree, path string) *object.File {
 	return file
 }
 
-func findPackageRevision(t *testing.T, revisions []repository.PackageRevision, key repository.PackageRevisionKey) repository.PackageRevision {
+func findPackageRevision(t *testing.T, revisions []repository.PackageRevision, filter repository.ListPackageRevisionFilter) repository.PackageRevision {
 	t.Helper()
 
 	for _, r := range revisions {
-		if r.Key() == key {
+		if filter.Matches(context.Background(), r) {
 			return r
 		}
 	}
-	t.Fatalf("PackageRevision %q not found", key)
+	t.Fatalf("PackageRevision %q not found", filter)
 	return nil
 }
 
@@ -291,14 +291,15 @@ func packageMustNotExist(t *testing.T, revisions []repository.PackageRevision, k
 	}
 }
 
-func repositoryMustHavePackageRevision(t *testing.T, git GitRepository, name repository.PackageRevisionKey) {
+func repositoryMustHavePackageRevision(t *testing.T, git GitRepository, prKey repository.PackageRevisionKey) {
 	t.Helper()
 
 	list, err := git.ListPackageRevisions(context.Background(), repository.ListPackageRevisionFilter{})
 	if err != nil {
 		t.Fatalf("ListPackageRevisions failed: %v", err)
 	}
-	findPackageRevision(t, list, name)
+
+	findPackageRevision(t, list, repository.PRFilterFromKey(prKey))
 }
 
 func repositoryMustNotHavePackageRevision(t *testing.T, git GitRepository, name repository.PackageRevisionKey) {

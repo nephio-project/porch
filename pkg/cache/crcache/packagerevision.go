@@ -19,7 +19,9 @@ import (
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel/trace"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // We take advantage of the cache having a global view of all the packages
@@ -33,6 +35,18 @@ var _ repository.PackageRevision = &cachedPackageRevision{}
 type cachedPackageRevision struct {
 	repository.PackageRevision
 	isLatestRevision bool
+}
+
+func (c *cachedPackageRevision) KubeObjectName() string {
+	return repository.ComposePkgRevObjName(c.Key())
+}
+
+func (c *cachedPackageRevision) KubeObjectNamespace() string {
+	return c.Key().Namespace
+}
+
+func (c *cachedPackageRevision) UID() types.UID {
+	return util.GenerateUid("packagerevision:", c.KubeObjectNamespace(), c.KubeObjectName())
 }
 
 func (c *cachedPackageRevision) GetPackageRevision(ctx context.Context) (*api.PackageRevision, error) {

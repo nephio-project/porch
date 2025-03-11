@@ -199,7 +199,7 @@ func (g GitSuite) TestGitPackageRoundTrip(t *testing.T) {
 			t.Fatalf("ListPackageRevisons failed: %v", err)
 		}
 
-		original := findPackageRevision(t, revisions, repository.PackageRevisionKey{
+		original := findPackageRevision(t, revisions, repository.ListPackageRevisionFilter{
 			Repository:    repositoryName,
 			Package:       packageName,
 			WorkspaceName: workspace,
@@ -677,7 +677,7 @@ func (g GitSuite) TestApproveDraft(t *testing.T) {
 		t.Fatalf("ListPackageRevisions failed: %v", err)
 	}
 
-	bucket := findPackageRevision(t, revisions, repository.PackageRevisionKey{
+	bucket := findPackageRevision(t, revisions, repository.ListPackageRevisionFilter{
 		Repository:    repositoryName,
 		Package:       "bucket",
 		WorkspaceName: "v1",
@@ -741,7 +741,7 @@ func (g GitSuite) TestApproveDraftWithHistory(t *testing.T) {
 		t.Fatalf("ListPackageRevisions failed: %v", err)
 	}
 
-	bucket := findPackageRevision(t, revisions, repository.PackageRevisionKey{
+	bucket := findPackageRevision(t, revisions, repository.ListPackageRevisionFilter{
 		Repository:    repositoryName,
 		Package:       "pkg-with-history",
 		WorkspaceName: "v1",
@@ -919,7 +919,7 @@ func (g GitSuite) TestRefreshRepo(t *testing.T) {
 	}
 
 	// Confirm we listed some package(s)
-	findPackageRevision(t, all, repository.PackageRevisionKey{Repository: "refresh", Package: "basens",
+	findPackageRevision(t, all, repository.ListPackageRevisionFilter{Repository: "refresh", Package: "basens",
 		Revision: 2, WorkspaceName: "v2"})
 	packageMustNotExist(t, all, newPackageName)
 
@@ -971,7 +971,7 @@ func (g GitSuite) TestRefreshRepo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListPackageRevisions(Refresh) failed; %v", err)
 	}
-	findPackageRevision(t, all, newPackageName)
+	findPackageRevision(t, all, repository.PRFilterFromKey(newPackageName))
 }
 
 // The test deletes packages on the upstream one by one and validates they were
@@ -1259,7 +1259,7 @@ func (g GitSuite) TestAuthor(t *testing.T) {
 			}
 
 			_ = revisions
-			draftPkg := findPackageRevision(t, revisions, repository.PackageRevisionKey{
+			draftPkg := findPackageRevision(t, revisions, repository.ListPackageRevisionFilter{
 				Repository:    repositoryName,
 				Package:       tc.pkg,
 				WorkspaceName: tc.workspace,

@@ -15,7 +15,6 @@
 package git
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"path/filepath"
@@ -23,7 +22,6 @@ import (
 	"time"
 
 	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/google/uuid"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
@@ -55,34 +53,16 @@ type gitPackageRevision struct {
 
 var _ repository.PackageRevision = &gitPackageRevision{}
 
-// Kubernetes resource names requirements do not allow to encode arbitrary directory
-// path: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-// Because we need a resource names that are stable over time, and avoid conflict, we
-// compute a hash of the package path and revision.
-// For implementation convenience (though this is temporary) we prepend the repository
-// name in order to aide package discovery on the server. With improvements to caching
-// layer, the prefix will be removed (this may happen without notice) so it should not
-// be relied upon by clients.
-func (p *gitPackageRevision) KubeObjectName() string {
-	// The published package revisions on the working branch will have the same workspaceName
-	// as the most recently published package revision, so we need to ensure it has a unique
-	// and unchanging name.
-	var s string
-	if p.revision == -1 {
-		s = string(p.repo.branch)
-	} else {
-		s = string(p.Key().WorkspaceName)
-	}
-
-	return util.ComposePkgRevObjName(p.repo.name, p.repo.directory, p.Key().Package, s)
+func (c *gitPackageRevision) KubeObjectName() string {
+	return repository.ComposePkgRevObjName(c.Key())
 }
 
-func (p *gitPackageRevision) KubeObjectNamespace() string {
-	return p.repo.namespace
+func (c *gitPackageRevision) KubeObjectNamespace() string {
+	return c.Key().Namespace
 }
 
-func (p *gitPackageRevision) UID() types.UID {
-	return p.uid()
+func (c *gitPackageRevision) UID() types.UID {
+	return util.GenerateUid("packagerevision:", c.KubeObjectNamespace(), c.KubeObjectName())
 }
 
 func (p *gitPackageRevision) ResourceVersion() string {
@@ -93,8 +73,8 @@ func (p *gitPackageRevision) Key() repository.PackageRevisionKey {
 	// if the repository has been registered with a directory, then the
 	// package name is the package path relative to the registered directory
 	packageName := p.path
-	if p.repo.directory != "" {
-		pn, err := filepath.Rel(p.repo.directory, packageName)
+	if p.repo.Key().Path != "" {
+		pn, err := filepath.Rel(p.repo.Key().Path, packageName)
 		if err != nil {
 			klog.Errorf("error computing package name relative to registered directory: %v", err)
 		}
@@ -102,23 +82,14 @@ func (p *gitPackageRevision) Key() repository.PackageRevisionKey {
 	}
 
 	return repository.PackageRevisionKey{
-		Repository:    p.repo.name,
-		Package:       packageName,
-		Revision:      p.revision,
-		WorkspaceName: p.workspaceName,
+		Namespace:         p.repo.key.Namespace,
+		Repository:        p.repo.Key().Name,
+		Path:              p.repo.Key().Path,
+		Package:           packageName,
+		Revision:          p.revision,
+		WorkspaceName:     p.workspaceName,
+		PlaceholderWSname: p.repo.Key().PlaceholderWSname,
 	}
-}
-
-func (p *gitPackageRevision) uid() types.UID {
-	space := uuid.MustParse(uuidSpace)
-	buff := bytes.Buffer{}
-	buff.WriteString("packagerevisions.")
-	buff.WriteString(strings.ToLower(v1alpha1.SchemeGroupVersion.Identifier()))
-	buff.WriteString("/")
-	buff.WriteString(strings.ToLower(p.KubeObjectNamespace()))
-	buff.WriteString("/")
-	buff.WriteString(strings.ToLower(p.KubeObjectName())) // KubeObjectName() is unique in a given namespace
-	return types.UID(uuid.NewSHA1(space, buff.Bytes()).String())
 }
 
 func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.PackageRevision, error) {
@@ -169,8 +140,8 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            p.KubeObjectName(),
-			Namespace:       p.repo.namespace,
-			UID:             p.uid(),
+			Namespace:       p.KubeObjectNamespace(),
+			UID:             p.UID(),
 			ResourceVersion: p.commit.String(),
 			CreationTimestamp: metav1.Time{
 				Time: p.metadata.CreationTimestamp.Time,
@@ -195,8 +166,6 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 		return nil, fmt.Errorf("failed to load package resources: %w", err)
 	}
 
-	key := p.Key()
-
 	return &v1alpha1.PackageRevisionResources{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevisionResources",
@@ -204,8 +173,8 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            p.KubeObjectName(),
-			Namespace:       p.repo.namespace,
-			UID:             p.uid(),
+			Namespace:       p.KubeObjectNamespace(),
+			UID:             p.UID(),
 			ResourceVersion: p.commit.String(),
 			CreationTimestamp: metav1.Time{
 				Time: p.metadata.CreationTimestamp.Time,
@@ -213,10 +182,10 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 			OwnerReferences: []metav1.OwnerReference{}, // TODO: should point to repository resource
 		},
 		Spec: v1alpha1.PackageRevisionResourcesSpec{
-			PackageName:    key.Package,
-			WorkspaceName:  key.WorkspaceName,
-			Revision:       key.Revision,
-			RepositoryName: key.Repository,
+			PackageName:    p.Key().Package,
+			WorkspaceName:  p.Key().WorkspaceName,
+			Revision:       p.Key().Revision,
+			RepositoryName: p.Key().Repository,
 
 			Resources: resources,
 		},

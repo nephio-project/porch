@@ -64,7 +64,7 @@ func (d *gitPackageRevisionDraft) UpdateLifecycle(ctx context.Context, new v1alp
 }
 
 func (d *gitPackageRevisionDraft) GetName() string {
-	packageDirectory := d.parent.directory
+	packageDirectory := d.parent.Key().Path
 	packageName := strings.TrimPrefix(d.path, packageDirectory+"/")
 	return packageName
 }

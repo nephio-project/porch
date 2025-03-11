@@ -17,7 +17,6 @@ package oci
 import (
 	"bytes"
 	"context"
-	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -32,6 +31,7 @@ import (
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -156,13 +156,15 @@ func (r *ociRepository) ListPackageRevisions(ctx context.Context, filter reposit
 						Image:  child.Name(),
 						Digest: digest,
 					},
-					packageName:     childName,
-					workspaceName:   tag,
+					prKey: repository.PackageRevisionKey{
+						Package:       childName,
+						WorkspaceName: v1alpha1.WorkspaceName(tag),
+					},
 					created:         created,
 					parent:          r,
 					resourceVersion: constructResourceVersion(m.Created),
 				}
-				p.uid = constructUID(p.packageName + ":" + string(p.workspaceName))
+				p.uid = constructUID(p.Key().Package + ":" + string(p.Key().WorkspaceName))
 
 				lifecycle, err := r.getLifecycle(ctx, p.digestName)
 				if err != nil {
@@ -174,7 +176,7 @@ func (r *ociRepository) ListPackageRevisions(ctx context.Context, filter reposit
 				if err != nil {
 					return nil, err
 				}
-				p.revision = revision
+				p.prKey.Revision = revision
 
 				tasks, err := r.loadTasks(ctx, p.digestName)
 				if err != nil {
@@ -209,15 +211,17 @@ func (r *ociRepository) buildPackageRevision(ctx context.Context, name oci.Image
 	}
 
 	p := &ociPackageRevision{
-		digestName:      name,
-		packageName:     packageName,
-		workspaceName:   workspace,
-		revision:        revision,
+		digestName: name,
+		prKey: repository.PackageRevisionKey{
+			Package:       packageName,
+			WorkspaceName: workspace,
+			Revision:      revision,
+		},
 		created:         created,
 		parent:          r,
 		resourceVersion: constructResourceVersion(created),
 	}
-	p.uid = constructUID(p.packageName + ":" + string(p.workspaceName))
+	p.uid = constructUID(p.Key().Package + ":" + string(p.Key().WorkspaceName))
 
 	lifecycle, err := r.getLifecycle(ctx, p.digestName)
 	if err != nil {
@@ -248,10 +252,8 @@ func (p *ociPackageRevision) ToMainPackageRevision() repository.PackageRevision 
 }
 
 type ociPackageRevision struct {
+	prKey           repository.PackageRevisionKey
 	digestName      oci.ImageDigestName
-	packageName     string
-	revision        int
-	workspaceName   v1alpha1.WorkspaceName
 	created         time.Time
 	resourceVersion string
 	uid             types.UID
@@ -264,6 +266,18 @@ type ociPackageRevision struct {
 }
 
 var _ repository.PackageRevision = &ociPackageRevision{}
+
+func (c *ociPackageRevision) KubeObjectName() string {
+	return repository.ComposePkgRevObjName(c.Key())
+}
+
+func (c *ociPackageRevision) KubeObjectNamespace() string {
+	return c.Key().Namespace
+}
+
+func (c *ociPackageRevision) UID() types.UID {
+	return util.GenerateUid("packagerevision:", c.KubeObjectNamespace(), c.KubeObjectName())
+}
 
 func (p *ociPackageRevision) GetResources(ctx context.Context) (*v1alpha1.PackageRevisionResources, error) {
 	resources, err := LoadResources(ctx, p.parent.storage, &p.digestName)
@@ -298,30 +312,12 @@ func (p *ociPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 	}, nil
 }
 
-func (p *ociPackageRevision) KubeObjectName() string {
-	hash := sha1.Sum([]byte(fmt.Sprintf("%s:%s:%s", p.parent.name, p.packageName, p.workspaceName)))
-	return p.parent.name + "-" + hex.EncodeToString(hash[:])
-}
-
-func (p *ociPackageRevision) KubeObjectNamespace() string {
-	return p.parent.namespace
-}
-
-func (p *ociPackageRevision) UID() types.UID {
-	return p.uid
-}
-
 func (p *ociPackageRevision) ResourceVersion() string {
 	return p.resourceVersion
 }
 
 func (p *ociPackageRevision) Key() repository.PackageRevisionKey {
-	return repository.PackageRevisionKey{
-		Repository:    p.parent.name,
-		Package:       p.packageName,
-		Revision:      p.revision,
-		WorkspaceName: p.workspaceName,
-	}
+	return p.prKey
 }
 
 func (p *ociPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.PackageRevision, error) {

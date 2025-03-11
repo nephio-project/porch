@@ -139,12 +139,24 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 		branch = BranchName(spec.Branch)
 	}
 
+	placeholderName := string(branch)
+	if slashPos := strings.Index(placeholderName, "/"); slashPos > 0 {
+		placeholderName = placeholderName[slashPos+1:]
+	}
+
+	if err := util.ValidateK8SName(placeholderName); err != nil {
+		return nil, fmt.Errorf("branch name %s invalid: %v", branch, err)
+	}
+
 	repository := &gitRepository{
-		name:               name,
-		namespace:          namespace,
+		key: repository.RepositoryKey{
+			Name:              name,
+			Namespace:         namespace,
+			Path:              strings.Trim(spec.Directory, "/"),
+			PlaceholderWSname: v1alpha1.WorkspaceName(placeholderName),
+		},
 		repo:               repo,
 		branch:             branch,
-		directory:          strings.Trim(spec.Directory, "/"),
 		secret:             spec.SecretRef.Name,
 		credentialResolver: opts.ExternalRepoOptions.CredentialResolver,
 		userInfoProvider:   makeUserInfoProvider(spec, opts.ExternalRepoOptions.UserInfoProvider),
@@ -191,11 +203,9 @@ func makeUserInfoProvider(spec *configapi.GitRepository, def repository.UserInfo
 }
 
 type gitRepository struct {
-	name               string     // Repository resource name
-	namespace          string     // Repository resource namespace
+	key                repository.RepositoryKey
 	secret             string     // Name of the k8s Secret resource containing credentials
 	branch             BranchName // The main branch from repository registration (defaults to 'main' if unspecified)
-	directory          string     // Directory within the repository where to look for packages.
 	repo               *git.Repository
 	credentialResolver repository.CredentialResolver
 	userInfoProvider   repository.UserInfoProvider
@@ -224,9 +234,13 @@ type gitRepository struct {
 
 var _ GitRepository = &gitRepository{}
 
+func (r *gitRepository) Key() repository.RepositoryKey {
+	return r.key
+}
+
 func (r *gitRepository) Close() error {
 	if err := os.RemoveAll(r.cacheDir); err != nil {
-		return fmt.Errorf("error cleaning up local git cache for repo %s: %v", r.name, err)
+		return fmt.Errorf("error cleaning up local git cache for repo %s: %v", r.Key().Name, err)
 	}
 	return nil
 }
@@ -400,11 +414,11 @@ func (r *gitRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1
 		return nil, fmt.Errorf("error when resolving target branch for the package: %w", err)
 	}
 
-	if err := util.ValidPkgRevObjName(r.name, r.directory, obj.Spec.PackageName, string(obj.Spec.WorkspaceName)); err != nil {
+	if err := util.ValidPkgRevObjName(r.Key().Name, r.Key().Path, obj.Spec.PackageName, string(obj.Spec.WorkspaceName)); err != nil {
 		return nil, fmt.Errorf("failed to create packagerevision: %w", err)
 	}
 
-	packagePath := filepath.Join(r.directory, obj.Spec.PackageName)
+	packagePath := filepath.Join(r.Key().Path, obj.Spec.PackageName)
 
 	// TODO use git branches to leverage uniqueness
 	draft := createDraftName(packagePath, obj.Spec.WorkspaceName)
@@ -612,8 +626,8 @@ func (r *gitRepository) loadPackageRevision(ctx context.Context, version, path s
 	ctx, span := tracer.Start(ctx, "gitRepository::loadPackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	if !packageInDirectory(path, r.directory) {
-		return nil, kptfilev1.GitLock{}, pkgerrors.Errorf("cannot find package %s@%s; package is not under the Repository.spec.directory", path, version)
+	if !packageInDirectory(path, r.Key().Path) {
+		return nil, kptfilev1.GitLock{}, fmt.Errorf("cannot find package %s@%s; package is not under the Repository.spec.directory", path, version)
 	}
 
 	origin, err := r.repo.Remote("origin")
@@ -690,7 +704,7 @@ func (r *gitRepository) discoverFinalizedPackages(ctx context.Context, ref *plum
 		return nil, pkgerrors.Errorf("cannot determine revision from ref: %q", rev)
 	}
 
-	krmPackages, err := r.discoverPackagesInTree(commit, DiscoverPackagesOptions{FilterPrefix: r.directory, Recurse: true})
+	krmPackages, err := r.discoverPackagesInTree(commit, DiscoverPackagesOptions{FilterPrefix: r.Key().Path, Recurse: true})
 	if err != nil {
 		return nil, err
 	}
@@ -724,7 +738,7 @@ func (r *gitRepository) loadDraft(ctx context.Context, ref *plumbing.Reference) 
 	}
 
 	// Only load drafts in the directory specified at repository registration.
-	if !packageInDirectory(name, r.directory) {
+	if !packageInDirectory(name, r.Key().Path) {
 		return nil, nil
 	}
 
@@ -827,7 +841,7 @@ func (r *gitRepository) loadTaggedPackage(ctx context.Context, tag *plumbing.Ref
 	// tag=<package path>/version
 	path, revisionStr := name[:slash], name[slash+1:]
 
-	if !packageInDirectory(path, r.directory) {
+	if !packageInDirectory(path, r.Key().Path) {
 		return nil, nil
 	}
 
@@ -916,8 +930,8 @@ func (r *gitRepository) getAuthMethod(ctx context.Context, forceRefresh bool) (t
 	}
 
 	if r.credential == nil || !r.credential.Valid() || forceRefresh {
-		if cred, err := r.credentialResolver.ResolveCredential(ctx, r.namespace, r.secret); err != nil {
-			return nil, fmt.Errorf("failed to obtain credential from secret %s/%s: %w", r.namespace, r.secret, err)
+		if cred, err := r.credentialResolver.ResolveCredential(ctx, r.Key().Namespace, r.secret); err != nil {
+			return nil, fmt.Errorf("failed to obtain credential from secret %s/%s: %w", r.Key().Namespace, r.secret, err)
 		} else {
 			r.credential = cred
 		}
@@ -956,7 +970,7 @@ func (r *gitRepository) fetchRemoteRepository(ctx context.Context) error {
 	case transport.ErrEmptyRemoteRepository:
 
 	default:
-		return fmt.Errorf("cannot fetch repository %s/%s: %w", r.namespace, r.name, err)
+		return fmt.Errorf("cannot fetch repository %s/%s: %w", r.Key().Namespace, r.Key().Name, err)
 	}
 
 	return nil
@@ -976,7 +990,7 @@ func (r *gitRepository) verifyRepository(ctx context.Context, opts *GitRepositor
 		case ErrorIfMissing:
 			return fmt.Errorf("branch %q doesn't exist: %v", r.branch, err)
 		case CreateIfMissing:
-			klog.Infof("Creating branch %s in repository %s", r.branch, r.name)
+			klog.Infof("Creating branch %s in repository %s", r.branch, r.Key().Name)
 			if err := r.createBranch(ctx, r.branch); err != nil {
 				return fmt.Errorf("error creating main branch %q: %v", r.branch, err)
 			}
@@ -1741,8 +1755,8 @@ func (r *gitRepository) Refresh(_ context.Context) error {
 	return r.UpdateDeletionProposedCache()
 }
 
-func (r *gitRepository) Key() string {
-	return fmt.Sprintf("git://%s/%s@%s/%s", r.repo, r.directory, r.namespace, r.name)
+func (r *gitRepository) Kezy() string {
+	return fmt.Sprintf("git://%s/%s@%s/%s", r.repo, r.Key().Path, r.Key().Namespace, r.Key().Name)
 }
 
 // getPkgWorkspace returns the workspace name as parsed from the kpt annotations from the latest commit for the package.

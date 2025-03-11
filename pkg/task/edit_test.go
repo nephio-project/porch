@@ -28,16 +28,17 @@ import (
 )
 
 func TestEdit(t *testing.T) {
-	pkg := "pkg"
-	packageName := "repo.1234567890.ws"
 	repositoryName := "repo"
+	pkg := "1234567890"
 	revision := 1
+	workspace := "ws"
+	packageName := "repo.1234567890.ws"
 	packageRevision := &fake.FakePackageRevision{
-		Name: packageName,
-		PackageRevisionKey: repository.PackageRevisionKey{
-			Package:    pkg,
-			Repository: repositoryName,
-			Revision:   revision,
+		PrKey: repository.PackageRevisionKey{
+			Package:       pkg,
+			Repository:    repositoryName,
+			Revision:      revision,
+			WorkspaceName: v1alpha1.WorkspaceName(workspace),
 		},
 		PackageLifecycle: v1alpha1.PackageRevisionLifecyclePublished,
 		Resources: &v1alpha1.PackageRevisionResources{

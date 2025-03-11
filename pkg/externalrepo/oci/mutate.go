@@ -68,8 +68,8 @@ func (r *ociRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1
 
 func (r *ociRepository) UpdatePackageRevision(ctx context.Context, old repository.PackageRevision) (repository.PackageRevisionDraft, error) {
 	oldPackage := old.(*ociPackageRevision)
-	packageName := oldPackage.packageName
-	workspace := oldPackage.workspaceName
+	packageName := oldPackage.Key().Package
+	workspace := oldPackage.Key().WorkspaceName
 	// digestName := oldPackage.digestName
 
 	ociRepo, err := name.NewRepository(path.Join(r.spec.Registry, packageName))
@@ -297,8 +297,8 @@ func constructUID(ref string) types.UID {
 
 func (r *ociRepository) DeletePackageRevision(ctx context.Context, old repository.PackageRevision) error {
 	oldPackage := old.(*ociPackageRevision)
-	packageName := oldPackage.packageName
-	workspace := oldPackage.workspaceName
+	packageName := oldPackage.Key().Package
+	workspace := oldPackage.Key().WorkspaceName
 
 	ociRepo, err := name.NewRepository(path.Join(r.spec.Registry, packageName))
 	if err != nil {
