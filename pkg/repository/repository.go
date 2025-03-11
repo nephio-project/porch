@@ -31,16 +31,15 @@ type PackageResources struct {
 }
 
 type PackageRevisionKey struct {
-	Namespace, Repository, Package, Revision string
-	WorkspaceName                            v1alpha1.WorkspaceName
+	Namespace, Repository, Package, WorkspaceName, Revision string
 }
 
 func (n PackageRevisionKey) String() string {
-	return fmt.Sprintf("%s.%s.%s.v%s.%s", n.Namespace, n.Repository, n.Package, n.Revision, string(n.WorkspaceName))
+	return fmt.Sprintf("%s.%s.%s.v%s.%s", n.Namespace, n.Repository, n.Package, n.Revision, n.WorkspaceName)
 }
 
 func (n PackageRevisionKey) NonNSString() string {
-	return fmt.Sprintf("%s.%s.v%s.%s", n.Repository, n.Package, n.Revision, string(n.WorkspaceName))
+	return fmt.Sprintf("%s.%s.v%s.%s", n.Repository, n.Package, n.Revision, n.WorkspaceName)
 }
 
 func (n PackageRevisionKey) PackageKey() PackageKey {
@@ -181,7 +180,7 @@ type ListPackageRevisionFilter struct {
 	Package string
 
 	// WorkspaceName matches the description of the package (spec.workspaceName)
-	WorkspaceName v1alpha1.WorkspaceName
+	WorkspaceName string
 
 	// Revision matches the revision of the package (spec.revision)
 	Revision string

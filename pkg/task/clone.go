@@ -16,7 +16,6 @@ package task
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 
@@ -28,6 +27,7 @@ import (
 	"github.com/nephio-project/porch/pkg/kpt"
 	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
+	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
 )
@@ -65,7 +65,7 @@ func (m *clonePackageMutation) apply(ctx context.Context, resources repository.P
 	} else if oci := m.task.Clone.Upstream.Oci; oci != nil {
 		cloned, err = m.cloneFromOci(ctx, oci)
 	} else {
-		err = errors.New("invalid clone source (neither of git, oci, nor upstream were specified)")
+		err = pkgerrors.New("invalid clone source (neither of git, oci, nor upstream were specified)")
 	}
 
 	if err != nil {
@@ -88,7 +88,7 @@ func (m *clonePackageMutation) apply(ctx context.Context, resources repository.P
 		}
 		cloned, _, err = genPkgContextMutation.apply(ctx, cloned)
 		if err != nil {
-			return repository.PackageResources{}, nil, fmt.Errorf("failed to generate deployment context %w", err)
+			return repository.PackageResources{}, nil, pkgerrors.Wrap(err, "failed to generate deployment context")
 		}
 	}
 
@@ -151,7 +151,7 @@ func (m *clonePackageMutation) cloneFromGit(ctx context.Context, gitPackage *api
 
 	dir, err := os.MkdirTemp("", "clone-git-package-*")
 	if err != nil {
-		return repository.PackageResources{}, fmt.Errorf("cannot create temporary directory to clone Git repository: %w", err)
+		return repository.PackageResources{}, pkgerrors.Wrap(err, "cannot create temporary directory to clone Git repository")
 	}
 	defer os.RemoveAll(dir)
 
@@ -162,17 +162,17 @@ func (m *clonePackageMutation) cloneFromGit(ctx context.Context, gitPackage *api
 		MainBranchStrategy: git.SkipVerification, // We are only reading so we don't need the main branch to exist.
 	})
 	if err != nil {
-		return repository.PackageResources{}, fmt.Errorf("cannot clone Git repository: %w", err)
+		return repository.PackageResources{}, pkgerrors.Wrap(err, "cannot clone Git repository")
 	}
 
 	revision, lock, err := r.GetPackageRevision(ctx, gitPackage.Ref, gitPackage.Directory)
 	if err != nil {
-		return repository.PackageResources{}, fmt.Errorf("cannot find package %s@%s: %w", gitPackage.Directory, gitPackage.Ref, err)
+		return repository.PackageResources{}, pkgerrors.Wrapf(err, "cannot find package %s@%s:", gitPackage.Directory, gitPackage.Ref)
 	}
 
 	resources, err := revision.GetResources(ctx)
 	if err != nil {
-		return repository.PackageResources{}, fmt.Errorf("cannot read package resources: %w", err)
+		return repository.PackageResources{}, pkgerrors.Wrap(err, "cannot read package resources")
 	}
 
 	contents := resources.Spec.Resources
@@ -189,7 +189,7 @@ func (m *clonePackageMutation) cloneFromGit(ctx context.Context, gitPackage *api
 		Type: v1.GitOrigin,
 		Git:  &lock,
 	}); err != nil {
-		return repository.PackageResources{}, fmt.Errorf("failed to clone package %s@%s: %w", gitPackage.Directory, gitPackage.Ref, err)
+		return repository.PackageResources{}, pkgerrors.Wrapf(err, "failed to clone package %s@%s", gitPackage.Directory, gitPackage.Ref)
 	}
 
 	return repository.PackageResources{
@@ -198,5 +198,5 @@ func (m *clonePackageMutation) cloneFromGit(ctx context.Context, gitPackage *api
 }
 
 func (m *clonePackageMutation) cloneFromOci(_ context.Context, _ *api.OciPackage) (repository.PackageResources, error) {
-	return repository.PackageResources{}, errors.New("clone from OCI is not implemented")
+	return repository.PackageResources{}, pkgerrors.New("clone from OCI is not implemented")
 }

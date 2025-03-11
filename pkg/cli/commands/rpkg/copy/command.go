@@ -131,7 +131,7 @@ func (r *runner) getPackageRevisionSpec() (*porchapi.PackageRevisionSpec, error)
 
 	spec := &porchapi.PackageRevisionSpec{
 		PackageName:    packageRevision.Spec.PackageName,
-		WorkspaceName:  porchapi.WorkspaceName(r.workspace),
+		WorkspaceName:  r.workspace,
 		RepositoryName: packageRevision.Spec.RepositoryName,
 	}
 

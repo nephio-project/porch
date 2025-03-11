@@ -20,7 +20,6 @@ import (
 
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
 )
 
 const (
@@ -120,12 +119,12 @@ func getTagNameInLocalRepo(n plumbing.ReferenceName) (string, bool) {
 	return trimOptionalPrefix(n.String(), tagsPrefixInLocalRepo)
 }
 
-func createDraftName(pkg string, wn v1alpha1.WorkspaceName) BranchName {
-	return BranchName(draftsPrefix + pkg + "/" + string(wn))
+func createDraftName(pkg string, wn string) BranchName {
+	return BranchName(draftsPrefix + pkg + "/" + wn)
 }
 
-func createProposedName(pkg string, wn v1alpha1.WorkspaceName) BranchName {
-	return BranchName(proposedPrefix + pkg + "/" + string(wn))
+func createProposedName(pkg string, wn string) BranchName {
+	return BranchName(proposedPrefix + pkg + "/" + wn)
 }
 
 func createDeletionProposedName(pkg string, revision string) BranchName {

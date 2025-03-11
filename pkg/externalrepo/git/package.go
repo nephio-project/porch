@@ -43,7 +43,7 @@ type gitPackageRevision struct {
 	repo          *gitRepository // repo is repo containing the package
 	path          string         // the path to the package from the repo root
 	revision      string
-	workspaceName v1alpha1.WorkspaceName
+	workspaceName string
 	updated       time.Time
 	updatedBy     string
 	ref           *plumbing.Reference // ref is the Git reference at which the package exists

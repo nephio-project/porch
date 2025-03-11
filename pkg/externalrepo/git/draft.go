@@ -29,7 +29,7 @@ type gitPackageRevisionDraft struct {
 	parent        *gitRepository // repo is repo containing the package
 	path          string         // the path to the package from the repo root
 	revision      string
-	workspaceName v1alpha1.WorkspaceName
+	workspaceName string
 	updated       time.Time
 	tasks         []v1alpha1.Task
 

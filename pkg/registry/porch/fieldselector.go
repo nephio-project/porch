@@ -150,7 +150,7 @@ func parsePackageRevisionFieldSelector(fieldSelector fields.Selector) (packageRe
 		case "spec.repository":
 			filter.Repository = requirement.Value
 		case "spec.workspaceName":
-			filter.WorkspaceName = v1alpha1.WorkspaceName(requirement.Value)
+			filter.WorkspaceName = requirement.Value
 		case "spec.lifecycle":
 			v := v1alpha1.PackageRevisionLifecycle(requirement.Value)
 			switch v {
