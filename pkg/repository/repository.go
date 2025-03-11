@@ -31,17 +31,13 @@ type PackageResources struct {
 }
 
 type PackageRevisionKey struct {
-	Namespace, Repository, Package string
-	Revision                       int
-	WorkspaceName                  v1alpha1.WorkspaceName
+	Namespace, Repository, Path, Package string
+	Revision                             int
+	WorkspaceName, PlaceholderWSname     v1alpha1.WorkspaceName
 }
 
 func (n PackageRevisionKey) String() string {
-	return fmt.Sprintf("%s.%s.%s.%d.%s", n.Namespace, n.Repository, n.Package, n.Revision, string(n.WorkspaceName))
-}
-
-func (n PackageRevisionKey) NonNSString() string {
-	return fmt.Sprintf("%s.%s.%d.%s", n.Repository, n.Package, n.Revision, string(n.WorkspaceName))
+	return fmt.Sprintf("%s:%s:%s:%s:%d:%s:%s", n.Namespace, n.Repository, n.Path, n.Package, n.Revision, string(n.WorkspaceName), string(n.PlaceholderWSname))
 }
 
 func (n PackageRevisionKey) PackageKey() PackageKey {
@@ -54,17 +50,18 @@ func (n PackageRevisionKey) PackageKey() PackageKey {
 
 func (n PackageRevisionKey) RepositoryKey() RepositoryKey {
 	return RepositoryKey{
-		Namespace:  n.Namespace,
-		Repository: n.Repository,
+		Namespace: n.Namespace,
+		Name:      n.Repository,
+		Path:      n.Path,
 	}
 }
 
 type PackageKey struct {
-	Namespace, Repository, Package string
+	Namespace, Repository, Path, Package string
 }
 
 func (n PackageKey) String() string {
-	return fmt.Sprintf("%s.%s.%s", n.Namespace, n.Repository, n.Package)
+	return fmt.Sprintf("%s:%s%s:%s", n.Namespace, n.Repository, n.Path, n.Package)
 }
 
 func (n PackageKey) NonNSString() string {
@@ -73,21 +70,22 @@ func (n PackageKey) NonNSString() string {
 
 func (n PackageKey) RepositoryKey() RepositoryKey {
 	return RepositoryKey{
-		Namespace:  n.Namespace,
-		Repository: n.Repository,
+		Namespace: n.Namespace,
+		Name:      n.Repository,
 	}
 }
 
 type RepositoryKey struct {
-	Namespace, Repository string
+	Namespace, Name, Path string
+	PlaceholderWSname     v1alpha1.WorkspaceName
 }
 
 func (n RepositoryKey) String() string {
-	return fmt.Sprintf("%s.%s", n.Namespace, n.Repository)
+	return fmt.Sprintf("%s:%s:%s", n.Namespace, n.Name, n.Path)
 }
 
 func (n RepositoryKey) NonNSString() string {
-	return n.Repository
+	return n.Name
 }
 
 // PackageRevision is an abstract package version.
@@ -106,7 +104,6 @@ type PackageRevision interface {
 	// UID returns a unique identifier for the PackageRevision.
 	UID() types.UID
 
-	// Key returns the "primary key" of the package.
 	Key() PackageRevisionKey
 
 	// Lifecycle returns the current lifecycle state of the package.
@@ -154,7 +151,6 @@ type Package interface {
 	// More "readable" values are returned by Key()
 	KubeObjectName() string
 
-	// Key returns the "primary key" of the package.
 	Key() PackageKey
 
 	// GetPackage returns the object representing this package
@@ -178,6 +174,12 @@ type ListPackageRevisionFilter struct {
 	// KubeObjectName matches the generated kubernetes object name.
 	KubeObjectName string
 
+	Namespace string
+
+	Repository string
+
+	Path string
+
 	// Package matches the name of the package (spec.package)
 	Package string
 
@@ -187,6 +189,8 @@ type ListPackageRevisionFilter struct {
 	// Revision matches the revision of the package (spec.revision)
 	Revision int
 
+	PlaceholderWSname v1alpha1.WorkspaceName
+
 	// Lifecycle matches the spec.lifecycle of the package
 	Lifecycle v1alpha1.PackageRevisionLifecycle
 }
@@ -195,6 +199,15 @@ type ListPackageRevisionFilter struct {
 func (f *ListPackageRevisionFilter) Matches(ctx context.Context, p PackageRevision) bool {
 	packageKey := p.Key()
 
+	if f.Namespace != "" && f.Namespace != packageKey.Namespace {
+		return false
+	}
+	if f.Repository != "" && f.Repository != packageKey.Repository {
+		return false
+	}
+	if f.Path != "" && f.Path != packageKey.Path {
+		return false
+	}
 	if f.Package != "" && f.Package != packageKey.Package {
 		return false
 	}
@@ -204,6 +217,9 @@ func (f *ListPackageRevisionFilter) Matches(ctx context.Context, p PackageRevisi
 	if f.WorkspaceName != "" && f.WorkspaceName != packageKey.WorkspaceName {
 		return false
 	}
+	if f.PlaceholderWSname != "" && f.PlaceholderWSname != packageKey.PlaceholderWSname {
+		return false
+	}
 	if f.KubeObjectName != "" && f.KubeObjectName != p.KubeObjectName() {
 		return false
 	}
@@ -211,6 +227,19 @@ func (f *ListPackageRevisionFilter) Matches(ctx context.Context, p PackageRevisi
 		return false
 	}
 	return true
+}
+
+// Return a filter composed from a PackageRevision key
+func PRFilterFromKey(key PackageRevisionKey) ListPackageRevisionFilter {
+	return ListPackageRevisionFilter{
+		Namespace:         key.Namespace,
+		Repository:        key.Repository,
+		Path:              key.Path,
+		Package:           key.Package,
+		Revision:          key.Revision,
+		WorkspaceName:     key.WorkspaceName,
+		PlaceholderWSname: key.PlaceholderWSname,
+	}
 }
 
 // ListPackageFilter is a predicate for filtering Package objects;
