@@ -60,7 +60,7 @@ func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revision
 		klog.Warningf("Error when loading tasks for package %s/%s: %s", p.path, revision, err)
 	}
 
-	if tasks == nil || len(tasks) == 0 {
+	if len(tasks) == 0 {
 		klog.Warningf("Loaded no tasks for package %s/%s", p.path, revision)
 	} else if klog.V(6).Enabled() {
 		marshalledTasks, _ := json.Marshal(tasks)

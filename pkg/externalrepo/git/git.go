@@ -363,7 +363,7 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 		// TODO: ignore packages that are unchanged in main branch, compared to a tagged version?
 		mainpkgs, err := r.discoverFinalizedPackages(ctx, main)
 		if err != nil {
-			if mainpkgs == nil || len(mainpkgs) == 0 {
+			if len(mainpkgs) == 0 {
 				return nil, err
 			}
 			klog.Warningf("Error discovering finalized packages: %s", err)
@@ -1737,18 +1737,6 @@ func (r *gitRepository) Refresh(_ context.Context) error {
 
 func (r *gitRepository) Key() string {
 	return fmt.Sprintf("git://%s/%s@%s/%s", r.repo, r.directory, r.namespace, r.name)
-}
-
-// See https://eli.thegreenplace.net/2021/generic-functions-on-slices-with-go-type-parameters/
-// func ReverseSlice[T any](s []T) { // Ready for generics!
-func reverseSlice(s []v1alpha1.Task) {
-	first := 0
-	last := len(s) - 1
-	for first < last {
-		s[first], s[last] = s[last], s[first]
-		first++
-		last--
-	}
 }
 
 // getPkgWorkspace returns the workspace name as parsed from the kpt annotations from the latest commit for the package.
