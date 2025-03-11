@@ -29,7 +29,10 @@ import (
 
 func TestEdit(t *testing.T) {
 	repositoryName := "repo"
+	pkg := "1234567890"
 	revision := 1
+	workspace := "ws"
+	packageName := "repo.1234567890.ws"
 	packageRevision := &fake.FakePackageRevision{
 		PrKey: repository.PackageRevisionKey{
 			Package:       pkg,

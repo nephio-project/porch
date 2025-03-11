@@ -254,9 +254,6 @@ func (p *ociPackageRevision) ToMainPackageRevision() repository.PackageRevision 
 type ociPackageRevision struct {
 	prKey           repository.PackageRevisionKey
 	digestName      oci.ImageDigestName
-	packageName     string
-	revision        int
-	workspaceName   v1alpha1.WorkspaceName
 	created         time.Time
 	resourceVersion string
 	uid             types.UID

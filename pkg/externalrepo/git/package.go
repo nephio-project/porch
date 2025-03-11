@@ -49,26 +49,8 @@ type gitPackageRevision struct {
 
 var _ repository.PackageRevision = &gitPackageRevision{}
 
-// Kubernetes resource names requirements do not allow to encode arbitrary directory
-// path: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-// Because we need a resource names that are stable over time, and avoid conflict, we
-// compute a hash of the package path and revision.
-// For implementation convenience (though this is temporary) we prepend the repository
-// name in order to aide package discovery on the server. With improvements to caching
-// layer, the prefix will be removed (this may happen without notice) so it should not
-// be relied upon by clients.
-func (p *gitPackageRevision) KubeObjectName() string {
-	// The published package revisions on the working branch will have the same workspaceName
-	// as the most recently published package revision, so we need to ensure it has a unique
-	// and unchanging name.
-	var s string
-	if p.revision == -1 {
-		s = string(p.repo.branch)
-	} else {
-		s = string(p.Key().WorkspaceName)
-	}
-
-	return util.ComposePkgRevObjName(p.repo.name, p.repo.directory, p.Key().Package, s)
+func (c *gitPackageRevision) KubeObjectName() string {
+	return repository.ComposePkgRevObjName(c.Key())
 }
 
 func (c *gitPackageRevision) KubeObjectNamespace() string {
