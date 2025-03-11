@@ -244,6 +244,19 @@ func (f *ListPackageRevisionFilter) Matches(ctx context.Context, p PackageRevisi
 	return true
 }
 
+// Return a filter composed from a PackageRevision key
+func PRFilterFromKey(key PackageRevisionKey) ListPackageRevisionFilter {
+	return ListPackageRevisionFilter{
+		Namespace:         key.Namespace,
+		Repository:        key.Repository,
+		Path:              key.Path,
+		Package:           key.Package,
+		Revision:          key.Revision,
+		WorkspaceName:     key.WorkspaceName,
+		PlaceholderWSname: key.PlaceholderWSname,
+	}
+}
+
 // ListPackageFilter is a predicate for filtering Package objects;
 // only matching Package objects will be returned.
 type ListPackageFilter struct {
