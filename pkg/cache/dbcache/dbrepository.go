@@ -150,7 +150,7 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *v1
 			Namespace:     r.repoKey.Namespace,
 			Repository:    r.repoKey.Repository,
 			Package:       newPR.Spec.PackageName,
-			Revision:      "",
+			Revision:      0,
 			WorkspaceName: newPR.Spec.WorkspaceName,
 		},
 		meta:      newPR.ObjectMeta,
@@ -161,7 +161,7 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *v1
 		tasks:     newPR.Spec.Tasks,
 	}
 
-	prDraft, err := r.savePackageRevision(ctx, dbPkgRev, "")
+	prDraft, err := r.savePackageRevision(ctx, dbPkgRev, 0)
 
 	return repository.PackageRevisionDraft(prDraft), err
 }
@@ -270,7 +270,7 @@ func (r *dbRepository) Version(ctx context.Context) (string, error) {
 	return "Undefined", nil
 }
 
-func (r *dbRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version string) (repository.PackageRevision, error) {
+func (r *dbRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version int) (repository.PackageRevision, error) {
 	_, span := tracer.Start(ctx, "dbRepository::ClosePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
 
@@ -283,7 +283,7 @@ func (r *dbRepository) PushPackageRevision(ctx context.Context, pr repository.Pa
 	return fmt.Errorf("dbRepository:PushPackageRevision: function should not be invoked on caches")
 }
 
-func (r *dbRepository) savePackageRevision(ctx context.Context, prd repository.PackageRevisionDraft, _ string) (*dbPackageRevision, error) {
+func (r *dbRepository) savePackageRevision(ctx context.Context, prd repository.PackageRevisionDraft, _ int) (*dbPackageRevision, error) {
 	_, span := tracer.Start(ctx, "dbRepository::savePackageRevision", trace.WithAttributes())
 	defer span.End()
 

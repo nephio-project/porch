@@ -32,8 +32,6 @@ import (
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo/git"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
-	"github.com/nephio-project/porch/pkg/meta"
-	fakemeta "github.com/nephio-project/porch/pkg/meta/fake"
 	"github.com/nephio-project/porch/pkg/repository"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
@@ -227,16 +225,19 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 	_, address := git.ServeGitRepository(t, tarfile, tempdir)
 	metadataStore := createMetadataStoreFromArchive(t, fmt.Sprintf("%s-metadata.yaml", name), name)
 
-	cache, _ := new(CrCacheFactory).NewCache(ctx, cachetypes.CacheOptions{
-		ExternalRepoOptions: externalrepotypes.ExternalRepoOptions{
-			LocalDirectory:         t.TempDir(),
-			UseUserDefinedCaBundle: true,
-			CredentialResolver:     &fakecache.CredentialResolver{},
-		},
-		RepoSyncFrequency:    60 * time.Second,
-		MetadataStore:        metadataStore,
-		RepoPRChangeNotifier: &fakecache.ObjectNotifier{},
-	})
+	cache := &Cache{
+		repositories:  make(map[string]*cachedRepository),
+		metadataStore: metadataStore,
+		options: cachetypes.CacheOptions{
+			ExternalRepoOptions: externalrepotypes.ExternalRepoOptions{
+				CacheDirectory:         t.TempDir(),
+				UseUserDefinedCaBundle: true,
+				CredentialResolver:     &fakecache.CredentialResolver{},
+			},
+			RepoSyncFrequency:    60 * time.Second,
+			RepoPRChangeNotifier: &fakecache.ObjectNotifier{},
+		}}
+
 	apiRepo := &v1alpha1.Repository{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       v1alpha1.TypeRepository.Kind,

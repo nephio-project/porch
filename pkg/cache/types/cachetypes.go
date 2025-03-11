@@ -20,24 +20,39 @@ import (
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
-	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/repository"
 	"k8s.io/apimachinery/pkg/watch"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+type CacheType string
+
+const (
+	CRCacheType      CacheType = "CR"
+	DBCacheType      CacheType = "DB"
+	DefaultCacheType CacheType = "CR"
 )
 
 type CacheOptions struct {
 	ExternalRepoOptions  externalrepotypes.ExternalRepoOptions
 	RepoSyncFrequency    time.Duration
-	MetadataStore        meta.MetadataStore
 	RepoPRChangeNotifier RepoPRChangeNotifier
-	Driver               string
-	DataSource           string
+	CoreClient           client.WithWatch
+	CacheType            CacheType
+	DBCacheOptions       DBCacheOptions
+}
+
+const DefaultDBCacheDriver string = "pgx"
+
+type DBCacheOptions struct {
+	Driver     string
+	DataSource string
 }
 
 type Cache interface {
 	OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (repository.Repository, error)
 	CloseRepository(ctx context.Context, repositorySpec *configapi.Repository, allRepos []configapi.Repository) error
-	GetRepositories(ctx context.Context) []configapi.Repository
+	GetRepositories(ctx context.Context) []*configapi.Repository
 	UpdateRepository(ctx context.Context, repositorySpec *configapi.Repository) error
 }
 

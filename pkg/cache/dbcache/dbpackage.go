@@ -23,7 +23,7 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 var _ repository.Package = &dbPackage{}
@@ -126,8 +126,12 @@ func (p *dbPackage) DeletePackageRevision(ctx context.Context, old repository.Pa
 	return nil
 }
 
-func (p *dbPackage) GetLatestRevision() string {
-	return pkgRevReadLatestPRFromDB(p.Key()).ResourceVersion()
+func (p *dbPackage) GetLatestRevision() int {
+	if latestPR := pkgRevReadLatestPRFromDB(p.Key()); latestPR != nil {
+		return latestPR.Key().Revision
+	} else {
+		return 0
+	}
 }
 
 func (p *dbPackage) Delete() error {

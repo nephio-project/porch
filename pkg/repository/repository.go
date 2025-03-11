@@ -162,7 +162,7 @@ type Package interface {
 
 	// GetLatestRevision returns the name of the package revision that is the "latest" package
 	// revision belonging to this package
-	GetLatestRevision() string
+	GetLatestRevision() int
 }
 
 type PackageRevisionDraft interface {

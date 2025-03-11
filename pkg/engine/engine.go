@@ -23,7 +23,6 @@ import (
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
-	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/task"
 	"github.com/nephio-project/porch/pkg/util"
@@ -161,30 +160,7 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	}
 
 	// Updates are done.
-	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, 0)
-	if err != nil {
-		return nil, err
-	}
-	pkgRevMeta := metav1.ObjectMeta{
-		Name:            repoPkgRev.KubeObjectName(),
-		Namespace:       repoPkgRev.KubeObjectNamespace(),
-		Labels:          obj.Labels,
-		Annotations:     obj.Annotations,
-		Finalizers:      obj.Finalizers,
-		OwnerReferences: obj.OwnerReferences,
-	}
-	pkgRevMeta, err = cad.metadataStore.Create(ctx, pkgRevMeta, repositoryObj.Name, repoPkgRev.UID())
-	if err != nil {
-		if (apierrors.IsUnauthorized(err) || apierrors.IsForbidden(err)) && repository.AnyBlockOwnerDeletionSet(obj) {
-			return nil, fmt.Errorf("failed to create internal PackageRev object, because blockOwnerDeletion is enabled for some ownerReference "+
-				"(it is likely that the serviceaccount of porch-server does not have the rights to update finalizers in the owner object): %w", err)
-		}
-		return nil, err
-	}
-	repoPkgRev.SetMeta(pkgRevMeta)
-	sent := cad.watcherManager.NotifyPackageRevisionChange(watch.Added, repoPkgRev)
-	klog.Infof("engine: sent %d for new PackageRevision %s/%s", sent, repoPkgRev.KubeObjectNamespace(), repoPkgRev.KubeObjectName())
-	return repoPkgRev, nil
+	return repo.ClosePackageRevisionDraft(ctx, draft, 0)
 }
 
 // The workspaceName must be unique, because it used to generate the package revision's metadata.name.
@@ -450,7 +426,7 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 	if err != nil {
 		return nil, renderStatus, err
 	}
-	repoPkgRev.SetMeta(rev.ObjectMeta)
+	repoPkgRev.SetMeta(ctx, rev.ObjectMeta)
 
 	return repoPkgRev, renderStatus, nil
 }
