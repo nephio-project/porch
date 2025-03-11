@@ -32,6 +32,7 @@ spec:
         app.kubernetes.io/name: postgresql
         app.kubernetes.io/part-of: porch
     spec:
+      automountServiceAccountToken: false
       containers:
       - name: postgresql
         image: 'postgres:17'
@@ -40,6 +41,9 @@ spec:
           requests:
             memory: 2Gi
             cpu: "2"
+          limits:
+            memory: "4Gi"
+            ephemeral-storage: "10Gi"
         env:
         - name: PGPORT
           value: "55432"
