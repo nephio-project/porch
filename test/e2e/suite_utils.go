@@ -52,23 +52,23 @@ func (t *TestSuiteWithGit) GitConfig(name string) GitConfig {
 	return config
 }
 
-func (t *TestSuiteWithGit) RegisterMainGitRepositoryF(ctx context.Context, name string, opts ...RepositoryOption) {
+func (t *TestSuiteWithGit) RegisterMainGitRepositoryF(name string, opts ...RepositoryOption) {
 	t.T().Helper()
 	config := t.GitConfig(name)
-	t.registerGitRepositoryFromConfigF(ctx, name, config, opts...)
+	t.registerGitRepositoryFromConfigF(name, config, opts...)
 }
 
-func (t *TestSuiteWithGit) RegisterGitRepositoryWithDirectoryF(ctx context.Context, name string, directory string, opts ...RepositoryOption) {
+func (t *TestSuiteWithGit) RegisterGitRepositoryWithDirectoryF(name string, directory string, opts ...RepositoryOption) {
 	t.T().Helper()
 	config := t.GitConfig(name)
 	config.Directory = directory
-	t.registerGitRepositoryFromConfigF(ctx, name, config, opts...)
+	t.registerGitRepositoryFromConfigF(name, config, opts...)
 }
 
-func (t *TestSuite) ValidateFinalizers(ctx context.Context, name string, finalizers []string) {
+func (t *TestSuite) ValidateFinalizers(name string, finalizers []string) {
 	t.T().Helper()
 	var pr porchapi.PackageRevision
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      name,
 	}, &pr)
@@ -91,10 +91,10 @@ func (t *TestSuite) ValidateFinalizers(ctx context.Context, name string, finaliz
 	}
 }
 
-func (t *TestSuite) ValidateOwnerReferences(ctx context.Context, name string, ownerRefs []metav1.OwnerReference) {
+func (t *TestSuite) ValidateOwnerReferences(name string, ownerRefs []metav1.OwnerReference) {
 	t.T().Helper()
 	var pr porchapi.PackageRevision
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      name,
 	}, &pr)
@@ -117,10 +117,10 @@ func (t *TestSuite) ValidateOwnerReferences(ctx context.Context, name string, ow
 	}
 }
 
-func (t *TestSuite) ValidateLabelsAndAnnos(ctx context.Context, name string, labels, annos map[string]string) {
+func (t *TestSuite) ValidateLabelsAndAnnos(name string, labels, annos map[string]string) {
 	t.T().Helper()
 	var pr porchapi.PackageRevision
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      name,
 	}, &pr)
@@ -142,10 +142,10 @@ func (t *TestSuite) ValidateLabelsAndAnnos(ctx context.Context, name string, lab
 	}
 }
 
-func (t *TestSuite) MustHaveLabels(ctx context.Context, name string, labels map[string]string) {
+func (t *TestSuite) MustHaveLabels(name string, labels map[string]string) {
 	t.T().Helper()
 	var pr porchapi.PackageRevision
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      name,
 	}, &pr)
@@ -161,10 +161,10 @@ func (t *TestSuite) MustHaveLabels(ctx context.Context, name string, labels map[
 	}
 }
 
-func (t *TestSuite) MustNotHaveLabels(ctx context.Context, name string, labels []string) {
+func (t *TestSuite) MustNotHaveLabels(name string, labels []string) {
 	t.T().Helper()
 	var pr porchapi.PackageRevision
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      name,
 	}, &pr)
@@ -177,24 +177,24 @@ func (t *TestSuite) MustNotHaveLabels(ctx context.Context, name string, labels [
 	}
 }
 
-func (t *TestSuite) RegisterGitRepositoryF(ctx context.Context, repo, name, directory string, opts ...RepositoryOption) {
+func (t *TestSuite) RegisterGitRepositoryF(repo, name, directory string, opts ...RepositoryOption) {
 	t.T().Helper()
 	config := GitConfig{
 		Repo:      repo,
 		Branch:    "main",
 		Directory: directory,
 	}
-	t.registerGitRepositoryFromConfigF(ctx, name, config, opts...)
+	t.registerGitRepositoryFromConfigF(name, config, opts...)
 }
 
-func (t *TestSuite) registerGitRepositoryFromConfigF(ctx context.Context, name string, config GitConfig, opts ...RepositoryOption) {
+func (t *TestSuite) registerGitRepositoryFromConfigF(name string, config GitConfig, opts ...RepositoryOption) {
 	t.T().Helper()
 	var secret string
 	// Create auth secret if necessary
 	if config.Username != "" || config.Password != "" {
 		secret = fmt.Sprintf("%s-auth", name)
 		immutable := true
-		t.CreateF(ctx, &corev1.Secret{
+		t.CreateF(&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      secret,
 				Namespace: t.Namespace,
@@ -208,7 +208,7 @@ func (t *TestSuite) registerGitRepositoryFromConfigF(ctx context.Context, name s
 		})
 		t.Cleanup(func() {
 			t.T().Helper()
-			t.DeleteE(ctx, &corev1.Secret{
+			t.DeleteE(&corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      secret,
 					Namespace: t.Namespace,
@@ -246,17 +246,17 @@ func (t *TestSuite) registerGitRepositoryFromConfigF(ctx context.Context, name s
 	}
 
 	// Register repository
-	t.CreateF(ctx, repository)
+	t.CreateF(repository)
 
 	t.Cleanup(func() {
-		t.DeleteE(ctx, repository)
-		t.WaitUntilRepositoryDeleted(ctx, name, t.Namespace)
-		t.WaitUntilAllPackagesDeleted(ctx, name, t.Namespace)
+		t.DeleteE(repository)
+		t.WaitUntilRepositoryDeleted(name, t.Namespace)
+		t.WaitUntilAllPackagesDeleted(name, t.Namespace)
 	})
 
 	// Make sure the repository is ready before we test to (hopefully)
 	// avoid flakiness.
-	t.WaitUntilRepositoryReady(ctx, repository.Name, repository.Namespace)
+	t.WaitUntilRepositoryReady(repository.Name, repository.Namespace)
 	t.Logf("Repository %s/%s is ready", repository.Namespace, repository.Name)
 }
 
@@ -281,7 +281,7 @@ func InNamespace(ns string) RepositoryOption {
 }
 
 // Creates an empty package draft by initializing an empty package
-func (t *TestSuite) CreatePackageDraftF(ctx context.Context, repository, packageName, workspace string) *porchapi.PackageRevision {
+func (t *TestSuite) CreatePackageDraftF(repository, packageName, workspace string) *porchapi.PackageRevision {
 	t.T().Helper()
 	pr := t.CreatePackageSkeleton(repository, packageName, workspace)
 	pr.Spec.Tasks = []porchapi.Task{
@@ -290,7 +290,7 @@ func (t *TestSuite) CreatePackageDraftF(ctx context.Context, repository, package
 			Init: &porchapi.PackageInitTaskSpec{},
 		},
 	}
-	t.CreateF(ctx, pr)
+	t.CreateF(pr)
 	return pr
 }
 
@@ -313,10 +313,10 @@ func (t *TestSuite) CreatePackageSkeleton(repoName, packageName, workspace strin
 	}
 }
 
-func (t *TestSuite) MustExist(ctx context.Context, key client.ObjectKey, obj client.Object) {
+func (t *TestSuite) MustExist(key client.ObjectKey, obj client.Object) {
 	t.T().Helper()
 	t.Logf("Checking existence of %q...", key)
-	t.GetF(ctx, key, obj)
+	t.GetF(key, obj)
 	if got, want := obj.GetName(), key.Name; got != want {
 		t.Errorf("%T.Name: got %q, want %q", obj, got, want)
 	}
@@ -325,9 +325,9 @@ func (t *TestSuite) MustExist(ctx context.Context, key client.ObjectKey, obj cli
 	}
 }
 
-func (t *TestSuite) MustNotExist(ctx context.Context, obj client.Object) {
+func (t *TestSuite) MustNotExist(obj client.Object) {
 	t.T().Helper()
-	switch err := t.Client.Get(ctx, client.ObjectKeyFromObject(obj), obj); {
+	switch err := t.Client.Get(t.GetContext(), client.ObjectKeyFromObject(obj), obj); {
 	case err == nil:
 		t.Errorf("No error returned getting a deleted package; expected error")
 	case !apierrors.IsNotFound(err):
@@ -340,14 +340,14 @@ func (t *TestSuite) MustNotExist(ctx context.Context, obj client.Object) {
 // It also queries for Functions and PackageRevisions, to ensure these are also
 // ready - this is an artifact of the way we've implemented the aggregated apiserver,
 // where the first fetch can sometimes be synchronous.
-func (t *TestSuite) WaitUntilRepositoryReady(ctx context.Context, name, namespace string) {
+func (t *TestSuite) WaitUntilRepositoryReady(name, namespace string) {
 	t.T().Helper()
 	nn := types.NamespacedName{
 		Name:      name,
 		Namespace: namespace,
 	}
 	var innerErr error
-	err := wait.PollUntilContextTimeout(ctx, time.Second, 120*time.Second, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 120*time.Second, true, func(ctx context.Context) (bool, error) {
 		var repo configapi.Repository
 		if err := t.Client.Get(ctx, nn, &repo); err != nil {
 			innerErr = err
@@ -370,7 +370,7 @@ func (t *TestSuite) WaitUntilRepositoryReady(ctx context.Context, name, namespac
 	}
 
 	// While we're using an aggregated apiserver, make sure we can query the generated objects
-	if err := wait.PollUntilContextTimeout(ctx, time.Second, 10*time.Second, true, func(ctx context.Context) (bool, error) {
+	if err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 10*time.Second, true, func(ctx context.Context) (bool, error) {
 		var revisions porchapi.PackageRevisionList
 		if err := t.Client.List(ctx, &revisions, client.InNamespace(nn.Namespace)); err != nil {
 			innerErr = err
@@ -382,9 +382,9 @@ func (t *TestSuite) WaitUntilRepositoryReady(ctx context.Context, name, namespac
 	}
 }
 
-func (t *TestSuite) WaitUntilRepositoryDeleted(ctx context.Context, name, namespace string) {
+func (t *TestSuite) WaitUntilRepositoryDeleted(name, namespace string) {
 	t.T().Helper()
-	err := wait.PollUntilContextTimeout(ctx, time.Second, 20*time.Second, true, func(ctx context.Context) (done bool, err error) {
+	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 20*time.Second, true, func(ctx context.Context) (done bool, err error) {
 		var repo configapi.Repository
 		nn := types.NamespacedName{
 			Name:      name,
@@ -403,9 +403,9 @@ func (t *TestSuite) WaitUntilRepositoryDeleted(ctx context.Context, name, namesp
 	}
 }
 
-func (t *TestSuite) WaitUntilAllPackagesDeleted(ctx context.Context, repoName string, namespace string) {
+func (t *TestSuite) WaitUntilAllPackagesDeleted(repoName string, namespace string) {
 	t.T().Helper()
-	err := wait.PollUntilContextTimeout(ctx, time.Second, 60*time.Second, true, func(ctx context.Context) (done bool, err error) {
+	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 60*time.Second, true, func(ctx context.Context) (done bool, err error) {
 		t.T().Helper()
 		var pkgRevList porchapi.PackageRevisionList
 		if err := t.Client.List(ctx, &pkgRevList); err != nil {
@@ -436,10 +436,10 @@ func (t *TestSuite) WaitUntilAllPackagesDeleted(ctx context.Context, repoName st
 	}
 }
 
-func (t *TestSuite) WaitUntilObjectDeleted(ctx context.Context, gvk schema.GroupVersionKind, namespacedName types.NamespacedName, d time.Duration) {
+func (t *TestSuite) WaitUntilObjectDeleted(gvk schema.GroupVersionKind, namespacedName types.NamespacedName, d time.Duration) {
 	t.T().Helper()
 	var innerErr error
-	err := wait.PollUntilContextTimeout(ctx, time.Second, d, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, d, true, func(ctx context.Context) (bool, error) {
 		var u unstructured.Unstructured
 		u.SetGroupVersionKind(gvk)
 		if err := t.Client.Get(ctx, namespacedName, &u); err != nil {
@@ -457,14 +457,13 @@ func (t *TestSuite) WaitUntilObjectDeleted(ctx context.Context, gvk schema.Group
 }
 
 func (t *TestSuite) WaitUntilPackageRevisionFulfillingConditionExists(
-	ctx context.Context,
 	timeout time.Duration,
 	condition func(porchapi.PackageRevision) bool,
 ) (*porchapi.PackageRevision, error) {
 
 	t.T().Helper()
 	var foundPkgRev *porchapi.PackageRevision
-	err := wait.PollUntilContextTimeout(ctx, time.Second, timeout, true, func(ctx context.Context) (done bool, err error) {
+	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, timeout, true, func(ctx context.Context) (done bool, err error) {
 		var pkgRevList porchapi.PackageRevisionList
 		if err := t.Client.List(ctx, &pkgRevList); err != nil {
 			t.Logf("error listing packages: %v", err)
@@ -481,11 +480,11 @@ func (t *TestSuite) WaitUntilPackageRevisionFulfillingConditionExists(
 	return foundPkgRev, err
 }
 
-func (t *TestSuite) WaitUntilPackageRevisionExists(ctx context.Context, repository string, pkgName string, revision string) *porchapi.PackageRevision {
+func (t *TestSuite) WaitUntilPackageRevisionExists(repository string, pkgName string, revision string) *porchapi.PackageRevision {
 	t.T().Helper()
 	t.Logf("Waiting for package revision (%v/%v/%v) to exist", repository, pkgName, revision)
 	timeout := 120 * time.Second
-	foundPkgRev, err := t.WaitUntilPackageRevisionFulfillingConditionExists(ctx, timeout, func(pkgRev porchapi.PackageRevision) bool {
+	foundPkgRev, err := t.WaitUntilPackageRevisionFulfillingConditionExists(timeout, func(pkgRev porchapi.PackageRevision) bool {
 		return pkgRev.Spec.RepositoryName == repository &&
 			pkgRev.Spec.PackageName == pkgName &&
 			pkgRev.Spec.Revision == revision
@@ -496,11 +495,11 @@ func (t *TestSuite) WaitUntilPackageRevisionExists(ctx context.Context, reposito
 	return foundPkgRev
 }
 
-func (t *TestSuite) WaitUntilDraftPackageRevisionExists(ctx context.Context, repository string, pkgName string) *porchapi.PackageRevision {
+func (t *TestSuite) WaitUntilDraftPackageRevisionExists(repository string, pkgName string) *porchapi.PackageRevision {
 	t.T().Helper()
 	t.Logf("Waiting for a draft revision for package %v/%v to exist", repository, pkgName)
 	timeout := 120 * time.Second
-	foundPkgRev, err := t.WaitUntilPackageRevisionFulfillingConditionExists(ctx, timeout, func(pkgRev porchapi.PackageRevision) bool {
+	foundPkgRev, err := t.WaitUntilPackageRevisionFulfillingConditionExists(timeout, func(pkgRev porchapi.PackageRevision) bool {
 		return pkgRev.Spec.RepositoryName == repository &&
 			pkgRev.Spec.PackageName == pkgName &&
 			pkgRev.Spec.Lifecycle == porchapi.PackageRevisionLifecycleDraft
@@ -540,7 +539,7 @@ func (t *TestSuite) WaitUntilPackageRevisionResourcesExists(
 	return foundPrr
 }
 
-func (t *TestSuite) GetPackageRevision(ctx context.Context, repository string, pkgName string, revision string) *porchapi.PackageRevision {
+func (t *TestSuite) GetPackageRevision(repository string, pkgName string, revision string) *porchapi.PackageRevision {
 	t.T().Helper()
 	var prList porchapi.PackageRevisionList
 	selector := client.MatchingFields(fields.Set{
@@ -548,7 +547,7 @@ func (t *TestSuite) GetPackageRevision(ctx context.Context, repository string, p
 		"spec.packageName": pkgName,
 		"spec.revision":    revision,
 	})
-	t.ListF(ctx, &prList, selector, client.InNamespace(t.Namespace))
+	t.ListF(&prList, selector, client.InNamespace(t.Namespace))
 
 	if len(prList.Items) == 0 {
 		t.Fatalf("PackageRevision object wasn't found for package revision %v/%v/%v", repository, pkgName, revision)
@@ -568,7 +567,7 @@ func (t *TestSuite) GetContentsOfPackageRevision(ctx context.Context, repository
 		"spec.packageName": pkgName,
 		"spec.revision":    revision,
 	})
-	t.ListF(ctx, &prrList, selector, client.InNamespace(t.Namespace))
+	t.ListF(&prrList, selector, client.InNamespace(t.Namespace))
 
 	if len(prrList.Items) == 0 {
 		t.Fatalf("PackageRevisionResources object wasn't found for package revision %v/%v/%v", repository, pkgName, revision)

@@ -94,7 +94,7 @@ type TestSuite struct {
 
 func (t *TestSuite) SetupSuite() {
 	t.ctx = context.Background()
-	t.Initialize(t.ctx)
+	t.Initialize()
 }
 
 func RunInParallel(functions ...func() any) []any {
@@ -118,7 +118,7 @@ func RunInParallel(functions ...func() any) []any {
 	return results
 }
 
-func (t *TestSuite) Initialize(ctx context.Context) {
+func (t *TestSuite) Initialize() {
 	cfg, err := config.GetConfig()
 	if err != nil {
 		t.Skipf("Skipping test suite - cannot obtain k8s client config: %v", err)
@@ -154,7 +154,7 @@ func (t *TestSuite) Initialize(ctx context.Context) {
 	t.TestRunnerIsLocal = !t.IsTestRunnerInCluster()
 
 	namespace := fmt.Sprintf("porch-test-%d", time.Now().UnixMicro())
-	t.CreateF(ctx, &coreapi.Namespace{
+	t.CreateF(&coreapi.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: namespace,
 		},
@@ -163,7 +163,7 @@ func (t *TestSuite) Initialize(ctx context.Context) {
 	t.Namespace = namespace
 	c := t.Client
 	t.Cleanup(func() {
-		if err := c.Delete(ctx, &coreapi.Namespace{
+		if err := c.Delete(t.GetContext(), &coreapi.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
 			},
@@ -177,12 +177,11 @@ func (t *TestSuite) Initialize(ctx context.Context) {
 
 func (t *TestSuite) IsPorchServerInCluster() bool {
 	porch := aggregatorv1.APIService{}
-	ctx := context.TODO()
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(client.ObjectKey{
 		Name: porchapi.SchemeGroupVersion.Version + "." + porchapi.SchemeGroupVersion.Group,
 	}, &porch)
 	service := coreapi.Service{}
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(client.ObjectKey{
 		Namespace: porch.Spec.Service.Namespace,
 		Name:      porch.Spec.Service.Name,
 	}, &service)
@@ -193,7 +192,7 @@ func (t *TestSuite) IsPorchServerInCluster() bool {
 func (t *TestSuite) IsTestRunnerInCluster() bool {
 	porch := aggregatorv1.APIService{}
 	ctx := context.TODO()
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(client.ObjectKey{
 		Name: porchapi.SchemeGroupVersion.Version + "." + porchapi.SchemeGroupVersion.Group,
 	}, &porch)
 	service := coreapi.Service{}
@@ -211,7 +210,7 @@ func (t *TestSuite) CreateGitRepo() GitConfig {
 	// Deploy Git server via k8s client.
 	t.Logf("creating git server in cluster")
 	if t.IsTestRunnerInCluster() {
-		return t.createInClusterGitServer(context.TODO(), !t.IsPorchServerInCluster())
+		return t.createInClusterGitServer(!t.IsPorchServerInCluster())
 	} else {
 		return createLocalGitServer(t.T())
 	}
@@ -272,16 +271,16 @@ func (t *TestSuite) Fatalf(format string, args ...any) {
 
 type ErrorHandler func(format string, args ...interface{})
 
-func (t *TestSuite) get(ctx context.Context, key client.ObjectKey, obj client.Object, eh ErrorHandler) {
+func (t *TestSuite) get(key client.ObjectKey, obj client.Object, eh ErrorHandler) {
 	t.T().Helper()
-	if err := t.Client.Get(ctx, key, obj); err != nil {
+	if err := t.Client.Get(t.GetContext(), key, obj); err != nil {
 		eh("failed to get resource %T %s: %v", obj, key, err)
 	}
 }
 
-func (t *TestSuite) list(ctx context.Context, list client.ObjectList, opts []client.ListOption, eh ErrorHandler) {
+func (t *TestSuite) list(list client.ObjectList, opts []client.ListOption, eh ErrorHandler) {
 	t.T().Helper()
-	if err := t.Client.List(ctx, list, opts...); err != nil {
+	if err := t.Client.List(t.GetContext(), list, opts...); err != nil {
 		eh("failed to list resources %T %+v: %v", list, list, err)
 	}
 }
@@ -304,7 +303,7 @@ func DebugFormat(obj client.Object) string {
 	return s
 }
 
-func (t *TestSuite) create(ctx context.Context, obj client.Object, opts []client.CreateOption, eh ErrorHandler) {
+func (t *TestSuite) create(obj client.Object, opts []client.CreateOption, eh ErrorHandler) {
 	t.T().Helper()
 	t.Logf("creating object %v", DebugFormat(obj))
 	start := time.Now()
@@ -313,42 +312,42 @@ func (t *TestSuite) create(ctx context.Context, obj client.Object, opts []client
 		t.Logf("took %v to create %s/%s", time.Since(start), obj.GetNamespace(), obj.GetName())
 	}()
 
-	if err := t.Client.Create(ctx, obj, opts...); err != nil {
+	if err := t.Client.Create(t.GetContext(), obj, opts...); err != nil {
 		eh("failed to create resource %s: %v", DebugFormat(obj), err)
 	}
 }
 
-func (t *TestSuite) delete(ctx context.Context, obj client.Object, opts []client.DeleteOption, eh ErrorHandler) {
+func (t *TestSuite) delete(obj client.Object, opts []client.DeleteOption, eh ErrorHandler) {
 	t.T().Helper()
 	t.Logf("deleting object %v", DebugFormat(obj))
 
-	if err := t.Client.Delete(ctx, obj, opts...); err != nil {
+	if err := t.Client.Delete(t.GetContext(), obj, opts...); err != nil {
 		eh("failed to delete resource %s: %v", DebugFormat(obj), err)
 	}
 }
 
-func (t *TestSuite) update(ctx context.Context, obj client.Object, opts []client.UpdateOption, eh ErrorHandler) {
+func (t *TestSuite) update(obj client.Object, opts []client.UpdateOption, eh ErrorHandler) {
 	t.T().Helper()
 	t.Logf("updating object %v", DebugFormat(obj))
 
-	if err := t.Client.Update(ctx, obj, opts...); err != nil {
+	if err := t.Client.Update(t.GetContext(), obj, opts...); err != nil {
 		eh("failed to update resource %s: %v", DebugFormat(obj), err)
 	}
 }
 
-func (t *TestSuite) patch(ctx context.Context, obj client.Object, patch client.Patch, opts []client.PatchOption, eh ErrorHandler) {
+func (t *TestSuite) patch(obj client.Object, patch client.Patch, opts []client.PatchOption, eh ErrorHandler) {
 	t.T().Helper()
 	t.Logf("patching object %v", DebugFormat(obj))
 
-	if err := t.Client.Patch(ctx, obj, patch, opts...); err != nil {
+	if err := t.Client.Patch(t.GetContext(), obj, patch, opts...); err != nil {
 		eh("failed to patch resource %s: %v", DebugFormat(obj), err)
 	}
 }
 
-func (t *TestSuite) updateApproval(ctx context.Context, obj *porchapi.PackageRevision, opts metav1.UpdateOptions, eh ErrorHandler) *porchapi.PackageRevision {
+func (t *TestSuite) updateApproval(obj *porchapi.PackageRevision, opts metav1.UpdateOptions, eh ErrorHandler) *porchapi.PackageRevision {
 	t.T().Helper()
 	t.Logf("updating approval of %v", DebugFormat(obj))
-	if res, err := t.Clientset.PorchV1alpha1().PackageRevisions(obj.Namespace).UpdateApproval(ctx, obj.Name, obj, opts); err != nil {
+	if res, err := t.Clientset.PorchV1alpha1().PackageRevisions(obj.Namespace).UpdateApproval(t.GetContext(), obj.Name, obj, opts); err != nil {
 		eh("failed to update approval of %s/%s: %v", obj.Namespace, obj.Name, err)
 		return nil
 	} else {
@@ -358,74 +357,74 @@ func (t *TestSuite) updateApproval(ctx context.Context, obj *porchapi.PackageRev
 
 // deleteAllOf(ctx context.Context, obj Object, opts ...DeleteAllOfOption) error
 
-func (t *TestSuite) GetE(ctx context.Context, key client.ObjectKey, obj client.Object) {
+func (t *TestSuite) GetE(key client.ObjectKey, obj client.Object) {
 	t.T().Helper()
-	t.get(ctx, key, obj, ErrorHandler(t.Errorf))
+	t.get(key, obj, t.Errorf)
 }
 
-func (t *TestSuite) GetF(ctx context.Context, key client.ObjectKey, obj client.Object) {
+func (t *TestSuite) GetF(key client.ObjectKey, obj client.Object) {
 	t.T().Helper()
-	t.get(ctx, key, obj, ErrorHandler(t.Fatalf))
+	t.get(key, obj, t.Fatalf)
 }
 
-func (t *TestSuite) ListE(ctx context.Context, list client.ObjectList, opts ...client.ListOption) {
+func (t *TestSuite) ListE(list client.ObjectList, opts ...client.ListOption) {
 	t.T().Helper()
-	t.list(ctx, list, opts, t.Errorf)
+	t.list(list, opts, t.Errorf)
 }
 
-func (t *TestSuite) ListF(ctx context.Context, list client.ObjectList, opts ...client.ListOption) {
+func (t *TestSuite) ListF(list client.ObjectList, opts ...client.ListOption) {
 	t.T().Helper()
-	t.list(ctx, list, opts, t.Fatalf)
+	t.list(list, opts, t.Fatalf)
 }
 
-func (t *TestSuite) CreateF(ctx context.Context, obj client.Object, opts ...client.CreateOption) {
+func (t *TestSuite) CreateF(obj client.Object, opts ...client.CreateOption) {
 	t.T().Helper()
-	t.create(ctx, obj, opts, t.Fatalf)
+	t.create(obj, opts, t.Fatalf)
 }
 
-func (t *TestSuite) CreateE(ctx context.Context, obj client.Object, opts ...client.CreateOption) {
+func (t *TestSuite) CreateE(obj client.Object, opts ...client.CreateOption) {
 	t.T().Helper()
-	t.create(ctx, obj, opts, t.Errorf)
+	t.create(obj, opts, t.Errorf)
 }
 
-func (t *TestSuite) DeleteF(ctx context.Context, obj client.Object, opts ...client.DeleteOption) {
+func (t *TestSuite) DeleteF(obj client.Object, opts ...client.DeleteOption) {
 	t.T().Helper()
-	t.delete(ctx, obj, opts, t.Fatalf)
+	t.delete(obj, opts, t.Fatalf)
 }
 
-func (t *TestSuite) DeleteE(ctx context.Context, obj client.Object, opts ...client.DeleteOption) {
+func (t *TestSuite) DeleteE(obj client.Object, opts ...client.DeleteOption) {
 	t.T().Helper()
-	t.delete(ctx, obj, opts, t.Errorf)
+	t.delete(obj, opts, t.Errorf)
 }
 
-func (t *TestSuite) DeleteL(ctx context.Context, obj client.Object, opts ...client.DeleteOption) {
+func (t *TestSuite) DeleteL(obj client.Object, opts ...client.DeleteOption) {
 	t.T().Helper()
-	t.delete(ctx, obj, opts, t.Logf)
+	t.delete(obj, opts, t.Logf)
 }
 
-func (t *TestSuite) UpdateF(ctx context.Context, obj client.Object, opts ...client.UpdateOption) {
+func (t *TestSuite) UpdateF(obj client.Object, opts ...client.UpdateOption) {
 	t.T().Helper()
-	t.update(ctx, obj, opts, t.Fatalf)
+	t.update(obj, opts, t.Fatalf)
 }
 
-func (t *TestSuite) UpdateE(ctx context.Context, obj client.Object, opts ...client.UpdateOption) {
+func (t *TestSuite) UpdateE(obj client.Object, opts ...client.UpdateOption) {
 	t.T().Helper()
-	t.update(ctx, obj, opts, t.Errorf)
+	t.update(obj, opts, t.Errorf)
 }
 
-func (t *TestSuite) PatchF(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) {
+func (t *TestSuite) PatchF(obj client.Object, patch client.Patch, opts ...client.PatchOption) {
 	t.T().Helper()
-	t.patch(ctx, obj, patch, opts, t.Fatalf)
+	t.patch(obj, patch, opts, t.Fatalf)
 }
 
-func (t *TestSuite) PatchE(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) {
+func (t *TestSuite) PatchE(obj client.Object, patch client.Patch, opts ...client.PatchOption) {
 	t.T().Helper()
-	t.patch(ctx, obj, patch, opts, t.Errorf)
+	t.patch(obj, patch, opts, t.Errorf)
 }
 
-func (t *TestSuite) UpdateApprovalF(ctx context.Context, pr *porchapi.PackageRevision, opts metav1.UpdateOptions) *porchapi.PackageRevision {
+func (t *TestSuite) UpdateApprovalF(pr *porchapi.PackageRevision, opts metav1.UpdateOptions) *porchapi.PackageRevision {
 	t.T().Helper()
-	return t.updateApproval(ctx, pr, opts, t.Fatalf)
+	return t.updateApproval(pr, opts, t.Fatalf)
 }
 
 // DeleteAllOf(ctx context.Context, obj Object, opts ...DeleteAllOfOption) error
@@ -506,12 +505,12 @@ func createLocalGitServer(t *testing.T) GitConfig {
 	}
 }
 
-func (t *TestSuite) createInClusterGitServer(ctx context.Context, exposeByLoadBalancer bool) GitConfig {
+func (t *TestSuite) createInClusterGitServer(exposeByLoadBalancer bool) GitConfig {
 	// Determine git-server image name. Use the same container registry and tag as the Porch server,
 	// replacing base image name with `git-server`. TODO: Make configurable?
 
 	var porch appsv1.Deployment
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(client.ObjectKey{
 		Namespace: "porch-system",
 		Name:      "function-runner",
 	}, &porch)
@@ -526,7 +525,7 @@ func (t *TestSuite) createInClusterGitServer(ctx context.Context, exposeByLoadBa
 	var selector = map[string]string{
 		"git-server": strings.ReplaceAll(t.Name(), "/", "_"),
 	}
-	t.CreateF(ctx, &appsv1.Deployment{
+	t.CreateF(&appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentKey.Name,
 			Namespace: deploymentKey.Namespace,
@@ -564,7 +563,7 @@ func (t *TestSuite) createInClusterGitServer(ctx context.Context, exposeByLoadBa
 	})
 
 	t.Cleanup(func() {
-		t.DeleteE(ctx, &appsv1.Deployment{
+		t.DeleteE(&appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      deploymentKey.Name,
 				Namespace: deploymentKey.Namespace,
@@ -573,7 +572,7 @@ func (t *TestSuite) createInClusterGitServer(ctx context.Context, exposeByLoadBa
 	})
 
 	t.Cleanup(func() {
-		t.DumpLogsForDeploymentE(ctx, deploymentKey)
+		t.DumpLogsForDeploymentE(deploymentKey)
 	})
 
 	serviceKey := client.ObjectKey{
@@ -605,10 +604,10 @@ func (t *TestSuite) createInClusterGitServer(ctx context.Context, exposeByLoadBa
 	if exposeByLoadBalancer {
 		service.Spec.Type = coreapi.ServiceTypeLoadBalancer
 	}
-	t.CreateF(ctx, &service)
+	t.CreateF(&service)
 
 	t.Cleanup(func() {
-		t.DeleteE(ctx, &coreapi.Service{
+		t.DeleteE(&coreapi.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      serviceKey.Name,
 				Namespace: serviceKey.Namespace,
@@ -625,7 +624,7 @@ func (t *TestSuite) createInClusterGitServer(ctx context.Context, exposeByLoadBa
 		time.Sleep(1 * time.Second)
 
 		var deployment appsv1.Deployment
-		t.GetF(ctx, deploymentKey, &deployment)
+		t.GetF(deploymentKey, &deployment)
 
 		ready := true
 		if ready && deployment.Generation != deployment.Status.ObservedGeneration {
@@ -679,7 +678,7 @@ func (t *TestSuite) createInClusterGitServer(ctx context.Context, exposeByLoadBa
 		}
 
 		var endpoint coreapi.Endpoints
-		err := t.Client.Get(ctx, serviceKey, &endpoint)
+		err := t.Client.Get(t.GetContext(), serviceKey, &endpoint)
 		if err != nil || !endpointIsReady(&endpoint) {
 			t.Logf("waiting for Endpoint to be ready: %+v", endpoint)
 			continue
@@ -687,7 +686,7 @@ func (t *TestSuite) createInClusterGitServer(ctx context.Context, exposeByLoadBa
 		if exposeByLoadBalancer {
 			var svc coreapi.Service
 			// if svc is empty we will just continue
-			_ = t.Client.Get(ctx, serviceKey, &svc)
+			_ = t.Client.Get(t.GetContext(), serviceKey, &svc)
 			if len(svc.Status.LoadBalancer.Ingress) == 0 || svc.Status.LoadBalancer.Ingress[0].IP == "" {
 				t.Logf("waiting for LoadBalancer to be assigned: %+v", svc)
 				continue
