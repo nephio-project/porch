@@ -17,6 +17,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -112,7 +113,7 @@ func (e *singleFunctionEvaluator) EvaluateFunction(ctx context.Context, req *pb.
 			rl, pe := fn.ParseResourceList(outbytes)
 			if pe != nil {
 				// If we can't parse the output resource list, we only surface the content in stderr.
-				return nil, status.Errorf(codes.Internal, "failed to evaluate function %q with stderr %v", req.Image, stderrStr)
+				return nil, status.Errorf(codes.Internal, "failed to parse the output of function %q with stderr %v", req.Image, stderrStr)
 			}
 			return nil, status.Errorf(codes.Internal, "failed to evaluate function %q with structured results: %v and stderr: %v", req.Image, rl.Results.Error(), stderrStr)
 		} else {
@@ -121,6 +122,15 @@ func (e *singleFunctionEvaluator) EvaluateFunction(ctx context.Context, req *pb.
 	}
 
 	klog.Infof("Evaluated %q: stdout length: %d\nstderr:\n%v", req.Image, len(outbytes), stderrStr)
+	rl, pErr := fn.ParseResourceList(outbytes)
+	if pErr != nil {
+		// If we can't parse the output resource list, we only surface the content in stderr.
+		return nil, status.Errorf(codes.Internal, "failed to parse the output of function %q with stderr %v", req.Image, stderrStr)
+	}
+	if rl.Results.ExitCode() != 0 {
+		jsonBytes, _ := json.Marshal(rl.Results)
+		klog.Warningf("failed to evaluate function %q with structured results: %v and stderr: %v", req.Image, string(jsonBytes), stderrStr)
+	}
 
 	return &pb.EvaluateFunctionResponse{
 		ResourceList: outbytes,
