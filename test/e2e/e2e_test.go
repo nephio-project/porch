@@ -15,7 +15,6 @@
 package e2e
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -31,6 +30,7 @@ import (
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -55,21 +55,18 @@ type PorchSuite struct {
 	TestSuiteWithGit
 }
 
-var _ TSetter = &PorchSuite{}
-var _ Initializer = &PorchSuite{}
-
 func TestE2E(t *testing.T) {
 	e2e := os.Getenv("E2E")
 	if e2e == "" {
 		t.Skip("set E2E to run this test")
 	}
 
-	RunSuite(&PorchSuite{}, t)
+	suite.Run(t, &PorchSuite{})
 }
 
-func (t *PorchSuite) TestGitRepository(ctx context.Context) {
+func (t *PorchSuite) TestGitRepository() {
 	// Register the repository as 'git'
-	t.RegisterMainGitRepositoryF(ctx, "git")
+	t.RegisterMainGitRepositoryF(t.GetContext(), "git")
 
 	// Create Package Revision
 	pr := &porchapi.PackageRevision{
@@ -106,11 +103,11 @@ func (t *PorchSuite) TestGitRepository(ctx context.Context) {
 			},
 		},
 	}
-	t.CreateF(ctx, pr)
+	t.CreateF(t.GetContext(), pr)
 
 	// Get package resources
 	var resources porchapi.PackageRevisionResources
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, &resources)
@@ -128,12 +125,12 @@ func (t *PorchSuite) TestGitRepository(ctx context.Context) {
 	}
 }
 
-func (t *PorchSuite) TestGitRepositoryWithReleaseTagsAndDirectory(ctx context.Context) {
-	t.RegisterGitRepositoryF(ctx, kptRepo, "kpt-repo", "package-examples")
+func (t *PorchSuite) TestGitRepositoryWithReleaseTagsAndDirectory() {
+	t.RegisterGitRepositoryF(t.GetContext(), kptRepo, "kpt-repo", "package-examples")
 
 	t.Log("Listing PackageRevisions in " + t.Namespace)
 	var list porchapi.PackageRevisionList
-	t.ListF(ctx, &list, client.InNamespace(t.Namespace))
+	t.ListF(t.GetContext(), &list, client.InNamespace(t.Namespace))
 
 	for _, pr := range list.Items {
 		if strings.HasPrefix(pr.Spec.PackageName, "package-examples") {
@@ -142,17 +139,17 @@ func (t *PorchSuite) TestGitRepositoryWithReleaseTagsAndDirectory(ctx context.Co
 	}
 }
 
-func (t *PorchSuite) TestCloneFromUpstream(ctx context.Context) {
+func (t *PorchSuite) TestCloneFromUpstream() {
 	// Register Upstream Repository
-	t.RegisterGitRepositoryF(ctx, testBlueprintsRepo, "test-blueprints", "")
+	t.RegisterGitRepositoryF(t.GetContext(), testBlueprintsRepo, "test-blueprints", "")
 
 	var list porchapi.PackageRevisionList
-	t.ListE(ctx, &list, client.InNamespace(t.Namespace))
+	t.ListE(t.GetContext(), &list, client.InNamespace(t.Namespace))
 
-	upstreamPr := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: "v1"})
+	upstreamPr := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: "v1"})
 
 	// Register the repository as 'downstream'
-	t.RegisterMainGitRepositoryF(ctx, "downstream")
+	t.RegisterMainGitRepositoryF(t.GetContext(), "downstream")
 
 	// Create PackageRevision from upstream repo
 	clonedPr := &porchapi.PackageRevision{
@@ -182,11 +179,11 @@ func (t *PorchSuite) TestCloneFromUpstream(ctx context.Context) {
 		},
 	}
 
-	t.CreateF(ctx, clonedPr)
+	t.CreateF(t.GetContext(), clonedPr)
 
 	// Get istions resources
 	var istions porchapi.PackageRevisionResources
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      clonedPr.Name,
 	}, &istions)
@@ -235,7 +232,7 @@ func (t *PorchSuite) TestCloneFromUpstream(ctx context.Context) {
 	}
 }
 
-func (t *PorchSuite) TestConcurrentClones(ctx context.Context) {
+func (t *PorchSuite) TestConcurrentClones() {
 	const (
 		upstreamRepository   = "upstream"
 		upstreamPackage      = "basens"
@@ -245,12 +242,12 @@ func (t *PorchSuite) TestConcurrentClones(ctx context.Context) {
 	)
 
 	// Register Upstream and Downstream Repositories
-	t.RegisterGitRepositoryF(ctx, testBlueprintsRepo, upstreamRepository, "")
-	t.RegisterMainGitRepositoryF(ctx, downstreamRepository)
+	t.RegisterGitRepositoryF(t.GetContext(), testBlueprintsRepo, upstreamRepository, "")
+	t.RegisterMainGitRepositoryF(t.GetContext(), downstreamRepository)
 
 	var list porchapi.PackageRevisionList
-	t.ListE(ctx, &list, client.InNamespace(t.Namespace))
-	upstreamPr := MustFindPackageRevision(t.T,
+	t.ListE(t.GetContext(), &list, client.InNamespace(t.Namespace))
+	upstreamPr := t.MustFindPackageRevision(
 		&list,
 		repository.PackageRevisionKey{
 			Repository: upstreamRepository,
@@ -274,7 +271,7 @@ func (t *PorchSuite) TestConcurrentClones(ctx context.Context) {
 
 	// Two clients at the same time try to run the Create operation for the clone
 	cloneFunction := func() any {
-		return t.Client.Create(ctx, clonedPr)
+		return t.Client.Create(t.GetContext(), clonedPr)
 	}
 	results := RunInParallel(cloneFunction, cloneFunction)
 
@@ -286,7 +283,7 @@ func (t *PorchSuite) TestConcurrentClones(ctx context.Context) {
 	assert.True(t, conflictFailurePresent, "expected one request to fail with a conflict, but did not happen - results: %v", results)
 }
 
-func (t *PorchSuite) TestInitEmptyPackage(ctx context.Context) {
+func (t *PorchSuite) TestInitEmptyPackage() {
 	// Create a new package via init, no task specified
 	const (
 		repository  = "git"
@@ -297,7 +294,7 @@ func (t *PorchSuite) TestInitEmptyPackage(ctx context.Context) {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(ctx, repository)
+	t.RegisterMainGitRepositoryF(t.GetContext(), repository)
 
 	// Create a new package (via init)
 	pr := &porchapi.PackageRevision{
@@ -314,11 +311,11 @@ func (t *PorchSuite) TestInitEmptyPackage(ctx context.Context) {
 			RepositoryName: repository,
 		},
 	}
-	t.CreateF(ctx, pr)
+	t.CreateF(t.GetContext(), pr)
 
 	// Get the package
 	var newPackage porchapi.PackageRevisionResources
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, &newPackage)
@@ -334,7 +331,7 @@ func (t *PorchSuite) TestInitEmptyPackage(ctx context.Context) {
 	}
 }
 
-func (t *PorchSuite) TestConcurrentInits(ctx context.Context) {
+func (t *PorchSuite) TestConcurrentInits() {
 	// Create a new package via init, no task specified
 	const (
 		repository  = "git-concurrent"
@@ -345,12 +342,12 @@ func (t *PorchSuite) TestConcurrentInits(ctx context.Context) {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(ctx, repository)
+	t.RegisterMainGitRepositoryF(t.GetContext(), repository)
 
 	// Two clients try to create the same new draft package
 	pr := t.CreatePackageSkeleton(repository, packageName, workspace)
 	creationFunction := func() any {
-		return t.Client.Create(ctx, pr)
+		return t.Client.Create(t.GetContext(), pr)
 	}
 	results := RunInParallel(creationFunction, creationFunction)
 
@@ -367,7 +364,7 @@ func (t *PorchSuite) TestConcurrentInits(ctx context.Context) {
 	assert.True(t, conflictFailurePresent, "expected one request to fail with a conflict, but did not happen - results: %v", results)
 }
 
-func (t *PorchSuite) TestInitTaskPackage(ctx context.Context) {
+func (t *PorchSuite) TestInitTaskPackage() {
 	const (
 		repository  = "git"
 		packageName = "new-package"
@@ -379,7 +376,7 @@ func (t *PorchSuite) TestInitTaskPackage(ctx context.Context) {
 	keywords := []string{"test"}
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(ctx, repository)
+	t.RegisterMainGitRepositoryF(t.GetContext(), repository)
 
 	// Create a new package (via init)
 	pr := &porchapi.PackageRevision{
@@ -406,11 +403,11 @@ func (t *PorchSuite) TestInitTaskPackage(ctx context.Context) {
 			},
 		},
 	}
-	t.CreateF(ctx, pr)
+	t.CreateF(t.GetContext(), pr)
 
 	// Get the package
 	var newPackage porchapi.PackageRevisionResources
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, &newPackage)
@@ -428,20 +425,20 @@ func (t *PorchSuite) TestInitTaskPackage(ctx context.Context) {
 	}
 }
 
-func (t *PorchSuite) TestCloneIntoDeploymentRepository(ctx context.Context) {
+func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 	const downstreamRepository = "deployment"
 	const downstreamPackage = "istions"
 	const downstreamWorkspace = "test-workspace"
 
 	// Register the deployment repository
-	t.RegisterMainGitRepositoryF(ctx, downstreamRepository, WithDeployment())
+	t.RegisterMainGitRepositoryF(t.GetContext(), downstreamRepository, WithDeployment())
 
 	// Register the upstream repository
-	t.RegisterGitRepositoryF(ctx, testBlueprintsRepo, "test-blueprints", "")
+	t.RegisterGitRepositoryF(t.GetContext(), testBlueprintsRepo, "test-blueprints", "")
 
 	var upstreamPackages porchapi.PackageRevisionList
-	t.ListE(ctx, &upstreamPackages, client.InNamespace(t.Namespace))
-	upstreamPackage := MustFindPackageRevision(t.T, &upstreamPackages, repository.PackageRevisionKey{
+	t.ListE(t.GetContext(), &upstreamPackages, client.InNamespace(t.Namespace))
+	upstreamPackage := t.MustFindPackageRevision(&upstreamPackages, repository.PackageRevisionKey{
 		Repository:    "test-blueprints",
 		Package:       "basens",
 		Revision:      "v1",
@@ -475,11 +472,11 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository(ctx context.Context) {
 			},
 		},
 	}
-	t.CreateF(ctx, pr)
+	t.CreateF(t.GetContext(), pr)
 
 	// Get istions resources
 	var istions porchapi.PackageRevisionResources
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, &istions)
@@ -538,7 +535,7 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository(ctx context.Context) {
 	}
 }
 
-func (t *PorchSuite) TestEditPackageRevision(ctx context.Context) {
+func (t *PorchSuite) TestEditPackageRevision() {
 	const (
 		repository       = "edit-test"
 		packageName      = "simple-package"
@@ -547,7 +544,7 @@ func (t *PorchSuite) TestEditPackageRevision(ctx context.Context) {
 		workspace2       = "workspace2"
 	)
 
-	t.RegisterMainGitRepositoryF(ctx, repository)
+	t.RegisterMainGitRepositoryF(t.GetContext(), repository)
 
 	// Create a new package (via init)
 	pr := &porchapi.PackageRevision{
@@ -564,7 +561,7 @@ func (t *PorchSuite) TestEditPackageRevision(ctx context.Context) {
 			RepositoryName: repository,
 		},
 	}
-	t.CreateF(ctx, pr)
+	t.CreateF(t.GetContext(), pr)
 
 	// Create a new revision, but with a different package as the source.
 	// This is not allowed.
@@ -592,7 +589,7 @@ func (t *PorchSuite) TestEditPackageRevision(ctx context.Context) {
 			},
 		},
 	}
-	if err := t.Client.Create(ctx, invalidEditPR); err == nil {
+	if err := t.Client.Create(t.GetContext(), invalidEditPR); err == nil {
 		t.Fatalf("Expected error for source revision being from different package")
 	}
 
@@ -622,24 +619,24 @@ func (t *PorchSuite) TestEditPackageRevision(ctx context.Context) {
 			},
 		},
 	}
-	if err := t.Client.Create(ctx, editPR); err == nil {
+	if err := t.Client.Create(t.GetContext(), editPR); err == nil {
 		t.Fatalf("Expected error for source revision not being published")
 	}
 
 	// Publish the source package to make it a valid source for edit.
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	t.UpdateF(ctx, pr)
+	t.UpdateF(t.GetContext(), pr)
 
 	// Approve the package
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(ctx, pr, metav1.UpdateOptions{})
+	t.UpdateApprovalF(t.GetContext(), pr, metav1.UpdateOptions{})
 
 	// Create a new revision with the edit task.
-	t.CreateF(ctx, editPR)
+	t.CreateF(t.GetContext(), editPR)
 
 	// Check its task list
 	var pkgRev porchapi.PackageRevision
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      editPR.Name,
 	}, &pkgRev)
@@ -650,7 +647,7 @@ func (t *PorchSuite) TestEditPackageRevision(ctx context.Context) {
 	assert.Equal(t, 2, len(tasks))
 }
 
-func (t *PorchSuite) TestConcurrentEdits(ctx context.Context) {
+func (t *PorchSuite) TestConcurrentEdits() {
 	const (
 		repository  = "edit-test"
 		packageName = "simple-package-concurrent"
@@ -658,17 +655,17 @@ func (t *PorchSuite) TestConcurrentEdits(ctx context.Context) {
 		workspace2  = "workspace2"
 	)
 
-	t.RegisterMainGitRepositoryF(ctx, repository)
+	t.RegisterMainGitRepositoryF(t.GetContext(), repository)
 
 	// Create a new package (via init)
 	pr := t.CreatePackageSkeleton(repository, packageName, workspace)
-	t.CreateF(ctx, pr)
+	t.CreateF(t.GetContext(), pr)
 
 	// Publish and approve the source package to make it a valid source for edit.
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	t.UpdateF(ctx, pr)
+	t.UpdateF(t.GetContext(), pr)
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(ctx, pr, metav1.UpdateOptions{})
+	t.UpdateApprovalF(t.GetContext(), pr, metav1.UpdateOptions{})
 
 	// Create a new revision of the package with a source that is a revision
 	// of the same package.
@@ -686,7 +683,7 @@ func (t *PorchSuite) TestConcurrentEdits(ctx context.Context) {
 
 	// Two clients try to create the new package at the same time
 	editFunction := func() any {
-		return t.Client.Create(ctx, editPR)
+		return t.Client.Create(t.GetContext(), editPR)
 	}
 	results := RunInParallel(
 		editFunction,
@@ -701,7 +698,7 @@ func (t *PorchSuite) TestConcurrentEdits(ctx context.Context) {
 
 	// Check its task list
 	var pkgRev porchapi.PackageRevision
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      editPR.Name,
 	}, &pkgRev)
@@ -711,14 +708,14 @@ func (t *PorchSuite) TestConcurrentEdits(ctx context.Context) {
 
 // Test will initialize an empty package, update its resources, adding a function
 // to the Kptfile's pipeline, and then check that the package was re-rendered.
-func (t *PorchSuite) TestUpdateResources(ctx context.Context) {
+func (t *PorchSuite) TestUpdateResources() {
 	const (
 		repository  = "re-render-test"
 		packageName = "simple-package"
 		workspace   = "workspace"
 	)
 
-	t.RegisterMainGitRepositoryF(ctx, repository)
+	t.RegisterMainGitRepositoryF(t.GetContext(), repository)
 
 	// Create a new package (via init)
 	pr := &porchapi.PackageRevision{
@@ -735,11 +732,11 @@ func (t *PorchSuite) TestUpdateResources(ctx context.Context) {
 			RepositoryName: repository,
 		},
 	}
-	t.CreateF(ctx, pr)
+	t.CreateF(t.GetContext(), pr)
 
 	// Get the package resources
 	var newPackage porchapi.PackageRevisionResources
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, &newPackage)
@@ -766,7 +763,7 @@ func (t *PorchSuite) TestUpdateResources(ctx context.Context) {
 		t.Fatalf("Failed to read ConfigMap from %q: %v", filename, err)
 	}
 	newPackage.Spec.Resources["config-map.yaml"] = string(cm)
-	t.UpdateF(ctx, &newPackage)
+	t.UpdateF(t.GetContext(), &newPackage)
 
 	updated, ok := newPackage.Spec.Resources["config-map.yaml"]
 	if !ok {
@@ -787,14 +784,14 @@ func (t *PorchSuite) TestUpdateResources(ctx context.Context) {
 // Test will initialize an empty package, and then make a call to update the resources
 // without actually making any changes. This test is ensuring that no additional
 // tasks get added.
-func (t *PorchSuite) TestUpdateResourcesEmptyPatch(ctx context.Context) {
+func (t *PorchSuite) TestUpdateResourcesEmptyPatch() {
 	const (
 		repository  = "empty-patch-test"
 		packageName = "simple-package"
 		workspace   = "workspace"
 	)
 
-	t.RegisterMainGitRepositoryF(ctx, repository)
+	t.RegisterMainGitRepositoryF(t.GetContext(), repository)
 
 	// Create a new package (via init)
 	pr := &porchapi.PackageRevision{
@@ -811,11 +808,11 @@ func (t *PorchSuite) TestUpdateResourcesEmptyPatch(ctx context.Context) {
 			RepositoryName: repository,
 		},
 	}
-	t.CreateF(ctx, pr)
+	t.CreateF(t.GetContext(), pr)
 
 	// Check its task list
 	var pkgBeforeUpdate porchapi.PackageRevision
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, &pkgBeforeUpdate)
@@ -824,17 +821,17 @@ func (t *PorchSuite) TestUpdateResourcesEmptyPatch(ctx context.Context) {
 
 	// Get the package resources
 	var resourcesBeforeUpdate porchapi.PackageRevisionResources
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, &resourcesBeforeUpdate)
 
 	// "Update" the package resources, without changing anything
-	t.UpdateF(ctx, &resourcesBeforeUpdate)
+	t.UpdateF(t.GetContext(), &resourcesBeforeUpdate)
 
 	// Check the task list
 	var pkgAfterUpdate porchapi.PackageRevision
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, &pkgAfterUpdate)
@@ -845,7 +842,7 @@ func (t *PorchSuite) TestUpdateResourcesEmptyPatch(ctx context.Context) {
 
 	// Get the package resources
 	var resourcesAfterUpdate porchapi.PackageRevisionResources
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, &resourcesAfterUpdate)
@@ -854,29 +851,29 @@ func (t *PorchSuite) TestUpdateResourcesEmptyPatch(ctx context.Context) {
 	assert.EqualValues(t, resourcesBeforeUpdate, resourcesAfterUpdate)
 }
 
-func (t *PorchSuite) TestConcurrentResourceUpdates(ctx context.Context) {
+func (t *PorchSuite) TestConcurrentResourceUpdates() {
 	const (
 		repository  = "concurrent-update-test"
 		packageName = "simple-package"
 		workspace   = "workspace"
 	)
 
-	t.RegisterMainGitRepositoryF(ctx, repository)
+	t.RegisterMainGitRepositoryF(t.GetContext(), repository)
 
 	// Create a new package (via init)
 	pr := t.CreatePackageSkeleton(repository, packageName, workspace)
-	t.CreateF(ctx, pr)
+	t.CreateF(t.GetContext(), pr)
 
 	// Get the package resources
 	var newPackageResources porchapi.PackageRevisionResources
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, &newPackageResources)
 
 	// "Update" the package resources with two clients at the same time
 	updateFunction := func() any {
-		return t.Client.Update(ctx, &newPackageResources)
+		return t.Client.Update(t.GetContext(), &newPackageResources)
 	}
 	results := RunInParallel(updateFunction, updateFunction)
 
@@ -900,18 +897,18 @@ func (t *PorchSuite) NewClientWithTimeout(timeout time.Duration) client.Client {
 	return c
 }
 
-func (t *PorchSuite) TestPublicGitRepository(ctx context.Context) {
-	t.RegisterGitRepositoryF(ctx, testBlueprintsRepo, "demo-blueprints", "")
+func (t *PorchSuite) TestPublicGitRepository() {
+	t.RegisterGitRepositoryF(t.GetContext(), testBlueprintsRepo, "demo-blueprints", "")
 
 	var list porchapi.PackageRevisionList
-	t.ListE(ctx, &list, client.InNamespace(t.Namespace))
+	t.ListE(t.GetContext(), &list, client.InNamespace(t.Namespace))
 
 	if got := len(list.Items); got == 0 {
 		t.Errorf("Found no package revisions in %s; expected at least one", testBlueprintsRepo)
 	}
 }
 
-func (t *PorchSuite) TestProposeApprove(ctx context.Context) {
+func (t *PorchSuite) TestProposeApprove() {
 	const (
 		repository  = "lifecycle"
 		packageName = "test-package"
@@ -919,7 +916,7 @@ func (t *PorchSuite) TestProposeApprove(ctx context.Context) {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(ctx, repository)
+	t.RegisterMainGitRepositoryF(t.GetContext(), repository)
 
 	// Create a new package (via init)
 	pr := &porchapi.PackageRevision{
@@ -942,20 +939,20 @@ func (t *PorchSuite) TestProposeApprove(ctx context.Context) {
 			},
 		},
 	}
-	t.CreateF(ctx, pr)
+	t.CreateF(t.GetContext(), pr)
 
 	var pkg porchapi.PackageRevision
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, &pkg)
 
 	// Propose the package revision to be finalized
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	t.UpdateF(ctx, &pkg)
+	t.UpdateF(t.GetContext(), &pkg)
 
 	var proposed porchapi.PackageRevision
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, &proposed)
@@ -966,13 +963,13 @@ func (t *PorchSuite) TestProposeApprove(ctx context.Context) {
 
 	// Approve using Update should fail.
 	proposed.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	if err := t.Client.Update(ctx, &proposed); err == nil {
+	if err := t.Client.Update(t.GetContext(), &proposed); err == nil {
 		t.Fatalf("Finalization of a package via Update unexpectedly succeeded")
 	}
 
 	// Approve the package
 	proposed.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	approved := t.UpdateApprovalF(ctx, &proposed, metav1.UpdateOptions{})
+	approved := t.UpdateApprovalF(t.GetContext(), &proposed, metav1.UpdateOptions{})
 	if got, want := approved.Spec.Lifecycle, porchapi.PackageRevisionLifecyclePublished; got != want {
 		t.Fatalf("Approved package lifecycle value: got %s, want %s", got, want)
 	}
@@ -983,7 +980,7 @@ func (t *PorchSuite) TestProposeApprove(ctx context.Context) {
 	}
 }
 
-func (t *PorchSuite) TestConcurrentProposeApprove(ctx context.Context) {
+func (t *PorchSuite) TestConcurrentProposeApprove() {
 	const (
 		repository  = "lifecycle"
 		packageName = "test-package-concurrent"
@@ -991,7 +988,7 @@ func (t *PorchSuite) TestConcurrentProposeApprove(ctx context.Context) {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(ctx, repository)
+	t.RegisterMainGitRepositoryF(t.GetContext(), repository)
 
 	// Create a new package (via init)
 	pr := t.CreatePackageSkeleton(repository, packageName, workspace)
@@ -1001,10 +998,10 @@ func (t *PorchSuite) TestConcurrentProposeApprove(ctx context.Context) {
 			Init: &porchapi.PackageInitTaskSpec{},
 		},
 	}
-	t.CreateF(ctx, pr)
+	t.CreateF(t.GetContext(), pr)
 
 	var pkg porchapi.PackageRevision
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, &pkg)
@@ -1012,7 +1009,7 @@ func (t *PorchSuite) TestConcurrentProposeApprove(ctx context.Context) {
 	// Propose the package revision to be finalized
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 	proposeFunction := func() any {
-		return t.Client.Update(ctx, &pkg)
+		return t.Client.Update(t.GetContext(), &pkg)
 	}
 	proposeResults := RunInParallel(proposeFunction, proposeFunction)
 
@@ -1024,7 +1021,7 @@ func (t *PorchSuite) TestConcurrentProposeApprove(ctx context.Context) {
 	assert.True(t, conflictFailurePresent, "expected one 'propose' request to fail with a conflict, but did not happen - results: %v", proposeResults)
 
 	var proposed porchapi.PackageRevision
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, &proposed)
@@ -1032,7 +1029,7 @@ func (t *PorchSuite) TestConcurrentProposeApprove(ctx context.Context) {
 	// Approve the package
 	proposed.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	approveFunction := func() any {
-		_, err := t.Clientset.PorchV1alpha1().PackageRevisions(proposed.Namespace).UpdateApproval(ctx, proposed.Name, &proposed, metav1.UpdateOptions{})
+		_, err := t.Clientset.PorchV1alpha1().PackageRevisions(proposed.Namespace).UpdateApproval(t.GetContext(), proposed.Name, &proposed, metav1.UpdateOptions{})
 		return err
 	}
 	approveResults := RunInParallel(approveFunction, approveFunction)
@@ -1045,7 +1042,7 @@ func (t *PorchSuite) TestConcurrentProposeApprove(ctx context.Context) {
 	assert.True(t, conflictFailurePresent, "expected one 'approve' request to fail with a conflict, but did not happen - results: %v", approveResults)
 }
 
-func (t *PorchSuite) TestSubfolderPackageRevisionIncrementation(ctx context.Context) {
+func (t *PorchSuite) TestSubfolderPackageRevisionIncrementation() {
 	const (
 		repository           = "lifecycle"
 		subfolderRepository  = "repo-in-subfolder"
@@ -1057,23 +1054,23 @@ func (t *PorchSuite) TestSubfolderPackageRevisionIncrementation(ctx context.Cont
 	)
 
 	// Register the repositories
-	t.RegisterMainGitRepositoryF(ctx, repository)
-	t.RegisterGitRepositoryWithDirectoryF(ctx, subfolderRepository, subfolderDirectory)
+	t.RegisterMainGitRepositoryF(t.GetContext(), repository)
+	t.RegisterGitRepositoryWithDirectoryF(t.GetContext(), subfolderRepository, subfolderDirectory)
 
 	// Create a new package (via init)
-	subfolderPr := t.CreatePackageDraftF(ctx, repository, subfolderPackageName, workspace)
-	prInSubfolder := t.CreatePackageDraftF(ctx, subfolderRepository, normalPackageName, workspace)
+	subfolderPr := t.CreatePackageDraftF(t.GetContext(), repository, subfolderPackageName, workspace)
+	prInSubfolder := t.CreatePackageDraftF(t.GetContext(), subfolderRepository, normalPackageName, workspace)
 
 	// Propose and approve the package revisions
 	subfolderPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 	prInSubfolder.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	t.UpdateF(ctx, subfolderPr)
-	t.UpdateF(ctx, prInSubfolder)
+	t.UpdateF(t.GetContext(), subfolderPr)
+	t.UpdateF(t.GetContext(), prInSubfolder)
 
 	subfolderPr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	prInSubfolder.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	subfolderPr = t.UpdateApprovalF(ctx, subfolderPr, metav1.UpdateOptions{})
-	prInSubfolder = t.UpdateApprovalF(ctx, prInSubfolder, metav1.UpdateOptions{})
+	subfolderPr = t.UpdateApprovalF(t.GetContext(), subfolderPr, metav1.UpdateOptions{})
+	prInSubfolder = t.UpdateApprovalF(t.GetContext(), prInSubfolder, metav1.UpdateOptions{})
 
 	assert.Equal(t, porchapi.PackageRevisionLifecyclePublished, subfolderPr.Spec.Lifecycle)
 	assert.Equal(t, "v1", subfolderPr.Spec.Revision)
@@ -1092,7 +1089,7 @@ func (t *PorchSuite) TestSubfolderPackageRevisionIncrementation(ctx context.Cont
 			},
 		},
 	}
-	t.CreateF(ctx, editedSubfolderPr)
+	t.CreateF(t.GetContext(), editedSubfolderPr)
 	editedPrInSubfolder := t.CreatePackageSkeleton(subfolderRepository, normalPackageName, workspace2)
 	editedPrInSubfolder.Spec.Tasks = []porchapi.Task{
 		{
@@ -1104,18 +1101,18 @@ func (t *PorchSuite) TestSubfolderPackageRevisionIncrementation(ctx context.Cont
 			},
 		},
 	}
-	t.CreateF(ctx, editedPrInSubfolder)
+	t.CreateF(t.GetContext(), editedPrInSubfolder)
 
 	// Propose and approve these package revisions as well
 	editedSubfolderPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 	editedPrInSubfolder.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	t.UpdateF(ctx, editedSubfolderPr)
-	t.UpdateF(ctx, editedPrInSubfolder)
+	t.UpdateF(t.GetContext(), editedSubfolderPr)
+	t.UpdateF(t.GetContext(), editedPrInSubfolder)
 
 	editedSubfolderPr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	editedPrInSubfolder.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	editedSubfolderPr = t.UpdateApprovalF(ctx, editedSubfolderPr, metav1.UpdateOptions{})
-	editedPrInSubfolder = t.UpdateApprovalF(ctx, editedPrInSubfolder, metav1.UpdateOptions{})
+	editedSubfolderPr = t.UpdateApprovalF(t.GetContext(), editedSubfolderPr, metav1.UpdateOptions{})
+	editedPrInSubfolder = t.UpdateApprovalF(t.GetContext(), editedPrInSubfolder, metav1.UpdateOptions{})
 
 	assert.Equal(t, porchapi.PackageRevisionLifecyclePublished, editedSubfolderPr.Spec.Lifecycle)
 	assert.Equal(t, "v2", editedSubfolderPr.Spec.Revision)
@@ -1123,7 +1120,7 @@ func (t *PorchSuite) TestSubfolderPackageRevisionIncrementation(ctx context.Cont
 	assert.Equal(t, "v2", editedPrInSubfolder.Spec.Revision)
 }
 
-func (t *PorchSuite) TestDeleteDraft(ctx context.Context) {
+func (t *PorchSuite) TestDeleteDraft() {
 	const (
 		repository  = "delete-draft"
 		packageName = "test-delete-draft"
@@ -1132,27 +1129,27 @@ func (t *PorchSuite) TestDeleteDraft(ctx context.Context) {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(ctx, repository)
+	t.RegisterMainGitRepositoryF(t.GetContext(), repository)
 
 	// Create a draft package
-	created := t.CreatePackageDraftF(ctx, repository, packageName, workspace)
+	created := t.CreatePackageDraftF(t.GetContext(), repository, packageName, workspace)
 
 	// Check the package exists
 	var draft porchapi.PackageRevision
-	t.MustExist(ctx, client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &draft)
+	t.MustExist(t.GetContext(), client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &draft)
 
 	// Delete the package
-	t.DeleteE(ctx, &porchapi.PackageRevision{
+	t.DeleteE(t.GetContext(), &porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: t.Namespace,
 			Name:      created.Name,
 		},
 	})
 
-	t.MustNotExist(ctx, &draft)
+	t.MustNotExist(t.GetContext(), &draft)
 }
 
-func (t *PorchSuite) TestConcurrentDeletes(ctx context.Context) {
+func (t *PorchSuite) TestConcurrentDeletes() {
 	const (
 		repository  = "delete-draft"
 		packageName = "test-delete-draft-concurrent"
@@ -1161,16 +1158,16 @@ func (t *PorchSuite) TestConcurrentDeletes(ctx context.Context) {
 	)
 
 	// Register the repository and create a draft package
-	t.RegisterMainGitRepositoryF(ctx, repository)
-	created := t.CreatePackageDraftF(ctx, repository, packageName, workspace)
+	t.RegisterMainGitRepositoryF(t.GetContext(), repository)
+	created := t.CreatePackageDraftF(t.GetContext(), repository, packageName, workspace)
 
 	// Check the package exists
 	var draft porchapi.PackageRevision
-	t.MustExist(ctx, client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &draft)
+	t.MustExist(t.GetContext(), client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &draft)
 
 	// Delete the same package with two clients at the same time
 	deleteFunction := func() any {
-		return t.Client.Delete(ctx, &porchapi.PackageRevision{
+		return t.Client.Delete(t.GetContext(), &porchapi.PackageRevision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: t.Namespace,
 				Name:      created.Name,
@@ -1191,10 +1188,10 @@ func (t *PorchSuite) TestConcurrentDeletes(ctx context.Context) {
 		return eachResult != nil && strings.Contains(eachResult.(error).Error(), "another request is already in progress")
 	})
 	assert.True(t, conflictFailurePresent, "expected one request to fail with a conflict, but did not happen - results: %v", results)
-	t.MustNotExist(ctx, &draft)
+	t.MustNotExist(t.GetContext(), &draft)
 }
 
-func (t *PorchSuite) TestDeleteProposed(ctx context.Context) {
+func (t *PorchSuite) TestDeleteProposed() {
 	const (
 		repository  = "delete-proposed"
 		packageName = "test-delete-proposed"
@@ -1203,31 +1200,31 @@ func (t *PorchSuite) TestDeleteProposed(ctx context.Context) {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(ctx, repository)
+	t.RegisterMainGitRepositoryF(t.GetContext(), repository)
 
 	// Create a draft package
-	created := t.CreatePackageDraftF(ctx, repository, packageName, workspace)
+	created := t.CreatePackageDraftF(t.GetContext(), repository, packageName, workspace)
 
 	// Check the package exists
 	var pkg porchapi.PackageRevision
-	t.MustExist(ctx, client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
+	t.MustExist(t.GetContext(), client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
 
 	// Propose the package revision to be finalized
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	t.UpdateF(ctx, &pkg)
+	t.UpdateF(t.GetContext(), &pkg)
 
 	// Delete the package
-	t.DeleteE(ctx, &porchapi.PackageRevision{
+	t.DeleteE(t.GetContext(), &porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: t.Namespace,
 			Name:      created.Name,
 		},
 	})
 
-	t.MustNotExist(ctx, &pkg)
+	t.MustNotExist(t.GetContext(), &pkg)
 }
 
-func (t *PorchSuite) TestDeleteFinal(ctx context.Context) {
+func (t *PorchSuite) TestDeleteFinal() {
 	const (
 		repository  = "delete-final"
 		packageName = "test-delete-final"
@@ -1235,53 +1232,53 @@ func (t *PorchSuite) TestDeleteFinal(ctx context.Context) {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(ctx, repository)
+	t.RegisterMainGitRepositoryF(t.GetContext(), repository)
 
 	// Create a draft package
-	created := t.CreatePackageDraftF(ctx, repository, packageName, workspace)
+	created := t.CreatePackageDraftF(t.GetContext(), repository, packageName, workspace)
 
 	// Check the package exists
 	var pkg porchapi.PackageRevision
-	t.MustExist(ctx, client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
+	t.MustExist(t.GetContext(), client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
 
 	// Propose the package revision to be finalized
 	t.Log("Proposing package")
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	t.UpdateF(ctx, &pkg)
+	t.UpdateF(t.GetContext(), &pkg)
 
 	t.Log("Approving package")
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(ctx, &pkg, metav1.UpdateOptions{})
+	t.UpdateApprovalF(t.GetContext(), &pkg, metav1.UpdateOptions{})
 
-	t.MustExist(ctx, client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
+	t.MustExist(t.GetContext(), client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
 
 	// Try to delete the package. This should fail because it hasn't been proposed for deletion.
 	t.Log("Trying to delete package (should fail)")
-	t.DeleteL(ctx, &porchapi.PackageRevision{
+	t.DeleteL(t.GetContext(), &porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: t.Namespace,
 			Name:      created.Name,
 		},
 	})
-	t.MustExist(ctx, client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
+	t.MustExist(t.GetContext(), client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
 
 	// Propose deletion and then delete the package
 	t.Log("Proposing deletion of  package")
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-	t.UpdateApprovalF(ctx, &pkg, metav1.UpdateOptions{})
+	t.UpdateApprovalF(t.GetContext(), &pkg, metav1.UpdateOptions{})
 
 	t.Log("Deleting package")
-	t.DeleteE(ctx, &porchapi.PackageRevision{
+	t.DeleteE(t.GetContext(), &porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: t.Namespace,
 			Name:      created.Name,
 		},
 	})
 
-	t.MustNotExist(ctx, &pkg)
+	t.MustNotExist(t.GetContext(), &pkg)
 }
 
-func (t *PorchSuite) TestConcurrentProposeDeletes(ctx context.Context) {
+func (t *PorchSuite) TestConcurrentProposeDeletes() {
 	const (
 		repository  = "delete-final"
 		packageName = "test-delete-final-concurrent"
@@ -1289,24 +1286,24 @@ func (t *PorchSuite) TestConcurrentProposeDeletes(ctx context.Context) {
 	)
 
 	// Register the repository and create a draft package
-	t.RegisterMainGitRepositoryF(ctx, repository)
-	created := t.CreatePackageDraftF(ctx, repository, packageName, workspace)
+	t.RegisterMainGitRepositoryF(t.GetContext(), repository)
+	created := t.CreatePackageDraftF(t.GetContext(), repository, packageName, workspace)
 	// Check the package exists
 	var pkg porchapi.PackageRevision
-	t.MustExist(ctx, client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
+	t.MustExist(t.GetContext(), client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
 
 	// Propose and approve the package revision to be finalized
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	t.UpdateF(ctx, &pkg)
+	t.UpdateF(t.GetContext(), &pkg)
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(ctx, &pkg, metav1.UpdateOptions{})
+	t.UpdateApprovalF(t.GetContext(), &pkg, metav1.UpdateOptions{})
 
-	t.MustExist(ctx, client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
+	t.MustExist(t.GetContext(), client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
 
 	// Propose deletion with two clients at once
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
 	proposeDeleteFunction := func() any {
-		_, err := t.Clientset.PorchV1alpha1().PackageRevisions(pkg.Namespace).UpdateApproval(ctx, pkg.Name, &pkg, metav1.UpdateOptions{})
+		_, err := t.Clientset.PorchV1alpha1().PackageRevisions(pkg.Namespace).UpdateApproval(t.GetContext(), pkg.Name, &pkg, metav1.UpdateOptions{})
 		return err
 	}
 	proposeDeleteResults := RunInParallel(proposeDeleteFunction, proposeDeleteFunction)
@@ -1319,7 +1316,7 @@ func (t *PorchSuite) TestConcurrentProposeDeletes(ctx context.Context) {
 	assert.True(t, conflictFailurePresent, "expected one 'propose-delete' request to fail with a conflict, but did not happen")
 }
 
-func (t *PorchSuite) TestProposeDeleteAndUndo(ctx context.Context) {
+func (t *PorchSuite) TestProposeDeleteAndUndo() {
 	const (
 		repository  = "test-propose-delete-and-undo"
 		packageName = "test-propose-delete-and-undo"
@@ -1327,73 +1324,65 @@ func (t *PorchSuite) TestProposeDeleteAndUndo(ctx context.Context) {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(ctx, repository)
+	t.RegisterMainGitRepositoryF(t.GetContext(), repository)
 
 	// Create a draft package
-	created := t.CreatePackageDraftF(ctx, repository, packageName, workspace)
+	created := t.CreatePackageDraftF(t.GetContext(), repository, packageName, workspace)
 
 	// Check the package exists
 	var pkg porchapi.PackageRevision
-	t.MustExist(ctx, client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
+	t.MustExist(t.GetContext(), client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
 
 	// Propose the package revision to be finalized
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	t.UpdateF(ctx, &pkg)
+	t.UpdateF(t.GetContext(), &pkg)
 
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(ctx, &pkg, metav1.UpdateOptions{})
-	t.MustExist(ctx, client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
+	t.UpdateApprovalF(t.GetContext(), &pkg, metav1.UpdateOptions{})
+	t.MustExist(t.GetContext(), client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
 
-	_ = t.WaitUntilPackageRevisionExists(ctx, repository, packageName, "main")
+	_ = t.WaitUntilPackageRevisionExists(t.GetContext(), repository, packageName, "main")
 
 	var list porchapi.PackageRevisionList
-	t.ListF(ctx, &list, client.InNamespace(t.Namespace))
+	t.ListF(t.GetContext(), &list, client.InNamespace(t.Namespace))
 
 	for i := range list.Items {
 		pkgRev := list.Items[i]
-		t.Run(fmt.Sprintf("revision %s", pkgRev.Spec.Revision), func(newT *testing.T) {
-			// This is a bit awkward, we should find a better way to allow subtests
-			// with our custom implementation of t.
-			oldT := t.T
-			t.T = newT
-			defer func() {
-				t.T = oldT
-			}()
-
+		t.Run(fmt.Sprintf("revision %s", pkgRev.Spec.Revision), func() {
 			// Propose deletion
 			pkgRev.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-			t.UpdateApprovalF(ctx, &pkgRev, metav1.UpdateOptions{})
+			t.UpdateApprovalF(t.GetContext(), &pkgRev, metav1.UpdateOptions{})
 
 			// Undo proposal of deletion
 			pkgRev.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-			t.UpdateApprovalF(ctx, &pkgRev, metav1.UpdateOptions{})
+			t.UpdateApprovalF(t.GetContext(), &pkgRev, metav1.UpdateOptions{})
 
 			// Try to delete the package. This should fail because the lifecycle should be changed back to Published.
-			t.DeleteL(ctx, &porchapi.PackageRevision{
+			t.DeleteL(t.GetContext(), &porchapi.PackageRevision{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: t.Namespace,
 					Name:      pkgRev.Name,
 				},
 			})
-			t.MustExist(ctx, client.ObjectKey{Namespace: t.Namespace, Name: pkgRev.Name}, &pkgRev)
+			t.MustExist(t.GetContext(), client.ObjectKey{Namespace: t.Namespace, Name: pkgRev.Name}, &pkgRev)
 
 			// Propose deletion and then delete the package
 			pkgRev.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-			t.UpdateApprovalF(ctx, &pkgRev, metav1.UpdateOptions{})
+			t.UpdateApprovalF(t.GetContext(), &pkgRev, metav1.UpdateOptions{})
 
-			t.DeleteE(ctx, &porchapi.PackageRevision{
+			t.DeleteE(t.GetContext(), &porchapi.PackageRevision{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: t.Namespace,
 					Name:      pkgRev.Name,
 				},
 			})
 
-			t.MustNotExist(ctx, &pkgRev)
+			t.MustNotExist(t.GetContext(), &pkgRev)
 		})
 	}
 }
 
-func (t *PorchSuite) TestDeleteAndRecreate(ctx context.Context) {
+func (t *PorchSuite) TestDeleteAndRecreate() {
 	const (
 		repository  = "delete-and-recreate"
 		packageName = "test-delete-and-recreate"
@@ -1402,56 +1391,56 @@ func (t *PorchSuite) TestDeleteAndRecreate(ctx context.Context) {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(ctx, repository)
+	t.RegisterMainGitRepositoryF(t.GetContext(), repository)
 
 	// Create a draft package
-	created := t.CreatePackageDraftF(ctx, repository, packageName, workspace)
+	created := t.CreatePackageDraftF(t.GetContext(), repository, packageName, workspace)
 
 	// Check the package exists
 	var pkg porchapi.PackageRevision
-	t.MustExist(ctx, client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
+	t.MustExist(t.GetContext(), client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
 
 	t.Log("Propose the package revision to be finalized")
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	t.UpdateF(ctx, &pkg)
+	t.UpdateF(t.GetContext(), &pkg)
 
 	t.Log("Approve the package revision to be finalized")
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(ctx, &pkg, metav1.UpdateOptions{})
+	t.UpdateApprovalF(t.GetContext(), &pkg, metav1.UpdateOptions{})
 
-	t.MustExist(ctx, client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
+	t.MustExist(t.GetContext(), client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
 
-	mainPkg := t.WaitUntilPackageRevisionExists(ctx, repository, packageName, "main")
+	mainPkg := t.WaitUntilPackageRevisionExists(t.GetContext(), repository, packageName, "main")
 
 	t.Log("Propose deletion and then delete the package with revision v1")
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-	t.UpdateApprovalF(ctx, &pkg, metav1.UpdateOptions{})
+	t.UpdateApprovalF(t.GetContext(), &pkg, metav1.UpdateOptions{})
 
-	t.DeleteE(ctx, &porchapi.PackageRevision{
+	t.DeleteE(t.GetContext(), &porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: t.Namespace,
 			Name:      created.Name,
 		},
 	})
-	t.MustNotExist(ctx, &pkg)
+	t.MustNotExist(t.GetContext(), &pkg)
 
 	t.Log("Propose deletion and then delete the package with revision main")
 	mainPkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-	t.UpdateApprovalF(ctx, mainPkg, metav1.UpdateOptions{})
+	t.UpdateApprovalF(t.GetContext(), mainPkg, metav1.UpdateOptions{})
 
-	t.DeleteE(ctx, &porchapi.PackageRevision{
+	t.DeleteE(t.GetContext(), &porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: t.Namespace,
 			Name:      mainPkg.Name,
 		},
 	})
-	t.MustNotExist(ctx, mainPkg)
+	t.MustNotExist(t.GetContext(), mainPkg)
 
 	// Recreate the package with the same name and workspace
-	created = t.CreatePackageDraftF(ctx, repository, packageName, workspace)
+	created = t.CreatePackageDraftF(t.GetContext(), repository, packageName, workspace)
 
 	// Check the package exists
-	t.MustExist(ctx, client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
+	t.MustExist(t.GetContext(), client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
 
 	// Ensure that there is only one init task in the package revision history
 	foundInitTask := false
@@ -1466,7 +1455,7 @@ func (t *PorchSuite) TestDeleteAndRecreate(ctx context.Context) {
 	t.Logf("successfully recreated package revision %q", packageName)
 }
 
-func (t *PorchSuite) TestDeleteFromMain(ctx context.Context) {
+func (t *PorchSuite) TestDeleteFromMain() {
 	const (
 		repository        = "delete-main"
 		packageNameFirst  = "test-delete-main-first"
@@ -1475,52 +1464,52 @@ func (t *PorchSuite) TestDeleteFromMain(ctx context.Context) {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(ctx, repository)
+	t.RegisterMainGitRepositoryF(t.GetContext(), repository)
 
 	t.Logf("Create and approve package: %s", packageNameFirst)
-	createdFirst := t.CreatePackageDraftF(ctx, repository, packageNameFirst, workspace)
+	createdFirst := t.CreatePackageDraftF(t.GetContext(), repository, packageNameFirst, workspace)
 
 	// Check the package exists
 	var pkgFirst porchapi.PackageRevision
-	t.MustExist(ctx, client.ObjectKey{Namespace: t.Namespace, Name: createdFirst.Name}, &pkgFirst)
+	t.MustExist(t.GetContext(), client.ObjectKey{Namespace: t.Namespace, Name: createdFirst.Name}, &pkgFirst)
 
 	// Propose the package revision to be finalized
 	pkgFirst.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	t.UpdateF(ctx, &pkgFirst)
+	t.UpdateF(t.GetContext(), &pkgFirst)
 
 	pkgFirst.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(ctx, &pkgFirst, metav1.UpdateOptions{})
+	t.UpdateApprovalF(t.GetContext(), &pkgFirst, metav1.UpdateOptions{})
 
-	t.MustExist(ctx, client.ObjectKey{Namespace: t.Namespace, Name: createdFirst.Name}, &pkgFirst)
+	t.MustExist(t.GetContext(), client.ObjectKey{Namespace: t.Namespace, Name: createdFirst.Name}, &pkgFirst)
 
 	t.Logf("Create and approve package: %s", packageNameSecond)
-	createdSecond := t.CreatePackageDraftF(ctx, repository, packageNameSecond, workspace)
+	createdSecond := t.CreatePackageDraftF(t.GetContext(), repository, packageNameSecond, workspace)
 
 	// Check the package exists
 	var pkgSecond porchapi.PackageRevision
-	t.MustExist(ctx, client.ObjectKey{Namespace: t.Namespace, Name: createdSecond.Name}, &pkgSecond)
+	t.MustExist(t.GetContext(), client.ObjectKey{Namespace: t.Namespace, Name: createdSecond.Name}, &pkgSecond)
 
 	// Propose the package revision to be finalized
 	pkgSecond.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	t.UpdateF(ctx, &pkgSecond)
+	t.UpdateF(t.GetContext(), &pkgSecond)
 
 	pkgSecond.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(ctx, &pkgSecond, metav1.UpdateOptions{})
+	t.UpdateApprovalF(t.GetContext(), &pkgSecond, metav1.UpdateOptions{})
 
-	t.MustExist(ctx, client.ObjectKey{Namespace: t.Namespace, Name: createdSecond.Name}, &pkgSecond)
+	t.MustExist(t.GetContext(), client.ObjectKey{Namespace: t.Namespace, Name: createdSecond.Name}, &pkgSecond)
 
 	t.Log("Wait for the 'main' revisions to get created")
-	firstPkgRevFromMain := t.WaitUntilPackageRevisionExists(ctx, repository, packageNameFirst, "main")
-	secondPkgRevFromMain := t.WaitUntilPackageRevisionExists(ctx, repository, packageNameSecond, "main")
+	firstPkgRevFromMain := t.WaitUntilPackageRevisionExists(t.GetContext(), repository, packageNameFirst, "main")
+	secondPkgRevFromMain := t.WaitUntilPackageRevisionExists(t.GetContext(), repository, packageNameSecond, "main")
 
 	t.Log("Propose deletion of both main packages")
 	firstPkgRevFromMain.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-	t.UpdateApprovalF(ctx, firstPkgRevFromMain, metav1.UpdateOptions{})
+	t.UpdateApprovalF(t.GetContext(), firstPkgRevFromMain, metav1.UpdateOptions{})
 	secondPkgRevFromMain.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-	t.UpdateApprovalF(ctx, secondPkgRevFromMain, metav1.UpdateOptions{})
+	t.UpdateApprovalF(t.GetContext(), secondPkgRevFromMain, metav1.UpdateOptions{})
 
 	t.Log("Delete the first package revision from main")
-	t.DeleteE(ctx, &porchapi.PackageRevision{
+	t.DeleteE(t.GetContext(), &porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: t.Namespace,
 			Name:      firstPkgRevFromMain.Name,
@@ -1528,7 +1517,7 @@ func (t *PorchSuite) TestDeleteFromMain(ctx context.Context) {
 	})
 
 	t.Log("Delete the second package revision from main")
-	t.DeleteE(ctx, &porchapi.PackageRevision{
+	t.DeleteE(t.GetContext(), &porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: t.Namespace,
 			Name:      secondPkgRevFromMain.Name,
@@ -1537,12 +1526,12 @@ func (t *PorchSuite) TestDeleteFromMain(ctx context.Context) {
 
 	// Propose and delete the original package revisions (cleanup)
 	var list porchapi.PackageRevisionList
-	t.ListE(ctx, &list, client.InNamespace(t.Namespace))
+	t.ListE(t.GetContext(), &list, client.InNamespace(t.Namespace))
 	for _, pkgrev := range list.Items {
 		t.Logf("Propose deletion and delete package revision: %s", pkgrev.Name)
 		pkgrev.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-		t.UpdateApprovalF(ctx, &pkgrev, metav1.UpdateOptions{})
-		t.DeleteE(ctx, &porchapi.PackageRevision{
+		t.UpdateApprovalF(t.GetContext(), &pkgrev, metav1.UpdateOptions{})
+		t.DeleteE(t.GetContext(), &porchapi.PackageRevision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: t.Namespace,
 				Name:      pkgrev.Name,
@@ -1551,7 +1540,7 @@ func (t *PorchSuite) TestDeleteFromMain(ctx context.Context) {
 	}
 }
 
-func (t *PorchSuite) TestCloneLeadingSlash(ctx context.Context) {
+func (t *PorchSuite) TestCloneLeadingSlash() {
 	const (
 		repository  = "clone-ls"
 		packageName = "test-clone-ls"
@@ -1559,7 +1548,7 @@ func (t *PorchSuite) TestCloneLeadingSlash(ctx context.Context) {
 		workspace   = "workspace"
 	)
 
-	t.RegisterMainGitRepositoryF(ctx, repository)
+	t.RegisterMainGitRepositoryF(t.GetContext(), repository)
 
 	// Clone the package. Use leading slash in the directory (regression test)
 	new := &porchapi.PackageRevision{
@@ -1593,27 +1582,27 @@ func (t *PorchSuite) TestCloneLeadingSlash(ctx context.Context) {
 		},
 	}
 
-	t.CreateF(ctx, new)
+	t.CreateF(t.GetContext(), new)
 
 	var pr porchapi.PackageRevision
-	t.MustExist(ctx, client.ObjectKey{Namespace: t.Namespace, Name: new.Name}, &pr)
+	t.MustExist(t.GetContext(), client.ObjectKey{Namespace: t.Namespace, Name: new.Name}, &pr)
 }
 
-func (t *PorchSuite) TestPackageUpdate(ctx context.Context) {
+func (t *PorchSuite) TestPackageUpdate() {
 	const (
 		gitRepository = "package-update"
 	)
 
-	t.RegisterGitRepositoryF(ctx, testBlueprintsRepo, "test-blueprints", "")
+	t.RegisterGitRepositoryF(t.GetContext(), testBlueprintsRepo, "test-blueprints", "")
 
 	var list porchapi.PackageRevisionList
-	t.ListE(ctx, &list, client.InNamespace(t.Namespace))
+	t.ListE(t.GetContext(), &list, client.InNamespace(t.Namespace))
 
-	basensV1 := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: "v1"})
-	basensV2 := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: "v2"})
+	basensV1 := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: "v1"})
+	basensV2 := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: "v2"})
 
 	// Register the repository as 'downstream'
-	t.RegisterMainGitRepositoryF(ctx, gitRepository)
+	t.RegisterMainGitRepositoryF(t.GetContext(), gitRepository)
 
 	// Create PackageRevision from upstream repo
 	pr := &porchapi.PackageRevision{
@@ -1643,10 +1632,10 @@ func (t *PorchSuite) TestPackageUpdate(ctx context.Context) {
 		},
 	}
 
-	t.CreateF(ctx, pr)
+	t.CreateF(t.GetContext(), pr)
 
 	var revisionResources porchapi.PackageRevisionResources
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, &revisionResources)
@@ -1657,10 +1646,10 @@ func (t *PorchSuite) TestPackageUpdate(ctx context.Context) {
 		t.Fatalf("Failed to read ConfigMap from %q: %v", filename, err)
 	}
 	revisionResources.Spec.Resources["config-map.yaml"] = string(cm)
-	t.UpdateF(ctx, &revisionResources)
+	t.UpdateF(t.GetContext(), &revisionResources)
 
 	var newrr porchapi.PackageRevisionResources
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, &newrr)
@@ -1668,7 +1657,7 @@ func (t *PorchSuite) TestPackageUpdate(ctx context.Context) {
 	by, _ := yaml.Marshal(&newrr)
 	t.Logf("PRR: %s", string(by))
 
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, pr)
@@ -1682,9 +1671,9 @@ func (t *PorchSuite) TestPackageUpdate(ctx context.Context) {
 		},
 	})
 
-	t.UpdateE(ctx, pr, &client.UpdateOptions{})
+	t.UpdateE(t.GetContext(), pr, &client.UpdateOptions{})
 
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, &revisionResources)
@@ -1694,23 +1683,23 @@ func (t *PorchSuite) TestPackageUpdate(ctx context.Context) {
 	}
 }
 
-func (t *PorchSuite) TestConcurrentPackageUpdates(ctx context.Context) {
+func (t *PorchSuite) TestConcurrentPackageUpdates() {
 	const (
 		gitRepository = "package-update"
 		packageName   = "testns-concurrent"
 		workspace     = "test-workspace"
 	)
 
-	t.RegisterGitRepositoryF(ctx, testBlueprintsRepo, "test-blueprints", "")
+	t.RegisterGitRepositoryF(t.GetContext(), testBlueprintsRepo, "test-blueprints", "")
 
 	var list porchapi.PackageRevisionList
-	t.ListE(ctx, &list, client.InNamespace(t.Namespace))
+	t.ListE(t.GetContext(), &list, client.InNamespace(t.Namespace))
 
-	basensV1 := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: "v1"})
-	basensV2 := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: "v2"})
+	basensV1 := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: "v1"})
+	basensV2 := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: "v2"})
 
 	// Register the repository as 'downstream'
-	t.RegisterMainGitRepositoryF(ctx, gitRepository)
+	t.RegisterMainGitRepositoryF(t.GetContext(), gitRepository)
 
 	// Create PackageRevision from upstream repo
 	pr := t.CreatePackageSkeleton(gitRepository, packageName, workspace)
@@ -1726,7 +1715,7 @@ func (t *PorchSuite) TestConcurrentPackageUpdates(ctx context.Context) {
 			},
 		},
 	}
-	t.CreateF(ctx, pr)
+	t.CreateF(t.GetContext(), pr)
 
 	upstream := pr.Spec.Tasks[0].Clone.Upstream.DeepCopy()
 	upstream.UpstreamRef.Name = basensV2.Name
@@ -1739,7 +1728,7 @@ func (t *PorchSuite) TestConcurrentPackageUpdates(ctx context.Context) {
 
 	// Two clients at the same time try to update the downstream package
 	updateFunction := func() any {
-		return t.Client.Update(ctx, pr, &client.UpdateOptions{})
+		return t.Client.Update(t.GetContext(), pr, &client.UpdateOptions{})
 	}
 	results := RunInParallel(updateFunction, updateFunction)
 
@@ -1751,16 +1740,16 @@ func (t *PorchSuite) TestConcurrentPackageUpdates(ctx context.Context) {
 	assert.True(t, conflictFailurePresent, "expected one request to fail with a conflict, but did not happen - results: %v", results)
 }
 
-func (t *PorchSuite) TestRegisterRepository(ctx context.Context) {
+func (t *PorchSuite) TestRegisterRepository() {
 	const (
 		repository = "register"
 	)
-	t.RegisterMainGitRepositoryF(ctx, repository,
+	t.RegisterMainGitRepositoryF(t.GetContext(), repository,
 		withType(configapi.RepositoryTypeGit),
 		WithDeployment())
 
 	var repo configapi.Repository
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      repository,
 	}, &repo)
@@ -1773,9 +1762,9 @@ func (t *PorchSuite) TestRegisterRepository(ctx context.Context) {
 	}
 }
 
-func (t *PorchSuite) TestBuiltinFunctionEvaluator(ctx context.Context) {
+func (t *PorchSuite) TestBuiltinFunctionEvaluator() {
 	// Register the repository as 'git-fn'
-	t.RegisterMainGitRepositoryF(ctx, "git-builtin-fn")
+	t.RegisterMainGitRepositoryF(t.GetContext(), "git-builtin-fn")
 
 	// Create Package Revision
 	pr := &porchapi.PackageRevision{
@@ -1825,11 +1814,11 @@ func (t *PorchSuite) TestBuiltinFunctionEvaluator(ctx context.Context) {
 			},
 		},
 	}
-	t.CreateF(ctx, pr)
+	t.CreateF(t.GetContext(), pr)
 
 	// Get package resources
 	var resources porchapi.PackageRevisionResources
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, &resources)
@@ -1851,9 +1840,9 @@ func (t *PorchSuite) TestBuiltinFunctionEvaluator(ctx context.Context) {
 	}
 }
 
-func (t *PorchSuite) TestExecFunctionEvaluator(ctx context.Context) {
+func (t *PorchSuite) TestExecFunctionEvaluator() {
 	// Register the repository as 'git-fn'
-	t.RegisterMainGitRepositoryF(ctx, "git-fn")
+	t.RegisterMainGitRepositoryF(t.GetContext(), "git-fn")
 
 	// Create Package Revision
 	pr := &porchapi.PackageRevision{
@@ -1902,11 +1891,11 @@ for resource in ctx.resource_list["items"]:
 			},
 		},
 	}
-	t.CreateF(ctx, pr)
+	t.CreateF(t.GetContext(), pr)
 
 	// Get package resources
 	var resources porchapi.PackageRevisionResources
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, &resources)
@@ -1928,12 +1917,12 @@ for resource in ctx.resource_list["items"]:
 	}
 }
 
-func (t *PorchSuite) TestPodFunctionEvaluatorWithDistrolessImage(ctx context.Context) {
+func (t *PorchSuite) TestPodFunctionEvaluatorWithDistrolessImage() {
 	if t.TestRunnerIsLocal {
 		t.Skipf("Skipping due to not having pod evaluator in local mode")
 	}
 
-	t.RegisterMainGitRepositoryF(ctx, "git-fn-distroless")
+	t.RegisterMainGitRepositoryF(t.GetContext(), "git-fn-distroless")
 
 	// Create Package Revision
 	pr := &porchapi.PackageRevision{
@@ -1987,11 +1976,11 @@ data:
 			},
 		},
 	}
-	t.CreateF(ctx, pr)
+	t.CreateF(t.GetContext(), pr)
 
 	// Get package resources
 	var resources porchapi.PackageRevisionResources
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, &resources)
@@ -2009,7 +1998,7 @@ data:
 	}
 }
 
-func (t *PorchSuite) TestPodEvaluator(ctx context.Context) {
+func (t *PorchSuite) TestPodEvaluator() {
 	if t.TestRunnerIsLocal {
 		t.Skipf("Skipping due to not having pod evaluator in local mode")
 	}
@@ -2020,7 +2009,7 @@ func (t *PorchSuite) TestPodEvaluator(ctx context.Context) {
 	)
 
 	// Register the repository as 'git-fn'
-	t.RegisterMainGitRepositoryF(ctx, "git-fn-pod")
+	t.RegisterMainGitRepositoryF(t.GetContext(), "git-fn-pod")
 
 	// Create Package Revision
 	pr := &porchapi.PackageRevision{
@@ -2065,11 +2054,11 @@ func (t *PorchSuite) TestPodEvaluator(ctx context.Context) {
 			},
 		},
 	}
-	t.CreateF(ctx, pr)
+	t.CreateF(t.GetContext(), pr)
 
 	// Get package resources
 	var resources porchapi.PackageRevisionResources
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, &resources)
@@ -2093,11 +2082,11 @@ func (t *PorchSuite) TestPodEvaluator(ctx context.Context) {
 
 	// Get the fn runner pods and delete them.
 	podList := &corev1.PodList{}
-	t.ListF(ctx, podList, client.InNamespace("porch-fn-system"))
+	t.ListF(t.GetContext(), podList, client.InNamespace("porch-fn-system"))
 	for _, pod := range podList.Items {
 		img := pod.Spec.Containers[0].Image
 		if img == generateFolderImage || img == setAnnotationsImage {
-			t.DeleteF(ctx, &pod)
+			t.DeleteF(t.GetContext(), &pod)
 		}
 	}
 
@@ -2144,10 +2133,10 @@ func (t *PorchSuite) TestPodEvaluator(ctx context.Context) {
 			},
 		},
 	}
-	t.CreateF(ctx, pr2)
+	t.CreateF(t.GetContext(), pr2)
 
 	// Get package resources
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr2.Name,
 	}, &resources)
@@ -2170,12 +2159,12 @@ func (t *PorchSuite) TestPodEvaluator(ctx context.Context) {
 	}
 }
 
-func (t *PorchSuite) TestPodEvaluatorWithFailure(ctx context.Context) {
+func (t *PorchSuite) TestPodEvaluatorWithFailure() {
 	if t.TestRunnerIsLocal {
 		t.Skipf("Skipping due to not having pod evaluator in local mode")
 	}
 
-	t.RegisterMainGitRepositoryF(ctx, "git-fn-pod-failure")
+	t.RegisterMainGitRepositoryF(t.GetContext(), "git-fn-pod-failure")
 
 	// Create Package Revision
 	pr := &porchapi.PackageRevision{
@@ -2210,20 +2199,20 @@ func (t *PorchSuite) TestPodEvaluatorWithFailure(ctx context.Context) {
 			},
 		},
 	}
-	err := t.Client.Create(ctx, pr)
+	err := t.Client.Create(t.GetContext(), pr)
 	expectedErrMsg := "Validating arbitrary CRDs is not supported"
 	if err == nil || !strings.Contains(err.Error(), expectedErrMsg) {
 		t.Fatalf("expected the error to contain %q, but got %v", expectedErrMsg, err)
 	}
 }
 
-func (t *PorchSuite) TestLargePackageRevision(ctx context.Context) {
+func (t *PorchSuite) TestLargePackageRevision() {
 	const (
 		setAnnotationsImage = "gcr.io/kpt-fn/set-annotations:v0.1.3" // set-annotations:v0.1.3 is an older version that porch maps neither to built-in nor exec.
 		testDataSize        = 5 * 1024 * 1024
 	)
 
-	t.RegisterMainGitRepositoryF(ctx, "git-fn-pod-large")
+	t.RegisterMainGitRepositoryF(t.GetContext(), "git-fn-pod-large")
 
 	// Create Package Revision
 	pr := &porchapi.PackageRevision{
@@ -2249,10 +2238,10 @@ func (t *PorchSuite) TestLargePackageRevision(ctx context.Context) {
 		},
 	}
 
-	t.CreateF(ctx, pr)
+	t.CreateF(t.GetContext(), pr)
 
 	var prr porchapi.PackageRevisionResources
-	t.GetF(ctx, client.ObjectKeyFromObject(pr), &prr)
+	t.GetF(t.GetContext(), client.ObjectKeyFromObject(pr), &prr)
 
 	if !t.TestRunnerIsLocal {
 		// pod evaluator is not available in local test mode, skip testing it
@@ -2278,7 +2267,7 @@ data:
   value: "` + strings.Repeat("a", testDataSize) + `"
 `
 
-	t.UpdateF(ctx, &prr)
+	t.UpdateF(t.GetContext(), &prr)
 
 	rs := prr.Status.RenderStatus
 	if rs.Err != "" || rs.Result.ExitCode != 0 {
@@ -2286,7 +2275,7 @@ data:
 	}
 
 	// Get package resources
-	t.GetF(ctx, client.ObjectKeyFromObject(pr), &prr)
+	t.GetF(t.GetContext(), client.ObjectKeyFromObject(pr), &prr)
 
 	for name, obj := range prr.Spec.Resources {
 		if !strings.HasSuffix(name, ".yaml") {
@@ -2315,11 +2304,11 @@ data:
 	}
 }
 
-func (t *PorchSuite) TestRepositoryError(ctx context.Context) {
+func (t *PorchSuite) TestRepositoryError() {
 	const (
 		repositoryName = "repo-with-error"
 	)
-	t.CreateF(ctx, &configapi.Repository{
+	t.CreateF(t.GetContext(), &configapi.Repository{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       configapi.TypeRepository.Kind,
 			APIVersion: configapi.TypeRepository.APIVersion(),
@@ -2338,7 +2327,7 @@ func (t *PorchSuite) TestRepositoryError(ctx context.Context) {
 		},
 	})
 	t.Cleanup(func() {
-		t.DeleteL(ctx, &configapi.Repository{
+		t.DeleteL(t.GetContext(), &configapi.Repository{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      repositoryName,
 				Namespace: t.Namespace,
@@ -2357,7 +2346,7 @@ func (t *PorchSuite) TestRepositoryError(ctx context.Context) {
 		time.Sleep(5 * time.Second)
 
 		var repository configapi.Repository
-		t.GetF(ctx, client.ObjectKey{
+		t.GetF(t.GetContext(), client.ObjectKey{
 			Namespace: t.Namespace,
 			Name:      repositoryName,
 		}, &repository)
@@ -2379,7 +2368,7 @@ func (t *PorchSuite) TestRepositoryError(ctx context.Context) {
 	}
 }
 
-func (t *PorchSuite) TestNewPackageRevisionLabels(ctx context.Context) {
+func (t *PorchSuite) TestNewPackageRevisionLabels() {
 	const (
 		repository = "pkg-rev-labels"
 		labelKey1  = "kpt.dev/label"
@@ -2392,7 +2381,7 @@ func (t *PorchSuite) TestNewPackageRevisionLabels(ctx context.Context) {
 		annoVal2   = "bar"
 	)
 
-	t.RegisterMainGitRepositoryF(ctx, repository)
+	t.RegisterMainGitRepositoryF(t.GetContext(), repository)
 
 	// Create a package with labels and annotations.
 	pr := porchapi.PackageRevision{
@@ -2424,8 +2413,8 @@ func (t *PorchSuite) TestNewPackageRevisionLabels(ctx context.Context) {
 			},
 		},
 	}
-	t.CreateF(ctx, &pr)
-	t.ValidateLabelsAndAnnos(ctx, pr.Name,
+	t.CreateF(t.GetContext(), &pr)
+	t.ValidateLabelsAndAnnos(t.GetContext(), pr.Name,
 		map[string]string{
 			labelKey1: labelVal1,
 		},
@@ -2437,15 +2426,15 @@ func (t *PorchSuite) TestNewPackageRevisionLabels(ctx context.Context) {
 
 	// Propose the package.
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	t.UpdateF(ctx, &pr)
+	t.UpdateF(t.GetContext(), &pr)
 
 	// retrieve the updated object
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: pr.Namespace,
 		Name:      pr.Name,
 	}, &pr)
 
-	t.ValidateLabelsAndAnnos(ctx, pr.Name,
+	t.ValidateLabelsAndAnnos(t.GetContext(), pr.Name,
 		map[string]string{
 			labelKey1: labelVal1,
 		},
@@ -2457,8 +2446,8 @@ func (t *PorchSuite) TestNewPackageRevisionLabels(ctx context.Context) {
 
 	// Approve the package
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	_ = t.UpdateApprovalF(ctx, &pr, metav1.UpdateOptions{})
-	t.ValidateLabelsAndAnnos(ctx, pr.Name,
+	_ = t.UpdateApprovalF(t.GetContext(), &pr, metav1.UpdateOptions{})
+	t.ValidateLabelsAndAnnos(t.GetContext(), pr.Name,
 		map[string]string{
 			labelKey1:                         labelVal1,
 			porchapi.LatestPackageRevisionKey: porchapi.LatestPackageRevisionValue,
@@ -2470,7 +2459,7 @@ func (t *PorchSuite) TestNewPackageRevisionLabels(ctx context.Context) {
 	)
 
 	// retrieve the updated object
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: pr.Namespace,
 		Name:      pr.Name,
 	}, &pr)
@@ -2480,8 +2469,8 @@ func (t *PorchSuite) TestNewPackageRevisionLabels(ctx context.Context) {
 	pr.ObjectMeta.Labels[labelKey2] = labelVal2
 	delete(pr.ObjectMeta.Annotations, annoKey2)
 	pr.Spec.Revision = "v1"
-	t.UpdateF(ctx, &pr)
-	t.ValidateLabelsAndAnnos(ctx, pr.Name,
+	t.UpdateF(t.GetContext(), &pr)
+	t.ValidateLabelsAndAnnos(t.GetContext(), pr.Name,
 		map[string]string{
 			labelKey2:                         labelVal2,
 			porchapi.LatestPackageRevisionKey: porchapi.LatestPackageRevisionValue,
@@ -2519,14 +2508,14 @@ func (t *PorchSuite) TestNewPackageRevisionLabels(ctx context.Context) {
 			},
 		},
 	}
-	t.CreateF(ctx, &clonedPr)
-	t.ValidateLabelsAndAnnos(ctx, clonedPr.Name,
+	t.CreateF(t.GetContext(), &clonedPr)
+	t.ValidateLabelsAndAnnos(t.GetContext(), clonedPr.Name,
 		map[string]string{},
 		map[string]string{},
 	)
 }
 
-func (t *PorchSuite) TestRegisteredPackageRevisionLabels(ctx context.Context) {
+func (t *PorchSuite) TestRegisteredPackageRevisionLabels() {
 	const (
 		labelKey = "kpt.dev/label"
 		labelVal = "foo"
@@ -2534,12 +2523,12 @@ func (t *PorchSuite) TestRegisteredPackageRevisionLabels(ctx context.Context) {
 		annoVal  = "foo"
 	)
 
-	t.RegisterGitRepositoryF(ctx, testBlueprintsRepo, "test-blueprints", "")
+	t.RegisterGitRepositoryF(t.GetContext(), testBlueprintsRepo, "test-blueprints", "")
 
 	var list porchapi.PackageRevisionList
-	t.ListE(ctx, &list, client.InNamespace(t.Namespace))
+	t.ListE(t.GetContext(), &list, client.InNamespace(t.Namespace))
 
-	basens := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: "v1"})
+	basens := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: "v1"})
 	if basens.ObjectMeta.Labels == nil {
 		basens.ObjectMeta.Labels = make(map[string]string)
 	}
@@ -2548,9 +2537,9 @@ func (t *PorchSuite) TestRegisteredPackageRevisionLabels(ctx context.Context) {
 		basens.ObjectMeta.Annotations = make(map[string]string)
 	}
 	basens.ObjectMeta.Annotations[annoKey] = annoVal
-	t.UpdateF(ctx, basens)
+	t.UpdateF(t.GetContext(), basens)
 
-	t.ValidateLabelsAndAnnos(ctx, basens.Name,
+	t.ValidateLabelsAndAnnos(t.GetContext(), basens.Name,
 		map[string]string{
 			labelKey: labelVal,
 		},
@@ -2560,7 +2549,7 @@ func (t *PorchSuite) TestRegisteredPackageRevisionLabels(ctx context.Context) {
 	)
 }
 
-func (t *PorchSuite) TestPackageRevisionGCWithOwner(ctx context.Context) {
+func (t *PorchSuite) TestPackageRevisionGCWithOwner() {
 	const (
 		repository  = "pkgrevgcwithowner"
 		workspace   = "pkgrevgcwithowner-workspace"
@@ -2568,7 +2557,7 @@ func (t *PorchSuite) TestPackageRevisionGCWithOwner(ctx context.Context) {
 		cmName      = "foo"
 	)
 
-	t.RegisterMainGitRepositoryF(ctx, repository)
+	t.RegisterMainGitRepositoryF(t.GetContext(), repository)
 
 	// Create a new package (via init)
 	pr := &porchapi.PackageRevision{
@@ -2585,7 +2574,7 @@ func (t *PorchSuite) TestPackageRevisionGCWithOwner(ctx context.Context) {
 			RepositoryName: repository,
 		},
 	}
-	t.CreateF(ctx, pr)
+	t.CreateF(t.GetContext(), pr)
 
 	cm := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
@@ -2608,11 +2597,11 @@ func (t *PorchSuite) TestPackageRevisionGCWithOwner(ctx context.Context) {
 			"foo": "bar",
 		},
 	}
-	t.CreateF(ctx, cm)
+	t.CreateF(t.GetContext(), cm)
 
-	t.DeleteF(ctx, pr)
+	t.DeleteF(t.GetContext(), pr)
 	t.WaitUntilObjectDeleted(
-		ctx,
+		t.GetContext(),
 		packageRevisionGVK,
 		types.NamespacedName{
 			Name:      pr.Name,
@@ -2621,7 +2610,7 @@ func (t *PorchSuite) TestPackageRevisionGCWithOwner(ctx context.Context) {
 		10*time.Second,
 	)
 	t.WaitUntilObjectDeleted(
-		ctx,
+		t.GetContext(),
 		configMapGVK,
 		types.NamespacedName{
 			Name:      cm.Name,
@@ -2631,7 +2620,7 @@ func (t *PorchSuite) TestPackageRevisionGCWithOwner(ctx context.Context) {
 	)
 }
 
-func (t *PorchSuite) TestPackageRevisionGCAsOwner(ctx context.Context) {
+func (t *PorchSuite) TestPackageRevisionGCAsOwner() {
 	const (
 		repository  = "pkgrevgcasowner"
 		workspace   = "pkgrevgcasowner-workspace"
@@ -2639,7 +2628,7 @@ func (t *PorchSuite) TestPackageRevisionGCAsOwner(ctx context.Context) {
 		cmName      = "foo"
 	)
 
-	t.RegisterMainGitRepositoryF(ctx, repository)
+	t.RegisterMainGitRepositoryF(t.GetContext(), repository)
 
 	cm := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
@@ -2654,7 +2643,7 @@ func (t *PorchSuite) TestPackageRevisionGCAsOwner(ctx context.Context) {
 			"foo": "bar",
 		},
 	}
-	t.CreateF(ctx, cm)
+	t.CreateF(t.GetContext(), cm)
 
 	pr := &porchapi.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
@@ -2678,11 +2667,11 @@ func (t *PorchSuite) TestPackageRevisionGCAsOwner(ctx context.Context) {
 			RepositoryName: repository,
 		},
 	}
-	t.CreateF(ctx, pr)
+	t.CreateF(t.GetContext(), pr)
 
-	t.DeleteF(ctx, cm)
+	t.DeleteF(t.GetContext(), cm)
 	t.WaitUntilObjectDeleted(
-		ctx,
+		t.GetContext(),
 		configMapGVK,
 		types.NamespacedName{
 			Name:      cm.Name,
@@ -2691,7 +2680,7 @@ func (t *PorchSuite) TestPackageRevisionGCAsOwner(ctx context.Context) {
 		10*time.Second,
 	)
 	t.WaitUntilObjectDeleted(
-		ctx,
+		t.GetContext(),
 		packageRevisionGVK,
 		types.NamespacedName{
 			Name:      pr.Name,
@@ -2701,7 +2690,7 @@ func (t *PorchSuite) TestPackageRevisionGCAsOwner(ctx context.Context) {
 	)
 }
 
-func (t *PorchSuite) TestPackageRevisionOwnerReferences(ctx context.Context) {
+func (t *PorchSuite) TestPackageRevisionOwnerReferences() {
 	const (
 		repository  = "pkgrevownerrefs"
 		workspace   = "pkgrevownerrefs-workspace"
@@ -2709,7 +2698,7 @@ func (t *PorchSuite) TestPackageRevisionOwnerReferences(ctx context.Context) {
 		cmName      = "foo"
 	)
 
-	t.RegisterMainGitRepositoryF(ctx, repository)
+	t.RegisterMainGitRepositoryF(t.GetContext(), repository)
 
 	cm := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
@@ -2724,7 +2713,7 @@ func (t *PorchSuite) TestPackageRevisionOwnerReferences(ctx context.Context) {
 			"foo": "bar",
 		},
 	}
-	t.CreateF(ctx, cm)
+	t.CreateF(t.GetContext(), cm)
 
 	pr := &porchapi.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
@@ -2740,8 +2729,8 @@ func (t *PorchSuite) TestPackageRevisionOwnerReferences(ctx context.Context) {
 			RepositoryName: repository,
 		},
 	}
-	t.CreateF(ctx, pr)
-	t.ValidateOwnerReferences(ctx, pr.Name, []metav1.OwnerReference{})
+	t.CreateF(t.GetContext(), pr)
+	t.ValidateOwnerReferences(t.GetContext(), pr.Name, []metav1.OwnerReference{})
 
 	ownerRef := metav1.OwnerReference{
 		APIVersion: "v1",
@@ -2750,22 +2739,22 @@ func (t *PorchSuite) TestPackageRevisionOwnerReferences(ctx context.Context) {
 		UID:        cm.UID,
 	}
 	pr.ObjectMeta.OwnerReferences = []metav1.OwnerReference{ownerRef}
-	t.UpdateF(ctx, pr)
-	t.ValidateOwnerReferences(ctx, pr.Name, []metav1.OwnerReference{ownerRef})
+	t.UpdateF(t.GetContext(), pr)
+	t.ValidateOwnerReferences(t.GetContext(), pr.Name, []metav1.OwnerReference{ownerRef})
 
 	pr.ObjectMeta.OwnerReferences = []metav1.OwnerReference{}
-	t.UpdateF(ctx, pr)
-	t.ValidateOwnerReferences(ctx, pr.Name, []metav1.OwnerReference{})
+	t.UpdateF(t.GetContext(), pr)
+	t.ValidateOwnerReferences(t.GetContext(), pr.Name, []metav1.OwnerReference{})
 }
 
-func (t *PorchSuite) TestPackageRevisionFinalizers(ctx context.Context) {
+func (t *PorchSuite) TestPackageRevisionFinalizers() {
 	const (
 		repository  = "pkgrevfinalizers"
 		workspace   = "pkgrevfinalizers-workspace"
 		description = "empty-package description"
 	)
 
-	t.RegisterMainGitRepositoryF(ctx, repository)
+	t.RegisterMainGitRepositoryF(t.GetContext(), repository)
 
 	pr := &porchapi.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
@@ -2781,31 +2770,31 @@ func (t *PorchSuite) TestPackageRevisionFinalizers(ctx context.Context) {
 			RepositoryName: repository,
 		},
 	}
-	t.CreateF(ctx, pr)
-	t.ValidateFinalizers(ctx, pr.Name, []string{})
+	t.CreateF(t.GetContext(), pr)
+	t.ValidateFinalizers(t.GetContext(), pr.Name, []string{})
 
 	pr.Finalizers = append(pr.Finalizers, "foo-finalizer")
-	t.UpdateF(ctx, pr)
-	t.ValidateFinalizers(ctx, pr.Name, []string{"foo-finalizer"})
+	t.UpdateF(t.GetContext(), pr)
+	t.ValidateFinalizers(t.GetContext(), pr.Name, []string{"foo-finalizer"})
 
-	t.DeleteF(ctx, pr)
-	t.ValidateFinalizers(ctx, pr.Name, []string{"foo-finalizer"})
+	t.DeleteF(t.GetContext(), pr)
+	t.ValidateFinalizers(t.GetContext(), pr.Name, []string{"foo-finalizer"})
 
 	pr.Finalizers = []string{}
-	t.UpdateF(ctx, pr)
-	t.WaitUntilObjectDeleted(ctx, packageRevisionGVK, types.NamespacedName{
+	t.UpdateF(t.GetContext(), pr)
+	t.WaitUntilObjectDeleted(t.GetContext(), packageRevisionGVK, types.NamespacedName{
 		Name:      pr.Name,
 		Namespace: pr.Namespace,
 	}, 10*time.Second)
 }
 
-func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces(ctx context.Context) {
+func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces() {
 
 	registerRepoAndTestRevisions := func(repoName string, ns string, oldPRs []porchapi.PackageRevision) []porchapi.PackageRevision {
 
-		t.RegisterGitRepositoryF(ctx, testBlueprintsRepo, repoName, "", InNamespace(ns))
+		t.RegisterGitRepositoryF(t.GetContext(), testBlueprintsRepo, repoName, "", InNamespace(ns))
 		prList := porchapi.PackageRevisionList{}
-		t.ListF(ctx, &prList, client.InNamespace(ns))
+		t.ListF(t.GetContext(), &prList, client.InNamespace(ns))
 		newPRs := prList.Items
 		if len(newPRs) == 0 {
 			t.Errorf("no PackageRevisions found in repo: %s", repoName)
@@ -2853,9 +2842,9 @@ func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces(ctx context.Context
 			Name: t.Namespace + "-2",
 		},
 	}
-	t.CreateF(ctx, ns2)
+	t.CreateF(t.GetContext(), ns2)
 	t.Cleanup(func() {
-		t.DeleteE(ctx, ns2)
+		t.DeleteE(t.GetContext(), ns2)
 	})
 
 	prs1 := registerRepoAndTestRevisions("test-blueprints", t.Namespace, nil)
@@ -2873,13 +2862,13 @@ func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces(ctx context.Context
 	}
 }
 
-func (t *PorchSuite) TestUniquenessOfUIDs(ctx context.Context) {
+func (t *PorchSuite) TestUniquenessOfUIDs() {
 
-	t.RegisterGitRepositoryF(ctx, testBlueprintsRepo, "test-blueprints", "")
-	t.RegisterGitRepositoryF(ctx, testBlueprintsRepo, "test-2-blueprints", "")
+	t.RegisterGitRepositoryF(t.GetContext(), testBlueprintsRepo, "test-blueprints", "")
+	t.RegisterGitRepositoryF(t.GetContext(), testBlueprintsRepo, "test-2-blueprints", "")
 
 	prList := porchapi.PackageRevisionList{}
-	t.ListE(ctx, &prList, client.InNamespace(t.Namespace))
+	t.ListE(t.GetContext(), &prList, client.InNamespace(t.Namespace))
 
 	uids := make(map[types.UID]*porchapi.PackageRevision)
 	for _, pr := range prList.Items {
@@ -2891,15 +2880,15 @@ func (t *PorchSuite) TestUniquenessOfUIDs(ctx context.Context) {
 	}
 }
 
-func (t *PorchSuite) TestPackageRevisionFieldSelectors(ctx context.Context) {
+func (t *PorchSuite) TestPackageRevisionFieldSelectors() {
 	repo := "test-blueprints"
-	t.RegisterGitRepositoryF(ctx, testBlueprintsRepo, repo, "")
+	t.RegisterGitRepositoryF(t.GetContext(), testBlueprintsRepo, repo, "")
 
 	prList := porchapi.PackageRevisionList{}
 
 	pkgName := "basens"
 	pkgSelector := client.MatchingFields(fields.Set{"spec.packageName": pkgName})
-	t.ListE(ctx, &prList, client.InNamespace(t.Namespace), pkgSelector)
+	t.ListE(t.GetContext(), &prList, client.InNamespace(t.Namespace), pkgSelector)
 	if len(prList.Items) == 0 {
 		t.Errorf("Expected at least one PackageRevision with packageName=%q, but got none", pkgName)
 	}
@@ -2911,7 +2900,7 @@ func (t *PorchSuite) TestPackageRevisionFieldSelectors(ctx context.Context) {
 
 	revName := "v1"
 	revSelector := client.MatchingFields(fields.Set{"spec.revision": revName})
-	t.ListE(ctx, &prList, client.InNamespace(t.Namespace), revSelector)
+	t.ListE(t.GetContext(), &prList, client.InNamespace(t.Namespace), revSelector)
 	if len(prList.Items) == 0 {
 		t.Errorf("Expected at least one PackageRevision with revision=%q, but got none", revName)
 	}
@@ -2923,7 +2912,7 @@ func (t *PorchSuite) TestPackageRevisionFieldSelectors(ctx context.Context) {
 
 	wsName := "v1"
 	wsSelector := client.MatchingFields(fields.Set{"spec.workspaceName": wsName})
-	t.ListE(ctx, &prList, client.InNamespace(t.Namespace), wsSelector)
+	t.ListE(t.GetContext(), &prList, client.InNamespace(t.Namespace), wsSelector)
 	if len(prList.Items) == 0 {
 		t.Errorf("Expected at least one PackageRevision with workspaceName=%q, but got none", wsName)
 	}
@@ -2934,7 +2923,7 @@ func (t *PorchSuite) TestPackageRevisionFieldSelectors(ctx context.Context) {
 	}
 
 	publishedSelector := client.MatchingFields(fields.Set{"spec.lifecycle": string(porchapi.PackageRevisionLifecyclePublished)})
-	t.ListE(ctx, &prList, client.InNamespace(t.Namespace), publishedSelector)
+	t.ListE(t.GetContext(), &prList, client.InNamespace(t.Namespace), publishedSelector)
 	if len(prList.Items) == 0 {
 		t.Errorf("Expected at least one PackageRevision with lifecycle=%q, but got none", porchapi.PackageRevisionLifecyclePublished)
 	}
@@ -2945,7 +2934,7 @@ func (t *PorchSuite) TestPackageRevisionFieldSelectors(ctx context.Context) {
 	}
 
 	draftSelector := client.MatchingFields(fields.Set{"spec.lifecycle": string(porchapi.PackageRevisionLifecycleDraft)})
-	t.ListE(ctx, &prList, client.InNamespace(t.Namespace), draftSelector)
+	t.ListE(t.GetContext(), &prList, client.InNamespace(t.Namespace), draftSelector)
 	// TODO: add draft packages to the test repo
 	// if len(prList.Items) == 0 {
 	// 	t.Errorf("Expected at least one PackageRevision with lifecycle=%q, but got none", porchapi.PackageRevisionLifecycleDraft)
@@ -2958,7 +2947,7 @@ func (t *PorchSuite) TestPackageRevisionFieldSelectors(ctx context.Context) {
 
 	// test combined selectors
 	combinedSelector := client.MatchingFields(fields.Set{"spec.revision": revName, "spec.packageName": pkgName})
-	t.ListE(ctx, &prList, client.InNamespace(t.Namespace), combinedSelector)
+	t.ListE(t.GetContext(), &prList, client.InNamespace(t.Namespace), combinedSelector)
 	if len(prList.Items) == 0 {
 		t.Errorf("Expected at least one PackageRevision with packageName=%q and revision=%q, but got none", pkgName, revName)
 	}
@@ -2969,7 +2958,7 @@ func (t *PorchSuite) TestPackageRevisionFieldSelectors(ctx context.Context) {
 	}
 }
 
-func (t *PorchSuite) TestLatestVersionOnDelete(ctx context.Context) {
+func (t *PorchSuite) TestLatestVersionOnDelete() {
 	const (
 		repositoryName = "test-latest-on-delete-repository"
 		workspacev1    = "test-latest-on-delete-workspace-v1"
@@ -2977,73 +2966,73 @@ func (t *PorchSuite) TestLatestVersionOnDelete(ctx context.Context) {
 		packageName    = "test-latest-on-delete-package"
 	)
 
-	t.RegisterMainGitRepositoryF(ctx, repositoryName)
+	t.RegisterMainGitRepositoryF(t.GetContext(), repositoryName)
 
-	pr1 := t.CreatePackageDraftF(ctx, repositoryName, packageName, workspacev1)
+	pr1 := t.CreatePackageDraftF(t.GetContext(), repositoryName, packageName, workspacev1)
 
 	pr1.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	t.UpdateF(ctx, pr1)
+	t.UpdateF(t.GetContext(), pr1)
 
 	pr1.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(ctx, pr1, metav1.UpdateOptions{})
+	t.UpdateApprovalF(t.GetContext(), pr1, metav1.UpdateOptions{})
 
 	//After approval of the first revision, the package should be labeled as latest
-	t.MustHaveLabels(ctx, pr1.Name, map[string]string{
+	t.MustHaveLabels(t.GetContext(), pr1.Name, map[string]string{
 		porchapi.LatestPackageRevisionKey: porchapi.LatestPackageRevisionValue,
 	})
 
-	pr2 := t.CreatePackageDraftF(ctx, repositoryName, packageName, workspacev2)
+	pr2 := t.CreatePackageDraftF(t.GetContext(), repositoryName, packageName, workspacev2)
 
 	pr2.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	t.UpdateF(ctx, pr2)
+	t.UpdateF(t.GetContext(), pr2)
 
 	pr2.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(ctx, pr2, metav1.UpdateOptions{})
+	t.UpdateApprovalF(t.GetContext(), pr2, metav1.UpdateOptions{})
 
 	//After approval of the second revision, the latest label should migrate to the
 	//v2 packageRevision
-	t.MustNotHaveLabels(ctx, pr1.Name, []string{
+	t.MustNotHaveLabels(t.GetContext(), pr1.Name, []string{
 		porchapi.LatestPackageRevisionKey,
 	})
 
-	t.MustHaveLabels(ctx, pr2.Name, map[string]string{
+	t.MustHaveLabels(t.GetContext(), pr2.Name, map[string]string{
 		porchapi.LatestPackageRevisionKey: porchapi.LatestPackageRevisionValue,
 	})
 
-	t.GetF(ctx, client.ObjectKeyFromObject(pr2), pr2)
+	t.GetF(t.GetContext(), client.ObjectKeyFromObject(pr2), pr2)
 
 	pr2.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-	t.UpdateF(ctx, pr2)
+	t.UpdateF(t.GetContext(), pr2)
 
-	t.DeleteF(ctx, pr2)
+	t.DeleteF(t.GetContext(), pr2)
 	//After deletion of the v2 pacakgeRevision,
 	//the label should migrate back to the v2 packageRevision
-	t.MustHaveLabels(ctx, pr1.Name, map[string]string{
+	t.MustHaveLabels(t.GetContext(), pr1.Name, map[string]string{
 		porchapi.LatestPackageRevisionKey: porchapi.LatestPackageRevisionValue,
 	})
 
-	t.GetF(ctx, client.ObjectKeyFromObject(pr1), pr1)
+	t.GetF(t.GetContext(), client.ObjectKeyFromObject(pr1), pr1)
 
 	pr1.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-	t.UpdateF(ctx, pr1)
+	t.UpdateF(t.GetContext(), pr1)
 
-	t.DeleteF(ctx, pr1)
+	t.DeleteF(t.GetContext(), pr1)
 	//After the removal of all versioned packageRevisions, the main branch
 	//packageRevision should still not get the latest label.
-	mainPr := t.GetPackageRevision(ctx, repositoryName, packageName, "main")
-	t.MustNotHaveLabels(ctx, mainPr.Name, []string{
+	mainPr := t.GetPackageRevision(t.GetContext(), repositoryName, packageName, "main")
+	t.MustNotHaveLabels(t.GetContext(), mainPr.Name, []string{
 		porchapi.LatestPackageRevisionKey,
 	})
 }
 
-func (t *PorchSuite) TestRepositoryModify(ctx context.Context) {
+func (t *PorchSuite) TestRepositoryModify() {
 	const (
 		repositoryName = "repo-modify-test"
 		newDescription = "Updated Repository Description"
 	)
 
 	// Create initial repository
-	t.CreateF(ctx, &configapi.Repository{
+	t.CreateF(t.GetContext(), &configapi.Repository{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       configapi.TypeRepository.Kind,
 			APIVersion: configapi.TypeRepository.APIVersion(),
@@ -3063,7 +3052,7 @@ func (t *PorchSuite) TestRepositoryModify(ctx context.Context) {
 
 	// Clean up after test
 	t.Cleanup(func() {
-		t.DeleteL(ctx, &configapi.Repository{
+		t.DeleteL(t.GetContext(), &configapi.Repository{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      repositoryName,
 				Namespace: t.Namespace,
@@ -3073,14 +3062,14 @@ func (t *PorchSuite) TestRepositoryModify(ctx context.Context) {
 
 	// Get the repository to modify
 	var repository configapi.Repository
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(t.GetContext(), client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      repositoryName,
 	}, &repository)
 
 	// Modify the repository
 	repository.Spec.Description = newDescription
-	t.UpdateF(ctx, &repository)
+	t.UpdateF(t.GetContext(), &repository)
 
 	// Wait and verify the repository condition
 	giveUp := time.Now().Add(60 * time.Second)
@@ -3093,7 +3082,7 @@ func (t *PorchSuite) TestRepositoryModify(ctx context.Context) {
 		time.Sleep(5 * time.Second)
 
 		var updatedRepo configapi.Repository
-		t.GetF(ctx, client.ObjectKey{
+		t.GetF(t.GetContext(), client.ObjectKey{
 			Namespace: t.Namespace,
 			Name:      repositoryName,
 		}, &updatedRepo)

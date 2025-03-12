@@ -28,12 +28,12 @@ import (
 )
 
 func (t *TestSuite) DumpLogsForDeploymentE(ctx context.Context, deploymentKey client.ObjectKey) {
-	t.Helper()
+	t.T().Helper()
 	t.dumpLogsForDeployment(ctx, deploymentKey, t.Errorf)
 }
 
 func (t *TestSuite) hasOwner(child, parent runtime.Object) bool {
-	t.Helper()
+	t.T().Helper()
 	childAccessor, err := meta.Accessor(child)
 	if err != nil {
 		t.Fatalf("could not get accessor for %T: %v", child, err)
@@ -55,7 +55,7 @@ func (t *TestSuite) hasOwner(child, parent runtime.Object) bool {
 }
 
 func (t *TestSuite) dumpLogsForDeployment(ctx context.Context, deploymentKey client.ObjectKey, eh ErrorHandler) {
-	t.Helper()
+	t.T().Helper()
 	deployment, err := t.KubeClient.AppsV1().Deployments(deploymentKey.Namespace).Get(ctx, deploymentKey.Name, metav1.GetOptions{})
 	if err != nil {
 		eh("failed to get deployemnt %v: %v", deploymentKey, err)
@@ -76,7 +76,7 @@ func (t *TestSuite) dumpLogsForDeployment(ctx context.Context, deploymentKey cli
 }
 
 func (t *TestSuite) dumpLogsForReplicaSet(ctx context.Context, replicaSet *appsv1.ReplicaSet, eh ErrorHandler) {
-	t.Helper()
+	t.T().Helper()
 	pods, err := t.KubeClient.CoreV1().Pods(replicaSet.Namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		eh("failed to list pods: %v", err)
@@ -92,7 +92,7 @@ func (t *TestSuite) dumpLogsForReplicaSet(ctx context.Context, replicaSet *appsv
 }
 
 func (t *TestSuite) dumpLogsForPod(ctx context.Context, pod *corev1.Pod, eh ErrorHandler) {
-	t.Helper()
+	t.T().Helper()
 	for _, container := range pod.Spec.Containers {
 		podKey := client.ObjectKey{
 			Namespace: pod.Namespace,
@@ -103,7 +103,7 @@ func (t *TestSuite) dumpLogsForPod(ctx context.Context, pod *corev1.Pod, eh Erro
 }
 
 func (t *TestSuite) dumpLogsForPodContainer(ctx context.Context, podKey client.ObjectKey, containerName string, eh ErrorHandler) {
-	t.Helper()
+	t.T().Helper()
 	req := t.KubeClient.CoreV1().Pods(podKey.Namespace).GetLogs(podKey.Name, &corev1.PodLogOptions{Container: containerName})
 	podLogs, err := req.Stream(ctx)
 	if err != nil {
