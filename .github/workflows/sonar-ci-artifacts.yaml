@@ -29,8 +29,8 @@ jobs:
       if: failure()
       uses: actions/upload-artifact@v4
       with:
-        name: coverage.out
-        path: build/reports
+        name: coverage-report
+        path: ./coverage.out
 
     - name: Save PR number to file
       if: github.event_name == 'pull_request'
