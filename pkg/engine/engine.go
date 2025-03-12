@@ -27,6 +27,7 @@ import (
 	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/task"
+	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -156,7 +157,7 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, apiRepo *config
 		return nil, err
 	}
 
-	if err := repository.ValidateWorkspaceName(newPkgRev.Spec.WorkspaceName); err != nil {
+	if err := util.ValidPkgRevObjName(repositoryObj.ObjectMeta.Name, repositoryObj.Spec.Git.Directory, newPkgRev.Spec.PackageName, string(newPkgRev.Spec.WorkspaceName)); err != nil {
 		return nil, fmt.Errorf("failed to create packagerevision: %w", err)
 	}
 

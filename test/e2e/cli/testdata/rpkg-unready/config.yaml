@@ -18,7 +18,7 @@ commands:
       - --workspace=clone-1
       - unready-edit
     stdout: |
-      git-0e15bfcaef2194d2369902c6e77c8905e9190cbb created
+      git.unready-edit.clone-1 created
   - args:
       - porchctl
       - rpkg
@@ -26,27 +26,27 @@ commands:
       - --namespace=rpkg-unready
       - --workspace=copy-2
       - --replay-strategy=true
-      - git-0e15bfcaef2194d2369902c6e77c8905e9190cbb
-    stdout: "git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c created\n"
+      - git.unready-edit.clone-1
+    stdout: "git.unready-edit.copy-2 created\n"
   - args:
       - porchctl
       - rpkg
       - propose
       - --namespace=rpkg-unready
-      - git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c
+      - git.unready-edit.copy-2
     stderr: |
-      git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c failed (PackageRevision.porch.kpt.dev "git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c" is invalid: spec.lifecycle: Forbidden: unable to propose package: readiness conditions not met)
+      git.unready-edit.copy-2 failed (PackageRevision.porch.kpt.dev "git.unready-edit.copy-2" is invalid: spec.lifecycle: Forbidden: unable to propose package: readiness conditions not met)
       Error: errors:
-        PackageRevision.porch.kpt.dev "git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c" is invalid: spec.lifecycle: Forbidden: unable to propose package: readiness conditions not met 
+        PackageRevision.porch.kpt.dev "git.unready-edit.copy-2" is invalid: spec.lifecycle: Forbidden: unable to propose package: readiness conditions not met 
     exitCode: 1
   - args:
       - porchctl
       - rpkg
       - approve
       - --namespace=rpkg-unready
-      - git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c
+      - git.unready-edit.copy-2
     stderr: |
-      git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c failed (cannot change approval from Draft to Published)
+      git.unready-edit.copy-2 failed (cannot change approval from Draft to Published)
       Error: errors:
         cannot change approval from Draft to Published 
     exitCode: 1
@@ -55,8 +55,8 @@ commands:
       - rpkg
       - pull
       - --namespace=rpkg-unready
-      - git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c
-      - /tmp/porch-e2e/pkg-unready-git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c
+      - git.unready-edit.copy-2
+      - /tmp/porch-e2e/pkg-unready-git.unready-edit.copy-2
   - args:
       - kpt
       - fn
@@ -65,7 +65,7 @@ commands:
       - gcr.io/kpt-fn/search-replace:v0.2.0
       - --match-kind
       - Kptfile
-      - /tmp/porch-e2e/pkg-unready-git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c
+      - /tmp/porch-e2e/pkg-unready-git.unready-edit.copy-2
       - --
       - by-path=status.conditions[1].status
       - put-value=True
@@ -75,26 +75,26 @@ commands:
       - rpkg
       - push
       - --namespace=rpkg-unready
-      - git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c
-      - /tmp/porch-e2e/pkg-unready-git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c
+      - git.unready-edit.copy-2
+      - /tmp/porch-e2e/pkg-unready-git.unready-edit.copy-2
     stdout: |
-      git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c pushed
+      git.unready-edit.copy-2 pushed
   - args:
       - porchctl
       - rpkg
       - propose
       - --namespace=rpkg-unready
-      - git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c
+      - git.unready-edit.copy-2
     stdout: |
-      git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c proposed
+      git.unready-edit.copy-2 proposed
     exitCode: 0
   - args:
       - porchctl
       - rpkg
       - approve
       - --namespace=rpkg-unready
-      - git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c
+      - git.unready-edit.copy-2
     stdout: |
-      git-8387be408ec830b27c9dff4f90bbc6aacaccdd1c approved
+      git.unready-edit.copy-2 approved
     exitCode: 0
   

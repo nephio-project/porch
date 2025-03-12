@@ -30,13 +30,13 @@ commands:
       - --workspace=init-1
       - init-package
     stdout: |
-      git-95686470a1fd3a3ba726cce4c8f449f6bbe2b02a created
+      git.init-package.init-1 created
   - args:
       - porchctl
       - rpkg
       - pull
       - --namespace=rpkg-init
-      - git-95686470a1fd3a3ba726cce4c8f449f6bbe2b02a
+      - git.init-package.init-1
     stdout: |
       apiVersion: config.kubernetes.io/v1
       items:
@@ -48,9 +48,9 @@ commands:
             config.kubernetes.io/path: .KptRevisionMetadata
             internal.config.kubernetes.io/index: "0"
             internal.config.kubernetes.io/path: .KptRevisionMetadata
-          name: git-95686470a1fd3a3ba726cce4c8f449f6bbe2b02a
+          name: git.init-package.init-1
           namespace: rpkg-init
-          uid: 58ce4be4-fa08-5780-aa59-20ec2e2e8d89
+          uid: 3da4afa2-0d0a-5268-861f-fcfdefea17bb
       - apiVersion: kpt.dev/v1
         info:
           description: Test Package Description

@@ -167,13 +167,13 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 		}
 	}
 
-	repositoryName, err := util.ParseRepositoryName(name)
+	repoName, err := util.ParsePkgRevObjNameField(name, 0)
 	if err != nil {
 		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("invalid name %q", name))
 	}
 
 	var repositoryObj v1alpha1.Repository
-	repositoryID := types.NamespacedName{Namespace: ns, Name: repositoryName}
+	repositoryID := types.NamespacedName{Namespace: ns, Name: repoName}
 	if err := r.coreClient.Get(ctx, repositoryID, &repositoryObj); err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil, false, apierrors.NewNotFound(schema.GroupResource(api.PackageRevisionResourcesGVR.GroupResource()), repositoryID.Name)
