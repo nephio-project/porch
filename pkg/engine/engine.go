@@ -157,7 +157,7 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, apiRepo *config
 		return nil, err
 	}
 
-	if err := util.ValidPkgRevObjName(repositoryObj.ObjectMeta.Name, repositoryObj.Spec.Git.Directory, newPkgRev.Spec.PackageName, string(newPkgRev.Spec.WorkspaceName)); err != nil {
+	if err := util.ValidPkgRevObjName(apiRepo.ObjectMeta.Name, apiRepo.Spec.Git.Directory, newPkgRev.Spec.PackageName, string(newPkgRev.Spec.WorkspaceName)); err != nil {
 		return nil, fmt.Errorf("failed to create packagerevision: %w", err)
 	}
 
