@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -126,6 +127,14 @@ func (s packageRevisionStrategy) Validate(ctx context.Context, runtimeObj runtim
 	allErrs := field.ErrorList{}
 
 	obj := runtimeObj.(*api.PackageRevision)
+
+	if pkgNameErr := util.ValidateK8SName(obj.Spec.PackageName); pkgNameErr != nil {
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "packageName"), obj.Spec.PackageName, pkgNameErr.Error()))
+	}
+
+	if wsNameErr := util.ValidateK8SName(string(obj.Spec.WorkspaceName)); wsNameErr != nil {
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "workspaceName"), obj.Spec.WorkspaceName, wsNameErr.Error()))
+	}
 
 	switch lifecycle := obj.Spec.Lifecycle; lifecycle {
 	case "", api.PackageRevisionLifecycleDraft:

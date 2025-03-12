@@ -15,13 +15,13 @@ commands:
       - --workspace=push
       - test-package
     stdout: |
-      git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f created
+      git.test-package.push created
   - args:
       - porchctl
       - rpkg
       - pull
       - --namespace=rpkg-push
-      - git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f
+      - git.test-package.push
     stdout: |
       apiVersion: config.kubernetes.io/v1
       items:
@@ -33,9 +33,9 @@ commands:
             config.kubernetes.io/path: .KptRevisionMetadata
             internal.config.kubernetes.io/index: "0"
             internal.config.kubernetes.io/path: .KptRevisionMetadata
-          name: git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f
+          name: git.test-package.push
           namespace: rpkg-push
-          uid: 8d61685e-584c-5b89-bd30-a8d8dccb13f9
+          uid: 50d077b1-c3cc-5232-b0b6-7e0772d18514
       - apiVersion: kpt.dev/v1
         info:
           description: sample description
@@ -67,7 +67,7 @@ commands:
       - rpkg
       - push
       - --namespace=rpkg-push
-      - git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f
+      - git.test-package.push
     stdin: |
       apiVersion: config.kubernetes.io/v1
       items:
@@ -79,7 +79,7 @@ commands:
             config.kubernetes.io/path: .KptRevisionMetadata
             internal.config.kubernetes.io/index: "0"
             internal.config.kubernetes.io/path: .KptRevisionMetadata
-          name: git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f
+          name: git.test-package.push
           namespace: rpkg-push
           uid: uid:test-package:push
       - apiVersion: kpt.dev/v1
@@ -115,8 +115,8 @@ commands:
       - rpkg
       - pull
       - --namespace=rpkg-push
-      - git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f
-      - /tmp/porch-e2e/rpkg-push-git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f
+      - git.test-package.push
+      - /tmp/porch-e2e/rpkg-push-git.test-package.push
   - args:
       - kpt
       - fn
@@ -125,7 +125,7 @@ commands:
       - gcr.io/kpt-fn/search-replace:v0.2.0
       - --match-kind
       - Kptfile
-      - /tmp/porch-e2e/rpkg-push-git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f
+      - /tmp/porch-e2e/rpkg-push-git.test-package.push
       - --
       - by-path=info.description
       - put-value=Updated Test Package Description
@@ -138,16 +138,16 @@ commands:
       - rpkg
       - push
       - --namespace=rpkg-push
-      - git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f
-      - /tmp/porch-e2e/rpkg-push-git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f
+      - git.test-package.push
+      - /tmp/porch-e2e/rpkg-push-git.test-package.push
     stdout: |
-      git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f pushed
+      git.test-package.push pushed
   - args:
       - porchctl
       - rpkg
       - pull
       - --namespace=rpkg-push
-      - git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f
+      - git.test-package.push
     stdout: |
       apiVersion: config.kubernetes.io/v1
       items:
@@ -159,9 +159,9 @@ commands:
             config.kubernetes.io/path: .KptRevisionMetadata
             internal.config.kubernetes.io/index: "0"
             internal.config.kubernetes.io/path: .KptRevisionMetadata
-          name: git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f
+          name: git.test-package.push
           namespace: rpkg-push
-          uid: 8d61685e-584c-5b89-bd30-a8d8dccb13f9
+          uid: 50d077b1-c3cc-5232-b0b6-7e0772d18514
       - apiVersion: kpt.dev/v1
         info:
           description: Updated Test Package Description
@@ -193,7 +193,7 @@ commands:
       - rpkg
       - push
       - --namespace=rpkg-push
-      - git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f
+      - git.test-package.push
     stdin: |
       apiVersion: config.kubernetes.io/v1
       items:
@@ -205,9 +205,9 @@ commands:
             config.kubernetes.io/path: .KptRevisionMetadata
             internal.config.kubernetes.io/index: "0"
             internal.config.kubernetes.io/path: .KptRevisionMetadata
-          name: git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f
+          name: git.test-package.push
           namespace: rpkg-push
-          uid: 8d61685e-584c-5b89-bd30-a8d8dccb13f9
+          uid: 50d077b1-c3cc-5232-b0b6-7e0772d18514
           resourceVersion: "1"
       - apiVersion: kpt.dev/v1
         info:
@@ -235,7 +235,7 @@ commands:
           name: kptfile.kpt.dev
       kind: ResourceList
     stderr: |
-      Error: Internal error occurred: Operation cannot be fulfilled on packagerevisionresources.porch.kpt.dev "git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f": the object has been modified; please apply your changes to the latest version and try again 
+      Error: Internal error occurred: Operation cannot be fulfilled on packagerevisionresources.porch.kpt.dev "git.test-package.push": the object has been modified; please apply your changes to the latest version and try again 
     exitCode: 1
     yaml: true
   - args:
@@ -243,7 +243,7 @@ commands:
       - rpkg
       - pull
       - --namespace=rpkg-push
-      - git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f
+      - git.test-package.push
       - /tmp/porch-e2e/testing-invalid-render
   - args:
     - sh
@@ -255,7 +255,7 @@ commands:
       - rpkg
       - push
       - --namespace=rpkg-push
-      - git-efe3d01c68dfdcdd69114c9a7c65cce0d662a46f
+      - git.test-package.push
       - /tmp/porch-e2e/testing-invalid-render
     stderr: |
       Error occurred rendering package in kpt function pipeline.

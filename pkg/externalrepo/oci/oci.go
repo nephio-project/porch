@@ -197,7 +197,7 @@ func (r *ociRepository) ListPackages(ctx context.Context, filter repository.List
 }
 
 func (r *ociRepository) buildPackageRevision(ctx context.Context, name oci.ImageDigestName, packageName string,
-	workspace v1alpha1.WorkspaceName, revision string, created time.Time) (repository.PackageRevision, error) {
+	workspace v1alpha1.WorkspaceName, revision int, created time.Time) (repository.PackageRevision, error) {
 
 	ctx, span := tracer.Start(ctx, "ociRepository::buildPackageRevision")
 	defer span.End()
@@ -205,7 +205,7 @@ func (r *ociRepository) buildPackageRevision(ctx context.Context, name oci.Image
 	// for backwards compatibility with packages that existed before porch supported
 	// workspaces, we populate the workspaceName as the revision number if it is empty
 	if workspace == "" {
-		workspace = v1alpha1.WorkspaceName(revision)
+		workspace = v1alpha1.WorkspaceName(repository.Revision2Str(revision))
 	}
 
 	p := &ociPackageRevision{
@@ -250,7 +250,7 @@ func (p *ociPackageRevision) ToMainPackageRevision() repository.PackageRevision 
 type ociPackageRevision struct {
 	digestName      oci.ImageDigestName
 	packageName     string
-	revision        string
+	revision        int
 	workspaceName   v1alpha1.WorkspaceName
 	created         time.Time
 	resourceVersion string
@@ -428,6 +428,7 @@ func (p *ociPackageRevision) GetMeta() metav1.ObjectMeta {
 	return p.metadata
 }
 
-func (p *ociPackageRevision) SetMeta(metadata metav1.ObjectMeta) {
+func (p *ociPackageRevision) SetMeta(_ context.Context, metadata metav1.ObjectMeta) error {
 	p.metadata = metadata
+	return nil
 }

@@ -36,12 +36,14 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/stream"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel/trace"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 )
 
-func (r *ociRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
+func (r *ociRepository) CreatePackageRevisionDraft(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
 	base := empty.Image
 
 	packageName := obj.Spec.PackageName
@@ -50,12 +52,13 @@ func (r *ociRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1
 		return nil, err
 	}
 
-	if err := repository.ValidateWorkspaceName(obj.Spec.WorkspaceName); err != nil {
+	if err := util.ValidPkgRevObjName(r.name, "/", packageName, string(obj.Spec.WorkspaceName)); err != nil {
 		return nil, fmt.Errorf("failed to create packagerevision: %w", err)
 	}
 
 	// digestName := ImageDigestName{}
 	return &ociPackageRevisionDraft{
+		metadata:    obj.ObjectMeta,
 		packageName: packageName,
 		parent:      r,
 		tasks:       []v1alpha1.Task{},
@@ -93,6 +96,7 @@ func (r *ociRepository) UpdatePackageRevision(ctx context.Context, old repositor
 	}
 
 	return &ociPackageRevisionDraft{
+		metadata:    old.GetMeta(),
 		packageName: packageName,
 		parent:      r,
 		tasks:       []v1alpha1.Task{},
@@ -103,19 +107,15 @@ func (r *ociRepository) UpdatePackageRevision(ctx context.Context, old repositor
 }
 
 type ociPackageRevisionDraft struct {
+	metadata    metav1.ObjectMeta
 	packageName string
-
-	created time.Time
-
-	parent *ociRepository
-
-	tasks []v1alpha1.Task
-
-	base      v1.Image
-	tag       name.Tag
-	addendums []mutate.Addendum
-
-	lifecycle v1alpha1.PackageRevisionLifecycle // New value of the package revision lifecycle
+	created     time.Time
+	parent      *ociRepository
+	tasks       []v1alpha1.Task
+	base        v1.Image
+	tag         name.Tag
+	addendums   []mutate.Addendum
+	lifecycle   v1alpha1.PackageRevisionLifecycle // New value of the package revision lifecycle
 }
 
 var _ repository.PackageRevisionDraft = (*ociPackageRevisionDraft)(nil)
@@ -199,8 +199,12 @@ func (p *ociPackageRevisionDraft) GetName() string {
 	return p.packageName
 }
 
+func (p *ociPackageRevisionDraft) GetMeta() metav1.ObjectMeta {
+	return p.metadata
+}
+
 // Finish round of updates.
-func (r *ociRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version string) (repository.PackageRevision, error) {
+func (r *ociRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version int) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "ociRepository::ClosePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
 
@@ -211,7 +215,7 @@ func (r *ociRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 
 	klog.Infof("pushing %s", ref)
 
-	revision := ""
+	revision := -1
 	addendums := append([]mutate.Addendum{}, p.addendums...)
 	if p.lifecycle != "" {
 		if len(addendums) == 0 {
@@ -239,18 +243,15 @@ func (r *ociRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 				if err != nil {
 					return nil, err
 				}
-				var revs []string
+
+				highestRev := -1
 				for _, rev := range revisions {
-					if v1alpha1.LifecycleIsPublished(rev.Lifecycle(ctx)) {
-						revs = append(revs, rev.Key().Revision)
+					if v1alpha1.LifecycleIsPublished(rev.Lifecycle(ctx)) && rev.Key().Revision > highestRev {
+						highestRev = rev.Key().Revision
 					}
 				}
-				nextRevisionNumber, err := repository.NextRevisionNumber(ctx, revs)
-				if err != nil {
-					return nil, err
-				}
-				addendum.Annotations[annotationKeyRevision] = nextRevisionNumber
-				revision = nextRevisionNumber
+				revision = highestRev + 1
+				addendum.Annotations[annotationKeyRevision] = repository.Revision2Str(revision)
 			}
 		}
 	}
@@ -287,6 +288,11 @@ func (r *ociRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 	}
 
 	return p.parent.buildPackageRevision(ctx, digestName, p.packageName, v1alpha1.WorkspaceName(p.tag.TagStr()), revision, configFile.Created.Time)
+}
+
+func (r *ociRepository) PushPackageRevision(ctx context.Context, pr repository.PackageRevision) error {
+	klog.Warningf("ociRepository:PushPackageRevision function not implemented")
+	return nil
 }
 
 func constructResourceVersion(t time.Time) string {

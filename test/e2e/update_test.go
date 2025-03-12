@@ -33,7 +33,7 @@ func (t *PorchSuite) TestPackageUpdateRecloneAndReplay(ctx context.Context) {
 	var list porchapi.PackageRevisionList
 	t.ListE(ctx, &list, client.InNamespace(t.Namespace))
 
-	basensV2 := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: "v2"})
+	basensV2 := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: 2})
 	t.Logf("basensV2 = %v", basensV2)
 
 	// Register the repository as 'downstream'
@@ -49,7 +49,7 @@ func (t *PorchSuite) TestPackageUpdateRecloneAndReplay(ctx context.Context) {
 			Namespace: t.Namespace,
 		},
 		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "testRecloneAndReplay",
+			PackageName:    "testrecloneandreplay",
 			WorkspaceName:  "testdescr",
 			RepositoryName: gitRepository,
 			Tasks: []porchapi.Task{

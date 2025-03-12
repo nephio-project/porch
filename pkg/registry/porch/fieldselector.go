@@ -144,7 +144,7 @@ func parsePackageRevisionFieldSelector(fieldSelector fields.Selector) (packageRe
 			filter.Namespace = requirement.Value
 
 		case "spec.revision":
-			filter.Revision = requirement.Value
+			filter.Revision = repository.Revision2Int(requirement.Value)
 		case "spec.packageName":
 			filter.Package = requirement.Value
 		case "spec.repository":

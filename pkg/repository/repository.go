@@ -31,16 +31,17 @@ type PackageResources struct {
 }
 
 type PackageRevisionKey struct {
-	Namespace, Repository, Package, Revision string
-	WorkspaceName                            v1alpha1.WorkspaceName
+	Namespace, Repository, Package string
+	Revision                       int
+	WorkspaceName                  v1alpha1.WorkspaceName
 }
 
 func (n PackageRevisionKey) String() string {
-	return fmt.Sprintf("%s.%s.%s.v%s.%s", n.Namespace, n.Repository, n.Package, n.Revision, string(n.WorkspaceName))
+	return fmt.Sprintf("%s.%s.%s.%d.%s", n.Namespace, n.Repository, n.Package, n.Revision, string(n.WorkspaceName))
 }
 
 func (n PackageRevisionKey) NonNSString() string {
-	return fmt.Sprintf("%s.%s.v%s.%s", n.Repository, n.Package, n.Revision, string(n.WorkspaceName))
+	return fmt.Sprintf("%s.%s.%d.%s", n.Repository, n.Package, n.Revision, string(n.WorkspaceName))
 }
 
 func (n PackageRevisionKey) PackageKey() PackageKey {
@@ -144,7 +145,7 @@ type PackageRevision interface {
 	GetMeta() metav1.ObjectMeta
 
 	// Set the Kubernetes metadata for the package revision
-	SetMeta(metav1.ObjectMeta)
+	SetMeta(context.Context, metav1.ObjectMeta) error
 }
 
 // Package is an abstract package.
@@ -161,14 +162,15 @@ type Package interface {
 
 	// GetLatestRevision returns the name of the package revision that is the "latest" package
 	// revision belonging to this package
-	GetLatestRevision() string
+	GetLatestRevision() int
 }
 
 type PackageRevisionDraft interface {
+	GetName() string
+	GetMeta() metav1.ObjectMeta
 	UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, task *v1alpha1.Task) error
 	// Updates desired lifecycle of the package. The lifecycle is applied on Close.
 	UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error
-	GetName() string
 }
 
 // ListPackageRevisionFilter is a predicate for filtering PackageRevision objects;
@@ -184,7 +186,7 @@ type ListPackageRevisionFilter struct {
 	WorkspaceName v1alpha1.WorkspaceName
 
 	// Revision matches the revision of the package (spec.revision)
-	Revision string
+	Revision int
 
 	// Lifecycle matches the spec.lifecycle of the package
 	Lifecycle v1alpha1.PackageRevisionLifecycle
@@ -197,7 +199,7 @@ func (f *ListPackageRevisionFilter) Matches(ctx context.Context, p PackageRevisi
 	if f.Package != "" && f.Package != packageKey.Package {
 		return false
 	}
-	if f.Revision != "" && f.Revision != packageKey.Revision {
+	if f.Revision != 0 && f.Revision != packageKey.Revision {
 		return false
 	}
 	if f.WorkspaceName != "" && f.WorkspaceName != packageKey.WorkspaceName {
@@ -240,10 +242,13 @@ type Repository interface {
 	ListPackageRevisions(ctx context.Context, filter ListPackageRevisionFilter) ([]PackageRevision, error)
 
 	// CreatePackageRevision creates a new package revision
-	CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (PackageRevisionDraft, error)
+	CreatePackageRevisionDraft(ctx context.Context, obj *v1alpha1.PackageRevision) (PackageRevisionDraft, error)
 
 	// ClosePackageRevisionDraft closes out a Package Revision Draft
-	ClosePackageRevisionDraft(ctx context.Context, prd PackageRevisionDraft, version string) (PackageRevision, error)
+	ClosePackageRevisionDraft(ctx context.Context, prd PackageRevisionDraft, version int) (PackageRevision, error)
+
+	// PushPackageRevision pushes a fully ready package revision onto the repo
+	PushPackageRevision(ctx context.Context, pr PackageRevision) error
 
 	// DeletePackageRevision deletes a package revision
 	DeletePackageRevision(ctx context.Context, old PackageRevision) error

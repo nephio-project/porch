@@ -44,7 +44,7 @@ func (f *GitRepoFactory) NewRepositoryImpl(ctx context.Context, repositorySpec *
 		mbs = ErrorIfMissing
 	}
 
-	repo, err := OpenRepository(ctx, repositorySpec.Name, repositorySpec.Namespace, repositorySpec.Spec.Git, repositorySpec.Spec.Deployment, filepath.Join(options.LocalDirectory, "git"), GitRepositoryOptions{
+	repo, err := OpenRepository(ctx, repositorySpec.Name, repositorySpec.Namespace, repositorySpec.Spec.Git, repositorySpec.Spec.Deployment, filepath.Join(options.CacheDirectory, "git"), GitRepositoryOptions{
 		ExternalRepoOptions: options,
 		MainBranchStrategy:  mbs,
 	})
