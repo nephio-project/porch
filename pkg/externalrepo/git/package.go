@@ -33,10 +33,6 @@ import (
 	"k8s.io/klog/v2"
 )
 
-const (
-	uuidSpace = "aac71d91-5c67-456f-8fd2-902ef6da820e"
-)
-
 type gitPackageRevision struct {
 	repo          *gitRepository // repo is repo containing the package
 	path          string         // the path to the package from the repo root
