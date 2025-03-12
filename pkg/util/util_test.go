@@ -15,55 +15,183 @@
 package util
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"gopkg.in/yaml.v2"
+	"gotest.tools/assert"
 )
 
-func TestKubernetesName(t *testing.T) {
+func TestParseRepositoryNameOK(t *testing.T) {
+	const myRepo = "my-repo"
+
 	testCases := map[string]struct {
-		id       string
-		hashLen  int
-		maxLen   int
+		pkgRevId string
 		expected string
 	}{
-		"short-id": {
-			id:       "my-k8s-object-name",
-			hashLen:  4,
-			maxLen:   20,
-			expected: "my-k8s-object-name",
+		"three-dots": {
+			pkgRevId: "my-repo.my-package-name.my-workspace",
+			expected: myRepo,
 		},
-		"long-id": {
-			id:       "my-kubernetes-object-name",
-			hashLen:  4,
-			maxLen:   20,
-			expected: "my-kubernetes-o-71d0",
+		"four-dots": {
+			pkgRevId: "my-repo.my-root-dir.my-package-name.my-workspace",
+			expected: myRepo,
 		},
-		"long-id, long-hash": {
-			id:       "my-kubernetes-object-name",
-			hashLen:  8,
-			maxLen:   20,
-			expected: "my-kubernet-71d0e1e4",
-		},
-		"maxLen too small": {
-			id:       "my-kubernetes-object-name",
-			hashLen:  8,
-			maxLen:   8,
-			expected: "my-k-71d0e1e4",
-		},
-		"hashLen too small": {
-			id:       "my-kubernetes-object-name",
-			hashLen:  3,
-			maxLen:   20,
-			expected: "my-kubernetes-o-71d0",
+		"five-dots": {
+			pkgRevId: "my-repo.my-root-dir.my-sub-dir.my-package-name.my-workspace",
+			expected: myRepo,
 		},
 	}
 
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			if diff := cmp.Diff(tc.expected, KubernetesName(tc.id, tc.hashLen, tc.maxLen)); diff != "" {
+			parsedRepo, _ := ParsePkgRevObjNameField(tc.pkgRevId, 0)
+			if diff := cmp.Diff(tc.expected, parsedRepo); diff != "" {
 				t.Errorf("unexpected diff (+got,-want): %s", diff)
 			}
 		})
 	}
+}
+
+func TestParseRepositoryNameErr(t *testing.T) {
+	testCases := map[string]struct {
+		pkgRevId string
+	}{
+		"no-dot": {
+			pkgRevId: "my-repomy-package-namemy-workspace",
+		},
+		"one-dot-one": {
+			pkgRevId: "my-repomy-package-name.my-workspace",
+		},
+		"one-dot-two": {
+			pkgRevId: "my-repo.my-package-namemy-workspace",
+		},
+		"rev-3-dash": {
+			pkgRevId: "my-package-name-akoshjadfhijao[ifj[adsfj[adsf",
+		},
+		"rev-1-dash": {
+			pkgRevId: "mypackagename-akoshjadfhijao[ifj[adsfj[adsf",
+		},
+		"rev-1-dash-no-suffix": {
+			pkgRevId: "mypackagename-",
+		},
+		"no-dash": {
+			pkgRevId: "mypackagenameakoshjadfhijao[ifj[adsfj[adsf",
+		},
+		"empty": {
+			pkgRevId: "",
+		},
+		"white-space": {
+			pkgRevId: "   \t \n  ",
+		},
+	}
+
+	for tn, tc := range testCases {
+		t.Run(tn, func(t *testing.T) {
+			_, err := ParsePkgRevObjNameField(tc.pkgRevId, 0)
+			if err == nil {
+				t.Errorf("expected an error but got no error")
+			}
+		})
+	}
+}
+
+func TestValidatePkgRevName(t *testing.T) {
+	testCases := map[string]struct {
+		Repo          string
+		Dir           string
+		Pkg           string
+		Ws            string
+		Err           bool
+		PrErrString   string
+		RepoErrString string
+		DirErrString  string
+		PkgErrString  string
+		WsErrString   string
+	}{}
+
+	testFileName := filepath.Join("testdata", "pkg-rev-name.yaml")
+
+	testCasesBA, err := os.ReadFile(testFileName)
+	if err != nil {
+		t.Errorf("could not read test case data from %s: %v", testFileName, err)
+		return
+	}
+
+	err = yaml.Unmarshal(testCasesBA, &testCases)
+	if err != nil {
+		t.Errorf("could not unmarshal test case data from %s: %v", testFileName, err)
+		return
+	}
+
+	for tn, tc := range testCases {
+		t.Run(tn, func(t *testing.T) {
+			got := ValidPkgRevObjName(tc.Repo, tc.Dir, tc.Pkg, tc.Ws)
+			if got == nil {
+				if tc.Err == true {
+					t.Errorf("didn't get an an error when expecting one")
+				}
+				return
+			}
+
+			errorSlice := strings.Split(got.Error(), "\n")
+
+			assert.Equal(t, errorSlice[0], "package revision object name invalid:")
+
+			assertExpectedPartErrExists(t, errorSlice,
+				tc.PrErrString,
+				"complete object name ",
+				ComposePkgRevObjName(tc.Repo, tc.Dir, tc.Pkg, tc.Ws))
+
+			assertExpectedPartErrExists(t, errorSlice,
+				tc.RepoErrString,
+				"repository name ",
+				tc.Repo)
+
+			assertExpectedPartErrExists(t, errorSlice,
+				tc.DirErrString,
+				"directory name ",
+				tc.Dir)
+
+			assertExpectedPartErrExists(t, errorSlice,
+				tc.PkgErrString,
+				"package name ",
+				tc.Pkg)
+
+			assertExpectedPartErrExists(t, errorSlice,
+				tc.WsErrString,
+				"workspace name ",
+				tc.Ws)
+		})
+	}
+}
+
+func assertExpectedPartErrExists(t *testing.T, errorSlice []string, errString, prefix, part string) {
+	if len(errString) == 0 {
+		return
+	}
+
+	errStart := prefix + part + " invalid:"
+
+	partErrMsg := getPartErrMsg(errorSlice, errStart)
+	if len(partErrMsg) == 0 {
+		t.Errorf("expected to find error message starting with: %q", errStart)
+	} else {
+		if result := strings.Contains(partErrMsg, errString); result != true {
+			t.Errorf("error message %q should contain %q", partErrMsg, errString)
+		}
+	}
+}
+
+func getPartErrMsg(errorSlice []string, start string) string {
+	for i := range errorSlice {
+		if strings.HasPrefix(errorSlice[i], start) {
+			return errorSlice[i]
+		}
+	}
+
+	return ""
 }

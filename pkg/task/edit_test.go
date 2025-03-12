@@ -29,7 +29,7 @@ import (
 
 func TestEdit(t *testing.T) {
 	pkg := "pkg"
-	packageName := "repo-1234567890"
+	packageName := "repo.1234567890.ws"
 	repositoryName := "repo"
 	revision := "v1"
 	packageRevision := &fake.FakePackageRevision{
