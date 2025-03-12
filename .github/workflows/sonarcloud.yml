@@ -61,7 +61,7 @@ jobs:
       with:
         workflow: Sonar CI Artifacts
         run_id: ${{ github.event.workflow_run.id }}
-        name: coverage.out
+        name: coverage-report
         use_unzip: true
 
     - name: SonarQube Scan on PR
