@@ -15,7 +15,7 @@
 GO_VERSION ?= 1.23.5
 TEST_COVERAGE_FILE=lcov.info
 TEST_COVERAGE_HTML_FILE=coverage_unit.html
-TEST_COVERAGE_FUNC_FILE=func_coverage.out
+TEST_COVERAGE_FUNC_FILE=coverage.out
 GIT_ROOT_DIR ?= $(dir $(lastword $(MAKEFILE_LIST)))
 include $(GIT_ROOT_DIR)/detect-container-runtime.mk
 
