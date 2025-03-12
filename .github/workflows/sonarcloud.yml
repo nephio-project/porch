@@ -21,7 +21,7 @@ jobs:
         # Disabling shallow clones is recommended for improving the relevancy of reporting
         fetch-depth: 0
     - name: Generate coverage report
-      run: go test ./... -v -coverprofile lcov.info; go tool cover -func=lcov.info -o cov.out
+      run: sh -e -c "git config --global --add user.name test; git config --global --add user.email test@nephio.org; go test ./... -v -coverprofile lcov.info; go tool cover -func=lcov.info -o cov.out
     - name: SonarQube Scan
       uses: SonarSource/sonarqube-scan-action@v5.0.0 # Ex: v4.1.0, See the latest version at https://github.com/marketplace/actions/official-sonarqube-scan
       env:
