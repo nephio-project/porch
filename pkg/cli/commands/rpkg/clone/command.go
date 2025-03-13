@@ -40,6 +40,7 @@ var (
 		string(porchapi.ResourceMerge),
 		string(porchapi.FastForward),
 		string(porchapi.ForceDeleteReplace),
+		string(porchapi.CopyMerge),
 	}
 )
 
@@ -222,6 +223,8 @@ func toMergeStrategy(strategy string) (porchapi.PackageMergeStrategy, error) {
 		return porchapi.FastForward, nil
 	case string(porchapi.ForceDeleteReplace):
 		return porchapi.ForceDeleteReplace, nil
+	case string(porchapi.CopyMerge):
+		return porchapi.CopyMerge, nil
 	default:
 		return "", fmt.Errorf("invalid strategy: %q", strategy)
 	}

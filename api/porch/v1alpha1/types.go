@@ -204,6 +204,7 @@ const (
 	ResourceMerge      PackageMergeStrategy = "resource-merge"
 	FastForward        PackageMergeStrategy = "fast-forward"
 	ForceDeleteReplace PackageMergeStrategy = "force-delete-replace"
+	CopyMerge          PackageMergeStrategy = "copy-merge"
 )
 
 type PackagePatchTaskSpec struct {

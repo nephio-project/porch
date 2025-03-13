@@ -87,7 +87,8 @@ func (m *DefaultPackageUpdater) do(_ context.Context, localPkgDir, originalPkgDi
 		OriginPath:     originPath,
 		IsRoot:         isRoot,
 	}
-	updater := update.ResourceMergeUpdater{}
+	updater := update.CopyMergeUpdater{}
+	fmt.Fprintln(os.Stdout, "COPYMERGE from update.go")
 	if err := updater.Update(updateOptions); err != nil {
 		return err
 	}
