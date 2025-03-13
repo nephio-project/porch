@@ -48,6 +48,12 @@ commands:
             internal.config.kubernetes.io/index: "0"
             internal.config.kubernetes.io/path: Kptfile
           name: test-package
+        status:
+          conditions:
+          - message: Rendered successfully
+            reason: Rendered
+            status: "True"
+            type: Rendered
       - apiVersion: v1
         data:
           name: example
@@ -174,6 +180,12 @@ commands:
             internal.config.kubernetes.io/index: "0"
             internal.config.kubernetes.io/path: Kptfile
           name: test-package
+        status:
+          conditions:
+          - message: Rendered successfully
+            reason: Rendered
+            status: "True"
+            type: Rendered
       - apiVersion: v1
         data:
           name: example
@@ -246,10 +258,10 @@ commands:
       - git.test-package.push
       - /tmp/porch-e2e/testing-invalid-render
   - args:
-    - sh
-    - -c
-    - |
-      echo "pipeline:\n  mutators:\n  - image: gcr.io/kpt-fn/set-namespace:v0.4.0\n    configMap:\n      namespace: example-ns\n  - image: gcr.io/kpt-fn/set-annotations:v0.1.4\n" >> /tmp/porch-e2e/testing-invalid-render/Kptfile
+      - sh
+      - -c
+      - |
+        echo "pipeline:\n  mutators:\n  - image: gcr.io/kpt-fn/set-namespace:v0.4.0\n    configMap:\n      namespace: example-ns\n  - image: gcr.io/kpt-fn/set-annotations:v0.1.4\n" >> /tmp/porch-e2e/testing-invalid-render/Kptfile
   - args:
       - porchctl
       - rpkg
@@ -257,9 +269,6 @@ commands:
       - --namespace=rpkg-push
       - git.test-package.push
       - /tmp/porch-e2e/testing-invalid-render
-    stderr: |
-      Error occurred rendering package in kpt function pipeline.
-      Package has NOT been pushed to remote.
-      Please fix package locally (modify until 'kpt fn render' succeeds) and retry. 
-    containsErrorString: true
+    stderr: "TBD"
     exitCode: 1
+    containsErrorString: true

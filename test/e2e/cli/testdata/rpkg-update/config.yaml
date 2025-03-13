@@ -134,7 +134,10 @@ commands:
       - --
       - by-path=upstreamLock.git.ref
       - put-value=invalid
-    stderr: "[RUNNING] \"gcr.io/kpt-fn/search-replace:v0.2.0\" on 1 resource(s)\n  Results:\n    [info] upstreamLock.git.ref: Mutated field value to \"invalid\"\n"
+    stderr: |
+      [RUNNING] "gcr.io/kpt-fn/search-replace:v0.2.0" on 1 resource(s)
+        Results:
+          [info] upstreamLock.git.ref: Mutated field value to "invalid"
   - args:
       - porchctl
       - rpkg

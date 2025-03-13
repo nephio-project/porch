@@ -115,16 +115,18 @@ func (s *CliTestSuite) RunTestCase(t *testing.T, tc TestCaseConfig) {
 	for i := range tc.Commands {
 		time.Sleep(1 * time.Second)
 		command := &tc.Commands[i]
-		for i, arg := range command.Args {
+		args := make([]string, len(command.Args))
+		copy(args, command.Args)
+		for j := range args {
 			for search, replace := range s.SearchAndReplace {
-				command.Args[i] = strings.ReplaceAll(arg, search, replace)
+				args[j] = strings.ReplaceAll(args[j], search, replace)
 			}
 		}
-		if command.Args[0] == "porchctl" {
+		if args[0] == "porchctl" {
 			// make sure that we are testing the porchctl command built from this codebase
-			command.Args[0] = s.PorchctlCommand
+			args[0] = s.PorchctlCommand
 		}
-		cmd := exec.Command(command.Args[0], command.Args[1:]...)
+		cmd := exec.Command(args[0], args[1:]...)
 
 		var stdout, stderr bytes.Buffer
 		if command.Stdin != "" {
