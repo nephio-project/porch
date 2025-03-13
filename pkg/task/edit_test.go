@@ -35,8 +35,12 @@ func TestEdit(t *testing.T) {
 	packageName := "repo.1234567890.ws"
 	packageRevision := &fake.FakePackageRevision{
 		PrKey: repository.PackageRevisionKey{
-			Package:       pkg,
-			Repository:    repositoryName,
+			PkgKey: repository.PackageKey{
+				RepoKey: repository.RepositoryKey{
+					Name: repositoryName,
+				},
+				Package: pkg,
+			},
 			Revision:      revision,
 			WorkspaceName: v1alpha1.WorkspaceName(workspace),
 		},

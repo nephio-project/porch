@@ -41,16 +41,7 @@ func (r *Repository) Version(ctx context.Context) (string, error) {
 func (r *Repository) ListPackageRevisions(_ context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
 	var revs []repository.PackageRevision
 	for _, rev := range r.PackageRevisions {
-		if filter.KubeObjectName != "" && filter.KubeObjectName == rev.KubeObjectName() {
-			revs = append(revs, rev)
-		}
-		if filter.Package != "" && filter.Package == rev.Key().Package {
-			revs = append(revs, rev)
-		}
-		if filter.Revision != 0 && filter.Revision == rev.Key().Revision {
-			revs = append(revs, rev)
-		}
-		if filter.WorkspaceName != "" && filter.WorkspaceName == rev.Key().WorkspaceName {
+		if filter.Key.Matches(rev.Key()) {
 			revs = append(revs, rev)
 		}
 	}

@@ -179,7 +179,12 @@ func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd re
 	}
 
 	revisions, err := r.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
-		Package: prd.GetName(),
+		Key: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				Path:    prd.Key().PkgKey.Path,
+				Package: prd.Key().PkgKey.Package,
+			},
+		},
 	})
 	if err != nil {
 		return nil, err
@@ -250,7 +255,7 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 func (r *cachedRepository) createMainPackageRevision(ctx context.Context, updatedMain repository.PackageRevision) error {
 	//Search and delete any old main pkgRev of an older workspace in the cache
 	for pkgRevKey := range r.cachedPackageRevisions {
-		if pkgRevKey.Revision == -1 && pkgRevKey.PackageKey() == updatedMain.Key().PackageKey() {
+		if pkgRevKey.Revision == -1 && pkgRevKey.PkgKey == updatedMain.Key().PkgKey {
 			delete(r.cachedPackageRevisions, pkgRevKey)
 		}
 	}

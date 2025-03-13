@@ -99,11 +99,8 @@ func ValidateK8SName(k8sName string) error {
 	return nil
 }
 
-func ValidateRepository(repoName, directory string) error {
-	// The repo name must follow the rules for RFC 1123 DNS labels
-	nameErrs := validation.IsDNS1123Label(repoName)
-
-	// The repo name must follow the rules for RFC 1123 DNS labels except that we allow '/' characters
+func ValidateDirectoryName(directory string) error {
+	// A directory must follow the rules for RFC 1123 DNS labels except that we allow '/' characters
 	var dirErrs []string
 	if strings.Contains(directory, "//") {
 		dirErrs = append(dirErrs, "consecutive '/' characters are not allowed")
@@ -116,7 +113,20 @@ func ValidateRepository(repoName, directory string) error {
 		dirErrs = nil
 	}
 
-	if nameErrs == nil && dirErrs == nil {
+	if dirErrs == nil {
+		return nil
+	} else {
+		return errors.New(strings.Join(dirErrs, ","))
+	}
+}
+
+func ValidateRepository(repoName, directory string) error {
+	// The repo name must follow the rules for RFC 1123 DNS labels
+	nameErrs := validation.IsDNS1123Label(repoName)
+
+	dirErr := ValidateDirectoryName(directory)
+
+	if nameErrs == nil && dirErr == nil {
 		return nil
 	}
 
@@ -127,8 +137,8 @@ func ValidateRepository(repoName, directory string) error {
 	}
 
 	dirErrString := ""
-	if dirErrs != nil {
-		dirErrString = "directory name " + directory + invalidConst + strings.Join(dirErrs, ",") + "\n"
+	if dirErr != nil {
+		dirErrString = "directory name " + directory + invalidConst + dirErr.Error() + "\n"
 	}
 
 	return errors.New(repoErrString + dirErrString)
