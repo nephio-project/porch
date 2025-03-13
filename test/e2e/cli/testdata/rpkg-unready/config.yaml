@@ -27,7 +27,8 @@ commands:
       - --workspace=copy-2
       - --replay-strategy=true
       - git.unready-edit.clone-1
-    stdout: "git.unready-edit.copy-2 created\n"
+    stdout: |
+      git.unready-edit.copy-2 created
   - args:
       - porchctl
       - rpkg
@@ -84,7 +85,6 @@ commands:
       - git.unready-edit.copy-2
     stdout: |
       git.unready-edit.copy-2 proposed
-    exitCode: 0
   - args:
       - porchctl
       - rpkg
@@ -93,5 +93,3 @@ commands:
       - git.unready-edit.copy-2
     stdout: |
       git.unready-edit.copy-2 approved
-    exitCode: 0
-  
