@@ -18,38 +18,38 @@ commands:
       - --workspace=copy-1
       - basens-edit
     stdout: |
-      git-eb5afe755bedd142f142c6a9363649c667ef77a5 created
+      git.basens-edit.copy-1 created
   - args:
       - porchctl
       - rpkg
       - propose
       - --namespace=rpkg-copy
-      - git-eb5afe755bedd142f142c6a9363649c667ef77a5
+      - git.basens-edit.copy-1
     stdout: |
-      git-eb5afe755bedd142f142c6a9363649c667ef77a5 proposed
+      git.basens-edit.copy-1 proposed
   - args:
       - porchctl
       - rpkg
       - approve
       - --namespace=rpkg-copy
-      - git-eb5afe755bedd142f142c6a9363649c667ef77a5
+      - git.basens-edit.copy-1
     stdout: |
-      git-eb5afe755bedd142f142c6a9363649c667ef77a5 approved
+      git.basens-edit.copy-1 approved
   - args:
       - porchctl
       - rpkg
       - copy
       - --namespace=rpkg-copy
       - --workspace=copy-2
-      - git-eb5afe755bedd142f142c6a9363649c667ef77a5
+      - git.basens-edit.copy-1
     stdout: |
-      git-a29df72d1135fd010ea49f4d4877001dee423be6 created
+      git.basens-edit.copy-2 created
   - args:
       - porchctl
       - rpkg
       - pull
       - --namespace=rpkg-copy
-      - git-a29df72d1135fd010ea49f4d4877001dee423be6
+      - git.basens-edit.copy-2
     stdout: |
       apiVersion: config.kubernetes.io/v1
       items:
@@ -61,9 +61,9 @@ commands:
             config.kubernetes.io/path: .KptRevisionMetadata
             internal.config.kubernetes.io/index: "0"
             internal.config.kubernetes.io/path: .KptRevisionMetadata
-          name: git-a29df72d1135fd010ea49f4d4877001dee423be6
+          name: git.basens-edit.copy-2
           namespace: rpkg-copy
-          uid: 22d42bee-cd57-5dbe-878a-4350cb0ca60a
+          uid: 5fd90b6d-e093-5b5f-b651-16413ac590ac
       - apiVersion: kpt.dev/v1
         info:
           description: sample description

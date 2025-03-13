@@ -41,6 +41,7 @@ import (
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
@@ -370,7 +371,7 @@ func (r *gitRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1
 		return nil, fmt.Errorf("error when resolving target branch for the package: %w", err)
 	}
 
-	if err := repository.ValidateWorkspaceName(obj.Spec.WorkspaceName); err != nil {
+	if err := util.ValidPkgRevObjName(r.name, r.directory, obj.Spec.PackageName, string(obj.Spec.WorkspaceName)); err != nil {
 		return nil, fmt.Errorf("failed to create packagerevision: %w", err)
 	}
 

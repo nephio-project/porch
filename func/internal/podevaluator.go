@@ -905,11 +905,22 @@ func (pm *podManager) getBasePodTemplate(ctx context.Context) (*corev1.Pod, stri
 	}
 }
 
-// if a custom image is requested, use the secret provided to authenticate
+func hasImagePullSecret(podTemplate *corev1.Pod, secretName string) bool {
+	for _, secret := range podTemplate.Spec.ImagePullSecrets {
+		if secret.Name == secretName {
+			return true
+		}
+	}
+	return false
+}
+
+// if a custom image is requested, append the secret provided to authenticate to the imagePullSecret of the kpt function pod if it does not already exist
 func (pm *podManager) appendImagePullSecret(image string, podTemplate *corev1.Pod) {
 	if pm.enablePrivateRegistries && !strings.HasPrefix(image, defaultRegistry) {
-		podTemplate.Spec.ImagePullSecrets = []corev1.LocalObjectReference{
-			{Name: pm.registryAuthSecretName},
+		if !hasImagePullSecret(podTemplate, pm.registryAuthSecretName) {
+			podTemplate.Spec.ImagePullSecrets = append(podTemplate.Spec.ImagePullSecrets, corev1.LocalObjectReference{
+				Name: pm.registryAuthSecretName,
+			})
 		}
 	}
 }

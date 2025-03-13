@@ -30,13 +30,13 @@ commands:
       - --workspace=deploy
       - deploy-package
     stdout: |
-      git-628abd0a0903f5de6cb3604d917724f6fc1b5e08 created
+      git.deploy-package.deploy created
   - args:
       - porchctl
       - rpkg
       - pull
       - --namespace=rpkg-init-deploy
-      - git-628abd0a0903f5de6cb3604d917724f6fc1b5e08
+      - git.deploy-package.deploy
     stdout: |
       apiVersion: config.kubernetes.io/v1
       items:
@@ -48,9 +48,9 @@ commands:
             config.kubernetes.io/path: .KptRevisionMetadata
             internal.config.kubernetes.io/index: "0"
             internal.config.kubernetes.io/path: .KptRevisionMetadata
-          name: git-628abd0a0903f5de6cb3604d917724f6fc1b5e08
+          name: git.deploy-package.deploy
           namespace: rpkg-init-deploy
-          uid: 35836e71-ed47-587a-93c7-e55b23b77f8c
+          uid: 8d6b1b08-9029-5e3e-a673-09aa6ff71e91
       - apiVersion: kpt.dev/v1
         info:
           description: Test Package Description

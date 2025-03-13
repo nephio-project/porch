@@ -16,7 +16,7 @@ commands:
       - --workspace=clone-2
       - basens-clone
     stdout: |
-      git-3465eed5831e5c372243d048631c8ef1666b47d6 created
+      git.basens-clone.clone-2 created
   - args:
       - porchctl
       - rpkg
@@ -43,24 +43,24 @@ commands:
       - --name=empty
       - --revision=v1
       - --output=jsonpath={.metadata.name}
-    stdout: test-blueprints-e78ee77d9560703561c2656c97c77e9abb8c4c53
+    stdout: test-blueprints.empty.v1
   - args:
       - porchctl
       - rpkg
       - clone
       - --namespace=rpkg-clone
-      - test-blueprints-e78ee77d9560703561c2656c97c77e9abb8c4c53
+      - test-blueprints.empty.v1
       - --repository=git
       - --workspace=clone-1
       - empty-clone
     stdout: |
-      git-b67f9ce14d378317ba83c9504eab9cc024932dd3 created
+      git.empty-clone.clone-1 created
   - args:
       - porchctl
       - rpkg
       - pull
       - --namespace=rpkg-clone
-      - git-3465eed5831e5c372243d048631c8ef1666b47d6
+      - git.basens-clone.clone-2
     stdout: |
       apiVersion: config.kubernetes.io/v1
       items:
@@ -72,9 +72,9 @@ commands:
             config.kubernetes.io/path: .KptRevisionMetadata
             internal.config.kubernetes.io/index: "0"
             internal.config.kubernetes.io/path: .KptRevisionMetadata
-          name: git-3465eed5831e5c372243d048631c8ef1666b47d6
+          name: git.basens-clone.clone-2
           namespace: rpkg-clone
-          uid: b6f9301f-802a-5c46-ac3a-44084fcc5a50
+          uid: 488cf229-e634-5842-a337-cf02a78ea35d
       - apiVersion: kpt.dev/v1
         info:
           description: sample description
@@ -117,7 +117,7 @@ commands:
       - rpkg
       - pull
       - --namespace=rpkg-clone
-      - git-b67f9ce14d378317ba83c9504eab9cc024932dd3
+      - git.empty-clone.clone-1
     stdout: |
       apiVersion: config.kubernetes.io/v1
       items:
@@ -129,9 +129,9 @@ commands:
             config.kubernetes.io/path: .KptRevisionMetadata
             internal.config.kubernetes.io/index: "0"
             internal.config.kubernetes.io/path: .KptRevisionMetadata
-          name: git-b67f9ce14d378317ba83c9504eab9cc024932dd3
+          name: git.empty-clone.clone-1
           namespace: rpkg-clone
-          uid: 718a5693-255c-546f-ba56-4122224e7737
+          uid: 08181701-9b48-5dc5-879b-78b73de4c482
       - apiVersion: kpt.dev/v1
         info:
           description: Empty Blueprint
