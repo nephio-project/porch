@@ -82,8 +82,6 @@ func (g GitSuite) TestLock(t *testing.T) {
 		}
 
 		key := rev.Key()
-		key.Namespace = ""
-		key.PlaceholderWSname = ""
 		wantRef, ok := wantRefs[key]
 		if !ok {
 			t.Errorf("Unexpected package found; %q", rev.Key())
