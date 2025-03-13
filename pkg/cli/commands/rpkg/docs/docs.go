@@ -272,7 +272,7 @@ var RejectExamples = `
   $ porchctl rpkg reject blueprint-8f9a0c7bf29eb2cbac9476319cd1ad2e897be4f9 --namespace=default
 `
 
-var UpdateShort = `Update a downstream package revision to a more recent revision of its upstream package.`
+var UpdateShort = `[Experimental] Update a downstream package revision to a more recent revision of its upstream package.`
 var UpdateLong = `
   porchctl rpkg update PACKAGE_REV_NAME [flags]
 
