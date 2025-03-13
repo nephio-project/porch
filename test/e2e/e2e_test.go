@@ -3195,6 +3195,16 @@ func (t *PorchSuite) TestCreatingPackageRevisionWithPipelineFailure(ctx context.
 		t.Fatalf("Expected render condition message to be %q, but got %q", want.Message, got.Message)
 	}
 
+	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	gotErr := t.Client.Update(ctx, pr)
+	if gotErr == nil {
+		t.Fatalf("Expected error when proposing package with pipeline failure")
+	}
+	wantErr := "package is not ready to be proposed or approved, because its pipeline failed"
+	if !strings.Contains(gotErr.Error(), wantErr) {
+		t.Fatalf("Expected error %q, but got %q", wantErr, gotErr.Error())
+	}
+
 	t.Logf("Render condition is %v", got.Status)
 
 }
