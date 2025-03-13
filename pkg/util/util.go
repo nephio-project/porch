@@ -15,6 +15,7 @@
 package util
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -22,10 +23,13 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/google/uuid"
+	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation"
 	registrationapi "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,6 +38,7 @@ import (
 
 const (
 	invalidConst string = " invalid:"
+	uuidSpace    string = "aac71d91-5c67-456f-8fd2-902ef6da820e"
 )
 
 func GetInClusterNamespace() (string, error) {
@@ -94,11 +99,8 @@ func ValidateK8SName(k8sName string) error {
 	return nil
 }
 
-func ValidateRepository(repoName, directory string) error {
-	// The repo name must follow the rules for RFC 1123 DNS labels
-	nameErrs := validation.IsDNS1123Label(repoName)
-
-	// The repo name must follow the rules for RFC 1123 DNS labels except that we allow '/' characters
+func ValidateDirectoryName(directory string) error {
+	// A directory must follow the rules for RFC 1123 DNS labels except that we allow '/' characters
 	var dirErrs []string
 	if strings.Contains(directory, "//") {
 		dirErrs = append(dirErrs, "consecutive '/' characters are not allowed")
@@ -111,7 +113,20 @@ func ValidateRepository(repoName, directory string) error {
 		dirErrs = nil
 	}
 
-	if nameErrs == nil && dirErrs == nil {
+	if dirErrs == nil {
+		return nil
+	} else {
+		return errors.New(strings.Join(dirErrs, ","))
+	}
+}
+
+func ValidateRepository(repoName, directory string) error {
+	// The repo name must follow the rules for RFC 1123 DNS labels
+	nameErrs := validation.IsDNS1123Label(repoName)
+
+	dirErr := ValidateDirectoryName(directory)
+
+	if nameErrs == nil && dirErr == nil {
 		return nil
 	}
 
@@ -122,23 +137,23 @@ func ValidateRepository(repoName, directory string) error {
 	}
 
 	dirErrString := ""
-	if dirErrs != nil {
-		dirErrString = "directory name " + directory + invalidConst + strings.Join(dirErrs, ",") + "\n"
+	if dirErr != nil {
+		dirErrString = "directory name " + directory + invalidConst + dirErr.Error() + "\n"
 	}
 
 	return errors.New(repoErrString + dirErrString)
 }
 
-func ComposePkgRevObjName(repoName, directory, packageName, workspace string) string {
-	dottedPath := strings.ReplaceAll(filepath.Join(directory, packageName), "/", ".")
+func ComposePkgRevObjName(repoName, path, packageName, workspace string) string {
+	dottedPath := strings.ReplaceAll(filepath.Join(path, packageName), "/", ".")
 	dottedPath = strings.Trim(dottedPath, ".")
 	return fmt.Sprintf("%s.%s.%s", repoName, dottedPath, workspace)
 }
 
-func ValidPkgRevObjName(repoName, directory, packageName, workspace string) error {
+func ValidPkgRevObjName(repoName, path, packageName, workspace string) error {
 	var errSlice []string
 
-	if err := ValidateRepository(repoName, directory); err != nil {
+	if err := ValidateRepository(repoName, path); err != nil {
 		errSlice = append(errSlice, err.Error())
 	}
 
@@ -151,7 +166,7 @@ func ValidPkgRevObjName(repoName, directory, packageName, workspace string) erro
 	}
 
 	if len(errSlice) == 0 {
-		objName := ComposePkgRevObjName(repoName, directory, packageName, workspace)
+		objName := ComposePkgRevObjName(repoName, path, packageName, workspace)
 
 		if objNameErrs := validation.IsDNS1123Subdomain(objName); objNameErrs != nil {
 			errSlice = append(errSlice, "complete object name "+objName+invalidConst+strings.Join(objNameErrs, "")+"\n")
@@ -197,4 +212,16 @@ func ParsePkgRevObjNameField(pkgRevObjName string, field int) (string, error) {
 	} else {
 		return "", err
 	}
+}
+
+func GenerateUid(prefix string, kubeNs string, kubeName string) types.UID {
+	space := uuid.MustParse(uuidSpace)
+	buff := bytes.Buffer{}
+	buff.WriteString(prefix)
+	buff.WriteString(strings.ToLower(v1alpha1.SchemeGroupVersion.Identifier()))
+	buff.WriteString("/")
+	buff.WriteString(strings.ToLower(kubeNs))
+	buff.WriteString("/")
+	buff.WriteString(strings.ToLower(kubeName))
+	return types.UID(uuid.NewSHA1(space, buff.Bytes()).String())
 }
