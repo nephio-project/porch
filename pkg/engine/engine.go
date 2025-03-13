@@ -188,8 +188,6 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	// Updates are done.
 	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, "")
 	if err != nil {
-		// try to rollback the previously created package revision
-		_ = repo.DeletePackageRevision(ctx, repoPkgRev)
 		return nil, err
 	}
 	pkgRevMeta := metav1.ObjectMeta{

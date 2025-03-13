@@ -105,13 +105,7 @@ func (th *genericTaskHandler) ApplyTasks(ctx context.Context, draft repository.P
 	return nil
 }
 
-func (th *genericTaskHandler) DoPRMutations(
-	ctx context.Context,
-	namespace string,
-	repoPR repository.PackageRevision,
-	oldObj *api.PackageRevision, newObj *api.PackageRevision,
-	draft repository.PackageRevisionDraft,
-) error {
+func (th *genericTaskHandler) DoPRMutations(ctx context.Context, namespace string, repoPR repository.PackageRevision, oldObj *api.PackageRevision, newObj *api.PackageRevision, draft repository.PackageRevisionDraft) error {
 	ctx, span := tracer.Start(ctx, "genericTaskHandler::DoPRMutations", trace.WithAttributes())
 	defer span.End()
 
