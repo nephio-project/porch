@@ -188,14 +188,16 @@ status:
     reason: Test`,
 		},
 		{
-			name: "add condition to existing conditions field",
+			name: "update existing half-empty condition",
 			resources: map[string]string{
 				"Kptfile": `
 apiVersion: kpt.dev/v1
 kind: Kptfile
 metadata:
   name: example
-status: { conditions: [] }`,
+status:
+  conditions:
+  - type: test`,
 			},
 			cond: kptfileapi.Condition{
 				Type:    "test",
@@ -208,10 +210,38 @@ apiVersion: kpt.dev/v1
 kind: Kptfile
 metadata:
   name: example
-status: {conditions: [{type: test, status: "True", message: Everything is awesome!, reason: Test}]}`,
+status:
+  conditions:
+  - type: test
+    status: "True"
+    reason: Test
+    message: Everything is awesome!`,
 		},
 		{
-			name: "updating existing condition",
+			name: "updating existing half-empty condition (one line)",
+			resources: map[string]string{
+				"Kptfile": `
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: example
+status: {conditions: [{type: test}]}`,
+			},
+			cond: kptfileapi.Condition{
+				Type:    "test",
+				Status:  "True",
+				Reason:  "Test",
+				Message: "Everything is awesome!",
+			},
+			expectedKptfile: `
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: example
+status: {conditions: [{type: test, status: "True", reason: Test, message: Everything is awesome!}]}`,
+		},
+		{
+			name: "updating existing condition (one line)",
 			resources: map[string]string{
 				"Kptfile": `
 apiVersion: kpt.dev/v1
