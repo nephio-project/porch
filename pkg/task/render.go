@@ -168,7 +168,7 @@ func readResources(fs filesys.FileSystem) (repository.PackageResources, error) {
 func addRenderStatusConditionToKptfile(resources *repository.PackageResources, status *api.RenderStatus) error {
 	kptfile, err := fnsdk.NewKptfileFromPackage(resources.Contents)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read Kptfile, skipping render condition setup: %w", err)
 	}
 
 	success := status.Err == ""

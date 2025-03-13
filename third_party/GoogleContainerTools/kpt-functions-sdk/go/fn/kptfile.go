@@ -54,12 +54,12 @@ func NewKptfileFromKubeObjectList(objs KubeObjects) (*Kptfile, error) {
 func NewKptfileFromPackage(resources map[string]string) (*Kptfile, error) {
 	kptfileStr, found := resources[kptfileapi.KptFileName]
 	if !found {
-		return nil, fmt.Errorf("'%s' is missing from the package", kptfileapi.KptFileName)
+		return nil, fmt.Errorf("%s is missing from the package", kptfileapi.KptFileName)
 	}
 
 	kos, err := ReadKubeObjectsFromFile(kptfileapi.KptFileName, kptfileStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("couldn't parse %s from package: %w", kptfileapi.KptFileName, err)
 	}
 	return NewKptfileFromKubeObjectList(kos)
 }
