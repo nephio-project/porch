@@ -36,14 +36,14 @@ var (
 
 // Kptfile provides an API to manipulate the Kptfile of a kpt package
 type Kptfile struct {
-	kptfile *KubeObject
+	obj *KubeObject
 }
 
 // NewKptfileFromKubeObjectList creates a KptfileObject by finding it in the given KubeObjects list
 func NewKptfileFromKubeObjectList(objs KubeObjects) (*Kptfile, error) {
 	var ret Kptfile
-	ret.kptfile = objs.GetRootKptfile()
-	if ret.kptfile == nil {
+	ret.obj = objs.GetRootKptfile()
+	if ret.obj == nil {
 		return nil, fmt.Errorf("the Kptfile object is missing from the package")
 
 	}
@@ -65,10 +65,10 @@ func NewKptfileFromPackage(resources map[string]string) (*Kptfile, error) {
 }
 
 func (kf *Kptfile) WriteToPackage(resources map[string]string) error {
-	if kf == nil || kf.kptfile == nil {
+	if kf == nil || kf.obj == nil {
 		return fmt.Errorf("attempt to write empty Kptfile to the package")
 	}
-	kptfileStr, err := WriteKubeObjectsToString(KubeObjects{kf.kptfile})
+	kptfileStr, err := WriteKubeObjectsToString(KubeObjects{kf.obj})
 	if err != nil {
 		return err
 	}
@@ -77,17 +77,17 @@ func (kf *Kptfile) WriteToPackage(resources map[string]string) error {
 }
 
 func (kf *Kptfile) String() string {
-	if kf.kptfile == nil {
+	if kf.obj == nil {
 		return ""
 	}
-	kptfileStr, _ := WriteKubeObjectsToString(KubeObjects{kf.kptfile})
+	kptfileStr, _ := WriteKubeObjectsToString(KubeObjects{kf.obj})
 	return kptfileStr
 }
 
 // Status returns with the Status field of the Kptfile as a SubObject
 // If the Status field doesn't exist, it is added.
 func (kf *Kptfile) Status() *SubObject {
-	return kf.kptfile.UpsertMap(statusFieldName)
+	return kf.obj.UpsertMap(statusFieldName)
 }
 
 func (kf *Kptfile) Conditions() SliceSubObjects {
@@ -103,7 +103,7 @@ func (kf *Kptfile) SetConditions(conditions SliceSubObjects) error {
 
 // TypedConditions returns with (a copy of) the list of current conditions of the kpt package
 func (kf *Kptfile) TypedConditions() []kptfileapi.Condition {
-	statusObj := kf.kptfile.GetMap(statusFieldName)
+	statusObj := kf.obj.GetMap(statusFieldName)
 	if statusObj == nil {
 		return nil
 	}
@@ -148,7 +148,7 @@ func (kf *Kptfile) SetTypedCondition(condition kptfileapi.Condition) error {
 
 // DeleteByTpe deletes all conditions with the given type
 func (kf *Kptfile) DeleteConditionByType(conditionType string) error {
-	oldConditions, found, err := kf.kptfile.NestedSlice(conditionsFieldName)
+	oldConditions, found, err := kf.obj.NestedSlice(conditionsFieldName)
 	if err != nil {
 		return err
 	}
@@ -165,9 +165,10 @@ func (kf *Kptfile) DeleteConditionByType(conditionType string) error {
 }
 
 func (kf *Kptfile) AddReadinessGates(gates []porchapi.ReadinessGate) error {
-	info := kf.kptfile.UpsertMap("info")
+	info := kf.obj.UpsertMap("info")
 	gateObjs := info.GetSlice("readinessGates")
 	for _, gate := range gates {
+		// check if readiness gate already exists
 		found := false
 		for _, gateObj := range gateObjs {
 			if gateObj.GetString("conditionType") == gate.ConditionType {
@@ -175,6 +176,7 @@ func (kf *Kptfile) AddReadinessGates(gates []porchapi.ReadinessGate) error {
 				break
 			}
 		}
+		// add if not found
 		if !found {
 			ko, err := NewFromTypedObject(gate)
 			if err != nil {
@@ -184,5 +186,17 @@ func (kf *Kptfile) AddReadinessGates(gates []porchapi.ReadinessGate) error {
 		}
 	}
 	info.SetSlice(gateObjs, "readinessGates")
+	return nil
+}
+
+func (kf *Kptfile) AddMutationFunction(fn *kptfileapi.Function) error {
+	pipeline := kf.obj.UpsertMap("pipeline")
+	mutators := pipeline.GetSlice("mutators")
+	ko, err := NewFromTypedObject(fn)
+	if err != nil {
+		return fmt.Errorf("failed to add mutator function (%s) to Kptfile: %w", fn.Image, err)
+	}
+	mutators = append(mutators, &ko.SubObject)
+	pipeline.SetSlice(mutators, "mutators")
 	return nil
 }
