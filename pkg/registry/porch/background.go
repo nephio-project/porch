@@ -174,36 +174,7 @@ func (b *background) handleRepositoryEvent(ctx context.Context, repo *configapi.
 		klog.Infof("%s, handling completed", msgPreamble)
 		return nil
 	} else {
-		return fmt.Errorf("changing repository failed: %s:%s:%q", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name, err)
-	}
-}
-
-func (b *background) repositoryDelete(ctx context.Context, repository *configapi.Repository) error {
-	klog.Infof("deleting repository: %s:%s", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name)
-
-	if err := validateRepository(repository); err != nil {
-		klog.Infof("deleted repository: %s:%s", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name)
-		return nil
-	}
-
-	// Verify repositories can be listed (core client is alive)
-	var repoList configapi.RepositoryList
-	if err := b.coreClient.List(ctx, &repoList); err != nil {
-		return fmt.Errorf("%s, handling failed, could not list repos using core client :%q", msgPreamble, err)
-	}
-
-	var err error
-	if eventType == watch.Deleted {
-		err = b.cache.CloseRepository(ctx, repository, repoList.Items)
-	} else {
-		err = b.cacheRepository(ctx, repo)
-	}
-
-	if err == nil {
-		klog.Infof("%s, handling completed", msgPreamble)
-		return nil
-	} else {
-		return fmt.Errorf("%s, handling failed, cache could not process repo event :%q", msgPreamble, err)
+		return fmt.Errorf("changing repository failed: %s:%s:%q", repo.ObjectMeta.Namespace, repo.ObjectMeta.Name, err)
 	}
 }
 
