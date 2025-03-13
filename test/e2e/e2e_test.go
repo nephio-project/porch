@@ -146,7 +146,7 @@ func (t *PorchSuite) TestCloneFromUpstream() {
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
 
-	upstreamPr := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: 1})
+	upstreamPr := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "test-blueprints"}, Package: "basens"}, Revision: 1})
 
 	// Register the repository as 'downstream'
 	t.RegisterMainGitRepositoryF("downstream")
@@ -250,9 +250,13 @@ func (t *PorchSuite) TestConcurrentClones() {
 	upstreamPr := t.MustFindPackageRevision(
 		&list,
 		repository.PackageRevisionKey{
-			Repository: upstreamRepository,
-			Package:    upstreamPackage,
-			Revision:   1})
+			PkgKey: repository.PackageKey{
+				RepoKey: repository.RepositoryKey{
+					Name: upstreamRepository,
+				},
+				Package: upstreamPackage,
+			},
+			Revision: 1})
 
 	// Create PackageRevision from upstream repo
 	clonedPr := t.CreatePackageSkeleton(downstreamRepository, downstreamPackage, workspace)
@@ -437,10 +441,14 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 	t.RegisterGitRepositoryF(testBlueprintsRepo, "test-blueprints", "")
 
 	var upstreamPackages porchapi.PackageRevisionList
-	t.ListE(&upstreamPackages, client.InNamespace(t.Namespace))
-	upstreamPackage := t.MustFindPackageRevision(&upstreamPackages, repository.PackageRevisionKey{
-		Repository:    "test-blueprints",
-		Package:       "basens",
+	t.ListE(ctx, &upstreamPackages, client.InNamespace(t.Namespace))
+	upstreamPackage := MustFindPackageRevision(t.T, &upstreamPackages, repository.PackageRevisionKey{
+		PkgKey: repository.PackageKey{
+			RepoKey: repository.RepositoryKey{
+				Name: "test-blueprints",
+			},
+			Package: "basens",
+		},
 		Revision:      1,
 		WorkspaceName: "v1",
 	})
@@ -1606,8 +1614,8 @@ func (t *PorchSuite) TestPackageUpdate() {
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
 
-	basensV1 := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: 1})
-	basensV2 := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: 2})
+	basensV1 := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "test-blueprints"}, Package: "basens"}, Revision: 1})
+	basensV2 := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "test-blueprints"}, Package: "basens"}, Revision: 2})
 
 	// Register the repository as 'downstream'
 	t.RegisterMainGitRepositoryF(gitRepository)
@@ -1703,8 +1711,8 @@ func (t *PorchSuite) TestConcurrentPackageUpdates() {
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
 
-	basensV1 := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: 1})
-	basensV2 := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: 2})
+	basensV1 := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "test-blueprints"}, Package: "basens"}, Revision: 1})
+	basensV2 := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "test-blueprints"}, Package: "basens"}, Revision: 2})
 
 	// Register the repository as 'downstream'
 	t.RegisterMainGitRepositoryF(gitRepository)
@@ -1804,7 +1812,7 @@ func (t *PorchSuite) TestBuiltinFunctionEvaluator() {
 						Image: "gcr.io/kpt-fn/starlark:v0.4.3",
 						ConfigMap: map[string]string{
 							"source": `for resource in ctx.resource_list["items"]:
-  resource["metadata"]["annotations"]["foo"] = "bar"`,
+	  resource["metadata"]["annotations"]["foo"] = "bar"`,
 						},
 					},
 				},
@@ -2536,7 +2544,7 @@ func (t *PorchSuite) TestRegisteredPackageRevisionLabels() {
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
 
-	basens := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: 1})
+	basens := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "test-blueprints"}, Package: "basens"}, Revision: 1})
 	if basens.ObjectMeta.Labels == nil {
 		basens.ObjectMeta.Labels = make(map[string]string)
 	}

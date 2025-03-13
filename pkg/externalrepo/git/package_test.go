@@ -54,15 +54,15 @@ func (g GitSuite) TestLock(t *testing.T) {
 	}
 
 	wantRefs := map[repository.PackageRevisionKey]string{
-		{Repository: repositoryName, Package: "empty", Revision: 1, WorkspaceName: "v1"}:   "empty/v1",
-		{Repository: repositoryName, Package: "basens", Revision: 1, WorkspaceName: "v1"}:  "basens/v1",
-		{Repository: repositoryName, Package: "basens", Revision: 2, WorkspaceName: "v2"}:  "basens/v2",
-		{Repository: repositoryName, Package: "istions", Revision: 1, WorkspaceName: "v1"}: "istions/v1",
-		{Repository: repositoryName, Package: "istions", Revision: 2, WorkspaceName: "v2"}: "istions/v2",
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: v1alpha1.WorkspaceName(g.branch)}, Package: "empty"}, Revision: 1, WorkspaceName: "v1"}:   "empty/v1",
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: v1alpha1.WorkspaceName(g.branch)}, Package: "basens"}, Revision: 1, WorkspaceName: "v1"}:  "basens/v1",
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: v1alpha1.WorkspaceName(g.branch)}, Package: "basens"}, Revision: 2, WorkspaceName: "v2"}:  "basens/v2",
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: v1alpha1.WorkspaceName(g.branch)}, Package: "istions"}, Revision: 1, WorkspaceName: "v1"}: "istions/v1",
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: v1alpha1.WorkspaceName(g.branch)}, Package: "istions"}, Revision: 2, WorkspaceName: "v2"}: "istions/v2",
 
-		{Repository: repositoryName, Package: "basens", Revision: -1, WorkspaceName: v1alpha1.WorkspaceName(g.branch)}:  g.branch,
-		{Repository: repositoryName, Package: "empty", Revision: -1, WorkspaceName: v1alpha1.WorkspaceName(g.branch)}:   g.branch,
-		{Repository: repositoryName, Package: "istions", Revision: -1, WorkspaceName: v1alpha1.WorkspaceName(g.branch)}: g.branch,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: v1alpha1.WorkspaceName(g.branch)}, Package: "basens"}, Revision: -1, WorkspaceName: v1alpha1.WorkspaceName(g.branch)}:  g.branch,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: v1alpha1.WorkspaceName(g.branch)}, Package: "empty"}, Revision: -1, WorkspaceName: v1alpha1.WorkspaceName(g.branch)}:   g.branch,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: v1alpha1.WorkspaceName(g.branch)}, Package: "istions"}, Revision: -1, WorkspaceName: v1alpha1.WorkspaceName(g.branch)}: g.branch,
 	}
 
 	for _, rev := range revisions {
@@ -82,8 +82,6 @@ func (g GitSuite) TestLock(t *testing.T) {
 		}
 
 		key := rev.Key()
-		key.Namespace = ""
-		key.PlaceholderWSname = ""
 		wantRef, ok := wantRefs[key]
 		if !ok {
 			t.Errorf("Unexpected package found; %q", rev.Key())
@@ -100,7 +98,7 @@ func (g GitSuite) TestLock(t *testing.T) {
 			Ref:       upstream.Git.Ref,
 		}), (gitAddress{
 			Repo:      address,
-			Directory: key.Package,
+			Directory: key.PkgKey.RepoKey.Path,
 			Ref:       wantRef,
 		}); !cmp.Equal(want, got) {
 			t.Errorf("Package upstream differs (-want,+got): %s", cmp.Diff(want, got))
@@ -113,7 +111,7 @@ func (g GitSuite) TestLock(t *testing.T) {
 			Ref:       lock.Git.Ref,
 		}), (gitAddress{
 			Repo:      address,
-			Directory: key.Package,
+			Directory: key.PkgKey.RepoKey.Path,
 			Ref:       wantRef,
 		}); !cmp.Equal(want, got) {
 			t.Errorf("Package upstream lock differs (-want,+got): %s", cmp.Diff(want, got))

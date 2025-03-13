@@ -42,7 +42,7 @@ func (c *cachedPackageRevision) KubeObjectName() string {
 }
 
 func (c *cachedPackageRevision) KubeObjectNamespace() string {
-	return c.Key().Namespace
+	return c.Key().PkgKey.RepoKey.Namespace
 }
 
 func (c *cachedPackageRevision) UID() types.UID {

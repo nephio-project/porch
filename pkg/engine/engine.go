@@ -162,7 +162,12 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	}
 
 	revs, err := repo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
-		Package: obj.Spec.PackageName})
+		Key: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				Package: obj.Spec.PackageName,
+			},
+		},
+	})
 	if err != nil {
 		return nil, fmt.Errorf("error listing package revisions: %w", err)
 	}

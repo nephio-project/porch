@@ -89,8 +89,12 @@ func TestPublishedLatest(t *testing.T) {
 	cachedRepo := openRepositoryFromArchive(t, ctx, testPath, "nested")
 
 	revisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
-		Package:       "catalog/gcp/bucket",
-		WorkspaceName: "v2",
+		Key: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				Package: "catalog/gcp/bucket",
+			},
+			WorkspaceName: "v2",
+		},
 	})
 	if err != nil {
 		t.Fatalf("ListPackageRevisions failed: %v", err)
@@ -135,8 +139,12 @@ func TestDeletePublishedMain(t *testing.T) {
 	cachedRepo := openRepositoryFromArchive(t, ctx, testPath, "nested")
 
 	revisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
-		Package:       "catalog/gcp/bucket",
-		WorkspaceName: "v2",
+		Key: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				Package: "catalog/gcp/bucket",
+			},
+			WorkspaceName: "v2",
+		},
 	})
 	if err != nil {
 		t.Fatalf("ListPackageRevisions failed: %v", err)
@@ -170,10 +178,14 @@ func TestDeletePublishedMain(t *testing.T) {
 	}
 
 	publishedRevisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
-		Package:       "catalog/gcp/bucket",
-		WorkspaceName: "v2",
-		Lifecycle:     api.PackageRevisionLifecyclePublished,
-		Revision:      -1,
+		Key: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				Package: "catalog/gcp/bucket",
+			},
+			WorkspaceName: "v2",
+			Revision:      -1,
+		},
+		Lifecycle: api.PackageRevisionLifecyclePublished,
 	})
 	if err != nil {
 		t.Fatalf("ListPackageRevisions failed: %v", err)
@@ -200,10 +212,14 @@ func TestDeletePublishedMain(t *testing.T) {
 	}
 
 	postDeletePublishedRevisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
-		Package:       "catalog/gcp/bucket",
-		WorkspaceName: "v2",
-		Lifecycle:     api.PackageRevisionLifecyclePublished,
-		Revision:      -1,
+		Key: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				Package: "catalog/gcp/bucket",
+			},
+			WorkspaceName: "v2",
+			Revision:      -1,
+		},
+		Lifecycle: api.PackageRevisionLifecyclePublished,
 	})
 
 	if err != nil {

@@ -157,14 +157,17 @@ func (r *ociRepository) ListPackageRevisions(ctx context.Context, filter reposit
 						Digest: digest,
 					},
 					prKey: repository.PackageRevisionKey{
-						Package:       childName,
+						PkgKey: repository.PackageKey{
+							Package: childName,
+						},
+
 						WorkspaceName: v1alpha1.WorkspaceName(tag),
 					},
 					created:         created,
 					parent:          r,
 					resourceVersion: constructResourceVersion(m.Created),
 				}
-				p.uid = constructUID(p.Key().Package + ":" + string(p.Key().WorkspaceName))
+				p.uid = constructUID(p.Key().PkgKey.Package + ":" + string(p.Key().WorkspaceName))
 
 				lifecycle, err := r.getLifecycle(ctx, p.digestName)
 				if err != nil {
@@ -213,7 +216,9 @@ func (r *ociRepository) buildPackageRevision(ctx context.Context, name oci.Image
 	p := &ociPackageRevision{
 		digestName: name,
 		prKey: repository.PackageRevisionKey{
-			Package:       packageName,
+			PkgKey: repository.PackageKey{
+				Package: packageName,
+			},
 			WorkspaceName: workspace,
 			Revision:      revision,
 		},
@@ -221,7 +226,7 @@ func (r *ociRepository) buildPackageRevision(ctx context.Context, name oci.Image
 		parent:          r,
 		resourceVersion: constructResourceVersion(created),
 	}
-	p.uid = constructUID(p.Key().Package + ":" + string(p.Key().WorkspaceName))
+	p.uid = constructUID(p.Key().PkgKey.Package + ":" + string(p.Key().WorkspaceName))
 
 	lifecycle, err := r.getLifecycle(ctx, p.digestName)
 	if err != nil {
@@ -272,7 +277,7 @@ func (c *ociPackageRevision) KubeObjectName() string {
 }
 
 func (c *ociPackageRevision) KubeObjectNamespace() string {
-	return c.Key().Namespace
+	return c.Key().PkgKey.RepoKey.Namespace
 }
 
 func (c *ociPackageRevision) UID() types.UID {
@@ -302,10 +307,10 @@ func (p *ociPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 			UID:             p.uid,
 		},
 		Spec: v1alpha1.PackageRevisionResourcesSpec{
-			PackageName:    key.Package,
+			PackageName:    key.PkgKey.Package,
 			WorkspaceName:  key.WorkspaceName,
 			Revision:       key.Revision,
-			RepositoryName: key.Repository,
+			RepositoryName: key.PkgKey.RepoKey.Name,
 
 			Resources: resources.Contents,
 		},
@@ -346,8 +351,8 @@ func (p *ociPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 			UID:             p.uid,
 		},
 		Spec: v1alpha1.PackageRevisionSpec{
-			PackageName:    key.Package,
-			RepositoryName: key.Repository,
+			PackageName:    key.PkgKey.Package,
+			RepositoryName: key.PkgKey.RepoKey.Name,
 			Revision:       key.Revision,
 			WorkspaceName:  key.WorkspaceName,
 

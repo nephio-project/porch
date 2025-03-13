@@ -47,7 +47,7 @@ type packageListEntry struct {
 	parent *packageList
 
 	// path is the relative path to the root of the package (directory containing the Kptfile)
-	path string
+	pkgKey repository.PackageKey
 
 	// treeHash is the git-hash of the git tree corresponding to Path
 	treeHash plumbing.Hash
@@ -55,19 +55,8 @@ type packageListEntry struct {
 
 // buildGitPackageRevision creates a gitPackageRevision for the packageListEntry
 // TODO: Can packageListEntry just _be_ a gitPackageRevision?
-func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revision, workspace string, ref *plumbing.Reference) (*gitPackageRevision, error) {
+func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revisionStr string, workspace v1alpha1.WorkspaceName, ref *plumbing.Reference) (*gitPackageRevision, error) {
 	repo := p.parent.parent
-	tasks, err := repo.loadTasks(ctx, p.parent.commit, p.path, workspace)
-	if err != nil {
-		klog.Warningf("Error when loading tasks for package %s/%s: %s", p.path, revision, err)
-	}
-
-	if len(tasks) == 0 {
-		klog.Warningf("Loaded no tasks for package %s/%s", p.path, revision)
-	} else if klog.V(6).Enabled() {
-		marshalledTasks, _ := json.Marshal(tasks)
-		klog.Infof("Loaded tasks for package %s/%s: %s", p.path, revision, marshalledTasks)
-	}
 
 	var updated time.Time
 	var updatedBy string
@@ -84,9 +73,9 @@ func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revision
 		// the last commit for the package based on the porch commit tags. We don't
 		// use the revision here, since we are looking at the package branch while
 		// the revisions only helps identify the tags.
-		commit, err := repo.findLatestPackageCommit(p.parent.commit, p.path)
-		if err != nil && commit != nil {
-			klog.Warningf("Error searching for latest package commit for package %s/%s: %s", p.path, revision, err)
+		commit, err := repo.findLatestPackageCommit(p.parent.commit, p.pkgKey)
+		if err != nil {
+			return nil, err
 		}
 		if commit != nil {
 			updated = commit.Author.When
@@ -102,21 +91,37 @@ func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revision
 
 	// for backwards compatibility with packages that existed before porch supported
 	// workspaceNames, we populate the workspaceName as the branch if it is empty
+	// All this is necessary to support old packages and nested packages
+	// TODO: Do we need nested packages, we can use directories on repos instead
+	revision := repository.Revision2Int(revisionStr)
 	if workspace == "" {
-		workspace = revision
+		if revision == -1 {
+			workspace = v1alpha1.WorkspaceName(revisionStr)
+		} else {
+			workspace = "v" + v1alpha1.WorkspaceName(repository.Revision2Str(revision))
+		}
+	}
+
+	gitPrKey := repository.PackageRevisionKey{
+		PkgKey:        p.pkgKey,
+		Revision:      revision,
+		WorkspaceName: workspace,
+	}
+
+	tasks, err := repo.loadTasks(ctx, p.parent.commit, gitPrKey)
+	if err != nil {
+		return nil, err
 	}
 
 	return &gitPackageRevision{
-		repo:          repo,
-		path:          p.path,
-		workspaceName: workspace,
-		revision:      repository.Revision2Int(revision),
-		updated:       updated,
-		updatedBy:     updatedBy,
-		ref:           ref,
-		tree:          p.treeHash,
-		commit:        p.parent.commit.Hash,
-		tasks:         tasks,
+		prKey:     gitPrKey,
+		repo:      repo,
+		updated:   updated,
+		updatedBy: updatedBy,
+		ref:       ref,
+		tree:      p.treeHash,
+		commit:    p.parent.commit.Hash,
+		tasks:     tasks,
 	}, nil
 }
 
@@ -132,7 +137,7 @@ type DiscoverPackagesOptions struct {
 
 // discoverPackages is the recursive function we use to traverse the tree and find packages.
 // tree is the git-tree we are search, treePath is the repo-relative-path to tree.
-func (t *packageList) discoverPackages(tree *object.Tree, treePath string, recurse bool) error {
+func (t *packageList) discoverPackages(repoKey repository.RepositoryKey, tree *object.Tree, treePath string, recurse bool) error {
 	for _, e := range tree.Entries {
 		if e.Name == "Kptfile" {
 			p := path.Join(treePath, e.Name)
@@ -143,7 +148,7 @@ func (t *packageList) discoverPackages(tree *object.Tree, treePath string, recur
 
 			// Found a package
 			t.packages[treePath] = &packageListEntry{
-				path:     treePath,
+				pkgKey:   repository.FromFullPathname(repoKey, treePath),
 				treeHash: tree.Hash,
 				parent:   t,
 			}
@@ -162,7 +167,7 @@ func (t *packageList) discoverPackages(tree *object.Tree, treePath string, recur
 				return fmt.Errorf("error getting git tree %v: %w", e.Hash, err)
 			}
 
-			if err := t.discoverPackages(dirTree, path.Join(treePath, e.Name), recurse); err != nil {
+			if err := t.discoverPackages(repoKey, dirTree, path.Join(treePath, e.Name), recurse); err != nil {
 				return err
 			}
 		}

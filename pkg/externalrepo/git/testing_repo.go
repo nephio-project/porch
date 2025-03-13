@@ -299,7 +299,9 @@ func repositoryMustHavePackageRevision(t *testing.T, git GitRepository, prKey re
 		t.Fatalf("ListPackageRevisions failed: %v", err)
 	}
 
-	findPackageRevision(t, list, repository.PRFilterFromKey(prKey))
+	findPackageRevision(t, list, repository.ListPackageRevisionFilter{
+		Key: prKey,
+	})
 }
 
 func repositoryMustNotHavePackageRevision(t *testing.T, git GitRepository, name repository.PackageRevisionKey) {

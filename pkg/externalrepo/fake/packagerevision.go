@@ -40,7 +40,7 @@ func (c *FakePackageRevision) KubeObjectName() string {
 }
 
 func (c *FakePackageRevision) KubeObjectNamespace() string {
-	return c.Key().Namespace
+	return c.Key().PkgKey.RepoKey.Namespace
 }
 
 func (c *FakePackageRevision) UID() types.UID {

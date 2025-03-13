@@ -20,7 +20,6 @@ import (
 
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
@@ -121,16 +120,16 @@ func getTagNameInLocalRepo(n plumbing.ReferenceName) (string, bool) {
 	return trimOptionalPrefix(n.String(), tagsPrefixInLocalRepo)
 }
 
-func createDraftName(pkg string, wn string) BranchName {
-	return BranchName(draftsPrefix + pkg + "/" + wn)
+func createDraftName(key repository.PackageRevisionKey) BranchName {
+	return BranchName(draftsPrefix + key.PkgKey.ToFullPathname() + "/" + string(key.WorkspaceName))
 }
 
-func createProposedName(pkg string, wn string) BranchName {
-	return BranchName(proposedPrefix + pkg + "/" + wn)
+func createProposedName(key repository.PackageRevisionKey) BranchName {
+	return BranchName(proposedPrefix + key.PkgKey.ToFullPathname() + "/" + string(key.WorkspaceName))
 }
 
-func createDeletionProposedName(pkg string, revision int) BranchName {
-	return BranchName(deletionProposedPrefix + pkg + "/v" + repository.Revision2Str(revision))
+func createDeletionProposedName(key repository.PackageRevisionKey) BranchName {
+	return BranchName(deletionProposedPrefix + key.PkgKey.ToFullPathname() + "/v" + repository.Revision2Str(key.Revision))
 }
 
 func trimOptionalPrefix(s, prefix string) (string, bool) {
@@ -140,8 +139,8 @@ func trimOptionalPrefix(s, prefix string) (string, bool) {
 	return "", false
 }
 
-func createFinalTagNameInLocal(pkg string, rev int) plumbing.ReferenceName {
-	return plumbing.ReferenceName(tagsPrefixInLocalRepo + pkg + "/v" + repository.Revision2Str(rev))
+func createFinalTagNameInLocal(key repository.PackageRevisionKey) plumbing.ReferenceName {
+	return plumbing.ReferenceName(tagsPrefixInLocalRepo + key.PkgKey.ToFullPathname() + "/v" + repository.Revision2Str(key.Revision))
 }
 
 func refInLocalFromRefInRemote(n plumbing.ReferenceName) (plumbing.ReferenceName, error) {

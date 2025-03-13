@@ -39,15 +39,15 @@ func identifyLatestRevisions(ctx context.Context, result map[repository.PackageR
 		}
 
 		currentKey := current.Key()
-		if previous, ok := latest[currentKey.Package]; ok {
+		if previous, ok := latest[currentKey.PkgKey.Package]; ok {
 			previousKey := previous.Key()
 			if currentKey.Revision > previousKey.Revision {
 				// currentKey.Revision > previousKey.Revision; update latest
-				latest[currentKey.Package] = current
+				latest[currentKey.PkgKey.Package] = current
 			}
 		} else if currentKey.Revision != -1 { // The working repository PR (usually main) can never be the latest PR
 			// First revision of the specific package; candidate for the latest.
-			latest[currentKey.Package] = current
+			latest[currentKey.PkgKey.Package] = current
 		}
 	}
 
@@ -67,7 +67,7 @@ func toPackageRevisionSlice(
 	}
 	sort.Slice(result, func(i, j int) bool {
 		ki, kl := result[i].Key(), result[j].Key()
-		switch res := strings.Compare(ki.Package, kl.Package); {
+		switch res := strings.Compare(ki.PkgKey.Package, kl.PkgKey.Package); {
 		case res < 0:
 			return true
 		case res > 0:

@@ -57,18 +57,22 @@ func (r *ociRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1
 
 	// digestName := ImageDigestName{}
 	return &ociPackageRevisionDraft{
-		packageName: packageName,
-		parent:      r,
-		tasks:       []v1alpha1.Task{},
-		base:        base,
-		tag:         ociRepo.Tag(string(obj.Spec.WorkspaceName)),
-		lifecycle:   v1alpha1.PackageRevisionLifecycleDraft,
+		prKey: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				Package: packageName,
+			},
+		},
+		parent:    r,
+		tasks:     []v1alpha1.Task{},
+		base:      base,
+		tag:       ociRepo.Tag(string(obj.Spec.WorkspaceName)),
+		lifecycle: v1alpha1.PackageRevisionLifecycleDraft,
 	}, nil
 }
 
 func (r *ociRepository) UpdatePackageRevision(ctx context.Context, old repository.PackageRevision) (repository.PackageRevisionDraft, error) {
 	oldPackage := old.(*ociPackageRevision)
-	packageName := oldPackage.Key().Package
+	packageName := oldPackage.Key().PkgKey.Package
 	workspace := oldPackage.Key().WorkspaceName
 	// digestName := oldPackage.digestName
 
@@ -94,17 +98,21 @@ func (r *ociRepository) UpdatePackageRevision(ctx context.Context, old repositor
 	}
 
 	return &ociPackageRevisionDraft{
-		packageName: packageName,
-		parent:      r,
-		tasks:       []v1alpha1.Task{},
-		base:        base,
-		tag:         ref,
-		lifecycle:   oldPackage.Lifecycle(ctx),
+		prKey: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				Package: packageName,
+			},
+		},
+		parent:    r,
+		tasks:     []v1alpha1.Task{},
+		base:      base,
+		tag:       ref,
+		lifecycle: oldPackage.Lifecycle(ctx),
 	}, nil
 }
 
 type ociPackageRevisionDraft struct {
-	packageName string
+	prKey repository.PackageRevisionKey
 
 	created time.Time
 
@@ -196,8 +204,8 @@ func (p *ociPackageRevisionDraft) UpdateLifecycle(ctx context.Context, new v1alp
 	return nil
 }
 
-func (p *ociPackageRevisionDraft) GetName() string {
-	return p.packageName
+func (p *ociPackageRevisionDraft) Key() repository.PackageRevisionKey {
+	return p.prKey
 }
 
 // Finish round of updates.
@@ -235,7 +243,11 @@ func (r *ociRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 				r := p.parent
 				// Finalize the package revision. Assign it a revision number of latest + 1.
 				revisions, err := r.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
-					Package: p.packageName,
+					Key: repository.PackageRevisionKey{
+						PkgKey: repository.PackageKey{
+							Package: p.Key().PkgKey.Package,
+						},
+					},
 				})
 				if err != nil {
 					return nil, err
@@ -284,7 +296,7 @@ func (r *ociRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 		return nil, fmt.Errorf("error getting config file: %w", err)
 	}
 
-	return p.parent.buildPackageRevision(ctx, digestName, p.packageName, p.tag.TagStr(), revision, configFile.Created.Time)
+	return p.parent.buildPackageRevision(ctx, digestName, p.Key().PkgKey.Package, v1alpha1.WorkspaceName(p.tag.TagStr()), revision, configFile.Created.Time)
 }
 
 func constructResourceVersion(t time.Time) string {
@@ -297,7 +309,7 @@ func constructUID(ref string) types.UID {
 
 func (r *ociRepository) DeletePackageRevision(ctx context.Context, old repository.PackageRevision) error {
 	oldPackage := old.(*ociPackageRevision)
-	packageName := oldPackage.Key().Package
+	packageName := oldPackage.Key().PkgKey.Package
 	workspace := oldPackage.Key().WorkspaceName
 
 	ociRepo, err := name.NewRepository(path.Join(r.spec.Registry, packageName))

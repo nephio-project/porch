@@ -17,7 +17,6 @@ package git
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -30,21 +29,18 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2"
 )
 
 type gitPackageRevision struct {
-	repo          *gitRepository // repo is repo containing the package
-	path          string         // the path to the package from the repo root
-	revision      int
-	workspaceName v1alpha1.WorkspaceName
-	updated       time.Time
-	updatedBy     string
-	ref           *plumbing.Reference // ref is the Git reference at which the package exists
-	tree          plumbing.Hash       // Cached tree of the package itself, some descendent of commit.Tree()
-	commit        plumbing.Hash       // Current version of the package (commit sha)
-	tasks         []v1alpha1.Task
-	metadata      metav1.ObjectMeta
+	prKey     repository.PackageRevisionKey
+	repo      *gitRepository // repo is repo containing the package
+	updated   time.Time
+	updatedBy string
+	ref       *plumbing.Reference // ref is the Git reference at which the package exists
+	tree      plumbing.Hash       // Cached tree of the package itself, some descendent of commit.Tree()
+	commit    plumbing.Hash       // Current version of the package (commit sha)
+	tasks     []v1alpha1.Task
+	metadata  metav1.ObjectMeta
 }
 
 var _ repository.PackageRevision = &gitPackageRevision{}
@@ -54,7 +50,7 @@ func (c *gitPackageRevision) KubeObjectName() string {
 }
 
 func (c *gitPackageRevision) KubeObjectNamespace() string {
-	return c.Key().Namespace
+	return c.Key().PkgKey.RepoKey.Namespace
 }
 
 func (c *gitPackageRevision) UID() types.UID {
@@ -66,26 +62,7 @@ func (p *gitPackageRevision) ResourceVersion() string {
 }
 
 func (p *gitPackageRevision) Key() repository.PackageRevisionKey {
-	// if the repository has been registered with a directory, then the
-	// package name is the package path relative to the registered directory
-	packageName := p.path
-	if p.repo.Key().Path != "" {
-		pn, err := filepath.Rel(p.repo.Key().Path, packageName)
-		if err != nil {
-			klog.Errorf("error computing package name relative to registered directory: %v", err)
-		}
-		packageName = strings.TrimLeft(pn, "./")
-	}
-
-	return repository.PackageRevisionKey{
-		Namespace:         p.repo.key.Namespace,
-		Repository:        p.repo.Key().Name,
-		Path:              p.repo.Key().Path,
-		Package:           packageName,
-		Revision:          p.revision,
-		WorkspaceName:     p.workspaceName,
-		PlaceholderWSname: p.repo.Key().PlaceholderWSname,
-	}
+	return p.prKey
 }
 
 func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.PackageRevision, error) {
@@ -129,6 +106,7 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 		}
 	}
 
+	// TODO: Should we support nested packages?
 	return &v1alpha1.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevision",
@@ -144,8 +122,8 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 			},
 		},
 		Spec: v1alpha1.PackageRevisionSpec{
-			PackageName:    key.Package,
-			RepositoryName: key.Repository,
+			PackageName:    key.PkgKey.ToFullPathname(),
+			RepositoryName: key.PkgKey.RepoKey.Name,
 			Lifecycle:      p.Lifecycle(ctx),
 			Tasks:          p.tasks,
 			ReadinessGates: repository.ToApiReadinessGates(kf),
@@ -178,10 +156,10 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 			OwnerReferences: []metav1.OwnerReference{}, // TODO: should point to repository resource
 		},
 		Spec: v1alpha1.PackageRevisionResourcesSpec{
-			PackageName:    p.Key().Package,
+			PackageName:    p.Key().PkgKey.ToFullPathname(),
 			WorkspaceName:  p.Key().WorkspaceName,
 			Revision:       p.Key().Revision,
-			RepositoryName: p.Key().Repository,
+			RepositoryName: p.Key().PkgKey.RepoKey.Name,
 
 			Resources: resources,
 		},
@@ -195,19 +173,18 @@ func (p *gitPackageRevision) ToMainPackageRevision() repository.PackageRevision 
 	//Need to compute a separate reference, otherwise the ref will be the same as the versioned package,
 	//while the main gitPackageRevision needs to point at the main branch.
 	mainBranchRef := plumbing.NewHashReference(p.repo.branch.RefInLocal(), p.commit)
-	p1 := &gitPackageRevision{
-		repo:          p.repo,
-		path:          p.path,
-		revision:      -1,
-		workspaceName: p.workspaceName,
-		updated:       p.updated,
-		updatedBy:     p.updatedBy,
-		ref:           mainBranchRef,
-		tree:          p.tree,
-		commit:        p.commit,
-		tasks:         p.tasks,
+	mainPr := &gitPackageRevision{
+		repo:      p.repo,
+		prKey:     p.prKey,
+		updated:   p.updated,
+		updatedBy: p.updatedBy,
+		ref:       mainBranchRef,
+		tree:      p.tree,
+		commit:    p.commit,
+		tasks:     p.tasks,
 	}
-	return p1
+	mainPr.prKey.Revision = -1
+	return mainPr
 
 }
 
@@ -263,14 +240,14 @@ func (p *gitPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, 
 			Type: kptfile.GitOrigin,
 			Git: &kptfile.Git{
 				Repo:      repo,
-				Directory: p.path,
+				Directory: p.prKey.PkgKey.RepoKey.Path,
 				Ref:       ref.Short(),
 			},
 		}, kptfile.UpstreamLock{
 			Type: kptfile.GitOrigin,
 			Git: &kptfile.GitLock{
 				Repo:      repo,
-				Directory: p.path,
+				Directory: p.prKey.PkgKey.RepoKey.Path,
 				Ref:       ref.Short(),
 				Commit:    p.commit.String(),
 			},
