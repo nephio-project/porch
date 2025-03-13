@@ -129,58 +129,58 @@ func (cad *cadEngine) ListPackageRevisions(ctx context.Context, repositorySpec *
 	return packageRevisions, nil
 }
 
-func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
+func (cad *cadEngine) CreatePackageRevision(ctx context.Context, apiRepo *configapi.Repository, newPkgRev *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cadEngine::CreatePackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	packageConfig, err := repository.BuildPackageConfig(ctx, obj, parent)
+	packageConfig, err := repository.BuildPackageConfig(ctx, newPkgRev, parent)
 	if err != nil {
 		return nil, err
 	}
 
 	// Validate package lifecycle. Cannot create a final package
-	switch obj.Spec.Lifecycle {
+	switch newPkgRev.Spec.Lifecycle {
 	case "":
 		// Set draft as default
-		obj.Spec.Lifecycle = api.PackageRevisionLifecycleDraft
+		newPkgRev.Spec.Lifecycle = api.PackageRevisionLifecycleDraft
 	case api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed:
 		// These values are ok
 	case api.PackageRevisionLifecyclePublished, api.PackageRevisionLifecycleDeletionProposed:
 		// TODO: generate errors that can be translated to correct HTTP responses
 		return nil, fmt.Errorf("cannot create a package revision with lifecycle value 'Final'")
 	default:
-		return nil, fmt.Errorf("unsupported lifecycle value: %s", obj.Spec.Lifecycle)
+		return nil, fmt.Errorf("unsupported lifecycle value: %s", newPkgRev.Spec.Lifecycle)
 	}
 
-	repo, err := cad.cache.OpenRepository(ctx, repositoryObj)
+	repo, err := cad.cache.OpenRepository(ctx, apiRepo)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := util.ValidPkgRevObjName(repositoryObj.ObjectMeta.Name, repositoryObj.Spec.Git.Directory, obj.Spec.PackageName, string(obj.Spec.WorkspaceName)); err != nil {
+	if err := util.ValidPkgRevObjName(apiRepo.ObjectMeta.Name, apiRepo.Spec.Git.Directory, newPkgRev.Spec.PackageName, string(newPkgRev.Spec.WorkspaceName)); err != nil {
 		return nil, fmt.Errorf("failed to create packagerevision: %w", err)
 	}
 
 	revs, err := repo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
-		Package: obj.Spec.PackageName})
+		Package: newPkgRev.Spec.PackageName})
 	if err != nil {
 		return nil, fmt.Errorf("error listing package revisions: %w", err)
 	}
 
-	if err := ensureUniqueWorkspaceName(obj, revs); err != nil {
+	if err := ensureUniqueWorkspaceName(newPkgRev, revs); err != nil {
 		return nil, err
 	}
 
-	draft, err := repo.CreatePackageRevision(ctx, obj)
+	draft, err := repo.CreatePackageRevision(ctx, newPkgRev)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := cad.taskHandler.ApplyTasks(ctx, draft, repositoryObj, obj, packageConfig); err != nil {
+	if err := cad.taskHandler.ApplyTasks(ctx, draft, apiRepo, newPkgRev, packageConfig); err != nil {
 		return nil, err
 	}
 
-	if err := draft.UpdateLifecycle(ctx, obj.Spec.Lifecycle); err != nil {
+	if err := draft.UpdateLifecycle(ctx, newPkgRev.Spec.Lifecycle); err != nil {
 		return nil, err
 	}
 
@@ -192,20 +192,21 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	pkgRevMeta := metav1.ObjectMeta{
 		Name:            repoPkgRev.KubeObjectName(),
 		Namespace:       repoPkgRev.KubeObjectNamespace(),
-		Labels:          obj.Labels,
-		Annotations:     obj.Annotations,
-		Finalizers:      obj.Finalizers,
-		OwnerReferences: obj.OwnerReferences,
+		Labels:          newPkgRev.Labels,
+		Annotations:     newPkgRev.Annotations,
+		Finalizers:      newPkgRev.Finalizers,
+		OwnerReferences: newPkgRev.OwnerReferences,
 	}
-	pkgRevMeta, err = cad.metadataStore.Create(ctx, pkgRevMeta, repositoryObj.Name, repoPkgRev.UID())
+	pkgRevMeta, err = cad.metadataStore.Create(ctx, pkgRevMeta, apiRepo.Name, repoPkgRev.UID())
 	if err != nil {
-		if (apierrors.IsUnauthorized(err) || apierrors.IsForbidden(err)) && repository.AnyBlockOwnerDeletionSet(obj) {
+		if (apierrors.IsUnauthorized(err) || apierrors.IsForbidden(err)) && repository.AnyBlockOwnerDeletionSet(newPkgRev) {
 			return nil, fmt.Errorf("failed to create internal PackageRev object, because blockOwnerDeletion is enabled for some ownerReference "+
 				"(it is likely that the serviceaccount of porch-server does not have the rights to update finalizers in the owner object): %w", err)
 		}
 		return nil, err
 	}
 	repoPkgRev.SetMeta(pkgRevMeta)
+
 	sent := cad.watcherManager.NotifyPackageRevisionChange(watch.Added, repoPkgRev)
 	klog.Infof("engine: sent %d for new PackageRevision %s/%s", sent, repoPkgRev.KubeObjectNamespace(), repoPkgRev.KubeObjectName())
 	return repoPkgRev, nil
@@ -263,7 +264,7 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version string,
 	}
 
 	// Validate package lifecycle. Can only update a draft.
-	switch lifecycle := oldObj.Spec.Lifecycle; lifecycle {
+	switch oldLifecycle := oldObj.Spec.Lifecycle; oldLifecycle {
 
 	case api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed:
 		// Draft or proposed can be updated.
@@ -285,16 +286,29 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version string,
 		return repoPkgRev, nil
 
 	default:
-		return nil, fmt.Errorf("invalid original lifecycle value: %q", lifecycle)
+		return nil, fmt.Errorf("invalid original lifecycle value: %q", oldLifecycle)
 	}
 
-	switch lifecycle := newObj.Spec.Lifecycle; lifecycle {
+	switch newLifecycle := newObj.Spec.Lifecycle; newLifecycle {
+	case api.PackageRevisionLifecycleProposed, api.PackageRevisionLifecyclePublished, api.PackageRevisionLifecycleDeletionProposed:
+		// These values are OK
 
-	case api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed, api.PackageRevisionLifecyclePublished, api.PackageRevisionLifecycleDeletionProposed:
-		// These values are ok
+	case api.PackageRevisionLifecycleDraft:
+		// This value is also OK
+		if !(task.UpdateOnlySetsReadinessConditions(oldObj, newObj) ||
+			oldObj.Spec.Lifecycle == api.PackageRevisionLifecycleProposed) {
+			// if we're not rejecting from Proposed state (setting back to Draft)
+			//
+			// the update may be doing more than just updating readiness info
+			// need to do an additional push first to close the readiness gate while
+			// the pipeline runs
+			if err := pushPipelineReadinessGate(ctx, repo, repoPr); err != nil {
+				return nil, err
+			}
+		}
 
 	default:
-		return nil, fmt.Errorf("invalid desired lifecycle value: %q", lifecycle)
+		return nil, fmt.Errorf("invalid desired lifecycle value: %q", newLifecycle)
 	}
 
 	if isRecloneAndReplay(oldObj, newObj) {
@@ -508,6 +522,11 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 	if err != nil {
 		return nil, nil, err
 	}
+
+	if err := pushPipelineReadinessGate(ctx, repo, pr2Update); err != nil {
+		return nil, nil, err
+	}
+
 	draft, err := repo.UpdatePackageRevision(ctx, pr2Update)
 	if err != nil {
 		return nil, nil, err
@@ -525,6 +544,35 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 	repoPkgRev.SetMeta(rev.ObjectMeta)
 
 	return repoPkgRev, renderStatus, nil
+}
+
+func pushPipelineReadinessGate(ctx context.Context, repo repository.Repository, repoPr repository.PackageRevision) error {
+	ctx, span := tracer.Start(ctx, "engine.go::pushPipelineReadinessGate", trace.WithAttributes())
+	defer span.End()
+
+	draft, err := repo.UpdatePackageRevision(ctx, repoPr)
+	if err != nil {
+		return err
+	}
+	apiResources, err := repoPr.GetResources(ctx)
+	if err != nil {
+		return fmt.Errorf("cannot get package resources to lock pipeline readiness gate: %w", err)
+	}
+	resources := repository.PackageResources{
+		Contents: apiResources.Spec.Resources,
+	}
+	resources.SetPrStatusCondition(task.ConditionPipelineNotPassed)
+	if err := draft.UpdateResources(ctx, &api.PackageRevisionResources{
+		Spec: api.PackageRevisionResourcesSpec{
+			Resources: resources.Contents,
+		},
+	}, nil); err != nil {
+		return err
+	}
+	if _, err = repo.ClosePackageRevisionDraft(ctx, draft, ""); err != nil {
+		return err
+	}
+	return nil
 }
 
 // isRecloneAndReplay determines if an update should be handled using reclone-and-replay semantics.

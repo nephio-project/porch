@@ -16,10 +16,11 @@ package task
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"io"
 	"io/fs"
-	"math/rand"
+	"math/big"
 	"net"
 	"net/http"
 	"os"
@@ -189,9 +190,11 @@ func (c *credential) ToAuthMethod() transport.AuthMethod {
 
 func randomString(n int) string {
 	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	lettersLength := big.NewInt(62)
 	result := make([]byte, n)
 	for i := range result {
-		result[i] = letters[rand.Intn(len(letters))]
+		randomLetterIndex, _ := rand.Int(rand.Reader, lettersLength)
+		result[i] = letters[randomLetterIndex.Int64()]
 	}
 	return string(result)
 }
@@ -227,6 +230,11 @@ func TestCloneGitBasicAuth(t *testing.T) {
 	addr := startGitServer(t, repo)
 
 	cpm := clonePackageMutation{
+		pkgRev: &v1alpha1.PackageRevision{
+			Spec: v1alpha1.PackageRevisionSpec{
+				PackageName: "test-configmap",
+			},
+		},
 		task: &v1alpha1.Task{
 			Type: "clone",
 			Clone: &v1alpha1.PackageCloneTaskSpec{
@@ -243,8 +251,7 @@ func TestCloneGitBasicAuth(t *testing.T) {
 				},
 			},
 		},
-		namespace: "test-namespace",
-		name:      "test-configmap",
+
 		credentialResolver: &credentialResolver{
 			username: "",
 			password: "",

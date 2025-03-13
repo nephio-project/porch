@@ -34,7 +34,10 @@ commands:
       - propose
       - --namespace=rpkg-unready
       - git.unready-edit.copy-2
-    stderr: "git.unready-edit.copy-2 failed (readiness conditions not met)\nError: errors:\n  readiness conditions not met \n"
+    stderr: |
+      git.unready-edit.copy-2 failed (PackageRevision.porch.kpt.dev "git.unready-edit.copy-2" is invalid: spec.lifecycle: Forbidden: unable to propose package: readiness conditions not met)
+      Error: errors:
+        PackageRevision.porch.kpt.dev "git.unready-edit.copy-2" is invalid: spec.lifecycle: Forbidden: unable to propose package: readiness conditions not met 
     exitCode: 1
   - args:
       - porchctl
@@ -42,7 +45,10 @@ commands:
       - approve
       - --namespace=rpkg-unready
       - git.unready-edit.copy-2
-    stderr: "git.unready-edit.copy-2 failed (readiness conditions not met)\nError: errors:\n  readiness conditions not met \n"
+    stderr: |
+      git.unready-edit.copy-2 failed (cannot change approval from Draft to Published)
+      Error: errors:
+        cannot change approval from Draft to Published 
     exitCode: 1
   - args:
       - porchctl
@@ -61,9 +67,9 @@ commands:
       - Kptfile
       - /tmp/porch-e2e/pkg-unready-git.unready-edit.copy-2
       - --
-      - by-path=status.conditions[0].status
+      - by-path=status.conditions[1].status
       - put-value=True
-    stderr: "[RUNNING] \"gcr.io/kpt-fn/search-replace:v0.2.0\" on 1 resource(s)\n  Results:\n    [info] status.conditions[0].status: Mutated field value to \"\\\"True\\\"\"\n"
+    stderr: "[RUNNING] \"gcr.io/kpt-fn/search-replace:v0.2.0\" on 1 resource(s)\n  Results:\n    [info] status.conditions[1].status: Mutated field value to \"\\\"True\\\"\"\n"
   - args:
       - porchctl
       - rpkg

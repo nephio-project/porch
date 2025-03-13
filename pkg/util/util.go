@@ -1,4 +1,4 @@
-// Copyright 2023, 2024 The kpt and Nephio Authors
+// Copyright 2023-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,9 +19,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
+	"slices"
 	"path/filepath"
 	"strings"
 
+	"github.com/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -197,4 +200,54 @@ func ParsePkgRevObjNameField(pkgRevObjName string, field int) (string, error) {
 	} else {
 		return "", err
 	}
+}
+
+// Parses valid YAML into a KubeObject using the kpt-functions-sdk's fn package.
+// Wrapped in this function to unify deserialisation into a single approach
+// everywhere in Porch.
+func YamlToKubeObject(yaml string) (kubeObject *fn.KubeObject, err error) {
+	if kubeObject, err = fn.ParseKubeObject([]byte(yaml)); err != nil {
+		return nil, err
+	}
+
+	return kubeObject, nil
+}
+
+// Writes a KubeObject out to string-form YAML.
+// Wrapped in this function to unify serialisation into a single approach
+// everywhere in Porch.
+func KubeObjectToYaml(kubeObject *fn.KubeObject) string {
+	return kubeObject.String()
+}
+
+// Merge combines two slices of the same type (aSlice and bSlice) and
+// returns a new slice containing all elements of aSlice, plus all
+// elements of bSlice which do not exist in aSlice (where "do not
+// exist in aSlice" means "for a bSlice element b, aSlice does not
+// already contain an element for which reflect.DeepEqual(a, b)
+// returns true")
+func Merge[E any](aSlice, bSlice []E) []E {
+	return MergeFunc(aSlice, bSlice,
+		func(a, b E) bool { return reflect.DeepEqual(a, b) })
+}
+
+// Merge combines two slices of the same type (aSlice and bSlice) and
+// returns a new slice containing all elements of aSlice, plus all
+// elements of bSlice which do not exist in aSlice. "do not exist in
+// aSlice" is determined by custom equality function existsFn, which
+// must compare two objects (which MergeFunc will feed in, one from
+// aSlice and one from bSlice) and return true if they can be considered
+// equal based on custom criteria; false if not.
+func MergeFunc[E any](aSlice, bSlice []E, existsFn func(a, b E) bool) []E {
+	return func() (uniqueElements []E) {
+		for _, each := range slices.Backward(slices.Concat(aSlice, bSlice)) {
+			if !slices.ContainsFunc(uniqueElements, func(eachUnique E) bool {
+				return existsFn(eachUnique, each)
+			}) {
+				uniqueElements = append(uniqueElements, each)
+			}
+		}
+		slices.Reverse(uniqueElements)
+		return
+	}()
 }
