@@ -91,7 +91,8 @@ func TestPublishedLatest(t *testing.T) {
 	revisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
 		Key: repository.PackageRevisionKey{
 			PkgKey: repository.PackageKey{
-				Package: "catalog/gcp/bucket",
+				Path:    "catalog/gcp",
+				Package: "bucket",
 			},
 			WorkspaceName: "v2",
 		},
@@ -141,7 +142,8 @@ func TestDeletePublishedMain(t *testing.T) {
 	revisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
 		Key: repository.PackageRevisionKey{
 			PkgKey: repository.PackageKey{
-				Package: "catalog/gcp/bucket",
+				Path:    "catalog/gcp",
+				Package: "bucket",
 			},
 			WorkspaceName: "v2",
 		},
@@ -180,7 +182,8 @@ func TestDeletePublishedMain(t *testing.T) {
 	publishedRevisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
 		Key: repository.PackageRevisionKey{
 			PkgKey: repository.PackageKey{
-				Package: "catalog/gcp/bucket",
+				Path:    "catalog/gcp",
+				Package: "bucket",
 			},
 			WorkspaceName: "v2",
 			Revision:      -1,
@@ -214,7 +217,8 @@ func TestDeletePublishedMain(t *testing.T) {
 	postDeletePublishedRevisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
 		Key: repository.PackageRevisionKey{
 			PkgKey: repository.PackageKey{
-				Package: "catalog/gcp/bucket",
+				Path:    "catalog/gcp",
+				Package: "bucket",
 			},
 			WorkspaceName: "v2",
 			Revision:      -1,
