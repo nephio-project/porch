@@ -74,6 +74,17 @@ type GitRepositoryOptions struct {
 	MainBranchStrategy MainBranchStrategy
 }
 
+type gitUserInfoProvider struct {
+	Author, Email string
+}
+
+func (prov *gitUserInfoProvider) GetUserInfo(context.Context) *repository.UserInfo {
+	return &repository.UserInfo{
+		Email: prov.Email,
+		Name:  prov.Author,
+	}
+}
+
 func OpenRepository(ctx context.Context, name, namespace string, spec *configapi.GitRepository, deployment bool, root string, opts GitRepositoryOptions) (GitRepository, error) {
 	ctx, span := tracer.Start(ctx, "git.go::OpenRepository", trace.WithAttributes())
 	defer span.End()
@@ -137,7 +148,7 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 		directory:          strings.Trim(spec.Directory, "/"),
 		secret:             spec.SecretRef.Name,
 		credentialResolver: opts.ExternalRepoOptions.CredentialResolver,
-		userInfoProvider:   opts.ExternalRepoOptions.UserInfoProvider,
+		userInfoProvider:   makeUserInfoProvider(spec, opts.ExternalRepoOptions.UserInfoProvider),
 		cacheDir:           dir,
 		deployment:         deployment,
 	}
@@ -161,6 +172,26 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 	cleanup = "" // Success. Keep the git directory.
 
 	return repository, nil
+}
+
+// makeUserInfoProvider creates a UserInfoProvider based on the provided GitRepository spec.
+// If the spec contains no author or email, def will be returned instead.
+// If only one of author or email is present, the one present will be used in the other's place.
+func makeUserInfoProvider(spec *configapi.GitRepository, def repository.UserInfoProvider) repository.UserInfoProvider {
+	if spec.Author != "" || spec.Email != "" {
+		ui := &gitUserInfoProvider{
+			Author: spec.Author,
+			Email:  spec.Email,
+		}
+		if ui.Author == "" {
+			ui.Author = spec.Email
+		}
+		if ui.Email == "" {
+			ui.Email = spec.Author
+		}
+		return ui
+	}
+	return def
 }
 
 type gitRepository struct {
