@@ -216,6 +216,7 @@ func (r *runner) runE(cmd *cobra.Command, _ []string) error {
 }
 
 func toMergeStrategy(strategy string) (porchapi.PackageMergeStrategy, error) {
+	fmt.Printf("Strategy: %s\n", strategy)
 	switch strategy {
 	case string(porchapi.ResourceMerge):
 		return porchapi.ResourceMerge, nil

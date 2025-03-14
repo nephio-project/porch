@@ -37,7 +37,7 @@ func (u CopyMergeUpdater) Update(options Options) error {
 	return nil
 }
 
-func copyDir(src string, dst string, isRoot bool) error {
+func copyDir(src, dst string, isRoot bool) error {
 	const op errors.Op = "update.Update"
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -47,12 +47,12 @@ func copyDir(src string, dst string, isRoot bool) error {
 		if err != nil {
 			return err
 		}
-		dstPath := filepath.Join(dst, relPath)
-		updPath := filepath.Join(src, relPath)
+		dstPath := filepath.Join(dst, relPath) // file in the local fork
+		srcPath := filepath.Join(src, relPath) // file in the updated fork
 		if info.IsDir() {
 			return os.MkdirAll(dstPath, info.Mode())
 		} else {
-			if err = pkgutil.CopyPackage(updPath, dstPath, isRoot, pkg.None); err != nil {
+			if err = pkgutil.CopyPackage(srcPath, dstPath, isRoot, pkg.All); err != nil {
 				return errors.E(op, types.UniquePath(dstPath), err)
 			}
 			return nil

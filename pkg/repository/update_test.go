@@ -50,7 +50,7 @@ func TestPkgUpdate(t *testing.T) {
 		t.Fatalf("failed to read expected updated resources: %v", err)
 	}
 
-	updatedResources, err := dfUpdater.Update(context.Background(), localResources, originalResources, upstreamResources)
+	updatedResources, err := dfUpdater.Update(context.Background(), localResources, originalResources, upstreamResources, "")
 	if err != nil {
 		t.Errorf("unexpected err: %v", err)
 	}

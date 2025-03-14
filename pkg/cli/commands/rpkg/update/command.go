@@ -55,7 +55,7 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 	}
 	r.Command.Flags().StringVar(&r.revision, "revision", "", "Revision of the upstream package to update to.")
 	r.Command.Flags().StringVar(&r.discover, "discover", "",
-		`If set, search for available updates instead of performing an update. 
+		`If set, search for available updates instead of performing an update.
 Setting this to 'upstream' will discover upstream updates of downstream packages.
 Setting this to 'downstream' will discover downstream package revisions of upstream packages that need to be updated.`)
 	return r
@@ -67,6 +67,7 @@ type runner struct {
 	client  client.Client
 	Command *cobra.Command
 
+	stategy  string
 	revision string // Target package revision
 	discover string // If set, discover updates rather than do updates
 

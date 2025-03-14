@@ -25,6 +25,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const copyMergeLiteral = "copy-merge"
+
 func TestCopyMerge(t *testing.T) {
 	testCases := map[string]struct {
 		origin         *pkgbuilder.RootPkg
@@ -39,19 +41,19 @@ func TestCopyMerge(t *testing.T) {
 			local: pkgbuilder.NewRootPkg().
 				WithKptfile(
 					pkgbuilder.NewKptfile().
-						WithUpstream(kptRepo, "A0", "1", "copy-merge"),
+						WithUpstream(kptRepo, "A0", "1", copyMergeLiteral),
 				),
 			updated: pkgbuilder.NewRootPkg().
 				WithKptfile(
 					pkgbuilder.NewKptfile().
-						WithUpstream(kptRepo, "A0", "22", "copy-merge"),
+						WithUpstream(kptRepo, "A0", "22", copyMergeLiteral),
 				),
 			relPackagePath: "/",
 			isRoot:         true,
 			expected: pkgbuilder.NewRootPkg().
 				WithKptfile(
 					pkgbuilder.NewKptfile().
-						WithUpstream(kptRepo, "A0", "22", "copy-merge"),
+						WithUpstream(kptRepo, "A0", "22", copyMergeLiteral),
 				),
 		},
 		"new package and subpackage": {
@@ -59,19 +61,19 @@ func TestCopyMerge(t *testing.T) {
 			local: pkgbuilder.NewRootPkg().
 				WithKptfile(
 					pkgbuilder.NewKptfile().
-						WithUpstream(kptRepo, "A", "1", "copy-merge"),
+						WithUpstream(kptRepo, "A", "1", copyMergeLiteral),
 				),
 			updated: pkgbuilder.NewRootPkg().
 				WithKptfile(
 					pkgbuilder.NewKptfile().
-						WithUpstream(kptRepo, "A", "22", "copy-merge"),
+						WithUpstream(kptRepo, "A", "22", copyMergeLiteral),
 				).
 				WithResource(pkgbuilder.DeploymentResource).
 				WithSubPackages(
 					pkgbuilder.NewSubPkg("B").
 						WithKptfile(
 							pkgbuilder.NewKptfile().
-								WithUpstream(kptRepo, "b", "1", "copy-merge"),
+								WithUpstream(kptRepo, "b", "1", copyMergeLiteral),
 						).
 						WithResource(pkgbuilder.DeploymentResource),
 				),
@@ -80,14 +82,14 @@ func TestCopyMerge(t *testing.T) {
 			expected: pkgbuilder.NewRootPkg().
 				WithKptfile(
 					pkgbuilder.NewKptfile().
-						WithUpstream(kptRepo, "A", "22", "copy-merge"),
+						WithUpstream(kptRepo, "A", "22", copyMergeLiteral),
 				).
 				WithResource(pkgbuilder.DeploymentResource).
 				WithSubPackages(
 					pkgbuilder.NewSubPkg("B").
 						WithKptfile(
 							pkgbuilder.NewKptfile().
-								WithUpstream(kptRepo, "b", "1", "copy-merge"),
+								WithUpstream(kptRepo, "b", "1", copyMergeLiteral),
 						).
 						WithResource(pkgbuilder.DeploymentResource),
 				),
@@ -129,7 +131,7 @@ func TestCopyMerge(t *testing.T) {
 			local: pkgbuilder.NewRootPkg().
 				WithKptfile(
 					pkgbuilder.NewKptfile().
-						WithUpstream(kptRepo, "/", "master", "copy-merge").
+						WithUpstream(kptRepo, "/", "master", copyMergeLiteral).
 						WithUpstreamLock(kptRepo, "/", "master", "A"),
 				).
 				WithResource(pkgbuilder.DeploymentResource).
@@ -140,7 +142,7 @@ func TestCopyMerge(t *testing.T) {
 				),
 			updated: pkgbuilder.NewRootPkg().
 				WithKptfile(pkgbuilder.NewKptfile().
-					WithUpstream(kptRepo, "/A", "newBranch", "copy-merge").
+					WithUpstream(kptRepo, "/A", "newBranch", copyMergeLiteral).
 					WithUpstreamLock(kptRepo, "/A", "newBranch", "A"),
 				).
 				WithResource(pkgbuilder.DeploymentResource).
@@ -154,7 +156,7 @@ func TestCopyMerge(t *testing.T) {
 			expected: pkgbuilder.NewRootPkg().
 				WithKptfile(
 					pkgbuilder.NewKptfile().
-						WithUpstream(kptRepo, "/A", "newBranch", "copy-merge").
+						WithUpstream(kptRepo, "/A", "newBranch", copyMergeLiteral).
 						WithUpstreamLock(kptRepo, "/A", "newBranch", "A"),
 				).
 				WithResource(pkgbuilder.DeploymentResource).
@@ -171,19 +173,19 @@ func TestCopyMerge(t *testing.T) {
 			origin: pkgbuilder.NewRootPkg().
 				WithKptfile(
 					pkgbuilder.NewKptfile().
-						WithUpstream(kptRepo, "/origin", "master", "copy-merge"),
+						WithUpstream(kptRepo, "/origin", "master", copyMergeLiteral),
 				).
 				WithResource(pkgbuilder.DeploymentResource),
 			local: pkgbuilder.NewRootPkg().
 				WithKptfile(
 					pkgbuilder.NewKptfile().
-						WithUpstream(kptRepo, "/origin", "master", "copy-merge"),
+						WithUpstream(kptRepo, "/origin", "master", copyMergeLiteral),
 				).
 				WithResource(pkgbuilder.DeploymentResource),
 			updated: pkgbuilder.NewRootPkg().
 				WithKptfile(
 					pkgbuilder.NewKptfile().
-						WithUpstream(kptRepo, "/origin", "master", "copy-merge").
+						WithUpstream(kptRepo, "/origin", "master", copyMergeLiteral).
 						WithUpstreamLock(kptRepo, "/origin", "master", "abc123"),
 				),
 			relPackagePath: "/",
@@ -191,7 +193,7 @@ func TestCopyMerge(t *testing.T) {
 			expected: pkgbuilder.NewRootPkg().
 				WithKptfile(
 					pkgbuilder.NewKptfile().
-						WithUpstream(kptRepo, "/origin", "master", "copy-merge").
+						WithUpstream(kptRepo, "/origin", "master", copyMergeLiteral).
 						WithUpstreamLock(kptRepo, "/origin", "master", "abc123"),
 				).
 				WithResource(pkgbuilder.DeploymentResource),
