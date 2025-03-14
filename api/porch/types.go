@@ -163,6 +163,7 @@ type PackageCloneTaskSpec struct {
 	//    since it was fetched.
 	//  * force-delete-replace: Wipe all the local changes to the package and replace
 	//    it with the remote version.
+	//  * copy-merge: Copies all the remote changes to the local package.
 	Strategy PackageMergeStrategy `json:"strategy,omitempty"`
 }
 
@@ -177,6 +178,7 @@ const (
 	ResourceMerge      PackageMergeStrategy = "resource-merge"
 	FastForward        PackageMergeStrategy = "fast-forward"
 	ForceDeleteReplace PackageMergeStrategy = "force-delete-replace"
+	CopyMerge          PackageMergeStrategy = "copy-merge"
 )
 
 type PackagePatchTaskSpec struct {

@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestPkgUpdate(t *testing.T) {
@@ -50,7 +51,7 @@ func TestPkgUpdate(t *testing.T) {
 		t.Fatalf("failed to read expected updated resources: %v", err)
 	}
 
-	updatedResources, err := dfUpdater.Update(context.Background(), localResources, originalResources, upstreamResources)
+	updatedResources, err := dfUpdater.Update(context.Background(), localResources, originalResources, upstreamResources, "")
 	if err != nil {
 		t.Errorf("unexpected err: %v", err)
 	}
@@ -62,4 +63,89 @@ func TestPkgUpdate(t *testing.T) {
 			t.Errorf("file: %s unexpected result (-want, +got): %s", k, diff)
 		}
 	}
+}
+
+func performUpdateAndValidate(t *testing.T, strategy string, expectedContent string, expectError bool) {
+	updater := &DefaultPackageUpdater{}
+	ctx := context.Background()
+
+	localResources := PackageResources{
+		Contents: map[string]string{
+			"file1.txt": "local content",
+		},
+	}
+	originalResources := PackageResources{
+		Contents: map[string]string{
+			"file1.txt": "original content",
+		},
+	}
+	upstreamResources := PackageResources{
+		Contents: map[string]string{
+			"file1.txt": "upstream content",
+		},
+	}
+
+	updatedResources, err := updater.Update(ctx, localResources, originalResources, upstreamResources, strategy)
+	if expectError {
+		assert.Error(t, err)
+	} else {
+		assert.NoError(t, err)
+		assert.NotNil(t, updatedResources)
+		assert.Equal(t, expectedContent, updatedResources.Contents["file1.txt"])
+	}
+}
+
+func TestDefaultPackageUpdaterUpdateCopyMerge(t *testing.T) {
+	performUpdateAndValidate(t, "copy-merge", "upstream content", false)
+}
+
+func TestDefaultPackageUpdaterUpdateFastForward(t *testing.T) {
+	performUpdateAndValidate(t, "fast-forward", "", true)
+}
+
+func TestDefaultPackageUpdaterUpdateForceDeleteReplace(t *testing.T) {
+	performUpdateAndValidate(t, "force-delete-replace", "upstream content", false)
+}
+
+func TestDefaultPackageUpdaterUpdateResourceMerge(t *testing.T) {
+	performUpdateAndValidate(t, "resource-merge", "local content", false)
+}
+
+func TestDefaultPackageUpdaterdo(t *testing.T) {
+	updater := &DefaultPackageUpdater{}
+	ctx := context.Background()
+
+	localPkgDir := t.TempDir()
+	originalPkgDir := t.TempDir()
+	upstreamPkgDir := t.TempDir()
+
+	// Create test files
+	err := writeResourcesToDirectory(localPkgDir, PackageResources{
+		Contents: map[string]string{
+			"file1.txt": "local content",
+		},
+	})
+	assert.NoError(t, err)
+
+	err = writeResourcesToDirectory(originalPkgDir, PackageResources{
+		Contents: map[string]string{
+			"file1.txt": "original content",
+		},
+	})
+	assert.NoError(t, err)
+
+	err = writeResourcesToDirectory(upstreamPkgDir, PackageResources{
+		Contents: map[string]string{
+			"file1.txt": "upstream content",
+		},
+	})
+	assert.NoError(t, err)
+
+	strategy := "copy-merge"
+	err = updater.do(ctx, localPkgDir, originalPkgDir, upstreamPkgDir, strategy)
+	assert.NoError(t, err)
+
+	updatedResources, err := loadResourcesFromDirectory(localPkgDir)
+	assert.NoError(t, err)
+	assert.Equal(t, "upstream content", updatedResources.Contents["file1.txt"])
 }
