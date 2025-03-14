@@ -16,11 +16,12 @@ package git
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 )
 
 // gitAnnotation is the structured data that we store with commits.
@@ -35,7 +36,7 @@ type gitAnnotation struct {
 
 	// WorkspaceName holds the workspaceName of the package revision the commit
 	// belongs to.
-	WorkspaceName v1alpha1.WorkspaceName `json:"workspaceName,omitempty"`
+	WorkspaceName string `json:"workspaceName,omitempty"`
 
 	// Revision hold the revision of the package revision the commit
 	// belongs to.
@@ -48,29 +49,31 @@ type gitAnnotation struct {
 // ExtractGitAnnotations reads the gitAnnotations from the given commit.
 // If no annotation are found, it returns [], nil
 // If an invalid annotation is found, it returns an error.
-func ExtractGitAnnotations(commit *object.Commit) ([]*gitAnnotation, error) {
-	var annotations []*gitAnnotation
+func ExtractGitAnnotations(commit *object.Commit) ([]gitAnnotation, error) {
+	annotations := []gitAnnotation{}
+	ec := errors.NewErrorCollector().WithSeparator(";").WithFormat("{%s}")
 
 	for _, line := range strings.Split(commit.Message, "\n") {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "kpt:") {
-			annotation := &gitAnnotation{}
+			annotation := gitAnnotation{}
 			b := []byte(strings.TrimPrefix(line, "kpt:"))
-			if err := json.Unmarshal(b, annotation); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal task command %q: %w", line, err)
+			if err := json.Unmarshal(b, &annotation); err != nil {
+				ec.Add(err)
+				continue
 			}
 			annotations = append(annotations, annotation)
 		}
 	}
 
-	return annotations, nil
+	return annotations, ec.Join()
 }
 
 // AnnotateCommitMessage adds the gitAnnotation to the commit message.
 func AnnotateCommitMessage(message string, annotation *gitAnnotation) (string, error) {
 	b, err := json.Marshal(annotation)
 	if err != nil {
-		return "", fmt.Errorf("error marshaling annotation: %w", err)
+		return "", pkgerrors.Wrap(err, "error marshaling annotation")
 	}
 
 	message += "\n\nkpt:" + string(b) + "\n"

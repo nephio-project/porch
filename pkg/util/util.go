@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -197,4 +198,11 @@ func ParsePkgRevObjNameField(pkgRevObjName string, field int) (string, error) {
 	} else {
 		return "", err
 	}
+}
+
+func SafeReverse[S ~[]E, E any](s S) {
+	if s == nil {
+		return
+	}
+	slices.Reverse(s)
 }

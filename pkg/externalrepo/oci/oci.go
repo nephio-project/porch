@@ -157,7 +157,7 @@ func (r *ociRepository) ListPackageRevisions(ctx context.Context, filter reposit
 						Digest: digest,
 					},
 					packageName:     childName,
-					workspaceName:   v1alpha1.WorkspaceName(tag),
+					workspaceName:   tag,
 					created:         created,
 					parent:          r,
 					resourceVersion: constructResourceVersion(m.Created),
@@ -196,8 +196,8 @@ func (r *ociRepository) ListPackages(ctx context.Context, filter repository.List
 	return nil, fmt.Errorf("ListPackages not supported for OCI packages")
 }
 
-func (r *ociRepository) buildPackageRevision(ctx context.Context, name oci.ImageDigestName, packageName string,
-	workspace v1alpha1.WorkspaceName, revision string, created time.Time) (repository.PackageRevision, error) {
+func (r *ociRepository) buildPackageRevision(ctx context.Context, name oci.ImageDigestName, packageName, workspace,
+	revision string, created time.Time) (repository.PackageRevision, error) {
 
 	ctx, span := tracer.Start(ctx, "ociRepository::buildPackageRevision")
 	defer span.End()
@@ -205,7 +205,7 @@ func (r *ociRepository) buildPackageRevision(ctx context.Context, name oci.Image
 	// for backwards compatibility with packages that existed before porch supported
 	// workspaces, we populate the workspaceName as the revision number if it is empty
 	if workspace == "" {
-		workspace = v1alpha1.WorkspaceName(revision)
+		workspace = revision
 	}
 
 	p := &ociPackageRevision{
@@ -251,7 +251,7 @@ type ociPackageRevision struct {
 	digestName      oci.ImageDigestName
 	packageName     string
 	revision        string
-	workspaceName   v1alpha1.WorkspaceName
+	workspaceName   string
 	created         time.Time
 	resourceVersion string
 	uid             types.UID

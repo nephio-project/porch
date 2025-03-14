@@ -645,14 +645,13 @@ func (r *PackageVariantReconciler) copyPublished(ctx context.Context,
 	return newPR, nil
 }
 
-func newWorkspaceName(prList *porchapi.PackageRevisionList,
-	packageName string, repo string) porchapi.WorkspaceName {
+func newWorkspaceName(prList *porchapi.PackageRevisionList, packageName, repo string) string {
 	wsNum := 0
 	for _, pr := range prList.Items {
 		if pr.Spec.PackageName != packageName || pr.Spec.RepositoryName != repo {
 			continue
 		}
-		oldWorkspaceName := string(pr.Spec.WorkspaceName)
+		oldWorkspaceName := pr.Spec.WorkspaceName
 		if !strings.HasPrefix(oldWorkspaceName, workspaceNamePrefix) {
 			continue
 		}
@@ -663,7 +662,7 @@ func newWorkspaceName(prList *porchapi.PackageRevisionList,
 		}
 	}
 	wsNum++
-	return porchapi.WorkspaceName(fmt.Sprintf(workspaceNamePrefix+"%d", wsNum))
+	return fmt.Sprintf(workspaceNamePrefix+"%d", wsNum)
 }
 
 func constructOwnerReference(pv *api.PackageVariant) metav1.OwnerReference {

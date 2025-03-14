@@ -86,7 +86,7 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter package
 
 		revisions, err := r.cad.ListPackageRevisions(ctx, repositoryObj, filter.ListPackageRevisionFilter)
 		if err != nil {
-			klog.Warningf("error listing package revisions from repository %s/%s: %s", repositoryObj.GetNamespace(), repositoryObj.GetName(), err)
+			klog.Warningf("error listing package revisions from repository %s/%s: %+v", repositoryObj.GetNamespace(), repositoryObj.GetName(), err)
 			continue
 		}
 		for _, rev := range revisions {
