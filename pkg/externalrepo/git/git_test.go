@@ -33,10 +33,14 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	extrepo "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
+	pkgerrors "github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 )
+
+const k8sAdmin = "kubernetes-admin"
 
 func TestMain(m *testing.M) {
 	klog.InitFlags(nil)
@@ -1273,5 +1277,303 @@ func (g GitSuite) TestAuthor(t *testing.T) {
 			}
 
 		})
+	}
+}
+
+type mockK8sUsp struct{}
+
+func (*mockK8sUsp) GetUserInfo(context.Context) *repository.UserInfo {
+	return &repository.UserInfo{
+		Name:  k8sAdmin,
+		Email: k8sAdmin,
+	}
+}
+
+func createAndPublishPR(ctx context.Context, repo repository.Repository, pr *v1alpha1.PackageRevision) (repository.PackageRevision, error) {
+	draft, err := repo.CreatePackageRevision(ctx, pr)
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "Failed to create package revision draft")
+	}
+	if err := draft.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished); err != nil {
+		return nil, pkgerrors.Wrap(err, "Failed to update draft lifecycle")
+	}
+
+	prr, err := repo.ClosePackageRevisionDraft(ctx, draft, string(pr.Spec.WorkspaceName))
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "Failed to finalize draft")
+	}
+
+	return prr, nil
+}
+
+func findCommitWithAuthorAndEmail(t *testing.T, repo *gogit.Repository, author, email string) error {
+	t.Logf("Looking for commit with author %q and email %q", author, email)
+	log, err := repo.Log(&gogit.LogOptions{Order: gogit.LogOrderCommitterTime})
+	if err != nil {
+		return pkgerrors.Wrap(err, "Failed to walk commits")
+	}
+
+	for commit, err := log.Next(); err == nil; commit, err = log.Next() {
+		if commit.Author.Name == author && commit.Author.Email == email {
+			t.Logf("Commit found (%q)", commit.Hash)
+			return nil
+		} else {
+			t.Logf("Rejecting commit: %v", commit)
+		}
+	}
+
+	return pkgerrors.Errorf("Failed to find commit with author %q, email %q", author, email)
+}
+
+func TestCommitAuthor(t *testing.T) {
+	const (
+		author = "porch"
+		email  = "porch@example.com"
+
+		repoName   = "repo"
+		namespace1 = "default"
+		deployment = false
+
+		packageName = "package"
+		workspace   = "v1"
+	)
+
+	ctx := context.Background()
+
+	testCases := []struct {
+		author   string
+		email    string
+		expected repository.UserInfo
+	}{
+		{
+			author: "",
+			email:  "",
+			expected: repository.UserInfo{
+				Name:  k8sAdmin,
+				Email: k8sAdmin,
+			},
+		},
+		{
+			author: author,
+			email:  "",
+			expected: repository.UserInfo{
+				Name:  author,
+				Email: author,
+			},
+		},
+		{
+			author: "",
+			email:  email,
+			expected: repository.UserInfo{
+				Name:  email,
+				Email: email,
+			},
+		},
+		{
+			author: author,
+			email:  email,
+			expected: repository.UserInfo{
+				Name:  author,
+				Email: email,
+			},
+		},
+	}
+
+	tempdir := t.TempDir()
+	tarfile := filepath.Join("testdata", "trivial-repository.tar")
+	remotepath := filepath.Join(tempdir, "remote")
+	gitRepo, address := ServeGitRepository(t, tarfile, remotepath)
+
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("%q,%q", tc.author, tc.email), func(t *testing.T) {
+			localpath := filepath.Join(tempdir, fmt.Sprintf("local-%d", i))
+			repoSpec := &configapi.GitRepository{
+				Repo:   address,
+				Author: tc.author,
+				Email:  tc.email,
+			}
+			repo, err := OpenRepository(ctx,
+				repoName,
+				namespace1,
+				repoSpec,
+				deployment,
+				localpath,
+				GitRepositoryOptions{
+					ExternalRepoOptions: extrepo.ExternalRepoOptions{
+						UserInfoProvider: makeUserInfoProvider(repoSpec, &mockK8sUsp{}),
+					},
+				},
+			)
+			if err != nil {
+				t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
+			}
+
+			pr := &v1alpha1.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: repoName,
+				},
+				Spec: v1alpha1.PackageRevisionSpec{
+					PackageName:    packageName,
+					WorkspaceName:  workspace,
+					RepositoryName: repoName,
+					Tasks: []v1alpha1.Task{
+						{
+							Type: v1alpha1.TaskTypeInit,
+							Init: &v1alpha1.PackageInitTaskSpec{
+								Description: "Empty Package",
+							},
+						},
+					},
+				},
+			}
+
+			ppr, err := createAndPublishPR(ctx, repo, pr)
+			if err != nil {
+				t.Fatalf("Failed to create and publish package revision: %v", err)
+			}
+
+			if err := findCommitWithAuthorAndEmail(t, gitRepo, tc.expected.Name, tc.expected.Email); err != nil {
+				t.Errorf("Failed to find commit with correct author: %v", err)
+			}
+
+			if err := repo.DeletePackageRevision(ctx, ppr); err != nil {
+				t.Errorf("Failed to delete package revision: %v", err)
+			}
+		})
+	}
+}
+
+func TestMultipleCommitAuthors(t *testing.T) {
+	const (
+		author1 = "porch"
+		email1  = "porch@example.com"
+
+		author2 = "hcrop"
+		email2  = "hcrop@example.com"
+
+		repo1Name  = "repo1"
+		repo2Name  = "repo2"
+		namespace  = "default"
+		deployment = false
+
+		packageName = "package"
+		workspace1  = "v1"
+		workspace2  = "v2"
+	)
+
+	ctx := context.Background()
+
+	tempdir := t.TempDir()
+	tarfile := filepath.Join("testdata", "trivial-repository.tar")
+	remotepath := filepath.Join(tempdir, "remote")
+	gitRepo, address := ServeGitRepository(t, tarfile, remotepath)
+
+	localpath1 := filepath.Join(tempdir, "local-1")
+	repoSpec1 := &configapi.GitRepository{
+		Repo:   address,
+		Author: author1,
+		Email:  email1,
+	}
+	repo1, err := OpenRepository(ctx,
+		repo1Name,
+		namespace,
+		repoSpec1,
+		deployment,
+		localpath1,
+		GitRepositoryOptions{
+			ExternalRepoOptions: extrepo.ExternalRepoOptions{
+				UserInfoProvider: makeUserInfoProvider(repoSpec1, &mockK8sUsp{}),
+			},
+		},
+	)
+
+	if err != nil {
+		t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
+	}
+
+	localpath2 := filepath.Join(tempdir, "local-2")
+	repoSpec2 := &configapi.GitRepository{
+		Repo:   address,
+		Author: author2,
+		Email:  email2,
+	}
+	repo2, err := OpenRepository(ctx,
+		repo2Name,
+		namespace,
+		repoSpec2,
+		deployment,
+		localpath2,
+		GitRepositoryOptions{
+			ExternalRepoOptions: extrepo.ExternalRepoOptions{
+				UserInfoProvider: makeUserInfoProvider(repoSpec2, &mockK8sUsp{}),
+			},
+		},
+	)
+
+	if err != nil {
+		t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
+	}
+
+	pr1 := &v1alpha1.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: repo1Name,
+		},
+		Spec: v1alpha1.PackageRevisionSpec{
+			PackageName:    packageName,
+			WorkspaceName:  workspace1,
+			RepositoryName: repo1Name,
+			Tasks: []v1alpha1.Task{
+				{
+					Type: v1alpha1.TaskTypeInit,
+					Init: &v1alpha1.PackageInitTaskSpec{
+						Description: "Empty Package",
+					},
+				},
+			},
+		},
+	}
+
+	prv1, err := createAndPublishPR(ctx, repo1, pr1)
+	if err != nil {
+		t.Fatalf("Failed to create and publish package revision: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := repo1.DeletePackageRevision(ctx, prv1); err != nil {
+			t.Logf("Failed to delete package revision: %v", err)
+		}
+	})
+
+	pr2 := pr1.DeepCopy()
+	pr2.GenerateName = repo2Name
+	pr2.Spec.WorkspaceName = workspace2
+	pr2.Spec.RepositoryName = repo2Name
+	pr2.Spec.Tasks = []v1alpha1.Task{
+		{
+			Type: v1alpha1.TaskTypeEdit,
+			Edit: &v1alpha1.PackageEditTaskSpec{
+				Source: &v1alpha1.PackageRevisionRef{
+					Name: prv1.KubeObjectName(),
+				},
+			},
+		},
+	}
+
+	prv2, err := createAndPublishPR(ctx, repo2, pr2)
+	if err != nil {
+		t.Fatalf("Failed to create v2: %v", err)
+	}
+
+	t.Cleanup(func() {
+		if err := repo2.DeletePackageRevision(ctx, prv2); err != nil {
+			t.Logf("Failed to delete v2: %v", err)
+		}
+	})
+
+	if err := findCommitWithAuthorAndEmail(t, gitRepo, author1, email1); err != nil {
+		t.Errorf("Failed to find commit with correct author: %v", err)
+	}
+
+	if err := findCommitWithAuthorAndEmail(t, gitRepo, author2, email2); err != nil {
+		t.Errorf("Failed to find commit with correct author: %v", err)
 	}
 }
