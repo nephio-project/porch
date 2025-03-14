@@ -67,7 +67,6 @@ type runner struct {
 	client  client.Client
 	Command *cobra.Command
 
-	stategy  string
 	revision string // Target package revision
 	discover string // If set, discover updates rather than do updates
 
