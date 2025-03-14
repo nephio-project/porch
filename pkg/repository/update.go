@@ -77,7 +77,7 @@ func getUpdater(strategy string) update.Updater {
 	switch strategy {
 	case "fast-forward":
 		return update.FastForwardUpdater{}
-	case "froce-delete-replace":
+	case "force-delete-replace":
 		return update.ReplaceUpdater{}
 	case "copy-merge":
 		return update.CopyMergeUpdater{}
@@ -101,7 +101,6 @@ func (m *DefaultPackageUpdater) do(_ context.Context, localPkgDir, originalPkgDi
 		OriginPath:     originPath,
 		IsRoot:         isRoot,
 	}
-	//fmt.Println("Strategy: ", strategy)
 	updater := getUpdater(strategy)
 	if err := updater.Update(updateOptions); err != nil {
 		return err
