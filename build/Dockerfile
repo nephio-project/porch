@@ -42,6 +42,7 @@ COPY ./pkg ./pkg
 COPY ./internal ./internal
 COPY ./controllers ./controllers
 COPY ./func ./func
+COPY ./third_party ./third_party
 
 RUN go build -v -o /porch ./cmd/porch
 
