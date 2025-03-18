@@ -106,7 +106,7 @@ has repeated slashes:
   prerrstring: ""
   repoerrstring: must consist of lower case alphanumeric characters
   direrrstring: consecutive '/' characters are not allowed
-  pkgerrstring: must consist of lower case alphanumeric characters
+  pkgerrstring: consecutive '/' characters are not allowed
   wserrstring: must consist of lower case alphanumeric characters
 has slashes:
   repo: he/lo
@@ -117,7 +117,7 @@ has slashes:
   prerrstring: ""
   repoerrstring: must consist of lower case alphanumeric characters
   direrrstring: ""
-  pkgerrstring: must consist of lower case alphanumeric characters
+  pkgerrstring: ""
   wserrstring: must consist of lower case alphanumeric characters
 has uppercase alphanumeric characters:
   repo: hElLo

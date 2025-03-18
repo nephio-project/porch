@@ -16,6 +16,7 @@ package git
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/go-git/go-git/v5/config"
@@ -121,15 +122,15 @@ func getTagNameInLocalRepo(n plumbing.ReferenceName) (string, bool) {
 }
 
 func createDraftName(key repository.PackageRevisionKey) BranchName {
-	return BranchName(draftsPrefix + key.PkgKey.ToFullPathname() + "/" + string(key.WorkspaceName))
+	return BranchName(draftsPrefix + filepath.Join(key.PkgKey.ToFullPathname(), string(key.WorkspaceName)))
 }
 
 func createProposedName(key repository.PackageRevisionKey) BranchName {
-	return BranchName(proposedPrefix + key.PkgKey.ToFullPathname() + "/" + string(key.WorkspaceName))
+	return BranchName(proposedPrefix + filepath.Join(key.PkgKey.ToFullPathname(), string(key.WorkspaceName)))
 }
 
 func createDeletionProposedName(key repository.PackageRevisionKey) BranchName {
-	return BranchName(deletionProposedPrefix + key.PkgKey.ToFullPathname() + "/v" + repository.Revision2Str(key.Revision))
+	return BranchName(deletionProposedPrefix + filepath.Join(key.PkgKey.ToFullPathname(), "/v"+repository.Revision2Str(key.Revision)))
 }
 
 func trimOptionalPrefix(s, prefix string) (string, bool) {
@@ -140,7 +141,7 @@ func trimOptionalPrefix(s, prefix string) (string, bool) {
 }
 
 func createFinalTagNameInLocal(key repository.PackageRevisionKey) plumbing.ReferenceName {
-	return plumbing.ReferenceName(tagsPrefixInLocalRepo + key.PkgKey.ToFullPathname() + "/v" + repository.Revision2Str(key.Revision))
+	return plumbing.ReferenceName(tagsPrefixInLocalRepo + filepath.Join(key.PkgKey.ToFullPathname(), "/v"+repository.Revision2Str(key.Revision)))
 }
 
 func refInLocalFromRefInRemote(n plumbing.ReferenceName) (plumbing.ReferenceName, error) {

@@ -139,7 +139,7 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 		branch = BranchName(spec.Branch)
 	}
 
-	if err := util.ValidateDirectoryName(string(branch)); err != nil {
+	if err := util.ValidateDirectoryName(string(branch), false); err != nil {
 		return nil, fmt.Errorf("branch name %s invalid: %v", branch, err)
 	}
 
@@ -414,10 +414,7 @@ func (r *gitRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1
 	}
 
 	draftKey := repository.PackageRevisionKey{
-		PkgKey: repository.PackageKey{
-			RepoKey: r.Key(),
-			Package: obj.Spec.PackageName,
-		},
+		PkgKey:        repository.FromFullPathname(r.Key(), obj.Spec.PackageName),
 		WorkspaceName: obj.Spec.WorkspaceName,
 	}
 
@@ -730,13 +727,13 @@ func (r *gitRepository) loadDraft(ctx context.Context, ref *plumbing.Reference) 
 	ctx, span := tracer.Start(ctx, "gitRepository::loadDraft", trace.WithAttributes())
 	defer span.End()
 
-	name, workspaceName, err := parseDraftName(ref)
+	pkgPathAndName, workspaceName, err := parseDraftName(ref)
 	if err != nil {
 		return nil, err
 	}
 
 	// Only load drafts in the directory specified at repository registration.
-	if !packageInDirectory(name, r.Key().Path) {
+	if !packageInDirectory(pkgPathAndName, r.Key().Path) {
 		return nil, nil
 	}
 
@@ -745,13 +742,13 @@ func (r *gitRepository) loadDraft(ctx context.Context, ref *plumbing.Reference) 
 		return nil, pkgerrors.Wrap(err, "cannot resolve draft branch to commit (corrupted repository?)")
 	}
 
-	krmPackage, err := r.findPackage(commit, name)
+	krmPackage, err := r.findPackage(commit, pkgPathAndName)
 	if err != nil {
 		return nil, err
 	}
 
 	if krmPackage == nil {
-		klog.Warningf("draft package %q was not found", name)
+		klog.Warningf("draft package %q was not found", pkgPathAndName)
 		return nil, nil
 	}
 
@@ -800,7 +797,7 @@ func (r *gitRepository) updateDeletionProposedCache() error {
 	return nil
 }
 
-func parseDraftName(draft *plumbing.Reference) (name, workspaceName string, err error) {
+func parseDraftName(draft *plumbing.Reference) (pkgPathAndName string, workspaceName v1alpha1.WorkspaceName, err error) {
 	refName := draft.Name()
 	var suffix string
 	if b, ok := getDraftBranchNameInLocal(refName); ok {
@@ -815,8 +812,8 @@ func parseDraftName(draft *plumbing.Reference) (name, workspaceName string, err 
 	if revIndex <= 0 {
 		return "", "", fmt.Errorf("invalid draft ref name; missing workspaceName suffix: %q", refName)
 	}
-	name, workspaceName = suffix[:revIndex], suffix[revIndex+1:]
-	return name, workspaceName, nil
+	pkgPathAndName, workspaceName = suffix[:revIndex], v1alpha1.WorkspaceName(suffix[revIndex+1:])
+	return pkgPathAndName, workspaceName, nil
 }
 
 func (r *gitRepository) loadTaggedPackage(ctx context.Context, tag *plumbing.Reference) (*gitPackageRevision, error) {
@@ -832,8 +829,7 @@ func (r *gitRepository) loadTaggedPackage(ctx context.Context, tag *plumbing.Ref
 	if slash < 0 {
 		// tag=<version>
 		// could be a release tag or something else, we ignore these types of tags
-		return nil, pkgerrors.Errorf("could not find slash in %q", name)
-
+		return nil, nil
 	}
 
 	// tag=<package path>/version

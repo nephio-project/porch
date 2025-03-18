@@ -190,6 +190,11 @@ func (t *TestSuite) IsPorchServerInCluster() bool {
 }
 
 func (t *TestSuite) IsTestRunnerInCluster() bool {
+	runLocally := os.Getenv("RUN_E2E_LOCALLY")
+	if strings.ToLower(runLocally) == "true" {
+		return false
+	}
+
 	porch := aggregatorv1.APIService{}
 	ctx := context.TODO()
 	t.GetF(client.ObjectKey{

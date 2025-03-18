@@ -122,7 +122,7 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 			},
 		},
 		Spec: v1alpha1.PackageRevisionSpec{
-			PackageName:    key.PkgKey.ToFullPathname(),
+			PackageName:    key.PkgKey.ToPkgPathname(),
 			RepositoryName: key.PkgKey.RepoKey.Name,
 			Lifecycle:      p.Lifecycle(ctx),
 			Tasks:          p.tasks,
@@ -156,7 +156,7 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 			OwnerReferences: []metav1.OwnerReference{}, // TODO: should point to repository resource
 		},
 		Spec: v1alpha1.PackageRevisionResourcesSpec{
-			PackageName:    p.Key().PkgKey.ToFullPathname(),
+			PackageName:    p.Key().PkgKey.ToPkgPathname(),
 			WorkspaceName:  p.Key().WorkspaceName,
 			Revision:       p.Key().Revision,
 			RepositoryName: p.Key().PkgKey.RepoKey.Name,
@@ -240,14 +240,14 @@ func (p *gitPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, 
 			Type: kptfile.GitOrigin,
 			Git: &kptfile.Git{
 				Repo:      repo,
-				Directory: p.prKey.PkgKey.RepoKey.Path,
+				Directory: p.prKey.PkgKey.ToPkgPathname(),
 				Ref:       ref.Short(),
 			},
 		}, kptfile.UpstreamLock{
 			Type: kptfile.GitOrigin,
 			Git: &kptfile.GitLock{
 				Repo:      repo,
-				Directory: p.prKey.PkgKey.RepoKey.Path,
+				Directory: p.prKey.PkgKey.ToPkgPathname(),
 				Ref:       ref.Short(),
 				Commit:    p.commit.String(),
 			},

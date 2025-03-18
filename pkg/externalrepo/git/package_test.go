@@ -98,7 +98,7 @@ func (g GitSuite) TestLock(t *testing.T) {
 			Ref:       upstream.Git.Ref,
 		}), (gitAddress{
 			Repo:      address,
-			Directory: key.PkgKey.RepoKey.Path,
+			Directory: key.PkgKey.ToFullPathname(),
 			Ref:       wantRef,
 		}); !cmp.Equal(want, got) {
 			t.Errorf("Package upstream differs (-want,+got): %s", cmp.Diff(want, got))
@@ -111,7 +111,7 @@ func (g GitSuite) TestLock(t *testing.T) {
 			Ref:       lock.Git.Ref,
 		}), (gitAddress{
 			Repo:      address,
-			Directory: key.PkgKey.RepoKey.Path,
+			Directory: key.PkgKey.ToFullPathname(),
 			Ref:       wantRef,
 		}); !cmp.Equal(want, got) {
 			t.Errorf("Package upstream lock differs (-want,+got): %s", cmp.Diff(want, got))

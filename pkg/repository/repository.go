@@ -71,23 +71,28 @@ func (k PackageKey) String() string {
 	return fmt.Sprintf("%s:%s:%s", k.RepoKey.String(), k.Path, k.Package)
 }
 
-func (k PackageKey) ToFullPathname() string {
+func (k PackageKey) ToPkgPathname() string {
 	return filepath.Join(k.Path, k.Package)
 }
 
+func (k PackageKey) ToFullPathname() string {
+	return filepath.Join(k.RepoKey.Path, k.Path, k.Package)
+}
+
 func FromFullPathname(repoKey RepositoryKey, fullpath string) PackageKey {
-	slashIndex := strings.LastIndex(fullpath, "/")
+	pkgPath := strings.Trim(strings.TrimPrefix(fullpath, repoKey.Path), "/")
+	slashIndex := strings.LastIndex(pkgPath, "/")
 
 	if slashIndex >= 0 {
 		return PackageKey{
 			RepoKey: repoKey,
-			Path:    fullpath[:slashIndex],
-			Package: fullpath[slashIndex+1:],
+			Path:    pkgPath[:slashIndex],
+			Package: pkgPath[slashIndex+1:],
 		}
 	} else {
 		return PackageKey{
 			RepoKey: repoKey,
-			Package: fullpath,
+			Package: pkgPath,
 		}
 	}
 }

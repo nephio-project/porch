@@ -99,14 +99,14 @@ func ValidateK8SName(k8sName string) error {
 	return nil
 }
 
-func ValidateDirectoryName(directory string) error {
+func ValidateDirectoryName(directory string, mandatory bool) error {
 	// A directory must follow the rules for RFC 1123 DNS labels except that we allow '/' characters
 	var dirErrs []string
 	if strings.Contains(directory, "//") {
 		dirErrs = append(dirErrs, "consecutive '/' characters are not allowed")
 	}
 	dirNoSlash := strings.ReplaceAll(directory, "/", "")
-	if len(dirNoSlash) > 0 {
+	if mandatory || len(dirNoSlash) > 0 {
 		dirErrs = append(dirErrs, validation.IsDNS1123Label(dirNoSlash)...)
 	} else {
 		// The directory is "/"
@@ -124,7 +124,7 @@ func ValidateRepository(repoName, directory string) error {
 	// The repo name must follow the rules for RFC 1123 DNS labels
 	nameErrs := validation.IsDNS1123Label(repoName)
 
-	dirErr := ValidateDirectoryName(directory)
+	dirErr := ValidateDirectoryName(directory, false)
 
 	if nameErrs == nil && dirErr == nil {
 		return nil
@@ -157,7 +157,7 @@ func ValidPkgRevObjName(repoName, path, packageName, workspace string) error {
 		errSlice = append(errSlice, err.Error())
 	}
 
-	if err := ValidateK8SName(packageName); err != nil {
+	if err := ValidateDirectoryName(packageName, true); err != nil {
 		errSlice = append(errSlice, "package name "+packageName+invalidConst+err.Error()+"\n")
 	}
 

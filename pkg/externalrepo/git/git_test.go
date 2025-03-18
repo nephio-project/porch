@@ -1159,6 +1159,9 @@ func createPackageRevisionMap(revisions []repository.PackageRevision) map[string
 	result := map[string]bool{}
 	for _, pr := range revisions {
 		key := pr.Key()
+		if key.PkgKey.Path != "" { // Ignore sub-paths in packages
+			continue
+		}
 		if key.WorkspaceName != "" {
 			result[fmt.Sprintf("%s/%s", key.PkgKey.Package, key.WorkspaceName)] = true
 		} else {
@@ -1180,18 +1183,26 @@ func (g GitSuite) TestNestedDirectories(t *testing.T) {
 	ctx := context.Background()
 
 	for _, tc := range []struct {
+		repoName  string
 		directory string
 		packages  []string
 	}{
 		{
-			directory: "sample",
-			packages:  []string{"sample/v1", "sample/v2", "sample/" + g.branch},
+			repoName:  "sample",
+			directory: "",
+			packages: []string{
+				"sample/v1",
+				"sample/v2",
+				"sample/" + g.branch,
+			},
 		},
 		{
+			repoName:  "nonexistent",
 			directory: "nonexistent",
 			packages:  []string{},
 		},
 		{
+			repoName:  "catalog/gcp",
 			directory: "catalog/gcp",
 			packages: []string{
 				"cloud-sql/v1",
@@ -1202,7 +1213,7 @@ func (g GitSuite) TestNestedDirectories(t *testing.T) {
 			},
 		},
 	} {
-		t.Run(tc.directory, func(t *testing.T) {
+		t.Run(tc.repoName, func(t *testing.T) {
 			tempdir := t.TempDir()
 			tarfile := filepath.Join("testdata", "nested-repository.tar")
 			_, address := ServeGitRepositoryWithBranch(t, tarfile, tempdir, g.branch)
