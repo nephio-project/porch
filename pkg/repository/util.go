@@ -16,7 +16,6 @@ package repository
 
 import (
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -64,33 +63,6 @@ func toApiConditionStatus(s kptfile.ConditionStatus) api.ConditionStatus {
 	default:
 		panic(fmt.Errorf("unknown condition status: %v", s))
 	}
-}
-
-// ValidateWorkspaceName validates WorkspaceName. It must:
-//   - be at least 1 and at most 63 characters long
-//   - contain only lowercase alphanumeric characters or '-'
-//   - start and end with an alphanumeric character.
-//
-// '/ ' should never be allowed, because we use '/' to
-// delimit branch names (e.g. the 'drafts/' prefix).
-func ValidateWorkspaceName(workspace api.WorkspaceName) error {
-	wn := string(workspace)
-	if len(wn) > 63 || len(wn) == 0 {
-		return fmt.Errorf("workspaceName %q must be at least 1 and at most 63 characters long", wn)
-	}
-	if strings.HasPrefix(wn, "-") || strings.HasSuffix(wn, "-") {
-		return fmt.Errorf("workspaceName %q must start and end with an alphanumeric character", wn)
-	}
-
-	match, err := regexp.MatchString(`^[a-z0-9-]+$`, wn)
-	if err != nil {
-		return err
-	}
-	if !match {
-		return fmt.Errorf("workspaceName %q must be comprised only of lowercase alphanumeric characters and '-'", wn)
-	}
-
-	return nil
 }
 
 // AnyBlockOwnerDeletionSet checks whether there are any ownerReferences in the Object
