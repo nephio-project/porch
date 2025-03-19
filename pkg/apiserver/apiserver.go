@@ -217,7 +217,7 @@ func (c completedConfig) New() (*PorchServer, error) {
 
 	resolverChain := []porch.Resolver{
 		porch.NewBasicAuthResolver(),
-		porch.NewTokenAuthResolver(),
+		porch.NewBearerTokenAuthResolver(),
 		porch.NewCaBundleResolver(),
 		porch.NewGcloudWIResolver(coreV1Client, stsClient),
 	}

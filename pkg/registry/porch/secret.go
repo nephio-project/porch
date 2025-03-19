@@ -17,7 +17,6 @@ package porch
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/go-git/go-git/v5/plumbing/transport"
@@ -42,11 +41,11 @@ const (
 	// Annotation used to specify the gsa for a ksa.
 	WIGCPSAAnnotation = "iam.gke.io/gcp-service-account"
 
-	//Secret.Data key required for the caBundle
+	// Secret.Data key required for the caBundle
 	CaBundleDataName = "ca.crt"
 
-	//Secret.Data key substring required for the token
-	TokenDataName = "token"
+	// Secret.Data key required for bearer token authentication
+	TokenDataName = "bearerToken"
 )
 
 func NewCredentialResolver(coreClient client.Reader, resolverChain []Resolver) repository.CredentialResolver {
@@ -147,47 +146,42 @@ func (b *BasicAuthCredential) ToAuthMethod() transport.AuthMethod {
 	}
 }
 
-// token based secret verification
-// same as basic auth e.g. username:password
-// but in token based auth username does not matter and password is the token itself
-func NewTokenAuthResolver() Resolver {
-	return &TokenAuthResolver{}
+// Bearer Token Secret Verification
+func NewBearerTokenAuthResolver() Resolver {
+	return &BearerTokenAuthResolver{}
 }
 
-var _ Resolver = &TokenAuthResolver{}
+var _ Resolver = &BearerTokenAuthResolver{}
 
-type TokenAuthResolver struct{}
+type BearerTokenAuthResolver struct{}
 
-type TokenAuthCredentials struct {
-	Username string
-	Password string
+type BearerTokenAuthCredentials struct {
+	BearerToken string
 }
 
-func (b *TokenAuthResolver) Resolve(_ context.Context, secret core.Secret) (repository.Credential, bool, error) {
-	if secret.Data[strings.ToLower(TokenDataName)] == nil && secret.Type == core.SecretTypeOpaque{
-		return nil, false, fmt.Errorf("Token secret.Data key must be set as %s", TokenDataName)
+func (b *BearerTokenAuthResolver) Resolve(_ context.Context, secret core.Secret) (repository.Credential, bool, error) {
+	if secret.Data[TokenDataName] == nil && secret.Type == core.SecretTypeOpaque {
+		return nil, false, fmt.Errorf("Bearer Token secret.Data key must be set as %s", TokenDataName)
 	}
 
-	return &TokenAuthCredentials{
-		Username: string("Username"),
-		Password: string(secret.Data[TokenDataName]),
+	return &BearerTokenAuthCredentials{
+		BearerToken: string(secret.Data[TokenDataName]),
 	}, true, nil
 }
 
-func (b *TokenAuthCredentials) ToString() string {
-	return b.Password
+func (b *BearerTokenAuthCredentials) ToString() string {
+	return b.BearerToken
 }
 
-var _ repository.Credential = &TokenAuthCredentials{}
+var _ repository.Credential = &BearerTokenAuthCredentials{}
 
-func (b *TokenAuthCredentials) Valid() bool {
+func (b *BearerTokenAuthCredentials) Valid() bool {
 	return true
 }
 
-func (b *TokenAuthCredentials) ToAuthMethod() transport.AuthMethod {
-	return &http.BasicAuth{
-		Username: string(b.Username),
-		Password: string(b.Password),
+func (b *BearerTokenAuthCredentials) ToAuthMethod() transport.AuthMethod {
+	return &http.TokenAuth{
+		Token: string(b.BearerToken),
 	}
 }
 

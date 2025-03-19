@@ -131,12 +131,13 @@ func TestTokenCredentialResolver(t *testing.T) {
 				},
 				Type: core.SecretTypeOpaque,
 				Data: map[string][]byte{
-					"token": []byte("d895131d6f99a3b65f4730e57a5989e8179be6b2"),
+					"thing-token": []byte("other things"),
+					"bearerToken": []byte("d895131d6f99a3b65f4730e57a5989e8179be6b2"),
+					"stuff":       []byte("random"),
 				},
 			},
-			expectedCredential: &TokenAuthCredentials{
-				Username: "Username",
-				Password: "d895131d6f99a3b65f4730e57a5989e8179be6b2",
+			expectedCredential: &BearerTokenAuthCredentials{
+				BearerToken: "d895131d6f99a3b65f4730e57a5989e8179be6b2",
 			},
 		},
 		"secret has invalid Data key": {
@@ -151,7 +152,7 @@ func TestTokenCredentialResolver(t *testing.T) {
 				},
 			},
 			expectedCredential: nil,
-			expectedErrString:  "error resolving credential: Token secret.Data key must be set as token",
+			expectedErrString:  "error resolving credential: Bearer Token secret.Data key must be set as bearerToken",
 		},
 	}
 
@@ -163,7 +164,7 @@ func TestTokenCredentialResolver(t *testing.T) {
 				expectedErr:    tc.readerErr,
 			}
 			credResolver := NewCredentialResolver(reader, []Resolver{
-				NewTokenAuthResolver(),
+				NewBearerTokenAuthResolver(),
 				&fakeResolver{
 					credential: tc.resolverCredential,
 					resolved:   tc.resolverResolved,
@@ -179,9 +180,8 @@ func TestTokenCredentialResolver(t *testing.T) {
 			if cred != nil {
 				assert.Equal(t, cred.ToString(), "d895131d6f99a3b65f4730e57a5989e8179be6b2")
 				assert.Equal(t, cred.Valid(), true)
-				assert.Equal(t, cred.ToAuthMethod(), &http.BasicAuth{
-					Username: string("Username"),
-					Password: string("d895131d6f99a3b65f4730e57a5989e8179be6b2"),
+				assert.Equal(t, cred.ToAuthMethod(), &http.TokenAuth{
+					Token: string("d895131d6f99a3b65f4730e57a5989e8179be6b2"),
 				})
 			}
 		})
