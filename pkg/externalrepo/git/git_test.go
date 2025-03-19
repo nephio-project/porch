@@ -1358,7 +1358,7 @@ func TestCommitAuthor(t *testing.T) {
 			email:  "",
 			expected: repository.UserInfo{
 				Name:  author,
-				Email: author,
+				Email: "",
 			},
 		},
 		{

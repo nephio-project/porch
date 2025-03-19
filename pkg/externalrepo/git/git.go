@@ -186,9 +186,6 @@ func makeUserInfoProvider(spec *configapi.GitRepository, def repository.UserInfo
 		if ui.Author == "" {
 			ui.Author = spec.Email
 		}
-		if ui.Email == "" {
-			ui.Email = spec.Author
-		}
 		return ui
 	}
 	return def
