@@ -16,7 +16,6 @@ package crcache
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -24,8 +23,9 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
@@ -266,7 +266,7 @@ func (r *cachedRepository) createMainPackageRevision(ctx context.Context, update
 				Repository:    updatedMain.Key().Repository,
 				Package:       updatedMain.Key().Package,
 				Revision:      updatedMain.Key().Revision,
-				WorkspaceName: v1alpha1.WorkspaceName(string(pkgRevKey.WorkspaceName)),
+				WorkspaceName: pkgRevKey.WorkspaceName,
 			}
 			delete(r.cachedPackageRevisions, oldMainKey)
 		}
@@ -281,7 +281,7 @@ func (r *cachedRepository) createMainPackageRevision(ctx context.Context, update
 
 	// Create the package if it doesn't exist
 	_, err := r.options.MetadataStore.Get(ctx, pkgRevMetaNN)
-	if errors.IsNotFound(err) {
+	if apierrors.IsNotFound(err) {
 		pkgRevMeta := metav1.ObjectMeta{
 			Name:      updatedMain.KubeObjectName(),
 			Namespace: updatedMain.KubeObjectNamespace(),
@@ -460,7 +460,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 	// TODO: Can we avoid holding the lock for the ListPackageRevisions / identifyLatestRevisions section?
 	newPackageRevisions, err := r.repo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	if err != nil {
-		return nil, nil, fmt.Errorf("error listing packages: %w", err)
+		return nil, nil, errors.Wrap(err, "error listing packages")
 	}
 
 	// Build mapping from kubeObjectName to PackageRevisions for new PackageRevisions.
@@ -495,7 +495,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 				Name:      prm.Name,
 				Namespace: prm.Namespace,
 			}, true); err != nil {
-				if !errors.IsNotFound(err) {
+				if !apierrors.IsNotFound(err) {
 					// This will be retried the next time the sync runs.
 					klog.Warningf("repo %s: unable to delete PackageRev CR for %s/%s: %v",
 						r.id, prm.Name, prm.Namespace, err)

@@ -60,9 +60,9 @@ func (g GitSuite) TestLock(t *testing.T) {
 		{Repository: repositoryName, Package: "istions", Revision: "v1", WorkspaceName: "v1"}: "istions/v1",
 		{Repository: repositoryName, Package: "istions", Revision: "v2", WorkspaceName: "v2"}: "istions/v2",
 
-		{Repository: repositoryName, Package: "basens", Revision: g.branch, WorkspaceName: v1alpha1.WorkspaceName(g.branch)}:  g.branch,
-		{Repository: repositoryName, Package: "empty", Revision: g.branch, WorkspaceName: v1alpha1.WorkspaceName(g.branch)}:   g.branch,
-		{Repository: repositoryName, Package: "istions", Revision: g.branch, WorkspaceName: v1alpha1.WorkspaceName(g.branch)}: g.branch,
+		{Repository: repositoryName, Package: "basens", Revision: g.branch, WorkspaceName: g.branch}:  g.branch,
+		{Repository: repositoryName, Package: "empty", Revision: g.branch, WorkspaceName: g.branch}:   g.branch,
+		{Repository: repositoryName, Package: "istions", Revision: g.branch, WorkspaceName: g.branch}: g.branch,
 	}
 
 	for _, rev := range revisions {

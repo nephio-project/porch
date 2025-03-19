@@ -4,3 +4,5 @@ simple-repository/
 drafts-repository/
 nested-repository/
 publishinfo-repository/
+manual-tagged-repository/
+nested-repository-with-invalid-kpt-annotation/

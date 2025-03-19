@@ -308,7 +308,7 @@ func (t *TestSuite) CreatePackageSkeleton(repoName, packageName, workspace strin
 		},
 		Spec: porchapi.PackageRevisionSpec{
 			PackageName:    packageName,
-			WorkspaceName:  porchapi.WorkspaceName(workspace),
+			WorkspaceName:  workspace,
 			RepositoryName: repoName,
 			// empty tasks list - set them as needed in the particular usage
 			Tasks: []porchapi.Task{},

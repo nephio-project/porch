@@ -36,6 +36,7 @@ import (
 	extrepo "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	pkgerrors "github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 )
@@ -562,9 +563,9 @@ func (g GitSuite) TestListPackagesSimple(t *testing.T) {
 		// TODO: may want to filter these out, for example by including only those package
 		// revisions from main branch that differ in content (their tree hash) from another
 		// taged revision of the package.
-		{Repository: "simple", Package: "empty", Revision: g.branch, WorkspaceName: v1alpha1.WorkspaceName(g.branch)}:   v1alpha1.PackageRevisionLifecyclePublished,
-		{Repository: "simple", Package: "basens", Revision: g.branch, WorkspaceName: v1alpha1.WorkspaceName(g.branch)}:  v1alpha1.PackageRevisionLifecyclePublished,
-		{Repository: "simple", Package: "istions", Revision: g.branch, WorkspaceName: v1alpha1.WorkspaceName(g.branch)}: v1alpha1.PackageRevisionLifecyclePublished,
+		{Repository: "simple", Package: "empty", Revision: g.branch, WorkspaceName: g.branch}:   v1alpha1.PackageRevisionLifecyclePublished,
+		{Repository: "simple", Package: "basens", Revision: g.branch, WorkspaceName: g.branch}:  v1alpha1.PackageRevisionLifecyclePublished,
+		{Repository: "simple", Package: "istions", Revision: g.branch, WorkspaceName: g.branch}: v1alpha1.PackageRevisionLifecyclePublished,
 	}
 
 	got := map[repository.PackageRevisionKey]v1alpha1.PackageRevisionLifecycle{}
@@ -625,9 +626,9 @@ func (g GitSuite) TestListPackagesDrafts(t *testing.T) {
 		{Repository: "drafts", Package: "pkg-with-history", WorkspaceName: "v1"}: v1alpha1.PackageRevisionLifecycleDraft,
 
 		// TODO: filter main branch out? see above
-		{Repository: "drafts", Package: "basens", WorkspaceName: v1alpha1.WorkspaceName(g.branch), Revision: g.branch}:  v1alpha1.PackageRevisionLifecyclePublished,
-		{Repository: "drafts", Package: "empty", WorkspaceName: v1alpha1.WorkspaceName(g.branch), Revision: g.branch}:   v1alpha1.PackageRevisionLifecyclePublished,
-		{Repository: "drafts", Package: "istions", WorkspaceName: v1alpha1.WorkspaceName(g.branch), Revision: g.branch}: v1alpha1.PackageRevisionLifecyclePublished,
+		{Repository: "drafts", Package: "basens", WorkspaceName: g.branch, Revision: g.branch}:  v1alpha1.PackageRevisionLifecyclePublished,
+		{Repository: "drafts", Package: "empty", WorkspaceName: g.branch, Revision: g.branch}:   v1alpha1.PackageRevisionLifecyclePublished,
+		{Repository: "drafts", Package: "istions", WorkspaceName: g.branch, Revision: g.branch}: v1alpha1.PackageRevisionLifecyclePublished,
 	}
 
 	got := map[repository.PackageRevisionKey]v1alpha1.PackageRevisionLifecycle{}
@@ -1261,7 +1262,7 @@ func (g GitSuite) TestAuthor(t *testing.T) {
 			draftPkg := findPackageRevision(t, revisions, repository.PackageRevisionKey{
 				Repository:    repositoryName,
 				Package:       tc.pkg,
-				WorkspaceName: v1alpha1.WorkspaceName(tc.workspace),
+				WorkspaceName: tc.workspace,
 				Revision:      tc.revision,
 			})
 			rev, err := draftPkg.GetPackageRevision(ctx)
@@ -1277,6 +1278,131 @@ func (g GitSuite) TestAuthor(t *testing.T) {
 			}
 
 		})
+	}
+}
+
+func TestDiscoverManuallyTaggedPackageWithTagMessage(t *testing.T) {
+	ctx := context.Background()
+	tempdir := t.TempDir()
+	tarfile := filepath.Join("testdata", "manual-tagged-repository.tar")
+	_, address := ServeGitRepository(t, tarfile, tempdir)
+
+	const (
+		repositoryName = "blueprint"
+		namespace      = "default"
+		deployment     = false
+		packageName    = "pkg"
+	)
+
+	git, err := OpenRepository(ctx, repositoryName, namespace, &configapi.GitRepository{
+		Repo: address,
+	}, deployment, tempdir, GitRepositoryOptions{})
+	if err != nil {
+		t.Fatalf("Failed to open Git repository loaded from %q: %v", tarfile, err)
+	}
+
+	expectedRevisions := []string{"main", "v1", "v2"}
+
+	prs, err := git.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
+	if err != nil {
+		t.Fatalf("ListPackageRevisions failed: %v", err)
+	}
+
+	for _, pr := range prs {
+		gitpr, err := pr.GetPackageRevision(ctx)
+		if err != nil {
+			t.Errorf("GetPackageRevision failed for %q: %v", pr.KubeObjectName(), err)
+			continue
+		}
+
+		assert.Equal(t, packageName, gitpr.Spec.PackageName)
+		assert.Contains(t, expectedRevisions, gitpr.Spec.Revision)
+	}
+}
+
+func TestDiscoverWithBadKptAnnotationFromNestedRepository(t *testing.T) {
+	ctx := context.Background()
+	tempdir := t.TempDir()
+	tarfile := filepath.Join("testdata", "nested-repository-with-invalid-kpt-annotation.tar")
+	_, address := ServeGitRepository(t, tarfile, tempdir)
+
+	const (
+		repositoryName = "blueprint"
+		directory      = "blueprint"
+		namespace      = "default"
+		deployment     = false
+	)
+
+	expectedRevisions := map[string][]string{
+		"bp1": {"main", "v1", "v2", "v3"},
+		"bp2": {"main", "v1", "v2"},
+	}
+
+	git, err := OpenRepository(ctx, repositoryName, namespace, &configapi.GitRepository{
+		Repo:      address,
+		Directory: directory,
+	}, deployment, tempdir, GitRepositoryOptions{})
+	if err != nil {
+		t.Fatalf("Failed to open Git repository loaded from %q and directory %q: %v", tarfile, directory, err)
+	}
+
+	for _, packageName := range []string{"bp1", "bp2"} {
+		prs, err := git.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{Package: packageName})
+		if err != nil {
+			t.Errorf("ListPackageRevisions failed for package %s: %v", packageName, err)
+			continue
+		}
+
+		for _, pr := range prs {
+			gitpr, err := pr.GetPackageRevision(ctx)
+			if err != nil {
+				t.Errorf("GetPackageRevision failed for %q: %v", pr.KubeObjectName(), err)
+				continue
+			}
+
+			assert.Contains(t, expectedRevisions[packageName], gitpr.Spec.Revision)
+		}
+	}
+}
+
+func TestDiscoverWithBadKptAnnotationFromNestedRepositoryFromUnrelatedSubRepository(t *testing.T) {
+	ctx := context.Background()
+	tempdir := t.TempDir()
+	tarfile := filepath.Join("testdata", "nested-repository-with-invalid-kpt-annotation.tar")
+	_, address := ServeGitRepository(t, tarfile, tempdir)
+
+	const (
+		repositoryName = "blueprint2"
+		directory      = "blueprint2"
+		namespace      = "default"
+		deployment     = false
+		packageName    = "bp10"
+	)
+
+	expectedRevisions := []string{"main", "v1"}
+
+	git, err := OpenRepository(ctx, repositoryName, namespace, &configapi.GitRepository{
+		Repo:      address,
+		Directory: directory,
+	}, deployment, tempdir, GitRepositoryOptions{})
+	if err != nil {
+		t.Fatalf("Failed to open Git repository loaded from %q and directory %q: %v", tarfile, directory, err)
+	}
+
+	prs, err := git.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
+	if err != nil {
+		t.Fatalf("ListPackageRevisions failed: %v", err)
+	}
+
+	for _, pr := range prs {
+		gitpr, err := pr.GetPackageRevision(ctx)
+		if err != nil {
+			t.Errorf("GetPackageRevision failed for %q: %v", pr.KubeObjectName(), err)
+			continue
+		}
+
+		assert.Contains(t, expectedRevisions, gitpr.Spec.Revision)
+		assert.Equal(t, packageName, gitpr.Spec.PackageName)
 	}
 }
 
