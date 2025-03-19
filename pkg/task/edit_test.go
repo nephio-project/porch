@@ -42,7 +42,7 @@ func TestEdit(t *testing.T) {
 				Package: pkg,
 			},
 			Revision:      revision,
-			WorkspaceName: v1alpha1.WorkspaceName(workspace),
+			WorkspaceName: workspace,
 		},
 		PackageLifecycle: v1alpha1.PackageRevisionLifecyclePublished,
 		Resources: &v1alpha1.PackageRevisionResources{

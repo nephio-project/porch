@@ -225,3 +225,10 @@ func GenerateUid(prefix string, kubeNs string, kubeName string) types.UID {
 	buff.WriteString(strings.ToLower(kubeName))
 	return types.UID(uuid.NewSHA1(space, buff.Bytes()).String())
 }
+
+func SafeReverse[S ~[]E, E any](s S) {
+	if s == nil {
+		return
+	}
+	slices.Reverse(s)
+}

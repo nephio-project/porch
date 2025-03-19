@@ -296,7 +296,7 @@ func (r *ociRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 		return nil, fmt.Errorf("error getting config file: %w", err)
 	}
 
-	return p.parent.buildPackageRevision(ctx, digestName, p.Key().PkgKey.Package, v1alpha1.WorkspaceName(p.tag.TagStr()), revision, configFile.Created.Time)
+	return p.parent.buildPackageRevision(ctx, digestName, p.Key().PkgKey.Package, p.tag.TagStr(), revision, configFile.Created.Time)
 }
 
 func constructResourceVersion(t time.Time) string {

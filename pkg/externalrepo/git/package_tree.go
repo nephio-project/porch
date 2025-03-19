@@ -16,7 +16,6 @@ package git
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"path"
 	"time"
@@ -24,7 +23,6 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/filemode"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"k8s.io/klog/v2"
 )
@@ -55,7 +53,7 @@ type packageListEntry struct {
 
 // buildGitPackageRevision creates a gitPackageRevision for the packageListEntry
 // TODO: Can packageListEntry just _be_ a gitPackageRevision?
-func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revisionStr string, workspace v1alpha1.WorkspaceName, ref *plumbing.Reference) (*gitPackageRevision, error) {
+func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revisionStr, workspace string, ref *plumbing.Reference) (*gitPackageRevision, error) {
 	repo := p.parent.parent
 
 	var updated time.Time
@@ -81,7 +79,7 @@ func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revision
 			updated = commit.Author.When
 			updatedBy = commit.Author.Email
 		} else {
-			klog.Warningf("Cannot find latest package commit for package %s/%s: %s", p.path, revision, err)
+			klog.Warningf("Cannot find latest package commit for package %s/%s: %s", p.pkgKey.String(), revisionStr, err)
 		}
 		// If not commit was found with the porch commit tags, we don't really
 		// know who approved the package or when it happend. We could find this
@@ -96,9 +94,9 @@ func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revision
 	revision := repository.Revision2Int(revisionStr)
 	if workspace == "" {
 		if revision == -1 {
-			workspace = v1alpha1.WorkspaceName(revisionStr)
+			workspace = revisionStr
 		} else {
-			workspace = "v" + v1alpha1.WorkspaceName(repository.Revision2Str(revision))
+			workspace = "v" + repository.Revision2Str(revision)
 		}
 	}
 

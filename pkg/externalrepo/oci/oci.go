@@ -161,7 +161,7 @@ func (r *ociRepository) ListPackageRevisions(ctx context.Context, filter reposit
 							Package: childName,
 						},
 
-						WorkspaceName: v1alpha1.WorkspaceName(tag),
+						WorkspaceName: tag,
 					},
 					created:         created,
 					parent:          r,
@@ -201,8 +201,8 @@ func (r *ociRepository) ListPackages(ctx context.Context, filter repository.List
 	return nil, fmt.Errorf("ListPackages not supported for OCI packages")
 }
 
-func (r *ociRepository) buildPackageRevision(ctx context.Context, name oci.ImageDigestName, packageName string,
-	workspace v1alpha1.WorkspaceName, revision int, created time.Time) (repository.PackageRevision, error) {
+func (r *ociRepository) buildPackageRevision(ctx context.Context, name oci.ImageDigestName, packageName, workspace string,
+	revision int, created time.Time) (repository.PackageRevision, error) {
 
 	ctx, span := tracer.Start(ctx, "ociRepository::buildPackageRevision")
 	defer span.End()
@@ -210,7 +210,7 @@ func (r *ociRepository) buildPackageRevision(ctx context.Context, name oci.Image
 	// for backwards compatibility with packages that existed before porch supported
 	// workspaces, we populate the workspaceName as the revision number if it is empty
 	if workspace == "" {
-		workspace = v1alpha1.WorkspaceName(repository.Revision2Str(revision))
+		workspace = repository.Revision2Str(revision)
 	}
 
 	p := &ociPackageRevision{

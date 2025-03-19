@@ -569,9 +569,9 @@ func (g GitSuite) TestListPackagesSimple(t *testing.T) {
 		// TODO: may want to filter these out, for example by including only those package
 		// revisions from main branch that differ in content (their tree hash) from another
 		// taged revision of the package.
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "simple"}, Package: "empty"}, Revision: -1, WorkspaceName: v1alpha1.WorkspaceName(g.branch)}:   v1alpha1.PackageRevisionLifecyclePublished,
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "simple"}, Package: "basens"}, Revision: -1, WorkspaceName: v1alpha1.WorkspaceName(g.branch)}:  v1alpha1.PackageRevisionLifecyclePublished,
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "simple"}, Package: "istions"}, Revision: -1, WorkspaceName: v1alpha1.WorkspaceName(g.branch)}: v1alpha1.PackageRevisionLifecyclePublished,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "simple"}, Package: "empty"}, Revision: -1, WorkspaceName: g.branch}:   v1alpha1.PackageRevisionLifecyclePublished,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "simple"}, Package: "basens"}, Revision: -1, WorkspaceName: g.branch}:  v1alpha1.PackageRevisionLifecyclePublished,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "simple"}, Package: "istions"}, Revision: -1, WorkspaceName: g.branch}: v1alpha1.PackageRevisionLifecyclePublished,
 	}
 
 	got := map[repository.PackageRevisionKey]v1alpha1.PackageRevisionLifecycle{}
@@ -636,9 +636,9 @@ func (g GitSuite) TestListPackagesDrafts(t *testing.T) {
 		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "pkg-with-history"}, WorkspaceName: "v1"}: v1alpha1.PackageRevisionLifecycleDraft,
 
 		// TODO: filter main branch out? see above
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "basens"}, WorkspaceName: v1alpha1.WorkspaceName(g.branch), Revision: -1}:  v1alpha1.PackageRevisionLifecyclePublished,
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "empty"}, WorkspaceName: v1alpha1.WorkspaceName(g.branch), Revision: -1}:   v1alpha1.PackageRevisionLifecyclePublished,
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "istions"}, WorkspaceName: v1alpha1.WorkspaceName(g.branch), Revision: -1}: v1alpha1.PackageRevisionLifecyclePublished,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "basens"}, WorkspaceName: g.branch, Revision: -1}:  v1alpha1.PackageRevisionLifecyclePublished,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "empty"}, WorkspaceName: g.branch, Revision: -1}:   v1alpha1.PackageRevisionLifecyclePublished,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "istions"}, WorkspaceName: g.branch, Revision: -1}: v1alpha1.PackageRevisionLifecyclePublished,
 	}
 
 	got := map[repository.PackageRevisionKey]v1alpha1.PackageRevisionLifecycle{}
@@ -1322,7 +1322,7 @@ func (g GitSuite) TestAuthor(t *testing.T) {
 						},
 						Package: tc.pkg,
 					},
-					WorkspaceName: v1alpha1.WorkspaceName(tc.workspace),
+					WorkspaceName: tc.workspace,
 					Revision:      tc.revision,
 				},
 			})
@@ -1408,7 +1408,16 @@ func TestDiscoverWithBadKptAnnotationFromNestedRepository(t *testing.T) {
 	}
 
 	for _, packageName := range []string{"bp1", "bp2"} {
-		prs, err := git.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{Package: packageName})
+		prs, err := git.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
+			Key: repository.PackageRevisionKey{
+				PkgKey: repository.PackageKey{
+					RepoKey: repository.RepositoryKey{
+						Name: repositoryName,
+					},
+					Package: packageName,
+				},
+			},
+		})
 		if err != nil {
 			t.Errorf("ListPackageRevisions failed for package %s: %v", packageName, err)
 			continue
@@ -1485,7 +1494,7 @@ func createAndPublishPR(ctx context.Context, repo repository.Repository, pr *v1a
 		return nil, pkgerrors.Wrap(err, "Failed to update draft lifecycle")
 	}
 
-	prr, err := repo.ClosePackageRevisionDraft(ctx, draft, string(pr.Spec.WorkspaceName))
+	prr, err := repo.ClosePackageRevisionDraft(ctx, draft, repository.Revision2Int(pr.Spec.WorkspaceName))
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "Failed to finalize draft")
 	}

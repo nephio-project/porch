@@ -35,7 +35,7 @@ type PackageResources struct {
 type PackageRevisionKey struct {
 	PkgKey        PackageKey
 	Revision      int
-	WorkspaceName v1alpha1.WorkspaceName
+	WorkspaceName string
 }
 
 func (k PackageRevisionKey) String() string {
@@ -114,8 +114,7 @@ func (k PackageKey) Matches(other PackageKey) bool {
 }
 
 type RepositoryKey struct {
-	Namespace, Name, Path string
-	PlaceholderWSname     v1alpha1.WorkspaceName
+	Namespace, Name, Path, PlaceholderWSname string
 }
 
 func (k RepositoryKey) String() string {

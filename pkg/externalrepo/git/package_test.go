@@ -54,15 +54,15 @@ func (g GitSuite) TestLock(t *testing.T) {
 	}
 
 	wantRefs := map[repository.PackageRevisionKey]string{
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: v1alpha1.WorkspaceName(g.branch)}, Package: "empty"}, Revision: 1, WorkspaceName: "v1"}:   "empty/v1",
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: v1alpha1.WorkspaceName(g.branch)}, Package: "basens"}, Revision: 1, WorkspaceName: "v1"}:  "basens/v1",
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: v1alpha1.WorkspaceName(g.branch)}, Package: "basens"}, Revision: 2, WorkspaceName: "v2"}:  "basens/v2",
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: v1alpha1.WorkspaceName(g.branch)}, Package: "istions"}, Revision: 1, WorkspaceName: "v1"}: "istions/v1",
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: v1alpha1.WorkspaceName(g.branch)}, Package: "istions"}, Revision: 2, WorkspaceName: "v2"}: "istions/v2",
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "empty"}, Revision: 1, WorkspaceName: "v1"}:   "empty/v1",
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "basens"}, Revision: 1, WorkspaceName: "v1"}:  "basens/v1",
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "basens"}, Revision: 2, WorkspaceName: "v2"}:  "basens/v2",
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "istions"}, Revision: 1, WorkspaceName: "v1"}: "istions/v1",
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "istions"}, Revision: 2, WorkspaceName: "v2"}: "istions/v2",
 
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: v1alpha1.WorkspaceName(g.branch)}, Package: "basens"}, Revision: -1, WorkspaceName: v1alpha1.WorkspaceName(g.branch)}:  g.branch,
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: v1alpha1.WorkspaceName(g.branch)}, Package: "empty"}, Revision: -1, WorkspaceName: v1alpha1.WorkspaceName(g.branch)}:   g.branch,
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: v1alpha1.WorkspaceName(g.branch)}, Package: "istions"}, Revision: -1, WorkspaceName: v1alpha1.WorkspaceName(g.branch)}: g.branch,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "basens"}, Revision: -1, WorkspaceName: g.branch}:  g.branch,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "empty"}, Revision: -1, WorkspaceName: g.branch}:   g.branch,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "istions"}, Revision: -1, WorkspaceName: g.branch}: g.branch,
 	}
 
 	for _, rev := range revisions {

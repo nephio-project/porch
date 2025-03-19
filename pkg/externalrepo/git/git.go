@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -148,7 +149,7 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 			Name:              name,
 			Namespace:         namespace,
 			Path:              strings.Trim(spec.Directory, "/"),
-			PlaceholderWSname: v1alpha1.WorkspaceName(string(branch)),
+			PlaceholderWSname: string(branch),
 		},
 		repo:               repo,
 		branch:             branch,
@@ -653,8 +654,7 @@ func (r *gitRepository) loadPackageRevision(ctx context.Context, version, path s
 
 	var ref *plumbing.Reference = nil // Cannot determine ref; this package will be considered final (immutable).
 
-	var revisionStr string
-	var workspace v1alpha1.WorkspaceName
+	var revisionStr, workspace string
 	last := strings.LastIndex(version, "/")
 
 	if strings.HasPrefix(version, "drafts/") || strings.HasPrefix(version, "proposed/") {
@@ -669,7 +669,7 @@ func (r *gitRepository) loadPackageRevision(ctx context.Context, version, path s
 		}
 		workspace = getPkgWorkspace(commit, krmPackage, ref)
 		if workspace == "" {
-			workspace = revision
+			workspace = revisionStr
 		}
 	}
 
@@ -709,11 +709,11 @@ func (r *gitRepository) discoverFinalizedPackages(ctx context.Context, ref *plum
 	for _, krmPackage := range krmPackages.packages {
 		workspace := getPkgWorkspace(commit, krmPackage, ref)
 		if workspace == "" {
-			klog.Warningf("Failed to get workspace name for package %q (will use revision name): %s", krmPackage.path, err)
+			klog.Warningf("Failed to get workspace name for package %q (will use revision name): %s", krmPackage.pkgKey, err)
 		}
 		packageRevision, err := krmPackage.buildGitPackageRevision(ctx, revisionStr, workspace, ref)
 		if err != nil {
-			ec.Add(pkgerrors.Wrapf(err, "failed to build git package revision for package %s", krmPackage.path))
+			ec.Add(pkgerrors.Wrapf(err, "failed to build git package revision for package %s", krmPackage.pkgKey))
 			continue
 		}
 		result = append(result, packageRevision)
@@ -797,7 +797,7 @@ func (r *gitRepository) updateDeletionProposedCache() error {
 	return nil
 }
 
-func parseDraftName(draft *plumbing.Reference) (pkgPathAndName string, workspaceName v1alpha1.WorkspaceName, err error) {
+func parseDraftName(draft *plumbing.Reference) (pkgPathAndName, workspaceName string, err error) {
 	refName := draft.Name()
 	var suffix string
 	if b, ok := getDraftBranchNameInLocal(refName); ok {
@@ -812,7 +812,7 @@ func parseDraftName(draft *plumbing.Reference) (pkgPathAndName string, workspace
 	if revIndex <= 0 {
 		return "", "", fmt.Errorf("invalid draft ref name; missing workspaceName suffix: %q", refName)
 	}
-	pkgPathAndName, workspaceName = suffix[:revIndex], v1alpha1.WorkspaceName(suffix[revIndex+1:])
+	pkgPathAndName, workspaceName = suffix[:revIndex], suffix[revIndex+1:]
 	return pkgPathAndName, workspaceName, nil
 }
 
@@ -1297,43 +1297,6 @@ func (r *gitRepository) GetResources(hash plumbing.Hash) (map[string]string, err
 // findLatestPackageCommit returns the latest commit from the history that pertains
 // to the package given by the packagePath. If no commit is found, it will return nil.
 func (r *gitRepository) findLatestPackageCommit(startCommit *object.Commit, key repository.PackageKey) (*object.Commit, error) {
-	var commit *object.Commit
-	err := r.packageHistoryIterator(startCommit, key, func(c *object.Commit) error {
-		commit = c
-		return storer.ErrStop
-	})
-	return commit, err
-}
-
-// commitCallback is the function type that needs to be provided to the history iterator functions.
-type commitCallback func(*object.Commit) error
-
-// packageHistoryIterator traverses the git history from the provided commit and invokes
-// the callback function for every commit pertaining to the provided package.
-func (r *gitRepository) packageHistoryIterator(startCommit *object.Commit, key repository.PackageKey, cb commitCallback) error {
-	return r.traverseHistory(startCommit, func(commit *object.Commit) error {
-		gitAnnotations, err := ExtractGitAnnotations(commit)
-		if err != nil {
-			return err
-		}
-
-		for _, gitAnnotation := range gitAnnotations {
-			if gitAnnotation.PackagePath == key.ToFullPathname() {
-
-				if err := cb(commit); err != nil {
-					return err
-				}
-
-				if gitAnnotation.Task != nil && (gitAnnotation.Task.Type == v1alpha1.TaskTypeClone || gitAnnotation.Task.Type == v1alpha1.TaskTypeInit) {
-					break
-				}
-			}
-		}
-		return nil
-	})
-}
-
-func (r *gitRepository) traverseHistory(startCommit *object.Commit, cb commitCallback) error {
 	var logOptions = git.LogOptions{
 		From:  startCommit.Hash,
 		Order: git.LogOrderCommitterTime,
@@ -1351,21 +1314,21 @@ func (r *gitRepository) traverseHistory(startCommit *object.Commit, cb commitCal
 		}
 
 		for _, ann := range gitAnnotations {
-			if ann.PackagePath == packagePath {
+			if ann.PackagePath == key.ToFullPathname() {
 				return c, nil
 			}
 		}
 	}
 
-	return nil, pkgerrors.Errorf("could not find latest commit for package %s", packagePath)
+	return nil, pkgerrors.Errorf("could not find latest commit for package %s", key.ToFullPathname())
 }
-
-// commitCallback is the function type that needs to be provided to the history iterator functions.
-type commitCallback func(*object.Commit) error
 
 func (r *gitRepository) blobObject(h plumbing.Hash) (*object.Blob, error) {
 	return r.repo.BlobObject(h)
 }
+
+// commitCallback is the function type that needs to be provided to the history iterator functions.
+type commitCallback func(*object.Commit) error
 
 // StoreBlob is a helper method to write a blob to the git store.
 func (r *gitRepository) storeBlob(value string) (plumbing.Hash, error) {
@@ -1562,7 +1525,7 @@ func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 	case v1alpha1.PackageRevisionLifecyclePublished, v1alpha1.PackageRevisionLifecycleDeletionProposed:
 
 		if version == 0 {
-			return nil, errors.New("Version cannot be empty for the next package revision")
+			return nil, pkgerrors.New("Version cannot be empty for the next package revision")
 		}
 		d.prKey.Revision = version
 
@@ -1630,7 +1593,7 @@ func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 	// for backwards compatibility with packages that existed before porch supported
 	// descriptions, we populate the workspaceName as the revision number if it is empty
 	if len(strings.TrimSpace(string(d.Key().WorkspaceName))) == 0 {
-		d.prKey.WorkspaceName = "v" + v1alpha1.WorkspaceName(repository.Revision2Str(d.Key().Revision))
+		d.prKey.WorkspaceName = "v" + repository.Revision2Str(d.Key().Revision)
 	}
 
 	return &gitPackageRevision{
@@ -1790,17 +1753,17 @@ func getPkgWorkspace(commit *object.Commit, p *packageListEntry, ref *plumbing.R
 	if ref == nil || (!isTagInLocalRepo(ref.Name()) && !isDraftBranchNameInLocal(ref.Name()) && !isProposedBranchNameInLocal(ref.Name())) {
 		// packages on the main branch may have unrelated commits, we need to find the latest commit relevant to this package
 		c, err := p.parent.parent.findLatestPackageCommit(p.parent.commit, p.pkgKey)
-		if err != nil {
-			return "", err
-		}
-		if c != nil {
-			commit = c
+		if c == nil {
+			if err != nil {
+				klog.Warningf("Error searching for latest commit for package %s: %s", p.pkgKey, err)
+			}
+			return ""
 		}
 		commit = c
 	}
 	annotations, err := ExtractGitAnnotations(commit)
 	if err != nil {
-		klog.Warningf("Error extracting git annotations for package %s: %s", p.path, err)
+		klog.Warningf("Error extracting git annotations for package %s: %s", p.pkgKey, err)
 	}
 	for _, a := range annotations {
 		if a.PackagePath != p.pkgKey.ToFullPathname() {
