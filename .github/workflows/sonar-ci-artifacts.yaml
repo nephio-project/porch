@@ -1,0 +1,45 @@
+name: Sonar CI Artifacts
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+      types: [opened, synchronize, reopened]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Checkout repo
+      uses: actions/checkout@v4
+      with:
+        # Disabling shallow clones is recommended for improving the relevancy of reporting
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ">=1.23.5"
+
+    - name: Generate coverage report
+      id: test
+      run: make test
+
+    - name: Archive test results
+      if: steps.test.outcome == 'success'
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: ./coverage.out
+
+    - name: Save PR number to file
+      if: github.event_name == 'pull_request'
+      run: echo ${{ github.event.number }} > PR_NUMBER.txt
+      
+    - name: Archive PR number
+      if: github.event_name == 'pull_request'
+      uses: actions/upload-artifact@v4
+      with:
+        name: PR_NUMBER
+        path: PR_NUMBER.txt

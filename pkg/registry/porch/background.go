@@ -21,6 +21,7 @@ import (
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
+	"github.com/nephio-project/porch/pkg/util"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -133,28 +134,48 @@ loop:
 func (b *background) updateCache(ctx context.Context, event watch.EventType, repository *configapi.Repository) error {
 	switch event {
 	case watch.Added:
-		klog.Infof("Repository added: %s:%s", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name)
-		return b.cacheRepository(ctx, repository)
+		return b.handleRepositoryEvent(ctx, repository, watch.Added)
+
 	case watch.Modified:
-		klog.Infof("Repository modified: %s:%s", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name)
-		// First verify repositories can be listed (core client is alive)
-		var repoList configapi.RepositoryList
-		if err := b.coreClient.List(ctx, &repoList); err != nil {
-			return err
-		}
-		// Update the cache with modified repository
-		return b.cacheRepository(ctx, repository)
+		return b.handleRepositoryEvent(ctx, repository, watch.Modified)
+
 	case watch.Deleted:
-		klog.Infof("Repository deleted: %s:%s", repository.ObjectMeta.Namespace, repository.ObjectMeta.Name)
-		var repoList configapi.RepositoryList
-		if err := b.coreClient.List(ctx, &repoList); err != nil {
-			return err
-		}
-		return b.cache.CloseRepository(ctx, repository, repoList.Items)
+		return b.handleRepositoryEvent(ctx, repository, watch.Deleted)
+
 	default:
 		klog.Warningf("Unhandled watch event type: %s", event)
 	}
 	return nil
+}
+
+func (b *background) handleRepositoryEvent(ctx context.Context, repo *configapi.Repository, eventType watch.EventType) error {
+	msgPreamble := fmt.Sprintf("repository %s event handling: repo %s:%s", eventType, repo.ObjectMeta.Namespace, repo.ObjectMeta.Name)
+
+	klog.Infof("%s, handling starting", msgPreamble)
+
+	if err := util.ValidateRepository(repo.ObjectMeta.Name, repo.Spec.Git.Directory); err != nil {
+		return fmt.Errorf("%s, handling failed, repo specification invalid :%q", msgPreamble, err)
+	}
+
+	// Verify repositories can be listed (core client is alive)
+	var repoList configapi.RepositoryList
+	if err := b.coreClient.List(ctx, &repoList); err != nil {
+		return fmt.Errorf("%s, handling failed, could not list repos using core client :%q", msgPreamble, err)
+	}
+
+	var err error
+	if eventType == watch.Deleted {
+		err = b.cache.CloseRepository(ctx, repo, repoList.Items)
+	} else {
+		err = b.cacheRepository(ctx, repo)
+	}
+
+	if err == nil {
+		klog.Infof("%s, handling completed", msgPreamble)
+		return nil
+	} else {
+		return fmt.Errorf("%s, handling failed, cache could not process repo event :%q", msgPreamble, err)
+	}
 }
 
 func (b *background) runOnce(ctx context.Context) error {

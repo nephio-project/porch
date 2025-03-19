@@ -48,7 +48,7 @@ kpt fn eval \
   -- 'source=ctx.resource_list["items"] = []'
 
 # make the api service point to the local porch-server
-if [ "$(uname)" = "Darwin" -o -n "${DOCKER_HOST+x}" ]
+if [[ "$(uname)" == "Darwin" || -n "${DOCKER_HOST+x}" ]] || docker info 2>/dev/null | grep -q "Docker Desktop";
 then
   echo "--- Docker Desktop detected. ---"
   kpt fn eval \
