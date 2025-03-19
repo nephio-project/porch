@@ -7,7 +7,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 )
 
-// ErrorCollector can collect then combine multiple errors into one with Join.
+// ErrorCollector can collect then combine multiple errors into one.
 type ErrorCollector struct {
 	errors []error
 	// Used in Join to join the error messages.
