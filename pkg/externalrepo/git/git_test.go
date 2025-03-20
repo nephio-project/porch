@@ -115,7 +115,7 @@ func (g GitSuite) TestOpenEmptyRepository(t *testing.T) {
 	}
 }
 
-func (g GitSuite) TestOpenBadDirectoryRepository(t *testing.T) {
+func (g GitSuite) TestOpenRepositoryBadBranchName(t *testing.T) {
 	tempdir := t.TempDir()
 	tarfile := filepath.Join("testdata", "empty-repository.tar")
 	_, address := ServeGitRepositoryWithBranch(t, tarfile, tempdir, g.branch)
@@ -129,12 +129,12 @@ func (g GitSuite) TestOpenBadDirectoryRepository(t *testing.T) {
 
 	repository := &configapi.GitRepository{
 		Repo:      address,
-		Branch:    g.branch,
-		Directory: "/illegal$$$Characters",
+		Branch:    "illegal$$$Characters",
+		Directory: "/",
 	}
 
 	if _, err := OpenRepository(ctx, name, namespace, repository, deployment, tempdir, GitRepositoryOptions{}); err == nil {
-		t.Errorf("Unexpectedly succeeded opening repository with bad directory name.")
+		t.Errorf("Unexpectedly succeeded opening repository with a bad branch name.")
 	}
 }
 
