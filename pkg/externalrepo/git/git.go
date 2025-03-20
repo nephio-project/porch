@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -829,7 +828,7 @@ func (r *gitRepository) loadTaggedPackage(ctx context.Context, tag *plumbing.Ref
 	if slash < 0 {
 		// tag=<version>
 		// could be a release tag or something else, we ignore these types of tags
-		return nil, nil
+		return nil, pkgerrors.Errorf("could not find slash in %q", name)
 	}
 
 	// tag=<package path>/version
@@ -1295,7 +1294,7 @@ func (r *gitRepository) GetResources(hash plumbing.Hash) (map[string]string, err
 }
 
 // findLatestPackageCommit returns the latest commit from the history that pertains
-// to the package given by the packagePath. If no commit is found, it will return nil.
+// to the package given by the packagePath. If no commit is found, it will return nil and an error.
 func (r *gitRepository) findLatestPackageCommit(startCommit *object.Commit, key repository.PackageKey) (*object.Commit, error) {
 	var logOptions = git.LogOptions{
 		From:  startCommit.Hash,
@@ -1463,14 +1462,14 @@ func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPack
 	}
 
 	for k, v := range new.Spec.Resources {
-		if err := ch.storeFile(path.Join(draft.Key().PkgKey.ToFullPathname(), k), v); err != nil {
+		if err := ch.storeFile(filepath.Join(draft.Key().PkgKey.ToFullPathname(), k), v); err != nil {
 			return err
 		}
 	}
 
 	// Because we can't read the package back without a Kptfile, make sure one is present
 	{
-		p := path.Join(draft.Key().PkgKey.ToFullPathname(), "Kptfile")
+		p := filepath.Join(draft.Key().PkgKey.ToFullPathname(), "Kptfile")
 		_, err := ch.readFile(p)
 		if os.IsNotExist(err) {
 			// We could write the file here; currently we return an error
@@ -1592,7 +1591,7 @@ func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 
 	// for backwards compatibility with packages that existed before porch supported
 	// descriptions, we populate the workspaceName as the revision number if it is empty
-	if len(strings.TrimSpace(string(d.Key().WorkspaceName))) == 0 {
+	if d.prKey.WorkspaceName == "" {
 		d.prKey.WorkspaceName = "v" + repository.Revision2Str(d.Key().Revision)
 	}
 
@@ -1741,10 +1740,6 @@ func (r *gitRepository) discoverPackagesInTree(commit *object.Commit, opt Discov
 
 func (r *gitRepository) Refresh(_ context.Context) error {
 	return r.UpdateDeletionProposedCache()
-}
-
-func (r *gitRepository) Kezy() string {
-	return fmt.Sprintf("git://%s/%s@%s/%s", r.repo, r.Key().Path, r.Key().Namespace, r.Key().Name)
 }
 
 // getPkgWorkspace returns the workspace name as parsed from the kpt annotations from the latest commit for the package.

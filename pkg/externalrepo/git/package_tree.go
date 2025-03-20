@@ -16,6 +16,7 @@ package git
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path"
 	"time"
@@ -72,14 +73,14 @@ func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revision
 		// use the revision here, since we are looking at the package branch while
 		// the revisions only helps identify the tags.
 		commit, err := repo.findLatestPackageCommit(p.parent.commit, p.pkgKey)
-		if err != nil {
-			return nil, err
+		if err != nil && commit != nil {
+			klog.Warningf("Error searching for latest package commit for package %s/%s: %s", p.pkgKey, revisionStr, err)
 		}
 		if commit != nil {
 			updated = commit.Author.When
 			updatedBy = commit.Author.Email
 		} else {
-			klog.Warningf("Cannot find latest package commit for package %s/%s: %s", p.pkgKey.String(), revisionStr, err)
+			klog.Warningf("Cannot find latest package commit for package %s/%s: %s", p.pkgKey, revisionStr, err)
 		}
 		// If not commit was found with the porch commit tags, we don't really
 		// know who approved the package or when it happend. We could find this
@@ -108,7 +109,14 @@ func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revision
 
 	tasks, err := repo.loadTasks(ctx, p.parent.commit, gitPrKey)
 	if err != nil {
-		return nil, err
+		klog.Warningf("Error when loading tasks for package %s: %s", gitPrKey, err)
+	}
+
+	if len(tasks) == 0 {
+		klog.Warningf("Loaded no tasks for package %s", gitPrKey)
+	} else if klog.V(6).Enabled() {
+		marshalledTasks, _ := json.Marshal(tasks)
+		klog.Infof("Loaded tasks for package %s: %s", gitPrKey, marshalledTasks)
 	}
 
 	return &gitPackageRevision{

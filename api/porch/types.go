@@ -49,8 +49,6 @@ const (
 	PackageRevisionLifecycleDeletionProposed PackageRevisionLifecycle = "DeletionProposed"
 )
 
-type WorkspaceName string
-
 // PackageRevisionSpec defines the desired state of PackageRevision
 type PackageRevisionSpec struct {
 	// PackageName identifies the package in the repository.
@@ -60,7 +58,7 @@ type PackageRevisionSpec struct {
 	RepositoryName string `json:"repository,omitempty"`
 
 	// WorkspaceName is a short, unique description of the changes contained in this package revision.
-	WorkspaceName WorkspaceName `json:"workspaceName,omitempty"`
+	WorkspaceName string `json:"workspaceName,omitempty"`
 
 	// Revision identifies the version of the package.
 	Revision int `json:"revision,omitempty"`
@@ -475,7 +473,7 @@ type PackageRevisionResourcesSpec struct {
 	PackageName string `json:"packageName,omitempty"`
 
 	// WorkspaceName identifies the workspace of the package.
-	WorkspaceName WorkspaceName `json:"workspaceName,omitempty"`
+	WorkspaceName string `json:"workspaceName,omitempty"`
 
 	// Revision identifies the version of the package.
 	Revision int `json:"revision,omitempty"`

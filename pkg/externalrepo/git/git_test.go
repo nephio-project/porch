@@ -1362,7 +1362,7 @@ func TestDiscoverManuallyTaggedPackageWithTagMessage(t *testing.T) {
 		t.Fatalf("Failed to open Git repository loaded from %q: %v", tarfile, err)
 	}
 
-	expectedRevisions := []string{"main", "v1", "v2"}
+	expectedRevisions := []int{-1, 1, 2}
 
 	prs, err := git.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	if err != nil {
@@ -1394,9 +1394,9 @@ func TestDiscoverWithBadKptAnnotationFromNestedRepository(t *testing.T) {
 		deployment     = false
 	)
 
-	expectedRevisions := map[string][]string{
-		"bp1": {"main", "v1", "v2", "v3"},
-		"bp2": {"main", "v1", "v2"},
+	expectedRevisions := map[string][]int{
+		"bp1": {-1, 1, 2, 3},
+		"bp2": {-1, 1, 2},
 	}
 
 	git, err := OpenRepository(ctx, repositoryName, namespace, &configapi.GitRepository{
@@ -1449,7 +1449,7 @@ func TestDiscoverWithBadKptAnnotationFromNestedRepositoryFromUnrelatedSubReposit
 		packageName    = "bp10"
 	)
 
-	expectedRevisions := []string{"main", "v1"}
+	expectedRevisions := []int{-1, 1}
 
 	git, err := OpenRepository(ctx, repositoryName, namespace, &configapi.GitRepository{
 		Repo:      address,

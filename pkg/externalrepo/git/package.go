@@ -106,7 +106,6 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 		}
 	}
 
-	// TODO: Should we support nested packages?
 	return &v1alpha1.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevision",
