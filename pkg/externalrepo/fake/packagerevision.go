@@ -35,6 +35,8 @@ type FakePackageRevision struct {
 	Kptfile          kptfile.KptFile
 }
 
+var _ repository.PackageRevision = &FakePackageRevision{}
+
 func (c *FakePackageRevision) KubeObjectName() string {
 	return repository.ComposePkgRevObjName(c.Key())
 }
