@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"testing"
 	"time"
@@ -281,6 +282,16 @@ func cleanup(t *testing.T) {
 }
 
 func TestPorchScalePerformance(t *testing.T) {
+	// Skip if not running E2E tests
+	if os.Getenv("E2E") == "" {
+		t.Skip("Skipping performance tests in non-E2E environment")
+	}
+
+	// Check if docker is available
+	if _, err := exec.LookPath("docker"); err != nil {
+		t.Skip("Docker not available, skipping performance tests")
+	}
+
 	// Setup monitoring
 	if err := setupMonitoring(t); err != nil {
 		t.Fatalf("Failed to setup monitoring: %v", err)
@@ -487,4 +498,21 @@ func printTestResults(t *testing.T, logger *TestLogger, allMetrics []TestMetrics
 			}
 		}
 	}
+}
+
+func TestMain(m *testing.M) {
+	// Try to load kube config from standard locations
+	kubeconfig := os.Getenv("KUBECONFIG")
+	if kubeconfig == "" {
+		home, err := os.UserHomeDir()
+		if err == nil {
+			kubeconfig = filepath.Join(home, ".kube", "config")
+		}
+	}
+
+	if _, err := os.Stat(kubeconfig); err == nil {
+		os.Setenv("KUBERNETES_MASTER", "http://localhost:8080")
+	}
+
+	os.Exit(m.Run())
 }
