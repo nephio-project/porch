@@ -20,10 +20,11 @@ import (
 
 	"github.com/GoogleContainerTools/kpt/pkg/oci"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCreateUpdatePackageRevision(t *testing.T) {
+func TestCreateUpdateDeletePackageRevision(t *testing.T) {
 	ociRepo := ociRepository{}
 	ociRepo.storage = &oci.Storage{}
 
@@ -40,11 +41,21 @@ func TestCreateUpdatePackageRevision(t *testing.T) {
 	assert.True(t, err != nil)
 
 	ociRepo.name = "my-repo"
-	_, err = ociRepo.CreatePackageRevision(context.TODO(), apiPr)
+	draftPr, err := ociRepo.CreatePackageRevision(context.TODO(), apiPr)
 	assert.False(t, err != nil)
+
+	draftPrKey := repository.PackageRevisionKey{
+		PkgKey: repository.PackageKey{
+			Package: "my-package-name",
+		},
+	}
+	assert.Equal(t, draftPrKey, draftPr.Key())
 
 	oldPr := ociPackageRevision{}
 
 	_, err = ociRepo.UpdatePackageRevision(context.TODO(), &oldPr)
+	assert.True(t, err != nil)
+
+	err = ociRepo.DeletePackageRevision(context.TODO(), &oldPr)
 	assert.True(t, err != nil)
 }

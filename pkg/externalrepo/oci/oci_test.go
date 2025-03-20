@@ -35,6 +35,9 @@ func TestBuildPackageRevision(t *testing.T) {
 	}
 	_, err := ociRepo.buildPackageRevision(context.TODO(), digestName, "package-name", "workspace_name", 1, time.Now())
 	assert.True(t, err != nil)
+
+	_, err = ociRepo.buildPackageRevision(context.TODO(), digestName, "package-name", "", 1, time.Now())
+	assert.True(t, err != nil)
 }
 
 func TestPackageGetters(t *testing.T) {
