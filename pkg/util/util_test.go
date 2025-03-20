@@ -21,8 +21,9 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v2"
-	"gotest.tools/assert"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func TestParseRepositoryNameOK(t *testing.T) {
@@ -167,6 +168,10 @@ func TestValidatePkgRevName(t *testing.T) {
 				tc.Ws)
 		})
 	}
+}
+
+func TestGenerateUid(t *testing.T) {
+	assert.Equal(t, types.UID("272983f7-a30d-58e0-a809-c38e8638666d"), GenerateUid("my-prefix", "my-namespace", "my.kube.name.of-something"))
 }
 
 func assertExpectedPartErrExists(t *testing.T, errorSlice []string, errString, prefix, part string) {
