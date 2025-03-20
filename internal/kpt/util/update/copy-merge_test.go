@@ -222,40 +222,50 @@ func TestCopyMerge(t *testing.T) {
 				t.FailNow()
 			}
 
-			assertElementsMatch(t, local, expected)
 			testutil.KptfileAwarePkgEqual(t, local, expected, false)
 
 		})
 	}
 }
 
-func assertElementsMatch(t *testing.T, local string, expected string) {
-	localFiles, err := collectFilePaths(local)
-	if err != nil {
-		t.Fatalf("Error collecting file paths from local: %v\n", err)
+func TestCopyMergeError(t *testing.T) {
+	src := t.TempDir()
+	dst := t.TempDir()
+
+	os.WriteFile(filepath.Join(src, "file.txt"), []byte("content"), 0644)
+	os.RemoveAll(src)
+
+	updater := &CopyMergeUpdater{}
+	options := Options{
+		UpdatedPath: src,
+		LocalPath:   dst,
+		IsRoot:      true,
 	}
-	expectedFiles, err := collectFilePaths(expected)
-	if err != nil {
-		t.Fatalf("Error collecting file paths from expected: %v\n", err)
-	}
-	t.Helper()
-	assert.ElementsMatch(t, localFiles, expectedFiles)
+
+	err := updater.Update(options)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no such file or directory")
+
 }
 
-func collectFilePaths(root string) ([]string, error) {
-	var paths []string
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() {
-			relPath, err := filepath.Rel(root, path)
-			if err != nil {
-				return err
-			}
-			paths = append(paths, relPath)
-		}
-		return nil
-	})
-	return paths, err
+func TestCopyMergeErrorCopyingFile(t *testing.T) {
+	src := t.TempDir()
+	dst := t.TempDir()
+
+	srcFile := filepath.Join(src, "file.txt")
+	os.WriteFile(srcFile, []byte("content"), 0644)
+
+	dstFile := filepath.Join(dst, "file.txt")
+	os.Mkdir(dstFile, 0755)
+
+	updater := &CopyMergeUpdater{}
+	options := Options{
+		UpdatedPath: src,
+		LocalPath:   dst,
+		IsRoot:      true,
+	}
+
+	err := updater.Update(options)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "is a directory")
 }
