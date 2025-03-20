@@ -232,7 +232,10 @@ func TestCopyMergeError(t *testing.T) {
 	src := t.TempDir()
 	dst := t.TempDir()
 
-	os.WriteFile(filepath.Join(src, "file.txt"), []byte("content"), 0644)
+	err := os.WriteFile(filepath.Join(src, "file.txt"), []byte("content"), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write file: %v", err)
+	}
 	os.RemoveAll(src)
 
 	updater := &CopyMergeUpdater{}
@@ -242,7 +245,7 @@ func TestCopyMergeError(t *testing.T) {
 		IsRoot:      true,
 	}
 
-	err := updater.Update(options)
+	err = updater.Update(options)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no such file or directory")
 
@@ -252,11 +255,15 @@ func TestCopyMergeErrorCopyingFile(t *testing.T) {
 	src := t.TempDir()
 	dst := t.TempDir()
 
-	srcFile := filepath.Join(src, "file.txt")
-	os.WriteFile(srcFile, []byte("content"), 0644)
+	err := os.WriteFile(filepath.Join(src, "file.txt"), []byte("content"), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write file: %v", err)
+	}
 
-	dstFile := filepath.Join(dst, "file.txt")
-	os.Mkdir(dstFile, 0755)
+	err = os.Mkdir(filepath.Join(dst, "file.txt"), 0755)
+	if err != nil {
+		t.Fatalf("Failed to create directory: %v", err)
+	}
 
 	updater := &CopyMergeUpdater{}
 	options := Options{
@@ -265,7 +272,7 @@ func TestCopyMergeErrorCopyingFile(t *testing.T) {
 		IsRoot:      true,
 	}
 
-	err := updater.Update(options)
+	err = updater.Update(options)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "is a directory")
 }

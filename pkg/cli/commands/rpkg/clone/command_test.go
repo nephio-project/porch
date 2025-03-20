@@ -178,7 +178,10 @@ func TestPreRunE(t *testing.T) {
 
 			// Set the flags
 			for key, value := range test.flags {
-				cmd.Flags().Set(key, value)
+				err := cmd.Flags().Set(key, value)
+				if err != nil {
+					t.Fatalf("Failed to set flag %s: %v", key, err)
+				}
 			}
 
 			// Call preRunE
