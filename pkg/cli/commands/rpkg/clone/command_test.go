@@ -150,13 +150,13 @@ func TestPreRunE(t *testing.T) {
 		{
 			name:      "Missing arguments",
 			args:      []string{"source-package"},
-			flags:     map[string]string{"repository": "test-repo", "workspace": "test-workspace"},
+			flags:     map[string]string{"repository": "test-repo", "workspace": "test-workspace", "strategy": "copy-merge"},
 			expectErr: true,
 		},
 		{
 			name:      "Missing repository flag",
 			args:      []string{"source-package", "target-package"},
-			flags:     map[string]string{"workspace": "test-workspace"},
+			flags:     map[string]string{"repository": "", "workspace": ""},
 			expectErr: true,
 		},
 		{
@@ -168,23 +168,16 @@ func TestPreRunE(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		cmd := NewCommand(context.Background(), &genericclioptions.ConfigFlags{})
 		t.Run(test.name, func(t *testing.T) {
 			r := &runner{
-				ctx: context.Background(),
-				cfg: &genericclioptions.ConfigFlags{},
+				ctx:        context.Background(),
+				cfg:        &genericclioptions.ConfigFlags{},
+				strategy:   test.flags["strategy"],
+				repository: test.flags["repository"],
+				workspace:  test.flags["workspace"],
 			}
 
-			cmd := &cobra.Command{}
-
-			// Set the flags
-			for key, value := range test.flags {
-				err := cmd.Flags().Set(key, value)
-				if err != nil {
-					t.Fatalf("Failed to set flag %s: %v", key, err)
-				}
-			}
-
-			// Call preRunE
 			err := r.preRunE(cmd, test.args)
 			if test.expectErr {
 				assert.Error(t, err)
