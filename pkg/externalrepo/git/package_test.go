@@ -25,6 +25,8 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func (g GitSuite) TestLock(t *testing.T) {
@@ -124,4 +126,23 @@ func (g GitSuite) TestLock(t *testing.T) {
 			t.Errorf("Commit: got %s, want %s", got, want)
 		}
 	}
+}
+
+func TestPackageGetters(t *testing.T) {
+	gitPr := gitPackageRevision{
+		prKey: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				RepoKey: repository.RepositoryKey{
+					Name:      "my-repo",
+					Namespace: "my-namespace",
+				},
+				Package: "my-package",
+			},
+			WorkspaceName: "my-workspace",
+		},
+	}
+
+	assert.Equal(t, "my-repo.my-package.my-workspace", gitPr.KubeObjectName())
+	assert.Equal(t, "my-namespace", gitPr.KubeObjectNamespace())
+	assert.Equal(t, types.UID("7007e8aa-0928-50f9-b980-92a44942f055"), gitPr.UID())
 }
