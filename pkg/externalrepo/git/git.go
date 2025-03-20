@@ -228,6 +228,7 @@ type gitRepository struct {
 }
 
 var _ GitRepository = &gitRepository{}
+var _ repository.Repository = &gitRepository{}
 
 func (r *gitRepository) Key() repository.RepositoryKey {
 	return r.key
