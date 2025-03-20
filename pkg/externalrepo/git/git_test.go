@@ -887,6 +887,14 @@ func (g GitSuite) TestDeletePackages(t *testing.T) {
 			refMustExist(t, repo, rn)
 		}
 
+		gitDeleting := deleting.(*gitPackageRevision)
+		saveRef := gitDeleting.ref
+		gitDeleting.ref = nil
+		if err := git.DeletePackageRevision(ctx, deleting); err == nil {
+			t.Fatalf("DeletePackageRevision(%q) should have failed on nil reference: %v", deleting.KubeObjectName(), err)
+		}
+		gitDeleting.ref = saveRef
+
 		if err := git.DeletePackageRevision(ctx, deleting); err != nil {
 			t.Fatalf("DeletePackageRevision(%q) failed: %v", deleting.KubeObjectName(), err)
 		}
