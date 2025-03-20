@@ -46,7 +46,7 @@ func (k PackageRevisionKey) GetPackageKey() PackageKey {
 	return k.PkgKey
 }
 
-func (k PackageRevisionKey) RepositoryKey() RepositoryKey {
+func (k PackageRevisionKey) GetRepositoryKey() RepositoryKey {
 	return k.PkgKey.RepoKey
 }
 
@@ -97,7 +97,7 @@ func FromFullPathname(repoKey RepositoryKey, fullpath string) PackageKey {
 	}
 }
 
-func (k PackageKey) GetRepoKey() RepositoryKey {
+func (k PackageKey) GetRepositoryKey() RepositoryKey {
 	return k.RepoKey
 }
 
