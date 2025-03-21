@@ -16,7 +16,7 @@ type TestLogger struct {
 }
 
 func NewTestLogger(t *testing.T) (*TestLogger, error) {
-	// Create logs directory if it doesn't exist
+	// Creates logs directory if it doesn't exist
 	logsDir := "logs"
 	if err := os.MkdirAll(logsDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create logs directory: %v", err)
