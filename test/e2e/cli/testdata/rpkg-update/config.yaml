@@ -17,7 +17,8 @@ commands:
       - --repository=git
       - --workspace=update-1
       - basens-edit
-    stdout: "git.basens-edit.update-1 created\n"
+    stdout: |
+      git.basens-edit.update-1 created
   - args:
       - porchctl
       - rpkg
@@ -29,7 +30,8 @@ commands:
       - --repository=git
       - --workspace=update-2
       - basens-edit-clone
-    stdout: "git.basens-edit-clone.update-2 created\n"
+    stdout: |
+      git.basens-edit-clone.update-2 created
   - args:
       - porchctl
       - rpkg
@@ -38,21 +40,24 @@ commands:
       - --workspace=update-3
       - --replay-strategy=true
       - git.basens-edit.update-1
-    stdout: "git.basens-edit.update-3 created\n"
+    stdout: |
+      git.basens-edit.update-3 created
   - args:
       - porchctl
       - rpkg
       - propose
       - --namespace=rpkg-update
       - git.basens-edit.update-3
-    stdout: "git.basens-edit.update-3 proposed\n"
+    stdout: |
+      git.basens-edit.update-3 proposed
   - args:
       - porchctl
       - rpkg
       - approve
       - --namespace=rpkg-update
       - git.basens-edit.update-3
-    stdout: "git.basens-edit.update-3 approved\n"
+    stdout: |
+      git.basens-edit.update-3 approved
   - args:
       - porchctl
       - rpkg
@@ -102,7 +107,8 @@ commands:
       - --namespace=rpkg-update
       - --revision=v1
       - git.basens-edit-clone.update-2
-    stdout: "git.basens-edit-clone.update-2 updated\n"
+    stdout: |
+      git.basens-edit-clone.update-2 updated
   - args:
       - porchctl
       - rpkg
@@ -134,7 +140,10 @@ commands:
       - --
       - by-path=upstreamLock.git.ref
       - put-value=invalid
-    stderr: "[RUNNING] \"gcr.io/kpt-fn/search-replace:v0.2.0\" on 1 resource(s)\n  Results:\n    [info] upstreamLock.git.ref: Mutated field value to \"invalid\"\n"
+    stderr: |
+      [RUNNING] "gcr.io/kpt-fn/search-replace:v0.2.0" on 1 resource(s)
+        Results:
+          [info] upstreamLock.git.ref: Mutated field value to "invalid"
   - args:
       - porchctl
       - rpkg
@@ -142,7 +151,8 @@ commands:
       - --namespace=rpkg-update
       - git.basens-edit-clone.update-2
       - /tmp/porch-e2e/pkg-update-git.basens-edit-clone.update-2
-    stdout: "git.basens-edit-clone.update-2 pushed\n"
+    stdout: |
+      git.basens-edit-clone.update-2 pushed
   - args:
       - porchctl
       - rpkg

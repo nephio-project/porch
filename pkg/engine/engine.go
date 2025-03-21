@@ -24,6 +24,7 @@ import (
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
+	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/task"
@@ -223,7 +224,14 @@ func ensureUniqueWorkspaceName(obj *api.PackageRevision, existingRevs []reposito
 	return nil
 }
 
-func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version string, repositoryObj *configapi.Repository, repoPr repository.PackageRevision, oldObj, newObj *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
+func (cad *cadEngine) UpdatePackageRevision(
+	ctx context.Context,
+	version string,
+	repositoryObj *configapi.Repository,
+	repoPr repository.PackageRevision,
+	oldObj, newObj *api.PackageRevision,
+	parent repository.PackageRevision,
+) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cadEngine::UpdatePackageRevision", trace.WithAttributes())
 	defer span.End()
 
@@ -309,6 +317,26 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version string,
 
 	if err := cad.taskHandler.DoPRMutations(ctx, repositoryObj.Namespace, repoPr, oldObj, newObj, draft); err != nil {
 		return nil, err
+	}
+
+	// reject propose and approve if the package is not ready
+	if oldObj.Spec.Lifecycle != newObj.Spec.Lifecycle &&
+		(newObj.Spec.Lifecycle == api.PackageRevisionLifecycleProposed ||
+			newObj.Spec.Lifecycle == api.PackageRevisionLifecyclePublished) {
+
+		kf, err := repoPr.GetKptfile(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		if !ConditionIsTrue(kptfile.RenderConditionType, kf.Status.Conditions) {
+			return nil, fmt.Errorf("package is not ready to be proposed or approved, because its pipeline failed")
+		}
+		for _, gate := range kf.Info.ReadinessGates {
+			if !ConditionIsTrue(gate.ConditionType, kf.Status.Conditions) {
+				return nil, fmt.Errorf("package is not ready to be proposed or approved, because it fails readiness gate %s", gate.ConditionType)
+			}
+		}
 	}
 
 	if err := draft.UpdateLifecycle(ctx, newObj.Spec.Lifecycle); err != nil {
@@ -587,4 +615,14 @@ func (cad *cadEngine) RecloneAndReplay(ctx context.Context, parentPR repository.
 	sent := cad.watcherManager.NotifyPackageRevisionChange(watch.Modified, repoPkgRev)
 	klog.Infof("engine: sent %d for reclone and replay PackageRevision %s/%s", sent, repoPkgRev.KubeObjectNamespace(), repoPkgRev.KubeObjectName())
 	return repoPkgRev, nil
+}
+
+// Check ReadinessGates checks if the package has met all readiness gates
+func ConditionIsTrue(conditionType string, conditions []kptfile.Condition) bool {
+	for _, c := range conditions {
+		if c.Type == conditionType {
+			return c.Status == kptfile.ConditionTrue
+		}
+	}
+	return false
 }

@@ -67,6 +67,12 @@ commands:
             internal.config.kubernetes.io/index: "0"
             internal.config.kubernetes.io/path: Kptfile
           name: deploy-package
+        status:
+          conditions:
+          - message: Rendered successfully
+            reason: Rendered
+            status: "True"
+            type: Rendered
       - apiVersion: v1
         data:
           name: example
