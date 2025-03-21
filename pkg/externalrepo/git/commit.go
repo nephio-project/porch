@@ -161,6 +161,10 @@ func initializeTrees(repo *gitRepository, root *object.Tree, packagePath string,
 	return trees, nil
 }
 
+func (r *gitRepository) getCommit(h plumbing.Hash) (*object.Commit, error) {
+	return object.GetCommit(r.repo.Storer, h)
+}
+
 // Returns a pointer to the entry if found (by name); nil if not found
 func findEntry(tree *object.Tree, name string) *object.TreeEntry {
 	for i := range tree.Entries {
