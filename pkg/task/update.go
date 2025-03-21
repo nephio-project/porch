@@ -82,7 +82,8 @@ func (m *updatePackageMutation) apply(ctx context.Context, resources repository.
 		},
 		repository.PackageResources{
 			Contents: upstreamResources.Spec.Resources,
-		})
+		},
+		string(m.cloneTask.Clone.Strategy))
 	if err != nil {
 		return repository.PackageResources{}, nil, fmt.Errorf("error updating the package to revision %s", targetUpstream.UpstreamRef.Name)
 	}
