@@ -430,22 +430,22 @@ func printIterationResults(t *testing.T, logger *TestLogger, iteration int, metr
 			status)
 
 		t.Log(result)
-		logger.LogResult(result)
+		logger.LogResult("%s", result)
 	}
 }
 
 func printTestResults(t *testing.T, logger *TestLogger, allMetrics []TestMetrics) {
 	header := "\n=== Consolidated Performance Test Results ==="
 	t.Log(header)
-	logger.LogResult(header)
+	logger.LogResult("%s", header)
 
 	subheader := "Operation                  Min         Max         Avg         Total"
 	t.Log(subheader)
-	logger.LogResult(subheader)
+	logger.LogResult("%s", subheader)
 
 	divider := "------------------------------------------------------------------------"
 	t.Log(divider)
-	logger.LogResult(divider)
+	logger.LogResult("%s", divider)
 
 	stats := make(map[string]Stats)
 
@@ -477,7 +477,7 @@ func printTestResults(t *testing.T, logger *TestLogger, allMetrics []TestMetrics
 			stat.Total.Round(time.Millisecond))
 
 		t.Log(result)
-		logger.LogResult(result)
+		logger.LogResult("%s", result)
 	}
 
 	// Print errors if any
@@ -488,13 +488,13 @@ func printTestResults(t *testing.T, logger *TestLogger, allMetrics []TestMetrics
 				if !hasErrors {
 					errHeader := "\n=== Errors Encountered ==="
 					t.Log(errHeader)
-					logger.LogResult(errHeader)
+					logger.LogResult("%s", errHeader)
 					hasErrors = true
 				}
 				errMsg := fmt.Sprintf("Repository: %s, Package: %s, Operation: %s, Error: %v",
 					m.RepoName, m.PkgName, metric.Operation, metric.Error)
 				t.Log(errMsg)
-				logger.LogResult(errMsg)
+				logger.LogResult("%s", errMsg)
 			}
 		}
 	}
