@@ -41,6 +41,7 @@ import (
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
+	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
@@ -870,15 +871,7 @@ func (r *gitRepository) loadTaggedPackage(ctx context.Context, tag *plumbing.Ref
 		klog.Warningf("Error building git package revision %q: %s", path, err)
 	}
 
-	packageRevision, err := krmPackage.buildGitPackageRevision(ctx, revisionStr, workspaceName, tag)
-	if err != nil {
-		return nil, err
-	}
-
-	return []*gitPackageRevision{
-		packageRevision,
-	}, nil
-
+	return packageRevision, nil
 }
 
 func (r *gitRepository) dumpAllRefs() {

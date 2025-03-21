@@ -481,8 +481,8 @@ func (t *TestSuite) WaitUntilPackageRevisionFulfillingConditionExists(
 	return foundPkgRev, err
 }
 
-func (t *TestSuite) WaitUntilPackageRevisionExists(ctx context.Context, repository string, pkgName string, revision int) *porchapi.PackageRevision {
-	t.Helper()
+func (t *TestSuite) WaitUntilPackageRevisionExists(repository string, pkgName string, revision int) *porchapi.PackageRevision {
+	t.T().Helper()
 	t.Logf("Waiting for package revision (%v/%v/%v) to exist", repository, pkgName, revision)
 	timeout := 120 * time.Second
 	foundPkgRev, err := t.WaitUntilPackageRevisionFulfillingConditionExists(timeout, func(pkgRev porchapi.PackageRevision) bool {
@@ -512,7 +512,6 @@ func (t *TestSuite) WaitUntilDraftPackageRevisionExists(repository string, pkgNa
 }
 
 func (t *TestSuite) WaitUntilPackageRevisionResourcesExists(
-	ctx context.Context,
 	key types.NamespacedName,
 ) *porchapi.PackageRevisionResources {
 
@@ -520,7 +519,7 @@ func (t *TestSuite) WaitUntilPackageRevisionResourcesExists(
 	t.Logf("Waiting for PackageRevisionResources object %v to exist", key)
 	timeout := 120 * time.Second
 	var foundPrr *porchapi.PackageRevisionResources
-	err := wait.PollUntilContextTimeout(ctx, time.Second, timeout, true, func(ctx context.Context) (done bool, err error) {
+	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, timeout, true, func(ctx context.Context) (done bool, err error) {
 		var prrList porchapi.PackageRevisionResourcesList
 		if err := t.Client.List(ctx, &prrList); err != nil {
 			t.Logf("error listing package revision resources: %v", err)
@@ -540,8 +539,8 @@ func (t *TestSuite) WaitUntilPackageRevisionResourcesExists(
 	return foundPrr
 }
 
-func (t *TestSuite) GetPackageRevision(ctx context.Context, repo string, pkgName string, revision int) *porchapi.PackageRevision {
-	t.Helper()
+func (t *TestSuite) GetPackageRevision(repo string, pkgName string, revision int) *porchapi.PackageRevision {
+	t.T().Helper()
 	var prList porchapi.PackageRevisionList
 	selector := client.MatchingFields(fields.Set{
 		"spec.repository":  repo,
@@ -559,7 +558,7 @@ func (t *TestSuite) GetPackageRevision(ctx context.Context, repo string, pkgName
 	return &prList.Items[0]
 }
 
-func (t *TestSuite) GetContentsOfPackageRevision(ctx context.Context, repository string, pkgName string, revision string) map[string]string {
+func (t *TestSuite) GetContentsOfPackageRevision(repository string, pkgName string, revision string) map[string]string {
 
 	t.T().Helper()
 	var prrList porchapi.PackageRevisionResourcesList
