@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,6 +25,8 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func (g GitSuite) TestLock(t *testing.T) {
@@ -54,15 +56,15 @@ func (g GitSuite) TestLock(t *testing.T) {
 	}
 
 	wantRefs := map[repository.PackageRevisionKey]string{
-		{Repository: repositoryName, Package: "empty", Revision: "v1", WorkspaceName: "v1"}:   "empty/v1",
-		{Repository: repositoryName, Package: "basens", Revision: "v1", WorkspaceName: "v1"}:  "basens/v1",
-		{Repository: repositoryName, Package: "basens", Revision: "v2", WorkspaceName: "v2"}:  "basens/v2",
-		{Repository: repositoryName, Package: "istions", Revision: "v1", WorkspaceName: "v1"}: "istions/v1",
-		{Repository: repositoryName, Package: "istions", Revision: "v2", WorkspaceName: "v2"}: "istions/v2",
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "empty"}, Revision: 1, WorkspaceName: "v1"}:   "empty/v1",
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "basens"}, Revision: 1, WorkspaceName: "v1"}:  "basens/v1",
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "basens"}, Revision: 2, WorkspaceName: "v2"}:  "basens/v2",
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "istions"}, Revision: 1, WorkspaceName: "v1"}: "istions/v1",
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "istions"}, Revision: 2, WorkspaceName: "v2"}: "istions/v2",
 
-		{Repository: repositoryName, Package: "basens", Revision: g.branch, WorkspaceName: g.branch}:  g.branch,
-		{Repository: repositoryName, Package: "empty", Revision: g.branch, WorkspaceName: g.branch}:   g.branch,
-		{Repository: repositoryName, Package: "istions", Revision: g.branch, WorkspaceName: g.branch}: g.branch,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "basens"}, Revision: -1, WorkspaceName: g.branch}:  g.branch,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "empty"}, Revision: -1, WorkspaceName: g.branch}:   g.branch,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "default", Name: repositoryName, PlaceholderWSname: g.branch}, Package: "istions"}, Revision: -1, WorkspaceName: g.branch}: g.branch,
 	}
 
 	for _, rev := range revisions {
@@ -98,7 +100,7 @@ func (g GitSuite) TestLock(t *testing.T) {
 			Ref:       upstream.Git.Ref,
 		}), (gitAddress{
 			Repo:      address,
-			Directory: key.Package,
+			Directory: key.PkgKey.ToFullPathname(),
 			Ref:       wantRef,
 		}); !cmp.Equal(want, got) {
 			t.Errorf("Package upstream differs (-want,+got): %s", cmp.Diff(want, got))
@@ -111,7 +113,7 @@ func (g GitSuite) TestLock(t *testing.T) {
 			Ref:       lock.Git.Ref,
 		}), (gitAddress{
 			Repo:      address,
-			Directory: key.Package,
+			Directory: key.PkgKey.ToFullPathname(),
 			Ref:       wantRef,
 		}); !cmp.Equal(want, got) {
 			t.Errorf("Package upstream lock differs (-want,+got): %s", cmp.Diff(want, got))
@@ -124,4 +126,23 @@ func (g GitSuite) TestLock(t *testing.T) {
 			t.Errorf("Commit: got %s, want %s", got, want)
 		}
 	}
+}
+
+func TestPackageGetters(t *testing.T) {
+	gitPr := gitPackageRevision{
+		prKey: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				RepoKey: repository.RepositoryKey{
+					Name:      "my-repo",
+					Namespace: "my-namespace",
+				},
+				Package: "my-package",
+			},
+			WorkspaceName: "my-workspace",
+		},
+	}
+
+	assert.Equal(t, "my-repo.my-package.my-workspace", gitPr.KubeObjectName())
+	assert.Equal(t, "my-namespace", gitPr.KubeObjectNamespace())
+	assert.Equal(t, types.UID("7007e8aa-0928-50f9-b980-92a44942f055"), gitPr.UID())
 }

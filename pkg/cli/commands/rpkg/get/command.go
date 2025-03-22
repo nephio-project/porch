@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package get
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/nephio-project/porch/internal/kpt/errors"
@@ -62,7 +63,7 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 
 	// Create flags
 	cmd.Flags().StringVar(&r.packageName, "name", "", "Name of the packages to get. Any package whose name contains this value will be included in the results.")
-	cmd.Flags().StringVar(&r.revision, "revision", "", "Revision of the packages to get. Any package whose revision matches this value will be included in the results.")
+	cmd.Flags().Int64Var(&r.revision, "revision", -2, "Revision of the packages to get. Any package whose revision matches this value will be included in the results.")
 	cmd.Flags().StringVar(&r.workspace, "workspace", "",
 		"WorkspaceName of the packages to get. Any package whose workspaceName matches this value will be included in the results.")
 
@@ -82,7 +83,7 @@ type runner struct {
 
 	// Flags
 	packageName string
-	revision    string
+	revision    int64
 	workspace   string
 	printFlags  *get.PrintFlags
 
@@ -137,8 +138,8 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 
 	if useSelectors {
 		fieldSelector := fields.Everything()
-		if r.revision != "" {
-			fieldSelector = fields.OneTermEqualSelector("spec.revision", r.revision)
+		if r.revision != -2 {
+			fieldSelector = fields.OneTermEqualSelector("spec.revision", strconv.FormatInt(r.revision, 10))
 		}
 		if r.workspace != "" {
 			fieldSelector = fields.OneTermEqualSelector("spec.workspaceName", r.workspace)
@@ -237,7 +238,7 @@ func (r *runner) packageRevisionMatches(o *unstructured.Unstructured) (bool, err
 	if err != nil {
 		return false, err
 	}
-	revision, _, err := unstructured.NestedString(o.Object, "spec", "revision")
+	revision, _, err := unstructured.NestedInt64(o.Object, "spec", "revision")
 	if err != nil {
 		return false, err
 	}
@@ -248,7 +249,7 @@ func (r *runner) packageRevisionMatches(o *unstructured.Unstructured) (bool, err
 	if r.packageName != "" && r.packageName != packageName {
 		return false, nil
 	}
-	if r.revision != "" && r.revision != revision {
+	if r.revision != -2 && r.revision != revision {
 		return false, nil
 	}
 	if r.workspace != "" && r.workspace != workspace {
@@ -274,6 +275,14 @@ func getStringCell(cells []interface{}, col int) (string, bool) {
 	return s, ok
 }
 
+func getInt64Cell(cells []interface{}, col int) (int64, bool) {
+	if col < 0 {
+		return 0, false
+	}
+	i, ok := cells[col].(int64)
+	return i, ok
+}
+
 func (r *runner) filterTableRows(table *metav1.Table) error {
 	filtered := make([]metav1.TableRow, 0, len(table.Rows))
 	packageNameCol := findColumn(table.ColumnDefinitions, "Package")
@@ -288,8 +297,8 @@ func (r *runner) filterTableRows(table *metav1.Table) error {
 				continue
 			}
 		}
-		if revision, ok := getStringCell(row.Cells, revisionCol); ok {
-			if r.revision != "" && r.revision != revision {
+		if revision, ok := getInt64Cell(row.Cells, revisionCol); ok {
+			if r.revision != -2 && r.revision != revision {
 				continue
 			}
 		}

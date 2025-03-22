@@ -1,4 +1,4 @@
-// Copyright 2023 The kpt and Nephio Authors
+// Copyright 2023, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -72,7 +72,7 @@ func TestUnrollDownstreamTargets(t *testing.T) {
 	pvs := &api.PackageVariantSet{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-pvs"},
 		Spec: api.PackageVariantSetSpec{
-			Upstream: &pkgvarapi.Upstream{Repo: "up", Package: "up", Revision: "up"},
+			Upstream: &pkgvarapi.Upstream{Repo: "up", Package: "up", Revision: 0},
 			Targets: []api.Target{
 				{
 					Repositories: []api.RepositoryTarget{
@@ -125,7 +125,7 @@ func TestEnsurePackageVariants(t *testing.T) {
 		&api.PackageVariantSet{
 			ObjectMeta: metav1.ObjectMeta{Name: "my-pvs"},
 			Spec: api.PackageVariantSetSpec{
-				Upstream: &pkgvarapi.Upstream{Repo: "up", Package: "up", Revision: "up"},
+				Upstream: &pkgvarapi.Upstream{Repo: "up", Package: "up", Revision: 0},
 			},
 		},
 		&configapi.RepositoryList{},

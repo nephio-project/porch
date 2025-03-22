@@ -50,7 +50,7 @@ commands:
             internal.config.kubernetes.io/path: .KptRevisionMetadata
           name: git.init-package.init-1
           namespace: rpkg-init
-          uid: 3da4afa2-0d0a-5268-861f-fcfdefea17bb
+          uid: 45ee0692-730a-51b2-9a1d-ad4f4ad55dc8
       - apiVersion: kpt.dev/v1
         info:
           description: Test Package Description

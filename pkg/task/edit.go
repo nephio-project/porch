@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,8 +49,8 @@ func (m *editPackageMutation) apply(ctx context.Context, resources repository.Pa
 	}
 
 	// We only allow edit to create new revision from the same package.
-	if revision.Key().Package != m.packageName ||
-		revision.Key().Repository != m.repositoryName {
+	if revision.Key().PkgKey.ToPkgPathname() != m.packageName ||
+		revision.Key().PkgKey.RepoKey.Name != m.repositoryName {
 		return repository.PackageResources{}, nil, fmt.Errorf("source revision must be from same package %s/%s", m.repositoryName, m.packageName)
 	}
 

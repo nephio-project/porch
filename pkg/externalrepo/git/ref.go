@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,10 +16,12 @@ package git
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/nephio-project/porch/pkg/repository"
 )
 
 const (
@@ -119,16 +121,16 @@ func getTagNameInLocalRepo(n plumbing.ReferenceName) (string, bool) {
 	return trimOptionalPrefix(n.String(), tagsPrefixInLocalRepo)
 }
 
-func createDraftName(pkg string, wn string) BranchName {
-	return BranchName(draftsPrefix + pkg + "/" + wn)
+func createDraftName(key repository.PackageRevisionKey) BranchName {
+	return BranchName(draftsPrefix + filepath.Join(key.PkgKey.ToFullPathname(), string(key.WorkspaceName)))
 }
 
-func createProposedName(pkg string, wn string) BranchName {
-	return BranchName(proposedPrefix + pkg + "/" + wn)
+func createProposedName(key repository.PackageRevisionKey) BranchName {
+	return BranchName(proposedPrefix + filepath.Join(key.PkgKey.ToFullPathname(), string(key.WorkspaceName)))
 }
 
-func createDeletionProposedName(pkg string, revision string) BranchName {
-	return BranchName(deletionProposedPrefix + pkg + "/" + revision)
+func createDeletionProposedName(key repository.PackageRevisionKey) BranchName {
+	return BranchName(deletionProposedPrefix + filepath.Join(key.PkgKey.ToFullPathname(), "/v"+repository.Revision2Str(key.Revision)))
 }
 
 func trimOptionalPrefix(s, prefix string) (string, bool) {
@@ -138,8 +140,8 @@ func trimOptionalPrefix(s, prefix string) (string, bool) {
 	return "", false
 }
 
-func createFinalTagNameInLocal(pkg, rev string) plumbing.ReferenceName {
-	return plumbing.ReferenceName(tagsPrefixInLocalRepo + pkg + "/" + rev)
+func createFinalTagNameInLocal(key repository.PackageRevisionKey) plumbing.ReferenceName {
+	return plumbing.ReferenceName(tagsPrefixInLocalRepo + filepath.Join(key.PkgKey.ToFullPathname(), "/v"+repository.Revision2Str(key.Revision)))
 }
 
 func refInLocalFromRefInRemote(n plumbing.ReferenceName) (plumbing.ReferenceName, error) {
