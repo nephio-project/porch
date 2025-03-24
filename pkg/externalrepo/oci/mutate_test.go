@@ -44,6 +44,9 @@ func TestCreateUpdateDeletePackageRevision(t *testing.T) {
 	draftPr, err := ociRepo.CreatePackageRevisionDraft(context.TODO(), apiPr)
 	assert.False(t, err != nil)
 
+	meta := draftPr.GetMeta()
+	assert.Equal(t, "", meta.Name)
+
 	draftPrKey := repository.PackageRevisionKey{
 		PkgKey: repository.PackageKey{
 			Package: "my-package-name",
