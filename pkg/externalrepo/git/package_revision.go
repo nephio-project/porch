@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -151,27 +150,29 @@ func (r *gitRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1
 		return nil, fmt.Errorf("error when resolving target branch for the package: %w", err)
 	}
 
-	if err := util.ValidPkgRevObjName(r.name, r.directory, obj.Spec.PackageName, string(obj.Spec.WorkspaceName)); err != nil {
+	if err := util.ValidPkgRevObjName(r.Key().Name, r.Key().Path, obj.Spec.PackageName, string(obj.Spec.WorkspaceName)); err != nil {
 		return nil, fmt.Errorf("failed to create packagerevision: %w", err)
 	}
 
-	packagePath := filepath.Join(r.directory, obj.Spec.PackageName)
+	draftKey := repository.PackageRevisionKey{
+		PkgKey:        repository.FromFullPathname(r.Key(), obj.Spec.PackageName),
+		WorkspaceName: obj.Spec.WorkspaceName,
+	}
 
 	// TODO use git branches to leverage uniqueness
-	draft := createDraftName(packagePath, obj.Spec.WorkspaceName)
+	draftBranchName := createDraftName(draftKey)
 
 	// TODO: This should also create a new 'Package' resource if one does not already exist
 
 	return &gitPackageRevisionDraft{
-		parent:        r,
-		path:          packagePath,
-		workspaceName: obj.Spec.WorkspaceName,
-		lifecycle:     v1alpha1.PackageRevisionLifecycleDraft,
-		updated:       time.Now(),
-		base:          nil, // Creating a new package
-		tasks:         nil, // Creating a new package
-		branch:        draft,
-		commit:        base,
+		prKey:     draftKey,
+		repo:      r,
+		lifecycle: v1alpha1.PackageRevisionLifecycleDraft,
+		updated:   time.Now(),
+		base:      nil, // Creating a new package
+		tasks:     nil, // Creating a new package
+		branch:    draftBranchName,
+		commit:    base,
 	}, nil
 }
 
@@ -209,16 +210,14 @@ func (r *gitRepository) UpdatePackageRevision(ctx context.Context, old repositor
 	lifecycle := r.getLifecycle(oldGitPackage)
 
 	return &gitPackageRevisionDraft{
-		parent:        r,
-		path:          oldGitPackage.path,
-		revision:      oldGitPackage.revision,
-		workspaceName: oldGitPackage.workspaceName,
-		lifecycle:     lifecycle,
-		updated:       rev.updated,
-		base:          rev.ref,
-		tree:          rev.tree,
-		commit:        rev.commit,
-		tasks:         rev.tasks,
+		prKey:     oldGitPackage.prKey,
+		repo:      r,
+		lifecycle: lifecycle,
+		updated:   rev.updated,
+		base:      rev.ref,
+		tree:      rev.tree,
+		commit:    rev.commit,
+		tasks:     rev.tasks,
 	}, nil
 }
 
@@ -237,7 +236,7 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, old repositor
 	if ref == nil {
 		// This is an internal error. In some rare cases (see GetPackageRevision below) we create
 		// package revisions without refs. They should never be returned via the API though.
-		return fmt.Errorf("cannot delete package with no ref: %s", oldGit.path)
+		return fmt.Errorf("cannot delete package with no ref: %s", oldGit.Key().PkgKey.ToFullPathname())
 	}
 
 	// We can only delete packages which have their own ref. Refs that are shared with other packages
@@ -248,7 +247,7 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, old repositor
 	switch rn := ref.Name(); {
 	case rn.IsTag():
 		// Delete tag only if it is package-specific.
-		name := createFinalTagNameInLocal(oldGit.path, oldGit.revision)
+		name := createFinalTagNameInLocal(oldGit.Key())
 		if rn != name {
 			return fmt.Errorf("cannot delete package tagged with a tag that is not specific to the package: %s", rn)
 		}
@@ -257,7 +256,7 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, old repositor
 		refSpecs.AddRefToDelete(ref)
 
 		// If this revision was proposed for deletion, we need to delete the associated branch.
-		if err := r.removeDeletionProposedBranchIfExists(ctx, oldGit.path, oldGit.revision); err != nil {
+		if err := r.removeDeletionProposedBranchIfExists(ctx, oldGit.Key()); err != nil {
 			return err
 		}
 
@@ -274,7 +273,7 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, old repositor
 
 		// Remove the proposed for deletion branch. We end up here when users
 		// try to delete the main branch version of a packagerevision.
-		if err := r.removeDeletionProposedBranchIfExists(ctx, oldGit.path, oldGit.revision); err != nil {
+		if err := r.removeDeletionProposedBranchIfExists(ctx, oldGit.Key()); err != nil {
 			return err
 		}
 
@@ -335,37 +334,35 @@ func (r *gitRepository) createPackageDeleteCommit(ctx context.Context, branch pl
 		return zero, fmt.Errorf("failed to find commit tree for %s: %w", ref, err)
 	}
 
-	packagePath := pkg.path
-
 	// Find the package in the tree
-	switch _, err := root.FindEntry(packagePath); err {
+	switch _, err := root.FindEntry(pkg.Key().PkgKey.ToFullPathname()); err {
 	case object.ErrEntryNotFound:
 		// Package doesn't exist; no need to delete it
 		return zero, nil
 	case nil:
 		// found
 	default:
-		return zero, fmt.Errorf("failed to find package %q in the repositrory ref %q: %w,", packagePath, ref, err)
+		return zero, fmt.Errorf("failed to find package %q in the repositrory ref %q: %w,", pkg.Key().PkgKey.ToFullPathname(), ref, err)
 	}
 
 	// Create commit helper. Use zero hash for the initial package tree. Commit helper will initialize trees
 	// without TreeEntry for this package present - the package is deleted.
-	ch, err := newCommitHelper(r, r.userInfoProvider, commit.Hash, packagePath, zero)
+	ch, err := newCommitHelper(r, r.userInfoProvider, commit.Hash, pkg.Key().PkgKey.ToFullPathname(), zero)
 	if err != nil {
-		return zero, fmt.Errorf("failed to initialize commit of package %q to %q: %w", packagePath, ref, err)
+		return zero, fmt.Errorf("failed to initialize commit of package %q to %q: %w", pkg.Key().PkgKey.ToFullPathname(), ref, err)
 	}
 
-	message := fmt.Sprintf("Delete %s", packagePath)
-	commitHash, _, err := ch.commit(ctx, message, packagePath)
+	message := fmt.Sprintf("Delete %s", pkg.Key().PkgKey.ToFullPathname())
+	commitHash, _, err := ch.commit(ctx, message, pkg.Key().PkgKey.ToFullPathname())
 	if err != nil {
-		return zero, fmt.Errorf("failed to commit package %q to %q: %w", packagePath, ref, err)
+		return zero, fmt.Errorf("failed to commit package %q to %q: %w", pkg.Key().PkgKey.ToFullPathname(), ref, err)
 	}
 	return commitHash, nil
 }
 
-func (r *gitRepository) removeDeletionProposedBranchIfExists(ctx context.Context, path, revision string) error {
+func (r *gitRepository) removeDeletionProposedBranchIfExists(ctx context.Context, key repository.PackageRevisionKey) error {
 	refSpecsForDeletionProposed := newPushRefSpecBuilder()
-	deletionProposedBranch := createDeletionProposedName(path, revision)
+	deletionProposedBranch := createDeletionProposedName(key)
 	refSpecsForDeletionProposed.AddRefToDelete(plumbing.NewHashReference(deletionProposedBranch.RefInLocal(), plumbing.ZeroHash))
 	if err := r.pushAndCleanup(ctx, refSpecsForDeletionProposed); err != nil {
 		if pkgerrors.Is(err, git.NoErrAlreadyUpToDate) {
@@ -434,8 +431,8 @@ func (r *gitRepository) loadPackageRevision(ctx context.Context, version, path s
 	ctx, span := tracer.Start(ctx, "gitRepository::loadPackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	if !packageInDirectory(path, r.directory) {
-		return nil, kptfilev1.GitLock{}, pkgerrors.Errorf("cannot find package %s@%s; package is not under the Repository.spec.directory", path, version)
+	if !packageInDirectory(path, r.Key().Path) {
+		return nil, kptfilev1.GitLock{}, fmt.Errorf("cannot find package %s@%s; package is not under the Repository.spec.directory", path, version)
 	}
 
 	origin, err := r.repo.Remote("origin")
@@ -466,8 +463,7 @@ func (r *gitRepository) loadPackageRevision(ctx context.Context, version, path s
 
 	var ref *plumbing.Reference = nil // Cannot determine ref; this package will be considered final (immutable).
 
-	var revision string
-	var workspace string
+	var revisionStr, workspace string
 	last := strings.LastIndex(version, "/")
 
 	if strings.HasPrefix(version, "drafts/") || strings.HasPrefix(version, "proposed/") {
@@ -476,17 +472,17 @@ func (r *gitRepository) loadPackageRevision(ctx context.Context, version, path s
 	} else {
 		// the passed in version is a ref to a published package revision
 		if version == string(r.branch) || last < 0 {
-			revision = version
+			revisionStr = version
 		} else {
-			revision = version[last+1:]
+			revisionStr = version[last+1:]
 		}
 		workspace = getPkgWorkspace(commit, krmPackage, ref)
 		if workspace == "" {
-			workspace = revision
+			workspace = revisionStr
 		}
 	}
 
-	packageRevision, err := krmPackage.buildGitPackageRevision(ctx, revision, workspace, ref)
+	packageRevision, err := krmPackage.buildGitPackageRevision(ctx, revisionStr, workspace, ref)
 	if err != nil {
 		return nil, lock, err
 	}
@@ -507,13 +503,12 @@ func (r *gitRepository) loadTaggedPackage(ctx context.Context, tag *plumbing.Ref
 		// tag=<version>
 		// could be a release tag or something else, we ignore these types of tags
 		return nil, pkgerrors.Errorf("could not find slash in %q", name)
-
 	}
 
 	// tag=<package path>/version
-	path, revision := name[:slash], name[slash+1:]
+	path, revisionStr := name[:slash], name[slash+1:]
 
-	if !packageInDirectory(path, r.directory) {
+	if !packageInDirectory(path, r.Key().Path) {
 		return nil, nil
 	}
 
@@ -540,7 +535,7 @@ func (r *gitRepository) loadTaggedPackage(ctx context.Context, tag *plumbing.Ref
 		klog.Warningf("Failed to get package workspace name for package %q (will use revision name)", name)
 	}
 
-	packageRevision, err := krmPackage.buildGitPackageRevision(ctx, revision, workspaceName, tag)
+	packageRevision, err := krmPackage.buildGitPackageRevision(ctx, revisionStr, workspaceName, tag)
 	if err != nil {
 		if packageRevision == nil {
 			return nil, err
@@ -549,7 +544,6 @@ func (r *gitRepository) loadTaggedPackage(ctx context.Context, tag *plumbing.Ref
 	}
 
 	return packageRevision, nil
-
 }
 
 func (r *gitRepository) dumpAllRefs() {
@@ -597,17 +591,17 @@ func (r *gitRepository) discoverFinalizedPackages(ctx context.Context, ref *plum
 		return nil, err
 	}
 
-	var revision string
+	var revisionStr string
 	if rev, ok := getBranchNameInLocalRepo(ref.Name()); ok {
-		revision = rev
+		revisionStr = rev
 	} else if rev, ok = getTagNameInLocalRepo(ref.Name()); ok {
-		revision = rev
+		revisionStr = rev
 	} else {
 		// TODO: ignore the ref instead?
 		return nil, pkgerrors.Errorf("cannot determine revision from ref: %q", rev)
 	}
 
-	krmPackages, err := r.discoverPackagesInTree(commit, DiscoverPackagesOptions{FilterPrefix: r.directory, Recurse: true})
+	krmPackages, err := r.discoverPackagesInTree(commit, DiscoverPackagesOptions{FilterPrefix: r.Key().Path, Recurse: true})
 	if err != nil {
 		return nil, err
 	}
@@ -617,11 +611,11 @@ func (r *gitRepository) discoverFinalizedPackages(ctx context.Context, ref *plum
 	for _, krmPackage := range krmPackages.packages {
 		workspace := getPkgWorkspace(commit, krmPackage, ref)
 		if workspace == "" {
-			klog.Warningf("Failed to get workspace name for package %q (will use revision name): %s", krmPackage.path, err)
+			klog.Warningf("Failed to get workspace name for package %q (will use revision name): %s", krmPackage.pkgKey, err)
 		}
-		packageRevision, err := krmPackage.buildGitPackageRevision(ctx, revision, workspace, ref)
+		packageRevision, err := krmPackage.buildGitPackageRevision(ctx, revisionStr, workspace, ref)
 		if err != nil {
-			ec.Add(pkgerrors.Wrapf(err, "failed to build git package revision for package %s", krmPackage.path))
+			ec.Add(pkgerrors.Wrapf(err, "failed to build git package revision for package %s", krmPackage.pkgKey))
 			continue
 		}
 		result = append(result, packageRevision)

@@ -57,7 +57,7 @@ func (r *gitRepository) checkPublishedLifecycle(pkgRev *gitPackageRevision) v1al
 		}
 	}
 
-	branchName := createDeletionProposedName(pkgRev.path, pkgRev.revision)
+	branchName := createDeletionProposedName(pkgRev.Key())
 	if _, found := r.deletionProposedCache[branchName]; found {
 		return v1alpha1.PackageRevisionLifecycleDeletionProposed
 	}
@@ -77,7 +77,7 @@ func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageR
 		return fmt.Errorf("cannot update lifecycle for draft package revision")
 	}
 	refSpecs := newPushRefSpecBuilder()
-	deletionProposedBranch := createDeletionProposedName(pkgRev.path, pkgRev.revision)
+	deletionProposedBranch := createDeletionProposedName(pkgRev.Key())
 
 	if old == v1alpha1.PackageRevisionLifecyclePublished {
 		if newLifecycle != v1alpha1.PackageRevisionLifecycleDeletionProposed {

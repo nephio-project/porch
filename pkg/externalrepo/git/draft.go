@@ -62,7 +62,7 @@ func (d *gitPackageRevisionDraft) UpdateResources(ctx context.Context, new *v1al
 	ctx, span := tracer.Start(ctx, "gitPackageDraft::UpdateResources", trace.WithAttributes())
 	defer span.End()
 
-	return d.parent.updateDraftResources(ctx, d, new, change)
+	return d.repo.updateDraftResources(ctx, d, new, change)
 }
 
 func (d *gitPackageRevisionDraft) UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error {
@@ -71,8 +71,8 @@ func (d *gitPackageRevisionDraft) UpdateLifecycle(ctx context.Context, new v1alp
 }
 
 func (d *gitPackageRevisionDraft) GetName() string {
-	packageDirectory := d.parent.directory
-	packageName := strings.TrimPrefix(d.path, packageDirectory+"/")
+	packageDirectory := d.prKey.PkgKey.Path
+	packageName := strings.TrimPrefix(d.prKey.PkgKey.Path, packageDirectory+"/")
 	return packageName
 }
 
@@ -82,20 +82,20 @@ func (r *gitRepository) updateDraftResources(ctx context.Context, draft *gitPack
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	ch, err := newCommitHelper(r, r.userInfoProvider, draft.commit, draft.path, plumbing.ZeroHash)
+	ch, err := newCommitHelper(r, r.userInfoProvider, draft.commit, draft.Key().PkgKey.ToFullPathname(), plumbing.ZeroHash)
 	if err != nil {
 		return pkgerrors.Wrap(err, "failed to commit package:")
 	}
 
 	for k, v := range new.Spec.Resources {
-		if err := ch.storeFile(filepath.Join(draft.path, k), v); err != nil {
+		if err := ch.storeFile(filepath.Join(draft.Key().PkgKey.ToFullPathname(), k), v); err != nil {
 			return err
 		}
 	}
 
 	// Because we can't read the package back without a Kptfile, make sure one is present
 	{
-		p := filepath.Join(draft.path, "Kptfile")
+		p := filepath.Join(draft.Key().PkgKey.ToFullPathname(), "Kptfile")
 		_, err := ch.readFile(p)
 		if os.IsNotExist(err) {
 			// We could write the file here; currently we return an error
@@ -104,9 +104,9 @@ func (r *gitRepository) updateDraftResources(ctx context.Context, draft *gitPack
 	}
 
 	annotation := &gitAnnotation{
-		PackagePath:   draft.path,
-		WorkspaceName: draft.workspaceName,
-		Revision:      draft.revision,
+		PackagePath:   draft.Key().PkgKey.ToFullPathname(),
+		WorkspaceName: draft.Key().WorkspaceName,
+		Revision:      repository.Revision2Str(draft.Key().Revision),
 		Task:          change,
 	}
 	message := "Intermediate commit"
@@ -121,7 +121,7 @@ func (r *gitRepository) updateDraftResources(ctx context.Context, draft *gitPack
 		return err
 	}
 
-	commitHash, packageTree, err := ch.commit(ctx, message, draft.path)
+	commitHash, packageTree, err := ch.commit(ctx, message, draft.Key().PkgKey.ToFullPathname())
 	if err != nil {
 		return pkgerrors.Wrap(err, "failed to commit package: %w")
 	}
@@ -131,18 +131,19 @@ func (r *gitRepository) updateDraftResources(ctx context.Context, draft *gitPack
 	return nil
 }
 
+
 // loadDraft will load the draft package.  If the package isn't found (we now require a Kptfile), it will return (nil, nil)
 func (r *gitRepository) loadDraft(ctx context.Context, ref *plumbing.Reference) (*gitPackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "gitRepository::loadDraft", trace.WithAttributes())
 	defer span.End()
 
-	name, workspaceName, err := parseDraftName(ref)
+	pkgPathAndName, workspaceName, err := parseDraftName(ref)
 	if err != nil {
 		return nil, err
 	}
 
 	// Only load drafts in the directory specified at repository registration.
-	if !packageInDirectory(name, r.directory) {
+	if !packageInDirectory(pkgPathAndName, r.Key().Path) {
 		return nil, nil
 	}
 
@@ -151,17 +152,17 @@ func (r *gitRepository) loadDraft(ctx context.Context, ref *plumbing.Reference) 
 		return nil, pkgerrors.Wrap(err, "cannot resolve draft branch to commit (corrupted repository?)")
 	}
 
-	krmPackage, err := r.findPackage(commit, name)
+	krmPackage, err := r.findPackage(commit, pkgPathAndName)
 	if err != nil {
 		return nil, err
 	}
 
 	if krmPackage == nil {
-		klog.Warningf("draft package %q was not found", name)
+		klog.Warningf("draft package %q was not found", pkgPathAndName)
 		return nil, nil
 	}
 
-	packageRevision, err := krmPackage.buildGitPackageRevision(ctx, "", workspaceName, ref)
+	packageRevision, err := krmPackage.buildGitPackageRevision(ctx, "0", workspaceName, ref)
 	if err != nil {
 		return nil, err
 	}
