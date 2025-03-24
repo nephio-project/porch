@@ -16,7 +16,6 @@ package crcache
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -252,10 +251,6 @@ func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd re
 	sent := r.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Added, cachedPr)
 	klog.Infof("cache: sent %d for new PackageRevision %s/%s", sent, cachedPr.KubeObjectNamespace(), cachedPr.KubeObjectName())
 	return cachedPr, nil
-}
-
-func (r *cachedRepository) PushPackageRevision(ctx context.Context, pr repository.PackageRevision) error {
-	return fmt.Errorf("cachedRepository:PushPackageRevision: function should not be invoked on caches")
 }
 
 func (r *cachedRepository) UpdatePackageRevision(ctx context.Context, old repository.PackageRevision) (repository.PackageRevisionDraft, error) {
