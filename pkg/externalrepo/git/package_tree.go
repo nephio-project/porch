@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package git
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path"
 	"time"
@@ -23,7 +24,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/filemode"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/pkg/repository"
 	"k8s.io/klog/v2"
 )
 
@@ -45,7 +46,7 @@ type packageListEntry struct {
 	parent *packageList
 
 	// path is the relative path to the root of the package (directory containing the Kptfile)
-	path string
+	pkgKey repository.PackageKey
 
 	// treeHash is the git-hash of the git tree corresponding to Path
 	treeHash plumbing.Hash
@@ -53,12 +54,8 @@ type packageListEntry struct {
 
 // buildGitPackageRevision creates a gitPackageRevision for the packageListEntry
 // TODO: Can packageListEntry just _be_ a gitPackageRevision?
-func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revision string, workspace v1alpha1.WorkspaceName, ref *plumbing.Reference) (*gitPackageRevision, error) {
+func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revisionStr, workspace string, ref *plumbing.Reference) (*gitPackageRevision, error) {
 	repo := p.parent.parent
-	tasks, err := repo.loadTasks(ctx, p.parent.commit, p.path, workspace)
-	if err != nil {
-		return nil, err
-	}
 
 	var updated time.Time
 	var updatedBy string
@@ -75,13 +72,15 @@ func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revision
 		// the last commit for the package based on the porch commit tags. We don't
 		// use the revision here, since we are looking at the package branch while
 		// the revisions only helps identify the tags.
-		commit, err := repo.findLatestPackageCommit(p.parent.commit, p.path)
-		if err != nil {
-			return nil, err
+		commit, err := repo.findLatestPackageCommit(p.parent.commit, p.pkgKey)
+		if err != nil && commit != nil {
+			klog.Warningf("Error searching for latest package commit for package %s/%s: %s", p.pkgKey, revisionStr, err)
 		}
 		if commit != nil {
 			updated = commit.Author.When
 			updatedBy = commit.Author.Email
+		} else {
+			klog.Warningf("Cannot find latest package commit for package %s/%s: %s", p.pkgKey, revisionStr, err)
 		}
 		// If not commit was found with the porch commit tags, we don't really
 		// know who approved the package or when it happend. We could find this
@@ -90,22 +89,45 @@ func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revision
 	}
 
 	// for backwards compatibility with packages that existed before porch supported
-	// workspaceNames, we populate the workspaceName as the revision number if it is empty
+	// workspaceNames, we populate the workspaceName as the branch if it is empty
+	// All this is necessary to support old packages and nested packages
+	// TODO: Do we need nested packages, we can use directories on repos instead
+	revision := repository.Revision2Int(revisionStr)
 	if workspace == "" {
-		workspace = v1alpha1.WorkspaceName(revision)
+		if revision == -1 {
+			workspace = revisionStr
+		} else {
+			workspace = "v" + repository.Revision2Str(revision)
+		}
+	}
+
+	gitPrKey := repository.PackageRevisionKey{
+		PkgKey:        p.pkgKey,
+		Revision:      revision,
+		WorkspaceName: workspace,
+	}
+
+	tasks, err := repo.loadTasks(ctx, p.parent.commit, gitPrKey)
+	if err != nil {
+		klog.Warningf("Error when loading tasks for package %s: %s", gitPrKey, err)
+	}
+
+	if len(tasks) == 0 {
+		klog.Warningf("Loaded no tasks for package %s", gitPrKey)
+	} else if klog.V(6).Enabled() {
+		marshalledTasks, _ := json.Marshal(tasks)
+		klog.Infof("Loaded tasks for package %s: %s", gitPrKey, marshalledTasks)
 	}
 
 	return &gitPackageRevision{
-		repo:          repo,
-		path:          p.path,
-		workspaceName: workspace,
-		revision:      revision,
-		updated:       updated,
-		updatedBy:     updatedBy,
-		ref:           ref,
-		tree:          p.treeHash,
-		commit:        p.parent.commit.Hash,
-		tasks:         tasks,
+		prKey:     gitPrKey,
+		repo:      repo,
+		updated:   updated,
+		updatedBy: updatedBy,
+		ref:       ref,
+		tree:      p.treeHash,
+		commit:    p.parent.commit.Hash,
+		tasks:     tasks,
 	}, nil
 }
 
@@ -121,7 +143,7 @@ type DiscoverPackagesOptions struct {
 
 // discoverPackages is the recursive function we use to traverse the tree and find packages.
 // tree is the git-tree we are search, treePath is the repo-relative-path to tree.
-func (t *packageList) discoverPackages(tree *object.Tree, treePath string, recurse bool) error {
+func (t *packageList) discoverPackages(repoKey repository.RepositoryKey, tree *object.Tree, treePath string, recurse bool) error {
 	for _, e := range tree.Entries {
 		if e.Name == "Kptfile" {
 			p := path.Join(treePath, e.Name)
@@ -132,7 +154,7 @@ func (t *packageList) discoverPackages(tree *object.Tree, treePath string, recur
 
 			// Found a package
 			t.packages[treePath] = &packageListEntry{
-				path:     treePath,
+				pkgKey:   repository.FromFullPathname(repoKey, treePath),
 				treeHash: tree.Hash,
 				parent:   t,
 			}
@@ -151,7 +173,7 @@ func (t *packageList) discoverPackages(tree *object.Tree, treePath string, recur
 				return fmt.Errorf("error getting git tree %v: %w", e.Hash, err)
 			}
 
-			if err := t.discoverPackages(dirTree, path.Join(treePath, e.Name), recurse); err != nil {
+			if err := t.discoverPackages(repoKey, dirTree, path.Join(treePath, e.Name), recurse); err != nil {
 				return err
 			}
 		}

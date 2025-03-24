@@ -88,6 +88,10 @@ type GitRepository struct {
 	Directory string `json:"directory,omitempty"`
 	// Reference to secret containing authentication credentials.
 	SecretRef SecretRef `json:"secretRef,omitempty"`
+	// Author to use for commits
+	Author string `json:"author,omitempty"`
+	// Email to use for commits
+	Email string `json:"email,omitempty"`
 }
 
 // OciRepository describes a repository compatible with the Open Container Registry standard.

@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@ import (
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/spf13/cobra"
-	"golang.org/x/mod/semver"
 	"k8s.io/cli-runtime/pkg/printers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -73,7 +73,7 @@ func (r *runner) findUpstreamUpdates(prs []porchapi.PackageRevision, repositorie
 		} else {
 			var revisions []string
 			for i := range availableUpdates {
-				revisions = append(revisions, availableUpdates[i].Spec.Revision)
+				revisions = append(revisions, repository.Revision2Str(availableUpdates[i].Spec.Revision))
 			}
 			upstreamUpdates = append(upstreamUpdates, []string{pr.Name, upstreamName, strings.Join(revisions, ", ")})
 		}
@@ -92,7 +92,7 @@ func (r *runner) findDownstreamUpdates(prs []porchapi.PackageRevision, repositor
 			return fmt.Errorf("could not parse upstreamLock in Kptfile of package %q: %s", pr.Name, err.Error())
 		}
 		for _, update := range availableUpdates {
-			key := fmt.Sprintf("%s:%s:%s", update.Name, update.Spec.Revision, draftName)
+			key := fmt.Sprintf("%s:%d:%s", update.Name, update.Spec.Revision, draftName)
 			downstreamUpdatesMap[key] = append(downstreamUpdatesMap[key], pr)
 		}
 	}
@@ -106,7 +106,7 @@ func (r *runner) availableUpdates(upstreamLock *porchapi.UpstreamLock, repositor
 	if upstreamLock == nil || upstreamLock.Git == nil {
 		return nil, "", "", nil
 	}
-	var currentUpstreamRevision string
+	var currentUpstreamRevision int
 	var draftName string
 
 	// separate the revision number from the package name
@@ -120,10 +120,10 @@ func (r *runner) availableUpdates(upstreamLock *porchapi.UpstreamLock, repositor
 		// The upstream is not a published package, so doesn't have a revision number.
 		// Use v0 as a placeholder, so that all published packages get returned as available
 		// updates.
-		currentUpstreamRevision = "v0"
+		currentUpstreamRevision = 0
 		draftName = upstreamLock.Git.Ref[lastIndex+1:]
 	} else {
-		currentUpstreamRevision = upstreamLock.Git.Ref[lastIndex+1:]
+		currentUpstreamRevision = repository.Revision2Int(upstreamLock.Git.Ref[lastIndex+1:])
 	}
 
 	// upstream.git.ref could look like drafts/pkgname/version or pkgname/version
@@ -152,10 +152,8 @@ func (r *runner) availableUpdates(upstreamLock *porchapi.UpstreamLock, repositor
 	}
 
 	for _, upstreamRevision := range revisions {
-		switch cmp := semver.Compare(upstreamRevision.Spec.Revision, currentUpstreamRevision); {
-		case cmp > 0: // upstreamRevision > currentUpstreamRevision
+		if upstreamRevision.Spec.Revision > currentUpstreamRevision {
 			availableUpdates = append(availableUpdates, upstreamRevision)
-		case cmp == 0, cmp < 0: // upstreamRevision <= currentUpstreamRevision, do nothing
 		}
 	}
 

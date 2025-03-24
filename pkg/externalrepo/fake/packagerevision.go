@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,24 +20,33 @@ import (
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 // Implementation of the repository.PackageRevision interface for testing.
 type FakePackageRevision struct {
-	Name               string
-	Namespace          string
-	Uid                types.UID
-	PackageRevisionKey repository.PackageRevisionKey
-	PackageLifecycle   v1alpha1.PackageRevisionLifecycle
-	PackageRevision    *v1alpha1.PackageRevision
-	Resources          *v1alpha1.PackageRevisionResources
-	Kptfile            kptfile.KptFile
+	PrKey            repository.PackageRevisionKey
+	Uid              types.UID
+	PackageLifecycle v1alpha1.PackageRevisionLifecycle
+	PackageRevision  *v1alpha1.PackageRevision
+	Resources        *v1alpha1.PackageRevisionResources
+	Kptfile          kptfile.KptFile
 }
 
-func (pr *FakePackageRevision) KubeObjectName() string {
-	return pr.Name
+var _ repository.PackageRevision = &FakePackageRevision{}
+
+func (c *FakePackageRevision) KubeObjectName() string {
+	return repository.ComposePkgRevObjName(c.Key())
+}
+
+func (c *FakePackageRevision) KubeObjectNamespace() string {
+	return c.Key().PkgKey.RepoKey.Namespace
+}
+
+func (c *FakePackageRevision) UID() types.UID {
+	return util.GenerateUid("packagerevision:", c.KubeObjectNamespace(), c.KubeObjectName())
 }
 
 var _ repository.PackageRevision = &FakePackageRevision{}
@@ -47,20 +56,12 @@ func (f *FakePackageRevision) ToMainPackageRevision() repository.PackageRevision
 	panic("unimplemented")
 }
 
-func (pr *FakePackageRevision) KubeObjectNamespace() string {
-	return pr.Namespace
-}
-
-func (pr *FakePackageRevision) UID() types.UID {
-	return pr.Uid
-}
-
 func (pr *FakePackageRevision) ResourceVersion() string {
 	return pr.PackageRevision.ResourceVersion
 }
 
 func (pr *FakePackageRevision) Key() repository.PackageRevisionKey {
-	return pr.PackageRevisionKey
+	return pr.PrKey
 }
 
 func (pr *FakePackageRevision) Lifecycle(ctx context.Context) v1alpha1.PackageRevisionLifecycle {

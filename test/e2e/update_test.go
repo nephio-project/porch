@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,29 +15,27 @@
 package e2e
 
 import (
-	"context"
-
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (t *PorchSuite) TestPackageUpdateRecloneAndReplay(ctx context.Context) {
+func (t *PorchSuite) TestPackageUpdateRecloneAndReplay() {
 	const (
 		gitRepository = "package-update"
 	)
 
-	t.RegisterGitRepositoryF(ctx, testBlueprintsRepo, "test-blueprints", "")
+	t.RegisterGitRepositoryF(testBlueprintsRepo, "test-blueprints", "")
 
 	var list porchapi.PackageRevisionList
-	t.ListE(ctx, &list, client.InNamespace(t.Namespace))
+	t.ListE(&list, client.InNamespace(t.Namespace))
 
-	basensV2 := MustFindPackageRevision(t.T, &list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: "v2"})
+	basensV2 := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "test-blueprints"}, Package: "basens"}, Revision: 2})
 	t.Logf("basensV2 = %v", basensV2)
 
 	// Register the repository as 'downstream'
-	t.RegisterMainGitRepositoryF(ctx, gitRepository)
+	t.RegisterMainGitRepositoryF(gitRepository)
 
 	// Create PackageRevision from upstream repo
 	pr := &porchapi.PackageRevision{
@@ -69,9 +67,9 @@ func (t *PorchSuite) TestPackageUpdateRecloneAndReplay(ctx context.Context) {
 		},
 	}
 
-	t.CreateF(ctx, pr)
+	t.CreateF(pr)
 
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, pr)
@@ -87,15 +85,15 @@ func (t *PorchSuite) TestPackageUpdateRecloneAndReplay(ctx context.Context) {
 		},
 	}
 
-	t.UpdateF(ctx, pr)
+	t.UpdateF(pr)
 
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, pr)
 
 	var revisionResources porchapi.PackageRevisionResources
-	t.GetF(ctx, client.ObjectKey{
+	t.GetF(client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, &revisionResources)

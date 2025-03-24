@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,8 +49,6 @@ const (
 	PackageRevisionLifecycleDeletionProposed PackageRevisionLifecycle = "DeletionProposed"
 )
 
-type WorkspaceName string
-
 // PackageRevisionSpec defines the desired state of PackageRevision
 type PackageRevisionSpec struct {
 	// PackageName identifies the package in the repository.
@@ -60,10 +58,10 @@ type PackageRevisionSpec struct {
 	RepositoryName string `json:"repository,omitempty"`
 
 	// WorkspaceName is a short, unique description of the changes contained in this package revision.
-	WorkspaceName WorkspaceName `json:"workspaceName,omitempty"`
+	WorkspaceName string `json:"workspaceName,omitempty"`
 
 	// Revision identifies the version of the package.
-	Revision string `json:"revision,omitempty"`
+	Revision int `json:"revision,omitempty"`
 
 	// Parent references a package that provides resources to us
 	Parent *ParentReference `json:"parent,omitempty"`
@@ -475,10 +473,10 @@ type PackageRevisionResourcesSpec struct {
 	PackageName string `json:"packageName,omitempty"`
 
 	// WorkspaceName identifies the workspace of the package.
-	WorkspaceName WorkspaceName `json:"workspaceName,omitempty"`
+	WorkspaceName string `json:"workspaceName,omitempty"`
 
 	// Revision identifies the version of the package.
-	Revision string `json:"revision,omitempty"`
+	Revision int `json:"revision,omitempty"`
 
 	// RepositoryName is the name of the Repository object containing this package.
 	RepositoryName string `json:"repository,omitempty"`
@@ -530,5 +528,5 @@ type PackageStatus struct {
 	// packages that have valid semantic version as their revision. In case of git backend, branch tracking
 	// revisions like "main" and in case of oci backend, revisions tracking "latest" are not considered during
 	// selection of the latest revision.
-	LatestRevision string `json:"latestRevision,omitempty"`
+	LatestRevision int `json:"latestRevision,omitempty"`
 }

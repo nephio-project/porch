@@ -216,7 +216,7 @@ func (r *credentialResolver) ResolveCredential(ctx context.Context, namespace, n
 func TestCloneGitBasicAuth(t *testing.T) {
 	testdata, err := filepath.Abs(filepath.Join(".", "testdata", "clone"))
 	if err != nil {
-		t.Fatalf("Failed to find testdata: %v", err)
+		t.Fatalf("Failed to find testdata: %+v", err)
 	}
 
 	auth := randomCredentials()
@@ -224,7 +224,7 @@ func TestCloneGitBasicAuth(t *testing.T) {
 
 	repo, err := git.NewRepo(gogitRepo, git.WithBasicAuth(auth.username, auth.password))
 	if err != nil {
-		t.Fatalf("NewRepo failed: %v", err)
+		t.Fatalf("NewRepo failed: %+v", err)
 	}
 
 	addr := startGitServer(t, repo)
@@ -267,7 +267,7 @@ func TestCloneGitBasicAuth(t *testing.T) {
 
 	r, _, err := cpm.apply(context.Background(), repository.PackageResources{})
 	if err != nil {
-		t.Errorf("task apply failed: %v", err)
+		t.Errorf("task apply failed: %+v", err)
 	}
 
 	t.Logf("%v", r)

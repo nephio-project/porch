@@ -123,7 +123,7 @@ func (r *runner) runE(cmd *cobra.Command, _ []string) error {
 		},
 		Spec: porchapi.PackageRevisionSpec{
 			PackageName:    r.name,
-			WorkspaceName:  porchapi.WorkspaceName(r.workspace),
+			WorkspaceName:  r.workspace,
 			RepositoryName: r.repository,
 			Tasks: []porchapi.Task{
 				{

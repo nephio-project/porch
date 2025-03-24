@@ -31,7 +31,7 @@ jobs:
 
     - name: Request GitHub API for PR data
       if: github.event.workflow_run.event == 'pull_request'
-      uses: octokit/request-action@v2.4.0
+      uses: octokit/request-action@v2.x
       id: get_pr_data
       with:
         route: GET /repos/{full_name}/pulls/{number}
@@ -77,7 +77,7 @@ jobs:
           -Dsonar.pullrequest.key=${{ fromJson(steps.get_pr_data.outputs.data).number }} 
           -Dsonar.pullrequest.branch=${{ fromJson(steps.get_pr_data.outputs.data).head.ref }} 
           -Dsonar.pullrequest.base=${{ fromJson(steps.get_pr_data.outputs.data).base.ref }}
-          ``
+
     - name: SonarCloud Scan on push
       if: github.event.workflow_run.event == 'push' && github.event.workflow_run.head_repository.full_name == github.event.repository.full_name
       uses: SonarSource/sonarqube-scan-action@v5.0.0

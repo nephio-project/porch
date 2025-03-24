@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -72,7 +72,7 @@ func (r *ociRepository) getLifecycle(ctx context.Context, imageRef oci.ImageDige
 	}
 }
 
-func (r *ociRepository) getRevisionNumber(ctx context.Context, imageRef oci.ImageDigestName) (string, error) {
+func (r *ociRepository) getRevisionNumber(ctx context.Context, imageRef oci.ImageDigestName) (int, error) {
 	ctx, span := tracer.Start(ctx, "ociRepository::getRevision", trace.WithAttributes(
 		attribute.Stringer("image", imageRef),
 	))
@@ -80,15 +80,15 @@ func (r *ociRepository) getRevisionNumber(ctx context.Context, imageRef oci.Imag
 
 	ociImage, err := r.storage.ToRemoteImage(ctx, imageRef)
 	if err != nil {
-		return "", err
+		return 0, err
 	}
 
 	manifest, err := r.storage.CachedManifest(ctx, ociImage)
 	if err != nil {
-		return "", fmt.Errorf("error fetching manifest for image: %w", err)
+		return 0, fmt.Errorf("error fetching manifest for image: %w", err)
 	}
 
-	return manifest.Annotations[annotationKeyRevision], nil
+	return repository.Revision2Int(manifest.Annotations[annotationKeyRevision]), nil
 }
 
 func (r *ociRepository) loadTasks(ctx context.Context, imageRef oci.ImageDigestName) ([]v1alpha1.Task, error) {

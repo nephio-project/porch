@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
+	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/util/retry"
@@ -53,7 +54,7 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 		Example: docs.UpdateExamples,
 		Hidden:  porch.HidePorchCommands,
 	}
-	r.Command.Flags().StringVar(&r.revision, "revision", "", "Revision of the upstream package to update to.")
+	r.Command.Flags().IntVar(&r.revision, "revision", 0, "Revision of the upstream package to update to.")
 	r.Command.Flags().StringVar(&r.discover, "discover", "",
 		`If set, search for available updates instead of performing an update. 
 Setting this to 'upstream' will discover upstream updates of downstream packages.
@@ -67,7 +68,7 @@ type runner struct {
 	client  client.Client
 	Command *cobra.Command
 
-	revision string // Target package revision
+	revision int    // Target package revision
 	discover string // If set, discover updates rather than do updates
 
 	// there are multiple places where we need access to all package revisions, so
@@ -91,7 +92,7 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 			return errors.E(op, fmt.Errorf("too many arguments; SOURCE_PACKAGE is the only accepted positional arguments"))
 		}
 		// TODO: This should use the latest available revision if one isn't specified.
-		if r.revision == "" {
+		if r.revision == 0 {
 			return errors.E(op, fmt.Errorf("revision is required"))
 		}
 	} else if r.discover != upstream && r.discover != downstream {
@@ -143,7 +144,7 @@ func (r *runner) doUpdate(pr *porchapi.PackageRevision) error {
 
 	switch cloneTask.Clone.Upstream.Type {
 	case porchapi.RepositoryTypeGit:
-		cloneTask.Clone.Upstream.Git.Ref = r.revision
+		cloneTask.Clone.Upstream.Git.Ref = "v" + repository.Revision2Str(r.revision)
 	case porchapi.RepositoryTypeOCI:
 		return fmt.Errorf("update not implemented for oci packages")
 	default:
@@ -153,7 +154,7 @@ func (r *runner) doUpdate(pr *porchapi.PackageRevision) error {
 		}
 		newUpstreamPr := r.findPackageRevisionForRef(upstreamPr.Spec.PackageName)
 		if newUpstreamPr == nil {
-			return fmt.Errorf("revision %s does not exist for package %s", r.revision, pr.Spec.PackageName)
+			return fmt.Errorf("revision %d does not exist for package %s", r.revision, pr.Spec.PackageName)
 		}
 		newTask := porchapi.Task{
 			Type: porchapi.TaskTypeUpdate,

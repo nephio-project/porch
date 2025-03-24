@@ -21,8 +21,6 @@ import (
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
-	"golang.org/x/mod/semver"
-	"k8s.io/klog/v2"
 )
 
 func identifyLatestRevisions(ctx context.Context, result map[repository.PackageRevisionKey]*cachedPackageRevision) {
@@ -41,21 +39,15 @@ func identifyLatestRevisions(ctx context.Context, result map[repository.PackageR
 		}
 
 		currentKey := current.Key()
-		if previous, ok := latest[currentKey.Package]; ok {
+		if previous, ok := latest[currentKey.PkgKey.Package]; ok {
 			previousKey := previous.Key()
-			switch cmp := semver.Compare(currentKey.Revision, previousKey.Revision); {
-			case cmp == 0:
-				// Same revision.
-				klog.Warningf("Encountered package revisions whose versions compare equal: %q, %q", currentKey, previousKey)
-			case cmp < 0:
-				// currentKey.Revision < previousKey.Revision; no change
-			case cmp > 0:
+			if currentKey.Revision > previousKey.Revision {
 				// currentKey.Revision > previousKey.Revision; update latest
-				latest[currentKey.Package] = current
+				latest[currentKey.PkgKey.Package] = current
 			}
-		} else if semver.IsValid(currentKey.Revision) {
+		} else if currentKey.Revision != -1 { // The working repository PR (usually main) can never be the latest PR
 			// First revision of the specific package; candidate for the latest.
-			latest[currentKey.Package] = current
+			latest[currentKey.PkgKey.Package] = current
 		}
 	}
 
@@ -75,7 +67,7 @@ func toPackageRevisionSlice(
 	}
 	sort.Slice(result, func(i, j int) bool {
 		ki, kl := result[i].Key(), result[j].Key()
-		switch res := strings.Compare(ki.Package, kl.Package); {
+		switch res := strings.Compare(ki.PkgKey.Package, kl.PkgKey.Package); {
 		case res < 0:
 			return true
 		case res > 0:
@@ -83,13 +75,9 @@ func toPackageRevisionSlice(
 		default:
 			// Equal. Compare next element
 		}
-		switch res := strings.Compare(ki.Revision, kl.Revision); {
-		case res < 0:
-			return true
-		case res > 0:
-			return false
-		default:
-			// Equal. Compare next element
+		res := ki.Revision - kl.Revision
+		if res != 0 {
+			return res < 0
 		}
 		switch res := strings.Compare(string(result[i].Lifecycle(ctx)), string(result[j].Lifecycle(ctx))); {
 		case res < 0:

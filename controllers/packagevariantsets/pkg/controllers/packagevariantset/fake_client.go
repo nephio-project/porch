@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -86,7 +86,7 @@ items:
     upstream:
       repo: up
       package: up
-      revision: up
+      revision: 0
     downstream:
       repo: dnrepo1
       package: dnpkg1
@@ -98,7 +98,7 @@ items:
     upstream:
       repo: up
       package: up
-      revision: up
+      revision: 0
     downstream:
       repo: dnrepo2
       package: dnpkg2`

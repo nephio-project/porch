@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -144,13 +144,13 @@ func parsePackageRevisionFieldSelector(fieldSelector fields.Selector) (packageRe
 			filter.Namespace = requirement.Value
 
 		case "spec.revision":
-			filter.Revision = requirement.Value
+			filter.Key.Revision = repository.Revision2Int(requirement.Value)
 		case "spec.packageName":
-			filter.Package = requirement.Value
+			filter.Key.PkgKey.Package = requirement.Value
 		case "spec.repository":
 			filter.Repository = requirement.Value
 		case "spec.workspaceName":
-			filter.WorkspaceName = v1alpha1.WorkspaceName(requirement.Value)
+			filter.Key.WorkspaceName = requirement.Value
 		case "spec.lifecycle":
 			v := v1alpha1.PackageRevisionLifecycle(requirement.Value)
 			switch v {
