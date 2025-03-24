@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ func (t *PorchSuite) TestPackageUpdateRecloneAndReplay() {
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
 
-	basensV2 := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{Repository: "test-blueprints", Package: "basens", Revision: "v2"})
+	basensV2 := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "test-blueprints"}, Package: "basens"}, Revision: 2})
 	t.Logf("basensV2 = %v", basensV2)
 
 	// Register the repository as 'downstream'

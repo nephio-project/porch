@@ -190,6 +190,11 @@ func (t *TestSuite) IsPorchServerInCluster() bool {
 }
 
 func (t *TestSuite) IsTestRunnerInCluster() bool {
+	runLocally := os.Getenv("RUN_E2E_LOCALLY")
+	if strings.ToLower(runLocally) == "true" {
+		return false
+	}
+
 	porch := aggregatorv1.APIService{}
 	ctx := context.TODO()
 	t.GetF(client.ObjectKey{
@@ -812,8 +817,8 @@ func (t *TestSuite) MustFindPackageRevision(packages *porchapi.PackageRevisionLi
 	t.T().Helper()
 	for i := range packages.Items {
 		pr := &packages.Items[i]
-		if pr.Spec.RepositoryName == name.Repository &&
-			pr.Spec.PackageName == name.Package &&
+		if pr.Spec.RepositoryName == name.PkgKey.RepoKey.Name &&
+			pr.Spec.PackageName == name.PkgKey.Package &&
 			pr.Spec.Revision == name.Revision {
 			return pr
 		}

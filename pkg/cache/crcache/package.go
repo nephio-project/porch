@@ -28,11 +28,11 @@ var _ repository.Package = &cachedPackage{}
 
 type cachedPackage struct {
 	repository.Package
-	latestPackageRevision string
+	latestPackageRevision int
 }
 
-func (c *cachedPackage) GetLatestRevision() string {
-	if c.latestPackageRevision != "" {
+func (c *cachedPackage) GetLatestRevision() int {
+	if c.latestPackageRevision > 0 {
 		return c.latestPackageRevision
 	}
 	return c.Package.GetLatestRevision()

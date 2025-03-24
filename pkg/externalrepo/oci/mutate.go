@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -57,19 +57,23 @@ func (r *ociRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1
 
 	// digestName := ImageDigestName{}
 	return &ociPackageRevisionDraft{
-		packageName: packageName,
-		parent:      r,
-		tasks:       []v1alpha1.Task{},
-		base:        base,
-		tag:         ociRepo.Tag(string(obj.Spec.WorkspaceName)),
-		lifecycle:   v1alpha1.PackageRevisionLifecycleDraft,
+		prKey: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				Package: packageName,
+			},
+		},
+		parent:    r,
+		tasks:     []v1alpha1.Task{},
+		base:      base,
+		tag:       ociRepo.Tag(string(obj.Spec.WorkspaceName)),
+		lifecycle: v1alpha1.PackageRevisionLifecycleDraft,
 	}, nil
 }
 
 func (r *ociRepository) UpdatePackageRevision(ctx context.Context, old repository.PackageRevision) (repository.PackageRevisionDraft, error) {
 	oldPackage := old.(*ociPackageRevision)
-	packageName := oldPackage.packageName
-	workspace := oldPackage.workspaceName
+	packageName := oldPackage.Key().PkgKey.Package
+	workspace := oldPackage.Key().WorkspaceName
 	// digestName := oldPackage.digestName
 
 	ociRepo, err := name.NewRepository(path.Join(r.spec.Registry, packageName))
@@ -94,17 +98,21 @@ func (r *ociRepository) UpdatePackageRevision(ctx context.Context, old repositor
 	}
 
 	return &ociPackageRevisionDraft{
-		packageName: packageName,
-		parent:      r,
-		tasks:       []v1alpha1.Task{},
-		base:        base,
-		tag:         ref,
-		lifecycle:   oldPackage.Lifecycle(ctx),
+		prKey: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				Package: packageName,
+			},
+		},
+		parent:    r,
+		tasks:     []v1alpha1.Task{},
+		base:      base,
+		tag:       ref,
+		lifecycle: oldPackage.Lifecycle(ctx),
 	}, nil
 }
 
 type ociPackageRevisionDraft struct {
-	packageName string
+	prKey repository.PackageRevisionKey
 
 	created time.Time
 
@@ -196,12 +204,12 @@ func (p *ociPackageRevisionDraft) UpdateLifecycle(ctx context.Context, new v1alp
 	return nil
 }
 
-func (p *ociPackageRevisionDraft) GetName() string {
-	return p.packageName
+func (p *ociPackageRevisionDraft) Key() repository.PackageRevisionKey {
+	return p.prKey
 }
 
 // Finish round of updates.
-func (r *ociRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version string) (repository.PackageRevision, error) {
+func (r *ociRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version int) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "ociRepository::ClosePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
 
@@ -212,7 +220,7 @@ func (r *ociRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 
 	klog.Infof("pushing %s", ref)
 
-	revision := ""
+	revision := -1
 	addendums := append([]mutate.Addendum{}, p.addendums...)
 	if p.lifecycle != "" {
 		if len(addendums) == 0 {
@@ -235,23 +243,24 @@ func (r *ociRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 				r := p.parent
 				// Finalize the package revision. Assign it a revision number of latest + 1.
 				revisions, err := r.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
-					Package: p.packageName,
+					Key: repository.PackageRevisionKey{
+						PkgKey: repository.PackageKey{
+							Package: p.Key().PkgKey.Package,
+						},
+					},
 				})
 				if err != nil {
 					return nil, err
 				}
-				var revs []string
+
+				highestRev := -1
 				for _, rev := range revisions {
-					if v1alpha1.LifecycleIsPublished(rev.Lifecycle(ctx)) {
-						revs = append(revs, rev.Key().Revision)
+					if v1alpha1.LifecycleIsPublished(rev.Lifecycle(ctx)) && rev.Key().Revision > highestRev {
+						highestRev = rev.Key().Revision
 					}
 				}
-				nextRevisionNumber, err := repository.NextRevisionNumber(ctx, revs)
-				if err != nil {
-					return nil, err
-				}
-				addendum.Annotations[annotationKeyRevision] = nextRevisionNumber
-				revision = nextRevisionNumber
+				revision = highestRev + 1
+				addendum.Annotations[annotationKeyRevision] = repository.Revision2Str(revision)
 			}
 		}
 	}
@@ -287,7 +296,7 @@ func (r *ociRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 		return nil, fmt.Errorf("error getting config file: %w", err)
 	}
 
-	return p.parent.buildPackageRevision(ctx, digestName, p.packageName, p.tag.TagStr(), revision, configFile.Created.Time)
+	return p.parent.buildPackageRevision(ctx, digestName, p.Key().PkgKey.Package, p.tag.TagStr(), revision, configFile.Created.Time)
 }
 
 func constructResourceVersion(t time.Time) string {
@@ -300,8 +309,8 @@ func constructUID(ref string) types.UID {
 
 func (r *ociRepository) DeletePackageRevision(ctx context.Context, old repository.PackageRevision) error {
 	oldPackage := old.(*ociPackageRevision)
-	packageName := oldPackage.packageName
-	workspace := oldPackage.workspaceName
+	packageName := oldPackage.Key().PkgKey.Package
+	workspace := oldPackage.Key().WorkspaceName
 
 	ociRepo, err := name.NewRepository(path.Join(r.spec.Registry, packageName))
 	if err != nil {

@@ -2,5 +2,8 @@
     "sonarlint.connectedMode.project": {
         "connectionId": "nephio-project",
         "projectKey": "nephio-project_porch"
-    }
+    },
+    "go.testEnvVars": {
+      "RUN_E2E_LOCALLY": "false"
+    },
 }

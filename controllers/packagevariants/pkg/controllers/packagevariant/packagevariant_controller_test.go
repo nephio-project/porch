@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ metadata:
 			packageVariant: packageVariantHeader + `
 spec:
   upstream:
-    revision: v1
+    revision: 1
     repo: blueprints
   downstream:
     repo: deployments
@@ -58,7 +58,7 @@ spec:
 spec:
   upstream:
     package: foo
-    revision: v1
+    revision: 1
     repo: blueprints
   downstream:
     package: foo
@@ -71,7 +71,7 @@ spec:
 spec:
   upstream:
     package: foo
-    revision: v1
+    revision: 1
     repo: blueprints
   downstream:
     package: foo
@@ -87,7 +87,7 @@ spec:
 spec:
   upstream:
     package: foo
-    revision: v1
+    revision: 1
     repo: blueprints
   downstream:
     package: foo
@@ -102,7 +102,7 @@ spec:
 spec:
   upstream:
     package: foo
-    revision: v1
+    revision: 1
     repo: blueprints
   downstream:
     package: foo
@@ -122,7 +122,7 @@ spec:
 spec:
   upstream:
     package: foo
-    revision: v1
+    revision: 1
     repo: blueprints
   downstream:
     package: foo
@@ -139,7 +139,7 @@ spec:
 spec:
   upstream:
     package: foo
-    revision: v1
+    revision: 1
     repo: blueprints
   downstream:
     package: foo
@@ -156,7 +156,7 @@ spec:
 spec:
   upstream:
     package: foo
-    revision: v1
+    revision: 1
     repo: blueprints
   downstream:
     package: foo
@@ -172,7 +172,7 @@ spec:
 spec:
   upstream:
     package: foo
-    revision: v1
+    revision: 1
     repo: blueprints
   downstream:
     package: foo
@@ -188,7 +188,7 @@ spec:
 spec:
   upstream:
     package: foo
-    revision: v1
+    revision: 1
     repo: blueprints
   downstream:
     package: foo
@@ -206,7 +206,7 @@ spec:
 spec:
   upstream:
     package: foo
-    revision: v1
+    revision: 1
     repo: blueprints
   downstream:
     package: foo
@@ -346,7 +346,7 @@ spec:
   upstream:
     repo: blueprints
     package: foo
-    revision: v1
+    revision: 1
   downstream:
     repo: deployments
     package: bar`
@@ -425,7 +425,7 @@ items:
       name: my-pv
       uid: pv-uid
   spec:
-    revision: v1
+    revision: 1
     workspaceName: packagevariant-1
     lifecycle: Published
     repository: deployments
@@ -510,7 +510,7 @@ items:
       name: my-pv
       uid: pv-uid
   spec:
-    revision: v2
+    revision: 2
     workspaceName: packagevariant-2
     lifecycle: Published
     repository: deployments
@@ -525,7 +525,7 @@ items:
       name: my-pv
       uid: pv-uid
   spec:
-    revision: v1
+    revision: 1
     workspaceName: packagevariant-1
     lifecycle: Published
     repository: deployments
@@ -545,7 +545,7 @@ items:
       name: my-pv
       uid: some-other-uid-2
   spec:
-    revision: v3
+    revision: 3
     workspaceName: packagevariant-3
     lifecycle: Published
     repository: deployments
@@ -564,7 +564,7 @@ spec:
   lifecycle: Published
   packageName: bar
   repository: deployments
-  revision: v2
+  revision: 2
   workspaceName: packagevariant-2
 status:
   publishTimestamp: null
@@ -586,7 +586,7 @@ items:
       name: my-pv
       uid: pv-uid
   spec:
-    revision: v1
+    revision: 1
     workspaceName: packagevariant-1
     lifecycle: Published
     repository: deployments
@@ -634,7 +634,7 @@ spec:
   lifecycle: Published
   packageName: bar
   repository: deployments
-  revision: v1
+  revision: 1
   workspaceName: packagevariant-1
 status:
   publishTimestamp: null
@@ -698,7 +698,7 @@ spec:
   upstream:
     repo: blueprints
     package: foo
-    revision: v1
+    revision: 1
   downstream:
     repo: deployments
     package: bar
@@ -827,7 +827,7 @@ spec:
   upstream:
     repo: blueprints
     package: foo
-    revision: v1
+    revision: 1
   downstream:
     repo: deployments
     package: bar
@@ -856,7 +856,7 @@ items:
   spec:
     workspaceName: packagevariant-1
     lifecycle: Published
-    revision: v1
+    revision: 1
     repository: deployments
     packageName: bar
 - apiVersion: porch.kpt.dev
@@ -999,7 +999,7 @@ spec:
   upstream:
     repo: blueprints
     package: foo
-    revision: v1
+    revision: 1
   downstream:
     repo: deployments
     package: bar
@@ -1147,7 +1147,7 @@ spec:
   upstream:
     repo: blueprints
     package: foo
-    revision: v1
+    revision: 1
   downstream:
     repo: deployments
     package: bar

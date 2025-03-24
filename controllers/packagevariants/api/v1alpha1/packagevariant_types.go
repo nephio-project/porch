@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -73,7 +73,7 @@ type PackageVariantSpec struct {
 type Upstream struct {
 	Repo     string `json:"repo,omitempty"`
 	Package  string `json:"package,omitempty"`
-	Revision string `json:"revision,omitempty"`
+	Revision int    `json:"revision,omitempty"`
 }
 
 type Downstream struct {

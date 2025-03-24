@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ package git
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/go-git/go-git/v5/plumbing"
@@ -26,12 +25,10 @@ import (
 )
 
 type gitPackageRevisionDraft struct {
-	parent        *gitRepository // repo is repo containing the package
-	path          string         // the path to the package from the repo root
-	revision      string
-	workspaceName string
-	updated       time.Time
-	tasks         []v1alpha1.Task
+	prKey   repository.PackageRevisionKey
+	repo    *gitRepository // repo is repo containing the package
+	updated time.Time
+	tasks   []v1alpha1.Task
 
 	// New value of the package revision lifecycle
 	lifecycle v1alpha1.PackageRevisionLifecycle
@@ -51,20 +48,18 @@ type gitPackageRevisionDraft struct {
 
 var _ repository.PackageRevisionDraft = &gitPackageRevisionDraft{}
 
+func (d *gitPackageRevisionDraft) Key() repository.PackageRevisionKey {
+	return d.prKey
+}
+
 func (d *gitPackageRevisionDraft) UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, change *v1alpha1.Task) error {
 	ctx, span := tracer.Start(ctx, "gitPackageDraft::UpdateResources", trace.WithAttributes())
 	defer span.End()
 
-	return d.parent.UpdateDraftResources(ctx, d, new, change)
+	return d.repo.UpdateDraftResources(ctx, d, new, change)
 }
 
 func (d *gitPackageRevisionDraft) UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error {
 	d.lifecycle = new
 	return nil
-}
-
-func (d *gitPackageRevisionDraft) GetName() string {
-	packageDirectory := d.parent.directory
-	packageName := strings.TrimPrefix(d.path, packageDirectory+"/")
-	return packageName
 }
