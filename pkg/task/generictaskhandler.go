@@ -543,16 +543,21 @@ func healConfig(old, new map[string]string) (map[string]string, error) {
 
 	var filter kio.FilterFunc = func(r []*yaml.RNode) ([]*yaml.RNode, error) {
 		for _, n := range r {
-			for _, original := range oldResources {
-				if n.GetNamespace() == original.GetNamespace() &&
-					n.GetName() == original.GetName() &&
-					n.GetApiVersion() == original.GetApiVersion() &&
-					n.GetKind() == original.GetKind() {
-					err = comments.CopyComments(original, n)
-					if err != nil {
-						return nil, fmt.Errorf("failed to copy comments: %w", err)
+			original := func() *yaml.RNode {
+				for _, o := range oldResources {
+					if n.GetNamespace() == o.GetNamespace() &&
+						n.GetName() == o.GetName() &&
+						n.GetApiVersion() == o.GetApiVersion() &&
+						n.GetKind() == o.GetKind() {
+						return o
 					}
 				}
+				return nil
+			}()
+
+			err = comments.CopyComments(original, n)
+			if err != nil {
+				return nil, fmt.Errorf("failed to copy comments: %w", err)
 			}
 		}
 		return r, nil

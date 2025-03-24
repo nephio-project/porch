@@ -4,6 +4,7 @@ metadata:
   name: kptfile.kpt.dev
   annotations:
     config.kubernetes.io/local-config: "true"
+    internal.config.kubernetes.io/path: 'package-context.yaml'
 data:
   name: input
   package-path: parent1/parent1.2/parent1.2.3/me

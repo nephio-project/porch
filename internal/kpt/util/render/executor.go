@@ -112,13 +112,22 @@ func (e *Renderer) Execute(ctx context.Context) (*fnresult.ResultList, error) {
 	if e.Output == nil {
 		// the intent of the user is to modify resources in-place
 		pkgWriter := &kio.LocalPackageReadWriter{
-			PackagePath:        string(root.pkg.UniquePath),
-			PreserveSeqIndent:  true,
-			PackageFileName:    kptfilev1.KptFileName,
-			IncludeSubpackages: true,
-			WrapBareSeqNode:    true,
-			FileSystem:         filesys.FileSystemOrOnDisk{FileSystem: e.FileSystem},
-			MatchFilesGlob:     pkg.MatchAllKRM,
+			PackagePath:           string(root.pkg.UniquePath),
+			PreserveSeqIndent:     true,
+			PackageFileName:       kptfilev1.KptFileName,
+			IncludeSubpackages:    true,
+			WrapBareSeqNode:       true,
+			FileSystem:            filesys.FileSystemOrOnDisk{FileSystem: e.FileSystem},
+			MatchFilesGlob:        pkg.MatchAllKRM,
+			KeepReaderAnnotations: true,
+			SetAnnotations: map[string]string{
+				kioutil.LegacyIndexAnnotation: "clear",
+				kioutil.LegacyIdAnnotation:    "clear",
+				kioutil.LegacyPathAnnotation:  "clear",
+				kioutil.IndexAnnotation:       "clear",
+				kioutil.IdAnnotation:          "clear",
+				kioutil.SeqIndentAnnotation:   "clear",
+			},
 		}
 		err = pkgWriter.Write(hctx.root.resources)
 		if err != nil {

@@ -6,5 +6,6 @@ metadata:
   annotations:
     color: red
     fruit: apple
+    internal.config.kubernetes.io/path: config-map.yaml
   name: update-resources-configmap
   namespace: example
