@@ -22,6 +22,7 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel/trace"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -77,4 +78,13 @@ func (c *cachedPackageRevision) GetPackageRevision(ctx context.Context) (*api.Pa
 	}
 
 	return apiPR, nil
+}
+
+func (c *cachedPackageRevision) SetMeta(ctx context.Context, pkgRevMeta metav1.ObjectMeta) error {
+
+	if storedPkgRevMeta, err := c.metadataStore.Update(ctx, pkgRevMeta); err == nil {
+		return c.PackageRevision.SetMeta(ctx, storedPkgRevMeta)
+	} else {
+		return err
+	}
 }
