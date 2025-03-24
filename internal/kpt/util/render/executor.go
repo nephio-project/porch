@@ -121,6 +121,7 @@ func (e *Renderer) Execute(ctx context.Context) (*fnresult.ResultList, error) {
 			MatchFilesGlob:        pkg.MatchAllKRM,
 			KeepReaderAnnotations: true,
 			SetAnnotations: map[string]string{
+				//nolint:staticcheck
 				kioutil.LegacyIndexAnnotation: "clear",
 				kioutil.LegacyIdAnnotation:    "clear",
 				kioutil.LegacyPathAnnotation:  "clear",
