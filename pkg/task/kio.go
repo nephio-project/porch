@@ -51,9 +51,6 @@ func (r *packageReader) Read() ([]*yaml.RNode, error) {
 				kioutil.PathAnnotation: k,
 			},
 			DisableUnwrapping: true,
-			// need to preserve indentation to avoid Git conflicts
-			// in written-out YAML
-			PreserveSeqIndent: true,
 		}
 		nodes, err := reader.Read()
 		if err != nil {
@@ -86,7 +83,6 @@ func (w *packageWriter) Write(nodes []*yaml.RNode) error {
 		bw := kio.ByteWriter{
 			Writer: buf,
 			ClearAnnotations: []string{
-				kioutil.PathAnnotation,
 				//nolint:staticcheck
 				kioutil.LegacyPathAnnotation,
 			},

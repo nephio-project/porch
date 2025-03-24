@@ -105,8 +105,12 @@ func (s *CliTestSuite) RunTestCase(t *testing.T, tc TestCaseConfig) {
 	repoURL := s.GitServerURL + "/" + strings.ReplaceAll(tc.TestCase, "/", "-")
 
 	KubectlCreateNamespace(t, tc.TestCase)
+
+	failed := false
 	t.Cleanup(func() {
-		KubectlDeleteNamespace(t, tc.TestCase)
+		if !(failed && os.Getenv("CLEANUP_ON_FAIL") == "false") {
+			KubectlDeleteNamespace(t, tc.TestCase)
+		}
 	})
 
 	if tc.Repository != "" {
@@ -186,6 +190,7 @@ func (s *CliTestSuite) RunTestCase(t *testing.T, tc TestCaseConfig) {
 		}
 
 		if failureOutput != "" {
+			failed = true
 			t.Fatalf("\n%s\n%s", getTestFailureMessage(i, tc), failureOutput)
 		}
 
