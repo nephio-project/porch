@@ -36,7 +36,7 @@ func (f *OciRepoFactory) NewRepositoryImpl(ctx context.Context, repositorySpec *
 	}
 
 	ociSpec := repositorySpec.Spec.Oci
-	localDir := filepath.Join(options.LocalDirectory, "oci")
+	localDir := filepath.Join(options.CacheDirectory, "oci")
 	storage, err := kptoci.NewStorage(localDir)
 	if err != nil {
 		return nil, err

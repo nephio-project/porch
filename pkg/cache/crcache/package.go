@@ -15,6 +15,7 @@
 package crcache
 
 import (
+	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
@@ -28,6 +29,7 @@ var _ repository.Package = &cachedPackage{}
 
 type cachedPackage struct {
 	repository.Package
+	metadataStore         meta.MetadataStore
 	latestPackageRevision int
 }
 

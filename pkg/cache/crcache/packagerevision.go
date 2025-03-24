@@ -18,6 +18,7 @@ import (
 	"context"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel/trace"
@@ -34,6 +35,7 @@ var _ repository.PackageRevision = &cachedPackageRevision{}
 
 type cachedPackageRevision struct {
 	repository.PackageRevision
+	metadataStore    meta.MetadataStore
 	isLatestRevision bool
 }
 

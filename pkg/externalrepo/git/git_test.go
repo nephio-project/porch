@@ -196,7 +196,7 @@ func (g GitSuite) TestGitPackageRoundTrip(t *testing.T) {
 			Status: v1alpha1.PackageRevisionStatus{},
 		}
 
-		draft, err := repo.CreatePackageRevision(ctx, packageRevision)
+		draft, err := repo.CreatePackageRevisionDraft(ctx, packageRevision)
 		if err != nil {
 			t.Fatalf("CreatePackageRevision(%#v) failed: %v", packageRevision, err)
 		}
@@ -434,7 +434,7 @@ func (g GitSuite) TestListPackagesTrivial(t *testing.T) {
 	}
 
 	// Create a package draft
-	draft, err := git.CreatePackageRevision(ctx, packageRevision)
+	draft, err := git.CreatePackageRevisionDraft(ctx, packageRevision)
 	if err != nil {
 		t.Fatalf("CreatePackageRevision() failed: %v", err)
 	}
@@ -522,7 +522,7 @@ func (g GitSuite) TestCreatePackageInTrivialRepository(t *testing.T) {
 	}
 
 	// Create a package draft
-	draft, err := git.CreatePackageRevision(ctx, packageRevision)
+	draft, err := git.CreatePackageRevisionDraft(ctx, packageRevision)
 	if err != nil {
 		t.Fatalf("CreatePackageRevision() failed: %v", err)
 	}
@@ -1517,7 +1517,7 @@ func (*mockK8sUsp) GetUserInfo(context.Context) *repository.UserInfo {
 }
 
 func createAndPublishPR(ctx context.Context, repo repository.Repository, pr *v1alpha1.PackageRevision) (repository.PackageRevision, error) {
-	draft, err := repo.CreatePackageRevision(ctx, pr)
+	draft, err := repo.CreatePackageRevisionDraft(ctx, pr)
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "Failed to create package revision draft")
 	}
