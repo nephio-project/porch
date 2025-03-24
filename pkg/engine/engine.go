@@ -575,7 +575,7 @@ func pushPipelineReadinessGate(ctx context.Context, repo repository.Repository, 
 	}, nil); err != nil {
 		return err
 	}
-	if _, err = repo.ClosePackageRevisionDraft(ctx, draft, ""); err != nil {
+	if _, err = repo.ClosePackageRevisionDraft(ctx, draft, 0); err != nil {
 		return err
 	}
 	return nil

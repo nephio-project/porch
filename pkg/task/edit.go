@@ -56,8 +56,8 @@ func (m *editPackageMutation) apply(ctx context.Context, resources repository.Pa
 			"source revision must be from same package %s/%s (got: %s/%s)",
 			oldPkgRev.Spec.RepositoryName,
 			oldPkgRev.Spec.PackageName,
-			newPkgRev.Key().Repository,
-			newPkgRev.Key().Package)
+			newPkgRev.Key().PkgKey.RepoKey.Name,
+			newPkgRev.Key().PkgKey.ToPkgPathname())
 	}
 
 	// We only allow edit to create new revisions from published packages.

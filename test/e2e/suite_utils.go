@@ -386,10 +386,10 @@ func (t *TestSuite) WaitUntilRepositoryReady(name, namespace string) {
 }
 
 func (t *TestSuite) DeleteVariantsForRepo(repoName string) {
-  t.T().Helper()
+	t.T().Helper()
 	namespace := t.Namespace
 	var variantList variantapi.PackageVariantList
-	if err := t.Client.List(&variantList, client.InNamespace(namespace)); err != nil {
+	if err := t.Client.List(t.GetContext(), &variantList, client.InNamespace(namespace)); err != nil {
 		t.Errorf("error listing package variants: %v", err)
 	}
 	for _, variant := range variantList.Items {
@@ -399,7 +399,7 @@ func (t *TestSuite) DeleteVariantsForRepo(repoName string) {
 	}
 
 	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 60*time.Second, true, func(ctx context.Context) (done bool, err error) {
-		t.Helper()
+		t.T().Helper()
 		if err := t.Client.List(ctx, &variantList, client.InNamespace(namespace)); err != nil {
 			t.Logf("error listing packages: %v", err)
 			return false, nil

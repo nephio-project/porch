@@ -3050,7 +3050,7 @@ func (t *PorchSuite) TestPackageVariantReadinessGate() {
 			Upstream: &variantapi.Upstream{
 				Package:  upstreamName,
 				Repo:     repository,
-				Revision: "v1",
+				Revision: 1,
 			},
 			Pipeline: &kptfilev1.Pipeline{
 				Mutators: mutatorFunctions,
@@ -3077,18 +3077,18 @@ func (t *PorchSuite) TestPackageVariantReadinessGate() {
 
 	// Attempt to propose the PR - should fail
 	downstreamPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-  proposeError := t.Client.Update(t.GetContext(), downstreamPr)
+	proposeError := t.Client.Update(t.GetContext(), downstreamPr)
 	assert.ErrorContains(t, proposeError, "readiness conditions not met")
 
 	// Wait for the pipeline to finish and the condition to be set to True
 	downstreamPr, _ = t.WaitUntilPackageRevisionFulfillingConditionExists(20*time.Second, func(pr porchapi.PackageRevision) bool {
 		return slices.Contains(pr.Status.Conditions, packagevariant.ConditionPipelinePVRevisionReady)
 	})
-	require.NotNil(t, downstreamPr, "no PackageRevision found with Condition of Type %q, Status %q", packagevariant.ConditionTypeAtomicPVOperations, packagevariant.ConditionPipelinePVRevisionReady)
+	require.NotNil(t.T(), downstreamPr, "no PackageRevision found with Condition of Type %q, Status %q", packagevariant.ConditionTypeAtomicPVOperations, packagevariant.ConditionPipelinePVRevisionReady)
 
 	// Propose the PR again - should succeed this time
 	downstreamPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	proposeError = t.Client.Update(t.GetContext, downstreamPr)
+	proposeError = t.Client.Update(t.GetContext(), downstreamPr)
 	assert.NoError(t, proposeError, "propose operation should have succeeded now that all Conditions have been set to True")
 }
 

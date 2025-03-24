@@ -17,8 +17,8 @@ package repository
 import (
 	"context"
 	"fmt"
-	"slices"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/GoogleContainerTools/kpt-functions-sdk/go/fn"
