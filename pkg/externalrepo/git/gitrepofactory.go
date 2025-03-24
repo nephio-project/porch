@@ -49,7 +49,7 @@ func (f *GitRepoFactory) NewRepositoryImpl(ctx context.Context, repositorySpec *
 		repositorySpec.Namespace,
 		repositorySpec.Spec.Git,
 		repositorySpec.Spec.Deployment,
-		filepath.Join(options.CacheDirectory, "git"),
+		filepath.Join(options.LocalDirectory, "git"),
 		GitRepositoryOptions{
 			ExternalRepoOptions: options,
 			MainBranchStrategy:  mbs,

@@ -209,7 +209,7 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 			},
 			CacheOptions: cachetypes.CacheOptions{
 				ExternalRepoOptions: externalrepotypes.ExternalRepoOptions{
-					CacheDirectory:         o.CacheDirectory,
+					LocalDirectory:         o.CacheDirectory,
 					UseUserDefinedCaBundle: o.UseUserDefinedCaBundle,
 				},
 				RepoSyncFrequency: o.RepoSyncFrequency,

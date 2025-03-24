@@ -145,12 +145,6 @@ func ValidateRepository(repoName, directory string) error {
 	return errors.New(repoErrString + dirErrString)
 }
 
-func ComposePkgObjName(repoName, path, packageName string) string {
-	dottedPath := strings.ReplaceAll(filepath.Join(path, packageName), "/", ".")
-	dottedPath = strings.Trim(dottedPath, ".")
-	return fmt.Sprintf("%s.%s", repoName, dottedPath)
-}
-
 func ComposePkgRevObjName(repoName, path, packageName, workspace string) string {
 	dottedPath := strings.ReplaceAll(filepath.Join(path, packageName), "/", ".")
 	dottedPath = strings.Trim(dottedPath, ".")
