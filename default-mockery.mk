@@ -20,12 +20,26 @@ OS ?= $(shell uname)
 include $(GIT_ROOT_DIR)/detect-container-runtime.mk
 
 .PHONY: install-mockery
-install-mockery: ## install mockery
-	wget -qO- https://github.com/vektra/mockery/releases/download/v${MOCKERY_VERSION}/mockery_${MOCKERY_VERSION}_${OS}_${OS_ARCH}.tar.gz | sudo tar -xvzf - -C /usr/local/bin
+install-mockery:
+ifeq ($(CONTAINER_RUNNABLE), 0)
+		$(CONTAINER_RUNTIME) pull docker.io/vektra/mockery:v${MOCKERY_VERSION}
+else
+		wget -qO- https://github.com/vektra/mockery/releases/download/v${MOCKERY_VERSION}/mockery_${MOCKERY_VERSION}_${OS}_${OS_ARCH}.tar.gz | sudo tar -xvzf - -C /usr/local/bin
+endif
 
 .PHONY: generate-mocks
 generate-mocks:
-	mockery
+ifeq ($(CONTAINER_RUNNABLE), 0)
+		find . -name .mockery.yaml \
+			-exec echo generating mocks specified in {} . . . \; \
+			-execdir $(CONTAINER_RUNTIME) run --rm --security-opt label=disable -v  .:/src -w /src docker.io/vektra/mockery:v${MOCKERY_VERSION} \; \
+			-exec echo generated mocks specified in {} \;
+else
+		find . -name .mockery.yaml \
+			-exec echo generating mocks specified in {} . . . \; \
+			-execdir mockery \; \
+			-exec echo generated mocks specified in {} \;
+endif
 
 .PHONY: clean-mocks
 clean-mocks:
