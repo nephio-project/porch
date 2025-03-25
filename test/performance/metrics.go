@@ -82,7 +82,7 @@ func debugPackageStatus(t *testing.T, c client.Client, ctx context.Context, name
     t.Logf("  Name: %s", pkg.Name)
     t.Logf("  LifecycleState: %s", pkg.Spec.Lifecycle)
     t.Logf("  WorkspaceName: %s", pkg.Spec.WorkspaceName)
-    t.Logf("  Revision: %s", pkg.Spec.Revision)
+    t.Logf("  Revision: %d", pkg.Spec.Revision)
     t.Logf("  Published: %v", pkg.Status.PublishedAt)
     t.Logf("  Tasks:")
     for i, task := range pkg.Spec.Tasks {
