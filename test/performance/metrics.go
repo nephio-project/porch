@@ -101,8 +101,6 @@ func debugPackageStatus(t *testing.T, c client.Client, ctx context.Context, name
 	}
 }
 
-// ... existing imports and code ...
-
 func deleteGiteaRepo(repoName string) error {
 	giteaURL := fmt.Sprintf("http://172.18.255.200:3000/api/v1/repos/nephio/%s", repoName)
 
