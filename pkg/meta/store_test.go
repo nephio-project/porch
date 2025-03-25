@@ -1,0 +1,115 @@
+/*
+ Copyright 2025 The Nephio Authors.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+*/
+
+package meta
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	mockclient "github.com/nephio-project/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/uuid"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+func TestCreateOK(t *testing.T) {
+
+	t.Cleanup(func() {
+		// Clean up after the test
+	})
+
+	mockClient := mockclient.NewMockClient(t)
+	ctxt := context.TODO()
+
+	store := NewCrdMetadataStore(mockClient)
+	assert.Equal(t, mockClient, store.coreClient)
+
+	repo := configapi.Repository{}
+	pkgRevMeta := metav1.ObjectMeta{
+		Name:      "my-name",
+		Namespace: "my-namespace",
+	}
+
+	mockClient.EXPECT().Create(mock.Anything, mock.Anything).Return(nil)
+	newPkgRevMeta1, err := store.Create(ctxt, pkgRevMeta, repo.Name, uuid.NewUUID())
+	assert.True(t, err == nil)
+	assert.Equal(t, pkgRevMeta.Name, newPkgRevMeta1.Name)
+}
+
+func TestCreateAlreadyExists(t *testing.T) {
+
+	t.Cleanup(func() {
+		// Clean up after the test
+	})
+
+	mockClient := mockclient.NewMockClient(t)
+	ctxt := context.TODO()
+
+	store := NewCrdMetadataStore(mockClient)
+	assert.Equal(t, mockClient, store.coreClient)
+
+	repo := configapi.Repository{}
+	pkgRevMeta := metav1.ObjectMeta{
+		Name:      "my-name",
+		Namespace: "my-namespace",
+	}
+
+	expectedError := apierrors.NewAlreadyExists(schema.GroupResource{}, "any-name")
+	mockClient.EXPECT().Create(mock.Anything, mock.Anything).Return(expectedError)
+	mockClient.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(errors.New("get error1"))
+	_, err := store.Create(ctxt, pkgRevMeta, repo.Name, uuid.NewUUID())
+	assert.True(t, err != nil)
+}
+
+func TestStoreErrors(t *testing.T) {
+
+	t.Cleanup(func() {
+		// Clean up after the test
+	})
+
+	mockClient := mockclient.NewMockClient(t)
+	ctxt := context.TODO()
+
+	store := NewCrdMetadataStore(mockClient)
+	assert.Equal(t, mockClient, store.coreClient)
+
+	nsn := types.NamespacedName{}
+	mockClient.EXPECT().Get(mock.Anything, nsn, mock.Anything).Return(errors.New("get error1"))
+	_, err := store.Get(ctxt, nsn)
+	assert.True(t, err != nil)
+
+	repo := configapi.Repository{}
+	mockClient.EXPECT().List(mock.Anything, mock.Anything, client.InNamespace(""), mock.Anything).Return(errors.New("get error"))
+	_, err = store.List(ctxt, &repo)
+	assert.True(t, err != nil)
+
+	pkgRevMeta := metav1.ObjectMeta{}
+	mockClient.EXPECT().Create(mock.Anything, mock.Anything).Return(errors.New("get error2"))
+	_, err = store.Create(ctxt, pkgRevMeta, repo.Name, uuid.NewUUID())
+	assert.True(t, err != nil)
+
+	mockClient.EXPECT().Get(mock.Anything, nsn, mock.Anything).Return(errors.New("get error3"))
+	_, err = store.Delete(ctxt, nsn, true)
+	assert.True(t, err != nil)
+}
