@@ -87,6 +87,12 @@ commands:
             internal.config.kubernetes.io/path: Kptfile
             internal.kpt.dev/upstream-identifier: kpt.dev|Kptfile|default|basens-clone
           name: basens-clone
+        status:
+          conditions:
+          - message: Rendered successfully
+            reason: Rendered
+            status: "True"
+            type: Rendered
         upstream:
           git:
             directory: basens
@@ -144,6 +150,12 @@ commands:
             internal.config.kubernetes.io/path: Kptfile
             internal.kpt.dev/upstream-identifier: kpt.dev|Kptfile|default|empty-clone
           name: empty-clone
+        status:
+          conditions:
+          - message: Rendered successfully
+            reason: Rendered
+            status: "True"
+            type: Rendered
         upstream:
           git:
             directory: empty

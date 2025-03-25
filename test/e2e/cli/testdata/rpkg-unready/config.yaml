@@ -27,7 +27,8 @@ commands:
       - --workspace=copy-2
       - --replay-strategy=true
       - git.unready-edit.clone-1
-    stdout: "git.unready-edit.copy-2 created\n"
+    stdout: |
+      git.unready-edit.copy-2 created
   - args:
       - porchctl
       - rpkg
@@ -61,9 +62,12 @@ commands:
       - Kptfile
       - /tmp/porch-e2e/pkg-unready-git.unready-edit.copy-2
       - --
-      - by-path=status.conditions[0].status
+      - by-path=status.conditions[1].status
       - put-value=True
-    stderr: "[RUNNING] \"gcr.io/kpt-fn/search-replace:v0.2.0\" on 1 resource(s)\n  Results:\n    [info] status.conditions[0].status: Mutated field value to \"\\\"True\\\"\"\n"
+    stderr: |
+      [RUNNING] "gcr.io/kpt-fn/search-replace:v0.2.0" on 1 resource(s)
+        Results:
+          [info] status.conditions[1].status: Mutated field value to "\"True\""
   - args:
       - porchctl
       - rpkg
@@ -81,7 +85,6 @@ commands:
       - git.unready-edit.copy-2
     stdout: |
       git.unready-edit.copy-2 proposed
-    exitCode: 0
   - args:
       - porchctl
       - rpkg
@@ -90,5 +93,3 @@ commands:
       - git.unready-edit.copy-2
     stdout: |
       git.unready-edit.copy-2 approved
-    exitCode: 0
-  

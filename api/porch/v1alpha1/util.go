@@ -31,7 +31,7 @@ func PackageRevisionIsReady(readinessGates []ReadinessGate, conditions []Conditi
 		if _, ok := conds[g.ConditionType]; !ok {
 			return false
 		}
-		if conds[g.ConditionType].Status != "True" {
+		if conds[g.ConditionType].Status != ConditionTrue {
 			return false
 		}
 	}

@@ -17,14 +17,18 @@ package task
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	iofs "io/fs"
 	"path"
 	"strings"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	fnsdk "github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
+
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/pkg/kpt"
 	fnresult "github.com/nephio-project/porch/pkg/kpt/api/fnresult/v1"
+	kptfileapi "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
@@ -63,24 +67,26 @@ func (m *renderPackageMutation) apply(ctx context.Context, resources repository.
 		// We need this for the no-resources case
 		// TODO: we should handle this better
 		klog.Warningf("skipping render as no package was found")
-	} else {
-		renderer := kpt.NewRenderer(m.runnerOptions)
-		result, err := renderer.Render(ctx, fs, fn.RenderOptions{
-			PkgPath: pkgPath,
-			Runtime: m.runtime,
-		})
-		if result != nil {
-			var rr api.ResultList
-			err := convertResultList(result, &rr)
-			if err != nil {
-				return repository.PackageResources{}, taskResult, err
-			}
-			taskResult.RenderStatus.Result = rr
-		}
+		return resources, taskResult, nil
+	}
+
+	renderer := kpt.NewRenderer(m.runnerOptions)
+	result, renderErr := renderer.Render(ctx, fs, fn.RenderOptions{
+		PkgPath: pkgPath,
+		Runtime: m.runtime,
+	})
+	if result != nil {
+		var rr api.ResultList
+		err := convertResultList(result, &rr)
 		if err != nil {
 			taskResult.RenderStatus.Err = err.Error()
 			return repository.PackageResources{}, taskResult, err
 		}
+		taskResult.RenderStatus.Result = rr
+	}
+	if renderErr != nil {
+		taskResult.RenderStatus.Err = renderErr.Error()
+		// a render failure is considered normal operation, so do not return an error here
 	}
 
 	renderedResources, err := readResources(fs)
@@ -88,7 +94,10 @@ func (m *renderPackageMutation) apply(ctx context.Context, resources repository.
 		return repository.PackageResources{}, taskResult, err
 	}
 
-	// TODO: There are internal tasks not represented in the API; Update the Apply interface to enable them.
+	err = addRenderStatusConditionToKptfile(&renderedResources, taskResult.RenderStatus)
+	if err != nil {
+		return repository.PackageResources{}, taskResult, err
+	}
 	return renderedResources, taskResult, nil
 }
 
@@ -122,7 +131,7 @@ func writeResources(fs filesys.FileSystem, resources repository.PackageResources
 		if err := fs.WriteFile(path.Join(dir, base), []byte(v)); err != nil {
 			return "", err
 		}
-		if base == "Kptfile" {
+		if base == kptfileapi.KptFileName {
 			// Found Kptfile. Check if the current directory is ancestor of the current
 			// topmost package directory. If so, use it instead.
 			if packageDir == "" || dir == "/" || strings.HasPrefix(packageDir, dir+"/") {
@@ -153,4 +162,48 @@ func readResources(fs filesys.FileSystem) (repository.PackageResources, error) {
 	return repository.PackageResources{
 		Contents: contents,
 	}, nil
+}
+
+// addRenderStatusConditionToKptfile sets the render condition in the Kptfile's status
+func addRenderStatusConditionToKptfile(resources *repository.PackageResources, status *api.RenderStatus) error {
+	kptfile, err := fnsdk.NewKptfileFromPackage(resources.Contents)
+	if err != nil {
+		return fmt.Errorf("failed to read Kptfile, skipping render condition setup: %w", err)
+	}
+
+	success := status.Err == ""
+	if success {
+		for _, result := range status.Result.Items {
+			if result.ExitCode != 0 {
+				success = false
+				break
+			}
+			for _, fnResult := range result.Results {
+				if fnResult.Severity == string(fnsdk.Error) {
+					success = false
+					break
+				}
+			}
+		}
+	}
+
+	renderCondition := kptfileapi.Condition{
+		Type: kptfileapi.RenderConditionType,
+	}
+	if success {
+		renderCondition.Status = kptfileapi.ConditionTrue
+		renderCondition.Reason = "Rendered"
+		renderCondition.Message = "Rendered successfully"
+	} else {
+		renderCondition.Status = kptfileapi.ConditionFalse
+		renderCondition.Reason = "RenderFailed"
+		renderStatusJson, _ := json.Marshal(status)
+		renderCondition.Message = status.Err + string(renderStatusJson)
+	}
+	err = kptfile.SetTypedCondition(renderCondition)
+	if err != nil {
+		return fmt.Errorf("failed to set render condition in Kptfile: %w", err)
+	}
+
+	return kptfile.WriteToPackage(resources.Contents)
 }

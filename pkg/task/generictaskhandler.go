@@ -105,7 +105,13 @@ func (th *genericTaskHandler) ApplyTasks(ctx context.Context, draft repository.P
 	return nil
 }
 
-func (th *genericTaskHandler) DoPRMutations(ctx context.Context, namespace string, repoPR repository.PackageRevision, oldObj *api.PackageRevision, newObj *api.PackageRevision, draft repository.PackageRevisionDraft) error {
+func (th *genericTaskHandler) DoPRMutations(
+	ctx context.Context,
+	namespace string,
+	repoPR repository.PackageRevision,
+	oldObj *api.PackageRevision, newObj *api.PackageRevision,
+	draft repository.PackageRevisionDraft,
+) error {
 	ctx, span := tracer.Start(ctx, "genericTaskHandler::DoPRMutations", trace.WithAttributes())
 	defer span.End()
 
@@ -437,38 +443,44 @@ func (th *genericTaskHandler) conditionalAddRender(subject client.Object, mutati
 }
 
 func isRenderMutation(m mutation) bool {
+	if m == nil {
+		return false
+	}
 	_, isRender := m.(*renderPackageMutation)
 	return isRender
 }
 
 // applyResourceMutations mutates the resources and returns the most recent renderResult.
-func applyResourceMutations(ctx context.Context, draft repository.PackageRevisionDraft, baseResources repository.PackageResources, mutations []mutation) (applied repository.PackageResources, renderStatus *api.RenderStatus, err error) {
+func applyResourceMutations(
+	ctx context.Context,
+	draft repository.PackageRevisionDraft,
+	baseResources repository.PackageResources,
+	mutations []mutation,
+) (
+	applied repository.PackageResources,
+	renderStatus *api.RenderStatus,
+	err error,
+) {
 	ctx, span := tracer.Start(ctx, "genericTaskHandler::applyResourceMutations", trace.WithAttributes())
 	defer span.End()
 
 	var lastApplied mutation
 	for _, m := range mutations {
 		updatedResources, taskResult, err := m.apply(ctx, baseResources)
-		if taskResult == nil && err == nil {
+		if err != nil {
+			klog.Error(err)
+			return updatedResources, renderStatus, err
+		}
+		if taskResult == nil {
 			// a nil taskResult means nothing changed
 			continue
 		}
 
-		var task *api.Task
-		if taskResult != nil {
-			task = taskResult.Task
-		}
-		if taskResult != nil && task.Type == api.TaskTypeEval {
+		task := taskResult.Task
+		if task.Type == api.TaskTypeEval {
+			// NOTE: a failed render doesn't return with and error (anymore),
+			// so the results of render failures will be correctly returned, as well
 			renderStatus = taskResult.RenderStatus
-			if err != nil {
-				klog.Error(err)
-				err = fmt.Errorf("%w\n\n%s\n%s\n%s", err, "Error occurred rendering package in kpt function pipeline.", "Package has NOT been pushed to remote.", "Please fix package locally (modify until 'kpt fn render' succeeds) and retry.")
-				return updatedResources, renderStatus, err
-			}
-		}
-		if err != nil {
-			klog.Error(err)
-			return updatedResources, renderStatus, err
 		}
 
 		// if the last applied mutation was a render mutation, and so is this one, skip it
