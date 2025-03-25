@@ -125,8 +125,7 @@ func (c *crdMetadataStore) Create(ctx context.Context, pkgRevMeta metav1.ObjectM
 		},
 	}
 	klog.Infof("Creating packagerev %s/%s", internalPkgRev.Namespace, internalPkgRev.Name)
-	err := c.coreClient.Create(ctx, &internalPkgRev)
-	if err != nil {
+	if err := c.coreClient.Create(ctx, &internalPkgRev); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			return c.Update(ctx, pkgRevMeta)
 		}
