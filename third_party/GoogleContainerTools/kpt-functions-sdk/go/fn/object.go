@@ -771,6 +771,14 @@ type SubObject struct {
 	obj       *internal.MapVariant
 }
 
+func (o *SubObject) IsEmpty() bool {
+	return o == nil || o.obj.IsEmpty()
+}
+
+func (o *SubObject) HasField(key string) bool {
+	return o.obj.HasKey(key)
+}
+
 func (o *SubObject) UpsertMap(k string) *SubObject {
 	m := o.obj.UpsertMap(k)
 	return &SubObject{obj: m, parentGVK: o.parentGVK, fieldpath: o.fieldpath + "." + k}
