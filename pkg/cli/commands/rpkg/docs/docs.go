@@ -79,14 +79,20 @@ Flags:
 
   --strategy
     Update strategy that should be used when updating the new
-    package revision. Must be one of: resource-merge, fast-forward,
-    force-delete-replace, or copy-merge.
-    The default value is resource-merge and it's EXPERIMENTAL.
+    package revision. Must be one of:
+    =resource-merge: (Default) Perform a structural comparison of the original
+      updated resources, and merge the changes into the local package.
+    =fast-forward: Fail without updating if the local package was modified since it was fetched.
+    =force-delete-replace: Wipe all the local changes to the package and replace
+      it with the remote version.
+    =copy-merge: Copy all the remote changes to the local package.
 `
 var CloneExamples = `
   # clone the blueprint-e982b2196b35a4f5e81e92f49a430fe463aa9f1a package and create a new package revision called
   # foo in the blueprint repository with a custom workspaceName.
   $ porchctl rpkg clone blueprint-e982b2196b35a4f5e81e92f49a430fe463aa9f1a foo --repository blueprint --workspace=first-draft
+  # packclone in the porch-test repository with a v1 workspaceName, and force-delete-replace update strategy
+  $ porchctl rpkg clone porch-test.pack.v1 packclone --namespace=porch-demo -repository=porch-test --workspace=v1 --strategy=force-delete-replace
 
   # clone the git repository at https://github.com/repo/blueprint.git at reference base/v0 and in directory base. The new
   # package revision will be created in repository blueprint and namespace default.
