@@ -25,6 +25,7 @@ PORCHCTL_VERSION := $(shell date '+development-%Y-%m-%dT%H:%M:%S')
 #   gosec, lint,
 #   fmt, vet
 include default-go.mk
+include default-mockery.mk
 
 # This includes the 'help' target that prints out all targets with their descriptions organized by categories
 include default-help.mk

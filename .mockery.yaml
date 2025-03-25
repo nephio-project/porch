@@ -1,50 +1,12 @@
-with-expecter:
-issue-845-fix: true
-disable-version-string: true
-resolve-type-alias: false
-outpkg: mocks
+with-expecter: true
 packages:
-  github.com/nephio-project/porch/pkg/engine:
-    interfaces:
-      CaDEngine:
-        config:
-          dir: "mocks/{{ .InterfaceName | lower }}"
   sigs.k8s.io/controller-runtime/pkg/client:
     interfaces:
       Client:
         config:
-          dir: "mocks/external/{{ .InterfaceName | lower }}"
-  k8s.io/apiserver/pkg/registry/rest:
-    interfaces:
-      UpdatedObjectInfo:
+          dir: "test/mockery/mocks/external/{{.InterfaceDirRelative}}"
+          outpkg: "{{.PackageName}}"
+      Reader:
         config:
-          dir: "mocks/external/{{ .InterfaceName | lower }}"
-      ValidateObjectFunc:
-        config:
-          dir: "mocks/external/{{ .InterfaceName | lower }}"
-      ValidateObjectUpdateFunc:
-        config:
-          dir: "mocks/external/{{ .InterfaceName | lower }}"
-  github.com/nephio-project/porch/pkg/repository:
-    interfaces:
-      Repository:
-        config:
-          dir: "mocks/{{ .InterfaceName | lower }}"
-      PackageRevision:
-        config:
-          dir: "mocks/{{ .InterfaceName | lower }}"
-      Package:
-        config:
-          dir: "mocks/{{ .InterfaceName | lower }}"
-      CredentialResolver:
-        config:
-          dir: "mocks/{{ .InterfaceName | lower }}"
-      UserInfoProvider:
-        config:
-          dir: "mocks/{{ .InterfaceName | lower }}"
-      RepositoryOpener:
-        config:
-          dir: "mocks/{{ .InterfaceName | lower }}"
-      ReferenceResolver:
-        config:
-          dir: "mocks/{{ .InterfaceName | lower }}"
+          dir: "test/mockery/mocks/external/{{.InterfaceDirRelative}}"
+          outpkg: "{{.PackageName}}"
