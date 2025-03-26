@@ -107,6 +107,8 @@ func ToUpdateStrategy(strategy string) (UpdateStrategyType, error) {
 		return FastForward, nil
 	case string(ForceDeleteReplace):
 		return ForceDeleteReplace, nil
+	case string(CopyMerge):
+		return CopyMerge, nil
 	default:
 		return "", fmt.Errorf("unknown update strategy %q", strategy)
 	}
