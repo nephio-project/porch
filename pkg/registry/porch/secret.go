@@ -160,8 +160,12 @@ type BearerTokenAuthCredentials struct {
 }
 
 func (b *BearerTokenAuthResolver) Resolve(_ context.Context, secret core.Secret) (repository.Credential, bool, error) {
-	if secret.Data[TokenDataName] == nil && secret.Type == core.SecretTypeOpaque {
-		return nil, false, fmt.Errorf("Bearer Token secret.Data key must be set as %s", TokenDataName)
+	if secret.Type != core.SecretTypeOpaque {
+		return nil, false, fmt.Errorf("Bearer Token secret.Type value must be Opaque")
+	} else {
+		if secret.Data[TokenDataName] == nil {
+			return nil, false, fmt.Errorf("Bearer Token secret.Data key must be set as %s", TokenDataName)
+		}
 	}
 
 	return &BearerTokenAuthCredentials{

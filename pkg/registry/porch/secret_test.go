@@ -154,6 +154,20 @@ func TestTokenCredentialResolver(t *testing.T) {
 			expectedCredential: nil,
 			expectedErrString:  "error resolving credential: Bearer Token secret.Data key must be set as bearerToken",
 		},
+		"secret has invalid type": {
+			readerSecret: &core.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretName,
+					Namespace: secretNamespace,
+				},
+				Type: core.SecretTypeBasicAuth,
+				Data: map[string][]byte{
+					"bearerToken": []byte("d895131d6f99a3b65f4730e57a5989e8179be6b2"),
+				},
+			},
+			expectedCredential: nil,
+			expectedErrString:  "error resolving credential: Bearer Token secret.Type value must be Opaque",
+		},
 	}
 
 	for tn := range testCases {
