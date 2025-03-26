@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
 	core "k8s.io/api/core/v1"
@@ -105,6 +106,98 @@ func TestCredentialResolver(t *testing.T) {
 			assert.ErrorIs(t, err, tc.expectedErr)
 			assert.Equal(t, tc.expectedCredential, cred)
 
+		})
+	}
+}
+
+func TestTokenCredentialResolver(t *testing.T) {
+
+	testCases := map[string]struct {
+		readerSecret *core.Secret
+		readerErr    error
+
+		resolverCredential repository.Credential
+		resolverResolved   bool
+		resolverErr        error
+
+		expectedCredential repository.Credential
+		expectedErrString  string
+	}{
+		"secret has valid Data key": {
+			readerSecret: &core.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretName,
+					Namespace: secretNamespace,
+				},
+				Type: core.SecretTypeOpaque,
+				Data: map[string][]byte{
+					"thing-token": []byte("other things"),
+					"bearerToken": []byte("d895131d6f99a3b65f4730e57a5989e8179be6b2"),
+					"stuff":       []byte("random"),
+				},
+			},
+			expectedCredential: &BearerTokenAuthCredentials{
+				BearerToken: "d895131d6f99a3b65f4730e57a5989e8179be6b2",
+			},
+		},
+		"secret has invalid Data key": {
+			readerSecret: &core.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretName,
+					Namespace: secretNamespace,
+				},
+				Type: core.SecretTypeOpaque,
+				Data: map[string][]byte{
+					"invalid": []byte("blah"),
+				},
+			},
+			expectedCredential: nil,
+			expectedErrString:  "error resolving credential: Bearer Token secret.Data key must be set as bearerToken",
+		},
+		"secret has invalid type": {
+			readerSecret: &core.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretName,
+					Namespace: secretNamespace,
+				},
+				Type: core.SecretTypeBasicAuth,
+				Data: map[string][]byte{
+					"bearerToken": []byte("d895131d6f99a3b65f4730e57a5989e8179be6b2"),
+				},
+			},
+			expectedCredential: nil,
+			expectedErrString:  "error resolving credential: Bearer Token secret.Type value must be Opaque",
+		},
+	}
+
+	for tn := range testCases {
+		tc := testCases[tn]
+		t.Run(tn, func(t *testing.T) {
+			reader := &fakeReader{
+				expectedSecret: tc.readerSecret,
+				expectedErr:    tc.readerErr,
+			}
+			credResolver := NewCredentialResolver(reader, []Resolver{
+				NewBearerTokenAuthResolver(),
+				&fakeResolver{
+					credential: tc.resolverCredential,
+					resolved:   tc.resolverResolved,
+					err:        tc.resolverErr,
+				},
+			})
+
+			cred, err := credResolver.ResolveCredential(context.Background(), secretNamespace, secretName)
+			if err != nil {
+				assert.EqualErrorf(t, err, tc.expectedErrString, "Error should be: %v, got: %v", tc.expectedErrString, err)
+			}
+			assert.Equal(t, tc.expectedCredential, cred)
+			if cred != nil {
+				assert.Equal(t, cred.ToString(), "d895131d6f99a3b65f4730e57a5989e8179be6b2")
+				assert.Equal(t, cred.Valid(), true)
+				assert.Equal(t, cred.ToAuthMethod(), &http.TokenAuth{
+					Token: string("d895131d6f99a3b65f4730e57a5989e8179be6b2"),
+				})
+			}
 		})
 	}
 }
