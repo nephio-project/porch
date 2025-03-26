@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -169,7 +169,7 @@ func (r *PackageVariantSetReconciler) getUpstreamPR(upstream *pkgvarapi.Upstream
 			return &pr, nil
 		}
 	}
-	return nil, fmt.Errorf("could not find upstream package revision '%s/%s' in repo '%s'",
+	return nil, fmt.Errorf("could not find upstream package revision '%s/%d' in repo '%s'",
 		upstream.Package, upstream.Revision, upstream.Repo)
 }
 

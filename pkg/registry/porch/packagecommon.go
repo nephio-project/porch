@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -86,7 +86,7 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter package
 
 		revisions, err := r.cad.ListPackageRevisions(ctx, repositoryObj, filter.ListPackageRevisionFilter)
 		if err != nil {
-			klog.Warningf("error listing package revisions from repository %s/%s: %s", repositoryObj.GetNamespace(), repositoryObj.GetName(), err)
+			klog.Warningf("error listing package revisions from repository %s/%s: %+v", repositoryObj.GetNamespace(), repositoryObj.GetName(), err)
 			continue
 		}
 		for _, rev := range revisions {
@@ -334,7 +334,7 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 		return createdApiPkgRev, true, nil
 	}
 
-	rev, err := r.cad.UpdatePackageRevision(ctx, "", &repositoryObj, oldRepoPkgRev, oldApiPkgRev.(*api.PackageRevision), newApiPkgRev, parentPackage)
+	rev, err := r.cad.UpdatePackageRevision(ctx, 0, &repositoryObj, oldRepoPkgRev, oldApiPkgRev.(*api.PackageRevision), newApiPkgRev, parentPackage)
 	if err != nil {
 		return nil, false, apierrors.NewInternalError(err)
 	}

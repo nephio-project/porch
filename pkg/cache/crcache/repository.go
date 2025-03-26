@@ -16,7 +16,6 @@ package crcache
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -24,8 +23,9 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
@@ -162,7 +162,7 @@ func (r *cachedRepository) CreatePackageRevision(ctx context.Context, obj *v1alp
 	return r.repo.CreatePackageRevision(ctx, obj)
 }
 
-func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version string) (repository.PackageRevision, error) {
+func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version int) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cachedRepository::ClosePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
 
@@ -179,25 +179,25 @@ func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd re
 	}
 
 	revisions, err := r.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
-		Package: prd.GetName(),
+		Key: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				Path:    prd.Key().PkgKey.Path,
+				Package: prd.Key().PkgKey.Package,
+			},
+		},
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	var publishedRevisions []string
+	highestRevision := 0
 	for _, rev := range revisions {
-		if v1alpha1.LifecycleIsPublished(rev.Lifecycle(ctx)) {
-			publishedRevisions = append(publishedRevisions, rev.Key().Revision)
+		if v1alpha1.LifecycleIsPublished(rev.Lifecycle(ctx)) && rev.Key().Revision > highestRevision {
+			highestRevision = rev.Key().Revision
 		}
 	}
 
-	nextVersion, err := repository.NextRevisionNumber(ctx, publishedRevisions)
-	if err != nil {
-		return nil, err
-	}
-
-	if closed, err := r.repo.ClosePackageRevisionDraft(ctx, prd, nextVersion); err != nil {
+	if closed, err := r.repo.ClosePackageRevisionDraft(ctx, prd, highestRevision+1); err != nil {
 		return nil, err
 	} else {
 		return r.update(ctx, closed)
@@ -222,20 +222,14 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	k := updated.Key()
-	// previous := r.cachedPackageRevisions[k]
-
 	if v1alpha1.LifecycleIsPublished(updated.Lifecycle(ctx)) {
-		oldKey := repository.PackageRevisionKey{
-			Repository:    k.Repository,
-			Package:       k.Package,
-			WorkspaceName: k.WorkspaceName,
-		}
-		delete(r.cachedPackageRevisions, oldKey)
+		prevKey := updated.Key()
+		prevKey.Revision = 0 // Drafts always have revision of 0
+		delete(r.cachedPackageRevisions, prevKey)
 	}
 
 	cached := &cachedPackageRevision{PackageRevision: updated}
-	r.cachedPackageRevisions[k] = cached
+	r.cachedPackageRevisions[updated.Key()] = cached
 
 	// Recompute latest package revisions.
 	identifyLatestRevisions(ctx, r.cachedPackageRevisions)
@@ -261,14 +255,8 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 func (r *cachedRepository) createMainPackageRevision(ctx context.Context, updatedMain repository.PackageRevision) error {
 	//Search and delete any old main pkgRev of an older workspace in the cache
 	for pkgRevKey := range r.cachedPackageRevisions {
-		if (pkgRevKey.Repository == updatedMain.Key().Repository) && (pkgRevKey.Package == updatedMain.Key().Package) && (pkgRevKey.Revision == updatedMain.Key().Revision) {
-			oldMainKey := repository.PackageRevisionKey{
-				Repository:    updatedMain.Key().Repository,
-				Package:       updatedMain.Key().Package,
-				Revision:      updatedMain.Key().Revision,
-				WorkspaceName: v1alpha1.WorkspaceName(string(pkgRevKey.WorkspaceName)),
-			}
-			delete(r.cachedPackageRevisions, oldMainKey)
+		if pkgRevKey.Revision == -1 && pkgRevKey.PkgKey == updatedMain.Key().PkgKey {
+			delete(r.cachedPackageRevisions, pkgRevKey)
 		}
 	}
 	cachedMain := &cachedPackageRevision{PackageRevision: updatedMain}
@@ -281,7 +269,7 @@ func (r *cachedRepository) createMainPackageRevision(ctx context.Context, update
 
 	// Create the package if it doesn't exist
 	_, err := r.options.MetadataStore.Get(ctx, pkgRevMetaNN)
-	if errors.IsNotFound(err) {
+	if apierrors.IsNotFound(err) {
 		pkgRevMeta := metav1.ObjectMeta{
 			Name:      updatedMain.KubeObjectName(),
 			Namespace: updatedMain.KubeObjectNamespace(),
@@ -460,22 +448,22 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 	// TODO: Can we avoid holding the lock for the ListPackageRevisions / identifyLatestRevisions section?
 	newPackageRevisions, err := r.repo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	if err != nil {
-		return nil, nil, fmt.Errorf("error listing packages: %w", err)
+		return nil, nil, errors.Wrap(err, "error listing packages")
 	}
 
 	// Build mapping from kubeObjectName to PackageRevisions for new PackageRevisions.
 	newPackageRevisionNames := make(map[string]*cachedPackageRevision, len(newPackageRevisions))
-	for _, newPackage := range newPackageRevisions {
-		kname := newPackage.KubeObjectName()
+	for _, newPackageRevision := range newPackageRevisions {
+		kname := newPackageRevision.KubeObjectName()
 		if newPackageRevisionNames[kname] != nil {
 			klog.Warningf("repo %s: found duplicate packages with name %v", r.repo, kname)
 		}
 
 		pkgRev := &cachedPackageRevision{
-			PackageRevision:  newPackage,
+			PackageRevision:  newPackageRevision,
 			isLatestRevision: false,
 		}
-		newPackageRevisionNames[newPackage.KubeObjectName()] = pkgRev
+		newPackageRevisionNames[newPackageRevision.KubeObjectName()] = pkgRev
 	}
 
 	// Build mapping from kubeObjectName to PackageRevisions for existing PackageRevisions
@@ -495,7 +483,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 				Name:      prm.Name,
 				Namespace: prm.Namespace,
 			}, true); err != nil {
-				if !errors.IsNotFound(err) {
+				if !apierrors.IsNotFound(err) {
 					// This will be retried the next time the sync runs.
 					klog.Warningf("repo %s: unable to delete PackageRev CR for %s/%s: %v",
 						r.id, prm.Name, prm.Namespace, err)

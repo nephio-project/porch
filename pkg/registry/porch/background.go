@@ -174,7 +174,7 @@ func (b *background) handleRepositoryEvent(ctx context.Context, repo *configapi.
 		klog.Infof("%s, handling completed", msgPreamble)
 		return nil
 	} else {
-		return fmt.Errorf("%s, handling failed, cache could not process repo event :%q", msgPreamble, err)
+		return fmt.Errorf("changing repository failed: %s:%s:%q", repo.ObjectMeta.Namespace, repo.ObjectMeta.Name, err)
 	}
 }
 

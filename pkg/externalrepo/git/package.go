@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,15 +15,12 @@
 package git
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/google/uuid"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
@@ -32,57 +29,32 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2"
-)
-
-const (
-	uuidSpace = "aac71d91-5c67-456f-8fd2-902ef6da820e"
 )
 
 type gitPackageRevision struct {
-	repo          *gitRepository // repo is repo containing the package
-	path          string         // the path to the package from the repo root
-	revision      string
-	workspaceName v1alpha1.WorkspaceName
-	updated       time.Time
-	updatedBy     string
-	ref           *plumbing.Reference // ref is the Git reference at which the package exists
-	tree          plumbing.Hash       // Cached tree of the package itself, some descendent of commit.Tree()
-	commit        plumbing.Hash       // Current version of the package (commit sha)
-	tasks         []v1alpha1.Task
-	metadata      metav1.ObjectMeta
+	prKey     repository.PackageRevisionKey
+	repo      *gitRepository // repo is repo containing the package
+	updated   time.Time
+	updatedBy string
+	ref       *plumbing.Reference // ref is the Git reference at which the package exists
+	tree      plumbing.Hash       // Cached tree of the package itself, some descendent of commit.Tree()
+	commit    plumbing.Hash       // Current version of the package (commit sha)
+	tasks     []v1alpha1.Task
+	metadata  metav1.ObjectMeta
 }
 
 var _ repository.PackageRevision = &gitPackageRevision{}
 
-// Kubernetes resource names requirements do not allow to encode arbitrary directory
-// path: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-// Because we need a resource names that are stable over time, and avoid conflict, we
-// compute a hash of the package path and revision.
-// For implementation convenience (though this is temporary) we prepend the repository
-// name in order to aide package discovery on the server. With improvements to caching
-// layer, the prefix will be removed (this may happen without notice) so it should not
-// be relied upon by clients.
-func (p *gitPackageRevision) KubeObjectName() string {
-	// The published package revisions on the main branch will have the same workspaceName
-	// as the most recently published package revision, so we need to ensure it has a unique
-	// and unchanging name.
-	var s string
-	if p.Key().Revision == string(p.repo.branch) {
-		s = p.Key().Revision
-	} else {
-		s = string(p.Key().WorkspaceName)
-	}
-
-	return util.ComposePkgRevObjName(p.repo.name, p.repo.directory, p.Key().Package, s)
+func (c *gitPackageRevision) KubeObjectName() string {
+	return repository.ComposePkgRevObjName(c.Key())
 }
 
-func (p *gitPackageRevision) KubeObjectNamespace() string {
-	return p.repo.namespace
+func (c *gitPackageRevision) KubeObjectNamespace() string {
+	return c.Key().PkgKey.RepoKey.Namespace
 }
 
-func (p *gitPackageRevision) UID() types.UID {
-	return p.uid()
+func (c *gitPackageRevision) UID() types.UID {
+	return util.GenerateUid("packagerevision:", c.KubeObjectNamespace(), c.KubeObjectName())
 }
 
 func (p *gitPackageRevision) ResourceVersion() string {
@@ -90,35 +62,7 @@ func (p *gitPackageRevision) ResourceVersion() string {
 }
 
 func (p *gitPackageRevision) Key() repository.PackageRevisionKey {
-	// if the repository has been registered with a directory, then the
-	// package name is the package path relative to the registered directory
-	packageName := p.path
-	if p.repo.directory != "" {
-		pn, err := filepath.Rel(p.repo.directory, packageName)
-		if err != nil {
-			klog.Errorf("error computing package name relative to registered directory: %v", err)
-		}
-		packageName = strings.TrimLeft(pn, "./")
-	}
-
-	return repository.PackageRevisionKey{
-		Repository:    p.repo.name,
-		Package:       packageName,
-		Revision:      p.revision,
-		WorkspaceName: p.workspaceName,
-	}
-}
-
-func (p *gitPackageRevision) uid() types.UID {
-	space := uuid.MustParse(uuidSpace)
-	buff := bytes.Buffer{}
-	buff.WriteString("packagerevisions.")
-	buff.WriteString(strings.ToLower(v1alpha1.SchemeGroupVersion.Identifier()))
-	buff.WriteString("/")
-	buff.WriteString(strings.ToLower(p.KubeObjectNamespace()))
-	buff.WriteString("/")
-	buff.WriteString(strings.ToLower(p.KubeObjectName())) // KubeObjectName() is unique in a given namespace
-	return types.UID(uuid.NewSHA1(space, buff.Bytes()).String())
+	return p.prKey
 }
 
 func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.PackageRevision, error) {
@@ -169,16 +113,16 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            p.KubeObjectName(),
-			Namespace:       p.repo.namespace,
-			UID:             p.uid(),
+			Namespace:       p.KubeObjectNamespace(),
+			UID:             p.UID(),
 			ResourceVersion: p.commit.String(),
 			CreationTimestamp: metav1.Time{
 				Time: p.metadata.CreationTimestamp.Time,
 			},
 		},
 		Spec: v1alpha1.PackageRevisionSpec{
-			PackageName:    key.Package,
-			RepositoryName: key.Repository,
+			PackageName:    key.PkgKey.ToPkgPathname(),
+			RepositoryName: key.PkgKey.RepoKey.Name,
 			Lifecycle:      p.Lifecycle(ctx),
 			Tasks:          p.tasks,
 			ReadinessGates: repository.ToApiReadinessGates(kf),
@@ -195,8 +139,6 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 		return nil, fmt.Errorf("failed to load package resources: %w", err)
 	}
 
-	key := p.Key()
-
 	return &v1alpha1.PackageRevisionResources{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevisionResources",
@@ -204,8 +146,8 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            p.KubeObjectName(),
-			Namespace:       p.repo.namespace,
-			UID:             p.uid(),
+			Namespace:       p.KubeObjectNamespace(),
+			UID:             p.UID(),
 			ResourceVersion: p.commit.String(),
 			CreationTimestamp: metav1.Time{
 				Time: p.metadata.CreationTimestamp.Time,
@@ -213,10 +155,10 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 			OwnerReferences: []metav1.OwnerReference{}, // TODO: should point to repository resource
 		},
 		Spec: v1alpha1.PackageRevisionResourcesSpec{
-			PackageName:    key.Package,
-			WorkspaceName:  key.WorkspaceName,
-			Revision:       key.Revision,
-			RepositoryName: key.Repository,
+			PackageName:    p.Key().PkgKey.ToPkgPathname(),
+			WorkspaceName:  p.Key().WorkspaceName,
+			Revision:       p.Key().Revision,
+			RepositoryName: p.Key().PkgKey.RepoKey.Name,
 
 			Resources: resources,
 		},
@@ -230,19 +172,18 @@ func (p *gitPackageRevision) ToMainPackageRevision() repository.PackageRevision 
 	//Need to compute a separate reference, otherwise the ref will be the same as the versioned package,
 	//while the main gitPackageRevision needs to point at the main branch.
 	mainBranchRef := plumbing.NewHashReference(p.repo.branch.RefInLocal(), p.commit)
-	p1 := &gitPackageRevision{
-		repo:          p.repo,
-		path:          p.path,
-		revision:      string(p.repo.branch),
-		workspaceName: p.workspaceName,
-		updated:       p.updated,
-		updatedBy:     p.updatedBy,
-		ref:           mainBranchRef,
-		tree:          p.tree,
-		commit:        p.commit,
-		tasks:         p.tasks,
+	mainPr := &gitPackageRevision{
+		repo:      p.repo,
+		prKey:     p.prKey,
+		updated:   p.updated,
+		updatedBy: p.updatedBy,
+		ref:       mainBranchRef,
+		tree:      p.tree,
+		commit:    p.commit,
+		tasks:     p.tasks,
 	}
-	return p1
+	mainPr.prKey.Revision = -1
+	return mainPr
 
 }
 
@@ -298,14 +239,14 @@ func (p *gitPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, 
 			Type: kptfile.GitOrigin,
 			Git: &kptfile.Git{
 				Repo:      repo,
-				Directory: p.path,
+				Directory: p.prKey.PkgKey.ToPkgPathname(),
 				Ref:       ref.Short(),
 			},
 		}, kptfile.UpstreamLock{
 			Type: kptfile.GitOrigin,
 			Git: &kptfile.GitLock{
 				Repo:      repo,
-				Directory: p.path,
+				Directory: p.prKey.PkgKey.ToPkgPathname(),
 				Ref:       ref.Short(),
 				Commit:    p.commit.String(),
 			},

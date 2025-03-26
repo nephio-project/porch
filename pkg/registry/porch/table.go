@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -100,7 +100,7 @@ var (
 			{Name: "Name", Type: "string"},
 			{Name: "Package", Type: "string"},
 			{Name: "Repository", Type: "string"},
-			{Name: "Latest Revision", Type: "string"},
+			{Name: "Latest Revision", Type: "int"},
 		},
 	}
 
@@ -125,7 +125,7 @@ var (
 			{Name: "Name", Type: "string"},
 			{Name: "Package", Type: "string"},
 			{Name: "WorkspaceName", Type: "string"},
-			{Name: "Revision", Type: "string"},
+			{Name: "Revision", Type: "int"},
 			{Name: "Latest", Type: "boolean"},
 			{Name: "Lifecycle", Type: "string"},
 			{Name: "Repository", Type: "string"},
@@ -152,7 +152,7 @@ var (
 			{Name: "Name", Type: "string"},
 			{Name: "Package", Type: "string"},
 			{Name: "WorkspaceName", Type: "string"},
-			{Name: "Revision", Type: "string"},
+			{Name: "Revision", Type: "int"},
 			{Name: "Repository", Type: "string"},
 			{Name: "Files", Type: "integer"},
 		},

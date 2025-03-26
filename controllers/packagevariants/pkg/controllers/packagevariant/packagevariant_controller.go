@@ -1,4 +1,4 @@
-// Copyright 2023-2024 The kpt and Nephio Authors
+// Copyright 2023-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,8 +28,8 @@ import (
 	"github.com/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
+	"github.com/nephio-project/porch/pkg/repository"
 
-	"golang.org/x/mod/semver"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -178,7 +178,7 @@ func validatePackageVariant(pv *api.PackageVariant) []string {
 		if pv.Spec.Upstream.Package == "" {
 			allErrs = append(allErrs, "missing required field spec.upstream.package")
 		}
-		if pv.Spec.Upstream.Revision == "" {
+		if pv.Spec.Upstream.Revision == 0 {
 			allErrs = append(allErrs, "missing required field spec.upstream.revision")
 		}
 	}
@@ -258,7 +258,7 @@ func (r *PackageVariantReconciler) getUpstreamPR(upstream *api.Upstream,
 			return &pr, nil
 		}
 	}
-	return nil, fmt.Errorf("could not find upstream package revision '%s/%s' in repo '%s'",
+	return nil, fmt.Errorf("could not find upstream package revision '%s/%d' in repo '%s'",
 		upstream.Package, upstream.Revision, upstream.Repo)
 }
 
@@ -392,7 +392,7 @@ func (r *PackageVariantReconciler) findAndUpdateExistingRevisions(ctx context.Co
 			if err != nil {
 				return nil, err
 			}
-			klog.Infoln(fmt.Sprintf("package variant %q updated package revision %q to upstream revision %s", pv.Name, downstream.Name, upstream.Spec.Revision))
+			klog.Infoln(fmt.Sprintf("package variant %q updated package revision %q to upstream revision %d", pv.Name, downstream.Name, upstream.Spec.Revision))
 		}
 
 		// finally, see if any other changes are needed to the resources
@@ -443,7 +443,7 @@ func (r *PackageVariantReconciler) getDownstreamPRs(ctx context.Context,
 	var drafts []*porchapi.PackageRevision
 	// the first package revision number that porch assigns is "v1",
 	// so use v0 as a placeholder for comparison
-	latestVersion := "v0"
+	latestVersion := -1
 
 	for _, pr := range prList.Items {
 		// TODO: When we have a way to find the upstream packagerevision without
@@ -494,13 +494,8 @@ func (r *PackageVariantReconciler) getDownstreamPRs(ctx context.Context,
 	return nil
 }
 
-func compare(pr, latestPublished *porchapi.PackageRevision, latestVersion string) (*porchapi.PackageRevision, string) {
-	switch cmp := semver.Compare(pr.Spec.Revision, latestVersion); {
-	case cmp == 0:
-		// Same revision.
-	case cmp < 0:
-		// current < latest; no change
-	case cmp > 0:
+func compare(pr, latestPublished *porchapi.PackageRevision, latestVersion int) (*porchapi.PackageRevision, int) {
+	if pr.Spec.Revision > latestVersion {
 		// current > latest; update latest
 		latestVersion = pr.Spec.Revision
 		latestPublished = pr.DeepCopy()
@@ -611,7 +606,7 @@ func (r *PackageVariantReconciler) isUpToDate(pv *api.PackageVariant, downstream
 		// will always be a published revision, so we will need to do an update.
 		return false
 	}
-	currentUpstreamRevision := upstreamLock.Git.Ref[lastIndex+1:]
+	currentUpstreamRevision := repository.Revision2Int(upstreamLock.Git.Ref[lastIndex+1:])
 	return currentUpstreamRevision == pv.Spec.Upstream.Revision
 }
 
@@ -633,7 +628,7 @@ func (r *PackageVariantReconciler) copyPublished(ctx context.Context,
 		Spec: source.Spec,
 	}
 
-	newPR.Spec.Revision = ""
+	newPR.Spec.Revision = 0
 	newPR.Spec.WorkspaceName = newWorkspaceName(prList, newPR.Spec.PackageName, newPR.Spec.RepositoryName)
 	newPR.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDraft
 
@@ -645,14 +640,13 @@ func (r *PackageVariantReconciler) copyPublished(ctx context.Context,
 	return newPR, nil
 }
 
-func newWorkspaceName(prList *porchapi.PackageRevisionList,
-	packageName string, repo string) porchapi.WorkspaceName {
+func newWorkspaceName(prList *porchapi.PackageRevisionList, packageName, repo string) string {
 	wsNum := 0
 	for _, pr := range prList.Items {
 		if pr.Spec.PackageName != packageName || pr.Spec.RepositoryName != repo {
 			continue
 		}
-		oldWorkspaceName := string(pr.Spec.WorkspaceName)
+		oldWorkspaceName := pr.Spec.WorkspaceName
 		if !strings.HasPrefix(oldWorkspaceName, workspaceNamePrefix) {
 			continue
 		}
@@ -663,7 +657,7 @@ func newWorkspaceName(prList *porchapi.PackageRevisionList,
 		}
 	}
 	wsNum++
-	return porchapi.WorkspaceName(fmt.Sprintf(workspaceNamePrefix+"%d", wsNum))
+	return fmt.Sprintf(workspaceNamePrefix+"%d", wsNum)
 }
 
 func constructOwnerReference(pv *api.PackageVariant) metav1.OwnerReference {
