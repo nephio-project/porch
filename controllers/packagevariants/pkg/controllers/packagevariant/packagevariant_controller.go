@@ -252,10 +252,16 @@ func combineErrors(errs []string) string {
 func (r *PackageVariantReconciler) getUpstreamPR(upstream *api.Upstream,
 	prList *porchapi.PackageRevisionList) (*porchapi.PackageRevision, error) {
 	for _, pr := range prList.Items {
-		if pr.Spec.RepositoryName == upstream.Repo &&
-			pr.Spec.PackageName == upstream.Package &&
-			pr.Spec.Revision == upstream.Revision {
-			return &pr, nil
+		if pr.Spec.RepositoryName == upstream.Repo && pr.Spec.PackageName == upstream.Package && pr.Spec.Revision == upstream.Revision {
+			if upstream.Revision != -1 {
+				return &pr, nil
+			}
+
+			// we're looking for the main placeholder PackageRevision
+			// TODO: Handle placeholders on branches other than main
+			if pr.Spec.WorkspaceName == "main" {
+				return &pr, nil
+			}
 		}
 	}
 	return nil, fmt.Errorf("could not find upstream package revision '%s/%d' in repo '%s'",
@@ -441,7 +447,7 @@ func (r *PackageVariantReconciler) getDownstreamPRs(ctx context.Context,
 
 	var latestPublished *porchapi.PackageRevision
 	var drafts []*porchapi.PackageRevision
-	// the first package revision number that porch assigns is "1",
+	// the first package revision number that porch assigns is "v1",
 	// so use v0 as a placeholder for comparison
 	latestVersion := -1
 
@@ -499,21 +505,7 @@ func compare(pr, latestPublished *porchapi.PackageRevision, latestVersion int) (
 		// current > latest; update latest
 		latestVersion = pr.Spec.Revision
 		latestPublished = pr.DeepCopy()
-		return latestPublished, latestVersion
 	}
-
-	// Are we on a branch placeholder reference to a Package Revision (PR revision is -1)
-	// and haven't found an actual non-placeholder PR yet (latestRevision = -1)
-	if latestVersion == -1 && pr.Spec.Revision == -1 {
-		// Look out for the main revision
-		// TODO: Introduce a workspace specification in the upstream so we can decide what branch/workspace to take the placeholder reference off and not hardcode "main"
-		if pr.Spec.WorkspaceName == "main" {
-			latestVersion = pr.Spec.Revision
-			latestPublished = pr.DeepCopy()
-			return latestPublished, latestVersion
-		}
-	}
-
 	return latestPublished, latestVersion
 }
 

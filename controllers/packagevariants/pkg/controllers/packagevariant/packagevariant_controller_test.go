@@ -22,7 +22,6 @@ import (
 	"github.com/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	api "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
 )
@@ -1577,39 +1576,4 @@ func TestIsPackageVariantFunc(t *testing.T) {
 			require.Equal(t, tc.expectedRes, res)
 		})
 	}
-}
-
-func TestPackageCompare(t *testing.T) {
-
-	lastPr := porchapi.PackageRevision{
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:   "last-package",
-			WorkspaceName: "main",
-			Revision:      -1,
-		},
-	}
-
-	nextPr := porchapi.PackageRevision{
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:   "next-package",
-			WorkspaceName: "main",
-			Revision:      -1,
-		},
-	}
-
-	resultPr, resultRev := compare(&nextPr, &lastPr, -1)
-	assert.Equal(t, nextPr.Spec.PackageName, resultPr.Spec.PackageName)
-	assert.Equal(t, -1, resultRev)
-
-	nextPr.Spec.Revision = -1
-	nextPr.Spec.WorkspaceName = "a0.0.0"
-	resultPr, resultRev = compare(&nextPr, &lastPr, -1)
-	assert.Equal(t, lastPr.Spec.PackageName, resultPr.Spec.PackageName)
-	assert.Equal(t, -1, resultRev)
-
-	nextPr.Spec.Revision = 1
-	nextPr.Spec.WorkspaceName = "a0.0.0"
-	resultPr, resultRev = compare(&nextPr, &lastPr, -1)
-	assert.Equal(t, nextPr.Spec.PackageName, resultPr.Spec.PackageName)
-	assert.Equal(t, 1, resultRev)
 }
