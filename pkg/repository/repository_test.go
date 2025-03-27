@@ -52,6 +52,10 @@ func TestRepositoryKey(t *testing.T) {
 	otherRepoKey.Path = "my/dir/path"
 	otherRepoKey.PlaceholderWSname = "my-ws-name"
 	assert.True(t, otherRepoKey.Matches(repoKey))
+
+	copiedRepoKey := RepositoryKey{}
+	repoKey.DeepCopy(&copiedRepoKey)
+	assert.Equal(t, copiedRepoKey, repoKey)
 }
 
 func TestPackageKey(t *testing.T) {
@@ -97,6 +101,10 @@ func TestPackageKey(t *testing.T) {
 
 	pkgKey.Path = ""
 	assert.Equal(t, pkgKey, FromFullPathname(pkgKey.GetRepositoryKey(), pkgKey.ToPkgPathname()))
+
+	copiedPkgKey := PackageKey{}
+	pkgKey.DeepCopy(&copiedPkgKey)
+	assert.Equal(t, copiedPkgKey, pkgKey)
 }
 
 func TestPackageRevisionKey(t *testing.T) {
@@ -136,4 +144,8 @@ func TestPackageRevisionKey(t *testing.T) {
 	}
 	pkgRevKey.PkgKey.RepoKey = testRepoKey
 	assert.Equal(t, testRepoKey, pkgRevKey.GetRepositoryKey())
+
+	copiedPkgRevKey := PackageRevisionKey{}
+	pkgRevKey.DeepCopy(&copiedPkgRevKey)
+	assert.Equal(t, copiedPkgRevKey, pkgRevKey)
 }

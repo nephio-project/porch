@@ -16,6 +16,7 @@ package cache
 
 import (
 	"context"
+	"fmt"
 
 	crcache "github.com/nephio-project/porch/pkg/cache/crcache"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
@@ -29,6 +30,15 @@ func CreateCacheImpl(ctx context.Context, options cachetypes.CacheOptions) (cach
 	ctx, span := tracer.Start(ctx, "Repository::RepositoryFactory", trace.WithAttributes())
 	defer span.End()
 
-	var cacheFactory = new(crcache.CrCacheFactory)
+	var cacheFactory cachetypes.CacheFactory
+
+	switch cacheType := options.CacheType; cacheType {
+	case cachetypes.CRCacheType:
+		cacheFactory = new(crcache.CrCacheFactory)
+
+	default:
+		return nil, fmt.Errorf("type %q not supported", cacheType)
+	}
+
 	return cacheFactory.NewCache(ctx, options)
 }

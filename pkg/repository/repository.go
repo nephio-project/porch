@@ -42,6 +42,12 @@ func (k PackageRevisionKey) String() string {
 	return fmt.Sprintf("%s:%d:%s", k.PkgKey.String(), k.Revision, string(k.WorkspaceName))
 }
 
+func (k PackageRevisionKey) DeepCopy(outKey *PackageRevisionKey) {
+	k.PkgKey.DeepCopy(&outKey.PkgKey)
+	outKey.Revision = k.Revision
+	outKey.WorkspaceName = k.WorkspaceName
+}
+
 func (k PackageRevisionKey) GetPackageKey() PackageKey {
 	return k.PkgKey
 }
@@ -69,6 +75,12 @@ type PackageKey struct {
 
 func (k PackageKey) String() string {
 	return fmt.Sprintf("%s:%s:%s", k.RepoKey.String(), k.Path, k.Package)
+}
+
+func (k PackageKey) DeepCopy(outKey *PackageKey) {
+	k.RepoKey.DeepCopy(&outKey.RepoKey)
+	outKey.Path = k.Path
+	outKey.Package = k.Package
 }
 
 func (k PackageKey) ToPkgPathname() string {
@@ -119,6 +131,13 @@ type RepositoryKey struct {
 
 func (k RepositoryKey) String() string {
 	return fmt.Sprintf("%s:%s:%s:%s", k.Namespace, k.Name, k.Path, string(k.PlaceholderWSname))
+}
+
+func (k RepositoryKey) DeepCopy(outKey *RepositoryKey) {
+	outKey.Name = k.Name
+	outKey.Namespace = k.Namespace
+	outKey.Path = k.Path
+	outKey.PlaceholderWSname = k.PlaceholderWSname
 }
 
 func (k RepositoryKey) Matches(other RepositoryKey) bool {
@@ -194,7 +213,7 @@ type PackageRevision interface {
 	GetMeta() metav1.ObjectMeta
 
 	// Set the Kubernetes metadata for the package revision
-	SetMeta(metav1.ObjectMeta)
+	SetMeta(context.Context, metav1.ObjectMeta) error
 }
 
 // Package is an abstract package.
@@ -215,7 +234,7 @@ type Package interface {
 
 type PackageRevisionDraft interface {
 	Key() PackageRevisionKey
-
+	GetMeta() metav1.ObjectMeta
 	UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, task *v1alpha1.Task) error
 	// Updates desired lifecycle of the package. The lifecycle is applied on Close.
 	UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error
@@ -276,7 +295,7 @@ type Repository interface {
 	ListPackageRevisions(ctx context.Context, filter ListPackageRevisionFilter) ([]PackageRevision, error)
 
 	// CreatePackageRevision creates a new package revision
-	CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (PackageRevisionDraft, error)
+	CreatePackageRevisionDraft(ctx context.Context, obj *v1alpha1.PackageRevision) (PackageRevisionDraft, error)
 
 	// ClosePackageRevisionDraft closes out a Package Revision Draft
 	ClosePackageRevisionDraft(ctx context.Context, prd PackageRevisionDraft, version int) (PackageRevision, error)
