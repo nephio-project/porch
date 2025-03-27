@@ -19,6 +19,7 @@ metadata: # kpt-merge: config-control/blueprints-project-bucket
   annotations:
     cnrm.cloud.google.com/force-destroy: "false"
     cnrm.cloud.google.com/project-id: updated-project-id # kpt-set: ${project-id}
+    internal.config.kubernetes.io/index: '0'
     internal.config.kubernetes.io/path: 'bucket.yaml'
     cnrm.cloud.google.com/blueprint: 'kpt-fn'
 spec:

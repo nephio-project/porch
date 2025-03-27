@@ -75,6 +75,7 @@ kind: Deployment
 metadata:
   name: nginx-deployment
   annotations:
+    internal.config.kubernetes.io/index: '0'
     internal.config.kubernetes.io/path: 'resources.yaml'
   namespace: staging
   labels:
@@ -87,6 +88,7 @@ kind: Custom
 metadata:
   name: custom
   annotations:
+    internal.config.kubernetes.io/index: '1'
     internal.config.kubernetes.io/path: 'resources.yaml'
   namespace: staging
   labels:
@@ -176,6 +178,7 @@ kind: Deployment
 metadata:
   name: nginx-deployment
   annotations:
+    internal.config.kubernetes.io/index: '0'
     internal.config.kubernetes.io/path: 'resources.yaml'
   namespace: staging
   labels:
@@ -188,6 +191,7 @@ kind: Custom
 metadata:
   name: custom
   annotations:
+    internal.config.kubernetes.io/index: '1'
     internal.config.kubernetes.io/path: 'resources.yaml'
   namespace: staging
   labels:
@@ -200,6 +204,7 @@ kind: StatefulSet
 metadata:
   name: db
   annotations:
+    internal.config.kubernetes.io/index: '0'
     internal.config.kubernetes.io/path: 'db/resources.yaml'
   namespace: staging
   labels:

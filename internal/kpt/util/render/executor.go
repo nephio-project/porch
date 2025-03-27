@@ -122,14 +122,13 @@ func (e *Renderer) Execute(ctx context.Context) (*fnresult.ResultList, error) {
 			KeepReaderAnnotations: true,
 			SetAnnotations: map[string]string{
 				//nolint:staticcheck
+				kioutil.LegacyPathAnnotation: "clear",
+				//nolint:staticcheck
 				kioutil.LegacyIndexAnnotation: "clear",
 				//nolint:staticcheck
-				kioutil.LegacyIdAnnotation: "clear",
-				//nolint:staticcheck
-				kioutil.LegacyPathAnnotation: "clear",
-				kioutil.IndexAnnotation:      "clear",
-				kioutil.IdAnnotation:         "clear",
-				kioutil.SeqIndentAnnotation:  "clear",
+				kioutil.LegacyIdAnnotation:  "clear",
+				kioutil.IdAnnotation:        "clear",
+				kioutil.SeqIndentAnnotation: "clear",
 			},
 		}
 		err = pkgWriter.Write(hctx.root.resources)
