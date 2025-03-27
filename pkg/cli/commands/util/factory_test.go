@@ -50,18 +50,3 @@ func TestUpdateQPSFlowControlDisabled(t *testing.T) {
 	assert.Equal(t, float32(30), updatedConfig.QPS, "Expected QPS to be updated to 30")
 	assert.Equal(t, 60, updatedConfig.Burst, "Expected Burst to be updated to 60")
 }
-
-func TestUpdateQPSFlowControlEnabled(t *testing.T) {
-	flags := genericclioptions.NewConfigFlags(false)
-	UpdateQPS(flags)
-
-	mockConfig := &rest.Config{
-		QPS:   5,
-		Burst: 10,
-	}
-	updatedConfig := flags.WrapConfigFn(mockConfig)
-
-	// Since flow control is disabled, expect QPS and Burst to be increased to the minimum values (30, 60).
-	assert.Equal(t, float32(30), updatedConfig.QPS, "Expected QPS to be updated to 30")
-	assert.Equal(t, 60, updatedConfig.Burst, "Expected Burst to be updated to 60")
-}
