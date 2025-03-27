@@ -101,7 +101,9 @@ func TestUpdateCommand(t *testing.T) {
 
 	// Create fake client and add the package revision to it
 	scheme := runtime.NewScheme()
-	porchapi.AddToScheme(scheme)
+	if err := porchapi.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add porch API to scheme: %v", err)
+	}
 	client := fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithObjects(&testPackageRevision).
