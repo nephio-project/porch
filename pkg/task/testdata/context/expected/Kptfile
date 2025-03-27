@@ -3,6 +3,7 @@ kind: Kptfile
 metadata:
   name: input
   annotations:
+    internal.config.kubernetes.io/index: '0'
     internal.config.kubernetes.io/path: 'Kptfile'
 info:
   description: Builtin Function Test Package

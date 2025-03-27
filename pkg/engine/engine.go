@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
@@ -529,8 +530,12 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 		return nil, nil, err
 	}
 
-	if err := pushPipelineReadinessGate(ctx, repo, pr2Update); err != nil {
-		return nil, nil, err
+	if !reflect.DeepEqual(newRes.Spec.Resources, oldRes.Spec.Resources) {
+		// some files are being changed - close the pipeline readiness gate for
+		// a pipeline render
+		if err := pushPipelineReadinessGate(ctx, repo, pr2Update); err != nil {
+			return nil, nil, err
+		}
 	}
 
 	draft, err := repo.UpdatePackageRevision(ctx, pr2Update)
@@ -572,7 +577,7 @@ func pushPipelineReadinessGate(ctx context.Context, repo repository.Repository, 
 		Spec: api.PackageRevisionResourcesSpec{
 			Resources: resources.Contents,
 		},
-	}, nil); err != nil {
+	}, &v1alpha1.Task{Type: "readiness gate"}); err != nil {
 		return err
 	}
 	if _, err = repo.ClosePackageRevisionDraft(ctx, draft, 0); err != nil {

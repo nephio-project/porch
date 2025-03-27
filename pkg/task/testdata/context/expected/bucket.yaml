@@ -5,6 +5,7 @@ metadata:
   namespace: bucket-namespace
   annotations:
     cnrm.cloud.google.com/project-id: bucket-project
+    internal.config.kubernetes.io/index: '0'
     internal.config.kubernetes.io/path: 'bucket.yaml'
 spec:
   storageClass: standard
