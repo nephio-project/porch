@@ -33,7 +33,8 @@ func (m *DefaultPackageUpdater) Update(
 	ctx context.Context,
 	localResources,
 	originalResources,
-	upstreamResources PackageResources) (updatedResources PackageResources, err error) {
+	upstreamResources PackageResources,
+	strategy string) (updatedResources PackageResources, err error) {
 
 	localDir, err := os.MkdirTemp("", LocalUpdateDir)
 	if err != nil {
@@ -65,15 +66,28 @@ func (m *DefaultPackageUpdater) Update(
 		return PackageResources{}, err
 	}
 
-	if err := m.do(ctx, localDir, originalDir, upstreamDir); err != nil {
+	if err := m.do(ctx, localDir, originalDir, upstreamDir, strategy); err != nil {
 		return PackageResources{}, err
 	}
 
 	return loadResourcesFromDirectory(localDir)
 }
 
+func getUpdater(strategy string) update.Updater {
+	switch strategy {
+	case "fast-forward":
+		return update.FastForwardUpdater{}
+	case "force-delete-replace":
+		return update.ReplaceUpdater{}
+	case "copy-merge":
+		return update.CopyMergeUpdater{}
+	default:
+		return update.ResourceMergeUpdater{}
+	}
+}
+
 // PkgUpdate is a wrapper around `kpt pkg update`, running it against the package in packageDir
-func (m *DefaultPackageUpdater) do(_ context.Context, localPkgDir, originalPkgDir, upstreamPkgDir string) error {
+func (m *DefaultPackageUpdater) do(_ context.Context, localPkgDir, originalPkgDir, upstreamPkgDir, strategy string) error {
 	relPath := "."
 	localPath := filepath.Join(localPkgDir, relPath)
 	updatedPath := filepath.Join(upstreamPkgDir, relPath)
@@ -87,7 +101,7 @@ func (m *DefaultPackageUpdater) do(_ context.Context, localPkgDir, originalPkgDi
 		OriginPath:     originPath,
 		IsRoot:         isRoot,
 	}
-	updater := update.ResourceMergeUpdater{}
+	updater := getUpdater(strategy)
 	if err := updater.Update(updateOptions); err != nil {
 		return err
 	}

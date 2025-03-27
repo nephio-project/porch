@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -108,6 +109,80 @@ func TestCmd(t *testing.T) {
 
 			if diff := cmp.Diff(string(tc.output), string(out)); diff != "" {
 				t.Errorf("Unexpected result (-want, +got): %s", diff)
+			}
+		})
+	}
+}
+
+func TestToMergeStrategy(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected porchapi.PackageMergeStrategy
+		hasError bool
+	}{
+		{input: string(porchapi.ResourceMerge), expected: porchapi.ResourceMerge, hasError: false},
+		{input: string(porchapi.FastForward), expected: porchapi.FastForward, hasError: false},
+		{input: string(porchapi.ForceDeleteReplace), expected: porchapi.ForceDeleteReplace, hasError: false},
+		{input: string(porchapi.CopyMerge), expected: porchapi.CopyMerge, hasError: false},
+		{input: "invalid-strategy", expected: "", hasError: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.input, func(t *testing.T) {
+			result, err := toMergeStrategy(test.input)
+			if test.hasError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, test.expected, result)
+			}
+		})
+	}
+}
+
+func TestPreRunE(t *testing.T) {
+	tests := []struct {
+		name      string
+		args      []string
+		flags     map[string]string
+		expectErr bool
+	}{
+		{
+			name:      "Missing arguments",
+			args:      []string{"source-package"},
+			flags:     map[string]string{"repository": "test-repo", "workspace": "test-workspace", "strategy": "copy-merge"},
+			expectErr: true,
+		},
+		{
+			name:      "Missing repository flag",
+			args:      []string{"source-package", "target-package"},
+			flags:     map[string]string{"repository": "", "workspace": ""},
+			expectErr: true,
+		},
+		{
+			name:      "Invalid strategy",
+			args:      []string{"source-package", "target-package"},
+			flags:     map[string]string{"repository": "test-repo", "workspace": "test-workspace", "strategy": "invalid-strategy"},
+			expectErr: true,
+		},
+	}
+
+	for _, test := range tests {
+		cmd := NewCommand(context.Background(), &genericclioptions.ConfigFlags{})
+		t.Run(test.name, func(t *testing.T) {
+			r := &runner{
+				ctx:        context.Background(),
+				cfg:        &genericclioptions.ConfigFlags{},
+				strategy:   test.flags["strategy"],
+				repository: test.flags["repository"],
+				workspace:  test.flags["workspace"],
+			}
+
+			err := r.preRunE(cmd, test.args)
+			if test.expectErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}
