@@ -441,7 +441,7 @@ func (r *PackageVariantReconciler) getDownstreamPRs(ctx context.Context,
 
 	var latestPublished *porchapi.PackageRevision
 	var drafts []*porchapi.PackageRevision
-	// the first package revision number that porch assigns is "v1",
+	// the first package revision number that porch assigns is "1",
 	// so use v0 as a placeholder for comparison
 	latestVersion := -1
 
@@ -499,7 +499,21 @@ func compare(pr, latestPublished *porchapi.PackageRevision, latestVersion int) (
 		// current > latest; update latest
 		latestVersion = pr.Spec.Revision
 		latestPublished = pr.DeepCopy()
+		return latestPublished, latestVersion
 	}
+
+	// Are we on a branch placeholder reference to a Package Revision (PR revision is -1)
+	// and haven't found an actual non-placeholder PR yet (latestRevision = -1)
+	if latestVersion == -1 && pr.Spec.Revision == -1 {
+		// Look out for the main revision
+		// TODO: Introduce a workspace specification in the upstream so we can decide what branch/workspace to take the placeholder reference off and not hardcode "main"
+		if pr.Spec.WorkspaceName == "main" {
+			latestVersion = pr.Spec.Revision
+			latestPublished = pr.DeepCopy()
+			return latestPublished, latestVersion
+		}
+	}
+
 	return latestPublished, latestVersion
 }
 
