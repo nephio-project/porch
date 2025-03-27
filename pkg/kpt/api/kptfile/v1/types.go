@@ -107,6 +107,8 @@ func ToUpdateStrategy(strategy string) (UpdateStrategyType, error) {
 		return FastForward, nil
 	case string(ForceDeleteReplace):
 		return ForceDeleteReplace, nil
+	case string(CopyMerge):
+		return CopyMerge, nil
 	default:
 		return "", fmt.Errorf("unknown update strategy %q", strategy)
 	}
@@ -121,6 +123,8 @@ const (
 	FastForward UpdateStrategyType = "fast-forward"
 	// ForceDeleteReplace wipes all local changes to the package.
 	ForceDeleteReplace UpdateStrategyType = "force-delete-replace"
+	// CopyMerge copies the updated package into the local package.
+	CopyMerge UpdateStrategyType = "copy-merge"
 )
 
 // UpdateStrategies is a slice with all the supported update strategies.
@@ -128,6 +132,7 @@ var UpdateStrategies = []UpdateStrategyType{
 	ResourceMerge,
 	FastForward,
 	ForceDeleteReplace,
+	CopyMerge,
 }
 
 // UpdateStrategiesAsStrings returns a list of update strategies as strings.
