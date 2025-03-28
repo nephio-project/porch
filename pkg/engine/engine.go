@@ -530,13 +530,13 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 		return nil, nil, err
 	}
 
-	if !reflect.DeepEqual(newRes.Spec.Resources, oldRes.Spec.Resources) {
-		// some files are being changed - close the pipeline readiness gate for
-		// a pipeline render
-		if err := pushPipelineReadinessGate(ctx, repo, pr2Update); err != nil {
-			return nil, nil, err
-		}
+	// if !reflect.DeepEqual(newRes.Spec.Resources, oldRes.Spec.Resources) {
+	// some files are being changed - close the pipeline readiness gate for
+	// a pipeline render
+	if err := pushPipelineReadinessGate(ctx, repo, pr2Update); err != nil {
+		return nil, nil, err
 	}
+	// }
 
 	draft, err := repo.UpdatePackageRevision(ctx, pr2Update)
 	if err != nil {
@@ -547,6 +547,7 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 	if err != nil {
 		return nil, renderStatus, err
 	}
+
 	// No lifecycle change when updating package resources; updates are done.
 	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, 0)
 	if err != nil {
