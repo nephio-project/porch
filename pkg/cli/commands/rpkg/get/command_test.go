@@ -15,9 +15,16 @@
 package get
 
 import (
+	"context"
 	"testing"
 
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/pkg/cli/commands/repo/get"
+
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 )
 
 func TestGetters(t *testing.T) {
@@ -30,4 +37,63 @@ func TestGetters(t *testing.T) {
 	val, retVal2 := getInt64Cell(cells, 0)
 	assert.True(t, retVal2)
 	assert.Equal(t, int64(1234), val)
+}
+
+func TestRunnerPreRunE(t *testing.T) {
+	ns := "ns"
+	ctx := context.Background()
+	gcf := genericclioptions.ConfigFlags{Namespace: &ns}
+	r := newRunner(ctx, &gcf)
+	cmd := get.NewCommand(ctx, &gcf)
+	err := r.preRunE(cmd, []string{})
+	assert.Nil(t, err)
+	err = r.runE(cmd, []string{})
+	assert.Error(t, err)
+
+	if r.requestTable != true {
+		t.Errorf("Expected requestTable to be true, got %v", r.requestTable)
+	}
+
+}
+
+func TestGetCmd(t *testing.T) {
+	ctx := context.Background()
+	pkgRevName := "repo-testrevision"
+	ns := "ns"
+
+	scheme := runtime.NewScheme()
+	if err := porchapi.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add porch API to scheme: %v", err)
+	}
+
+	testCases := map[string]struct {
+		output  string
+		args    []string
+		wantErr bool
+	}{
+		"Get package": {
+			output: pkgRevName + "\n",
+			args:   []string{pkgRevName},
+		},
+		"Args not provided": {
+			wantErr: true,
+		},
+	}
+
+	for tn := range testCases {
+		tc := testCases[tn]
+		t.Run(tn, func(t *testing.T) {
+
+			r := newRunner(ctx, &genericclioptions.ConfigFlags{Namespace: &ns})
+			cmd := &cobra.Command{}
+
+			go func() {
+				err := r.runE(cmd, tc.args)
+				if err != nil && !tc.wantErr {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}()
+
+		})
+	}
 }
