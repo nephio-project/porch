@@ -11,39 +11,41 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 kind: ServiceAccount
 apiVersion: v1
 metadata:
   name: porch-controllers
   namespace: porch-system
-
 ---
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: porch-controllers
   namespace: porch-system
   labels:
-    k8s-app: "porch-controllers"
+    k8s-app: porch-controllers
 spec:
   replicas: 1
   selector:
     matchLabels:
-      k8s-app: "porch-controllers"
+      k8s-app: porch-controllers
   template:
     metadata:
       labels:
-        k8s-app: "porch-controllers"
+        k8s-app: porch-controllers
     spec:
       serviceAccountName: porch-controllers
       containers:
       - name: porch-controllers
         # Update to the image of your porch-controllers build.
         image: docker.io/nephio/porch-controllers:latest
+        imagePullPolicy: IfNotPresent
+        # Note: only the existence of the variable matters for enabling the reconciler
+        # So, be sure to remove the var not just change the value to false
         env:
-        - name: EXAMPLE_ENV
+        - name: ENABLE_PACKAGEVARIANTS
+          value: "true"
+        - name: ENABLE_PACKAGEVARIANTSETS
           value: "true"
         livenessProbe:
           failureThreshold: 3
