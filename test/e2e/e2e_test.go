@@ -27,8 +27,9 @@ import (
 	"github.com/google/go-cmp/cmp"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	kptfileapi "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
+	fnsdk "github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
@@ -213,9 +214,9 @@ func (t *PorchSuite) TestCloneFromUpstream() {
 	got := kptfile.UpstreamLock
 	got.Git.Commit = ""
 
-	want := &kptfilev1.UpstreamLock{
-		Type: kptfilev1.GitOrigin,
-		Git: &kptfilev1.GitLock{
+	want := &kptfileapi.UpstreamLock{
+		Type: kptfileapi.GitOrigin,
+		Git: &kptfileapi.GitLock{
 			Repo:      testBlueprintsRepo,
 			Directory: "basens",
 			Ref:       "basens/v1",
@@ -226,9 +227,9 @@ func (t *PorchSuite) TestCloneFromUpstream() {
 	}
 
 	// Check Upstream
-	if got, want := kptfile.Upstream, (&kptfilev1.Upstream{
-		Type: kptfilev1.GitOrigin,
-		Git: &kptfilev1.Git{
+	if got, want := kptfile.Upstream, (&kptfileapi.Upstream{
+		Type: kptfileapi.GitOrigin,
+		Git: &kptfileapi.Git{
 			Repo:      testBlueprintsRepo,
 			Directory: "basens",
 			Ref:       "basens/v1",
@@ -334,7 +335,7 @@ func (t *PorchSuite) TestInitEmptyPackage() {
 	if got, want := kptfile.Name, "empty-package"; got != want {
 		t.Fatalf("New package name: got %q, want %q", got, want)
 	}
-	if got, want := kptfile.Info, (&kptfilev1.PackageInfo{
+	if got, want := kptfile.Info, (&kptfileapi.PackageInfo{
 		Description: description,
 	}); !cmp.Equal(want, got) {
 		t.Fatalf("unexpected %s/%s package info (-want, +got) %s", newPackage.Namespace, newPackage.Name, cmp.Diff(want, got))
@@ -426,7 +427,7 @@ func (t *PorchSuite) TestInitTaskPackage() {
 	if got, want := kptfile.Name, "new-package"; got != want {
 		t.Fatalf("New package name: got %q, want %q", got, want)
 	}
-	if got, want := kptfile.Info, (&kptfilev1.PackageInfo{
+	if got, want := kptfile.Info, (&kptfileapi.PackageInfo{
 		Site:        site,
 		Description: description,
 		Keywords:    keywords,
@@ -514,9 +515,9 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 	got := kptfile.UpstreamLock
 	got.Git.Commit = ""
 
-	want := &kptfilev1.UpstreamLock{
-		Type: kptfilev1.GitOrigin,
-		Git: &kptfilev1.GitLock{
+	want := &kptfileapi.UpstreamLock{
+		Type: kptfileapi.GitOrigin,
+		Git: &kptfileapi.GitLock{
 			Repo:      testBlueprintsRepo,
 			Directory: "basens",
 			Ref:       "basens/v1",
@@ -527,9 +528,9 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 	}
 
 	// Check Upstream
-	if got, want := kptfile.Upstream, (&kptfilev1.Upstream{
-		Type: kptfilev1.GitOrigin,
-		Git: &kptfilev1.Git{
+	if got, want := kptfile.Upstream, (&kptfileapi.Upstream{
+		Type: kptfileapi.GitOrigin,
+		Git: &kptfileapi.Git{
 			Repo:      testBlueprintsRepo,
 			Directory: "basens",
 			Ref:       "basens/v1",
@@ -758,9 +759,9 @@ func (t *PorchSuite) TestUpdateResources() {
 	// Add function into a pipeline
 	kptfile := t.ParseKptfileF(&newPackage)
 	if kptfile.Pipeline == nil {
-		kptfile.Pipeline = &kptfilev1.Pipeline{}
+		kptfile.Pipeline = &kptfileapi.Pipeline{}
 	}
-	kptfile.Pipeline.Mutators = append(kptfile.Pipeline.Mutators, kptfilev1.Function{
+	kptfile.Pipeline.Mutators = append(kptfile.Pipeline.Mutators, kptfileapi.Function{
 		Image: "gcr.io/kpt-fn/set-annotations:v0.1.4",
 		ConfigMap: map[string]string{
 			"color": "red",
@@ -2226,7 +2227,9 @@ func (t *PorchSuite) TestPodEvaluatorWithFailure() {
 
 func (t *PorchSuite) TestLargePackageRevision() {
 	const (
-		setAnnotationsImage = "gcr.io/kpt-fn/set-annotations:v0.1.3" // set-annotations:v0.1.3 is an older version that porch maps neither to built-in nor exec.
+		// set-annotations:v0.1.3 is an older version of the fn that porch maps to "pod" function evaluator,
+		// and not to "built-in", or to "executable" function evaluator.
+		setAnnotationsImage = "gcr.io/kpt-fn/set-annotations:v0.1.3"
 		testDataSize        = 5 * 1024 * 1024
 	)
 
@@ -3019,7 +3022,7 @@ func (t *PorchSuite) TestLatestVersionOnDelete() {
 	t.UpdateF(pr2)
 
 	t.DeleteF(pr2)
-	//After deletion of the v2 pacakgeRevision,
+	//After deletion of the v2 packageRevision,
 	//the label should migrate back to the v2 packageRevision
 	t.MustHaveLabels(pr1.Name, map[string]string{
 		porchapi.LatestPackageRevisionKey: porchapi.LatestPackageRevisionValue,
@@ -3121,5 +3124,96 @@ func (t *PorchSuite) TestRepositoryModify() {
 		}
 		break
 	}
+
+}
+
+func (t *PorchSuite) TestCreatingPackageRevisionWithPipelineFailure() {
+	const (
+		repositoryName = "package-with-pipeline-failure"
+	)
+
+	t.RegisterMainGitRepositoryF(repositoryName)
+
+	// Create Package Revision
+	pr := &porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: t.Namespace,
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			PackageName:    "pipeline-failure",
+			WorkspaceName:  "workspace",
+			RepositoryName: repositoryName,
+		},
+	}
+
+	t.CreateF(pr)
+
+	var prr porchapi.PackageRevisionResources
+	t.GetF(client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      pr.Name,
+	}, &prr)
+
+	kptfile, err := fnsdk.NewKptfileFromPackage(prr.Spec.Resources)
+	if err != nil {
+		t.Fatalf("Kptfile not found in package resources")
+	}
+
+	fn := &kptfileapi.Function{
+		Image: "gcr.io/kpt-fn/set-annotations:v0.1.4",
+		Name:  "missing arguments",
+	}
+	err = kptfile.AddMutationFunction(fn)
+	if err != nil {
+		t.Fatalf("Failed to add function to Kptfile: %v", err)
+	}
+
+	err = kptfile.WriteToPackage(prr.Spec.Resources)
+	if err != nil {
+		t.Fatalf("Failed to write Kptfile to package resources: %v", err)
+	}
+
+	t.Logf("Trying to add erroneous pipeline to package")
+	t.UpdateF(&prr)
+
+	t.GetF(client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      pr.Name,
+	}, pr)
+
+	want := porchapi.Condition{
+		Type:    kptfileapi.RenderConditionType,
+		Status:  porchapi.ConditionFalse,
+		Reason:  "RenderFailed",
+		Message: "fn.render: pkg /:\n\tpkg.render:\n\tpipeline.run: func eval \"gcr.io/kpt-fn/set-annotations:v0.1.4\" failed: rpc error: code = Internal desc = Failed to execute function \"gcr.io/kpt-fn/set-annotations:v0.1.4\": exit status 1 ([error] : failed to configure function: `functionConfig` must be a `ConfigMap` or `SetAnnotations`){\"result\":{\"kind\":\"FunctionResultList\",\"apiVersion\":\"kpt.dev/v1\",\"metadata\":{\"name\":\"fnresults\",\"creationTimestamp\":null},\"exitCode\":1,\"items\":[{\"image\":\"gcr.io/kpt-fn/set-annotations:v0.1.4\",\"exitCode\":1}]},\"error\":\"fn.render: pkg /:\\n\\tpkg.render:\\n\\tpipeline.run: func eval \\\"gcr.io/kpt-fn/set-annotations:v0.1.4\\\" failed: rpc error: code = Internal desc = Failed to execute function \\\"gcr.io/kpt-fn/set-annotations:v0.1.4\\\": exit status 1 ([error] : failed to configure function: `functionConfig` must be a `ConfigMap` or `SetAnnotations`)\"}",
+	}
+	var got porchapi.Condition
+	for _, c := range pr.Status.Conditions {
+		if c.Type == want.Type {
+			got = c
+			break
+		}
+	}
+	if got.Type == "" {
+		t.Fatalf("Render condition not found")
+	}
+	if got.Status != want.Status {
+		t.Fatalf("Expected render condition to be %v, but got %v", want.Status, got.Status)
+	}
+	if got.Message != want.Message {
+		t.Fatalf("Expected render condition message to be %q, but got %q", want.Message, got.Message)
+	}
+
+	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	gotErr := t.Client.Update(t.GetContext(), pr)
+	if gotErr == nil {
+		t.Fatalf("Expected error when proposing package with pipeline failure")
+	}
+	wantErr := "package is not ready to be proposed or approved, because its pipeline failed"
+	if !strings.Contains(gotErr.Error(), wantErr) {
+		t.Fatalf("Expected error %q, but got %q", wantErr, gotErr.Error())
+	}
+
+	t.Logf("Render condition is %v", got.Status)
 
 }

@@ -402,4 +402,6 @@ const (
 	ConditionTrue    ConditionStatus = "True"
 	ConditionFalse   ConditionStatus = "False"
 	ConditionUnknown ConditionStatus = "Unknown"
+
+	RenderConditionType = "Rendered"
 )
