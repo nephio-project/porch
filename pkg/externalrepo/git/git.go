@@ -859,7 +859,9 @@ func (r *gitRepository) loadTaggedPackage(ctx context.Context, tag *plumbing.Ref
 	}
 
 	workspaceName := getPkgWorkspace(commit, krmPackage, tag)
-
+	if workspaceName == "" {
+		klog.Warningf("Failed to get package workspace name for package %q (will use branch name)", name)
+	}
 	packageRevision, err := krmPackage.buildGitPackageRevision(ctx, revisionStr, workspaceName, tag)
 	if err != nil {
 		if packageRevision == nil {
