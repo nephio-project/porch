@@ -1,4 +1,4 @@
-// Copyright 2023-2024 The kpt and Nephio Authors
+// Copyright 2023-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,14 +18,15 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"sigs.k8s.io/kustomize/kyaml/kio"
-	"sort"
 	"strings"
+
+	"sigs.k8s.io/kustomize/kyaml/kio"
 
 	"github.com/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	api "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/pkg/util"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -124,7 +125,7 @@ func ensureConfigInjection(ctx context.Context,
 		return err
 	}
 
-	prr.Spec.Resources["Kptfile"] = kptfile.String()
+	prr.Spec.Resources[kptfilev1.KptFileName] = util.KubeObjectToYaml(kptfile)
 
 	return nil
 }
@@ -339,7 +340,6 @@ func setInjectionPointConditionsAndGates(kptfileKubeObject *fn.KubeObject, injec
 	for k := range gateMap {
 		gates = append(gates, kptfilev1.ReadinessGate{ConditionType: k})
 	}
-	sort.SliceStable(gates, func(i, j int) bool { return gates[i].ConditionType < gates[j].ConditionType })
 
 	if gates != nil {
 		info.ReadinessGates = gates
@@ -349,9 +349,9 @@ func setInjectionPointConditionsAndGates(kptfileKubeObject *fn.KubeObject, injec
 		}
 	}
 
-	// update the status conditions
+	// update the status conditions if any semantic change
+	// resulted from condition calculations
 	if conditions != nil {
-		sort.SliceStable(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
 		status.Conditions = convertConditionsFromMetaToKptfile(conditions)
 		err = kptfileKubeObject.SetNestedField(status, "status")
 		if err != nil {

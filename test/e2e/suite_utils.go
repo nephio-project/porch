@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	variantapi "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	corev1 "k8s.io/api/core/v1"
@@ -251,6 +252,7 @@ func (t *TestSuite) registerGitRepositoryFromConfigF(name string, config GitConf
 
 	t.Cleanup(func() {
 		t.DeleteE(repository)
+		t.DeleteVariantsForRepo(name)
 		t.WaitUntilRepositoryDeleted(name, t.Namespace)
 		t.WaitUntilAllPackagesDeleted(name, t.Namespace)
 	})
@@ -383,6 +385,38 @@ func (t *TestSuite) WaitUntilRepositoryReady(name, namespace string) {
 	}
 }
 
+func (t *TestSuite) DeleteVariantsForRepo(repoName string) {
+	t.T().Helper()
+	namespace := t.Namespace
+	var variantList variantapi.PackageVariantList
+	if err := t.Client.List(t.GetContext(), &variantList, client.InNamespace(namespace)); err != nil {
+		t.Errorf("error listing package variants: %v", err)
+	}
+	for _, variant := range variantList.Items {
+		if variant.Spec.Upstream.Repo == repoName {
+			t.DeleteE(&variant)
+		}
+	}
+
+	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 60*time.Second, true, func(ctx context.Context) (done bool, err error) {
+		t.T().Helper()
+		if err := t.Client.List(ctx, &variantList, client.InNamespace(namespace)); err != nil {
+			t.Logf("error listing packages: %v", err)
+			return false, nil
+		}
+		for _, variant := range variantList.Items {
+			if variant.Spec.Upstream.Repo == repoName {
+				t.Logf("Found package variant %s using repo %s as upstream", variant.Name, repoName)
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+	if err != nil {
+		t.Fatalf("Package variant(s) still remain using repo %s as upstream", repoName)
+	}
+}
+
 func (t *TestSuite) WaitUntilRepositoryDeleted(name, namespace string) {
 	t.T().Helper()
 	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 20*time.Second, true, func(ctx context.Context) (done bool, err error) {
@@ -466,7 +500,7 @@ func (t *TestSuite) WaitUntilPackageRevisionFulfillingConditionExists(
 	var foundPkgRev *porchapi.PackageRevision
 	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, timeout, true, func(ctx context.Context) (done bool, err error) {
 		var pkgRevList porchapi.PackageRevisionList
-		if err := t.Client.List(ctx, &pkgRevList); err != nil {
+		if err := t.Client.List(ctx, &pkgRevList, client.InNamespace(t.Namespace)); err != nil {
 			t.Logf("error listing packages: %v", err)
 			return false, nil
 		}

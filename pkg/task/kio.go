@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -81,11 +81,13 @@ func (w *packageWriter) Write(nodes []*yaml.RNode) error {
 	buf := &bytes.Buffer{}
 	for path, nodes := range paths {
 		bw := kio.ByteWriter{
-			Writer: buf,
+			Writer:                buf,
+			KeepReaderAnnotations: true,
 			ClearAnnotations: []string{
-				kioutil.PathAnnotation,
 				//nolint:staticcheck
 				kioutil.LegacyPathAnnotation,
+				//nolint:staticcheck
+				kioutil.LegacyIndexAnnotation,
 			},
 		}
 		if err := bw.Write(nodes); err != nil {

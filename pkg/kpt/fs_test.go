@@ -74,6 +74,9 @@ pipeline:
 kind: Deployment
 metadata:
   name: nginx-deployment
+  annotations:
+    internal.config.kubernetes.io/index: '0'
+    internal.config.kubernetes.io/path: 'resources.yaml'
   namespace: staging
   labels:
     tier: backend
@@ -84,6 +87,9 @@ apiVersion: custom.io/v1
 kind: Custom
 metadata:
   name: custom
+  annotations:
+    internal.config.kubernetes.io/index: '1'
+    internal.config.kubernetes.io/path: 'resources.yaml'
   namespace: staging
   labels:
     tier: backend
@@ -171,6 +177,9 @@ pipeline:
 kind: Deployment
 metadata:
   name: nginx-deployment
+  annotations:
+    internal.config.kubernetes.io/index: '0'
+    internal.config.kubernetes.io/path: 'resources.yaml'
   namespace: staging
   labels:
     tier: db
@@ -181,6 +190,9 @@ apiVersion: custom.io/v1
 kind: Custom
 metadata:
   name: custom
+  annotations:
+    internal.config.kubernetes.io/index: '1'
+    internal.config.kubernetes.io/path: 'resources.yaml'
   namespace: staging
   labels:
     tier: db
@@ -191,6 +203,9 @@ spec:
 kind: StatefulSet
 metadata:
   name: db
+  annotations:
+    internal.config.kubernetes.io/index: '0'
+    internal.config.kubernetes.io/path: 'db/resources.yaml'
   namespace: staging
   labels:
     app: backend
