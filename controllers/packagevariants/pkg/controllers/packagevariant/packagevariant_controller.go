@@ -252,10 +252,16 @@ func combineErrors(errs []string) string {
 func (r *PackageVariantReconciler) getUpstreamPR(upstream *api.Upstream,
 	prList *porchapi.PackageRevisionList) (*porchapi.PackageRevision, error) {
 	for _, pr := range prList.Items {
-		if pr.Spec.RepositoryName == upstream.Repo &&
-			pr.Spec.PackageName == upstream.Package &&
-			pr.Spec.Revision == upstream.Revision {
-			return &pr, nil
+		if pr.Spec.RepositoryName == upstream.Repo && pr.Spec.PackageName == upstream.Package && pr.Spec.Revision == upstream.Revision {
+			if upstream.Revision != -1 {
+				return &pr, nil
+			}
+
+			// we're looking for the main placeholder PackageRevision
+			// TODO: Handle placeholders on branches other than main
+			if pr.Spec.WorkspaceName == "main" {
+				return &pr, nil
+			}
 		}
 	}
 	return nil, fmt.Errorf("could not find upstream package revision '%s/%d' in repo '%s'",

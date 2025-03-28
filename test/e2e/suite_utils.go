@@ -557,23 +557,3 @@ func (t *TestSuite) GetPackageRevision(repo string, pkgName string, revision int
 	}
 	return &prList.Items[0]
 }
-
-func (t *TestSuite) GetContentsOfPackageRevision(repository string, pkgName string, revision string) map[string]string {
-
-	t.T().Helper()
-	var prrList porchapi.PackageRevisionResourcesList
-	selector := client.MatchingFields(fields.Set{
-		"spec.repository":  repository,
-		"spec.packageName": pkgName,
-		"spec.revision":    revision,
-	})
-	t.ListF(&prrList, selector, client.InNamespace(t.Namespace))
-
-	if len(prrList.Items) == 0 {
-		t.Fatalf("PackageRevisionResources object wasn't found for package revision %v/%v/%v", repository, pkgName, revision)
-	}
-	if len(prrList.Items) > 1 {
-		t.Fatalf("Multiple PackageRevisionResources objects were found for package revision %v/%v/%v", repository, pkgName, revision)
-	}
-	return prrList.Items[0].Spec.Resources
-}

@@ -57,7 +57,7 @@ type PackageVariantSetSpec struct {
 type Upstream struct {
 	Package *Package `json:"package,omitempty"`
 
-	Revision string `json:"revision,omitempty"`
+	Revision int `json:"revision,omitempty"`
 
 	Tag string `json:"ref,omitempty"`
 }

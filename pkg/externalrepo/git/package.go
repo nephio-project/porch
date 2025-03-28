@@ -183,6 +183,7 @@ func (p *gitPackageRevision) ToMainPackageRevision() repository.PackageRevision 
 		tasks:     p.tasks,
 	}
 	mainPr.prKey.Revision = -1
+	mainPr.prKey.WorkspaceName = mainPr.Key().GetPackageKey().GetRepositoryKey().PlaceholderWSname
 	return mainPr
 
 }
