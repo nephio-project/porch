@@ -91,9 +91,5 @@ func Revision2Str(revision int) string {
 }
 
 func ComposePkgRevObjName(key PackageRevisionKey) string {
-	if key.Revision != -1 { // Then it's a regular PackageRevision
-		return util.ComposePkgRevObjName(key.PkgKey.RepoKey.Name, key.PkgKey.Path, key.PkgKey.Package, string(key.WorkspaceName))
-	} else { // Then it's the placeholder PackageRevision
-		return util.ComposePkgRevObjName(key.PkgKey.RepoKey.Name, key.PkgKey.Path, key.PkgKey.Package, string(key.PkgKey.RepoKey.PlaceholderWSname))
-	}
+	return util.ComposePkgRevObjName(key.PkgKey.RepoKey.Name, key.PkgKey.Path, key.PkgKey.Package, key.WorkspaceName)
 }
