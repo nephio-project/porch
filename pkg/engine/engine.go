@@ -454,6 +454,7 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 	if err != nil {
 		return nil, renderStatus, err
 	}
+
 	// No lifecycle change when updating package resources; updates are done.
 	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, 0)
 	if err != nil {

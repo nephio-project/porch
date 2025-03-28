@@ -44,7 +44,7 @@ var (
 		Reason:  "WaitingOnPipeline",
 		Message: "waiting for package pipeline to pass",
 	}
-	conditionPipelinePassed = api.Condition{
+	ConditionPipelinePassed = api.Condition{
 		Type:    ConditionTypePipelinePassed,
 		Status:  api.ConditionTrue,
 		Reason:  "PipelinePassed",
@@ -260,7 +260,7 @@ func (th *genericTaskHandler) DoPRResourceMutations(ctx context.Context, pr2Upda
 	}
 
 	var renderStatus *api.RenderStatus
-	if len(appliedResources.Contents) > 0 {
+	if len(appliedResources.Contents) > 0 || !ReplaceResourcesOnlySetReadinessConditions(resources, appliedResources) {
 		// Render the package
 		// Render failure will fail the overall API operation.
 		// The render error and result are captured as part of renderStatus above
@@ -480,6 +480,23 @@ func UpdateOnlySetsReadinessConditions(old *api.PackageRevision, new *api.Packag
 	return noChangesExceptReadinessInfo
 }
 
+func ReplaceResourcesOnlySetReadinessConditions(previous, updated repository.PackageResources) bool {
+	noChangesExceptReadinessInfo := func() bool {
+		newKptfile := updated.GetKptfile()
+		previous.EditKptfile(func(oldKptfile kptfile.KptFile) {
+			oldKptfile.Info.ReadinessGates = newKptfile.Info.ReadinessGates
+			oldKptfile.Status.Conditions = newKptfile.Status.Conditions
+		})
+
+		oldJson, _ := json.Marshal(previous)
+		newJson, _ := json.Marshal(updated)
+		equalExceptReadinessInfo := reflect.DeepEqual(oldJson, newJson)
+		return equalExceptReadinessInfo
+	}()
+
+	return noChangesExceptReadinessInfo
+}
+
 // applyResourceMutations mutates the resources and returns the most recent renderResult.
 func applyResourceMutations(ctx context.Context, draft repository.PackageRevisionDraft, baseResources repository.PackageResources, mutations []mutation) (applied repository.PackageResources, renderStatus *api.RenderStatus, err error) {
 	ctx, span := tracer.Start(ctx, "generictaskhandler.go::applyResourceMutations", trace.WithAttributes())
@@ -491,6 +508,7 @@ func applyResourceMutations(ctx context.Context, draft repository.PackageRevisio
 		updatedResources, taskResult, err := m.apply(ctx, baseResources)
 		if taskResult == nil && err == nil {
 			// a nil taskResult means nothing changed
+			applied = updatedResources
 			continue
 		}
 

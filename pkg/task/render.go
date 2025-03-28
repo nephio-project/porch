@@ -91,7 +91,7 @@ func (m *renderPackageMutation) apply(ctx context.Context, resources repository.
 	if taskResult.RenderStatus == nil || taskResult.RenderStatus.Err == "" {
 		_, innerSpan := tracer.Start(ctx, "renderedResources.SetPrStatusCondition", trace.WithAttributes())
 		defer innerSpan.End()
-		renderedResources.SetPrStatusCondition(conditionPipelinePassed)
+		renderedResources.SetPrStatusCondition(ConditionPipelinePassed)
 	}
 
 	// TODO: There are internal tasks not represented in the API; Update the Apply interface to enable them.
