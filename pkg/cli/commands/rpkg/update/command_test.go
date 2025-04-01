@@ -207,8 +207,6 @@ func TestDiscoverUpdates(t *testing.T) {
 	r.Command.SetArgs([]string{pkgRevName})
 	r.Command.SetOut(output)
 
-	r.preRunE(r.Command, []string{pkgRevName})
-
 	output.Reset()
 	err := r.discoverUpdates(r.Command, []string{pkgRevName})
 	assert.Nil(t, err)
