@@ -41,6 +41,7 @@ import (
 	"github.com/stretchr/testify/suite"
 	appsv1 "k8s.io/api/apps/v1"
 	coreapi "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -138,6 +139,11 @@ func (t *TestSuite) Initialize() {
 	} else {
 		t.Client = c
 		t.Kubeconfig = cfg
+	}
+
+	if err := t.Client.List(t.GetContext(), &v1.PodList{}); err != nil {
+		t.Skipf("Skipping test suite - Kubernetes cluster not accessible: %v\n"+
+			"Consider spinning up a Kind cluster with Porch by running `/scripts/setup-dev-env.sh && make run-in-kind` in the root directory of the porch repo.", err)
 	}
 
 	if kubeClient, err := kubernetes.NewForConfig(cfg); err != nil {

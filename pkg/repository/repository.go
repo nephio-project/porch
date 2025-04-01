@@ -37,7 +37,7 @@ type PackageResources struct {
 }
 
 func (pr *PackageResources) SetPrStatusCondition(condition api.Condition) {
-	pr.EditKptfile(func(parsedKptfile kptfile.KptFile) {
+	pr.EditKptfile(func(parsedKptfile *kptfile.KptFile) {
 		kptfileCondition := kptfile.ConvertApiCondition(condition)
 		if parsedKptfile.Status == nil {
 			parsedKptfile.Status = &kptfile.Status{}
@@ -55,7 +55,7 @@ func (pr *PackageResources) SetPrStatusCondition(condition api.Condition) {
 	})
 }
 
-func (pr *PackageResources) EditKptfile(editFunc func(kptfile.KptFile)) {
+func (pr *PackageResources) EditKptfile(editFunc func(*kptfile.KptFile)) {
 	parsedKptfile := pr.GetKptfile()
 
 	editFunc(parsedKptfile)
@@ -66,7 +66,7 @@ func (pr *PackageResources) EditKptfile(editFunc func(kptfile.KptFile)) {
 	}()
 }
 
-func (pr *PackageResources) GetKptfile() kptfile.KptFile {
+func (pr *PackageResources) GetKptfile() *kptfile.KptFile {
 	parsedKptfile, _ :=
 		kptfile.FromKubeObject(
 			func() *fn.KubeObject {
@@ -74,7 +74,7 @@ func (pr *PackageResources) GetKptfile() kptfile.KptFile {
 					pr.Contents[kptfile.KptFileName])
 				return kubeObject
 			}())
-	return parsedKptfile
+	return &parsedKptfile
 }
 
 type PackageRevisionKey struct {

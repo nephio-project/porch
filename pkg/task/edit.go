@@ -73,11 +73,11 @@ func (m *editPackageMutation) apply(ctx context.Context, resources repository.Pa
 	editedResources := repository.PackageResources{
 		Contents: sourceResources.Spec.Resources,
 	}
-	editedResources.EditKptfile(func(file kptfile.KptFile) {
+	editedResources.EditKptfile(func(file *kptfile.KptFile) {
 		file.Status = &kptfile.Status{
 			Conditions: func() (inputConditions []kptfile.Condition) {
 				if file.Status == nil || file.Status.Conditions == nil {
-					inputConditions = kptfile.ConvertApiConditions(defaultConditions)
+					inputConditions = kptfile.ConvertApiConditions(DefaultReadinessConditions)
 				} else {
 					inputConditions = file.Status.Conditions
 				}
@@ -87,13 +87,22 @@ func (m *editPackageMutation) apply(ctx context.Context, resources repository.Pa
 				})
 			}(),
 		}
+
+		file.Info.ReadinessGates = func() (kptfileGates []kptfile.ReadinessGate) {
+			for _, each := range DefaultReadinessConditions {
+				kptfileGates = append(kptfileGates, kptfile.ReadinessGate{
+					ConditionType: each.Type,
+				})
+			}
+			return
+		}()
 		file.Info.ReadinessGates = func() (kptfileGates []kptfile.ReadinessGate) {
 			for _, each := range oldPkgRev.Status.Conditions {
 				kptfileGates = append(kptfileGates, kptfile.ReadinessGate{
 					ConditionType: each.Type,
 				})
 			}
-			return kptfileGates
+			return util.Merge(file.Info.ReadinessGates, kptfileGates)
 		}()
 	})
 
