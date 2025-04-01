@@ -54,5 +54,5 @@ func TestComposePkgRevObjName(t *testing.T) {
 	assert.Equal(t, "the-repo.the.pkg.path.the-package-name.the-ws-name", ComposePkgRevObjName(pkgRevKey))
 
 	pkgRevKey.Revision = -1
-	assert.Equal(t, "the-repo.the.pkg.path.the-package-name.the-placeholder-ws-name", ComposePkgRevObjName(pkgRevKey))
+	assert.Equal(t, "the-repo.the.pkg.path.the-package-name.the-ws-name", ComposePkgRevObjName(pkgRevKey))
 }

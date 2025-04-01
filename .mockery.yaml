@@ -1,0 +1,12 @@
+with-expecter: true
+packages:
+  sigs.k8s.io/controller-runtime/pkg/client:
+    interfaces:
+      Client:
+        config:
+          dir: "test/mockery/mocks/external/{{.InterfaceDirRelative}}"
+          outpkg: "{{.PackageName}}"
+      Reader:
+        config:
+          dir: "test/mockery/mocks/external/{{.InterfaceDirRelative}}"
+          outpkg: "{{.PackageName}}"

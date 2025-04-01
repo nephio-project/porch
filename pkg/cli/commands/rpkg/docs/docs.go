@@ -45,18 +45,18 @@ Args:
   SOURCE_PACKAGE_REV:
     The source package that will be cloned to create the new package revision.
     The types of sources are supported:
-  
-      * OCI: A URI to a OCI repository must be provided. 
+
+      * OCI: A URI to a OCI repository must be provided.
         oci://oci-repository/package-name
       * Git: A URI to a git repository must be provided.
         https://git-repository.git/package-name
       * Package: The name of a package revision already available in the
         repository.
         blueprint-e982b2196b35a4f5e81e92f49a430fe463aa9f1a
-  
+
   TARGET_PACKAGE_NAME:
     The name of the new package.
-  
+
 
 Flags:
 
@@ -64,28 +64,35 @@ Flags:
     Directory within the repository where the upstream
     package revision is located. This only applies if the source package is in git
     or oci.
-  
+
   --ref
     Ref in the repository where the upstream package revision
     is located (branch, tag, SHA). This only applies when the source package
     is in git.
-  
+
   --repository
     Repository to which package revision will be cloned
     (downstream repository).
-  
+
   --workspace
     Workspace for the new package. The default value is v1.
-  
+
   --strategy
     Update strategy that should be used when updating the new
-    package revision. Must be one of: resource-merge, fast-forward,  or 
-    force-delete-replace. The default value is resource-merge.
+    package revision. Must be one of:
+    =resource-merge: (Default) Perform a structural comparison of the original
+      updated resources, and merge the changes into the local package.
+    =fast-forward: Fail without updating if the local package was modified since it was fetched.
+    =force-delete-replace: Wipe all the local changes to the package and replace
+      it with the remote version.
+    =copy-merge: Copy all the remote changes to the local package.
 `
 var CloneExamples = `
   # clone the blueprint-e982b2196b35a4f5e81e92f49a430fe463aa9f1a package and create a new package revision called
   # foo in the blueprint repository with a custom workspaceName.
   $ porchctl rpkg clone blueprint-e982b2196b35a4f5e81e92f49a430fe463aa9f1a foo --repository blueprint --workspace=first-draft
+  # packclone in the porch-test repository with a v1 workspaceName, and force-delete-replace update strategy
+  $ porchctl rpkg clone porch-test.pack.v1 packclone --namespace=porch-demo -repository=porch-test --workspace=v1 --strategy=force-delete-replace
 
   # clone the git repository at https://github.com/repo/blueprint.git at reference base/v0 and in directory base. The new
   # package revision will be created in repository blueprint and namespace default.
@@ -141,9 +148,9 @@ Args:
 Flags:
 
   --name
-    Name of the packages to get. Any package whose name contains 
+    Name of the packages to get. Any package whose name contains
     this value will be included in the results.
-  
+
   --revision
     Revision of the package to get. Any package whose revision
     matches this value will be included in the results.
@@ -172,16 +179,16 @@ Flags:
 
   --repository
     Repository in which the new package will be created.
-  
+
   --workspace
     Workspace of the new package.
-  
+
   --description
     Short description of the package
-  
+
   --keywords
     List of keywords for the package
-  
+
   --site
     Link to page with information about the package
 `
@@ -228,7 +235,7 @@ Args:
 
   PACKAGE_REV_NAME:
     The name of a an existing package revision in a repository.
-  
+
   DIR:
     A local directory where the package manifests will be written.
     If not provided, the manifests are written to stdout.
@@ -246,7 +253,7 @@ Args:
 
   PACKAGE_REV_NAME:
     The name of a an existing package revision in a repository.
-  
+
   DIR:
     A local directory with the new manifest. If not provided,
     the manifests will be read from stdin.
@@ -280,7 +287,7 @@ Args:
 
   PACKAGE_REV_NAME:
   The target downstream package revision to be updated.
-  
+
 
 Flags:
 
@@ -288,7 +295,7 @@ Flags:
   The revision number of the upstream kpt package that the target
   downstream package (PACKAGE_REV_NAME) should be updated to. With
   this flag, you can only specify one target downstream package.
-  
+
   --discover
   If set, list packages revisions that need updates rather than
   performing an update. Must be one of 'upstream' or 'downstream'. If
@@ -299,7 +306,7 @@ Flags:
   in order to just list updates for those package revisions, or you can
   pass in no arguments in order to list available updates for all package
   revisions.
-  
+
 `
 var UpdateExamples = `
   # update deployment-e982b2196b35a4f5e81e92f49a430fe463aa9f1a package to v3 of its upstream

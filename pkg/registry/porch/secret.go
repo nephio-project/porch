@@ -41,8 +41,11 @@ const (
 	// Annotation used to specify the gsa for a ksa.
 	WIGCPSAAnnotation = "iam.gke.io/gcp-service-account"
 
-	//Secret.Data key required for the caBundle
+	// Secret.Data key required for the caBundle
 	CaBundleDataName = "ca.crt"
+
+	// Secret.Data key required for bearer token authentication
+	TokenDataName = "bearerToken"
 )
 
 func NewCredentialResolver(coreClient client.Reader, resolverChain []Resolver) repository.CredentialResolver {
@@ -140,6 +143,49 @@ func (b *BasicAuthCredential) ToAuthMethod() transport.AuthMethod {
 	return &http.BasicAuth{
 		Username: string(b.Username),
 		Password: string(b.Password),
+	}
+}
+
+// Bearer Token Secret Verification
+func NewBearerTokenAuthResolver() Resolver {
+	return &BearerTokenAuthResolver{}
+}
+
+var _ Resolver = &BearerTokenAuthResolver{}
+
+type BearerTokenAuthResolver struct{}
+
+type BearerTokenAuthCredentials struct {
+	BearerToken string
+}
+
+func (b *BearerTokenAuthResolver) Resolve(_ context.Context, secret core.Secret) (repository.Credential, bool, error) {
+	if secret.Type != core.SecretTypeOpaque {
+		return nil, false, fmt.Errorf("Bearer Token secret.Type value must be Opaque")
+	} else {
+		if secret.Data[TokenDataName] == nil {
+			return nil, false, fmt.Errorf("Bearer Token secret.Data key must be set as %s", TokenDataName)
+		}
+	}
+
+	return &BearerTokenAuthCredentials{
+		BearerToken: string(secret.Data[TokenDataName]),
+	}, true, nil
+}
+
+func (b *BearerTokenAuthCredentials) ToString() string {
+	return b.BearerToken
+}
+
+var _ repository.Credential = &BearerTokenAuthCredentials{}
+
+func (b *BearerTokenAuthCredentials) Valid() bool {
+	return true
+}
+
+func (b *BearerTokenAuthCredentials) ToAuthMethod() transport.AuthMethod {
+	return &http.TokenAuth{
+		Token: string(b.BearerToken),
 	}
 }
 
