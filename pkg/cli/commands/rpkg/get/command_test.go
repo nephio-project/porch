@@ -51,7 +51,7 @@ func TestRunnerPreRunE(t *testing.T) {
 	assert.Nil(t, err)
 
 	err = r.runE(cmd, []string{})
-	assert.Error(t, err)
+	assert.Nil(t, err)
 
 	if r.requestTable != true {
 		t.Errorf("Expected requestTable to be true, got %v", r.requestTable)

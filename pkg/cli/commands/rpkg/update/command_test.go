@@ -87,6 +87,12 @@ func createRunner(ctx context.Context, ns string, c client.Client, pkgRevName st
 	}
 }
 
+func TestPreRun(t *testing.T) {
+	r := createRunner(context.Background(), "ns", fake.NewClientBuilder().Build(), "repo", "", 1)
+	err := r.preRunE(r.Command, []string{"testrevision"})
+	assert.Nil(t, err)
+}
+
 func TestUpdateCommand(t *testing.T) {
 	ctx := context.Background()
 	pkgRevName := "repo-testrevision"
@@ -154,11 +160,8 @@ func TestUpdateCommand(t *testing.T) {
 		})
 	}
 
-	err := r.preRunE(r.Command, []string{pkgRevName})
-	assert.Nil(t, err)
-
-	err = r.discoverUpdates(r.Command, []string{pkgRevName})
-	assert.NotNil(t, err)
+	err := r.discoverUpdates(r.Command, []string{pkgRevName})
+	assert.Error(t, err)
 }
 
 func TestDiscoverUpdates(t *testing.T) {
