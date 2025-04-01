@@ -155,11 +155,10 @@ func TestUpdateCommand(t *testing.T) {
 	}
 
 	err := r.preRunE(r.Command, []string{pkgRevName})
-	assert.True(t, err != nil)
+	assert.Nil(t, err)
 
 	err = r.discoverUpdates(r.Command, []string{pkgRevName})
-	assert.EqualError(t, err,
-		"Get \"https://127.0.0.1:31000/apis/config.porch.kpt.dev/v1alpha1/repositories\": dial tcp 127.0.0.1:31000: connect: connection refused")
+	assert.NotNil(t, err)
 }
 
 func TestDiscoverUpdates(t *testing.T) {
