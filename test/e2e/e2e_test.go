@@ -790,7 +790,7 @@ func (t *PorchSuite) TestUpdateResources() {
 	renderStatus := newPackage.Status.RenderStatus
 	assert.Empty(t, renderStatus.Err, "render error must be empty for successful render operation.")
 	assert.Zero(t, renderStatus.Result.ExitCode, "exit code must be zero for successful render operation.")
-	assert.True(t, len(renderStatus.Result.Items) > 0)
+	assert.True(t, len(renderStatus.Result.Items) > 0, "render status result must have 1 or more items for successful render operation")
 
 	golden := filepath.Join("testdata", "update-resources", "want-config-map.yaml")
 	if diff := t.CompareGoldenFileYAML(golden, updated); diff != "" {

@@ -36,10 +36,6 @@ type initPackageMutation struct {
 
 var _ mutation = &initPackageMutation{}
 
-var defaultConditions = []api.Condition{
-	ConditionPipelineNotPassed,
-}
-
 func (m *initPackageMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
 	ctx, span := tracer.Start(ctx, "initPackageMutation::apply", trace.WithAttributes())
 	defer span.End()
@@ -55,7 +51,7 @@ func (m *initPackageMutation) apply(ctx context.Context, resources repository.Pa
 		return repository.PackageResources{}, nil, err
 	}
 
-	readinessConditions := util.MergeFunc(defaultConditions, m.pkgRev.Status.Conditions, func(aDefault, anInput api.Condition) bool {
+	readinessConditions := util.MergeFunc(DefaultReadinessConditions, m.pkgRev.Status.Conditions, func(aDefault, anInput api.Condition) bool {
 		return aDefault.Type == anInput.Type
 	})
 

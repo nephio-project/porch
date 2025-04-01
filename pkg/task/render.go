@@ -46,7 +46,7 @@ func (m *renderPackageMutation) apply(ctx context.Context, resources repository.
 	fs := filesys.MakeFsInMemory()
 	taskResult := &api.TaskResult{
 		Task: &api.Task{
-			Type: api.TaskTypeEval,
+			Type: "render",
 			Eval: &api.FunctionEvalTaskSpec{
 				Image:     "render",
 				ConfigMap: nil,
@@ -86,12 +86,6 @@ func (m *renderPackageMutation) apply(ctx context.Context, resources repository.
 	renderedResources, err := readResources(fs)
 	if err != nil {
 		return repository.PackageResources{}, taskResult, err
-	}
-
-	if taskResult.RenderStatus == nil || taskResult.RenderStatus.Err == "" {
-		_, innerSpan := tracer.Start(ctx, "renderedResources.SetPrStatusCondition", trace.WithAttributes())
-		defer innerSpan.End()
-		renderedResources.SetPrStatusCondition(ConditionPipelinePassed)
 	}
 
 	// TODO: There are internal tasks not represented in the API; Update the Apply interface to enable them.

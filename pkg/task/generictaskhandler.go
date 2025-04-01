@@ -92,7 +92,7 @@ func (th *genericTaskHandler) SetReferenceResolver(referenceResolver repository.
 func (th *genericTaskHandler) ApplyTasks(
 	ctx context.Context, draft repository.PackageRevisionDraft,
 	repo *configapi.Repository, pkgRev *api.PackageRevision,
-	packageConfig *builtins.PackageConfig) error {
+	packageConfig *builtins.PackageConfig) (err error) {
 	var mutations []mutation
 
 	// Unless first task is Init or Clone, insert Init to create an empty package.
@@ -119,8 +119,22 @@ func (th *genericTaskHandler) ApplyTasks(
 	mutations = th.conditionalAddRender(pkgRev, mutations)
 
 	baseResources := repository.PackageResources{}
-	if _, _, err := applyResourceMutations(ctx, draft, baseResources, mutations); err != nil {
+	var mutatedResources repository.PackageResources
+	var renderStatus *api.RenderStatus
+	if mutatedResources, renderStatus, err = applyResourceMutations(ctx, draft, baseResources, mutations); err != nil {
 		return err
+	}
+
+	if mutatedResources.Contents != nil &&
+		(renderStatus == nil || renderStatus.Err == "") {
+		mutatedResources.SetPrStatusCondition(ConditionPipelinePassed)
+		if err := draft.UpdateResources(ctx, &api.PackageRevisionResources{
+			Spec: api.PackageRevisionResourcesSpec{
+				Resources: mutatedResources.Contents,
+			},
+		}, &api.Task{Type: "unlock readiness gate"}); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -132,6 +146,7 @@ func (th *genericTaskHandler) conditionalAddInit(pkgRev *api.PackageRevision, mu
 		mutations = append(mutations, &initPackageMutation{
 			pkgRev: pkgRev,
 			task: &api.Task{
+				Type: api.TaskTypeInit,
 				Init: &api.PackageInitTaskSpec{
 					Subpackage:  "",
 					Description: fmt.Sprintf("%s description", pkgRev.Spec.PackageName),
@@ -226,8 +241,22 @@ func (th *genericTaskHandler) DoPRMutations(ctx context.Context, namespace strin
 			Contents: apiResources.Spec.Resources,
 		}
 
-		if _, _, err := applyResourceMutations(ctx, draft, resources, mutations); err != nil {
+		var mutatedResources repository.PackageResources
+		var renderStatus *api.RenderStatus
+		if mutatedResources, renderStatus, err = applyResourceMutations(ctx, draft, resources, mutations); err != nil {
 			return err
+		}
+
+		if mutatedResources.Contents != nil &&
+			(renderStatus == nil || renderStatus.Err == "") && resourcesChangedMoreThanReadinessInfo(resources, mutatedResources) {
+			mutatedResources.SetPrStatusCondition(ConditionPipelinePassed)
+			if err := draft.UpdateResources(ctx, &api.PackageRevisionResources{
+				Spec: api.PackageRevisionResourcesSpec{
+					Resources: mutatedResources.Contents,
+				},
+			}, &api.Task{Type: "unlock readiness gate"}); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -254,13 +283,13 @@ func (th *genericTaskHandler) DoPRResourceMutations(ctx context.Context, pr2Upda
 		Contents: prevResources.Spec.Resources,
 	}
 
-	appliedResources, _, err := applyResourceMutations(ctx, draft, resources, mutations)
+	var renderStatus *api.RenderStatus
+	appliedResources, renderStatus, err := applyResourceMutations(ctx, draft, resources, mutations)
 	if err != nil {
 		return nil, err
 	}
 
-	var renderStatus *api.RenderStatus
-	if len(appliedResources.Contents) > 0 || !ReplaceResourcesOnlySetReadinessConditions(resources, appliedResources) {
+	if resourcesChangedMoreThanReadinessInfo(resources, appliedResources) {
 		// Render the package
 		// Render failure will fail the overall API operation.
 		// The render error and result are captured as part of renderStatus above
@@ -269,7 +298,7 @@ func (th *genericTaskHandler) DoPRResourceMutations(ctx context.Context, pr2Upda
 		// the user's changes are captured on their local package,
 		// and can be amended using the error returned as a reference point to ensure
 		// the package renders properly, before retrying the push.
-		_, renderStatus, err = applyResourceMutations(ctx,
+		appliedResources, renderStatus, err = applyResourceMutations(ctx,
 			draft,
 			appliedResources,
 			[]mutation{&renderPackageMutation{
@@ -279,8 +308,18 @@ func (th *genericTaskHandler) DoPRResourceMutations(ctx context.Context, pr2Upda
 		if err != nil {
 			return renderStatus, err
 		}
-	} else {
-		renderStatus = nil
+	}
+
+	if appliedResources.Contents != nil &&
+		(renderStatus == nil || renderStatus.Err == "") {
+		appliedResources.SetPrStatusCondition(ConditionPipelinePassed)
+		if err := draft.UpdateResources(ctx, &api.PackageRevisionResources{
+			Spec: api.PackageRevisionResourcesSpec{
+				Resources: appliedResources.Contents,
+			},
+		}, &api.Task{Type: "unlock readiness gate"}); err != nil {
+			return renderStatus, err
+		}
 	}
 
 	return renderStatus, nil
@@ -341,7 +380,7 @@ func (th *genericTaskHandler) mapTaskToMutation(ctx context.Context, pkgRev *api
 			referenceResolver: th.referenceResolver,
 		}, nil
 
-	case api.TaskTypeEval:
+	case api.TaskTypeEval, "render":
 		if task.Eval == nil {
 			return nil, fmt.Errorf("eval not set for task of type %q", task.Type)
 		}
@@ -480,21 +519,27 @@ func UpdateOnlySetsReadinessConditions(old *api.PackageRevision, new *api.Packag
 	return noChangesExceptReadinessInfo
 }
 
-func ReplaceResourcesOnlySetReadinessConditions(previous, updated repository.PackageResources) bool {
-	noChangesExceptReadinessInfo := func() bool {
+func resourcesChangedMoreThanReadinessInfo(previous, updated repository.PackageResources) bool {
+	changedMoreThanReadinessInfo := func() bool {
 		newKptfile := updated.GetKptfile()
-		previous.EditKptfile(func(oldKptfile kptfile.KptFile) {
-			oldKptfile.Info.ReadinessGates = newKptfile.Info.ReadinessGates
-			oldKptfile.Status.Conditions = newKptfile.Status.Conditions
+		previous.EditKptfile(func(oldKptfile *kptfile.KptFile) {
+			if oldKptfile.Info != nil && oldKptfile.Info.ReadinessGates != nil &&
+				newKptfile.Info != nil && newKptfile.Info.ReadinessGates != nil {
+				oldKptfile.Info.ReadinessGates = newKptfile.Info.ReadinessGates
+			}
+			if oldKptfile.Status != nil && oldKptfile.Status.Conditions != nil &&
+				newKptfile.Status != nil && newKptfile.Status.Conditions != nil {
+				oldKptfile.Status.Conditions = newKptfile.Status.Conditions
+			}
 		})
 
 		oldJson, _ := json.Marshal(previous)
 		newJson, _ := json.Marshal(updated)
 		equalExceptReadinessInfo := reflect.DeepEqual(oldJson, newJson)
-		return equalExceptReadinessInfo
+		return !equalExceptReadinessInfo
 	}()
 
-	return noChangesExceptReadinessInfo
+	return changedMoreThanReadinessInfo
 }
 
 // applyResourceMutations mutates the resources and returns the most recent renderResult.
@@ -516,7 +561,7 @@ func applyResourceMutations(ctx context.Context, draft repository.PackageRevisio
 		if taskResult != nil {
 			task = taskResult.Task
 		}
-		if taskResult != nil && task.Type == api.TaskTypeEval {
+		if taskResult != nil && (task.Type == api.TaskTypeEval || task.Type == "render") {
 			renderStatus = taskResult.RenderStatus
 			if err != nil {
 				klog.Error(err)
