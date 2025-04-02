@@ -289,7 +289,7 @@ func (th *genericTaskHandler) DoPRResourceMutations(ctx context.Context, pr2Upda
 		return nil, err
 	}
 
-	if resourcesChangedMoreThanReadinessInfo(resources, appliedResources) {
+	if !reflect.DeepEqual(newRes.Spec.Resources, oldRes.Spec.Resources) {
 		// Render the package
 		// Render failure will fail the overall API operation.
 		// The render error and result are captured as part of renderStatus above

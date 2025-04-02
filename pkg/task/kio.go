@@ -88,6 +88,7 @@ func (w *packageWriter) Write(nodes []*yaml.RNode) error {
 				kioutil.LegacyPathAnnotation,
 				//nolint:staticcheck
 				kioutil.LegacyIndexAnnotation,
+				kioutil.IndexAnnotation,
 			},
 		}
 		if err := bw.Write(nodes); err != nil {
