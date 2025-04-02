@@ -19,6 +19,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"net"
 	"net/http"
@@ -86,11 +87,16 @@ type PodEvaluatorOptions struct {
 	EnablePrivateRegistriesTls bool          // If enabled, will prioritize use of user provided TLS secret when accessing registries
 	TlsSecretPath              string        // The path of the secret used in tls configuration
 	MaxGrpcMessageSize         int           // Maximum size of grpc messages in bytes
+	LogLevel                   int           // klog verbosity level 0-5
 }
 
 var _ Evaluator = &podEvaluator{}
 
 func NewPodEvaluator(o PodEvaluatorOptions) (Evaluator, error) {
+
+	flagSet := flag.NewFlagSet("log-level", flag.ExitOnError)
+	klog.InitFlags(flagSet)
+	_ = flagSet.Parse([]string{"--v", strconv.Itoa(o.LogLevel)})
 
 	restCfg, err := config.GetConfig()
 	if err != nil {
@@ -714,7 +720,7 @@ func loadTLSConfig(caCertPath string) (*tls.Config, error) {
 	}
 	// Create a tls.Config with the CA pool
 	tlsConfig := &tls.Config{
-		RootCAs: caCertPool,
+		RootCAs:    caCertPool,
 		MinVersion: tls.VersionTLS12,
 	}
 	return tlsConfig, nil

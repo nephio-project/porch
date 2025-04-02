@@ -17,10 +17,12 @@ package internal
 import (
 	"bytes"
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 
 	pb "github.com/nephio-project/porch/func/evaluator"
 	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
@@ -34,6 +36,7 @@ import (
 type ExecutableEvaluatorOptions struct {
 	ConfigFileName   string // Path to the config file
 	FunctionCacheDir string // Path to cached functions
+	LogLevel         int    // klog verbosity level 0-5
 }
 
 type executableEvaluator struct {
@@ -53,6 +56,11 @@ type function struct {
 var _ Evaluator = &executableEvaluator{}
 
 func NewExecutableEvaluator(o ExecutableEvaluatorOptions) (Evaluator, error) {
+
+	flagSet := flag.NewFlagSet("log-level", flag.ExitOnError)
+	klog.InitFlags(flagSet)
+	_ = flagSet.Parse([]string{"--v", strconv.Itoa(o.LogLevel)})
+
 	cache := map[string]string{}
 
 	if o.ConfigFileName != "" {
