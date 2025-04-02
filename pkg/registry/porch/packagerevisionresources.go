@@ -186,13 +186,13 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 		return nil, false, apierrors.NewInternalError(err)
 	}
 
-	created, err := rev.GetResources(ctx)
+	updated, err := rev.GetResources(ctx)
 	if err != nil {
 		return nil, false, apierrors.NewInternalError(err)
 	}
 	if renderStatus != nil {
-		created.Status.RenderStatus = *renderStatus
+		updated.Status.RenderStatus = *renderStatus
 	}
 
-	return created, false, nil
+	return updated, false, nil
 }

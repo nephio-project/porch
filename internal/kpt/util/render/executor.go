@@ -127,6 +127,7 @@ func (e *Renderer) Execute(ctx context.Context) (*fnresult.ResultList, error) {
 				kioutil.LegacyIndexAnnotation: "clear",
 				//nolint:staticcheck
 				kioutil.LegacyIdAnnotation:  "clear",
+				kioutil.IndexAnnotation:     "clear",
 				kioutil.IdAnnotation:        "clear",
 				kioutil.SeqIndentAnnotation: "clear",
 			},
