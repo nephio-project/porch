@@ -72,8 +72,9 @@ func TestGetCmd(t *testing.T) {
 		wantErr bool
 	}{
 		"Get package": {
-			output: pkgRevName + "\n",
-			args:   []string{pkgRevName},
+			output:  pkgRevName + "\n",
+			args:    []string{pkgRevName},
+			wantErr: true,
 		},
 		"Args not provided": {
 			wantErr: true,
