@@ -10,8 +10,6 @@ kind: Kptfile
 metadata:
   annotations:
     blueprints.cloud.google.com/title: Google Cloud Storage Bucket blueprint
-    internal.config.kubernetes.io/index: "0"
-    internal.config.kubernetes.io/path: Kptfile
   name: simple-bucket
 # Kptfile pipeline
 pipeline:
