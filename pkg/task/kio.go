@@ -81,14 +81,11 @@ func (w *packageWriter) Write(nodes []*yaml.RNode) error {
 	buf := &bytes.Buffer{}
 	for path, nodes := range paths {
 		bw := kio.ByteWriter{
-			Writer:                buf,
-			KeepReaderAnnotations: true,
+			Writer: buf,
 			ClearAnnotations: []string{
+				kioutil.PathAnnotation,
 				//nolint:staticcheck
 				kioutil.LegacyPathAnnotation,
-				//nolint:staticcheck
-				kioutil.LegacyIndexAnnotation,
-				kioutil.IndexAnnotation,
 			},
 		}
 		if err := bw.Write(nodes); err != nil {
