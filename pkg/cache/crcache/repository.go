@@ -391,8 +391,10 @@ func (r *cachedRepository) pollOnce(ctx context.Context) {
 	defer span.End()
 
 	if _, err := r.getPackageRevisions(ctx, repository.ListPackageRevisionFilter{}, true); err != nil {
+		r.refreshRevisionsError = err
 		klog.Warningf("error polling repo packages %s: %v", r.id, err)
 	}
+	r.refreshRevisionsError = nil
 	// TODO: Uncomment when package resources are fully supported
 	//if _, err := r.getPackages(ctx, repository.ListPackageRevisionFilter{}, true); err != nil {
 	//	klog.Warningf("error polling repo packages %s: %v", r.id, err)
