@@ -26,6 +26,7 @@ import (
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
+	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
@@ -412,7 +413,7 @@ func createKptfilePatchTask(ctx context.Context, oldPackage repository.PackageRe
 	}
 
 	var origKfString string
-	if origKfString, err = kf.ToYamlString(); err != nil {
+	if origKfString, err = kptfileutil.ToYamlString(&kf); err != nil {
 		return nil, false, fmt.Errorf("cannot read original Kptfile: %w", err)
 	}
 
@@ -448,7 +449,7 @@ func createKptfilePatchTask(ctx context.Context, oldPackage repository.PackageRe
 	}
 
 	var newKfString string
-	if newKfString, err = kf.ToYamlString(); err != nil {
+	if newKfString, err = kptfileutil.ToYamlString(&kf); err != nil {
 		return nil, false, fmt.Errorf("cannot read Kptfile after updating: %w", err)
 	}
 

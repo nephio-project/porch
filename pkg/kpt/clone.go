@@ -20,6 +20,7 @@ import (
 
 	internalpkg "github.com/nephio-project/porch/internal/kpt/pkg"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
 )
 
 // TODO: Accept a virtual filesystem or other package abstraction
@@ -41,7 +42,7 @@ func UpdateUpstream(kptfileContents string, name string, upstream kptfilev1.Upst
 		kptfile.Name = name
 	}
 
-	kptfileYaml, err := kptfile.ToYamlString()
+	kptfileYaml, err := kptfileutil.ToYamlString(kptfile)
 	if err != nil {
 		return "", fmt.Errorf("cannot save Kptfile: %w", err)
 	}
@@ -58,7 +59,7 @@ func UpdateName(kptfileContents string, name string) (string, error) {
 	// update the name of the package
 	kptfile.Name = name
 
-	kptfileYaml, err := kptfile.ToYamlString()
+	kptfileYaml, err := kptfileutil.ToYamlString(kptfile)
 	if err != nil {
 		return "", fmt.Errorf("cannot save Kptfile: %w", err)
 	}

@@ -30,6 +30,7 @@ import (
 	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
+	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -969,7 +970,7 @@ func parseKptfile(kf string) (*kptfilev1.KptFile, error) {
 		return nil, err
 	}
 
-	kptfile, err := kptfilev1.FromKubeObject(ko)
+	kptfile, err := kptfileutil.FromKubeObject(ko)
 	if err != nil {
 		return nil, err
 	}
