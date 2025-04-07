@@ -21,9 +21,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/pkg/util"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
@@ -87,46 +85,6 @@ type KptFile struct {
 
 	// Inventory contains parameters for the inventory object used in apply.
 	Inventory *Inventory `yaml:"inventory,omitempty" json:"inventory,omitempty"`
-}
-
-func FromKubeObject(kptfileKubeObject *fn.KubeObject) (KptFile, error) {
-	var apiKptfile KptFile
-	if err := kptfileKubeObject.As(&apiKptfile); err != nil {
-		return KptFile{}, err
-	}
-
-	if apiKptfile.Info != nil {
-		gates := apiKptfile.Info.ReadinessGates
-		sort.SliceStable(gates, func(i, j int) bool { return gates[i].ConditionType < gates[j].ConditionType })
-	}
-	if apiKptfile.Status != nil {
-		conditions := apiKptfile.Status.Conditions
-		sort.SliceStable(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
-	}
-
-	return apiKptfile, nil
-}
-
-func (file *KptFile) ToYamlString() (string, error) {
-	if file.Info != nil {
-		gates := file.Info.ReadinessGates
-		sort.SliceStable(gates, func(i, j int) bool { return gates[i].ConditionType < gates[j].ConditionType })
-	}
-	if file.Status != nil {
-		conditions := file.Status.Conditions
-		sort.SliceStable(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
-	}
-
-	b, err := yaml.MarshalWithOptions(file, &yaml.EncoderOptions{SeqIndent: yaml.WideSequenceStyle})
-	if err != nil {
-		return "", err
-	}
-	kptfileKubeObject, err := util.YamlToKubeObject(string(b))
-	if err != nil {
-		return "", err
-	}
-
-	return kptfileKubeObject.String(), nil
 }
 
 // OriginType defines the type of origin for a package.
