@@ -113,7 +113,7 @@ func (e *singleFunctionEvaluator) EvaluateFunction(ctx context.Context, req *pb.
 			rl, pe := fn.ParseResourceList(outbytes)
 			if pe != nil {
 				// If we can't parse the output resource list, we only surface the content in stderr.
-				return nil, status.Errorf(codes.Internal, "failed to parse the output of function %q with stderr %v", req.Image, stderrStr)
+				return nil, status.Errorf(codes.Internal, "failed to parse the output of function %q with stderr '%v' and stdout '%s': %+v", req.Image, stderrStr, outbytes, pe)
 			}
 			return nil, status.Errorf(codes.Internal, "failed to evaluate function %q with structured results: %v and stderr: %v", req.Image, rl.Results.Error(), stderrStr)
 		} else {
@@ -125,7 +125,7 @@ func (e *singleFunctionEvaluator) EvaluateFunction(ctx context.Context, req *pb.
 	rl, pErr := fn.ParseResourceList(outbytes)
 	if pErr != nil {
 		// If we can't parse the output resource list, we only surface the content in stderr.
-		return nil, status.Errorf(codes.Internal, "failed to parse the output of function %q with stderr %v", req.Image, stderrStr)
+		return nil, status.Errorf(codes.Internal, "failed to parse the output of function %q with stderr '%v' and stdout '%s': %+v", req.Image, stderrStr, outbytes, pErr)
 	}
 	if rl.Results.ExitCode() != 0 {
 		jsonBytes, _ := json.Marshal(rl.Results)
