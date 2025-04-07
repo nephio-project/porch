@@ -54,7 +54,7 @@ type cachedRepository struct {
 	cachedPackageRevisions map[repository.PackageRevisionKey]*cachedPackageRevision
 	cachedPackages         map[repository.PackageKey]*cachedPackage
 	// Error encountered on repository refresh by the refresh goroutine.
-	// This is returned back by the cache to the background goroutine when it calls periodicall to resync repositories.
+	// This is returned back by the cache to the background goroutine when it calls periodic call to resync repositories.
 	refreshRevisionsError error
 
 	options cachetypes.CacheOptions
@@ -72,7 +72,7 @@ func newRepository(id string, repoSpec *configapi.Repository, repo repository.Re
 
 	// TODO: Should we fetch the packages here?
 
-	go r.pollForever(ctx, options.RepoSyncFrequency)
+	go r.pollForever(ctx, 5*time.Minute)
 
 	return r
 }
@@ -456,7 +456,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 	for _, newPackageRevision := range newPackageRevisions {
 		kname := newPackageRevision.KubeObjectName()
 		if newPackageRevisionNames[kname] != nil {
-			klog.Warningf("repo %s: found duplicate packages with name %v", r.repo, kname)
+			klog.Warningf("repo %s: found duplicate packages with name %v", r.repoSpec.Name, kname)
 		}
 
 		pkgRev := &cachedPackageRevision{
