@@ -136,7 +136,7 @@ func (r *cachedRepository) getPackages(ctx context.Context, filter repository.Li
 func (r *cachedRepository) getCachedPackages(ctx context.Context, forceRefresh bool) (map[repository.PackageKey]*cachedPackage, map[repository.PackageRevisionKey]*cachedPackageRevision, error) {
 	packages := r.cachedPackages
 	packageRevisions := r.cachedPackageRevisions
-	err := r.refreshRevisionsError
+	var err error
 
 	if forceRefresh {
 		packages = nil
@@ -393,8 +393,9 @@ func (r *cachedRepository) pollOnce(ctx context.Context) {
 	if _, err := r.getPackageRevisions(ctx, repository.ListPackageRevisionFilter{}, true); err != nil {
 		r.refreshRevisionsError = err
 		klog.Warningf("error polling repo packages %s: %v", r.id, err)
+	} else {
+		r.refreshRevisionsError = nil
 	}
-	r.refreshRevisionsError = nil
 	// TODO: Uncomment when package resources are fully supported
 	//if _, err := r.getPackages(ctx, repository.ListPackageRevisionFilter{}, true); err != nil {
 	//	klog.Warningf("error polling repo packages %s: %v", r.id, err)

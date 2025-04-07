@@ -205,6 +205,7 @@ func (b *background) cacheRepository(ctx context.Context, repo *configapi.Reposi
 			ObservedGeneration: repo.Generation,
 			LastTransitionTime: v1.Now(),
 			Reason:             configapi.ReasonReady,
+			Message:            "Repository Ready",
 		}
 	} else {
 		condition = v1.Condition{
