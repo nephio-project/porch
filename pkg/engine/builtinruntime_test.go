@@ -20,9 +20,9 @@ import (
 	"errors"
 	"testing"
 
-	fnsdk "github.com/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
+	fnsdk "github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 )
 
 func TestBuiltinRuntime(t *testing.T) {
