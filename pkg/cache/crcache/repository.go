@@ -72,7 +72,7 @@ func newRepository(id string, repoSpec *configapi.Repository, repo repository.Re
 
 	// TODO: Should we fetch the packages here?
 
-	go r.pollForever(ctx, 5*time.Minute)
+	go r.pollForever(ctx, options.RepoSyncFrequency)
 
 	return r
 }
