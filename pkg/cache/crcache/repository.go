@@ -456,7 +456,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 	for _, newPackageRevision := range newPackageRevisions {
 		kname := newPackageRevision.KubeObjectName()
 		if newPackageRevisionNames[kname] != nil {
-			klog.Warningf("repo %s: found duplicate packages with name %v", r.repoSpec.Name, kname)
+			klog.Warningf("repo %s: found duplicate packages with name %v", r.id, kname)
 		}
 
 		pkgRev := &cachedPackageRevision{
