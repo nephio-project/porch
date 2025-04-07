@@ -54,7 +54,7 @@ type cachedRepository struct {
 	cachedPackageRevisions map[repository.PackageRevisionKey]*cachedPackageRevision
 	cachedPackages         map[repository.PackageKey]*cachedPackage
 	// Error encountered on repository refresh by the refresh goroutine.
-	// This is returned back by the cache to the background goroutine when it calls periodic call to resync repositories.
+	// This is returned back by the cache to the background goroutine when it calls a periodic refresh to resync repositories.
 	refreshRevisionsError error
 
 	options cachetypes.CacheOptions
