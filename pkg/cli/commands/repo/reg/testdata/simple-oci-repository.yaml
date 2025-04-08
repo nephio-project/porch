@@ -1,0 +1,13 @@
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+    creationTimestamp: null
+    name: test-blueprints
+    namespace: default
+spec:
+    oci:
+        registry: "test/test-blueprints"
+        secretRef:
+            name: ""
+    type: oci
+status: {}
