@@ -64,6 +64,7 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 		if _, err := externalrepo.CreateRepositoryImpl(ctx, repositorySpec, c.options.ExternalRepoOptions); err == nil {
 			return cachedRepo, err
 		} else {
+			// If there is an error from the background refresh goroutine, return it.
 			if err := cachedRepo.getRefreshError(); err == nil {
 				return cachedRepo, nil
 			}
