@@ -17,7 +17,7 @@ package internal
 import (
 	"fmt"
 
-	function "github.com/nephio-project/porch/pkg/kpt/fn/third_party/GoogleContainerTools/kpt-functions-catalog/functions/go/applysetters"
+	function "github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-catalog/functions/go/applysetters"
 	"sigs.k8s.io/kustomize/kyaml/fn/framework"
 )
 
