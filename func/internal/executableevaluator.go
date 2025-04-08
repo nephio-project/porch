@@ -17,13 +17,7 @@ package internal
 import (
 	"bytes"
 	"context"
-	"flag"
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strconv"
-
 	pb "github.com/nephio-project/porch/func/evaluator"
 	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
@@ -31,6 +25,9 @@ import (
 	"google.golang.org/grpc/status"
 	"gopkg.in/yaml.v2"
 	"k8s.io/klog/v2"
+	"os"
+	"os/exec"
+	"path/filepath"
 )
 
 type ExecutableEvaluatorOptions struct {
@@ -57,9 +54,7 @@ var _ Evaluator = &executableEvaluator{}
 
 func NewExecutableEvaluator(o ExecutableEvaluatorOptions) (Evaluator, error) {
 
-	flagSet := flag.NewFlagSet("log-level", flag.ExitOnError)
-	klog.InitFlags(flagSet)
-	_ = flagSet.Parse([]string{"--v", strconv.Itoa(o.LogLevel)})
+	SetLogLevel(o.LogLevel)
 
 	cache := map[string]string{}
 

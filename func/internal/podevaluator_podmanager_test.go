@@ -56,7 +56,7 @@ func (f *fakeFunctionEvalServer) Start(ctx context.Context) error {
 
 	server := grpc.NewServer()
 	pb.RegisterFunctionEvaluatorServer(server, f)
-    //nolint:errcheck
+	//nolint:errcheck
 	go server.Serve(lis)
 
 	go func() {
@@ -68,6 +68,8 @@ func (f *fakeFunctionEvalServer) Start(ctx context.Context) error {
 }
 
 func TestPodManager(t *testing.T) {
+
+	SetLogLevel(5)
 
 	defaultSuccessEvalFunc := func(ctx context.Context, req *pb.EvaluateFunctionRequest) (*pb.EvaluateFunctionResponse, error) {
 		return &pb.EvaluateFunctionResponse{ResourceList: []byte("thisShouldBeKRM"), Log: []byte("Success")}, nil

@@ -19,7 +19,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"net"
 	"net/http"
@@ -94,9 +93,7 @@ var _ Evaluator = &podEvaluator{}
 
 func NewPodEvaluator(o PodEvaluatorOptions) (Evaluator, error) {
 
-	flagSet := flag.NewFlagSet("log-level", flag.ExitOnError)
-	klog.InitFlags(flagSet)
-	_ = flagSet.Parse([]string{"--v", strconv.Itoa(o.LogLevel)})
+	SetLogLevel(o.LogLevel)
 
 	restCfg, err := config.GetConfig()
 	if err != nil {
