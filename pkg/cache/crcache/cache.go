@@ -61,16 +61,14 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 
 	if cachedRepo := c.repositories[key]; cachedRepo != nil {
 		// Test if credentials are okay for the cached repo and update the status accordingly
-		_, err := externalrepo.CreateRepositoryImpl(ctx, repositorySpec, c.options.ExternalRepoOptions)
-		if err != nil {
-			return nil, err
-		}
-		// If there is an error from the background refresh goroutine, return it.
-		if err := cachedRepo.getRefreshError(); err == nil {
-			return cachedRepo, nil
+		if _, err := externalrepo.CreateRepositoryImpl(ctx, repositorySpec, c.options.ExternalRepoOptions); err == nil {
+			return cachedRepo, err
 		} else {
-			return nil, err
+			if err := cachedRepo.getRefreshError(); err == nil {
+				return cachedRepo, nil
+			}
 		}
+		return nil, err
 	}
 
 	externalRepo, err := externalrepo.CreateRepositoryImpl(ctx, repositorySpec, c.options.ExternalRepoOptions)
