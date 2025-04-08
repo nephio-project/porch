@@ -39,33 +39,33 @@ func (m *editPackageMutation) apply(ctx context.Context, resources repository.Pa
 	defer span.End()
 
 	sourceRef := m.task.Edit.Source
-	oldPkgRev := m.pkgRev
+	newPkgRev := m.pkgRev
 
-	newPkgRev, err := (&repository.PackageFetcher{
+	existingPkgRev, err := (&repository.PackageFetcher{
 		RepoOpener:        m.repoOpener,
 		ReferenceResolver: m.referenceResolver,
-	}).FetchRevision(ctx, sourceRef, oldPkgRev.Namespace)
+	}).FetchRevision(ctx, sourceRef, newPkgRev.Namespace)
 	if err != nil {
 		return repository.PackageResources{}, nil, fmt.Errorf("failed to fetch package %q: %w", sourceRef.Name, err)
 	}
 
 	// We only allow edit to create new revision from the same package.
-	if newPkgRev.Key().PkgKey.ToPkgPathname() != oldPkgRev.Spec.PackageName ||
-		newPkgRev.Key().PkgKey.RepoKey.Name != oldPkgRev.Spec.RepositoryName {
+	if existingPkgRev.Key().PkgKey.ToPkgPathname() != newPkgRev.Spec.PackageName ||
+		existingPkgRev.Key().PkgKey.RepoKey.Name != newPkgRev.Spec.RepositoryName {
 		return repository.PackageResources{}, nil, fmt.Errorf(
 			"source revision must be from same package %s/%s (got: %s/%s)",
-			oldPkgRev.Spec.RepositoryName,
-			oldPkgRev.Spec.PackageName,
-			newPkgRev.Key().PkgKey.RepoKey.Name,
-			newPkgRev.Key().PkgKey.ToPkgPathname())
+			existingPkgRev.Key().PkgKey.RepoKey.Name,
+			existingPkgRev.Key().PkgKey.ToPkgPathname(),
+			newPkgRev.Spec.RepositoryName,
+			newPkgRev.Spec.PackageName)
 	}
 
 	// We only allow edit to create new revisions from published packages.
-	if !api.LifecycleIsPublished(newPkgRev.Lifecycle(ctx)) {
+	if !api.LifecycleIsPublished(existingPkgRev.Lifecycle(ctx)) {
 		return repository.PackageResources{}, nil, fmt.Errorf("source revision must be published")
 	}
 
-	sourceResources, err := newPkgRev.GetResources(ctx)
+	sourceResources, err := existingPkgRev.GetResources(ctx)
 	if err != nil {
 		return repository.PackageResources{}, nil, fmt.Errorf("cannot read contents of package %q: %w", sourceRef.Name, err)
 	}
@@ -82,7 +82,7 @@ func (m *editPackageMutation) apply(ctx context.Context, resources repository.Pa
 					inputConditions = file.Status.Conditions
 				}
 
-				return util.MergeFunc(inputConditions, kptfile.ConvertApiConditions(oldPkgRev.Status.Conditions), func(inputCondition, oldCondition kptfile.Condition) bool {
+				return util.MergeFunc(inputConditions, kptfile.ConvertApiConditions(newPkgRev.Status.Conditions), func(inputCondition, oldCondition kptfile.Condition) bool {
 					return oldCondition.Type == inputCondition.Type
 				})
 			}(),
@@ -97,7 +97,7 @@ func (m *editPackageMutation) apply(ctx context.Context, resources repository.Pa
 			return
 		}()
 		file.Info.ReadinessGates = func() (kptfileGates []kptfile.ReadinessGate) {
-			for _, each := range oldPkgRev.Status.Conditions {
+			for _, each := range newPkgRev.Status.Conditions {
 				kptfileGates = append(kptfileGates, kptfile.ReadinessGate{
 					ConditionType: each.Type,
 				})

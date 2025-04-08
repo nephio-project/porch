@@ -16,8 +16,13 @@ package task
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
+
+	mockrepo "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/repository"
+	"github.com/stretchr/testify/mock"
+	"gotest.tools/assert"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -29,6 +34,59 @@ import (
 )
 
 func TestEdit(t *testing.T) {
+	epm := getBasicValidEditMutation()
+
+	res, _, err := epm.apply(context.Background(), repository.PackageResources{})
+	if err != nil {
+		t.Errorf("task apply failed: %v", err)
+	}
+
+	want := strings.TrimSpace(`
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: example
+  annotations:
+    config.kubernetes.io/local-config: "true"
+info:
+  readinessGates:
+  - conditionType: PackagePipelinePassed
+  description: sample description
+status:
+  conditions:
+  - type: PackagePipelinePassed
+    status: "False"
+    message: waiting for package pipeline to pass
+    reason: WaitingOnPipeline
+	`)
+	got := strings.TrimSpace(res.Contents[kptfile.KptFileName])
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("result mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestEditWithFetchError(t *testing.T) {
+	// mockRepo := mockrepo.NewMockRepository(t)
+	mockOpener := mockrepo.NewMockRepositoryOpener(t)
+	mockOpener.EXPECT().OpenRepository(mock.Anything, mock.Anything).Return(nil, errors.New("network error or sth, idk"))
+	epm := getBasicValidEditMutation()
+	epm.repoOpener = mockOpener
+
+	_, _, err := epm.apply(context.Background(), repository.PackageResources{})
+	assert.ErrorContains(t, err, "failed to fetch package")
+	assert.ErrorContains(t, err, "network error")
+}
+
+func TestEditWithWrongPackageDetails(t *testing.T) {
+	epm := getBasicValidEditMutation()
+	epm.pkgRev.Spec.PackageName = "wrongPackage"
+
+	_, _, err := epm.apply(context.Background(), repository.PackageResources{})
+	t.Log(err)
+	assert.ErrorContains(t, err, "source revision must be from same package")
+}
+
+func getBasicValidEditMutation() editPackageMutation {
 	repositoryName := "repo"
 	pkg := "1234567890"
 	revision := 1
@@ -100,34 +158,7 @@ info:
 		referenceResolver: &fakeReferenceResolver{},
 		repoOpener:        repoOpener,
 	}
-
-	res, _, err := epm.apply(context.Background(), repository.PackageResources{})
-	if err != nil {
-		t.Errorf("task apply failed: %v", err)
-	}
-
-	want := strings.TrimSpace(`
-apiVersion: kpt.dev/v1
-kind: Kptfile
-metadata:
-  name: example
-  annotations:
-    config.kubernetes.io/local-config: "true"
-info:
-  readinessGates:
-  - conditionType: PackagePipelinePassed
-  description: sample description
-status:
-  conditions:
-  - type: PackagePipelinePassed
-    status: "False"
-    message: waiting for package pipeline to pass
-    reason: WaitingOnPipeline
-	`)
-	got := strings.TrimSpace(res.Contents[kptfile.KptFileName])
-	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("result mismatch (-want +got):\n%s", diff)
-	}
+	return epm
 }
 
 // Implementation of the ReferenceResolver interface for testing.
