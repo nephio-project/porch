@@ -65,10 +65,9 @@ status:
 	}
 }
 
-func TestEditWithFetchError(t *testing.T) {
-	// mockRepo := mockrepo.NewMockRepository(t)
+func TestEditWithErroredFetchRevisions(t *testing.T) {
 	mockOpener := mockrepo.NewMockRepositoryOpener(t)
-	mockOpener.EXPECT().OpenRepository(mock.Anything, mock.Anything).Return(nil, errors.New("network error or sth, idk"))
+	mockOpener.EXPECT().OpenRepository(mock.Anything, mock.Anything).Return(nil, errors.New("network error fetching resources"))
 	epm := getBasicValidEditMutation()
 	epm.repoOpener = mockOpener
 
@@ -82,8 +81,106 @@ func TestEditWithWrongPackageDetails(t *testing.T) {
 	epm.pkgRev.Spec.PackageName = "wrongPackage"
 
 	_, _, err := epm.apply(context.Background(), repository.PackageResources{})
-	t.Log(err)
 	assert.ErrorContains(t, err, "source revision must be from same package")
+}
+
+func TestEditWithWrongLifecycle(t *testing.T) {
+	epm := getBasicValidEditMutation()
+
+	epm.repoOpener.(*fakeRepositoryOpener).
+		repository.(*fake.Repository).
+		PackageRevisions[0].(*fake.FakePackageRevision).
+		PackageLifecycle = api.PackageRevisionLifecycleDraft
+
+	_, _, err := epm.apply(context.Background(), repository.PackageResources{})
+	assert.ErrorContains(t, err, "source revision must be published")
+}
+
+func TestEditWithErroredGetResources(t *testing.T) {
+	epm := getBasicValidEditMutation()
+
+	mockPackage := mockrepo.NewMockPackageRevision(t)
+
+	mockPackage.On("Key").Return(
+		epm.repoOpener.(*fakeRepositoryOpener).
+			repository.(*fake.Repository).
+			PackageRevisions[0].Key()).Maybe()
+	mockPackage.On("KubeObjectName").Return(
+		epm.repoOpener.(*fakeRepositoryOpener).
+			repository.(*fake.Repository).
+			PackageRevisions[0].KubeObjectName()).Maybe()
+	mockPackage.On("Lifecycle", mock.Anything).Return(api.PackageRevisionLifecyclePublished).Maybe()
+
+	epm.repoOpener.(*fakeRepositoryOpener).
+		repository.(*fake.Repository).
+		PackageRevisions[0] = mockPackage
+
+	mockPackage.EXPECT().GetResources(mock.Anything).Return(nil, errors.New("error getting resources from existing package revision"))
+
+	_, _, err := epm.apply(context.Background(), repository.PackageResources{})
+	assert.ErrorContains(t, err, "cannot read contents")
+	assert.ErrorContains(t, err, "error getting resources")
+}
+
+func TestEditWithInputConditions(t *testing.T) {
+	epm := getBasicValidEditMutation()
+
+	epm.repoOpener.(*fakeRepositoryOpener).
+		repository.(*fake.Repository).
+		PackageRevisions[0].(*fake.FakePackageRevision).Resources.Spec.Resources[kptfile.KptFileName] = strings.TrimSpace(`
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: example
+  annotations:
+    config.kubernetes.io/local-config: "true"
+info:
+  description: sample description
+status:
+  conditions:
+  - type: PackagePipelinePassed
+    status: "False"
+    message: waiting for package pipeline to pass
+    reason: WaitingOnPipeline
+	`)
+	epm.pkgRev.Status.Conditions = append(epm.pkgRev.Status.Conditions, api.Condition{
+		Type:   "SomeUsefulCondition",
+		Status: api.ConditionFalse,
+		Reason: "WaitingForSomething",
+	})
+
+	want := strings.TrimSpace(`
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: example
+  annotations:
+    config.kubernetes.io/local-config: "true"
+info:
+  readinessGates:
+  - conditionType: PackagePipelinePassed
+  - conditionType: SomeUsefulCondition
+  description: sample description
+status:
+  conditions:
+  - type: PackagePipelinePassed
+    status: "False"
+    message: waiting for package pipeline to pass
+    reason: WaitingOnPipeline
+  - type: SomeUsefulCondition
+    status: "False"
+    reason: WaitingForSomething
+		`)
+
+	result, _, err := epm.apply(context.Background(), repository.PackageResources{})
+	if err != nil {
+		t.Errorf("task apply failed: %v", err)
+	}
+
+	got := strings.TrimSpace(result.Contents[kptfile.KptFileName])
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("result mismatch (-want +got):\n%s", diff)
+	}
 }
 
 func getBasicValidEditMutation() editPackageMutation {
