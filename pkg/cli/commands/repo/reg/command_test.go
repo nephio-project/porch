@@ -112,6 +112,18 @@ func TestRepoReg(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "OCIRegister",
+			args: []string{"oci://test/test-blueprints"},
+			actions: []httpAction{
+				{
+					method:       http.MethodPost,
+					path:         "/apis/config.porch.kpt.dev/v1alpha1/namespaces/default/repositories",
+					wantRequest:  "simple-oci-repository.yaml",
+					sendResponse: "simple-oci-repository.yaml",
+				},
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create fake Porch Server
