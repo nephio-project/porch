@@ -427,6 +427,11 @@ func (t *TestSuite) PatchE(obj client.Object, patch client.Patch, opts ...client
 	t.patch(obj, patch, opts, t.Errorf)
 }
 
+func (t *TestSuite) UpdateApprovalL(pr *porchapi.PackageRevision, opts metav1.UpdateOptions) *porchapi.PackageRevision {
+	t.T().Helper()
+	return t.updateApproval(pr, opts, t.Logf)
+}
+
 func (t *TestSuite) UpdateApprovalF(pr *porchapi.PackageRevision, opts metav1.UpdateOptions) *porchapi.PackageRevision {
 	t.T().Helper()
 	return t.updateApproval(pr, opts, t.Fatalf)
