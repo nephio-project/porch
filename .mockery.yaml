@@ -12,6 +12,10 @@ packages:
           outpkg: "{{.PackageName}}"
   github.com/nephio-project/porch/pkg/repository:
     interfaces:
+      PackageRevision:
+        config:
+          dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
+          outpkg: "{{.PackageName}}"
       Repository:
         config:
           dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
