@@ -43,6 +43,29 @@ metadata:
 			expectedErr:    "missing required field spec.upstream; missing required field spec.downstream",
 		},
 
+		"missing repo": {
+			packageVariant: packageVariantHeader + `
+spec:
+  upstream:
+    revision: 1
+    package: foo
+  downstream:
+    package: foo
+`,
+			expectedErr: "missing required field spec.upstream.repo; missing required field spec.downstream.repo",
+		},
+		"missing upstream revision": {
+			packageVariant: packageVariantHeader + `
+spec:
+  upstream:
+    package: foo
+    repo: blueprints
+  downstream:
+    package: foo
+    repo: deployments
+`,
+			expectedErr: "missing required field spec.upstream.revision",
+		},
 		"missing package names": {
 			packageVariant: packageVariantHeader + `
 spec:
@@ -787,6 +810,35 @@ status:
   publishTimestamp: null
 `,
 		},
+
+		// this case should never happen in real life, because the pv should already be validated beforehand
+		"deletionPolicy invalid, lifecycle draft": {
+			deletionPolicy: "neverHeardOfIt",
+			prLifecycle:    string(porchapi.PackageRevisionLifecycleDraft),
+			expectedOutput: nil,
+			expectedPR: `apiVersion: porch.kpt.dev
+kind: PackageRevision
+metadata:
+  creationTimestamp: null
+  name: my-pr
+  ownerReferences:
+  - apiVersion: config.porch.kpt.dev
+    kind: PackageVariant
+    name: my-pv
+    uid: pv-uid
+  - apiVersion: config.porch.kpt.dev
+    kind: PackageVariant
+    name: my-pv
+    uid: some-other-uid
+spec:
+  lifecycle: Draft
+  packageName: bar
+  repository: deployments
+  workspaceName: packagevariant-3
+status:
+  publishTimestamp: null
+`,
+		},
 	}
 
 	for tn, tc := range testCases {
@@ -825,7 +877,11 @@ kind: PackageVariant
 metadata:
   name: my-pv
   uid: pv-uid
-spec: 
+spec:
+  annotations:
+    test-annotation: something
+  labels:
+    test-label: something
   upstream:
     repo: blueprints
     package: foo
@@ -875,7 +931,11 @@ items:
 			expected: []string{`apiVersion: porch.kpt.dev
 kind: PackageRevision
 metadata:
+  annotations:
+    test-annotation: something
   creationTimestamp: null
+  labels:
+    test-label: something
   name: my-pr-2
   ownerReferences:
   - apiVersion: config.porch.kpt.dev
