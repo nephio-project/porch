@@ -103,35 +103,49 @@ func (e *singleFunctionEvaluator) EvaluateFunction(ctx context.Context, req *pb.
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
+	klog.V(4).Infof("After cmd1 %v", cmd)
+	klog.V(4).Infof("After cmd2 %v", e)
+	klog.V(4).Infof("After cmd3 %v", req)
+	klog.V(4).Infof("After cmd %v", ctx)
 	err := cmd.Run()
+	klog.V(4).Infof("After cmd run %v", err)
 	var exitErr *exec.ExitError
 	outbytes := stdout.Bytes()
 	stderrStr := stderr.String()
+	klog.V(4).Infof("After i/o %v", stderrStr)
 	if err != nil {
+		klog.V(4).Infof("err1 %v", err)
 		if errors.As(err, &exitErr) {
 			// If the exit code is non-zero, we will try to embed the structured results and content from stderr into the error message.
 			rl, pe := fn.ParseResourceList(outbytes)
+			klog.V(4).Infof("err2")
 			if pe != nil {
 				// If we can't parse the output resource list, we only surface the content in stderr.
+				klog.V(4).Infof("err4")
 				return nil, status.Errorf(codes.Internal, "failed to parse the output of function %q with stderr '%v' and stdout '%s': %+v", req.Image, stderrStr, outbytes, pe)
 			}
 			return nil, status.Errorf(codes.Internal, "failed to evaluate function %q with structured results: %v and stderr: %v", req.Image, rl.Results.Error(), stderrStr)
 		} else {
+			klog.V(4).Infof("err3")
 			return nil, status.Errorf(codes.Internal, "Failed to execute function %q: %s (%s)", req.Image, err, stderrStr)
 		}
 	}
 
 	klog.Infof("Evaluated %q: stdout length: %d\nstderr:\n%v", req.Image, len(outbytes), stderrStr)
 	rl, pErr := fn.ParseResourceList(outbytes)
+	klog.V(4).Infof("PError %v", pErr)
 	if pErr != nil {
+		klog.V(4).Infof("err5: %v", err)
 		// If we can't parse the output resource list, we only surface the content in stderr.
 		return nil, status.Errorf(codes.Internal, "failed to parse the output of function %q with stderr '%v' and stdout '%s': %+v", req.Image, stderrStr, outbytes, pErr)
 	}
 	if rl.Results.ExitCode() != 0 {
+		klog.V(4).Infof("Warning1")
 		jsonBytes, _ := json.Marshal(rl.Results)
 		klog.Warningf("failed to evaluate function %q with structured results: %v and stderr: %v", req.Image, string(jsonBytes), stderrStr)
 	}
 
+	klog.V(4).Infof("End")
 	return &pb.EvaluateFunctionResponse{
 		ResourceList: outbytes,
 		Log:          []byte(stderrStr),
