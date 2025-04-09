@@ -72,8 +72,13 @@ var (
 	)
 )
 
-// recordMetric records both duration and count for an operation
-func recordMetric(kind string, operation Operation, name string, duration float64) {
+// RecordMetric records both duration and count for an operation
+func RecordMetric(kind string, operation Operation, name string, duration float64) {
 	operationDuration.WithLabelValues(kind, string(operation), name).Observe(duration)
 	operationCounter.WithLabelValues(kind, string(operation), name).Inc()
+}
+
+func MeasureAndRecord(op Operation, obj any, fn func()) {
+	time := Measure(func() { fn() })
+	RecordMetric(KindOf(obj), op, NameOf(obj), time.Milliseconds())
 }

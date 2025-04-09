@@ -27,13 +27,12 @@ const (
 )
 
 var (
-	repoCount    = flag.Int("repos", 1, "Number of repositories to create")
-	iterations   = flag.String("iterations", "10,25,50", "Number of control packages to create PER REPOSITORY for each iteration (e.g. \"10,25,50,100\")")
-	sampling     = flag.Int("sampling", 5, "Number of measurements to take per iteration")
-	allowTooMany = flag.Bool("allow-too-many-prs", false, "Allow the creation of over 10000 PackageRevisions")
-	writeToFile  = flag.Bool("write-to-file", false, "Write results to file")
-	printToLog   = flag.Bool("print-to-log", false, "Print results to log")
-	cooldown     = flag.Duration("cooldown", 0, "Time to wait between iterations")
+	repoCount   = flag.Int("repos", 1, "Number of repositories to create")
+	iterations  = flag.String("iterations", "10,25,50", "Number of control packages to create PER REPOSITORY for each iteration (e.g. \"10,25,50,100\")")
+	sampling    = flag.Int("sampling", 5, "Number of measurements to take per iteration")
+	writeToFile = flag.Bool("write-to-file", false, "Write results to file")
+	printToLog  = flag.Bool("print-to-log", false, "Print results to log")
+	cooldown    = flag.Duration("cooldown", 0, "Time to wait between iterations")
 )
 
 type IterativeTest struct {
@@ -58,18 +57,9 @@ func TestIterative(t *testing.T) {
 }
 
 func (t *IterativeTest) SetupSuite() {
+	t.parseFlags() // validate flags before starting the git server
 	t.PerformanceSuite.SetupSuite()
-	t.parseFlags()
-	var wg sync.WaitGroup
-	for _, repo := range t.repos {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			t.RegisterGitRepositoryWithDirectoryF(repo, repo)
-		}()
-	}
-	t.RegisterGitRepositoryWithDirectoryF(testRepoName, testRepoName)
-	wg.Wait()
+	t.createRepos()
 	t.metrics = []FullMetricsData{}
 }
 
@@ -80,16 +70,12 @@ func (t *IterativeTest) parseFlags() {
 		t.Fatalf("failed to parse iterations: %v", err)
 	}
 	if len(its) == 0 {
-		t.Fatalf("Must specify at least one iteration (--iterations)")
+		t.Fatalf("Must specify at least one iteration (-iterations)")
 	}
 	t.iterations = its
 
 	if *repoCount < 1 {
-		t.Fatalf("Repository count must be at least 1 (--repos)")
-	}
-	maxPrCount := t.iterations[len(t.iterations)-1] * *repoCount
-	if !*allowTooMany && maxPrCount > 10000 {
-		t.Fatalf("The maximum created PRs (%d) would exceed 10000, enable `--allow-too-many-prs` if that is okay", maxPrCount)
+		t.Fatalf("Repository count must be at least 1 (-repos)")
 	}
 	t.repos = []string{}
 	for i := range *repoCount {
@@ -118,6 +104,19 @@ func toIntSlice(s string) ([]int, error) {
 		out = append(out, i)
 	}
 	return out, nil
+}
+
+func (t *IterativeTest) createRepos() {
+	var wg sync.WaitGroup
+	for _, repo := range t.repos {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			t.RegisterGitRepositoryWithDirectoryF(repo, repo)
+		}()
+	}
+	t.RegisterGitRepositoryWithDirectoryF(testRepoName, testRepoName)
+	wg.Wait()
 }
 
 func (t *IterativeTest) SetupSubTest() {

@@ -407,6 +407,12 @@ func (t *TestSuite) DeleteL(obj client.Object, opts ...client.DeleteOption) {
 	t.delete(obj, opts, t.Logf)
 }
 
+// DeleteEH calls delete with a custom ErrorHandler
+func (t *TestSuite) DeleteEH(obj client.Object, eh ErrorHandler, opts ...client.DeleteOption) {
+	t.T().Helper()
+	t.delete(obj, opts, eh)
+}
+
 func (t *TestSuite) UpdateF(obj client.Object, opts ...client.UpdateOption) {
 	t.T().Helper()
 	t.update(obj, opts, t.Fatalf)
