@@ -15,6 +15,7 @@
 package fake
 
 import (
+	"context"
 	"testing"
 
 	"github.com/nephio-project/porch/pkg/repository"
@@ -39,4 +40,10 @@ func TestPackageGetters(t *testing.T) {
 	assert.Equal(t, "my-repo.my-package.my-workspace", fakePr.KubeObjectName())
 	assert.Equal(t, "my-namespace", fakePr.KubeObjectNamespace())
 	assert.Equal(t, types.UID("7007e8aa-0928-50f9-b980-92a44942f055"), fakePr.UID())
+	assert.True(t, fakePr.UpdateResources(context.TODO(), nil, nil) == nil)
+
+	meta := fakePr.GetMeta()
+	assert.Equal(t, "", meta.Name)
+
+	assert.True(t, fakePr.SetMeta(context.TODO(), meta) == nil)
 }

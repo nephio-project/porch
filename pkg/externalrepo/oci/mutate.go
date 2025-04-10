@@ -38,11 +38,12 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel/trace"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 )
 
-func (r *ociRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
+func (r *ociRepository) CreatePackageRevisionDraft(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
 	base := empty.Image
 
 	packageName := obj.Spec.PackageName
@@ -63,6 +64,7 @@ func (r *ociRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1
 			},
 		},
 		parent:    r,
+		metadata:  obj.ObjectMeta,
 		tasks:     []v1alpha1.Task{},
 		base:      base,
 		tag:       ociRepo.Tag(string(obj.Spec.WorkspaceName)),
@@ -104,6 +106,7 @@ func (r *ociRepository) UpdatePackageRevision(ctx context.Context, old repositor
 			},
 		},
 		parent:    r,
+		metadata:  old.GetMeta(),
 		tasks:     []v1alpha1.Task{},
 		base:      base,
 		tag:       ref,
@@ -112,18 +115,14 @@ func (r *ociRepository) UpdatePackageRevision(ctx context.Context, old repositor
 }
 
 type ociPackageRevisionDraft struct {
-	prKey repository.PackageRevisionKey
-
-	created time.Time
-
-	parent *ociRepository
-
-	tasks []v1alpha1.Task
-
+	prKey     repository.PackageRevisionKey
+	parent    *ociRepository
+	metadata  metav1.ObjectMeta
+	tasks     []v1alpha1.Task
 	base      v1.Image
 	tag       name.Tag
 	addendums []mutate.Addendum
-
+	created   time.Time
 	lifecycle v1alpha1.PackageRevisionLifecycle // New value of the package revision lifecycle
 }
 
@@ -206,6 +205,10 @@ func (p *ociPackageRevisionDraft) UpdateLifecycle(ctx context.Context, new v1alp
 
 func (p *ociPackageRevisionDraft) Key() repository.PackageRevisionKey {
 	return p.prKey
+}
+
+func (p *ociPackageRevisionDraft) GetMeta() metav1.ObjectMeta {
+	return p.metadata
 }
 
 // Finish round of updates.

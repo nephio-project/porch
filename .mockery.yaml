@@ -10,3 +10,21 @@ packages:
         config:
           dir: "test/mockery/mocks/external/{{.InterfaceDirRelative}}"
           outpkg: "{{.PackageName}}"
+  github.com/nephio-project/porch/pkg/repository:
+    interfaces:
+      Repository:
+        config:
+          dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
+          outpkg: "{{.PackageName}}"
+  github.com/nephio-project/porch/pkg/cache/crcache/meta:
+    interfaces:
+      MetadataStore:
+        config:
+          dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
+          outpkg: "{{.PackageName}}"
+  github.com/nephio-project/porch/pkg/cache/types:
+    interfaces:
+      RepoPRChangeNotifier:
+        config:
+          dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
+          outpkg: "{{.PackageName}}"

@@ -269,8 +269,7 @@ func (p *gitPackageRevision) GetMeta() metav1.ObjectMeta {
 	return p.metadata
 }
 
-func (p *gitPackageRevision) SetMeta(metadata metav1.ObjectMeta) {
+func (p *gitPackageRevision) SetMeta(_ context.Context, metadata metav1.ObjectMeta) error {
 	p.metadata = metadata
+	return nil
 }
-
-// TODO: Define a type `gitPackage` to implement the Repository.Package interface
