@@ -29,7 +29,7 @@ type CacheType string
 
 const (
 	CRCacheType      CacheType = "CR"
-	DefaultCacheType CacheType = "CR"
+	DefaultCacheType           = CRCacheType
 )
 
 type CacheOptions struct {
