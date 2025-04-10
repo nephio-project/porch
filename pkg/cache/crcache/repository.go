@@ -225,7 +225,6 @@ func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd re
 		return nil, err
 	}
 
-	// TODO: Check if this call is necessary
 	cachedPr, err := r.update(ctx, closedPr)
 	if err != nil {
 		return nil, err
