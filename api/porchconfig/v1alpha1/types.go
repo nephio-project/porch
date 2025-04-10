@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +26,8 @@ import (
 //+kubebuilder:printcolumn:name="Deployment",type=boolean,JSONPath=`.spec.deployment`
 //+kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=='Ready')].status`
 //+kubebuilder:printcolumn:name="Address",type=string,JSONPath=`.spec['git','oci']['repo','registry']`
+// +kubebuilder:validation:XValidation:rule="self.metadata.name.matches('^[a-z0-9]([-a-z0-9]*[a-z0-9])?$')",message="metadata.name must conform to the RFC1123 DNS label standard"
+// +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 63",message="metadata.name must be no more than 63 characters"
 
 // Repository
 type Repository struct {

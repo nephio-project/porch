@@ -27,7 +27,6 @@ func GetCommands(ctx context.Context, name, version string) []*cobra.Command {
 	var c []*cobra.Command
 	repoCmd := repo.NewCommand(ctx, name)
 	rpkgCmd := rpkg.NewCommand(ctx, name)
-
 	c = append(c, repoCmd, rpkgCmd)
 	return c
 }
