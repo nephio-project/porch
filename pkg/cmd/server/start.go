@@ -124,6 +124,11 @@ func NewCommandStartPorchServer(ctx context.Context, defaults *PorchServerOption
 func (o PorchServerOptions) Validate(args []string) error {
 	errors := []error{}
 	errors = append(errors, o.RecommendedOptions.Validate()...)
+
+	if !cachetypes.IsACacheType(o.CacheType) {
+		errors = append(errors, fmt.Errorf("specified cache-type %s is not supported", o.CacheType))
+	}
+
 	return utilerrors.NewAggregate(errors)
 }
 

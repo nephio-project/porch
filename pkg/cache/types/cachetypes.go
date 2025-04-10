@@ -16,6 +16,7 @@ package cachetypes
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -61,4 +62,13 @@ type CacheFactory interface {
 
 type RepoPRChangeNotifier interface {
 	NotifyPackageRevisionChange(eventType watch.EventType, obj repository.PackageRevision) int
+}
+
+func IsACacheType(ct string) bool {
+	switch strings.ToUpper(ct) {
+	case string(CRCacheType):
+		return true
+	default:
+		return false
+	}
 }
