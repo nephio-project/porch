@@ -58,7 +58,7 @@ func TestWrapperServerEvaluate(t *testing.T) {
 	opts := &options{
 		port:               9446,
 		maxGrpcMessageSize: 6 * 1024 * 1024,
-		entrypoint:         []string{"echo"},
+		entrypoint:         []string{"cat"},
 	}
 
 	evaluator := &singleFunctionEvaluator{
