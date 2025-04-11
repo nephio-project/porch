@@ -472,6 +472,12 @@ func (cad *cadEngine) RecloneAndReplay(ctx context.Context, parentPR repository.
 		return nil, err
 	}
 
+	tempClone := newObj.Spec.Tasks[0].Clone
+	if tempClone != nil && tempClone.Strategy == api.CopyMerge || tempClone.Strategy == api.ForceDeleteReplace {
+		klog.Warningf("Update strategy is %s, setting strategy in ctx", tempClone.Strategy)
+		ctx = context.WithValue(ctx, task.CloneStrategyKey, tempClone.Strategy)
+	}
+
 	if err := cad.taskHandler.ApplyTasks(ctx, draft, repositoryObj, newObj, packageConfig); err != nil {
 		return nil, err
 	}
