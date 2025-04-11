@@ -22,7 +22,6 @@ import (
 
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
-	contextkeys "github.com/nephio-project/porch/pkg"
 
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
@@ -32,6 +31,12 @@ import (
 	"github.com/hexops/gotextdiff/myers"
 	"github.com/hexops/gotextdiff/span"
 )
+
+// CloneStrategyKey is a context key used to store the clone strategy
+// it is used to handle conflicts when applying the patch.
+type ContextKey string
+
+const CloneStrategyKey ContextKey = "cloneStrategy"
 
 // GeneratePatch returns patch operations for transforming from oldV to newV.
 func GeneratePatch(fileName string, oldV, newV string) (api.PatchSpec, error) {
@@ -117,8 +122,11 @@ func (m *applyPatchMutation) apply(ctx context.Context, resources repository.Pac
 			}
 			var output bytes.Buffer
 			err = gitdiff.Apply(&output, strings.NewReader(oldContents), files[0])
-			cloneStrategy := ctx.Value(contextkeys.CloneStrategyKey)
-			if err != nil && cloneStrategy != api.CopyMerge || cloneStrategy == api.ForceDeleteReplace {
+			cloneStrategy := ctx.Value(CloneStrategyKey)
+			if cloneStrategy != nil {
+				klog.Infof("from context clone strategy: %v", cloneStrategy)
+			}
+			if err != nil && (cloneStrategy != api.CopyMerge && cloneStrategy != api.ForceDeleteReplace) {
 				return result, nil, fmt.Errorf("error applying patch: %w", err)
 			}
 
