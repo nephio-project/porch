@@ -598,9 +598,22 @@ func (_c *MockPackageRevision_ResourceVersion_Call) RunAndReturn(run func() stri
 	return _c
 }
 
-// SetMeta provides a mock function with given fields: _a0
-func (_m *MockPackageRevision) SetMeta(_a0 metav1.ObjectMeta) {
-	_m.Called(_a0)
+// SetMeta provides a mock function with given fields: _a0, _a1
+func (_m *MockPackageRevision) SetMeta(_a0 context.Context, _a1 metav1.ObjectMeta) error {
+	ret := _m.Called(_a0, _a1)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetMeta")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, metav1.ObjectMeta) error); ok {
+		r0 = rf(_a0, _a1)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // MockPackageRevision_SetMeta_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetMeta'
@@ -609,25 +622,26 @@ type MockPackageRevision_SetMeta_Call struct {
 }
 
 // SetMeta is a helper method to define mock.On call
-//   - _a0 metav1.ObjectMeta
-func (_e *MockPackageRevision_Expecter) SetMeta(_a0 interface{}) *MockPackageRevision_SetMeta_Call {
-	return &MockPackageRevision_SetMeta_Call{Call: _e.mock.On("SetMeta", _a0)}
+//   - _a0 context.Context
+//   - _a1 metav1.ObjectMeta
+func (_e *MockPackageRevision_Expecter) SetMeta(_a0 interface{}, _a1 interface{}) *MockPackageRevision_SetMeta_Call {
+	return &MockPackageRevision_SetMeta_Call{Call: _e.mock.On("SetMeta", _a0, _a1)}
 }
 
-func (_c *MockPackageRevision_SetMeta_Call) Run(run func(_a0 metav1.ObjectMeta)) *MockPackageRevision_SetMeta_Call {
+func (_c *MockPackageRevision_SetMeta_Call) Run(run func(_a0 context.Context, _a1 metav1.ObjectMeta)) *MockPackageRevision_SetMeta_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(metav1.ObjectMeta))
+		run(args[0].(context.Context), args[1].(metav1.ObjectMeta))
 	})
 	return _c
 }
 
-func (_c *MockPackageRevision_SetMeta_Call) Return() *MockPackageRevision_SetMeta_Call {
-	_c.Call.Return()
+func (_c *MockPackageRevision_SetMeta_Call) Return(_a0 error) *MockPackageRevision_SetMeta_Call {
+	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *MockPackageRevision_SetMeta_Call) RunAndReturn(run func(metav1.ObjectMeta)) *MockPackageRevision_SetMeta_Call {
-	_c.Run(run)
+func (_c *MockPackageRevision_SetMeta_Call) RunAndReturn(run func(context.Context, metav1.ObjectMeta) error) *MockPackageRevision_SetMeta_Call {
+	_c.Call.Return(run)
 	return _c
 }
 
