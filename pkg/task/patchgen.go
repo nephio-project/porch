@@ -22,6 +22,8 @@ import (
 
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	contextkeys "github.com/nephio-project/porch/pkg"
+
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
@@ -114,7 +116,9 @@ func (m *applyPatchMutation) apply(ctx context.Context, resources repository.Pac
 				return result, nil, fmt.Errorf("patch contained file mode change")
 			}
 			var output bytes.Buffer
-			if err := gitdiff.Apply(&output, strings.NewReader(oldContents), files[0]); err != nil {
+			err = gitdiff.Apply(&output, strings.NewReader(oldContents), files[0])
+			cloneStrategy := ctx.Value(contextkeys.CloneStrategyKey)
+			if err != nil && cloneStrategy != api.CopyMerge || cloneStrategy == api.ForceDeleteReplace {
 				return result, nil, fmt.Errorf("error applying patch: %w", err)
 			}
 

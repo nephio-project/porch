@@ -23,6 +23,7 @@ import (
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	contextkeys "github.com/nephio-project/porch/pkg"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/meta"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -572,11 +573,12 @@ func (cad *cadEngine) RecloneAndReplay(ctx context.Context, parentPR repository.
 
 	tempClone := newObj.Spec.Tasks[0].Clone
 	if tempClone != nil && tempClone.Strategy == api.CopyMerge || tempClone.Strategy == api.ForceDeleteReplace {
-		klog.Warningf("Update strategy is %s, skipping ApplyTasks", tempClone.Strategy)
-	} else {
-		if err := cad.taskHandler.ApplyTasks(ctx, draft, repositoryObj, newObj, packageConfig); err != nil {
-			return nil, err
-		}
+		klog.Warningf("Update strategy is %s, setting strategy in ctx", tempClone.Strategy)
+		ctx = context.WithValue(ctx, contextkeys.CloneStrategyKey, tempClone.Strategy)
+	}
+
+	if err := cad.taskHandler.ApplyTasks(ctx, draft, repositoryObj, newObj, packageConfig); err != nil {
+		return nil, err
 	}
 
 	if err := draft.UpdateLifecycle(ctx, newObj.Spec.Lifecycle); err != nil {
