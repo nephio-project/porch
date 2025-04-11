@@ -19,10 +19,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"net"
 	"os"
 	"os/exec"
+	"strconv"
 
 	pb "github.com/nephio-project/porch/func/evaluator"
 	"github.com/nephio-project/porch/func/healthchecker"
@@ -50,6 +52,12 @@ func main() {
 	}
 	cmd.Flags().IntVar(&op.port, "port", 9446, "The server port")
 	cmd.Flags().IntVar(&op.maxGrpcMessageSize, "max-request-body-size", 6*1024*1024, "Maximum size of grpc messages in bytes.")
+	cmd.Flags().IntVar(&op.logLevel, "verbosity", 2, "Verbosity of logs.")
+
+	flagSet := flag.NewFlagSet("log-level", flag.ContinueOnError)
+	klog.InitFlags(flagSet)
+	_ = flagSet.Parse([]string{"--v", strconv.Itoa(op.logLevel)})
+
 	if err := cmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "unexpected error: %v\n", err)
 		os.Exit(1)
@@ -60,6 +68,7 @@ type options struct {
 	port               int
 	maxGrpcMessageSize int
 	entrypoint         []string
+	logLevel           int
 }
 
 func (o *options) run() error {

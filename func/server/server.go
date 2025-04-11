@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -42,6 +43,8 @@ type options struct {
 	port int
 	// The runtime(s) to disable. Multiple runtimes should separated by `,`.
 	disableRuntimes string
+	// The verbosity level of the logs (0-5)
+	logLevel int
 
 	// Parameters of ExecEvaluator
 	exec internal.ExecutableEvaluatorOptions
@@ -54,10 +57,10 @@ func main() {
 	// generic flags
 	flag.IntVar(&o.port, "port", 9445, "The server port")
 	flag.StringVar(&o.disableRuntimes, "disable-runtimes", "", fmt.Sprintf("The runtime(s) to disable. Multiple runtimes should separated by `,`. Available runtimes: `%v`, `%v`.", execRuntime, podRuntime))
+	flag.IntVar(&o.logLevel, "log-level", 2, "The verbosity level of the logs (0-5)")
 	// flags for the exec runtime
 	flag.StringVar(&o.exec.FunctionCacheDir, "functions", "./functions", "Path to cached functions.")
 	flag.StringVar(&o.exec.ConfigFileName, "config", "./config.yaml", "Path to the config file of the exec runtime.")
-	flag.IntVar(&o.exec.LogLevel, "exec-log-level", 5, "Log verbosity level of klog.")
 	// flags for the pod runtime
 	flag.StringVar(&o.pod.PodCacheConfigFileName, "pod-cache-config", "/pod-cache-config/pod-cache-config.yaml", "Path to the pod cache config file. The file is map of function name to TTL.")
 	flag.StringVar(&o.pod.PodNamespace, "pod-namespace", "porch-fn-system", "Namespace to run KRM functions pods.")
@@ -70,7 +73,6 @@ func main() {
 	flag.BoolVar(&o.pod.EnablePrivateRegistriesTls, "enable-private-registries-tls", false, "if enabled, will prioritize use of user provided TLS secret when accessing registries")
 	flag.StringVar(&o.pod.TlsSecretPath, "tls-secret-path", "/var/tmp/tls-secret/", "The path of the secret used in tls configuration")
 	flag.IntVar(&o.pod.MaxGrpcMessageSize, "max-request-body-size", 6*1024*1024, "Maximum size of grpc messages in bytes. Keep this in sync with porch-server's corresponding argument.")
-	flag.IntVar(&o.pod.LogLevel, "pod-log-level", 5, "Log verbosity level of klog")
 
 	flag.Parse()
 
@@ -81,6 +83,10 @@ func main() {
 }
 
 func run(o *options) error {
+	flagSet := flag.NewFlagSet("log-level", flag.ContinueOnError)
+	klog.InitFlags(flagSet)
+	_ = flagSet.Parse([]string{"--v", strconv.Itoa(o.logLevel)})
+
 	address := fmt.Sprintf(":%d", o.port)
 	lis, err := net.Listen("tcp", address)
 	if err != nil {

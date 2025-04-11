@@ -33,7 +33,6 @@ import (
 type ExecutableEvaluatorOptions struct {
 	ConfigFileName   string // Path to the config file
 	FunctionCacheDir string // Path to cached functions
-	LogLevel         int    // klog verbosity level 0-5
 }
 
 type executableEvaluator struct {
@@ -53,9 +52,6 @@ type function struct {
 var _ Evaluator = &executableEvaluator{}
 
 func NewExecutableEvaluator(o ExecutableEvaluatorOptions) (Evaluator, error) {
-
-	SetLogLevel(o.LogLevel)
-
 	cache := map[string]string{}
 
 	if o.ConfigFileName != "" {

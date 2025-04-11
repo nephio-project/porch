@@ -3,15 +3,18 @@ package main
 import (
 	"bytes"
 	"context"
+	"flag"
 	pb "github.com/nephio-project/porch/func/evaluator"
-	"github.com/nephio-project/porch/func/internal"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/kustomize/kyaml/kio"
 	"testing"
 )
 
 func TestWrapperServerEvaluate(t *testing.T) {
 
-	internal.SetLogLevel(5)
+	flagSet := flag.NewFlagSet("log-level", flag.ContinueOnError)
+	klog.InitFlags(flagSet)
+	_ = flagSet.Parse([]string{"--v", "5"})
 
 	tests := []struct {
 		name       string

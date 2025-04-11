@@ -86,14 +86,11 @@ type PodEvaluatorOptions struct {
 	EnablePrivateRegistriesTls bool          // If enabled, will prioritize use of user provided TLS secret when accessing registries
 	TlsSecretPath              string        // The path of the secret used in tls configuration
 	MaxGrpcMessageSize         int           // Maximum size of grpc messages in bytes
-	LogLevel                   int           // klog verbosity level 0-5
 }
 
 var _ Evaluator = &podEvaluator{}
 
 func NewPodEvaluator(o PodEvaluatorOptions) (Evaluator, error) {
-
-	SetLogLevel(o.LogLevel)
 
 	restCfg, err := config.GetConfig()
 	if err != nil {
