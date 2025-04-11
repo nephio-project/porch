@@ -53,9 +53,6 @@ func (o *Options) BindFlags(_ string, _ *flag.FlagSet) {}
 type PackageVariantReconciler struct {
 	client.Client
 
-	// Reader goes directly to the Kubernetes API server and
-	// may be used for Get and List operations if you need to
-	// bypass the cache in Client (which may be stale).
 	client.Reader
 
 	Options
@@ -66,7 +63,7 @@ const (
 
 	ConditionTypeStalled            = "Stalled"              // whether or not the packagevariant object is making progress
 	ConditionTypeReady              = "Ready"                // whether or not the reconciliation succeeded
-	ConditionTypeAtomicPVOperations = "PVOperationsComplete" // whether or not the package's pipeline has completed successfully
+	ConditionTypeAtomicPVOperations = "PVOperationsComplete" // whether or not the packagevariant object has completed operations on a downstream packagerevision
 )
 
 var (
@@ -453,6 +450,9 @@ func (r *PackageVariantReconciler) findAndUpdateExistingRevisions(ctx context.Co
 				return nil, err
 			}
 
+			if err := r.Reader.Get(ctx, types.NamespacedName{Name: downstream.GetName(), Namespace: downstream.GetNamespace()}, downstream); err != nil {
+				return nil, err
+			}
 			setPrStatusCondition(downstream, ConditionPipelinePVRevisionReady)
 			if err := r.Client.Update(ctx, downstream); err != nil {
 				return nil, err
@@ -517,6 +517,9 @@ func (r *PackageVariantReconciler) findAndUpdateExistingRevisions(ctx context.Co
 				return nil, err
 			}
 
+			if err := r.Reader.Get(ctx, types.NamespacedName{Name: downstream.GetName(), Namespace: downstream.GetNamespace()}, downstream); err != nil {
+				return nil, err
+			}
 			setPrStatusCondition(downstream, ConditionPipelinePVRevisionReady)
 			if err := r.Client.Update(ctx, downstream); err != nil {
 				return nil, err
@@ -790,6 +793,9 @@ func (r *PackageVariantReconciler) updateDraft(ctx context.Context,
 		return nil, err
 	}
 
+	if err := r.Reader.Get(ctx, types.NamespacedName{Name: draft.GetName(), Namespace: draft.GetNamespace()}, draft); err != nil {
+		return nil, err
+	}
 	setPrStatusCondition(draft, ConditionPipelinePVRevisionReady)
 	if err := r.Client.Update(ctx, draft); err != nil {
 		return nil, err

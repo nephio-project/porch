@@ -28,6 +28,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+
+	pvapi "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	"github.com/nephio-project/porch/controllers/packagevariants/pkg/controllers/packagevariant"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -46,6 +48,7 @@ import (
 
 var (
 	packageRevisionGVK = porchapi.SchemeGroupVersion.WithKind("PackageRevision")
+	packageVariantGVK  = pvapi.GroupVersion.WithKind("PackageVariant")
 	configMapGVK       = corev1.SchemeGroupVersion.WithKind("ConfigMap")
 )
 

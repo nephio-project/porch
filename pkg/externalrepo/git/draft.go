@@ -62,7 +62,7 @@ func (d *gitPackageRevisionDraft) UpdateResources(ctx context.Context, new *v1al
 	ctx, span := tracer.Start(ctx, "gitPackageDraft::UpdateResources", trace.WithAttributes())
 	defer span.End()
 
-	return d.repo.UpdateDraftResources(ctx, d, new, task)
+	return d.repo.UpdateDraftResources(ctx, d, new, changeTask)
 }
 
 func (d *gitPackageRevisionDraft) UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error {

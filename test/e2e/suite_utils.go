@@ -25,6 +25,7 @@ import (
 	"github.com/joho/godotenv"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	pvapi "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	corev1 "k8s.io/api/core/v1"
@@ -482,7 +483,7 @@ func (t *TestSuite) WaitUntilRepositoryReady(name, namespace string) {
 func (t *TestSuite) DeleteVariantsForRepo(repoName string) {
 	t.T().Helper()
 	namespace := t.Namespace
-	var variantList variantapi.PackageVariantList
+	var variantList pvapi.PackageVariantList
 	if err := t.Client.List(t.GetContext(), &variantList, client.InNamespace(namespace)); err != nil {
 		t.Errorf("error listing package variants: %v", err)
 	}
