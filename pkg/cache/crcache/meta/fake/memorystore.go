@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ import (
 	"context"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/pkg/meta"
+	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -50,12 +50,9 @@ func (m *MemoryMetadataStore) List(ctx context.Context, repo *configapi.Reposito
 }
 
 func (m *MemoryMetadataStore) Create(ctx context.Context, pkgRevMeta metav1.ObjectMeta, repoName string, pkgRevUID types.UID) (metav1.ObjectMeta, error) {
-	for _, m := range m.Metas {
-		if m.Name == pkgRevMeta.Name && m.Namespace == pkgRevMeta.Namespace {
-			return m, apierrors.NewAlreadyExists(
-				schema.GroupResource{Group: "config.kpt.dev", Resource: "packagerevisions"},
-				m.Name,
-			)
+	for _, meta := range m.Metas {
+		if meta.Name == pkgRevMeta.Name && meta.Namespace == pkgRevMeta.Namespace {
+			return m.Update(ctx, pkgRevMeta)
 		}
 	}
 	m.Metas = append(m.Metas, pkgRevMeta)

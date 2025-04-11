@@ -22,6 +22,8 @@ import (
 	"testing"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
+	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	mockclient "github.com/nephio-project/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -33,12 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func TestCreateOK(t *testing.T) {
-
-	t.Cleanup(func() {
-		// Clean up after the test
-	})
-
+func TestCreateUpdateDeleteOK(t *testing.T) {
 	mockClient := mockclient.NewMockClient(t)
 	ctxt := context.TODO()
 
@@ -52,17 +49,56 @@ func TestCreateOK(t *testing.T) {
 	}
 
 	mockClient.EXPECT().Create(mock.Anything, mock.Anything).Return(nil)
-	newPkgRevMeta1, err := store.Create(ctxt, pkgRevMeta, repo.Name, uuid.NewUUID())
+	newPkgRevMeta, err := store.Create(ctxt, pkgRevMeta, repo.Name, uuid.NewUUID())
 	assert.True(t, err == nil)
-	assert.Equal(t, pkgRevMeta.Name, newPkgRevMeta1.Name)
+	assert.Equal(t, pkgRevMeta.Name, newPkgRevMeta.Name)
+
+	prKey := types.NamespacedName{
+		Name:      pkgRevMeta.Name,
+		Namespace: pkgRevMeta.Namespace,
+	}
+	internalPkgRev := v1alpha1.PackageRev{}
+
+	mockClient.EXPECT().
+		Get(mock.Anything, prKey, &internalPkgRev).
+		Return(nil).
+		Run(func(_ context.Context, key types.NamespacedName, obj client.Object, opts ...client.GetOption) {
+			obj.(*v1alpha1.PackageRev).Name = prKey.Name
+			obj.(*v1alpha1.PackageRev).Namespace = prKey.Namespace
+		})
+	gotPR, err := store.Get(ctxt, prKey)
+	assert.True(t, err == nil)
+	assert.Equal(t, gotPR.Name, prKey.Name)
+
+	internalPkgRevList := internalapi.PackageRevList{}
+	mockClient.EXPECT().
+		List(mock.Anything, &internalPkgRevList, mock.Anything, mock.Anything).
+		Return(nil).
+		Run(func(_ context.Context, list client.ObjectList, opts ...client.ListOption) {
+			list.(*v1alpha1.PackageRevList).Items = make([]v1alpha1.PackageRev, 1)
+			list.(*v1alpha1.PackageRevList).Items[0] = v1alpha1.PackageRev{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: pkgRevMeta.Namespace,
+					Name:      pkgRevMeta.Name,
+				},
+			}
+		})
+	prList, err := store.List(ctxt, &repo)
+	assert.True(t, err == nil)
+	assert.Equal(t, prList[0].Name, prKey.Name)
+
+	mockClient.EXPECT().Update(mock.Anything, mock.Anything).Return(nil)
+	updPkgRevMeta, err := store.Update(ctxt, newPkgRevMeta)
+	assert.True(t, err == nil)
+	assert.Equal(t, pkgRevMeta.Name, updPkgRevMeta.Name)
+
+	mockClient.EXPECT().Delete(mock.Anything, mock.Anything).Return(nil)
+	delPkgRevMeta, err := store.Delete(ctxt, prKey, true)
+	assert.True(t, err == nil)
+	assert.Equal(t, delPkgRevMeta.Name, prKey.Name)
 }
 
 func TestCreateAlreadyExists(t *testing.T) {
-
-	t.Cleanup(func() {
-		// Clean up after the test
-	})
-
 	mockClient := mockclient.NewMockClient(t)
 	ctxt := context.TODO()
 
@@ -83,11 +119,6 @@ func TestCreateAlreadyExists(t *testing.T) {
 }
 
 func TestStoreErrors(t *testing.T) {
-
-	t.Cleanup(func() {
-		// Clean up after the test
-	})
-
 	mockClient := mockclient.NewMockClient(t)
 	ctxt := context.TODO()
 

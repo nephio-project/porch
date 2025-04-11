@@ -22,13 +22,15 @@ import (
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type gitPackageRevisionDraft struct {
-	prKey   repository.PackageRevisionKey
-	repo    *gitRepository // repo is repo containing the package
-	updated time.Time
-	tasks   []v1alpha1.Task
+	prKey    repository.PackageRevisionKey
+	repo     *gitRepository // repo is repo containing the package
+	metadata metav1.ObjectMeta
+	updated  time.Time
+	tasks    []v1alpha1.Task
 
 	// New value of the package revision lifecycle
 	lifecycle v1alpha1.PackageRevisionLifecycle
@@ -50,6 +52,10 @@ var _ repository.PackageRevisionDraft = &gitPackageRevisionDraft{}
 
 func (d *gitPackageRevisionDraft) Key() repository.PackageRevisionKey {
 	return d.prKey
+}
+
+func (d *gitPackageRevisionDraft) GetMeta() metav1.ObjectMeta {
+	return d.metadata
 }
 
 func (d *gitPackageRevisionDraft) UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, change *v1alpha1.Task) error {
