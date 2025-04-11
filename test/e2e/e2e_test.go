@@ -28,7 +28,7 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 
-	variantapi "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
+	pvapi "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	"github.com/nephio-project/porch/controllers/packagevariants/pkg/controllers/packagevariant"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -52,7 +52,7 @@ const (
 
 var (
 	packageRevisionGVK = porchapi.SchemeGroupVersion.WithKind("PackageRevision")
-	packageVariantGVK  = variantapi.GroupVersion.WithKind("PackageVariant")
+	packageVariantGVK  = pvapi.GroupVersion.WithKind("PackageVariant")
 	configMapGVK       = corev1.SchemeGroupVersion.WithKind("ConfigMap")
 )
 
@@ -3033,7 +3033,7 @@ func (t *PorchSuite) TestPackageVariantReadinessGate() {
 	t.UpdateApprovalF(upstreamPr, metav1.UpdateOptions{})
 
 	// Create a new package variant (via init)
-	pv := &variantapi.PackageVariant{
+	pv := &pvapi.PackageVariant{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       packageVariantGVK.Kind,
 			APIVersion: packageVariantGVK.GroupVersion().String(),
@@ -3042,12 +3042,12 @@ func (t *PorchSuite) TestPackageVariantReadinessGate() {
 			Namespace: t.Namespace,
 			Name:      variantName,
 		},
-		Spec: variantapi.PackageVariantSpec{
-			Downstream: &variantapi.Downstream{
+		Spec: pvapi.PackageVariantSpec{
+			Downstream: &pvapi.Downstream{
 				Package: downstreamName,
 				Repo:    repository,
 			},
-			Upstream: &variantapi.Upstream{
+			Upstream: &pvapi.Upstream{
 				Package:  upstreamName,
 				Repo:     repository,
 				Revision: 1,
@@ -3055,7 +3055,7 @@ func (t *PorchSuite) TestPackageVariantReadinessGate() {
 			Pipeline: &kptfilev1.Pipeline{
 				Mutators: mutatorFunctions,
 			},
-			Injectors: []variantapi.InjectionSelector{
+			Injectors: []pvapi.InjectionSelector{
 				{
 					Name: "nrf-overrides-values",
 				},
