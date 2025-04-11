@@ -18,11 +18,16 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
+	"github.com/nephio-project/porch/pkg/util"
+	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -30,6 +35,47 @@ import (
 // TODO: 	"sigs.k8s.io/kustomize/kyaml/filesys" FileSystem?
 type PackageResources struct {
 	Contents map[string]string
+}
+
+func (pr *PackageResources) SetPrStatusCondition(condition api.Condition) {
+	pr.EditKptfile(func(parsedKptfile *kptfile.KptFile) {
+		kptfileCondition := kptfile.ConvertApiCondition(condition)
+		if parsedKptfile.Status == nil {
+			parsedKptfile.Status = &kptfile.Status{}
+		}
+
+		if index := slices.IndexFunc(parsedKptfile.Status.Conditions, func(aCondition kptfile.Condition) bool {
+			return aCondition.Type == kptfileCondition.Type
+		}); index == -1 {
+			// Conditions in Kptfile don't already include the desired Condition -
+			// check if we have a pipeline and if so, add the Condition
+			parsedKptfile.Status.Conditions = append(parsedKptfile.Status.Conditions, kptfileCondition)
+		} else {
+			parsedKptfile.Status.Conditions[index] = kptfileCondition
+		}
+	})
+}
+
+func (pr *PackageResources) EditKptfile(editFunc func(*kptfile.KptFile)) {
+	parsedKptfile := pr.GetKptfile()
+
+	editFunc(parsedKptfile)
+
+	pr.Contents[kptfile.KptFileName] = func() string {
+		yamlKptfile, _ := kptfileutil.ToYamlString(parsedKptfile)
+		return yamlKptfile
+	}()
+}
+
+func (pr *PackageResources) GetKptfile() *kptfile.KptFile {
+	parsedKptfile, _ :=
+		kptfileutil.FromKubeObject(
+			func() *fn.KubeObject {
+				kubeObject, _ := util.YamlToKubeObject(
+					pr.Contents[kptfile.KptFileName])
+				return kubeObject
+			}())
+	return &parsedKptfile
 }
 
 type PackageRevisionKey struct {
@@ -195,7 +241,7 @@ type PackageRevision interface {
 	// GetUpstreamLock returns the kpt lock information.
 	GetUpstreamLock(context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error)
 
-	// GetKptfile returns the Kptfile for hte package
+	// GetKptfile returns the Kptfile for the package
 	GetKptfile(context.Context) (kptfile.KptFile, error)
 
 	// GetLock returns the current revision's lock information.
