@@ -15,12 +15,14 @@
 package server
 
 import (
+	"os"
 	"testing"
 	"time"
 
 	porchv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/apiserver"
 	"github.com/spf13/pflag"
+	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
 )
@@ -39,4 +41,27 @@ func TestAddFlags(t *testing.T) {
 	if o.RepoSyncFrequency < 5*time.Minute {
 		t.Fatalf("AddFlags(): repo-sync-frequency cannot be less that 5 minutes.")
 	}
+}
+
+func TestValidate(t *testing.T) {
+	opts := NewPorchServerOptions(os.Stdout, os.Stderr)
+
+	err := opts.Validate(nil)
+	assert.True(t, err != nil)
+
+	opts.CacheType = "CR"
+	err = opts.Validate(nil)
+	assert.True(t, err == nil)
+
+	opts.CacheType = "cr"
+	err = opts.Validate(nil)
+	assert.True(t, err == nil)
+
+	opts.CacheType = "DB"
+	err = opts.Validate(nil)
+	assert.True(t, err != nil)
+
+	opts.CacheType = ""
+	err = opts.Validate(nil)
+	assert.True(t, err != nil)
 }

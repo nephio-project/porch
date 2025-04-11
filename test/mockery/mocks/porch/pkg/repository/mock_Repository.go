@@ -188,12 +188,12 @@ func (_c *MockRepository_CreatePackage_Call) RunAndReturn(run func(context.Conte
 	return _c
 }
 
-// CreatePackageRevision provides a mock function with given fields: ctx, obj
-func (_m *MockRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
+// CreatePackageRevisionDraft provides a mock function with given fields: ctx, obj
+func (_m *MockRepository) CreatePackageRevisionDraft(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
 	ret := _m.Called(ctx, obj)
 
 	if len(ret) == 0 {
-		panic("no return value specified for CreatePackageRevision")
+		panic("no return value specified for CreatePackageRevisionDraft")
 	}
 
 	var r0 repository.PackageRevisionDraft
@@ -218,31 +218,31 @@ func (_m *MockRepository) CreatePackageRevision(ctx context.Context, obj *v1alph
 	return r0, r1
 }
 
-// MockRepository_CreatePackageRevision_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreatePackageRevision'
-type MockRepository_CreatePackageRevision_Call struct {
+// MockRepository_CreatePackageRevisionDraft_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreatePackageRevisionDraft'
+type MockRepository_CreatePackageRevisionDraft_Call struct {
 	*mock.Call
 }
 
-// CreatePackageRevision is a helper method to define mock.On call
+// CreatePackageRevisionDraft is a helper method to define mock.On call
 //   - ctx context.Context
 //   - obj *v1alpha1.PackageRevision
-func (_e *MockRepository_Expecter) CreatePackageRevision(ctx interface{}, obj interface{}) *MockRepository_CreatePackageRevision_Call {
-	return &MockRepository_CreatePackageRevision_Call{Call: _e.mock.On("CreatePackageRevision", ctx, obj)}
+func (_e *MockRepository_Expecter) CreatePackageRevisionDraft(ctx interface{}, obj interface{}) *MockRepository_CreatePackageRevisionDraft_Call {
+	return &MockRepository_CreatePackageRevisionDraft_Call{Call: _e.mock.On("CreatePackageRevisionDraft", ctx, obj)}
 }
 
-func (_c *MockRepository_CreatePackageRevision_Call) Run(run func(ctx context.Context, obj *v1alpha1.PackageRevision)) *MockRepository_CreatePackageRevision_Call {
+func (_c *MockRepository_CreatePackageRevisionDraft_Call) Run(run func(ctx context.Context, obj *v1alpha1.PackageRevision)) *MockRepository_CreatePackageRevisionDraft_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(*v1alpha1.PackageRevision))
 	})
 	return _c
 }
 
-func (_c *MockRepository_CreatePackageRevision_Call) Return(_a0 repository.PackageRevisionDraft, _a1 error) *MockRepository_CreatePackageRevision_Call {
+func (_c *MockRepository_CreatePackageRevisionDraft_Call) Return(_a0 repository.PackageRevisionDraft, _a1 error) *MockRepository_CreatePackageRevisionDraft_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *MockRepository_CreatePackageRevision_Call) RunAndReturn(run func(context.Context, *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error)) *MockRepository_CreatePackageRevision_Call {
+func (_c *MockRepository_CreatePackageRevisionDraft_Call) RunAndReturn(run func(context.Context, *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error)) *MockRepository_CreatePackageRevisionDraft_Call {
 	_c.Call.Return(run)
 	return _c
 }

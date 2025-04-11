@@ -394,7 +394,7 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 	return result, nil
 }
 
-func (r *gitRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
+func (r *gitRepository) CreatePackageRevisionDraft(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
 	_, span := tracer.Start(ctx, "gitRepository::CreatePackageRevision", trace.WithAttributes())
 	defer span.End()
 	r.mutex.Lock()
@@ -411,7 +411,7 @@ func (r *gitRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1
 		return nil, fmt.Errorf("error when resolving target branch for the package: %w", err)
 	}
 
-	if err := util.ValidPkgRevObjName(r.Key().Name, r.Key().Path, obj.Spec.PackageName, string(obj.Spec.WorkspaceName)); err != nil {
+	if err := util.ValidPkgRevObjName(r.Key().Name, r.Key().Path, obj.Spec.PackageName, obj.Spec.WorkspaceName); err != nil {
 		return nil, fmt.Errorf("failed to create packagerevision: %w", err)
 	}
 
@@ -428,6 +428,7 @@ func (r *gitRepository) CreatePackageRevision(ctx context.Context, obj *v1alpha1
 	return &gitPackageRevisionDraft{
 		prKey:     draftKey,
 		repo:      r,
+		metadata:  obj.ObjectMeta,
 		lifecycle: v1alpha1.PackageRevisionLifecycleDraft,
 		updated:   time.Now(),
 		base:      nil, // Creating a new package
@@ -473,6 +474,7 @@ func (r *gitRepository) UpdatePackageRevision(ctx context.Context, old repositor
 	return &gitPackageRevisionDraft{
 		prKey:     oldGitPackage.prKey,
 		repo:      r,
+		metadata:  old.GetMeta(),
 		lifecycle: lifecycle,
 		updated:   rev.updated,
 		base:      rev.ref,

@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,23 +28,29 @@ import (
 	"k8s.io/klog/v2"
 )
 
+type GRPCRuntimeOptions struct {
+	FunctionRunnerAddress string
+	MaxGrpcMessageSize    int
+	DefaultImagePrefix    string
+}
+
 type grpcRuntime struct {
 	cc     *grpc.ClientConn
 	client evaluator.FunctionEvaluatorClient
 }
 
-func newGRPCFunctionRuntime(address string, maxGrpcMessageSize int) (*grpcRuntime, error) {
-	if address == "" {
+func newGRPCFunctionRuntime(options GRPCRuntimeOptions) (*grpcRuntime, error) {
+	if options.FunctionRunnerAddress == "" {
 		return nil, fmt.Errorf("address is required to instantiate gRPC function runtime")
 	}
 
-	klog.Infof("Dialing grpc function runner %q", address)
+	klog.Infof("Dialing grpc function runner %q", options.FunctionRunnerAddress)
 
-	cc, err := grpc.NewClient(address,
+	cc, err := grpc.NewClient(options.FunctionRunnerAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(maxGrpcMessageSize),
-			grpc.MaxCallSendMsgSize(maxGrpcMessageSize),
+			grpc.MaxCallRecvMsgSize(options.MaxGrpcMessageSize),
+			grpc.MaxCallSendMsgSize(options.MaxGrpcMessageSize),
 		),
 	)
 	if err != nil {

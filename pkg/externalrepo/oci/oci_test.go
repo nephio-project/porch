@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 	"github.com/GoogleContainerTools/kpt/pkg/oci"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -40,7 +41,7 @@ func TestBuildPackageRevision(t *testing.T) {
 	assert.True(t, err != nil)
 }
 
-func TestPackageGetters(t *testing.T) {
+func TestPackageGettersAndSetters(t *testing.T) {
 	fakePr := ociPackageRevision{
 		prKey: repository.PackageRevisionKey{
 			PkgKey: repository.PackageKey{
@@ -57,4 +58,12 @@ func TestPackageGetters(t *testing.T) {
 	assert.Equal(t, "my-repo.my-package.my-workspace", fakePr.KubeObjectName())
 	assert.Equal(t, "my-namespace", fakePr.KubeObjectNamespace())
 	assert.Equal(t, types.UID("7007e8aa-0928-50f9-b980-92a44942f055"), fakePr.UID())
+
+	inMeta := metav1.ObjectMeta{}
+	inMeta.Name = fakePr.Key().GetPackageKey().RepoKey.Name
+
+	err := fakePr.SetMeta(context.TODO(), inMeta)
+	assert.Equal(t, nil, err)
+	outMeta := fakePr.GetMeta()
+	assert.Equal(t, outMeta.Name, inMeta.Name)
 }

@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,12 +37,15 @@ func TestCreateUpdateDeletePackageRevision(t *testing.T) {
 		},
 	}
 
-	_, err := ociRepo.CreatePackageRevision(context.TODO(), apiPr)
+	_, err := ociRepo.CreatePackageRevisionDraft(context.TODO(), apiPr)
 	assert.True(t, err != nil)
 
 	ociRepo.name = "my-repo"
-	draftPr, err := ociRepo.CreatePackageRevision(context.TODO(), apiPr)
+	draftPr, err := ociRepo.CreatePackageRevisionDraft(context.TODO(), apiPr)
 	assert.False(t, err != nil)
+
+	meta := draftPr.GetMeta()
+	assert.Equal(t, "", meta.Name)
 
 	draftPrKey := repository.PackageRevisionKey{
 		PkgKey: repository.PackageKey{

@@ -1,4 +1,4 @@
-// Copyright 2025 The kpt and Nephio Authors
+// Copyright 2023 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,24 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package crcache
+package cachetypes
 
 import (
-	"context"
+	"testing"
 
-	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
-	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
+	"github.com/stretchr/testify/assert"
 )
 
-var _ cachetypes.CacheFactory = &CrCacheFactory{}
-
-type CrCacheFactory struct {
-}
-
-func (f *CrCacheFactory) NewCache(_ context.Context, options cachetypes.CacheOptions) (cachetypes.Cache, error) {
-	return &Cache{
-		repositories:  make(map[string]*cachedRepository),
-		metadataStore: meta.NewCrdMetadataStore(options.CoreClient),
-		options:       options,
-	}, nil
+func TestIsACacheType(t *testing.T) {
+	assert.True(t, IsACacheType("CR"))
+	assert.True(t, IsACacheType("cr"))
+	assert.False(t, IsACacheType("DB"))
+	assert.False(t, IsACacheType(""))
+	assert.False(t, IsACacheType("ZZ"))
 }
