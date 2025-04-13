@@ -118,24 +118,18 @@ func (e *singleFunctionEvaluator) EvaluateFunction(ctx context.Context, req *pb.
 	stderrStr := stderr.String()
 
 	if err != nil {
+		klog.V(4).Infof("Input Resource List: %v\nOutput Resource List: %v", string(req.ResourceList), string(outbytes))
 		if errors.As(err, &exitErr) {
 			// If the exit code is non-zero, we will try to embed the structured results and content from stderr into the error message.
 			rl, pe := fn.ParseResourceList(outbytes)
 			if pe != nil {
 				// If we can't parse the output resource list, we only surface the content in stderr.
-				if klog.V(4).Enabled() {
-					klog.Errorf("Failed to parse the output of function: %q with stderr: '%v'\n and stdout: '%s': %+v", req.Image, stderrStr, string(outbytes), pe)
-				}
 				return nil, status.Errorf(codes.Internal, "failed to parse the output of function %q with stderr '%v' and stdout '%s': %+v", req.Image, stderrStr, string(outbytes), pe)
 			}
-			if klog.V(4).Enabled() {
-				klog.Errorf("Failed to evaluate function: %q with structured results: %v\n and stderr: %v", req.Image, rl.Results.Error(), stderrStr)
-			}
+
 			return nil, status.Errorf(codes.Internal, "failed to evaluate function %q with structured results: %v and stderr: %v", req.Image, rl.Results.Error(), stderrStr)
 		} else {
-			if klog.V(4).Enabled() {
-				klog.Errorf("Failed to execute function %q: %s (%s)", req.Image, err, stderrStr)
-			}
+
 			return nil, status.Errorf(codes.Internal, "Failed to execute function %q: %s (%s)", req.Image, err, stderrStr)
 		}
 	}
@@ -143,9 +137,7 @@ func (e *singleFunctionEvaluator) EvaluateFunction(ctx context.Context, req *pb.
 	klog.Infof("Evaluated %q: stdout length: %d\nstderr:\n%v", req.Image, len(outbytes), stderrStr)
 	rl, pErr := fn.ParseResourceList(outbytes)
 	if pErr != nil {
-		if klog.V(4).Enabled() {
-			klog.Errorf("Failed to parse the output of function %q: %v", req.Image, pErr)
-		}
+		klog.V(4).Infof("Input Resource List: %v\nOutput Resource List: %v", string(req.ResourceList), string(outbytes))
 		// If we can't parse the output resource list, we only surface the content in stderr.
 		return nil, status.Errorf(codes.Internal, "failed to parse the output of function %q with stderr '%v' and stdout '%s': %+v", req.Image, stderrStr, string(outbytes), pErr)
 	}

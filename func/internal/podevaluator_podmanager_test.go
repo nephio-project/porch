@@ -69,8 +69,6 @@ func (f *fakeFunctionEvalServer) Start(ctx context.Context) error {
 
 func TestPodManager(t *testing.T) {
 
-	SetLogLevel(5)
-
 	defaultSuccessEvalFunc := func(ctx context.Context, req *pb.EvaluateFunctionRequest) (*pb.EvaluateFunctionResponse, error) {
 		return &pb.EvaluateFunctionResponse{ResourceList: []byte("thisShouldBeKRM"), Log: []byte("Success")}, nil
 	}
