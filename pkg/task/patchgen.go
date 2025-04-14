@@ -32,12 +32,6 @@ import (
 	"github.com/hexops/gotextdiff/span"
 )
 
-// CloneStrategyKey is a context key used to store the clone strategy
-// it is used to handle conflicts when applying the patch.
-type ContextKey string
-
-const CloneStrategyKey ContextKey = "cloneStrategy"
-
 // GeneratePatch returns patch operations for transforming from oldV to newV.
 func GeneratePatch(fileName string, oldV, newV string) (api.PatchSpec, error) {
 	edits := myers.ComputeEdits(span.URIFromPath(fileName), oldV, newV)
@@ -53,8 +47,9 @@ func GeneratePatch(fileName string, oldV, newV string) (api.PatchSpec, error) {
 }
 
 type applyPatchMutation struct {
-	patchTask *api.PackagePatchTaskSpec
-	task      *api.Task
+	patchTask     *api.PackagePatchTaskSpec
+	task          *api.Task
+	cloneStrategy api.PackageMergeStrategy
 }
 
 var _ mutation = &applyPatchMutation{}
@@ -87,13 +82,9 @@ func (m *applyPatchMutation) apply(ctx context.Context, resources repository.Pac
 			}
 			delete(result.Contents, patchSpec.File)
 		case api.PatchTypePatchFile:
-			if cloneStrategyValue := ctx.Value(CloneStrategyKey); cloneStrategyValue != nil {
-				cloneStrategy := cloneStrategyValue.(api.PackageMergeStrategy)
-
-				if cloneStrategy == api.CopyMerge || cloneStrategy == api.ForceDeleteReplace {
-					klog.Infof("clone strategy from context is %v, patching skipped on this type of clone strategy", cloneStrategy)
-					return result, &api.TaskResult{Task: m.task}, nil
-				}
+			if m.cloneStrategy == api.CopyMerge || m.cloneStrategy == api.ForceDeleteReplace {
+				klog.Infof("clone strategy is %v, patching skipped on this type of clone strategy", m.cloneStrategy)
+				return result, &api.TaskResult{Task: m.task}, nil
 			}
 			oldContents, found := result.Contents[patchSpec.File]
 			if !found {
@@ -143,14 +134,15 @@ func (m *applyPatchMutation) apply(ctx context.Context, resources repository.Pac
 	return result, &api.TaskResult{Task: m.task}, nil
 }
 
-func buildPatchMutation(_ context.Context, task *api.Task) (mutation, error) {
+func buildPatchMutation(_ context.Context, task *api.Task, cloneStrategy api.PackageMergeStrategy) (mutation, error) {
 	if task.Patch == nil {
 		return nil, fmt.Errorf("patch not set for task of type %q", task.Type)
 	}
 
 	m := &applyPatchMutation{
-		patchTask: task.Patch,
-		task:      task,
+		patchTask:     task.Patch,
+		task:          task,
+		cloneStrategy: cloneStrategy,
 	}
 	return m, nil
 }
