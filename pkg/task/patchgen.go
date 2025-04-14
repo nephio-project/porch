@@ -121,9 +121,9 @@ func (m *applyPatchMutation) apply(ctx context.Context, resources repository.Pac
 			}
 
 			var output bytes.Buffer
-			err_conflict := gitdiff.Apply(&output, strings.NewReader(oldContents), files[0])
-			if !errors.Is(err_conflict, &gitdiff.Conflict{}) || !skipPatchMutation(ctx, *m) {
-				return result, nil, fmt.Errorf("error applying patch: %w", err_conflict)
+			errConflict := gitdiff.Apply(&output, strings.NewReader(oldContents), files[0])
+			if !errors.Is(errConflict, &gitdiff.Conflict{}) || !skipPatchMutation(ctx, *m) {
+				return result, nil, fmt.Errorf("error applying patch: %w", errConflict)
 			}
 			patched := output.String()
 			result.Contents[patchSpec.File] = patched
