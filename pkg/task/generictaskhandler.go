@@ -85,11 +85,12 @@ func (th *genericTaskHandler) ApplyTasks(ctx context.Context, draft repository.P
 			},
 		})
 	}
-
-	cloneTask := obj.Spec.Tasks[0].Clone
-	if cloneTask != nil {
-		klog.Infof("Clone strategy is %s", cloneTask.Strategy)
-		th.cloneStrategy = cloneTask.Strategy
+	if len(tasks) > 0 {
+		cloneTask := obj.Spec.Tasks[0].Clone
+		if cloneTask != nil {
+			klog.Infof("Clone strategy is %s", cloneTask.Strategy)
+			th.cloneStrategy = cloneTask.Strategy
+		}
 	}
 
 	for i := range tasks {
