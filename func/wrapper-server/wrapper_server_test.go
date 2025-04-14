@@ -44,7 +44,7 @@ func TestWrapperServerEvaluate(t *testing.T) {
 			expectFail: false,
 			skip:       false,
 			evaluator: singleFunctionEvaluator{
-				entrypoint: []string{"./search_replace_test.sh", "default", "namespace1"},
+				entrypoint: []string{"./testdata/search_replace_test.sh", "default", "namespace1"},
 			},
 			req: &pb.EvaluateFunctionRequest{
 				ResourceList: createMockResourceList("./testdata/new-package.yaml"),
@@ -59,7 +59,7 @@ func TestWrapperServerEvaluate(t *testing.T) {
 			expectFail: false,
 			skip:       false,
 			evaluator: singleFunctionEvaluator{
-				entrypoint: []string{"./search_replace_test.sh", "kube-system", "kube-system-new"},
+				entrypoint: []string{"./testdata/search_replace_test.sh", "kube-system", "kube-system-new"},
 			},
 			req: &pb.EvaluateFunctionRequest{
 				ResourceList: createMockResourceList("./testdata/package-revision.yaml"),
@@ -74,7 +74,7 @@ func TestWrapperServerEvaluate(t *testing.T) {
 			expectFail: false,
 			skip:       false,
 			evaluator: singleFunctionEvaluator{
-				entrypoint: []string{"./search_replace_test.sh", "default", "namespace1"},
+				entrypoint: []string{"./testdata/search_replace_test.sh", "default", "namespace1"},
 			},
 			req: &pb.EvaluateFunctionRequest{
 				ResourceList: createMockResourceList("./testdata/oci-repository.yaml"),
@@ -89,7 +89,7 @@ func TestWrapperServerEvaluate(t *testing.T) {
 			expectFail: true,
 			skip:       false,
 			evaluator: singleFunctionEvaluator{
-				entrypoint: []string{"./search_replace_test.sh"},
+				entrypoint: []string{"./testdata/search_replace_test.sh"},
 			},
 			req: &pb.EvaluateFunctionRequest{
 				ResourceList: createMockResourceList("./testdata/replaced/new-package.yaml"),
@@ -104,7 +104,7 @@ func TestWrapperServerEvaluate(t *testing.T) {
 			expectFail: true,
 			skip:       false,
 			evaluator: singleFunctionEvaluator{
-				entrypoint: []string{"./search_replace_test.sh", "default", "namespace1"},
+				entrypoint: []string{"./testdata/search_replace_test.sh", "default", "namespace1"},
 			},
 			req: &pb.EvaluateFunctionRequest{
 				ResourceList: nil,
@@ -119,10 +119,25 @@ func TestWrapperServerEvaluate(t *testing.T) {
 			expectFail: true,
 			skip:       false,
 			evaluator: singleFunctionEvaluator{
-				entrypoint: []string{"./search_replace_test.sh", "default", "namespace1"},
+				entrypoint: []string{"./testdata/search_replace_test.sh", "default", "namespace1"},
 			},
 			req: &pb.EvaluateFunctionRequest{
 				ResourceList: []byte("apiVersion: porch.kpt.dev/v1alpha1 kind: PackageRevision metadata: namespace: kube-system-new"),
+				Image:        "search-and-replace",
+			},
+			expectedResp: &pb.EvaluateFunctionResponse{
+				ResourceList: nil,
+			},
+		},
+		{
+			name:       "Failure to evaluate function with structured results",
+			expectFail: true,
+			skip:       false,
+			evaluator: singleFunctionEvaluator{
+				entrypoint: []string{"./testdata/search_replace_test_fail.sh"},
+			},
+			req: &pb.EvaluateFunctionRequest{
+				ResourceList: createMockResourceList("./testdata/new-package.yaml"),
 				Image:        "search-and-replace",
 			},
 			expectedResp: &pb.EvaluateFunctionResponse{
