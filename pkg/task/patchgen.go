@@ -86,10 +86,6 @@ func (m *applyPatchMutation) apply(ctx context.Context, resources repository.Pac
 			delete(result.Contents, patchSpec.File)
 
 		case api.PatchTypePatchFile:
-			if m.cloneStrategy == api.CopyMerge || m.cloneStrategy == api.ForceDeleteReplace {
-				klog.Infof("clone strategy is %v, patching skipped on this type of clone strategy", m.cloneStrategy)
-				return result, &api.TaskResult{Task: m.task}, nil
-			}
 			oldContents, found := result.Contents[patchSpec.File]
 			if !found {
 				return result, nil, fmt.Errorf("patch specifies file %q which does not exist", patchSpec.File)
@@ -127,7 +123,7 @@ func (m *applyPatchMutation) apply(ctx context.Context, resources repository.Pac
 			var output bytes.Buffer
 			err_conflict := gitdiff.Apply(&output, strings.NewReader(oldContents), files[0])
 			if !errors.Is(err_conflict, &gitdiff.Conflict{}) || !skipPatchMutation(ctx, *m) {
-				return result, nil, fmt.Errorf("error applying patch: %w", err)
+				return result, nil, fmt.Errorf("error applying patch: %w", err_conflict)
 			}
 			patched := output.String()
 			result.Contents[patchSpec.File] = patched
@@ -154,7 +150,7 @@ func buildPatchMutation(_ context.Context, task *api.Task, cloneStrategy api.Pac
 }
 
 func skipPatchMutation(_ context.Context, m applyPatchMutation) bool {
-	if m.cloneStrategy == api.CopyMerge || m.cloneStrategy != api.ForceDeleteReplace {
+	if m.cloneStrategy == api.CopyMerge || m.cloneStrategy == api.ForceDeleteReplace {
 		klog.Infof("clone strategy is %v, patching skipped on this type of clone strategy", m.cloneStrategy)
 		return true
 	}
