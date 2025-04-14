@@ -120,7 +120,7 @@ func (m *applyPatchMutation) apply(ctx context.Context, resources repository.Pac
 				return result, nil, fmt.Errorf("patch contained file mode change")
 			}
 			var output bytes.Buffer
-			if err := gitdiff.Apply(&output, strings.NewReader(oldContents), files[0]); err != nil {
+			if err := gitdiff.Apply(&output, strings.NewReader(oldContents), files[0]); err != nil && skipPatchMutation(ctx, *m) {
 				return result, nil, fmt.Errorf("error applying patch: %w", err)
 			}
 
@@ -145,4 +145,12 @@ func buildPatchMutation(_ context.Context, task *api.Task, cloneStrategy api.Pac
 		cloneStrategy: cloneStrategy,
 	}
 	return m, nil
+}
+
+func skipPatchMutation(_ context.Context, m applyPatchMutation) bool {
+	if m.cloneStrategy == api.CopyMerge || m.cloneStrategy != api.ForceDeleteReplace {
+		klog.Infof("clone strategy is %v, patching skipped on this type of clone strategy", m.cloneStrategy)
+		return true
+	}
+	return false
 }
