@@ -17,6 +17,7 @@ package task
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -68,12 +69,14 @@ func (m *applyPatchMutation) apply(ctx context.Context, resources repository.Pac
 
 	for _, patchSpec := range m.patchTask.Patches {
 		switch patchSpec.PatchType {
+
 		case api.PatchTypeCreateFile:
 			if _, found := result.Contents[patchSpec.File]; found {
 				// TODO: We should be able to tolerate this.  Either do a merge or create as a different filename "-2"
 				return result, nil, fmt.Errorf("patch wants to create file %q but already exists", patchSpec.File)
 			}
 			result.Contents[patchSpec.File] = patchSpec.Contents
+
 		case api.PatchTypeDeleteFile:
 			if _, found := result.Contents[patchSpec.File]; !found {
 				// TODO: I don't think this should be an error, but maybe we should use object manipulation more than file manipulation.
@@ -81,6 +84,7 @@ func (m *applyPatchMutation) apply(ctx context.Context, resources repository.Pac
 				klog.Warningf("patch wants to delete file %q, but already deleted", patchSpec.File)
 			}
 			delete(result.Contents, patchSpec.File)
+
 		case api.PatchTypePatchFile:
 			if m.cloneStrategy == api.CopyMerge || m.cloneStrategy == api.ForceDeleteReplace {
 				klog.Infof("clone strategy is %v, patching skipped on this type of clone strategy", m.cloneStrategy)
@@ -119,13 +123,15 @@ func (m *applyPatchMutation) apply(ctx context.Context, resources repository.Pac
 			if files[0].OldMode != files[0].NewMode {
 				return result, nil, fmt.Errorf("patch contained file mode change")
 			}
+
 			var output bytes.Buffer
-			if err := gitdiff.Apply(&output, strings.NewReader(oldContents), files[0]); err != nil && skipPatchMutation(ctx, *m) {
+			err_conflict := gitdiff.Apply(&output, strings.NewReader(oldContents), files[0])
+			if !errors.Is(err_conflict, &gitdiff.Conflict{}) || !skipPatchMutation(ctx, *m) {
 				return result, nil, fmt.Errorf("error applying patch: %w", err)
 			}
-
 			patched := output.String()
 			result.Contents[patchSpec.File] = patched
+
 		default:
 			return result, nil, fmt.Errorf("unhandled patch type %q", patchSpec.PatchType)
 		}
