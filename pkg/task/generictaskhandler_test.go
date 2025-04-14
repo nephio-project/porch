@@ -25,6 +25,7 @@ import (
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type mockPackageRevisionDraft struct{}
@@ -42,6 +43,13 @@ func (m *mockPackageRevisionDraft) Key() repository.PackageRevisionKey {
 
 func (m *mockPackageRevisionDraft) UpdateLifecycle(ctx context.Context, lifecycle api.PackageRevisionLifecycle) error {
 	return nil
+}
+
+func (m *mockPackageRevisionDraft) GetMeta() metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Name:      "mock-package-revision",
+		Namespace: "default",
+	}
 }
 
 func TestApplyTasks(t *testing.T) {
