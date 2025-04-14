@@ -177,7 +177,7 @@ func (pe *podEvaluator) EvaluateFunction(ctx context.Context, req *evaluator.Eva
 
 	resp, err := evaluator.NewFunctionEvaluatorClient(cc.grpcClient).EvaluateFunction(ctx, req)
 	if err != nil {
-		klog.V(4).Infof("Resource List: %v", string(req.ResourceList))
+		klog.V(4).Infof("Resource List: %s", req.ResourceList)
 		return nil, fmt.Errorf("unable to evaluate %v with pod evaluator: %w", req.Image, err)
 	}
 	// Log stderr when the function succeeded. If the function fails, stderr will be surfaced to the users.

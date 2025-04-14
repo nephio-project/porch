@@ -153,7 +153,7 @@ func TestWrapperServerEvaluate(t *testing.T) {
 				t.Errorf("EvaluateFunction unexpected error: %v, Expect Fail %v", err, tt.expectFail)
 			}
 			if resp == nil && tt.expectFail {
-				klog.Infof("Expect Fail: %v, Evaluate Function expecteded error: %v", tt.expectFail, err)
+				t.Logf("Expect Fail: %v, Evaluate Function expecteded error: %v", tt.expectFail, err)
 			}
 			if resp != nil && !tt.expectFail {
 				assert.Equal(t, string(tt.expectedResp.ResourceList), string(resp.ResourceList))

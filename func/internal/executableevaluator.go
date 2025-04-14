@@ -100,7 +100,7 @@ func (e *executableEvaluator) EvaluateFunction(ctx context.Context, req *pb.Eval
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		klog.V(4).Infof("Resource List: %v", string(req.ResourceList))
+		klog.V(4).Infof("Resource List: %s", req.ResourceList)
 		return nil, status.Errorf(codes.Internal, "Failed to execute function %q: %s (%s)", req.Image, err, stderr.String())
 	}
 
