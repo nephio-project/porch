@@ -142,7 +142,7 @@ func (e *singleFunctionEvaluator) EvaluateFunction(ctx context.Context, req *pb.
 	}
 	if rl.Results.ExitCode() != 0 {
 		jsonBytes, _ := json.Marshal(rl.Results)
-		klog.Warningf("failed to evaluate function %q with structured results: %v and stderr: %v", req.Image, string(jsonBytes), stderrStr)
+		klog.Warningf("failed to evaluate function %q with structured results: %s and stderr: %v", req.Image, jsonBytes, stderrStr)
 	}
 
 	return &pb.EvaluateFunctionResponse{

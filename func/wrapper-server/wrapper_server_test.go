@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,48 +41,48 @@ func TestWrapperServerEvaluate(t *testing.T) {
 		expectedResp *pb.EvaluateFunctionResponse
 	}{
 		{
-			name:       "Successful New Package evaluation",
+			name:       "Successful Deployment evaluation",
 			expectFail: false,
 			skip:       false,
 			evaluator: singleFunctionEvaluator{
-				entrypoint: []string{"./testdata/search_replace_test.sh", "default", "namespace1"},
+				entrypoint: []string{"./testdata/search_replace_test.sh", "hello-server-namespace", "hello-server-namespace-new"},
 			},
 			req: &pb.EvaluateFunctionRequest{
-				ResourceList: createMockResourceList("./testdata/new-package.yaml"),
+				ResourceList: createMockResourceList("./testdata/deployment.yaml"),
 				Image:        "search-and-replace",
 			},
 			expectedResp: &pb.EvaluateFunctionResponse{
-				ResourceList: createMockResourceList("./testdata/replaced/new-package.yaml"),
+				ResourceList: createMockResourceList("./testdata/replaced/deployment.yaml"),
 			},
 		},
 		{
-			name:       "Successful Package Revision evaluation",
+			name:       "Successful Config Map evaluation",
 			expectFail: false,
 			skip:       false,
 			evaluator: singleFunctionEvaluator{
-				entrypoint: []string{"./testdata/search_replace_test.sh", "kube-system", "kube-system-new"},
+				entrypoint: []string{"./testdata/search_replace_test.sh", "configmap-namespace", "configmap-namespace-new"},
 			},
 			req: &pb.EvaluateFunctionRequest{
-				ResourceList: createMockResourceList("./testdata/package-revision.yaml"),
+				ResourceList: createMockResourceList("./testdata/config-map.yaml"),
 				Image:        "search-and-replace",
 			},
 			expectedResp: &pb.EvaluateFunctionResponse{
-				ResourceList: createMockResourceList("./testdata/replaced/package-revision.yaml"),
+				ResourceList: createMockResourceList("./testdata/replaced/config-map.yaml"),
 			},
 		},
 		{
-			name:       "Successful Oci Repository evaluation",
+			name:       "Successful Cron Job evaluation",
 			expectFail: false,
 			skip:       false,
 			evaluator: singleFunctionEvaluator{
-				entrypoint: []string{"./testdata/search_replace_test.sh", "default", "namespace1"},
+				entrypoint: []string{"./testdata/search_replace_test.sh", "cronjob-namespace", "cronjob-namespace-new"},
 			},
 			req: &pb.EvaluateFunctionRequest{
-				ResourceList: createMockResourceList("./testdata/oci-repository.yaml"),
+				ResourceList: createMockResourceList("./testdata/cron-job.yaml"),
 				Image:        "search-and-replace",
 			},
 			expectedResp: &pb.EvaluateFunctionResponse{
-				ResourceList: createMockResourceList("./testdata/replaced/oci-repository.yaml"),
+				ResourceList: createMockResourceList("./testdata/replaced/cron-job.yaml"),
 			},
 		},
 		{
@@ -93,7 +93,7 @@ func TestWrapperServerEvaluate(t *testing.T) {
 				entrypoint: []string{"./testdata/search_replace_test.sh"},
 			},
 			req: &pb.EvaluateFunctionRequest{
-				ResourceList: createMockResourceList("./testdata/replaced/new-package.yaml"),
+				ResourceList: createMockResourceList("./testdata/replaced/deployment.yaml"),
 				Image:        "search-and-replace",
 			},
 			expectedResp: &pb.EvaluateFunctionResponse{
@@ -105,7 +105,7 @@ func TestWrapperServerEvaluate(t *testing.T) {
 			expectFail: true,
 			skip:       false,
 			evaluator: singleFunctionEvaluator{
-				entrypoint: []string{"./testdata/search_replace_test.sh", "default", "namespace1"},
+				entrypoint: []string{"./testdata/search_replace_test.sh", "hello-server-namespace", "hello-server-namespace-new"},
 			},
 			req: &pb.EvaluateFunctionRequest{
 				ResourceList: nil,
@@ -120,10 +120,10 @@ func TestWrapperServerEvaluate(t *testing.T) {
 			expectFail: true,
 			skip:       false,
 			evaluator: singleFunctionEvaluator{
-				entrypoint: []string{"./testdata/search_replace_test.sh", "default", "namespace1"},
+				entrypoint: []string{"./testdata/search_replace_test.sh", "hello-server-namespace", "hello-server-namespace-new"},
 			},
 			req: &pb.EvaluateFunctionRequest{
-				ResourceList: []byte("apiVersion: porch.kpt.dev/v1alpha1 kind: PackageRevision metadata: namespace: kube-system-new"),
+				ResourceList: []byte("apiVersion: apps/v1 kind: Deployment metadata: name: hello-server namespace: hello-server-namespace"),
 				Image:        "search-and-replace",
 			},
 			expectedResp: &pb.EvaluateFunctionResponse{
@@ -138,7 +138,7 @@ func TestWrapperServerEvaluate(t *testing.T) {
 				entrypoint: []string{"./testdata/search_replace_test_fail.sh"},
 			},
 			req: &pb.EvaluateFunctionRequest{
-				ResourceList: createMockResourceList("./testdata/new-package.yaml"),
+				ResourceList: createMockResourceList("./testdata/deployment.yaml"),
 				Image:        "search-and-replace",
 			},
 			expectedResp: &pb.EvaluateFunctionResponse{
@@ -149,6 +149,10 @@ func TestWrapperServerEvaluate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.skip {
+				t.SkipNow()
+			}
+
 			resp, err := tt.evaluator.EvaluateFunction(context.Background(), tt.req)
 			if err != nil && !tt.expectFail {
 				t.Errorf("EvaluateFunction unexpected error: %v, Expect Fail %v", err, tt.expectFail)

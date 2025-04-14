@@ -1,4 +1,4 @@
-# Copyright 2022 The kpt and Nephio Authors
+# Copyright 2025 The kpt and Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,15 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: config.porch.kpt.dev/v1alpha1
-kind: Repository
+apiVersion: batch/v1
+kind: CronJob
 metadata:
-  name: blueprints
-  namespace: namespace1
+  name: cronjob-name
+  namespace: cronjob-namespace-new
 spec:
-  description: OCI Blueprints Repository for testing Porch.
-  content: PackageRevision
-  type: oci
-  oci:
-    # Replace with your OCI repository.
-    registry: us-west1-docker.pkg.dev/example-google-project-id/packages
+  schedule: "* * * * *" #	Run every minute
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: hello-world-name
+              image: hello-world
+              imagePullPolicy: IfNotPresent
