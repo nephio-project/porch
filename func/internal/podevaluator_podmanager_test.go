@@ -18,7 +18,9 @@ package internal
 
 import (
 	"context"
+	"flag"
 	"fmt"
+	"k8s.io/klog/v2"
 	"net"
 	"path/filepath"
 	"strings"
@@ -68,6 +70,10 @@ func (f *fakeFunctionEvalServer) Start(ctx context.Context) error {
 }
 
 func TestPodManager(t *testing.T) {
+
+	flagSet := flag.NewFlagSet("log-level", flag.ContinueOnError)
+	klog.InitFlags(flagSet)
+	_ = flagSet.Parse([]string{"--v", "5"})
 
 	defaultSuccessEvalFunc := func(ctx context.Context, req *pb.EvaluateFunctionRequest) (*pb.EvaluateFunctionResponse, error) {
 		return &pb.EvaluateFunctionResponse{ResourceList: []byte("thisShouldBeKRM"), Log: []byte("Success")}, nil

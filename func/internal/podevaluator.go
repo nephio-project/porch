@@ -177,6 +177,7 @@ func (pe *podEvaluator) EvaluateFunction(ctx context.Context, req *evaluator.Eva
 
 	resp, err := evaluator.NewFunctionEvaluatorClient(cc.grpcClient).EvaluateFunction(ctx, req)
 	if err != nil {
+		klog.V(4).Infof("Resource List: %v", string(req.ResourceList))
 		return nil, fmt.Errorf("unable to evaluate %v with pod evaluator: %w", req.Image, err)
 	}
 	// Log stderr when the function succeeded. If the function fails, stderr will be surfaced to the users.
@@ -790,6 +791,9 @@ func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl
 		podTemplate.GenerateName = podId + "-"
 		err = pm.kubeClient.Create(ctx, podTemplate, client.FieldOwner(fieldManagerName))
 		if err != nil {
+			if currentPod != nil {
+				klog.V(4).Infof("Pod Name: %s Pod Status: %v", currentPod.Name, currentPod.Status)
+			}
 			return client.ObjectKey{}, fmt.Errorf("unable to apply the pod: %w", err)
 		}
 		if replacePod {
