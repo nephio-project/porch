@@ -18,6 +18,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+
 	pb "github.com/nephio-project/porch/func/evaluator"
 	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
@@ -25,9 +29,6 @@ import (
 	"google.golang.org/grpc/status"
 	"gopkg.in/yaml.v2"
 	"k8s.io/klog/v2"
-	"os"
-	"os/exec"
-	"path/filepath"
 )
 
 type ExecutableEvaluatorOptions struct {

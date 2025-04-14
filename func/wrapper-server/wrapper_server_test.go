@@ -18,11 +18,12 @@ import (
 	"bytes"
 	"context"
 	"flag"
+	"testing"
+
 	pb "github.com/nephio-project/porch/func/evaluator"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/kustomize/kyaml/kio"
-	"testing"
 )
 
 func TestWrapperServerEvaluate(t *testing.T) {
@@ -181,7 +182,6 @@ func createMockResourceList(pkg string) []byte {
 
 	if err := (kio.Pipeline{Inputs: []kio.Reader{r}, Outputs: []kio.Writer{w}}).Execute(); err != nil {
 		panic(err)
-		return nil
 	}
 
 	return b.Bytes()
