@@ -49,15 +49,7 @@ metadata:
   annotations:
     config.kubernetes.io/local-config: "true"
 info:
-  readinessGates:
-  - conditionType: PackagePipelinePassed
   description: sample description
-status:
-  conditions:
-  - type: PackagePipelinePassed
-    status: "False"
-    message: waiting for package pipeline to pass
-    reason: WaitingOnPipeline
 	`)
 	got := strings.TrimSpace(res.Contents[kptfile.KptFileName])
 	if diff := cmp.Diff(want, got); diff != "" {
@@ -158,15 +150,10 @@ metadata:
     config.kubernetes.io/local-config: "true"
 info:
   readinessGates:
-  - conditionType: PackagePipelinePassed
   - conditionType: SomeUsefulCondition
   description: sample description
 status:
   conditions:
-  - type: PackagePipelinePassed
-    status: "False"
-    message: waiting for package pipeline to pass
-    reason: WaitingOnPipeline
   - type: SomeUsefulCondition
     status: "False"
     reason: WaitingForSomething

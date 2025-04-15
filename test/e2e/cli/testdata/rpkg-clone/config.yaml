@@ -78,8 +78,6 @@ commands:
       - apiVersion: kpt.dev/v1
         info:
           description: sample description
-          readinessGates:
-          - conditionType: PackagePipelinePassed
         kind: Kptfile
         metadata:
           annotations:
@@ -89,12 +87,6 @@ commands:
             internal.config.kubernetes.io/path: Kptfile
             internal.kpt.dev/upstream-identifier: kpt.dev|Kptfile|default|basens-clone
           name: basens-clone
-        status:
-          conditions:
-          - message: package pipeline completed successfully
-            reason: PipelinePassed
-            status: "True"
-            type: PackagePipelinePassed
         upstream:
           git:
             directory: basens
@@ -143,8 +135,6 @@ commands:
       - apiVersion: kpt.dev/v1
         info:
           description: Empty Blueprint
-          readinessGates:
-          - conditionType: PackagePipelinePassed
         kind: Kptfile
         metadata:
           annotations:
@@ -154,12 +144,6 @@ commands:
             internal.config.kubernetes.io/path: Kptfile
             internal.kpt.dev/upstream-identifier: kpt.dev|Kptfile|default|empty-clone
           name: empty-clone
-        status:
-          conditions:
-          - message: package pipeline completed successfully
-            reason: PipelinePassed
-            status: "True"
-            type: PackagePipelinePassed
         upstream:
           git:
             directory: empty

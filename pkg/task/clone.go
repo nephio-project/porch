@@ -90,15 +90,23 @@ func (m *clonePackageMutation) apply(ctx context.Context, resources repository.P
 	}
 
 	cloned.EditKptfile(func(file *kptfile.KptFile) {
-		if file.Status == nil {
-			file.Status = &kptfile.Status{}
-		}
-		file.Status.Conditions = util.MergeFunc(file.Status.Conditions, kptfile.ConvertApiConditions(DefaultReadinessConditions), func(existingCondition, defaultCondition kptfile.Condition) bool {
-			return existingCondition.Type == defaultCondition.Type
-		})
-		file.Status.Conditions = util.MergeFunc(file.Status.Conditions, kptfile.ConvertApiConditions(m.pkgRev.Status.Conditions), func(existingCondition, cloneInput kptfile.Condition) bool {
-			return existingCondition.Type == cloneInput.Type
-		})
+		file.Status = func() *kptfile.Status {
+			fileStatus := &kptfile.Status{
+				Conditions: func() (inputConditions []kptfile.Condition) {
+					inputConditions = util.MergeFunc(inputConditions, kptfile.ConvertApiConditions(DefaultReadinessConditions), func(existingCondition, defaultCondition kptfile.Condition) bool {
+						return existingCondition.Type == defaultCondition.Type
+					})
+					inputConditions = util.MergeFunc(inputConditions, kptfile.ConvertApiConditions(m.pkgRev.Status.Conditions), func(existingCondition, cloneInput kptfile.Condition) bool {
+						return existingCondition.Type == cloneInput.Type
+					})
+					return
+				}(),
+			}
+			if len(fileStatus.Conditions) > 0 {
+				return fileStatus
+			}
+			return nil
+		}()
 
 		file.Info.ReadinessGates = util.Merge(file.Info.ReadinessGates, func() (kptfileGates []kptfile.ReadinessGate) {
 			for _, each := range DefaultReadinessConditions {

@@ -104,7 +104,7 @@ func (cad *cadEngine) ListPackageRevisions(ctx context.Context, repositorySpec *
 	return repo.ListPackageRevisions(ctx, filter)
 }
 
-func (cad *cadEngine) CreatePackageRevision(ctx context.Context, apiRepo *configapi.Repository, newPkgRev *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
+func (cad *cadEngine) CreatePackageRevision(ctx context.Context, configApiRepo *configapi.Repository, newPkgRev *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cadEngine::CreatePackageRevision", trace.WithAttributes())
 	defer span.End()
 
@@ -127,12 +127,12 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, apiRepo *config
 		return nil, fmt.Errorf("unsupported lifecycle value: %s", newPkgRev.Spec.Lifecycle)
 	}
 
-	repo, err := cad.cache.OpenRepository(ctx, apiRepo)
+	repo, err := cad.cache.OpenRepository(ctx, configApiRepo)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := util.ValidPkgRevObjName(apiRepo.ObjectMeta.Name, apiRepo.Spec.Git.Directory, newPkgRev.Spec.PackageName, string(newPkgRev.Spec.WorkspaceName)); err != nil {
+	if err := util.ValidPkgRevObjName(configApiRepo.ObjectMeta.Name, configApiRepo.Spec.Git.Directory, newPkgRev.Spec.PackageName, string(newPkgRev.Spec.WorkspaceName)); err != nil {
 		return nil, fmt.Errorf("failed to create packagerevision: %w", err)
 	}
 
@@ -157,7 +157,7 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, apiRepo *config
 		return nil, err
 	}
 
-	if err := cad.taskHandler.ApplyTasks(ctx, draft, apiRepo, newPkgRev, packageConfig); err != nil {
+	if err := cad.taskHandler.ApplyTasks(ctx, draft, configApiRepo, newPkgRev, packageConfig); err != nil {
 		return nil, err
 	}
 
@@ -461,10 +461,15 @@ func pushPipelineReadinessGate(ctx context.Context, repo repository.Repository, 
 	ctx, span := tracer.Start(ctx, "engine.go::pushPipelineReadinessGate", trace.WithAttributes())
 	defer span.End()
 
-	draft, err := repo.UpdatePackageRevision(ctx, repoPr)
-	if err != nil {
-		return err
+	if isRenderable, err := task.IsRenderablePackageRevision(ctx, repoPr); err == nil {
+		if !isRenderable {
+			// no pipeline or render task in the package - no point locking the readiness gate as no render will take place
+			return nil
+		}
+	} else {
+		return fmt.Errorf("error checking package revision for pipeline data: %w", err)
 	}
+
 	apiResources, err := repoPr.GetResources(ctx)
 	if err != nil {
 		return fmt.Errorf("cannot get package resources to lock pipeline readiness gate: %w", err)
@@ -472,7 +477,12 @@ func pushPipelineReadinessGate(ctx context.Context, repo repository.Repository, 
 	resources := repository.PackageResources{
 		Contents: apiResources.Spec.Resources,
 	}
-	resources.SetPrStatusCondition(task.ConditionPipelineNotPassed)
+	draft, err := repo.UpdatePackageRevision(ctx, repoPr)
+	if err != nil {
+		return err
+	}
+
+	resources.SetPrStatusCondition(task.ConditionPipelineNotPassed, true)
 	if err := draft.UpdateResources(ctx, &api.PackageRevisionResources{
 		Spec: api.PackageRevisionResourcesSpec{
 			Resources: resources.Contents,

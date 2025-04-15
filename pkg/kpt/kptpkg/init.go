@@ -104,14 +104,18 @@ func (i *DefaultInitializer) Initialize(
 				},
 			},
 			Info: &kptfile.PackageInfo{
-				Description:    opts.Desc,
-				Site:           opts.Site,
-				Keywords:       opts.Keywords,
-				ReadinessGates: readinessGates,
+				Description: opts.Desc,
+				Site:        opts.Site,
+				Keywords:    opts.Keywords,
 			},
-			Status: &kptfile.Status{
+		}
+		if len(kptfileConditions) > 0 {
+			k.Status = &kptfile.Status{
 				Conditions: kptfileConditions,
-			},
+			}
+		}
+		if len(readinessGates) > 0 {
+			k.Info.ReadinessGates = readinessGates
 		}
 
 		// serialize the gvk when writing the Kptfile

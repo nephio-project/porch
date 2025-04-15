@@ -6,16 +6,8 @@ metadata:
     config.kubernetes.io/local-config: "true"
 info:
   site: http://kpt.dev/testpkg
-  readinessGates:
-  - conditionType: PackagePipelinePassed
   description: test package
   keywords:
   - test
   - kpt
   - pkg
-status:
-  conditions:
-  - type: PackagePipelinePassed
-    status: "False"
-    message: waiting for package pipeline to pass
-    reason: WaitingOnPipeline
