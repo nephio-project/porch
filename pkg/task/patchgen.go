@@ -17,7 +17,6 @@ package task
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -121,8 +120,7 @@ func (m *applyPatchMutation) apply(ctx context.Context, resources repository.Pac
 			}
 
 			var output bytes.Buffer
-			errConflict := gitdiff.Apply(&output, strings.NewReader(oldContents), files[0])
-			if !errors.Is(errConflict, &gitdiff.Conflict{}) || !skipPatchMutation(ctx, *m) {
+			if errConflict := gitdiff.Apply(&output, strings.NewReader(oldContents), files[0]); errConflict != nil && !skipPatchMutation(ctx, *m) {
 				return result, nil, fmt.Errorf("error applying patch: %w", errConflict)
 			}
 			patched := output.String()

@@ -292,7 +292,7 @@ Binary files differ
 					"testfile.txt": "old line\n",
 				},
 			},
-			expectedError: "error applying patch",
+			expectedError: "",
 		},
 		{
 			name: "Conflict error",
