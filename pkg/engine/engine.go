@@ -104,7 +104,7 @@ func (cad *cadEngine) ListPackageRevisions(ctx context.Context, repositorySpec *
 	return repo.ListPackageRevisions(ctx, filter)
 }
 
-func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
+func (cad *cadEngine) CreatePackageRevision(ctx context.Context, configApiRepo *configapi.Repository, newPkgRev *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cadEngine::CreatePackageRevision", trace.WithAttributes())
 	defer span.End()
 
@@ -127,12 +127,12 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 		return nil, fmt.Errorf("unsupported lifecycle value: %s", obj.Spec.Lifecycle)
 	}
 
-	repo, err := cad.cache.OpenRepository(ctx, repositoryObj)
+	repo, err := cad.cache.OpenRepository(ctx, configApiRepo)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := util.ValidPkgRevObjName(apiRepo.ObjectMeta.Name, apiRepo.Spec.Git.Directory, newPkgRev.Spec.PackageName, string(newPkgRev.Spec.WorkspaceName)); err != nil {
+	if err := util.ValidPkgRevObjName(configApiRepo.ObjectMeta.Name, configApiRepo.Spec.Git.Directory, newPkgRev.Spec.PackageName, string(newPkgRev.Spec.WorkspaceName)); err != nil {
 		return nil, fmt.Errorf("failed to create packagerevision: %w", err)
 	}
 
@@ -173,7 +173,7 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	}
 
 	// Apply tasks
-	if err := cad.taskHandler.ApplyTasks(ctx, draft, repositoryObj, obj, packageConfig); err != nil {
+	if err := cad.taskHandler.ApplyTasks(ctx, draft, configApiRepo, newPkgRev, packageConfig); err != nil {
 		rollback()
 		return nil, err
 	}

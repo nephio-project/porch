@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"slices"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -126,15 +127,37 @@ func (th *genericTaskHandler) ApplyTasks(
 		return err
 	}
 
-	if mutatedResources.Contents != nil &&
-		(renderStatus == nil || renderStatus.Err == "") {
-		mutatedResources.SetPrStatusCondition(ConditionPipelinePassed)
-		if err := draft.UpdateResources(ctx, &api.PackageRevisionResources{
-			Spec: api.PackageRevisionResourcesSpec{
-				Resources: mutatedResources.Contents,
-			},
-		}, &api.Task{Type: "unlock readiness gate"}); err != nil {
-			return err
+	if mutatedResources.Contents != nil {
+		kptFile := mutatedResources.GetKptfile()
+		wasRendered := func() bool {
+			if kptFile.Pipeline != nil && slices.ContainsFunc(pkgRev.Spec.Tasks, func(aTask api.Task) bool {
+				return aTask.Type == "render" || (aTask.Type == api.TaskTypeEval && aTask.Eval.Image == "render")
+			}) {
+				// found pipeline data and a render task in the task-list
+				return true
+			}
+			return false
+		}()
+		if wasRendered {
+			gateTask := func() *api.Task {
+				if wasRendered {
+					if renderStatus == nil || renderStatus.Err == "" {
+						mutatedResources.SetPrStatusCondition(ConditionPipelinePassed, true)
+						return &api.Task{Type: "unlock readiness gate"}
+					} else {
+						mutatedResources.SetPrStatusCondition(ConditionPipelineNotPassed, true)
+						return &api.Task{Type: "lock readiness gate on pipeline failure"}
+					}
+				}
+				return nil
+			}()
+			if err := draft.UpdateResources(ctx, &api.PackageRevisionResources{
+				Spec: api.PackageRevisionResourcesSpec{
+					Resources: mutatedResources.Contents,
+				},
+			}, gateTask); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -248,9 +271,15 @@ func (th *genericTaskHandler) DoPRMutations(ctx context.Context, namespace strin
 			return err
 		}
 
+		isRenderable, err := IsRenderablePackageRevision(ctx, repoPR)
+		if err != nil {
+			return nil
+		}
 		if mutatedResources.Contents != nil &&
-			(renderStatus == nil || renderStatus.Err == "") && resourcesChangedMoreThanReadinessInfo(resources, mutatedResources) {
-			mutatedResources.SetPrStatusCondition(ConditionPipelinePassed)
+			(renderStatus == nil || renderStatus.Err == "") &&
+			resourcesChangedMoreThanReadinessInfo(resources, mutatedResources) &&
+			isRenderable {
+			mutatedResources.SetPrStatusCondition(ConditionPipelinePassed, true)
 			if err := draft.UpdateResources(ctx, &api.PackageRevisionResources{
 				Spec: api.PackageRevisionResourcesSpec{
 					Resources: mutatedResources.Contents,
@@ -311,9 +340,14 @@ func (th *genericTaskHandler) DoPRResourceMutations(ctx context.Context, pr2Upda
 		}
 	}
 
+	isRenderable, err := IsRenderablePackageRevision(ctx, pr2Update)
+	if err != nil {
+		return renderStatus, nil
+	}
 	if appliedResources.Contents != nil &&
-		(renderStatus == nil || renderStatus.Err == "") {
-		appliedResources.SetPrStatusCondition(ConditionPipelinePassed)
+		(renderStatus == nil || renderStatus.Err == "") &&
+		isRenderable {
+		appliedResources.SetPrStatusCondition(ConditionPipelinePassed, true)
 		if err := draft.UpdateResources(ctx, &api.PackageRevisionResources{
 			Spec: api.PackageRevisionResourcesSpec{
 				Resources: appliedResources.Contents,
@@ -498,6 +532,25 @@ func (th *genericTaskHandler) conditionalAddRender(subject client.Object, mutati
 		runnerOptions: runnerOptions,
 		runtime:       th.runtime,
 	})
+}
+
+func IsRenderablePackageRevision(ctx context.Context, repoPr repository.PackageRevision) (bool, error) {
+
+	kptfile, err := repoPr.GetKptfile(ctx)
+	if err != nil {
+		return false, err
+	}
+	apiPr, err := repoPr.GetPackageRevision(ctx)
+	if err != nil {
+		return false, err
+	}
+	if kptfile.Pipeline != nil && slices.ContainsFunc(apiPr.Spec.Tasks, func(aTask api.Task) bool {
+		return aTask.Type == "render" || (aTask.Type == api.TaskTypeEval && aTask.Eval.Image == "render")
+	}) {
+		// found pipeline data and a render task in the task-list
+		return true, nil
+	}
+	return false, nil
 }
 
 func isRenderMutation(m mutation) bool {

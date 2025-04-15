@@ -17,6 +17,7 @@ package task
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
@@ -74,20 +75,31 @@ func (m *editPackageMutation) apply(ctx context.Context, resources repository.Pa
 		Contents: sourceResources.Spec.Resources,
 	}
 	editedResources.EditKptfile(func(file *kptfile.KptFile) {
-		file.Status = &kptfile.Status{
-			Conditions: func() (inputConditions []kptfile.Condition) {
-				if file.Status == nil || file.Status.Conditions == nil {
-					inputConditions = kptfile.ConvertApiConditions(DefaultReadinessConditions)
-				} else {
-					inputConditions = file.Status.Conditions
-				}
+		file.Status = func() *kptfile.Status {
+			fileStatus := &kptfile.Status{
+				Conditions: func() (inputConditions []kptfile.Condition) {
+					if file.Status == nil || file.Status.Conditions == nil {
+						inputConditions = kptfile.ConvertApiConditions(DefaultReadinessConditions)
+					} else {
+						inputConditions = file.Status.Conditions
+					}
+					inputConditions = slices.DeleteFunc(inputConditions, func(toDelete kptfile.Condition) bool {
+						return toDelete.Type == ConditionTypePipelinePassed
+					})
 
-				return util.MergeFunc(inputConditions, kptfile.ConvertApiConditions(newPkgRev.Status.Conditions), func(inputCondition, oldCondition kptfile.Condition) bool {
-					return oldCondition.Type == inputCondition.Type
-				})
-			}(),
-		}
-
+					return util.MergeFunc(
+						inputConditions,
+						kptfile.ConvertApiConditions(newPkgRev.Status.Conditions),
+						func(inputCondition, oldCondition kptfile.Condition) bool {
+							return oldCondition.Type == inputCondition.Type
+						})
+				}(),
+			}
+			if len(fileStatus.Conditions) > 0 {
+				return fileStatus
+			}
+			return nil
+		}()
 		file.Info.ReadinessGates = func() (kptfileGates []kptfile.ReadinessGate) {
 			for _, each := range DefaultReadinessConditions {
 				kptfileGates = append(kptfileGates, kptfile.ReadinessGate{

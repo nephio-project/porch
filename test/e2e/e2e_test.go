@@ -339,8 +339,7 @@ func (t *PorchSuite) TestInitEmptyPackage() {
 		t.Fatalf("New package name: got %q, want %q", got, want)
 	}
 	if got, want := kptfile.Info, (&kptfilev1.PackageInfo{
-		Description:    description,
-		ReadinessGates: []kptfilev1.ReadinessGate{{ConditionType: "PackagePipelinePassed"}},
+		Description: description,
 	}); !cmp.Equal(want, got) {
 		t.Fatalf("unexpected %s/%s package info (-want, +got) %s", newPackage.Namespace, newPackage.Name, cmp.Diff(want, got))
 	}
@@ -432,10 +431,9 @@ func (t *PorchSuite) TestInitTaskPackage() {
 		t.Fatalf("New package name: got %q, want %q", got, want)
 	}
 	if got, want := kptfile.Info, (&kptfilev1.PackageInfo{
-		Site:           site,
-		Description:    description,
-		Keywords:       keywords,
-		ReadinessGates: []kptfilev1.ReadinessGate{{ConditionType: "PackagePipelinePassed"}},
+		Site:        site,
+		Description: description,
+		Keywords:    keywords,
 	}); !cmp.Equal(want, got) {
 		t.Fatalf("unexpected %s/%s package info (-want, +got) %s", newPackage.Namespace, newPackage.Name, cmp.Diff(want, got))
 	}

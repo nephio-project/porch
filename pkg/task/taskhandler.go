@@ -28,9 +28,7 @@ import (
 
 var tracer = otel.Tracer("task")
 
-var DefaultReadinessConditions = []api.Condition{
-	ConditionPipelineNotPassed,
-}
+var DefaultReadinessConditions = []api.Condition{}
 
 type TaskHandler interface {
 	GetRuntime() fn.FunctionRuntime

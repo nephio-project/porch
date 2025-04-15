@@ -37,7 +37,7 @@ type PackageResources struct {
 	Contents map[string]string
 }
 
-func (pr *PackageResources) SetPrStatusCondition(condition api.Condition) {
+func (pr *PackageResources) SetPrStatusCondition(condition api.Condition, conditionIsGating bool) {
 	pr.EditKptfile(func(parsedKptfile *kptfile.KptFile) {
 		kptfileCondition := kptfile.ConvertApiCondition(condition)
 		if parsedKptfile.Status == nil {
@@ -47,11 +47,20 @@ func (pr *PackageResources) SetPrStatusCondition(condition api.Condition) {
 		if index := slices.IndexFunc(parsedKptfile.Status.Conditions, func(aCondition kptfile.Condition) bool {
 			return aCondition.Type == kptfileCondition.Type
 		}); index == -1 {
-			// Conditions in Kptfile don't already include the desired Condition -
-			// check if we have a pipeline and if so, add the Condition
+			// Conditions in Kptfile don't already include the desired Condition - add it
 			parsedKptfile.Status.Conditions = append(parsedKptfile.Status.Conditions, kptfileCondition)
 		} else {
 			parsedKptfile.Status.Conditions[index] = kptfileCondition
+		}
+
+		if conditionIsGating {
+			if !slices.ContainsFunc(parsedKptfile.Info.ReadinessGates, func(aGate kptfile.ReadinessGate) bool {
+				return aGate.ConditionType == condition.Type
+			}) {
+				parsedKptfile.Info.ReadinessGates = append(parsedKptfile.Info.ReadinessGates, kptfile.ReadinessGate{
+					ConditionType: condition.Type,
+				})
+			}
 		}
 	})
 }
