@@ -232,10 +232,11 @@ func (th *genericTaskHandler) DoPRResourceMutations(ctx context.Context, pr2Upda
 	var renderStatus *api.RenderStatus
 	if len(appliedResources.Contents) > 0 {
 		// Render the package
-		// Render failure will fail the overall API operation.
+
+		// Render failure will not fail the overall API operation.
 		// The render error and result are captured as part of renderStatus above
-		// and are returned in the PackageRevisionResources API's status field.
-		// We do not push the package further to remote:
+		// and are returned in the PackageRevisionResources API's status field & the Porchfile in git.
+		// We do push the package further to remote along with its failed render status:
 		// the user's changes are captured on their local package,
 		// and can be amended using the error returned as a reference point to ensure
 		// the package renders properly, before retrying the push.
@@ -246,9 +247,9 @@ func (th *genericTaskHandler) DoPRResourceMutations(ctx context.Context, pr2Upda
 				runnerOptions: runnerOptions,
 				runtime:       th.runtime,
 			}})
-		if err != nil {
-			return renderStatus, err
-		}
+		// if err != nil {
+		// 	return renderStatus, nil
+		// }
 	} else {
 		renderStatus = nil
 	}
@@ -448,6 +449,18 @@ func isRenderMutation(m mutation) bool {
 	return isRender
 }
 
+func appendRenderResult(renderStatus *api.RenderStatus, resources repository.PackageResources) {
+	porchFileContents := api.PorchFile{
+		Status: renderStatus,
+	}
+
+	bytePorchfile, marshErr := yaml.Marshal(&porchFileContents)
+	if marshErr != nil {
+		klog.Errorf("Error in Marshaling PorchFile: %v", marshErr)
+	}
+	resources.Contents["Porchfile"] = string(bytePorchfile)
+}
+
 // applyResourceMutations mutates the resources and returns the most recent renderResult.
 func applyResourceMutations(ctx context.Context, draft repository.PackageRevisionDraft, baseResources repository.PackageResources, mutations []mutation) (applied repository.PackageResources, renderStatus *api.RenderStatus, err error) {
 	ctx, span := tracer.Start(ctx, "genericTaskHandler::applyResourceMutations", trace.WithAttributes())
@@ -469,9 +482,24 @@ func applyResourceMutations(ctx context.Context, draft repository.PackageRevisio
 			renderStatus = taskResult.RenderStatus
 			if err != nil {
 				klog.Error(err)
+				klog.Warning("Package Failed Render")
 				err = fmt.Errorf("%w\n\n%s\n%s\n%s", err, "Error occurred rendering package in kpt function pipeline.", "Package has NOT been pushed to remote.", "Please fix package locally (modify until 'kpt fn render' succeeds) and retry.")
+				// if we fail the render we return the same base resources but with the render status of the failure
+				appendRenderResult(renderStatus, baseResources)
+				updatedResources := baseResources
+				if err := draft.UpdateResources(ctx, &api.PackageRevisionResources{
+					Spec: api.PackageRevisionResourcesSpec{
+						Resources: updatedResources.Contents,
+					},
+				}, task); err != nil {
+					return updatedResources, renderStatus, err
+				}
+				baseResources = updatedResources
+				applied = updatedResources
 				return updatedResources, renderStatus, err
 			}
+			// else we simply append the render status to the porch file with the new updated resources
+			appendRenderResult(renderStatus, updatedResources)
 		}
 		if err != nil {
 			klog.Error(err)
