@@ -18,6 +18,11 @@ func KindOf(o any) string {
 			return kind
 		}
 	}
+	// is regular type
+	if name := reflect.TypeOf(o).Name(); name != "" {
+		return name
+	}
+	// is pointer
 	return reflect.TypeOf(o).Elem().Name()
 }
 

@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// MyDuration is a wrapper around time.Duration for specifically handling time in (float) milliseconds
 type MyDuration time.Duration
 
 func (d MyDuration) MarshalJSON() ([]byte, error) {

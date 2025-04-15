@@ -47,6 +47,7 @@ func (t *PerformanceSuite) ServeMetrics() {
 	}()
 }
 
+// ShutdownMetrics tries to gracefully shut down the metrics server
 func (t *PerformanceSuite) ShutdownMetrics() {
 	err := t.metricsServer.Shutdown(t.GetContext())
 	if err != nil {
@@ -149,12 +150,19 @@ func (t *PerformanceSuite) DeleteL(obj client.Object, opts ...client.DeleteOptio
 
 func (t *PerformanceSuite) UpdateF(obj client.Object, opts ...client.UpdateOption) {
 	t.T().Helper()
-	MeasureAndRecord(OperationUpdate, obj, func() { t.TestSuiteWithGit.UpdateF(obj, opts...) })
+	MeasureAndRecord(getUpdateOperation(obj), obj, func() { t.TestSuiteWithGit.UpdateF(obj, opts...) })
 }
 
 func (t *PerformanceSuite) UpdateE(obj client.Object, opts ...client.UpdateOption) {
 	t.T().Helper()
-	MeasureAndRecord(OperationUpdate, obj, func() { t.TestSuiteWithGit.UpdateE(obj, opts...) })
+	MeasureAndRecord(getUpdateOperation(obj), obj, func() { t.TestSuiteWithGit.UpdateE(obj, opts...) })
+}
+
+func getUpdateOperation(obj client.Object) Operation {
+	if pr, ok := obj.(*porchapi.PackageRevision); ok && pr.Spec.Lifecycle == porchapi.PackageRevisionLifecycleProposed {
+		return OperationPropose
+	}
+	return OperationUpdate
 }
 
 func (t *PerformanceSuite) PatchF(obj client.Object, patch client.Patch, opts ...client.PatchOption) {
@@ -170,15 +178,26 @@ func (t *PerformanceSuite) PatchE(obj client.Object, patch client.Patch, opts ..
 func (t *PerformanceSuite) UpdateApprovalL(pr *porchapi.PackageRevision, opts metav1.UpdateOptions) *porchapi.PackageRevision {
 	t.T().Helper()
 	var ret *porchapi.PackageRevision
-	MeasureAndRecord(OperationUpdateApproval, pr, func() { ret = t.TestSuiteWithGit.UpdateApprovalL(pr, opts) })
+	MeasureAndRecord(getUpdateApprovalOperation(pr), pr, func() { ret = t.TestSuiteWithGit.UpdateApprovalL(pr, opts) })
 	return ret
 }
 
 func (t *PerformanceSuite) UpdateApprovalF(pr *porchapi.PackageRevision, opts metav1.UpdateOptions) *porchapi.PackageRevision {
 	t.T().Helper()
 	var ret *porchapi.PackageRevision
-	MeasureAndRecord(OperationUpdateApproval, pr, func() { ret = t.TestSuiteWithGit.UpdateApprovalL(pr, opts) })
+	MeasureAndRecord(getUpdateApprovalOperation(pr), pr, func() { ret = t.TestSuiteWithGit.UpdateApprovalL(pr, opts) })
 	return ret
+}
+
+func getUpdateApprovalOperation(pr *porchapi.PackageRevision) Operation {
+	switch pr.Spec.Lifecycle {
+	case porchapi.PackageRevisionLifecyclePublished:
+		return OperationPublish
+	case porchapi.PackageRevisionLifecycleDeletionProposed:
+		return OperationProposeDelete
+	default:
+		return OperationUpdateApproval
+	}
 }
 
 // copied, so the operation is recorded
