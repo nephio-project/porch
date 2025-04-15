@@ -64,9 +64,9 @@ commands:
       - Kptfile
       - /tmp/porch-e2e/pkg-unready-git.unready-edit.copy-2
       - --
-      - by-path=status.conditions[1].status
+      - by-path=status.conditions[0].status
       - put-value=True
-    stderr: "[RUNNING] \"gcr.io/kpt-fn/search-replace:v0.2.0\" on 1 resource(s)\n  Results:\n    [info] status.conditions[1].status: Mutated field value to \"\\\"True\\\"\"\n"
+    stderr: "[RUNNING] \"gcr.io/kpt-fn/search-replace:v0.2.0\" on 1 resource(s)\n  Results:\n    [info] status.conditions[0].status: Mutated field value to \"\\\"True\\\"\"\n"
   - args:
       - porchctl
       - rpkg
