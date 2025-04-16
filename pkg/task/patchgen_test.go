@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package task
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -26,6 +27,9 @@ import (
 	"github.com/hexops/gotextdiff"
 	"github.com/hexops/gotextdiff/myers"
 	"github.com/hexops/gotextdiff/span"
+	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/jsonmergepatch"
 	"sigs.k8s.io/yaml"
 )
@@ -164,5 +168,132 @@ data:
 
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("unexpected result from CreateThreeWayJSONMergePatch: (-want,+got): %s", diff)
+	}
+}
+
+func TestApplyPatchMutation(t *testing.T) {
+	patchTask := &api.PackagePatchTaskSpec{
+		Patches: []api.PatchSpec{
+			{
+				File:      "testfile.txt",
+				PatchType: api.PatchTypePatchFile,
+				Contents: `
+--- testfile.txt
++++ testfile.txt
+@@ -1 +1 @@
+-old line
++new line
+`,
+			},
+		},
+	}
+
+	resources := repository.PackageResources{
+		Contents: map[string]string{
+			"testfile.txt": "old line\n",
+		},
+	}
+
+	task := &api.Task{
+		Type:  api.TaskTypePatch,
+		Patch: patchTask,
+	}
+	m, _ := buildPatchMutation(context.Background(), task)
+
+	ctx := context.Background()
+	_, _, err := m.apply(ctx, resources)
+	assert.EqualError(t, err, "patch had unexpected preamble \"\\n\"")
+}
+
+func TestApplyPatchMutation_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name           string
+		patchSpec      api.PatchSpec
+		resources      repository.PackageResources
+		expectedError  string
+		expectedResult string
+	}{
+		{
+			name: "Unexpected file name",
+			patchSpec: api.PatchSpec{
+				File:      "unexpected.txt",
+				PatchType: api.PatchTypePatchFile,
+				Contents: `
+--- unexpected.txt
++++ unexpected.txt
+@@ -1 +1 @@
+-old line
++new line
+`,
+			},
+			resources: repository.PackageResources{
+				Contents: map[string]string{
+					"testfile.txt": "old line\n",
+				},
+			},
+			expectedError: "patch specifies file \"unexpected.txt\" which does not exist",
+		},
+		{
+			name: "Binary diff",
+			patchSpec: api.PatchSpec{
+				File:      "testfile.txt",
+				PatchType: api.PatchTypePatchFile,
+				Contents: `--- testfile.txt
++++ testfile.txt
+@@ -1 +1 @@
+-old line
++new line
+Binary files differ
+`,
+			},
+			resources: repository.PackageResources{
+				Contents: map[string]string{
+					"testfile.txt": "old line\n",
+				},
+			},
+			expectedError: "",
+		},
+		{
+			name: "Conflict error",
+			patchSpec: api.PatchSpec{
+				File:      "testfile.txt",
+				PatchType: api.PatchTypePatchFile,
+				Contents: `--- testfile.txt
++++ testfile.txt
+@@ -1 +1 @@
+-old line
++new line
+`,
+			},
+			resources: repository.PackageResources{
+				Contents: map[string]string{
+					"testfile.txt": "conflicting line\n",
+				},
+			},
+			expectedError: "conflict: fragment line does not match src line",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			patchTask := &api.PackagePatchTaskSpec{
+				Patches: []api.PatchSpec{tt.patchSpec},
+			}
+
+			m := applyPatchMutation{
+				patchTask: patchTask,
+			}
+
+			ctx := context.Background()
+			_, _, err := m.apply(ctx, tt.resources)
+
+			if tt.expectedError != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.expectedError) {
+					t.Errorf("apply() error = %v, want %v", err, tt.expectedError)
+				}
+			} else if err != nil {
+				t.Errorf("apply() unexpected error: %v", err)
+			}
+		})
 	}
 }
