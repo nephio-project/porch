@@ -47,9 +47,8 @@ func GeneratePatch(fileName string, oldV, newV string) (api.PatchSpec, error) {
 }
 
 type applyPatchMutation struct {
-	patchTask     *api.PackagePatchTaskSpec
-	task          *api.Task
-	cloneStrategy api.PackageMergeStrategy
+	patchTask *api.PackagePatchTaskSpec
+	task      *api.Task
 }
 
 var _ mutation = &applyPatchMutation{}
@@ -120,7 +119,7 @@ func (m *applyPatchMutation) apply(ctx context.Context, resources repository.Pac
 			}
 
 			var output bytes.Buffer
-			if errConflict := gitdiff.Apply(&output, strings.NewReader(oldContents), files[0]); errConflict != nil && !skipPatchMutation(ctx, *m) {
+			if errConflict := gitdiff.Apply(&output, strings.NewReader(oldContents), files[0]); errConflict != nil {
 				return result, nil, fmt.Errorf("error applying patch: %w", errConflict)
 			}
 			patched := output.String()
@@ -134,23 +133,14 @@ func (m *applyPatchMutation) apply(ctx context.Context, resources repository.Pac
 	return result, &api.TaskResult{Task: m.task}, nil
 }
 
-func buildPatchMutation(_ context.Context, task *api.Task, cloneStrategy api.PackageMergeStrategy) (mutation, error) {
+func buildPatchMutation(_ context.Context, task *api.Task) (mutation, error) {
 	if task.Patch == nil {
 		return nil, fmt.Errorf("patch not set for task of type %q", task.Type)
 	}
 
 	m := &applyPatchMutation{
-		patchTask:     task.Patch,
-		task:          task,
-		cloneStrategy: cloneStrategy,
+		patchTask: task.Patch,
+		task:      task,
 	}
 	return m, nil
-}
-
-func skipPatchMutation(_ context.Context, m applyPatchMutation) bool {
-	if m.cloneStrategy == api.CopyMerge || m.cloneStrategy == api.ForceDeleteReplace {
-		klog.Infof("clone strategy is %v, patching skipped on this type of clone strategy", m.cloneStrategy)
-		return true
-	}
-	return false
 }
