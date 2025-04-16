@@ -42,6 +42,7 @@ type IterationMetricsData struct {
 
 type FullMetricsData struct {
 	ControlRevisionCount int
+	IterationIndex       int
 
 	CreateControlRevisionsTotal,
 	CreateControlRevisionsAvg,

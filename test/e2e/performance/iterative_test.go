@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -31,6 +32,7 @@ var (
 	iterations  = flag.String("iterations", "10,25,50", "Number of control packages to create PER REPOSITORY for each iteration (e.g. \"10,25,50,100\")")
 	sampling    = flag.Int("sampling", 5, "Number of measurements to take per iteration")
 	writeToFile = flag.Bool("write-to-file", false, "Write results to file")
+	outputDir   = flag.String("output-dir", ".build/perf/iterative", "Where to write the results to if '-write-to-file' is set")
 	printToLog  = flag.Bool("print-to-log", false, "Print results to log")
 	cooldown    = flag.Duration("cooldown", 0, "Time to wait between iterations")
 )
@@ -46,12 +48,13 @@ type IterativeTest struct {
 	cooldown   time.Duration
 
 	// per subtest vars
-	controlCount int
+	controlCount   int
+	iterationIndex int
 }
 
 func TestIterative(t *testing.T) {
 	if os.Getenv("PERF") != "1" {
-		t.Skip()
+		t.Skip("PERF != 1")
 	}
 	suite.Run(t, &IterativeTest{})
 }
@@ -84,7 +87,7 @@ func (t *IterativeTest) parseFlags() {
 
 	t.sampling = *sampling
 	if t.sampling < 1 {
-		t.Fatalf("Test package count must be at least 1 (--sampling)")
+		t.Fatalf("Test package count must be at least 1 (-sampling)")
 	}
 
 	t.cooldown = *cooldown
@@ -136,6 +139,7 @@ func (t *IterativeTest) SetupSubTest() {
 	}
 	t.metrics = append(t.metrics, FullMetricsData{
 		ControlRevisionCount:        t.controlCount,
+		IterationIndex:              t.iterationIndex,
 		CreateControlRevisionsTotal: timeToCreateAllRevisions,
 		CreateControlRevisionsAvg:   AvgDuration(timeToCreateAllRevisions, t.controlCount),
 	})
@@ -150,8 +154,10 @@ func (t *IterativeTest) TearDownSubTest() {
 func (t *IterativeTest) TestIterative() {
 	for i, n := range t.iterations {
 		t.controlCount = n
-		result := t.Run(fmt.Sprintf("Iterative-%d", n), func() {
-			iterationMetrics := []IterationMetricsData{}
+		t.iterationIndex = i + 1
+		subtestName := fmt.Sprintf("Iterative-%d-%d", t.iterationIndex, t.controlCount)
+		result := t.Run(subtestName, func() {
+			var iterationMetrics []IterationMetricsData
 			for range t.sampling {
 				currentMetrics := t.collectMetrics()
 				t.ensureTestPackagesDeleted()
@@ -160,7 +166,7 @@ func (t *IterativeTest) TestIterative() {
 			t.mergeMetrics(iterationMetrics)
 		})
 		if !result {
-			t.Errorf("Iterative-%d failed, stopping early", n)
+			t.Errorf("%s failed, stopping early", subtestName)
 			break
 		}
 		if *writeToFile {
@@ -329,8 +335,9 @@ func (t *IterativeTest) writeResult(data *FullMetricsData) {
 	if err := t.ensureOutputDir(); err != nil {
 		return
 	}
-	filename := fmt.Sprintf(".build/iterative_perf/%d.json", data.ControlRevisionCount)
-	t.write(filename, data)
+	filename := fmt.Sprintf("%d-%d.json", data.IterationIndex, data.ControlRevisionCount)
+	filepth := filepath.Join(*outputDir, filename)
+	t.write(filepth, data)
 }
 
 // writeResults writes the results of all iteration to a combined json file
@@ -338,8 +345,8 @@ func (t *IterativeTest) writeResults() {
 	if err := t.ensureOutputDir(); err != nil {
 		return
 	}
-	filename := ".build/iterative_perf/full.json"
-	t.write(filename, t.metrics)
+	filepth := filepath.Join(*outputDir, "full.json")
+	t.write(filepth, t.metrics)
 }
 
 func (t *IterativeTest) write(filename string, data any) {
@@ -359,8 +366,8 @@ func (t *IterativeTest) write(filename string, data any) {
 }
 
 func (t *IterativeTest) ensureOutputDir() error {
-	if err := os.MkdirAll(".build/iterative_perf", 0775); err != nil {
-		t.Logf("unable to create .build/iterative_perf: %v", err)
+	if err := os.MkdirAll(*outputDir, 0775); err != nil {
+		t.Logf("unable to create %s: %v", *outputDir, err)
 		return err
 	}
 	return nil
