@@ -1,4 +1,4 @@
-// Copyright 2022, 2025 The kpt and Nephio Authors
+// Copyright 2022 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,18 +17,16 @@ package packagevariant
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	api "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
 )
 
-func TestValidatePackageVariant(t *testing.T) {
+func TestValidatePackageVariantWS(t *testing.T) {
 	packageVariantHeader := `apiVersion: config.porch.kpt.dev
 kind: PackageVariant
 metadata:
@@ -47,7 +45,7 @@ metadata:
 			packageVariant: packageVariantHeader + `
 spec:
   upstream:
-    revision: 1
+    workspaceName: v1
     repo: blueprints
   downstream:
     repo: deployments
@@ -60,7 +58,7 @@ spec:
 spec:
   upstream:
     package: foo
-    revision: 1
+    workspaceName: v1
     repo: blueprints
   downstream:
     package: foo
@@ -73,7 +71,7 @@ spec:
 spec:
   upstream:
     package: foo
-    revision: 1
+    workspaceName: v1
     repo: blueprints
   downstream:
     package: foo
@@ -89,7 +87,7 @@ spec:
 spec:
   upstream:
     package: foo
-    revision: 1
+    workspaceName: v1
     repo: blueprints
   downstream:
     package: foo
@@ -104,7 +102,7 @@ spec:
 spec:
   upstream:
     package: foo
-    revision: 1
+    workspaceName: v1
     repo: blueprints
   downstream:
     package: foo
@@ -124,7 +122,7 @@ spec:
 spec:
   upstream:
     package: foo
-    revision: 1
+    workspaceName: v1
     repo: blueprints
   downstream:
     package: foo
@@ -141,7 +139,7 @@ spec:
 spec:
   upstream:
     package: foo
-    revision: 1
+    workspaceName: v1
     repo: blueprints
   downstream:
     package: foo
@@ -158,7 +156,7 @@ spec:
 spec:
   upstream:
     package: foo
-    revision: 1
+    workspaceName: v1
     repo: blueprints
   downstream:
     package: foo
@@ -174,7 +172,7 @@ spec:
 spec:
   upstream:
     package: foo
-    revision: 1
+    workspaceName: v1
     repo: blueprints
   downstream:
     package: foo
@@ -190,7 +188,7 @@ spec:
 spec:
   upstream:
     package: foo
-    revision: 1
+    workspaceName: v1
     repo: blueprints
   downstream:
     package: foo
@@ -208,7 +206,7 @@ spec:
 spec:
   upstream:
     package: foo
-    revision: 1
+    workspaceName: v1
     repo: blueprints
   downstream:
     package: foo
@@ -234,7 +232,7 @@ spec:
 	}
 }
 
-func TestNewWorkspaceName(t *testing.T) {
+func TestNewWorkspaceNameWS(t *testing.T) {
 	prListHeader := `apiVersion: porch.kpt.dev
 kind: PackageRevisionList
 metadata:
@@ -333,7 +331,7 @@ items:
 	}
 }
 
-func TestGetDownstreamPRs(t *testing.T) {
+func TestGetDownstreamPRsWS(t *testing.T) {
 	prListHeader := `apiVersion: porch.kpt.dev
 kind: PackageRevisionList
 metadata:
@@ -348,7 +346,7 @@ spec:
   upstream:
     repo: blueprints
     package: foo
-    revision: 1
+    workspaceName: v1
   downstream:
     repo: deployments
     package: bar`
@@ -670,7 +668,7 @@ status:
 	}
 }
 
-func TestDeleteOrOrphan(t *testing.T) {
+func TestDeleteOrOrphanWS(t *testing.T) {
 	prStr := `apiVersion: porch.kpt.dev
 kind: PackageRevision
 metadata:
@@ -700,7 +698,7 @@ spec:
   upstream:
     repo: blueprints
     package: foo
-    revision: 1
+    workspaceName: v1
   downstream:
     repo: deployments
     package: bar
@@ -814,7 +812,7 @@ status:
 	}
 }
 
-func TestAdoptionPolicy(t *testing.T) {
+func TestAdoptionPolicyWS(t *testing.T) {
 	prListHeader := `apiVersion: porch.kpt.dev
 kind: PackageRevisionList
 metadata:
@@ -829,7 +827,7 @@ spec:
   upstream:
     repo: blueprints
     package: foo
-    revision: 1
+    workspaceName: v1
   downstream:
     repo: deployments
     package: bar
@@ -990,7 +988,7 @@ items:
 	}
 }
 
-func TestEnsurePackageContext(t *testing.T) {
+func TestEnsurePackageContextWS(t *testing.T) {
 
 	pvBase := `apiVersion: config.porch.kpt.dev
 kind: PackageVariant
@@ -1001,7 +999,7 @@ spec:
   upstream:
     repo: blueprints
     package: foo
-    revision: 1
+    workspaceName: v1
   downstream:
     repo: deployments
     package: bar
@@ -1138,7 +1136,7 @@ spec:
 	}
 }
 
-func TestEnsureKRMFunctions(t *testing.T) {
+func TestEnsureKRMFunctionsWS(t *testing.T) {
 	pvBase := `
 apiVersion: config.porch.kpt.dev
 kind: PackageVariant
@@ -1149,7 +1147,7 @@ spec:
   upstream:
     repo: blueprints
     package: foo
-    revision: 1
+    workspaceName: v1
   downstream:
     repo: deployments
     package: bar
@@ -1491,7 +1489,7 @@ spec:
 	}
 }
 
-func TestGeneratePVFuncName(t *testing.T) {
+func TestGeneratePVFuncNameWS(t *testing.T) {
 	tt := map[string]struct {
 		funcName     string
 		pvName       string
@@ -1521,7 +1519,7 @@ func TestGeneratePVFuncName(t *testing.T) {
 	}
 }
 
-func TestIsPackageVariantFunc(t *testing.T) {
+func TestIsPackageVariantFuncWS(t *testing.T) {
 	tt := map[string]struct {
 		funcyaml    string
 		pvName      string
@@ -1578,173 +1576,4 @@ func TestIsPackageVariantFunc(t *testing.T) {
 			require.Equal(t, tc.expectedRes, res)
 		})
 	}
-}
-
-func TestIsValidUpstram(t *testing.T) {
-	errs := isValidUpstream(nil)
-	assert.Equal(t, 1, len(errs))
-	assert.Equal(t, "missing required field spec.upstream", errs[0])
-
-	upstream := api.Upstream{}
-	errs = isValidUpstream(&upstream)
-	assert.Equal(t, 3, len(errs))
-	assert.Equal(t, "missing required field spec.upstream.repo", errs[0])
-
-	upstream.Repo = "my-repo"
-	errs = isValidUpstream(&upstream)
-	assert.Equal(t, 2, len(errs))
-	assert.Equal(t, "missing required field spec.upstream.package", errs[0])
-
-	upstream.Package = "my-package"
-	errs = isValidUpstream(&upstream)
-	assert.Equal(t, 1, len(errs))
-	assert.Equal(t, "use either field spec.upstream.revision or field.spec.workspace to identify the upstream package version", errs[0])
-
-	upstream.WorkspaceName = "my-workspace"
-	upstream.Revision = 1
-	errs = isValidUpstream(&upstream)
-	assert.Equal(t, 1, len(errs))
-	assert.Equal(t, "use either field spec.upstream.revision or field.spec.workspace to identify the upstream package version, not both", errs[0])
-
-	upstream.Revision = -1
-	errs = isValidUpstream(&upstream)
-	assert.Equal(t, 1, len(errs))
-	assert.Equal(t, "use either field spec.upstream.revision or field.spec.workspace to identify the upstream package version, not both", errs[0])
-
-	upstream.WorkspaceName = ""
-	upstream.Revision = 1
-	errs = isValidUpstream(&upstream)
-	assert.Equal(t, 0, len(errs))
-
-	upstream.WorkspaceName = ""
-	upstream.Revision = -1
-	errs = isValidUpstream(&upstream)
-	assert.Equal(t, 0, len(errs))
-}
-
-func TestGetUpstreamPr(t *testing.T) {
-	pvReconcier := PackageVariantReconciler{}
-	upstream := api.Upstream{}
-	prList := porchapi.PackageRevisionList{}
-
-	_, err := pvReconcier.getUpstreamPR(&upstream, &prList)
-	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
-
-	upstream.Repo = "my-repo"
-	upstream.Package = "my-package"
-	upstream.WorkspaceName = "my-workspace"
-
-	prList.Items = append(prList.Items, porchapi.PackageRevision{})
-	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
-	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
-
-	prList.Items = append(prList.Items, porchapi.PackageRevision{
-		Spec: porchapi.PackageRevisionSpec{
-			RepositoryName: "another-repo",
-			PackageName:    "another-package",
-			WorkspaceName:  "another-workspace",
-			Revision:       1,
-		},
-	})
-	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
-	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
-
-	prList.Items = append(prList.Items, porchapi.PackageRevision{
-		Spec: porchapi.PackageRevisionSpec{
-			RepositoryName: "my-repo",
-			PackageName:    "my-package",
-			WorkspaceName:  "another-workspace",
-			Revision:       1,
-		},
-	})
-	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
-	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
-
-	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
-	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
-	prList.Items = append(prList.Items, porchapi.PackageRevision{
-		Spec: porchapi.PackageRevisionSpec{
-			RepositoryName: "my-repo",
-			PackageName:    "my-package",
-			WorkspaceName:  "my-workspace",
-			Revision:       1,
-		},
-	})
-	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
-	assert.True(t, err == nil)
-
-	upstream.WorkspaceName = ""
-	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
-	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
-
-	upstream.Revision = 3
-	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
-	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
-
-	prList.Items = append(prList.Items, porchapi.PackageRevision{
-		Spec: porchapi.PackageRevisionSpec{
-			RepositoryName: "my-repo",
-			PackageName:    "my-package",
-			WorkspaceName:  "my-workspace",
-			Revision:       3,
-		},
-	})
-	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
-	assert.True(t, err == nil)
-
-	upstream.Revision = -1
-	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
-	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
-
-	prList.Items = append(prList.Items, porchapi.PackageRevision{
-		Spec: porchapi.PackageRevisionSpec{
-			RepositoryName: "my-repo",
-			PackageName:    "my-package",
-			WorkspaceName:  "main",
-			Revision:       3,
-		},
-	})
-	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
-	assert.True(t, err != nil)
-
-	upstream.Repo = "my-repo2"
-	upstream.Package = "my-package2"
-	upstream.Revision = -1
-	prList.Items = append(prList.Items, porchapi.PackageRevision{
-		Spec: porchapi.PackageRevisionSpec{
-			RepositoryName: "my-repo2",
-			PackageName:    "my-package2",
-			WorkspaceName:  "v3.2.1",
-			Revision:       -1,
-		},
-	})
-	prList.Items = append(prList.Items, porchapi.PackageRevision{
-		Spec: porchapi.PackageRevisionSpec{
-			RepositoryName: "my-repo2",
-			PackageName:    "my-package2",
-			WorkspaceName:  "maim",
-			Revision:       -1,
-		},
-	})
-	prList.Items = append(prList.Items, porchapi.PackageRevision{
-		Spec: porchapi.PackageRevisionSpec{
-			RepositoryName: "my-repo2",
-			PackageName:    "my-package2",
-			WorkspaceName:  "maio",
-			Revision:       -1,
-		},
-	})
-	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
-	assert.True(t, err != nil)
-
-	prList.Items = append(prList.Items, porchapi.PackageRevision{
-		Spec: porchapi.PackageRevisionSpec{
-			RepositoryName: "my-repo2",
-			PackageName:    "my-package2",
-			WorkspaceName:  "main",
-			Revision:       -1,
-		},
-	})
-	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
-	assert.True(t, err == nil)
 }
