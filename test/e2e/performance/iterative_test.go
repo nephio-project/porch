@@ -20,9 +20,10 @@ import (
 )
 
 const (
-	controlRepoName = "iterative-control"
-	testRepoName    = "iterative-test"
-	testPackageName = "test-package"
+	controlRepoName    = "iterative-control"
+	controlPackageName = "control-package"
+	testRepoName       = "iterative-test"
+	testPackageName    = "test-package"
 
 	startingWS = "v1"
 )
@@ -266,7 +267,7 @@ func (t *IterativeTest) collectMetrics() *IterationMetricsData {
 // createPackageRevisions creates and publishes n number of control PackageRevisions.
 // These will all be revisions of the same Package
 func (t *IterativeTest) createPackageRevisions(n int, repoName string) {
-	pr := t.CreatePackageDraftF(repoName, repoName+"-package", startingWS)
+	pr := t.CreatePackageDraftF(repoName, controlPackageName, startingWS)
 	t.publishPackageRevision(pr)
 
 	for i := 2; i <= n; i++ {

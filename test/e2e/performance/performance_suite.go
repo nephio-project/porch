@@ -65,7 +65,7 @@ func (t *PerformanceSuite) incrementGuage(obj client.Object) {
 	if !t.T().Failed() {
 		switch KindOf(obj) {
 		case KindPackageRevision:
-			if obj.(*porchapi.PackageRevision).Spec.Revision != "main" {
+			if obj.(*porchapi.PackageRevision).Spec.Revision != -1 {
 				packageRevisionGuage.Inc()
 			}
 		case KindRepository:
@@ -78,7 +78,7 @@ func (t *PerformanceSuite) decrementGuage(obj client.Object) {
 	if !t.T().Failed() {
 		switch KindOf(obj) {
 		case KindPackageRevision:
-			if obj.(*porchapi.PackageRevision).Spec.Revision != "main" {
+			if obj.(*porchapi.PackageRevision).Spec.Revision != -1 {
 				packageRevisionGuage.Dec()
 			}
 		case KindRepository:
