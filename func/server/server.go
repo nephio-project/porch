@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -42,6 +43,8 @@ type options struct {
 	port int
 	// The runtime(s) to disable. Multiple runtimes should separated by `,`.
 	disableRuntimes string
+	// The verbosity level of the logs (0-5)
+	logLevel int
 
 	// Parameters of ExecEvaluator
 	exec internal.ExecutableEvaluatorOptions
@@ -54,6 +57,7 @@ func main() {
 	// generic flags
 	flag.IntVar(&o.port, "port", 9445, "The server port")
 	flag.StringVar(&o.disableRuntimes, "disable-runtimes", "", fmt.Sprintf("The runtime(s) to disable. Multiple runtimes should separated by `,`. Available runtimes: `%v`, `%v`.", execRuntime, podRuntime))
+	flag.IntVar(&o.logLevel, "log-level", 2, "The verbosity level of the logs (0-5)")
 	// flags for the exec runtime
 	flag.StringVar(&o.exec.FunctionCacheDir, "functions", "./functions", "Path to cached functions.")
 	flag.StringVar(&o.exec.ConfigFileName, "config", "./config.yaml", "Path to the config file of the exec runtime.")
@@ -79,6 +83,10 @@ func main() {
 }
 
 func run(o *options) error {
+	flagSet := flag.NewFlagSet("log-level", flag.ContinueOnError)
+	klog.InitFlags(flagSet)
+	_ = flagSet.Parse([]string{"--v", strconv.Itoa(o.logLevel)})
+
 	address := fmt.Sprintf(":%d", o.port)
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
