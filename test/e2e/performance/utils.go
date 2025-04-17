@@ -1,6 +1,7 @@
 package performance
 
 import (
+	"fmt"
 	"reflect"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -29,9 +30,9 @@ func KindOf(o any) string {
 func NameOf(o any) string {
 	switch c := o.(type) {
 	case *porchapi.PackageRevision:
-		return c.Spec.PackageName
+		return fmt.Sprintf("%s/%s", c.Spec.RepositoryName, c.Spec.PackageName)
 	case *porchapi.PackageRevisionResources:
-		return c.Spec.PackageName
+		return fmt.Sprintf("%s/%s", c.Spec.RepositoryName, c.Spec.PackageName)
 	case *configapi.Repository:
 		return c.Name
 	case hasName:
