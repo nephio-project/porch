@@ -17,11 +17,14 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"net"
 	"os"
 	"os/exec"
+	"strconv"
 
 	pb "github.com/nephio-project/porch/func/evaluator"
 	"github.com/nephio-project/porch/func/healthchecker"
@@ -49,6 +52,12 @@ func main() {
 	}
 	cmd.Flags().IntVar(&op.port, "port", 9446, "The server port")
 	cmd.Flags().IntVar(&op.maxGrpcMessageSize, "max-request-body-size", 6*1024*1024, "Maximum size of grpc messages in bytes.")
+	cmd.Flags().IntVar(&op.logLevel, "verbosity", 2, "Verbosity of logs.")
+
+	flagSet := flag.NewFlagSet("log-level", flag.ContinueOnError)
+	klog.InitFlags(flagSet)
+	_ = flagSet.Parse([]string{"--v", strconv.Itoa(op.logLevel)})
+
 	if err := cmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "unexpected error: %v\n", err)
 		os.Exit(1)
@@ -59,6 +68,7 @@ type options struct {
 	port               int
 	maxGrpcMessageSize int
 	entrypoint         []string
+	logLevel           int
 }
 
 func (o *options) run() error {
@@ -106,14 +116,17 @@ func (e *singleFunctionEvaluator) EvaluateFunction(ctx context.Context, req *pb.
 	var exitErr *exec.ExitError
 	outbytes := stdout.Bytes()
 	stderrStr := stderr.String()
+
 	if err != nil {
+		klog.V(4).Infof("Input Resource List: %s\nOutput Resource List: %s", req.ResourceList, outbytes)
 		if errors.As(err, &exitErr) {
 			// If the exit code is non-zero, we will try to embed the structured results and content from stderr into the error message.
 			rl, pe := fn.ParseResourceList(outbytes)
 			if pe != nil {
 				// If we can't parse the output resource list, we only surface the content in stderr.
-				return nil, status.Errorf(codes.Internal, "failed to evaluate function %q with stderr %v", req.Image, stderrStr)
+				return nil, status.Errorf(codes.Internal, "failed to parse the output of function %q with stderr '%v': %+v", req.Image, stderrStr, pe)
 			}
+
 			return nil, status.Errorf(codes.Internal, "failed to evaluate function %q with structured results: %v and stderr: %v", req.Image, rl.Results.Error(), stderrStr)
 		} else {
 			return nil, status.Errorf(codes.Internal, "Failed to execute function %q: %s (%s)", req.Image, err, stderrStr)
@@ -121,6 +134,16 @@ func (e *singleFunctionEvaluator) EvaluateFunction(ctx context.Context, req *pb.
 	}
 
 	klog.Infof("Evaluated %q: stdout length: %d\nstderr:\n%v", req.Image, len(outbytes), stderrStr)
+	rl, pErr := fn.ParseResourceList(outbytes)
+	if pErr != nil {
+		klog.V(4).Infof("Input Resource List: %s\nOutput Resource List: %s", req.ResourceList, outbytes)
+		// If we can't parse the output resource list, we only surface the content in stderr.
+		return nil, status.Errorf(codes.Internal, "failed to parse the output of function %q with stderr '%v': %+v", req.Image, stderrStr, pErr)
+	}
+	if rl.Results.ExitCode() != 0 {
+		jsonBytes, _ := json.Marshal(rl.Results)
+		klog.Warningf("failed to evaluate function %q with structured results: %s and stderr: %v", req.Image, jsonBytes, stderrStr)
+	}
 
 	return &pb.EvaluateFunctionResponse{
 		ResourceList: outbytes,
