@@ -95,7 +95,7 @@ func (t *IterativeTest) parseFlags() {
 }
 
 func toIntSlice(s string) ([]int, error) {
-	regex := regexp.MustCompile("^\\d+(,\\d+)*$")
+	regex := regexp.MustCompile(`^\d+(,\d+)*$`)
 	if !regex.MatchString(s) {
 		return nil, fmt.Errorf("cannot parse %q as int slice", s)
 	}
