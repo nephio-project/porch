@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 
@@ -232,4 +233,32 @@ func SafeReverse[S ~[]E, E any](s S) {
 		return
 	}
 	slices.Reverse(s)
+}
+
+func CompareObjectMeta(left metav1.ObjectMeta, right metav1.ObjectMeta) bool {
+	if result := strings.Compare(left.Name, right.Name); result != 0 {
+		return false
+	}
+
+	if result := strings.Compare(left.Namespace, right.Namespace); result != 0 {
+		return false
+	}
+
+	if result := reflect.DeepEqual(left.Labels, right.Labels); !result {
+		return false
+	}
+
+	if result := reflect.DeepEqual(left.Annotations, right.Annotations); !result {
+		return false
+	}
+
+	if result := reflect.DeepEqual(left.Finalizers, right.Finalizers); !result {
+		return false
+	}
+
+	if result := reflect.DeepEqual(left.OwnerReferences, right.OwnerReferences); !result {
+		return false
+	}
+
+	return true
 }

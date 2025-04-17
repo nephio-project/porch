@@ -317,8 +317,8 @@ commands:
       - sh
       - -c
       - |
-        ls /tmp/porch-e2e/local-pack-result
-    stdout: "Kptfile\nREADME.md\na.yaml\nb.yaml\nc.yaml\ncIQ.yaml\nday0value.yaml\npackage-context.yaml\n"
+        ls /tmp/porch-e2e/local-pack-result | sort -f
+    stdout: "a.yaml\nb.yaml\nc.yaml\ncIQ.yaml\nday0value.yaml\nKptfile\npackage-context.yaml\nREADME.md\n"
 ##FORCE-DELETE-REPLACE UPDATE
   # Step 8: Copy Blueprint v1 to v2 and update
   - args:
@@ -423,5 +423,5 @@ commands:
       - sh
       - -c
       - |
-        ls /tmp/porch-e2e/local-pack-deletereplace-result
-    stdout: "Kptfile\nREADME.md\na.yaml\nc.yaml\npackage-context.yaml\n"
+        ls /tmp/porch-e2e/local-pack-deletereplace-result | sort -f
+    stdout: "a.yaml\nc.yaml\nKptfile\npackage-context.yaml\nREADME.md\n"

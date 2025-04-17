@@ -171,6 +171,7 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 func (p *gitPackageRevision) ToMainPackageRevision() repository.PackageRevision {
 	//Need to compute a separate reference, otherwise the ref will be the same as the versioned package,
 	//while the main gitPackageRevision needs to point at the main branch.
+
 	mainBranchRef := plumbing.NewHashReference(p.repo.branch.RefInLocal(), p.commit)
 	mainPr := &gitPackageRevision{
 		repo:      p.repo,
@@ -184,8 +185,8 @@ func (p *gitPackageRevision) ToMainPackageRevision() repository.PackageRevision 
 	}
 	mainPr.prKey.Revision = -1
 	mainPr.prKey.WorkspaceName = mainPr.Key().GetPackageKey().GetRepositoryKey().PlaceholderWSname
-	return mainPr
 
+	return mainPr
 }
 
 func (p *gitPackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, error) {
