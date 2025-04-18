@@ -81,10 +81,19 @@ func (c *cachedPackageRevision) GetPackageRevision(ctx context.Context) (*api.Pa
 }
 
 func (c *cachedPackageRevision) SetMeta(ctx context.Context, pkgRevMeta metav1.ObjectMeta) error {
-
-	if storedPkgRevMeta, err := c.metadataStore.Update(ctx, pkgRevMeta); err == nil {
-		return c.PackageRevision.SetMeta(ctx, storedPkgRevMeta)
-	} else {
+	storedMeta, err := c.metadataStore.Get(ctx, types.NamespacedName{
+		Name:      c.KubeObjectName(),
+		Namespace: c.KubeObjectNamespace(),
+	})
+	if err != nil {
 		return err
 	}
+
+	if !util.CompareObjectMeta(pkgRevMeta, storedMeta) {
+		if storedMeta, err = c.metadataStore.Update(ctx, pkgRevMeta); err != nil {
+			return err
+		}
+	}
+
+	return c.PackageRevision.SetMeta(ctx, storedMeta)
 }
