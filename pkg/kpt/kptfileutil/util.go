@@ -1,4 +1,4 @@
-// Copyright 2019 The kpt and Nephio Authors
+// Copyright 2019, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/nephio-project/porch/internal/kpt/errors"
@@ -27,11 +28,53 @@ import (
 	"github.com/nephio-project/porch/internal/kpt/types"
 	"github.com/nephio-project/porch/internal/kpt/util/git"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/pkg/util"
+	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 	"sigs.k8s.io/kustomize/kyaml/sets"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 	"sigs.k8s.io/kustomize/kyaml/yaml/merge3"
 )
+
+func FromKubeObject(kptfileKubeObject *fn.KubeObject) (kptfilev1.KptFile, error) {
+	var apiKptfile kptfilev1.KptFile
+	if err := kptfileKubeObject.As(&apiKptfile); err != nil {
+		return kptfilev1.KptFile{}, err
+	}
+
+	if apiKptfile.Info != nil {
+		gates := apiKptfile.Info.ReadinessGates
+		sort.SliceStable(gates, func(i, j int) bool { return gates[i].ConditionType < gates[j].ConditionType })
+	}
+	if apiKptfile.Status != nil {
+		conditions := apiKptfile.Status.Conditions
+		sort.SliceStable(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
+	}
+
+	return apiKptfile, nil
+}
+
+func ToYamlString(file *kptfilev1.KptFile) (string, error) {
+	if file.Info != nil {
+		gates := file.Info.ReadinessGates
+		sort.SliceStable(gates, func(i, j int) bool { return gates[i].ConditionType < gates[j].ConditionType })
+	}
+	if file.Status != nil {
+		conditions := file.Status.Conditions
+		sort.SliceStable(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
+	}
+
+	b, err := yaml.MarshalWithOptions(file, &yaml.EncoderOptions{SeqIndent: yaml.WideSequenceStyle})
+	if err != nil {
+		return "", err
+	}
+	kptfileKubeObject, err := util.YamlToKubeObject(string(b))
+	if err != nil {
+		return "", err
+	}
+
+	return kptfileKubeObject.String(), nil
+}
 
 func WriteFile(dir string, k interface{}) error {
 	const op errors.Op = "kptfileutil.WriteFile"
