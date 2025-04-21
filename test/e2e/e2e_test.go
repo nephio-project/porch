@@ -42,8 +42,10 @@ import (
 )
 
 const (
-	testBlueprintsRepo = "https://github.com/platkrm/test-blueprints.git"
-	kptRepo            = "https://github.com/kptdev/kpt.git"
+	defaultTestBlueprintsRepo = "https://github.com/platkrm/test-blueprints.git"
+	kptRepo                   = "https://github.com/kptdev/kpt.git"
+
+	testBlueprintsRepoUrlEnv = "PORCH_TEST_BLUEPRINTS_REPO_URL"
 )
 
 var (
@@ -53,6 +55,7 @@ var (
 
 type PorchSuite struct {
 	TestSuiteWithGit
+	testBlueprintsRepo string
 }
 
 func TestE2E(t *testing.T) {
@@ -61,7 +64,14 @@ func TestE2E(t *testing.T) {
 		t.Skip("set E2E to run this test")
 	}
 
-	suite.Run(t, &PorchSuite{})
+	pSuite := &PorchSuite{
+		testBlueprintsRepo: defaultTestBlueprintsRepo,
+	}
+	if os.Getenv(testBlueprintsRepoUrlEnv) != "" {
+		pSuite.testBlueprintsRepo = os.Getenv(testBlueprintsRepoUrlEnv)
+	}
+	fmt.Println(pSuite.testBlueprintsRepo)
+	suite.Run(t, pSuite)
 }
 
 func (t *PorchSuite) TestGitRepository() {
@@ -141,7 +151,7 @@ func (t *PorchSuite) TestGitRepositoryWithReleaseTagsAndDirectory() {
 
 func (t *PorchSuite) TestCloneFromUpstream() {
 	// Register Upstream Repository
-	t.RegisterGitRepositoryF(testBlueprintsRepo, "test-blueprints", "")
+	t.RegisterGitRepositoryF(t.testBlueprintsRepo, "test-blueprints", "")
 
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
@@ -216,7 +226,7 @@ func (t *PorchSuite) TestCloneFromUpstream() {
 	want := &kptfilev1.UpstreamLock{
 		Type: kptfilev1.GitOrigin,
 		Git: &kptfilev1.GitLock{
-			Repo:      testBlueprintsRepo,
+			Repo:      t.testBlueprintsRepo,
 			Directory: "basens",
 			Ref:       "basens/v1",
 		},
@@ -229,7 +239,7 @@ func (t *PorchSuite) TestCloneFromUpstream() {
 	if got, want := kptfile.Upstream, (&kptfilev1.Upstream{
 		Type: kptfilev1.GitOrigin,
 		Git: &kptfilev1.Git{
-			Repo:      testBlueprintsRepo,
+			Repo:      t.testBlueprintsRepo,
 			Directory: "basens",
 			Ref:       "basens/v1",
 		},
@@ -248,7 +258,7 @@ func (t *PorchSuite) TestConcurrentClones() {
 	)
 
 	// Register Upstream and Downstream Repositories
-	t.RegisterGitRepositoryF(testBlueprintsRepo, upstreamRepository, "")
+	t.RegisterGitRepositoryF(t.testBlueprintsRepo, upstreamRepository, "")
 	t.RegisterMainGitRepositoryF(downstreamRepository)
 
 	var list porchapi.PackageRevisionList
@@ -444,7 +454,7 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 	t.RegisterMainGitRepositoryF(downstreamRepository, WithDeployment())
 
 	// Register the upstream repository
-	t.RegisterGitRepositoryF(testBlueprintsRepo, "test-blueprints", "")
+	t.RegisterGitRepositoryF(t.testBlueprintsRepo, "test-blueprints", "")
 
 	var upstreamPackages porchapi.PackageRevisionList
 	t.ListE(&upstreamPackages, client.InNamespace(t.Namespace))
@@ -517,7 +527,7 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 	want := &kptfilev1.UpstreamLock{
 		Type: kptfilev1.GitOrigin,
 		Git: &kptfilev1.GitLock{
-			Repo:      testBlueprintsRepo,
+			Repo:      t.testBlueprintsRepo,
 			Directory: "basens",
 			Ref:       "basens/v1",
 		},
@@ -530,7 +540,7 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 	if got, want := kptfile.Upstream, (&kptfilev1.Upstream{
 		Type: kptfilev1.GitOrigin,
 		Git: &kptfilev1.Git{
-			Repo:      testBlueprintsRepo,
+			Repo:      t.testBlueprintsRepo,
 			Directory: "basens",
 			Ref:       "basens/v1",
 		},
@@ -912,13 +922,13 @@ func (t *PorchSuite) NewClientWithTimeout(timeout time.Duration) client.Client {
 }
 
 func (t *PorchSuite) TestPublicGitRepository() {
-	t.RegisterGitRepositoryF(testBlueprintsRepo, "demo-blueprints", "")
+	t.RegisterGitRepositoryF(t.testBlueprintsRepo, "demo-blueprints", "")
 
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
 
 	if got := len(list.Items); got == 0 {
-		t.Errorf("Found no package revisions in %s; expected at least one", testBlueprintsRepo)
+		t.Errorf("Found no package revisions in %s; expected at least one", t.testBlueprintsRepo)
 	}
 }
 
@@ -1607,7 +1617,7 @@ func (t *PorchSuite) TestPackageUpdate() {
 		gitRepository = "package-update"
 	)
 
-	t.RegisterGitRepositoryF(testBlueprintsRepo, "test-blueprints", "")
+	t.RegisterGitRepositoryF(t.testBlueprintsRepo, "test-blueprints", "")
 
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
@@ -1704,7 +1714,7 @@ func (t *PorchSuite) TestConcurrentPackageUpdates() {
 		workspace     = "test-workspace"
 	)
 
-	t.RegisterGitRepositoryF(testBlueprintsRepo, "test-blueprints", "")
+	t.RegisterGitRepositoryF(t.testBlueprintsRepo, "test-blueprints", "")
 
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
@@ -2541,7 +2551,7 @@ func (t *PorchSuite) TestRegisteredPackageRevisionLabels() {
 		annoVal  = "foo"
 	)
 
-	t.RegisterGitRepositoryF(testBlueprintsRepo, "test-blueprints", "")
+	t.RegisterGitRepositoryF(t.testBlueprintsRepo, "test-blueprints", "")
 
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
@@ -2806,7 +2816,7 @@ func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces() {
 
 	registerRepoAndTestRevisions := func(repoName string, ns string, oldPRs []porchapi.PackageRevision) []porchapi.PackageRevision {
 
-		t.RegisterGitRepositoryF(testBlueprintsRepo, repoName, "", InNamespace(ns))
+		t.RegisterGitRepositoryF(t.testBlueprintsRepo, repoName, "", InNamespace(ns))
 		prList := porchapi.PackageRevisionList{}
 		t.ListF(&prList, client.InNamespace(ns))
 		newPRs := prList.Items
@@ -2878,8 +2888,8 @@ func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces() {
 
 func (t *PorchSuite) TestUniquenessOfUIDs() {
 
-	t.RegisterGitRepositoryF(testBlueprintsRepo, "test-blueprints", "")
-	t.RegisterGitRepositoryF(testBlueprintsRepo, "test-2-blueprints", "")
+	t.RegisterGitRepositoryF(t.testBlueprintsRepo, "test-blueprints", "")
+	t.RegisterGitRepositoryF(t.testBlueprintsRepo, "test-2-blueprints", "")
 
 	prList := porchapi.PackageRevisionList{}
 	t.ListE(&prList, client.InNamespace(t.Namespace))
@@ -2896,7 +2906,7 @@ func (t *PorchSuite) TestUniquenessOfUIDs() {
 
 func (t *PorchSuite) TestPackageRevisionFieldSelectors() {
 	repo := "test-blueprints"
-	t.RegisterGitRepositoryF(testBlueprintsRepo, repo, "")
+	t.RegisterGitRepositoryF(t.testBlueprintsRepo, repo, "")
 
 	prList := porchapi.PackageRevisionList{}
 
@@ -3059,7 +3069,7 @@ func (t *PorchSuite) TestRepositoryModify() {
 			Description: "Initial Repository",
 			Type:        configapi.RepositoryTypeGit,
 			Git: &configapi.GitRepository{
-				Repo: testBlueprintsRepo,
+				Repo: t.testBlueprintsRepo,
 			},
 		},
 	})
