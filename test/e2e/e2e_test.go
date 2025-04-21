@@ -43,11 +43,15 @@ import (
 
 const (
 	defaultTestBlueprintsRepo = "https://github.com/platkrm/test-blueprints.git"
+	defaultGCPBlueprintsRepo  = "https://github.com/GoogleCloudPlatform/blueprints.git"
 	kptRepo                   = "https://github.com/kptdev/kpt.git"
 	defaultGCRPrefix          = "gcr.io/kpt-fn/"
 
-	testBlueprintsRepoUrlEnv = "PORCH_TEST_BLUEPRINTS_REPO_URL"
-	gcrPrefixEnv             = "PORCH_GCR_PREFIX_URL"
+	testBlueprintsRepoUrlEnv     = "PORCH_TEST_BLUEPRINTS_REPO_URL"
+	gcpBlueprintsRepoUrlEnv      = "PORCH_GCP_BLUEPRINTS_REPO_URL"
+	gcpBlueprintsRepoUserEnv     = "PORCH_GCP_BLUEPRINTS_REPO_USER"
+	gcpBlueprintsRepoPasswordEnv = "PORCH_GCP_BLUEPRINTS_REPO_PASSWORD"
+	gcrPrefixEnv                 = "PORCH_GCR_PREFIX_URL"
 )
 
 var (
@@ -58,6 +62,7 @@ var (
 type PorchSuite struct {
 	TestSuiteWithGit
 	testBlueprintsRepo string
+	gcpBlueprintsRepo  string
 	gcrPrefix          string
 }
 
@@ -69,15 +74,19 @@ func TestE2E(t *testing.T) {
 
 	pSuite := &PorchSuite{
 		testBlueprintsRepo: defaultTestBlueprintsRepo,
+		gcpBlueprintsRepo:  defaultGCPBlueprintsRepo,
 		gcrPrefix:          defaultGCRPrefix,
 	}
 	if os.Getenv(testBlueprintsRepoUrlEnv) != "" {
 		pSuite.testBlueprintsRepo = os.Getenv(testBlueprintsRepoUrlEnv)
 	}
+	if os.Getenv(gcpBlueprintsRepoUrlEnv) != "" {
+		pSuite.gcpBlueprintsRepo = os.Getenv(gcpBlueprintsRepoUrlEnv)
+	}
 	if os.Getenv(gcrPrefixEnv) != "" {
 		pSuite.gcrPrefix = os.Getenv(gcrPrefixEnv)
 	}
-	fmt.Printf("%v\n%v\n\n", pSuite.testBlueprintsRepo, pSuite.gcrPrefix)
+	fmt.Printf("%v\n%v\n%v\n\n", pSuite.testBlueprintsRepo, pSuite.gcpBlueprintsRepo, pSuite.gcrPrefix)
 	suite.Run(t, pSuite)
 }
 
@@ -101,7 +110,7 @@ func (t *PorchSuite) TestGitRepository() {
 						Upstream: porchapi.UpstreamPackage{
 							Type: "git",
 							Git: &porchapi.GitPackage{
-								Repo:      "https://github.com/GoogleCloudPlatform/blueprints.git",
+								Repo:      t.gcpBlueprintsRepo,
 								Ref:       "bucket-blueprint-v0.4.3",
 								Directory: "catalog/bucket",
 							},
@@ -1813,7 +1822,7 @@ func (t *PorchSuite) TestBuiltinFunctionEvaluator() {
 						Upstream: porchapi.UpstreamPackage{
 							Type: "git",
 							Git: &porchapi.GitPackage{
-								Repo:      "https://github.com/GoogleCloudPlatform/blueprints.git",
+								Repo:      t.gcpBlueprintsRepo,
 								Ref:       "bucket-blueprint-v0.4.3",
 								Directory: "catalog/bucket",
 							},
@@ -1891,7 +1900,7 @@ func (t *PorchSuite) TestExecFunctionEvaluator() {
 						Upstream: porchapi.UpstreamPackage{
 							Type: "git",
 							Git: &porchapi.GitPackage{
-								Repo:      "https://github.com/GoogleCloudPlatform/blueprints.git",
+								Repo:      t.gcpBlueprintsRepo,
 								Ref:       "bucket-blueprint-v0.4.3",
 								Directory: "catalog/bucket",
 							},
@@ -1973,7 +1982,7 @@ func (t *PorchSuite) TestPodFunctionEvaluatorWithDistrolessImage() {
 						Upstream: porchapi.UpstreamPackage{
 							Type: "git",
 							Git: &porchapi.GitPackage{
-								Repo:      "https://github.com/GoogleCloudPlatform/blueprints.git",
+								Repo:      t.gcpBlueprintsRepo,
 								Ref:       "redis-bucket-blueprint-v0.3.2",
 								Directory: "catalog/redis-bucket",
 							},
@@ -2060,7 +2069,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 						Upstream: porchapi.UpstreamPackage{
 							Type: "git",
 							Git: &porchapi.GitPackage{
-								Repo:      "https://github.com/GoogleCloudPlatform/blueprints.git",
+								Repo:      t.gcpBlueprintsRepo,
 								Ref:       "783380ce4e6c3f21e9e90055b3a88bada0410154",
 								Directory: "catalog/hierarchy/simple",
 							},
@@ -2139,7 +2148,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 						Upstream: porchapi.UpstreamPackage{
 							Type: "git",
 							Git: &porchapi.GitPackage{
-								Repo:      "https://github.com/GoogleCloudPlatform/blueprints.git",
+								Repo:      t.gcpBlueprintsRepo,
 								Ref:       "783380ce4e6c3f21e9e90055b3a88bada0410154",
 								Directory: "catalog/hierarchy/simple",
 							},
@@ -2215,7 +2224,7 @@ func (t *PorchSuite) TestPodEvaluatorWithFailure() {
 						Upstream: porchapi.UpstreamPackage{
 							Type: "git",
 							Git: &porchapi.GitPackage{
-								Repo:      "https://github.com/GoogleCloudPlatform/blueprints.git",
+								Repo:      t.gcpBlueprintsRepo,
 								Ref:       "bucket-blueprint-v0.4.3",
 								Directory: "catalog/bucket",
 							},

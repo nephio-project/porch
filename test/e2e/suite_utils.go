@@ -226,33 +226,6 @@ func (t *TestSuite) RegisterGitRepositoryF(repo, name, directory string, opts ..
 
 func (t *TestSuite) registerGitRepositoryFromConfigF(name string, config GitConfig, opts ...RepositoryOption) {
 	t.T().Helper()
-	var secret string
-	// Create auth secret if necessary
-	if config.Username != "" || config.Password != "" {
-		secret = fmt.Sprintf("%s-auth", name)
-		immutable := true
-		t.CreateF(&corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      secret,
-				Namespace: t.Namespace,
-			},
-			Immutable: &immutable,
-			Data: map[string][]byte{
-				"username": []byte(config.Username),
-				"password": []byte(config.Password),
-			},
-			Type: corev1.SecretTypeBasicAuth,
-		})
-		t.Cleanup(func() {
-			t.T().Helper()
-			t.DeleteE(&corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      secret,
-					Namespace: t.Namespace,
-				},
-			})
-		})
-	}
 
 	repository := &configapi.Repository{
 		TypeMeta: metav1.TypeMeta{
@@ -271,7 +244,7 @@ func (t *TestSuite) registerGitRepositoryFromConfigF(name string, config GitConf
 				Branch:    config.Branch,
 				Directory: config.Directory,
 				SecretRef: configapi.SecretRef{
-					Name: secret,
+					Name: t.CreateRepositorySecret(name, config.Username, config.Password),
 				},
 			},
 		},
@@ -295,6 +268,38 @@ func (t *TestSuite) registerGitRepositoryFromConfigF(name string, config GitConf
 	// avoid flakiness.
 	t.WaitUntilRepositoryReady(repository.Name, repository.Namespace)
 	t.Logf("Repository %s/%s is ready", repository.Namespace, repository.Name)
+}
+
+func (t *TestSuite) CreateRepositorySecret(name string, username string, password Password) string {
+	t.T().Helper()
+	var secret string
+	// Create auth secret if necessary
+	if username != "" || password != "" {
+		secret = fmt.Sprintf("%s-auth", name)
+		immutable := true
+		t.CreateF(&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secret,
+				Namespace: t.Namespace,
+			},
+			Immutable: &immutable,
+			Data: map[string][]byte{
+				"username": []byte(username),
+				"password": []byte(password),
+			},
+			Type: corev1.SecretTypeBasicAuth,
+		})
+		t.Cleanup(func() {
+			t.T().Helper()
+			t.DeleteE(&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secret,
+					Namespace: t.Namespace,
+				},
+			})
+		})
+	}
+	return secret
 }
 
 type RepositoryOption func(*configapi.Repository)
