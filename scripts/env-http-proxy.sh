@@ -29,7 +29,7 @@ usage() {
   echo "  -u, --unset                   Unset all environment variables set by this script"
   echo
   echo "Example"
-  echo "$0 --test-blueprints githuburl user=my_user password=my_password --gcp-blueprints githuburl user=my_user password=my_password"
+  echo "source $0 --test-blueprints githuburl user=my_user password=my_password --gcp-blueprints githuburl user=my_user password=my_password"
 }
 
 PORCH_TEST_BLUEPRINTS_REPO_URL=""
