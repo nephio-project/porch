@@ -15,6 +15,8 @@
 package e2e
 
 import (
+	"os"
+
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,6 +61,9 @@ func (t *PorchSuite) TestPackageUpdateRecloneAndReplay() {
 								Repo:      t.testBlueprintsRepo,
 								Ref:       "v1",
 								Directory: "basens",
+								SecretRef: porchapi.SecretRef{
+									Name: t.CreateRepositorySecret("testrecloneandreplay", os.Getenv(TestBlueprintsRepoUserEnv), Password(os.Getenv(TestBlueprintsRepoPasswordEnv))),
+								},
 							},
 						},
 					},

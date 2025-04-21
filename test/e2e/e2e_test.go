@@ -47,7 +47,9 @@ const (
 	kptRepo                   = "https://github.com/kptdev/kpt.git"
 	defaultGCRPrefix          = "gcr.io/kpt-fn/"
 
-	testBlueprintsRepoUrlEnv     = "PORCH_TEST_BLUEPRINTS_REPO_URL"
+	testBlueprintsRepoUrlEnv = "PORCH_TEST_BLUEPRINTS_REPO_URL"
+	//TestBlueprintsRepoUserEnv     = "PORCH_TEST_BLUEPRINTS_REPO_USER"
+	//TestBlueprintsRepoPasswordEnv = "PORCH_TEST_BLUEPRINTS_REPO_PASSWORD"
 	gcpBlueprintsRepoUrlEnv      = "PORCH_GCP_BLUEPRINTS_REPO_URL"
 	gcpBlueprintsRepoUserEnv     = "PORCH_GCP_BLUEPRINTS_REPO_USER"
 	gcpBlueprintsRepoPasswordEnv = "PORCH_GCP_BLUEPRINTS_REPO_PASSWORD"
@@ -1610,7 +1612,7 @@ func (t *PorchSuite) TestCloneLeadingSlash() {
 						Upstream: porchapi.UpstreamPackage{
 							Type: porchapi.RepositoryTypeGit,
 							Git: &porchapi.GitPackage{
-								Repo:      "https://github.com/platkrm/test-blueprints",
+								Repo:      t.testBlueprintsRepo,
 								Ref:       "basens/v1",
 								Directory: "/basens",
 							},
@@ -3085,6 +3087,9 @@ func (t *PorchSuite) TestRepositoryModify() {
 			Type:        configapi.RepositoryTypeGit,
 			Git: &configapi.GitRepository{
 				Repo: t.testBlueprintsRepo,
+				SecretRef: configapi.SecretRef{
+					Name: t.CreateRepositorySecret(repositoryName, os.Getenv(TestBlueprintsRepoUserEnv), Password(os.Getenv(TestBlueprintsRepoPasswordEnv))),
+				},
 			},
 		},
 	})
