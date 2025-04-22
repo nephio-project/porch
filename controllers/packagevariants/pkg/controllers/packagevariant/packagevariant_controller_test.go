@@ -1587,18 +1587,18 @@ func TestIsValidUpstram(t *testing.T) {
 
 	upstream := api.Upstream{}
 	errs = isValidUpstream(&upstream)
-	assert.Equal(t, 3, len(errs))
+	assert.Equal(t, 2, len(errs))
 	assert.Equal(t, "missing required field spec.upstream.repo", errs[0])
 
 	upstream.Repo = "my-repo"
 	errs = isValidUpstream(&upstream)
-	assert.Equal(t, 2, len(errs))
+	assert.Equal(t, 1, len(errs))
 	assert.Equal(t, "missing required field spec.upstream.package", errs[0])
 
 	upstream.Package = "my-package"
 	errs = isValidUpstream(&upstream)
-	assert.Equal(t, 1, len(errs))
-	assert.Equal(t, "use either field spec.upstream.revision or field.spec.workspace to identify the upstream package version", errs[0])
+	assert.Equal(t, 0, len(errs))
+	assert.Equal(t, -1, upstream.Revision)
 
 	upstream.WorkspaceName = "my-workspace"
 	upstream.Revision = 1

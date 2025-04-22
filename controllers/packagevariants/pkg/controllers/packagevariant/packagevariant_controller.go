@@ -252,7 +252,8 @@ func isValidUpstream(upstream *api.Upstream) []string {
 	}
 
 	if upstream.Revision == 0 && upstream.WorkspaceName == "" {
-		upstreamErrs = append(upstreamErrs, "use either field spec.upstream.revision or field.spec.workspace to identify the upstream package version")
+		// Use the default revision
+		upstream.Revision = -1
 	}
 
 	return upstreamErrs
