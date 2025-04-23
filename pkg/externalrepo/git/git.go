@@ -1045,10 +1045,6 @@ func (r *gitRepository) createBranch(ctx context.Context, branch BranchName) err
 	return r.pushAndCleanup(ctx, refSpecs)
 }
 
-func (r *gitRepository) getCommit(h plumbing.Hash) (*object.Commit, error) {
-	return object.GetCommit(r.repo.Storer, h)
-}
-
 // Creates a commit which deletes the package from the branch, and returns its commit hash.
 // If the branch doesn't exist, will return zero hash and no error.
 func (r *gitRepository) createPackageDeleteCommit(ctx context.Context, branch plumbing.ReferenceName, pkg *gitPackageRevision) (plumbing.Hash, error) {
