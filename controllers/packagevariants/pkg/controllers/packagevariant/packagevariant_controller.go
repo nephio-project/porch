@@ -247,14 +247,7 @@ func isValidUpstream(upstream *api.Upstream) []string {
 		upstreamErrs = append(upstreamErrs, "missing required field spec.upstream.package")
 	}
 
-	if upstream.Revision != 0 && upstream.WorkspaceName != "" {
-		upstreamErrs = append(upstreamErrs, "use either field spec.upstream.revision or field.spec.workspace to identify the upstream package version, not both")
-	}
-
-	if upstream.Revision == 0 && upstream.WorkspaceName == "" {
-		// Use the default revision
-		upstream.Revision = -1
-	}
+	upstream.Revision = -1
 
 	return upstreamErrs
 }
@@ -278,21 +271,15 @@ func (r *PackageVariantReconciler) getUpstreamPR(upstream *api.Upstream,
 
 		if upstream.WorkspaceName != "" {
 			if pr.Spec.WorkspaceName == upstream.WorkspaceName {
+				upstream.Revision = pr.Spec.Revision
 				return &pr, nil
 			}
 			continue
 		}
 
-		if upstream.Revision != -1 && pr.Spec.Revision == upstream.Revision {
-			return &pr, nil
-		}
-
-		if pr.Spec.Revision != -1 {
-			continue
-		}
-
 		// Return the main revision if the revision is the placeholder revision
 		if pr.Spec.WorkspaceName == "main" {
+			upstream.Revision = pr.Spec.Revision
 			return &pr, nil
 		}
 	}

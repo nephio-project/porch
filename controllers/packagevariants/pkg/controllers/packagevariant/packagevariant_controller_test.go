@@ -1603,13 +1603,13 @@ func TestIsValidUpstram(t *testing.T) {
 	upstream.WorkspaceName = "my-workspace"
 	upstream.Revision = 1
 	errs = isValidUpstream(&upstream)
-	assert.Equal(t, 1, len(errs))
-	assert.Equal(t, "use either field spec.upstream.revision or field.spec.workspace to identify the upstream package version, not both", errs[0])
+	assert.Equal(t, 0, len(errs))
+	assert.Equal(t, -1, upstream.Revision)
 
 	upstream.Revision = -1
 	errs = isValidUpstream(&upstream)
-	assert.Equal(t, 1, len(errs))
-	assert.Equal(t, "use either field spec.upstream.revision or field.spec.workspace to identify the upstream package version, not both", errs[0])
+	assert.Equal(t, 0, len(errs))
+	assert.Equal(t, -1, upstream.Revision)
 
 	upstream.WorkspaceName = ""
 	upstream.Revision = 1
@@ -1677,22 +1677,6 @@ func TestGetUpstreamPr(t *testing.T) {
 	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
 	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
 
-	upstream.Revision = 3
-	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
-	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
-
-	prList.Items = append(prList.Items, porchapi.PackageRevision{
-		Spec: porchapi.PackageRevisionSpec{
-			RepositoryName: "my-repo",
-			PackageName:    "my-package",
-			WorkspaceName:  "my-workspace",
-			Revision:       3,
-		},
-	})
-	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
-	assert.True(t, err == nil)
-
-	upstream.Revision = -1
 	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
 	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
 
@@ -1701,11 +1685,14 @@ func TestGetUpstreamPr(t *testing.T) {
 			RepositoryName: "my-repo",
 			PackageName:    "my-package",
 			WorkspaceName:  "main",
-			Revision:       3,
 		},
 	})
 	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
-	assert.True(t, err != nil)
+	assert.True(t, err == nil)
+
+	upstream.Revision = -1
+	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
+	assert.True(t, err == nil)
 
 	upstream.Repo = "my-repo2"
 	upstream.Package = "my-package2"
