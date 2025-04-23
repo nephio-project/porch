@@ -1113,16 +1113,6 @@ func (r *gitRepository) createPackageDeleteCommit(ctx context.Context, branch pl
 	return commitHash, nil
 }
 
-func (r *gitRepository) PushAndCleanup(ctx context.Context, ph *pushRefSpecBuilder) error {
-	ctx, span := tracer.Start(ctx, "gitRepository::PushAndCleanup", trace.WithAttributes())
-	defer span.End()
-
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
-	return r.pushAndCleanup(ctx, ph)
-}
-
 func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuilder) error {
 	ctx, span := tracer.Start(ctx, "gitRepository::pushAndCleanup", trace.WithAttributes())
 	defer span.End()
