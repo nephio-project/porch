@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/filemode"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -36,7 +37,7 @@ const (
 )
 
 type commitHelper struct {
-	repository *gitRepository
+	repository *git.Repository
 
 	// trees holds a map of all the tree objects we are writing to.
 	// We reuse the existing object.Tree structures.
@@ -52,7 +53,7 @@ type commitHelper struct {
 
 // if packageTree is zero, new tree for the package will be created (effectively replacing the package with the subsequently provided
 // contents). If the packageTree is provided, the tree will be used as the initial package contents, possibly subsequently modified.
-func newCommitHelper(repo *gitRepository, userInfoProvider repository.UserInfoProvider,
+func newCommitHelper(repo *git.Repository, userInfoProvider repository.UserInfoProvider,
 	parentCommitHash plumbing.Hash, packagePath string, packageTree plumbing.Hash) (*commitHelper, error) {
 	var root *object.Tree
 
@@ -60,7 +61,7 @@ func newCommitHelper(repo *gitRepository, userInfoProvider repository.UserInfoPr
 		// No parent commit, start with an empty tree
 		root = &object.Tree{}
 	} else {
-		parentCommit, err := repo.getCommit(parentCommitHash)
+		parentCommit, err := object.GetCommit(repo.Storer, parentCommitHash)
 		if err != nil {
 			return nil, fmt.Errorf("cannot resolve parent commit hash %s to commit: %w", parentCommitHash, err)
 		}
@@ -89,7 +90,7 @@ func newCommitHelper(repo *gitRepository, userInfoProvider repository.UserInfoPr
 // Initializes ancestor trees of the package, reading them from the storer.
 // If packageTree hash is provided, it will be used as the package's initial tree. Otherwise, new tree will be used
 // (effectively replacing the package with an empty one).
-func initializeTrees(repo *gitRepository, root *object.Tree, packagePath string,
+func initializeTrees(repo *git.Repository, root *object.Tree, packagePath string,
 	packageTreeHash plumbing.Hash) (map[string]*object.Tree, error) {
 
 	trees := map[string]*object.Tree{
@@ -117,7 +118,7 @@ func initializeTrees(repo *gitRepository, root *object.Tree, packagePath string,
 		case existing.Mode == filemode.Dir:
 			// Existing entry is a tree. use it
 			hash := existing.Hash
-			curr, err := repo.getTree(hash)
+			curr, err := object.GetTree(repo.Storer, hash)
 			if err != nil {
 				return nil, fmt.Errorf("cannot read existing tree %s; root %q, path %q", hash, root.Hash, path)
 			}
@@ -143,7 +144,7 @@ func initializeTrees(repo *gitRepository, root *object.Tree, packagePath string,
 	lastPart := parts[len(parts)-1]
 	if !packageTreeHash.IsZero() {
 		// Initialize with the supplied package tree.
-		packageTree, err := repo.getTree(packageTreeHash)
+		packageTree, err := object.GetTree(repo.Storer, packageTreeHash)
 		if err != nil {
 			return nil, fmt.Errorf("cannot find existing package tree %s for package %q: %w", packageTreeHash, packagePath, err)
 		}
@@ -199,7 +200,7 @@ func removeTreeEntry(tree *object.Tree, name string) {
 
 // storeFile writes a blob with contents at the specified path
 func (h *commitHelper) storeFile(path, contents string) error {
-	hash, err := h.repository.storeBlob(contents)
+	hash, err := storeBlob(h.repository, contents)
 	if err != nil {
 		return err
 	}
@@ -224,7 +225,7 @@ func (h *commitHelper) readFile(path string) ([]byte, error) {
 		return nil, fs.ErrNotExist
 	}
 
-	blob, err := h.repository.blobObject(entry.Hash)
+	blob, err := h.repository.BlobObject(entry.Hash)
 	if err != nil {
 		// This is an internal consistency error, so we don't return ErrNotExist
 		return nil, fmt.Errorf("error reading from git: %w", err)
@@ -364,7 +365,7 @@ func (h *commitHelper) storeTrees(treePath string) (plumbing.Hash, error) {
 		e.Hash = hash
 	}
 
-	treeHash, err := h.repository.storeTree(tree)
+	treeHash, err := storeTree(h.repository, tree)
 	if err != nil {
 		return plumbing.Hash{}, err
 	}
@@ -413,5 +414,5 @@ func (h *commitHelper) storeCommit(parentCommits []plumbing.Hash, tree plumbing.
 		commit.ParentHashes = parentCommits
 	}
 
-	return h.repository.storeCommit(commit)
+	return storeCommit(h.repository, commit)
 }

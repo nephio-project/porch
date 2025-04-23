@@ -998,7 +998,7 @@ const (
 // createBranch creates the provided branch by creating a commit containing
 // a README.md file on the root of the repo and then pushing it to the branch.
 func (r *gitRepository) createBranch(ctx context.Context, branch BranchName) error {
-	fileHash, err := r.storeBlob(fileContent)
+	fileHash, err := storeBlob(r.repo, fileContent)
 	if err != nil {
 		return err
 	}
@@ -1035,7 +1035,7 @@ func (r *gitRepository) createBranch(ctx context.Context, branch BranchName) err
 		Message:  commitMessage,
 		TreeHash: treeHash,
 	}
-	commitHash, err := r.storeCommit(commit)
+	commitHash, err := storeCommit(r.repo, commit)
 	if err != nil {
 		return err
 	}
@@ -1047,14 +1047,6 @@ func (r *gitRepository) createBranch(ctx context.Context, branch BranchName) err
 
 func (r *gitRepository) getCommit(h plumbing.Hash) (*object.Commit, error) {
 	return object.GetCommit(r.repo.Storer, h)
-}
-
-func (r *gitRepository) storeCommit(commit *object.Commit) (plumbing.Hash, error) {
-	eo := r.repo.Storer.NewEncodedObject()
-	if err := commit.Encode(eo); err != nil {
-		return plumbing.Hash{}, err
-	}
-	return r.repo.Storer.SetEncodedObject(eo)
 }
 
 // Creates a commit which deletes the package from the branch, and returns its commit hash.
@@ -1112,7 +1104,7 @@ func (r *gitRepository) createPackageDeleteCommit(ctx context.Context, branch pl
 
 	// Create commit helper. Use zero hash for the initial package tree. Commit helper will initialize trees
 	// without TreeEntry for this package present - the package is deleted.
-	ch, err := newCommitHelper(r, r.userInfoProvider, commit.Hash, pkg.Key().PkgKey.ToFullPathname(), zero)
+	ch, err := newCommitHelper(r.repo, r.userInfoProvider, commit.Hash, pkg.Key().PkgKey.ToFullPathname(), zero)
 	if err != nil {
 		return zero, fmt.Errorf("failed to initialize commit of package %q to %q: %w", pkg.Key().PkgKey.ToFullPathname(), ref, err)
 	}
@@ -1324,45 +1316,8 @@ func (r *gitRepository) blobObject(h plumbing.Hash) (*object.Blob, error) {
 // commitCallback is the function type that needs to be provided to the history iterator functions.
 type commitCallback func(*object.Commit) error
 
-// StoreBlob is a helper method to write a blob to the git store.
-func (r *gitRepository) storeBlob(value string) (plumbing.Hash, error) {
-	data := []byte(value)
-	eo := r.repo.Storer.NewEncodedObject()
-	eo.SetType(plumbing.BlobObject)
-	eo.SetSize(int64(len(data)))
-
-	w, err := eo.Writer()
-	if err != nil {
-		return plumbing.Hash{}, err
-	}
-
-	if _, err := w.Write(data); err != nil {
-		w.Close()
-		return plumbing.Hash{}, err
-	}
-
-	if err := w.Close(); err != nil {
-		return plumbing.Hash{}, err
-	}
-
-	return r.repo.Storer.SetEncodedObject(eo)
-}
-
 func (r *gitRepository) getTree(h plumbing.Hash) (*object.Tree, error) {
 	return object.GetTree(r.repo.Storer, h)
-}
-
-func (r *gitRepository) storeTree(tree *object.Tree) (plumbing.Hash, error) {
-	eo := r.repo.Storer.NewEncodedObject()
-	if err := tree.Encode(eo); err != nil {
-		return plumbing.Hash{}, err
-	}
-
-	treeHash, err := r.repo.Storer.SetEncodedObject(eo)
-	if err != nil {
-		return plumbing.Hash{}, err
-	}
-	return treeHash, nil
 }
 
 func (r *gitRepository) GetLifecycle(ctx context.Context, pkgRev *gitPackageRevision) v1alpha1.PackageRevisionLifecycle {
@@ -1451,7 +1406,7 @@ func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPack
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	ch, err := newCommitHelper(r, r.userInfoProvider, draft.commit, draft.Key().PkgKey.ToFullPathname(), plumbing.ZeroHash)
+	ch, err := newCommitHelper(r.repo, r.userInfoProvider, draft.commit, draft.Key().PkgKey.ToFullPathname(), plumbing.ZeroHash)
 	if err != nil {
 		return pkgerrors.Wrap(err, "failed to commit package:")
 	}
@@ -1632,21 +1587,6 @@ func (r *gitRepository) commitPackageToMain(ctx context.Context, d *gitPackageRe
 
 	var zero plumbing.Hash
 
-	// Fetch main
-	switch err := r.doGitWithAuth(ctx, func(auth transport.AuthMethod) error {
-		return r.repo.Fetch(&git.FetchOptions{
-			RemoteName: OriginName,
-			RefSpecs:   []config.RefSpec{branch.ForceFetchSpec()},
-			Auth:       auth,
-			CABundle:   r.caBundle,
-		})
-	}); err {
-	case nil, git.NoErrAlreadyUpToDate:
-		// ok
-	default:
-		return zero, zero, nil, fmt.Errorf("failed to fetch remote repository: %w", err)
-	}
-
 	// Find localTarget branch
 	localTarget, err := r.repo.Reference(localRef, false)
 	if err != nil {
@@ -1660,7 +1600,7 @@ func (r *gitRepository) commitPackageToMain(ctx context.Context, d *gitPackageRe
 
 	// TODO: Check for out-of-band update of the package in main branch
 	// (compare package tree in target branch and common base)
-	ch, err := newCommitHelper(r, r.userInfoProvider, headCommit.Hash, d.Key().PkgKey.ToFullPathname(), d.tree)
+	ch, err := newCommitHelper(r.repo, r.userInfoProvider, headCommit.Hash, d.Key().PkgKey.ToFullPathname(), d.tree)
 	if err != nil {
 		return zero, zero, nil, fmt.Errorf("failed to initialize commit of package %s to %s", d.Key().PkgKey.ToFullPathname(), localRef)
 	}

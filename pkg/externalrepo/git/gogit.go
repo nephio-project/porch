@@ -20,6 +20,7 @@ import (
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/cache"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/filesystem"
 )
 
@@ -73,4 +74,43 @@ func initializeOrigin(repo *git.Repository, address string) error {
 	}
 
 	return nil
+}
+
+func storeCommit(repo *git.Repository, commit *object.Commit) (plumbing.Hash, error) {
+	eo := repo.Storer.NewEncodedObject()
+	if err := commit.Encode(eo); err != nil {
+		return plumbing.Hash{}, err
+	}
+	return repo.Storer.SetEncodedObject(eo)
+}
+
+func storeTree(repo *git.Repository, tree *object.Tree) (plumbing.Hash, error) {
+	eo := repo.Storer.NewEncodedObject()
+	if err := tree.Encode(eo); err != nil {
+		return plumbing.Hash{}, err
+	}
+	return repo.Storer.SetEncodedObject(eo)
+}
+
+func storeBlob(repo *git.Repository, value string) (plumbing.Hash, error) {
+	data := []byte(value)
+	eo := repo.Storer.NewEncodedObject()
+	eo.SetType(plumbing.BlobObject)
+	eo.SetSize(int64(len(data)))
+
+	w, err := eo.Writer()
+	if err != nil {
+		return plumbing.Hash{}, err
+	}
+
+	if _, err := w.Write(data); err != nil {
+		w.Close()
+		return plumbing.Hash{}, err
+	}
+
+	if err := w.Close(); err != nil {
+		return plumbing.Hash{}, err
+	}
+
+	return repo.Storer.SetEncodedObject(eo)
 }
