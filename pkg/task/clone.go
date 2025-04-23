@@ -155,7 +155,7 @@ func (m *clonePackageMutation) cloneFromGit(ctx context.Context, gitPackage *api
 	}
 	defer os.RemoveAll(dir)
 
-	r, err := git.OpenRepository(ctx, "", "", &spec, false, dir, git.GitRepositoryOptions{
+	r, err := git.OpenRepository(ctx, "", m.namespace, &spec, false, dir, git.GitRepositoryOptions{
 		ExternalRepoOptions: externalrepotypes.ExternalRepoOptions{
 			CredentialResolver: m.credentialResolver,
 		},

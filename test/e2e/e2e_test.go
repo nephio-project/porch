@@ -115,6 +115,9 @@ func (t *PorchSuite) TestGitRepository() {
 								Repo:      t.gcpBlueprintsRepo,
 								Ref:       "bucket-blueprint-v0.4.3",
 								Directory: "catalog/bucket",
+								SecretRef: porchapi.SecretRef{
+									Name: t.CreateRepositorySecret("test-bucket", os.Getenv(gcpBlueprintsRepoUserEnv), Password(os.Getenv(gcpBlueprintsRepoPasswordEnv))),
+								},
 							},
 						},
 					},
@@ -122,7 +125,7 @@ func (t *PorchSuite) TestGitRepository() {
 				{
 					Type: "eval",
 					Eval: &porchapi.FunctionEvalTaskSpec{
-						Image: gcrPrefixEnv + "set-namespace:v0.4.1",
+						Image: t.gcrPrefix + "set-namespace:v0.4.1",
 						ConfigMap: map[string]string{
 							"namespace": "bucket-namespace",
 						},
@@ -1615,6 +1618,9 @@ func (t *PorchSuite) TestCloneLeadingSlash() {
 								Repo:      t.testBlueprintsRepo,
 								Ref:       "basens/v1",
 								Directory: "/basens",
+								SecretRef: porchapi.SecretRef{
+									Name: t.CreateRepositorySecret("clone-ls", os.Getenv(TestBlueprintsRepoUserEnv), Password(os.Getenv(TestBlueprintsRepoPasswordEnv))),
+								},
 							},
 						},
 						Strategy: porchapi.ResourceMerge,
@@ -1827,6 +1833,9 @@ func (t *PorchSuite) TestBuiltinFunctionEvaluator() {
 								Repo:      t.gcpBlueprintsRepo,
 								Ref:       "bucket-blueprint-v0.4.3",
 								Directory: "catalog/bucket",
+								SecretRef: porchapi.SecretRef{
+									Name: t.CreateRepositorySecret("test-builtin-fn-bucket", os.Getenv(gcpBlueprintsRepoUserEnv), Password(os.Getenv(gcpBlueprintsRepoPasswordEnv))),
+								},
 							},
 						},
 					},
@@ -1905,6 +1914,9 @@ func (t *PorchSuite) TestExecFunctionEvaluator() {
 								Repo:      t.gcpBlueprintsRepo,
 								Ref:       "bucket-blueprint-v0.4.3",
 								Directory: "catalog/bucket",
+								SecretRef: porchapi.SecretRef{
+									Name: t.CreateRepositorySecret("test-fn-bucket", os.Getenv(gcpBlueprintsRepoUserEnv), Password(os.Getenv(gcpBlueprintsRepoPasswordEnv))),
+								},
 							},
 						},
 					},
@@ -1987,6 +1999,9 @@ func (t *PorchSuite) TestPodFunctionEvaluatorWithDistrolessImage() {
 								Repo:      t.gcpBlueprintsRepo,
 								Ref:       "redis-bucket-blueprint-v0.3.2",
 								Directory: "catalog/redis-bucket",
+								SecretRef: porchapi.SecretRef{
+									Name: t.CreateRepositorySecret("test-fn-redis-bucket", os.Getenv(gcpBlueprintsRepoUserEnv), Password(os.Getenv(gcpBlueprintsRepoPasswordEnv))),
+								},
 							},
 						},
 					},
@@ -2074,6 +2089,9 @@ func (t *PorchSuite) TestPodEvaluator() {
 								Repo:      t.gcpBlueprintsRepo,
 								Ref:       "783380ce4e6c3f21e9e90055b3a88bada0410154",
 								Directory: "catalog/hierarchy/simple",
+								SecretRef: porchapi.SecretRef{
+									Name: t.CreateRepositorySecret("test-fn-pod-hierarchy-workspace-1", os.Getenv(gcpBlueprintsRepoUserEnv), Password(os.Getenv(gcpBlueprintsRepoPasswordEnv))),
+								},
 							},
 						},
 					},
@@ -2153,6 +2171,9 @@ func (t *PorchSuite) TestPodEvaluator() {
 								Repo:      t.gcpBlueprintsRepo,
 								Ref:       "783380ce4e6c3f21e9e90055b3a88bada0410154",
 								Directory: "catalog/hierarchy/simple",
+								SecretRef: porchapi.SecretRef{
+									Name: t.CreateRepositorySecret("test-fn-pod-hierarchy-workspace-2", os.Getenv(gcpBlueprintsRepoUserEnv), Password(os.Getenv(gcpBlueprintsRepoPasswordEnv))),
+								},
 							},
 						},
 					},
@@ -2229,6 +2250,9 @@ func (t *PorchSuite) TestPodEvaluatorWithFailure() {
 								Repo:      t.gcpBlueprintsRepo,
 								Ref:       "bucket-blueprint-v0.4.3",
 								Directory: "catalog/bucket",
+								SecretRef: porchapi.SecretRef{
+									Name: t.CreateRepositorySecret("test-fn-pod-bucket", os.Getenv(gcpBlueprintsRepoUserEnv), Password(os.Getenv(gcpBlueprintsRepoPasswordEnv))),
+								},
 							},
 						},
 					},

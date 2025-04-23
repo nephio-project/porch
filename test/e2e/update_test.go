@@ -62,7 +62,7 @@ func (t *PorchSuite) TestPackageUpdateRecloneAndReplay() {
 								Ref:       "v1",
 								Directory: "basens",
 								SecretRef: porchapi.SecretRef{
-									Name: t.CreateRepositorySecret("testrecloneandreplay", os.Getenv(TestBlueprintsRepoUserEnv), Password(os.Getenv(TestBlueprintsRepoPasswordEnv))),
+									Name: t.CreateRepositorySecret("testrecloneandreplay-v1", os.Getenv(TestBlueprintsRepoUserEnv), Password(os.Getenv(TestBlueprintsRepoPasswordEnv))),
 								},
 							},
 						},
@@ -86,6 +86,9 @@ func (t *PorchSuite) TestPackageUpdateRecloneAndReplay() {
 				Repo:      t.testBlueprintsRepo,
 				Ref:       "v2",
 				Directory: "basens",
+				SecretRef: porchapi.SecretRef{
+					Name: t.CreateRepositorySecret("testrecloneandreplay-v2", os.Getenv(TestBlueprintsRepoUserEnv), Password(os.Getenv(TestBlueprintsRepoPasswordEnv))),
+				},
 			},
 		},
 	}

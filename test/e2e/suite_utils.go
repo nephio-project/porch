@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -187,27 +188,6 @@ func (t *TestSuite) MustNotHaveLabels(name string, labels []string) {
 	}
 }
 
-/*func (t *TestSuite) RegisterTestBlueprintRepositoryF(name, directory string, opts ...RepositoryOption) {
-	t.T().Helper()
-
-	repoUrl := DefaultTestBlueprintsRepoUrl
-	if os.Getenv(TestBlueprintsRepoUrlEnv) != "" {
-		repoUrl = os.Getenv(TestBlueprintsRepoUrlEnv)
-	}
-
-	config := GitConfig{
-		Repo:      repoUrl,
-		Branch:    "main",
-		Directory: directory,
-	}
-
-	if os.Getenv(TestBlueprintsRepoUserEnv) != "" || os.Getenv(TestBlueprintsRepoPasswordEnv) != "" {
-		config.Username = os.Getenv(TestBlueprintsRepoUserEnv)
-		config.Password = Password(os.Getenv(TestBlueprintsRepoPasswordEnv))
-	}
-	t.registerGitRepositoryFromConfigF(name, config, opts...)
-}*/
-
 func (t *TestSuite) RegisterGitRepositoryF(repo, name, directory string, opts ...RepositoryOption) {
 	t.T().Helper()
 	config := GitConfig{
@@ -276,19 +256,19 @@ func (t *TestSuite) CreateRepositorySecret(name string, username string, passwor
 	// Create auth secret if necessary
 	if username != "" || password != "" {
 		secret = fmt.Sprintf("%s-auth", name)
-		immutable := true
-		t.CreateF(&corev1.Secret{
+		s := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      secret,
 				Namespace: t.Namespace,
 			},
-			Immutable: &immutable,
+			Immutable: ptr.To(true),
 			Data: map[string][]byte{
 				"username": []byte(username),
 				"password": []byte(password),
 			},
 			Type: corev1.SecretTypeBasicAuth,
-		})
+		}
+		t.CreateF(s)
 		t.Cleanup(func() {
 			t.T().Helper()
 			t.DeleteE(&corev1.Secret{
