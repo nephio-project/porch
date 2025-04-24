@@ -1804,3 +1804,151 @@ func TestMultipleCommitAuthors(t *testing.T) {
 		t.Errorf("Failed to find commit with correct author: %v", err)
 	}
 }
+
+func TestApproveOnManuallyMovedMain(t *testing.T) {
+	const (
+		repoName       = "approve-on-manually-moved-repo"
+		namespace      = "default"
+		packageName    = "approve-on-manually-moved-pkg"
+		workspace      = "approve-on-manually-moved-ws"
+		newFile        = "new-file.md"
+		newFileContent = "new-file-content"
+	)
+
+	tempdir := t.TempDir()
+	tarfile := filepath.Join("testdata", "trivial-repository.tar")
+	remotepath := filepath.Join(tempdir, "remote")
+	localpath := filepath.Join(tempdir, "local")
+	gitRepo, address := ServeGitRepository(t, tarfile, remotepath)
+
+	repoSpec := &configapi.GitRepository{
+		Repo: address,
+	}
+
+	ctx := context.Background()
+
+	localRepo, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, GitRepositoryOptions{})
+	if err != nil {
+		t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
+	}
+
+	pr := &v1alpha1.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: repoName,
+		},
+		Spec: v1alpha1.PackageRevisionSpec{
+			PackageName:    packageName,
+			WorkspaceName:  workspace,
+			RepositoryName: repoName,
+			Tasks: []v1alpha1.Task{
+				{
+					Type: v1alpha1.TaskTypeInit,
+					Init: &v1alpha1.PackageInitTaskSpec{
+						Description: "Empty Package",
+					},
+				},
+			},
+		},
+	}
+
+	draft1, err := localRepo.CreatePackageRevisionDraft(ctx, pr)
+	if err != nil {
+		t.Fatalf("Failed to create draft PackageRevision %v", err)
+	}
+
+	draft1.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
+
+	if err != nil {
+		t.Fatalf("Failed to create commit: %v", err)
+	}
+
+	uip := makeUserInfoProvider(repoSpec, &mockK8sUsp{})
+	mainBranchCommitHash := resolveReference(t, gitRepo, DefaultMainReferenceName).Hash()
+	ch, err := newCommitHelper(gitRepo, uip, mainBranchCommitHash, "", plumbing.ZeroHash)
+
+	ch.storeFile(newFile, newFileContent)
+	newHash, _, err := ch.commit(ctx, "Add new file", "")
+
+	if err != nil {
+		t.Fatalf("Failed to create commit: %v", err)
+	}
+
+	gitRepo.Storer.SetReference(plumbing.NewHashReference(DefaultMainReferenceName, newHash))
+	t.Logf("Moved %s from %s to %s", DefaultMainReferenceName, mainBranchCommitHash, newHash)
+
+	_, err = localRepo.ClosePackageRevisionDraft(ctx, draft1, 1)
+
+	if err != nil {
+		t.Fatalf("Failed to close draft PackageRevision: %v", err)
+	}
+}
+
+func TestDeleteOnManuallyMovedMain(t *testing.T) {
+	const (
+		repoName       = "delete-on-manually-moved-repo"
+		namespace      = "default"
+		packageName    = "delete-on-manually-moved-pkg"
+		workspace      = "delete-on-manually-moved-ws"
+		newFile        = "new-file.md"
+		newFileContent = "new-file-content"
+	)
+
+	tempdir := t.TempDir()
+	tarfile := filepath.Join("testdata", "trivial-repository.tar")
+	remotepath := filepath.Join(tempdir, "remote")
+	localpath := filepath.Join(tempdir, "local")
+	gitRepo, address := ServeGitRepository(t, tarfile, remotepath)
+
+	repoSpec := &configapi.GitRepository{
+		Repo: address,
+	}
+
+	ctx := context.Background()
+
+	localRepo, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, GitRepositoryOptions{})
+	if err != nil {
+		t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
+	}
+
+	pr1 := &v1alpha1.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: repoName,
+		},
+		Spec: v1alpha1.PackageRevisionSpec{
+			PackageName:    packageName,
+			WorkspaceName:  workspace,
+			RepositoryName: repoName,
+			Tasks: []v1alpha1.Task{
+				{
+					Type: v1alpha1.TaskTypeInit,
+					Init: &v1alpha1.PackageInitTaskSpec{
+						Description: "Empty Package",
+					},
+				},
+			},
+		},
+	}
+
+	prv1, err := createAndPublishPR(ctx, localRepo, pr1)
+	if err != nil {
+		t.Fatalf("Failed to create PackageRevision: %v", err)
+	}
+
+	uip := makeUserInfoProvider(repoSpec, &mockK8sUsp{})
+
+	ch, err := newCommitHelper(gitRepo, uip, prv1.(*gitPackageRevision).commit, "", plumbing.ZeroHash)
+
+	ch.storeFile(newFile, newFileContent)
+	newHash, _, err := ch.commit(ctx, "Add new file", "")
+
+	if err != nil {
+		t.Fatalf("Failed to create commit: %v", err)
+	}
+	gitRepo.Storer.SetReference(plumbing.NewHashReference(prv1.(*gitPackageRevision).ref.Name(), newHash))
+	t.Logf("Moved %s from %s to %s", prv1.(*gitPackageRevision).ref, prv1.(*gitPackageRevision).commit, newHash)
+
+	if err := localRepo.DeletePackageRevision(ctx, prv1); err != nil {
+		t.Fatalf("Failed to delete PackageRevision: %v", err)
+	}
+
+}

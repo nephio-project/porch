@@ -78,6 +78,9 @@ type gitUserInfoProvider struct {
 	Author, Email string
 }
 
+// TODO: This is a temporary solution until https://github.com/go-git/go-git/issues/1528 is fixed
+var conflictingRequiredRemoteRefError = pkgerrors.New("Remote ref is conflicting with required remote ref")
+
 func (prov *gitUserInfoProvider) GetUserInfo(context.Context) *repository.UserInfo {
 	return &repository.UserInfo{
 		Email: prov.Email,
@@ -494,7 +497,6 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, old repositor
 	if !ok {
 		return fmt.Errorf("cannot delete non-git package: %T", old)
 	}
-
 	ref := oldGit.ref
 	if ref == nil {
 		// This is an internal error. In some rare cases (see GetPackageRevision below) we create
@@ -502,75 +504,82 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, old repositor
 		return fmt.Errorf("cannot delete package with no ref: %s", oldGit.Key().PkgKey.ToFullPathname())
 	}
 
-	// We can only delete packages which have their own ref. Refs that are shared with other packages
-	// (main branch, tag that doesn't contain package path in its name, ...) cannot be deleted.
+	return util.RetryOnErrorConditional(
+		3,
+		func(err error) bool {
+			return pkgerrors.Is(err, conflictingRequiredRemoteRefError)
+		},
+		func(retryNumber int) error {
+			klog.Infof("Deleting PackageRevision try number %d", retryNumber)
 
-	refSpecs := newPushRefSpecBuilder()
+			if retryNumber > 0 {
+				err := r.fetchRemoteRepository(ctx)
+				if err != nil {
+					return err
+				}
+			}
+			refSpecs := newPushRefSpecBuilder()
+			deletionProposedBranch := createDeletionProposedName(oldGit.Key())
 
-	switch rn := ref.Name(); {
-	case rn.IsTag():
-		// Delete tag only if it is package-specific.
-		name := createFinalTagNameInLocal(oldGit.Key())
-		if rn != name {
-			return fmt.Errorf("cannot delete package tagged with a tag that is not specific to the package: %s", rn)
-		}
+			// We can only delete packages which have their own ref. Refs that are shared with other packages
+			// (main branch, tag that doesn't contain package path in its name, ...) cannot be deleted.
+			switch rn := ref.Name(); {
+			case rn.IsTag():
+				// Delete tag only if it is package-specific.
+				name := createFinalTagNameInLocal(oldGit.Key())
+				if rn != name {
+					return fmt.Errorf("cannot delete package tagged with a tag that is not specific to the package: %s", rn)
+				}
 
-		// Delete the tag
-		refSpecs.AddRefToDelete(ref)
+				// In case the remote has moved, the ref that points to a tag needs to have it's hash updated.
+				ref, err := r.repo.Reference(rn, true)
+				if err != nil {
+					return err
+				}
 
-		// If this revision was proposed for deletion, we need to delete the associated branch.
-		if err := r.removeDeletionProposedBranchIfExists(ctx, oldGit.Key()); err != nil {
-			return err
-		}
+				// Delete the tag
+				refSpecs.AddRefToDelete(ref)
 
-	case isDraftBranchNameInLocal(rn), isProposedBranchNameInLocal(rn):
-		// PackageRevision is proposed or draft; delete the branch directly.
-		refSpecs.AddRefToDelete(ref)
+				// Delete the deletionProposed branch
+				refSpecs.AddRefToDelete(plumbing.NewHashReference(deletionProposedBranch.RefInLocal(), plumbing.ZeroHash))
 
-	case isBranchInLocalRepo(rn):
-		// Delete package from the branch
-		commitHash, err := r.createPackageDeleteCommit(ctx, rn, oldGit)
-		if err != nil {
-			return err
-		}
+			case isDraftBranchNameInLocal(rn), isProposedBranchNameInLocal(rn):
+				// PackageRevision is proposed or draft; delete the branch directly.
+				refSpecs.AddRefToDelete(ref)
 
-		// Remove the proposed for deletion branch. We end up here when users
-		// try to delete the main branch version of a packagerevision.
-		if err := r.removeDeletionProposedBranchIfExists(ctx, oldGit.Key()); err != nil {
-			return err
-		}
+			case isBranchInLocalRepo(rn):
+				// Delete package from the branch
+				commitHash, err := r.createPackageDeleteCommit(ctx, rn, oldGit)
+				if err != nil {
+					return err
+				}
 
-		// Update the reference
-		refSpecs.AddRefToPush(commitHash, rn)
+				refSpecs.AddRefToDelete(plumbing.NewHashReference(deletionProposedBranch.RefInLocal(), plumbing.ZeroHash))
 
-	default:
-		return fmt.Errorf("cannot delete package with the ref name %s", rn)
-	}
+				// Remove the proposed for deletion branch. We end up here when users
+				// try to delete the main branch version of a packagerevision.
 
-	// Update references
-	if err := r.pushAndCleanup(ctx, refSpecs); err != nil {
-		return fmt.Errorf("failed to update git references: %v", err)
-	}
+				// Update the reference
+				refSpecs.AddRefToPush(commitHash, rn)
 
-	return nil
-}
+			default:
+				return fmt.Errorf("cannot delete package with the ref name %s", rn)
+			}
 
-func (r *gitRepository) removeDeletionProposedBranchIfExists(ctx context.Context, key repository.PackageRevisionKey) error {
-	refSpecsForDeletionProposed := newPushRefSpecBuilder()
-	deletionProposedBranch := createDeletionProposedName(key)
-	refSpecsForDeletionProposed.AddRefToDelete(plumbing.NewHashReference(deletionProposedBranch.RefInLocal(), plumbing.ZeroHash))
-	if err := r.pushAndCleanup(ctx, refSpecsForDeletionProposed); err != nil {
-		if pkgerrors.Is(err, git.NoErrAlreadyUpToDate) {
-			// the deletionProposed branch might not have existed, so we ignore this error
-			klog.Warningf("branch %s does not exist", deletionProposedBranch)
-		} else {
-			klog.Errorf("unexpected error while removing deletionProposed branch: %v", err)
-			return err
-		}
-	}
-	delete(r.deletionProposedCache, deletionProposedBranch)
+			// Update references
+			if err := r.pushAndCleanup(ctx, refSpecs); err != nil {
+				if pkgerrors.Is(err, git.NoErrAlreadyUpToDate) {
+					klog.Warningf("All remote references are already up to date for deleting package %s", oldGit.Key())
+				}
+				return fmt.Errorf("failed to update git references: %w", err)
+			}
 
-	return nil
+			// Remove the deletionProposed branch from the cache
+			delete(r.deletionProposedCache, deletionProposedBranch)
+
+			return nil
+		},
+	)
 }
 
 func (r *gitRepository) GetPackageRevision(ctx context.Context, version, path string) (repository.PackageRevision, kptfilev1.GitLock, error) {
@@ -1135,6 +1144,11 @@ func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuild
 			CABundle: r.caBundle,
 		})
 	}); err != nil {
+		// TODO: This is a temporary solution until https://github.com/go-git/go-git/issues/1528 is fixed
+		if strings.Contains(err.Error(), "remote ref") &&
+			strings.Contains(err.Error(), "required to be") {
+			return conflictingRequiredRemoteRefError
+		}
 		return err
 	}
 	return nil

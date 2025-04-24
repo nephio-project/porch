@@ -262,3 +262,15 @@ func CompareObjectMeta(left metav1.ObjectMeta, right metav1.ObjectMeta) bool {
 
 	return true
 }
+
+// RetryOnErrorConditional retries f up to retries times if it returns an error that matches shouldRetryFunc
+func RetryOnErrorConditional(retries int, shouldRetryFunc func(error) bool, f func(retryNumber int) error) error {
+	var err error
+	for i := 0; i < retries; i++ {
+		err = f(i)
+		if err == nil || !shouldRetryFunc(err) {
+			return err
+		}
+	}
+	return err
+}
