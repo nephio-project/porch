@@ -1587,6 +1587,21 @@ func (r *gitRepository) commitPackageToMain(ctx context.Context, d *gitPackageRe
 
 	var zero plumbing.Hash
 
+	// Fetch main
+	switch err := r.doGitWithAuth(ctx, func(auth transport.AuthMethod) error {
+		return r.repo.Fetch(&git.FetchOptions{
+			RemoteName: OriginName,
+			RefSpecs:   []config.RefSpec{branch.ForceFetchSpec()},
+			Auth:       auth,
+			CABundle:   r.caBundle,
+		})
+	}); err {
+	case nil, git.NoErrAlreadyUpToDate:
+		// ok
+	default:
+		return zero, zero, nil, fmt.Errorf("failed to fetch remote repository: %w", err)
+	}
+
 	// Find localTarget branch
 	localTarget, err := r.repo.Reference(localRef, false)
 	if err != nil {
