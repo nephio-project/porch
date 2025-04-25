@@ -168,7 +168,7 @@ func (o *SubObject) NestedSubObject(fields ...string) (SubObject, bool, error) {
 	return variant, true, nil
 }
 
-// NestedMap returns a map[string]string value of a nested field, false if not found and an error if not a map[string]string type.
+// NestedResource decodes the nested field into a typed object, and returns false if not found and a potential error
 func (o *SubObject) NestedResource(ptr interface{}, fields ...string) (bool, error) {
 	if ptr == nil || reflect.ValueOf(ptr).Kind() != reflect.Ptr {
 		return false, fmt.Errorf("ptr must be a pointer to an object")
@@ -571,6 +571,11 @@ func (o *KubeObject) GetNamespace() string {
 	return s
 }
 
+// GetGKNNString returns with Group, Kind, Namespace, Name in a human readable string
+func (o *KubeObject) GetGKNNString() string {
+	return fmt.Sprintf("%s/%s/%s", o.GroupKind().String(), o.GetNamespace(), o.GetName())
+}
+
 // IsNamespaceScoped tells whether a k8s resource is namespace scoped. If the KubeObject resource is a customized, it
 // determines the namespace scope by checking whether `metadata.namespace` is set.
 func (o *KubeObject) IsNamespaceScoped() bool {
@@ -673,11 +678,14 @@ func (o *KubeObject) HasLabels(labels map[string]string) bool {
 }
 
 func (o *KubeObject) PathAnnotation() string {
-	anno := o.GetAnnotation(kioutil.PathAnnotation)
-	return anno
+	return o.GetAnnotation(kioutil.PathAnnotation)
 }
 
-// IndexAnnotation return -1 if not found.
+func (o *KubeObject) SetPathAnnotation(path string) error {
+	return o.SetAnnotation(kioutil.PathAnnotation, path)
+}
+
+// IndexAnnotation returns -1 if not found.
 func (o *KubeObject) IndexAnnotation() int {
 	anno := o.GetAnnotation(kioutil.IndexAnnotation)
 	if anno == "" {
@@ -685,6 +693,10 @@ func (o *KubeObject) IndexAnnotation() int {
 	}
 	i, _ := strconv.Atoi(anno)
 	return i
+}
+
+func (o *KubeObject) SetIndexAnnotation(index int) error {
+	return o.SetAnnotation(kioutil.IndexAnnotation, strconv.Itoa(index))
 }
 
 // IdAnnotation return -1 if not found.
@@ -728,6 +740,14 @@ func (o *KubeObject) node() *internal.MapVariant {
 func rnodeToKubeObject(rn *yaml.RNode) *KubeObject {
 	mapVariant := internal.NewMap(rn.YNode())
 	return asKubeObject(mapVariant)
+}
+
+func NewKubeObjectFromMap(m map[string]interface{}) (*KubeObject, error) {
+	rn, err := yaml.FromMap(m)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't convert unstructured/JSON map to KubeObject: %w", err)
+	}
+	return rnodeToKubeObject(rn), nil
 }
 
 // NewKubeObjectFromResourceNode creates a KubeObject from the deep copy of a yaml.RNode
@@ -784,10 +804,36 @@ func (o *SubObject) UpsertMap(k string) *SubObject {
 	return &SubObject{obj: m, parentGVK: o.parentGVK, fieldpath: o.fieldpath + "." + k}
 }
 
-// SetMap  accepts a single key `k`, and ensures that the value of `k` is the same as the map it received
-// via `mapObject` in the form of a SubObject pointer.
+// SetFromTypedObject ensures that the value of `o` (this object) is the same as `newValue“,
+// while keeps the formatting of the original object.
+func (o *SubObject) Set(newValue *SubObject) error {
+	o.obj.Set(newValue.obj)
+	return nil
+}
+
+// SetFromTypedObject ensures that the value of `o` (this object) is the same as `newValue“,
+// while keeps the formatting of the original object.
+// `newValue` must be of type struct or map[string]...
+func (o *SubObject) SetFromTypedObject(newValue any) error {
+	kind := reflect.ValueOf(newValue).Kind()
+	if kind == reflect.Ptr {
+		kind = reflect.TypeOf(newValue).Elem().Kind()
+	}
+	if kind != reflect.Struct && kind != reflect.Map {
+		return fmt.Errorf("expected struct or map, got %T", newValue)
+	}
+
+	newMap, err := internal.TypedObjectToMapVariant(newValue)
+	if err != nil {
+		return err
+	}
+	o.obj.Set(newMap)
+	return nil
+}
+
+// SetMap  accepts a single key `k`, and ensures that the value of `k` is the same as `mapObject`
 func (o *SubObject) SetMap(mapObj *SubObject, k string) error {
-	return o.obj.SetNestedMap(mapObj.obj, k)
+	return o.obj.SetNestedValue(mapObj.obj, k)
 }
 
 // GetMap accepts a single key `k` whose value is expected to be a map. It returns

@@ -91,6 +91,7 @@ func WriteKubeObjectsToString(objs KubeObjects) (string, error) {
 		Writer: buf,
 		ClearAnnotations: []string{
 			kioutil.PathAnnotation,
+			kioutil.LegacyPathAnnotation,
 		},
 	}
 

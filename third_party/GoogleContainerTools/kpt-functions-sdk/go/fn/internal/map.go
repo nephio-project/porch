@@ -94,13 +94,6 @@ func (o *MapVariant) Entries() (map[string]variant, error) {
 	return entries, nil
 }
 
-func asString(node *yaml.Node) (string, bool) {
-	if node.Kind == yaml.ScalarNode && (node.Tag == "!!str" || node.Tag == "") {
-		return node.Value, true
-	}
-	return "", false
-}
-
 func (o *MapVariant) getVariant(key string) (variant, bool) {
 	valueNode, found := getValueNode(o.node, key)
 	if !found {
@@ -111,58 +104,31 @@ func (o *MapVariant) getVariant(key string) (variant, bool) {
 	return v, true
 }
 
-func getValueNode(m *yaml.Node, key string) (*yaml.Node, bool) {
-	children := m.Content
-	if len(children)%2 != 0 {
-		log.Fatalf("unexpected number of children for map %d", len(children))
+func (o *MapVariant) setField(key string, val variant) {
+	newNode := val.Node()
+	i := findMapKey(o.node, key)
+	if i >= 0 {
+		// update existing field
+		deepCopyFormatting(o.node.Content[i+1], newNode)
+		o.node.Content[i+1] = newNode
+	} else {
+		// insert new field at the end
+		o.node.Content = append(o.node.Content, buildStringNode(key), newNode)
 	}
-
-	for i := 0; i < len(children); i += 2 {
-		keyNode := children[i]
-
-		k, ok := asString(keyNode)
-		if ok && k == key {
-			valueNode := children[i+1]
-			return valueNode, true
-		}
-	}
-	return nil, false
 }
 
-func (o *MapVariant) set(key string, val variant) {
-	o.setYAMLNode(key, val.Node())
+func (o *MapVariant) Set(newValue *MapVariant) {
+	newNode := newValue.Node()
+	deepCopyFormatting(o.node, newNode)
+	o.node.Content = newNode.Content
 }
 
-func (o *MapVariant) setYAMLNode(key string, node *yaml.Node) {
-	children := o.node.Content
-	if len(children)%2 != 0 {
-		log.Fatalf("unexpected number of children for map %d", len(children))
-	}
-
-	for i := 0; i < len(children); i += 2 {
-		keyNode := children[i]
-
-		k, ok := asString(keyNode)
-		if ok && k == key {
-			// TODO: Copy comments?
-			oldNode := children[i+1]
-			children[i+1] = node
-			children[i+1].FootComment = oldNode.FootComment
-			children[i+1].HeadComment = oldNode.HeadComment
-			children[i+1].LineComment = oldNode.LineComment
-			return
-		}
-	}
-
-	o.node.Content = append(o.node.Content, buildStringNode(key), node)
-}
-
-func (o *MapVariant) remove(key string) (bool, error) {
+func (o *MapVariant) remove(key string) bool {
 	removed := false
 
 	children := o.node.Content
 	if len(children)%2 != 0 {
-		return false, fmt.Errorf("unexpected number of children for map %d", len(children))
+		log.Fatalf("couldn't remove field %q from map node: unexpected odd number of children (%d)", key, len(children))
 	}
 
 	var keep []*yaml.Node
@@ -180,7 +146,7 @@ func (o *MapVariant) remove(key string) (bool, error) {
 
 	o.node.Content = keep
 
-	return removed, nil
+	return removed
 }
 
 // remove field metadata.creationTimestamp when it's null.
@@ -295,17 +261,11 @@ func (o *MapVariant) UpsertMap(field string) *MapVariant {
 			}
 			// if the map is empty, replace it with a new map
 			// this supposed to result in better formatting if the map value is specified as {}
-			_, err := o.remove(field)
-			if err != nil {
-				klog.Warningf("upsert: couldn't remove field %s: %v", field, err)
-			}
+			_ = o.remove(field)
 
 		default:
 			// field was found and it is NOT a map
-			_, err := o.remove(field)
-			if err != nil {
-				log.Fatalf("KubeObject.UpsertMap(): couldn't remove mistyped field %s: %v", field, err)
-			}
+			_ = o.remove(field)
 		}
 	}
 

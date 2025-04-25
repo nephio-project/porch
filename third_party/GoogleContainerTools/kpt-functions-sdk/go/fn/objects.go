@@ -19,7 +19,7 @@ import (
 	"math"
 	"strings"
 
-	v1 "github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/api/kptfile/v1"
+	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -136,14 +136,14 @@ func IsGroupKind(gk schema.GroupKind) func(*KubeObject) bool {
 
 // GetRootKptfile returns the root Kptfile. Nested kpt packages can have multiple Kptfile files of the same GVKNN.
 func (o KubeObjects) GetRootKptfile() *KubeObject {
-	kptfiles := o.Where(IsGVK(v1.KptFileGroup, v1.KptFileVersion, v1.KptFileKind))
+	kptfiles := o.Where(IsGroupVersionKind(kptfile.KptFileGVK()))
 	if len(kptfiles) == 0 {
 		return nil
 	}
 	minDepths := math.MaxInt32
 	var rootKptfile *KubeObject
 	for _, kf := range kptfiles {
-		path := kf.GetAnnotation(PathAnnotation)
+		path := kf.PathAnnotation()
 		depths := len(strings.Split(path, "/"))
 		if depths <= minDepths {
 			minDepths = depths

@@ -16,6 +16,8 @@ package fn
 
 import (
 	"fmt"
+	"reflect"
+	"slices"
 	"sort"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -36,6 +38,7 @@ var (
 
 // Kptfile provides an API to manipulate the Kptfile of a kpt package
 type Kptfile struct {
+	// TODO: try to make Kptfile to be also a KubeObject
 	Obj *KubeObject
 }
 
@@ -136,12 +139,23 @@ func (kf *Kptfile) SetTypedCondition(condition kptfileapi.Condition) error {
 			conditionSubObj.SetNestedString(string(condition.Status), "status")
 			conditionSubObj.SetNestedString(condition.Reason, "reason")
 			conditionSubObj.SetNestedString(condition.Message, "message")
-			return kf.SetConditions(conditions)
+		}
+	}
+	return kf.SetConditions(conditions)
+}
+
+// ApplyDefaultCondition adds the given condition to the Kptfile if a condition
+// with the same type doesn't exist yet.
+func (kf *Kptfile) ApplyDefaultCondition(condition kptfileapi.Condition) error {
+	conditions := kf.Conditions()
+	for _, conditionSubObj := range conditions {
+		if conditionSubObj.GetString("type") == condition.Type {
+			return nil
 		}
 	}
 	ko, err := NewFromTypedObject(condition)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to apply default condition %q: %w", condition.Type, err)
 	}
 	conditions = append(conditions, &ko.SubObject)
 	return kf.SetConditions(conditions)
@@ -149,20 +163,17 @@ func (kf *Kptfile) SetTypedCondition(condition kptfileapi.Condition) error {
 
 // DeleteByTpe deletes all conditions with the given type
 func (kf *Kptfile) DeleteConditionByType(conditionType string) error {
-	oldConditions, found, err := kf.Obj.NestedSlice(conditionsFieldName)
+	conditions, found, err := kf.Obj.NestedSlice(conditionsFieldName)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read conditions from Kptfile: %w", err)
 	}
 	if !found {
 		return nil
 	}
-	newConditions := make([]*SubObject, 0, len(oldConditions))
-	for _, c := range oldConditions {
-		if c.GetString("type") != conditionType {
-			newConditions = append(newConditions, c)
-		}
-	}
-	return kf.SetConditions(newConditions)
+	conditions = slices.DeleteFunc(conditions, func(c *SubObject) bool {
+		return c.GetString("type") == conditionType
+	})
+	return kf.SetConditions(conditions)
 }
 
 func (kf *Kptfile) AddReadinessGates(gates []porchapi.ReadinessGate) error {
@@ -181,7 +192,7 @@ func (kf *Kptfile) AddReadinessGates(gates []porchapi.ReadinessGate) error {
 		if !found {
 			ko, err := NewFromTypedObject(gate)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to add readiness gate %s: %w", gate.ConditionType, err)
 			}
 			gateObjs = append(gateObjs, &ko.SubObject)
 		}
@@ -190,14 +201,105 @@ func (kf *Kptfile) AddReadinessGates(gates []porchapi.ReadinessGate) error {
 	return nil
 }
 
-func (kf *Kptfile) AddMutationFunction(fn *kptfileapi.Function) error {
-	pipeline := kf.Obj.UpsertMap("pipeline")
-	mutators := pipeline.GetSlice("mutators")
-	ko, err := NewFromTypedObject(fn)
-	if err != nil {
-		return fmt.Errorf("failed to add mutator function (%s) to Kptfile: %w", fn.Image, err)
+func (kf *Kptfile) UpsertPipelineFunctions(fns []kptfileapi.Function, fieldName string, insertPosition int) error {
+	if len(fns) == 0 {
+		return nil
 	}
-	mutators = append(mutators, &ko.SubObject)
-	pipeline.SetSlice(mutators, "mutators")
+	pipelineKObj := kf.Obj.UpsertMap("pipeline")
+	fnKObjs, _, _ := pipelineKObj.NestedSlice(fieldName)
+	for _, newKrmFn := range fns {
+		var err error
+		fnKObjs, err = UpsertKrmFunction(fnKObjs, newKrmFn, insertPosition)
+		if err != nil {
+			return err
+		}
+	}
+	return pipelineKObj.SetSlice(fnKObjs, fieldName)
+}
+
+func (kf *Kptfile) UpsertMutatorFunctions(fns []kptfileapi.Function, insertPosition int) error {
+	return kf.UpsertPipelineFunctions(fns, "mutators", insertPosition)
+}
+
+func (kf *Kptfile) UpsertValidatorFunctions(fns []kptfileapi.Function, insertPosition int) error {
+	return kf.UpsertPipelineFunctions(fns, "validators", insertPosition)
+}
+
+// UpsertKrmFunction ensures that a KRM function is added or updated in the given list of function objects.
+// If the function already exists, it is updated. If it doesn't exist, it is added at the specified position.
+// If insertPosition is negative, the insert position is counted backwards from the end of the list
+// (i.e. -1 will append to the list).
+func UpsertKrmFunction(
+	fnKObjs SliceSubObjects,
+	newKrmFn kptfileapi.Function,
+	insertPosition int,
+) (SliceSubObjects, error) {
+
+	if newKrmFn.Name == "" {
+		// match by content
+		fnObj, err := findFunctionByContent(fnKObjs, &newKrmFn)
+		if err != nil {
+			return nil, err
+		}
+		if fnObj != nil {
+			// function already exists, skip to avoid duplicates
+			return fnKObjs, nil
+		}
+	} else {
+		// match by name
+		fnObj := findFunctionByName(fnKObjs, newKrmFn.Name)
+		if fnObj != nil {
+			// function with the same name exists, update it
+			var origKrmFn kptfileapi.Function
+			err := fnObj.As(&origKrmFn)
+			if err != nil {
+				return fnKObjs, fmt.Errorf("failed to parse KRM function from YAML: %w", err)
+			}
+			err = fnObj.SetFromTypedObject(newKrmFn)
+			if err != nil {
+				return fnKObjs, fmt.Errorf("failed to update KRM function in Kptfile: %w", err)
+			}
+			return fnKObjs, nil
+		}
+	}
+
+	// function does not exist, insert it
+	newFuncObj, err := NewFromTypedObject(newKrmFn)
+	if err != nil {
+		return fnKObjs, err
+	}
+	if insertPosition < 0 {
+		insertPosition = len(fnKObjs) + insertPosition + 1
+	}
+	fnKObjs = slices.Insert(fnKObjs, insertPosition, &newFuncObj.SubObject)
+	return fnKObjs, nil
+}
+
+// findFunction returns with the first KRM function in the list with the given name
+func findFunctionByName(haystack SliceSubObjects, name string) *SubObject {
+	for _, fnObj := range haystack {
+		// match by name
+		objName, found, _ := fnObj.NestedString("name")
+		if found && objName == name {
+			return fnObj
+		}
+	}
 	return nil
+}
+
+// findFunctionByContent returns with the first KRM function in the list that matches the content of the needle
+func findFunctionByContent(haystack SliceSubObjects, needle *kptfileapi.Function) (*SubObject, error) {
+	for _, fnObj := range haystack {
+		var krmFn kptfileapi.Function
+		err := fnObj.As(&krmFn)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse KRM function from YAML: %w", err)
+		}
+		// ignore diff in name
+		krmFn.Name = needle.Name
+		if reflect.DeepEqual(krmFn, needle) {
+			return fnObj, nil
+		}
+	}
+	return nil, nil
 }
