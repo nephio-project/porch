@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -3413,4 +3414,124 @@ func (t *PorchSuite) TestCreatePackageRevisionRollback() {
 	// Verify that the package revision was not created
 	_, err = t.Clientset.PorchV1alpha1().PackageRevisions(t.Namespace).Get(ctx, pr.Name, metav1.GetOptions{})
 	assert.True(t, apierrors.IsNotFound(err), "Expected package revision to be deleted after rollback")
+}
+
+func (t *PorchSuite) TestPackageRevisionListWithTwoHangingRepositories() {
+	const workingRepoName = "working-repo"
+
+	hangingURLs := []string{
+		"http://10.255.255.1/test.git",
+		"http://10.255.255.2/test.git",
+	}
+
+	// Create hanging repositories in parallel
+	var wg sync.WaitGroup
+	for i, url := range hangingURLs {
+		wg.Add(1)
+		go func(i int, url string) {
+			defer wg.Done()
+			repoName := fmt.Sprintf("hanging-repo-%d", i+1)
+			repo := &configapi.Repository{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       configapi.TypeRepository.Kind,
+					APIVersion: configapi.TypeRepository.APIVersion(),
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      repoName,
+					Namespace: t.Namespace,
+				},
+				Spec: configapi.RepositorySpec{
+					Description: "Hanging repo for blocking test",
+					Type:        configapi.RepositoryTypeGit,
+					Git: &configapi.GitRepository{
+						Repo: url,
+					},
+				},
+			}
+			t.CreateF(repo)
+			t.Cleanup(func() {
+				t.DeleteF(repo)
+			})
+		}(i, url)
+	}
+	wg.Wait()
+
+	// Create working repository
+	workingRepo := &configapi.Repository{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       configapi.TypeRepository.Kind,
+			APIVersion: configapi.TypeRepository.APIVersion(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      workingRepoName,
+			Namespace: t.Namespace,
+		},
+		Spec: configapi.RepositorySpec{
+			Description: "Working Git repository",
+			Type:        configapi.RepositoryTypeGit,
+			Git: &configapi.GitRepository{
+				Repo: t.GitConfig("working-repo").Repo,
+			},
+		},
+	}
+	t.CreateF(workingRepo)
+	t.Cleanup(func() {
+		t.DeleteF(workingRepo)
+	})
+
+	// Create a PackageRevision in the working repo
+	pr := &porchapi.PackageRevision{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PackageRevision",
+			APIVersion: porchapi.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: t.Namespace,
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			PackageName:    "test-package",
+			WorkspaceName:  "workspace",
+			RepositoryName: workingRepoName,
+			Tasks: []porchapi.Task{
+				{
+					Type: porchapi.TaskTypeInit,
+					Init: &porchapi.PackageInitTaskSpec{
+						Description: "Initial commit",
+					},
+				},
+			},
+		},
+	}
+	t.CreateF(pr)
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		err := t.Client.Delete(ctx, pr)
+		if err != nil {
+			t.Logf("Cleanup warning: could not delete PackageRevision: %v", err)
+		}
+	})
+
+	found := false
+	for i := 0; i < 5; i++ {
+		var list porchapi.PackageRevisionList
+		t.ListF(&list, client.InNamespace(t.Namespace))
+
+		for _, item := range list.Items {
+			t.Logf("Found PackageRevision: %s (repo: %s)", item.Name, item.Spec.RepositoryName)
+			if item.Spec.RepositoryName == workingRepoName {
+				found = true
+				break
+			}
+		}
+		if found {
+			break
+		}
+		t.Logf("Retry %d: PackageRevision from working repo not found yet", i+1)
+		time.Sleep(2 * time.Second)
+	}
+
+	if !found {
+		t.Errorf("Expected PackageRevisions from working repository, got none")
+	}
 }

@@ -23,6 +23,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -1042,24 +1043,26 @@ func (r *gitRepository) fetchRemoteRepository(ctx context.Context) error {
 	ctx, span := tracer.Start(ctx, "gitRepository::fetchRemoteRepository", trace.WithAttributes())
 	defer span.End()
 
-	// Fetch
-	switch err := r.doGitWithAuth(ctx, func(auth transport.AuthMethod) error {
-		return r.repo.Fetch(&git.FetchOptions{
+	err := r.doGitWithAuth(ctx, func(auth transport.AuthMethod) error {
+		return r.repo.FetchContext(ctx, &git.FetchOptions{
 			RemoteName: OriginName,
 			Auth:       auth,
 			Prune:      true,
 			CABundle:   r.caBundle,
 		})
-	}); err {
-	case nil: // OK
-	case git.NoErrAlreadyUpToDate:
-	case transport.ErrEmptyRemoteRepository:
+	})
 
-	default:
-		return fmt.Errorf("cannot fetch repository %s/%s: %w", r.Key().Namespace, r.Key().Name, err)
+	allowedErrors := []error{
+		nil,
+		git.NoErrAlreadyUpToDate,
+		transport.ErrEmptyRemoteRepository,
 	}
 
-	return nil
+	if slices.Contains(allowedErrors, err) {
+		return nil
+	}
+
+	return fmt.Errorf("cannot fetch repository %s: %w", r.Key(), err)
 }
 
 // Verifies repository. Repository must be fetched already.
