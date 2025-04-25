@@ -70,8 +70,14 @@ func (kf *Kptfile) SetTypedCondition(condition kptfileapi.Condition) error {
 			conditionSubObj.SetNestedString(string(condition.Status), "status")
 			conditionSubObj.SetNestedString(condition.Reason, "reason")
 			conditionSubObj.SetNestedString(condition.Message, "message")
+			return kf.SetConditions(conditions)
 		}
 	}
+	ko, err := fn.NewFromTypedObject(condition)
+	if err != nil {
+		return fmt.Errorf("failed to set condition %q: %w", condition.Type, err)
+	}
+	conditions = append(conditions, &ko.SubObject)
 	return kf.SetConditions(conditions)
 }
 

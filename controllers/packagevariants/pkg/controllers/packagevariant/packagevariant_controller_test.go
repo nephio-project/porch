@@ -1072,7 +1072,7 @@ spec:
 `,
 			initialData: "        hello: there\n",
 			expectedErr: "",
-			expectedPRR: prrBase + "        foo: bar\n        hello: there\n",
+			expectedPRR: prrBase + "        hello: there\n        foo: bar\n",
 		},
 		"change existing": {
 			spec: `  packageContext:

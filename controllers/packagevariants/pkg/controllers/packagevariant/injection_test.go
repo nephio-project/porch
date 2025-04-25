@@ -701,9 +701,9 @@ spec:
         annotations:
           config.kubernetes.io/local-config: "true"
       info:
+        description: Example
         readinessGates:
         - conditionType: config.injection.ConfigMap.regional-endpoints
-        description: Example
       status:
         conditions:
         - type: config.injection.ConfigMap.regional-endpoints
@@ -748,9 +748,9 @@ spec:
         annotations:
           config.kubernetes.io/local-config: "true"
       info:
+        description: Example
         readinessGates:
         - conditionType: config.injection.Team.team
-        description: Example
       status:
         conditions:
         - type: config.injection.Team.team
@@ -805,9 +805,9 @@ spec:
         annotations:
           config.kubernetes.io/local-config: "true"
       info:
+        description: Example
         readinessGates:
         - conditionType: config.injection.Team.team
-        description: Example
       status:
         conditions:
         - type: config.injection.ConfigMap.my-cm
