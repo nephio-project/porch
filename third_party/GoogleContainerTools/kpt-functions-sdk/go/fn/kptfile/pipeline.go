@@ -27,7 +27,7 @@ func (kf *Kptfile) UpsertPipelineFunctions(fns []kptfileapi.Function, fieldName 
 	if len(fns) == 0 {
 		return nil
 	}
-	pipelineKObj := kf.Obj.UpsertMap("pipeline")
+	pipelineKObj := kf.UpsertMap("pipeline")
 	fnKObjs, _, _ := pipelineKObj.NestedSlice(fieldName)
 	for _, newKrmFn := range fns {
 		var err error

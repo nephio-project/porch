@@ -37,7 +37,7 @@ func (kf *Kptfile) SetConditions(conditions fn.SliceSubObjects) error {
 
 // TypedConditions returns with (a copy of) the list of current conditions of the kpt package
 func (kf *Kptfile) TypedConditions() []kptfileapi.Condition {
-	statusObj := kf.Obj.GetMap(statusFieldName)
+	statusObj := kf.GetMap(statusFieldName)
 	if statusObj == nil {
 		return nil
 	}
@@ -94,7 +94,7 @@ func (kf *Kptfile) ApplyDefaultCondition(condition kptfileapi.Condition) error {
 
 // DeleteByTpe deletes all conditions with the given type
 func (kf *Kptfile) DeleteConditionByType(conditionType string) error {
-	conditions, found, err := kf.Obj.NestedSlice(conditionsFieldName)
+	conditions, found, err := kf.NestedSlice(conditionsFieldName)
 	if err != nil {
 		return fmt.Errorf("failed to read conditions from Kptfile: %w", err)
 	}
@@ -108,7 +108,7 @@ func (kf *Kptfile) DeleteConditionByType(conditionType string) error {
 }
 
 func (kf *Kptfile) AddReadinessGates(gates []porchapi.ReadinessGate) error {
-	info := kf.Obj.UpsertMap("info")
+	info := kf.UpsertMap("info")
 	gateObjs := info.GetSlice("readinessGates")
 	for _, gate := range gates {
 		// check if readiness gate already exists

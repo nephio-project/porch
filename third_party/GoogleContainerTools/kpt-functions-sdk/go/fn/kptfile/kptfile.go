@@ -35,18 +35,16 @@ var (
 // Kptfile provides an API to manipulate the Kptfile of a kpt package
 type Kptfile struct {
 	// TODO: try to make Kptfile to be also a KubeObject
-	Obj *fn.KubeObject
+	fn.KubeObject
 }
 
 // NewKptfileFromKubeObjectList creates a KptfileObject by finding it in the given KubeObjects list
 func NewFromKubeObjectList(objs fn.KubeObjects) (*Kptfile, error) {
-	var ret Kptfile
-	ret.Obj = objs.GetRootKptfile()
-	if ret.Obj == nil {
+	ko := objs.GetRootKptfile()
+	if ko == nil {
 		return nil, fmt.Errorf("the Kptfile object is missing from the package")
-
 	}
-	return &ret, nil
+	return &Kptfile{KubeObject: *ko}, nil
 }
 
 // NewKptfileFromPackage creates a KptfileObject from the resource (YAML) files of a package
@@ -64,10 +62,10 @@ func NewFromPackage(resources map[string]string) (*Kptfile, error) {
 }
 
 func (kf *Kptfile) WriteToPackage(resources map[string]string) error {
-	if kf == nil || kf.Obj == nil {
+	if kf == nil {
 		return fmt.Errorf("attempt to write empty Kptfile to the package")
 	}
-	kptfileStr, err := fn.WriteKubeObjectsToString(fn.KubeObjects{kf.Obj})
+	kptfileStr, err := fn.WriteKubeObjectsToString(fn.KubeObjects{&kf.KubeObject})
 	if err != nil {
 		return err
 	}
@@ -76,15 +74,15 @@ func (kf *Kptfile) WriteToPackage(resources map[string]string) error {
 }
 
 func (kf *Kptfile) String() string {
-	if kf.Obj == nil {
+	if kf == nil {
 		return ""
 	}
-	kptfileStr, _ := fn.WriteKubeObjectsToString(fn.KubeObjects{kf.Obj})
+	kptfileStr, _ := fn.WriteKubeObjectsToString(fn.KubeObjects{&kf.KubeObject})
 	return kptfileStr
 }
 
 // Status returns with the Status field of the Kptfile as a SubObject
 // If the Status field doesn't exist, it is added.
 func (kf *Kptfile) Status() *fn.SubObject {
-	return kf.Obj.UpsertMap(statusFieldName)
+	return kf.UpsertMap(statusFieldName)
 }
