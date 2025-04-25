@@ -544,6 +544,12 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, old repositor
 				refSpecs.AddRefToDelete(plumbing.NewHashReference(deletionProposedBranch.RefInLocal(), plumbing.ZeroHash))
 
 			case isDraftBranchNameInLocal(rn), isProposedBranchNameInLocal(rn):
+				// In case the remote has moved, the ref that points to a tag needs to have it's hash updated.
+				ref, err := r.repo.Reference(rn, true)
+				if err != nil {
+					return err
+				}
+
 				// PackageRevision is proposed or draft; delete the branch directly.
 				refSpecs.AddRefToDelete(ref)
 
