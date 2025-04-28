@@ -66,14 +66,14 @@ func (t *TestSuiteWithGit) GitConfig(name string) GitConfig {
 func (t *TestSuiteWithGit) RegisterMainGitRepositoryF(name string, opts ...RepositoryOption) {
 	t.T().Helper()
 	config := t.GitConfig(name)
-	t.registerGitRepositoryFromConfigF(name, config, opts...)
+	t.registerGitRepositoryFromConfigF(name, config, "", opts...)
 }
 
 func (t *TestSuiteWithGit) RegisterGitRepositoryWithDirectoryF(name string, directory string, opts ...RepositoryOption) {
 	t.T().Helper()
 	config := t.GitConfig(name)
 	config.Directory = directory
-	t.registerGitRepositoryFromConfigF(name, config, opts...)
+	t.registerGitRepositoryFromConfigF(name, config, "", opts...)
 }
 
 func (t *TestSuite) ValidateFinalizers(name string, finalizers []string) {
@@ -188,7 +188,7 @@ func (t *TestSuite) MustNotHaveLabels(name string, labels []string) {
 	}
 }
 
-func (t *TestSuite) RegisterGitRepositoryF(repo, name, directory string, opts ...RepositoryOption) {
+func (t *TestSuite) RegisterGitRepositoryF(repo, name, directory string, secret string, opts ...RepositoryOption) {
 	t.T().Helper()
 	config := GitConfig{
 		Repo:      repo,
@@ -201,10 +201,10 @@ func (t *TestSuite) RegisterGitRepositoryF(repo, name, directory string, opts ..
 		config.Password = Password(os.Getenv(TestBlueprintsRepoPasswordEnv))
 	}
 
-	t.registerGitRepositoryFromConfigF(name, config, opts...)
+	t.registerGitRepositoryFromConfigF(name, config, secret, opts...)
 }
 
-func (t *TestSuite) registerGitRepositoryFromConfigF(name string, config GitConfig, opts ...RepositoryOption) {
+func (t *TestSuite) registerGitRepositoryFromConfigF(name string, config GitConfig, secret string, opts ...RepositoryOption) {
 	t.T().Helper()
 
 	repository := &configapi.Repository{
@@ -224,7 +224,7 @@ func (t *TestSuite) registerGitRepositoryFromConfigF(name string, config GitConf
 				Branch:    config.Branch,
 				Directory: config.Directory,
 				SecretRef: configapi.SecretRef{
-					Name: t.CreateRepositorySecret(name, config.Username, config.Password),
+					Name: secret,
 				},
 			},
 		},
@@ -250,7 +250,7 @@ func (t *TestSuite) registerGitRepositoryFromConfigF(name string, config GitConf
 	t.Logf("Repository %s/%s is ready", repository.Namespace, repository.Name)
 }
 
-func (t *TestSuite) CreateRepositorySecret(name string, username string, password Password) string {
+func (t *TestSuite) CreateRepositorySecret(name string, username string, password Password, opts ...SecretOption) string {
 	t.T().Helper()
 	var secret string
 	// Create auth secret if necessary
@@ -268,21 +268,21 @@ func (t *TestSuite) CreateRepositorySecret(name string, username string, passwor
 			},
 			Type: corev1.SecretTypeBasicAuth,
 		}
+		for _, o := range opts {
+			o(s)
+		}
 		t.CreateF(s)
 		t.Cleanup(func() {
 			t.T().Helper()
-			t.DeleteE(&corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      secret,
-					Namespace: t.Namespace,
-				},
-			})
+			t.DeleteE(s)
 		})
 	}
 	return secret
 }
 
 type RepositoryOption func(*configapi.Repository)
+
+type SecretOption func(*corev1.Secret)
 
 func WithDeployment() RepositoryOption {
 	return func(r *configapi.Repository) {
@@ -299,6 +299,12 @@ func withType(t configapi.RepositoryType) RepositoryOption {
 func InNamespace(ns string) RepositoryOption {
 	return func(repo *configapi.Repository) {
 		repo.Namespace = ns
+	}
+}
+
+func SecretInNamespace(ns string) SecretOption {
+	return func(secret *corev1.Secret) {
+		secret.Namespace = ns
 	}
 }
 
