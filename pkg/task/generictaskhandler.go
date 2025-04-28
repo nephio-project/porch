@@ -496,8 +496,6 @@ func applyResourceMutations(ctx context.Context, draft repository.PackageRevisio
 				}, task); err != nil {
 					return updatedResources, renderStatus, err
 				}
-				baseResources = updatedResources
-				applied = updatedResources
 				return updatedResources, renderStatus, err
 			}
 			// else we simply append the render status to the porch file with the new updated resources

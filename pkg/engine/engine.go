@@ -192,6 +192,9 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	}
 
 	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, 0)
+	if err != nil {
+		return nil, err
+	}
 
 	// if render fails we allow resource creation alongside the error
 	if renderFailed {
