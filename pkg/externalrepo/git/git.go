@@ -555,6 +555,16 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, old repositor
 
 			case isBranchInLocalRepo(rn):
 				// Delete package from the branch
+
+				// In case the remote has moved, the ref that points to a tag needs to have it's hash updated.
+				ref, err := r.repo.Reference(rn, true)
+				if err != nil {
+					return err
+				}
+
+				//Require that the branch has not moved on.
+				refSpecs.RequireRef(ref)
+
 				commitHash, err := r.createPackageDeleteCommit(ctx, rn, oldGit)
 				if err != nil {
 					return err
@@ -1064,27 +1074,6 @@ func (r *gitRepository) createBranch(ctx context.Context, branch BranchName) err
 // If the branch doesn't exist, will return zero hash and no error.
 func (r *gitRepository) createPackageDeleteCommit(ctx context.Context, branch plumbing.ReferenceName, pkg *gitPackageRevision) (plumbing.Hash, error) {
 	var zero plumbing.Hash
-
-	local, err := refInRemoteFromRefInLocal(branch)
-	if err != nil {
-		return zero, err
-	}
-	// Fetch the branch
-	// TODO: Fetch only as part of conflict resolution & Retry
-	switch err := r.doGitWithAuth(ctx, func(auth transport.AuthMethod) error {
-		return r.repo.Fetch(&git.FetchOptions{
-			RemoteName: OriginName,
-			RefSpecs:   []config.RefSpec{config.RefSpec(fmt.Sprintf("+%s:%s", local, branch))},
-			Auth:       auth,
-			Tags:       git.NoTags,
-			CABundle:   r.caBundle,
-		})
-	}); err {
-	case nil, git.NoErrAlreadyUpToDate:
-		// ok
-	default:
-		return zero, fmt.Errorf("failed to fetch remote repository: %w", err)
-	}
 
 	// find the branch
 	ref, err := r.repo.Reference(branch, true)
