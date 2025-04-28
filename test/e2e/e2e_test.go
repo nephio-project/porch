@@ -47,9 +47,10 @@ const (
 	defaultKPTRepo            = "https://github.com/kptdev/kpt.git"
 	defaultGCRPrefix          = "gcr.io/kpt-fn"
 
-	testBlueprintsRepoUrlEnv = "PORCH_TEST_BLUEPRINTS_REPO_URL"
-	//TestBlueprintsRepoUserEnv     = "PORCH_TEST_BLUEPRINTS_REPO_USER"
-	//TestBlueprintsRepoPasswordEnv = "PORCH_TEST_BLUEPRINTS_REPO_PASSWORD"
+	testBlueprintsRepoUrlEnv      = "PORCH_TEST_BLUEPRINTS_REPO_URL"
+	testBlueprintsRepoUserEnv     = "PORCH_TEST_BLUEPRINTS_REPO_USER"
+	testBlueprintsRepoPasswordEnv = "PORCH_TEST_BLUEPRINTS_REPO_PASSWORD"
+
 	gcpBlueprintsRepoUrlEnv      = "PORCH_GCP_BLUEPRINTS_REPO_URL"
 	gcpBlueprintsRepoUserEnv     = "PORCH_GCP_BLUEPRINTS_REPO_USER"
 	gcpBlueprintsRepoPasswordEnv = "PORCH_GCP_BLUEPRINTS_REPO_PASSWORD"
@@ -98,7 +99,6 @@ func TestE2E(t *testing.T) {
 	if os.Getenv(kptRepoUrlEnv) != "" {
 		pSuite.kptRepo = os.Getenv(kptRepoUrlEnv)
 	}
-	fmt.Printf("%v\n%v\n%v\n\n", pSuite.testBlueprintsRepo, pSuite.gcpBlueprintsRepo, pSuite.gcrPrefix)
 	suite.Run(t, pSuite)
 }
 
@@ -183,7 +183,7 @@ func (t *PorchSuite) TestGitRepositoryWithReleaseTagsAndDirectory() {
 
 func (t *PorchSuite) TestCloneFromUpstream() {
 	// Register Upstream Repository
-	secret := t.CreateRepositorySecret("test-blueprints", os.Getenv(TestBlueprintsRepoUserEnv), Password(os.Getenv(TestBlueprintsRepoPasswordEnv)))
+	secret := t.CreateRepositorySecret("test-blueprints", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
 	t.RegisterGitRepositoryF(t.testBlueprintsRepo, "test-blueprints", "", secret)
 
 	var list porchapi.PackageRevisionList
@@ -291,7 +291,7 @@ func (t *PorchSuite) TestConcurrentClones() {
 	)
 
 	// Register Upstream and Downstream Repositories
-	secret := t.CreateRepositorySecret(upstreamRepository, os.Getenv(TestBlueprintsRepoUserEnv), Password(os.Getenv(TestBlueprintsRepoPasswordEnv)))
+	secret := t.CreateRepositorySecret(upstreamRepository, os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
 	t.RegisterGitRepositoryF(t.testBlueprintsRepo, upstreamRepository, "", secret)
 	t.RegisterMainGitRepositoryF(downstreamRepository)
 
@@ -488,7 +488,7 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 	t.RegisterMainGitRepositoryF(downstreamRepository, WithDeployment())
 
 	// Register the upstream repository
-	secret := t.CreateRepositorySecret("test-blueprints", os.Getenv(TestBlueprintsRepoUserEnv), Password(os.Getenv(TestBlueprintsRepoPasswordEnv)))
+	secret := t.CreateRepositorySecret("test-blueprints", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
 	t.RegisterGitRepositoryF(t.testBlueprintsRepo, "test-blueprints", "", secret)
 
 	var upstreamPackages porchapi.PackageRevisionList
@@ -957,7 +957,7 @@ func (t *PorchSuite) NewClientWithTimeout(timeout time.Duration) client.Client {
 }
 
 func (t *PorchSuite) TestPublicGitRepository() {
-	secret := t.CreateRepositorySecret("demo-blueprints", os.Getenv(TestBlueprintsRepoUserEnv), Password(os.Getenv(TestBlueprintsRepoPasswordEnv)))
+	secret := t.CreateRepositorySecret("demo-blueprints", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
 	t.RegisterGitRepositoryF(t.testBlueprintsRepo, "demo-blueprints", "", secret)
 
 	var list porchapi.PackageRevisionList
@@ -1634,7 +1634,7 @@ func (t *PorchSuite) TestCloneLeadingSlash() {
 								Ref:       "basens/v1",
 								Directory: "/basens",
 								SecretRef: porchapi.SecretRef{
-									Name: t.CreateRepositorySecret("clone-ls", os.Getenv(TestBlueprintsRepoUserEnv), Password(os.Getenv(TestBlueprintsRepoPasswordEnv))),
+									Name: t.CreateRepositorySecret("clone-ls", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv))),
 								},
 							},
 						},
@@ -1656,7 +1656,7 @@ func (t *PorchSuite) TestPackageUpdate() {
 		gitRepository = "package-update"
 	)
 
-	secret := t.CreateRepositorySecret("test-blueprints", os.Getenv(TestBlueprintsRepoUserEnv), Password(os.Getenv(TestBlueprintsRepoPasswordEnv)))
+	secret := t.CreateRepositorySecret("test-blueprints", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
 	t.RegisterGitRepositoryF(t.testBlueprintsRepo, "test-blueprints", "", secret)
 
 	var list porchapi.PackageRevisionList
@@ -1754,7 +1754,7 @@ func (t *PorchSuite) TestConcurrentPackageUpdates() {
 		workspace     = "test-workspace"
 	)
 
-	secret := t.CreateRepositorySecret("test-blueprints", os.Getenv(TestBlueprintsRepoUserEnv), Password(os.Getenv(TestBlueprintsRepoPasswordEnv)))
+	secret := t.CreateRepositorySecret("test-blueprints", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
 	t.RegisterGitRepositoryF(t.testBlueprintsRepo, "test-blueprints", "", secret)
 
 	var list porchapi.PackageRevisionList
@@ -2609,7 +2609,7 @@ func (t *PorchSuite) TestRegisteredPackageRevisionLabels() {
 		annoVal  = "foo"
 	)
 
-	secret := t.CreateRepositorySecret("test-blueprints", os.Getenv(TestBlueprintsRepoUserEnv), Password(os.Getenv(TestBlueprintsRepoPasswordEnv)))
+	secret := t.CreateRepositorySecret("test-blueprints", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
 	t.RegisterGitRepositoryF(t.testBlueprintsRepo, "test-blueprints", "", secret)
 
 	var list porchapi.PackageRevisionList
@@ -2875,7 +2875,7 @@ func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces() {
 
 	registerRepoAndTestRevisions := func(repoName string, ns string, oldPRs []porchapi.PackageRevision) []porchapi.PackageRevision {
 
-		secret := t.CreateRepositorySecret(repoName, os.Getenv(TestBlueprintsRepoUserEnv), Password(os.Getenv(TestBlueprintsRepoPasswordEnv)), SecretInNamespace(ns))
+		secret := t.CreateRepositorySecret(repoName, os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)), SecretInNamespace(ns))
 		t.RegisterGitRepositoryF(t.testBlueprintsRepo, repoName, "", secret, InNamespace(ns))
 		prList := porchapi.PackageRevisionList{}
 		t.ListF(&prList, client.InNamespace(ns))
@@ -2948,9 +2948,9 @@ func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces() {
 
 func (t *PorchSuite) TestUniquenessOfUIDs() {
 
-	secret1 := t.CreateRepositorySecret("test-blueprints", os.Getenv(TestBlueprintsRepoUserEnv), Password(os.Getenv(TestBlueprintsRepoPasswordEnv)))
+	secret1 := t.CreateRepositorySecret("test-blueprints", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
 	t.RegisterGitRepositoryF(t.testBlueprintsRepo, "test-blueprints", "", secret1)
-	secret2 := t.CreateRepositorySecret("test-2-blueprints", os.Getenv(TestBlueprintsRepoUserEnv), Password(os.Getenv(TestBlueprintsRepoPasswordEnv)))
+	secret2 := t.CreateRepositorySecret("test-2-blueprints", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
 	t.RegisterGitRepositoryF(t.testBlueprintsRepo, "test-2-blueprints", "", secret2)
 
 	prList := porchapi.PackageRevisionList{}
@@ -2968,7 +2968,7 @@ func (t *PorchSuite) TestUniquenessOfUIDs() {
 
 func (t *PorchSuite) TestPackageRevisionFieldSelectors() {
 	repo := "test-blueprints"
-	secret := t.CreateRepositorySecret(repo, os.Getenv(TestBlueprintsRepoUserEnv), Password(os.Getenv(TestBlueprintsRepoPasswordEnv)))
+	secret := t.CreateRepositorySecret(repo, os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
 	t.RegisterGitRepositoryF(t.testBlueprintsRepo, repo, "", secret)
 
 	prList := porchapi.PackageRevisionList{}
@@ -3134,7 +3134,7 @@ func (t *PorchSuite) TestRepositoryModify() {
 			Git: &configapi.GitRepository{
 				Repo: t.testBlueprintsRepo,
 				SecretRef: configapi.SecretRef{
-					Name: t.CreateRepositorySecret(repositoryName, os.Getenv(TestBlueprintsRepoUserEnv), Password(os.Getenv(TestBlueprintsRepoPasswordEnv))),
+					Name: t.CreateRepositorySecret(repositoryName, os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv))),
 				},
 			},
 		},

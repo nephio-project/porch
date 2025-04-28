@@ -17,7 +17,6 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -36,14 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-const (
-	// Default URL of the tests blueprints repository
-	DefaultTestBlueprintsRepoUrl = "https://github.com/platkrm/test-blueprints.git"
-	//TestBlueprintsRepoUrlEnv      = "PORCH_TEST_BLUEPRINTS_REPO_URL"
-	TestBlueprintsRepoUserEnv     = "PORCH_TEST_BLUEPRINTS_REPO_USER"
-	TestBlueprintsRepoPasswordEnv = "PORCH_TEST_BLUEPRINTS_REPO_PASSWORD"
 )
 
 type TestSuiteWithGit struct {
@@ -195,12 +186,6 @@ func (t *TestSuite) RegisterGitRepositoryF(repo, name, directory string, secret 
 		Branch:    "main",
 		Directory: directory,
 	}
-
-	if os.Getenv(TestBlueprintsRepoUserEnv) != "" || os.Getenv(TestBlueprintsRepoPasswordEnv) != "" {
-		config.Username = os.Getenv(TestBlueprintsRepoUserEnv)
-		config.Password = Password(os.Getenv(TestBlueprintsRepoPasswordEnv))
-	}
-
 	t.registerGitRepositoryFromConfigF(name, config, secret, opts...)
 }
 

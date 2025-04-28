@@ -28,7 +28,7 @@ func (t *PorchSuite) TestPackageUpdateRecloneAndReplay() {
 		gitRepository = "package-update"
 	)
 
-	secret := t.CreateRepositorySecret("test-blueprints", os.Getenv(TestBlueprintsRepoUserEnv), Password(os.Getenv(TestBlueprintsRepoPasswordEnv)))
+	secret := t.CreateRepositorySecret("test-blueprints", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
 	t.RegisterGitRepositoryF(t.testBlueprintsRepo, "test-blueprints", "", secret)
 
 	var list porchapi.PackageRevisionList
@@ -63,7 +63,7 @@ func (t *PorchSuite) TestPackageUpdateRecloneAndReplay() {
 								Ref:       "v1",
 								Directory: "basens",
 								SecretRef: porchapi.SecretRef{
-									Name: t.CreateRepositorySecret("testrecloneandreplay-v1", os.Getenv(TestBlueprintsRepoUserEnv), Password(os.Getenv(TestBlueprintsRepoPasswordEnv))),
+									Name: t.CreateRepositorySecret("testrecloneandreplay-v1", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv))),
 								},
 							},
 						},
@@ -88,7 +88,7 @@ func (t *PorchSuite) TestPackageUpdateRecloneAndReplay() {
 				Ref:       "v2",
 				Directory: "basens",
 				SecretRef: porchapi.SecretRef{
-					Name: t.CreateRepositorySecret("testrecloneandreplay-v2", os.Getenv(TestBlueprintsRepoUserEnv), Password(os.Getenv(TestBlueprintsRepoPasswordEnv))),
+					Name: t.CreateRepositorySecret("testrecloneandreplay-v2", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv))),
 				},
 			},
 		},

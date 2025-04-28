@@ -13,23 +13,26 @@
 # limitations under the License.
 
 usage() {
-  echo "Usage: $0 [options]"
-  echo
-  echo "Options"
-  echo "  -h, --help                    Show this help message and exit"
-  echo "  --test-blueprints REPO_URL    Set the env URL for test-blueprints"
-  echo "    --user=USER                 (Optional) Set the env USER for test-blueprints repository"
-  echo "    --password=PASSWORD         (Optional) Set the env PASSWORD for test-blueprints"
-  echo "  --gcp-blueprints REPO_URL     Set the env URL for gcp-blueprints repository"
-  echo "    --user=USER                 (Optional) Set the env USER for gcp-blueprints"
-  echo "    --password=PASSWORD         (Optional) Set the env PASSWORD for gcp-blueprints"
-  echo "  --kpt-functions REPO_URL      Set the env URL for kpt-functions repository"
-  echo "    --user=USER                 (Optional) Set the env USER for kpt-functions"
-  echo "    --password=PASSWORD         (Optional) Set the env PASSWORD for kpt-functions"
-  echo "  -u, --unset                   Unset all environment variables set by this script"
-  echo
-  echo "Example"
-  echo "source $0 --test-blueprints githuburl user=my_user password=my_password --gcp-blueprints githuburl user=my_user password=my_password"
+  cat << EOF
+Usage: $0 [options]"
+
+Options"
+  -h, --help                    Show this help message and exit
+  --test-blueprints REPO_URL    Set the env URL for test-blueprints
+    --user=USER                 (Optional) Set the env USER for test-blueprints repository
+    --password=PASSWORD         (Optional) Set the env PASSWORD for test-blueprints
+  --gcp-blueprints REPO_URL     Set the env URL for gcp-blueprints repository
+    --user=USER                 (Optional) Set the env USER for gcp-blueprints
+    --password=PASSWORD         (Optional) Set the env PASSWORD for gcp-blueprints
+  --kpt-functions REPO_URL      Set the env URL for kpt-functions repository
+    --user=USER                 (Optional) Set the env USER for kpt-functions
+    --password=PASSWORD         (Optional) Set the env PASSWORD for kpt-functions
+  --gcr-io-prefix PREFIX        Set the env URL for pulling gcr-io images
+  -u, --unset                   Unset all environment variables set by this script
+
+Example
+  source $0 --test-blueprints githuburl user=my_user password=my_password --gcp-blueprints githuburl user=my_user password=my_password
+EOF
 }
 
 PORCH_TEST_BLUEPRINTS_REPO_URL=""
@@ -44,9 +47,11 @@ PORCH_KPT_REPO_URL=""
 PORCH_KPT_REPO_USER=""
 PORCH_KPT_REPO_PASSWORD=""
 
-OPTIONS=$(getopt -o h --long help,test-blueprints:,gcp-blueprints:,kpt-functions:,user::,password:: -- "$@")
+PORCH_GCR_PREFIX_URL=""
 
-if [ $? -ne 0 ]; then
+OPTIONS=$(getopt -o h,u --long help,test-blueprints:,gcp-blueprints:,kpt-functions:,user::,password::,gcr-io-prefix:,unset -- "$@")
+
+if [ $# -le 0 ]; then
   usage
   exit 1
 fi
@@ -84,16 +89,20 @@ while true; do
       fi
       ;;
     '--kpt-functions')
-      export PORCH_KPT_FUNCTIONS_REPO_URL="$2"
+      export PORCH_KPT_REPO_URL="$2"
       shift 2
       if [ "$1" == "--user" ]; then
-        export PORCH_KPT_FUNCTIONS_REPO_USER="$2"
+        export PORCH_KPT_REPO_USER="$2"
         shift 2
       fi
       if [ "$1" == "--password" ]; then
-        export PORCH_KPT_FUNCTIONS_PASSWORD="$2"
+        export PORCH_KPT_REPO_PASSWORD="$2"
         shift 2
       fi
+      ;;
+    '--gcr-io-prefix')
+      export PORCH_GCR_PREFIX_URL="$2"
+      shift 2
       ;;
     '-u'|'--unset')
       export PORCH_TEST_BLUEPRINTS_REPO_URL=""
@@ -102,9 +111,11 @@ while true; do
       export PORCH_GCP_BLUEPRINTS_REPO_URL=""
       export PORCH_GCP_BLUEPRINTS_REPO_USER=""
       export PORCH_GCP_BLUEPRINTS_REPO_PASSWORD=""
-      export PORCH_KPT_FUNCTIONS_REPO_URL=""
-      export PORCH_KPT_FUNCTIONS_REPO_USER=""
-      export PORCH_KPT_FUNCTIONS_REPO_PASSWORD=""
+      export PORCH_KPT_REPO_URL=""
+      export PORCH_KPT_REPO_USER=""
+      export PORCH_KPT_REPO_PASSWORD=""
+      export PORCH_GCR_PREFIX_URL=""
+      break
       ;;
     --)
       shift
