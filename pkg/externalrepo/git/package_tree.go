@@ -93,12 +93,12 @@ func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revision
 	// All this is necessary to support old packages and nested packages
 	// TODO: Do we need nested packages, we can use directories on repos instead
 	revision := repository.Revision2Int(revisionStr)
-	if workspace == "" {
-		if revision == -1 {
-			workspace = revisionStr
-		} else {
+	if revision != -1 {
+		if workspace == "" {
 			workspace = "v" + repository.Revision2Str(revision)
 		}
+	} else {
+		workspace = revisionStr
 	}
 
 	gitPrKey := repository.PackageRevisionKey{

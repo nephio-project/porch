@@ -141,16 +141,21 @@ func TestCachedRepoRefresh(t *testing.T) {
 	repoClosePRDCall.Return(&fpr, nil).Maybe()
 	metaCreateCall.Return(metav1.ObjectMeta{}, nil)
 
-	mockMeta.EXPECT().Get(mock.Anything, mock.Anything).Return(metav1.ObjectMeta{}, nil).Maybe()
+	mockGet := mockMeta.EXPECT().Get(mock.Anything, mock.Anything).Return(metav1.ObjectMeta{}, nil).Maybe()
 	mockUpdate := mockMeta.EXPECT().Update(mock.Anything, mock.Anything).Return(metav1.ObjectMeta{}, nil).Maybe()
 	pr, err := cr.ClosePackageRevisionDraft(context.TODO(), prd, 1)
 	assert.True(t, err == nil)
 	assert.True(t, pr != nil)
 
 	mockUpdate.Return(metav1.ObjectMeta{}, errors.New("meta update error")).Maybe()
-	err = cr.cachedPackageRevisions[prKey].SetMeta(context.TODO(), metav1.ObjectMeta{})
+	err = cr.cachedPackageRevisions[prKey].SetMeta(context.TODO(), metav1.ObjectMeta{Name: "Hello"})
 	assert.True(t, err != nil)
 	mockUpdate.Return(metav1.ObjectMeta{}, nil).Maybe()
+
+	mockGet.Return(metav1.ObjectMeta{}, errors.New("meta get error")).Maybe()
+	err = cr.cachedPackageRevisions[prKey].SetMeta(context.TODO(), metav1.ObjectMeta{Name: "Hello"})
+	assert.True(t, err != nil)
+	mockGet.Return(metav1.ObjectMeta{}, nil).Maybe()
 
 	returnedMeta := metav1.ObjectMeta{
 		Finalizers: []string{

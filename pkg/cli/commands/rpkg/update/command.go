@@ -159,7 +159,7 @@ func (r *runner) doUpdate(pr *porchapi.PackageRevision) error {
 		newTask := porchapi.Task{
 			Type: porchapi.TaskTypeUpdate,
 			Update: &porchapi.PackageUpdateTaskSpec{
-				Upstream: cloneTask.Clone.Upstream,
+				Upstream: *cloneTask.Clone.Upstream.DeepCopy(),
 			},
 		}
 		newTask.Update.Upstream.UpstreamRef.Name = newUpstreamPr.Name

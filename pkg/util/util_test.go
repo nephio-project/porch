@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -189,6 +190,42 @@ func assertExpectedPartErrExists(t *testing.T, errorSlice []string, errString, p
 			t.Errorf("error message %q should contain %q", partErrMsg, errString)
 		}
 	}
+}
+
+func TestCompareObjectMeta(t *testing.T) {
+	left := metav1.ObjectMeta{}
+	right := metav1.ObjectMeta{}
+	assert.True(t, CompareObjectMeta(left, right))
+
+	left.Name = "my_name"
+	assert.False(t, CompareObjectMeta(left, right))
+	right.Name = "my_name"
+	assert.True(t, CompareObjectMeta(left, right))
+
+	left.Namespace = "my_ns"
+	assert.False(t, CompareObjectMeta(left, right))
+	right.Namespace = "my_ns"
+	assert.True(t, CompareObjectMeta(left, right))
+
+	left.Labels = map[string]string{}
+	assert.False(t, CompareObjectMeta(left, right))
+	right.Labels = map[string]string{}
+	assert.True(t, CompareObjectMeta(left, right))
+
+	left.Annotations = map[string]string{}
+	assert.False(t, CompareObjectMeta(left, right))
+	right.Annotations = map[string]string{}
+	assert.True(t, CompareObjectMeta(left, right))
+
+	left.Finalizers = []string{}
+	assert.False(t, CompareObjectMeta(left, right))
+	right.Finalizers = []string{}
+	assert.True(t, CompareObjectMeta(left, right))
+
+	left.OwnerReferences = []metav1.OwnerReference{}
+	assert.False(t, CompareObjectMeta(left, right))
+	right.OwnerReferences = []metav1.OwnerReference{}
+	assert.True(t, CompareObjectMeta(left, right))
 }
 
 func getPartErrMsg(errorSlice []string, start string) string {

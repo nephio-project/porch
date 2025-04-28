@@ -407,6 +407,12 @@ func (t *TestSuite) DeleteL(obj client.Object, opts ...client.DeleteOption) {
 	t.delete(obj, opts, t.Logf)
 }
 
+// DeleteEH calls delete with a custom ErrorHandler
+func (t *TestSuite) DeleteEH(obj client.Object, eh ErrorHandler, opts ...client.DeleteOption) {
+	t.T().Helper()
+	t.delete(obj, opts, eh)
+}
+
 func (t *TestSuite) UpdateF(obj client.Object, opts ...client.UpdateOption) {
 	t.T().Helper()
 	t.update(obj, opts, t.Fatalf)
@@ -425,6 +431,11 @@ func (t *TestSuite) PatchF(obj client.Object, patch client.Patch, opts ...client
 func (t *TestSuite) PatchE(obj client.Object, patch client.Patch, opts ...client.PatchOption) {
 	t.T().Helper()
 	t.patch(obj, patch, opts, t.Errorf)
+}
+
+func (t *TestSuite) UpdateApprovalL(pr *porchapi.PackageRevision, opts metav1.UpdateOptions) *porchapi.PackageRevision {
+	t.T().Helper()
+	return t.updateApproval(pr, opts, t.Logf)
 }
 
 func (t *TestSuite) UpdateApprovalF(pr *porchapi.PackageRevision, opts metav1.UpdateOptions) *porchapi.PackageRevision {

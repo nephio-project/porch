@@ -56,7 +56,7 @@ type cachedRepository struct {
 	cachedPackageRevisions map[repository.PackageRevisionKey]*cachedPackageRevision
 	cachedPackages         map[repository.PackageKey]*cachedPackage
 	// Error encountered on repository refresh by the refresh goroutine.
-	// This is returned back by the cache to the background goroutine when it calls periodicall to resync repositories.
+	// This is returned back by the cache to the background goroutine when it calls the periodic refresh to resync repositories.
 	refreshRevisionsError error
 
 	metadataStore        meta.MetadataStore
@@ -159,7 +159,7 @@ func (r *cachedRepository) getPackages(ctx context.Context, filter repository.Li
 func (r *cachedRepository) getCachedPackages(ctx context.Context, forceRefresh bool) (map[repository.PackageKey]*cachedPackage, map[repository.PackageRevisionKey]*cachedPackageRevision, error) {
 	packages := r.cachedPackages
 	packageRevisions := r.cachedPackageRevisions
-	err := r.refreshRevisionsError
+	var err error
 
 	if forceRefresh {
 		packages = nil
@@ -267,9 +267,8 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 		// TODO: Invalidate all watches? We're dropping an add/update event
 		return nil, err
 	}
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
 
+	r.mutex.Lock()
 	if v1alpha1.LifecycleIsPublished(updated.Lifecycle(ctx)) {
 		prevKey := updated.Key()
 		prevKey.Revision = 0 // Drafts always have revision of 0
@@ -284,6 +283,7 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 
 	// Recompute latest package revisions.
 	identifyLatestRevisions(ctx, r.cachedPackageRevisions)
+	r.mutex.Unlock()
 
 	// Create the main package revision
 	if v1alpha1.LifecycleIsPublished(updated.Lifecycle(ctx)) {
@@ -304,12 +304,21 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 }
 
 func (r *cachedRepository) createMainPackageRevision(ctx context.Context, updatedMain repository.PackageRevision) error {
-	//Search and delete any old main pkgRev of an older workspace in the cache
+	// Search and delete any old main pkgRev of an older workspace in the cache
+	var oldMainPR *cachedPackageRevision
 	for pkgRevKey := range r.cachedPackageRevisions {
 		if pkgRevKey.Revision == -1 && pkgRevKey.PkgKey == updatedMain.Key().PkgKey {
-			delete(r.cachedPackageRevisions, pkgRevKey)
+			oldMainPR = r.cachedPackageRevisions[pkgRevKey]
+			break
 		}
 	}
+	if oldMainPR != nil {
+		delete(r.cachedPackageRevisions, oldMainPR.Key())
+	}
+
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
 	cachedMain := &cachedPackageRevision{
 		PackageRevision: updatedMain,
 		metadataStore:   r.metadataStore,
@@ -477,7 +486,10 @@ func (r *cachedRepository) pollOnce(ctx context.Context) {
 	defer span.End()
 
 	if _, err := r.getPackageRevisions(ctx, repository.ListPackageRevisionFilter{}, true); err != nil {
+		r.refreshRevisionsError = err
 		klog.Warningf("error polling repo packages %s: %v", r.id, err)
+	} else {
+		r.refreshRevisionsError = nil
 	}
 	// TODO: Uncomment when package resources are fully supported
 	//if _, err := r.getPackages(ctx, repository.ListPackageRevisionFilter{}, true); err != nil {
@@ -542,7 +554,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 	for _, newPackageRevision := range newPackageRevisions {
 		kname := newPackageRevision.KubeObjectName()
 		if newPackageRevisionNames[kname] != nil {
-			klog.Warningf("repo %s: found duplicate packages with name %v", r.repo, kname)
+			klog.Warningf("repo %s: found duplicate packages with name %v", r.id, kname)
 		}
 
 		pkgRev := &cachedPackageRevision{
