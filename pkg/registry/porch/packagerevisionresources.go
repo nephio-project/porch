@@ -16,6 +16,7 @@ package porch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -23,6 +24,7 @@ import (
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/task"
 	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -181,9 +183,18 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 		return nil, false, apierrors.NewInternalError(fmt.Errorf("error getting repository %v: %w", repositoryID, err))
 	}
 
-	rev, renderStatus, err := r.cad.UpdatePackageResources(ctx, &repositoryObj, oldRepoPkgRev, oldApiPkgRevResources, newObj)
-	if err != nil {
-		return nil, false, apierrors.NewInternalError(err)
+	rev, renderStatus, rendErr := r.cad.UpdatePackageResources(ctx, &repositoryObj, oldRepoPkgRev, oldApiPkgRevResources, newObj)
+
+	renderFailed := false
+
+	// if the error occured is a render error allow it to pass else return error
+	if rendErr != nil {
+		var rerr *task.RenderError
+		if errors.As(rendErr, &rerr) {
+			renderFailed = true
+		} else {
+			return nil, false, apierrors.NewInternalError(rendErr)
+		}
 	}
 
 	created, err := rev.GetResources(ctx)
@@ -192,6 +203,26 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 	}
 	if renderStatus != nil {
 		created.Status.RenderStatus = *renderStatus
+	}
+
+	// if render error update resource but also return render error to user
+	if renderFailed {
+		status := metav1.Status{
+			Status:  metav1.StatusFailure,
+			Code:    500,
+			Reason:  metav1.StatusReasonInternalError,
+			Message: "Porch Package Pipeline Failed Render",
+			Details: &metav1.StatusDetails{
+				Causes: []metav1.StatusCause{
+					{
+						Type:    "RenderFailure",
+						Message: rendErr.Error(),
+						Field:   "render",
+					},
+				},
+			},
+		}
+		return created, false, &apierrors.StatusError{ErrStatus: status}
 	}
 
 	return created, false, nil
