@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/pkg/kpt"
 	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
@@ -33,19 +34,19 @@ import (
 // the e2e test will fail in local deployment mode.
 var (
 	applyReplacementsImageAliases = []string{
-		"gcr.io/kpt-fn/apply-replacements:v0.1.1",
-		"gcr.io/kpt-fn/apply-replacements:v0.1",
-		"gcr.io/kpt-fn/apply-replacements@sha256:85913d4ec8db62053eb060ff1b7e26d13ff8853b75cae4d0461b8a1c7ddd4947",
+		"apply-replacements:v0.1.1",
+		"apply-replacements:v0.1",
+		"apply-replacements@sha256:85913d4ec8db62053eb060ff1b7e26d13ff8853b75cae4d0461b8a1c7ddd4947",
 	}
 	setNamespaceImageAliases = []string{
-		"gcr.io/kpt-fn/set-namespace:v0.4.1",
-		"gcr.io/kpt-fn/set-namespace:v0.4",
-		"gcr.io/kpt-fn/set-namespace@sha256:f930d9248001fa763799cc81cf2d89bbf83954fc65de0db20ab038a21784f323",
+		"set-namespace:v0.4.1",
+		"set-namespace:v0.4",
+		"set-namespace@sha256:f930d9248001fa763799cc81cf2d89bbf83954fc65de0db20ab038a21784f323",
 	}
 	starlarkImageAliases = []string{
-		"gcr.io/kpt-fn/starlark:v0.4.3",
-		"gcr.io/kpt-fn/starlark:v0.4",
-		"gcr.io/kpt-fn/starlark@sha256:6ba3971c64abcd6c3d93039d45721bb5ab496c7fbbc9ac1e685b11577f368ce0",
+		"starlark:v0.4.3",
+		"starlark:v0.4",
+		"starlark@sha256:6ba3971c64abcd6c3d93039d45721bb5ab496c7fbbc9ac1e685b11577f368ce0",
 	}
 )
 
@@ -53,18 +54,38 @@ type builtinRuntime struct {
 	fnMapping map[string]fnsdk.ResourceListProcessor
 }
 
-func newBuiltinRuntime() *builtinRuntime {
+func newBuiltinRuntime(imagePrefix string) *builtinRuntime {
 	fnMap := map[string]fnsdk.ResourceListProcessor{}
 
-	for _, img := range applyReplacementsImageAliases {
+	applyMappings := func(aliases []string, fn fnsdk.ResourceListProcessorFunc) {
+		for _, img := range aliases {
+			fnMap[img] = fn
+			fnMap[fnruntime.GCRImagePrefix+img] = fn
+			if imagePrefix != "" && imagePrefix != fnruntime.GCRImagePrefix {
+				fnMap[imagePrefix+"/"+img] = fn
+			}
+		}
+	}
+
+	applyMappings(applyReplacementsImageAliases, apply_replacements.ApplyReplacements)
+	applyMappings(setNamespaceImageAliases, set_namespace.Run)
+	applyMappings(starlarkImageAliases, starlark.Process)
+
+	/*for _, img := range applyReplacementsImageAliases {
 		fnMap[img] = fnsdk.ResourceListProcessorFunc(apply_replacements.ApplyReplacements)
+		fnMap[fnruntime.GCRImagePrefix+img] = fnsdk.ResourceListProcessorFunc(apply_replacements.ApplyReplacements)
+		fnMap[imagePrefix+"/"+img] = fnsdk.ResourceListProcessorFunc(apply_replacements.ApplyReplacements)
 	}
 	for _, img := range setNamespaceImageAliases {
 		fnMap[img] = fnsdk.ResourceListProcessorFunc(set_namespace.Run)
+		fnMap[fnruntime.GCRImagePrefix+img] = fnsdk.ResourceListProcessorFunc(set_namespace.Run)
+		fnMap[imagePrefix+"/"+img] = fnsdk.ResourceListProcessorFunc(set_namespace.Run)
 	}
 	for _, img := range starlarkImageAliases {
 		fnMap[img] = fnsdk.ResourceListProcessorFunc(starlark.Process)
-	}
+		fnMap[fnruntime.GCRImagePrefix+img] = fnsdk.ResourceListProcessorFunc(starlark.Process)
+		fnMap[imagePrefix+"/"+img] = fnsdk.ResourceListProcessorFunc(starlark.Process)
+	}*/
 
 	return &builtinRuntime{
 		fnMapping: fnMap,

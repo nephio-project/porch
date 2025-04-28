@@ -44,8 +44,8 @@ import (
 const (
 	defaultTestBlueprintsRepo = "https://github.com/platkrm/test-blueprints.git"
 	defaultGCPBlueprintsRepo  = "https://github.com/GoogleCloudPlatform/blueprints.git"
-	kptRepo                   = "https://github.com/kptdev/kpt.git"
-	defaultGCRPrefix          = "gcr.io/kpt-fn/"
+	defaultKPTRepo            = "https://github.com/kptdev/kpt.git"
+	defaultGCRPrefix          = "gcr.io/kpt-fn"
 
 	testBlueprintsRepoUrlEnv = "PORCH_TEST_BLUEPRINTS_REPO_URL"
 	//TestBlueprintsRepoUserEnv     = "PORCH_TEST_BLUEPRINTS_REPO_USER"
@@ -53,7 +53,12 @@ const (
 	gcpBlueprintsRepoUrlEnv      = "PORCH_GCP_BLUEPRINTS_REPO_URL"
 	gcpBlueprintsRepoUserEnv     = "PORCH_GCP_BLUEPRINTS_REPO_USER"
 	gcpBlueprintsRepoPasswordEnv = "PORCH_GCP_BLUEPRINTS_REPO_PASSWORD"
-	gcrPrefixEnv                 = "PORCH_GCR_PREFIX_URL"
+
+	kptRepoUrlEnv      = "PORCH_KPT_REPO_URL"
+	kptRepoUserEnv     = "PORCH_KPT_REPO_USER"
+	kptRepoPasswordEnv = "PORCH_KPT_REPO_PASSWORD"
+
+	gcrPrefixEnv = "PORCH_GCR_PREFIX_URL"
 )
 
 var (
@@ -65,6 +70,7 @@ type PorchSuite struct {
 	TestSuiteWithGit
 	testBlueprintsRepo string
 	gcpBlueprintsRepo  string
+	kptRepo            string
 	gcrPrefix          string
 }
 
@@ -78,6 +84,7 @@ func TestE2E(t *testing.T) {
 		testBlueprintsRepo: defaultTestBlueprintsRepo,
 		gcpBlueprintsRepo:  defaultGCPBlueprintsRepo,
 		gcrPrefix:          defaultGCRPrefix,
+		kptRepo:            defaultKPTRepo,
 	}
 	if os.Getenv(testBlueprintsRepoUrlEnv) != "" {
 		pSuite.testBlueprintsRepo = os.Getenv(testBlueprintsRepoUrlEnv)
@@ -87,6 +94,9 @@ func TestE2E(t *testing.T) {
 	}
 	if os.Getenv(gcrPrefixEnv) != "" {
 		pSuite.gcrPrefix = os.Getenv(gcrPrefixEnv)
+	}
+	if os.Getenv(kptRepoUrlEnv) != "" {
+		pSuite.kptRepo = os.Getenv(kptRepoUrlEnv)
 	}
 	fmt.Printf("%v\n%v\n%v\n\n", pSuite.testBlueprintsRepo, pSuite.gcpBlueprintsRepo, pSuite.gcrPrefix)
 	suite.Run(t, pSuite)
@@ -125,7 +135,7 @@ func (t *PorchSuite) TestGitRepository() {
 				{
 					Type: "eval",
 					Eval: &porchapi.FunctionEvalTaskSpec{
-						Image: t.gcrPrefix + "set-namespace:v0.4.1",
+						Image: t.gcrPrefix + "/set-namespace:v0.4.1",
 						ConfigMap: map[string]string{
 							"namespace": "bucket-namespace",
 						},
@@ -157,7 +167,7 @@ func (t *PorchSuite) TestGitRepository() {
 }
 
 func (t *PorchSuite) TestGitRepositoryWithReleaseTagsAndDirectory() {
-	t.RegisterGitRepositoryF(kptRepo, "kpt-repo", "package-examples")
+	t.RegisterGitRepositoryF(t.kptRepo, "kpt-repo", "package-examples")
 
 	t.Log("Listing PackageRevisions in " + t.Namespace)
 	var list porchapi.PackageRevisionList
@@ -792,7 +802,7 @@ func (t *PorchSuite) TestUpdateResources() {
 		kptfile.Pipeline = &kptfilev1.Pipeline{}
 	}
 	kptfile.Pipeline.Mutators = append(kptfile.Pipeline.Mutators, kptfilev1.Function{
-		Image: t.gcrPrefix + "set-annotations:v0.1.4",
+		Image: t.gcrPrefix + "/set-annotations:v0.1.4",
 		ConfigMap: map[string]string{
 			"color": "red",
 			"fruit": "apple",
@@ -1844,7 +1854,7 @@ func (t *PorchSuite) TestBuiltinFunctionEvaluator() {
 					Type: "eval",
 					Eval: &porchapi.FunctionEvalTaskSpec{
 						//
-						Image: t.gcrPrefix + "starlark:v0.4.3",
+						Image: t.gcrPrefix + "/starlark:v0.4.3",
 						ConfigMap: map[string]string{
 							"source": `for resource in ctx.resource_list["items"]:
 		  resource["metadata"]["annotations"]["foo"] = "bar"`,
@@ -1854,7 +1864,7 @@ func (t *PorchSuite) TestBuiltinFunctionEvaluator() {
 				{
 					Type: "eval",
 					Eval: &porchapi.FunctionEvalTaskSpec{
-						Image: t.gcrPrefix + "set-namespace:v0.4.1",
+						Image: t.gcrPrefix + "/set-namespace:v0.4.1",
 						ConfigMap: map[string]string{
 							"namespace": "bucket-namespace",
 						},
@@ -1924,7 +1934,7 @@ func (t *PorchSuite) TestExecFunctionEvaluator() {
 				{
 					Type: "eval",
 					Eval: &porchapi.FunctionEvalTaskSpec{
-						Image: t.gcrPrefix + "starlark:v0.3.0",
+						Image: t.gcrPrefix + "/starlark:v0.3.0",
 						ConfigMap: map[string]string{
 							"source": `# set the namespace on all resources
 
@@ -1938,7 +1948,7 @@ for resource in ctx.resource_list["items"]:
 				{
 					Type: "eval",
 					Eval: &porchapi.FunctionEvalTaskSpec{
-						Image: t.gcrPrefix + "set-annotations:v0.1.4",
+						Image: t.gcrPrefix + "/set-annotations:v0.1.4",
 						ConfigMap: map[string]string{
 							"foo": "bar",
 						},
@@ -2031,7 +2041,7 @@ data:
 					Eval: &porchapi.FunctionEvalTaskSpec{
 						// This image is a mirror of gcr.io/cad-demo-sdk/set-namespace@sha256:462e44020221e72e3eb337ee59bc4bc3e5cb50b5ed69d377f55e05bec3a93d11
 						// which uses gcr.io/distroless/base-debian11:latest as the base image.
-						Image: t.gcrPrefix + "set-namespace:v0.1.0",
+						Image: t.gcrPrefix + "-demo/set-namespace:v0.1.0",
 					},
 				},
 			},
@@ -2064,8 +2074,8 @@ func (t *PorchSuite) TestPodEvaluator() {
 		t.Skipf("Skipping due to not having pod evaluator in local mode")
 	}
 
-	generateFolderImage := t.gcrPrefix + "generate-folders:v0.1.1" // This function is a TS based function.
-	setAnnotationsImage := t.gcrPrefix + "set-annotations:v0.1.3"  // set-annotations:v0.1.3 is an older version that porch maps neither to built-in nor exec.
+	generateFolderImage := t.gcrPrefix + "/generate-folders:v0.1.1" // This function is a TS based function.
+	setAnnotationsImage := t.gcrPrefix + "/set-annotations:v0.1.3"  // set-annotations:v0.1.3 is an older version that porch maps neither to built-in nor exec.
 
 	// Register the repository as 'git-fn'
 	t.RegisterMainGitRepositoryF("git-fn-pod")
@@ -2261,7 +2271,7 @@ func (t *PorchSuite) TestPodEvaluatorWithFailure() {
 					Type: "eval",
 					Eval: &porchapi.FunctionEvalTaskSpec{
 						// This function is expect to fail due to not knowing schema for some CRDs.
-						Image: t.gcrPrefix + "kubeval:v0.2.0",
+						Image: t.gcrPrefix + "/kubeval:v0.2.0",
 					},
 				},
 			},
@@ -2275,7 +2285,7 @@ func (t *PorchSuite) TestPodEvaluatorWithFailure() {
 }
 
 func (t *PorchSuite) TestLargePackageRevision() {
-	setAnnotationsImage := t.gcrPrefix + "set-annotations:v0.1.3" // set-annotations:v0.1.3 is an older version that porch maps neither to built-in nor exec.
+	setAnnotationsImage := t.gcrPrefix + "/set-annotations:v0.1.3" // set-annotations:v0.1.3 is an older version that porch maps neither to built-in nor exec.
 
 	const (
 		testDataSize = 5 * 1024 * 1024

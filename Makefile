@@ -278,7 +278,8 @@ deployment-config: ## Generate a porch deployment kpt package into $(DEPLOYPORCH
 	  --controllers-image "$(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):$(IMAGE_TAG)" \
 	  --function-image "$(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):$(IMAGE_TAG)" \
 	  --wrapper-server-image "$(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):$(IMAGE_TAG)" \
-	  --enabled-reconcilers "$(ENABLED_RECONCILERS)"
+	  --enabled-reconcilers "$(ENABLED_RECONCILERS)" \
+	  $(if $(PORCH_GCR_PREFIX_URL),--gcr-image-prefix "$(PORCH_GCR_PREFIX_URL)")
 
 .PHONY: deployment-config-no-server
 deployment-config-no-server: deployment-config ## Generate a deployment kpt package that contains all of porch except the porch-server into $(DEPLOYPORCHCONFIGDIR)
