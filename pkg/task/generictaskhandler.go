@@ -247,9 +247,9 @@ func (th *genericTaskHandler) DoPRResourceMutations(ctx context.Context, pr2Upda
 				runnerOptions: runnerOptions,
 				runtime:       th.runtime,
 			}})
-		// if err != nil {
-		// 	return renderStatus, nil
-		// }
+		if err != nil {
+			return renderStatus, err
+		}
 	} else {
 		renderStatus = nil
 	}
@@ -481,9 +481,11 @@ func applyResourceMutations(ctx context.Context, draft repository.PackageRevisio
 		if taskResult != nil && task.Type == api.TaskTypeEval {
 			renderStatus = taskResult.RenderStatus
 			if err != nil {
+				err = &RenderError{
+					Err: err,
+					Msg: "Porch Package Pipeline Failed Render",
+				}
 				klog.Error(err)
-				klog.Warning("Package Failed Render")
-				err = fmt.Errorf("%w\n\n%s\n%s\n%s", err, "Error occurred rendering package in kpt function pipeline.", "Package has NOT been pushed to remote.", "Please fix package locally (modify until 'kpt fn render' succeeds) and retry.")
 				// if we fail the render we return the same base resources but with the render status of the failure
 				appendRenderResult(renderStatus, baseResources)
 				updatedResources := baseResources

@@ -26,6 +26,7 @@ import (
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/util"
 	"github.com/spf13/cobra"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -208,7 +209,16 @@ func (r *runner) runE(cmd *cobra.Command, _ []string) error {
 		},
 	}
 	if err := r.client.Create(r.ctx, pr); err != nil {
-		return errors.E(op, err)
+		if statusErr, ok := err.(*apierrors.StatusError); ok {
+			for _, cause := range statusErr.ErrStatus.Details.Causes {
+				if cause.Type == "RenderFailure" {
+					fmt.Printf("Porch Package was cloned but contains render errors.\n")
+					fmt.Printf("Error: %s\n", cause.Message)
+				} else {
+					return errors.E(op, err)
+				}
+			}
+		}
 	}
 
 	fmt.Fprintf(cmd.OutOrStdout(), "%s created\n", pr.Name)

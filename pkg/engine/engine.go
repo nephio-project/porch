@@ -172,16 +172,30 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 		}
 	}
 
+	renderFailed := false
 	// Apply tasks
-	if err := cad.taskHandler.ApplyTasks(ctx, draft, repositoryObj, obj, packageConfig); err != nil {
-		rollback()
-		return nil, err
+	tasksErr := cad.taskHandler.ApplyTasks(ctx, draft, repositoryObj, obj, packageConfig)
+	if tasksErr != nil {
+		var rerr *task.RenderError
+		if errors.As(tasksErr, &rerr) {
+			renderFailed = true
+		} else {
+			rollback()
+			return nil, tasksErr
+		}
 	}
 
 	// Update lifecycle
 	if err := draft.UpdateLifecycle(ctx, obj.Spec.Lifecycle); err != nil {
 		rollback()
 		return nil, err
+	}
+
+	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, 0)
+
+	// if render fails we allow resource creation alongside the error
+	if renderFailed {
+		return repoPkgRev, tasksErr
 	}
 
 	// Close the draft
@@ -450,14 +464,25 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 		return nil, nil, err
 	}
 
-	renderStatus, err := cad.taskHandler.DoPRResourceMutations(ctx, pr2Update, draft, oldRes, newRes)
-	if err != nil {
-		return nil, renderStatus, err
+	renderStatus, mutationErr := cad.taskHandler.DoPRResourceMutations(ctx, pr2Update, draft, oldRes, newRes)
+	// if error is a render error we take note and allow further operation else return error and no resource update
+	renderFailed := false
+	if mutationErr != nil {
+		var rerr *task.RenderError
+		if errors.As(mutationErr, &rerr) {
+			renderFailed = true
+		} else {
+			return nil, renderStatus, err
+		}
 	}
 	// No lifecycle change when updating package resources; updates are done.
 	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, 0)
 	if err != nil {
 		return nil, renderStatus, err
+	}
+	// if render failed is the cause of the error we allow resource update but also return error information
+	if renderFailed {
+		return repoPkgRev, renderStatus, err
 	}
 
 	return repoPkgRev, renderStatus, nil

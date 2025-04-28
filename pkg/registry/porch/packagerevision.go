@@ -16,10 +16,12 @@ package porch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/task"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -178,14 +180,42 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 	}
 	defer pkgMutex.Unlock()
 
-	createdRepoPkgRev, err := r.cad.CreatePackageRevision(ctx, repositoryObj, newApiPkgRev, parentPackage)
-	if err != nil {
-		return nil, apierrors.NewInternalError(err)
+	createdRepoPkgRev, rendErr := r.cad.CreatePackageRevision(ctx, repositoryObj, newApiPkgRev, parentPackage)
+
+	// if the error occured is a render error allow it to pass else return error
+	renderFailed := false
+	if rendErr != nil {
+		var rerr *task.RenderError
+		if errors.As(rendErr, &rerr) {
+			renderFailed = true
+		} else {
+			return nil, apierrors.NewInternalError(err)
+		}
 	}
 
 	createdApiPkgRev, err := createdRepoPkgRev.GetPackageRevision(ctx)
 	if err != nil {
 		return nil, apierrors.NewInternalError(err)
+	}
+
+	// if render error create resource but also return render error to user
+	if renderFailed {
+		status := metav1.Status{
+			Status:  metav1.StatusFailure,
+			Code:    500,
+			Reason:  metav1.StatusReasonInternalError,
+			Message: "Porch Package Pipeline Failed Render",
+			Details: &metav1.StatusDetails{
+				Causes: []metav1.StatusCause{
+					{
+						Type:    "RenderFailure",
+						Message: rendErr.Error(),
+						Field:   "render",
+					},
+				},
+			},
+		}
+		return createdApiPkgRev, &apierrors.StatusError{ErrStatus: status}
 	}
 
 	return createdApiPkgRev, nil
