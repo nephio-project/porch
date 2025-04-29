@@ -151,21 +151,44 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 		return nil, err
 	}
 
+	// Create a draft package revision
 	draft, err := repo.CreatePackageRevisionDraft(ctx, obj)
 	if err != nil {
 		return nil, err
 	}
 
+	// Setup rollback function in case of errors
+	rollback := func() {
+		// Convert draft to PackageRevision for deletion
+		if pkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, 0); err == nil {
+			if err := repo.DeletePackageRevision(ctx, pkgRev); err != nil {
+				klog.Warningf("Failed to rollback package revision creation: %v", err)
+			}
+		} else {
+			klog.Warningf("Failed to convert draft to package revision for rollback: %v", err)
+		}
+	}
+
+	// Apply tasks
 	if err := cad.taskHandler.ApplyTasks(ctx, draft, repositoryObj, obj, packageConfig); err != nil {
+		rollback()
 		return nil, err
 	}
 
+	// Update lifecycle
 	if err := draft.UpdateLifecycle(ctx, obj.Spec.Lifecycle); err != nil {
+		rollback()
 		return nil, err
 	}
 
-	// Updates are done.
-	return repo.ClosePackageRevisionDraft(ctx, draft, 0)
+	// Close the draft
+	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, 0)
+	if err != nil {
+		rollback()
+		return nil, err
+	}
+
+	return repoPkgRev, nil
 }
 
 // The workspaceName must be unique, because it used to generate the package revision's metadata.name.
