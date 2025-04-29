@@ -267,16 +267,13 @@ func DecodeKptfile(in io.Reader) (*kptfilev1.KptFile, error) {
 	return kf, nil
 }
 
+// decoder for Porchfile's in porch packages
 func DecodePorchfile(in io.Reader) (*v1alpha1.PorchFile, error) {
 	pf := &v1alpha1.PorchFile{}
 	c, err := io.ReadAll(in)
 	if err != nil {
 		return pf, err
 	}
-	// if err := CheckKptfileVersion(c); err != nil {
-	// 	return kf, err
-	// }
-
 	d := yaml.NewDecoder(bytes.NewBuffer(c))
 	d.KnownFields(true)
 	if err := d.Decode(pf); err != nil {

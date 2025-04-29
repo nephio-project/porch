@@ -16,6 +16,7 @@ package task
 
 import "fmt"
 
+// custom error type for differentiating render status errors from other types
 type RenderError struct {
 	Err error
 	Msg string
