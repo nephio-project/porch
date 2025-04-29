@@ -1304,16 +1304,8 @@ func (r *gitRepository) findLatestPackageCommit(startCommit *object.Commit, key 
 	return nil, pkgerrors.Errorf("could not find latest commit for package %s", key.ToFullPathname())
 }
 
-func (r *gitRepository) blobObject(h plumbing.Hash) (*object.Blob, error) {
-	return r.repo.BlobObject(h)
-}
-
 // commitCallback is the function type that needs to be provided to the history iterator functions.
 type commitCallback func(*object.Commit) error
-
-func (r *gitRepository) getTree(h plumbing.Hash) (*object.Tree, error) {
-	return object.GetTree(r.repo.Storer, h)
-}
 
 func (r *gitRepository) GetLifecycle(ctx context.Context, pkgRev *gitPackageRevision) v1alpha1.PackageRevisionLifecycle {
 	_, span := tracer.Start(ctx, "gitRepository::GetLifecycle", trace.WithAttributes())

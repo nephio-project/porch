@@ -1856,7 +1856,7 @@ func TestApproveOnManuallyMovedMain(t *testing.T) {
 		t.Fatalf("Failed to create draft PackageRevision %v", err)
 	}
 
-	draft1.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
+	err = draft1.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
 
 	if err != nil {
 		t.Fatalf("Failed to create commit: %v", err)
@@ -1865,15 +1865,25 @@ func TestApproveOnManuallyMovedMain(t *testing.T) {
 	uip := makeUserInfoProvider(repoSpec, &mockK8sUsp{})
 	mainBranchCommitHash := resolveReference(t, gitRepo, DefaultMainReferenceName).Hash()
 	ch, err := newCommitHelper(gitRepo, uip, mainBranchCommitHash, "", plumbing.ZeroHash)
+	if err != nil {
+		t.Fatalf("Failed to create commit helper: %v", err)
+	}
 
-	ch.storeFile(newFile, newFileContent)
+	err = ch.storeFile(newFile, newFileContent)
+	if err != nil {
+		t.Fatalf("Failed to store new file: %v", err)
+	}
+
 	newHash, _, err := ch.commit(ctx, "Add new file", "")
 
 	if err != nil {
 		t.Fatalf("Failed to create commit: %v", err)
 	}
 
-	gitRepo.Storer.SetReference(plumbing.NewHashReference(DefaultMainReferenceName, newHash))
+	err = gitRepo.Storer.SetReference(plumbing.NewHashReference(DefaultMainReferenceName, newHash))
+	if err != nil {
+		t.Fatalf("Failed to set reference: %v", err)
+	}
 	t.Logf("Moved %s from %s to %s", DefaultMainReferenceName, mainBranchCommitHash, newHash)
 
 	_, err = localRepo.ClosePackageRevisionDraft(ctx, draft1, 1)
@@ -1940,7 +1950,13 @@ func TestDeleteOnManuallyMovedTag(t *testing.T) {
 
 	uip := makeUserInfoProvider(repoSpec, &mockK8sUsp{})
 	ch, err := newCommitHelper(gitRepo, uip, prv1.(*gitPackageRevision).commit, "", plumbing.ZeroHash)
-	ch.storeFile(newFile, newFileContent)
+	if err != nil {
+		t.Fatalf("Failed to create commit helper: %v", err)
+	}
+	err = ch.storeFile(newFile, newFileContent)
+	if err != nil {
+		t.Fatalf("Failed to store new file: %v", err)
+	}
 	newHash, _, err := ch.commit(ctx, "Add new file", "")
 	if err != nil {
 		t.Fatalf("Failed to create commit: %v", err)
@@ -2059,7 +2075,13 @@ func TestDeleteManuallyMovedNonApproved(t *testing.T) {
 
 		uip := makeUserInfoProvider(repoSpec, &mockK8sUsp{})
 		ch, err := newCommitHelper(gitRepo, uip, savedPr.(*gitPackageRevision).commit, "", plumbing.ZeroHash)
-		ch.storeFile(test.newFile, test.newFileContent)
+		if err != nil {
+			t.Fatalf("Failed to create commit helper: %v", err)
+		}
+		err = ch.storeFile(test.newFile, test.newFileContent)
+		if err != nil {
+			t.Fatalf("Failed to store new file: %v", err)
+		}
 		newHash, _, err := ch.commit(ctx, "Add new file", "")
 		if err != nil {
 			t.Fatalf("Failed to create commit: %v", err)
@@ -2069,7 +2091,10 @@ func TestDeleteManuallyMovedNonApproved(t *testing.T) {
 			t.Fatalf("Invalid draft ref name: %q", savedPr.(*gitPackageRevision).ref.Name())
 		}
 
-		gitRepo.Storer.SetReference(plumbing.NewHashReference(plumbing.NewBranchReferenceName(refNameInRemote), newHash))
+		err = gitRepo.Storer.SetReference(plumbing.NewHashReference(plumbing.NewBranchReferenceName(refNameInRemote), newHash))
+		if err != nil {
+			t.Fatalf("Failed to set new remote ref: %v", err)
+		}
 		t.Logf("Moved %s from %s to %s", savedPr.(*gitPackageRevision).ref, savedPr.(*gitPackageRevision).commit, newHash)
 
 		t.Logf("Trying to delete published PackageRevision with a remote that's moved %s", savedPr.Key())
@@ -2162,6 +2187,9 @@ func TestDeleteOnManuallyMovedMainBranch(t *testing.T) {
 
 	uip := makeUserInfoProvider(repoSpec, &mockK8sUsp{})
 	ch, err := newCommitHelper(gitRepo, uip, prv1.(*gitPackageRevision).commit, "", plumbing.ZeroHash)
+	if err != nil {
+		t.Fatalf("Failed to create commit helper: %v", err)
+	}
 	err = ch.storeFile(newFile, newFileContent)
 	if err != nil {
 		t.Fatalf("Failed to store new file: %v", err)
