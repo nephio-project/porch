@@ -182,7 +182,7 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 
 	createdRepoPkgRev, rendErr := r.cad.CreatePackageRevision(ctx, repositoryObj, newApiPkgRev, parentPackage)
 
-	// if the error occured is a render error allow it to pass else return error
+	// if the error occurred is a render error allow it to pass else return error
 	renderFailed := false
 	if rendErr != nil {
 		var rerr *task.RenderError
@@ -198,7 +198,7 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 		return nil, apierrors.NewInternalError(err)
 	}
 
-	// if render error create resource but also return render error to user
+	// if render error occurred create resource but also return render error to user
 	if renderFailed {
 		status := metav1.Status{
 			Status:  metav1.StatusFailure,
