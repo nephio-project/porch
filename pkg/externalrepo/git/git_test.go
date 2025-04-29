@@ -1804,3 +1804,411 @@ func TestMultipleCommitAuthors(t *testing.T) {
 		t.Errorf("Failed to find commit with correct author: %v", err)
 	}
 }
+
+func TestApproveOnManuallyMovedMain(t *testing.T) {
+	const (
+		repoName       = "approve-on-manually-moved-repo"
+		namespace      = "default"
+		packageName    = "approve-on-manually-moved-pkg"
+		workspace      = "approve-on-manually-moved-ws"
+		newFile        = "new-file.md"
+		newFileContent = "new-file-content"
+	)
+
+	tempdir := t.TempDir()
+	tarfile := filepath.Join("testdata", "trivial-repository.tar")
+	remotepath := filepath.Join(tempdir, "remote")
+	localpath := filepath.Join(tempdir, "local")
+	gitRepo, address := ServeGitRepository(t, tarfile, remotepath)
+
+	repoSpec := &configapi.GitRepository{
+		Repo: address,
+	}
+
+	ctx := context.Background()
+
+	localRepo, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, GitRepositoryOptions{})
+	if err != nil {
+		t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
+	}
+
+	pr := &v1alpha1.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: repoName,
+		},
+		Spec: v1alpha1.PackageRevisionSpec{
+			PackageName:    packageName,
+			WorkspaceName:  workspace,
+			RepositoryName: repoName,
+			Tasks: []v1alpha1.Task{
+				{
+					Type: v1alpha1.TaskTypeInit,
+					Init: &v1alpha1.PackageInitTaskSpec{
+						Description: "Empty Package",
+					},
+				},
+			},
+		},
+	}
+
+	draft1, err := localRepo.CreatePackageRevisionDraft(ctx, pr)
+	if err != nil {
+		t.Fatalf("Failed to create draft PackageRevision %v", err)
+	}
+
+	err = draft1.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
+
+	if err != nil {
+		t.Fatalf("Failed to create commit: %v", err)
+	}
+
+	uip := makeUserInfoProvider(repoSpec, &mockK8sUsp{})
+	mainBranchCommitHash := resolveReference(t, gitRepo, DefaultMainReferenceName).Hash()
+	ch, err := newCommitHelper(gitRepo, uip, mainBranchCommitHash, "", plumbing.ZeroHash)
+	if err != nil {
+		t.Fatalf("Failed to create commit helper: %v", err)
+	}
+
+	err = ch.storeFile(newFile, newFileContent)
+	if err != nil {
+		t.Fatalf("Failed to store new file: %v", err)
+	}
+
+	newHash, _, err := ch.commit(ctx, "Add new file", "")
+
+	if err != nil {
+		t.Fatalf("Failed to create commit: %v", err)
+	}
+
+	err = gitRepo.Storer.SetReference(plumbing.NewHashReference(DefaultMainReferenceName, newHash))
+	if err != nil {
+		t.Fatalf("Failed to set reference: %v", err)
+	}
+	t.Logf("Moved %s from %s to %s", DefaultMainReferenceName, mainBranchCommitHash, newHash)
+
+	_, err = localRepo.ClosePackageRevisionDraft(ctx, draft1, 1)
+
+	if err != nil {
+		t.Fatalf("Failed to close draft PackageRevision: %v", err)
+	}
+}
+
+// Be careful with the refernce handing in this test case, it's easy to turn the test to
+// not actually test manually moved remotes.
+func TestDeleteOnManuallyMovedTag(t *testing.T) {
+	const (
+		repoName       = "delete-on-manually-moved-repo"
+		namespace      = "default"
+		packageName    = "delete-on-manually-moved-pkg"
+		workspace      = "delete-on-manually-moved-ws"
+		newFile        = "new-file.md"
+		newFileContent = "new-file-content"
+	)
+
+	tempdir := t.TempDir()
+	tarfile := filepath.Join("testdata", "trivial-repository.tar")
+	remotepath := filepath.Join(tempdir, "remote")
+	localpath := filepath.Join(tempdir, "local")
+	gitRepo, address := ServeGitRepository(t, tarfile, remotepath)
+
+	repoSpec := &configapi.GitRepository{
+		Repo: address,
+	}
+
+	ctx := context.Background()
+
+	localRepo, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, GitRepositoryOptions{})
+	if err != nil {
+		t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
+	}
+
+	pr1 := &v1alpha1.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: repoName,
+		},
+		Spec: v1alpha1.PackageRevisionSpec{
+			PackageName:    packageName,
+			WorkspaceName:  workspace,
+			RepositoryName: repoName,
+			Tasks: []v1alpha1.Task{
+				{
+					Type: v1alpha1.TaskTypeInit,
+					Init: &v1alpha1.PackageInitTaskSpec{
+						Description: "Empty Package",
+					},
+				},
+			},
+		},
+	}
+
+	prv1, err := createAndPublishPR(ctx, localRepo, pr1)
+	if err != nil {
+		t.Fatalf("Failed to create PackageRevision: %v", err)
+	}
+
+	t.Logf("Created Published PackageRevision %s", prv1.Key())
+
+	uip := makeUserInfoProvider(repoSpec, &mockK8sUsp{})
+	ch, err := newCommitHelper(gitRepo, uip, prv1.(*gitPackageRevision).commit, "", plumbing.ZeroHash)
+	if err != nil {
+		t.Fatalf("Failed to create commit helper: %v", err)
+	}
+	err = ch.storeFile(newFile, newFileContent)
+	if err != nil {
+		t.Fatalf("Failed to store new file: %v", err)
+	}
+	newHash, _, err := ch.commit(ctx, "Add new file", "")
+	if err != nil {
+		t.Fatalf("Failed to create commit: %v", err)
+	}
+	err = gitRepo.Storer.SetReference(plumbing.NewHashReference(prv1.(*gitPackageRevision).ref.Name(), newHash))
+	if err != nil {
+		t.Fatalf("Failed to set reference: %v", err)
+	}
+	t.Logf("Moved %s from %s to %s", prv1.(*gitPackageRevision).ref, prv1.(*gitPackageRevision).commit, newHash)
+
+	t.Logf("Trying to delete published PackageRevision with a remote that's moved %s", prv1.Key())
+	if err := localRepo.DeletePackageRevision(ctx, prv1); err != nil {
+		t.Fatalf("Failed to delete PackageRevision: %v", err)
+	}
+}
+
+// Be careful with the refernce handing in this test case, it's easy to turn the test to
+// not actually test manually moved remotes.
+func TestDeleteManuallyMovedNonApproved(t *testing.T) {
+	const (
+		repoName  = "delete-on-manually-moved-draft-repo"
+		namespace = "default"
+	)
+
+	tests := []struct {
+		packageName    string
+		workspace      string
+		newFile        string
+		newFileContent string
+		apiPr          *v1alpha1.PackageRevision
+	}{
+		{
+
+			packageName:    "delete-on-manually-moved-draft-pkg",
+			workspace:      "delete-on-manually-moved-draft-ws",
+			newFile:        "new-file.md",
+			newFileContent: "new-file-content",
+			apiPr: &v1alpha1.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: repoName,
+				},
+				Spec: v1alpha1.PackageRevisionSpec{
+					PackageName:    "delete-on-manually-moved-draft-pkg",
+					WorkspaceName:  "delete-on-manually-moved-draft-ws",
+					RepositoryName: repoName,
+					Lifecycle:      v1alpha1.PackageRevisionLifecycleDraft,
+					Tasks: []v1alpha1.Task{
+						{
+							Type: v1alpha1.TaskTypeInit,
+							Init: &v1alpha1.PackageInitTaskSpec{
+								Description: "Empty Package",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+
+			packageName:    "delete-on-manually-moved-proposed-pkg",
+			workspace:      "delete-on-manually-moved-proposed-ws",
+			newFile:        "new-file.md",
+			newFileContent: "new-file-content",
+			apiPr: &v1alpha1.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: repoName,
+				},
+				Spec: v1alpha1.PackageRevisionSpec{
+					PackageName:    "delete-on-manually-moved-proposed-pkg",
+					WorkspaceName:  "delete-on-manually-moved-proposed-ws",
+					RepositoryName: repoName,
+					Lifecycle:      v1alpha1.PackageRevisionLifecycleProposed,
+					Tasks: []v1alpha1.Task{
+						{
+							Type: v1alpha1.TaskTypeInit,
+							Init: &v1alpha1.PackageInitTaskSpec{
+								Description: "Empty Package",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	tempdir := t.TempDir()
+	tarfile := filepath.Join("testdata", "trivial-repository.tar")
+	remotepath := filepath.Join(tempdir, "remote")
+	localpath := filepath.Join(tempdir, "local")
+	gitRepo, address := ServeGitRepository(t, tarfile, remotepath)
+
+	repoSpec := &configapi.GitRepository{
+		Repo: address,
+	}
+
+	ctx := context.Background()
+
+	localRepo, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, GitRepositoryOptions{})
+	if err != nil {
+		t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
+	}
+	t.Cleanup(func() {
+		localRepo.Close()
+	})
+
+	for _, test := range tests {
+
+		draft, err := localRepo.CreatePackageRevisionDraft(ctx, test.apiPr)
+		if err != nil {
+			t.Fatalf("Failed to create PackageRevision draft: %v", err)
+		}
+
+		savedPr, err := localRepo.ClosePackageRevisionDraft(ctx, draft, 0)
+		if err != nil {
+			t.Fatalf("Failed to close PackageRevision draft: %v", err)
+		}
+
+		t.Logf("Created draft PackageRevision %s", savedPr.Key())
+
+		uip := makeUserInfoProvider(repoSpec, &mockK8sUsp{})
+		ch, err := newCommitHelper(gitRepo, uip, savedPr.(*gitPackageRevision).commit, "", plumbing.ZeroHash)
+		if err != nil {
+			t.Fatalf("Failed to create commit helper: %v", err)
+		}
+		err = ch.storeFile(test.newFile, test.newFileContent)
+		if err != nil {
+			t.Fatalf("Failed to store new file: %v", err)
+		}
+		newHash, _, err := ch.commit(ctx, "Add new file", "")
+		if err != nil {
+			t.Fatalf("Failed to create commit: %v", err)
+		}
+		refNameInRemote, ok := getBranchNameInLocalRepo(savedPr.(*gitPackageRevision).ref.Name())
+		if !ok {
+			t.Fatalf("Invalid draft ref name: %q", savedPr.(*gitPackageRevision).ref.Name())
+		}
+
+		err = gitRepo.Storer.SetReference(plumbing.NewHashReference(plumbing.NewBranchReferenceName(refNameInRemote), newHash))
+		if err != nil {
+			t.Fatalf("Failed to set new remote ref: %v", err)
+		}
+		t.Logf("Moved %s from %s to %s", savedPr.(*gitPackageRevision).ref, savedPr.(*gitPackageRevision).commit, newHash)
+
+		t.Logf("Trying to delete published PackageRevision with a remote that's moved %s", savedPr.Key())
+		if err := localRepo.DeletePackageRevision(ctx, savedPr); err != nil {
+			t.Fatalf("Failed to delete PackageRevision: %v", err)
+		}
+	}
+}
+
+// Be careful with the refernce handing in this test case, it's easy to turn the test to
+// not actually test manually moved remotes.
+func TestDeleteOnManuallyMovedMainBranch(t *testing.T) {
+	const (
+		repoName       = "delete-on-manually-moved-main-repo"
+		namespace      = "default"
+		packageName    = "delete-on-manually-moved-main-pkg"
+		workspace      = "delete-on-manually-moved-main-ws"
+		newFile        = "new-file.md"
+		newFileContent = "new-file-content"
+	)
+
+	tempdir := t.TempDir()
+	tarfile := filepath.Join("testdata", "trivial-repository.tar")
+	remotepath := filepath.Join(tempdir, "remote")
+	localpath := filepath.Join(tempdir, "local")
+	gitRepo, address := ServeGitRepository(t, tarfile, remotepath)
+
+	repoSpec := &configapi.GitRepository{
+		Repo: address,
+	}
+
+	ctx := context.Background()
+
+	localRepo, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, GitRepositoryOptions{})
+	if err != nil {
+		t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
+	}
+	t.Cleanup(func() {
+		localRepo.Close()
+	})
+
+	pr1 := &v1alpha1.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: repoName,
+		},
+		Spec: v1alpha1.PackageRevisionSpec{
+			PackageName:    packageName,
+			WorkspaceName:  workspace,
+			RepositoryName: repoName,
+			Tasks: []v1alpha1.Task{
+				{
+					Type: v1alpha1.TaskTypeInit,
+					Init: &v1alpha1.PackageInitTaskSpec{
+						Description: "Empty Package",
+					},
+				},
+			},
+		},
+	}
+
+	resources := &v1alpha1.PackageRevisionResources{
+		Spec: v1alpha1.PackageRevisionResourcesSpec{
+			Resources: map[string]string{
+				"Kptfile": Kptfile,
+			},
+		},
+	}
+
+	draft, err := localRepo.CreatePackageRevisionDraft(ctx, pr1)
+	if err != nil {
+		t.Fatalf("Failed to create PackageRevision draft: %v", err)
+	}
+
+	err = draft.UpdateResources(ctx, resources, nil)
+	if err != nil {
+		t.Fatalf("Failed to update draft resources: %v", err)
+	}
+
+	err = draft.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
+	if err != nil {
+		t.Fatalf("Failed to update draft lifecycle: %v", err)
+	}
+
+	prv1, err := localRepo.ClosePackageRevisionDraft(ctx, draft, repository.Revision2Int(pr1.Spec.WorkspaceName))
+	if err != nil {
+		t.Fatalf("Failed to finalize draft: %v", err)
+	}
+
+	t.Logf("Created Published PackageRevision %s", prv1.Key())
+
+	uip := makeUserInfoProvider(repoSpec, &mockK8sUsp{})
+	ch, err := newCommitHelper(gitRepo, uip, prv1.(*gitPackageRevision).commit, "", plumbing.ZeroHash)
+	if err != nil {
+		t.Fatalf("Failed to create commit helper: %v", err)
+	}
+	err = ch.storeFile(newFile, newFileContent)
+	if err != nil {
+		t.Fatalf("Failed to store new file: %v", err)
+	}
+	newHash, _, err := ch.commit(ctx, "Add new file", "")
+	if err != nil {
+		t.Fatalf("Failed to create commit: %v", err)
+	}
+	err = gitRepo.Storer.SetReference(plumbing.NewHashReference(plumbing.Main, newHash))
+	if err != nil {
+		t.Fatalf("Failed to set reference: %v", err)
+	}
+	t.Logf("Moved %s from %s to %s", plumbing.Main, prv1.(*gitPackageRevision).commit, newHash)
+
+	t.Logf("Trying to delete published PackageRevision with a remote that's moved %s", prv1.Key())
+	if err := localRepo.DeletePackageRevision(ctx, prv1.ToMainPackageRevision()); err != nil {
+		t.Fatalf("Failed to delete PackageRevision: %v", err)
+	}
+}

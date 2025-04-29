@@ -15,6 +15,7 @@
 package util
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -226,6 +227,57 @@ func TestCompareObjectMeta(t *testing.T) {
 	assert.False(t, CompareObjectMeta(left, right))
 	right.OwnerReferences = []metav1.OwnerReference{}
 	assert.True(t, CompareObjectMeta(left, right))
+}
+
+func TestRetryOnErrorConditional(t *testing.T) {
+	tests := []struct {
+		name            string
+		err             error
+		shouldRetryFunc func(error) bool
+		retryCount      int
+		shouldFail      bool
+	}{
+		{
+			name:            "no error",
+			err:             nil,
+			shouldRetryFunc: func(error) bool { return false },
+			retryCount:      2,
+			shouldFail:      false,
+		},
+		{
+			name:            "error without retries",
+			err:             fmt.Errorf("some error"),
+			shouldRetryFunc: func(error) bool { return false },
+			retryCount:      2,
+			shouldFail:      true,
+		},
+		{
+			name:            "error with retries",
+			err:             fmt.Errorf("some error"),
+			shouldRetryFunc: func(error) bool { return true },
+			retryCount:      10,
+			shouldFail:      true,
+		},
+		{
+			name:            "no tries",
+			err:             fmt.Errorf("some error"),
+			shouldRetryFunc: func(error) bool { return true },
+			retryCount:      0,
+			shouldFail:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := RetryOnErrorConditional(tt.retryCount, tt.shouldRetryFunc, func(_ int) error {
+				return tt.err
+			})
+
+			if (got != nil) != tt.shouldFail {
+				t.Errorf("RetryOnErrorConditional() = %v, shouldFail %v", got, tt.shouldFail)
+			}
+		})
+	}
 }
 
 func getPartErrMsg(errorSlice []string, start string) string {
