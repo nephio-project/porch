@@ -187,7 +187,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 
 	renderFailed := false
 
-	// if the error occured is a render error allow it to pass else return error
+	// if the error occurred is a render error allow it to pass else return error
 	if rendErr != nil {
 		var rerr *task.RenderError
 		if errors.As(rendErr, &rerr) {
@@ -205,7 +205,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 		created.Status.RenderStatus = *renderStatus
 	}
 
-	// if render error update resource but also return render error to user
+	// if render error occurred update resource but also return render error to user
 	if renderFailed {
 		status := metav1.Status{
 			Status:  metav1.StatusFailure,
