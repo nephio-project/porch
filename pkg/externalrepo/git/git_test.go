@@ -1961,7 +1961,10 @@ func TestDeleteOnManuallyMovedTag(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create commit: %v", err)
 	}
-	gitRepo.Storer.SetReference(plumbing.NewHashReference(prv1.(*gitPackageRevision).ref.Name(), newHash))
+	err = gitRepo.Storer.SetReference(plumbing.NewHashReference(prv1.(*gitPackageRevision).ref.Name(), newHash))
+	if err != nil {
+		t.Fatalf("Failed to set reference: %v", err)
+	}
 	t.Logf("Moved %s from %s to %s", prv1.(*gitPackageRevision).ref, prv1.(*gitPackageRevision).commit, newHash)
 
 	t.Logf("Trying to delete published PackageRevision with a remote that's moved %s", prv1.Key())
