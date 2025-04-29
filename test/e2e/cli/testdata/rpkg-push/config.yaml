@@ -261,7 +261,9 @@ commands:
       - --namespace=rpkg-push
       - git.test-package.push
       - /tmp/porch-e2e/testing-invalid-render
+    stdout: |
+      git.test-package.push pushed
     stderr: |
-      Package failed render but has still been updated & pushed to git 
+      Package failed render but has still been updated & pushed to git.
     containsErrorString: true
-    exitCode: 1
+    exitCode: 0
