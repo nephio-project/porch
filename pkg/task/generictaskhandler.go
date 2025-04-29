@@ -233,13 +233,14 @@ func (th *genericTaskHandler) DoPRResourceMutations(ctx context.Context, pr2Upda
 	if len(appliedResources.Contents) > 0 {
 		// Render the package
 
-		// Render failure will not fail the overall API operation.
-		// The render error and result are captured as part of renderStatus above
-		// and are returned in the PackageRevisionResources API's status field & the Porchfile in git.
-		// We do push the package further to remote along with its failed render status:
-		// the user's changes are captured on their local package,
-		// and can be amended using the error returned as a reference point to ensure
-		// the package renders properly, before retrying the push.
+		// Render failure wont fail the overall API operation.
+		// The render error and result are captured as part of renderStatus
+		// and are returned in the PackageRevisionResources API's status field & in the Porchfile in git.
+		// The package gets pushed further to Git along with its failed render status:
+
+		// NOTE render failure's caused by kpt functions later in the pipeline will cause changes made by 
+		// previous kpt functions earlier in the pipeline to be annulled (all or nothing)
+		// however user made changes will get propagated appropriately
 		_, renderStatus, err = applyResourceMutations(ctx,
 			draft,
 			appliedResources,
@@ -486,7 +487,8 @@ func applyResourceMutations(ctx context.Context, draft repository.PackageRevisio
 					Msg: "Porch Package Pipeline Failed Render",
 				}
 				klog.Error(err)
-				// if we fail the render we return the same base resources but with the render status of the failure
+				// if we fail the render we return user local resources without changes made by render
+				// but with the render status of the failure in the Porchfile
 				appendRenderResult(renderStatus, baseResources)
 				updatedResources := baseResources
 				if err := draft.UpdateResources(ctx, &api.PackageRevisionResources{
