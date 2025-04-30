@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -1859,7 +1860,342 @@ func TestApproveOnManuallyMovedMain(t *testing.T) {
 	err = draft1.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
 
 	if err != nil {
+		t.Fatalf("Failed to update lifecycle: %v", err)
+	}
+
+	uip := makeUserInfoProvider(repoSpec, &mockK8sUsp{})
+
+	t.Logf("Adding new file to main branch")
+
+	mainBranchCommitHash := resolveReference(t, gitRepo, DefaultMainReferenceName).Hash()
+	ch, err := newCommitHelper(gitRepo, uip, mainBranchCommitHash, "", plumbing.ZeroHash)
+	if err != nil {
+		t.Fatalf("Failed to create commit helper: %v", err)
+	}
+
+	err = ch.storeFile(newFile, newFileContent)
+	if err != nil {
+		t.Fatalf("Failed to store new file: %v", err)
+	}
+
+	newHash, _, err := ch.commit(ctx, "Add new file", "")
+
+	if err != nil {
 		t.Fatalf("Failed to create commit: %v", err)
+	}
+
+	err = gitRepo.Storer.SetReference(plumbing.NewHashReference(DefaultMainReferenceName, newHash))
+	if err != nil {
+		t.Fatalf("Failed to set reference: %v", err)
+	}
+	t.Logf("Moved %s from %s to %s", DefaultMainReferenceName, mainBranchCommitHash, newHash)
+
+	_, err = localRepo.ClosePackageRevisionDraft(ctx, draft1, 1)
+
+	if err != nil {
+		t.Fatalf("Failed to close draft PackageRevision: %v", err)
+	}
+}
+
+func TestApproveOnManuallyMovedProposed(t *testing.T) {
+	const (
+		repoName       = "approve-on-manually-moved-proposed-repo"
+		namespace      = "default"
+		packageName    = "approve-on-manually-moved-proposed-pkg"
+		workspace      = "approve-on-manually-moved-proposed-ws"
+		newFile        = "new-file.md"
+		newFileContent = "new-file-content"
+	)
+
+	tempdir := t.TempDir()
+	tarfile := filepath.Join("testdata", "trivial-repository.tar")
+	remotepath := filepath.Join(tempdir, "remote")
+	localpath := filepath.Join(tempdir, "local")
+	gitRepo, address := ServeGitRepository(t, tarfile, remotepath)
+
+	repoSpec := &configapi.GitRepository{
+		Repo: address,
+	}
+
+	ctx := context.Background()
+
+	localRepo, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, GitRepositoryOptions{})
+	if err != nil {
+		t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
+	}
+
+	pr := &v1alpha1.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: repoName,
+		},
+		Spec: v1alpha1.PackageRevisionSpec{
+			PackageName:    packageName,
+			WorkspaceName:  workspace,
+			RepositoryName: repoName,
+			Tasks: []v1alpha1.Task{
+				{
+					Type: v1alpha1.TaskTypeInit,
+					Init: &v1alpha1.PackageInitTaskSpec{
+						Description: "Empty Package",
+					},
+				},
+			},
+		},
+	}
+
+	resources := &v1alpha1.PackageRevisionResources{
+		Spec: v1alpha1.PackageRevisionResourcesSpec{
+			Resources: map[string]string{
+				"Kptfile": Kptfile,
+			},
+		},
+	}
+
+	t.Logf("Creating and pushing a PackageRevision with lifecycle Draft.")
+
+	draft1, err := localRepo.CreatePackageRevisionDraft(ctx, pr)
+	if err != nil {
+		t.Fatalf("Failed to create draft PackageRevision %v", err)
+	}
+
+	err = draft1.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleDraft)
+
+	if err != nil {
+		t.Fatalf("Failed to update lifecycle: %v", err)
+	}
+
+	err = draft1.UpdateResources(ctx, resources, nil)
+	if err != nil {
+		t.Fatalf("Failed to update resources: %v", err)
+	}
+
+	draftFinalized, err := localRepo.ClosePackageRevisionDraft(ctx, draft1, 1)
+	if err != nil {
+		t.Fatalf("Failed to close draft PackageRevision: %v", err)
+	}
+
+	draft2, err := localRepo.UpdatePackageRevision(ctx, draftFinalized)
+	if err != nil {
+		t.Fatalf("Failed to create draft PackageRevision %v", err)
+	}
+
+	draft2.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleProposed)
+
+	uip := makeUserInfoProvider(repoSpec, &mockK8sUsp{})
+
+	t.Logf("Adding new file to main branch")
+
+	ch, err := newCommitHelper(gitRepo, uip, draftFinalized.(*gitPackageRevision).commit, "", plumbing.ZeroHash)
+	if err != nil {
+		t.Fatalf("Failed to create commit helper: %v", err)
+	}
+
+	err = ch.storeFile(path.Join(packageName, newFile), newFileContent)
+	if err != nil {
+		t.Fatalf("Failed to store new file: %v", err)
+	}
+
+	newHash, _, err := ch.commit(ctx, "Add new file", "")
+
+	if err != nil {
+		t.Fatalf("Failed to create commit: %v", err)
+	}
+
+	err = gitRepo.Storer.SetReference(plumbing.NewHashReference(plumbing.ReferenceName(createDraftName(draftFinalized.Key())), newHash))
+	if err != nil {
+		t.Fatalf("Failed to set reference: %v", err)
+	}
+	t.Logf("Moved %s from %s to %s", plumbing.ReferenceName(createDraftName(draftFinalized.Key())), draftFinalized.(*gitPackageRevision).commit, newHash)
+
+	_, err = localRepo.ClosePackageRevisionDraft(ctx, draft2, 1)
+
+	if err != nil {
+		t.Fatalf("Failed to close draft PackageRevision: %v", err)
+	}
+}
+
+func TestApproveOnManuallyMovedDraft(t *testing.T) {
+	const (
+		repoName       = "approve-on-manually-moved-proposed-repo"
+		namespace      = "default"
+		packageName    = "approve-on-manually-moved-proposed-pkg"
+		workspace      = "approve-on-manually-moved-proposed-ws"
+		newFile        = "new-file.md"
+		newFileContent = "new-file-content"
+	)
+
+	tempdir := t.TempDir()
+	tarfile := filepath.Join("testdata", "trivial-repository.tar")
+	remotepath := filepath.Join(tempdir, "remote")
+	localpath := filepath.Join(tempdir, "local")
+	gitRepo, address := ServeGitRepository(t, tarfile, remotepath)
+
+	repoSpec := &configapi.GitRepository{
+		Repo: address,
+	}
+
+	ctx := context.Background()
+
+	localRepo, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, GitRepositoryOptions{})
+	if err != nil {
+		t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
+	}
+
+	pr := &v1alpha1.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: repoName,
+		},
+		Spec: v1alpha1.PackageRevisionSpec{
+			PackageName:    packageName,
+			WorkspaceName:  workspace,
+			RepositoryName: repoName,
+			Tasks: []v1alpha1.Task{
+				{
+					Type: v1alpha1.TaskTypeInit,
+					Init: &v1alpha1.PackageInitTaskSpec{
+						Description: "Empty Package",
+					},
+				},
+			},
+		},
+	}
+
+	resources := &v1alpha1.PackageRevisionResources{
+		Spec: v1alpha1.PackageRevisionResourcesSpec{
+			Resources: map[string]string{
+				"Kptfile": Kptfile,
+			},
+		},
+	}
+
+	t.Logf("Creating and pushing a PackageRevision with lifecycle proposed.")
+
+	draft1, err := localRepo.CreatePackageRevisionDraft(ctx, pr)
+	if err != nil {
+		t.Fatalf("Failed to create draft PackageRevision %v", err)
+	}
+
+	err = draft1.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleProposed)
+
+	if err != nil {
+		t.Fatalf("Failed to update lifecycle: %v", err)
+	}
+
+	err = draft1.UpdateResources(ctx, resources, nil)
+	if err != nil {
+		t.Fatalf("Failed to update resources: %v", err)
+	}
+
+	draftFinalized, err := localRepo.ClosePackageRevisionDraft(ctx, draft1, 1)
+	if err != nil {
+		t.Fatalf("Failed to close draft PackageRevision: %v", err)
+	}
+
+	draft2, err := localRepo.UpdatePackageRevision(ctx, draftFinalized)
+	if err != nil {
+		t.Fatalf("Failed to create draft PackageRevision %v", err)
+	}
+
+	draft2.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleDraft)
+
+	uip := makeUserInfoProvider(repoSpec, &mockK8sUsp{})
+
+	t.Logf("Adding new file to main branch")
+
+	ch, err := newCommitHelper(gitRepo, uip, draftFinalized.(*gitPackageRevision).commit, "", plumbing.ZeroHash)
+	if err != nil {
+		t.Fatalf("Failed to create commit helper: %v", err)
+	}
+
+	err = ch.storeFile(filepath.Join(packageName, newFile), newFileContent)
+	if err != nil {
+		t.Fatalf("Failed to store new file: %v", err)
+	}
+
+	newHash, _, err := ch.commit(ctx, "Add new file", "")
+
+	if err != nil {
+		t.Fatalf("Failed to create commit: %v", err)
+	}
+
+	err = gitRepo.Storer.SetReference(plumbing.NewHashReference(plumbing.ReferenceName(createProposedName(draftFinalized.Key())), newHash))
+	if err != nil {
+		t.Fatalf("Failed to set reference: %v", err)
+	}
+	t.Logf("Moved %s from %s to %s", plumbing.ReferenceName(createProposedName(draftFinalized.Key())), draftFinalized.(*gitPackageRevision).commit, newHash)
+
+	_, err = localRepo.ClosePackageRevisionDraft(ctx, draft2, 1)
+
+	if err != nil {
+		t.Fatalf("Failed to close draft PackageRevision: %v", err)
+	}
+}
+
+func TestDeletionProposedOnManuallyMovedMain(t *testing.T) {
+	const (
+		repoName       = "deletion-proposed-on-manually-moved-repo"
+		namespace      = "default"
+		packageName    = "deletion-proposed-on-manually-moved-pkg"
+		workspace      = "deletion-proposed-on-manually-moved-ws"
+		newFile        = "new-file.md"
+		newFileContent = "new-file-content"
+	)
+
+	tempdir := t.TempDir()
+	tarfile := filepath.Join("testdata", "trivial-repository.tar")
+	remotepath := filepath.Join(tempdir, "remote")
+	localpath := filepath.Join(tempdir, "local")
+	gitRepo, address := ServeGitRepository(t, tarfile, remotepath)
+
+	repoSpec := &configapi.GitRepository{
+		Repo: address,
+	}
+
+	ctx := context.Background()
+
+	localRepo, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, GitRepositoryOptions{})
+	if err != nil {
+		t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
+	}
+
+	pr := &v1alpha1.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: repoName,
+		},
+		Spec: v1alpha1.PackageRevisionSpec{
+			PackageName:    packageName,
+			WorkspaceName:  workspace,
+			RepositoryName: repoName,
+			Tasks: []v1alpha1.Task{
+				{
+					Type: v1alpha1.TaskTypeInit,
+					Init: &v1alpha1.PackageInitTaskSpec{
+						Description: "Empty Package",
+					},
+				},
+			},
+		},
+	}
+
+	prv1, err := createAndPublishPR(ctx, localRepo, pr)
+	if err != nil {
+		t.Fatalf("Failed to create published PackageRevision %v", err)
+	}
+
+	apiPrV1, err := prv1.GetPackageRevision(ctx)
+	if err != nil {
+		t.Fatalf("Failed to get api PackageRevision: %v", err)
+	}
+
+	draft1, err := localRepo.CreatePackageRevisionDraft(ctx, apiPrV1)
+	if err != nil {
+		t.Fatalf("Failed to create draft PackageRevision %v", err)
+	}
+
+	err = draft1.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleDeletionProposed)
+
+	if err != nil {
+		t.Fatalf("Failed to create: %v", err)
 	}
 
 	uip := makeUserInfoProvider(repoSpec, &mockK8sUsp{})
