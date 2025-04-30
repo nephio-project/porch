@@ -827,12 +827,6 @@ func (r *gitRepository) loadDraft(ctx context.Context, ref *plumbing.Reference) 
 	return packageRevision, nil
 }
 
-func (r *gitRepository) UpdateDeletionProposedCache() error {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-	return r.updateDeletionProposedCache()
-}
-
 func (r *gitRepository) updateDeletionProposedCache() error {
 	r.deletionProposedCache = make(map[BranchName]bool)
 
