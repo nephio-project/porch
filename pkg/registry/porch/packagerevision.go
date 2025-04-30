@@ -189,7 +189,7 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 		if errors.As(rendErr, &rerr) {
 			renderFailed = true
 		} else {
-			return nil, apierrors.NewInternalError(err)
+			return nil, apierrors.NewInternalError(rendErr)
 		}
 	}
 
