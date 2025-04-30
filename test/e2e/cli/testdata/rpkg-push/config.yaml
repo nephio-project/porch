@@ -5,7 +5,9 @@ commands:
       - register
       - --namespace=rpkg-push
       - --name=git
-      - http://git-server.test-git-namespace.svc.cluster.local:8080/rpkg-push
+      - --repo-basic-password=secret
+      - --repo-basic-username=nephio
+      - http://gitea-http.gitea.svc.cluster.local:3000/nephio/rpkg-push
   - args:
       - porchctl
       - rpkg

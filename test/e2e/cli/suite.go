@@ -1,4 +1,4 @@
-// Copyright 2024 The kpt and Nephio Authors
+// Copyright 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,9 @@ package e2e
 import (
 	"bufio"
 	"bytes"
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -26,15 +28,25 @@ import (
 	"testing"
 	"time"
 
+	nethttp "net/http"
+
 	"github.com/google/go-cmp/cmp"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
+
+	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
 )
 
 const (
 	updateGoldenFiles       = "UPDATE_GOLDEN_FILES"
-	testGitName             = "git-server"
-	testGitNamespace        = "test-git-namespace"
-	defaultTestGitServerUrl = "http://" + testGitName + "." + testGitNamespace + ".svc.cluster.local:8080"
+	testGitName             = "gitea"
+	testGitNamespace        = "gitea"
+	testGitUserOrg          = "nephio"
+	testGitPassword         = "secret"
+	defaultTestGitServerUrl = "http://localhost:3000"
 )
 
 type CliTestSuite struct {
@@ -67,8 +79,13 @@ func NewCliTestSuite(t *testing.T, testdataDir string) *CliTestSuite {
 		t.Fatalf("porchctl command not found at %q: %v", s.PorchctlCommand, err)
 	}
 
-	// start git server
-	s.StartGitServer(t) // sets s.GitServerURL
+	isPorchInCluster := IsPorchServerRunningInCluster(t)
+	if isPorchInCluster {
+		s.GitServerURL = defaultTestGitServerUrl+"/nephio"
+	} else {
+		ip := KubectlWaitForLoadBalancerIp(t, testGitNamespace, testGitName)
+		s.GitServerURL = "http://" + ip + ":3000/nephio"
+	}
 	s.SearchAndReplace = map[string]string{}
 	if s.GitServerURL != defaultTestGitServerUrl {
 		s.SearchAndReplace[defaultTestGitServerUrl] = s.GitServerURL
@@ -106,7 +123,10 @@ func (s *CliTestSuite) RunTestCase(t *testing.T, tc TestCaseConfig) {
 	KubectlCreateNamespace(t, tc.TestCase)
 	t.Cleanup(func() {
 		KubectlDeleteNamespace(t, tc.TestCase)
+		deleteRemoteRepo(t, tc.TestCase)
 	})
+	
+	createRemoteRepo(s.TestDataPath+"/test-repo", repoURL, t)
 
 	if tc.Repository != "" {
 		s.RegisterRepository(t, repoURL, tc.TestCase, tc.Repository)
@@ -196,39 +216,6 @@ func (s *CliTestSuite) RunTestCase(t *testing.T, tc TestCaseConfig) {
 	}
 }
 
-func (s *CliTestSuite) StartGitServer(t *testing.T) {
-	isPorchInCluster := IsPorchServerRunningInCluster(t)
-	gitServerImage := GetGitServerImageName(t)
-	t.Logf("Git Image: %s", gitServerImage)
-
-	configFile := filepath.Join(s.TestDataPath, "git-server.yaml")
-	configBytes, err := os.ReadFile(configFile)
-	if err != nil {
-		t.Fatalf("Failed to read git server config file %q: %v", configFile, err)
-	}
-	config := string(configBytes)
-	config = strings.ReplaceAll(config, "GIT_SERVER_IMAGE", gitServerImage)
-	if !isPorchInCluster {
-		config = strings.ReplaceAll(config, "ClusterIP", "LoadBalancer")
-	}
-
-	t.Cleanup(func() {
-		KubectlDeleteNamespace(t, testGitNamespace)
-	})
-
-	KubectlApply(t, config)
-	KubectlWaitForDeployment(t, testGitNamespace, testGitName)
-	KubectlWaitForService(t, testGitNamespace, testGitName)
-
-	if isPorchInCluster {
-		s.GitServerURL = defaultTestGitServerUrl
-		s.KubectlWaitForGitDNS(t)
-	} else {
-		ip := KubectlWaitForLoadBalancerIp(t, testGitNamespace, testGitName)
-		s.GitServerURL = "http://" + ip + ":8080"
-	}
-}
-
 // ScanTestCases parses the test case configs from the testdata directory.
 func (s *CliTestSuite) ScanTestCases(t *testing.T) []TestCaseConfig {
 	testCases := []TestCaseConfig{}
@@ -268,42 +255,6 @@ func (s *CliTestSuite) RegisterRepository(t *testing.T, repoURL, namespace, name
 	err := s.Porchctl(t, "repo", "register", "--namespace", namespace, "--name", name, repoURL)
 	if err != nil {
 		t.Fatalf("Failed to register repository %q: %v", repoURL, err)
-	}
-}
-
-// Kubernetes DNS needs time to propagate the git server's domain name.
-// Wait until we can register the repository and list its contents.
-func (s *CliTestSuite) KubectlWaitForGitDNS(t *testing.T) {
-	const name = "test-git-dns-resolve"
-
-	KubectlCreateNamespace(t, name)
-	defer KubectlDeleteNamespace(t, name)
-
-	// We expect repos to automatically be created (albeit empty)
-	repoURL := s.GitServerURL + "/" + name
-
-	err := s.Porchctl(t, "repo", "register", "--namespace", name, "--name", name, repoURL)
-	if err != nil {
-		t.Fatalf("Failed to register probe repository: %v", err)
-	}
-
-	// Based on experience, DNS seems to get updated inside the cluster within
-	// few seconds. We will wait about a minute.
-	// If this turns out to be an issue, we will sidestep DNS and use the Endpoints
-	// IP address directly.
-	giveUp := time.Now().Add(1 * time.Minute)
-	for {
-		err := s.Porchctl(t, "rpkg", "get", "--namespace", name)
-
-		if err == nil {
-			break
-		}
-
-		if time.Now().After(giveUp) {
-			t.Fatalf("Git service DNS resolution failed: %v", err)
-		}
-
-		time.Sleep(5 * time.Second)
 	}
 }
 
@@ -406,4 +357,90 @@ func exitCode(exit error) int {
 		return ee.ExitCode()
 	}
 	return 0
+}
+
+func deleteRemoteRepo (t *testing.T, testcaseName string) {
+
+	apiURL := fmt.Sprintf("%s/api/v1/repos/%s/%s", defaultTestGitServerUrl, testGitUserOrg, testcaseName)
+
+	req, err := nethttp.NewRequest("DELETE", apiURL, nil)
+	if err != nil {
+		t.Fatalf("Failed to create DELETE request: %v", err)
+	}
+	auth := testGitUserOrg + ":" + testGitPassword
+	basicAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
+	req.Header.Set("Authorization", basicAuth)
+
+	resp, err := nethttp.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("Failed to make request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == nethttp.StatusNoContent {
+		t.Logf("Repository deleted successfully.")
+	} else {
+		t.Logf("Failed to delete repo: %s\n", resp.Status)
+	}
+}
+
+
+func createRemoteRepo (path string, repoUrl string, t *testing.T) {
+
+	t.Cleanup(func() {
+		runUtilityCommand(t, "rm", "-rf", path)
+	})
+
+	err := runUtilityCommand(t, "mkdir", path)
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+
+	repo, err := git.PlainInit(path, false)
+	if err != nil {
+		t.Fatalf("Failed to init the repo: %v", err)
+	}
+
+	err = repo.Storer.SetReference(
+		plumbing.NewSymbolicReference(plumbing.HEAD, plumbing.NewBranchReferenceName("main")),
+	)
+	if err != nil {
+		t.Fatalf("Failed to set refs: %v", err)
+	}
+
+	readmePath := path + "/README.md"
+	err = os.WriteFile(readmePath, []byte("# My Go-Git Repo\nCreated programmatically."), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write to file: %v", err)
+	}
+
+	wt, _ := repo.Worktree()
+	wt.Add("README.md")
+	wt.Commit("Initial commit", &git.CommitOptions{
+		Author: &object.Signature{
+			Name:  "Your Name",
+			Email: "you@example.com",
+			When:  time.Now(),
+		},
+	})
+
+	_, err = repo.CreateRemote(&config.RemoteConfig{
+		Name: "origin",
+		URLs: []string{repoUrl},
+	})
+	if err != nil {
+		t.Fatalf("Failed to create init commit: %v", err)
+	}
+
+	err = repo.Push(&git.PushOptions{
+		RemoteName: "origin",
+		Auth: &http.BasicAuth{
+			Username: "nephio", 
+			Password: "secret",
+		},
+		RequireRemoteRefs: []config.RefSpec{},
+	})
+	if err != nil {
+		t.Fatalf("Failed to push test repo: %v", err)
+	}
 }

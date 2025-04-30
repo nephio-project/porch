@@ -5,13 +5,15 @@ commands:
       - register
       - --namespace=rpkg-clone
       - --name=git
-      - http://git-server.test-git-namespace.svc.cluster.local:8080/rpkg-clone
+      - --repo-basic-password=secret
+      - --repo-basic-username=nephio
+      - http://gitea-http.gitea.svc.cluster.local:3000/nephio/rpkg-clone
   - args:
       - porchctl
       - rpkg
       - clone
       - --namespace=rpkg-clone
-      - https://github.com/platkrm/test-blueprints.git/basens@basens/v1
+      - http://gitea-http.gitea.svc.cluster.local:3000/nephio/test-blueprints.git/basens@basens/v1
       - --repository=git
       - --workspace=clone-2
       - basens-clone
@@ -22,7 +24,7 @@ commands:
       - rpkg
       - clone
       - --namespace=rpkg-clone
-      - https://github.com/platkrm/test-blueprints.git/basens@basens/v1
+      - http://gitea-http.gitea.svc.cluster.local:3000/nephio/test-blueprints.git/basens@basens/v1
       - --repository=git
       - --workspace=clone-3
       - basens-clone
@@ -33,7 +35,7 @@ commands:
       - porchctl
       - repo
       - register
-      - https://github.com/platkrm/test-blueprints.git
+      - http://gitea-http.gitea.svc.cluster.local:3000/nephio/test-blueprints.git
       - --namespace=rpkg-clone
   - args:
       - porchctl
@@ -91,14 +93,14 @@ commands:
           git:
             directory: basens
             ref: basens/v1
-            repo: https://github.com/platkrm/test-blueprints.git
+            repo: http://gitea-http.gitea.svc.cluster.local:3000/nephio/test-blueprints.git
           type: git
         upstreamLock:
           git:
             commit: 67f29546028f0a48c6bbb08614934d0e070cdd3a
             directory: basens
             ref: basens/v1
-            repo: https://github.com/platkrm/test-blueprints.git
+            repo: http://gitea-http.gitea.svc.cluster.local:3000/nephio/test-blueprints.git
           type: git
       - apiVersion: v1
         kind: Namespace
@@ -148,14 +150,14 @@ commands:
           git:
             directory: empty
             ref: empty/v1
-            repo: https://github.com/platkrm/test-blueprints.git
+            repo: http://gitea-http.gitea.svc.cluster.local:3000/nephio/test-blueprints.git
           type: git
         upstreamLock:
           git:
             commit: 3de8635354eda8e7de756494a4e0eb5c12af01ab
             directory: empty
             ref: empty/v1
-            repo: https://github.com/platkrm/test-blueprints.git
+            repo: http://gitea-http.gitea.svc.cluster.local:3000/nephio/test-blueprints.git
           type: git
       kind: ResourceList
     yaml: true

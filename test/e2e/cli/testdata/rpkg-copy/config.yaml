@@ -3,15 +3,17 @@ commands:
       - porchctl
       - repo
       - register
+      - --repo-basic-password=secret
+      - --repo-basic-username=nephio
       - --namespace=rpkg-copy
       - --name=git
-      - http://git-server.test-git-namespace.svc.cluster.local:8080/rpkg-copy
+      - http://gitea-http.gitea.svc.cluster.local:3000/nephio/rpkg-copy
   - args:
       - porchctl
       - rpkg
       - clone
       - --namespace=rpkg-copy
-      - https://github.com/platkrm/test-blueprints.git
+      - http://gitea-http.gitea.svc.cluster.local:3000/nephio/test-blueprints.git
       - --directory=basens
       - --ref=basens/v1
       - --repository=git
@@ -80,14 +82,14 @@ commands:
           git:
             directory: basens
             ref: basens/v1
-            repo: https://github.com/platkrm/test-blueprints.git
+            repo: http://gitea-http.gitea.svc.cluster.local:3000/nephio/test-blueprints.git
           type: git
         upstreamLock:
           git:
             commit: 67f29546028f0a48c6bbb08614934d0e070cdd3a
             directory: basens
             ref: basens/v1
-            repo: https://github.com/platkrm/test-blueprints.git
+            repo: http://gitea-http.gitea.svc.cluster.local:3000/nephio/test-blueprints.git
           type: git
       - apiVersion: v1
         kind: Namespace

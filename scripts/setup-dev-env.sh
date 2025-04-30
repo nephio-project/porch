@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright 2022-2024 The kpt and Nephio Authors
+# Copyright 2022-2025 The kpt and Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -69,62 +69,9 @@ kubectl wait --namespace metallb-system deploy controller \
 kubectl apply -f "${git_root}/deployments/local/metallb-conf.yaml"
 
 ############################################
-h1 Install Gitea
-mkdir -p "${git_root}/.build"
-cd "${git_root}/.build"
-if [ -d gitea ]; then
-  kpt pkg update gitea
-else
-  kpt pkg get https://github.com/nephio-project/catalog/tree/main/distros/sandbox/gitea
-fi
-cd gitea
-kpt fn eval \
-  --image gcr.io/kpt-fn/set-annotations:v0.1.4 \
-  --match-kind Service \
-  --match-name gitea \
-  --match-namespace gitea \
-  -- "metallb.universe.tf/loadBalancerIPs=${gitea_ip}"
-
-cp -f "${git_root}/deployments/local/kind_porch_test_cluster.yaml" cluster-config.yaml
-# turn kind's cluster-config into a valid KRM
-cat >> cluster-config.yaml <<EOF1
-metadata: 
-  name: not-used 
-  annotations:
-    config.kubernetes.io/local-config: "true"
-EOF1
-kpt fn eval \
-  --image gcr.io/kpt-fn/apply-replacements:v0.1.1 \
-  --fn-config "${git_root}/deployments/local/replace-gitea-service-ports.yaml"
-
-kpt fn render 
-kpt live init || true
-kpt live apply --inventory-policy=adopt
-echo "Waiting for gitea to become ready..."
-kubectl wait --namespace gitea statefulset gitea \
-                --for='jsonpath={.status.readyReplicas}=1' \
-                --timeout=90s
-
-############################################
-h1 Create git repos in gitea
-curl -v -k -H "content-type: application/json" "http://nephio:secret@localhost:3000/api/v1/user/repos" --data "{\"name\":\"$git_repo_name\"}"
-TMP_DIR=$(mktemp -d)
-cd "$TMP_DIR"
-git clone "http://nephio:secret@localhost:3000/nephio/$git_repo_name.git"
-cd "$git_repo_name"
-if ! git rev-parse -q --verify refs/remotes/origin/main >/dev/null; then
-  echo "Add main branch to git repo:"
-  git switch -c  main
-  touch README.md
-  git add README.md
-  git config user.name nephio
-  git commit -m "first commit"
-  git push -u origin main
-else
-  echo "main branch already exists in git repo."
-fi
+h1 Install Gitea and init test repos
 cd "${git_root}"
-rm -fr "$TMP_DIR"
+./scripts/install-dev-gitea-setup.sh $git_repo_name $gitea_ip 
 
 ############################################
 h1 Generate certs and keys

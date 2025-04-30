@@ -3,7 +3,9 @@ commands:
       - porchctl
       - repo
       - register
-      - https://github.com/platkrm/test-blueprints.git
+      - --repo-basic-password=secret
+      - --repo-basic-username=nephio
+      - http://gitea-http.gitea.svc.cluster.local:3000/nephio/test-blueprints.git
       - --namespace=rpkg-get
       - --description
       - Test Blueprints

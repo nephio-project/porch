@@ -5,7 +5,9 @@ commands:
       - register
       - --namespace=rpkg-init
       - --name=git
-      - http://git-server.test-git-namespace.svc.cluster.local:8080/rpkg-init
+      - --repo-basic-password=secret
+      - --repo-basic-username=nephio
+      - http://gitea-http.gitea.svc.cluster.local:3000/nephio/rpkg-init
   - args:
       - porchctl
       - repo
@@ -14,7 +16,7 @@ commands:
       - --namespace=rpkg-init
       - --output=custom-columns=NAME:.metadata.name,ADDRESS:.spec.git.repo,BRANCH:.spec.git.branch,DIR:.spec.git.directory
     stdout: |
-      git   http://git-server.test-git-namespace.svc.cluster.local:8080/rpkg-init   main   /
+      git   http://gitea-http.gitea.svc.cluster.local:3000/nephio/rpkg-init   main   /
     ignoreWhitespace: true
   - args:
       - porchctl
