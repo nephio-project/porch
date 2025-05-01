@@ -42,8 +42,6 @@ import (
 
 const (
 	updateGoldenFiles       = "UPDATE_GOLDEN_FILES"
-	testGitName             = "gitea"
-	testGitNamespace        = "gitea"
 	testGitUserOrg          = "nephio"
 	testGitPassword         = "secret"
 	defaultTestGitServerUrl = "http://localhost:3000"
@@ -83,7 +81,7 @@ func NewCliTestSuite(t *testing.T, testdataDir string) *CliTestSuite {
 	if isPorchInCluster {
 		s.GitServerURL = defaultTestGitServerUrl+"/nephio"
 	} else {
-		ip := KubectlWaitForLoadBalancerIp(t, testGitNamespace, testGitName)
+		ip := KubectlWaitForLoadBalancerIp(t, "gitea", "gitea-lb")
 		s.GitServerURL = "http://" + ip + ":3000/nephio"
 	}
 	s.SearchAndReplace = map[string]string{}

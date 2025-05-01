@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: gitea
+  name: gitea-lb
   namespace: gitea
   labels:
     app: gitea

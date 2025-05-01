@@ -73,6 +73,23 @@
             }
         },
         {
+            "name": "Launch E2E CLI tests",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/test/e2e/cli",
+            "args": [
+                "-test.v",
+                "-test.failfast",
+                "-test.run",
+                "TestPorch/rpkg-update-alt"
+            ],
+            "env": {
+                "E2E": "1",
+                "CLEANUP_ON_FAIL": "false"
+            }
+        },
+        {
             "name": "Launch Func Client",
             "type": "go",
             "request": "launch",

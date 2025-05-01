@@ -22,7 +22,11 @@ stringData:
   queue: |-
     CONN_STR=
     TYPE=level
-  repository: ROOT=/data/git/gitea-repositories
+  repository: |-
+    ROOT=/data/git/gitea-repositories
+    ENABLE_PUSH_CREATE_USER=true
+    ENABLE_PUSH_CREATE_ORG=true
+    ONLY_ALLOW_PUSH_IF_GITEA_ENVIRONMENT_SET=false
   security: INSTALL_LOCK=true
   server: |-
     APP_DATA_PATH=/data

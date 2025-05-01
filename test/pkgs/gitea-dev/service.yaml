@@ -1,21 +1,23 @@
 # Source: gitea/templates/gitea/http-svc.yaml
 apiVersion: v1
 kind: Service
-metadata: # kpt-merge: gitea/gitea-http
-  name: gitea-http
+metadata:
+  name: gitea
   namespace: gitea
   labels:
     app: gitea
     app.kubernetes.io/name: gitea
     app.kubernetes.io/instance: gitea
-  annotations:
-    internal.kpt.dev/upstream-identifier: '|Service|gitea|gitea-http'
 spec:
   type: ClusterIP
   ports:
   - name: http
     port: 3000
     targetPort: 3000
+  - name: ssh
+    port: 22
+    targetPort: 2222
+    protocol: TCP
   selector:
     app.kubernetes.io/name: gitea
     app.kubernetes.io/instance: gitea
