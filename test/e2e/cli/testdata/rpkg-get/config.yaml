@@ -5,7 +5,7 @@ commands:
       - register
       - --repo-basic-password=secret
       - --repo-basic-username=nephio
-      - http://gitea-http.gitea.svc.cluster.local:3000/nephio/test-blueprints.git
+      - http://gitea.gitea.svc.cluster.local:3000/nephio/test-blueprints.git
       - --namespace=rpkg-get
       - --description
       - Test Blueprints
@@ -16,13 +16,18 @@ commands:
       - --namespace=rpkg-get
       - --output=custom-columns=NAME:.metadata.name,PKG:.spec.packageName,REPO:.spec.repository,REV:.spec.revision
     stdout: |
-      NAME                          PKG      REPO              REV
-      test-blueprints.basens.main   basens   test-blueprints   -1
-      test-blueprints.basens.v1     basens   test-blueprints   1
-      test-blueprints.basens.v2     basens   test-blueprints   2
-      test-blueprints.basens.v3     basens   test-blueprints   3
-      test-blueprints.empty.main    empty    test-blueprints   -1
-      test-blueprints.empty.v1      empty    test-blueprints   1
+      NAME                           PKG       REPO              REV
+      test-blueprints.basens.main    basens    test-blueprints   -1
+      test-blueprints.basens.v1      basens    test-blueprints   1
+      test-blueprints.basens.v2      basens    test-blueprints   2
+      test-blueprints.basens.v3      basens    test-blueprints   3
+      test-blueprints.empty.main     empty     test-blueprints   -1
+      test-blueprints.empty.v1       empty     test-blueprints   1
+      test-blueprints.unready.main   unready   test-blueprints   -1
+      test-blueprints.unready.v1     unready   test-blueprints   1
+      test-blueprints.update.main    update    test-blueprints   -1
+      test-blueprints.update.v1      update    test-blueprints   1
+      test-blueprints.update.v2      update    test-blueprints   2
   - args:
       - porchctl
       - rpkg
