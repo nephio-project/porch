@@ -71,9 +71,10 @@ type PackageVariantSpec struct {
 }
 
 type Upstream struct {
-	Repo     string `json:"repo,omitempty"`
-	Package  string `json:"package,omitempty"`
-	Revision int    `json:"revision,omitempty"`
+	Repo          string `json:"repo,omitempty"`
+	Package       string `json:"package,omitempty"`
+	Revision      int    `json:"revision,omitempty"`
+	WorkspaceName string `json:"workspaceName,omitempty"`
 }
 
 type Downstream struct {

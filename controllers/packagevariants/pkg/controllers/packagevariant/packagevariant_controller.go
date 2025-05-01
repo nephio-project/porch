@@ -169,19 +169,11 @@ func (r *PackageVariantReconciler) init(ctx context.Context,
 
 func validatePackageVariant(pv *api.PackageVariant) []string {
 	var allErrs []string
-	if pv.Spec.Upstream == nil {
-		allErrs = append(allErrs, "missing required field spec.upstream")
-	} else {
-		if pv.Spec.Upstream.Repo == "" {
-			allErrs = append(allErrs, "missing required field spec.upstream.repo")
-		}
-		if pv.Spec.Upstream.Package == "" {
-			allErrs = append(allErrs, "missing required field spec.upstream.package")
-		}
-		if pv.Spec.Upstream.Revision == 0 {
-			allErrs = append(allErrs, "missing required field spec.upstream.revision")
-		}
+
+	if upstreamErrs := isValidUpstream(pv.Spec.Upstream); upstreamErrs != nil {
+		allErrs = append(allErrs, upstreamErrs...)
 	}
+
 	if pv.Spec.Downstream == nil {
 		allErrs = append(allErrs, "missing required field spec.downstream")
 	} else {
@@ -239,6 +231,27 @@ func validatePackageVariant(pv *api.PackageVariant) []string {
 	return allErrs
 }
 
+func isValidUpstream(upstream *api.Upstream) []string {
+	var upstreamErrs []string
+
+	if upstream == nil {
+		upstreamErrs = append(upstreamErrs, "missing required field spec.upstream")
+		return upstreamErrs
+	}
+
+	if upstream.Repo == "" {
+		upstreamErrs = append(upstreamErrs, "missing required field spec.upstream.repo")
+	}
+
+	if upstream.Package == "" {
+		upstreamErrs = append(upstreamErrs, "missing required field spec.upstream.package")
+	}
+
+	upstream.Revision = -1
+
+	return upstreamErrs
+}
+
 func combineErrors(errs []string) string {
 	var errMsgs []string
 	for _, e := range errs {
@@ -252,20 +265,26 @@ func combineErrors(errs []string) string {
 func (r *PackageVariantReconciler) getUpstreamPR(upstream *api.Upstream,
 	prList *porchapi.PackageRevisionList) (*porchapi.PackageRevision, error) {
 	for _, pr := range prList.Items {
-		if pr.Spec.RepositoryName == upstream.Repo && pr.Spec.PackageName == upstream.Package && pr.Spec.Revision == upstream.Revision {
-			if upstream.Revision != -1 {
-				return &pr, nil
-			}
+		if pr.Spec.RepositoryName != upstream.Repo || pr.Spec.PackageName != upstream.Package {
+			continue
+		}
 
-			// we're looking for the main placeholder PackageRevision
-			// TODO: Handle placeholders on branches other than main
-			if pr.Spec.WorkspaceName == "main" {
+		if upstream.WorkspaceName != "" {
+			if pr.Spec.WorkspaceName == upstream.WorkspaceName {
+				upstream.Revision = pr.Spec.Revision
 				return &pr, nil
 			}
+			continue
+		}
+
+		// Return the main revision if the revision is the placeholder revision
+		if pr.Spec.WorkspaceName == "main" {
+			upstream.Revision = pr.Spec.Revision
+			return &pr, nil
 		}
 	}
-	return nil, fmt.Errorf("could not find upstream package revision '%s/%d' in repo '%s'",
-		upstream.Package, upstream.Revision, upstream.Repo)
+
+	return nil, fmt.Errorf("could not find upstream package revision %#v", upstream)
 }
 
 func setStalledConditionsToTrue(pv *api.PackageVariant, message string) {
