@@ -885,6 +885,8 @@ spec:
                     type: string
                   revision:
                     type: integer
+                  workspaceName:
+                    type: string
                 type: object
             type: object
           status:
