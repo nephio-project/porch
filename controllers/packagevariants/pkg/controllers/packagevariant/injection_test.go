@@ -23,6 +23,7 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	api "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
 	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
@@ -607,8 +608,7 @@ func TestSetInjectionPointConditionsAndGates(t *testing.T) {
 			err = setInjectionPointConditionsAndGates(ko, tc.injectionPoints)
 			if tc.expectedErr == "" {
 				require.NoError(t, err)
-				var actualKptfile kptfilev1.KptFile
-				err = ko.As(&actualKptfile)
+				actualKptfile, err := kptfileutil.FromKubeObject(ko)
 				require.NoError(t, err)
 				require.Equal(t, tc.expectedKptfile, &actualKptfile)
 			} else {
