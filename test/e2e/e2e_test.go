@@ -90,9 +90,9 @@ func TestE2E(t *testing.T) {
 		kptRepo:            defaultKPTRepo,
 	}
 
-	err := godotenv.Load(".env")
+	err := godotenv.Load("../../.env")
 	if err != nil {
-		t.Errorf("Error loading .env file")
+		t.Errorf("Error loading .env file: %v", err)
 	}
 
 	if os.Getenv(testBlueprintsRepoUrlEnv) != "" {
