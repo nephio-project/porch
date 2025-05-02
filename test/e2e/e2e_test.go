@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/joho/godotenv"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
@@ -59,7 +60,8 @@ const (
 	kptRepoUserEnv     = "PORCH_KPT_REPO_USER"
 	kptRepoPasswordEnv = "PORCH_KPT_REPO_PASSWORD"
 
-	gcrPrefixEnv = "PORCH_GCR_PREFIX_URL"
+	gcrPrefixEnv  = "PORCH_GCR_PREFIX_URL"
+	podEvalRefEnv = "PORCH_POD_EVAL_REF"
 )
 
 var (
@@ -87,6 +89,12 @@ func TestE2E(t *testing.T) {
 		gcrPrefix:          defaultGCRPrefix,
 		kptRepo:            defaultKPTRepo,
 	}
+
+	err := godotenv.Load(".env")
+	if err != nil {
+		t.Errorf("Error loading .env file")
+	}
+
 	if os.Getenv(testBlueprintsRepoUrlEnv) != "" {
 		pSuite.testBlueprintsRepo = os.Getenv(testBlueprintsRepoUrlEnv)
 	}
@@ -2084,6 +2092,14 @@ func (t *PorchSuite) TestPodEvaluator() {
 	generateFolderImage := t.gcrPrefix + "/generate-folders:v0.1.1" // This function is a TS based function.
 	setAnnotationsImage := t.gcrPrefix + "/set-annotations:v0.1.3"  // set-annotations:v0.1.3 is an older version that porch maps neither to built-in nor exec.
 
+	//This is needed as this specific commit does not contain the config.kubernetes.io/local-config annotation in the kptfile.
+	//Furthermore, set-annotations is not cached - therefore when using an internal repos, need to pull the image without gcr prefix.
+	//Internal kptifle requires no gcr prefix in mutators and no config.kubernetes.io/local-config annotation.
+	repoRef := "783380ce4e6c3f21e9e90055b3a88bada0410154"
+	if os.Getenv(gcrPrefixEnv) != "" {
+		repoRef = os.Getenv(podEvalRefEnv)
+	}
+
 	// Register the repository as 'git-fn'
 	t.RegisterMainGitRepositoryF("git-fn-pod")
 
@@ -2104,7 +2120,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 							Type: "git",
 							Git: &porchapi.GitPackage{
 								Repo:      t.gcpBlueprintsRepo,
-								Ref:       "783380ce4e6c3f21e9e90055b3a88bada0410154",
+								Ref:       repoRef,
 								Directory: "catalog/hierarchy/simple",
 								SecretRef: porchapi.SecretRef{
 									Name: t.CreateRepositorySecret("test-fn-pod-hierarchy-workspace-1", os.Getenv(gcpBlueprintsRepoUserEnv), Password(os.Getenv(gcpBlueprintsRepoPasswordEnv))),
@@ -2186,7 +2202,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 							Type: "git",
 							Git: &porchapi.GitPackage{
 								Repo:      t.gcpBlueprintsRepo,
-								Ref:       "783380ce4e6c3f21e9e90055b3a88bada0410154",
+								Ref:       repoRef,
 								Directory: "catalog/hierarchy/simple",
 								SecretRef: porchapi.SecretRef{
 									Name: t.CreateRepositorySecret("test-fn-pod-hierarchy-workspace-2", os.Getenv(gcpBlueprintsRepoUserEnv), Password(os.Getenv(gcpBlueprintsRepoPasswordEnv))),

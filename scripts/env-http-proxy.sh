@@ -48,6 +48,7 @@ PORCH_KPT_REPO_USER=""
 PORCH_KPT_REPO_PASSWORD=""
 
 PORCH_GCR_PREFIX_URL=""
+PORCH_POD_EVAL_REF=""
 
 OPTIONS=$(getopt -o h,u --long help,test-blueprints:,gcp-blueprints:,kpt-functions:,user::,password::,gcr-io-prefix:,unset -- "$@")
 

@@ -71,22 +71,6 @@ func newBuiltinRuntime(imagePrefix string) *builtinRuntime {
 	applyMappings(setNamespaceImageAliases, set_namespace.Run)
 	applyMappings(starlarkImageAliases, starlark.Process)
 
-	/*for _, img := range applyReplacementsImageAliases {
-		fnMap[img] = fnsdk.ResourceListProcessorFunc(apply_replacements.ApplyReplacements)
-		fnMap[fnruntime.GCRImagePrefix+img] = fnsdk.ResourceListProcessorFunc(apply_replacements.ApplyReplacements)
-		fnMap[imagePrefix+"/"+img] = fnsdk.ResourceListProcessorFunc(apply_replacements.ApplyReplacements)
-	}
-	for _, img := range setNamespaceImageAliases {
-		fnMap[img] = fnsdk.ResourceListProcessorFunc(set_namespace.Run)
-		fnMap[fnruntime.GCRImagePrefix+img] = fnsdk.ResourceListProcessorFunc(set_namespace.Run)
-		fnMap[imagePrefix+"/"+img] = fnsdk.ResourceListProcessorFunc(set_namespace.Run)
-	}
-	for _, img := range starlarkImageAliases {
-		fnMap[img] = fnsdk.ResourceListProcessorFunc(starlark.Process)
-		fnMap[fnruntime.GCRImagePrefix+img] = fnsdk.ResourceListProcessorFunc(starlark.Process)
-		fnMap[imagePrefix+"/"+img] = fnsdk.ResourceListProcessorFunc(starlark.Process)
-	}*/
-
 	return &builtinRuntime{
 		fnMapping: fnMap,
 	}

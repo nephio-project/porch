@@ -30,6 +30,8 @@ include default-mockery.mk
 # This includes the 'help' target that prints out all targets with their descriptions organized by categories
 include default-help.mk
 
+include .env
+
 KIND_CONTEXT_NAME ?= porch-test
 export IMAGE_REPO ?= docker.io/nephio
 export USER ?= nephio
