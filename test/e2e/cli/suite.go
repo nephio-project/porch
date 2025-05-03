@@ -376,9 +376,9 @@ func deleteRemoteRepo (t *testing.T, testcaseName string) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode == nethttp.StatusNoContent {
-		t.Logf("Repository deleted successfully.")
+		t.Logf("Repo deleted successfully: %s", testcaseName)
 	} else {
-		t.Logf("Failed to delete repo: %s\n", resp.Status)
+		t.Logf("Failed to delete repo: %s %s\n", testcaseName, resp.Status)
 	}
 }
 
@@ -441,4 +441,5 @@ func createRemoteRepo (path string, repoUrl string, t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to push test repo: %v", err)
 	}
+	t.Logf("Repo created successfully: %s", repoUrl)
 }

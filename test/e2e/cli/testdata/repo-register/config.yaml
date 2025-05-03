@@ -3,6 +3,8 @@ commands:
       - porchctl
       - repo
       - register
+      - --repo-basic-password=secret
+      - --repo-basic-username=nephio
       - http://gitea.gitea.svc.cluster.local:3000/nephio/test-blueprints.git
       - --namespace=repo-register
       - --description
