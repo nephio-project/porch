@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/joho/godotenv"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
@@ -42,28 +41,6 @@ import (
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
-const (
-	defaultTestBlueprintsRepo = "https://github.com/platkrm/test-blueprints.git"
-	defaultGCPBlueprintsRepo  = "https://github.com/GoogleCloudPlatform/blueprints.git"
-	defaultKPTRepo            = "https://github.com/kptdev/kpt.git"
-	defaultGCRPrefix          = "gcr.io/kpt-fn"
-
-	testBlueprintsRepoUrlEnv      = "PORCH_TEST_BLUEPRINTS_REPO_URL"
-	testBlueprintsRepoUserEnv     = "PORCH_TEST_BLUEPRINTS_REPO_USER"
-	testBlueprintsRepoPasswordEnv = "PORCH_TEST_BLUEPRINTS_REPO_PASSWORD"
-
-	gcpBlueprintsRepoUrlEnv      = "PORCH_GCP_BLUEPRINTS_REPO_URL"
-	gcpBlueprintsRepoUserEnv     = "PORCH_GCP_BLUEPRINTS_REPO_USER"
-	gcpBlueprintsRepoPasswordEnv = "PORCH_GCP_BLUEPRINTS_REPO_PASSWORD"
-
-	kptRepoUrlEnv      = "PORCH_KPT_REPO_URL"
-	kptRepoUserEnv     = "PORCH_KPT_REPO_USER"
-	kptRepoPasswordEnv = "PORCH_KPT_REPO_PASSWORD"
-
-	gcrPrefixEnv  = "PORCH_GCR_PREFIX_URL"
-	podEvalRefEnv = "PORCH_POD_EVAL_REF"
-)
-
 var (
 	packageRevisionGVK = porchapi.SchemeGroupVersion.WithKind("PackageRevision")
 	configMapGVK       = corev1.SchemeGroupVersion.WithKind("ConfigMap")
@@ -71,10 +48,6 @@ var (
 
 type PorchSuite struct {
 	TestSuiteWithGit
-	testBlueprintsRepo string
-	gcpBlueprintsRepo  string
-	kptRepo            string
-	gcrPrefix          string
 }
 
 func TestE2E(t *testing.T) {
@@ -83,31 +56,7 @@ func TestE2E(t *testing.T) {
 		t.Skip("set E2E to run this test")
 	}
 
-	pSuite := &PorchSuite{
-		testBlueprintsRepo: defaultTestBlueprintsRepo,
-		gcpBlueprintsRepo:  defaultGCPBlueprintsRepo,
-		gcrPrefix:          defaultGCRPrefix,
-		kptRepo:            defaultKPTRepo,
-	}
-
-	err := godotenv.Load("../../.env")
-	if err != nil {
-		t.Errorf("Error loading .env file: %v", err)
-	}
-
-	if os.Getenv(testBlueprintsRepoUrlEnv) != "" {
-		pSuite.testBlueprintsRepo = os.Getenv(testBlueprintsRepoUrlEnv)
-	}
-	if os.Getenv(gcpBlueprintsRepoUrlEnv) != "" {
-		pSuite.gcpBlueprintsRepo = os.Getenv(gcpBlueprintsRepoUrlEnv)
-	}
-	if os.Getenv(gcrPrefixEnv) != "" {
-		pSuite.gcrPrefix = os.Getenv(gcrPrefixEnv)
-	}
-	if os.Getenv(kptRepoUrlEnv) != "" {
-		pSuite.kptRepo = os.Getenv(kptRepoUrlEnv)
-	}
-	suite.Run(t, pSuite)
+	suite.Run(t, &PorchSuite{})
 }
 
 func (t *PorchSuite) TestGitRepository() {
@@ -134,7 +83,7 @@ func (t *PorchSuite) TestGitRepository() {
 								Ref:       "bucket-blueprint-v0.4.3",
 								Directory: "catalog/bucket",
 								SecretRef: porchapi.SecretRef{
-									Name: t.CreateRepositorySecret("test-bucket", os.Getenv(gcpBlueprintsRepoUserEnv), Password(os.Getenv(gcpBlueprintsRepoPasswordEnv))),
+									Name: t.CreateOrUpdateSecret("test-bucket", os.Getenv(gcpBlueprintsRepoUserEnv), Password(os.Getenv(gcpBlueprintsRepoPasswordEnv))),
 								},
 							},
 						},
@@ -175,7 +124,7 @@ func (t *PorchSuite) TestGitRepository() {
 }
 
 func (t *PorchSuite) TestGitRepositoryWithReleaseTagsAndDirectory() {
-	secret := t.CreateRepositorySecret("kpt-repo", os.Getenv(kptRepoUserEnv), Password(os.Getenv(kptRepoPasswordEnv)))
+	secret := t.CreateOrUpdateSecret("kpt-repo", os.Getenv(kptRepoUserEnv), Password(os.Getenv(kptRepoPasswordEnv)))
 	t.RegisterGitRepositoryF(t.kptRepo, "kpt-repo", "package-examples", secret)
 
 	t.Log("Listing PackageRevisions in " + t.Namespace)
@@ -191,7 +140,7 @@ func (t *PorchSuite) TestGitRepositoryWithReleaseTagsAndDirectory() {
 
 func (t *PorchSuite) TestCloneFromUpstream() {
 	// Register Upstream Repository
-	secret := t.CreateRepositorySecret("test-blueprints", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
+	secret := t.CreateOrUpdateSecret("test-blueprints", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
 	t.RegisterGitRepositoryF(t.testBlueprintsRepo, "test-blueprints", "", secret)
 
 	var list porchapi.PackageRevisionList
@@ -299,7 +248,7 @@ func (t *PorchSuite) TestConcurrentClones() {
 	)
 
 	// Register Upstream and Downstream Repositories
-	secret := t.CreateRepositorySecret(upstreamRepository, os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
+	secret := t.CreateOrUpdateSecret(upstreamRepository, os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
 	t.RegisterGitRepositoryF(t.testBlueprintsRepo, upstreamRepository, "", secret)
 	t.RegisterMainGitRepositoryF(downstreamRepository)
 
@@ -496,7 +445,7 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 	t.RegisterMainGitRepositoryF(downstreamRepository, WithDeployment())
 
 	// Register the upstream repository
-	secret := t.CreateRepositorySecret("test-blueprints", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
+	secret := t.CreateOrUpdateSecret("test-blueprints", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
 	t.RegisterGitRepositoryF(t.testBlueprintsRepo, "test-blueprints", "", secret)
 
 	var upstreamPackages porchapi.PackageRevisionList
@@ -965,7 +914,7 @@ func (t *PorchSuite) NewClientWithTimeout(timeout time.Duration) client.Client {
 }
 
 func (t *PorchSuite) TestPublicGitRepository() {
-	secret := t.CreateRepositorySecret("demo-blueprints", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
+	secret := t.CreateOrUpdateSecret("demo-blueprints", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
 	t.RegisterGitRepositoryF(t.testBlueprintsRepo, "demo-blueprints", "", secret)
 
 	var list porchapi.PackageRevisionList
@@ -1642,7 +1591,7 @@ func (t *PorchSuite) TestCloneLeadingSlash() {
 								Ref:       "basens/v1",
 								Directory: "/basens",
 								SecretRef: porchapi.SecretRef{
-									Name: t.CreateRepositorySecret("clone-ls", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv))),
+									Name: t.CreateOrUpdateSecret("clone-ls", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv))),
 								},
 							},
 						},
@@ -1664,7 +1613,7 @@ func (t *PorchSuite) TestPackageUpdate() {
 		gitRepository = "package-update"
 	)
 
-	secret := t.CreateRepositorySecret("test-blueprints", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
+	secret := t.CreateOrUpdateSecret("test-blueprints", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
 	t.RegisterGitRepositoryF(t.testBlueprintsRepo, "test-blueprints", "", secret)
 
 	var list porchapi.PackageRevisionList
@@ -1762,7 +1711,7 @@ func (t *PorchSuite) TestConcurrentPackageUpdates() {
 		workspace     = "test-workspace"
 	)
 
-	secret := t.CreateRepositorySecret("test-blueprints", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
+	secret := t.CreateOrUpdateSecret("test-blueprints", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
 	t.RegisterGitRepositoryF(t.testBlueprintsRepo, "test-blueprints", "", secret)
 
 	var list porchapi.PackageRevisionList
@@ -1859,7 +1808,7 @@ func (t *PorchSuite) TestBuiltinFunctionEvaluator() {
 								Ref:       "bucket-blueprint-v0.4.3",
 								Directory: "catalog/bucket",
 								SecretRef: porchapi.SecretRef{
-									Name: t.CreateRepositorySecret("test-builtin-fn-bucket", os.Getenv(gcpBlueprintsRepoUserEnv), Password(os.Getenv(gcpBlueprintsRepoPasswordEnv))),
+									Name: t.CreateOrUpdateSecret("test-builtin-fn-bucket", os.Getenv(gcpBlueprintsRepoUserEnv), Password(os.Getenv(gcpBlueprintsRepoPasswordEnv))),
 								},
 							},
 						},
@@ -1940,7 +1889,7 @@ func (t *PorchSuite) TestExecFunctionEvaluator() {
 								Ref:       "bucket-blueprint-v0.4.3",
 								Directory: "catalog/bucket",
 								SecretRef: porchapi.SecretRef{
-									Name: t.CreateRepositorySecret("test-fn-bucket", os.Getenv(gcpBlueprintsRepoUserEnv), Password(os.Getenv(gcpBlueprintsRepoPasswordEnv))),
+									Name: t.CreateOrUpdateSecret("test-fn-bucket", os.Getenv(gcpBlueprintsRepoUserEnv), Password(os.Getenv(gcpBlueprintsRepoPasswordEnv))),
 								},
 							},
 						},
@@ -2025,7 +1974,7 @@ func (t *PorchSuite) TestPodFunctionEvaluatorWithDistrolessImage() {
 								Ref:       "redis-bucket-blueprint-v0.3.2",
 								Directory: "catalog/redis-bucket",
 								SecretRef: porchapi.SecretRef{
-									Name: t.CreateRepositorySecret("test-fn-redis-bucket", os.Getenv(gcpBlueprintsRepoUserEnv), Password(os.Getenv(gcpBlueprintsRepoPasswordEnv))),
+									Name: t.CreateOrUpdateSecret("test-fn-redis-bucket", os.Getenv(gcpBlueprintsRepoUserEnv), Password(os.Getenv(gcpBlueprintsRepoPasswordEnv))),
 								},
 							},
 						},
@@ -2092,9 +2041,9 @@ func (t *PorchSuite) TestPodEvaluator() {
 	generateFolderImage := t.gcrPrefix + "/generate-folders:v0.1.1" // This function is a TS based function.
 	setAnnotationsImage := t.gcrPrefix + "/set-annotations:v0.1.3"  // set-annotations:v0.1.3 is an older version that porch maps neither to built-in nor exec.
 
-	//This is needed as this specific commit does not contain the config.kubernetes.io/local-config annotation in the kptfile.
-	//Furthermore, set-annotations is not cached - therefore when using an internal repos, need to pull the image without gcr prefix.
-	//Internal kptifle requires no gcr prefix in mutators and no config.kubernetes.io/local-config annotation.
+	// This is needed as this specific commit does not contain the config.kubernetes.io/local-config annotation in the kptfile.
+	// Furthermore, set-annotations is not cached - therefore when using an internal repos, need to pull the image without gcr prefix.
+	// Internal kptifle requires no gcr prefix in mutators and no config.kubernetes.io/local-config annotation.
 	repoRef := "783380ce4e6c3f21e9e90055b3a88bada0410154"
 	if os.Getenv(gcrPrefixEnv) != "" {
 		repoRef = os.Getenv(podEvalRefEnv)
@@ -2123,7 +2072,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 								Ref:       repoRef,
 								Directory: "catalog/hierarchy/simple",
 								SecretRef: porchapi.SecretRef{
-									Name: t.CreateRepositorySecret("test-fn-pod-hierarchy-workspace-1", os.Getenv(gcpBlueprintsRepoUserEnv), Password(os.Getenv(gcpBlueprintsRepoPasswordEnv))),
+									Name: t.CreateOrUpdateSecret("test-fn-pod-hierarchy-workspace-1", os.Getenv(gcpBlueprintsRepoUserEnv), Password(os.Getenv(gcpBlueprintsRepoPasswordEnv))),
 								},
 							},
 						},
@@ -2205,7 +2154,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 								Ref:       repoRef,
 								Directory: "catalog/hierarchy/simple",
 								SecretRef: porchapi.SecretRef{
-									Name: t.CreateRepositorySecret("test-fn-pod-hierarchy-workspace-2", os.Getenv(gcpBlueprintsRepoUserEnv), Password(os.Getenv(gcpBlueprintsRepoPasswordEnv))),
+									Name: t.CreateOrUpdateSecret("test-fn-pod-hierarchy-workspace-2", os.Getenv(gcpBlueprintsRepoUserEnv), Password(os.Getenv(gcpBlueprintsRepoPasswordEnv))),
 								},
 							},
 						},
@@ -2284,7 +2233,7 @@ func (t *PorchSuite) TestPodEvaluatorWithFailure() {
 								Ref:       "bucket-blueprint-v0.4.3",
 								Directory: "catalog/bucket",
 								SecretRef: porchapi.SecretRef{
-									Name: t.CreateRepositorySecret("test-fn-pod-bucket", os.Getenv(gcpBlueprintsRepoUserEnv), Password(os.Getenv(gcpBlueprintsRepoPasswordEnv))),
+									Name: t.CreateOrUpdateSecret("test-fn-pod-bucket", os.Getenv(gcpBlueprintsRepoUserEnv), Password(os.Getenv(gcpBlueprintsRepoPasswordEnv))),
 								},
 							},
 						},
@@ -2308,11 +2257,9 @@ func (t *PorchSuite) TestPodEvaluatorWithFailure() {
 }
 
 func (t *PorchSuite) TestLargePackageRevision() {
-	setAnnotationsImage := t.gcrPrefix + "/set-annotations:v0.1.3" // set-annotations:v0.1.3 is an older version that porch maps neither to built-in nor exec.
+	const testDataSize = 5 * 1024 * 1024
 
-	const (
-		testDataSize = 5 * 1024 * 1024
-	)
+	setAnnotationsImage := t.gcrPrefix + "/set-annotations:v0.1.3" // set-annotations:v0.1.3 is an older version that porch maps neither to built-in nor exec.
 
 	t.RegisterMainGitRepositoryF("git-fn-pod-large")
 
@@ -2625,7 +2572,7 @@ func (t *PorchSuite) TestRegisteredPackageRevisionLabels() {
 		annoVal  = "foo"
 	)
 
-	secret := t.CreateRepositorySecret("test-blueprints", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
+	secret := t.CreateOrUpdateSecret("test-blueprints", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
 	t.RegisterGitRepositoryF(t.testBlueprintsRepo, "test-blueprints", "", secret)
 
 	var list porchapi.PackageRevisionList
@@ -2891,7 +2838,7 @@ func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces() {
 
 	registerRepoAndTestRevisions := func(repoName string, ns string, oldPRs []porchapi.PackageRevision) []porchapi.PackageRevision {
 
-		secret := t.CreateRepositorySecret(repoName, os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)), SecretInNamespace(ns))
+		secret := t.CreateOrUpdateSecret(repoName, os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)), SecretInNamespace(ns))
 		t.RegisterGitRepositoryF(t.testBlueprintsRepo, repoName, "", secret, InNamespace(ns))
 		prList := porchapi.PackageRevisionList{}
 		t.ListF(&prList, client.InNamespace(ns))
@@ -2964,9 +2911,9 @@ func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces() {
 
 func (t *PorchSuite) TestUniquenessOfUIDs() {
 
-	secret1 := t.CreateRepositorySecret("test-blueprints", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
+	secret1 := t.CreateOrUpdateSecret("test-blueprints", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
 	t.RegisterGitRepositoryF(t.testBlueprintsRepo, "test-blueprints", "", secret1)
-	secret2 := t.CreateRepositorySecret("test-2-blueprints", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
+	secret2 := t.CreateOrUpdateSecret("test-2-blueprints", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
 	t.RegisterGitRepositoryF(t.testBlueprintsRepo, "test-2-blueprints", "", secret2)
 
 	prList := porchapi.PackageRevisionList{}
@@ -2984,7 +2931,7 @@ func (t *PorchSuite) TestUniquenessOfUIDs() {
 
 func (t *PorchSuite) TestPackageRevisionFieldSelectors() {
 	repo := "test-blueprints"
-	secret := t.CreateRepositorySecret(repo, os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
+	secret := t.CreateOrUpdateSecret(repo, os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
 	t.RegisterGitRepositoryF(t.testBlueprintsRepo, repo, "", secret)
 
 	prList := porchapi.PackageRevisionList{}
@@ -3150,7 +3097,7 @@ func (t *PorchSuite) TestRepositoryModify() {
 			Git: &configapi.GitRepository{
 				Repo: t.testBlueprintsRepo,
 				SecretRef: configapi.SecretRef{
-					Name: t.CreateRepositorySecret(repositoryName, os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv))),
+					Name: t.CreateOrUpdateSecret(repositoryName, os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv))),
 				},
 			},
 		},

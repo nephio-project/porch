@@ -161,11 +161,9 @@ function add_image_args_porch_server() {
       --match-namespace porch-system \
       -- "source=
 for resource in ctx.resource_list['items']:
-  if resource['kind'] == 'Deployment' and resource['metadata']['name'] == 'porch-server':
-    containers = resource['spec']['template']['spec']['containers']
-    for container in containers:
-      if container['name'] == 'porch-server':
-        container['args'].append('--default-image-prefix=${GCR_IMAGE_PREFIX}')
+  containers = resource['spec']['template']['spec']['containers']
+  for container in containers:
+    container['args'].append('--default-image-prefix=${GCR_IMAGE_PREFIX}')
 "
 }
 

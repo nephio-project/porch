@@ -322,6 +322,24 @@ func (t *TestSuite) create(obj client.Object, opts []client.CreateOption, eh Err
 	}
 }
 
+func (t *TestSuite) createOrUpdate(obj client.Object, opts []client.CreateOption, eh ErrorHandler) {
+	t.T().Helper()
+	t.Logf("creating object %v", DebugFormat(obj))
+	start := time.Now()
+	defer func() {
+		t.T().Helper()
+		t.Logf("took %v to create %s/%s", time.Since(start), obj.GetNamespace(), obj.GetName())
+	}()
+
+	if err := t.Client.Create(t.GetContext(), obj, opts...); err != nil {
+		t.Logf("failed to create resource - attempting to update resource %v", DebugFormat(obj))
+
+		if err := t.Client.Update(t.GetContext(), obj); err != nil {
+			eh("failed to update resource %s: %v", DebugFormat(obj), err)
+		}
+	}
+}
+
 func (t *TestSuite) delete(obj client.Object, opts []client.DeleteOption, eh ErrorHandler) {
 	t.T().Helper()
 	t.Logf("deleting object %v", DebugFormat(obj))
@@ -390,6 +408,11 @@ func (t *TestSuite) CreateF(obj client.Object, opts ...client.CreateOption) {
 func (t *TestSuite) CreateE(obj client.Object, opts ...client.CreateOption) {
 	t.T().Helper()
 	t.create(obj, opts, t.Errorf)
+}
+
+func (t *TestSuite) CreateOrUpdateF(obj client.Object, opts ...client.CreateOption) {
+	t.T().Helper()
+	t.createOrUpdate(obj, opts, t.Fatalf)
 }
 
 func (t *TestSuite) DeleteF(obj client.Object, opts ...client.DeleteOption) {

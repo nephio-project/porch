@@ -17,10 +17,12 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/joho/godotenv"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
@@ -37,14 +39,66 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	defaultTestBlueprintsRepo = "https://github.com/platkrm/test-blueprints.git"
+	defaultGCPBlueprintsRepo  = "https://github.com/GoogleCloudPlatform/blueprints.git"
+	defaultKPTRepo            = "https://github.com/kptdev/kpt.git"
+	defaultGCRPrefix          = "gcr.io/kpt-fn"
+
+	testBlueprintsRepoUrlEnv      = "PORCH_TEST_BLUEPRINTS_REPO_URL"
+	testBlueprintsRepoUserEnv     = "PORCH_TEST_BLUEPRINTS_REPO_USER"
+	testBlueprintsRepoPasswordEnv = "PORCH_TEST_BLUEPRINTS_REPO_PASSWORD"
+
+	gcpBlueprintsRepoUrlEnv      = "PORCH_GCP_BLUEPRINTS_REPO_URL"
+	gcpBlueprintsRepoUserEnv     = "PORCH_GCP_BLUEPRINTS_REPO_USER"
+	gcpBlueprintsRepoPasswordEnv = "PORCH_GCP_BLUEPRINTS_REPO_PASSWORD"
+
+	kptRepoUrlEnv      = "PORCH_KPT_REPO_URL"
+	kptRepoUserEnv     = "PORCH_KPT_REPO_USER"
+	kptRepoPasswordEnv = "PORCH_KPT_REPO_PASSWORD"
+
+	gcrPrefixEnv  = "PORCH_GCR_PREFIX_URL"
+	podEvalRefEnv = "PORCH_POD_EVAL_REF"
+)
+
 type TestSuiteWithGit struct {
 	TestSuite
-	gitConfig GitConfig
+	gitConfig          GitConfig
+	testBlueprintsRepo string
+	gcpBlueprintsRepo  string
+	kptRepo            string
+	gcrPrefix          string
 }
 
 func (t *TestSuiteWithGit) SetupSuite() {
+	t.SetupEnvvars()
 	t.TestSuite.SetupSuite()
 	t.gitConfig = t.CreateGitRepo()
+}
+
+func (t *TestSuiteWithGit) SetupEnvvars() {
+	err := godotenv.Load("../../.env")
+	if err != nil {
+		t.Errorf("Error loading .env file: %v", err)
+	}
+
+	t.testBlueprintsRepo = defaultTestBlueprintsRepo
+	t.gcpBlueprintsRepo = defaultGCPBlueprintsRepo
+	t.kptRepo = defaultKPTRepo
+	t.gcrPrefix = defaultGCRPrefix
+
+	if os.Getenv(testBlueprintsRepoUrlEnv) != "" {
+		t.testBlueprintsRepo = os.Getenv(testBlueprintsRepoUrlEnv)
+	}
+	if os.Getenv(gcpBlueprintsRepoUrlEnv) != "" {
+		t.gcpBlueprintsRepo = os.Getenv(gcpBlueprintsRepoUrlEnv)
+	}
+	if os.Getenv(gcrPrefixEnv) != "" {
+		t.gcrPrefix = os.Getenv(gcrPrefixEnv)
+	}
+	if os.Getenv(kptRepoUrlEnv) != "" {
+		t.kptRepo = os.Getenv(kptRepoUrlEnv)
+	}
 }
 
 func (t *TestSuiteWithGit) GitConfig(name string) GitConfig {
@@ -235,33 +289,34 @@ func (t *TestSuite) registerGitRepositoryFromConfigF(name string, config GitConf
 	t.Logf("Repository %s/%s is ready", repository.Namespace, repository.Name)
 }
 
-func (t *TestSuite) CreateRepositorySecret(name string, username string, password Password, opts ...SecretOption) string {
+func (t *TestSuite) CreateOrUpdateSecret(name string, username string, password Password, opts ...SecretOption) string {
 	t.T().Helper()
-	var secret string
-	// Create auth secret if necessary
-	if username != "" || password != "" {
-		secret = fmt.Sprintf("%s-auth", name)
-		s := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      secret,
-				Namespace: t.Namespace,
-			},
-			Immutable: ptr.To(true),
-			Data: map[string][]byte{
-				"username": []byte(username),
-				"password": []byte(password),
-			},
-			Type: corev1.SecretTypeBasicAuth,
-		}
-		for _, o := range opts {
-			o(s)
-		}
-		t.CreateF(s)
-		t.Cleanup(func() {
-			t.T().Helper()
-			t.DeleteE(s)
-		})
+
+	if username == "" && password == "" {
+		return ""
 	}
+
+	secret := fmt.Sprintf("%s-auth", name)
+	s := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secret,
+			Namespace: t.Namespace,
+		},
+		Immutable: ptr.To(true),
+		Data: map[string][]byte{
+			"username": []byte(username),
+			"password": []byte(password),
+		},
+		Type: corev1.SecretTypeBasicAuth,
+	}
+	for _, o := range opts {
+		o(s)
+	}
+	t.CreateOrUpdateF(s)
+	t.Cleanup(func() {
+		t.T().Helper()
+		t.DeleteE(s)
+	})
 	return secret
 }
 
