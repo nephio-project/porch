@@ -26,7 +26,7 @@ import (
 )
 
 func TestBuiltinRuntime(t *testing.T) {
-	br := newBuiltinRuntime()
+	br := newBuiltinRuntime("")
 	fn := &v1.Function{
 		Image: setNamespaceImageAliases[0],
 	}
@@ -69,7 +69,7 @@ functionConfig:
 }
 
 func TestBuiltinRuntimeNotFound(t *testing.T) {
-	br := newBuiltinRuntime()
+	br := newBuiltinRuntime("")
 	funct := &v1.Function{
 		Image: "gcr.io/kpt-fn/not-exist:unstable",
 	}
