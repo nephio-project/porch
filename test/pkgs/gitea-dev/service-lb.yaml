@@ -4,7 +4,6 @@ metadata:
   name: gitea-lb
   namespace: gitea
   labels:
-    app: gitea
     app.kubernetes.io/name: gitea
     app.kubernetes.io/instance: gitea
   annotations:

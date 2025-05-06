@@ -5,14 +5,13 @@ metadata:
   name: gitea
   namespace: gitea
   labels:
-    app: gitea
     app.kubernetes.io/name: gitea
     app.kubernetes.io/instance: gitea
 spec:
   type: ClusterIP
   ports:
   - name: http
-    port: 3000
+    port: 3300
     targetPort: 3000
   - name: ssh
     port: 22
