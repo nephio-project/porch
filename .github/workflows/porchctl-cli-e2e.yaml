@@ -46,10 +46,6 @@ jobs:
           repo: kptdev/kpt
           tag: v1.0.0-beta.57
           chmod: 0755
-      - name: Build and install porchctl
-        run: |
-          make porchctl
-          .build/porchctl version
       - name: Create k8s Kind Cluster
         uses: helm/kind-action@v1
         with:
@@ -57,6 +53,10 @@ jobs:
           version: v0.24.0
           kubectl_version: v1.32.2
           config: deployments/local/kind_porch_test_cluster.yaml
+      - name: Set up Git config
+        run: |
+          git config --global user.name "My Name"
+          git config --global user.email "myemail@example.com"
       - name: Setup dev env
         run: ${GITHUB_WORKSPACE}/scripts/setup-dev-env.sh
       - name: Build Images and Deploy porch kpt pkg
