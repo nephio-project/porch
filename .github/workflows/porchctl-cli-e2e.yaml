@@ -50,15 +50,13 @@ jobs:
         run: |
           make porchctl
           .build/porchctl version
-      - name: ls
-        run: ls -larth
       - name: Create k8s Kind Cluster
         uses: helm/kind-action@v1
         with:
           cluster_name: kind
           version: v0.24.0
           kubectl_version: v1.32.2
-          config: ${GITHUB_WORKSPACE}/deployments/local/kind_porch_test_cluster.yaml
+          config: deployments/local/kind_porch_test_cluster.yaml
       - name: Setup dev env
         run: ${GITHUB_WORKSPACE}/scripts/setup-dev-env.sh
       - name: Build Images and Deploy porch kpt pkg
