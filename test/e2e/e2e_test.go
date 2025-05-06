@@ -3207,6 +3207,7 @@ func (t *PorchSuite) TestMetadataAfterDeleteAndBackgroundJob() {
 	t.MustFindPackageRevision(&list, expectedPkgRevKeyMain)
 
 	// Propose-delete and delete the package revision with "revision" == 1
+	//
 	// (henceforth called "the v1 package revision")
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
 	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
