@@ -37,19 +37,21 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '>=1.22.2'
+          go-version: '>=1.23.5'
       - name: Setup kubectl
-        uses: azure/setup-kubectl@v3
+        uses: azure/setup-kubectl@v4
       - name: Install kpt
-        uses: jaxxstorm/action-install-gh-release@v1.10.0
+        uses: jaxxstorm/action-install-gh-release@v2.1.0
         with:
           repo: kptdev/kpt
-          tag: v1.0.0-beta.54
+          tag: v1.0.0-beta.57
           chmod: 0755
       - name: Build and install porchctl
         run: |
           make porchctl
           .build/porchctl version
+      - name: ls
+        run: ls -larth
       - name: Create k8s Kind Cluster
         uses: helm/kind-action@v1
         with:
