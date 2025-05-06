@@ -1,4 +1,4 @@
-# Copyright 2024 The Nephio Authors
+# Copyright 2024-2025 The Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -54,10 +54,13 @@ jobs:
         uses: helm/kind-action@v1
         with:
           cluster_name: kind
-          version: v0.23.0
-          kubectl_version: v1.30.0
+          version: v0.24.0
+          kubectl_version: v1.32.2
+          config: ${GITHUB_WORKSPACE}/deployments/local/kind_porch_test_cluster.yaml
+      - name: Setup dev env
+        run: ${GITHUB_WORKSPACE}/scripts/setup-dev-env.sh
       - name: Build Images and Deploy porch kpt pkg
-        run: IMAGE_REPO=porch-kind IMAGE_TAG=${GITHUB_SHA:0:8} KIND_CONTEXT_NAME=kind make run-in-kind
+        run: IMAGE_REPO=porch-kind IMAGE_TAG=${GITHUB_SHA:0:8} KIND_CONTEXT_NAME=porch-test make run-in-kind-no-git
       - name: porchctl e2e test
         run: E2E=1 go test -v -timeout 20m ${GITHUB_WORKSPACE}/test/e2e/cli
       - name: Export porch server logs

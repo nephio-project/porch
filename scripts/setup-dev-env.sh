@@ -59,7 +59,7 @@ fi
 kind export kubeconfig --name="$porch_cluster_name"
 
 ##############################################
-h1 Instal MetalLB
+h1 Install MetalLB
 kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.14.9/config/manifests/metallb-native.yaml
 sleep 1
 echo "Waiting for controller to become ready..."
