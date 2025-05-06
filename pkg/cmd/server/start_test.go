@@ -59,7 +59,7 @@ func TestValidate(t *testing.T) {
 
 	opts.CacheType = "DB"
 	err = opts.Validate(nil)
-	assert.True(t, err != nil)
+	assert.True(t, err == nil)
 
 	opts.CacheType = ""
 	err = opts.Validate(nil)
