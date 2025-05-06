@@ -26,9 +26,15 @@ import (
 
 var tracer = otel.Tracer("cache")
 
-func CreateCacheImpl(ctx context.Context, options cachetypes.CacheOptions) (cachetypes.Cache, error) {
+var cache cachetypes.Cache
+
+func GetCacheImpl(ctx context.Context, options cachetypes.CacheOptions) (cachetypes.Cache, error) {
 	ctx, span := tracer.Start(ctx, "Repository::RepositoryFactory", trace.WithAttributes())
 	defer span.End()
+
+	if cache != nil {
+		return cache, nil
+	}
 
 	var cacheFactory cachetypes.CacheFactory
 
@@ -40,5 +46,14 @@ func CreateCacheImpl(ctx context.Context, options cachetypes.CacheOptions) (cach
 		return nil, fmt.Errorf("type %q not supported", cacheType)
 	}
 
-	return cacheFactory.NewCache(ctx, options)
+	if newCache, err := cacheFactory.NewCache(ctx, options); err == nil {
+		cache = newCache
+		return cache, err
+	} else {
+		return nil, err
+	}
+}
+
+func GetCache() cachetypes.Cache {
+	return cache
 }

@@ -45,4 +45,9 @@ func TestGitRepoFactory(t *testing.T) {
 	repoSpec.Spec.Git.CreateBranch = true
 	_, err = gf.NewRepositoryImpl(context.TODO(), &repoSpec, externalrepotypes.ExternalRepoOptions{})
 	assert.True(t, err != nil)
+
+	repoSpec.Spec.Git.Repo = "my-repo"
+	repoSpec.Spec.Git.CreateBranch = false
+	_, err = gf.NewRepositoryImpl(context.TODO(), &repoSpec, externalrepotypes.ExternalRepoOptions{})
+	assert.True(t, err != nil)
 }

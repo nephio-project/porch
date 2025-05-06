@@ -12,30 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package crcache
+package fake
 
 import (
 	"context"
 
+	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
-// We take advantage of the cache having a global view of all the packages
-// in a repository and compute the latest package revision in the cache
-// rather than add another level of caching in the repositories themselves.
-// This also reuses the revision comparison code and ensures same behavior
-// between Git and OCI.
-
-var _ repository.Package = &cachedPackage{}
-
-type cachedPackage struct {
-	repository.Package
-	latestPackageRevision int
+// Implementation of the repository.PackageRevision interface for testing.
+type FakePackage struct {
+	pkgKey           repository.PackageKey
+	PackageRevisions []repository.PackageRevision
+	Packages         []repository.Package
 }
 
-func (c *cachedPackage) GetLatestRevision(ctx context.Context) int {
-	if c.latestPackageRevision > 0 {
-		return c.latestPackageRevision
-	}
-	return c.Package.GetLatestRevision(ctx)
+var _ repository.Package = &FakePackage{}
+
+func (p *FakePackage) KubeObjectName() string {
+	return repository.ComposePkgObjName(p.pkgKey)
+}
+
+func (p *FakePackage) Key() repository.PackageKey {
+	return p.pkgKey
+}
+
+func (p *FakePackage) GetPackage(ctx context.Context) *v1alpha1.PorchPackage {
+	return &v1alpha1.PorchPackage{}
+}
+
+func (p *FakePackage) GetLatestRevision(ctx context.Context) int {
+	return 0
 }

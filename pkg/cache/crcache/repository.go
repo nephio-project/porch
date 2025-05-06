@@ -287,7 +287,7 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 
 	// Create the main package revision
 	if v1alpha1.LifecycleIsPublished(updated.Lifecycle(ctx)) {
-		updatedMain := updated.ToMainPackageRevision()
+		updatedMain := updated.ToMainPackageRevision(ctx)
 		err := r.createMainPackageRevision(ctx, updatedMain)
 		if err != nil {
 			return nil, err
@@ -434,7 +434,7 @@ func (r *cachedRepository) DeletePackage(ctx context.Context, old repository.Pac
 	return nil
 }
 
-func (r *cachedRepository) Close() error {
+func (r *cachedRepository) Close(ctx context.Context) error {
 	r.cancel()
 
 	// Make sure that watch events are sent for packagerevisions that are
@@ -460,7 +460,7 @@ func (r *cachedRepository) Close() error {
 		sent += r.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Deleted, pr)
 	}
 	klog.Infof("repo %s: sent %d notifications for %d package revisions during close", r.id, sent, len(r.cachedPackageRevisions))
-	return r.repo.Close()
+	return r.repo.Close(ctx)
 }
 
 // pollForever will continue polling until signal channel is closed or ctx is done.
