@@ -3161,16 +3161,7 @@ func (t *PorchSuite) TestMetadataAfterApproveAndBackgroundJob() {
 	t.MustFindPackageRevision(&list, expectedPkgRevKeyv1)
 	t.MustFindPackageRevision(&list, expectedPkgRevKeyMain)
 
-	// Delete and recreate repository to trigger background job on it
-	repoKey := client.ObjectKey{
-		Namespace: t.Namespace,
-		Name:      repoName,
-	}
-	var repo configapi.Repository
-	t.GetF(repoKey, &repo)
-	repo.ResourceVersion = ""
-	t.DeleteE(&repo)
-	t.CreateE(&repo)
+	t.RetriggerBackgroundJobForRepo(repoName)
 
 	// List package revisions again and check they are still as expected
 	t.ListE(&list, client.InNamespace(t.Namespace))
@@ -3235,16 +3226,7 @@ func (t *PorchSuite) TestMetadataAfterDeleteAndBackgroundJob() {
 	t.MustExist(mainPrKey, &porchapi.PackageRevision{})
 	t.MustNotExist(pr)
 
-	// Delete and recreate repository to trigger background job on it
-	repoKey := client.ObjectKey{
-		Namespace: t.Namespace,
-		Name:      repoName,
-	}
-	var repo configapi.Repository
-	t.GetF(repoKey, &repo)
-	repo.ResourceVersion = ""
-	t.DeleteE(&repo)
-	t.CreateE(&repo)
+	t.RetriggerBackgroundJobForRepo(repoName)
 
 	// Check that the existence and non-existence of the package revisions are
 	// still as they were before the background job
