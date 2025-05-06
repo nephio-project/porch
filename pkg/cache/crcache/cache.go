@@ -113,7 +113,7 @@ func (c *Cache) CloseRepository(ctx context.Context, repositorySpec *configapi.R
 	}
 
 	if repository != nil {
-		return repository.Close()
+		return repository.Close(ctx)
 	} else {
 		return nil
 	}

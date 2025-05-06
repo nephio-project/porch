@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func TestPackageGetters(t *testing.T) {
+func TestPackageRevisionGetters(t *testing.T) {
 	fakePr := FakePackageRevision{
 		PrKey: repository.PackageRevisionKey{
 			PkgKey: repository.PackageKey{

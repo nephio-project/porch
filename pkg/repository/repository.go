@@ -177,26 +177,29 @@ type PackageRevision interface {
 
 	Key() PackageRevisionKey
 
+	// Set the repository of this package revision
+	SetRepository(repository Repository)
+
 	// Lifecycle returns the current lifecycle state of the package.
 	Lifecycle(ctx context.Context) v1alpha1.PackageRevisionLifecycle
 
 	// UpdateLifecycle updates the desired lifecycle of the package. This can only
 	// be used for Published package revisions to go from Published to DeletionProposed
 	// or vice versa. Draft revisions should use PackageDraft.UpdateLifecycle.
-	UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error
+	UpdateLifecycle(ctx context.Context, lifecycle v1alpha1.PackageRevisionLifecycle) error
 
 	// GetPackageRevision returns the PackageRevision ("DRY") API representation of this package-revision
-	GetPackageRevision(context.Context) (*v1alpha1.PackageRevision, error)
+	GetPackageRevision(ctx context.Context) (*v1alpha1.PackageRevision, error)
 
 	// GetResources returns the PackageRevisionResources ("WET") API representation of this package-revision
 	// TODO: return PackageResources or filesystem abstraction?
-	GetResources(context.Context) (*v1alpha1.PackageRevisionResources, error)
+	GetResources(ctx context.Context) (*v1alpha1.PackageRevisionResources, error)
 
 	// GetUpstreamLock returns the kpt lock information.
-	GetUpstreamLock(context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error)
+	GetUpstreamLock(ctx context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error)
 
 	// GetKptfile returns the Kptfile for hte package
-	GetKptfile(context.Context) (kptfile.KptFile, error)
+	GetKptfile(ctx context.Context) (kptfile.KptFile, error)
 
 	// GetLock returns the current revision's lock information.
 	// This will be the upstream info for downstream revisions.
@@ -207,13 +210,13 @@ type PackageRevision interface {
 
 	// Create the main package revision
 	// TODO: This is a git thing and probably shouldn't be on the generic PackageRevision interface
-	ToMainPackageRevision() PackageRevision
+	ToMainPackageRevision(ctx context.Context) PackageRevision
 
 	// Get the Kubernetes metadata for the package revision
 	GetMeta() metav1.ObjectMeta
 
 	// Set the Kubernetes metadata for the package revision
-	SetMeta(context.Context, metav1.ObjectMeta) error
+	SetMeta(ctx context.Context, meta metav1.ObjectMeta) error
 }
 
 // Package is an abstract package.
@@ -225,19 +228,19 @@ type Package interface {
 	Key() PackageKey
 
 	// GetPackage returns the object representing this package
-	GetPackage() *v1alpha1.PorchPackage
+	GetPackage(ctx context.Context) *v1alpha1.PorchPackage
 
 	// GetLatestRevision returns the name of the package revision that is the "latest" package
 	// revision belonging to this package
-	GetLatestRevision() int
+	GetLatestRevision(ctx context.Context) int
 }
 
 type PackageRevisionDraft interface {
 	Key() PackageRevisionKey
 	GetMeta() metav1.ObjectMeta
-	UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, task *v1alpha1.Task) error
+	UpdateResources(context.Context, *v1alpha1.PackageRevisionResources, *v1alpha1.Task) error
 	// Updates desired lifecycle of the package. The lifecycle is applied on Close.
-	UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error
+	UpdateLifecycle(context.Context, v1alpha1.PackageRevisionLifecycle) error
 }
 
 // ListPackageRevisionFilter is a predicate for filtering PackageRevision objects;
@@ -319,7 +322,7 @@ type Repository interface {
 	Version(ctx context.Context) (string, error)
 
 	// Close cleans up any resources associated with the repository
-	Close() error
+	Close(ctx context.Context) error
 
 	// Refresh the repository
 	Refresh(ctx context.Context) error
