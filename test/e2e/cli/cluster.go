@@ -90,7 +90,7 @@ func KubectlWaitForRepoReady(t *testing.T, repoName, namespace string) {
 			}
 			t.Fatalf("Repo %s/%s has not become Ready. Giving up: %s", namespace, repoName, msg)
 		}
-		time.Sleep(5 * time.Second)
+		time.Sleep(2 * time.Second)
 	}
 }
 
