@@ -3123,3 +3123,131 @@ func (t *PorchSuite) TestRepositoryModify() {
 	}
 
 }
+
+func (t *PorchSuite) TestMetadataAfterApproveAndBackgroundJob() {
+	const (
+		repoName    = "repo-background-job"
+		packageName = "test-package-approve-and-background-job"
+		workspace   = "v1"
+	)
+
+	// Register the repository
+	t.RegisterMainGitRepositoryF(repoName)
+
+	// init, propose, and approve a new package
+	pr := t.CreatePackageSkeleton(repoName, packageName, workspace)
+	pr.Spec.Tasks = []porchapi.Task{{Type: porchapi.TaskTypeInit, Init: &porchapi.PackageInitTaskSpec{}}}
+	t.CreateF(pr)
+	prKey := client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      pr.Name,
+	}
+	t.GetF(prKey, pr)
+	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	t.UpdateF(pr)
+	t.GetF(prKey, pr)
+	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+	t.GetF(prKey, pr)
+
+	// List package revisions and check they are as expected
+	// (one as the latest with revision 1; one for the "main"/-1 revision)
+	var list porchapi.PackageRevisionList
+	t.ListE(&list, client.InNamespace(t.Namespace))
+
+	expectedPkgRevKeyv1 := repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: repoName}, Package: packageName}, Revision: 1, WorkspaceName: workspace}
+	expectedPkgRevKeyMain := repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: repoName}, Package: packageName}, Revision: -1, WorkspaceName: "main"}
+
+	t.MustFindPackageRevision(&list, expectedPkgRevKeyv1)
+	t.MustFindPackageRevision(&list, expectedPkgRevKeyMain)
+
+	// Delete and recreate repository to trigger background job on it
+	repoKey := client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      repoName,
+	}
+	var repo configapi.Repository
+	t.GetF(repoKey, &repo)
+	repo.ResourceVersion = ""
+	t.DeleteE(&repo)
+	t.CreateE(&repo)
+
+	// List package revisions again and check they are still as expected
+	t.ListE(&list, client.InNamespace(t.Namespace))
+	t.MustFindPackageRevision(&list, expectedPkgRevKeyv1)
+	t.MustFindPackageRevision(&list, expectedPkgRevKeyMain)
+}
+
+func (t *PorchSuite) TestMetadataAfterDeleteAndBackgroundJob() {
+	const (
+		repoName    = "repo-background-job"
+		packageName = "test-package-delete-and-background-job"
+		workspace   = "v1"
+	)
+
+	// Register the repository
+	t.RegisterMainGitRepositoryF(repoName)
+
+	// init, propose, and approve a new package
+	pr := t.CreatePackageSkeleton(repoName, packageName, workspace)
+	pr.Spec.Tasks = []porchapi.Task{{Type: porchapi.TaskTypeInit, Init: &porchapi.PackageInitTaskSpec{}}}
+	t.CreateF(pr)
+	prKey := client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      pr.Name,
+	}
+	t.GetF(prKey, pr)
+	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	t.UpdateF(pr)
+	t.GetF(prKey, pr)
+	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+	t.GetF(prKey, pr)
+
+	// List package revisions and check they are as expected
+	// (one as the latest with revision 1; one for the "main"/-1 revision)
+	var list porchapi.PackageRevisionList
+	t.ListE(&list, client.InNamespace(t.Namespace))
+
+	expectedPkgRevKeyv1 := repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: repoName}, Package: packageName}, Revision: 1, WorkspaceName: workspace}
+	expectedPkgRevKeyMain := repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: repoName}, Package: packageName}, Revision: -1, WorkspaceName: "main"}
+
+	t.MustFindPackageRevision(&list, expectedPkgRevKeyv1)
+	t.MustFindPackageRevision(&list, expectedPkgRevKeyMain)
+
+	// Propose-delete and delete the package revision with "revision" == 1
+	// (henceforth called "the v1 package revision")
+	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
+	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+	t.DeleteE(&porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: t.Namespace,
+			Name:      pr.Name,
+		},
+	})
+
+	// Check that the "main" package revision still exists, while the v1 package
+	// revision does not
+	mainPrKey := client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      strings.Replace(pr.Name, workspace, "main", 1),
+	}
+	t.MustExist(mainPrKey, &porchapi.PackageRevision{})
+	t.MustNotExist(pr)
+
+	// Delete and recreate repository to trigger background job on it
+	repoKey := client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      repoName,
+	}
+	var repo configapi.Repository
+	t.GetF(repoKey, &repo)
+	repo.ResourceVersion = ""
+	t.DeleteE(&repo)
+	t.CreateE(&repo)
+
+	// Check that the existence and non-existence of the package revisions are
+	// still as they were before the background job
+	t.MustExist(mainPrKey, &porchapi.PackageRevision{})
+	t.MustNotExist(pr)
+}
