@@ -238,7 +238,7 @@ func (r *gitRepository) Key() repository.RepositoryKey {
 	return r.key
 }
 
-func (r *gitRepository) Close() error {
+func (r *gitRepository) Close(context.Context) error {
 	if err := os.RemoveAll(r.cacheDir); err != nil {
 		return fmt.Errorf("error cleaning up local git cache for repo %s: %v", r.Key().Name, err)
 	}

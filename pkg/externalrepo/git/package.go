@@ -65,6 +65,10 @@ func (p *gitPackageRevision) Key() repository.PackageRevisionKey {
 	return p.prKey
 }
 
+func (p *gitPackageRevision) SetRepository(repo repository.Repository) {
+	p.repo = repo.(*gitRepository)
+}
+
 func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "gitPackageRevision::GetPackageRevision", trace.WithAttributes())
 	defer span.End()
@@ -168,7 +172,7 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 // Creates a gitPackageRevision reference that is acting as the main branch package revision.
 // It doesn't do any git operations, so this package should only be used if the actual git updates
 // were exectued on the main branch.
-func (p *gitPackageRevision) ToMainPackageRevision() repository.PackageRevision {
+func (p *gitPackageRevision) ToMainPackageRevision(context.Context) repository.PackageRevision {
 	//Need to compute a separate reference, otherwise the ref will be the same as the versioned package,
 	//while the main gitPackageRevision needs to point at the main branch.
 
