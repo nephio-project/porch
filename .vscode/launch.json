@@ -58,7 +58,7 @@
             "cwd": "${workspaceFolder}"
         },
         {
-            "name": "Launch test function",
+            "name": "Launch E2E test",
             "type": "go",
             "request": "launch",
             "mode": "test",
