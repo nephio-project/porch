@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -121,10 +122,10 @@ func (s *CliTestSuite) RunTestCase(t *testing.T, tc TestCaseConfig) {
 	KubectlCreateNamespace(t, tc.TestCase)
 	t.Cleanup(func() {
 		KubectlDeleteNamespace(t, tc.TestCase)
-		deleteRemoteRepo(t, tc.TestCase)
+		deleteRemoteTestRepo(t, tc.TestCase)
 	})
 	
-	createRemoteRepo(s.TestDataPath+"/test-repo", repoURL, t)
+	createRemoteTestRepo(t, repoURL)
 
 	if tc.Repository != "" {
 		s.RegisterRepository(t, repoURL, tc.TestCase, tc.Repository)
@@ -201,10 +202,12 @@ func (s *CliTestSuite) RunTestCase(t *testing.T, tc TestCaseConfig) {
 			}
 		}
 
-		// hack here; but if the command registered a repo, give a few extra seconds for the repo to reach readiness
-		for _, arg := range command.Args {
-			if arg == "register" {
-				time.Sleep(5 * time.Second)
+		if slices.Contains(cmd.Args, "register") {
+			name, found := getRepoName(cmd.Args)
+			if found {
+				KubectlWaitForRepoReady(t, name, tc.TestCase)
+			} else {
+				t.Fatalf("Failed to get repo name for registration: %s", tc.TestCase)
 			}
 		}
 	}
@@ -357,7 +360,7 @@ func exitCode(exit error) int {
 	return 0
 }
 
-func deleteRemoteRepo (t *testing.T, testcaseName string) {
+func deleteRemoteTestRepo (t *testing.T, testcaseName string) {
 
 	apiURL := fmt.Sprintf("%s/api/v1/repos/%s/%s", defaultTestGitServerUrl, testGitUserOrg, testcaseName)
 
@@ -382,19 +385,10 @@ func deleteRemoteRepo (t *testing.T, testcaseName string) {
 	}
 }
 
+func createRemoteTestRepo (t *testing.T, repoUrl string) {
 
-func createRemoteRepo (path string, repoUrl string, t *testing.T) {
-
-	t.Cleanup(func() {
-		runUtilityCommand(t, "rm", "-rf", path)
-	})
-
-	err := runUtilityCommand(t, "mkdir", path)
-	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
-	}
-
-	repo, err := git.PlainInit(path, false)
+	tmpPath := t.TempDir()
+	repo, err := git.PlainInit(tmpPath, false)
 	if err != nil {
 		t.Fatalf("Failed to init the repo: %v", err)
 	}
@@ -406,8 +400,7 @@ func createRemoteRepo (path string, repoUrl string, t *testing.T) {
 		t.Fatalf("Failed to set refs: %v", err)
 	}
 
-	readmePath := path + "/README.md"
-	err = os.WriteFile(readmePath, []byte("# My Go-Git Repo\nCreated programmatically."), 0644)
+	err = os.WriteFile(tmpPath + "/README.md", []byte("# Test Go-Git Repo\nCreated programmatically."), 0644)
 	if err != nil {
 		t.Fatalf("Failed to write to file: %v", err)
 	}
@@ -416,8 +409,8 @@ func createRemoteRepo (path string, repoUrl string, t *testing.T) {
 	wt.Add("README.md")
 	wt.Commit("Initial commit", &git.CommitOptions{
 		Author: &object.Signature{
-			Name:  "Your Name",
-			Email: "you@example.com",
+			Name:  "Nephio O' Test",
+			Email: "nephiotest@example.com",
 			When:  time.Now(),
 		},
 	})
@@ -433,13 +426,22 @@ func createRemoteRepo (path string, repoUrl string, t *testing.T) {
 	err = repo.Push(&git.PushOptions{
 		RemoteName: "origin",
 		Auth: &http.BasicAuth{
-			Username: "nephio", 
-			Password: "secret",
+			Username: testGitUserOrg, 
+			Password: testGitPassword,
 		},
 		RequireRemoteRefs: []config.RefSpec{},
 	})
 	if err != nil {
-		t.Fatalf("Failed to push test repo: %v", err)
+		t.Fatalf("Failed to push test repo %s: %v", repoUrl, err)
 	}
-	t.Logf("Repo created successfully: %s", repoUrl)
+	t.Logf("Test repo created successfully: %s", repoUrl)
+}
+
+func getRepoName(args []string) (string, bool) {
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "--name=") {
+			return strings.TrimPrefix(arg, "--name="), true
+		}
+	}
+	return "", false
 }

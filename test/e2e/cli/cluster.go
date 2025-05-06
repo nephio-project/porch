@@ -67,6 +67,33 @@ func KubectlWaitForLoadBalancerIp(t *testing.T, namespace, name string) string {
 	}
 }
 
+func KubectlWaitForRepoReady(t *testing.T, repoName, namespace string) {
+	t.Logf("waiting for repo %s/%s to become Ready", namespace, repoName)
+	args := []string{"get", "repository", repoName, "--namespace", namespace, "--output=jsonpath={.status.conditions[?(@.type=='Ready')].status}"}
+	giveUp := time.Now().Add(1 * time.Minute)
+	for {
+		cmd := exec.Command("kubectl", args...)
+		var stdout, stderr bytes.Buffer
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
+		t.Logf("running command %v", strings.Join(cmd.Args, " "))
+		err := cmd.Run()
+		ready := stdout.String()
+		if err == nil && string(ready) == "True" {
+			t.Logf("Repo %s/%s is Ready", namespace, repoName)
+			return
+		}
+		if time.Now().After(giveUp) {
+			var msg string
+			if err != nil {
+				msg = err.Error()
+			}
+			t.Fatalf("Repo %s/%s has not become Ready. Giving up: %s", namespace, repoName, msg)
+		}
+		time.Sleep(5 * time.Second)
+	}
+}
+
 func KubectlCreateNamespace(t *testing.T, name string) {
 	cmd := exec.Command("kubectl", "create", "namespace", name)
 	t.Logf("running command %v", strings.Join(cmd.Args, " "))
