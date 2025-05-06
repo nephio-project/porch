@@ -32,7 +32,7 @@ function h1() {
   echo 
 }
 
-h1 Install Gitea
+h1 Install Gitea and init test repos
 mkdir -p "${git_root}/.build"
 cd "${git_root}/.build"
 if [ -d gitea ]; then

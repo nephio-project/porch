@@ -390,7 +390,7 @@ func createRemoteTestRepo (t *testing.T, repoUrl string) {
 	tmpPath := t.TempDir()
 	repo, err := git.PlainInit(tmpPath, false)
 	if err != nil {
-		t.Fatalf("Failed to init the repo: %v", err)
+		t.Fatalf("Failed to init the repo %s: %v", repoUrl, err)
 	}
 
 	err = repo.Storer.SetReference(
@@ -406,14 +406,20 @@ func createRemoteTestRepo (t *testing.T, repoUrl string) {
 	}
 
 	wt, _ := repo.Worktree()
-	wt.Add("README.md")
-	wt.Commit("Initial commit", &git.CommitOptions{
+	_, err = wt.Add("README.md")
+	if err != nil {
+		t.Fatalf("Failed to add README: %v", err)
+	}
+	_, err = wt.Commit("Initial commit", &git.CommitOptions{
 		Author: &object.Signature{
 			Name:  "Nephio O' Test",
 			Email: "nephiotest@example.com",
 			When:  time.Now(),
 		},
 	})
+	if err != nil {
+		t.Fatalf("Failed to commit to repo %s: %v", repoUrl, err)
+	}
 
 	_, err = repo.CreateRemote(&config.RemoteConfig{
 		Name: "origin",

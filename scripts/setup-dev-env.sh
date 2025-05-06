@@ -69,7 +69,7 @@ kubectl wait --namespace metallb-system deploy controller \
 kubectl apply -f "${git_root}/deployments/local/metallb-conf.yaml"
 
 ############################################
-h1 Install Gitea and init test repos
+# Install gitea and setup test repos
 cd "${git_root}"
 ./scripts/install-dev-gitea-setup.sh $git_repo_name $gitea_ip 
 
