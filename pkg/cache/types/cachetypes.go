@@ -30,7 +30,8 @@ type CacheType string
 
 const (
 	CRCacheType      CacheType = "CR"
-	DefaultCacheType           = CRCacheType
+	DBCacheType      CacheType = "DB"
+	DefaultCacheType CacheType = "CR"
 )
 
 type CacheOptions struct {
@@ -67,6 +68,8 @@ type RepoPRChangeNotifier interface {
 func IsACacheType(ct string) bool {
 	switch strings.ToUpper(ct) {
 	case string(CRCacheType):
+		return true
+	case string(DBCacheType):
 		return true
 	default:
 		return false
