@@ -136,7 +136,7 @@ start-function-runner:
 	  -disable-runtimes pod
 
 
- # API Modules
+# API Modules
 API_MODULES = \
  api \
  pkg/kpt/api \
@@ -298,7 +298,7 @@ deployment-config-no-controller: deployment-config ## Generate a deployment kpt 
 .PHONY: load-images-to-kind
 load-images-to-kind: ## Build porch images and load them into a kind cluster
 ifeq ($(SKIP_IMG_BUILD), false)
-  # only build test-git-server & function-runner if they are not already loaded into kind
+# only build test-git-server & function-runner if they are not already loaded into kind
 	@if [ "$(SKIP_LOCAL_GIT)" = "false" ] && ! docker exec "${KIND_CONTEXT_NAME}-control-plane" crictl images | grep -q "$(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE)  *${IMAGE_TAG}"; then \
 		echo "Building $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG}"; \
 		IMAGE_NAME="$(TEST_GIT_SERVER_IMAGE)" make -C test/ build-image && \
@@ -314,7 +314,7 @@ ifeq ($(SKIP_IMG_BUILD), false)
 	else \
 		echo "Skipping building $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):${IMAGE_TAG} as it is already loaded into kind" ; \
 	fi
-    # NOTE: SKIP_PORCHSERVER_BUILD must be evaluated at runtime, hence the shell conditional (if) here
+# NOTE: SKIP_PORCHSERVER_BUILD must be evaluated at runtime, hence the shell conditional (if) here
 	@if [ "$(SKIP_PORCHSERVER_BUILD)" = "false" ]; then \
 		echo "Building $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):${IMAGE_TAG}" ; \
 		docker buildx build --load --tag $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG) -f ./build/Dockerfile "$(PORCHDIR)" && \
@@ -329,11 +329,11 @@ ifeq ($(SKIP_IMG_BUILD), false)
 	fi
 
 else
-  	@if [ "$(SKIP_LOCAL_GIT)" = "false" ]; then \
-		kind load docker-image $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
+	@if [ "$(SKIP_LOCAL_GIT)" = "false" ]; then \
+		kind load docker-image $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}; \
 	fi
 	kind load docker-image $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
-	kind load docker-image $(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} 
+	kind load docker-image $(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
 	kind load docker-image $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
 	kind load docker-image $(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
 endif
