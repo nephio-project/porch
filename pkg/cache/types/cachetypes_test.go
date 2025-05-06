@@ -23,7 +23,7 @@ import (
 func TestIsACacheType(t *testing.T) {
 	assert.True(t, IsACacheType("CR"))
 	assert.True(t, IsACacheType("cr"))
-	assert.False(t, IsACacheType("DB"))
+	assert.True(t, IsACacheType("DB"))
 	assert.False(t, IsACacheType(""))
 	assert.False(t, IsACacheType("ZZ"))
 }

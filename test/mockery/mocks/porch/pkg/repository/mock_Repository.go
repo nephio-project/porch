@@ -460,6 +460,53 @@ func (_c *MockRepository_ListPackages_Call) RunAndReturn(run func(context.Contex
 	return _c
 }
 
+// PushPackageRevision provides a mock function with given fields: ctx, pr
+func (_m *MockRepository) PushPackageRevision(ctx context.Context, pr repository.PackageRevision) error {
+	ret := _m.Called(ctx, pr)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PushPackageRevision")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, repository.PackageRevision) error); ok {
+		r0 = rf(ctx, pr)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockRepository_PushPackageRevision_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PushPackageRevision'
+type MockRepository_PushPackageRevision_Call struct {
+	*mock.Call
+}
+
+// PushPackageRevision is a helper method to define mock.On call
+//   - ctx context.Context
+//   - pr repository.PackageRevision
+func (_e *MockRepository_Expecter) PushPackageRevision(ctx interface{}, pr interface{}) *MockRepository_PushPackageRevision_Call {
+	return &MockRepository_PushPackageRevision_Call{Call: _e.mock.On("PushPackageRevision", ctx, pr)}
+}
+
+func (_c *MockRepository_PushPackageRevision_Call) Run(run func(ctx context.Context, pr repository.PackageRevision)) *MockRepository_PushPackageRevision_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(repository.PackageRevision))
+	})
+	return _c
+}
+
+func (_c *MockRepository_PushPackageRevision_Call) Return(_a0 error) *MockRepository_PushPackageRevision_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockRepository_PushPackageRevision_Call) RunAndReturn(run func(context.Context, repository.PackageRevision) error) *MockRepository_PushPackageRevision_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Refresh provides a mock function with given fields: ctx
 func (_m *MockRepository) Refresh(ctx context.Context) error {
 	ret := _m.Called(ctx)

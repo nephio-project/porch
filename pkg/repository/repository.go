@@ -303,6 +303,9 @@ type Repository interface {
 	// ClosePackageRevisionDraft closes out a Package Revision Draft
 	ClosePackageRevisionDraft(ctx context.Context, prd PackageRevisionDraft, version int) (PackageRevision, error)
 
+	// PushPackageRevision pushes a fully ready package revision onto the repo
+	PushPackageRevision(ctx context.Context, pr PackageRevision) error
+
 	// DeletePackageRevision deletes a package revision
 	DeletePackageRevision(ctx context.Context, old PackageRevision) error
 

@@ -263,8 +263,11 @@ func (r *cachedRepository) UpdatePackageRevision(ctx context.Context, old reposi
 	return r.repo.UpdatePackageRevision(ctx, unwrapped)
 }
 
-func (r *cachedRepository) update(ctx context.Context, updated repository.PackageRevision) (*cachedPackageRevision, error) {
+func (r *cachedRepository) PushPackageRevision(ctx context.Context, pr repository.PackageRevision) error {
+	panic("cachedRepository:PushPackageRevision: function should not be invoked on the CR cache")
+}
 
+func (r *cachedRepository) update(ctx context.Context, updated repository.PackageRevision) (*cachedPackageRevision, error) {
 	// TODO: Technically we only need this package, not all packages
 	if _, _, err := r.getCachedPackages(ctx, false); err != nil {
 		klog.Warningf("failed to get cached packages: %v", err)
