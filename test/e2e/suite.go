@@ -40,6 +40,7 @@ import (
 	"github.com/stretchr/testify/suite"
 	appsv1 "k8s.io/api/apps/v1"
 	coreapi "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -90,6 +91,11 @@ type TestSuite struct {
 
 	Namespace         string // K8s namespace for this test run
 	TestRunnerIsLocal bool   // Tests running against local dev porch
+
+	testBlueprintsRepo string
+	gcpBlueprintsRepo  string
+	kptRepo            string
+	gcrPrefix          string
 }
 
 func (t *TestSuite) SetupSuite() {
@@ -332,10 +338,14 @@ func (t *TestSuite) createOrUpdate(obj client.Object, opts []client.CreateOption
 	}()
 
 	if err := t.Client.Create(t.GetContext(), obj, opts...); err != nil {
-		t.Logf("failed to create resource - attempting to update resource %v", DebugFormat(obj))
+		if apierrors.IsAlreadyExists(err) {
+			t.Logf("failed to create resource - attempting to update resource %v", DebugFormat(obj))
 
-		if err := t.Client.Update(t.GetContext(), obj); err != nil {
-			eh("failed to update resource %s: %v", DebugFormat(obj), err)
+			if err := t.Client.Update(t.GetContext(), obj); err != nil {
+				eh("failed to update resource %s: %v", DebugFormat(obj), err)
+			}
+		} else {
+			eh("failed to create resource %s: %v", DebugFormat(obj), err)
 		}
 	}
 }

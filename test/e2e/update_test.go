@@ -15,8 +15,6 @@
 package e2e
 
 import (
-	"os"
-
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,8 +26,7 @@ func (t *PorchSuite) TestPackageUpdateRecloneAndReplay() {
 		gitRepository = "package-update"
 	)
 
-	secret := t.CreateOrUpdateSecret("test-blueprints", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv)))
-	t.RegisterGitRepositoryF(t.testBlueprintsRepo, "test-blueprints", "", secret)
+	t.RegisterTestBlueprintRepository("test-blueprints", "")
 
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
@@ -63,7 +60,7 @@ func (t *PorchSuite) TestPackageUpdateRecloneAndReplay() {
 								Ref:       "v1",
 								Directory: "basens",
 								SecretRef: porchapi.SecretRef{
-									Name: t.CreateOrUpdateSecret("testrecloneandreplay-v1", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv))),
+									Name: t.CreateGcpPackageRevisionSecret("testrecloneandreplay-v1"),
 								},
 							},
 						},
@@ -88,7 +85,7 @@ func (t *PorchSuite) TestPackageUpdateRecloneAndReplay() {
 				Ref:       "v2",
 				Directory: "basens",
 				SecretRef: porchapi.SecretRef{
-					Name: t.CreateOrUpdateSecret("testrecloneandreplay-v2", os.Getenv(testBlueprintsRepoUserEnv), Password(os.Getenv(testBlueprintsRepoPasswordEnv))),
+					Name: t.CreateGcpPackageRevisionSecret("testrecloneandreplay-v2"),
 				},
 			},
 		},
