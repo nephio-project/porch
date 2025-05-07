@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -47,8 +47,9 @@ func GeneratePatch(fileName string, oldV, newV string) (api.PatchSpec, error) {
 }
 
 type applyPatchMutation struct {
-	patchTask *api.PackagePatchTaskSpec
-	task      *api.Task
+	patchTask     *api.PackagePatchTaskSpec
+	task          *api.Task
+	cloneStrategy api.PackageMergeStrategy
 }
 
 var _ mutation = &applyPatchMutation{}
@@ -88,7 +89,11 @@ func (m *applyPatchMutation) apply(ctx context.Context, resources repository.Pac
 			if !found {
 				return result, nil, fmt.Errorf("patch specifies file %q which does not exist", patchSpec.File)
 			}
-
+			if skipPatchMutation(ctx, *m) {
+				klog.Infof("Skipping patch for file %q, returning original content", patchSpec.File)
+				result.Contents[patchSpec.File] = oldContents
+				continue
+			}
 			files, preamble, err := gitdiff.Parse(strings.NewReader(patchSpec.Contents))
 			if err != nil {
 				return result, nil, fmt.Errorf("error parsing patch: %w", err)
@@ -133,14 +138,23 @@ func (m *applyPatchMutation) apply(ctx context.Context, resources repository.Pac
 	return result, &api.TaskResult{Task: m.task}, nil
 }
 
-func buildPatchMutation(_ context.Context, task *api.Task) (mutation, error) {
+func buildPatchMutation(_ context.Context, task *api.Task, cloneStrategy api.PackageMergeStrategy) (mutation, error) {
 	if task.Patch == nil {
 		return nil, fmt.Errorf("patch not set for task of type %q", task.Type)
 	}
 
 	m := &applyPatchMutation{
-		patchTask: task.Patch,
-		task:      task,
+		patchTask:     task.Patch,
+		task:          task,
+		cloneStrategy: cloneStrategy,
 	}
 	return m, nil
+}
+
+func skipPatchMutation(_ context.Context, m applyPatchMutation) bool {
+	if m.cloneStrategy == api.CopyMerge || m.cloneStrategy == api.ForceDeleteReplace {
+		klog.Infof("clone strategy is %v, patching skipped on this type of clone strategy", m.cloneStrategy)
+		return true
+	}
+	return false
 }
