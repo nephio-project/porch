@@ -369,6 +369,10 @@ vulncheck: build
 .PHONY: test-e2e
 test-e2e: ## Run end-to-end tests
 	E2E=1 go test -v -failfast ./test/e2e
+
+.PHONY: test-e2e-cli
+test-e2e-cli: ## Run cli end-to-end tests
+test-e2e-cli: run-in-kind-no-git
 	E2E=1 go test -v -failfast ./test/e2e/cli
 
 .PHONY: test-e2e-clean
