@@ -67,7 +67,7 @@ func SchemasFromCrdKubeObjects(kos fn.KubeObjects) (map[string]spec.Schema, erro
 
 // SchemasFromCrdKubeObject extracts the Kustomize OpenApi definitions keyed with their GVK from a single CRD KubeObject
 func SchemasFromCrdKubeObject(ko *fn.KubeObject) (map[string]spec.Schema, error) {
-	if IsCrd(ko) {
+	if !IsCrd(ko) {
 		return nil, pkgerrors.Errorf("expected kind to be %q, but is %q", crdKind, ko.GetKind())
 	}
 

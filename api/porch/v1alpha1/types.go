@@ -132,22 +132,24 @@ type PackageRevisionStatus struct {
 type TaskType string
 
 const (
-	TaskTypeInit   TaskType = "init"
-	TaskTypeClone  TaskType = "clone"
-	TaskTypePatch  TaskType = "patch"
-	TaskTypeEdit   TaskType = "edit"
-	TaskTypeEval   TaskType = "eval"
-	TaskTypeUpdate TaskType = "update"
+	TaskTypeInit    TaskType = "init"
+	TaskTypeClone   TaskType = "clone"
+	TaskTypePatch   TaskType = "patch"
+	TaskTypeEdit    TaskType = "edit"
+	TaskTypeEval    TaskType = "eval"
+	TaskTypeUpdate  TaskType = "update"
+	TaskTypeUpgrade TaskType = "upgrade"
 )
 
 type Task struct {
-	Type   TaskType               `json:"type"`
-	Init   *PackageInitTaskSpec   `json:"init,omitempty"`
-	Clone  *PackageCloneTaskSpec  `json:"clone,omitempty"`
-	Patch  *PackagePatchTaskSpec  `json:"patch,omitempty"`
-	Edit   *PackageEditTaskSpec   `json:"edit,omitempty"`
-	Eval   *FunctionEvalTaskSpec  `json:"eval,omitempty"`
-	Update *PackageUpdateTaskSpec `json:"update,omitempty"`
+	Type    TaskType                `json:"type"`
+	Init    *PackageInitTaskSpec    `json:"init,omitempty"`
+	Clone   *PackageCloneTaskSpec   `json:"clone,omitempty"`
+	Patch   *PackagePatchTaskSpec   `json:"patch,omitempty"`
+	Edit    *PackageEditTaskSpec    `json:"edit,omitempty"`
+	Eval    *FunctionEvalTaskSpec   `json:"eval,omitempty"`
+	Update  *PackageUpdateTaskSpec  `json:"update,omitempty"`
+	Upgrade *PackageUpgradeTaskSpec `json:"upgrade,omitempty"`
 }
 
 type TaskResult struct {
@@ -197,6 +199,30 @@ type PackageMergeStrategy string
 type PackageUpdateTaskSpec struct {
 	// `Upstream` is the reference to the upstream package.
 	Upstream UpstreamPackage `json:"upstreamRef,omitempty"`
+}
+
+type PackageUpgradeTaskSpec struct {
+	// `OldUpstream` is the reference to the original upstream package revision that is
+	// the common ancestor of the local package and the new upstream package revision.
+	OldUpstream PackageRevisionRef `json:"oldUpstreamRef,omitempty"`
+
+	// `NewUpstream` is the reference to the new upstream package revision that the
+	// local package will be upgraded to.
+	NewUpstream PackageRevisionRef `json:"newUpstreamRef,omitempty"`
+
+	// `LocalPackageRevisionRef` is the reference to the local package revision that
+	// contains all the local changes on top of the `OldUpstream` package revision.
+	LocalPackageRevisionRef PackageRevisionRef `json:"localPackageRevisionRef,omitempty"`
+
+	// 	Defines which strategy should be used to update the package. It defaults to 'resource-merge'.
+	//  * resource-merge: Perform a structural comparison of the original /
+	//    updated resources, and merge the changes into the local package.
+	//  * fast-forward: Fail without updating if the local package was modified
+	//    since it was fetched.
+	//  * force-delete-replace: Wipe all the local changes to the package and replace
+	//    it with the remote version.
+	//  * copy-merge: Copy all the remote changes to the local package.
+	Strategy PackageMergeStrategy `json:"strategy,omitempty"`
 }
 
 const (

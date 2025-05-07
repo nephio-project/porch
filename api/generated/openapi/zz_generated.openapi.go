@@ -56,6 +56,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageSpec":                    schema_porch_api_porch_v1alpha1_PackageSpec(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageStatus":                  schema_porch_api_porch_v1alpha1_PackageStatus(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageUpdateTaskSpec":          schema_porch_api_porch_v1alpha1_PackageUpdateTaskSpec(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageUpgradeTaskSpec":         schema_porch_api_porch_v1alpha1_PackageUpgradeTaskSpec(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.ParentReference":                schema_porch_api_porch_v1alpha1_ParentReference(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PatchSpec":                      schema_porch_api_porch_v1alpha1_PatchSpec(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PorchPackage":                   schema_porch_api_porch_v1alpha1_PorchPackage(ref),
@@ -1190,6 +1191,48 @@ func schema_porch_api_porch_v1alpha1_PackageUpdateTaskSpec(ref common.ReferenceC
 	}
 }
 
+func schema_porch_api_porch_v1alpha1_PackageUpgradeTaskSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"oldUpstreamRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "`OldUpstream` is the reference to the original upstream package revision that is the common ancestor of the local package and the new upstream package revision.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionRef"),
+						},
+					},
+					"newUpstreamRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "`NewUpstream` is the reference to the new upstream package revision that the local package will be upgraded to.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionRef"),
+						},
+					},
+					"localPackageRevisionRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "`LocalPackageRevisionRef` is the reference to the local package revision that contains all the local changes on top of the `OldUpstream` package revision.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionRef"),
+						},
+					},
+					"strategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "\tDefines which strategy should be used to update the package. It defaults to 'resource-merge'.\n * resource-merge: Perform a structural comparison of the original /\n   updated resources, and merge the changes into the local package.\n * fast-forward: Fail without updating if the local package was modified\n   since it was fetched.\n * force-delete-replace: Wipe all the local changes to the package and replace\n   it with the remote version.\n * copy-merge: Copy all the remote changes to the local package.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionRef"},
+	}
+}
+
 func schema_porch_api_porch_v1alpha1_ParentReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1732,12 +1775,17 @@ func schema_porch_api_porch_v1alpha1_Task(ref common.ReferenceCallback) common.O
 							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageUpdateTaskSpec"),
 						},
 					},
+					"upgrade": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageUpgradeTaskSpec"),
+						},
+					},
 				},
 				Required: []string{"type"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.FunctionEvalTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageCloneTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageEditTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageInitTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackagePatchTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageUpdateTaskSpec"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.FunctionEvalTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageCloneTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageEditTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageInitTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackagePatchTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageUpdateTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageUpgradeTaskSpec"},
 	}
 }
 

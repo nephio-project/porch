@@ -133,25 +133,34 @@ func (th *genericTaskHandler) DoPRMutations(ctx context.Context, namespace strin
 		}
 
 		newTask := newObj.Spec.Tasks[len(newObj.Spec.Tasks)-1]
-		if newTask.Type != api.TaskTypeUpdate {
+		if newTask.Type != api.TaskTypeUpgrade && newTask.Type != api.TaskTypeUpdate {
 			return fmt.Errorf("appended task is type %q, must be type %q", newTask.Type, api.TaskTypeUpdate)
 		}
-		if newTask.Update == nil {
+		if newTask.Upgrade == nil && newTask.Update == nil {
 			return fmt.Errorf("update not set for updateTask of type %q", newTask.Type)
 		}
-
-		cloneTask := findCloneTask(oldObj)
-		if cloneTask == nil {
-			return fmt.Errorf("upstream source not found for package rev %q; only cloned packages can be updated", oldObj.Spec.PackageName)
-		}
-
-		mutation := &updatePackageMutation{
-			cloneTask:         cloneTask,
-			updateTask:        &newTask,
-			repoOpener:        th.repoOpener,
-			referenceResolver: th.referenceResolver,
-			namespace:         namespace,
-			pkgName:           oldObj.GetName(),
+		var mutation mutation
+		if newTask.Type == api.TaskTypeUpgrade {
+			mutation = &upgradePackageMutation{
+				upgradeTask:       &newTask,
+				repoOpener:        th.repoOpener,
+				referenceResolver: th.referenceResolver,
+				namespace:         namespace,
+				pkgName:           oldObj.GetName(),
+			}
+		} else {
+			cloneTask := findCloneTask(oldObj)
+			if cloneTask == nil {
+				return fmt.Errorf("upstream source not found for package rev %q; only cloned packages can be updated", oldObj.Spec.PackageName)
+			}
+			mutation = &updatePackageMutation{
+				cloneTask:         cloneTask,
+				updateTask:        &newTask,
+				repoOpener:        th.repoOpener,
+				referenceResolver: th.referenceResolver,
+				namespace:         namespace,
+				pkgName:           oldObj.GetName(),
+			}
 		}
 		mutations = append(mutations, mutation)
 	}
@@ -292,6 +301,22 @@ func (th *genericTaskHandler) mapTaskToMutation(ctx context.Context, obj *api.Pa
 		return &updatePackageMutation{
 			cloneTask:         cloneTask,
 			updateTask:        task,
+			namespace:         obj.Namespace,
+			repoOpener:        th.repoOpener,
+			referenceResolver: th.referenceResolver,
+			pkgName:           obj.Spec.PackageName,
+		}, nil
+
+	case api.TaskTypeUpgrade:
+		if task.Upgrade == nil {
+			return nil, fmt.Errorf("update not set for task of type %q", task.Type)
+		}
+		upgradeTask := findUpgradeTask(obj)
+		if upgradeTask == nil {
+			return nil, fmt.Errorf("upstream source not found for package rev %q; only cloned packages can be updated", obj.Spec.PackageName)
+		}
+		return &upgradePackageMutation{
+			upgradeTask:       upgradeTask,
 			namespace:         obj.Namespace,
 			repoOpener:        th.repoOpener,
 			referenceResolver: th.referenceResolver,

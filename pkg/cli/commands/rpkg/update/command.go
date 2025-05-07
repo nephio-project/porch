@@ -157,12 +157,20 @@ func (r *runner) doUpdate(pr *porchapi.PackageRevision) error {
 			return fmt.Errorf("revision %d does not exist for package %s", r.revision, pr.Spec.PackageName)
 		}
 		newTask := porchapi.Task{
-			Type: porchapi.TaskTypeUpdate,
-			Update: &porchapi.PackageUpdateTaskSpec{
-				Upstream: *cloneTask.Clone.Upstream.DeepCopy(),
+			Type: porchapi.TaskTypeUpgrade,
+			Upgrade: &porchapi.PackageUpgradeTaskSpec{
+				OldUpstream: porchapi.PackageRevisionRef{
+					Name: upstreamPr.Name,
+				},
+				NewUpstream: porchapi.PackageRevisionRef{
+					Name: newUpstreamPr.Name,
+				},
+				LocalPackageRevisionRef: porchapi.PackageRevisionRef{
+					Name: pr.Name,
+				},
+				Strategy: porchapi.ResourceMerge,
 			},
 		}
-		newTask.Update.Upstream.UpstreamRef.Name = newUpstreamPr.Name
 		pr.Spec.Tasks = append(pr.Spec.Tasks, newTask)
 	}
 

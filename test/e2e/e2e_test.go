@@ -1697,6 +1697,107 @@ func (t *PorchSuite) TestPackageUpdate() {
 	}
 }
 
+func (t *PorchSuite) TestPackageUpgrade() {
+	const (
+		gitRepository = "package-upgrade"
+	)
+
+	t.RegisterGitRepositoryF(testBlueprintsRepo, "test-blueprints", "")
+
+	var list porchapi.PackageRevisionList
+	t.ListE(&list, client.InNamespace(t.Namespace))
+
+	basensV1 := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "test-blueprints"}, Package: "basens"}, Revision: 1})
+	basensV2 := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "test-blueprints"}, Package: "basens"}, Revision: 2})
+
+	// Register the repository as 'downstream'
+	t.RegisterMainGitRepositoryF(gitRepository)
+
+	// Create PackageRevision from upstream repo
+	pr := &porchapi.PackageRevision{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PackageRevision",
+			APIVersion: porchapi.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: t.Namespace,
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			PackageName:    "testns",
+			WorkspaceName:  "test-workspace",
+			RepositoryName: gitRepository,
+			Tasks: []porchapi.Task{
+				{
+					Type: porchapi.TaskTypeClone,
+					Clone: &porchapi.PackageCloneTaskSpec{
+						Upstream: porchapi.UpstreamPackage{
+							UpstreamRef: &porchapi.PackageRevisionRef{
+								Name: basensV1.Name,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	t.CreateF(pr)
+
+	var revisionResources porchapi.PackageRevisionResources
+	t.GetF(client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      pr.Name,
+	}, &revisionResources)
+
+	filename := filepath.Join("testdata", "update-resources", "add-config-map.yaml")
+	cm, err := os.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("Failed to read ConfigMap from %q: %v", filename, err)
+	}
+	revisionResources.Spec.Resources["config-map.yaml"] = string(cm)
+	t.UpdateF(&revisionResources)
+
+	var newrr porchapi.PackageRevisionResources
+	t.GetF(client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      pr.Name,
+	}, &newrr)
+
+	by, _ := yaml.Marshal(&newrr)
+	t.Logf("PRR: %s", string(by))
+
+	t.GetF(client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      pr.Name,
+	}, pr)
+
+	pr.Spec.Tasks = append(pr.Spec.Tasks, porchapi.Task{
+		Type: porchapi.TaskTypeUpgrade,
+		Upgrade: &porchapi.PackageUpgradeTaskSpec{
+			OldUpstream: porchapi.PackageRevisionRef{
+				Name: basensV1.Name,
+			},
+			NewUpstream: porchapi.PackageRevisionRef{
+				Name: basensV2.Name,
+			},
+			LocalPackageRevisionRef: porchapi.PackageRevisionRef{
+				Name: pr.Name,
+			},
+		},
+	})
+
+	t.UpdateE(pr, &client.UpdateOptions{})
+
+	t.GetF(client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      pr.Name,
+	}, &revisionResources)
+
+	if _, found := revisionResources.Spec.Resources["resourcequota.yaml"]; !found {
+		t.Errorf("Updated package should contain 'resourcequota.yaml` file")
+	}
+}
+
 func (t *PorchSuite) TestConcurrentPackageUpdates() {
 	const (
 		gitRepository = "package-update"

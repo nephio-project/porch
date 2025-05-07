@@ -23,8 +23,10 @@ import (
 )
 
 func Merge(original, updated, destination fn.KubeObjects, additionalSchemas []byte) (fn.KubeObjects, error) {
-	if err := openapi.AddSchema(additionalSchemas); err != nil {
-		return nil, pkgerrors.Wrap(err, "error adding schema")
+	if additionalSchemas != nil {
+		if err := openapi.AddSchema(additionalSchemas); err != nil {
+			return nil, pkgerrors.Wrap(err, "error adding schema")
+		}
 	}
 	o, u, d := original.CopyToResourceNodes(), updated.CopyToResourceNodes(), destination.CopyToResourceNodes()
 
@@ -37,24 +39,20 @@ func Merge(original, updated, destination fn.KubeObjects, additionalSchemas []by
 			return nil, err
 		}
 	}
-
 	for i := range u {
 		if err := tl.addUpdated(u[i]); err != nil {
 			return nil, err
 		}
 	}
-
 	for i := range d {
 		if err := tl.addDest(d[i]); err != nil {
 			return nil, err
 		}
 	}
-
 	merged, err := MergeTuples(tl)
 	if err != nil {
 		return nil, err
 	}
-
 	return fn.MoveToKubeObjects(merged), nil
 }
 
