@@ -105,17 +105,19 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 	const op errors.Op = command + ".runE"
 
 	if len(args) == 0 {
-		return errors.E(op, "PACKAGE is a required positional argument")
+		return errors.E(op, "PACKAGE name is a required positional argument")
 	}
 
 	packageName := args[0]
 	var resources map[string]string
 	var err error
 
-	if len(args) > 1 {
+	if len(args) > 1 && args[1] != "-" {
 		resources, err = readFromDir(args[1])
-	} else {
+	} else if len(args) > 1 && args[1] == "-" {
 		resources, err = readFromReader(cmd.InOrStdin())
+	} else {
+		return errors.E(op, "Directory name or stdin is required")
 	}
 	if err != nil {
 		return errors.E(op, err)
