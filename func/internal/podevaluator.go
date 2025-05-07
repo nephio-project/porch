@@ -311,7 +311,12 @@ func (pcm *podCacheManager) podCacheManager() {
 				err := pcm.podManager.kubeClient.Get(context.Background(), podAndCl.pod, pod)
 				deleteCacheEntry := false
 				if err == nil {
-					if pod.DeletionTimestamp == nil && net.JoinHostPort(pod.Status.PodIP, defaultWrapperServerPort) == podAndCl.grpcClient.Target() {
+					// If the cached pod is in Failed state, delete it and evict from cache to trigger a fresh pod.
+					if pod.Status.Phase == corev1.PodFailed {
+						klog.Warningf("pod %v/%v is in Failed state. Deleting and recreating", pod.Namespace, pod.Name)
+						go pcm.deleteFailedPod(pod, req.image)
+						deleteCacheEntry = true
+					} else if pod.DeletionTimestamp == nil && net.JoinHostPort(pod.Status.PodIP, defaultWrapperServerPort) == podAndCl.grpcClient.Target() {
 						klog.Infof("reusing the connection to pod %v/%v to evaluate %v", pod.Namespace, pod.Name, req.image)
 						req.grpcClientCh <- &clientConnAndError{grpcClient: podAndCl.grpcClient}
 						go patchPodWithUnixTimeAnnotation(pcm.podManager.kubeClient, podAndCl.pod, pcm.podTTL)
@@ -371,6 +376,17 @@ func (pcm *podCacheManager) garbageCollector() {
 		return
 	}
 	for i, pod := range podList.Items {
+		// Immediately delete and evict any pod found in Failed state, regardless of TTL expiry.
+		image := pod.Spec.Containers[0].Image
+
+		if pod.Status.Phase == corev1.PodFailed {
+			klog.Warningf("Found failed pod %v/%v, deleting immediately", pod.Namespace, pod.Name)
+			go pcm.deleteFailedPod(&pod, image)
+			if cached, ok := pcm.cache[image]; ok && cached.pod.Name == pod.Name {
+				delete(pcm.cache, image)
+			}
+			continue
+		}
 		// If a pod is being deleted, skip it.
 		if pod.DeletionTimestamp != nil {
 			continue
@@ -416,6 +432,19 @@ func (pcm *podCacheManager) garbageCollector() {
 				}
 			}
 		}
+	}
+}
+
+// deleteFailedPod deletes a failed pod and removes it from cache if it is still the current pod.
+func (pcm *podCacheManager) deleteFailedPod(pod *corev1.Pod, image string) {
+	err := pcm.podManager.kubeClient.Delete(context.Background(), pod)
+	if err != nil {
+		klog.Warningf("Failed to delete failed pod %v/%v: %v", pod.Namespace, pod.Name, err)
+		return
+	}
+	if cached, ok := pcm.cache[image]; ok && cached.pod.Name == pod.Name {
+		delete(pcm.cache, image)
+		klog.Infof("Evicted pod from cache for image %v", image)
 	}
 }
 
