@@ -184,8 +184,9 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	// Close the draft
 	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, 0)
 	if err != nil {
-		rollback()
-		return nil, err
+		// Don't call rollback() here since it would likely fail again
+		// Just return the error from the close operation
+		return nil, fmt.Errorf("failed to close package revision draft: %w", err)
 	}
 
 	return repoPkgRev, nil
