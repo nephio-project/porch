@@ -151,21 +151,48 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 		return nil, err
 	}
 
+	// Create a draft package revision
 	draft, err := repo.CreatePackageRevisionDraft(ctx, obj)
 	if err != nil {
 		return nil, err
 	}
 
+	// Setup rollback function in case of errors
+	rollback := func() {
+		// Try to convert the draft to a PackageRevision for deletion
+		// If the conversion fails, we can't do much more since we can't delete a draft directly
+		if pkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, 0); err == nil {
+			if err := repo.DeletePackageRevision(ctx, pkgRev); err != nil {
+				klog.Warningf("Failed to rollback package revision creation: %v", err)
+			}
+		} else {
+			// If we can't convert the draft, log the error and continue
+			// The draft will be cleaned up by the repository's garbage collection
+			klog.Warningf("Failed to convert draft to package revision for rollback: %v", err)
+		}
+	}
+
+	// Apply tasks
 	if err := cad.taskHandler.ApplyTasks(ctx, draft, repositoryObj, obj, packageConfig); err != nil {
+		rollback()
 		return nil, err
 	}
 
+	// Update lifecycle
 	if err := draft.UpdateLifecycle(ctx, obj.Spec.Lifecycle); err != nil {
+		rollback()
 		return nil, err
 	}
 
-	// Updates are done.
-	return repo.ClosePackageRevisionDraft(ctx, draft, 0)
+	// Close the draft
+	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, 0)
+	if err != nil {
+		// Don't call rollback() here since it would likely fail again
+		// Just return the error from the close operation
+		return nil, fmt.Errorf("failed to close package revision draft: %w", err)
+	}
+
+	return repoPkgRev, nil
 }
 
 // The workspaceName must be unique, because it used to generate the package revision's metadata.name.
