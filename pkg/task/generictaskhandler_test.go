@@ -116,3 +116,41 @@ func TestApplyTasks(t *testing.T) {
 		})
 	}
 }
+
+func TestMapTaskToMutationPatchTask(t *testing.T) {
+	ctx := context.Background()
+
+	// Mock genericTaskHandler
+	handler := &genericTaskHandler{
+		cloneStrategy: api.CopyMerge,
+	}
+
+	// Mock task of type Patch
+	patchTask := &api.Task{
+		Type: api.TaskTypePatch,
+		Patch: &api.PackagePatchTaskSpec{
+			Patches: []api.PatchSpec{
+				{
+					File:      "test.yaml",
+					Contents:  "patch contents",
+					PatchType: api.PatchTypePatchFile,
+				},
+			},
+		},
+	}
+
+	// Mock PackageRevision
+	obj := &api.PackageRevision{
+		Spec: api.PackageRevisionSpec{
+			PackageName: "test-package",
+		},
+	}
+
+	// Call mapTaskToMutation
+	mutation, err := handler.mapTaskToMutation(ctx, obj, patchTask, false, nil)
+
+	// Verify results
+	assert.NoError(t, err)
+	assert.NotNil(t, mutation)
+	assert.IsType(t, &applyPatchMutation{}, mutation)
+}
