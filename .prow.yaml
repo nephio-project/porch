@@ -4,7 +4,7 @@ presubmits:
     run_if_changed: "(\\.go|Makefile|\\.mk)$"
     spec:
       containers:
-      - image: nephio/gotests:1885274380137664512
+      - image: nephio/gotests:1919654500491071488
         command:
         - make
         args:
