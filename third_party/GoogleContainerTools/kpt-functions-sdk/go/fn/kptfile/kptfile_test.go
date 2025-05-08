@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package fn
+package kptfile
 
 import (
 	"strings"
@@ -267,7 +267,7 @@ status: {conditions: [{type: test, status: "True", message: Everything is awesom
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			kptfile, err := NewKptfileFromPackage(tc.resources)
+			kptfile, err := NewFromPackage(tc.resources)
 			assert.NilError(t, err, "failed to parse Kptfile")
 
 			err = kptfile.SetTypedCondition(tc.cond)
