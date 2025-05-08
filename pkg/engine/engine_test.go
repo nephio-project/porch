@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -41,6 +42,15 @@ func TestCreatePackageRevisionRollback(t *testing.T) {
 			},
 			expectedError: true,
 			errorContains: "lifecycle update failed",
+		},
+		{
+			name: "rollback on close draft failure",
+			mockSetup: func(m *mockRepository) {
+				m.On("CreatePackageRevisionDraft", mock.Anything, mock.Anything).Return(&mockPackageRevision{}, nil)
+				m.On("ClosePackageRevisionDraft", mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("close failed"))
+			},
+			expectedError: true,
+			errorContains: "close failed",
 		},
 	}
 
