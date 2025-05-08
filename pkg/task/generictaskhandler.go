@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@ type genericTaskHandler struct {
 	repoOpener            repository.RepositoryOpener
 	credentialResolver    repository.CredentialResolver
 	referenceResolver     repository.ReferenceResolver
+	cloneStrategy         api.PackageMergeStrategy
 }
 
 func (th *genericTaskHandler) GetRuntime() fn.FunctionRuntime {
@@ -84,7 +85,13 @@ func (th *genericTaskHandler) ApplyTasks(ctx context.Context, draft repository.P
 			},
 		})
 	}
-
+	if len(tasks) > 0 {
+		cloneTask := obj.Spec.Tasks[0].Clone
+		if cloneTask != nil {
+			klog.Infof("Clone strategy is %s", cloneTask.Strategy)
+			th.cloneStrategy = cloneTask.Strategy
+		}
+	}
 	for i := range tasks {
 		task := &tasks[i]
 		mutation, err := th.mapTaskToMutation(ctx, obj, task, repositoryObj.Spec.Deployment, packageConfig)
@@ -159,7 +166,7 @@ func (th *genericTaskHandler) DoPRMutations(ctx context.Context, namespace strin
 		return err
 	}
 	if created {
-		kfPatchMutation, err := buildPatchMutation(ctx, kfPatchTask)
+		kfPatchMutation, err := buildPatchMutation(ctx, kfPatchTask, th.cloneStrategy)
 		if err != nil {
 			return err
 		}
@@ -292,7 +299,7 @@ func (th *genericTaskHandler) mapTaskToMutation(ctx context.Context, obj *api.Pa
 		}, nil
 
 	case api.TaskTypePatch:
-		return buildPatchMutation(ctx, task)
+		return buildPatchMutation(ctx, task, th.cloneStrategy)
 
 	case api.TaskTypeEdit:
 		if task.Edit == nil {

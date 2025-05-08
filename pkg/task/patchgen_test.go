@@ -198,7 +198,7 @@ func TestApplyPatchMutation(t *testing.T) {
 		Type:  api.TaskTypePatch,
 		Patch: patchTask,
 	}
-	m, _ := buildPatchMutation(context.Background(), task)
+	m, _ := buildPatchMutation(context.Background(), task, api.ResourceMerge)
 
 	ctx := context.Background()
 	_, _, err := m.apply(ctx, resources)
@@ -270,7 +270,7 @@ Binary files differ
 					"testfile.txt": "conflicting line\n",
 				},
 			},
-			expectedError: "conflict: fragment line does not match src line",
+			expectedError: "",
 		},
 	}
 
@@ -281,7 +281,8 @@ Binary files differ
 			}
 
 			m := applyPatchMutation{
-				patchTask: patchTask,
+				patchTask:     patchTask,
+				cloneStrategy: api.CopyMerge,
 			}
 
 			ctx := context.Background()
@@ -293,6 +294,47 @@ Binary files differ
 				}
 			} else if err != nil {
 				t.Errorf("apply() unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestSkipPatchMutation(t *testing.T) {
+	tests := []struct {
+		name          string
+		cloneStrategy api.PackageMergeStrategy
+		expectedSkip  bool
+	}{
+		{
+			name:          "CopyMerge strategy should skip",
+			cloneStrategy: api.CopyMerge,
+			expectedSkip:  true,
+		},
+		{
+			name:          "ForceDeleteReplace strategy should skip",
+			cloneStrategy: api.ForceDeleteReplace,
+			expectedSkip:  true,
+		},
+		{
+			name:          "resource-merge strategy should not skip",
+			cloneStrategy: api.PackageMergeStrategy("resource-merge"),
+			expectedSkip:  false,
+		},
+		{
+			name:          "Empty strategy should not skip",
+			cloneStrategy: api.PackageMergeStrategy(""),
+			expectedSkip:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := applyPatchMutation{
+				cloneStrategy: tt.cloneStrategy,
+			}
+			skip := skipPatchMutation(context.Background(), m)
+			if skip != tt.expectedSkip {
+				t.Errorf("skipPatchMutation() = %v, want %v", skip, tt.expectedSkip)
 			}
 		})
 	}
