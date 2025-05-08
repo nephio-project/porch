@@ -58,6 +58,8 @@ type PorchServerOptions struct {
 	CacheDirectory                   string
 	CacheType                        string
 	CoreAPIKubeconfigPath            string
+	DbCacheDriver                    string
+	DbCacheDataSource                string
 	DefaultImagePrefix               string
 	DisableValidatingAdmissionPolicy bool
 	FunctionRunnerAddress            string
@@ -160,6 +162,15 @@ func (o *PorchServerOptions) Complete() error {
 	}
 
 	o.CacheType = strings.ToUpper(o.CacheType)
+	if o.CacheType == string(cachetypes.DBCacheType) {
+		if strings.TrimSpace(o.DbCacheDriver) == "" {
+			klog.Fatalf("--db-cache-driver must be specified when using the database cache")
+		}
+
+		if strings.TrimSpace(o.DbCacheDataSource) == "" {
+			klog.Fatalf("--db-cache-data-source must be specified when using the database cache")
+		}
+	}
 
 	// if !o.LocalStandaloneDebugging {
 	// 	TODO: register admission plugins here ...
@@ -219,6 +230,10 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 				},
 				RepoSyncFrequency: o.RepoSyncFrequency,
 				CacheType:         cachetypes.CacheType(o.CacheType),
+				DBCacheOptions: cachetypes.DBCacheOptions{
+					Driver:     o.DbCacheDriver,
+					DataSource: o.DbCacheDataSource,
+				},
 			},
 		},
 	}
@@ -263,7 +278,9 @@ func (o *PorchServerOptions) AddFlags(fs *pflag.FlagSet) {
 	}
 
 	fs.StringVar(&o.CacheDirectory, "cache-directory", "", "Directory where Porch server stores repository and package caches.")
-	fs.StringVar(&o.CacheType, "cache-type", string(cachetypes.DefaultCacheType), "Type of cache to use for cacheing repos, supported type is \"CR\" (Custom Resource)")
+	fs.StringVar(&o.CacheType, "cache-type", string(cachetypes.DefaultCacheType), "Type of cache to use for cacheing repos, supported types are \"CR\" (Custom Resource) and \"DB\" (DataBase)")
+	fs.StringVar(&o.DbCacheDriver, "db-cache-driver", cachetypes.DefaultDBCacheDriver, "Database driver to use when for the database cache")
+	fs.StringVar(&o.DbCacheDataSource, "db-cache-data-source", "", "Address of the database, for example \"postgresql://user:pass@hostname:port/database\"")
 	fs.StringVar(&o.DefaultImagePrefix, "default-image-prefix", fnruntime.GCRImagePrefix, "Default prefix for unqualified function names")
 	fs.BoolVar(&o.DisableValidatingAdmissionPolicy, "disable-validating-admissions-policy", true, "Determine whether to (dis|en)able the Validating Admission Policy, which requires k8s version >= v1.30")
 	fs.StringVar(&o.FunctionRunnerAddress, "function-runner", "", "Address of the function runner gRPC service.")
