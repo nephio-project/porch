@@ -463,9 +463,8 @@ func (r *cachedRepository) Close(ctx context.Context) error {
 	return r.repo.Close(ctx)
 }
 
-// pollForever will continue polling until signal channel is closed or ctx is done.
+// pollForever will continue polling until the signal channel is closed or the ctx is done.
 func (r *cachedRepository) pollForever(ctx context.Context, repoSyncFrequency time.Duration) {
-	r.pollOnce(ctx)
 	for {
 		select {
 		case <-ctx.Done():
