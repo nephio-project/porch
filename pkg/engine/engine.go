@@ -159,12 +159,15 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 
 	// Setup rollback function in case of errors
 	rollback := func() {
-		// Convert draft to PackageRevision for deletion
+		// Try to convert the draft to a PackageRevision for deletion
+		// If the conversion fails, we can't do much more since we can't delete a draft directly
 		if pkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, 0); err == nil {
 			if err := repo.DeletePackageRevision(ctx, pkgRev); err != nil {
 				klog.Warningf("Failed to rollback package revision creation: %v", err)
 			}
 		} else {
+			// If we can't convert the draft, log the error and continue
+			// The draft will be cleaned up by the repository's garbage collection
 			klog.Warningf("Failed to convert draft to package revision for rollback: %v", err)
 		}
 	}
