@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/builtins"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
@@ -98,21 +97,45 @@ func setupMockPackageRevision(t *testing.T) *mockPackageRevision {
 	return mockPkgRev
 }
 
+type mockPackageRevisionDraft struct {
+	mock.Mock
+}
+
+func (m *mockPackageRevisionDraft) Key() repository.PackageRevisionKey {
+	args := m.Called()
+	return args.Get(0).(repository.PackageRevisionKey)
+}
+
+func (m *mockPackageRevisionDraft) GetMeta() metav1.ObjectMeta {
+	args := m.Called()
+	return args.Get(0).(metav1.ObjectMeta)
+}
+
+func (m *mockPackageRevisionDraft) UpdateResources(ctx context.Context, new *api.PackageRevisionResources, task *api.Task) error {
+	args := m.Called(ctx, new, task)
+	return args.Error(0)
+}
+
+func (m *mockPackageRevisionDraft) UpdateLifecycle(ctx context.Context, new api.PackageRevisionLifecycle) error {
+	args := m.Called(ctx, new)
+	return args.Error(0)
+}
+
 func TestCreatePackageRevisionRollback(t *testing.T) {
 	tests := []struct {
 		name          string
-		setupTest     func(*testFixture, *mockPackageRevision)
+		setupTest     func(*testFixture, *mockPackageRevision, *mockPackageRevisionDraft)
 		expectedError bool
 		errorContains string
 	}{
 		{
 			name: "rollback on task application failure",
-			setupTest: func(f *testFixture, mockPkgRev *mockPackageRevision) {
-				mockPkgRev.On("UpdateResources", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-				mockPkgRev.On("UpdateLifecycle", mock.Anything, mock.Anything).Return(nil)
+			setupTest: func(f *testFixture, mockPkgRev *mockPackageRevision, mockDraft *mockPackageRevisionDraft) {
+				mockDraft.On("UpdateResources", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+				mockDraft.On("UpdateLifecycle", mock.Anything, mock.Anything).Return(nil)
 
 				f.mockRepo.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil)
-				f.mockRepo.On("CreatePackageRevisionDraft", mock.Anything, mock.Anything).Return(mockPkgRev, nil)
+				f.mockRepo.On("CreatePackageRevisionDraft", mock.Anything, mock.Anything).Return(mockDraft, nil)
 				f.mockRepo.On("ClosePackageRevisionDraft", mock.Anything, mock.Anything, mock.Anything).Return(mockPkgRev, nil)
 				f.mockRepo.On("DeletePackageRevision", mock.Anything, mock.Anything).Return(nil)
 				f.mockRepo.On("Close").Return(nil)
@@ -124,12 +147,12 @@ func TestCreatePackageRevisionRollback(t *testing.T) {
 		},
 		{
 			name: "rollback on lifecycle update failure",
-			setupTest: func(f *testFixture, mockPkgRev *mockPackageRevision) {
-				mockPkgRev.On("UpdateResources", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-				mockPkgRev.On("UpdateLifecycle", mock.Anything, mock.Anything).Return(fmt.Errorf("lifecycle update failed"))
+			setupTest: func(f *testFixture, mockPkgRev *mockPackageRevision, mockDraft *mockPackageRevisionDraft) {
+				mockDraft.On("UpdateResources", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+				mockDraft.On("UpdateLifecycle", mock.Anything, mock.Anything).Return(fmt.Errorf("lifecycle update failed"))
 
 				f.mockRepo.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil)
-				f.mockRepo.On("CreatePackageRevisionDraft", mock.Anything, mock.Anything).Return(mockPkgRev, nil)
+				f.mockRepo.On("CreatePackageRevisionDraft", mock.Anything, mock.Anything).Return(mockDraft, nil)
 				f.mockRepo.On("ClosePackageRevisionDraft", mock.Anything, mock.Anything, mock.Anything).Return(mockPkgRev, nil)
 				f.mockRepo.On("DeletePackageRevision", mock.Anything, mock.Anything).Return(nil)
 				f.mockRepo.On("Close").Return(nil)
@@ -141,12 +164,12 @@ func TestCreatePackageRevisionRollback(t *testing.T) {
 		},
 		{
 			name: "rollback on close draft failure",
-			setupTest: func(f *testFixture, mockPkgRev *mockPackageRevision) {
-				mockPkgRev.On("UpdateResources", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-				mockPkgRev.On("UpdateLifecycle", mock.Anything, mock.Anything).Return(nil)
+			setupTest: func(f *testFixture, mockPkgRev *mockPackageRevision, mockDraft *mockPackageRevisionDraft) {
+				mockDraft.On("UpdateResources", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+				mockDraft.On("UpdateLifecycle", mock.Anything, mock.Anything).Return(nil)
 
 				f.mockRepo.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil)
-				f.mockRepo.On("CreatePackageRevisionDraft", mock.Anything, mock.Anything).Return(mockPkgRev, nil)
+				f.mockRepo.On("CreatePackageRevisionDraft", mock.Anything, mock.Anything).Return(mockDraft, nil)
 				f.mockRepo.On("ClosePackageRevisionDraft", mock.Anything, mock.Anything, mock.Anything).Return(mockPkgRev, fmt.Errorf("close failed"))
 				f.mockRepo.On("Close").Return(nil)
 
@@ -161,7 +184,8 @@ func TestCreatePackageRevisionRollback(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newTestFixture(t)
 			mockPkgRev := setupMockPackageRevision(t)
-			tt.setupTest(f, mockPkgRev)
+			mockDraft := &mockPackageRevisionDraft{}
+			tt.setupTest(f, mockPkgRev, mockDraft)
 
 			_, err := f.engine.CreatePackageRevision(context.Background(), f.repositoryObj, f.packageRevision, nil)
 			if tt.expectedError {
@@ -185,9 +209,14 @@ type mockRepository struct {
 	mock.Mock
 }
 
-func (m *mockRepository) Close() error {
-	args := m.Called()
-	return args.Error(0)
+func (m *mockRepository) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
+	args := m.Called(ctx, filter)
+	return args.Get(0).([]repository.PackageRevision), args.Error(1)
+}
+
+func (m *mockRepository) CreatePackageRevisionDraft(ctx context.Context, obj *api.PackageRevision) (repository.PackageRevisionDraft, error) {
+	args := m.Called(ctx, obj)
+	return args.Get(0).(repository.PackageRevisionDraft), args.Error(1)
 }
 
 func (m *mockRepository) ClosePackageRevisionDraft(ctx context.Context, draft repository.PackageRevisionDraft, version int) (repository.PackageRevision, error) {
@@ -195,18 +224,8 @@ func (m *mockRepository) ClosePackageRevisionDraft(ctx context.Context, draft re
 	return args.Get(0).(repository.PackageRevision), args.Error(1)
 }
 
-func (m *mockRepository) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
-	args := m.Called(ctx, filter)
-	return args.Get(0).([]repository.PackageRevision), args.Error(1)
-}
-
-func (m *mockRepository) CreatePackageRevisionDraft(ctx context.Context, obj *porchapi.PackageRevision) (repository.PackageRevisionDraft, error) {
+func (m *mockRepository) DeletePackageRevision(ctx context.Context, obj repository.PackageRevision) error {
 	args := m.Called(ctx, obj)
-	return args.Get(0).(repository.PackageRevisionDraft), args.Error(1)
-}
-
-func (m *mockRepository) DeletePackageRevision(ctx context.Context, old repository.PackageRevision) error {
-	args := m.Called(ctx, old)
 	return args.Error(0)
 }
 
@@ -220,19 +239,24 @@ func (m *mockRepository) ListPackages(ctx context.Context, filter repository.Lis
 	return args.Get(0).([]repository.Package), args.Error(1)
 }
 
-func (m *mockRepository) CreatePackage(ctx context.Context, obj *porchapi.PorchPackage) (repository.Package, error) {
+func (m *mockRepository) CreatePackage(ctx context.Context, obj *api.PorchPackage) (repository.Package, error) {
 	args := m.Called(ctx, obj)
 	return args.Get(0).(repository.Package), args.Error(1)
 }
 
-func (m *mockRepository) DeletePackage(ctx context.Context, old repository.Package) error {
-	args := m.Called(ctx, old)
+func (m *mockRepository) DeletePackage(ctx context.Context, obj repository.Package) error {
+	args := m.Called(ctx, obj)
 	return args.Error(0)
 }
 
 func (m *mockRepository) Version(ctx context.Context) (string, error) {
 	args := m.Called(ctx)
 	return args.String(0), args.Error(1)
+}
+
+func (m *mockRepository) Close() error {
+	args := m.Called()
+	return args.Error(0)
 }
 
 func (m *mockRepository) Refresh(ctx context.Context) error {
