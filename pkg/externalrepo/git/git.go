@@ -87,7 +87,6 @@ func formatCommitMessage(changeType string) string {
 type GitRepository interface {
 	repository.Repository
 	GetPackageRevision(ctx context.Context, ref, path string) (repository.PackageRevision, kptfilev1.GitLock, error)
-	UpdateDeletionProposedCache() error
 }
 
 //go:generate go run golang.org/x/tools/cmd/stringer -type=MainBranchStrategy -linecomment
@@ -1709,7 +1708,7 @@ func (r *gitRepository) discoverPackagesInTree(commit *object.Commit, opt Discov
 }
 
 func (r *gitRepository) Refresh(_ context.Context) error {
-	return r.UpdateDeletionProposedCache()
+	return r.updateDeletionProposedCache()
 }
 
 // getPkgWorkspace returns the workspace name as parsed from the kpt annotations from the latest commit for the package.
