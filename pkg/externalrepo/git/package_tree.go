@@ -119,7 +119,7 @@ func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revision
 		klog.Infof("Loaded tasks for package %s: %s", gitPrKey, marshalledTasks)
 	}
 
-	return &gitPackageRevision{
+	pr := &gitPackageRevision{
 		prKey:     gitPrKey,
 		repo:      repo,
 		updated:   updated,
@@ -128,7 +128,13 @@ func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revision
 		tree:      p.treeHash,
 		commit:    p.parent.commit.Hash,
 		tasks:     tasks,
-	}, nil
+	}
+
+	pr.lifecycle, err = p.parent.parent.getLifecycle(pr)
+	if err != nil {
+		return nil, err
+	}
+	return pr, nil
 }
 
 // DiscoveryPackagesOptions holds the configuration for walking a git tree
