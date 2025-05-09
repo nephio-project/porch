@@ -125,7 +125,7 @@ func (s *CliTestSuite) RunTestCase(t *testing.T, tc TestCaseConfig) {
 		deleteRemoteTestRepo(t, tc.TestCase)
 	})
 	
-	createRemoteTestRepo(t, repoURL)
+	createRemoteTestRepo(t, tc.TestCase)
 
 	if tc.Repository != "" {
 		s.RegisterRepository(t, repoURL, tc.TestCase, tc.Repository)
@@ -362,7 +362,7 @@ func exitCode(exit error) int {
 
 func deleteRemoteTestRepo (t *testing.T, testcaseName string) {
 
-	apiURL := fmt.Sprintf("%s/api/v1/repos/%s/%s", defaultTestGitServerUrl, testGitUserOrg, testcaseName)
+	apiURL := fmt.Sprintf("http://localhost:3000/api/v1/repos/%s/%s", testGitUserOrg, testcaseName)
 
 	req, err := nethttp.NewRequest("DELETE", apiURL, nil)
 	if err != nil {
@@ -385,12 +385,12 @@ func deleteRemoteTestRepo (t *testing.T, testcaseName string) {
 	}
 }
 
-func createRemoteTestRepo (t *testing.T, repoUrl string) {
+func createRemoteTestRepo (t *testing.T, testcaseName string) {
 
 	tmpPath := t.TempDir()
 	repo, err := git.PlainInit(tmpPath, false)
 	if err != nil {
-		t.Fatalf("Failed to init the repo %s: %v", repoUrl, err)
+		t.Fatalf("Failed to init the repo %s: %v", testcaseName, err)
 	}
 
 	err = repo.Storer.SetReference(
@@ -418,9 +418,10 @@ func createRemoteTestRepo (t *testing.T, repoUrl string) {
 		},
 	})
 	if err != nil {
-		t.Fatalf("Failed to commit to repo %s: %v", repoUrl, err)
+		t.Fatalf("Failed to commit to repo %s: %v", testcaseName, err)
 	}
 
+	repoUrl := fmt.Sprintf("http://localhost:3000/%s/%s", testGitUserOrg, testcaseName)
 	_, err = repo.CreateRemote(&config.RemoteConfig{
 		Name: "origin",
 		URLs: []string{repoUrl},
@@ -438,9 +439,9 @@ func createRemoteTestRepo (t *testing.T, repoUrl string) {
 		RequireRemoteRefs: []config.RefSpec{},
 	})
 	if err != nil {
-		t.Fatalf("Failed to push test repo %s: %v", repoUrl, err)
+		t.Fatalf("Failed to push test repo %s: %v", testcaseName, err)
 	}
-	t.Logf("Test repo created successfully: %s", repoUrl)
+	t.Logf("Test repo created successfully: %s", testcaseName)
 }
 
 func getRepoName(args []string) (string, bool) {
