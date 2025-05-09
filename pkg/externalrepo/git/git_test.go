@@ -259,7 +259,7 @@ func (g GitSuite) TestGitPackageRoundTrip(t *testing.T) {
 		version := "v1"
 
 		path := "test-package"
-		packageRevision, gitLock, err := repo.GetPackageRevision(ctx, version, path)
+		packageRevision, gitLock, err := repo.GetPackageRevisionWithoutFetch(ctx, version, path)
 		if err != nil {
 			t.Fatalf("GetPackageRevision(%q, %q) failed: %v", version, path, err)
 		}
@@ -1534,6 +1534,48 @@ func createAndPublishPR(ctx context.Context, repo repository.Repository, pr *v1a
 	return prr, nil
 }
 
+func createAndPublishPRWithResources(ctx context.Context, repo repository.Repository, pr *v1alpha1.PackageRevision, prr *v1alpha1.PackageRevisionResources) (repository.PackageRevision, error) {
+	draft, err := repo.CreatePackageRevisionDraft(ctx, pr)
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "Failed to create package revision draft")
+	}
+
+	err = draft.UpdateResources(ctx, prr, nil)
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "Failed to update draft resources")
+	}
+
+	prdraftv1, err := repo.ClosePackageRevisionDraft(ctx, draft, 0)
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "Failed to close draft packageRevision")
+	}
+
+	draft2, err := repo.UpdatePackageRevision(ctx, prdraftv1)
+
+	if err := draft2.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleProposed); err != nil {
+		return nil, pkgerrors.Wrap(err, "Failed to update draft lifecycle")
+	}
+
+	prdraftv2, err := repo.ClosePackageRevisionDraft(ctx, draft2, 0)
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "Failed to finalize draft")
+	}
+
+	draft3, err := repo.UpdatePackageRevision(ctx, prdraftv2)
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "Failed to open draft packageRevision")
+	}
+
+	err = draft3.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "Failed to update draft lifecycle")
+	}
+
+	prv, err := repo.ClosePackageRevisionDraft(ctx, draft3, 1)
+
+	return prv, err
+}
+
 func findCommitWithAuthorAndEmail(t *testing.T, repo *gogit.Repository, author, email string) error {
 	t.Logf("Looking for commit with author %q and email %q", author, email)
 	log, err := repo.Log(&gogit.LogOptions{Order: gogit.LogOrderCommitterTime})
@@ -2599,4 +2641,113 @@ func TestFormatCommitMessage(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDeletionProposedPackageIsRediscovered(t *testing.T) {
+	const (
+		repoName    = "deletion-proposed-on-rediscovered-repo"
+		namespace   = "default"
+		packageName = "deletion-proposed-on-rediscovered-pkg"
+		workspace   = "deletion-proposed-on-rediscovered-ws"
+	)
+
+	tempdir := t.TempDir()
+	tarfile := filepath.Join("testdata", "trivial-repository.tar")
+	remotepath := filepath.Join(tempdir, "remote")
+	localpath := filepath.Join(tempdir, "local")
+	_, address := ServeGitRepository(t, tarfile, remotepath)
+
+	repoSpec := &configapi.GitRepository{
+		Repo: address,
+	}
+
+	ctx := context.Background()
+
+	localRepo, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, GitRepositoryOptions{})
+	if err != nil {
+		t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
+	}
+
+	pr1 := &v1alpha1.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: repoName,
+		},
+		Spec: v1alpha1.PackageRevisionSpec{
+			PackageName:    packageName,
+			WorkspaceName:  workspace,
+			RepositoryName: repoName,
+			Tasks: []v1alpha1.Task{
+				{
+					Type: v1alpha1.TaskTypeInit,
+					Init: &v1alpha1.PackageInitTaskSpec{
+						Description: "Empty Package",
+					},
+				},
+			},
+		},
+	}
+
+	resources := &v1alpha1.PackageRevisionResources{
+		Spec: v1alpha1.PackageRevisionResourcesSpec{
+			Resources: map[string]string{
+				"Kptfile": Kptfile,
+			},
+		},
+	}
+
+	t.Logf("Creating initial Published PackageRevision %s", pr1.Spec.PackageName)
+
+	_, err = createAndPublishPRWithResources(ctx, localRepo, pr1, resources)
+	if err != nil {
+		t.Fatalf("Failed to create and publish package revision: %v", err)
+	}
+
+	prs, err := localRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{Lifecycle: v1alpha1.PackageRevisionLifecyclePublished})
+	if err != nil {
+		t.Fatalf("Failed to list package revisions: %v", err)
+	}
+
+	if len(prs) != 2 {
+		t.Fatalf("Expected 2 published package revisions, got %d", len(prs))
+	}
+
+	prv2draft, err := localRepo.UpdatePackageRevision(ctx, prs[0])
+	if err != nil {
+		t.Fatalf("Failed to create draft package revision: %v", err)
+	}
+
+	err = prv2draft.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleDeletionProposed)
+	if err != nil {
+		t.Fatalf("Failed to update lifecycle: %v", err)
+	}
+
+	_, err = localRepo.ClosePackageRevisionDraft(ctx, prv2draft, 0)
+	if err != nil {
+		t.Fatalf("Failed to finalize draft: %v", err)
+	}
+
+	t.Logf("Clean up local repo")
+
+	localRepo.Close()
+
+	t.Logf("Opening repository for the second time")
+
+	localRepov2, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, GitRepositoryOptions{})
+	if err != nil {
+		t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
+	}
+
+	prs2, err := localRepov2.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
+	if err != nil {
+		t.Fatalf("Failed to list PackageRevisions: %v", err)
+	}
+
+	if len(prs2) != 2 {
+		t.Fatalf("Expected 2 PackageRevisions, got %d", len(prs))
+	}
+
+	if prs[0].Lifecycle(ctx) != v1alpha1.PackageRevisionLifecycleDeletionProposed {
+		t.Fatalf("Expected PackageRevision to be in deletion proposed state, got %s", prs[0].Lifecycle(ctx))
+	}
+
 }

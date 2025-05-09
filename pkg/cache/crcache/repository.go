@@ -166,14 +166,6 @@ func (r *cachedRepository) getCachedPackages(ctx context.Context, forceRefresh b
 	if forceRefresh {
 		packages = nil
 		packageRevisions = nil
-
-		r.mutex.Lock()
-		err := r.repo.Refresh(ctx)
-		r.mutex.Unlock()
-
-		if err != nil {
-			return nil, nil, err
-		}
 	}
 
 	if packages == nil {
