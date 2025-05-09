@@ -117,11 +117,14 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 	} else if len(args) > 1 && args[1] == "-" {
 		resources, err = readFromReader(cmd.InOrStdin())
 	} else {
-		return errors.E(op, "Directory name or stdin is required")
+		r.printer.Printf("Warning: This way of using stdin will be deprecated in Porch release 5.x.x. Please use '-' to provide stdin.")
+		resources, err = readFromReader(cmd.InOrStdin())
 	}
 	if err != nil {
 		return errors.E(op, err)
 	}
+
+	r.printer.Printf("Resources - %v", resources)
 
 	pkgResources := porchapi.PackageRevisionResources{
 		TypeMeta: metav1.TypeMeta{
