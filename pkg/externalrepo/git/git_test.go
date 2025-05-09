@@ -2728,7 +2728,10 @@ func TestDeletionProposedPackageIsRediscovered(t *testing.T) {
 
 	t.Logf("Clean up local repo")
 
-	localRepo.Close()
+	err = localRepo.Close()
+	if err != nil {
+		t.Fatalf("Failed to close local repo: %v", err)
+	}
 
 	t.Logf("Opening repository for the second time")
 
