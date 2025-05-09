@@ -49,10 +49,8 @@ jobs:
       - name: Create k8s Kind Cluster
         uses: helm/kind-action@v1
         with:
-          cluster_name: porch-test
           version: v0.24.0
-          kubectl_version: v1.32.2
-          config: deployments/local/kind_porch_test_cluster.yaml
+          install_only: true
       - name: Set up Git config
         run: |
           git config --global user.name "My Name"
