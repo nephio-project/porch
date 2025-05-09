@@ -124,8 +124,6 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 		return errors.E(op, err)
 	}
 
-	r.printer.Printf("Resources - %v", resources)
-
 	pkgResources := porchapi.PackageRevisionResources{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevisionResources",
