@@ -86,7 +86,7 @@ func formatCommitMessage(changeType string) string {
 
 type GitRepository interface {
 	repository.Repository
-	GetPackageRevision(ctx context.Context, ref, path string) (repository.PackageRevision, kptfilev1.GitLock, error)
+	GetPackageRevisionWithoutFetch(ctx context.Context, ref, path string) (repository.PackageRevision, kptfilev1.GitLock, error)
 }
 
 //go:generate go run golang.org/x/tools/cmd/stringer -type=MainBranchStrategy -linecomment
@@ -249,11 +249,6 @@ type gitRepository struct {
 	// a git repository.
 	credential repository.Credential
 
-	// deletionProposedCache contains the deletionProposed branches that
-	// exist in the repo so that we can easily check them without iterating
-	// through all the refs each time
-	deletionProposedCache map[BranchName]bool
-
 	mutex sync.Mutex
 
 	// caBundle to use for TLS communication towards git
@@ -374,6 +369,10 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 	var result []*gitPackageRevision
 
 	mainBranch := r.branch.RefInLocal() // Looking for the registered branch
+
+	if err != nil {
+		return nil, err
+	}
 
 	for ref, err := refs.Next(); err == nil; ref, err = refs.Next() {
 		switch name := ref.Name(); {
@@ -510,7 +509,10 @@ func (r *gitRepository) UpdatePackageRevision(ctx context.Context, old repositor
 
 	// Fetch lifecycle directly from the repository rather than from the gitPackageRevision. This makes
 	// sure we don't end up requesting the same lock twice.
-	lifecycle := r.getLifecycle(oldGitPackage)
+	lifecycle, err := r.getLifecycle(oldGitPackage)
+	if err != nil {
+		return nil, err
+	}
 
 	return &gitPackageRevisionDraft{
 		prKey:     oldGitPackage.prKey,
@@ -628,15 +630,12 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, old repositor
 				return fmt.Errorf("failed to update git references: %w", err)
 			}
 
-			// Remove the deletionProposed branch from the cache
-			delete(r.deletionProposedCache, deletionProposedBranch)
-
 			return nil
 		},
 	)
 }
 
-func (r *gitRepository) GetPackageRevision(ctx context.Context, version, path string) (repository.PackageRevision, kptfilev1.GitLock, error) {
+func (r *gitRepository) GetPackageRevisionWithoutFetch(ctx context.Context, version, path string) (repository.PackageRevision, kptfilev1.GitLock, error) {
 	ctx, span := tracer.Start(ctx, "gitRepository::GetPackageRevision", trace.WithAttributes())
 	defer span.End()
 	r.mutex.Lock()
@@ -824,37 +823,6 @@ func (r *gitRepository) loadDraft(ctx context.Context, ref *plumbing.Reference) 
 	}
 
 	return packageRevision, nil
-}
-
-func (r *gitRepository) updateDeletionProposedCache() error {
-	r.deletionProposedCache = make(map[BranchName]bool)
-
-	err := r.fetchRemoteRepository(context.Background())
-	if err != nil {
-		return err
-	}
-	refs, err := r.repo.References()
-	if err != nil {
-		return err
-	}
-
-	for {
-		ref, err := refs.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			klog.Errorf("error getting next ref: %v", err)
-			break
-		}
-
-		branch, isDeletionProposedBranch := getdeletionProposedBranchNameInLocal(ref.Name())
-		if isDeletionProposedBranch {
-			r.deletionProposedCache[deletionProposedPrefix+branch] = true
-		}
-	}
-
-	return nil
 }
 
 func parseDraftName(draft *plumbing.Reference) (pkgPathAndName, workspaceName string, err error) {
@@ -1333,7 +1301,7 @@ func (r *gitRepository) findLatestPackageCommit(startCommit *object.Commit, key 
 // commitCallback is the function type that needs to be provided to the history iterator functions.
 type commitCallback func(*object.Commit) error
 
-func (r *gitRepository) GetLifecycle(ctx context.Context, pkgRev *gitPackageRevision) v1alpha1.PackageRevisionLifecycle {
+func (r *gitRepository) GetLifecycle(ctx context.Context, pkgRev *gitPackageRevision) (v1alpha1.PackageRevisionLifecycle, error) {
 	_, span := tracer.Start(ctx, "gitRepository::GetLifecycle", trace.WithAttributes())
 	defer span.End()
 	r.mutex.Lock()
@@ -1342,33 +1310,32 @@ func (r *gitRepository) GetLifecycle(ctx context.Context, pkgRev *gitPackageRevi
 	return r.getLifecycle(pkgRev)
 }
 
-func (r *gitRepository) getLifecycle(pkgRev *gitPackageRevision) v1alpha1.PackageRevisionLifecycle {
+// As this operation is checking a file on the repo, a wrapping function needs to acquire the repository lock.
+func (r *gitRepository) getLifecycle(pkgRev *gitPackageRevision) (v1alpha1.PackageRevisionLifecycle, error) {
 	switch ref := pkgRev.ref; {
 	case ref == nil:
 		return r.checkPublishedLifecycle(pkgRev)
 	case isDraftBranchNameInLocal(ref.Name()):
-		return v1alpha1.PackageRevisionLifecycleDraft
+		return v1alpha1.PackageRevisionLifecycleDraft, nil
 	case isProposedBranchNameInLocal(ref.Name()):
-		return v1alpha1.PackageRevisionLifecycleProposed
+		return v1alpha1.PackageRevisionLifecycleProposed, nil
 	default:
 		return r.checkPublishedLifecycle(pkgRev)
 	}
 }
 
-func (r *gitRepository) checkPublishedLifecycle(pkgRev *gitPackageRevision) v1alpha1.PackageRevisionLifecycle {
-	if r.deletionProposedCache == nil {
-		if err := r.updateDeletionProposedCache(); err != nil {
-			klog.Errorf("failed to update deletionProposed cache: %v", err)
-			return v1alpha1.PackageRevisionLifecyclePublished
-		}
-	}
-
+// CheckPublishedLifecycle checks whether the request had a published or a deletion proposed package.
+// As this operation is checking a file on the repo, a wrapping function needs to acquire the repository lock.
+func (r *gitRepository) checkPublishedLifecycle(pkgRev *gitPackageRevision) (v1alpha1.PackageRevisionLifecycle, error) {
 	branchName := createDeletionProposedName(pkgRev.Key())
-	if _, found := r.deletionProposedCache[branchName]; found {
-		return v1alpha1.PackageRevisionLifecycleDeletionProposed
+	// As per the writing of this one, the only other error that can happen here is File IO errors.
+	_, err := r.repo.Branch(branchName.RefInLocal().String())
+	if err == git.ErrBranchNotFound {
+		return v1alpha1.PackageRevisionLifecyclePublished, nil
+	} else if err != nil {
+		return "", err
 	}
-
-	return v1alpha1.PackageRevisionLifecyclePublished
+	return v1alpha1.PackageRevisionLifecycleDeletionProposed, nil
 }
 
 func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageRevision, newLifecycle v1alpha1.PackageRevisionLifecycle) error {
@@ -1378,7 +1345,10 @@ func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageR
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	old := r.getLifecycle(pkgRev)
+	old, err := r.getLifecycle(pkgRev)
+	if err != nil {
+		return err
+	}
 	if !v1alpha1.LifecycleIsPublished(old) {
 		return fmt.Errorf("cannot update lifecycle for draft package revision")
 	}
@@ -1390,7 +1360,6 @@ func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageR
 			return fmt.Errorf("invalid new lifecycle value: %q", newLifecycle)
 		}
 		// Push the package revision into a deletionProposed branch.
-		r.deletionProposedCache[deletionProposedBranch] = true
 		refSpecs.AddRefToPush(pkgRev.commit, deletionProposedBranch.RefInLocal())
 	}
 	if old == v1alpha1.PackageRevisionLifecycleDeletionProposed {
@@ -1398,8 +1367,6 @@ func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageR
 			return fmt.Errorf("invalid new lifecycle value: %q", newLifecycle)
 		}
 
-		// Delete the deletionProposed branch
-		delete(r.deletionProposedCache, deletionProposedBranch)
 		ref := plumbing.NewHashReference(deletionProposedBranch.RefInLocal(), pkgRev.commit)
 		refSpecs.AddRefToDelete(ref)
 	}
@@ -1579,13 +1546,14 @@ func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 	}
 
 	return &gitPackageRevision{
-		prKey:   d.prKey,
-		repo:    d.repo,
-		updated: d.updated,
-		ref:     newRef,
-		tree:    d.tree,
-		commit:  newRef.Hash(),
-		tasks:   d.tasks,
+		prKey:     d.prKey,
+		repo:      d.repo,
+		updated:   d.updated,
+		ref:       newRef,
+		tree:      d.tree,
+		commit:    newRef.Hash(),
+		tasks:     d.tasks,
+		lifecycle: d.lifecycle,
 	}, nil
 
 }
@@ -1707,8 +1675,10 @@ func (r *gitRepository) discoverPackagesInTree(commit *object.Commit, opt Discov
 	return t, nil
 }
 
-func (r *gitRepository) Refresh(_ context.Context) error {
-	return r.updateDeletionProposedCache()
+// Deprecated: use ListPackageRevisions instead
+func (r *gitRepository) Refresh(ctx context.Context) error {
+	_, err := r.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
+	return err
 }
 
 // getPkgWorkspace returns the workspace name as parsed from the kpt annotations from the latest commit for the package.
