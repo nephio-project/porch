@@ -45,7 +45,7 @@ const (
 	updateGoldenFiles       = "UPDATE_GOLDEN_FILES"
 	testGitUserOrg          = "nephio"
 	testGitPassword         = "secret"
-	defaultTestGitServerUrl = "http://localhost:3000"
+	defaultTestGitServerUrl = "http://gitea.gitea.svc.cluster.local:3000"
 )
 
 type CliTestSuite struct {
@@ -80,10 +80,10 @@ func NewCliTestSuite(t *testing.T, testdataDir string) *CliTestSuite {
 
 	isPorchInCluster := IsPorchServerRunningInCluster(t)
 	if isPorchInCluster {
-		s.GitServerURL = defaultTestGitServerUrl+"/nephio"
+		s.GitServerURL = defaultTestGitServerUrl
 	} else {
 		ip := KubectlWaitForLoadBalancerIp(t, "gitea", "gitea-lb")
-		s.GitServerURL = "http://" + ip + ":3000/nephio"
+		s.GitServerURL = "http://" + ip + ":3000"
 	}
 	s.SearchAndReplace = map[string]string{}
 	if s.GitServerURL != defaultTestGitServerUrl {
@@ -117,7 +117,7 @@ func (s *CliTestSuite) RunTests(t *testing.T) {
 
 // RunTestCase runs a single test case.
 func (s *CliTestSuite) RunTestCase(t *testing.T, tc TestCaseConfig) {
-	repoURL := s.GitServerURL + "/" + strings.ReplaceAll(tc.TestCase, "/", "-")
+	repoURL := s.GitServerURL + "/" + testGitUserOrg + "/" + strings.ReplaceAll(tc.TestCase, "/", "-")
 
 	KubectlCreateNamespace(t, tc.TestCase)
 	t.Cleanup(func() {
