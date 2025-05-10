@@ -8,6 +8,7 @@ networking:
   serviceSubnet: 10.197.0.0/16
 nodes:
 - role: control-plane
+  image: kindest/node:v1.32.2
   extraPortMappings:
   - containerPort: 30000 # Gitea NodePort
     hostPort: 3000
