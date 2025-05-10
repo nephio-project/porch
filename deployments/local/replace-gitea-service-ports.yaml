@@ -10,7 +10,7 @@ replacements:
   targets:
   - select: 
       kind: Service
-      name: gitea
+      name: gitea-lb
       namespace: gitea
     fieldPaths:
     - spec.ports.[name=http].nodePort

@@ -1,0 +1,75 @@
+commands:
+  - args:
+      - porchctl
+      - repo
+      - register
+      - --namespace=rpkg-update-alt
+      - --name=git
+      - --repo-basic-password=secret
+      - --repo-basic-username=nephio
+      - http://gitea.gitea.svc.cluster.local:3000/nephio/rpkg-update-alt
+  - args:
+      - porchctl
+      - rpkg
+      - clone
+      - --namespace=rpkg-update-alt
+      - http://gitea.gitea.svc.cluster.local:3000/nephio/test-blueprints.git
+      - --directory=update
+      - --ref=update/v1
+      - --repository=git
+      - --workspace=v1
+      - --strategy=copy-merge
+      - deployment
+    stdout: "git.deployment.v1 created\n"
+  - args:
+      - porchctl
+      - rpkg
+      - pull
+      - git.deployment.v1
+      - --namespace=rpkg-update-alt
+      - /tmp/porch-e2e/local-pack-deployment
+  - args:
+      - kpt
+      - fn
+      - eval
+      - --image
+      - gcr.io/kpt-fn/search-replace:v0.2.0
+      - --match-kind
+      - Deployment
+      - /tmp/porch-e2e/local-pack-deployment
+      - --
+      - by-path=spec.replicas
+      - put-value=3
+    stderr: |
+      [RUNNING] "gcr.io/kpt-fn/search-replace:v0.2.0" on 1 resource(s)
+        Results:
+          [info] spec.replicas: Mutated field value to "3"
+  - args:
+      - porchctl
+      - rpkg
+      - push
+      - git.deployment.v1
+      - --namespace=rpkg-update-alt
+      - /tmp/porch-e2e/local-pack-deployment
+    stdout: "git.deployment.v1 pushed\n"
+  - args:
+      - porchctl
+      - rpkg
+      - update
+      - git.deployment.v1
+      - --namespace=rpkg-update-alt
+      - --revision=2
+    stdout: "git.deployment.v1 updated\n"
+  - args:
+      - porchctl
+      - rpkg
+      - pull
+      - --namespace=rpkg-update-alt
+      - git.deployment.v1
+      - /tmp/porch-e2e/local-pack-result
+  - args:
+      - sh
+      - -c
+      - |
+        cat /tmp/porch-e2e/local-pack-result/a.yaml | grep "replicas: 2"
+    stdout: "  replicas: 2\n"
