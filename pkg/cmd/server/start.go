@@ -141,7 +141,7 @@ func (o *PorchServerOptions) Complete() error {
 			klog.Fatalf("--standalone-debug-mode must not be used when running in k8s")
 		} else {
 			o.RecommendedOptions.Authorization = nil
-			o.RecommendedOptions.Admission = nil
+			o.RecommendedOptions.Admission = genericoptions.NewAdmissionOptions()
 			o.RecommendedOptions.Authentication.RemoteKubeConfigFileOptional = true
 		}
 	} else {
