@@ -30,7 +30,9 @@ ROOT=$($READLINK --canonicalize "$HERE/..")
 
 ORG=github.com/nephio-project
 REPO=$ORG/porch
-API_PKG=$REPO/api
+PORCH_GO_MODULE_VERSION=v4
+ROOT_GO_MODULE=$REPO/$PORCH_GO_MODULE_VERSION
+API_PKG=$REPO/$PORCH_GO_MODULE_VERSION/api 
 INPUT_PKG=$API_PKG/porch
 CLIENT_PKG=$API_PKG/generated
 
@@ -51,12 +53,14 @@ echo "work directory: $WORK"
 copy_function goodbye old_goodbye
 function goodbye () {
 	echo "deleting work directory: $WORK"
-	rm -r "$WORK"
+	#rm -r "$WORK"
 	old_goodbye $1
 }
 
-mkdir -p "$WORK/$ORG"
-ln -s "$ROOT" "$WORK/$REPO"
+# Need to fake a folder structure that looks has the same paths as the go module names
+# So the porch repository root is mounted under /tmp/<tmpfolder>/github.com/nephio-project/porch/v4
+mkdir -p "$WORK/$ORG"/porch
+ln -s "$ROOT" "$WORK/$ROOT_GO_MODULE"
 
 echo 'gen_helpers...'
 

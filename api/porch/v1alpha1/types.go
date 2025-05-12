@@ -21,7 +21,7 @@ import (
 
 // PackageRevision
 // +genclient
-// +genclient:method=UpdateApproval,verb=update,subresource=approval,input=github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevision,result=github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevision
+// +genclient:method=UpdateApproval,verb=update,subresource=approval,input=github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageRevision,result=github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageRevision
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
 type PackageRevision struct {
