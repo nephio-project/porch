@@ -19,9 +19,9 @@ import (
 
 	initialization "github.com/GoogleContainerTools/kpt/commands/live/init"
 	"github.com/GoogleContainerTools/kpt/pkg/live"
-	"github.com/nephio-project/porch/internal/kpt/cmdutil"
-	"github.com/nephio-project/porch/internal/kpt/errors"
-	"github.com/nephio-project/porch/internal/kpt/pkg"
+	"github.com/nephio-project/porch/v4/internal/kpt/cmdutil"
+	"github.com/nephio-project/porch/v4/internal/kpt/errors"
+	"github.com/nephio-project/porch/v4/internal/kpt/pkg"
 	"sigs.k8s.io/cli-utils/pkg/inventory"
 	"sigs.k8s.io/cli-utils/pkg/manifestreader"
 	"sigs.k8s.io/cli-utils/pkg/print/common"

@@ -17,7 +17,7 @@ import (
 	"context"
 	"testing"
 
-	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
+	cachetypes "github.com/nephio-project/porch/v4/pkg/cache/types"
 	"github.com/stretchr/testify/assert"
 )
 

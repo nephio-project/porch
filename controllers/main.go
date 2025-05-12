@@ -42,10 +42,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/controllers/packagevariants/pkg/controllers/packagevariant"
-	"github.com/nephio-project/porch/controllers/packagevariantsets/pkg/controllers/packagevariantset"
-	"github.com/nephio-project/porch/pkg/controllerrestmapper"
+	porchapi "github.com/nephio-project/porch/v4/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/v4/controllers/packagevariants/pkg/controllers/packagevariant"
+	"github.com/nephio-project/porch/v4/controllers/packagevariantsets/pkg/controllers/packagevariantset"
+	"github.com/nephio-project/porch/v4/pkg/controllerrestmapper"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -141,7 +141,7 @@ func run(ctx context.Context) error {
 			},
 		},
 	}
-	
+
 	config := textlogger.NewConfig(
 		textlogger.Verbosity(4),
 		textlogger.Output(os.Stdout),

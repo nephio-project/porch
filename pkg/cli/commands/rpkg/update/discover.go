@@ -19,9 +19,9 @@ import (
 	"io"
 	"strings"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/pkg/repository"
+	porchapi "github.com/nephio-project/porch/v4/api/porch/v1alpha1"
+	configapi "github.com/nephio-project/porch/v4/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/v4/pkg/repository"
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/printers"
 	"sigs.k8s.io/controller-runtime/pkg/client"

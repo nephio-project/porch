@@ -29,50 +29,50 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/nephio-project/porch/api/porch.PackageRevision":                         schema_nephio_project_porch_api_porch_PackageRevision(ref),
-		"github.com/nephio-project/porch/api/porch.PackageRevisionResources":                schema_nephio_project_porch_api_porch_PackageRevisionResources(ref),
-		"github.com/nephio-project/porch/api/porch.PorchPackage":                            schema_nephio_project_porch_api_porch_PorchPackage(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.Condition":                      schema_porch_api_porch_v1alpha1_Condition(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.Field":                          schema_porch_api_porch_v1alpha1_Field(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.File":                           schema_porch_api_porch_v1alpha1_File(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.FunctionEvalTaskSpec":           schema_porch_api_porch_v1alpha1_FunctionEvalTaskSpec(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.GitLock":                        schema_porch_api_porch_v1alpha1_GitLock(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.GitPackage":                     schema_porch_api_porch_v1alpha1_GitPackage(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.NameMeta":                       schema_porch_api_porch_v1alpha1_NameMeta(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.OciPackage":                     schema_porch_api_porch_v1alpha1_OciPackage(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageCloneTaskSpec":           schema_porch_api_porch_v1alpha1_PackageCloneTaskSpec(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageEditTaskSpec":            schema_porch_api_porch_v1alpha1_PackageEditTaskSpec(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageInitTaskSpec":            schema_porch_api_porch_v1alpha1_PackageInitTaskSpec(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.PackagePatchTaskSpec":           schema_porch_api_porch_v1alpha1_PackagePatchTaskSpec(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevision":                schema_porch_api_porch_v1alpha1_PackageRevision(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionList":            schema_porch_api_porch_v1alpha1_PackageRevisionList(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionRef":             schema_porch_api_porch_v1alpha1_PackageRevisionRef(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionResources":       schema_porch_api_porch_v1alpha1_PackageRevisionResources(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionResourcesList":   schema_porch_api_porch_v1alpha1_PackageRevisionResourcesList(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionResourcesSpec":   schema_porch_api_porch_v1alpha1_PackageRevisionResourcesSpec(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionResourcesStatus": schema_porch_api_porch_v1alpha1_PackageRevisionResourcesStatus(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionSpec":            schema_porch_api_porch_v1alpha1_PackageRevisionSpec(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionStatus":          schema_porch_api_porch_v1alpha1_PackageRevisionStatus(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageSpec":                    schema_porch_api_porch_v1alpha1_PackageSpec(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageStatus":                  schema_porch_api_porch_v1alpha1_PackageStatus(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageUpdateTaskSpec":          schema_porch_api_porch_v1alpha1_PackageUpdateTaskSpec(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.ParentReference":                schema_porch_api_porch_v1alpha1_ParentReference(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.PatchSpec":                      schema_porch_api_porch_v1alpha1_PatchSpec(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.PorchPackage":                   schema_porch_api_porch_v1alpha1_PorchPackage(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.PorchPackageList":               schema_porch_api_porch_v1alpha1_PorchPackageList(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.ReadinessGate":                  schema_porch_api_porch_v1alpha1_ReadinessGate(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.RenderStatus":                   schema_porch_api_porch_v1alpha1_RenderStatus(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.RepositoryRef":                  schema_porch_api_porch_v1alpha1_RepositoryRef(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.ResourceIdentifier":             schema_porch_api_porch_v1alpha1_ResourceIdentifier(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.Result":                         schema_porch_api_porch_v1alpha1_Result(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.ResultItem":                     schema_porch_api_porch_v1alpha1_ResultItem(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.ResultList":                     schema_porch_api_porch_v1alpha1_ResultList(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.SecretRef":                      schema_porch_api_porch_v1alpha1_SecretRef(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.Selector":                       schema_porch_api_porch_v1alpha1_Selector(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.Task":                           schema_porch_api_porch_v1alpha1_Task(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.TaskResult":                     schema_porch_api_porch_v1alpha1_TaskResult(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamLock":                   schema_porch_api_porch_v1alpha1_UpstreamLock(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamPackage":                schema_porch_api_porch_v1alpha1_UpstreamPackage(ref),
+		"github.com/nephio-project/porch/v4/api/porch.PackageRevision":                         schema_nephio_project_porch_api_porch_PackageRevision(ref),
+		"github.com/nephio-project/porch/v4/api/porch.PackageRevisionResources":                schema_nephio_project_porch_api_porch_PackageRevisionResources(ref),
+		"github.com/nephio-project/porch/v4/api/porch.PorchPackage":                            schema_nephio_project_porch_api_porch_PorchPackage(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.Condition":                      schema_porch_api_porch_v1alpha1_Condition(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.Field":                          schema_porch_api_porch_v1alpha1_Field(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.File":                           schema_porch_api_porch_v1alpha1_File(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.FunctionEvalTaskSpec":           schema_porch_api_porch_v1alpha1_FunctionEvalTaskSpec(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.GitLock":                        schema_porch_api_porch_v1alpha1_GitLock(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.GitPackage":                     schema_porch_api_porch_v1alpha1_GitPackage(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.NameMeta":                       schema_porch_api_porch_v1alpha1_NameMeta(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.OciPackage":                     schema_porch_api_porch_v1alpha1_OciPackage(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageCloneTaskSpec":           schema_porch_api_porch_v1alpha1_PackageCloneTaskSpec(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageEditTaskSpec":            schema_porch_api_porch_v1alpha1_PackageEditTaskSpec(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageInitTaskSpec":            schema_porch_api_porch_v1alpha1_PackageInitTaskSpec(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackagePatchTaskSpec":           schema_porch_api_porch_v1alpha1_PackagePatchTaskSpec(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageRevision":                schema_porch_api_porch_v1alpha1_PackageRevision(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageRevisionList":            schema_porch_api_porch_v1alpha1_PackageRevisionList(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageRevisionRef":             schema_porch_api_porch_v1alpha1_PackageRevisionRef(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageRevisionResources":       schema_porch_api_porch_v1alpha1_PackageRevisionResources(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageRevisionResourcesList":   schema_porch_api_porch_v1alpha1_PackageRevisionResourcesList(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageRevisionResourcesSpec":   schema_porch_api_porch_v1alpha1_PackageRevisionResourcesSpec(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageRevisionResourcesStatus": schema_porch_api_porch_v1alpha1_PackageRevisionResourcesStatus(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageRevisionSpec":            schema_porch_api_porch_v1alpha1_PackageRevisionSpec(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageRevisionStatus":          schema_porch_api_porch_v1alpha1_PackageRevisionStatus(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageSpec":                    schema_porch_api_porch_v1alpha1_PackageSpec(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageStatus":                  schema_porch_api_porch_v1alpha1_PackageStatus(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageUpdateTaskSpec":          schema_porch_api_porch_v1alpha1_PackageUpdateTaskSpec(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.ParentReference":                schema_porch_api_porch_v1alpha1_ParentReference(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.PatchSpec":                      schema_porch_api_porch_v1alpha1_PatchSpec(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.PorchPackage":                   schema_porch_api_porch_v1alpha1_PorchPackage(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.PorchPackageList":               schema_porch_api_porch_v1alpha1_PorchPackageList(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.ReadinessGate":                  schema_porch_api_porch_v1alpha1_ReadinessGate(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.RenderStatus":                   schema_porch_api_porch_v1alpha1_RenderStatus(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.RepositoryRef":                  schema_porch_api_porch_v1alpha1_RepositoryRef(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.ResourceIdentifier":             schema_porch_api_porch_v1alpha1_ResourceIdentifier(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.Result":                         schema_porch_api_porch_v1alpha1_Result(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.ResultItem":                     schema_porch_api_porch_v1alpha1_ResultItem(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.ResultList":                     schema_porch_api_porch_v1alpha1_ResultList(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.SecretRef":                      schema_porch_api_porch_v1alpha1_SecretRef(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.Selector":                       schema_porch_api_porch_v1alpha1_Selector(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.Task":                           schema_porch_api_porch_v1alpha1_Task(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.TaskResult":                     schema_porch_api_porch_v1alpha1_TaskResult(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.UpstreamLock":                   schema_porch_api_porch_v1alpha1_UpstreamLock(ref),
+		"github.com/nephio-project/porch/v4/api/porch/v1alpha1.UpstreamPackage":                schema_porch_api_porch_v1alpha1_UpstreamPackage(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                     schema_pkg_apis_meta_v1_APIGroup(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                 schema_pkg_apis_meta_v1_APIGroupList(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResource":                                  schema_pkg_apis_meta_v1_APIResource(ref),
@@ -150,13 +150,13 @@ func schema_nephio_project_porch_api_porch_PackageRevision(ref common.ReferenceC
 					"Spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/nephio-project/porch/api/porch.PackageRevisionSpec"),
+							Ref:     ref("github.com/nephio-project/porch/v4/api/porch.PackageRevisionSpec"),
 						},
 					},
 					"Status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/nephio-project/porch/api/porch.PackageRevisionStatus"),
+							Ref:     ref("github.com/nephio-project/porch/v4/api/porch.PackageRevisionStatus"),
 						},
 					},
 				},
@@ -164,7 +164,7 @@ func schema_nephio_project_porch_api_porch_PackageRevision(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch.PackageRevisionSpec", "github.com/nephio-project/porch/api/porch.PackageRevisionStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta"},
+			"github.com/nephio-project/porch/v4/api/porch.PackageRevisionSpec", "github.com/nephio-project/porch/v4/api/porch.PackageRevisionStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta"},
 	}
 }
 
@@ -198,20 +198,20 @@ func schema_nephio_project_porch_api_porch_PackageRevisionResources(ref common.R
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/nephio-project/porch/api/porch.PackageRevisionResourcesSpec"),
+							Ref:     ref("github.com/nephio-project/porch/v4/api/porch.PackageRevisionResourcesSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/nephio-project/porch/api/porch.PackageRevisionResourcesStatus"),
+							Ref:     ref("github.com/nephio-project/porch/v4/api/porch.PackageRevisionResourcesStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch.PackageRevisionResourcesSpec", "github.com/nephio-project/porch/api/porch.PackageRevisionResourcesStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/nephio-project/porch/v4/api/porch.PackageRevisionResourcesSpec", "github.com/nephio-project/porch/v4/api/porch.PackageRevisionResourcesStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -245,20 +245,20 @@ func schema_nephio_project_porch_api_porch_PorchPackage(ref common.ReferenceCall
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/nephio-project/porch/api/porch.PackageSpec"),
+							Ref:     ref("github.com/nephio-project/porch/v4/api/porch.PackageSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/nephio-project/porch/api/porch.PackageStatus"),
+							Ref:     ref("github.com/nephio-project/porch/v4/api/porch.PackageStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch.PackageSpec", "github.com/nephio-project/porch/api/porch.PackageStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/nephio-project/porch/v4/api/porch.PackageSpec", "github.com/nephio-project/porch/v4/api/porch.PackageStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -422,14 +422,14 @@ func schema_porch_api_porch_v1alpha1_FunctionEvalTaskSpec(ref common.ReferenceCa
 						SchemaProps: spec.SchemaProps{
 							Description: "Match specifies the selection criteria for the function evaluation. Corresponds to `kpt fn eval --match-???` flgs (https://kpt.dev/reference/cli/fn/eval/).",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.Selector"),
+							Ref:         ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.Selector"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.Selector", "k8s.io/apimachinery/pkg/runtime.RawExtension"},
+			"github.com/nephio-project/porch/v4/api/porch/v1alpha1.Selector", "k8s.io/apimachinery/pkg/runtime.RawExtension"},
 	}
 }
 
@@ -508,7 +508,7 @@ func schema_porch_api_porch_v1alpha1_GitPackage(ref common.ReferenceCallback) co
 						SchemaProps: spec.SchemaProps{
 							Description: "Reference to secret containing authentication credentials. Optional.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.SecretRef"),
+							Ref:         ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.SecretRef"),
 						},
 					},
 				},
@@ -516,7 +516,7 @@ func schema_porch_api_porch_v1alpha1_GitPackage(ref common.ReferenceCallback) co
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.SecretRef"},
+			"github.com/nephio-project/porch/v4/api/porch/v1alpha1.SecretRef"},
 	}
 }
 
@@ -579,7 +579,7 @@ func schema_porch_api_porch_v1alpha1_PackageCloneTaskSpec(ref common.ReferenceCa
 						SchemaProps: spec.SchemaProps{
 							Description: "`Upstream` is the reference to the upstream package to clone.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamPackage"),
+							Ref:         ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.UpstreamPackage"),
 						},
 					},
 					"strategy": {
@@ -593,7 +593,7 @@ func schema_porch_api_porch_v1alpha1_PackageCloneTaskSpec(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamPackage"},
+			"github.com/nephio-project/porch/v4/api/porch/v1alpha1.UpstreamPackage"},
 	}
 }
 
@@ -605,14 +605,14 @@ func schema_porch_api_porch_v1alpha1_PackageEditTaskSpec(ref common.ReferenceCal
 				Properties: map[string]spec.Schema{
 					"sourceRef": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionRef"),
+							Ref: ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageRevisionRef"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionRef"},
+			"github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageRevisionRef"},
 	}
 }
 
@@ -679,7 +679,7 @@ func schema_porch_api_porch_v1alpha1_PackagePatchTaskSpec(ref common.ReferenceCa
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.PatchSpec"),
+										Ref:     ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.PatchSpec"),
 									},
 								},
 							},
@@ -689,7 +689,7 @@ func schema_porch_api_porch_v1alpha1_PackagePatchTaskSpec(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.PatchSpec"},
+			"github.com/nephio-project/porch/v4/api/porch/v1alpha1.PatchSpec"},
 	}
 }
 
@@ -723,20 +723,20 @@ func schema_porch_api_porch_v1alpha1_PackageRevision(ref common.ReferenceCallbac
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionSpec"),
+							Ref:     ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageRevisionSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionStatus"),
+							Ref:     ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageRevisionStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageRevisionSpec", "github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageRevisionStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -774,7 +774,7 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionList(ref common.ReferenceCal
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevision"),
+										Ref:     ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageRevision"),
 									},
 								},
 							},
@@ -785,7 +785,7 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionList(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevision", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageRevision", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -841,20 +841,20 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionResources(ref common.Referen
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionResourcesSpec"),
+							Ref:     ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageRevisionResourcesSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionResourcesStatus"),
+							Ref:     ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageRevisionResourcesStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionResourcesSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionResourcesStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageRevisionResourcesSpec", "github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageRevisionResourcesStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -892,7 +892,7 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionResourcesList(ref common.Ref
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionResources"),
+										Ref:     ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageRevisionResources"),
 									},
 								},
 							},
@@ -903,7 +903,7 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionResourcesList(ref common.Ref
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionResources", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageRevisionResources", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -975,14 +975,14 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionResourcesStatus(ref common.R
 						SchemaProps: spec.SchemaProps{
 							Description: "RenderStatus contains the result of rendering the package resources.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.RenderStatus"),
+							Ref:         ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.RenderStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.RenderStatus"},
+			"github.com/nephio-project/porch/v4/api/porch/v1alpha1.RenderStatus"},
 	}
 }
 
@@ -1024,7 +1024,7 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionSpec(ref common.ReferenceCal
 					"parent": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Parent references a package that provides resources to us",
-							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.ParentReference"),
+							Ref:         ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.ParentReference"),
 						},
 					},
 					"lifecycle": {
@@ -1041,7 +1041,7 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionSpec(ref common.ReferenceCal
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.Task"),
+										Ref:     ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.Task"),
 									},
 								},
 							},
@@ -1054,7 +1054,7 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionSpec(ref common.ReferenceCal
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.ReadinessGate"),
+										Ref:     ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.ReadinessGate"),
 									},
 								},
 							},
@@ -1064,7 +1064,7 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionSpec(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.ParentReference", "github.com/nephio-project/porch/api/porch/v1alpha1.ReadinessGate", "github.com/nephio-project/porch/api/porch/v1alpha1.Task"},
+			"github.com/nephio-project/porch/v4/api/porch/v1alpha1.ParentReference", "github.com/nephio-project/porch/v4/api/porch/v1alpha1.ReadinessGate", "github.com/nephio-project/porch/v4/api/porch/v1alpha1.Task"},
 	}
 }
 
@@ -1078,7 +1078,7 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionStatus(ref common.ReferenceC
 					"upstreamLock": {
 						SchemaProps: spec.SchemaProps{
 							Description: "UpstreamLock identifies the upstream data for this package.",
-							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamLock"),
+							Ref:         ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.UpstreamLock"),
 						},
 					},
 					"publishedBy": {
@@ -1108,7 +1108,7 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionStatus(ref common.ReferenceC
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.Condition"),
+										Ref:     ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.Condition"),
 									},
 								},
 							},
@@ -1118,7 +1118,7 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionStatus(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.Condition", "github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamLock", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"github.com/nephio-project/porch/v4/api/porch/v1alpha1.Condition", "github.com/nephio-project/porch/v4/api/porch/v1alpha1.UpstreamLock", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
@@ -1179,14 +1179,14 @@ func schema_porch_api_porch_v1alpha1_PackageUpdateTaskSpec(ref common.ReferenceC
 						SchemaProps: spec.SchemaProps{
 							Description: "`Upstream` is the reference to the upstream package.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamPackage"),
+							Ref:         ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.UpstreamPackage"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamPackage"},
+			"github.com/nephio-project/porch/v4/api/porch/v1alpha1.UpstreamPackage"},
 	}
 }
 
@@ -1272,20 +1272,20 @@ func schema_porch_api_porch_v1alpha1_PorchPackage(ref common.ReferenceCallback) 
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageSpec"),
+							Ref:     ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageStatus"),
+							Ref:     ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.PackageSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageSpec", "github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -1323,7 +1323,7 @@ func schema_porch_api_porch_v1alpha1_PorchPackageList(ref common.ReferenceCallba
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.PorchPackage"),
+										Ref:     ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.PorchPackage"),
 									},
 								},
 							},
@@ -1334,7 +1334,7 @@ func schema_porch_api_porch_v1alpha1_PorchPackageList(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.PorchPackage", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/nephio-project/porch/v4/api/porch/v1alpha1.PorchPackage", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -1366,7 +1366,7 @@ func schema_porch_api_porch_v1alpha1_RenderStatus(ref common.ReferenceCallback) 
 					"result": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.ResultList"),
+							Ref:     ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.ResultList"),
 						},
 					},
 					"error": {
@@ -1381,7 +1381,7 @@ func schema_porch_api_porch_v1alpha1_RenderStatus(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.ResultList"},
+			"github.com/nephio-project/porch/v4/api/porch/v1alpha1.ResultList"},
 	}
 }
 
@@ -1492,7 +1492,7 @@ func schema_porch_api_porch_v1alpha1_Result(ref common.ReferenceCallback) common
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.ResultItem"),
+										Ref:     ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.ResultItem"),
 									},
 								},
 							},
@@ -1503,7 +1503,7 @@ func schema_porch_api_porch_v1alpha1_Result(ref common.ReferenceCallback) common
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.ResultItem"},
+			"github.com/nephio-project/porch/v4/api/porch/v1alpha1.ResultItem"},
 	}
 }
 
@@ -1531,19 +1531,19 @@ func schema_porch_api_porch_v1alpha1_ResultItem(ref common.ReferenceCallback) co
 					"resourceRef": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ResourceRef is a reference to a resource. Required fields: apiVersion, kind, name.",
-							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.ResourceIdentifier"),
+							Ref:         ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.ResourceIdentifier"),
 						},
 					},
 					"field": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Field is a reference to the field in a resource this result refers to",
-							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.Field"),
+							Ref:         ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.Field"),
 						},
 					},
 					"file": {
 						SchemaProps: spec.SchemaProps{
 							Description: "File references a file containing the resource this result refers to",
-							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.File"),
+							Ref:         ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.File"),
 						},
 					},
 					"tags": {
@@ -1566,7 +1566,7 @@ func schema_porch_api_porch_v1alpha1_ResultItem(ref common.ReferenceCallback) co
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.Field", "github.com/nephio-project/porch/api/porch/v1alpha1.File", "github.com/nephio-project/porch/api/porch/v1alpha1.ResourceIdentifier"},
+			"github.com/nephio-project/porch/v4/api/porch/v1alpha1.Field", "github.com/nephio-project/porch/v4/api/porch/v1alpha1.File", "github.com/nephio-project/porch/v4/api/porch/v1alpha1.ResourceIdentifier"},
 	}
 }
 
@@ -1612,7 +1612,7 @@ func schema_porch_api_porch_v1alpha1_ResultList(ref common.ReferenceCallback) co
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.Result"),
+										Ref: ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.Result"),
 									},
 								},
 							},
@@ -1623,7 +1623,7 @@ func schema_porch_api_porch_v1alpha1_ResultList(ref common.ReferenceCallback) co
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.Result", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/nephio-project/porch/v4/api/porch/v1alpha1.Result", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -1704,32 +1704,32 @@ func schema_porch_api_porch_v1alpha1_Task(ref common.ReferenceCallback) common.O
 					},
 					"init": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageInitTaskSpec"),
+							Ref: ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageInitTaskSpec"),
 						},
 					},
 					"clone": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageCloneTaskSpec"),
+							Ref: ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageCloneTaskSpec"),
 						},
 					},
 					"patch": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackagePatchTaskSpec"),
+							Ref: ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackagePatchTaskSpec"),
 						},
 					},
 					"edit": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageEditTaskSpec"),
+							Ref: ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageEditTaskSpec"),
 						},
 					},
 					"eval": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.FunctionEvalTaskSpec"),
+							Ref: ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.FunctionEvalTaskSpec"),
 						},
 					},
 					"update": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageUpdateTaskSpec"),
+							Ref: ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageUpdateTaskSpec"),
 						},
 					},
 				},
@@ -1737,7 +1737,7 @@ func schema_porch_api_porch_v1alpha1_Task(ref common.ReferenceCallback) common.O
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.FunctionEvalTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageCloneTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageEditTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageInitTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackagePatchTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageUpdateTaskSpec"},
+			"github.com/nephio-project/porch/v4/api/porch/v1alpha1.FunctionEvalTaskSpec", "github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageCloneTaskSpec", "github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageEditTaskSpec", "github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageInitTaskSpec", "github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackagePatchTaskSpec", "github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageUpdateTaskSpec"},
 	}
 }
 
@@ -1749,12 +1749,12 @@ func schema_porch_api_porch_v1alpha1_TaskResult(ref common.ReferenceCallback) co
 				Properties: map[string]spec.Schema{
 					"task": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.Task"),
+							Ref: ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.Task"),
 						},
 					},
 					"renderStatus": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.RenderStatus"),
+							Ref: ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.RenderStatus"),
 						},
 					},
 				},
@@ -1762,7 +1762,7 @@ func schema_porch_api_porch_v1alpha1_TaskResult(ref common.ReferenceCallback) co
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.RenderStatus", "github.com/nephio-project/porch/api/porch/v1alpha1.Task"},
+			"github.com/nephio-project/porch/v4/api/porch/v1alpha1.RenderStatus", "github.com/nephio-project/porch/v4/api/porch/v1alpha1.Task"},
 	}
 }
 
@@ -1783,14 +1783,14 @@ func schema_porch_api_porch_v1alpha1_UpstreamLock(ref common.ReferenceCallback) 
 					"git": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Git is the resolved locator for a package on Git.",
-							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.GitLock"),
+							Ref:         ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.GitLock"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.GitLock"},
+			"github.com/nephio-project/porch/v4/api/porch/v1alpha1.GitLock"},
 	}
 }
 
@@ -1811,26 +1811,26 @@ func schema_porch_api_porch_v1alpha1_UpstreamPackage(ref common.ReferenceCallbac
 					"git": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Git upstream package specification. Required if `type` is `git`. Must be unspecified if `type` is not `git`.",
-							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.GitPackage"),
+							Ref:         ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.GitPackage"),
 						},
 					},
 					"oci": {
 						SchemaProps: spec.SchemaProps{
 							Description: "OCI upstream package specification. Required if `type` is `oci`. Must be unspecified if `type` is not `oci`.",
-							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.OciPackage"),
+							Ref:         ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.OciPackage"),
 						},
 					},
 					"upstreamRef": {
 						SchemaProps: spec.SchemaProps{
 							Description: "UpstreamRef is the reference to the package from a registered repository rather than external package.",
-							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionRef"),
+							Ref:         ref("github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageRevisionRef"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.GitPackage", "github.com/nephio-project/porch/api/porch/v1alpha1.OciPackage", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionRef"},
+			"github.com/nephio-project/porch/v4/api/porch/v1alpha1.GitPackage", "github.com/nephio-project/porch/v4/api/porch/v1alpha1.OciPackage", "github.com/nephio-project/porch/v4/api/porch/v1alpha1.PackageRevisionRef"},
 	}
 }
 

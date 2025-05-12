@@ -18,8 +18,8 @@ import (
 	"context"
 	"testing"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/pkg/repository"
+	api "github.com/nephio-project/porch/v4/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/v4/pkg/repository"
 	"github.com/stretchr/testify/assert"
 )
 

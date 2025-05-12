@@ -19,7 +19,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/nephio-project/porch/internal/kpt/util/merge"
+	"github.com/nephio-project/porch/v4/internal/kpt/util/merge"
 	"sigs.k8s.io/kustomize/kyaml/copyutil"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 	"sigs.k8s.io/kustomize/kyaml/kio"

@@ -17,7 +17,7 @@
 package fake
 
 import (
-	v1alpha1 "github.com/nephio-project/porch/api/generated/clientset/versioned/typed/porch/v1alpha1"
+	v1alpha1 "github.com/nephio-project/porch/v4/api/generated/clientset/versioned/typed/porch/v1alpha1"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
 )

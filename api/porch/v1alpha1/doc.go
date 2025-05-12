@@ -21,4 +21,4 @@
 // +k8s:conversion-gen=github.com/nephio-project/porch/api/porch
 // +k8s:defaulter-gen=TypeMeta
 // +groupName=porch.kpt.dev
-package v1alpha1 // import "github.com/nephio-project/porch/api/porch/v1alpha1"
+package v1alpha1 // import "github.com/nephio-project/porch/v4/api/porch/v1alpha1"

@@ -19,10 +19,10 @@ import (
 	"fmt"
 	"strings"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/errors"
-	"github.com/nephio-project/porch/internal/kpt/util/porch"
-	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
+	porchapi "github.com/nephio-project/porch/v4/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/v4/internal/kpt/errors"
+	"github.com/nephio-project/porch/v4/internal/kpt/util/porch"
+	"github.com/nephio-project/porch/v4/pkg/cli/commands/rpkg/docs"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/spf13/cobra"

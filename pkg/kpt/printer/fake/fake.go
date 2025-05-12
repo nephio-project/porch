@@ -18,8 +18,8 @@ import (
 	"context"
 	"io"
 
-	"github.com/nephio-project/porch/internal/kpt/pkg"
-	"github.com/nephio-project/porch/pkg/kpt/printer"
+	"github.com/nephio-project/porch/v4/internal/kpt/pkg"
+	"github.com/nephio-project/porch/v4/pkg/kpt/printer"
 )
 
 // Printer implements the printer.Printer interface and just ignores

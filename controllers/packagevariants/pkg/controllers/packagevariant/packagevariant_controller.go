@@ -21,14 +21,14 @@ import (
 	"strconv"
 	"strings"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	api "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
+	porchapi "github.com/nephio-project/porch/v4/api/porch/v1alpha1"
+	configapi "github.com/nephio-project/porch/v4/api/porchconfig/v1alpha1"
+	api "github.com/nephio-project/porch/v4/controllers/packagevariants/api/v1alpha1"
 
-	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
-	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
-	"github.com/nephio-project/porch/pkg/repository"
-	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
+	kptfilev1 "github.com/nephio-project/porch/v4/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/v4/pkg/kpt/kptfileutil"
+	"github.com/nephio-project/porch/v4/pkg/repository"
+	"github.com/nephio-project/porch/v4/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

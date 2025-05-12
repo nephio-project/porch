@@ -19,7 +19,7 @@
 package v1alpha2
 
 import (
-	"github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
+	"github.com/nephio-project/porch/v4/controllers/packagevariants/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )

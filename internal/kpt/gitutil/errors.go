@@ -18,7 +18,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/nephio-project/porch/internal/kpt/errors"
+	"github.com/nephio-project/porch/v4/internal/kpt/errors"
 )
 
 // GitExecErrorType is used to enumerate git errors.

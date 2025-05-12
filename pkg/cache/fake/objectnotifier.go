@@ -15,7 +15,7 @@
 package fake
 
 import (
-	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/v4/pkg/repository"
 	"k8s.io/apimachinery/pkg/watch"
 )
 

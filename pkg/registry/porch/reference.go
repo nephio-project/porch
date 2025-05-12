@@ -17,7 +17,7 @@ package porch
 import (
 	"context"
 
-	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/v4/pkg/repository"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

@@ -18,7 +18,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/v4/pkg/repository"
 	"github.com/stretchr/testify/assert"
 )
 

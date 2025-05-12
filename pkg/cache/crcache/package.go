@@ -17,7 +17,7 @@ package crcache
 import (
 	"context"
 
-	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/v4/pkg/repository"
 )
 
 // We take advantage of the cache having a global view of all the packages

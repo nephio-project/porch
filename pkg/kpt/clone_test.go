@@ -17,7 +17,7 @@ package kpt
 import (
 	"testing"
 
-	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	kptfilev1 "github.com/nephio-project/porch/v4/pkg/kpt/api/kptfile/v1"
 )
 
 func TestNormalizeGitFields(t *testing.T) {

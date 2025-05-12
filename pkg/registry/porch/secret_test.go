@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
-	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/v4/pkg/repository"
 	"github.com/stretchr/testify/assert"
 	core "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

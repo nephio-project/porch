@@ -21,8 +21,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/nephio-project/porch/internal/kpt/builtins"
-	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/v4/internal/kpt/builtins"
+	"github.com/nephio-project/porch/v4/pkg/repository"
 )
 
 const (

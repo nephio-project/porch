@@ -19,11 +19,11 @@ import (
 	"errors"
 	"fmt"
 
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/pkg/externalrepo/git"
-	"github.com/nephio-project/porch/pkg/externalrepo/oci"
-	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
-	"github.com/nephio-project/porch/pkg/repository"
+	configapi "github.com/nephio-project/porch/v4/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/v4/pkg/externalrepo/git"
+	"github.com/nephio-project/porch/v4/pkg/externalrepo/oci"
+	externalrepotypes "github.com/nephio-project/porch/v4/pkg/externalrepo/types"
+	"github.com/nephio-project/porch/v4/pkg/repository"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 )

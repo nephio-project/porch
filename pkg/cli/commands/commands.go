@@ -17,8 +17,8 @@ package commands
 import (
 	"context"
 
-	"github.com/nephio-project/porch/pkg/cli/commands/repo"
-	"github.com/nephio-project/porch/pkg/cli/commands/rpkg"
+	"github.com/nephio-project/porch/v4/pkg/cli/commands/repo"
+	"github.com/nephio-project/porch/v4/pkg/cli/commands/rpkg"
 	"github.com/spf13/cobra"
 )
 

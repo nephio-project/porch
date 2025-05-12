@@ -17,7 +17,7 @@ package example
 import (
 	"os"
 
-	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
+	"github.com/nephio-project/porch/v4/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 )
 
 // In this example, we read a field from the input object and print it to the log.

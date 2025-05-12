@@ -21,7 +21,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/nephio-project/porch/internal/kpt/util/update"
+	"github.com/nephio-project/porch/v4/internal/kpt/util/update"
 )
 
 const LocalUpdateDir = "kpt-pkg-update-*"

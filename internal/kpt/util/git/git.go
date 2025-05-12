@@ -23,7 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/nephio-project/porch/internal/kpt/errors"
+	"github.com/nephio-project/porch/v4/internal/kpt/errors"
 )
 
 // RepoSpec specifies a git repository and a branch and path therein.

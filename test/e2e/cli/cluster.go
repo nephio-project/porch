@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	e2etest "github.com/nephio-project/porch/test/e2e"
+	e2etest "github.com/nephio-project/porch/v4/test/e2e"
 )
 
 func IsPorchServerRunningInCluster(t *testing.T) bool {

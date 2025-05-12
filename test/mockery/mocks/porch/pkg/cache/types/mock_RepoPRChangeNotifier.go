@@ -3,7 +3,7 @@
 package cachetypes
 
 import (
-	repository "github.com/nephio-project/porch/pkg/repository"
+	repository "github.com/nephio-project/porch/v4/pkg/repository"
 	mock "github.com/stretchr/testify/mock"
 	watch "k8s.io/apimachinery/pkg/watch"
 )

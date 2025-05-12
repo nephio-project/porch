@@ -20,9 +20,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/nephio-project/porch/pkg/tokenexchange/gcptokensource"
-	"github.com/nephio-project/porch/pkg/tokenexchange/ksaimpersonationtokensource"
-	"github.com/nephio-project/porch/pkg/tokenexchange/ksatokensource"
+	"github.com/nephio-project/porch/v4/pkg/tokenexchange/gcptokensource"
+	"github.com/nephio-project/porch/v4/pkg/tokenexchange/ksaimpersonationtokensource"
+	"github.com/nephio-project/porch/v4/pkg/tokenexchange/ksatokensource"
 	"golang.org/x/oauth2"
 	stsv1 "google.golang.org/api/sts/v1"
 	"k8s.io/apimachinery/pkg/types"

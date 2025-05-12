@@ -23,7 +23,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/nephio-project/porch/test/ociserver/pkg/oci"
+	"github.com/nephio-project/porch/v4/test/ociserver/pkg/oci"
 	"k8s.io/klog/v2"
 )
 

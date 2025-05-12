@@ -1,7 +1,7 @@
 package starlark
 
 import (
-	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-catalog/functions/go/starlark/krmfn"
+	"github.com/nephio-project/porch/v4/third_party/GoogleContainerTools/kpt-functions-catalog/functions/go/starlark/krmfn"
 
 	"github.com/qri-io/starlib/bsoup"
 	"github.com/qri-io/starlib/encoding/base64"

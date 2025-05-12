@@ -20,10 +20,10 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/pkg/repository"
-	"github.com/nephio-project/porch/pkg/util"
+	api "github.com/nephio-project/porch/v4/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/v4/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/v4/pkg/repository"
+	"github.com/nephio-project/porch/v4/pkg/util"
 	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"

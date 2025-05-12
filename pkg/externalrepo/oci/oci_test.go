@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/GoogleContainerTools/kpt/pkg/oci"
-	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/v4/pkg/repository"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"

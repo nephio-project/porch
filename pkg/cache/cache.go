@@ -18,8 +18,8 @@ import (
 	"context"
 	"fmt"
 
-	crcache "github.com/nephio-project/porch/pkg/cache/crcache"
-	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
+	crcache "github.com/nephio-project/porch/v4/pkg/cache/crcache"
+	cachetypes "github.com/nephio-project/porch/v4/pkg/cache/types"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 )

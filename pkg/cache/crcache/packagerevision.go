@@ -17,10 +17,10 @@ package crcache
 import (
 	"context"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
-	"github.com/nephio-project/porch/pkg/repository"
-	"github.com/nephio-project/porch/pkg/util"
+	api "github.com/nephio-project/porch/v4/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/v4/pkg/cache/crcache/meta"
+	"github.com/nephio-project/porch/v4/pkg/repository"
+	"github.com/nephio-project/porch/v4/pkg/util"
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"

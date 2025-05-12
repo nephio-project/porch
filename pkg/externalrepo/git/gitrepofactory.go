@@ -19,9 +19,9 @@ import (
 	"errors"
 	"path/filepath"
 
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
-	"github.com/nephio-project/porch/pkg/repository"
+	configapi "github.com/nephio-project/porch/v4/api/porchconfig/v1alpha1"
+	externalrepotypes "github.com/nephio-project/porch/v4/pkg/externalrepo/types"
+	"github.com/nephio-project/porch/v4/pkg/repository"
 )
 
 var _ externalrepotypes.ExternalRepoFactory = &GitRepoFactory{}

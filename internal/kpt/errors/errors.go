@@ -22,7 +22,7 @@ import (
 	goerrors "errors"
 
 	kyaml_errors "github.com/go-errors/errors"
-	"github.com/nephio-project/porch/internal/kpt/types"
+	"github.com/nephio-project/porch/v4/internal/kpt/types"
 )
 
 // Error is the type that implements error interface used in the kpt codebase.

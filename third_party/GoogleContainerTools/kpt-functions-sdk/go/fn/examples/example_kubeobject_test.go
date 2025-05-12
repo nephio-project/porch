@@ -15,7 +15,7 @@
 package example_test
 
 import (
-	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
+	"github.com/nephio-project/porch/v4/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	corev1 "k8s.io/api/core/v1"
 )
 

@@ -18,7 +18,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
+	"github.com/nephio-project/porch/v4/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 )
 
 // In this example, we mutate line comments for field metadata.name.

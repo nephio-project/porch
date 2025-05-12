@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	. "github.com/nephio-project/porch/test/e2e"
+	porchapi "github.com/nephio-project/porch/v4/api/porch/v1alpha1"
+	. "github.com/nephio-project/porch/v4/test/e2e"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"

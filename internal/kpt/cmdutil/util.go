@@ -19,7 +19,7 @@ import (
 	"fmt"
 
 	"github.com/GoogleContainerTools/kpt/pkg/live"
-	"github.com/nephio-project/porch/pkg/kpt/printer"
+	"github.com/nephio-project/porch/v4/pkg/kpt/printer"
 	"k8s.io/kubectl/pkg/cmd/util"
 )
 

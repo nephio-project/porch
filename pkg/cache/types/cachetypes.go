@@ -19,9 +19,9 @@ import (
 	"strings"
 	"time"
 
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
-	"github.com/nephio-project/porch/pkg/repository"
+	configapi "github.com/nephio-project/porch/v4/api/porchconfig/v1alpha1"
+	externalrepotypes "github.com/nephio-project/porch/v4/pkg/externalrepo/types"
+	"github.com/nephio-project/porch/v4/pkg/repository"
 	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

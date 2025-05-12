@@ -17,8 +17,8 @@ package resolver
 import (
 	"fmt"
 
-	"github.com/nephio-project/porch/internal/kpt/errors"
-	"github.com/nephio-project/porch/internal/kpt/util/update"
+	"github.com/nephio-project/porch/v4/internal/kpt/errors"
+	"github.com/nephio-project/porch/v4/internal/kpt/util/update"
 )
 
 //nolint:gochecknoinits

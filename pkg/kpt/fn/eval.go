@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"io"
 
-	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	v1 "github.com/nephio-project/porch/v4/pkg/kpt/api/kptfile/v1"
 )
 
 // FunctionRunner knows how to run a function.

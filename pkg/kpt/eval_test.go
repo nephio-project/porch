@@ -20,8 +20,8 @@ import (
 	"path"
 	"testing"
 
-	"github.com/nephio-project/porch/internal/kpt/fnruntime"
-	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/v4/internal/kpt/fnruntime"
+	v1 "github.com/nephio-project/porch/v4/pkg/kpt/api/kptfile/v1"
 	"sigs.k8s.io/kustomize/kyaml/kio"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )

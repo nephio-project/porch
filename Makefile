@@ -194,7 +194,7 @@ porch:
 
 .PHONY: porchctl
 porchctl:
-	go build -ldflags="-X github.com/nephio-project/porch/cmd/porchctl/run.version=$(PORCHCTL_VERSION)" -o $(PORCHCTL) ./cmd/porchctl
+	go build -ldflags="-X github.com/nephio-project/porch/v4/cmd/porchctl/run.version=$(PORCHCTL_VERSION)" -o $(PORCHCTL) ./cmd/porchctl
 
 .PHONY: fix-headers
 fix-headers:

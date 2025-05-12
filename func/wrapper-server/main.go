@@ -26,9 +26,9 @@ import (
 	"os/exec"
 	"strconv"
 
-	pb "github.com/nephio-project/porch/func/evaluator"
-	"github.com/nephio-project/porch/func/healthchecker"
-	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
+	pb "github.com/nephio-project/porch/v4/func/evaluator"
+	"github.com/nephio-project/porch/v4/func/healthchecker"
+	"github.com/nephio-project/porch/v4/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

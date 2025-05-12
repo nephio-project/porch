@@ -1,7 +1,7 @@
 package krmfn
 
 import (
-	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
+	"github.com/nephio-project/porch/v4/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	"go.starlark.net/starlark"
 	"go.starlark.net/starlarkstruct"
 	"k8s.io/apimachinery/pkg/runtime/schema"

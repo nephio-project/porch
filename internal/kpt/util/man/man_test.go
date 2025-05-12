@@ -21,8 +21,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	. "github.com/nephio-project/porch/internal/kpt/util/man"
-	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	. "github.com/nephio-project/porch/v4/internal/kpt/util/man"
+	kptfilev1 "github.com/nephio-project/porch/v4/pkg/kpt/api/kptfile/v1"
 	"github.com/stretchr/testify/assert"
 )
 

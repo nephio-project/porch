@@ -17,9 +17,9 @@ package kpt
 import (
 	"testing"
 
-	"github.com/nephio-project/porch/internal/kpt/fnruntime"
-	"github.com/nephio-project/porch/internal/kpt/util/render"
-	"github.com/nephio-project/porch/pkg/kpt/printer/fake"
+	"github.com/nephio-project/porch/v4/internal/kpt/fnruntime"
+	"github.com/nephio-project/porch/v4/internal/kpt/util/render"
+	"github.com/nephio-project/porch/v4/pkg/kpt/printer/fake"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 )
 

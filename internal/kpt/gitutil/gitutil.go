@@ -31,8 +31,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nephio-project/porch/internal/kpt/errors"
-	"github.com/nephio-project/porch/pkg/kpt/printer"
+	"github.com/nephio-project/porch/v4/internal/kpt/errors"
+	"github.com/nephio-project/porch/v4/pkg/kpt/printer"
 )
 
 // RepoCacheDirEnv is the name of the environment variable that controls the cache directory

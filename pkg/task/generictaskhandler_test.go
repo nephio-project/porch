@@ -18,12 +18,12 @@ import (
 	"context"
 	"testing"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	api "github.com/nephio-project/porch/v4/api/porch/v1alpha1"
+	configapi "github.com/nephio-project/porch/v4/api/porchconfig/v1alpha1"
 
-	"github.com/nephio-project/porch/internal/kpt/builtins"
-	"github.com/nephio-project/porch/internal/kpt/fnruntime"
-	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/v4/internal/kpt/builtins"
+	"github.com/nephio-project/porch/v4/internal/kpt/fnruntime"
+	"github.com/nephio-project/porch/v4/pkg/repository"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

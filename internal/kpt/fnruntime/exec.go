@@ -23,8 +23,8 @@ import (
 	"os/exec"
 	"time"
 
-	fnresult "github.com/nephio-project/porch/pkg/kpt/api/fnresult/v1"
-	"github.com/nephio-project/porch/pkg/kpt/printer"
+	fnresult "github.com/nephio-project/porch/v4/pkg/kpt/api/fnresult/v1"
+	"github.com/nephio-project/porch/v4/pkg/kpt/printer"
 )
 
 type ExecFn struct {

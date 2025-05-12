@@ -15,8 +15,8 @@
 package v1alpha1
 
 import (
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	porchapi "github.com/nephio-project/porch/v4/api/porch/v1alpha1"
+	kptfilev1 "github.com/nephio-project/porch/v4/pkg/kpt/api/kptfile/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

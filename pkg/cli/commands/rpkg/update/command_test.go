@@ -22,9 +22,9 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	mockclient "github.com/nephio-project/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
+	porchapi "github.com/nephio-project/porch/v4/api/porch/v1alpha1"
+	configapi "github.com/nephio-project/porch/v4/api/porchconfig/v1alpha1"
+	mockclient "github.com/nephio-project/porch/v4/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

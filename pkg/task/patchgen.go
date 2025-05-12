@@ -21,9 +21,9 @@ import (
 	"strings"
 
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	api "github.com/nephio-project/porch/v4/api/porch/v1alpha1"
 
-	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/v4/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
 

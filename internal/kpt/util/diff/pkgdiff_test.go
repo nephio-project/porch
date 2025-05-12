@@ -17,8 +17,8 @@ package diff
 import (
 	"testing"
 
-	"github.com/nephio-project/porch/internal/kpt/testutil"
-	"github.com/nephio-project/porch/internal/kpt/testutil/pkgbuilder"
+	"github.com/nephio-project/porch/v4/internal/kpt/testutil"
+	"github.com/nephio-project/porch/v4/internal/kpt/testutil/pkgbuilder"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/kustomize/kyaml/sets"
 )

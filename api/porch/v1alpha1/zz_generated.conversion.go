@@ -22,7 +22,7 @@ package v1alpha1
 import (
 	unsafe "unsafe"
 
-	porch "github.com/nephio-project/porch/api/porch"
+	porch "github.com/nephio-project/porch/v4/api/porch"
 	conversion "k8s.io/apimachinery/pkg/conversion"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )

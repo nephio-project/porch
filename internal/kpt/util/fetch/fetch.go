@@ -25,15 +25,15 @@ import (
 	"github.com/otiai10/copy"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 
-	"github.com/nephio-project/porch/internal/kpt/errors"
-	"github.com/nephio-project/porch/internal/kpt/gitutil"
-	"github.com/nephio-project/porch/internal/kpt/pkg"
-	"github.com/nephio-project/porch/internal/kpt/types"
-	"github.com/nephio-project/porch/internal/kpt/util/git"
-	"github.com/nephio-project/porch/internal/kpt/util/pkgutil"
-	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
-	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
-	"github.com/nephio-project/porch/pkg/kpt/printer"
+	"github.com/nephio-project/porch/v4/internal/kpt/errors"
+	"github.com/nephio-project/porch/v4/internal/kpt/gitutil"
+	"github.com/nephio-project/porch/v4/internal/kpt/pkg"
+	"github.com/nephio-project/porch/v4/internal/kpt/types"
+	"github.com/nephio-project/porch/v4/internal/kpt/util/git"
+	"github.com/nephio-project/porch/v4/internal/kpt/util/pkgutil"
+	kptfilev1 "github.com/nephio-project/porch/v4/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/v4/pkg/kpt/kptfileutil"
+	"github.com/nephio-project/porch/v4/pkg/kpt/printer"
 )
 
 // Command takes the upstream information in the Kptfile at the path for the

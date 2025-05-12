@@ -19,8 +19,8 @@ import (
 	"testing"
 	"time"
 
-	porchv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/pkg/apiserver"
+	porchv1alpha1 "github.com/nephio-project/porch/v4/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/v4/pkg/apiserver"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/runtime/schema"
