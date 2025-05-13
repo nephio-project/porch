@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-FROM golang:1.23.5-bookworm AS builder
+FROM golang:1.23.8-bookworm AS builder
 
 WORKDIR /go/src
 

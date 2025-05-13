@@ -23,7 +23,7 @@ include $(GIT_ROOT_DIR)/detect-container-runtime.mk
 .PHONY: gosec
 gosec: ## Inspect the source code for security problems by scanning the Go Abstract Syntax Tree
 ifeq ($(CONTAINER_RUNNABLE), 0)
-		$(RUN_CONTAINER_COMMAND) docker.io/nephio/gotests:1885274380137664512 gosec \
+		$(RUN_CONTAINER_COMMAND) docker.io/nephio/gotests:1919654500491071488 gosec \
 		-fmt=html \
 		-out=gosec-results.html \
 		-stdout -verbose=text \
