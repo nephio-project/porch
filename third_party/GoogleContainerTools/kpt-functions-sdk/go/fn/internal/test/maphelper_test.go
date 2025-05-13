@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn/internal"
+	"github.com/nephio-project/porch/v4/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn/internal"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	yaml2 "sigs.k8s.io/kustomize/kyaml/yaml"

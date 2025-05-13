@@ -17,8 +17,8 @@ package crcache
 import (
 	"context"
 
-	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
-	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
+	"github.com/nephio-project/porch/v4/pkg/cache/crcache/meta"
+	cachetypes "github.com/nephio-project/porch/v4/pkg/cache/types"
 )
 
 var _ cachetypes.CacheFactory = &CrCacheFactory{}

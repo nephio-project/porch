@@ -21,10 +21,10 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/nephio-project/porch/internal/kpt/fnruntime"
-	"github.com/nephio-project/porch/pkg/kpt"
-	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
-	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/v4/internal/kpt/fnruntime"
+	"github.com/nephio-project/porch/v4/pkg/kpt"
+	v1 "github.com/nephio-project/porch/v4/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/v4/pkg/repository"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 	"sigs.k8s.io/kustomize/kyaml/kio"
 )

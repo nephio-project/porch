@@ -23,9 +23,9 @@ import (
 	"strings"
 	"time"
 
-	pb "github.com/nephio-project/porch/func/evaluator"
-	"github.com/nephio-project/porch/func/healthchecker"
-	"github.com/nephio-project/porch/func/internal"
+	pb "github.com/nephio-project/porch/v4/func/evaluator"
+	"github.com/nephio-project/porch/v4/func/healthchecker"
+	"github.com/nephio-project/porch/v4/func/internal"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"k8s.io/klog/v2"

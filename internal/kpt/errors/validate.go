@@ -17,7 +17,7 @@ package errors
 import (
 	"fmt"
 
-	"github.com/nephio-project/porch/internal/kpt/util/strings"
+	"github.com/nephio-project/porch/v4/internal/kpt/util/strings"
 )
 
 // ValidationError is an error type used when validation fails.

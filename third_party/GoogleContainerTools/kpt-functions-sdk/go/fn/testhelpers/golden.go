@@ -26,7 +26,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
+	"github.com/nephio-project/porch/v4/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 )
 
 // RunGoldenTests provides the test infra to run golden test.

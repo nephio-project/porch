@@ -19,9 +19,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/nephio-project/porch/internal/kpt/testutil"
-	. "github.com/nephio-project/porch/internal/kpt/util/argutil"
-	"github.com/nephio-project/porch/pkg/kpt/printer/fake"
+	"github.com/nephio-project/porch/v4/internal/kpt/testutil"
+	. "github.com/nephio-project/porch/v4/internal/kpt/util/argutil"
+	"github.com/nephio-project/porch/v4/pkg/kpt/printer/fake"
 	"github.com/stretchr/testify/assert"
 )
 

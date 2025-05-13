@@ -21,8 +21,8 @@ import (
 	"io"
 	"os"
 
-	"github.com/nephio-project/porch/internal/kpt/pkg"
-	"github.com/nephio-project/porch/internal/kpt/types"
+	"github.com/nephio-project/porch/v4/internal/kpt/pkg"
+	"github.com/nephio-project/porch/v4/internal/kpt/types"
 )
 
 // TruncateOutput defines should output be truncated

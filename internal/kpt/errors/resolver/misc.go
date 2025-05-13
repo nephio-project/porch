@@ -17,7 +17,7 @@ package resolver
 import (
 	goerrors "errors"
 
-	"github.com/nephio-project/porch/internal/kpt/errors"
+	"github.com/nephio-project/porch/v4/internal/kpt/errors"
 )
 
 //nolint:gochecknoinits

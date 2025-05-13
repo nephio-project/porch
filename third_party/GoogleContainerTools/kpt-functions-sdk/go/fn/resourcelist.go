@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"sort"
 
-	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn/internal"
+	"github.com/nephio-project/porch/v4/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn/internal"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/kustomize/kyaml/kio"
 	"sigs.k8s.io/kustomize/kyaml/yaml"

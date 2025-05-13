@@ -35,9 +35,9 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/util/porch"
-	"github.com/nephio-project/porch/pkg/util"
+	porchapi "github.com/nephio-project/porch/v4/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/v4/internal/kpt/util/porch"
+	"github.com/nephio-project/porch/v4/pkg/util"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -424,7 +424,7 @@ func runWebhookServer(ctx context.Context, cfg *WebhookConfig) error {
 		Addr: fmt.Sprintf(":%d", cfg.Port),
 		TLSConfig: &tls.Config{
 			GetCertificate: getCertificate,
-			MinVersion: tls.VersionTLS12,
+			MinVersion:     tls.VersionTLS12,
 		},
 		ReadHeaderTimeout: 10 * time.Second,
 	}

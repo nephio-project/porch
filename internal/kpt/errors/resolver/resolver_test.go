@@ -17,7 +17,7 @@ package resolver
 import (
 	"testing"
 
-	"github.com/nephio-project/porch/internal/kpt/errors"
+	"github.com/nephio-project/porch/v4/internal/kpt/errors"
 	"github.com/stretchr/testify/assert"
 )
 

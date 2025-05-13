@@ -18,8 +18,8 @@ import (
 	"context"
 	"testing"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/pkg/cli/commands/repo/get"
+	porchapi "github.com/nephio-project/porch/v4/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/v4/pkg/cli/commands/repo/get"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"

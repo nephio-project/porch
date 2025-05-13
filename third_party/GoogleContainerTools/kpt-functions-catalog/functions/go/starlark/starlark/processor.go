@@ -1,7 +1,7 @@
 package starlark
 
 import (
-	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
+	"github.com/nephio-project/porch/v4/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 )
 
 func Process(resourceList *fn.ResourceList) (bool, error) {

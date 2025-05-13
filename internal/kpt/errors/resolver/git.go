@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/nephio-project/porch/internal/kpt/gitutil"
+	"github.com/nephio-project/porch/v4/internal/kpt/gitutil"
 )
 
 //nolint:gochecknoinits

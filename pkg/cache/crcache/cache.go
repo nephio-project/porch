@@ -18,11 +18,11 @@ import (
 	"context"
 	"sync"
 
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
-	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
-	"github.com/nephio-project/porch/pkg/externalrepo"
-	"github.com/nephio-project/porch/pkg/repository"
+	configapi "github.com/nephio-project/porch/v4/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/v4/pkg/cache/crcache/meta"
+	cachetypes "github.com/nephio-project/porch/v4/pkg/cache/types"
+	"github.com/nephio-project/porch/v4/pkg/externalrepo"
+	"github.com/nephio-project/porch/v4/pkg/repository"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 )

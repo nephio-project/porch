@@ -18,7 +18,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nephio-project/porch/internal/kpt/errors"
+	"github.com/nephio-project/porch/v4/internal/kpt/errors"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/cli-utils/pkg/manifestreader"

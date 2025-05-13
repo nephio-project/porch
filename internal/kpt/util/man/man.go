@@ -24,8 +24,8 @@ import (
 	"strings"
 
 	"github.com/cpuguy83/go-md2man/v2/md2man"
-	"github.com/nephio-project/porch/internal/kpt/pkg"
-	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/v4/internal/kpt/pkg"
+	v1 "github.com/nephio-project/porch/v4/pkg/kpt/api/kptfile/v1"
 	"sigs.k8s.io/kustomize/kyaml/errors"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 )

@@ -17,7 +17,7 @@ package resolver
 import (
 	"errors"
 
-	"github.com/nephio-project/porch/internal/kpt/fnruntime"
+	"github.com/nephio-project/porch/v4/internal/kpt/fnruntime"
 )
 
 //nolint:gochecknoinits

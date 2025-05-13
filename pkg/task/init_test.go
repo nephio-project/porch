@@ -21,8 +21,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/pkg/repository"
+	api "github.com/nephio-project/porch/v4/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/v4/pkg/repository"
 )
 
 func TestInit(t *testing.T) {

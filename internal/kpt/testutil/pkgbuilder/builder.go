@@ -23,7 +23,7 @@ import (
 	"testing"
 
 	rgfilev1alpha1 "github.com/GoogleContainerTools/kpt/pkg/api/resourcegroup/v1alpha1"
-	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	kptfilev1 "github.com/nephio-project/porch/v4/pkg/kpt/api/kptfile/v1"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )

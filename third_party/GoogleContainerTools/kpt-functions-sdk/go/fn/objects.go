@@ -19,7 +19,7 @@ import (
 	"math"
 	"strings"
 
-	v1 "github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/api/kptfile/v1"
+	v1 "github.com/nephio-project/porch/v4/third_party/GoogleContainerTools/kpt-functions-sdk/go/api/kptfile/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 

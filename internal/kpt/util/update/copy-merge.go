@@ -18,10 +18,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/nephio-project/porch/internal/kpt/errors"
-	"github.com/nephio-project/porch/internal/kpt/pkg"
-	"github.com/nephio-project/porch/internal/kpt/types"
-	"github.com/nephio-project/porch/internal/kpt/util/pkgutil"
+	"github.com/nephio-project/porch/v4/internal/kpt/errors"
+	"github.com/nephio-project/porch/v4/internal/kpt/pkg"
+	"github.com/nephio-project/porch/v4/internal/kpt/types"
+	"github.com/nephio-project/porch/v4/internal/kpt/util/pkgutil"
 )
 
 type CopyMergeUpdater struct{}

@@ -18,7 +18,7 @@ import (
 	"strings"
 	"testing"
 
-	kptfileapi "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	kptfileapi "github.com/nephio-project/porch/v4/pkg/kpt/api/kptfile/v1"
 	"gotest.tools/assert"
 )
 

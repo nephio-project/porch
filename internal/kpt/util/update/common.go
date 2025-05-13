@@ -17,9 +17,9 @@ package update
 import (
 	"reflect"
 
-	"github.com/nephio-project/porch/internal/kpt/errors"
-	"github.com/nephio-project/porch/internal/kpt/pkg"
-	"github.com/nephio-project/porch/internal/kpt/types"
+	"github.com/nephio-project/porch/v4/internal/kpt/errors"
+	"github.com/nephio-project/porch/v4/internal/kpt/pkg"
+	"github.com/nephio-project/porch/v4/internal/kpt/types"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 )
 

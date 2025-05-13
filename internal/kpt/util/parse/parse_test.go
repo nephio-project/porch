@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"testing"
 
-	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
-	"github.com/nephio-project/porch/pkg/kpt/printer"
+	v1 "github.com/nephio-project/porch/v4/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/v4/pkg/kpt/printer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

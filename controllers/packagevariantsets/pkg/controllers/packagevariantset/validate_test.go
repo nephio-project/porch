@@ -17,7 +17,7 @@ package packagevariantset
 import (
 	"testing"
 
-	api "github.com/nephio-project/porch/controllers/packagevariantsets/api/v1alpha2"
+	api "github.com/nephio-project/porch/v4/controllers/packagevariantsets/api/v1alpha2"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
 )

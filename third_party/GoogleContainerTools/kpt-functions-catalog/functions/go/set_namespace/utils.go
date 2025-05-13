@@ -1,6 +1,6 @@
 package set_namespace
 
-import "github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
+import "github.com/nephio-project/porch/v4/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 
 func NestedStringOrDie(o *fn.KubeObject, fields ...string) string {
 	val, _, err := o.NestedString(fields...)

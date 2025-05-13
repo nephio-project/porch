@@ -17,7 +17,7 @@ package install
 import (
 	"testing"
 
-	"github.com/nephio-project/porch/api/porch/fuzzer"
+	"github.com/nephio-project/porch/v4/api/porch/fuzzer"
 	"k8s.io/apimachinery/pkg/api/apitesting/roundtrip"
 )
 

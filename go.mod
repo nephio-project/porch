@@ -1,8 +1,6 @@
-module github.com/nephio-project/porch
+module github.com/nephio-project/porch/v4
 
 go 1.23.5
-
-retract v1.3.0
 
 require (
 	cloud.google.com/go/iam v1.1.12

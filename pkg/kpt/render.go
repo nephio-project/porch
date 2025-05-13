@@ -20,12 +20,12 @@ import (
 	"io"
 	"os"
 
-	"github.com/nephio-project/porch/internal/kpt/fnruntime"
-	"github.com/nephio-project/porch/internal/kpt/pkg"
-	"github.com/nephio-project/porch/internal/kpt/util/render"
-	fnresult "github.com/nephio-project/porch/pkg/kpt/api/fnresult/v1"
-	"github.com/nephio-project/porch/pkg/kpt/fn"
-	"github.com/nephio-project/porch/pkg/kpt/printer"
+	"github.com/nephio-project/porch/v4/internal/kpt/fnruntime"
+	"github.com/nephio-project/porch/v4/internal/kpt/pkg"
+	"github.com/nephio-project/porch/v4/internal/kpt/util/render"
+	fnresult "github.com/nephio-project/porch/v4/pkg/kpt/api/fnresult/v1"
+	"github.com/nephio-project/porch/v4/pkg/kpt/fn"
+	"github.com/nephio-project/porch/v4/pkg/kpt/printer"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 )

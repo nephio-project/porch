@@ -20,7 +20,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/nephio-project/porch/pkg/externalrepo/fake"
+	"github.com/nephio-project/porch/v4/pkg/externalrepo/fake"
 	"github.com/stretchr/testify/assert"
 )
 

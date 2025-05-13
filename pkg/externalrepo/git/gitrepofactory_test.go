@@ -21,8 +21,8 @@ import (
 	"strings"
 	"testing"
 
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
+	configapi "github.com/nephio-project/porch/v4/api/porchconfig/v1alpha1"
+	externalrepotypes "github.com/nephio-project/porch/v4/pkg/externalrepo/types"
 	"github.com/stretchr/testify/assert"
 )
 

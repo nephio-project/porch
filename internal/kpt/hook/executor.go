@@ -19,12 +19,12 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/nephio-project/porch/internal/kpt/fnruntime"
-	"github.com/nephio-project/porch/internal/kpt/pkg"
-	"github.com/nephio-project/porch/internal/kpt/types"
-	fnresult "github.com/nephio-project/porch/pkg/kpt/api/fnresult/v1"
-	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
-	"github.com/nephio-project/porch/pkg/kpt/fn"
+	"github.com/nephio-project/porch/v4/internal/kpt/fnruntime"
+	"github.com/nephio-project/porch/v4/internal/kpt/pkg"
+	"github.com/nephio-project/porch/v4/internal/kpt/types"
+	fnresult "github.com/nephio-project/porch/v4/pkg/kpt/api/fnresult/v1"
+	kptfilev1 "github.com/nephio-project/porch/v4/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/v4/pkg/kpt/fn"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 	"sigs.k8s.io/kustomize/kyaml/kio"
 )

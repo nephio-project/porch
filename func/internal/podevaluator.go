@@ -33,8 +33,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	containerregistry "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/nephio-project/porch/func/evaluator"
-	util "github.com/nephio-project/porch/pkg/util"
+	"github.com/nephio-project/porch/v4/func/evaluator"
+	util "github.com/nephio-project/porch/v4/pkg/util"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"gopkg.in/yaml.v2"
@@ -156,7 +156,7 @@ func NewPodEvaluator(o PodEvaluatorOptions) (Evaluator, error) {
 			klog.Warningf("unable to warm up the pod cache: %v", err)
 		}
 	}
-	
+
 	return pe, nil
 }
 

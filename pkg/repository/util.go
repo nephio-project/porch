@@ -19,9 +19,9 @@ import (
 	"strconv"
 	"strings"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
-	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
-	"github.com/nephio-project/porch/pkg/util"
+	api "github.com/nephio-project/porch/v4/api/porch/v1alpha1"
+	kptfile "github.com/nephio-project/porch/v4/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/v4/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

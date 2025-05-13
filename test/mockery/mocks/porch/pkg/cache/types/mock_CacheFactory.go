@@ -5,7 +5,7 @@ package cachetypes
 import (
 	context "context"
 
-	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
+	cachetypes "github.com/nephio-project/porch/v4/pkg/cache/types"
 
 	mock "github.com/stretchr/testify/mock"
 )

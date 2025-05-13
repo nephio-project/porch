@@ -20,13 +20,13 @@ import (
 	"os"
 	"path/filepath"
 
-	internalpkg "github.com/nephio-project/porch/internal/kpt/pkg"
-	"github.com/nephio-project/porch/internal/kpt/util/fetch"
-	"github.com/nephio-project/porch/internal/kpt/util/git"
-	"github.com/nephio-project/porch/internal/kpt/util/update"
-	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
-	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
-	"github.com/nephio-project/porch/pkg/kpt/printer"
+	internalpkg "github.com/nephio-project/porch/v4/internal/kpt/pkg"
+	"github.com/nephio-project/porch/v4/internal/kpt/util/fetch"
+	"github.com/nephio-project/porch/v4/internal/kpt/util/git"
+	"github.com/nephio-project/porch/v4/internal/kpt/util/update"
+	kptfilev1 "github.com/nephio-project/porch/v4/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/v4/pkg/kpt/kptfileutil"
+	"github.com/nephio-project/porch/v4/pkg/kpt/printer"
 	"k8s.io/klog/v2"
 )
 

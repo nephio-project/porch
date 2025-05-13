@@ -17,7 +17,7 @@ package fn
 import (
 	"context"
 
-	fnresult "github.com/nephio-project/porch/pkg/kpt/api/fnresult/v1"
+	fnresult "github.com/nephio-project/porch/v4/pkg/kpt/api/fnresult/v1"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 )
 

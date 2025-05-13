@@ -21,11 +21,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nephio-project/porch/internal/kpt/errors"
-	. "github.com/nephio-project/porch/internal/kpt/gitutil"
-	"github.com/nephio-project/porch/internal/kpt/testutil"
-	"github.com/nephio-project/porch/internal/kpt/testutil/pkgbuilder"
-	"github.com/nephio-project/porch/pkg/kpt/printer/fake"
+	"github.com/nephio-project/porch/v4/internal/kpt/errors"
+	. "github.com/nephio-project/porch/v4/internal/kpt/gitutil"
+	"github.com/nephio-project/porch/v4/internal/kpt/testutil"
+	"github.com/nephio-project/porch/v4/internal/kpt/testutil/pkgbuilder"
+	"github.com/nephio-project/porch/v4/pkg/kpt/printer/fake"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/nephio-project/porch/internal/kpt/util/get"
-	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
-	"github.com/nephio-project/porch/pkg/kpt/printer/fake"
+	"github.com/nephio-project/porch/v4/internal/kpt/util/get"
+	kptfilev1 "github.com/nephio-project/porch/v4/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/v4/pkg/kpt/printer/fake"
 )
 
 func ExampleCommand() {

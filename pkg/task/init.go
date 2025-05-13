@@ -18,11 +18,11 @@ import (
 	"context"
 	"fmt"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/pkg/kpt/kptpkg"
-	"github.com/nephio-project/porch/pkg/kpt/printer"
-	"github.com/nephio-project/porch/pkg/kpt/printer/fake"
-	"github.com/nephio-project/porch/pkg/repository"
+	api "github.com/nephio-project/porch/v4/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/v4/pkg/kpt/kptpkg"
+	"github.com/nephio-project/porch/v4/pkg/kpt/printer"
+	"github.com/nephio-project/porch/v4/pkg/kpt/printer/fake"
+	"github.com/nephio-project/porch/v4/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 )

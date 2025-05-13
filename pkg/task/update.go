@@ -18,9 +18,9 @@ import (
 	"context"
 	"fmt"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/pkg/kpt"
-	"github.com/nephio-project/porch/pkg/repository"
+	api "github.com/nephio-project/porch/v4/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/v4/pkg/kpt"
+	"github.com/nephio-project/porch/v4/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
 )

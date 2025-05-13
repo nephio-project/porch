@@ -20,7 +20,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"k8s.io/klog/v2"
 	"net"
 	"path/filepath"
 	"strings"
@@ -28,7 +27,9 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/nephio-project/porch/func/evaluator"
+	"k8s.io/klog/v2"
+
+	pb "github.com/nephio-project/porch/v4/func/evaluator"
 	"google.golang.org/grpc"
 	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"

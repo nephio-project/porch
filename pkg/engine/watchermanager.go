@@ -18,7 +18,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/v4/pkg/repository"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog/v2"
 )

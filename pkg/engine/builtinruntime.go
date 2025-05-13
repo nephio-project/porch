@@ -19,13 +19,13 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/nephio-project/porch/pkg/kpt"
-	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
-	"github.com/nephio-project/porch/pkg/kpt/fn"
-	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-catalog/functions/go/apply_replacements"
-	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-catalog/functions/go/set_namespace"
-	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-catalog/functions/go/starlark/starlark"
-	fnsdk "github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
+	"github.com/nephio-project/porch/v4/pkg/kpt"
+	v1 "github.com/nephio-project/porch/v4/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/v4/pkg/kpt/fn"
+	"github.com/nephio-project/porch/v4/third_party/GoogleContainerTools/kpt-functions-catalog/functions/go/apply_replacements"
+	"github.com/nephio-project/porch/v4/third_party/GoogleContainerTools/kpt-functions-catalog/functions/go/set_namespace"
+	"github.com/nephio-project/porch/v4/third_party/GoogleContainerTools/kpt-functions-catalog/functions/go/starlark/starlark"
+	fnsdk "github.com/nephio-project/porch/v4/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 )
 
 // When updating the version for the builtin functions, please also update the image version

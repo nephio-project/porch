@@ -20,9 +20,9 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/pkg/kpt/printer"
-	fakeprint "github.com/nephio-project/porch/pkg/kpt/printer/fake"
+	porchapi "github.com/nephio-project/porch/v4/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/v4/pkg/kpt/printer"
+	fakeprint "github.com/nephio-project/porch/v4/pkg/kpt/printer/fake"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"

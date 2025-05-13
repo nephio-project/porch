@@ -20,8 +20,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nephio-project/porch/internal/kpt/pkg"
-	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/v4/internal/kpt/pkg"
+	kptfilev1 "github.com/nephio-project/porch/v4/pkg/kpt/api/kptfile/v1"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )

@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nephio-project/porch/internal/kpt/pkg"
+	"github.com/nephio-project/porch/v4/internal/kpt/pkg"
 	"github.com/stretchr/testify/assert"
 )
 

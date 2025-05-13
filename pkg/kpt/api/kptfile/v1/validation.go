@@ -20,7 +20,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/nephio-project/porch/internal/kpt/types"
+	"github.com/nephio-project/porch/v4/internal/kpt/types"
 	"sigs.k8s.io/kustomize/api/konfig"
 	kustomizetypes "sigs.k8s.io/kustomize/api/types"
 	"sigs.k8s.io/kustomize/kyaml/filesys"

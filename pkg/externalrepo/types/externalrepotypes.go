@@ -17,8 +17,8 @@ package externalrepotypes
 import (
 	"context"
 
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/pkg/repository"
+	configapi "github.com/nephio-project/porch/v4/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/v4/pkg/repository"
 )
 
 type ExternalRepoFactory interface {
