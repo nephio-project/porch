@@ -97,6 +97,10 @@ func TestCopyMerge(t *testing.T) {
 		"adds and update package": {
 			origin: pkgbuilder.NewRootPkg(),
 			local: pkgbuilder.NewRootPkg().
+				WithKptfile(
+					pkgbuilder.NewKptfile().
+						WithUpstream(kptRepo, "A0", "1", copyMergeLiteral),
+				).
 				WithResource(pkgbuilder.DeploymentResource).
 				WithSubPackages(
 					pkgbuilder.NewSubPkg("pkgA").
@@ -105,6 +109,10 @@ func TestCopyMerge(t *testing.T) {
 						WithResource(pkgbuilder.DeploymentResource),
 				),
 			updated: pkgbuilder.NewRootPkg().
+				WithKptfile(
+					pkgbuilder.NewKptfile().
+						WithUpstream(kptRepo, "A0", "1", copyMergeLiteral),
+				).
 				WithResource(pkgbuilder.DeploymentResource).
 				WithSubPackages(
 					pkgbuilder.NewSubPkg("pkgA").
@@ -115,6 +123,10 @@ func TestCopyMerge(t *testing.T) {
 			relPackagePath: "/",
 			isRoot:         true,
 			expected: pkgbuilder.NewRootPkg().
+				WithKptfile(
+					pkgbuilder.NewKptfile().
+						WithUpstream(kptRepo, "A0", "1", copyMergeLiteral),
+				).
 				WithResource(pkgbuilder.DeploymentResource).
 				WithSubPackages(
 					pkgbuilder.NewSubPkg("pkgA").
@@ -275,4 +287,101 @@ func TestCopyMergeErrorCopyingFile(t *testing.T) {
 	err = updater.Update(options)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "is a directory")
+}
+
+func TestCopyMergeDifferentMetadata(t *testing.T) {
+	testCases := map[string]struct {
+		origin         *pkgbuilder.RootPkg
+		local          *pkgbuilder.RootPkg
+		updated        *pkgbuilder.RootPkg
+		relPackagePath string
+		isRoot         bool
+		expected       *pkgbuilder.RootPkg
+	}{
+		"kpt metadata name": {
+			origin: pkgbuilder.NewRootPkg(),
+			local: pkgbuilder.NewRootPkg().
+				WithKptfile(
+					pkgbuilder.NewKptfile(),
+				),
+			updated: pkgbuilder.NewRootPkg().
+				WithKptfile(
+					pkgbuilder.NewKptfile(),
+				),
+			relPackagePath: "/",
+			isRoot:         true,
+			expected: pkgbuilder.NewRootPkg().
+				WithKptfile(
+					pkgbuilder.NewKptfile(),
+				),
+		},
+		"sub folder with different kptfile": {
+			origin: pkgbuilder.NewRootPkg(),
+			local: pkgbuilder.NewRootPkg().
+				WithKptfile(
+					pkgbuilder.NewKptfile().
+						WithUpstream(kptRepo, "root", "1", copyMergeLiteral),
+				).
+				WithSubPackages(
+					pkgbuilder.NewSubPkg("pkgA").
+						WithKptfile(
+							pkgbuilder.NewKptfile().
+								WithUpstream(kptRepo, "A1", "1", copyMergeLiteral),
+						),
+				),
+			updated: pkgbuilder.NewRootPkg().
+				WithKptfile(
+					pkgbuilder.NewKptfile().
+						WithUpstream(kptRepo, "root", "2", copyMergeLiteral),
+				).
+				WithSubPackages(
+					pkgbuilder.NewSubPkg("pkgA").
+						WithKptfile(
+							pkgbuilder.NewKptfile().
+								WithUpstream(kptRepo, "A2", "2", copyMergeLiteral),
+						),
+				),
+			relPackagePath: "/",
+			isRoot:         true,
+			expected: pkgbuilder.NewRootPkg().
+				WithKptfile(
+					pkgbuilder.NewKptfile().
+						WithUpstream(kptRepo, "root", "2", copyMergeLiteral),
+				).
+				WithSubPackages(
+					pkgbuilder.NewSubPkg("pkgA").
+						WithKptfile(
+							pkgbuilder.NewKptfile().
+								WithUpstream(kptRepo, "A2", "2", copyMergeLiteral),
+						),
+				),
+		},
+	}
+
+	for tn, tc := range testCases {
+		t.Run(tn, func(t *testing.T) {
+
+			repos := testutil.EmptyReposInfo
+			origin := tc.origin.ExpandPkg(t, repos)                      //metadata.name: "base"
+			local := tc.local.ExpandPkgWithName(t, "local", repos)       //metadata.name: "local"
+			updated := tc.updated.ExpandPkgWithName(t, "updated", repos) //metadata.name: "updated"
+			expected := tc.expected.ExpandPkgWithName(t, "local", repos) //metadata.name: "local" I am expeting this field to not change
+
+			updater := &CopyMergeUpdater{}
+
+			err := updater.Update(Options{
+				RelPackagePath: tc.relPackagePath,
+				OriginPath:     filepath.Join(origin, tc.relPackagePath),
+				LocalPath:      filepath.Join(local, tc.relPackagePath),
+				UpdatedPath:    filepath.Join(updated, tc.relPackagePath),
+				IsRoot:         tc.isRoot,
+			})
+			if !assert.NoError(t, err) {
+				t.FailNow()
+			}
+
+			testutil.KptfileAwarePkgEqual(t, local, expected, false)
+
+		})
+	}
 }
