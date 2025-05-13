@@ -53,8 +53,8 @@ jobs:
           install_only: true
       - name: Set up Git config
         run: |
-          git config --global user.name "My Name"
-          git config --global user.email "myemail@example.com"
+          git config --global user.name "Porch CLI E2E"
+          git config --global user.email "porch-cli-e2e@porch.dev"
       - name: Setup dev env
         run: ${GITHUB_WORKSPACE}/scripts/setup-dev-env.sh
       - name: Build Images and Deploy porch kpt pkg
