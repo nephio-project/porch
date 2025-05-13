@@ -1,4 +1,4 @@
-// Copyright 2024 The kpt and Nephio Authors
+// Copyright 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,24 +17,35 @@ package e2e
 import (
 	"bufio"
 	"bytes"
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	nethttp "net/http"
+
 	"github.com/google/go-cmp/cmp"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
+
+	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
 )
 
 const (
 	updateGoldenFiles       = "UPDATE_GOLDEN_FILES"
-	testGitName             = "git-server"
-	testGitNamespace        = "test-git-namespace"
-	defaultTestGitServerUrl = "http://" + testGitName + "." + testGitNamespace + ".svc.cluster.local:8080"
+	testGitUserOrg          = "nephio"
+	testGitPassword         = "secret"
+	defaultTestGitServerUrl = "http://gitea.gitea.svc.cluster.local:3000"
 )
 
 type CliTestSuite struct {
@@ -67,8 +78,13 @@ func NewCliTestSuite(t *testing.T, testdataDir string) *CliTestSuite {
 		t.Fatalf("porchctl command not found at %q: %v", s.PorchctlCommand, err)
 	}
 
-	// start git server
-	s.StartGitServer(t) // sets s.GitServerURL
+	isPorchInCluster := IsPorchServerRunningInCluster(t)
+	if isPorchInCluster {
+		s.GitServerURL = defaultTestGitServerUrl
+	} else {
+		ip := KubectlWaitForLoadBalancerIp(t, "gitea", "gitea-lb")
+		s.GitServerURL = "http://" + ip + ":3000"
+	}
 	s.SearchAndReplace = map[string]string{}
 	if s.GitServerURL != defaultTestGitServerUrl {
 		s.SearchAndReplace[defaultTestGitServerUrl] = s.GitServerURL
@@ -101,12 +117,15 @@ func (s *CliTestSuite) RunTests(t *testing.T) {
 
 // RunTestCase runs a single test case.
 func (s *CliTestSuite) RunTestCase(t *testing.T, tc TestCaseConfig) {
-	repoURL := s.GitServerURL + "/" + strings.ReplaceAll(tc.TestCase, "/", "-")
+	repoURL := s.GitServerURL + "/" + testGitUserOrg + "/" + strings.ReplaceAll(tc.TestCase, "/", "-")
 
 	KubectlCreateNamespace(t, tc.TestCase)
 	t.Cleanup(func() {
 		KubectlDeleteNamespace(t, tc.TestCase)
+		deleteRemoteTestRepo(t, tc.TestCase)
 	})
+	
+	createRemoteTestRepo(t, tc.TestCase)
 
 	if tc.Repository != "" {
 		s.RegisterRepository(t, repoURL, tc.TestCase, tc.Repository)
@@ -183,49 +202,18 @@ func (s *CliTestSuite) RunTestCase(t *testing.T, tc TestCaseConfig) {
 			}
 		}
 
-		// hack here; but if the command registered a repo, give a few extra seconds for the repo to reach readiness
-		for _, arg := range command.Args {
-			if arg == "register" {
-				time.Sleep(5 * time.Second)
+		if slices.Contains(cmd.Args, "register") {
+			name, found := getRepoName(cmd.Args)
+			if found {
+				KubectlWaitForRepoReady(t, name, tc.TestCase)
+			} else {
+				t.Fatalf("Failed to get repo name for registration: %s", tc.TestCase)
 			}
 		}
 	}
 
 	if os.Getenv(updateGoldenFiles) != "" {
 		WriteTestCaseConfig(t, &tc)
-	}
-}
-
-func (s *CliTestSuite) StartGitServer(t *testing.T) {
-	isPorchInCluster := IsPorchServerRunningInCluster(t)
-	gitServerImage := GetGitServerImageName(t)
-	t.Logf("Git Image: %s", gitServerImage)
-
-	configFile := filepath.Join(s.TestDataPath, "git-server.yaml")
-	configBytes, err := os.ReadFile(configFile)
-	if err != nil {
-		t.Fatalf("Failed to read git server config file %q: %v", configFile, err)
-	}
-	config := string(configBytes)
-	config = strings.ReplaceAll(config, "GIT_SERVER_IMAGE", gitServerImage)
-	if !isPorchInCluster {
-		config = strings.ReplaceAll(config, "ClusterIP", "LoadBalancer")
-	}
-
-	t.Cleanup(func() {
-		KubectlDeleteNamespace(t, testGitNamespace)
-	})
-
-	KubectlApply(t, config)
-	KubectlWaitForDeployment(t, testGitNamespace, testGitName)
-	KubectlWaitForService(t, testGitNamespace, testGitName)
-
-	if isPorchInCluster {
-		s.GitServerURL = defaultTestGitServerUrl
-		s.KubectlWaitForGitDNS(t)
-	} else {
-		ip := KubectlWaitForLoadBalancerIp(t, testGitNamespace, testGitName)
-		s.GitServerURL = "http://" + ip + ":8080"
 	}
 }
 
@@ -268,42 +256,6 @@ func (s *CliTestSuite) RegisterRepository(t *testing.T, repoURL, namespace, name
 	err := s.Porchctl(t, "repo", "register", "--namespace", namespace, "--name", name, repoURL)
 	if err != nil {
 		t.Fatalf("Failed to register repository %q: %v", repoURL, err)
-	}
-}
-
-// Kubernetes DNS needs time to propagate the git server's domain name.
-// Wait until we can register the repository and list its contents.
-func (s *CliTestSuite) KubectlWaitForGitDNS(t *testing.T) {
-	const name = "test-git-dns-resolve"
-
-	KubectlCreateNamespace(t, name)
-	defer KubectlDeleteNamespace(t, name)
-
-	// We expect repos to automatically be created (albeit empty)
-	repoURL := s.GitServerURL + "/" + name
-
-	err := s.Porchctl(t, "repo", "register", "--namespace", name, "--name", name, repoURL)
-	if err != nil {
-		t.Fatalf("Failed to register probe repository: %v", err)
-	}
-
-	// Based on experience, DNS seems to get updated inside the cluster within
-	// few seconds. We will wait about a minute.
-	// If this turns out to be an issue, we will sidestep DNS and use the Endpoints
-	// IP address directly.
-	giveUp := time.Now().Add(1 * time.Minute)
-	for {
-		err := s.Porchctl(t, "rpkg", "get", "--namespace", name)
-
-		if err == nil {
-			break
-		}
-
-		if time.Now().After(giveUp) {
-			t.Fatalf("Git service DNS resolution failed: %v", err)
-		}
-
-		time.Sleep(5 * time.Second)
 	}
 }
 
@@ -406,4 +358,97 @@ func exitCode(exit error) int {
 		return ee.ExitCode()
 	}
 	return 0
+}
+
+func deleteRemoteTestRepo (t *testing.T, testcaseName string) {
+
+	apiURL := fmt.Sprintf("http://localhost:3000/api/v1/repos/%s/%s", testGitUserOrg, testcaseName)
+
+	req, err := nethttp.NewRequest("DELETE", apiURL, nil)
+	if err != nil {
+		t.Fatalf("Failed to create DELETE request: %v", err)
+	}
+	auth := testGitUserOrg + ":" + testGitPassword
+	basicAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
+	req.Header.Set("Authorization", basicAuth)
+
+	resp, err := nethttp.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("Failed to make request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == nethttp.StatusNoContent {
+		t.Logf("Repo deleted successfully: %s", testcaseName)
+	} else {
+		t.Logf("Failed to delete repo: %s %s\n", testcaseName, resp.Status)
+	}
+}
+
+func createRemoteTestRepo (t *testing.T, testcaseName string) {
+
+	tmpPath := t.TempDir()
+	repo, err := git.PlainInit(tmpPath, false)
+	if err != nil {
+		t.Fatalf("Failed to init the repo %s: %v", testcaseName, err)
+	}
+
+	err = repo.Storer.SetReference(
+		plumbing.NewSymbolicReference(plumbing.HEAD, plumbing.NewBranchReferenceName("main")),
+	)
+	if err != nil {
+		t.Fatalf("Failed to set refs: %v", err)
+	}
+
+	err = os.WriteFile(tmpPath + "/README.md", []byte("# Test Go-Git Repo\nCreated programmatically."), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write to file: %v", err)
+	}
+
+	wt, _ := repo.Worktree()
+	_, err = wt.Add("README.md")
+	if err != nil {
+		t.Fatalf("Failed to add README: %v", err)
+	}
+	_, err = wt.Commit("Initial commit", &git.CommitOptions{
+		Author: &object.Signature{
+			Name:  "Nephio O' Test",
+			Email: "nephiotest@example.com",
+			When:  time.Now(),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Failed to commit to repo %s: %v", testcaseName, err)
+	}
+
+	repoUrl := fmt.Sprintf("http://localhost:3000/%s/%s", testGitUserOrg, testcaseName)
+	_, err = repo.CreateRemote(&config.RemoteConfig{
+		Name: "origin",
+		URLs: []string{repoUrl},
+	})
+	if err != nil {
+		t.Fatalf("Failed to create init commit: %v", err)
+	}
+
+	err = repo.Push(&git.PushOptions{
+		RemoteName: "origin",
+		Auth: &http.BasicAuth{
+			Username: testGitUserOrg, 
+			Password: testGitPassword,
+		},
+		RequireRemoteRefs: []config.RefSpec{},
+	})
+	if err != nil {
+		t.Fatalf("Failed to push test repo %s: %v", testcaseName, err)
+	}
+	t.Logf("Test repo created successfully: %s", testcaseName)
+}
+
+func getRepoName(args []string) (string, bool) {
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "--name=") {
+			return strings.TrimPrefix(arg, "--name="), true
+		}
+	}
+	return "", false
 }

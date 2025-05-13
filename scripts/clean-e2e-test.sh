@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright 2022-2024 The kpt and Nephio Authors
+# Copyright 2022-2025 The kpt and Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,8 +38,6 @@ sleep 20
 
 echo "--- test/e2e ---"
 E2E=1 go test -failfast -v ./test/e2e
-echo "--- test/e2e/cli ---"
-E2E=1 go test -failfast -v ./test/e2e/cli
 echo "--- deleting kind cluster that is dedicated for clean end-to-end tests ($kind_cluster) ---"
 kind delete cluster --name "$kind_cluster" || true
 

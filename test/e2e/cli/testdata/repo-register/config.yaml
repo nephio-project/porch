@@ -3,8 +3,11 @@ commands:
       - porchctl
       - repo
       - register
-      - https://github.com/platkrm/test-blueprints.git
+      - --repo-basic-password=secret
+      - --repo-basic-username=nephio
+      - http://gitea.gitea.svc.cluster.local:3000/nephio/test-blueprints.git
       - --namespace=repo-register
+      - --name=test-blueprints
       - --description
       - Test Blueprints
   - args:
@@ -14,8 +17,8 @@ commands:
       - --namespace=repo-register
       - --output=custom-columns=NAME:.metadata.name,ADDRESS:.spec.git.repo,BRANCH:.spec.git.branch,DIR:.spec.git.directory
     stdout: |
-      NAME              ADDRESS                                          BRANCH   DIR
-      test-blueprints   https://github.com/platkrm/test-blueprints.git   main     /
+      NAME              ADDRESS                                                                BRANCH   DIR
+      test-blueprints   http://gitea.gitea.svc.cluster.local:3000/nephio/test-blueprints.git   main     /
   - args:
       - porchctl
       - repo
@@ -32,7 +35,7 @@ commands:
       - --namespace=repo-register
     stdout: |
       NAME              TYPE   CONTENT   DEPLOYMENT   READY   ADDRESS
-      test-blueprints   git    Package                True    https://github.com/platkrm/test-blueprints.git
+      test-blueprints   git    Package                True    http://gitea.gitea.svc.cluster.local:3000/nephio/test-blueprints.git
   - args:
       - porchctl
       - repo

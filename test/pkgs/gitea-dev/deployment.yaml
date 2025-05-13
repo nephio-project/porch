@@ -1,7 +1,7 @@
 # Source: gitea/templates/gitea/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
-metadata: # kpt-merge: gitea/gitea
+metadata:
   name: gitea
   namespace: gitea
   labels:

@@ -5,15 +5,15 @@ commands:
       - register
       - --namespace=rpkg-unready
       - --name=git
-      - http://git-server.test-git-namespace.svc.cluster.local:8080/rpkg-unready
+      - --repo-basic-password=secret
+      - --repo-basic-username=nephio
+      - http://gitea.gitea.svc.cluster.local:3000/nephio/rpkg-unready
   - args:
       - porchctl
       - rpkg
       - clone
       - --namespace=rpkg-unready
-      - https://github.com/nephio-project/porch.git
-      - --directory=test/pkgs/unready/
-      - --ref=test/pkgs/unready/v1
+      - http://gitea.gitea.svc.cluster.local:3000/nephio/test-blueprints.git/unready@unready/v1
       - --repository=git
       - --workspace=clone-1
       - unready-edit

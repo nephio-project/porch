@@ -1,18 +1,20 @@
-# Source: gitea/templates/gitea/http-svc.yaml
 apiVersion: v1
 kind: Service
-metadata: # kpt-merge: gitea/gitea-http
-  name: gitea-http
+metadata:
+  name: gitea-lb
   namespace: gitea
   labels:
-    app: gitea
     app.kubernetes.io/name: gitea
     app.kubernetes.io/instance: gitea
   annotations:
-    internal.kpt.dev/upstream-identifier: '|Service|gitea|gitea-http'
+    metallb.universe.tf/loadBalancerIPs: 172.18.255.200
 spec:
-  type: ClusterIP
+  type: LoadBalancer
   ports:
+  - name: ssh
+    port: 22
+    targetPort: 22
+    protocol: TCP
   - name: http
     port: 3000
     targetPort: 3000
