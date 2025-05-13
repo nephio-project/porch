@@ -15,11 +15,16 @@
 package render
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
+	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"github.com/stretchr/testify/assert"
+	"sigs.k8s.io/kustomize/kyaml/filesys"
 	"sigs.k8s.io/kustomize/kyaml/kio"
 )
 
@@ -226,4 +231,48 @@ metadata:
 			assert.Equal(t, tc.expected, actual)
 		})
 	}
+}
+
+func TestRenderer_Execute_UseBFS(t *testing.T) {
+	ctx := context.Background()
+	ctx = printer.WithContext(ctx, printer.New(os.Stdout, os.Stderr))
+
+	mockFileSystem := filesys.MakeFsInMemory()
+
+	rootPkgPath := "/root"
+	err := mockFileSystem.Mkdir(rootPkgPath)
+	assert.NoError(t, err)
+
+	subPkgPath := "/root/subpkg"
+	err = mockFileSystem.Mkdir(subPkgPath)
+	assert.NoError(t, err)
+
+	err = mockFileSystem.WriteFile(filepath.Join(rootPkgPath, "Kptfile"), []byte(`
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: root-package
+`))
+	assert.NoError(t, err)
+
+	err = mockFileSystem.WriteFile(filepath.Join(subPkgPath, "Kptfile"), []byte(`
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: sub-package
+`))
+	assert.NoError(t, err)
+
+	renderer := &Renderer{
+		PkgPath:        rootPkgPath,
+		ResultsDirPath: "/results",
+		FileSystem:     mockFileSystem,
+		UseBFS:         true, // Enable BFS
+	}
+
+	fnResults, err := renderer.Execute(ctx)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, fnResults)
+	assert.Equal(t, 0, len(fnResults.Items)) // No functions executed in this mock setup
 }
