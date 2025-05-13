@@ -27,7 +27,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -71,7 +70,7 @@ func GetPorchApiServiceKey(ctx context.Context) (client.ObjectKey, error) {
 	}
 
 	apiSvc := registrationapi.APIService{}
-	apiSvcName := porchapi.SchemeGroupVersion.Version + "." + porchapi.SchemeGroupVersion.Group
+	apiSvcName := v1alpha1.SchemeGroupVersion.Version + "." + v1alpha1.SchemeGroupVersion.Group
 	err = c.Get(ctx, client.ObjectKey{
 		Name: apiSvcName,
 	}, &apiSvc)
@@ -146,10 +145,34 @@ func ValidateRepository(repoName, directory string) error {
 	return errors.New(repoErrString + dirErrString)
 }
 
+func ComposePkgObjName(repoName, path, packageName string) string {
+	dottedPath := strings.ReplaceAll(filepath.Join(path, packageName), "/", ".")
+	dottedPath = strings.Trim(dottedPath, ".")
+	return fmt.Sprintf("%s.%s", repoName, dottedPath)
+}
+
 func ComposePkgRevObjName(repoName, path, packageName, workspace string) string {
 	dottedPath := strings.ReplaceAll(filepath.Join(path, packageName), "/", ".")
 	dottedPath = strings.Trim(dottedPath, ".")
 	return fmt.Sprintf("%s.%s.%s", repoName, dottedPath, workspace)
+}
+
+func ValidPkgObjName(repoName, path, packageName string) error {
+	var errSlice []string
+
+	if err := ValidateRepository(repoName, path); err != nil {
+		errSlice = append(errSlice, err.Error())
+	}
+
+	if err := ValidateDirectoryName(packageName, true); err != nil {
+		errSlice = append(errSlice, "package name "+packageName+invalidConst+err.Error()+"\n")
+	}
+
+	if len(errSlice) == 0 {
+		return nil
+	} else {
+		return errors.New("package object name invalid:\n" + strings.Join(errSlice, ""))
+	}
 }
 
 func ValidPkgRevObjName(repoName, path, packageName, workspace string) error {

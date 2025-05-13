@@ -7,3 +7,6 @@ scrape_configs:
     static_configs:
       - targets: ['host.docker.internal:2113']
     scrape_interval: 0s100ms
+
+rule_files:
+  - "./rules.yml"

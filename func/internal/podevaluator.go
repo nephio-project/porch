@@ -80,6 +80,7 @@ type PodEvaluatorOptions struct {
 	PodTTL                     time.Duration // Time-to-live for pods before GC
 	PodCacheConfigFileName     string        // Path to the pod cache config file. The file is map of function name to TTL.
 	FunctionPodTemplateName    string        // Configmap that contains a pod specification
+	WarmUpPodCacheOnStartup    bool          // If true, pod-cache-config image pods will be deployed at startup
 	EnablePrivateRegistries    bool          // If true enables the use of private registries and their authentication
 	RegistryAuthSecretPath     string        // The path of the secret used for authenticating to custom registries
 	RegistryAuthSecretName     string        // The name of the secret used for authenticating to custom registries
@@ -147,12 +148,15 @@ func NewPodEvaluator(o PodEvaluatorOptions) (Evaluator, error) {
 	}
 	go pe.podCacheManager.podCacheManager()
 
-	// TODO(mengqiy): add watcher that support reloading the cache when the config file was changed.
-	err = pe.podCacheManager.warmupCache(o.PodCacheConfigFileName)
-	// If we can't warm up the cache, we can still proceed without it.
-	if err != nil {
-		klog.Warningf("unable to warm up the pod cache: %v", err)
+	if o.WarmUpPodCacheOnStartup {
+		// TODO(mengqiy): add watcher that support reloading the cache when the config file was changed.
+		err = pe.podCacheManager.warmupCache(o.PodCacheConfigFileName)
+		// If we can't warm up the cache, we can still proceed without it.
+		if err != nil {
+			klog.Warningf("unable to warm up the pod cache: %v", err)
+		}
 	}
+	
 	return pe, nil
 }
 
@@ -236,12 +240,12 @@ type imagePodAndGRPCClient struct {
 }
 
 // warmupCache creates the pods and warms up the cache.
-func (pcm *podCacheManager) warmupCache(podTTLConfig string) error {
+func (pcm *podCacheManager) warmupCache(podCacheConfig string) error {
 	start := time.Now()
 	defer func() {
 		klog.Infof("cache warning is completed and it took %v", time.Since(start))
 	}()
-	content, err := os.ReadFile(podTTLConfig)
+	content, err := os.ReadFile(podCacheConfig)
 	if err != nil {
 		return err
 	}

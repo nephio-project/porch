@@ -2059,7 +2059,7 @@ func TestDeleteManuallyMovedNonApproved(t *testing.T) {
 		t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
 	}
 	t.Cleanup(func() {
-		localRepo.Close()
+		localRepo.Close(ctx)
 	})
 
 	for _, test := range tests {
@@ -2136,7 +2136,7 @@ func TestDeleteOnManuallyMovedMainBranch(t *testing.T) {
 		t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
 	}
 	t.Cleanup(func() {
-		localRepo.Close()
+		localRepo.Close(ctx)
 	})
 
 	pr1 := &v1alpha1.PackageRevision{
@@ -2208,7 +2208,7 @@ func TestDeleteOnManuallyMovedMainBranch(t *testing.T) {
 	t.Logf("Moved %s from %s to %s", plumbing.Main, prv1.(*gitPackageRevision).commit, newHash)
 
 	t.Logf("Trying to delete published PackageRevision with a remote that's moved %s", prv1.Key())
-	if err := localRepo.DeletePackageRevision(ctx, prv1.ToMainPackageRevision()); err != nil {
+	if err := localRepo.DeletePackageRevision(ctx, prv1.ToMainPackageRevision(ctx)); err != nil {
 		t.Fatalf("Failed to delete PackageRevision: %v", err)
 	}
 }

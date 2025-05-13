@@ -49,7 +49,7 @@ type ociRepository struct {
 
 var _ repository.Repository = &ociRepository{}
 
-func (r *ociRepository) Close() error {
+func (r *ociRepository) Close(context.Context) error {
 	return nil
 }
 
@@ -252,7 +252,7 @@ func (r *ociRepository) Key() string {
 }
 
 // ToMainPackageRevision implements repository.PackageRevision.
-func (p *ociPackageRevision) ToMainPackageRevision() repository.PackageRevision {
+func (p *ociPackageRevision) ToMainPackageRevision(context.Context) repository.PackageRevision {
 	panic("unimplemented")
 }
 
@@ -278,6 +278,10 @@ func (c *ociPackageRevision) KubeObjectName() string {
 
 func (c *ociPackageRevision) KubeObjectNamespace() string {
 	return c.Key().PkgKey.RepoKey.Namespace
+}
+
+func (p *ociPackageRevision) SetRepository(repo repository.Repository) {
+	p.parent = repo.(*ociRepository)
 }
 
 func (c *ociPackageRevision) UID() types.UID {

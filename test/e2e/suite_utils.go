@@ -367,7 +367,7 @@ func (t *TestSuite) WaitUntilRepositoryReady(name, namespace string) {
 		return false, nil
 	})
 	if err != nil {
-		t.Errorf("Repository not ready after wait: %v", innerErr)
+		t.Fatalf("Repository not ready after wait: %v", innerErr)
 	}
 
 	// While we're using an aggregated apiserver, make sure we can query the generated objects
@@ -379,7 +379,7 @@ func (t *TestSuite) WaitUntilRepositoryReady(name, namespace string) {
 		}
 		return true, nil
 	}); err != nil {
-		t.Errorf("unable to query PackageRevisions after wait: %v", innerErr)
+		t.Fatalf("unable to query PackageRevisions after wait: %v", innerErr)
 	}
 }
 
@@ -556,4 +556,19 @@ func (t *TestSuite) GetPackageRevision(repo string, pkgName string, revision int
 		t.Fatalf("Multiple PackageRevision objects were found for package revision %v/%v/%d", repo, pkgName, revision)
 	}
 	return &prList.Items[0]
+}
+
+func (t *TestSuite) RetriggerBackgroundJobForRepo(repoName string) {
+	repoKey := client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      repoName,
+	}
+	var repo configapi.Repository
+	t.GetF(repoKey, &repo)
+	repo.ResourceVersion = ""
+
+	// Delete and recreate repository to trigger background job on it
+	t.DeleteE(&repo)
+	t.CreateE(&repo)
+	t.WaitUntilRepositoryReady(repo.Name, t.Namespace)
 }

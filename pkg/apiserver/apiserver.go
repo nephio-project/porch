@@ -227,7 +227,7 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.CredentialResolver = credentialResolver
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.UserInfoProvider = userInfoProvider
 
-	cacheImpl, err := cache.CreateCacheImpl(ctx, c.ExtraConfig.CacheOptions)
+	cacheImpl, err := cache.GetCacheImpl(ctx, c.ExtraConfig.CacheOptions)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create repository cache: %w", err)

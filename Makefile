@@ -68,6 +68,10 @@ else
   endif
 endif
 
+
+PORCH = $(BUILDDIR)/porch
+PORCHCTL = $(BUILDDIR)/porchctl
+
 .DEFAULT_GOAL := all
 
 .PHONY: all
@@ -134,6 +138,20 @@ start-function-runner:
 	  $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):$(IMAGE_TAG) \
 	  -disable-runtimes pod
 
+.PHONY: run-local
+run-local: porch
+	KUBECONFIG=$(CURDIR)/deployments/local/kubeconfig kubectl apply -f deployments/local/localconfig.yaml
+	KUBECONFIG=$(CURDIR)/deployments/local/kubeconfig kubectl apply -f api/porchconfig/v1alpha1/
+	KUBECONFIG=$(CURDIR)/deployments/local/kubeconfig kubectl apply -f internal/api/porchinternal/v1alpha1/
+	$(PORCH) \
+	--secure-port 9443 \
+	--standalone-debug-mode \
+	--kubeconfig="$(CURDIR)/deployments/local/kubeconfig" \
+	--cache-directory="$(CACHEDIR)" \
+	--function-runner 192.168.8.202:9445 \
+	--repo-sync-frequency=3m \
+	--max-request-body-size=6291456
+
 
  # API Modules
 API_MODULES = \
@@ -148,12 +166,6 @@ generate-api:
 .PHONY: generate
 generate: generate-api ## Generate CRDs, other K8s manifests and helper go code
 	@for f in $(API_MODULES); do (cd $$f; echo "Generating for $$f ..."; go generate -v ./...) || exit 1; done
-
-# Go Modules are ordered in dependency order. A module precedes modules that depend on it.
-GO_MODULES = \
- api \
- . \
- controllers \
  
 .PHONY: tidy
 tidy:
@@ -166,23 +178,6 @@ configure-git:
 
 .PHONY: ci-unit
 ci-unit: configure-git test
-
-
-PORCH = $(BUILDDIR)/porch
-PORCHCTL = $(BUILDDIR)/porchctl
-
-.PHONY: run-local
-run-local: porch
-	KUBECONFIG=$(CURDIR)/deployments/local/kubeconfig kubectl apply -f deployments/local/localconfig.yaml
-	KUBECONFIG=$(CURDIR)/deployments/local/kubeconfig kubectl apply -f api/porchconfig/v1alpha1/
-	KUBECONFIG=$(CURDIR)/deployments/local/kubeconfig kubectl apply -f internal/api/porchinternal/v1alpha1/
-	$(PORCH) \
-	--secure-port 9443 \
-	--standalone-debug-mode \
-	--kubeconfig="$(CURDIR)/deployments/local/kubeconfig" \
-	--cache-directory="$(CACHEDIR)" \
-	--function-runner 192.168.8.202:9445 \
-	--repo-sync-frequency=10m
 
 .PHONY: run-jaeger
 run-jaeger:

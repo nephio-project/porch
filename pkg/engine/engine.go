@@ -197,6 +197,7 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version int, re
 	if err != nil {
 		return nil, err
 	}
+	repoPr.SetRepository(repo)
 
 	// Check if the PackageRevision is in the terminating state and
 	// and this request removes the last finalizer.
@@ -308,6 +309,7 @@ func (cad *cadEngine) DeletePackageRevision(ctx context.Context, repositoryObj *
 	if err != nil {
 		return err
 	}
+	pr2Del.SetRepository(repo)
 
 	return cad.deletePackageRevision(ctx, repo, pr2Del)
 }
