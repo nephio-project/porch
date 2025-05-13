@@ -165,7 +165,7 @@ func (r *PackageVariantSetReconciler) getUpstreamPR(upstream *pkgvarapi.Upstream
 	for _, pr := range prList.Items {
 		if pr.Spec.RepositoryName == upstream.Repo &&
 			pr.Spec.PackageName == upstream.Package &&
-			pr.Spec.Revision == upstream.Revision {
+			(pr.Spec.Revision == upstream.Revision || pr.Spec.WorkspaceName == upstream.WorkspaceName) {
 			return &pr, nil
 		}
 	}
