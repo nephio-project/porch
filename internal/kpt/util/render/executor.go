@@ -65,9 +65,6 @@ type Renderer struct {
 
 	// FileSystem is the input filesystem to operate on
 	FileSystem filesys.FileSystem
-
-	// New flag to toggle BFS rendering
-	UseBFS bool
 }
 
 // Execute runs a pipeline.
@@ -91,8 +88,13 @@ func (e *Renderer) Execute(ctx context.Context) (*fnresult.ResultList, error) {
 		runtime:       e.Runtime,
 	}
 
+	kptfile, err := pkg.ReadKptfile(e.FileSystem, e.PkgPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read Kptfile: %w", err)
+	}
+
 	// Use BFS or the old recursive method based on the flag
-	if e.UseBFS {
+	if kptfile.UseBFS != nil && *kptfile.UseBFS {
 		if _, err := hydrateBFS(ctx, root, hctx); err != nil {
 			_ = e.saveFnResults(ctx, hctx.fnResults)
 			return hctx.fnResults, errors.E(op, root.pkg.UniquePath, err)
