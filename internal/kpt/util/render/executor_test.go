@@ -234,7 +234,7 @@ metadata:
 	}
 }
 
-func TestRenderer_Execute_UseBFS(t *testing.T) {
+func setupRendererTest(t *testing.T, useBFS bool) (*Renderer, *bytes.Buffer, context.Context) {
 	var outputBuffer bytes.Buffer
 	ctx := context.Background()
 	ctx = printer.WithContext(ctx, printer.New(&outputBuffer, &outputBuffer))
@@ -249,12 +249,13 @@ func TestRenderer_Execute_UseBFS(t *testing.T) {
 	err = mockFileSystem.Mkdir(subPkgPath)
 	assert.NoError(t, err)
 
-	err = mockFileSystem.WriteFile(filepath.Join(rootPkgPath, "Kptfile"), []byte(`
+	err = mockFileSystem.WriteFile(filepath.Join(rootPkgPath, "Kptfile"), fmt.Appendf(nil, `
 apiVersion: kpt.dev/v1
 kind: Kptfile
 metadata:
   name: root-package
-`))
+useBFS: %t
+`, useBFS))
 	assert.NoError(t, err)
 
 	err = mockFileSystem.WriteFile(filepath.Join(subPkgPath, "Kptfile"), []byte(`
@@ -269,65 +270,49 @@ metadata:
 		PkgPath:        rootPkgPath,
 		ResultsDirPath: "/results",
 		FileSystem:     mockFileSystem,
-		UseBFS:         true, // Enable BFS
 	}
 
-	fnResults, err := renderer.Execute(ctx)
-	assert.NoError(t, err)
-	assert.NotNil(t, fnResults)
-	assert.Equal(t, 0, len(fnResults.Items))
-
-	output := outputBuffer.String()
-	rootIndex := strings.Index(output, `Package "root":`)
-	subpkgIndex := strings.Index(output, `Package "root/subpkg":`)
-	assert.True(t, rootIndex < subpkgIndex, "Expected 'root' to appear before 'root/subpkg'")
+	return renderer, &outputBuffer, ctx
 }
 
-func TestRenderer_Execute_UseDFS(t *testing.T) {
-	var outputBuffer bytes.Buffer
-	ctx := context.Background()
-	ctx = printer.WithContext(ctx, printer.New(&outputBuffer, &outputBuffer))
-
-	mockFileSystem := filesys.MakeFsInMemory()
-
-	rootPkgPath := "/root"
-	err := mockFileSystem.Mkdir(rootPkgPath)
-	assert.NoError(t, err)
-
-	subPkgPath := "/root/subpkg"
-	err = mockFileSystem.Mkdir(subPkgPath)
-	assert.NoError(t, err)
-
-	err = mockFileSystem.WriteFile(filepath.Join(rootPkgPath, "Kptfile"), []byte(`
-apiVersion: kpt.dev/v1
-kind: Kptfile
-metadata:
-  name: root-package
-`))
-	assert.NoError(t, err)
-
-	err = mockFileSystem.WriteFile(filepath.Join(subPkgPath, "Kptfile"), []byte(`
-apiVersion: kpt.dev/v1
-kind: Kptfile
-metadata:
-  name: sub-package
-`))
-	assert.NoError(t, err)
-
-	renderer := &Renderer{
-		PkgPath:        rootPkgPath,
-		ResultsDirPath: "/results",
-		FileSystem:     mockFileSystem,
-		UseBFS:         false, // Disable BFS
+func TestRenderer_Execute_RenderOrder(t *testing.T) {
+	tests := []struct {
+		name           string
+		useBFS         bool
+		expectedOrder  func(output string) bool
+		expectedErrMsg string
+	}{
+		{
+			name:   "Use BFS",
+			useBFS: true,
+			expectedOrder: func(output string) bool {
+				rootIndex := strings.Index(output, `Package "root":`)
+				subpkgIndex := strings.Index(output, `Package "root/subpkg":`)
+				return rootIndex < subpkgIndex // Root should appear before subpkg
+			},
+		},
+		{
+			name:   "Use DFS",
+			useBFS: false,
+			expectedOrder: func(output string) bool {
+				rootIndex := strings.Index(output, `Package "root":`)
+				subpkgIndex := strings.Index(output, `Package "root/subpkg":`)
+				return rootIndex > subpkgIndex // Subpkg should appear before root
+			},
+		},
 	}
 
-	fnResults, err := renderer.Execute(ctx)
-	assert.NoError(t, err)
-	assert.NotNil(t, fnResults)
-	assert.Equal(t, 0, len(fnResults.Items))
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			renderer, outputBuffer, ctx := setupRendererTest(t, tc.useBFS)
 
-	output := outputBuffer.String()
-	subpkgIndex := strings.Index(output, `Package "root/subpkg":`)
-	rootIndex := strings.Index(output, `Package "root":`)
-	assert.True(t, rootIndex > subpkgIndex, "Expected 'root/subpkg' to appear before 'root'")
+			fnResults, err := renderer.Execute(ctx)
+			assert.NoError(t, err)
+			assert.NotNil(t, fnResults)
+			assert.Equal(t, 0, len(fnResults.Items))
+
+			output := outputBuffer.String()
+			assert.True(t, tc.expectedOrder(output), tc.expectedErrMsg)
+		})
+	}
 }
