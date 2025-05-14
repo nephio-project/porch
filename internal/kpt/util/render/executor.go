@@ -22,6 +22,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"slices"
+
 	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
@@ -389,8 +391,8 @@ func hydrateBFS(ctx context.Context, root *pkgNode, hctx *hydrationContext) (out
 			return nil, err
 		}
 
-		// Include current package's resources in the input resource list
-		input := append([]*yaml.RNode{}, currPkgResources...)
+		// Append current package's resources in the input resource list
+		input := slices.Clone(currPkgResources)
 
 		// Enqueue subpackages
 		subpkgs, err := current.pkg.DirectSubpackages()
