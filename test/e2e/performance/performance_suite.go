@@ -27,7 +27,7 @@ type PerformanceSuite struct {
 func (t *PerformanceSuite) SetupSuite() {
 	flag.Parse()
 	t.TestSuiteWithGit.SetupSuite()
-	t.metricsServer = &http.Server{Addr: fmt.Sprintf(":%d", *metricsPort)}
+	t.metricsServer = &http.Server{Addr: fmt.Sprintf("127.0.0.1:%d", *metricsPort)}
 	t.metricsShutdown = make(chan struct{})
 	t.ServeMetrics()
 }

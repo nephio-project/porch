@@ -15,6 +15,8 @@
 package crcache
 
 import (
+	"context"
+
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
@@ -31,9 +33,9 @@ type cachedPackage struct {
 	latestPackageRevision int
 }
 
-func (c *cachedPackage) GetLatestRevision() int {
+func (c *cachedPackage) GetLatestRevision(ctx context.Context) int {
 	if c.latestPackageRevision > 0 {
 		return c.latestPackageRevision
 	}
-	return c.Package.GetLatestRevision()
+	return c.Package.GetLatestRevision(ctx)
 }

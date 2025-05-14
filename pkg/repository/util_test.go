@@ -35,6 +35,24 @@ func TestRevision2Str(t *testing.T) {
 	assert.Equal(t, "-1", Revision2Str(-1))
 }
 
+func TestComposePkgObjName(t *testing.T) {
+	pkgKey := PackageKey{
+		RepoKey: RepositoryKey{
+			Namespace:         "the-ns",
+			Name:              "the-repo",
+			Path:              "the/dir/path",
+			PlaceholderWSname: "the-placeholder-ws-name",
+		},
+		Path:    "the/pkg/path",
+		Package: "the-package-name",
+	}
+
+	assert.Equal(t, "the-repo.the.pkg.path.the-package-name", ComposePkgObjName(pkgKey))
+
+	pkgKey.Path = ""
+	assert.Equal(t, "the-repo.the-package-name", ComposePkgObjName(pkgKey))
+}
+
 func TestComposePkgRevObjName(t *testing.T) {
 	pkgRevKey := PackageRevisionKey{
 		PkgKey: PackageKey{

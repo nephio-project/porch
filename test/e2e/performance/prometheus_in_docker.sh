@@ -13,7 +13,8 @@ function create() {
     --network prometheus \
     --add-host host.docker.internal:host-gateway \
     -p 9090:9090 \
-    -v $SCRIPT_DIR/config.yaml:/etc/prometheus/prometheus.yml \
+    -v $SCRIPT_DIR/config.yml:/etc/prometheus/prometheus.yml \
+    -v $SCRIPT_DIR/rules.yml:/etc/prometheus/rules.yml \
     prom/prometheus:v3.2.1
 }
 

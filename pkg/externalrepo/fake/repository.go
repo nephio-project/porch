@@ -30,7 +30,7 @@ type Repository struct {
 
 var _ repository.Repository = &Repository{}
 
-func (r *Repository) Close() error {
+func (r *Repository) Close(context.Context) error {
 	return nil
 }
 

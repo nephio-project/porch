@@ -24,17 +24,17 @@ func (_m *MockRepository) EXPECT() *MockRepository_Expecter {
 	return &MockRepository_Expecter{mock: &_m.Mock}
 }
 
-// Close provides a mock function with no fields
-func (_m *MockRepository) Close() error {
-	ret := _m.Called()
+// Close provides a mock function with given fields: ctx
+func (_m *MockRepository) Close(ctx context.Context) error {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Close")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func() error); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) error); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -48,13 +48,14 @@ type MockRepository_Close_Call struct {
 }
 
 // Close is a helper method to define mock.On call
-func (_e *MockRepository_Expecter) Close() *MockRepository_Close_Call {
-	return &MockRepository_Close_Call{Call: _e.mock.On("Close")}
+//   - ctx context.Context
+func (_e *MockRepository_Expecter) Close(ctx interface{}) *MockRepository_Close_Call {
+	return &MockRepository_Close_Call{Call: _e.mock.On("Close", ctx)}
 }
 
-func (_c *MockRepository_Close_Call) Run(run func()) *MockRepository_Close_Call {
+func (_c *MockRepository_Close_Call) Run(run func(ctx context.Context)) *MockRepository_Close_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(context.Context))
 	})
 	return _c
 }
@@ -64,7 +65,7 @@ func (_c *MockRepository_Close_Call) Return(_a0 error) *MockRepository_Close_Cal
 	return _c
 }
 
-func (_c *MockRepository_Close_Call) RunAndReturn(run func() error) *MockRepository_Close_Call {
+func (_c *MockRepository_Close_Call) RunAndReturn(run func(context.Context) error) *MockRepository_Close_Call {
 	_c.Call.Return(run)
 	return _c
 }

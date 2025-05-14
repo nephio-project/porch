@@ -33,8 +33,8 @@ func validatePackageVariantSet(pvs *api.PackageVariantSet) []error {
 		if pvs.Spec.Upstream.Repo == "" {
 			allErrs = append(allErrs, fmt.Errorf("spec.upstream.repo is a required field"))
 		}
-		if pvs.Spec.Upstream.Revision == 0 {
-			allErrs = append(allErrs, fmt.Errorf("spec.upstream.revision is a required field"))
+		if pvs.Spec.Upstream.Revision == 0 && pvs.Spec.Upstream.WorkspaceName == "" {
+			allErrs = append(allErrs, fmt.Errorf("either spec.upstream.revision or spec.upstream.workspaceName must be specified"))
 		}
 	}
 

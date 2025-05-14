@@ -64,6 +64,7 @@ type genericTaskHandler struct {
 	repoOpener            repository.RepositoryOpener
 	credentialResolver    repository.CredentialResolver
 	referenceResolver     repository.ReferenceResolver
+	cloneStrategy         api.PackageMergeStrategy
 }
 
 func (th *genericTaskHandler) GetRuntime() fn.FunctionRuntime {
@@ -100,6 +101,13 @@ func (th *genericTaskHandler) ApplyTasks(
 	mutations = th.conditionalAddInit(pkgRev, mutations)
 
 	tasks := pkgRev.Spec.Tasks
+	if len(tasks) > 0 {
+		cloneTask := tasks.Clone
+		if cloneTask != nil {
+			klog.Infof("Clone strategy is %s", cloneTask.Strategy)
+			th.cloneStrategy = cloneTask.Strategy
+		}
+	}
 	for _, task := range tasks {
 		mutation, err := th.mapTaskToMutation(ctx, pkgRev, &task, repo.Spec.Deployment, packageConfig)
 		if err != nil {
@@ -225,9 +233,10 @@ func (th *genericTaskHandler) DoPRMutations(ctx context.Context, namespace strin
 	if err != nil {
 		return err
 	}
+  
 	var kfPatchMutation mutation
 	if kfPatchCreated {
-		kfPatchMutation, err = buildPatchMutation(ctx, kfPatchTask)
+		kfPatchMutation, err = buildPatchMutation(ctx, kfPatchTask, th.cloneStrategy)
 		if err != nil {
 			return err
 		}
@@ -393,7 +402,7 @@ func (th *genericTaskHandler) mapTaskToMutation(ctx context.Context, pkgRev *api
 		}, nil
 
 	case api.TaskTypePatch:
-		return buildPatchMutation(ctx, task)
+		return buildPatchMutation(ctx, task, th.cloneStrategy)
 
 	case api.TaskTypeEdit:
 		if task.Edit == nil {

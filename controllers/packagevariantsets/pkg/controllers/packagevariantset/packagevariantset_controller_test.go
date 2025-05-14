@@ -23,6 +23,7 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	pkgvarapi "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	api "github.com/nephio-project/porch/controllers/packagevariantsets/api/v1alpha2"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -142,4 +143,59 @@ func TestEnsurePackageVariants(t *testing.T) {
 	})
 	require.Equal(t, "my-pvs-dnrepo3-dnpkg3", fc.created[0].GetName())
 	require.Equal(t, "my-pvs-dnrepo4-supersupersuperlooooooooooooooooooooooo-bec36506", fc.created[1].GetName())
+}
+
+func TestGetUpstreamPr(t *testing.T) {
+	pr1 := porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: "my-repo",
+			PackageName:    "my-package",
+			WorkspaceName:  "my-workspace",
+			Revision:       -1,
+		},
+	}
+
+	prList := porchapi.PackageRevisionList{
+		Items: []porchapi.PackageRevision{pr1},
+	}
+
+	upstream := pkgvarapi.Upstream{}
+
+	reconciler := PackageVariantSetReconciler{}
+
+	_, err := reconciler.getUpstreamPR(&upstream, &prList)
+	assert.False(t, err == nil)
+
+	upstream.Repo = "any-repo"
+	_, err = reconciler.getUpstreamPR(&upstream, &prList)
+	assert.False(t, err == nil)
+
+	upstream.Repo = "my-repo"
+	_, err = reconciler.getUpstreamPR(&upstream, &prList)
+	assert.False(t, err == nil)
+
+	upstream.Package = "any-package"
+	_, err = reconciler.getUpstreamPR(&upstream, &prList)
+	assert.False(t, err == nil)
+
+	upstream.Package = "my-package"
+	_, err = reconciler.getUpstreamPR(&upstream, &prList)
+	assert.False(t, err == nil)
+
+	upstream.WorkspaceName = "any-workspace"
+	_, err = reconciler.getUpstreamPR(&upstream, &prList)
+	assert.False(t, err == nil)
+
+	upstream.WorkspaceName = "my-workspace"
+	_, err = reconciler.getUpstreamPR(&upstream, &prList)
+	assert.True(t, err == nil)
+
+	upstream.WorkspaceName = "any-workspace"
+	upstream.Revision = 0
+	_, err = reconciler.getUpstreamPR(&upstream, &prList)
+	assert.False(t, err == nil)
+
+	upstream.Revision = -1
+	_, err = reconciler.getUpstreamPR(&upstream, &prList)
+	assert.True(t, err == nil)
 }
