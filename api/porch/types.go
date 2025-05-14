@@ -111,7 +111,7 @@ const (
 	TaskTypeEdit    TaskType = "edit"
 	TaskTypeEval    TaskType = "eval"
 	TaskTypeUpdate  TaskType = "update"
-	TaskTypeUpgrade TaskType = "update"
+	TaskTypeUpgrade TaskType = "upgrade"
 )
 
 type Task struct {
