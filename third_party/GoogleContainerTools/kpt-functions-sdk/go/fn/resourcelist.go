@@ -117,10 +117,11 @@ func ParseResourceList(in []byte) (*ResourceList, error) {
 		return nil, pkgerrors.Wrap(err, "failed when trying to get results")
 	}
 
+	var resultsItems *internal.SliceVariant
 	// compatibility between kyaml versions
 	if m, ok := res.(*internal.MapVariant); ok {
-		items, found, err = m.GetNestedSlice("items")
-	} else if items, ok = res.(*internal.SliceVariant); !ok {
+		resultsItems, found, err = m.GetNestedSlice("items")
+	} else if resultsItems, ok = res.(*internal.SliceVariant); !ok {
 		// no results
 	}
 	if err != nil {
@@ -129,7 +130,7 @@ func ParseResourceList(in []byte) (*ResourceList, error) {
 
 	if found {
 		var results Results
-		err = items.Node().Decode(&results)
+		err = resultsItems.Node().Decode(&results)
 		if err != nil {
 			return nil, pkgerrors.Wrap(err, "failed to decode results")
 		}
