@@ -264,7 +264,6 @@ func TestCopyMergeError(t *testing.T) {
 }
 
 func TestCopyMergeErrorUpdatingKptfile(t *testing.T) {
-	// Mock the file system
 	src := t.TempDir()
 	dst := t.TempDir()
 
