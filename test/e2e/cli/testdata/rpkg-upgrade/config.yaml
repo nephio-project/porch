@@ -5,13 +5,15 @@ commands:
     - register
     - --namespace=rpkg-upgrade
     - --name=git
-    - http://git-server.test-git-namespace.svc.cluster.local:8080/rpkg-upgrade
+    - --repo-basic-password=secret
+    - --repo-basic-username=nephio
+    - http://gitea.gitea.svc.cluster.local:3000/nephio/rpkg-update
   - args:
     - porchctl
     - rpkg
     - clone
     - --namespace=rpkg-upgrade
-    - https://github.com/platkrm/test-blueprints.git
+    - http://gitea.gitea.svc.cluster.local:3000/nephio/test-blueprints.git
     - --directory=basens
     - --ref=basens/v1
     - --repository=git
