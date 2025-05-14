@@ -100,7 +100,7 @@ stringData:
 	secretName = "test-auth-" + uuid.New().String()[0:8]
 	secretContent := fmt.Sprintf(secretFormat, secretName, *testName, *username, *password)
 	tmp := filepath.Join(t.TempDir(), "secret.yaml")
-	err := os.WriteFile(tmp, []byte(secretContent), 777)
+	err := os.WriteFile(tmp, []byte(secretContent), 0777)
 	if err != nil {
 		t.Fatal(err)
 	}

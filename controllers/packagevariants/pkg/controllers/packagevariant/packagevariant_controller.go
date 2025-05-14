@@ -694,7 +694,7 @@ func (r *PackageVariantReconciler) createUpgradeDraft(ctx context.Context,
 	klog.Infoln(fmt.Sprintf("package variant %q is creating package revision %q", pv.Name, newPr.Name))
 	err = r.Client.Create(ctx, newPr)
 
-	return newPr, nil
+	return newPr, err
 }
 
 func (r *PackageVariantReconciler) createEditDraft(ctx context.Context,
