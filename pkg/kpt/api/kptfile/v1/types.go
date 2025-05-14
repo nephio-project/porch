@@ -83,6 +83,8 @@ type KptFile struct {
 	Inventory *Inventory `yaml:"inventory,omitempty" json:"inventory,omitempty"`
 
 	Status *Status `yaml:"status,omitempty" json:"status,omitempty"`
+
+	UseBFS *bool `yaml:"useBFS,omitempty"`
 }
 
 // OriginType defines the type of origin for a package.
