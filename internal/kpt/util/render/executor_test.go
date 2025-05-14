@@ -15,10 +15,11 @@
 package render
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
@@ -234,8 +235,9 @@ metadata:
 }
 
 func TestRenderer_Execute_UseBFS(t *testing.T) {
+	var outputBuffer bytes.Buffer
 	ctx := context.Background()
-	ctx = printer.WithContext(ctx, printer.New(os.Stdout, os.Stderr))
+	ctx = printer.WithContext(ctx, printer.New(&outputBuffer, &outputBuffer))
 
 	mockFileSystem := filesys.MakeFsInMemory()
 
@@ -271,8 +273,61 @@ metadata:
 	}
 
 	fnResults, err := renderer.Execute(ctx)
-
 	assert.NoError(t, err)
 	assert.NotNil(t, fnResults)
-	assert.Equal(t, 0, len(fnResults.Items)) // No functions executed in this mock setup
+	assert.Equal(t, 0, len(fnResults.Items))
+
+	output := outputBuffer.String()
+	rootIndex := strings.Index(output, `Package "root":`)
+	subpkgIndex := strings.Index(output, `Package "root/subpkg":`)
+	assert.True(t, rootIndex < subpkgIndex, "Expected 'root' to appear before 'root/subpkg'")
+}
+
+func TestRenderer_Execute_UseDFS(t *testing.T) {
+	var outputBuffer bytes.Buffer
+	ctx := context.Background()
+	ctx = printer.WithContext(ctx, printer.New(&outputBuffer, &outputBuffer))
+
+	mockFileSystem := filesys.MakeFsInMemory()
+
+	rootPkgPath := "/root"
+	err := mockFileSystem.Mkdir(rootPkgPath)
+	assert.NoError(t, err)
+
+	subPkgPath := "/root/subpkg"
+	err = mockFileSystem.Mkdir(subPkgPath)
+	assert.NoError(t, err)
+
+	err = mockFileSystem.WriteFile(filepath.Join(rootPkgPath, "Kptfile"), []byte(`
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: root-package
+`))
+	assert.NoError(t, err)
+
+	err = mockFileSystem.WriteFile(filepath.Join(subPkgPath, "Kptfile"), []byte(`
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: sub-package
+`))
+	assert.NoError(t, err)
+
+	renderer := &Renderer{
+		PkgPath:        rootPkgPath,
+		ResultsDirPath: "/results",
+		FileSystem:     mockFileSystem,
+		UseBFS:         false, // Disable BFS
+	}
+
+	fnResults, err := renderer.Execute(ctx)
+	assert.NoError(t, err)
+	assert.NotNil(t, fnResults)
+	assert.Equal(t, 0, len(fnResults.Items))
+
+	output := outputBuffer.String()
+	subpkgIndex := strings.Index(output, `Package "root/subpkg":`)
+	rootIndex := strings.Index(output, `Package "root":`)
+	assert.True(t, rootIndex > subpkgIndex, "Expected 'root/subpkg' to appear before 'root'")
 }
