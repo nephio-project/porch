@@ -263,6 +263,37 @@ func TestCopyMergeError(t *testing.T) {
 
 }
 
+func TestCopyMergeErrorUpdatingKptfile(t *testing.T) {
+	// Mock the file system
+	src := t.TempDir()
+	dst := t.TempDir()
+
+	err := os.WriteFile(filepath.Join(src, "Kptfile"), []byte(`
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: source-package
+`), 0644)
+	assert.NoError(t, err)
+
+	err = os.WriteFile(filepath.Join(dst, "Kptfile"), []byte(`
+apiVersion: kpt.dev/v000
+kind: malformedKptfile
+`), 0644)
+	assert.NoError(t, err)
+
+	updater := &CopyMergeUpdater{}
+	options := Options{
+		UpdatedPath: src,
+		LocalPath:   dst,
+		IsRoot:      true,
+	}
+
+	err = updater.Update(options)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown resource type")
+}
+
 func TestCopyMergeErrorCopyingFile(t *testing.T) {
 	src := t.TempDir()
 	dst := t.TempDir()
