@@ -32,7 +32,7 @@ type scalarVariant struct {
 	node *yaml.Node
 }
 
-func (v *scalarVariant) GetKind() variantKind {
+func (v *scalarVariant) GetKind() VariantKind {
 	return VariantKindScalar
 }
 

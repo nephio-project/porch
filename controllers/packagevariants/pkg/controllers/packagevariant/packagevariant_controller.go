@@ -24,6 +24,7 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	api "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
+	pkgerrors "github.com/pkg/errors"
 
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
@@ -403,21 +404,18 @@ func (r *PackageVariantReconciler) findAndUpdateExistingRevisions(ctx context.Co
 		// see if the package needs updating due to an upstream change
 		if !r.isUpToDate(pv, downstream) {
 			// we need to copy a published package to a new draft before updating
-			if porchapi.LifecycleIsPublished(downstream.Spec.Lifecycle) {
-				klog.Infoln(fmt.Sprintf("package variant %q needs to update package revision %q for new upstream revision, creating new draft", pv.Name, downstream.Name))
-				oldDS := downstream
-				downstream, err = r.copyPublished(ctx, downstream, pv, prList)
-				if err != nil {
-					klog.Errorf("package variant %q failed to copy %q: %s", pv.Name, oldDS.Name, err.Error())
-					return nil, err
-				}
-				klog.Infoln(fmt.Sprintf("package variant %q created %q based on %q", pv.Name, downstream.Name, oldDS.Name))
+			if !porchapi.LifecycleIsPublished(downstream.Spec.Lifecycle) {
+				return nil, pkgerrors.Errorf("cannot update upstream of downstream %q when it is not published", downstream.Name)
 			}
-			downstreams[i], err = r.updateDraft(ctx, downstream, upstream)
+			klog.Infoln(fmt.Sprintf("package variant %q needs to update package revision %q for new upstream revision, creating new draft", pv.Name, downstream.Name))
+			oldDS := downstream
+			downstream, err = r.createUpgradeDraft(ctx, downstream, pv, prList)
 			if err != nil {
+				klog.Errorf("package variant %q failed to copy %q: %s", pv.Name, oldDS.Name, err.Error())
 				return nil, err
 			}
-			klog.Infoln(fmt.Sprintf("package variant %q updated package revision %q to upstream revision %d", pv.Name, downstream.Name, upstream.Spec.Revision))
+			downstreams[i] = downstream
+			klog.Infoln(fmt.Sprintf("package variant %q created upgrade %q based on %q to upstream revision %d", pv.Name, downstream.Name, oldDS.Name, upstream.Spec.Revision))
 		}
 
 		// finally, see if any other changes are needed to the resources
@@ -433,19 +431,18 @@ func (r *PackageVariantReconciler) findAndUpdateExistingRevisions(ctx context.Co
 			if porchapi.LifecycleIsPublished(downstream.Spec.Lifecycle) {
 				klog.Infoln(fmt.Sprintf("package variant %q needs to mutate to package revision %q, creating new draft", pv.Name, downstream.Name))
 				oldDS := downstream
-				downstream, err = r.copyPublished(ctx, downstream, pv, prList)
+				downstream, err = r.createEditDraft(ctx, downstream, pv, prList)
 				if err != nil {
 					klog.Errorf("package variant %q failed to copy %q: %s", pv.Name, oldDS.Name, err.Error())
 					return nil, err
 				}
-				klog.Infoln(fmt.Sprintf("package variant %q created %q based on %q", pv.Name, downstream.Name, oldDS.Name))
+				klog.Infoln(fmt.Sprintf("package variant %q created edit %q based on %q", pv.Name, downstream.Name, oldDS.Name))
 				downstreams[i] = downstream
 				// recalculate from the new Draft
 				prr, _, err = r.calculateDraftResources(ctx, pv, downstreams[i])
 				if err != nil {
 					return nil, err
 				}
-
 			}
 			// Save the updated PackageRevisionResources
 			if err := r.updatePackageResources(ctx, prr, pv); err != nil {
@@ -625,21 +622,25 @@ func (r *PackageVariantReconciler) isUpToDate(pv *api.PackageVariant, downstream
 		klog.Warningf("status.upstreamLock.git or status.upstreamLock.git.ref field is empty/missing in downstream PackageRevision: %s", pv.ObjectMeta.Name)
 		return true
 	}
-	lastIndex := strings.LastIndex(upstreamLock.Git.Ref, "/")
 	if strings.HasPrefix(upstreamLock.Git.Ref, "drafts") {
 		// The current upstream is a draft, and the target upstream
 		// will always be a published revision, so we will need to do an update.
 		return false
 	}
-	currentUpstreamRevision := repository.Revision2Int(upstreamLock.Git.Ref[lastIndex+1:])
+	currentUpstreamRevision := revisionFromUpstreamLock(upstreamLock)
 	return currentUpstreamRevision == pv.Spec.Upstream.Revision
 }
 
-func (r *PackageVariantReconciler) copyPublished(ctx context.Context,
+func revisionFromUpstreamLock(lock *porchapi.UpstreamLock) int {
+	lastIndex := strings.LastIndex(lock.Git.Ref, "/")
+	return repository.Revision2Int(lock.Git.Ref[lastIndex+1:])
+}
+
+func (r *PackageVariantReconciler) createUpgradeDraft(ctx context.Context,
 	source *porchapi.PackageRevision,
 	pv *api.PackageVariant,
 	prList *porchapi.PackageRevisionList) (*porchapi.PackageRevision, error) {
-	newPR := &porchapi.PackageRevision{
+	newPr := &porchapi.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevision",
 			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
@@ -653,16 +654,87 @@ func (r *PackageVariantReconciler) copyPublished(ctx context.Context,
 		Spec: source.Spec,
 	}
 
-	newPR.Spec.Revision = 0
-	newPR.Spec.WorkspaceName = newWorkspaceName(prList, newPR.Spec.PackageName, newPR.Spec.RepositoryName)
-	newPR.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDraft
+	newPr.Spec.Revision = 0
+	newPr.Spec.WorkspaceName = newWorkspaceName(prList, newPr.Spec.PackageName, newPr.Spec.RepositoryName)
+	newPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDraft
 
-	klog.Infoln(fmt.Sprintf("package variant %q is creating package revision %q", pv.Name, newPR.Name))
-	if err := r.Client.Create(ctx, newPR); err != nil {
+	oldRevision := revisionFromUpstreamLock(source.Status.UpstreamLock)
+	oldUpstreamRef := pv.Spec.Upstream
+	// TODO: will this work?
+	oldUpstreamRef.Revision = oldRevision
+
+	oldUpstream, err := r.getUpstreamPR(oldUpstreamRef, prList)
+	if err != nil {
 		return nil, err
 	}
 
-	return newPR, nil
+	newUpstream, err := r.getUpstreamPR(pv.Spec.Upstream, prList)
+	if err != nil {
+		return nil, err
+	}
+
+	newPr.Spec.Tasks = []porchapi.Task{
+		{
+			Type: porchapi.TaskTypeUpgrade,
+			Upgrade: &porchapi.PackageUpgradeTaskSpec{
+				OldUpstream: porchapi.PackageRevisionRef{
+					Name: oldUpstream.Name,
+				},
+				NewUpstream: porchapi.PackageRevisionRef{
+					Name: newUpstream.Name,
+				},
+				LocalPackageRevisionRef: porchapi.PackageRevisionRef{
+					Name: source.Name,
+				},
+				Strategy: porchapi.ResourceMerge,
+			},
+		},
+	}
+
+	klog.Infoln(fmt.Sprintf("package variant %q is creating package revision %q", pv.Name, newPr.Name))
+	err = r.Client.Create(ctx, newPr)
+
+	return newPr, nil
+}
+
+func (r *PackageVariantReconciler) createEditDraft(ctx context.Context,
+	source *porchapi.PackageRevision,
+	pv *api.PackageVariant,
+	prList *porchapi.PackageRevisionList) (*porchapi.PackageRevision, error) {
+
+	newPr := &porchapi.PackageRevision{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PackageRevision",
+			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:       source.Namespace,
+			OwnerReferences: []metav1.OwnerReference{constructOwnerReference(pv)},
+			Labels:          pv.Spec.Labels,
+			Annotations:     pv.Spec.Annotations,
+		},
+		Spec: source.Spec,
+	}
+
+	newPr.Spec.Revision = 0
+	newPr.Spec.WorkspaceName = newWorkspaceName(prList, source.Spec.PackageName, source.Spec.RepositoryName)
+	newPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDraft
+
+	newPr.Spec.Tasks = []porchapi.Task{
+		{
+			Type: porchapi.TaskTypeEdit,
+			Edit: &porchapi.PackageEditTaskSpec{
+				Source: &porchapi.PackageRevisionRef{
+					Name: source.Name,
+				},
+			},
+		},
+	}
+
+	klog.Infoln(fmt.Sprintf("package variant %q is creating package revision %q", pv.Name, newPr.Name))
+	err := r.Client.Create(ctx, newPr)
+
+	return newPr, err
 }
 
 func newWorkspaceName(prList *porchapi.PackageRevisionList, packageName, repo string) string {
@@ -695,29 +767,6 @@ func constructOwnerReference(pv *api.PackageVariant) metav1.OwnerReference {
 		Controller:         &tr,
 		BlockOwnerDeletion: nil,
 	}
-}
-
-func (r *PackageVariantReconciler) updateDraft(ctx context.Context,
-	draft *porchapi.PackageRevision,
-	newUpstreamPR *porchapi.PackageRevision) (*porchapi.PackageRevision, error) {
-
-	draft = draft.DeepCopy()
-	tasks := draft.Spec.Tasks
-
-	updateTask := porchapi.Task{
-		Type: porchapi.TaskTypeUpdate,
-		Update: &porchapi.PackageUpdateTaskSpec{
-			Upstream: tasks[0].Clone.Upstream,
-		},
-	}
-	updateTask.Update.Upstream.UpstreamRef.Name = newUpstreamPR.Name
-	draft.Spec.Tasks = append(tasks, updateTask)
-
-	err := r.Client.Update(ctx, draft)
-	if err != nil {
-		return nil, err
-	}
-	return draft, nil
 }
 
 func setTargetStatusConditions(pv *api.PackageVariant, targets []*porchapi.PackageRevision) {

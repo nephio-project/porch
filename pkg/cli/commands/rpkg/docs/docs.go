@@ -318,3 +318,28 @@ var UpdateExamples = `
   # see available updates for any downstream packages that were created from the upstream blueprints-e982b2196b35a4f5e81e92f49a430fe463aa9f1a package
   $ porchctl rpkg update --discover=downstream blueprints-e982b2196b35a4f5e81e92f49a430fe463aa9f1a
 `
+
+var UpgradeShort = `Upgrade a downstream package revision to a more recent revision of its upstream package.`
+var UpgradeLong = `
+  porchctl rpkg upgrade PACKAGE_REV_NAME [flags]
+
+Args:
+
+  PACKAGE_REV_NAME:
+  The target downstream package revision to be updated.
+
+
+Flags:
+
+  --revision
+  The revision number of the upstream kpt package that the target
+  downstream package (PACKAGE_REV_NAME) should be updated to. With
+  this flag, you can only specify one target downstream package.
+
+  --workspace
+  The workspace name of the newly created package revision.
+`
+var UpgradeExamples = `
+  # upgrade deployment-e982b2196b35a4f5e81e92f49a430fe463aa9f1a package to v3 of its upstream
+  $ porchctl rpkg upgrade deployment-e982b2196b35a4f5e81e92f49a430fe463aa9f1a --revision=3 --workspace=v3
+`

@@ -122,7 +122,7 @@ type Task struct {
 	Edit    *PackageEditTaskSpec    `json:"edit,omitempty"`
 	Eval    *FunctionEvalTaskSpec   `json:"eval,omitempty"`
 	Update  *PackageUpdateTaskSpec  `json:"update,omitempty"`
-	Upgrade *PackageUpgradeTaskSpec `json:"update,omitempty"`
+	Upgrade *PackageUpgradeTaskSpec `json:"upgrade,omitempty"`
 }
 
 type TaskResult struct {

@@ -32,24 +32,6 @@ func createMockedResources() repository.PackageResources {
 	}
 }
 
-func createMockedUpgradeTask(oldUpstream, newUpstream, localPackageRevision string) *api.Task {
-	return &api.Task{
-		Type: api.TaskTypeUpgrade,
-		Upgrade: &api.PackageUpgradeTaskSpec{
-			OldUpstream: api.PackageRevisionRef{
-				Name: oldUpstream,
-			},
-			NewUpstream: api.PackageRevisionRef{
-				Name: newUpstream,
-			},
-			LocalPackageRevisionRef: api.PackageRevisionRef{
-				Name: localPackageRevision,
-			},
-			Strategy: api.ResourceMerge,
-		},
-	}
-}
-
 func TestApplyErrorInvalidUpstreamUprade(t *testing.T) {
 	ctx := context.Background()
 

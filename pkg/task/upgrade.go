@@ -16,11 +16,11 @@ package task
 
 import (
 	"context"
-	"fmt"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/kpt"
 	"github.com/nephio-project/porch/pkg/repository"
+	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
 )
@@ -35,13 +35,13 @@ type upgradePackageMutation struct {
 	pkgName           string
 }
 
-func (m *upgradePackageMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
+func (m *upgradePackageMutation) apply(ctx context.Context, _ repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
 	ctx, span := tracer.Start(ctx, "upgradePackageMutation::apply", trace.WithAttributes())
 	defer span.End()
 
 	currUpstreamPkgRef := m.upgradeTask.Upgrade.OldUpstream
-
 	targetUpstreamRef := m.upgradeTask.Upgrade.NewUpstream
+	localRef := m.upgradeTask.Upgrade.LocalPackageRevisionRef
 
 	packageFetcher := &repository.PackageFetcher{
 		RepoOpener:        m.repoOpener,
@@ -50,25 +50,32 @@ func (m *upgradePackageMutation) apply(ctx context.Context, resources repository
 
 	originalResources, err := packageFetcher.FetchResources(ctx, &currUpstreamPkgRef, m.namespace)
 	if err != nil {
-		return repository.PackageResources{}, nil, fmt.Errorf("error fetching the resources for package %s with ref %+v",
+		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error fetching the resources for package %s with ref %+v",
 			m.pkgName, currUpstreamPkgRef)
 	}
 
 	upstreamRevision, err := packageFetcher.FetchRevision(ctx, &targetUpstreamRef, m.namespace)
 	if err != nil {
-		return repository.PackageResources{}, nil, fmt.Errorf("error fetching revision for target upstream %s", targetUpstreamRef.Name)
+		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error fetching revision for target upstream %s", targetUpstreamRef.Name)
 	}
 	upstreamResources, err := upstreamRevision.GetResources(ctx)
 	if err != nil {
-		return repository.PackageResources{}, nil, fmt.Errorf("error fetching resources for target upstream %s", targetUpstreamRef.Name)
+		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error fetching resources for target upstream %s", targetUpstreamRef.Name)
+	}
+
+	localResources, err := packageFetcher.FetchResources(ctx, &localRef, m.namespace)
+	if err != nil {
+		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error fetching resources for local revision %s", localRef.Name)
 	}
 
 	klog.Infof("performing pkg upgrade operation for pkg %s resource counts local[%d] original[%d] upstream[%d]",
-		m.pkgName, len(resources.Contents), len(originalResources.Spec.Resources), len(upstreamResources.Spec.Resources))
+		m.pkgName, len(localResources.Spec.Resources), len(originalResources.Spec.Resources), len(upstreamResources.Spec.Resources))
 
 	//TODO: May be have packageUpdater part of the Porch core to make it easy for testing ?
 	updatedResources, err := (&repository.DefaultPackageUpdater{}).Update(ctx,
-		resources,
+		repository.PackageResources{
+			Contents: localResources.Spec.Resources,
+		},
 		repository.PackageResources{
 			Contents: originalResources.Spec.Resources,
 		},
@@ -77,15 +84,15 @@ func (m *upgradePackageMutation) apply(ctx context.Context, resources repository
 		},
 		string(m.upgradeTask.Upgrade.Strategy))
 	if err != nil {
-		return repository.PackageResources{}, nil, fmt.Errorf("error updating the package to revision %s", targetUpstreamRef.Name)
+		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error updating the package to revision %s", targetUpstreamRef.Name)
 	}
 
 	newUpstream, newUpstreamLock, err := upstreamRevision.GetLock()
 	if err != nil {
-		return repository.PackageResources{}, nil, fmt.Errorf("error fetching the resources for package revisions %s", targetUpstreamRef.Name)
+		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error fetching the resources for package revisions %s", targetUpstreamRef.Name)
 	}
 	if err := kpt.UpdateKptfileUpstream("", updatedResources.Contents, newUpstream, newUpstreamLock); err != nil {
-		return repository.PackageResources{}, nil, fmt.Errorf("failed to apply upstream lock to package %q: %w", m.pkgName, err)
+		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "failed to apply upstream lock to package %q", m.pkgName)
 	}
 
 	// ensure merge-key comment is added to newly added resources.

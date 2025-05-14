@@ -1,3 +1,4 @@
+skip: "Update has been deprecated"
 commands:
   - args:
       - porchctl

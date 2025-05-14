@@ -29,8 +29,8 @@ var kyamlAnnos = []string{
 	mergeSourceAnnotation,
 	kioutil.PathAnnotation,
 	kioutil.IndexAnnotation,
-	kioutil.LegacyPathAnnotation,
-	kioutil.LegacyIndexAnnotation,
+	kioutil.LegacyPathAnnotation,  //nolint:staticcheck // SA1019
+	kioutil.LegacyIndexAnnotation, //nolint:staticcheck // SA1019
 	kioutil.InternalAnnotationsMigrationResourceIDAnnotation,
 	attribution.CNRMMetricsAnnotation,
 }

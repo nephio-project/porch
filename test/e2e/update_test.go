@@ -22,6 +22,7 @@ import (
 )
 
 func (t *PorchSuite) TestPackageUpdateRecloneAndReplay() {
+	t.Skipf("Reclone and Replay has been removed")
 	const (
 		gitRepository = "package-update"
 	)

@@ -18,7 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
+	"slices"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -26,6 +26,7 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/task"
 	"github.com/nephio-project/porch/pkg/util"
+	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -113,6 +114,20 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 		return nil, err
 	}
 
+	if len(obj.Spec.Tasks) > 1 {
+		return nil, pkgerrors.New("task list must not contain more than one task")
+	}
+
+	if len(obj.Spec.Tasks) == 0 {
+		obj.Spec.Tasks = []api.Task{{
+			Type: api.TaskTypeInit,
+			Init: &api.PackageInitTaskSpec{
+				Subpackage:  "",
+				Description: fmt.Sprintf("%s description", obj.Spec.PackageName),
+			},
+		}}
+	}
+
 	// Validate package lifecycle. Cannot create a final package
 	switch obj.Spec.Lifecycle {
 	case "":
@@ -151,6 +166,12 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 		return nil, err
 	}
 
+	if len(obj.Spec.Tasks) > 0 && obj.Spec.Tasks[0].Type == api.TaskTypeUpgrade {
+		if err := validateUpgradeTask(ctx, revs, obj.Spec.Tasks[0].Upgrade); err != nil {
+			return nil, err
+		}
+	}
+
 	draft, err := repo.CreatePackageRevisionDraft(ctx, obj)
 	if err != nil {
 		return nil, err
@@ -166,6 +187,23 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 
 	// Updates are done.
 	return repo.ClosePackageRevisionDraft(ctx, draft, 0)
+}
+
+// validateUpgradeTask returns an error if one of the source revisions of the upgrade are not published
+func validateUpgradeTask(ctx context.Context, revs []repository.PackageRevision, spec *api.PackageUpgradeTaskSpec) error {
+	for _, rev := range revs {
+		parts := []string{
+			spec.OldUpstream.Name,
+			spec.NewUpstream.Name,
+			spec.LocalPackageRevisionRef.Name,
+		}
+		if slices.Contains(parts, rev.KubeObjectName()) {
+			if !api.LifecycleIsPublished(rev.Lifecycle(ctx)) {
+				return pkgerrors.Errorf("all source PackageRevisions of upgrade task must be published, %q is not", rev.KubeObjectName())
+			}
+		}
+	}
+	return nil
 }
 
 // The workspaceName must be unique, because it used to generate the package revision's metadata.name.
@@ -250,17 +288,13 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version int, re
 		return nil, fmt.Errorf("invalid desired lifecycle value: %q", lifecycle)
 	}
 
-	if isRecloneAndReplay(oldObj, newObj) {
-		return cad.RecloneAndReplay(ctx, parent, version, repo, repositoryObj, newObj)
-	}
-
 	// Do we need to clean up this draft later?
 	draft, err := repo.UpdatePackageRevision(ctx, repoPr)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := cad.taskHandler.DoPRMutations(ctx, repositoryObj.Namespace, repoPr, oldObj, newObj, draft); err != nil {
+	if err := cad.taskHandler.DoPRMutations(ctx, repoPr, oldObj, newObj, draft); err != nil {
 		return nil, err
 	}
 
@@ -434,66 +468,4 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 	}
 
 	return repoPkgRev, renderStatus, nil
-}
-
-// isRecloneAndReplay determines if an update should be handled using reclone-and-replay semantics.
-// We detect this by checking if both old and new versions start by cloning a package, but the version has changed.
-// We may expand this scope in future.
-func isRecloneAndReplay(oldObj, newObj *api.PackageRevision) bool {
-	oldTasks := oldObj.Spec.Tasks
-	newTasks := newObj.Spec.Tasks
-	if len(oldTasks) == 0 || len(newTasks) == 0 {
-		return false
-	}
-
-	if oldTasks[0].Type != api.TaskTypeClone || newTasks[0].Type != api.TaskTypeClone {
-		return false
-	}
-
-	if reflect.DeepEqual(oldTasks[0], newTasks[0]) {
-		return false
-	}
-	return true
-}
-
-// recloneAndReplay performs an update by recloning the upstream package and replaying all tasks.
-// This is more like a git rebase operation than the "classic" kpt update algorithm, which is more like a git merge.
-func (cad *cadEngine) RecloneAndReplay(ctx context.Context, parentPR repository.PackageRevision, version int, repo repository.Repository, repositoryObj *configapi.Repository, newObj *api.PackageRevision) (repository.PackageRevision, error) {
-	ctx, span := tracer.Start(ctx, "cadEngine::recloneAndReplay", trace.WithAttributes())
-	defer span.End()
-
-	packageConfig, err := repository.BuildPackageConfig(ctx, newObj, parentPR)
-	if err != nil {
-		return nil, err
-	}
-
-	// For reclone and replay, we create a new package every time
-	// the version should be in newObj so we will overwrite.
-	draft, err := repo.CreatePackageRevisionDraft(ctx, newObj)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := cad.taskHandler.ApplyTasks(ctx, draft, repositoryObj, newObj, packageConfig); err != nil {
-		return nil, err
-	}
-
-	if err := draft.UpdateLifecycle(ctx, newObj.Spec.Lifecycle); err != nil {
-		return nil, err
-	}
-
-	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, version)
-
-	if err != nil {
-		return nil, err
-	}
-
-	err = cad.updatePkgRevMeta(ctx, repoPkgRev, newObj)
-	if err != nil {
-		return nil, err
-	}
-
-	sent := cad.watcherManager.NotifyPackageRevisionChange(watch.Modified, repoPkgRev)
-	klog.Infof("engine: sent %d for reclone and replay PackageRevision %s/%s", sent, repoPkgRev.KubeObjectNamespace(), repoPkgRev.KubeObjectName())
-	return repoPkgRev, nil
 }

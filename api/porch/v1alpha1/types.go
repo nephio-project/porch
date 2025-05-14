@@ -32,6 +32,10 @@ type PackageRevision struct {
 	Status PackageRevisionStatus `json:"status,omitempty"`
 }
 
+func (pr *PackageRevision) IsPublished() bool {
+	return LifecycleIsPublished(pr.Spec.Lifecycle)
+}
+
 // Key and value of the latest package revision label:
 
 const (
@@ -162,6 +166,10 @@ type TaskResult struct {
 type RenderStatus struct {
 	Result ResultList `json:"result,omitempty"`
 	Err    string     `json:"error"`
+}
+
+func (rs *RenderStatus) IsEmpty() bool {
+	return rs.Err == "" && rs.Result.IsEmpty()
 }
 
 // PackageInitTaskSpec defines the package initialization task.
@@ -420,6 +428,10 @@ type ResultList struct {
 	ExitCode int `json:"exitCode"`
 	// Items contain a list of function result
 	Items []*Result `json:"items,omitempty"`
+}
+
+func (rl *ResultList) IsEmpty() bool {
+	return len(rl.Items) == 0
 }
 
 // Result contains the structured result from an individual function
