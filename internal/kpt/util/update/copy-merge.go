@@ -22,18 +22,23 @@ import (
 	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
 )
 
+// CopyMergeUpdater is responsible for synchronizing the destination package
+// with the source package by updating the Kptfile and copying and replacing package contents.
 type CopyMergeUpdater struct{}
 
+// Update synchronizes the destination/local package with the source/update package by updating the Kptfile
+// and copying package contents. It takes an Options struct as input, which specifies the paths
+// and other parameters for the update operation. Returns an error if the update fails.
 func (u CopyMergeUpdater) Update(options Options) error {
-	return copyDirectories(options.UpdatedPath, options.LocalPath, options.IsRoot)
-}
-
-func copyDirectories(src, dst string, isRoot bool) error {
 	const op errors.Op = "update.Update"
-	if err := kptfileutil.UpdateKptfile(dst, src, dst, true); err != nil {
+
+	dst := options.LocalPath
+	src := options.UpdatedPath
+
+	if err := kptfileutil.UpdateKptfile(dst, src, options.OriginPath, true); err != nil {
 		return errors.E(op, types.UniquePath(dst), err)
 	}
-	if err := pkgutil.CopyPackage(src, dst, isRoot, pkg.All); err != nil {
+	if err := pkgutil.CopyPackage(src, dst, options.IsRoot, pkg.All); err != nil {
 		return errors.E(op, types.UniquePath(dst), err)
 	}
 	return nil
