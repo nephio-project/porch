@@ -335,7 +335,10 @@ kind: ResourceList
 `)
 
 func TestNilFnConfigResourceList(t *testing.T) {
-	rl, _ := ParseResourceList(noFnConfigResourceList)
+	rl, err := ParseResourceList(noFnConfigResourceList)
+	if err != nil {
+		t.Fatalf("Error parsing resource list: %v", err)
+	}
 	if rl.FunctionConfig == nil {
 		t.Errorf("Empty functionConfig in ResourceList should still be initialized to avoid nil pointer error")
 	}
@@ -370,7 +373,6 @@ func TestNilFnConfigResourceList(t *testing.T) {
 			t.Errorf("Nil KubeObject shall not have the field path `not-exist` exist, and not expect errors")
 		}
 	}
-	var err error
 	// Check that nil FunctionConfig should be editable.
 	{
 		err = rl.FunctionConfig.SetKind("CustomFn")

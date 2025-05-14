@@ -9,6 +9,7 @@ import (
 	"sort"
 
 	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn/internal"
+	pkgerrors "github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/kustomize/kyaml/kio"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
@@ -111,15 +112,26 @@ func ParseResourceList(in []byte) (*ResourceList, error) {
 	}
 
 	// Parse Results. Results can be empty.
-	res, found, err := rlObj.obj.GetNestedSlice("results")
+	res, found, err := rlObj.obj.GetNestedValue("results")
 	if err != nil {
-		return nil, fmt.Errorf("failed when tried to get results: %w", err)
+		return nil, pkgerrors.Wrap(err, "failed when trying to get results")
 	}
+
+	// compatibility between kyaml versions
+	if m, ok := res.(*internal.MapVariant); ok {
+		items, found, err = m.GetNestedSlice("items")
+	} else if items, ok = res.(*internal.SliceVariant); !ok {
+		// no results
+	}
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "failed when trying to get results")
+	}
+
 	if found {
 		var results Results
-		err = res.Node().Decode(&results)
+		err = items.Node().Decode(&results)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode results: %w", err)
+			return nil, pkgerrors.Wrap(err, "failed to decode results")
 		}
 		rl.Results = results
 	}
