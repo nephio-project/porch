@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ func (m *renderPackageMutation) apply(ctx context.Context, resources repository.
 	fs := filesys.MakeFsInMemory()
 	taskResult := &api.TaskResult{
 		Task: &api.Task{
-			Type: api.TaskTypeEval,
+			Type: "render",
 			Eval: &api.FunctionEvalTaskSpec{
 				Image:     "render",
 				ConfigMap: nil,
@@ -65,7 +65,7 @@ func (m *renderPackageMutation) apply(ctx context.Context, resources repository.
 		klog.Warningf("skipping render as no package was found")
 	} else {
 		renderer := kpt.NewRenderer(m.runnerOptions)
-		result, err := renderer.Render(ctx, fs, fn.RenderOptions{
+		result, renderErr := renderer.Render(ctx, fs, fn.RenderOptions{
 			PkgPath: pkgPath,
 			Runtime: m.runtime,
 		})
@@ -77,9 +77,9 @@ func (m *renderPackageMutation) apply(ctx context.Context, resources repository.
 			}
 			taskResult.RenderStatus.Result = rr
 		}
-		if err != nil {
-			taskResult.RenderStatus.Err = err.Error()
-			return repository.PackageResources{}, taskResult, err
+		if renderErr != nil {
+			taskResult.RenderStatus.Err = renderErr.Error()
+			return repository.PackageResources{}, taskResult, renderErr
 		}
 	}
 

@@ -1200,7 +1200,7 @@ func (r *gitRepository) loadTasks(_ context.Context, startCommit *object.Commit,
 				// reverse order.
 				// The entire `tasks` slice will get reversed later, which will give us the
 				// tasks in chronological order.
-				if gitAnnotation.Task != nil {
+				if !(gitAnnotation.Task == nil || strings.Contains(strings.ToLower(string(gitAnnotation.Task.Type)), "readiness gate")) {
 					tasks = append(tasks, *gitAnnotation.Task)
 				}
 
@@ -1387,7 +1387,7 @@ func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageR
 	return nil
 }
 
-func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPackageRevisionDraft, new *v1alpha1.PackageRevisionResources, change *v1alpha1.Task) error {
+func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPackageRevisionDraft, new *v1alpha1.PackageRevisionResources, task *v1alpha1.Task) error {
 	ctx, span := tracer.Start(ctx, "gitRepository::UpdateResources", trace.WithAttributes())
 	defer span.End()
 	r.mutex.Lock()
@@ -1418,12 +1418,14 @@ func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPack
 		PackagePath:   draft.Key().PkgKey.ToFullPathname(),
 		WorkspaceName: draft.Key().WorkspaceName,
 		Revision:      repository.Revision2Str(draft.Key().Revision),
-		Task:          change,
+		Task:          task,
 	}
 	message := "Intermediate commit"
-	if change != nil {
-		message += fmt.Sprintf(": %s", change.Type)
-		draft.tasks = append(draft.tasks, *change)
+	if task != nil {
+		message += fmt.Sprintf(": %s", task.Type)
+		if !strings.Contains(strings.ToLower(string(task.Type)), "readiness gate") {
+			draft.tasks = append(draft.tasks, *task)
+		}
 	}
 	message += "\n"
 
