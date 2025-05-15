@@ -7,7 +7,7 @@ commands:
     - --name=git
     - --repo-basic-password=secret
     - --repo-basic-username=nephio
-    - http://gitea.gitea.svc.cluster.local:3000/nephio/rpkg-update
+    - http://gitea.gitea.svc.cluster.local:3000/nephio/rpkg-upgrade
   - args:
     - porchctl
     - rpkg
