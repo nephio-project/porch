@@ -38,9 +38,11 @@ cd "${git_root}/.build"
 if [ -d gitea ]; then
   kpt pkg update gitea
 else
-  cp -r "${git_root}/test/pkgs/gitea-dev" .
+  cp -r "${git_root}/test/pkgs/gitea-dev" gitea
 fi
-cd gitea-dev
+
+cd "${git_root}/.build/gitea"
+
 kpt fn eval \
   --image gcr.io/kpt-fn/set-annotations:v0.1.4 \
   --match-kind Service \
