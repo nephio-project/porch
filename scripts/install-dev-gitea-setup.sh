@@ -40,7 +40,9 @@ if [ -d gitea ]; then
 else
   cp -r "${git_root}/test/pkgs/gitea-dev" .
 fi
-cd gitea-dev
+
+cd "${git_root}/test/pkgs/gitea-dev"
+
 kpt fn eval \
   --image gcr.io/kpt-fn/set-annotations:v0.1.4 \
   --match-kind Service \
