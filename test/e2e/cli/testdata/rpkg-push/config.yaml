@@ -70,6 +70,7 @@ commands:
       - push
       - --namespace=rpkg-push
       - git.test-package.push
+      - '-'
     stdin: |
       apiVersion: config.kubernetes.io/v1
       items:
@@ -196,6 +197,7 @@ commands:
       - push
       - --namespace=rpkg-push
       - git.test-package.push
+      - '-'
     stdin: |
       apiVersion: config.kubernetes.io/v1
       items:
