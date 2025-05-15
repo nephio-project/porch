@@ -102,13 +102,3 @@ func (m *upgradePackageMutation) apply(ctx context.Context, _ repository.Package
 	}
 	return result, &api.TaskResult{Task: m.upgradeTask}, nil
 }
-
-func findUpgradeTask(pr *api.PackageRevision) *api.Task {
-	if len(pr.Spec.Tasks) == 0 {
-		return nil
-	}
-	if firstTask := pr.Spec.Tasks[0]; firstTask.Type == api.TaskTypeUpgrade {
-		return &firstTask
-	}
-	return nil
-}

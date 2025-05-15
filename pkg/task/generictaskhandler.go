@@ -124,16 +124,18 @@ func (th *genericTaskHandler) DoPRMutations(
 		}
 
 		// If any of the fields in the API that are projections from the Kptfile must be updated in the Kptfile as well.
-		if kfPatchTask, created, err := createKptfilePatchTask(ctx, repoPR, newObj); err != nil {
+		kfPatchTask, created, err := createKptfilePatchTask(ctx, repoPR, newObj)
+		if err != nil {
 			return err
-		} else if created {
-			if kfPatchMutation, err := buildPatchMutation(ctx, kfPatchTask, th.cloneStrategy); err != nil {
+		}
+		if created {
+			kfPatchMutation, err := buildPatchMutation(ctx, kfPatchTask, th.cloneStrategy)
+			if err != nil {
 				return err
-			} else {
-				resources, _, err = kfPatchMutation.apply(ctx, resources)
-				if err != nil {
-					return err
-				}
+			}
+			resources, _, err = kfPatchMutation.apply(ctx, resources)
+			if err != nil {
+				return err
 			}
 		}
 
@@ -272,14 +274,10 @@ func (th *genericTaskHandler) mapTaskToMutation(ctx context.Context, obj *api.Pa
 
 	case api.TaskTypeUpgrade:
 		if task.Upgrade == nil {
-			return nil, fmt.Errorf("update not set for task of type %q", task.Type)
-		}
-		upgradeTask := findUpgradeTask(obj)
-		if upgradeTask == nil {
-			return nil, fmt.Errorf("upstream source not found for package rev %q; only cloned packages can be updated", obj.Spec.PackageName)
+			return nil, fmt.Errorf("upgrade field not set for task of type %q", task.Type)
 		}
 		return &upgradePackageMutation{
-			upgradeTask:       upgradeTask,
+			upgradeTask:       task,
 			namespace:         obj.Namespace,
 			repoOpener:        th.repoOpener,
 			referenceResolver: th.referenceResolver,
