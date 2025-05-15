@@ -109,7 +109,7 @@ func createClonePackageRevision(pr *porchapi.PackageRevision, name string, revis
 	return newPr
 }
 
-func createRunner(ctx context.Context, c client.Client, prs []porchapi.PackageRevision, ns, workspace string, revision int) *runner {
+func createRunner(ctx context.Context, c client.Client, prs []porchapi.PackageRevision, ns string, revision int) *runner {
 	return &runner{
 		ctx:      ctx,
 		cfg:      &genericclioptions.ConfigFlags{Namespace: &ns},
@@ -127,14 +127,14 @@ func TestPreRun(t *testing.T) {
 	prs := []porchapi.PackageRevision{
 		*createClonePackageRevision(orig, "repo", 1, porchapi.PackageRevisionLifecyclePublished),
 	}
-	r := createRunner(context.Background(), fake.NewClientBuilder().Build(), prs, ns, "v2", 2)
+	r := createRunner(context.Background(), fake.NewClientBuilder().Build(), prs, ns, 2)
 	err := r.preRunE(r.Command, []string{"arg1", "arg2", "arg3"})
 	assert.Error(t, err)
 
 	err = r.preRunE(r.Command, []string{})
 	assert.Error(t, err)
 
-	newRunner := createRunner(context.Background(), fake.NewClientBuilder().Build(), prs, ns, "", 2)
+	newRunner := createRunner(context.Background(), fake.NewClientBuilder().Build(), prs, ns, 2)
 	err2 := newRunner.preRunE(newRunner.Command, []string{"repo"})
 	assert.Error(t, err2)
 	assert.ErrorContains(t, err2, "workspace")
@@ -182,41 +182,52 @@ func TestUpgradeCommand(t *testing.T) {
 		Build()
 
 	output := &bytes.Buffer{}
-	r := createRunner(ctx, client, prs, ns, "v2", 2)
+	commonRunner := createRunner(ctx, client, prs, ns, 2)
 
 	testCases := []struct {
 		name           string
 		args           []string
 		expectedOutput string
 		expectedError  string
+		runner         *runner
 	}{
 		{
 			name:           "Successful package upgrade",
 			args:           []string{localName},
 			expectedOutput: fmt.Sprintf("%s upgraded to upgraded-pr\n", localName),
 			expectedError:  "",
+			runner:         commonRunner,
+		},
+		{
+			name:           "Successful package upgrade by finding latest",
+			args:           []string{localName},
+			expectedOutput: fmt.Sprintf("%s upgraded to upgraded-pr\n", localName),
+			expectedError:  "",
+			runner:         createRunner(ctx, client, prs, ns, 0),
 		},
 		{
 			name:           "Draft package revision",
 			args:           []string{localDraftName},
 			expectedOutput: "",
 			expectedError:  fmt.Sprintf("to upgrade a package, it must be in a published state, not %q", porchapi.PackageRevisionLifecycleDraft),
+			runner:         commonRunner,
 		},
 		{
 			name:           "Non-existent package revision",
 			args:           []string{"non-existent-revision"},
 			expectedOutput: "",
 			expectedError:  "could not find package revision non-existent-revision",
+			runner:         commonRunner,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			r.Command.SetArgs(tc.args)
-			r.Command.SetOut(output)
+			tc.runner.Command.SetArgs(tc.args)
+			tc.runner.Command.SetOut(output)
 
 			output.Reset()
-			err := r.runE(r.Command, tc.args)
+			err := tc.runner.runE(tc.runner.Command, tc.args)
 
 			if tc.expectedError != "" {
 				if err == nil || !strings.Contains(err.Error(), tc.expectedError) {
@@ -231,4 +242,28 @@ func TestUpgradeCommand(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFindLatestPR(t *testing.T) {
+	const (
+		origName        = "repo-orig"
+		newUpstreamName = "repo-newup"
+		localName       = "repo-local"
+		ns              = "ns"
+	)
+
+	origRevision := createOrigPackageRevision(origName, ns, 1)
+	newUpstreamRevision := createEditPackageRevision(origRevision, newUpstreamName, 2)
+	localRevision := createClonePackageRevision(origRevision, localName, 1, porchapi.PackageRevisionLifecyclePublished)
+	prs := []porchapi.PackageRevision{
+		*origRevision,
+		*newUpstreamRevision,
+		*localRevision,
+	}
+
+	r := createRunner(context.Background(), fake.NewClientBuilder().Build(), prs, ns, 0)
+
+	found := r.findLatestPackageRevisionForRef("orig-testpackage")
+	assert.Equal(t, newUpstreamName, found.Name)
+	assert.Equal(t, 2, found.Spec.Revision)
 }

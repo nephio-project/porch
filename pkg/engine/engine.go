@@ -191,12 +191,12 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 
 // validateUpgradeTask returns an error if one of the source revisions of the upgrade are not published
 func validateUpgradeTask(ctx context.Context, revs []repository.PackageRevision, spec *api.PackageUpgradeTaskSpec) error {
+	parts := []string{
+		spec.OldUpstream.Name,
+		spec.NewUpstream.Name,
+		spec.LocalPackageRevisionRef.Name,
+	}
 	for _, rev := range revs {
-		parts := []string{
-			spec.OldUpstream.Name,
-			spec.NewUpstream.Name,
-			spec.LocalPackageRevisionRef.Name,
-		}
 		if slices.Contains(parts, rev.KubeObjectName()) {
 			if !api.LifecycleIsPublished(rev.Lifecycle(ctx)) {
 				return pkgerrors.Errorf("all source PackageRevisions of upgrade task must be published, %q is not", rev.KubeObjectName())
