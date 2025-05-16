@@ -353,6 +353,7 @@ func hydrateBFS(ctx context.Context, root *pkgNode, hctx *hydrationContext) (out
 	// Initialize the BFS queue with the root package
 	queue := []*pkgNode{root}
 
+	// Loop until the queue is empty
 	for len(queue) > 0 {
 		// Dequeue the next package
 		current := queue[0]
