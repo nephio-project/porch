@@ -45,6 +45,8 @@ const (
 	defaultKPTRepo            = "https://github.com/kptdev/kpt.git"
 	defaultGCRPrefix          = "gcr.io/kpt-fn"
 
+	// Optional environment variables which can be set to replace defaults when running e2e tests behind a proxy or firewall.
+	// Environment variables can be loaded from a .env file - refer to .env.template
 	testBlueprintsRepoUrlEnv      = "PORCH_TEST_BLUEPRINTS_REPO_URL"
 	testBlueprintsRepoUserEnv     = "PORCH_TEST_BLUEPRINTS_REPO_USER"
 	testBlueprintsRepoPasswordEnv = "PORCH_TEST_BLUEPRINTS_REPO_PASSWORD"
