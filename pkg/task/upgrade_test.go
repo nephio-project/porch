@@ -21,7 +21,6 @@ import (
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func createMockedResources() repository.PackageResources {
@@ -29,69 +28,6 @@ func createMockedResources() repository.PackageResources {
 		Contents: map[string]string{
 			"apiVersion": "kpt.dev/v1alpha1",
 			"kind":       "Kptfile",
-		},
-	}
-}
-
-func createMockedPackageRevisionWithClone() api.PackageRevision {
-	return api.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
-			APIVersion: api.SchemeGroupVersion.Identifier(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "test-clone",
-		},
-		Spec: api.PackageRevisionSpec{
-			PackageName:    "cloned-package",
-			WorkspaceName:  "workspace",
-			RepositoryName: "",
-			Tasks: []api.Task{
-				{
-					Type: api.TaskTypeClone,
-					Clone: &api.PackageCloneTaskSpec{
-						Upstream: api.UpstreamPackage{
-							UpstreamRef: &api.PackageRevisionRef{
-								Name: "test",
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func createMockedPackageRevisionWithUpgrade() api.PackageRevision {
-	return api.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
-			APIVersion: api.SchemeGroupVersion.Identifier(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "test-upgrade",
-		},
-		Spec: api.PackageRevisionSpec{
-			PackageName:    "upgrade-package",
-			WorkspaceName:  "workspace",
-			RepositoryName: "",
-			Tasks: []api.Task{
-				{
-					Type: api.TaskTypeUpgrade,
-					Upgrade: &api.PackageUpgradeTaskSpec{
-						OldUpstream: api.PackageRevisionRef{
-							Name: "origin",
-						},
-						NewUpstream: api.PackageRevisionRef{
-							Name: "updated",
-						},
-						LocalPackageRevisionRef: api.PackageRevisionRef{
-							Name: "local",
-						},
-						Strategy: api.ResourceMerge,
-					},
-				},
-			},
 		},
 	}
 }
@@ -124,16 +60,4 @@ func TestApplyErrorInvalidUpstreamUprade(t *testing.T) {
 	_, _, err := mutation.apply(ctx, resources)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "error fetching the resources for package")
-}
-
-func TestFindUpgradeTaskFindsUpgrade(t *testing.T) {
-	pr := createMockedPackageRevisionWithUpgrade()
-	task := findUpgradeTask(&pr)
-	assert.Equal(t, task.Type, api.TaskTypeUpgrade)
-}
-
-func TestFindUpgradeTaskNotFindsUpgrade(t *testing.T) {
-	pr := createMockedPackageRevisionWithClone()
-	task := findUpgradeTask(&pr)
-	assert.Nil(t, task)
 }
