@@ -38,6 +38,26 @@ func IsPorchServerRunningInCluster(t *testing.T) bool {
 	return stdout.String() != ""
 }
 
+func KubectlApply(t *testing.T, config string) {
+	cmd := exec.Command("kubectl", "apply", "-f", "-")
+	cmd.Stdin = strings.NewReader(config)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("kubectl apply failed: %v\ninput: %s\n\noutput:%s", err, config, string(out))
+	}
+	t.Logf("kubectl apply\n%s\noutput:\n%s", config, string(out))
+}
+
+func KubectlDelete(t *testing.T, config string) {
+	cmd := exec.Command("kubectl", "delete", "-f", "-")
+	cmd.Stdin = strings.NewReader(config)
+	out, err := cmd.CombinedOutput()
+	if err != nil && !strings.Contains(string(out), "NotFound") {
+		t.Fatalf("kubectl delete failed: %v\ninput: %s\n\noutput:%s", err, config, string(out))
+	}
+	t.Logf("kubectl delete\n%s\noutput:\n%s", config, string(out))
+}
+
 func KubectlWaitForLoadBalancerIp(t *testing.T, namespace, name string) string {
 	args := []string{"get", "service", "--namespace", namespace, name, "--output=jsonpath={.status.loadBalancer.ingress[0].ip}"}
 
@@ -98,7 +118,7 @@ func KubectlCreateNamespace(t *testing.T, name string) {
 	cmd := exec.Command("kubectl", "create", "namespace", name)
 	t.Logf("running command %v", strings.Join(cmd.Args, " "))
 	out, err := cmd.CombinedOutput()
-	if err != nil {
+	if err != nil && !strings.Contains(string(out), "AlreadyExists") {
 		t.Fatalf("Failed to create namespace %q: %v\n%s", name, err, string(out))
 	}
 	t.Logf("output: %v", string(out))

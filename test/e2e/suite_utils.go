@@ -24,6 +24,7 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
+	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -34,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 )
 
 type TestSuiteWithGit struct {
@@ -556,6 +558,39 @@ func (t *TestSuite) GetPackageRevision(repo string, pkgName string, revision int
 		t.Fatalf("Multiple PackageRevision objects were found for package revision %v/%v/%d", repo, pkgName, revision)
 	}
 	return &prList.Items[0]
+}
+
+// addMutator adds a mutator to the Kptfile pipeline of the resources (in-place)
+func (t *TestSuite) AddMutator(resources *porchapi.PackageRevisionResources, image string, configMap map[string]string) {
+	t.T().Helper()
+	kptf, ok := resources.Spec.Resources[kptfilev1.KptFileName]
+	if !ok {
+		t.Fatalf("Kptfile not found in resources")
+	}
+	parsed := &kptfilev1.KptFile{}
+	if err := yaml.Unmarshal([]byte(kptf), parsed); err != nil {
+		t.Fatalf("Failed to unmarshal Kptfile: %v", err)
+	}
+
+	if parsed.Pipeline == nil {
+		parsed.Pipeline = &kptfilev1.Pipeline{}
+	}
+
+	if parsed.Pipeline.Mutators == nil {
+		parsed.Pipeline.Mutators = make([]kptfilev1.Function, 0, 1)
+	}
+
+	parsed.Pipeline.Mutators = append(parsed.Pipeline.Mutators, kptfilev1.Function{
+		Image:     image,
+		ConfigMap: configMap,
+	})
+
+	marshalled, err := yaml.Marshal(parsed)
+	if err != nil {
+		t.Fatalf("Failed to marshal Kptfile: %v", err)
+	}
+
+	resources.Spec.Resources[kptfilev1.KptFileName] = string(marshalled)
 }
 
 func (t *TestSuite) RetriggerBackgroundJobForRepo(repoName string) {
