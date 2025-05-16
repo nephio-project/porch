@@ -35,8 +35,8 @@ import (
 func createOrigPackageRevision(name, namespace string, revision int) *porchapi.PackageRevision {
 	return &porchapi.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "kptfile",
-			APIVersion: "v1alpha1",
+			Kind:       "PackageRevision",
+			APIVersion: "porch.kpt.dev/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -266,4 +266,57 @@ func TestFindLatestPR(t *testing.T) {
 	found := r.findLatestPackageRevisionForRef("orig-testpackage")
 	assert.Equal(t, newUpstreamName, found.Name)
 	assert.Equal(t, 2, found.Spec.Revision)
+}
+
+func TestFindEditOrigin(t *testing.T) {
+	const ns = "ns"
+	downstreamv1 := porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "downstream.v1",
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			Tasks: []porchapi.Task{
+				{
+					Type: porchapi.TaskTypeClone,
+					Clone: &porchapi.PackageCloneTaskSpec{
+						Upstream: porchapi.UpstreamPackage{
+							UpstreamRef: &porchapi.PackageRevisionRef{
+								Name: "upstream.v1",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	downstreamv2 := porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "downstream.v2",
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			Tasks: []porchapi.Task{
+				{
+					Type: porchapi.TaskTypeEdit,
+					Edit: &porchapi.PackageEditTaskSpec{
+						Source: &porchapi.PackageRevisionRef{
+							Name: "downstream.v1",
+						},
+					},
+				},
+			},
+		},
+	}
+	downstreamv3 := *downstreamv2.DeepCopy()
+	downstreamv3.Name = "downstream.v3"
+	downstreamv3.Spec.Tasks[0].Edit.Source = &porchapi.PackageRevisionRef{Name: "downstream.v2"}
+	prs := []porchapi.PackageRevision{
+		downstreamv1,
+		downstreamv2,
+		downstreamv3,
+	}
+
+	r := createRunner(context.Background(), fake.NewClientBuilder().Build(), prs, ns, 0)
+
+	found := r.findUpstreamName(&downstreamv3)
+	assert.Equal(t, "upstream.v1", found)
 }

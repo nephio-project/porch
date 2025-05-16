@@ -30,10 +30,7 @@ func Merge(original, updated, destination fn.KubeObjects, additionalSchemas []by
 	}
 	o, u, d := original.CopyToResourceNodes(), updated.CopyToResourceNodes(), destination.CopyToResourceNodes()
 
-	// index the nodes by their identity
-	matcher := &resourceMergeMatcher{MergeOnPath: true}
-
-	tl := tuples{matcher: matcher}
+	tl := tuples{matcher: &resourceMergeMatcher{}}
 	for i := range o {
 		if err := tl.addOriginal(o[i]); err != nil {
 			return nil, err

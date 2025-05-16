@@ -48,17 +48,17 @@ func (m *upgradePackageMutation) apply(ctx context.Context, _ repository.Package
 		ReferenceResolver: m.referenceResolver,
 	}
 
-	originalResources, err := packageFetcher.FetchResources(ctx, &currUpstreamPkgRef, m.namespace)
+	currUpstreamResources, err := packageFetcher.FetchResources(ctx, &currUpstreamPkgRef, m.namespace)
 	if err != nil {
 		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error fetching the resources for package %s with ref %+v",
 			m.pkgName, currUpstreamPkgRef)
 	}
 
-	upstreamRevision, err := packageFetcher.FetchRevision(ctx, &targetUpstreamRef, m.namespace)
+	targetUpstreamRevision, err := packageFetcher.FetchRevision(ctx, &targetUpstreamRef, m.namespace)
 	if err != nil {
 		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error fetching revision for target upstream %s", targetUpstreamRef.Name)
 	}
-	upstreamResources, err := upstreamRevision.GetResources(ctx)
+	targetUpstreamResources, err := targetUpstreamRevision.GetResources(ctx)
 	if err != nil {
 		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error fetching resources for target upstream %s", targetUpstreamRef.Name)
 	}
@@ -69,7 +69,7 @@ func (m *upgradePackageMutation) apply(ctx context.Context, _ repository.Package
 	}
 
 	klog.Infof("performing pkg upgrade operation for pkg %s resource counts local[%d] original[%d] upstream[%d]",
-		m.pkgName, len(localResources.Spec.Resources), len(originalResources.Spec.Resources), len(upstreamResources.Spec.Resources))
+		m.pkgName, len(localResources.Spec.Resources), len(currUpstreamResources.Spec.Resources), len(targetUpstreamResources.Spec.Resources))
 
 	//TODO: May be have packageUpdater part of the Porch core to make it easy for testing ?
 	updatedResources, err := (&repository.DefaultPackageUpdater{}).Update(ctx,
@@ -77,17 +77,17 @@ func (m *upgradePackageMutation) apply(ctx context.Context, _ repository.Package
 			Contents: localResources.Spec.Resources,
 		},
 		repository.PackageResources{
-			Contents: originalResources.Spec.Resources,
+			Contents: currUpstreamResources.Spec.Resources,
 		},
 		repository.PackageResources{
-			Contents: upstreamResources.Spec.Resources,
+			Contents: targetUpstreamResources.Spec.Resources,
 		},
 		string(m.upgradeTask.Upgrade.Strategy))
 	if err != nil {
 		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error updating the package to revision %s", targetUpstreamRef.Name)
 	}
 
-	newUpstream, newUpstreamLock, err := upstreamRevision.GetLock()
+	newUpstream, newUpstreamLock, err := targetUpstreamRevision.GetLock()
 	if err != nil {
 		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error fetching the resources for package revisions %s", targetUpstreamRef.Name)
 	}

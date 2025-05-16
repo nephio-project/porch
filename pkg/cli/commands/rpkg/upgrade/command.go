@@ -93,7 +93,11 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 	}
 
 	packageRevisionList := porchapi.PackageRevisionList{}
-	if err := r.client.List(r.ctx, &packageRevisionList, &client.ListOptions{}); err != nil {
+	listOpts := []client.ListOption{}
+	if r.cfg.Namespace != nil && *r.cfg.Namespace != "" {
+		listOpts = append(listOpts, client.InNamespace(*r.cfg.Namespace))
+	}
+	if err := r.client.List(r.ctx, &packageRevisionList, listOpts...); err != nil {
 		return errors.E(op, err)
 	}
 	r.prs = packageRevisionList.Items
@@ -132,26 +136,27 @@ func (r *runner) doUpgrade(pr *porchapi.PackageRevision) (*porchapi.PackageRevis
 		return nil, pkgerrors.Errorf("to upgrade a package, it must be in a published state, not %q", pr.Spec.Lifecycle)
 	}
 
-	cloneTask := r.findCloneTask(pr)
-	if cloneTask == nil {
-		return nil, pkgerrors.Errorf("upstream source not found for package rev %q; only cloned packages can be updated", pr.Spec.PackageName)
+	oldUpstreamName := r.findUpstreamName(pr)
+	if oldUpstreamName == "" {
+		return nil, pkgerrors.Errorf("upstream source not found for package revision %q:"+
+			" no clone or upgrade type package revision was found in the history of the package", pr.Spec.PackageName)
 	}
 
-	upstreamPr := r.findPackageRevision(cloneTask.Clone.Upstream.UpstreamRef.Name)
-	if upstreamPr == nil {
-		return nil, pkgerrors.Errorf("upstream package revision %s no longer exists", cloneTask.Clone.Upstream.UpstreamRef.Name)
+	oldUpstreamPr := r.findPackageRevision(oldUpstreamName)
+	if oldUpstreamPr == nil {
+		return nil, pkgerrors.Errorf("upstream package revision %s no longer exists", oldUpstreamName)
 	}
-	if !upstreamPr.IsPublished() {
-		return nil, pkgerrors.Errorf("old upstream package revision %s is not published", upstreamPr.Name)
+	if !oldUpstreamPr.IsPublished() {
+		return nil, pkgerrors.Errorf("old upstream package revision %s is not published", oldUpstreamPr.Name)
 	}
 	var newUpstreamPr *porchapi.PackageRevision
 	if r.revision == 0 {
-		newUpstreamPr = r.findLatestPackageRevisionForRef(upstreamPr.Spec.PackageName)
+		newUpstreamPr = r.findLatestPackageRevisionForRef(oldUpstreamPr.Spec.PackageName)
 		if newUpstreamPr == nil {
 			return nil, pkgerrors.Errorf("failed to find latest published revision for package %s (--revision was %d)", pr.Spec.PackageName, r.revision)
 		}
 	} else {
-		newUpstreamPr = r.findPackageRevisionForRef(upstreamPr.Spec.PackageName, r.revision)
+		newUpstreamPr = r.findPackageRevisionForRef(oldUpstreamPr.Spec.PackageName, r.revision)
 		if newUpstreamPr == nil {
 			return nil, pkgerrors.Errorf("revision %d does not exist for package %s", r.revision, pr.Spec.PackageName)
 		}
@@ -165,7 +170,7 @@ func (r *runner) doUpgrade(pr *porchapi.PackageRevision) (*porchapi.PackageRevis
 		Type: porchapi.TaskTypeUpgrade,
 		Upgrade: &porchapi.PackageUpgradeTaskSpec{
 			OldUpstream: porchapi.PackageRevisionRef{
-				Name: upstreamPr.Name,
+				Name: oldUpstreamPr.Name,
 			},
 			NewUpstream: porchapi.PackageRevisionRef{
 				Name: newUpstreamPr.Name,
@@ -210,20 +215,10 @@ func (r *runner) findPackageRevision(prName string) *porchapi.PackageRevision {
 	return nil
 }
 
-func (r *runner) findCloneTask(pr *porchapi.PackageRevision) *porchapi.Task {
-	if len(pr.Spec.Tasks) == 0 {
-		return nil
-	}
-	if firstTask := pr.Spec.Tasks[0]; firstTask.Type == porchapi.TaskTypeClone {
-		return &firstTask
-	}
-	return nil
-}
-
 func (r *runner) findPackageRevisionForRef(name string, revision int) *porchapi.PackageRevision {
 	for i := range r.prs {
 		pr := r.prs[i]
-		if pr.Spec.PackageName == name && pr.Spec.Revision == revision {
+		if pr.Spec.PackageName == name && pr.IsPublished() && pr.Spec.Revision == revision {
 			return &pr
 		}
 	}
@@ -240,4 +235,35 @@ func (r *runner) findLatestPackageRevisionForRef(name string) *porchapi.PackageR
 		}
 	}
 	return output
+}
+
+func (r *runner) findUpstreamName(pr *porchapi.PackageRevision) string {
+	switch pr.Spec.Tasks[0].Type {
+	case porchapi.TaskTypeClone:
+		return pr.Spec.Tasks[0].Clone.Upstream.UpstreamRef.Name
+	case porchapi.TaskTypeEdit:
+		return r.findEditOrigin(pr)
+	case porchapi.TaskTypeUpgrade:
+		return pr.Spec.Tasks[0].Upgrade.NewUpstream.Name
+	default:
+		return ""
+	}
+}
+
+func (r *runner) findEditOrigin(currentPr *porchapi.PackageRevision) string {
+	pr := currentPr
+	for pr != nil && pr.Spec.Tasks[0].Type == porchapi.TaskTypeEdit {
+		sourceName := pr.Spec.Tasks[0].Edit.Source.Name
+		pr = nil
+		for _, p := range r.prs {
+			if p.Name == sourceName {
+				pr = &p
+				break
+			}
+		}
+	}
+	if pr != nil {
+		return r.findUpstreamName(pr)
+	}
+	return ""
 }

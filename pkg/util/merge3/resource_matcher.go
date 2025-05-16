@@ -32,9 +32,7 @@ var _ filters.ResourceMatcher = &resourceMergeMatcher{}
 // resourceMergeMatcher differs from the default matcher in that Namespace and Name are derived
 // from merge comment, which is of format "kpt-merge: namespace/name",
 // if the merge comment is not present, then it falls back to Namespace and Name in the resource meta.
-type resourceMergeMatcher struct {
-	MergeOnPath bool
-}
+type resourceMergeMatcher struct{}
 
 // IsSameResource determines if 2 resources are same to be merged by matching GKNN+filepath
 // Group, Kind are derived from resource metadata directly, Namespace and Name are derived
@@ -78,16 +76,15 @@ func (rm *resourceMergeMatcher) IsSameResource(node1, node2 *yaml.RNode) bool {
 		return false
 	}
 
-	if rm.MergeOnPath {
-		// directories may contain multiple copies of a resource with the same
-		// name, namespace, apiVersion and kind -- e.g. kustomize patches, or
-		// multiple environments
-		// mergeOnPath configures the merge logic to use the path as part of the
-		// resource key
-		if meta1.Annotations[kioutil.PathAnnotation] != meta2.Annotations[kioutil.PathAnnotation] {
-			return false
-		}
+	// directories may contain multiple copies of a resource with the same
+	// name, namespace, apiVersion and kind -- e.g. kustomize patches, or
+	// multiple environments
+	// mergeOnPath configures the merge logic to use the path as part of the
+	// resource key
+	if meta1.Annotations[kioutil.PathAnnotation] != meta2.Annotations[kioutil.PathAnnotation] {
+		return false
 	}
+
 	return true
 }
 

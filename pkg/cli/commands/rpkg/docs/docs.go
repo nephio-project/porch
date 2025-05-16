@@ -319,27 +319,30 @@ var UpdateExamples = `
   $ porchctl rpkg update --discover=downstream blueprints-e982b2196b35a4f5e81e92f49a430fe463aa9f1a
 `
 
-var UpgradeShort = `Upgrade a downstream package revision to a more recent revision of its upstream package.`
+var UpgradeShort = `Create a new draft package revision which upgrades a (published) downstream package revision to a more recent (published) revision of its upstream package.`
 var UpgradeLong = `
-  porchctl rpkg upgrade PACKAGE_REV_NAME [flags]
+  porchctl rpkg upgrade SOURCE_PACKAGE_REVISION [flags]
 
 Args:
 
-  PACKAGE_REV_NAME:
-  The target downstream package revision to be updated.
+  SOURCE_PACKAGE_REVISION:
+  The target downstream package revision to be upgraded. Must be published.
 
 
 Flags:
 
   --revision
-  The revision number of the upstream kpt package that the target
-  downstream package (PACKAGE_REV_NAME) should be updated to. With
-  this flag, you can only specify one target downstream package.
+  (Optional) The revision number of the upstream kpt package that the target
+  downstream package revision (SOURCE_PACKAGE_REVISION) should be upgraded to.
+  The corresponding revision must be published.
 
   --workspace
   The workspace name of the newly created package revision.
 `
 var UpgradeExamples = `
-  # upgrade deployment-e982b2196b35a4f5e81e92f49a430fe463aa9f1a package to v3 of its upstream
-  $ porchctl rpkg upgrade deployment-e982b2196b35a4f5e81e92f49a430fe463aa9f1a --revision=3 --workspace=v3
+  # upgrade deployment.some-package.v1 package to v3 of its upstream
+  $ porchctl rpkg upgrade deployment.some-package.v1 --revision=3 --workspace=v2
+
+  # upgrade deployment.some-package.v1 package to the latest of its upstream
+  $ porchctl rpkg upgrade deployment.some-package.v1 --workspace=v2
 `
