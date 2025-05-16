@@ -44,7 +44,7 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 		cfg: rcg,
 	}
 	r.Command = &cobra.Command{
-		Use:     "upgrade SOURCE_PACKAGE",
+		Use:     "upgrade SOURCE_PACKAGE_REVISION",
 		PreRunE: r.preRunE,
 		RunE:    r.runE,
 		Short:   docs.UpgradeShort,
@@ -80,10 +80,10 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 	r.client = c
 
 	if len(args) < 1 {
-		return errors.E(op, fmt.Errorf("SOURCE_PACKAGE is a required positional argument"))
+		return errors.E(op, fmt.Errorf("SOURCE_PACKAGE_REVISION is a required positional argument"))
 	}
 	if len(args) > 1 {
-		return errors.E(op, fmt.Errorf("too many arguments; SOURCE_PACKAGE is the only accepted positional arguments"))
+		return errors.E(op, fmt.Errorf("too many arguments; SOURCE_PACKAGE_REVISION is the only accepted positional arguments"))
 	}
 	if r.revision < 0 {
 		return errors.E(op, fmt.Errorf("revision must be positive (and not main)"))
