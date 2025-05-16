@@ -244,7 +244,7 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 		// The order of registering the function runtimes matters here. When
 		// evaluating a function, the runtimes will be tried in the same
 		// order as they are registered.
-		engine.WithBuiltinFunctionRuntime(),
+		engine.WithBuiltinFunctionRuntime(c.ExtraConfig.GRPCRuntimeOptions.DefaultImagePrefix),
 		engine.WithGRPCFunctionRuntime(c.ExtraConfig.GRPCRuntimeOptions),
 		engine.WithCredentialResolver(credentialResolver),
 		engine.WithRunnerOptionsResolver(runnerOptionsResolver),

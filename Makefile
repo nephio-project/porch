@@ -1,4 +1,4 @@
-# Copyright 2022-2024 The kpt and Nephio Authors
+# Copyright 2022-2025 The kpt and Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,6 +29,10 @@ include default-mockery.mk
 
 # This includes the 'help' target that prints out all targets with their descriptions organized by categories
 include default-help.mk
+
+ifneq ("$(wildcard .env)", "")
+    include .env
+endif
 
 KIND_CONTEXT_NAME ?= porch-test
 export IMAGE_REPO ?= docker.io/nephio
@@ -280,7 +284,8 @@ deployment-config: ## Generate a porch deployment kpt package into $(DEPLOYPORCH
 	  --controllers-image "$(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):$(IMAGE_TAG)" \
 	  --function-image "$(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):$(IMAGE_TAG)" \
 	  --wrapper-server-image "$(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):$(IMAGE_TAG)" \
-	  --enabled-reconcilers "$(ENABLED_RECONCILERS)"
+	  --enabled-reconcilers "$(ENABLED_RECONCILERS)" \
+	  $(if $(PORCH_GCR_PREFIX_URL),--gcr-image-prefix "$(PORCH_GCR_PREFIX_URL)")
 
 .PHONY: deployment-config-no-server
 deployment-config-no-server: deployment-config ## Generate a deployment kpt package that contains all of porch except the porch-server into $(DEPLOYPORCHCONFIGDIR)

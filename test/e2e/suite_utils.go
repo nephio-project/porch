@@ -17,10 +17,12 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/joho/godotenv"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
@@ -33,7 +35,32 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	defaultTestBlueprintsRepo = "https://github.com/platkrm/test-blueprints.git"
+	defaultGCPBlueprintsRepo  = "https://github.com/GoogleCloudPlatform/blueprints.git"
+	defaultKPTRepo            = "https://github.com/kptdev/kpt.git"
+	defaultGCRPrefix          = "gcr.io/kpt-fn"
+
+	// Optional environment variables which can be set to replace defaults when running e2e tests behind a proxy or firewall.
+	// Environment variables can be loaded from a .env file - refer to .env.template
+	testBlueprintsRepoUrlEnv      = "PORCH_TEST_BLUEPRINTS_REPO_URL"
+	testBlueprintsRepoUserEnv     = "PORCH_TEST_BLUEPRINTS_REPO_USER"
+	testBlueprintsRepoPasswordEnv = "PORCH_TEST_BLUEPRINTS_REPO_PASSWORD"
+
+	gcpBlueprintsRepoUrlEnv      = "PORCH_GCP_BLUEPRINTS_REPO_URL"
+	gcpBlueprintsRepoUserEnv     = "PORCH_GCP_BLUEPRINTS_REPO_USER"
+	gcpBlueprintsRepoPasswordEnv = "PORCH_GCP_BLUEPRINTS_REPO_PASSWORD"
+
+	kptRepoUrlEnv      = "PORCH_KPT_REPO_URL"
+	kptRepoUserEnv     = "PORCH_KPT_REPO_USER"
+	kptRepoPasswordEnv = "PORCH_KPT_REPO_PASSWORD"
+
+	gcrPrefixEnv  = "PORCH_GCR_PREFIX_URL"
+	podEvalRefEnv = "PORCH_POD_EVAL_REF"
 )
 
 type TestSuiteWithGit struct {
@@ -42,8 +69,34 @@ type TestSuiteWithGit struct {
 }
 
 func (t *TestSuiteWithGit) SetupSuite() {
+	t.SetupEnvvars()
 	t.TestSuite.SetupSuite()
 	t.gitConfig = t.CreateGitRepo()
+}
+
+func (t *TestSuiteWithGit) SetupEnvvars() {
+	err := godotenv.Load("../../.env")
+	if err != nil {
+		t.Logf("Could not load .env file: %v", err)
+	}
+
+	t.testBlueprintsRepo = defaultTestBlueprintsRepo
+	t.gcpBlueprintsRepo = defaultGCPBlueprintsRepo
+	t.kptRepo = defaultKPTRepo
+	t.gcrPrefix = defaultGCRPrefix
+
+	if os.Getenv(testBlueprintsRepoUrlEnv) != "" {
+		t.testBlueprintsRepo = os.Getenv(testBlueprintsRepoUrlEnv)
+	}
+	if os.Getenv(gcpBlueprintsRepoUrlEnv) != "" {
+		t.gcpBlueprintsRepo = os.Getenv(gcpBlueprintsRepoUrlEnv)
+	}
+	if os.Getenv(gcrPrefixEnv) != "" {
+		t.gcrPrefix = os.Getenv(gcrPrefixEnv)
+	}
+	if os.Getenv(kptRepoUrlEnv) != "" {
+		t.kptRepo = os.Getenv(kptRepoUrlEnv)
+	}
 }
 
 func (t *TestSuiteWithGit) GitConfig(name string) GitConfig {
@@ -53,13 +106,13 @@ func (t *TestSuiteWithGit) GitConfig(name string) GitConfig {
 	return config
 }
 
-func (t *TestSuiteWithGit) RegisterMainGitRepositoryF(name string, opts ...RepositoryOption) {
+func (t *TestSuiteWithGit) RegisterMainGitRepositoryF(name string, opts ...RepositoryOptions) {
 	t.T().Helper()
 	config := t.GitConfig(name)
 	t.registerGitRepositoryFromConfigF(name, config, opts...)
 }
 
-func (t *TestSuiteWithGit) RegisterGitRepositoryWithDirectoryF(name string, directory string, opts ...RepositoryOption) {
+func (t *TestSuiteWithGit) RegisterGitRepositoryWithDirectoryF(name string, directory string, opts ...RepositoryOptions) {
 	t.T().Helper()
 	config := t.GitConfig(name)
 	config.Directory = directory
@@ -178,47 +231,41 @@ func (t *TestSuite) MustNotHaveLabels(name string, labels []string) {
 	}
 }
 
-func (t *TestSuite) RegisterGitRepositoryF(repo, name, directory string, opts ...RepositoryOption) {
+func (t *TestSuite) RegisterTestBlueprintRepository(name, directory string, opts ...RepositoryOptions) {
+	t.T().Helper()
+
+	config := GitConfig{
+		Repo:      t.testBlueprintsRepo,
+		Branch:    "main",
+		Directory: directory,
+		Username:  os.Getenv(testBlueprintsRepoUserEnv),
+		Password:  Password(os.Getenv(testBlueprintsRepoPasswordEnv)),
+	}
+	t.registerGitRepositoryFromConfigF(name, config, opts...)
+}
+
+func (t *TestSuite) CreateGcpPackageRevisionSecret(name string, opts ...RepositoryOptions) string {
+	username := os.Getenv(gcpBlueprintsRepoUserEnv)
+	password := Password(os.Getenv(gcpBlueprintsRepoPasswordEnv))
+	return t.CreateOrUpdateSecret(name, username, password, opts...)
+}
+
+func (t *TestSuite) RegisterGitRepositoryF(repo, name, directory string, username string, password Password, opts ...RepositoryOptions) {
 	t.T().Helper()
 	config := GitConfig{
 		Repo:      repo,
 		Branch:    "main",
 		Directory: directory,
+		Username:  username,
+		Password:  password,
 	}
 	t.registerGitRepositoryFromConfigF(name, config, opts...)
 }
 
-func (t *TestSuite) registerGitRepositoryFromConfigF(name string, config GitConfig, opts ...RepositoryOption) {
+func (t *TestSuite) registerGitRepositoryFromConfigF(name string, config GitConfig, opts ...RepositoryOptions) {
 	t.T().Helper()
-	var secret string
-	// Create auth secret if necessary
-	if config.Username != "" || config.Password != "" {
-		secret = fmt.Sprintf("%s-auth", name)
-		immutable := true
-		t.CreateF(&corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      secret,
-				Namespace: t.Namespace,
-			},
-			Immutable: &immutable,
-			Data: map[string][]byte{
-				"username": []byte(config.Username),
-				"password": []byte(config.Password),
-			},
-			Type: corev1.SecretTypeBasicAuth,
-		})
-		t.Cleanup(func() {
-			t.T().Helper()
-			t.DeleteE(&corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      secret,
-					Namespace: t.Namespace,
-				},
-			})
-		})
-	}
 
-	repository := &configapi.Repository{
+	repo := &configapi.Repository{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Repository",
 			APIVersion: configapi.GroupVersion.Identifier(),
@@ -235,33 +282,75 @@ func (t *TestSuite) registerGitRepositoryFromConfigF(name string, config GitConf
 				Branch:    config.Branch,
 				Directory: config.Directory,
 				SecretRef: configapi.SecretRef{
-					Name: secret,
+					Name: t.CreateOrUpdateSecret(name, config.Username, config.Password, opts...),
 				},
 			},
 		},
 	}
 
 	// Apply options
-	for _, o := range opts {
-		o(repository)
+	for _, opt := range opts {
+		if opt.RepOpts != nil {
+			opt.RepOpts(repo)
+		}
 	}
 
 	// Register repository
-	t.CreateF(repository)
+	t.CreateF(repo)
 
 	t.Cleanup(func() {
-		t.DeleteE(repository)
+		t.DeleteE(repo)
 		t.WaitUntilRepositoryDeleted(name, t.Namespace)
 		t.WaitUntilAllPackagesDeleted(name, t.Namespace)
 	})
 
 	// Make sure the repository is ready before we test to (hopefully)
 	// avoid flakiness.
-	t.WaitUntilRepositoryReady(repository.Name, repository.Namespace)
-	t.Logf("Repository %s/%s is ready", repository.Namespace, repository.Name)
+	t.WaitUntilRepositoryReady(repo.Name, repo.Namespace)
+	t.Logf("Repository %s/%s is ready", repo.Namespace, repo.Name)
+}
+
+func (t *TestSuite) CreateOrUpdateSecret(name string, username string, password Password, opts ...RepositoryOptions) string {
+	t.T().Helper()
+
+	if username == "" && password == "" {
+		return ""
+	}
+
+	secretName := fmt.Sprintf("%s-auth", name)
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: t.Namespace,
+		},
+		Immutable: ptr.To(true),
+		Data: map[string][]byte{
+			"username": []byte(username),
+			"password": []byte(password),
+		},
+		Type: corev1.SecretTypeBasicAuth,
+	}
+	for _, opt := range opts {
+		if opt.SecOpts != nil {
+			opt.SecOpts(secret)
+		}
+	}
+	t.CreateOrUpdateF(secret)
+	t.Cleanup(func() {
+		t.T().Helper()
+		t.DeleteE(secret)
+	})
+	return secretName
+}
+
+type RepositoryOptions struct {
+	RepOpts RepositoryOption
+	SecOpts SecretOption
 }
 
 type RepositoryOption func(*configapi.Repository)
+
+type SecretOption func(*corev1.Secret)
 
 func WithDeployment() RepositoryOption {
 	return func(r *configapi.Repository) {
@@ -278,6 +367,12 @@ func withType(t configapi.RepositoryType) RepositoryOption {
 func InNamespace(ns string) RepositoryOption {
 	return func(repo *configapi.Repository) {
 		repo.Namespace = ns
+	}
+}
+
+func SecretInNamespace(ns string) SecretOption {
+	return func(secret *corev1.Secret) {
+		secret.Namespace = ns
 	}
 }
 
