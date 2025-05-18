@@ -15,13 +15,14 @@ import (
 	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
 	"github.com/nephio-project/porch/pkg/repository"
+	mockrepo "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/repository"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 // Test fixtures for common test objects
 type testFixture struct {
-	mockRepo        *mockRepository
+	mockRepo        *mockrepo.MockRepository
 	mockCache       *mockCache
 	mockTaskHandler *mockTaskHandler
 	repositoryObj   *configapi.Repository
@@ -30,7 +31,7 @@ type testFixture struct {
 }
 
 func newTestFixture(t *testing.T) *testFixture {
-	mockRepo := &mockRepository{}
+	mockRepo := &mockrepo.MockRepository{}
 	mockCache := &mockCache{}
 	mockTaskHandler := &mockTaskHandler{}
 
@@ -92,7 +93,7 @@ func setupMockPackageRevision(t *testing.T) *mockPackageRevision {
 	mockPkgRev.On("GetUpstreamLock", mock.Anything).Return(v1.Upstream{}, v1.UpstreamLock{}, nil)
 	mockPkgRev.On("GetLock").Return(v1.Upstream{}, v1.UpstreamLock{}, nil)
 	mockPkgRev.On("ResourceVersion").Return("1")
-	mockPkgRev.On("ToMainPackageRevision").Return(mockPkgRev)
+	mockPkgRev.On("ToMainPackageRevision", mock.Anything).Return(mockPkgRev)
 	mockPkgRev.On("SetMeta", mock.Anything, mock.Anything).Return(nil)
 	return mockPkgRev
 }
@@ -121,149 +122,6 @@ func (m *mockPackageRevisionDraft) UpdateLifecycle(ctx context.Context, new api.
 	return args.Error(0)
 }
 
-func TestCreatePackageRevisionRollback(t *testing.T) {
-	tests := []struct {
-		name          string
-		setupTest     func(*testFixture, *mockPackageRevision, *mockPackageRevisionDraft)
-		expectedError bool
-		errorContains string
-	}{
-		{
-			name: "rollback on task application failure",
-			setupTest: func(f *testFixture, mockPkgRev *mockPackageRevision, mockDraft *mockPackageRevisionDraft) {
-				mockDraft.On("UpdateResources", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-				mockDraft.On("UpdateLifecycle", mock.Anything, mock.Anything).Return(nil)
-
-				f.mockRepo.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil)
-				f.mockRepo.On("CreatePackageRevisionDraft", mock.Anything, mock.Anything).Return(mockDraft, nil)
-				f.mockRepo.On("ClosePackageRevisionDraft", mock.Anything, mock.Anything, mock.Anything).Return(mockPkgRev, nil)
-				f.mockRepo.On("DeletePackageRevision", mock.Anything, mock.Anything).Return(nil)
-				f.mockRepo.On("Close").Return(nil)
-
-				f.mockTaskHandler.On("ApplyTasks", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(fmt.Errorf("task application failed"))
-			},
-			expectedError: true,
-			errorContains: "task application failed",
-		},
-		{
-			name: "rollback on lifecycle update failure",
-			setupTest: func(f *testFixture, mockPkgRev *mockPackageRevision, mockDraft *mockPackageRevisionDraft) {
-				mockDraft.On("UpdateResources", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-				mockDraft.On("UpdateLifecycle", mock.Anything, mock.Anything).Return(fmt.Errorf("lifecycle update failed"))
-
-				f.mockRepo.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil)
-				f.mockRepo.On("CreatePackageRevisionDraft", mock.Anything, mock.Anything).Return(mockDraft, nil)
-				f.mockRepo.On("ClosePackageRevisionDraft", mock.Anything, mock.Anything, mock.Anything).Return(mockPkgRev, nil)
-				f.mockRepo.On("DeletePackageRevision", mock.Anything, mock.Anything).Return(nil)
-				f.mockRepo.On("Close").Return(nil)
-
-				f.mockTaskHandler.On("ApplyTasks", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-			},
-			expectedError: true,
-			errorContains: "lifecycle update failed",
-		},
-		{
-			name: "rollback on close draft failure",
-			setupTest: func(f *testFixture, mockPkgRev *mockPackageRevision, mockDraft *mockPackageRevisionDraft) {
-				mockDraft.On("UpdateResources", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-				mockDraft.On("UpdateLifecycle", mock.Anything, mock.Anything).Return(nil)
-
-				f.mockRepo.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil)
-				f.mockRepo.On("CreatePackageRevisionDraft", mock.Anything, mock.Anything).Return(mockDraft, nil)
-				f.mockRepo.On("ClosePackageRevisionDraft", mock.Anything, mock.Anything, mock.Anything).Return(mockPkgRev, fmt.Errorf("close failed"))
-				f.mockRepo.On("Close").Return(nil)
-
-				f.mockTaskHandler.On("ApplyTasks", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-			},
-			expectedError: true,
-			errorContains: "close failed",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			f := newTestFixture(t)
-			mockPkgRev := setupMockPackageRevision(t)
-			mockDraft := &mockPackageRevisionDraft{}
-			tt.setupTest(f, mockPkgRev, mockDraft)
-
-			_, err := f.engine.CreatePackageRevision(context.Background(), f.repositoryObj, f.packageRevision, nil)
-			if tt.expectedError {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errorContains)
-			} else {
-				assert.NoError(t, err)
-			}
-
-			f.mockRepo.Close()
-
-			f.mockRepo.AssertExpectations(t)
-			f.mockTaskHandler.AssertExpectations(t)
-			f.mockCache.AssertExpectations(t)
-		})
-	}
-}
-
-// Mock implementations
-type mockRepository struct {
-	mock.Mock
-}
-
-func (m *mockRepository) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
-	args := m.Called(ctx, filter)
-	return args.Get(0).([]repository.PackageRevision), args.Error(1)
-}
-
-func (m *mockRepository) CreatePackageRevisionDraft(ctx context.Context, obj *api.PackageRevision) (repository.PackageRevisionDraft, error) {
-	args := m.Called(ctx, obj)
-	return args.Get(0).(repository.PackageRevisionDraft), args.Error(1)
-}
-
-func (m *mockRepository) ClosePackageRevisionDraft(ctx context.Context, draft repository.PackageRevisionDraft, version int) (repository.PackageRevision, error) {
-	args := m.Called(ctx, draft, version)
-	return args.Get(0).(repository.PackageRevision), args.Error(1)
-}
-
-func (m *mockRepository) DeletePackageRevision(ctx context.Context, obj repository.PackageRevision) error {
-	args := m.Called(ctx, obj)
-	return args.Error(0)
-}
-
-func (m *mockRepository) UpdatePackageRevision(ctx context.Context, old repository.PackageRevision) (repository.PackageRevisionDraft, error) {
-	args := m.Called(ctx, old)
-	return args.Get(0).(repository.PackageRevisionDraft), args.Error(1)
-}
-
-func (m *mockRepository) ListPackages(ctx context.Context, filter repository.ListPackageFilter) ([]repository.Package, error) {
-	args := m.Called(ctx, filter)
-	return args.Get(0).([]repository.Package), args.Error(1)
-}
-
-func (m *mockRepository) CreatePackage(ctx context.Context, obj *api.PorchPackage) (repository.Package, error) {
-	args := m.Called(ctx, obj)
-	return args.Get(0).(repository.Package), args.Error(1)
-}
-
-func (m *mockRepository) DeletePackage(ctx context.Context, obj repository.Package) error {
-	args := m.Called(ctx, obj)
-	return args.Error(0)
-}
-
-func (m *mockRepository) Version(ctx context.Context) (string, error) {
-	args := m.Called(ctx)
-	return args.String(0), args.Error(1)
-}
-
-func (m *mockRepository) Close() error {
-	args := m.Called()
-	return args.Error(0)
-}
-
-func (m *mockRepository) Refresh(ctx context.Context) error {
-	args := m.Called(ctx)
-	return args.Error(0)
-}
-
 type mockPackageRevision struct {
 	mock.Mock
 }
@@ -289,7 +147,7 @@ func (m *mockPackageRevision) UpdateLifecycle(ctx context.Context, new api.Packa
 }
 
 func (m *mockPackageRevision) GetKptfile(ctx context.Context) (v1.KptFile, error) {
-	args := m.Called()
+	args := m.Called(ctx)
 	return args.Get(0).(v1.KptFile), args.Error(1)
 }
 
@@ -338,8 +196,8 @@ func (m *mockPackageRevision) ResourceVersion() string {
 	return args.String(0)
 }
 
-func (m *mockPackageRevision) ToMainPackageRevision() repository.PackageRevision {
-	args := m.Called()
+func (m *mockPackageRevision) ToMainPackageRevision(ctx context.Context) repository.PackageRevision {
+	args := m.Called(ctx)
 	return args.Get(0).(repository.PackageRevision)
 }
 
@@ -348,6 +206,94 @@ func (m *mockPackageRevision) SetMeta(ctx context.Context, meta metav1.ObjectMet
 	return args.Error(0)
 }
 
+func (m *mockPackageRevision) SetRepository(repo repository.Repository) {
+	m.Called(repo)
+}
+
+func TestCreatePackageRevisionRollback(t *testing.T) {
+	tests := []struct {
+		name          string
+		setupTest     func(*testFixture, *mockPackageRevision, *mockPackageRevisionDraft)
+		expectedError bool
+		errorContains string
+	}{
+		{
+			name: "rollback on task application failure",
+			setupTest: func(f *testFixture, mockPkgRev *mockPackageRevision, mockDraft *mockPackageRevisionDraft) {
+				mockDraft.On("UpdateResources", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+				mockDraft.On("UpdateLifecycle", mock.Anything, mock.Anything).Return(nil)
+
+				f.mockRepo.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil)
+				f.mockRepo.On("CreatePackageRevisionDraft", mock.Anything, mock.Anything).Return(mockDraft, nil)
+				f.mockRepo.On("ClosePackageRevisionDraft", mock.Anything, mock.Anything, mock.Anything).Return(mockPkgRev, nil)
+				f.mockRepo.On("DeletePackageRevision", mock.Anything, mock.Anything).Return(nil)
+				f.mockRepo.On("Close", mock.Anything).Return(nil)
+
+				f.mockTaskHandler.On("ApplyTasks", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(fmt.Errorf("task application failed"))
+			},
+			expectedError: true,
+			errorContains: "task application failed",
+		},
+		{
+			name: "rollback on lifecycle update failure",
+			setupTest: func(f *testFixture, mockPkgRev *mockPackageRevision, mockDraft *mockPackageRevisionDraft) {
+				mockDraft.On("UpdateResources", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+				mockDraft.On("UpdateLifecycle", mock.Anything, mock.Anything).Return(fmt.Errorf("lifecycle update failed"))
+
+				f.mockRepo.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil)
+				f.mockRepo.On("CreatePackageRevisionDraft", mock.Anything, mock.Anything).Return(mockDraft, nil)
+				f.mockRepo.On("ClosePackageRevisionDraft", mock.Anything, mock.Anything, mock.Anything).Return(mockPkgRev, nil)
+				f.mockRepo.On("DeletePackageRevision", mock.Anything, mock.Anything).Return(nil)
+				f.mockRepo.On("Close", mock.Anything).Return(nil)
+
+				f.mockTaskHandler.On("ApplyTasks", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			},
+			expectedError: true,
+			errorContains: "lifecycle update failed",
+		},
+		{
+			name: "rollback on close draft failure",
+			setupTest: func(f *testFixture, mockPkgRev *mockPackageRevision, mockDraft *mockPackageRevisionDraft) {
+				mockDraft.On("UpdateResources", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+				mockDraft.On("UpdateLifecycle", mock.Anything, mock.Anything).Return(nil)
+
+				f.mockRepo.On("ListPackageRevisions", mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil)
+				f.mockRepo.On("CreatePackageRevisionDraft", mock.Anything, mock.Anything).Return(mockDraft, nil)
+				f.mockRepo.On("ClosePackageRevisionDraft", mock.Anything, mock.Anything, mock.Anything).Return(mockPkgRev, fmt.Errorf("close failed"))
+				f.mockRepo.On("Close", mock.Anything).Return(nil)
+
+				f.mockTaskHandler.On("ApplyTasks", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			},
+			expectedError: true,
+			errorContains: "close failed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newTestFixture(t)
+			mockPkgRev := setupMockPackageRevision(t)
+			mockDraft := &mockPackageRevisionDraft{}
+			tt.setupTest(f, mockPkgRev, mockDraft)
+
+			_, err := f.engine.CreatePackageRevision(context.Background(), f.repositoryObj, f.packageRevision, nil)
+			if tt.expectedError {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorContains)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			f.mockRepo.Close(context.Background())
+
+			f.mockRepo.AssertExpectations(t)
+			f.mockTaskHandler.AssertExpectations(t)
+			f.mockCache.AssertExpectations(t)
+		})
+	}
+}
+
+// Mock implementations
 type mockTaskHandler struct {
 	mock.Mock
 }
