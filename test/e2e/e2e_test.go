@@ -3235,6 +3235,7 @@ func (t *PorchSuite) TestMetadataAfterDeleteAndBackgroundJob() {
 	// still as they were before the background job
 	t.MustExist(mainPrKey, &porchapi.PackageRevision{})
 	t.MustNotExist(pr)
+}
 func (t *PorchSuite) TestCreatePackageRevisionRollback() {
 	// Create a package revision that will fail during task application
 	// This should trigger the rollback functionality
