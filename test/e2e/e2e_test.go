@@ -656,7 +656,7 @@ func (t *PorchSuite) TestEditPackageRevision() {
 
 func (t *PorchSuite) TestConcurrentEdits() {
 	const (
-		repository  = "edit-test"
+		repository  = "concurrent-edit-test"
 		packageName = "simple-package-concurrent"
 		workspace   = "workspace"
 		workspace2  = "workspace2"
