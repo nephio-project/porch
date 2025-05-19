@@ -15,6 +15,7 @@
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -32,6 +33,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -3159,4 +3161,66 @@ func (t *PorchSuite) TestMetadataAfterDeleteAndBackgroundJob() {
 	// still as they were before the background job
 	t.MustExist(mainPrKey, &porchapi.PackageRevision{})
 	t.MustNotExist(pr)
+}
+func (t *PorchSuite) TestCreatePackageRevisionRollback() {
+	// Create a package revision that will fail during task application
+	// This should trigger the rollback functionality
+	ctx := context.Background()
+	packageName := "test-package-rollback"
+	workspaceName := "test-workspace-rollback"
+	repositoryName := "test-repo"
+
+	// Register the repository first
+	t.RegisterMainGitRepositoryF(repositoryName)
+
+	// Create a package revision with invalid task configuration
+	// that will cause task application to fail
+	pr := &porchapi.PackageRevision{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PackageRevision",
+			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-%s", packageName, workspaceName),
+			Namespace: t.Namespace,
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			PackageName:    packageName,
+			WorkspaceName:  workspaceName,
+			RepositoryName: repositoryName,
+			Tasks: []porchapi.Task{
+				{
+					Type: porchapi.TaskTypeClone,
+					Clone: &porchapi.PackageCloneTaskSpec{
+						Upstream: porchapi.UpstreamPackage{
+							Type: porchapi.RepositoryTypeGit,
+							Git: &porchapi.GitPackage{
+								Repo:      "https://github.com/nephio-project/porch.git",
+								Ref:       "main",
+								Directory: "testdata/test-repo",
+							},
+						},
+					},
+				},
+				{
+					Type: porchapi.TaskTypePatch,
+					Patch: &porchapi.PackagePatchTaskSpec{
+						Patches: []porchapi.PatchSpec{
+							{
+								File: "invalid-file.yaml", // This will cause task application to fail
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Attempt to create the package revision
+	_, err := t.Clientset.PorchV1alpha1().PackageRevisions(t.Namespace).Create(ctx, pr, metav1.CreateOptions{})
+	assert.Error(t, err, "Expected error when creating package revision with invalid task configuration")
+
+	// Verify that the package revision was not created
+	_, err = t.Clientset.PorchV1alpha1().PackageRevisions(t.Namespace).Get(ctx, pr.Name, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(err), "Expected package revision to be deleted after rollback")
 }

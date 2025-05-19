@@ -15,47 +15,31 @@
 package update
 
 import (
-	"os"
-	"path/filepath"
-
 	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/internal/kpt/types"
 	"github.com/nephio-project/porch/internal/kpt/util/pkgutil"
+	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
 )
 
+// CopyMergeUpdater is responsible for synchronizing the destination package
+// with the source package by updating the Kptfile and copying and replacing package contents.
 type CopyMergeUpdater struct{}
 
+// Update synchronizes the destination/local package with the source/update package by updating the Kptfile
+// and copying package contents. It takes an Options struct as input, which specifies the paths
+// and other parameters for the update operation. Returns an error if the update fails.
 func (u CopyMergeUpdater) Update(options Options) error {
 	const op errors.Op = "update.Update"
 
-	err := copyDir(options.UpdatedPath, options.LocalPath, options.IsRoot)
-	if err != nil {
-		return errors.E(op, err)
+	dst := options.LocalPath
+	src := options.UpdatedPath
+
+	if err := kptfileutil.UpdateKptfile(dst, src, options.OriginPath, true); err != nil {
+		return errors.E(op, types.UniquePath(dst), err)
 	}
-
+	if err := pkgutil.CopyPackage(src, dst, options.IsRoot, pkg.All); err != nil {
+		return errors.E(op, types.UniquePath(dst), err)
+	}
 	return nil
-}
-
-func copyDir(src, dst string, isRoot bool) error {
-	const op errors.Op = "update.Update"
-	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		relPath, err := filepath.Rel(src, path)
-		if err != nil {
-			return err
-		}
-		dstPath := filepath.Join(dst, relPath) // file in the local fork
-		srcPath := filepath.Join(src, relPath) // file in the updated fork
-		if info.IsDir() {
-			return os.MkdirAll(dstPath, info.Mode())
-		} else {
-			if err = pkgutil.CopyPackage(srcPath, dstPath, isRoot, pkg.All); err != nil {
-				return errors.E(op, types.UniquePath(dstPath), err)
-			}
-			return nil
-		}
-	})
 }
