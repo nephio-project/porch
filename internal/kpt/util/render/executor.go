@@ -22,8 +22,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"slices"
-
 	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
@@ -94,7 +92,7 @@ func (e *Renderer) Execute(ctx context.Context) (*fnresult.ResultList, error) {
 	}
 
 	// Use BFS or the old recursive method based on the flag
-	if kptfile.UseBFS != nil && *kptfile.UseBFS {
+	if kptfile.RenderBFS != nil && *kptfile.RenderBFS {
 		if _, err := hydrateBFS(ctx, root, hctx); err != nil {
 			_ = e.saveFnResults(ctx, hctx.fnResults)
 			return hctx.fnResults, errors.E(op, root.pkg.UniquePath, err)
@@ -350,54 +348,43 @@ func hydrate(ctx context.Context, pn *pkgNode, hctx *hydrationContext) (output [
 func hydrateBFS(ctx context.Context, root *pkgNode, hctx *hydrationContext) (output []*yaml.RNode, err error) {
 	const op errors.Op = "pkg.render"
 
-	// Initialize the BFS queue with the root package
 	queue := []*pkgNode{root}
+	orderedQueue := []*pkgNode{}
 
-	// Loop until the queue is empty
+	// Phase 1: Gather input files for all packages in BFS order
 	for len(queue) > 0 {
-		// Dequeue the next package
 		current := queue[0]
 		queue = queue[1:]
+		orderedQueue = append(orderedQueue, current)
 
-		// Check if the package is already hydrated
-		curr, found := hctx.pkgs[current.pkg.UniquePath]
-		if found {
+		if curr, found := hctx.pkgs[current.pkg.UniquePath]; found {
 			switch curr.state {
 			case Hydrating:
-				// Cycle detected
 				return nil, errors.E(op, curr.pkg.UniquePath, fmt.Errorf("cycle detected in pkg dependencies"))
 			case Wet:
-				// Already hydrated, skip
 				continue
 			default:
 				return nil, errors.E(op, curr.pkg.UniquePath, fmt.Errorf("package found in invalid state %v", curr.state))
 			}
 		}
 
-		// Mark the package as being hydrated
-		hctx.pkgs[current.pkg.UniquePath] = current
 		current.state = Hydrating
+		hctx.pkgs[current.pkg.UniquePath] = current
 
-		// Gather resources for the current package
-		currPkgResources, err := current.pkg.LocalResources()
+		localResources, err := current.pkg.LocalResources()
 		if err != nil {
 			return nil, errors.E(op, current.pkg.UniquePath, err)
 		}
+		current.resources = localResources
 
 		relPath, err := current.pkg.RelativePathTo(hctx.root.pkg)
 		if err != nil {
 			return nil, errors.E(op, current.pkg.UniquePath, err)
 		}
-
-		err = trackInputFiles(hctx, relPath, currPkgResources)
-		if err != nil {
+		if err = trackInputFiles(hctx, relPath, localResources); err != nil {
 			return nil, err
 		}
 
-		// Append current package's resources in the input resource list
-		input := slices.Clone(currPkgResources)
-
-		// Enqueue subpackages
 		subpkgs, err := current.pkg.DirectSubpackages()
 		if err != nil {
 			return nil, errors.E(op, current.pkg.UniquePath, err)
@@ -409,19 +396,27 @@ func hydrateBFS(ctx context.Context, root *pkgNode, hctx *hydrationContext) (out
 			}
 			queue = append(queue, subPkgNode)
 		}
+	}
 
-		// Run the pipeline for the current package
-		output, err := current.runPipeline(ctx, hctx, input)
+	// Aggregate all resources into a single collection (starting with root)
+	allResources := make([]*yaml.RNode, 0, len(root.resources)*len(orderedQueue))
+	allResources = append(allResources, root.resources...)
+	for _, pkg := range orderedQueue[1:] { // Skip root (index 0)
+		allResources = append(allResources, pkg.resources...)
+	}
+
+	// Phase 2: Run pipelines in BFS order
+	for _, current := range orderedQueue {
+		allResources, err = current.runPipeline(ctx, hctx, allResources)
 		if err != nil {
 			return nil, errors.E(op, current.pkg.UniquePath, err)
 		}
-
-		// Mark the package as hydrated
 		current.state = Wet
-		current.resources = output
 	}
 
-	return hctx.root.resources, nil
+	// Update root with final resources and return
+	root.resources = allResources
+	return allResources, err
 }
 
 // runPipeline runs the pipeline defined at current pkgNode on given input resources.
