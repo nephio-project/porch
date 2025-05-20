@@ -92,7 +92,6 @@ func TestListPackageRevisionsNamespaceFilter(t *testing.T) {
 	}
 
 	var got []*api.PackageRevision
-	// Simulate the callback logic as in listPackageRevisions
 	for _, rev := range revisions {
 		apiPkgRev, _ := rev.GetPackageRevision(ctx)
 		if ns != "" && apiPkgRev.Namespace != ns {

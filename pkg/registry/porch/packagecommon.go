@@ -96,10 +96,6 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter package
 				return err
 			}
 
-			if ns != "" && apiPkgRev.Namespace != ns {
-				continue
-			}
-
 			if selector != nil && !selector.Matches(labels.Set(apiPkgRev.Labels)) {
 				continue
 			}
