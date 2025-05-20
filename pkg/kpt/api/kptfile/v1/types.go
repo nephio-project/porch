@@ -84,7 +84,7 @@ type KptFile struct {
 
 	Status *Status `yaml:"status,omitempty" json:"status,omitempty"`
 
-	RenderBFS *bool `yaml:"renderBFS,omitempty"`
+	RenderBFS *bool `yaml:"renderBFS,omitempty" json:"renderBFS,omitempty"`
 }
 
 // OriginType defines the type of origin for a package.
