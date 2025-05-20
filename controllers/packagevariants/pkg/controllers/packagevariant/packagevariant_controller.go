@@ -288,6 +288,23 @@ func (r *PackageVariantReconciler) getUpstreamPR(upstream *api.Upstream,
 	return nil, fmt.Errorf("could not find upstream package revision %#v", upstream)
 }
 
+// getPublishedUpstreamByRevision searches only for published PRs, and ignores workspaceName
+func (r *PackageVariantReconciler) getPublishedUpstreamByRevision(upstream *api.Upstream, prList *porchapi.PackageRevisionList) (*porchapi.PackageRevision, error) {
+	if upstream.Revision == 0 {
+		return nil, pkgerrors.Errorf("upstream cannot be published with revision number 0")
+	}
+
+	for _, pr := range prList.Items {
+		if pr.Spec.RepositoryName == upstream.Repo &&
+			pr.Spec.PackageName == upstream.Package &&
+			pr.Spec.Revision == upstream.Revision {
+			return &pr, nil
+		}
+	}
+
+	return nil, pkgerrors.Errorf("could not find upstream package revision %#v", upstream)
+}
+
 func setStalledConditionsToTrue(pv *api.PackageVariant, message string) {
 	meta.SetStatusCondition(&pv.Status.Conditions, metav1.Condition{
 		Type:    ConditionTypeStalled,
@@ -660,10 +677,9 @@ func (r *PackageVariantReconciler) createUpgradeDraft(ctx context.Context,
 
 	oldRevision := revisionFromUpstreamLock(source.Status.UpstreamLock)
 	oldUpstreamRef := pv.Spec.Upstream
-	// TODO: will this work?
 	oldUpstreamRef.Revision = oldRevision
 
-	oldUpstream, err := r.getUpstreamPR(oldUpstreamRef, prList)
+	oldUpstream, err := r.getPublishedUpstreamByRevision(oldUpstreamRef, prList)
 	if err != nil {
 		return nil, err
 	}
