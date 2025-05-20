@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,8 +25,10 @@ import (
 	fnsdk "github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 )
 
+const gcrImagePrefix = ""
+
 func TestBuiltinRuntime(t *testing.T) {
-	br := newBuiltinRuntime()
+	br := newBuiltinRuntime(gcrImagePrefix)
 	fn := &v1.Function{
 		Image: setNamespaceImageAliases[0],
 	}
@@ -69,7 +71,7 @@ functionConfig:
 }
 
 func TestBuiltinRuntimeNotFound(t *testing.T) {
-	br := newBuiltinRuntime()
+	br := newBuiltinRuntime(gcrImagePrefix)
 	funct := &v1.Function{
 		Image: "gcr.io/kpt-fn/not-exist:unstable",
 	}
