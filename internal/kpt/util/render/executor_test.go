@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
+	"github.com/nephio-project/porch/internal/kpt/types"
 	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
@@ -234,7 +235,7 @@ metadata:
 	}
 }
 
-func setupRendererTest(t *testing.T, useBFS bool) (*Renderer, *bytes.Buffer, context.Context) {
+func setupRendererTest(t *testing.T, renderBFS bool) (*Renderer, *bytes.Buffer, context.Context) {
 	var outputBuffer bytes.Buffer
 	ctx := context.Background()
 	ctx = printer.WithContext(ctx, printer.New(&outputBuffer, &outputBuffer))
@@ -254,8 +255,8 @@ apiVersion: kpt.dev/v1
 kind: Kptfile
 metadata:
   name: root-package
-useBFS: %t
-`, useBFS))
+renderBFS: %t
+`, renderBFS))
 	assert.NoError(t, err)
 
 	err = mockFileSystem.WriteFile(filepath.Join(subPkgPath, "Kptfile"), []byte(`
@@ -278,13 +279,13 @@ metadata:
 func TestRenderer_Execute_RenderOrder(t *testing.T) {
 	tests := []struct {
 		name           string
-		useBFS         bool
+		renderBFS      bool
 		expectedOrder  func(output string) bool
 		expectedErrMsg string
 	}{
 		{
-			name:   "Use BFS",
-			useBFS: true,
+			name:      "Use BFS",
+			renderBFS: true,
 			expectedOrder: func(output string) bool {
 				rootIndex := strings.Index(output, `Package "root":`)
 				subpkgIndex := strings.Index(output, `Package "root/subpkg":`)
@@ -292,8 +293,8 @@ func TestRenderer_Execute_RenderOrder(t *testing.T) {
 			},
 		},
 		{
-			name:   "Use DFS",
-			useBFS: false,
+			name:      "Use DFS",
+			renderBFS: false,
 			expectedOrder: func(output string) bool {
 				rootIndex := strings.Index(output, `Package "root":`)
 				subpkgIndex := strings.Index(output, `Package "root/subpkg":`)
@@ -304,7 +305,7 @@ func TestRenderer_Execute_RenderOrder(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			renderer, outputBuffer, ctx := setupRendererTest(t, tc.useBFS)
+			renderer, outputBuffer, ctx := setupRendererTest(t, tc.renderBFS)
 
 			fnResults, err := renderer.Execute(ctx)
 			assert.NoError(t, err)
@@ -315,4 +316,138 @@ func TestRenderer_Execute_RenderOrder(t *testing.T) {
 			assert.True(t, tc.expectedOrder(output), tc.expectedErrMsg)
 		})
 	}
+}
+
+func TestHydrate_ErrorCases(t *testing.T) {
+	mockFileSystem := filesys.MakeFsInMemory()
+
+	// Create a mock root package
+	rootPath := "/root"
+	err := mockFileSystem.Mkdir(rootPath)
+	assert.NoError(t, err)
+
+	// Add a Kptfile to the root package
+	err = mockFileSystem.WriteFile(filepath.Join(rootPath, "Kptfile"), []byte(`
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: root-package
+`))
+	assert.NoError(t, err)
+
+	// Create a mock hydration context
+	root, err := newPkgNode(mockFileSystem, rootPath, nil)
+	assert.NoError(t, err)
+
+	hctx := &hydrationContext{
+		root:       root,
+		pkgs:       map[types.UniquePath]*pkgNode{},
+		fileSystem: mockFileSystem,
+	}
+
+	t.Run("Cycle Detection in hydrate", func(t *testing.T) {
+		// Add the root package to the hydration context in a "Hydrating" state to simulate a cycle
+		hctx.pkgs[root.pkg.UniquePath] = &pkgNode{
+			pkg:   root.pkg,
+			state: Hydrating,
+		}
+
+		_, err := hydrate(context.Background(), root, hctx)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "cycle detected in pkg dependencies")
+	})
+
+	t.Run("Error in LocalResources", func(t *testing.T) {
+		// Simulate an error in LocalResources by creating a package with no Kptfile
+		invalidPkgPath := "/invalid"
+		err := mockFileSystem.Mkdir(invalidPkgPath)
+		assert.NoError(t, err)
+
+		invalidPkgNode, err := newPkgNode(mockFileSystem, invalidPkgPath, nil)
+		if err != nil {
+			// Ensure the error is properly handled
+			assert.Contains(t, err.Error(), "error reading Kptfile")
+			return
+		}
+
+		// If no error, proceed to call hydrate (this should not happen in this case)
+		_, err = hydrate(context.Background(), invalidPkgNode, hctx)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read Kptfile")
+	})
+}
+
+func TestHydrateBFS_ErrorCases(t *testing.T) {
+	ctx := printer.WithContext(context.Background(), printer.New(nil, nil))
+	mockFileSystem := filesys.MakeFsInMemory()
+
+	rootPkgPath := "/root"
+	err := mockFileSystem.Mkdir(rootPkgPath)
+	assert.NoError(t, err)
+
+	subPkgPath := "/root/subpkg"
+	err = mockFileSystem.Mkdir(subPkgPath)
+	assert.NoError(t, err)
+
+	err = mockFileSystem.WriteFile(filepath.Join(rootPkgPath, "Kptfile"), []byte(`
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: root-package
+renderBFS: true
+`))
+	assert.NoError(t, err)
+
+	err = mockFileSystem.WriteFile(filepath.Join(subPkgPath, "Kptfile"), []byte(`
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: sub-package
+`))
+	assert.NoError(t, err)
+
+	// Create a mock hydration context
+	root, err := newPkgNode(mockFileSystem, rootPkgPath, nil)
+	assert.NoError(t, err)
+
+	hctx := &hydrationContext{
+		root:       root,
+		pkgs:       map[types.UniquePath]*pkgNode{},
+		fileSystem: mockFileSystem,
+	}
+
+	t.Run("Cycle Detection in hydrateBFS", func(t *testing.T) {
+		// Add the root package to the hydration context in a "Hydrating" state to simulate a cycle
+		hctx.pkgs[root.pkg.UniquePath] = &pkgNode{
+			pkg:   root.pkg,
+			state: Hydrating,
+		}
+
+		_, err := hydrateBFS(context.Background(), root, hctx)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "cycle detected in pkg dependencies")
+	})
+
+	t.Run("Invalid Package State in hydrateBFS", func(t *testing.T) {
+		// Add the root package to the hydration context in an invalid state
+		hctx.pkgs[root.pkg.UniquePath] = &pkgNode{
+			pkg:   root.pkg,
+			state: -1, // Invalid state
+		}
+
+		_, err := hydrateBFS(context.Background(), root, hctx)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "package found in invalid state")
+	})
+
+	t.Run("Wet Package State in hydrateBFS would continue", func(t *testing.T) {
+		// Add the root package to the hydration context in an invalid state
+		hctx.pkgs[root.pkg.UniquePath] = &pkgNode{
+			pkg:   root.pkg,
+			state: Wet,
+		}
+
+		_, err := hydrateBFS(ctx, root, hctx)
+		assert.NoError(t, err)
+	})
 }
