@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/klog/v2"
@@ -95,6 +96,10 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter package
 				return err
 			}
 
+			if ns != "" && apiPkgRev.Namespace != ns {
+				continue
+			}
+
 			if selector != nil && !selector.Matches(labels.Set(apiPkgRev.Labels)) {
 				continue
 			}
@@ -144,8 +149,31 @@ func (r *packageCommon) listPackages(ctx context.Context, filter packageFilter, 
 	return nil
 }
 
+// namespaceFilteringWatcher wraps an ObjectWatcher and filters events by namespace
+// Only events for the specified namespace are passed to the delegate watcher
+type namespaceFilteringWatcher struct {
+	ns       string
+	delegate engine.ObjectWatcher
+}
+
+func (n *namespaceFilteringWatcher) OnPackageRevisionChange(eventType watch.EventType, obj repository.PackageRevision) bool {
+	// Use KubeObjectNamespace for efficient namespace filtering
+	if obj.KubeObjectNamespace() != n.ns {
+		return true // skip, but keep watching
+	}
+	return n.delegate.OnPackageRevisionChange(eventType, obj)
+}
+
 func (r *packageCommon) watchPackages(ctx context.Context, filter packageRevisionFilter, callback engine.ObjectWatcher) error {
-	if err := r.cad.ObjectCache().WatchPackageRevisions(ctx, filter.ListPackageRevisionFilter, callback); err != nil {
+	ns, namespaced := genericapirequest.NamespaceFrom(ctx)
+	wrappedCallback := callback
+	if namespaced && ns != "" {
+		wrappedCallback = &namespaceFilteringWatcher{
+			ns:       ns,
+			delegate: callback,
+		}
+	}
+	if err := r.cad.ObjectCache().WatchPackageRevisions(ctx, filter.ListPackageRevisionFilter, wrappedCallback); err != nil {
 		return err
 	}
 
