@@ -27,7 +27,7 @@ func (t *PorchSuite) TestPackageUpdateRecloneAndReplay() {
 		gitRepository = "package-update"
 	)
 
-	t.RegisterGitRepositoryF(testBlueprintsRepo, "test-blueprints", "")
+	t.RegisterTestBlueprintRepository("test-blueprints", "")
 
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
@@ -57,9 +57,12 @@ func (t *PorchSuite) TestPackageUpdateRecloneAndReplay() {
 					Clone: &porchapi.PackageCloneTaskSpec{
 						Upstream: porchapi.UpstreamPackage{
 							Git: &porchapi.GitPackage{
-								Repo:      testBlueprintsRepo,
+								Repo:      t.testBlueprintsRepo,
 								Ref:       "v1",
 								Directory: "basens",
+								SecretRef: porchapi.SecretRef{
+									Name: t.CreateGcpPackageRevisionSecret("testrecloneandreplay-v1"),
+								},
 							},
 						},
 					},
@@ -79,9 +82,12 @@ func (t *PorchSuite) TestPackageUpdateRecloneAndReplay() {
 	pr.Spec.Tasks[0].Clone = &porchapi.PackageCloneTaskSpec{
 		Upstream: porchapi.UpstreamPackage{
 			Git: &porchapi.GitPackage{
-				Repo:      testBlueprintsRepo,
+				Repo:      t.testBlueprintsRepo,
 				Ref:       "v2",
 				Directory: "basens",
+				SecretRef: porchapi.SecretRef{
+					Name: t.CreateGcpPackageRevisionSecret("testrecloneandreplay-v2"),
+				},
 			},
 		},
 	}

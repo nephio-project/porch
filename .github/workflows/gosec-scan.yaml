@@ -43,7 +43,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '>=1.22.2'
+          go-version: '>=1.23.8'
       - name: Run Gosec Security Scanner
         uses: securego/gosec@v2.21.4
         with:
