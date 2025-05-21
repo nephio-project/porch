@@ -319,14 +319,17 @@ var UpdateExamples = `
   $ porchctl rpkg update --discover=downstream blueprints-e982b2196b35a4f5e81e92f49a430fe463aa9f1a
 `
 
-var UpgradeShort = `Create a new draft package revision which upgrades a (published) downstream package revision to a more recent (published) revision of its upstream package.`
+var UpgradeShort = `Create a new draft package revision which upgrades a (published) downstream
+package revision to a more recent (published) revision of its upstream package.`
 var UpgradeLong = `
   porchctl rpkg upgrade SOURCE_PACKAGE_REVISION [flags]
 
 Args:
 
   SOURCE_PACKAGE_REVISION:
-  The target downstream package revision to be upgraded. Must be published.
+  The target downstream package revision to be upgraded. Must be published
+  and must be coming from a package that has an upstream package (typically
+  this means that it was cloned from another package).
 
 
 Flags:
