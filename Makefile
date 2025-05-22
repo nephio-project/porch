@@ -250,6 +250,11 @@ run-in-kind-no-git: IMAGE_TAG=test
 run-in-kind-no-git: SKIP_LOCAL_GIT=true
 run-in-kind-no-git: load-images-to-kind deployment-config deploy-current-config ## Build and deploy porch into a kind cluster
 
+.PHONY: run-in-kind-db-cache
+run-in-kind-db-cache: IMAGE_REPO=porch-kind
+run-in-kind-db-cache: IMAGE_TAG=test
+run-in-kind-db-cache: load-images-to-kind deployment-config-db-cache deploy-current-config ## Build and deploy porch into a kind cluster with postgres backend
+
 .PHONY: run-in-kind-no-server
 run-in-kind-no-server: IMAGE_REPO=porch-kind
 run-in-kind-no-server: IMAGE_TAG=test
@@ -286,6 +291,10 @@ deployment-config-no-server: deployment-config ## Generate a deployment kpt pack
 .PHONY: deployment-config-no-controller
 deployment-config-no-controller: deployment-config ## Generate a deployment kpt package that contains all of porch except the controllers into $(DEPLOYPORCHCONFIGDIR)
 	./scripts/remove-controller-from-deployment-config.sh
+
+.PHONY: deployment-config-db-cache
+deployment-config-db-cache: deployment-config
+	./scripts/upsert-db-cache-data.sh
 
 .PHONY: load-images-to-kind
 load-images-to-kind: ## Build porch images and load them into a kind cluster

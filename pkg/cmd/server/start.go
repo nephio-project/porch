@@ -162,22 +162,64 @@ func (o *PorchServerOptions) Complete() error {
 	}
 
 	o.CacheType = strings.ToUpper(o.CacheType)
-	if o.CacheType == string(cachetypes.DBCacheType) {
-		if strings.TrimSpace(o.DbCacheDriver) == "" {
-			klog.Fatalf("--db-cache-driver must be specified when using the database cache")
-		}
-
-		if strings.TrimSpace(o.DbCacheDataSource) == "" {
-			klog.Fatalf("--db-cache-data-source must be specified when using the database cache")
-		}
-	}
-
-	// if !o.LocalStandaloneDebugging {
-	// 	TODO: register admission plugins here ...
-	// 	add admission plugins to the RecommendedPluginOrder here ...
-	// }
+    if o.CacheType == string(cachetypes.DBCacheType) {
+        if err := o.setupDBCacheConn(); err != nil {
+            return err
+        }
+    }
 
 	return nil
+}
+
+func (o *PorchServerOptions) setupDBCacheConn() error {
+    dbDriver := os.Getenv("DB_DRIVER")
+    dbHost := os.Getenv("DB_HOST")
+    dbPort := os.Getenv("DB_PORT")
+    dbName := os.Getenv("DB_NAME")
+    dbUser := os.Getenv("DB_USER")
+    dbUserPass := os.Getenv("DB_PASSWORD")
+
+    missingVars := []string{}
+    if dbDriver == "" {
+        dbDriver = "pgx" 
+        klog.Infof("DB_DRIVER not provided, defaulting to use db driver: %v", dbDriver)
+    }
+    if dbHost == "" {
+        missingVars = append(missingVars, "DB_HOST")
+    }
+    if dbPort == "" {
+        missingVars = append(missingVars, "DB_PORT")
+    }
+    if dbName == "" {
+        missingVars = append(missingVars, "DB_NAME")
+    }
+    if dbUser == "" {
+        missingVars = append(missingVars, "DB_USER")
+    }
+    if dbUserPass == "" {
+        missingVars = append(missingVars, "DB_PASSWORD")
+    }
+
+    if len(missingVars) > 0 {
+        return fmt.Errorf("missing required environment variables: %v", missingVars)
+    }
+
+    // Build connection string based on the DB type
+    var connStr string
+    switch dbDriver {
+    case "pgx":
+        connStr = fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", dbUser, dbUserPass, dbHost, dbPort, dbName)
+    case "mysql":
+        connStr = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", dbUser, dbUserPass, dbHost, dbPort, dbName)
+    default:
+        return fmt.Errorf("unsupported DB driver: %s", dbDriver)
+    }
+
+    // Set the DB cache options
+    o.DbCacheDriver = dbDriver
+    o.DbCacheDataSource = connStr
+
+    return nil
 }
 
 // Config returns config for the api server given PorchServerOptions
