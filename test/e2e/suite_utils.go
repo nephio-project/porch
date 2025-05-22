@@ -654,6 +654,7 @@ func (t *TestSuite) GetPackageRevision(repo string, pkgName string, revision int
 	}
 	return &prList.Items[0]
 }
+
 func (t *TestSuite) RetriggerBackgroundJobForRepo(repoName string) {
 	repoKey := client.ObjectKey{
 		Namespace: t.Namespace,
