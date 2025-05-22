@@ -32,20 +32,20 @@ func NewHealthChecker() *HealthChecker {
 }
 
 func (s *HealthChecker) Check(ctx context.Context, req *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
-	klog.Info("Serving the Check request for health check")
+	klog.V(3).Info("Serving the Check request for health check")
 	return &grpc_health_v1.HealthCheckResponse{
 		Status: grpc_health_v1.HealthCheckResponse_SERVING,
 	}, nil
 }
 
 func (s *HealthChecker) Watch(req *grpc_health_v1.HealthCheckRequest, server grpc_health_v1.Health_WatchServer) error {
-	klog.Info("Serving the Watch request for health check")
+	klog.V(3).Info("Serving the Watch request for health check")
 	return server.Send(&grpc_health_v1.HealthCheckResponse{
 		Status: grpc_health_v1.HealthCheckResponse_SERVING,
 	})
 }
 
 func (h *HealthChecker) List(ctx context.Context, req *grpc_health_v1.HealthListRequest) (*grpc_health_v1.HealthListResponse, error) {
-    // Return UNIMPLEMENTED if you don't actually support List
-    return nil, status.Errorf(codes.Unimplemented, "List is not implemented")
+	// Return UNIMPLEMENTED if you don't actually support List
+	return nil, status.Errorf(codes.Unimplemented, "List is not implemented")
 }
