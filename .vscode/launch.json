@@ -51,14 +51,18 @@
                 "--function-runner=172.18.255.201:9445",
                 "--repo-sync-frequency=60s",
                 "--cache-type=db",
-                "--db-cache-driver=pgx",
-                "--db-cache-data-source=postgresql://porch:porch@172.18.255.202:55432/porch",
             ],
             "cwd": "${workspaceFolder}",
             "env": {
                 "CERT_STORAGE_DIR": "${workspaceFolder}/.build/pki/tmp",
                 "WEBHOOK_HOST": "localhost",
-                "GOOGLE_API_GO_EXPERIMENTAL_DISABLE_NEW_AUTH_LIB": "true"
+                "GOOGLE_API_GO_EXPERIMENTAL_DISABLE_NEW_AUTH_LIB": "true",
+                "DB_DRIVER": "pgx",
+                "DB_HOST": "172.18.255.202",
+                "DB_PORT": "5432",
+                "DB_NAME": "porch",
+                "DB_USER": "porch",
+                "DB_PASSWORD": "porch"
             }
         },
         {
