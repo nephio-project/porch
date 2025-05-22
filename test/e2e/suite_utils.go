@@ -719,16 +719,6 @@ func (t *TestSuite) AddMutator(resources *porchapi.PackageRevisionResources, ima
 	resources.Spec.Resources[kptfilev1.KptFileName] = string(marshalled)
 }
 
-func FindStatusCondition(conditions []porchapi.Condition, conditionType string) *porchapi.Condition {
-	for i := range conditions {
-		if conditions[i].Type == conditionType {
-			return &conditions[i]
-		}
-	}
-
-	return nil
-}
-
 func (t *TestSuite) AddResourceToPackage(resources *porchapi.PackageRevisionResources, filePath string, name string) {
 	t.T().Helper()
 	file, err := os.ReadFile(filePath)
