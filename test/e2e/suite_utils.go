@@ -26,7 +26,7 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
-	"github.com/nephio-project/porch/pkg/repository"
+	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -45,8 +46,6 @@ const (
 	defaultKPTRepo            = "https://github.com/kptdev/kpt.git"
 	defaultGCRPrefix          = "gcr.io/kpt-fn"
 
-	// Optional environment variables which can be set to replace defaults when running e2e tests behind a proxy or firewall.
-	// Environment variables can be loaded from a .env file - refer to .env.template
 	testBlueprintsRepoUrlEnv      = "PORCH_TEST_BLUEPRINTS_REPO_URL"
 	testBlueprintsRepoUserEnv     = "PORCH_TEST_BLUEPRINTS_REPO_USER"
 	testBlueprintsRepoPasswordEnv = "PORCH_TEST_BLUEPRINTS_REPO_PASSWORD"
@@ -462,7 +461,7 @@ func (t *TestSuite) WaitUntilRepositoryReady(name, namespace string) {
 		return false, nil
 	})
 	if err != nil {
-		t.Fatalf("Repository not ready after wait: %v", innerErr)
+		t.Errorf("Repository not ready after wait: %v", innerErr)
 	}
 
 	// While we're using an aggregated apiserver, make sure we can query the generated objects
@@ -474,7 +473,7 @@ func (t *TestSuite) WaitUntilRepositoryReady(name, namespace string) {
 		}
 		return true, nil
 	}); err != nil {
-		t.Fatalf("unable to query PackageRevisions after wait: %v", innerErr)
+		t.Errorf("unable to query PackageRevisions after wait: %v", innerErr)
 	}
 }
 
@@ -576,7 +575,7 @@ func (t *TestSuite) WaitUntilPackageRevisionFulfillingConditionExists(
 	return foundPkgRev, err
 }
 
-func (t *TestSuite) WaitUntilPackageRevisionExists(repository string, pkgName string, revision int) *porchapi.PackageRevision {
+func (t *TestSuite) WaitUntilPackageRevisionExists(repository string, pkgName string, revision string) *porchapi.PackageRevision {
 	t.T().Helper()
 	t.Logf("Waiting for package revision (%v/%v/%v) to exist", repository, pkgName, revision)
 	timeout := 120 * time.Second
@@ -607,6 +606,7 @@ func (t *TestSuite) WaitUntilDraftPackageRevisionExists(repository string, pkgNa
 }
 
 func (t *TestSuite) WaitUntilPackageRevisionResourcesExists(
+	ctx context.Context,
 	key types.NamespacedName,
 ) *porchapi.PackageRevisionResources {
 
@@ -614,7 +614,7 @@ func (t *TestSuite) WaitUntilPackageRevisionResourcesExists(
 	t.Logf("Waiting for PackageRevisionResources object %v to exist", key)
 	timeout := 120 * time.Second
 	var foundPrr *porchapi.PackageRevisionResources
-	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, timeout, true, func(ctx context.Context) (done bool, err error) {
+	err := wait.PollUntilContextTimeout(ctx, time.Second, timeout, true, func(ctx context.Context) (done bool, err error) {
 		var prrList porchapi.PackageRevisionResourcesList
 		if err := t.Client.List(ctx, &prrList); err != nil {
 			t.Logf("error listing package revision resources: %v", err)
@@ -634,36 +634,109 @@ func (t *TestSuite) WaitUntilPackageRevisionResourcesExists(
 	return foundPrr
 }
 
-func (t *TestSuite) GetPackageRevision(repo string, pkgName string, revision int) *porchapi.PackageRevision {
+func (t *TestSuite) GetPackageRevision(repository string, pkgName string, revision string) *porchapi.PackageRevision {
 	t.T().Helper()
 	var prList porchapi.PackageRevisionList
 	selector := client.MatchingFields(fields.Set{
-		"spec.repository":  repo,
+		"spec.repository":  repository,
 		"spec.packageName": pkgName,
-		"spec.revision":    repository.Revision2Str(revision),
+		"spec.revision":    revision,
 	})
 	t.ListF(&prList, selector, client.InNamespace(t.Namespace))
 
 	if len(prList.Items) == 0 {
-		t.Fatalf("PackageRevision object wasn't found for package revision %v/%v/%d", repo, pkgName, revision)
+		t.Fatalf("PackageRevision object wasn't found for package revision %v/%v/%v", repository, pkgName, revision)
 	}
 	if len(prList.Items) > 1 {
-		t.Fatalf("Multiple PackageRevision objects were found for package revision %v/%v/%d", repo, pkgName, revision)
+		t.Fatalf("Multiple PackageRevision objects were found for package revision %v/%v/%v", repository, pkgName, revision)
 	}
 	return &prList.Items[0]
 }
 
-func (t *TestSuite) RetriggerBackgroundJobForRepo(repoName string) {
-	repoKey := client.ObjectKey{
-		Namespace: t.Namespace,
-		Name:      repoName,
-	}
-	var repo configapi.Repository
-	t.GetF(repoKey, &repo)
-	repo.ResourceVersion = ""
+func (t *TestSuite) GetContentsOfPackageRevision(ctx context.Context, repository string, pkgName string, revision string) map[string]string {
 
-	// Delete and recreate repository to trigger background job on it
-	t.DeleteE(&repo)
-	t.CreateE(&repo)
-	t.WaitUntilRepositoryReady(repo.Name, t.Namespace)
+	t.T().Helper()
+	var prrList porchapi.PackageRevisionResourcesList
+	selector := client.MatchingFields(fields.Set{
+		"spec.repository":  repository,
+		"spec.packageName": pkgName,
+		"spec.revision":    revision,
+	})
+	t.ListF(&prrList, selector, client.InNamespace(t.Namespace))
+
+	if len(prrList.Items) == 0 {
+		t.Fatalf("PackageRevisionResources object wasn't found for package revision %v/%v/%v", repository, pkgName, revision)
+	}
+	if len(prrList.Items) > 1 {
+		t.Fatalf("Multiple PackageRevisionResources objects were found for package revision %v/%v/%v", repository, pkgName, revision)
+	}
+	return prrList.Items[0].Spec.Resources
+}
+
+type MutatorOption func(*kptfilev1.Function)
+
+func WithConfigmap(configMap map[string]string) MutatorOption {
+	return func(r *kptfilev1.Function) {
+		r.ConfigMap = configMap
+	}
+}
+
+func WithConfigPath(configPath string) MutatorOption {
+	return func(r *kptfilev1.Function) {
+		r.ConfigPath = configPath
+	}
+}
+
+// addMutator adds a mutator to the Kptfile pipeline of the resources (in-place)
+func (t *TestSuite) AddMutator(resources *porchapi.PackageRevisionResources, image string, opts ...MutatorOption) {
+	t.T().Helper()
+	kptf, ok := resources.Spec.Resources[kptfilev1.KptFileName]
+	if !ok {
+		t.Fatalf("Kptfile not found in resources")
+	}
+	parsed := &kptfilev1.KptFile{}
+	if err := yaml.Unmarshal([]byte(kptf), parsed); err != nil {
+		t.Fatalf("Failed to unmarshal Kptfile: %v", err)
+	}
+
+	if parsed.Pipeline == nil {
+		parsed.Pipeline = &kptfilev1.Pipeline{}
+	}
+
+	if parsed.Pipeline.Mutators == nil {
+		parsed.Pipeline.Mutators = make([]kptfilev1.Function, 0, 1)
+	}
+
+	parsed.Pipeline.Mutators = append(parsed.Pipeline.Mutators, kptfilev1.Function{Image: image})
+	mut := &parsed.Pipeline.Mutators[len(parsed.Pipeline.Mutators)-1]
+
+	for _, opt := range opts {
+		opt(mut)
+	}
+
+	marshalled, err := yaml.Marshal(parsed)
+	if err != nil {
+		t.Fatalf("Failed to marshal Kptfile: %v", err)
+	}
+
+	resources.Spec.Resources[kptfilev1.KptFileName] = string(marshalled)
+}
+
+func FindStatusCondition(conditions []porchapi.Condition, conditionType string) *porchapi.Condition {
+	for i := range conditions {
+		if conditions[i].Type == conditionType {
+			return &conditions[i]
+		}
+	}
+
+	return nil
+}
+
+func (t *TestSuite) AddResourceToPackage(resources *porchapi.PackageRevisionResources, filePath string, name string) {
+	t.T().Helper()
+	file, err := os.ReadFile(filePath)
+	if err != nil {
+		t.Fatalf("Failed to read file from %q: %v", filePath, err)
+	}
+	resources.Spec.Resources[name] = string(file)
 }
