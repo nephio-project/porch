@@ -255,13 +255,16 @@ Args:
     The name of a an existing package revision in a repository.
 
   DIR:
-    A local directory with the new manifest. If not provided,
-    the manifests will be read from stdin.
+    A local directory with the new manifest. If the manifests have be read from stdin, use '-' in place of DIR.
 `
 var PushExamples = `
   # update the package revision blueprint-f977350dff904fa677100b087a5bd989106d0456 with the resources
   # in the ./package directory
   $ porchctl rpkg push blueprint-f977350dff904fa677100b087a5bd989106d0456 ./package --namespace=default
+
+  # update the package revision blueprint-f977350dff904fa677100b087a5bd989106d0456 with the resources
+  # using stdin
+  $ porchctl rpkg push blueprint-f977350dff904fa677100b087a5bd989106d0456 - <stdin> --namespace=default
 `
 
 var RejectShort = `Reject a proposal to publish or delete a package revision.`
