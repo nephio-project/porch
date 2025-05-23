@@ -10,6 +10,11 @@
         // With the configuration above one can use Vscode (Run & Debug) and launch server.
         // This launches the porch server through vscode outside the cluster and the logs can be viewed in the debug console.
         // Breakpoints can be added throughout the porch server code to debug.
+
+        // CGO_ENABLED & buildFlags
+        // Enables race condition checking (Slows down porch-server processing) NOTE: The Go race detector uses C code under the hood (via cgo),
+        // and to build it, your system needs a C toolchain—i.e., a compiler like gcc and other basic build tools.
+        // on a linux distro e.g. ubuntu these can be installed with (sudo apt install build-essential), this will install the (gcc = GNU C Compiler, g++ = GNU C++ Compiler, make, libc6-dev etc...)
         {
             "name": "Launch Server",
             "type": "go",
@@ -27,8 +32,10 @@
             "env": {
                 "CERT_STORAGE_DIR": "${workspaceFolder}/.build/pki/tmp",
                 "WEBHOOK_HOST": "localhost",
-                "GOOGLE_API_GO_EXPERIMENTAL_DISABLE_NEW_AUTH_LIB": "true"
-            }
+                "GOOGLE_API_GO_EXPERIMENTAL_DISABLE_NEW_AUTH_LIB": "true",
+                // "CGO_ENABLED": "1"   // Enables race condition checking
+            },
+            // "buildFlags": "-race"    // Enables race condition checking
         },
         {
             "name": "Launch Controllers",
