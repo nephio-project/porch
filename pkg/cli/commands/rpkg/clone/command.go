@@ -70,6 +70,7 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 	c.Flags().StringVar(&r.ref, "ref", "", "Branch in the repository where the upstream package is located.")
 	c.Flags().StringVar(&r.repository, "repository", "", "Repository to which package will be cloned (downstream repository).")
 	c.Flags().StringVar(&r.workspace, "workspace", "v1", "Workspace name of the downstream package.")
+	c.Flags().StringVar(&r.secretRef, "secret-ref", "", "Name of the secret for basic authentication with upstream (git-only).")
 
 	return r
 }
@@ -89,6 +90,7 @@ type runner struct {
 	repository string // Target repository
 	workspace  string // Target workspaceName
 	target     string // Target package name
+	secretRef  string
 }
 
 func (r *runner) preRunE(_ *cobra.Command, args []string) error {
@@ -171,8 +173,10 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 			Repo:      source,
 			Ref:       r.ref,
 			Directory: r.directory,
+			SecretRef: porchapi.SecretRef{
+				Name: r.secretRef,
+			},
 		}
-		// TODO: support authn
 
 	default:
 		r.clone.Upstream.UpstreamRef = &porchapi.PackageRevisionRef{

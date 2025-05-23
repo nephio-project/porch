@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import (
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/push"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/reject"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/update"
+	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/upgrade"
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/rest"
@@ -81,6 +82,7 @@ func NewCommand(ctx context.Context, version string) *cobra.Command {
 		del.NewCommand(ctx, kubeflags),
 		copy.NewCommand(ctx, kubeflags),
 		update.NewCommand(ctx, kubeflags),
+		upgrade.NewCommand(ctx, kubeflags),
 		proposedelete.NewCommand(ctx, kubeflags),
 	)
 
