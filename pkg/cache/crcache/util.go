@@ -30,7 +30,9 @@ func identifyLatestRevisions(ctx context.Context, result map[repository.PackageR
 	// TODO: Should map[string] be map[repository.PackageKey]?
 	latest := map[string]*cachedPackageRevision{}
 	for _, current := range result {
+		current.mutex.Lock()
 		current.isLatestRevision = false // Clear all values
+		current.mutex.Unlock()
 
 		// Check if the current package revision is more recent than the one seen so far.
 		// Only consider Published packages
@@ -53,7 +55,9 @@ func identifyLatestRevisions(ctx context.Context, result map[repository.PackageR
 
 	// Mark the winners as latest
 	for _, v := range latest {
+		v.mutex.Lock()
 		v.isLatestRevision = true
+		v.mutex.Unlock()
 	}
 }
 
