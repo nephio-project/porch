@@ -14,7 +14,8 @@
         // CGO_ENABLED & buildFlags
         // Enables race condition checking (Slows down porch-server processing) NOTE: The Go race detector uses C code under the hood (via cgo),
         // and to build it, your system needs a C toolchain—i.e., a compiler like gcc and other basic build tools.
-        // on a linux distro e.g. ubuntu these can be installed with (sudo apt install build-essential), this will install the (gcc = GNU C Compiler, g++ = GNU C++ Compiler, make, libc6-dev etc...)
+        // on a linux distro e.g. ubuntu these can be installed with (sudo apt install build-essential),
+        //  this will install the (gcc = GNU C Compiler, g++ = GNU C++ Compiler, make, libc6-dev etc...)
         {
             "name": "Launch Server",
             "type": "go",
