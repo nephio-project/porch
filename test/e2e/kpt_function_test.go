@@ -15,6 +15,7 @@
 package e2e
 
 import (
+	"os"
 	"slices"
 	"strings"
 	"time"
@@ -34,6 +35,10 @@ func (t *PorchSuite) CreateEmptyPackageRevision(repo string) porchapi.PackageRev
 	if err != nil {
 		t.Fatalf("failed to create workspace UUID: %v", err)
 	}
+	repoRef := "nephio-porch"
+	if os.Getenv(gcrPrefixEnv) != "" {
+		repoRef = os.Getenv(podEvalRefEnv)
+	}
 	pr := porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: t.Namespace,
@@ -50,7 +55,7 @@ func (t *PorchSuite) CreateEmptyPackageRevision(repo string) porchapi.PackageRev
 							Type: "git",
 							Git: &porchapi.GitPackage{
 								Repo:      t.gcpBlueprintsRepo,
-								Ref:       "nephio-porch",
+								Ref:       repoRef,
 								Directory: "catalog/empty",
 								SecretRef: porchapi.SecretRef{
 									Name: t.CreateGcpPackageRevisionSecret("test-fn-pod"),
