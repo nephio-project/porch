@@ -35,7 +35,7 @@ func (t *PorchSuite) CreateEmptyPackageRevision(repo string) porchapi.PackageRev
 	if err != nil {
 		t.Fatalf("failed to create workspace UUID: %v", err)
 	}
-	repoRef := "nephio-porch"
+	repoRef := "spanner-blueprint-v0.3.2"
 	if os.Getenv(gcrPrefixEnv) != "" {
 		repoRef = os.Getenv(podEvalRefEnv)
 	}
