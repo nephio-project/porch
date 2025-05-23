@@ -34,9 +34,9 @@
                 "CERT_STORAGE_DIR": "${workspaceFolder}/.build/pki/tmp",
                 "WEBHOOK_HOST": "localhost",
                 "GOOGLE_API_GO_EXPERIMENTAL_DISABLE_NEW_AUTH_LIB": "true",
-                // "CGO_ENABLED": "1"   // Enables race condition checking
+                // "CGO_ENABLED": "1"   // Enables Race Condition Monitoring
             },
-            // "buildFlags": "-race"    // Enables race condition checking
+            // "buildFlags": "-race"    // Enables Race Condition Monitoring
         },
         {
             "name": "Launch Controllers",
