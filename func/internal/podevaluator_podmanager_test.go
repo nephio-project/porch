@@ -17,7 +17,9 @@
 package internal
 
 import (
+	"bytes"
 	"context"
+	"encoding/gob"
 	"flag"
 	"fmt"
 	"k8s.io/klog/v2"
@@ -37,6 +39,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
+)
+
+const (
+	defaultImageName               = "apply-replacements"
+	defaultPodName                 = "apply-replacements-5245a527"
+	defaultNamespace               = "porch-fn-system"
+	defaultServiceName             = defaultPodName
+	defaultEndpointName            = defaultServiceName
+	defaultFunctionImageLabel      = defaultPodName
+	defaultWrapperServerImage      = "wrapper-server"
+	defaultPodIP                   = "10.10.10.10"
+	defaultServiceIP               = "20.10.10.10"
+	defaultFunctionPodTemplateName = "function-pod-template"
 )
 
 type fakeFunctionEvalServer struct {
@@ -80,9 +95,124 @@ func TestPodManager(t *testing.T) {
 	}
 
 	defaultImageMetadataCache := map[string]*digestAndEntrypoint{
-		"apply-replacements": {
+		defaultImageName: {
 			digest:     "5245a52778d684fa698f69861fb2e058b308f6a74fed5bf2fe77d97bad5e071c",
-			entrypoint: []string{"/apply-replacements"},
+			entrypoint: []string{"/" + defaultImageName},
+		},
+	}
+
+	defaultPodObjectMeta := metav1.ObjectMeta{
+		Name:      defaultPodName,
+		Namespace: defaultNamespace,
+		Labels: map[string]string{
+			krmFunctionImageLabel: defaultFunctionImageLabel,
+		},
+		Annotations: map[string]string{
+			templateVersionAnnotation: inlineTemplateVersionv1,
+		},
+	}
+
+	deletionInProgessPodObjectMeta := metav1.ObjectMeta{}
+	deepCopyObject(&defaultPodObjectMeta, &deletionInProgessPodObjectMeta)
+	deletionInProgessPodObjectMeta.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+	deletionInProgessPodObjectMeta.Finalizers = []string{"test-finalizer"}
+
+	defaultPodSpec := corev1.PodSpec{
+		Containers: []corev1.Container{
+			{
+				Name:  "function",
+				Image: defaultImageName,
+			},
+		},
+	}
+
+	podStatusRunning := corev1.PodStatus{
+		Phase: corev1.PodRunning,
+		Conditions: []corev1.PodCondition{
+			{
+				Type:   corev1.PodReady,
+				Status: corev1.ConditionTrue,
+			},
+		},
+		PodIP: defaultPodIP,
+	}
+
+	podStatusNotRunning := corev1.PodStatus{
+		Phase: corev1.PodRunning,
+		Conditions: []corev1.PodCondition{
+			{
+				Type:   corev1.PodReady,
+				Status: corev1.ConditionFalse,
+			},
+		},
+		PodIP: "",
+	}
+
+	podStatusPending := corev1.PodStatus{
+		Phase: corev1.PodPending,
+		Conditions: []corev1.PodCondition{
+			{
+				Type:   corev1.PodScheduled,
+				Status: corev1.ConditionTrue,
+			},
+		},
+		PodIP: "",
+	}
+
+	defaultPodObject := &corev1.Pod{
+		ObjectMeta: defaultPodObjectMeta,
+		Spec:       defaultPodSpec,
+		Status:     podStatusRunning,
+	}
+
+	deletionInProgressPodObject := &corev1.Pod{
+		ObjectMeta: deletionInProgessPodObjectMeta,
+		Spec:       defaultPodSpec,
+		Status:     podStatusNotRunning,
+	}
+
+	defaultServiceObject := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      defaultServiceName,
+			Namespace: defaultNamespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Type:      corev1.ServiceTypeClusterIP,
+			ClusterIP: defaultServiceIP,
+		},
+	}
+
+	defaultEndpointObject := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      defaultEndpointName,
+			Namespace: defaultNamespace,
+		},
+		Subsets: []corev1.EndpointSubset{
+			{
+				Addresses: []corev1.EndpointAddress{
+					{
+						IP: defaultPodIP,
+						TargetRef: &corev1.ObjectReference{
+							Name:      defaultPodName,
+							Namespace: defaultNamespace,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	dummySecretTemplate := &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-secret",
+			Namespace: "test-namespace",
+		},
+		Data: map[string][]byte{
+			"test-key": []byte("test-value"),
 		},
 	}
 
@@ -151,6 +281,64 @@ func TestPodManager(t *testing.T) {
 		},
 	}
 
+	baseServiceTemplate := &corev1.Service{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Service",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      defaultServiceName,
+			Namespace: defaultNamespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Type:      corev1.ServiceTypeClusterIP,
+			ClusterIP: defaultServiceIP,
+		},
+	}
+
+	// Fake client. When Pod creation is invoked, it creates the Pod if not present
+	// When Service creation is invoked, it creates endpoint object in additon to service
+	fakeClientCreateFixInterceptor := func(ctx context.Context, kubeClient client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+		if obj.GetObjectKind().GroupVersionKind().Kind == "Pod" {
+			var canary corev1.Pod
+			err := kubeClient.Get(ctx, client.ObjectKeyFromObject(obj), &canary)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					err = kubeClient.Create(ctx, obj)
+					if err != nil {
+						return err
+					}
+
+					return nil
+				}
+				return err
+			}
+		}
+
+		if obj.GetObjectKind().GroupVersionKind().Kind == "Service" {
+			var canary corev1.Service
+			err := kubeClient.Get(ctx, client.ObjectKeyFromObject(obj), &canary)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					defaultServiceObject.ResourceVersion = ""
+					err = kubeClient.Create(ctx, defaultServiceObject)
+					if err != nil {
+						return err
+					}
+
+					defaultEndpointObject.ResourceVersion = ""
+					err = kubeClient.Create(ctx, defaultEndpointObject)
+					if err != nil {
+						return err
+					}
+					return nil
+				}
+				return err
+			}
+		}
+		return nil
+	}
+
 	tests := []struct {
 		name                    string
 		expectFail              bool
@@ -171,39 +359,32 @@ func TestPodManager(t *testing.T) {
 			name:          "Connect to existing pod",
 			skip:          false,
 			expectFail:    false,
-			functionImage: "apply-replacements",
-			kubeClient: fake.NewClientBuilder().WithObjects([]client.Object{&corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "apply-replacements-5245a527",
-					Namespace: "porch-fn-system",
-					Labels: map[string]string{
-						krmFunctionLabel: "apply-replacements-5245a527",
-					},
-					Annotations: map[string]string{
-						templateVersionAnnotation: inlineTemplateVersionv1,
-					},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:  "function",
-							Image: "apply-replacements",
-						},
-					},
-				},
-				Status: corev1.PodStatus{
-					Phase: corev1.PodRunning,
-					Conditions: []corev1.PodCondition{
-						{
-							Type:   corev1.PodReady,
-							Status: corev1.ConditionTrue,
-						},
-					},
-					PodIP: "localhost",
-				},
-			}}...).Build(),
-			namespace:          "porch-fn-system",
-			wrapperServerImage: "wrapper-server",
+			functionImage: defaultImageName,
+			kubeClient: fake.NewClientBuilder().WithObjects([]client.Object{
+				defaultPodObject,
+				defaultServiceObject,
+				defaultEndpointObject,
+			}...).WithInterceptorFuncs(interceptor.Funcs{
+				Create: fakeClientCreateFixInterceptor,
+			}).Build(),
+			namespace:          defaultNamespace,
+			wrapperServerImage: defaultWrapperServerImage,
+			imageMetadataCache: defaultImageMetadataCache,
+			evalFunc:           defaultSuccessEvalFunc,
+			useGenerateName:    true,
+		},
+		{
+			name:          "Connect to existing pod but without service",
+			skip:          false,
+			expectFail:    false,
+			functionImage: defaultImageName,
+			kubeClient: fake.NewClientBuilder().WithObjects([]client.Object{
+				defaultPodObject,
+			}...).WithInterceptorFuncs(interceptor.Funcs{
+				Create: fakeClientCreateFixInterceptor,
+			}).Build(),
+			namespace:          defaultNamespace,
+			wrapperServerImage: defaultWrapperServerImage,
 			imageMetadataCache: defaultImageMetadataCache,
 			evalFunc:           defaultSuccessEvalFunc,
 			useGenerateName:    true,
@@ -212,158 +393,114 @@ func TestPodManager(t *testing.T) {
 			name:          "Pod is in deleting state",
 			skip:          false,
 			expectFail:    false,
-			functionImage: "apply-replacements",
-			kubeClient: fake.NewClientBuilder().WithObjects([]client.Object{&corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "apply-replacements-5245a527",
-					Namespace: "porch-fn-system",
-					Labels: map[string]string{
-						krmFunctionLabel: "apply-replacements-5245a527",
-					},
-					DeletionTimestamp: &metav1.Time{Time: time.Now()},
-					Finalizers:        []string{"test-finalizer"},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:  "function",
-							Image: "apply-replacements",
-						},
-					},
-				},
-				Status: corev1.PodStatus{
-					Phase: corev1.PodRunning,
-					Conditions: []corev1.PodCondition{
-						{
-							Type:   corev1.PodReady,
-							Status: corev1.ConditionFalse,
-						},
-					},
-					PodIP: "localhost",
-				},
-			}}...).Build(),
-			namespace:          "porch-fn-system",
-			wrapperServerImage: "wrapper-server",
+			functionImage: defaultImageName,
+			kubeClient: fake.NewClientBuilder().WithObjects([]client.Object{
+				deletionInProgressPodObject,
+				defaultServiceObject,
+				defaultEndpointObject,
+			}...).WithInterceptorFuncs(interceptor.Funcs{
+				Create: fakeClientCreateFixInterceptor,
+			}).Build(),
+			namespace:          defaultNamespace,
+			wrapperServerImage: defaultWrapperServerImage,
 			imageMetadataCache: defaultImageMetadataCache,
 			evalFunc:           defaultSuccessEvalFunc,
 			useGenerateName:    true,
 			podPatch: &corev1.Pod{
-				Status: corev1.PodStatus{
-					Phase: corev1.PodRunning,
-					Conditions: []corev1.PodCondition{
-						{
-							Type:   corev1.PodReady,
-							Status: corev1.ConditionTrue,
-						},
-					},
-					PodIP: "localhost",
-				},
+				Status: podStatusRunning,
 			},
 		},
 		{
-			name:               "Create a new pod",
-			skip:               false,
-			expectFail:         false,
-			functionImage:      "apply-replacements",
-			kubeClient:         fake.NewClientBuilder().Build(),
-			namespace:          "porch-fn-system",
-			wrapperServerImage: "wrapper-server",
+			name:          "Create a new pod and new service",
+			skip:          false,
+			expectFail:    false,
+			functionImage: defaultImageName,
+			kubeClient: fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
+				Create: fakeClientCreateFixInterceptor,
+			}).Build(),
+			namespace:          defaultNamespace,
+			wrapperServerImage: defaultWrapperServerImage,
 			imageMetadataCache: defaultImageMetadataCache,
 			evalFunc:           defaultSuccessEvalFunc,
 			useGenerateName:    true,
 			podPatch: &corev1.Pod{
-				Status: corev1.PodStatus{
-					Phase: corev1.PodRunning,
-					Conditions: []corev1.PodCondition{
-						{
-							Type:   corev1.PodReady,
-							Status: corev1.ConditionTrue,
-						},
-					},
-					PodIP: "localhost",
-				},
+				Status: podStatusRunning,
+			},
+		},
+		{
+			name:          "Create a new pod but service is existing",
+			skip:          false,
+			expectFail:    false,
+			functionImage: defaultImageName,
+			kubeClient: fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
+				Create: fakeClientCreateFixInterceptor,
+			}).WithObjects([]client.Object{
+				defaultServiceObject,
+				defaultEndpointObject,
+			}...).Build(),
+			namespace:          defaultNamespace,
+			wrapperServerImage: defaultWrapperServerImage,
+			imageMetadataCache: defaultImageMetadataCache,
+			evalFunc:           defaultSuccessEvalFunc,
+			useGenerateName:    true,
+			podPatch: &corev1.Pod{
+				Status: podStatusRunning,
 			},
 		},
 		{
 			name:          "Create pod without name generation",
 			skip:          false,
 			expectFail:    false,
-			functionImage: "apply-replacements",
+			functionImage: defaultImageName,
 			kubeClient: fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
-				Patch: fakeClientPatchFixInterceptor,
+				Create: fakeClientCreateFixInterceptor,
+				Patch:  fakeClientPatchFixInterceptor,
 			}).Build(),
-			namespace:          "porch-fn-system",
-			wrapperServerImage: "wrapper-server",
+			namespace:          defaultNamespace,
+			wrapperServerImage: defaultWrapperServerImage,
 			imageMetadataCache: defaultImageMetadataCache,
 			evalFunc:           defaultSuccessEvalFunc,
 			useGenerateName:    false,
 			podPatch: &corev1.Pod{
-				Status: corev1.PodStatus{
-					Phase: corev1.PodRunning,
-					Conditions: []corev1.PodCondition{
-						{
-							Type:   corev1.PodReady,
-							Status: corev1.ConditionTrue,
-						},
-					},
-					PodIP: "localhost",
-				},
+				Status: podStatusRunning,
 			},
 		},
 		{
 			name:               "Pod startup takes too long",
 			skip:               false,
 			expectFail:         true,
-			functionImage:      "apply-replacements",
+			functionImage:      defaultImageName,
 			kubeClient:         fake.NewClientBuilder().Build(),
-			namespace:          "porch-fn-system",
-			wrapperServerImage: "wrapper-server",
+			namespace:          defaultNamespace,
+			wrapperServerImage: defaultWrapperServerImage,
 			imageMetadataCache: defaultImageMetadataCache,
 			evalFunc:           defaultSuccessEvalFunc,
 			useGenerateName:    true,
 			podPatch: &corev1.Pod{
-				Status: corev1.PodStatus{
-					Phase: corev1.PodPending,
-					Conditions: []corev1.PodCondition{
-						{
-							Type:   corev1.PodScheduled,
-							Status: corev1.ConditionTrue,
-						},
-					},
-					PodIP: "localhost",
-				},
+				Status: podStatusPending,
 			},
 		},
 		{
 			name:               "Pod startup takes some time",
 			skip:               false,
 			expectFail:         true,
-			functionImage:      "apply-replacements",
+			functionImage:      defaultImageName,
 			kubeClient:         fake.NewClientBuilder().Build(),
-			namespace:          "porch-fn-system",
-			wrapperServerImage: "wrapper-server",
+			namespace:          defaultNamespace,
+			wrapperServerImage: defaultWrapperServerImage,
 			imageMetadataCache: defaultImageMetadataCache,
 			evalFunc:           defaultSuccessEvalFunc,
 			useGenerateName:    true,
 			podPatchAfter:      100 * time.Millisecond,
 			podPatch: &corev1.Pod{
-				Status: corev1.PodStatus{
-					Phase: corev1.PodPending,
-					Conditions: []corev1.PodCondition{
-						{
-							Type:   corev1.PodScheduled,
-							Status: corev1.ConditionTrue,
-						},
-					},
-					PodIP: "localhost",
-				},
+				Status: podStatusPending,
 			},
 		},
 		{
 			name:          "Fail pod creation",
 			skip:          false,
 			expectFail:    true,
-			functionImage: "apply-replacements",
+			functionImage: defaultImageName,
 			kubeClient: fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
 				Create: func(ctx context.Context, client client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
 					if obj.GetObjectKind().GroupVersionKind().Kind == "Pod" {
@@ -372,8 +509,8 @@ func TestPodManager(t *testing.T) {
 					return nil
 				},
 			}).Build(),
-			namespace:          "porch-fn-system",
-			wrapperServerImage: "wrapper-server",
+			namespace:          defaultNamespace,
+			wrapperServerImage: defaultWrapperServerImage,
 			imageMetadataCache: defaultImageMetadataCache,
 			evalFunc:           defaultSuccessEvalFunc,
 			useGenerateName:    true,
@@ -391,49 +528,18 @@ func TestPodManager(t *testing.T) {
 					}
 					return nil
 				},
-			}).WithObjects([]client.Object{&corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "apply-replacements-5245a527",
-					Namespace: "porch-fn-system",
-					Labels: map[string]string{
-						krmFunctionLabel: "apply-replacements-5245a527",
-					},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:  "function",
-							Image: "apply-replacements",
-						},
-					},
-				},
-				Status: corev1.PodStatus{
-					Phase: corev1.PodRunning,
-					Conditions: []corev1.PodCondition{
-						{
-							Type:   corev1.PodReady,
-							Status: corev1.ConditionTrue,
-						},
-					},
-					PodIP: "localhost",
-				},
-			}}...).Build(),
-			namespace:          "porch-fn-system",
-			wrapperServerImage: "wrapper-server",
+			}).WithObjects([]client.Object{
+				defaultPodObject,
+				defaultServiceObject,
+				defaultEndpointObject,
+			}...).Build(),
+			namespace:          defaultNamespace,
+			wrapperServerImage: defaultWrapperServerImage,
 			imageMetadataCache: defaultImageMetadataCache,
 			evalFunc:           defaultSuccessEvalFunc,
 			useGenerateName:    true,
 			podPatch: &corev1.Pod{
-				Status: corev1.PodStatus{
-					Phase: corev1.PodRunning,
-					Conditions: []corev1.PodCondition{
-						{
-							Type:   corev1.PodReady,
-							Status: corev1.ConditionTrue,
-						},
-					},
-					PodIP: "localhost",
-				},
+				Status: podStatusRunning,
 			},
 		},
 		{
@@ -442,8 +548,8 @@ func TestPodManager(t *testing.T) {
 			expectFail:         true,
 			functionImage:      "invalid@ociref.com",
 			kubeClient:         fake.NewClientBuilder().Build(),
-			namespace:          "porch-fn-system",
-			wrapperServerImage: "wrapper-server",
+			namespace:          defaultNamespace,
+			wrapperServerImage: defaultWrapperServerImage,
 			imageMetadataCache: defaultImageMetadataCache,
 			evalFunc:           defaultSuccessEvalFunc,
 			useGenerateName:    true,
@@ -452,10 +558,10 @@ func TestPodManager(t *testing.T) {
 			name:               "Invalid namespace name",
 			skip:               false,
 			expectFail:         true,
-			functionImage:      "apply-replacements",
+			functionImage:      defaultImageName,
 			kubeClient:         fake.NewClientBuilder().Build(),
 			namespace:          "not a valid namespace",
-			wrapperServerImage: "wrapper-server",
+			wrapperServerImage: defaultWrapperServerImage,
 			imageMetadataCache: defaultImageMetadataCache,
 			evalFunc:           defaultSuccessEvalFunc,
 			useGenerateName:    true,
@@ -464,168 +570,165 @@ func TestPodManager(t *testing.T) {
 			name:                    "Function template configmap not found",
 			skip:                    false,
 			expectFail:              true,
-			functionImage:           "apply-replacements",
+			functionImage:           defaultImageName,
 			kubeClient:              fake.NewClientBuilder().Build(),
-			namespace:               "porch-fn-system",
-			wrapperServerImage:      "wrapper-server",
+			namespace:               defaultNamespace,
+			wrapperServerImage:      defaultWrapperServerImage,
 			imageMetadataCache:      defaultImageMetadataCache,
 			evalFunc:                defaultSuccessEvalFunc,
 			useGenerateName:         true,
-			functionPodTemplateName: "function-pod-template",
+			functionPodTemplateName: defaultFunctionPodTemplateName,
 			managerNamespace:        defaultManagerNamespace,
 		},
 		{
 			name:          "Function template invalid resource type",
 			skip:          false,
 			expectFail:    true,
-			functionImage: "apply-replacements",
+			functionImage: defaultImageName,
 			kubeClient: fake.NewClientBuilder().WithObjects([]client.Object{&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "function-pod-template",
+					Name:      defaultFunctionPodTemplateName,
 					Namespace: defaultManagerNamespace,
 				},
 				Data: map[string]string{
-					"template": string(marshalToYamlOrPanic(&corev1.Secret{
-						TypeMeta: metav1.TypeMeta{
-							Kind:       "Secret",
-							APIVersion: "v1",
-						},
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "test-secret",
-							Namespace: "test-namespace",
-						},
-						Data: map[string][]byte{
-							"test-key": []byte("test-value"),
-						},
-					})),
+					"template":        string(marshalToYamlOrPanic(dummySecretTemplate)),
+					"serviceTemplate": string(marshalToYamlOrPanic(baseServiceTemplate)),
 				},
 			}}...).Build(),
-			namespace:               "porch-fn-system",
-			wrapperServerImage:      "wrapper-server",
+			namespace:               defaultNamespace,
+			wrapperServerImage:      defaultWrapperServerImage,
 			imageMetadataCache:      defaultImageMetadataCache,
 			evalFunc:                defaultSuccessEvalFunc,
 			useGenerateName:         true,
-			functionPodTemplateName: "function-pod-template",
+			functionPodTemplateName: defaultFunctionPodTemplateName,
+			managerNamespace:        defaultManagerNamespace,
+		},
+		{
+			name:          "Service template invalid resource type",
+			skip:          false,
+			expectFail:    true,
+			functionImage: defaultImageName,
+			kubeClient: fake.NewClientBuilder().WithObjects([]client.Object{&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      defaultFunctionPodTemplateName,
+					Namespace: defaultManagerNamespace,
+				},
+				Data: map[string]string{
+					"template":        string(marshalToYamlOrPanic(basePodTemplate)),
+					"serviceTemplate": string(marshalToYamlOrPanic(dummySecretTemplate)),
+				},
+			}}...).Build(),
+			namespace:               defaultNamespace,
+			wrapperServerImage:      defaultWrapperServerImage,
+			imageMetadataCache:      defaultImageMetadataCache,
+			evalFunc:                defaultSuccessEvalFunc,
+			useGenerateName:         true,
+			functionPodTemplateName: defaultFunctionPodTemplateName,
 			managerNamespace:        defaultManagerNamespace,
 		},
 		{
 			name:          "Function template under invalid key",
 			skip:          false,
 			expectFail:    true,
-			functionImage: "apply-replacements",
+			functionImage: defaultImageName,
 			kubeClient: fake.NewClientBuilder().WithObjects([]client.Object{&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "function-pod-template",
+					Name:      defaultFunctionPodTemplateName,
 					Namespace: defaultManagerNamespace,
 				},
 				Data: map[string]string{
 					"not-template": string(marshalToYamlOrPanic(basePodTemplate)),
 				},
 			}}...).Build(),
-			namespace:               "porch-fn-system",
-			wrapperServerImage:      "wrapper-server",
+			namespace:               defaultNamespace,
+			wrapperServerImage:      defaultWrapperServerImage,
 			imageMetadataCache:      defaultImageMetadataCache,
 			evalFunc:                defaultSuccessEvalFunc,
 			useGenerateName:         true,
-			functionPodTemplateName: "function-pod-template",
+			functionPodTemplateName: defaultFunctionPodTemplateName,
 			managerNamespace:        defaultManagerNamespace,
 		},
 		{
-			name:          "Function template generates pod",
+			name:          "Function template present but Service template missing",
 			skip:          false,
-			expectFail:    false,
-			functionImage: "apply-replacements",
+			expectFail:    true,
+			functionImage: defaultImageName,
 			kubeClient: fake.NewClientBuilder().WithObjects([]client.Object{&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "function-pod-template",
+					Name:      defaultFunctionPodTemplateName,
 					Namespace: defaultManagerNamespace,
 				},
 				Data: map[string]string{
 					"template": string(marshalToYamlOrPanic(basePodTemplate)),
 				},
 			}}...).Build(),
-			namespace:               "porch-fn-system",
-			wrapperServerImage:      "wrapper-server",
+			namespace:               defaultNamespace,
+			wrapperServerImage:      defaultWrapperServerImage,
 			imageMetadataCache:      defaultImageMetadataCache,
 			evalFunc:                defaultSuccessEvalFunc,
 			useGenerateName:         true,
-			functionPodTemplateName: "function-pod-template",
+			functionPodTemplateName: defaultFunctionPodTemplateName,
+			managerNamespace:        defaultManagerNamespace,
+		},
+		{
+			name:          "Function template generates pod",
+			skip:          false,
+			expectFail:    false,
+			functionImage: defaultImageName,
+			kubeClient: fake.NewClientBuilder().WithObjects([]client.Object{&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      defaultFunctionPodTemplateName,
+					Namespace: defaultManagerNamespace,
+				},
+				Data: map[string]string{
+					"template":        string(marshalToYamlOrPanic(basePodTemplate)),
+					"serviceTemplate": string(marshalToYamlOrPanic(baseServiceTemplate)),
+				},
+			},
+				defaultEndpointObject,
+			}...).Build(),
+			namespace:               defaultNamespace,
+			wrapperServerImage:      defaultWrapperServerImage,
+			imageMetadataCache:      defaultImageMetadataCache,
+			evalFunc:                defaultSuccessEvalFunc,
+			useGenerateName:         true,
+			functionPodTemplateName: defaultFunctionPodTemplateName,
 			managerNamespace:        defaultManagerNamespace,
 			podPatch: &corev1.Pod{
-				Status: corev1.PodStatus{
-					Phase: corev1.PodRunning,
-					Conditions: []corev1.PodCondition{
-						{
-							Type:   corev1.PodReady,
-							Status: corev1.ConditionTrue,
-						},
-					},
-					PodIP: "localhost",
-				},
+				Status: podStatusRunning,
 			},
 		},
 		{
 			name:          "Function template update is applied when pod is requested",
 			skip:          false,
 			expectFail:    false,
-			functionImage: "apply-replacements",
+			functionImage: defaultImageName,
 			kubeClient: fake.NewClientBuilder().WithObjects([]client.Object{&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "function-pod-template",
+					Name:      defaultFunctionPodTemplateName,
 					Namespace: defaultManagerNamespace,
 				},
 				Data: map[string]string{
-					"template": string(marshalToYamlOrPanic(basePodTemplate)),
+					"template":        string(marshalToYamlOrPanic(basePodTemplate)),
+					"serviceTemplate": string(marshalToYamlOrPanic(baseServiceTemplate)),
 				},
 			},
-				&corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "apply-replacements-5245a527",
-						Namespace: "porch-fn-system",
-						Labels: map[string]string{
-							krmFunctionLabel: "apply-replacements-5245a527",
-						},
-					},
-					Spec: corev1.PodSpec{
-						Containers: []corev1.Container{
-							{
-								Name:  "function",
-								Image: "apply-replacements",
-							},
-						},
-					},
-					Status: corev1.PodStatus{
-						Phase: corev1.PodRunning,
-						Conditions: []corev1.PodCondition{
-							{
-								Type:   corev1.PodReady,
-								Status: corev1.ConditionTrue,
-							},
-						},
-						PodIP: "localhost",
-					},
-				}}...).Build(),
-			namespace:               "porch-fn-system",
-			wrapperServerImage:      "wrapper-server",
+				defaultPodObject,
+				defaultEndpointObject,
+			}...).Build(),
+			namespace:               defaultNamespace,
+			wrapperServerImage:      defaultWrapperServerImage,
 			imageMetadataCache:      defaultImageMetadataCache,
 			evalFunc:                defaultSuccessEvalFunc,
 			useGenerateName:         true,
-			functionPodTemplateName: "function-pod-template",
+			functionPodTemplateName: defaultFunctionPodTemplateName,
 			managerNamespace:        defaultManagerNamespace,
 			podPatch: &corev1.Pod{
-				Status: corev1.PodStatus{
-					Phase: corev1.PodRunning,
-					Conditions: []corev1.PodCondition{
-						{
-							Type:   corev1.PodReady,
-							Status: corev1.ConditionTrue,
-						},
-					},
-					PodIP: "localhost",
-				},
+				Status: podStatusRunning,
 			},
 		},
 	}
+
 	fakeServer := &fakeFunctionEvalServer{
 		port: defaultWrapperServerPort,
 	}
@@ -713,8 +816,8 @@ func TestPodManager(t *testing.T) {
 					t.Errorf("Failed to get pod: %v", err)
 				}
 
-				if !strings.HasPrefix(pod.Labels[krmFunctionLabel], tt.functionImage) {
-					t.Errorf("Expected pod to have label starting with %s, got %s", tt.functionImage, pod.Labels[krmFunctionLabel])
+				if !strings.HasPrefix(pod.Labels[krmFunctionImageLabel], tt.functionImage) {
+					t.Errorf("Expected pod to have label starting with %s, got %s", tt.functionImage, pod.Labels[krmFunctionImageLabel])
 				}
 				if pod.Spec.Containers[0].Image != tt.functionImage {
 					t.Errorf("Expected pod to have image %s, got %s", tt.functionImage, pod.Spec.Containers[0].Image)
@@ -751,4 +854,15 @@ func marshalToYamlOrPanic(obj interface{}) []byte {
 		panic(err)
 	}
 	return data
+}
+
+func deepCopyObject(in, out interface{}) {
+	buf := bytes.Buffer{}
+	if err := gob.NewEncoder(&buf).Encode(in); err != nil {
+		panic(err)
+	}
+
+	if err := gob.NewDecoder(&buf).Decode(out); err != nil {
+		panic(err)
+	}
 }
