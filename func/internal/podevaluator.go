@@ -42,6 +42,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/klog/v2"
@@ -55,7 +56,7 @@ const (
 	volumeMountPath           = "/wrapper-server-tools"
 	wrapperServerBin          = "wrapper-server"
 	gRPCProbeBin              = "grpc-health-probe"
-	krmFunctionLabel          = "fn.kpt.dev/image"
+	krmFunctionImageLabel     = "fn.kpt.dev/image"
 	reclaimAfterAnnotation    = "fn.kpt.dev/reclaim-after"
 	templateVersionAnnotation = "fn.kpt.dev/template-version"
 	inlineTemplateVersionv1   = "inline-v1"
@@ -156,7 +157,7 @@ func NewPodEvaluator(o PodEvaluatorOptions) (Evaluator, error) {
 			klog.Warningf("unable to warm up the pod cache: %v", err)
 		}
 	}
-	
+
 	return pe, nil
 }
 
@@ -198,6 +199,11 @@ func (pe *podEvaluator) EvaluateFunction(ctx context.Context, req *evaluator.Eva
 // GRPC request handlers and add them in the waitlists.
 // It also listens to the podReadyCh channel. If a pod is ready, it notifies the
 // goroutines by sending back the GRPC client by lookup the waitlists mapping.
+
+// Each function pod managed by podCacheManager has a frontend ClusterIP type
+// service added to it to make Porch modules compatible for deployment into a
+// cluster using service mesh like Istio
+// https://github.com/nephio-project/nephio/issues/879
 type podCacheManager struct {
 	gcScanInterval time.Duration
 	podTTL         time.Duration
@@ -243,7 +249,7 @@ type imagePodAndGRPCClient struct {
 func (pcm *podCacheManager) warmupCache(podCacheConfig string) error {
 	start := time.Now()
 	defer func() {
-		klog.Infof("cache warning is completed and it took %v", time.Since(start))
+		klog.Infof("cache warming is completed and it took %v", time.Since(start))
 	}()
 	content, err := os.ReadFile(podCacheConfig)
 	if err != nil {
@@ -315,13 +321,29 @@ func (pcm *podCacheManager) podCacheManager() {
 				err := pcm.podManager.kubeClient.Get(context.Background(), podAndCl.pod, pod)
 				deleteCacheEntry := false
 				if err == nil {
-					if pod.DeletionTimestamp == nil && net.JoinHostPort(pod.Status.PodIP, defaultWrapperServerPort) == podAndCl.grpcClient.Target() {
-						klog.Infof("reusing the connection to pod %v/%v to evaluate %v", pod.Namespace, pod.Name, req.image)
-						req.grpcClientCh <- &clientConnAndError{grpcClient: podAndCl.grpcClient}
-						go patchPodWithUnixTimeAnnotation(pcm.podManager.kubeClient, podAndCl.pod, pcm.podTTL)
-						break
-					} else {
+
+					// GRPC client is made to Service IP instead of PoD directly, hence target host to be verified
+					// against Service Cluster IP
+
+					// Service name is Image Label set on Pod manifest
+					serviceName := pod.ObjectMeta.Labels[krmFunctionImageLabel]
+					service := &corev1.Service{}
+					serviceKey := client.ObjectKey{Namespace: pod.Namespace, Name: serviceName}
+					err = pcm.podManager.kubeClient.Get(context.Background(), serviceKey, service)
+					if err != nil {
+						// Service lookup should not fail.
+						// If it does, purge the cached entry and let Pod/Service be created again
 						deleteCacheEntry = true
+					} else {
+
+						if pod.DeletionTimestamp == nil && net.JoinHostPort(service.Spec.ClusterIP, defaultWrapperServerPort) == podAndCl.grpcClient.Target() {
+							klog.Infof("reusing the connection to pod %v/%v to evaluate %v", pod.Namespace, pod.Name, req.image)
+							req.grpcClientCh <- &clientConnAndError{grpcClient: podAndCl.grpcClient}
+							go patchPodWithUnixTimeAnnotation(pcm.podManager.kubeClient, podAndCl.pod, pcm.podTTL)
+							break
+						} else {
+							deleteCacheEntry = true
+						}
 					}
 				} else if errors.IsNotFound(err) {
 					deleteCacheEntry = true
@@ -369,7 +391,7 @@ func (pcm *podCacheManager) podCacheManager() {
 func (pcm *podCacheManager) garbageCollector() {
 	var err error
 	podList := &corev1.PodList{}
-	err = pcm.podManager.kubeClient.List(context.Background(), podList, client.InNamespace(pcm.podManager.namespace), client.HasLabels{krmFunctionLabel})
+	err = pcm.podManager.kubeClient.List(context.Background(), podList, client.InNamespace(pcm.podManager.namespace), client.HasLabels{krmFunctionImageLabel})
 	if err != nil {
 		klog.Warningf("unable to list pods in namespace %v: %v", pcm.podManager.namespace, err)
 		return
@@ -396,26 +418,45 @@ func (pcm *podCacheManager) garbageCollector() {
 			}
 			// If the current time is after the reclaim-later annotation in the pod, we delete the pod and remove the corresponding cache entry.
 			if time.Now().After(time.Unix(reclaimAfter, 0)) {
-				podIP := pod.Status.PodIP
-				go func(po corev1.Pod) {
+				var serviceIP string
+
+				// Service name is Image Label set on Pod manifest
+				serviceName := pod.ObjectMeta.Labels[krmFunctionImageLabel]
+				service := &corev1.Service{}
+				serviceKey := client.ObjectKey{Namespace: pod.Namespace, Name: serviceName}
+				err = pcm.podManager.kubeClient.Get(context.Background(), serviceKey, service)
+				if err != nil {
+					klog.Warningf("unable to find expected service %s namespace %s: %v", serviceName, pod.Namespace, err)
+				} else {
+					serviceIP = service.Spec.ClusterIP
+					klog.Infof("Found service named %s with Cluster IP %s", serviceName, serviceIP)
+				}
+
+				go func(po corev1.Pod, svc corev1.Service) {
 					klog.Infof("deleting pod %v/%v", po.Namespace, po.Name)
 					err := pcm.podManager.kubeClient.Delete(context.Background(), &po)
 					if err != nil {
 						klog.Warningf("unable to delete pod %v/%v: %v", po.Namespace, po.Name, err)
 					}
-				}(podList.Items[i])
+
+					klog.Infof("deleting service %v/%v", svc.Namespace, svc.Name)
+					err = pcm.podManager.kubeClient.Delete(context.Background(), &svc)
+					if err != nil {
+						klog.Warningf("unable to delete service %v/%v: %v", svc.Namespace, svc.Name, err)
+					}
+				}(podList.Items[i], *service)
 
 				image := pod.Spec.Containers[0].Image
 				podAndCl, found := pcm.cache[image]
 				if found {
-					host, _, err := net.SplitHostPort(podAndCl.grpcClient.Target())
-					// If the client target in the cache points to a different pod IP, it means the matching pod is not the current pod.
-					// We will keep this cache entry.
-					if err == nil && host != podIP {
-						continue
+					target, _, err := net.SplitHostPort(podAndCl.grpcClient.Target())
+					// Service IP should match the Grcp Client target IP for image in cache; log warning if different
+					if err == nil && serviceIP != "" && target != serviceIP {
+						klog.Warningf("IP of Service %s/%s [%s] does not match the IP of GRPC client [%s] cached for Pod %s/%s",
+							pod.Namespace, serviceName, serviceIP, pod.Namespace, pod.Name, target)
 					}
-					// We delete the cache entry when the IP of the old pod match the client target in the cache
-					// or we can't split the host and port in the client target.
+
+					// We delete the cache entry anyway
 					delete(pcm.cache, image)
 				}
 			}
@@ -452,7 +493,8 @@ type podManager struct {
 	podReadyTimeout time.Duration
 
 	// The name of the configmap in the same namespace as the function-runner is running.
-	// It should contain a pod manifest yaml in .data.template
+	// It should contain a pod manifest yaml in .data.template and frontend service
+	// manifest yaml in .data.serviceTemplate
 	// The pod manifest is expected to set up wrapper-server as the entrypoint
 	// of the main container, which must be called "function".
 	// Pod manager will replace the image
@@ -487,18 +529,30 @@ type digestAndEntrypoint struct {
 // apiserver to generate the name from a template.
 func (pm *podManager) getFuncEvalPodClient(ctx context.Context, image string, ttl time.Duration, useGenerateName bool) {
 	c, err := func() (*podAndGRPCClient, error) {
-		podKey, err := pm.retrieveOrCreatePod(ctx, image, ttl, useGenerateName)
+		podTemplate, err := pm.retrieveOrCreatePod(ctx, image, ttl, useGenerateName)
 		if err != nil {
 			return nil, err
 		}
-		podIP, err := pm.podIpIfRunningAndReady(ctx, podKey)
+
+		// Service name is Image Label set on Pod manifest
+		serviceName := podTemplate.ObjectMeta.Labels[krmFunctionImageLabel]
+		podKey := client.ObjectKeyFromObject(podTemplate)
+
+		serviceKey, err := pm.retrieveOrCreateService(ctx, serviceName)
 		if err != nil {
 			return nil, err
 		}
-		if podIP == "" {
-			return nil, fmt.Errorf("pod %s/%s did not have podIP", podKey.Namespace, podKey.Name)
+
+		serviceIP, err := pm.getServiceIPOnceEndpointActive(ctx, serviceKey, podKey)
+		if err != nil {
+			return nil, err
 		}
-		address := net.JoinHostPort(podIP, defaultWrapperServerPort)
+
+		if serviceIP == "" {
+			return nil, fmt.Errorf("service %s/%s does not have IP", serviceKey.Namespace, serviceKey.Name)
+		}
+
+		address := net.JoinHostPort(serviceIP, defaultWrapperServerPort)
 		cc, err := grpc.NewClient(address,
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 			grpc.WithDefaultCallOptions(
@@ -732,7 +786,7 @@ func createTransport(tlsConfig *tls.Config) *http.Transport {
 }
 
 // retrieveOrCreatePod retrieves or creates a pod for an image.
-func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl time.Duration, useGenerateName bool) (client.ObjectKey, error) {
+func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl time.Duration, useGenerateName bool) (*corev1.Pod, error) {
 	var de *digestAndEntrypoint
 	var replacePod bool
 	var currentPod *corev1.Pod
@@ -741,7 +795,7 @@ func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl
 	if !found {
 		de, err = pm.imageDigestAndEntrypoint(ctx, image)
 		if err != nil {
-			return client.ObjectKey{}, fmt.Errorf("unable to get the entrypoint for %v: %w", image, err)
+			return nil, fmt.Errorf("unable to get the entrypoint for %v: %w", image, err)
 		}
 	} else {
 		de = val.(*digestAndEntrypoint)
@@ -749,7 +803,7 @@ func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl
 
 	podId, err := podID(image, de.digest)
 	if err != nil {
-		return client.ObjectKey{}, err
+		return nil, err
 	}
 
 	// Try to retrieve the pod. Lookup the pod by label to see if there is a pod that can be reused.
@@ -760,10 +814,10 @@ func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl
 	podTemplate, templateVersion, err := pm.getBasePodTemplate(ctx)
 	if err != nil {
 		klog.Errorf("failed to generate a base pod template: %v", err)
-		return client.ObjectKey{}, fmt.Errorf("failed to generate a base pod template: %w", err)
+		return nil, fmt.Errorf("failed to generate a base pod template: %w", err)
 	}
 	pm.appendImagePullSecret(image, podTemplate)
-	err = pm.kubeClient.List(ctx, podList, client.InNamespace(pm.namespace), client.MatchingLabels(map[string]string{krmFunctionLabel: podId}))
+	err = pm.kubeClient.List(ctx, podList, client.InNamespace(pm.namespace), client.MatchingLabels(map[string]string{krmFunctionImageLabel: podId}))
 	if err != nil {
 		klog.Warningf("error when listing pods for %q: %v", image, err)
 	}
@@ -773,7 +827,7 @@ func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl
 			if pod.DeletionTimestamp == nil {
 				if isPodTemplateSameVersion(&pod, templateVersion) {
 					klog.Infof("retrieved function evaluator pod %v/%v for %q", pod.Namespace, pod.Name, image)
-					return client.ObjectKeyFromObject(&pod), nil
+					return &pod, nil
 				} else {
 					replacePod = true
 					currentPod = &pod
@@ -785,7 +839,7 @@ func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl
 
 	err = pm.patchNewPodContainer(podTemplate, *de, image)
 	if err != nil {
-		return client.ObjectKey{}, fmt.Errorf("unable to apply the pod: %w", err)
+		return nil, fmt.Errorf("unable to apply the pod: %w", err)
 	}
 	pm.patchNewPodMetadata(podTemplate, ttl, podId, templateVersion)
 
@@ -798,24 +852,24 @@ func (pm *podManager) retrieveOrCreatePod(ctx context.Context, image string, ttl
 			if currentPod != nil {
 				klog.V(4).Infof("Pod Name: %s Pod Status: %v", currentPod.Name, currentPod.Status)
 			}
-			return client.ObjectKey{}, fmt.Errorf("unable to apply the pod: %w", err)
+			return nil, fmt.Errorf("unable to apply the pod: %w", err)
 		}
 		if replacePod {
 			err = pm.kubeClient.Delete(ctx, currentPod)
 			if err != nil {
-				return client.ObjectKey{}, fmt.Errorf("unable to clean up previous pod: %w", err)
+				return nil, fmt.Errorf("unable to clean up previous pod: %w", err)
 			}
 		}
 	} else {
 		podTemplate.Name = podId
 		err = pm.kubeClient.Patch(ctx, podTemplate, client.Apply, client.FieldOwner(fieldManagerName))
 		if err != nil {
-			return client.ObjectKey{}, fmt.Errorf("unable to apply the pod: %w", err)
+			return nil, fmt.Errorf("unable to apply the pod: %w", err)
 		}
 	}
 
 	klog.Infof("created KRM function evaluator pod %v/%v for %q", podTemplate.Namespace, podTemplate.Name, image)
-	return client.ObjectKeyFromObject(podTemplate), nil
+	return podTemplate, nil
 }
 
 // Either gets the pod template from configmap, or from an inlined pod template. Also provides the version of the template
@@ -913,6 +967,109 @@ func (pm *podManager) getBasePodTemplate(ctx context.Context) (*corev1.Pod, stri
 	}
 }
 
+// retrieveOrCreateService retrieves or creates a Service pointing to the Function PoD
+func (pm *podManager) retrieveOrCreateService(ctx context.Context, serviceName string) (client.ObjectKey, error) {
+
+	// Try to retrieve the existing Service, if present
+	existingService := &corev1.Service{}
+	err := pm.kubeClient.Get(ctx, client.ObjectKey{Namespace: pm.namespace, Name: serviceName}, existingService)
+
+	if err == nil {
+		klog.Infof("retrieved function evaluator service %v/%v", existingService.Namespace, existingService.Name)
+		return client.ObjectKey{Namespace: existingService.Namespace, Name: existingService.Name}, nil
+	}
+
+	// If the service does not exist, generate template and create it
+	if errors.IsNotFound(err) {
+		serviceTemplate, err := pm.getBaseServiceTemplate(ctx)
+		if err != nil {
+			return client.ObjectKey{}, err
+		}
+
+		serviceTemplate.ObjectMeta.Namespace = pm.namespace
+		serviceTemplate.ObjectMeta.Name = serviceName
+		if serviceTemplate.ObjectMeta.Labels == nil {
+			serviceTemplate.ObjectMeta.Labels = map[string]string{}
+		}
+		serviceTemplate.ObjectMeta.Labels["app.kubernetes.io/name"] = serviceName
+		if serviceTemplate.Spec.Selector == nil {
+			serviceTemplate.Spec.Selector = map[string]string{}
+		}
+		// Pod has same Label as Service Name (PodId) for correct mapping
+		serviceTemplate.Spec.Selector[krmFunctionImageLabel] = serviceName
+
+		err = pm.kubeClient.Create(ctx, serviceTemplate, client.FieldOwner(fieldManagerName))
+		if err != nil {
+			klog.Errorf("failed to create service %v/%v: %v", pm.namespace, serviceName, err)
+			return client.ObjectKey{}, err
+		}
+
+		klog.Infof("created frontend service %v for function evaluator pod", serviceName)
+		return client.ObjectKeyFromObject(serviceTemplate), nil
+	}
+
+	// Return other errors
+	klog.Errorf("failed to retrieve service %v/%v: %v", pm.namespace, serviceName, err)
+	return client.ObjectKey{}, err
+}
+
+func (pm *podManager) getBaseServiceTemplate(ctx context.Context) (*corev1.Service, error) {
+	if pm.functionPodTemplateName != "" {
+		serviceTemplateCm := &corev1.ConfigMap{}
+
+		err := pm.kubeClient.Get(ctx, client.ObjectKey{
+			Name:      pm.functionPodTemplateName,
+			Namespace: pm.managerNamespace,
+		}, serviceTemplateCm)
+		if err != nil {
+			klog.Errorf("Could not get ConfigMap containing function service template: %s/%s", pm.managerNamespace, pm.functionPodTemplateName)
+			return nil, err
+		}
+
+		decoder := yamlutil.NewYAMLOrJSONDecoder(strings.NewReader(serviceTemplateCm.Data["serviceTemplate"]), 100)
+		var baseServiceTemplate corev1.Service
+		err = decoder.Decode(&baseServiceTemplate)
+
+		if err != nil {
+			klog.Errorf("Could not decode function service template: %s", pm.functionPodTemplateName)
+			return nil, fmt.Errorf("unable to decode function service template: %w", err)
+		}
+
+		return &baseServiceTemplate, nil
+	} else {
+		servicePort, _ := strconv.Atoi(defaultWrapperServerPort)
+		inlineBaseServiceTemplate := &corev1.Service{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "v1",
+				Kind:       "Service",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					"internal.kpt.dev/upstream-identifier": "|Service|porch-system|function-runner",
+				},
+				Labels: map[string]string{
+					"app.kubernetes.io/name": "to-be-replaced",
+				},
+			},
+			Spec: corev1.ServiceSpec{
+				Selector: map[string]string{
+					krmFunctionImageLabel: "to-be-replaced",
+				},
+				Ports: []corev1.ServicePort{
+					{
+						Protocol:   corev1.ProtocolTCP,
+						Port:       int32(servicePort),
+						TargetPort: intstr.FromInt(servicePort),
+					},
+				},
+				Type: corev1.ServiceTypeClusterIP,
+			},
+		}
+
+		return inlineBaseServiceTemplate, nil
+	}
+}
+
 func hasImagePullSecret(podTemplate *corev1.Pod, secretName string) bool {
 	for _, secret := range podTemplate.Spec.ImagePullSecrets {
 		if secret.Name == secretName {
@@ -956,7 +1113,7 @@ func (pm *podManager) patchNewPodContainer(pod *corev1.Pod, de digestAndEntrypoi
 }
 
 // Patch labels and annotations so the cache manager can keep track of the pod
-func (pm *podManager) patchNewPodMetadata(pod *corev1.Pod, ttl time.Duration, podId string, templateVersion string) {
+func (pm *podManager) patchNewPodMetadata(pod *corev1.Pod, ttl time.Duration, podId, templateVersion string) {
 	pod.ObjectMeta.Namespace = pm.namespace
 	annotations := pod.ObjectMeta.Annotations
 	if annotations == nil {
@@ -970,33 +1127,69 @@ func (pm *podManager) patchNewPodMetadata(pod *corev1.Pod, ttl time.Duration, po
 	if labels == nil {
 		labels = make(map[string]string)
 	}
-	labels[krmFunctionLabel] = podId
+	labels[krmFunctionImageLabel] = podId
 	pod.ObjectMeta.Labels = labels
 }
 
-// podIpIfRunningAndReady waits for the pod to be running and ready and returns the pod IP and a potential error.
-func (pm *podManager) podIpIfRunningAndReady(ctx context.Context, podKey client.ObjectKey) (ip string, e error) {
+// getServiceIPOnceEndpointActive retrieves the service IP once the backend PoD is
+// ready and Endpoint is active.
+func (pm *podManager) getServiceIPOnceEndpointActive(ctx context.Context, serviceKey client.ObjectKey, podKey client.ObjectKey) (string, error) {
+	var service corev1.Service
 	var pod corev1.Pod
-	// Wait until the pod is Running
+	var endpoint corev1.Endpoints
+	var podReady bool = false
 
 	if e := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, pm.podReadyTimeout, true, func(ctx context.Context) (done bool, err error) {
-		err = pm.kubeClient.Get(ctx, podKey, &pod)
-		if err != nil {
-			return false, err
-		}
-		if pod.Status.Phase != "Running" {
+		if !podReady {
+			err = pm.kubeClient.Get(ctx, podKey, &pod)
+			if err != nil {
+				return false, err
+			}
+
+			if pod.Status.Phase != "Running" {
+				return false, nil
+			}
+
+			for _, cond := range pod.Status.Conditions {
+				if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
+					podReady = true
+				}
+			}
 			return false, nil
 		}
-		for _, cond := range pod.Status.Conditions {
-			if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
-				return true, nil
-			}
+
+		podIP := pod.Status.PodIP
+
+		if err := pm.kubeClient.Get(ctx, serviceKey, &service); err != nil {
+			return false, err
 		}
-		return false, nil
+
+		// Wait till the service has an active endpoint
+		if err := pm.kubeClient.Get(ctx, serviceKey, &endpoint); err != nil {
+			return false, err
+		}
+
+		if len(endpoint.Subsets) == 0 || len(endpoint.Subsets[0].Addresses) == 0 {
+			return false, nil
+		}
+
+		// Log warning if service has more than one endpoint; there should be just 1 function pod
+		if len(endpoint.Subsets[0].Addresses) != 1 {
+			klog.Warningf("Service %s/%s has more than one endpoint: %+v", serviceKey.Namespace, serviceKey.Name, endpoint.Subsets)
+		}
+
+		endpointIP := endpoint.Subsets[0].Addresses[0].IP
+		if podIP != endpointIP {
+			klog.Warningf("pod IP %s does not match service endpoint IP %s", podIP, endpointIP)
+			return false, fmt.Errorf("pod IP %s does not match service endpoint IP %s", podIP, endpointIP)
+		}
+
+		return true, nil
 	}); e != nil {
-		return "", fmt.Errorf("error occurred when waiting the pod to be ready. If the error is caused by timeout, you may want to examine the pods in namespace %q. Error: %w", pm.namespace, e)
+		return "", fmt.Errorf("error occurred when waiting the pod and service to be ready. If the error is caused by timeout, you may want to examine the pod/service in namespace %q. Error: %w", pm.namespace, e)
 	}
-	return pod.Status.PodIP, nil
+
+	return service.Spec.ClusterIP, nil
 }
 
 // patchPodWithUnixTimeAnnotation patches the pod with the new updated TTL annotation.
@@ -1010,6 +1203,7 @@ func patchPodWithUnixTimeAnnotation(cl client.Client, podKey client.ObjectKey, t
 	}
 }
 
+// Returns kpt function name and unique podId to be used as Pod Name
 func podID(image, hash string) (string, error) {
 	ref, err := name.ParseReference(image)
 	if err != nil {
