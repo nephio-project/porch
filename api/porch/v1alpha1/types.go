@@ -32,10 +32,6 @@ type PackageRevision struct {
 	Status PackageRevisionStatus `json:"status,omitempty"`
 }
 
-// Porchfile structure
-type PorchFile struct {
-	Status *RenderStatus `yaml:"status,omitempty"`
-}
 // Key and value of the latest package revision label:
 
 const (
@@ -157,6 +153,10 @@ type Task struct {
 type TaskResult struct {
 	Task         *Task         `json:"task"`
 	RenderStatus *RenderStatus `json:"renderStatus,omitempty"`
+}
+
+type PorchFile struct {
+	Status *RenderStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
 // RenderStatus represents the result of performing render operation
@@ -392,56 +392,56 @@ const (
 
 // ResultList contains aggregated results from multiple functions
 type ResultList struct {
-	metav1.TypeMeta   `yaml:",inline"`
-	metav1.ObjectMeta `yaml:"metadata,omitempty"`
+	metav1.TypeMeta   `json:",inline" yaml:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 	// ExitCode is the exit code of kpt command
-	ExitCode int `yaml:"exitCode"`
+	ExitCode int `json:"exitCode" yaml:"exitCode"`
 	// Items contain a list of function result
-	Items []*Result `yaml:"items,omitempty"`
+	Items []*Result `json:"items,omitempty" yaml:"items,omitempty"`
 }
 
 // Result contains the structured result from an individual function
 type Result struct {
 	// Image is the full name of the image that generates this result
 	// Image and Exec are mutually exclusive
-	Image string `yaml:"image,omitempty"`
+	Image string `json:"image,omitempty" yaml:"image,omitempty"`
 	// ExecPath is the the absolute os-specific path to the executable file
 	// If user provides an executable file with commands, ExecPath should
 	// contain the entire input string.
-	ExecPath string `yaml:"exec,omitempty"`
+	ExecPath string `json:"exec,omitempty" yaml:"exec,omitempty"`
 	// TODO(droot): This is required for making structured results subpackage aware.
 	// Enable this once test harness supports filepath based assertions.
 	// Pkg is OS specific Absolute path to the package.
 	// Pkg string `yaml:"pkg,omitempty"`
 	// Stderr is the content in function stderr
-	Stderr string `yaml:"stderr,omitempty"`
+	Stderr string `json:"stderr,omitempty" yaml:"stderr,omitempty"`
 	// ExitCode is the exit code from running the function
-	ExitCode int `yaml:"exitCode"`
+	ExitCode int `json:"exitCode" yaml:"exitCode"`
 	// Results is the list of results for the function
-	Results []ResultItem `yaml:"results,omitempty"`
+	Results []ResultItem `json:"results,omitempty" yaml:"results,omitempty"`
 }
 
 // ResultItem defines a validation result
 type ResultItem struct {
 	// Message is a human readable message. This field is required.
-	Message string `yaml:"message,omitempty"`
+	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 
 	// Severity is the severity of this result
-	Severity string `yaml:"severity,omitempty"`
+	Severity string `json:"severity,omitempty" yaml:"severity,omitempty"`
 
 	// ResourceRef is a reference to a resource.
 	// Required fields: apiVersion, kind, name.
-	ResourceRef *ResourceIdentifier `yaml:"resourceRef,omitempty"`
+	ResourceRef *ResourceIdentifier `json:"resourceRef,omitempty" yaml:"resourceRef,omitempty"`
 
 	// Field is a reference to the field in a resource this result refers to
-	Field *Field `yaml:"field,omitempty"`
+	Field *Field `json:"field,omitempty" yaml:"field,omitempty"`
 
 	// File references a file containing the resource this result refers to
-	File *File `yaml:"file,omitempty"`
+	File *File `json:"file,omitempty" yaml:"file,omitempty"`
 
 	// Tags is an unstructured key value map stored with a result that may be set
 	// by external tools to store and retrieve arbitrary metadata
-	Tags map[string]string `yaml:"tags,omitempty"`
+	Tags map[string]string `json:"tags,omitempty" yaml:"tags,omitempty"`
 }
 
 // File references a file containing a resource
