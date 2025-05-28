@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -35,6 +36,7 @@ import (
 	registrationapi "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
 const (
@@ -203,6 +205,21 @@ func ValidPkgRevObjName(repoName, path, packageName, workspace string) error {
 	} else {
 		return errors.New("package revision object name invalid:\n" + strings.Join(errSlice, ""))
 	}
+}
+
+// decoder for Porchfile's in porch packages
+func DecodePorchfile(in io.Reader) (*v1alpha1.PorchFile, error) {
+	pf := &v1alpha1.PorchFile{}
+	c, err := io.ReadAll(in)
+	if err != nil {
+		return pf, err
+	}
+	d := yaml.NewDecoder(bytes.NewBuffer(c))
+	d.KnownFields(true)
+	if err := d.Decode(pf); err != nil {
+		return pf, err
+	}
+	return pf, nil
 }
 
 func ParsePkgRevObjName(name string) ([]string, error) {

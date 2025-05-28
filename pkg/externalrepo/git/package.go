@@ -236,7 +236,7 @@ func (p *gitPackageRevision) GetPorchfile(ctx context.Context) (v1alpha1.PorchFi
 	if !found {
 		return v1alpha1.PorchFile{}, nil
 	}
-	pf, err := pkg.DecodePorchfile(strings.NewReader(pfString))
+	pf, err := util.DecodePorchfile(strings.NewReader(pfString))
 	if err != nil {
 		return v1alpha1.PorchFile{}, fmt.Errorf("error decoding Porchfile: %w", err)
 	}
