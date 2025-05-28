@@ -82,7 +82,7 @@ func (r *packages) List(ctx context.Context, options *metainternalversion.ListOp
 	}
 
 	if err := r.packageCommon.listPackages(ctx, filter, func(p repository.Package) error {
-		item := p.GetPackage()
+		item := p.GetPackage(ctx)
 		result.Items = append(result.Items, *item)
 		return nil
 	}); err != nil {
@@ -102,7 +102,7 @@ func (r *packages) Get(ctx context.Context, name string, options *metav1.GetOpti
 		return nil, err
 	}
 
-	obj := pkg.GetPackage()
+	obj := pkg.GetPackage(ctx)
 	return obj, nil
 }
 
@@ -148,7 +148,7 @@ func (r *packages) Create(ctx context.Context, runtimeObject runtime.Object, cre
 		return nil, apierrors.NewInternalError(err)
 	}
 
-	created := rev.GetPackage()
+	created := rev.GetPackage(ctx)
 	return created, nil
 }
 
@@ -192,7 +192,7 @@ func (r *packages) Delete(ctx context.Context, name string, deleteValidation res
 		return nil, false, err
 	}
 
-	oldObj := oldPackage.GetPackage()
+	oldObj := oldPackage.GetPackage(ctx)
 	repositoryObj, err := r.packageCommon.validateDelete(ctx, deleteValidation, oldObj, name, ns)
 	if err != nil {
 		return nil, false, err

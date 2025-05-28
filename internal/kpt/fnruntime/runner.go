@@ -242,14 +242,18 @@ func (fr *FunctionRunner) Filter(input []*yaml.RNode) (output []*yaml.RNode, err
 	pr := printer.FromContextOrDie(fr.ctx)
 	if !fr.disableCLIOutput {
 		if fr.opts.AllowWasm {
-			pr.Printf("[RUNNING] WASM %q", fr.name)
+			if fr.opts.DisplayResourceCount {
+				pr.Printf("[RUNNING] WASM %q on %d resource(s)", fr.name, len(input))
+			} else {
+				pr.Printf("[RUNNING] WASM %q", fr.name)
+			}
 		} else {
-			pr.Printf("[RUNNING] %q", fr.name)
+			if fr.opts.DisplayResourceCount {
+				pr.Printf("[RUNNING] %q on %d resource(s)", fr.name, len(input))
+			} else {
+				pr.Printf("[RUNNING] %q", fr.name)
+			}
 		}
-		if fr.opts.DisplayResourceCount {
-			pr.Printf(" on %d resource(s)", len(input))
-		}
-		pr.Printf("\n")
 	}
 	t0 := time.Now()
 	output, err = fr.do(input)

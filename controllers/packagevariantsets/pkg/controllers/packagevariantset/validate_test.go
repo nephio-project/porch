@@ -64,7 +64,7 @@ spec:
   upstream:
     repo: foo
     package: foopkg`,
-			expectedErrs: []string{"spec.upstream.revision is a required field",
+			expectedErrs: []string{"either spec.upstream.revision or spec.upstream.workspaceName must be specified",
 				"must specify at least one item in spec.targets",
 			},
 		},

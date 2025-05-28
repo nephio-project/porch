@@ -105,16 +105,19 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 	const op errors.Op = command + ".runE"
 
 	if len(args) == 0 {
-		return errors.E(op, "PACKAGE is a required positional argument")
+		return errors.E(op, "PACKAGE name is a required positional argument")
 	}
 
 	packageName := args[0]
 	var resources map[string]string
 	var err error
 
-	if len(args) > 1 {
+	if len(args) > 1 && args[1] != "-" {
 		resources, err = readFromDir(args[1])
+	} else if len(args) > 1 && args[1] == "-" {
+		resources, err = readFromReader(cmd.InOrStdin())
 	} else {
+		r.printer.Printf("Warning: This way of using stdin will be deprecated in Porch release 5.x.x. Please use '-' to provide stdin.")
 		resources, err = readFromReader(cmd.InOrStdin())
 	}
 	if err != nil {

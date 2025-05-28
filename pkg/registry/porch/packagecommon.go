@@ -373,7 +373,7 @@ func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo 
 	// We have to be runtime.Object (and not *api.PackageRevision) or else nil-checks fail (because a nil object is not a nil interface)
 	var oldRuntimeObj runtime.Object
 	if !isCreate {
-		oldRuntimeObj = oldPackage.GetPackage()
+		oldRuntimeObj = oldPackage.GetPackage(ctx)
 	}
 
 	newRuntimeObj, err := objInfo.UpdatedObject(ctx, oldRuntimeObj)
@@ -430,7 +430,7 @@ func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo 
 			return nil, false, apierrors.NewInternalError(err)
 		}
 
-		updated := rev.GetPackage()
+		updated := rev.GetPackage(ctx)
 
 		return updated, false, nil
 	} else {
@@ -440,7 +440,7 @@ func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo 
 			return nil, false, apierrors.NewInternalError(err)
 		}
 
-		created := rev.GetPackage()
+		created := rev.GetPackage(ctx)
 		return created, true, nil
 	}
 }

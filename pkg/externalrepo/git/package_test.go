@@ -72,6 +72,9 @@ func (g GitSuite) TestLock(t *testing.T) {
 			continue
 		}
 
+		gitRev := rev.(*gitPackageRevision)
+		rev.SetRepository(gitRev.repo)
+
 		upstream, lock, err := rev.GetLock()
 		if err != nil {
 			t.Errorf("GetUpstreamLock(%q) failed: %v", rev.Key(), err)

@@ -1,7 +1,7 @@
 # Source: gitea/templates/gitea/init.yaml
 apiVersion: v1
 kind: Secret
-metadata: # kpt-merge: gitea/gitea-init
+metadata:
   name: gitea-init
   namespace: gitea
   labels:

@@ -15,6 +15,7 @@
 package util
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -171,6 +172,71 @@ func TestValidatePkgRevName(t *testing.T) {
 	}
 }
 
+func TestValidatePkgName(t *testing.T) {
+	testCases := map[string]struct {
+		Repo          string
+		Dir           string
+		Pkg           string
+		Ws            string
+		Err           bool
+		PrErrString   string
+		RepoErrString string
+		DirErrString  string
+		PkgErrString  string
+		WsErrString   string
+	}{}
+
+	testFileName := filepath.Join("testdata", "pkg-name.yaml")
+
+	testCasesBA, err := os.ReadFile(testFileName)
+	if err != nil {
+		t.Errorf("could not read test case data from %s: %v", testFileName, err)
+		return
+	}
+
+	err = yaml.Unmarshal(testCasesBA, &testCases)
+	if err != nil {
+		t.Errorf("could not unmarshal test case data from %s: %v", testFileName, err)
+		return
+	}
+
+	for tn, tc := range testCases {
+		t.Run(tn, func(t *testing.T) {
+			got := ValidPkgObjName(tc.Repo, tc.Dir, tc.Pkg)
+			if got == nil {
+				if tc.Err == true {
+					t.Errorf("didn't get an an error when expecting one")
+				}
+				return
+			}
+
+			errorSlice := strings.Split(got.Error(), "\n")
+
+			assert.Equal(t, errorSlice[0], "package object name invalid:")
+
+			assertExpectedPartErrExists(t, errorSlice,
+				tc.PrErrString,
+				"complete object name ",
+				ComposePkgObjName(tc.Repo, tc.Dir, tc.Pkg))
+
+			assertExpectedPartErrExists(t, errorSlice,
+				tc.RepoErrString,
+				"repository name ",
+				tc.Repo)
+
+			assertExpectedPartErrExists(t, errorSlice,
+				tc.DirErrString,
+				"directory name ",
+				tc.Dir)
+
+			assertExpectedPartErrExists(t, errorSlice,
+				tc.PkgErrString,
+				"package name ",
+				tc.Pkg)
+		})
+	}
+}
+
 func TestGenerateUid(t *testing.T) {
 	assert.Equal(t, types.UID("272983f7-a30d-58e0-a809-c38e8638666d"), GenerateUid("my-prefix", "my-namespace", "my.kube.name.of-something"))
 }
@@ -226,6 +292,57 @@ func TestCompareObjectMeta(t *testing.T) {
 	assert.False(t, CompareObjectMeta(left, right))
 	right.OwnerReferences = []metav1.OwnerReference{}
 	assert.True(t, CompareObjectMeta(left, right))
+}
+
+func TestRetryOnErrorConditional(t *testing.T) {
+	tests := []struct {
+		name            string
+		err             error
+		shouldRetryFunc func(error) bool
+		retryCount      int
+		shouldFail      bool
+	}{
+		{
+			name:            "no error",
+			err:             nil,
+			shouldRetryFunc: func(error) bool { return false },
+			retryCount:      2,
+			shouldFail:      false,
+		},
+		{
+			name:            "error without retries",
+			err:             fmt.Errorf("some error"),
+			shouldRetryFunc: func(error) bool { return false },
+			retryCount:      2,
+			shouldFail:      true,
+		},
+		{
+			name:            "error with retries",
+			err:             fmt.Errorf("some error"),
+			shouldRetryFunc: func(error) bool { return true },
+			retryCount:      10,
+			shouldFail:      true,
+		},
+		{
+			name:            "no tries",
+			err:             fmt.Errorf("some error"),
+			shouldRetryFunc: func(error) bool { return true },
+			retryCount:      0,
+			shouldFail:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := RetryOnErrorConditional(tt.retryCount, tt.shouldRetryFunc, func(_ int) error {
+				return tt.err
+			})
+
+			if (got != nil) != tt.shouldFail {
+				t.Errorf("RetryOnErrorConditional() = %v, shouldFail %v", got, tt.shouldFail)
+			}
+		})
+	}
 }
 
 func getPartErrMsg(errorSlice []string, start string) string {

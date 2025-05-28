@@ -227,7 +227,7 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.CredentialResolver = credentialResolver
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.UserInfoProvider = userInfoProvider
 
-	cacheImpl, err := cache.CreateCacheImpl(ctx, c.ExtraConfig.CacheOptions)
+	cacheImpl, err := cache.GetCacheImpl(ctx, c.ExtraConfig.CacheOptions)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create repository cache: %w", err)
@@ -244,7 +244,7 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 		// The order of registering the function runtimes matters here. When
 		// evaluating a function, the runtimes will be tried in the same
 		// order as they are registered.
-		engine.WithBuiltinFunctionRuntime(),
+		engine.WithBuiltinFunctionRuntime(c.ExtraConfig.GRPCRuntimeOptions.DefaultImagePrefix),
 		engine.WithGRPCFunctionRuntime(c.ExtraConfig.GRPCRuntimeOptions),
 		engine.WithCredentialResolver(credentialResolver),
 		engine.WithRunnerOptionsResolver(runnerOptionsResolver),

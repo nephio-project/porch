@@ -151,10 +151,28 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 		return nil, err
 	}
 
+	// Create a draft package revision
 	draft, err := repo.CreatePackageRevisionDraft(ctx, obj)
 	if err != nil {
 		return nil, err
 	}
+
+	// Setup rollback function in case of errors
+	rollback := func() {
+		// Try to convert the draft to a PackageRevision for deletion
+		// If the conversion fails, we can't do much more since we can't delete a draft directly
+		if pkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, 0); err == nil {
+			if err := repo.DeletePackageRevision(ctx, pkgRev); err != nil {
+				klog.Warningf("Failed to rollback package revision creation: %v", err)
+			}
+		} else {
+			// If we can't convert the draft, log the error and continue
+			// The draft will be cleaned up by the repository's garbage collection
+			klog.Warningf("Failed to convert draft to package revision for rollback: %v", err)
+		}
+	}
+
+	// Apply tasks
 
 	renderFailed := false
 	tasksErr := cad.taskHandler.ApplyTasks(ctx, draft, repositoryObj, obj, packageConfig)
@@ -163,11 +181,13 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 		if errors.As(tasksErr, &rerr) {
 			renderFailed = true
 		} else {
+			rollback()
 			return nil, tasksErr
 		}
 	}
 
 	if err := draft.UpdateLifecycle(ctx, obj.Spec.Lifecycle); err != nil {
+		rollback()
 		return nil, err
 	}
 
@@ -182,7 +202,7 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	}
 
 	// Updates are done.
-	return repoPkgRev, nil
+	return repo.ClosePackageRevisionDraft(ctx, draft, 0)
 }
 
 // The workspaceName must be unique, because it used to generate the package revision's metadata.name.
@@ -214,6 +234,7 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version int, re
 	if err != nil {
 		return nil, err
 	}
+	repoPr.SetRepository(repo)
 
 	// Check if the PackageRevision is in the terminating state and
 	// and this request removes the last finalizer.
@@ -325,6 +346,7 @@ func (cad *cadEngine) DeletePackageRevision(ctx context.Context, repositoryObj *
 	if err != nil {
 		return err
 	}
+	pr2Del.SetRepository(repo)
 
 	return cad.deletePackageRevision(ctx, repo, pr2Del)
 }

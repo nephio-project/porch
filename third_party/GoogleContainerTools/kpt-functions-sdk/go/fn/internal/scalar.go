@@ -33,7 +33,7 @@ type scalarVariant struct {
 }
 
 func (v *scalarVariant) GetKind() variantKind {
-	return variantKindScalar
+	return VariantKindScalar
 }
 
 func newStringScalarVariant(s string) *scalarVariant {

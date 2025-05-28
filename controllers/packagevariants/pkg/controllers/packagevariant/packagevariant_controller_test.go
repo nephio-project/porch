@@ -17,11 +17,13 @@ package packagevariant
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	api "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
 )
@@ -1576,4 +1578,160 @@ func TestIsPackageVariantFunc(t *testing.T) {
 			require.Equal(t, tc.expectedRes, res)
 		})
 	}
+}
+
+func TestIsValidUpstram(t *testing.T) {
+	errs := isValidUpstream(nil)
+	assert.Equal(t, 1, len(errs))
+	assert.Equal(t, "missing required field spec.upstream", errs[0])
+
+	upstream := api.Upstream{}
+	errs = isValidUpstream(&upstream)
+	assert.Equal(t, 2, len(errs))
+	assert.Equal(t, "missing required field spec.upstream.repo", errs[0])
+
+	upstream.Repo = "my-repo"
+	errs = isValidUpstream(&upstream)
+	assert.Equal(t, 1, len(errs))
+	assert.Equal(t, "missing required field spec.upstream.package", errs[0])
+
+	upstream.Package = "my-package"
+	errs = isValidUpstream(&upstream)
+	assert.Equal(t, 0, len(errs))
+	assert.Equal(t, -1, upstream.Revision)
+
+	upstream.WorkspaceName = "my-workspace"
+	upstream.Revision = 1
+	errs = isValidUpstream(&upstream)
+	assert.Equal(t, 0, len(errs))
+	assert.Equal(t, -1, upstream.Revision)
+
+	upstream.Revision = -1
+	errs = isValidUpstream(&upstream)
+	assert.Equal(t, 0, len(errs))
+	assert.Equal(t, -1, upstream.Revision)
+
+	upstream.WorkspaceName = ""
+	upstream.Revision = 1
+	errs = isValidUpstream(&upstream)
+	assert.Equal(t, 0, len(errs))
+
+	upstream.WorkspaceName = ""
+	upstream.Revision = -1
+	errs = isValidUpstream(&upstream)
+	assert.Equal(t, 0, len(errs))
+}
+
+func TestGetUpstreamPr(t *testing.T) {
+	pvReconcier := PackageVariantReconciler{}
+	upstream := api.Upstream{}
+	prList := porchapi.PackageRevisionList{}
+
+	_, err := pvReconcier.getUpstreamPR(&upstream, &prList)
+	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
+
+	upstream.Repo = "my-repo"
+	upstream.Package = "my-package"
+	upstream.WorkspaceName = "my-workspace"
+
+	prList.Items = append(prList.Items, porchapi.PackageRevision{})
+	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
+	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
+
+	prList.Items = append(prList.Items, porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: "another-repo",
+			PackageName:    "another-package",
+			WorkspaceName:  "another-workspace",
+			Revision:       1,
+		},
+	})
+	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
+	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
+
+	prList.Items = append(prList.Items, porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: "my-repo",
+			PackageName:    "my-package",
+			WorkspaceName:  "another-workspace",
+			Revision:       1,
+		},
+	})
+	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
+	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
+
+	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
+	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
+	prList.Items = append(prList.Items, porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: "my-repo",
+			PackageName:    "my-package",
+			WorkspaceName:  "my-workspace",
+			Revision:       1,
+		},
+	})
+	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
+	assert.True(t, err == nil)
+
+	upstream.WorkspaceName = ""
+	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
+	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
+
+	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
+	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
+
+	prList.Items = append(prList.Items, porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: "my-repo",
+			PackageName:    "my-package",
+			WorkspaceName:  "main",
+		},
+	})
+	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
+	assert.True(t, err == nil)
+
+	upstream.Revision = -1
+	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
+	assert.True(t, err == nil)
+
+	upstream.Repo = "my-repo2"
+	upstream.Package = "my-package2"
+	upstream.Revision = -1
+	prList.Items = append(prList.Items, porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: "my-repo2",
+			PackageName:    "my-package2",
+			WorkspaceName:  "v3.2.1",
+			Revision:       -1,
+		},
+	})
+	prList.Items = append(prList.Items, porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: "my-repo2",
+			PackageName:    "my-package2",
+			WorkspaceName:  "maim",
+			Revision:       -1,
+		},
+	})
+	prList.Items = append(prList.Items, porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: "my-repo2",
+			PackageName:    "my-package2",
+			WorkspaceName:  "maio",
+			Revision:       -1,
+		},
+	})
+	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
+	assert.True(t, err != nil)
+
+	prList.Items = append(prList.Items, porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: "my-repo2",
+			PackageName:    "my-package2",
+			WorkspaceName:  "main",
+			Revision:       -1,
+		},
+	})
+	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
+	assert.True(t, err == nil)
 }

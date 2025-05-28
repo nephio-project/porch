@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt Authors
+// Copyright 2022-2025 The kpt Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,8 +20,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	e2etest "github.com/nephio-project/porch/test/e2e"
 )
 
 func IsPorchServerRunningInCluster(t *testing.T) bool {
@@ -38,83 +36,6 @@ func IsPorchServerRunningInCluster(t *testing.T) bool {
 		t.Fatalf("Error when getting porch api Service: %v: %s", err, stderr.String())
 	}
 	return stdout.String() != ""
-}
-
-func GetGitServerImageName(t *testing.T) string {
-	cmd := exec.Command("kubectl", "get", "pods", "--selector=app=function-runner", "--namespace=porch-system",
-		"--output=jsonpath={.items[0].spec.containers[0].image}")
-
-	var stderr bytes.Buffer
-	var stdout bytes.Buffer
-
-	cmd.Stderr = &stderr
-	cmd.Stdout = &stdout
-
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("Error when getting Porch image version: %v: %s", err, stderr.String())
-	}
-
-	out := stdout.String()
-	t.Logf("Porch image query output: %s", out)
-
-	lines := strings.Split(out, "\n")
-	if len(lines) == 0 {
-		t.Fatalf("kubectl get pods didn't return any images: %s", out)
-	}
-	image := strings.TrimSpace(lines[0])
-	if image == "" {
-		t.Fatalf("Cannot determine Porch server image: output was %q", out)
-	}
-	return e2etest.InferGitServerImage(image)
-}
-
-func KubectlApply(t *testing.T, config string) {
-	cmd := exec.Command("kubectl", "apply", "-f", "-")
-	cmd.Stdin = strings.NewReader(config)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("kubectl apply failed: %v\ninput: %s\n\noutput:%s", err, config, string(out))
-	}
-	t.Logf("kubectl apply\n%s\noutput:\n%s", config, string(out))
-}
-
-func KubectlWaitForDeployment(t *testing.T, namespace, name string) {
-	args := []string{"rollout", "status", "deployment", "--namespace", namespace, name}
-	cmd := exec.Command("kubectl", args...)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("kubectl %s failed: %v\noutput:\n%s", strings.Join(args, " "), err, string(out))
-	}
-	t.Logf("kubectl %s:\n%s", strings.Join(args, " "), string(out))
-}
-
-func KubectlWaitForService(t *testing.T, namespace, name string) {
-	args := []string{"get", "endpoints", "--namespace", namespace, name, "--output=jsonpath={.subsets[*].addresses[*].ip}"}
-
-	giveUp := time.Now().Add(1 * time.Minute)
-	for {
-		cmd := exec.Command("kubectl", args...)
-		var stdout, stderr bytes.Buffer
-		cmd.Stdout = &stdout
-		cmd.Stderr = &stderr
-
-		err := cmd.Run()
-		s := stdout.String()
-		if err == nil && len(s) > 0 { // Endpoint has an IP address assigned
-			t.Logf("Endpoints: %q", s)
-			break
-		}
-
-		if time.Now().After(giveUp) {
-			var msg string
-			if err != nil {
-				msg = err.Error()
-			}
-			t.Fatalf("Service endpoint %s/%s not ready on time. Giving up: %s", namespace, name, msg)
-		}
-
-		time.Sleep(5 * time.Second)
-	}
 }
 
 func KubectlWaitForLoadBalancerIp(t *testing.T, namespace, name string) string {
@@ -143,6 +64,33 @@ func KubectlWaitForLoadBalancerIp(t *testing.T, namespace, name string) string {
 		}
 
 		time.Sleep(5 * time.Second)
+	}
+}
+
+func KubectlWaitForRepoReady(t *testing.T, repoName, namespace string) {
+	t.Logf("waiting for repo %s/%s to become Ready", namespace, repoName)
+	args := []string{"get", "repository", repoName, "--namespace", namespace, "--output=jsonpath={.status.conditions[?(@.type=='Ready')].status}"}
+	giveUp := time.Now().Add(1 * time.Minute)
+	for {
+		cmd := exec.Command("kubectl", args...)
+		var stdout, stderr bytes.Buffer
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
+		t.Logf("running command %v", strings.Join(cmd.Args, " "))
+		err := cmd.Run()
+		ready := stdout.String()
+		if err == nil && string(ready) == "True" {
+			t.Logf("Repo %s/%s is Ready", namespace, repoName)
+			return
+		}
+		if time.Now().After(giveUp) {
+			var msg string
+			if err != nil {
+				msg = err.Error()
+			}
+			t.Fatalf("Repo %s/%s has not become Ready. Giving up: %s", namespace, repoName, msg)
+		}
+		time.Sleep(2 * time.Second)
 	}
 }
 

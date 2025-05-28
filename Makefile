@@ -1,4 +1,4 @@
-# Copyright 2022-2024 The kpt and Nephio Authors
+# Copyright 2022-2025 The kpt and Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,6 +30,10 @@ include default-mockery.mk
 # This includes the 'help' target that prints out all targets with their descriptions organized by categories
 include default-help.mk
 
+ifneq ("$(wildcard .env)", "")
+    include .env
+endif
+
 KIND_CONTEXT_NAME ?= porch-test
 export IMAGE_REPO ?= docker.io/nephio
 export USER ?= nephio
@@ -53,6 +57,7 @@ TEST_GIT_SERVER_IMAGE ?= test-git-server
 SKIP_IMG_BUILD ?= false
 SKIP_PORCHSERVER_BUILD ?= false
 SKIP_CONTROLLER_BUILD ?= false
+SKIP_LOCAL_GIT ?= false
 
 # Only enable a subset of reconcilers in porch controllers by default. Use the RECONCILERS
 # env variable to specify a specific list of reconcilers or use
@@ -67,6 +72,10 @@ else
     ENABLED_RECONCILERS=$(RECONCILERS)
   endif
 endif
+
+
+PORCH = $(BUILDDIR)/porch
+PORCHCTL = $(BUILDDIR)/porchctl
 
 .DEFAULT_GOAL := all
 
@@ -134,8 +143,22 @@ start-function-runner:
 	  $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):$(IMAGE_TAG) \
 	  -disable-runtimes pod
 
+.PHONY: run-local
+run-local: porch
+	KUBECONFIG=$(CURDIR)/deployments/local/kubeconfig kubectl apply -f deployments/local/localconfig.yaml
+	KUBECONFIG=$(CURDIR)/deployments/local/kubeconfig kubectl apply -f api/porchconfig/v1alpha1/
+	KUBECONFIG=$(CURDIR)/deployments/local/kubeconfig kubectl apply -f internal/api/porchinternal/v1alpha1/
+	$(PORCH) \
+	--secure-port 9443 \
+	--standalone-debug-mode \
+	--kubeconfig="$(CURDIR)/deployments/local/kubeconfig" \
+	--cache-directory="$(CACHEDIR)" \
+	--function-runner 192.168.8.202:9445 \
+	--repo-sync-frequency=3m \
+	--max-request-body-size=6291456
 
- # API Modules
+
+# API Modules
 API_MODULES = \
  api \
  pkg/kpt/api \
@@ -148,12 +171,6 @@ generate-api:
 .PHONY: generate
 generate: generate-api ## Generate CRDs, other K8s manifests and helper go code
 	@for f in $(API_MODULES); do (cd $$f; echo "Generating for $$f ..."; go generate -v ./...) || exit 1; done
-
-# Go Modules are ordered in dependency order. A module precedes modules that depend on it.
-GO_MODULES = \
- api \
- . \
- controllers \
  
 .PHONY: tidy
 tidy:
@@ -166,23 +183,6 @@ configure-git:
 
 .PHONY: ci-unit
 ci-unit: configure-git test
-
-
-PORCH = $(BUILDDIR)/porch
-PORCHCTL = $(BUILDDIR)/porchctl
-
-.PHONY: run-local
-run-local: porch
-	KUBECONFIG=$(CURDIR)/deployments/local/kubeconfig kubectl apply -f deployments/local/localconfig.yaml
-	KUBECONFIG=$(CURDIR)/deployments/local/kubeconfig kubectl apply -f api/porchconfig/v1alpha1/
-	KUBECONFIG=$(CURDIR)/deployments/local/kubeconfig kubectl apply -f internal/api/porchinternal/v1alpha1/
-	$(PORCH) \
-	--secure-port 9443 \
-	--standalone-debug-mode \
-	--kubeconfig="$(CURDIR)/deployments/local/kubeconfig" \
-	--cache-directory="$(CACHEDIR)" \
-	--function-runner 192.168.8.202:9445 \
-	--repo-sync-frequency=10m
 
 .PHONY: run-jaeger
 run-jaeger:
@@ -252,6 +252,12 @@ run-in-kind: IMAGE_REPO=porch-kind
 run-in-kind: IMAGE_TAG=test
 run-in-kind: load-images-to-kind deployment-config deploy-current-config ## Build and deploy porch into a kind cluster
 
+.PHONY: run-in-kind-no-git
+run-in-kind-no-git: IMAGE_REPO=porch-kind
+run-in-kind-no-git: IMAGE_TAG=test
+run-in-kind-no-git: SKIP_LOCAL_GIT=true
+run-in-kind-no-git: load-images-to-kind deployment-config deploy-current-config ## Build and deploy porch into a kind cluster
+
 .PHONY: run-in-kind-no-server
 run-in-kind-no-server: IMAGE_REPO=porch-kind
 run-in-kind-no-server: IMAGE_TAG=test
@@ -278,7 +284,8 @@ deployment-config: ## Generate a porch deployment kpt package into $(DEPLOYPORCH
 	  --controllers-image "$(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):$(IMAGE_TAG)" \
 	  --function-image "$(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):$(IMAGE_TAG)" \
 	  --wrapper-server-image "$(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):$(IMAGE_TAG)" \
-	  --enabled-reconcilers "$(ENABLED_RECONCILERS)"
+	  --enabled-reconcilers "$(ENABLED_RECONCILERS)" \
+	  $(if $(PORCH_GCR_PREFIX_URL),--gcr-image-prefix "$(PORCH_GCR_PREFIX_URL)")
 
 .PHONY: deployment-config-no-server
 deployment-config-no-server: deployment-config ## Generate a deployment kpt package that contains all of porch except the porch-server into $(DEPLOYPORCHCONFIGDIR)
@@ -290,14 +297,14 @@ deployment-config-no-controller: deployment-config ## Generate a deployment kpt 
 
 .PHONY: load-images-to-kind
 load-images-to-kind: ## Build porch images and load them into a kind cluster
-  ifeq ($(SKIP_IMG_BUILD), false)
-  # only build test-git-server & function-runner if they are not already loaded into kind
-	@if ! docker exec "${KIND_CONTEXT_NAME}-control-plane" crictl images | grep -q "$(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE)  *${IMAGE_TAG} " ; then \
-		echo "Building $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG}" ; \
+ifeq ($(SKIP_IMG_BUILD), false)
+# only build test-git-server & function-runner if they are not already loaded into kind
+	@if [ "$(SKIP_LOCAL_GIT)" = "false" ] && ! docker exec "${KIND_CONTEXT_NAME}-control-plane" crictl images | grep -q "$(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE)  *${IMAGE_TAG}"; then \
+		echo "Building $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG}"; \
 		IMAGE_NAME="$(TEST_GIT_SERVER_IMAGE)" make -C test/ build-image && \
-		kind load docker-image $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} ; \
+		kind load docker-image $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}; \
 	else \
-		echo "Skipping building $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG} as it is already loaded into kind" ; \
+		echo "Skipping building and loading $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG}"; \
 	fi
 	@if ! docker exec "${KIND_CONTEXT_NAME}-control-plane" crictl images | grep -q "$(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE)  *${IMAGE_TAG} " ; then \
 		echo "Building $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):${IMAGE_TAG}" ; \
@@ -307,27 +314,29 @@ load-images-to-kind: ## Build porch images and load them into a kind cluster
 	else \
 		echo "Skipping building $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):${IMAGE_TAG} as it is already loaded into kind" ; \
 	fi
-    # NOTE: SKIP_PORCHSERVER_BUILD must be evaluated at runtime, hence the shell conditional (if) here
-	@if [ "$(SKIP_PORCHSERVER_BUILD)" = "false"	]; then \
+# NOTE: SKIP_PORCHSERVER_BUILD must be evaluated at runtime, hence the shell conditional (if) here
+	@if [ "$(SKIP_PORCHSERVER_BUILD)" = "false" ]; then \
 		echo "Building $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):${IMAGE_TAG}" ; \
 		docker buildx build --load --tag $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG) -f ./build/Dockerfile "$(PORCHDIR)" && \
 		kind load docker-image $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} && \
 		kubectl delete deployment -n porch-system --ignore-not-found=true porch-server ; \
 	fi
-	@if [ "$(SKIP_CONTROLLER_BUILD)" = "false"	]; then \
+	@if [ "$(SKIP_CONTROLLER_BUILD)" = "false" ]; then \
 		echo "Building $(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):${IMAGE_TAG}" ; \
 		IMAGE_NAME="$(PORCH_CONTROLLERS_IMAGE)" make -C controllers/ build-image && \
 		kind load docker-image $(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} && \
 		kubectl delete deployment -n porch-system --ignore-not-found=true porch-controllers ; \
 	fi
 
-  else
-	kind load docker-image $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} 
+else
+	@if [ "$(SKIP_LOCAL_GIT)" = "false" ]; then \
+		kind load docker-image $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}; \
+	fi
 	kind load docker-image $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
-	kind load docker-image $(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} 
+	kind load docker-image $(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
 	kind load docker-image $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
 	kind load docker-image $(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
-  endif
+endif
 
 .PHONY: deploy-current-config
 deploy-current-config: ## Deploy the configuration that is currently in $(DEPLOYPORCHCONFIGDIR)
@@ -360,6 +369,10 @@ vulncheck: build
 .PHONY: test-e2e
 test-e2e: ## Run end-to-end tests
 	E2E=1 go test -v -failfast ./test/e2e
+
+.PHONY: test-e2e-cli
+test-e2e-cli: ## Run cli end-to-end tests
+test-e2e-cli: run-in-kind-no-git
 	E2E=1 go test -v -failfast ./test/e2e/cli
 
 .PHONY: test-e2e-clean

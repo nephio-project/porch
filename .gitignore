@@ -2,6 +2,7 @@ vendor/
 apiserver.local.config/
 /apiserver/porch
 *.log
+.env
 
 # Development artifact path
 .build/

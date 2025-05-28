@@ -41,6 +41,12 @@ func TestBuildPackageRevision(t *testing.T) {
 	assert.True(t, err != nil)
 }
 
+func TestRepoGettersAndSetters(t *testing.T) {
+	fakeRepo := ociRepository{}
+
+	assert.Equal(t, nil, fakeRepo.Close(context.TODO()))
+}
+
 func TestPackageGettersAndSetters(t *testing.T) {
 	fakePr := ociPackageRevision{
 		prKey: repository.PackageRevisionKey{
@@ -66,4 +72,12 @@ func TestPackageGettersAndSetters(t *testing.T) {
 	assert.Equal(t, nil, err)
 	outMeta := fakePr.GetMeta()
 	assert.Equal(t, outMeta.Name, inMeta.Name)
+
+	ociRepo := ociRepository{
+		name: "oci-repo-name",
+	}
+	fakePr.SetRepository(&ociRepo)
+	assert.Equal(t, "oci-repo-name", fakePr.parent.name)
+
+	assert.Panics(t, func() { fakePr.ToMainPackageRevision(context.TODO()) }, "The code did not panic")
 }

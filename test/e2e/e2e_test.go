@@ -15,6 +15,7 @@
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -32,6 +33,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -39,11 +41,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
-)
-
-const (
-	testBlueprintsRepo = "https://github.com/platkrm/test-blueprints.git"
-	kptRepo            = "https://github.com/kptdev/kpt.git"
 )
 
 var (
@@ -84,9 +81,12 @@ func (t *PorchSuite) TestGitRepository() {
 						Upstream: porchapi.UpstreamPackage{
 							Type: "git",
 							Git: &porchapi.GitPackage{
-								Repo:      "https://github.com/GoogleCloudPlatform/blueprints.git",
+								Repo:      t.gcpBlueprintsRepo,
 								Ref:       "bucket-blueprint-v0.4.3",
 								Directory: "catalog/bucket",
+								SecretRef: porchapi.SecretRef{
+									Name: t.CreateGcpPackageRevisionSecret("test-bucket"),
+								},
 							},
 						},
 					},
@@ -94,7 +94,7 @@ func (t *PorchSuite) TestGitRepository() {
 				{
 					Type: "eval",
 					Eval: &porchapi.FunctionEvalTaskSpec{
-						Image: "gcr.io/kpt-fn/set-namespace:v0.4.1",
+						Image: t.gcrPrefix + "/set-namespace:v0.4.1",
 						ConfigMap: map[string]string{
 							"namespace": "bucket-namespace",
 						},
@@ -126,7 +126,7 @@ func (t *PorchSuite) TestGitRepository() {
 }
 
 func (t *PorchSuite) TestGitRepositoryWithReleaseTagsAndDirectory() {
-	t.RegisterGitRepositoryF(kptRepo, "kpt-repo", "package-examples")
+	t.RegisterGitRepositoryF(t.kptRepo, "kpt-repo", "package-examples", os.Getenv(kptRepoUserEnv), Password(os.Getenv(kptRepoPasswordEnv)))
 
 	t.Log("Listing PackageRevisions in " + t.Namespace)
 	var list porchapi.PackageRevisionList
@@ -141,7 +141,7 @@ func (t *PorchSuite) TestGitRepositoryWithReleaseTagsAndDirectory() {
 
 func (t *PorchSuite) TestCloneFromUpstream() {
 	// Register Upstream Repository
-	t.RegisterGitRepositoryF(testBlueprintsRepo, "test-blueprints", "")
+	t.RegisterTestBlueprintRepository("test-blueprints", "")
 
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
@@ -216,7 +216,7 @@ func (t *PorchSuite) TestCloneFromUpstream() {
 	want := &kptfilev1.UpstreamLock{
 		Type: kptfilev1.GitOrigin,
 		Git: &kptfilev1.GitLock{
-			Repo:      testBlueprintsRepo,
+			Repo:      t.testBlueprintsRepo,
 			Directory: "basens",
 			Ref:       "basens/v1",
 		},
@@ -229,7 +229,7 @@ func (t *PorchSuite) TestCloneFromUpstream() {
 	if got, want := kptfile.Upstream, (&kptfilev1.Upstream{
 		Type: kptfilev1.GitOrigin,
 		Git: &kptfilev1.Git{
-			Repo:      testBlueprintsRepo,
+			Repo:      t.testBlueprintsRepo,
 			Directory: "basens",
 			Ref:       "basens/v1",
 		},
@@ -248,7 +248,7 @@ func (t *PorchSuite) TestConcurrentClones() {
 	)
 
 	// Register Upstream and Downstream Repositories
-	t.RegisterGitRepositoryF(testBlueprintsRepo, upstreamRepository, "")
+	t.RegisterTestBlueprintRepository(upstreamRepository, "")
 	t.RegisterMainGitRepositoryF(downstreamRepository)
 
 	var list porchapi.PackageRevisionList
@@ -441,10 +441,10 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 	const downstreamWorkspace = "test-workspace"
 
 	// Register the deployment repository
-	t.RegisterMainGitRepositoryF(downstreamRepository, WithDeployment())
+	t.RegisterMainGitRepositoryF(downstreamRepository, RepositoryOptions{RepOpts: WithDeployment()})
 
 	// Register the upstream repository
-	t.RegisterGitRepositoryF(testBlueprintsRepo, "test-blueprints", "")
+	t.RegisterTestBlueprintRepository("test-blueprints", "")
 
 	var upstreamPackages porchapi.PackageRevisionList
 	t.ListE(&upstreamPackages, client.InNamespace(t.Namespace))
@@ -517,7 +517,7 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 	want := &kptfilev1.UpstreamLock{
 		Type: kptfilev1.GitOrigin,
 		Git: &kptfilev1.GitLock{
-			Repo:      testBlueprintsRepo,
+			Repo:      t.testBlueprintsRepo,
 			Directory: "basens",
 			Ref:       "basens/v1",
 		},
@@ -530,7 +530,7 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 	if got, want := kptfile.Upstream, (&kptfilev1.Upstream{
 		Type: kptfilev1.GitOrigin,
 		Git: &kptfilev1.Git{
-			Repo:      testBlueprintsRepo,
+			Repo:      t.testBlueprintsRepo,
 			Directory: "basens",
 			Ref:       "basens/v1",
 		},
@@ -761,7 +761,7 @@ func (t *PorchSuite) TestUpdateResources() {
 		kptfile.Pipeline = &kptfilev1.Pipeline{}
 	}
 	kptfile.Pipeline.Mutators = append(kptfile.Pipeline.Mutators, kptfilev1.Function{
-		Image: "gcr.io/kpt-fn/set-annotations:v0.1.4",
+		Image: t.gcrPrefix + "/set-annotations:v0.1.4",
 		ConfigMap: map[string]string{
 			"color": "red",
 			"fruit": "apple",
@@ -912,13 +912,13 @@ func (t *PorchSuite) NewClientWithTimeout(timeout time.Duration) client.Client {
 }
 
 func (t *PorchSuite) TestPublicGitRepository() {
-	t.RegisterGitRepositoryF(testBlueprintsRepo, "demo-blueprints", "")
+	t.RegisterTestBlueprintRepository("demo-blueprints", "")
 
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
 
 	if got := len(list.Items); got == 0 {
-		t.Errorf("Found no package revisions in %s; expected at least one", testBlueprintsRepo)
+		t.Errorf("Found no package revisions in %s; expected at least one", t.testBlueprintsRepo)
 	}
 }
 
@@ -1584,9 +1584,12 @@ func (t *PorchSuite) TestCloneLeadingSlash() {
 						Upstream: porchapi.UpstreamPackage{
 							Type: porchapi.RepositoryTypeGit,
 							Git: &porchapi.GitPackage{
-								Repo:      "https://github.com/platkrm/test-blueprints",
+								Repo:      t.testBlueprintsRepo,
 								Ref:       "basens/v1",
 								Directory: "/basens",
+								SecretRef: porchapi.SecretRef{
+									Name: t.CreateGcpPackageRevisionSecret("clone-ls"),
+								},
 							},
 						},
 						Strategy: porchapi.ResourceMerge,
@@ -1607,7 +1610,7 @@ func (t *PorchSuite) TestPackageUpdate() {
 		gitRepository = "package-update"
 	)
 
-	t.RegisterGitRepositoryF(testBlueprintsRepo, "test-blueprints", "")
+	t.RegisterTestBlueprintRepository("test-blueprints", "")
 
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
@@ -1704,7 +1707,7 @@ func (t *PorchSuite) TestConcurrentPackageUpdates() {
 		workspace     = "test-workspace"
 	)
 
-	t.RegisterGitRepositoryF(testBlueprintsRepo, "test-blueprints", "")
+	t.RegisterTestBlueprintRepository("test-blueprints", "")
 
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
@@ -1758,9 +1761,8 @@ func (t *PorchSuite) TestRegisterRepository() {
 	const (
 		repository = "register"
 	)
-	t.RegisterMainGitRepositoryF(repository,
-		withType(configapi.RepositoryTypeGit),
-		WithDeployment())
+	t.RegisterMainGitRepositoryF(repository, RepositoryOptions{RepOpts: withType(configapi.RepositoryTypeGit)},
+		RepositoryOptions{RepOpts: WithDeployment()})
 
 	var repo configapi.Repository
 	t.GetF(client.ObjectKey{
@@ -1796,9 +1798,12 @@ func (t *PorchSuite) TestBuiltinFunctionEvaluator() {
 						Upstream: porchapi.UpstreamPackage{
 							Type: "git",
 							Git: &porchapi.GitPackage{
-								Repo:      "https://github.com/GoogleCloudPlatform/blueprints.git",
+								Repo:      t.gcpBlueprintsRepo,
 								Ref:       "bucket-blueprint-v0.4.3",
 								Directory: "catalog/bucket",
+								SecretRef: porchapi.SecretRef{
+									Name: t.CreateGcpPackageRevisionSecret("test-builtin-fn-bucket"),
+								},
 							},
 						},
 					},
@@ -1807,7 +1812,7 @@ func (t *PorchSuite) TestBuiltinFunctionEvaluator() {
 					Type: "eval",
 					Eval: &porchapi.FunctionEvalTaskSpec{
 						//
-						Image: "gcr.io/kpt-fn/starlark:v0.4.3",
+						Image: t.gcrPrefix + "/starlark:v0.4.3",
 						ConfigMap: map[string]string{
 							"source": `for resource in ctx.resource_list["items"]:
 		  resource["metadata"]["annotations"]["foo"] = "bar"`,
@@ -1817,7 +1822,7 @@ func (t *PorchSuite) TestBuiltinFunctionEvaluator() {
 				{
 					Type: "eval",
 					Eval: &porchapi.FunctionEvalTaskSpec{
-						Image: "gcr.io/kpt-fn/set-namespace:v0.4.1",
+						Image: t.gcrPrefix + "/set-namespace:v0.4.1",
 						ConfigMap: map[string]string{
 							"namespace": "bucket-namespace",
 						},
@@ -1874,9 +1879,12 @@ func (t *PorchSuite) TestExecFunctionEvaluator() {
 						Upstream: porchapi.UpstreamPackage{
 							Type: "git",
 							Git: &porchapi.GitPackage{
-								Repo:      "https://github.com/GoogleCloudPlatform/blueprints.git",
+								Repo:      t.gcpBlueprintsRepo,
 								Ref:       "bucket-blueprint-v0.4.3",
 								Directory: "catalog/bucket",
+								SecretRef: porchapi.SecretRef{
+									Name: t.CreateGcpPackageRevisionSecret("test-fn-bucket"),
+								},
 							},
 						},
 					},
@@ -1884,7 +1892,7 @@ func (t *PorchSuite) TestExecFunctionEvaluator() {
 				{
 					Type: "eval",
 					Eval: &porchapi.FunctionEvalTaskSpec{
-						Image: "gcr.io/kpt-fn/starlark:v0.3.0",
+						Image: t.gcrPrefix + "/starlark:v0.3.0",
 						ConfigMap: map[string]string{
 							"source": `# set the namespace on all resources
 
@@ -1898,7 +1906,7 @@ for resource in ctx.resource_list["items"]:
 				{
 					Type: "eval",
 					Eval: &porchapi.FunctionEvalTaskSpec{
-						Image: "gcr.io/kpt-fn/set-annotations:v0.1.4",
+						Image: t.gcrPrefix + "/set-annotations:v0.1.4",
 						ConfigMap: map[string]string{
 							"foo": "bar",
 						},
@@ -1956,9 +1964,12 @@ func (t *PorchSuite) TestPodFunctionEvaluatorWithDistrolessImage() {
 						Upstream: porchapi.UpstreamPackage{
 							Type: "git",
 							Git: &porchapi.GitPackage{
-								Repo:      "https://github.com/GoogleCloudPlatform/blueprints.git",
+								Repo:      t.gcpBlueprintsRepo,
 								Ref:       "redis-bucket-blueprint-v0.3.2",
 								Directory: "catalog/redis-bucket",
+								SecretRef: porchapi.SecretRef{
+									Name: t.CreateGcpPackageRevisionSecret("test-fn-redis-bucket"),
+								},
 							},
 						},
 					},
@@ -1988,7 +1999,7 @@ data:
 					Eval: &porchapi.FunctionEvalTaskSpec{
 						// This image is a mirror of gcr.io/cad-demo-sdk/set-namespace@sha256:462e44020221e72e3eb337ee59bc4bc3e5cb50b5ed69d377f55e05bec3a93d11
 						// which uses gcr.io/distroless/base-debian11:latest as the base image.
-						Image: "gcr.io/kpt-fn-demo/set-namespace:v0.1.0",
+						Image: t.gcrPrefix + "-demo/set-namespace:v0.1.0",
 					},
 				},
 			},
@@ -2021,10 +2032,16 @@ func (t *PorchSuite) TestPodEvaluator() {
 		t.Skipf("Skipping due to not having pod evaluator in local mode")
 	}
 
-	const (
-		generateFolderImage = "gcr.io/kpt-fn/generate-folders:v0.1.1" // This function is a TS based function.
-		setAnnotationsImage = "gcr.io/kpt-fn/set-annotations:v0.1.3"  // set-annotations:v0.1.3 is an older version that porch maps neither to built-in nor exec.
-	)
+	generateFolderImage := t.gcrPrefix + "/generate-folders:v0.1.1" // This function is a TS based function.
+	setAnnotationsImage := t.gcrPrefix + "/set-annotations:v0.1.3"  // set-annotations:v0.1.3 is an older version that porch maps neither to built-in nor exec.
+
+	// This is needed as this specific commit does not contain the config.kubernetes.io/local-config annotation in the kptfile.
+	// Furthermore, set-annotations is not cached - therefore when using an internal repos, need to pull the image without gcr prefix.
+	// Internal kptifle requires no gcr prefix in mutators and no config.kubernetes.io/local-config annotation.
+	repoRef := "783380ce4e6c3f21e9e90055b3a88bada0410154"
+	if os.Getenv(gcrPrefixEnv) != "" {
+		repoRef = os.Getenv(podEvalRefEnv)
+	}
 
 	// Register the repository as 'git-fn'
 	t.RegisterMainGitRepositoryF("git-fn-pod")
@@ -2045,9 +2062,12 @@ func (t *PorchSuite) TestPodEvaluator() {
 						Upstream: porchapi.UpstreamPackage{
 							Type: "git",
 							Git: &porchapi.GitPackage{
-								Repo:      "https://github.com/GoogleCloudPlatform/blueprints.git",
-								Ref:       "783380ce4e6c3f21e9e90055b3a88bada0410154",
+								Repo:      t.gcpBlueprintsRepo,
+								Ref:       repoRef,
 								Directory: "catalog/hierarchy/simple",
+								SecretRef: porchapi.SecretRef{
+									Name: t.CreateGcpPackageRevisionSecret("test-fn-pod-hierarchy-workspace-1"),
+								},
 							},
 						},
 					},
@@ -2124,9 +2144,12 @@ func (t *PorchSuite) TestPodEvaluator() {
 						Upstream: porchapi.UpstreamPackage{
 							Type: "git",
 							Git: &porchapi.GitPackage{
-								Repo:      "https://github.com/GoogleCloudPlatform/blueprints.git",
-								Ref:       "783380ce4e6c3f21e9e90055b3a88bada0410154",
+								Repo:      t.gcpBlueprintsRepo,
+								Ref:       repoRef,
 								Directory: "catalog/hierarchy/simple",
+								SecretRef: porchapi.SecretRef{
+									Name: t.CreateGcpPackageRevisionSecret("test-fn-pod-hierarchy-workspace-2"),
+								},
 							},
 						},
 					},
@@ -2200,9 +2223,12 @@ func (t *PorchSuite) TestPodEvaluatorWithFailure() {
 						Upstream: porchapi.UpstreamPackage{
 							Type: "git",
 							Git: &porchapi.GitPackage{
-								Repo:      "https://github.com/GoogleCloudPlatform/blueprints.git",
+								Repo:      t.gcpBlueprintsRepo,
 								Ref:       "bucket-blueprint-v0.4.3",
 								Directory: "catalog/bucket",
+								SecretRef: porchapi.SecretRef{
+									Name: t.CreateGcpPackageRevisionSecret("test-fn-pod-bucket"),
+								},
 							},
 						},
 					},
@@ -2211,7 +2237,7 @@ func (t *PorchSuite) TestPodEvaluatorWithFailure() {
 					Type: "eval",
 					Eval: &porchapi.FunctionEvalTaskSpec{
 						// This function is expect to fail due to not knowing schema for some CRDs.
-						Image: "gcr.io/kpt-fn/kubeval:v0.2.0",
+						Image: t.gcrPrefix + "/kubeval:v0.2.0",
 					},
 				},
 			},
@@ -2225,10 +2251,9 @@ func (t *PorchSuite) TestPodEvaluatorWithFailure() {
 }
 
 func (t *PorchSuite) TestLargePackageRevision() {
-	const (
-		setAnnotationsImage = "gcr.io/kpt-fn/set-annotations:v0.1.3" // set-annotations:v0.1.3 is an older version that porch maps neither to built-in nor exec.
-		testDataSize        = 5 * 1024 * 1024
-	)
+	const testDataSize = 5 * 1024 * 1024
+
+	setAnnotationsImage := t.gcrPrefix + "/set-annotations:v0.1.3" // set-annotations:v0.1.3 is an older version that porch maps neither to built-in nor exec.
 
 	t.RegisterMainGitRepositoryF("git-fn-pod-large")
 
@@ -2541,7 +2566,7 @@ func (t *PorchSuite) TestRegisteredPackageRevisionLabels() {
 		annoVal  = "foo"
 	)
 
-	t.RegisterGitRepositoryF(testBlueprintsRepo, "test-blueprints", "")
+	t.RegisterTestBlueprintRepository("test-blueprints", "")
 
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
@@ -2806,7 +2831,7 @@ func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces() {
 
 	registerRepoAndTestRevisions := func(repoName string, ns string, oldPRs []porchapi.PackageRevision) []porchapi.PackageRevision {
 
-		t.RegisterGitRepositoryF(testBlueprintsRepo, repoName, "", InNamespace(ns))
+		t.RegisterTestBlueprintRepository(repoName, "", RepositoryOptions{RepOpts: InNamespace(ns), SecOpts: SecretInNamespace(ns)})
 		prList := porchapi.PackageRevisionList{}
 		t.ListF(&prList, client.InNamespace(ns))
 		newPRs := prList.Items
@@ -2878,8 +2903,8 @@ func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces() {
 
 func (t *PorchSuite) TestUniquenessOfUIDs() {
 
-	t.RegisterGitRepositoryF(testBlueprintsRepo, "test-blueprints", "")
-	t.RegisterGitRepositoryF(testBlueprintsRepo, "test-2-blueprints", "")
+	t.RegisterTestBlueprintRepository("test-blueprints", "")
+	t.RegisterTestBlueprintRepository("test-2-blueprints", "")
 
 	prList := porchapi.PackageRevisionList{}
 	t.ListE(&prList, client.InNamespace(t.Namespace))
@@ -2896,7 +2921,7 @@ func (t *PorchSuite) TestUniquenessOfUIDs() {
 
 func (t *PorchSuite) TestPackageRevisionFieldSelectors() {
 	repo := "test-blueprints"
-	t.RegisterGitRepositoryF(testBlueprintsRepo, repo, "")
+	t.RegisterTestBlueprintRepository(repo, "")
 
 	prList := porchapi.PackageRevisionList{}
 
@@ -3059,7 +3084,10 @@ func (t *PorchSuite) TestRepositoryModify() {
 			Description: "Initial Repository",
 			Type:        configapi.RepositoryTypeGit,
 			Git: &configapi.GitRepository{
-				Repo: testBlueprintsRepo,
+				Repo: t.testBlueprintsRepo,
+				SecretRef: configapi.SecretRef{
+					Name: t.CreateGcpPackageRevisionSecret(repositoryName),
+				},
 			},
 		},
 	})
@@ -3122,4 +3150,177 @@ func (t *PorchSuite) TestRepositoryModify() {
 		break
 	}
 
+}
+
+func (t *PorchSuite) TestMetadataAfterApproveAndBackgroundJob() {
+	const (
+		repoName    = "repo-background-job"
+		packageName = "test-package-approve-and-background-job"
+		workspace   = "v1"
+	)
+
+	// Register the repository
+	t.RegisterMainGitRepositoryF(repoName)
+
+	// init, propose, and approve a new package
+	pr := t.CreatePackageSkeleton(repoName, packageName, workspace)
+	pr.Spec.Tasks = []porchapi.Task{{Type: porchapi.TaskTypeInit, Init: &porchapi.PackageInitTaskSpec{}}}
+	t.CreateF(pr)
+	prKey := client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      pr.Name,
+	}
+	t.GetF(prKey, pr)
+	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	t.UpdateF(pr)
+	t.GetF(prKey, pr)
+	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+	t.GetF(prKey, pr)
+
+	// List package revisions and check they are as expected
+	// (one as the latest with revision 1; one for the "main"/-1 revision)
+	var list porchapi.PackageRevisionList
+	t.ListE(&list, client.InNamespace(t.Namespace))
+
+	expectedPkgRevKeyv1 := repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: repoName}, Package: packageName}, Revision: 1, WorkspaceName: workspace}
+	expectedPkgRevKeyMain := repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: repoName}, Package: packageName}, Revision: -1, WorkspaceName: "main"}
+
+	t.MustFindPackageRevision(&list, expectedPkgRevKeyv1)
+	t.MustFindPackageRevision(&list, expectedPkgRevKeyMain)
+
+	t.RetriggerBackgroundJobForRepo(repoName)
+
+	// List package revisions again and check they are still as expected
+	t.ListE(&list, client.InNamespace(t.Namespace))
+	t.MustFindPackageRevision(&list, expectedPkgRevKeyv1)
+	t.MustFindPackageRevision(&list, expectedPkgRevKeyMain)
+}
+
+func (t *PorchSuite) TestMetadataAfterDeleteAndBackgroundJob() {
+	const (
+		repoName    = "repo-background-job"
+		packageName = "test-package-delete-and-background-job"
+		workspace   = "v1"
+	)
+
+	// Register the repository
+	t.RegisterMainGitRepositoryF(repoName)
+
+	// init, propose, and approve a new package
+	pr := t.CreatePackageSkeleton(repoName, packageName, workspace)
+	pr.Spec.Tasks = []porchapi.Task{{Type: porchapi.TaskTypeInit, Init: &porchapi.PackageInitTaskSpec{}}}
+	t.CreateF(pr)
+	prKey := client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      pr.Name,
+	}
+	t.GetF(prKey, pr)
+	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	t.UpdateF(pr)
+	t.GetF(prKey, pr)
+	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+	t.GetF(prKey, pr)
+
+	// List package revisions and check they are as expected
+	// (one as the latest with revision 1; one for the "main"/-1 revision)
+	var list porchapi.PackageRevisionList
+	t.ListE(&list, client.InNamespace(t.Namespace))
+
+	expectedPkgRevKeyv1 := repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: repoName}, Package: packageName}, Revision: 1, WorkspaceName: workspace}
+	expectedPkgRevKeyMain := repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: repoName}, Package: packageName}, Revision: -1, WorkspaceName: "main"}
+
+	t.MustFindPackageRevision(&list, expectedPkgRevKeyv1)
+	t.MustFindPackageRevision(&list, expectedPkgRevKeyMain)
+
+	// Propose-delete and delete the package revision with "revision" == 1
+	//
+	// (henceforth called "the v1 package revision")
+	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
+	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+	t.DeleteE(&porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: t.Namespace,
+			Name:      pr.Name,
+		},
+	})
+
+	// Check that the "main" package revision still exists, while the v1 package
+	// revision does not
+	mainPrKey := client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      strings.Replace(pr.Name, workspace, "main", 1),
+	}
+	t.MustExist(mainPrKey, &porchapi.PackageRevision{})
+	t.MustNotExist(pr)
+
+	t.RetriggerBackgroundJobForRepo(repoName)
+
+	// Check that the existence and non-existence of the package revisions are
+	// still as they were before the background job
+	t.MustExist(mainPrKey, &porchapi.PackageRevision{})
+	t.MustNotExist(pr)
+}
+func (t *PorchSuite) TestCreatePackageRevisionRollback() {
+	// Create a package revision that will fail during task application
+	// This should trigger the rollback functionality
+	ctx := context.Background()
+	packageName := "test-package-rollback"
+	workspaceName := "test-workspace-rollback"
+	repositoryName := "test-repo"
+
+	// Register the repository first
+	t.RegisterMainGitRepositoryF(repositoryName)
+
+	// Create a package revision with invalid task configuration
+	// that will cause task application to fail
+	pr := &porchapi.PackageRevision{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PackageRevision",
+			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-%s", packageName, workspaceName),
+			Namespace: t.Namespace,
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			PackageName:    packageName,
+			WorkspaceName:  workspaceName,
+			RepositoryName: repositoryName,
+			Tasks: []porchapi.Task{
+				{
+					Type: porchapi.TaskTypeClone,
+					Clone: &porchapi.PackageCloneTaskSpec{
+						Upstream: porchapi.UpstreamPackage{
+							Type: porchapi.RepositoryTypeGit,
+							Git: &porchapi.GitPackage{
+								Repo:      "https://github.com/nephio-project/porch.git",
+								Ref:       "main",
+								Directory: "testdata/test-repo",
+							},
+						},
+					},
+				},
+				{
+					Type: porchapi.TaskTypePatch,
+					Patch: &porchapi.PackagePatchTaskSpec{
+						Patches: []porchapi.PatchSpec{
+							{
+								File: "invalid-file.yaml", // This will cause task application to fail
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Attempt to create the package revision
+	_, err := t.Clientset.PorchV1alpha1().PackageRevisions(t.Namespace).Create(ctx, pr, metav1.CreateOptions{})
+	assert.Error(t, err, "Expected error when creating package revision with invalid task configuration")
+
+	// Verify that the package revision was not created
+	_, err = t.Clientset.PorchV1alpha1().PackageRevisions(t.Namespace).Get(ctx, pr.Name, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(err), "Expected package revision to be deleted after rollback")
 }
