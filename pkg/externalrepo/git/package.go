@@ -147,13 +147,13 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 	if err != nil {
 		return nil, fmt.Errorf("failed to load package resources: %w", err)
 	}
-	pf, err := p.GetPorchfile(ctx)
+	porchFile, err := p.GetPorchfile()
 	if err != nil {
 		klog.Errorf("error: %v", err)
 	}
-	var rs v1alpha1.RenderStatus
-	if pf.Status != nil {
-		rs = *pf.Status
+	var renderStatus v1alpha1.RenderStatus
+	if porchFile.Status != nil {
+		renderStatus = *porchFile.Status
 	}
 	p.mutex.Lock()
 	prRes := &v1alpha1.PackageRevisionResources{
@@ -180,7 +180,7 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 			Resources: resources,
 		},
 		Status: v1alpha1.PackageRevisionResourcesStatus{
-			RenderStatus: rs,
+			RenderStatus: renderStatus,
 		},
 	}
 	p.mutex.Unlock()
@@ -227,20 +227,20 @@ func (p *gitPackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, e
 	return *kf, nil
 }
 
-func (p *gitPackageRevision) GetPorchfile(ctx context.Context) (v1alpha1.PorchFile, error) {
+func (p *gitPackageRevision) GetPorchfile() (v1alpha1.PorchFile, error) {
 	resources, err := p.repo.GetResources(p.tree)
 	if err != nil {
 		return v1alpha1.PorchFile{}, fmt.Errorf("error loading package resources: %w", err)
 	}
-	pfString, found := resources["Porchfile"]
+	porchFileString, found := resources["Porchfile"]
 	if !found {
 		return v1alpha1.PorchFile{}, nil
 	}
-	pf, err := util.DecodePorchfile(strings.NewReader(pfString))
+	porchFile, err := util.DecodePorchfile(strings.NewReader(porchFileString))
 	if err != nil {
 		return v1alpha1.PorchFile{}, fmt.Errorf("error decoding Porchfile: %w", err)
 	}
-	return *pf, nil
+	return *porchFile, nil
 }
 
 // GetUpstreamLock returns the upstreamLock info present in the Kptfile of the package.

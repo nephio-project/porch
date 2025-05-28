@@ -209,17 +209,17 @@ func ValidPkgRevObjName(repoName, path, packageName, workspace string) error {
 
 // decoder for Porchfile's in porch packages
 func DecodePorchfile(in io.Reader) (*v1alpha1.PorchFile, error) {
-	pf := &v1alpha1.PorchFile{}
-	c, err := io.ReadAll(in)
+	porchFile := &v1alpha1.PorchFile{}
+	reader, err := io.ReadAll(in)
 	if err != nil {
-		return pf, err
+		return porchFile, err
 	}
-	d := yaml.NewDecoder(bytes.NewBuffer(c))
-	d.KnownFields(true)
-	if err := d.Decode(pf); err != nil {
-		return pf, err
+	decoder := yaml.NewDecoder(bytes.NewBuffer(reader))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(porchFile); err != nil {
+		return porchFile, err
 	}
-	return pf, nil
+	return porchFile, nil
 }
 
 func ParsePkgRevObjName(name string) ([]string, error) {

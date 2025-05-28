@@ -176,8 +176,8 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	// Apply tasks
 	tasksErr := cad.taskHandler.ApplyTasks(ctx, draft, repositoryObj, obj, packageConfig)
 	if tasksErr != nil {
-		var rerr *task.RenderError
-		if errors.As(tasksErr, &rerr) {
+		var renderErr *task.RenderError
+		if errors.As(tasksErr, &renderErr) {
 			renderFailed = true
 		} else {
 			rollback()
@@ -471,8 +471,8 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 	// if error is a render error we take note and allow further operation else return error and no resource update
 	renderFailed := false
 	if mutationErr != nil {
-		var rerr *task.RenderError
-		if errors.As(mutationErr, &rerr) {
+		var renderErr *task.RenderError
+		if errors.As(mutationErr, &renderErr) {
 			renderFailed = true
 		} else {
 			return nil, renderStatus, err

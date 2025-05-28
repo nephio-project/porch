@@ -185,8 +185,8 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 	// if the error occurred is a render error allow it to pass else return error
 	renderFailed := false
 	if rendErr != nil {
-		var rerr *task.RenderError
-		if errors.As(rendErr, &rerr) {
+		var renderErr *task.RenderError
+		if errors.As(rendErr, &renderErr) {
 			renderFailed = true
 		} else {
 			return nil, apierrors.NewInternalError(rendErr)
