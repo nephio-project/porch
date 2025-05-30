@@ -203,3 +203,23 @@ func TestPackageRevisionMatches(t *testing.T) {
 		})
 	}
 }
+
+func TestNamespaceFlagWithoutValue(t *testing.T) {
+	ctx := context.Background()
+	ns := ""
+	gcf := genericclioptions.ConfigFlags{Namespace: &ns}
+	r := newRunner(ctx, &gcf)
+	cmd := get.NewCommand(ctx, &gcf)
+
+	// Simulate --namespace flag specified but with no value
+	nsFlag := cmd.Flags().Lookup("namespace")
+	if nsFlag == nil {
+		t.Fatal("namespace flag not found")
+	}
+	nsFlag.Changed = true
+	nsFlag.Value.Set("")
+
+	err := r.preRunE(cmd, []string{})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "--namespace flag specified without a value")
+}
