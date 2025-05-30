@@ -210,9 +210,10 @@ func TestNamespaceFlagWithoutValue(t *testing.T) {
 	gcf := genericclioptions.ConfigFlags{Namespace: &ns}
 	r := newRunner(ctx, &gcf)
 	cmd := get.NewCommand(ctx, &gcf)
+	gcf.AddFlags(cmd.PersistentFlags())
 
 	// Simulate --namespace flag specified but with no value
-	nsFlag := cmd.Flags().Lookup("namespace")
+	nsFlag := cmd.Flag("namespace")
 	if nsFlag == nil {
 		t.Fatal("namespace flag not found")
 	}
@@ -221,6 +222,7 @@ func TestNamespaceFlagWithoutValue(t *testing.T) {
 	if errSet != nil {
 		t.Fatalf("unexpected error setting namespace flag: %v", errSet)
 	}
+
 	err := r.preRunE(cmd, []string{})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "--namespace flag specified without a value")
