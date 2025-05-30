@@ -34,7 +34,7 @@ spec:
         fsGroup: 1000
       initContainers:
         - name: init-directories
-          image: "gitea/gitea:1.21.4-rootless"
+          image: "gitea/gitea:1.23.8-rootless"
           imagePullPolicy: IfNotPresent
           command: ["/usr/sbin/init_directory_structure.sh"]
           env:
