@@ -32,14 +32,17 @@ import (
 	porchclient "github.com/nephio-project/porch/api/generated/clientset/versioned"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	pvapi "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	internalpkg "github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/pkg/externalrepo/git"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/suite"
 	appsv1 "k8s.io/api/apps/v1"
 	coreapi "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -143,6 +146,11 @@ func (t *TestSuite) Initialize() {
 	} else {
 		t.Client = c
 		t.Kubeconfig = cfg
+	}
+
+	if err := t.Client.List(t.GetContext(), &v1.PodList{}); err != nil {
+		t.Skipf("Skipping test suite - Kubernetes cluster not accessible: %v\n"+
+			"Consider spinning up a Kind cluster with Porch by running `/scripts/setup-dev-env.sh && make run-in-kind` in the root directory of the porch repo.", err)
 	}
 
 	if kubeClient, err := kubernetes.NewForConfig(cfg); err != nil {
@@ -488,6 +496,7 @@ func createClientScheme(t *testing.T) *runtime.Scheme {
 		coreapi.AddToScheme,
 		aggregatorv1.AddToScheme,
 		appsv1.AddToScheme,
+		pvapi.AddToScheme,
 	}) {
 		if err := api(scheme); err != nil {
 			t.Fatalf("Failed to initialize test k8s api client")
@@ -797,11 +806,11 @@ func (t *TestSuite) ParseKptfileF(resources *porchapi.PackageRevisionResources) 
 
 func (t *TestSuite) SaveKptfileF(resources *porchapi.PackageRevisionResources, kptfile *kptfilev1.KptFile) {
 	t.T().Helper()
-	b, err := yaml.MarshalWithOptions(kptfile, &yaml.EncoderOptions{SeqIndent: yaml.WideSequenceStyle})
+	kptfileYaml, err := kptfileutil.ToYamlString(kptfile)
 	if err != nil {
 		t.Fatalf("Failed saving Kptfile: %v", err)
 	}
-	resources.Spec.Resources[kptfilev1.KptFileName] = string(b)
+	resources.Spec.Resources[kptfilev1.KptFileName] = kptfileYaml
 }
 
 func (t *TestSuite) FindAndDecodeF(resources *porchapi.PackageRevisionResources, name string, value interface{}) {
