@@ -173,26 +173,36 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	}
 
 	// Apply tasks
-	if err := cad.taskHandler.ApplyTasks(ctx, draft, repositoryObj, obj, packageConfig); err != nil {
-		rollback()
-		return nil, err
+
+	renderFailed := false
+	tasksErr := cad.taskHandler.ApplyTasks(ctx, draft, repositoryObj, obj, packageConfig)
+	if tasksErr != nil {
+		var rerr *task.RenderError
+		if errors.As(tasksErr, &rerr) {
+			renderFailed = true
+		} else {
+			rollback()
+			return nil, tasksErr
+		}
 	}
 
-	// Update lifecycle
 	if err := draft.UpdateLifecycle(ctx, obj.Spec.Lifecycle); err != nil {
 		rollback()
 		return nil, err
 	}
 
-	// Close the draft
 	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, 0)
 	if err != nil {
-		// Don't call rollback() here since it would likely fail again
-		// Just return the error from the close operation
-		return nil, fmt.Errorf("failed to close package revision draft: %w", err)
+		return nil, err
 	}
 
-	return repoPkgRev, nil
+	// if render fails we allow resource creation alongside the error
+	if renderFailed {
+		return repoPkgRev, tasksErr
+	}
+
+	// Updates are done.
+	return repo.ClosePackageRevisionDraft(ctx, draft, 0)
 }
 
 // The workspaceName must be unique, because it used to generate the package revision's metadata.name.
@@ -450,14 +460,25 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 		return nil, nil, err
 	}
 
-	renderStatus, err := cad.taskHandler.DoPRResourceMutations(ctx, pr2Update, draft, oldRes, newRes)
-	if err != nil {
-		return nil, renderStatus, err
+	renderStatus, mutationErr := cad.taskHandler.DoPRResourceMutations(ctx, pr2Update, draft, oldRes, newRes)
+	// if error is a render error we take note and allow further operation else return error and no resource update
+	renderFailed := false
+	if mutationErr != nil {
+		var rerr *task.RenderError
+		if errors.As(mutationErr, &rerr) {
+			renderFailed = true
+		} else {
+			return nil, renderStatus, err
+		}
 	}
 	// No lifecycle change when updating package resources; updates are done.
 	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, 0)
 	if err != nil {
 		return nil, renderStatus, err
+	}
+	// if render failed is the cause of the error we allow resource update but also return error information
+	if renderFailed {
+		return repoPkgRev, renderStatus, err
 	}
 
 	return repoPkgRev, renderStatus, nil
