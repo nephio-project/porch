@@ -102,10 +102,7 @@ func (m *renderPackageMutation) apply(ctx context.Context, resources repository.
 }
 
 func isRenderablePackage(resources repository.PackageResources) bool {
-	kptfile, err := resources.GetKptfile()
-	if err != nil {
-		return false
-	}
+	kptfile := resources.GetKptfile()
 	return !kptfile.Pipeline.IsEmpty()
 }
 

@@ -684,10 +684,7 @@ func wasRendered(resources repository.PackageResources) bool {
 	if resources.Contents == nil {
 		return false
 	}
-	kf, err := resources.GetKptfile()
-	if err != nil {
-		return false
-	}
+	kf := resources.GetKptfile()
 	return kf.Status != nil &&
 		slices.ContainsFunc(kf.Status.Conditions, func(aCond kptfile.Condition) bool {
 			return aCond.Type == ConditionPipelineNotPassed.Type && aCond.Status == kptfile.ConditionFalse

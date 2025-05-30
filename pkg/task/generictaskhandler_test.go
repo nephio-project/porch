@@ -152,7 +152,7 @@ func TestMapTaskToMutationPatchTask(t *testing.T) {
 	}
 
 	// Call mapTaskToMutation
-	mutation, err := handler.mapTaskToMutation(ctx, obj, patchTask, false, nil)
+	mutation, err := handler.mapTaskToMutation(ctx, obj, patchTask, false, nil, nil)
 
 	// Verify results
 	assert.NoError(t, err)
