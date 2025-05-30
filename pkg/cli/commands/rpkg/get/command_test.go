@@ -217,8 +217,10 @@ func TestNamespaceFlagWithoutValue(t *testing.T) {
 		t.Fatal("namespace flag not found")
 	}
 	nsFlag.Changed = true
-	nsFlag.Value.Set("")
-
+	errSet := nsFlag.Value.Set("")
+	if errSet != nil {
+		t.Fatalf("unexpected error setting namespace flag: %v", errSet)
+	}
 	err := r.preRunE(cmd, []string{})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "--namespace flag specified without a value")
