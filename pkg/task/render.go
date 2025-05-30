@@ -17,6 +17,7 @@ package task
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	iofs "io/fs"
 	"path"
 	"strings"
@@ -33,6 +34,7 @@ import (
 )
 
 type renderPackageMutation struct {
+	draft         repository.PackageRevisionDraft
 	runtime       fn.FunctionRuntime
 	runnerOptions fnruntime.RunnerOptions
 }
@@ -42,6 +44,13 @@ var _ mutation = &renderPackageMutation{}
 func (m *renderPackageMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
 	ctx, span := tracer.Start(ctx, "renderPackageMutation::apply", trace.WithAttributes())
 	defer span.End()
+
+	if isRenderablePackage(resources) {
+		resources, err := lockPipelineReadinessGate(ctx, m.draft, resources)
+		if err != nil {
+			return resources, nil, err
+		}
+	}
 
 	fs := filesys.MakeFsInMemory()
 	taskResult := &api.TaskResult{
@@ -92,19 +101,45 @@ func (m *renderPackageMutation) apply(ctx context.Context, resources repository.
 	return renderedResources, taskResult, nil
 }
 
-func convertResultList(in *fnresult.ResultList, out *api.ResultList) error {
-	if in == nil {
-		return nil
-	}
-	srcBytes, err := json.Marshal(in)
+func isRenderablePackage(resources repository.PackageResources) bool {
+	kptfile, err := resources.GetKptfile()
 	if err != nil {
-		return err
+		return false
+	}
+	return !kptfile.Pipeline.IsEmpty()
+}
+
+func lockPipelineReadinessGate(ctx context.Context, draft repository.PackageRevisionDraft, resources repository.PackageResources) (repository.PackageResources, error) {
+	ctx, span := tracer.Start(ctx, "generictaskhandler.go::pushPipelineReadinessGate", trace.WithAttributes())
+	defer span.End()
+
+	repo := draft.GetRepo()
+
+	resources.SetPrStatusCondition(ConditionPipelineNotPassed, true)
+	if err := draft.UpdateResources(ctx, &api.PackageRevisionResources{
+		Spec: api.PackageRevisionResourcesSpec{
+			Resources: resources.Contents,
+		},
+	}, &api.Task{Type: "lock pipeline readiness gate"}); err != nil {
+		return resources, err
 	}
 
-	if err := json.Unmarshal(srcBytes, &out); err != nil {
-		return err
+	repoPr, err := repo.ClosePackageRevisionDraft(ctx, draft, 0)
+	if err != nil {
+		return resources, err
 	}
-	return nil
+
+	draft, err = repo.UpdatePackageRevision(ctx, repoPr)
+	apiResources, err := repoPr.GetResources(ctx)
+	if err != nil {
+		return resources, fmt.Errorf("cannot get package resources after locking pipeline readiness gate: %w", err)
+	}
+
+	resources = repository.PackageResources{
+		Contents: apiResources.Spec.Resources,
+	}
+
+	return resources, nil
 }
 
 // TODO: Implement filesystem abstraction directly rather than on top of PackageResources
@@ -132,6 +167,21 @@ func writeResources(fs filesys.FileSystem, resources repository.PackageResources
 	}
 	// Return topmost directory containing Kptfile
 	return packageDir, nil
+}
+
+func convertResultList(in *fnresult.ResultList, out *api.ResultList) error {
+	if in == nil {
+		return nil
+	}
+	srcBytes, err := json.Marshal(in)
+	if err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal(srcBytes, &out); err != nil {
+		return err
+	}
+	return nil
 }
 
 func readResources(fs filesys.FileSystem) (repository.PackageResources, error) {

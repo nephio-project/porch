@@ -30,9 +30,9 @@ func (_m *MockPackageRevision) EXPECT() *MockPackageRevision_Expecter {
 	return &MockPackageRevision_Expecter{mock: &_m.Mock}
 }
 
-// GetKptfile provides a mock function with given fields: _a0
-func (_m *MockPackageRevision) GetKptfile(_a0 context.Context) (v1.KptFile, error) {
-	ret := _m.Called(_a0)
+// GetKptfile provides a mock function with given fields: ctx
+func (_m *MockPackageRevision) GetKptfile(ctx context.Context) (v1.KptFile, error) {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetKptfile")
@@ -41,16 +41,16 @@ func (_m *MockPackageRevision) GetKptfile(_a0 context.Context) (v1.KptFile, erro
 	var r0 v1.KptFile
 	var r1 error
 	if rf, ok := ret.Get(0).(func(context.Context) (v1.KptFile, error)); ok {
-		return rf(_a0)
+		return rf(ctx)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context) v1.KptFile); ok {
-		r0 = rf(_a0)
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(v1.KptFile)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(_a0)
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -64,12 +64,12 @@ type MockPackageRevision_GetKptfile_Call struct {
 }
 
 // GetKptfile is a helper method to define mock.On call
-//   - _a0 context.Context
-func (_e *MockPackageRevision_Expecter) GetKptfile(_a0 interface{}) *MockPackageRevision_GetKptfile_Call {
-	return &MockPackageRevision_GetKptfile_Call{Call: _e.mock.On("GetKptfile", _a0)}
+//   - ctx context.Context
+func (_e *MockPackageRevision_Expecter) GetKptfile(ctx interface{}) *MockPackageRevision_GetKptfile_Call {
+	return &MockPackageRevision_GetKptfile_Call{Call: _e.mock.On("GetKptfile", ctx)}
 }
 
-func (_c *MockPackageRevision_GetKptfile_Call) Run(run func(_a0 context.Context)) *MockPackageRevision_GetKptfile_Call {
+func (_c *MockPackageRevision_GetKptfile_Call) Run(run func(ctx context.Context)) *MockPackageRevision_GetKptfile_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context))
 	})
@@ -193,9 +193,9 @@ func (_c *MockPackageRevision_GetMeta_Call) RunAndReturn(run func() metav1.Objec
 	return _c
 }
 
-// GetPackageRevision provides a mock function with given fields: _a0
-func (_m *MockPackageRevision) GetPackageRevision(_a0 context.Context) (*v1alpha1.PackageRevision, error) {
-	ret := _m.Called(_a0)
+// GetPackageRevision provides a mock function with given fields: ctx
+func (_m *MockPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.PackageRevision, error) {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetPackageRevision")
@@ -204,10 +204,10 @@ func (_m *MockPackageRevision) GetPackageRevision(_a0 context.Context) (*v1alpha
 	var r0 *v1alpha1.PackageRevision
 	var r1 error
 	if rf, ok := ret.Get(0).(func(context.Context) (*v1alpha1.PackageRevision, error)); ok {
-		return rf(_a0)
+		return rf(ctx)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context) *v1alpha1.PackageRevision); ok {
-		r0 = rf(_a0)
+		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*v1alpha1.PackageRevision)
@@ -215,7 +215,7 @@ func (_m *MockPackageRevision) GetPackageRevision(_a0 context.Context) (*v1alpha
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(_a0)
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -229,12 +229,12 @@ type MockPackageRevision_GetPackageRevision_Call struct {
 }
 
 // GetPackageRevision is a helper method to define mock.On call
-//   - _a0 context.Context
-func (_e *MockPackageRevision_Expecter) GetPackageRevision(_a0 interface{}) *MockPackageRevision_GetPackageRevision_Call {
-	return &MockPackageRevision_GetPackageRevision_Call{Call: _e.mock.On("GetPackageRevision", _a0)}
+//   - ctx context.Context
+func (_e *MockPackageRevision_Expecter) GetPackageRevision(ctx interface{}) *MockPackageRevision_GetPackageRevision_Call {
+	return &MockPackageRevision_GetPackageRevision_Call{Call: _e.mock.On("GetPackageRevision", ctx)}
 }
 
-func (_c *MockPackageRevision_GetPackageRevision_Call) Run(run func(_a0 context.Context)) *MockPackageRevision_GetPackageRevision_Call {
+func (_c *MockPackageRevision_GetPackageRevision_Call) Run(run func(ctx context.Context)) *MockPackageRevision_GetPackageRevision_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context))
 	})
@@ -251,9 +251,9 @@ func (_c *MockPackageRevision_GetPackageRevision_Call) RunAndReturn(run func(con
 	return _c
 }
 
-// GetResources provides a mock function with given fields: _a0
-func (_m *MockPackageRevision) GetResources(_a0 context.Context) (*v1alpha1.PackageRevisionResources, error) {
-	ret := _m.Called(_a0)
+// GetResources provides a mock function with given fields: ctx
+func (_m *MockPackageRevision) GetResources(ctx context.Context) (*v1alpha1.PackageRevisionResources, error) {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetResources")
@@ -262,10 +262,10 @@ func (_m *MockPackageRevision) GetResources(_a0 context.Context) (*v1alpha1.Pack
 	var r0 *v1alpha1.PackageRevisionResources
 	var r1 error
 	if rf, ok := ret.Get(0).(func(context.Context) (*v1alpha1.PackageRevisionResources, error)); ok {
-		return rf(_a0)
+		return rf(ctx)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context) *v1alpha1.PackageRevisionResources); ok {
-		r0 = rf(_a0)
+		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*v1alpha1.PackageRevisionResources)
@@ -273,7 +273,7 @@ func (_m *MockPackageRevision) GetResources(_a0 context.Context) (*v1alpha1.Pack
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(_a0)
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -287,12 +287,12 @@ type MockPackageRevision_GetResources_Call struct {
 }
 
 // GetResources is a helper method to define mock.On call
-//   - _a0 context.Context
-func (_e *MockPackageRevision_Expecter) GetResources(_a0 interface{}) *MockPackageRevision_GetResources_Call {
-	return &MockPackageRevision_GetResources_Call{Call: _e.mock.On("GetResources", _a0)}
+//   - ctx context.Context
+func (_e *MockPackageRevision_Expecter) GetResources(ctx interface{}) *MockPackageRevision_GetResources_Call {
+	return &MockPackageRevision_GetResources_Call{Call: _e.mock.On("GetResources", ctx)}
 }
 
-func (_c *MockPackageRevision_GetResources_Call) Run(run func(_a0 context.Context)) *MockPackageRevision_GetResources_Call {
+func (_c *MockPackageRevision_GetResources_Call) Run(run func(ctx context.Context)) *MockPackageRevision_GetResources_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context))
 	})
@@ -309,9 +309,9 @@ func (_c *MockPackageRevision_GetResources_Call) RunAndReturn(run func(context.C
 	return _c
 }
 
-// GetUpstreamLock provides a mock function with given fields: _a0
-func (_m *MockPackageRevision) GetUpstreamLock(_a0 context.Context) (v1.Upstream, v1.UpstreamLock, error) {
-	ret := _m.Called(_a0)
+// GetUpstreamLock provides a mock function with given fields: ctx
+func (_m *MockPackageRevision) GetUpstreamLock(ctx context.Context) (v1.Upstream, v1.UpstreamLock, error) {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetUpstreamLock")
@@ -321,22 +321,22 @@ func (_m *MockPackageRevision) GetUpstreamLock(_a0 context.Context) (v1.Upstream
 	var r1 v1.UpstreamLock
 	var r2 error
 	if rf, ok := ret.Get(0).(func(context.Context) (v1.Upstream, v1.UpstreamLock, error)); ok {
-		return rf(_a0)
+		return rf(ctx)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context) v1.Upstream); ok {
-		r0 = rf(_a0)
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(v1.Upstream)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context) v1.UpstreamLock); ok {
-		r1 = rf(_a0)
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Get(1).(v1.UpstreamLock)
 	}
 
 	if rf, ok := ret.Get(2).(func(context.Context) error); ok {
-		r2 = rf(_a0)
+		r2 = rf(ctx)
 	} else {
 		r2 = ret.Error(2)
 	}
@@ -350,12 +350,12 @@ type MockPackageRevision_GetUpstreamLock_Call struct {
 }
 
 // GetUpstreamLock is a helper method to define mock.On call
-//   - _a0 context.Context
-func (_e *MockPackageRevision_Expecter) GetUpstreamLock(_a0 interface{}) *MockPackageRevision_GetUpstreamLock_Call {
-	return &MockPackageRevision_GetUpstreamLock_Call{Call: _e.mock.On("GetUpstreamLock", _a0)}
+//   - ctx context.Context
+func (_e *MockPackageRevision_Expecter) GetUpstreamLock(ctx interface{}) *MockPackageRevision_GetUpstreamLock_Call {
+	return &MockPackageRevision_GetUpstreamLock_Call{Call: _e.mock.On("GetUpstreamLock", ctx)}
 }
 
-func (_c *MockPackageRevision_GetUpstreamLock_Call) Run(run func(_a0 context.Context)) *MockPackageRevision_GetUpstreamLock_Call {
+func (_c *MockPackageRevision_GetUpstreamLock_Call) Run(run func(ctx context.Context)) *MockPackageRevision_GetUpstreamLock_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context))
 	})
@@ -598,9 +598,9 @@ func (_c *MockPackageRevision_ResourceVersion_Call) RunAndReturn(run func() stri
 	return _c
 }
 
-// SetMeta provides a mock function with given fields: _a0, _a1
-func (_m *MockPackageRevision) SetMeta(_a0 context.Context, _a1 metav1.ObjectMeta) error {
-	ret := _m.Called(_a0, _a1)
+// SetMeta provides a mock function with given fields: ctx, meta
+func (_m *MockPackageRevision) SetMeta(ctx context.Context, meta metav1.ObjectMeta) error {
+	ret := _m.Called(ctx, meta)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SetMeta")
@@ -608,7 +608,7 @@ func (_m *MockPackageRevision) SetMeta(_a0 context.Context, _a1 metav1.ObjectMet
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, metav1.ObjectMeta) error); ok {
-		r0 = rf(_a0, _a1)
+		r0 = rf(ctx, meta)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -622,13 +622,13 @@ type MockPackageRevision_SetMeta_Call struct {
 }
 
 // SetMeta is a helper method to define mock.On call
-//   - _a0 context.Context
-//   - _a1 metav1.ObjectMeta
-func (_e *MockPackageRevision_Expecter) SetMeta(_a0 interface{}, _a1 interface{}) *MockPackageRevision_SetMeta_Call {
-	return &MockPackageRevision_SetMeta_Call{Call: _e.mock.On("SetMeta", _a0, _a1)}
+//   - ctx context.Context
+//   - meta metav1.ObjectMeta
+func (_e *MockPackageRevision_Expecter) SetMeta(ctx interface{}, meta interface{}) *MockPackageRevision_SetMeta_Call {
+	return &MockPackageRevision_SetMeta_Call{Call: _e.mock.On("SetMeta", ctx, meta)}
 }
 
-func (_c *MockPackageRevision_SetMeta_Call) Run(run func(_a0 context.Context, _a1 metav1.ObjectMeta)) *MockPackageRevision_SetMeta_Call {
+func (_c *MockPackageRevision_SetMeta_Call) Run(run func(ctx context.Context, meta metav1.ObjectMeta)) *MockPackageRevision_SetMeta_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(metav1.ObjectMeta))
 	})
@@ -645,17 +645,50 @@ func (_c *MockPackageRevision_SetMeta_Call) RunAndReturn(run func(context.Contex
 	return _c
 }
 
-// ToMainPackageRevision provides a mock function with no fields
-func (_m *MockPackageRevision) ToMainPackageRevision() repository.PackageRevision {
-	ret := _m.Called()
+// SetRepository provides a mock function with given fields: _a0
+func (_m *MockPackageRevision) SetRepository(_a0 repository.Repository) {
+	_m.Called(_a0)
+}
+
+// MockPackageRevision_SetRepository_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetRepository'
+type MockPackageRevision_SetRepository_Call struct {
+	*mock.Call
+}
+
+// SetRepository is a helper method to define mock.On call
+//   - _a0 repository.Repository
+func (_e *MockPackageRevision_Expecter) SetRepository(_a0 interface{}) *MockPackageRevision_SetRepository_Call {
+	return &MockPackageRevision_SetRepository_Call{Call: _e.mock.On("SetRepository", _a0)}
+}
+
+func (_c *MockPackageRevision_SetRepository_Call) Run(run func(_a0 repository.Repository)) *MockPackageRevision_SetRepository_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(repository.Repository))
+	})
+	return _c
+}
+
+func (_c *MockPackageRevision_SetRepository_Call) Return() *MockPackageRevision_SetRepository_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockPackageRevision_SetRepository_Call) RunAndReturn(run func(repository.Repository)) *MockPackageRevision_SetRepository_Call {
+	_c.Run(run)
+	return _c
+}
+
+// ToMainPackageRevision provides a mock function with given fields: ctx
+func (_m *MockPackageRevision) ToMainPackageRevision(ctx context.Context) repository.PackageRevision {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ToMainPackageRevision")
 	}
 
 	var r0 repository.PackageRevision
-	if rf, ok := ret.Get(0).(func() repository.PackageRevision); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) repository.PackageRevision); ok {
+		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(repository.PackageRevision)
@@ -671,13 +704,14 @@ type MockPackageRevision_ToMainPackageRevision_Call struct {
 }
 
 // ToMainPackageRevision is a helper method to define mock.On call
-func (_e *MockPackageRevision_Expecter) ToMainPackageRevision() *MockPackageRevision_ToMainPackageRevision_Call {
-	return &MockPackageRevision_ToMainPackageRevision_Call{Call: _e.mock.On("ToMainPackageRevision")}
+//   - ctx context.Context
+func (_e *MockPackageRevision_Expecter) ToMainPackageRevision(ctx interface{}) *MockPackageRevision_ToMainPackageRevision_Call {
+	return &MockPackageRevision_ToMainPackageRevision_Call{Call: _e.mock.On("ToMainPackageRevision", ctx)}
 }
 
-func (_c *MockPackageRevision_ToMainPackageRevision_Call) Run(run func()) *MockPackageRevision_ToMainPackageRevision_Call {
+func (_c *MockPackageRevision_ToMainPackageRevision_Call) Run(run func(ctx context.Context)) *MockPackageRevision_ToMainPackageRevision_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(context.Context))
 	})
 	return _c
 }
@@ -687,7 +721,7 @@ func (_c *MockPackageRevision_ToMainPackageRevision_Call) Return(_a0 repository.
 	return _c
 }
 
-func (_c *MockPackageRevision_ToMainPackageRevision_Call) RunAndReturn(run func() repository.PackageRevision) *MockPackageRevision_ToMainPackageRevision_Call {
+func (_c *MockPackageRevision_ToMainPackageRevision_Call) RunAndReturn(run func(context.Context) repository.PackageRevision) *MockPackageRevision_ToMainPackageRevision_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -737,9 +771,9 @@ func (_c *MockPackageRevision_UID_Call) RunAndReturn(run func() types.UID) *Mock
 	return _c
 }
 
-// UpdateLifecycle provides a mock function with given fields: ctx, new
-func (_m *MockPackageRevision) UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error {
-	ret := _m.Called(ctx, new)
+// UpdateLifecycle provides a mock function with given fields: ctx, lifecycle
+func (_m *MockPackageRevision) UpdateLifecycle(ctx context.Context, lifecycle v1alpha1.PackageRevisionLifecycle) error {
+	ret := _m.Called(ctx, lifecycle)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateLifecycle")
@@ -747,7 +781,7 @@ func (_m *MockPackageRevision) UpdateLifecycle(ctx context.Context, new v1alpha1
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, v1alpha1.PackageRevisionLifecycle) error); ok {
-		r0 = rf(ctx, new)
+		r0 = rf(ctx, lifecycle)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -762,12 +796,12 @@ type MockPackageRevision_UpdateLifecycle_Call struct {
 
 // UpdateLifecycle is a helper method to define mock.On call
 //   - ctx context.Context
-//   - new v1alpha1.PackageRevisionLifecycle
-func (_e *MockPackageRevision_Expecter) UpdateLifecycle(ctx interface{}, new interface{}) *MockPackageRevision_UpdateLifecycle_Call {
-	return &MockPackageRevision_UpdateLifecycle_Call{Call: _e.mock.On("UpdateLifecycle", ctx, new)}
+//   - lifecycle v1alpha1.PackageRevisionLifecycle
+func (_e *MockPackageRevision_Expecter) UpdateLifecycle(ctx interface{}, lifecycle interface{}) *MockPackageRevision_UpdateLifecycle_Call {
+	return &MockPackageRevision_UpdateLifecycle_Call{Call: _e.mock.On("UpdateLifecycle", ctx, lifecycle)}
 }
 
-func (_c *MockPackageRevision_UpdateLifecycle_Call) Run(run func(ctx context.Context, new v1alpha1.PackageRevisionLifecycle)) *MockPackageRevision_UpdateLifecycle_Call {
+func (_c *MockPackageRevision_UpdateLifecycle_Call) Run(run func(ctx context.Context, lifecycle v1alpha1.PackageRevisionLifecycle)) *MockPackageRevision_UpdateLifecycle_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(v1alpha1.PackageRevisionLifecycle))
 	})

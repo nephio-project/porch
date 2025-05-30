@@ -29,13 +29,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-git/go-git"
-	"github.com/go-git/go-git/config"
-	"github.com/go-git/go-git/plumbing/object"
-	"github.com/go-git/go-git/plumbing/transport/http"
-	"github.com/go-git/go-git/v5/plumbing"
+	nethttp "net/http"
+
 	"github.com/google/go-cmp/cmp"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
+
+	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
 )
 
 const (

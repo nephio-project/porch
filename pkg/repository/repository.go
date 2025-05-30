@@ -293,6 +293,7 @@ type Package interface {
 type PackageRevisionDraft interface {
 	Key() PackageRevisionKey
 	GetMeta() metav1.ObjectMeta
+	GetRepo() Repository
 	UpdateResources(context.Context, *v1alpha1.PackageRevisionResources, *v1alpha1.Task) error
 	// Updates desired lifecycle of the package. The lifecycle is applied on Close.
 	UpdateLifecycle(context.Context, v1alpha1.PackageRevisionLifecycle) error

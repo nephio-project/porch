@@ -34,7 +34,11 @@ ifneq ("$(wildcard .env)", "")
     include .env
 endif
 
-KIND_CONTEXT_NAME ?= porch-test
+ifneq ("$(wildcard .env)", "")
+    include .env
+endif
+
+KIND_CONTEXT_NAME ?= porch
 export IMAGE_REPO ?= docker.io/nephio
 export USER ?= nephio
 

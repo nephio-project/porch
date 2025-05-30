@@ -111,7 +111,7 @@ func (m *applyPatchMutation) apply(ctx context.Context, resources repository.Pac
 
 			file := files[0]
 			if file.OldName != patchSpec.File {
-				return result, nil, fmt.Errorf("patch contained unexpected name; got %q, want %q", files[0].OldName, patchSpec.File)
+				return result, nil, fmt.Errorf("patch contained unexpected name; got %q, want %q", file.OldName, patchSpec.File)
 			}
 
 			if file.IsBinary {

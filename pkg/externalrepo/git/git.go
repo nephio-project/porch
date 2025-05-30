@@ -1387,7 +1387,7 @@ func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageR
 	return nil
 }
 
-func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPackageRevisionDraft, new *v1alpha1.PackageRevisionResources, task *v1alpha1.Task) error {
+func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPackageRevisionDraft, new *v1alpha1.PackageRevisionResources, changeTask *v1alpha1.Task) error {
 	ctx, span := tracer.Start(ctx, "gitRepository::UpdateResources", trace.WithAttributes())
 	defer span.End()
 	r.mutex.Lock()
@@ -1418,13 +1418,13 @@ func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPack
 		PackagePath:   draft.Key().PkgKey.ToFullPathname(),
 		WorkspaceName: draft.Key().WorkspaceName,
 		Revision:      repository.Revision2Str(draft.Key().Revision),
-		Task:          task,
+		Task:          changeTask,
 	}
 	message := "Intermediate commit"
-	if task != nil {
-		message += fmt.Sprintf(": %s", task.Type)
-		if !strings.Contains(strings.ToLower(string(task.Type)), "readiness gate") {
-			draft.tasks = append(draft.tasks, *task)
+	if changeTask != nil {
+		message += fmt.Sprintf(": %s", changeTask.Type)
+		if !strings.Contains(strings.ToLower(string(changeTask.Type)), "readiness gate") {
+			draft.tasks = append(draft.tasks, *changeTask)
 		}
 	}
 	message += "\n"

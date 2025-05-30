@@ -156,7 +156,7 @@ func NewPodEvaluator(o PodEvaluatorOptions) (Evaluator, error) {
 			klog.Warningf("unable to warm up the pod cache: %v", err)
 		}
 	}
-	
+
 	return pe, nil
 }
 

@@ -41,6 +41,18 @@ func PackageRevisionIsReady(readinessGates []ReadinessGate, conditions []Conditi
 	return true
 }
 
+func UnmetReadinessConditions(pr *PackageRevision) (unmet []Condition) {
+	// collect all conditions
+	for _, eachCond := range pr.Status.Conditions {
+		if slices.ContainsFunc(pr.Spec.ReadinessGates, func(aGate ReadinessGate) bool {
+			return aGate.ConditionType == eachCond.Type
+		}) && eachCond.Status == ConditionFalse {
+			unmet = append(unmet, eachCond)
+		}
+	}
+	return
+}
+
 func (task *Task) TaskTypeOneOf(oneOf ...TaskType) bool {
 	taskType := task.Type
 	return slices.Contains(oneOf, taskType)

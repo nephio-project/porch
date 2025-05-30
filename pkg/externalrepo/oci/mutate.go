@@ -211,6 +211,10 @@ func (p *ociPackageRevisionDraft) GetMeta() metav1.ObjectMeta {
 	return p.metadata
 }
 
+func (p *ociPackageRevisionDraft) GetRepo() repository.Repository {
+	return p.parent
+}
+
 // Finish round of updates.
 func (r *ociRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version int) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "ociRepository::ClosePackageRevisionDraft", trace.WithAttributes())

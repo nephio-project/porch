@@ -20,9 +20,11 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"sort"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/controllers/packagevariants/pkg/controllers/packagevariant"
 	"github.com/nephio-project/porch/internal/kpt/builtins"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
@@ -37,26 +39,7 @@ import (
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
-var (
-	_ TaskHandler = &genericTaskHandler{}
-
-	ConditionPipelineNotPassed = api.Condition{
-		Type:    ConditionTypePipelinePassed,
-		Status:  api.ConditionFalse,
-		Reason:  "WaitingOnPipeline",
-		Message: "waiting for package pipeline to pass",
-	}
-	ConditionPipelinePassed = api.Condition{
-		Type:    ConditionTypePipelinePassed,
-		Status:  api.ConditionTrue,
-		Reason:  "PipelinePassed",
-		Message: "package pipeline completed successfully",
-	}
-)
-
-const (
-	ConditionTypePipelinePassed = "PackagePipelinePassed" // whether or not the package's pipeline has completed successfully
-)
+var _ TaskHandler = &genericTaskHandler{}
 
 type genericTaskHandler struct {
 	runnerOptionsResolver func(namespace string) fnruntime.RunnerOptions
@@ -91,16 +74,12 @@ func (th *genericTaskHandler) SetReferenceResolver(referenceResolver repository.
 	th.referenceResolver = referenceResolver
 }
 
-func (th *genericTaskHandler) ApplyTasks(
-	ctx context.Context, draft repository.PackageRevisionDraft,
-	repo *configapi.Repository, pkgRev *api.PackageRevision,
-	packageConfig *builtins.PackageConfig) (err error) {
+func (th *genericTaskHandler) ApplyTasks(ctx context.Context, draft repository.PackageRevisionDraft, repositoryObj *configapi.Repository, pkgRev *api.PackageRevision, packageConfig *builtins.PackageConfig) (err error) {
 	var mutations []mutation
+	tasks := pkgRev.Spec.Tasks
 
 	// Unless first task is Init or Clone, insert Init to create an empty package.
-	mutations = th.conditionalAddInit(pkgRev, mutations)
-
-	tasks := pkgRev.Spec.Tasks
+	mutations = th.conditionalAddInit(pkgRev)
 
 	if len(tasks) > 0 {
 		cloneTask := pkgRev.Spec.Tasks[0].Clone
@@ -110,7 +89,7 @@ func (th *genericTaskHandler) ApplyTasks(
 		}
 	}
 	for _, task := range tasks {
-		mutation, err := th.mapTaskToMutation(ctx, pkgRev, &task, repo.Spec.Deployment, packageConfig)
+		mutation, err := th.mapTaskToMutation(ctx, pkgRev, &task, repositoryObj.Spec.Deployment, packageConfig, draft)
 		if err != nil {
 			return err
 		}
@@ -118,7 +97,7 @@ func (th *genericTaskHandler) ApplyTasks(
 	}
 
 	// Render package after creation.
-	mutations = th.conditionalAddRender(pkgRev, mutations)
+	mutations = th.conditionalAddRender(pkgRev, mutations, draft)
 
 	baseResources := repository.PackageResources{}
 	var mutatedResources repository.PackageResources
@@ -127,44 +106,23 @@ func (th *genericTaskHandler) ApplyTasks(
 		return err
 	}
 
-	if mutatedResources.Contents != nil {
-		kptFile := mutatedResources.GetKptfile()
-		wasRendered := func() bool {
-			if kptFile.Pipeline != nil && slices.ContainsFunc(pkgRev.Spec.Tasks, func(aTask api.Task) bool {
-				return aTask.Type == "render" || (aTask.Type == api.TaskTypeEval && aTask.Eval.Image == "render")
-			}) {
-				// found pipeline data and a render task in the task-list
-				return true
-			}
-			return false
-		}()
-		if wasRendered {
-			gateTask := func() *api.Task {
-				if wasRendered {
-					if renderStatus == nil || renderStatus.Err == "" {
-						mutatedResources.SetPrStatusCondition(ConditionPipelinePassed, true)
-						return &api.Task{Type: "unlock readiness gate"}
-					} else {
-						mutatedResources.SetPrStatusCondition(ConditionPipelineNotPassed, true)
-						return &api.Task{Type: "lock readiness gate on pipeline failure"}
-					}
-				}
-				return nil
-			}()
-			if err := draft.UpdateResources(ctx, &api.PackageRevisionResources{
-				Spec: api.PackageRevisionResourcesSpec{
-					Resources: mutatedResources.Contents,
-				},
-			}, gateTask); err != nil {
-				return err
-			}
+	hasLockedReadinessGate := wasRendered(mutatedResources)
+	if mutatedResources.Contents != nil &&
+		(renderStatus == nil || renderStatus.Err == "") && hasLockedReadinessGate {
+		mutatedResources.SetPrStatusCondition(ConditionPipelinePassed, true)
+		if err := draft.UpdateResources(ctx, &api.PackageRevisionResources{
+			Spec: api.PackageRevisionResourcesSpec{
+				Resources: mutatedResources.Contents,
+			},
+		}, &api.Task{Type: "unlock pipeline readiness gate"}); err != nil {
+			return err
 		}
 	}
 
 	return nil
 }
 
-func (th *genericTaskHandler) conditionalAddInit(pkgRev *api.PackageRevision, mutations []mutation) []mutation {
+func (th *genericTaskHandler) conditionalAddInit(pkgRev *api.PackageRevision) (mutations []mutation) {
 	tasks := pkgRev.Spec.Tasks
 	if len(tasks) == 0 || !tasks[0].TaskTypeOneOf(api.TaskTypeInit, api.TaskTypeClone, api.TaskTypeEdit) {
 		mutations = append(mutations, &initPackageMutation{
@@ -178,7 +136,7 @@ func (th *genericTaskHandler) conditionalAddInit(pkgRev *api.PackageRevision, mu
 			},
 		})
 	}
-	return mutations
+	return
 }
 
 func (th *genericTaskHandler) DoPRMutations(ctx context.Context, namespace string, repoPR repository.PackageRevision, oldObj *api.PackageRevision, newObj *api.PackageRevision, draft repository.PackageRevisionDraft) error {
@@ -226,7 +184,7 @@ func (th *genericTaskHandler) DoPRMutations(ctx context.Context, namespace strin
 	}
 
 	// Re-render if we are making changes.
-	mutations = th.conditionalAddRender(newObj, mutations)
+	mutations = th.conditionalAddRender(newObj, mutations, draft)
 
 	// If any of the fields in the API that are projections from the Kptfile
 	// must be updated in the Kptfile as well.
@@ -240,17 +198,18 @@ func (th *genericTaskHandler) DoPRMutations(ctx context.Context, namespace strin
 		if err != nil {
 			return err
 		}
-
 		mutations = append(mutations, kfPatchMutation)
 	}
 
 	// Re-render if we are making changes.
-	mutations = th.conditionalAddRender(newObj, mutations)
+	mutations = th.conditionalAddRender(newObj, mutations, draft)
 
 	// if all this update does is set Conditions and/or ReadinessGates,
-	// we don't need to run the full mutation pipeline - just update
-	// the Kptfile and leave it at that
-	if UpdateOnlySetsReadinessConditions(oldObj, newObj) {
+	// we don't need to run the full mutation pipeline - just patch it
+	// into the Kptfile and leave it at that
+	noNeedToRender := UpdateOnlySetsReadinessConditions(oldObj, newObj)
+	if noNeedToRender {
+		kfPatchTask.Type = "switch packagevariant readiness gate"
 		mutations = []mutation{kfPatchMutation}
 	}
 
@@ -271,26 +230,31 @@ func (th *genericTaskHandler) DoPRMutations(ctx context.Context, namespace strin
 			return err
 		}
 
-		isRenderable, err := IsRenderablePackageRevision(ctx, repoPR)
-		if err != nil {
-			return nil
-		}
+		hasLockedReadinessGate := wasRendered(mutatedResources)
 		if mutatedResources.Contents != nil &&
 			(renderStatus == nil || renderStatus.Err == "") &&
-			resourcesChangedMoreThanReadinessInfo(resources, mutatedResources) &&
-			isRenderable {
+			hasLockedReadinessGate && !noNeedToRender {
 			mutatedResources.SetPrStatusCondition(ConditionPipelinePassed, true)
 			if err := draft.UpdateResources(ctx, &api.PackageRevisionResources{
 				Spec: api.PackageRevisionResourcesSpec{
 					Resources: mutatedResources.Contents,
 				},
-			}, &api.Task{Type: "unlock readiness gate"}); err != nil {
+			}, &api.Task{Type: "unlock pipeline readiness gate"}); err != nil {
 				return err
 			}
 		}
 	}
 
 	return nil
+}
+
+func taskTypeOneOf(taskType api.TaskType, oneOf ...api.TaskType) bool {
+	for _, tt := range oneOf {
+		if taskType == tt {
+			return true
+		}
+	}
+	return false
 }
 
 func (th *genericTaskHandler) DoPRResourceMutations(ctx context.Context, pr2Update repository.PackageRevision, draft repository.PackageRevisionDraft, oldRes, newRes *api.PackageRevisionResources) (*api.RenderStatus, error) {
@@ -313,13 +277,13 @@ func (th *genericTaskHandler) DoPRResourceMutations(ctx context.Context, pr2Upda
 		Contents: prevResources.Spec.Resources,
 	}
 
-	var renderStatus *api.RenderStatus
-	appliedResources, renderStatus, err := applyResourceMutations(ctx, draft, resources, mutations)
+	appliedResources, _, err := applyResourceMutations(ctx, draft, resources, mutations)
 	if err != nil {
 		return nil, err
 	}
 
-	if !reflect.DeepEqual(newRes.Spec.Resources, oldRes.Spec.Resources) {
+	var renderStatus *api.RenderStatus
+	if len(appliedResources.Contents) > 0 {
 		// Render the package
 		// Render failure will fail the overall API operation.
 		// The render error and result are captured as part of renderStatus above
@@ -332,35 +296,35 @@ func (th *genericTaskHandler) DoPRResourceMutations(ctx context.Context, pr2Upda
 			draft,
 			appliedResources,
 			[]mutation{&renderPackageMutation{
+				draft:         draft,
 				runnerOptions: runnerOptions,
 				runtime:       th.runtime,
 			}})
 		if err != nil {
 			return renderStatus, err
 		}
-	}
 
-	isRenderable, err := IsRenderablePackageRevision(ctx, pr2Update)
-	if err != nil {
-		return renderStatus, nil
-	}
-	if appliedResources.Contents != nil &&
-		(renderStatus == nil || renderStatus.Err == "") &&
-		isRenderable {
-		appliedResources.SetPrStatusCondition(ConditionPipelinePassed, true)
-		if err := draft.UpdateResources(ctx, &api.PackageRevisionResources{
-			Spec: api.PackageRevisionResourcesSpec{
-				Resources: appliedResources.Contents,
-			},
-		}, &api.Task{Type: "unlock readiness gate"}); err != nil {
-			return renderStatus, err
+		hasLockedReadinessGate := wasRendered(appliedResources)
+		if appliedResources.Contents != nil &&
+			(renderStatus == nil || renderStatus.Err == "") &&
+			hasLockedReadinessGate {
+			appliedResources.SetPrStatusCondition(ConditionPipelinePassed, true)
+			if err := draft.UpdateResources(ctx, &api.PackageRevisionResources{
+				Spec: api.PackageRevisionResourcesSpec{
+					Resources: appliedResources.Contents,
+				},
+			}, &api.Task{Type: "unlock pipeline readiness gate"}); err != nil {
+				return renderStatus, err
+			}
 		}
+	} else {
+		renderStatus = nil
 	}
 
 	return renderStatus, nil
 }
 
-func (th *genericTaskHandler) mapTaskToMutation(ctx context.Context, pkgRev *api.PackageRevision, task *api.Task, isDeployment bool, packageConfig *builtins.PackageConfig) (mutation, error) {
+func (th *genericTaskHandler) mapTaskToMutation(ctx context.Context, pkgRev *api.PackageRevision, task *api.Task, isDeployment bool, packageConfig *builtins.PackageConfig, draft repository.PackageRevisionDraft) (mutation, error) {
 	switch task.Type {
 	case api.TaskTypeInit:
 		if task.Init == nil {
@@ -425,10 +389,12 @@ func (th *genericTaskHandler) mapTaskToMutation(ctx context.Context, pkgRev *api
 		runtime := th.runtime
 		if task.Eval.Image == "render" {
 			return &renderPackageMutation{
+				draft:         draft,
 				runnerOptions: runnerOptions,
 				runtime:       runtime,
 			}, nil
 		}
+
 		return &evalFunctionMutation{
 			runnerOptions: runnerOptions,
 			runtime:       runtime,
@@ -521,7 +487,7 @@ func convertStatusToKptfile(s api.ConditionStatus) kptfile.ConditionStatus {
 
 // conditionalAddRender adds a render mutation to the end of the mutations slice if the last
 // entry is not already a render mutation.
-func (th *genericTaskHandler) conditionalAddRender(subject client.Object, mutations []mutation) []mutation {
+func (th *genericTaskHandler) conditionalAddRender(subject client.Object, mutations []mutation, draft repository.PackageRevisionDraft) []mutation {
 	if len(mutations) == 0 || isRenderMutation(mutations[len(mutations)-1]) {
 		return mutations
 	}
@@ -529,71 +495,15 @@ func (th *genericTaskHandler) conditionalAddRender(subject client.Object, mutati
 	runnerOptions := th.runnerOptionsResolver(subject.GetNamespace())
 
 	return append(mutations, &renderPackageMutation{
+		draft:         draft,
 		runnerOptions: runnerOptions,
 		runtime:       th.runtime,
 	})
 }
 
-func IsRenderablePackageRevision(ctx context.Context, repoPr repository.PackageRevision) (bool, error) {
-
-	kptfile, err := repoPr.GetKptfile(ctx)
-	if err != nil {
-		return false, err
-	}
-	apiPr, err := repoPr.GetPackageRevision(ctx)
-	if err != nil {
-		return false, err
-	}
-	if kptfile.Pipeline != nil && slices.ContainsFunc(apiPr.Spec.Tasks, func(aTask api.Task) bool {
-		return aTask.Type == "render" || (aTask.Type == api.TaskTypeEval && aTask.Eval.Image == "render")
-	}) {
-		// found pipeline data and a render task in the task-list
-		return true, nil
-	}
-	return false, nil
-}
-
 func isRenderMutation(m mutation) bool {
 	_, isRender := m.(*renderPackageMutation)
 	return isRender
-}
-
-func UpdateOnlySetsReadinessConditions(old *api.PackageRevision, new *api.PackageRevision) bool {
-	noChangesExceptReadinessInfo := func() bool {
-		copyOld := old.DeepCopy()
-		copyOld.Spec.ReadinessGates = new.Spec.ReadinessGates
-		copyOld.Status.Conditions = new.Status.Conditions
-
-		oldJson, _ := json.Marshal(copyOld)
-		newJson, _ := json.Marshal(new)
-		equalExceptReadinessInfo := reflect.DeepEqual(oldJson, newJson)
-		return equalExceptReadinessInfo
-	}()
-
-	return noChangesExceptReadinessInfo
-}
-
-func resourcesChangedMoreThanReadinessInfo(previous, updated repository.PackageResources) bool {
-	changedMoreThanReadinessInfo := func() bool {
-		newKptfile := updated.GetKptfile()
-		previous.EditKptfile(func(oldKptfile *kptfile.KptFile) {
-			if oldKptfile.Info != nil && oldKptfile.Info.ReadinessGates != nil &&
-				newKptfile.Info != nil && newKptfile.Info.ReadinessGates != nil {
-				oldKptfile.Info.ReadinessGates = newKptfile.Info.ReadinessGates
-			}
-			if oldKptfile.Status != nil && oldKptfile.Status.Conditions != nil &&
-				newKptfile.Status != nil && newKptfile.Status.Conditions != nil {
-				oldKptfile.Status.Conditions = newKptfile.Status.Conditions
-			}
-		})
-
-		oldJson, _ := json.Marshal(previous)
-		newJson, _ := json.Marshal(updated)
-		equalExceptReadinessInfo := reflect.DeepEqual(oldJson, newJson)
-		return !equalExceptReadinessInfo
-	}()
-
-	return changedMoreThanReadinessInfo
 }
 
 // applyResourceMutations mutates the resources and returns the most recent renderResult.
@@ -603,11 +513,10 @@ func applyResourceMutations(ctx context.Context, draft repository.PackageRevisio
 
 	var lastApplied mutation
 	for _, m := range mutations {
-		klog.Infof("applying %T", m)
+		klog.Infof("applying %T to package revision %q", m, draft.GetMeta().Name)
 		updatedResources, taskResult, err := m.apply(ctx, baseResources)
 		if taskResult == nil && err == nil {
 			// a nil taskResult means nothing changed
-			applied = updatedResources
 			continue
 		}
 
@@ -707,4 +616,98 @@ func healConfig(old, new map[string]string) (map[string]string, error) {
 	}
 
 	return healed, nil
+}
+
+func UpdateOnlySetsReadinessConditions(old *api.PackageRevision, new *api.PackageRevision) bool {
+	nonRenderConditions := []string{
+		packagevariant.ConditionTypeAtomicPVOperations,
+	}
+	nonRenderConditionChanged := func() bool {
+		containsConditionFunc := func(aCond api.Condition) bool {
+			return slices.Contains(nonRenderConditions, aCond.Type)
+		}
+		conditionAdded :=
+			!slices.ContainsFunc(old.Status.Conditions, containsConditionFunc) &&
+				slices.ContainsFunc(new.Status.Conditions, containsConditionFunc)
+
+		conditionFalseFunc := func(aCond api.Condition) bool {
+			return slices.Contains(nonRenderConditions, aCond.Type) && aCond.Status == api.ConditionFalse
+		}
+		conditionTrueFunc := func(aCond api.Condition) bool {
+			return slices.Contains(nonRenderConditions, aCond.Type) && aCond.Status == api.ConditionTrue
+		}
+		conditionSwitched :=
+			(slices.ContainsFunc(old.Status.Conditions, conditionFalseFunc) &&
+				slices.ContainsFunc(new.Status.Conditions, conditionTrueFunc)) ||
+				(slices.ContainsFunc(new.Status.Conditions, conditionFalseFunc) &&
+					slices.ContainsFunc(old.Status.Conditions, conditionTrueFunc))
+		return conditionAdded || conditionSwitched
+	}()
+	noOtherChanges := func() bool {
+		copyOld := old.DeepCopy()
+		copyNew := new.DeepCopy()
+
+		copyOld.Spec.ReadinessGates = slices.DeleteFunc(copyOld.Spec.ReadinessGates, func(aGate api.ReadinessGate) bool {
+			return slices.Contains(nonRenderConditions, aGate.ConditionType)
+		})
+		copyOld.Status.Conditions = slices.DeleteFunc(copyOld.Status.Conditions, func(aCond api.Condition) bool {
+			return slices.Contains(nonRenderConditions, aCond.Type)
+		})
+		copyNew.Spec.ReadinessGates = slices.DeleteFunc(copyNew.Spec.ReadinessGates, func(aGate api.ReadinessGate) bool {
+			return slices.Contains(nonRenderConditions, aGate.ConditionType)
+		})
+		copyNew.Status.Conditions = slices.DeleteFunc(copyNew.Status.Conditions, func(aCond api.Condition) bool {
+			return slices.Contains(nonRenderConditions, aCond.Type)
+		})
+
+		gates := copyNew.Spec.ReadinessGates
+		sort.SliceStable(gates, func(i, j int) bool { return gates[i].ConditionType < gates[j].ConditionType })
+		conditions := copyOld.Status.Conditions
+		sort.SliceStable(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
+		gates = copyNew.Spec.ReadinessGates
+		sort.SliceStable(gates, func(i, j int) bool { return gates[i].ConditionType < gates[j].ConditionType })
+		conditions = copyNew.Status.Conditions
+		sort.SliceStable(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
+		// copyOld.Spec.ReadinessGates = new.Spec.ReadinessGates
+		// copyOld.Status.Conditions = new.Status.Conditions
+
+		oldJson, _ := json.Marshal(copyOld)
+		newJson, _ := json.Marshal(copyNew)
+		equalExceptReadinessInfo := reflect.DeepEqual(oldJson, newJson)
+		return equalExceptReadinessInfo
+	}()
+
+	return nonRenderConditionChanged && noOtherChanges
+}
+
+func wasRendered(resources repository.PackageResources) bool {
+	if resources.Contents == nil {
+		return false
+	}
+	kf, err := resources.GetKptfile()
+	if err != nil {
+		return false
+	}
+	return kf.Status != nil &&
+		slices.ContainsFunc(kf.Status.Conditions, func(aCond kptfile.Condition) bool {
+			return aCond.Type == ConditionPipelineNotPassed.Type && aCond.Status == kptfile.ConditionFalse
+		})
+}
+
+func isRenderablePackageRevision(ctx context.Context, repoPr repository.PackageRevision) (bool, error) {
+	kptfile, err := repoPr.GetKptfile(ctx)
+	if err != nil {
+		return false, err
+	}
+	apiPr, err := repoPr.GetPackageRevision(ctx)
+	if err != nil {
+		return false, err
+	}
+	if !kptfile.Pipeline.IsEmpty() && slices.ContainsFunc(apiPr.Spec.Tasks, func(aTask api.Task) bool {
+		return aTask.Type == "render" || (aTask.Type == api.TaskTypeEval && aTask.Eval.Image == "render")
+	}) {
+		// found pipeline data and a render task in the task-list
+		return true, nil
+	}
+	return false, nil
 }

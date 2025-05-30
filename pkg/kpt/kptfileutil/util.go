@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/nephio-project/porch/internal/kpt/errors"
@@ -42,27 +41,19 @@ func FromKubeObject(kptfileKubeObject *fn.KubeObject) (kptfilev1.KptFile, error)
 		return kptfilev1.KptFile{}, err
 	}
 
-	if apiKptfile.Info != nil {
-		gates := apiKptfile.Info.ReadinessGates
-		sort.SliceStable(gates, func(i, j int) bool { return gates[i].ConditionType < gates[j].ConditionType })
-	}
-	if apiKptfile.Status != nil {
-		conditions := apiKptfile.Status.Conditions
-		sort.SliceStable(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
-	}
-
 	return apiKptfile, nil
 }
 
+func ToKubeObject(file *kptfilev1.KptFile) (*fn.KubeObject, error) {
+	kptfileYaml, err := ToYamlString(file)
+	if err != nil {
+		return nil, err
+	}
+
+	return util.YamlToKubeObject(kptfileYaml)
+}
+
 func ToYamlString(file *kptfilev1.KptFile) (string, error) {
-	if file.Info != nil {
-		gates := file.Info.ReadinessGates
-		sort.SliceStable(gates, func(i, j int) bool { return gates[i].ConditionType < gates[j].ConditionType })
-	}
-	if file.Status != nil {
-		conditions := file.Status.Conditions
-		sort.SliceStable(conditions, func(i, j int) bool { return conditions[i].Type < conditions[j].Type })
-	}
 
 	b, err := yaml.MarshalWithOptions(file, &yaml.EncoderOptions{SeqIndent: yaml.WideSequenceStyle})
 	if err != nil {

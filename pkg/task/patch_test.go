@@ -139,18 +139,18 @@ func TestGenerateKptfilePatches(t *testing.T) {
 @@ -1,7 +1,14 @@
  info:
    readinessGates:
-+  - conditionType: bar
    - conditionType: foo
++  - conditionType: bar
  status:
    conditions:
-+  - type: bar
-+    status: "False"
-+    message: message
-+    reason: reason
    - type: foo
      status: "True"
-+    message: message
 +    reason: reason
++    message: message
++  - type: bar
++    status: "False"
++    reason: reason
++    message: message
 `) + "\n",
 				PatchType: api.PatchTypePatchFile,
 			},
@@ -273,18 +273,18 @@ func TestGenerateKptfilePatches(t *testing.T) {
 @@ -1,14 +1,7 @@
  info:
    readinessGates:
--  - conditionType: bar
    - conditionType: foo
+-  - conditionType: bar
  status:
    conditions:
--  - type: bar
--    status: "False"
--    message: message
--    reason: reason
    - type: foo
      status: "True"
--    message: message
 -    reason: reason
+-    message: message
+-  - type: bar
+-    status: "False"
+-    reason: reason
+-    message: message
 `) + "\n",
 				PatchType: api.PatchTypePatchFile,
 			},

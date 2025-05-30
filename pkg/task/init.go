@@ -57,6 +57,7 @@ func (m *initPackageMutation) apply(ctx context.Context, resources repository.Pa
 
 	name := m.pkgRev.Spec.PackageName
 	initSpec := m.task.Init
+
 	err := m.Initialize(printer.WithContext(ctx, &fake.Printer{}), fs, kptpkg.InitOptions{
 		PkgPath:             pkgPath,
 		PkgName:             name,

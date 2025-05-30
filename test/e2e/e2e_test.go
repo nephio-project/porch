@@ -28,12 +28,12 @@ import (
 	"github.com/google/go-cmp/cmp"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-
 	pvapi "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	"github.com/nephio-project/porch/controllers/packagevariants/pkg/controllers/packagevariant"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -3329,7 +3329,7 @@ func (t *PorchSuite) TestCreatePackageRevisionRollback() {
 	assert.True(t, apierrors.IsNotFound(err), "Expected package revision to be deleted after rollback")
 }
 
-func (t *PorchSuite) TestPackageVariantReadinessGate(ctx context.Context) {
+func (t *PorchSuite) TestPackageVariantReadinessGate() {
 	const (
 		repository     = "variant"
 		variantName    = "testing-variant"
@@ -3374,16 +3374,16 @@ func (t *PorchSuite) TestPackageVariantReadinessGate(ctx context.Context) {
 	)
 
 	// Set up the repo and create/propose/approve the upstream package
-	t.RegisterMainGitRepositoryF(ctx, repository)
+	t.RegisterMainGitRepositoryF(repository)
 	upstreamPr := t.CreatePackageSkeleton(repository, upstreamName, workspace)
-	t.CreateF(ctx, upstreamPr)
+	t.CreateF(upstreamPr)
 	upstreamPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	t.UpdateF(ctx, upstreamPr)
+	t.UpdateF(upstreamPr)
 	upstreamPr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(ctx, upstreamPr, metav1.UpdateOptions{})
+	t.UpdateApprovalF(upstreamPr, metav1.UpdateOptions{})
 
 	// Create a new package variant (via init)
-	pv := &variantapi.PackageVariant{
+	pv := &pvapi.PackageVariant{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       packageVariantGVK.Kind,
 			APIVersion: packageVariantGVK.GroupVersion().String(),
@@ -3392,31 +3392,31 @@ func (t *PorchSuite) TestPackageVariantReadinessGate(ctx context.Context) {
 			Namespace: t.Namespace,
 			Name:      variantName,
 		},
-		Spec: variantapi.PackageVariantSpec{
-			Downstream: &variantapi.Downstream{
+		Spec: pvapi.PackageVariantSpec{
+			Downstream: &pvapi.Downstream{
 				Package: downstreamName,
 				Repo:    repository,
 			},
-			Upstream: &variantapi.Upstream{
+			Upstream: &pvapi.Upstream{
 				Package:  upstreamName,
 				Repo:     repository,
-				Revision: "v1",
+				Revision: 1,
 			},
 			Pipeline: &kptfilev1.Pipeline{
 				Mutators: mutatorFunctions,
 			},
-			Injectors: []variantapi.InjectionSelector{
+			Injectors: []pvapi.InjectionSelector{
 				{
 					Name: "nrf-overrides-values",
 				},
 			},
 		},
 	}
-	t.CreateF(ctx, pv)
+	t.CreateF(pv)
 
 	// Wait till the package variant has created the downstream PR and set the condition to False,
 	// then get the PR
-	downstreamPr, _ := t.WaitUntilPackageRevisionFulfillingConditionExists(ctx, 1*time.Minute, func(pr porchapi.PackageRevision) bool {
+	downstreamPr, _ := t.WaitUntilPackageRevisionFulfillingConditionExists(1*time.Minute, func(pr porchapi.PackageRevision) bool {
 		return pr.Spec.PackageName == pv.Spec.Downstream.Package &&
 			slices.Contains(pr.Status.Conditions, packagevariant.ConditionPipelinePVRevisionNotReady)
 	})
@@ -3427,17 +3427,17 @@ func (t *PorchSuite) TestPackageVariantReadinessGate(ctx context.Context) {
 
 	// Attempt to propose the PR - should fail
 	downstreamPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	proposeError := t.Client.Update(ctx, downstreamPr)
+	proposeError := t.Client.Update(t.GetContext(), downstreamPr)
 	assert.ErrorContains(t, proposeError, "readiness conditions not met")
 
 	// Wait for the pipeline to finish and the condition to be set to True
-	downstreamPr, _ = t.WaitUntilPackageRevisionFulfillingConditionExists(ctx, 20*time.Second, func(pr porchapi.PackageRevision) bool {
+	downstreamPr, _ = t.WaitUntilPackageRevisionFulfillingConditionExists(20*time.Second, func(pr porchapi.PackageRevision) bool {
 		return slices.Contains(pr.Status.Conditions, packagevariant.ConditionPipelinePVRevisionReady)
 	})
-	assert.NotNil(t, downstreamPr, "no PackageRevision found with Condition of Type %q, Status %q", packagevariant.ConditionTypeAtomicPVOperations, packagevariant.ConditionPipelinePVRevisionReady)
+	require.NotNil(t.T(), downstreamPr, "no PackageRevision found with Condition of Type %q, Status %q", packagevariant.ConditionTypeAtomicPVOperations, packagevariant.ConditionPipelinePVRevisionReady)
 
 	// Propose the PR again - should succeed this time
 	downstreamPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	proposeError = t.Client.Update(ctx, downstreamPr)
+	proposeError = t.Client.Update(t.GetContext(), downstreamPr)
 	assert.NoError(t, proposeError, "propose operation should have succeeded now that all Conditions have been set to True")
 }

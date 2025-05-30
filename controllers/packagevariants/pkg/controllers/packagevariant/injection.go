@@ -25,6 +25,7 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	api "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
 	"github.com/nephio-project/porch/pkg/util"
 	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -32,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/kustomize/kyaml/kio"
 )
 
 const (
@@ -112,7 +112,7 @@ func ensureConfigInjection(ctx context.Context,
 	// this might do some files more than once, but that's ok
 	for _, ip := range injectionPoints {
 		if ip.injected {
-			prr.Spec.Resources[ip.file] = kubeobjectsToYaml(files[ip.file])
+			prr.Spec.Resources[ip.file] = kubeObjectsToYaml(files[ip.file])
 		}
 	}
 
@@ -131,10 +131,10 @@ func ensureConfigInjection(ctx context.Context,
 	return nil
 }
 
-func kubeobjectsToYaml(kos fn.KubeObjects) string {
+func kubeObjectsToYaml(kos fn.KubeObjects) string {
 	var yamls []string
 	for _, ko := range kos {
-		yamls = append(yamls, ko.String())
+		yamls = append(yamls, util.KubeObjectToYaml(ko))
 	}
 	return strings.Join(yamls, "---\n")
 }
@@ -344,21 +344,24 @@ func setInjectionPointConditionsAndGates(kptfileKubeObject *fn.KubeObject, injec
 
 	if gates != nil {
 		info.ReadinessGates = gates
-		err = kptfileKubeObject.SetNestedField(info, "info")
-		if err != nil {
-			return err
-		}
+		// err = kptfileKubeObject.SetNestedField(info, "info")
+		// if err != nil {
+		// 	return err
+		// }
 	}
 
 	// update the status conditions if any semantic change
 	// resulted from condition calculations
 	if conditions != nil {
 		status.Conditions = convertConditionsFromMetaToKptfile(conditions)
-		err = kptfileKubeObject.SetNestedField(status, "status")
-		if err != nil {
-			return err
-		}
+		// err = kptfileKubeObject.SetNestedField(status, "status")
+		// if err != nil {
+		// 	return err
+		// }
 	}
+
+	tmp, err := kptfileutil.ToKubeObject(&kptfile)
+	*kptfileKubeObject = *tmp
 
 	return nil
 }

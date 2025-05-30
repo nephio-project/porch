@@ -19,7 +19,6 @@ package v1
 
 import (
 	"fmt"
-	"sort"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -217,8 +216,6 @@ type PackageInfo struct {
 	// Relative slash-delimited path to the license file (e.g. LICENSE.txt)
 	LicenseFile string `yaml:"licenseFile,omitempty" json:"licenseFile,omitempty"`
 
-	ReadinessGates []ReadinessGate `yaml:"readinessGates,omitempty" json:"readinessGates,omitempty"`
-
 	// Description contains a short description of the package.
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 
@@ -227,13 +224,18 @@ type PackageInfo struct {
 
 	// Man is the path to documentation about the package
 	Man string `yaml:"man,omitempty" json:"man,omitempty"`
+
+	ReadinessGates []ReadinessGate `yaml:"readinessGates,omitempty" json:"readinessGates,omitempty"`
+}
+
+type ReadinessGate struct {
+	ConditionType string `yaml:"conditionType" json:"conditionType"`
 }
 
 func ConvertApiReadinessGates(apiGates []api.ReadinessGate) (converted []ReadinessGate) {
 	for _, each := range apiGates {
 		converted = append(converted, ConvertApiReadinessGate(each))
 	}
-	sort.SliceStable(converted, func(i, j int) bool { return converted[i].ConditionType < converted[j].ConditionType })
 	return converted
 }
 
@@ -241,10 +243,6 @@ func ConvertApiReadinessGate(apiGate api.ReadinessGate) ReadinessGate {
 	return ReadinessGate{
 		ConditionType: apiGate.ConditionType,
 	}
-}
-
-type ReadinessGate struct {
-	ConditionType string `yaml:"conditionType" json:"conditionType"`
 }
 
 // Subpackages declares a local or remote subpackage.
@@ -310,7 +308,6 @@ func (p *Pipeline) IsEmpty() bool {
 // Function specifies a KRM function.
 // +kubebuilder:object:generate=true
 type Function struct {
-
 	// `Name` is used to uniquely identify the function declaration
 	// this is primarily used for merging function declaration with upstream counterparts
 	Name string `yaml:"name,omitempty" json:"name,omitempty"`
@@ -410,20 +407,19 @@ func ConvertApiStatus(apiStatus api.PackageRevisionStatus) Status {
 }
 
 type Condition struct {
-	Type string `yaml:"type" json:"type"`
-
-	Status ConditionStatus `yaml:"status" json:"status"`
-
 	Message string `yaml:"message,omitempty" json:"message,omitempty"`
 
 	Reason string `yaml:"reason,omitempty" json:"reason,omitempty"`
+
+	Status ConditionStatus `yaml:"status" json:"status"`
+
+	Type string `yaml:"type" json:"type"`
 }
 
 func ConvertApiConditions(apiConditions []api.Condition) (converted []Condition) {
 	for _, each := range apiConditions {
 		converted = append(converted, ConvertApiCondition(each))
 	}
-	sort.SliceStable(converted, func(i, j int) bool { return converted[i].Type < converted[j].Type })
 	return converted
 }
 

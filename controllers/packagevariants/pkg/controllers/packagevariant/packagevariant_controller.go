@@ -18,13 +18,15 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"slices"
+	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/google/go-cmp/cmp"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	api "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
-	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
@@ -52,9 +54,7 @@ func (o *Options) BindFlags(_ string, _ *flag.FlagSet) {}
 // PackageVariantReconciler reconciles a PackageVariant object
 type PackageVariantReconciler struct {
 	client.Client
-
 	client.Reader
-
 	Options
 }
 
@@ -104,13 +104,18 @@ func (r *PackageVariantReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	defer func() {
 		pv.ResourceVersion = func() string {
 			var latestVariant api.PackageVariant
-			if err := r.Client.Get(ctx, types.NamespacedName{Name: pv.GetName(), Namespace: pv.GetNamespace()}, &latestVariant); err != nil {
+			if err := r.Reader.Get(ctx, types.NamespacedName{Name: pv.GetName(), Namespace: pv.GetNamespace()}, &latestVariant); err != nil {
+				if strings.Contains(err.Error(), fmt.Sprintf("packagevariants.config.porch.kpt.dev \"%s\" not found", pv.GetName())) {
+					return ""
+				}
 				klog.Errorf("could not retrieve latest resource version for final status update: %s\n", err.Error())
 			}
 			return latestVariant.ResourceVersion
 		}()
-		if err := r.Client.Status().Update(ctx, pv); err != nil {
-			klog.Errorf("could not update status: %s\n", err.Error())
+		if pv.ResourceVersion != "" {
+			if err := r.Client.Status().Update(ctx, pv); err != nil {
+				klog.Errorf("could not update status: %s\n", err.Error())
+			}
 		}
 	}()
 
@@ -132,7 +137,7 @@ func (r *PackageVariantReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		// Remove our finalizer from the list and update it.
 		controllerutil.RemoveFinalizer(pv, api.Finalizer)
 		if err := r.Update(ctx, pv); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to update %s after delete finalizer: %w", req.Name, err)
+			return ctrl.Result{}, fmt.Errorf("failed to update %s after deleting finalizer: %w", req.Name, err)
 		}
 		return ctrl.Result{}, nil
 	}
@@ -141,7 +146,7 @@ func (r *PackageVariantReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if !controllerutil.ContainsFinalizer(pv, api.Finalizer) {
 		controllerutil.AddFinalizer(pv, api.Finalizer)
 		if err := r.Update(ctx, pv); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to update %s after add finalizer: %w", req.Name, err)
+			return ctrl.Result{}, fmt.Errorf("failed to update %s to add finalizer: %w", req.Name, err)
 		}
 	}
 
@@ -188,7 +193,7 @@ func (r *PackageVariantReconciler) init(ctx context.Context,
 	}
 
 	var prList porchapi.PackageRevisionList
-	if err := r.Reader.List(ctx, &prList, client.InNamespace(pv.Namespace)); err != nil {
+	if err := r.Client.List(ctx, &prList, client.InNamespace(pv.Namespace)); err != nil {
 		return nil, nil, err
 	}
 
@@ -414,6 +419,8 @@ func (r *PackageVariantReconciler) ensurePackageVariant(ctx context.Context,
 	if err := r.Reader.Get(ctx, types.NamespacedName{Name: newPR.GetName(), Namespace: newPR.GetNamespace()}, newPR); err != nil {
 		return nil, err
 	}
+	// newPR.ResourceVersion = prr.ResourceVersion
+	// newPR.Spec.Tasks = append(newPR.Spec.Tasks, )
 	setPrStatusCondition(newPR, ConditionPipelinePVRevisionReady)
 	if err := r.Client.Update(ctx, newPR); err != nil {
 		return nil, err
@@ -447,14 +454,6 @@ func (r *PackageVariantReconciler) findAndUpdateExistingRevisions(ctx context.Co
 			if err := r.Client.Update(ctx, downstream); err != nil {
 				klog.Errorf("error updating package revision lifecycle to %s: %v",
 					porchapi.PackageRevisionLifecyclePublished, err)
-				return nil, err
-			}
-
-			if err := r.Reader.Get(ctx, types.NamespacedName{Name: downstream.GetName(), Namespace: downstream.GetNamespace()}, downstream); err != nil {
-				return nil, err
-			}
-			setPrStatusCondition(downstream, ConditionPipelinePVRevisionReady)
-			if err := r.Client.Update(ctx, downstream); err != nil {
 				return nil, err
 			}
 		}
@@ -516,10 +515,12 @@ func (r *PackageVariantReconciler) findAndUpdateExistingRevisions(ctx context.Co
 			if err := r.updatePackageResources(ctx, prr, pv); err != nil {
 				return nil, err
 			}
+		}
 
-			if err := r.Reader.Get(ctx, types.NamespacedName{Name: downstream.GetName(), Namespace: downstream.GetNamespace()}, downstream); err != nil {
-				return nil, err
-			}
+		if slices.ContainsFunc(downstream.Status.Conditions, func(aCondition porchapi.Condition) bool {
+			return aCondition.Type == ConditionPipelinePVRevisionNotReady.Type &&
+				aCondition.Status == ConditionPipelinePVRevisionNotReady.Status
+		}) {
 			setPrStatusCondition(downstream, ConditionPipelinePVRevisionReady)
 			if err := r.Client.Update(ctx, downstream); err != nil {
 				return nil, err
@@ -793,9 +794,6 @@ func (r *PackageVariantReconciler) updateDraft(ctx context.Context,
 		return nil, err
 	}
 
-	if err := r.Reader.Get(ctx, types.NamespacedName{Name: draft.GetName(), Namespace: draft.GetNamespace()}, draft); err != nil {
-		return nil, err
-	}
 	setPrStatusCondition(draft, ConditionPipelinePVRevisionReady)
 	if err := r.Client.Update(ctx, draft); err != nil {
 		return nil, err
@@ -827,7 +825,7 @@ func setTargetStatusConditions(pv *api.PackageVariant, targets []*porchapi.Packa
 		Type:    ConditionTypeReady,
 		Status:  "True",
 		Reason:  "NoErrors",
-		Message: "successfully ensured downstream target package revision",
+		Message: "successfully ensured target downstream package revision",
 	})
 }
 
@@ -960,6 +958,7 @@ func (r *PackageVariantReconciler) calculateDraftResources(ctx context.Context,
 
 			// a file was changed
 			klog.Infoln(fmt.Sprintf("PackageVariant %q, PackageRevision %q, resources changed: %q different", pv.Name, prr.Name, k))
+			klog.Infof("diff is:\n%s", cmp.Diff(v, newValue))
 			return &prr, true, nil
 		}
 	}
@@ -989,11 +988,15 @@ func kptfilesEqual(a, b string) bool {
 	if err != nil {
 		return false
 	}
+	gates := akf.Info.ReadinessGates
+	sort.SliceStable(gates, func(i, j int) bool { return gates[i].ConditionType < gates[j].ConditionType })
 
 	bkf, err := parseKptfile(b)
 	if err != nil {
 		return false
 	}
+	gates = bkf.Info.ReadinessGates
+	sort.SliceStable(gates, func(i, j int) bool { return gates[i].ConditionType < gates[j].ConditionType })
 
 	equal, err := kptfileutil.Equal(akf, bkf)
 	if err != nil {

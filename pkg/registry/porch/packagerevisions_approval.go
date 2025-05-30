@@ -105,9 +105,16 @@ func (s packageRevisionApprovalStrategy) ValidateUpdate(ctx context.Context, obj
 	// TODO: signal rejection of the approval differently than by returning to draft?
 	case api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecyclePublished:
 		// valid
+
 		// if approving, check readiness state as well
 		if newLifecycle == api.PackageRevisionLifecyclePublished && !api.PackageRevisionIsReady(oldRevision.Spec.ReadinessGates, oldRevision.Status.Conditions) {
-			allErrs = append(allErrs, field.Forbidden(field.NewPath("spec", "lifecycle"), "cannot approve package: readiness conditions not met"))
+			unmetList := func() (list string) {
+				for _, each := range api.UnmetReadinessConditions(oldRevision) {
+					list += fmt.Sprintf("\t- %s (message: %q)\n", each.Type, each.Message)
+				}
+				return
+			}()
+			allErrs = append(allErrs, field.Forbidden(field.NewPath("spec", "lifecycle"), fmt.Sprintf("unable to propose package: following readiness conditions not met: \n%s", unmetList)))
 		}
 
 	case api.PackageRevisionLifecycleDeletionProposed:

@@ -143,24 +143,24 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 		return nil, false, err
 	}
 
-	oldApiPkgRevResources, err := oldRepoPkgRev.GetResources(ctx)
+	oldResources, err := oldRepoPkgRev.GetResources(ctx)
 	if err != nil {
 		klog.Infof("update failed to retrieve old object: %v", err)
 		return nil, false, err
 	}
 
-	newRuntimeObj, err := objInfo.UpdatedObject(ctx, oldApiPkgRevResources)
+	newRuntimeObj, err := objInfo.UpdatedObject(ctx, oldResources)
 	if err != nil {
 		klog.Infof("update failed to construct UpdatedObject: %v", err)
 		return nil, false, err
 	}
-	newPkgRevResources, ok := newRuntimeObj.(*api.PackageRevisionResources)
+	newResources, ok := newRuntimeObj.(*api.PackageRevisionResources)
 	if !ok {
 		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("expected PackageRevisionResources object, got %T", newRuntimeObj))
 	}
 
 	if updateValidation != nil {
-		err := updateValidation(ctx, newPkgRevResources, oldApiPkgRevResources)
+		err := updateValidation(ctx, newResources, oldResources)
 		if err != nil {
 			klog.Infof("update failed validation: %v", err)
 			return nil, false, err
@@ -181,18 +181,18 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 		return nil, false, apierrors.NewInternalError(fmt.Errorf("error getting repository %v: %w", repositoryID, err))
 	}
 
-	rev, renderStatus, err := r.cad.UpdatePackageResources(ctx, &repositoryObj, oldRepoPkgRev, oldApiPkgRevResources, newPkgRevResources)
+	rev, renderStatus, err := r.cad.UpdatePackageResources(ctx, &repositoryObj, oldRepoPkgRev, oldResources, newResources)
 	if err != nil {
 		return nil, false, apierrors.NewInternalError(err)
 	}
 
-	updated, err := rev.GetResources(ctx)
+	updatedResources, err := rev.GetResources(ctx)
 	if err != nil {
 		return nil, false, apierrors.NewInternalError(err)
 	}
 	if renderStatus != nil {
-		updated.Status.RenderStatus = *renderStatus
+		updatedResources.Status.RenderStatus = *renderStatus
 	}
 
-	return updated, false, nil
+	return updatedResources, false, nil
 }

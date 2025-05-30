@@ -364,8 +364,8 @@ status:
   conditions:
     - type: foo
       status: "True"
-      message: message
       reason: reason
+      message: message
 `,
 		},
 		"additional readinessGate and condition added in upstream": {
@@ -381,8 +381,8 @@ status:
   conditions:
     - type: foo
       status: "True"
-      message: message
       reason: reason
+      message: message
 `,
 			updated: `
 apiVersion: kpt.dev/v1
@@ -397,12 +397,12 @@ status:
   conditions:
     - type: foo
       status: "True"
-      message: message
       reason: reason
+      message: message
     - type: bar
       status: "False"
-      message: message
       reason: reason
+      message: message
 `,
 			local: `
 apiVersion: kpt.dev/v1
@@ -416,8 +416,8 @@ status:
   conditions:
     - type: foo
       status: "True"
-      message: message
       reason: reason
+      message: message
 `,
 			updateUpstream: false,
 			expected: `
@@ -433,12 +433,12 @@ status:
   conditions:
     - type: foo
       status: "True"
-      message: message
       reason: reason
+      message: message
     - type: bar
       status: "False"
-      message: message
       reason: reason
+      message: message
 		`,
 		},
 		"readinessGate added removed in upstream": {
@@ -502,11 +502,10 @@ status:
   conditions:
     - type: foo
       status: "True"
-      message: message
       reason: reason
+      message: message
     - type: bar
       status: "False"
-      message: message
       reason: reason
 `,
 			updated: `
@@ -522,12 +521,12 @@ status:
   conditions:
     - type: foo
       status: "True"
-      message: message
       reason: reason
+      message: message
     - type: zork
       status: "Unknown"
-      message: message
       reason: reason
+      message: message
 `,
 			local: `
 apiVersion: kpt.dev/v1
@@ -542,12 +541,12 @@ status:
   conditions:
     - type: xandar
       status: "True"
-      message: message
       reason: reason
+      message: message
     - type: foo
       status: "True"
-      message: message  
       reason: reason
+      message: message  
 `,
 			updateUpstream: false,
 			expected: `
@@ -563,12 +562,12 @@ status:
   conditions:
     - type: foo
       status: "True"
-      message: message
       reason: reason
+      message: message
     - type: zork
       status: Unknown
-      message: message
       reason: reason
+      message: message
 `,
 		},
 	}

@@ -328,7 +328,7 @@ func Merge[E any](aSlice, bSlice []E) []E {
 		func(a, b E) bool { return reflect.DeepEqual(a, b) })
 }
 
-// Merge combines two slices of the same type (aSlice and bSlice) and
+// MergeFunc combines two slices of the same type (aSlice and bSlice) and
 // returns a new slice containing all elements of aSlice, plus all
 // elements of bSlice which do not exist in aSlice. "do not exist in
 // aSlice" is determined by custom equality function existsFn, which

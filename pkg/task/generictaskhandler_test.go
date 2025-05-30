@@ -24,6 +24,7 @@ import (
 	"github.com/nephio-project/porch/internal/kpt/builtins"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/pkg/repository"
+	mockrepo "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -50,6 +51,10 @@ func (m *mockPackageRevisionDraft) GetMeta() metav1.ObjectMeta {
 		Name:      "mock-package-revision",
 		Namespace: "default",
 	}
+}
+
+func (m *mockPackageRevisionDraft) GetRepo() repository.Repository {
+	return &mockrepo.MockRepository{}
 }
 
 func TestApplyTasks(t *testing.T) {

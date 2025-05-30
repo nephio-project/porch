@@ -75,7 +75,13 @@ func (s packageRevisionStrategy) ValidateUpdate(ctx context.Context, obj, old ru
 		}
 		if newLifecycle == api.PackageRevisionLifecycleProposed &&
 			!api.PackageRevisionIsReady(oldRevision.Spec.ReadinessGates, oldRevision.Status.Conditions) {
-			allErrs = append(allErrs, field.Forbidden(field.NewPath("spec", "lifecycle"), "unable to propose package: readiness conditions not met"))
+			unmetList := func() (list string) {
+				for _, each := range api.UnmetReadinessConditions(oldRevision) {
+					list += fmt.Sprintf("\t- %s (message: %q)\n", each.Type, each.Message)
+				}
+				return
+			}()
+			allErrs = append(allErrs, field.Forbidden(field.NewPath("spec", "lifecycle"), fmt.Sprintf("unable to propose package: following readiness conditions not met: \n%s", unmetList)))
 		}
 	case api.PackageRevisionLifecyclePublished, api.PackageRevisionLifecycleDeletionProposed:
 		// We don't allow any updates to the spec for packagerevision that have been published. That includes updates of the lifecycle. But
