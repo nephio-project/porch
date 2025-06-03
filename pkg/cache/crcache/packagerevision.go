@@ -16,6 +16,7 @@ package crcache
 
 import (
 	"context"
+	"sync"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
@@ -38,6 +39,7 @@ type cachedPackageRevision struct {
 	repository.PackageRevision
 	metadataStore    meta.MetadataStore
 	isLatestRevision bool
+	mutex            sync.Mutex
 }
 
 func (c *cachedPackageRevision) KubeObjectName() string {
@@ -70,8 +72,10 @@ func (c *cachedPackageRevision) GetPackageRevision(ctx context.Context) (*api.Pa
 	apiPR.OwnerReferences = c.GetMeta().OwnerReferences
 	apiPR.DeletionTimestamp = c.GetMeta().DeletionTimestamp
 	apiPR.Labels = c.GetMeta().Labels
-
-	if c.isLatestRevision {
+	c.mutex.Lock()
+	latest := c.isLatestRevision
+	c.mutex.Unlock()
+	if latest {
 		// copy the labels in case the cached object is being read by another go routine
 		labels := make(map[string]string, len(apiPR.Labels))
 		for k, v := range apiPR.Labels {

@@ -157,8 +157,10 @@ func (r *cachedRepository) getPackages(ctx context.Context, filter repository.Li
 
 // getCachedPackages returns cachedPackages; fetching it if not cached or if forceRefresh.
 func (r *cachedRepository) getCachedPackages(ctx context.Context, forceRefresh bool) (map[repository.PackageKey]*cachedPackage, map[repository.PackageRevisionKey]*cachedPackageRevision, error) {
+	r.mutex.RLock()
 	packages := r.cachedPackages
 	packageRevisions := r.cachedPackageRevisions
+	r.mutex.RUnlock()
 	var err error
 
 	if forceRefresh {
@@ -193,8 +195,10 @@ func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd re
 	if err != nil {
 		return nil, err
 	}
-
-	if v != r.lastVersion {
+	r.mutex.Lock()
+	ver := r.lastVersion
+	r.mutex.Unlock()
+	if v != ver {
 		_, _, err = r.refreshAllCachedPackages(ctx)
 		if err != nil {
 			return nil, err
@@ -297,7 +301,9 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 		if err != nil {
 			return nil, err
 		}
+		r.mutex.Lock()
 		r.lastVersion = version
+		r.mutex.Unlock()
 	}
 
 	return cached, nil
@@ -306,10 +312,21 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 func (r *cachedRepository) createMainPackageRevision(ctx context.Context, updatedMain repository.PackageRevision) error {
 	// Search and delete any old main pkgRev of an older workspace in the cache
 	var oldMainPR *cachedPackageRevision
-	for pkgRevKey := range r.cachedPackageRevisions {
-		if pkgRevKey.Revision == -1 && pkgRevKey.PkgKey == updatedMain.Key().PkgKey {
-			oldMainPR = r.cachedPackageRevisions[pkgRevKey]
-			break
+	r.mutex.Lock()
+	revisionsMap := r.cachedPackageRevisions
+	r.mutex.Unlock()
+	for pkgRevKey := range revisionsMap {
+		r.mutex.Lock()
+		rev := pkgRevKey.Revision
+		key := pkgRevKey.PkgKey
+		r.mutex.Unlock()
+		if rev == -1 {
+			if key == updatedMain.Key().PkgKey {
+				r.mutex.Lock()
+				oldMainPR = r.cachedPackageRevisions[pkgRevKey]
+				r.mutex.Unlock()
+				break
+			}
 		}
 	}
 	if oldMainPR != nil {
@@ -317,14 +334,12 @@ func (r *cachedRepository) createMainPackageRevision(ctx context.Context, update
 	}
 
 	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
 	cachedMain := &cachedPackageRevision{
 		PackageRevision: updatedMain,
 		metadataStore:   r.metadataStore,
 	}
 	r.cachedPackageRevisions[updatedMain.Key()] = cachedMain
-
+	r.mutex.Unlock()
 	pkgRevMetaNN := types.NamespacedName{
 		Name:      updatedMain.KubeObjectName(),
 		Namespace: updatedMain.KubeObjectNamespace(),
@@ -347,8 +362,9 @@ func (r *cachedRepository) createMainPackageRevision(ctx context.Context, update
 	if err != nil {
 		return err
 	}
+	r.mutex.Lock()
 	r.lastVersion = version
-
+	r.mutex.Unlock()
 	return nil
 }
 
@@ -513,8 +529,6 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 
 	// TODO: Avoid simultaneous fetches?
 	// TODO: Push-down partial refresh?
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
 
 	start := time.Now()
 	defer func() { klog.Infof("repo %s: refresh finished in %f secs", r.id, time.Since(start).Seconds()) }()
@@ -523,8 +537,10 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 	if err != nil {
 		return nil, nil, err
 	}
-
-	if curVer == r.lastVersion {
+	r.mutex.RLock()
+	lastVer := r.lastVersion
+	r.mutex.RUnlock()
+	if curVer == lastVer {
 		return r.cachedPackages, r.cachedPackageRevisions, nil
 	}
 
@@ -549,6 +565,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 	}
 
 	// Build mapping from kubeObjectName to PackageRevisions for new PackageRevisions.
+	r.mutex.Lock()
 	newPackageRevisionNames := make(map[string]*cachedPackageRevision, len(newPackageRevisions))
 	for _, newPackageRevision := range newPackageRevisions {
 		kname := newPackageRevision.KubeObjectName()
@@ -563,13 +580,15 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 		}
 		newPackageRevisionNames[newPackageRevision.KubeObjectName()] = pkgRev
 	}
+	r.mutex.Unlock()
 
 	// Build mapping from kubeObjectName to PackageRevisions for existing PackageRevisions
+	r.mutex.Lock()
 	oldPackageRevisionNames := make(map[string]*cachedPackageRevision, len(r.cachedPackageRevisions))
 	for _, oldPackage := range r.cachedPackageRevisions {
 		oldPackageRevisionNames[oldPackage.KubeObjectName()] = oldPackage
 	}
-
+	r.mutex.Unlock()
 	// We go through all PackageRev CRs that represents PackageRevisions
 	// in the current repo and make sure they all have a corresponding
 	// PackageRevision. The ones that doesn't is removed.
@@ -657,10 +676,11 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 			continue
 		}
 	}
-
+	r.mutex.Lock()
 	r.cachedPackageRevisions = newPackageRevisionMap
 	r.cachedPackages = newPackageMap
 	r.lastVersion = curVer
+	r.mutex.Unlock()
 
 	return newPackageMap, newPackageRevisionMap, nil
 }
