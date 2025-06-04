@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/pkg/cli/commands/repo/get"
+	// repoGet "github.com/nephio-project/porch/pkg/cli/commands/repo/get" // Remove or comment out unless needed elsewhere
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -45,7 +45,7 @@ func TestRunnerPreRunE(t *testing.T) {
 	ctx := context.Background()
 	gcf := genericclioptions.ConfigFlags{Namespace: &ns}
 	r := newRunner(ctx, &gcf)
-	cmd := get.NewCommand(ctx, &gcf)
+	cmd := NewCommand(ctx, &gcf)
 
 	err := r.preRunE(cmd, []string{})
 	assert.Nil(t, err)
@@ -53,7 +53,6 @@ func TestRunnerPreRunE(t *testing.T) {
 	if r.requestTable != true {
 		t.Errorf("Expected requestTable to be true, got %v", r.requestTable)
 	}
-
 }
 
 func TestGetCmd(t *testing.T) {
@@ -209,23 +208,26 @@ func TestNamespaceFlagWithoutValue(t *testing.T) {
 	ns := ""
 	gcf := genericclioptions.ConfigFlags{Namespace: &ns}
 	r := newRunner(ctx, &gcf)
-	cmd := get.NewCommand(ctx, &gcf)
-	gcf.AddFlags(cmd.PersistentFlags())
 
-	// Simulate --namespace flag specified but with no value
-	nsFlag := cmd.Flag("namespace")
+	parentCmd := &cobra.Command{Use: "rpkg"}
+	gcf.AddFlags(parentCmd.PersistentFlags())
+	getCmd := NewCommand(ctx, &gcf)
+	parentCmd.AddCommand(getCmd)
+
+	nsFlag := getCmd.Flag("namespace")
 	if nsFlag == nil {
 		t.Fatal("namespace flag not found")
 	}
+
 	nsFlag.Changed = true
 	errSet := nsFlag.Value.Set("")
 	if errSet != nil {
 		t.Fatalf("unexpected error setting namespace flag: %v", errSet)
 	}
 
-	err := r.preRunE(cmd, []string{})
+	err := r.preRunE(getCmd, []string{})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "--namespace flag specified without a value")
+	assert.Contains(t, err.Error(), "namespace flag specified without a value")
 }
 
 func TestNamespaceShortFlagWithoutValue(t *testing.T) {
@@ -233,21 +235,26 @@ func TestNamespaceShortFlagWithoutValue(t *testing.T) {
 	ns := ""
 	gcf := genericclioptions.ConfigFlags{Namespace: &ns}
 	r := newRunner(ctx, &gcf)
-	cmd := get.NewCommand(ctx, &gcf)
-	gcf.AddFlags(cmd.PersistentFlags())
 
-	// Simulate -n flag specified but with no value
-	nFlag := cmd.Flag("n")
-	if nFlag == nil {
-		t.Fatal("short namespace flag (-n) not found")
+	parentCmd := &cobra.Command{Use: "rpkg"}
+	gcf.AddFlags(parentCmd.PersistentFlags())
+	getCmd := NewCommand(ctx, &gcf)
+	parentCmd.AddCommand(getCmd)
+
+	nsFlag := getCmd.InheritedFlags().Lookup("namespace")
+	if nsFlag == nil {
+		t.Fatal("namespace flag not found in inherited flags")
 	}
-	nFlag.Changed = true
-	errSet := nFlag.Value.Set("")
+	if nsFlag.Shorthand != "n" {
+		t.Fatalf("namespace flag does not have shorthand 'n', got '%s'", nsFlag.Shorthand)
+	}
+	nsFlag.Changed = true
+	errSet := nsFlag.Value.Set("")
 	if errSet != nil {
 		t.Fatalf("unexpected error setting -n flag: %v", errSet)
 	}
 
-	err := r.preRunE(cmd, []string{})
+	err := r.preRunE(getCmd, []string{})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "namespace flag specified without a value")
 }
