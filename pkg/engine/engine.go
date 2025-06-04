@@ -191,22 +191,17 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 		return nil, err
 	}
 
-	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	// if render fails we allow resource creation alongside the error
-	if renderFailed {
-		return repoPkgRev, tasksErr
-	}
-
 	// Close the draft
 	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, 0)
 	if err != nil {
 		// Don't call rollback() here since it would likely fail again
 		// Just return the error from the close operation
 		return nil, fmt.Errorf("failed to close package revision draft: %w", err)
+	}
+
+	// if render fails we allow resource creation alongside the error
+	if renderFailed {
+		return repoPkgRev, tasksErr
 	}
 
 	return repoPkgRev, nil
