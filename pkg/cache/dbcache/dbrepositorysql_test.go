@@ -73,6 +73,10 @@ func TestRepoDBWriteRead(t *testing.T) {
 	err = repoUpdateDB(context.TODO(), &dbRepoUpdate)
 	assert.Nil(t, err)
 
+	readRepo, err = repoReadFromDB(context.TODO(), dbRepo.Key())
+	assert.Nil(t, err)
+	assertReposEqual(t, &dbRepoUpdate, readRepo)
+
 	err = repoDeleteFromDB(context.TODO(), dbRepo.Key())
 	assert.Nil(t, err)
 
