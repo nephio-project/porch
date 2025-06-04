@@ -321,7 +321,7 @@ func (pcm *podCacheManager) podCacheManager() {
 				err := pcm.podManager.kubeClient.Get(context.Background(), podAndCl.pod, pod)
 				deleteCacheEntry := false
 				if err == nil {
-          // If the cached pod is in Failed state, delete it and evict from cache to trigger a fresh pod.
+					// If the cached pod is in Failed state, delete it and evict from cache to trigger a fresh pod.
 					if pod.Status.Phase == corev1.PodFailed {
 						klog.Warningf("pod %v/%v is in Failed state. Deleting and recreating", pod.Namespace, pod.Name)
 						go pcm.deleteFailedPod(pod, req.image)

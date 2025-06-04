@@ -160,6 +160,17 @@ func TestPodManager(t *testing.T) {
 		PodIP: "",
 	}
 
+	podStatusFailed := corev1.PodStatus{
+		Phase: corev1.PodFailed,
+		Conditions: []corev1.PodCondition{
+			{
+				Type:   corev1.PodReady,
+				Status: corev1.ConditionFalse,
+			},
+		},
+		PodIP: "",
+	}
+
 	podStatusPending := corev1.PodStatus{
 		Phase: corev1.PodPending,
 		Conditions: []corev1.PodCondition{
@@ -181,6 +192,12 @@ func TestPodManager(t *testing.T) {
 		ObjectMeta: deletionInProgessPodObjectMeta,
 		Spec:       defaultPodSpec,
 		Status:     podStatusNotRunning,
+	}
+
+	failedPodObject := &corev1.Pod{
+		ObjectMeta: deletionInProgessPodObjectMeta,
+		Spec:       defaultPodSpec,
+		Status:     podStatusFailed,
 	}
 
 	defaultServiceObject := &corev1.Service{
@@ -782,46 +799,21 @@ func TestPodManager(t *testing.T) {
 			name:          "Failed pod is deleted and new one is created",
 			skip:          false,
 			expectFail:    false,
-			functionImage: "apply-replacements",
+			functionImage: defaultImageName,
 			kubeClient: fake.NewClientBuilder().WithObjects([]client.Object{
-				&corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "apply-replacements-5245a527",
-						Namespace: "porch-fn-system",
-						Labels: map[string]string{
-							krmFunctionLabel: "apply-replacements-5245a527",
-						},
-					},
-					Spec: corev1.PodSpec{
-						Containers: []corev1.Container{
-							{
-								Name:  "function",
-								Image: "apply-replacements",
-							},
-						},
-					},
-					Status: corev1.PodStatus{
-						Phase: corev1.PodFailed,
-						PodIP: "localhost",
-					},
-				},
-			}...).Build(),
-			namespace:          "porch-fn-system",
-			wrapperServerImage: "wrapper-server",
+				failedPodObject,
+				defaultServiceObject,
+				defaultEndpointObject,
+			}...).WithInterceptorFuncs(interceptor.Funcs{
+				Create: fakeClientCreateFixInterceptor,
+			}).Build(),
+			namespace:          defaultNamespace,
+			wrapperServerImage: defaultWrapperServerImage,
 			imageMetadataCache: defaultImageMetadataCache,
 			evalFunc:           defaultSuccessEvalFunc,
 			useGenerateName:    true,
 			podPatch: &corev1.Pod{
-				Status: corev1.PodStatus{
-					Phase: corev1.PodRunning,
-					Conditions: []corev1.PodCondition{
-						{
-							Type:   corev1.PodReady,
-							Status: corev1.ConditionTrue,
-						},
-					},
-					PodIP: "localhost",
-				},
+				Status: podStatusRunning,
 			},
 		},
 	}
