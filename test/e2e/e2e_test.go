@@ -2254,6 +2254,74 @@ func (t *PorchSuite) TestPodEvaluatorWithFailure() {
 	}
 }
 
+func (t *PorchSuite) TestFailedPodEvictionAndRecovery() {
+	if t.TestRunnerIsLocal {
+		t.Skipf("Skipping test: evaluator pod not available in local mode")
+	}
+
+	t.RegisterMainGitRepositoryF("git-fn-failed-recovery")
+
+	// Define a bogus kpt function image that will fail (image doesn't exist)
+	bogusFnImage := "quay.io/invalid/kpt-fn-broken:v0.0.1"
+
+	// Create a PackageRevision with an eval task that will fail
+	pr := &porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: t.Namespace,
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			PackageName:    "test-fn-pod-eviction",
+			WorkspaceName:  "workspace",
+			RepositoryName: "git-fn-failed-recovery",
+			Tasks: []porchapi.Task{
+				{
+					Type: "clone",
+					Clone: &porchapi.PackageCloneTaskSpec{
+						Upstream: porchapi.UpstreamPackage{
+							Type: "git",
+							Git: &porchapi.GitPackage{
+								Repo:      "https://github.com/GoogleCloudPlatform/blueprints.git",
+								Ref:       "bucket-blueprint-v0.4.3",
+								Directory: "catalog/bucket",
+							},
+						},
+					},
+				},
+				{
+					Type: "eval",
+					Eval: &porchapi.FunctionEvalTaskSpec{
+						Image: bogusFnImage,
+					},
+				},
+			},
+		},
+	}
+
+	// Create the package revision
+	err := t.Client.Create(t.GetContext(), pr)
+
+	// Assert: creation should fail, and the error should reflect evaluator pod failure
+	if err == nil || !strings.Contains(err.Error(), "failed to evaluate function") {
+		t.Fatalf("expected evaluator failure for broken image, but got: %v", err)
+	}
+
+	// Optional: verify no stuck pods exist for the failed image
+	pods := &corev1.PodList{}
+	if err := t.Client.List(t.GetContext(), pods, client.InNamespace(t.Namespace)); err != nil {
+		t.Fatalf("failed to list pods: %v", err)
+	}
+
+	for _, pod := range pods.Items {
+		if strings.Contains(pod.Spec.Containers[0].Image, "kpt-fn-broken") {
+			if pod.Status.Phase == corev1.PodFailed {
+				t.Logf("Found pod %s in Failed state (expected, cleanup should follow)", pod.Name)
+			} else {
+				t.Logf("Found pod %s in %s state", pod.Name, pod.Status.Phase)
+			}
+		}
+	}
+}
+
 func (t *PorchSuite) TestLargePackageRevision() {
 	const testDataSize = 5 * 1024 * 1024
 

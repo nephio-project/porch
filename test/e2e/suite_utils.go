@@ -27,6 +27,7 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	pvapi "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
+	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -38,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -702,4 +704,62 @@ func (t *TestSuite) RetriggerBackgroundJobForRepo(repoName string) {
 	t.DeleteE(&repo)
 	t.CreateE(&repo)
 	t.WaitUntilRepositoryReady(repo.Name, t.Namespace)
+}
+
+type MutatorOption func(*kptfilev1.Function)
+
+func WithConfigmap(configMap map[string]string) MutatorOption {
+	return func(r *kptfilev1.Function) {
+		r.ConfigMap = configMap
+	}
+}
+
+func WithConfigPath(configPath string) MutatorOption {
+	return func(r *kptfilev1.Function) {
+		r.ConfigPath = configPath
+	}
+}
+
+// addMutator adds a mutator to the Kptfile pipeline of the resources (in-place)
+func (t *TestSuite) AddMutator(resources *porchapi.PackageRevisionResources, image string, opts ...MutatorOption) {
+	t.T().Helper()
+	kptf, ok := resources.Spec.Resources[kptfilev1.KptFileName]
+	if !ok {
+		t.Fatalf("Kptfile not found in resources")
+	}
+	parsed := &kptfilev1.KptFile{}
+	if err := yaml.Unmarshal([]byte(kptf), parsed); err != nil {
+		t.Fatalf("Failed to unmarshal Kptfile: %v", err)
+	}
+
+	if parsed.Pipeline == nil {
+		parsed.Pipeline = &kptfilev1.Pipeline{}
+	}
+
+	if parsed.Pipeline.Mutators == nil {
+		parsed.Pipeline.Mutators = make([]kptfilev1.Function, 0, 1)
+	}
+
+	parsed.Pipeline.Mutators = append(parsed.Pipeline.Mutators, kptfilev1.Function{Image: image})
+	mut := &parsed.Pipeline.Mutators[len(parsed.Pipeline.Mutators)-1]
+
+	for _, opt := range opts {
+		opt(mut)
+	}
+
+	marshalled, err := yaml.Marshal(parsed)
+	if err != nil {
+		t.Fatalf("Failed to marshal Kptfile: %v", err)
+	}
+
+	resources.Spec.Resources[kptfilev1.KptFileName] = string(marshalled)
+}
+
+func (t *TestSuite) AddResourceToPackage(resources *porchapi.PackageRevisionResources, filePath string, name string) {
+	t.T().Helper()
+	file, err := os.ReadFile(filePath)
+	if err != nil {
+		t.Fatalf("Failed to read file from %q: %v", filePath, err)
+	}
+	resources.Spec.Resources[name] = string(file)
 }

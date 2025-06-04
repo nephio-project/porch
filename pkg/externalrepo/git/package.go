@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-git/go-git/v5/plumbing"
@@ -41,6 +42,7 @@ type gitPackageRevision struct {
 	commit    plumbing.Hash       // Current version of the package (commit sha)
 	tasks     []v1alpha1.Task
 	metadata  metav1.ObjectMeta
+	mutex     sync.Mutex
 }
 
 var _ repository.PackageRevision = &gitPackageRevision{}
@@ -109,8 +111,8 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 			status.PublishedBy = p.updatedBy
 		}
 	}
-
-	return &v1alpha1.PackageRevision{
+	p.mutex.Lock()
+	pr := &v1alpha1.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevision",
 			APIVersion: v1alpha1.SchemeGroupVersion.Identifier(),
@@ -134,7 +136,9 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 			Revision:       key.Revision,
 		},
 		Status: status,
-	}, nil
+	}
+	p.mutex.Unlock()
+	return pr, nil
 }
 
 func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.PackageRevisionResources, error) {
@@ -143,7 +147,8 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 		return nil, fmt.Errorf("failed to load package resources: %w", err)
 	}
 
-	return &v1alpha1.PackageRevisionResources{
+	p.mutex.Lock()
+	prRes := &v1alpha1.PackageRevisionResources{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevisionResources",
 			APIVersion: v1alpha1.SchemeGroupVersion.Identifier(),
@@ -166,7 +171,9 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 
 			Resources: resources,
 		},
-	}, nil
+	}
+	p.mutex.Unlock()
+	return prRes, nil
 }
 
 // Creates a gitPackageRevision reference that is acting as the main branch package revision.
@@ -271,10 +278,15 @@ func (p *gitPackageRevision) UpdateLifecycle(ctx context.Context, new v1alpha1.P
 }
 
 func (p *gitPackageRevision) GetMeta() metav1.ObjectMeta {
-	return p.metadata
+	p.mutex.Lock()
+	metadata := p.metadata
+	p.mutex.Unlock()
+	return metadata
 }
 
 func (p *gitPackageRevision) SetMeta(_ context.Context, metadata metav1.ObjectMeta) error {
+	p.mutex.Lock()
 	p.metadata = metadata
+	p.mutex.Unlock()
 	return nil
 }
