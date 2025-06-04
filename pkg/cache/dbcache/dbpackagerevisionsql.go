@@ -30,16 +30,15 @@ func pkgRevReadFromDB(ctx context.Context, prk repository.PackageRevisionKey) (d
 
 	klog.Infof("pkgRevReadFromDB: reading package revision %q", prk)
 
-	sqlStatement := `SELECT * FROM package_revisions
-     WHERE name_space=$1 AND repo_name=$2 AND package_name=$3 AND workspace_name=$4`
+	sqlStatement := `SELECT * FROM package_revisions WHERE k8s_name_space=$1 AND k8s_name=$2`
 
 	var pkgRev dbPackageRevision
-	var metaAsJson, specAsJson string
+	var prK8SName, metaAsJson, specAsJson string
 
 	err := GetDB().db.QueryRow(
-		sqlStatement, prk.GetPackageKey().GetRepositoryKey().Namespace, prk.GetPackageKey().GetRepositoryKey().Name, prk.GetPackageKey().Package, prk.WorkspaceName).Scan(
+		sqlStatement, prk.K8Sns(), prk.K8Sname).Scan(
 		&pkgRev.pkgRevKey.PkgKey.RepoKey.Namespace,
-		&pkgRev.pkgRevKey.PkgKey.RepoKey.Name,
+		&prK8SName,
 		&pkgRev.pkgRevKey.PkgKey.Package,
 		&pkgRev.pkgRevKey.WorkspaceName,
 		&pkgRev.pkgRevKey.Revision,
@@ -76,7 +75,7 @@ func pkgRevReadPRsFromDB(ctx context.Context, pk repository.PackageKey) ([]*dbPa
 	_, span := tracer.Start(ctx, "dbpackagerevisionsql::pkgRevReadPRsFromDB", trace.WithAttributes())
 	defer span.End()
 
-	sqlStatement := `SELECT * FROM package_revisions WHERE name_space=$1 AND repo_name=$2 AND package_name=$3`
+	sqlStatement := `SELECT * FROM package_revisions WHERE k8s_name_space=$1 AND package_k8s_name=$2`
 
 	return pkgRevReadPRListFromDB(ctx, pk, sqlStatement)
 }
@@ -101,9 +100,9 @@ func pkgRevReadLatestPRFromDB(ctx context.Context, pk repository.PackageKey) (*d
 
 	sqlStatement := `
 		SELECT * FROM package_revisions
-			WHERE name_space=$1 AND repo_name=$2 AND package_name=$3 AND package_rev=(
+			WHERE k8s_name_space=$1 AND package_k8s_name=$2 AND package_rev=(
 				SELECT MAX(package_rev) FROM package_revisions
-					WHERE name_space=$1 AND repo_name=$2 AND package_name=$3
+					WHERE k8s_name_space=$1 AND package_k8S_name=$2
 			)`
 
 	latestPRList, err := pkgRevReadPRListFromDB(ctx, pk, sqlStatement)
@@ -134,7 +133,7 @@ func pkgRevReadPRListFromDB(ctx context.Context, pk repository.PackageKey, sqlSt
 
 	klog.Infof("pkgReadPRsFromDB: running query [%q] on %q", sqlStatement, pk)
 
-	rows, err := GetDB().db.Query(sqlStatement, pk.GetRepositoryKey().Namespace, pk.GetRepositoryKey().Name, pk.Package)
+	rows, err := GetDB().db.Query(sqlStatement, pk.K8Sns(), pk.K8Sname())
 	if err != nil {
 		klog.Infof("pkgReadPRsFromDB: query failed for %q: %q", pk, err)
 		return nil, err
@@ -145,11 +144,11 @@ func pkgRevReadPRListFromDB(ctx context.Context, pk repository.PackageKey, sqlSt
 
 	for rows.Next() {
 		var pkgRev dbPackageRevision
-		var metaAsJson, specAsJson string
+		var prK8SName, metaAsJson, specAsJson string
 
 		if err := rows.Scan(
 			&pkgRev.pkgRevKey.PkgKey.RepoKey.Namespace,
-			&pkgRev.pkgRevKey.PkgKey.RepoKey.Name,
+			&prK8SName,
 			&pkgRev.pkgRevKey.PkgKey.Package,
 			&pkgRev.pkgRevKey.WorkspaceName,
 			&pkgRev.pkgRevKey.Revision,
@@ -185,7 +184,7 @@ func pkgRevWriteToDB(ctx context.Context, pr *dbPackageRevision) error {
 	klog.Infof("pkgRevWriteToDB: writing package revision %q", pr.Key())
 
 	sqlStatement := `
-        INSERT INTO package_revisions (name_space, repo_name, package_name, workspace_name, package_rev, meta, spec, updated, updatedby, lifecycle)
+        INSERT INTO package_revisions (k8s_name_space, k8s_name, package_k8s_name, workspace_name, package_rev, meta, spec, updated, updatedby, lifecycle)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
 
 	klog.Infof("pkgRevWriteToDB: running query [%q] on repository (%#v)", sqlStatement, pr)
@@ -193,8 +192,8 @@ func pkgRevWriteToDB(ctx context.Context, pr *dbPackageRevision) error {
 	prk := pr.Key()
 	if _, err := GetDB().db.Exec(
 		sqlStatement,
-		prk.GetPackageKey().GetRepositoryKey().Namespace, prk.GetPackageKey().GetRepositoryKey().Name, prk.GetPackageKey().Package, prk.WorkspaceName,
-		prk.Revision, valueAsJson(pr.meta), valueAsJson(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle); err == nil {
+		prk.K8Sns(), prk.K8Sname(),
+		prk.GetPackageKey().K8Sname(), prk.WorkspaceName, prk.Revision, valueAsJson(pr.meta), valueAsJson(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle); err == nil {
 		klog.Infof("pkgRevWriteToDB: query succeeded, row created")
 	} else {
 		klog.Infof("pkgRevWriteToDB: query failed %q", err)
@@ -217,16 +216,16 @@ func pkgRevUpdateDB(ctx context.Context, pr *dbPackageRevision) error {
 	klog.Infof("pkgRevUpdateDB: updating package revision %q", pr.Key())
 
 	sqlStatement := `
-        UPDATE package_revisions SET package_rev=$5, meta=$6, spec=$7, updated=$8, updatedby=$9, lifecycle=$10
-        WHERE name_space=$1 AND repo_name=$2 AND package_name=$3 AND workspace_name=$4`
+        UPDATE package_revisions SET package_k8s_name=$3, workspace=$4, revision=$5, meta=$6, spec=$7, updated=$8, updatedby=$9, lifecycle=$10
+        WHERE k8s_name_space=$1 AND k8s_name=$2`
 
 	klog.Infof("pkgRevUpdateDB: running query [%q] on repository (%#v)", sqlStatement, pr)
 
 	prk := pr.Key()
 	if _, err := GetDB().db.Exec(
 		sqlStatement,
-		prk.GetPackageKey().GetRepositoryKey().Namespace, prk.GetPackageKey().GetRepositoryKey().Name, prk.GetPackageKey().Package, prk.WorkspaceName,
-		prk.Revision, valueAsJson(pr.meta), valueAsJson(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle); err == nil {
+		prk.K8Sns(), prk.K8Sname(),
+		prk.GetPackageKey().K8Sname(), prk.WorkspaceName, prk.Revision, valueAsJson(pr.meta), valueAsJson(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle); err == nil {
 		klog.Infof("pkgRevUpdateDB:: query succeeded, row created")
 	} else {
 		klog.Infof("pkgRevUpdateDB:: query failed %q", err)
@@ -255,9 +254,9 @@ func pkgRevDeleteFromDB(ctx context.Context, prk repository.PackageRevisionKey) 
 		return err
 	}
 
-	sqlStatement := `DELETE FROM package_revisions WHERE name_space=$1 AND repo_name=$2 AND package_name=$3 AND workspace_name=$4`
+	sqlStatement := `DELETE FROM package_revisions WHERE k8s_name_space=$1 AND k8s_name=$2`
 
-	_, err := GetDB().db.Exec(sqlStatement, prk.GetPackageKey().GetRepositoryKey().Namespace, prk.GetPackageKey().GetRepositoryKey().Name, prk.GetPackageKey().Package, prk.WorkspaceName)
+	_, err := GetDB().db.Exec(sqlStatement, prk.K8Sns(), prk.K8Sname(), prk.WorkspaceName)
 
 	if err == nil {
 		klog.Infof("pkgRevDeleteFromDB: deleted package revision %q", prk)

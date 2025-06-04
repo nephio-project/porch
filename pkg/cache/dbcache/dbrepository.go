@@ -1,4 +1,4 @@
-// Copyright 2024 The Nephio Authors
+// Copyright 2024.2025 The Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,13 +36,14 @@ import (
 var _ repository.Repository = &dbRepository{}
 
 type dbRepository struct {
-	repoKey      repository.RepositoryKey
-	meta         *metav1.ObjectMeta
-	spec         *configapi.Repository
-	externalRepo repository.Repository
-	updated      time.Time
-	updatedBy    string
-	deployment   bool
+	repoKey        repository.RepositoryKey
+	meta           *metav1.ObjectMeta
+	spec           *configapi.Repository
+	externalRepo   repository.Repository
+	repositorySync *repositorySync
+	updated        time.Time
+	updatedBy      string
+	deployment     bool
 }
 
 func (r *dbRepository) KubeObjectName() string {
@@ -94,6 +95,8 @@ func (r *dbRepository) Close(ctx context.Context) error {
 	defer span.End()
 
 	klog.Infof("DB Repo close: %q", r.Key().String())
+
+	r.repositorySync.stop()
 
 	dbPkgs, err := pkgReadPkgsFromDB(ctx, r.Key())
 	if err != nil {
@@ -338,7 +341,15 @@ func (r *dbRepository) Refresh(ctx context.Context) error {
 	_, span := tracer.Start(ctx, "dbRepository::Refresh", trace.WithAttributes())
 	defer span.End()
 
-	return nil
+	if err := r.repositorySync.getLastSyncError(); err != nil {
+		klog.Warningf("last sync returned error %s, refreshing . . .", err)
+	}
+
+	if err := r.externalRepo.Refresh(ctx); err != nil {
+		return err
+	}
+
+	return r.repositorySync.syncOnce(ctx)
 }
 
 func (r *dbRepository) UpdateLifecycle(ctx context.Context, pkgRev repository.PackageRevision, newLifecycle v1alpha1.PackageRevisionLifecycle) error {

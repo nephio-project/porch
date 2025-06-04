@@ -16,6 +16,7 @@ package dbcache
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
@@ -26,14 +27,16 @@ func repoReadFromDB(ctx context.Context, rk repository.RepositoryKey) (*dbReposi
 	_, span := tracer.Start(ctx, "dbrepositorysql::repoReadFromDB", trace.WithAttributes())
 	defer span.End()
 
-	sqlStatement := `SELECT name_space, repo_name, meta, spec, updated, updatedby, deployment FROM repositories WHERE name_space=$1 AND repo_name=$2`
+	sqlStatement := `SELECT k8s_name_space, k8s_name, directory, default_ws_name, meta, spec, updated, updatedby, deployment FROM repositories WHERE k8s_name_space=$1 AND k8s_name=$2`
 
 	var dbRepo dbRepository
 	var metaAsJson, specAsJson string
 
-	err := GetDB().db.QueryRow(sqlStatement, rk.Namespace, rk.Name).Scan(
+	err := GetDB().db.QueryRow(sqlStatement, rk.K8Sns(), rk.K8Sname()).Scan(
 		&dbRepo.repoKey.Namespace,
 		&dbRepo.repoKey.Name,
+		&dbRepo.repoKey.Path,
+		&dbRepo.repoKey.PlaceholderWSname,
 		&metaAsJson,
 		&specAsJson,
 		&dbRepo.updated,
@@ -44,8 +47,8 @@ func repoReadFromDB(ctx context.Context, rk repository.RepositoryKey) (*dbReposi
 		return nil, err
 	}
 
-	setValueFromJson(metaAsJson, dbRepo.meta)
-	setValueFromJson(specAsJson, dbRepo.spec)
+	setValueFromJson(metaAsJson, &dbRepo.meta)
+	setValueFromJson(specAsJson, &dbRepo.spec)
 
 	return &dbRepo, err
 }
@@ -55,15 +58,15 @@ func repoWriteToDB(ctx context.Context, r *dbRepository) error {
 	defer span.End()
 
 	sqlStatement := `
-        INSERT INTO repositories (name_space, repo_name, meta, spec, updated, updatedby, deployment)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)`
+        INSERT INTO repositories (k8s_name_space, k8s_name, directory, default_ws_name, meta, spec, updated, updatedby, deployment)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
 	klog.Infof("DB Connection: running query [%q] on repository (%#v)", sqlStatement, r)
 
 	rk := r.Key()
 	if _, err := GetDB().db.Exec(
 		sqlStatement,
-		rk.Namespace, rk.Name, valueAsJson(r.meta), valueAsJson(r.spec), r.updated, r.updatedBy, r.deployment); err == nil {
+		rk.K8Sns(), rk.K8Sname(), rk.Path, rk.PlaceholderWSname, valueAsJson(r.meta), valueAsJson(r.spec), r.updated, r.updatedBy, r.deployment); err == nil {
 		klog.Infof("DB Connection: query succeeded, row created")
 		return nil
 	} else {
@@ -77,30 +80,35 @@ func repoUpdateDB(ctx context.Context, r *dbRepository) error {
 	defer span.End()
 
 	sqlStatement := `
-        UPDATE repositories SET meta=$3, spec=$4, updated=$5, updatedby=$6, deployment=$7
-        WHERE name_space=$1 AND repo_name=$2`
+        UPDATE repositories SET directory=$3, default_ws_name=$4 ,meta=$5, spec=$6, updated=$7, updatedby=$8, deployment=$9
+        WHERE k8s_name_space=$1 AND k8s_name=$2`
 
 	klog.Infof("repoUpdateDB: running query [%q] on %q)", sqlStatement, r.Key())
 
 	rk := r.Key()
-	if _, err := GetDB().db.Exec(
+	result, err := GetDB().db.Exec(
 		sqlStatement,
-		rk.Namespace, rk.Name, valueAsJson(r.meta), valueAsJson(r.spec), r.updated, r.updatedBy, r.deployment); err == nil {
-		klog.Infof("repoUpdateDB: query succeeded for %q", rk)
-		return nil
-	} else {
-		klog.Infof("repoUpdateDB: query failed for %q: %q", rk, err)
-		return err
+		rk.K8Sns(), rk.K8Sname(), rk.Path, rk.PlaceholderWSname, valueAsJson(r.meta), valueAsJson(r.spec), r.updated, r.updatedBy, r.deployment)
+
+	if err == nil {
+		if rowsAffected, _ := result.RowsAffected(); rowsAffected > 0 {
+			klog.Infof("repoUpdateDB: query succeeded for %q", rk)
+			return nil
+		}
+		err = fmt.Errorf("update failed, no rows found for updating")
 	}
+
+	klog.Infof("repoUpdateDB: query failed for %q: %q", rk, err)
+	return err
 }
 
 func repoDeleteFromDB(ctx context.Context, rk repository.RepositoryKey) error {
 	_, span := tracer.Start(ctx, "dbrepositorysql::repoDeleteFromDB", trace.WithAttributes())
 	defer span.End()
 
-	sqlStatement := `DELETE FROM repositories WHERE name_space=$1 AND repo_name=$2`
+	sqlStatement := `DELETE FROM repositories WHERE k8s_name_space=$1 AND k8s_name=$2`
 
-	_, err := GetDB().db.Exec(sqlStatement, rk.Namespace, rk.Name)
+	_, err := GetDB().db.Exec(sqlStatement, rk.K8Sns(), rk.K8Sname())
 
 	return err
 }

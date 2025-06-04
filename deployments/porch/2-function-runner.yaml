@@ -76,6 +76,7 @@ metadata:
   name: function-runner
   namespace: porch-system
 spec:
+  type: LoadBalancer
   selector:
     app: function-runner
   ports:

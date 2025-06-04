@@ -62,7 +62,7 @@
                 "DB_PORT": "5432",
                 "DB_NAME": "porch",
                 "DB_USER": "porch",
-                "DB_PASSWORD": "porch"
+                "DB_PASSWORD": "porch",
             }
         },
         {

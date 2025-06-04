@@ -31,13 +31,12 @@ func pkgRevResourceReadFromDB(ctx context.Context, prk repository.PackageRevisio
 	klog.Infof("pkgRevResourceReadFromDB: reading package revision resource %q:%s", prk, resKey)
 
 	sqlStatement := `SELECT resource_value FROM resources
-     WHERE name_space=$1 AND repo_name=$2 AND package_name=$3 AND workspace_name=$4 AND key=$5`
+     WHERE k8s_name_space=$1 AND k8s_name=$2 AND resource_key=$3`
 
 	var resVal string
 
 	err := GetDB().db.QueryRow(
-		sqlStatement, prk.GetPackageKey().GetRepositoryKey().Namespace, prk.GetPackageKey().GetRepositoryKey().Name, prk.GetPackageKey().Package, prk.WorkspaceName).Scan(
-		&resVal)
+		sqlStatement, prk.K8Sns(), prk.K8Sname(), prk.GetPackageKey().Package, resKey).Scan(&resVal)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -57,13 +56,13 @@ func pkgRevResourcesReadFromDB(ctx context.Context, prk repository.PackageRevisi
 	_, span := tracer.Start(ctx, "dbpackagerevisionresourcessql::pkgRevResourcesReadFromDB", trace.WithAttributes())
 	defer span.End()
 
-	sqlStatement := `SELECT resource_key, resource_value FROM resources WHERE name_space=$1 AND repo_name=$2 AND package_name=$3 AND workspace_name=$4`
+	sqlStatement := `SELECT resource_key, resource_value FROM resources WHERE k8s_name_space=$1 AND k8s_name=$2`
 
 	resources := make(map[string]string)
 
 	klog.Infof("pkgRevResourcesReadFromDB: running query [%q] on %q", sqlStatement, prk)
 
-	rows, err := GetDB().db.Query(sqlStatement, prk.GetPackageKey().GetRepositoryKey().Namespace, prk.GetPackageKey().GetRepositoryKey().Name, prk.GetPackageKey().Package, prk.WorkspaceName)
+	rows, err := GetDB().db.Query(sqlStatement, prk.K8Sns(), prk.K8Sname())
 	if err != nil {
 		klog.Infof("pkgRevResourcesReadFromDB: query failed for %q: %q", prk, err)
 		return nil, err
@@ -107,18 +106,17 @@ func pkgRevResourceWriteToDB(ctx context.Context, pr *dbPackageRevision, resKey 
 	klog.Infof("pkgRevResourceWriteToDB: writing package revision resource %q:%s", pr.Key(), resKey)
 
 	sqlStatement := `
-        INSERT INTO resources (name_space, repo_name, package_name, workspace_name, package_rev, resource_key, resource_value)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-		ON CONFLICT (name_space, repo_name, package_name, workspace_name, resource_key) 
-		DO UPDATE SET resource_value = EXCLUDED.resource_value`
+        INSERT INTO resources (k8s_name_space, k8s_name, revision, resource_key, resource_value)
+        VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (k8s_name_space, k8s_name, resource_key) 
+			DO UPDATE SET resource_value = EXCLUDED.resource_value`
 
 	klog.Infof("pkgRevResourceWriteToDB: running query [%q] on repository (%#v)", sqlStatement, pr)
 
 	prk := pr.Key()
 	if _, err := GetDB().db.Exec(
 		sqlStatement,
-		prk.GetPackageKey().GetRepositoryKey().Namespace, prk.GetPackageKey().GetRepositoryKey().Name, prk.GetPackageKey().Package, prk.WorkspaceName, prk.Revision,
-		resKey, resVal); err == nil {
+		prk.K8Sns(), prk.K8Sname(), prk.Revision, resKey, resVal); err == nil {
 		klog.Infof("pkgRevResourceWriteToDB: query succeeded, row created")
 		return nil
 	} else {
@@ -133,9 +131,9 @@ func pkgRevResourcesDeleteFromDB(ctx context.Context, prk repository.PackageRevi
 
 	klog.Infof("pkgRevResourcesDeleteFromDB: deleting package revision %q", prk)
 
-	sqlStatement := `DELETE FROM resources WHERE name_space=$1 AND repo_name=$2 AND package_name=$3 AND workspace_name=$4`
+	sqlStatement := `DELETE FROM resources WHERE k8s_name_space=$1 AND k8s_name=$2`
 
-	_, err := GetDB().db.Exec(sqlStatement, prk.GetPackageKey().GetRepositoryKey().Namespace, prk.GetPackageKey().GetRepositoryKey().Name, prk.GetPackageKey().Package, prk.WorkspaceName)
+	_, err := GetDB().db.Exec(sqlStatement, prk.K8Sns(), prk.K8Sname())
 
 	if err == nil {
 		klog.Infof("pkgRevResourcesDeleteFromDB: deleted package revision %q", prk)
