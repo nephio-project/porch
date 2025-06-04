@@ -33,8 +33,8 @@ var _ repository.Package = &dbPackage{}
 type dbPackage struct {
 	repo      *dbRepository
 	pkgKey    repository.PackageKey
-	meta      metav1.ObjectMeta
-	spec      v1alpha1.PackageSpec
+	meta      *metav1.ObjectMeta
+	spec      *v1alpha1.PackageSpec
 	updated   time.Time
 	updatedBy string
 }

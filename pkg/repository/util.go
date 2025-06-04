@@ -97,3 +97,13 @@ func ComposePkgObjName(key PackageKey) string {
 func ComposePkgRevObjName(key PackageRevisionKey) string {
 	return util.ComposePkgRevObjName(key.PkgKey.RepoKey.Name, key.PkgKey.Path, key.PkgKey.Package, key.WorkspaceName)
 }
+
+func PrSlice2Map(prSlice []PackageRevision) map[PackageRevisionKey]PackageRevision {
+	prMap := make(map[PackageRevisionKey]PackageRevision)
+
+	for _, pr := range prSlice {
+		prMap[pr.Key()] = pr
+	}
+
+	return prMap
+}

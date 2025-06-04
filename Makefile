@@ -261,11 +261,22 @@ run-in-kind-no-server: IMAGE_TAG=test
 run-in-kind-no-server: SKIP_PORCHSERVER_BUILD=true
 run-in-kind-no-server: load-images-to-kind deployment-config-no-server deploy-current-config ## Build and deploy porch without the porch-server into a kind cluster
 
+.PHONY: run-in-kind-db-cache-no-server
+run-in-kind-db-cache-no-server: IMAGE_REPO=porch-kind
+run-in-kind-db-cache-no-server: IMAGE_TAG=test
+run-in-kind-db-cache-no-server: load-images-to-kind deployment-config-db-cache deployment-config-no-server deploy-current-config ## Build and deploy porch into a kind cluster with postgres backend without the porch-server
+
 .PHONY: run-in-kind-no-controller
 run-in-kind-no-controller: IMAGE_REPO=porch-kind
 run-in-kind-no-controller: IMAGE_TAG=test
 run-in-kind-no-controller: SKIP_CONTROLLER_BUILD=true
 run-in-kind-no-controller: load-images-to-kind deployment-config-no-controller deploy-current-config ## Build and deploy porch without the controllers into a kind cluster
+
+.PHONY: run-in-kind-db-cache-no-controller
+run-in-kind-db-cache-no-controller: IMAGE_REPO=porch-kind
+run-in-kind-db-cache-no-controller: IMAGE_TAG=test
+run-in-kind-db-cache-no-controller: SKIP_CONTROLLER_BUILD=true
+run-in-kind-db-cache-no-controller: load-images-to-kind deployment-config-db-cache deployment-config-no-controller deploy-current-config ## Build and deploy porch without the controllers into a kind cluster
 
 .PHONY: destroy
 destroy: ## Deletes all porch resources installed by the last run-in-kind-* command

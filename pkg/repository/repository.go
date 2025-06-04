@@ -42,6 +42,14 @@ func (k PackageRevisionKey) String() string {
 	return fmt.Sprintf("%s:%d:%s", k.PkgKey.String(), k.Revision, string(k.WorkspaceName))
 }
 
+func (k PackageRevisionKey) K8Sns() string {
+	return k.PkgKey.RepoKey.Namespace
+}
+
+func (k PackageRevisionKey) K8Sname() string {
+	return ComposePkgRevObjName(k)
+}
+
 func (k PackageRevisionKey) DeepCopy(outKey *PackageRevisionKey) {
 	k.PkgKey.DeepCopy(&outKey.PkgKey)
 	outKey.Revision = k.Revision
@@ -71,6 +79,14 @@ func (k PackageRevisionKey) Matches(other PackageRevisionKey) bool {
 type PackageKey struct {
 	RepoKey       RepositoryKey
 	Path, Package string
+}
+
+func (k PackageKey) K8Sns() string {
+	return k.RepoKey.Namespace
+}
+
+func (k PackageKey) K8Sname() string {
+	return ComposePkgObjName(k)
 }
 
 func (k PackageKey) String() string {
@@ -127,6 +143,14 @@ func (k PackageKey) Matches(other PackageKey) bool {
 
 type RepositoryKey struct {
 	Namespace, Name, Path, PlaceholderWSname string
+}
+
+func (k RepositoryKey) K8Sns() string {
+	return k.Namespace
+}
+
+func (k RepositoryKey) K8Sname() string {
+	return k.Name
 }
 
 func (k RepositoryKey) String() string {
