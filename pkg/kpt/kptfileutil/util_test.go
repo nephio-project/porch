@@ -1,4 +1,4 @@
-// Copyright 2020 The kpt and Nephio Authors
+// Copyright 2020, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -507,7 +507,6 @@ status:
     - type: bar
       status: "False"
       reason: reason
-      message: message
 `,
 			updated: `
 apiVersion: kpt.dev/v1
@@ -1151,27 +1150,27 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-  - image: gcr.io/kpt-fn/search-replace:v0.1
+  - name: my-new-function
+    image: gcr.io/kpt-fn/search-replace:v0.1
     configMap:
       by-value: YOUR_TEAM
       put-value: my-team
-    name: my-new-function
-  - image: gcr.io/kpt-fn/generate-folders:v0.1
-    name: gf1
-  - image: gcr.io/kpt-fn/search-replace:v0.1
+  - name: gf1
+    image: gcr.io/kpt-fn/generate-folders:v0.1
+  - name: sr1
+    image: gcr.io/kpt-fn/search-replace:v0.1
     configMap:
       by-value: foo
       put-value: bar-new
-    name: sr1
-  - image: gcr.io/kpt-fn/set-labels:v0.1
+  - name: sl1
+    image: gcr.io/kpt-fn/set-labels:v0.1
     configMap:
       app: db
-    name: sl1
-  - image: gcr.io/kpt-fn/search-replace:v0.1
+  - name: sr2
+    image: gcr.io/kpt-fn/search-replace:v0.1
     configMap:
       by-value: abc
       put-comment: ${updated-setter-name}
-    name: sr2
 `,
 		},
 
@@ -1215,10 +1214,10 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-  - image: gcr.io/kpt/folder-ref
-    name: folder-ref
-  - image: gcr.io/kpt/gen-folders
-    name: gen-folders
+  - name: folder-ref
+    image: gcr.io/kpt/folder-ref
+  - name: gen-folders
+    image: gcr.io/kpt/gen-folders
 `,
 		},
 
@@ -1264,14 +1263,14 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-  - image: x-gcr.io/kpt/gen-folders
-    name: x-local
-  - image: b-gcr.io/kpt/gen-folders
-    name: b-local
-  - image: z-gcr.io/kpt/gen-folders
-    name: z-upstream
-  - image: a-gcr.io/kpt/gen-folders
-    name: a-upstream
+  - name: x-local
+    image: x-gcr.io/kpt/gen-folders
+  - name: b-local
+    image: b-gcr.io/kpt/gen-folders
+  - name: z-upstream
+    image: z-gcr.io/kpt/gen-folders
+  - name: a-upstream
+    image: a-gcr.io/kpt/gen-folders
 `,
 		},
 
@@ -1320,15 +1319,15 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-  - image: gcr.io/kpt/ref-folders
+  - name: ref-folders
+    image: gcr.io/kpt/ref-folders
     configMap:
       bar: foo
       foo: bar
-    name: ref-folders
-  - image: gcr.io/kpt/gen-folders
-    name: gen-folder-local
-  - image: gcr.io/kpt/gen-folders
-    name: gen-folder-upstream
+  - name: gen-folder-local
+    image: gcr.io/kpt/gen-folders
+  - name: gen-folder-upstream
+    image: gcr.io/kpt/gen-folders
 `,
 		},
 
@@ -1372,10 +1371,10 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-  - image: gcr.io/kpt/ref-folders
+  - name: ref-folders
+    image: gcr.io/kpt/ref-folders
     configMap:
       band: sleater-kinney
-    name: ref-folders
 `,
 		},
 	}

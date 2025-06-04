@@ -1,4 +1,4 @@
-// Copyright 2022-2024 The kpt and Nephio Authors
+// Copyright 2022-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,6 +13,8 @@
 // limitations under the License
 
 package v1alpha1
+
+import "slices"
 
 func LifecycleIsPublished(lifecycle PackageRevisionLifecycle) bool {
 	return lifecycle == PackageRevisionLifecyclePublished || lifecycle == PackageRevisionLifecycleDeletionProposed
@@ -37,4 +39,21 @@ func PackageRevisionIsReady(readinessGates []ReadinessGate, conditions []Conditi
 	}
 
 	return true
+}
+
+func UnmetReadinessConditions(pr *PackageRevision) (unmet []Condition) {
+	// collect all conditions
+	for _, eachCond := range pr.Status.Conditions {
+		if slices.ContainsFunc(pr.Spec.ReadinessGates, func(aGate ReadinessGate) bool {
+			return aGate.ConditionType == eachCond.Type
+		}) && eachCond.Status == ConditionFalse {
+			unmet = append(unmet, eachCond)
+		}
+	}
+	return
+}
+
+func (task *Task) TaskTypeOneOf(oneOf ...TaskType) bool {
+	taskType := task.Type
+	return slices.Contains(oneOf, taskType)
 }

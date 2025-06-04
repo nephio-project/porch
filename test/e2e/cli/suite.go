@@ -120,11 +120,15 @@ func (s *CliTestSuite) RunTestCase(t *testing.T, tc TestCaseConfig) {
 	repoURL := s.GitServerURL + "/" + testGitUserOrg + "/" + strings.ReplaceAll(tc.TestCase, "/", "-")
 
 	KubectlCreateNamespace(t, tc.TestCase)
+
+	failed := false
 	t.Cleanup(func() {
-		KubectlDeleteNamespace(t, tc.TestCase)
-		deleteRemoteTestRepo(t, tc.TestCase)
+		if !(failed && os.Getenv("CLEANUP_ON_FAIL") == "false") {
+			KubectlDeleteNamespace(t, tc.TestCase)
+			deleteRemoteTestRepo(t, tc.TestCase)
+		}
 	})
-	
+
 	createRemoteTestRepo(t, tc.TestCase)
 
 	if tc.Repository != "" {
@@ -183,23 +187,29 @@ func (s *CliTestSuite) RunTestCase(t *testing.T, tc TestCaseConfig) {
 			updateCommand(command, err, stdout.String(), stderr.String())
 		}
 
+		failureOutput := ""
 		if got, want := exitCode(err), command.ExitCode; got != want {
-			t.Errorf("unexpected exit code from '%s'; got %d, want %d", strings.Join(command.Args, " "), got, want)
+			failureOutput = fmt.Sprintf("%s\nunexpected exit code from '%s'; want %d, got %d\n", failureOutput, strings.Join(command.Args, " "), want, got)
 		}
-		if got, want := stdoutStr, command.Stdout; got != want {
-			t.Errorf("unexpected stdout content from '%s'; (-want, +got) %s", strings.Join(command.Args, " "), cmp.Diff(want, got))
+		if got, want := stdoutStr, command.Stdout; got != want && got != "" {
+			failureOutput = fmt.Sprintf("%s\nunexpected stdout content from '%s'; (-want, +got) %s", failureOutput, strings.Join(command.Args, " "), cmp.Diff(want, got))
 		}
 		got, want := stderrStr, command.Stderr
 		got = removeArmPlatformWarning(got)
 
 		if command.ContainsErrorString {
 			if !strings.Contains(got, want) {
-				t.Errorf("unexpected stderr content from '%s'; \n Error we got = \n(%s) \n Should contain substring = \n(%s)\n", strings.Join(command.Args, " "), got, want)
+				failureOutput = fmt.Sprintf("%s\nunexpected stderr content from '%s'; \n Error we got = \n(%s) \n Should contain substring = \n(%s)\n", failureOutput, strings.Join(command.Args, " "), got, want)
 			}
 		} else {
 			if got != want {
-				t.Errorf("unexpected stderr content from '%s'; (-want, +got) %s", strings.Join(command.Args, " "), cmp.Diff(want, got))
+				failureOutput = fmt.Sprintf("%s\nunexpected stderr content from '%s'; (-want, +got) %s\n", failureOutput, strings.Join(command.Args, " "), cmp.Diff(want, got))
 			}
+		}
+
+		if failureOutput != "" {
+			failed = true
+			t.Fatalf("\n%s\n%s", getTestFailureMessage(i, tc), failureOutput)
 		}
 
 		if slices.Contains(cmd.Args, "register") {
@@ -360,7 +370,7 @@ func exitCode(exit error) int {
 	return 0
 }
 
-func deleteRemoteTestRepo (t *testing.T, testcaseName string) {
+func deleteRemoteTestRepo(t *testing.T, testcaseName string) {
 
 	apiURL := fmt.Sprintf("http://localhost:3000/api/v1/repos/%s/%s", testGitUserOrg, testcaseName)
 
@@ -385,7 +395,7 @@ func deleteRemoteTestRepo (t *testing.T, testcaseName string) {
 	}
 }
 
-func createRemoteTestRepo (t *testing.T, testcaseName string) {
+func createRemoteTestRepo(t *testing.T, testcaseName string) {
 
 	tmpPath := t.TempDir()
 	repo, err := git.PlainInit(tmpPath, false)
@@ -400,7 +410,7 @@ func createRemoteTestRepo (t *testing.T, testcaseName string) {
 		t.Fatalf("Failed to set refs: %v", err)
 	}
 
-	err = os.WriteFile(tmpPath + "/README.md", []byte("# Test Go-Git Repo\nCreated programmatically."), 0644)
+	err = os.WriteFile(tmpPath+"/README.md", []byte("# Test Go-Git Repo\nCreated programmatically."), 0644)
 	if err != nil {
 		t.Fatalf("Failed to write to file: %v", err)
 	}
@@ -433,7 +443,7 @@ func createRemoteTestRepo (t *testing.T, testcaseName string) {
 	err = repo.Push(&git.PushOptions{
 		RemoteName: "origin",
 		Auth: &http.BasicAuth{
-			Username: testGitUserOrg, 
+			Username: testGitUserOrg,
 			Password: testGitPassword,
 		},
 		RequireRemoteRefs: []config.RefSpec{},
@@ -451,4 +461,8 @@ func getRepoName(args []string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func getTestFailureMessage(index int, tc TestCaseConfig) string {
+	return fmt.Sprintf("--- FAIL: command at index %d in config file %s", index, tc.ConfigFile)
 }
