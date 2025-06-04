@@ -91,10 +91,12 @@ type runner struct {
 }
 
 func (r *runner) preRunE(cmd *cobra.Command, _ []string) error {
-	// Check for --namespace flag specified without a value
+	// Check for --namespace or -n flag specified without a value
 	nsFlag := cmd.Flag("namespace")
-	if nsFlag != nil && nsFlag.Changed && nsFlag.Value.String() == "" {
-		return fmt.Errorf("error: --namespace flag specified without a value; please provide a value for --namespace or omit the flag")
+	nFlag := cmd.Flag("n")
+	if (nsFlag != nil && nsFlag.Changed && nsFlag.Value.String() == "") ||
+		(nFlag != nil && nFlag.Changed && nFlag.Value.String() == "") {
+		return fmt.Errorf("error: namespace flag specified without a value; please provide a value for --namespace/-n or omit the flag")
 	}
 
 	// Print the namespace if we're spanning namespaces

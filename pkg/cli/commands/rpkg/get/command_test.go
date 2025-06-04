@@ -227,3 +227,27 @@ func TestNamespaceFlagWithoutValue(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "--namespace flag specified without a value")
 }
+
+func TestNamespaceShortFlagWithoutValue(t *testing.T) {
+	ctx := context.Background()
+	ns := ""
+	gcf := genericclioptions.ConfigFlags{Namespace: &ns}
+	r := newRunner(ctx, &gcf)
+	cmd := get.NewCommand(ctx, &gcf)
+	gcf.AddFlags(cmd.PersistentFlags())
+
+	// Simulate -n flag specified but with no value
+	nFlag := cmd.Flag("n")
+	if nFlag == nil {
+		t.Fatal("short namespace flag (-n) not found")
+	}
+	nFlag.Changed = true
+	errSet := nFlag.Value.Set("")
+	if errSet != nil {
+		t.Fatalf("unexpected error setting -n flag: %v", errSet)
+	}
+
+	err := r.preRunE(cmd, []string{})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "namespace flag specified without a value")
+}
