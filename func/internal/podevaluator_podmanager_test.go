@@ -772,6 +772,130 @@ func TestPodManager(t *testing.T) {
 	}
 }
 
+func Test_deletePodWithContext(t *testing.T) {
+	k8sClient := fake.NewClientBuilder().WithObjects(&corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "testpod",
+			Namespace: "default",
+		},
+	}).Build()
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "testpod",
+			Namespace: "default",
+		},
+	}
+
+	err := deletePodWithContext(k8sClient, pod)
+	if err != nil {
+		t.Errorf("Expected no error while deleting pod, got: %v", err)
+	}
+}
+
+func Test_isCurrentCachedPod(t *testing.T) {
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "mypod",
+			Namespace: "default",
+		},
+	}
+	pcm := &podCacheManager{
+		cache: map[string]*podAndGRPCClient{
+			"test-image": {
+				pod: client.ObjectKey{
+					Name:      "mypod",
+					Namespace: "default",
+				},
+			},
+		},
+	}
+
+	if !isCurrentCachedPod(pcm, "test-image", pod) {
+		t.Errorf("Expected true for matching cached pod")
+	}
+
+	otherPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "otherpod",
+			Namespace: "default",
+		},
+	}
+	if isCurrentCachedPod(pcm, "test-image", otherPod) {
+		t.Errorf("Expected false for non-matching pod name")
+	}
+}
+
+func Test_deleteFailedPod(t *testing.T) {
+	testPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "deletepod",
+			Namespace: "default",
+		},
+	}
+	k8sClient := fake.NewClientBuilder().WithObjects(testPod).Build()
+
+	image := "image1"
+
+	pcm := &podCacheManager{
+		podManager: &podManager{kubeClient: k8sClient},
+		cache: map[string]*podAndGRPCClient{
+			image: {
+				pod: client.ObjectKey{
+					Name:      testPod.Name,
+					Namespace: testPod.Namespace,
+				},
+			},
+		},
+	}
+
+	pcm.deleteFailedPod(testPod, image)
+
+	if _, ok := pcm.cache[image]; ok {
+		t.Errorf("Expected pod to be removed from cache")
+	}
+}
+func Test_handleFailedPod(t *testing.T) {
+	testPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "failedpod",
+			Namespace: "default",
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Image: "failing-image"},
+			},
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodFailed,
+			PodIP: "127.0.0.1",
+		},
+	}
+
+	k8sClient := fake.NewClientBuilder().WithObjects(testPod).Build()
+
+	pcm := &podCacheManager{
+		podManager: &podManager{kubeClient: k8sClient},
+		cache: map[string]*podAndGRPCClient{
+			"failing-image": {
+				pod: client.ObjectKey{
+					Name:      "failedpod",
+					Namespace: "default",
+				},
+			},
+		},
+	}
+
+	evicted := pcm.handleFailedPod(testPod)
+	if !evicted {
+		t.Errorf("Expected true for failed pod handling")
+	}
+
+	if _, exists := pcm.cache["failing-image"]; exists {
+		t.Errorf("Expected pod to be evicted from cache")
+	}
+}
+
 // Fake client handles pod patches incorrectly in case the pod doesn't exist
 func fakeClientPatchFixInterceptor(ctx context.Context, kubeClient client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
 	if obj.GetObjectKind().GroupVersionKind().Kind == "Pod" {
