@@ -242,7 +242,7 @@ func (r *dbRepository) ListPackages(ctx context.Context, filter repository.ListP
 
 	genericPkgs := make([]repository.Package, len(dbPkgs))
 	for i, pkg := range dbPkgs {
-		genericPkgs[i] = repository.Package(&pkg)
+		genericPkgs[i] = repository.Package(pkg)
 	}
 
 	return genericPkgs, nil
@@ -311,7 +311,7 @@ func (r *dbRepository) savePackageRevision(ctx context.Context, prd repository.P
 			return nil, err
 		}
 
-		dbPkg = dbPackage{
+		dbPkg = &dbPackage{
 			repo:      r,
 			pkgKey:    d.Key().GetPackageKey(),
 			updated:   d.updated,

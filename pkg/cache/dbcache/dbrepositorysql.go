@@ -27,12 +27,15 @@ func repoReadFromDB(ctx context.Context, rk repository.RepositoryKey) (*dbReposi
 	_, span := tracer.Start(ctx, "dbrepositorysql::repoReadFromDB", trace.WithAttributes())
 	defer span.End()
 
-	sqlStatement := `SELECT k8s_name_space, k8s_name, directory, default_ws_name, meta, spec, updated, updatedby, deployment FROM repositories WHERE k8s_name_space=$1 AND k8s_name=$2`
+	sqlStatement := `
+		SELECT k8s_name_space, k8s_name, directory, default_ws_name, meta, spec, updated, updatedby, deployment
+		FROM repositories
+		WHERE k8s_name_space=$1 AND k8s_name=$2`
 
 	var dbRepo dbRepository
 	var metaAsJson, specAsJson string
 
-	err := GetDB().db.QueryRow(sqlStatement, rk.K8Sns(), rk.K8Sname()).Scan(
+	err := GetDB().db.QueryRow(sqlStatement, rk.K8SNS(), rk.K8SName()).Scan(
 		&dbRepo.repoKey.Namespace,
 		&dbRepo.repoKey.Name,
 		&dbRepo.repoKey.Path,
@@ -66,7 +69,7 @@ func repoWriteToDB(ctx context.Context, r *dbRepository) error {
 	rk := r.Key()
 	if _, err := GetDB().db.Exec(
 		sqlStatement,
-		rk.K8Sns(), rk.K8Sname(), rk.Path, rk.PlaceholderWSname, valueAsJson(r.meta), valueAsJson(r.spec), r.updated, r.updatedBy, r.deployment); err == nil {
+		rk.K8SNS(), rk.K8SName(), rk.Path, rk.PlaceholderWSname, valueAsJson(r.meta), valueAsJson(r.spec), r.updated, r.updatedBy, r.deployment); err == nil {
 		klog.Infof("DB Connection: query succeeded, row created")
 		return nil
 	} else {
@@ -88,7 +91,7 @@ func repoUpdateDB(ctx context.Context, r *dbRepository) error {
 	rk := r.Key()
 	result, err := GetDB().db.Exec(
 		sqlStatement,
-		rk.K8Sns(), rk.K8Sname(), rk.Path, rk.PlaceholderWSname, valueAsJson(r.meta), valueAsJson(r.spec), r.updated, r.updatedBy, r.deployment)
+		rk.K8SNS(), rk.K8SName(), rk.Path, rk.PlaceholderWSname, valueAsJson(r.meta), valueAsJson(r.spec), r.updated, r.updatedBy, r.deployment)
 
 	if err == nil {
 		if rowsAffected, _ := result.RowsAffected(); rowsAffected > 0 {
@@ -108,7 +111,7 @@ func repoDeleteFromDB(ctx context.Context, rk repository.RepositoryKey) error {
 
 	sqlStatement := `DELETE FROM repositories WHERE k8s_name_space=$1 AND k8s_name=$2`
 
-	_, err := GetDB().db.Exec(sqlStatement, rk.K8Sns(), rk.K8Sname())
+	_, err := GetDB().db.Exec(sqlStatement, rk.K8SNS(), rk.K8SName())
 
 	return err
 }
