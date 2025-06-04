@@ -27,16 +27,17 @@ func pkgReadFromDB(ctx context.Context, pk repository.PackageKey) (dbPackage, er
 	_, span := tracer.Start(ctx, "dbpackagesql::pkgReadFromDB", trace.WithAttributes())
 	defer span.End()
 
-	sqlStatement := `SELECT * FROM packages WHERE name_space=$1 AND repo_name=$2 AND package_name=$3`
+	sqlStatement := `SELECT * FROM packages WHERE k8s_name_space=$1 AND k8s_name=$3`
 
 	var dbPkg dbPackage
 	var metaAsJson, specAsJson string
 
 	klog.Infof("pkgReadFromDB: running query [%q] on %q", sqlStatement, pk)
-	err := GetDB().db.QueryRow(sqlStatement, pk.GetRepositoryKey().Namespace, pk.GetRepositoryKey().Name, pk.Package).Scan(
+	err := GetDB().db.QueryRow(sqlStatement, pk.K8Sns(), pk.K8Sname()).Scan(
 		&dbPkg.pkgKey.RepoKey.Namespace,
-		&dbPkg.pkgKey.RepoKey.Name,
 		&dbPkg.pkgKey.Package,
+		&dbPkg.pkgKey.RepoKey.Name,
+		&dbPkg.pkgKey.Path,
 		&metaAsJson,
 		&specAsJson,
 		&dbPkg.updated,
@@ -51,8 +52,8 @@ func pkgReadFromDB(ctx context.Context, pk repository.PackageKey) (dbPackage, er
 		return dbPkg, err
 	}
 
-	setValueFromJson(metaAsJson, dbPkg.meta)
-	setValueFromJson(specAsJson, dbPkg.spec)
+	setValueFromJson(metaAsJson, &dbPkg.meta)
+	setValueFromJson(specAsJson, &dbPkg.spec)
 
 	return dbPkg, err
 }
@@ -61,7 +62,7 @@ func pkgReadPkgsFromDB(ctx context.Context, rk repository.RepositoryKey) ([]dbPa
 	_, span := tracer.Start(ctx, "dbpackagesql::pkgReadPkgsFromDB", trace.WithAttributes())
 	defer span.End()
 
-	sqlStatement := `SELECT * FROM packages WHERE name_space=$1 AND repo_name=$2`
+	sqlStatement := `SELECT * FROM packages WHERE k8s_name_space=$1 AND repo_k8s_name=$2`
 
 	var dbPkgs []dbPackage
 
@@ -80,8 +81,9 @@ func pkgReadPkgsFromDB(ctx context.Context, rk repository.RepositoryKey) ([]dbPa
 
 		if err := rows.Scan(
 			&pkg.pkgKey.RepoKey.Namespace,
-			&pkg.pkgKey.RepoKey.Name,
 			&pkg.pkgKey.Package,
+			&pkg.pkgKey.RepoKey.Name,
+			&pkg.pkgKey.Path,
 			&metaAsJson,
 			&specAsJson,
 			&pkg.updated,
@@ -89,8 +91,8 @@ func pkgReadPkgsFromDB(ctx context.Context, rk repository.RepositoryKey) ([]dbPa
 			return nil, err
 		}
 
-		setValueFromJson(metaAsJson, pkg.meta)
-		setValueFromJson(specAsJson, pkg.spec)
+		setValueFromJson(metaAsJson, &pkg.meta)
+		setValueFromJson(specAsJson, &pkg.spec)
 
 		dbPkgs = append(dbPkgs, pkg)
 	}
@@ -103,14 +105,15 @@ func pkgWriteToDB(ctx context.Context, p *dbPackage) error {
 	defer span.End()
 
 	sqlStatement := `
-        INSERT INTO packages (name_space, repo_name, package_name, meta, spec, updated, updatedby)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)`
+        INSERT INTO packages (k8s_name_space, k8s_name, repo_k8s_name, package_path, meta, spec, updated, updatedby)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 
 	klog.Infof("pkgWriteToDB: running query [%q] on %q", sqlStatement, p.Key())
 
 	pk := p.Key()
-	if _, err := GetDB().db.Exec(
-		sqlStatement, pk.GetRepositoryKey().Namespace, pk.GetRepositoryKey().Name, pk.Package, valueAsJson(p.meta), valueAsJson(p.spec), p.updated, p.updatedBy); err == nil {
+	if _, err := GetDB().db.Exec(sqlStatement,
+		pk.K8Sns(), pk.K8Sname(),
+		pk.RepoKey.K8Sname(), pk.Path, valueAsJson(p.meta), valueAsJson(p.spec), p.updated, p.updatedBy); err == nil {
 		klog.Infof("pkgWriteToDB: query succeeded for %q", p.Key())
 		return nil
 	} else {
@@ -124,15 +127,17 @@ func pkgUpdateDB(ctx context.Context, p *dbPackage) error {
 	defer span.End()
 
 	sqlStatement := `
-        UPDATE packages SET meta=$4, spec=$5, updated=$6, updatedby=$7
-        WHERE name_space=$1 AND repo_name=$2 AND package_name=$3`
+        UPDATE packages SET repo_k8s_name=$3, package_path=$4, meta=$5, spec=$6, updated=$7, updatedby=$8
+        WHERE k8s_name_space=$1 AND k8s_name=$2`
 
 	klog.Infof("pkgUpdateDB: running query [%q] on %q)", sqlStatement, p.Key())
 
 	pk := p.Key()
 	if _, err := GetDB().db.Exec(
 		sqlStatement,
-		pk.GetRepositoryKey().Namespace, pk.GetRepositoryKey().Name, pk.Package, valueAsJson(p.meta), valueAsJson(p.spec), p.updated, p.updatedBy); err == nil {
+		pk.K8Sns(), pk.K8Sname(),
+		pk.RepoKey.K8Sname(), pk.Path,
+		valueAsJson(p.meta), valueAsJson(p.spec), p.updated, p.updatedBy); err == nil {
 		klog.Infof("pkgUpdateDB: query succeeded for %q", pk)
 		return nil
 	} else {
@@ -145,10 +150,10 @@ func pkgDeleteFromDB(ctx context.Context, pk repository.PackageKey) error {
 	_, span := tracer.Start(ctx, "dbpackagesql::pkgDeleteFromDB", trace.WithAttributes())
 	defer span.End()
 
-	sqlStatement := `DELETE FROM packages WHERE name_space=$1 AND repo_name=$2 AND package_name=$3`
+	sqlStatement := `DELETE FROM packages WHERE k8s_name_space=$1 AND k8s_name=$2`
 
 	klog.Infof("DB Connection: running query [%q] on %q", sqlStatement, pk)
-	if _, err := GetDB().db.Exec(sqlStatement, pk.GetRepositoryKey().Namespace, pk.GetRepositoryKey().Name, pk.Package); err == nil {
+	if _, err := GetDB().db.Exec(sqlStatement, pk.K8Sns(), pk.K8Sname()); err == nil {
 		klog.Infof("pkgDeleteFromDB: query succeeded for %q", pk)
 		return nil
 	} else {
