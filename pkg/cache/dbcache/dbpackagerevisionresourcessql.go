@@ -36,7 +36,7 @@ func pkgRevResourceReadFromDB(ctx context.Context, prk repository.PackageRevisio
 	var resVal string
 
 	err := GetDB().db.QueryRow(
-		sqlStatement, prk.K8Sns(), prk.K8Sname(), prk.GetPackageKey().Package, resKey).Scan(&resVal)
+		sqlStatement, prk.K8SNS(), prk.K8SName(), prk.GetPackageKey().Package, resKey).Scan(&resVal)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -62,7 +62,7 @@ func pkgRevResourcesReadFromDB(ctx context.Context, prk repository.PackageRevisi
 
 	klog.Infof("pkgRevResourcesReadFromDB: running query [%q] on %q", sqlStatement, prk)
 
-	rows, err := GetDB().db.Query(sqlStatement, prk.K8Sns(), prk.K8Sname())
+	rows, err := GetDB().db.Query(sqlStatement, prk.K8SNS(), prk.K8SName())
 	if err != nil {
 		klog.Infof("pkgRevResourcesReadFromDB: query failed for %q: %q", prk, err)
 		return nil, err
@@ -116,7 +116,7 @@ func pkgRevResourceWriteToDB(ctx context.Context, pr *dbPackageRevision, resKey 
 	prk := pr.Key()
 	if _, err := GetDB().db.Exec(
 		sqlStatement,
-		prk.K8Sns(), prk.K8Sname(), prk.Revision, resKey, resVal); err == nil {
+		prk.K8SNS(), prk.K8SName(), prk.Revision, resKey, resVal); err == nil {
 		klog.Infof("pkgRevResourceWriteToDB: query succeeded, row created")
 		return nil
 	} else {
@@ -133,7 +133,7 @@ func pkgRevResourcesDeleteFromDB(ctx context.Context, prk repository.PackageRevi
 
 	sqlStatement := `DELETE FROM resources WHERE k8s_name_space=$1 AND k8s_name=$2`
 
-	_, err := GetDB().db.Exec(sqlStatement, prk.K8Sns(), prk.K8Sname())
+	_, err := GetDB().db.Exec(sqlStatement, prk.K8SNS(), prk.K8SName())
 
 	if err == nil {
 		klog.Infof("pkgRevResourcesDeleteFromDB: deleted package revision %q", prk)

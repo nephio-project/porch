@@ -42,11 +42,11 @@ func (k PackageRevisionKey) String() string {
 	return fmt.Sprintf("%s:%d:%s", k.PkgKey.String(), k.Revision, string(k.WorkspaceName))
 }
 
-func (k PackageRevisionKey) K8Sns() string {
+func (k PackageRevisionKey) K8SNS() string {
 	return k.PkgKey.RepoKey.Namespace
 }
 
-func (k PackageRevisionKey) K8Sname() string {
+func (k PackageRevisionKey) K8SName() string {
 	return ComposePkgRevObjName(k)
 }
 
@@ -81,11 +81,11 @@ type PackageKey struct {
 	Path, Package string
 }
 
-func (k PackageKey) K8Sns() string {
+func (k PackageKey) K8SNS() string {
 	return k.RepoKey.Namespace
 }
 
-func (k PackageKey) K8Sname() string {
+func (k PackageKey) K8SName() string {
 	return ComposePkgObjName(k)
 }
 
@@ -105,6 +105,12 @@ func (k PackageKey) ToPkgPathname() string {
 
 func (k PackageKey) ToFullPathname() string {
 	return filepath.Join(k.RepoKey.Path, k.Path, k.Package)
+}
+
+func K8SName2PkgName(k8sName string) string {
+	lastDotPos := strings.LastIndex(k8sName, ".")
+
+	return k8sName[lastDotPos+1:]
 }
 
 func FromFullPathname(repoKey RepositoryKey, fullpath string) PackageKey {
@@ -145,11 +151,11 @@ type RepositoryKey struct {
 	Namespace, Name, Path, PlaceholderWSname string
 }
 
-func (k RepositoryKey) K8Sns() string {
+func (k RepositoryKey) K8SNS() string {
 	return k.Namespace
 }
 
-func (k RepositoryKey) K8Sname() string {
+func (k RepositoryKey) K8SName() string {
 	return k.Name
 }
 
