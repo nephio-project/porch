@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloud-sql-auth-proxy
+  namespace: default
+  annotations:
+    cnrm.cloud.google.com/blueprint: cnrm/sql/auth-proxy/v0.2.0
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5432
+    protocol: TCP
+    name: db
+    targetPort: 5432
+  selector:
+    app: cloud-sql-auth-proxy # kpt-set: ${daemonset-name}
