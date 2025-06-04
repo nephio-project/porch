@@ -22,13 +22,14 @@ import (
 	"encoding/gob"
 	"flag"
 	"fmt"
-	"k8s.io/klog/v2"
 	"net"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"k8s.io/klog/v2"
 
 	pb "github.com/nephio-project/porch/func/evaluator"
 	"google.golang.org/grpc"
@@ -135,6 +136,17 @@ func TestPodManager(t *testing.T) {
 			},
 		},
 		PodIP: defaultPodIP,
+	}
+
+	podStatusRunningDifferentIP := corev1.PodStatus{
+		Phase: corev1.PodRunning,
+		Conditions: []corev1.PodCondition{
+			{
+				Type:   corev1.PodReady,
+				Status: corev1.ConditionTrue,
+			},
+		},
+		PodIP: "30.30.30.30",
 	}
 
 	podStatusNotRunning := corev1.PodStatus{
@@ -445,6 +457,45 @@ func TestPodManager(t *testing.T) {
 			useGenerateName:    true,
 			podPatch: &corev1.Pod{
 				Status: podStatusRunning,
+			},
+		},
+		{
+			name:          "Create a new pod but service does not get a new endpoint",
+			skip:          false,
+			expectFail:    true,
+			functionImage: defaultImageName,
+			kubeClient: fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
+				Create: fakeClientCreateFixInterceptor,
+			}).WithObjects([]client.Object{
+				defaultServiceObject,
+			}...).Build(),
+			namespace:          defaultNamespace,
+			wrapperServerImage: defaultWrapperServerImage,
+			imageMetadataCache: defaultImageMetadataCache,
+			evalFunc:           defaultSuccessEvalFunc,
+			useGenerateName:    true,
+			podPatch: &corev1.Pod{
+				Status: podStatusRunning,
+			},
+		},
+		{
+			name:          "Create a new pod but endpoint ip does not match pod ip",
+			skip:          false,
+			expectFail:    true,
+			functionImage: defaultImageName,
+			kubeClient: fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
+				Create: fakeClientCreateFixInterceptor,
+			}).WithObjects([]client.Object{
+				defaultServiceObject,
+				defaultEndpointObject,
+			}...).Build(),
+			namespace:          defaultNamespace,
+			wrapperServerImage: defaultWrapperServerImage,
+			imageMetadataCache: defaultImageMetadataCache,
+			evalFunc:           defaultSuccessEvalFunc,
+			useGenerateName:    true,
+			podPatch: &corev1.Pod{
+				Status: podStatusRunningDifferentIP,
 			},
 		},
 		{
