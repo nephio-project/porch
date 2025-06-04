@@ -66,5 +66,8 @@ rules:
     resources: ["pods"]
     verbs: ["create", "delete", "patch", "get", "watch", "list"]
   - apiGroups: [""]
+    resources: ["services", "endpoints"]
+    verbs: ["create", "delete", "get", "watch", "list"]
+  - apiGroups: [""]
     resources: ["secrets"]
     verbs: ["create", "delete", "update", "get"]
