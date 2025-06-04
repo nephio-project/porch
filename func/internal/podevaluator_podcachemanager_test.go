@@ -19,6 +19,7 @@ package internal
 import (
 	"context"
 	"flag"
+	"fmt"
 	"net"
 	"sync"
 	"testing"
@@ -196,7 +197,10 @@ func TestPodCacheManager(t *testing.T) {
 		grpcClient: grpcClient,
 	}
 
-	tests := []struct {
+	// These tests focus on the pod management logic in the pod cache manager covering
+	// the mechanism of creating pod/service corresponding to invoked function,
+	// waiting for it be ready via channel and managing the cache.
+	podManagementTests := []struct {
 		name       string
 		expectFail bool
 		skip       bool
@@ -268,7 +272,9 @@ func TestPodCacheManager(t *testing.T) {
 	}
 
 	pcm := &podCacheManager{
-		gcScanInterval: 60 * time.Second,
+		// Setting to 5 minutes to avoid GC invocation
+		gcScanInterval: 5 * time.Minute,
+		podTTL:         10 * time.Minute,
 		requestCh:      requestCh,
 		podReadyCh:     podReadyCh,
 		waitlists:      waitlists,
@@ -277,13 +283,16 @@ func TestPodCacheManager(t *testing.T) {
 
 	go pcm.podCacheManager()
 
-	for _, tt := range tests {
+	for _, tt := range podManagementTests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.skip {
 				t.SkipNow()
 			}
 
-			pcm.cache = tt.cache
+			pcm.cache = make(map[string]*podAndGRPCClient)
+			for k, v := range tt.cache {
+				pcm.cache[k] = v
+			}
 			pcm.podManager.kubeClient = tt.kubeClient
 
 			clientConn := make(chan *clientConnAndError)
@@ -303,6 +312,125 @@ func TestPodCacheManager(t *testing.T) {
 
 			case <-time.After(5 * time.Second):
 				t.Errorf("Timed out waiting for client connection")
+			}
+		})
+	}
+
+	oldPodObject := &corev1.Pod{}
+	deepCopyObject(defaultPodObject, oldPodObject)
+	// Set the pod Retention time annotation to be older than the current time
+	podTimestamp := time.Now().Add(-1 * time.Minute).Unix()
+	oldPodObject.Annotations[reclaimAfterAnnotation] = fmt.Sprintf("%d", podTimestamp)
+
+	newPodObject := &corev1.Pod{}
+	deepCopyObject(defaultPodObject, newPodObject)
+	// Set the pod Retention time annotation to be later than the current time
+	podTimestamp = time.Now().Add(1 * time.Minute).Unix()
+	newPodObject.Annotations[reclaimAfterAnnotation] = fmt.Sprintf("%d", podTimestamp)
+
+	podObjectInvalidRetentionTimestamp := &corev1.Pod{}
+	deepCopyObject(defaultPodObject, podObjectInvalidRetentionTimestamp)
+	podObjectInvalidRetentionTimestamp.Annotations[reclaimAfterAnnotation] = "dummy-value"
+
+	// These tests focus on the pod cleanup / garbage collection logic in the pod
+	// cache manager covering automated deletion of pod/service after retention period
+	podCleanupTests := []struct {
+		name                   string
+		expectFail             bool
+		skip                   bool
+		kubeClient             client.WithWatch
+		cache                  map[string]*podAndGRPCClient
+		podShouldBeDeleted     bool
+		serviceShouldBeDeleted bool
+		cacheShouldBeEmpty     bool
+	}{
+		{
+			name:                   "Garbage Collector - Expired Pod Exists and cleaned up",
+			expectFail:             false,
+			skip:                   false,
+			kubeClient:             buildKubeClient(oldPodObject, defaultServiceObject, defaultEndpointObject),
+			cache:                  cacheWithDefaultPod,
+			podShouldBeDeleted:     true,
+			serviceShouldBeDeleted: true,
+			cacheShouldBeEmpty:     true,
+		},
+		{
+			name:                   "Garbage Collector - New Pod Exists and not cleaned up",
+			expectFail:             false,
+			skip:                   false,
+			kubeClient:             buildKubeClient(newPodObject, defaultServiceObject, defaultEndpointObject),
+			cache:                  cacheWithDefaultPod,
+			podShouldBeDeleted:     false,
+			serviceShouldBeDeleted: false,
+			cacheShouldBeEmpty:     false,
+		},
+		{
+			name:                   "Garbage Collector - Non Annotated Pod Exists and not cleaned up",
+			expectFail:             false,
+			skip:                   false,
+			kubeClient:             buildKubeClient(defaultPodObject, defaultServiceObject, defaultEndpointObject),
+			cache:                  cacheWithDefaultPod,
+			podShouldBeDeleted:     false,
+			serviceShouldBeDeleted: false,
+			cacheShouldBeEmpty:     false,
+		},
+		{
+			name:                   "Garbage Collector - Annotated Pod Exists with invalid timestamp and not cleaned up",
+			expectFail:             false,
+			skip:                   false,
+			kubeClient:             buildKubeClient(podObjectInvalidRetentionTimestamp, defaultServiceObject, defaultEndpointObject),
+			cache:                  cacheWithDefaultPod,
+			podShouldBeDeleted:     false,
+			serviceShouldBeDeleted: false,
+			cacheShouldBeEmpty:     false,
+		},
+	}
+
+	for _, tt := range podCleanupTests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.skip {
+				t.SkipNow()
+			}
+
+			pcm.cache = make(map[string]*podAndGRPCClient)
+			for k, v := range tt.cache {
+				pcm.cache[k] = v
+			}
+
+			pcm.podManager.kubeClient = tt.kubeClient
+
+			// Trigger garbage collection
+			pcm.garbageCollector()
+
+			// Wait for 1 second as garbage collector purges pods in goroutine
+			<-time.After(1 * time.Second)
+
+			var pod corev1.Pod
+			err := pcm.podManager.kubeClient.Get(context.Background(), client.ObjectKeyFromObject(defaultPodObject), &pod)
+			if tt.podShouldBeDeleted && err == nil {
+				t.Errorf("Expected pod to be deleted, but it still exists")
+			} else if !tt.podShouldBeDeleted && err != nil && !errors.IsNotFound(err) {
+				t.Errorf("Expected pod to exist, but got error: %v", err)
+			}
+
+			var service corev1.Service
+			err = pcm.podManager.kubeClient.Get(context.Background(), client.ObjectKeyFromObject(defaultServiceObject), &service)
+			if tt.serviceShouldBeDeleted && err == nil {
+				t.Errorf("Expected service to be deleted, but it still exists")
+			} else if !tt.serviceShouldBeDeleted && err != nil && !errors.IsNotFound(err) {
+				t.Errorf("Expected service to exist, but got error: %v", err)
+			}
+
+			if tt.cacheShouldBeEmpty {
+				if len(pcm.cache) != 0 {
+					t.Errorf("Expected cache to be empty, but it has %d entries", len(pcm.cache))
+				}
+			} else {
+				if len(pcm.cache) == 0 {
+					t.Errorf("Expected cache to have entries, but it is empty")
+				} else if len(pcm.cache) != 1 {
+					t.Errorf("Expected cache to have 1 entry, but it has %d entries", len(pcm.cache))
+				}
 			}
 		})
 	}
