@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,7 +49,7 @@ func TestPackageDBWriteRead(t *testing.T) {
 		repo: &dbRepo,
 		pkgKey: repository.PackageKey{
 			RepoKey: dbRepo.Key(),
-			Path:    "my-path-kpg",
+			Path:    "my-path-to-pkg",
 			Package: "network-function",
 		},
 		meta:      nil,
@@ -65,40 +65,46 @@ func TestPackageDBWriteRead(t *testing.T) {
 	assert.Nil(t, err)
 	assertPackagesEqual(t, &dbPkg, readPkg)
 
-	dbRepoUpdate := dbRepository{
-		repoKey: repository.RepositoryKey{
-			Namespace:         "my-ns",
-			Name:              "my-repo",
-			Path:              "my-new-path",
-			PlaceholderWSname: "my-new_placeholder-ws",
+	dbPkgUpdate := dbPackage{
+		repo: &dbRepo,
+		pkgKey: repository.PackageKey{
+			RepoKey: dbRepo.Key(),
+			Path:    "my-path-to-pkg",
+			Package: "network-function",
 		},
 		meta: &metav1.ObjectMeta{
 			Name:      "meta-new-name",
 			Namespace: "meta-new-namespace",
 		},
-		spec:       &configapi.Repository{},
-		updated:    time.Now().UTC(),
-		updatedBy:  "porchuser2",
-		deployment: false,
+		spec:      &v1alpha1.PackageSpec{},
+		updated:   time.Now().UTC(),
+		updatedBy: "porchuser2",
 	}
 
-	err = repoWriteToDB(context.TODO(), &dbRepoUpdate)
+	err = pkgWriteToDB(context.TODO(), &dbPkgUpdate)
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "violates unique constraint"))
 
-	err = repoUpdateDB(context.TODO(), &dbRepoUpdate)
+	err = pkgUpdateDB(context.TODO(), &dbPkgUpdate)
 	assert.Nil(t, err)
 
-	err = repoDeleteFromDB(context.TODO(), dbRepo.Key())
+	readPkg, err = pkgReadFromDB(context.TODO(), dbPkg.Key())
+	assert.Nil(t, err)
+	assertPackagesEqual(t, &dbPkgUpdate, readPkg)
+
+	err = pkgDeleteFromDB(context.TODO(), dbPkg.Key())
 	assert.Nil(t, err)
 
-	_, err = repoReadFromDB(context.TODO(), dbRepo.Key())
+	_, err = pkgReadFromDB(context.TODO(), dbPkg.Key())
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "no rows in result set"))
 
-	err = repoUpdateDB(context.TODO(), &dbRepoUpdate)
+	err = pkgUpdateDB(context.TODO(), &dbPkgUpdate)
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "no rows found"))
+
+	err = pkgDeleteFromDB(context.TODO(), dbPkg.Key())
+	assert.Nil(t, err)
 
 	err = repoDeleteFromDB(context.TODO(), dbRepo.Key())
 	assert.Nil(t, err)

@@ -66,12 +66,12 @@ func (p *dbPackage) savePackage(ctx context.Context) (*dbPackage, error) {
 		return p, err
 	}
 
-	p.meta = metav1.ObjectMeta{
+	p.meta = &metav1.ObjectMeta{
 		Name:      p.KubeObjectName(),
 		Namespace: p.KubeObjectNamespace(),
 	}
 
-	p.spec = v1alpha1.PackageSpec{
+	p.spec = &v1alpha1.PackageSpec{
 		PackageName:    p.pkgKey.Package,
 		RepositoryName: p.Key().GetRepositoryKey().Name,
 	}
