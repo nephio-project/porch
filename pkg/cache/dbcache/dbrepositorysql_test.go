@@ -42,20 +42,8 @@ func TestRepoDBWriteRead(t *testing.T) {
 		deployment: false,
 	}
 
-	err := repoWriteToDB(context.TODO(), &dbRepo)
-	assert.Nil(t, err)
-
-	readRepo, err := repoReadFromDB(context.TODO(), dbRepo.Key())
-	assert.Nil(t, err)
-	assertReposEqual(t, &dbRepo, readRepo)
-
 	dbRepoUpdate := dbRepository{
-		repoKey: repository.RepositoryKey{
-			Namespace:         "my-ns",
-			Name:              "my-repo",
-			Path:              "my-new-path",
-			PlaceholderWSname: "my-new_placeholder-ws",
-		},
+		repoKey: dbRepo.Key(),
 		meta: &metav1.ObjectMeta{
 			Name:      "meta-new-name",
 			Namespace: "meta-new-namespace",
@@ -65,6 +53,69 @@ func TestRepoDBWriteRead(t *testing.T) {
 		updatedBy:  "porchuser2",
 		deployment: false,
 	}
+
+	repoDBWriteReadTest(t, dbRepo, dbRepoUpdate)
+
+	dbRepo.repoKey.Path = ""
+	dbRepo.repoKey.PlaceholderWSname = ""
+	dbRepoUpdate.repoKey.Path = ""
+	dbRepoUpdate.repoKey.PlaceholderWSname = ""
+	repoDBWriteReadTest(t, dbRepo, dbRepoUpdate)
+
+	dbRepoUpdate = dbRepository{}
+	dbRepoUpdate.repoKey = dbRepo.repoKey
+	repoDBWriteReadTest(t, dbRepo, dbRepoUpdate)
+}
+
+func TestRepoDBSchema(t *testing.T) {
+	dbRepo := dbRepository{}
+	err := repoWriteToDB(context.TODO(), &dbRepo)
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
+
+	dbRepo.repoKey = repository.RepositoryKey{
+		Namespace: "my-namespace",
+	}
+
+	err = repoWriteToDB(context.TODO(), &dbRepo)
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
+
+	dbRepo.repoKey.Name = "my-name"
+	err = repoWriteToDB(context.TODO(), &dbRepo)
+	assert.Nil(t, err)
+
+	dbRepo.repoKey.Path = "my-path"
+	err = repoUpdateDB(context.TODO(), &dbRepo)
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "update not allowed on immutable columns"))
+
+	dbRepo.repoKey.Path = ""
+	dbRepo.updatedBy = "homer"
+	err = repoUpdateDB(context.TODO(), &dbRepo)
+	assert.Nil(t, err)
+
+	dbRepo.repoKey.PlaceholderWSname = "my-ws"
+	err = repoUpdateDB(context.TODO(), &dbRepo)
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "update not allowed on immutable columns"))
+
+	dbRepo.repoKey.PlaceholderWSname = ""
+	dbRepo.updatedBy = "lisa"
+	err = repoUpdateDB(context.TODO(), &dbRepo)
+	assert.Nil(t, err)
+
+	err = repoDeleteFromDB(context.TODO(), dbRepo.Key())
+	assert.Nil(t, err)
+}
+
+func repoDBWriteReadTest(t *testing.T, dbRepo, dbRepoUpdate dbRepository) {
+	err := repoWriteToDB(context.TODO(), &dbRepo)
+	assert.Nil(t, err)
+
+	readRepo, err := repoReadFromDB(context.TODO(), dbRepo.Key())
+	assert.Nil(t, err)
+	assertReposEqual(t, &dbRepo, readRepo)
 
 	err = repoWriteToDB(context.TODO(), &dbRepoUpdate)
 	assert.NotNil(t, err)
@@ -87,29 +138,6 @@ func TestRepoDBWriteRead(t *testing.T) {
 	err = repoUpdateDB(context.TODO(), &dbRepoUpdate)
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "no rows found"))
-
-	err = repoDeleteFromDB(context.TODO(), dbRepo.Key())
-	assert.Nil(t, err)
-}
-
-func TestRepoDBSchema(t *testing.T) {
-
-	dbRepo := dbRepository{}
-	err := repoWriteToDB(context.TODO(), &dbRepo)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
-
-	dbRepo.repoKey = repository.RepositoryKey{
-		Namespace: "my-namespace",
-	}
-
-	err = repoWriteToDB(context.TODO(), &dbRepo)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
-
-	dbRepo.repoKey.Name = "my-name"
-	err = repoWriteToDB(context.TODO(), &dbRepo)
-	assert.Nil(t, err)
 
 	err = repoDeleteFromDB(context.TODO(), dbRepo.Key())
 	assert.Nil(t, err)
