@@ -238,7 +238,7 @@ func (th *genericTaskHandler) DoPRResourceMutations(ctx context.Context, pr2Upda
 		// and are returned in the PackageRevisionResources API's status field & in the Porchfile in git.
 		// The package gets pushed further to Git along with its failed render status:
 
-		// NOTE render failure's caused by kpt functions later in the pipeline will cause changes made by 
+		// NOTE render failure's caused by kpt functions later in the pipeline will cause changes made by
 		// previous kpt functions earlier in the pipeline to be annulled (all or nothing)
 		// however user made changes will get propagated appropriately
 		_, renderStatus, err = applyResourceMutations(ctx,
@@ -450,12 +450,14 @@ func isRenderMutation(m mutation) bool {
 	return isRender
 }
 
+var marshalYAML = yaml.Marshal
+
 func appendRenderResult(renderStatus *api.RenderStatus, resources repository.PackageResources) {
 	porchFileContents := api.PorchFile{
 		Status: renderStatus,
 	}
 
-	bytePorchfile, marshErr := yaml.Marshal(&porchFileContents)
+	bytePorchfile, marshErr := marshalYAML(&porchFileContents)
 	if marshErr != nil {
 		klog.Errorf("Error in Marshaling PorchFile: %v", marshErr)
 	}
