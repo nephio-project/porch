@@ -140,6 +140,40 @@ func TestPackageDBSchema(t *testing.T) {
 	assert.True(t, strings.Contains(err.Error(), "no rows in result set"))
 }
 
+func TestMultiPackageRepo(t *testing.T) {
+	dbRepo11 := createTestRepo(t, "my-ns1", "my-repo1")
+	dbRepo12 := createTestRepo(t, "my-ns1", "my-repo2")
+	dbRepo21 := createTestRepo(t, "my-ns2", "my-repo1")
+	dbRepo22 := createTestRepo(t, "my-ns2", "my-repo2")
+
+	dbRepo11Pkgs := createTestPkgs(t, dbRepo11.Key(), "my-package", 4)
+	dbRepo12Pkgs := createTestPkgs(t, dbRepo12.Key(), "my-package", 4)
+	dbRepo21Pkgs := createTestPkgs(t, dbRepo21.Key(), "my-package", 4)
+	dbRepo22Pkgs := createTestPkgs(t, dbRepo22.Key(), "my-package", 4)
+
+	readRep11Pkgs, err := pkgReadPkgsFromDB(context.TODO(), dbRepo11.Key())
+	assert.Nil(t, err)
+
+	readRep12Pkgs, err := pkgReadPkgsFromDB(context.TODO(), dbRepo12.Key())
+	assert.Nil(t, err)
+
+	readRep21Pkgs, err := pkgReadPkgsFromDB(context.TODO(), dbRepo21.Key())
+	assert.Nil(t, err)
+
+	readRep22Pkgs, err := pkgReadPkgsFromDB(context.TODO(), dbRepo22.Key())
+	assert.Nil(t, err)
+
+	assertPackageListsEqual(t, dbRepo11Pkgs, readRep11Pkgs, 4)
+	assertPackageListsEqual(t, dbRepo12Pkgs, readRep12Pkgs, 4)
+	assertPackageListsEqual(t, dbRepo21Pkgs, readRep21Pkgs, 4)
+	assertPackageListsEqual(t, dbRepo22Pkgs, readRep22Pkgs, 4)
+
+	deleteTestRepo(t, dbRepo11.Key())
+	deleteTestRepo(t, dbRepo12.Key())
+	deleteTestRepo(t, dbRepo21.Key())
+	deleteTestRepo(t, dbRepo22.Key())
+}
+
 func pkgDBWriteReadTest(t *testing.T, dbRepo dbRepository, dbPkg, dbPkgUpdate dbPackage) {
 	err := pkgWriteToDB(context.TODO(), &dbPkg)
 	assert.NotNil(t, err)
@@ -185,6 +219,15 @@ func pkgDBWriteReadTest(t *testing.T, dbRepo dbRepository, dbPkg, dbPkgUpdate db
 
 	err = repoDeleteFromDB(context.TODO(), dbRepo.Key())
 	assert.Nil(t, err)
+}
+
+func assertPackageListsEqual(t *testing.T, left []dbPackage, right []*dbPackage, count int) {
+	assert.Equal(t, count, len(left))
+	assert.Equal(t, count, len(right))
+
+	for i := range count {
+		assertPackagesEqual(t, &left[i], right[i])
+	}
 }
 
 func assertPackagesEqual(t *testing.T, left, right *dbPackage) {

@@ -22,6 +22,8 @@ import (
 
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
+	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/stretchr/testify/assert"
 	"k8s.io/klog/v2"
 )
 
@@ -84,4 +86,45 @@ func run(m *testing.M) (code int, err error) {
 	}()
 
 	return m.Run(), nil
+}
+
+func createTestRepo(t *testing.T, namespace, name string) dbRepository {
+	dbRepo := dbRepository{
+		repoKey: repository.RepositoryKey{
+			Namespace: namespace,
+			Name:      name,
+		},
+	}
+	err := repoWriteToDB(context.TODO(), &dbRepo)
+	assert.Nil(t, err)
+
+	return dbRepo
+}
+
+func deleteTestRepo(t *testing.T, key repository.RepositoryKey) {
+	err := repoDeleteFromDB(context.TODO(), key)
+	assert.Nil(t, err)
+}
+
+func createTestPkg(t *testing.T, repoKey repository.RepositoryKey, name string) dbPackage {
+	dbPkg := dbPackage{
+		pkgKey: repository.PackageKey{
+			RepoKey: repoKey,
+			Package: name,
+		},
+	}
+
+	err := pkgWriteToDB(context.TODO(), &dbPkg)
+	assert.Nil(t, err)
+
+	return dbPkg
+}
+
+func createTestPkgs(t *testing.T, repoKey repository.RepositoryKey, namePrefix string, count int) []dbPackage {
+	dbRepoPkgs := make([]dbPackage, 4)
+	for i := range count {
+		dbRepoPkgs[i] = createTestPkg(t, repoKey, fmt.Sprintf("%s-%d", namePrefix, i))
+	}
+
+	return dbRepoPkgs
 }

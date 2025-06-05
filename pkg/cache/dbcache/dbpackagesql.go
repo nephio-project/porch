@@ -72,7 +72,13 @@ func pkgReadPkgsFromDB(ctx context.Context, rk repository.RepositoryKey) ([]*dbP
 	_, span := tracer.Start(ctx, "dbpackagesql::pkgReadPkgsFromDB", trace.WithAttributes())
 	defer span.End()
 
-	sqlStatement := `SELECT * FROM packages WHERE k8s_name_space=$1 AND repo_k8s_name=$2`
+	sqlStatement := `
+		SELECT
+			repositories.k8s_name_space, repositories.k8s_name, repositories.directory, repositories.default_ws_name,
+			packages.k8s_name, packages.package_path, packages.meta, packages.spec, packages.updated, packages.updatedby
+		FROM packages INNER JOIN repositories
+			ON packages.k8s_name_space=repositories.k8s_name_space AND packages.repo_k8s_name=repositories.k8s_name
+		WHERE packages.k8s_name_space=$1 AND packages.repo_k8s_name=$2`
 
 	var dbPkgs []*dbPackage
 
@@ -86,25 +92,30 @@ func pkgReadPkgsFromDB(ctx context.Context, rk repository.RepositoryKey) ([]*dbP
 	klog.Infof("pkgReadPkgsFromDB: query succeeded for %q", rk)
 
 	for rows.Next() {
-		var pkg dbPackage
-		var metaAsJson, specAsJson string
+		var dbPkg dbPackage
+		var pkgK8SName, metaAsJson, specAsJson string
 
-		if err := rows.Scan(
-			&pkg.pkgKey.RepoKey.Namespace,
-			&pkg.pkgKey.Package,
-			&pkg.pkgKey.RepoKey.Name,
-			&pkg.pkgKey.Path,
+		err := rows.Scan(
+			&dbPkg.pkgKey.RepoKey.Namespace,
+			&dbPkg.pkgKey.RepoKey.Name,
+			&dbPkg.pkgKey.RepoKey.Path,
+			&dbPkg.pkgKey.RepoKey.PlaceholderWSname,
+			&pkgK8SName,
+			&dbPkg.pkgKey.Path,
 			&metaAsJson,
 			&specAsJson,
-			&pkg.updated,
-			&pkg.updatedBy); err != nil {
+			&dbPkg.updated,
+			&dbPkg.updatedBy)
+
+		if err != nil {
 			return nil, err
 		}
 
-		setValueFromJson(metaAsJson, &pkg.meta)
-		setValueFromJson(specAsJson, &pkg.spec)
+		dbPkg.pkgKey.Package = repository.K8SName2PkgName(pkgK8SName)
+		setValueFromJson(metaAsJson, &dbPkg.meta)
+		setValueFromJson(specAsJson, &dbPkg.spec)
 
-		dbPkgs = append(dbPkgs, &pkg)
+		dbPkgs = append(dbPkgs, &dbPkg)
 	}
 
 	return dbPkgs, nil
