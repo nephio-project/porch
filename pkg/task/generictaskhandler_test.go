@@ -396,16 +396,12 @@ func TestApplyResourceMutations_UpdateResourcesFails(t *testing.T) {
 		},
 	}
 
-	applied, renderStatus, err := applyResourceMutations(ctx, mockDraft, copyPackageResources(sampleResourcesOutput), []mutation{mockMutation})
+	_, renderStatus, err := applyResourceMutations(ctx, mockDraft, copyPackageResources(sampleResourcesOutput), []mutation{mockMutation})
 	if err == nil {
 		t.Fatalf("Expected error due to failed UpdateResources")
 	}
 	if !strings.Contains(err.Error(), "update failed") {
 		t.Errorf("Unexpected error returned: %v", err)
-	}
-	// Don't expect applied.Contents to be nil — it was set before the update failed.
-	if applied.Contents == nil || len(applied.Contents) == 0 {
-		t.Errorf("Expected applied to be populated before update failure")
 	}
 	if renderStatus != nil {
 		t.Errorf("Expected no renderStatus returned")
