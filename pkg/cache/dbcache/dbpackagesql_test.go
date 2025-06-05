@@ -27,7 +27,6 @@ import (
 )
 
 func TestPackageDBWriteRead(t *testing.T) {
-
 	dbRepo := dbRepository{
 		repoKey: repository.RepositoryKey{
 			Namespace:         "my-ns",
@@ -42,13 +41,12 @@ func TestPackageDBWriteRead(t *testing.T) {
 		deployment: false,
 	}
 
-	err := repoWriteToDB(context.TODO(), &dbRepo)
-	assert.Nil(t, err)
-
 	dbPkg := dbPackage{
-		repo: &dbRepo,
 		pkgKey: repository.PackageKey{
-			RepoKey: dbRepo.Key(),
+			RepoKey: repository.RepositoryKey{
+				Namespace: "my-ns",
+				Name:      "my-repo",
+			},
 			Path:    "my-path-to-pkg",
 			Package: "network-function",
 		},
@@ -57,13 +55,6 @@ func TestPackageDBWriteRead(t *testing.T) {
 		updated:   time.Now().UTC(),
 		updatedBy: "porchuser",
 	}
-
-	err = pkgWriteToDB(context.TODO(), &dbPkg)
-	assert.Nil(t, err)
-
-	readPkg, err := pkgReadFromDB(context.TODO(), dbPkg.Key())
-	assert.Nil(t, err)
-	assertPackagesEqual(t, &dbPkg, readPkg)
 
 	dbPkgUpdate := dbPackage{
 		repo: &dbRepo,
@@ -80,6 +71,92 @@ func TestPackageDBWriteRead(t *testing.T) {
 		updated:   time.Now().UTC(),
 		updatedBy: "porchuser2",
 	}
+
+	pkgDBWriteReadTest(t, dbRepo, dbPkg, dbPkgUpdate)
+
+	dbPkg.pkgKey.Path = ""
+	dbPkgUpdate.pkgKey.Path = ""
+	dbPkgUpdate.updatedBy = "bart"
+	pkgDBWriteReadTest(t, dbRepo, dbPkg, dbPkgUpdate)
+}
+
+func TestPackageDBSchema(t *testing.T) {
+	dbPkg := dbPackage{}
+	err := pkgWriteToDB(context.TODO(), &dbPkg)
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
+
+	dbPkg.pkgKey = repository.PackageKey{
+		RepoKey: repository.RepositoryKey{
+			Namespace: "my-ns",
+		},
+	}
+	err = pkgWriteToDB(context.TODO(), &dbPkg)
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
+
+	dbPkg.pkgKey.RepoKey.Name = "my-repo"
+	err = pkgWriteToDB(context.TODO(), &dbPkg)
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
+
+	dbPkg.pkgKey.Package = "my-package"
+	err = pkgWriteToDB(context.TODO(), &dbPkg)
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "violates foreign key constraint"))
+
+	dbRepo := dbRepository{
+		repoKey: repository.RepositoryKey{
+			Namespace: "my-ns",
+			Name:      "my-repo",
+		},
+	}
+	err = repoWriteToDB(context.TODO(), &dbRepo)
+	assert.Nil(t, err)
+
+	err = pkgWriteToDB(context.TODO(), &dbPkg)
+	assert.Nil(t, err)
+
+	dbPkg.pkgKey.Path = "my-path"
+	err = pkgUpdateDB(context.TODO(), &dbPkg)
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "no rows found for updating"))
+
+	dbPkg.pkgKey.Path = ""
+	dbPkg.updatedBy = "Marge"
+	err = pkgUpdateDB(context.TODO(), &dbPkg)
+	assert.Nil(t, err)
+
+	dbPkg.pkgKey.Path = "my-path"
+	err = pkgUpdateDB(context.TODO(), &dbPkg)
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "no rows found for updating"))
+
+	err = repoDeleteFromDB(context.TODO(), dbRepo.Key())
+	assert.Nil(t, err)
+
+	_, err = pkgReadFromDB(context.TODO(), dbPkg.Key())
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "no rows in result set"))
+}
+
+func pkgDBWriteReadTest(t *testing.T, dbRepo dbRepository, dbPkg, dbPkgUpdate dbPackage) {
+	err := pkgWriteToDB(context.TODO(), &dbPkg)
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "violates foreign key constraint"))
+
+	err = repoWriteToDB(context.TODO(), &dbRepo)
+	assert.Nil(t, err)
+
+	dbPkg.repo = &dbRepo
+	dbPkg.pkgKey.RepoKey = dbRepo.Key()
+
+	err = pkgWriteToDB(context.TODO(), &dbPkg)
+	assert.Nil(t, err)
+
+	readPkg, err := pkgReadFromDB(context.TODO(), dbPkg.Key())
+	assert.Nil(t, err)
+	assertPackagesEqual(t, &dbPkg, readPkg)
 
 	err = pkgWriteToDB(context.TODO(), &dbPkgUpdate)
 	assert.NotNil(t, err)
@@ -104,29 +181,6 @@ func TestPackageDBWriteRead(t *testing.T) {
 	assert.True(t, strings.Contains(err.Error(), "no rows found"))
 
 	err = pkgDeleteFromDB(context.TODO(), dbPkg.Key())
-	assert.Nil(t, err)
-
-	err = repoDeleteFromDB(context.TODO(), dbRepo.Key())
-	assert.Nil(t, err)
-}
-
-func TestPackageDBSchema(t *testing.T) {
-
-	dbRepo := dbRepository{}
-	err := repoWriteToDB(context.TODO(), &dbRepo)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
-
-	dbRepo.repoKey = repository.RepositoryKey{
-		Namespace: "my-namespace",
-	}
-
-	err = repoWriteToDB(context.TODO(), &dbRepo)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
-
-	dbRepo.repoKey.Name = "my-name"
-	err = repoWriteToDB(context.TODO(), &dbRepo)
 	assert.Nil(t, err)
 
 	err = repoDeleteFromDB(context.TODO(), dbRepo.Key())
