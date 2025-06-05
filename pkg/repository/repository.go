@@ -42,6 +42,14 @@ func (k PackageRevisionKey) String() string {
 	return fmt.Sprintf("%s:%d:%s", k.PkgKey.String(), k.Revision, string(k.WorkspaceName))
 }
 
+func (k PackageRevisionKey) K8SNS() string {
+	return k.PkgKey.RepoKey.Namespace
+}
+
+func (k PackageRevisionKey) K8SName() string {
+	return ComposePkgRevObjName(k)
+}
+
 func (k PackageRevisionKey) DeepCopy(outKey *PackageRevisionKey) {
 	k.PkgKey.DeepCopy(&outKey.PkgKey)
 	outKey.Revision = k.Revision
@@ -73,6 +81,14 @@ type PackageKey struct {
 	Path, Package string
 }
 
+func (k PackageKey) K8SNS() string {
+	return k.RepoKey.Namespace
+}
+
+func (k PackageKey) K8SName() string {
+	return ComposePkgObjName(k)
+}
+
 func (k PackageKey) String() string {
 	return fmt.Sprintf("%s:%s:%s", k.RepoKey.String(), k.Path, k.Package)
 }
@@ -89,6 +105,12 @@ func (k PackageKey) ToPkgPathname() string {
 
 func (k PackageKey) ToFullPathname() string {
 	return filepath.Join(k.RepoKey.Path, k.Path, k.Package)
+}
+
+func K8SName2PkgName(k8sName string) string {
+	lastDotPos := strings.LastIndex(k8sName, ".")
+
+	return k8sName[lastDotPos+1:]
 }
 
 func FromFullPathname(repoKey RepositoryKey, fullpath string) PackageKey {
@@ -127,6 +149,14 @@ func (k PackageKey) Matches(other PackageKey) bool {
 
 type RepositoryKey struct {
 	Namespace, Name, Path, PlaceholderWSname string
+}
+
+func (k RepositoryKey) K8SNS() string {
+	return k.Namespace
+}
+
+func (k RepositoryKey) K8SName() string {
+	return k.Name
 }
 
 func (k RepositoryKey) String() string {
@@ -302,6 +332,9 @@ type Repository interface {
 
 	// ClosePackageRevisionDraft closes out a Package Revision Draft
 	ClosePackageRevisionDraft(ctx context.Context, prd PackageRevisionDraft, version int) (PackageRevision, error)
+
+	// PushPackageRevision pushes a fully ready package revision onto the repo
+	PushPackageRevision(ctx context.Context, pr PackageRevision) error
 
 	// DeletePackageRevision deletes a package revision
 	DeletePackageRevision(ctx context.Context, old PackageRevision) error
