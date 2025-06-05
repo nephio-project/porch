@@ -146,12 +146,19 @@ func ValidateRepository(repoName, directory string) error {
 }
 
 func ComposePkgObjName(repoName, path, packageName string) string {
+	if len(repoName) == 0 || len(packageName) == 0 {
+		return ""
+	}
+
 	dottedPath := strings.ReplaceAll(filepath.Join(path, packageName), "/", ".")
 	dottedPath = strings.Trim(dottedPath, ".")
 	return fmt.Sprintf("%s.%s", repoName, dottedPath)
 }
 
 func ComposePkgRevObjName(repoName, path, packageName, workspace string) string {
+	if len(repoName) == 0 || len(packageName) == 0 || len(workspace) == 0 {
+		return ""
+	}
 	dottedPath := strings.ReplaceAll(filepath.Join(path, packageName), "/", ".")
 	dottedPath = strings.Trim(dottedPath, ".")
 	return fmt.Sprintf("%s.%s.%s", repoName, dottedPath, workspace)
