@@ -137,6 +137,51 @@ commands:
   - args:
     - porchctl
     - rpkg
+    - get
+    - --namespace=rpkg-upgrade
+    stdout: |
+      NAME                          PACKAGE              WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
+      git.upgrade-downstream.main   upgrade-downstream   main            -1         false    Published   git
+      git.upgrade-downstream.v1     upgrade-downstream   v1              1          true     Published   git
+      git.upgrade-orig.main         upgrade-orig         main            -1         false    Published   git
+      git.upgrade-orig.v1           upgrade-orig         v1              1          false    Published   git
+      git.upgrade-orig.v2           upgrade-orig         v2              2          true     Published   git
+  - args:
+    - porchctl
+    - rpkg
+    - upgrade
+    - --namespace=rpkg-upgrade
+    - --discover=upstream
+    - git.upgrade-downstream.v1
+    stdout: |
+      PACKAGE REVISION            UPSTREAM REPOSITORY   UPSTREAM UPDATES
+      git.upgrade-downstream.v1   git                   v2
+  - args:
+    - porchctl
+    - rpkg
+    - upgrade
+    - --namespace=rpkg-upgrade
+    - --discover=upstream
+    stdout: |
+      PACKAGE REVISION              UPSTREAM REPOSITORY   UPSTREAM UPDATES
+      git.upgrade-downstream.main   git                   v2
+      git.upgrade-downstream.v1     git                   v2
+      git.upgrade-orig.main                               No update available
+      git.upgrade-orig.v1                                 No update available
+      git.upgrade-orig.v2                                 No update available
+  - args:
+    - porchctl
+    - rpkg
+    - upgrade
+    - --namespace=rpkg-upgrade
+    - --discover=downstream
+    stdout: |
+      PACKAGE REVISION      DOWNSTREAM PACKAGE            DOWNSTREAM UPDATE
+      git.upgrade-orig.v2   git.upgrade-downstream.main   v1->v2
+      git.upgrade-orig.v2   git.upgrade-downstream.v1     v1->v2
+  - args:
+    - porchctl
+    - rpkg
     - upgrade
     - --namespace=rpkg-upgrade
     - git.upgrade-downstream.v1

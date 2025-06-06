@@ -95,7 +95,7 @@ func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revision
 	revision := repository.Revision2Int(revisionStr)
 	if revision != -1 {
 		if workspace == "" {
-			workspace = "v" + repository.Revision2Str(revision)
+			workspace = repository.Revision2Str(revision)
 		}
 	} else {
 		workspace = revisionStr

@@ -1529,7 +1529,7 @@ func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 	// for backwards compatibility with packages that existed before porch supported
 	// descriptions, we populate the workspaceName as the revision number if it is empty
 	if d.prKey.WorkspaceName == "" {
-		d.prKey.WorkspaceName = "v" + repository.Revision2Str(d.Key().Revision)
+		d.prKey.WorkspaceName = repository.Revision2Str(d.Key().Revision)
 	}
 
 	return &gitPackageRevision{

@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -1808,11 +1809,11 @@ func (t *PorchSuite) TestBuiltinFunctionEvaluator() {
 		Name:      pr.Name,
 	}, resources)
 
-	t.AddMutator(resources, t.gcrPrefix + "/starlark:v0.4.3", map[string]string{
+	t.AddMutator(resources, t.gcrPrefix+"/starlark:v0.4.3", map[string]string{
 		"source": `for resource in ctx.resource_list["items"]:
 		  resource["metadata"]["annotations"]["foo"] = "bar"`,
 	})
-	t.AddMutator(resources, t.gcrPrefix + "/set-namespace:v0.4.1", map[string]string{"namespace": "bucket-namespace"})
+	t.AddMutator(resources, t.gcrPrefix+"/set-namespace:v0.4.1", map[string]string{"namespace": "bucket-namespace"})
 	t.UpdateF(resources)
 
 	bucket, ok := resources.Spec.Resources["bucket.yaml"]
@@ -1874,7 +1875,7 @@ func (t *PorchSuite) TestExecFunctionEvaluator() {
 		Name:      pr.Name,
 	}, resources)
 
-	t.AddMutator(resources, t.gcrPrefix + "/starlark:v0.3.0", map[string]string{
+	t.AddMutator(resources, t.gcrPrefix+"/starlark:v0.3.0", map[string]string{
 		"source": `# set the namespace on all resources
 
 for resource in ctx.resource_list["items"]:
@@ -1882,7 +1883,7 @@ for resource in ctx.resource_list["items"]:
 	  # mutate the resource
 	  resource["metadata"]["namespace"] = "bucket-namespace"`,
 	})
-	t.AddMutator(resources, t.gcrPrefix + "/set-annotations:v0.1.4", map[string]string{"foo": "bar"})
+	t.AddMutator(resources, t.gcrPrefix+"/set-annotations:v0.1.4", map[string]string{"foo": "bar"})
 	t.UpdateF(resources)
 
 	bucket, ok := resources.Spec.Resources["bucket.yaml"]
@@ -1955,7 +1956,7 @@ metadata:
 data:
   name: bucket-namespace
 `
-	t.AddMutator(resources, t.gcrPrefix + "-demo/set-namespace:v0.1.0", nil)
+	t.AddMutator(resources, t.gcrPrefix+"-demo/set-namespace:v0.1.0", nil)
 	t.UpdateF(resources)
 
 	bucket, ok := resources.Spec.Resources["bucket.yaml"]
@@ -2167,7 +2168,7 @@ func (t *PorchSuite) TestPodEvaluatorWithFailure() {
 		Name:      pr.Name,
 	}, resources)
 
-	t.AddMutator(resources, t.gcrPrefix + "/kubeval:v0.2.0", nil)
+	t.AddMutator(resources, t.gcrPrefix+"/kubeval:v0.2.0", nil)
 
 	err := t.Client.Update(t.GetContext(), resources)
 	expectedErrMsg := "Validating arbitrary CRDs is not supported"
@@ -2864,7 +2865,7 @@ func (t *PorchSuite) TestPackageRevisionFieldSelectors() {
 	}
 
 	revNo := 1
-	revSelector := client.MatchingFields(fields.Set{"spec.revision": repository.Revision2Str(revNo)})
+	revSelector := client.MatchingFields(fields.Set{"spec.revision": strconv.Itoa(revNo)})
 	t.ListE(&prList, client.InNamespace(t.Namespace), revSelector)
 	if len(prList.Items) == 0 {
 		t.Errorf("Expected at least one PackageRevision with revision=%q, but got none", revNo)
@@ -2911,7 +2912,7 @@ func (t *PorchSuite) TestPackageRevisionFieldSelectors() {
 	}
 
 	// test combined selectors
-	combinedSelector := client.MatchingFields(fields.Set{"spec.revision": repository.Revision2Str(revNo), "spec.packageName": pkgName})
+	combinedSelector := client.MatchingFields(fields.Set{"spec.revision": strconv.Itoa(revNo), "spec.packageName": pkgName})
 	t.ListE(&prList, client.InNamespace(t.Namespace), combinedSelector)
 	if len(prList.Items) == 0 {
 		t.Errorf("Expected at least one PackageRevision with packageName=%q and revision=%q, but got none", pkgName, revNo)

@@ -87,7 +87,10 @@ func Revision2Int(revisionStr string) int {
 }
 
 func Revision2Str(revision int) string {
-	return strconv.Itoa(revision)
+	if revision < 0 {
+		return strconv.Itoa(revision)
+	}
+	return fmt.Sprintf("v%d", revision)
 }
 
 func ComposePkgObjName(key PackageKey) string {

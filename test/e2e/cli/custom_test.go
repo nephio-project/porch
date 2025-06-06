@@ -17,7 +17,6 @@ package e2e
 import (
 	"flag"
 	"os"
-	"strings"
 	"testing"
 )
 
@@ -40,12 +39,7 @@ func Test(t *testing.T) {
 	hackedTestCase := ReadTestCaseConfig(t, *testName, "./testdata/"+*testName)
 
 	if defaultPrefix := os.Getenv(gcrioPrefixEnv); defaultPrefix != "" {
-		for i := range hackedTestCase.Commands {
-			for j := range hackedTestCase.Commands[i].Args {
-				hackedTestCase.Commands[i].Args[j] = strings.Replace(hackedTestCase.Commands[i].Args[j], gcrioPrefix, defaultPrefix, 1)
-			}
-			hackedTestCase.Commands[i].Stderr = strings.Replace(hackedTestCase.Commands[i].Stderr, gcrioPrefix, defaultPrefix, 1)
-		}
+		testSuite.SearchAndReplace[gcrioPrefix] = defaultPrefix
 	}
 
 	testSuite.RunTestCase(t, hackedTestCase)

@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -27,7 +28,6 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
-	"github.com/nephio-project/porch/pkg/repository"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -642,7 +642,7 @@ func (t *TestSuite) GetPackageRevision(repo string, pkgName string, revision int
 	selector := client.MatchingFields(fields.Set{
 		"spec.repository":  repo,
 		"spec.packageName": pkgName,
-		"spec.revision":    repository.Revision2Str(revision),
+		"spec.revision":    strconv.Itoa(revision),
 	})
 	t.ListF(&prList, selector, client.InNamespace(t.Namespace))
 

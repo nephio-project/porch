@@ -32,6 +32,9 @@ import (
 
 const (
 	command = "cmdrpkgupgrade"
+
+	upstream   = "upstream"
+	downstream = "downstream"
 )
 
 func NewCommand(ctx context.Context, rcg *genericclioptions.ConfigFlags) *cobra.Command {
@@ -54,6 +57,10 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 	}
 	r.Command.Flags().IntVar(&r.revision, "revision", 0, "Revision of the upstream package to upgrade to.")
 	r.Command.Flags().StringVar(&r.workspace, "workspace", "", "Workspace name of the upgrade package revision.")
+	r.Command.Flags().StringVar(&r.discover, "discover", "",
+		`If set, search for available updates instead of performing an update.
+Setting this to 'upstream' will discover upstream updates of downstream packages.
+Setting this to 'downstream' will discover downstream package revisions of upstream packages that need to be updated.`)
 	return r
 }
 
@@ -65,6 +72,8 @@ type runner struct {
 
 	revision  int // Target package revision
 	workspace string
+
+	discover string // If set, discover updates rather than do updates
 
 	// there are multiple places where we need access to all package revisions, so
 	// we store it in the runner
@@ -79,17 +88,24 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 	}
 	r.client = c
 
-	if len(args) < 1 {
-		return errors.E(op, fmt.Errorf("SOURCE_PACKAGE_REVISION is a required positional argument"))
-	}
-	if len(args) > 1 {
-		return errors.E(op, fmt.Errorf("too many arguments; SOURCE_PACKAGE_REVISION is the only accepted positional arguments"))
-	}
-	if r.revision < 0 {
-		return errors.E(op, fmt.Errorf("revision must be positive (and not main)"))
-	}
-	if r.workspace == "" {
-		return errors.E(op, fmt.Errorf("workspace is required"))
+	switch r.discover {
+	case "":
+		if len(args) < 1 {
+			return errors.E(op, fmt.Errorf("SOURCE_PACKAGE_REVISION is a required positional argument"))
+		}
+		if len(args) > 1 {
+			return errors.E(op, fmt.Errorf("too many arguments; SOURCE_PACKAGE_REVISION is the only accepted positional arguments"))
+		}
+		if r.revision < 0 {
+			return errors.E(op, fmt.Errorf("revision must be positive (and not main)"))
+		}
+		if r.workspace == "" {
+			return errors.E(op, fmt.Errorf("workspace is required"))
+		}
+	case upstream, downstream:
+		// do nothing
+	default:
+		return errors.E(op, fmt.Errorf("argument for 'discover' must be one of 'upstream' or 'downstream'"))
 	}
 
 	packageRevisionList := porchapi.PackageRevisionList{}
@@ -107,6 +123,13 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 
 func (r *runner) runE(cmd *cobra.Command, args []string) error {
 	const op errors.Op = command + ".runE"
+
+	if r.discover != "" {
+		if err := r.discoverUpdates(cmd, args); err != nil {
+			return errors.E(op, err)
+		}
+		return nil
+	}
 
 	pr := r.findPackageRevision(args[0])
 	if pr == nil {
