@@ -655,8 +655,37 @@ func (t *TestSuite) GetPackageRevision(repo string, pkgName string, revision int
 	return &prList.Items[0]
 }
 
-// addMutator adds a mutator to the Kptfile pipeline of the resources (in-place)
-func (t *TestSuite) AddMutator(resources *porchapi.PackageRevisionResources, image string, configMap map[string]string) {
+func (t *TestSuite) RetriggerBackgroundJobForRepo(repoName string) {
+	repoKey := client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      repoName,
+	}
+	var repo configapi.Repository
+	t.GetF(repoKey, &repo)
+	repo.ResourceVersion = ""
+
+	// Delete and recreate repository to trigger background job on it
+	t.DeleteE(&repo)
+	t.CreateE(&repo)
+	t.WaitUntilRepositoryReady(repo.Name, t.Namespace)
+}
+
+type MutatorOption func(*kptfilev1.Function)
+
+func WithConfigmap(configMap map[string]string) MutatorOption {
+	return func(r *kptfilev1.Function) {
+		r.ConfigMap = configMap
+	}
+}
+
+func WithConfigPath(configPath string) MutatorOption {
+	return func(r *kptfilev1.Function) {
+		r.ConfigPath = configPath
+	}
+}
+
+// AddMutator adds a mutator to the Kptfile pipeline of the resources (in-place)
+func (t *TestSuite) AddMutator(resources *porchapi.PackageRevisionResources, image string, opts ...MutatorOption) {
 	t.T().Helper()
 	kptf, ok := resources.Spec.Resources[kptfilev1.KptFileName]
 	if !ok {
@@ -675,10 +704,12 @@ func (t *TestSuite) AddMutator(resources *porchapi.PackageRevisionResources, ima
 		parsed.Pipeline.Mutators = make([]kptfilev1.Function, 0, 1)
 	}
 
-	parsed.Pipeline.Mutators = append(parsed.Pipeline.Mutators, kptfilev1.Function{
-		Image:     image,
-		ConfigMap: configMap,
-	})
+	parsed.Pipeline.Mutators = append(parsed.Pipeline.Mutators, kptfilev1.Function{Image: image})
+	mut := &parsed.Pipeline.Mutators[len(parsed.Pipeline.Mutators)-1]
+
+	for _, opt := range opts {
+		opt(mut)
+	}
 
 	marshalled, err := yaml.Marshal(parsed)
 	if err != nil {
@@ -688,17 +719,11 @@ func (t *TestSuite) AddMutator(resources *porchapi.PackageRevisionResources, ima
 	resources.Spec.Resources[kptfilev1.KptFileName] = string(marshalled)
 }
 
-func (t *TestSuite) RetriggerBackgroundJobForRepo(repoName string) {
-	repoKey := client.ObjectKey{
-		Namespace: t.Namespace,
-		Name:      repoName,
+func (t *TestSuite) AddResourceToPackage(resources *porchapi.PackageRevisionResources, filePath string, name string) {
+	t.T().Helper()
+	file, err := os.ReadFile(filePath)
+	if err != nil {
+		t.Fatalf("Failed to read file from %q: %v", filePath, err)
 	}
-	var repo configapi.Repository
-	t.GetF(repoKey, &repo)
-	repo.ResourceVersion = ""
-
-	// Delete and recreate repository to trigger background job on it
-	t.DeleteE(&repo)
-	t.CreateE(&repo)
-	t.WaitUntilRepositoryReady(repo.Name, t.Namespace)
+	resources.Spec.Resources[name] = string(file)
 }
