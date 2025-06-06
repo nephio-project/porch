@@ -1809,11 +1809,11 @@ func (t *PorchSuite) TestBuiltinFunctionEvaluator() {
 		Name:      pr.Name,
 	}, resources)
 
-	t.AddMutator(resources, t.gcrPrefix+"/starlark:v0.4.3", map[string]string{
+	t.AddMutator(resources, t.gcrPrefix+"/starlark:v0.4.3", WithConfigmap(map[string]string{
 		"source": `for resource in ctx.resource_list["items"]:
 		  resource["metadata"]["annotations"]["foo"] = "bar"`,
-	})
-	t.AddMutator(resources, t.gcrPrefix+"/set-namespace:v0.4.1", map[string]string{"namespace": "bucket-namespace"})
+	}))
+	t.AddMutator(resources, t.gcrPrefix+"/set-namespace:v0.4.1", WithConfigmap(map[string]string{"namespace": "bucket-namespace"}))
 	t.UpdateF(resources)
 
 	bucket, ok := resources.Spec.Resources["bucket.yaml"]
@@ -1875,15 +1875,15 @@ func (t *PorchSuite) TestExecFunctionEvaluator() {
 		Name:      pr.Name,
 	}, resources)
 
-	t.AddMutator(resources, t.gcrPrefix+"/starlark:v0.3.0", map[string]string{
+	t.AddMutator(resources, t.gcrPrefix+"/starlark:v0.3.0", WithConfigmap(map[string]string{
 		"source": `# set the namespace on all resources
 
 for resource in ctx.resource_list["items"]:
 
 	  # mutate the resource
 	  resource["metadata"]["namespace"] = "bucket-namespace"`,
-	})
-	t.AddMutator(resources, t.gcrPrefix+"/set-annotations:v0.1.4", map[string]string{"foo": "bar"})
+	}))
+	t.AddMutator(resources, t.gcrPrefix+"/set-annotations:v0.1.4", WithConfigmap(map[string]string{"foo": "bar"}))
 	t.UpdateF(resources)
 
 	bucket, ok := resources.Spec.Resources["bucket.yaml"]
@@ -2032,7 +2032,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 	// Testing pod evaluator with TS function
 	t.AddMutator(resources, generateFolderImage, nil)
 	// Testing pod evaluator with golang function
-	t.AddMutator(resources, setAnnotationsImage, map[string]string{"test-key": "test-val"})
+	t.AddMutator(resources, setAnnotationsImage, WithConfigmap(map[string]string{"test-key": "test-val"}))
 	t.UpdateF(resources)
 
 	counter := 0
@@ -2102,7 +2102,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 	// Testing pod evaluator with TS function
 	t.AddMutator(resources, generateFolderImage, nil)
 	// Testing pod evaluator with golang function
-	t.AddMutator(resources, setAnnotationsImage, map[string]string{"new-test-key": "new-test-val"})
+	t.AddMutator(resources, setAnnotationsImage, WithConfigmap(map[string]string{"new-test-key": "new-test-val"}))
 	t.UpdateF(resources)
 
 	counter = 0
