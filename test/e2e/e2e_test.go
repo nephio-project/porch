@@ -1956,7 +1956,7 @@ metadata:
 data:
   name: bucket-namespace
 `
-	t.AddMutator(resources, t.gcrPrefix+"-demo/set-namespace:v0.1.0", nil)
+	t.AddMutator(resources, t.gcrPrefix+"-demo/set-namespace:v0.1.0")
 	t.UpdateF(resources)
 
 	bucket, ok := resources.Spec.Resources["bucket.yaml"]
@@ -2030,7 +2030,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 	}, resources)
 
 	// Testing pod evaluator with TS function
-	t.AddMutator(resources, generateFolderImage, nil)
+	t.AddMutator(resources, generateFolderImage)
 	// Testing pod evaluator with golang function
 	t.AddMutator(resources, setAnnotationsImage, WithConfigmap(map[string]string{"test-key": "test-val"}))
 	t.UpdateF(resources)
@@ -2100,7 +2100,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 	}, resources)
 
 	// Testing pod evaluator with TS function
-	t.AddMutator(resources, generateFolderImage, nil)
+	t.AddMutator(resources, generateFolderImage)
 	// Testing pod evaluator with golang function
 	t.AddMutator(resources, setAnnotationsImage, WithConfigmap(map[string]string{"new-test-key": "new-test-val"}))
 	t.UpdateF(resources)
@@ -2168,7 +2168,7 @@ func (t *PorchSuite) TestPodEvaluatorWithFailure() {
 		Name:      pr.Name,
 	}, resources)
 
-	t.AddMutator(resources, t.gcrPrefix+"/kubeval:v0.2.0", nil)
+	t.AddMutator(resources, t.gcrPrefix+"/kubeval:v0.2.0")
 
 	err := t.Client.Update(t.GetContext(), resources)
 	expectedErrMsg := "Validating arbitrary CRDs is not supported"
@@ -2203,17 +2203,14 @@ func (t *PorchSuite) TestFailedPodEvictionAndRecovery() {
 						Upstream: porchapi.UpstreamPackage{
 							Type: "git",
 							Git: &porchapi.GitPackage{
-								Repo:      "https://github.com/GoogleCloudPlatform/blueprints.git",
+								Repo:      t.gcpBlueprintsRepo,
 								Ref:       "bucket-blueprint-v0.4.3",
 								Directory: "catalog/bucket",
+								SecretRef: porchapi.SecretRef{
+									Name: t.CreateGcpPackageRevisionSecret("test-fn-pod-bucket"),
+								},
 							},
 						},
-					},
-				},
-				{
-					Type: "eval",
-					Eval: &porchapi.FunctionEvalTaskSpec{
-						Image: bogusFnImage,
 					},
 				},
 			},
@@ -2221,18 +2218,21 @@ func (t *PorchSuite) TestFailedPodEvictionAndRecovery() {
 	}
 
 	// Create the package revision
-	err := t.Client.Create(t.GetContext(), pr)
+	t.CreateF(pr)
+
+	prr := &porchapi.PackageRevisionResources{}
+	t.GetF(client.ObjectKeyFromObject(pr), prr)
+
+	t.AddMutator(prr, bogusFnImage)
+
+	err := t.Client.Update(t.GetContext(), prr)
 
 	// Assert: creation should fail, and the error should reflect evaluator pod failure
-	if err == nil || !strings.Contains(err.Error(), "failed to evaluate function") {
-		t.Fatalf("expected evaluator failure for broken image, but got: %v", err)
-	}
+	t.Require().ErrorContains(err, "Error occurred rendering package in kpt function pipeline")
 
 	// Optional: verify no stuck pods exist for the failed image
 	pods := &corev1.PodList{}
-	if err := t.Client.List(t.GetContext(), pods, client.InNamespace(t.Namespace)); err != nil {
-		t.Fatalf("failed to list pods: %v", err)
-	}
+	t.ListF(pods, client.InNamespace(t.Namespace))
 
 	for _, pod := range pods.Items {
 		if strings.Contains(pod.Spec.Containers[0].Image, "kpt-fn-broken") {
