@@ -23,6 +23,7 @@ import (
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
 	"github.com/nephio-project/porch/pkg/repository"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/util/retry"
@@ -46,13 +47,14 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 		cfg: rcg,
 	}
 	r.Command = &cobra.Command{
-		Use:     "update SOURCE_PACKAGE",
-		PreRunE: r.preRunE,
-		RunE:    r.runE,
-		Short:   docs.UpdateShort,
-		Long:    docs.UpdateShort + "\n" + docs.UpdateLong,
-		Example: docs.UpdateExamples,
-		Hidden:  porch.HidePorchCommands,
+		Use:        "update SOURCE_PACKAGE",
+		PreRunE:    func(*cobra.Command, []string) error { return pkgerrors.New("deprecated") },
+		RunE:       r.runE,
+		Short:      docs.UpdateShort,
+		Long:       docs.UpdateShort + "\n" + docs.UpdateLong,
+		Example:    docs.UpdateExamples,
+		Hidden:     true,
+		Deprecated: "use 'upgrade' instead",
 	}
 	r.Command.Flags().IntVar(&r.revision, "revision", 0, "Revision of the upstream package to update to.")
 	r.Command.Flags().StringVar(&r.discover, "discover", "",
