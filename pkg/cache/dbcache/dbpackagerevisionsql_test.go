@@ -26,7 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestPackageDBWriteRead(t *testing.T) {
+func TestPackageRevisionDBWriteRead(t *testing.T) {
 	dbRepo := dbRepository{
 		repoKey: repository.RepositoryKey{
 			Namespace:         "my-ns",
@@ -43,10 +43,7 @@ func TestPackageDBWriteRead(t *testing.T) {
 
 	dbPkg := dbPackage{
 		pkgKey: repository.PackageKey{
-			RepoKey: repository.RepositoryKey{
-				Namespace: "my-ns",
-				Name:      "my-repo",
-			},
+			RepoKey: dbRepo.Key(),
 			Path:    "my-path-to-pkg",
 			Package: "network-function",
 		},
@@ -56,31 +53,44 @@ func TestPackageDBWriteRead(t *testing.T) {
 		updatedBy: "porchuser",
 	}
 
-	dbPkgUpdate := dbPackage{
-		repo: &dbRepo,
-		pkgKey: repository.PackageKey{
-			RepoKey: dbRepo.Key(),
-			Path:    "my-path-to-pkg",
-			Package: "network-function",
+	dbPR := dbPackageRevision{
+		pkgRevKey: repository.PackageRevisionKey{
+			PkgKey:        dbPkg.Key(),
+			WorkspaceName: "my-lovely-pr",
+			Revision:      0,
 		},
+		meta:      nil,
+		spec:      nil,
+		updated:   time.Now().UTC(),
+		updatedBy: "porchuser",
+		lifecycle: "Draft",
+		resources: map[string]string{},
+	}
+
+	dbPRUpdate := dbPackageRevision{
+		repo:      &dbRepo,
+		pkgRevKey: dbPR.Key(),
 		meta: &metav1.ObjectMeta{
 			Name:      "meta-new-name",
 			Namespace: "meta-new-namespace",
 		},
-		spec:      &v1alpha1.PackageSpec{},
+		spec:      &v1alpha1.PackageRevisionSpec{},
 		updated:   time.Now().UTC(),
 		updatedBy: "porchuser2",
+		lifecycle: "Published",
+		resources: map[string]string{"Hello.txt": "Hello"},
 	}
 
-	pkgDBWriteReadTest(t, dbRepo, dbPkg, dbPkgUpdate)
+	pkgRevDBWriteReadTest(t, dbRepo, dbPkg, dbPR, dbPRUpdate)
 
 	dbPkg.pkgKey.Path = ""
-	dbPkgUpdate.pkgKey.Path = ""
-	dbPkgUpdate.updatedBy = "bart"
-	pkgDBWriteReadTest(t, dbRepo, dbPkg, dbPkgUpdate)
+	dbPR.pkgRevKey.PkgKey = dbPkg.Key()
+	dbPRUpdate.pkgRevKey.PkgKey = dbPkg.Key()
+	dbPRUpdate.updatedBy = "bart"
+	pkgRevDBWriteReadTest(t, dbRepo, dbPkg, dbPR, dbPRUpdate)
 }
 
-func TestPackageDBSchema(t *testing.T) {
+func TestPackageRevisionDBSchema(t *testing.T) {
 	dbPkg := dbPackage{}
 	err := pkgWriteToDB(context.TODO(), &dbPkg)
 	assert.NotNil(t, err)
@@ -140,7 +150,7 @@ func TestPackageDBSchema(t *testing.T) {
 	assert.True(t, strings.Contains(err.Error(), "should return 1 package, it returned 0 packages"))
 }
 
-func TestMultiPackageRepo(t *testing.T) {
+func TestMultiPackageRevisionRepo(t *testing.T) {
 	dbRepo11 := createTestRepo(t, "my-ns1", "my-repo1")
 	dbRepo12 := createTestRepo(t, "my-ns1", "my-repo2")
 	dbRepo21 := createTestRepo(t, "my-ns2", "my-repo1")
@@ -174,8 +184,8 @@ func TestMultiPackageRepo(t *testing.T) {
 	deleteTestRepo(t, dbRepo22.Key())
 }
 
-func pkgDBWriteReadTest(t *testing.T, dbRepo dbRepository, dbPkg, dbPkgUpdate dbPackage) {
-	err := pkgWriteToDB(context.TODO(), &dbPkg)
+func pkgRevDBWriteReadTest(t *testing.T, dbRepo dbRepository, dbPkg dbPackage, dbPR, dbPRUpdate dbPackageRevision) {
+	err := pkgRevWriteToDB(context.TODO(), &dbPR)
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "violates foreign key constraint"))
 
@@ -188,31 +198,40 @@ func pkgDBWriteReadTest(t *testing.T, dbRepo dbRepository, dbPkg, dbPkgUpdate db
 	err = pkgWriteToDB(context.TODO(), &dbPkg)
 	assert.Nil(t, err)
 
-	readPkg, err := pkgReadFromDB(context.TODO(), dbPkg.Key())
-	assert.Nil(t, err)
-	assertPackagesEqual(t, &dbPkg, readPkg)
+	dbPR.repo = &dbRepo
+	dbPR.pkgRevKey.PkgKey = dbPkg.Key()
 
-	err = pkgWriteToDB(context.TODO(), &dbPkgUpdate)
+	err = pkgRevWriteToDB(context.TODO(), &dbPR)
+	assert.Nil(t, err)
+
+	readPR, err := pkgRevReadFromDB(context.TODO(), dbPR.Key())
+	assert.Nil(t, err)
+	assertPackageRevsEqual(t, &dbPR, readPR)
+
+	err = pkgRevWriteToDB(context.TODO(), &dbPRUpdate)
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "violates unique constraint"))
 
-	err = pkgUpdateDB(context.TODO(), &dbPkgUpdate)
+	err = pkgRevUpdateDB(context.TODO(), &dbPRUpdate)
 	assert.Nil(t, err)
 
-	readPkg, err = pkgReadFromDB(context.TODO(), dbPkg.Key())
+	readPR, err = pkgRevReadFromDB(context.TODO(), dbPR.Key())
 	assert.Nil(t, err)
-	assertPackagesEqual(t, &dbPkgUpdate, readPkg)
+	assertPackageRevsEqual(t, &dbPRUpdate, readPR)
 
-	err = pkgDeleteFromDB(context.TODO(), dbPkg.Key())
+	err = pkgRevDeleteFromDB(context.TODO(), dbPR.Key())
 	assert.Nil(t, err)
 
-	_, err = pkgReadFromDB(context.TODO(), dbPkg.Key())
+	_, err = pkgRevReadFromDB(context.TODO(), dbPR.Key())
 	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "should return 1 package, it returned 0 packages"))
+	assert.True(t, strings.Contains(err.Error(), "should return 1 package revision, it returned 0 package revisions"))
 
-	err = pkgUpdateDB(context.TODO(), &dbPkgUpdate)
+	err = pkgRevUpdateDB(context.TODO(), &dbPRUpdate)
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "no rows or multiple rows found for updating"))
+
+	err = pkgRevDeleteFromDB(context.TODO(), dbPR.Key())
+	assert.Nil(t, err)
 
 	err = pkgDeleteFromDB(context.TODO(), dbPkg.Key())
 	assert.Nil(t, err)
@@ -221,16 +240,16 @@ func pkgDBWriteReadTest(t *testing.T, dbRepo dbRepository, dbPkg, dbPkgUpdate db
 	assert.Nil(t, err)
 }
 
-func assertPackageListsEqual(t *testing.T, left []dbPackage, right []*dbPackage, count int) {
+func assertPackageRevListsEqual(t *testing.T, left []dbPackageRevision, right []*dbPackageRevision, count int) {
 	assert.Equal(t, count, len(left))
 	assert.Equal(t, count, len(right))
 
 	for i := range count {
-		assertPackagesEqual(t, &left[i], right[i])
+		assertPackageRevsEqual(t, &left[i], right[i])
 	}
 }
 
-func assertPackagesEqual(t *testing.T, left, right *dbPackage) {
+func assertPackageRevsEqual(t *testing.T, left, right *dbPackageRevision) {
 	assert.Equal(t, left.Key(), right.Key())
 	if left.meta != nil || right.meta != nil {
 		assert.Equal(t, left.meta.Namespace, right.meta.Namespace)
@@ -239,4 +258,7 @@ func assertPackagesEqual(t *testing.T, left, right *dbPackage) {
 	assert.Equal(t, left.spec, right.spec)
 	assert.Equal(t, left.updated, right.updated)
 	assert.Equal(t, left.updatedBy, right.updatedBy)
+	assert.Equal(t, left.lifecycle, right.lifecycle)
+	assert.Equal(t, left.tasks, right.tasks)
+	assert.Equal(t, left.resources, right.resources)
 }

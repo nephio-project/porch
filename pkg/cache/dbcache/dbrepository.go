@@ -158,8 +158,7 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *v1
 	klog.Infof("DB Repo CreatePackageRevisionDraft: %q", r.Key().String())
 
 	dbPkgRev := &dbPackageRevision{
-		repo:       r,
-		definition: newPR,
+		repo: r,
 		pkgRevKey: repository.PackageRevisionKey{
 			PkgKey: repository.PackageKey{
 				RepoKey: r.Key(),
@@ -168,8 +167,8 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *v1
 			Revision:      0,
 			WorkspaceName: newPR.Spec.WorkspaceName,
 		},
-		meta:      newPR.ObjectMeta,
-		spec:      newPR.Spec,
+		meta:      &newPR.ObjectMeta,
+		spec:      &newPR.Spec,
 		lifecycle: v1alpha1.PackageRevisionLifecycleDraft,
 		updated:   time.Now(),
 		updatedBy: getCurrentUser(),
