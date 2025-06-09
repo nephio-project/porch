@@ -50,6 +50,12 @@ func (k PackageRevisionKey) K8SName() string {
 	return ComposePkgRevObjName(k)
 }
 
+func K8SName2PkgRevWSName(k8sName string) string {
+	lastDotPos := strings.LastIndex(k8sName, ".")
+
+	return k8sName[lastDotPos+1:]
+}
+
 func (k PackageRevisionKey) DeepCopy(outKey *PackageRevisionKey) {
 	k.PkgKey.DeepCopy(&outKey.PkgKey)
 	outKey.Revision = k.Revision
