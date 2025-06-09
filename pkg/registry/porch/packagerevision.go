@@ -184,13 +184,9 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 
 	// if the error occurred is a render error allow it to pass else return error
 	renderFailed := false
-	if rendErr != nil {
-		var renderErr *task.RenderError
-		if errors.As(rendErr, &renderErr) {
-			renderFailed = true
-		} else {
-			return nil, apierrors.NewInternalError(rendErr)
-		}
+	renderFailed, otherErr := CheckRenderError(rendErr, renderFailed)
+	if otherErr != nil {
+		return nil, otherErr
 	}
 
 	createdApiPkgRev, err := createdRepoPkgRev.GetPackageRevision(ctx)
@@ -219,6 +215,19 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 	}
 
 	return createdApiPkgRev, nil
+}
+
+func CheckRenderError(rendErr error, renderFailed bool) (bool, *apierrors.StatusError) {
+	if rendErr != nil {
+		var renderErr *task.RenderError
+		if errors.As(rendErr, &renderErr) {
+			renderFailed = true
+			return renderFailed, nil
+		} else {
+			return renderFailed, apierrors.NewInternalError(rendErr)
+		}
+	}
+	return renderFailed, nil
 }
 
 // Update implements the Updater interface.
