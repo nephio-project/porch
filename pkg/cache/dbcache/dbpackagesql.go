@@ -36,36 +36,23 @@ func pkgReadFromDB(ctx context.Context, pk repository.PackageKey) (*dbPackage, e
 			ON packages.k8s_name_space=repositories.k8s_name_space AND packages.repo_k8s_name=repositories.k8s_name
 		WHERE packages.k8s_name_space=$1 AND packages.k8s_name=$2`
 
-	var dbPkg dbPackage
-	var pkgK8SName, metaAsJson, specAsJson string
-
 	klog.Infof("pkgReadFromDB: running query [%q] on %q", sqlStatement, pk)
-	err := GetDB().db.QueryRow(sqlStatement, pk.K8SNS(), pk.K8SName()).Scan(
-		&dbPkg.pkgKey.RepoKey.Namespace,
-		&dbPkg.pkgKey.RepoKey.Name,
-		&dbPkg.pkgKey.RepoKey.Path,
-		&dbPkg.pkgKey.RepoKey.PlaceholderWSname,
-		&pkgK8SName,
-		&dbPkg.pkgKey.Path,
-		&metaAsJson,
-		&specAsJson,
-		&dbPkg.updated,
-		&dbPkg.updatedBy)
-
+	rows, err := GetDB().db.Query(sqlStatement, pk.K8SNS(), pk.K8SName())
 	if err != nil {
-		if err == sql.ErrNoRows {
-			klog.Infof("pkgReadFromDB: package not found in db %q", pk)
-		} else {
-			klog.Infof("pkgReadFromDB: reading package %q returned err: %q", pk, err)
-		}
 		return nil, err
 	}
 
-	dbPkg.pkgKey.Package = repository.K8SName2PkgName(pkgK8SName)
-	setValueFromJson(metaAsJson, &dbPkg.meta)
-	setValueFromJson(specAsJson, &dbPkg.spec)
+	pkgs, err := pkgScanRowsFromDB(ctx, rows)
+	if err != nil {
+		klog.Infof("pkgReadFromDB: reading package %q returned err: %q", pk, err)
+		return nil, err
+	}
 
-	return &dbPkg, err
+	if len(pkgs) != 1 {
+		return nil, fmt.Errorf("pkgReadFromDB: reading package %q should return 1 package, it returned %d packages", pk, len(pkgs))
+	}
+
+	return pkgs[0], err
 }
 
 func pkgReadPkgsFromDB(ctx context.Context, rk repository.RepositoryKey) ([]*dbPackage, error) {
@@ -80,16 +67,34 @@ func pkgReadPkgsFromDB(ctx context.Context, rk repository.RepositoryKey) ([]*dbP
 			ON packages.k8s_name_space=repositories.k8s_name_space AND packages.repo_k8s_name=repositories.k8s_name
 		WHERE packages.k8s_name_space=$1 AND packages.repo_k8s_name=$2`
 
-	var dbPkgs []*dbPackage
-
-	rows, err := GetDB().db.Query(
-		sqlStatement, rk.Namespace, rk.Name)
+	rows, err := GetDB().db.Query(sqlStatement, rk.Namespace, rk.Name)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
 	klog.Infof("pkgReadPkgsFromDB: query succeeded for %q", rk)
+
+	pkgs, err := pkgScanRowsFromDB(ctx, rows)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			klog.Infof("pkgReadPkgsFromDB: packages for repo %q not found in db", rk)
+		} else {
+			klog.Infof("pkgReadFromDB: reading packages from repo %q returned err: %q", rk, err)
+		}
+		return nil, err
+	}
+
+	return pkgs, nil
+}
+
+func pkgScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackage, error) {
+	_, span := tracer.Start(ctx, "dbpackagesql::pkgScanRowsFromDB", trace.WithAttributes())
+	defer span.End()
+
+	defer rows.Close()
+
+	var dbPkgs []*dbPackage
 
 	for rows.Next() {
 		var dbPkg dbPackage
@@ -161,11 +166,11 @@ func pkgUpdateDB(ctx context.Context, p *dbPackage) error {
 		valueAsJson(p.meta), valueAsJson(p.spec), p.updated, p.updatedBy)
 
 	if err == nil {
-		if rowsAffected, _ := result.RowsAffected(); rowsAffected > 0 {
+		if rowsAffected, _ := result.RowsAffected(); rowsAffected == 1 {
 			klog.Infof("pkgUpdateDB: query succeeded for %q", pk)
 			return nil
 		}
-		err = fmt.Errorf("update failed, no rows found for updating")
+		err = fmt.Errorf("update failed, no rows or multiple rows found for updating")
 	}
 
 	klog.Infof("pkgUpdateDB: query failed for %q: %q", pk, err)

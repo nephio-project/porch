@@ -94,11 +94,11 @@ func repoUpdateDB(ctx context.Context, r *dbRepository) error {
 		rk.K8SNS(), rk.K8SName(), rk.Path, rk.PlaceholderWSname, valueAsJson(r.meta), valueAsJson(r.spec), r.updated, r.updatedBy, r.deployment)
 
 	if err == nil {
-		if rowsAffected, _ := result.RowsAffected(); rowsAffected > 0 {
+		if rowsAffected, _ := result.RowsAffected(); rowsAffected == 1 {
 			klog.Infof("repoUpdateDB: query succeeded for %q", rk)
 			return nil
 		}
-		err = fmt.Errorf("update failed, no rows found for updating")
+		err = fmt.Errorf("update failed, no rows or multiple rows found for updating")
 	}
 
 	klog.Infof("repoUpdateDB: query failed for %q: %q", rk, err)

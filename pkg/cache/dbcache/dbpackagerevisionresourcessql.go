@@ -95,7 +95,7 @@ func pkgRevResourcesWriteToDB(ctx context.Context, pr *dbPackageRevision) error 
 		}
 	}
 
-	klog.Infof("pkgRevResourcesWriteToDB: succeeded, row created")
+	klog.Infof("pkgRevResourcesWriteToDB: succeeded, rows created/updated")
 	return nil
 }
 
@@ -117,7 +117,7 @@ func pkgRevResourceWriteToDB(ctx context.Context, pr *dbPackageRevision, resKey 
 	if _, err := GetDB().db.Exec(
 		sqlStatement,
 		prk.K8SNS(), prk.K8SName(), prk.Revision, resKey, resVal); err == nil {
-		klog.Infof("pkgRevResourceWriteToDB: query succeeded, row created")
+		klog.Infof("pkgRevResourceWriteToDB: query succeeded, row created/updated")
 		return nil
 	} else {
 		klog.Infof("pkgRevResourceWriteToDB: query failed %q", err)

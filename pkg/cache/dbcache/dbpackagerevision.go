@@ -37,16 +37,15 @@ var _ repository.PackageRevision = &dbPackageRevision{}
 var _ repository.PackageRevisionDraft = &dbPackageRevision{}
 
 type dbPackageRevision struct {
-	repo       *dbRepository
-	definition *v1alpha1.PackageRevision
-	pkgRevKey  repository.PackageRevisionKey
-	meta       metav1.ObjectMeta
-	spec       v1alpha1.PackageRevisionSpec
-	updated    time.Time
-	updatedBy  string
-	lifecycle  v1alpha1.PackageRevisionLifecycle
-	tasks      []v1alpha1.Task
-	resources  map[string]string
+	repo      *dbRepository
+	pkgRevKey repository.PackageRevisionKey
+	meta      *metav1.ObjectMeta
+	spec      *v1alpha1.PackageRevisionSpec
+	updated   time.Time
+	updatedBy string
+	lifecycle v1alpha1.PackageRevisionLifecycle
+	tasks     []v1alpha1.Task
+	resources map[string]string
 }
 
 func (pr *dbPackageRevision) KubeObjectName() string {
@@ -92,7 +91,7 @@ func (pr *dbPackageRevision) UpdatePackageRevision(ctx context.Context) error {
 	defer span.End()
 
 	if readPr, err := pkgRevReadFromDB(ctx, pr.Key()); err == nil {
-		pr.copyToThis(&readPr)
+		pr.copyToThis(readPr)
 		return nil
 	} else {
 		return err
@@ -126,7 +125,7 @@ func (pr *dbPackageRevision) UpdateLifecycle(ctx context.Context, newLifecycle v
 		return err
 	}
 
-	pr.copyToThis(&readPr)
+	pr.copyToThis(readPr)
 	return nil
 }
 

@@ -137,7 +137,7 @@ func repoDBWriteReadTest(t *testing.T, dbRepo, dbRepoUpdate dbRepository) {
 
 	err = repoUpdateDB(context.TODO(), &dbRepoUpdate)
 	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "no rows found"))
+	assert.True(t, strings.Contains(err.Error(), "no rows or multiple rows found for updating"))
 
 	err = repoDeleteFromDB(context.TODO(), dbRepo.Key())
 	assert.Nil(t, err)
