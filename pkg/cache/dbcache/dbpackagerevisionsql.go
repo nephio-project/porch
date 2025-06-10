@@ -74,7 +74,26 @@ func pkgRevReadPRsFromDB(ctx context.Context, pk repository.PackageKey) ([]*dbPa
 	_, span := tracer.Start(ctx, "dbpackagerevisionsql::pkgRevReadPRsFromDB", trace.WithAttributes())
 	defer span.End()
 
-	sqlStatement := `SELECT * FROM package_revisions WHERE k8s_name_space=$1 AND package_k8s_name=$2`
+	sqlStatement := `
+		SELECT
+			repositories.k8s_name_space,
+			repositories.k8s_name,
+			repositories.directory,
+			repositories.default_ws_name,
+			packages.k8s_name,
+			packages.package_path,
+			package_revisions.k8s_name,
+			package_revisions.revision,
+			package_revisions.meta,
+			package_revisions.spec,
+			package_revisions.updated,
+			package_revisions.updatedby,
+			package_revisions.lifecycle
+		FROM package_revisions INNER JOIN packages
+			ON package_revisions.k8s_name_space=packages.k8s_name_space AND package_revisions.package_k8s_name=packages.k8s_name
+		 INNER JOIN repositories
+			ON packages.k8s_name_space=repositories.k8s_name_space AND packages.repo_k8s_name=repositories.k8s_name
+		WHERE packages.k8s_name_space=$1 AND packages.k8s_name=$2`
 
 	return pkgRevReadPRListFromDB(ctx, pk, sqlStatement)
 }
@@ -98,10 +117,27 @@ func pkgRevReadLatestPRFromDB(ctx context.Context, pk repository.PackageKey) (*d
 	defer span.End()
 
 	sqlStatement := `
-		SELECT * FROM package_revisions
-			WHERE k8s_name_space=$1 AND package_k8s_name=$2 AND package_rev=(
-				SELECT MAX(package_rev) FROM package_revisions
-					WHERE k8s_name_space=$1 AND package_k8S_name=$2
+		SELECT
+			repositories.k8s_name_space,
+			repositories.k8s_name,
+			repositories.directory,
+			repositories.default_ws_name,
+			packages.k8s_name,
+			packages.package_path,
+			package_revisions.k8s_name,
+			package_revisions.revision,
+			package_revisions.meta,
+			package_revisions.spec,
+			package_revisions.updated,
+			package_revisions.updatedby,
+			package_revisions.lifecycle
+		FROM package_revisions INNER JOIN packages
+			ON package_revisions.k8s_name_space=packages.k8s_name_space AND package_revisions.package_k8s_name=packages.k8s_name
+		 INNER JOIN repositories
+			ON packages.k8s_name_space=repositories.k8s_name_space AND packages.repo_k8s_name=repositories.k8s_name
+		WHERE packages.k8s_name_space=$1 AND packages.k8s_name=$2 AND package_revisions.revision=(
+			SELECT MAX(revision) FROM package_revisions
+				WHERE packages.k8s_name_space=$1 AND packages.k8S_name=$2
 			)`
 
 	latestPRList, err := pkgRevReadPRListFromDB(ctx, pk, sqlStatement)

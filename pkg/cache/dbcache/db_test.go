@@ -27,6 +27,8 @@ import (
 	"k8s.io/klog/v2"
 )
 
+var nextPkgRev int = 1
+
 func TestMain(m *testing.M) {
 	code, err := run(m)
 	if err != nil {
@@ -121,10 +123,41 @@ func createTestPkg(t *testing.T, repoKey repository.RepositoryKey, name string) 
 }
 
 func createTestPkgs(t *testing.T, repoKey repository.RepositoryKey, namePrefix string, count int) []dbPackage {
-	dbRepoPkgs := make([]dbPackage, 4)
+	var testPkgs []dbPackage
+
 	for i := range count {
-		dbRepoPkgs[i] = createTestPkg(t, repoKey, fmt.Sprintf("%s-%d", namePrefix, i))
+		testPkgs = append(testPkgs, createTestPkg(t, repoKey, fmt.Sprintf("%s-%d", namePrefix, i)))
 	}
 
-	return dbRepoPkgs
+	return testPkgs
+}
+
+func createTestPR(t *testing.T, pkgKey repository.PackageKey, name string) dbPackageRevision {
+	dbPkgRev := dbPackageRevision{
+		pkgRevKey: repository.PackageRevisionKey{
+			PkgKey:        pkgKey,
+			WorkspaceName: name,
+			Revision:      nextPkgRev,
+		},
+		lifecycle: "Published",
+		resources: map[string]string{"Hello.txt": "Hello", "Goodbye.txt": "Goodbye"},
+	}
+
+	err := pkgRevWriteToDB(context.TODO(), &dbPkgRev)
+	assert.Nil(t, err)
+
+	return dbPkgRev
+}
+
+func createTestPRs(t *testing.T, packages []dbPackage, wsNamePrefix string, count int) []dbPackageRevision {
+	var testPRs []dbPackageRevision
+
+	for _, pkg := range packages {
+		nextPkgRev = 1
+		for prNo := range count {
+			testPRs = append(testPRs, createTestPR(t, pkg.Key(), fmt.Sprintf("%s-%d", wsNamePrefix, prNo)))
+			nextPkgRev++
+		}
+	}
+	return testPRs
 }
