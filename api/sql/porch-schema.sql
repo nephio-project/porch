@@ -75,7 +75,6 @@ CREATE TABLE IF NOT EXISTS package_revisions (
     k8s_name_space   TEXT NOT NULL CHECK (k8s_name_space <> ''),
     k8s_name         TEXT NOT NULL CHECK (k8s_name <> ''),
     package_k8s_name TEXT NOT NULL,
-    workspace        TEXT NOT NULL,
     revision         INTEGER NOT NULL,
     meta             TEXT NOT NULL,
     spec             TEXT NOT NULL,
@@ -93,9 +92,18 @@ CREATE FUNCTION check_immutable_package_revisions_columns() RETURNS trigger
     LANGUAGE plpgsql AS
 $BODY$
 BEGIN
-    IF NEW.package_k8s_name <> OLD.package_k8s_name OR NEW.workspace <> OLD.workspace THEN
-        RAISE EXCEPTION 'update not allowed on immutable columns "package_k8s_name" and "workspace"';
+    IF NEW.package_k8s_name <> OLD.package_k8s_name THEN
+        RAISE EXCEPTION 'update not allowed on immutable column "package_k8s_name"';
     END IF;
+
+    IF NEW.revision != OLD.revision THEN
+        IF NEW.lifecycle = OLD.lifecycle THEN
+            RAISE EXCEPTION 'update not allowed on column "revision", lifecycle has not changed';
+        ELSIF NEW.lifecycle = 'Draft' OR NEW.lifecycle = 'Proposed' OR NEW.lifecycle = 'DeletionProposed' THEN
+            RAISE EXCEPTION 'update not allowed on column "revision", new lifecycle must be "Published"';
+        END IF;
+    END IF;
+
     RETURN NEW;
 END;
 $BODY$;

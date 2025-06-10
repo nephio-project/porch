@@ -17,26 +17,24 @@ package dbcache
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
 )
 
-//lint:ignore U1000 Ignore unused function temporarily for debugging
 func pkgRevResourceReadFromDB(ctx context.Context, prk repository.PackageRevisionKey, resKey string) (string, string, error) {
 	_, span := tracer.Start(ctx, "dbpackagerevisionresourcessql::pkgRevResourceReadFromDB", trace.WithAttributes())
 	defer span.End()
 
 	klog.Infof("pkgRevResourceReadFromDB: reading package revision resource %q:%s", prk, resKey)
 
-	sqlStatement := `SELECT resource_value FROM resources
-     WHERE k8s_name_space=$1 AND k8s_name=$2 AND resource_key=$3`
+	sqlStatement := `SELECT resource_value FROM resources WHERE k8s_name_space=$1 AND k8s_name=$2 AND resource_key=$3`
 
 	var resVal string
 
-	err := GetDB().db.QueryRow(
-		sqlStatement, prk.K8SNS(), prk.K8SName(), prk.GetPackageKey().Package, resKey).Scan(&resVal)
+	err := GetDB().db.QueryRow(sqlStatement, prk.K8SNS(), prk.K8SName(), resKey).Scan(&resVal)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -83,40 +81,67 @@ func pkgRevResourcesReadFromDB(ctx context.Context, prk repository.PackageRevisi
 	return resources, nil
 }
 
+func pkgRevResourceWriteToDB(ctx context.Context, prk repository.PackageRevisionKey, resKey, resVal string) error {
+	_, span := tracer.Start(ctx, "dbpackagerevisionresourcessql::pkgRevResourceWriteToDB", trace.WithAttributes())
+	defer span.End()
+
+	klog.Infof("pkgRevResourceWriteToDB: writing package revision resource %s=%s for %q", resKey, resVal, prk)
+
+	sqlStatement := `
+		INSERT INTO resources (k8s_name_space, k8s_name, revision, resource_key, resource_value)
+			VALUES ($1, $2, $3, $4, $5)
+			ON CONFLICT (k8s_name_space, k8s_name, resource_key) 
+			DO UPDATE SET resource_value = EXCLUDED.resource_value`
+
+	klog.Infof("pkgRevResourceWriteToDB: running query [%q] on repository (%#v)", sqlStatement, prk)
+
+	if _, err := GetDB().db.Exec(sqlStatement, prk.K8SNS(), prk.K8SName(), prk.Revision, resKey, resVal); err == nil {
+		klog.Infof("pkgRevResourceWriteToDB: query succeeded, row created/updated")
+		return nil
+	} else {
+		klog.Infof("pkgRevResourceWriteToDB: query failed %q", err)
+		return err
+	}
+}
+
 func pkgRevResourcesWriteToDB(ctx context.Context, pr *dbPackageRevision) error {
 	_, span := tracer.Start(ctx, "dbpackagerevisionresourcessql::pkgRevResourcesWriteToDB", trace.WithAttributes())
 	defer span.End()
 
-	klog.Infof("pkgRevResourcesWriteToDB: writing package revision resources for %q", pr.Key())
-
-	for k, v := range pr.resources {
-		if err := pkgRevResourceWriteToDB(ctx, pr, k, v); err != nil {
-			return err
-		}
+	if err := pkgRevResourcesDeleteFromDB(ctx, pr.Key()); err != nil {
+		return err
 	}
 
-	klog.Infof("pkgRevResourcesWriteToDB: succeeded, rows created/updated")
-	return nil
-}
+	if len(pr.resources) == 0 {
+		klog.Infof("pkgRevResourcesWriteToDB: pr %+v has no resources", pr.Key())
+		return nil
+	}
 
-func pkgRevResourceWriteToDB(ctx context.Context, pr *dbPackageRevision, resKey string, resVal string) error {
-	_, span := tracer.Start(ctx, "dbpackagerevisionresourcessql::pkgRevResourceWriteToDB", trace.WithAttributes())
-	defer span.End()
-
-	klog.Infof("pkgRevResourceWriteToDB: writing package revision resource %q:%s", pr.Key(), resKey)
+	klog.Infof("pkgRevResourcesWriteToDB: writing package revision resources for %q", pr.Key())
 
 	sqlStatement := `
-        INSERT INTO resources (k8s_name_space, k8s_name, revision, resource_key, resource_value)
-        VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO resources (k8s_name_space, k8s_name, revision, resource_key, resource_value)
+		VALUES
+		`
+
+	prk := pr.Key()
+	firstResource := true
+	for resourceKey, resourceValue := range pr.resources {
+		if firstResource {
+			firstResource = false
+		} else {
+			sqlStatement += ",\n"
+		}
+		sqlStatement += fmt.Sprintf("\t\t\t('%s', '%s', %d, '%s', '%s')", prk.K8SNS(), prk.K8SName(), prk.Revision, resourceKey, resourceValue)
+	}
+
+	sqlStatement += `
 		ON CONFLICT (k8s_name_space, k8s_name, resource_key) 
-			DO UPDATE SET resource_value = EXCLUDED.resource_value`
+		DO UPDATE SET resource_value = EXCLUDED.resource_value`
 
 	klog.Infof("pkgRevResourceWriteToDB: running query [%q] on repository (%#v)", sqlStatement, pr)
 
-	prk := pr.Key()
-	if _, err := GetDB().db.Exec(
-		sqlStatement,
-		prk.K8SNS(), prk.K8SName(), prk.Revision, resKey, resVal); err == nil {
+	if _, err := GetDB().db.Exec(sqlStatement); err == nil {
 		klog.Infof("pkgRevResourceWriteToDB: query succeeded, row created/updated")
 		return nil
 	} else {
@@ -144,16 +169,15 @@ func pkgRevResourcesDeleteFromDB(ctx context.Context, prk repository.PackageRevi
 	return err
 }
 
-//lint:ignore U1000 Ignore unused function temporarily for debugging
 func pkgRevResourceDeleteFromDB(ctx context.Context, prk repository.PackageRevisionKey, resKey string) error {
 	_, span := tracer.Start(ctx, "dbpackagerevisionresourcessql::pkgRevResourceDeleteFromDB", trace.WithAttributes())
 	defer span.End()
 
 	klog.Infof("pkgRevResourceDeleteFromDB: deleting package revision %q", prk)
 
-	sqlStatement := `DELETE FROM resources WHERE name_space=$1 AND repo_name=$2 AND package_name=$3 AND workspace_name=$5 AND presource_key=$6`
+	sqlStatement := `DELETE FROM resources WHERE k8s_name_space=$1 AND k8s_name=$2 AND resource_key=$3`
 
-	_, err := GetDB().db.Exec(sqlStatement, prk.GetPackageKey().GetRepositoryKey().Namespace, prk.GetPackageKey().GetRepositoryKey().Name, prk.GetPackageKey().Package, prk.WorkspaceName, resKey)
+	_, err := GetDB().db.Exec(sqlStatement, prk.K8SNS(), prk.K8SName(), resKey)
 
 	if err == nil {
 		klog.Infof("pkgRevResourceDeleteFromDB: deleted package revision %q", prk)
