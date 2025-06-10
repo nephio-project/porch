@@ -78,7 +78,7 @@ func TestPackageRevisionDBWriteRead(t *testing.T) {
 		updated:   time.Now().UTC(),
 		updatedBy: "porchuser2",
 		lifecycle: "Published",
-		resources: map[string]string{"Hello.txt": "Hello"},
+		resources: map[string]string{"Hello.txt": "Hello", "Goodbye.txt": "Goodbye"},
 	}
 
 	pkgRevDBWriteReadTest(t, dbRepo, dbPkg, dbPR, dbPRUpdate)
@@ -87,31 +87,229 @@ func TestPackageRevisionDBWriteRead(t *testing.T) {
 	dbPR.pkgRevKey.PkgKey = dbPkg.Key()
 	dbPRUpdate.pkgRevKey.PkgKey = dbPkg.Key()
 	dbPRUpdate.updatedBy = "bart"
+	dbPRUpdate.lifecycle = "Proposed"
+	dbPR.resources = map[string]string{"Hello.txt": "Hello", "Goodbye.txt": "Goodbye"}
+	dbPRUpdate.resources = map[string]string{"Hello.txt": "Hello"}
+	pkgRevDBWriteReadTest(t, dbRepo, dbPkg, dbPR, dbPRUpdate)
+
+	dbPRUpdate.lifecycle = "DeletionProposed"
+	dbPR.resources = map[string]string{"Hello.txt": "Hello", "Goodbye.txt": "Goodbye"}
+	dbPRUpdate.resources = map[string]string{"AAA": "ZZZ", "BBB": "YYY"}
+	pkgRevDBWriteReadTest(t, dbRepo, dbPkg, dbPR, dbPRUpdate)
+
+	dbPRUpdate.lifecycle = "Draft"
+	dbPR.resources = map[string]string{"Hello.txt": "Hello", "Goodbye.txt": "Goodbye"}
+	dbPRUpdate.resources = map[string]string{}
 	pkgRevDBWriteReadTest(t, dbRepo, dbPkg, dbPR, dbPRUpdate)
 }
 
+func TestPackageRevisionLatest(t *testing.T) {
+	dbRepo := createTestRepo(t, "my-ns", "my-repo")
+	dbPkg := createTestPkg(t, dbRepo.Key(), "my-package")
+	dbPkg.repo = &dbRepo
+
+	dbPR1 := dbPackageRevision{
+		pkgRevKey: repository.PackageRevisionKey{
+			PkgKey:        dbPkg.Key(),
+			WorkspaceName: "my-lovely-pr-1",
+			Revision:      0,
+		},
+		meta:      nil,
+		spec:      nil,
+		updated:   time.Now().UTC(),
+		updatedBy: "porchuser",
+		lifecycle: "Draft",
+		resources: map[string]string{},
+	}
+
+	_, err := pkgRevReadLatestPRFromDB(context.TODO(), dbPR1.pkgRevKey.PkgKey)
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "not found in DB"))
+
+	err = pkgRevWriteToDB(context.TODO(), &dbPR1)
+	assert.Nil(t, err)
+
+	latestPR, err := pkgRevReadLatestPRFromDB(context.TODO(), dbPR1.pkgRevKey.PkgKey)
+	assert.Nil(t, err)
+	assertPackageRevsEqual(t, &dbPR1, latestPR)
+
+	dbPR2 := dbPackageRevision{
+		pkgRevKey: repository.PackageRevisionKey{
+			PkgKey:        dbPkg.Key(),
+			WorkspaceName: "my-lovely-pr-2",
+			Revision:      0,
+		},
+		meta:      nil,
+		spec:      nil,
+		updated:   time.Now().UTC(),
+		updatedBy: "porchuser",
+		lifecycle: "Draft",
+		resources: map[string]string{},
+	}
+
+	err = pkgRevWriteToDB(context.TODO(), &dbPR2)
+	assert.Nil(t, err)
+
+	latestPR, err = pkgRevReadLatestPRFromDB(context.TODO(), dbPR1.pkgRevKey.PkgKey)
+	assert.Nil(t, err)
+	assert.Nil(t, latestPR)
+
+	dbPR3 := dbPackageRevision{
+		pkgRevKey: repository.PackageRevisionKey{
+			PkgKey:        dbPkg.Key(),
+			WorkspaceName: "my-lovely-pr-3",
+			Revision:      10,
+		},
+		meta:      nil,
+		spec:      nil,
+		updated:   time.Now().UTC(),
+		updatedBy: "porchuser",
+		lifecycle: "Published",
+		resources: map[string]string{},
+	}
+
+	err = pkgRevWriteToDB(context.TODO(), &dbPR3)
+	assert.Nil(t, err)
+
+	dbPR4 := dbPackageRevision{
+		pkgRevKey: repository.PackageRevisionKey{
+			PkgKey:        dbPkg.Key(),
+			WorkspaceName: "my-lovely-pr-4",
+			Revision:      10,
+		},
+		meta:      nil,
+		spec:      nil,
+		updated:   time.Now().UTC(),
+		updatedBy: "porchuser",
+		lifecycle: "Published",
+		resources: map[string]string{},
+	}
+
+	err = pkgRevWriteToDB(context.TODO(), &dbPR4)
+	assert.Nil(t, err)
+
+	_, err = pkgRevReadLatestPRFromDB(context.TODO(), dbPR1.pkgRevKey.PkgKey)
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "multiple latest package revisions with revision 10"))
+
+	err = repoDeleteFromDB(context.TODO(), dbRepo.Key())
+	assert.Nil(t, err)
+}
+
+func TestPackageRevisionResources(t *testing.T) {
+	dbRepo := createTestRepo(t, "my-ns", "my-repo")
+	dbPkg := createTestPkg(t, dbRepo.Key(), "my-package")
+	dbPkg.repo = &dbRepo
+
+	_, _, err := pkgRevResourceReadFromDB(context.TODO(), repository.PackageRevisionKey{}, "")
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "no rows in result set"))
+
+	dbPR := createTestPR(t, dbPkg.Key(), "my_pr")
+	dbPR.repo = &dbRepo
+
+	_, _, err = pkgRevResourceReadFromDB(context.TODO(), dbPR.Key(), "resource.txt")
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "no rows in result set"))
+
+	resKey, resVal, err := pkgRevResourceReadFromDB(context.TODO(), dbPR.Key(), "Hello.txt")
+	assert.Nil(t, err)
+	assert.Equal(t, "Hello.txt", resKey)
+	assert.Equal(t, "Hello", resVal)
+
+	resKey, resVal, err = pkgRevResourceReadFromDB(context.TODO(), dbPR.Key(), "Goodbye.txt")
+	assert.Nil(t, err)
+	assert.Equal(t, "Goodbye.txt", resKey)
+	assert.Equal(t, "Goodbye", resVal)
+
+	err = pkgRevResourceDeleteFromDB(context.TODO(), dbPR.Key(), "Goodbye.txt")
+	assert.Nil(t, err)
+
+	err = pkgRevResourceDeleteFromDB(context.TODO(), dbPR.Key(), "Goodbye.txt")
+	assert.Nil(t, err)
+
+	_, _, err = pkgRevResourceReadFromDB(context.TODO(), dbPR.Key(), "Goodbye.txt")
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "no rows in result set"))
+
+	err = pkgRevResourceWriteToDB(context.TODO(), dbPR.Key(), "Goodbye.txt", "So long")
+	assert.Nil(t, err)
+
+	resKey, resVal, err = pkgRevResourceReadFromDB(context.TODO(), dbPR.Key(), "Goodbye.txt")
+	assert.Nil(t, err)
+	assert.Equal(t, "Goodbye.txt", resKey)
+	assert.Equal(t, "So long", resVal)
+
+	err = pkgRevResourceWriteToDB(context.TODO(), dbPR.Key(), "Goodbye.txt", "See ya later")
+	assert.Nil(t, err)
+
+	resKey, resVal, err = pkgRevResourceReadFromDB(context.TODO(), dbPR.Key(), "Goodbye.txt")
+	assert.Nil(t, err)
+	assert.Equal(t, "Goodbye.txt", resKey)
+	assert.Equal(t, "See ya later", resVal)
+
+	err = pkgRevResourceWriteToDB(context.TODO(), dbPR.Key(), "Grand.txt", "Grand")
+	assert.Nil(t, err)
+
+	resKey, resVal, err = pkgRevResourceReadFromDB(context.TODO(), dbPR.Key(), "Grand.txt")
+	assert.Nil(t, err)
+	assert.Equal(t, "Grand.txt", resKey)
+	assert.Equal(t, "Grand", resVal)
+
+	dbPR.pkgRevKey.WorkspaceName = "bad"
+	err = pkgRevResourceWriteToDB(context.TODO(), dbPR.Key(), "Grand.txt", "Grand")
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "violates foreign key constraint"))
+
+	err = repoDeleteFromDB(context.TODO(), dbRepo.Key())
+	assert.Nil(t, err)
+}
+
 func TestPackageRevisionDBSchema(t *testing.T) {
-	dbPkg := dbPackage{}
-	err := pkgWriteToDB(context.TODO(), &dbPkg)
+	dbPR := dbPackageRevision{}
+	err := pkgRevWriteToDB(context.TODO(), &dbPR)
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
 
-	dbPkg.pkgKey = repository.PackageKey{
-		RepoKey: repository.RepositoryKey{
-			Namespace: "my-ns",
+	dbPR.pkgRevKey = repository.PackageRevisionKey{
+		PkgKey: repository.PackageKey{
+			RepoKey: repository.RepositoryKey{
+				Namespace: "my-ns",
+			},
 		},
 	}
-	err = pkgWriteToDB(context.TODO(), &dbPkg)
+
+	err = pkgRevWriteToDB(context.TODO(), &dbPR)
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
 
-	dbPkg.pkgKey.RepoKey.Name = "my-repo"
-	err = pkgWriteToDB(context.TODO(), &dbPkg)
+	dbPR.pkgRevKey.PkgKey.RepoKey.Name = "my-repo"
+	err = pkgRevWriteToDB(context.TODO(), &dbPR)
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
 
-	dbPkg.pkgKey.Package = "my-package"
-	err = pkgWriteToDB(context.TODO(), &dbPkg)
+	dbPR.pkgRevKey.PkgKey.Package = "my-package"
+	err = pkgRevWriteToDB(context.TODO(), &dbPR)
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
+
+	dbPR.pkgRevKey.WorkspaceName = "my-ws"
+	err = pkgRevWriteToDB(context.TODO(), &dbPR)
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
+
+	dbPR.lifecycle = ""
+	err = pkgRevWriteToDB(context.TODO(), &dbPR)
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
+
+	dbPR.lifecycle = "StoneDead"
+	err = pkgRevWriteToDB(context.TODO(), &dbPR)
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
+
+	dbPR.lifecycle = "Draft"
+	err = pkgRevWriteToDB(context.TODO(), &dbPR)
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "violates foreign key constraint"))
 
@@ -121,33 +319,39 @@ func TestPackageRevisionDBSchema(t *testing.T) {
 			Name:      "my-repo",
 		},
 	}
+
 	err = repoWriteToDB(context.TODO(), &dbRepo)
 	assert.Nil(t, err)
+
+	dbPkg := dbPackage{
+		pkgKey: repository.PackageKey{
+			RepoKey: dbRepo.Key(),
+			Package: "my-package",
+		},
+	}
 
 	err = pkgWriteToDB(context.TODO(), &dbPkg)
 	assert.Nil(t, err)
 
-	dbPkg.pkgKey.Path = "my-path"
-	err = pkgUpdateDB(context.TODO(), &dbPkg)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "no rows or multiple rows found for updating"))
-
-	dbPkg.pkgKey.Path = ""
-	dbPkg.updatedBy = "Marge"
-	err = pkgUpdateDB(context.TODO(), &dbPkg)
+	err = pkgRevWriteToDB(context.TODO(), &dbPR)
 	assert.Nil(t, err)
 
-	dbPkg.pkgKey.Path = "my-path"
-	err = pkgUpdateDB(context.TODO(), &dbPkg)
+	dbPR.pkgRevKey.WorkspaceName = "my-other-ws"
+	err = pkgRevUpdateDB(context.TODO(), &dbPR)
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "no rows or multiple rows found for updating"))
+
+	dbPR.pkgRevKey.WorkspaceName = "my-ws"
+	dbPR.updatedBy = "Marge"
+	err = pkgRevUpdateDB(context.TODO(), &dbPR)
+	assert.Nil(t, err)
 
 	err = repoDeleteFromDB(context.TODO(), dbRepo.Key())
 	assert.Nil(t, err)
 
-	_, err = pkgReadFromDB(context.TODO(), dbPkg.Key())
+	_, err = pkgRevReadFromDB(context.TODO(), dbPR.Key())
 	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "should return 1 package, it returned 0 packages"))
+	assert.True(t, strings.Contains(err.Error(), "should return 1 package revision, it returned 0 package revisions"))
 }
 
 func TestMultiPackageRevisionRepo(t *testing.T) {
@@ -161,27 +365,35 @@ func TestMultiPackageRevisionRepo(t *testing.T) {
 	dbRepo21Pkgs := createTestPkgs(t, dbRepo21.Key(), "my-package", 4)
 	dbRepo22Pkgs := createTestPkgs(t, dbRepo22.Key(), "my-package", 4)
 
-	readRep11Pkgs, err := pkgReadPkgsFromDB(context.TODO(), dbRepo11.Key())
-	assert.Nil(t, err)
+	dbRepo11PkgsPRs := createTestPRs(t, dbRepo11Pkgs, "my-ws", 4)
+	dbRepo12PkgsPRs := createTestPRs(t, dbRepo12Pkgs, "my-ws", 4)
+	dbRepo21PkgsPRs := createTestPRs(t, dbRepo21Pkgs, "my-ws", 4)
+	dbRepo22PkgsPRs := createTestPRs(t, dbRepo22Pkgs, "my-ws", 4)
 
-	readRep12Pkgs, err := pkgReadPkgsFromDB(context.TODO(), dbRepo12.Key())
-	assert.Nil(t, err)
+	readRepo11PkgsPRs := readRepoPkgPRs(t, dbRepo11Pkgs)
+	readRepo12PkgsPRs := readRepoPkgPRs(t, dbRepo12Pkgs)
+	readRepo21PkgsPRs := readRepoPkgPRs(t, dbRepo21Pkgs)
+	readRepo22PkgsPRs := readRepoPkgPRs(t, dbRepo22Pkgs)
 
-	readRep21Pkgs, err := pkgReadPkgsFromDB(context.TODO(), dbRepo21.Key())
-	assert.Nil(t, err)
+	assertPackageRevListsEqual(t, dbRepo11PkgsPRs, readRepo11PkgsPRs, 16)
+	assertPackageRevListsEqual(t, dbRepo12PkgsPRs, readRepo12PkgsPRs, 16)
+	assertPackageRevListsEqual(t, dbRepo21PkgsPRs, readRepo21PkgsPRs, 16)
+	assertPackageRevListsEqual(t, dbRepo22PkgsPRs, readRepo22PkgsPRs, 16)
 
-	readRep22Pkgs, err := pkgReadPkgsFromDB(context.TODO(), dbRepo22.Key())
-	assert.Nil(t, err)
-
-	assertPackageListsEqual(t, dbRepo11Pkgs, readRep11Pkgs, 4)
-	assertPackageListsEqual(t, dbRepo12Pkgs, readRep12Pkgs, 4)
-	assertPackageListsEqual(t, dbRepo21Pkgs, readRep21Pkgs, 4)
-	assertPackageListsEqual(t, dbRepo22Pkgs, readRep22Pkgs, 4)
+	assertPackageRevLatestIs(t, 4, readRepo11PkgsPRs)
+	assertPackageRevLatestIs(t, 4, readRepo12PkgsPRs)
+	assertPackageRevLatestIs(t, 4, readRepo21PkgsPRs)
+	assertPackageRevLatestIs(t, 4, readRepo22PkgsPRs)
 
 	deleteTestRepo(t, dbRepo11.Key())
 	deleteTestRepo(t, dbRepo12.Key())
 	deleteTestRepo(t, dbRepo21.Key())
 	deleteTestRepo(t, dbRepo22.Key())
+
+	assert.Equal(t, 0, len(readRepoPkgPRs(t, dbRepo11Pkgs)))
+	assert.Equal(t, 0, len(readRepoPkgPRs(t, dbRepo12Pkgs)))
+	assert.Equal(t, 0, len(readRepoPkgPRs(t, dbRepo21Pkgs)))
+	assert.Equal(t, 0, len(readRepoPkgPRs(t, dbRepo22Pkgs)))
 }
 
 func pkgRevDBWriteReadTest(t *testing.T, dbRepo dbRepository, dbPkg dbPackage, dbPR, dbPRUpdate dbPackageRevision) {
@@ -240,12 +452,38 @@ func pkgRevDBWriteReadTest(t *testing.T, dbRepo dbRepository, dbPkg dbPackage, d
 	assert.Nil(t, err)
 }
 
+func readRepoPkgPRs(t *testing.T, pkgs []dbPackage) []*dbPackageRevision {
+	var readRepo11PkgsPRs []*dbPackageRevision
+
+	for _, pkg := range pkgs {
+		readPRs, err := pkgRevReadPRsFromDB(context.TODO(), pkg.Key())
+		assert.Nil(t, err)
+
+		readRepo11PkgsPRs = append(readRepo11PkgsPRs, readPRs...)
+	}
+
+	return readRepo11PkgsPRs
+}
+
 func assertPackageRevListsEqual(t *testing.T, left []dbPackageRevision, right []*dbPackageRevision, count int) {
 	assert.Equal(t, count, len(left))
 	assert.Equal(t, count, len(right))
 
-	for i := range count {
-		assertPackageRevsEqual(t, &left[i], right[i])
+	leftMap := make(map[repository.PackageRevisionKey]*dbPackageRevision)
+	for _, leftPr := range left {
+		leftMap[leftPr.Key()] = &leftPr
+	}
+
+	rightMap := make(map[repository.PackageRevisionKey]*dbPackageRevision)
+	for _, rightPr := range right {
+		rightMap[rightPr.Key()] = rightPr
+	}
+
+	for leftKey, leftPr := range leftMap {
+		rightPr, ok := rightMap[leftKey]
+		assert.True(t, ok)
+
+		assertPackageRevsEqual(t, leftPr, rightPr)
 	}
 }
 
@@ -261,4 +499,12 @@ func assertPackageRevsEqual(t *testing.T, left, right *dbPackageRevision) {
 	assert.Equal(t, left.lifecycle, right.lifecycle)
 	assert.Equal(t, left.tasks, right.tasks)
 	assert.Equal(t, left.resources, right.resources)
+}
+
+func assertPackageRevLatestIs(t *testing.T, expectedLatest int, prList []*dbPackageRevision) {
+	for _, pr := range prList {
+		latestPrRev, err := pkgRevGetlatestRevFromDB(context.TODO(), pr.Key().PkgKey)
+		assert.True(t, err == nil)
+		assert.Equal(t, expectedLatest, latestPrRev)
+	}
 }
