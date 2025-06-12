@@ -21,6 +21,7 @@ import (
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
+	"github.com/nephio-project/porch/pkg/externalrepo"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -41,9 +42,9 @@ func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.
 	_, span := tracer.Start(ctx, "dbCache::OpenRepository", trace.WithAttributes())
 	defer span.End()
 
-	repoKey := repository.RepositoryKey{
-		Namespace: repositorySpec.Namespace,
-		Name:      repositorySpec.Name,
+	repoKey, err := externalrepo.RepositoryKey(repositorySpec)
+	if err != nil {
+		return nil, err
 	}
 
 	if dbRepo, ok := c.repositories[repoKey]; ok {
@@ -59,7 +60,7 @@ func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.
 		deployment: repositorySpec.Spec.Deployment,
 	}
 
-	err := dbRepo.OpenRepository(ctx, c.options.ExternalRepoOptions)
+	err = dbRepo.OpenRepository(ctx, c.options.ExternalRepoOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -75,9 +76,9 @@ func (c *dbCache) UpdateRepository(ctx context.Context, repositorySpec *configap
 	_, span := tracer.Start(ctx, "dbCache::UpdateRepository", trace.WithAttributes())
 	defer span.End()
 
-	repoKey := repository.RepositoryKey{
-		Namespace: repositorySpec.Namespace,
-		Name:      repositorySpec.Name,
+	repoKey, err := externalrepo.RepositoryKey(repositorySpec)
+	if err != nil {
+		return err
 	}
 
 	dbRepo, ok := c.repositories[repoKey]
@@ -92,9 +93,9 @@ func (c *dbCache) CloseRepository(ctx context.Context, repositorySpec *configapi
 	_, span := tracer.Start(ctx, "dbCache::CloseRepository", trace.WithAttributes())
 	defer span.End()
 
-	repoKey := repository.RepositoryKey{
-		Namespace: repositorySpec.Namespace,
-		Name:      repositorySpec.Name,
+	repoKey, err := externalrepo.RepositoryKey(repositorySpec)
+	if err != nil {
+		return err
 	}
 
 	defer delete(c.repositories, repoKey)

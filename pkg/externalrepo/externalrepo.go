@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/externalrepo/git"
@@ -75,7 +76,7 @@ func RepositoryKey(repositorySpec *configapi.Repository) (repository.RepositoryK
 		return repository.RepositoryKey{
 			Namespace:         repositorySpec.Namespace,
 			Name:              repositorySpec.Name,
-			Path:              gitSpec.Directory,
+			Path:              strings.Trim(gitSpec.Directory, "/"),
 			PlaceholderWSname: gitSpec.Branch,
 		}, nil
 
