@@ -17,7 +17,6 @@ package dbcache
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
@@ -119,35 +118,14 @@ func pkgRevResourcesWriteToDB(ctx context.Context, pr *dbPackageRevision) error 
 
 	klog.Infof("pkgRevResourcesWriteToDB: writing package revision resources for %q", pr.Key())
 
-	sqlStatement := `
-		INSERT INTO resources (k8s_name_space, k8s_name, revision, resource_key, resource_value)
-		VALUES
-		`
-
-	prk := pr.Key()
-	firstResource := true
 	for resourceKey, resourceValue := range pr.resources {
-		if firstResource {
-			firstResource = false
-		} else {
-			sqlStatement += ",\n"
+		if err := pkgRevResourceWriteToDB(ctx, pr.Key(), resourceKey, resourceValue); err != nil {
+			return err
 		}
-		sqlStatement += fmt.Sprintf("\t\t\t('%s', '%s', %d, '%s', '%s')", prk.K8SNS(), prk.K8SName(), prk.Revision, resourceKey, resourceValue)
 	}
 
-	sqlStatement += `
-		ON CONFLICT (k8s_name_space, k8s_name, resource_key) 
-		DO UPDATE SET resource_value = EXCLUDED.resource_value`
-
-	klog.Infof("pkgRevResourceWriteToDB: running query [%q] on repository (%#v)", sqlStatement, pr)
-
-	if _, err := GetDB().db.Exec(sqlStatement); err == nil {
-		klog.Infof("pkgRevResourceWriteToDB: query succeeded, row created/updated")
-		return nil
-	} else {
-		klog.Infof("pkgRevResourceWriteToDB: query failed %q", err)
-		return err
-	}
+	klog.Infof("pkgRevResourceWriteToDB: query succeeded, row created/updated")
+	return nil
 }
 
 func pkgRevResourcesDeleteFromDB(ctx context.Context, prk repository.PackageRevisionKey) error {

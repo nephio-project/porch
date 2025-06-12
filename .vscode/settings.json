@@ -6,6 +6,6 @@
     "go.testEnvVars": {
       "RUN_E2E_LOCALLY": "false",
       "E2E": "1",
-      "PORCH_SQL_SCHEMA": "${workspaceFolder}/api/sql/porch-schema.sql"
-    },
+      "PORCH_SQL_SCHEMA": "${workspaceFolder}/api/sql/porch-db.sql"
+    }
 }

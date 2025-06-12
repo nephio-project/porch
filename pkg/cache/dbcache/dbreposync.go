@@ -93,19 +93,55 @@ func (s *repositorySync) sync(ctx context.Context) error {
 	cachedPrList, err := s.repo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	if err != nil {
 		klog.Errorf("repositorySync %+v: failed to list cached package revisions", s.repo.Key())
+		return err
 	}
+
 	klog.Infof("repositorySync %+v: found %d package revisions in cached repository", s.repo.Key(), len(cachedPrList))
 	cachedPrMap := repository.PrSlice2Map(cachedPrList)
 
 	externalPRList, err := s.repo.externalRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	if err != nil {
 		klog.Errorf("repositorySync %+v: failed to list external package revisions", s.repo.Key())
+		return err
 	}
+
 	klog.Infof("repositorySync %+v: found %d package revisions in external repository", s.repo.Key(), len(externalPRList))
 	externalPrMap := repository.PrSlice2Map(externalPRList)
 
 	inCachedOnly, inBoth, inExternalOnly := s.comparePRMaps(ctx, cachedPrMap, externalPrMap)
 	klog.Infof("repositorySync %+v: found %d cached, %d in both, %d external", s.repo.Key(), len(inCachedOnly), len(inBoth), len(inExternalOnly))
+
+	for _, extPRKey := range inExternalOnly {
+		extPR := externalPrMap[extPRKey]
+
+		extAPIPR, err := externalPrMap[extPRKey].GetPackageRevision(ctx)
+		if err != nil {
+			klog.Errorf("repositorySync %+v: failed to get API version of external package revision %+v", s.repo.Key(), extPRKey)
+			return err
+		}
+
+		extPRResources, err := extPR.GetResources(ctx)
+		if err != nil {
+			klog.Errorf("repositorySync %+v: failed to get resources for external package revision %+v", s.repo.Key(), extPRKey)
+			return err
+		}
+
+		dbPR := dbPackageRevision{
+			repo:      s.repo,
+			pkgRevKey: extPRKey,
+			meta:      extAPIPR.ObjectMeta,
+			spec:      &extAPIPR.Spec,
+			updated:   extAPIPR.CreationTimestamp.Time,
+			lifecycle: extAPIPR.Spec.Lifecycle,
+			tasks:     extAPIPR.Spec.Tasks,
+			resources: extPRResources.Spec.Resources,
+		}
+		_, err = s.repo.savePackageRevision(ctx, &dbPR)
+		if err != nil {
+			klog.Errorf("repositorySync %+v: failed to save external package revision %+v to database", s.repo.Key(), extPRKey)
+			return err
+		}
+	}
 
 	return nil
 }

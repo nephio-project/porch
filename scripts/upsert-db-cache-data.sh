@@ -29,7 +29,10 @@ kpt fn eval \
   --match-kind Deployment \
   --match-name porch-server \
   --match-namespace porch-system \
-  --fn-config ${git_root}/deployments/local/postgres/insert-db-cache-config.yaml
+  --fn-config "${git_root}/deployments/local/postgres/insert-db-cache-config.yaml"
 
 # copy the porch postgres KRM to the deployment pkg
-cp ${git_root}/deployments/local/postgres/postgres-statefulset.yaml 3-porch-postgres-statefulset.yaml
+cp "${git_root}/deployments/local/postgres/postgres-statefulset.yaml" 3-porch-postgres-statefulset.yaml
+
+# create the configmap to hold the db schema
+kubectl create configmap -n porch-system porch-schema --from-file="${git_root}/api/sql/porch-db.sql" --dry-run=client -o yaml > 3-porch-postgres-schema-configmap.yaml
