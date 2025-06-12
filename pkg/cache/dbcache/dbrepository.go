@@ -75,7 +75,6 @@ func (r *dbRepository) OpenRepository(ctx context.Context, externalRepoOptions e
 	}
 
 	r.externalRepo = externalRepo
-	r.repoKey = externalRepo.Key()
 
 	if _, err = repoReadFromDB(ctx, r.Key()); err == nil {
 		return nil
