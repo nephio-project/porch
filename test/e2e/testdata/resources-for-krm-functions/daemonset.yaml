@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: cloud-sql-auth-proxy # kpt-set: ${daemonset-name}
+  namespace: default
+  annotations:
+    cnrm.cloud.google.com/blueprint: cnrm/sql/auth-proxy/v0.2.0
+spec:
+  selector:
+    matchLabels:
+      app: cloud-sql-auth-proxy # kpt-set: ${daemonset-name}
+  template:
+    metadata:
+      labels:
+        app: cloud-sql-auth-proxy # kpt-set: ${daemonset-name}
+    spec:
+      tolerations:
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule
+      serviceAccountName: cloud-sql-proxy-sa # kpt-set: ${service-account-name}
+      containers:
+      - name: gce-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.0.0
+        args: ["$(CONNECTION_NAME)", '--address=0.0.0.0', "--private-ip", "--structured-logs"]
+        env:
+        - name: CONNECTION_NAME
+          value: "example-connection" # kpt-set: ${connection-name}
+        ports:
+        - containerPort: 5432
+          name: db
+        securityContext:
+          readOnlyRootFilesystem: true
+          privileged: false
+          runAsNonRoot: true
+          runAsUser: 2
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [all]
+          seccompProfile:
+            type: RuntimeDefault
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "300m"
