@@ -37,7 +37,7 @@ var _ repository.Repository = &dbRepository{}
 
 type dbRepository struct {
 	repoKey        repository.RepositoryKey
-	meta           *metav1.ObjectMeta
+	meta           metav1.ObjectMeta
 	spec           *configapi.Repository
 	externalRepo   repository.Repository
 	repositorySync *repositorySync
@@ -70,20 +70,22 @@ func (r *dbRepository) OpenRepository(ctx context.Context, externalRepoOptions e
 
 	externalRepo, err := externalrepo.CreateRepositoryImpl(ctx, r.spec, externalRepoOptions)
 	if err != nil {
+		klog.Infof("DB Repo OpenRepository: %+v external DB read failed with error %q", r.Key(), err.Error())
 		return err
 	}
 
 	r.externalRepo = externalRepo
+	r.repoKey = externalRepo.Key()
 
 	if _, err = repoReadFromDB(ctx, r.Key()); err == nil {
 		return nil
 	} else if err != sql.ErrNoRows {
-		klog.Infof("DB Repo OpenRepository: %q DB read failed with error %q", r.Key().String(), err)
+		klog.Infof("DB Repo OpenRepository: %q DB read failed with error %q", r.Key().String(), err.Error())
 		return err
 	}
 
 	if err = repoWriteToDB(ctx, r); err != nil {
-		klog.Infof("DB Repo OpenRepository: %q DB write failed with error %q", r.Key().String(), err)
+		klog.Infof("DB Repo OpenRepository: %q DB write failed with error %q", r.Key().String(), err.Error())
 		return err
 	}
 
@@ -104,7 +106,8 @@ func (r *dbRepository) Close(ctx context.Context) error {
 	}
 
 	for _, pkg := range dbPkgs {
-		if err := pkg.Delete(ctx); err != nil {
+		// Delete cached packages but not packages on external storage
+		if err := pkg.Delete(ctx, false); err != nil {
 			return err
 		}
 	}
@@ -167,7 +170,7 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *v1
 			Revision:      0,
 			WorkspaceName: newPR.Spec.WorkspaceName,
 		},
-		meta:      &newPR.ObjectMeta,
+		meta:      newPR.ObjectMeta,
 		spec:      &newPR.Spec,
 		lifecycle: v1alpha1.PackageRevisionLifecycleDraft,
 		updated:   time.Now(),
@@ -175,7 +178,7 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *v1
 		tasks:     newPR.Spec.Tasks,
 	}
 
-	prDraft, err := r.savePackageRevision(ctx, dbPkgRev, 0)
+	prDraft, err := r.savePackageRevisionDraft(ctx, dbPkgRev, 0)
 
 	return repository.PackageRevisionDraft(prDraft), err
 }
@@ -195,7 +198,8 @@ func (r *dbRepository) DeletePackageRevision(ctx context.Context, old repository
 	}
 	foundPkg.repo = old.(*dbPackageRevision).repo
 
-	if err := foundPkg.DeletePackageRevision(ctx, old); err != nil && err != sql.ErrNoRows {
+	// Delete both the cached and external package
+	if err := foundPkg.DeletePackageRevision(ctx, old, true); err != nil && err != sql.ErrNoRows {
 		return err
 	}
 
@@ -204,7 +208,7 @@ func (r *dbRepository) DeletePackageRevision(ctx context.Context, old repository
 		return err
 	}
 
-	if len(foundPRs) != 0 {
+	if len(foundPRs) > 0 {
 		return nil
 	}
 
@@ -289,7 +293,7 @@ func (r *dbRepository) ClosePackageRevisionDraft(ctx context.Context, prd reposi
 	_, span := tracer.Start(ctx, "dbRepository::ClosePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
 
-	pr, err := r.savePackageRevision(ctx, prd, version)
+	pr, err := r.savePackageRevisionDraft(ctx, prd, version)
 
 	return repository.PackageRevision(pr), err
 }
@@ -298,11 +302,18 @@ func (r *dbRepository) PushPackageRevision(ctx context.Context, pr repository.Pa
 	panic("dbRepository:PushPackageRevision: function should not be invoked on caches")
 }
 
-func (r *dbRepository) savePackageRevision(ctx context.Context, prd repository.PackageRevisionDraft, _ int) (*dbPackageRevision, error) {
+func (r *dbRepository) savePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, _ int) (*dbPackageRevision, error) {
 	_, span := tracer.Start(ctx, "dbRepository::savePackageRevision", trace.WithAttributes())
 	defer span.End()
 
 	d := prd.(*dbPackageRevision)
+
+	return r.savePackageRevision(ctx, d)
+}
+
+func (r *dbRepository) savePackageRevision(ctx context.Context, d *dbPackageRevision) (*dbPackageRevision, error) {
+	_, span := tracer.Start(ctx, "dbRepository::savePackageRevision", trace.WithAttributes())
+	defer span.End()
 
 	dbPkg, err := pkgReadFromDB(ctx, d.Key().GetPackageKey())
 	if err != nil {

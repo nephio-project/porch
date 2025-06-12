@@ -265,6 +265,14 @@ type gitRepository struct {
 var _ GitRepository = &gitRepository{}
 var _ repository.Repository = &gitRepository{}
 
+func (r *gitRepository) KubeObjectNamespace() string {
+	return r.Key().Namespace
+}
+
+func (r *gitRepository) KubeObjectName() string {
+	return r.Key().Name
+}
+
 func (r *gitRepository) Key() repository.RepositoryKey {
 	return r.key
 }

@@ -110,6 +110,7 @@ func deleteTestRepo(t *testing.T, key repository.RepositoryKey) {
 
 func createTestPkg(t *testing.T, repoKey repository.RepositoryKey, name string) dbPackage {
 	dbPkg := dbPackage{
+		repo: cachetypes.CacheInstance.GetRepository(repoKey).(*dbRepository),
 		pkgKey: repository.PackageKey{
 			RepoKey: repoKey,
 			Package: name,

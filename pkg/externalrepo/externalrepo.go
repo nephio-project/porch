@@ -50,26 +50,36 @@ func CreateRepositoryImpl(ctx context.Context, repositorySpec *configapi.Reposit
 	return repoFactory.NewRepositoryImpl(ctx, repositorySpec, options)
 }
 
-func RepositoryKey(repositorySpec *configapi.Repository) (string, error) {
+func RepositoryKey(repositorySpec *configapi.Repository) (repository.RepositoryKey, error) {
 	switch repositoryType := repositorySpec.Spec.Type; repositoryType {
 	case configapi.RepositoryTypeOCI:
 		ociSpec := repositorySpec.Spec.Oci
 		if ociSpec == nil {
-			return "", fmt.Errorf("oci not configured")
+			return repository.RepositoryKey{}, fmt.Errorf("oci not configured")
 		}
-		return "oci://" + ociSpec.Registry, nil
+		return repository.RepositoryKey{
+			Namespace:         repositorySpec.Namespace,
+			Name:              repositorySpec.Name,
+			Path:              "oci://" + ociSpec.Registry,
+			PlaceholderWSname: "OCI",
+		}, nil
 
 	case configapi.RepositoryTypeGit:
 		gitSpec := repositorySpec.Spec.Git
 		if gitSpec == nil {
-			return "", errors.New("git property is required")
+			return repository.RepositoryKey{}, errors.New("git property is required")
 		}
 		if gitSpec.Repo == "" {
-			return "", errors.New("git.repo property is required")
+			return repository.RepositoryKey{}, errors.New("git.repo property is required")
 		}
-		return fmt.Sprintf("git://%s/%s@%s/%s", gitSpec.Repo, gitSpec.Directory, repositorySpec.Namespace, repositorySpec.Name), nil
+		return repository.RepositoryKey{
+			Namespace:         repositorySpec.Namespace,
+			Name:              repositorySpec.Name,
+			Path:              gitSpec.Directory,
+			PlaceholderWSname: gitSpec.Branch,
+		}, nil
 
 	default:
-		return "", fmt.Errorf("repository type %q not supported", repositoryType)
+		return repository.RepositoryKey{}, fmt.Errorf("repository type %q not supported", repositoryType)
 	}
 }

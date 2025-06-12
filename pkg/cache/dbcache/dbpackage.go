@@ -33,7 +33,7 @@ var _ repository.Package = &dbPackage{}
 type dbPackage struct {
 	repo      *dbRepository
 	pkgKey    repository.PackageKey
-	meta      *metav1.ObjectMeta
+	meta      metav1.ObjectMeta
 	spec      *v1alpha1.PackageSpec
 	updated   time.Time
 	updatedBy string
@@ -66,7 +66,7 @@ func (p *dbPackage) savePackage(ctx context.Context) (*dbPackage, error) {
 		return p, err
 	}
 
-	p.meta = &metav1.ObjectMeta{
+	p.meta = metav1.ObjectMeta{
 		Name:      p.KubeObjectName(),
 		Namespace: p.KubeObjectNamespace(),
 	}
@@ -116,12 +116,12 @@ func (p *dbPackage) savePackageRevision(ctx context.Context, d *dbPackageRevisio
 	return d.savePackageRevision(ctx)
 }
 
-func (p *dbPackage) DeletePackageRevision(ctx context.Context, old repository.PackageRevision) error {
+func (p *dbPackage) DeletePackageRevision(ctx context.Context, old repository.PackageRevision, deleteExternal bool) error {
 	_, span := tracer.Start(ctx, "dbPackage::DeletePackageRevision", trace.WithAttributes())
 	defer span.End()
 
 	dpPR := old.(*dbPackageRevision)
-	if err := dpPR.Delete(ctx); err != nil {
+	if err := dpPR.Delete(ctx, deleteExternal); err != nil {
 		return err
 	}
 
@@ -149,7 +149,7 @@ func (p *dbPackage) GetLatestRevision(ctx context.Context) int {
 	}
 }
 
-func (p *dbPackage) Delete(ctx context.Context) error {
+func (p *dbPackage) Delete(ctx context.Context, deleteExternal bool) error {
 	_, span := tracer.Start(ctx, "dbPackage::Delete", trace.WithAttributes())
 	defer span.End()
 
@@ -159,7 +159,7 @@ func (p *dbPackage) Delete(ctx context.Context) error {
 	}
 
 	for _, pkgRev := range dbPkgRevs {
-		if err := pkgRev.Delete(ctx); err != nil {
+		if err := pkgRev.Delete(ctx, deleteExternal); err != nil {
 			return err
 		}
 	}

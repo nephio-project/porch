@@ -40,7 +40,7 @@ func TestCreateUpdateDeletePackageRevision(t *testing.T) {
 	_, err := ociRepo.CreatePackageRevisionDraft(context.TODO(), apiPr)
 	assert.True(t, err != nil)
 
-	ociRepo.name = "my-repo"
+	ociRepo.key.Name = "my-repo"
 	draftPr, err := ociRepo.CreatePackageRevisionDraft(context.TODO(), apiPr)
 	assert.False(t, err != nil)
 
