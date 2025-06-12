@@ -342,6 +342,141 @@ func (_c *MockRepository_DeletePackageRevision_Call) RunAndReturn(run func(conte
 	return _c
 }
 
+// Key provides a mock function with no fields
+func (_m *MockRepository) Key() repository.RepositoryKey {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Key")
+	}
+
+	var r0 repository.RepositoryKey
+	if rf, ok := ret.Get(0).(func() repository.RepositoryKey); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(repository.RepositoryKey)
+	}
+
+	return r0
+}
+
+// MockRepository_Key_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Key'
+type MockRepository_Key_Call struct {
+	*mock.Call
+}
+
+// Key is a helper method to define mock.On call
+func (_e *MockRepository_Expecter) Key() *MockRepository_Key_Call {
+	return &MockRepository_Key_Call{Call: _e.mock.On("Key")}
+}
+
+func (_c *MockRepository_Key_Call) Run(run func()) *MockRepository_Key_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockRepository_Key_Call) Return(_a0 repository.RepositoryKey) *MockRepository_Key_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockRepository_Key_Call) RunAndReturn(run func() repository.RepositoryKey) *MockRepository_Key_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// KubeObjectName provides a mock function with no fields
+func (_m *MockRepository) KubeObjectName() string {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for KubeObjectName")
+	}
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// MockRepository_KubeObjectName_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'KubeObjectName'
+type MockRepository_KubeObjectName_Call struct {
+	*mock.Call
+}
+
+// KubeObjectName is a helper method to define mock.On call
+func (_e *MockRepository_Expecter) KubeObjectName() *MockRepository_KubeObjectName_Call {
+	return &MockRepository_KubeObjectName_Call{Call: _e.mock.On("KubeObjectName")}
+}
+
+func (_c *MockRepository_KubeObjectName_Call) Run(run func()) *MockRepository_KubeObjectName_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockRepository_KubeObjectName_Call) Return(_a0 string) *MockRepository_KubeObjectName_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockRepository_KubeObjectName_Call) RunAndReturn(run func() string) *MockRepository_KubeObjectName_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// KubeObjectNamespace provides a mock function with no fields
+func (_m *MockRepository) KubeObjectNamespace() string {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for KubeObjectNamespace")
+	}
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// MockRepository_KubeObjectNamespace_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'KubeObjectNamespace'
+type MockRepository_KubeObjectNamespace_Call struct {
+	*mock.Call
+}
+
+// KubeObjectNamespace is a helper method to define mock.On call
+func (_e *MockRepository_Expecter) KubeObjectNamespace() *MockRepository_KubeObjectNamespace_Call {
+	return &MockRepository_KubeObjectNamespace_Call{Call: _e.mock.On("KubeObjectNamespace")}
+}
+
+func (_c *MockRepository_KubeObjectNamespace_Call) Run(run func()) *MockRepository_KubeObjectNamespace_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockRepository_KubeObjectNamespace_Call) Return(_a0 string) *MockRepository_KubeObjectNamespace_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockRepository_KubeObjectNamespace_Call) RunAndReturn(run func() string) *MockRepository_KubeObjectNamespace_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListPackageRevisions provides a mock function with given fields: ctx, filter
 func (_m *MockRepository) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
 	ret := _m.Called(ctx, filter)
@@ -456,6 +591,53 @@ func (_c *MockRepository_ListPackages_Call) Return(_a0 []repository.Package, _a1
 }
 
 func (_c *MockRepository_ListPackages_Call) RunAndReturn(run func(context.Context, repository.ListPackageFilter) ([]repository.Package, error)) *MockRepository_ListPackages_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// PushPackageRevision provides a mock function with given fields: ctx, pr
+func (_m *MockRepository) PushPackageRevision(ctx context.Context, pr repository.PackageRevision) error {
+	ret := _m.Called(ctx, pr)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PushPackageRevision")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, repository.PackageRevision) error); ok {
+		r0 = rf(ctx, pr)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockRepository_PushPackageRevision_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PushPackageRevision'
+type MockRepository_PushPackageRevision_Call struct {
+	*mock.Call
+}
+
+// PushPackageRevision is a helper method to define mock.On call
+//   - ctx context.Context
+//   - pr repository.PackageRevision
+func (_e *MockRepository_Expecter) PushPackageRevision(ctx interface{}, pr interface{}) *MockRepository_PushPackageRevision_Call {
+	return &MockRepository_PushPackageRevision_Call{Call: _e.mock.On("PushPackageRevision", ctx, pr)}
+}
+
+func (_c *MockRepository_PushPackageRevision_Call) Run(run func(ctx context.Context, pr repository.PackageRevision)) *MockRepository_PushPackageRevision_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(repository.PackageRevision))
+	})
+	return _c
+}
+
+func (_c *MockRepository_PushPackageRevision_Call) Return(_a0 error) *MockRepository_PushPackageRevision_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockRepository_PushPackageRevision_Call) RunAndReturn(run func(context.Context, repository.PackageRevision) error) *MockRepository_PushPackageRevision_Call {
 	_c.Call.Return(run)
 	return _c
 }

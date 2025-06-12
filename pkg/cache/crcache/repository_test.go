@@ -56,8 +56,12 @@ func TestCachedRepoRefresh(t *testing.T) {
 	metaListCall := mockMeta.EXPECT().List(mock.Anything, mock.Anything).Return(metaMap, nil).Maybe()
 	mockNotifier.EXPECT().NotifyPackageRevisionChange(mock.Anything, mock.Anything).Return(0).Maybe()
 
-	cr := newRepository("my-cached-repo", &repoSpec, mockRepo, mockMeta, options)
-	assert.Equal(t, cr.id, "my-cached-repo")
+	repoKey := repository.RepositoryKey{
+		Namespace: "my-namespace",
+		Name:      "my-cached-repo",
+	}
+	cr := newRepository(repoKey, &repoSpec, mockRepo, mockMeta, options)
+	assert.Equal(t, repoKey, cr.Key())
 
 	prKey := repository.PackageRevisionKey{
 		PkgKey: repository.PackageKey{

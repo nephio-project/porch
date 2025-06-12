@@ -24,11 +24,24 @@ import (
 // Implementation of the repository.Repository interface for testing.
 // TODO(mortent): Implement stub functionality for all functions from the interface.
 type Repository struct {
+	key              repository.RepositoryKey
 	PackageRevisions []repository.PackageRevision
 	Packages         []repository.Package
 }
 
 var _ repository.Repository = &Repository{}
+
+func (r *Repository) KubeObjectNamespace() string {
+	return r.Key().Namespace
+}
+
+func (r *Repository) KubeObjectName() string {
+	return r.Key().Name
+}
+
+func (r *Repository) Key() repository.RepositoryKey {
+	return r.key
+}
 
 func (r *Repository) Close(context.Context) error {
 	return nil
@@ -56,6 +69,10 @@ func (r *Repository) ClosePackageRevisionDraft(ctx context.Context, prd reposito
 	return nil, nil
 }
 
+func (r *Repository) PushPackageRevision(ctx context.Context, pr repository.PackageRevision) error {
+	return nil
+}
+
 func (r *Repository) DeletePackageRevision(context.Context, repository.PackageRevision) error {
 	return nil
 }
@@ -78,8 +95,4 @@ func (r *Repository) DeletePackage(_ context.Context, pr repository.Package) err
 
 func (r *Repository) Refresh(_ context.Context) error {
 	return nil
-}
-
-func (r *Repository) Key() string {
-	return ""
 }

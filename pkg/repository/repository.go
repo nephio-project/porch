@@ -42,6 +42,18 @@ func (k PackageRevisionKey) String() string {
 	return fmt.Sprintf("%s:%d:%s", k.PkgKey.String(), k.Revision, string(k.WorkspaceName))
 }
 
+func (k PackageRevisionKey) K8SNS() string {
+	return k.PkgKey.RepoKey.Namespace
+}
+
+func (k PackageRevisionKey) K8SName() string {
+	return ComposePkgRevObjName(k)
+}
+
+func K8SName2PkgRevWSName(k8sNamePkg, k8sName string) string {
+	return k8sName[len(k8sNamePkg)+1:]
+}
+
 func (k PackageRevisionKey) DeepCopy(outKey *PackageRevisionKey) {
 	k.PkgKey.DeepCopy(&outKey.PkgKey)
 	outKey.Revision = k.Revision
@@ -73,6 +85,14 @@ type PackageKey struct {
 	Path, Package string
 }
 
+func (k PackageKey) K8SNS() string {
+	return k.RepoKey.Namespace
+}
+
+func (k PackageKey) K8SName() string {
+	return ComposePkgObjName(k)
+}
+
 func (k PackageKey) String() string {
 	return fmt.Sprintf("%s:%s:%s", k.RepoKey.String(), k.Path, k.Package)
 }
@@ -89,6 +109,12 @@ func (k PackageKey) ToPkgPathname() string {
 
 func (k PackageKey) ToFullPathname() string {
 	return filepath.Join(k.RepoKey.Path, k.Path, k.Package)
+}
+
+func K8SName2PkgName(k8sName string) string {
+	lastDotPos := strings.LastIndex(k8sName, ".")
+
+	return k8sName[lastDotPos+1:]
 }
 
 func FromFullPathname(repoKey RepositoryKey, fullpath string) PackageKey {
@@ -129,6 +155,14 @@ type RepositoryKey struct {
 	Namespace, Name, Path, PlaceholderWSname string
 }
 
+func (k RepositoryKey) K8SNS() string {
+	return k.Namespace
+}
+
+func (k RepositoryKey) K8SName() string {
+	return k.Name
+}
+
 func (k RepositoryKey) String() string {
 	return fmt.Sprintf("%s:%s:%s:%s", k.Namespace, k.Name, k.Path, string(k.PlaceholderWSname))
 }
@@ -164,21 +198,12 @@ func (k RepositoryKey) Matches(other RepositoryKey) bool {
 // The best way we've found (so far) to represent them in k8s is as two resources, but they map to the same object.
 // Interesting reading: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#differing-representations
 type PackageRevision interface {
-	// KubeObjectName returns an encoded name for the object that should be unique.
-	// More "readable" values are returned by Key()
-	KubeObjectName() string
-
-	// KubeObjectNamespace returns the namespace in which the PackageRevision
-	// belongs.
 	KubeObjectNamespace() string
+	KubeObjectName() string
+	Key() PackageRevisionKey
 
 	// UID returns a unique identifier for the PackageRevision.
 	UID() types.UID
-
-	Key() PackageRevisionKey
-
-	// Set the repository of this package revision
-	SetRepository(repository Repository)
 
 	// Lifecycle returns the current lifecycle state of the package.
 	Lifecycle(ctx context.Context) v1alpha1.PackageRevisionLifecycle
@@ -221,10 +246,8 @@ type PackageRevision interface {
 
 // Package is an abstract package.
 type Package interface {
-	// KubeObjectName returns an encoded name for the object that should be unique.
-	// More "readable" values are returned by Key()
+	KubeObjectNamespace() string
 	KubeObjectName() string
-
 	Key() PackageKey
 
 	// GetPackage returns the object representing this package
@@ -294,6 +317,10 @@ func (f *ListPackageFilter) Matches(p Package) bool {
 // Repository is the interface for interacting with packages in repositories
 // TODO: we may need interface to manage repositories too. Stay tuned.
 type Repository interface {
+	KubeObjectNamespace() string
+	KubeObjectName() string
+	Key() RepositoryKey
+
 	// ListPackageRevisions lists the existing package revisions in the repository
 	ListPackageRevisions(ctx context.Context, filter ListPackageRevisionFilter) ([]PackageRevision, error)
 
@@ -302,6 +329,9 @@ type Repository interface {
 
 	// ClosePackageRevisionDraft closes out a Package Revision Draft
 	ClosePackageRevisionDraft(ctx context.Context, prd PackageRevisionDraft, version int) (PackageRevision, error)
+
+	// PushPackageRevision pushes a fully ready package revision onto the repo
+	PushPackageRevision(ctx context.Context, pr PackageRevision) error
 
 	// DeletePackageRevision deletes a package revision
 	DeletePackageRevision(ctx context.Context, old PackageRevision) error

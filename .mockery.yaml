@@ -18,6 +18,10 @@ packages:
           outpkg: "{{.PackageName}}"
   github.com/nephio-project/porch/pkg/cache/types:
     interfaces:
+      Cache:
+        config:
+          dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
+          outpkg: "{{.PackageName}}"
       RepoPRChangeNotifier:
         config:
           dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
