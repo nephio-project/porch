@@ -26,7 +26,7 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
-func TestSomething(t *testing.T) {
+func TestGenerateKptfilePatches(t *testing.T) {
 	testCases := map[string]struct {
 		repoPkgRev   repository.PackageRevision
 		newApiPkgRev *api.PackageRevision

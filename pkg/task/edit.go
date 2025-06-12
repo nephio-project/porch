@@ -17,17 +17,18 @@ package task
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel/trace"
 )
 
 type editPackageMutation struct {
+	pkgRev            *api.PackageRevision
 	task              *api.Task
-	namespace         string
-	repositoryName    string
-	packageName       string
 	repoOpener        repository.RepositoryOpener
 	referenceResolver repository.ReferenceResolver
 }
@@ -39,32 +40,83 @@ func (m *editPackageMutation) apply(ctx context.Context, resources repository.Pa
 	defer span.End()
 
 	sourceRef := m.task.Edit.Source
+	newPkgRev := m.pkgRev
 
-	revision, err := (&repository.PackageFetcher{
+	existingPkgRev, err := (&repository.PackageFetcher{
 		RepoOpener:        m.repoOpener,
 		ReferenceResolver: m.referenceResolver,
-	}).FetchRevision(ctx, sourceRef, m.namespace)
+	}).FetchRevision(ctx, sourceRef, newPkgRev.Namespace)
 	if err != nil {
 		return repository.PackageResources{}, nil, fmt.Errorf("failed to fetch package %q: %w", sourceRef.Name, err)
 	}
 
 	// We only allow edit to create new revision from the same package.
-	if revision.Key().PkgKey.ToPkgPathname() != m.packageName ||
-		revision.Key().PkgKey.RepoKey.Name != m.repositoryName {
-		return repository.PackageResources{}, nil, fmt.Errorf("source revision must be from same package %s/%s", m.repositoryName, m.packageName)
+	if existingPkgRev.Key().PkgKey.ToPkgPathname() != newPkgRev.Spec.PackageName ||
+		existingPkgRev.Key().PkgKey.RepoKey.Name != newPkgRev.Spec.RepositoryName {
+		return repository.PackageResources{}, nil, fmt.Errorf(
+			"source revision must be from same package %s/%s (got: %s/%s)",
+			existingPkgRev.Key().PkgKey.RepoKey.Name,
+			existingPkgRev.Key().PkgKey.ToPkgPathname(),
+			newPkgRev.Spec.RepositoryName,
+			newPkgRev.Spec.PackageName)
 	}
 
 	// We only allow edit to create new revisions from published packages.
-	if !api.LifecycleIsPublished(revision.Lifecycle(ctx)) {
+	if !api.LifecycleIsPublished(existingPkgRev.Lifecycle(ctx)) {
 		return repository.PackageResources{}, nil, fmt.Errorf("source revision must be published")
 	}
 
-	sourceResources, err := revision.GetResources(ctx)
+	sourceResources, err := existingPkgRev.GetResources(ctx)
 	if err != nil {
 		return repository.PackageResources{}, nil, fmt.Errorf("cannot read contents of package %q: %w", sourceRef.Name, err)
 	}
 
-	return repository.PackageResources{
+	editedResources := repository.PackageResources{
 		Contents: sourceResources.Spec.Resources,
-	}, &api.TaskResult{Task: m.task}, nil
+	}
+	editedResources.EditKptfile(func(file *kptfile.KptFile) {
+		file.Status = func() *kptfile.Status {
+			fileStatus := &kptfile.Status{
+				Conditions: func() (inputConditions []kptfile.Condition) {
+					if file.Status == nil || file.Status.Conditions == nil {
+						inputConditions = kptfile.ConvertApiConditions(DefaultReadinessConditions)
+					} else {
+						inputConditions = file.Status.Conditions
+					}
+					inputConditions = slices.DeleteFunc(inputConditions, func(toDelete kptfile.Condition) bool {
+						return toDelete.Type == ConditionTypePipelinePassed
+					})
+
+					return util.MergeFunc(
+						inputConditions,
+						kptfile.ConvertApiConditions(newPkgRev.Status.Conditions),
+						func(inputCondition, oldCondition kptfile.Condition) bool {
+							return oldCondition.Type == inputCondition.Type
+						})
+				}(),
+			}
+			if len(fileStatus.Conditions) > 0 {
+				return fileStatus
+			}
+			return nil
+		}()
+		file.Info.ReadinessGates = func() (kptfileGates []kptfile.ReadinessGate) {
+			for _, each := range DefaultReadinessConditions {
+				kptfileGates = append(kptfileGates, kptfile.ReadinessGate{
+					ConditionType: each.Type,
+				})
+			}
+			return
+		}()
+		file.Info.ReadinessGates = func() (kptfileGates []kptfile.ReadinessGate) {
+			for _, each := range newPkgRev.Status.Conditions {
+				kptfileGates = append(kptfileGates, kptfile.ReadinessGate{
+					ConditionType: each.Type,
+				})
+			}
+			return util.Merge(file.Info.ReadinessGates, kptfileGates)
+		}()
+	})
+
+	return editedResources, &api.TaskResult{Task: m.task}, nil
 }

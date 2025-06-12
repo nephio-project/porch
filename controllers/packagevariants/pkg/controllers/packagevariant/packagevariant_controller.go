@@ -1,4 +1,4 @@
-// Copyright 2023-2025 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,9 +18,12 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"slices"
+	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/google/go-cmp/cmp"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	api "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
@@ -28,6 +31,7 @@ import (
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/util"
 	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -50,14 +54,31 @@ func (o *Options) BindFlags(_ string, _ *flag.FlagSet) {}
 // PackageVariantReconciler reconciles a PackageVariant object
 type PackageVariantReconciler struct {
 	client.Client
+	client.Reader
 	Options
 }
 
 const (
 	workspaceNamePrefix = "packagevariant-"
 
-	ConditionTypeStalled = "Stalled" // whether or not the packagevariant object is making progress or not
-	ConditionTypeReady   = "Ready"   // whether or not the reconciliation succeeded
+	ConditionTypeStalled            = "Stalled"              // whether or not the packagevariant object is making progress
+	ConditionTypeReady              = "Ready"                // whether or not the reconciliation succeeded
+	ConditionTypeAtomicPVOperations = "PVOperationsComplete" // whether or not the packagevariant object has completed operations on a downstream packagerevision
+)
+
+var (
+	ConditionPipelinePVRevisionNotReady = porchapi.Condition{
+		Type:    ConditionTypeAtomicPVOperations,
+		Status:  porchapi.ConditionFalse,
+		Reason:  "WaitingOnPVOperations",
+		Message: "waiting for completion of operations by managing PackageVariant",
+	}
+	ConditionPipelinePVRevisionReady = porchapi.Condition{
+		Type:    ConditionTypeAtomicPVOperations,
+		Status:  porchapi.ConditionTrue,
+		Reason:  "PVOperationsComplete",
+		Message: "managing PackageVariant has successfully completed all operations",
+	}
 )
 
 //go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.1 rbac:headerFile=../../../../../scripts/boilerplate.yaml.txt,roleName=porch-controllers-packagevariants webhook paths="." output:rbac:artifacts:config=../../../config/rbac
@@ -81,8 +102,20 @@ func (r *PackageVariantReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	defer func() {
-		if err := r.Client.Status().Update(ctx, pv); err != nil {
-			klog.Errorf("could not update status: %s\n", err.Error())
+		pv.ResourceVersion = func() string {
+			var latestVariant api.PackageVariant
+			if err := r.Reader.Get(ctx, types.NamespacedName{Name: pv.GetName(), Namespace: pv.GetNamespace()}, &latestVariant); err != nil {
+				if strings.Contains(err.Error(), fmt.Sprintf("packagevariants.config.porch.kpt.dev \"%s\" not found", pv.GetName())) {
+					return ""
+				}
+				klog.Errorf("could not retrieve latest resource version for final status update: %s\n", err.Error())
+			}
+			return latestVariant.ResourceVersion
+		}()
+		if pv.ResourceVersion != "" {
+			if err := r.Client.Status().Update(ctx, pv); err != nil {
+				klog.Errorf("could not update status: %s\n", err.Error())
+			}
 		}
 	}()
 
@@ -104,7 +137,7 @@ func (r *PackageVariantReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		// Remove our finalizer from the list and update it.
 		controllerutil.RemoveFinalizer(pv, api.Finalizer)
 		if err := r.Update(ctx, pv); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to update %s after delete finalizer: %w", req.Name, err)
+			return ctrl.Result{}, fmt.Errorf("failed to update %s after deleting finalizer: %w", req.Name, err)
 		}
 		return ctrl.Result{}, nil
 	}
@@ -113,7 +146,7 @@ func (r *PackageVariantReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if !controllerutil.ContainsFinalizer(pv, api.Finalizer) {
 		controllerutil.AddFinalizer(pv, api.Finalizer)
 		if err := r.Update(ctx, pv); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to update %s after add finalizer: %w", req.Name, err)
+			return ctrl.Result{}, fmt.Errorf("failed to update %s to add finalizer: %w", req.Name, err)
 		}
 	}
 
@@ -353,12 +386,23 @@ func (r *PackageVariantReconciler) ensurePackageVariant(ctx context.Context,
 					},
 				},
 			},
+			ReadinessGates: []porchapi.ReadinessGate{
+				{
+					ConditionType: ConditionTypeAtomicPVOperations,
+				},
+			},
+		},
+		Status: porchapi.PackageRevisionStatus{
+			Conditions: []porchapi.Condition{
+				ConditionPipelinePVRevisionNotReady,
+			},
 		},
 	}
 
 	if err = r.Client.Create(ctx, newPR); err != nil {
 		return nil, err
 	}
+
 	klog.Infoln(fmt.Sprintf("package variant %q created package revision %q", pv.Name, newPR.Name))
 
 	prr, changed, err := r.calculateDraftResources(ctx, pv, newPR)
@@ -370,6 +414,16 @@ func (r *PackageVariantReconciler) ensurePackageVariant(ctx context.Context,
 		if err = r.updatePackageResources(ctx, prr, pv); err != nil {
 			return nil, err
 		}
+	}
+
+	if err := r.Reader.Get(ctx, types.NamespacedName{Name: newPR.GetName(), Namespace: newPR.GetNamespace()}, newPR); err != nil {
+		return nil, err
+	}
+	// newPR.ResourceVersion = prr.ResourceVersion
+	// newPR.Spec.Tasks = append(newPR.Spec.Tasks, )
+	setPrStatusCondition(newPR, ConditionPipelinePVRevisionReady)
+	if err := r.Client.Update(ctx, newPR); err != nil {
+		return nil, err
 	}
 
 	return []*porchapi.PackageRevision{newPR}, nil
@@ -394,8 +448,12 @@ func (r *PackageVariantReconciler) findAndUpdateExistingRevisions(ctx context.Co
 			downstream.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 			// We update this now, because later we may use a Porch call to clone or update
 			// and we want to make sure the server is in sync with us
+
+			setPrReadinessGate(downstream, ConditionTypeAtomicPVOperations)
+			setPrStatusCondition(downstream, ConditionPipelinePVRevisionNotReady)
 			if err := r.Client.Update(ctx, downstream); err != nil {
-				klog.Errorf("error updating package revision lifecycle: %v", err)
+				klog.Errorf("error updating package revision lifecycle to %s: %v",
+					porchapi.PackageRevisionLifecyclePublished, err)
 				return nil, err
 			}
 		}
@@ -448,7 +506,23 @@ func (r *PackageVariantReconciler) findAndUpdateExistingRevisions(ctx context.Co
 
 			}
 			// Save the updated PackageRevisionResources
+
+			setPrReadinessGate(downstream, ConditionTypeAtomicPVOperations)
+			setPrStatusCondition(downstream, ConditionPipelinePVRevisionNotReady)
+			if err := r.Client.Update(ctx, downstream); err != nil {
+				return nil, err
+			}
 			if err := r.updatePackageResources(ctx, prr, pv); err != nil {
+				return nil, err
+			}
+		}
+
+		if slices.ContainsFunc(downstream.Status.Conditions, func(aCondition porchapi.Condition) bool {
+			return aCondition.Type == ConditionPipelinePVRevisionNotReady.Type &&
+				aCondition.Status == ConditionPipelinePVRevisionNotReady.Status
+		}) {
+			setPrStatusCondition(downstream, ConditionPipelinePVRevisionReady)
+			if err := r.Client.Update(ctx, downstream); err != nil {
 				return nil, err
 			}
 		}
@@ -713,10 +787,18 @@ func (r *PackageVariantReconciler) updateDraft(ctx context.Context,
 	updateTask.Update.Upstream.UpstreamRef.Name = newUpstreamPR.Name
 	draft.Spec.Tasks = append(tasks, updateTask)
 
-	err := r.Client.Update(ctx, draft)
-	if err != nil {
+	setPrReadinessGate(draft, ConditionTypeAtomicPVOperations)
+	setPrStatusCondition(draft, ConditionPipelinePVRevisionNotReady)
+
+	if err := r.Client.Update(ctx, draft); err != nil {
 		return nil, err
 	}
+
+	setPrStatusCondition(draft, ConditionPipelinePVRevisionReady)
+	if err := r.Client.Update(ctx, draft); err != nil {
+		return nil, err
+	}
+
 	return draft, nil
 }
 
@@ -743,8 +825,31 @@ func setTargetStatusConditions(pv *api.PackageVariant, targets []*porchapi.Packa
 		Type:    ConditionTypeReady,
 		Status:  "True",
 		Reason:  "NoErrors",
-		Message: "successfully ensured downstream package variant",
+		Message: "successfully ensured target downstream package revision",
 	})
+}
+
+func setPrReadinessGate(pr *porchapi.PackageRevision, conditionType string) {
+	for _, aGate := range pr.Spec.ReadinessGates {
+		if aGate.ConditionType == conditionType {
+			return
+		}
+	}
+
+	pr.Spec.ReadinessGates = append(pr.Spec.ReadinessGates, porchapi.ReadinessGate{
+		ConditionType: conditionType,
+	})
+}
+
+func setPrStatusCondition(pr *porchapi.PackageRevision, condition porchapi.Condition) {
+	for index, aCondition := range pr.Status.Conditions {
+		if aCondition.Type == condition.Type {
+			pr.Status.Conditions[index] = condition
+			return
+		}
+	}
+
+	pr.Status.Conditions = append(pr.Status.Conditions, condition)
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -760,6 +865,7 @@ func (r *PackageVariantReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	r.Client = mgr.GetClient()
+	r.Reader = mgr.GetAPIReader()
 
 	//TODO: establish watches on resource types injected in all the Package Revisions
 	//      we own, and use those to generate requests
@@ -852,6 +958,7 @@ func (r *PackageVariantReconciler) calculateDraftResources(ctx context.Context,
 
 			// a file was changed
 			klog.Infoln(fmt.Sprintf("PackageVariant %q, PackageRevision %q, resources changed: %q different", pv.Name, prr.Name, k))
+			klog.Infof("diff is:\n%s", cmp.Diff(v, newValue))
 			return &prr, true, nil
 		}
 	}
@@ -863,12 +970,12 @@ func (r *PackageVariantReconciler) calculateDraftResources(ctx context.Context,
 }
 
 func parseKptfile(kf string) (*kptfilev1.KptFile, error) {
-	ko, err := fn.ParseKubeObject([]byte(kf))
+	ko, err := util.YamlToKubeObject(kf)
 	if err != nil {
 		return nil, err
 	}
-	var kptfile kptfilev1.KptFile
-	err = ko.As(&kptfile)
+
+	kptfile, err := kptfileutil.FromKubeObject(ko)
 	if err != nil {
 		return nil, err
 	}
@@ -881,11 +988,15 @@ func kptfilesEqual(a, b string) bool {
 	if err != nil {
 		return false
 	}
+	gates := akf.Info.ReadinessGates
+	sort.SliceStable(gates, func(i, j int) bool { return gates[i].ConditionType < gates[j].ConditionType })
 
 	bkf, err := parseKptfile(b)
 	if err != nil {
 		return false
 	}
+	gates = bkf.Info.ReadinessGates
+	sort.SliceStable(gates, func(i, j int) bool { return gates[i].ConditionType < gates[j].ConditionType })
 
 	equal, err := kptfileutil.Equal(akf, bkf)
 	if err != nil {
@@ -947,7 +1058,7 @@ func getFileKubeObject(prr *porchapi.PackageRevisionResources, file, kind, name 
 		return nil, fmt.Errorf("%q not found in PackageRevisionResources '%s/%s'", file, prr.Namespace, prr.Name)
 	}
 
-	ko, err := fn.ParseKubeObject([]byte(prr.Spec.Resources[file]))
+	ko, err := util.YamlToKubeObject(prr.Spec.Resources[file])
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse %q of PackageRevisionResources %s/%s: %w", file, prr.Namespace, prr.Name, err)
 	}
@@ -1038,7 +1149,7 @@ func ensureKRMFunctions(pv *api.PackageVariant,
 	}
 
 	// update kptfile
-	prr.Spec.Resources[kptfilev1.KptFileName] = kptfile.String()
+	prr.Spec.Resources[kptfilev1.KptFileName] = util.KubeObjectToYaml(kptfile)
 
 	return nil
 }

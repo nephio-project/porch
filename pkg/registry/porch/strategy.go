@@ -45,11 +45,11 @@ func (s packageRevisionStrategy) ValidateUpdate(ctx context.Context, obj, old ru
 	newRevision := obj.(*api.PackageRevision)
 
 	// Verify that the new lifecycle value is valid.
-	switch lifecycle := newRevision.Spec.Lifecycle; lifecycle {
+	switch newLifecycle := newRevision.Spec.Lifecycle; newLifecycle {
 	case "", api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed, api.PackageRevisionLifecyclePublished, api.PackageRevisionLifecycleDeletionProposed:
 		// valid
 	default:
-		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle, fmt.Sprintf("value can be only updated to %s",
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), newLifecycle, fmt.Sprintf("value can be only updated to %s",
 			strings.Join([]string{
 				string(api.PackageRevisionLifecycleDraft),
 				string(api.PackageRevisionLifecycleProposed),
@@ -59,19 +59,29 @@ func (s packageRevisionStrategy) ValidateUpdate(ctx context.Context, obj, old ru
 		))
 	}
 
-	switch lifecycle := oldRevision.Spec.Lifecycle; lifecycle {
+	switch oldLifecycle := oldRevision.Spec.Lifecycle; oldLifecycle {
 	case "", api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed:
 		// Packages in a draft or proposed state can only be updated to draft or proposed.
 		newLifecycle := newRevision.Spec.Lifecycle
 		if !(newLifecycle == api.PackageRevisionLifecycleDraft ||
 			newLifecycle == api.PackageRevisionLifecycleProposed ||
 			newLifecycle == "") {
-			allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle, fmt.Sprintf("value can be only updated to %s",
+			allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), oldLifecycle, fmt.Sprintf("value can only be updated to %s",
 				strings.Join([]string{
 					string(api.PackageRevisionLifecycleDraft),
 					string(api.PackageRevisionLifecycleProposed),
 				}, ",")),
 			))
+		}
+		if newLifecycle == api.PackageRevisionLifecycleProposed &&
+			!api.PackageRevisionIsReady(oldRevision.Spec.ReadinessGates, oldRevision.Status.Conditions) {
+			unmetList := func() (list string) {
+				for _, each := range api.UnmetReadinessConditions(oldRevision) {
+					list += fmt.Sprintf("\t- %s (message: %q)\n", each.Type, each.Message)
+				}
+				return
+			}()
+			allErrs = append(allErrs, field.Forbidden(field.NewPath("spec", "lifecycle"), fmt.Sprintf("unable to propose package: following readiness conditions not met: \n%s", unmetList)))
 		}
 	case api.PackageRevisionLifecyclePublished, api.PackageRevisionLifecycleDeletionProposed:
 		// We don't allow any updates to the spec for packagerevision that have been published. That includes updates of the lifecycle. But
@@ -93,7 +103,7 @@ func (s packageRevisionStrategy) ValidateUpdate(ctx context.Context, obj, old ru
 		}
 		newRevision.Spec.Lifecycle = newLifecycle
 	default:
-		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle, fmt.Sprintf("can only update package with lifecycle value one of %s",
+		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), oldLifecycle, fmt.Sprintf("can only update package with lifecycle value one of %s",
 			strings.Join([]string{
 				string(api.PackageRevisionLifecycleDraft),
 				string(api.PackageRevisionLifecycleProposed),

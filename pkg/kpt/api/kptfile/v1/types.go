@@ -1,4 +1,4 @@
-// Copyright 2021 The kpt and Nephio Authors
+// Copyright 2021, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ package v1
 import (
 	"fmt"
 
+	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
@@ -76,13 +77,13 @@ type KptFile struct {
 	// Info contains metadata such as license, documentation, etc.
 	Info *PackageInfo `yaml:"info,omitempty" json:"info,omitempty"`
 
+	Status *Status `yaml:"status,omitempty" json:"status,omitempty"`
+
 	// Pipeline declares the pipeline of functions.
 	Pipeline *Pipeline `yaml:"pipeline,omitempty" json:"pipeline,omitempty"`
 
 	// Inventory contains parameters for the inventory object used in apply.
 	Inventory *Inventory `yaml:"inventory,omitempty" json:"inventory,omitempty"`
-
-	Status *Status `yaml:"status,omitempty" json:"status,omitempty"`
 }
 
 // OriginType defines the type of origin for a package.
@@ -231,6 +232,19 @@ type ReadinessGate struct {
 	ConditionType string `yaml:"conditionType" json:"conditionType"`
 }
 
+func ConvertApiReadinessGates(apiGates []api.ReadinessGate) (converted []ReadinessGate) {
+	for _, each := range apiGates {
+		converted = append(converted, ConvertApiReadinessGate(each))
+	}
+	return converted
+}
+
+func ConvertApiReadinessGate(apiGate api.ReadinessGate) ReadinessGate {
+	return ReadinessGate{
+		ConditionType: apiGate.ConditionType,
+	}
+}
+
 // Subpackages declares a local or remote subpackage.
 type Subpackage struct {
 	// Name of the immediate subdirectory relative to this Kptfile where the suppackage
@@ -294,6 +308,10 @@ func (p *Pipeline) IsEmpty() bool {
 // Function specifies a KRM function.
 // +kubebuilder:object:generate=true
 type Function struct {
+	// `Name` is used to uniquely identify the function declaration
+	// this is primarily used for merging function declaration with upstream counterparts
+	Name string `yaml:"name,omitempty" json:"name,omitempty"`
+
 	// `Image` specifies the function container image.
 	// It can either be fully qualified, e.g.:
 	//
@@ -322,10 +340,6 @@ type Function struct {
 
 	// `ConfigMap` is a convenient way to specify a function config of kind ConfigMap.
 	ConfigMap map[string]string `yaml:"configMap,omitempty" json:"configMap,omitempty"`
-
-	// `Name` is used to uniquely identify the function declaration
-	// this is primarily used for merging function declaration with upstream counterparts
-	Name string `yaml:"name,omitempty" json:"name,omitempty"`
 
 	// `Selectors` are used to specify resources on which the function should be executed
 	// if not specified, all resources are selected
@@ -386,14 +400,36 @@ type Status struct {
 	Conditions []Condition `yaml:"conditions,omitempty" json:"conditions,omitempty"`
 }
 
-type Condition struct {
-	Type string `yaml:"type" json:"type"`
+func ConvertApiStatus(apiStatus api.PackageRevisionStatus) Status {
+	return Status{
+		ConvertApiConditions(apiStatus.Conditions),
+	}
+}
 
-	Status ConditionStatus `yaml:"status" json:"status"`
+type Condition struct {
+	Message string `yaml:"message,omitempty" json:"message,omitempty"`
 
 	Reason string `yaml:"reason,omitempty" json:"reason,omitempty"`
 
-	Message string `yaml:"message,omitempty" json:"message,omitempty"`
+	Status ConditionStatus `yaml:"status" json:"status"`
+
+	Type string `yaml:"type" json:"type"`
+}
+
+func ConvertApiConditions(apiConditions []api.Condition) (converted []Condition) {
+	for _, each := range apiConditions {
+		converted = append(converted, ConvertApiCondition(each))
+	}
+	return converted
+}
+
+func ConvertApiCondition(apiCondition api.Condition) Condition {
+	return Condition{
+		Type:    apiCondition.Type,
+		Reason:  apiCondition.Reason,
+		Status:  ConditionStatus(apiCondition.Status),
+		Message: apiCondition.Message,
+	}
 }
 
 type ConditionStatus string

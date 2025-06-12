@@ -104,42 +104,42 @@ func (cad *cadEngine) ListPackageRevisions(ctx context.Context, repositorySpec *
 	return repo.ListPackageRevisions(ctx, filter)
 }
 
-func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
+func (cad *cadEngine) CreatePackageRevision(ctx context.Context, configApiRepo *configapi.Repository, newPkgRev *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cadEngine::CreatePackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	packageConfig, err := repository.BuildPackageConfig(ctx, obj, parent)
+	packageConfig, err := repository.BuildPackageConfig(ctx, newPkgRev, parent)
 	if err != nil {
 		return nil, err
 	}
 
 	// Validate package lifecycle. Cannot create a final package
-	switch obj.Spec.Lifecycle {
+	switch newPkgRev.Spec.Lifecycle {
 	case "":
 		// Set draft as default
-		obj.Spec.Lifecycle = api.PackageRevisionLifecycleDraft
+		newPkgRev.Spec.Lifecycle = api.PackageRevisionLifecycleDraft
 	case api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed:
 		// These values are ok
 	case api.PackageRevisionLifecyclePublished, api.PackageRevisionLifecycleDeletionProposed:
 		// TODO: generate errors that can be translated to correct HTTP responses
 		return nil, fmt.Errorf("cannot create a package revision with lifecycle value 'Final'")
 	default:
-		return nil, fmt.Errorf("unsupported lifecycle value: %s", obj.Spec.Lifecycle)
+		return nil, fmt.Errorf("unsupported lifecycle value: %s", newPkgRev.Spec.Lifecycle)
 	}
 
-	repo, err := cad.cache.OpenRepository(ctx, repositoryObj)
+	repo, err := cad.cache.OpenRepository(ctx, configApiRepo)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := util.ValidPkgRevObjName(repositoryObj.ObjectMeta.Name, repositoryObj.Spec.Git.Directory, obj.Spec.PackageName, string(obj.Spec.WorkspaceName)); err != nil {
+	if err := util.ValidPkgRevObjName(configApiRepo.ObjectMeta.Name, configApiRepo.Spec.Git.Directory, newPkgRev.Spec.PackageName, string(newPkgRev.Spec.WorkspaceName)); err != nil {
 		return nil, fmt.Errorf("failed to create packagerevision: %w", err)
 	}
 
 	revs, err := repo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
 		Key: repository.PackageRevisionKey{
 			PkgKey: repository.PackageKey{
-				Package: obj.Spec.PackageName,
+				Package: newPkgRev.Spec.PackageName,
 			},
 		},
 	})
@@ -147,12 +147,12 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 		return nil, fmt.Errorf("error listing package revisions: %w", err)
 	}
 
-	if err := ensureUniqueWorkspaceName(obj, revs); err != nil {
+	if err := ensureUniqueWorkspaceName(newPkgRev, revs); err != nil {
 		return nil, err
 	}
 
 	// Create a draft package revision
-	draft, err := repo.CreatePackageRevisionDraft(ctx, obj)
+	draft, err := repo.CreatePackageRevisionDraft(ctx, newPkgRev)
 	if err != nil {
 		return nil, err
 	}
@@ -173,13 +173,13 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	}
 
 	// Apply tasks
-	if err := cad.taskHandler.ApplyTasks(ctx, draft, repositoryObj, obj, packageConfig); err != nil {
+	if err := cad.taskHandler.ApplyTasks(ctx, draft, configApiRepo, newPkgRev, packageConfig); err != nil {
 		rollback()
 		return nil, err
 	}
 
 	// Update lifecycle
-	if err := draft.UpdateLifecycle(ctx, obj.Spec.Lifecycle); err != nil {
+	if err := draft.UpdateLifecycle(ctx, newPkgRev.Spec.Lifecycle); err != nil {
 		rollback()
 		return nil, err
 	}
@@ -242,8 +242,8 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version int, re
 		return repoPkgRev, nil
 	}
 
-	// Validate package lifecycle. Can only update a draft.
-	switch lifecycle := oldObj.Spec.Lifecycle; lifecycle {
+	// Validate previous package lifecycle. Can only update a draft.
+	switch oldLifecycle := oldObj.Spec.Lifecycle; oldLifecycle {
 
 	case api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed:
 		// Draft or proposed can be updated.
@@ -265,16 +265,16 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version int, re
 		return repoPkgRev, nil
 
 	default:
-		return nil, fmt.Errorf("invalid original lifecycle value: %q", lifecycle)
+		return nil, fmt.Errorf("invalid original lifecycle value: %q", oldLifecycle)
 	}
 
-	switch lifecycle := newObj.Spec.Lifecycle; lifecycle {
+	switch newLifecycle := newObj.Spec.Lifecycle; newLifecycle {
 
 	case api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed, api.PackageRevisionLifecyclePublished, api.PackageRevisionLifecycleDeletionProposed:
 		// These values are ok
 
 	default:
-		return nil, fmt.Errorf("invalid desired lifecycle value: %q", lifecycle)
+		return nil, fmt.Errorf("invalid desired lifecycle value: %q", newLifecycle)
 	}
 
 	if isRecloneAndReplay(oldObj, newObj) {
@@ -454,6 +454,7 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 	if err != nil {
 		return nil, renderStatus, err
 	}
+
 	// No lifecycle change when updating package resources; updates are done.
 	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, 0)
 	if err != nil {
