@@ -232,85 +232,6 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: porch-schema
-  namespace: porch-system
-data:
-  porch-db.sql: |
-    DROP TABLE IF EXISTS resources;
-    DROP TABLE IF EXISTS package_revisions;
-    DROP TABLE IF EXISTS packages;
-    DROP TABLE IF EXISTS repositories;
-
-    DROP TYPE IF EXISTS package_rev_lifecycle;
-
-    CREATE TABLE IF NOT EXISTS repositories (
-        k8s_name_space      TEXT NOT NULL,
-        k8s_name            TEXT NOT NULL,
-        path                TEXT NOT NULL,
-        placeholder_ws_name TEXT NOT NULL,
-        meta                TEXT NOT NULL,
-        spec                TEXT NOT NULL,
-        updated             TIMESTAMPTZ,
-        updatedby           TEXT NOT NULL,
-        deployment          BOOLEAN,
-        PRIMARY KEY (k8s_name_space, k8s_name)
-    );
-
-    CREATE TABLE IF NOT EXISTS packages (
-        k8s_name_space   TEXT NOT NULL,
-        k8s_name         TEXT NOT NULL,
-        repo_k8s_name    TEXT NOT NULL,
-        package_path     TEXT NOT NULL,
-        meta             TEXT NOT NULL,
-        spec             TEXT NOT NULL,
-        updated          TIMESTAMPTZ NOT NULL,
-        updatedby        TEXT NOT NULL,
-        PRIMARY KEY (k8s_name_space, k8s_name)
-        CONSTRAINT fk_repository
-            FOREIGN KEY (k8s_name_space, repo_k8s_name)
-            REFERENCES repositories (k8s_name_space, k8s_name)
-            ON DELETE CASCADE
-    );
-
-    CREATE TYPE package_rev_lifecycle AS ENUM ('Draft', 'Proposed', 'Published', 'DeletionProposed');
-
-    CREATE TABLE IF NOT EXISTS package_revisions (
-        k8s_name_space   TEXT NOT NULL,
-        k8s_name         TEXT NOT NULL,
-        package_k8s_name TEXT NOT NULL,
-        workspace        TEXT NOT NULL,
-        revision         INTEGER NOT NULL,
-        meta             TEXT NOT NULL,
-        spec             TEXT NOT NULL,
-        updated          TIMESTAMPTZ NOT NULL,
-        updatedby        TEXT NOT NULL,
-        lifecycle        package_rev_lifecycle NOT NULL,
-        PRIMARY KEY (k8s_name_space, k8s_name),
-        CONSTRAINT fk_package
-            FOREIGN KEY (k8s_name_space, pacakge_k8s_name)
-            REFERENCES packages (k8s_name_space, k8s_name)
-            ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS resources (
-        k8s_name_space       TEXT NOT NULL,
-        k8s_name             TEXT NOT NULL,
-        package_rev_k8s_name TEXT NOT NULL,
-        revision             INTEGER NOT NULL,
-        resource_key         TEXT NOT NULL,
-        resource_value       TEXT NOT NULL,
-        PRIMARY KEY (k8s_name_space, k8s_name, resource_key),
-        CONSTRAINT fk_package_rev
-            FOREIGN KEY (k8s_name_space, package_rev_k8s_name)
-            REFERENCES package_revisions (k8s_name_space, k8s_name)
-            ON DELETE CASCADE
-    );
-
----
-
-apiVersion: v1
-kind: ConfigMap
-metadata:
   name: porch-db-config
   namespace: porch-system
   labels:
@@ -336,4 +257,3 @@ type: Opaque
 data:
   DB_USER: "cG9yY2g="
   DB_PASSWORD: "cG9yY2g="
-

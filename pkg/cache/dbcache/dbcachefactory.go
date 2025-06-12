@@ -18,6 +18,7 @@ import (
 	"context"
 
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
+	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -35,7 +36,7 @@ func (f *DbCacheFactory) NewCache(ctx context.Context, options cachetypes.CacheO
 	}
 
 	return &dbCache{
-		repositories: make(map[string]*dbRepository),
+		repositories: make(map[repository.RepositoryKey]*dbRepository),
 		options:      options,
 	}, nil
 }

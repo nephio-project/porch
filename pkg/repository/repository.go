@@ -50,10 +50,8 @@ func (k PackageRevisionKey) K8SName() string {
 	return ComposePkgRevObjName(k)
 }
 
-func K8SName2PkgRevWSName(k8sName string) string {
-	lastDotPos := strings.LastIndex(k8sName, ".")
-
-	return k8sName[lastDotPos+1:]
+func K8SName2PkgRevWSName(k8sNamePkg, k8sName string) string {
+	return k8sName[len(k8sNamePkg)+1:]
 }
 
 func (k PackageRevisionKey) DeepCopy(outKey *PackageRevisionKey) {
@@ -200,21 +198,12 @@ func (k RepositoryKey) Matches(other RepositoryKey) bool {
 // The best way we've found (so far) to represent them in k8s is as two resources, but they map to the same object.
 // Interesting reading: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#differing-representations
 type PackageRevision interface {
-	// KubeObjectName returns an encoded name for the object that should be unique.
-	// More "readable" values are returned by Key()
-	KubeObjectName() string
-
-	// KubeObjectNamespace returns the namespace in which the PackageRevision
-	// belongs.
 	KubeObjectNamespace() string
+	KubeObjectName() string
+	Key() PackageRevisionKey
 
 	// UID returns a unique identifier for the PackageRevision.
 	UID() types.UID
-
-	Key() PackageRevisionKey
-
-	// Set the repository of this package revision
-	SetRepository(repository Repository)
 
 	// Lifecycle returns the current lifecycle state of the package.
 	Lifecycle(ctx context.Context) v1alpha1.PackageRevisionLifecycle
@@ -257,10 +246,8 @@ type PackageRevision interface {
 
 // Package is an abstract package.
 type Package interface {
-	// KubeObjectName returns an encoded name for the object that should be unique.
-	// More "readable" values are returned by Key()
+	KubeObjectNamespace() string
 	KubeObjectName() string
-
 	Key() PackageKey
 
 	// GetPackage returns the object representing this package
@@ -330,6 +317,10 @@ func (f *ListPackageFilter) Matches(p Package) bool {
 // Repository is the interface for interacting with packages in repositories
 // TODO: we may need interface to manage repositories too. Stay tuned.
 type Repository interface {
+	KubeObjectNamespace() string
+	KubeObjectName() string
+	Key() RepositoryKey
+
 	// ListPackageRevisions lists the existing package revisions in the repository
 	ListPackageRevisions(ctx context.Context, filter ListPackageRevisionFilter) ([]PackageRevision, error)
 

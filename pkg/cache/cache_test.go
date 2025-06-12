@@ -39,13 +39,9 @@ func TestCreateCacheImpl(t *testing.T) {
 	cacheOptions.CacheType = "CR"
 	cache, err = GetCacheImpl(context.TODO(), cacheOptions)
 	assert.True(t, err == nil)
-	assert.Equal(t, 0, len(cache.GetRepositories(context.TODO())))
+	assert.Equal(t, 0, len(cache.GetRepositories()))
 
 	cacheSame, err := GetCacheImpl(context.TODO(), cacheOptions)
 	assert.True(t, err == nil)
 	assert.Equal(t, cache, cacheSame)
-
-	cacheReturned := GetCache()
-	assert.True(t, err == nil)
-	assert.Equal(t, cache, cacheReturned)
 }

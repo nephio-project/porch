@@ -33,7 +33,7 @@ var tracer = otel.Tracer("dbcache")
 var _ cachetypes.Cache = &dbCache{}
 
 type dbCache struct {
-	repositories map[string]*dbRepository
+	repositories map[repository.RepositoryKey]*dbRepository
 	options      cachetypes.CacheOptions
 }
 
@@ -46,13 +46,13 @@ func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.
 		Name:      repositorySpec.Name,
 	}
 
-	if dbRepo, ok := c.repositories[repoKey.String()]; ok {
+	if dbRepo, ok := c.repositories[repoKey]; ok {
 		return dbRepo, nil
 	}
 
 	dbRepo := &dbRepository{
 		repoKey:    repoKey,
-		meta:       &repositorySpec.ObjectMeta,
+		meta:       repositorySpec.ObjectMeta,
 		spec:       repositorySpec,
 		updated:    time.Now(),
 		updatedBy:  getCurrentUser(),
@@ -64,7 +64,7 @@ func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.
 		return nil, err
 	}
 
-	c.repositories[repoKey.String()] = dbRepo
+	c.repositories[repoKey] = dbRepo
 
 	dbRepo.repositorySync = newRepositorySync(dbRepo, c.options)
 
@@ -80,7 +80,7 @@ func (c *dbCache) UpdateRepository(ctx context.Context, repositorySpec *configap
 		Name:      repositorySpec.Name,
 	}
 
-	dbRepo, ok := c.repositories[repoKey.String()]
+	dbRepo, ok := c.repositories[repoKey]
 	if !ok {
 		return fmt.Errorf("dbcache.UpdateRepository: repo %q not found", repoKey.String())
 	}
@@ -97,19 +97,17 @@ func (c *dbCache) CloseRepository(ctx context.Context, repositorySpec *configapi
 		Name:      repositorySpec.Name,
 	}
 
-	dbRepo, ok := c.repositories[repoKey.String()]
+	defer delete(c.repositories, repoKey)
+
+	dbRepo, ok := c.repositories[repoKey]
 	if !ok {
 		return fmt.Errorf("dbcache.CloseRepository: repo %q not found", repoKey.String())
 	}
 
-	delete(c.repositories, repoKey.String())
 	return dbRepo.Close(ctx)
 }
 
-func (c *dbCache) GetRepositories(ctx context.Context) []*configapi.Repository {
-	_, span := tracer.Start(ctx, "dbCache::GetRepositories", trace.WithAttributes())
-	defer span.End()
-
+func (c *dbCache) GetRepositories() []*configapi.Repository {
 	var repositories []*configapi.Repository
 
 	for _, repo := range c.repositories {
@@ -117,4 +115,8 @@ func (c *dbCache) GetRepositories(ctx context.Context) []*configapi.Repository {
 	}
 
 	return repositories
+}
+
+func (c *dbCache) GetRepository(repoKey repository.RepositoryKey) repository.Repository {
+	return c.repositories[repoKey]
 }

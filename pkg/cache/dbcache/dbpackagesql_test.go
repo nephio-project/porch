@@ -16,17 +16,25 @@ package dbcache
 
 import (
 	"context"
+	"database/sql"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
+	mockcachetypes "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestPackageDBWriteRead(t *testing.T) {
+	mockCache := mockcachetypes.NewMockCache(t)
+	cachetypes.CacheInstance = mockCache
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{})
+
 	dbRepo := dbRepository{
 		repoKey: repository.RepositoryKey{
 			Namespace:         "my-ns",
@@ -34,7 +42,7 @@ func TestPackageDBWriteRead(t *testing.T) {
 			Path:              "my-path",
 			PlaceholderWSname: "my-placeholder-ws",
 		},
-		meta:       nil,
+		meta:       metav1.ObjectMeta{},
 		spec:       nil,
 		updated:    time.Now().UTC(),
 		updatedBy:  "porchuser",
@@ -50,7 +58,7 @@ func TestPackageDBWriteRead(t *testing.T) {
 			Path:    "my-path-to-pkg",
 			Package: "network-function",
 		},
-		meta:      nil,
+		meta:      metav1.ObjectMeta{},
 		spec:      nil,
 		updated:   time.Now().UTC(),
 		updatedBy: "porchuser",
@@ -63,7 +71,7 @@ func TestPackageDBWriteRead(t *testing.T) {
 			Path:    "my-path-to-pkg",
 			Package: "network-function",
 		},
-		meta: &metav1.ObjectMeta{
+		meta: metav1.ObjectMeta{
 			Name:      "meta-new-name",
 			Namespace: "meta-new-namespace",
 		},
@@ -137,7 +145,7 @@ func TestPackageDBSchema(t *testing.T) {
 
 	_, err = pkgReadFromDB(context.TODO(), dbPkg.Key())
 	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "should return 1 package, it returned 0 packages"))
+	assert.Equal(t, sql.ErrNoRows, err)
 }
 
 func TestMultiPackageRepo(t *testing.T) {
@@ -208,7 +216,7 @@ func pkgDBWriteReadTest(t *testing.T, dbRepo dbRepository, dbPkg, dbPkgUpdate db
 
 	_, err = pkgReadFromDB(context.TODO(), dbPkg.Key())
 	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "should return 1 package, it returned 0 packages"))
+	assert.Equal(t, sql.ErrNoRows, err)
 
 	err = pkgUpdateDB(context.TODO(), &dbPkgUpdate)
 	assert.NotNil(t, err)
@@ -232,10 +240,8 @@ func assertPackageListsEqual(t *testing.T, left []dbPackage, right []*dbPackage,
 
 func assertPackagesEqual(t *testing.T, left, right *dbPackage) {
 	assert.Equal(t, left.Key(), right.Key())
-	if left.meta != nil || right.meta != nil {
-		assert.Equal(t, left.meta.Namespace, right.meta.Namespace)
-		assert.Equal(t, left.meta.Name, right.meta.Name)
-	}
+	assert.Equal(t, left.meta.Namespace, right.meta.Namespace)
+	assert.Equal(t, left.meta.Name, right.meta.Name)
 	assert.Equal(t, left.spec, right.spec)
 	assert.Equal(t, left.updated, right.updated)
 	assert.Equal(t, left.updatedBy, right.updatedBy)

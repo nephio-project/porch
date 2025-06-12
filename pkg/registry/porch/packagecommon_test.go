@@ -29,7 +29,6 @@ func (f *fakePackageRevision) Key() repository.PackageRevisionKey {
 }
 func (f *fakePackageRevision) KubeObjectName() string                                 { return "" }
 func (f *fakePackageRevision) UID() types.UID                                         { return "" }
-func (f *fakePackageRevision) SetRepository(repository.Repository)                    {}
 func (f *fakePackageRevision) SetMeta(context.Context, metav1.ObjectMeta) error       { return nil }
 func (f *fakePackageRevision) ResourceVersion() string                                { return "" }
 func (f *fakePackageRevision) Lifecycle(context.Context) api.PackageRevisionLifecycle { return "" }

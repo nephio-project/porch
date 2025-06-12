@@ -30,8 +30,12 @@ type FakePackage struct {
 
 var _ repository.Package = &FakePackage{}
 
+func (p *FakePackage) KubeObjectNamespace() string {
+	return p.Key().K8SNS()
+}
+
 func (p *FakePackage) KubeObjectName() string {
-	return repository.ComposePkgObjName(p.pkgKey)
+	return p.pkgKey.K8SName()
 }
 
 func (p *FakePackage) Key() repository.PackageKey {

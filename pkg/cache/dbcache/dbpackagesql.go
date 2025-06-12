@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
@@ -48,7 +49,11 @@ func pkgReadFromDB(ctx context.Context, pk repository.PackageKey) (*dbPackage, e
 		return nil, err
 	}
 
-	if len(pkgs) != 1 {
+	if len(pkgs) == 0 {
+		return nil, sql.ErrNoRows
+	}
+
+	if len(pkgs) > 1 {
 		return nil, fmt.Errorf("pkgReadFromDB: reading package %q should return 1 package, it returned %d packages", pk, len(pkgs))
 	}
 
@@ -116,6 +121,7 @@ func pkgScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackage, error
 			return nil, err
 		}
 
+		dbPkg.repo = cachetypes.CacheInstance.GetRepository(dbPkg.pkgKey.RepoKey).(*dbRepository)
 		dbPkg.pkgKey.Package = repository.K8SName2PkgName(pkgK8SName)
 		setValueFromJson(metaAsJson, &dbPkg.meta)
 		setValueFromJson(specAsJson, &dbPkg.spec)

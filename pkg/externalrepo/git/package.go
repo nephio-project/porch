@@ -67,10 +67,6 @@ func (p *gitPackageRevision) Key() repository.PackageRevisionKey {
 	return p.prKey
 }
 
-func (p *gitPackageRevision) SetRepository(repo repository.Repository) {
-	p.repo = repo.(*gitRepository)
-}
-
 func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "gitPackageRevision::GetPackageRevision", trace.WithAttributes())
 	defer span.End()

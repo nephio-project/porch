@@ -35,7 +35,7 @@ func TestRepoDBWriteRead(t *testing.T) {
 			Path:              "my-path",
 			PlaceholderWSname: "my-placeholder-ws",
 		},
-		meta:       nil,
+		meta:       metav1.ObjectMeta{},
 		spec:       nil,
 		updated:    time.Now().UTC(),
 		updatedBy:  "porchuser",
@@ -44,7 +44,7 @@ func TestRepoDBWriteRead(t *testing.T) {
 
 	dbRepoUpdate := dbRepository{
 		repoKey: dbRepo.Key(),
-		meta: &metav1.ObjectMeta{
+		meta: metav1.ObjectMeta{
 			Name:      "meta-new-name",
 			Namespace: "meta-new-namespace",
 		},
@@ -145,10 +145,8 @@ func repoDBWriteReadTest(t *testing.T, dbRepo, dbRepoUpdate dbRepository) {
 
 func assertReposEqual(t *testing.T, left, right *dbRepository) {
 	assert.Equal(t, left.Key(), right.Key())
-	if left.meta != nil || right.meta != nil {
-		assert.Equal(t, left.meta.Namespace, right.meta.Namespace)
-		assert.Equal(t, left.meta.Name, right.meta.Name)
-	}
+	assert.Equal(t, left.meta.Namespace, right.meta.Namespace)
+	assert.Equal(t, left.meta.Name, right.meta.Name)
 	assert.Equal(t, left.spec, right.spec)
 	assert.Equal(t, left.updated, right.updated)
 	assert.Equal(t, left.updatedBy, right.updatedBy)
