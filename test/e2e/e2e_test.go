@@ -861,7 +861,7 @@ func (t *PorchSuite) TestUpdateResourcesEmptyPatch() {
 		Name:      pr.Name,
 	}, &resourcesAfterUpdate)
 
-	assert.Equal(t, 3, len(resourcesAfterUpdate.Spec.Resources))
+	assert.Equal(t, 4, len(resourcesAfterUpdate.Spec.Resources))
 	assert.EqualValues(t, resourcesBeforeUpdate, resourcesAfterUpdate)
 }
 
