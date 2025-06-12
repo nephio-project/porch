@@ -39,7 +39,7 @@ var _ repository.PackageRevisionDraft = &dbPackageRevision{}
 type dbPackageRevision struct {
 	repo      *dbRepository
 	pkgRevKey repository.PackageRevisionKey
-	meta      *metav1.ObjectMeta
+	meta      metav1.ObjectMeta
 	spec      *v1alpha1.PackageRevisionSpec
 	updated   time.Time
 	updatedBy string
@@ -66,10 +66,6 @@ func (pr *dbPackageRevision) Key() repository.PackageRevisionKey {
 
 func (pr *dbPackageRevision) GetName() string {
 	return pr.Key().GetPackageKey().Package
-}
-
-func (pr *dbPackageRevision) SetRepository(repo repository.Repository) {
-	pr.repo = repo.(*dbRepository)
 }
 
 func (pr *dbPackageRevision) savePackageRevision(ctx context.Context) (*dbPackageRevision, error) {
@@ -297,11 +293,11 @@ func (pr *dbPackageRevision) ResourceVersion() string {
 	return fmt.Sprintf("%s.%d", pr.KubeObjectName(), pr.updated.Unix())
 }
 
-func (pr *dbPackageRevision) Delete(ctx context.Context) error {
+func (pr *dbPackageRevision) Delete(ctx context.Context, deleteExternal bool) error {
 	_, span := tracer.Start(ctx, "dbPackageRevision::Delete", trace.WithAttributes())
 	defer span.End()
 
-	if pr.lifecycle == v1alpha1.PackageRevisionLifecyclePublished || pr.lifecycle == v1alpha1.PackageRevisionLifecycleDeletionProposed {
+	if deleteExternal && (pr.lifecycle == v1alpha1.PackageRevisionLifecyclePublished || pr.lifecycle == v1alpha1.PackageRevisionLifecycleDeletionProposed) {
 		externalPr, err := pr.repo.getExternalPr(ctx, pr.Key())
 		if err != nil {
 			return err
@@ -313,11 +309,12 @@ func (pr *dbPackageRevision) Delete(ctx context.Context) error {
 		}
 	}
 
-	if err := pkgRevDeleteFromDB(ctx, pr.Key()); err != nil && err != sql.ErrNoRows {
+	err := pkgRevDeleteFromDB(ctx, pr.Key())
+	if err != nil && err != sql.ErrNoRows {
 		klog.Warningf("dbPackage:DeletePackageRevision: deletion of %+v failed on database %q", pr.Key(), err)
 	}
 
-	return pkgRevDeleteFromDB(ctx, pr.Key())
+	return err
 }
 
 func (pr *dbPackageRevision) copyToThis(otherPr *dbPackageRevision) {

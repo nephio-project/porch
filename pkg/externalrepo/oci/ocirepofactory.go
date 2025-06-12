@@ -43,8 +43,12 @@ func (f *OciRepoFactory) NewRepositoryImpl(ctx context.Context, repositorySpec *
 	}
 
 	return &ociRepository{
-		name:       repositorySpec.Name,
-		namespace:  repositorySpec.Namespace,
+		key: repository.RepositoryKey{
+			Namespace:         repositorySpec.Namespace,
+			Name:              repositorySpec.Name,
+			Path:              "oci://" + ociSpec.Registry,
+			PlaceholderWSname: "oci",
+		},
 		spec:       *ociSpec.DeepCopy(),
 		deployment: repositorySpec.Spec.Deployment,
 		storage:    storage,

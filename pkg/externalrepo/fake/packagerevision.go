@@ -50,9 +50,6 @@ func (c *FakePackageRevision) UID() types.UID {
 	return util.GenerateUid("packagerevision:", c.KubeObjectNamespace(), c.KubeObjectName())
 }
 
-func (c *FakePackageRevision) SetRepository(repo repository.Repository) {
-}
-
 var _ repository.PackageRevision = &FakePackageRevision{}
 
 // ToMainPackageRevision implements repository.PackageRevision.

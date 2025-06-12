@@ -54,10 +54,6 @@ func (c *cachedPackageRevision) UID() types.UID {
 	return util.GenerateUid("packagerevision:", c.KubeObjectNamespace(), c.KubeObjectName())
 }
 
-func (p *cachedPackageRevision) SetRepository(repo repository.Repository) {
-	// Package revisions cached in CRs do not need the reference of the repository to retrieve information
-}
-
 func (c *cachedPackageRevision) GetPackageRevision(ctx context.Context) (*api.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cachedPackageRevision::GetPackageRevision", trace.WithAttributes())
 	defer span.End()

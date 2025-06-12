@@ -52,18 +52,24 @@ func TestPackageGettersAndSetters(t *testing.T) {
 		prKey: repository.PackageRevisionKey{
 			PkgKey: repository.PackageKey{
 				RepoKey: repository.RepositoryKey{
-					Name:      "my-repo",
 					Namespace: "my-namespace",
+					Name:      "oci-repo-name",
 				},
 				Package: "my-package",
 			},
 			WorkspaceName: "my-workspace",
 		},
+		parent: &ociRepository{
+			key: repository.RepositoryKey{
+				Namespace: "my-namespace",
+				Name:      "oci-repo-name",
+			},
+		},
 	}
 
-	assert.Equal(t, "my-repo.my-package.my-workspace", fakePr.KubeObjectName())
+	assert.Equal(t, "oci-repo-name.my-package.my-workspace", fakePr.KubeObjectName())
 	assert.Equal(t, "my-namespace", fakePr.KubeObjectNamespace())
-	assert.Equal(t, types.UID("7007e8aa-0928-50f9-b980-92a44942f055"), fakePr.UID())
+	assert.Equal(t, types.UID("fd358d1c-04bc-5038-9727-044129e97880"), fakePr.UID())
 
 	inMeta := metav1.ObjectMeta{}
 	inMeta.Name = fakePr.Key().GetPackageKey().RepoKey.Name
@@ -73,11 +79,7 @@ func TestPackageGettersAndSetters(t *testing.T) {
 	outMeta := fakePr.GetMeta()
 	assert.Equal(t, outMeta.Name, inMeta.Name)
 
-	ociRepo := ociRepository{
-		name: "oci-repo-name",
-	}
-	fakePr.SetRepository(&ociRepo)
-	assert.Equal(t, "oci-repo-name", fakePr.parent.name)
+	assert.Equal(t, "oci-repo-name", fakePr.parent.key.Name)
 
 	assert.Panics(t, func() { fakePr.ToMainPackageRevision(context.TODO()) }, "The code did not panic")
 }
