@@ -18,12 +18,15 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math/rand"
+	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/pkg/repository"
 	mockclient "github.com/nephio-project/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -35,39 +38,78 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
-func createOrigPackageRevision(name, namespace string, revision int) *porchapi.PackageRevision {
-	return &porchapi.PackageRevision{
+func makeWsName(revision int) string {
+	if revision == -1 {
+		return "main"
+	}
+	if revision > 0 {
+		return fmt.Sprintf("v%d", revision)
+	}
+	return fmt.Sprintf("ws%d", rand.Int()%10000)
+}
+
+func setLifecycleAndName(pr *porchapi.PackageRevision, revision int) {
+	if revision == 0 {
+		pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDraft
+		pr.Status.UpstreamLock = &porchapi.UpstreamLock{
+			Git: &porchapi.GitLock{
+				Ref:  fmt.Sprintf("/drafts/%s/%s", pr.Spec.PackageName, pr.Spec.WorkspaceName),
+				Repo: "https://github.com/user/repo",
+			},
+		}
+	} else {
+		pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+		pr.Status.UpstreamLock = &porchapi.UpstreamLock{
+			Git: &porchapi.GitLock{
+				Ref:  fmt.Sprintf("/%s/v%d", pr.Spec.PackageName, pr.Spec.Revision),
+				Repo: "https://github.com/user/repo",
+			},
+		}
+	}
+
+	pr.Name = repository.ComposePkgRevObjName(repository.PackageRevisionKey{
+		PkgKey: repository.PackageKey{
+			RepoKey: repository.RepositoryKey{
+				Namespace: pr.Namespace,
+				Name:      pr.Spec.RepositoryName,
+			},
+			Package: pr.Spec.PackageName,
+		},
+		Revision:      revision,
+		WorkspaceName: pr.Spec.WorkspaceName,
+	})
+}
+
+func createOrigPackageRevision(namespace, repo, pkgName string, revision int) *porchapi.PackageRevision {
+	pr := &porchapi.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevision",
 			APIVersion: "porch.kpt.dev/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
 			Namespace: namespace,
 		},
 		Spec: porchapi.PackageRevisionSpec{
-			PackageName: "orig-testpackage",
-			Revision:    revision,
+			RepositoryName: repo,
+			PackageName:    pkgName,
+			Revision:       revision,
+			WorkspaceName:  makeWsName(revision),
 			Tasks: []porchapi.Task{
 				{
 					Type: porchapi.TaskTypeInit,
 					Init: &porchapi.PackageInitTaskSpec{},
 				},
 			},
-			Lifecycle: porchapi.PackageRevisionLifecyclePublished,
 		},
-		Status: porchapi.PackageRevisionStatus{
-			UpstreamLock: &porchapi.UpstreamLock{
-				Git: &porchapi.GitLock{
-					Repo: "https://github.com/user/repo",
-					Ref:  "/main",
-				},
-			},
-		},
+		Status: porchapi.PackageRevisionStatus{},
 	}
+
+	setLifecycleAndName(pr, revision)
+
+	return pr
 }
 
-func createEditPackageRevision(pr *porchapi.PackageRevision, name string, revision int) *porchapi.PackageRevision {
+func createEditPackageRevision(pr *porchapi.PackageRevision, revision int) *porchapi.PackageRevision {
 	newPr := pr.DeepCopy()
 	newPr.Spec.Tasks = []porchapi.Task{
 		{
@@ -80,11 +122,14 @@ func createEditPackageRevision(pr *porchapi.PackageRevision, name string, revisi
 		},
 	}
 	newPr.Spec.Revision = revision
-	newPr.Name = name
+	newPr.Spec.WorkspaceName = makeWsName(revision)
+
+	setLifecycleAndName(newPr, revision)
+
 	return newPr
 }
 
-func createClonePackageRevision(pr *porchapi.PackageRevision, name string, revision int, lifecycle porchapi.PackageRevisionLifecycle) *porchapi.PackageRevision {
+func createClonePackageRevision(pr *porchapi.PackageRevision, pkgName string, revision int) *porchapi.PackageRevision {
 	newPr := pr.DeepCopy()
 	newPr.Spec.Tasks = []porchapi.Task{
 		{
@@ -98,17 +143,12 @@ func createClonePackageRevision(pr *porchapi.PackageRevision, name string, revis
 			},
 		},
 	}
-	newPr.Name = name
-	newPr.Spec.Lifecycle = lifecycle
+	newPr.Spec.PackageName = pkgName
 	newPr.Spec.Revision = revision
-	newPr.Status = porchapi.PackageRevisionStatus{
-		UpstreamLock: &porchapi.UpstreamLock{
-			Git: &porchapi.GitLock{
-				Repo: "https://github.com/user/repo",
-				Ref:  "/main",
-			},
-		},
-	}
+	newPr.Spec.WorkspaceName = makeWsName(revision)
+
+	setLifecycleAndName(newPr, revision)
+
 	return newPr
 }
 
@@ -132,10 +172,9 @@ func createRunnerWithDiscovery(ctx context.Context, c client.Client, prs []porch
 func TestPreRun(t *testing.T) {
 	const ns = "ns"
 
-	orig := createOrigPackageRevision("repo-orig", "ns", 1)
-	prs := []porchapi.PackageRevision{
-		*createClonePackageRevision(orig, "repo", 1, porchapi.PackageRevisionLifecyclePublished),
-	}
+	orig := createOrigPackageRevision(ns, "repo", "orig", 1)
+	clone := createClonePackageRevision(orig, "clone", 1)
+	prs := []porchapi.PackageRevision{*orig, *clone}
 	r := createRunner(context.Background(), fake.NewClientBuilder().Build(), prs, ns, 2)
 	err := r.preRunE(r.Command, []string{"arg1", "arg2", "arg3"})
 	assert.Error(t, err)
@@ -143,27 +182,19 @@ func TestPreRun(t *testing.T) {
 	err = r.preRunE(r.Command, []string{})
 	assert.Error(t, err)
 
-	newRunner := createRunner(context.Background(), fake.NewClientBuilder().Build(), prs, ns, 2)
-	err2 := newRunner.preRunE(newRunner.Command, []string{"repo"})
-	assert.Error(t, err2)
-	assert.ErrorContains(t, err2, "workspace")
+	r = createRunner(context.Background(), fake.NewClientBuilder().Build(), prs, ns, 2)
+	err = r.preRunE(r.Command, []string{"clone"})
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "workspace")
 }
 
 func TestUpgradeCommand(t *testing.T) {
 	ctx := context.Background()
 
-	const (
-		origName        = "repo-orig"
-		newUpstreamName = "repo-newup"
-		localName       = "repo-local"
-		localDraftName  = localName + "-draft"
-		ns              = "ns"
-	)
-
-	origRevision := createOrigPackageRevision(origName, ns, 1)
-	newUpstreamRevision := createEditPackageRevision(origRevision, newUpstreamName, 2)
-	localRevision := createClonePackageRevision(origRevision, localName, 1, porchapi.PackageRevisionLifecyclePublished)
-	localDraftRevision := createClonePackageRevision(origRevision, localName+"-draft", 0, porchapi.PackageRevisionLifecycleDraft)
+	origRevision := createOrigPackageRevision("ns", "repo", "orig", 1)
+	newUpstreamRevision := createEditPackageRevision(origRevision, 2)
+	localRevision := createClonePackageRevision(origRevision, "clone", 1)
+	localDraftRevision := createClonePackageRevision(origRevision, "clone-draft", 0)
 	prs := []porchapi.PackageRevision{
 		*origRevision,
 		*newUpstreamRevision,
@@ -191,7 +222,7 @@ func TestUpgradeCommand(t *testing.T) {
 		Build()
 
 	output := &bytes.Buffer{}
-	commonRunner := createRunner(ctx, client, prs, ns, 2)
+	commonRunner := createRunner(ctx, client, prs, "ns", 2)
 
 	testCases := []struct {
 		name           string
@@ -202,21 +233,21 @@ func TestUpgradeCommand(t *testing.T) {
 	}{
 		{
 			name:           "Successful package upgrade",
-			args:           []string{localName},
-			expectedOutput: fmt.Sprintf("%s upgraded to upgraded-pr\n", localName),
+			args:           []string{localRevision.Name},
+			expectedOutput: fmt.Sprintf("%s upgraded to upgraded-pr\n", localRevision.Name),
 			expectedError:  "",
 			runner:         commonRunner,
 		},
 		{
 			name:           "Successful package upgrade by finding latest",
-			args:           []string{localName},
-			expectedOutput: fmt.Sprintf("%s upgraded to upgraded-pr\n", localName),
+			args:           []string{localRevision.Name},
+			expectedOutput: fmt.Sprintf("%s upgraded to upgraded-pr\n", localRevision.Name),
 			expectedError:  "",
-			runner:         createRunner(ctx, client, prs, ns, 0),
+			runner:         createRunner(ctx, client, prs, "ns", 0),
 		},
 		{
 			name:           "Draft package revision",
-			args:           []string{localDraftName},
+			args:           []string{localDraftRevision.Name},
 			expectedOutput: "",
 			expectedError:  fmt.Sprintf("to upgrade a package, it must be in a published state, not %q", porchapi.PackageRevisionLifecycleDraft),
 			runner:         commonRunner,
@@ -254,26 +285,19 @@ func TestUpgradeCommand(t *testing.T) {
 }
 
 func TestFindLatestPR(t *testing.T) {
-	const (
-		origName        = "repo-orig"
-		newUpstreamName = "repo-newup"
-		localName       = "repo-local"
-		ns              = "ns"
-	)
-
-	origRevision := createOrigPackageRevision(origName, ns, 1)
-	newUpstreamRevision := createEditPackageRevision(origRevision, newUpstreamName, 2)
-	localRevision := createClonePackageRevision(origRevision, localName, 1, porchapi.PackageRevisionLifecyclePublished)
+	origRevision := createOrigPackageRevision("ns", "repo", "orig", 1)
+	newUpstreamRevision := createEditPackageRevision(origRevision, 2)
+	localRevision := createClonePackageRevision(origRevision, "clone", 1)
 	prs := []porchapi.PackageRevision{
 		*origRevision,
 		*newUpstreamRevision,
 		*localRevision,
 	}
 
-	r := createRunner(context.Background(), fake.NewClientBuilder().Build(), prs, ns, 0)
+	r := createRunner(context.Background(), fake.NewClientBuilder().Build(), prs, "ns", 0)
 
-	found := r.findLatestPackageRevisionForRef("orig-testpackage")
-	assert.Equal(t, newUpstreamName, found.Name)
+	found := r.findLatestPackageRevisionForRef("orig")
+	assert.Equal(t, "repo.orig.v2", found.Name)
 	assert.Equal(t, 2, found.Spec.Revision)
 }
 
@@ -331,26 +355,12 @@ func TestFindEditOrigin(t *testing.T) {
 }
 
 func TestDiscoverUpdates(t *testing.T) {
+	const ns = "ns"
+
 	ctx := context.Background()
 
-	const (
-		pkgRevName = "repo-testrevision"
-		ns         = "ns"
-	)
-
-	basePr := &porchapi.PackageRevision{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      pkgRevName,
-			Namespace: ns,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName: "testpackage",
-			Lifecycle:   porchapi.PackageRevisionLifecyclePublished,
-			Revision:    1,
-		},
-	}
-
-	basePrV2 := createEditPackageRevision(basePr, "testpackage.v2", 2)
+	basePr := createOrigPackageRevision("ns", "repo", "orig", 1)
+	basePrV2 := createEditPackageRevision(basePr, 2)
 
 	mockClient := mockclient.NewMockClient(t)
 	mockClient.EXPECT().
@@ -360,8 +370,8 @@ func TestDiscoverUpdates(t *testing.T) {
 			list.(*configapi.RepositoryList).Items = make([]configapi.Repository, 1)
 			list.(*configapi.RepositoryList).Items[0] = configapi.Repository{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "sample-repo-2",
-					Namespace: "main",
+					Name:      "repo",
+					Namespace: ns,
 				},
 				Spec: configapi.RepositorySpec{
 					Description: "Sample Git repository",
@@ -378,43 +388,60 @@ func TestDiscoverUpdates(t *testing.T) {
 		})
 	output := &bytes.Buffer{}
 
-	r := createRunnerWithDiscovery(ctx, mockClient, []porchapi.PackageRevision{*basePr, *basePrV2}, ns, "downstream", 0)
-	r.Command.SetOut(output)
+	t.Run("pr does not exist", func(t *testing.T) {
+		r := createRunnerWithDiscovery(ctx, mockClient, []porchapi.PackageRevision{}, ns, "upstream", 0)
+		r.Command.SetOut(output)
 
-	output.Reset()
-	err := r.discoverUpdates(r.Command, []string{pkgRevName})
-	assert.Nil(t, err)
-	assert.Equal(t, output.String(), "All downstream packages are up to date.\n")
+		err := r.discoverUpdates(r.Command, []string{basePr.Name})
+		assert.ErrorContains(t, err, "could not find")
+	})
 
-	output.Reset()
-	r = createRunnerWithDiscovery(ctx, mockClient, []porchapi.PackageRevision{*basePr, *basePrV2}, ns, "upstream", 0)
-	r.Command.SetOut(output)
-	err = r.discoverUpdates(r.Command, []string{pkgRevName})
-	assert.Nil(t, err)
+	t.Run("all downstream up to date", func(t *testing.T) {
+		r := createRunnerWithDiscovery(ctx, mockClient, []porchapi.PackageRevision{*basePr}, ns, "downstream", 0)
+		r.Command.SetOut(output)
 
-	output.Reset()
-	r = createRunnerWithDiscovery(ctx, mockClient, []porchapi.PackageRevision{*basePr, *basePrV2}, ns, "", 0)
-	r.Command.SetOut(output)
-	err = r.discoverUpdates(r.Command, []string{pkgRevName})
-	assert.Error(t, err)
-
-	output.Reset()
-	testPackageRevision := createClonePackageRevision(basePr, "cloned-pr", 1, porchapi.PackageRevisionLifecycleDraft)
-
-	r = createRunnerWithDiscovery(ctx, mockClient, []porchapi.PackageRevision{*basePr, *testPackageRevision}, ns, "", 2)
-	r.Command.SetOut(output)
-	_, err = r.doUpgrade(testPackageRevision)
-	assert.ErrorContains(t, err, "must be in a published state")
-
-	testPackageRevision.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	_, err = r.doUpgrade(testPackageRevision)
-	assert.EqualError(t, err, "revision 2 does not exist for package testpackage")
+		err := r.discoverUpdates(r.Command, []string{})
+		assert.NoError(t, err)
+		assert.Contains(t, output.String(), "All downstream packages are up to date.")
+	})
 
 	output.Reset()
 
-	mockClient.EXPECT().Create(mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	r = createRunnerWithDiscovery(ctx, mockClient, []porchapi.PackageRevision{*basePr, *basePrV2, *testPackageRevision}, ns, "", 2)
-	r.Command.SetOut(output)
-	_, err = r.doUpgrade(testPackageRevision)
-	assert.Nil(t, err)
+	t.Run("downstream update found", func(t *testing.T) {
+		clonedPr := createClonePackageRevision(basePr, "clone", 1)
+		r := createRunnerWithDiscovery(ctx, mockClient, []porchapi.PackageRevision{*basePr, *basePrV2, *clonedPr}, ns, "downstream", 0)
+		r.Command.SetOut(output)
+		err := r.discoverUpdates(r.Command, []string{basePrV2.Name})
+		assert.NoError(t, err)
+		assert.Regexp(t, regexp.MustCompile(`repo\.orig\.v2\s+repo.orig.v1\s+v1->v2`), output.String())
+	})
+
+	output.Reset()
+
+	t.Run("all upstreams up to date", func(t *testing.T) {
+		r := createRunnerWithDiscovery(ctx, mockClient, []porchapi.PackageRevision{*basePr}, ns, "upstream", 0)
+		r.Command.SetOut(output)
+		err := r.discoverUpdates(r.Command, []string{basePr.Name})
+		assert.NoError(t, err)
+		assert.Regexp(t, regexp.MustCompile(`repo\.orig\.v1\s+repo\s+No update available`), output.String())
+	})
+
+	output.Reset()
+
+	t.Run("upstream update found", func(t *testing.T) {
+		r := createRunnerWithDiscovery(ctx, mockClient, []porchapi.PackageRevision{*basePr, *basePrV2}, ns, "upstream", 0)
+		r.Command.SetOut(output)
+		err := r.discoverUpdates(r.Command, []string{basePr.Name})
+		assert.NoError(t, err)
+		assert.Regexp(t, regexp.MustCompile(`repo\.orig\.v1\s+repo\s+v2`), output.String())
+	})
+
+	output.Reset()
+
+	t.Run("invalid discovery param", func(t *testing.T) {
+		r := createRunnerWithDiscovery(ctx, mockClient, []porchapi.PackageRevision{*basePr, *basePrV2}, ns, "lowstream", 0)
+		r.Command.SetOut(output)
+		err := r.discoverUpdates(r.Command, []string{basePr.Name})
+		assert.ErrorContains(t, err, "invalid argument \"lowstream\" for --discover")
+	})
 }

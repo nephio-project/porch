@@ -171,7 +171,7 @@ func (r *runner) getRepositories() (*configapi.RepositoryList, error) {
 func (r *runner) getUpstreamRevisions(repo configapi.Repository, upstreamPackageName string) []porchapi.PackageRevision {
 	var result []porchapi.PackageRevision
 	for _, pkgRev := range r.prs {
-		if !porchapi.LifecycleIsPublished(pkgRev.Spec.Lifecycle) {
+		if !pkgRev.IsPublished() {
 			// only consider published packages
 			continue
 		}
