@@ -23,7 +23,10 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	mockclient "github.com/nephio-project/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -118,6 +121,12 @@ func createRunner(ctx context.Context, c client.Client, prs []porchapi.PackageRe
 		revision: revision,
 		prs:      prs,
 	}
+}
+
+func createRunnerWithDiscovery(ctx context.Context, c client.Client, prs []porchapi.PackageRevision, ns, discover string, revision int) *runner {
+	rnr := createRunner(ctx, c, prs, ns, revision)
+	rnr.discover = discover
+	return rnr
 }
 
 func TestPreRun(t *testing.T) {
@@ -319,4 +328,93 @@ func TestFindEditOrigin(t *testing.T) {
 
 	found := r.findUpstreamName(&downstreamv3)
 	assert.Equal(t, "upstream.v1", found)
+}
+
+func TestDiscoverUpdates(t *testing.T) {
+	ctx := context.Background()
+
+	const (
+		pkgRevName = "repo-testrevision"
+		ns         = "ns"
+	)
+
+	basePr := &porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pkgRevName,
+			Namespace: ns,
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			PackageName: "testpackage",
+			Lifecycle:   porchapi.PackageRevisionLifecyclePublished,
+			Revision:    1,
+		},
+	}
+
+	basePrV2 := createEditPackageRevision(basePr, "testpackage.v2", 2)
+
+	mockClient := mockclient.NewMockClient(t)
+	mockClient.EXPECT().
+		List(mock.Anything, mock.Anything, mock.Anything).
+		Return(nil).
+		Run(func(_ context.Context, list client.ObjectList, opts ...client.ListOption) {
+			list.(*configapi.RepositoryList).Items = make([]configapi.Repository, 1)
+			list.(*configapi.RepositoryList).Items[0] = configapi.Repository{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "sample-repo-2",
+					Namespace: "main",
+				},
+				Spec: configapi.RepositorySpec{
+					Description: "Sample Git repository",
+					Deployment:  false,
+					Type:        "git",
+					Git: &configapi.GitRepository{
+						Repo:   "https://github.com/user/repo",
+						Branch: "/main",
+						Author: "James Bond",
+						Email:  "jamesbond@007.com",
+					},
+				},
+			}
+		})
+	output := &bytes.Buffer{}
+
+	r := createRunnerWithDiscovery(ctx, mockClient, []porchapi.PackageRevision{*basePr, *basePrV2}, ns, "downstream", 0)
+	r.Command.SetOut(output)
+
+	output.Reset()
+	err := r.discoverUpdates(r.Command, []string{pkgRevName})
+	assert.Nil(t, err)
+	assert.Equal(t, output.String(), "All downstream packages are up to date.\n")
+
+	output.Reset()
+	r = createRunnerWithDiscovery(ctx, mockClient, []porchapi.PackageRevision{*basePr, *basePrV2}, ns, "upstream", 0)
+	r.Command.SetOut(output)
+	err = r.discoverUpdates(r.Command, []string{pkgRevName})
+	assert.Nil(t, err)
+
+	output.Reset()
+	r = createRunnerWithDiscovery(ctx, mockClient, []porchapi.PackageRevision{*basePr, *basePrV2}, ns, "", 0)
+	r.Command.SetOut(output)
+	err = r.discoverUpdates(r.Command, []string{pkgRevName})
+	assert.Error(t, err)
+
+	output.Reset()
+	testPackageRevision := createClonePackageRevision(basePr, "cloned-pr", 1, porchapi.PackageRevisionLifecycleDraft)
+
+	r = createRunnerWithDiscovery(ctx, mockClient, []porchapi.PackageRevision{*basePr, *testPackageRevision}, ns, "", 2)
+	r.Command.SetOut(output)
+	_, err = r.doUpgrade(testPackageRevision)
+	assert.ErrorContains(t, err, "must be in a published state")
+
+	testPackageRevision.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+	_, err = r.doUpgrade(testPackageRevision)
+	assert.EqualError(t, err, "revision 2 does not exist for package testpackage")
+
+	output.Reset()
+
+	mockClient.EXPECT().Create(mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	r = createRunnerWithDiscovery(ctx, mockClient, []porchapi.PackageRevision{*basePr, *basePrV2, *testPackageRevision}, ns, "", 2)
+	r.Command.SetOut(output)
+	_, err = r.doUpgrade(testPackageRevision)
+	assert.Nil(t, err)
 }
