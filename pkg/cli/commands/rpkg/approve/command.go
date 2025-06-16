@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -92,9 +92,6 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 			var pr v1alpha1.PackageRevision
 			if err := r.client.Get(r.ctx, key, &pr); err != nil {
 				return err
-			}
-			if !v1alpha1.PackageRevisionIsReady(pr.Spec.ReadinessGates, pr.Status.Conditions) {
-				return fmt.Errorf("readiness conditions not met")
 			}
 			return porch.UpdatePackageRevisionApproval(r.ctx, r.client, &pr, v1alpha1.PackageRevisionLifecyclePublished)
 		})

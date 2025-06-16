@@ -1,4 +1,4 @@
-// Copyright 2019 The kpt and Nephio Authors
+// Copyright 2019, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,11 +27,45 @@ import (
 	"github.com/nephio-project/porch/internal/kpt/types"
 	"github.com/nephio-project/porch/internal/kpt/util/git"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/pkg/util"
+	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 	"sigs.k8s.io/kustomize/kyaml/sets"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 	"sigs.k8s.io/kustomize/kyaml/yaml/merge3"
 )
+
+func FromKubeObject(kptfileKubeObject *fn.KubeObject) (kptfilev1.KptFile, error) {
+	var apiKptfile kptfilev1.KptFile
+	if err := kptfileKubeObject.As(&apiKptfile); err != nil {
+		return kptfilev1.KptFile{}, err
+	}
+
+	return apiKptfile, nil
+}
+
+func ToKubeObject(file *kptfilev1.KptFile) (*fn.KubeObject, error) {
+	kptfileYaml, err := ToYamlString(file)
+	if err != nil {
+		return nil, err
+	}
+
+	return util.YamlToKubeObject(kptfileYaml)
+}
+
+func ToYamlString(file *kptfilev1.KptFile) (string, error) {
+
+	b, err := yaml.MarshalWithOptions(file, &yaml.EncoderOptions{SeqIndent: yaml.WideSequenceStyle})
+	if err != nil {
+		return "", err
+	}
+	kptfileKubeObject, err := util.YamlToKubeObject(string(b))
+	if err != nil {
+		return "", err
+	}
+
+	return kptfileKubeObject.String(), nil
+}
 
 func WriteFile(dir string, k interface{}) error {
 	const op errors.Op = "kptfileutil.WriteFile"

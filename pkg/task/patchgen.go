@@ -1,4 +1,4 @@
-// Copyright 2022, 2025 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -109,23 +109,24 @@ func (m *applyPatchMutation) apply(ctx context.Context, resources repository.Pac
 				return result, nil, fmt.Errorf("patch had unexpected preamble %q", preamble)
 			}
 
-			if files[0].OldName != patchSpec.File {
-				return result, nil, fmt.Errorf("patch contained unexpected name; got %q, want %q", files[0].OldName, patchSpec.File)
+			file := files[0]
+			if file.OldName != patchSpec.File {
+				return result, nil, fmt.Errorf("patch contained unexpected name; got %q, want %q", file.OldName, patchSpec.File)
 			}
 
-			if files[0].IsBinary {
+			if file.IsBinary {
 				return result, nil, fmt.Errorf("patch was a binary diff; expected text diff")
 			}
-			if files[0].IsCopy || files[0].IsDelete || files[0].IsNew || files[0].IsRename {
+			if file.IsCopy || file.IsDelete || file.IsNew || file.IsRename {
 				return result, nil, fmt.Errorf("patch was of an unexpected type (copy/delete/new/rename)")
 			}
-			if files[0].OldMode != files[0].NewMode {
+			if file.OldMode != file.NewMode {
 				return result, nil, fmt.Errorf("patch contained file mode change")
 			}
 
 			var output bytes.Buffer
-			if err = gitdiff.Apply(&output, strings.NewReader(oldContents), files[0]); err != nil {
-				return result, nil, fmt.Errorf("error applying patch: %w", err)
+			if err = gitdiff.Apply(&output, strings.NewReader(oldContents), file); err != nil {
+				return result, nil, fmt.Errorf("error applying patch %q to file %q: %w", patchSpec.Contents, oldContents, err)
 			}
 			patched := output.String()
 			result.Contents[patchSpec.File] = patched

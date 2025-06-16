@@ -16,7 +16,7 @@ pipeline:
   # Kptfile mutators
   mutators:
   - configMap:
-      name: updated-bucket-name
+      name: updated-bucket-name # line comment
       namespace: updated-namespace
       project-id: updated-project-id
       storage-class: updated-storage-class

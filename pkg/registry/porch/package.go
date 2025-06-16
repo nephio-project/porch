@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -133,7 +133,7 @@ func (r *packages) Create(ctx context.Context, runtimeObject runtime.Object, cre
 		return nil, apierrors.NewBadRequest("spec.repository is required")
 	}
 
-	repositoryObj, err := r.packageCommon.getRepositoryObj(ctx, types.NamespacedName{Name: repositoryName, Namespace: ns})
+	repositoryObj, err := r.packageCommon.getApiRepo(ctx, types.NamespacedName{Name: repositoryName, Namespace: ns})
 	if err != nil {
 		return nil, err
 	}

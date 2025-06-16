@@ -25,8 +25,9 @@ import (
 	"github.com/nephio-project/porch/pkg/externalrepo/git"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/kpt"
-	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/util"
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
@@ -35,14 +36,10 @@ import (
 var _ mutation = &clonePackageMutation{}
 
 type clonePackageMutation struct {
-	task *api.Task
+	pkgRev *api.PackageRevision
+	task   *api.Task
 
-	// namespace is the namespace against which we resolve references.
-	// TODO: merge namespace into referenceResolver?
-	namespace string
-
-	name               string // package target name
-	isDeployment       bool   // is the package deployable instance
+	isDeployment       bool // is the package deployable instance
 	repoOpener         repository.RepositoryOpener
 	credentialResolver repository.CredentialResolver
 	referenceResolver  repository.ReferenceResolver
@@ -92,6 +89,36 @@ func (m *clonePackageMutation) apply(ctx context.Context, resources repository.P
 		}
 	}
 
+	cloned.EditKptfile(func(file *kptfile.KptFile) {
+		file.Status = func() *kptfile.Status {
+			fileStatus := &kptfile.Status{
+				Conditions: func() (inputConditions []kptfile.Condition) {
+					inputConditions = util.MergeFunc(inputConditions, kptfile.ConvertApiConditions(DefaultReadinessConditions), func(existingCondition, defaultCondition kptfile.Condition) bool {
+						return existingCondition.Type == defaultCondition.Type
+					})
+					inputConditions = util.MergeFunc(inputConditions, kptfile.ConvertApiConditions(m.pkgRev.Status.Conditions), func(existingCondition, cloneInput kptfile.Condition) bool {
+						return existingCondition.Type == cloneInput.Type
+					})
+					return
+				}(),
+			}
+			if len(fileStatus.Conditions) > 0 {
+				return fileStatus
+			}
+			return nil
+		}()
+
+		file.Info.ReadinessGates = util.Merge(file.Info.ReadinessGates, func() (kptfileGates []kptfile.ReadinessGate) {
+			for _, each := range DefaultReadinessConditions {
+				kptfileGates = append(kptfileGates, kptfile.ReadinessGate{
+					ConditionType: each.Type,
+				})
+			}
+			return kptfileGates
+		}())
+		file.Info.ReadinessGates = util.Merge(file.Info.ReadinessGates, kptfile.ConvertApiReadinessGates(m.pkgRev.Spec.ReadinessGates))
+	})
+
 	// ensure merge-key comment is added to newly added resources.
 	// this operation is done on best effort basis because if upstream contains
 	// valid YAML but invalid KRM resources, merge-key operation will fail
@@ -112,7 +139,7 @@ func (m *clonePackageMutation) cloneFromRegisteredRepository(ctx context.Context
 	upstreamRevision, err := (&repository.PackageFetcher{
 		RepoOpener:        m.repoOpener,
 		ReferenceResolver: m.referenceResolver,
-	}).FetchRevision(ctx, ref, m.namespace)
+	}).FetchRevision(ctx, ref, m.pkgRev.Namespace)
 	if err != nil {
 		return repository.PackageResources{}, fmt.Errorf("failed to fetch package revision %q: %w", ref.Name, err)
 	}
@@ -128,7 +155,7 @@ func (m *clonePackageMutation) cloneFromRegisteredRepository(ctx context.Context
 	}
 
 	// Update Kptfile
-	if err := kpt.UpdateKptfileUpstream(m.name, resources.Spec.Resources, upstream, lock); err != nil {
+	if err := kpt.UpdateKptfileUpstream(m.pkgRev.Spec.PackageName, resources.Spec.Resources, upstream, lock); err != nil {
 		return repository.PackageResources{}, fmt.Errorf("failed to apply upstream lock to package %q: %w", ref.Name, err)
 	}
 
@@ -155,7 +182,7 @@ func (m *clonePackageMutation) cloneFromGit(ctx context.Context, gitPackage *api
 	}
 	defer os.RemoveAll(dir)
 
-	r, err := git.OpenRepository(ctx, "", m.namespace, &spec, false, dir, git.GitRepositoryOptions{
+	r, err := git.OpenRepository(ctx, "", m.pkgRev.Namespace, &spec, false, dir, git.GitRepositoryOptions{
 		ExternalRepoOptions: externalrepotypes.ExternalRepoOptions{
 			CredentialResolver: m.credentialResolver,
 		},
@@ -178,15 +205,15 @@ func (m *clonePackageMutation) cloneFromGit(ctx context.Context, gitPackage *api
 	contents := resources.Spec.Resources
 
 	// Update Kptfile
-	if err := kpt.UpdateKptfileUpstream(m.name, contents, v1.Upstream{
-		Type: v1.GitOrigin,
-		Git: &v1.Git{
+	if err := kpt.UpdateKptfileUpstream(m.pkgRev.Spec.PackageName, contents, kptfile.Upstream{
+		Type: kptfile.GitOrigin,
+		Git: &kptfile.Git{
 			Repo:      lock.Repo,
 			Directory: lock.Directory,
 			Ref:       lock.Ref,
 		},
-	}, v1.UpstreamLock{
-		Type: v1.GitOrigin,
+	}, kptfile.UpstreamLock{
+		Type: kptfile.GitOrigin,
 		Git:  &lock,
 	}); err != nil {
 		return repository.PackageResources{}, pkgerrors.Wrapf(err, "failed to clone package %s@%s", gitPackage.Directory, gitPackage.Ref)

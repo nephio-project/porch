@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -118,7 +118,7 @@ func (r *packageRevisions) Get(ctx context.Context, name string, options *metav1
 }
 
 // Create implements the Creater interface.
-func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Object, createValidation rest.ValidateObjectFunc,
+func (r *packageRevisions) Create(ctx context.Context, newObject runtime.Object, createValidation rest.ValidateObjectFunc,
 	options *metav1.CreateOptions) (runtime.Object, error) {
 	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Create", trace.WithAttributes())
 	defer span.End()
@@ -128,9 +128,9 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 		return nil, apierrors.NewBadRequest("namespace must be specified")
 	}
 
-	newApiPkgRev, ok := runtimeObject.(*api.PackageRevision)
+	newApiPkgRev, ok := newObject.(*api.PackageRevision)
 	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected PackageRevision object, got %T", runtimeObject))
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected PackageRevision object, got %T", newObject))
 	}
 
 	// TODO: Accept some form of client-provided name, for example using GenerateName
@@ -145,12 +145,12 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 		return nil, apierrors.NewBadRequest("spec.repositoryName is required")
 	}
 
-	repositoryObj, err := r.packageCommon.getRepositoryObj(ctx, types.NamespacedName{Name: repositoryName, Namespace: ns})
+	apiRepo, err := r.packageCommon.getApiRepo(ctx, types.NamespacedName{Name: repositoryName, Namespace: ns})
 	if err != nil {
 		return nil, err
 	}
 
-	fieldErrors := r.createStrategy.Validate(ctx, runtimeObject)
+	fieldErrors := r.createStrategy.Validate(ctx, newObject)
 	if len(fieldErrors) > 0 {
 		return nil, apierrors.NewInvalid(api.SchemeGroupVersion.WithKind("PackageRevision").GroupKind(), newApiPkgRev.Name, fieldErrors)
 	}
@@ -178,7 +178,7 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 	}
 	defer pkgMutex.Unlock()
 
-	createdRepoPkgRev, err := r.cad.CreatePackageRevision(ctx, repositoryObj, newApiPkgRev, parentPackage)
+	createdRepoPkgRev, err := r.cad.CreatePackageRevision(ctx, apiRepo, newApiPkgRev, parentPackage)
 	if err != nil {
 		return nil, apierrors.NewInternalError(err)
 	}

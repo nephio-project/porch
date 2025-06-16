@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import (
 
 	internalpkg "github.com/nephio-project/porch/internal/kpt/pkg"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
-	"sigs.k8s.io/kustomize/kyaml/yaml"
+	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
 )
 
 // TODO: Accept a virtual filesystem or other package abstraction
@@ -42,12 +42,12 @@ func UpdateUpstream(kptfileContents string, name string, upstream kptfilev1.Upst
 		kptfile.Name = name
 	}
 
-	b, err := yaml.MarshalWithOptions(kptfile, &yaml.EncoderOptions{SeqIndent: yaml.WideSequenceStyle})
+	kptfileYaml, err := kptfileutil.ToYamlString(kptfile)
 	if err != nil {
 		return "", fmt.Errorf("cannot save Kptfile: %w", err)
 	}
 
-	return string(b), nil
+	return kptfileYaml, nil
 }
 
 func UpdateName(kptfileContents string, name string) (string, error) {
@@ -59,12 +59,12 @@ func UpdateName(kptfileContents string, name string) (string, error) {
 	// update the name of the package
 	kptfile.Name = name
 
-	b, err := yaml.MarshalWithOptions(kptfile, &yaml.EncoderOptions{SeqIndent: yaml.WideSequenceStyle})
+	kptfileYaml, err := kptfileutil.ToYamlString(kptfile)
 	if err != nil {
 		return "", fmt.Errorf("cannot save Kptfile: %w", err)
 	}
 
-	return string(b), nil
+	return kptfileYaml, nil
 }
 
 // TODO: accept a virtual filesystem

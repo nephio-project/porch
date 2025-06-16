@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -156,7 +156,7 @@ func NewPodEvaluator(o PodEvaluatorOptions) (Evaluator, error) {
 			klog.Warningf("unable to warm up the pod cache: %v", err)
 		}
 	}
-	
+
 	return pe, nil
 }
 
@@ -243,7 +243,7 @@ type imagePodAndGRPCClient struct {
 func (pcm *podCacheManager) warmupCache(podCacheConfig string) error {
 	start := time.Now()
 	defer func() {
-		klog.Infof("cache warning is completed and it took %v", time.Since(start))
+		klog.Infof("cache warming is complete after %v", time.Since(start))
 	}()
 	content, err := os.ReadFile(podCacheConfig)
 	if err != nil {

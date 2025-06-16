@@ -10,9 +10,23 @@ packages:
         config:
           dir: "test/mockery/mocks/external/{{.InterfaceDirRelative}}"
           outpkg: "{{.PackageName}}"
+  github.com/nephio-project/porch/pkg/engine:
+    interfaces:
+      CaDEngine:
+        config:
+          dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
+          outpkg: "{{.PackageName}}"
   github.com/nephio-project/porch/pkg/repository:
     interfaces:
+      PackageRevision:
+        config:
+          dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
+          outpkg: "{{.PackageName}}"
       Repository:
+        config:
+          dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
+          outpkg: "{{.PackageName}}"
+      RepositoryOpener:
         config:
           dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
           outpkg: "{{.PackageName}}"

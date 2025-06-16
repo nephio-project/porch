@@ -141,7 +141,7 @@ func run(ctx context.Context) error {
 			},
 		},
 	}
-	
+
 	config := textlogger.NewConfig(
 		textlogger.Verbosity(4),
 		textlogger.Output(os.Stdout),

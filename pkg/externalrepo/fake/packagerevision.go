@@ -31,6 +31,7 @@ type FakePackageRevision struct {
 	Uid              types.UID
 	PackageLifecycle v1alpha1.PackageRevisionLifecycle
 	PackageRevision  *v1alpha1.PackageRevision
+	Repo             *repository.Repository
 	Resources        *v1alpha1.PackageRevisionResources
 	Kptfile          kptfile.KptFile
 }
@@ -98,6 +99,10 @@ func (f *FakePackageRevision) UpdateLifecycle(context.Context, v1alpha1.PackageR
 
 func (f *FakePackageRevision) GetMeta() metav1.ObjectMeta {
 	return metav1.ObjectMeta{}
+}
+
+func (f *FakePackageRevision) GetRepo() repository.Repository {
+	return *f.Repo
 }
 
 func (f *FakePackageRevision) SetMeta(context.Context, metav1.ObjectMeta) error {

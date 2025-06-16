@@ -28,9 +28,12 @@ import (
 	"github.com/google/go-cmp/cmp"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	pvapi "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
+	"github.com/nephio-project/porch/controllers/packagevariants/pkg/controllers/packagevariant"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -45,6 +48,7 @@ import (
 
 var (
 	packageRevisionGVK = porchapi.SchemeGroupVersion.WithKind("PackageRevision")
+	packageVariantGVK  = pvapi.GroupVersion.WithKind("PackageVariant")
 	configMapGVK       = corev1.SchemeGroupVersion.WithKind("ConfigMap")
 )
 
@@ -787,7 +791,7 @@ func (t *PorchSuite) TestUpdateResources() {
 	renderStatus := newPackage.Status.RenderStatus
 	assert.Empty(t, renderStatus.Err, "render error must be empty for successful render operation.")
 	assert.Zero(t, renderStatus.Result.ExitCode, "exit code must be zero for successful render operation.")
-	assert.True(t, len(renderStatus.Result.Items) > 0)
+	assert.True(t, len(renderStatus.Result.Items) > 0, "render status result must have 1 or more items for successful render operation")
 
 	golden := filepath.Join("testdata", "update-resources", "want-config-map.yaml")
 	if diff := t.CompareGoldenFileYAML(golden, updated); diff != "" {
@@ -3391,4 +3395,117 @@ func (t *PorchSuite) TestCreatePackageRevisionRollback() {
 	// Verify that the package revision was not created
 	_, err = t.Clientset.PorchV1alpha1().PackageRevisions(t.Namespace).Get(ctx, pr.Name, metav1.GetOptions{})
 	assert.True(t, apierrors.IsNotFound(err), "Expected package revision to be deleted after rollback")
+}
+
+func (t *PorchSuite) TestPackageVariantReadinessGate() {
+	const (
+		repository     = "variant"
+		variantName    = "testing-variant"
+		upstreamName   = "variant-package-upstream"
+		downstreamName = "variant-package-downstream"
+		workspace      = "workspace"
+
+		setAnnoImage     = "gcr.io/kpt-fn/set-annotations:v0.1.4"
+		applySetterImage = "gcr.io/kpt-fn/apply-setters:v0.2.0"
+	)
+
+	var (
+		setAnnoMap = map[string]string{
+			"nephio.org/cluster-name": "example",
+		}
+		setAnnoFunction = kptfilev1.Function{
+			Image:     setAnnoImage,
+			ConfigMap: setAnnoMap,
+		}
+		applySetterMap = map[string]string{
+			"name":          "updated-bucket-name",
+			"namespace":     "updated-namespace",
+			"project-id":    "updated-project-id",
+			"storage-class": "updated-storage-class",
+		}
+		applySetterFunction = kptfilev1.Function{
+			Image:     applySetterImage,
+			ConfigMap: applySetterMap,
+		}
+		mutatorFunctions = func() []kptfilev1.Function {
+			functions := []kptfilev1.Function{
+				setAnnoFunction,
+			}
+			// add several repetitions of the applySetter function
+			// to make sure the pipeline takes enough time to detect
+			// the Condition changing from False to True
+			for i := 0; i < 40; i++ {
+				functions = append(functions, applySetterFunction)
+			}
+			return functions
+		}()
+	)
+
+	// Set up the repo and create/propose/approve the upstream package
+	t.RegisterMainGitRepositoryF(repository)
+	upstreamPr := t.CreatePackageSkeleton(repository, upstreamName, workspace)
+	t.CreateF(upstreamPr)
+	upstreamPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	t.UpdateF(upstreamPr)
+	upstreamPr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+	t.UpdateApprovalF(upstreamPr, metav1.UpdateOptions{})
+
+	// Create a new package variant (via init)
+	pv := &pvapi.PackageVariant{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       packageVariantGVK.Kind,
+			APIVersion: packageVariantGVK.GroupVersion().String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: t.Namespace,
+			Name:      variantName,
+		},
+		Spec: pvapi.PackageVariantSpec{
+			Downstream: &pvapi.Downstream{
+				Package: downstreamName,
+				Repo:    repository,
+			},
+			Upstream: &pvapi.Upstream{
+				Package:  upstreamName,
+				Repo:     repository,
+				Revision: 1,
+			},
+			Pipeline: &kptfilev1.Pipeline{
+				Mutators: mutatorFunctions,
+			},
+			Injectors: []pvapi.InjectionSelector{
+				{
+					Name: "nrf-overrides-values",
+				},
+			},
+		},
+	}
+	t.CreateF(pv)
+
+	// Wait till the package variant has created the downstream PR and set the condition to False,
+	// then get the PR
+	downstreamPr, _ := t.WaitUntilPackageRevisionFulfillingConditionExists(1*time.Minute, func(pr porchapi.PackageRevision) bool {
+		return pr.Spec.PackageName == pv.Spec.Downstream.Package &&
+			slices.Contains(pr.Status.Conditions, packagevariant.ConditionPipelinePVRevisionNotReady)
+	})
+	assert.NotNil(t, downstreamPr, "no PackageRevision found with Condition of Type %q, Status %q", packagevariant.ConditionTypeAtomicPVOperations, packagevariant.ConditionPipelinePVRevisionNotReady)
+	assert.Containsf(t, downstreamPr.Spec.ReadinessGates,
+		porchapi.ReadinessGate{ConditionType: packagevariant.ConditionTypeAtomicPVOperations},
+		"PackageVariant controller should have set a readiness gate with ConditionType==%q on the downstream PackageRevision", packagevariant.ConditionTypeAtomicPVOperations)
+
+	// Attempt to propose the PR - should fail
+	downstreamPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	proposeError := t.Client.Update(t.GetContext(), downstreamPr)
+	assert.ErrorContains(t, proposeError, "readiness conditions not met")
+
+	// Wait for the pipeline to finish and the condition to be set to True
+	downstreamPr, _ = t.WaitUntilPackageRevisionFulfillingConditionExists(20*time.Second, func(pr porchapi.PackageRevision) bool {
+		return slices.Contains(pr.Status.Conditions, packagevariant.ConditionPipelinePVRevisionReady)
+	})
+	require.NotNil(t.T(), downstreamPr, "no PackageRevision found with Condition of Type %q, Status %q", packagevariant.ConditionTypeAtomicPVOperations, packagevariant.ConditionPipelinePVRevisionReady)
+
+	// Propose the PR again - should succeed this time
+	downstreamPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	proposeError = t.Client.Update(t.GetContext(), downstreamPr)
+	assert.NoError(t, proposeError, "propose operation should have succeeded now that all Conditions have been set to True")
 }

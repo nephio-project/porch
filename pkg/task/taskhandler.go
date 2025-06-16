@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,6 +27,30 @@ import (
 )
 
 var tracer = otel.Tracer("task")
+
+var (
+	_ TaskHandler = &genericTaskHandler{}
+
+	ConditionPipelineNotPassed = api.Condition{
+		Type:    ConditionTypePipelinePassed,
+		Status:  api.ConditionFalse,
+		Reason:  "WaitingOnPipeline",
+		Message: "waiting for package pipeline to pass",
+	}
+	ConditionPipelinePassed = api.Condition{
+		Type:    ConditionTypePipelinePassed,
+		Status:  api.ConditionTrue,
+		Reason:  "PipelinePassed",
+		Message: "package pipeline completed successfully",
+	}
+	DefaultReadinessConditions = []api.Condition{
+		// ConditionPipelineNotPassed,
+	}
+)
+
+const (
+	ConditionTypePipelinePassed = "PackagePipelinePassed" // whether or not the package's pipeline has completed successfully
+)
 
 type TaskHandler interface {
 	GetRuntime() fn.FunctionRuntime

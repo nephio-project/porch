@@ -187,18 +187,18 @@ func (r *packageCommon) getRepositoryObjFromName(ctx context.Context, name strin
 		return nil, apierrors.NewNotFound(r.gr, name)
 	}
 
-	return r.getRepositoryObj(ctx, types.NamespacedName{Name: repoName, Namespace: ns})
+	return r.getApiRepo(ctx, types.NamespacedName{Name: repoName, Namespace: ns})
 }
 
-func (r *packageCommon) getRepositoryObj(ctx context.Context, repositoryID types.NamespacedName) (*configapi.Repository, error) {
-	var repositoryObj configapi.Repository
-	if err := r.coreClient.Get(ctx, repositoryID, &repositoryObj); err != nil {
+func (r *packageCommon) getApiRepo(ctx context.Context, repositoryID types.NamespacedName) (*configapi.Repository, error) {
+	var apiRepo configapi.Repository
+	if err := r.coreClient.Get(ctx, repositoryID, &apiRepo); err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil, apierrors.NewNotFound(configapi.TypeRepository.GroupResource(), repositoryID.Name)
 		}
 		return nil, apierrors.NewInternalError(fmt.Errorf("error getting repository %v: %w", repositoryID, err))
 	}
-	return &repositoryObj, nil
+	return &apiRepo, nil
 }
 
 func (r *packageCommon) getRepoPkgRev(ctx context.Context, name string) (repository.PackageRevision, error) {
@@ -254,19 +254,6 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 		return nil, false, apierrors.NewBadRequest("namespace must be specified")
 	}
 
-	pkgMutexKey := getPackageMutexKey(ns, name)
-	pkgMutex := getMutexForPackage(pkgMutexKey)
-
-	locked := pkgMutex.TryLock()
-	if !locked {
-		return nil, false,
-			apierrors.NewConflict(
-				api.Resource("packagerevisions"),
-				name,
-				fmt.Errorf(GenericConflictErrorMsg, "package revision", pkgMutexKey))
-	}
-	defer pkgMutex.Unlock()
-
 	// isCreate tracks whether this is an update that creates an object (this happens in server-side apply)
 	isCreate := false
 	oldRepoPkgRev, err := r.getRepoPkgRev(ctx, name)
@@ -309,6 +296,19 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 		updateValidation, "PackageRevision", name); err != nil {
 		return nil, false, err
 	}
+
+	pkgMutexKey := getPackageMutexKey(ns, name)
+	pkgMutex := getMutexForPackage(pkgMutexKey)
+
+	locked := pkgMutex.TryLock()
+	if !locked {
+		return nil, false,
+			apierrors.NewConflict(
+				api.Resource("packagerevisions"),
+				name,
+				fmt.Errorf(GenericConflictErrorMsg, "package revision", pkgMutexKey))
+	}
+	defer pkgMutex.Unlock()
 
 	newApiPkgRev, ok := newRuntimeObj.(*api.PackageRevision)
 	if !ok {
@@ -482,7 +482,7 @@ func (r *packageCommon) validateDelete(ctx context.Context, deleteValidation res
 	if err != nil {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid name %q", name))
 	}
-	repositoryObj, err := r.getRepositoryObj(ctx, types.NamespacedName{Name: repoName, Namespace: ns})
+	repositoryObj, err := r.getApiRepo(ctx, types.NamespacedName{Name: repoName, Namespace: ns})
 	if err != nil {
 		return nil, err
 	}

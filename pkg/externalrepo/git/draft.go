@@ -58,11 +58,15 @@ func (d *gitPackageRevisionDraft) GetMeta() metav1.ObjectMeta {
 	return d.metadata
 }
 
-func (d *gitPackageRevisionDraft) UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, change *v1alpha1.Task) error {
+func (d *gitPackageRevisionDraft) GetRepo() repository.Repository {
+	return d.repo
+}
+
+func (d *gitPackageRevisionDraft) UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, changeTask *v1alpha1.Task) error {
 	ctx, span := tracer.Start(ctx, "gitPackageDraft::UpdateResources", trace.WithAttributes())
 	defer span.End()
 
-	return d.repo.UpdateDraftResources(ctx, d, new, change)
+	return d.repo.UpdateDraftResources(ctx, d, new, changeTask)
 }
 
 func (d *gitPackageRevisionDraft) UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error {

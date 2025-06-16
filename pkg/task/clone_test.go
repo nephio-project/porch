@@ -227,6 +227,11 @@ func TestCloneGitBasicAuth(t *testing.T) {
 	addr := startGitServer(t, repo)
 
 	cpm := clonePackageMutation{
+		pkgRev: &v1alpha1.PackageRevision{
+			Spec: v1alpha1.PackageRevisionSpec{
+				PackageName: "test-configmap",
+			},
+		},
 		task: &v1alpha1.Task{
 			Type: "clone",
 			Clone: &v1alpha1.PackageCloneTaskSpec{
@@ -243,8 +248,6 @@ func TestCloneGitBasicAuth(t *testing.T) {
 				},
 			},
 		},
-		namespace: "test-namespace",
-		name:      "test-configmap",
 		credentialResolver: &credentialResolver{
 			username: "",
 			password: "",

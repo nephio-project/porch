@@ -1,4 +1,4 @@
-// Copyright 2024 The kpt and Nephio Authors
+// Copyright 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -83,37 +83,6 @@ func TestCmd(t *testing.T) {
 					Spec: porchapi.PackageRevisionSpec{
 						Lifecycle:      porchapi.PackageRevisionLifecycleDraft,
 						RepositoryName: repoName,
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: ns,
-						Name:      pkgRevName,
-					}}).Build(),
-		},
-		"Fail to Approve unready package": {
-			wantErr: true,
-			output:  pkgRevName + " failed (readiness conditions not met)\n",
-			fakeclient: fake.NewClientBuilder().WithScheme(scheme).
-				WithObjects(&porchapi.PackageRevision{
-					TypeMeta: metav1.TypeMeta{
-						Kind:       "PackageRevision",
-						APIVersion: porchapi.SchemeGroupVersion.Identifier(),
-					},
-					Spec: porchapi.PackageRevisionSpec{
-						Lifecycle:      porchapi.PackageRevisionLifecycleProposed,
-						RepositoryName: repoName,
-						ReadinessGates: []porchapi.ReadinessGate{
-							{
-								ConditionType: "nephio.org.Specializer.specialize",
-							},
-						},
-					},
-					Status: porchapi.PackageRevisionStatus{
-						Conditions: []porchapi.Condition{
-							{
-								Type:   "nephio.org.Specializer.specialize",
-								Status: "False",
-							},
-						},
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: ns,

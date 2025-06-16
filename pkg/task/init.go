@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,14 +23,15 @@ import (
 	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"github.com/nephio-project/porch/pkg/kpt/printer/fake"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel/trace"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 )
 
 type initPackageMutation struct {
 	kptpkg.DefaultInitializer
-	name string
-	task *api.Task
+	pkgRev *api.PackageRevision
+	task   *api.Task
 }
 
 var _ mutation = &initPackageMutation{}
@@ -49,21 +50,30 @@ func (m *initPackageMutation) apply(ctx context.Context, resources repository.Pa
 	if err := fs.Mkdir(pkgPath); err != nil {
 		return repository.PackageResources{}, nil, err
 	}
+
+	readinessConditions := util.MergeFunc(DefaultReadinessConditions, m.pkgRev.Status.Conditions, func(aDefault, anInput api.Condition) bool {
+		return aDefault.Type == anInput.Type
+	})
+
+	name := m.pkgRev.Spec.PackageName
+	initSpec := m.task.Init
+
 	err := m.Initialize(printer.WithContext(ctx, &fake.Printer{}), fs, kptpkg.InitOptions{
-		PkgPath:  pkgPath,
-		PkgName:  m.name,
-		Desc:     m.task.Init.Description,
-		Keywords: m.task.Init.Keywords,
-		Site:     m.task.Init.Site,
+		PkgPath:             pkgPath,
+		PkgName:             name,
+		Desc:                initSpec.Description,
+		Keywords:            initSpec.Keywords,
+		Site:                initSpec.Site,
+		ReadinessConditions: readinessConditions,
 	})
 	if err != nil {
-		return repository.PackageResources{}, nil, fmt.Errorf("failed to initialize pkg %q: %w", m.name, err)
+		return repository.PackageResources{}, nil, fmt.Errorf("failed to initialize pkg %q: %w", name, err)
 	}
 
-	result, err := readResources(fs)
+	initializedResources, err := readResources(fs)
 	if err != nil {
 		return repository.PackageResources{}, nil, err
 	}
 
-	return result, &api.TaskResult{Task: m.task}, nil
+	return initializedResources, &api.TaskResult{Task: m.task}, nil
 }
