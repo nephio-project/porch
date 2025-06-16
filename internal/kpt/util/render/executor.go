@@ -90,10 +90,10 @@ func (e *Renderer) Execute(ctx context.Context) (*fnresult.ResultList, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read Kptfile: %w", err)
 	}
-
+	value, exists := kptfile.Annotations["top-bottom-rendering"]
 	// Use BFS or the old recursive method based on the flag
-	if kptfile.RenderBFS != nil && *kptfile.RenderBFS {
-		if _, err := hydrateBFS(ctx, root, hctx); err != nil {
+	if exists && value == "true" {
+		if _, err := hydrateTopBottom(ctx, root, hctx); err != nil {
 			_ = e.saveFnResults(ctx, hctx.fnResults)
 			return hctx.fnResults, errors.E(op, root.pkg.UniquePath, err)
 		}
@@ -344,14 +344,16 @@ func hydrate(ctx context.Context, pn *pkgNode, hctx *hydrationContext) (output [
 	return output, err
 }
 
-// hydrateBFS performs breadth-first search (BFS) rendering of packages.
-func hydrateBFS(ctx context.Context, root *pkgNode, hctx *hydrationContext) (output []*yaml.RNode, err error) {
+// hydrateTopBottom performs a top to bottom rendering of packages, so the root package will be hydrated first,
+// followed by its subpackages in first-in, first-out order. DetectSubpackages will detect subfolders
+// sorted in ascending alphabetical order based on the DisplayPath field.
+func hydrateTopBottom(ctx context.Context, root *pkgNode, hctx *hydrationContext) (output []*yaml.RNode, err error) {
 	const op errors.Op = "pkg.render"
 
 	queue := []*pkgNode{root}
 	orderedQueue := []*pkgNode{}
 
-	// Phase 1: Gather input files for all packages in BFS order
+	// Phase 1: Gather input files for all packages in queue order
 	for len(queue) > 0 {
 		current := queue[0]
 		queue = queue[1:]
@@ -405,7 +407,7 @@ func hydrateBFS(ctx context.Context, root *pkgNode, hctx *hydrationContext) (out
 		allResources = append(allResources, pkg.resources...)
 	}
 
-	// Phase 2: Run pipelines in BFS order
+	// Phase 2: Run pipelines in Top to Bottom order
 	for _, current := range orderedQueue {
 		allResources, err = current.runPipeline(ctx, hctx, allResources)
 		if err != nil {
