@@ -64,8 +64,8 @@ const (
 	functionContainerName     = "function"
 	defaultManagerNamespace   = "porch-system"
 	defaultRegistry           = "gcr.io/kpt-fn/"
-
-	channelBufferSize = 128
+	serviceDnsNameSuffix      = ".svc.cluster.local"
+	channelBufferSize         = 128
 )
 
 type podEvaluator struct {
@@ -341,8 +341,8 @@ func (pcm *podCacheManager) podCacheManager() {
 						// If it does, purge the cached entry and let Pod/Service be created again
 						deleteCacheEntry = true
 					} else {
-
-						if pod.DeletionTimestamp == nil && net.JoinHostPort(service.Spec.ClusterIP, defaultWrapperServerPort) == podAndCl.grpcClient.Target() {
+						serviceUrl := service.ObjectMeta.Name + "." + service.Namespace + serviceDnsNameSuffix
+						if pod.DeletionTimestamp == nil && net.JoinHostPort(serviceUrl, defaultWrapperServerPort) == podAndCl.grpcClient.Target() {
 							klog.Infof("reusing the connection to pod %v/%v to evaluate %v", pod.Namespace, pod.Name, req.image)
 							req.grpcClientCh <- &clientConnAndError{grpcClient: podAndCl.grpcClient}
 							go patchPodWithUnixTimeAnnotation(pcm.podManager.kubeClient, podAndCl.pod, pcm.podTTL)
@@ -594,16 +594,16 @@ func (pm *podManager) getFuncEvalPodClient(ctx context.Context, image string, tt
 			return nil, err
 		}
 
-		serviceIP, err := pm.getServiceIPOnceEndpointActive(ctx, serviceKey, podKey)
+		serviceUrl, err := pm.getServiceUrlOnceEndpointActive(ctx, serviceKey, podKey)
 		if err != nil {
 			return nil, err
 		}
 
-		if serviceIP == "" {
-			return nil, fmt.Errorf("service %s/%s does not have IP", serviceKey.Namespace, serviceKey.Name)
+		if serviceUrl == "" {
+			return nil, fmt.Errorf("service %s/%s does not have valid Url", serviceKey.Namespace, serviceKey.Name)
 		}
 
-		address := net.JoinHostPort(serviceIP, defaultWrapperServerPort)
+		address := net.JoinHostPort(serviceUrl, defaultWrapperServerPort)
 		cc, err := grpc.NewClient(address,
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 			grpc.WithDefaultCallOptions(
@@ -1182,9 +1182,10 @@ func (pm *podManager) patchNewPodMetadata(pod *corev1.Pod, ttl time.Duration, po
 	pod.ObjectMeta.Labels = labels
 }
 
-// getServiceIPOnceEndpointActive retrieves the service IP once the backend PoD is
+// getServiceUrlOnceEndpointActive retrieves the service full FQDN Url once the backend PoD is
 // ready and Endpoint is active.
-func (pm *podManager) getServiceIPOnceEndpointActive(ctx context.Context, serviceKey client.ObjectKey, podKey client.ObjectKey) (string, error) {
+// Returned URL is in the format <service-name>.<namespace>.svc.cluster.local
+func (pm *podManager) getServiceUrlOnceEndpointActive(ctx context.Context, serviceKey client.ObjectKey, podKey client.ObjectKey) (string, error) {
 	var service corev1.Service
 	var pod corev1.Pod
 	var endpoint corev1.Endpoints
@@ -1240,7 +1241,7 @@ func (pm *podManager) getServiceIPOnceEndpointActive(ctx context.Context, servic
 		return "", fmt.Errorf("error occurred when waiting the pod and service to be ready. If the error is caused by timeout, you may want to examine the pod/service in namespace %q. Error: %w", pm.namespace, e)
 	}
 
-	return service.Spec.ClusterIP, nil
+	return service.ObjectMeta.Name + "." + service.ObjectMeta.Namespace + serviceDnsNameSuffix, nil
 }
 
 // patchPodWithUnixTimeAnnotation patches the pod with the new updated TTL annotation.

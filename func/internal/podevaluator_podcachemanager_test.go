@@ -126,10 +126,6 @@ func TestPodCacheManager(t *testing.T) {
 			err := kubeClient.Get(ctx, client.ObjectKeyFromObject(obj), &canary)
 			if err != nil {
 				if errors.IsNotFound(err) {
-					defaultPodObject.ResourceVersion = ""
-					defaultPodObject.Name = defaultPodName
-					defaultPodObject.GenerateName = ""
-					//klog.Infof("Creating pod %s in namespace %s as %v", defaultPodName, defaultNamespace, obj)
 					obj.SetName(defaultPodName)
 					obj.SetGenerateName("")
 					err = kubeClient.Create(ctx, obj)
