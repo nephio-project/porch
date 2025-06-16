@@ -90,21 +90,18 @@ func (e *Renderer) Execute(ctx context.Context) (*fnresult.ResultList, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read Kptfile: %w", err)
 	}
-	value, exists := kptfile.Annotations["top-bottom-rendering"]
-	// Use BFS or the old recursive method based on the flag
-	if exists && value == "true" {
-		if _, err := hydrateTopBottom(ctx, root, hctx); err != nil {
-			_ = e.saveFnResults(ctx, hctx.fnResults)
-			return hctx.fnResults, errors.E(op, root.pkg.UniquePath, err)
-		}
-	} else {
-		if _, err = hydrate(ctx, root, hctx); err != nil {
-			// Note(droot): ignore the error in function result saving
-			// to avoid masking the hydration error.
-			// don't disable the CLI output in case of error
-			_ = e.saveFnResults(ctx, hctx.fnResults)
-			return hctx.fnResults, errors.E(op, root.pkg.UniquePath, err)
-		}
+
+	// Choose hydration function based on annotation
+	// If the annotation "top-bottom-rendering" is set to "true", use hydrateTopBottom
+	// otherwise use the default hydrate function in bottom-up order.
+	hydrateFn := hydrate
+	if value, exists := kptfile.Annotations["top-bottom-rendering"]; exists && value == "true" {
+		hydrateFn = hydrateTopBottom
+	}
+
+	if _, err := hydrateFn(ctx, root, hctx); err != nil {
+		_ = e.saveFnResults(ctx, hctx.fnResults) // Ignore save error to avoid masking hydration error
+		return hctx.fnResults, errors.E(op, root.pkg.UniquePath, err)
 	}
 
 	// adjust the relative paths of the resources.
