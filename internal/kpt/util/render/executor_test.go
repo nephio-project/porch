@@ -235,7 +235,7 @@ metadata:
 	}
 }
 
-func setupRendererTest(t *testing.T, renderBFS bool) (*Renderer, *bytes.Buffer, context.Context) {
+func setupRendererTest(t *testing.T, renderTopBtm bool) (*Renderer, *bytes.Buffer, context.Context) {
 	var outputBuffer bytes.Buffer
 	ctx := context.Background()
 	ctx = printer.WithContext(ctx, printer.New(&outputBuffer, &outputBuffer))
@@ -255,8 +255,9 @@ apiVersion: kpt.dev/v1
 kind: Kptfile
 metadata:
   name: root-package
-renderBFS: %t
-`, renderBFS))
+  annotations:
+    top-bottom-rendering: %t
+`, renderTopBtm))
 	assert.NoError(t, err)
 
 	err = mockFileSystem.WriteFile(filepath.Join(subPkgPath, "Kptfile"), []byte(`
@@ -279,13 +280,13 @@ metadata:
 func TestRenderer_Execute_RenderOrder(t *testing.T) {
 	tests := []struct {
 		name           string
-		renderBFS      bool
+		renderTopBtm   bool
 		expectedOrder  func(output string) bool
 		expectedErrMsg string
 	}{
 		{
-			name:      "Use BFS",
-			renderBFS: true,
+			name:         "Use BFS",
+			renderTopBtm: true,
 			expectedOrder: func(output string) bool {
 				rootIndex := strings.Index(output, `Package "root":`)
 				subpkgIndex := strings.Index(output, `Package "root/subpkg":`)
@@ -293,8 +294,8 @@ func TestRenderer_Execute_RenderOrder(t *testing.T) {
 			},
 		},
 		{
-			name:      "Use DFS",
-			renderBFS: false,
+			name:         "Use DFS",
+			renderTopBtm: false,
 			expectedOrder: func(output string) bool {
 				rootIndex := strings.Index(output, `Package "root":`)
 				subpkgIndex := strings.Index(output, `Package "root/subpkg":`)
@@ -305,7 +306,7 @@ func TestRenderer_Execute_RenderOrder(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			renderer, outputBuffer, ctx := setupRendererTest(t, tc.renderBFS)
+			renderer, outputBuffer, ctx := setupRendererTest(t, tc.renderTopBtm)
 
 			fnResults, err := renderer.Execute(ctx)
 			assert.NoError(t, err)
@@ -394,7 +395,8 @@ apiVersion: kpt.dev/v1
 kind: Kptfile
 metadata:
   name: root-package
-renderBFS: true
+  annotations:
+    top-bottom-rendering: true
 `))
 	assert.NoError(t, err)
 
@@ -416,38 +418,37 @@ metadata:
 		fileSystem: mockFileSystem,
 	}
 
-	t.Run("Cycle Detection in hydrateBFS", func(t *testing.T) {
+	t.Run("Cycle Detection in hydrateTopBottom", func(t *testing.T) {
 		// Add the root package to the hydration context in a "Hydrating" state to simulate a cycle
 		hctx.pkgs[root.pkg.UniquePath] = &pkgNode{
 			pkg:   root.pkg,
 			state: Hydrating,
 		}
 
-		_, err := hydrateBFS(context.Background(), root, hctx)
+		_, err := hydrateTopBottom(context.Background(), root, hctx)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "cycle detected in pkg dependencies")
 	})
 
-	t.Run("Invalid Package State in hydrateBFS", func(t *testing.T) {
+	t.Run("Invalid Package State in hydrateTopBottom", func(t *testing.T) {
 		// Add the root package to the hydration context in an invalid state
 		hctx.pkgs[root.pkg.UniquePath] = &pkgNode{
 			pkg:   root.pkg,
 			state: -1, // Invalid state
 		}
 
-		_, err := hydrateBFS(context.Background(), root, hctx)
+		_, err := hydrateTopBottom(context.Background(), root, hctx)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "package found in invalid state")
 	})
 
-	t.Run("Wet Package State in hydrateBFS would continue", func(t *testing.T) {
-		// Add the root package to the hydration context in an invalid state
+	t.Run("Wet Package State in hydrateTopBottom would continue", func(t *testing.T) {
 		hctx.pkgs[root.pkg.UniquePath] = &pkgNode{
 			pkg:   root.pkg,
 			state: Wet,
 		}
 
-		_, err := hydrateBFS(ctx, root, hctx)
+		_, err := hydrateTopBottom(ctx, root, hctx)
 		assert.NoError(t, err)
 	})
 }
