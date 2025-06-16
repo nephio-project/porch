@@ -147,8 +147,8 @@ func (t *packageList) discoverPackages(repoKey repository.RepositoryKey, tree *o
 	for _, e := range tree.Entries {
 		if e.Name == "Kptfile" {
 			p := path.Join(treePath, e.Name)
-			if !e.Mode.IsRegular() && e.Mode&0111 == 0 {
-				klog.Warningf("skipping %q: Kptfile is not a regular or executable file", p)
+			if !e.Mode.IsFile() {
+				klog.Warningf("skipping %q: Kptfile is not a file", p)
 				continue
 			}
 
