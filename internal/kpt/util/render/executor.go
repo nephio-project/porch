@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,6 +40,10 @@ import (
 )
 
 var errAllowedExecNotSpecified = fmt.Errorf("must run with `--allow-exec` option to allow running function binaries")
+
+const (
+	TopToBottomRenderAnnotation = "kpt.dev/top-to-bottom-rendering"
+)
 
 // Renderer hydrates a given pkg by running the functions in the input pipeline
 type Renderer struct {
@@ -92,10 +96,10 @@ func (e *Renderer) Execute(ctx context.Context) (*fnresult.ResultList, error) {
 	}
 
 	// Choose hydration function based on annotation
-	// If the annotation "top-bottom-rendering" is set to "true", use hydrateTopBottom
+	// If the annotation "kpt.dev/top-bottom-rendering" is set to "true", use hydrateTopBottom
 	// otherwise use the default hydrate function in bottom-up order.
 	hydrateFn := hydrate
-	if value, exists := kptfile.Annotations["top-bottom-rendering"]; exists && value == "true" {
+	if value, exists := kptfile.Annotations[TopToBottomRenderAnnotation]; exists && value == "true" {
 		hydrateFn = hydrateTopBottom
 	}
 
