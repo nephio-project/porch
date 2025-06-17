@@ -18,11 +18,13 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/pkg/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -43,7 +45,7 @@ func (k PackageRevisionKey) String() string {
 }
 
 func (k PackageRevisionKey) K8SNS() string {
-	return k.PkgKey.RepoKey.Namespace
+	return k.RKey().Namespace
 }
 
 func (k PackageRevisionKey) K8SName() string {
@@ -54,17 +56,39 @@ func K8SName2PkgRevWSName(k8sNamePkg, k8sName string) string {
 	return k8sName[len(k8sNamePkg)+1:]
 }
 
+func PkgRevK8sName2Key(k8sNamespace, k8sName string) (PackageRevisionKey, error) {
+	parsedPRSlice := util.SplitIn3OnDelimiter(k8sName, ".")
+	parsedPkgSlice := util.SplitIn3OnDelimiter(parsedPRSlice[0]+"."+parsedPRSlice[1], ".")
+
+	packagePath := strings.ReplaceAll(parsedPkgSlice[1], ".", "/")
+	if err := util.ValidPkgRevObjName(parsedPRSlice[0], packagePath, parsedPkgSlice[2], parsedPRSlice[2]); err != nil {
+		return PackageRevisionKey{}, err
+	}
+
+	return PackageRevisionKey{
+		PkgKey: PackageKey{
+			RepoKey: RepositoryKey{
+				Namespace: k8sNamespace,
+				Name:      parsedPRSlice[0],
+			},
+			Path:    packagePath,
+			Package: parsedPkgSlice[2],
+		},
+		WorkspaceName: parsedPRSlice[2],
+	}, nil
+}
+
 func (k PackageRevisionKey) DeepCopy(outKey *PackageRevisionKey) {
 	k.PkgKey.DeepCopy(&outKey.PkgKey)
 	outKey.Revision = k.Revision
 	outKey.WorkspaceName = k.WorkspaceName
 }
 
-func (k PackageRevisionKey) GetPackageKey() PackageKey {
+func (k PackageRevisionKey) PKey() PackageKey {
 	return k.PkgKey
 }
 
-func (k PackageRevisionKey) GetRepositoryKey() RepositoryKey {
+func (k PackageRevisionKey) RKey() RepositoryKey {
 	return k.PkgKey.RepoKey
 }
 
@@ -91,6 +115,24 @@ func (k PackageKey) K8SNS() string {
 
 func (k PackageKey) K8SName() string {
 	return ComposePkgObjName(k)
+}
+
+func PkgK8sName2Key(k8sNamespace, k8sName string) (PackageKey, error) {
+	parsedPkgSlice := util.SplitIn3OnDelimiter(k8sName, ".")
+
+	packagePath := strings.ReplaceAll(parsedPkgSlice[1], ".", "/")
+	if err := util.ValidPkgObjName(parsedPkgSlice[0], packagePath, parsedPkgSlice[2]); err != nil {
+		return PackageKey{}, err
+	}
+
+	return PackageKey{
+		RepoKey: RepositoryKey{
+			Namespace: k8sNamespace,
+			Name:      parsedPkgSlice[0],
+		},
+		Path:    packagePath,
+		Package: parsedPkgSlice[2],
+	}, nil
 }
 
 func (k PackageKey) String() string {
@@ -135,7 +177,7 @@ func FromFullPathname(repoKey RepositoryKey, fullpath string) PackageKey {
 	}
 }
 
-func (k PackageKey) GetRepositoryKey() RepositoryKey {
+func (k PackageKey) RKey() RepositoryKey {
 	return k.RepoKey
 }
 
@@ -271,11 +313,8 @@ type PackageRevisionDraft interface {
 type ListPackageRevisionFilter struct {
 	Key PackageRevisionKey
 
-	// KubeObjectName matches the generated kubernetes object name.
-	KubeObjectName string
-
 	// Lifecycle matches the spec.lifecycle of the package
-	Lifecycle v1alpha1.PackageRevisionLifecycle
+	Lifecycles []v1alpha1.PackageRevisionLifecycle
 }
 
 // Matches returns true if the provided PackageRevision satisfies the conditions in the filter.
@@ -284,10 +323,7 @@ func (f *ListPackageRevisionFilter) Matches(ctx context.Context, p PackageRevisi
 		return false
 	}
 
-	if f.KubeObjectName != "" && f.KubeObjectName != p.KubeObjectName() {
-		return false
-	}
-	if f.Lifecycle != "" && f.Lifecycle != p.Lifecycle(ctx) {
+	if len(f.Lifecycles) > 0 && !slices.Contains(f.Lifecycles, p.Lifecycle(ctx)) {
 		return false
 	}
 	return true
@@ -296,22 +332,12 @@ func (f *ListPackageRevisionFilter) Matches(ctx context.Context, p PackageRevisi
 // ListPackageFilter is a predicate for filtering Package objects;
 // only matching Package objects will be returned.
 type ListPackageFilter struct {
-	// KubeObjectName matches the generated kubernetes object name.
-	KubeObjectName string
-
-	// Package matches the name of the package (spec.package)
-	Package string
+	Key PackageKey
 }
 
 // Matches returns true if the provided Package satisfies the conditions in the filter.
 func (f *ListPackageFilter) Matches(p Package) bool {
-	if f.Package != "" && f.Package != p.Key().Package {
-		return false
-	}
-	if f.KubeObjectName != "" && f.KubeObjectName != p.KubeObjectName() {
-		return false
-	}
-	return true
+	return f.Key.Matches(p.Key())
 }
 
 // Repository is the interface for interacting with packages in repositories

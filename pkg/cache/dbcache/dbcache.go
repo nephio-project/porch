@@ -102,7 +102,7 @@ func (c *dbCache) CloseRepository(ctx context.Context, repositorySpec *configapi
 
 	dbRepo, ok := c.repositories[repoKey]
 	if !ok {
-		return fmt.Errorf("dbcache.CloseRepository: repo %q not found", repoKey.String())
+		return fmt.Errorf("dbcache.CloseRepository: repo %+v not found", repoKey)
 	}
 
 	return dbRepo.Close(ctx)

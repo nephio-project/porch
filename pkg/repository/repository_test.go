@@ -94,13 +94,13 @@ func TestPackageKey(t *testing.T) {
 	}
 	pkgKey.RepoKey = testRepoKey
 	assert.Equal(t, pkgKey, FromFullPathname(testRepoKey, pkgKey.ToPkgPathname()))
-	assert.Equal(t, pkgKey, FromFullPathname(pkgKey.GetRepositoryKey(), pkgKey.ToPkgPathname()))
+	assert.Equal(t, pkgKey, FromFullPathname(pkgKey.RKey(), pkgKey.ToPkgPathname()))
 
 	pkgKey.RepoKey = RepositoryKey{}
-	assert.Equal(t, pkgKey, FromFullPathname(pkgKey.GetRepositoryKey(), pkgKey.ToPkgPathname()))
+	assert.Equal(t, pkgKey, FromFullPathname(pkgKey.RKey(), pkgKey.ToPkgPathname()))
 
 	pkgKey.Path = ""
-	assert.Equal(t, pkgKey, FromFullPathname(pkgKey.GetRepositoryKey(), pkgKey.ToPkgPathname()))
+	assert.Equal(t, pkgKey, FromFullPathname(pkgKey.RKey(), pkgKey.ToPkgPathname()))
 
 	copiedPkgKey := PackageKey{}
 	pkgKey.DeepCopy(&copiedPkgKey)
@@ -134,7 +134,7 @@ func TestPackageRevisionKey(t *testing.T) {
 		Package: "package-name",
 	}
 	pkgRevKey.PkgKey = testPkgKey
-	assert.Equal(t, testPkgKey, pkgRevKey.GetPackageKey())
+	assert.Equal(t, testPkgKey, pkgRevKey.PKey())
 
 	testRepoKey := RepositoryKey{
 		Namespace:         "ns",
@@ -143,7 +143,7 @@ func TestPackageRevisionKey(t *testing.T) {
 		PlaceholderWSname: "ws-name",
 	}
 	pkgRevKey.PkgKey.RepoKey = testRepoKey
-	assert.Equal(t, testRepoKey, pkgRevKey.GetRepositoryKey())
+	assert.Equal(t, testRepoKey, pkgRevKey.RKey())
 
 	copiedPkgRevKey := PackageRevisionKey{}
 	pkgRevKey.DeepCopy(&copiedPkgRevKey)

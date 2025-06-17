@@ -22,7 +22,6 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/builtins"
 	"github.com/nephio-project/porch/pkg/objects"
-	"github.com/nephio-project/porch/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -34,14 +33,15 @@ type PackageFetcher struct {
 	ReferenceResolver ReferenceResolver
 }
 
-func (p *PackageFetcher) FetchRevision(ctx context.Context, packageRef *api.PackageRevisionRef, namespace string) (PackageRevision, error) {
-	repoName, err := util.ParsePkgRevObjNameField(packageRef.Name, 0)
+func (p *PackageFetcher) FetchRevision(ctx context.Context, packageRevisionRef *api.PackageRevisionRef, namespace string) (PackageRevision, error) {
+	prKey, err := PkgRevK8sName2Key(namespace, packageRevisionRef.Name)
 	if err != nil {
 		return nil, err
 	}
+
 	var resolved configapi.Repository
-	if err := p.ReferenceResolver.ResolveReference(ctx, namespace, repoName, &resolved); err != nil {
-		return nil, fmt.Errorf("cannot find repository %s/%s: %w", namespace, repoName, err)
+	if err := p.ReferenceResolver.ResolveReference(ctx, namespace, prKey.RKey().Name, &resolved); err != nil {
+		return nil, fmt.Errorf("cannot find repository %+v: %w", prKey.RKey(), err)
 	}
 
 	repo, err := p.RepoOpener.OpenRepository(ctx, &resolved)
@@ -49,34 +49,27 @@ func (p *PackageFetcher) FetchRevision(ctx context.Context, packageRef *api.Pack
 		return nil, err
 	}
 
-	revisions, err := repo.ListPackageRevisions(ctx, ListPackageRevisionFilter{KubeObjectName: packageRef.Name})
+	revisions, err := repo.ListPackageRevisions(ctx, ListPackageRevisionFilter{Key: prKey})
 	if err != nil {
 		return nil, err
 	}
 
-	var revision PackageRevision
-	for _, rev := range revisions {
-		if rev.KubeObjectName() == packageRef.Name {
-			revision = rev
-			break
-		}
-	}
-	if revision == nil {
-		return nil, fmt.Errorf("cannot find package revision %q", packageRef.Name)
+	if len(revisions) != 1 {
+		return nil, fmt.Errorf("cannot find package revision %q", packageRevisionRef.Name)
 	}
 
-	return revision, nil
+	return revisions[0], nil
 }
 
-func (p *PackageFetcher) FetchResources(ctx context.Context, packageRef *api.PackageRevisionRef, namespace string) (*api.PackageRevisionResources, error) {
-	revision, err := p.FetchRevision(ctx, packageRef, namespace)
+func (p *PackageFetcher) FetchResources(ctx context.Context, packageRevisionRef *api.PackageRevisionRef, namespace string) (*api.PackageRevisionResources, error) {
+	revision, err := p.FetchRevision(ctx, packageRevisionRef, namespace)
 	if err != nil {
 		return nil, err
 	}
 
 	resources, err := revision.GetResources(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("cannot read contents of package %q: %w", packageRef.Name, err)
+		return nil, fmt.Errorf("cannot read contents of package %q: %w", packageRevisionRef.Name, err)
 	}
 	return resources, nil
 }

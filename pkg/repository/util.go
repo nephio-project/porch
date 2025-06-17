@@ -91,11 +91,11 @@ func Revision2Str(revision int) string {
 }
 
 func ComposePkgObjName(key PackageKey) string {
-	return util.ComposePkgObjName(key.RepoKey.Name, key.Path, key.Package)
+	return util.ComposePkgObjName(key.RKey().Name, key.Path, key.Package)
 }
 
 func ComposePkgRevObjName(key PackageRevisionKey) string {
-	return util.ComposePkgRevObjName(key.PkgKey.RepoKey.Name, key.PkgKey.Path, key.PkgKey.Package, key.WorkspaceName)
+	return util.ComposePkgRevObjName(key.RKey().Name, key.PKey().Path, key.PKey().Package, key.WorkspaceName)
 }
 
 func PrSlice2Map(prSlice []PackageRevision) map[PackageRevisionKey]PackageRevision {

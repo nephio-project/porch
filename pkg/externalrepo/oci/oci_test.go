@@ -72,7 +72,7 @@ func TestPackageGettersAndSetters(t *testing.T) {
 	assert.Equal(t, types.UID("fd358d1c-04bc-5038-9727-044129e97880"), fakePr.UID())
 
 	inMeta := metav1.ObjectMeta{}
-	inMeta.Name = fakePr.Key().GetPackageKey().RepoKey.Name
+	inMeta.Name = fakePr.Key().RKey().Name
 
 	err := fakePr.SetMeta(context.TODO(), inMeta)
 	assert.Equal(t, nil, err)

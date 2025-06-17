@@ -53,7 +53,7 @@ func (pr *dbPackageRevision) KubeObjectName() string {
 }
 
 func (pr *dbPackageRevision) KubeObjectNamespace() string {
-	return pr.Key().GetPackageKey().GetRepositoryKey().Namespace
+	return pr.Key().RKey().Namespace
 }
 
 func (pr *dbPackageRevision) UID() types.UID {
@@ -65,7 +65,7 @@ func (pr *dbPackageRevision) Key() repository.PackageRevisionKey {
 }
 
 func (pr *dbPackageRevision) GetName() string {
-	return pr.Key().GetPackageKey().Package
+	return pr.Key().PKey().Package
 }
 
 func (pr *dbPackageRevision) savePackageRevision(ctx context.Context) (*dbPackageRevision, error) {
@@ -187,7 +187,7 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            readPr.KubeObjectName(),
-			Namespace:       readPr.Key().GetPackageKey().GetRepositoryKey().Namespace,
+			Namespace:       readPr.Key().RKey().Namespace,
 			UID:             readPr.UID(),
 			ResourceVersion: readPr.ResourceVersion(),
 			CreationTimestamp: metav1.Time{
@@ -195,8 +195,8 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 			},
 		},
 		Spec: v1alpha1.PackageRevisionSpec{
-			PackageName:    readPr.Key().GetPackageKey().Package,
-			RepositoryName: readPr.Key().GetPackageKey().GetRepositoryKey().Name,
+			PackageName:    readPr.Key().PKey().Package,
+			RepositoryName: readPr.Key().RKey().Name,
 			Lifecycle:      readPr.Lifecycle(ctx),
 			Tasks:          nil,
 			ReadinessGates: repository.ToApiReadinessGates(kf),
@@ -211,12 +211,13 @@ func (pr *dbPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 	_, span := tracer.Start(ctx, "dbPackageRevision::GetResources", trace.WithAttributes())
 	defer span.End()
 
-	readPr, err := pkgRevReadFromDB(ctx, pr.Key())
+	resources, err := pkgRevResourcesReadFromDB(ctx, pr.pkgRevKey)
 	if err != nil {
-		return nil, fmt.Errorf("package revision read on DB failed %q, %q", pr.Key().String(), err)
+		klog.Infof("pkgRevScanRowsFromDB: reading package revision %q resources returned err: %q", pr.pkgRevKey, err)
+		return nil, err
 	}
 
-	key := readPr.Key()
+	klog.Infof("pkgRevScanRowsFromDB: reading package revision resources succeeded %q", pr.pkgRevKey)
 
 	return &v1alpha1.PackageRevisionResources{
 		TypeMeta: metav1.TypeMeta{
@@ -224,21 +225,21 @@ func (pr *dbPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 			APIVersion: v1alpha1.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            readPr.KubeObjectName(),
-			Namespace:       readPr.Key().GetPackageKey().GetRepositoryKey().Namespace,
-			UID:             readPr.UID(),
-			ResourceVersion: readPr.ResourceVersion(),
+			Name:            pr.KubeObjectName(),
+			Namespace:       pr.Key().RKey().Namespace,
+			UID:             pr.UID(),
+			ResourceVersion: pr.ResourceVersion(),
 			CreationTimestamp: metav1.Time{
-				Time: readPr.updated,
+				Time: pr.updated,
 			},
 			OwnerReferences: []metav1.OwnerReference{}, // TODO: should point to repository resource
 		},
 		Spec: v1alpha1.PackageRevisionResourcesSpec{
-			PackageName:    key.GetPackageKey().Package,
-			WorkspaceName:  key.WorkspaceName,
-			Revision:       key.Revision,
-			RepositoryName: key.GetPackageKey().GetRepositoryKey().Name,
-			Resources:      readPr.resources,
+			PackageName:    pr.Key().PKey().Package,
+			WorkspaceName:  pr.Key().WorkspaceName,
+			Revision:       pr.Key().Revision,
+			RepositoryName: pr.Key().RKey().Name,
+			Resources:      resources,
 		},
 	}, nil
 }
@@ -250,7 +251,7 @@ func (pr *dbPackageRevision) GetUpstreamLock(context.Context) (kptfile.Upstream,
 func (pr *dbPackageRevision) ToMainPackageRevision(ctx context.Context) repository.PackageRevision {
 	_, span := tracer.Start(ctx, "dbPackageRevision::SetMeta", trace.WithAttributes())
 	defer span.End()
-	klog.Infof("ToMainPackageRevision: %q, main package revisions are not required when using the DB cache", pr.Key().GetPackageKey().Package)
+	klog.Infof("ToMainPackageRevision: %q, main package revisions are not required when using the DB cache", pr.Key().PKey().Package)
 	return nil
 }
 

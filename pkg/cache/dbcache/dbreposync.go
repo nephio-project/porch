@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
@@ -90,13 +91,19 @@ func (s *repositorySync) sync(ctx context.Context) error {
 	_, span := tracer.Start(ctx, "[START]::Repository::syncOnce", trace.WithAttributes())
 	defer span.End()
 
-	cachedPrList, err := s.repo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
+	deployedFilter := repository.ListPackageRevisionFilter{
+		Lifecycles: []api.PackageRevisionLifecycle{
+			api.PackageRevisionLifecyclePublished,
+			api.PackageRevisionLifecycleDeletionProposed,
+		},
+	}
+	cachedPrList, err := s.repo.ListPackageRevisions(ctx, deployedFilter)
 	if err != nil {
 		klog.Errorf("repositorySync %+v: failed to list cached package revisions", s.repo.Key())
 		return err
 	}
 
-	klog.Infof("repositorySync %+v: found %d package revisions in cached repository", s.repo.Key(), len(cachedPrList))
+	klog.Infof("repositorySync %+v: found %d deployed package revisions in cached repository", s.repo.Key(), len(cachedPrList))
 	cachedPrMap := repository.PrSlice2Map(cachedPrList)
 
 	externalPRList, err := s.repo.externalRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
@@ -111,6 +118,37 @@ func (s *repositorySync) sync(ctx context.Context) error {
 	inCachedOnly, inBoth, inExternalOnly := s.comparePRMaps(ctx, cachedPrMap, externalPrMap)
 	klog.Infof("repositorySync %+v: found %d cached, %d in both, %d external", s.repo.Key(), len(inCachedOnly), len(inBoth), len(inExternalOnly))
 
+	if err = s.deletePRsOnlyInCache(ctx, externalPrMap, inExternalOnly); err != nil {
+		return err
+	}
+
+	return s.cacheExternalPRs(ctx, externalPrMap, inExternalOnly)
+}
+
+func (s *repositorySync) comparePRMaps(ctx context.Context, leftMap, rightMap map[repository.PackageRevisionKey]repository.PackageRevision) (leftOnly, both, rightOnly []repository.PackageRevisionKey) {
+	_, span := tracer.Start(ctx, "[START]::Repository::syncOnce", trace.WithAttributes())
+	defer span.End()
+
+	var inLeftOnly, inBoth, inRightOnly []repository.PackageRevisionKey
+
+	for leftPrKey := range leftMap {
+		if _, ok := rightMap[leftPrKey]; ok {
+			inBoth = append(inBoth, leftPrKey)
+		} else {
+			inLeftOnly = append(inLeftOnly, leftPrKey)
+		}
+	}
+
+	for rightPrKey := range rightMap {
+		if _, ok := leftMap[rightPrKey]; !ok {
+			inRightOnly = append(inRightOnly, rightPrKey)
+		}
+	}
+
+	return inLeftOnly, inBoth, inRightOnly
+}
+
+func (s *repositorySync) cacheExternalPRs(ctx context.Context, externalPrMap map[repository.PackageRevisionKey]repository.PackageRevision, inExternalOnly []repository.PackageRevisionKey) error {
 	for _, extPRKey := range inExternalOnly {
 		extPR := externalPrMap[extPRKey]
 
@@ -146,25 +184,14 @@ func (s *repositorySync) sync(ctx context.Context) error {
 	return nil
 }
 
-func (s *repositorySync) comparePRMaps(ctx context.Context, leftMap, rightMap map[repository.PackageRevisionKey]repository.PackageRevision) (leftOnly, both, rightOnly []repository.PackageRevisionKey) {
-	_, span := tracer.Start(ctx, "[START]::Repository::syncOnce", trace.WithAttributes())
-	defer span.End()
+func (s *repositorySync) deletePRsOnlyInCache(ctx context.Context, cachedPrMap map[repository.PackageRevisionKey]repository.PackageRevision, inCachedOnly []repository.PackageRevisionKey) error {
+	for _, dbPRKey := range inCachedOnly {
+		dbPR := cachedPrMap[dbPRKey]
 
-	var inLeftOnly, inBoth, inRightOnly []repository.PackageRevisionKey
-
-	for leftPrKey := range leftMap {
-		if _, ok := rightMap[leftPrKey]; ok {
-			inBoth = append(inBoth, leftPrKey)
-		} else {
-			inLeftOnly = append(inLeftOnly, leftPrKey)
+		if err := s.repo.DeletePackageRevision(ctx, dbPR); err != nil {
+			klog.Errorf("repositorySync %+v: failed to delete cached PR %+v not in external repo", s.repo.Key(), dbPRKey)
+			return err
 		}
 	}
-
-	for rightPrKey := range rightMap {
-		if _, ok := leftMap[rightPrKey]; !ok {
-			inRightOnly = append(inRightOnly, rightPrKey)
-		}
-	}
-
-	return inLeftOnly, inBoth, inRightOnly
+	return nil
 }

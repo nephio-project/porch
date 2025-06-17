@@ -188,7 +188,7 @@ func TestDeletePublishedMain(t *testing.T) {
 			WorkspaceName: "main",
 			Revision:      -1,
 		},
-		Lifecycle: api.PackageRevisionLifecyclePublished,
+		Lifecycles: []api.PackageRevisionLifecycle{api.PackageRevisionLifecyclePublished},
 	})
 	if err != nil {
 		t.Fatalf("ListPackageRevisions failed: %v", err)
@@ -223,7 +223,7 @@ func TestDeletePublishedMain(t *testing.T) {
 			WorkspaceName: "main",
 			Revision:      -1,
 		},
-		Lifecycle: api.PackageRevisionLifecyclePublished,
+		Lifecycles: []api.PackageRevisionLifecycle{api.PackageRevisionLifecyclePublished},
 	})
 
 	if err != nil {

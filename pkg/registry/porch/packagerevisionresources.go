@@ -23,7 +23,6 @@ import (
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
-	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
@@ -121,12 +120,12 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::Update", trace.WithAttributes())
 	defer span.End()
 
-	ns, namespaced := genericapirequest.NamespaceFrom(ctx)
+	namespace, namespaced := genericapirequest.NamespaceFrom(ctx)
 	if !namespaced {
 		return nil, false, apierrors.NewBadRequest("namespace must be specified")
 	}
 
-	pkgMutexKey := getPackageMutexKey(ns, name)
+	pkgMutexKey := getPackageMutexKey(namespace, name)
 	pkgMutex := getMutexForPackage(pkgMutexKey)
 	locked := pkgMutex.TryLock()
 	if !locked {
@@ -167,13 +166,13 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 		}
 	}
 
-	repoName, err := util.ParsePkgRevObjNameField(name, 0)
+	prKey, err := repository.PkgRevK8sName2Key(namespace, name)
 	if err != nil {
-		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("invalid name %q", name))
+		return nil, false, err
 	}
 
 	var repositoryObj v1alpha1.Repository
-	repositoryID := types.NamespacedName{Namespace: ns, Name: repoName}
+	repositoryID := types.NamespacedName{Namespace: prKey.RKey().Namespace, Name: prKey.RKey().Name}
 	if err := r.coreClient.Get(ctx, repositoryID, &repositoryObj); err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil, false, apierrors.NewNotFound(schema.GroupResource(api.PackageRevisionResourcesGVR.GroupResource()), repositoryID.Name)

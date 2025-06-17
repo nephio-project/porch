@@ -112,6 +112,10 @@ func TestPackageRevisionDBWriteRead(t *testing.T) {
 }
 
 func TestPackageRevisionLatest(t *testing.T) {
+	mockCache := mockcachetypes.NewMockCache(t)
+	cachetypes.CacheInstance = mockCache
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{})
+
 	dbRepo := createTestRepo(t, "my-ns", "my-repo")
 	dbPkg := createTestPkg(t, dbRepo.Key(), "my-package")
 	dbPkg.repo = &dbRepo
@@ -139,6 +143,11 @@ func TestPackageRevisionLatest(t *testing.T) {
 
 	latestPR, err := pkgRevReadLatestPRFromDB(context.TODO(), dbPR1.pkgRevKey.PkgKey)
 	assert.Nil(t, err)
+
+	resources, err := pkgRevResourcesReadFromDB(context.TODO(), latestPR.Key())
+	assert.Nil(t, err)
+
+	latestPR.resources = resources
 	assertPackageRevsEqual(t, &dbPR1, latestPR)
 
 	dbPR2 := dbPackageRevision{
@@ -363,6 +372,10 @@ func TestPackageRevisionDBSchema(t *testing.T) {
 }
 
 func TestMultiPackageRevisionRepo(t *testing.T) {
+	mockCache := mockcachetypes.NewMockCache(t)
+	cachetypes.CacheInstance = mockCache
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{})
+
 	dbRepo11 := createTestRepo(t, "my-ns1", "my-repo1")
 	dbRepo12 := createTestRepo(t, "my-ns1", "my-repo2")
 	dbRepo21 := createTestRepo(t, "my-ns2", "my-repo1")
@@ -404,6 +417,52 @@ func TestMultiPackageRevisionRepo(t *testing.T) {
 	assert.Equal(t, 0, len(readRepoPkgPRs(t, dbRepo22Pkgs)))
 }
 
+func TestMultiPackageRevisionList(t *testing.T) {
+	mockCache := mockcachetypes.NewMockCache(t)
+	cachetypes.CacheInstance = mockCache
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{})
+
+	dbRepo11 := createTestRepo(t, "my-ns1", "my-repo1")
+	dbRepo12 := createTestRepo(t, "my-ns1", "my-repo2")
+	dbRepo21 := createTestRepo(t, "my-ns2", "my-repo1")
+	dbRepo22 := createTestRepo(t, "my-ns2", "my-repo2")
+
+	dbRepo11Pkgs := createTestPkgs(t, dbRepo11.Key(), "my-package", 4)
+	dbRepo12Pkgs := createTestPkgs(t, dbRepo12.Key(), "my-package", 4)
+	dbRepo21Pkgs := createTestPkgs(t, dbRepo21.Key(), "my-package", 4)
+	dbRepo22Pkgs := createTestPkgs(t, dbRepo22.Key(), "my-package", 4)
+
+	dbRepo11PkgsPRs := createTestPRs(t, dbRepo11Pkgs, "my-ws", 4)
+	dbRepo12PkgsPRs := createTestPRs(t, dbRepo12Pkgs, "my-ws", 4)
+	dbRepo21PkgsPRs := createTestPRs(t, dbRepo21Pkgs, "my-ws", 4)
+	dbRepo22PkgsPRs := createTestPRs(t, dbRepo22Pkgs, "my-ws", 4)
+
+	listRepo11PkgsPRs := listRepoPkgPRs(t, dbRepo11Pkgs)
+	listRepo12PkgsPRs := listRepoPkgPRs(t, dbRepo12Pkgs)
+	listRepo21PkgsPRs := listRepoPkgPRs(t, dbRepo21Pkgs)
+	listRepo22PkgsPRs := listRepoPkgPRs(t, dbRepo22Pkgs)
+
+	assertPackageRevListsEqual(t, dbRepo11PkgsPRs, listRepo11PkgsPRs, 16)
+	assertPackageRevListsEqual(t, dbRepo12PkgsPRs, listRepo12PkgsPRs, 16)
+	assertPackageRevListsEqual(t, dbRepo21PkgsPRs, listRepo21PkgsPRs, 16)
+	assertPackageRevListsEqual(t, dbRepo22PkgsPRs, listRepo22PkgsPRs, 16)
+
+	assertPackageRevLatestIs(t, 4, listRepo11PkgsPRs)
+	assertPackageRevLatestIs(t, 4, listRepo12PkgsPRs)
+	assertPackageRevLatestIs(t, 4, listRepo21PkgsPRs)
+	assertPackageRevLatestIs(t, 4, listRepo22PkgsPRs)
+
+	deleteTestRepo(t, dbRepo11.Key())
+	deleteTestRepo(t, dbRepo12.Key())
+	deleteTestRepo(t, dbRepo21.Key())
+	deleteTestRepo(t, dbRepo22.Key())
+
+	assert.Equal(t, 0, len(readRepoPkgPRs(t, dbRepo11Pkgs)))
+	assert.Equal(t, 0, len(readRepoPkgPRs(t, dbRepo12Pkgs)))
+	assert.Equal(t, 0, len(readRepoPkgPRs(t, dbRepo21Pkgs)))
+	assert.Equal(t, 0, len(readRepoPkgPRs(t, dbRepo22Pkgs)))
+}
+
 func pkgRevDBWriteReadTest(t *testing.T, dbRepo dbRepository, dbPkg dbPackage, dbPR, dbPRUpdate dbPackageRevision) {
 	err := pkgRevWriteToDB(context.TODO(), &dbPR)
 	assert.NotNil(t, err)
@@ -426,6 +485,12 @@ func pkgRevDBWriteReadTest(t *testing.T, dbRepo dbRepository, dbPkg dbPackage, d
 
 	readPR, err := pkgRevReadFromDB(context.TODO(), dbPR.Key())
 	assert.Nil(t, err)
+
+	resources, err := pkgRevResourcesReadFromDB(context.TODO(), readPR.Key())
+	assert.Nil(t, err)
+
+	readPR.resources = resources
+
 	assertPackageRevsEqual(t, &dbPR, readPR)
 
 	err = pkgRevWriteToDB(context.TODO(), &dbPRUpdate)
@@ -437,6 +502,12 @@ func pkgRevDBWriteReadTest(t *testing.T, dbRepo dbRepository, dbPkg dbPackage, d
 
 	readPR, err = pkgRevReadFromDB(context.TODO(), dbPR.Key())
 	assert.Nil(t, err)
+
+	resources, err = pkgRevResourcesReadFromDB(context.TODO(), readPR.Key())
+	assert.Nil(t, err)
+
+	readPR.resources = resources
+
 	assertPackageRevsEqual(t, &dbPRUpdate, readPR)
 
 	err = pkgRevDeleteFromDB(context.TODO(), dbPR.Key())
@@ -461,16 +532,35 @@ func pkgRevDBWriteReadTest(t *testing.T, dbRepo dbRepository, dbPkg dbPackage, d
 }
 
 func readRepoPkgPRs(t *testing.T, pkgs []dbPackage) []*dbPackageRevision {
-	var readRepo11PkgsPRs []*dbPackageRevision
+	var readRepoPkgsPRs []*dbPackageRevision
 
 	for _, pkg := range pkgs {
 		readPRs, err := pkgRevReadPRsFromDB(context.TODO(), pkg.Key())
 		assert.Nil(t, err)
 
-		readRepo11PkgsPRs = append(readRepo11PkgsPRs, readPRs...)
+		readRepoPkgsPRs = append(readRepoPkgsPRs, readPRs...)
 	}
 
-	return readRepo11PkgsPRs
+	return readRepoPkgsPRs
+}
+
+func listRepoPkgPRs(t *testing.T, pkgs []dbPackage) []*dbPackageRevision {
+	var listRepoPkgsPRs []*dbPackageRevision
+
+	for _, pkg := range pkgs {
+		prFilter := repository.ListPackageRevisionFilter{
+			Key: repository.PackageRevisionKey{
+				PkgKey: pkg.Key(),
+			},
+		}
+
+		listPRs, err := pkgRevListPRsFromDB(context.TODO(), prFilter)
+		assert.Nil(t, err)
+
+		listRepoPkgsPRs = append(listRepoPkgsPRs, listPRs...)
+	}
+
+	return listRepoPkgsPRs
 }
 
 func assertPackageRevListsEqual(t *testing.T, left []dbPackageRevision, right []*dbPackageRevision, count int) {
@@ -479,12 +569,21 @@ func assertPackageRevListsEqual(t *testing.T, left []dbPackageRevision, right []
 
 	leftMap := make(map[repository.PackageRevisionKey]*dbPackageRevision)
 	for _, leftPr := range left {
+		resources, err := pkgRevResourcesReadFromDB(context.TODO(), leftPr.Key())
+		assert.Nil(t, err)
+
+		leftPr.resources = resources
 		leftMap[leftPr.Key()] = &leftPr
 	}
 
 	rightMap := make(map[repository.PackageRevisionKey]*dbPackageRevision)
 	for _, rightPr := range right {
 		rightMap[rightPr.Key()] = rightPr
+
+		resources, err := pkgRevResourcesReadFromDB(context.TODO(), rightPr.Key())
+		assert.Nil(t, err)
+
+		rightPr.resources = resources
 	}
 
 	for leftKey, leftPr := range leftMap {

@@ -229,6 +229,7 @@ func TestCreatePackageRevisionRollback(t *testing.T) {
 				f.mockRepo.On("ClosePackageRevisionDraft", mock.Anything, mock.Anything, mock.Anything).Return(mockPkgRev, nil)
 				f.mockRepo.On("DeletePackageRevision", mock.Anything, mock.Anything).Return(nil)
 				f.mockRepo.On("Close", mock.Anything).Return(nil)
+				f.mockRepo.On("Key", mock.Anything).Return(repository.RepositoryKey{})
 
 				f.mockTaskHandler.On("ApplyTasks", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(fmt.Errorf("task application failed"))
 			},
@@ -246,6 +247,7 @@ func TestCreatePackageRevisionRollback(t *testing.T) {
 				f.mockRepo.On("ClosePackageRevisionDraft", mock.Anything, mock.Anything, mock.Anything).Return(mockPkgRev, nil)
 				f.mockRepo.On("DeletePackageRevision", mock.Anything, mock.Anything).Return(nil)
 				f.mockRepo.On("Close", mock.Anything).Return(nil)
+				f.mockRepo.On("Key", mock.Anything).Return(repository.RepositoryKey{})
 
 				f.mockTaskHandler.On("ApplyTasks", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			},
@@ -262,6 +264,7 @@ func TestCreatePackageRevisionRollback(t *testing.T) {
 				f.mockRepo.On("CreatePackageRevisionDraft", mock.Anything, mock.Anything).Return(mockDraft, nil)
 				f.mockRepo.On("ClosePackageRevisionDraft", mock.Anything, mock.Anything, mock.Anything).Return(mockPkgRev, fmt.Errorf("close failed"))
 				f.mockRepo.On("Close", mock.Anything).Return(nil)
+				f.mockRepo.On("Key", mock.Anything).Return(repository.RepositoryKey{})
 
 				f.mockTaskHandler.On("ApplyTasks", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			},

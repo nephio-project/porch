@@ -113,9 +113,10 @@ func TestApplyErrorInsvalidUpstream(t *testing.T) {
 	}
 
 	mutation := &updatePackageMutation{
-		cloneTask:  cloneTask,
-		updateTask: updateTask,
-		pkgName:    "test-package",
+		cloneTask:         cloneTask,
+		updateTask:        updateTask,
+		pkgName:           "test-package",
+		referenceResolver: &fakeReferenceResolver{},
 	}
 
 	_, _, err := mutation.apply(ctx, resources)

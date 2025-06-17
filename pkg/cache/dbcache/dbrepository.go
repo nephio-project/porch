@@ -125,24 +125,9 @@ func (r *dbRepository) ListPackageRevisions(ctx context.Context, filter reposito
 
 	klog.Infof("DB Repo ListPackageRevisions: %q", r.Key().String())
 
-	pkgs, err := pkgReadPkgsFromDB(ctx, r.Key())
+	foundPkgRevs, err := pkgRevListPRsFromDB(ctx, filter)
 	if err != nil {
 		return nil, err
-	}
-
-	var foundPkgRevs []*dbPackageRevision
-
-	for _, pkg := range pkgs {
-		pkgRevs, err := pkgRevReadPRsFromDB(ctx, pkg.Key())
-		if err != nil {
-			return nil, err
-		}
-
-		for _, pkgRev := range pkgRevs {
-			if filter.Matches(ctx, pkgRev) {
-				foundPkgRevs = append(foundPkgRevs, pkgRev)
-			}
-		}
 	}
 
 	genericPkgRevs := make([]repository.PackageRevision, len(foundPkgRevs))
@@ -188,7 +173,7 @@ func (r *dbRepository) DeletePackageRevision(ctx context.Context, old repository
 
 	pk := repository.PackageKey{
 		RepoKey: r.Key(),
-		Package: old.Key().GetPackageKey().Package,
+		Package: old.Key().PKey().Package,
 	}
 
 	foundPkg, err := pkgReadFromDB(ctx, pk)
@@ -314,7 +299,7 @@ func (r *dbRepository) savePackageRevision(ctx context.Context, d *dbPackageRevi
 	_, span := tracer.Start(ctx, "dbRepository::savePackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	dbPkg, err := pkgReadFromDB(ctx, d.Key().GetPackageKey())
+	dbPkg, err := pkgReadFromDB(ctx, d.Key().PKey())
 	if err != nil {
 		if err != sql.ErrNoRows {
 			return nil, err
@@ -322,7 +307,7 @@ func (r *dbRepository) savePackageRevision(ctx context.Context, d *dbPackageRevi
 
 		dbPkg = &dbPackage{
 			repo:      r,
-			pkgKey:    d.Key().GetPackageKey(),
+			pkgKey:    d.Key().PKey(),
 			updated:   d.updated,
 			updatedBy: d.updatedBy,
 		}
@@ -372,9 +357,7 @@ func (r *dbRepository) getExternalPr(ctx context.Context, prKey repository.Packa
 	_, span := tracer.Start(ctx, "dbRepository::getExternalPr", trace.WithAttributes())
 	defer span.End()
 
-	filter := repository.ListPackageRevisionFilter{
-		Key: prKey,
-	}
+	filter := repository.ListPackageRevisionFilter{Key: prKey}
 
 	prList, err := r.externalRepo.ListPackageRevisions(ctx, filter)
 

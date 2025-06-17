@@ -284,7 +284,7 @@ func (c *ociPackageRevision) KubeObjectName() string {
 }
 
 func (c *ociPackageRevision) KubeObjectNamespace() string {
-	return c.Key().PkgKey.RepoKey.Namespace
+	return c.Key().RKey().Namespace
 }
 
 func (c *ociPackageRevision) UID() types.UID {
@@ -317,7 +317,7 @@ func (p *ociPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 			PackageName:    key.PkgKey.Package,
 			WorkspaceName:  key.WorkspaceName,
 			Revision:       key.Revision,
-			RepositoryName: key.PkgKey.RepoKey.Name,
+			RepositoryName: key.RKey().Name,
 
 			Resources: resources.Contents,
 		},
@@ -359,7 +359,7 @@ func (p *ociPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 		},
 		Spec: v1alpha1.PackageRevisionSpec{
 			PackageName:    key.PkgKey.Package,
-			RepositoryName: key.PkgKey.RepoKey.Name,
+			RepositoryName: key.RKey().Name,
 			Revision:       key.Revision,
 			WorkspaceName:  key.WorkspaceName,
 
