@@ -861,8 +861,8 @@ func (t *TestSuite) MustFindPackageRevision(packages *porchapi.PackageRevisionLi
 	t.T().Helper()
 	for i := range packages.Items {
 		pr := &packages.Items[i]
-		if pr.Spec.RepositoryName == name.PkgKey.RepoKey.Name &&
-			pr.Spec.PackageName == name.PkgKey.Package &&
+		if pr.Spec.RepositoryName == name.RKey().Name &&
+			pr.Spec.PackageName == name.PKey().Package &&
 			pr.Spec.Revision == name.Revision {
 			return pr
 		}

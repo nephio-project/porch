@@ -149,6 +149,10 @@ func TestPackageDBSchema(t *testing.T) {
 }
 
 func TestMultiPackageRepo(t *testing.T) {
+	mockCache := mockcachetypes.NewMockCache(t)
+	cachetypes.CacheInstance = mockCache
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{})
+
 	dbRepo11 := createTestRepo(t, "my-ns1", "my-repo1")
 	dbRepo12 := createTestRepo(t, "my-ns1", "my-repo2")
 	dbRepo21 := createTestRepo(t, "my-ns2", "my-repo1")
@@ -233,8 +237,21 @@ func assertPackageListsEqual(t *testing.T, left []dbPackage, right []*dbPackage,
 	assert.Equal(t, count, len(left))
 	assert.Equal(t, count, len(right))
 
-	for i := range count {
-		assertPackagesEqual(t, &left[i], right[i])
+	leftMap := make(map[repository.PackageKey]*dbPackage)
+	for _, leftPkg := range left {
+		leftMap[leftPkg.Key()] = &leftPkg
+	}
+
+	rightMap := make(map[repository.PackageKey]*dbPackage)
+	for _, rightPkg := range right {
+		rightMap[rightPkg.Key()] = rightPkg
+	}
+
+	for leftKey, leftPkg := range leftMap {
+		rightPkg, ok := rightMap[leftKey]
+		assert.True(t, ok)
+
+		assertPackagesEqual(t, leftPkg, rightPkg)
 	}
 }
 

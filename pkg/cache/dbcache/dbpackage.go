@@ -44,7 +44,7 @@ func (p *dbPackage) KubeObjectName() string {
 }
 
 func (p *dbPackage) KubeObjectNamespace() string {
-	return p.Key().GetRepositoryKey().Namespace
+	return p.Key().RKey().Namespace
 }
 
 func (p *dbPackage) UID() types.UID {
@@ -73,7 +73,7 @@ func (p *dbPackage) savePackage(ctx context.Context) (*dbPackage, error) {
 
 	p.spec = &v1alpha1.PackageSpec{
 		PackageName:    p.pkgKey.Package,
-		RepositoryName: p.Key().GetRepositoryKey().Name,
+		RepositoryName: p.Key().RKey().Name,
 	}
 
 	return p, pkgWriteToDB(ctx, p)
@@ -92,7 +92,7 @@ func (p *dbPackage) GetPackage(ctx context.Context) *v1alpha1.PorchPackage {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            p.KubeObjectName(),
-			Namespace:       p.Key().GetRepositoryKey().Namespace,
+			Namespace:       p.Key().RKey().Namespace,
 			UID:             p.UID(),
 			ResourceVersion: "undefined",
 			CreationTimestamp: metav1.Time{
@@ -101,7 +101,7 @@ func (p *dbPackage) GetPackage(ctx context.Context) *v1alpha1.PorchPackage {
 		},
 		Spec: v1alpha1.PackageSpec{
 			PackageName:    key.Package,
-			RepositoryName: key.GetRepositoryKey().Name,
+			RepositoryName: key.RKey().Name,
 		},
 		Status: v1alpha1.PackageStatus{
 			LatestRevision: p.GetLatestRevision(ctx),

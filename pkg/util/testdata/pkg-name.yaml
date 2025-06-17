@@ -1,143 +1,143 @@
 64 characters long:
   repo: abcedfhglaasdkfuaweoihfjghldhsgufhgaakjsdhaflkasdjflksadjfsalsdk
-  dir: abcedfhglaasdkfuaweoihfjghldhsgufhgaakjsdhaflkasdjflksadjfsalsdk
+  path: abcedfhglaasdkfuaweoihfjghldhsgufhgaakjsdhaflkasdjflksadjfsalsdk
   pkg: abcedfhglaasdkfuaweoihfjghldhsgufhgaakjsdhaflkasdjflksadjfsalsdk
   ws: abcedfhglaasdkfuaweoihfjghldhsgufhgaakjsdhaflkasdjflksadjfsalsdk
   err: true
   prerrstring: ""
   repoerrstring: must be no more than 63 characters
-  direrrstring: must be no more than 63 characters
+  patherrstring: must be no more than 63 characters
   pkgerrstring: must be no more than 63 characters
   wserrstring: must be no more than 63 characters
 empty string:
   repo: ""
-  dir: ""
+  path: ""
   pkg: ""
   ws: ""
   err: true
   prerrstring: ""
   repoerrstring: must start and end with an alphanumeric character
-  direrrstring: ""
+  patherrstring: ""
   pkgerrstring: must start and end with an alphanumeric character
   wserrstring: must start and end with an alphanumeric character
 ends with -:
   repo: hello-
-  dir: hello-
+  path: hello-
   pkg: hello-
   ws: hello-
   err: true
   prerrstring: ""
   repoerrstring: and must start and end with an alphanumeric character
-  direrrstring: and must start and end with an alphanumeric character
+  patherrstring: and must start and end with an alphanumeric character
   pkgerrstring: and must start and end with an alphanumeric character
   wserrstring: and must start and end with an alphanumeric character
 first two 63 characters long:
   repo: abcedfhglaasdkfuaweoihfjghldhsgufhgaakjsdhaflkasdjflksadjfsalsk
-  dir: abcedfhglaasdkfuaweoihfjghldhsgufhgaakjsdhaflkasdjflksadjfsalsk
+  path: abcedfhglaasdkfuaweoihfjghldhsgufhgaakjsdhaflkasdjflksadjfsalsk
   pkg: abc
   ws: abc
   err: false
   prerrstring: ""
   repoerrstring: ""
-  direrrstring: ""
+  patherrstring: ""
   pkgerrstring: ""
   wserrstring: ""
 has - in the middle:
   repo: hel-lo-wor-ld
-  dir: hel-lo-wor-ld
+  path: hel-lo-wor-ld
   pkg: hel-lo-wor-ld
   ws: hel-lo-wor-ld
   err: false
   prerrstring: ""
   repoerrstring: ""
-  direrrstring: ""
+  patherrstring: ""
   pkgerrstring: ""
   wserrstring: ""
 has other characters:
   repo: hEzzo
-  dir: hel_o
+  path: hel_o
   pkg: hE^lo
   ws: hE(lo
   err: true
   prerrstring: ""
   repoerrstring: must consist of lower case alphanumeric characters
-  direrrstring: must consist of lower case alphanumeric characters
+  patherrstring: must consist of lower case alphanumeric characters
   pkgerrstring: must consist of lower case alphanumeric characters
   wserrstring: must consist of lower case alphanumeric characters
 has repeated dots:
   repo: he..lo
-  dir: he..lo
+  path: he..lo
   pkg: he..lo
   ws: he..lo
   err: true
   prerrstring: ""
   repoerrstring: must consist of lower case alphanumeric characters
-  direrrstring: must consist of lower case alphanumeric characters
+  patherrstring: must consist of lower case alphanumeric characters
   pkgerrstring: must consist of lower case alphanumeric characters
   wserrstring: must consist of lower case alphanumeric characters
 has repeated dots in composed:
   repo: hello
-  dir: /h/e/l/l/o/
+  path: /h/e/l/l/o/
   pkg: hello
   ws: hello
   err: false
   prerrstring: ""
   repoerrstring: ""
-  direrrstring: ""
+  patherrstring: ""
   pkgerrstring: ""
   wserrstring: ""
 has repeated slashes:
   repo: he//lo
-  dir: he//lo
+  path: he//lo
   pkg: he//lo
   ws: he//lo
   err: true
   prerrstring: ""
   repoerrstring: must consist of lower case alphanumeric characters
-  direrrstring: consecutive '/' characters are not allowed
-  pkgerrstring: consecutive '/' characters are not allowed
+  patherrstring: consecutive '/' characters are not allowed
+  pkgerrstring: must consist of lower case alphanumeric characters
   wserrstring: must consist of lower case alphanumeric characters
 has slashes:
   repo: he/lo
-  dir: he/lo
+  path: he/lo
   pkg: he/lo
   ws: he/lo
   err: true
   prerrstring: ""
   repoerrstring: must consist of lower case alphanumeric characters
-  direrrstring: ""
+  patherrstring: ""
   pkgerrstring: ""
   wserrstring: must consist of lower case alphanumeric characters
 has uppercase alphanumeric characters:
   repo: hElLo
-  dir: hElLo
+  path: hElLo
   pkg: hElLo
   ws: hElLo
   err: true
   prerrstring: ""
   repoerrstring: must consist of lower case alphanumeric characters
-  direrrstring: must consist of lower case alphanumeric characters
+  patherrstring: must consist of lower case alphanumeric characters
   pkgerrstring: must consist of lower case alphanumeric characters
   wserrstring: must consist of lower case alphanumeric characters
 last two 63 characters long:
   repo: abc
-  dir: abc
+  path: abc
   pkg: abcedfhglaasdkfuaweoihfjghldhsgufhgaakjsdhaflkasdjflksadjfsalsk
   ws: abcedfhglaasdkfuaweoihfjghldhsgufhgaakjsdhaflkasdjflksadjfsalsk
   err: false
   prerrstring: ""
   repoerrstring: ""
-  direrrstring: ""
+  patherrstring: ""
   pkgerrstring: ""
   wserrstring: ""
 starts with -:
   repo: -hello
-  dir: -hello
+  path: -hello
   pkg: -hello
   ws: -hello
   err: true
   prerrstring: ""
   repoerrstring: and must start and end with an alphanumeric character
-  direrrstring: and must start and end with an alphanumeric character
+  patherrstring: and must start and end with an alphanumeric character
   pkgerrstring: and must start and end with an alphanumeric character
   wserrstring: and must start and end with an alphanumeric character
