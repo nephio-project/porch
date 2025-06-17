@@ -256,7 +256,7 @@ kind: Kptfile
 metadata:
   name: root-package
   annotations:
-    top-bottom-rendering: %t
+    ktp.dev/top-bottom-rendering: %t
 `, renderTopBtm))
 	assert.NoError(t, err)
 
@@ -396,7 +396,7 @@ kind: Kptfile
 metadata:
   name: root-package
   annotations:
-    top-bottom-rendering: true
+    ktp.dev/top-bottom-rendering: true
 `))
 	assert.NoError(t, err)
 
