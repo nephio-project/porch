@@ -125,6 +125,7 @@ func (r *dbRepository) ListPackageRevisions(ctx context.Context, filter reposito
 
 	klog.Infof("DB Repo ListPackageRevisions: %q", r.Key().String())
 
+	filter.Key.PkgKey.RepoKey = r.Key()
 	foundPkgRevs, err := pkgRevListPRsFromDB(ctx, filter)
 	if err != nil {
 		return nil, err
@@ -180,7 +181,6 @@ func (r *dbRepository) DeletePackageRevision(ctx context.Context, old repository
 	if err != nil {
 		return err
 	}
-	foundPkg.repo = old.(*dbPackageRevision).repo
 
 	// Delete both the cached and external package
 	if err := foundPkg.DeletePackageRevision(ctx, old, true); err != nil && err != sql.ErrNoRows {

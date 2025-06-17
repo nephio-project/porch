@@ -354,19 +354,19 @@ func TestPackageRevisionDBSchema(t *testing.T) {
 	assert.Nil(t, err)
 
 	dbPR.pkgRevKey.WorkspaceName = "my-other-ws"
-	err = pkgRevUpdateDB(context.TODO(), &dbPR)
+	err = pkgRevUpdateDB(context.TODO(), &dbPR, true)
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "no rows or multiple rows found for updating"))
 
 	dbPR.pkgRevKey.WorkspaceName = "my-ws"
 	dbPR.updatedBy = "Marge"
-	err = pkgRevUpdateDB(context.TODO(), &dbPR)
+	err = pkgRevUpdateDB(context.TODO(), &dbPR, true)
 	assert.Nil(t, err)
 
 	err = repoDeleteFromDB(context.TODO(), dbRepo.Key())
 	assert.Nil(t, err)
 
-	_, err = pkgRevReadFromDB(context.TODO(), dbPR.Key())
+	_, err = pkgRevReadFromDB(context.TODO(), dbPR.Key(), false)
 	assert.NotNil(t, err)
 	assert.Equal(t, sql.ErrNoRows, err)
 }
@@ -483,7 +483,7 @@ func pkgRevDBWriteReadTest(t *testing.T, dbRepo dbRepository, dbPkg dbPackage, d
 	err = pkgRevWriteToDB(context.TODO(), &dbPR)
 	assert.Nil(t, err)
 
-	readPR, err := pkgRevReadFromDB(context.TODO(), dbPR.Key())
+	readPR, err := pkgRevReadFromDB(context.TODO(), dbPR.Key(), false)
 	assert.Nil(t, err)
 
 	resources, err := pkgRevResourcesReadFromDB(context.TODO(), readPR.Key())
@@ -497,10 +497,10 @@ func pkgRevDBWriteReadTest(t *testing.T, dbRepo dbRepository, dbPkg dbPackage, d
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "violates unique constraint"))
 
-	err = pkgRevUpdateDB(context.TODO(), &dbPRUpdate)
+	err = pkgRevUpdateDB(context.TODO(), &dbPRUpdate, true)
 	assert.Nil(t, err)
 
-	readPR, err = pkgRevReadFromDB(context.TODO(), dbPR.Key())
+	readPR, err = pkgRevReadFromDB(context.TODO(), dbPR.Key(), false)
 	assert.Nil(t, err)
 
 	resources, err = pkgRevResourcesReadFromDB(context.TODO(), readPR.Key())
@@ -513,11 +513,11 @@ func pkgRevDBWriteReadTest(t *testing.T, dbRepo dbRepository, dbPkg dbPackage, d
 	err = pkgRevDeleteFromDB(context.TODO(), dbPR.Key())
 	assert.Nil(t, err)
 
-	_, err = pkgRevReadFromDB(context.TODO(), dbPR.Key())
+	_, err = pkgRevReadFromDB(context.TODO(), dbPR.Key(), false)
 	assert.NotNil(t, err)
 	assert.Equal(t, sql.ErrNoRows, err)
 
-	err = pkgRevUpdateDB(context.TODO(), &dbPRUpdate)
+	err = pkgRevUpdateDB(context.TODO(), &dbPRUpdate, true)
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "no rows or multiple rows found for updating"))
 

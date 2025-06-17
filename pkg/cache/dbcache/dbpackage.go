@@ -113,7 +113,7 @@ func (p *dbPackage) savePackageRevision(ctx context.Context, d *dbPackageRevisio
 	_, span := tracer.Start(ctx, "dbPackage::savePackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	return d.savePackageRevision(ctx)
+	return d.savePackageRevision(ctx, true)
 }
 
 func (p *dbPackage) DeletePackageRevision(ctx context.Context, old repository.PackageRevision, deleteExternal bool) error {
