@@ -42,7 +42,7 @@ import (
 var errAllowedExecNotSpecified = fmt.Errorf("must run with `--allow-exec` option to allow running function binaries")
 
 const (
-	TopToBottomRenderAnnotation = "kpt.dev/top-to-bottom-rendering"
+	TopToBottomRenderAnnotation = "ktp.dev/top-bottom-rendering"
 )
 
 // Renderer hydrates a given pkg by running the functions in the input pipeline
@@ -345,20 +345,25 @@ func hydrate(ctx context.Context, pn *pkgNode, hctx *hydrationContext) (output [
 	return output, err
 }
 
-// hydrateTopBottom performs a top to bottom rendering of packages, so the root package will be hydrated first,
-// followed by its subpackages in first-in, first-out order. DetectSubpackages will detect subfolders
-// sorted in ascending alphabetical order based on the DisplayPath field.
-func hydrateTopBottom(ctx context.Context, root *pkgNode, hctx *hydrationContext) (output []*yaml.RNode, err error) {
+// hydrateTopBottom performs a top-down hydration such that
+// a parent package can modify its subpackages and itself,
+// but a subpackage cannot modify parents or its siblings.
+// DetectSubpackages detects subfolders sorted in
+// ascending alphabetical order based on the DisplayPath field.
+func hydrateTopBottom(ctx context.Context, root *pkgNode, hctx *hydrationContext) ([]*yaml.RNode, error) {
 	const op errors.Op = "pkg.render"
 
+	// Phase 1: Tree traversal to collect all packages from the root
 	queue := []*pkgNode{root}
-	orderedQueue := []*pkgNode{}
+	var orderedQueue []*pkgNode
+	nodeMap := map[types.UniquePath]*pkgNode{}
+	childrenMap := map[types.UniquePath][]*pkgNode{}
 
-	// Phase 1: Gather input files for all packages in queue order
 	for len(queue) > 0 {
 		current := queue[0]
 		queue = queue[1:]
 		orderedQueue = append(orderedQueue, current)
+		nodeMap[current.pkg.UniquePath] = current
 
 		if curr, found := hctx.pkgs[current.pkg.UniquePath]; found {
 			switch curr.state {
@@ -384,7 +389,7 @@ func hydrateTopBottom(ctx context.Context, root *pkgNode, hctx *hydrationContext
 		if err != nil {
 			return nil, errors.E(op, current.pkg.UniquePath, err)
 		}
-		if err = trackInputFiles(hctx, relPath, localResources); err != nil {
+		if err := trackInputFiles(hctx, relPath, localResources); err != nil {
 			return nil, err
 		}
 
@@ -398,28 +403,58 @@ func hydrateTopBottom(ctx context.Context, root *pkgNode, hctx *hydrationContext
 				return nil, errors.E(op, subpkg.UniquePath, err)
 			}
 			queue = append(queue, subPkgNode)
+			childrenMap[current.pkg.UniquePath] = append(childrenMap[current.pkg.UniquePath], subPkgNode)
 		}
 	}
 
-	// Aggregate all resources into a single collection (starting with root)
-	allResources := make([]*yaml.RNode, 0, len(root.resources)*len(orderedQueue))
-	allResources = append(allResources, root.resources...)
-	for _, pkg := range orderedQueue[1:] { // Skip root (index 0)
-		allResources = append(allResources, pkg.resources...)
+	// Helper to collect all descendants of a package recursively
+	collectDescendants := func(node *pkgNode) []*pkgNode {
+		var result []*pkgNode
+		var dfs func(*pkgNode)
+		dfs = func(n *pkgNode) {
+			for _, child := range childrenMap[n.pkg.UniquePath] {
+				result = append(result, child)
+				dfs(child)
+			}
+		}
+		dfs(node)
+		return result
 	}
 
-	// Phase 2: Run pipelines in Top to Bottom order
+	// Phase 2: Build descendants map
+	descendants := map[types.UniquePath][]*pkgNode{}
+	for _, parent := range orderedQueue {
+		descendants[parent.pkg.UniquePath] = collectDescendants(parent)
+	}
+
+	// Phase 3: Run pipelines with scoped visibility of self + descendants only
 	for _, current := range orderedQueue {
-		allResources, err = current.runPipeline(ctx, hctx, allResources)
+		var input []*yaml.RNode
+
+		// Include current package's resources
+		input = append(input, current.resources...)
+
+		// Include resources from all descendants
+		for _, desc := range descendants[current.pkg.UniquePath] {
+			input = append(input, desc.resources...)
+		}
+
+		output, err := current.runPipeline(ctx, hctx, input)
 		if err != nil {
 			return nil, errors.E(op, current.pkg.UniquePath, err)
 		}
+
+		current.resources = output
 		current.state = Wet
 	}
 
-	// Update root with final resources and return
-	root.resources = allResources
-	return allResources, err
+	// Phase 4: Collect final output from all packages
+	var finalOutput []*yaml.RNode
+	for _, pkg := range orderedQueue {
+		finalOutput = append(finalOutput, pkg.resources...)
+	}
+	root.resources = finalOutput
+	return finalOutput, nil
 }
 
 // runPipeline runs the pipeline defined at current pkgNode on given input resources.
