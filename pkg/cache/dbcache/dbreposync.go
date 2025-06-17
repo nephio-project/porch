@@ -116,9 +116,9 @@ func (s *repositorySync) sync(ctx context.Context) error {
 	externalPrMap := repository.PrSlice2Map(externalPRList)
 
 	inCachedOnly, inBoth, inExternalOnly := s.comparePRMaps(ctx, cachedPrMap, externalPrMap)
-	klog.Infof("repositorySync %+v: found %d cached, %d in both, %d external", s.repo.Key(), len(inCachedOnly), len(inBoth), len(inExternalOnly))
+	klog.Infof("repositorySync %+v: found %d cached only, %d in both, %d external only", s.repo.Key(), len(inCachedOnly), len(inBoth), len(inExternalOnly))
 
-	if err = s.deletePRsOnlyInCache(ctx, externalPrMap, inExternalOnly); err != nil {
+	if err = s.deletePRsOnlyInCache(ctx, cachedPrMap, inCachedOnly); err != nil {
 		return err
 	}
 
