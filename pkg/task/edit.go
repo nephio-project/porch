@@ -50,7 +50,7 @@ func (m *editPackageMutation) apply(ctx context.Context, resources repository.Pa
 
 	// We only allow edit to create new revision from the same package.
 	if revision.Key().PkgKey.ToPkgPathname() != m.packageName ||
-		revision.Key().PkgKey.RepoKey.Name != m.repositoryName {
+		revision.Key().PkgKey.RKey().Name != m.repositoryName {
 		return repository.PackageResources{}, nil, fmt.Errorf("source revision must be from same package %s/%s", m.repositoryName, m.packageName)
 	}
 

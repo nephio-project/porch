@@ -75,6 +75,43 @@ func pkgRevReadFromDB(ctx context.Context, prk repository.PackageRevisionKey) (*
 	return prs[0], err
 }
 
+func pkgRevListPRsFromDB(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]*dbPackageRevision, error) {
+	_, span := tracer.Start(ctx, "dbrepositorysql::repoDeleteFromDB", trace.WithAttributes())
+	defer span.End()
+
+	sqlStatement := `
+		SELECT
+			repositories.k8s_name_space,
+			repositories.k8s_name,
+			repositories.directory,
+			repositories.default_ws_name,
+			packages.k8s_name,
+			packages.package_path,
+			package_revisions.k8s_name,
+			package_revisions.revision,
+			package_revisions.meta,
+			package_revisions.spec,
+			package_revisions.updated,
+			package_revisions.updatedby,
+			package_revisions.lifecycle
+		FROM package_revisions
+		INNER JOIN packages
+			ON package_revisions.k8s_name_space=packages.k8s_name_space AND package_revisions.package_k8s_name=packages.k8s_name
+		INNER JOIN repositories
+			ON packages.k8s_name_space=repositories.k8s_name_space AND packages.repo_k8s_name=repositories.k8s_name
+		`
+
+	sqlStatement += prListFilter2WhereClause(filter)
+
+	rows, err := GetDB().db.Query(sqlStatement)
+	if err != nil {
+		klog.Infof("pkgRevReadFromDB: reading package revision list for filter %+v returned err: %q", filter, err)
+		return nil, err
+	}
+
+	return pkgRevScanRowsFromDB(ctx, rows)
+}
+
 func pkgRevReadPRsFromDB(ctx context.Context, pk repository.PackageKey) ([]*dbPackageRevision, error) {
 	_, span := tracer.Start(ctx, "dbpackagerevisionsql::pkgRevReadPRsFromDB", trace.WithAttributes())
 	defer span.End()
@@ -231,15 +268,6 @@ func pkgRevScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackageRevi
 		setValueFromJson(specAsJson, &pkgRev.spec)
 
 		dbPkgRevs = append(dbPkgRevs, &pkgRev)
-
-		pkgRev.resources, err = pkgRevResourcesReadFromDB(ctx, pkgRev.pkgRevKey)
-		if err != nil {
-			klog.Infof("pkgRevScanRowsFromDB: reading package revision %q resources returned err: %q", pkgRev.pkgRevKey, err)
-			return nil, err
-		}
-
-		klog.Infof("pkgRevScanRowsFromDB: reading package revision resources succeeded %q", pkgRev.pkgRevKey)
-
 	}
 
 	return dbPkgRevs, nil
@@ -261,7 +289,7 @@ func pkgRevWriteToDB(ctx context.Context, pr *dbPackageRevision) error {
 	if _, err := GetDB().db.Exec(
 		sqlStatement,
 		prk.K8SNS(), prk.K8SName(),
-		prk.GetPackageKey().K8SName(), prk.Revision, valueAsJson(pr.meta), valueAsJson(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle); err == nil {
+		prk.PKey().K8SName(), prk.Revision, valueAsJson(pr.meta), valueAsJson(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle); err == nil {
 		klog.Infof("pkgRevWriteToDB: query succeeded, row created")
 	} else {
 		klog.Infof("pkgRevWriteToDB: query failed %q", err)
@@ -293,7 +321,7 @@ func pkgRevUpdateDB(ctx context.Context, pr *dbPackageRevision) error {
 	result, err := GetDB().db.Exec(
 		sqlStatement,
 		prk.K8SNS(), prk.K8SName(),
-		prk.GetPackageKey().K8SName(), prk.Revision, valueAsJson(pr.meta), valueAsJson(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle)
+		prk.PKey().K8SName(), prk.Revision, valueAsJson(pr.meta), valueAsJson(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle)
 
 	if err == nil {
 		if rowsAffected, _ := result.RowsAffected(); rowsAffected == 1 {
@@ -341,4 +369,52 @@ func pkgRevDeleteFromDB(ctx context.Context, prk repository.PackageRevisionKey) 
 	}
 
 	return err
+}
+
+func prListFilter2WhereClause(filter repository.ListPackageRevisionFilter) string {
+	whereStatement := "WHERE\n"
+
+	repoKey := filter.Key.RKey()
+	whereStatement, first := prListFilter2SubClauseStr(whereStatement, repoKey.Namespace, "repositories.k8s_name_space", true)
+	whereStatement, first = prListFilter2SubClauseStr(whereStatement, repoKey.Name, "repositories.k8s_name", first)
+	whereStatement, first = prListFilter2SubClauseStr(whereStatement, repoKey.Path, "repositories.directory", first)
+	whereStatement, first = prListFilter2SubClauseStr(whereStatement, repoKey.PlaceholderWSname, "repositories.default_ws_name", first)
+
+	pkgKey := filter.Key.PKey()
+	whereStatement, first = prListFilter2SubClauseStr(whereStatement, pkgKey.K8SName(), "packages.k8s_name", first)
+	whereStatement, first = prListFilter2SubClauseStr(whereStatement, pkgKey.Path, "packages.package_path", first)
+
+	prKey := filter.Key
+	whereStatement, first = prListFilter2SubClauseStr(whereStatement, prKey.K8SName(), "package_revisions.k8s_name", first)
+	whereStatement, _ = prListFilter2SubClauseInt(whereStatement, prKey.Revision, "package_revisions.revision", first)
+
+	return whereStatement
+}
+
+func prListFilter2SubClauseStr(whereStatement, filterField, column string, first bool) (string, bool) {
+	if filterField == "" {
+		return whereStatement, first
+	}
+
+	subClause := fmt.Sprintf("%s='%s'\n", column, filterField)
+
+	if first {
+		return whereStatement + subClause, false
+	} else {
+		return whereStatement + "AND " + subClause, false
+	}
+}
+
+func prListFilter2SubClauseInt(whereStatement string, filterField int, column string, first bool) (string, bool) {
+	if filterField == 0 {
+		return whereStatement, first
+	}
+
+	subClause := fmt.Sprintf("%s='%d'\n", column, filterField)
+
+	if first {
+		return whereStatement + subClause, false
+	} else {
+		return whereStatement + "AND " + subClause, false
+	}
 }

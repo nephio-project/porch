@@ -47,7 +47,7 @@ func (c *cachedPackageRevision) KubeObjectName() string {
 }
 
 func (c *cachedPackageRevision) KubeObjectNamespace() string {
-	return c.Key().PkgKey.RepoKey.Namespace
+	return c.Key().RKey().Namespace
 }
 
 func (c *cachedPackageRevision) UID() types.UID {
