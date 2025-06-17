@@ -17,7 +17,6 @@ package dbcache
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -68,13 +67,16 @@ func (pr *dbPackageRevision) GetName() string {
 	return pr.Key().PKey().Package
 }
 
-func (pr *dbPackageRevision) savePackageRevision(ctx context.Context) (*dbPackageRevision, error) {
+func (pr *dbPackageRevision) savePackageRevision(ctx context.Context, saveResources bool) (*dbPackageRevision, error) {
 	_, span := tracer.Start(ctx, "dbPackageRevision::savePackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	_, err := pkgRevReadFromDB(ctx, pr.Key())
+	pr.updated = time.Now()
+	pr.updatedBy = getCurrentUser()
+
+	_, err := pkgRevReadFromDB(ctx, pr.Key(), false)
 	if err == nil {
-		return pr, pkgRevUpdateDB(ctx, pr)
+		return pr, pkgRevUpdateDB(ctx, pr, saveResources)
 	} else if err != sql.ErrNoRows {
 		return pr, err
 	}
@@ -86,7 +88,7 @@ func (pr *dbPackageRevision) UpdatePackageRevision(ctx context.Context) error {
 	_, span := tracer.Start(ctx, "dbPackageRevision::UpdatePackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	if readPr, err := pkgRevReadFromDB(ctx, pr.Key()); err == nil {
+	if readPr, err := pkgRevReadFromDB(ctx, pr.Key(), true); err == nil {
 		pr.copyToThis(readPr)
 		return nil
 	} else {
@@ -98,34 +100,10 @@ func (pr *dbPackageRevision) Lifecycle(ctx context.Context) v1alpha1.PackageRevi
 	_, span := tracer.Start(ctx, "dbPackageRevision::Lifecycle", trace.WithAttributes())
 	defer span.End()
 
-	if pr, err := pkgRevReadFromDB(ctx, pr.Key()); err != nil {
-		klog.Infof("Lifecycle read from DB failed on PackageRevision %q, %q", pr.Key().String(), err)
-		return ""
-	}
-
 	return pr.lifecycle
 }
 
 func (pr *dbPackageRevision) UpdateLifecycle(ctx context.Context, newLifecycle v1alpha1.PackageRevisionLifecycle) error {
-	_, span := tracer.Start(ctx, "dbPackageRevision::UpdateLifecycle", trace.WithAttributes())
-	defer span.End()
-
-	readPr, err := pkgRevReadFromDB(ctx, pr.Key())
-	if err != nil {
-		errorMsg := fmt.Sprintf("Lifecycle read on DB failed on PackageRevision %q, %q", pr.Key().String(), err)
-		return errors.New(errorMsg)
-	}
-
-	readPr.repo = pr.repo
-	if err := readPr.updateLifecycle(ctx, newLifecycle); err != nil {
-		return err
-	}
-
-	pr.copyToThis(readPr)
-	return nil
-}
-
-func (pr *dbPackageRevision) updateLifecycle(ctx context.Context, newLifecycle v1alpha1.PackageRevisionLifecycle) error {
 	_, span := tracer.Start(ctx, "dbPackageRevision::UpdateLifecycle", trace.WithAttributes())
 	defer span.End()
 
@@ -141,16 +119,14 @@ func (pr *dbPackageRevision) updateLifecycle(ctx context.Context, newLifecycle v
 			return err
 		}
 	} else if v1alpha1.LifecycleIsPublished(pr.lifecycle) {
-		if err := pr.updateLifecycleOnExternalRepo(ctx, newLifecycle); err != nil {
-			return err
-		}
+		return pr.updateLifecycleOnPublishedPR(ctx, newLifecycle)
 	}
 
 	pr.lifecycle = newLifecycle
 	pr.updated = time.Now()
 	pr.updatedBy = getCurrentUser()
 
-	return pkgRevUpdateDB(ctx, pr)
+	return nil
 }
 
 func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.PackageRevision, error) {
@@ -159,7 +135,7 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 
 	lockCopy := &v1alpha1.UpstreamLock{}
 
-	readPr, err := pkgRevReadFromDB(ctx, pr.Key())
+	readPr, err := pkgRevReadFromDB(ctx, pr.Key(), false)
 	if err != nil {
 		return nil, fmt.Errorf("package revision read on DB failed %q, %q", pr.Key().String(), err)
 	}
@@ -270,15 +246,11 @@ func (pr *dbPackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, e
 	_, span := tracer.Start(ctx, "dbPackageRevision::GetKptfile", trace.WithAttributes())
 	defer span.End()
 
-	readPr, err := pkgRevReadFromDB(ctx, pr.Key())
+	_, kfString, err := pkgRevResourceReadFromDB(ctx, pr.Key(), kptfile.KptFileName)
 	if err != nil {
-		return kptfile.KptFile{}, fmt.Errorf("package revision read on DB failed %q, %q", pr.Key().String(), err)
+		return kptfile.KptFile{}, fmt.Errorf("no Kptfile for packagerevision %+v found in DB: %s", pr.Key(), err.Error())
 	}
 
-	kfString, found := readPr.resources[kptfile.KptFileName]
-	if !found {
-		return kptfile.KptFile{}, fmt.Errorf("packagerevision does not have a Kptfile")
-	}
 	kf, err := pkg.DecodeKptfile(strings.NewReader(kfString))
 	if err != nil {
 		return kptfile.KptFile{}, fmt.Errorf("error decoding Kptfile: %w", err)
@@ -324,6 +296,8 @@ func (pr *dbPackageRevision) copyToThis(otherPr *dbPackageRevision) {
 	pr.updated = otherPr.updated
 	pr.updatedBy = otherPr.updatedBy
 	pr.lifecycle = otherPr.lifecycle
+	pr.tasks = otherPr.tasks
+	pr.resources = otherPr.resources
 }
 
 func (pr *dbPackageRevision) UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, change *v1alpha1.Task) error {
@@ -348,8 +322,8 @@ func (pr *dbPackageRevision) publishToExternalRepo(ctx context.Context, newLifec
 	return nil
 }
 
-func (pr *dbPackageRevision) updateLifecycleOnExternalRepo(ctx context.Context, newLifecycle v1alpha1.PackageRevisionLifecycle) error {
-	ctx, span := tracer.Start(ctx, "dbPackageRevision::updateLifecycleOnExternalRepo", trace.WithAttributes())
+func (pr *dbPackageRevision) updateLifecycleOnPublishedPR(ctx context.Context, newLifecycle v1alpha1.PackageRevisionLifecycle) error {
+	ctx, span := tracer.Start(ctx, "dbPackageRevision::updateLifecycleOnPublishedPR", trace.WithAttributes())
 	defer span.End()
 
 	externalPr, err := pr.repo.getExternalPr(ctx, pr.Key())
@@ -362,5 +336,10 @@ func (pr *dbPackageRevision) updateLifecycleOnExternalRepo(ctx context.Context, 
 		return err
 	}
 
-	return nil
+	pr.lifecycle = newLifecycle
+	pr.updated = time.Now()
+	pr.updatedBy = getCurrentUser()
+
+	_, err = pr.savePackageRevision(ctx, false)
+	return err
 }
