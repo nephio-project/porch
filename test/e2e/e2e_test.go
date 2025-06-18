@@ -556,7 +556,6 @@ func (t *PorchSuite) TestEditPackageRevision() {
 		otherPackageName                   = "other-package"
 		workspace                          = "workspace"
 		workspace2                         = "workspace2"
-		avoidInvalidCreationWorkspaceError = "avoid-creation-rollback-not-occuring-in-time-workspace"
 	)
 
 	t.RegisterMainGitRepositoryF(repository)
@@ -634,9 +633,20 @@ func (t *PorchSuite) TestEditPackageRevision() {
 			},
 		},
 	}
+	// This invalid create will sill create the draft for a small period of time until the error is discovered
 	if err := t.Client.Create(t.GetContext(), editPR); err == nil {
 		t.Fatalf("Expected error for source revision not being published")
 	}
+
+	// We await for this invalid packageRevision creation to be deleted then proceed else timeout after 10s
+	t.WaitUntilObjectDeleted(
+        packageRevisionGVK,
+        types.NamespacedName{
+            Name:      otherPackageName,
+            Namespace: t.Namespace,
+        },
+        10*time.Second,
+    )
 
 	// Publish the source package to make it a valid source for edit.
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
@@ -645,9 +655,6 @@ func (t *PorchSuite) TestEditPackageRevision() {
 	// Approve the package
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
-
-	// Changing the workspace of the update to avoid conflicting with invalid create negative test above
-	editPR.Spec.WorkspaceName = avoidInvalidCreationWorkspaceError
 
 	// Create a new revision with the edit task.
 	t.CreateF(editPR)
