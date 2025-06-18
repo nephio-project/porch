@@ -633,9 +633,9 @@ func (t *PorchSuite) TestEditPackageRevision() {
 			},
 		},
 	}
-	// if err := t.Client.Create(t.GetContext(), editPR); err == nil {
-	// 	t.Fatalf("Expected error for source revision not being published")
-	// }
+	if err := t.Client.Create(t.GetContext(), editPR); err == nil {
+		t.Fatalf("Expected error for source revision not being published")
+	}
 
 	// Publish the source package to make it a valid source for edit.
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
@@ -645,6 +645,8 @@ func (t *PorchSuite) TestEditPackageRevision() {
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
 
+	// Changing the workspace of the update to avoid conflicting with 
+	editPR.Spec.WorkspaceName = "avoid-creation-rollback-not-occuring-in-time-workspace"
 	// Create a new revision with the edit task.
 	t.CreateF(editPR)
 
