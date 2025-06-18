@@ -66,11 +66,11 @@ func (r *dbRepository) OpenRepository(ctx context.Context, externalRepoOptions e
 	ctx, span := tracer.Start(ctx, "dbRepository::OpenRepository", trace.WithAttributes())
 	defer span.End()
 
-	klog.Infof("DB Repo OpenRepository: %q", r.Key().String())
+	klog.V(5).Infof("dbRepository:OpenRepository: opening repository %+v", r.Key())
 
 	externalRepo, err := externalrepo.CreateRepositoryImpl(ctx, r.spec, externalRepoOptions)
 	if err != nil {
-		klog.Infof("DB Repo OpenRepository: %+v external DB read failed with error %q", r.Key(), err.Error())
+		klog.Warningf("dbRepository:OpenRepository: %+v external DB read failed with error %q", r.Key(), err)
 		return err
 	}
 
@@ -79,14 +79,16 @@ func (r *dbRepository) OpenRepository(ctx context.Context, externalRepoOptions e
 	if _, err = repoReadFromDB(ctx, r.Key()); err == nil {
 		return nil
 	} else if err != sql.ErrNoRows {
-		klog.Infof("DB Repo OpenRepository: %q DB read failed with error %q", r.Key().String(), err.Error())
+		klog.Warningf("dbRepository:OpenRepository: %+v DB read failed with error %q", r.Key(), err)
 		return err
 	}
 
 	if err = repoWriteToDB(ctx, r); err != nil {
-		klog.Infof("DB Repo OpenRepository: %q DB write failed with error %q", r.Key().String(), err.Error())
+		klog.Warningf("dbRepository:OpenRepository: %+v DB write failed with error %q", r.Key(), err)
 		return err
 	}
+
+	klog.V(5).Infof("dbRepository:OpenRepository: opened repository %+v", r.Key())
 
 	return nil
 }
@@ -95,7 +97,7 @@ func (r *dbRepository) Close(ctx context.Context) error {
 	ctx, span := tracer.Start(ctx, "dbRepository::Close", trace.WithAttributes())
 	defer span.End()
 
-	klog.Infof("DB Repo close: %q", r.Key().String())
+	klog.V(5).Infof("dbRepository:close: closing repository %+v", r.Key())
 
 	r.repositorySync.stop()
 
@@ -116,18 +118,28 @@ func (r *dbRepository) Close(ctx context.Context) error {
 		return err
 	}
 
-	return r.externalRepo.Close(ctx)
+	err = r.externalRepo.Close(ctx)
+
+	if err == nil {
+		klog.V(5).Infof("dbRepository:close: closed repository %+v", r.Key())
+	} else {
+		klog.Warningf("dbRepository:close: close of repository %+v failed: %q", r.Key(), err)
+	}
+
+	return err
 }
 
 func (r *dbRepository) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "dbRepository::ListPackageRevisions", trace.WithAttributes())
 	defer span.End()
 
-	klog.Infof("DB Repo ListPackageRevisions: %q", r.Key().String())
+	klog.V(5).Infof("ListPackageRevisions: listing package revisions in repository %+v with filter %+v", r.Key(), filter)
 
 	filter.Key.PkgKey.RepoKey = r.Key()
 	foundPkgRevs, err := pkgRevListPRsFromDB(ctx, filter)
 	if err != nil {
+		klog.Warningf("ListPackageRevisions: listing package revisions in repository %+v with filter %+v failed: %q", r.Key(), filter, err)
+
 		return nil, err
 	}
 
@@ -136,6 +148,8 @@ func (r *dbRepository) ListPackageRevisions(ctx context.Context, filter reposito
 		genericPkgRevs[i] = repository.PackageRevision(pkgRev)
 	}
 
+	klog.V(5).Infof("ListPackageRevisions: listed package revisions in repository %+v with filter %+v", r.Key(), filter)
+
 	return genericPkgRevs, nil
 }
 
@@ -143,7 +157,7 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *v1
 	ctx, span := tracer.Start(ctx, "dbRepository::CreatePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
 
-	klog.Infof("DB Repo CreatePackageRevisionDraft: %q", r.Key().String())
+	klog.V(5).Infof("dbRepository:CreatePackageRevisionDraft: creating draft for %+v on repo %+v", newPR, r.Key())
 
 	dbPkgRev := &dbPackageRevision{
 		repo: r,
@@ -171,6 +185,8 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *v1
 func (r *dbRepository) DeletePackageRevision(ctx context.Context, old repository.PackageRevision) error {
 	ctx, span := tracer.Start(ctx, "dbRepository::DeletePackageRevision", trace.WithAttributes())
 	defer span.End()
+
+	klog.V(5).Infof("dbRepository:DeletePackageRevision: deleting package revision %+v on repo %+v", old.Key(), r.Key())
 
 	pk := repository.PackageKey{
 		RepoKey: r.Key(),
@@ -203,6 +219,8 @@ func (r *dbRepository) UpdatePackageRevision(ctx context.Context, updatePR repos
 	ctx, span := tracer.Start(ctx, "dbRepository::UpdatePackageRevision", trace.WithAttributes())
 	defer span.End()
 
+	klog.V(5).Infof("dbRepository:UpdatePackageRevision: updating package revision %+v on repo %+v", updatePR.Key(), r.Key())
+
 	updatePkgRev, ok := updatePR.(*dbPackageRevision)
 	if !ok {
 		return nil, fmt.Errorf("cannot update DB package revision %T", updatePR)
@@ -221,6 +239,8 @@ func (r *dbRepository) UpdatePackageRevision(ctx context.Context, updatePR repos
 func (r *dbRepository) ListPackages(ctx context.Context, filter repository.ListPackageFilter) ([]repository.Package, error) {
 	ctx, span := tracer.Start(ctx, "dbRepository::ListPackages", trace.WithAttributes())
 	defer span.End()
+
+	klog.V(5).Infof("ListPackages: listing packages in repository %+v with filter %+v", r.Key(), filter)
 
 	dbPkgs, err := pkgReadPkgsFromDB(ctx, r.Key())
 	if err != nil {
@@ -261,7 +281,7 @@ func (r *dbRepository) DeletePackage(ctx context.Context, old repository.Package
 	}
 
 	if len(foundPRs) != 0 {
-		errMsg := fmt.Sprintf("cannot delete package %q, it has %d package revisions", old.Key().String(), len(foundPRs))
+		errMsg := fmt.Sprintf("cannot delete package %+v, it has %d package revisions", old.Key(), len(foundPRs))
 		return errors.New(errMsg)
 	}
 
@@ -269,7 +289,7 @@ func (r *dbRepository) DeletePackage(ctx context.Context, old repository.Package
 }
 
 func (r *dbRepository) Version(ctx context.Context) (string, error) {
-	klog.Infof("DB Repo version: %q", r.Key().String())
+	klog.V(5).Infof("dbRepository:Version: %+v", r.Key())
 	return "Undefined", nil
 }
 
@@ -336,14 +356,19 @@ func (r *dbRepository) Refresh(ctx context.Context) error {
 	defer span.End()
 
 	if err := r.repositorySync.getLastSyncError(); err != nil {
-		klog.Warningf("last sync returned error %s, refreshing . . .", err)
+		klog.Warningf("last sync returned error %q, refreshing . . .", err)
 	}
 
 	if err := r.externalRepo.Refresh(ctx); err != nil {
 		return err
 	}
 
-	return r.repositorySync.syncOnce(ctx)
+	if _, err := r.repositorySync.syncOnce(ctx); err != nil {
+		klog.Warningf("sync returned error %q", err)
+		return err
+	}
+
+	return nil
 }
 
 func (r *dbRepository) UpdateLifecycle(ctx context.Context, pkgRev repository.PackageRevision, newLifecycle v1alpha1.PackageRevisionLifecycle) error {
@@ -372,7 +397,7 @@ func (r *dbRepository) getExternalPr(ctx context.Context, prKey repository.Packa
 		} else {
 			err = fmt.Errorf("package revision %+v not found on external repo", prKey)
 		}
-		klog.Warning(err.Error())
+		klog.Warning(err)
 		return nil, err
 	}
 

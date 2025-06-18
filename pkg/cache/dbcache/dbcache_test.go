@@ -27,12 +27,15 @@ import (
 	"k8s.io/klog/v2"
 )
 
-var nextPkgRev int = 1
+var (
+	defaultPorchSqlSchema string = "api/sql/porch-db.sql"
+	nextPkgRev            int    = 1
+)
 
 func TestMain(m *testing.M) {
 	code, err := run(m)
 	if err != nil {
-		klog.Errorf("tests failed: %s", err.Error())
+		klog.Errorf("tests failed: %q", err)
 	}
 	os.Exit(code)
 }
@@ -50,7 +53,7 @@ func run(m *testing.M) (code int, err error) {
 
 	defer func() {
 		if err := postgres.Stop(); err != nil {
-			klog.Errorf("stop of test database failed: %s", err.Error())
+			klog.Errorf("stop of test database failed: %q", err)
 		}
 	}()
 
@@ -67,23 +70,31 @@ func run(m *testing.M) (code int, err error) {
 
 	schemaFile, ok := os.LookupEnv("PORCH_SQL_SCHEMA")
 	if !ok {
-		return -1, fmt.Errorf("environment variable PORCH_SQL_SCHEMA not set")
+		klog.Infof("environment variable PORCH_SQL_SCHEMA not set, trying to find default schema in PORCHDIR/%q", defaultPorchSqlSchema)
+
+		gitRoot, ok := os.LookupEnv("PORCHDIR")
+		if ok {
+			schemaFile = gitRoot + "/" + defaultPorchSqlSchema
+		} else {
+			klog.Infof("environment variable PORCHDIR not set, setting schema file as %q", defaultPorchSqlSchema)
+			schemaFile = defaultPorchSqlSchema
+		}
 	}
 
 	schemaBytes, err := os.ReadFile(schemaFile)
 	if err != nil {
-		return -1, fmt.Errorf("could not read Porch SQL schema file %s: %w", schemaFile, err)
+		return -1, fmt.Errorf("could not read Porch SQL schema file %q: %w", schemaFile, err)
 	}
 
 	_, err = GetDB().db.Exec(string(schemaBytes))
 	if err != nil {
-		return -1, fmt.Errorf("could not process Porch SQL schema file %s: %w", schemaFile, err)
+		return -1, fmt.Errorf("could not process Porch SQL schema file %q: %w", schemaFile, err)
 	}
 
 	// truncates all test data after the tests are run
 	defer func() {
 		if err := CloseDB(context.TODO()); err != nil {
-			klog.Errorf("close of test database failed: %s", err.Error())
+			klog.Errorf("close of test database failed: %q", err)
 		}
 	}()
 
