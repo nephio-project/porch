@@ -42,7 +42,7 @@ import (
 var errAllowedExecNotSpecified = fmt.Errorf("must run with `--allow-exec` option to allow running function binaries")
 
 const (
-	TopToBottomRenderAnnotation = "ktp.dev/top-bottom-rendering"
+	TopToBottomRenderAnnotation = "kpt.dev/top-bottom-rendering"
 )
 
 // Renderer hydrates a given pkg by running the functions in the input pipeline
@@ -389,6 +389,7 @@ func hydrateTopBottom(ctx context.Context, root *pkgNode, hctx *hydrationContext
 		if err != nil {
 			return nil, errors.E(op, current.pkg.UniquePath, err)
 		}
+
 		if err := trackInputFiles(hctx, relPath, localResources); err != nil {
 			return nil, err
 		}
@@ -428,33 +429,30 @@ func hydrateTopBottom(ctx context.Context, root *pkgNode, hctx *hydrationContext
 	}
 
 	// Phase 3: Run pipelines with scoped visibility of self + descendants only
-	for _, current := range orderedQueue {
+	for _, nodeForPipeline := range orderedQueue {
 		var input []*yaml.RNode
 
-		// Include current package's resources
-		input = append(input, current.resources...)
+		// Include nodeForPipeline package's resources
+		input = append(input, nodeForPipeline.resources...)
 
 		// Include resources from all descendants
-		for _, desc := range descendants[current.pkg.UniquePath] {
+		for _, desc := range descendants[nodeForPipeline.pkg.UniquePath] {
 			input = append(input, desc.resources...)
 		}
 
-		output, err := current.runPipeline(ctx, hctx, input)
+		output, err := nodeForPipeline.runPipeline(ctx, hctx, input)
 		if err != nil {
-			return nil, errors.E(op, current.pkg.UniquePath, err)
+			return nil, errors.E(op, nodeForPipeline.pkg.UniquePath, err)
 		}
 
-		current.resources = output
-		current.state = Wet
+		nodeForPipeline.resources = output
+		nodeForPipeline.state = Wet
+		nodeMap[nodeForPipeline.pkg.UniquePath] = nodeForPipeline
 	}
 
 	// Phase 4: Collect final output from all packages
-	var finalOutput []*yaml.RNode
-	for _, pkg := range orderedQueue {
-		finalOutput = append(finalOutput, pkg.resources...)
-	}
-	root.resources = finalOutput
-	return finalOutput, nil
+	root.resources = nodeMap[orderedQueue[0].pkg.UniquePath].resources
+	return root.resources, nil
 }
 
 // runPipeline runs the pipeline defined at current pkgNode on given input resources.
