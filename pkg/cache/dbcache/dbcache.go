@@ -83,7 +83,7 @@ func (c *dbCache) UpdateRepository(ctx context.Context, repositorySpec *configap
 
 	dbRepo, ok := c.repositories[repoKey]
 	if !ok {
-		return fmt.Errorf("dbcache.UpdateRepository: repo %q not found", repoKey.String())
+		return fmt.Errorf("dbcache.UpdateRepository: repo %+v not found", repoKey)
 	}
 
 	return repoUpdateDB(ctx, dbRepo)

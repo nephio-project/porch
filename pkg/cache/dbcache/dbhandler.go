@@ -36,24 +36,24 @@ func OpenDB(ctx context.Context, opts cachetypes.CacheOptions) error {
 	_, span := tracer.Start(ctx, "DBHandler::OpenDB", trace.WithAttributes())
 	defer span.End()
 
-	klog.Infof("OpenDB: %s %s", opts.DBCacheOptions.Driver, opts.DBCacheOptions.DataSource)
+	klog.V(4).Infof("OpenDB: %+v %+v", opts.DBCacheOptions.Driver, opts.DBCacheOptions.DataSource)
 
 	if dbHandler != nil {
-		klog.Infof("OpenDB: database %s, already open", opts.DBCacheOptions.DataSource)
+		klog.V(4).Infof("OpenDB: database %q, already open", opts.DBCacheOptions.DataSource)
 		return nil
 	}
 
 	db, err := sql.Open(opts.DBCacheOptions.Driver, opts.DBCacheOptions.DataSource)
 	if err != nil {
-		klog.Infof("OpenDB: database %s open failed: err=%s", opts.DBCacheOptions.DataSource, err)
+		klog.V(4).Infof("OpenDB: database %q open failed: %q", opts.DBCacheOptions.DataSource, err)
 		return err
 	}
 
 	if err := db.Ping(); err == nil {
-		klog.Infof("OpenDB: database %s opened", opts.DBCacheOptions.DataSource)
+		klog.V(4).Infof("OpenDB: database %q opened", opts.DBCacheOptions.DataSource)
 	} else {
 		db.Close()
-		klog.Infof("OpenDB: database %s open failed", opts.DBCacheOptions.DataSource)
+		klog.V(4).Infof("OpenDB: database %q open failed", opts.DBCacheOptions.DataSource)
 		return err
 	}
 
@@ -79,15 +79,15 @@ func CloseDB(ctx context.Context) error {
 	defer span.End()
 
 	if dbHandler == nil {
-		klog.Infof("CloseDB: the databse is already closed")
+		klog.V(4).Infof("CloseDB: the databse is already closed")
 		return nil
 	}
 
 	var err error
 	if err = dbHandler.db.Close(); err == nil {
-		klog.Infof("CloseDB: database %s closed", dbHandler.dataSource)
+		klog.V(4).Infof("CloseDB: database %q closed", dbHandler.dataSource)
 	} else {
-		klog.Infof("CloseDB: close failed to database %s: %q", dbHandler.dataSource, err)
+		klog.V(4).Infof("CloseDB: close failed to database %q: %q", dbHandler.dataSource, err)
 	}
 
 	dbHandler = nil

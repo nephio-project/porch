@@ -137,7 +137,7 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 
 	readPr, err := pkgRevReadFromDB(ctx, pr.Key(), false)
 	if err != nil {
-		return nil, fmt.Errorf("package revision read on DB failed %q, %q", pr.Key().String(), err)
+		return nil, fmt.Errorf("package revision read on DB failed %+v, %q", pr.Key(), err)
 	}
 
 	kf, _ := readPr.GetKptfile(ctx)
@@ -189,11 +189,11 @@ func (pr *dbPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 
 	resources, err := pkgRevResourcesReadFromDB(ctx, pr.pkgRevKey)
 	if err != nil {
-		klog.Infof("pkgRevScanRowsFromDB: reading package revision %q resources returned err: %q", pr.pkgRevKey, err)
+		klog.V(5).Infof("pkgRevScanRowsFromDB: reading package revision %+v resources returned err: %q", pr.Key(), err)
 		return nil, err
 	}
 
-	klog.Infof("pkgRevScanRowsFromDB: reading package revision resources succeeded %q", pr.pkgRevKey)
+	klog.V(5).Infof("pkgRevScanRowsFromDB: reading package revision resources succeeded %+v", pr.Key())
 
 	return &v1alpha1.PackageRevisionResources{
 		TypeMeta: metav1.TypeMeta{
@@ -227,7 +227,7 @@ func (pr *dbPackageRevision) GetUpstreamLock(context.Context) (kptfile.Upstream,
 func (pr *dbPackageRevision) ToMainPackageRevision(ctx context.Context) repository.PackageRevision {
 	_, span := tracer.Start(ctx, "dbPackageRevision::SetMeta", trace.WithAttributes())
 	defer span.End()
-	klog.Infof("ToMainPackageRevision: %q, main package revisions are not required when using the DB cache", pr.Key().PKey().Package)
+	klog.V(5).Infof("ToMainPackageRevision: %+v, main package revisions are not required when using the DB cache", pr.Key().PKey())
 	return nil
 }
 
@@ -248,7 +248,7 @@ func (pr *dbPackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, e
 
 	_, kfString, err := pkgRevResourceReadFromDB(ctx, pr.Key(), kptfile.KptFileName)
 	if err != nil {
-		return kptfile.KptFile{}, fmt.Errorf("no Kptfile for packagerevision %+v found in DB: %s", pr.Key(), err.Error())
+		return kptfile.KptFile{}, fmt.Errorf("no Kptfile for packagerevision %+v found in DB: %q", pr.Key(), err)
 	}
 
 	kf, err := pkg.DecodeKptfile(strings.NewReader(kfString))
@@ -277,7 +277,7 @@ func (pr *dbPackageRevision) Delete(ctx context.Context, deleteExternal bool) er
 		}
 
 		if err := pr.repo.externalRepo.DeletePackageRevision(ctx, externalPr); err != nil {
-			klog.Warningf("dbPackage:DeletePackageRevision: deletion of %+vq failed on external repository %q", pr.Key(), err)
+			klog.Warningf("dbPackage:DeletePackageRevision: deletion of %+v failed on external repository %q", pr.Key(), err)
 			return err
 		}
 	}
@@ -332,7 +332,7 @@ func (pr *dbPackageRevision) updateLifecycleOnPublishedPR(ctx context.Context, n
 	}
 
 	if err := externalPr.UpdateLifecycle(ctx, newLifecycle); err != nil {
-		klog.Warningf("error setting lifecycle to %q on package revision %+v fon external repo, %q", newLifecycle, pr.Key(), err)
+		klog.Warningf("error setting lifecycle to %q on package revision %+v for external repo, %q", newLifecycle, pr.Key(), err)
 		return err
 	}
 

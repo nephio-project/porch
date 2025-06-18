@@ -32,6 +32,13 @@ type repositorySync struct {
 	cancel        context.CancelFunc
 	mutex         sync.Mutex
 	lastSyncError error
+	lastSyncStats repositorySyncStats
+}
+
+type repositorySyncStats struct {
+	cachedOnly   int
+	externalOnly int
+	both         int
 }
 
 func newRepositorySync(repo *dbRepository, options cachetypes.CacheOptions) *repositorySync {
@@ -58,18 +65,18 @@ func (s *repositorySync) syncForever(ctx context.Context, repoSyncFrequency time
 			klog.V(2).Infof("repositorySync %+v: exiting repository sync, because context is done: %v", s.repo.Key(), ctx.Err())
 			return
 		default:
-			s.lastSyncError = s.syncOnce(ctx)
+			s.lastSyncStats, s.lastSyncError = s.syncOnce(ctx)
 			time.Sleep(repoSyncFrequency)
 		}
 	}
 }
 
-func (s *repositorySync) syncOnce(ctx context.Context) error {
+func (s *repositorySync) syncOnce(ctx context.Context) (repositorySyncStats, error) {
 	ctx, span := tracer.Start(ctx, "[START]::Repository::syncOnce", trace.WithAttributes())
 	defer span.End()
 
 	if !s.mutex.TryLock() {
-		return fmt.Errorf("repositorySync %+v: sync start failed because sync is already in progress", s.repo.Key())
+		return repositorySyncStats{}, fmt.Errorf("repositorySync %+v: sync start failed because sync is already in progress", s.repo.Key())
 	}
 	defer s.mutex.Unlock()
 
@@ -78,6 +85,9 @@ func (s *repositorySync) syncOnce(ctx context.Context) error {
 
 	defer func() {
 		klog.Infof("repositorySync %+v: sync finished in %f secs", s.repo.Key(), time.Since(start).Seconds())
+		klog.Infof(" %d package revisions were already cached", s.lastSyncStats.both)
+		klog.Infof(" %d package revisions were cached from the external repository", s.lastSyncStats.externalOnly)
+		klog.Infof(" %d cached package revisions not found in the external repo were removed from the cache", s.lastSyncStats.cachedOnly)
 	}()
 
 	return s.sync(ctx)
@@ -87,7 +97,7 @@ func (s *repositorySync) getLastSyncError() error {
 	return s.lastSyncError
 }
 
-func (s *repositorySync) sync(ctx context.Context) error {
+func (s *repositorySync) sync(ctx context.Context) (repositorySyncStats, error) {
 	_, span := tracer.Start(ctx, "[START]::Repository::syncOnce", trace.WithAttributes())
 	defer span.End()
 
@@ -100,7 +110,7 @@ func (s *repositorySync) sync(ctx context.Context) error {
 	cachedPrList, err := s.repo.ListPackageRevisions(ctx, deployedFilter)
 	if err != nil {
 		klog.Errorf("repositorySync %+v: failed to list cached package revisions", s.repo.Key())
-		return err
+		return repositorySyncStats{}, err
 	}
 
 	klog.Infof("repositorySync %+v: found %d deployed package revisions in cached repository", s.repo.Key(), len(cachedPrList))
@@ -109,7 +119,7 @@ func (s *repositorySync) sync(ctx context.Context) error {
 	externalPRList, err := s.repo.externalRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	if err != nil {
 		klog.Errorf("repositorySync %+v: failed to list external package revisions", s.repo.Key())
-		return err
+		return repositorySyncStats{}, err
 	}
 
 	klog.Infof("repositorySync %+v: found %d package revisions in external repository", s.repo.Key(), len(externalPRList))
@@ -119,10 +129,18 @@ func (s *repositorySync) sync(ctx context.Context) error {
 	klog.Infof("repositorySync %+v: found %d cached only, %d in both, %d external only", s.repo.Key(), len(inCachedOnly), len(inBoth), len(inExternalOnly))
 
 	if err = s.deletePRsOnlyInCache(ctx, cachedPrMap, inCachedOnly); err != nil {
-		return err
+		return repositorySyncStats{}, err
 	}
 
-	return s.cacheExternalPRs(ctx, externalPrMap, inExternalOnly)
+	if err = s.cacheExternalPRs(ctx, externalPrMap, inExternalOnly); err != nil {
+		return repositorySyncStats{}, err
+	}
+
+	return repositorySyncStats{
+		cachedOnly:   len(inCachedOnly),
+		externalOnly: len(inExternalOnly),
+		both:         len(inBoth),
+	}, nil
 }
 
 func (s *repositorySync) comparePRMaps(ctx context.Context, leftMap, rightMap map[repository.PackageRevisionKey]repository.PackageRevision) (leftOnly, both, rightOnly []repository.PackageRevisionKey) {

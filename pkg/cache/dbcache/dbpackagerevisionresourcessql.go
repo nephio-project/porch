@@ -27,24 +27,25 @@ func pkgRevResourceReadFromDB(ctx context.Context, prk repository.PackageRevisio
 	_, span := tracer.Start(ctx, "dbpackagerevisionresourcessql::pkgRevResourceReadFromDB", trace.WithAttributes())
 	defer span.End()
 
-	klog.Infof("pkgRevResourceReadFromDB: reading package revision resource %q:%s", prk, resKey)
+	klog.V(5).Infof("pkgRevResourceReadFromDB: reading package revision resource %+v:%q", prk, resKey)
 
 	sqlStatement := `SELECT resource_value FROM resources WHERE k8s_name_space=$1 AND k8s_name=$2 AND resource_key=$3`
 
 	var resVal string
 
+	klog.V(6).Infof("pkgRevResourceReadFromDB: running query %q on package revision %+v key %q", sqlStatement, prk, resKey)
 	err := GetDB().db.QueryRow(sqlStatement, prk.K8SNS(), prk.K8SName(), resKey).Scan(&resVal)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			klog.Infof("pkgRevResourceReadFromDB: package revision resource not found in db %q:%s", prk, resKey)
+			klog.V(5).Infof("pkgRevResourceReadFromDB: package revision resource not found in db %+v:%q", prk, resKey)
 		} else {
-			klog.Infof("pkgRevResourceReadFromDB: reading package revision resource %q:%s returned err: %q", prk, resKey, err)
+			klog.Warningf("pkgRevResourceReadFromDB: reading package revision resource %+v:%q returned err: %q", prk, resKey, err)
 		}
 		return resKey, "", err
 	}
 
-	klog.Infof("pkgRevResourceReadFromDB: reading package succeeded %q:%s", prk, resKey)
+	klog.V(5).Infof("pkgRevResourceReadFromDB: reading package succeeded %+v:%q", prk, resKey)
 
 	return resKey, resVal, err
 }
@@ -53,20 +54,21 @@ func pkgRevResourcesReadFromDB(ctx context.Context, prk repository.PackageRevisi
 	_, span := tracer.Start(ctx, "dbpackagerevisionresourcessql::pkgRevResourcesReadFromDB", trace.WithAttributes())
 	defer span.End()
 
+	klog.V(5).Infof("pkgRevResourcesReadFromDB: reading package revision resource %+v", prk)
+
 	sqlStatement := `SELECT resource_key, resource_value FROM resources WHERE k8s_name_space=$1 AND k8s_name=$2`
 
 	resources := make(map[string]string)
 
-	klog.Infof("pkgRevResourcesReadFromDB: running query [%q] on %q", sqlStatement, prk)
-
+	klog.V(6).Infof("pkgRevResourcesReadFromDB: running query %q on package revision %+v", sqlStatement, prk)
 	rows, err := GetDB().db.Query(sqlStatement, prk.K8SNS(), prk.K8SName())
 	if err != nil {
-		klog.Infof("pkgRevResourcesReadFromDB: query failed for %q: %q", prk, err)
+		klog.Warningf("pkgRevResourcesReadFromDB: query failed for %+v: %q", prk, err)
 		return nil, err
 	}
 	defer rows.Close()
 
-	klog.Infof("pkgRevResourcesReadFromDB: query succeeded for %q", prk)
+	klog.V(5).Infof("pkgRevResourcesReadFromDB: query succeeded for %q", prk)
 
 	for rows.Next() {
 		var resKey, resVal string
@@ -84,7 +86,7 @@ func pkgRevResourceWriteToDB(ctx context.Context, prk repository.PackageRevision
 	_, span := tracer.Start(ctx, "dbpackagerevisionresourcessql::pkgRevResourceWriteToDB", trace.WithAttributes())
 	defer span.End()
 
-	klog.Infof("pkgRevResourceWriteToDB: writing package revision resource %s=%s for %q", resKey, resVal, prk)
+	klog.V(5).Infof("pkgRevResourceWriteToDB: writing package revision resource %+v=%q for %q", resKey, resVal, prk)
 
 	sqlStatement := `
 		INSERT INTO resources (k8s_name_space, k8s_name, revision, resource_key, resource_value)
@@ -92,13 +94,12 @@ func pkgRevResourceWriteToDB(ctx context.Context, prk repository.PackageRevision
 			ON CONFLICT (k8s_name_space, k8s_name, resource_key) 
 			DO UPDATE SET resource_value = EXCLUDED.resource_value`
 
-	klog.Infof("pkgRevResourceWriteToDB: running query [%q] on repository (%#v)", sqlStatement, prk)
-
+	klog.V(6).Infof("pkgRevResourceWriteToDB: running query %q on package revision %+v", sqlStatement, prk)
 	if _, err := GetDB().db.Exec(sqlStatement, prk.K8SNS(), prk.K8SName(), prk.Revision, resKey, resVal); err == nil {
-		klog.Infof("pkgRevResourceWriteToDB: query succeeded, row created/updated")
+		klog.V(5).Infof("pkgRevResourceWriteToDB: query succeeded, row created/updated")
 		return nil
 	} else {
-		klog.Infof("pkgRevResourceWriteToDB: query failed %q", err)
+		klog.Warningf("pkgRevResourceWriteToDB: query failed on package revision %+v: %q", prk, err)
 		return err
 	}
 }
@@ -112,11 +113,11 @@ func pkgRevResourcesWriteToDB(ctx context.Context, pr *dbPackageRevision) error 
 	}
 
 	if len(pr.resources) == 0 {
-		klog.Infof("pkgRevResourcesWriteToDB: pr %+v has no resources", pr.Key())
+		klog.Warningf("pkgRevResourcesWriteToDB: pr %+v has no resources", pr.Key())
 		return nil
 	}
 
-	klog.Infof("pkgRevResourcesWriteToDB: writing package revision resources for %q", pr.Key())
+	klog.V(5).Infof("pkgRevResourcesWriteToDB: writing package revision resources for %+v", pr.Key())
 
 	for resourceKey, resourceValue := range pr.resources {
 		if err := pkgRevResourceWriteToDB(ctx, pr.Key(), resourceKey, resourceValue); err != nil {
@@ -124,7 +125,7 @@ func pkgRevResourcesWriteToDB(ctx context.Context, pr *dbPackageRevision) error 
 		}
 	}
 
-	klog.Infof("pkgRevResourceWriteToDB: query succeeded, row created/updated")
+	klog.V(5).Infof("pkgRevResourcesWriteToDB: query succeeded, row created/updated")
 	return nil
 }
 
@@ -132,16 +133,17 @@ func pkgRevResourcesDeleteFromDB(ctx context.Context, prk repository.PackageRevi
 	_, span := tracer.Start(ctx, "dbpackagerevisionresourcessql::pkgRevResourcesDeleteFromDB", trace.WithAttributes())
 	defer span.End()
 
-	klog.Infof("pkgRevResourcesDeleteFromDB: deleting package revision %q", prk)
+	klog.V(5).Infof("pkgRevResourcesDeleteFromDB: deleting package revision %+v", prk)
 
 	sqlStatement := `DELETE FROM resources WHERE k8s_name_space=$1 AND k8s_name=$2`
 
+	klog.V(6).Infof("pkgRevResourcesDeleteFromDB: running query %q on package revision %+v", sqlStatement, prk)
 	_, err := GetDB().db.Exec(sqlStatement, prk.K8SNS(), prk.K8SName())
 
 	if err == nil {
-		klog.Infof("pkgRevResourcesDeleteFromDB: deleted package revision %q", prk)
+		klog.V(5).Infof("pkgRevResourcesDeleteFromDB: deleted package revision resources for %+v", prk)
 	} else {
-		klog.Infof("pkgRevResourcesDeleteFromDB: deletion of package revision %q failed: %q", prk, err)
+		klog.Warningf("pkgRevResourcesDeleteFromDB: deletion of package revision resources for %+v failed: %q", prk, err)
 	}
 
 	return err
@@ -151,16 +153,17 @@ func pkgRevResourceDeleteFromDB(ctx context.Context, prk repository.PackageRevis
 	_, span := tracer.Start(ctx, "dbpackagerevisionresourcessql::pkgRevResourceDeleteFromDB", trace.WithAttributes())
 	defer span.End()
 
-	klog.Infof("pkgRevResourceDeleteFromDB: deleting package revision %q", prk)
+	klog.V(5).Infof("pkgRevResourceDeleteFromDB: deleting package revision resource %q from %+v", resKey, prk)
 
 	sqlStatement := `DELETE FROM resources WHERE k8s_name_space=$1 AND k8s_name=$2 AND resource_key=$3`
 
+	klog.V(6).Infof("pkgRevResourceDeleteFromDB: running query %q on package revision %+v", sqlStatement, prk)
 	_, err := GetDB().db.Exec(sqlStatement, prk.K8SNS(), prk.K8SName(), resKey)
 
 	if err == nil {
-		klog.Infof("pkgRevResourceDeleteFromDB: deleted package revision %q", prk)
+		klog.V(5).Infof("pkgRevResourceDeleteFromDB: deleted package revision resource %q from %+v", resKey, prk)
 	} else {
-		klog.Infof("pkgRevResourceDeleteFromDB: deletion of package revision %q failed: %q", prk, err)
+		klog.Warningf("pkgRevResourceDeleteFromDB: deletion of package revision resource %q from %+v failed", resKey, prk)
 	}
 
 	return err

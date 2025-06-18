@@ -27,6 +27,8 @@ func repoReadFromDB(ctx context.Context, rk repository.RepositoryKey) (*dbReposi
 	_, span := tracer.Start(ctx, "dbrepositorysql::repoReadFromDB", trace.WithAttributes())
 	defer span.End()
 
+	klog.V(5).Infof("repoReadFromDB: reading repo %+v", rk)
+
 	sqlStatement := `
 		SELECT k8s_name_space, k8s_name, directory, default_ws_name, meta, spec, updated, updatedby, deployment
 		FROM repositories
@@ -35,6 +37,7 @@ func repoReadFromDB(ctx context.Context, rk repository.RepositoryKey) (*dbReposi
 	var dbRepo dbRepository
 	var metaAsJson, specAsJson string
 
+	klog.V(6).Infof("repoReadFromDB: running query %q on repository %+v", sqlStatement, rk)
 	err := GetDB().db.QueryRow(sqlStatement, rk.K8SNS(), rk.K8SName()).Scan(
 		&dbRepo.repoKey.Namespace,
 		&dbRepo.repoKey.Name,
@@ -47,11 +50,14 @@ func repoReadFromDB(ctx context.Context, rk repository.RepositoryKey) (*dbReposi
 		&dbRepo.deployment)
 
 	if err != nil {
+		klog.Warningf("repoReadFromDB: error reading repo %+v: %q", rk, err)
 		return nil, err
 	}
 
 	setValueFromJson(metaAsJson, &dbRepo.meta)
 	setValueFromJson(specAsJson, &dbRepo.spec)
+
+	klog.V(5).Infof("repoReadFromDB: read repo %+v", rk)
 
 	return &dbRepo, err
 }
@@ -60,20 +66,21 @@ func repoWriteToDB(ctx context.Context, r *dbRepository) error {
 	_, span := tracer.Start(ctx, "dbrepositorysql::repoWriteToDB", trace.WithAttributes())
 	defer span.End()
 
+	klog.V(5).Infof("repoWriteToDB: writing repo %+v", r.Key())
+
 	sqlStatement := `
         INSERT INTO repositories (k8s_name_space, k8s_name, directory, default_ws_name, meta, spec, updated, updatedby, deployment)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
-	klog.Infof("DB Connection: running query [%q] on repository (%#v)", sqlStatement, r)
-
+	klog.V(6).Infof("repoWriteToDB: running query %q on repository %+v", sqlStatement, r)
 	rk := r.Key()
 	if _, err := GetDB().db.Exec(
 		sqlStatement,
 		rk.K8SNS(), rk.K8SName(), rk.Path, rk.PlaceholderWSname, valueAsJson(r.meta), valueAsJson(r.spec), r.updated, r.updatedBy, r.deployment); err == nil {
-		klog.Infof("DB Connection: query succeeded, row created")
+		klog.V(5).Infof("repoWriteToDB: query succeeded, row created for %+v", r.Key())
 		return nil
 	} else {
-		klog.Infof("DB Connection: query failed %q", err)
+		klog.Warningf("repoWriteToDB: query failed %q", err)
 		return err
 	}
 }
@@ -82,26 +89,27 @@ func repoUpdateDB(ctx context.Context, r *dbRepository) error {
 	_, span := tracer.Start(ctx, "dbrepositorysql::repoUpdateDB", trace.WithAttributes())
 	defer span.End()
 
+	klog.V(5).Infof("repoUpdateDB: updating repo %+v", r.Key())
+
 	sqlStatement := `
         UPDATE repositories SET directory=$3, default_ws_name=$4 ,meta=$5, spec=$6, updated=$7, updatedby=$8, deployment=$9
         WHERE k8s_name_space=$1 AND k8s_name=$2`
 
-	klog.Infof("repoUpdateDB: running query [%q] on %q)", sqlStatement, r.Key())
-
 	rk := r.Key()
+	klog.V(6).Infof("repoUpdateDB: running query %q on repository %+v", sqlStatement, rk)
 	result, err := GetDB().db.Exec(
 		sqlStatement,
 		rk.K8SNS(), rk.K8SName(), rk.Path, rk.PlaceholderWSname, valueAsJson(r.meta), valueAsJson(r.spec), r.updated, r.updatedBy, r.deployment)
 
 	if err == nil {
 		if rowsAffected, _ := result.RowsAffected(); rowsAffected == 1 {
-			klog.Infof("repoUpdateDB: query succeeded for %q", rk)
+			klog.V(5).Infof("repoUpdateDB: query succeeded for %q", rk)
 			return nil
 		}
 		err = fmt.Errorf("update failed, no rows or multiple rows found for updating")
 	}
 
-	klog.Infof("repoUpdateDB: query failed for %q: %q", rk, err)
+	klog.Warningf("repoUpdateDB: query failed for %q: %q", rk, err)
 	return err
 }
 
@@ -109,9 +117,18 @@ func repoDeleteFromDB(ctx context.Context, rk repository.RepositoryKey) error {
 	_, span := tracer.Start(ctx, "dbrepositorysql::repoDeleteFromDB", trace.WithAttributes())
 	defer span.End()
 
+	klog.V(5).Infof("repoDeleteFromDB: deleting repo %+v", rk)
+
 	sqlStatement := `DELETE FROM repositories WHERE k8s_name_space=$1 AND k8s_name=$2`
 
+	klog.V(6).Infof("repoDeleteFromDB: running query %q on repository %+v", sqlStatement, rk)
 	_, err := GetDB().db.Exec(sqlStatement, rk.K8SNS(), rk.K8SName())
+
+	if err == nil {
+		klog.V(5).Infof("repoDeleteFromDB: deleted repo %+v", rk)
+	} else {
+		klog.Warningf("repoDeleteFromDB: delete of repo %+v failed", rk)
+	}
 
 	return err
 }

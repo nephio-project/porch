@@ -517,7 +517,7 @@ func pkgRevDBWriteReadTest(t *testing.T, dbRepo dbRepository, dbPkg dbPackage, d
 	assert.NotNil(t, err)
 	assert.Equal(t, sql.ErrNoRows, err)
 
-	err = pkgRevUpdateDB(context.TODO(), &dbPRUpdate, true)
+	err = pkgRevUpdateDB(context.TODO(), &dbPRUpdate, false)
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "no rows or multiple rows found for updating"))
 

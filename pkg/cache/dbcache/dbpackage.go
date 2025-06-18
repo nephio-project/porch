@@ -144,7 +144,7 @@ func (p *dbPackage) GetLatestRevision(ctx context.Context) int {
 	if latestRev, err := pkgRevGetlatestRevFromDB(ctx, p.Key()); err == nil {
 		return latestRev
 	} else {
-		klog.Error(err.Error())
+		klog.Error(err)
 		return 0
 	}
 }
