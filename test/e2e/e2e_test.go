@@ -645,8 +645,9 @@ func (t *PorchSuite) TestEditPackageRevision() {
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
 
-	// Changing the workspace of the update to avoid conflicting with 
+	// Changing the workspace of the update to avoid conflicting with invalid create negative test above
 	editPR.Spec.WorkspaceName = "avoid-creation-rollback-not-occuring-in-time-workspace"
+
 	// Create a new revision with the edit task.
 	t.CreateF(editPR)
 
