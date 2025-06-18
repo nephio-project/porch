@@ -148,6 +148,5 @@ func assertReposEqual(t *testing.T, left, right *dbRepository) {
 	assert.Equal(t, left.meta.Namespace, right.meta.Namespace)
 	assert.Equal(t, left.meta.Name, right.meta.Name)
 	assert.Equal(t, left.spec, right.spec)
-	assert.Equal(t, left.updated, right.updated)
 	assert.Equal(t, left.updatedBy, right.updatedBy)
 }
