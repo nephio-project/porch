@@ -250,13 +250,21 @@ func setupRendererTest(t *testing.T, renderTopBtm bool) (*Renderer, *bytes.Buffe
 	err = mockFileSystem.Mkdir(subPkgPath)
 	assert.NoError(t, err)
 
+	childPkgPath := "/root/subpkg/child"
+	err = mockFileSystem.Mkdir(subPkgPath)
+	assert.NoError(t, err)
+
+	siblingPkgPath := "/root/sibling"
+	err = mockFileSystem.Mkdir(subPkgPath)
+	assert.NoError(t, err)
+
 	err = mockFileSystem.WriteFile(filepath.Join(rootPkgPath, "Kptfile"), fmt.Appendf(nil, `
 apiVersion: kpt.dev/v1
 kind: Kptfile
 metadata:
   name: root-package
   annotations:
-    ktp.dev/top-bottom-rendering: %t
+    kpt.dev/top-bottom-rendering: %t
 `, renderTopBtm))
 	assert.NoError(t, err)
 
@@ -265,6 +273,22 @@ apiVersion: kpt.dev/v1
 kind: Kptfile
 metadata:
   name: sub-package
+`))
+	assert.NoError(t, err)
+
+	err = mockFileSystem.WriteFile(filepath.Join(siblingPkgPath, "Kptfile"), []byte(`
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: sibling-package
+`))
+	assert.NoError(t, err)
+
+	err = mockFileSystem.WriteFile(filepath.Join(childPkgPath, "Kptfile"), []byte(`
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: child-package
 `))
 	assert.NoError(t, err)
 
@@ -285,21 +309,25 @@ func TestRenderer_Execute_RenderOrder(t *testing.T) {
 		expectedErrMsg string
 	}{
 		{
-			name:         "Use BFS",
+			name:         "Use hydrateTopBottom with renderTopBtm true",
 			renderTopBtm: true,
 			expectedOrder: func(output string) bool {
-				rootIndex := strings.Index(output, `Package "root":`)
-				subpkgIndex := strings.Index(output, `Package "root/subpkg":`)
-				return rootIndex < subpkgIndex // Root should appear before subpkg
+				rootIndex := strings.Index(output, `Package "root":`)               // Fisrt
+				siblingIndex := strings.Index(output, `Package "root/sibling":`)    // Second
+				subpkgIndex := strings.Index(output, `Package "root/subpkg":`)      // Third
+				childIndex := strings.Index(output, `Package "root/subpkg/child":`) // Fourth
+				return rootIndex < siblingIndex && siblingIndex < subpkgIndex && subpkgIndex < childIndex
 			},
 		},
 		{
-			name:         "Use DFS",
+			name:         "Use default hydrate with renderTopBtm false",
 			renderTopBtm: false,
 			expectedOrder: func(output string) bool {
-				rootIndex := strings.Index(output, `Package "root":`)
-				subpkgIndex := strings.Index(output, `Package "root/subpkg":`)
-				return rootIndex > subpkgIndex // Subpkg should appear before root
+				siblingIndex := strings.Index(output, `Package "root/sibling":`)    // First
+				childIndex := strings.Index(output, `Package "root/subpkg/child":`) // Second
+				subpkgIndex := strings.Index(output, `Package "root/subpkg":`)      // Third
+				rootIndex := strings.Index(output, `Package "root":`)               // Fourth
+				return rootIndex > siblingIndex && siblingIndex < subpkgIndex && subpkgIndex > childIndex
 			},
 		},
 	}
