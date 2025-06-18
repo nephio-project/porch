@@ -551,11 +551,11 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 
 func (t *PorchSuite) TestEditPackageRevision() {
 	const (
-		repository                         = "edit-test"
-		packageName                        = "simple-package"
-		otherPackageName                   = "other-package"
-		workspace                          = "workspace"
-		workspace2                         = "workspace2"
+		repository       = "edit-test"
+		packageName      = "simple-package"
+		otherPackageName = "other-package"
+		workspace        = "workspace"
+		workspace2       = "workspace2"
 	)
 
 	t.RegisterMainGitRepositoryF(repository)
@@ -640,13 +640,13 @@ func (t *PorchSuite) TestEditPackageRevision() {
 
 	// We await for this invalid packageRevision creation to be deleted then proceed else timeout after 10s
 	t.WaitUntilObjectDeleted(
-        packageRevisionGVK,
-        types.NamespacedName{
-            Name:      otherPackageName,
-            Namespace: t.Namespace,
-        },
-        10*time.Second,
-    )
+		packageRevisionGVK,
+		types.NamespacedName{
+			Name:      otherPackageName,
+			Namespace: t.Namespace,
+		},
+		10*time.Second,
+	)
 
 	// Publish the source package to make it a valid source for edit.
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
