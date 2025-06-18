@@ -1,4 +1,4 @@
-#  Copyright 2023 The Nephio Authors.
+#  Copyright 2023, 2025 The Nephio Authors.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -25,7 +25,8 @@ unit: test
 test: ## Run unit tests (go test)
 ifeq ($(CONTAINER_RUNNABLE), 0)
 		$(RUN_CONTAINER_COMMAND) docker.io/nephio/gotests:1919654500491071488 \
-		sh -e -c "git config --global --add user.name test; \
+		adduser --shell /bin/sh --group --disabled-password -home /home/ubuntu --no-create-home ubuntu; \
+		PORCHDIR=${PORCHDIR} sh -e -c "git config --global --add user.name test; \
 		git config --global --add user.email test@nephio.org; \
 		go test ./... -v -coverprofile=${TEST_COVERAGE_FILE}; \
 		go tool cover -html=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_HTML_FILE}; \
