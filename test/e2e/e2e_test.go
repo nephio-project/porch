@@ -551,11 +551,12 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 
 func (t *PorchSuite) TestEditPackageRevision() {
 	const (
-		repository       = "edit-test"
-		packageName      = "simple-package"
-		otherPackageName = "other-package"
-		workspace        = "workspace"
-		workspace2       = "workspace2"
+		repository                         = "edit-test"
+		packageName                        = "simple-package"
+		otherPackageName                   = "other-package"
+		workspace                          = "workspace"
+		workspace2                         = "workspace2"
+		avoidInvalidCreationWorkspaceError = "avoid-creation-rollback-not-occuring-in-time-workspace"
 	)
 
 	t.RegisterMainGitRepositoryF(repository)
@@ -646,7 +647,7 @@ func (t *PorchSuite) TestEditPackageRevision() {
 	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
 
 	// Changing the workspace of the update to avoid conflicting with invalid create negative test above
-	editPR.Spec.WorkspaceName = "avoid-creation-rollback-not-occuring-in-time-workspace"
+	editPR.Spec.WorkspaceName = avoidInvalidCreationWorkspaceError
 
 	// Create a new revision with the edit task.
 	t.CreateF(editPR)
