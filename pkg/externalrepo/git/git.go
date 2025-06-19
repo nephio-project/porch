@@ -59,10 +59,6 @@ const (
 
 // Commit message constants for different operations
 const (
-	// Initial commit
-	// commitMessageInitial = "Initial commit: Creating main branch"
-
-	// Intermediate commits
 	commitMessageRendering = "Rendering package"
 	commitMessageEdit      = "Creating new revision by copying previous revision"
 	commitMessageInit      = "Creating new empty revision"
