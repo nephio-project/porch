@@ -638,7 +638,7 @@ func (t *PorchSuite) TestEditPackageRevision() {
 		t.Fatalf("Expected error for source revision not being published")
 	}
 
-	// We await for this invalid packageRevision creation to be deleted then proceed else timeout after 10s
+	// We await for this invalid packageRevision creation to be deleted then proceed else timeout after 10 seconds
 	t.WaitUntilObjectDeleted(
 		packageRevisionGVK,
 		types.NamespacedName{
