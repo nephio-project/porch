@@ -64,8 +64,6 @@ const (
 	commitMessageInit      = "Creating new empty revision"
 	commitMessageClone     = "Creating new revision by cloning"
 	commitMessagePatch     = "Applying patch to package"
-
-	// Approval message template
 	commitMessageApproveTemplate = "Approving package revision %s/%d"
 )
 
