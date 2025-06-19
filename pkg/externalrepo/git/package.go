@@ -30,6 +30,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/v2"
 )
 
 type gitPackageRevision struct {
@@ -146,7 +147,14 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 	if err != nil {
 		return nil, fmt.Errorf("failed to load package resources: %w", err)
 	}
-
+	porchFile, err := p.GetPorchfile()
+	if err != nil {
+		klog.Errorf("error: %v", err)
+	}
+	var renderStatus v1alpha1.RenderStatus
+	if porchFile.Status != nil {
+		renderStatus = *porchFile.Status
+	}
 	p.mutex.Lock()
 	prRes := &v1alpha1.PackageRevisionResources{
 		TypeMeta: metav1.TypeMeta{
@@ -170,6 +178,9 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 			RepositoryName: p.Key().PkgKey.RepoKey.Name,
 
 			Resources: resources,
+		},
+		Status: v1alpha1.PackageRevisionResourcesStatus{
+			RenderStatus: renderStatus,
 		},
 	}
 	p.mutex.Unlock()
@@ -214,6 +225,22 @@ func (p *gitPackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, e
 		return kptfile.KptFile{}, fmt.Errorf("error decoding Kptfile: %w", err)
 	}
 	return *kf, nil
+}
+
+func (p *gitPackageRevision) GetPorchfile() (v1alpha1.PorchFile, error) {
+	resources, err := p.repo.GetResources(p.tree)
+	if err != nil {
+		return v1alpha1.PorchFile{}, fmt.Errorf("error loading package resources: %w", err)
+	}
+	porchFileString, found := resources["Porchfile"]
+	if !found {
+		return v1alpha1.PorchFile{}, nil
+	}
+	porchFile, err := util.DecodePorchfile(strings.NewReader(porchFileString))
+	if err != nil {
+		return v1alpha1.PorchFile{}, fmt.Errorf("error decoding Porchfile: %w", err)
+	}
+	return *porchFile, nil
 }
 
 // GetUpstreamLock returns the upstreamLock info present in the Kptfile of the package.

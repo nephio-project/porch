@@ -172,10 +172,17 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 		}
 	}
 
+	renderFailed := false
 	// Apply tasks
-	if err := cad.taskHandler.ApplyTasks(ctx, draft, repositoryObj, obj, packageConfig); err != nil {
-		rollback()
-		return nil, err
+	tasksErr := cad.taskHandler.ApplyTasks(ctx, draft, repositoryObj, obj, packageConfig)
+	if tasksErr != nil {
+		var renderErr *task.RenderError
+		if errors.As(tasksErr, &renderErr) {
+			renderFailed = true
+		} else {
+			rollback()
+			return nil, tasksErr
+		}
 	}
 
 	// Update lifecycle
@@ -190,6 +197,11 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 		// Don't call rollback() here since it would likely fail again
 		// Just return the error from the close operation
 		return nil, fmt.Errorf("failed to close package revision draft: %w", err)
+	}
+
+	// if render fails we allow resource creation alongside the error
+	if renderFailed {
+		return repoPkgRev, tasksErr
 	}
 
 	return repoPkgRev, nil
@@ -450,14 +462,25 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 		return nil, nil, err
 	}
 
-	renderStatus, err := cad.taskHandler.DoPRResourceMutations(ctx, pr2Update, draft, oldRes, newRes)
-	if err != nil {
-		return nil, renderStatus, err
+	renderStatus, mutationErr := cad.taskHandler.DoPRResourceMutations(ctx, pr2Update, draft, oldRes, newRes)
+	// if error is a render error we take note and allow further operation else return error and no resource update
+	renderFailed := false
+	if mutationErr != nil {
+		var renderErr *task.RenderError
+		if errors.As(mutationErr, &renderErr) {
+			renderFailed = true
+		} else {
+			return nil, renderStatus, err
+		}
 	}
 	// No lifecycle change when updating package resources; updates are done.
 	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, 0)
 	if err != nil {
 		return nil, renderStatus, err
+	}
+	// if render failed is the cause of the error we allow resource update but also return error information
+	if renderFailed {
+		return repoPkgRev, renderStatus, err
 	}
 
 	return repoPkgRev, renderStatus, nil
