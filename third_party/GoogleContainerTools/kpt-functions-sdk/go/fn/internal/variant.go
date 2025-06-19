@@ -23,16 +23,16 @@ import (
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
-type variantKind string
+type VariantKind string
 
 const (
-	VariantKindMap    variantKind = "Map"
-	VariantKindSlice  variantKind = "Slice"
-	VariantKindScalar variantKind = "Scalar"
+	VariantKindMap    VariantKind = "Map"
+	VariantKindSlice  VariantKind = "Slice"
+	VariantKindScalar VariantKind = "Scalar"
 )
 
 type variant interface {
-	GetKind() variantKind
+	GetKind() VariantKind
 	Node() *yaml.Node
 }
 
