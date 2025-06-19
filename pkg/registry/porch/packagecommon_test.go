@@ -29,7 +29,6 @@ func (f *fakePackageRevision) Key() repository.PackageRevisionKey {
 }
 func (f *fakePackageRevision) KubeObjectName() string                                 { return "" }
 func (f *fakePackageRevision) UID() types.UID                                         { return "" }
-func (f *fakePackageRevision) SetRepository(repository.Repository)                    {}
 func (f *fakePackageRevision) SetMeta(context.Context, metav1.ObjectMeta) error       { return nil }
 func (f *fakePackageRevision) ResourceVersion() string                                { return "" }
 func (f *fakePackageRevision) Lifecycle(context.Context) api.PackageRevisionLifecycle { return "" }
@@ -174,9 +173,17 @@ func TestWatchPackages_CallsCallback(t *testing.T) {
 		return false
 	}}
 
-	filter := packageRevisionFilter{Namespace: "test-ns"}
-	ctx := context.TODO()
-	err := pc.watchPackages(ctx, filter, callback)
+	nsFilter := repository.ListPackageRevisionFilter{
+		Key: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				RepoKey: repository.RepositoryKey{
+					Namespace: "test-ns",
+				},
+			},
+		},
+	}
+
+	err := pc.watchPackages(context.TODO(), nsFilter, callback)
 	if err != nil {
 		t.Fatalf("watchPackages returned error: %v", err)
 	}
@@ -195,7 +202,7 @@ func TestWatchPackages_NoNamespace(t *testing.T) {
 		return false
 	}}
 
-	filter := packageRevisionFilter{}
+	filter := repository.ListPackageRevisionFilter{}
 	ctx := context.TODO() // No namespace set in context
 	err := pc.watchPackages(ctx, filter, callback)
 	if err != nil {
@@ -219,7 +226,7 @@ func TestWatchPackages_ErrorPath(t *testing.T) {
 		return false
 	}}
 
-	filter := packageRevisionFilter{}
+	filter := repository.ListPackageRevisionFilter{}
 	ctx := context.TODO()
 	err := pc.watchPackages(ctx, filter, callback)
 	if err == nil {
@@ -237,7 +244,7 @@ func TestWatchPackages_WithNamespaceFilteringWatcher(t *testing.T) {
 		return false
 	}}
 
-	filter := packageRevisionFilter{}
+	filter := repository.ListPackageRevisionFilter{}
 	ctx := context.TODO()
 	ctx = request.WithNamespace(ctx, "foo") // Set namespace in context
 

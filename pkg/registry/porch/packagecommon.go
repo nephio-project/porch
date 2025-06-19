@@ -24,7 +24,6 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/repository"
-	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -57,18 +56,18 @@ type packageCommon struct {
 	createStrategy SimpleRESTCreateStrategy
 }
 
-func (r *packageCommon) listPackageRevisions(ctx context.Context, filter packageRevisionFilter,
+func (r *packageCommon) listPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter,
 	selector labels.Selector, callback func(ctx context.Context, p repository.PackageRevision) error) error {
 	ctx, span := tracer.Start(ctx, "packageCommon::listPackageRevisions", trace.WithAttributes())
 	defer span.End()
 
 	var opts []client.ListOption
-	ns, namespaced := genericapirequest.NamespaceFrom(ctx)
-	if namespaced && ns != "" {
-		opts = append(opts, client.InNamespace(ns))
+	namespace, namespaced := genericapirequest.NamespaceFrom(ctx)
+	if namespaced && namespace != "" {
+		opts = append(opts, client.InNamespace(namespace))
 
-		if filter.Namespace != "" && ns != filter.Namespace {
-			return fmt.Errorf("conflicting namespaces specified: %q and %q", ns, filter.Namespace)
+		if filter.Key.RKey().Namespace != "" && namespace != filter.Key.RKey().Namespace {
+			return fmt.Errorf("conflicting namespaces specified: %q and %q", namespace, filter.Key.RKey().Namespace)
 		}
 	}
 
@@ -81,11 +80,11 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter package
 	for i := range repositories.Items {
 		repositoryObj := &repositories.Items[i]
 
-		if filter.Repository != "" && filter.Repository != repositoryObj.GetName() {
+		if filter.Key.RKey().Name != "" && filter.Key.RKey().Name != repositoryObj.GetName() {
 			continue
 		}
 
-		revisions, err := r.cad.ListPackageRevisions(ctx, repositoryObj, filter.ListPackageRevisionFilter)
+		revisions, err := r.cad.ListPackageRevisions(ctx, repositoryObj, filter)
 		if err != nil {
 			klog.Warningf("error listing package revisions from repository %s/%s: %+v", repositoryObj.GetNamespace(), repositoryObj.GetName(), err)
 			continue
@@ -108,13 +107,13 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter package
 	return nil
 }
 
-func (r *packageCommon) listPackages(ctx context.Context, filter packageFilter, callback func(p repository.Package) error) error {
+func (r *packageCommon) listPackages(ctx context.Context, filter repository.ListPackageFilter, callback func(p repository.Package) error) error {
 	var opts []client.ListOption
 	if ns, namespaced := genericapirequest.NamespaceFrom(ctx); namespaced {
 		opts = append(opts, client.InNamespace(ns))
 
-		if filter.Namespace != "" && ns != filter.Namespace {
-			return fmt.Errorf("conflicting namespaces specified: %q and %q", ns, filter.Namespace)
+		if filter.Key.RKey().Namespace != "" && ns != filter.Key.RKey().Namespace {
+			return fmt.Errorf("conflicting namespaces specified: %q and %q", ns, filter.Key.RKey().Namespace)
 		}
 	}
 
@@ -127,11 +126,11 @@ func (r *packageCommon) listPackages(ctx context.Context, filter packageFilter, 
 	for i := range repositories.Items {
 		repositoryObj := &repositories.Items[i]
 
-		if filter.Repository != "" && filter.Repository != repositoryObj.GetName() {
+		if filter.Key.RKey().Name != "" && filter.Key.RKey().Name != repositoryObj.GetName() {
 			continue
 		}
 
-		revisions, err := r.cad.ListPackages(ctx, repositoryObj, filter.ListPackageFilter)
+		revisions, err := r.cad.ListPackages(ctx, repositoryObj, filter)
 		if err != nil {
 			klog.Warningf("error listing packages from repository %s/%s: %s", repositoryObj.GetNamespace(), repositoryObj.GetName(), err)
 			continue
@@ -160,7 +159,7 @@ func (n *namespaceFilteringWatcher) OnPackageRevisionChange(eventType watch.Even
 	return n.delegate.OnPackageRevisionChange(eventType, obj)
 }
 
-func (r *packageCommon) watchPackages(ctx context.Context, filter packageRevisionFilter, callback engine.ObjectWatcher) error {
+func (r *packageCommon) watchPackages(ctx context.Context, filter repository.ListPackageRevisionFilter, callback engine.ObjectWatcher) error {
 	ns, namespaced := genericapirequest.NamespaceFrom(ctx)
 	wrappedCallback := callback
 	if namespaced && ns != "" {
@@ -169,7 +168,7 @@ func (r *packageCommon) watchPackages(ctx context.Context, filter packageRevisio
 			delegate: callback,
 		}
 	}
-	if err := r.cad.ObjectCache().WatchPackageRevisions(ctx, filter.ListPackageRevisionFilter, wrappedCallback); err != nil {
+	if err := r.cad.ObjectCache().WatchPackageRevisions(ctx, filter, wrappedCallback); err != nil {
 		return err
 	}
 
@@ -177,17 +176,17 @@ func (r *packageCommon) watchPackages(ctx context.Context, filter packageRevisio
 }
 
 func (r *packageCommon) getRepositoryObjFromName(ctx context.Context, name string) (*configapi.Repository, error) {
-	ns, namespaced := genericapirequest.NamespaceFrom(ctx)
+	namespace, namespaced := genericapirequest.NamespaceFrom(ctx)
 	if !namespaced {
 		return nil, fmt.Errorf("namespace must be specified")
 	}
 
-	repoName, err := util.ParsePkgRevObjNameField(name, 0)
+	prKey, err := repository.PkgRevK8sName2Key(namespace, name)
 	if err != nil {
-		return nil, apierrors.NewNotFound(r.gr, name)
+		return nil, err
 	}
 
-	return r.getRepositoryObj(ctx, types.NamespacedName{Name: repoName, Namespace: ns})
+	return r.getRepositoryObj(ctx, types.NamespacedName{Name: prKey.RKey().Name, Namespace: prKey.RKey().Namespace})
 }
 
 func (r *packageCommon) getRepositoryObj(ctx context.Context, repositoryID types.NamespacedName) (*configapi.Repository, error) {
@@ -209,7 +208,13 @@ func (r *packageCommon) getRepoPkgRev(ctx context.Context, name string) (reposit
 	if err != nil {
 		return nil, err
 	}
-	revisions, err := r.cad.ListPackageRevisions(ctx, repositoryObj, repository.ListPackageRevisionFilter{KubeObjectName: name})
+
+	prKey, err := repository.PkgRevK8sName2Key("", name)
+	if err != nil {
+		return nil, err
+	}
+
+	revisions, err := r.cad.ListPackageRevisions(ctx, repositoryObj, repository.ListPackageRevisionFilter{Key: prKey})
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +233,12 @@ func (r *packageCommon) getPackage(ctx context.Context, name string) (repository
 		return nil, err
 	}
 
-	revisions, err := r.cad.ListPackages(ctx, repositoryObj, repository.ListPackageFilter{KubeObjectName: name})
+	pkgKey, err := repository.PkgK8sName2Key("", name)
+	if err != nil {
+		return nil, err
+	}
+
+	revisions, err := r.cad.ListPackages(ctx, repositoryObj, repository.ListPackageFilter{Key: pkgKey})
 	if err != nil {
 		return nil, err
 	}
@@ -249,12 +259,12 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 
 	// TODO: Is this all boilerplate??
 
-	ns, namespaced := genericapirequest.NamespaceFrom(ctx)
+	namespace, namespaced := genericapirequest.NamespaceFrom(ctx)
 	if !namespaced {
 		return nil, false, apierrors.NewBadRequest("namespace must be specified")
 	}
 
-	pkgMutexKey := getPackageMutexKey(ns, name)
+	pkgMutexKey := getPackageMutexKey(namespace, name)
 	pkgMutex := getMutexForPackage(pkgMutexKey)
 
 	locked := pkgMutex.TryLock()
@@ -315,19 +325,19 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("expected PackageRevision object, got %T", newRuntimeObj))
 	}
 
-	repoName, err := util.ParsePkgRevObjNameField(name, 0)
+	prKey, err := repository.PkgRevK8sName2Key(namespace, name)
 	if err != nil {
-		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("invalid name %q", name))
+		return nil, false, err
 	}
 	if isCreate {
-		repoName = newApiPkgRev.Spec.RepositoryName
-		if repoName == "" {
+		if newApiPkgRev.Spec.RepositoryName == "" {
 			return nil, false, apierrors.NewBadRequest(fmt.Sprintf("invalid repositoryName %q", name))
 		}
+		prKey.PkgKey.RepoKey.Name = newApiPkgRev.Spec.RepositoryName
 	}
 
 	var repositoryObj configapi.Repository
-	repositoryID := types.NamespacedName{Namespace: ns, Name: repoName}
+	repositoryID := types.NamespacedName{Namespace: prKey.RKey().Namespace, Name: prKey.RKey().Name}
 	if err := r.coreClient.Get(ctx, repositoryID, &repositoryObj); err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil, false, apierrors.NewNotFound(configapi.TypeRepository.GroupResource(), repositoryID.Name)
@@ -376,7 +386,7 @@ func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo 
 	createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool) (runtime.Object, bool, error) {
 	// TODO: Is this all boilerplate??
 
-	ns, namespaced := genericapirequest.NamespaceFrom(ctx)
+	namespace, namespaced := genericapirequest.NamespaceFrom(ctx)
 	if !namespaced {
 		return nil, false, apierrors.NewBadRequest("namespace must be specified")
 	}
@@ -427,20 +437,20 @@ func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo 
 		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("expected Package object, got %T", newRuntimeObj))
 	}
 
-	repoName, err := util.ParsePkgRevObjNameField(name, 0)
+	pkgKey, err := repository.PkgK8sName2Key(namespace, name)
 	if err != nil {
-		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("invalid name %q", name))
+		return nil, false, err
 	}
-	repositoryName := repoName
+
 	if isCreate {
-		repositoryName = newObj.Spec.RepositoryName
-		if repositoryName == "" {
+		if newObj.Spec.RepositoryName == "" {
 			return nil, false, apierrors.NewBadRequest(fmt.Sprintf("invalid repositoryName %q", name))
 		}
+		pkgKey.RepoKey.Name = newObj.Spec.RepositoryName
 	}
 
 	var repositoryObj configapi.Repository
-	repositoryID := types.NamespacedName{Namespace: ns, Name: repositoryName}
+	repositoryID := types.NamespacedName{Namespace: pkgKey.RKey().Namespace, Name: pkgKey.RKey().Name}
 	if err := r.coreClient.Get(ctx, repositoryID, &repositoryObj); err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil, false, apierrors.NewNotFound(configapi.TypeRepository.GroupResource(), repositoryID.Name)
@@ -469,8 +479,7 @@ func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo 
 	}
 }
 
-func (r *packageCommon) validateDelete(ctx context.Context, deleteValidation rest.ValidateObjectFunc, obj runtime.Object,
-	name string, ns string) (*configapi.Repository, error) {
+func (r *packageCommon) validateDelete(ctx context.Context, deleteValidation rest.ValidateObjectFunc, obj runtime.Object, name, namespace string) (*configapi.Repository, error) {
 	if deleteValidation != nil {
 		err := deleteValidation(ctx, obj)
 		if err != nil {
@@ -478,11 +487,13 @@ func (r *packageCommon) validateDelete(ctx context.Context, deleteValidation res
 			return nil, err
 		}
 	}
-	repoName, err := util.ParsePkgRevObjNameField(name, 0)
+
+	prKey, err := repository.PkgRevK8sName2Key(namespace, name)
 	if err != nil {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("invalid name %q", name))
+		return nil, err
 	}
-	repositoryObj, err := r.getRepositoryObj(ctx, types.NamespacedName{Name: repoName, Namespace: ns})
+
+	repositoryObj, err := r.getRepositoryObj(ctx, types.NamespacedName{Name: prKey.RKey().Name, Namespace: prKey.RKey().Namespace})
 	if err != nil {
 		return nil, err
 	}
