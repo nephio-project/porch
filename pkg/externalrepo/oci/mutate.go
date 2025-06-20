@@ -251,7 +251,7 @@ func (r *ociRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 							Package: p.Key().PkgKey.Package,
 						},
 					},
-				})
+				}.Parse())
 				if err != nil {
 					return nil, err
 				}

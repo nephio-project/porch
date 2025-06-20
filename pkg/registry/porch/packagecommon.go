@@ -27,6 +27,7 @@ import (
 	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -65,35 +66,42 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter package
 	var opts []client.ListOption
 	ns, namespaced := genericapirequest.NamespaceFrom(ctx)
 	if namespaced && ns != "" {
-		opts = append(opts, client.InNamespace(ns))
-
-		if filter.Namespace != "" && ns != filter.Namespace {
-			return fmt.Errorf("conflicting namespaces specified: %q and %q", ns, filter.Namespace)
+		if namespaceMatches, filteredNamespace := filter.matchesNamespace(ns); !namespaceMatches {
+			return fmt.Errorf("conflicting namespaces specified: %q and %q", ns, filteredNamespace)
 		}
+
+		opts = append(opts, client.InNamespace(ns))
+	}
+	if filterRepo := filter.filteredRepository(); filterRepo != "" {
+		opts = append(opts, client.MatchingFields(fields.Set{"metadata.name": filterRepo}))
 	}
 
-	// TODO: Filter on filter.Repository?
 	var repositories configapi.RepositoryList
+
 	if err := r.coreClient.List(ctx, &repositories, opts...); err != nil {
 		return fmt.Errorf("error listing repository objects: %w", err)
 	}
 
-	for i := range repositories.Items {
-		repositoryObj := &repositories.Items[i]
+	for _, repositoryObj := range repositories.Items {
 
-		if filter.Repository != "" && filter.Repository != repositoryObj.GetName() {
-			continue
-		}
-
-		revisions, err := r.cad.ListPackageRevisions(ctx, repositoryObj, filter.ListPackageRevisionFilter)
+		revisions, err := r.cad.ListPackageRevisions(ctx, &repositoryObj, filter.ListPackageRevisionFilter)
 		if err != nil {
 			klog.Warningf("error listing package revisions from repository %s/%s: %+v", repositoryObj.GetNamespace(), repositoryObj.GetName(), err)
 			continue
 		}
 		for _, rev := range revisions {
+
 			apiPkgRev, err := rev.GetPackageRevision(ctx)
 			if err != nil {
 				return err
+			}
+
+			fieldMatch, err := filter.Matches(ctx, *apiPkgRev)
+			if err != nil {
+				return err
+			}
+			if !fieldMatch {
+				continue
 			}
 
 			if selector != nil && !selector.Matches(labels.Set(apiPkgRev.Labels)) {
@@ -114,7 +122,7 @@ func (r *packageCommon) listPackages(ctx context.Context, filter packageFilter, 
 		opts = append(opts, client.InNamespace(ns))
 
 		if filter.Namespace != "" && ns != filter.Namespace {
-			return fmt.Errorf("conflicting namespaces specified: %q and %q", ns, filter.Namespace)
+			return fmt.Errorf("conflicting package namespaces specified: %q and %q", ns, filter.Namespace)
 		}
 	}
 
@@ -209,7 +217,7 @@ func (r *packageCommon) getRepoPkgRev(ctx context.Context, name string) (reposit
 	if err != nil {
 		return nil, err
 	}
-	revisions, err := r.cad.ListPackageRevisions(ctx, repositoryObj, repository.ListPackageRevisionFilter{KubeObjectName: name})
+	revisions, err := r.cad.ListPackageRevisions(ctx, repositoryObj, repository.ListPackageRevisionFilter{KubeObjectName: name}.Parse())
 	if err != nil {
 		return nil, err
 	}

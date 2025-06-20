@@ -96,7 +96,7 @@ func TestPublishedLatest(t *testing.T) {
 			},
 			WorkspaceName: "v2",
 		},
-	})
+	}.Parse())
 	if err != nil {
 		t.Fatalf("ListPackageRevisions failed: %v", err)
 	}
@@ -147,7 +147,7 @@ func TestDeletePublishedMain(t *testing.T) {
 			},
 			WorkspaceName: "v2",
 		},
-	})
+	}.Parse())
 	if err != nil {
 		t.Fatalf("ListPackageRevisions failed: %v", err)
 	}
@@ -189,7 +189,7 @@ func TestDeletePublishedMain(t *testing.T) {
 			Revision:      -1,
 		},
 		Lifecycle: api.PackageRevisionLifecyclePublished,
-	})
+	}.Parse())
 	if err != nil {
 		t.Fatalf("ListPackageRevisions failed: %v", err)
 	}
@@ -224,7 +224,7 @@ func TestDeletePublishedMain(t *testing.T) {
 			Revision:      -1,
 		},
 		Lifecycle: api.PackageRevisionLifecyclePublished,
-	})
+	}.Parse())
 
 	if err != nil {
 		t.Fatalf("ListPackageRevisions failed: %v", err)

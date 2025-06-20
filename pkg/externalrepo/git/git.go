@@ -23,6 +23,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -366,7 +367,7 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 				}
 				klog.Warningf("Error loading tagged package from ref %q: %s", ref.Name(), err)
 			}
-			if tagged != nil && filter.Matches(ctx, tagged) {
+			if tagged != nil {
 				result = append(result, tagged)
 			}
 		}
@@ -382,17 +383,17 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 			klog.Warningf("Error discovering finalized packages: %s", err)
 		}
 		for _, p := range mainpkgs {
-			if filter.Matches(ctx, p) {
-				result = append(result, p)
-			}
+			result = append(result, p)
 		}
 	}
 
 	for _, p := range drafts {
-		if filter.Matches(ctx, p) {
-			result = append(result, p)
-		}
+		result = append(result, p)
 	}
+
+	result = slices.DeleteFunc(result, func(p *gitPackageRevision) bool {
+		return !filter.Matches(ctx, p)
+	})
 
 	return result, nil
 }
@@ -1310,8 +1311,6 @@ type commitCallback func(*object.Commit) error
 func (r *gitRepository) GetLifecycle(ctx context.Context, pkgRev *gitPackageRevision) v1alpha1.PackageRevisionLifecycle {
 	_, span := tracer.Start(ctx, "gitRepository::GetLifecycle", trace.WithAttributes())
 	defer span.End()
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
 
 	return r.getLifecycle(pkgRev)
 }

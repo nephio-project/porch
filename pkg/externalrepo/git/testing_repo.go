@@ -17,6 +17,7 @@ package git
 import (
 	"archive/tar"
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -277,8 +278,12 @@ func findPackageRevision(t *testing.T, revisions []repository.PackageRevision, f
 			return r
 		}
 	}
-	t.Fatalf("PackageRevision %q not found", filter)
+	t.Fatalf("PackageRevision %q not found", filterToString(filter))
 	return nil
+}
+
+func filterToString(filter repository.ListPackageRevisionFilter) string {
+	return fmt.Sprintf("%s, %s, %s", filter.Key, filter.KubeObjectName, filter.Lifecycle)
 }
 
 func packageMustNotExist(t *testing.T, revisions []repository.PackageRevision, key repository.PackageRevisionKey) {
@@ -301,7 +306,7 @@ func repositoryMustHavePackageRevision(t *testing.T, git GitRepository, prKey re
 
 	findPackageRevision(t, list, repository.ListPackageRevisionFilter{
 		Key: prKey,
-	})
+	}.Parse())
 }
 
 func repositoryMustNotHavePackageRevision(t *testing.T, git GitRepository, name repository.PackageRevisionKey) {

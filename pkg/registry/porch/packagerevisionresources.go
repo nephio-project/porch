@@ -78,7 +78,7 @@ func (r *packageRevisionResources) List(ctx context.Context, options *metaintern
 		},
 	}
 
-	filter, err := parsePackageRevisionResourcesFieldSelector(options.FieldSelector)
+	filter, err := parsePackageRevisionResourcesFieldSelector(options)
 	if err != nil {
 		return nil, err
 	}

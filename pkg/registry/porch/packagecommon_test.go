@@ -174,9 +174,9 @@ func TestWatchPackages_CallsCallback(t *testing.T) {
 		return false
 	}}
 
-	filter := packageRevisionFilter{Namespace: "test-ns"}
+	filter := (&packageRevisionFilter{}).Namespace("test-ns")
 	ctx := context.TODO()
-	err := pc.watchPackages(ctx, filter, callback)
+	err := pc.watchPackages(ctx, *filter, callback)
 	if err != nil {
 		t.Fatalf("watchPackages returned error: %v", err)
 	}

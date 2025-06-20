@@ -39,16 +39,16 @@ func (r *packageRevisions) Watch(ctx context.Context, options *metainternalversi
 	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Watch", trace.WithAttributes())
 	defer span.End()
 
-	filter, err := parsePackageRevisionFieldSelector(options.FieldSelector)
+	filter, err := parsePackageRevisionFieldSelector(options)
 	if err != nil {
 		return nil, err
 	}
 
 	if ns, namespaced := genericapirequest.NamespaceFrom(ctx); namespaced {
-		if filter.Namespace != "" && ns != filter.Namespace {
-			return nil, fmt.Errorf("conflicting namespaces specified: %q and %q", ns, filter.Namespace)
+		if namespaceMatches, filteredNamespace := filter.matchesNamespace(ns); !namespaceMatches {
+			return nil, fmt.Errorf("conflicting namespaces specified: %q and %q", ns, filteredNamespace)
 		}
-		filter.Namespace = ns
+		filter.Namespace(ns)
 	}
 
 	ctx, cancel := context.WithCancel(ctx)

@@ -80,7 +80,7 @@ func (r *packageRevisions) List(ctx context.Context, options *metainternalversio
 		},
 	}
 
-	filter, err := parsePackageRevisionFieldSelector(options.FieldSelector)
+	filter, err := parsePackageRevisionFieldSelector(options)
 	if err != nil {
 		return nil, err
 	}
