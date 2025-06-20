@@ -75,7 +75,20 @@ func (r *watcherManager) WatchPackageRevisions(ctx context.Context, filter repos
 	inserted := false
 	for i, watcher := range r.watchers {
 		if watcher != nil {
-			active += 1
+			//Remove any watchers if they are finished and insert the new watcher in the empty slot of the first removed watcher
+			if watcher.isDoneFunction() != nil {
+				if !inserted {
+					r.watchers[i] = w
+					inserted = true
+					active += 1
+					klog.Infof("watcher %p is finished and replaced by watcher %p", watcher, w)
+				} else {
+					r.watchers[i] = nil
+					klog.Infof("watcher %p is finished and removed", watcher)
+				}
+			} else {
+				active += 1
+			}
 		} else if !inserted {
 			active += 1
 			r.watchers[i] = w
