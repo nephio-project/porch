@@ -222,7 +222,7 @@ func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd re
 				Package: prd.Key().PkgKey.Package,
 			},
 		},
-	})
+	}.Parse())
 	if err != nil {
 		return nil, err
 	}

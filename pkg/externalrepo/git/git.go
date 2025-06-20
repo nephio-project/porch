@@ -1341,8 +1341,6 @@ type commitCallback func(*object.Commit) error
 func (r *gitRepository) GetLifecycle(ctx context.Context, pkgRev *gitPackageRevision) v1alpha1.PackageRevisionLifecycle {
 	_, span := tracer.Start(ctx, "gitRepository::GetLifecycle", trace.WithAttributes())
 	defer span.End()
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
 
 	return r.getLifecycle(pkgRev)
 }

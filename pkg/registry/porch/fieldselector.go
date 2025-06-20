@@ -18,10 +18,10 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apiserver/pkg/storage"
@@ -98,17 +98,10 @@ func parsePackageFieldSelector(fieldSelector fields.Selector) (repository.ListPa
 	return filter, nil
 }
 
-// packageRevisionFilter filters packages, extending repository.ListPackageRevisionFilter
-type packageRevisionFilter struct {
-	*repository.ListPackageRevisionFilter
-}
-
-func newPackageRevisionFilter() *packageRevisionFilter {
-	return &packageRevisionFilter{
-		ListPackageRevisionFilter: &repository.ListPackageRevisionFilter{
+func newPackageRevisionFilter() *repository.ListPackageRevisionFilter {
+	return &repository.ListPackageRevisionFilter{
 			Predicate: &storage.SelectionPredicate{},
 		},
-	}
 }
 
 func (f *packageRevisionFilter) Matches(p repository.PackageRevision) (bool, error) {

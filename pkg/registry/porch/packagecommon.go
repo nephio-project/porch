@@ -63,6 +63,15 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter reposit
 	defer span.End()
 
 	var opts []client.ListOption
+
+	// namespace, namespaced := genericapirequest.NamespaceFrom(ctx)
+	// if namespaced && namespace != "" {
+	// 	opts = append(opts, client.InNamespace(namespace))
+
+	// 	if filter.Key.RKey().Namespace != "" && namespace != filter.Key.RKey().Namespace {
+	// 		return fmt.Errorf("conflicting namespaces specified: %q and %q", namespace, filter.Key.RKey().Namespace)
+	// 	}
+	// }
 	ns, namespaced := genericapirequest.NamespaceFrom(ctx)
 	if namespaced && ns != "" {
 		if namespaceMatches, filteredNamespace := filter.matchesNamespace(ns); !namespaceMatches {
@@ -81,14 +90,13 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter reposit
 		return fmt.Errorf("error listing repository objects: %w", err)
 	}
 
-	for i := range repositories.Items {
-		repositoryObj := &repositories.Items[i]
+	for _, repositoryObj := range repositories.Items {
 
 		if filter.Key.RKey().Name != "" && filter.Key.RKey().Name != repositoryObj.GetName() {
 			continue
 		}
 
-		revisions, err := r.cad.ListPackageRevisions(ctx, repositoryObj, filter)
+		revisions, err := r.cad.ListPackageRevisions(ctx, &repositoryObj, filter)
 		if err != nil {
 			klog.Warningf("error listing package revisions from repository %s/%s: %+v", repositoryObj.GetNamespace(), repositoryObj.GetName(), err)
 			continue
