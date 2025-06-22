@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/*
+Package externalrepo provides an interface and implementations to external repositories that store packages.
+*/
 package externalrepo
 
 import (
@@ -21,6 +24,7 @@ import (
 	"strings"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/pkg/externalrepo/fake"
 	"github.com/nephio-project/porch/pkg/externalrepo/git"
 	"github.com/nephio-project/porch/pkg/externalrepo/oci"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
@@ -29,7 +33,10 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-var tracer = otel.Tracer("externalrepo")
+var (
+	tracer                          = otel.Tracer("externalrepo")
+	ExternalRepoInUnitTestMode bool = false
+)
 
 func CreateRepositoryImpl(ctx context.Context, repositorySpec *configapi.Repository, options externalrepotypes.ExternalRepoOptions) (repository.Repository, error) {
 	ctx, span := tracer.Start(ctx, "Repository::RepositoryFactory", trace.WithAttributes())
@@ -45,7 +52,11 @@ func CreateRepositoryImpl(ctx context.Context, repositorySpec *configapi.Reposit
 		repoFactory = new(git.GitRepoFactory)
 
 	default:
-		return nil, fmt.Errorf("type %q not supported", repositoryType)
+		if ExternalRepoInUnitTestMode {
+			return &fake.Repository{}, nil
+		} else {
+			return nil, fmt.Errorf("type %q not supported", repositoryType)
+		}
 	}
 
 	return repoFactory.NewRepositoryImpl(ctx, repositorySpec, options)

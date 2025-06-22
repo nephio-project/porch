@@ -115,7 +115,7 @@ func pkgScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackage, error
 
 	for rows.Next() {
 		var dbPkg dbPackage
-		var pkgK8SName, metaAsJson, specAsJson string
+		var pkgK8SName, metaAsJSON, specAsJSON string
 
 		err := rows.Scan(
 			&dbPkg.pkgKey.RepoKey.Namespace,
@@ -124,8 +124,8 @@ func pkgScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackage, error
 			&dbPkg.pkgKey.RepoKey.PlaceholderWSname,
 			&pkgK8SName,
 			&dbPkg.pkgKey.Path,
-			&metaAsJson,
-			&specAsJson,
+			&metaAsJSON,
+			&specAsJSON,
 			&dbPkg.updated,
 			&dbPkg.updatedBy)
 
@@ -136,8 +136,8 @@ func pkgScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackage, error
 
 		dbPkg.repo = cachetypes.CacheInstance.GetRepository(dbPkg.pkgKey.RepoKey).(*dbRepository)
 		dbPkg.pkgKey.Package = repository.K8SName2PkgName(pkgK8SName)
-		setValueFromJson(metaAsJson, &dbPkg.meta)
-		setValueFromJson(specAsJson, &dbPkg.spec)
+		setValueFromJSON(metaAsJSON, &dbPkg.meta)
+		setValueFromJSON(specAsJSON, &dbPkg.spec)
 
 		dbPkgs = append(dbPkgs, &dbPkg)
 	}
@@ -161,7 +161,7 @@ func pkgWriteToDB(ctx context.Context, p *dbPackage) error {
 	pk := p.Key()
 	if _, err := GetDB().db.Exec(sqlStatement,
 		pk.K8SNS(), pk.K8SName(),
-		pk.RepoKey.K8SName(), pk.Path, valueAsJson(p.meta), valueAsJson(p.spec), p.updated, p.updatedBy); err == nil {
+		pk.RepoKey.K8SName(), pk.Path, valueAsJSON(p.meta), valueAsJSON(p.spec), p.updated, p.updatedBy); err == nil {
 		klog.V(5).Infof("pkgWriteToDB: query succeeded for %+v", p.Key())
 		return nil
 	} else {
@@ -186,7 +186,7 @@ func pkgUpdateDB(ctx context.Context, p *dbPackage) error {
 		sqlStatement,
 		pk.K8SNS(), pk.K8SName(),
 		pk.RepoKey.K8SName(), pk.Path,
-		valueAsJson(p.meta), valueAsJson(p.spec), p.updated, p.updatedBy)
+		valueAsJSON(p.meta), valueAsJSON(p.spec), p.updated, p.updatedBy)
 
 	if err == nil {
 		if rowsAffected, _ := result.RowsAffected(); rowsAffected == 1 {
