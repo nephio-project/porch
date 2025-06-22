@@ -16,12 +16,15 @@ package dbcache
 
 import (
 	"context"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo"
+	"github.com/nephio-project/porch/pkg/externalrepo/fake"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	mockcachetypes "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
@@ -42,9 +45,13 @@ func TestDBRepository(t *testing.T) {
 	assert.Equal(t, "my-repo-name", shellRepo.KubeObjectName())
 	assert.Equal(t, types.UID("82d3ab92-4a01-5679-8c52-b1c3daf6f016"), shellRepo.UID())
 	assert.Equal(t, repository.RepositoryKey{Namespace: "my-ns", Name: "my-repo-name"}, shellRepo.Key())
+
+	version, err := shellRepo.Version(context.TODO())
+	assert.Nil(t, err)
+	assert.Equal(t, "undefined", version)
 }
 
-func TestDBRepositoryCrud(t *testing.T) {
+func TestDBRepositoryPRCrud(t *testing.T) {
 	mockCache := mockcachetypes.NewMockCache(t)
 	cachetypes.CacheInstance = mockCache
 
@@ -56,9 +63,30 @@ func TestDBRepositoryCrud(t *testing.T) {
 	testRepo.spec = &configapi.Repository{
 		Spec: configapi.RepositorySpec{},
 	}
-	mockCache.EXPECT().GetRepository(mock.Anything).Return(&testRepo)
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(&testRepo).Maybe()
 
 	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	assert.Nil(t, err)
+
+	pkgList, err := testRepo.ListPackages(ctx, repository.ListPackageFilter{})
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(pkgList))
+
+	newPkgDef := v1alpha1.PorchPackage{
+		Spec: v1alpha1.PackageSpec{
+			RepositoryName: "my-repo-name",
+			PackageName:    "my-new-package",
+		},
+	}
+
+	newPkg, err := testRepo.CreatePackage(ctx, &newPkgDef)
+	assert.Nil(t, err)
+	assert.NotNil(t, newPkg)
+
+	pkgDef := newPkg.GetPackage(ctx)
+	assert.NotNil(t, pkgDef)
+
+	err = testRepo.DeletePackage(ctx, newPkg)
 	assert.Nil(t, err)
 
 	prList, err := testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
@@ -84,12 +112,63 @@ func TestDBRepositoryCrud(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, updatedPRDraft)
 
+	err = updatedPRDraft.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleProposed)
+	assert.Nil(t, err)
+
 	updatedPR, err := testRepo.ClosePackageRevisionDraft(ctx, updatedPRDraft, -1)
 	assert.Nil(t, err)
 	assert.NotNil(t, updatedPR)
 
+	updatedPRDraft, err = testRepo.UpdatePackageRevision(ctx, newPR)
+	assert.Nil(t, err)
+	assert.NotNil(t, updatedPRDraft)
+
+	err = updatedPRDraft.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
+	assert.Nil(t, err)
+
+	updatedPR, err = testRepo.ClosePackageRevisionDraft(ctx, updatedPRDraft, -1)
+	assert.Nil(t, err)
+	assert.NotNil(t, updatedPR)
+
+	fakeRepo := testRepo.externalRepo.(*fake.Repository)
+	fakeExtPR := fake.FakePackageRevision{
+		PrKey: updatedPR.Key(),
+	}
+	fakeRepo.PackageRevisions = append(fakeRepo.PackageRevisions, &fakeExtPR)
+
 	err = testRepo.DeletePackageRevision(ctx, updatedPR)
 	assert.Nil(t, err)
+
+	err = testRepo.Close(ctx)
+	assert.Nil(t, err)
+}
+
+func TestDBRepositorySync(t *testing.T) {
+	mockCache := mockcachetypes.NewMockCache(t)
+	cachetypes.CacheInstance = mockCache
+
+	externalrepo.ExternalRepoInUnitTestMode = true
+
+	ctx := context.TODO()
+
+	testRepo := createTestRepo(t, "my-ns", "my-repo-name")
+	testRepo.spec = &configapi.Repository{
+		Spec: configapi.RepositorySpec{},
+	}
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(&testRepo).Maybe()
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	assert.Nil(t, err)
+
+	cacheOptions := cachetypes.CacheOptions{
+		RepoSyncFrequency: 2 * time.Second,
+	}
+
+	testRepo.repositorySync = newRepositorySync(&testRepo, cacheOptions)
+	assert.NotNil(t, testRepo.repositorySync)
+
+	err = testRepo.Refresh(ctx)
+	assert.True(t, err == nil || strings.Contains(err.Error(), "already in progress"))
 
 	err = testRepo.Close(ctx)
 	assert.Nil(t, err)
