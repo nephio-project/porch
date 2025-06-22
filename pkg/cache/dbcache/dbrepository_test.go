@@ -16,6 +16,7 @@ package dbcache
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -27,6 +28,7 @@ import (
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
+	mocksql "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/dbcache"
 	mockcachetypes "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -172,4 +174,41 @@ func TestDBRepositorySync(t *testing.T) {
 
 	err = testRepo.Close(ctx)
 	assert.Nil(t, err)
+}
+
+func TestDBRepositorCorner(t *testing.T) {
+	switchToMockSQL(t)
+
+	mockSQL := dbHandler.db.(*mocksql.MockdbSQLInterface)
+	mockSQL.EXPECT().Exec(
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything).Return(nil, errors.New("DB exec failed")).Maybe()
+
+	mockSQL.EXPECT().Close().Return(errors.New("DB close failed")).Maybe()
+
+	mockCache := mockcachetypes.NewMockCache(t)
+	cachetypes.CacheInstance = mockCache
+
+	externalrepo.ExternalRepoInUnitTestMode = true
+
+	ctx := context.TODO()
+
+	dbRepo := dbRepository{
+		repoKey: repository.RepositoryKey{
+			Namespace: "my-ns",
+			Name:      "my-repo-name",
+		},
+	}
+	err := repoWriteToDB(ctx, &dbRepo)
+	assert.NotNil(t, err)
+
+	revertToPostgreSQL(t)
 }

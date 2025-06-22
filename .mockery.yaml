@@ -32,3 +32,9 @@ packages:
         config:
           dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
           outpkg: "{{.PackageName}}"
+  github.com/nephio-project/porch/pkg/cache/dbcache:
+    interfaces:
+      dbSQLInterface:
+        config:
+          dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
+          outpkg: "{{.PackageName}}"
