@@ -63,10 +63,6 @@ func (pr *dbPackageRevision) Key() repository.PackageRevisionKey {
 	return pr.pkgRevKey
 }
 
-func (pr *dbPackageRevision) GetName() string {
-	return pr.Key().PKey().Package
-}
-
 func (pr *dbPackageRevision) savePackageRevision(ctx context.Context, saveResources bool) (*dbPackageRevision, error) {
 	_, span := tracer.Start(ctx, "dbPackageRevision::savePackageRevision", trace.WithAttributes())
 	defer span.End()

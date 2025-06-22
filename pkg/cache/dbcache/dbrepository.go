@@ -17,7 +17,6 @@ package dbcache
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"time"
 
@@ -255,11 +254,26 @@ func (r *dbRepository) ListPackages(ctx context.Context, filter repository.ListP
 	return genericPkgs, nil
 }
 
-func (r *dbRepository) CreatePackage(ctx context.Context, obj *v1alpha1.PorchPackage) (repository.Package, error) {
+func (r *dbRepository) CreatePackage(ctx context.Context, newPkgDef *v1alpha1.PorchPackage) (repository.Package, error) {
 	_, span := tracer.Start(ctx, "dbRepository::CreatePackage", trace.WithAttributes())
 	defer span.End()
 
-	return nil, nil
+	klog.V(5).Infof("dbRepository:CreatePackage: creating package for %+v on repo %+v", newPkgDef, r.Key())
+
+	dbPkg := &dbPackage{
+		repo: r,
+		pkgKey: repository.PackageKey{
+			RepoKey: r.Key(),
+			Package: newPkgDef.Spec.PackageName,
+		},
+		meta:      newPkgDef.ObjectMeta,
+		spec:      &newPkgDef.Spec,
+		updated:   time.Now(),
+		updatedBy: getCurrentUser(),
+	}
+
+	err := pkgWriteToDB(ctx, dbPkg)
+	return dbPkg, err
 }
 
 func (r *dbRepository) DeletePackage(ctx context.Context, old repository.Package) error {
@@ -275,22 +289,12 @@ func (r *dbRepository) DeletePackage(ctx context.Context, old repository.Package
 		}
 	}
 
-	foundPRs, err := pkgRevReadPRsFromDB(ctx, foundPackage.Key())
-	if err != nil {
-		return err
-	}
-
-	if len(foundPRs) != 0 {
-		errMsg := fmt.Sprintf("cannot delete package %+v, it has %d package revisions", old.Key(), len(foundPRs))
-		return errors.New(errMsg)
-	}
-
-	return pkgDeleteFromDB(ctx, old.Key())
+	return foundPackage.Delete(ctx, true)
 }
 
 func (r *dbRepository) Version(ctx context.Context) (string, error) {
 	klog.V(5).Infof("dbRepository:Version: %+v", r.Key())
-	return "Undefined", nil
+	return "undefined", nil
 }
 
 func (r *dbRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version int) (repository.PackageRevision, error) {
