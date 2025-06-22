@@ -1,4 +1,4 @@
-// Copyright 2022, 2024-2025 The kpt and Nephio Authors
+// Copyright 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -67,8 +67,8 @@ func (s *repositorySync) syncForever(ctx context.Context, repoSyncFrequency time
 			klog.V(2).Infof("repositorySync %+v: exiting repository sync, because context is done: %v", s.repo.Key(), ctx.Err())
 			return
 		default:
-			s.lastSyncStats, s.lastSyncError = s.syncOnce(ctx)
 			time.Sleep(repoSyncFrequency)
+			s.lastSyncStats, s.lastSyncError = s.syncOnce(ctx)
 		}
 	}
 }
@@ -208,7 +208,19 @@ func (s *repositorySync) deletePRsOnlyInCache(ctx context.Context, cachedPrMap m
 	for _, dbPRKey := range inCachedOnly {
 		dbPR := cachedPrMap[dbPRKey]
 
-		if err := s.repo.DeletePackageRevision(ctx, dbPR); err != nil {
+		pkgList, err := s.repo.ListPackages(ctx, repository.ListPackageFilter{Key: dbPR.Key().PKey()})
+		if err != nil {
+			return err
+		}
+
+		if len(pkgList) != 1 {
+			err := fmt.Errorf("deletePRsOnlyInCache: reading package %+v should return 1 package, it returned %d packages", dbPR.Key().PKey(), len(pkgList))
+			klog.Warning(err.Error())
+			return err
+		}
+
+		dbPkg := pkgList[0].(*dbPackage)
+		if err = dbPkg.DeletePackageRevision(ctx, dbPR, false); err != nil {
 			klog.Errorf("repositorySync %+v: failed to delete cached PR %+v not in external repo", s.repo.Key(), dbPRKey)
 			return err
 		}

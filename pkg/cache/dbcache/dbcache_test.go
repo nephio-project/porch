@@ -19,17 +19,23 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
+	"github.com/nephio-project/porch/pkg/externalrepo"
 	"github.com/nephio-project/porch/pkg/repository"
+	mocksql "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/dbcache"
 	"github.com/stretchr/testify/assert"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 )
 
 var (
 	defaultPorchSQLSchema string = "api/sql/porch-db.sql"
 	nextPkgRev            int    = 1
+	savedDBHandler        *DBHandler
 )
 
 func TestMain(m *testing.M) {
@@ -91,14 +97,70 @@ func run(m *testing.M) (code int, err error) {
 		return -1, fmt.Errorf("could not process Porch SQL schema file %q: %w", schemaFile, err)
 	}
 
-	// truncates all test data after the tests are run
-	defer func() {
-		if err := CloseDB(context.TODO()); err != nil {
-			klog.Errorf("close of test database failed: %q", err)
-		}
-	}()
+	result := m.Run()
 
-	return m.Run(), nil
+	time.Sleep(5 * time.Second)
+
+	if err := CloseDB(context.TODO()); err == nil {
+		return result, nil
+	} else {
+		return result, err
+	}
+}
+
+func switchToMockSQL(t *testing.T) {
+	mockSQL := mocksql.NewMockdbSQLInterface(t)
+
+	savedDBHandler = GetDB()
+	dbHandler = nil
+
+	err := CloseDB(context.TODO())
+	assert.Nil(t, err)
+
+	dbHandler = &DBHandler{
+		dBCacheOptions: savedDBHandler.dBCacheOptions,
+		dataSource:     savedDBHandler.dataSource,
+		db:             mockSQL,
+	}
+	assert.NotNil(t, dbHandler)
+}
+
+func revertToPostgreSQL(_ *testing.T) {
+	dbHandler = savedDBHandler
+}
+
+func TestDBRepositoryCrud(t *testing.T) {
+	externalrepo.ExternalRepoInUnitTestMode = true
+
+	ctx := context.TODO()
+
+	options := cachetypes.CacheOptions{
+		RepoSyncFrequency: 60 * time.Minute,
+	}
+	dbCache, err := new(DBCacheFactory).NewCache(ctx, options)
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(dbCache.GetRepositories()))
+
+	repositorySpec := configapi.Repository{
+		ObjectMeta: v1.ObjectMeta{
+			Namespace: "my-ns",
+			Name:      "my-repo",
+		},
+	}
+	testRepo, err := dbCache.OpenRepository(ctx, &repositorySpec)
+	assert.Nil(t, err)
+	assert.Equal(t, "my-repo", testRepo.Key().Name)
+
+	gotRepo := dbCache.GetRepository(testRepo.Key())
+	assert.Equal(t, testRepo.Key(), gotRepo.Key())
+
+	repositorySpec.Spec.Description = "My lovely Repo"
+
+	err = dbCache.UpdateRepository(ctx, &repositorySpec)
+	assert.Nil(t, err)
+
+	err = dbCache.CloseRepository(ctx, &repositorySpec, nil)
+	assert.Nil(t, err)
 }
 
 func createTestRepo(t *testing.T, namespace, name string) dbRepository {

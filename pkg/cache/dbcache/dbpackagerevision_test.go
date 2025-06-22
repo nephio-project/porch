@@ -31,7 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestDBpackagerRevision(t *testing.T) {
+func TestDBPackageRevision(t *testing.T) {
 	mockCache := mockcachetypes.NewMockCache(t)
 	cachetypes.CacheInstance = mockCache
 

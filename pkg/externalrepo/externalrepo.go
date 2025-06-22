@@ -92,6 +92,13 @@ func RepositoryKey(repositorySpec *configapi.Repository) (repository.RepositoryK
 		}, nil
 
 	default:
-		return repository.RepositoryKey{}, fmt.Errorf("repository type %q not supported", repositoryType)
+		if ExternalRepoInUnitTestMode {
+			return repository.RepositoryKey{
+				Namespace: repositorySpec.Namespace,
+				Name:      repositorySpec.Name,
+			}, nil
+		} else {
+			return repository.RepositoryKey{}, fmt.Errorf("repository type %q not supported", repositoryType)
+		}
 	}
 }

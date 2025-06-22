@@ -27,7 +27,7 @@ import (
 type DBHandler struct {
 	dBCacheOptions cachetypes.DBCacheOptions
 	dataSource     string
-	db             *sql.DB
+	db             dbSQLInterface
 }
 
 var dbHandler *DBHandler = nil
@@ -59,7 +59,9 @@ func OpenDB(ctx context.Context, opts cachetypes.CacheOptions) error {
 
 	dbHandler = &DBHandler{
 		dBCacheOptions: opts.DBCacheOptions,
-		db:             db,
+		db: &dbSQL{
+			db: db,
+		},
 	}
 
 	return nil
