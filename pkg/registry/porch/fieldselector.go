@@ -87,6 +87,7 @@ func parsePackageFieldSelector(fieldSelector fields.Selector) (repository.ListPa
 
 		case "spec.packageName":
 			filter.Key.Package = requirement.Value
+
 		case "spec.repository":
 			filter.Key.RepoKey.Name = requirement.Value
 

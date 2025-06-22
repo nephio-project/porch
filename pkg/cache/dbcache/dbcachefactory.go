@@ -22,12 +22,12 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-var _ cachetypes.CacheFactory = &DbCacheFactory{}
+var _ cachetypes.CacheFactory = &DBCacheFactory{}
 
-type DbCacheFactory struct {
+type DBCacheFactory struct {
 }
 
-func (f *DbCacheFactory) NewCache(ctx context.Context, options cachetypes.CacheOptions) (cachetypes.Cache, error) {
+func (f *DBCacheFactory) NewCache(ctx context.Context, options cachetypes.CacheOptions) (cachetypes.Cache, error) {
 	_, span := tracer.Start(ctx, "DbCacheFactory::NewCache", trace.WithAttributes())
 	defer span.End()
 

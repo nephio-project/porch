@@ -30,7 +30,7 @@ func getCurrentUser() string {
 	}
 }
 
-func valueAsJson(value any) string {
+func valueAsJSON(value any) string {
 	if jsonValue, err := json.Marshal(value); err == nil {
 		return string(jsonValue)
 	} else {
@@ -39,7 +39,7 @@ func valueAsJson(value any) string {
 	}
 }
 
-func setValueFromJson(jsonValue string, value any) {
+func setValueFromJSON(jsonValue string, value any) {
 	if err := json.Unmarshal([]byte(jsonValue), &value); err != nil {
 		klog.Errorf("unmarshal of json value %v failed, %v ", jsonValue, err)
 	}

@@ -28,7 +28,7 @@ import (
 )
 
 var (
-	defaultPorchSqlSchema string = "api/sql/porch-db.sql"
+	defaultPorchSQLSchema string = "api/sql/porch-db.sql"
 	nextPkgRev            int    = 1
 )
 
@@ -70,14 +70,14 @@ func run(m *testing.M) (code int, err error) {
 
 	schemaFile, ok := os.LookupEnv("PORCH_SQL_SCHEMA")
 	if !ok {
-		klog.Infof("environment variable PORCH_SQL_SCHEMA not set, trying to find default schema in PORCHDIR/%q", defaultPorchSqlSchema)
+		klog.Infof("environment variable PORCH_SQL_SCHEMA not set, trying to find default schema in PORCHDIR/%q", defaultPorchSQLSchema)
 
 		gitRoot, ok := os.LookupEnv("PORCHDIR")
 		if ok {
-			schemaFile = gitRoot + "/" + defaultPorchSqlSchema
+			schemaFile = gitRoot + "/" + defaultPorchSQLSchema
 		} else {
-			klog.Infof("environment variable PORCHDIR not set, setting schema file as %q", defaultPorchSqlSchema)
-			schemaFile = defaultPorchSqlSchema
+			klog.Infof("environment variable PORCHDIR not set, setting schema file as %q", defaultPorchSQLSchema)
+			schemaFile = defaultPorchSQLSchema
 		}
 	}
 

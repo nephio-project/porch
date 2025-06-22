@@ -55,7 +55,9 @@ func newRepositorySync(repo *dbRepository, options cachetypes.CacheOptions) *rep
 }
 
 func (s *repositorySync) stop() {
-	s.cancel()
+	if s != nil {
+		s.cancel()
+	}
 }
 
 func (s *repositorySync) syncForever(ctx context.Context, repoSyncFrequency time.Duration) {

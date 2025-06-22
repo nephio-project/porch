@@ -46,7 +46,7 @@ func GetCacheImpl(ctx context.Context, options cachetypes.CacheOptions) (cachety
 		cacheFactory = new(crcache.CrCacheFactory)
 
 	case cachetypes.DBCacheType:
-		cacheFactory = new(dbcache.DbCacheFactory)
+		cacheFactory = new(dbcache.DBCacheFactory)
 
 	default:
 		return nil, fmt.Errorf("type %q not supported", cacheType)

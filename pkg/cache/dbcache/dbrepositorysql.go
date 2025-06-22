@@ -35,7 +35,7 @@ func repoReadFromDB(ctx context.Context, rk repository.RepositoryKey) (*dbReposi
 		WHERE k8s_name_space=$1 AND k8s_name=$2`
 
 	var dbRepo dbRepository
-	var metaAsJson, specAsJson string
+	var metaAsJSON, specAsJSON string
 
 	klog.V(6).Infof("repoReadFromDB: running query %q on repository %+v", sqlStatement, rk)
 	err := GetDB().db.QueryRow(sqlStatement, rk.K8SNS(), rk.K8SName()).Scan(
@@ -43,8 +43,8 @@ func repoReadFromDB(ctx context.Context, rk repository.RepositoryKey) (*dbReposi
 		&dbRepo.repoKey.Name,
 		&dbRepo.repoKey.Path,
 		&dbRepo.repoKey.PlaceholderWSname,
-		&metaAsJson,
-		&specAsJson,
+		&metaAsJSON,
+		&specAsJSON,
 		&dbRepo.updated,
 		&dbRepo.updatedBy,
 		&dbRepo.deployment)
@@ -54,8 +54,8 @@ func repoReadFromDB(ctx context.Context, rk repository.RepositoryKey) (*dbReposi
 		return nil, err
 	}
 
-	setValueFromJson(metaAsJson, &dbRepo.meta)
-	setValueFromJson(specAsJson, &dbRepo.spec)
+	setValueFromJSON(metaAsJSON, &dbRepo.meta)
+	setValueFromJSON(specAsJSON, &dbRepo.spec)
 
 	klog.V(5).Infof("repoReadFromDB: read repo %+v", rk)
 
@@ -76,7 +76,7 @@ func repoWriteToDB(ctx context.Context, r *dbRepository) error {
 	rk := r.Key()
 	if _, err := GetDB().db.Exec(
 		sqlStatement,
-		rk.K8SNS(), rk.K8SName(), rk.Path, rk.PlaceholderWSname, valueAsJson(r.meta), valueAsJson(r.spec), r.updated, r.updatedBy, r.deployment); err == nil {
+		rk.K8SNS(), rk.K8SName(), rk.Path, rk.PlaceholderWSname, valueAsJSON(r.meta), valueAsJSON(r.spec), r.updated, r.updatedBy, r.deployment); err == nil {
 		klog.V(5).Infof("repoWriteToDB: query succeeded, row created for %+v", r.Key())
 		return nil
 	} else {
@@ -99,7 +99,7 @@ func repoUpdateDB(ctx context.Context, r *dbRepository) error {
 	klog.V(6).Infof("repoUpdateDB: running query %q on repository %+v", sqlStatement, rk)
 	result, err := GetDB().db.Exec(
 		sqlStatement,
-		rk.K8SNS(), rk.K8SName(), rk.Path, rk.PlaceholderWSname, valueAsJson(r.meta), valueAsJson(r.spec), r.updated, r.updatedBy, r.deployment)
+		rk.K8SNS(), rk.K8SName(), rk.Path, rk.PlaceholderWSname, valueAsJSON(r.meta), valueAsJSON(r.spec), r.updated, r.updatedBy, r.deployment)
 
 	if err == nil {
 		if rowsAffected, _ := result.RowsAffected(); rowsAffected == 1 {

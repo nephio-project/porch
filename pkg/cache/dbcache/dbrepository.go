@@ -371,13 +371,6 @@ func (r *dbRepository) Refresh(ctx context.Context) error {
 	return nil
 }
 
-func (r *dbRepository) UpdateLifecycle(ctx context.Context, pkgRev repository.PackageRevision, newLifecycle v1alpha1.PackageRevisionLifecycle) error {
-	_, span := tracer.Start(ctx, "dbRepository::UpdateLifecycle", trace.WithAttributes())
-	defer span.End()
-
-	return nil
-}
-
 func (r *dbRepository) getExternalPr(ctx context.Context, prKey repository.PackageRevisionKey) (repository.PackageRevision, error) {
 	_, span := tracer.Start(ctx, "dbRepository::getExternalPr", trace.WithAttributes())
 	defer span.End()
