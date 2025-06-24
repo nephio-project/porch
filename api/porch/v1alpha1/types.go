@@ -562,3 +562,9 @@ type PackageStatus struct {
 	// selection of the latest revision.
 	LatestRevision int `json:"latestRevision,omitempty"`
 }
+
+// TopToBottomRenderAnnotation is an annotation that can be used to indicate that a package
+// should be hydrated from top to bottom, from the root package to the subpackages.
+const (
+	TopToBottomRenderAnnotation = "kpt.dev/top-bottom-rendering"
+)

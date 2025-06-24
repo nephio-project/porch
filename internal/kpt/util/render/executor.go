@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
@@ -40,10 +41,6 @@ import (
 )
 
 var errAllowedExecNotSpecified = fmt.Errorf("must run with `--allow-exec` option to allow running function binaries")
-
-const (
-	TopToBottomRenderAnnotation = "kpt.dev/top-bottom-rendering"
-)
 
 // Renderer hydrates a given pkg by running the functions in the input pipeline
 type Renderer struct {
@@ -99,7 +96,7 @@ func (e *Renderer) Execute(ctx context.Context) (*fnresult.ResultList, error) {
 	// If the annotation "kpt.dev/top-bottom-rendering" is set to "true", use hydrateTopBottom
 	// otherwise use the default hydrate function in bottom-up order.
 	hydrateFn := hydrate
-	if value, exists := kptfile.Annotations[TopToBottomRenderAnnotation]; exists && value == "true" {
+	if value, exists := kptfile.Annotations[v1alpha1.TopToBottomRenderAnnotation]; exists && value == "true" {
 		hydrateFn = hydrateTopBottom
 	}
 
