@@ -48,7 +48,7 @@ func (p *dbPackage) KubeObjectNamespace() string {
 }
 
 func (p *dbPackage) UID() types.UID {
-	return util.GenerateUid("packages.", p.KubeObjectNamespace(), p.KubeObjectName())
+	return util.GenerateUid("dbPackage:", p.KubeObjectNamespace(), p.KubeObjectName())
 }
 
 func (p *dbPackage) Key() repository.PackageKey {
@@ -56,7 +56,7 @@ func (p *dbPackage) Key() repository.PackageKey {
 }
 
 func (p *dbPackage) savePackage(ctx context.Context) (*dbPackage, error) {
-	_, span := tracer.Start(ctx, "dbPackage::savePackage", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "dbPackage:savePackage", trace.WithAttributes())
 	defer span.End()
 
 	_, err := pkgReadFromDB(ctx, p.Key())
@@ -80,7 +80,7 @@ func (p *dbPackage) savePackage(ctx context.Context) (*dbPackage, error) {
 }
 
 func (p *dbPackage) GetPackage(ctx context.Context) *v1alpha1.PorchPackage {
-	_, span := tracer.Start(ctx, "dbPackage::GetPackage", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "dbPackage:GetPackage", trace.WithAttributes())
 	defer span.End()
 
 	key := p.Key()
@@ -110,14 +110,14 @@ func (p *dbPackage) GetPackage(ctx context.Context) *v1alpha1.PorchPackage {
 }
 
 func (p *dbPackage) savePackageRevision(ctx context.Context, d *dbPackageRevision) (*dbPackageRevision, error) {
-	_, span := tracer.Start(ctx, "dbPackage::savePackageRevision", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "dbPackage:savePackageRevision", trace.WithAttributes())
 	defer span.End()
 
 	return d.savePackageRevision(ctx, true)
 }
 
 func (p *dbPackage) DeletePackageRevision(ctx context.Context, old repository.PackageRevision, deleteExternal bool) error {
-	_, span := tracer.Start(ctx, "dbPackage::DeletePackageRevision", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "dbPackage:DeletePackageRevision", trace.WithAttributes())
 	defer span.End()
 
 	dpPR := old.(*dbPackageRevision)
@@ -138,7 +138,7 @@ func (p *dbPackage) DeletePackageRevision(ctx context.Context, old repository.Pa
 }
 
 func (p *dbPackage) GetLatestRevision(ctx context.Context) int {
-	_, span := tracer.Start(ctx, "dbPackage::GetLatestRevision", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "dbPackage:GetLatestRevision", trace.WithAttributes())
 	defer span.End()
 
 	if latestRev, err := pkgRevGetlatestRevFromDB(ctx, p.Key()); err == nil {
@@ -150,7 +150,7 @@ func (p *dbPackage) GetLatestRevision(ctx context.Context) int {
 }
 
 func (p *dbPackage) Delete(ctx context.Context, deleteExternal bool) error {
-	_, span := tracer.Start(ctx, "dbPackage::Delete", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "dbPackage:Delete", trace.WithAttributes())
 	defer span.End()
 
 	dbPkgRevs, err := pkgRevReadPRsFromDB(ctx, p.Key())

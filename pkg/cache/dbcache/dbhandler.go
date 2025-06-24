@@ -49,13 +49,13 @@ func OpenDB(ctx context.Context, opts cachetypes.CacheOptions) error {
 		return err
 	}
 
-	if err := db.Ping(); err == nil {
-		klog.V(4).Infof("OpenDB: database %q opened", opts.DBCacheOptions.DataSource)
-	} else {
+	if err := db.Ping(); err != nil {
 		db.Close()
 		klog.V(4).Infof("OpenDB: database %q open failed", opts.DBCacheOptions.DataSource)
 		return err
 	}
+
+	klog.V(4).Infof("OpenDB: database %q opened", opts.DBCacheOptions.DataSource)
 
 	dbHandler = &DBHandler{
 		dBCacheOptions: opts.DBCacheOptions,
@@ -81,7 +81,7 @@ func CloseDB(ctx context.Context) error {
 	defer span.End()
 
 	if dbHandler == nil {
-		klog.V(4).Infof("CloseDB: the databse is already closed")
+		klog.V(4).Infof("CloseDB: the database is already closed")
 		return nil
 	}
 
