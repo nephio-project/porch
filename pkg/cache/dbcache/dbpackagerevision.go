@@ -56,7 +56,7 @@ func (pr *dbPackageRevision) KubeObjectNamespace() string {
 }
 
 func (pr *dbPackageRevision) UID() types.UID {
-	return util.GenerateUid("packagerevisions.", pr.KubeObjectNamespace(), pr.KubeObjectName())
+	return util.GenerateUid("packagerevision:", pr.KubeObjectNamespace(), pr.KubeObjectName())
 }
 
 func (pr *dbPackageRevision) Key() repository.PackageRevisionKey {
