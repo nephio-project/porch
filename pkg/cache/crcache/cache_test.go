@@ -28,7 +28,6 @@ import (
 
 	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
 	fakemeta "github.com/nephio-project/porch/pkg/cache/crcache/meta/fake"
-	fakecache "github.com/nephio-project/porch/pkg/cache/fake"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo/git"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
