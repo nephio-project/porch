@@ -2212,3 +2212,55 @@ func TestDeleteOnManuallyMovedMainBranch(t *testing.T) {
 		t.Fatalf("Failed to delete PackageRevision: %v", err)
 	}
 }
+
+func TestFormatCommitMessage(t *testing.T) {
+	tests := []struct {
+		name       string
+		changeType string
+		want       string
+	}{
+		{
+			name:       "eval commit",
+			changeType: "eval",
+			want:       "Rendering package",
+		},
+		{
+			name:       "edit commit",
+			changeType: "edit",
+			want:       "Creating new revision by copying previous revision",
+		},
+		{
+			name:       "init commit",
+			changeType: "init",
+			want:       "Creating new empty revision",
+		},
+		{
+			name:       "clone commit",
+			changeType: "clone",
+			want:       "Creating new revision by cloning",
+		},
+		{
+			name:       "patch commit",
+			changeType: "patch",
+			want:       "Applying patch to package",
+		},
+		{
+			name:       "unknown type",
+			changeType: "unknown",
+			want:       "Intermediate commit: unknown",
+		},
+		{
+			name:       "empty type",
+			changeType: "",
+			want:       "Intermediate commit: ",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := formatCommitMessage(tt.changeType); got != tt.want {
+				t.Errorf("formatCommitMessage() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
