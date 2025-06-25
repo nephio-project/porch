@@ -176,14 +176,6 @@ generate: generate-api ## Generate CRDs, other K8s manifests and helper go code
 tidy:
 	go mod tidy
 
-.PHONY: configure-git
-configure-git:
-	git config --global --add user.name test
-	git config --global --add user.email test@nephio.org
-
-.PHONY: ci-unit
-ci-unit: configure-git test
-
 .PHONY: run-jaeger
 run-jaeger:
 	docker run --rm --name jaeger -d -p4317:55680 -p6831:6831/udp -p16686:16686 jaegertracing/opentelemetry-all-in-one:latest
