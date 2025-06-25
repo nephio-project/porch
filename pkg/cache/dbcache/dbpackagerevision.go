@@ -23,6 +23,7 @@ import (
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
+	"github.com/nephio-project/porch/pkg/engine"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
@@ -309,7 +310,7 @@ func (pr *dbPackageRevision) publishToExternalRepo(ctx context.Context, newLifec
 	defer span.End()
 
 	pr.lifecycle = newLifecycle
-	if err := pr.repo.externalRepo.PushPackageRevision(ctx, pr); err != nil {
+	if err := engine.PushPackageRevision(ctx, pr.repo.externalRepo, pr); err != nil {
 		klog.Warningf("push of package revision %+v to external repo failed, %q", pr.Key(), err)
 		pr.lifecycle = v1alpha1.PackageRevisionLifecycleProposed
 		return err

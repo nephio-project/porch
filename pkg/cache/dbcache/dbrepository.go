@@ -306,10 +306,6 @@ func (r *dbRepository) ClosePackageRevisionDraft(ctx context.Context, prd reposi
 	return repository.PackageRevision(pr), err
 }
 
-func (r *dbRepository) PushPackageRevision(ctx context.Context, pr repository.PackageRevision) error {
-	panic("dbRepository:PushPackageRevision: function should not be invoked on caches")
-}
-
 func (r *dbRepository) savePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, _ int) (*dbPackageRevision, error) {
 	_, span := tracer.Start(ctx, "dbRepository::savePackageRevision", trace.WithAttributes())
 	defer span.End()

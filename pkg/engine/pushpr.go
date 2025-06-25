@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package git
+package engine
 
 import (
 	"context"
@@ -24,8 +24,8 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func (r *gitRepository) PushPackageRevision(ctx context.Context, pr repository.PackageRevision) error {
-	ctx, span := tracer.Start(ctx, "GitRepository::PushPackageRevision", trace.WithAttributes())
+func PushPackageRevision(ctx context.Context, repo repository.Repository, pr repository.PackageRevision) error {
+	ctx, span := tracer.Start(ctx, "PushPackageRevision", trace.WithAttributes())
 	defer span.End()
 
 	prLifecycle := pr.Lifecycle(ctx)
@@ -43,7 +43,7 @@ func (r *gitRepository) PushPackageRevision(ctx context.Context, pr repository.P
 		return err
 	}
 
-	draft, err := r.CreatePackageRevisionDraft(ctx, apiPr)
+	draft, err := repo.CreatePackageRevisionDraft(ctx, apiPr)
 	if err != nil {
 		return err
 	}
@@ -56,10 +56,10 @@ func (r *gitRepository) PushPackageRevision(ctx context.Context, pr repository.P
 		return err
 	}
 
-	if _, err = r.ClosePackageRevisionDraft(ctx, draft, pr.Key().Revision); err != nil {
+	if _, err = repo.ClosePackageRevisionDraft(ctx, draft, pr.Key().Revision); err != nil {
 		return err
 	}
 
-	klog.Infof("GitRepository::PushPackageRevision: package %v pushed to main", pr.Key())
+	klog.Infof("PushPackageRevision: package %v pushed to main", pr.Key())
 	return nil
 }
