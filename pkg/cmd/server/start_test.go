@@ -16,6 +16,7 @@ package server
 
 import (
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -64,4 +65,35 @@ func TestValidate(t *testing.T) {
 	opts.CacheType = ""
 	err = opts.Validate(nil)
 	assert.True(t, err != nil)
+}
+
+func TestSetupDBCacheConn(t *testing.T) {
+	opts := NewPorchServerOptions(os.Stdout, os.Stderr)
+
+	err := opts.setupDBCacheConn()
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "missing required environment variables"))
+
+	os.Setenv("DB_DRIVER", "db-driver")
+	os.Setenv("DB_HOST", "db-host")
+	os.Setenv("DB_PORT", "db-port")
+	os.Setenv("DB_NAME", "db-name")
+	os.Setenv("DB_USER", "db-user")
+	os.Setenv("DB_PASSWORD", "db-password")
+
+	err = opts.setupDBCacheConn()
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "unsupported DB driver: db-driver"))
+
+	os.Setenv("DB_DRIVER", "pgx")
+	err = opts.setupDBCacheConn()
+	assert.Nil(t, err)
+	assert.Equal(t, "pgx", opts.DbCacheDriver)
+	assert.Equal(t, "postgres://db-user:db-password@db-host:db-port/db-name?sslmode=disable", opts.DbCacheDataSource)
+
+	os.Setenv("DB_DRIVER", "mysql")
+	err = opts.setupDBCacheConn()
+	assert.Nil(t, err)
+	assert.Equal(t, "mysql", opts.DbCacheDriver)
+	assert.Equal(t, "db-user:db-password@tcp(db-host:db-port)/db-name", opts.DbCacheDataSource)
 }
