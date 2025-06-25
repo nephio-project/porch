@@ -52,7 +52,7 @@ func (p *PackageFetcher) FetchRevision(ctx context.Context, packageRef *api.Pack
 		return nil, err
 	}
 
-	revisions, err := repo.ListPackageRevisions(ctx, ListPackageRevisionFilter{KubeObjectName: packageRef.Name}.Parse())
+	revisions, err := repo.ListPackageRevisions(ctx, ListPackageRevisionFilter{KubeObjectName: packageRef.Name})
 	if err != nil {
 		return nil, err
 	}
@@ -194,6 +194,6 @@ func MapRepoPkgRevFields(p *PackageFilterWrapper) fields.Set {
 		}() + key.PkgKey.Package,
 		labels.Repository:    key.PkgKey.RepoKey.Name,
 		labels.WorkspaceName: key.WorkspaceName,
-		labels.Lifecycle:     string(repoPr.Lifecycle(context.TODO())),
+		// labels.Lifecycle:     string(repoPr.Lifecycle(context.TODO())),
 	}
 }

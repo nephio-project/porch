@@ -306,7 +306,7 @@ func repositoryMustHavePackageRevision(t *testing.T, git GitRepository, prKey re
 
 	findPackageRevision(t, list, repository.ListPackageRevisionFilter{
 		Key: prKey,
-	}.Parse())
+	})
 }
 
 func repositoryMustNotHavePackageRevision(t *testing.T, git GitRepository, name repository.PackageRevisionKey) {

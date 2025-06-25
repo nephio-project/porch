@@ -232,7 +232,7 @@ func (g GitSuite) TestGitPackageRoundTrip(t *testing.T) {
 				},
 				WorkspaceName: workspace,
 			},
-		}.Parse())
+		})
 
 		update, err := repo.UpdatePackageRevision(ctx, original)
 		if err != nil {
@@ -721,7 +721,7 @@ func (g GitSuite) TestApproveDraft(t *testing.T) {
 			},
 			WorkspaceName: "v1",
 		},
-	}.Parse())
+	})
 
 	// Before Update; Check server references. Draft must exist, final not.
 	refMustExist(t, repo, draft.RefInRemote())
@@ -791,7 +791,7 @@ func (g GitSuite) TestApproveDraftWithHistory(t *testing.T) {
 			},
 			WorkspaceName: "v1",
 		},
-	}.Parse())
+	})
 
 	// Before Update; Check server references. Draft must exist, final not.
 	refMustExist(t, repo, draft.RefInRemote())
@@ -995,7 +995,7 @@ func (g GitSuite) TestRefreshRepo(t *testing.T) {
 			},
 			Revision:      2,
 			WorkspaceName: "v2",
-		}}.Parse())
+		}})
 	packageMustNotExist(t, all, newPackageName)
 
 	// Create package in the upstream repository
@@ -1046,7 +1046,7 @@ func (g GitSuite) TestRefreshRepo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListPackageRevisions(Refresh) failed; %v", err)
 	}
-	findPackageRevision(t, all, repository.ListPackageRevisionFilter{Key: newPackageName}.Parse())
+	findPackageRevision(t, all, repository.ListPackageRevisionFilter{Key: newPackageName})
 }
 
 // The test deletes packages on the upstream one by one and validates they were
@@ -1356,7 +1356,7 @@ func (g GitSuite) TestAuthor(t *testing.T) {
 					WorkspaceName: tc.workspace,
 					Revision:      tc.revision,
 				},
-			}.Parse())
+			})
 			rev, err := draftPkg.GetPackageRevision(ctx)
 			if err != nil {
 				t.Errorf("didn't expect error, but got %v", err)
@@ -1448,7 +1448,7 @@ func TestDiscoverWithBadKptAnnotationFromNestedRepository(t *testing.T) {
 					Package: packageName,
 				},
 			},
-		}.Parse())
+		})
 		if err != nil {
 			t.Errorf("ListPackageRevisions failed for package %s: %v", packageName, err)
 			continue

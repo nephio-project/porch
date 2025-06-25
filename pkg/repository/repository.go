@@ -267,7 +267,7 @@ func NewListPackageRevisionFilter(predicate storage.SelectionPredicate) ListPack
 	return ListPackageRevisionFilter{predicate: predicate}
 }
 
-func (f ListPackageRevisionFilter) Parse() ListPackageRevisionFilter {
+func (f *ListPackageRevisionFilter) parse() {
 	fieldNames := api.PkgRevSelectableFields
 	fieldSet := fields.Set{
 		fieldNames.Name: f.KubeObjectName,
@@ -297,8 +297,6 @@ func (f ListPackageRevisionFilter) Parse() ListPackageRevisionFilter {
 		f.predicate.Label = labels.Everything()
 	}
 	f.predicate.GetAttrs = pkgRevGetAttrs
-
-	return f
 }
 
 // pkgRevGetAttrs returns labels and fields of a given PackageRevision object for filtering purposes.
@@ -314,6 +312,7 @@ func pkgRevGetAttrs(obj runtime.Object) (labels.Set, fields.Set, error) {
 
 // Matches returns true if the provided PackageRevision satisfies the conditions in the filter.
 func (f *ListPackageRevisionFilter) Matches(ctx context.Context, p PackageRevision) bool {
+	f.parse()
 	if f.predicate.Field == nil {
 		return true
 	}

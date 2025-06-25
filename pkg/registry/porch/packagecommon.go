@@ -217,7 +217,7 @@ func (r *packageCommon) getRepoPkgRev(ctx context.Context, name string) (reposit
 	if err != nil {
 		return nil, err
 	}
-	revisions, err := r.cad.ListPackageRevisions(ctx, repositoryObj, repository.ListPackageRevisionFilter{KubeObjectName: name}.Parse())
+	revisions, err := r.cad.ListPackageRevisions(ctx, repositoryObj, repository.ListPackageRevisionFilter{KubeObjectName: name})
 	if err != nil {
 		return nil, err
 	}

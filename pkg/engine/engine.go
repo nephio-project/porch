@@ -142,7 +142,7 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 				Package: obj.Spec.PackageName,
 			},
 		},
-	}.Parse())
+	})
 	if err != nil {
 		return nil, fmt.Errorf("error listing package revisions: %w", err)
 	}
