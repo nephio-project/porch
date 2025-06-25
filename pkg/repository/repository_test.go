@@ -96,6 +96,9 @@ func TestPackageKey(t *testing.T) {
 	assert.Equal(t, pkgKey, FromFullPathname(testRepoKey, pkgKey.ToPkgPathname()))
 	assert.Equal(t, pkgKey, FromFullPathname(pkgKey.RKey(), pkgKey.ToPkgPathname()))
 
+	assert.Equal(t, "ns", pkgKey.K8SNS())
+	assert.Equal(t, "repo.my.pkg.path.my-package-name", pkgKey.K8SName())
+
 	pkgKey.RepoKey = RepositoryKey{}
 	assert.Equal(t, pkgKey, FromFullPathname(pkgKey.RKey(), pkgKey.ToPkgPathname()))
 
@@ -105,6 +108,16 @@ func TestPackageKey(t *testing.T) {
 	copiedPkgKey := PackageKey{}
 	pkgKey.DeepCopy(&copiedPkgKey)
 	assert.Equal(t, copiedPkgKey, pkgKey)
+
+	parPRKey, err := PkgK8sName2Key("my-ns", "repo.pkg.path.package-name.my-ws-name")
+	assert.Nil(t, err)
+	assert.Equal(t, "repo", parPRKey.RKey().Name)
+
+	_, err = PkgK8sName2Key("my-ns", "aaa")
+	assert.NotNil(t, err)
+
+	assert.Equal(t, "pkg", K8SName2PkgName("repo.pkg"))
+
 }
 
 func TestPackageRevisionKey(t *testing.T) {
@@ -148,4 +161,15 @@ func TestPackageRevisionKey(t *testing.T) {
 	copiedPkgRevKey := PackageRevisionKey{}
 	pkgRevKey.DeepCopy(&copiedPkgRevKey)
 	assert.Equal(t, copiedPkgRevKey, pkgRevKey)
+
+	assert.Equal(t, "ns", pkgRevKey.K8SNS())
+	assert.Equal(t, "repo.pkg.path.package-name.my-ws-name", pkgRevKey.K8SName())
+	assert.Equal(t, "ws-name", K8SName2PkgRevWSName("pkg-name", "pkg-name.ws-name"))
+
+	parPRKey, err := PkgRevK8sName2Key("my-ns", "repo.pkg.path.package-name.my-ws-name")
+	assert.Nil(t, err)
+	assert.Equal(t, "repo", parPRKey.RKey().Name)
+
+	_, err = PkgRevK8sName2Key("my-ns", "")
+	assert.NotNil(t, err)
 }
