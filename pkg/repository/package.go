@@ -187,6 +187,6 @@ func MapRepoPkgRevFields(p *PackageFilterWrapper) fields.Set {
 		}() + key.PkgKey.Package,
 		labels.Repository:    key.PkgKey.RepoKey.Name,
 		labels.WorkspaceName: key.WorkspaceName,
-		labels.Lifecycle:     string(repoPr.Lifecycle(context.TODO())),
+		// labels.Lifecycle:     string(repoPr.Lifecycle(context.TODO())),
 	}
 }
