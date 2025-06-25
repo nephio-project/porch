@@ -1,4 +1,4 @@
-name: Sonar CI Artifacts
+name: CI test report
 on:
   push:
     branches:
@@ -22,7 +22,7 @@ jobs:
       with:
         go-version: ">=1.23.8"
 
-    - name: Generate coverage report
+    - name: Run unit tests to generate coverage report
       id: test
       run: make test
 
