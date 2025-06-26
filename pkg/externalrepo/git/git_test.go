@@ -2697,7 +2697,7 @@ func TestDeletionProposedPackageIsRediscovered(t *testing.T) {
 
 	t.Logf("Creating initial Published PackageRevision %s", pr1.Spec.PackageName)
 
-	_, err = createAndPublishPRWithResources(ctx, localRepo, pr1, resources)
+	pr, err := createAndPublishPRWithResources(ctx, localRepo, pr1, resources)
 	if err != nil {
 		t.Fatalf("Failed to create and publish package revision: %v", err)
 	}
@@ -2707,28 +2707,20 @@ func TestDeletionProposedPackageIsRediscovered(t *testing.T) {
 		t.Fatalf("Failed to list package revisions: %v", err)
 	}
 
+	t.Logf("Ensuring that the both v1 and main packageRevisions exist.")
+
 	if len(prs) != 2 {
 		t.Fatalf("Expected 2 published package revisions, got %d", len(prs))
 	}
 
-	prv2draft, err := localRepo.UpdatePackageRevision(ctx, prs[0])
-	if err != nil {
-		t.Fatalf("Failed to create draft package revision: %v", err)
-	}
-
-	err = prv2draft.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleDeletionProposed)
+	err = pr.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleDeletionProposed)
 	if err != nil {
 		t.Fatalf("Failed to update lifecycle: %v", err)
 	}
 
-	_, err = localRepo.ClosePackageRevisionDraft(ctx, prv2draft, 0)
-	if err != nil {
-		t.Fatalf("Failed to finalize draft: %v", err)
-	}
-
 	t.Logf("Clean up local repo")
 
-	err = localRepo.Close()
+	err = localRepo.Close(ctx)
 	if err != nil {
 		t.Fatalf("Failed to close local repo: %v", err)
 	}
@@ -2746,11 +2738,19 @@ func TestDeletionProposedPackageIsRediscovered(t *testing.T) {
 	}
 
 	if len(prs2) != 2 {
-		t.Fatalf("Expected 2 PackageRevisions, got %d", len(prs))
+		t.Fatalf("Expected 2 PackageRevisions, got %d, list: %v", len(prs2), prs2)
 	}
-
-	if prs[0].Lifecycle(ctx) != v1alpha1.PackageRevisionLifecycleDeletionProposed {
-		t.Fatalf("Expected PackageRevision to be in deletion proposed state, got %s", prs[0].Lifecycle(ctx))
+	
+	for prToBeVerified := range prs2 {
+		if prs2[prToBeVerified].Key().Revision == 1 {
+			if prs2[prToBeVerified].Lifecycle(ctx) != v1alpha1.PackageRevisionLifecycleDeletionProposed {
+				t.Fatalf("Expected PackageRevision to be in deletion proposed state, got %s", prs[0].Lifecycle(ctx))
+			}
+		} else {
+			if prs2[prToBeVerified].Lifecycle(ctx) != v1alpha1.PackageRevisionLifecyclePublished {
+				t.Fatalf("Expected PackageRevision to be in published state, got %s", prs[prToBeVerified].Lifecycle(ctx))
+			}
+		}
 	}
 
 }

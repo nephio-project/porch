@@ -129,7 +129,7 @@ func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revision
 		commit:    p.parent.commit.Hash,
 		tasks:     tasks,
 	}
-
+	//TODO:This is resolving a circular dependency with looking up the repository. Maybe there is a better way?
 	pr.lifecycle, err = p.parent.parent.getLifecycle(pr)
 	if err != nil {
 		return nil, err
