@@ -62,7 +62,7 @@ func (r *Repository) ListPackageRevisions(_ context.Context, filter repository.L
 }
 
 func (r *Repository) CreatePackageRevisionDraft(_ context.Context, pr *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
-	return nil, nil
+	return &FakePackageRevision{}, nil
 }
 
 func (r *Repository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version int) (repository.PackageRevision, error) {
