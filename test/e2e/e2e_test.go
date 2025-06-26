@@ -639,14 +639,25 @@ func (t *PorchSuite) TestEditPackageRevision() {
 	}
 
 	// We await for this invalid packageRevision creation to be deleted then proceed else timeout after 10 seconds
-	t.WaitUntilObjectDeleted(
-		packageRevisionGVK,
-		types.NamespacedName{
-			Name:      otherPackageName,
+	var existingPR porchapi.PackageRevision
+	err := t.Client.Get(t.GetContext(),
+		client.ObjectKey{
 			Namespace: t.Namespace,
+			Name:      repository + "." + packageName + "." + workspace2,
 		},
-		10*time.Second,
+		&existingPR,
 	)
+
+	if err == nil {
+		t.WaitUntilObjectDeleted(
+			packageRevisionGVK,
+			types.NamespacedName{
+				Name:      repository + "." + packageName + "." + workspace2,
+				Namespace: t.Namespace,
+			},
+			10*time.Second,
+		)
+	}
 
 	// Publish the source package to make it a valid source for edit.
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
