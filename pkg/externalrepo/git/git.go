@@ -15,14 +15,13 @@
 package git
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -95,8 +94,11 @@ type MainBranchStrategy int
 const (
 	ErrorIfMissing   MainBranchStrategy = iota // ErrorIsMissing
 	CreateIfMissing                            // CreateIfMissing
-	SkipVerification                           // SkipVerification
+	SkipVerification                           // SkipVerification\
 )
+
+// Random number generator for initial repository version
+var initialRepoVersionRandom = rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), uint64(time.Now().UnixNano())))
 
 type GitRepositoryOptions struct {
 	externalrepotypes.ExternalRepoOptions
@@ -175,6 +177,7 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 	if err := util.ValidateDirectoryName(string(branch), false); err != nil {
 		return nil, fmt.Errorf("branch name %s invalid: %v", branch, err)
 	}
+	
 
 	repository := &gitRepository{
 		key: repository.RepositoryKey{
@@ -190,6 +193,14 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 		userInfoProvider:   makeUserInfoProvider(spec, opts.ExternalRepoOptions.UserInfoProvider),
 		cacheDir:           dir,
 		deployment:         deployment,
+		// A random high number is generated as the initial repository version.
+		// In case the user of this library (the cache for example) wants to remember the
+		// repository version between re-opens, there is very little chance 
+		/// 2^32 > 1 billion possible initial repository versions can happen,
+		// so collisions are very unlikely.
+		// Also even if incrementing from 2^32 to 2^64 before the uint64 every second,
+		// it would take about 500 billion years to get uint64 to overlflow.
+		version: initialRepoVersionRandom.Uint64N(1 << 32),
 	}
 
 	if opts.ExternalRepoOptions.UseUserDefinedCaBundle {
@@ -199,7 +210,8 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 			repository.caBundle = []byte(caBundle.ToString())
 		}
 	}
-
+	repository.mutex.Lock()
+	defer repository.mutex.Unlock()
 	if err := repository.fetchRemoteRepository(ctx); err != nil {
 		return nil, err
 	}
@@ -237,6 +249,15 @@ type gitRepository struct {
 	repo               *git.Repository
 	credentialResolver repository.CredentialResolver
 	userInfoProvider   repository.UserInfoProvider
+
+	// Version is an always incrementing integer,
+	// but it's lifecycle is tied to porch's gitRepository object.
+	// It can be used to detect if there were changes to the local gitrepository done
+	// by other processes in porch.
+	// For all external clients of this library, it should be an opaque string,
+	// that can be checked for equality, but should not be compared to determine order.
+	// It's behavior is similar to the .metadata.resourceVersion field in k8s resources.
+	version uint64
 
 	// Folder used for the local git cache.
 	cacheDir string
@@ -283,27 +304,7 @@ func (r *gitRepository) Version(ctx context.Context) (string, error) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	if err := r.fetchRemoteRepository(ctx); err != nil {
-		return "", err
-	}
-
-	refs, err := r.repo.References()
-	if err != nil {
-		return "", err
-	}
-
-	b := bytes.Buffer{}
-	for {
-		ref, err := refs.Next()
-		if err == io.EOF {
-			break
-		}
-
-		b.WriteString(ref.String())
-	}
-
-	hash := sha256.Sum256(b.Bytes())
-	return hex.EncodeToString(hash[:]), nil
+	return strconv.FormatUint(r.version, 10), nil
 }
 
 func (r *gitRepository) ListPackages(ctx context.Context, filter repository.ListPackageFilter) ([]repository.Package, error) {
@@ -559,7 +560,7 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, old repositor
 				}
 			}
 			refSpecs := newPushRefSpecBuilder()
-			deletionProposedBranch := createDeletionProposedName(oldGit.Key())
+			deletionProposedBranch := createDeletionProposedName(oldGit.Key(), r.branch)
 
 			// We can only delete packages which have their own ref. Refs that are shared with other packages
 			// (main branch, tag that doesn't contain package path in its name, ...) cannot be deleted.
@@ -985,6 +986,7 @@ func (r *gitRepository) fetchRemoteRepository(ctx context.Context) error {
 	default:
 		return fmt.Errorf("cannot fetch repository %s/%s: %w", r.Key().Namespace, r.Key().Name, err)
 	}
+	r.updateRepositoryVersion()
 
 	return nil
 }
@@ -1111,6 +1113,8 @@ func (r *gitRepository) createPackageDeleteCommit(ctx context.Context, branch pl
 	return commitHash, nil
 }
 
+// Pushes the needed refspecs to the remote. 
+// Mutex must be held by caller
 func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuilder) error {
 	ctx, span := tracer.Start(ctx, "gitRepository::pushAndCleanup", trace.WithAttributes())
 	defer span.End()
@@ -1140,6 +1144,7 @@ func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuild
 		}
 		return err
 	}
+	r.updateRepositoryVersion()
 	return nil
 }
 
@@ -1323,17 +1328,19 @@ func (r *gitRepository) getLifecycle(pkgRev *gitPackageRevision) (v1alpha1.Packa
 		return r.checkPublishedLifecycle(pkgRev)
 	}
 }
-
+ 
 // CheckPublishedLifecycle checks whether the request had a published or a deletion proposed package.
 // As this operation is checking a file on the repo, a wrapping function needs to acquire the repository lock.
 func (r *gitRepository) checkPublishedLifecycle(pkgRev *gitPackageRevision) (v1alpha1.PackageRevisionLifecycle, error) {
-	branchName := createDeletionProposedName(pkgRev.Key())
-	// As per the writing of this one, the only other error that can happen here is File IO errors.
-	_, err := r.repo.Branch(branchName.RefInLocal().String())
-	if err == git.ErrBranchNotFound {
+
+	branchNameInLocal := createDeletionProposedName(pkgRev.Key(), r.branch).RefInLocal()
+	klog.Infof("looking for branch %q", branchNameInLocal)
+	_, err := r.repo.Reference(branchNameInLocal, true)
+	if err == plumbing.ErrReferenceNotFound {
 		return v1alpha1.PackageRevisionLifecyclePublished, nil
 	} else if err != nil {
-		return "", err
+		// As per the writing of this, the only other error that can happen here are File IO errors.
+		return "", fmt.Errorf("error checking whether package %q is published or deletion proposed: %w", pkgRev.Key().String(), err)
 	}
 	return v1alpha1.PackageRevisionLifecycleDeletionProposed, nil
 }
@@ -1353,7 +1360,7 @@ func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageR
 		return fmt.Errorf("cannot update lifecycle for draft package revision")
 	}
 	refSpecs := newPushRefSpecBuilder()
-	deletionProposedBranch := createDeletionProposedName(pkgRev.Key())
+	deletionProposedBranch := createDeletionProposedName(pkgRev.Key(), r.branch)
 
 	if old == v1alpha1.PackageRevisionLifecyclePublished {
 		if newLifecycle != v1alpha1.PackageRevisionLifecycleDeletionProposed {
@@ -1673,6 +1680,11 @@ func (r *gitRepository) discoverPackagesInTree(commit *object.Commit, opt Discov
 		klog.Infof("discovered %d packages @%v", len(t.packages), commit.Hash)
 	}
 	return t, nil
+}
+
+// updates the repository version. Mutex must be held by caller
+func (r *gitRepository) updateRepositoryVersion() {
+	r.version = r.version + 1
 }
 
 // Deprecated: use ListPackageRevisions instead
