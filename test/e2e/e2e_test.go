@@ -607,6 +607,16 @@ func (t *PorchSuite) TestEditPackageRevision() {
 		t.Fatalf("Expected error for source revision being from different package")
 	}
 
+	// We await for this invalid packageRevision creation to be deleted then proceed else timeout after 10 seconds
+	t.WaitUntilObjectDeleted(
+		packageRevisionGVK,
+		types.NamespacedName{
+			Name:      repository + "." + otherPackageName + "." + workspace2,
+			Namespace: t.Namespace,
+		},
+		10*time.Second,
+	)
+
 	// Create a new revision of the package with a source that is a revision
 	// of the same package.
 	editPR := &porchapi.PackageRevision{
@@ -642,7 +652,7 @@ func (t *PorchSuite) TestEditPackageRevision() {
 	t.WaitUntilObjectDeleted(
 		packageRevisionGVK,
 		types.NamespacedName{
-			Name:      otherPackageName,
+			Name:      repository + "." + packageName + "." + workspace2,
 			Namespace: t.Namespace,
 		},
 		10*time.Second,
