@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022,2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,37 +29,88 @@ import (
 )
 
 func TestParseRepositoryNameOK(t *testing.T) {
-	const myRepo = "my-repo"
-
 	testCases := map[string]struct {
 		pkgRevId string
-		expected string
+		expected []string
 	}{
-		"three-dots": {
+		"no-delimiter": {
+			pkgRevId: "my-repo",
+			expected: []string{"my-repo", "", ""},
+		},
+		"one-delimiter": {
+			pkgRevId: "my-repo.my-package-name",
+			expected: []string{"my-repo", "", "my-package-name"},
+		},
+		"two-delimiters": {
 			pkgRevId: "my-repo.my-package-name.my-workspace",
-			expected: myRepo,
+			expected: []string{"my-repo", "my-package-name", "my-workspace"},
 		},
-		"four-dots": {
+		"three-delimiters": {
 			pkgRevId: "my-repo.my-root-dir.my-package-name.my-workspace",
-			expected: myRepo,
+			expected: []string{"my-repo", "my-root-dir.my-package-name", "my-workspace"},
 		},
-		"five-dots": {
+		"four-delimitesr": {
 			pkgRevId: "my-repo.my-root-dir.my-sub-dir.my-package-name.my-workspace",
-			expected: myRepo,
+			expected: []string{"my-repo", "my-root-dir.my-sub-dir.my-package-name", "my-workspace"},
+		},
+		"five-delimiters": {
+			pkgRevId: "my-repo.my-root-dir.my-sub-dir.my-sub-dir.my-package-name.my-workspace",
+			expected: []string{"my-repo", "my-root-dir.my-sub-dir.my-sub-dir.my-package-name", "my-workspace"},
 		},
 	}
 
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			parsedRepo, _ := ParsePkgRevObjNameField(tc.pkgRevId, 0)
-			if diff := cmp.Diff(tc.expected, parsedRepo); diff != "" {
-				t.Errorf("unexpected diff (+got,-want): %s", diff)
+			parsedSlice := SplitIn3OnDelimiter(tc.pkgRevId, ".")
+			if !reflect.DeepEqual(tc.expected, parsedSlice) {
+				t.Errorf("expected %+v, got %+v", tc.expected, parsedSlice)
 			}
 		})
 	}
 }
 
-func TestParseRepositoryNameErr(t *testing.T) {
+func TestParseRepositoryNameStrangeDelimiterOK(t *testing.T) {
+	testCases := map[string]struct {
+		pkgRevId string
+		expected []string
+	}{
+		"no-delimiter": {
+			pkgRevId: "my-repo",
+			expected: []string{"my-repo", "", ""},
+		},
+		"one-delimiter": {
+			pkgRevId: "my-repo#.#my-package-name",
+			expected: []string{"my-repo", "", "my-package-name"},
+		},
+		"two-delimiters": {
+			pkgRevId: "my-repo#.#my-package-name#.#my-workspace",
+			expected: []string{"my-repo", "my-package-name", "my-workspace"},
+		},
+		"three-delimiters": {
+			pkgRevId: "my-repo#.#my-root-dir#.#my-package-name#.#my-workspace",
+			expected: []string{"my-repo", "my-root-dir#.#my-package-name", "my-workspace"},
+		},
+		"four-delimitesr": {
+			pkgRevId: "my-repo#.#my-root-dir#.#my-sub-dir#.#my-package-name#.#my-workspace",
+			expected: []string{"my-repo", "my-root-dir#.#my-sub-dir#.#my-package-name", "my-workspace"},
+		},
+		"five-delimiters": {
+			pkgRevId: "my-repo#.#my-root-dir#.#my-sub-dir#.#my-sub-dir#.#my-package-name#.#my-workspace",
+			expected: []string{"my-repo", "my-root-dir#.#my-sub-dir#.#my-sub-dir#.#my-package-name", "my-workspace"},
+		},
+	}
+
+	for tn, tc := range testCases {
+		t.Run(tn, func(t *testing.T) {
+			parsedSlice := SplitIn3OnDelimiter(tc.pkgRevId, "#.#")
+			if !reflect.DeepEqual(tc.expected, parsedSlice) {
+				t.Errorf("expected %+v, got %+v", tc.expected, parsedSlice)
+			}
+		})
+	}
+}
+
+func TestParsePkgRevNameErr(t *testing.T) {
 	testCases := map[string]struct {
 		pkgRevId string
 	}{
@@ -94,9 +145,9 @@ func TestParseRepositoryNameErr(t *testing.T) {
 
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			_, err := ParsePkgRevObjNameField(tc.pkgRevId, 0)
-			if err == nil {
-				t.Errorf("expected an error but got no error")
+			splitPRName := SplitIn3OnDelimiter(tc.pkgRevId, ".")
+			if splitPRName[1] != "" {
+				t.Errorf("expected a blank package name on pr name %q but got %q", tc.pkgRevId, splitPRName[1])
 			}
 		})
 	}
@@ -105,13 +156,13 @@ func TestParseRepositoryNameErr(t *testing.T) {
 func TestValidatePkgRevName(t *testing.T) {
 	testCases := map[string]struct {
 		Repo          string
-		Dir           string
+		Path          string
 		Pkg           string
 		Ws            string
 		Err           bool
 		PrErrString   string
 		RepoErrString string
-		DirErrString  string
+		PathErrString string
 		PkgErrString  string
 		WsErrString   string
 	}{}
@@ -132,7 +183,7 @@ func TestValidatePkgRevName(t *testing.T) {
 
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			got := ValidPkgRevObjName(tc.Repo, tc.Dir, tc.Pkg, tc.Ws)
+			got := ValidPkgRevObjName(tc.Repo, tc.Path, tc.Pkg, tc.Ws)
 			if got == nil {
 				if tc.Err == true {
 					t.Errorf("didn't get an an error when expecting one")
@@ -147,7 +198,7 @@ func TestValidatePkgRevName(t *testing.T) {
 			assertExpectedPartErrExists(t, errorSlice,
 				tc.PrErrString,
 				"complete object name ",
-				ComposePkgRevObjName(tc.Repo, tc.Dir, tc.Pkg, tc.Ws))
+				ComposePkgRevObjName(tc.Repo, tc.Path, tc.Pkg, tc.Ws))
 
 			assertExpectedPartErrExists(t, errorSlice,
 				tc.RepoErrString,
@@ -155,9 +206,9 @@ func TestValidatePkgRevName(t *testing.T) {
 				tc.Repo)
 
 			assertExpectedPartErrExists(t, errorSlice,
-				tc.DirErrString,
-				"directory name ",
-				tc.Dir)
+				tc.PathErrString,
+				"path ",
+				tc.Path)
 
 			assertExpectedPartErrExists(t, errorSlice,
 				tc.PkgErrString,
@@ -175,13 +226,13 @@ func TestValidatePkgRevName(t *testing.T) {
 func TestValidatePkgName(t *testing.T) {
 	testCases := map[string]struct {
 		Repo          string
-		Dir           string
+		Path          string
 		Pkg           string
 		Ws            string
 		Err           bool
 		PrErrString   string
 		RepoErrString string
-		DirErrString  string
+		PathErrString string
 		PkgErrString  string
 		WsErrString   string
 	}{}
@@ -202,7 +253,7 @@ func TestValidatePkgName(t *testing.T) {
 
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			got := ValidPkgObjName(tc.Repo, tc.Dir, tc.Pkg)
+			got := ValidPkgObjName(tc.Repo, tc.Path, tc.Pkg)
 			if got == nil {
 				if tc.Err == true {
 					t.Errorf("didn't get an an error when expecting one")
@@ -217,7 +268,7 @@ func TestValidatePkgName(t *testing.T) {
 			assertExpectedPartErrExists(t, errorSlice,
 				tc.PrErrString,
 				"complete object name ",
-				ComposePkgObjName(tc.Repo, tc.Dir, tc.Pkg))
+				ComposePkgObjName(tc.Repo, tc.Path, tc.Pkg))
 
 			assertExpectedPartErrExists(t, errorSlice,
 				tc.RepoErrString,
@@ -225,9 +276,9 @@ func TestValidatePkgName(t *testing.T) {
 				tc.Repo)
 
 			assertExpectedPartErrExists(t, errorSlice,
-				tc.DirErrString,
-				"directory name ",
-				tc.Dir)
+				tc.PathErrString,
+				"path ",
+				tc.Path)
 
 			assertExpectedPartErrExists(t, errorSlice,
 				tc.PkgErrString,

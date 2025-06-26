@@ -54,31 +54,9 @@ func convertPackageRevisionFieldSelector(label, value string) (internalLabel, in
 	}
 }
 
-// packageRevisionFilter filters packages, extending repository.ListPackageRevisionFilter
-type packageRevisionFilter struct {
-	repository.ListPackageRevisionFilter
-
-	// Namespace filters by the namespace of the objects
-	Namespace string
-
-	// Repository restricts to repositories with the given name.
-	Repository string
-}
-
-// packageFilter filters packages, extending repository.ListPackageFilter
-type packageFilter struct {
-	repository.ListPackageFilter
-
-	// Namespace filters by the namespace of the objects
-	Namespace string
-
-	// Repository restricts to repositories with the given name.
-	Repository string
-}
-
 // parsePackageFieldSelector parses client-provided fields.Selector into a packageFilter
-func parsePackageFieldSelector(fieldSelector fields.Selector) (packageFilter, error) {
-	var filter packageFilter
+func parsePackageFieldSelector(fieldSelector fields.Selector) (repository.ListPackageFilter, error) {
+	var filter repository.ListPackageFilter
 
 	if fieldSelector == nil {
 		return filter, nil
@@ -98,15 +76,20 @@ func parsePackageFieldSelector(fieldSelector fields.Selector) (packageFilter, er
 
 		switch requirement.Field {
 		case "metadata.name":
-			filter.KubeObjectName = requirement.Value
+			if filterKey, err := repository.PkgK8sName2Key("", requirement.Value); err == nil {
+				filter.Key = filterKey
+			} else {
+				return repository.ListPackageFilter{}, err
+			}
 
 		case "metadata.namespace":
-			filter.Namespace = requirement.Value
+			filter.Key.RepoKey.Namespace = requirement.Value
 
 		case "spec.packageName":
-			filter.Package = requirement.Value
+			filter.Key.Package = requirement.Value
+
 		case "spec.repository":
-			filter.Repository = requirement.Value
+			filter.Key.RepoKey.Name = requirement.Value
 
 		default:
 			return filter, apierrors.NewBadRequest(fmt.Sprintf("unknown fieldSelector field %q", requirement.Field))
@@ -117,8 +100,8 @@ func parsePackageFieldSelector(fieldSelector fields.Selector) (packageFilter, er
 }
 
 // parsePackageRevisionFieldSelector parses client-provided fields.Selector into a packageRevisionFilter
-func parsePackageRevisionFieldSelector(fieldSelector fields.Selector) (packageRevisionFilter, error) {
-	var filter packageRevisionFilter
+func parsePackageRevisionFieldSelector(fieldSelector fields.Selector) (repository.ListPackageRevisionFilter, error) {
+	var filter repository.ListPackageRevisionFilter
 
 	if fieldSelector == nil {
 		return filter, nil
@@ -138,19 +121,27 @@ func parsePackageRevisionFieldSelector(fieldSelector fields.Selector) (packageRe
 
 		switch requirement.Field {
 		case "metadata.name":
-			filter.KubeObjectName = requirement.Value
+			if filterKey, err := repository.PkgRevK8sName2Key("", requirement.Value); err == nil {
+				filter.Key = filterKey
+			} else {
+				return repository.ListPackageRevisionFilter{}, err
+			}
 
 		case "metadata.namespace":
-			filter.Namespace = requirement.Value
+			filter.Key.PkgKey.RepoKey.Namespace = requirement.Value
 
 		case "spec.revision":
 			filter.Key.Revision = repository.Revision2Int(requirement.Value)
+
 		case "spec.packageName":
 			filter.Key.PkgKey.Package = requirement.Value
+
 		case "spec.repository":
-			filter.Repository = requirement.Value
+			filter.Key.PkgKey.RepoKey.Name = requirement.Value
+
 		case "spec.workspaceName":
 			filter.Key.WorkspaceName = requirement.Value
+
 		case "spec.lifecycle":
 			v := v1alpha1.PackageRevisionLifecycle(requirement.Value)
 			switch v {
@@ -158,7 +149,7 @@ func parsePackageRevisionFieldSelector(fieldSelector fields.Selector) (packageRe
 				v1alpha1.PackageRevisionLifecycleProposed,
 				v1alpha1.PackageRevisionLifecyclePublished,
 				v1alpha1.PackageRevisionLifecycleDeletionProposed:
-				filter.Lifecycle = v
+				filter.Lifecycles = []v1alpha1.PackageRevisionLifecycle{v}
 			default:
 				return filter, apierrors.NewBadRequest(fmt.Sprintf("unsupported fieldSelector value %q for field %q", requirement.Value, requirement.Field))
 			}
@@ -172,7 +163,7 @@ func parsePackageRevisionFieldSelector(fieldSelector fields.Selector) (packageRe
 }
 
 // parsePackageRevisionResourcesFieldSelector parses client-provided fields.Selector into a packageRevisionFilter
-func parsePackageRevisionResourcesFieldSelector(fieldSelector fields.Selector) (packageRevisionFilter, error) {
+func parsePackageRevisionResourcesFieldSelector(fieldSelector fields.Selector) (repository.ListPackageRevisionFilter, error) {
 	// TOOD: This is a little weird, because we don't have the same fields on PackageRevisionResources.
 	// But we probably should have the key fields
 	return parsePackageRevisionFieldSelector(fieldSelector)

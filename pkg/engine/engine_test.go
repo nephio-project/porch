@@ -1,3 +1,17 @@
+// Copyright 2025 The kpt and Nephio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package engine
 
 import (
@@ -12,6 +26,7 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/builtins"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
+	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -78,6 +93,8 @@ func newTestFixture(t *testing.T) *testFixture {
 	}
 }
 
+var _ repository.PackageRevision = &mockPackageRevision{}
+
 func setupMockPackageRevision(t *testing.T) *mockPackageRevision {
 	mockPkgRev := &mockPackageRevision{}
 	// Setup common mock package revision expectations
@@ -97,6 +114,8 @@ func setupMockPackageRevision(t *testing.T) *mockPackageRevision {
 	mockPkgRev.On("SetMeta", mock.Anything, mock.Anything).Return(nil)
 	return mockPkgRev
 }
+
+var _ repository.PackageRevisionDraft = &mockPackageRevisionDraft{}
 
 type mockPackageRevisionDraft struct {
 	mock.Mock
@@ -206,10 +225,6 @@ func (m *mockPackageRevision) SetMeta(ctx context.Context, meta metav1.ObjectMet
 	return args.Error(0)
 }
 
-func (m *mockPackageRevision) SetRepository(repo repository.Repository) {
-	m.Called(repo)
-}
-
 func TestCreatePackageRevisionRollback(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -228,6 +243,7 @@ func TestCreatePackageRevisionRollback(t *testing.T) {
 				f.mockRepo.On("ClosePackageRevisionDraft", mock.Anything, mock.Anything, mock.Anything).Return(mockPkgRev, nil)
 				f.mockRepo.On("DeletePackageRevision", mock.Anything, mock.Anything).Return(nil)
 				f.mockRepo.On("Close", mock.Anything).Return(nil)
+				f.mockRepo.On("Key", mock.Anything).Return(repository.RepositoryKey{})
 
 				f.mockTaskHandler.On("ApplyTasks", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(fmt.Errorf("task application failed"))
 			},
@@ -245,6 +261,7 @@ func TestCreatePackageRevisionRollback(t *testing.T) {
 				f.mockRepo.On("ClosePackageRevisionDraft", mock.Anything, mock.Anything, mock.Anything).Return(mockPkgRev, nil)
 				f.mockRepo.On("DeletePackageRevision", mock.Anything, mock.Anything).Return(nil)
 				f.mockRepo.On("Close", mock.Anything).Return(nil)
+				f.mockRepo.On("Key", mock.Anything).Return(repository.RepositoryKey{})
 
 				f.mockTaskHandler.On("ApplyTasks", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			},
@@ -261,6 +278,7 @@ func TestCreatePackageRevisionRollback(t *testing.T) {
 				f.mockRepo.On("CreatePackageRevisionDraft", mock.Anything, mock.Anything).Return(mockDraft, nil)
 				f.mockRepo.On("ClosePackageRevisionDraft", mock.Anything, mock.Anything, mock.Anything).Return(mockPkgRev, fmt.Errorf("close failed"))
 				f.mockRepo.On("Close", mock.Anything).Return(nil)
+				f.mockRepo.On("Key", mock.Anything).Return(repository.RepositoryKey{})
 
 				f.mockTaskHandler.On("ApplyTasks", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			},
@@ -342,6 +360,8 @@ type mockCache struct {
 	mock.Mock
 }
 
+var _ cachetypes.Cache = &mockCache{}
+
 func (m *mockCache) OpenRepository(ctx context.Context, repositoryObj *configapi.Repository) (repository.Repository, error) {
 	args := m.Called(ctx, repositoryObj)
 	return args.Get(0).(repository.Repository), args.Error(1)
@@ -352,9 +372,14 @@ func (m *mockCache) CloseRepository(ctx context.Context, repositoryObj *configap
 	return args.Error(0)
 }
 
-func (m *mockCache) GetRepositories(ctx context.Context) []*configapi.Repository {
-	args := m.Called(ctx)
+func (m *mockCache) GetRepositories() []*configapi.Repository {
+	args := m.Called()
 	return args.Get(0).([]*configapi.Repository)
+}
+
+func (m *mockCache) GetRepository(repoKey repository.RepositoryKey) repository.Repository {
+	args := m.Called()
+	return args.Get(0).(repository.Repository)
 }
 
 func (m *mockCache) UpdateRepository(ctx context.Context, repositoryObj *configapi.Repository) error {

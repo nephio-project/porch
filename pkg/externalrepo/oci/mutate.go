@@ -52,7 +52,7 @@ func (r *ociRepository) CreatePackageRevisionDraft(ctx context.Context, obj *v1a
 		return nil, err
 	}
 
-	if err := util.ValidPkgRevObjName(r.name, "/", packageName, string(obj.Spec.WorkspaceName)); err != nil {
+	if err := util.ValidPkgRevObjName(r.Key().Name, "/", packageName, string(obj.Spec.WorkspaceName)); err != nil {
 		return nil, fmt.Errorf("failed to create packagerevision: %w", err)
 	}
 
