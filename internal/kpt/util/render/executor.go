@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
@@ -86,11 +87,21 @@ func (e *Renderer) Execute(ctx context.Context) (*fnresult.ResultList, error) {
 		runtime:       e.Runtime,
 	}
 
-	if _, err = hydrate(ctx, root, hctx); err != nil {
-		// Note(droot): ignore the error in function result saving
-		// to avoid masking the hydration error.
-		// don't disable the CLI output in case of error
-		_ = e.saveFnResults(ctx, hctx.fnResults)
+	kptfile, err := pkg.ReadKptfile(e.FileSystem, e.PkgPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read Kptfile: %w", err)
+	}
+
+	// Choose hydration function based on annotation
+	// If the annotation "kpt.dev/top-bottom-rendering" is set to "true", use hydrateTopBottom
+	// otherwise use the default hydrate function in bottom-up order.
+	hydrateFn := hydrate
+	if value, exists := kptfile.Annotations[v1alpha1.TopToBottomRenderAnnotation]; exists && value == "true" {
+		hydrateFn = hydrateTopBottom
+	}
+
+	if _, err := hydrateFn(ctx, root, hctx); err != nil {
+		_ = e.saveFnResults(ctx, hctx.fnResults) // Ignore save error to avoid masking hydration error
 		return hctx.fnResults, errors.E(op, root.pkg.UniquePath, err)
 	}
 
@@ -329,6 +340,131 @@ func hydrate(ctx context.Context, pn *pkgNode, hctx *hydrationContext) (output [
 	curr.resources = output
 
 	return output, err
+}
+
+// hydrateTopBottom performs a top-down hydration such that
+// a parent package can modify its subpackages and itself,
+// but a subpackage cannot modify parents or its siblings.
+// The order left to right is ascendant alphabetical order of the package names.
+func hydrateTopBottom(ctx context.Context, root *pkgNode, hctx *hydrationContext) ([]*yaml.RNode, error) {
+	const op errors.Op = "pkg.render"
+
+	// Phase 1: Discover packages and load their resources in one pass
+	allNodes, childrenMap, err := discoverAndLoadPackages(root, hctx)
+	if err != nil {
+		return nil, errors.E(op, root.pkg.UniquePath, err)
+	}
+
+	// Phase 2: Execute pipelines in top-down order with scoped visibility
+	if err := executePipelinesWithScopedVisibility(ctx, allNodes, childrenMap, hctx); err != nil {
+		return nil, err
+	}
+
+	return root.resources, nil
+}
+
+// discoverAndLoadPackages performs BFS to discover all packages, build tree structure,
+// and load their local resources in a single pass
+func discoverAndLoadPackages(root *pkgNode, hctx *hydrationContext) ([]*pkgNode, map[types.UniquePath][]*pkgNode, error) {
+	const op errors.Op = "pkg.discover"
+
+	queue := []*pkgNode{root}
+	var allNodes []*pkgNode
+	childrenMap := map[types.UniquePath][]*pkgNode{}
+
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+		allNodes = append(allNodes, current)
+
+		if curr, found := hctx.pkgs[current.pkg.UniquePath]; found {
+			switch curr.state {
+			case Hydrating:
+				return nil, nil, errors.E(op, curr.pkg.UniquePath, fmt.Errorf("cycle detected in pkg dependencies"))
+			case Wet:
+				continue
+			default:
+				return nil, nil, errors.E(op, curr.pkg.UniquePath, fmt.Errorf("package found in invalid state %v", curr.state))
+			}
+		}
+
+		current.state = Dry
+		hctx.pkgs[current.pkg.UniquePath] = current
+
+		localResources, err := current.pkg.LocalResources()
+		if err != nil {
+			return nil, nil, errors.E(op, current.pkg.UniquePath, err)
+		}
+		current.resources = localResources
+
+		relPath, err := current.pkg.RelativePathTo(hctx.root.pkg)
+		if err != nil {
+			return nil, nil, errors.E(op, current.pkg.UniquePath, err)
+		}
+
+		if err := trackInputFiles(hctx, relPath, localResources); err != nil {
+			return nil, nil, errors.E(op, current.pkg.UniquePath, err)
+		}
+
+		subpkgs, err := current.pkg.DirectSubpackages()
+		if err != nil {
+			return nil, nil, errors.E(op, current.pkg.UniquePath, err)
+		}
+
+		for _, subpkg := range subpkgs {
+			subPkgNode, err := newPkgNode(hctx.fileSystem, "", subpkg)
+			if err != nil {
+				return nil, nil, errors.E(op, subpkg.UniquePath, err)
+			}
+			queue = append(queue, subPkgNode)
+			childrenMap[current.pkg.UniquePath] = append(childrenMap[current.pkg.UniquePath], subPkgNode)
+		}
+	}
+
+	return allNodes, childrenMap, nil
+}
+
+// executePipelinesWithScopedVisibility executes pipelines for all packages in top-down order
+// Each package can see itself plus its descendants (children, granchildren) only
+func executePipelinesWithScopedVisibility(ctx context.Context, allNodes []*pkgNode, childrenMap map[types.UniquePath][]*pkgNode, hctx *hydrationContext) error {
+	const op errors.Op = "pkg.render"
+
+	for _, node := range allNodes {
+		node.state = Hydrating
+		hctx.pkgs[node.pkg.UniquePath] = node
+
+		input := buildPipelineInputWithScopedVisibility(node, childrenMap)
+
+		output, err := node.runPipeline(ctx, hctx, input)
+		if err != nil {
+			return errors.E(op, node.pkg.UniquePath, err)
+		}
+
+		node.resources = output
+		node.state = Wet
+		hctx.pkgs[node.pkg.UniquePath] = node
+	}
+
+	return nil
+}
+
+// buildPipelineInputWithScopedVisibility creates the input resource
+// list for a package's pipeline using childrenMap to find descendants
+func buildPipelineInputWithScopedVisibility(node *pkgNode, childrenMap map[types.UniquePath][]*pkgNode) []*yaml.RNode {
+	var input []*yaml.RNode
+
+	input = append(input, node.resources...)
+
+	var collectDescendants func(*pkgNode)
+	collectDescendants = func(n *pkgNode) {
+		for _, child := range childrenMap[n.pkg.UniquePath] {
+			input = append(input, child.resources...)
+			collectDescendants(child)
+		}
+	}
+
+	collectDescendants(node)
+	return input
 }
 
 // runPipeline runs the pipeline defined at current pkgNode on given input resources.
