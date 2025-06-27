@@ -1,4 +1,4 @@
-# Copyright 2024 The Nephio Authors
+# Copyright 2024-2025 The Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,8 +32,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Free up disk space
-        run: sudo rm -rf /usr/share/dotnet && sudo rm -rf /opt/ghc && sudo rm -rf "/usr/local/share/boost" && sudo rm -rf "$AGENT_TOOLSDIRECTORY"
       - name: Checkout Porch
         uses: actions/checkout@v4
       - name: Set up Go
@@ -41,24 +39,26 @@ jobs:
         with:
           go-version: '>=1.23.8'
       - name: Setup kubectl
-        uses: azure/setup-kubectl@v3
+        uses: azure/setup-kubectl@v4
       - name: Install kpt
-        uses: jaxxstorm/action-install-gh-release@v1.10.0
+        uses: jaxxstorm/action-install-gh-release@v2.1.0
         with:
           repo: kptdev/kpt
-          tag: v1.0.0-beta.54
+          tag: v1.0.0-beta.57
           chmod: 0755
-      - name: Create k8s Kind Cluster
+      - name: Install Kind
         uses: helm/kind-action@v1
         with:
-          cluster_name: kind
-          version: v0.23.0
-          kubectl_version: v1.30.0
+          version: v0.29.0
+          install_only: true
+      - name: Set up Git config
+        run: |
+          git config --global user.name "Porch E2E"
+          git config --global user.email "porch-e2e@porch.dev"
+      - name: Setup dev env
+        run: ${GITHUB_WORKSPACE}/scripts/setup-dev-env.sh
       - name: Build Images and Deploy porch kpt pkg
         run: IMAGE_REPO=porch-kind IMAGE_TAG=${GITHUB_SHA:0:8} KIND_CONTEXT_NAME=kind make run-in-kind
-      - name: Sleep for 30 seconds
-        run: sleep 30s
-        shell: bash
       - name: e2e test
         run: E2E=1 go test -v -timeout 20m ${GITHUB_WORKSPACE}/test/e2e
       - name: Export porch server logs
