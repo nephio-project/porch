@@ -33,11 +33,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
@@ -2147,11 +2149,23 @@ func (t *PorchSuite) TestPodEvaluator() {
 		img := pod.Spec.Containers[0].Image
 		if img == generateFolderImage || img == setAnnotationsImage {
 			t.DeleteF(&pod)
+
+			// Await pod deletion with a 20 second timeout
+			err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, (20 * time.Second), false, func(ctx context.Context) (bool, error) {
+				getErr := t.Client.Get(ctx, client.ObjectKey{Namespace: pod.Namespace, Name: pod.Name}, &corev1.Pod{})
+				if errors.IsNotFound(getErr) {
+					return true, nil // Pod has been deleted
+				}
+				if getErr != nil {
+					return false, getErr // Error occurred
+				}
+				return false, nil // Pod still exists
+			})
+			if err != nil {
+				t.Fatalf("Failed to wait for pod deletion: %v", err)
+			}
 		}
 	}
-
-	// checking if its potentially a timing issue
-	time.Sleep(10 * time.Second)
 
 	// Create another Package Revision
 	pr2 := &porchapi.PackageRevision{
