@@ -345,111 +345,126 @@ func hydrate(ctx context.Context, pn *pkgNode, hctx *hydrationContext) (output [
 // hydrateTopBottom performs a top-down hydration such that
 // a parent package can modify its subpackages and itself,
 // but a subpackage cannot modify parents or its siblings.
-// DetectSubpackages detects subfolders sorted in
-// ascending alphabetical order based on the DisplayPath field.
+// The order left to right is ascendant alphabetical order of the package names.
 func hydrateTopBottom(ctx context.Context, root *pkgNode, hctx *hydrationContext) ([]*yaml.RNode, error) {
 	const op errors.Op = "pkg.render"
 
-	// Phase 1: Tree traversal to collect all packages from the root
+	// Phase 1: Discover packages and load their resources in one pass
+	allNodes, childrenMap, err := discoverAndLoadPackages(root, hctx)
+	if err != nil {
+		return nil, errors.E(op, root.pkg.UniquePath, err)
+	}
+
+	// Phase 2: Execute pipelines in top-down order with scoped visibility
+	if err := executePipelinesWithScopedVisibility(ctx, allNodes, childrenMap, hctx); err != nil {
+		return nil, err
+	}
+
+	return root.resources, nil
+}
+
+// discoverAndLoadPackages performs BFS to discover all packages, build tree structure,
+// and load their local resources in a single pass
+func discoverAndLoadPackages(root *pkgNode, hctx *hydrationContext) ([]*pkgNode, map[types.UniquePath][]*pkgNode, error) {
+	const op errors.Op = "pkg.discover"
+
 	queue := []*pkgNode{root}
-	var orderedQueue []*pkgNode
-	nodeMap := map[types.UniquePath]*pkgNode{}
+	var allNodes []*pkgNode
 	childrenMap := map[types.UniquePath][]*pkgNode{}
 
 	for len(queue) > 0 {
 		current := queue[0]
 		queue = queue[1:]
-		orderedQueue = append(orderedQueue, current)
-		nodeMap[current.pkg.UniquePath] = current
+		allNodes = append(allNodes, current)
 
 		if curr, found := hctx.pkgs[current.pkg.UniquePath]; found {
 			switch curr.state {
 			case Hydrating:
-				return nil, errors.E(op, curr.pkg.UniquePath, fmt.Errorf("cycle detected in pkg dependencies"))
+				return nil, nil, errors.E(op, curr.pkg.UniquePath, fmt.Errorf("cycle detected in pkg dependencies"))
 			case Wet:
 				continue
 			default:
-				return nil, errors.E(op, curr.pkg.UniquePath, fmt.Errorf("package found in invalid state %v", curr.state))
+				return nil, nil, errors.E(op, curr.pkg.UniquePath, fmt.Errorf("package found in invalid state %v", curr.state))
 			}
 		}
 
-		current.state = Hydrating
+		current.state = Dry
 		hctx.pkgs[current.pkg.UniquePath] = current
 
 		localResources, err := current.pkg.LocalResources()
 		if err != nil {
-			return nil, errors.E(op, current.pkg.UniquePath, err)
+			return nil, nil, errors.E(op, current.pkg.UniquePath, err)
 		}
 		current.resources = localResources
 
 		relPath, err := current.pkg.RelativePathTo(hctx.root.pkg)
 		if err != nil {
-			return nil, errors.E(op, current.pkg.UniquePath, err)
+			return nil, nil, errors.E(op, current.pkg.UniquePath, err)
 		}
 
 		if err := trackInputFiles(hctx, relPath, localResources); err != nil {
-			return nil, err
+			return nil, nil, errors.E(op, current.pkg.UniquePath, err)
 		}
 
 		subpkgs, err := current.pkg.DirectSubpackages()
 		if err != nil {
-			return nil, errors.E(op, current.pkg.UniquePath, err)
+			return nil, nil, errors.E(op, current.pkg.UniquePath, err)
 		}
+
 		for _, subpkg := range subpkgs {
 			subPkgNode, err := newPkgNode(hctx.fileSystem, "", subpkg)
 			if err != nil {
-				return nil, errors.E(op, subpkg.UniquePath, err)
+				return nil, nil, errors.E(op, subpkg.UniquePath, err)
 			}
 			queue = append(queue, subPkgNode)
 			childrenMap[current.pkg.UniquePath] = append(childrenMap[current.pkg.UniquePath], subPkgNode)
 		}
 	}
 
-	// Helper to collect all descendants of a package recursively
-	collectDescendants := func(node *pkgNode) []*pkgNode {
-		var result []*pkgNode
-		var dfs func(*pkgNode)
-		dfs = func(n *pkgNode) {
-			for _, child := range childrenMap[n.pkg.UniquePath] {
-				result = append(result, child)
-				dfs(child)
-			}
-		}
-		dfs(node)
-		return result
-	}
+	return allNodes, childrenMap, nil
+}
 
-	// Phase 2: Build descendants map
-	descendants := map[types.UniquePath][]*pkgNode{}
-	for _, parent := range orderedQueue {
-		descendants[parent.pkg.UniquePath] = collectDescendants(parent)
-	}
+// executePipelinesWithScopedVisibility executes pipelines for all packages in top-down order
+// Each package can see itself plus its descendants (children, granchildren) only
+func executePipelinesWithScopedVisibility(ctx context.Context, allNodes []*pkgNode, childrenMap map[types.UniquePath][]*pkgNode, hctx *hydrationContext) error {
+	const op errors.Op = "pkg.render"
 
-	// Phase 3: Run pipelines with scoped visibility of self + descendants only
-	for _, nodeForPipeline := range orderedQueue {
-		var input []*yaml.RNode
+	for _, node := range allNodes {
+		node.state = Hydrating
+		hctx.pkgs[node.pkg.UniquePath] = node
 
-		// Include nodeForPipeline package's resources
-		input = append(input, nodeForPipeline.resources...)
+		input := buildPipelineInputWithScopedVisibility(node, childrenMap)
 
-		// Include resources from all descendants
-		for _, desc := range descendants[nodeForPipeline.pkg.UniquePath] {
-			input = append(input, desc.resources...)
-		}
-
-		output, err := nodeForPipeline.runPipeline(ctx, hctx, input)
+		output, err := node.runPipeline(ctx, hctx, input)
 		if err != nil {
-			return nil, errors.E(op, nodeForPipeline.pkg.UniquePath, err)
+			return errors.E(op, node.pkg.UniquePath, err)
 		}
 
-		nodeForPipeline.resources = output
-		nodeForPipeline.state = Wet
-		nodeMap[nodeForPipeline.pkg.UniquePath] = nodeForPipeline
+		node.resources = output
+		node.state = Wet
+		hctx.pkgs[node.pkg.UniquePath] = node
 	}
 
-	// Phase 4: Collect final output from all packages
-	root.resources = nodeMap[orderedQueue[0].pkg.UniquePath].resources
-	return root.resources, nil
+	return nil
+}
+
+// buildPipelineInputWithScopedVisibility creates the input resource
+// list for a package's pipeline using childrenMap to find descendants
+func buildPipelineInputWithScopedVisibility(node *pkgNode, childrenMap map[types.UniquePath][]*pkgNode) []*yaml.RNode {
+	var input []*yaml.RNode
+
+	input = append(input, node.resources...)
+
+	var collectDescendants func(*pkgNode)
+	collectDescendants = func(n *pkgNode) {
+		for _, child := range childrenMap[n.pkg.UniquePath] {
+			input = append(input, child.resources...)
+			collectDescendants(child)
+		}
+	}
+
+	collectDescendants(node)
+	return input
 }
 
 // runPipeline runs the pipeline defined at current pkgNode on given input resources.
