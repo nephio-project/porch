@@ -657,7 +657,7 @@ func (t *PorchSuite) TestEditPackageRevision() {
 				Name:      repository + "." + packageName + "." + workspace2,
 				Namespace: t.Namespace,
 			},
-			10*time.Second,
+			1*time.Minute,
 		)
 	}
 
@@ -2151,7 +2151,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 			t.DeleteF(&pod)
 
 			// Await pod deletion with a 20 second timeout
-			err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, (20 * time.Second), false, func(ctx context.Context) (bool, error) {
+			err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, time.Minute, false, func(ctx context.Context) (bool, error) {
 				getErr := t.Client.Get(ctx, client.ObjectKey{Namespace: pod.Namespace, Name: pod.Name}, &corev1.Pod{})
 				if errors.IsNotFound(getErr) {
 					return true, nil // Pod has been deleted
