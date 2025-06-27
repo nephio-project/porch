@@ -30,7 +30,7 @@ func NewSliceVariant(s ...variant) *SliceVariant {
 	return &SliceVariant{node: node}
 }
 
-func (v *SliceVariant) GetKind() variantKind {
+func (v *SliceVariant) GetKind() VariantKind {
 	return VariantKindSlice
 }
 
