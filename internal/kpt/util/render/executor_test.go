@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
+	"github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/internal/kpt/types"
 	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"github.com/stretchr/testify/assert"
@@ -364,7 +365,6 @@ metadata:
 `))
 	assert.NoError(t, err)
 
-	// Create a mock hydration context
 	root, err := newPkgNode(mockFileSystem, rootPath, nil)
 	assert.NoError(t, err)
 
@@ -394,7 +394,6 @@ metadata:
 
 		invalidPkgNode, err := newPkgNode(mockFileSystem, invalidPkgPath, nil)
 		if err != nil {
-			// Ensure the error is properly handled
 			assert.Contains(t, err.Error(), "error reading Kptfile")
 			return
 		}
@@ -406,7 +405,7 @@ metadata:
 	})
 }
 
-func TestHydrateBFS_ErrorCases(t *testing.T) {
+func TestHydrateTopBottom_ErrorCases(t *testing.T) {
 	ctx := printer.WithContext(context.Background(), printer.New(nil, nil))
 	mockFileSystem := filesys.MakeFsInMemory()
 
@@ -479,4 +478,37 @@ metadata:
 		_, err := hydrateTopBottom(ctx, root, hctx)
 		assert.NoError(t, err)
 	})
+}
+
+func TestHydrateTopBottom_RunPipelineError(t *testing.T) {
+	ctx := printer.WithContext(context.Background(), printer.New(nil, nil))
+	mockFileSystem := filesys.MakeFsInMemory()
+
+	rootPkgPath := "/root"
+	assert.NoError(t, mockFileSystem.Mkdir(rootPkgPath))
+
+	// Write a Kptfile with an invalid api version
+	_ = mockFileSystem.WriteFile(filepath.Join(rootPkgPath, "Kptfile"), []byte(`
+apiVersion: kpt.dev/ERROR
+kind: Kptfile
+metadata:
+  name: root-package
+  annotations:
+    kpt.dev/top-bottom-rendering: "true"
+`))
+
+	p, _ := pkg.New(mockFileSystem, rootPkgPath)
+	root := &pkgNode{
+		pkg:   p,
+		state: Dry,
+	}
+	hctx := &hydrationContext{
+		root:       root,
+		pkgs:       map[types.UniquePath]*pkgNode{},
+		fileSystem: mockFileSystem,
+	}
+
+	_, err := hydrateTopBottom(ctx, root, hctx)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown resource type")
 }
