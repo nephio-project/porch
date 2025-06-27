@@ -2150,6 +2150,9 @@ func (t *PorchSuite) TestPodEvaluator() {
 		}
 	}
 
+	// checking if its potentially a timing issue
+	time.Sleep(10 * time.Second)
+
 	// Create another Package Revision
 	pr2 := &porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
