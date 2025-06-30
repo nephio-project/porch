@@ -265,7 +265,7 @@ kind: Kptfile
 metadata:
   name: root-package
   annotations:
-    kpt.dev/top-bottom-rendering: %t
+    kpt.dev/bfs-rendering: %t
 `, renderTopBtm))
 	assert.NoError(t, err)
 
@@ -310,7 +310,7 @@ func TestRenderer_Execute_RenderOrder(t *testing.T) {
 		expectedErrMsg string
 	}{
 		{
-			name:         "Use hydrateTopBottom with renderTopBtm true",
+			name:         "Use hydrateBfsOrder with renderTopBtm true",
 			renderTopBtm: true,
 			expectedOrder: func(output string) bool {
 				rootIndex := strings.Index(output, `Package "root":`)               // Fisrt
@@ -405,7 +405,7 @@ metadata:
 	})
 }
 
-func TestHydrateTopBottom_ErrorCases(t *testing.T) {
+func TestHydrateBfsOrder_ErrorCases(t *testing.T) {
 	ctx := printer.WithContext(context.Background(), printer.New(nil, nil))
 	mockFileSystem := filesys.MakeFsInMemory()
 
@@ -423,7 +423,7 @@ kind: Kptfile
 metadata:
   name: root-package
   annotations:
-    ktp.dev/top-bottom-rendering: true
+    ktp.dev/bfs-rendering: true
 `))
 	assert.NoError(t, err)
 
@@ -445,42 +445,42 @@ metadata:
 		fileSystem: mockFileSystem,
 	}
 
-	t.Run("Cycle Detection in hydrateTopBottom", func(t *testing.T) {
+	t.Run("Cycle Detection in hydrateBfsOrder", func(t *testing.T) {
 		// Add the root package to the hydration context in a "Hydrating" state to simulate a cycle
 		hctx.pkgs[root.pkg.UniquePath] = &pkgNode{
 			pkg:   root.pkg,
 			state: Hydrating,
 		}
 
-		_, err := hydrateTopBottom(ctx, root, hctx)
+		_, err := hydrateBfsOrder(ctx, root, hctx)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "cycle detected in pkg dependencies")
 	})
 
-	t.Run("Invalid Package State in hydrateTopBottom", func(t *testing.T) {
+	t.Run("Invalid Package State in hydrateBfsOrder", func(t *testing.T) {
 		// Add the root package to the hydration context in an invalid state
 		hctx.pkgs[root.pkg.UniquePath] = &pkgNode{
 			pkg:   root.pkg,
 			state: -1, // Invalid state
 		}
 
-		_, err := hydrateTopBottom(ctx, root, hctx)
+		_, err := hydrateBfsOrder(ctx, root, hctx)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "package found in invalid state")
 	})
 
-	t.Run("Wet Package State in hydrateTopBottom would continue", func(t *testing.T) {
+	t.Run("Wet Package State in hydrateBfsOrder would continue", func(t *testing.T) {
 		hctx.pkgs[root.pkg.UniquePath] = &pkgNode{
 			pkg:   root.pkg,
 			state: Wet,
 		}
 
-		_, err := hydrateTopBottom(ctx, root, hctx)
+		_, err := hydrateBfsOrder(ctx, root, hctx)
 		assert.NoError(t, err)
 	})
 }
 
-func TestHydrateTopBottom_RunPipelineError(t *testing.T) {
+func TestHydrateBfsOrder_RunPipelineError(t *testing.T) {
 	ctx := printer.WithContext(context.Background(), printer.New(nil, nil))
 	mockFileSystem := filesys.MakeFsInMemory()
 
@@ -494,7 +494,7 @@ kind: Kptfile
 metadata:
   name: root-package
   annotations:
-    kpt.dev/top-bottom-rendering: "true"
+    kpt.dev/bfs-rendering: "true"
 `))
 
 	p, _ := pkg.New(mockFileSystem, rootPkgPath)
@@ -508,7 +508,7 @@ metadata:
 		fileSystem: mockFileSystem,
 	}
 
-	_, err := hydrateTopBottom(ctx, root, hctx)
+	_, err := hydrateBfsOrder(ctx, root, hctx)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown resource type")
 }

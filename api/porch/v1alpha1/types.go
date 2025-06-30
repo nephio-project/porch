@@ -563,8 +563,8 @@ type PackageStatus struct {
 	LatestRevision int `json:"latestRevision,omitempty"`
 }
 
-// TopToBottomRenderAnnotation is an annotation that can be used to indicate that a package
-// should be hydrated from top to bottom, from the root package to the subpackages.
+// BFSRenderAnnotation is an annotation that can be used to indicate that a package
+// should be hydrated from the root package to the subpackages in a Breadth-First Level Order manner.
 const (
-	TopToBottomRenderAnnotation = "kpt.dev/top-bottom-rendering"
+	BFSRenderAnnotation = "kpt.dev/bfs-rendering"
 )

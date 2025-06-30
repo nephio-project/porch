@@ -93,11 +93,11 @@ func (e *Renderer) Execute(ctx context.Context) (*fnresult.ResultList, error) {
 	}
 
 	// Choose hydration function based on annotation
-	// If the annotation "kpt.dev/top-bottom-rendering" is set to "true", use hydrateTopBottom
-	// otherwise use the default hydrate function in bottom-up order.
+	// If the annotation "kpt.dev/bfs-rendering" is set to "true", use hydrateBfsOrder
+	// otherwise use the default hydrate function in depth-first post-order.
 	hydrateFn := hydrate
-	if value, exists := kptfile.Annotations[v1alpha1.TopToBottomRenderAnnotation]; exists && value == "true" {
-		hydrateFn = hydrateTopBottom
+	if value, exists := kptfile.Annotations[v1alpha1.BFSRenderAnnotation]; exists && value == "true" {
+		hydrateFn = hydrateBfsOrder
 	}
 
 	if _, err := hydrateFn(ctx, root, hctx); err != nil {
@@ -342,32 +342,31 @@ func hydrate(ctx context.Context, pn *pkgNode, hctx *hydrationContext) (output [
 	return output, err
 }
 
-// hydrateTopBottom performs a top-down hydration such that
+// hydrateBfsOrder performs a top-down hydration such that
 // a parent package can modify its subpackages and itself,
 // but a subpackage cannot modify parents or its siblings.
 // The order left to right is ascendant alphabetical order of the package names.
-func hydrateTopBottom(ctx context.Context, root *pkgNode, hctx *hydrationContext) ([]*yaml.RNode, error) {
+func hydrateBfsOrder(ctx context.Context, root *pkgNode, hctx *hydrationContext) ([]*yaml.RNode, error) {
 	const op errors.Op = "pkg.render"
 
-	// Phase 1: Discover packages and load their resources in one pass
+	// Phase 1: Discover packages and load their resources
 	allNodes, childrenMap, err := discoverAndLoadPackages(root, hctx)
 	if err != nil {
 		return nil, errors.E(op, root.pkg.UniquePath, err)
 	}
 
 	// Phase 2: Execute pipelines in top-down order with scoped visibility
-	if err := executePipelinesWithScopedVisibility(ctx, allNodes, childrenMap, hctx); err != nil {
-		return nil, err
+	err = executePipelinesWithScopedVisibility(ctx, allNodes, childrenMap, hctx)
+	if err != nil {
+		return nil, errors.E(op, root.pkg.UniquePath, err)
 	}
 
 	return root.resources, nil
 }
 
-// discoverAndLoadPackages performs BFS to discover all packages, build tree structure,
-// and load their local resources in a single pass
+// discoverAndLoadPackages performs a Breadth-First search trasversal to
+// discover all packages, build tree structure and load their local resources.
 func discoverAndLoadPackages(root *pkgNode, hctx *hydrationContext) ([]*pkgNode, map[types.UniquePath][]*pkgNode, error) {
-	const op errors.Op = "pkg.discover"
-
 	queue := []*pkgNode{root}
 	var allNodes []*pkgNode
 	childrenMap := map[types.UniquePath][]*pkgNode{}
@@ -377,58 +376,87 @@ func discoverAndLoadPackages(root *pkgNode, hctx *hydrationContext) ([]*pkgNode,
 		queue = queue[1:]
 		allNodes = append(allNodes, current)
 
-		if curr, found := hctx.pkgs[current.pkg.UniquePath]; found {
-			switch curr.state {
-			case Hydrating:
-				return nil, nil, errors.E(op, curr.pkg.UniquePath, fmt.Errorf("cycle detected in pkg dependencies"))
-			case Wet:
-				continue
-			default:
-				return nil, nil, errors.E(op, curr.pkg.UniquePath, fmt.Errorf("package found in invalid state %v", curr.state))
-			}
+		if err := validatePackageState(current, hctx); err != nil {
+			return nil, nil, err
 		}
 
-		current.state = Dry
-		hctx.pkgs[current.pkg.UniquePath] = current
+		if err := loadPackageResources(current, hctx); err != nil {
+			return nil, nil, err
+		}
 
-		localResources, err := current.pkg.LocalResources()
+		newNodes, err := processSubpackages(current, hctx)
 		if err != nil {
-			return nil, nil, errors.E(op, current.pkg.UniquePath, err)
-		}
-		current.resources = localResources
-
-		relPath, err := current.pkg.RelativePathTo(hctx.root.pkg)
-		if err != nil {
-			return nil, nil, errors.E(op, current.pkg.UniquePath, err)
+			return nil, nil, err
 		}
 
-		if err := trackInputFiles(hctx, relPath, localResources); err != nil {
-			return nil, nil, errors.E(op, current.pkg.UniquePath, err)
-		}
-
-		subpkgs, err := current.pkg.DirectSubpackages()
-		if err != nil {
-			return nil, nil, errors.E(op, current.pkg.UniquePath, err)
-		}
-
-		for _, subpkg := range subpkgs {
-			subPkgNode, err := newPkgNode(hctx.fileSystem, "", subpkg)
-			if err != nil {
-				return nil, nil, errors.E(op, subpkg.UniquePath, err)
-			}
-			queue = append(queue, subPkgNode)
-			childrenMap[current.pkg.UniquePath] = append(childrenMap[current.pkg.UniquePath], subPkgNode)
-		}
+		queue = append(queue, newNodes...)
+		childrenMap[current.pkg.UniquePath] = append(childrenMap[current.pkg.UniquePath], newNodes...)
 	}
 
 	return allNodes, childrenMap, nil
 }
 
+// validatePackageState checks if the package is in a valid state for processing
+func validatePackageState(current *pkgNode, hctx *hydrationContext) error {
+	if curr, found := hctx.pkgs[current.pkg.UniquePath]; found {
+		switch curr.state {
+		case Hydrating:
+			return fmt.Errorf("cycle detected in pkg dependencies")
+		case Wet:
+			// Skip processing - package already processed
+			return nil
+		default:
+			return fmt.Errorf("package found in invalid state %v", curr.state)
+		}
+	}
+
+	current.state = Dry
+	hctx.pkgs[current.pkg.UniquePath] = current
+	return nil
+}
+
+// loadPackageResources loads local resources for the package and tracks input files
+func loadPackageResources(current *pkgNode, hctx *hydrationContext) error {
+	localResources, err := current.pkg.LocalResources()
+	if err != nil {
+		return err
+	}
+	current.resources = localResources
+
+	relPath, err := current.pkg.RelativePathTo(hctx.root.pkg)
+	if err != nil {
+		return err
+	}
+
+	if err := trackInputFiles(hctx, relPath, localResources); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// processSubpackages discovers and creates nodes for direct subpackages
+func processSubpackages(current *pkgNode, hctx *hydrationContext) ([]*pkgNode, error) {
+	subpkgs, err := current.pkg.DirectSubpackages()
+	if err != nil {
+		return nil, err
+	}
+
+	var newNodes []*pkgNode
+	for _, subpkg := range subpkgs {
+		subPkgNode, err := newPkgNode(hctx.fileSystem, "", subpkg)
+		if err != nil {
+			return nil, err
+		}
+		newNodes = append(newNodes, subPkgNode)
+	}
+
+	return newNodes, nil
+}
+
 // executePipelinesWithScopedVisibility executes pipelines for all packages in top-down order
 // Each package can see itself plus its descendants (children, granchildren) only
 func executePipelinesWithScopedVisibility(ctx context.Context, allNodes []*pkgNode, childrenMap map[types.UniquePath][]*pkgNode, hctx *hydrationContext) error {
-	const op errors.Op = "pkg.render"
-
 	for _, node := range allNodes {
 		node.state = Hydrating
 		hctx.pkgs[node.pkg.UniquePath] = node
@@ -437,7 +465,7 @@ func executePipelinesWithScopedVisibility(ctx context.Context, allNodes []*pkgNo
 
 		output, err := node.runPipeline(ctx, hctx, input)
 		if err != nil {
-			return errors.E(op, node.pkg.UniquePath, err)
+			return err
 		}
 
 		node.resources = output
