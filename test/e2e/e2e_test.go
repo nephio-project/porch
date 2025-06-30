@@ -553,11 +553,12 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 
 func (t *PorchSuite) TestEditPackageRevision() {
 	const (
-		repository       = "edit-test"
-		packageName      = "simple-package"
-		otherPackageName = "other-package"
-		workspace        = "workspace"
-		workspace2       = "workspace2"
+		repository                    = "edit-test"
+		packageName                   = "simple-package"
+		otherPackageName              = "other-package"
+		workspace                     = "workspace"
+		workspace2                    = "workspace2"
+		workspaceToAvoidCreationClash = "workspace-to-avoid-creation-clash"
 	)
 
 	t.RegisterMainGitRepositoryF(repository)
@@ -635,30 +636,9 @@ func (t *PorchSuite) TestEditPackageRevision() {
 			},
 		},
 	}
-	// This invalid create will sill create the draft for a small period of time until the error is discovered
+	// This invalid create will still create the draft for a small period of time until the error is discovered
 	if err := t.Client.Create(t.GetContext(), editPR); err == nil {
 		t.Fatalf("Expected error for source revision not being published")
-	}
-
-	// We await for this invalid packageRevision creation to be deleted then proceed else timeout after 10 seconds
-	var existingPR porchapi.PackageRevision
-	err := t.Client.Get(t.GetContext(),
-		client.ObjectKey{
-			Namespace: t.Namespace,
-			Name:      repository + "." + packageName + "." + workspace2,
-		},
-		&existingPR,
-	)
-
-	if err == nil {
-		t.WaitUntilObjectDeleted(
-			packageRevisionGVK,
-			types.NamespacedName{
-				Name:      repository + "." + packageName + "." + workspace2,
-				Namespace: t.Namespace,
-			},
-			1*time.Minute,
-		)
 	}
 
 	// Publish the source package to make it a valid source for edit.
@@ -668,6 +648,9 @@ func (t *PorchSuite) TestEditPackageRevision() {
 	// Approve the package
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+
+	// Changing the workspace of the EditPR to avoid clashing with invalid create negative test above
+	editPR.Spec.WorkspaceName = workspaceToAvoidCreationClash
 
 	// Create a new revision with the edit task.
 	t.CreateF(editPR)
