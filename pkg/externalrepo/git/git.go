@@ -821,7 +821,7 @@ func (r *gitRepository) loadDraft(ctx context.Context, ref *plumbing.Reference) 
 	return packageRevision, nil
 }
 
-func (r *gitRepository) UpdateDeletionProposedCache(ctx context.Context) error {
+func (r *gitRepository) UpdateDeletionProposedCache() error {
 	r.deletionProposedCacheMutex.Lock()
 	defer r.deletionProposedCacheMutex.Unlock()
 	return r.updateDeletionProposedCache()
