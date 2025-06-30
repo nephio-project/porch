@@ -17,14 +17,18 @@ package porch
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"strings"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apiserver/pkg/storage"
 )
@@ -45,10 +49,13 @@ func convertPackageFieldSelector(label, value string) (internalLabel, internalVa
 
 // convertPackageRevisionFieldSelector is the schema conversion function for normalizing the FieldSelector for PackageRevision
 func convertPackageRevisionFieldSelector(label, value string) (internalLabel, internalValue string, err error) {
-	selectableFields := api.MapPkgRevFields(&api.PackageRevision{})
-	if selectableFields.Has(label) {
-		return label, value, nil
+	selectableFields := reflect.ValueOf(PkgRevSelectableFields)
+	for i := range selectableFields.NumField() {
+		if label == selectableFields.Field(i).String() {
+			return label, value, nil
+		}
 	}
+
 	return "", "", fmt.Errorf("%q is not a known field selector", label)
 }
 
@@ -105,9 +112,27 @@ func parsePackageFieldSelector(fieldSelector fields.Selector) (packageFilter, er
 
 // packageRevisionFilter filters packages, extending repository.ListPackageRevisionFilter
 type packageRevisionFilter struct {
-	repository.ListPackageRevisionFilter
-
 	predicate storage.SelectionPredicate
+}
+
+type pkgRevSelectable struct {
+	Name          string
+	Namespace     string
+	Revision      string
+	PackageName   string
+	Repository    string
+	WorkspaceName string
+	Lifecycle     string
+}
+
+var PkgRevSelectableFields = pkgRevSelectable{
+	Name:          "metadata.name",
+	Namespace:     "metadata.namespace",
+	Revision:      "spec.revision",
+	PackageName:   "spec.packageName",
+	Repository:    "spec.repository",
+	WorkspaceName: "spec.workspaceName",
+	Lifecycle:     "spec.lifecycle",
 }
 
 func (f *packageRevisionFilter) Matches(ctx context.Context, p api.PackageRevision) (bool, error) {
@@ -116,9 +141,15 @@ func (f *packageRevisionFilter) Matches(ctx context.Context, p api.PackageRevisi
 	}
 	return f.predicate.Matches(&p)
 }
+func (f *packageRevisionFilter) MatchesRepoRev(p repository.PackageRevision) (bool, error) {
+	if f.predicate.Field == nil {
+		return true, nil
+	}
+	return f.predicate.Matches(wrap(&p))
+}
 
 func (f *packageRevisionFilter) Namespace(ns string) *packageRevisionFilter {
-	if namespaceSelector, err := fields.ParseSelector("metadata.namespace=" + ns); err == nil {
+	if namespaceSelector, err := fields.ParseSelector(PkgRevSelectableFields.Namespace + "=" + ns); err == nil {
 		f.predicate.Field = fields.AndSelectors(f.predicate.Field, namespaceSelector)
 	}
 	return f
@@ -133,7 +164,7 @@ func (f *packageRevisionFilter) matchesNamespace(ns string) (bool, string) {
 	if !filteringOnNamespace {
 		return true, ns
 	}
-	return ns != "" && ns != filteredNamespace, filteredNamespace
+	return (ns != "" && ns != filteredNamespace), filteredNamespace
 }
 
 func (f *packageRevisionFilter) filteredRepository() string {
@@ -141,22 +172,11 @@ func (f *packageRevisionFilter) filteredRepository() string {
 		return ""
 	}
 
-	if filteredRepo, filteringOnRepo := f.predicate.Field.RequiresExactMatch("spec.repository"); filteringOnRepo {
+	if filteredRepo, filteringOnRepo := f.predicate.Field.RequiresExactMatch(PkgRevSelectableFields.Repository); filteringOnRepo {
 		return filteredRepo
 	}
 
 	return ""
-}
-
-// pkgRevGetAttrs returns labels and fields of a given PackageRevision object for filtering purposes.
-func pkgRevGetAttrs(obj runtime.Object) (labels.Set, fields.Set, error) {
-	if pkgRev, isApiPkgRev := obj.(*api.PackageRevision); isApiPkgRev {
-		return labels.Set(pkgRev.ObjectMeta.Labels), pkgRev.GetSelectableFields(), nil
-	} else if repoPkgRev, isRepoPkgRev := obj.(*repository.PackageFilterWrapper); isRepoPkgRev {
-		return nil, repoPkgRev.GetSelectableFields(), nil
-	} else {
-		return nil, nil, fmt.Errorf("not a package revision")
-	}
 }
 
 // parsePackageRevisionFieldSelector parses client-provided fields.Selector into a packageRevisionFilter
@@ -172,7 +192,7 @@ func parsePackageRevisionFieldSelector(options *metainternalversion.ListOptions)
 	for _, requirement := range requirements {
 
 		switch requirement.Operator {
-		case selection.Equals, selection.DoesNotExist:
+		case selection.Equals, selection.DoubleEquals, selection.NotEquals, selection.DoesNotExist:
 			if requirement.Value == "" {
 				return filter, apierrors.NewBadRequest(fmt.Sprintf("unsupported fieldSelector value %q for field %q with operator %q", requirement.Value, requirement.Field, requirement.Operator))
 			}
@@ -183,10 +203,47 @@ func parsePackageRevisionFieldSelector(options *metainternalversion.ListOptions)
 
 	filter.predicate.Field = fieldSelector
 	filter.predicate.GetAttrs = pkgRevGetAttrs
-	lowerDownFilter := repository.NewListPackageRevisionFilter(filter.predicate)
-	filter.ListPackageRevisionFilter = lowerDownFilter
 
 	return filter, nil
+}
+
+// pkgRevGetAttrs returns labels and fields of a given PackageRevision object for filtering purposes.
+func pkgRevGetAttrs(obj runtime.Object) (labels.Set, fields.Set, error) {
+	if fieldSet := mapPkgRevFields(obj); fieldSet != nil {
+		return nil, fieldSet, nil
+	}
+
+	return nil, nil, fmt.Errorf("not a package revision")
+}
+
+func mapPkgRevFields(packageRevision any) fields.Set {
+	labels := PkgRevSelectableFields
+	if p, isApiPkgRev := packageRevision.(*api.PackageRevision); isApiPkgRev {
+		return fields.Set{
+			labels.Namespace:  p.Namespace,
+			labels.Repository: p.Spec.RepositoryName,
+		}
+	}
+
+	if p, isRepoPkgRev := packageRevision.(*wrappedRepoPkgRev); isRepoPkgRev {
+		repoPr := p.unwrap()
+		key := repoPr.Key()
+		labels := PkgRevSelectableFields
+		return fields.Set{
+			labels.Name:     repoPr.KubeObjectName(),
+			labels.Revision: repository.Revision2Str(key.Revision),
+			labels.PackageName: func() string {
+				if path := key.PkgKey.Path; path != "" {
+					return path + "/"
+				}
+				return ""
+			}() + key.PkgKey.Package,
+			labels.WorkspaceName: key.WorkspaceName,
+			labels.Lifecycle:     string(repoPr.Lifecycle(context.TODO())),
+		}
+	}
+
+	return nil
 }
 
 // parsePackageRevisionResourcesFieldSelector parses client-provided fields.Selector into a packageRevisionFilter
@@ -194,4 +251,58 @@ func parsePackageRevisionResourcesFieldSelector(options *metainternalversion.Lis
 	// TOOD: This is a little weird, because we don't have the same fields on PackageRevisionResources.
 	// But we probably should have the key fields
 	return parsePackageRevisionFieldSelector(options)
+}
+
+func (f *packageRevisionFilter) toListPackageRevisionFilter() (lowerFilter repository.ListPackageRevisionFilter) {
+	labels := PkgRevSelectableFields
+	field := f.predicate.Field
+	if field == nil {
+		return
+	}
+
+	if filteredName, filteringOnName := field.RequiresExactMatch(labels.Name); filteringOnName {
+		lowerFilter.KubeObjectName = filteredName
+	}
+
+	if filteredRevision, filteringOnRevision := field.RequiresExactMatch(labels.Revision); filteringOnRevision {
+		lowerFilter.Key.Revision = repository.Revision2Int(filteredRevision)
+	}
+
+	if filteredPackage, filteringOnPackage := field.RequiresExactMatch(labels.PackageName); filteringOnPackage {
+		if segs := strings.Split(filteredPackage, "/"); len(segs) > 1 {
+			lowerFilter.Key.PkgKey.Path = strings.Join(segs[:len(segs)-1], "/")
+			filteredPackage = segs[len(segs)]
+		}
+		lowerFilter.Key.PkgKey.Package = filteredPackage
+	}
+
+	if filteredWorkspace, filteringOnWorkspace := field.RequiresExactMatch(labels.WorkspaceName); filteringOnWorkspace {
+		lowerFilter.Key.WorkspaceName = filteredWorkspace
+	}
+
+	if filteredLifecycle, filteringOnLifecycle := field.RequiresExactMatch(labels.WorkspaceName); filteringOnLifecycle {
+		lowerFilter.Lifecycle = api.PackageRevisionLifecycle(filteredLifecycle)
+	}
+
+	return
+}
+
+type wrappedRepoPkgRev struct {
+	metav1.TypeMeta
+	repoPr repository.PackageRevision
+}
+
+func wrap(p *repository.PackageRevision) *wrappedRepoPkgRev {
+	return &wrappedRepoPkgRev{repoPr: *p}
+}
+
+func (p *wrappedRepoPkgRev) unwrap() repository.PackageRevision {
+	return p.repoPr
+}
+
+func (in wrappedRepoPkgRev) DeepCopyObject() runtime.Object {
+	return in
+}
+func (in wrappedRepoPkgRev) GetObjectKind() schema.ObjectKind {
+	return schema.EmptyObjectKind
 }

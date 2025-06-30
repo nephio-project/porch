@@ -17,20 +17,14 @@ package repository
 import (
 	"context"
 	"fmt"
-	"maps"
 	"path/filepath"
 	"strings"
 
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apiserver/pkg/storage"
 )
 
 // TODO: 	"sigs.k8s.io/kustomize/kyaml/filesys" FileSystem?
@@ -259,65 +253,23 @@ type ListPackageRevisionFilter struct {
 
 	// Lifecycle matches the spec.lifecycle of the package
 	Lifecycle v1alpha1.PackageRevisionLifecycle
-
-	predicate storage.SelectionPredicate
-}
-
-func NewListPackageRevisionFilter(predicate storage.SelectionPredicate) ListPackageRevisionFilter {
-	return ListPackageRevisionFilter{predicate: predicate}
-}
-
-func (f *ListPackageRevisionFilter) parse() {
-	fieldNames := api.PkgRevSelectableFields
-	fieldSet := fields.Set{
-		fieldNames.Name: f.KubeObjectName,
-		fieldNames.Revision: func() string {
-			if f.Key.Revision != 0 {
-				return Revision2Str(f.Key.Revision)
-			}
-			return ""
-		}(),
-		fieldNames.PackageName: func() string {
-			if path := f.Key.PkgKey.Path; path != "" {
-				return path + "/"
-			}
-			return ""
-		}() + f.Key.PkgKey.Package,
-		fieldNames.Repository:    f.Key.PkgKey.RepoKey.Name,
-		fieldNames.WorkspaceName: f.Key.WorkspaceName,
-		fieldNames.Lifecycle:     string(f.Lifecycle),
-	}
-	maps.DeleteFunc(fieldSet, func(_, value string) bool {
-		return value == ""
-	})
-
-	f.predicate.Field = fieldSet.AsSelector()
-
-	if f.predicate.Label == nil {
-		f.predicate.Label = labels.Everything()
-	}
-	f.predicate.GetAttrs = pkgRevGetAttrs
-}
-
-// pkgRevGetAttrs returns labels and fields of a given PackageRevision object for filtering purposes.
-func pkgRevGetAttrs(obj runtime.Object) (labels.Set, fields.Set, error) {
-	if pkgRev, isApiPkgRev := obj.(*api.PackageRevision); isApiPkgRev {
-		return labels.Set(pkgRev.ObjectMeta.Labels), pkgRev.GetSelectableFields(), nil
-	} else if repoPkgRev, isRepoPkgRev := obj.(*PackageFilterWrapper); isRepoPkgRev {
-		return nil, repoPkgRev.GetSelectableFields(), nil
-	} else {
-		return nil, nil, fmt.Errorf("not a package revision")
-	}
 }
 
 // Matches returns true if the provided PackageRevision satisfies the conditions in the filter.
 func (f *ListPackageRevisionFilter) Matches(ctx context.Context, p PackageRevision) bool {
-	f.parse()
-	if f.predicate.Field == nil {
-		return true
+	if !f.Key.Matches(p.Key()) {
+		return false
 	}
-	matches, err := f.predicate.Matches(Wrap(&p))
-	return err == nil && matches
+
+	if f.KubeObjectName != "" && f.KubeObjectName != p.KubeObjectName() {
+		return false
+	}
+
+	if f.Lifecycle != "" && f.Lifecycle != p.Lifecycle(ctx) {
+		return false
+	}
+
+	return true
 }
 
 // ListPackageFilter is a predicate for filtering Package objects;

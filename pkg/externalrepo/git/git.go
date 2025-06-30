@@ -23,7 +23,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -60,11 +59,11 @@ const (
 
 // Commit message constants for different operations
 const (
-	commitMessageRendering = "Rendering package"
-	commitMessageEdit      = "Creating new revision by copying previous revision"
-	commitMessageInit      = "Creating new empty revision"
-	commitMessageClone     = "Creating new revision by cloning"
-	commitMessagePatch     = "Applying patch to package"
+	commitMessageRendering       = "Rendering package"
+	commitMessageEdit            = "Creating new revision by copying previous revision"
+	commitMessageInit            = "Creating new empty revision"
+	commitMessageClone           = "Creating new revision by cloning"
+	commitMessagePatch           = "Applying patch to package"
 	commitMessageApproveTemplate = "Approving package revision %s/%d"
 )
 
@@ -255,7 +254,8 @@ type gitRepository struct {
 	// deletionProposedCache contains the deletionProposed branches that
 	// exist in the repo so that we can easily check them without iterating
 	// through all the refs each time
-	deletionProposedCache map[BranchName]bool
+	deletionProposedCache      map[BranchName]bool
+	deletionProposedCacheMutex sync.Mutex
 
 	mutex sync.Mutex
 
@@ -398,7 +398,7 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 				}
 				klog.Warningf("Error loading tagged package from ref %q: %s", ref.Name(), err)
 			}
-			if tagged != nil {
+			if tagged != nil && filter.Matches(ctx, tagged) {
 				result = append(result, tagged)
 			}
 		}
@@ -414,17 +414,16 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 			klog.Warningf("Error discovering finalized packages: %s", err)
 		}
 		for _, p := range mainpkgs {
+			if filter.Matches(ctx, p) {
+				result = append(result, p)
+			}
+		}
+	}
+	for _, p := range drafts {
+		if filter.Matches(ctx, p) {
 			result = append(result, p)
 		}
 	}
-
-	for _, p := range drafts {
-		result = append(result, p)
-	}
-
-	result = slices.DeleteFunc(result, func(p *gitPackageRevision) bool {
-		return !filter.Matches(ctx, p)
-	})
 
 	return result, nil
 }
@@ -622,8 +621,10 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, old repositor
 				return fmt.Errorf("failed to update git references: %w", err)
 			}
 
+			r.deletionProposedCacheMutex.Lock()
 			// Remove the deletionProposed branch from the cache
 			delete(r.deletionProposedCache, deletionProposedBranch)
+			r.deletionProposedCacheMutex.Unlock()
 
 			return nil
 		},
@@ -820,9 +821,9 @@ func (r *gitRepository) loadDraft(ctx context.Context, ref *plumbing.Reference) 
 	return packageRevision, nil
 }
 
-func (r *gitRepository) UpdateDeletionProposedCache() error {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
+func (r *gitRepository) UpdateDeletionProposedCache(ctx context.Context) error {
+	r.deletionProposedCacheMutex.Lock()
+	defer r.deletionProposedCacheMutex.Unlock()
 	return r.updateDeletionProposedCache()
 }
 
@@ -1354,6 +1355,8 @@ func (r *gitRepository) getLifecycle(pkgRev *gitPackageRevision) v1alpha1.Packag
 }
 
 func (r *gitRepository) checkPublishedLifecycle(pkgRev *gitPackageRevision) v1alpha1.PackageRevisionLifecycle {
+	r.deletionProposedCacheMutex.Lock()
+	defer r.deletionProposedCacheMutex.Unlock()
 	if r.deletionProposedCache == nil {
 		if err := r.updateDeletionProposedCache(); err != nil {
 			klog.Errorf("failed to update deletionProposed cache: %v", err)
@@ -1388,7 +1391,9 @@ func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageR
 			return fmt.Errorf("invalid new lifecycle value: %q", newLifecycle)
 		}
 		// Push the package revision into a deletionProposed branch.
+		r.deletionProposedCacheMutex.Lock()
 		r.deletionProposedCache[deletionProposedBranch] = true
+		r.deletionProposedCacheMutex.Unlock()
 		refSpecs.AddRefToPush(pkgRev.commit, deletionProposedBranch.RefInLocal())
 	}
 	if old == v1alpha1.PackageRevisionLifecycleDeletionProposed {
@@ -1397,7 +1402,9 @@ func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageR
 		}
 
 		// Delete the deletionProposed branch
+		r.deletionProposedCacheMutex.Lock()
 		delete(r.deletionProposedCache, deletionProposedBranch)
+		r.deletionProposedCacheMutex.Unlock()
 		ref := plumbing.NewHashReference(deletionProposedBranch.RefInLocal(), pkgRev.commit)
 		refSpecs.AddRefToDelete(ref)
 	}

@@ -84,24 +84,34 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter package
 
 	for _, repositoryObj := range repositories.Items {
 
-		revisions, err := r.cad.ListPackageRevisions(ctx, &repositoryObj, filter.ListPackageRevisionFilter)
+		revisions, err := r.cad.ListPackageRevisions(ctx, &repositoryObj, repository.ListPackageRevisionFilter{})
 		if err != nil {
 			klog.Warningf("error listing package revisions from repository %s/%s: %+v", repositoryObj.GetNamespace(), repositoryObj.GetName(), err)
 			continue
 		}
 		for _, rev := range revisions {
 
-			apiPkgRev, err := rev.GetPackageRevision(ctx)
-			if err != nil {
-				return err
-			}
-
-			fieldMatch, err := filter.Matches(ctx, *apiPkgRev)
+			fieldMatch, err := filter.MatchesRepoRev(rev)
 			if err != nil {
 				return err
 			}
 			if !fieldMatch {
 				continue
+			}
+
+			apiPkgRev, err := rev.GetPackageRevision(ctx)
+			if err != nil {
+				return err
+			}
+
+			if !fieldMatch {
+				if fieldMatch, err = filter.Matches(ctx, *apiPkgRev); err == nil {
+					if !fieldMatch {
+						continue
+					}
+				} else {
+					return err
+				}
 			}
 
 			if selector != nil && !selector.Matches(labels.Set(apiPkgRev.Labels)) {
@@ -177,7 +187,7 @@ func (r *packageCommon) watchPackages(ctx context.Context, filter packageRevisio
 			delegate: callback,
 		}
 	}
-	if err := r.cad.ObjectCache().WatchPackageRevisions(ctx, filter.ListPackageRevisionFilter, wrappedCallback); err != nil {
+	if err := r.cad.ObjectCache().WatchPackageRevisions(ctx, filter.toListPackageRevisionFilter(), wrappedCallback); err != nil {
 		return err
 	}
 

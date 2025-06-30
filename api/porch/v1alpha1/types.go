@@ -15,10 +15,7 @@
 package v1alpha1
 
 import (
-	"strconv"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -33,43 +30,6 @@ type PackageRevision struct {
 
 	Spec   PackageRevisionSpec   `json:"spec,omitempty"`
 	Status PackageRevisionStatus `json:"status,omitempty"`
-}
-
-type pkgRevSelectable struct {
-	Name          string
-	Namespace     string
-	Revision      string
-	PackageName   string
-	Repository    string
-	WorkspaceName string
-	Lifecycle     string
-}
-
-var PkgRevSelectableFields = pkgRevSelectable{
-	Name:          "metadata.name",
-	Namespace:     "metadata.namespace",
-	Revision:      "spec.revision",
-	PackageName:   "spec.packageName",
-	Repository:    "spec.repository",
-	WorkspaceName: "spec.workspaceName",
-	Lifecycle:     "spec.lifecycle",
-}
-
-func MapPkgRevFields(p *PackageRevision) fields.Set {
-	labels := PkgRevSelectableFields
-	return fields.Set{
-		labels.Name:          p.Name,
-		labels.Namespace:     p.Namespace,
-		labels.Revision:      strconv.Itoa(p.Spec.Revision),
-		labels.PackageName:   p.Spec.PackageName,
-		labels.Repository:    p.Spec.RepositoryName,
-		labels.WorkspaceName: p.Spec.WorkspaceName,
-		labels.Lifecycle:     string(p.Spec.Lifecycle),
-	}
-}
-
-func (p *PackageRevision) GetSelectableFields() fields.Set {
-	return MapPkgRevFields(p)
 }
 
 // Key and value of the latest package revision label:
