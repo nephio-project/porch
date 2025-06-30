@@ -245,7 +245,7 @@ func (pr *dbPackageRevision) GetUpstreamLock(context.Context) (kptfile.Upstream,
 func (pr *dbPackageRevision) ToMainPackageRevision(ctx context.Context) repository.PackageRevision {
 	_, span := tracer.Start(ctx, "dbPackageRevision::SetMeta", trace.WithAttributes())
 	defer span.End()
-	klog.V(5).Infof("ToMainPackageRevision: %+v, main package revisions are not required when using the DB cache", pr.Key().PKey())
+	klog.V(5).Infof("ToMainPackageRevision: %+v, main package revisions are only generated on external repos", pr.Key().PKey())
 	return nil
 }
 
@@ -257,7 +257,8 @@ func (pr *dbPackageRevision) SetMeta(ctx context.Context, meta metav1.ObjectMeta
 	_, span := tracer.Start(ctx, "dbPackageRevision::SetMeta", trace.WithAttributes())
 	defer span.End()
 
-	return nil
+	pr.meta = meta
+	return pkgRevUpdateDB(ctx, pr, false)
 }
 
 func (pr *dbPackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, error) {
