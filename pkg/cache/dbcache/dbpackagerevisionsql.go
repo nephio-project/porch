@@ -201,7 +201,7 @@ func pkgRevReadLatestPRFromDB(ctx context.Context, pk repository.PackageKey) (*d
 			ON packages.k8s_name_space=repositories.k8s_name_space AND packages.repo_k8s_name=repositories.k8s_name
 		WHERE packages.k8s_name_space=$1 AND packages.k8s_name=$2 AND package_revisions.revision=(
 			SELECT MAX(revision) FROM package_revisions
-				WHERE packages.k8s_name_space=$1 AND packages.k8S_name=$2
+				WHERE package_revisions.k8s_name_space=$1 AND package_revisions.package_k8S_name=$2
 			)`
 
 	latestPRList, err := pkgRevReadPRListFromDB(ctx, pk, sqlStatement)
@@ -215,7 +215,7 @@ func pkgRevReadLatestPRFromDB(ctx context.Context, pk repository.PackageKey) (*d
 	case 0:
 		err := fmt.Errorf("latest package revision for package %+v not found in DB", pk)
 		klog.Warning(err)
-		return nil, fmt.Errorf("latest package revision for package %+v not found in DB", pk)
+		return nil, err
 	default:
 		// Multiple drafts with a revision value of 0 are allowed, just return nil with no error
 		if latestPRList[0].pkgRevKey.Revision == 0 {

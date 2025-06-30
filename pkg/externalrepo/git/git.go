@@ -59,11 +59,11 @@ const (
 
 // Commit message constants for different operations
 const (
-	commitMessageRendering = "Rendering package"
-	commitMessageEdit      = "Creating new revision by copying previous revision"
-	commitMessageInit      = "Creating new empty revision"
-	commitMessageClone     = "Creating new revision by cloning"
-	commitMessagePatch     = "Applying patch to package"
+	commitMessageRendering       = "Rendering package"
+	commitMessageEdit            = "Creating new revision by copying previous revision"
+	commitMessageInit            = "Creating new empty revision"
+	commitMessageClone           = "Creating new revision by cloning"
+	commitMessagePatch           = "Applying patch to package"
 	commitMessageApproveTemplate = "Approving package revision %s/%d"
 )
 
@@ -395,7 +395,7 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 				klog.Warningf("no package draft found for ref %v", ref)
 			}
 		case isTagInLocalRepo(ref.Name()):
-			klog.Infof("Loading tag from %q", ref.Name())
+			klog.V(2).Infof("Loading tag from %q", ref.Name())
 			tagged, err := r.loadTaggedPackage(ctx, ref)
 			if err != nil {
 				if tagged == nil {
