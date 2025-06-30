@@ -32,6 +32,7 @@ func TestPushPR(t *testing.T) {
 
 	ctx := context.TODO()
 
+	mockRepo.EXPECT().Key().Return(repository.RepositoryKey{}).Maybe()
 	mockPR.EXPECT().Key().Return(repository.PackageRevisionKey{}).Maybe()
 
 	mockPR.EXPECT().Lifecycle(mock.Anything).Return(v1alpha1.PackageRevisionLifecycleDraft).Once()
