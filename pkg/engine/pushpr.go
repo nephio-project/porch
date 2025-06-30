@@ -20,6 +20,7 @@ import (
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
+	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
 )
@@ -35,31 +36,31 @@ func PushPackageRevision(ctx context.Context, repo repository.Repository, pr rep
 
 	apiPr, err := pr.GetPackageRevision(ctx)
 	if err != nil {
-		return err
+		return pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not get API definition:", pr.Key(), repo.Key())
 	}
 
 	resources, err := pr.GetResources(ctx)
 	if err != nil {
-		return err
+		return pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not get package revision resources:", pr.Key(), repo.Key())
 	}
 
 	draft, err := repo.CreatePackageRevisionDraft(ctx, apiPr)
 	if err != nil {
-		return err
+		return pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not create package revision draft:", pr.Key(), repo.Key())
 	}
 
 	if err = draft.UpdateResources(ctx, resources, nil); err != nil {
-		return err
+		return pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not update package revision resources:", pr.Key(), repo.Key())
 	}
 
 	if err = draft.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished); err != nil {
-		return err
+		return pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not update package revision draft lifecycle to \"Published\":", pr.Key(), repo.Key())
 	}
 
 	if _, err = repo.ClosePackageRevisionDraft(ctx, draft, pr.Key().Revision); err != nil {
-		return err
+		return pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not close package revision draft:", pr.Key(), repo.Key())
 	}
 
-	klog.Infof("PushPackageRevision: package %v pushed to main", pr.Key())
+	klog.Infof("PushPackageRevision: package %+v pushed to repository %+v", pr.Key(), repo.Key())
 	return nil
 }
