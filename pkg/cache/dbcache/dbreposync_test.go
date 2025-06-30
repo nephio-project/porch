@@ -102,6 +102,14 @@ func TestDBRepoSync(t *testing.T) {
 
 	prList, err = testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	assert.Nil(t, err)
+	assert.Equal(t, 0, len(prList)) // The version of the external repo has not changed
+
+	fakeRepo.CurrentVersion = "bar"
+
+	time.Sleep(2 * time.Second)
+
+	prList, err = testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
+	assert.Nil(t, err)
 	assert.Equal(t, 1, len(prList)) // Sync should have added a cached PR that is in the external repo
 
 	testRepo.repositorySync.stop()

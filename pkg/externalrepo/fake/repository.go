@@ -27,6 +27,7 @@ type Repository struct {
 	key              repository.RepositoryKey
 	PackageRevisions []repository.PackageRevision
 	Packages         []repository.Package
+	CurrentVersion   string
 }
 
 var _ repository.Repository = &Repository{}
@@ -48,7 +49,7 @@ func (r *Repository) Close(context.Context) error {
 }
 
 func (r *Repository) Version(ctx context.Context) (string, error) {
-	return "foo", nil
+	return r.CurrentVersion, nil
 }
 
 func (r *Repository) ListPackageRevisions(_ context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {

@@ -293,8 +293,10 @@ func (r *dbRepository) DeletePackage(ctx context.Context, old repository.Package
 }
 
 func (r *dbRepository) Version(ctx context.Context) (string, error) {
-	klog.V(5).Infof("dbRepository:Version: %+v", r.Key())
-	return "undefined", nil
+	ctx, span := tracer.Start(ctx, "cachedRepository::Version", trace.WithAttributes())
+	defer span.End()
+
+	return r.externalRepo.Version(ctx)
 }
 
 func (r *dbRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version int) (repository.PackageRevision, error) {

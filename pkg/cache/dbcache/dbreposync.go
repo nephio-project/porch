@@ -23,16 +23,19 @@ import (
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
+	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
 )
 
 type repositorySync struct {
-	repo          *dbRepository
-	cancel        context.CancelFunc
-	mutex         sync.Mutex
-	lastSyncError error
-	lastSyncStats repositorySyncStats
+	repo                   *dbRepository
+	cancel                 context.CancelFunc
+	mutex                  sync.Mutex
+	lastExternlRepoVersion string
+	lastExternlPRMap       map[repository.PackageRevisionKey]repository.PackageRevision
+	lastSyncError          error
+	lastSyncStats          repositorySyncStats
 }
 
 type repositorySyncStats struct {
@@ -103,29 +106,19 @@ func (s *repositorySync) sync(ctx context.Context) (repositorySyncStats, error) 
 	_, span := tracer.Start(ctx, "[START]::Repository::syncOnce", trace.WithAttributes())
 	defer span.End()
 
-	deployedFilter := repository.ListPackageRevisionFilter{
-		Lifecycles: []api.PackageRevisionLifecycle{
-			api.PackageRevisionLifecyclePublished,
-			api.PackageRevisionLifecycleDeletionProposed,
-		},
-	}
-	cachedPrList, err := s.repo.ListPackageRevisions(ctx, deployedFilter)
+	cachedPrMap, err := s.getCachedPRMap(ctx)
 	if err != nil {
-		klog.Errorf("repositorySync %+v: failed to list cached package revisions", s.repo.Key())
-		return repositorySyncStats{}, err
+		return repositorySyncStats{}, pkgerrors.Wrap(err, "sync failed reading cached pacakge revisions")
 	}
 
-	klog.Infof("repositorySync %+v: found %d deployed package revisions in cached repository", s.repo.Key(), len(cachedPrList))
-	cachedPrMap := repository.PrSlice2Map(cachedPrList)
+	klog.Infof("repositorySync %+v: found %d deployed package revisions in cached repository", s.repo.Key(), len(cachedPrMap))
 
-	externalPRList, err := s.repo.externalRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
+	externalPrMap, err := s.getExternalPRMap(ctx)
 	if err != nil {
-		klog.Errorf("repositorySync %+v: failed to list external package revisions", s.repo.Key())
-		return repositorySyncStats{}, err
+		return repositorySyncStats{}, pkgerrors.Wrap(err, "sync failed reading external pacakge revisions")
 	}
 
-	klog.Infof("repositorySync %+v: found %d package revisions in external repository", s.repo.Key(), len(externalPRList))
-	externalPrMap := repository.PrSlice2Map(externalPRList)
+	klog.Infof("repositorySync %+v: found %d package revisions in external repository", s.repo.Key(), len(externalPrMap))
 
 	inCachedOnly, inBoth, inExternalOnly := s.comparePRMaps(ctx, cachedPrMap, externalPrMap)
 	klog.Infof("repositorySync %+v: found %d cached only, %d in both, %d external only", s.repo.Key(), len(inCachedOnly), len(inBoth), len(inExternalOnly))
@@ -143,6 +136,47 @@ func (s *repositorySync) sync(ctx context.Context) (repositorySyncStats, error) 
 		externalOnly: len(inExternalOnly),
 		both:         len(inBoth),
 	}, nil
+}
+
+func (s *repositorySync) getCachedPRMap(ctx context.Context) (map[repository.PackageRevisionKey]repository.PackageRevision, error) {
+	deployedFilter := repository.ListPackageRevisionFilter{
+		Lifecycles: []api.PackageRevisionLifecycle{
+			api.PackageRevisionLifecyclePublished,
+			api.PackageRevisionLifecycleDeletionProposed,
+		},
+	}
+	cachedPrList, err := s.repo.ListPackageRevisions(ctx, deployedFilter)
+	if err != nil {
+		klog.Errorf("repositorySync %+v: failed to list cached package revisions", s.repo.Key())
+		return nil, err
+	}
+
+	return repository.PrSlice2Map(cachedPrList), nil
+}
+
+func (s *repositorySync) getExternalPRMap(ctx context.Context) (map[repository.PackageRevisionKey]repository.PackageRevision, error) {
+	externalRepoVersion, err := s.repo.Version(ctx)
+	if err != nil {
+		return nil, pkgerrors.Wrapf(err, "fetch of external repository %+v version failed", s.repo.Key())
+	}
+
+	if s.lastExternlRepoVersion == externalRepoVersion {
+		klog.Infof("repositorySync %+v: external repository is still on cached version %s, new read of external repo not required", s.repo.Key(), s.lastExternlRepoVersion)
+		return s.lastExternlPRMap, nil
+	}
+
+	externalPRList, err := s.repo.externalRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
+	if err != nil {
+		klog.Errorf("repositorySync %+v: failed to list external package revisions", s.repo.Key())
+		return nil, err
+	}
+
+	externalPRMap := repository.PrSlice2Map(externalPRList)
+
+	s.lastExternlPRMap = externalPRMap
+	s.lastExternlRepoVersion = externalRepoVersion
+
+	return externalPRMap, nil
 }
 
 func (s *repositorySync) comparePRMaps(ctx context.Context, leftMap, rightMap map[repository.PackageRevisionKey]repository.PackageRevision) (leftOnly, both, rightOnly []repository.PackageRevisionKey) {

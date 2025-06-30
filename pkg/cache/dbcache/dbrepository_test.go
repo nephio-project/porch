@@ -47,10 +47,6 @@ func TestDBRepository(t *testing.T) {
 	assert.Equal(t, "my-repo-name", shellRepo.KubeObjectName())
 	assert.Equal(t, types.UID("82d3ab92-4a01-5679-8c52-b1c3daf6f016"), shellRepo.UID())
 	assert.Equal(t, repository.RepositoryKey{Namespace: "my-ns", Name: "my-repo-name"}, shellRepo.Key())
-
-	version, err := shellRepo.Version(context.TODO())
-	assert.Nil(t, err)
-	assert.Equal(t, "undefined", version)
 }
 
 func TestDBRepositoryPRCrud(t *testing.T) {
@@ -69,6 +65,10 @@ func TestDBRepositoryPRCrud(t *testing.T) {
 
 	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
 	assert.Nil(t, err)
+
+	version, err := testRepo.Version(context.TODO())
+	assert.Nil(t, err)
+	assert.Equal(t, "", version)
 
 	pkgList, err := testRepo.ListPackages(ctx, repository.ListPackageFilter{})
 	assert.Nil(t, err)
