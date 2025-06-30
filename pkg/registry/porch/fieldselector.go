@@ -150,7 +150,12 @@ func (f *packageRevisionFilter) MatchesRepoRev(p repository.PackageRevision) (bo
 
 func (f *packageRevisionFilter) Namespace(ns string) *packageRevisionFilter {
 	if namespaceSelector, err := fields.ParseSelector(PkgRevSelectableFields.Namespace + "=" + ns); err == nil {
-		f.predicate.Field = fields.AndSelectors(f.predicate.Field, namespaceSelector)
+		field := f.predicate.Field
+		if field == nil {
+			f.predicate.Field = namespaceSelector
+		} else {
+			f.predicate.Field = fields.AndSelectors(f.predicate.Field, namespaceSelector)
+		}
 	}
 	return f
 }
