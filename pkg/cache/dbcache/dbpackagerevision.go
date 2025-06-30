@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/pkg/engine"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
@@ -33,8 +34,13 @@ import (
 	"k8s.io/klog/v2"
 )
 
-var _ repository.PackageRevision = &dbPackageRevision{}
-var _ repository.PackageRevisionDraft = &dbPackageRevision{}
+var (
+	_ repository.PackageRevision      = &dbPackageRevision{}
+	_ repository.PackageRevisionDraft = &dbPackageRevision{}
+
+	repositoryGVK      = porchapi.SchemeGroupVersion.WithKind("Repository")
+	packageRevisionGVK = porchapi.SchemeGroupVersion.WithKind("PackageRevision")
+)
 
 type dbPackageRevision struct {
 	repo      *dbRepository
@@ -166,6 +172,14 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 			CreationTimestamp: metav1.Time{
 				Time: readPr.updated,
 			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: repositoryGVK.GroupVersion().String(),
+					Kind:       repositoryGVK.Kind,
+					Name:       pr.repo.repoKey.K8SName(),
+					UID:        pr.repo.UID(),
+				},
+			},
 		},
 		Spec: v1alpha1.PackageRevisionSpec{
 			PackageName:    readPr.Key().PKey().Package,
@@ -205,7 +219,14 @@ func (pr *dbPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 			CreationTimestamp: metav1.Time{
 				Time: pr.updated,
 			},
-			OwnerReferences: []metav1.OwnerReference{}, // TODO: should point to repository resource
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: packageRevisionGVK.GroupVersion().String(),
+					Kind:       packageRevisionGVK.Kind,
+					Name:       pr.Key().K8SName(),
+					UID:        pr.UID(),
+				},
+			},
 		},
 		Spec: v1alpha1.PackageRevisionResourcesSpec{
 			PackageName:    pr.Key().PKey().Package,
