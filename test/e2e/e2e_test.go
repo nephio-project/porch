@@ -2133,7 +2133,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 		if img == generateFolderImage || img == setAnnotationsImage {
 			t.DeleteF(&pod)
 
-			// Await pod deletion with a 20 second timeout
+			// Await pod deletion with a 1 minute timeout
 			err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, time.Minute, false, func(ctx context.Context) (bool, error) {
 				getErr := t.Client.Get(ctx, client.ObjectKey{Namespace: pod.Namespace, Name: pod.Name}, &corev1.Pod{})
 				if errors.IsNotFound(getErr) {
