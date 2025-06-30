@@ -17,16 +17,13 @@ package repository
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/builtins"
 	"github.com/nephio-project/porch/pkg/objects"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -146,47 +143,4 @@ func extractContextConfigMap(resources map[string]string) (*unstructured.Unstruc
 	}
 
 	return matches[0], nil
-}
-
-type PackageFilterWrapper struct {
-	metav1.TypeMeta
-	repoPr PackageRevision
-}
-
-func (in PackageFilterWrapper) DeepCopyObject() runtime.Object {
-	return in
-}
-func (in PackageFilterWrapper) GetObjectKind() schema.ObjectKind {
-	return schema.EmptyObjectKind
-}
-
-func Wrap(p *PackageRevision) *PackageFilterWrapper {
-	return &PackageFilterWrapper{repoPr: *p}
-}
-
-func (p *PackageFilterWrapper) Unwrap() PackageRevision {
-	return p.repoPr
-}
-
-func (p *PackageFilterWrapper) GetSelectableFields() fields.Set {
-	return MapRepoPkgRevFields(p)
-}
-
-func MapRepoPkgRevFields(p *PackageFilterWrapper) fields.Set {
-	repoPr := p.Unwrap()
-	key := repoPr.Key()
-	labels := api.PkgRevSelectableFields
-	return fields.Set{
-		labels.Name:     repoPr.KubeObjectName(),
-		labels.Revision: strconv.Itoa(key.Revision),
-		labels.PackageName: func() string {
-			if path := key.PkgKey.Path; path != "" {
-				return path + "/"
-			}
-			return ""
-		}() + key.PkgKey.Package,
-		labels.Repository:    key.PkgKey.RepoKey.Name,
-		labels.WorkspaceName: key.WorkspaceName,
-		// labels.Lifecycle:     string(repoPr.Lifecycle(context.TODO())),
-	}
 }

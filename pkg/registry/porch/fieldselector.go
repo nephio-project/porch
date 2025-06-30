@@ -17,12 +17,18 @@ package porch
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apiserver/pkg/storage"
 )
@@ -180,9 +186,102 @@ func parsePackageRevisionFieldSelector(options *metainternalversion.ListOptions)
 	return filter, nil
 }
 
+// pkgRevGetAttrs returns labels and fields of a given PackageRevision object for filtering purposes.
+func pkgRevGetAttrs(obj runtime.Object) (labels.Set, fields.Set, error) {
+	if fieldSet := mapPkgRevFields(obj); fieldSet != nil {
+		return nil, fieldSet, nil
+	}
+
+	return nil, nil, fmt.Errorf("not a package revision")
+}
+
+func mapPkgRevFields(packageRevision any) fields.Set {
+	labels := PkgRevSelectableFields
+	if p, isApiPkgRev := packageRevision.(*api.PackageRevision); isApiPkgRev {
+		return fields.Set{
+			labels.Namespace:  p.Namespace,
+			labels.Repository: p.Spec.RepositoryName,
+		}
+	}
+
+	if p, isRepoPkgRev := packageRevision.(*wrappedRepoPkgRev); isRepoPkgRev {
+		repoPr := p.unwrap()
+		key := repoPr.Key()
+		labels := PkgRevSelectableFields
+		return fields.Set{
+			labels.Name:     repoPr.KubeObjectName(),
+			labels.Revision: repository.Revision2Str(key.Revision),
+			labels.PackageName: func() string {
+				if path := key.PkgKey.Path; path != "" {
+					return path + "/"
+				}
+				return ""
+			}() + key.PkgKey.Package,
+			labels.WorkspaceName: key.WorkspaceName,
+			labels.Lifecycle:     string(repoPr.Lifecycle(context.TODO())),
+		}
+	}
+
+	return nil
+}
+
 // parsePackageRevisionResourcesFieldSelector parses client-provided fields.Selector into a packageRevisionFilter
 func parsePackageRevisionResourcesFieldSelector(options *metainternalversion.ListOptions) (*repository.ListPackageRevisionFilter, error) {
 	// TOOD: This is a little weird, because we don't have the same fields on PackageRevisionResources.
 	// But we probably should have the key fields
 	return parsePackageRevisionFieldSelector(options)
+}
+
+func (f *packageRevisionFilter) toListPackageRevisionFilter() (lowerFilter repository.ListPackageRevisionFilter) {
+	labels := PkgRevSelectableFields
+	field := f.predicate.Field
+	if field == nil {
+		return
+	}
+
+	if filteredName, filteringOnName := field.RequiresExactMatch(labels.Name); filteringOnName {
+		lowerFilter.KubeObjectName = filteredName
+	}
+
+	if filteredRevision, filteringOnRevision := field.RequiresExactMatch(labels.Revision); filteringOnRevision {
+		lowerFilter.Key.Revision = repository.Revision2Int(filteredRevision)
+	}
+
+	if filteredPackage, filteringOnPackage := field.RequiresExactMatch(labels.PackageName); filteringOnPackage {
+		if segs := strings.Split(filteredPackage, "/"); len(segs) > 1 {
+			lowerFilter.Key.PkgKey.Path = strings.Join(segs[:len(segs)-1], "/")
+			filteredPackage = segs[len(segs)]
+		}
+		lowerFilter.Key.PkgKey.Package = filteredPackage
+	}
+
+	if filteredWorkspace, filteringOnWorkspace := field.RequiresExactMatch(labels.WorkspaceName); filteringOnWorkspace {
+		lowerFilter.Key.WorkspaceName = filteredWorkspace
+	}
+
+	if filteredLifecycle, filteringOnLifecycle := field.RequiresExactMatch(labels.WorkspaceName); filteringOnLifecycle {
+		lowerFilter.Lifecycle = api.PackageRevisionLifecycle(filteredLifecycle)
+	}
+
+	return
+}
+
+type wrappedRepoPkgRev struct {
+	metav1.TypeMeta
+	repoPr repository.PackageRevision
+}
+
+func wrap(p *repository.PackageRevision) *wrappedRepoPkgRev {
+	return &wrappedRepoPkgRev{repoPr: *p}
+}
+
+func (p *wrappedRepoPkgRev) unwrap() repository.PackageRevision {
+	return p.repoPr
+}
+
+func (in wrappedRepoPkgRev) DeepCopyObject() runtime.Object {
+	return in
+}
+func (in wrappedRepoPkgRev) GetObjectKind() schema.ObjectKind {
+	return schema.EmptyObjectKind
 }
