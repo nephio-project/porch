@@ -95,9 +95,6 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter package
 			if err != nil {
 				return err
 			}
-			if !fieldMatch {
-				continue
-			}
 
 			apiPkgRev, err := rev.GetPackageRevision(ctx)
 			if err != nil {
