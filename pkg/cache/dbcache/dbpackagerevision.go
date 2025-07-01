@@ -147,6 +147,7 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 
 	status := v1alpha1.PackageRevisionStatus{
 		UpstreamLock: lockCopy,
+		Deployment:   pr.repo.deployment,
 		Conditions:   repository.ToApiConditions(kf),
 	}
 
@@ -185,7 +186,7 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 			PackageName:    readPr.Key().PKey().Package,
 			RepositoryName: readPr.Key().RKey().Name,
 			Lifecycle:      readPr.Lifecycle(ctx),
-			Tasks:          nil,
+			Tasks:          readPr.tasks,
 			ReadinessGates: repository.ToApiReadinessGates(kf),
 			WorkspaceName:  readPr.Key().WorkspaceName,
 			Revision:       readPr.Key().Revision,
@@ -324,6 +325,11 @@ func (pr *dbPackageRevision) UpdateResources(ctx context.Context, new *v1alpha1.
 	defer span.End()
 
 	pr.resources = new.Spec.Resources
+
+	if change != nil {
+		pr.tasks = append(pr.tasks, *change)
+	}
+
 	return nil
 }
 

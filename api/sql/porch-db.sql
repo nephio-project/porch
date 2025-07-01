@@ -1,5 +1,5 @@
 /*
-Copyright 2022, 2024 The kpt and Nephio Authors
+Copyright 2024-2025 The kpt and Nephio Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS repositories (
     meta            TEXT NOT NULL,
     spec            TEXT NOT NULL,
     updated         TIMESTAMP,
-    updatedby       TEXT NOT NULL,
+    updatedby       TEXT,
     deployment      BOOLEAN,
     PRIMARY KEY (k8s_name_space, k8s_name)
 );
@@ -96,6 +96,7 @@ CREATE TABLE IF NOT EXISTS package_revisions (
     updated          TIMESTAMP NOT NULL,
     updatedby        TEXT NOT NULL,
     lifecycle        TEXT CHECK (lifecycle IN ('Draft', 'Proposed', 'Published', 'DeletionProposed')) NOT NULL,
+    tasks            TEXT NOT NULL,
     PRIMARY KEY (k8s_name_space, k8s_name),
     CONSTRAINT fk_package
         FOREIGN KEY (k8s_name_space, package_k8s_name)

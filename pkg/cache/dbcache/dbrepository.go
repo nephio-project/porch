@@ -173,7 +173,6 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *v1
 		lifecycle: v1alpha1.PackageRevisionLifecycleDraft,
 		updated:   time.Now(),
 		updatedBy: getCurrentUser(),
-		tasks:     newPR.Spec.Tasks,
 	}
 
 	prDraft, err := r.savePackageRevisionDraft(ctx, dbPkgRev, 0)

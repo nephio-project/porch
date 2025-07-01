@@ -70,8 +70,8 @@ func (s *repositorySync) syncForever(ctx context.Context, repoSyncFrequency time
 			klog.V(2).Infof("repositorySync %+v: exiting repository sync, because context is done: %v", s.repo.Key(), ctx.Err())
 			return
 		default:
-			time.Sleep(repoSyncFrequency)
 			s.lastSyncStats, s.lastSyncError = s.syncOnce(ctx)
+			time.Sleep(repoSyncFrequency)
 		}
 	}
 }
