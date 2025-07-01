@@ -15,6 +15,7 @@
 package httputil
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 )
@@ -23,16 +24,16 @@ import (
 func FetchContent(url string) (string, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to create HTTP request for %s: %w", url, err)
 	}
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to execute HTTP request for %s: %w", url, err)
 	}
 	defer res.Body.Close()
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to read response body from %s: %w", url, err)
 	}
 	return string(body), nil
 }

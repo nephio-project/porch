@@ -60,7 +60,7 @@ var _ oauth2.TokenSource = &ksaTokenSource{}
 func (ts *ksaTokenSource) Token() (*oauth2.Token, error) {
 	ksaToken, err := ts.ksaToken.Token()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get KSA token: %w", err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

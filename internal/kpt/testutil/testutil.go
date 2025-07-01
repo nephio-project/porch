@@ -166,13 +166,12 @@ func kptfileExists(t *testing.T, path string) bool {
 // Diff is guaranteed to return a non-empty set if any files differ, but
 // this set is not guaranteed to contain all differing files.
 func Diff(sourceDir, destDir string, addMergeCommentsToSource bool) (sets.String, error) {
-	// get set of filenames in the package source
 	var newSourceDir string
 	if addMergeCommentsToSource {
 		dir, clean, err := addmergecomment.ProcessWithCleanup(sourceDir)
 		defer clean()
 		if err != nil {
-			return sets.String{}, err
+			return sets.String{}, fmt.Errorf("failed to process with cleanup: %w", err)
 		}
 		newSourceDir = dir
 	}
@@ -194,7 +193,7 @@ func Diff(sourceDir, destDir string, addMergeCommentsToSource bool) (sets.String
 		return nil
 	})
 	if err != nil {
-		return sets.String{}, err
+		return sets.String{}, fmt.Errorf("failed to walk source directory %s: %w", sourceDir, err)
 	}
 
 	// get set of filenames in the cloned package
@@ -213,7 +212,7 @@ func Diff(sourceDir, destDir string, addMergeCommentsToSource bool) (sets.String
 		return nil
 	})
 	if err != nil {
-		return sets.String{}, err
+		return sets.String{}, fmt.Errorf("failed to walk destination directory %s: %w", destDir, err)
 	}
 
 	// verify the source and cloned packages have the same set of filenames
@@ -223,7 +222,7 @@ func Diff(sourceDir, destDir string, addMergeCommentsToSource bool) (sets.String
 	for _, f := range upstreamFiles.Intersection(localFiles).List() {
 		fi, err := os.Stat(filepath.Join(destDir, f))
 		if err != nil {
-			return diff, err
+			return diff, fmt.Errorf("failed to stat file %s: %w", filepath.Join(destDir, f), err)
 		}
 		if fi.Mode().IsDir() {
 			// already checked that this directory exists in the local files
@@ -233,11 +232,11 @@ func Diff(sourceDir, destDir string, addMergeCommentsToSource bool) (sets.String
 		// compare upstreamFiles
 		b1, err := os.ReadFile(filepath.Join(destDir, f))
 		if err != nil {
-			return diff, err
+			return diff, fmt.Errorf("failed to read destination file %s: %w", filepath.Join(destDir, f), err)
 		}
 		b2, err := os.ReadFile(filepath.Join(sourceDir, f))
 		if err != nil {
-			return diff, err
+			return diff, fmt.Errorf("failed to read source file %s: %w", filepath.Join(sourceDir, f), err)
 		}
 
 		s1 := strings.TrimSpace(strings.TrimPrefix(string(b1), trimPrefix))
@@ -292,7 +291,7 @@ func (g *TestGitRepo) DeleteBranch(branch string) error {
 	cmd.Dir = g.RepoDirectory
 	_, err := cmd.Output()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to delete branch %s: %w", branch, err)
 	}
 
 	return nil
@@ -309,7 +308,7 @@ func (g *TestGitRepo) GetCommit() (string, error) {
 	cmd.Dir = g.RepoDirectory
 	b, err := cmd.Output()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to get commit: %w", err)
 	}
 	return strings.TrimSpace(string(b)), nil
 }
@@ -360,7 +359,7 @@ func (g *TestGitRepo) SetupTestGitRepo(name string, data []Content, repos map[st
 func (g *TestGitRepo) createEmptyGitRepo(defaultBranch string) error {
 	dir, err := os.MkdirTemp("", fmt.Sprintf("%s-upstream-", TmpDirPrefix))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create temp directory: %w", err)
 	}
 	g.RepoDirectory = dir
 	g.RepoName = filepath.Base(g.RepoDirectory)
@@ -371,7 +370,7 @@ func (g *TestGitRepo) createEmptyGitRepo(defaultBranch string) error {
 	stdoutStderr, err := cmd.CombinedOutput()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s", stdoutStderr)
-		return err
+		return fmt.Errorf("failed to initialize git repository: %w", err)
 	}
 	_, err = g.Commit("initial commit")
 	return err
@@ -384,7 +383,7 @@ func GetTestDataPath() (string, error) {
 	}
 	ds, err := filepath.Abs(filepath.Join(filepath.Dir(filename), "testdata"))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to get absolute path for testdata: %w", err)
 	}
 	return ds, nil
 }
@@ -392,7 +391,7 @@ func GetTestDataPath() (string, error) {
 func getTestUtilGoFilePath() (string, error) {
 	_, filename, _, ok := runtime.Caller(1)
 	if !ok {
-		return "", errors.Errorf("failed to testutil package location")
+		return "", fmt.Errorf("failed to get testutil package location: %w", errors.Errorf("failed to testutil package location"))
 	}
 	return filename, nil
 }
@@ -607,12 +606,12 @@ func replaceData(repo, data string) error {
 		}
 		rel, err := filepath.Rel(data, path)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get relative path: %w", err)
 		}
 
 		_, err = os.Stat(filepath.Join(repo, rel))
 		if err != nil && !os.IsNotExist(err) {
-			return err
+			return fmt.Errorf("failed to stat file %s: %w", filepath.Join(repo, rel), err)
 		}
 
 		// If the file/directory doesn't exist in the repo folder, we just
@@ -622,13 +621,13 @@ func replaceData(repo, data string) error {
 			case info.Mode()&os.ModeSymlink != 0:
 				path, err := os.Readlink(path)
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to read symlink %s: %w", path, err)
 				}
-				return os.Symlink(path, filepath.Join(repo, rel))
+				return fmt.Errorf("failed to create symlink: %w", os.Symlink(path, filepath.Join(repo, rel)))
 			case info.IsDir():
-				return os.Mkdir(filepath.Join(repo, rel), 0700)
+				return fmt.Errorf("failed to create directory: %w", os.Mkdir(filepath.Join(repo, rel), 0700))
 			default:
-				return copyutil.SyncFile(path, filepath.Join(repo, rel))
+				return fmt.Errorf("failed to sync file: %w", copyutil.SyncFile(path, filepath.Join(repo, rel)))
 			}
 		}
 
@@ -643,12 +642,12 @@ func replaceData(repo, data string) error {
 		if filepath.Base(path) == "Kptfile" {
 			dataKptfile, err := pkg.ReadKptfile(filesys.FileSystemOrOnDisk{}, filepath.Dir(path))
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to read data Kptfile: %w", err)
 			}
 			repoKptfileDir := filepath.Dir(filepath.Join(repo, rel))
 			repoKptfile, err := pkg.ReadKptfile(filesys.FileSystemOrOnDisk{}, repoKptfileDir)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to read repo Kptfile: %w", err)
 			}
 			// Only copy over the Upstream section from the existing
 			// Kptfile if other values hasn't been provided.
@@ -661,12 +660,12 @@ func replaceData(repo, data string) error {
 			dataKptfile.Name = repoKptfile.Name
 			err = kptfileutil.WriteFile(repoKptfileDir, dataKptfile)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to write Kptfile: %w", err)
 			}
 		} else {
 			err := copyutil.SyncFile(path, filepath.Join(repo, rel))
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to sync file: %w", err)
 			}
 		}
 		return nil
@@ -686,7 +685,7 @@ func replaceData(repo, data string) error {
 		// Find the relative path of the file/directory
 		rel, err := filepath.Rel(repo, path)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get relative path: %w", err)
 		}
 		// We skip anything that is inside the .git folder
 		if strings.HasPrefix(rel, ".git") {
@@ -703,7 +702,7 @@ func replaceData(repo, data string) error {
 		dataCopy := filepath.Join(data, rel)
 		_, err = os.Stat(dataCopy)
 		if err != nil && !os.IsNotExist(err) {
-			return err
+			return fmt.Errorf("failed to stat data copy: %w", err)
 		}
 
 		// If the file/directory doesn't exist in the data folder, we remove
@@ -711,11 +710,11 @@ func replaceData(repo, data string) error {
 		if os.IsNotExist(err) {
 			if info.IsDir() {
 				if err := os.RemoveAll(path); err != nil {
-					return err
+					return fmt.Errorf("failed to remove directory: %w", err)
 				}
 			} else {
 				if err := os.Remove(path); err != nil {
-					return err
+					return fmt.Errorf("failed to remove file: %w", err)
 				}
 			}
 		}
@@ -737,12 +736,12 @@ func commit(repo, message string) (string, error) {
 	stdoutStderr, err := cmd.CombinedOutput()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s", stdoutStderr)
-		return "", err
+		return "", fmt.Errorf("failed to commit: %w", err)
 	}
 
 	sha, err := git.LookupCommit(repo)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to lookup commit: %w", err)
 	}
 
 	return sha, nil
@@ -754,7 +753,7 @@ func tag(repo, tag string) error {
 	b, err := cmd.Output()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", b)
-		return err
+		return fmt.Errorf("failed to create tag %s: %w", tag, err)
 	}
 
 	return nil
@@ -825,7 +824,7 @@ func PrintFile(paths ...string) error {
 	path := filepath.Join(paths...)
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read file %s: %w", path, err)
 	}
 	fmt.Println(string(b))
 	return nil

@@ -179,7 +179,7 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 	o.RecommendedOptions.ExtraAdmissionInitializers = func(c *genericapiserver.RecommendedConfig) ([]admission.PluginInitializer, error) {
 		client, err := clientset.NewForConfig(c.LoopbackClientConfig)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to create clientset: %w", err)
 		}
 		informerFactory := informers.NewSharedInformerFactory(client, c.LoopbackClientConfig.Timeout)
 		o.SharedInformerFactory = informerFactory
@@ -200,7 +200,7 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 	serverConfig.MaxRequestBodyBytes = int64(o.MaxRequestBodySize)
 
 	if err := o.RecommendedOptions.ApplyTo(serverConfig); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to apply recommended options: %w", err)
 	}
 
 	config := &apiserver.Config{
@@ -229,12 +229,12 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 func (o PorchServerOptions) RunPorchServer(ctx context.Context) error {
 	config, err := o.Config()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create server config: %w", err)
 	}
 
 	server, err := config.Complete().New(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create porch server: %w", err)
 	}
 
 	if config.GenericConfig.SharedInformerFactory != nil {
@@ -245,7 +245,11 @@ func (o PorchServerOptions) RunPorchServer(ctx context.Context) error {
 		})
 	}
 
-	return server.Run(ctx)
+	err = server.Run(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to run porch server: %w", err)
+	}
+	return nil
 }
 
 func (o *PorchServerOptions) AddFlags(fs *pflag.FlagSet) {

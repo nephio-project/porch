@@ -1,0 +1,57 @@
+run:
+  timeout: 10m
+  go: "1.23.8"
+  exclude-generated: true
+
+linters:
+  enable:
+    - wrapcheck
+  disable:
+    - typecheck
+    - gofmt
+    - goimports
+    - govet
+    - errcheck
+    - staticcheck
+    - gosimple
+    - unused
+    - ineffassign
+    - structcheck
+    - varcheck
+    - deadcode
+    - gocyclo
+    - gocognit
+    - goconst
+    - gocritic
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - lll
+    - misspell
+    - nakedret
+    - noctx
+    - nolintlint
+    - prealloc
+    - rowserrcheck
+    - scopelint
+    - sqlclosecheck
+    - stylecheck
+    - thelper
+    - tparallel
+    - unconvert
+    - unparam
+    - unused
+    - varcheck
+    - whitespace
+    - wsl
+
+linters-settings:
+  wrapcheck:
+    ignoreSigs:
+      - "github.com/nephio-project/porch/internal/kpt/errors.E"
+      - "fmt.Errorf"
+      - "errors.Wrap"
+      - "errors.Wrapf"
+      - "github.com/pkg/errors.Wrap"
+      - "github.com/pkg/errors.Wrapf" 

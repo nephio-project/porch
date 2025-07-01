@@ -16,6 +16,7 @@ package get_test
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -1448,8 +1449,8 @@ func TestCommand_Run_symlinks(t *testing.T) {
 					),
 				UpdateFunc: func(path string) error {
 					// Create symlink in the upstream repo.
-					return os.Symlink(filepath.Join(path, "subpkg"),
-						filepath.Join(path, "subpkg-sym"))
+					return fmt.Errorf("failed to create symlink: %w", os.Symlink(filepath.Join(path, "subpkg"),
+						filepath.Join(path, "subpkg-sym")))
 				},
 			},
 		},

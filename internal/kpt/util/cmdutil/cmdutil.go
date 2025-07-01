@@ -59,7 +59,10 @@ func WriteFnOutput(dest, content string, fromStdin bool, w io.Writer) error {
 	case Stdout:
 		// if user specified dest is "stdout" directly write the content as it is already wrapped
 		_, err := w.Write([]byte(content))
-		return err
+		if err != nil {
+			return fmt.Errorf("failed to write content to stdout: %w", err)
+		}
+		return nil
 	case Unwrap:
 		// if user specified dest is "unwrap", write the unwrapped content to the provided writer
 		return WriteToOutput(r, w, "")
@@ -68,7 +71,10 @@ func WriteFnOutput(dest, content string, fromStdin bool, w io.Writer) error {
 			// if user didn't specify dest, and if input is from STDIN, write the wrapped content provided writer
 			// this is same as "stdout" input above
 			_, err := w.Write([]byte(content))
-			return err
+			if err != nil {
+				return fmt.Errorf("failed to write content from stdin: %w", err)
+			}
+			return nil
 		}
 	default:
 		// this means user specified a directory as dest, write the content to dest directory
@@ -83,7 +89,7 @@ func WriteToOutput(r io.Reader, w io.Writer, outDir string) error {
 	if outDir != "" {
 		err := os.MkdirAll(outDir, 0750)
 		if err != nil {
-			return fmt.Errorf("failed to create output directory %q: %q", outDir, err.Error())
+			return fmt.Errorf("failed to create output directory %q: %w", outDir, err)
 		}
 		outputs = []kio.Writer{&kio.LocalPackageWriter{PackagePath: outDir}}
 	} else {
@@ -94,9 +100,13 @@ func WriteToOutput(r io.Reader, w io.Writer, outDir string) error {
 		}
 	}
 
-	return kio.Pipeline{
+	err := kio.Pipeline{
 		Inputs:  []kio.Reader{&kio.ByteReader{Reader: r, PreserveSeqIndent: true, WrapBareSeqNode: true}},
 		Outputs: outputs}.Execute()
+	if err != nil {
+		return fmt.Errorf("failed to execute kio pipeline: %w", err)
+	}
+	return nil
 }
 
 // CheckDirectoryNotPresent returns error if the directory already exists
@@ -106,7 +116,7 @@ func CheckDirectoryNotPresent(outDir string) error {
 		return fmt.Errorf("directory %q already exists, please delete the directory and retry", outDir)
 	}
 	if !os.IsNotExist(err) {
-		return err
+		return fmt.Errorf("failed to check directory %q: %w", outDir, err)
 	}
 	return nil
 }

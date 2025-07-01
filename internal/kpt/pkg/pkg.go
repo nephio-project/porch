@@ -252,7 +252,7 @@ func DecodeKptfile(in io.Reader) (*kptfilev1.KptFile, error) {
 	kf := &kptfilev1.KptFile{}
 	c, err := io.ReadAll(in)
 	if err != nil {
-		return kf, err
+		return kf, fmt.Errorf("failed to read Kptfile: %w", err)
 	}
 	if err := CheckKptfileVersion(c); err != nil {
 		return kf, err
@@ -261,7 +261,7 @@ func DecodeKptfile(in io.Reader) (*kptfilev1.KptFile, error) {
 	d := yaml.NewDecoder(bytes.NewBuffer(c))
 	d.KnownFields(true)
 	if err := d.Decode(kf); err != nil {
-		return kf, err
+		return kf, fmt.Errorf("failed to decode Kptfile: %w", err)
 	}
 	return kf, nil
 }
@@ -273,18 +273,18 @@ func DecodeKptfile(in io.Reader) (*kptfilev1.KptFile, error) {
 func CheckKptfileVersion(content []byte) error {
 	r, err := yaml.Parse(string(content))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse Kptfile content: %w", err)
 	}
 
 	m, err := r.GetMeta()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get Kptfile metadata: %w", err)
 	}
 
 	kind := m.Kind
 	gv, err := schema.ParseGroupVersion(m.APIVersion)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse Kptfile group version: %w", err)
 	}
 	gvk := gv.WithKind(kind)
 

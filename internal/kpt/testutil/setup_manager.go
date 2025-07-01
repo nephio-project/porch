@@ -15,6 +15,7 @@
 package testutil
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
@@ -154,7 +155,7 @@ func UpdateGitDir(t *testing.T, name string, gitDir GitDirectory, changes []Cont
 		if len(content.Branch) > 0 {
 			err := gitDir.CheckoutBranch(content.Branch, content.CreateBranch)
 			if !assert.NoError(t, err) {
-				return err
+				return fmt.Errorf("failed to checkout branch %s: %w", content.Branch, err)
 			}
 		}
 
@@ -167,19 +168,19 @@ func UpdateGitDir(t *testing.T, name string, gitDir GitDirectory, changes []Cont
 
 		err := gitDir.ReplaceData(pkgData)
 		if !assert.NoError(t, err) {
-			return err
+			return fmt.Errorf("failed to replace data: %w", err)
 		}
 
 		if content.UpdateFunc != nil {
 			err = gitDir.CustomUpdate(content.UpdateFunc)
 			if !assert.NoError(t, err) {
-				return err
+				return fmt.Errorf("failed to perform custom update: %w", err)
 			}
 		}
 
 		sha, err := gitDir.Commit(content.Message)
 		if !assert.NoError(t, err) {
-			return err
+			return fmt.Errorf("failed to commit with message %s: %w", content.Message, err)
 		}
 
 		// Update the list of commit shas for the repo.
@@ -190,7 +191,7 @@ func UpdateGitDir(t *testing.T, name string, gitDir GitDirectory, changes []Cont
 		if len(content.Tag) > 0 {
 			err = gitDir.Tag(content.Tag)
 			if !assert.NoError(t, err) {
-				return err
+				return fmt.Errorf("failed to create tag %s: %w", content.Tag, err)
 			}
 		}
 	}
