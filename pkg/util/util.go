@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/klog/v2"
 	registrationapi "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -289,11 +290,23 @@ func CompareObjectMeta(left metav1.ObjectMeta, right metav1.ObjectMeta) bool {
 // RetryOnErrorConditional retries f up to retries times if it returns an error that matches shouldRetryFunc
 func RetryOnErrorConditional(retries int, shouldRetryFunc func(error) bool, f func(retryNumber int) error) error {
 	var err error
-	for i := 0; i < retries; i++ {
+	for i := 1; i <= retries; i++ {
 		err = f(i)
 		if err == nil || !shouldRetryFunc(err) {
 			return err
 		}
 	}
+	return err
+}
+
+func RetryOnError(retries int, f func(retryNumber int) error) error {
+	var err error
+	for i := 1; i <= retries; i++ {
+		err = f(i)
+		if err == nil {
+			return nil
+		}
+	}
+	klog.Errorf("Failed to fetch remote repository after %d retries: %v", retries, err)
 	return err
 }

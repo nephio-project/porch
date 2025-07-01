@@ -59,11 +59,11 @@ const (
 
 // Commit message constants for different operations
 const (
-	commitMessageRendering = "Rendering package"
-	commitMessageEdit      = "Creating new revision by copying previous revision"
-	commitMessageInit      = "Creating new empty revision"
-	commitMessageClone     = "Creating new revision by cloning"
-	commitMessagePatch     = "Applying patch to package"
+	commitMessageRendering       = "Rendering package"
+	commitMessageEdit            = "Creating new revision by copying previous revision"
+	commitMessageInit            = "Creating new empty revision"
+	commitMessageClone           = "Creating new revision by cloning"
+	commitMessagePatch           = "Applying patch to package"
 	commitMessageApproveTemplate = "Approving package revision %s/%d"
 )
 
@@ -202,7 +202,7 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 		}
 	}
 
-	if err := repository.fetchRemoteRepository(ctx); err != nil {
+	if err := repository.fetchRemoteRepositoryWithRetry(ctx); err != nil {
 		return nil, err
 	}
 
@@ -277,12 +277,12 @@ func (r *gitRepository) Close(context.Context) error {
 }
 
 func (r *gitRepository) Version(ctx context.Context) (string, error) {
-	ctx, span := tracer.Start(ctx, "gitRepository::Version", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "gitRepository::Version", trace.WithAttributes())
 	defer span.End()
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	if err := r.fetchRemoteRepository(ctx); err != nil {
+	if err := r.fetchRemoteRepositoryWithRetry(ctx); err != nil {
 		return "", err
 	}
 
@@ -354,7 +354,7 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 	ctx, span := tracer.Start(ctx, "gitRepository::listPackageRevisions", trace.WithAttributes())
 	defer span.End()
 
-	if err := r.fetchRemoteRepository(ctx); err != nil {
+	if err := r.fetchRemoteRepositoryWithRetry(ctx); err != nil {
 		return nil, err
 	}
 
@@ -544,8 +544,7 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, old repositor
 			klog.Infof("Deleting PackageRevision try number %d", retryNumber)
 
 			if retryNumber > 0 {
-				err := r.fetchRemoteRepository(ctx)
-				if err != nil {
+				if err := r.fetchRemoteRepositoryWithRetry(ctx); err != nil {
 					return err
 				}
 			}
@@ -627,6 +626,31 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, old repositor
 			return nil
 		},
 	)
+}
+
+// fetchRemoteWithRetry retries fetching the remote repository up to 6 times with a delay of 1 second between each attempt.
+func (r *gitRepository) fetchRemoteRepositoryWithRetry(ctx context.Context) error {
+	if err := util.RetryOnError(
+		6,
+		func(retryNumber int) error {
+			if retryNumber >= 0 {
+				err := r.fetchRemoteRepository(ctx)
+				if err != nil {
+					klog.Errorf("Fetching Remote Repository %s failed - try number %d", r.Key().Name, retryNumber)
+					time.Sleep(1 * time.Second)
+					return err
+				}
+				if retryNumber > 1 {
+					klog.Infof("Successfully Fetched Remote Repository %s after %d retries", r.Key(), retryNumber)
+				}
+				return nil
+			}
+			return nil
+		},
+	); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *gitRepository) GetPackageRevision(ctx context.Context, version, path string) (repository.PackageRevision, kptfilev1.GitLock, error) {
@@ -828,10 +852,10 @@ func (r *gitRepository) UpdateDeletionProposedCache() error {
 func (r *gitRepository) updateDeletionProposedCache() error {
 	r.deletionProposedCache = make(map[BranchName]bool)
 
-	err := r.fetchRemoteRepository(context.Background())
-	if err != nil {
+	if err := r.fetchRemoteRepositoryWithRetry(context.Background()); err != nil {
 		return err
 	}
+
 	refs, err := r.repo.References()
 	if err != nil {
 		return err
