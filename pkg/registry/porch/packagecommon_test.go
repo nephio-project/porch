@@ -19,7 +19,10 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -31,10 +34,21 @@ import (
 	mockengine "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/engine"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	mockclient "github.com/nephio-project/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/endpoints/request"
+	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type fakePackageRevision struct {
@@ -149,6 +163,7 @@ func (f *fakeWatcherManager) WatchPackageRevisions(ctx context.Context, filter r
 
 type fakeCaDEngine struct {
 	watcherManager engine.WatcherManager
+	mock.Mock
 }
 
 func (f *fakeCaDEngine) ObjectCache() engine.WatcherManager {
@@ -160,7 +175,8 @@ func (f *fakeCaDEngine) UpdatePackageResources(ctx context.Context, repositoryOb
 	return nil, nil, nil
 }
 func (f *fakeCaDEngine) ListPackageRevisions(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
-	return nil, nil
+	args := f.Called(ctx, repositorySpec, filter)
+	return args.Get(0).([]repository.PackageRevision), args.Error(1)
 }
 func (f *fakeCaDEngine) CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
 	return nil, nil
@@ -254,6 +270,7 @@ func TestWatchPackages_ErrorPath(t *testing.T) {
 		t.Error("expected error from watchPackages, got nil")
 	}
 }
+
 func TestWatchPackages_WithNamespaceFilteringWatcher(t *testing.T) {
 	fakeWatcher := &fakeWatcherManager{}
 	fakeCad := &fakeCaDEngine{watcherManager: fakeWatcher}
@@ -275,6 +292,449 @@ func TestWatchPackages_WithNamespaceFilteringWatcher(t *testing.T) {
 	}
 	if !called {
 		t.Error("expected callback to be called by watchPackages with namespace filtering")
+	}
+}
+
+func TestListPackageRevisions(t *testing.T) {
+	var currentConcurrent int32
+	var maxConcurrent int32
+	var mutex sync.Mutex
+
+	tests := []struct {
+		name          string
+		setupMocks    func(*fakeCaDEngine, *mockclient.MockClient)
+		filter        packageRevisionFilter
+		selector      labels.Selector
+		expectedError error
+		expectedCalls int
+		ctx           context.Context
+	}{
+		{
+			name: "Successful package revision listing",
+			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {
+				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
+					Run(func(args mock.Arguments) {
+						list := args.Get(1).(*configapi.RepositoryList)
+						list.Items = []configapi.Repository{
+							{
+								ObjectMeta: metav1.ObjectMeta{
+									Name: "repo1",
+								},
+							},
+						}
+					}).Return(nil)
+
+				pkgRev := &fakeextrepo.FakePackageRevision{
+					PackageRevision: &api.PackageRevision{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"test": "true"},
+						},
+					},
+				}
+
+				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
+					Return([]repository.PackageRevision{pkgRev}, nil)
+			},
+			filter:        packageRevisionFilter{},
+			selector:      labels.Everything(),
+			expectedError: nil,
+			expectedCalls: 1,
+			ctx:           context.Background(),
+		},
+		{
+			name: "Successful namespace filtering",
+			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {
+				c.On("List", mock.Anything, &configapi.RepositoryList{}, client.InNamespace("test-namespace")).
+					Run(func(args mock.Arguments) {
+						list := args.Get(1).(*configapi.RepositoryList)
+						list.Items = []configapi.Repository{
+							{ObjectMeta: metav1.ObjectMeta{Name: "repo1", Namespace: "test-ns"}},
+						}
+					}).Return(nil)
+
+				pkgRev := &fakeextrepo.FakePackageRevision{
+					PackageRevision: &api.PackageRevision{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "test-namespace",
+						},
+					},
+				}
+
+				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
+					Return([]repository.PackageRevision{pkgRev}, nil)
+			},
+			filter:        packageRevisionFilter{Namespace: "test-namespace"},
+			selector:      labels.Everything(),
+			expectedError: nil,
+			expectedCalls: 1,
+			ctx:           genericapirequest.WithNamespace(context.Background(), "test-namespace"),
+		},
+		{
+			name:       "Conflicting namespaces",
+			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {},
+			filter: packageRevisionFilter{
+				Namespace: "namespace-1",
+			},
+			selector:      labels.Everything(),
+			expectedError: fmt.Errorf("conflicting namespaces specified: %q and %q", "namespace-2", "namespace-1"),
+			expectedCalls: 0,
+			ctx:           genericapirequest.WithNamespace(context.Background(), "namespace-2"),
+		},
+		{
+			name: "Failed repository listing",
+			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {
+				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
+					Return(fmt.Errorf("list error"))
+			},
+			filter:        packageRevisionFilter{},
+			selector:      labels.Everything(),
+			expectedError: fmt.Errorf("error listing repository objects: list error"),
+			expectedCalls: 0,
+			ctx:           context.Background(),
+		}, {
+			name: "Successful repository filtering",
+			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {
+				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
+					Run(func(args mock.Arguments) {
+						list := args.Get(1).(*configapi.RepositoryList)
+						list.Items = []configapi.Repository{
+							{ObjectMeta: metav1.ObjectMeta{Name: "repo1"}},
+							{ObjectMeta: metav1.ObjectMeta{Name: "repo2"}},
+						}
+					}).Return(nil)
+
+				pkgRev := &fakeextrepo.FakePackageRevision{
+					PackageRevision: &api.PackageRevision{},
+				}
+
+				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
+					Return([]repository.PackageRevision{pkgRev}, nil)
+			},
+			filter:        packageRevisionFilter{Repository: "repo1"},
+			selector:      labels.Everything(),
+			expectedError: nil,
+			expectedCalls: 1,
+			ctx:           context.Background(),
+		},
+		{
+			name: "Label selector filtering",
+			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {
+				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
+					Run(func(args mock.Arguments) {
+						list := args.Get(1).(*configapi.RepositoryList)
+						list.Items = []configapi.Repository{{}}
+					}).Return(nil)
+
+				pkgRev := &fakeextrepo.FakePackageRevision{
+					PackageRevision: &api.PackageRevision{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"test": "true"},
+						},
+					},
+				}
+
+				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
+					Return([]repository.PackageRevision{pkgRev}, nil)
+			},
+			filter:        packageRevisionFilter{},
+			selector:      labels.SelectorFromSet(labels.Set{"test": "true"}),
+			expectedError: nil,
+			expectedCalls: 1,
+			ctx:           context.Background(),
+		},
+		{
+			name: "Timeout error",
+			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {
+				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
+					Run(func(args mock.Arguments) {
+						list := args.Get(1).(*configapi.RepositoryList)
+						list.Items = []configapi.Repository{{}}
+					}).Return(nil)
+
+				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
+					Return([]repository.PackageRevision{}, context.DeadlineExceeded)
+			},
+			filter:        packageRevisionFilter{},
+			selector:      labels.Everything(),
+			expectedError: nil,
+			expectedCalls: 0,
+		},
+		{
+			name: "CaD engine error",
+			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {
+				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
+					Run(func(args mock.Arguments) {
+						list := args.Get(1).(*configapi.RepositoryList)
+						list.Items = []configapi.Repository{{}}
+					}).Return(nil)
+
+				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
+					Return([]repository.PackageRevision{}, fmt.Errorf("CaD engine error"))
+			},
+			filter:        packageRevisionFilter{},
+			selector:      labels.Everything(),
+			expectedError: nil,
+			expectedCalls: 0,
+			ctx:           context.Background(),
+		},
+		{
+			name: "Package revision retrieval error",
+			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {
+				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
+					Run(func(args mock.Arguments) {
+						list := args.Get(1).(*configapi.RepositoryList)
+						list.Items = []configapi.Repository{{}}
+					}).Return(nil)
+
+				pkgRev := &fakeextrepo.FakePackageRevision{
+					PackageRevision: &api.PackageRevision{},
+					Err:             fmt.Errorf("revision retrieval error"),
+				}
+
+				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
+					Return([]repository.PackageRevision{pkgRev}, nil)
+			},
+			filter:        packageRevisionFilter{},
+			selector:      labels.Everything(),
+			expectedError: nil,
+			expectedCalls: 0,
+			ctx:           context.Background(),
+		},
+		{
+			name: "Callback error",
+			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {
+				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
+					Run(func(args mock.Arguments) {
+						list := args.Get(1).(*configapi.RepositoryList)
+						list.Items = []configapi.Repository{{}}
+					}).Return(nil)
+
+				pkgRev := &fakeextrepo.FakePackageRevision{
+					PackageRevision: &api.PackageRevision{},
+				}
+
+				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
+					Return([]repository.PackageRevision{pkgRev}, nil)
+			},
+			filter:        packageRevisionFilter{},
+			selector:      labels.Everything(),
+			expectedError: nil,
+			expectedCalls: 1,
+			ctx:           context.Background(),
+		},
+		{
+			name: "Concurrent listing",
+			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {
+				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
+					Run(func(args mock.Arguments) {
+						list := args.Get(1).(*configapi.RepositoryList)
+						list.Items = []configapi.Repository{
+							{ObjectMeta: metav1.ObjectMeta{Name: "repo1"}},
+							{ObjectMeta: metav1.ObjectMeta{Name: "repo2"}},
+							{ObjectMeta: metav1.ObjectMeta{Name: "repo3"}},
+							{ObjectMeta: metav1.ObjectMeta{Name: "repo4"}},
+						}
+					}).Return(nil)
+
+				pkgRev := &fakeextrepo.FakePackageRevision{
+					PackageRevision: &api.PackageRevision{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"test": "true"},
+						},
+					},
+				}
+
+				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
+					Run(func(args mock.Arguments) {
+						atomic.AddInt32(&currentConcurrent, 1)
+						mutex.Lock()
+						if currentConcurrent > maxConcurrent {
+							maxConcurrent = currentConcurrent
+						}
+						mutex.Unlock()
+						time.Sleep(500 * time.Millisecond)
+						atomic.AddInt32(&currentConcurrent, -1)
+					}).
+					Return([]repository.PackageRevision{pkgRev}, nil)
+			},
+			filter:        packageRevisionFilter{},
+			selector:      labels.Everything(),
+			expectedError: nil,
+			expectedCalls: 4,
+			ctx:           context.Background(),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockCaD := &fakeCaDEngine{}
+			mockCoreClient := &mockclient.MockClient{}
+
+			pc := &packageCommon{
+				cad:                      mockCaD,
+				coreClient:               mockCoreClient,
+				ListTimeoutPerRepository: 1 * time.Second,
+				MaxConcurrentLists:       3,
+			}
+
+			mockCaD.ExpectedCalls = nil
+			mockCoreClient.ExpectedCalls = nil
+			tt.setupMocks(mockCaD, mockCoreClient)
+
+			callCount := 0
+			callback := func(ctx context.Context, p repository.PackageRevision) error {
+				callCount++
+				return nil
+			}
+
+			ctx := tt.ctx
+			if tt.name == "Timeout error" {
+				tCtx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+				ctx = tCtx
+				defer cancel()
+			}
+
+			err := pc.listPackageRevisions(ctx, tt.filter, tt.selector, callback)
+
+			if tt.expectedError != nil {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedError.Error())
+			} else {
+				assert.NoError(t, err)
+			}
+
+			assert.Equal(t, tt.expectedCalls, callCount)
+			assert.LessOrEqual(t, maxConcurrent, int32(pc.MaxConcurrentLists), "Maximum concurrent operations exceeded limit of 2")
+			mockCaD.AssertExpectations(t)
+			mockCoreClient.AssertExpectations(t)
+		})
+	}
+}
+
+func TestGetRepoPkgRev(t *testing.T) {
+	tests := []struct {
+		name                 string
+		pkgRevName           string
+		namespace            string
+		setupMocks           func(*fakeCaDEngine, *mockclient.MockClient)
+		expectedFailure      bool
+		expectedErrorMessage string
+	}{
+		{
+			name:       "Successful package revision retrieval",
+			pkgRevName: "repo.path.pkg.wsn",
+			namespace:  "test-ns",
+			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {
+				repo := &configapi.Repository{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "repo",
+						Namespace: "test-ns",
+					},
+				}
+
+				pkgRev := &fakeextrepo.FakePackageRevision{
+					PrKey: repository.PackageRevisionKey{
+						PkgKey: repository.PackageKey{
+							RepoKey: repository.RepositoryKey{
+								Name: "repo",
+							},
+							Path:    "path",
+							Package: "pkg",
+						},
+						WorkspaceName: "wsn",
+					},
+				}
+
+				c.On("Get", mock.Anything, types.NamespacedName{Name: "repo", Namespace: "test-ns"},
+					&configapi.Repository{}).
+					Run(func(args mock.Arguments) {
+						arg := args.Get(2).(*configapi.Repository)
+						*arg = *repo
+					}).Return(nil)
+
+				cad.On("ListPackageRevisions", mock.Anything, repo,
+					repository.ListPackageRevisionFilter{KubeObjectName: "repo.path.pkg.wsn"}).
+					Return([]repository.PackageRevision{pkgRev}, nil)
+			},
+			expectedFailure: false,
+		},
+		{
+			name:                 "Invalid package revision name format",
+			pkgRevName:           "invalid-name",
+			namespace:            "test-ns",
+			setupMocks:           func(cad *fakeCaDEngine, c *mockclient.MockClient) {},
+			expectedFailure:      true,
+			expectedErrorMessage: "not found",
+		},
+		{
+			name:       "Repository not found",
+			pkgRevName: "repo.pkg.v1",
+			namespace:  "test-ns",
+			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {
+				c.On("Get", mock.Anything, types.NamespacedName{Name: "repo", Namespace: "test-ns"},
+					&configapi.Repository{}, mock.Anything).
+					Return(apierrors.NewNotFound(schema.GroupResource{}, "repo"))
+			},
+			expectedFailure:      true,
+			expectedErrorMessage: "not found",
+		},
+		{
+			name:       "Listing package revisions timeout",
+			pkgRevName: "repo.pkg.v1",
+			namespace:  "test-ns",
+			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {
+				repo := &configapi.Repository{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "repo",
+						Namespace: "test-ns",
+					},
+				}
+
+				c.On("Get", mock.Anything, types.NamespacedName{Name: "repo", Namespace: "test-ns"},
+					&configapi.Repository{}, mock.Anything).
+					Run(func(args mock.Arguments) {
+						arg := args.Get(2).(*configapi.Repository)
+						*arg = *repo
+					}).Return(nil)
+
+				cad.On("ListPackageRevisions", mock.Anything, repo,
+					repository.ListPackageRevisionFilter{KubeObjectName: "repo.pkg.v1"}).
+					After(2*time.Second).
+					Return([]repository.PackageRevision{}, fmt.Errorf("seconds trying to list package revisions"))
+
+			},
+			expectedFailure:      true,
+			expectedErrorMessage: "seconds trying to list package revisions",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockCoreClient := &mockclient.MockClient{}
+			mockCaDEngine := &fakeCaDEngine{}
+
+			pc := &packageCommon{
+				coreClient:               mockCoreClient,
+				cad:                      mockCaDEngine,
+				ListTimeoutPerRepository: 1 * time.Second,
+			}
+
+			tt.setupMocks(mockCaDEngine, mockCoreClient)
+
+			ctx := genericapirequest.WithNamespace(context.Background(), tt.namespace)
+			result, err := pc.getRepoPkgRev(ctx, tt.pkgRevName)
+
+			if !tt.expectedFailure {
+				require.NoError(t, err)
+				assert.NotNil(t, result)
+			} else {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedErrorMessage)
+			}
+
+			mockCoreClient.AssertExpectations(t)
+			mockCaDEngine.AssertExpectations(t)
+		})
 	}
 }
 

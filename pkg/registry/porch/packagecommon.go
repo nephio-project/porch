@@ -16,6 +16,7 @@ package porch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -39,7 +40,6 @@ import (
 )
 
 const ConflictErrorMsgBase = "another request is already in progress %s"
-const MaxConcurrentLists = 10
 
 var GenericConflictErrorMsg = fmt.Sprintf(ConflictErrorMsgBase, "on %s \"%s\"")
 
@@ -52,10 +52,12 @@ type packageCommon struct {
 
 	cad engine.CaDEngine
 	// coreClient is a client back to the core kubernetes API server, useful for querying CRDs etc
-	coreClient     client.Client
-	gr             schema.GroupResource
-	updateStrategy SimpleRESTUpdateStrategy
-	createStrategy SimpleRESTCreateStrategy
+	coreClient               client.Client
+	gr                       schema.GroupResource
+	updateStrategy           SimpleRESTUpdateStrategy
+	createStrategy           SimpleRESTCreateStrategy
+	ListTimeoutPerRepository time.Duration
+	MaxConcurrentLists       int
 }
 
 func (r *packageCommon) listPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter,
@@ -72,7 +74,7 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter reposit
 			return fmt.Errorf("conflicting namespaces specified: %q and %q", namespace, filter.Key.RKey().Namespace)
 		}
 	}
-	
+
 	var repoList configapi.RepositoryList
 	if err := r.coreClient.List(ctx, &repoList, opts...); err != nil {
 		return fmt.Errorf("error listing repository objects: %w", err)
@@ -100,17 +102,28 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter reposit
 		return nil
 	}
 
-	workerCount := min(MaxConcurrentLists, repoCount)
+	workerCount := repoCount
+	if r.MaxConcurrentLists > 0 {
+		workerCount = min(r.MaxConcurrentLists, repoCount)
+	}
+
 	resultsCh := make(chan pkgRevResult, workerCount)
 	repoQueue := make(chan *configapi.Repository, repoCount)
 
 	for i := 0; i < workerCount; i++ {
 		go func() {
 			for repo := range repoQueue {
-				revisions, err := r.cad.ListPackageRevisions(ctx, repo, filter)
+				listCtx := ctx
+				if r.ListTimeoutPerRepository == 0 {
+					var cancel context.CancelFunc
+					listCtx, cancel = context.WithTimeout(ctx, r.ListTimeoutPerRepository)
+					defer cancel()
+				}
+				revisions, err := r.cad.ListPackageRevisions(listCtx, repo, filter)
 				select {
 				case resultsCh <- pkgRevResult{Revisions: revisions, Err: err}:
 				case <-ctx.Done():
+					resultsCh <- pkgRevResult{Revisions: nil, Err: listCtx.Err()}
 				}
 			}
 		}()
@@ -266,8 +279,17 @@ func (r *packageCommon) getRepoPkgRev(ctx context.Context, name string) (reposit
 		return nil, err
 	}
 
+	var cancel context.CancelFunc
+	if r.ListTimeoutPerRepository == 0 {
+		ctx, cancel = context.WithTimeout(ctx, r.ListTimeoutPerRepository)
+		defer cancel()
+	}
+
 	revisions, err := r.cad.ListPackageRevisions(ctx, repositoryObj, repository.ListPackageRevisionFilter{Key: prKey})
 	if err != nil {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return nil, fmt.Errorf("%v: exceeded %v seconds trying to list package revisions", ctx.Err(), r.ListTimeoutPerRepository)
+		}
 		return nil, err
 	}
 	for _, rev := range revisions {
