@@ -39,13 +39,5 @@ func (m *replaceResourcesMutation) apply(ctx context.Context, resources reposito
 	if err != nil {
 		return repository.PackageResources{}, nil, fmt.Errorf("failed to heal resources: %w", err)
 	}
-
-	// unused anyway
-	taskResult := &api.TaskResult{
-		Task: &api.Task{
-			Type:  api.TaskTypePatch,
-			Patch: &api.PackagePatchTaskSpec{},
-		},
-	}
-	return repository.PackageResources{Contents: newRes}, taskResult, nil
+	return repository.PackageResources{Contents: newRes}, nil, nil
 }

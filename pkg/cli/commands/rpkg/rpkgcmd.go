@@ -32,7 +32,6 @@ import (
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/pull"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/push"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/reject"
-	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/update"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/upgrade"
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -81,7 +80,6 @@ func NewCommand(ctx context.Context, version string) *cobra.Command {
 		reject.NewCommand(ctx, kubeflags),
 		del.NewCommand(ctx, kubeflags),
 		copy.NewCommand(ctx, kubeflags),
-		update.NewCommand(ctx, kubeflags),
 		upgrade.NewCommand(ctx, kubeflags),
 		proposedelete.NewCommand(ctx, kubeflags),
 	)

@@ -35,7 +35,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/nephio-project/porch/api/porch/v1alpha1.Condition":                      schema_porch_api_porch_v1alpha1_Condition(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.Field":                          schema_porch_api_porch_v1alpha1_Field(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.File":                           schema_porch_api_porch_v1alpha1_File(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.FunctionEvalTaskSpec":           schema_porch_api_porch_v1alpha1_FunctionEvalTaskSpec(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.GitLock":                        schema_porch_api_porch_v1alpha1_GitLock(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.GitPackage":                     schema_porch_api_porch_v1alpha1_GitPackage(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.NameMeta":                       schema_porch_api_porch_v1alpha1_NameMeta(ref),
@@ -43,7 +42,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageCloneTaskSpec":           schema_porch_api_porch_v1alpha1_PackageCloneTaskSpec(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageEditTaskSpec":            schema_porch_api_porch_v1alpha1_PackageEditTaskSpec(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageInitTaskSpec":            schema_porch_api_porch_v1alpha1_PackageInitTaskSpec(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.PackagePatchTaskSpec":           schema_porch_api_porch_v1alpha1_PackagePatchTaskSpec(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevision":                schema_porch_api_porch_v1alpha1_PackageRevision(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionList":            schema_porch_api_porch_v1alpha1_PackageRevisionList(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionRef":             schema_porch_api_porch_v1alpha1_PackageRevisionRef(ref),
@@ -55,7 +53,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionStatus":          schema_porch_api_porch_v1alpha1_PackageRevisionStatus(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageSpec":                    schema_porch_api_porch_v1alpha1_PackageSpec(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageStatus":                  schema_porch_api_porch_v1alpha1_PackageStatus(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageUpdateTaskSpec":          schema_porch_api_porch_v1alpha1_PackageUpdateTaskSpec(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageUpgradeTaskSpec":         schema_porch_api_porch_v1alpha1_PackageUpgradeTaskSpec(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.ParentReference":                schema_porch_api_porch_v1alpha1_ParentReference(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PatchSpec":                      schema_porch_api_porch_v1alpha1_PatchSpec(ref),
@@ -363,77 +360,6 @@ func schema_porch_api_porch_v1alpha1_File(ref common.ReferenceCallback) common.O
 	}
 }
 
-func schema_porch_api_porch_v1alpha1_FunctionEvalTaskSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"subpackage": {
-						SchemaProps: spec.SchemaProps{
-							Description: "`Subpackage` is a directory path to a subpackage in which to evaluate the function.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"image": {
-						SchemaProps: spec.SchemaProps{
-							Description: "`Image` specifies the function image, such as `gcr.io/kpt-fn/gatekeeper:v0.2`.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"configMap": {
-						SchemaProps: spec.SchemaProps{
-							Description: "`ConfigMap` specifies the function config (https://kpt.dev/reference/cli/fn/eval/). Mutually exclusive with Config.",
-							Type:        []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-					"config": {
-						SchemaProps: spec.SchemaProps{
-							Description: "`Config` specifies the function config, arbitrary KRM resource. Mutually exclusive with ConfigMap.",
-							Ref:         ref("k8s.io/apimachinery/pkg/runtime.RawExtension"),
-						},
-					},
-					"includeMetaResources": {
-						SchemaProps: spec.SchemaProps{
-							Description: "If enabled, meta resources (i.e. `Kptfile` and `functionConfig`) are included in the input to the function. By default it is disabled.",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"enableNetwork": {
-						SchemaProps: spec.SchemaProps{
-							Description: "`EnableNetwork` controls whether the function has access to network. Defaults to `false`.",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"match": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Match specifies the selection criteria for the function evaluation. Corresponds to `kpt fn eval --match-???` flgs (https://kpt.dev/reference/cli/fn/eval/).",
-							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.Selector"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.Selector", "k8s.io/apimachinery/pkg/runtime.RawExtension"},
-	}
-}
-
 func schema_porch_api_porch_v1alpha1_GitLock(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -663,34 +589,6 @@ func schema_porch_api_porch_v1alpha1_PackageInitTaskSpec(ref common.ReferenceCal
 				},
 			},
 		},
-	}
-}
-
-func schema_porch_api_porch_v1alpha1_PackagePatchTaskSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"patches": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Patches is a list of individual patch operations.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha1.PatchSpec"),
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.PatchSpec"},
 	}
 }
 
@@ -1167,27 +1065,6 @@ func schema_porch_api_porch_v1alpha1_PackageStatus(ref common.ReferenceCallback)
 				},
 			},
 		},
-	}
-}
-
-func schema_porch_api_porch_v1alpha1_PackageUpdateTaskSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"upstreamRef": {
-						SchemaProps: spec.SchemaProps{
-							Description: "`Upstream` is the reference to the upstream package.",
-							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamPackage"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamPackage"},
 	}
 }
 
@@ -1755,24 +1632,9 @@ func schema_porch_api_porch_v1alpha1_Task(ref common.ReferenceCallback) common.O
 							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageCloneTaskSpec"),
 						},
 					},
-					"patch": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackagePatchTaskSpec"),
-						},
-					},
 					"edit": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageEditTaskSpec"),
-						},
-					},
-					"eval": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.FunctionEvalTaskSpec"),
-						},
-					},
-					"update": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageUpdateTaskSpec"),
 						},
 					},
 					"upgrade": {
@@ -1785,7 +1647,7 @@ func schema_porch_api_porch_v1alpha1_Task(ref common.ReferenceCallback) common.O
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.FunctionEvalTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageCloneTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageEditTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageInitTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackagePatchTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageUpdateTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageUpgradeTaskSpec"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.PackageCloneTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageEditTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageInitTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageUpgradeTaskSpec"},
 	}
 }
 

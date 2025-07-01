@@ -388,9 +388,11 @@ func TestCreatePRWith2Tasks(t *testing.T) {
 					Init: &porchapi.PackageInitTaskSpec{},
 				},
 				{
-					Type: porchapi.TaskTypeEval,
-					Eval: &porchapi.FunctionEvalTaskSpec{
-						Image: "render",
+					Type: porchapi.TaskTypeEdit,
+					Edit: &porchapi.PackageEditTaskSpec{
+						Source: &porchapi.PackageRevisionRef{
+							Name: "test",
+						},
 					},
 				},
 			},

@@ -252,23 +252,6 @@ func (th *genericTaskHandler) mapTaskToMutation(obj *api.PackageRevision, task *
 			packageConfig:      packageConfig,
 		}, nil
 
-	case api.TaskTypeUpdate:
-		if task.Update == nil {
-			return nil, fmt.Errorf("update not set for task of type %q", task.Type)
-		}
-		cloneTask := findCloneTask(obj)
-		if cloneTask == nil {
-			return nil, fmt.Errorf("upstream source not found for package rev %q; only cloned packages can be updated", obj.Spec.PackageName)
-		}
-		return &updatePackageMutation{
-			cloneTask:         cloneTask,
-			updateTask:        task,
-			namespace:         obj.Namespace,
-			repoOpener:        th.repoOpener,
-			referenceResolver: th.referenceResolver,
-			pkgName:           obj.Spec.PackageName,
-		}, nil
-
 	case api.TaskTypeUpgrade:
 		if task.Upgrade == nil {
 			return nil, fmt.Errorf("upgrade field not set for task of type %q", task.Type)
@@ -280,9 +263,6 @@ func (th *genericTaskHandler) mapTaskToMutation(obj *api.PackageRevision, task *
 			referenceResolver: th.referenceResolver,
 			pkgName:           obj.Spec.PackageName,
 		}, nil
-
-	case api.TaskTypePatch:
-		return nil, pkgerrors.Errorf("%s is deprecated", api.TaskTypePatch)
 
 	case api.TaskTypeEdit:
 		if task.Edit == nil {
@@ -296,27 +276,6 @@ func (th *genericTaskHandler) mapTaskToMutation(obj *api.PackageRevision, task *
 			repoOpener:        th.repoOpener,
 			referenceResolver: th.referenceResolver,
 		}, nil
-
-	case api.TaskTypeEval:
-		if task.Eval == nil {
-			return nil, fmt.Errorf("eval not set for task of type %q", task.Type)
-		}
-		// TODO: We should find a different way to do this. Probably a separate
-		// task for render.
-		if task.Eval.Image == "render" {
-			runnerOptions := th.runnerOptionsResolver(obj.Namespace)
-			return &renderPackageMutation{
-				runnerOptions: runnerOptions,
-				runtime:       th.runtime,
-			}, nil
-		} else {
-			runnerOptions := th.runnerOptionsResolver(obj.Namespace)
-			return &evalFunctionMutation{
-				runnerOptions: runnerOptions,
-				runtime:       th.runtime,
-				task:          task,
-			}, nil
-		}
 
 	default:
 		return nil, fmt.Errorf("task of type %q not supported", task.Type)

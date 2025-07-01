@@ -16,7 +16,6 @@ package porch
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // PackageRevision
@@ -107,10 +106,7 @@ type TaskType string
 const (
 	TaskTypeInit    TaskType = "init"
 	TaskTypeClone   TaskType = "clone"
-	TaskTypePatch   TaskType = "patch"
 	TaskTypeEdit    TaskType = "edit"
-	TaskTypeEval    TaskType = "eval"
-	TaskTypeUpdate  TaskType = "update"
 	TaskTypeUpgrade TaskType = "upgrade"
 )
 
@@ -118,10 +114,7 @@ type Task struct {
 	Type    TaskType                `json:"type"`
 	Init    *PackageInitTaskSpec    `json:"init,omitempty"`
 	Clone   *PackageCloneTaskSpec   `json:"clone,omitempty"`
-	Patch   *PackagePatchTaskSpec   `json:"patch,omitempty"`
 	Edit    *PackageEditTaskSpec    `json:"edit,omitempty"`
-	Eval    *FunctionEvalTaskSpec   `json:"eval,omitempty"`
-	Update  *PackageUpdateTaskSpec  `json:"update,omitempty"`
 	Upgrade *PackageUpgradeTaskSpec `json:"upgrade,omitempty"`
 }
 
@@ -169,11 +162,6 @@ type PackageCloneTaskSpec struct {
 
 type PackageMergeStrategy string
 
-type PackageUpdateTaskSpec struct {
-	// `Upstream` is the reference to the upstream package.
-	Upstream UpstreamPackage `json:"upstreamRef,omitempty"`
-}
-
 type PackageUpgradeTaskSpec struct {
 	// `OldUpstream` is the reference to the original upstream package revision that is
 	// the common ancestor of the local package and the new upstream package revision.
@@ -204,11 +192,6 @@ const (
 	ForceDeleteReplace PackageMergeStrategy = "force-delete-replace"
 	CopyMerge          PackageMergeStrategy = "copy-merge"
 )
-
-type PackagePatchTaskSpec struct {
-	// Patches is a list of individual patch operations.
-	Patches []PatchSpec `json:"patches,omitempty"`
-}
 
 type PatchType string
 
@@ -286,26 +269,6 @@ type PackageRevisionRef struct {
 type RepositoryRef struct {
 	// Name of the Repository resource referenced.
 	Name string `json:"name"`
-}
-
-type FunctionEvalTaskSpec struct {
-	// `Subpackage` is a directory path to a subpackage in which to evaluate the function.
-	Subpackage string `json:"subpackage,omitempty"`
-	// `Image` specifies the function image, such as `gcr.io/kpt-fn/gatekeeper:v0.2`.
-	Image string `json:"image,omitempty"`
-	// `ConfigMap` specifies the function config (https://kpt.dev/reference/cli/fn/eval/). Mutually exclusive with Config.
-	ConfigMap map[string]string `json:"configMap,omitempty"`
-
-	// `Config` specifies the function config, arbitrary KRM resource. Mutually exclusive with ConfigMap.
-	Config runtime.RawExtension `json:"config,omitempty"`
-
-	// If enabled, meta resources (i.e. `Kptfile` and `functionConfig`) are included
-	// in the input to the function. By default it is disabled.
-	IncludeMetaResources bool `json:"includeMetaResources,omitempty"`
-	// `EnableNetwork` controls whether the function has access to network. Defaults to `false`.
-	EnableNetwork bool `json:"enableNetwork,omitempty"`
-	// Match specifies the selection criteria for the function evaluation.
-	Match Selector `json:"match,omitempty"`
 }
 
 type Selector struct {

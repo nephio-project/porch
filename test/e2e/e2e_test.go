@@ -3297,16 +3297,6 @@ func (t *PorchSuite) TestCreatePackageRevisionRollback() {
 						},
 					},
 				},
-				{
-					Type: porchapi.TaskTypePatch,
-					Patch: &porchapi.PackagePatchTaskSpec{
-						Patches: []porchapi.PatchSpec{
-							{
-								File: "invalid-file.yaml", // This will cause task application to fail
-							},
-						},
-					},
-				},
 			},
 		},
 	}

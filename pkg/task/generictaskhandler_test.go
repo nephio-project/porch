@@ -119,40 +119,6 @@ func TestApplyTasks(t *testing.T) {
 	}
 }
 
-func TestMapTaskToMutationPatchTask(t *testing.T) {
-	// Mock genericTaskHandler
-	handler := &genericTaskHandler{
-		cloneStrategy: api.CopyMerge,
-	}
-
-	// Mock task of type Patch
-	patchTask := &api.Task{
-		Type: api.TaskTypePatch,
-		Patch: &api.PackagePatchTaskSpec{
-			Patches: []api.PatchSpec{
-				{
-					File:      "test.yaml",
-					Contents:  "patch contents",
-					PatchType: api.PatchTypePatchFile,
-				},
-			},
-		},
-	}
-
-	// Mock PackageRevision
-	obj := &api.PackageRevision{
-		Spec: api.PackageRevisionSpec{
-			PackageName: "test-package",
-		},
-	}
-
-	// Call mapTaskToMutation
-	_, err := handler.mapTaskToMutation(obj, patchTask, false, nil)
-
-	// Verify results
-	assert.ErrorContains(t, err, "deprecated")
-}
-
 func TestMapTaskToMutationUpgradeTask(t *testing.T) {
 	th := &genericTaskHandler{}
 
