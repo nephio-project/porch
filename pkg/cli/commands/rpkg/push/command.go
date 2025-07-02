@@ -153,8 +153,7 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 	}
 	rs := pkgResources.Status.RenderStatus
 	if rs.Err != "" {
-		r.printer.Printf("Package is updated, but failed to render the package.\n")
-		r.printer.Printf("Error: %s\n", rs.Err)
+		r.printer.Printf("Package failed render but has still been updated & pushed to git.\n")
 	}
 	if len(rs.Result.Items) > 0 {
 		for _, result := range rs.Result.Items {
@@ -167,6 +166,9 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 			}
 			r.printFnResult(result, printOpt)
 		}
+	}
+	if rs.Err != "" {
+		r.printer.Printf("Error: %s\n", rs.Err)
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "%s pushed\n", packageName)
 	return nil
