@@ -1,4 +1,4 @@
-// Copyright 2024-2025 The Nephio Authors
+// Copyright 2024 The Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -468,6 +468,7 @@ func (t *TestSuite) WaitUntilRepositoryReady(name, namespace string) {
 	}
 
 	// While we're using an aggregated apiserver, make sure we can query the generated objects
+	t.Logf("Waiting for list to succeed for %q...", name)
 	if err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 10*time.Second, true, func(ctx context.Context) (bool, error) {
 		var revisions porchapi.PackageRevisionList
 		if err := t.Client.List(ctx, &revisions, client.InNamespace(nn.Namespace)); err != nil {

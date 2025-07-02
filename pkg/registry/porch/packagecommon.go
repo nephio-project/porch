@@ -135,15 +135,13 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter reposit
 		repoQueue <- &repo
 	}
 
-	var timerCh <-chan time.Time
+	innerCtx := ctx
 	if deadline, ok := ctx.Deadline(); ok {
-		buffer := 5 * time.Second
-		timerDeadline := deadline.Add(-buffer)
-		timeout := time.Until(timerDeadline)
-		if timeout > 0 {
-			timer := time.NewTimer(timeout)
-			defer timer.Stop()
-			timerCh = timer.C
+		const buffer = 5 * time.Second
+		if timeout := time.Until(deadline.Add(-buffer)); timeout > 0 {
+			var cancel context.CancelFunc
+			innerCtx, cancel = context.WithTimeout(ctx, timeout)
+			defer cancel()
 		}
 	}
 
@@ -151,13 +149,14 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter reposit
 
 	for {
 		select {
-		case <-timerCh:
+		case <-innerCtx.Done():
 			klog.Warningf("Timeout reached — returning partial results")
 			close(repoQueue)
 			return nil
 
 		case res := <-resultsCh:
 			received++
+			klog.V(4).Infof("listPackageRevisions received %d repo", received)
 			if res.Err != nil {
 				klog.Warningf("error listing package revisions: %+v", res.Err)
 			}

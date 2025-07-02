@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -246,7 +247,7 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 	metadataStore := createMetadataStoreFromArchive(t, fmt.Sprintf("%s-metadata.yaml", name), name)
 
 	cache := &Cache{
-		repositories:  make(map[repository.RepositoryKey]*cachedRepository),
+		repositories:  &sync.Map{},
 		metadataStore: metadataStore,
 		options: cachetypes.CacheOptions{
 			ExternalRepoOptions: externalrepotypes.ExternalRepoOptions{
@@ -285,7 +286,7 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 		if err != nil {
 			t.Errorf("CloseRepository(%q) failed: %v", address, err)
 		}
-		if len(cache.GetRepositories()) != 0 {
+		if len(cache.GetRepositories(ctx)) != 0 {
 			t.Errorf("CloseRepository hasn't deleted repository from cache")
 		}
 	})

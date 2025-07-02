@@ -505,7 +505,7 @@ func (r *cachedRepository) pollForever(ctx context.Context, repoSyncFrequency ti
 func (r *cachedRepository) pollOnce(ctx context.Context) {
 	start := time.Now()
 	klog.Infof("repo %+v: poll started", r.Key())
-	defer func() { klog.Infof("repo %+v: poll finished in %f secs", r.Key(), time.Since(start).Seconds()) }()
+	defer func() { klog.Infof("repo %+v: poll finished in %s", r.Key(), time.Since(start)) }()
 	ctx, span := tracer.Start(ctx, "[START]::Repository::pollOnce", trace.WithAttributes())
 	defer span.End()
 

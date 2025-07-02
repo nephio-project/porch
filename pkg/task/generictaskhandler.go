@@ -42,7 +42,6 @@ type genericTaskHandler struct {
 	repoOpener            repository.RepositoryOpener
 	credentialResolver    repository.CredentialResolver
 	referenceResolver     repository.ReferenceResolver
-	cloneStrategy         api.PackageMergeStrategy
 }
 
 func (th *genericTaskHandler) GetRuntime() fn.FunctionRuntime {
