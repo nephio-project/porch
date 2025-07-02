@@ -47,12 +47,15 @@ func pkgRevReadFromDB(ctx context.Context, prk repository.PackageRevisionKey, re
 			package_revisions.updated,
 			package_revisions.updatedby,
 			package_revisions.lifecycle,
+			package_revisions.latest,
 			package_revisions.tasks
 		FROM package_revisions INNER JOIN packages
 			ON package_revisions.k8s_name_space=packages.k8s_name_space AND package_revisions.package_k8s_name=packages.k8s_name
 		 INNER JOIN repositories
 			ON packages.k8s_name_space=repositories.k8s_name_space AND packages.repo_k8s_name=repositories.k8s_name
-		WHERE package_revisions.k8s_name_space=$1 AND package_revisions.k8s_name=$2`
+		WHERE package_revisions.k8s_name_space=$1 AND package_revisions.k8s_name=$2
+		ORDER BY package_revisions.k8s_name_space, package_revisions.k8s_name
+	`
 
 	klog.V(6).Infof("pkgRevReadFromDB: running query %q on package revision %+v", sqlStatement, prk)
 	rows, err := GetDB().db.Query(sqlStatement, prk.K8SNS(), prk.K8SName())
@@ -113,15 +116,20 @@ func pkgRevListPRsFromDB(ctx context.Context, filter repository.ListPackageRevis
 			package_revisions.updated,
 			package_revisions.updatedby,
 			package_revisions.lifecycle,
+			package_revisions.latest,
 			package_revisions.tasks
 		FROM package_revisions
 		INNER JOIN packages
 			ON package_revisions.k8s_name_space=packages.k8s_name_space AND package_revisions.package_k8s_name=packages.k8s_name
 		INNER JOIN repositories
 			ON packages.k8s_name_space=repositories.k8s_name_space AND packages.repo_k8s_name=repositories.k8s_name
-		`
+	`
 
 	sqlStatement += prListFilter2WhereClause(filter)
+
+	sqlStatement += `
+			ORDER BY package_revisions.k8s_name_space, package_revisions.k8s_name
+	`
 
 	klog.V(6).Infof("pkgRevListPRsFromDB: running query %q on package revisions with filter %+v", sqlStatement, filter)
 	rows, err := GetDB().db.Query(sqlStatement)
@@ -154,12 +162,15 @@ func pkgRevReadPRsFromDB(ctx context.Context, pk repository.PackageKey) ([]*dbPa
 			package_revisions.updated,
 			package_revisions.updatedby,
 			package_revisions.lifecycle,
+			package_revisions.latest,
 			package_revisions.tasks
 		FROM package_revisions INNER JOIN packages
 			ON package_revisions.k8s_name_space=packages.k8s_name_space AND package_revisions.package_k8s_name=packages.k8s_name
 		 INNER JOIN repositories
 			ON packages.k8s_name_space=repositories.k8s_name_space AND packages.repo_k8s_name=repositories.k8s_name
-		WHERE packages.k8s_name_space=$1 AND packages.k8s_name=$2`
+		WHERE packages.k8s_name_space=$1 AND packages.k8s_name=$2
+		ORDER BY package_revisions.k8s_name_space, package_revisions.k8s_name
+	`
 
 	return pkgRevReadPRListFromDB(ctx, pk, sqlStatement)
 }
@@ -198,6 +209,7 @@ func pkgRevReadLatestPRFromDB(ctx context.Context, pk repository.PackageKey) (*d
 			package_revisions.updated,
 			package_revisions.updatedby,
 			package_revisions.lifecycle,
+			package_revisions.latest,
 			package_revisions.tasks
 		FROM package_revisions INNER JOIN packages
 			ON package_revisions.k8s_name_space=packages.k8s_name_space AND package_revisions.package_k8s_name=packages.k8s_name
@@ -206,7 +218,9 @@ func pkgRevReadLatestPRFromDB(ctx context.Context, pk repository.PackageKey) (*d
 		WHERE packages.k8s_name_space=$1 AND packages.k8s_name=$2 AND package_revisions.revision=(
 			SELECT MAX(revision) FROM package_revisions
 				WHERE package_revisions.k8s_name_space=$1 AND package_revisions.package_k8S_name=$2
-			)`
+			)
+		ORDER BY package_revisions.k8s_name_space, package_revisions.k8s_name
+	`
 
 	latestPRList, err := pkgRevReadPRListFromDB(ctx, pk, sqlStatement)
 	if err != nil {
@@ -289,6 +303,7 @@ func pkgRevScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackageRevi
 			&pkgRev.updated,
 			&pkgRev.updatedBy,
 			&pkgRev.lifecycle,
+			&pkgRev.latest,
 			&tasks)
 
 		if err != nil {
@@ -317,7 +332,8 @@ func pkgRevWriteToDB(ctx context.Context, pr *dbPackageRevision) error {
 
 	sqlStatement := `
         INSERT INTO package_revisions (k8s_name_space, k8s_name, package_k8s_name, revision, meta, spec, updated, updatedby, lifecycle, tasks)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	`
 
 	klog.V(6).Infof("pkgRevWriteToDB: running query %q on package revision %+v", sqlStatement, pr)
 	prk := pr.Key()
@@ -348,7 +364,8 @@ func pkgRevUpdateDB(ctx context.Context, pr *dbPackageRevision, updateResources 
 
 	sqlStatement := `
         UPDATE package_revisions SET package_k8s_name=$3, revision=$4, meta=$5, spec=$6, updated=$7, updatedby=$8, lifecycle=$9, tasks=$10
-        WHERE k8s_name_space=$1 AND k8s_name=$2`
+        WHERE k8s_name_space=$1 AND k8s_name=$2
+	`
 
 	klog.V(6).Infof("pkgRevUpdateDB: running query %q on package revision %+v", sqlStatement, pr)
 	prk := pr.Key()
@@ -396,7 +413,9 @@ func pkgRevDeleteFromDB(ctx context.Context, prk repository.PackageRevisionKey) 
 		return err
 	}
 
-	sqlStatement := `DELETE FROM package_revisions WHERE k8s_name_space=$1 AND k8s_name=$2`
+	sqlStatement := `
+		DELETE FROM package_revisions WHERE k8s_name_space=$1 AND k8s_name=$2
+	`
 
 	klog.V(6).Infof("pkgRevDeleteFromDB: running query %q on package revision %+v", sqlStatement, prk)
 	_, err := GetDB().db.Exec(sqlStatement, prk.K8SNS(), prk.K8SName())

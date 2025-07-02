@@ -13,23 +13,9 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-DROP TABLE IF EXISTS resources;
-
-DROP TABLE IF EXISTS package_revisions;
-DROP FUNCTION IF EXISTS check_immutable_package_revisions_columns;
-DROP TRIGGER IF EXISTS immutable_package_revisions_columns on package_revisions;
-
-DROP TABLE IF EXISTS packages;
-DROP FUNCTION IF EXISTS check_immutable_packages_columns;
-DROP TRIGGER IF EXISTS immutable_packages_columns on packages;
-
-DROP TABLE IF EXISTS repositories;
-DROP FUNCTION IF EXISTS check_immutable_repositories_columns;
-DROP TRIGGER IF EXISTS immutable_repositories_columns on repositories;
-
 CREATE TABLE IF NOT EXISTS repositories (
-    k8s_name_space  TEXT NOT NULL CHECK (k8s_name_space <> ''),
-    k8s_name        TEXT NOT NULL CHECK (k8s_name <> ''),
+    k8s_name_space  TEXT NOT NULL CHECK (k8s_name_space != ''),
+    k8s_name        TEXT NOT NULL CHECK (k8s_name != ''),
     directory       TEXT NOT NULL,
     default_ws_name TEXT NOT NULL,
     meta            TEXT NOT NULL,
@@ -40,24 +26,24 @@ CREATE TABLE IF NOT EXISTS repositories (
     PRIMARY KEY (k8s_name_space, k8s_name)
 );
 
-CREATE FUNCTION check_immutable_repositories_columns() RETURNS trigger
+CREATE OR REPLACE FUNCTION check_immutable_repositories_columns() RETURNS trigger
     LANGUAGE plpgsql AS
 $BODY$
 BEGIN
-    IF NEW.directory <> OLD.directory OR NEW.default_ws_name <> OLD.default_ws_name THEN
+    IF NEW.directory != OLD.directory OR NEW.default_ws_name != OLD.default_ws_name THEN
         RAISE EXCEPTION 'update not allowed on immutable columns "directory" and "default_ws_name"';
     END IF;
     RETURN NEW;
 END;
 $BODY$;
 
-CREATE TRIGGER immutable_repositories_columns
+CREATE OR REPLACE TRIGGER immutable_repositories_columns
    BEFORE UPDATE ON repositories FOR EACH ROW
    EXECUTE PROCEDURE check_immutable_repositories_columns();
 
 CREATE TABLE IF NOT EXISTS packages (
-    k8s_name_space TEXT NOT NULL CHECK (k8s_name_space <> ''),
-    k8s_name       TEXT NOT NULL CHECK (k8s_name <> ''),
+    k8s_name_space TEXT NOT NULL CHECK (k8s_name_space != ''),
+    k8s_name       TEXT NOT NULL CHECK (k8s_name != ''),
     repo_k8s_name  TEXT NOT NULL,
     package_path   TEXT NOT NULL,
     meta           TEXT NOT NULL,
@@ -71,24 +57,24 @@ CREATE TABLE IF NOT EXISTS packages (
         ON DELETE CASCADE
 );
 
-CREATE FUNCTION check_immutable_packages_columns() RETURNS trigger
+CREATE OR REPLACE FUNCTION check_immutable_packages_columns() RETURNS trigger
     LANGUAGE plpgsql AS
 $BODY$
 BEGIN
-    IF NEW.repo_k8s_name <> OLD.repo_k8s_name OR NEW.package_path <> OLD.package_path THEN
+    IF NEW.repo_k8s_name != OLD.repo_k8s_name OR NEW.package_path != OLD.package_path THEN
         RAISE EXCEPTION 'update not allowed on immutable columns "repo_k8s_name" and "package_path"';
     END IF;
     RETURN NEW;
 END;
 $BODY$;
 
-CREATE TRIGGER immutable_packages_columns
+CREATE OR REPLACE TRIGGER immutable_packages_columns
    BEFORE UPDATE ON packages FOR EACH ROW
    EXECUTE PROCEDURE check_immutable_packages_columns();
 
 CREATE TABLE IF NOT EXISTS package_revisions (
-    k8s_name_space   TEXT NOT NULL CHECK (k8s_name_space <> ''),
-    k8s_name         TEXT NOT NULL CHECK (k8s_name <> ''),
+    k8s_name_space   TEXT NOT NULL CHECK (k8s_name_space != ''),
+    k8s_name         TEXT NOT NULL CHECK (k8s_name != ''),
     package_k8s_name TEXT NOT NULL,
     revision         INTEGER NOT NULL,
     meta             TEXT NOT NULL,
@@ -96,6 +82,7 @@ CREATE TABLE IF NOT EXISTS package_revisions (
     updated          TIMESTAMP NOT NULL,
     updatedby        TEXT NOT NULL,
     lifecycle        TEXT CHECK (lifecycle IN ('Draft', 'Proposed', 'Published', 'DeletionProposed')) NOT NULL,
+    latest           BOOLEAN NOT NULL DEFAULT FALSE,
     tasks            TEXT NOT NULL,
     PRIMARY KEY (k8s_name_space, k8s_name),
     CONSTRAINT fk_package
@@ -104,35 +91,103 @@ CREATE TABLE IF NOT EXISTS package_revisions (
         ON DELETE CASCADE
 );
 
-CREATE FUNCTION check_immutable_package_revisions_columns() RETURNS trigger
+CREATE OR REPLACE FUNCTION check_package_revisions_columns() RETURNS trigger
     LANGUAGE plpgsql AS
 $BODY$
+DECLARE
+    count_revisions INTEGER;
+    latest_revision INTEGER;
 BEGIN
-    IF NEW.package_k8s_name <> OLD.package_k8s_name THEN
+    IF NEW.package_k8s_name != OLD.package_k8s_name THEN
         RAISE EXCEPTION 'update not allowed on immutable column "package_k8s_name"';
     END IF;
 
-    IF NEW.revision != OLD.revision THEN
-        IF NEW.lifecycle = OLD.lifecycle THEN
-            RAISE EXCEPTION 'update not allowed on column "revision", lifecycle has not changed';
-        ELSIF NEW.lifecycle = 'Draft' OR NEW.lifecycle = 'Proposed' OR NEW.lifecycle = 'DeletionProposed' THEN
-            RAISE EXCEPTION 'update not allowed on column "revision", new lifecycle must be "Published"';
+    RAISE WARNING 'here % % % %', OLD.k8s_name, NEW.k8s_name, OLD.package_k8s_name, NEW.package_k8s_name;
+
+    IF NEW.revision < -1 OR OLD.revision < -1 THEN
+        RAISE EXCEPTION 'update not allowed on column "revision", revisions of less than -1 are not allowed';
+    END IF;
+
+    -- Package revisions in external repositories with uncontrolled revisions must always be 'Published' and cannot have lifecycle changes
+    IF NEW.revision = -1 OR OLD.revision = -1 THEN
+        IF NOT (NEW.lifecycle = 'Published' OR NEW.lifecycle = 'DeletionProposed') OR NOT (OLD.lifecycle = 'Published' OR OLD.lifecycle = 'DeletionProposed') THEN
+            RAISE EXCEPTION 'update not allowed on column "lifecycle", lifecycle of % illegal, package revision has revision -1', NEW.lifecycle;
+        ELSE
+            return NEW;
         END IF;
+    END IF;
+
+    -- Package revisions with revision 0 are draft package revisions
+    IF NEW.revision = 0 THEN
+        IF OLD.revision != 0 THEN
+            RAISE EXCEPTION 'update not allowed on column "revision", update of revision from % to zero is illegal', OLD.revision;
+        END IF;
+
+        IF NOT (NEW.lifecycle = 'Draft' OR NEW.lifecycle = 'Proposed') OR NOT (OLD.lifecycle = 'Draft' OR OLD.lifecycle = 'Proposed') THEN
+            RAISE EXCEPTION 'update not allowed on column "revision", revision value of 0 is only allowed on when lifecycle is Draft or Proposed';
+        END IF;
+
+        return NEW;
+    END IF;
+
+    IF NEW.lifecycle = 'Draft' THEN
+        RAISE EXCEPTION 'update not allowed on column "revision", revision of % on drafts is illegal', NEW.revision;
+    END IF;
+
+    IF NEW.revision = OLD.revision THEN
+        IF NEW.lifecycle = OLD.lifecycle THEN
+            return NEW;
+        END IF;
+
+        IF NEW.lifecycle = 'Published' OR NEW.lifecycle = 'DeletionProposed' THEN
+            return NEW;
+        END IF;
+
+        RAISE EXCEPTION 'update not allowed on column "lifceycle", change from % to % is illegal', OLD.lifecycle, NEW.lifecycle;
+    END IF;
+
+    IF OLD.revision != 0 THEN
+        RAISE EXCEPTION 'update not allowed on column "revision", update of revision from % to % is illegal', OLD.revision, NEW.revision;
+    END IF;
+
+    RAISE WARNING 'Here 2';
+
+    IF OLD.lifecycle != 'Proposed' THEN
+        RAISE EXCEPTION 'update not allowed on column "revision", lifecycle % is not Proposed', OLD.lifecycle;
+    END IF;
+
+    RAISE WARNING 'SELECT COUNT(revision) FROM package_revisions WHERE k8s_name_space = % AND k8s_name = % AND revision = %', NEW.k8s_name_space, NEW.k8s_name, NEW.revision;
+
+    count_revisions := (SELECT COUNT(revision) FROM package_revisions WHERE k8s_name_space = NEW.k8s_name_space AND package_k8s_name = NEW.package_k8s_name AND revision = NEW.revision);
+    RAISE WARNING 'count_revisions %', count_revisions;
+
+    IF count_revisions > 0 THEN
+       RAISE EXCEPTION 'update not allowed on column "revision", revision % already exists', NEW.revision;
+    END IF;
+
+    latest_revision := (SELECT MAX(revision) FROM package_revisions WHERE k8s_name_space = NEW.k8s_name_space AND package_k8s_name = NEW.package_k8s_name);
+    RAISE WARNING 'latest_revision %', latest_revision;
+
+    IF NEW.revision >= latest_revision THEN
+        RAISE WARNING 'Here 3';
+        UPDATE package_revisions SET latest = FALSE WHERE k8s_name_space = NEW.k8s_name_space AND package_k8s_name = NEW.package_k8s_name AND latest = TRUE;
+        NEW.latest = TRUE;
+        RAISE WARNING 'Here 4';
     END IF;
 
     RETURN NEW;
 END;
 $BODY$;
 
-CREATE TRIGGER immutable_package_revisions_columns
+CREATE OR REPLACE TRIGGER package_revisions_columns
    BEFORE UPDATE ON package_revisions FOR EACH ROW
-   EXECUTE PROCEDURE check_immutable_package_revisions_columns();
+   EXECUTE PROCEDURE check_package_revisions_columns();
 
 CREATE TABLE IF NOT EXISTS resources (
-    k8s_name_space TEXT NOT NULL CHECK (k8s_name_space <> ''),
-    k8s_name       TEXT NOT NULL CHECK (k8s_name <> ''),
+    k8s_name_space TEXT NOT NULL CHECK (k8s_name_space != ''),
+    k8s_name       TEXT NOT NULL CHECK (k8s_name != ''),
     revision       INTEGER NOT NULL,
-    resource_key   TEXT NOT NULL CHECK (resource_key <> ''),
+    resource_key   TEXT NOT NULL CHECK (resource_key != ''),
     resource_value TEXT NOT NULL,
     PRIMARY KEY (k8s_name_space, k8s_name, resource_key),
     CONSTRAINT fk_package_rev
