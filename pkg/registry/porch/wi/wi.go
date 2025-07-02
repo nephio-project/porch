@@ -102,7 +102,7 @@ func (w *WITokenExchanger) findWorkloadIdentityPool(ctx context.Context, kubeSer
 
 	issuer, err := ksatokensource.ExtractIssuer(accessToken)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("failed to extract issuer from access token: %w", err)
 	}
 
 	if strings.HasPrefix(issuer, "https://container.googleapis.com/") {

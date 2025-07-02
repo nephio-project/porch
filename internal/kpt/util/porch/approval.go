@@ -43,5 +43,9 @@ func UpdatePackageRevisionApproval(ctx context.Context, client client.Client, pr
 	}
 
 	pr.Spec.Lifecycle = new
-	return client.SubResource("approval").Update(ctx, pr)
+	err := client.SubResource("approval").Update(ctx, pr)
+	if err != nil {
+		return fmt.Errorf("failed to update package revision approval: %w", err)
+	}
+	return nil
 }

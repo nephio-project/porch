@@ -235,7 +235,7 @@ func (rp *RootPkg) Build(path string, pkgName string, reposInfo ReposInfo) error
 	pkgPath := filepath.Join(path, pkgName)
 	err := os.Mkdir(pkgPath, 0700)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create package directory %s: %w", pkgPath, err)
 	}
 	if rp == nil {
 		return nil

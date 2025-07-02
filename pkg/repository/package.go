@@ -37,7 +37,7 @@ type PackageFetcher struct {
 func (p *PackageFetcher) FetchRevision(ctx context.Context, packageRef *api.PackageRevisionRef, namespace string) (PackageRevision, error) {
 	repoName, err := util.ParsePkgRevObjNameField(packageRef.Name, 0)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse package revision object name field: %w", err)
 	}
 	var resolved configapi.Repository
 	if err := p.ReferenceResolver.ResolveReference(ctx, namespace, repoName, &resolved); err != nil {
@@ -46,12 +46,12 @@ func (p *PackageFetcher) FetchRevision(ctx context.Context, packageRef *api.Pack
 
 	repo, err := p.RepoOpener.OpenRepository(ctx, &resolved)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open repository: %w", err)
 	}
 
 	revisions, err := repo.ListPackageRevisions(ctx, ListPackageRevisionFilter{KubeObjectName: packageRef.Name})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list package revisions: %w", err)
 	}
 
 	var revision PackageRevision
@@ -90,7 +90,7 @@ func BuildPackageConfig(ctx context.Context, obj *api.PackageRevision, parent Pa
 	if parent != nil {
 		parentObj, err := parent.GetPackageRevision(ctx)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get parent package revision: %w", err)
 		}
 		parentPath = parentObj.Spec.PackageName
 
@@ -129,7 +129,7 @@ func BuildPackageConfig(ctx context.Context, obj *api.PackageRevision, parent Pa
 func extractContextConfigMap(resources map[string]string) (*unstructured.Unstructured, error) {
 	unstructureds, err := objects.Parser{}.AsUnstructureds(resources)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse resources as unstructured objects: %w", err)
 	}
 
 	var matches []*unstructured.Unstructured
