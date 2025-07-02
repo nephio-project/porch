@@ -159,7 +159,7 @@ BEGIN
 
     latest_revision := (SELECT MAX(revision) FROM package_revisions WHERE k8s_name_space = NEW.k8s_name_space AND package_k8s_name = NEW.package_k8s_name);
 
-    IF NEW.revision >= latest_revision THEN
+    IF NEW.revision >= latest_revision AND NEW.lifecycle = 'Published' THEN
         UPDATE package_revisions SET latest = FALSE WHERE k8s_name_space = NEW.k8s_name_space AND package_k8s_name = NEW.package_k8s_name AND latest = TRUE;
         NEW.latest = TRUE;
     END IF;
@@ -179,7 +179,7 @@ DECLARE
     latest_revision INTEGER;
 BEGIN
     latest_revision := (SELECT MAX(revision) FROM package_revisions WHERE k8s_name_space = OLD.k8s_name_space AND package_k8s_name = OLD.package_k8s_name);
-    UPDATE package_revisions SET latest = TRUE WHERE k8s_name_space = OLD.k8s_name_space AND package_k8s_name = OLD.package_k8s_name AND revision = latest_revision;
+    UPDATE package_revisions SET latest = TRUE WHERE k8s_name_space = OLD.k8s_name_space AND package_k8s_name = OLD.package_k8s_name AND revision = latest_revision AND (lifceycle = 'Published' OR lifceycle = 'DeletionProposed');
     RETURN NEW;
 END;
 $BODY$;
