@@ -141,7 +141,7 @@ BEGIN
             return NEW;
         END IF;
 
-        RAISE EXCEPTION 'create or update not allowed on column "lifceycle", change from % to % is illegal', OLD.lifecycle, NEW.lifecycle;
+        RAISE EXCEPTION 'create or update not allowed on column "lifecycle", change from % to % is illegal', OLD.lifecycle, NEW.lifecycle;
     END IF;
 
     IF OLD.revision != 0 THEN
@@ -179,7 +179,7 @@ DECLARE
     latest_revision INTEGER;
 BEGIN
     latest_revision := (SELECT MAX(revision) FROM package_revisions WHERE k8s_name_space = OLD.k8s_name_space AND package_k8s_name = OLD.package_k8s_name);
-    UPDATE package_revisions SET latest = TRUE WHERE k8s_name_space = OLD.k8s_name_space AND package_k8s_name = OLD.package_k8s_name AND revision = latest_revision AND (lifceycle = 'Published' OR lifceycle = 'DeletionProposed');
+    UPDATE package_revisions SET latest = TRUE WHERE k8s_name_space = OLD.k8s_name_space AND package_k8s_name = OLD.package_k8s_name AND revision = latest_revision AND (lifecycle = 'Published' OR lifecycle = 'DeletionProposed');
     RETURN NEW;
 END;
 $BODY$;
