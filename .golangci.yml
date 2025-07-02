@@ -3,7 +3,8 @@ run:
   go: "1.23"
 
 linters:
-  enable-all: true
+  enable:
+    - wrapcheck
   disable:
     - structcheck  # deprecated
     - varcheck     # deprecated  
