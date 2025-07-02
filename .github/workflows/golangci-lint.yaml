@@ -51,4 +51,4 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           version: v1.62.2
-          args: --timeout=10m --go=${{ env.GO_VERSION }} --exclude-generated=true
+          args: --timeout=10m --go=${{ env.GO_VERSION }}

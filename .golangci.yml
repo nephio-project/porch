@@ -1,49 +1,18 @@
 run:
   timeout: 10m
   go: "1.23.8"
+  skip-dirs:
+    - "third_party"
+    - "vendor"
+    - "generated"
 
 linters:
-  enable:
-    - wrapcheck
+  enable-all: true
   disable:
-    - typecheck
-    - gofmt
-    - goimports
-    - govet
-    - errcheck
-    - staticcheck
-    - gosimple
-    - unused
-    - ineffassign
-    - structcheck
-    - varcheck
-    - deadcode
-    - gocyclo
-    - gocognit
-    - goconst
-    - gocritic
-    - gosec
-    - gosimple
-    - govet
-    - ineffassign
-    - lll
-    - misspell
-    - nakedret
-    - noctx
-    - nolintlint
-    - prealloc
-    - rowserrcheck
-    - scopelint
-    - sqlclosecheck
-    - stylecheck
-    - thelper
-    - tparallel
-    - unconvert
-    - unparam
-    - unused
-    - varcheck
-    - whitespace
-    - wsl
+    - structcheck  # deprecated
+    - varcheck     # deprecated  
+    - deadcode     # deprecated
+    - scopelint    # deprecated
 
 linters-settings:
   wrapcheck:
