@@ -31,7 +31,7 @@ CREATE OR REPLACE FUNCTION check_immutable_repositories_columns() RETURNS trigge
 $BODY$
 BEGIN
     IF NEW.directory != OLD.directory OR NEW.default_ws_name != OLD.default_ws_name THEN
-        RAISE EXCEPTION 'update not allowed on immutable columns "directory" and "default_ws_name"';
+        RAISE EXCEPTION 'create or update not allowed on immutable columns "directory" and "default_ws_name"';
     END IF;
     RETURN NEW;
 END;
@@ -62,7 +62,7 @@ CREATE OR REPLACE FUNCTION check_immutable_packages_columns() RETURNS trigger
 $BODY$
 BEGIN
     IF NEW.repo_k8s_name != OLD.repo_k8s_name OR NEW.package_path != OLD.package_path THEN
-        RAISE EXCEPTION 'update not allowed on immutable columns "repo_k8s_name" and "package_path"';
+        RAISE EXCEPTION 'create or create or update not allowed on immutable columns "repo_k8s_name" and "package_path"';
     END IF;
     RETURN NEW;
 END;
@@ -99,17 +99,17 @@ DECLARE
     latest_revision INTEGER;
 BEGIN
     IF NEW.package_k8s_name != OLD.package_k8s_name THEN
-        RAISE EXCEPTION 'update not allowed on immutable column "package_k8s_name"';
+        RAISE EXCEPTION 'create or update not allowed on immutable column "package_k8s_name"';
     END IF;
 
     IF NEW.revision < -1 OR OLD.revision < -1 THEN
-        RAISE EXCEPTION 'update not allowed on column "revision", revisions of less than -1 are not allowed';
+        RAISE EXCEPTION 'create or update not allowed on column "revision", revisions of less than -1 are not allowed';
     END IF;
 
     -- Package revisions in external repositories with uncontrolled revisions must always be 'Published' and cannot have lifecycle changes
     IF NEW.revision = -1 OR OLD.revision = -1 THEN
         IF NOT (NEW.lifecycle = 'Published' OR NEW.lifecycle = 'DeletionProposed') OR NOT (OLD.lifecycle = 'Published' OR OLD.lifecycle = 'DeletionProposed') THEN
-            RAISE EXCEPTION 'update not allowed on column "lifecycle", lifecycle of % illegal, package revision has revision -1', NEW.lifecycle;
+            RAISE EXCEPTION 'create or update not allowed on column "lifecycle", lifecycle of % illegal, package revision has revision -1', NEW.lifecycle;
         ELSE
             return NEW;
         END IF;
@@ -118,18 +118,18 @@ BEGIN
     -- Package revisions with revision 0 are draft package revisions
     IF NEW.revision = 0 THEN
         IF OLD.revision != 0 THEN
-            RAISE EXCEPTION 'update not allowed on column "revision", update of revision from % to zero is illegal', OLD.revision;
+            RAISE EXCEPTION 'create or update not allowed on column "revision", update of revision from % to zero is illegal', OLD.revision;
         END IF;
 
         IF NOT (NEW.lifecycle = 'Draft' OR NEW.lifecycle = 'Proposed') OR NOT (OLD.lifecycle = 'Draft' OR OLD.lifecycle = 'Proposed') THEN
-            RAISE EXCEPTION 'update not allowed on column "revision", revision value of 0 is only allowed on when lifecycle is Draft or Proposed';
+            RAISE EXCEPTION 'create or update not allowed on column "revision", revision value of 0 is only allowed on when lifecycle is Draft or Proposed';
         END IF;
 
         return NEW;
     END IF;
 
     IF NEW.lifecycle = 'Draft' THEN
-        RAISE EXCEPTION 'update not allowed on column "revision", revision of % on drafts is illegal', NEW.revision;
+        RAISE EXCEPTION 'create or update not allowed on column "revision", revision of % on drafts is illegal', NEW.revision;
     END IF;
 
     IF NEW.revision = OLD.revision THEN
@@ -141,20 +141,20 @@ BEGIN
             return NEW;
         END IF;
 
-        RAISE EXCEPTION 'update not allowed on column "lifceycle", change from % to % is illegal', OLD.lifecycle, NEW.lifecycle;
+        RAISE EXCEPTION 'create or update not allowed on column "lifceycle", change from % to % is illegal', OLD.lifecycle, NEW.lifecycle;
     END IF;
 
     IF OLD.revision != 0 THEN
-        RAISE EXCEPTION 'update not allowed on column "revision", update of revision from % to % is illegal', OLD.revision, NEW.revision;
+        RAISE EXCEPTION 'create or update not allowed on column "revision", update of revision from % to % is illegal', OLD.revision, NEW.revision;
     END IF;
 
     IF OLD.lifecycle != 'Proposed' THEN
-        RAISE EXCEPTION 'update not allowed on column "revision", lifecycle % is not Proposed', OLD.lifecycle;
+        RAISE EXCEPTION 'create or update not allowed on column "revision", lifecycle % is not Proposed', OLD.lifecycle;
     END IF;
 
     count_revisions := (SELECT COUNT(revision) FROM package_revisions WHERE k8s_name_space = NEW.k8s_name_space AND package_k8s_name = NEW.package_k8s_name AND revision = NEW.revision);
     IF count_revisions > 0 THEN
-       RAISE EXCEPTION 'update not allowed on column "revision", revision % already exists', NEW.revision;
+       RAISE EXCEPTION 'create or update not allowed on column "revision", revision % already exists', NEW.revision;
     END IF;
 
     latest_revision := (SELECT MAX(revision) FROM package_revisions WHERE k8s_name_space = NEW.k8s_name_space AND package_k8s_name = NEW.package_k8s_name);

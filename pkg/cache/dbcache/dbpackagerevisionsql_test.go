@@ -85,7 +85,7 @@ func TestPackageRevisionDBWriteRead(t *testing.T) {
 		spec:      &v1alpha1.PackageRevisionSpec{},
 		updated:   time.Now().UTC(),
 		updatedBy: "porchuser2",
-		lifecycle: "Published",
+		lifecycle: "Proposed",
 		resources: map[string]string{"Hello.txt": "Hello", "Goodbye.txt": "Goodbye"},
 	}
 
@@ -100,7 +100,7 @@ func TestPackageRevisionDBWriteRead(t *testing.T) {
 	dbPRUpdate.resources = map[string]string{"Hello.txt": "Hello"}
 	pkgRevDBWriteReadTest(t, dbRepo, dbPkg, dbPR, dbPRUpdate)
 
-	dbPRUpdate.lifecycle = "DeletionProposed"
+	dbPRUpdate.lifecycle = "Draft"
 	dbPR.resources = map[string]string{"Hello.txt": "Hello", "Goodbye.txt": "Goodbye"}
 	dbPRUpdate.resources = map[string]string{"AAA": "ZZZ", "BBB": "YYY"}
 	pkgRevDBWriteReadTest(t, dbRepo, dbPkg, dbPR, dbPRUpdate)
@@ -134,15 +134,30 @@ func TestPackageRevisionLatest(t *testing.T) {
 		resources: map[string]string{},
 	}
 
-	_, err := pkgRevReadLatestPRFromDB(context.TODO(), dbPR1.pkgRevKey.PkgKey)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "not found in DB"))
+	latestPR, err := pkgRevReadLatestPRFromDB(context.TODO(), dbPR1.pkgRevKey.PkgKey)
+	assert.Nil(t, err)
+	assert.Nil(t, latestPR)
 
 	err = pkgRevWriteToDB(context.TODO(), &dbPR1)
 	assert.Nil(t, err)
 
-	latestPR, err := pkgRevReadLatestPRFromDB(context.TODO(), dbPR1.pkgRevKey.PkgKey)
+	// Latest PR is only set on published PRs
+	latestPR, err = pkgRevReadLatestPRFromDB(context.TODO(), dbPR1.pkgRevKey.PkgKey)
 	assert.Nil(t, err)
+	assert.Nil(t, latestPR)
+
+	dbPR1.lifecycle = "Proposed"
+	err = pkgRevUpdateDB(context.TODO(), &dbPR1, true)
+	assert.Nil(t, err)
+
+	dbPR1.pkgRevKey.Revision = 1
+	dbPR1.lifecycle = "Published"
+	err = pkgRevUpdateDB(context.TODO(), &dbPR1, true)
+	assert.Nil(t, err)
+
+	latestPR, err = pkgRevReadLatestPRFromDB(context.TODO(), dbPR1.pkgRevKey.PkgKey)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, latestPR.pkgRevKey.Revision)
 
 	resources, err := pkgRevResourcesReadFromDB(context.TODO(), latestPR.Key())
 	assert.Nil(t, err)
@@ -169,7 +184,7 @@ func TestPackageRevisionLatest(t *testing.T) {
 
 	latestPR, err = pkgRevReadLatestPRFromDB(context.TODO(), dbPR1.pkgRevKey.PkgKey)
 	assert.Nil(t, err)
-	assert.Nil(t, latestPR)
+	assert.Equal(t, 1, latestPR.pkgRevKey.Revision)
 
 	dbPR3 := dbPackageRevision{
 		pkgRevKey: repository.PackageRevisionKey{
@@ -188,6 +203,10 @@ func TestPackageRevisionLatest(t *testing.T) {
 	err = pkgRevWriteToDB(context.TODO(), &dbPR3)
 	assert.Nil(t, err)
 
+	latestPR, err = pkgRevReadLatestPRFromDB(context.TODO(), dbPR1.pkgRevKey.PkgKey)
+	assert.Nil(t, err)
+	assert.Equal(t, 10, latestPR.pkgRevKey.Revision)
+
 	dbPR4 := dbPackageRevision{
 		pkgRevKey: repository.PackageRevisionKey{
 			PkgKey:        dbPkg.Key(),
@@ -203,11 +222,20 @@ func TestPackageRevisionLatest(t *testing.T) {
 	}
 
 	err = pkgRevWriteToDB(context.TODO(), &dbPR4)
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "revision 10 already exists"))
+
+	latestPR, err = pkgRevReadLatestPRFromDB(context.TODO(), dbPR1.pkgRevKey.PkgKey)
+	assert.Nil(t, err)
+	assert.Equal(t, 10, latestPR.pkgRevKey.Revision)
+
+	dbPR4.pkgRevKey.Revision = 11
+	err = pkgRevWriteToDB(context.TODO(), &dbPR4)
 	assert.Nil(t, err)
 
-	_, err = pkgRevReadLatestPRFromDB(context.TODO(), dbPR1.pkgRevKey.PkgKey)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "multiple latest package revisions with revision 10"))
+	latestPR, err = pkgRevReadLatestPRFromDB(context.TODO(), dbPR1.pkgRevKey.PkgKey)
+	assert.Nil(t, err)
+	assert.Equal(t, 11, latestPR.pkgRevKey.Revision)
 
 	err = repoDeleteFromDB(context.TODO(), dbRepo.Key())
 	assert.Nil(t, err)
@@ -286,7 +314,7 @@ func TestPackageRevisionDBSchema(t *testing.T) {
 	dbPR := dbPackageRevision{}
 	err := pkgRevWriteToDB(context.TODO(), &dbPR)
 	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
+	assert.True(t, strings.Contains(err.Error(), "revision value of 0 is only allowed on when lifecycle is Draft or Proposed"))
 
 	dbPR.pkgRevKey = repository.PackageRevisionKey{
 		PkgKey: repository.PackageKey{
@@ -298,8 +326,9 @@ func TestPackageRevisionDBSchema(t *testing.T) {
 
 	err = pkgRevWriteToDB(context.TODO(), &dbPR)
 	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
+	assert.True(t, strings.Contains(err.Error(), "revision value of 0 is only allowed on when lifecycle is Draft or Proposed"))
 
+	dbPR.lifecycle = v1alpha1.PackageRevisionLifecycleDraft
 	dbPR.pkgRevKey.PkgKey.RepoKey.Name = "my-repo"
 	err = pkgRevWriteToDB(context.TODO(), &dbPR)
 	assert.NotNil(t, err)
@@ -313,17 +342,17 @@ func TestPackageRevisionDBSchema(t *testing.T) {
 	dbPR.pkgRevKey.WorkspaceName = "my-ws"
 	err = pkgRevWriteToDB(context.TODO(), &dbPR)
 	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
+	assert.True(t, strings.Contains(err.Error(), "violates foreign key constraint"))
 
 	dbPR.lifecycle = ""
 	err = pkgRevWriteToDB(context.TODO(), &dbPR)
 	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
+	assert.True(t, strings.Contains(err.Error(), "revision value of 0 is only allowed on when lifecycle is Draft or Proposed"))
 
 	dbPR.lifecycle = "StoneDead"
 	err = pkgRevWriteToDB(context.TODO(), &dbPR)
 	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
+	assert.True(t, strings.Contains(err.Error(), "revision value of 0 is only allowed on when lifecycle is Draft or Proposed"))
 
 	dbPR.lifecycle = "Draft"
 	err = pkgRevWriteToDB(context.TODO(), &dbPR)

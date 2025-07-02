@@ -215,10 +215,7 @@ func pkgRevReadLatestPRFromDB(ctx context.Context, pk repository.PackageKey) (*d
 			ON package_revisions.k8s_name_space=packages.k8s_name_space AND package_revisions.package_k8s_name=packages.k8s_name
 		 INNER JOIN repositories
 			ON packages.k8s_name_space=repositories.k8s_name_space AND packages.repo_k8s_name=repositories.k8s_name
-		WHERE packages.k8s_name_space=$1 AND packages.k8s_name=$2 AND package_revisions.revision=(
-			SELECT MAX(revision) FROM package_revisions
-				WHERE package_revisions.k8s_name_space=$1 AND package_revisions.package_k8S_name=$2
-			)
+		WHERE packages.k8s_name_space=$1 AND packages.k8s_name=$2 AND package_revisions.latest=TRUE
 		ORDER BY package_revisions.k8s_name_space, package_revisions.k8s_name
 	`
 
@@ -231,18 +228,11 @@ func pkgRevReadLatestPRFromDB(ctx context.Context, pk repository.PackageKey) (*d
 	case 1:
 		return latestPRList[0], nil
 	case 0:
-		err := fmt.Errorf("latest package revision for package %+v not found in DB", pk)
+		return nil, nil
+	default:
+		err := fmt.Errorf("multiple latest package revisions with revision %d for package %+v found in DB", latestPRList[0].pkgRevKey.Revision, pk)
 		klog.Warning(err)
 		return nil, err
-	default:
-		// Multiple drafts with a revision value of 0 are allowed, just return nil with no error
-		if latestPRList[0].pkgRevKey.Revision == 0 {
-			return nil, nil
-		} else {
-			err := fmt.Errorf("multiple latest package revisions with revision %d for package %+v found in DB", latestPRList[0].pkgRevKey.Revision, pk)
-			klog.Warning(err)
-			return nil, err
-		}
 	}
 }
 
