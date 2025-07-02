@@ -18,6 +18,8 @@ DROP TABLE IF EXISTS resources;
 DROP TABLE IF EXISTS package_revisions;
 DROP FUNCTION IF EXISTS check_package_revisions_columns;
 DROP TRIGGER IF EXISTS package_revisions_columns on package_revisions;
+DROP FUNCTION IF EXISTS check_package_revisions_delete;
+DROP TRIGGER IF EXISTS package_revisions_delete on package_revisions;
 
 DROP TABLE IF EXISTS packages;
 DROP FUNCTION IF EXISTS check_immutable_packages_columns;

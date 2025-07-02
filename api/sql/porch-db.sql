@@ -102,8 +102,6 @@ BEGIN
         RAISE EXCEPTION 'update not allowed on immutable column "package_k8s_name"';
     END IF;
 
-    RAISE WARNING 'here % % % %', OLD.k8s_name, NEW.k8s_name, OLD.package_k8s_name, NEW.package_k8s_name;
-
     IF NEW.revision < -1 OR OLD.revision < -1 THEN
         RAISE EXCEPTION 'update not allowed on column "revision", revisions of less than -1 are not allowed';
     END IF;
@@ -150,29 +148,20 @@ BEGIN
         RAISE EXCEPTION 'update not allowed on column "revision", update of revision from % to % is illegal', OLD.revision, NEW.revision;
     END IF;
 
-    RAISE WARNING 'Here 2';
-
     IF OLD.lifecycle != 'Proposed' THEN
         RAISE EXCEPTION 'update not allowed on column "revision", lifecycle % is not Proposed', OLD.lifecycle;
     END IF;
 
-    RAISE WARNING 'SELECT COUNT(revision) FROM package_revisions WHERE k8s_name_space = % AND k8s_name = % AND revision = %', NEW.k8s_name_space, NEW.k8s_name, NEW.revision;
-
     count_revisions := (SELECT COUNT(revision) FROM package_revisions WHERE k8s_name_space = NEW.k8s_name_space AND package_k8s_name = NEW.package_k8s_name AND revision = NEW.revision);
-    RAISE WARNING 'count_revisions %', count_revisions;
-
     IF count_revisions > 0 THEN
        RAISE EXCEPTION 'update not allowed on column "revision", revision % already exists', NEW.revision;
     END IF;
 
     latest_revision := (SELECT MAX(revision) FROM package_revisions WHERE k8s_name_space = NEW.k8s_name_space AND package_k8s_name = NEW.package_k8s_name);
-    RAISE WARNING 'latest_revision %', latest_revision;
 
     IF NEW.revision >= latest_revision THEN
-        RAISE WARNING 'Here 3';
         UPDATE package_revisions SET latest = FALSE WHERE k8s_name_space = NEW.k8s_name_space AND package_k8s_name = NEW.package_k8s_name AND latest = TRUE;
         NEW.latest = TRUE;
-        RAISE WARNING 'Here 4';
     END IF;
 
     RETURN NEW;
@@ -180,8 +169,24 @@ END;
 $BODY$;
 
 CREATE OR REPLACE TRIGGER package_revisions_columns
-   BEFORE UPDATE ON package_revisions FOR EACH ROW
+   BEFORE INSERT OR UPDATE ON package_revisions FOR EACH ROW
    EXECUTE PROCEDURE check_package_revisions_columns();
+
+CREATE OR REPLACE FUNCTION check_package_revisions_delete() RETURNS trigger
+    LANGUAGE plpgsql AS
+$BODY$
+DECLARE
+    latest_revision INTEGER;
+BEGIN
+    latest_revision := (SELECT MAX(revision) FROM package_revisions WHERE k8s_name_space = OLD.k8s_name_space AND package_k8s_name = OLD.package_k8s_name);
+    UPDATE package_revisions SET latest = TRUE WHERE k8s_name_space = OLD.k8s_name_space AND package_k8s_name = OLD.package_k8s_name AND revision = latest_revision;
+    RETURN NEW;
+END;
+$BODY$;
+
+CREATE OR REPLACE TRIGGER package_revisions_delete
+   AFTER DELETE ON package_revisions FOR EACH ROW
+   EXECUTE PROCEDURE check_package_revisions_delete();
 
 CREATE TABLE IF NOT EXISTS resources (
     k8s_name_space TEXT NOT NULL CHECK (k8s_name_space != ''),
