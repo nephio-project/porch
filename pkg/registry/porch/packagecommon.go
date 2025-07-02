@@ -114,16 +114,18 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter reposit
 		go func() {
 			for repo := range repoQueue {
 				listCtx := ctx
-				if r.ListTimeoutPerRepository == 0 {
-					var cancel context.CancelFunc
+				var cancel context.CancelFunc
+				if r.ListTimeoutPerRepository != 0 {
 					listCtx, cancel = context.WithTimeout(ctx, r.ListTimeoutPerRepository)
-					defer cancel()
 				}
 				revisions, err := r.cad.ListPackageRevisions(listCtx, repo, filter)
 				select {
 				case resultsCh <- pkgRevResult{Revisions: revisions, Err: err}:
 				case <-ctx.Done():
 					resultsCh <- pkgRevResult{Revisions: nil, Err: listCtx.Err()}
+				}
+				if cancel != nil {
+					cancel()
 				}
 			}
 		}()
@@ -280,7 +282,7 @@ func (r *packageCommon) getRepoPkgRev(ctx context.Context, name string) (reposit
 	}
 
 	var cancel context.CancelFunc
-	if r.ListTimeoutPerRepository == 0 {
+	if r.ListTimeoutPerRepository != 0 {
 		ctx, cancel = context.WithTimeout(ctx, r.ListTimeoutPerRepository)
 		defer cancel()
 	}
