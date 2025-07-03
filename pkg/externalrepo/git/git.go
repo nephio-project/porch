@@ -407,7 +407,7 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 				}
 				klog.Warningf("Error loading tagged package from ref %q: %s", ref.Name(), err)
 			}
-			if tagged != nil && filter.Matches(ctx, tagged) {
+			if tagged != nil {
 				result = append(result, tagged)
 			}
 		}
