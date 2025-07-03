@@ -174,9 +174,9 @@ func TestWatchPackages_CallsCallback(t *testing.T) {
 		return false
 	}}
 
-	filter := packageRevisionFilter{Namespace: "test-ns"}
+	filter := newPackageRevisionFilter().Namespace("test-ns")
 	ctx := context.TODO()
-	err := pc.watchPackages(ctx, filter, callback)
+	err := pc.watchPackages(ctx, *filter, callback)
 	if err != nil {
 		t.Fatalf("watchPackages returned error: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestWatchPackages_NoNamespace(t *testing.T) {
 		return false
 	}}
 
-	filter := packageRevisionFilter{}
+	filter := *newPackageRevisionFilter()
 	ctx := context.TODO() // No namespace set in context
 	err := pc.watchPackages(ctx, filter, callback)
 	if err != nil {
@@ -219,7 +219,7 @@ func TestWatchPackages_ErrorPath(t *testing.T) {
 		return false
 	}}
 
-	filter := packageRevisionFilter{}
+	filter := *newPackageRevisionFilter()
 	ctx := context.TODO()
 	err := pc.watchPackages(ctx, filter, callback)
 	if err == nil {
@@ -237,7 +237,7 @@ func TestWatchPackages_WithNamespaceFilteringWatcher(t *testing.T) {
 		return false
 	}}
 
-	filter := packageRevisionFilter{}
+	filter := *newPackageRevisionFilter()
 	ctx := context.TODO()
 	ctx = request.WithNamespace(ctx, "foo") // Set namespace in context
 

@@ -23,6 +23,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -59,11 +60,11 @@ const (
 
 // Commit message constants for different operations
 const (
-	commitMessageRendering = "Rendering package"
-	commitMessageEdit      = "Creating new revision by copying previous revision"
-	commitMessageInit      = "Creating new empty revision"
-	commitMessageClone     = "Creating new revision by cloning"
-	commitMessagePatch     = "Applying patch to package"
+	commitMessageRendering       = "Rendering package"
+	commitMessageEdit            = "Creating new revision by copying previous revision"
+	commitMessageInit            = "Creating new empty revision"
+	commitMessageClone           = "Creating new revision by cloning"
+	commitMessagePatch           = "Applying patch to package"
 	commitMessageApproveTemplate = "Approving package revision %s/%d"
 )
 
@@ -397,7 +398,7 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 				}
 				klog.Warningf("Error loading tagged package from ref %q: %s", ref.Name(), err)
 			}
-			if tagged != nil && filter.Matches(ctx, tagged) {
+			if tagged != nil {
 				result = append(result, tagged)
 			}
 		}
@@ -412,18 +413,14 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 			}
 			klog.Warningf("Error discovering finalized packages: %s", err)
 		}
-		for _, p := range mainpkgs {
-			if filter.Matches(ctx, p) {
-				result = append(result, p)
-			}
-		}
+		result = append(result, mainpkgs...)
 	}
 
-	for _, p := range drafts {
-		if filter.Matches(ctx, p) {
-			result = append(result, p)
-		}
-	}
+	result = append(result, drafts...)
+
+	result = slices.DeleteFunc(result, func(p *gitPackageRevision) bool {
+		return !filter.Matches(ctx, p)
+	})
 
 	return result, nil
 }
