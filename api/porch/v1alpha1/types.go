@@ -39,6 +39,26 @@ const (
 	LatestPackageRevisionValue = "true"
 )
 
+type pkgRevSelectable struct {
+	Name          string
+	Namespace     string
+	Revision      string
+	PackageName   string
+	Repository    string
+	WorkspaceName string
+	Lifecycle     string
+}
+
+var PackageRevisionSelectableFields = pkgRevSelectable{
+	Name:          "metadata.name",
+	Namespace:     "metadata.namespace",
+	Revision:      "spec.revision",
+	PackageName:   "spec.packageName",
+	Repository:    "spec.repository",
+	WorkspaceName: "spec.workspaceName",
+	Lifecycle:     "spec.lifecycle",
+}
+
 // PackageRevisionList
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type PackageRevisionList struct {

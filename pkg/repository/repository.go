@@ -24,7 +24,11 @@ import (
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apiserver/pkg/storage"
 )
 
 // TODO: 	"sigs.k8s.io/kustomize/kyaml/filesys" FileSystem?
@@ -253,10 +257,19 @@ type ListPackageRevisionFilter struct {
 
 	// Lifecycle matches the spec.lifecycle of the package
 	Lifecycle v1alpha1.PackageRevisionLifecycle
+
+	Predicate *storage.SelectionPredicate
 }
 
 // Matches returns true if the provided PackageRevision satisfies the conditions in the filter.
 func (f *ListPackageRevisionFilter) Matches(ctx context.Context, p PackageRevision) bool {
+	if f.Predicate != nil && f.Predicate.Field != nil {
+		f.ParseAttrFunc(p)
+		if matches, _ := f.Predicate.Matches(Wrap(&p)); !matches {
+			return false
+		}
+	}
+
 	if !f.Key.Matches(p.Key()) {
 		return false
 	}
@@ -270,6 +283,23 @@ func (f *ListPackageRevisionFilter) Matches(ctx context.Context, p PackageRevisi
 	}
 
 	return true
+}
+
+// pkgRevGetAttrs returns fields of a given PackageRevision object for filtering purposes.
+// The fields are returned in the form of
+func (f *ListPackageRevisionFilter) ParseAttrFunc(p PackageRevision) {
+	fieldSet := fields.Set{}
+
+	for _, requirement := range f.Predicate.Field.Requirements() {
+		filteredField := requirement.Field
+		if mappingFunc, fieldSelectable := RepoPrFilterMappings[filteredField]; fieldSelectable {
+			fieldSet[filteredField] = mappingFunc(p)
+		}
+	}
+
+	f.Predicate.GetAttrs = func(obj runtime.Object) (labels.Set, fields.Set, error) {
+		return nil, fieldSet, nil
+	}
 }
 
 // ListPackageFilter is a predicate for filtering Package objects;

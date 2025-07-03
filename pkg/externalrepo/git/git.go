@@ -23,6 +23,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -398,7 +399,7 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 				}
 				klog.Warningf("Error loading tagged package from ref %q: %s", ref.Name(), err)
 			}
-			if tagged != nil && filter.Matches(ctx, tagged) {
+			if tagged != nil {
 				result = append(result, tagged)
 			}
 		}
@@ -413,17 +414,14 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 			}
 			klog.Warningf("Error discovering finalized packages: %s", err)
 		}
-		for _, p := range mainpkgs {
-			if filter.Matches(ctx, p) {
-				result = append(result, p)
-			}
-		}
+		result = append(result, mainpkgs...)
 	}
-	for _, p := range drafts {
-		if filter.Matches(ctx, p) {
-			result = append(result, p)
-		}
-	}
+
+	result = append(result, drafts...)
+
+	result = slices.DeleteFunc(result, func(p *gitPackageRevision) bool {
+		return !filter.Matches(ctx, p)
+	})
 
 	return result, nil
 }
