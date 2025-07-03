@@ -24,8 +24,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+type prFieldMappingFunc func(p PackageRevision) string
+
 var (
-	RepoPrFilterMappings = map[string](func(PackageRevision) string){
+	RepoPrFilterMappings = map[string]prFieldMappingFunc{
 		api.PackageRevisionSelectableFields.Name: func(p PackageRevision) string {
 			return p.KubeObjectName()
 		},
