@@ -266,6 +266,14 @@ type gitRepository struct {
 var _ GitRepository = &gitRepository{}
 var _ repository.Repository = &gitRepository{}
 
+func (r *gitRepository) KubeObjectNamespace() string {
+	return r.Key().Namespace
+}
+
+func (r *gitRepository) KubeObjectName() string {
+	return r.Key().Name
+}
+
 func (r *gitRepository) Key() repository.RepositoryKey {
 	return r.key
 }
@@ -388,7 +396,7 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 				klog.Warningf("no package draft found for ref %v", ref)
 			}
 		case isTagInLocalRepo(ref.Name()):
-			klog.Infof("Loading tag from %q", ref.Name())
+			klog.V(2).Infof("Loading tag from %q", ref.Name())
 			tagged, err := r.loadTaggedPackage(ctx, ref)
 			if err != nil {
 				if tagged == nil {
@@ -442,12 +450,13 @@ func (r *gitRepository) CreatePackageRevisionDraft(ctx context.Context, obj *v1a
 		return nil, fmt.Errorf("error when resolving target branch for the package: %w", err)
 	}
 
-	if err := util.ValidPkgRevObjName(r.Key().Name, r.Key().Path, obj.Spec.PackageName, obj.Spec.WorkspaceName); err != nil {
+	pkgKey := repository.FromFullPathname(r.Key(), obj.Spec.PackageName)
+	if err := util.ValidPkgRevObjName(r.Key().Name, pkgKey.Path, pkgKey.Package, obj.Spec.WorkspaceName); err != nil {
 		return nil, fmt.Errorf("failed to create packagerevision: %w", err)
 	}
 
 	draftKey := repository.PackageRevisionKey{
-		PkgKey:        repository.FromFullPathname(r.Key(), obj.Spec.PackageName),
+		PkgKey:        pkgKey,
 		WorkspaceName: obj.Spec.WorkspaceName,
 	}
 

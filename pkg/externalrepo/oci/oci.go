@@ -39,8 +39,7 @@ import (
 )
 
 type ociRepository struct {
-	name       string
-	namespace  string
+	key        repository.RepositoryKey
 	spec       configapi.OciRepository
 	deployment bool
 
@@ -48,6 +47,18 @@ type ociRepository struct {
 }
 
 var _ repository.Repository = &ociRepository{}
+
+func (r *ociRepository) KubeObjectNamespace() string {
+	return r.Key().Namespace
+}
+
+func (r *ociRepository) KubeObjectName() string {
+	return r.Key().Name
+}
+
+func (r *ociRepository) Key() repository.RepositoryKey {
+	return r.key
+}
 
 func (r *ociRepository) Close(context.Context) error {
 	return nil
@@ -247,10 +258,6 @@ func (r *ociRepository) Refresh(_ context.Context) error {
 	return nil
 }
 
-func (r *ociRepository) Key() string {
-	return "oci://" + r.spec.Registry
-}
-
 // ToMainPackageRevision implements repository.PackageRevision.
 func (p *ociPackageRevision) ToMainPackageRevision(context.Context) repository.PackageRevision {
 	panic("unimplemented")
@@ -277,11 +284,7 @@ func (c *ociPackageRevision) KubeObjectName() string {
 }
 
 func (c *ociPackageRevision) KubeObjectNamespace() string {
-	return c.Key().PkgKey.RepoKey.Namespace
-}
-
-func (p *ociPackageRevision) SetRepository(repo repository.Repository) {
-	p.parent = repo.(*ociRepository)
+	return c.Key().RKey().Namespace
 }
 
 func (c *ociPackageRevision) UID() types.UID {
@@ -302,8 +305,8 @@ func (p *ociPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 			APIVersion: v1alpha1.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
+			Namespace: p.KubeObjectNamespace(),
 			Name:      p.KubeObjectName(),
-			Namespace: p.parent.namespace,
 			CreationTimestamp: metav1.Time{
 				Time: p.metadata.CreationTimestamp.Time,
 			},
@@ -314,7 +317,7 @@ func (p *ociPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 			PackageName:    key.PkgKey.Package,
 			WorkspaceName:  key.WorkspaceName,
 			Revision:       key.Revision,
-			RepositoryName: key.PkgKey.RepoKey.Name,
+			RepositoryName: key.RKey().Name,
 
 			Resources: resources.Contents,
 		},
@@ -346,8 +349,8 @@ func (p *ociPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 			APIVersion: v1alpha1.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
+			Namespace: p.KubeObjectName(),
 			Name:      p.KubeObjectName(),
-			Namespace: p.parent.namespace,
 			CreationTimestamp: metav1.Time{
 				Time: p.metadata.CreationTimestamp.Time,
 			},
@@ -356,7 +359,7 @@ func (p *ociPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 		},
 		Spec: v1alpha1.PackageRevisionSpec{
 			PackageName:    key.PkgKey.Package,
-			RepositoryName: key.PkgKey.RepoKey.Name,
+			RepositoryName: key.RKey().Name,
 			Revision:       key.Revision,
 			WorkspaceName:  key.WorkspaceName,
 

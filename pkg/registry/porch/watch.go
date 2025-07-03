@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2024-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -92,14 +92,14 @@ func (w *watcher) ResultChan() <-chan watch.Event {
 }
 
 type packageReader interface {
-	watchPackages(ctx context.Context, filter packageRevisionFilter, callback engine.ObjectWatcher) error
-	listPackageRevisions(ctx context.Context, filter packageRevisionFilter, selector labels.Selector, callback func(ctx context.Context, p repository.PackageRevision) error) error
+	watchPackages(ctx context.Context, filter repository.ListPackageRevisionFilter, callback engine.ObjectWatcher) error
+	listPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter, selector labels.Selector, callback func(ctx context.Context, p repository.PackageRevision) error) error
 }
 
 // listAndWatch implements watch by doing a list, then sending any observed changes.
 // This is not a compliant implementation of watch, but it is a good-enough start for most controllers.
 // One trick is that we start the watch _before_ we perform the list, so we don't miss changes that happen immediately after the list.
-func (w *watcher) listAndWatch(ctx context.Context, r packageReader, filter packageRevisionFilter, selector labels.Selector) {
+func (w *watcher) listAndWatch(ctx context.Context, r packageReader, filter repository.ListPackageRevisionFilter, selector labels.Selector) {
 	if err := w.listAndWatchInner(ctx, r, filter, selector); err != nil {
 		// TODO: We need to populate the object on this error
 		klog.Warningf("sending error to watch stream: %v", err)
@@ -112,7 +112,7 @@ func (w *watcher) listAndWatch(ctx context.Context, r packageReader, filter pack
 	close(w.resultChan)
 }
 
-func (w *watcher) listAndWatchInner(ctx context.Context, r packageReader, filter packageRevisionFilter, selector labels.Selector) error {
+func (w *watcher) listAndWatchInner(ctx context.Context, r packageReader, filter repository.ListPackageRevisionFilter, selector labels.Selector) error {
 	errorResult := make(chan error, 4)
 
 	var backlog []watch.Event

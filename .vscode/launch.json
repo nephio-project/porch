@@ -39,6 +39,33 @@
             // "buildFlags": "-race"    // Enables Race Condition Monitoring
         },
         {
+            "name": "Launch Server with DB cache",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/porch/main.go",
+            "args": [
+                "--secure-port=4443",
+                "--kubeconfig=${env:KUBECONFIG}",
+                "--cache-directory=${workspaceFolder}/.cache",
+                "--function-runner=${env:FUNCTION_RUNNER_IP}:9445",
+                "--repo-sync-frequency=60s",
+                "--cache-type=db",
+            ],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "CERT_STORAGE_DIR": "${workspaceFolder}/.build/pki/tmp",
+                "WEBHOOK_HOST": "localhost",
+                "GOOGLE_API_GO_EXPERIMENTAL_DISABLE_NEW_AUTH_LIB": "true",
+                "DB_DRIVER": "pgx",
+                "DB_HOST": "172.18.255.202",
+                "DB_PORT": "5432",
+                "DB_NAME": "porch",
+                "DB_USER": "porch",
+                "DB_PASSWORD": "porch",
+            }
+        },
+        {
             "name": "Launch Controllers",
             "type": "go",
             "request": "launch",
