@@ -158,6 +158,42 @@ info:
 	assert.Nil(t, err)
 	assert.Equal(t, v1alpha1.PackageRevisionLifecycleDeletionProposed, prDef.Spec.Lifecycle)
 
+	prResources.Spec.Resources["Kptfile"] = `apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: my-kptfile
+  annotations:
+    config.kubernetes.io/local-config: "true"
+info:
+  site: https://nephio.org
+  description: some kpt package.
+upstream:
+  type: git
+  git:
+    repo: http://172.18.255.200:3000/nephio/rpkg-update.git
+    directory: basens-edit
+    ref: drafts/basens-edit/update-1
+upstreamLock:
+  type: git
+  git:
+    repo: http://172.18.255.200:3000/nephio/rpkg-update.git
+    directory: basens-edit
+    ref: drafts/basens-edit/update-1
+    commit: 960e1b80b5245874e46ba2b3090b27deaa61eb9a`
+
+	newDBPR2 := dbPR.(*dbPackageRevision)
+
+	err = newDBPR2.UpdateResources(ctx, prResources, &v1alpha1.Task{})
+	assert.Nil(t, err)
+
+	dbPR, err = testRepo.ClosePackageRevisionDraft(ctx, dbPR.(repository.PackageRevisionDraft), 0)
+	assert.Nil(t, err)
+	assert.NotNil(t, dbPR)
+
+	prDef, err = dbPR.GetPackageRevision(ctx)
+	assert.Nil(t, err)
+	assert.Equal(t, "basens-edit", prDef.Status.UpstreamLock.Git.Directory)
+
 	err = testRepo.DeletePackageRevision(ctx, dbPR)
 	assert.Nil(t, err)
 
