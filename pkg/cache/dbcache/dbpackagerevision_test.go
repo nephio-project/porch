@@ -90,7 +90,7 @@ func TestDBPackageRevision(t *testing.T) {
 	assert.Equal(t, v1alpha1.PackageRevisionLifecycleDraft, dbPR.Lifecycle(ctx))
 
 	newPrUp, newPrUpLock, err := dbPR.GetUpstreamLock(ctx)
-	assert.Nil(t, err)
+	assert.NotNil(t, err)
 	assert.Nil(t, newPrUp.Git)
 	assert.Nil(t, newPrUpLock.Git)
 

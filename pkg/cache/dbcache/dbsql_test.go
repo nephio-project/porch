@@ -24,13 +24,13 @@ func TestUtil(t *testing.T) {
 	dbSQL := dbSQL{}
 
 	err := dbSQL.Close()
-	assert.Equal(t, "database is not initialized", err.Error())
+	assert.Equal(t, "cannot close database, database is not initialized", err.Error())
 
 	_, err = dbSQL.Exec("")
-	assert.Equal(t, "database is not initialized", err.Error())
+	assert.Equal(t, "cannot execute query on database, database is not initialized", err.Error())
 
 	_, err = dbSQL.Query("")
-	assert.Equal(t, "database is not initialized", err.Error())
+	assert.Equal(t, "cannot query database, database is not initialized", err.Error())
 
 	nilRow := dbSQL.QueryRow("")
 	assert.Nil(t, nilRow)
