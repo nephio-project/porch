@@ -95,6 +95,11 @@ CREATE OR REPLACE FUNCTION check_package_revisions_columns() RETURNS trigger
     LANGUAGE plpgsql AS
 $BODY$
 DECLARE
+    lifecycle_draft             CONSTANT VARCHAR(5)  := 'Draft';
+    lifecycle_proposed          CONSTANT VARCHAR(8)  := 'Proposed';
+    lifecycle_published         CONSTANT VARCHAR(9)  := 'Published';
+    lifecycle_deletion_proposed CONSTANT VARCHAR(16) := 'DeletionProposed';
+
     count_revisions INTEGER;
     latest_revision INTEGER;
 BEGIN
@@ -108,7 +113,7 @@ BEGIN
 
     -- Package revisions in external repositories with uncontrolled revisions must always be 'Published' and cannot have lifecycle changes
     IF NEW.revision = -1 OR OLD.revision = -1 THEN
-        IF NOT (NEW.lifecycle = 'Published' OR NEW.lifecycle = 'DeletionProposed') OR NOT (OLD.lifecycle = 'Published' OR OLD.lifecycle = 'DeletionProposed') THEN
+        IF NOT (NEW.lifecycle = lifecycle_published OR NEW.lifecycle = lifecycle_deletion_proposed) OR NOT (OLD.lifecycle = lifecycle_published OR OLD.lifecycle = lifecycle_deletion_proposed) THEN
             RAISE EXCEPTION 'create or update not allowed on column "lifecycle", lifecycle of % illegal, package revision has revision -1', NEW.lifecycle;
         ELSE
             return NEW;
@@ -121,14 +126,14 @@ BEGIN
             RAISE EXCEPTION 'create or update not allowed on column "revision", update of revision from % to zero is illegal', OLD.revision;
         END IF;
 
-        IF NOT (NEW.lifecycle = 'Draft' OR NEW.lifecycle = 'Proposed') OR NOT (OLD.lifecycle = 'Draft' OR OLD.lifecycle = 'Proposed') THEN
+        IF NOT (NEW.lifecycle = lifecycle_draft OR NEW.lifecycle = lifecycle_proposed) OR NOT (OLD.lifecycle = lifecycle_draft OR OLD.lifecycle = lifecycle_proposed) THEN
             RAISE EXCEPTION 'create or update not allowed on column "revision", revision value of 0 is only allowed on when lifecycle is Draft or Proposed';
         END IF;
 
         return NEW;
     END IF;
 
-    IF NEW.lifecycle = 'Draft' THEN
+    IF NEW.lifecycle = lifecycle_draft THEN
         RAISE EXCEPTION 'create or update not allowed on column "revision", revision of % on drafts is illegal', NEW.revision;
     END IF;
 
@@ -137,7 +142,7 @@ BEGIN
             return NEW;
         END IF;
 
-        IF NEW.lifecycle = 'Published' OR NEW.lifecycle = 'DeletionProposed' THEN
+        IF NEW.lifecycle = lifecycle_published OR NEW.lifecycle = lifecycle_deletion_proposed THEN
             return NEW;
         END IF;
 
@@ -148,7 +153,7 @@ BEGIN
         RAISE EXCEPTION 'create or update not allowed on column "revision", update of revision from % to % is illegal', OLD.revision, NEW.revision;
     END IF;
 
-    IF OLD.lifecycle != 'Proposed' THEN
+    IF OLD.lifecycle != lifecycle_proposed THEN
         RAISE EXCEPTION 'create or update not allowed on column "revision", lifecycle % is not Proposed', OLD.lifecycle;
     END IF;
 
@@ -159,8 +164,8 @@ BEGIN
 
     latest_revision := (SELECT MAX(revision) FROM package_revisions WHERE k8s_name_space = NEW.k8s_name_space AND package_k8s_name = NEW.package_k8s_name);
 
-    IF NEW.revision >= latest_revision AND NEW.lifecycle = 'Published' THEN
-        UPDATE package_revisions SET latest = FALSE WHERE k8s_name_space = NEW.k8s_name_space AND package_k8s_name = NEW.package_k8s_name AND latest = TRUE;
+    IF NEW.revision >= latest_revision AND NEW.lifecycle = lifecycle_published THEN
+        UPDATE package_revisions SET latest = FALSE WHERE k8s_name_space = NEW.k8s_name_space AND package_k8s_name = NEW.package_k8s_name AND latest;
         NEW.latest = TRUE;
     END IF;
 
@@ -176,10 +181,13 @@ CREATE OR REPLACE FUNCTION check_package_revisions_delete() RETURNS trigger
     LANGUAGE plpgsql AS
 $BODY$
 DECLARE
+    lifecycle_published         CONSTANT VARCHAR(9)  := 'Published';
+    lifecycle_deletion_proposed CONSTANT VARCHAR(16) := 'DeletionProposed';
+
     latest_revision INTEGER;
 BEGIN
     latest_revision := (SELECT MAX(revision) FROM package_revisions WHERE k8s_name_space = OLD.k8s_name_space AND package_k8s_name = OLD.package_k8s_name);
-    UPDATE package_revisions SET latest = TRUE WHERE k8s_name_space = OLD.k8s_name_space AND package_k8s_name = OLD.package_k8s_name AND revision = latest_revision AND (lifecycle = 'Published' OR lifecycle = 'DeletionProposed');
+    UPDATE package_revisions SET latest = TRUE WHERE k8s_name_space = OLD.k8s_name_space AND package_k8s_name = OLD.package_k8s_name AND revision = latest_revision AND (lifecycle = lifecycle_published OR lifecycle = lifecycle_deletion_proposed);
     RETURN NEW;
 END;
 $BODY$;

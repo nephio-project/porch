@@ -77,7 +77,7 @@ func (s *repositorySync) syncForever(ctx context.Context, repoSyncFrequency time
 }
 
 func (s *repositorySync) syncOnce(ctx context.Context) (repositorySyncStats, error) {
-	ctx, span := tracer.Start(ctx, "[START]::Repository::syncOnce", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "Repository::syncOnce", trace.WithAttributes())
 	defer span.End()
 
 	if !s.mutex.TryLock() {
@@ -103,7 +103,7 @@ func (s *repositorySync) getLastSyncError() error {
 }
 
 func (s *repositorySync) sync(ctx context.Context) (repositorySyncStats, error) {
-	_, span := tracer.Start(ctx, "[START]::Repository::syncOnce", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "Repository::sync", trace.WithAttributes())
 	defer span.End()
 
 	cachedPrMap, err := s.getCachedPRMap(ctx)
@@ -180,7 +180,7 @@ func (s *repositorySync) getExternalPRMap(ctx context.Context) (map[repository.P
 }
 
 func (s *repositorySync) comparePRMaps(ctx context.Context, leftMap, rightMap map[repository.PackageRevisionKey]repository.PackageRevision) (leftOnly, both, rightOnly []repository.PackageRevisionKey) {
-	_, span := tracer.Start(ctx, "[START]::Repository::syncOnce", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "Repository::comparePRMaps", trace.WithAttributes())
 	defer span.End()
 
 	var inLeftOnly, inBoth, inRightOnly []repository.PackageRevisionKey

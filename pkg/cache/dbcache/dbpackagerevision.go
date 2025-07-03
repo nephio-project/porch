@@ -21,12 +21,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/pkg/engine"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
+	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -136,11 +138,28 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 	_, span := tracer.Start(ctx, "dbPackageRevision::GetPackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	lockCopy := &porchapi.UpstreamLock{}
-
 	readPr, err := pkgRevReadFromDB(ctx, pr.Key(), false)
 	if err != nil {
 		return nil, fmt.Errorf("package revision read on DB failed %+v, %q", pr.Key(), err)
+	}
+
+	_, lock, _ := pr.GetUpstreamLock(ctx)
+	lockCopy := &porchapi.UpstreamLock{}
+
+	// TODO: Comment copied from pkg/externalrepo/git/package.go
+	// Use kpt definition of UpstreamLock in the package revision status
+	// when https://github.com/GoogleContainerTools/kpt/issues/3297 is complete.
+	// Until then, we have to translate from one type to another.
+	if lock.Git != nil {
+		lockCopy = &v1alpha1.UpstreamLock{
+			Type: v1alpha1.OriginType(lock.Type),
+			Git: &v1alpha1.GitLock{
+				Repo:      lock.Git.Repo,
+				Directory: lock.Git.Directory,
+				Commit:    lock.Git.Commit,
+				Ref:       lock.Git.Ref,
+			},
+		}
 	}
 
 	kf, _ := readPr.GetKptfile(ctx)
@@ -253,8 +272,17 @@ func (pr *dbPackageRevision) GetResources(ctx context.Context) (*porchapi.Packag
 	}, nil
 }
 
-func (pr *dbPackageRevision) GetUpstreamLock(context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error) {
-	return kptfile.Upstream{}, kptfile.UpstreamLock{}, nil
+func (pr *dbPackageRevision) GetUpstreamLock(ctx context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error) {
+	kf, err := pr.GetKptfile(ctx)
+	if err != nil {
+		return kptfile.Upstream{}, kptfile.UpstreamLock{}, fmt.Errorf("cannot determine package lock; cannot retrieve resources: %w", err)
+	}
+
+	if kf.Upstream == nil || kf.UpstreamLock == nil || kf.Upstream.Git == nil {
+		return kptfile.Upstream{}, kptfile.UpstreamLock{}, nil
+	}
+
+	return *kf.Upstream, *kf.UpstreamLock, nil
 }
 
 func (pr *dbPackageRevision) ToMainPackageRevision(ctx context.Context) repository.PackageRevision {
@@ -293,7 +321,17 @@ func (pr *dbPackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, e
 }
 
 func (pr *dbPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, error) {
-	return kptfile.Upstream{}, kptfile.UpstreamLock{}, nil
+	if porchapi.LifecycleIsPublished(pr.lifecycle) {
+		externalPr, err := pr.repo.getExternalPr(context.Background(), pr.Key())
+		if err != nil {
+			return kptfile.Upstream{}, kptfile.UpstreamLock{},
+				pkgerrors.Wrapf(err, "dbPackageRevision:GetLock: getting loc of %+v failed, could not find package revision on external repository", pr.Key())
+		}
+
+		return externalPr.GetLock()
+	} else {
+		return kptfile.Upstream{}, kptfile.UpstreamLock{}, nil
+	}
 }
 
 func (pr *dbPackageRevision) ResourceVersion() string {
@@ -304,14 +342,14 @@ func (pr *dbPackageRevision) Delete(ctx context.Context, deleteExternal bool) er
 	_, span := tracer.Start(ctx, "dbPackageRevision::Delete", trace.WithAttributes())
 	defer span.End()
 
-	if deleteExternal && (pr.lifecycle == porchapi.PackageRevisionLifecyclePublished || pr.lifecycle == porchapi.PackageRevisionLifecycleDeletionProposed) {
+	if deleteExternal && porchapi.LifecycleIsPublished(pr.lifecycle) {
 		externalPr, err := pr.repo.getExternalPr(ctx, pr.Key())
 		if err != nil {
-			return err
+			return pkgerrors.Wrapf(err, "dbPackageRevision:Delete: deletion of %+v failed, could not find package revision on external repository", pr.Key())
 		}
 
 		if err := pr.repo.externalRepo.DeletePackageRevision(ctx, externalPr); err != nil {
-			klog.Warningf("dbPackage:DeletePackageRevision: deletion of %+v failed on external repository %q", pr.Key(), err)
+			klog.Warningf("dbPackageRevision:Delete: deletion of %+v failed on external repository %q", pr.Key(), err)
 			return err
 		}
 	}

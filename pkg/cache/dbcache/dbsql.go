@@ -36,7 +36,7 @@ func (ds *dbSQL) Close() error {
 	if ds.db != nil {
 		return ds.db.Close()
 	} else {
-		return fmt.Errorf("database is not initialized")
+		return fmt.Errorf("cannot close database, database is not initialized")
 	}
 }
 
@@ -44,7 +44,7 @@ func (ds *dbSQL) Exec(query string, args ...any) (sql.Result, error) {
 	if ds.db != nil {
 		return ds.db.Exec(query, args...)
 	} else {
-		return nil, fmt.Errorf("database is not initialized")
+		return nil, fmt.Errorf("cannot execute query on database, database is not initialized")
 	}
 }
 
@@ -52,7 +52,7 @@ func (ds *dbSQL) Query(query string, args ...any) (*sql.Rows, error) {
 	if ds.db != nil {
 		return ds.db.Query(query, args...)
 	} else {
-		return nil, fmt.Errorf("database is not initialized")
+		return nil, fmt.Errorf("cannot query database, database is not initialized")
 	}
 }
 
