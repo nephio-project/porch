@@ -21,38 +21,40 @@ import (
 
 	v1 "github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/api/kptfile/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/kustomize/kyaml/kio"
+	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
 type KubeObjects []*KubeObject
 
-func (o KubeObjects) Len() int      { return len(o) }
-func (o KubeObjects) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
-func (o KubeObjects) Less(i, j int) bool {
-	idi := o[i].resourceIdentifier()
-	idj := o[j].resourceIdentifier()
+func (kos KubeObjects) Len() int      { return len(kos) }
+func (kos KubeObjects) Swap(i, j int) { kos[i], kos[j] = kos[j], kos[i] }
+func (kos KubeObjects) Less(i, j int) bool {
+	idi := kos[i].resourceIdentifier()
+	idj := kos[j].resourceIdentifier()
 	idStrI := fmt.Sprintf("%s %s %s %s", idi.GetAPIVersion(), idi.GetKind(), idi.GetNamespace(), idi.GetName())
 	idStrJ := fmt.Sprintf("%s %s %s %s", idj.GetAPIVersion(), idj.GetKind(), idj.GetNamespace(), idj.GetName())
 	return idStrI < idStrJ
 }
 
-func (o KubeObjects) String() string {
+func (kos KubeObjects) String() string {
 	var elems []string
-	for _, obj := range o {
+	for _, obj := range kos {
 		elems = append(elems, strings.TrimSpace(obj.String()))
 	}
 	return strings.Join(elems, "\n---\n")
 }
 
 // EnsureSingleItem checks if KubeObjects contains exactly one item and returns it, or an error if it doesn't.
-func (o KubeObjects) EnsureSingleItem() (*KubeObject, error) {
-	if len(o) == 0 || len(o) > 1 {
-		return nil, fmt.Errorf("%v objects found, but exactly 1 is expected", len(o))
+func (kos KubeObjects) EnsureSingleItem() (*KubeObject, error) {
+	if len(kos) == 0 || len(kos) > 1 {
+		return nil, fmt.Errorf("%v objects found, but exactly 1 is expected", len(kos))
 	}
-	return o[0], nil
+	return kos[0], nil
 }
 
-func (o KubeObjects) EnsureSingleItemAs(out any) error {
-	obj, err := o.EnsureSingleItem()
+func (kos KubeObjects) EnsureSingleItemAs(out any) error {
+	obj, err := kos.EnsureSingleItem()
 	if err != nil {
 		return err
 	}
@@ -62,19 +64,19 @@ func (o KubeObjects) EnsureSingleItemAs(out any) error {
 // Upsert updates or insert the given KubeObject into the list
 // If the list contains an object with the same (Group, Version, Kind, Namespace, Name), then Upsert replaces it with `newObj`,
 // otherwise it appends `newObj` to the list
-func (objs *KubeObjects) Upsert(newObj *KubeObject) {
+func (kos *KubeObjects) Upsert(newObj *KubeObject) {
 
-	for i, kobj := range *objs {
+	for i, kobj := range *kos {
 		if newObj.HasSameId(kobj) {
-			(*objs)[i] = newObj
+			(*kos)[i] = newObj
 			return
 		}
 	}
-	*objs = append(*objs, newObj)
+	*kos = append(*kos, newObj)
 }
 
 // UpsertTypedObject attempts to convert `newObj` to a KubeObject and then calls Upsert().
-func (objs *KubeObjects) UpsertTypedObject(newObj any) error {
+func (kos *KubeObjects) UpsertTypedObject(newObj any) error {
 	if newObj == nil {
 		return fmt.Errorf("obj is nil")
 	}
@@ -84,14 +86,14 @@ func (objs *KubeObjects) UpsertTypedObject(newObj any) error {
 		return err
 	}
 
-	objs.Upsert(newKubeObj)
+	kos.Upsert(newKubeObj)
 	return nil
 }
 
 // Where will return the subset of objects in KubeObjects such that f(object) returns 'true'.
-func (o KubeObjects) Where(f func(*KubeObject) bool) KubeObjects {
+func (kos KubeObjects) Where(f func(*KubeObject) bool) KubeObjects {
 	var result KubeObjects
-	for _, obj := range o {
+	for _, obj := range kos {
 		if f(obj) {
 			result = append(result, obj)
 		}
@@ -108,8 +110,31 @@ func Not(f func(*KubeObject) bool) func(o *KubeObject) bool {
 
 // WhereNot will return the subset of objects in KubeObjects such that f(object) returns 'false'.
 // This is a shortcut for Where(Not(f)).
-func (o KubeObjects) WhereNot(f func(o *KubeObject) bool) KubeObjects {
-	return o.Where(Not(f))
+func (kos KubeObjects) WhereNot(f func(o *KubeObject) bool) KubeObjects {
+	return kos.Where(Not(f))
+}
+
+// Split separates the KubeObjects based on whether the predicate is true or false for them.
+func (kos KubeObjects) Split(predicate func(o *KubeObject) bool) (KubeObjects, KubeObjects) {
+	tru, fals := KubeObjects{}, KubeObjects{}
+	for _, obj := range kos {
+		if predicate(obj) {
+			tru = append(tru, obj)
+		} else {
+			fals = append(fals, obj)
+		}
+	}
+	return tru, fals
+}
+
+// SetAnnotation sets the specified annotation for all KubeObjects in the slice
+func (kos KubeObjects) SetAnnotation(key, value string) error {
+	for _, ko := range kos {
+		if err := ko.SetAnnotation(key, value); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // IsGVK returns a function that checks if a KubeObject has a certain GVK.
@@ -135,8 +160,8 @@ func IsGroupKind(gk schema.GroupKind) func(*KubeObject) bool {
 }
 
 // GetRootKptfile returns the root Kptfile. Nested kpt packages can have multiple Kptfile files of the same GVKNN.
-func (o KubeObjects) GetRootKptfile() *KubeObject {
-	kptfiles := o.Where(IsGVK(v1.KptFileGroup, v1.KptFileVersion, v1.KptFileKind))
+func (kos KubeObjects) GetRootKptfile() *KubeObject {
+	kptfiles := kos.Where(IsGVK(v1.KptFileGroup, v1.KptFileVersion, v1.KptFileKind))
 	if len(kptfiles) == 0 {
 		return nil
 	}
@@ -179,4 +204,22 @@ func HasAnnotations(annotations map[string]string) func(*KubeObject) bool {
 	return func(o *KubeObject) bool {
 		return o.HasAnnotations(annotations)
 	}
+}
+
+// MoveToKubeObjects moves all yaml.RNodes into KubeObjects, leaving the original slice with empty nodes
+func MoveToKubeObjects(rns []*yaml.RNode) KubeObjects {
+	var output KubeObjects
+	for i := range rns {
+		output = append(output, MoveToKubeObject(rns[i]))
+	}
+	return output
+}
+
+// CopyToResourceNodes copies the entire KubeObjects slice to yaml.RNodes
+func (kos KubeObjects) CopyToResourceNodes() kio.ResourceNodeSlice {
+	var output kio.ResourceNodeSlice
+	for i := range kos {
+		output = append(output, kos[i].CopyToResourceNode())
+	}
+	return output
 }
