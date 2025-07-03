@@ -39,23 +39,23 @@ func OpenDB(ctx context.Context, opts cachetypes.CacheOptions) error {
 	klog.V(4).Infof("OpenDB: with driver %+v", opts.DBCacheOptions.Driver)
 
 	if dbHandler != nil {
-		klog.V(4).Infof("OpenDB: database %q, already open", opts.DBCacheOptions.DataSource)
+		klog.V(4).Infof("OpenDB: database, already open")
 		return nil
 	}
 
 	db, err := sql.Open(opts.DBCacheOptions.Driver, opts.DBCacheOptions.DataSource)
 	if err != nil {
-		klog.V(4).Infof("OpenDB: database %q open failed: %q", opts.DBCacheOptions.DataSource, err)
+		klog.V(4).Infof("OpenDB: database open failed: %q", err)
 		return err
 	}
 
 	if err := db.Ping(); err != nil {
 		db.Close()
-		klog.V(4).Infof("OpenDB: database %q open failed", opts.DBCacheOptions.DataSource)
+		klog.V(4).Infof("OpenDB: database open failed")
 		return err
 	}
 
-	klog.V(4).Infof("OpenDB: database %q opened", opts.DBCacheOptions.DataSource)
+	klog.V(4).Infof("OpenDB: database opened")
 
 	dbHandler = &DBHandler{
 		dBCacheOptions: opts.DBCacheOptions,
