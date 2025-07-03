@@ -120,8 +120,6 @@ func TestApplyTasks(t *testing.T) {
 }
 
 func TestMapTaskToMutationPatchTask(t *testing.T) {
-	ctx := context.Background()
-
 	// Mock genericTaskHandler
 	handler := &genericTaskHandler{
 		cloneStrategy: api.CopyMerge,
@@ -149,12 +147,10 @@ func TestMapTaskToMutationPatchTask(t *testing.T) {
 	}
 
 	// Call mapTaskToMutation
-	mutation, err := handler.mapTaskToMutation(ctx, obj, patchTask, false, nil)
+	_, err := handler.mapTaskToMutation(obj, patchTask, false, nil)
 
 	// Verify results
-	assert.NoError(t, err)
-	assert.NotNil(t, mutation)
-	assert.IsType(t, &applyPatchMutation{}, mutation)
+	assert.ErrorContains(t, err, "deprecated")
 }
 
 func TestMapTaskToMutationUpgradeTask(t *testing.T) {
@@ -181,7 +177,7 @@ func TestMapTaskToMutationUpgradeTask(t *testing.T) {
 		},
 	}
 
-	mut, err := th.mapTaskToMutation(context.TODO(), obj, task, false, nil)
+	mut, err := th.mapTaskToMutation(obj, task, false, nil)
 
 	require.NoError(t, err)
 	require.NotNil(t, mut)

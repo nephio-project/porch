@@ -15,7 +15,6 @@
 package task
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 
@@ -79,7 +78,7 @@ func (th *genericTaskHandler) ApplyTasks(ctx context.Context, draft repository.P
 		th.cloneStrategy = cloneTask.Strategy
 	}
 
-	mut, err := th.mapTaskToMutation(ctx, obj, &obj.Spec.Tasks[0], repositoryObj.Spec.Deployment, packageConfig)
+	mut, err := th.mapTaskToMutation(obj, &obj.Spec.Tasks[0], repositoryObj.Spec.Deployment, packageConfig)
 	if err != nil {
 		return err
 	}
@@ -123,19 +122,17 @@ func (th *genericTaskHandler) DoPRMutations(
 			Contents: apiResources.Spec.Resources,
 		}
 
-		// If any of the fields in the API that are projections from the Kptfile must be updated in the Kptfile as well.
-		kfPatchTask, created, err := createKptfilePatchTask(ctx, repoPR, newObj)
-		if err != nil {
-			return err
-		}
-		if created {
-			kfPatchMutation, err := buildPatchMutation(ctx, kfPatchTask, th.cloneStrategy)
+		{
+			newKptfile, err := patchKptfile(ctx, repoPR, newObj)
 			if err != nil {
 				return err
 			}
-			resources, _, err = kfPatchMutation.apply(ctx, resources)
+			marshalled, err := yaml.Marshal(newKptfile)
 			if err != nil {
 				return err
+			}
+			if str := string(marshalled); str != "{}\n" {
+				resources.Contents[kptfile.KptFileName] = str
 			}
 		}
 
@@ -230,7 +227,7 @@ Please fix package locally (modify until 'kpt fn render' succeeds) and retry.
 Details`)
 }
 
-func (th *genericTaskHandler) mapTaskToMutation(ctx context.Context, obj *api.PackageRevision, task *api.Task, isDeployment bool, packageConfig *builtins.PackageConfig) (mutation, error) {
+func (th *genericTaskHandler) mapTaskToMutation(obj *api.PackageRevision, task *api.Task, isDeployment bool, packageConfig *builtins.PackageConfig) (mutation, error) {
 	switch task.Type {
 	case api.TaskTypeInit:
 		if task.Init == nil {
@@ -285,7 +282,7 @@ func (th *genericTaskHandler) mapTaskToMutation(ctx context.Context, obj *api.Pa
 		}, nil
 
 	case api.TaskTypePatch:
-		return buildPatchMutation(ctx, task, th.cloneStrategy)
+		return nil, pkgerrors.Errorf("%s is deprecated", api.TaskTypePatch)
 
 	case api.TaskTypeEdit:
 		if task.Edit == nil {
@@ -326,20 +323,14 @@ func (th *genericTaskHandler) mapTaskToMutation(ctx context.Context, obj *api.Pa
 	}
 }
 
-func createKptfilePatchTask(ctx context.Context, oldPackage repository.PackageRevision, newObj *api.PackageRevision) (*api.Task, bool, error) {
-	kf, err := oldPackage.GetKptfile(ctx)
-	if err != nil {
-		return nil, false, err
-	}
-
-	var orgKfString string
+func patchKptfile(ctx context.Context, oldPackage repository.PackageRevision, newObj *api.PackageRevision) (*kptfile.KptFile, error) {
+	var kf *kptfile.KptFile
 	{
-		var buf bytes.Buffer
-		d := yaml.NewEncoder(&buf)
-		if err := d.Encode(kf); err != nil {
-			return nil, false, err
+		k, err := oldPackage.GetKptfile(ctx)
+		if err != nil {
+			return nil, err
 		}
-		orgKfString = buf.String()
+		kf = &k
 	}
 
 	var readinessGates []kptfile.ReadinessGate
@@ -373,32 +364,7 @@ func createKptfilePatchTask(ctx context.Context, oldPackage repository.PackageRe
 		kf.Status.Conditions = conditions
 	}
 
-	var newKfString string
-	{
-		var buf bytes.Buffer
-		d := yaml.NewEncoder(&buf)
-		if err := d.Encode(kf); err != nil {
-			return nil, false, err
-		}
-		newKfString = buf.String()
-	}
-	patchSpec, err := GeneratePatch(kptfile.KptFileName, orgKfString, newKfString)
-	if err != nil {
-		return nil, false, err
-	}
-	// If patch is empty, don't create a Task.
-	if patchSpec.Contents == "" {
-		return nil, false, nil
-	}
-
-	return &api.Task{
-		Type: api.TaskTypePatch,
-		Patch: &api.PackagePatchTaskSpec{
-			Patches: []api.PatchSpec{
-				patchSpec,
-			},
-		},
-	}, true, nil
+	return kf, nil
 }
 
 func convertStatusToKptfile(s api.ConditionStatus) kptfile.ConditionStatus {

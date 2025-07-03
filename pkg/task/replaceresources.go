@@ -34,54 +34,18 @@ func (m *replaceResourcesMutation) apply(ctx context.Context, resources reposito
 	_, span := tracer.Start(ctx, "mutationReplaceResources::apply", trace.WithAttributes())
 	defer span.End()
 
-	patch := &api.PackagePatchTaskSpec{}
-
 	old := resources.Contents
-	new, err := healConfig(old, m.newResources.Spec.Resources)
+	newRes, err := healConfig(old, m.newResources.Spec.Resources)
 	if err != nil {
 		return repository.PackageResources{}, nil, fmt.Errorf("failed to heal resources: %w", err)
 	}
 
-	for k, newV := range new {
-		oldV, ok := old[k]
-		// New config or changed config
-		if !ok {
-			patchSpec := api.PatchSpec{
-				File:      k,
-				PatchType: api.PatchTypeCreateFile,
-				Contents:  newV,
-			}
-			patch.Patches = append(patch.Patches, patchSpec)
-		} else if newV != oldV {
-			patchSpec, err := GeneratePatch(k, oldV, newV)
-			if err != nil {
-				return repository.PackageResources{}, nil, fmt.Errorf("error generating patch: %w", err)
-			}
-			if patchSpec.Contents == "" {
-				continue
-			}
-			patch.Patches = append(patch.Patches, patchSpec)
-		}
+	// unused anyway
+	taskResult := &api.TaskResult{
+		Task: &api.Task{
+			Type:  api.TaskTypePatch,
+			Patch: &api.PackagePatchTaskSpec{},
+		},
 	}
-	for k := range old {
-		// Deleted config
-		if _, ok := new[k]; !ok {
-			patchSpec := api.PatchSpec{
-				File:      k,
-				PatchType: api.PatchTypeDeleteFile,
-			}
-			patch.Patches = append(patch.Patches, patchSpec)
-		}
-	}
-	// If patch is empty, don't create a Task.
-	var taskResult *api.TaskResult
-	if len(patch.Patches) > 0 {
-		taskResult = &api.TaskResult{
-			Task: &api.Task{
-				Type:  api.TaskTypePatch,
-				Patch: patch,
-			},
-		}
-	}
-	return repository.PackageResources{Contents: new}, taskResult, nil
+	return repository.PackageResources{Contents: newRes}, taskResult, nil
 }
