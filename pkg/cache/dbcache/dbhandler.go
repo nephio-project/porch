@@ -36,7 +36,7 @@ func OpenDB(ctx context.Context, opts cachetypes.CacheOptions) error {
 	_, span := tracer.Start(ctx, "DBHandler::OpenDB", trace.WithAttributes())
 	defer span.End()
 
-	klog.V(4).Infof("OpenDB: %+v %+v", opts.DBCacheOptions.Driver, opts.DBCacheOptions.DataSource)
+	klog.V(4).Infof("OpenDB: with driver %+v", opts.DBCacheOptions.Driver)
 
 	if dbHandler != nil {
 		klog.V(4).Infof("OpenDB: database %q, already open", opts.DBCacheOptions.DataSource)

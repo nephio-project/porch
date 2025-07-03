@@ -28,10 +28,6 @@ import (
 var tracer = otel.Tracer("cache")
 
 func GetCacheImpl(ctx context.Context, options cachetypes.CacheOptions) (cachetypes.Cache, error) {
-	if cachetypes.CacheInstance != nil {
-		return cachetypes.CacheInstance, nil
-	}
-
 	ctx, span := tracer.Start(ctx, "Repository::RepositoryFactory", trace.WithAttributes())
 	defer span.End()
 
