@@ -31,7 +31,7 @@ var tracer = otel.Tracer("crcache")
 
 type Cache struct {
 	mutex         sync.Mutex
-	repositories  map[string]*cachedRepository
+	repositories  map[repository.RepositoryKey]*cachedRepository
 	metadataStore meta.MetadataStore
 	options       cachetypes.CacheOptions
 }
@@ -119,11 +119,15 @@ func (c *Cache) CloseRepository(ctx context.Context, repositorySpec *configapi.R
 	}
 }
 
-func (c *Cache) GetRepositories(ctx context.Context) []*configapi.Repository {
+func (c *Cache) GetRepositories() []*configapi.Repository {
 	repoSlice := []*configapi.Repository{}
 
 	for _, repo := range c.repositories {
 		repoSlice = append(repoSlice, repo.repoSpec)
 	}
 	return repoSlice
+}
+
+func (c *Cache) GetRepository(repoKey repository.RepositoryKey) repository.Repository {
+	return c.repositories[repoKey]
 }

@@ -28,6 +28,7 @@ import (
 )
 
 func TestEdit(t *testing.T) {
+	repositoryNamespace := "test-namespace"
 	repositoryName := "repo"
 	pkg := "1234567890"
 	revision := 1
@@ -37,7 +38,8 @@ func TestEdit(t *testing.T) {
 		PrKey: repository.PackageRevisionKey{
 			PkgKey: repository.PackageKey{
 				RepoKey: repository.RepositoryKey{
-					Name: repositoryName,
+					Namespace: repositoryNamespace,
+					Name:      repositoryName,
 				},
 				Package: pkg,
 			},

@@ -30,7 +30,8 @@ type CacheType string
 
 const (
 	CRCacheType      CacheType = "CR"
-	DefaultCacheType           = CRCacheType
+	DBCacheType      CacheType = "DB"
+	DefaultCacheType CacheType = CRCacheType
 )
 
 type CacheOptions struct {
@@ -52,9 +53,14 @@ type DBCacheOptions struct {
 type Cache interface {
 	OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (repository.Repository, error)
 	CloseRepository(ctx context.Context, repositorySpec *configapi.Repository, allRepos []configapi.Repository) error
-	GetRepositories(ctx context.Context) []*configapi.Repository
+	GetRepositories() []*configapi.Repository
+	GetRepository(repository.RepositoryKey) repository.Repository
 	UpdateRepository(ctx context.Context, repositorySpec *configapi.Repository) error
 }
+
+var (
+	CacheInstance Cache
+)
 
 type CacheFactory interface {
 	NewCache(ctx context.Context, options CacheOptions) (Cache, error)
@@ -67,6 +73,8 @@ type RepoPRChangeNotifier interface {
 func IsACacheType(ct string) bool {
 	switch strings.ToUpper(ct) {
 	case string(CRCacheType):
+		return true
+	case string(DBCacheType):
 		return true
 	default:
 		return false

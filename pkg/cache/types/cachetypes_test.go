@@ -1,4 +1,4 @@
-// Copyright 2023 The kpt and Nephio Authors
+// Copyright 2023.2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import (
 func TestIsACacheType(t *testing.T) {
 	assert.True(t, IsACacheType("CR"))
 	assert.True(t, IsACacheType("cr"))
-	assert.False(t, IsACacheType("DB"))
+	assert.True(t, IsACacheType("DB"))
 	assert.False(t, IsACacheType(""))
 	assert.False(t, IsACacheType("ZZ"))
 }

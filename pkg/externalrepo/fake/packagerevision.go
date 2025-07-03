@@ -43,14 +43,11 @@ func (c *FakePackageRevision) KubeObjectName() string {
 }
 
 func (c *FakePackageRevision) KubeObjectNamespace() string {
-	return c.Key().PkgKey.RepoKey.Namespace
+	return c.Key().RKey().Namespace
 }
 
 func (c *FakePackageRevision) UID() types.UID {
 	return util.GenerateUid("packagerevision:", c.KubeObjectNamespace(), c.KubeObjectName())
-}
-
-func (c *FakePackageRevision) SetRepository(repo repository.Repository) {
 }
 
 var _ repository.PackageRevision = &FakePackageRevision{}

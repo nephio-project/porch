@@ -41,7 +41,7 @@ func TestWatcherClose(t *testing.T) {
 
 	r := &fakePackageReader{}
 	r.Add(1)
-	var filter packageRevisionFilter
+	var filter repository.ListPackageRevisionFilter
 	options := &metainternalversion.ListOptions{}
 
 	go w.listAndWatch(ctx, r, filter, options.LabelSelector)
@@ -91,12 +91,12 @@ type fakePackageReader struct {
 	callback engine.ObjectWatcher
 }
 
-func (f *fakePackageReader) watchPackages(ctx context.Context, filter packageRevisionFilter, callback engine.ObjectWatcher) error {
+func (f *fakePackageReader) watchPackages(ctx context.Context, filter repository.ListPackageRevisionFilter, callback engine.ObjectWatcher) error {
 	f.callback = callback
 	f.Done()
 	return nil
 }
 
-func (f *fakePackageReader) listPackageRevisions(ctx context.Context, filter packageRevisionFilter, selector labels.Selector, callback func(ctx context.Context, p repository.PackageRevision) error) error {
+func (f *fakePackageReader) listPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter, selector labels.Selector, callback func(ctx context.Context, p repository.PackageRevision) error) error {
 	return nil
 }
