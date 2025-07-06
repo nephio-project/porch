@@ -298,7 +298,7 @@ func (r *gitRepository) Close(context.Context) error {
 }
 
 func (r *gitRepository) Version(ctx context.Context) (string, error) {
-	ctx, span := tracer.Start(ctx, "gitRepository::Version", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "gitRepository::Version", trace.WithAttributes())
 	defer span.End()
 	r.mutex.Lock()
 	defer r.mutex.Unlock()

@@ -1551,6 +1551,9 @@ func createAndPublishPRWithResources(ctx context.Context, repo repository.Reposi
 	}
 
 	draft2, err := repo.UpdatePackageRevision(ctx, prdraftv1)
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "Failed to open draft packageRevision")
+	}
 
 	if err := draft2.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleProposed); err != nil {
 		return nil, pkgerrors.Wrap(err, "Failed to update draft lifecycle")
@@ -2021,7 +2024,10 @@ func TestApproveOnManuallyMovedProposed(t *testing.T) {
 		t.Fatalf("Failed to create draft PackageRevision %v", err)
 	}
 
-	draft2.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleProposed)
+	err = draft2.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleProposed)
+	if err != nil {
+		t.Fatalf("Failed to update lifecycle: %v", err)
+	}
 
 	uip := makeUserInfoProvider(repoSpec, &mockK8sUsp{})
 
@@ -2138,7 +2144,10 @@ func TestApproveOnManuallyMovedDraft(t *testing.T) {
 		t.Fatalf("Failed to create draft PackageRevision %v", err)
 	}
 
-	draft2.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleDraft)
+	err = draft2.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleDraft)
+	if err != nil {
+		t.Fatalf("Failed to update lifecycle: %v", err)
+	}
 
 	uip := makeUserInfoProvider(repoSpec, &mockK8sUsp{})
 
