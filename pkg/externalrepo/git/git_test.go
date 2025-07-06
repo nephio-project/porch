@@ -2702,7 +2702,7 @@ func TestDeletionProposedPackageIsRediscovered(t *testing.T) {
 		t.Fatalf("Failed to create and publish package revision: %v", err)
 	}
 
-	prs, err := localRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{Lifecycle: v1alpha1.PackageRevisionLifecyclePublished})
+	prs, err := localRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{Lifecycles: []v1alpha1.PackageRevisionLifecycle{v1alpha1.PackageRevisionLifecyclePublished}})
 	if err != nil {
 		t.Fatalf("Failed to list package revisions: %v", err)
 	}
@@ -2740,7 +2740,7 @@ func TestDeletionProposedPackageIsRediscovered(t *testing.T) {
 	if len(prs2) != 2 {
 		t.Fatalf("Expected 2 PackageRevisions, got %d, list: %v", len(prs2), prs2)
 	}
-	
+
 	for prToBeVerified := range prs2 {
 		if prs2[prToBeVerified].Key().Revision == 1 {
 			if prs2[prToBeVerified].Lifecycle(ctx) != v1alpha1.PackageRevisionLifecycleDeletionProposed {

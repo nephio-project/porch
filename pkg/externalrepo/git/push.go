@@ -24,7 +24,6 @@ import (
 type pushRefSpecBuilder struct {
 	pushRefs map[plumbing.ReferenceName]plumbing.Hash
 	require  map[plumbing.ReferenceName]plumbing.Hash
-	refForLease *plumbing.Reference
 }
 
 func newPushRefSpecBuilder() *pushRefSpecBuilder {
@@ -51,17 +50,6 @@ func (b *pushRefSpecBuilder) RequireRef(ref *plumbing.Reference) {
 	if ref != nil {
 		b.require[ref.Name()] = ref.Hash()
 	}
-}
-
-func (b *pushRefSpecBuilder) RequireRefDoesntExistWithLease(ref *plumbing.Reference) error {
-	if ref.Hash() != plumbing.ZeroHash {
-		return fmt.Errorf("Reference %s refers to a non-zero hash: %s", ref.Name().String(), ref.Hash().String())
-	}
-	if b.refForLease != nil {
-		return fmt.Errorf("Only a single reference can be locked during a push: %s", b.refForLease.Name().String())
-	}
-	b.refForLease = ref
-	return nil
 }
 
 func (b *pushRefSpecBuilder) BuildRefSpecs() (push []config.RefSpec, require []config.RefSpec, err error) {

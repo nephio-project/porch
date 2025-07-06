@@ -177,7 +177,6 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 	if err := util.ValidateDirectoryName(string(branch), false); err != nil {
 		return nil, fmt.Errorf("branch name %s invalid: %v", branch, err)
 	}
-	
 
 	repository := &gitRepository{
 		key: repository.RepositoryKey{
@@ -195,7 +194,7 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 		deployment:         deployment,
 		// A random high number is generated as the initial repository version.
 		// In case the user of this library (the cache for example) wants to remember the
-		// repository version between re-opens, there is very little chance 
+		// repository version between re-opens, there is very little chance
 		/// 2^32 > 1 billion possible initial repository versions can happen,
 		// so collisions are very unlikely.
 		// Also even if incrementing from 2^32 to 2^64 before the uint64 every second,
@@ -370,10 +369,6 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 	var result []*gitPackageRevision
 
 	mainBranch := r.branch.RefInLocal() // Looking for the registered branch
-
-	if err != nil {
-		return nil, err
-	}
 
 	for ref, err := refs.Next(); err == nil; ref, err = refs.Next() {
 		switch name := ref.Name(); {
@@ -1113,7 +1108,7 @@ func (r *gitRepository) createPackageDeleteCommit(ctx context.Context, branch pl
 	return commitHash, nil
 }
 
-// Pushes the needed refspecs to the remote. 
+// Pushes the needed refspecs to the remote.
 // Mutex must be held by caller
 func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuilder) error {
 	ctx, span := tracer.Start(ctx, "gitRepository::pushAndCleanup", trace.WithAttributes())
@@ -1328,7 +1323,7 @@ func (r *gitRepository) getLifecycle(pkgRev *gitPackageRevision) (v1alpha1.Packa
 		return r.checkPublishedLifecycle(pkgRev)
 	}
 }
- 
+
 // CheckPublishedLifecycle checks whether the request had a published or a deletion proposed package.
 // As this operation is checking a file on the repo, a wrapping function needs to acquire the repository lock.
 func (r *gitRepository) checkPublishedLifecycle(pkgRev *gitPackageRevision) (v1alpha1.PackageRevisionLifecycle, error) {
