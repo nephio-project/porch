@@ -42,6 +42,10 @@ func (b *pushRefSpecBuilder) AddRefToDelete(ref *plumbing.Reference) {
 	b.RequireRef(ref)
 }
 
+// Requries a reference to be existent with the correct during the push.
+// The ref is evaluated on the client side only during a send-pack session in go-git, and doesn't provide a guarantee
+// that the reference will be locked on the server side during the push.
+// Reference cannot be pointing to plumbing.ZeroHash.
 func (b *pushRefSpecBuilder) RequireRef(ref *plumbing.Reference) {
 	if ref != nil {
 		b.require[ref.Name()] = ref.Hash()

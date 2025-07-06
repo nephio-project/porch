@@ -100,11 +100,6 @@ func getDraftBranchNameInLocal(n plumbing.ReferenceName) (BranchName, bool) {
 	return BranchName(b), ok
 }
 
-func getdeletionProposedBranchNameInLocal(n plumbing.ReferenceName) (BranchName, bool) {
-	b, ok := trimOptionalPrefix(n.String(), deletionProposedPrefixInLocalRepo)
-	return BranchName(b), ok
-}
-
 func isBranchInLocalRepo(n plumbing.ReferenceName) bool {
 	return strings.HasPrefix(n.String(), branchPrefixInLocalRepo)
 }
@@ -129,7 +124,10 @@ func createProposedName(key repository.PackageRevisionKey) BranchName {
 	return BranchName(proposedPrefix + filepath.Join(key.PkgKey.ToFullPathname(), string(key.WorkspaceName)))
 }
 
-func createDeletionProposedName(key repository.PackageRevisionKey) BranchName {
+func createDeletionProposedName(key repository.PackageRevisionKey, mainBranch BranchName) BranchName {
+	if key.Revision == -1 {
+		return BranchName(deletionProposedPrefix + filepath.Join(key.PkgKey.ToFullPathname(), "/"+ string(mainBranch)))
+	}
 	return BranchName(deletionProposedPrefix + filepath.Join(key.PkgKey.ToFullPathname(), "/v"+repository.Revision2Str(key.Revision)))
 }
 
