@@ -18,6 +18,7 @@ import (
 
 type fakePackageRevision struct {
 	namespace string
+	lifecycle string
 }
 
 func (f *fakePackageRevision) GetPackageRevision(ctx context.Context) (*api.PackageRevision, error) {
@@ -27,12 +28,15 @@ func (f *fakePackageRevision) KubeObjectNamespace() string { return f.namespace 
 func (f *fakePackageRevision) Key() repository.PackageRevisionKey {
 	return repository.PackageRevisionKey{}
 }
-func (f *fakePackageRevision) KubeObjectName() string                                 { return "" }
-func (f *fakePackageRevision) UID() types.UID                                         { return "" }
-func (f *fakePackageRevision) SetRepository(repository.Repository)                    {}
-func (f *fakePackageRevision) SetMeta(context.Context, metav1.ObjectMeta) error       { return nil }
-func (f *fakePackageRevision) ResourceVersion() string                                { return "" }
-func (f *fakePackageRevision) Lifecycle(context.Context) api.PackageRevisionLifecycle { return "" }
+func (f *fakePackageRevision) KubeObjectName() string                           { return "" }
+func (f *fakePackageRevision) UID() types.UID                                   { return "" }
+func (f *fakePackageRevision) SetRepository(repository.Repository)              {}
+func (f *fakePackageRevision) SetMeta(context.Context, metav1.ObjectMeta) error { return nil }
+func (f *fakePackageRevision) ResourceVersion() string                          { return "" }
+func (f *fakePackageRevision) Lifecycle(context.Context) api.PackageRevisionLifecycle {
+
+	return api.PackageRevisionLifecycle(f.lifecycle)
+}
 func (f *fakePackageRevision) GetResources(context.Context) (*api.PackageRevisionResources, error) {
 	return nil, nil
 }

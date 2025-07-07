@@ -177,7 +177,7 @@ func (r *packageCommon) watchPackages(ctx context.Context, filter packageRevisio
 			delegate: callback,
 		}
 	}
-	if err := r.cad.ObjectCache().WatchPackageRevisions(ctx, filter.toListPackageRevisionFilter(), wrappedCallback); err != nil {
+	if err := r.cad.ObjectCache().WatchPackageRevisions(ctx, *filter.ListPackageRevisionFilter, wrappedCallback); err != nil {
 		return err
 	}
 
