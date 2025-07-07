@@ -17,7 +17,6 @@ package porch
 import (
 	"fmt"
 	"reflect"
-	"strings"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -186,39 +185,4 @@ func parsePackageRevisionResourcesFieldSelector(options *metainternalversion.Lis
 	// TOOD: This is a little weird, because we don't have the same fields on PackageRevisionResources.
 	// But we probably should have the key fields
 	return parsePackageRevisionFieldSelector(options)
-}
-
-func (f *packageRevisionFilter) toListPackageRevisionFilter() (lowerFilter repository.ListPackageRevisionFilter) {
-	labels := api.PackageRevisionSelectableFields
-	field := f.Predicate.Field
-	attrsFunc := f.Predicate.GetAttrs
-	if field == nil || attrsFunc == nil {
-		return
-	}
-
-	if filteredName, filteringOnName := field.RequiresExactMatch(labels.Name); filteringOnName {
-		lowerFilter.KubeObjectName = filteredName
-	}
-
-	if filteredRevision, filteringOnRevision := field.RequiresExactMatch(labels.Revision); filteringOnRevision {
-		lowerFilter.Key.Revision = repository.Revision2Int(filteredRevision)
-	}
-
-	if filteredPackage, filteringOnPackage := field.RequiresExactMatch(labels.PackageName); filteringOnPackage {
-		if segs := strings.Split(filteredPackage, "/"); len(segs) > 1 {
-			lowerFilter.Key.PkgKey.Path = strings.Join(segs[:len(segs)-1], "/")
-			filteredPackage = segs[len(segs)]
-		}
-		lowerFilter.Key.PkgKey.Package = filteredPackage
-	}
-
-	if filteredWorkspace, filteringOnWorkspace := field.RequiresExactMatch(labels.WorkspaceName); filteringOnWorkspace {
-		lowerFilter.Key.WorkspaceName = filteredWorkspace
-	}
-
-	if filteredLifecycle, filteringOnLifecycle := field.RequiresExactMatch(labels.WorkspaceName); filteringOnLifecycle {
-		lowerFilter.Lifecycle = api.PackageRevisionLifecycle(filteredLifecycle)
-	}
-
-	return
 }
