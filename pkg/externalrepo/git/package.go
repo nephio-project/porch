@@ -52,7 +52,7 @@ func (c *gitPackageRevision) KubeObjectName() string {
 }
 
 func (c *gitPackageRevision) KubeObjectNamespace() string {
-	return c.Key().PkgKey.RepoKey.Namespace
+	return c.Key().RKey().Namespace
 }
 
 func (c *gitPackageRevision) UID() types.UID {
@@ -65,10 +65,6 @@ func (p *gitPackageRevision) ResourceVersion() string {
 
 func (p *gitPackageRevision) Key() repository.PackageRevisionKey {
 	return p.prKey
-}
-
-func (p *gitPackageRevision) SetRepository(repo repository.Repository) {
-	p.repo = repo.(*gitRepository)
 }
 
 func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.PackageRevision, error) {
@@ -128,7 +124,7 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 		},
 		Spec: v1alpha1.PackageRevisionSpec{
 			PackageName:    key.PkgKey.ToPkgPathname(),
-			RepositoryName: key.PkgKey.RepoKey.Name,
+			RepositoryName: key.RKey().Name,
 			Lifecycle:      p.Lifecycle(ctx),
 			Tasks:          p.tasks,
 			ReadinessGates: repository.ToApiReadinessGates(kf),
@@ -167,7 +163,7 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 			PackageName:    p.Key().PkgKey.ToPkgPathname(),
 			WorkspaceName:  p.Key().WorkspaceName,
 			Revision:       p.Key().Revision,
-			RepositoryName: p.Key().PkgKey.RepoKey.Name,
+			RepositoryName: p.Key().RKey().Name,
 
 			Resources: resources,
 		},
@@ -195,7 +191,7 @@ func (p *gitPackageRevision) ToMainPackageRevision(context.Context) repository.P
 		tasks:     p.tasks,
 	}
 	mainPr.prKey.Revision = -1
-	mainPr.prKey.WorkspaceName = mainPr.Key().GetPackageKey().GetRepositoryKey().PlaceholderWSname
+	mainPr.prKey.WorkspaceName = mainPr.Key().RKey().PlaceholderWSname
 
 	return mainPr
 }

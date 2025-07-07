@@ -4,6 +4,7 @@
         "projectKey": "nephio-project_porch"
     },
     "go.testEnvVars": {
-      "RUN_E2E_LOCALLY": "false"
-    },
+      "RUN_E2E_LOCALLY": "false",
+      "PORCH_SQL_SCHEMA": "${workspaceFolder}/api/sql/porch-db.sql"
+    }
 }

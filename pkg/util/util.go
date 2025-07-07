@@ -39,7 +39,7 @@ import (
 )
 
 const (
-	invalidConst string = " invalid:"
+	invalidConst string = " invalid: "
 	uuidSpace    string = "aac71d91-5c67-456f-8fd2-902ef6da820e"
 )
 
@@ -147,12 +147,19 @@ func ValidateRepository(repoName, directory string) error {
 }
 
 func ComposePkgObjName(repoName, path, packageName string) string {
+	if len(repoName) == 0 || len(packageName) == 0 {
+		return ""
+	}
+
 	dottedPath := strings.ReplaceAll(filepath.Join(path, packageName), "/", ".")
 	dottedPath = strings.Trim(dottedPath, ".")
 	return fmt.Sprintf("%s.%s", repoName, dottedPath)
 }
 
 func ComposePkgRevObjName(repoName, path, packageName, workspace string) string {
+	if len(repoName) == 0 || len(packageName) == 0 || len(workspace) == 0 {
+		return ""
+	}
 	dottedPath := strings.ReplaceAll(filepath.Join(path, packageName), "/", ".")
 	dottedPath = strings.Trim(dottedPath, ".")
 	return fmt.Sprintf("%s.%s.%s", repoName, dottedPath, workspace)
@@ -161,11 +168,15 @@ func ComposePkgRevObjName(repoName, path, packageName, workspace string) string 
 func ValidPkgObjName(repoName, path, packageName string) error {
 	var errSlice []string
 
-	if err := ValidateRepository(repoName, path); err != nil {
+	if err := ValidateRepository(repoName, ""); err != nil {
 		errSlice = append(errSlice, err.Error())
 	}
 
-	if err := ValidateDirectoryName(packageName, true); err != nil {
+	if err := ValidateDirectoryName(path, false); err != nil {
+		errSlice = append(errSlice, "path "+path+invalidConst+err.Error()+"\n")
+	}
+
+	if err := ValidateK8SName(packageName); err != nil {
 		errSlice = append(errSlice, "package name "+packageName+invalidConst+err.Error()+"\n")
 	}
 
@@ -179,16 +190,20 @@ func ValidPkgObjName(repoName, path, packageName string) error {
 func ValidPkgRevObjName(repoName, path, packageName, workspace string) error {
 	var errSlice []string
 
-	if err := ValidateRepository(repoName, path); err != nil {
+	if err := ValidateRepository(repoName, ""); err != nil {
 		errSlice = append(errSlice, err.Error())
 	}
 
-	if err := ValidateDirectoryName(packageName, true); err != nil {
+	if err := ValidateDirectoryName(path, false); err != nil {
+		errSlice = append(errSlice, "path "+path+invalidConst+err.Error()+"\n")
+	}
+
+	if err := ValidateK8SName(packageName); err != nil {
 		errSlice = append(errSlice, "package name "+packageName+invalidConst+err.Error()+"\n")
 	}
 
 	if err := ValidateK8SName(string(workspace)); err != nil {
-		errSlice = append(errSlice, "workspace name "+workspace+invalidConst+err.Error())
+		errSlice = append(errSlice, "workspace name "+workspace+invalidConst+err.Error()+"\n")
 	}
 
 	if len(errSlice) == 0 {
@@ -206,38 +221,37 @@ func ValidPkgRevObjName(repoName, path, packageName, workspace string) error {
 	}
 }
 
-func ParsePkgRevObjName(name string) ([]string, error) {
-	const twoDotErrMsg = "malformed package revision name; expected at least two dots: %q"
+func SplitIn3OnDelimiter(splitee, delimiter string) []string {
+	splitSlice := make([]string, 3)
 
-	firstDot := strings.Index(name, ".")
-	if firstDot < 0 {
-		return nil, fmt.Errorf(twoDotErrMsg, name)
+	split := strings.Split(splitee, delimiter)
+
+	switch len(split) {
+	case 0:
+		return splitSlice
+	case 1:
+		splitSlice[0] = split[0]
+		return splitSlice
+	case 2:
+		splitSlice[0] = split[0]
+		splitSlice[2] = split[1]
+		return splitSlice
+	case 3:
+		splitSlice[0] = split[0]
+		splitSlice[1] = split[1]
+		splitSlice[2] = split[2]
+		return splitSlice
 	}
 
-	lastDot := strings.LastIndex(name, ".")
-	if lastDot < 0 {
-		return nil, fmt.Errorf(twoDotErrMsg, name)
+	splitSlice[0] = split[0]
+	splitSlice[1] = split[1]
+	splitSlice[2] = split[len(split)-1]
+
+	for i := 2; i < len(split)-1; i++ {
+		splitSlice[1] = splitSlice[1] + delimiter + split[i]
 	}
 
-	if firstDot >= lastDot {
-		return nil, fmt.Errorf(twoDotErrMsg, name)
-	}
-
-	parsedName := make([]string, 3)
-
-	parsedName[0] = name[:firstDot]
-	parsedName[1] = name[firstDot+1 : lastDot]
-	parsedName[2] = name[lastDot+1:]
-
-	return parsedName, nil
-}
-
-func ParsePkgRevObjNameField(pkgRevObjName string, field int) (string, error) {
-	if parsedSlice, err := ParsePkgRevObjName(pkgRevObjName); err == nil {
-		return parsedSlice[field], nil
-	} else {
-		return "", err
-	}
+	return splitSlice
 }
 
 func GenerateUid(prefix string, kubeNs string, kubeName string) types.UID {

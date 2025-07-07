@@ -3371,7 +3371,7 @@ func (t *PorchSuite) TestCreatePackageRevisionRollback() {
 			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s", packageName, workspaceName),
+			Name:      fmt.Sprintf("%s.%s.%s", repositoryName, packageName, workspaceName),
 			Namespace: t.Namespace,
 		},
 		Spec: porchapi.PackageRevisionSpec{
