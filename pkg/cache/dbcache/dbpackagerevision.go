@@ -403,20 +403,10 @@ func (pr *dbPackageRevision) updateLifecycleOnPublishedPR(ctx context.Context, n
 	ctx, span := tracer.Start(ctx, "dbPackageRevision::updateLifecycleOnPublishedPR", trace.WithAttributes())
 	defer span.End()
 
-	externalPr, err := pr.repo.getExternalPr(ctx, pr.Key())
-	if err != nil {
-		return err
-	}
-
-	if err := externalPr.UpdateLifecycle(ctx, newLifecycle); err != nil {
-		klog.Warningf("error setting lifecycle to %q on package revision %+v for external repo, %q", newLifecycle, pr.Key(), err)
-		return err
-	}
-
 	pr.lifecycle = newLifecycle
 	pr.updated = time.Now()
 	pr.updatedBy = getCurrentUser()
 
-	_, err = pr.savePackageRevision(ctx, false)
+	_, err := pr.savePackageRevision(ctx, false)
 	return err
 }
