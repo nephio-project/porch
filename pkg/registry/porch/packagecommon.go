@@ -72,6 +72,7 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter reposit
 
 		opts = append(opts, client.InNamespace(namespace))
 	}
+
 	if filterRepo := filter.FilteredRepository(); filterRepo != "" {
 		opts = append(opts, client.MatchingFields(fields.Set{"metadata.name": filterRepo}))
 	}

@@ -49,7 +49,6 @@ func convertPackageRevisionFieldSelector(label, value string) (internalLabel, in
 			return label, value, nil
 		}
 	}
-
 	return "", "", fmt.Errorf("%q is not a known field selector", label)
 }
 
