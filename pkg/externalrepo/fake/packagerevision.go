@@ -47,16 +47,12 @@ func (fpr *FakePackageRevision) KubeObjectName() string {
 
 func (fpr *FakePackageRevision) KubeObjectNamespace() string {
 	fpr.Ops = append(fpr.Ops, "KubeObjectNamespace")
-	return fpr.Key().PkgKey.RepoKey.Namespace
+	return fpr.Key().RKey().Namespace
 }
 
 func (fpr *FakePackageRevision) UID() types.UID {
 	fpr.Ops = append(fpr.Ops, "UID")
 	return util.GenerateUid("packagerevision:", fpr.KubeObjectNamespace(), fpr.KubeObjectName())
-}
-
-func (fpr *FakePackageRevision) SetRepository(repo repository.Repository) {
-	fpr.Ops = append(fpr.Ops, "SetRepository")
 }
 
 var _ repository.PackageRevision = &FakePackageRevision{}

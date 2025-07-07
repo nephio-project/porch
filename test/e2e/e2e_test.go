@@ -34,11 +34,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
@@ -543,11 +545,12 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 
 func (t *PorchSuite) TestEditPackageRevision() {
 	const (
-		repository       = "edit-test"
-		packageName      = "simple-package"
-		otherPackageName = "other-package"
-		workspace        = "workspace"
-		workspace2       = "workspace2"
+		repository                    = "edit-test"
+		packageName                   = "simple-package"
+		otherPackageName              = "other-package"
+		workspace                     = "workspace"
+		workspace2                    = "workspace2"
+		workspaceToAvoidCreationClash = "workspace-to-avoid-creation-clash"
 	)
 
 	t.RegisterMainGitRepositoryF(repository)
@@ -625,6 +628,7 @@ func (t *PorchSuite) TestEditPackageRevision() {
 			},
 		},
 	}
+	// This invalid create will still create the draft for a small period of time until the error is discovered
 	if err := t.Client.Create(t.GetContext(), editPR); err == nil {
 		t.Fatalf("Expected error for source revision not being published")
 	}
@@ -636,6 +640,9 @@ func (t *PorchSuite) TestEditPackageRevision() {
 	// Approve the package
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+
+	// Changing the workspace of the EditPR to avoid clashing with invalid create negative test above
+	editPR.Spec.WorkspaceName = workspaceToAvoidCreationClash
 
 	// Create a new revision with the edit task.
 	t.CreateF(editPR)
@@ -2059,6 +2066,21 @@ func (t *PorchSuite) TestPodEvaluator() {
 		img := pod.Spec.Containers[0].Image
 		if img == generateFolderImage || img == setAnnotationsImage {
 			t.DeleteF(&pod)
+
+			// Await pod deletion with a 1 minute timeout
+			err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, time.Minute, false, func(ctx context.Context) (bool, error) {
+				getErr := t.Client.Get(ctx, client.ObjectKey{Namespace: pod.Namespace, Name: pod.Name}, &corev1.Pod{})
+				if errors.IsNotFound(getErr) {
+					return true, nil // Pod has been deleted
+				}
+				if getErr != nil {
+					return false, getErr // Error occurred
+				}
+				return false, nil // Pod still exists
+			})
+			if err != nil {
+				t.Fatalf("Failed to wait for pod deletion: %v", err)
+			}
 		}
 	}
 
@@ -3276,7 +3298,7 @@ func (t *PorchSuite) TestCreatePackageRevisionRollback() {
 			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s", packageName, workspaceName),
+			Name:      fmt.Sprintf("%s.%s.%s", repositoryName, packageName, workspaceName),
 			Namespace: t.Namespace,
 		},
 		Spec: porchapi.PackageRevisionSpec{

@@ -52,7 +52,38 @@ var tracer = otel.Tracer("git")
 const (
 	DefaultMainReferenceName plumbing.ReferenceName = "refs/heads/main"
 	OriginName               string                 = "origin"
+	fileContent                                     = "Created by porch"
+	fileName                                        = "README.md"
+	commitMessage                                   = "Initial commit: Creating main branch"
 )
+
+// Commit message constants for different operations
+const (
+	commitMessageRendering       = "Rendering package"
+	commitMessageEdit            = "Creating new revision by copying previous revision"
+	commitMessageInit            = "Creating new empty revision"
+	commitMessageClone           = "Creating new revision by cloning"
+	commitMessagePatch           = "Applying patch to package"
+	commitMessageApproveTemplate = "Approving package revision %s/%d"
+)
+
+// formatCommitMessage returns a human-readable commit message based on the change type
+func formatCommitMessage(changeType string) string {
+	switch changeType {
+	case "eval":
+		return commitMessageRendering
+	case "edit":
+		return commitMessageEdit
+	case "init":
+		return commitMessageInit
+	case "clone":
+		return commitMessageClone
+	case "patch":
+		return commitMessagePatch
+	default:
+		return fmt.Sprintf("Intermediate commit: %s", changeType)
+	}
+}
 
 type GitRepository interface {
 	repository.Repository
@@ -234,6 +265,14 @@ type gitRepository struct {
 var _ GitRepository = &gitRepository{}
 var _ repository.Repository = &gitRepository{}
 
+func (r *gitRepository) KubeObjectNamespace() string {
+	return r.Key().Namespace
+}
+
+func (r *gitRepository) KubeObjectName() string {
+	return r.Key().Name
+}
+
 func (r *gitRepository) Key() repository.RepositoryKey {
 	return r.key
 }
@@ -356,7 +395,7 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 				klog.Warningf("no package draft found for ref %v", ref)
 			}
 		case isTagInLocalRepo(ref.Name()):
-			klog.Infof("Loading tag from %q", ref.Name())
+			klog.V(2).Infof("Loading tag from %q", ref.Name())
 			tagged, err := r.loadTaggedPackage(ctx, ref)
 			if err != nil {
 				if tagged == nil {
@@ -414,12 +453,13 @@ func (r *gitRepository) CreatePackageRevisionDraft(ctx context.Context, obj *v1a
 		return nil, fmt.Errorf("error when resolving target branch for the package: %w", err)
 	}
 
-	if err := util.ValidPkgRevObjName(r.Key().Name, r.Key().Path, obj.Spec.PackageName, obj.Spec.WorkspaceName); err != nil {
+	pkgKey := repository.FromFullPathname(r.Key(), obj.Spec.PackageName)
+	if err := util.ValidPkgRevObjName(r.Key().Name, pkgKey.Path, pkgKey.Package, obj.Spec.WorkspaceName); err != nil {
 		return nil, fmt.Errorf("failed to create packagerevision: %w", err)
 	}
 
 	draftKey := repository.PackageRevisionKey{
-		PkgKey:        repository.FromFullPathname(r.Key(), obj.Spec.PackageName),
+		PkgKey:        pkgKey,
 		WorkspaceName: obj.Spec.WorkspaceName,
 	}
 
@@ -1014,12 +1054,6 @@ func (r *gitRepository) verifyRepository(ctx context.Context, opts *GitRepositor
 	return nil
 }
 
-const (
-	fileContent   = "Created by porch"
-	fileName      = "README.md"
-	commitMessage = "Initial commit for main branch by porch"
-)
-
 // createBranch creates the provided branch by creating a commit containing
 // a README.md file on the root of the repo and then pushing it to the branch.
 func (r *gitRepository) createBranch(ctx context.Context, branch BranchName) error {
@@ -1420,9 +1454,9 @@ func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPack
 		Revision:      repository.Revision2Str(draft.Key().Revision),
 		Task:          change,
 	}
-	message := "Intermediate commit"
+	message := formatCommitMessage("")
 	if change != nil {
-		message += fmt.Sprintf(": %s", change.Type)
+		message = formatCommitMessage(string(change.Type))
 		draft.tasks = append(draft.tasks, *change)
 	}
 	message += "\n"
@@ -1609,7 +1643,7 @@ func (r *gitRepository) commitPackageToMain(ctx context.Context, d *gitPackageRe
 
 	// Add a commit without changes to mark that the package revision is approved. The gitAnnotation is
 	// included so that we can later associate the commit with the correct packagerevision.
-	message, err := AnnotateCommitMessage(fmt.Sprintf("Approve %s/%d", d.Key().PkgKey.ToFullPathname(), d.Key().Revision), &gitAnnotation{
+	message, err := AnnotateCommitMessage(fmt.Sprintf(commitMessageApproveTemplate, d.Key().PkgKey.ToFullPathname(), d.Key().Revision), &gitAnnotation{
 		PackagePath:   d.Key().PkgKey.ToFullPathname(),
 		WorkspaceName: d.Key().WorkspaceName,
 		Revision:      repository.Revision2Str(d.Key().Revision),

@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	crcache "github.com/nephio-project/porch/pkg/cache/crcache"
+	"github.com/nephio-project/porch/pkg/cache/dbcache"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -26,14 +27,12 @@ import (
 
 var tracer = otel.Tracer("cache")
 
-var cache cachetypes.Cache
-
 func GetCacheImpl(ctx context.Context, options cachetypes.CacheOptions) (cachetypes.Cache, error) {
 	ctx, span := tracer.Start(ctx, "Repository::RepositoryFactory", trace.WithAttributes())
 	defer span.End()
 
-	if cache != nil {
-		return cache, nil
+	if cachetypes.CacheInstance != nil {
+		return cachetypes.CacheInstance, nil
 	}
 
 	var cacheFactory cachetypes.CacheFactory
@@ -42,18 +41,17 @@ func GetCacheImpl(ctx context.Context, options cachetypes.CacheOptions) (cachety
 	case cachetypes.CRCacheType:
 		cacheFactory = new(crcache.CrCacheFactory)
 
+	case cachetypes.DBCacheType:
+		cacheFactory = new(dbcache.DBCacheFactory)
+
 	default:
 		return nil, fmt.Errorf("type %q not supported", cacheType)
 	}
 
 	if newCache, err := cacheFactory.NewCache(ctx, options); err == nil {
-		cache = newCache
-		return cache, err
+		cachetypes.CacheInstance = newCache
+		return cachetypes.CacheInstance, err
 	} else {
 		return nil, err
 	}
-}
-
-func GetCache() cachetypes.Cache {
-	return cache
 }

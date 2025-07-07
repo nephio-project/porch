@@ -58,6 +58,8 @@ type PorchServerOptions struct {
 	CacheDirectory                   string
 	CacheType                        string
 	CoreAPIKubeconfigPath            string
+	DbCacheDriver                    string
+	DbCacheDataSource                string
 	DefaultImagePrefix               string
 	DisableValidatingAdmissionPolicy bool
 	FunctionRunnerAddress            string
@@ -160,13 +162,64 @@ func (o *PorchServerOptions) Complete() error {
 	}
 
 	o.CacheType = strings.ToUpper(o.CacheType)
-
-	// if !o.LocalStandaloneDebugging {
-	// 	TODO: register admission plugins here ...
-	// 	add admission plugins to the RecommendedPluginOrder here ...
-	// }
+    if o.CacheType == string(cachetypes.DBCacheType) {
+        if err := o.setupDBCacheConn(); err != nil {
+            return err
+        }
+    }
 
 	return nil
+}
+
+func (o *PorchServerOptions) setupDBCacheConn() error {
+    dbDriver := os.Getenv("DB_DRIVER")
+    dbHost := os.Getenv("DB_HOST")
+    dbPort := os.Getenv("DB_PORT")
+    dbName := os.Getenv("DB_NAME")
+    dbUser := os.Getenv("DB_USER")
+    dbUserPass := os.Getenv("DB_PASSWORD")
+
+    missingVars := []string{}
+    if dbDriver == "" {
+        dbDriver = "pgx" 
+        klog.Infof("DB_DRIVER not provided, defaulting to use db driver: %v", dbDriver)
+    }
+    if dbHost == "" {
+        missingVars = append(missingVars, "DB_HOST")
+    }
+    if dbPort == "" {
+        missingVars = append(missingVars, "DB_PORT")
+    }
+    if dbName == "" {
+        missingVars = append(missingVars, "DB_NAME")
+    }
+    if dbUser == "" {
+        missingVars = append(missingVars, "DB_USER")
+    }
+    if dbUserPass == "" {
+        missingVars = append(missingVars, "DB_PASSWORD")
+    }
+
+    if len(missingVars) > 0 {
+        return fmt.Errorf("missing required environment variables: %v", missingVars)
+    }
+
+    // Build connection string based on the DB type
+    var connStr string
+    switch dbDriver {
+    case "pgx":
+        connStr = fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", dbUser, dbUserPass, dbHost, dbPort, dbName)
+    case "mysql":
+        connStr = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", dbUser, dbUserPass, dbHost, dbPort, dbName)
+    default:
+        return fmt.Errorf("unsupported DB driver: %s", dbDriver)
+    }
+
+    // Set the DB cache options
+    o.DbCacheDriver = dbDriver
+    o.DbCacheDataSource = connStr
+
+    return nil
 }
 
 // Config returns config for the api server given PorchServerOptions
@@ -219,6 +272,10 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 				},
 				RepoSyncFrequency: o.RepoSyncFrequency,
 				CacheType:         cachetypes.CacheType(o.CacheType),
+				DBCacheOptions: cachetypes.DBCacheOptions{
+					Driver:     o.DbCacheDriver,
+					DataSource: o.DbCacheDataSource,
+				},
 			},
 		},
 	}
@@ -263,7 +320,9 @@ func (o *PorchServerOptions) AddFlags(fs *pflag.FlagSet) {
 	}
 
 	fs.StringVar(&o.CacheDirectory, "cache-directory", "", "Directory where Porch server stores repository and package caches.")
-	fs.StringVar(&o.CacheType, "cache-type", string(cachetypes.DefaultCacheType), "Type of cache to use for cacheing repos, supported type is \"CR\" (Custom Resource)")
+	fs.StringVar(&o.CacheType, "cache-type", string(cachetypes.DefaultCacheType), "Type of cache to use for cacheing repos, supported types are \"CR\" (Custom Resource) and \"DB\" (DataBase)")
+	fs.StringVar(&o.DbCacheDriver, "db-cache-driver", cachetypes.DefaultDBCacheDriver, "Database driver to use when for the database cache")
+	fs.StringVar(&o.DbCacheDataSource, "db-cache-data-source", "", "Address of the database, for example \"postgresql://user:pass@hostname:port/database\"")
 	fs.StringVar(&o.DefaultImagePrefix, "default-image-prefix", fnruntime.GCRImagePrefix, "Default prefix for unqualified function names")
 	fs.BoolVar(&o.DisableValidatingAdmissionPolicy, "disable-validating-admissions-policy", true, "Determine whether to (dis|en)able the Validating Admission Policy, which requires k8s version >= v1.30")
 	fs.StringVar(&o.FunctionRunnerAddress, "function-runner", "", "Address of the function runner gRPC service.")

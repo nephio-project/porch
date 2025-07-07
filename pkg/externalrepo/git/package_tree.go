@@ -113,7 +113,7 @@ func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revision
 	}
 
 	if len(tasks) == 0 {
-		klog.Warningf("Loaded no tasks for package %s", gitPrKey)
+		klog.V(2).Infof("Loaded no tasks for package %s", gitPrKey)
 	} else if klog.V(6).Enabled() {
 		marshalledTasks, _ := json.Marshal(tasks)
 		klog.Infof("Loaded tasks for package %s: %s", gitPrKey, marshalledTasks)
@@ -147,7 +147,7 @@ func (t *packageList) discoverPackages(repoKey repository.RepositoryKey, tree *o
 	for _, e := range tree.Entries {
 		if e.Name == "Kptfile" {
 			p := path.Join(treePath, e.Name)
-			if !e.Mode.IsRegular() {
+			if !e.Mode.IsFile() {
 				klog.Warningf("skipping %q: Kptfile is not a file", p)
 				continue
 			}

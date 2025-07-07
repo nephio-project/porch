@@ -28,7 +28,7 @@ else
 endif
 
 .PHONY: generate-mocks
-generate-mocks:
+generate-mocks: clean-mocks
 ifeq ($(CONTAINER_RUNNABLE), 0)
 		find . -name .mockery.yaml \
 			-exec echo generating mocks specified in {} . . . \; \

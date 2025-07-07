@@ -147,17 +147,12 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 		return nil, err
 	}
 
-	if err := util.ValidPkgRevObjName(repositoryObj.ObjectMeta.Name, repositoryObj.Spec.Git.Directory, obj.Spec.PackageName, string(obj.Spec.WorkspaceName)); err != nil {
+	pkgKey := repository.FromFullPathname(repo.Key(), obj.Spec.PackageName)
+	if err := util.ValidPkgRevObjName(repositoryObj.ObjectMeta.Name, pkgKey.Path, pkgKey.Package, string(obj.Spec.WorkspaceName)); err != nil {
 		return nil, fmt.Errorf("failed to create packagerevision: %w", err)
 	}
 
-	revs, err := repo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
-		Key: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
-				Package: obj.Spec.PackageName,
-			},
-		},
-	})
+	revs, err := repo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{PkgKey: pkgKey}})
 	if err != nil {
 		return nil, fmt.Errorf("error listing package revisions: %w", err)
 	}
@@ -262,7 +257,6 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version int, re
 	if err != nil {
 		return nil, err
 	}
-	repoPr.SetRepository(repo)
 
 	// Check if the PackageRevision is in the terminating state and
 	// and this request removes the last finalizer.
@@ -370,7 +364,6 @@ func (cad *cadEngine) DeletePackageRevision(ctx context.Context, repositoryObj *
 	if err != nil {
 		return err
 	}
-	pr2Del.SetRepository(repo)
 
 	return cad.deletePackageRevision(ctx, repo, pr2Del)
 }

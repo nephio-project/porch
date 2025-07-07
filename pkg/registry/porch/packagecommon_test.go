@@ -1,3 +1,17 @@
+// Copyright 2025 The kpt and Nephio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package porch
 
 import (
@@ -29,7 +43,6 @@ func (f *fakePackageRevision) Key() repository.PackageRevisionKey {
 }
 func (f *fakePackageRevision) KubeObjectName() string                                 { return "" }
 func (f *fakePackageRevision) UID() types.UID                                         { return "" }
-func (f *fakePackageRevision) SetRepository(repository.Repository)                    {}
 func (f *fakePackageRevision) SetMeta(context.Context, metav1.ObjectMeta) error       { return nil }
 func (f *fakePackageRevision) ResourceVersion() string                                { return "" }
 func (f *fakePackageRevision) Lifecycle(context.Context) api.PackageRevisionLifecycle { return "" }
@@ -174,9 +187,17 @@ func TestWatchPackages_CallsCallback(t *testing.T) {
 		return false
 	}}
 
-	filter := packageRevisionFilter{Namespace: "test-ns"}
-	ctx := context.TODO()
-	err := pc.watchPackages(ctx, filter, callback)
+	nsFilter := repository.ListPackageRevisionFilter{
+		Key: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				RepoKey: repository.RepositoryKey{
+					Namespace: "test-ns",
+				},
+			},
+		},
+	}
+
+	err := pc.watchPackages(context.TODO(), nsFilter, callback)
 	if err != nil {
 		t.Fatalf("watchPackages returned error: %v", err)
 	}
@@ -195,7 +216,7 @@ func TestWatchPackages_NoNamespace(t *testing.T) {
 		return false
 	}}
 
-	filter := packageRevisionFilter{}
+	filter := repository.ListPackageRevisionFilter{}
 	ctx := context.TODO() // No namespace set in context
 	err := pc.watchPackages(ctx, filter, callback)
 	if err != nil {
@@ -219,7 +240,7 @@ func TestWatchPackages_ErrorPath(t *testing.T) {
 		return false
 	}}
 
-	filter := packageRevisionFilter{}
+	filter := repository.ListPackageRevisionFilter{}
 	ctx := context.TODO()
 	err := pc.watchPackages(ctx, filter, callback)
 	if err == nil {
@@ -237,7 +258,7 @@ func TestWatchPackages_WithNamespaceFilteringWatcher(t *testing.T) {
 		return false
 	}}
 
-	filter := packageRevisionFilter{}
+	filter := repository.ListPackageRevisionFilter{}
 	ctx := context.TODO()
 	ctx = request.WithNamespace(ctx, "foo") // Set namespace in context
 
