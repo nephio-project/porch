@@ -26,7 +26,8 @@ test: ## Run unit tests (go test)
 ifeq ($(CONTAINER_RUNNABLE), 0)
 		$(RUN_CONTAINER_COMMAND) docker.io/nephio/gotests:1919654500491071488 \
 		adduser --shell /bin/sh --group --disabled-password -home /home/ubuntu --no-create-home ubuntu; \
-		PORCHDIR=${PORCHDIR} sh -e -c " \
+		PORCHDIR=${PORCHDIR} sh -e -c "git config --add user.name test; \
+		git config --add user.email test@nephio.org; \
 		go test ./... -v -coverprofile=${TEST_COVERAGE_FILE}; \
 		go tool cover -html=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_HTML_FILE}; \
 		go tool cover -func=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_FUNC_FILE}"
