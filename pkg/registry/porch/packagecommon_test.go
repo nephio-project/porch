@@ -40,7 +40,7 @@ func (f *fakePackageRevision) GetPackageRevision(ctx context.Context) (*api.Pack
 }
 func (f *fakePackageRevision) KubeObjectNamespace() string { return f.namespace }
 func (f *fakePackageRevision) Key() repository.PackageRevisionKey {
-	return repository.PackageRevisionKey{}
+	return repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: f.namespace}}}
 }
 func (f *fakePackageRevision) KubeObjectName() string                           { return "" }
 func (f *fakePackageRevision) UID() types.UID                                   { return "" }
