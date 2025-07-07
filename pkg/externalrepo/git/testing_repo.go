@@ -283,7 +283,7 @@ func findPackageRevision(t *testing.T, revisions []repository.PackageRevision, f
 }
 
 func filterToString(filter repository.ListPackageRevisionFilter) string {
-	return fmt.Sprintf("%s, %s, %s", filter.Key, filter.KubeObjectName, filter.Lifecycle)
+	return fmt.Sprintf("%s, [%s]", filter.Key, fmt.Sprint(filter.Lifecycles))
 }
 
 func packageMustNotExist(t *testing.T, revisions []repository.PackageRevision, key repository.PackageRevisionKey) {

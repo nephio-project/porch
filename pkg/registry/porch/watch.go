@@ -44,17 +44,11 @@ func (r *packageRevisions) Watch(ctx context.Context, options *metainternalversi
 		return nil, err
 	}
 
-	// if namespace, namespaced := genericapirequest.NamespaceFrom(ctx); namespaced {
-	// 	if filter.Key.RKey().Namespace != "" && namespace != filter.Key.RKey().Namespace {
-	// 		return nil, fmt.Errorf("conflicting namespaces specified: %q and %q", namespace, filter.Key.RKey().Namespace)
-	// 	}
-	// 	filter.Key.PkgKey.RepoKey.Namespace = namespace
-	// }
-	if ns, namespaced := genericapirequest.NamespaceFrom(ctx); namespaced {
-		if namespaceMatches, filteredNamespace := filter.matchesNamespace(ns); !namespaceMatches {
-			return nil, fmt.Errorf("conflicting namespaces specified: %q and %q", ns, filteredNamespace)
+	if namespace, namespaced := genericapirequest.NamespaceFrom(ctx); namespaced {
+		if namespaceMatches, filteredNamespace := filter.MatchesNamespace(namespace); !namespaceMatches {
+			return nil, fmt.Errorf("conflicting namespaces specified: %q and %q", namespace, filteredNamespace)
 		}
-		filter.Namespace(ns)
+		filter.Namespace(namespace)
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -64,7 +58,7 @@ func (r *packageRevisions) Watch(ctx context.Context, options *metainternalversi
 		resultChan: make(chan watch.Event, 64),
 	}
 
-	go w.listAndWatch(ctx, r, filter, options.LabelSelector)
+	go w.listAndWatch(ctx, r, *filter, options.LabelSelector)
 
 	return w, nil
 }

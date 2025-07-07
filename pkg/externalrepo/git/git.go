@@ -255,8 +255,7 @@ type gitRepository struct {
 	// deletionProposedCache contains the deletionProposed branches that
 	// exist in the repo so that we can easily check them without iterating
 	// through all the refs each time
-	deletionProposedCache      map[BranchName]bool
-	deletionProposedCacheMutex sync.Mutex
+	deletionProposedCache map[BranchName]bool
 
 	mutex sync.Mutex
 
@@ -628,10 +627,8 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, old repositor
 				return fmt.Errorf("failed to update git references: %w", err)
 			}
 
-			r.deletionProposedCacheMutex.Lock()
 			// Remove the deletionProposed branch from the cache
 			delete(r.deletionProposedCache, deletionProposedBranch)
-			r.deletionProposedCacheMutex.Unlock()
 
 			return nil
 		},
@@ -828,9 +825,9 @@ func (r *gitRepository) loadDraft(ctx context.Context, ref *plumbing.Reference) 
 	return packageRevision, nil
 }
 
-func (r *gitRepository) UpdateDeletionProposedCache(ctx context.Context) error {
-	r.deletionProposedCacheMutex.Lock()
-	defer r.deletionProposedCacheMutex.Unlock()
+func (r *gitRepository) UpdateDeletionProposedCache() error {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 	return r.updateDeletionProposedCache()
 }
 
@@ -1344,6 +1341,8 @@ type commitCallback func(*object.Commit) error
 func (r *gitRepository) GetLifecycle(ctx context.Context, pkgRev *gitPackageRevision) v1alpha1.PackageRevisionLifecycle {
 	_, span := tracer.Start(ctx, "gitRepository::GetLifecycle", trace.WithAttributes())
 	defer span.End()
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 
 	return r.getLifecycle(pkgRev)
 }
@@ -1362,8 +1361,6 @@ func (r *gitRepository) getLifecycle(pkgRev *gitPackageRevision) v1alpha1.Packag
 }
 
 func (r *gitRepository) checkPublishedLifecycle(pkgRev *gitPackageRevision) v1alpha1.PackageRevisionLifecycle {
-	r.deletionProposedCacheMutex.Lock()
-	defer r.deletionProposedCacheMutex.Unlock()
 	if r.deletionProposedCache == nil {
 		if err := r.updateDeletionProposedCache(); err != nil {
 			klog.Errorf("failed to update deletionProposed cache: %v", err)
@@ -1398,9 +1395,7 @@ func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageR
 			return fmt.Errorf("invalid new lifecycle value: %q", newLifecycle)
 		}
 		// Push the package revision into a deletionProposed branch.
-		r.deletionProposedCacheMutex.Lock()
 		r.deletionProposedCache[deletionProposedBranch] = true
-		r.deletionProposedCacheMutex.Unlock()
 		refSpecs.AddRefToPush(pkgRev.commit, deletionProposedBranch.RefInLocal())
 	}
 	if old == v1alpha1.PackageRevisionLifecycleDeletionProposed {
@@ -1409,9 +1404,7 @@ func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageR
 		}
 
 		// Delete the deletionProposed branch
-		r.deletionProposedCacheMutex.Lock()
 		delete(r.deletionProposedCache, deletionProposedBranch)
-		r.deletionProposedCacheMutex.Unlock()
 		ref := plumbing.NewHashReference(deletionProposedBranch.RefInLocal(), pkgRev.commit)
 		refSpecs.AddRefToDelete(ref)
 	}

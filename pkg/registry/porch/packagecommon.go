@@ -64,23 +64,15 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter reposit
 
 	var opts []client.ListOption
 
-	// namespace, namespaced := genericapirequest.NamespaceFrom(ctx)
-	// if namespaced && namespace != "" {
-	// 	opts = append(opts, client.InNamespace(namespace))
-
-	// 	if filter.Key.RKey().Namespace != "" && namespace != filter.Key.RKey().Namespace {
-	// 		return fmt.Errorf("conflicting namespaces specified: %q and %q", namespace, filter.Key.RKey().Namespace)
-	// 	}
-	// }
-	ns, namespaced := genericapirequest.NamespaceFrom(ctx)
-	if namespaced && ns != "" {
-		if namespaceMatches, filteredNamespace := filter.matchesNamespace(ns); !namespaceMatches {
-			return fmt.Errorf("conflicting namespaces specified: %q and %q", ns, filteredNamespace)
+	namespace, namespaced := genericapirequest.NamespaceFrom(ctx)
+	if namespaced && namespace != "" {
+		if namespaceMatches, filteredNamespace := filter.MatchesNamespace(namespace); !namespaceMatches {
+			return fmt.Errorf("conflicting namespaces specified: %q and %q", namespace, filteredNamespace)
 		}
 
-		opts = append(opts, client.InNamespace(ns))
+		opts = append(opts, client.InNamespace(namespace))
 	}
-	if filterRepo := filter.filteredRepository(); filterRepo != "" {
+	if filterRepo := filter.FilteredRepository(); filterRepo != "" {
 		opts = append(opts, client.MatchingFields(fields.Set{"metadata.name": filterRepo}))
 	}
 
@@ -103,11 +95,7 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter reposit
 		}
 		for _, rev := range revisions {
 
-			fieldMatch, err := filter.Matches(rev)
-			if err != nil {
-				return err
-			}
-			if !fieldMatch {
+			if !filter.Matches(ctx, rev) {
 				continue
 			}
 

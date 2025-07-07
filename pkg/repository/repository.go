@@ -327,7 +327,7 @@ type ListPackageRevisionFilter struct {
 func (f *ListPackageRevisionFilter) Matches(ctx context.Context, p PackageRevision) bool {
 	if f.Predicate != nil && f.Predicate.Field != nil {
 		f.ParseAttrFunc(p)
-		if matches, _ := f.Predicate.Matches(Wrap(&p)); !matches {
+		if matches, _ := f.Predicate.Matches(wrap(&p)); !matches {
 			return false
 		}
 	}
@@ -342,10 +342,12 @@ func (f *ListPackageRevisionFilter) Matches(ctx context.Context, p PackageRevisi
 
 	if f.Predicate != nil && f.Predicate.Field != nil {
 		f.ParseAttrFunc(p)
-		if matches, _ := f.Predicate.Matches(Wrap(&p)); !matches {
+		if matches, _ := f.Predicate.Matches(wrap(&p)); !matches {
 			return false
 		}
 	}
+
+	return true
 }
 
 // pkgRevGetAttrs returns fields of a given PackageRevision object for filtering purposes.

@@ -15,6 +15,7 @@
 package porch
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -96,18 +97,15 @@ func Test_packageRevisionFilter_Matches(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			filter := &packageRevisionFilter{
-				ListPackageRevisionFilter: &repository.ListPackageRevisionFilter{
-					Predicate: &storage.SelectionPredicate{
-						Field: tt.fieldSelector,
-						Label: labels.Everything(),
-					},
+			filter := &repository.ListPackageRevisionFilter{
+				Predicate: &storage.SelectionPredicate{
+					Field: tt.fieldSelector,
+					Label: labels.Everything(),
 				},
 			}
 
-			gotMatches, gotErr := filter.Matches(tt.p)
+			gotMatches := filter.Matches(context.TODO(), tt.p)
 			require.Equal(t, tt.wantMatches, gotMatches)
-			require.NoError(t, gotErr)
 		})
 	}
 }
@@ -183,17 +181,15 @@ func Test_packageRevisionFilter_matchesNamespace(t *testing.T) {
 		// GIVEN a packageRevisionFilter selecting on the specified fieldSelector
 		//***********************************************************************
 		t.Run(tt.name, func(t *testing.T) {
-			filter := &packageRevisionFilter{
-				ListPackageRevisionFilter: &repository.ListPackageRevisionFilter{
-					Predicate: &storage.SelectionPredicate{
-						Field: tt.fieldSelector,
-					},
+			filter := &repository.ListPackageRevisionFilter{
+				Predicate: &storage.SelectionPredicate{
+					Field: tt.fieldSelector,
 				},
 			}
 
 			// WHEN we check if the filter matches a particular namespace
 			//***********************************************************
-			gotMatches, gotFilteredNamespace := filter.matchesNamespace("foo")
+			gotMatches, gotFilteredNamespace := filter.MatchesNamespace("foo")
 
 			// THEN the filter returns expected values for whether the namespace
 			//      matches, and what namespace is being matched against
@@ -232,16 +228,14 @@ func Test_packageRevisionFilter_filteredRepository(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// GIVEN a packageRevisionFilter selecting on the specified fieldSelector
 			//***********************************************************************
-			filter := &packageRevisionFilter{
-				ListPackageRevisionFilter: &repository.ListPackageRevisionFilter{
-					Predicate: &storage.SelectionPredicate{
-						Field: tt.fieldSelector,
-					},
+			filter := &repository.ListPackageRevisionFilter{
+				Predicate: &storage.SelectionPredicate{
+					Field: tt.fieldSelector,
 				},
 			}
 			// WHEN we get the filter's repository selector
 			//***********************************************************
-			gotFilteredRepo := filter.filteredRepository()
+			gotFilteredRepo := filter.FilteredRepository()
 
 			// THEN the filter returns expected values for the repo being matched against
 			//***************************************************************************
@@ -299,11 +293,9 @@ func Test_parsePackageRevisionFieldSelector(t *testing.T) {
 
 			gotFilter, err := parsePackageRevisionFieldSelector(options)
 
-			wantFilter := packageRevisionFilter{
-				ListPackageRevisionFilter: &repository.ListPackageRevisionFilter{
-					Predicate: &storage.SelectionPredicate{
-						Field: tt.wantSelector,
-					},
+			wantFilter := &repository.ListPackageRevisionFilter{
+				Predicate: &storage.SelectionPredicate{
+					Field: tt.wantSelector,
 				},
 			}
 			require.EqualValues(t, wantFilter, gotFilter)
@@ -339,11 +331,9 @@ func Test_parsePackageRevisionFieldSelector(t *testing.T) {
 
 			gotFilter, err := parsePackageRevisionFieldSelector(options)
 
-			wantFilter := packageRevisionFilter{
-				ListPackageRevisionFilter: &repository.ListPackageRevisionFilter{
-					Predicate: &storage.SelectionPredicate{
-						Field: nil,
-					},
+			wantFilter := &repository.ListPackageRevisionFilter{
+				Predicate: &storage.SelectionPredicate{
+					Field: nil,
 				},
 			}
 			require.EqualValues(t, wantFilter, gotFilter)

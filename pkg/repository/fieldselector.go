@@ -19,6 +19,7 @@ import (
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -32,7 +33,7 @@ var (
 			return p.KubeObjectName()
 		},
 		api.PackageRevisionSelectableFields.Namespace: func(p PackageRevision) string {
-			return p.KubeObjectNamespace()
+			return p.Key().RKey().Namespace
 		},
 		api.PackageRevisionSelectableFields.Revision: func(p PackageRevision) string {
 			return Revision2Str(p.Key().Revision)
@@ -58,12 +59,58 @@ var (
 	}
 )
 
+func (f *ListPackageRevisionFilter) Namespace(namespace string) *ListPackageRevisionFilter {
+	if f.Predicate == nil {
+		f.Key.PkgKey.RepoKey.Namespace = namespace
+		return f
+	}
+
+	namespaceSelector := fields.OneTermEqualSelector(api.PackageRevisionSelectableFields.Namespace, namespace)
+
+	field := f.Predicate.Field
+	if field == nil {
+		f.Predicate.Field = namespaceSelector
+	} else {
+		f.Predicate.Field = fields.AndSelectors(field, namespaceSelector)
+	}
+	return f
+}
+
+func (f *ListPackageRevisionFilter) MatchesNamespace(namespace string) (bool, string) {
+	if f.Predicate == nil {
+		filteredNamespace := f.Key.RKey().Namespace
+		return (filteredNamespace == "" || namespace == filteredNamespace), filteredNamespace
+	}
+
+	if f.Predicate.Field == nil {
+		return true, ""
+	}
+
+	filteredNamespace, filteringOnNamespace := f.Predicate.MatchesSingleNamespace()
+	if !filteringOnNamespace {
+		return true, ""
+	}
+	return (namespace == "" || namespace == filteredNamespace), filteredNamespace
+}
+
+func (f *ListPackageRevisionFilter) FilteredRepository() string {
+	if f.Predicate.Field == nil {
+		return ""
+	}
+
+	if filteredRepo, filteringOnRepo := f.Predicate.Field.RequiresExactMatch(api.PackageRevisionSelectableFields.Repository); filteringOnRepo {
+		return filteredRepo
+	}
+
+	return ""
+}
+
 type WrappedRepoPkgRev struct {
 	metav1.TypeMeta
 	repoPr PackageRevision
 }
 
-func Wrap(p *PackageRevision) *WrappedRepoPkgRev {
+func wrap(p *PackageRevision) *WrappedRepoPkgRev {
 	return &WrappedRepoPkgRev{repoPr: *p}
 }
 

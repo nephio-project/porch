@@ -104,52 +104,6 @@ func newPackageRevisionFilter() *repository.ListPackageRevisionFilter {
 	}
 }
 
-func (f *packageRevisionFilter) Matches(p repository.PackageRevision) (bool, error) {
-	if f.Predicate.Field == nil {
-		return true, nil
-	}
-
-	f.ParseAttrFunc(p)
-
-	return f.Predicate.Matches(repository.Wrap(&p))
-}
-
-func (f *packageRevisionFilter) Namespace(ns string) *packageRevisionFilter {
-	namespaceSelector := fields.OneTermEqualSelector(api.PackageRevisionSelectableFields.Namespace, ns)
-
-	field := f.Predicate.Field
-	if field == nil {
-		f.Predicate.Field = namespaceSelector
-	} else {
-		f.Predicate.Field = fields.AndSelectors(field, namespaceSelector)
-	}
-	return f
-}
-
-func (f *packageRevisionFilter) matchesNamespace(ns string) (bool, string) {
-	if f.Predicate.Field == nil {
-		return true, ""
-	}
-
-	filteredNamespace, filteringOnNamespace := f.Predicate.MatchesSingleNamespace()
-	if !filteringOnNamespace {
-		return true, ""
-	}
-	return (ns == "" || ns == filteredNamespace), filteredNamespace
-}
-
-func (f *packageRevisionFilter) filteredRepository() string {
-	if f.Predicate.Field == nil {
-		return ""
-	}
-
-	if filteredRepo, filteringOnRepo := f.Predicate.Field.RequiresExactMatch(api.PackageRevisionSelectableFields.Repository); filteringOnRepo {
-		return filteredRepo
-	}
-
-	return ""
-}
-
 // parsePackageRevisionFieldSelector parses client-provided fields.Selector into a packageRevisionFilter
 func parsePackageRevisionFieldSelector(options *metainternalversion.ListOptions) (*repository.ListPackageRevisionFilter, error) {
 	filter := &repository.ListPackageRevisionFilter{
