@@ -19,7 +19,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/storage"
@@ -250,22 +249,8 @@ func TestWrappedRepoPkgRev_DeepCopyObject(t *testing.T) {
 }
 
 func TestWrappedRepoPkgRev_GetObjectKind(t *testing.T) {
-	type fields struct {
-		TypeMeta metav1.TypeMeta
-		repoPr   PackageRevision
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   schema.ObjectKind
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			in := wrappedRepoPkgRev{repoPr: &fakePackageRevision{}}
-			got := in.GetObjectKind()
-			require.Equal(t, schema.EmptyObjectKind, got)
-		})
-	}
+	in := wrappedRepoPkgRev{repoPr: &fakePackageRevision{}}
+	got := in.GetObjectKind()
+	require.Equal(t, schema.EmptyObjectKind, got)
+
 }
