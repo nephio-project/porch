@@ -97,12 +97,6 @@ func parsePackageFieldSelector(fieldSelector fields.Selector) (repository.ListPa
 	return filter, nil
 }
 
-func newPackageRevisionFilter() *repository.ListPackageRevisionFilter {
-	return &repository.ListPackageRevisionFilter{
-		Predicate: &storage.SelectionPredicate{},
-	}
-}
-
 // parsePackageRevisionFieldSelector parses client-provided fields.Selector into a packageRevisionFilter
 func parsePackageRevisionFieldSelector(options *metainternalversion.ListOptions) (*repository.ListPackageRevisionFilter, error) {
 	filter := &repository.ListPackageRevisionFilter{

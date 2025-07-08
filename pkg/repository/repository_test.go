@@ -218,12 +218,12 @@ func TestListPackageRevisionFilter_Matches(t *testing.T) {
 		{
 			name:   "lifecycle matches",
 			filter: ListPackageRevisionFilter{Lifecycles: []api.PackageRevisionLifecycle{"Published"}},
-			p:      &fakePackageRevision{lifecycle: string(api.PackageRevisionLifecyclePublished)},
+			p:      &fakePackageRevision{lifecycle: api.PackageRevisionLifecyclePublished},
 		},
 		{
 			name:     "lifecycle doesn't match",
 			filter:   ListPackageRevisionFilter{Lifecycles: []api.PackageRevisionLifecycle{"Published"}},
-			p:        &fakePackageRevision{lifecycle: string(api.PackageRevisionLifecycleDeletionProposed)},
+			p:        &fakePackageRevision{lifecycle: api.PackageRevisionLifecycleDeletionProposed},
 			negative: true,
 		},
 		{
@@ -236,6 +236,46 @@ func TestListPackageRevisionFilter_Matches(t *testing.T) {
 			filter:   ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"spec.repository": "someReopWithAMisspelling"}.AsSelector(), Label: labels.Everything()}},
 			p:        &fakePackageRevision{repoName: "someRepo"},
 			negative: true,
+		},
+		{
+			name:   "predicate matches name",
+			filter: ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"metadata.name": "somePackageRevision"}.AsSelector(), Label: labels.Everything()}},
+			p:      &fakePackageRevision{name: "somePackageRevision"},
+		},
+		{
+			name:   "predicate matches namespace",
+			filter: ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"metadata.namespace": "someNamespace"}.AsSelector(), Label: labels.Everything()}},
+			p:      &fakePackageRevision{namespace: "someNamespace"},
+		},
+		{
+			name:   "predicate matches revision",
+			filter: ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"spec.revision": "1"}.AsSelector(), Label: labels.Everything()}},
+			p:      &fakePackageRevision{revision: 1},
+		},
+		{
+			name:   "predicate matches package name",
+			filter: ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"spec.packageName": "someSortOfRadio"}.AsSelector(), Label: labels.Everything()}},
+			p:      &fakePackageRevision{packageName: "someSortOfRadio"},
+		},
+		{
+			name:   "predicate matches multi-folder package name",
+			filter: ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"spec.packageName": "someSortOfNetwork/someSortOfRadio"}.AsSelector(), Label: labels.Everything()}},
+			p:      &fakePackageRevision{packagePath: "someSortOfNetwork", packageName: "someSortOfRadio"},
+		},
+		{
+			name:   "predicate matches repository name",
+			filter: ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"spec.repository": "someRepo"}.AsSelector(), Label: labels.Everything()}},
+			p:      &fakePackageRevision{repoName: "someRepo"},
+		},
+		{
+			name:   "predicate matches workspace name",
+			filter: ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"spec.workspaceName": "main"}.AsSelector(), Label: labels.Everything()}},
+			p:      &fakePackageRevision{workspaceName: "main"},
+		},
+		{
+			name:   "predicate matches lifecycle",
+			filter: ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"spec.lifecycle": "Published"}.AsSelector(), Label: labels.Everything()}},
+			p:      &fakePackageRevision{lifecycle: api.PackageRevisionLifecyclePublished},
 		},
 	}
 	for _, tt := range tests {
@@ -256,10 +296,14 @@ func TestListPackageFilter_Matches(t *testing.T) {
 }
 
 type fakePackageRevision struct {
-	namespace string
-	lifecycle string
-	revision  int
-	repoName  string
+	name          string
+	namespace     string
+	lifecycle     api.PackageRevisionLifecycle
+	packagePath   string
+	packageName   string
+	revision      int
+	repoName      string
+	workspaceName string
 }
 
 func (f *fakePackageRevision) GetPackageRevision(ctx context.Context) (*api.PackageRevision, error) {
@@ -273,10 +317,14 @@ func (f *fakePackageRevision) Key() PackageRevisionKey {
 				Namespace: f.namespace,
 				Name:      f.repoName,
 			},
+			Path:    f.packagePath,
+			Package: f.packageName,
 		},
-		Revision: f.revision}
+		Revision:      f.revision,
+		WorkspaceName: f.workspaceName,
+	}
 }
-func (f *fakePackageRevision) KubeObjectName() string                           { return "" }
+func (f *fakePackageRevision) KubeObjectName() string                           { return f.name }
 func (f *fakePackageRevision) UID() types.UID                                   { return "" }
 func (f *fakePackageRevision) SetMeta(context.Context, metav1.ObjectMeta) error { return nil }
 func (f *fakePackageRevision) ResourceVersion() string                          { return "" }

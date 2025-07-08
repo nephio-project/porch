@@ -105,22 +105,22 @@ func (f *ListPackageRevisionFilter) FilteredRepository() string {
 	return ""
 }
 
-type WrappedRepoPkgRev struct {
+type wrappedRepoPkgRev struct {
 	metav1.TypeMeta
 	repoPr PackageRevision
 }
 
-func wrap(p *PackageRevision) *WrappedRepoPkgRev {
-	return &WrappedRepoPkgRev{repoPr: *p}
+func wrap(p *PackageRevision) *wrappedRepoPkgRev {
+	return &wrappedRepoPkgRev{repoPr: *p}
 }
 
-func (p *WrappedRepoPkgRev) Unwrap() PackageRevision {
+func (p *wrappedRepoPkgRev) Unwrap() PackageRevision {
 	return p.repoPr
 }
 
-func (in WrappedRepoPkgRev) DeepCopyObject() runtime.Object {
+func (in wrappedRepoPkgRev) DeepCopyObject() runtime.Object {
 	return in
 }
-func (in WrappedRepoPkgRev) GetObjectKind() schema.ObjectKind {
+func (in wrappedRepoPkgRev) GetObjectKind() schema.ObjectKind {
 	return schema.EmptyObjectKind
 }

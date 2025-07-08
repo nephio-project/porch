@@ -110,140 +110,6 @@ func Test_packageRevisionFilter_Matches(t *testing.T) {
 	}
 }
 
-func Test_packageRevisionFilter_Namespace(t *testing.T) {
-	// SETUP test cases with varying selector strings for a packageRevisionFilter
-	//***************************************************************************
-	tests := []struct {
-		existingSelectors string
-	}{
-		{existingSelectors: "spec.revision=bar,spec.repository=baz"},
-		{existingSelectors: ""},
-	}
-	for _, tt := range tests {
-		t.Run(fmt.Sprintf("selectors %q", tt.existingSelectors), func(t *testing.T) {
-			// GIVEN a packageRevisionFilter selecting on the specified fieldSelector
-			//***********************************************************************
-			f := newPackageRevisionFilter()
-			f.Predicate.Field, _ = fields.ParseSelector(tt.existingSelectors)
-
-			// WHEN we set the filter to match a particular namespace
-			//*******************************************************
-			ns := "foo"
-			got := f.Namespace(ns)
-
-			// THEN the filter is updated to add the 'metadata.namespace' selector
-			//      to any existing selectors
-			//********************************************************************
-			want := newPackageRevisionFilter()
-			existing, _ := fields.ParseSelector(tt.existingSelectors)
-			want.Predicate.Field = fields.AndSelectors(existing, fields.OneTermEqualSelector("metadata.namespace", ns))
-			require.EqualValues(t, want, got)
-		})
-	}
-}
-
-func Test_packageRevisionFilter_matchesNamespace(t *testing.T) {
-	// SETUP test cases with varying selectors for a packageRevisionFilter
-	//********************************************************************
-	tests := []struct {
-		name                  string
-		fieldSelector         fields.Selector
-		wantMatches           bool
-		wantFilteredNamespace string
-	}{
-		{
-			name:                  "nil selector",
-			fieldSelector:         nil,
-			wantMatches:           true,
-			wantFilteredNamespace: "",
-		},
-		{
-			name:                  "matching selector",
-			fieldSelector:         fields.Set{"metadata.namespace": "foo"}.AsSelector(),
-			wantMatches:           true,
-			wantFilteredNamespace: "foo",
-		},
-		{
-			name:                  "non-matching selector",
-			fieldSelector:         fields.Set{"metadata.namespace": "bar"}.AsSelector(),
-			wantMatches:           false,
-			wantFilteredNamespace: "bar",
-		},
-		{
-			name:                  "different selector",
-			fieldSelector:         fields.Set{"metadata.name": "something"}.AsSelector(),
-			wantMatches:           true,
-			wantFilteredNamespace: "",
-		},
-	}
-
-	for _, tt := range tests {
-		// GIVEN a packageRevisionFilter selecting on the specified fieldSelector
-		//***********************************************************************
-		t.Run(tt.name, func(t *testing.T) {
-			filter := &repository.ListPackageRevisionFilter{
-				Predicate: &storage.SelectionPredicate{
-					Field: tt.fieldSelector,
-				},
-			}
-
-			// WHEN we check if the filter matches a particular namespace
-			//***********************************************************
-			gotMatches, gotFilteredNamespace := filter.MatchesNamespace("foo")
-
-			// THEN the filter returns expected values for whether the namespace
-			//      matches, and what namespace is being matched against
-			//******************************************************************
-			require.Equal(t, tt.wantMatches, gotMatches)
-			require.Equal(t, tt.wantFilteredNamespace, gotFilteredNamespace)
-		})
-	}
-}
-
-func Test_packageRevisionFilter_filteredRepository(t *testing.T) {
-	// SETUP test cases with varying selectors for a packageRevisionFilter
-	//********************************************************************
-	tests := []struct {
-		name             string
-		fieldSelector    fields.Selector
-		wantFilteredRepo string
-	}{
-		{
-			name:             "nil selector",
-			fieldSelector:    nil,
-			wantFilteredRepo: "",
-		},
-		{
-			name:             "matching selector",
-			fieldSelector:    fields.Set{"spec.repository": "foo"}.AsSelector(),
-			wantFilteredRepo: "foo",
-		},
-		{
-			name:             "different selector",
-			fieldSelector:    fields.Set{"metadata.name": "something"}.AsSelector(),
-			wantFilteredRepo: "",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// GIVEN a packageRevisionFilter selecting on the specified fieldSelector
-			//***********************************************************************
-			filter := &repository.ListPackageRevisionFilter{
-				Predicate: &storage.SelectionPredicate{
-					Field: tt.fieldSelector,
-				},
-			}
-			// WHEN we get the filter's repository selector
-			//***********************************************************
-			gotFilteredRepo := filter.FilteredRepository()
-
-			// THEN the filter returns expected values for the repo being matched against
-			//***************************************************************************
-			require.Equal(t, tt.wantFilteredRepo, gotFilteredRepo)
-		})
-	}
-}
-
 func Test_parsePackageRevisionFieldSelector(t *testing.T) {
 	// SETUP test cases with varying selectors for a packageRevisionFilter
 	//********************************************************************
@@ -389,7 +255,7 @@ func Test_parsePackageRevisionResourcesFieldSelector(t *testing.T) {
 				FieldSelector: fieldSelector,
 			}
 
-			gotFilter, err := parsePackageRevisionFieldSelector(options)
+			gotFilter, err := parsePackageRevisionResourcesFieldSelector(options)
 
 			wantFilter := &repository.ListPackageRevisionFilter{
 				Predicate: &storage.SelectionPredicate{
