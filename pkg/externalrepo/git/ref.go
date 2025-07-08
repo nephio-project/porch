@@ -130,7 +130,11 @@ func createProposedName(key repository.PackageRevisionKey) BranchName {
 }
 
 func createDeletionProposedName(key repository.PackageRevisionKey) BranchName {
-	return BranchName(deletionProposedPrefix + filepath.Join(key.PkgKey.ToFullPathname(), "/v"+repository.Revision2Str(key.Revision)))
+	if key.Revision > 0 {
+		return BranchName(deletionProposedPrefix + filepath.Join(key.PkgKey.ToFullPathname(), "/v"+repository.Revision2Str(key.Revision)))
+	} else {
+		return BranchName(deletionProposedPrefix + filepath.Join(key.PkgKey.ToFullPathname(), "/"+key.WorkspaceName))
+	}
 }
 
 func trimOptionalPrefix(s, prefix string) (string, bool) {
@@ -141,7 +145,11 @@ func trimOptionalPrefix(s, prefix string) (string, bool) {
 }
 
 func createFinalTagNameInLocal(key repository.PackageRevisionKey) plumbing.ReferenceName {
-	return plumbing.ReferenceName(tagsPrefixInLocalRepo + filepath.Join(key.PkgKey.ToFullPathname(), "/v"+repository.Revision2Str(key.Revision)))
+	if key.Revision > 0 {
+		return plumbing.ReferenceName(tagsPrefixInLocalRepo + filepath.Join(key.PkgKey.ToFullPathname(), "/v"+repository.Revision2Str(key.Revision)))
+	} else {
+		return plumbing.ReferenceName(tagsPrefixInLocalRepo + filepath.Join(key.PkgKey.ToFullPathname(), "/"+key.WorkspaceName))
+	}
 }
 
 func refInLocalFromRefInRemote(n plumbing.ReferenceName) (plumbing.ReferenceName, error) {
