@@ -251,7 +251,6 @@ func Test_parsePackageRevisionFieldSelector(t *testing.T) {
 		name         string
 		selector     string
 		wantSelector fields.Selector
-		wantErr      bool
 	}{
 		{
 			name:         "empty selector",
@@ -342,6 +341,63 @@ func Test_parsePackageRevisionFieldSelector(t *testing.T) {
 			} else {
 				require.ErrorContains(t, err, tt.wantErr)
 			}
+		})
+	}
+}
+
+func Test_parsePackageRevisionResourcesFieldSelector(t *testing.T) {
+	tests := []struct {
+		name         string
+		selector     string
+		wantSelector fields.Selector
+	}{
+		{
+			name:         "empty selector",
+			selector:     "",
+			wantSelector: fields.Set{}.AsSelector(),
+		},
+		{
+			name:         "revision selector",
+			selector:     "spec.revision=1",
+			wantSelector: fields.Set{"spec.revision": "1"}.AsSelector(),
+		},
+		{
+			name:         "namespace selector",
+			selector:     "metadata.namespace=foo",
+			wantSelector: fields.Set{"metadata.namespace": "foo"}.AsSelector(),
+		},
+		{
+			name:         "namespace selector with == operator",
+			selector:     "metadata.namespace==foo",
+			wantSelector: fields.Set{"metadata.namespace": "foo"}.AsSelector(),
+		},
+		{
+			name:     "namespace selector with != operator",
+			selector: "metadata.namespace!=foo",
+			wantSelector: func() fields.Selector {
+				selector, _ := fields.ParseSelector("metadata.namespace!=foo")
+				return selector
+			}(),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// GIVEN a packageRevisionFilter selecting on the specified fieldSelector
+			//***********************************************************************
+			fieldSelector, _ := fields.ParseSelector(tt.selector)
+			options := &metainternalversion.ListOptions{
+				FieldSelector: fieldSelector,
+			}
+
+			gotFilter, err := parsePackageRevisionFieldSelector(options)
+
+			wantFilter := &repository.ListPackageRevisionFilter{
+				Predicate: &storage.SelectionPredicate{
+					Field: tt.wantSelector,
+				},
+			}
+			require.EqualValues(t, wantFilter, gotFilter)
+			require.NoError(t, err)
 		})
 	}
 }

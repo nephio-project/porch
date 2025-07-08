@@ -325,13 +325,6 @@ type ListPackageRevisionFilter struct {
 
 // Matches returns true if the provided PackageRevision satisfies the conditions in the filter.
 func (f *ListPackageRevisionFilter) Matches(ctx context.Context, p PackageRevision) bool {
-	if f.Predicate != nil && f.Predicate.Field != nil {
-		f.ParseAttrFunc(p)
-		if matches, _ := f.Predicate.Matches(wrap(&p)); !matches {
-			return false
-		}
-	}
-
 	if !f.Key.Matches(p.Key()) {
 		return false
 	}
