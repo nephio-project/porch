@@ -63,7 +63,9 @@ func TestDBPackageRevision(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, dbPR)
 
-	assert.Nil(t, dbPR.ToMainPackageRevision(ctx))
+	assert.Equal(t, "main", dbPR.ToMainPackageRevision(ctx).Key().WorkspaceName)
+	dbPR.(*dbPackageRevision).pkgRevKey.PkgKey.RepoKey.PlaceholderWSname = "my-branch"
+	assert.Equal(t, "my-branch", dbPR.ToMainPackageRevision(ctx).Key().WorkspaceName)
 
 	meta := dbPR.GetMeta()
 	assert.Equal(t, meta.Name, "")
@@ -79,8 +81,9 @@ func TestDBPackageRevision(t *testing.T) {
 	prKey := repository.PackageRevisionKey{
 		PkgKey: repository.PackageKey{
 			RepoKey: repository.RepositoryKey{
-				Namespace: "my-ns",
-				Name:      "my-repo-name",
+				Namespace:         "my-ns",
+				Name:              "my-repo-name",
+				PlaceholderWSname: "my-branch",
 			},
 			Package: "my-package",
 		},
