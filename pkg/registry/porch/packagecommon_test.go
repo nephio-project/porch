@@ -27,10 +27,13 @@ import (
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/engine"
+	fakeextrepo "github.com/nephio-project/porch/pkg/externalrepo/fake"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	mockclient "github.com/nephio-project/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
+	mockcad "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/engine"
+	mockrepo "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/repository"
 	mockengine "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/engine"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -49,44 +52,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type fakePackageRevision struct {
-	namespace string
-}
-
-func (f *fakePackageRevision) GetPackageRevision(ctx context.Context) (*api.PackageRevision, error) {
-	return &api.PackageRevision{ObjectMeta: metav1.ObjectMeta{Namespace: f.namespace}}, nil
-}
-func (f *fakePackageRevision) KubeObjectNamespace() string { return f.namespace }
-func (f *fakePackageRevision) Key() repository.PackageRevisionKey {
-	return repository.PackageRevisionKey{}
-}
-func (f *fakePackageRevision) KubeObjectName() string                                 { return "" }
-func (f *fakePackageRevision) UID() types.UID                                         { return "" }
-func (f *fakePackageRevision) SetMeta(context.Context, metav1.ObjectMeta) error       { return nil }
-func (f *fakePackageRevision) ResourceVersion() string                                { return "" }
-func (f *fakePackageRevision) Lifecycle(context.Context) api.PackageRevisionLifecycle { return "" }
-func (f *fakePackageRevision) GetResources(context.Context) (*api.PackageRevisionResources, error) {
-	return nil, nil
-}
-func (f *fakePackageRevision) UpdateLifecycle(context.Context, api.PackageRevisionLifecycle) error {
-	return nil
-}
-func (f *fakePackageRevision) GetUpstreamLock(context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
-	return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil
-}
-func (f *fakePackageRevision) GetKptfile(context.Context) (kptfilev1.KptFile, error) {
-	return kptfilev1.KptFile{}, nil
-}
-func (f *fakePackageRevision) GetLock() (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
-	return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil
-}
-func (f *fakePackageRevision) ToMainPackageRevision(context.Context) repository.PackageRevision {
-	return f
-}
-func (f *fakePackageRevision) GetMeta() metav1.ObjectMeta {
-	return metav1.ObjectMeta{Namespace: f.namespace}
-}
-
 func TestNamespaceFilteringWatcher(t *testing.T) {
 	called := false
 	watcher := &namespaceFilteringWatcher{
@@ -97,13 +62,29 @@ func TestNamespaceFilteringWatcher(t *testing.T) {
 		}},
 	}
 	// Should call delegate
-	watcher.OnPackageRevisionChange(watch.Added, &fakePackageRevision{namespace: "foo"})
+	watcher.OnPackageRevisionChange(watch.Added, &fakeextrepo.FakePackageRevision{
+		PrKey: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				RepoKey: repository.RepositoryKey{
+					Namespace: "foo",
+				},
+			},
+		},
+	})
 	if !called {
 		t.Error("expected delegate to be called for matching namespace")
 	}
 	called = false
 	// Should NOT call delegate
-	watcher.OnPackageRevisionChange(watch.Added, &fakePackageRevision{namespace: "bar"})
+	watcher.OnPackageRevisionChange(watch.Added, &fakeextrepo.FakePackageRevision{
+		PrKey: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				RepoKey: repository.RepositoryKey{
+					Namespace: "bar",
+				},
+			},
+		},
+	})
 	if called {
 		t.Error("did not expect delegate to be called for non-matching namespace")
 	}
@@ -123,14 +104,30 @@ func TestListPackageRevisionsNamespaceFilter(t *testing.T) {
 
 	// Simulate two revisions, one in the right ns, one in another
 	revisions := []repository.PackageRevision{
-		&fakePackageRevision{namespace: "test-ns"},
-		&fakePackageRevision{namespace: "other-ns"},
+		&fakeextrepo.FakePackageRevision{
+			PrKey: repository.PackageRevisionKey{
+				PkgKey: repository.PackageKey{
+					RepoKey: repository.RepositoryKey{
+						Namespace: "foo",
+					},
+				},
+			},
+		},
+		&fakeextrepo.FakePackageRevision{
+			PrKey: repository.PackageRevisionKey{
+				PkgKey: repository.PackageKey{
+					RepoKey: repository.RepositoryKey{
+						Namespace: "foo",
+					},
+				},
+			},
+		},
 	}
 
 	var got []*api.PackageRevision
 	for _, rev := range revisions {
 		apiPkgRev, _ := rev.GetPackageRevision(ctx)
-		if ns != "" && apiPkgRev.Namespace != ns {
+		if apiPkgRev == nil || apiPkgRev.Namespace != ns {
 			continue
 		}
 		got = append(got, apiPkgRev)
@@ -154,53 +151,23 @@ func (f *fakeWatcherManager) WatchPackageRevisions(ctx context.Context, filter r
 	f.calledWithCallback = callback
 	// Simulate a package revision event
 	if callback != nil {
-		callback.OnPackageRevisionChange(watch.Added, &fakePackageRevision{namespace: "foo"})
+		callback.OnPackageRevisionChange(watch.Added, &fakeextrepo.FakePackageRevision{
+			PrKey: repository.PackageRevisionKey{
+				PkgKey: repository.PackageKey{
+					RepoKey: repository.RepositoryKey{
+						Namespace: "foo",
+					},
+				},
+			},
+		})
 	}
 	return nil
 }
 
-type fakeCaDEngine struct {
-	watcherManager engine.WatcherManager
-	mock.Mock
-}
-
-func (f *fakeCaDEngine) ObjectCache() engine.WatcherManager {
-	return f.watcherManager
-}
-
-// Implement other methods as no-ops for interface compliance
-func (f *fakeCaDEngine) UpdatePackageResources(ctx context.Context, repositoryObj *configapi.Repository, oldPackage repository.PackageRevision, old, new *api.PackageRevisionResources) (repository.PackageRevision, *api.RenderStatus, error) {
-	return nil, nil, nil
-}
-func (f *fakeCaDEngine) ListPackageRevisions(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
-	args := f.Called(ctx, repositorySpec, filter)
-	return args.Get(0).([]repository.PackageRevision), args.Error(1)
-}
-func (f *fakeCaDEngine) CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
-	return nil, nil
-}
-func (f *fakeCaDEngine) UpdatePackageRevision(ctx context.Context, version int, repositoryObj *configapi.Repository, oldPackage repository.PackageRevision, old, new *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
-	return nil, nil
-}
-func (f *fakeCaDEngine) DeletePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj repository.PackageRevision) error {
-	return nil
-}
-func (f *fakeCaDEngine) ListPackages(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageFilter) ([]repository.Package, error) {
-	return nil, nil
-}
-func (f *fakeCaDEngine) CreatePackage(ctx context.Context, repositoryObj *configapi.Repository, obj *api.PorchPackage) (repository.Package, error) {
-	return nil, nil
-}
-func (f *fakeCaDEngine) UpdatePackage(ctx context.Context, repositoryObj *configapi.Repository, oldPackage repository.Package, old, new *api.PorchPackage) (repository.Package, error) {
-	return nil, nil
-}
-func (f *fakeCaDEngine) DeletePackage(ctx context.Context, repositoryObj *configapi.Repository, obj repository.Package) error {
-	return nil
-}
 func TestWatchPackages_CallsCallback(t *testing.T) {
-	fakeWatcher := &fakeWatcherManager{}
-	fakeCad := &fakeCaDEngine{watcherManager: fakeWatcher}
-	pc := &packageCommon{cad: fakeCad}
+	mockCad := &mockcad.MockCaDEngine{}
+	mockCad.On("ObjectCache").Return(&fakeWatcherManager{})
+	pc := &packageCommon{cad: mockCad}
 
 	called := false
 	callback := &testWatcher{onChange: func(eventType watch.EventType, obj repository.PackageRevision) bool {
@@ -227,9 +194,9 @@ func TestWatchPackages_CallsCallback(t *testing.T) {
 	}
 }
 func TestWatchPackages_NoNamespace(t *testing.T) {
-	fakeWatcher := &fakeWatcherManager{}
-	fakeCad := &fakeCaDEngine{watcherManager: fakeWatcher}
-	pc := &packageCommon{cad: fakeCad}
+	mockCad := &mockcad.MockCaDEngine{}
+	mockCad.On("ObjectCache").Return(&fakeWatcherManager{})
+	pc := &packageCommon{cad: mockCad}
 
 	called := false
 	callback := &testWatcher{onChange: func(eventType watch.EventType, obj repository.PackageRevision) bool {
@@ -254,8 +221,9 @@ func (e *errorWatcherManager) WatchPackageRevisions(ctx context.Context, filter 
 	return fmt.Errorf("simulated error")
 }
 func TestWatchPackages_ErrorPath(t *testing.T) {
-	fakeCad := &fakeCaDEngine{watcherManager: &errorWatcherManager{}}
-	pc := &packageCommon{cad: fakeCad}
+	mockCad := &mockcad.MockCaDEngine{}
+	mockCad.On("ObjectCache").Return(&errorWatcherManager{})
+	pc := &packageCommon{cad: mockCad}
 
 	callback := &testWatcher{onChange: func(eventType watch.EventType, obj repository.PackageRevision) bool {
 		return false
@@ -270,9 +238,9 @@ func TestWatchPackages_ErrorPath(t *testing.T) {
 }
 
 func TestWatchPackages_WithNamespaceFilteringWatcher(t *testing.T) {
-	fakeWatcher := &fakeWatcherManager{}
-	fakeCad := &fakeCaDEngine{watcherManager: fakeWatcher}
-	pc := &packageCommon{cad: fakeCad}
+	mockCad := &mockcad.MockCaDEngine{}
+	mockCad.On("ObjectCache").Return(&fakeWatcherManager{})
+	pc := &packageCommon{cad: mockCad}
 
 	called := false
 	callback := &testWatcher{onChange: func(eventType watch.EventType, obj repository.PackageRevision) bool {
@@ -300,7 +268,7 @@ func TestListPackageRevisions(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		setupMocks    func(*fakeCaDEngine, *mockclient.MockClient)
+		setupMocks    func(*mockclient.MockClient, *mockrepo.MockPackageRevision, *mockcad.MockCaDEngine)
 		filter        repository.ListPackageRevisionFilter
 		selector      labels.Selector
 		expectedError error
@@ -309,7 +277,7 @@ func TestListPackageRevisions(t *testing.T) {
 	}{
 		{
 			name: "Successful package revision listing",
-			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {
+			setupMocks: func(c *mockclient.MockClient, pkgRev *mockrepo.MockPackageRevision, cad *mockcad.MockCaDEngine) {
 				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
 					Run(func(args mock.Arguments) {
 						list := args.Get(1).(*configapi.RepositoryList)
@@ -322,14 +290,11 @@ func TestListPackageRevisions(t *testing.T) {
 						}
 					}).Return(nil)
 
-				pkgRev := &fakePackageRevision{
-					
-					pa: &api.PackageRevision{
-						ObjectMeta: metav1.ObjectMeta{
-							Labels: map[string]string{"test": "true"},
-						},
+				pkgRev.On("GetPackageRevision", mock.Anything).Return(&api.PackageRevision{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{"test": "true"},
 					},
-				}
+				}, nil)
 
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
@@ -342,7 +307,7 @@ func TestListPackageRevisions(t *testing.T) {
 		},
 		{
 			name: "Successful namespace filtering",
-			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {
+			setupMocks: func(c *mockclient.MockClient, pkgRev *mockrepo.MockPackageRevision, cad *mockcad.MockCaDEngine) {
 				c.On("List", mock.Anything, &configapi.RepositoryList{}, client.InNamespace("test-namespace")).
 					Run(func(args mock.Arguments) {
 						list := args.Get(1).(*configapi.RepositoryList)
@@ -351,13 +316,9 @@ func TestListPackageRevisions(t *testing.T) {
 						}
 					}).Return(nil)
 
-				pkgRev := &fakeextrepo.FakePackageRevision{
-					PackageRevision: &api.PackageRevision{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "test-namespace",
-						},
-					},
-				}
+				pkgRev.On("GetPackageRevision", mock.Anything).Return(&api.PackageRevision{
+					ObjectMeta: metav1.ObjectMeta{Namespace: "test-namespace"},
+				}, nil)
 
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
@@ -378,7 +339,7 @@ func TestListPackageRevisions(t *testing.T) {
 		},
 		{
 			name:       "Conflicting namespaces",
-			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {},
+			setupMocks: func(c *mockclient.MockClient, pkgRev *mockrepo.MockPackageRevision, cad *mockcad.MockCaDEngine) {},
 			filter: repository.ListPackageRevisionFilter{
 				Key: repository.PackageRevisionKey{
 					PkgKey: repository.PackageKey{
@@ -395,7 +356,7 @@ func TestListPackageRevisions(t *testing.T) {
 		},
 		{
 			name: "Failed repository listing",
-			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {
+			setupMocks: func(c *mockclient.MockClient, pkgRev *mockrepo.MockPackageRevision, cad *mockcad.MockCaDEngine) {
 				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
 					Return(fmt.Errorf("list error"))
 			},
@@ -406,7 +367,7 @@ func TestListPackageRevisions(t *testing.T) {
 			ctx:           context.Background(),
 		}, {
 			name: "Successful repository filtering",
-			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {
+			setupMocks: func(c *mockclient.MockClient, pkgRev *mockrepo.MockPackageRevision, cad *mockcad.MockCaDEngine) {
 				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
 					Run(func(args mock.Arguments) {
 						list := args.Get(1).(*configapi.RepositoryList)
@@ -416,9 +377,8 @@ func TestListPackageRevisions(t *testing.T) {
 						}
 					}).Return(nil)
 
-				pkgRev := &fakeextrepo.FakePackageRevision{
-					PackageRevision: &api.PackageRevision{},
-				}
+				pkgRev.On("GetPackageRevision", mock.Anything).Return(
+					&api.PackageRevision{}, nil)
 
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
@@ -439,20 +399,19 @@ func TestListPackageRevisions(t *testing.T) {
 		},
 		{
 			name: "Label selector filtering",
-			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {
+			setupMocks: func(c *mockclient.MockClient, pkgRev *mockrepo.MockPackageRevision, cad *mockcad.MockCaDEngine) {
 				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
 					Run(func(args mock.Arguments) {
 						list := args.Get(1).(*configapi.RepositoryList)
 						list.Items = []configapi.Repository{{}}
 					}).Return(nil)
 
-				pkgRev := &fakeextrepo.FakePackageRevision{
-					PackageRevision: &api.PackageRevision{
+				pkgRev.On("GetPackageRevision", mock.Anything).Return(
+					&api.PackageRevision{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{"test": "true"},
 						},
-					},
-				}
+					}, nil)
 
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
@@ -465,7 +424,7 @@ func TestListPackageRevisions(t *testing.T) {
 		},
 		{
 			name: "Timeout error",
-			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {
+			setupMocks: func(c *mockclient.MockClient, pkgRev *mockrepo.MockPackageRevision, cad *mockcad.MockCaDEngine) {
 				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
 					Run(func(args mock.Arguments) {
 						list := args.Get(1).(*configapi.RepositoryList)
@@ -482,7 +441,7 @@ func TestListPackageRevisions(t *testing.T) {
 		},
 		{
 			name: "CaD engine error",
-			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {
+			setupMocks: func(c *mockclient.MockClient, pkgRev *mockrepo.MockPackageRevision, cad *mockcad.MockCaDEngine) {
 				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
 					Run(func(args mock.Arguments) {
 						list := args.Get(1).(*configapi.RepositoryList)
@@ -500,17 +459,15 @@ func TestListPackageRevisions(t *testing.T) {
 		},
 		{
 			name: "Package revision retrieval error",
-			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {
+			setupMocks: func(c *mockclient.MockClient, pkgRev *mockrepo.MockPackageRevision, cad *mockcad.MockCaDEngine) {
 				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
 					Run(func(args mock.Arguments) {
 						list := args.Get(1).(*configapi.RepositoryList)
 						list.Items = []configapi.Repository{{}}
 					}).Return(nil)
 
-				pkgRev := &fakeextrepo.FakePackageRevision{
-					PackageRevision: &api.PackageRevision{},
-					Err:             fmt.Errorf("revision retrieval error"),
-				}
+				pkgRev.On("GetPackageRevision", mock.Anything).
+					Return(&api.PackageRevision{}, fmt.Errorf("revision retrieval error"))
 
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
@@ -523,16 +480,15 @@ func TestListPackageRevisions(t *testing.T) {
 		},
 		{
 			name: "Callback error",
-			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {
+			setupMocks: func(c *mockclient.MockClient, pkgRev *mockrepo.MockPackageRevision, cad *mockcad.MockCaDEngine) {
 				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
 					Run(func(args mock.Arguments) {
 						list := args.Get(1).(*configapi.RepositoryList)
 						list.Items = []configapi.Repository{{}}
 					}).Return(nil)
 
-				pkgRev := &fakeextrepo.FakePackageRevision{
-					PackageRevision: &api.PackageRevision{},
-				}
+				pkgRev.On("GetPackageRevision", mock.Anything).
+					Return(&api.PackageRevision{}, nil)
 
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
@@ -545,7 +501,7 @@ func TestListPackageRevisions(t *testing.T) {
 		},
 		{
 			name: "Concurrent listing",
-			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {
+			setupMocks: func(c *mockclient.MockClient, pkgRev *mockrepo.MockPackageRevision, cad *mockcad.MockCaDEngine) {
 				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
 					Run(func(args mock.Arguments) {
 						list := args.Get(1).(*configapi.RepositoryList)
@@ -557,13 +513,12 @@ func TestListPackageRevisions(t *testing.T) {
 						}
 					}).Return(nil)
 
-				pkgRev := &fakeextrepo.FakePackageRevision{
-					PackageRevision: &api.PackageRevision{
+				pkgRev.On("GetPackageRevision", mock.Anything).Return(
+					&api.PackageRevision{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{"test": "true"},
 						},
-					},
-				}
+					}, nil)
 
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Run(func(args mock.Arguments) {
@@ -588,8 +543,9 @@ func TestListPackageRevisions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockCaD := &fakeCaDEngine{}
 			mockCoreClient := &mockclient.MockClient{}
+			mockPkgRev := &mockrepo.MockPackageRevision{}
+			mockCaD := &mockcad.MockCaDEngine{}
 
 			pc := &packageCommon{
 				cad:                      mockCaD,
@@ -600,7 +556,8 @@ func TestListPackageRevisions(t *testing.T) {
 
 			mockCaD.ExpectedCalls = nil
 			mockCoreClient.ExpectedCalls = nil
-			tt.setupMocks(mockCaD, mockCoreClient)
+			mockPkgRev.ExpectedCalls = nil
+			tt.setupMocks(mockCoreClient, mockPkgRev, mockCaD)
 
 			callCount := 0
 			callback := func(ctx context.Context, p repository.PackageRevision) error {
@@ -628,6 +585,7 @@ func TestListPackageRevisions(t *testing.T) {
 			assert.LessOrEqual(t, maxConcurrent, int32(pc.MaxConcurrentLists), "Maximum concurrent operations exceeded limit of 2")
 			mockCaD.AssertExpectations(t)
 			mockCoreClient.AssertExpectations(t)
+			mockPkgRev.AssertExpectations(t)
 		})
 	}
 }
@@ -637,7 +595,7 @@ func TestGetRepoPkgRev(t *testing.T) {
 		name                 string
 		pkgRevName           string
 		namespace            string
-		setupMocks           func(*fakeCaDEngine, *mockclient.MockClient)
+		setupMocks           func(*mockclient.MockClient, *mockcad.MockCaDEngine)
 		expectedFailure      bool
 		expectedErrorMessage string
 	}{
@@ -645,7 +603,7 @@ func TestGetRepoPkgRev(t *testing.T) {
 			name:       "Successful package revision retrieval",
 			pkgRevName: "repo.path.pkg.wsn",
 			namespace:  "test-ns",
-			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {
+			setupMocks: func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {
 				repo := &configapi.Repository{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "repo",
@@ -683,7 +641,7 @@ func TestGetRepoPkgRev(t *testing.T) {
 			name:                 "Invalid package revision name format",
 			pkgRevName:           "invalid-name",
 			namespace:            "test-ns",
-			setupMocks:           func(cad *fakeCaDEngine, c *mockclient.MockClient) {},
+			setupMocks:           func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {},
 			expectedFailure:      true,
 			expectedErrorMessage: "not found",
 		},
@@ -691,7 +649,7 @@ func TestGetRepoPkgRev(t *testing.T) {
 			name:       "Repository not found",
 			pkgRevName: "repo.pkg.v1",
 			namespace:  "test-ns",
-			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {
+			setupMocks: func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {
 				c.On("Get", mock.Anything, types.NamespacedName{Name: "repo", Namespace: "test-ns"},
 					&configapi.Repository{}, mock.Anything).
 					Return(apierrors.NewNotFound(schema.GroupResource{}, "repo"))
@@ -703,7 +661,7 @@ func TestGetRepoPkgRev(t *testing.T) {
 			name:       "Listing package revisions timeout",
 			pkgRevName: "repo.pkg.v1",
 			namespace:  "test-ns",
-			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {
+			setupMocks: func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {
 				repo := &configapi.Repository{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "repo",
@@ -732,7 +690,7 @@ func TestGetRepoPkgRev(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockCoreClient := &mockclient.MockClient{}
-			mockCaDEngine := &fakeCaDEngine{}
+			mockCaDEngine := &mockcad.MockCaDEngine{}
 
 			pc := &packageCommon{
 				coreClient:               mockCoreClient,
@@ -740,7 +698,7 @@ func TestGetRepoPkgRev(t *testing.T) {
 				ListTimeoutPerRepository: 1 * time.Second,
 			}
 
-			tt.setupMocks(mockCaDEngine, mockCoreClient)
+			tt.setupMocks(mockCoreClient, mockCaDEngine)
 
 			ctx := genericapirequest.WithNamespace(context.Background(), tt.namespace)
 			result, err := pc.getRepoPkgRev(ctx, tt.pkgRevName)
