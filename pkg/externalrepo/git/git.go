@@ -532,7 +532,7 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, pr2Delete rep
 	defer span.End()
 
 	// Set the default reference name using the PR key and lifecycle
-	referenceName := plumbing.ReferenceName(repository.GetReferenceName(ctx, pr2Delete))
+	referenceName := plumbing.ReferenceName(getReferenceName(ctx, pr2Delete))
 
 	// If this is a git PR, we use the git reference name rather than the default reference name
 	gitPR2Delete, ok := pr2Delete.(*gitPackageRevision)

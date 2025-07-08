@@ -15,9 +15,13 @@
 package git
 
 import (
+	"context"
 	"testing"
 
 	"github.com/go-git/go-git/v5/plumbing"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/pkg/externalrepo/fake"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestBranchNames(t *testing.T) {
@@ -74,4 +78,61 @@ func TestTranslate(t *testing.T) {
 			t.Errorf("refInRemoteFromRefInLocal(%s): got %s, want %s", tc.local, got, want)
 		}
 	}
+}
+
+func TestGetReferenceName(t *testing.T) {
+	ctx := context.TODO()
+	fakePR := fake.FakePackageRevision{}
+
+	referenceName := getReferenceName(ctx, &fakePR)
+	assert.Equal(t, "", referenceName)
+
+	fakePR.PrKey.PkgKey.Package = "my-package"
+	fakePR.PrKey.Revision = 1
+	referenceName = getReferenceName(ctx, &fakePR)
+	assert.Equal(t, "refs/tags/my-package/v1", referenceName)
+
+	fakePR.PrKey.Revision = -1
+	referenceName = getReferenceName(ctx, &fakePR)
+	assert.Equal(t, "refs/remotes/origin/", referenceName)
+
+	fakePR.PrKey.PkgKey.RepoKey.PlaceholderWSname = "some-branch"
+	referenceName = getReferenceName(ctx, &fakePR)
+	assert.Equal(t, "refs/remotes/origin/some-branch", referenceName)
+
+	fakePR.PrKey.PkgKey.Path = "root/sub1/sub2/sub3"
+	fakePR.PrKey.Revision = 1
+	referenceName = getReferenceName(ctx, &fakePR)
+	assert.Equal(t, "refs/tags/root/sub1/sub2/sub3/my-package/v1", referenceName)
+
+	fakePR.PrKey.PkgKey.Path = ""
+	fakePR.PrKey.Revision = 1
+	referenceName = getReferenceName(ctx, &fakePR)
+	assert.Equal(t, "refs/tags/my-package/v1", referenceName)
+
+	fakePR.PrKey.Revision = 0
+	fakePR.PackageLifecycle = porchapi.PackageRevisionLifecycleDraft
+	referenceName = getReferenceName(ctx, &fakePR)
+	assert.Equal(t, "refs/remotes/origin/drafts/my-package/", referenceName)
+
+	fakePR.PrKey.WorkspaceName = "some-workspace"
+	referenceName = getReferenceName(ctx, &fakePR)
+	assert.Equal(t, "refs/remotes/origin/drafts/my-package/some-workspace", referenceName)
+
+	fakePR.PrKey.PkgKey.Path = "root/sub1/sub2/sub3"
+	referenceName = getReferenceName(ctx, &fakePR)
+	assert.Equal(t, "refs/remotes/origin/drafts/root/sub1/sub2/sub3/my-package/some-workspace", referenceName)
+
+	fakePR.PackageLifecycle = porchapi.PackageRevisionLifecycleProposed
+	referenceName = getReferenceName(ctx, &fakePR)
+	assert.Equal(t, "refs/remotes/origin/proposed/root/sub1/sub2/sub3/my-package/some-workspace", referenceName)
+
+	fakePR.PrKey.PkgKey.Path = ""
+	referenceName = getReferenceName(ctx, &fakePR)
+	assert.Equal(t, "refs/remotes/origin/proposed/my-package/some-workspace", referenceName)
+}
+
+func TestRefs(t *testing.T) {
+	_, ok := getProposedBranchNameInLocal(plumbing.ReferenceName("hello"))
+	assert.False(t, ok)
 }
