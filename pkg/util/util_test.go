@@ -193,11 +193,11 @@ func TestValidatePkgRevName(t *testing.T) {
 
 			errorSlice := strings.Split(got.Error(), "\n")
 
-			assert.Equal(t, errorSlice[0], "package revision object name invalid:")
+			assert.Equal(t, errorSlice[0], "package revision kubernetes resource name invalid:")
 
 			assertExpectedPartErrExists(t, errorSlice,
 				tc.PrErrString,
-				"complete object name ",
+				"package revision kubernetes name ",
 				ComposePkgRevObjName(tc.Repo, tc.Path, tc.Pkg, tc.Ws))
 
 			assertExpectedPartErrExists(t, errorSlice,
@@ -263,11 +263,11 @@ func TestValidatePkgName(t *testing.T) {
 
 			errorSlice := strings.Split(got.Error(), "\n")
 
-			assert.Equal(t, errorSlice[0], "package object name invalid:")
+			assert.Equal(t, errorSlice[0], "package kubernetes resource name invalid:")
 
 			assertExpectedPartErrExists(t, errorSlice,
 				tc.PrErrString,
-				"complete object name ",
+				"package kubernetes resource name invalid: ",
 				ComposePkgObjName(tc.Repo, tc.Path, tc.Pkg))
 
 			assertExpectedPartErrExists(t, errorSlice,

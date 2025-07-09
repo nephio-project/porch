@@ -175,20 +175,6 @@ func (r *packageCommon) watchPackages(ctx context.Context, filter repository.Lis
 	return nil
 }
 
-func (r *packageCommon) getRepositoryObjFromName(ctx context.Context, name string) (*configapi.Repository, error) {
-	namespace, namespaced := genericapirequest.NamespaceFrom(ctx)
-	if !namespaced {
-		return nil, fmt.Errorf("namespace must be specified")
-	}
-
-	prKey, err := repository.PkgRevK8sName2Key(namespace, name)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.getRepositoryObj(ctx, types.NamespacedName{Name: prKey.RKey().Name, Namespace: prKey.RKey().Namespace})
-}
-
 func (r *packageCommon) getRepositoryObj(ctx context.Context, repositoryID types.NamespacedName) (*configapi.Repository, error) {
 	var repositoryObj configapi.Repository
 	if err := r.coreClient.Get(ctx, repositoryID, &repositoryObj); err != nil {
@@ -204,12 +190,17 @@ func (r *packageCommon) getRepoPkgRev(ctx context.Context, name string) (reposit
 	ctx, span := tracer.Start(ctx, "packageCommon::getRepoPkgRev", trace.WithAttributes())
 	defer span.End()
 
-	repositoryObj, err := r.getRepositoryObjFromName(ctx, name)
+	namespace, namespaced := genericapirequest.NamespaceFrom(ctx)
+	if !namespaced {
+		return nil, fmt.Errorf("namespace must be specified")
+	}
+
+	prKey, err := repository.PkgRevK8sName2Key(namespace, name)
 	if err != nil {
 		return nil, err
 	}
 
-	prKey, err := repository.PkgRevK8sName2Key("", name)
+	repositoryObj, err := r.getRepositoryObj(ctx, types.NamespacedName{Name: prKey.RKey().Name, Namespace: prKey.RKey().Namespace})
 	if err != nil {
 		return nil, err
 	}
@@ -228,12 +219,20 @@ func (r *packageCommon) getRepoPkgRev(ctx context.Context, name string) (reposit
 }
 
 func (r *packageCommon) getPackage(ctx context.Context, name string) (repository.Package, error) {
-	repositoryObj, err := r.getRepositoryObjFromName(ctx, name)
+	ctx, span := tracer.Start(ctx, "packageCommon::getPackage", trace.WithAttributes())
+	defer span.End()
+
+	namespace, namespaced := genericapirequest.NamespaceFrom(ctx)
+	if !namespaced {
+		return nil, fmt.Errorf("namespace must be specified")
+	}
+
+	pkgKey, err := repository.PkgK8sName2Key(namespace, name)
 	if err != nil {
 		return nil, err
 	}
 
-	pkgKey, err := repository.PkgK8sName2Key("", name)
+	repositoryObj, err := r.getRepositoryObj(ctx, types.NamespacedName{Name: pkgKey.RKey().Name, Namespace: pkgKey.RKey().Namespace})
 	if err != nil {
 		return nil, err
 	}
