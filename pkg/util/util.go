@@ -168,21 +168,33 @@ func ValidPkgObjName(repoName, path, packageName string) error {
 	var errSlice []string
 
 	if err := ValidateRepository(repoName, ""); err != nil {
+		errSlice = append(errSlice, fmt.Sprintf("repository part %q of package name invalid\n", repoName))
 		errSlice = append(errSlice, err.Error())
 	}
 
 	if err := ValidateDirectoryName(path, false); err != nil {
+		errSlice = append(errSlice, fmt.Sprintf("package path part %q of package name invalid\n", path))
 		errSlice = append(errSlice, "path "+path+invalidConst+err.Error()+"\n")
 	}
 
 	if err := ValidateK8SName(packageName); err != nil {
+		errSlice = append(errSlice, fmt.Sprintf("package name part %q of package name invalid\n", packageName))
 		errSlice = append(errSlice, "package name "+packageName+invalidConst+err.Error()+"\n")
+	}
+
+	if len(errSlice) == 0 {
+		objName := ComposePkgObjName(repoName, path, packageName)
+
+		if objNameErrs := validation.IsDNS1123Subdomain(objName); objNameErrs != nil {
+			errSlice = append(errSlice, fmt.Sprintf("package kubernetes name %q invalid\n", objName))
+			errSlice = append(errSlice, "package kubernetes name "+objName+invalidConst+strings.Join(objNameErrs, "")+"\n")
+		}
 	}
 
 	if len(errSlice) == 0 {
 		return nil
 	} else {
-		return errors.New("package object name invalid:\n" + strings.Join(errSlice, ""))
+		return errors.New("package kubernetes resource name invalid:\n" + strings.Join(errSlice, ""))
 	}
 }
 
@@ -190,18 +202,22 @@ func ValidPkgRevObjName(repoName, path, packageName, workspace string) error {
 	var errSlice []string
 
 	if err := ValidateRepository(repoName, ""); err != nil {
+		errSlice = append(errSlice, fmt.Sprintf("repository part %q of package revision name invalid\n", repoName))
 		errSlice = append(errSlice, err.Error())
 	}
 
 	if err := ValidateDirectoryName(path, false); err != nil {
+		errSlice = append(errSlice, fmt.Sprintf("package path part %q of package revision name invalid\n", path))
 		errSlice = append(errSlice, "path "+path+invalidConst+err.Error()+"\n")
 	}
 
 	if err := ValidateK8SName(packageName); err != nil {
+		errSlice = append(errSlice, fmt.Sprintf("package name part %q of package revision name invalid\n", packageName))
 		errSlice = append(errSlice, "package name "+packageName+invalidConst+err.Error()+"\n")
 	}
 
 	if err := ValidateK8SName(string(workspace)); err != nil {
+		errSlice = append(errSlice, fmt.Sprintf("workspace name part %q of package revision name invalid\n", workspace))
 		errSlice = append(errSlice, "workspace name "+workspace+invalidConst+err.Error()+"\n")
 	}
 
@@ -209,14 +225,15 @@ func ValidPkgRevObjName(repoName, path, packageName, workspace string) error {
 		objName := ComposePkgRevObjName(repoName, path, packageName, workspace)
 
 		if objNameErrs := validation.IsDNS1123Subdomain(objName); objNameErrs != nil {
-			errSlice = append(errSlice, "complete object name "+objName+invalidConst+strings.Join(objNameErrs, "")+"\n")
+			errSlice = append(errSlice, fmt.Sprintf("package revision kubernetes name %q invalid\n", objName))
+			errSlice = append(errSlice, "package revision kubernetes name "+objName+invalidConst+strings.Join(objNameErrs, "")+"\n")
 		}
 	}
 
 	if len(errSlice) == 0 {
 		return nil
 	} else {
-		return errors.New("package revision object name invalid:\n" + strings.Join(errSlice, ""))
+		return errors.New("package revision kubernetes resource name invalid:\n" + strings.Join(errSlice, ""))
 	}
 }
 
