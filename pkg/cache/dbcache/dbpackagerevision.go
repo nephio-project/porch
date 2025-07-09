@@ -356,12 +356,7 @@ func (pr *dbPackageRevision) Delete(ctx context.Context, deleteExternal bool) er
 	defer span.End()
 
 	if deleteExternal && porchapi.LifecycleIsPublished(pr.lifecycle) {
-		externalPr, err := pr.repo.getExternalPr(ctx, pr.Key())
-		if err != nil {
-			return pkgerrors.Wrapf(err, "dbPackageRevision:Delete: deletion of %+v failed, could not find package revision on external repository", pr.Key())
-		}
-
-		if err := pr.repo.externalRepo.DeletePackageRevision(ctx, externalPr); err != nil {
+		if err := pr.repo.externalRepo.DeletePackageRevision(ctx, pr); err != nil {
 			klog.Warningf("dbPackageRevision:Delete: deletion of %+v failed on external repository %q", pr.Key(), err)
 			return err
 		}
@@ -416,20 +411,10 @@ func (pr *dbPackageRevision) updateLifecycleOnPublishedPR(ctx context.Context, n
 	ctx, span := tracer.Start(ctx, "dbPackageRevision::updateLifecycleOnPublishedPR", trace.WithAttributes())
 	defer span.End()
 
-	externalPr, err := pr.repo.getExternalPr(ctx, pr.Key())
-	if err != nil {
-		return err
-	}
-
-	if err := externalPr.UpdateLifecycle(ctx, newLifecycle); err != nil {
-		klog.Warningf("error setting lifecycle to %q on package revision %+v for external repo, %q", newLifecycle, pr.Key(), err)
-		return err
-	}
-
 	pr.lifecycle = newLifecycle
 	pr.updated = time.Now()
 	pr.updatedBy = getCurrentUser()
 
-	_, err = pr.savePackageRevision(ctx, false)
+	_, err := pr.savePackageRevision(ctx, false)
 	return err
 }
