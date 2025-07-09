@@ -68,7 +68,9 @@ func TestDBPackageRevision(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, dbPR)
 
-	assert.Nil(t, dbPR.ToMainPackageRevision(ctx))
+	assert.Equal(t, "main", dbPR.ToMainPackageRevision(ctx).Key().WorkspaceName)
+	dbPR.(*dbPackageRevision).pkgRevKey.PkgKey.RepoKey.PlaceholderWSname = "my-branch"
+	assert.Equal(t, "my-branch", dbPR.ToMainPackageRevision(ctx).Key().WorkspaceName)
 
 	meta := dbPR.GetMeta()
 	assert.Equal(t, meta.Name, "")
@@ -84,8 +86,9 @@ func TestDBPackageRevision(t *testing.T) {
 	prKey := repository.PackageRevisionKey{
 		PkgKey: repository.PackageKey{
 			RepoKey: repository.RepositoryKey{
-				Namespace: "my-ns",
-				Name:      "my-repo-name",
+				Namespace:         "my-ns",
+				Name:              "my-repo-name",
+				PlaceholderWSname: "my-branch",
 			},
 			Package: "my-package",
 		},
@@ -146,12 +149,41 @@ info:
 	assert.Nil(t, err)
 	assert.NotNil(t, dbPR)
 
+	dbPRdb := dbPR.(*dbPackageRevision)
+	dbPR2 := dbPackageRevision{
+		repo: dbPRdb.repo,
+		pkgRevKey: repository.PackageRevisionKey{
+			PkgKey:        dbPR.Key().PKey(),
+			Revision:      0,
+			WorkspaceName: "my-workspace-2",
+		},
+		lifecycle: v1alpha1.PackageRevisionLifecycleDraft,
+		tasks:     dbPRdb.tasks,
+		resources: dbPRdb.resources,
+	}
+
+	err = dbPR2.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleProposed)
+	assert.Nil(t, err)
+
+	dbPR2i, err := testRepo.ClosePackageRevisionDraft(ctx, &dbPR2, 0)
+	assert.Nil(t, err)
+	assert.NotNil(t, dbPR2i)
+
+	err = dbPR2i.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
+	assert.Nil(t, err)
+
+	dbPR2i, err = testRepo.ClosePackageRevisionDraft(ctx, &dbPR2, 0)
+	assert.Nil(t, err)
+	assert.NotNil(t, dbPR2i)
+
 	fakeRepo := testRepo.externalRepo.(*fake.Repository)
 	fakeExtPR := fake.FakePackageRevision{
 		PrKey: dbPR.Key(),
 	}
 	fakeRepo.PackageRevisions = append(fakeRepo.PackageRevisions, &fakeExtPR)
 
+	dbPR.(*dbPackageRevision).lifecycle = v1alpha1.PackageRevisionLifecyclePublished
+	dbPR.(*dbPackageRevision).pkgRevKey.Revision = 1
 	err = dbPR.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleDeletionProposed)
 	assert.Nil(t, err)
 
