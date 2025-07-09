@@ -12,98 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package fn
+package kptfile
 
 import (
 	"fmt"
-	"sort"
+	"slices"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfileapi "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 )
 
 const (
-	statusFieldName     = "status"
 	conditionsFieldName = "conditions"
 )
 
-var (
-	BoolToConditionStatus = map[bool]kptfileapi.ConditionStatus{
-		true:  kptfileapi.ConditionTrue,
-		false: kptfileapi.ConditionFalse,
-	}
-)
-
-// Kptfile provides an API to manipulate the Kptfile of a kpt package
-type Kptfile struct {
-	Obj *KubeObject
-}
-
-// NewKptfileFromKubeObjectList creates a KptfileObject by finding it in the given KubeObjects list
-func NewKptfileFromKubeObjectList(objs KubeObjects) (*Kptfile, error) {
-	var ret Kptfile
-	ret.Obj = objs.GetRootKptfile()
-	if ret.Obj == nil {
-		return nil, fmt.Errorf("the Kptfile object is missing from the package")
-
-	}
-	return &ret, nil
-}
-
-// NewKptfileFromPackage creates a KptfileObject from the resource (YAML) files of a package
-func NewKptfileFromPackage(resources map[string]string) (*Kptfile, error) {
-	kptfileStr, found := resources[kptfileapi.KptFileName]
-	if !found {
-		return nil, fmt.Errorf("%s is missing from the package", kptfileapi.KptFileName)
-	}
-
-	kos, err := ReadKubeObjectsFromFile(kptfileapi.KptFileName, kptfileStr)
-	if err != nil {
-		return nil, fmt.Errorf("couldn't parse %s from package: %w", kptfileapi.KptFileName, err)
-	}
-	return NewKptfileFromKubeObjectList(kos)
-}
-
-func (kf *Kptfile) WriteToPackage(resources map[string]string) error {
-	if kf == nil || kf.Obj == nil {
-		return fmt.Errorf("attempt to write empty Kptfile to the package")
-	}
-	kptfileStr, err := WriteKubeObjectsToString(KubeObjects{kf.Obj})
-	if err != nil {
-		return err
-	}
-	resources[kptfileapi.KptFileName] = kptfileStr
-	return nil
-}
-
-func (kf *Kptfile) String() string {
-	if kf.Obj == nil {
-		return ""
-	}
-	kptfileStr, _ := WriteKubeObjectsToString(KubeObjects{kf.Obj})
-	return kptfileStr
-}
-
-// Status returns with the Status field of the Kptfile as a SubObject
-// If the Status field doesn't exist, it is added.
-func (kf *Kptfile) Status() *SubObject {
-	return kf.Obj.UpsertMap(statusFieldName)
-}
-
-func (kf *Kptfile) Conditions() SliceSubObjects {
+func (kf *Kptfile) Conditions() fn.SliceSubObjects {
 	return kf.Status().GetSlice(conditionsFieldName)
 }
 
-func (kf *Kptfile) SetConditions(conditions SliceSubObjects) error {
-	sort.SliceStable(conditions, func(i, j int) bool {
-		return conditions[i].GetString("type") < conditions[j].GetString("type")
-	})
+func (kf *Kptfile) SetConditions(conditions fn.SliceSubObjects) error {
 	return kf.Status().SetSlice(conditions, conditionsFieldName)
 }
 
 // TypedConditions returns with (a copy of) the list of current conditions of the kpt package
 func (kf *Kptfile) TypedConditions() []kptfileapi.Condition {
-	statusObj := kf.Obj.GetMap(statusFieldName)
+	statusObj := kf.GetMap(statusFieldName)
 	if statusObj == nil {
 		return nil
 	}
@@ -139,9 +73,26 @@ func (kf *Kptfile) SetTypedCondition(condition kptfileapi.Condition) error {
 			return kf.SetConditions(conditions)
 		}
 	}
-	ko, err := NewFromTypedObject(condition)
+	ko, err := fn.NewFromTypedObject(condition)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to set condition %q: %w", condition.Type, err)
+	}
+	conditions = append(conditions, &ko.SubObject)
+	return kf.SetConditions(conditions)
+}
+
+// ApplyDefaultCondition adds the given condition to the Kptfile if a condition
+// with the same type doesn't exist yet.
+func (kf *Kptfile) ApplyDefaultCondition(condition kptfileapi.Condition) error {
+	conditions := kf.Conditions()
+	for _, conditionSubObj := range conditions {
+		if conditionSubObj.GetString("type") == condition.Type {
+			return nil
+		}
+	}
+	ko, err := fn.NewFromTypedObject(condition)
+	if err != nil {
+		return fmt.Errorf("failed to apply default condition %q: %w", condition.Type, err)
 	}
 	conditions = append(conditions, &ko.SubObject)
 	return kf.SetConditions(conditions)
@@ -149,24 +100,21 @@ func (kf *Kptfile) SetTypedCondition(condition kptfileapi.Condition) error {
 
 // DeleteByTpe deletes all conditions with the given type
 func (kf *Kptfile) DeleteConditionByType(conditionType string) error {
-	oldConditions, found, err := kf.Obj.NestedSlice(conditionsFieldName)
+	conditions, found, err := kf.NestedSlice(conditionsFieldName)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read conditions from Kptfile: %w", err)
 	}
 	if !found {
 		return nil
 	}
-	newConditions := make([]*SubObject, 0, len(oldConditions))
-	for _, c := range oldConditions {
-		if c.GetString("type") != conditionType {
-			newConditions = append(newConditions, c)
-		}
-	}
-	return kf.SetConditions(newConditions)
+	conditions = slices.DeleteFunc(conditions, func(c *fn.SubObject) bool {
+		return c.GetString("type") == conditionType
+	})
+	return kf.SetConditions(conditions)
 }
 
 func (kf *Kptfile) AddReadinessGates(gates []porchapi.ReadinessGate) error {
-	info := kf.Obj.UpsertMap("info")
+	info := kf.UpsertMap("info")
 	gateObjs := info.GetSlice("readinessGates")
 	for _, gate := range gates {
 		// check if readiness gate already exists
@@ -179,25 +127,13 @@ func (kf *Kptfile) AddReadinessGates(gates []porchapi.ReadinessGate) error {
 		}
 		// add if not found
 		if !found {
-			ko, err := NewFromTypedObject(gate)
+			ko, err := fn.NewFromTypedObject(gate)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to add readiness gate %s: %w", gate.ConditionType, err)
 			}
 			gateObjs = append(gateObjs, &ko.SubObject)
 		}
 	}
 	info.SetSlice(gateObjs, "readinessGates")
-	return nil
-}
-
-func (kf *Kptfile) AddMutationFunction(fn *kptfileapi.Function) error {
-	pipeline := kf.Obj.UpsertMap("pipeline")
-	mutators := pipeline.GetSlice("mutators")
-	ko, err := NewFromTypedObject(fn)
-	if err != nil {
-		return fmt.Errorf("failed to add mutator function (%s) to Kptfile: %w", fn.Image, err)
-	}
-	mutators = append(mutators, &ko.SubObject)
-	pipeline.SetSlice(mutators, "mutators")
 	return nil
 }
