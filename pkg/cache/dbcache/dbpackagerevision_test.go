@@ -41,7 +41,11 @@ func TestDBPackageRevision(t *testing.T) {
 
 	testRepo := createTestRepo(t, "my-ns", "my-repo-name")
 	testRepo.spec = &configapi.Repository{
-		Spec: configapi.RepositorySpec{},
+		Spec: configapi.RepositorySpec{
+			Git: &configapi.GitRepository{
+				Repo: "https://aurl/repo.git",
+			},
+		},
 	}
 	mockCache.EXPECT().GetRepository(mock.Anything).Return(&testRepo).Maybe()
 
@@ -55,6 +59,7 @@ func TestDBPackageRevision(t *testing.T) {
 			WorkspaceName:  "my-workspace",
 		},
 	}
+
 	newPRDraft, err := testRepo.CreatePackageRevisionDraft(ctx, &newPRDef)
 	assert.Nil(t, err)
 	assert.NotNil(t, newPRDraft)
@@ -96,8 +101,8 @@ func TestDBPackageRevision(t *testing.T) {
 
 	newPrUp, newPrUpLock, err = dbPR.GetLock()
 	assert.Nil(t, err)
-	assert.Nil(t, newPrUp.Git)
-	assert.Nil(t, newPrUpLock.Git)
+	assert.NotNil(t, newPrUp.Git)
+	assert.NotNil(t, newPrUpLock.Git)
 
 	prResources, err := dbPR.GetResources(ctx)
 	assert.Nil(t, err)
