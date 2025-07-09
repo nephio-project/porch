@@ -43,8 +43,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -303,7 +301,7 @@ func TestListPackageRevisions(t *testing.T) {
 	tests := []struct {
 		name          string
 		setupMocks    func(*fakeCaDEngine, *mockclient.MockClient)
-		filter        packageRevisionFilter
+		filter        repository.ListPackageRevisionFilter
 		selector      labels.Selector
 		expectedError error
 		expectedCalls int
@@ -324,8 +322,9 @@ func TestListPackageRevisions(t *testing.T) {
 						}
 					}).Return(nil)
 
-				pkgRev := &fakeextrepo.FakePackageRevision{
-					PackageRevision: &api.PackageRevision{
+				pkgRev := &fakePackageRevision{
+					
+					pa: &api.PackageRevision{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{"test": "true"},
 						},
@@ -335,7 +334,7 @@ func TestListPackageRevisions(t *testing.T) {
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
 			},
-			filter:        packageRevisionFilter{},
+			filter:        repository.ListPackageRevisionFilter{},
 			selector:      labels.Everything(),
 			expectedError: nil,
 			expectedCalls: 1,
@@ -363,7 +362,15 @@ func TestListPackageRevisions(t *testing.T) {
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
 			},
-			filter:        packageRevisionFilter{Namespace: "test-namespace"},
+			filter: repository.ListPackageRevisionFilter{
+				Key: repository.PackageRevisionKey{
+					PkgKey: repository.PackageKey{
+						RepoKey: repository.RepositoryKey{
+							Namespace: "test-namespace",
+						},
+					},
+				},
+			},
 			selector:      labels.Everything(),
 			expectedError: nil,
 			expectedCalls: 1,
@@ -372,8 +379,14 @@ func TestListPackageRevisions(t *testing.T) {
 		{
 			name:       "Conflicting namespaces",
 			setupMocks: func(cad *fakeCaDEngine, c *mockclient.MockClient) {},
-			filter: packageRevisionFilter{
-				Namespace: "namespace-1",
+			filter: repository.ListPackageRevisionFilter{
+				Key: repository.PackageRevisionKey{
+					PkgKey: repository.PackageKey{
+						RepoKey: repository.RepositoryKey{
+							Namespace: "namespace-1",
+						},
+					},
+				},
 			},
 			selector:      labels.Everything(),
 			expectedError: fmt.Errorf("conflicting namespaces specified: %q and %q", "namespace-2", "namespace-1"),
@@ -386,7 +399,7 @@ func TestListPackageRevisions(t *testing.T) {
 				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
 					Return(fmt.Errorf("list error"))
 			},
-			filter:        packageRevisionFilter{},
+			filter:        repository.ListPackageRevisionFilter{},
 			selector:      labels.Everything(),
 			expectedError: fmt.Errorf("error listing repository objects: list error"),
 			expectedCalls: 0,
@@ -410,7 +423,15 @@ func TestListPackageRevisions(t *testing.T) {
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
 			},
-			filter:        packageRevisionFilter{Repository: "repo1"},
+			filter: repository.ListPackageRevisionFilter{
+				Key: repository.PackageRevisionKey{
+					PkgKey: repository.PackageKey{
+						RepoKey: repository.RepositoryKey{
+							Name: "repo1",
+						},
+					},
+				},
+			},
 			selector:      labels.Everything(),
 			expectedError: nil,
 			expectedCalls: 1,
@@ -436,7 +457,7 @@ func TestListPackageRevisions(t *testing.T) {
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
 			},
-			filter:        packageRevisionFilter{},
+			filter:        repository.ListPackageRevisionFilter{},
 			selector:      labels.SelectorFromSet(labels.Set{"test": "true"}),
 			expectedError: nil,
 			expectedCalls: 1,
@@ -454,7 +475,7 @@ func TestListPackageRevisions(t *testing.T) {
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{}, context.DeadlineExceeded)
 			},
-			filter:        packageRevisionFilter{},
+			filter:        repository.ListPackageRevisionFilter{},
 			selector:      labels.Everything(),
 			expectedError: nil,
 			expectedCalls: 0,
@@ -471,7 +492,7 @@ func TestListPackageRevisions(t *testing.T) {
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{}, fmt.Errorf("CaD engine error"))
 			},
-			filter:        packageRevisionFilter{},
+			filter:        repository.ListPackageRevisionFilter{},
 			selector:      labels.Everything(),
 			expectedError: nil,
 			expectedCalls: 0,
@@ -494,7 +515,7 @@ func TestListPackageRevisions(t *testing.T) {
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
 			},
-			filter:        packageRevisionFilter{},
+			filter:        repository.ListPackageRevisionFilter{},
 			selector:      labels.Everything(),
 			expectedError: nil,
 			expectedCalls: 0,
@@ -516,7 +537,7 @@ func TestListPackageRevisions(t *testing.T) {
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
 			},
-			filter:        packageRevisionFilter{},
+			filter:        repository.ListPackageRevisionFilter{},
 			selector:      labels.Everything(),
 			expectedError: nil,
 			expectedCalls: 1,
@@ -557,7 +578,7 @@ func TestListPackageRevisions(t *testing.T) {
 					}).
 					Return([]repository.PackageRevision{pkgRev}, nil)
 			},
-			filter:        packageRevisionFilter{},
+			filter:        repository.ListPackageRevisionFilter{},
 			selector:      labels.Everything(),
 			expectedError: nil,
 			expectedCalls: 4,
