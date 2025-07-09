@@ -1,0 +1,189 @@
+commands:
+  - args:
+    - porchctl
+    - repo
+    - register
+    - --namespace=rpkg-upgrade
+    - --name=git
+    - --repo-basic-password=secret
+    - --repo-basic-username=nephio
+    - http://gitea.gitea.svc.cluster.local:3000/nephio/rpkg-upgrade
+  - args:
+    - porchctl
+    - rpkg
+    - clone
+    - --namespace=rpkg-upgrade
+    - http://gitea.gitea.svc.cluster.local:3000/nephio/test-blueprints.git
+    - --directory=basens
+    - --ref=basens/v1
+    - --repository=git
+    - --workspace=v1
+    - upgrade-orig
+    stdout: "git.upgrade-orig.v1 created\n"
+  - args:
+    - porchctl
+    - rpkg
+    - propose
+    - --namespace=rpkg-upgrade
+    - git.upgrade-orig.v1
+    stdout: "git.upgrade-orig.v1 proposed\n"
+  - args:
+    - porchctl
+    - rpkg
+    - approve
+    - --namespace=rpkg-upgrade
+    - git.upgrade-orig.v1
+    stdout: "git.upgrade-orig.v1 approved\n"
+  - args:
+    - porchctl
+    - rpkg
+    - clone
+    - --namespace=rpkg-upgrade
+    - git.upgrade-orig.v1
+    - --directory=basens
+    - --ref=basens/v1
+    - --repository=git
+    - --workspace=v1
+    - upgrade-downstream
+    stdout: "git.upgrade-downstream.v1 created\n"
+  - args:
+    - porchctl
+    - rpkg
+    - pull
+    - --namespace=rpkg-upgrade
+    - git.upgrade-downstream.v1
+    - /tmp/porch-e2e/rpkg-upgrade/upgrade-downstream-v1
+  - args:
+    - sh
+    - -c
+    - |
+      echo "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: configmap1\ndata:\n  foo: \"bar\" # kpt-set: \${foo}\n" > /tmp/porch-e2e/rpkg-upgrade/upgrade-downstream-v1/cm1.yaml
+      echo "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: setters\ndata:\n  foo: \"baz\"\n" > /tmp/porch-e2e/rpkg-upgrade/upgrade-downstream-v1/setters.yaml
+      echo "pipeline:\n  mutators:\n  - image: apply-setters:v0.2\n    configPath: setters.yaml" >> /tmp/porch-e2e/rpkg-upgrade/upgrade-downstream-v1/Kptfile
+  - args:
+    - porchctl
+    - rpkg
+    - push
+    - --namespace=rpkg-upgrade
+    - git.upgrade-downstream.v1
+    - /tmp/porch-e2e/rpkg-upgrade/upgrade-downstream-v1
+    stdout: "git.upgrade-downstream.v1 pushed\n"
+    stderr: |
+      [RUNNING] "gcr.io/kpt-fn/apply-setters:v0.2" 
+        Results:
+          [info] data.foo: set field value to "baz"
+  - args:
+    - porchctl
+    - rpkg
+    - propose
+    - --namespace=rpkg-upgrade
+    - git.upgrade-downstream.v1
+    stdout: "git.upgrade-downstream.v1 proposed\n"
+  - args:
+    - porchctl
+    - rpkg
+    - approve
+    - --namespace=rpkg-upgrade
+    - git.upgrade-downstream.v1
+    stdout: "git.upgrade-downstream.v1 approved\n"
+  - args:
+    - porchctl
+    - rpkg
+    - copy
+    - --namespace=rpkg-upgrade
+    - --workspace=v2
+    - git.upgrade-orig.v1
+    stdout: "git.upgrade-orig.v2 created\n"
+  - args:
+    - porchctl
+    - rpkg
+    - pull
+    - --namespace=rpkg-upgrade
+    - git.upgrade-orig.v2
+    - /tmp/porch-e2e/rpkg-upgrade/upgrade-orig-v2
+  - args:
+    - sh
+    - -c
+    - |
+      echo "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: configmap2\ndata:\n  fruit: \"apple\" # kpt-set: \${fruit}\n" > /tmp/porch-e2e/rpkg-upgrade/upgrade-orig-v2/cm2.yaml
+      echo "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: setters\ndata:\n  fruit: \"pear\"\n" > /tmp/porch-e2e/rpkg-upgrade/upgrade-orig-v2/setters.yaml
+      echo "pipeline:\n  mutators:\n  - image: apply-setters:v0.2\n    configPath: setters.yaml" >> /tmp/porch-e2e/rpkg-upgrade/upgrade-orig-v2/Kptfile
+  - args:
+    - porchctl
+    - rpkg
+    - push
+    - --namespace=rpkg-upgrade
+    - git.upgrade-orig.v2
+    - /tmp/porch-e2e/rpkg-upgrade/upgrade-orig-v2
+    stdout: "git.upgrade-orig.v2 pushed\n"
+    stderr: |
+      [RUNNING] "gcr.io/kpt-fn/apply-setters:v0.2" 
+        Results:
+          [info] data.fruit: set field value to "pear"
+  - args:
+    - porchctl
+    - rpkg
+    - propose
+    - --namespace=rpkg-upgrade
+    - git.upgrade-orig.v2
+    stdout: "git.upgrade-orig.v2 proposed\n"
+  - args:
+    - porchctl
+    - rpkg
+    - approve
+    - --namespace=rpkg-upgrade
+    - git.upgrade-orig.v2
+    stdout: "git.upgrade-orig.v2 approved\n"
+  - args:
+    - porchctl
+    - rpkg
+    - get
+    - --namespace=rpkg-upgrade
+    stdout: |
+      NAME                          PACKAGE              WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
+      git.upgrade-downstream.main   upgrade-downstream   main            -1         false    Published   git
+      git.upgrade-downstream.v1     upgrade-downstream   v1              1          true     Published   git
+      git.upgrade-orig.main         upgrade-orig         main            -1         false    Published   git
+      git.upgrade-orig.v1           upgrade-orig         v1              1          false    Published   git
+      git.upgrade-orig.v2           upgrade-orig         v2              2          true     Published   git
+  - args:
+    - porchctl
+    - rpkg
+    - upgrade
+    - --namespace=rpkg-upgrade
+    - --discover=upstream
+    - git.upgrade-downstream.v1
+    stdout: |
+      PACKAGE REVISION            UPSTREAM REPOSITORY   UPSTREAM UPDATES
+      git.upgrade-downstream.v1   git                   v2
+  - args:
+    - porchctl
+    - rpkg
+    - upgrade
+    - --namespace=rpkg-upgrade
+    - --discover=upstream
+    stdout: |
+      PACKAGE REVISION              UPSTREAM REPOSITORY   UPSTREAM UPDATES
+      git.upgrade-downstream.main   git                   v2
+      git.upgrade-downstream.v1     git                   v2
+      git.upgrade-orig.main                               No update available
+      git.upgrade-orig.v1                                 No update available
+      git.upgrade-orig.v2                                 No update available
+  - args:
+    - porchctl
+    - rpkg
+    - upgrade
+    - --namespace=rpkg-upgrade
+    - --discover=downstream
+    stdout: |
+      PACKAGE REVISION      DOWNSTREAM PACKAGE            DOWNSTREAM UPDATE
+      git.upgrade-orig.v2   git.upgrade-downstream.main   v1->v2
+      git.upgrade-orig.v2   git.upgrade-downstream.v1     v1->v2
+  - args:
+    - porchctl
+    - rpkg
+    - upgrade
+    - --namespace=rpkg-upgrade
+    - git.upgrade-downstream.v1
+    - --workspace=v2
+    stdout: "git.upgrade-downstream.v1 upgraded to git.upgrade-downstream.v2\n"

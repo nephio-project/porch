@@ -25,6 +25,7 @@ import (
 	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 )
 
@@ -1734,4 +1735,172 @@ func TestGetUpstreamPr(t *testing.T) {
 	})
 	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
 	assert.True(t, err == nil)
+}
+
+func TestGetPublishedUpstreamPr(t *testing.T) {
+	prList := &porchapi.PackageRevisionList{}
+	upstream := &api.Upstream{
+		Package:       "test-package",
+		Repo:          "test-repo",
+		Revision:      0,
+		WorkspaceName: "doesnt-matter",
+	}
+
+	r := &PackageVariantReconciler{}
+	_, err := r.getPublishedUpstreamByRevision(upstream, prList)
+	assert.ErrorContains(t, err, "upstream cannot be published with revision number 0")
+
+	upstream.Revision = 1
+	_, err = r.getPublishedUpstreamByRevision(upstream, prList)
+	assert.ErrorContains(t, err, "could not find upstream package revision")
+
+	prList.Items = append(prList.Items, porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-repo.test-package.v1",
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: "test-repo",
+			PackageName:    "test-package",
+			WorkspaceName:  "not-the-same",
+			Revision:       1,
+			Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
+		},
+	})
+	pr, err := r.getPublishedUpstreamByRevision(upstream, prList)
+	assert.NoError(t, err)
+	assert.NotNil(t, pr)
+	assert.Equal(t, prList.Items[0].Name, pr.Name)
+}
+
+func TestCreateUpgradeDraft(t *testing.T) {
+	client := &fakeClient{}
+	r := &PackageVariantReconciler{
+		Client: client,
+	}
+	source := &porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "downstream-repo.test-package.packagevariant-1",
+			Namespace: "test-ns",
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			PackageName:    "test-package",
+			RepositoryName: "downstream-repo",
+			WorkspaceName:  "packagevariant-1",
+			Revision:       1,
+			Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
+		},
+		Status: porchapi.PackageRevisionStatus{
+			UpstreamLock: &porchapi.UpstreamLock{
+				Git: &porchapi.GitLock{
+					Repo: "upstream-repo",
+					Ref:  "test-package/v1",
+				},
+			},
+		},
+	}
+	oldUpstream := &porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "upstream-repo.test-package.v1",
+			Namespace: "test-ns",
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			PackageName:    "test-package",
+			RepositoryName: "upstream-repo",
+			WorkspaceName:  "v1",
+			Revision:       1,
+			Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
+		},
+	}
+	newUpstream := &porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "upstream-repo.test-package.v2",
+			Namespace: "test-ns",
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			PackageName:    "test-package",
+			RepositoryName: "upstream-repo",
+			WorkspaceName:  "v2",
+			Revision:       2,
+			Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
+		},
+	}
+
+	pv := &api.PackageVariant{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test-ns",
+			Annotations: map[string]string{
+				"foo": "bar",
+			},
+			Labels: map[string]string{
+				"boo": "far",
+			},
+		},
+		Spec: api.PackageVariantSpec{
+			Upstream: &api.Upstream{
+				Repo:          newUpstream.Spec.RepositoryName,
+				Package:       newUpstream.Spec.PackageName,
+				Revision:      newUpstream.Spec.Revision,
+				WorkspaceName: newUpstream.Spec.WorkspaceName,
+			},
+		},
+	}
+	prList := &porchapi.PackageRevisionList{
+		Items: []porchapi.PackageRevision{*source, *oldUpstream, *newUpstream},
+	}
+
+	draft, err := r.createUpgradeDraft(context.TODO(), source, pv, prList)
+	assert.NoError(t, err)
+	assert.Equal(t, porchapi.PackageRevisionLifecycleDraft, draft.Spec.Lifecycle)
+	assert.Equal(t, source.Spec.PackageName, draft.Spec.PackageName)
+	assert.Equal(t, "packagevariant-2", draft.Spec.WorkspaceName)
+	assert.Equal(t, pv.Spec.Annotations, draft.Annotations)
+	assert.Equal(t, pv.Spec.Labels, draft.Labels)
+	assert.Contains(t, client.output[len(client.output)-1], "creating object")
+	require.Equal(t, porchapi.TaskTypeUpgrade, draft.Spec.Tasks[0].Type)
+	assert.Equal(t, oldUpstream.Name, draft.Spec.Tasks[0].Upgrade.OldUpstream.Name)
+	assert.Equal(t, newUpstream.Name, draft.Spec.Tasks[0].Upgrade.NewUpstream.Name)
+	assert.Equal(t, source.Name, draft.Spec.Tasks[0].Upgrade.LocalPackageRevisionRef.Name)
+}
+
+func TestCreateEditDraft(t *testing.T) {
+	client := &fakeClient{}
+	r := &PackageVariantReconciler{
+		Client: client,
+	}
+	source := &porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test-ns",
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			PackageName:    "test-package",
+			RepositoryName: "downstream-repo",
+			WorkspaceName:  "packagevariant-1",
+			Revision:       1,
+			Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
+		},
+	}
+	pv := &api.PackageVariant{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test-ns",
+			Annotations: map[string]string{
+				"foo": "bar",
+			},
+			Labels: map[string]string{
+				"boo": "far",
+			},
+		},
+	}
+	prList := &porchapi.PackageRevisionList{
+		Items: []porchapi.PackageRevision{*source},
+	}
+
+	draft, err := r.createEditDraft(context.TODO(), source, pv, prList)
+	assert.NoError(t, err)
+	assert.Equal(t, porchapi.PackageRevisionLifecycleDraft, draft.Spec.Lifecycle)
+	assert.Equal(t, source.Spec.PackageName, draft.Spec.PackageName)
+	assert.Equal(t, "packagevariant-2", draft.Spec.WorkspaceName)
+	assert.Equal(t, porchapi.TaskTypeEdit, draft.Spec.Tasks[0].Type)
+	assert.Equal(t, pv.Spec.Annotations, draft.Annotations)
+	assert.Equal(t, pv.Spec.Labels, draft.Labels)
+	assert.Contains(t, client.output[len(client.output)-1], "creating object")
 }

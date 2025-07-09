@@ -16,22 +16,21 @@ package task
 
 import (
 	"context"
-	"strings"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestSomething(t *testing.T) {
+func TestKptfilePatch(t *testing.T) {
 	testCases := map[string]struct {
 		repoPkgRev   repository.PackageRevision
 		newApiPkgRev *api.PackageRevision
-		hasPatch     bool
-		patch        api.PatchSpec
+		shouldChange bool
+		newKptfile   *kptfile.KptFile
 	}{
 		"no gates or conditions": {
 			repoPkgRev: &fake.FakePackageRevision{
@@ -40,7 +39,7 @@ func TestSomething(t *testing.T) {
 			newApiPkgRev: &api.PackageRevision{
 				Spec: api.PackageRevisionSpec{},
 			},
-			hasPatch: false,
+			shouldChange: false,
 		},
 		"first gate and condition added": {
 			repoPkgRev: &fake.FakePackageRevision{
@@ -63,23 +62,23 @@ func TestSomething(t *testing.T) {
 					},
 				},
 			},
-			hasPatch: true,
-			patch: api.PatchSpec{
-				File: kptfile.KptFileName,
-				Contents: strings.TrimSpace(`
---- Kptfile
-+++ Kptfile
-@@ -1 +1,7 @@
--{}
-+info:
-+  readinessGates:
-+  - conditionType: foo
-+status:
-+  conditions:
-+  - type: foo
-+    status: "True"				
-`) + "\n",
-				PatchType: api.PatchTypePatchFile,
+			shouldChange: true,
+			newKptfile: &kptfile.KptFile{
+				Info: &kptfile.PackageInfo{
+					ReadinessGates: []kptfile.ReadinessGate{
+						{
+							ConditionType: "foo",
+						},
+					},
+				},
+				Status: &kptfile.Status{
+					Conditions: []kptfile.Condition{
+						{
+							Type:   "foo",
+							Status: "True",
+						},
+					},
+				},
 			},
 		},
 		"additional readinessGates and conditions added": {
@@ -130,29 +129,34 @@ func TestSomething(t *testing.T) {
 					},
 				},
 			},
-			hasPatch: true,
-			patch: api.PatchSpec{
-				File: kptfile.KptFileName,
-				Contents: strings.TrimSpace(`
---- Kptfile
-+++ Kptfile
-@@ -1,7 +1,14 @@
- info:
-   readinessGates:
-   - conditionType: foo
-+  - conditionType: bar
- status:
-   conditions:
-   - type: foo
-     status: "True"
-+    reason: reason
-+    message: message
-+  - type: bar
-+    status: "False"
-+    reason: reason
-+    message: message
-`) + "\n",
-				PatchType: api.PatchTypePatchFile,
+			shouldChange: true,
+			newKptfile: &kptfile.KptFile{
+				Info: &kptfile.PackageInfo{
+					ReadinessGates: []kptfile.ReadinessGate{
+						{
+							ConditionType: "foo",
+						},
+						{
+							ConditionType: "bar",
+						},
+					},
+				},
+				Status: &kptfile.Status{
+					Conditions: []kptfile.Condition{
+						{
+							Type:    "foo",
+							Status:  "True",
+							Reason:  "reason",
+							Message: "message",
+						},
+						{
+							Type:    "bar",
+							Status:  "False",
+							Reason:  "reason",
+							Message: "message",
+						},
+					},
+				},
 			},
 		},
 		"no changes": {
@@ -214,7 +218,7 @@ func TestSomething(t *testing.T) {
 					},
 				},
 			},
-			hasPatch: false,
+			shouldChange: false,
 		},
 		"readinessGates and conditions removed": {
 			repoPkgRev: &fake.FakePackageRevision{
@@ -264,29 +268,23 @@ func TestSomething(t *testing.T) {
 					},
 				},
 			},
-			hasPatch: true,
-			patch: api.PatchSpec{
-				File: kptfile.KptFileName,
-				Contents: strings.TrimSpace(`
---- Kptfile
-+++ Kptfile
-@@ -1,14 +1,7 @@
- info:
-   readinessGates:
-   - conditionType: foo
--  - conditionType: bar
- status:
-   conditions:
-   - type: foo
-     status: "True"
--    reason: reason
--    message: message
--  - type: bar
--    status: "False"
--    reason: reason
--    message: message
-`) + "\n",
-				PatchType: api.PatchTypePatchFile,
+			shouldChange: true,
+			newKptfile: &kptfile.KptFile{
+				Info: &kptfile.PackageInfo{
+					ReadinessGates: []kptfile.ReadinessGate{
+						{
+							ConditionType: "foo",
+						},
+					},
+				},
+				Status: &kptfile.Status{
+					Conditions: []kptfile.Condition{
+						{
+							Type:   "foo",
+							Status: kptfile.ConditionTrue,
+						},
+					},
+				},
 			},
 		},
 	}
@@ -294,23 +292,16 @@ func TestSomething(t *testing.T) {
 	for tn := range testCases {
 		tc := testCases[tn]
 		t.Run(tn, func(t *testing.T) {
-			task, hasPatch, err := createKptfilePatchTask(context.Background(), tc.repoPkgRev, tc.newApiPkgRev)
+			newKf, err := patchKptfile(context.Background(), tc.repoPkgRev, tc.newApiPkgRev)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			if tc.hasPatch && !hasPatch {
-				t.Errorf("expected patch, but didn't get one")
-			}
-			if !tc.hasPatch {
-				if hasPatch {
-					t.Errorf("expected no patch, but got one")
-				}
-				return
-			}
-
-			if diff := cmp.Diff(tc.patch, task.Patch.Patches[0]); diff != "" {
-				t.Errorf("Unexpected result (-want, +got): %s", diff)
+			if tc.shouldChange {
+				assert.Equal(t, tc.newKptfile, newKf)
+			} else {
+				oldKf, _ := tc.repoPkgRev.GetKptfile(context.TODO())
+				assert.Equal(t, &oldKf, newKf)
 			}
 		})
 	}
