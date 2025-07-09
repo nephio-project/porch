@@ -609,6 +609,7 @@ func (pm *podManager) getFuncEvalPodClient(ctx context.Context, image string, tt
 			grpc.WithDefaultCallOptions(
 				grpc.MaxCallRecvMsgSize(pm.maxGrpcMessageSize),
 				grpc.MaxCallSendMsgSize(pm.maxGrpcMessageSize),
+				grpc.WaitForReady(true),
 			),
 		)
 		if err != nil {

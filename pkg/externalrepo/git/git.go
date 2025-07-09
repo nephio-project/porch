@@ -527,22 +527,31 @@ func (r *gitRepository) UpdatePackageRevision(ctx context.Context, old repositor
 	}, nil
 }
 
-func (r *gitRepository) DeletePackageRevision(ctx context.Context, old repository.PackageRevision) error {
+func (r *gitRepository) DeletePackageRevision(ctx context.Context, pr2Delete repository.PackageRevision) error {
 	ctx, span := tracer.Start(ctx, "gitRepository::DeletePackageRevision", trace.WithAttributes())
 	defer span.End()
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
 
-	oldGit, ok := old.(*gitPackageRevision)
-	if !ok {
-		return fmt.Errorf("cannot delete non-git package: %T", old)
+	// Set the default reference name using the PR key and lifecycle
+	referenceName := plumbing.ReferenceName(getReferenceName(ctx, pr2Delete))
+
+	// If this is a git PR, we use the git reference name rather than the default reference name
+	gitPR2Delete, ok := pr2Delete.(*gitPackageRevision)
+	if ok {
+		if gitPR2Delete.ref != nil {
+			referenceName = gitPR2Delete.ref.Name()
+		} else {
+			referenceName = ""
+		}
 	}
-	ref := oldGit.ref
-	if ref == nil {
+
+	if referenceName == "" {
 		// This is an internal error. In some rare cases (see GetPackageRevision below) we create
 		// package revisions without refs. They should never be returned via the API though.
-		return fmt.Errorf("cannot delete package with no ref: %s", oldGit.Key().PkgKey.ToFullPathname())
+		return fmt.Errorf("cannot delete package with no ref: %s", pr2Delete.Key().PKey().ToFullPathname())
 	}
+
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 
 	return util.RetryOnErrorConditional(
 		3,
@@ -559,20 +568,20 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, old repositor
 				}
 			}
 			refSpecs := newPushRefSpecBuilder()
-			deletionProposedBranch := createDeletionProposedName(oldGit.Key())
+			deletionProposedBranch := createDeletionProposedName(pr2Delete.Key())
 
 			// We can only delete packages which have their own ref. Refs that are shared with other packages
 			// (main branch, tag that doesn't contain package path in its name, ...) cannot be deleted.
-			switch rn := ref.Name(); {
-			case rn.IsTag():
+			switch {
+			case referenceName.IsTag():
 				// Delete tag only if it is package-specific.
-				name := createFinalTagNameInLocal(oldGit.Key())
-				if rn != name {
-					return fmt.Errorf("cannot delete package tagged with a tag that is not specific to the package: %s", rn)
+				name := createFinalTagNameInLocal(pr2Delete.Key())
+				if referenceName != name {
+					return fmt.Errorf("cannot delete package tagged with a tag that is not specific to the package: %s", referenceName)
 				}
 
 				// In case the remote has moved, the ref that points to a tag needs to have it's hash updated.
-				ref, err := r.repo.Reference(rn, true)
+				ref, err := r.repo.Reference(referenceName, true)
 				if err != nil {
 					return err
 				}
@@ -583,9 +592,9 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, old repositor
 				// Delete the deletionProposed branch
 				refSpecs.AddRefToDelete(plumbing.NewHashReference(deletionProposedBranch.RefInLocal(), plumbing.ZeroHash))
 
-			case isDraftBranchNameInLocal(rn), isProposedBranchNameInLocal(rn):
+			case isDraftBranchNameInLocal(referenceName), isProposedBranchNameInLocal(referenceName):
 				// In case the remote has moved, the ref that points to a tag needs to have it's hash updated.
-				ref, err := r.repo.Reference(rn, true)
+				ref, err := r.repo.Reference(referenceName, true)
 				if err != nil {
 					return err
 				}
@@ -593,11 +602,11 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, old repositor
 				// PackageRevision is proposed or draft; delete the branch directly.
 				refSpecs.AddRefToDelete(ref)
 
-			case isBranchInLocalRepo(rn):
+			case isBranchInLocalRepo(referenceName):
 				// Delete package from the branch
 
 				// In case the remote has moved, the ref that points to a tag needs to have it's hash updated.
-				ref, err := r.repo.Reference(rn, true)
+				ref, err := r.repo.Reference(referenceName, true)
 				if err != nil {
 					return err
 				}
@@ -605,7 +614,7 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, old repositor
 				//Require that the branch has not moved on.
 				refSpecs.RequireRef(ref)
 
-				commitHash, err := r.createPackageDeleteCommit(ctx, rn, oldGit)
+				commitHash, err := r.createPackageDeleteCommit(ctx, referenceName, pr2Delete.Key())
 				if err != nil {
 					return err
 				}
@@ -616,16 +625,16 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, old repositor
 				// try to delete the main branch version of a packagerevision.
 
 				// Update the reference
-				refSpecs.AddRefToPush(commitHash, rn)
+				refSpecs.AddRefToPush(commitHash, referenceName)
 
 			default:
-				return fmt.Errorf("cannot delete package with the ref name %s", rn)
+				return fmt.Errorf("cannot delete package with the ref name %s", referenceName)
 			}
 
 			// Update references
 			if err := r.pushAndCleanup(ctx, refSpecs); err != nil {
 				if pkgerrors.Is(err, git.NoErrAlreadyUpToDate) {
-					klog.Warningf("All remote references are already up to date for deleting package %s", oldGit.Key())
+					klog.Warningf("All remote references are already up to date for deleting package %s", pr2Delete.Key())
 				}
 				return fmt.Errorf("failed to update git references: %w", err)
 			}
@@ -1106,7 +1115,7 @@ func (r *gitRepository) createBranch(ctx context.Context, branch BranchName) err
 
 // Creates a commit which deletes the package from the branch, and returns its commit hash.
 // If the branch doesn't exist, will return zero hash and no error.
-func (r *gitRepository) createPackageDeleteCommit(ctx context.Context, branch plumbing.ReferenceName, pkg *gitPackageRevision) (plumbing.Hash, error) {
+func (r *gitRepository) createPackageDeleteCommit(ctx context.Context, branch plumbing.ReferenceName, prKey repository.PackageRevisionKey) (plumbing.Hash, error) {
 	var zero plumbing.Hash
 
 	// find the branch
@@ -1126,27 +1135,27 @@ func (r *gitRepository) createPackageDeleteCommit(ctx context.Context, branch pl
 	}
 
 	// Find the package in the tree
-	switch _, err := root.FindEntry(pkg.Key().PkgKey.ToFullPathname()); err {
+	switch _, err := root.FindEntry(prKey.PKey().ToFullPathname()); err {
 	case object.ErrEntryNotFound:
 		// Package doesn't exist; no need to delete it
 		return zero, nil
 	case nil:
 		// found
 	default:
-		return zero, fmt.Errorf("failed to find package %q in the repositrory ref %q: %w,", pkg.Key().PkgKey.ToFullPathname(), ref, err)
+		return zero, fmt.Errorf("failed to find package %q in the repositrory ref %q: %w,", prKey.PKey().ToFullPathname(), ref, err)
 	}
 
 	// Create commit helper. Use zero hash for the initial package tree. Commit helper will initialize trees
 	// without TreeEntry for this package present - the package is deleted.
-	ch, err := newCommitHelper(r.repo, r.userInfoProvider, commit.Hash, pkg.Key().PkgKey.ToFullPathname(), zero)
+	ch, err := newCommitHelper(r.repo, r.userInfoProvider, commit.Hash, prKey.PKey().ToFullPathname(), zero)
 	if err != nil {
-		return zero, fmt.Errorf("failed to initialize commit of package %q to %q: %w", pkg.Key().PkgKey.ToFullPathname(), ref, err)
+		return zero, fmt.Errorf("failed to initialize commit of package %q to %q: %w", prKey.PKey().ToFullPathname(), ref, err)
 	}
 
-	message := fmt.Sprintf("Delete %s", pkg.Key().PkgKey.ToFullPathname())
-	commitHash, _, err := ch.commit(ctx, message, pkg.Key().PkgKey.ToFullPathname())
+	message := fmt.Sprintf("Delete %s", prKey.PKey().ToFullPathname())
+	commitHash, _, err := ch.commit(ctx, message, prKey.PKey().ToFullPathname())
 	if err != nil {
-		return zero, fmt.Errorf("failed to commit package %q to %q: %w", pkg.Key().PkgKey.ToFullPathname(), ref, err)
+		return zero, fmt.Errorf("failed to commit package %q to %q: %w", prKey.PKey().ToFullPathname(), ref, err)
 	}
 	return commitHash, nil
 }
@@ -1533,7 +1542,7 @@ func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 			refSpecs.AddRefToDelete(base)
 		}
 
-		// Update package referemce (commit and tree hash stay the same)
+		// Update package reference (commit and tree hash stay the same)
 		newRef = plumbing.NewHashReference(proposedBranch.RefInLocal(), d.commit)
 
 	case v1alpha1.PackageRevisionLifecycleDraft:
