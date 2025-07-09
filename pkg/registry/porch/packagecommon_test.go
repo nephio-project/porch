@@ -631,8 +631,9 @@ func TestGetRepoPkgRev(t *testing.T) {
 						*arg = *repo
 					}).Return(nil)
 
+				prKey, _ := repository.PkgRevK8sName2Key("", "repo.path.pkg.wsn")
 				cad.On("ListPackageRevisions", mock.Anything, repo,
-					repository.ListPackageRevisionFilter{KubeObjectName: "repo.path.pkg.wsn"}).
+					repository.ListPackageRevisionFilter{Key: prKey}).
 					Return([]repository.PackageRevision{pkgRev}, nil)
 			},
 			expectedFailure: false,
@@ -643,7 +644,7 @@ func TestGetRepoPkgRev(t *testing.T) {
 			namespace:            "test-ns",
 			setupMocks:           func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {},
 			expectedFailure:      true,
-			expectedErrorMessage: "not found",
+			expectedErrorMessage: "package revision object name invalid",
 		},
 		{
 			name:       "Repository not found",
@@ -676,8 +677,9 @@ func TestGetRepoPkgRev(t *testing.T) {
 						*arg = *repo
 					}).Return(nil)
 
+				prKey, _ := repository.PkgRevK8sName2Key("", "repo.pkg.v1")
 				cad.On("ListPackageRevisions", mock.Anything, repo,
-					repository.ListPackageRevisionFilter{KubeObjectName: "repo.pkg.v1"}).
+					repository.ListPackageRevisionFilter{Key: prKey}).
 					After(2*time.Second).
 					Return([]repository.PackageRevision{}, fmt.Errorf("seconds trying to list package revisions"))
 

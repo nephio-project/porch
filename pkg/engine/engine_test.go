@@ -93,8 +93,6 @@ func newTestFixture(t *testing.T) *testFixture {
 	}
 }
 
-var _ repository.PackageRevision = &mockPackageRevision{}
-
 func setupMockPackageRevision(t *testing.T) *mockrepo.MockPackageRevision {
 	mockPkgRev := &mockrepo.MockPackageRevision{}
 	// Setup common mock package revision expectations
