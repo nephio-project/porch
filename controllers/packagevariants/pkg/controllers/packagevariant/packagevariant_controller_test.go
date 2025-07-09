@@ -1763,6 +1763,7 @@ func TestGetPublishedUpstreamPr(t *testing.T) {
 			PackageName:    "test-package",
 			WorkspaceName:  "not-the-same",
 			Revision:       1,
+			Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
 		},
 	})
 	pr, err := r.getPublishedUpstreamByRevision(upstream, prList)

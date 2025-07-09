@@ -50,22 +50,22 @@ func (m *upgradePackageMutation) apply(ctx context.Context, _ repository.Package
 
 	currUpstreamResources, err := packageFetcher.FetchResources(ctx, &currUpstreamPkgRef, m.namespace)
 	if err != nil {
-		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error fetching the resources for package %s with ref %+v",
+		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error fetching the resources for package %q with ref %+v",
 			m.pkgName, currUpstreamPkgRef)
 	}
 
 	targetUpstreamRevision, err := packageFetcher.FetchRevision(ctx, &targetUpstreamRef, m.namespace)
 	if err != nil {
-		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error fetching revision for target upstream %s", targetUpstreamRef.Name)
+		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error fetching revision for target upstream %q", targetUpstreamRef.Name)
 	}
 	targetUpstreamResources, err := targetUpstreamRevision.GetResources(ctx)
 	if err != nil {
-		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error fetching resources for target upstream %s", targetUpstreamRef.Name)
+		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error fetching resources for target upstream %q", targetUpstreamRef.Name)
 	}
 
 	localResources, err := packageFetcher.FetchResources(ctx, &localRef, m.namespace)
 	if err != nil {
-		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error fetching resources for local revision %s", localRef.Name)
+		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error fetching resources for local revision %q", localRef.Name)
 	}
 
 	klog.Infof("performing pkg upgrade operation for pkg %s resource counts local[%d] original[%d] upstream[%d]",
@@ -84,12 +84,12 @@ func (m *upgradePackageMutation) apply(ctx context.Context, _ repository.Package
 		},
 		string(m.upgradeTask.Upgrade.Strategy))
 	if err != nil {
-		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error updating the package to revision %s", targetUpstreamRef.Name)
+		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error updating the package %q to revision %q", m.pkgName, targetUpstreamRef.Name)
 	}
 
 	newUpstream, newUpstreamLock, err := targetUpstreamRevision.GetLock()
 	if err != nil {
-		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error fetching the resources for package revisions %s", targetUpstreamRef.Name)
+		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error fetching the resources for package revision %q", targetUpstreamRef.Name)
 	}
 	if err := kpt.UpdateKptfileUpstream("", updatedResources.Contents, newUpstream, newUpstreamLock); err != nil {
 		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "failed to apply upstream lock to package %q", m.pkgName)

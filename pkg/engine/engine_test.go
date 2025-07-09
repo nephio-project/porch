@@ -248,7 +248,7 @@ func TestCreatePackageRevisionRollback(t *testing.T) {
 				f.mockRepo.On("Close", mock.Anything).Return(nil)
 				f.mockRepo.On("Key", mock.Anything).Return(repository.RepositoryKey{})
 
-				f.mockTaskHandler.On("ApplyTasks", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(fmt.Errorf("task application failed"))
+				f.mockTaskHandler.On("ApplyTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(fmt.Errorf("task application failed"))
 			},
 			expectedError: true,
 			errorContains: "task application failed",
@@ -266,7 +266,7 @@ func TestCreatePackageRevisionRollback(t *testing.T) {
 				f.mockRepo.On("Close", mock.Anything).Return(nil)
 				f.mockRepo.On("Key", mock.Anything).Return(repository.RepositoryKey{})
 
-				f.mockTaskHandler.On("ApplyTasks", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+				f.mockTaskHandler.On("ApplyTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			},
 			expectedError: true,
 			errorContains: "lifecycle update failed",
@@ -283,7 +283,7 @@ func TestCreatePackageRevisionRollback(t *testing.T) {
 				f.mockRepo.On("Close", mock.Anything).Return(nil)
 				f.mockRepo.On("Key", mock.Anything).Return(repository.RepositoryKey{})
 
-				f.mockTaskHandler.On("ApplyTasks", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+				f.mockTaskHandler.On("ApplyTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			},
 			expectedError: true,
 			errorContains: "close failed",
@@ -319,7 +319,7 @@ type mockTaskHandler struct {
 	mock.Mock
 }
 
-func (m *mockTaskHandler) ApplyTasks(ctx context.Context, draft repository.PackageRevisionDraft, repositoryObj *configapi.Repository, obj *api.PackageRevision, packageConfig *builtins.PackageConfig) error {
+func (m *mockTaskHandler) ApplyTask(ctx context.Context, draft repository.PackageRevisionDraft, repositoryObj *configapi.Repository, obj *api.PackageRevision, packageConfig *builtins.PackageConfig) error {
 	args := m.Called(ctx, draft, repositoryObj, obj, packageConfig)
 	return args.Error(0)
 }

@@ -86,6 +86,11 @@ Flags:
     =force-delete-replace: Wipe all the local changes to the package and replace
       it with the remote version.
     =copy-merge: Copy all the remote changes to the local package.
+
+  --secret-ref
+    Name of the secret containing basic authentication used to authenticate with the upstream repository (git-only).
+    Naturally, this secret has to exist in the kubernetes cluster and must be in the namespace
+    where the package revision is to be created.
 `
 var CloneExamples = `
   # clone the blueprint-e982b2196b35a4f5e81e92f49a430fe463aa9f1a package and create a new package revision called
@@ -282,8 +287,7 @@ var RejectExamples = `
   $ porchctl rpkg reject blueprint-8f9a0c7bf29eb2cbac9476319cd1ad2e897be4f9 --namespace=default
 `
 
-var UpgradeShort = `Create a new draft package revision which upgrades a (published) downstream
-package revision to a more recent (published) revision of its upstream package.`
+var UpgradeShort = `Create a new revision which upgrades a published downstream to a more recent published revision of its upstream package.`
 var UpgradeLong = `
   porchctl rpkg upgrade SOURCE_PACKAGE_REVISION [flags]
 

@@ -105,41 +105,41 @@ func (cad *cadEngine) ListPackageRevisions(ctx context.Context, repositorySpec *
 	return repo.ListPackageRevisions(ctx, filter)
 }
 
-func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
+func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, newPr *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cadEngine::CreatePackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	packageConfig, err := repository.BuildPackageConfig(ctx, obj, parent)
+	packageConfig, err := repository.BuildPackageConfig(ctx, newPr, parent)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(obj.Spec.Tasks) > 1 {
+	if len(newPr.Spec.Tasks) > 1 {
 		return nil, pkgerrors.New("task list must not contain more than one task")
 	}
 
-	if len(obj.Spec.Tasks) == 0 {
-		obj.Spec.Tasks = []api.Task{{
+	if len(newPr.Spec.Tasks) == 0 {
+		newPr.Spec.Tasks = []api.Task{{
 			Type: api.TaskTypeInit,
 			Init: &api.PackageInitTaskSpec{
 				Subpackage:  "",
-				Description: fmt.Sprintf("%s description", obj.Spec.PackageName),
+				Description: fmt.Sprintf("%s description", newPr.Spec.PackageName),
 			},
 		}}
 	}
 
 	// Validate package lifecycle. Cannot create a final package
-	switch obj.Spec.Lifecycle {
+	switch newPr.Spec.Lifecycle {
 	case "":
 		// Set draft as default
-		obj.Spec.Lifecycle = api.PackageRevisionLifecycleDraft
+		newPr.Spec.Lifecycle = api.PackageRevisionLifecycleDraft
 	case api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed:
 		// These values are ok
 	case api.PackageRevisionLifecyclePublished, api.PackageRevisionLifecycleDeletionProposed:
 		// TODO: generate errors that can be translated to correct HTTP responses
 		return nil, fmt.Errorf("cannot create a package revision with lifecycle value 'Final'")
 	default:
-		return nil, fmt.Errorf("unsupported lifecycle value: %s", obj.Spec.Lifecycle)
+		return nil, fmt.Errorf("unsupported lifecycle value: %s", newPr.Spec.Lifecycle)
 	}
 
 	repo, err := cad.cache.OpenRepository(ctx, repositoryObj)
@@ -147,8 +147,8 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 		return nil, err
 	}
 
-	pkgKey := repository.FromFullPathname(repo.Key(), obj.Spec.PackageName)
-	if err := util.ValidPkgRevObjName(repositoryObj.ObjectMeta.Name, pkgKey.Path, pkgKey.Package, string(obj.Spec.WorkspaceName)); err != nil {
+	pkgKey := repository.FromFullPathname(repo.Key(), newPr.Spec.PackageName)
+	if err := util.ValidPkgRevObjName(repositoryObj.ObjectMeta.Name, pkgKey.Path, pkgKey.Package, newPr.Spec.WorkspaceName); err != nil {
 		return nil, fmt.Errorf("failed to create packagerevision: %w", err)
 	}
 
@@ -157,18 +157,18 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 		return nil, fmt.Errorf("error listing package revisions: %w", err)
 	}
 
-	if err := ensureUniqueWorkspaceName(obj, revs); err != nil {
+	if err := ensureUniqueWorkspaceName(newPr, revs); err != nil {
 		return nil, err
 	}
 
-	if len(obj.Spec.Tasks) > 0 && obj.Spec.Tasks[0].Type == api.TaskTypeUpgrade {
-		if err := validateUpgradeTask(ctx, revs, obj.Spec.Tasks[0].Upgrade); err != nil {
+	if newPr.Spec.Tasks[0].Type == api.TaskTypeUpgrade {
+		if err := validateUpgradeTask(ctx, revs, newPr.Spec.Tasks[0].Upgrade); err != nil {
 			return nil, err
 		}
 	}
 
 	// Create a draft package revision
-	draft, err := repo.CreatePackageRevisionDraft(ctx, obj)
+	draft, err := repo.CreatePackageRevisionDraft(ctx, newPr)
 	if err != nil {
 		return nil, err
 	}
@@ -189,13 +189,13 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	}
 
 	// Apply tasks
-	if err := cad.taskHandler.ApplyTasks(ctx, draft, repositoryObj, obj, packageConfig); err != nil {
+	if err := cad.taskHandler.ApplyTask(ctx, draft, repositoryObj, newPr, packageConfig); err != nil {
 		rollback()
 		return nil, err
 	}
 
 	// Update lifecycle
-	if err := draft.UpdateLifecycle(ctx, obj.Spec.Lifecycle); err != nil {
+	if err := draft.UpdateLifecycle(ctx, newPr.Spec.Lifecycle); err != nil {
 		rollback()
 		return nil, err
 	}

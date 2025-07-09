@@ -297,7 +297,8 @@ func (r *PackageVariantReconciler) getPublishedUpstreamByRevision(upstream *api.
 	for _, pr := range prList.Items {
 		if pr.Spec.RepositoryName == upstream.Repo &&
 			pr.Spec.PackageName == upstream.Package &&
-			pr.Spec.Revision == upstream.Revision {
+			pr.Spec.Revision == upstream.Revision &&
+			pr.IsPublished() {
 			return &pr, nil
 		}
 	}
@@ -450,7 +451,7 @@ func (r *PackageVariantReconciler) findAndUpdateExistingRevisions(ctx context.Co
 				oldDS := downstream
 				downstream, err = r.createEditDraft(ctx, downstream, pv, prList)
 				if err != nil {
-					klog.Errorf("package variant %q failed to copy %q: %s", pv.Name, oldDS.Name, err.Error())
+					klog.Errorf("package variant %q failed to create edit of %q: %s", pv.Name, oldDS.Name, err.Error())
 					return nil, err
 				}
 				klog.Infoln(fmt.Sprintf("package variant %q created edit %q based on %q", pv.Name, downstream.Name, oldDS.Name))
@@ -657,23 +658,8 @@ func (r *PackageVariantReconciler) createUpgradeDraft(ctx context.Context,
 	source *porchapi.PackageRevision,
 	pv *api.PackageVariant,
 	prList *porchapi.PackageRevisionList) (*porchapi.PackageRevision, error) {
-	newPr := &porchapi.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
-			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:       source.Namespace,
-			OwnerReferences: []metav1.OwnerReference{constructOwnerReference(pv)},
-			Labels:          pv.Spec.Labels,
-			Annotations:     pv.Spec.Annotations,
-		},
-		Spec: source.Spec,
-	}
 
-	newPr.Spec.Revision = 0
-	newPr.Spec.WorkspaceName = newWorkspaceName(prList, newPr.Spec.PackageName, newPr.Spec.RepositoryName)
-	newPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDraft
+	newPr := createDraftTemplate(source, pv, prList)
 
 	oldRevision := revisionFromUpstreamLock(source.Status.UpstreamLock)
 	oldUpstreamRef := pv.Spec.Upstream
@@ -707,7 +693,8 @@ func (r *PackageVariantReconciler) createUpgradeDraft(ctx context.Context,
 		},
 	}
 
-	klog.Infoln(fmt.Sprintf("package variant %q is creating package revision %q", pv.Name, newPr.Name))
+	klog.Infoln(fmt.Sprintf("package variant %q is creating upgrade package revision from {old: %q, new: %q, local: %q}",
+		pv.Name, oldUpstream.Name, newUpstream.Name, source.Name))
 	err = r.Client.Create(ctx, newPr)
 
 	return newPr, err
@@ -718,6 +705,28 @@ func (r *PackageVariantReconciler) createEditDraft(ctx context.Context,
 	pv *api.PackageVariant,
 	prList *porchapi.PackageRevisionList) (*porchapi.PackageRevision, error) {
 
+	newPr := createDraftTemplate(source, pv, prList)
+
+	newPr.Spec.Tasks = []porchapi.Task{
+		{
+			Type: porchapi.TaskTypeEdit,
+			Edit: &porchapi.PackageEditTaskSpec{
+				Source: &porchapi.PackageRevisionRef{
+					Name: source.Name,
+				},
+			},
+		},
+	}
+
+	klog.Infoln(fmt.Sprintf("package variant %q is creating edit package revision from %q", pv.Name, source.Name))
+	err := r.Client.Create(ctx, newPr)
+
+	return newPr, err
+}
+
+func createDraftTemplate(source *porchapi.PackageRevision,
+	pv *api.PackageVariant,
+	prList *porchapi.PackageRevisionList) *porchapi.PackageRevision {
 	newPr := &porchapi.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevision",
@@ -735,22 +744,7 @@ func (r *PackageVariantReconciler) createEditDraft(ctx context.Context,
 	newPr.Spec.Revision = 0
 	newPr.Spec.WorkspaceName = newWorkspaceName(prList, source.Spec.PackageName, source.Spec.RepositoryName)
 	newPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDraft
-
-	newPr.Spec.Tasks = []porchapi.Task{
-		{
-			Type: porchapi.TaskTypeEdit,
-			Edit: &porchapi.PackageEditTaskSpec{
-				Source: &porchapi.PackageRevisionRef{
-					Name: source.Name,
-				},
-			},
-		},
-	}
-
-	klog.Infoln(fmt.Sprintf("package variant %q is creating package revision %q", pv.Name, newPr.Name))
-	err := r.Client.Create(ctx, newPr)
-
-	return newPr, err
+	return newPr
 }
 
 func newWorkspaceName(prList *porchapi.PackageRevisionList, packageName, repo string) string {

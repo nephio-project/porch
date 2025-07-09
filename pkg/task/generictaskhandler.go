@@ -68,7 +68,7 @@ func (th *genericTaskHandler) SetReferenceResolver(referenceResolver repository.
 	th.referenceResolver = referenceResolver
 }
 
-func (th *genericTaskHandler) ApplyTasks(ctx context.Context, draft repository.PackageRevisionDraft, repositoryObj *configapi.Repository, obj *api.PackageRevision, packageConfig *builtins.PackageConfig) error {
+func (th *genericTaskHandler) ApplyTask(ctx context.Context, draft repository.PackageRevisionDraft, repositoryObj *configapi.Repository, obj *api.PackageRevision, packageConfig *builtins.PackageConfig) error {
 	if len(obj.Spec.Tasks) != 1 {
 		return pkgerrors.New("task list must contain exactly 1 task")
 	}
@@ -195,7 +195,10 @@ func (th *genericTaskHandler) DoPRResourceMutations(
 	)
 	appliedResources, renderResult, err = th.renderMutation(oldRes.GetNamespace()).apply(ctx, appliedResources)
 	// keep last render result on empty patch
-	if renderResult != nil && !renderResult.RenderStatus.IsEmpty() {
+	if renderResult != nil &&
+		renderResult.RenderStatus != nil &&
+		(renderResult.RenderStatus.Err != "" ||
+			len(renderResult.RenderStatus.Result.Items) != 0) {
 		renderStatus = renderResult.RenderStatus
 	}
 	if err != nil {

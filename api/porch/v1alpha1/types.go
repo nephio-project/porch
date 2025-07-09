@@ -161,10 +161,6 @@ type RenderStatus struct {
 	Err    string     `json:"error"`
 }
 
-func (rs *RenderStatus) IsEmpty() bool {
-	return rs.Err == "" && rs.Result.IsEmpty()
-}
-
 // PackageInitTaskSpec defines the package initialization task.
 type PackageInitTaskSpec struct {
 	// `Subpackage` is a directory path to a subpackage to initialize. If unspecified, the main package will be initialized.
@@ -390,10 +386,6 @@ type ResultList struct {
 	ExitCode int `json:"exitCode"`
 	// Items contain a list of function result
 	Items []*Result `json:"items,omitempty"`
-}
-
-func (rl *ResultList) IsEmpty() bool {
-	return len(rl.Items) == 0
 }
 
 // Result contains the structured result from an individual function

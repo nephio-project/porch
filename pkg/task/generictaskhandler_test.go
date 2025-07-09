@@ -105,8 +105,8 @@ func TestApplyTasks(t *testing.T) {
 			}
 			packageConfig := &builtins.PackageConfig{}
 
-			// Call ApplyTasks
-			err := handler.ApplyTasks(ctx, draft, repositoryObj, obj, packageConfig)
+			// Call ApplyTask
+			err := handler.ApplyTask(ctx, draft, repositoryObj, obj, packageConfig)
 
 			// Verify results
 			if tt.expectedError != "" {
