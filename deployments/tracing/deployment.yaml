@@ -37,7 +37,7 @@ spec:
       serviceAccountName: jaeger
       containers:
         - name: jaeger
-          image: jaegertracing/opentelemetry-all-in-one:latest
+          image: jaegertracing/all-in-one:latest
           imagePullPolicy: IfNotPresent
           resources:
             requests:
@@ -56,7 +56,7 @@ spec:
   ports:
     - port: 4317
       protocol: TCP
-      targetPort: 55680
+      targetPort: 4317
   selector:
     app: jaeger
 ---
