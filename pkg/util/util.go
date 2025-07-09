@@ -165,22 +165,7 @@ func ComposePkgRevObjName(repoName, path, packageName, workspace string) string 
 }
 
 func ValidPkgObjName(repoName, path, packageName string) error {
-	var errSlice []string
-
-	if err := ValidateRepository(repoName, ""); err != nil {
-		errSlice = append(errSlice, fmt.Sprintf("repository part %q of package name invalid\n", repoName))
-		errSlice = append(errSlice, err.Error())
-	}
-
-	if err := ValidateDirectoryName(path, false); err != nil {
-		errSlice = append(errSlice, fmt.Sprintf("package path part %q of package name invalid\n", path))
-		errSlice = append(errSlice, "path "+path+invalidConst+err.Error()+"\n")
-	}
-
-	if err := ValidateK8SName(packageName); err != nil {
-		errSlice = append(errSlice, fmt.Sprintf("package name part %q of package name invalid\n", packageName))
-		errSlice = append(errSlice, "package name "+packageName+invalidConst+err.Error()+"\n")
-	}
+	errSlice := validPkgNamePart(repoName, path, packageName)
 
 	if len(errSlice) == 0 {
 		objName := ComposePkgObjName(repoName, path, packageName)
@@ -199,22 +184,7 @@ func ValidPkgObjName(repoName, path, packageName string) error {
 }
 
 func ValidPkgRevObjName(repoName, path, packageName, workspace string) error {
-	var errSlice []string
-
-	if err := ValidateRepository(repoName, ""); err != nil {
-		errSlice = append(errSlice, fmt.Sprintf("repository part %q of package revision name invalid\n", repoName))
-		errSlice = append(errSlice, err.Error())
-	}
-
-	if err := ValidateDirectoryName(path, false); err != nil {
-		errSlice = append(errSlice, fmt.Sprintf("package path part %q of package revision name invalid\n", path))
-		errSlice = append(errSlice, "path "+path+invalidConst+err.Error()+"\n")
-	}
-
-	if err := ValidateK8SName(packageName); err != nil {
-		errSlice = append(errSlice, fmt.Sprintf("package name part %q of package revision name invalid\n", packageName))
-		errSlice = append(errSlice, "package name "+packageName+invalidConst+err.Error()+"\n")
-	}
+	errSlice := validPkgNamePart(repoName, path, packageName)
 
 	if err := ValidateK8SName(string(workspace)); err != nil {
 		errSlice = append(errSlice, fmt.Sprintf("workspace name part %q of package revision name invalid\n", workspace))
@@ -235,6 +205,27 @@ func ValidPkgRevObjName(repoName, path, packageName, workspace string) error {
 	} else {
 		return errors.New("package revision kubernetes resource name invalid:\n" + strings.Join(errSlice, ""))
 	}
+}
+
+func validPkgNamePart(repoName, path, packageName string) []string {
+	var errSlice []string
+
+	if err := ValidateRepository(repoName, ""); err != nil {
+		errSlice = append(errSlice, fmt.Sprintf("repository part %q of object name invalid\n", repoName))
+		errSlice = append(errSlice, err.Error())
+	}
+
+	if err := ValidateDirectoryName(path, false); err != nil {
+		errSlice = append(errSlice, fmt.Sprintf("package path part %q of object name invalid\n", path))
+		errSlice = append(errSlice, "path "+path+invalidConst+err.Error()+"\n")
+	}
+
+	if err := ValidateK8SName(packageName); err != nil {
+		errSlice = append(errSlice, fmt.Sprintf("package name part %q of object name invalid\n", packageName))
+		errSlice = append(errSlice, "package name "+packageName+invalidConst+err.Error()+"\n")
+	}
+
+	return errSlice
 }
 
 func SplitIn3OnDelimiter(splitee, delimiter string) []string {
