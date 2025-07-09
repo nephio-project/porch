@@ -39,6 +39,7 @@ import (
 )
 
 const ConflictErrorMsgBase = "another request is already in progress %s"
+const MaxConcurrentLists = 10
 
 var GenericConflictErrorMsg = fmt.Sprintf(ConflictErrorMsgBase, "on %s \"%s\"")
 
@@ -71,9 +72,9 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter reposit
 			return fmt.Errorf("conflicting namespaces specified: %q and %q", namespace, filter.Key.RKey().Namespace)
 		}
 	}
-
-	var repositories configapi.RepositoryList
-	if err := r.coreClient.List(ctx, &repositories, opts...); err != nil {
+	
+	var repoList configapi.RepositoryList
+	if err := r.coreClient.List(ctx, &repoList, opts...); err != nil {
 		return fmt.Errorf("error listing repository objects: %w", err)
 	}
 
@@ -81,34 +82,42 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter reposit
 		Revisions []repository.PackageRevision
 		Err       error
 	}
-	resultsCh := make(chan pkgRevResult)
-	totalRepos := 0
 
-	for i := range repositories.Items {
-		repositoryObj := &repositories.Items[i]
-
-		if filter.Key.RKey().Name != "" && filter.Key.RKey().Name != repositoryObj.GetName() {
-			continue
-		}
-
-		revisions, err := r.cad.ListPackageRevisions(ctx, repositoryObj, filter)
-		if err != nil {
-			klog.Warningf("error listing package revisions from repository %s/%s: %+v", repositoryObj.GetNamespace(), repositoryObj.GetName(), err)
-			continue
-		}
-		totalRepos++
-
-		go func(repo *configapi.Repository) {
-			revisions, err := r.cad.ListPackageRevisions(ctx, repo, filter.ListPackageRevisionFilter)
-			select {
-			case resultsCh <- pkgRevResult{Revisions: revisions, Err: err}:
-			case <-ctx.Done():
+	var repos []configapi.Repository
+	if filter.Key.RKey().Name == "" {
+		repos = repoList.Items
+	} else {
+		for _, repo := range repoList.Items {
+			if filter.Key.RKey().Name == repo.GetName() {
+				repos = append(repos, repo)
+				break
 			}
-		}(repo)
+		}
 	}
 
-	if totalRepos == 0 {
+	repoCount := len(repos)
+	if repoCount == 0 {
 		return nil
+	}
+
+	workerCount := min(MaxConcurrentLists, repoCount)
+	resultsCh := make(chan pkgRevResult, workerCount)
+	repoQueue := make(chan *configapi.Repository, repoCount)
+
+	for i := 0; i < workerCount; i++ {
+		go func() {
+			for repo := range repoQueue {
+				revisions, err := r.cad.ListPackageRevisions(ctx, repo, filter)
+				select {
+				case resultsCh <- pkgRevResult{Revisions: revisions, Err: err}:
+				case <-ctx.Done():
+				}
+			}
+		}()
+	}
+
+	for _, repo := range repos {
+		repoQueue <- &repo
 	}
 
 	var timerCh <-chan time.Time
@@ -129,6 +138,7 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter reposit
 		select {
 		case <-timerCh:
 			klog.Warningf("Timeout reached — returning partial results")
+			close(repoQueue)
 			return nil
 
 		case res := <-resultsCh:
@@ -150,7 +160,8 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter reposit
 					continue
 				}
 			}
-			if received == totalRepos {
+			if received == repoCount {
+				close(repoQueue)
 				return nil
 			}
 		}
