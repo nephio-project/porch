@@ -96,4 +96,11 @@ func TestSetupDBCacheConn(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "mysql", opts.DbCacheDriver)
 	assert.Equal(t, "db-user:db-password@tcp(db-host:db-port)/db-name", opts.DbCacheDataSource)
+
+	os.Setenv("DB_SSL_MODE", "verify-full")
+	os.Setenv("DB_DRIVER", "pgx")
+	err = opts.setupDBCacheConn()
+	assert.Nil(t, err)
+	assert.Equal(t, "pgx", opts.DbCacheDriver)
+	assert.Equal(t, "postgres://db-user@db-host:db-port/db-name?sslmode=verify-full", opts.DbCacheDataSource)
 }
