@@ -16,6 +16,7 @@ package pull
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -131,20 +132,20 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 
 func writeToDir(resources map[string]string, dir string) error {
 	if err := cmdutil.CheckDirectoryNotPresent(dir); err != nil {
-		return err
+		return fmt.Errorf("failed to check directory %s: %w", dir, err)
 	}
 	if err := os.MkdirAll(dir, 0750); err != nil {
-		return err
+		return fmt.Errorf("failed to create directory %s: %w", dir, err)
 	}
 
 	for k, v := range resources {
 		f := filepath.Join(dir, k)
 		d := filepath.Dir(f)
 		if err := os.MkdirAll(d, 0750); err != nil {
-			return err
+			return fmt.Errorf("failed to create subdirectory %s: %w", d, err)
 		}
 		if err := os.WriteFile(f, []byte(v), 0644); err != nil {
-			return err
+			return fmt.Errorf("failed to write file %s: %w", f, err)
 		}
 	}
 	return nil
@@ -173,7 +174,7 @@ func writeToWriter(resources map[string]string, out io.Writer) error {
 		})
 	}
 
-	return kio.Pipeline{
+	err := kio.Pipeline{
 		Inputs: inputs,
 		Outputs: []kio.Writer{
 			kio.ByteWriter{
@@ -185,6 +186,10 @@ func writeToWriter(resources map[string]string, out io.Writer) error {
 			},
 		},
 	}.Execute()
+	if err != nil {
+		return fmt.Errorf("failed to execute kio pipeline: %w", err)
+	}
+	return nil
 }
 
 func createScheme() (*runtime.Scheme, error) {

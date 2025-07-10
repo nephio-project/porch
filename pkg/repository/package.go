@@ -36,7 +36,7 @@ type PackageFetcher struct {
 func (p *PackageFetcher) FetchRevision(ctx context.Context, packageRevisionRef *api.PackageRevisionRef, namespace string) (PackageRevision, error) {
 	prKey, err := PkgRevK8sName2Key(namespace, packageRevisionRef.Name)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse package revision object name field: %w", err)
 	}
 
 	var resolved configapi.Repository
@@ -46,12 +46,12 @@ func (p *PackageFetcher) FetchRevision(ctx context.Context, packageRevisionRef *
 
 	repo, err := p.RepoOpener.OpenRepository(ctx, &resolved)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open repository: %w", err)
 	}
 
 	revisions, err := repo.ListPackageRevisions(ctx, ListPackageRevisionFilter{Key: prKey})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list package revisions: %w", err)
 	}
 
 	if len(revisions) != 1 {
@@ -83,7 +83,7 @@ func BuildPackageConfig(ctx context.Context, obj *api.PackageRevision, parent Pa
 	if parent != nil {
 		parentObj, err := parent.GetPackageRevision(ctx)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get parent package revision: %w", err)
 		}
 		parentPath = parentObj.Spec.PackageName
 
@@ -122,7 +122,7 @@ func BuildPackageConfig(ctx context.Context, obj *api.PackageRevision, parent Pa
 func extractContextConfigMap(resources map[string]string) (*unstructured.Unstructured, error) {
 	unstructureds, err := objects.Parser{}.AsUnstructureds(resources)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse resources as unstructured objects: %w", err)
 	}
 
 	var matches []*unstructured.Unstructured

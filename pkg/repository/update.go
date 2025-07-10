@@ -38,19 +38,19 @@ func (m *DefaultPackageUpdater) Update(
 
 	localDir, err := os.MkdirTemp("", LocalUpdateDir)
 	if err != nil {
-		return PackageResources{}, err
+		return PackageResources{}, fmt.Errorf("failed to create local temporary directory: %w", err)
 	}
 	defer os.RemoveAll(localDir)
 
 	originalDir, err := os.MkdirTemp("", LocalUpdateDir)
 	if err != nil {
-		return PackageResources{}, err
+		return PackageResources{}, fmt.Errorf("failed to create original temporary directory: %w", err)
 	}
 	defer os.RemoveAll(originalDir)
 
 	upstreamDir, err := os.MkdirTemp("", LocalUpdateDir)
 	if err != nil {
-		return PackageResources{}, err
+		return PackageResources{}, fmt.Errorf("failed to create upstream temporary directory: %w", err)
 	}
 	defer os.RemoveAll(upstreamDir)
 
@@ -103,7 +103,7 @@ func (m *DefaultPackageUpdater) do(_ context.Context, localPkgDir, originalPkgDi
 	}
 	updater := getUpdater(strategy)
 	if err := updater.Update(updateOptions); err != nil {
-		return err
+		return fmt.Errorf("failed to update package: %w", err)
 	}
 
 	return nil
@@ -147,7 +147,7 @@ func loadResourcesFromDirectory(dir string) (PackageResources, error) {
 		result.Contents[rel] = string(contents)
 		return nil
 	}); err != nil {
-		return PackageResources{}, err
+		return PackageResources{}, fmt.Errorf("failed to walk directory %s: %w", dir, err)
 	}
 
 	return result, nil

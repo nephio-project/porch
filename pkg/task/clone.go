@@ -65,7 +65,7 @@ func (m *clonePackageMutation) apply(ctx context.Context, resources repository.P
 	} else if oci := m.task.Clone.Upstream.Oci; oci != nil {
 		cloned, err = m.cloneFromOci(ctx, oci)
 	} else {
-		err = pkgerrors.New("invalid clone source (neither of git, oci, nor upstream were specified)")
+		err = fmt.Errorf("invalid clone source (neither of git, oci, nor upstream were specified)")
 	}
 
 	if err != nil {
@@ -88,7 +88,7 @@ func (m *clonePackageMutation) apply(ctx context.Context, resources repository.P
 		}
 		cloned, _, err = genPkgContextMutation.apply(ctx, cloned)
 		if err != nil {
-			return repository.PackageResources{}, nil, pkgerrors.Wrap(err, "failed to generate deployment context")
+			return repository.PackageResources{}, nil, fmt.Errorf("failed to generate deployment context: %w", err)
 		}
 	}
 
@@ -198,5 +198,5 @@ func (m *clonePackageMutation) cloneFromGit(ctx context.Context, gitPackage *api
 }
 
 func (m *clonePackageMutation) cloneFromOci(_ context.Context, _ *api.OciPackage) (repository.PackageResources, error) {
-	return repository.PackageResources{}, pkgerrors.New("clone from OCI is not implemented")
+	return repository.PackageResources{}, fmt.Errorf("clone from OCI is not implemented")
 }

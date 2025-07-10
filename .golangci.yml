@@ -1,0 +1,58 @@
+run:
+  timeout: 10m
+  go: "1.23"
+
+linters:
+  enable:
+    - wrapcheck
+  disable:
+    - structcheck  # deprecated
+    - varcheck     # deprecated  
+    - deadcode     # deprecated
+    - scopelint    # deprecated
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gomnd
+        - dupl
+        - gocyclo
+        - gocognit
+        - goconst
+        - gocritic
+        - gosec
+        - lll
+        - misspell
+        - nakedret
+        - noctx
+        - nolintlint
+        - prealloc
+        - rowserrcheck
+        - sqlclosecheck
+        - stylecheck
+        - thelper
+        - tparallel
+        - unconvert
+        - unparam
+        - whitespace
+        - wsl
+    - path: third_party/
+      linters:
+        - all
+    - path: vendor/
+      linters:
+        - all
+    - path: generated/
+      linters:
+        - all
+
+linters-settings:
+  wrapcheck:
+    ignoreSigs:
+      - "github.com/nephio-project/porch/internal/kpt/errors.E"
+      - "fmt.Errorf"
+      - "errors.Wrap"
+      - "errors.Wrapf"
+      - "github.com/pkg/errors.Wrap"
+      - "github.com/pkg/errors.Wrapf" 

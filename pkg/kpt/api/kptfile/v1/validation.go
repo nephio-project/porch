@@ -142,7 +142,7 @@ func ValidateFunctionImageURL(name string) error {
 
 	matched, err := regexp.MatchString(r, name)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to validate function image URL %q: %w", name, err)
 	}
 	if !matched {
 		return fmt.Errorf("function name %q is invalid", name)

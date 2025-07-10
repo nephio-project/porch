@@ -3,8 +3,6 @@ package errors
 import (
 	"fmt"
 	"strings"
-
-	pkgerrors "github.com/pkg/errors"
 )
 
 // ErrorCollector can collect then combine multiple errors into one.
@@ -63,5 +61,5 @@ func (e *ErrorCollector) Join() error {
 	if e.IsEmpty() {
 		return nil
 	}
-	return pkgerrors.New(e.join(e.Fmt))
+	return fmt.Errorf("collected errors: %s", e.join(e.Fmt))
 }

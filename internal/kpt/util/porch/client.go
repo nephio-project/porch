@@ -16,6 +16,7 @@ package porch
 
 import (
 	"context"
+	"fmt"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -33,7 +34,7 @@ import (
 func CreateClient(config *rest.Config) (client.Client, error) {
 	scheme, err := createScheme()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create scheme: %w", err)
 	}
 
 	c, err := client.New(config, client.Options{
@@ -41,7 +42,7 @@ func CreateClient(config *rest.Config) (client.Client, error) {
 		Mapper: createRESTMapper(),
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create client: %w", err)
 	}
 
 	return c, nil
@@ -50,7 +51,7 @@ func CreateClient(config *rest.Config) (client.Client, error) {
 func CreateClientWithFlags(flags *genericclioptions.ConfigFlags) (client.Client, error) {
 	config, err := flags.ToRESTConfig()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get REST config from flags: %w", err)
 	}
 
 	return CreateClient(config)
@@ -59,19 +60,19 @@ func CreateClientWithFlags(flags *genericclioptions.ConfigFlags) (client.Client,
 func CreateDynamicClient(flags *genericclioptions.ConfigFlags) (client.WithWatch, error) {
 	config, err := flags.ToRESTConfig()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get REST config from flags: %w", err)
 	}
 
 	scheme, err := createScheme()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create scheme: %w", err)
 	}
 
 	c, err := client.NewWithWatch(config, client.Options{
 		Scheme: scheme,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create dynamic client: %w", err)
 	}
 
 	return c, nil
@@ -83,12 +84,12 @@ func CreateDynamicClient(flags *genericclioptions.ConfigFlags) (client.WithWatch
 func CreateRESTClient(flags *genericclioptions.ConfigFlags) (rest.Interface, error) {
 	config, err := flags.ToRESTConfig()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get REST config from flags: %w", err)
 	}
 
 	scheme, err := createScheme()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create scheme: %w", err)
 	}
 
 	codecs := serializer.NewCodecFactory(scheme)
@@ -98,7 +99,11 @@ func CreateRESTClient(flags *genericclioptions.ConfigFlags) (rest.Interface, err
 	config.APIPath = "/apis"
 	config.NegotiatedSerializer = codecs.WithoutConversion()
 
-	return rest.RESTClientFor(config)
+	restClient, err := rest.RESTClientFor(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create REST client: %w", err)
+	}
+	return restClient, nil
 }
 
 func createScheme() (*runtime.Scheme, error) {
@@ -148,5 +153,9 @@ func createRESTMapper() meta.RESTMapper {
 }
 
 func Apply(ctx context.Context, api client.Client, obj client.Object) error {
-	return api.Patch(ctx, obj, client.Apply, client.FieldOwner("kubectl"))
+	err := api.Patch(ctx, obj, client.Apply, client.FieldOwner("kubectl"))
+	if err != nil {
+		return fmt.Errorf("failed to apply object: %w", err)
+	}
+	return nil
 }
