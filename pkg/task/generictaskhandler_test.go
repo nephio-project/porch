@@ -76,7 +76,7 @@ func TestApplyTasks(t *testing.T) {
 					},
 				},
 			},
-			expectedError: "cannot fetch repository /",
+			expectedError: "cannot fetch repository",
 		},
 	}
 

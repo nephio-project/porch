@@ -286,7 +286,7 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 		if err != nil {
 			t.Errorf("CloseRepository(%q) failed: %v", address, err)
 		}
-		if len(cache.GetRepositories(ctx)) != 0 {
+		if len(cache.GetRepositories()) != 0 {
 			t.Errorf("CloseRepository hasn't deleted repository from cache")
 		}
 	})

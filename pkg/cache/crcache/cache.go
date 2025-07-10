@@ -117,7 +117,7 @@ func (c *Cache) CloseRepository(ctx context.Context, repositorySpec *configapi.R
 	return nil
 }
 
-func (c *Cache) GetRepositories(context.Context) []*configapi.Repository {
+func (c *Cache) GetRepositories() []*configapi.Repository {
 	repoSlice := []*configapi.Repository{}
 
 	c.repositories.Range(func(key, repo any) bool {
@@ -130,5 +130,5 @@ func (c *Cache) GetRepositories(context.Context) []*configapi.Repository {
 
 func (c *Cache) GetRepository(repoKey repository.RepositoryKey) repository.Repository {
 	repo, _ := c.repositories.Load(repoKey)
-	return repo;
+	return repo.(*cachedRepository)
 }
