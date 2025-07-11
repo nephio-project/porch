@@ -16,9 +16,7 @@ package porch
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -28,16 +26,10 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/engine"
 	fakeextrepo "github.com/nephio-project/porch/pkg/externalrepo/fake"
-	"github.com/nephio-project/porch/pkg/externalrepo/fake"
-	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	mockclient "github.com/nephio-project/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
 	mockcad "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/engine"
 	mockrepo "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/repository"
-	mockengine "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/engine"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	mockclient "github.com/nephio-project/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -594,30 +586,22 @@ func TestGetRepoPkgRev(t *testing.T) {
 	tests := []struct {
 		name                 string
 		pkgRevName           string
-		namespace            string
+		ctx                  context.Context
 		setupMocks           func(*mockclient.MockClient, *mockcad.MockCaDEngine)
 		expectedFailure      bool
 		expectedErrorMessage string
 	}{
 		{
 			name:       "Successful package revision retrieval",
-			pkgRevName: "repo.path.pkg.wsn",
-			namespace:  "test-ns",
+			pkgRevName: "repo.pkg.wsn",
+			ctx:        genericapirequest.WithNamespace(context.Background(), "test-ns"),
 			setupMocks: func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {
-				repo := &configapi.Repository{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "repo",
-						Namespace: "test-ns",
-					},
-				}
+				repo := &configapi.Repository{}
 
 				pkgRev := &fakeextrepo.FakePackageRevision{
 					PrKey: repository.PackageRevisionKey{
 						PkgKey: repository.PackageKey{
-							RepoKey: repository.RepositoryKey{
-								Name: "repo",
-							},
-							Path:    "path",
+							RepoKey: repository.RepositoryKey{Name: "repo"},
 							Package: "pkg",
 						},
 						WorkspaceName: "wsn",
@@ -631,7 +615,7 @@ func TestGetRepoPkgRev(t *testing.T) {
 						*arg = *repo
 					}).Return(nil)
 
-				prKey, _ := repository.PkgRevK8sName2Key("", "repo.path.pkg.wsn")
+				prKey, _ := repository.PkgRevK8sName2Key("test-ns", "repo.pkg.wsn")
 				cad.On("ListPackageRevisions", mock.Anything, repo,
 					repository.ListPackageRevisionFilter{Key: prKey}).
 					Return([]repository.PackageRevision{pkgRev}, nil)
@@ -639,17 +623,41 @@ func TestGetRepoPkgRev(t *testing.T) {
 			expectedFailure: false,
 		},
 		{
-			name:                 "Invalid package revision name format",
-			pkgRevName:           "invalid-name",
-			namespace:            "test-ns",
+			name:                 "No namespace specified",
+			pkgRevName:           "",
+			ctx:                  context.TODO(),
 			setupMocks:           func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {},
 			expectedFailure:      true,
-			expectedErrorMessage: "package revision object name invalid",
+			expectedErrorMessage: "namespace must be specified",
+		},
+		{
+			name:                 "No name specified",
+			pkgRevName:           "",
+			ctx:                  genericapirequest.WithNamespace(context.Background(), "test-ns"),
+			setupMocks:           func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {},
+			expectedFailure:      true,
+			expectedErrorMessage: "package revision kubernetes resource name invalid",
+		},
+		{
+			name:                 "Repository name only",
+			pkgRevName:           "repo",
+			ctx:                  genericapirequest.WithNamespace(context.Background(), "test-ns"),
+			setupMocks:           func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {},
+			expectedFailure:      true,
+			expectedErrorMessage: "package revision kubernetes resource name invalid",
+		},
+		{
+			name:                 "Repository name and package only",
+			pkgRevName:           "repo.pkg",
+			ctx:                  genericapirequest.WithNamespace(context.Background(), "test-ns"),
+			setupMocks:           func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {},
+			expectedFailure:      true,
+			expectedErrorMessage: "package revision kubernetes resource name invalid",
 		},
 		{
 			name:       "Repository not found",
-			pkgRevName: "repo.pkg.v1",
-			namespace:  "test-ns",
+			pkgRevName: "repo.pkg.wsn",
+			ctx:        genericapirequest.WithNamespace(context.Background(), "test-ns"),
 			setupMocks: func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {
 				c.On("Get", mock.Anything, types.NamespacedName{Name: "repo", Namespace: "test-ns"},
 					&configapi.Repository{}, mock.Anything).
@@ -660,15 +668,10 @@ func TestGetRepoPkgRev(t *testing.T) {
 		},
 		{
 			name:       "Listing package revisions timeout",
-			pkgRevName: "repo.pkg.v1",
-			namespace:  "test-ns",
+			pkgRevName: "repo.pkg.wsn",
+			ctx:        genericapirequest.WithNamespace(context.Background(), "test-ns"),
 			setupMocks: func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {
-				repo := &configapi.Repository{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "repo",
-						Namespace: "test-ns",
-					},
-				}
+				repo := &configapi.Repository{}
 
 				c.On("Get", mock.Anything, types.NamespacedName{Name: "repo", Namespace: "test-ns"},
 					&configapi.Repository{}, mock.Anything).
@@ -677,7 +680,7 @@ func TestGetRepoPkgRev(t *testing.T) {
 						*arg = *repo
 					}).Return(nil)
 
-				prKey, _ := repository.PkgRevK8sName2Key("", "repo.pkg.v1")
+				prKey, _ := repository.PkgRevK8sName2Key("test-ns", "repo.pkg.wsn")
 				cad.On("ListPackageRevisions", mock.Anything, repo,
 					repository.ListPackageRevisionFilter{Key: prKey}).
 					After(2*time.Second).
@@ -686,6 +689,29 @@ func TestGetRepoPkgRev(t *testing.T) {
 			},
 			expectedFailure:      true,
 			expectedErrorMessage: "seconds trying to list package revisions",
+		},
+		{
+			name:       "Listing package revisions error",
+			pkgRevName: "repo.pkg.wsn",
+			ctx:        genericapirequest.WithNamespace(context.Background(), "test-ns"),
+			setupMocks: func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {
+				repo := &configapi.Repository{}
+
+				c.On("Get", mock.Anything, types.NamespacedName{Name: "repo", Namespace: "test-ns"},
+					&configapi.Repository{}, mock.Anything).
+					Run(func(args mock.Arguments) {
+						arg := args.Get(2).(*configapi.Repository)
+						*arg = *repo
+					}).Return(nil)
+
+				prKey, _ := repository.PkgRevK8sName2Key("test-ns", "repo.pkg.wsn")
+				cad.On("ListPackageRevisions", mock.Anything, repo,
+					repository.ListPackageRevisionFilter{Key: prKey}).
+					Return([]repository.PackageRevision{}, fmt.Errorf("list error"))
+
+			},
+			expectedFailure:      true,
+			expectedErrorMessage: "list error",
 		},
 	}
 
@@ -701,9 +727,7 @@ func TestGetRepoPkgRev(t *testing.T) {
 			}
 
 			tt.setupMocks(mockCoreClient, mockCaDEngine)
-
-			ctx := genericapirequest.WithNamespace(context.Background(), tt.namespace)
-			result, err := pc.getRepoPkgRev(ctx, tt.pkgRevName)
+			result, err := pc.getRepoPkgRev(tt.ctx, tt.pkgRevName)
 
 			if !tt.expectedFailure {
 				require.NoError(t, err)
@@ -720,114 +744,127 @@ func TestGetRepoPkgRev(t *testing.T) {
 }
 
 func TestGetPackage(t *testing.T) {
-	ctx := context.TODO()
-	mockClient := mockclient.NewMockClient(t)
-	mockCaD := mockengine.NewMockCaDEngine(t)
+	tests := []struct {
+		name                 string
+		pkgName              string
+		ctx                  context.Context
+		setupMocks           func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine)
+		expectedFailure      bool
+		expectedErrorMessage string
+	}{
+		{
+			name:    "Successful get package",
+			pkgName: "repo.pkg",
+			ctx:     genericapirequest.WithNamespace(context.Background(), "test-ns"),
+			setupMocks: func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {
+				repo := &configapi.Repository{}
 
-	pc := packageCommon{
-		coreClient: mockClient,
-		cad:        mockCaD,
-	}
-
-	_, err := pc.getPackage(ctx, "")
-	assert.NotNil(t, err)
-	assert.Equal(t, "namespace must be specified", err.Error())
-
-	ctx = request.NewDefaultContext()
-	_, err = pc.getPackage(ctx, "")
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "package kubernetes resource name invalid"))
-
-	_, err = pc.getPackage(ctx, "repo")
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "package kubernetes resource name invalid"))
-
-	mockClient.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	mockCaD.EXPECT().ListPackages(mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("list error")).Once()
-
-	_, err = pc.getPackage(ctx, "repo.pkg.ws")
-	assert.NotNil(t, err)
-	assert.Equal(t, "list error", err.Error())
-
-	pkgList := []repository.Package{}
-	mockCaD.EXPECT().ListPackages(mock.Anything, mock.Anything, mock.Anything).Return(pkgList, nil).Once()
-
-	_, err = pc.getPackage(ctx, "repo.pkg.ws")
-	assert.True(t, strings.Contains(err.Error(), "not found"))
-
-	pkgList = []repository.Package{
-		&fake.FakePackage{
-			PkgKey: repository.PackageKey{
-				RepoKey: repository.RepositoryKey{
-					Name: "repo",
-				},
-				Package: "pkg",
-			},
-		},
-	}
-
-	mockCaD.EXPECT().ListPackages(mock.Anything, mock.Anything, mock.Anything).Return(pkgList, nil).Once()
-
-	_, err = pc.getPackage(ctx, "repo.pkg")
-	assert.Nil(t, err)
-}
-
-func TestGetRepoPkgRev(t *testing.T) {
-	ctx := context.TODO()
-	mockClient := mockclient.NewMockClient(t)
-	mockCaD := mockengine.NewMockCaDEngine(t)
-
-	pc := packageCommon{
-		coreClient: mockClient,
-		cad:        mockCaD,
-	}
-
-	_, err := pc.getRepoPkgRev(ctx, "")
-	assert.NotNil(t, err)
-	assert.Equal(t, "namespace must be specified", err.Error())
-
-	ctx = request.NewDefaultContext()
-	_, err = pc.getRepoPkgRev(ctx, "")
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "package revision kubernetes resource name invalid"))
-
-	_, err = pc.getRepoPkgRev(ctx, "repo")
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "package revision kubernetes resource name invalid"))
-
-	_, err = pc.getRepoPkgRev(ctx, "repo.pkg")
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "package revision kubernetes resource name invalid"))
-
-	mockClient.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	mockCaD.EXPECT().ListPackageRevisions(mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("list error")).Once()
-
-	_, err = pc.getRepoPkgRev(ctx, "repo.pkg.ws")
-	assert.NotNil(t, err)
-	assert.Equal(t, "list error", err.Error())
-
-	pkgRevList := []repository.PackageRevision{}
-	mockCaD.EXPECT().ListPackageRevisions(mock.Anything, mock.Anything, mock.Anything).Return(pkgRevList, nil).Once()
-
-	_, err = pc.getRepoPkgRev(ctx, "repo.pkg.ws")
-	assert.True(t, strings.Contains(err.Error(), "not found"))
-
-	pkgRevList = []repository.PackageRevision{
-		&fake.FakePackageRevision{
-			PrKey: repository.PackageRevisionKey{
-				PkgKey: repository.PackageKey{
-					RepoKey: repository.RepositoryKey{
-						Name: "repo",
+				pkg := &fakeextrepo.FakePackage{
+					PkgKey: repository.PackageKey{
+						RepoKey: repository.RepositoryKey{
+							Name: "repo",
+						},
+						Package: "pkg",
 					},
-					Package: "pkg",
-				},
-				WorkspaceName: "ws",
+				}
+
+				c.On("Get", mock.Anything, types.NamespacedName{Name: "repo", Namespace: "test-ns"},
+					&configapi.Repository{}).
+					Run(func(args mock.Arguments) {
+						arg := args.Get(2).(*configapi.Repository)
+						*arg = *repo
+					}).Return(nil)
+
+				pkgKey, _ := repository.PkgK8sName2Key("test-ns", "repo.pkg")
+				cad.On("ListPackages", mock.Anything, repo,
+					repository.ListPackageFilter{Key: pkgKey}).
+					Return([]repository.Package{pkg}, nil)
 			},
+			expectedFailure: false,
+		},
+		{
+			name:                 "No namespace specified",
+			pkgName:              "repo.pkg",
+			ctx:                  context.TODO(),
+			setupMocks:           func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {},
+			expectedFailure:      true,
+			expectedErrorMessage: "namespace must be specified",
+		},
+		{
+			name:                 "No name specified",
+			pkgName:              "",
+			ctx:                  genericapirequest.WithNamespace(context.Background(), "test-ns"),
+			setupMocks:           func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {},
+			expectedFailure:      true,
+			expectedErrorMessage: "package kubernetes resource name invalid",
+		},
+		{
+			name:                 "Repository name only",
+			pkgName:              "repo",
+			ctx:                  genericapirequest.WithNamespace(context.Background(), "test-ns"),
+			setupMocks:           func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {},
+			expectedFailure:      true,
+			expectedErrorMessage: "package kubernetes resource name invalid",
+		},
+		{
+			name:    "Package not found",
+			pkgName: "repo.pkg",
+			ctx:     genericapirequest.WithNamespace(context.Background(), "test-ns"),
+			setupMocks: func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {
+				c.On("Get", mock.Anything, types.NamespacedName{Name: "repo", Namespace: "test-ns"},
+					&configapi.Repository{}, mock.Anything).
+					Return(apierrors.NewNotFound(schema.GroupResource{}, "repo"))
+			},
+			expectedFailure:      true,
+			expectedErrorMessage: "not found",
+		},
+		{
+			name:    "Listing package revisions error",
+			pkgName: "repo.pkg",
+			ctx:     genericapirequest.WithNamespace(context.Background(), "test-ns"),
+			setupMocks: func(c *mockclient.MockClient, cad *mockcad.MockCaDEngine) {
+				repo := &configapi.Repository{}
+
+				c.On("Get", mock.Anything, types.NamespacedName{Name: "repo", Namespace: "test-ns"},
+					&configapi.Repository{}, mock.Anything).
+					Run(func(args mock.Arguments) {
+						arg := args.Get(2).(*configapi.Repository)
+						*arg = *repo
+					}).Return(nil)
+
+				pkgKey, _ := repository.PkgK8sName2Key("test-ns", "repo.pkg")
+				cad.On("ListPackages", mock.Anything, repo,
+					repository.ListPackageFilter{Key: pkgKey}).
+					Return(nil, fmt.Errorf("list error"))
+
+			},
+			expectedFailure:      true,
+			expectedErrorMessage: "list error",
 		},
 	}
 
-	mockCaD.EXPECT().ListPackageRevisions(mock.Anything, mock.Anything, mock.Anything).Return(pkgRevList, nil).Once()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockCoreClient := &mockclient.MockClient{}
+			mockCaDEngine := &mockcad.MockCaDEngine{}
+			pc := &packageCommon{
+				coreClient: mockCoreClient,
+				cad:        mockCaDEngine,
+			}
 
-	_, err = pc.getRepoPkgRev(ctx, "repo.pkg.ws")
-	assert.Nil(t, err)
+			tt.setupMocks(mockCoreClient, mockCaDEngine)
+			result, err := pc.getPackage(tt.ctx, tt.pkgName)
+
+			if !tt.expectedFailure {
+				require.NoError(t, err)
+				assert.NotNil(t, result)
+			} else {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedErrorMessage)
+			}
+
+			mockCoreClient.AssertExpectations(t)
+			mockCaDEngine.AssertExpectations(t)
+		})
+	}
 }
