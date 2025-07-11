@@ -23,6 +23,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -63,23 +64,25 @@ const (
 	commitMessageEdit            = "Creating new revision by copying previous revision"
 	commitMessageInit            = "Creating new empty revision"
 	commitMessageClone           = "Creating new revision by cloning"
-	commitMessagePatch           = "Applying patch to package"
+	commitMessageUpgrade         = "Upgrading revision"
 	commitMessageApproveTemplate = "Approving package revision %s/%d"
 )
 
 // formatCommitMessage returns a human-readable commit message based on the change type
-func formatCommitMessage(changeType string) string {
+func formatCommitMessage(changeType v1alpha1.TaskType) string {
 	switch changeType {
-	case "eval":
-		return commitMessageRendering
-	case "edit":
-		return commitMessageEdit
-	case "init":
+	case v1alpha1.TaskTypeInit:
 		return commitMessageInit
-	case "clone":
+	case v1alpha1.TaskTypeRender:
+		return commitMessageRendering
+	case v1alpha1.TaskTypeEdit:
+		return commitMessageEdit
+	case v1alpha1.TaskTypeClone:
 		return commitMessageClone
-	case "patch":
-		return commitMessagePatch
+	case v1alpha1.TaskTypeUpgrade:
+		return commitMessageUpgrade
+	case v1alpha1.TaskTypeNone:
+		return "Intermediate commit"
 	default:
 		return fmt.Sprintf("Intermediate commit: %s", changeType)
 	}
@@ -1463,10 +1466,13 @@ func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPack
 		Revision:      repository.Revision2Str(draft.Key().Revision),
 		Task:          change,
 	}
-	message := formatCommitMessage("")
+	message := formatCommitMessage(v1alpha1.TaskTypeNone)
 	if change != nil {
-		message = formatCommitMessage(string(change.Type))
-		draft.tasks = append(draft.tasks, *change)
+		message = formatCommitMessage(change.Type)
+		validFirstTaskTypes := []v1alpha1.TaskType{v1alpha1.TaskTypeInit, v1alpha1.TaskTypeEdit, v1alpha1.TaskTypeClone, v1alpha1.TaskTypeUpgrade}
+		if slices.Contains(validFirstTaskTypes, change.Type) {
+			draft.tasks = []v1alpha1.Task{*change}
+		}
 	}
 	message += "\n"
 

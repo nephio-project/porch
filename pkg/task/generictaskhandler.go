@@ -150,7 +150,7 @@ func (th *genericTaskHandler) DoPRMutations(
 			},
 		}
 
-		return draft.UpdateResources(ctx, prr, nil)
+		return draft.UpdateResources(ctx, prr, &api.Task{Type: api.TaskTypeRender})
 	}
 
 	return nil
@@ -212,7 +212,7 @@ func (th *genericTaskHandler) DoPRResourceMutations(
 		},
 	}
 
-	return renderStatus, draft.UpdateResources(ctx, prr, nil)
+	return renderStatus, draft.UpdateResources(ctx, prr, &api.Task{Type: api.TaskTypeRender})
 }
 
 func (th *genericTaskHandler) renderMutation(namespace string) mutation {

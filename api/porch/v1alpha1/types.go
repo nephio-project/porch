@@ -139,6 +139,9 @@ const (
 	TaskTypeClone   TaskType = "clone"
 	TaskTypeEdit    TaskType = "edit"
 	TaskTypeUpgrade TaskType = "upgrade"
+	TaskTypeRender  TaskType = "render"
+	TaskTypePush    TaskType = "push"
+	TaskTypeNone    TaskType = ""
 )
 
 type Task struct {

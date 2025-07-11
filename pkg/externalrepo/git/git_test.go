@@ -2216,12 +2216,12 @@ func TestDeleteOnManuallyMovedMainBranch(t *testing.T) {
 func TestFormatCommitMessage(t *testing.T) {
 	tests := []struct {
 		name       string
-		changeType string
+		changeType v1alpha1.TaskType
 		want       string
 	}{
 		{
-			name:       "eval commit",
-			changeType: "eval",
+			name:       "render commit",
+			changeType: "render",
 			want:       "Rendering package",
 		},
 		{
@@ -2240,11 +2240,6 @@ func TestFormatCommitMessage(t *testing.T) {
 			want:       "Creating new revision by cloning",
 		},
 		{
-			name:       "patch commit",
-			changeType: "patch",
-			want:       "Applying patch to package",
-		},
-		{
 			name:       "unknown type",
 			changeType: "unknown",
 			want:       "Intermediate commit: unknown",
@@ -2252,7 +2247,7 @@ func TestFormatCommitMessage(t *testing.T) {
 		{
 			name:       "empty type",
 			changeType: "",
-			want:       "Intermediate commit: ",
+			want:       "Intermediate commit",
 		},
 	}
 
