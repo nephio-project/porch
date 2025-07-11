@@ -24,7 +24,7 @@ import (
 
 func TestPackageGetters(t *testing.T) {
 	fakePkg := FakePackage{
-		pkgKey: repository.PackageKey{
+		PkgKey: repository.PackageKey{
 			RepoKey: repository.RepositoryKey{
 				Name:      "my-repo",
 				Namespace: "my-namespace",

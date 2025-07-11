@@ -23,7 +23,7 @@ import (
 
 // Implementation of the repository.PackageRevision interface for testing.
 type FakePackage struct {
-	pkgKey           repository.PackageKey
+	PkgKey           repository.PackageKey
 	PackageRevisions []repository.PackageRevision
 	Packages         []repository.Package
 }
@@ -35,11 +35,11 @@ func (p *FakePackage) KubeObjectNamespace() string {
 }
 
 func (p *FakePackage) KubeObjectName() string {
-	return p.pkgKey.K8SName()
+	return p.PkgKey.K8SName()
 }
 
 func (p *FakePackage) Key() repository.PackageKey {
-	return p.pkgKey
+	return p.PkgKey
 }
 
 func (p *FakePackage) GetPackage(ctx context.Context) *v1alpha1.PorchPackage {

@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/klog/v2"
 	registrationapi "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -165,43 +166,29 @@ func ComposePkgRevObjName(repoName, path, packageName, workspace string) string 
 }
 
 func ValidPkgObjName(repoName, path, packageName string) error {
-	var errSlice []string
+	errSlice := validPkgNamePart(repoName, path, packageName)
 
-	if err := ValidateRepository(repoName, ""); err != nil {
-		errSlice = append(errSlice, err.Error())
-	}
+	if len(errSlice) == 0 {
+		objName := ComposePkgObjName(repoName, path, packageName)
 
-	if err := ValidateDirectoryName(path, false); err != nil {
-		errSlice = append(errSlice, "path "+path+invalidConst+err.Error()+"\n")
-	}
-
-	if err := ValidateK8SName(packageName); err != nil {
-		errSlice = append(errSlice, "package name "+packageName+invalidConst+err.Error()+"\n")
+		if objNameErrs := validation.IsDNS1123Subdomain(objName); objNameErrs != nil {
+			errSlice = append(errSlice, fmt.Sprintf("package kubernetes name %q invalid\n", objName))
+			errSlice = append(errSlice, "package kubernetes name "+objName+invalidConst+strings.Join(objNameErrs, "")+"\n")
+		}
 	}
 
 	if len(errSlice) == 0 {
 		return nil
 	} else {
-		return errors.New("package object name invalid:\n" + strings.Join(errSlice, ""))
+		return errors.New("package kubernetes resource name invalid:\n" + strings.Join(errSlice, ""))
 	}
 }
 
 func ValidPkgRevObjName(repoName, path, packageName, workspace string) error {
-	var errSlice []string
-
-	if err := ValidateRepository(repoName, ""); err != nil {
-		errSlice = append(errSlice, err.Error())
-	}
-
-	if err := ValidateDirectoryName(path, false); err != nil {
-		errSlice = append(errSlice, "path "+path+invalidConst+err.Error()+"\n")
-	}
-
-	if err := ValidateK8SName(packageName); err != nil {
-		errSlice = append(errSlice, "package name "+packageName+invalidConst+err.Error()+"\n")
-	}
+	errSlice := validPkgNamePart(repoName, path, packageName)
 
 	if err := ValidateK8SName(string(workspace)); err != nil {
+		errSlice = append(errSlice, fmt.Sprintf("workspace name part %q of package revision name invalid\n", workspace))
 		errSlice = append(errSlice, "workspace name "+workspace+invalidConst+err.Error()+"\n")
 	}
 
@@ -209,15 +196,37 @@ func ValidPkgRevObjName(repoName, path, packageName, workspace string) error {
 		objName := ComposePkgRevObjName(repoName, path, packageName, workspace)
 
 		if objNameErrs := validation.IsDNS1123Subdomain(objName); objNameErrs != nil {
-			errSlice = append(errSlice, "complete object name "+objName+invalidConst+strings.Join(objNameErrs, "")+"\n")
+			errSlice = append(errSlice, fmt.Sprintf("package revision kubernetes name %q invalid\n", objName))
+			errSlice = append(errSlice, "package revision kubernetes name "+objName+invalidConst+strings.Join(objNameErrs, "")+"\n")
 		}
 	}
 
 	if len(errSlice) == 0 {
 		return nil
 	} else {
-		return errors.New("package revision object name invalid:\n" + strings.Join(errSlice, ""))
+		return errors.New("package revision kubernetes resource name invalid:\n" + strings.Join(errSlice, ""))
 	}
+}
+
+func validPkgNamePart(repoName, path, packageName string) []string {
+	var errSlice []string
+
+	if err := ValidateRepository(repoName, ""); err != nil {
+		errSlice = append(errSlice, fmt.Sprintf("repository part %q of object name invalid\n", repoName))
+		errSlice = append(errSlice, err.Error())
+	}
+
+	if err := ValidateDirectoryName(path, false); err != nil {
+		errSlice = append(errSlice, fmt.Sprintf("package path part %q of object name invalid\n", path))
+		errSlice = append(errSlice, "path "+path+invalidConst+err.Error()+"\n")
+	}
+
+	if err := ValidateK8SName(packageName); err != nil {
+		errSlice = append(errSlice, fmt.Sprintf("package name part %q of object name invalid\n", packageName))
+		errSlice = append(errSlice, "package name "+packageName+invalidConst+err.Error()+"\n")
+	}
+
+	return errSlice
 }
 
 func SplitIn3OnDelimiter(splitee, delimiter string) []string {
@@ -303,11 +312,23 @@ func CompareObjectMeta(left metav1.ObjectMeta, right metav1.ObjectMeta) bool {
 // RetryOnErrorConditional retries f up to retries times if it returns an error that matches shouldRetryFunc
 func RetryOnErrorConditional(retries int, shouldRetryFunc func(error) bool, f func(retryNumber int) error) error {
 	var err error
-	for i := 0; i < retries; i++ {
+	for i := 1; i <= retries; i++ {
 		err = f(i)
 		if err == nil || !shouldRetryFunc(err) {
 			return err
 		}
 	}
+	return err
+}
+
+func RetryOnError(retries int, f func(retryNumber int) error) error {
+	var err error
+	for i := 1; i <= retries; i++ {
+		err = f(i)
+		if err == nil {
+			return nil
+		}
+	}
+	klog.Errorf("Failed to fetch remote repository after %d retries: %v", retries, err)
 	return err
 }

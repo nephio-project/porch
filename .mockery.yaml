@@ -10,6 +10,28 @@ packages:
         config:
           dir: "test/mockery/mocks/external/{{.InterfaceDirRelative}}"
           outpkg: "{{.PackageName}}"
+  github.com/nephio-project/porch/pkg/cache/crcache/meta:
+    interfaces:
+      MetadataStore:
+        config:
+          dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
+          outpkg: "{{.PackageName}}"
+  github.com/nephio-project/porch/pkg/cache/dbcache:
+    interfaces:
+      dbSQLInterface:
+        config:
+          dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
+          outpkg: "{{.PackageName}}"
+  github.com/nephio-project/porch/pkg/cache/types:
+    interfaces:
+      Cache:
+        config:
+          dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
+          outpkg: "{{.PackageName}}"
+      RepoPRChangeNotifier:
+        config:
+          dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
+          outpkg: "{{.PackageName}}"
   github.com/nephio-project/porch/pkg/repository:
     interfaces:
       Repository:
@@ -24,25 +46,9 @@ packages:
         config:
           dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
           outpkg: "{{.PackageName}}"
-  github.com/nephio-project/porch/pkg/cache/types:
+  github.com/nephio-project/porch/pkg/engine:
     interfaces:
-      Cache:
-        config:
-          dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
-          outpkg: "{{.PackageName}}"
-      RepoPRChangeNotifier:
-        config:
-          dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
-          outpkg: "{{.PackageName}}"
-  github.com/nephio-project/porch/pkg/cache/crcache/meta:
-    interfaces:
-      MetadataStore:
-        config:
-          dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
-          outpkg: "{{.PackageName}}"
-  github.com/nephio-project/porch/pkg/cache/dbcache:
-    interfaces:
-      dbSQLInterface:
+      CaDEngine:
         config:
           dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
           outpkg: "{{.PackageName}}"
