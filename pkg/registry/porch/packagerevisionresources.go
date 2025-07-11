@@ -82,7 +82,7 @@ func (r *packageRevisionResources) List(ctx context.Context, options *metaintern
 		return nil, err
 	}
 
-	if err := r.packageCommon.listPackageRevisions(ctx, *filter, options.LabelSelector, func(ctx context.Context, p repository.PackageRevision) error {
+	if err := r.packageCommon.listPackageRevisions(ctx, *filter, func(ctx context.Context, p repository.PackageRevision) error {
 		apiPkgResources, err := p.GetResources(ctx)
 		if err != nil {
 			return err

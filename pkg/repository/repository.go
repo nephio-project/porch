@@ -356,7 +356,7 @@ func (f *ListPackageRevisionFilter) ParseAttrFunc(p PackageRevision) {
 	}
 
 	f.Predicate.GetAttrs = func(obj runtime.Object) (labels.Set, fields.Set, error) {
-		return nil, fieldSet, nil
+		return p.GetMeta().Labels, fieldSet, nil
 	}
 }
 

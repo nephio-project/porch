@@ -23,7 +23,6 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/watch"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
@@ -58,7 +57,7 @@ func (r *packageRevisions) Watch(ctx context.Context, options *metainternalversi
 		resultChan: make(chan watch.Event, 64),
 	}
 
-	go w.listAndWatch(ctx, r, *filter, options.LabelSelector)
+	go w.listAndWatch(ctx, r, *filter)
 
 	return w, nil
 }
@@ -93,14 +92,14 @@ func (w *watcher) ResultChan() <-chan watch.Event {
 
 type packageReader interface {
 	watchPackages(ctx context.Context, filter repository.ListPackageRevisionFilter, callback engine.ObjectWatcher) error
-	listPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter, selector labels.Selector, callback func(ctx context.Context, p repository.PackageRevision) error) error
+	listPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter, callback func(ctx context.Context, p repository.PackageRevision) error) error
 }
 
 // listAndWatch implements watch by doing a list, then sending any observed changes.
 // This is not a compliant implementation of watch, but it is a good-enough start for most controllers.
 // One trick is that we start the watch _before_ we perform the list, so we don't miss changes that happen immediately after the list.
-func (w *watcher) listAndWatch(ctx context.Context, r packageReader, filter repository.ListPackageRevisionFilter, selector labels.Selector) {
-	if err := w.listAndWatchInner(ctx, r, filter, selector); err != nil {
+func (w *watcher) listAndWatch(ctx context.Context, r packageReader, filter repository.ListPackageRevisionFilter) {
+	if err := w.listAndWatchInner(ctx, r, filter); err != nil {
 		// TODO: We need to populate the object on this error
 		klog.Warningf("sending error to watch stream: %v", err)
 		ev := watch.Event{
@@ -112,7 +111,7 @@ func (w *watcher) listAndWatch(ctx context.Context, r packageReader, filter repo
 	close(w.resultChan)
 }
 
-func (w *watcher) listAndWatchInner(ctx context.Context, r packageReader, filter repository.ListPackageRevisionFilter, selector labels.Selector) error {
+func (w *watcher) listAndWatchInner(ctx context.Context, r packageReader, filter repository.ListPackageRevisionFilter) error {
 	errorResult := make(chan error, 4)
 
 	var backlog []watch.Event
@@ -145,7 +144,7 @@ func (w *watcher) listAndWatchInner(ctx context.Context, r packageReader, filter
 
 	sentAdd := 0
 	// TODO: Only if rv == 0?
-	if err := r.listPackageRevisions(ctx, filter, selector, func(ctx context.Context, p repository.PackageRevision) error {
+	if err := r.listPackageRevisions(ctx, filter, func(ctx context.Context, p repository.PackageRevision) error {
 		obj, err := p.GetPackageRevision(ctx)
 		if err != nil {
 			w.mutex.Lock()

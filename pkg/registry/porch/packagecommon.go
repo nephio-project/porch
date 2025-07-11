@@ -27,7 +27,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -58,7 +57,7 @@ type packageCommon struct {
 }
 
 func (r *packageCommon) listPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter,
-	selector labels.Selector, callback func(ctx context.Context, p repository.PackageRevision) error) error {
+	callback func(ctx context.Context, p repository.PackageRevision) error) error {
 	ctx, span := tracer.Start(ctx, "packageCommon::listPackageRevisions", trace.WithAttributes())
 	defer span.End()
 
@@ -97,15 +96,6 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter reposit
 		for _, rev := range revisions {
 
 			if !filter.Matches(ctx, rev) {
-				continue
-			}
-
-			apiPkgRev, err := rev.GetPackageRevision(ctx)
-			if err != nil {
-				return err
-			}
-
-			if selector != nil && !selector.Matches(labels.Set(apiPkgRev.Labels)) {
 				continue
 			}
 
