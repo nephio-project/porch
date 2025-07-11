@@ -70,8 +70,8 @@ func toPackageRevisionSlice(
 		}
 	}
 	sort.Slice(result, func(i, j int) bool {
-		ki, kl := result[i].Key(), result[j].Key()
-		switch res := strings.Compare(ki.PkgKey.Package, kl.PkgKey.Package); {
+		ki, kj := result[i].Key(), result[j].Key()
+		switch res := strings.Compare(ki.PkgKey.Package, kj.PkgKey.Package); {
 		case res < 0:
 			return true
 		case res > 0:
@@ -79,7 +79,7 @@ func toPackageRevisionSlice(
 		default:
 			// Equal. Compare next element
 		}
-		res := ki.Revision - kl.Revision
+		res := ki.Revision - kj.Revision
 		if res != 0 {
 			return res < 0
 		}

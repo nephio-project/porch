@@ -16,15 +16,18 @@ package porch
 
 import (
 	"fmt"
+	"reflect"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apiserver/pkg/storage"
 )
 
-// convertPackageRevisionFieldSelector is the schema conversion function for normalizing the the FieldSelector for PackageRevision
+// convertPackageFieldSelector is the schema conversion function for normalizing the FieldSelector for Package
 func convertPackageFieldSelector(label, value string) (internalLabel, internalValue string, err error) {
 	switch label {
 	case "metadata.name":
@@ -38,20 +41,15 @@ func convertPackageFieldSelector(label, value string) (internalLabel, internalVa
 	}
 }
 
-// convertPackageRevisionFieldSelector is the schema conversion function for normalizing the the FieldSelector for PackageRevision
+// convertPackageRevisionFieldSelector is the schema conversion function for normalizing the FieldSelector for PackageRevision
 func convertPackageRevisionFieldSelector(label, value string) (internalLabel, internalValue string, err error) {
-	switch label {
-	case "metadata.name":
-		return label, value, nil
-	case "metadata.namespace":
-		return label, value, nil
-	case "spec.revision", "spec.packageName", "spec.repository":
-		return label, value, nil
-	case "spec.workspaceName", "spec.lifecycle":
-		return label, value, nil
-	default:
-		return "", "", fmt.Errorf("%q is not a known field selector", label)
+	selectableFields := reflect.ValueOf(api.PackageRevisionSelectableFields)
+	for i := range selectableFields.NumField() {
+		if label == selectableFields.Field(i).String() {
+			return label, value, nil
+		}
 	}
+	return "", "", fmt.Errorf("%q is not a known field selector", label)
 }
 
 // parsePackageFieldSelector parses client-provided fields.Selector into a packageFilter
@@ -100,71 +98,38 @@ func parsePackageFieldSelector(fieldSelector fields.Selector) (repository.ListPa
 }
 
 // parsePackageRevisionFieldSelector parses client-provided fields.Selector into a packageRevisionFilter
-func parsePackageRevisionFieldSelector(fieldSelector fields.Selector) (repository.ListPackageRevisionFilter, error) {
-	var filter repository.ListPackageRevisionFilter
+func parsePackageRevisionFieldSelector(options *metainternalversion.ListOptions) (*repository.ListPackageRevisionFilter, error) {
+	filter := &repository.ListPackageRevisionFilter{
+		Predicate: &storage.SelectionPredicate{
+			Label: options.LabelSelector,
+		},
+	}
 
+	fieldSelector := options.FieldSelector
 	if fieldSelector == nil {
 		return filter, nil
 	}
 
-	requirements := fieldSelector.Requirements()
-	for _, requirement := range requirements {
+	for _, requirement := range fieldSelector.Requirements() {
 
 		switch requirement.Operator {
-		case selection.Equals, selection.DoesNotExist:
+		case selection.Equals, selection.DoubleEquals, selection.NotEquals:
 			if requirement.Value == "" {
 				return filter, apierrors.NewBadRequest(fmt.Sprintf("unsupported fieldSelector value %q for field %q with operator %q", requirement.Value, requirement.Field, requirement.Operator))
 			}
 		default:
 			return filter, apierrors.NewBadRequest(fmt.Sprintf("unsupported fieldSelector operator %q for field %q", requirement.Operator, requirement.Field))
 		}
-
-		switch requirement.Field {
-		case "metadata.name":
-			if filterKey, err := repository.PkgRevK8sName2Key("", requirement.Value); err == nil {
-				filter.Key = filterKey
-			} else {
-				return repository.ListPackageRevisionFilter{}, err
-			}
-
-		case "metadata.namespace":
-			filter.Key.PkgKey.RepoKey.Namespace = requirement.Value
-
-		case "spec.revision":
-			filter.Key.Revision = repository.Revision2Int(requirement.Value)
-
-		case "spec.packageName":
-			filter.Key.PkgKey.Package = requirement.Value
-
-		case "spec.repository":
-			filter.Key.PkgKey.RepoKey.Name = requirement.Value
-
-		case "spec.workspaceName":
-			filter.Key.WorkspaceName = requirement.Value
-
-		case "spec.lifecycle":
-			v := v1alpha1.PackageRevisionLifecycle(requirement.Value)
-			switch v {
-			case v1alpha1.PackageRevisionLifecycleDraft,
-				v1alpha1.PackageRevisionLifecycleProposed,
-				v1alpha1.PackageRevisionLifecyclePublished,
-				v1alpha1.PackageRevisionLifecycleDeletionProposed:
-				filter.Lifecycles = []v1alpha1.PackageRevisionLifecycle{v}
-			default:
-				return filter, apierrors.NewBadRequest(fmt.Sprintf("unsupported fieldSelector value %q for field %q", requirement.Value, requirement.Field))
-			}
-
-		default:
-			return filter, apierrors.NewBadRequest(fmt.Sprintf("unknown fieldSelector field %q", requirement.Field))
-		}
 	}
+
+	filter.Predicate.Field = fieldSelector
 
 	return filter, nil
 }
 
 // parsePackageRevisionResourcesFieldSelector parses client-provided fields.Selector into a packageRevisionFilter
-func parsePackageRevisionResourcesFieldSelector(fieldSelector fields.Selector) (repository.ListPackageRevisionFilter, error) {
+func parsePackageRevisionResourcesFieldSelector(options *metainternalversion.ListOptions) (*repository.ListPackageRevisionFilter, error) {
 	// TOOD: This is a little weird, because we don't have the same fields on PackageRevisionResources.
 	// But we probably should have the key fields
-	return parsePackageRevisionFieldSelector(fieldSelector)
+	return parsePackageRevisionFieldSelector(options)
 }

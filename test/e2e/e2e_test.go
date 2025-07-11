@@ -31,6 +31,7 @@ import (
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -38,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -2646,6 +2648,54 @@ func (t *PorchSuite) TestNewPackageRevisionLabels() {
 		map[string]string{},
 		map[string]string{},
 	)
+}
+
+func (t *PorchSuite) TestPackageRevisionLabelSelectors() {
+	const (
+		repository = "pkg-rev-label-selectors"
+		labelKey   = "kpt.dev/label"
+		labelVal1  = "foo"
+		labelVal2  = "bar"
+	)
+
+	t.RegisterMainGitRepositoryF(repository)
+
+	// Create a package with labels and annotations.
+	pr := porchapi.PackageRevision{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PackageRevision",
+			APIVersion: porchapi.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: t.Namespace,
+			Labels: map[string]string{
+				labelKey: labelVal1,
+			},
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			PackageName:    "new-package",
+			WorkspaceName:  "workspace",
+			RepositoryName: repository,
+			Tasks: []porchapi.Task{
+				{
+					Type: porchapi.TaskTypeInit,
+					Init: &porchapi.PackageInitTaskSpec{
+						Description: "this is a test",
+					},
+				},
+			},
+		},
+	}
+	t.CreateF(&pr)
+
+	prList := porchapi.PackageRevisionList{}
+	pkgSelector := client.MatchingLabels(labels.Set{labelKey: labelVal1})
+	t.ListE(&prList, client.InNamespace(t.Namespace), pkgSelector)
+	require.Equal(t.T(), 1, len(prList.Items))
+
+	pkgSelector = client.MatchingLabels(labels.Set{labelKey: labelVal2})
+	t.ListE(&prList, client.InNamespace(t.Namespace), pkgSelector)
+	require.Empty(t.T(), prList.Items)
 }
 
 func (t *PorchSuite) TestRegisteredPackageRevisionLabels() {
