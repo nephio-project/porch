@@ -74,9 +74,11 @@ func init() {
 
 // ExtraConfig holds custom apiserver config
 type ExtraConfig struct {
-	CoreAPIKubeconfigPath string
-	GRPCRuntimeOptions    engine.GRPCRuntimeOptions
-	CacheOptions          cachetypes.CacheOptions
+	CoreAPIKubeconfigPath    string
+	GRPCRuntimeOptions       engine.GRPCRuntimeOptions
+	CacheOptions             cachetypes.CacheOptions
+	ListTimeoutPerRepository time.Duration
+	MaxConcurrentLists       int
 }
 
 // Config defines the config for the apiserver
@@ -256,7 +258,15 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 		return nil, err
 	}
 
-	porchGroup, err := porch.NewRESTStorage(Scheme, Codecs, cad, coreClient)
+	restStorageOptions := porch.RESTStorageOptions{
+		Scheme:               Scheme,
+		Codecs:               Codecs,
+		CaD:                  cad,
+		CoreClient:           coreClient,
+		TimeoutPerRepository: c.ExtraConfig.ListTimeoutPerRepository,
+		MaxConcurrentLists:   c.ExtraConfig.MaxConcurrentLists,
+	}
+	porchGroup, err := restStorageOptions.NewRESTStorage()
 	if err != nil {
 		return nil, err
 	}
