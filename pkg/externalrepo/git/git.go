@@ -23,7 +23,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -1246,8 +1245,8 @@ func (r *gitRepository) loadTasks(_ context.Context, startCommit *object.Commit,
 				// reverse order.
 				// The entire `tasks` slice will get reversed later, which will give us the
 				// tasks in chronological order.
-				if gitAnnotation.Task != nil {
-					tasks = append(tasks, *gitAnnotation.Task)
+				if gitAnnotation.Task != nil && v1alpha1.IsValidFirstTaskType(gitAnnotation.Task.Type) {
+					tasks = []v1alpha1.Task{*gitAnnotation.Task}
 				}
 
 				if gitAnnotation.Task != nil && (gitAnnotation.Task.Type == v1alpha1.TaskTypeClone || gitAnnotation.Task.Type == v1alpha1.TaskTypeInit) {
@@ -1469,8 +1468,10 @@ func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPack
 	message := formatCommitMessage(v1alpha1.TaskTypeNone)
 	if change != nil {
 		message = formatCommitMessage(change.Type)
-		validFirstTaskTypes := []v1alpha1.TaskType{v1alpha1.TaskTypeInit, v1alpha1.TaskTypeEdit, v1alpha1.TaskTypeClone, v1alpha1.TaskTypeUpgrade}
-		if slices.Contains(validFirstTaskTypes, change.Type) {
+		if v1alpha1.IsValidFirstTaskType(change.Type) {
+			if len(draft.tasks) > 0 {
+				klog.Warningf("Replacing first task of %q", draft.Key())
+			}
 			draft.tasks = []v1alpha1.Task{*change}
 		}
 	}
