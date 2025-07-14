@@ -85,7 +85,7 @@ func (t *PorchSuite) TestGitRepository() {
 							Type: "git",
 							Git: &porchapi.GitPackage{
 								Repo:      t.gcpBlueprintsRepo,
-								Ref:       "bucket-blueprint-v0.4.3",
+								Ref:       t.gcpBucketRef,
 								Directory: "catalog/bucket",
 								SecretRef: porchapi.SecretRef{
 									Name: t.CreateGcpPackageRevisionSecret("test-bucket"),
@@ -1807,7 +1807,7 @@ func (t *PorchSuite) TestBuiltinFunctionEvaluator() {
 							Type: "git",
 							Git: &porchapi.GitPackage{
 								Repo:      t.gcpBlueprintsRepo,
-								Ref:       "bucket-blueprint-v0.4.3",
+								Ref:       t.gcpBucketRef,
 								Directory: "catalog/bucket",
 								SecretRef: porchapi.SecretRef{
 									Name: t.CreateGcpPackageRevisionSecret("test-builtin-fn-bucket"),
@@ -1888,7 +1888,7 @@ func (t *PorchSuite) TestExecFunctionEvaluator() {
 							Type: "git",
 							Git: &porchapi.GitPackage{
 								Repo:      t.gcpBlueprintsRepo,
-								Ref:       "bucket-blueprint-v0.4.3",
+								Ref:       t.gcpBucketRef,
 								Directory: "catalog/bucket",
 								SecretRef: porchapi.SecretRef{
 									Name: t.CreateGcpPackageRevisionSecret("test-fn-bucket"),
@@ -1973,7 +1973,7 @@ func (t *PorchSuite) TestPodFunctionEvaluatorWithDistrolessImage() {
 							Type: "git",
 							Git: &porchapi.GitPackage{
 								Repo:      t.gcpBlueprintsRepo,
-								Ref:       "redis-bucket-blueprint-v0.3.2",
+								Ref:       t.gcpRedisBucketRef,
 								Directory: "catalog/redis-bucket",
 								SecretRef: porchapi.SecretRef{
 									Name: t.CreateGcpPackageRevisionSecret("test-fn-redis-bucket"),
@@ -2043,14 +2043,6 @@ func (t *PorchSuite) TestPodEvaluator() {
 	generateFolderImage := t.gcrPrefix + "/generate-folders:v0.1.1" // This function is a TS based function.
 	setAnnotationsImage := t.gcrPrefix + "/set-annotations:v0.1.3"  // set-annotations:v0.1.3 is an older version that porch maps neither to built-in nor exec.
 
-	// This is needed as this specific commit does not contain the config.kubernetes.io/local-config annotation in the kptfile.
-	// Furthermore, set-annotations is not cached - therefore when using an internal repos, need to pull the image without gcr prefix.
-	// Internal kptifle requires no gcr prefix in mutators and no config.kubernetes.io/local-config annotation.
-	repoRef := "783380ce4e6c3f21e9e90055b3a88bada0410154"
-	if os.Getenv(gcrPrefixEnv) != "" {
-		repoRef = os.Getenv(podEvalRefEnv)
-	}
-
 	// Register the repository as 'git-fn'
 	t.RegisterMainGitRepositoryF("git-fn-pod")
 
@@ -2071,7 +2063,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 							Type: "git",
 							Git: &porchapi.GitPackage{
 								Repo:      t.gcpBlueprintsRepo,
-								Ref:       repoRef,
+								Ref:       t.gcpHierarchyRef,
 								Directory: "catalog/hierarchy/simple",
 								SecretRef: porchapi.SecretRef{
 									Name: t.CreateGcpPackageRevisionSecret("test-fn-pod-hierarchy-workspace-1"),
@@ -2168,7 +2160,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 							Type: "git",
 							Git: &porchapi.GitPackage{
 								Repo:      t.gcpBlueprintsRepo,
-								Ref:       repoRef,
+								Ref:       t.gcpRedisBucketRef,
 								Directory: "catalog/hierarchy/simple",
 								SecretRef: porchapi.SecretRef{
 									Name: t.CreateGcpPackageRevisionSecret("test-fn-pod-hierarchy-workspace-2"),
@@ -2247,7 +2239,7 @@ func (t *PorchSuite) TestPodEvaluatorWithFailure() {
 							Type: "git",
 							Git: &porchapi.GitPackage{
 								Repo:      t.gcpBlueprintsRepo,
-								Ref:       "bucket-blueprint-v0.4.3",
+								Ref:       t.gcpBucketRef,
 								Directory: "catalog/bucket",
 								SecretRef: porchapi.SecretRef{
 									Name: t.CreateGcpPackageRevisionSecret("test-fn-pod-bucket"),

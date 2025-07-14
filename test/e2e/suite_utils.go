@@ -44,6 +44,9 @@ import (
 const (
 	defaultTestBlueprintsRepo = "https://github.com/platkrm/test-blueprints.git"
 	defaultGCPBlueprintsRepo  = "https://github.com/GoogleCloudPlatform/blueprints.git"
+	defaultGCPBucketRef       = "bucket-blueprint-v0.4.3"
+	defaultGCPRedisBucketRef  = "redis-bucket-blueprint-v0.3.2"
+	defaultGCPHierarchyRef    = "783380ce4e6c3f21e9e90055b3a88bada0410154"
 	defaultKPTRepo            = "https://github.com/kptdev/kpt.git"
 	defaultGCRPrefix          = "gcr.io/kpt-fn"
 
@@ -56,13 +59,15 @@ const (
 	gcpBlueprintsRepoUrlEnv      = "PORCH_GCP_BLUEPRINTS_REPO_URL"
 	gcpBlueprintsRepoUserEnv     = "PORCH_GCP_BLUEPRINTS_REPO_USER"
 	gcpBlueprintsRepoPasswordEnv = "PORCH_GCP_BLUEPRINTS_REPO_PASSWORD"
+	gcpBucketRefEnv              = "PORCH_GCP_BUCKET_REF"
+	gcpRedisBucketRefEnv         = "PORCH_GCP_REDIS_BUCKET_REF"
+	gcpHierarchyRefEnv           = "PORCH_GCP_HIERARCHY_REF"
 
 	kptRepoUrlEnv      = "PORCH_KPT_REPO_URL"
 	kptRepoUserEnv     = "PORCH_KPT_REPO_USER"
 	kptRepoPasswordEnv = "PORCH_KPT_REPO_PASSWORD"
 
-	gcrPrefixEnv  = "PORCH_GCR_PREFIX_URL"
-	podEvalRefEnv = "PORCH_POD_EVAL_REF"
+	gcrPrefixEnv = "PORCH_GCR_PREFIX_URL"
 )
 
 type TestSuiteWithGit struct {
@@ -84,21 +89,34 @@ func (t *TestSuiteWithGit) SetupEnvvars() {
 
 	t.testBlueprintsRepo = defaultTestBlueprintsRepo
 	t.gcpBlueprintsRepo = defaultGCPBlueprintsRepo
+	t.gcpBucketRef = defaultGCPBucketRef
+	t.gcpRedisBucketRef = defaultGCPRedisBucketRef
+	t.gcpHierarchyRef = defaultGCPHierarchyRef
 	t.kptRepo = defaultKPTRepo
 	t.gcrPrefix = defaultGCRPrefix
 
-	if os.Getenv(testBlueprintsRepoUrlEnv) != "" {
-		t.testBlueprintsRepo = os.Getenv(testBlueprintsRepoUrlEnv)
+	if e := os.Getenv(testBlueprintsRepoUrlEnv); e != "" {
+		t.testBlueprintsRepo = e
 	}
-	if os.Getenv(gcpBlueprintsRepoUrlEnv) != "" {
-		t.gcpBlueprintsRepo = os.Getenv(gcpBlueprintsRepoUrlEnv)
+	if e := os.Getenv(gcpBlueprintsRepoUrlEnv); e != "" {
+		t.gcpBlueprintsRepo = e
 	}
-	if os.Getenv(gcrPrefixEnv) != "" {
-		t.gcrPrefix = os.Getenv(gcrPrefixEnv)
+	if e := os.Getenv(gcpBucketRefEnv); e != "" {
+		t.gcpBucketRef = e
 	}
-	if os.Getenv(kptRepoUrlEnv) != "" {
-		t.kptRepo = os.Getenv(kptRepoUrlEnv)
+	if e := os.Getenv(gcpRedisBucketRefEnv); e != "" {
+		t.gcpRedisBucketRef = e
 	}
+	if e := os.Getenv(gcpHierarchyRefEnv); e != "" {
+		t.gcpHierarchyRef = e
+	}
+	if e := os.Getenv(gcrPrefixEnv); e != "" {
+		t.gcrPrefix = e
+	}
+	if e := os.Getenv(kptRepoUrlEnv); e != "" {
+		t.kptRepo = e
+	}
+
 }
 
 func (t *TestSuiteWithGit) GitConfig(name string) GitConfig {

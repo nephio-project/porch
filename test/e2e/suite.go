@@ -94,6 +94,9 @@ type TestSuite struct {
 
 	testBlueprintsRepo string
 	gcpBlueprintsRepo  string
+	gcpBucketRef       string
+	gcpRedisBucketRef  string
+	gcpHierarchyRef    string
 	kptRepo            string
 	gcrPrefix          string
 }
