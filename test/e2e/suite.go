@@ -97,6 +97,7 @@ type TestSuite struct {
 	gcpBucketRef       string
 	gcpRedisBucketRef  string
 	gcpHierarchyRef    string
+	kptFunctionRef     string
 	kptRepo            string
 	gcrPrefix          string
 }

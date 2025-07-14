@@ -50,7 +50,7 @@ func (t *PorchSuite) CreateEmptyPackageRevision(repo string) porchapi.PackageRev
 							Type: "git",
 							Git: &porchapi.GitPackage{
 								Repo:      t.gcpBlueprintsRepo,
-								Ref:       "nephio-porch",
+								Ref:       t.kptFunctionRef,
 								Directory: "catalog/empty",
 								SecretRef: porchapi.SecretRef{
 									Name: t.CreateGcpPackageRevisionSecret("test-fn-pod"),

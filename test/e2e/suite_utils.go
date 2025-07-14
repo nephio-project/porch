@@ -47,6 +47,7 @@ const (
 	defaultGCPBucketRef       = "bucket-blueprint-v0.4.3"
 	defaultGCPRedisBucketRef  = "redis-bucket-blueprint-v0.3.2"
 	defaultGCPHierarchyRef    = "783380ce4e6c3f21e9e90055b3a88bada0410154"
+	defaultKptFunctionRef     = "spanner-blueprint-v0.3.2"
 	defaultKPTRepo            = "https://github.com/kptdev/kpt.git"
 	defaultGCRPrefix          = "gcr.io/kpt-fn"
 
@@ -62,6 +63,7 @@ const (
 	gcpBucketRefEnv              = "PORCH_GCP_BUCKET_REF"
 	gcpRedisBucketRefEnv         = "PORCH_GCP_REDIS_BUCKET_REF"
 	gcpHierarchyRefEnv           = "PORCH_GCP_HIERARCHY_REF"
+	kptFunctionRefEnv            = "PORCH_KPT_FUNCTION_REF"
 
 	kptRepoUrlEnv      = "PORCH_KPT_REPO_URL"
 	kptRepoUserEnv     = "PORCH_KPT_REPO_USER"
@@ -109,6 +111,9 @@ func (t *TestSuiteWithGit) SetupEnvvars() {
 	}
 	if e := os.Getenv(gcpHierarchyRefEnv); e != "" {
 		t.gcpHierarchyRef = e
+	}
+	if e := os.Getenv(kptFunctionRefEnv); e != "" {
+		t.kptFunctionRef = e
 	}
 	if e := os.Getenv(gcrPrefixEnv); e != "" {
 		t.gcrPrefix = e
