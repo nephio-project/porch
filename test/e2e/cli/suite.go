@@ -25,6 +25,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -124,7 +125,7 @@ func (s *CliTestSuite) RunTestCase(t *testing.T, tc TestCaseConfig) {
 		KubectlDeleteNamespace(t, tc.TestCase)
 		deleteRemoteTestRepo(t, tc.TestCase)
 	})
-	
+
 	createRemoteTestRepo(t, tc.TestCase)
 
 	if tc.Repository != "" {
@@ -157,6 +158,8 @@ func (s *CliTestSuite) RunTestCase(t *testing.T, tc TestCaseConfig) {
 
 		if command.Yaml {
 			reorderYamlStdout(t, &stdout)
+		} else {
+			reorderCommandStdout(t, &stdout)
 		}
 
 		cleanupStderr(t, &stderr)
@@ -334,6 +337,10 @@ func reorderYamlStdout(t *testing.T, buf *bytes.Buffer) {
 		return
 	}
 
+	// DB cache supports owner references but the CR cache doesn't so we remove the
+	// owner references from the metadata so the yaml returned by both caches is the same
+	data = stripOwnerReferences(data)
+
 	var stable bytes.Buffer
 	encoder := yaml.NewEncoder(&stable)
 	encoder.SetIndent(2)
@@ -343,6 +350,42 @@ func reorderYamlStdout(t *testing.T, buf *bytes.Buffer) {
 	buf.Reset()
 	if _, err := buf.Write(stable.Bytes()); err != nil {
 		t.Fatalf("Failed to update reordered yaml output: %v", err)
+	}
+}
+func reorderCommandStdout(t *testing.T, buf *bytes.Buffer) {
+	if buf.Len() == 0 {
+		return
+	}
+
+	// strip out the resourceVersion:, creationTimestamp:
+	// because that will change with every run
+	scanner := bufio.NewScanner(buf)
+	var newBuf bytes.Buffer
+	var headerLine string
+	var bodyLines []string
+
+	if scanner.Scan() {
+		headerLine = scanner.Text()
+	} else {
+		return
+	}
+
+	for scanner.Scan() {
+		bodyLines = append(bodyLines, scanner.Text())
+	}
+	sort.Strings(bodyLines)
+
+	newBuf.Write([]byte(headerLine))
+	newBuf.Write([]byte("\n"))
+
+	for i := range bodyLines {
+		newBuf.Write([]byte(bodyLines[i]))
+		newBuf.Write([]byte("\n"))
+	}
+
+	buf.Reset()
+	if _, err := buf.Write(newBuf.Bytes()); err != nil {
+		t.Fatalf("Failed to update reordered command output: %v", err)
 	}
 }
 
@@ -360,7 +403,7 @@ func exitCode(exit error) int {
 	return 0
 }
 
-func deleteRemoteTestRepo (t *testing.T, testcaseName string) {
+func deleteRemoteTestRepo(t *testing.T, testcaseName string) {
 
 	apiURL := fmt.Sprintf("http://localhost:3000/api/v1/repos/%s/%s", testGitUserOrg, testcaseName)
 
@@ -385,7 +428,7 @@ func deleteRemoteTestRepo (t *testing.T, testcaseName string) {
 	}
 }
 
-func createRemoteTestRepo (t *testing.T, testcaseName string) {
+func createRemoteTestRepo(t *testing.T, testcaseName string) {
 
 	tmpPath := t.TempDir()
 	repo, err := git.PlainInit(tmpPath, false)
@@ -400,7 +443,7 @@ func createRemoteTestRepo (t *testing.T, testcaseName string) {
 		t.Fatalf("Failed to set refs: %v", err)
 	}
 
-	err = os.WriteFile(tmpPath + "/README.md", []byte("# Test Go-Git Repo\nCreated programmatically."), 0644)
+	err = os.WriteFile(tmpPath+"/README.md", []byte("# Test Go-Git Repo\nCreated programmatically."), 0644)
 	if err != nil {
 		t.Fatalf("Failed to write to file: %v", err)
 	}
@@ -433,7 +476,7 @@ func createRemoteTestRepo (t *testing.T, testcaseName string) {
 	err = repo.Push(&git.PushOptions{
 		RemoteName: "origin",
 		Auth: &http.BasicAuth{
-			Username: testGitUserOrg, 
+			Username: testGitUserOrg,
 			Password: testGitPassword,
 		},
 		RequireRemoteRefs: []config.RefSpec{},
@@ -451,4 +494,28 @@ func getRepoName(args []string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func stripOwnerReferences(data any) any {
+	dataMap := data.(map[string]any)
+
+	items, ok := dataMap["items"]
+	if !ok {
+		return data
+	}
+
+	itemSlice := items.([]any)
+
+	for k := range itemSlice {
+		itemMap := itemSlice[k].(map[string]any)
+
+		metadata, ok := itemMap["metadata"]
+		if !ok {
+			continue
+		}
+		metadataMap := metadata.(map[string]any)
+		delete(metadataMap, "ownerReferences")
+	}
+
+	return data
 }
