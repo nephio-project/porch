@@ -96,6 +96,7 @@ func (t *TestSuiteWithGit) SetupEnvvars() {
 	t.gcpHierarchyRef = defaultGCPHierarchyRef
 	t.kptRepo = defaultKPTRepo
 	t.gcrPrefix = defaultGCRPrefix
+	t.kptFunctionRef = defaultKptFunctionRef
 
 	if e := os.Getenv(testBlueprintsRepoUrlEnv); e != "" {
 		t.testBlueprintsRepo = e
