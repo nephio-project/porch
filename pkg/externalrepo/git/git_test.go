@@ -818,7 +818,7 @@ func (g GitSuite) TestApproveDraftWithHistory(t *testing.T) {
 	if got, want := rev.Spec.Lifecycle, v1alpha1.PackageRevisionLifecyclePublished; got != want {
 		t.Errorf("Approved package lifecycle: got %s, want %s", got, want)
 	}
-	if got, want := len(rev.Spec.Tasks), 4; got != want {
+	if got, want := len(rev.Spec.Tasks), 1; got != want {
 		t.Errorf("Approved package task count: got %d, want %d", got, want)
 	}
 
