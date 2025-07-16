@@ -23,6 +23,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -122,6 +123,8 @@ func (prov *gitUserInfoProvider) GetUserInfo(context.Context) *repository.UserIn
 func OpenRepository(ctx context.Context, name, namespace string, spec *configapi.GitRepository, deployment bool, root string, opts GitRepositoryOptions) (GitRepository, error) {
 	ctx, span := tracer.Start(ctx, "git.go::OpenRepository", trace.WithAttributes())
 	defer span.End()
+	start := time.Now()
+	defer func() { klog.V(4).Infof("git.go::OpenRepository (%s) took %s", spec.Repo, time.Since(start)) }()
 
 	replace := strings.NewReplacer("/", "-", ":", "-")
 	dir := filepath.Join(root, replace.Replace(spec.Repo))
@@ -1041,25 +1044,29 @@ func (r *gitRepository) GetRepo() (string, error) {
 func (r *gitRepository) fetchRemoteRepository(ctx context.Context) error {
 	ctx, span := tracer.Start(ctx, "gitRepository::fetchRemoteRepository", trace.WithAttributes())
 	defer span.End()
+	start := time.Now()
+	defer func() { klog.V(4).Infof("Fetching repository %q took %s", r.key.Name, time.Since(start)) }()
 
-	// Fetch
-	switch err := r.doGitWithAuth(ctx, func(auth transport.AuthMethod) error {
-		return r.repo.Fetch(&git.FetchOptions{
+	err := r.doGitWithAuth(ctx, func(auth transport.AuthMethod) error {
+		return r.repo.FetchContext(ctx, &git.FetchOptions{
 			RemoteName: OriginName,
 			Auth:       auth,
 			Prune:      true,
 			CABundle:   r.caBundle,
 		})
-	}); err {
-	case nil: // OK
-	case git.NoErrAlreadyUpToDate:
-	case transport.ErrEmptyRemoteRepository:
+	})
 
-	default:
-		return fmt.Errorf("cannot fetch repository %s/%s: %w", r.Key().Namespace, r.Key().Name, err)
+	allowedErrors := []error{
+		nil,
+		git.NoErrAlreadyUpToDate,
+		transport.ErrEmptyRemoteRepository,
 	}
 
-	return nil
+	if slices.Contains(allowedErrors, err) {
+		return nil
+	}
+
+	return fmt.Errorf("cannot fetch repository %s: %w", r.Key(), err)
 }
 
 // Verifies repository. Repository must be fetched already.

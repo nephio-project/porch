@@ -33,6 +33,8 @@ type FakePackageRevision struct {
 	PackageRevision  *v1alpha1.PackageRevision
 	Resources        *v1alpha1.PackageRevisionResources
 	Kptfile          kptfile.KptFile
+	Ops              []string
+	Err              error
 }
 
 var _ repository.PackageRevision = &FakePackageRevision{}
@@ -70,37 +72,48 @@ func (pr *FakePackageRevision) Lifecycle(ctx context.Context) v1alpha1.PackageRe
 }
 
 func (pr *FakePackageRevision) GetPackageRevision(context.Context) (*v1alpha1.PackageRevision, error) {
-	return pr.PackageRevision, nil
+	return pr.PackageRevision, pr.Err
 }
 
-func (f *FakePackageRevision) GetResources(context.Context) (*v1alpha1.PackageRevisionResources, error) {
-	return f.Resources, nil
+func (pr *FakePackageRevision) GetResources(context.Context) (*v1alpha1.PackageRevisionResources, error) {
+	return pr.Resources, pr.Err
 }
 
-func (f *FakePackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, error) {
-	return f.Kptfile, nil
+func (pr *FakePackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, error) {
+	pr.Ops = append(pr.Ops, "GetKptfile")
+	return pr.Kptfile, pr.Err
 }
 
-func (f *FakePackageRevision) GetUpstreamLock(context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error) {
-	return *f.Kptfile.Upstream, *f.Kptfile.UpstreamLock, nil
+func (pr *FakePackageRevision) GetUpstreamLock(context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error) {
+	pr.Ops = append(pr.Ops, "GetUptreamLock")
+	return *pr.Kptfile.Upstream, *pr.Kptfile.UpstreamLock, pr.Err
 }
 
-func (f *FakePackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, error) {
-	return *f.Kptfile.Upstream, *f.Kptfile.UpstreamLock, nil
+func (pr *FakePackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, error) {
+	pr.Ops = append(pr.Ops, "GetLock")
+	return *pr.Kptfile.Upstream, *pr.Kptfile.UpstreamLock, pr.Err
 }
 
-func (f *FakePackageRevision) UpdateLifecycle(context.Context, v1alpha1.PackageRevisionLifecycle) error {
-	return nil
+func (pr *FakePackageRevision) UpdateLifecycle(_ context.Context, lifecycle v1alpha1.PackageRevisionLifecycle) error {
+	pr.Ops = append(pr.Ops, "UpdateLifecycle")
+	pr.PackageLifecycle = lifecycle
+	if pr.PackageRevision != nil {
+		pr.PackageRevision.Spec.Lifecycle = lifecycle
+	}
+	return pr.Err
 }
 
-func (f *FakePackageRevision) GetMeta() metav1.ObjectMeta {
+func (pr *FakePackageRevision) GetMeta() metav1.ObjectMeta {
 	return metav1.ObjectMeta{}
 }
 
-func (f *FakePackageRevision) SetMeta(context.Context, metav1.ObjectMeta) error {
-	return nil
+func (pr *FakePackageRevision) SetMeta(context.Context, metav1.ObjectMeta) error {
+	pr.Ops = append(pr.Ops, "SetMeta")
+	return pr.Err
 }
 
-func (f *FakePackageRevision) UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, change *v1alpha1.Task) error {
-	return nil
+func (pr *FakePackageRevision) UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, change *v1alpha1.Task) error {
+	pr.Ops = append(pr.Ops, "UpdateResources")
+	pr.Resources = new
+	return pr.Err
 }

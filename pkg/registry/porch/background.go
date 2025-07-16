@@ -150,7 +150,7 @@ func (b *background) updateCache(ctx context.Context, event watch.EventType, rep
 
 func (b *background) handleRepositoryEvent(ctx context.Context, repo *configapi.Repository, eventType watch.EventType) error {
 	msgPreamble := fmt.Sprintf("repository %s event handling: repo %s:%s", eventType, repo.ObjectMeta.Namespace, repo.ObjectMeta.Name)
-
+	start := time.Now()
 	klog.Infof("%s, handling starting", msgPreamble)
 
 	if err := util.ValidateRepository(repo.ObjectMeta.Name, repo.Spec.Git.Directory); err != nil {
@@ -171,7 +171,7 @@ func (b *background) handleRepositoryEvent(ctx context.Context, repo *configapi.
 	}
 
 	if err == nil {
-		klog.Infof("%s, handling completed", msgPreamble)
+		klog.Infof("%s, handling completed in %s", msgPreamble, time.Since(start))
 		return nil
 	} else {
 		return fmt.Errorf("changing repository failed: %s:%s:%q", repo.ObjectMeta.Namespace, repo.ObjectMeta.Name, err)
@@ -197,6 +197,8 @@ func (b *background) runOnce(ctx context.Context) error {
 }
 
 func (b *background) cacheRepository(ctx context.Context, repo *configapi.Repository) error {
+	start := time.Now()
+	defer func() { klog.V(4).Infof("background::cacheRepository (%s) took %s", repo.Name, time.Since(start)) }()
 	var condition v1.Condition
 	if _, err := b.cache.OpenRepository(ctx, repo); err == nil {
 		condition = v1.Condition{
