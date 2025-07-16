@@ -162,9 +162,9 @@ BEGIN
        RAISE EXCEPTION 'create or update not allowed on column "revision", revision % already exists', NEW.revision;
     END IF;
 
-    latest_revision := (SELECT MAX(revision) FROM package_revisions WHERE k8s_name_space = NEW.k8s_name_space AND package_k8s_name = NEW.package_k8s_name);
+    latest_revision := (SELECT MAX(revision) FROM package_revisions WHERE k8s_name_space = NEW.k8s_name_space AND package_k8s_name = NEW.package_k8s_name AND revision > 0);
 
-    IF NEW.revision >= latest_revision AND NEW.lifecycle = lifecycle_published THEN
+    IF NEW.lifecycle = lifecycle_published AND NEW.revision > 0 AND (latest_revision IS NULL OR NEW.revision >= latest_revision) THEN
         UPDATE package_revisions SET latest = FALSE WHERE k8s_name_space = NEW.k8s_name_space AND package_k8s_name = NEW.package_k8s_name AND latest;
         NEW.latest = TRUE;
     END IF;
@@ -186,9 +186,11 @@ DECLARE
 
     latest_revision INTEGER;
 BEGIN
-    latest_revision := (SELECT MAX(revision) FROM package_revisions WHERE k8s_name_space = OLD.k8s_name_space AND package_k8s_name = OLD.package_k8s_name);
-    UPDATE package_revisions SET latest = TRUE WHERE k8s_name_space = OLD.k8s_name_space AND package_k8s_name = OLD.package_k8s_name AND revision = latest_revision AND (lifecycle = lifecycle_published OR lifecycle = lifecycle_deletion_proposed);
-    RETURN NEW;
+    latest_revision := (SELECT MAX(revision) FROM package_revisions WHERE k8s_name_space = OLD.k8s_name_space AND package_k8s_name = OLD.package_k8s_name AND revision > 0);
+    IF latest_revision IS NOT NULL THEN
+        UPDATE package_revisions SET latest = TRUE WHERE k8s_name_space = OLD.k8s_name_space AND package_k8s_name = OLD.package_k8s_name AND revision = latest_revision AND (lifecycle = lifecycle_published OR lifecycle = lifecycle_deletion_proposed);
+    END IF;
+    RETURN OLD;
 END;
 $BODY$;
 
