@@ -44,6 +44,7 @@ type dbRepository struct {
 	updated        time.Time
 	updatedBy      string
 	deployment     bool
+	mutexHandler   *mutexHandler
 }
 
 func (r *dbRepository) KubeObjectName() string {
@@ -182,6 +183,9 @@ func (r *dbRepository) DeletePackageRevision(ctx context.Context, pr2Delete repo
 	ctx, span := tracer.Start(ctx, "dbRepository::DeletePackageRevision", trace.WithAttributes())
 	defer span.End()
 
+	r.mutexHandler.lockPR(pr2Delete.Key())
+	defer r.mutexHandler.unlockPR(pr2Delete.Key())
+
 	if len(pr2Delete.GetMeta().Finalizers) > 0 {
 		klog.V(5).Infof("dbRepository:DeletePackageRevision: deletion ordered on package revision %+v on repo %+v, but finalizers %+v exist", pr2Delete.Key(), r.Key(), pr2Delete.GetMeta().Finalizers)
 
@@ -237,6 +241,9 @@ func (r *dbRepository) UpdatePackageRevision(ctx context.Context, updatePR repos
 	ctx, span := tracer.Start(ctx, "dbRepository::UpdatePackageRevision", trace.WithAttributes())
 	defer span.End()
 
+	r.mutexHandler.lockPR(updatePR.Key())
+	defer r.mutexHandler.unlockPR(updatePR.Key())
+
 	klog.V(5).Infof("dbRepository:UpdatePackageRevision: updating package revision %+v on repo %+v", updatePR.Key(), r.Key())
 
 	updatePkgRev, ok := updatePR.(*dbPackageRevision)
@@ -291,6 +298,9 @@ func (r *dbRepository) CreatePackage(ctx context.Context, newPkgDef *v1alpha1.Po
 		updatedBy: getCurrentUser(),
 	}
 
+	r.mutexHandler.lockPkg(dbPkg.Key())
+	defer r.mutexHandler.unlockPkg(dbPkg.Key())
+
 	err := pkgWriteToDB(ctx, dbPkg)
 	return dbPkg, err
 }
@@ -298,6 +308,9 @@ func (r *dbRepository) CreatePackage(ctx context.Context, newPkgDef *v1alpha1.Po
 func (r *dbRepository) DeletePackage(ctx context.Context, old repository.Package) error {
 	ctx, span := tracer.Start(ctx, "dbRepository::DeletePackage", trace.WithAttributes())
 	defer span.End()
+
+	r.mutexHandler.lockPkg(old.Key())
+	defer r.mutexHandler.unlockPkg(old.Key())
 
 	foundPackage, err := pkgReadFromDB(ctx, old.Key())
 	if err != nil {
@@ -339,6 +352,9 @@ func (r *dbRepository) savePackageRevisionDraft(ctx context.Context, prd reposit
 func (r *dbRepository) savePackageRevision(ctx context.Context, d *dbPackageRevision) (*dbPackageRevision, error) {
 	_, span := tracer.Start(ctx, "dbRepository::savePackageRevision", trace.WithAttributes())
 	defer span.End()
+
+	r.mutexHandler.lockPR(d.Key())
+	defer r.mutexHandler.unlockPR(d.Key())
 
 	dbPkg, err := pkgReadFromDB(ctx, d.Key().PKey())
 	if err != nil {
@@ -395,6 +411,9 @@ func (r *dbRepository) Refresh(ctx context.Context) error {
 func (r *dbRepository) getExternalPr(ctx context.Context, prKey repository.PackageRevisionKey) (repository.PackageRevision, error) {
 	_, span := tracer.Start(ctx, "dbRepository::getExternalPr", trace.WithAttributes())
 	defer span.End()
+
+	r.mutexHandler.lockPR(prKey)
+	defer r.mutexHandler.unlockPR(prKey)
 
 	filter := repository.ListPackageRevisionFilter{Key: prKey}
 
