@@ -337,10 +337,6 @@ func reorderYamlStdout(t *testing.T, buf *bytes.Buffer) {
 		return
 	}
 
-	// DB cache supports owner references but the CR cache doesn't so we remove the
-	// owner references from the metadata so the yaml returned by both caches is the same
-	data = stripOwnerReferences(data)
-
 	var stable bytes.Buffer
 	encoder := yaml.NewEncoder(&stable)
 	encoder.SetIndent(2)
@@ -357,8 +353,6 @@ func reorderCommandStdout(t *testing.T, buf *bytes.Buffer) {
 		return
 	}
 
-	// strip out the resourceVersion:, creationTimestamp:
-	// because that will change with every run
 	scanner := bufio.NewScanner(buf)
 	var newBuf bytes.Buffer
 	var headerLine string
@@ -494,28 +488,4 @@ func getRepoName(args []string) (string, bool) {
 		}
 	}
 	return "", false
-}
-
-func stripOwnerReferences(data any) any {
-	dataMap := data.(map[string]any)
-
-	items, ok := dataMap["items"]
-	if !ok {
-		return data
-	}
-
-	itemSlice := items.([]any)
-
-	for k := range itemSlice {
-		itemMap := itemSlice[k].(map[string]any)
-
-		metadata, ok := itemMap["metadata"]
-		if !ok {
-			continue
-		}
-		metadataMap := metadata.(map[string]any)
-		delete(metadataMap, "ownerReferences")
-	}
-
-	return data
 }

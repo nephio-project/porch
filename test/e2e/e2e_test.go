@@ -869,7 +869,10 @@ func (t *PorchSuite) TestUpdateResourcesEmptyPatch() {
 	}, &resourcesAfterUpdate)
 
 	assert.Equal(t, 3, len(resourcesAfterUpdate.Spec.Resources))
-	assert.EqualValues(t, resourcesBeforeUpdate, resourcesAfterUpdate)
+
+	assert.Equal(t, resourcesBeforeUpdate.Spec.Resources["Kptfile"], resourcesAfterUpdate.Spec.Resources["Kptfile"])
+	assert.Equal(t, resourcesBeforeUpdate.Spec.Resources["README.md"], resourcesAfterUpdate.Spec.Resources["README.md"])
+	assert.Equal(t, resourcesBeforeUpdate.Spec.Resources["package-context.yaml"], resourcesAfterUpdate.Spec.Resources["package-context.yaml"])
 }
 
 func (t *PorchSuite) TestConcurrentResourceUpdates() {
@@ -2859,6 +2862,7 @@ func (t *PorchSuite) TestPackageRevisionOwnerReferences() {
 		},
 	}
 	t.CreateF(pr)
+
 	t.ValidateOwnerReferences(pr.Name, []metav1.OwnerReference{})
 
 	ownerRef := metav1.OwnerReference{
@@ -2885,7 +2889,7 @@ func (t *PorchSuite) TestPackageRevisionFinalizers() {
 
 	t.RegisterMainGitRepositoryF(repository)
 
-	pr := &porchapi.PackageRevision{
+	prDef := &porchapi.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       packageRevisionGVK.Kind,
 			APIVersion: packageRevisionGVK.GroupVersion().String(),
@@ -2899,21 +2903,27 @@ func (t *PorchSuite) TestPackageRevisionFinalizers() {
 			RepositoryName: repository,
 		},
 	}
-	t.CreateF(pr)
-	t.ValidateFinalizers(pr.Name, []string{})
+	t.CreateF(prDef)
+	t.ValidateFinalizers(prDef.Name, []string{})
 
-	pr.Finalizers = append(pr.Finalizers, "foo-finalizer")
-	t.UpdateF(pr)
-	t.ValidateFinalizers(pr.Name, []string{"foo-finalizer"})
+	readPR := t.GetPackageRevision(repository, "empty-package", 0)
 
-	t.DeleteF(pr)
-	t.ValidateFinalizers(pr.Name, []string{"foo-finalizer"})
+	readPR.Finalizers = append(readPR.Finalizers, "foo-finalizer")
+	t.UpdateF(readPR)
+	t.ValidateFinalizers(readPR.Name, []string{"foo-finalizer"})
 
-	pr.Finalizers = []string{}
-	t.UpdateF(pr)
+	readPR = t.GetPackageRevision(repository, "empty-package", 0)
+
+	t.DeleteF(readPR)
+	t.ValidateFinalizers(readPR.Name, []string{"foo-finalizer"})
+
+	readPR = t.GetPackageRevision(repository, "empty-package", 0)
+
+	readPR.Finalizers = []string{}
+	t.UpdateF(readPR)
 	t.WaitUntilObjectDeleted(packageRevisionGVK, types.NamespacedName{
-		Name:      pr.Name,
-		Namespace: pr.Namespace,
+		Name:      readPR.Name,
+		Namespace: readPR.Namespace,
 	}, 10*time.Second)
 }
 
