@@ -212,11 +212,12 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	resolverChain := []porch.Resolver{
 		porch.NewBasicAuthResolver(),
 		porch.NewBearerTokenAuthResolver(),
-		porch.NewCaBundleResolver(),
+		// porch.NewCaBundleResolver(),
 		porch.NewGcloudWIResolver(coreV1Client, stsClient),
 	}
 
 	credentialResolver := porch.NewCredentialResolver(coreClient, resolverChain)
+	caBundleResolver := porch.NewCredentialResolver(coreClient, []porch.Resolver{porch.NewCaBundleResolver()})
 	referenceResolver := porch.NewReferenceResolver(coreClient)
 	userInfoProvider := &porch.ApiserverUserInfoProvider{}
 
@@ -225,6 +226,7 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	c.ExtraConfig.CacheOptions.CoreClient = coreClient
 	c.ExtraConfig.CacheOptions.RepoPRChangeNotifier = watcherMgr
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.CredentialResolver = credentialResolver
+	c.ExtraConfig.CacheOptions.ExternalRepoOptions.CaBundleResolver = caBundleResolver
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.UserInfoProvider = userInfoProvider
 
 	cacheImpl, err := cache.GetCacheImpl(ctx, c.ExtraConfig.CacheOptions)
