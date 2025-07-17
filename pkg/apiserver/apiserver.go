@@ -191,7 +191,7 @@ func (c completedConfig) getCoreV1Client() (*corev1client.CoreV1Client, error) {
 func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	genericServer, err := c.GenericConfig.New("porch-apiserver", genericapiserver.NewEmptyDelegate())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create generic API server: %w", err)
 	}
 
 	coreClient, err := c.getCoreClient()
@@ -201,7 +201,7 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 
 	coreV1Client, err := c.getCoreV1Client()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to build corev1 client: %w", err)
 	}
 
 	stsClient, err := sts.NewService(context.Background(), option.WithoutAuthentication())
@@ -253,12 +253,12 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 		engine.WithWatcherManager(watcherMgr),
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create CaD engine: %w", err)
 	}
 
 	porchGroup, err := porch.NewRESTStorage(Scheme, Codecs, cad, coreClient)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create REST storage: %w", err)
 	}
 
 	s := &PorchServer{
@@ -271,7 +271,7 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 
 	// Install the groups.
 	if err := s.GenericAPIServer.InstallAPIGroups(&porchGroup); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to install API groups: %w", err)
 	}
 
 	return s, nil
@@ -286,10 +286,14 @@ func (s *PorchServer) Run(ctx context.Context) error {
 	if found && strings.TrimSpace(certStorageDir) != "" {
 		if err := setupWebhooks(ctx); err != nil {
 			klog.Errorf("%v\n", err)
-			return err
+			return fmt.Errorf("failed to setup webhooks: %w", err)
 		}
 	} else {
 		klog.Infoln("Cert storage dir not provided, skipping webhook setup")
 	}
-	return s.GenericAPIServer.PrepareRun().Run(ctx.Done())
+	err := s.GenericAPIServer.PrepareRun().Run(ctx.Done())
+	if err != nil {
+		return fmt.Errorf("failed to run generic API server: %w", err)
+	}
+	return nil
 }

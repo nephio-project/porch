@@ -49,7 +49,7 @@ func (m *evalFunctionMutation) apply(ctx context.Context, resources repository.P
 	if function.Image != "" && m.runnerOptions.ResolveToImage != nil {
 		img, err := m.runnerOptions.ResolveToImage(ctx, function.Image)
 		if err != nil {
-			return repository.PackageResources{}, nil, err
+			return repository.PackageResources{}, nil, fmt.Errorf("failed to resolve function image %s: %w", function.Image, err)
 		}
 		function.Image = img
 	}

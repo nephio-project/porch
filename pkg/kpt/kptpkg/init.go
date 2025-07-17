@@ -17,6 +17,7 @@ package kptpkg
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"html/template"
 	"path/filepath"
 	"strings"
@@ -26,7 +27,6 @@ import (
 	"github.com/nephio-project/porch/internal/kpt/util/man"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/printer"
-	"sigs.k8s.io/kustomize/kyaml/errors"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 	"sigs.k8s.io/kustomize/kyaml/kio/filters"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
@@ -59,7 +59,7 @@ func (i *DefaultInitializer) Initialize(
 ) error {
 	p, err := pkg.New(fsys, opts.PkgPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create package at %s: %w", opts.PkgPath, err)
 	}
 
 	var pkgName string
@@ -71,7 +71,7 @@ func (i *DefaultInitializer) Initialize(
 
 	up := string(p.UniquePath)
 	if !fsys.Exists(string(p.UniquePath)) {
-		return errors.Errorf("%s does not exist", p.UniquePath)
+		return fmt.Errorf("package path %s does not exist", p.UniquePath)
 	}
 
 	pr := printer.FromContextOrDie(ctx)
@@ -104,13 +104,17 @@ func (i *DefaultInitializer) Initialize(
 		err = func() error {
 			f, err := fsys.Create(filepath.Join(up, kptfilev1.KptFileName))
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to create Kptfile: %w", err)
 			}
 			defer f.Close()
 			e := yaml.NewEncoder(f)
 
 			defer e.Close()
-			return e.Encode(k)
+			err = e.Encode(k)
+			if err != nil {
+				return fmt.Errorf("failed to encode Kptfile: %w", err)
+			}
+			return nil
 		}()
 		if err != nil {
 			return err
@@ -122,7 +126,7 @@ func (i *DefaultInitializer) Initialize(
 		buff := &bytes.Buffer{}
 		t, err := template.New("man").Parse(manTemplate)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to parse man template: %w", err)
 		}
 		templateData := map[string]string{
 			"Name":        pkgName,
@@ -131,7 +135,7 @@ func (i *DefaultInitializer) Initialize(
 
 		err = t.Execute(buff, templateData)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to execute man template: %w", err)
 		}
 
 		// Replace single quotes with backticks.
@@ -139,7 +143,7 @@ func (i *DefaultInitializer) Initialize(
 
 		err = fsys.WriteFile(filepath.Join(up, man.ManFilename), []byte(content))
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to write man file: %w", err)
 		}
 	}
 
@@ -147,7 +151,7 @@ func (i *DefaultInitializer) Initialize(
 	if !fsys.Exists(pkgContextPath) {
 		pr.Printf("writing %s\n", filepath.Join(opts.RelPath, builtins.PkgContextFile))
 		if err := fsys.WriteFile(pkgContextPath, []byte(builtins.AbstractPkgContext())); err != nil {
-			return err
+			return fmt.Errorf("failed to write package context file: %w", err)
 		}
 	}
 	return nil
