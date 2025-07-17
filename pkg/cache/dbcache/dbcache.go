@@ -20,7 +20,6 @@ package dbcache
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -62,10 +61,6 @@ func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.
 		updated:    time.Now(),
 		updatedBy:  getCurrentUser(),
 		deployment: repositorySpec.Spec.Deployment,
-		mutexHandler: &mutexHandler{
-			pkgMutexMap: sync.Map{},
-			prMutexMap:  sync.Map{},
-		},
 	}
 
 	err = dbRepo.OpenRepository(ctx, c.options.ExternalRepoOptions)

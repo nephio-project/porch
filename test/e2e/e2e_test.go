@@ -1177,7 +1177,7 @@ func (t *PorchSuite) TestConcurrentDeletes() {
 	const (
 		repository  = "delete-draft"
 		packageName = "test-delete-draft-concurrent"
-		revision    = 0
+		revision    = 1
 		workspace   = "test-workspace"
 	)
 
@@ -1200,9 +1200,15 @@ func (t *PorchSuite) TestConcurrentDeletes() {
 	}
 	results := RunInParallel(
 		deleteFunction,
+		deleteFunction,
+		deleteFunction,
+		deleteFunction,
+		deleteFunction,
+		deleteFunction,
+		deleteFunction,
 		deleteFunction)
 
-	expectedResultCount := 2
+	expectedResultCount := 8
 	actualResultCount := len(results)
 	assert.Equal(t, expectedResultCount, actualResultCount, "expected %d results but was %d", expectedResultCount, actualResultCount)
 

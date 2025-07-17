@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"sync"
 	"testing"
 	"time"
 
@@ -169,10 +168,6 @@ func createTestRepo(t *testing.T, namespace, name string) dbRepository {
 		repoKey: repository.RepositoryKey{
 			Namespace: namespace,
 			Name:      name,
-		},
-		mutexHandler: &mutexHandler{
-			pkgMutexMap: sync.Map{},
-			prMutexMap:  sync.Map{},
 		},
 	}
 	err := repoWriteToDB(context.TODO(), &dbRepo)
