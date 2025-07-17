@@ -938,7 +938,13 @@ func (pm *podManager) getBasePodTemplate(ctx context.Context) (*corev1.Pod, stri
 			return nil, "", err
 		}
 
-		decoder := yamlutil.NewYAMLOrJSONDecoder(strings.NewReader(podTemplateCm.Data["template"]), 100)
+		podTemplate, ok := podTemplateCm.Data["template"]
+		if !ok {
+			klog.Errorf("function pod template with key template does not exist in Configmap %s", pm.functionPodTemplateName)
+			return nil, "", fmt.Errorf("function pod template with key template does not exist in Configmap %s", pm.functionPodTemplateName)
+		}
+
+		decoder := yamlutil.NewYAMLOrJSONDecoder(strings.NewReader(podTemplate), 100)
 		var basePodTemplate corev1.Pod
 		err = decoder.Decode(&basePodTemplate)
 
@@ -1078,7 +1084,13 @@ func (pm *podManager) getBaseServiceTemplate(ctx context.Context) (*corev1.Servi
 			return nil, err
 		}
 
-		decoder := yamlutil.NewYAMLOrJSONDecoder(strings.NewReader(serviceTemplateCm.Data["serviceTemplate"]), 100)
+		serviceTemplate, ok := serviceTemplateCm.Data["serviceTemplate"]
+		if !ok {
+			klog.Errorf("function pod service template with key serviceTemplate does not exist in Configmap %s", pm.functionPodTemplateName)
+			return nil, fmt.Errorf("function pod service template with key serviceTemplate does not exist in Configmap %s", pm.functionPodTemplateName)
+		}
+
+		decoder := yamlutil.NewYAMLOrJSONDecoder(strings.NewReader(serviceTemplate), 100)
 		var baseServiceTemplate corev1.Service
 		err = decoder.Decode(&baseServiceTemplate)
 
