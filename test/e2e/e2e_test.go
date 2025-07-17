@@ -1177,7 +1177,7 @@ func (t *PorchSuite) TestConcurrentDeletes() {
 	const (
 		repository  = "delete-draft"
 		packageName = "test-delete-draft-concurrent"
-		revision    = 1
+		revision    = 0
 		workspace   = "test-workspace"
 	)
 
