@@ -26,6 +26,7 @@ import (
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
+	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -161,10 +162,7 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *v1
 	dbPkgRev := &dbPackageRevision{
 		repo: r,
 		pkgRevKey: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
-				RepoKey: r.Key(),
-				Package: newPR.Spec.PackageName,
-			},
+			PkgKey:        repository.FromFullPathname(r.Key(), newPR.Spec.PackageName),
 			Revision:      0,
 			WorkspaceName: newPR.Spec.WorkspaceName,
 		},
@@ -180,15 +178,32 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *v1
 	return repository.PackageRevisionDraft(prDraft), err
 }
 
-func (r *dbRepository) DeletePackageRevision(ctx context.Context, old repository.PackageRevision) error {
+func (r *dbRepository) DeletePackageRevision(ctx context.Context, pr2Delete repository.PackageRevision) error {
 	ctx, span := tracer.Start(ctx, "dbRepository::DeletePackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	klog.V(5).Infof("dbRepository:DeletePackageRevision: deleting package revision %+v on repo %+v", old.Key(), r.Key())
+	if len(pr2Delete.GetMeta().Finalizers) > 0 {
+		klog.V(5).Infof("dbRepository:DeletePackageRevision: deletion ordered on package revision %+v on repo %+v, but finalizers %+v exist", pr2Delete.Key(), r.Key(), pr2Delete.GetMeta().Finalizers)
+
+		deletionTimestamp := metav1.Time{
+			Time: time.Now(),
+		}
+
+		pr2DeleteMeta := pr2Delete.GetMeta()
+		pr2DeleteMeta.DeletionTimestamp = &deletionTimestamp
+
+		if err := pr2Delete.SetMeta(ctx, pr2DeleteMeta); err != nil {
+			return pkgerrors.Wrapf(err, "dbRepository:DeletePackageRevision: could not update metadata on package revision %+v on repo %+v", pr2Delete.Key(), r.Key())
+		}
+
+		return nil
+	}
+
+	klog.V(5).Infof("dbRepository:DeletePackageRevision: deleting package revision %+v on repo %+v", pr2Delete.Key(), r.Key())
 
 	pk := repository.PackageKey{
 		RepoKey: r.Key(),
-		Package: old.Key().PKey().Package,
+		Package: pr2Delete.Key().PKey().Package,
 	}
 
 	foundPkg, err := pkgReadFromDB(ctx, pk)
@@ -197,7 +212,7 @@ func (r *dbRepository) DeletePackageRevision(ctx context.Context, old repository
 	}
 
 	// Delete both the cached and external package
-	if err := foundPkg.DeletePackageRevision(ctx, old, true); err != nil && err != sql.ErrNoRows {
+	if err := foundPkg.DeletePackageRevision(ctx, pr2Delete, true); err != nil && err != sql.ErrNoRows {
 		return err
 	}
 
@@ -210,7 +225,12 @@ func (r *dbRepository) DeletePackageRevision(ctx context.Context, old repository
 		return nil
 	}
 
-	return pkgDeleteFromDB(ctx, pk)
+	if err = pkgDeleteFromDB(ctx, pk); err != nil {
+		klog.V(5).Infof("dbRepository:DeletePackageRevision: deletion of package revision %+v on repo %+v reported error %q", pr2Delete.Key(), r.Key(), err)
+	}
+
+	klog.V(5).Infof("dbRepository:DeletePackageRevision: deleted package revision %+v on repo %+v", pr2Delete.Key(), r.Key())
+	return nil
 }
 
 func (r *dbRepository) UpdatePackageRevision(ctx context.Context, updatePR repository.PackageRevision) (repository.PackageRevisionDraft, error) {

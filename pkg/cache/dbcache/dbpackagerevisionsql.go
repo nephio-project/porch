@@ -435,6 +435,7 @@ func prListFilter2WhereClause(filter repository.ListPackageRevisionFilter) strin
 	prKey := filter.Key
 	whereStatement, first = prListFilter2SubClauseStr(whereStatement, prKey.K8SName(), "package_revisions.k8s_name", first)
 	whereStatement, first = prListFilter2SubClauseInt(whereStatement, prKey.Revision, "package_revisions.revision", first)
+	whereStatement, first = prListFilter2SubClauseWorkspace(whereStatement, prKey.WorkspaceName, "package_revisions.k8s_name", first)
 
 	whereStatement, _ = prListFilter2SubClauseLifecycle(whereStatement, filter.Lifecycles, "package_revisions.lifecycle", first)
 
@@ -465,6 +466,20 @@ func prListFilter2SubClauseInt(whereStatement string, filterField int, column st
 	}
 
 	subClause := fmt.Sprintf("%s=%d\n", column, filterField)
+
+	if first {
+		return whereStatement + subClause, false
+	} else {
+		return whereStatement + "AND " + subClause, false
+	}
+}
+
+func prListFilter2SubClauseWorkspace(whereStatement string, filterField string, column string, first bool) (string, bool) {
+	if filterField == "" {
+		return whereStatement, first
+	}
+
+	subClause := fmt.Sprintf("%s LIKE '%%.%s'\n", column, filterField)
 
 	if first {
 		return whereStatement + subClause, false

@@ -29,13 +29,13 @@ import (
 )
 
 type repositorySync struct {
-	repo                   *dbRepository
-	cancel                 context.CancelFunc
-	mutex                  sync.Mutex
-	lastExternlRepoVersion string
-	lastExternlPRMap       map[repository.PackageRevisionKey]repository.PackageRevision
-	lastSyncError          error
-	lastSyncStats          repositorySyncStats
+	repo                    *dbRepository
+	cancel                  context.CancelFunc
+	mutex                   sync.Mutex
+	lastExternalRepoVersion string
+	lastExternalPRMap       map[repository.PackageRevisionKey]repository.PackageRevision
+	lastSyncError           error
+	lastSyncStats           repositorySyncStats
 }
 
 type repositorySyncStats struct {
@@ -160,9 +160,9 @@ func (s *repositorySync) getExternalPRMap(ctx context.Context) (map[repository.P
 		return nil, pkgerrors.Wrapf(err, "fetch of external repository %+v version failed", s.repo.Key())
 	}
 
-	if s.lastExternlRepoVersion == externalRepoVersion {
-		klog.Infof("repositorySync %+v: external repository is still on cached version %s, new read of external repo not required", s.repo.Key(), s.lastExternlRepoVersion)
-		return s.lastExternlPRMap, nil
+	if s.lastExternalRepoVersion == externalRepoVersion {
+		klog.Infof("repositorySync %+v: external repository is still on cached version %s, new read of external repo not required", s.repo.Key(), s.lastExternalRepoVersion)
+		return s.lastExternalPRMap, nil
 	}
 
 	externalPRList, err := s.repo.externalRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
@@ -173,8 +173,8 @@ func (s *repositorySync) getExternalPRMap(ctx context.Context) (map[repository.P
 
 	externalPRMap := repository.PrSlice2Map(externalPRList)
 
-	s.lastExternlPRMap = externalPRMap
-	s.lastExternlRepoVersion = externalRepoVersion
+	s.lastExternalPRMap = externalPRMap
+	s.lastExternalRepoVersion = externalRepoVersion
 
 	return externalPRMap, nil
 }

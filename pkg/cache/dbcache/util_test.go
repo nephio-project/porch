@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDBSQL(t *testing.T) {
+func TestUtil(t *testing.T) {
 	// We can't marshal a function into JSON
 	jsonVal := valueAsJSON(TestDBSQL)
 	assert.Equal(t, "", jsonVal)

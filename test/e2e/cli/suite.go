@@ -25,6 +25,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -124,7 +125,7 @@ func (s *CliTestSuite) RunTestCase(t *testing.T, tc TestCaseConfig) {
 		KubectlDeleteNamespace(t, tc.TestCase)
 		deleteRemoteTestRepo(t, tc.TestCase)
 	})
-	
+
 	createRemoteTestRepo(t, tc.TestCase)
 
 	if tc.Repository != "" {
@@ -157,6 +158,8 @@ func (s *CliTestSuite) RunTestCase(t *testing.T, tc TestCaseConfig) {
 
 		if command.Yaml {
 			reorderYamlStdout(t, &stdout)
+		} else {
+			reorderCommandStdout(t, &stdout)
 		}
 
 		cleanupStderr(t, &stderr)
@@ -345,6 +348,40 @@ func reorderYamlStdout(t *testing.T, buf *bytes.Buffer) {
 		t.Fatalf("Failed to update reordered yaml output: %v", err)
 	}
 }
+func reorderCommandStdout(t *testing.T, buf *bytes.Buffer) {
+	if buf.Len() == 0 {
+		return
+	}
+
+	scanner := bufio.NewScanner(buf)
+	var newBuf bytes.Buffer
+	var headerLine string
+	var bodyLines []string
+
+	if scanner.Scan() {
+		headerLine = scanner.Text()
+	} else {
+		return
+	}
+
+	for scanner.Scan() {
+		bodyLines = append(bodyLines, scanner.Text())
+	}
+	sort.Strings(bodyLines)
+
+	newBuf.Write([]byte(headerLine))
+	newBuf.Write([]byte("\n"))
+
+	for i := range bodyLines {
+		newBuf.Write([]byte(bodyLines[i]))
+		newBuf.Write([]byte("\n"))
+	}
+
+	buf.Reset()
+	if _, err := buf.Write(newBuf.Bytes()); err != nil {
+		t.Fatalf("Failed to update reordered command output: %v", err)
+	}
+}
 
 func updateCommand(command *Command, exit error, stdout, stderr string) {
 	command.ExitCode = exitCode(exit)
@@ -360,7 +397,7 @@ func exitCode(exit error) int {
 	return 0
 }
 
-func deleteRemoteTestRepo (t *testing.T, testcaseName string) {
+func deleteRemoteTestRepo(t *testing.T, testcaseName string) {
 
 	apiURL := fmt.Sprintf("http://localhost:3000/api/v1/repos/%s/%s", testGitUserOrg, testcaseName)
 
@@ -385,7 +422,7 @@ func deleteRemoteTestRepo (t *testing.T, testcaseName string) {
 	}
 }
 
-func createRemoteTestRepo (t *testing.T, testcaseName string) {
+func createRemoteTestRepo(t *testing.T, testcaseName string) {
 
 	tmpPath := t.TempDir()
 	repo, err := git.PlainInit(tmpPath, false)
@@ -400,7 +437,7 @@ func createRemoteTestRepo (t *testing.T, testcaseName string) {
 		t.Fatalf("Failed to set refs: %v", err)
 	}
 
-	err = os.WriteFile(tmpPath + "/README.md", []byte("# Test Go-Git Repo\nCreated programmatically."), 0644)
+	err = os.WriteFile(tmpPath+"/README.md", []byte("# Test Go-Git Repo\nCreated programmatically."), 0644)
 	if err != nil {
 		t.Fatalf("Failed to write to file: %v", err)
 	}
@@ -433,7 +470,7 @@ func createRemoteTestRepo (t *testing.T, testcaseName string) {
 	err = repo.Push(&git.PushOptions{
 		RemoteName: "origin",
 		Auth: &http.BasicAuth{
-			Username: testGitUserOrg, 
+			Username: testGitUserOrg,
 			Password: testGitPassword,
 		},
 		RequireRemoteRefs: []config.RefSpec{},

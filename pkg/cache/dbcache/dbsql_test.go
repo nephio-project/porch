@@ -20,7 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestUtil(t *testing.T) {
+func TestDBSQL(t *testing.T) {
 	dbSQL := dbSQL{}
 
 	err := dbSQL.Close()
