@@ -62,10 +62,10 @@ commands:
       - --namespace=rpkg-update
     stdout: |
       NAME                             PACKAGE             WORKSPACENAME   REVISION   LATEST   LIFECYCLE   REPOSITORY
+      git.basens-edit-clone.update-2   basens-edit-clone   update-2        0          false    Draft       git
       git.basens-edit.main             basens-edit         main            -1         false    Published   git
       git.basens-edit.update-1         basens-edit         update-1        0          false    Draft       git
       git.basens-edit.update-3         basens-edit         update-3        1          true     Published   git
-      git.basens-edit-clone.update-2   basens-edit-clone   update-2        0          false    Draft       git
   - args:
       - porchctl
       - rpkg
@@ -84,10 +84,10 @@ commands:
       - --discover=upstream
     stdout: |
       PACKAGE REVISION                 UPSTREAM REPOSITORY   UPSTREAM UPDATES
+      git.basens-edit-clone.update-2   git                   1
       git.basens-edit.main                                   No update available
       git.basens-edit.update-1                               No update available
       git.basens-edit.update-3                               No update available
-      git.basens-edit-clone.update-2   git                   1
   - args:
       - porchctl
       - rpkg
@@ -113,10 +113,10 @@ commands:
       - --discover=upstream
     stdout: |
       PACKAGE REVISION                 UPSTREAM REPOSITORY   UPSTREAM UPDATES
+      git.basens-edit-clone.update-2   git                   No update available
       git.basens-edit.main                                   No update available
       git.basens-edit.update-1                               No update available
       git.basens-edit.update-3                               No update available
-      git.basens-edit-clone.update-2   git                   No update available
   - args:
       - porchctl
       - rpkg

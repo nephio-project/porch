@@ -446,6 +446,42 @@ func TestMultiPackageRevisionRepo(t *testing.T) {
 	assert.Equal(t, 0, len(readRepoPkgPRs(t, dbRepo22Pkgs)))
 }
 
+func TestPackageRevisionFilter(t *testing.T) {
+	mockCache := mockcachetypes.NewMockCache(t)
+	cachetypes.CacheInstance = mockCache
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{})
+
+	dbRepo := createTestRepo(t, "my-ns", "my-repo")
+
+	dbRepoPkgs := createTestPkgs(t, dbRepo.Key(), "my-package", 4)
+
+	_ = createTestPRs(t, dbRepoPkgs, "my-ws", 4)
+
+	prFilter := repository.ListPackageRevisionFilter{}
+	listPRs, err := pkgRevListPRsFromDB(context.TODO(), prFilter)
+	assert.Nil(t, err)
+	assert.Equal(t, 16, len(listPRs))
+
+	prFilter.Key.WorkspaceName = "my-ws-2"
+	listPRs, err = pkgRevListPRsFromDB(context.TODO(), prFilter)
+	assert.Nil(t, err)
+	assert.Equal(t, 4, len(listPRs))
+
+	prFilter.Key.Revision = 3
+	listPRs, err = pkgRevListPRsFromDB(context.TODO(), prFilter)
+	assert.Nil(t, err)
+	assert.Equal(t, 4, len(listPRs))
+
+	prFilter.Key.Revision = 1
+	listPRs, err = pkgRevListPRsFromDB(context.TODO(), prFilter)
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(listPRs))
+
+	deleteTestRepo(t, dbRepo.Key())
+
+	assert.Equal(t, 0, len(readRepoPkgPRs(t, dbRepoPkgs)))
+}
+
 func TestMultiPackageRevisionList(t *testing.T) {
 	mockCache := mockcachetypes.NewMockCache(t)
 	cachetypes.CacheInstance = mockCache
