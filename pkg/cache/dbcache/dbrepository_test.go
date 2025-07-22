@@ -128,6 +128,11 @@ func TestDBRepositoryPRCrud(t *testing.T) {
 	err = updatedPRDraft.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
 	assert.Nil(t, err)
 
+	prMeta := updatedPR.GetMeta()
+	prMeta.Finalizers = []string{"a-finalizer"}
+	err = updatedPR.SetMeta(ctx, prMeta)
+	assert.Nil(t, err)
+
 	updatedPR, err = testRepo.ClosePackageRevisionDraft(ctx, updatedPRDraft, -1)
 	assert.Nil(t, err)
 	assert.NotNil(t, updatedPR)
@@ -137,6 +142,14 @@ func TestDBRepositoryPRCrud(t *testing.T) {
 		PrKey: updatedPR.Key(),
 	}
 	fakeRepo.PackageRevisions = append(fakeRepo.PackageRevisions, &fakeExtPR)
+
+	err = testRepo.DeletePackageRevision(ctx, updatedPR)
+	assert.Nil(t, err)
+
+	prMeta = updatedPR.GetMeta()
+	prMeta.Finalizers = nil
+	err = updatedPR.SetMeta(ctx, prMeta)
+	assert.Nil(t, err)
 
 	err = testRepo.DeletePackageRevision(ctx, updatedPR)
 	assert.Nil(t, err)

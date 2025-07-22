@@ -15,12 +15,14 @@
 package git
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
 
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
@@ -124,11 +126,12 @@ func createProposedName(key repository.PackageRevisionKey) BranchName {
 	return BranchName(proposedPrefix + filepath.Join(key.PkgKey.ToFullPathname(), string(key.WorkspaceName)))
 }
 
-func createDeletionProposedName(key repository.PackageRevisionKey, mainBranch BranchName) BranchName {
-	if key.Revision == -1 {
-		return BranchName(deletionProposedPrefix + filepath.Join(key.PkgKey.ToFullPathname(), "/"+ string(mainBranch)))
+func createDeletionProposedName(key repository.PackageRevisionKey) BranchName {
+	if key.Revision > 0 {
+		return BranchName(deletionProposedPrefix + filepath.Join(key.PkgKey.ToFullPathname(), "/v"+repository.Revision2Str(key.Revision)))
+	} else {
+		return BranchName(deletionProposedPrefix + filepath.Join(key.PkgKey.ToFullPathname(), "/"+key.WorkspaceName))
 	}
-	return BranchName(deletionProposedPrefix + filepath.Join(key.PkgKey.ToFullPathname(), "/v"+repository.Revision2Str(key.Revision)))
 }
 
 func trimOptionalPrefix(s, prefix string) (string, bool) {
@@ -139,7 +142,11 @@ func trimOptionalPrefix(s, prefix string) (string, bool) {
 }
 
 func createFinalTagNameInLocal(key repository.PackageRevisionKey) plumbing.ReferenceName {
-	return plumbing.ReferenceName(tagsPrefixInLocalRepo + filepath.Join(key.PkgKey.ToFullPathname(), "/v"+repository.Revision2Str(key.Revision)))
+	if key.Revision > 0 {
+		return plumbing.ReferenceName(tagsPrefixInLocalRepo + filepath.Join(key.PkgKey.ToFullPathname(), "/v"+repository.Revision2Str(key.Revision)))
+	} else {
+		return plumbing.ReferenceName(tagsPrefixInLocalRepo + filepath.Join(key.PkgKey.ToFullPathname(), "/"+key.WorkspaceName))
+	}
 }
 
 func refInLocalFromRefInRemote(n plumbing.ReferenceName) (plumbing.ReferenceName, error) {
@@ -157,4 +164,29 @@ func translateReference(n plumbing.ReferenceName, specs []config.RefSpec) (plumb
 		}
 	}
 	return "", fmt.Errorf("cannot translate reference %s", n)
+}
+
+func getReferenceName(ctx context.Context, pr repository.PackageRevision) string {
+	// Handle published PRs, they have hard revisions and are Published or DeletionPropsoed
+	if pr.Key().Revision > 0 {
+		return fmt.Sprintf("%s%s/v%d", tagsPrefixInLocalRepo, pr.Key().PKey().ToFullPathname(), pr.Key().Revision)
+	}
+
+	// Handle draft and proposed PRs
+	switch pr.Lifecycle(ctx) {
+	case porchapi.PackageRevisionLifecycleDraft:
+		return fmt.Sprintf("%s%s/%s", draftsPrefixInLocalRepo, pr.Key().PKey().ToFullPathname(), pr.Key().WorkspaceName)
+
+	case porchapi.PackageRevisionLifecycleProposed:
+		return fmt.Sprintf("%s%s/%s", proposedPrefixInLocalRepo, pr.Key().PKey().ToFullPathname(), pr.Key().WorkspaceName)
+
+	}
+
+	// Handle placeholder PRs, they have a workspace name with the same name as the repo branch
+	if pr.Key().Revision == -1 {
+		return fmt.Sprintf("%s%s", branchPrefixInLocalRepo, pr.Key().RKey().PlaceholderWSname)
+	}
+
+	// We can't ge the reference name, jsut return a blank string
+	return ""
 }
