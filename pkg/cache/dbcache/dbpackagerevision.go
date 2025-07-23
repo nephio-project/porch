@@ -204,7 +204,7 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 			Finalizers:        readPR.GetMeta().Finalizers,
 		},
 		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    readPR.Key().PKey().Package,
+			PackageName:    readPR.Key().PKey().ToPkgPathname(),
 			RepositoryName: readPR.Key().RKey().Name,
 			Lifecycle:      readPR.Lifecycle(ctx),
 			Tasks:          readPR.tasks,
