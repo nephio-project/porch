@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/go-git/go-git/v5/plumbing"
@@ -154,7 +155,7 @@ func (t *packageList) discoverPackages(repoKey repository.RepositoryKey, tree *o
 
 			// Found a package
 			t.packages[treePath] = &packageListEntry{
-				pkgKey:   repository.FromFullPathname(repoKey, treePath),
+				pkgKey:   repository.FromFullPathname(repoKey, strings.TrimPrefix(treePath, repoKey.Path)),
 				treeHash: tree.Hash,
 				parent:   t,
 			}
