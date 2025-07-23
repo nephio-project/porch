@@ -1363,7 +1363,7 @@ func (r *gitRepository) getLifecycle(pkgRev *gitPackageRevision) (v1alpha1.Packa
 // As this operation is checking a file on the repo, a wrapping function needs to acquire the repository lock.
 func (r *gitRepository) checkPublishedLifecycle(pkgRev *gitPackageRevision) (v1alpha1.PackageRevisionLifecycle, error) {
 
-	branchNameInLocal := createDeletionProposedName(pkgRev.Key(), r.branch).RefInLocal()
+	branchNameInLocal := createDeletionProposedName(pkgRev.Key()).RefInLocal()
 	klog.Infof("looking for branch %q", branchNameInLocal)
 	_, err := r.repo.Reference(branchNameInLocal, true)
 	if err == plumbing.ErrReferenceNotFound {
@@ -1390,7 +1390,7 @@ func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageR
 		return fmt.Errorf("cannot update lifecycle for draft package revision")
 	}
 	refSpecs := newPushRefSpecBuilder()
-	deletionProposedBranch := createDeletionProposedName(pkgRev.Key(), r.branch)
+	deletionProposedBranch := createDeletionProposedName(pkgRev.Key())
 
 	if old == v1alpha1.PackageRevisionLifecyclePublished {
 		if newLifecycle != v1alpha1.PackageRevisionLifecycleDeletionProposed {
