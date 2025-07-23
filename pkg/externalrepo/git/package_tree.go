@@ -155,6 +155,7 @@ func (t *packageList) discoverPackages(repoKey repository.RepositoryKey, tree *o
 
 			// Found a package
 			t.packages[treePath] = &packageListEntry{
+				// When discovering packages we need the absolute path of the package in relation to the root of the repo
 				pkgKey:   repository.FromFullPathname(repoKey, strings.TrimPrefix(treePath, repoKey.Path)),
 				treeHash: tree.Hash,
 				parent:   t,
