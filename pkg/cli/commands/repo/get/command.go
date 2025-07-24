@@ -16,6 +16,7 @@ package get
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/nephio-project/porch/internal/kpt/errors"
@@ -101,7 +102,7 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 	// no such kind since CRDs seem to have only versioned resources.
 	b, err := r.getFlags.ResourceBuilder()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create resource builder: %w", err)
 	}
 
 	// TODO: Support table mode over proto

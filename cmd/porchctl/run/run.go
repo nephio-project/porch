@@ -52,12 +52,20 @@ func GetMain(ctx context.Context) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			h, err := cmd.Flags().GetBool("help")
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to get help flag: %w", err)
 			}
 			if h {
-				return cmd.Help()
+				err := cmd.Help()
+				if err != nil {
+					return fmt.Errorf("failed to display help: %w", err)
+				}
+				return nil
 			}
-			return cmd.Usage()
+			err = cmd.Usage()
+			if err != nil {
+				return fmt.Errorf("failed to display usage: %w", err)
+			}
+			return nil
 		},
 	}
 
