@@ -71,3 +71,14 @@ rules:
   - apiGroups: [""]
     resources: ["secrets"]
     verbs: ["create", "delete", "update", "get"]
+---
+# Need to lookup and access Configmap containing Function Pod Template
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: porch-fn-runner
+  namespace: porch-system
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list"]
