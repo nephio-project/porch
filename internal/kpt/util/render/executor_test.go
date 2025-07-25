@@ -1,4 +1,4 @@
-// Copyright 2022-2025 The kpt and Nephio Authors
+// Copyright 2022,2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
+	"github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/internal/kpt/types"
 	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"github.com/stretchr/testify/assert"
@@ -235,7 +236,7 @@ metadata:
 	}
 }
 
-func setupRendererTest(t *testing.T, renderTopBtm bool) (*Renderer, *bytes.Buffer, context.Context) {
+func setupRendererTest(t *testing.T, renderBfs bool) (*Renderer, *bytes.Buffer, context.Context) {
 	var outputBuffer bytes.Buffer
 	ctx := context.Background()
 	ctx = printer.WithContext(ctx, printer.New(&outputBuffer, &outputBuffer))
@@ -264,8 +265,8 @@ kind: Kptfile
 metadata:
   name: root-package
   annotations:
-    kpt.dev/top-bottom-rendering: %t
-`, renderTopBtm))
+    kpt.dev/bfs-rendering: %t
+`, renderBfs))
 	assert.NoError(t, err)
 
 	err = mockFileSystem.WriteFile(filepath.Join(subPkgPath, "Kptfile"), []byte(`
@@ -304,13 +305,13 @@ metadata:
 func TestRenderer_Execute_RenderOrder(t *testing.T) {
 	tests := []struct {
 		name           string
-		renderTopBtm   bool
+		renderBfs      bool
 		expectedOrder  func(output string) bool
 		expectedErrMsg string
 	}{
 		{
-			name:         "Use hydrateTopBottom with renderTopBtm true",
-			renderTopBtm: true,
+			name:      "Use hydrateBfsOrder with renderBfs true",
+			renderBfs: true,
 			expectedOrder: func(output string) bool {
 				rootIndex := strings.Index(output, `Package "root":`)               // Fisrt
 				siblingIndex := strings.Index(output, `Package "root/sibling":`)    // Second
@@ -320,8 +321,8 @@ func TestRenderer_Execute_RenderOrder(t *testing.T) {
 			},
 		},
 		{
-			name:         "Use default hydrate with renderTopBtm false",
-			renderTopBtm: false,
+			name:      "Use default hydrate with renderBfs false",
+			renderBfs: false,
 			expectedOrder: func(output string) bool {
 				siblingIndex := strings.Index(output, `Package "root/sibling":`)    // First
 				childIndex := strings.Index(output, `Package "root/subpkg/child":`) // Second
@@ -334,7 +335,7 @@ func TestRenderer_Execute_RenderOrder(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			renderer, outputBuffer, ctx := setupRendererTest(t, tc.renderTopBtm)
+			renderer, outputBuffer, ctx := setupRendererTest(t, tc.renderBfs)
 
 			fnResults, err := renderer.Execute(ctx)
 			assert.NoError(t, err)
@@ -364,7 +365,6 @@ metadata:
 `))
 	assert.NoError(t, err)
 
-	// Create a mock hydration context
 	root, err := newPkgNode(mockFileSystem, rootPath, nil)
 	assert.NoError(t, err)
 
@@ -394,7 +394,6 @@ metadata:
 
 		invalidPkgNode, err := newPkgNode(mockFileSystem, invalidPkgPath, nil)
 		if err != nil {
-			// Ensure the error is properly handled
 			assert.Contains(t, err.Error(), "error reading Kptfile")
 			return
 		}
@@ -406,7 +405,7 @@ metadata:
 	})
 }
 
-func TestHydrateBFS_ErrorCases(t *testing.T) {
+func TestHydrateBfsOrder_ErrorCases(t *testing.T) {
 	ctx := printer.WithContext(context.Background(), printer.New(nil, nil))
 	mockFileSystem := filesys.MakeFsInMemory()
 
@@ -424,7 +423,7 @@ kind: Kptfile
 metadata:
   name: root-package
   annotations:
-    ktp.dev/top-bottom-rendering: true
+    ktp.dev/bfs-rendering: true
 `))
 	assert.NoError(t, err)
 
@@ -446,37 +445,70 @@ metadata:
 		fileSystem: mockFileSystem,
 	}
 
-	t.Run("Cycle Detection in hydrateTopBottom", func(t *testing.T) {
+	t.Run("Cycle Detection in hydrateBfsOrder", func(t *testing.T) {
 		// Add the root package to the hydration context in a "Hydrating" state to simulate a cycle
 		hctx.pkgs[root.pkg.UniquePath] = &pkgNode{
 			pkg:   root.pkg,
 			state: Hydrating,
 		}
 
-		_, err := hydrateTopBottom(ctx, root, hctx)
+		_, err := hydrateBfsOrder(ctx, root, hctx)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "cycle detected in pkg dependencies")
 	})
 
-	t.Run("Invalid Package State in hydrateTopBottom", func(t *testing.T) {
+	t.Run("Invalid Package State in hydrateBfsOrder", func(t *testing.T) {
 		// Add the root package to the hydration context in an invalid state
 		hctx.pkgs[root.pkg.UniquePath] = &pkgNode{
 			pkg:   root.pkg,
 			state: -1, // Invalid state
 		}
 
-		_, err := hydrateTopBottom(ctx, root, hctx)
+		_, err := hydrateBfsOrder(ctx, root, hctx)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "package found in invalid state")
 	})
 
-	t.Run("Wet Package State in hydrateTopBottom would continue", func(t *testing.T) {
+	t.Run("Wet Package State in hydrateBfsOrder would continue", func(t *testing.T) {
 		hctx.pkgs[root.pkg.UniquePath] = &pkgNode{
 			pkg:   root.pkg,
 			state: Wet,
 		}
 
-		_, err := hydrateTopBottom(ctx, root, hctx)
+		_, err := hydrateBfsOrder(ctx, root, hctx)
 		assert.NoError(t, err)
 	})
+}
+
+func TestHydrateBfsOrder_RunPipelineError(t *testing.T) {
+	ctx := printer.WithContext(context.Background(), printer.New(nil, nil))
+	mockFileSystem := filesys.MakeFsInMemory()
+
+	rootPkgPath := "/root"
+	assert.NoError(t, mockFileSystem.Mkdir(rootPkgPath))
+
+	// Write a Kptfile with an invalid api version
+	_ = mockFileSystem.WriteFile(filepath.Join(rootPkgPath, "Kptfile"), []byte(`
+apiVersion: kpt.dev/ERROR
+kind: Kptfile
+metadata:
+  name: root-package
+  annotations:
+    kpt.dev/bfs-rendering: "true"
+`))
+
+	p, _ := pkg.New(mockFileSystem, rootPkgPath)
+	root := &pkgNode{
+		pkg:   p,
+		state: Dry,
+	}
+	hctx := &hydrationContext{
+		root:       root,
+		pkgs:       map[types.UniquePath]*pkgNode{},
+		fileSystem: mockFileSystem,
+	}
+
+	_, err := hydrateBfsOrder(ctx, root, hctx)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown resource type")
 }
