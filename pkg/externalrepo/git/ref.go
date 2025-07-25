@@ -102,11 +102,6 @@ func getDraftBranchNameInLocal(n plumbing.ReferenceName) (BranchName, bool) {
 	return BranchName(b), ok
 }
 
-func getdeletionProposedBranchNameInLocal(n plumbing.ReferenceName) (BranchName, bool) {
-	b, ok := trimOptionalPrefix(n.String(), deletionProposedPrefixInLocalRepo)
-	return BranchName(b), ok
-}
-
 func isBranchInLocalRepo(n plumbing.ReferenceName) bool {
 	return strings.HasPrefix(n.String(), branchPrefixInLocalRepo)
 }
