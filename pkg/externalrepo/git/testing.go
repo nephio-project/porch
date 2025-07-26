@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-git/go-git/v5/plumbing"
@@ -40,12 +41,14 @@ import (
 // GitServer is a mock git server implementing "just enough" of the git protocol
 type GitServer struct {
 	repos Repos
+	mutex sync.Mutex
 }
 
 // NewGitServer constructs a GitServer backed by the specified repo.
 func NewGitServer(repos Repos, opts ...GitServerOption) (*GitServer, error) {
 	gs := &GitServer{
 		repos: repos,
+		mutex: sync.Mutex{},
 	}
 
 	for _, opt := range opts {
@@ -290,8 +293,11 @@ func (s *GitServer) serveGitUploadPack(w http.ResponseWriter, r *http.Request, r
 	// This works, and is correct on the "clean pull" scenario, but is not efficient in the real world.
 
 	// Gather all the objects
+	s.mutex.Lock()
 	walker := newObjectWalker(repo.gogit.Storer)
-	if err := walker.walkAllRefs(); err != nil {
+	err := walker.walkAllRefs()
+	s.mutex.Unlock()
+	if err != nil {
 		return fmt.Errorf("error walking refs: %w", err)
 	}
 
@@ -322,7 +328,9 @@ func (s *GitServer) serveGitUploadPack(w http.ResponseWriter, r *http.Request, r
 	// 0 turns off delta compression entirely.
 	packWindow := uint(0)
 
+	s.mutex.Lock()
 	packfileHash, err := packFileEncoder.Encode(objects, packWindow)
+	s.mutex.Unlock()
 	if err != nil {
 		klog.Warningf("error encoding packfile: %v", err)
 		return nil // Too late
