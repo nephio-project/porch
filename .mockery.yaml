@@ -22,6 +22,10 @@ packages:
         config:
           dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
           outpkg: "{{.PackageName}}"
+      RepositorySync:
+        config:
+          dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
+          outpkg: "{{.PackageName}}"
   github.com/nephio-project/porch/pkg/cache/types:
     interfaces:
       Cache:

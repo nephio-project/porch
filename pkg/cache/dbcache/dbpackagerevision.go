@@ -73,8 +73,10 @@ func (pr *dbPackageRevision) savePackageRevision(ctx context.Context, saveResour
 	_, span := tracer.Start(ctx, "dbPackageRevision::savePackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	pr.updated = time.Now()
-	pr.updatedBy = getCurrentUser()
+	if saveResources {
+		pr.updated = time.Now()
+		pr.updatedBy = getCurrentUser()
+	}
 
 	_, err := pkgRevReadFromDB(ctx, pr.Key(), false)
 	if err == nil {
@@ -119,9 +121,6 @@ func (pr *dbPackageRevision) UpdateLifecycle(ctx context.Context, newLifecycle p
 	}
 
 	pr.lifecycle = newLifecycle
-	pr.updated = time.Now()
-	pr.updatedBy = getCurrentUser()
-
 	return nil
 }
 
@@ -359,7 +358,7 @@ func (pr *dbPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, 
 }
 
 func (pr *dbPackageRevision) ResourceVersion() string {
-	return fmt.Sprintf("%s.%d", pr.KubeObjectName(), pr.updated.Unix())
+	return fmt.Sprintf("%s.%d", pr.KubeObjectName(), pr.updated.UnixMilli())
 }
 
 func (pr *dbPackageRevision) Delete(ctx context.Context) error {
@@ -435,8 +434,6 @@ func (pr *dbPackageRevision) updateLifecycleOnPublishedPR(ctx context.Context, n
 	defer span.End()
 
 	pr.lifecycle = newLifecycle
-	pr.updated = time.Now()
-	pr.updatedBy = getCurrentUser()
 
 	_, err := pr.savePackageRevision(ctx, false)
 	return err

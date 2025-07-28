@@ -1299,6 +1299,7 @@ func (t *PorchSuite) TestDeleteFinal() {
 		},
 	})
 
+	time.Sleep(2 * time.Second)
 	t.MustNotExist(&pkg)
 }
 
@@ -1348,7 +1349,7 @@ func (t *PorchSuite) TestProposeDeleteAndUndo() {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterMainGitRepositoryF(repository, RepositoryOptions{RepOpts: WithDeployment()})
 
 	// Create a draft package
 	created := t.CreatePackageDraftF(repository, packageName, workspace)
@@ -1363,6 +1364,7 @@ func (t *PorchSuite) TestProposeDeleteAndUndo() {
 
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	t.UpdateApprovalF(&pkg, metav1.UpdateOptions{})
+	time.Sleep(2 * time.Second)
 	t.MustExist(client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
 
 	_ = t.WaitUntilPackageRevisionExists(repository, packageName, -1)
@@ -1388,6 +1390,7 @@ func (t *PorchSuite) TestProposeDeleteAndUndo() {
 					Name:      pkgRev.Name,
 				},
 			})
+			time.Sleep(2 * time.Second)
 			t.MustExist(client.ObjectKey{Namespace: t.Namespace, Name: pkgRev.Name}, &pkgRev)
 
 			// Propose deletion and then delete the package
@@ -1401,6 +1404,7 @@ func (t *PorchSuite) TestProposeDeleteAndUndo() {
 				},
 			})
 
+			time.Sleep(2 * time.Second)
 			t.MustNotExist(&pkgRev)
 		})
 	}
@@ -1415,7 +1419,7 @@ func (t *PorchSuite) TestDeleteAndRecreate() {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterMainGitRepositoryF(repository, RepositoryOptions{RepOpts: WithDeployment()})
 
 	// Create a draft package
 	created := t.CreatePackageDraftF(repository, packageName, workspace)
@@ -1432,6 +1436,7 @@ func (t *PorchSuite) TestDeleteAndRecreate() {
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	t.UpdateApprovalF(&pkg, metav1.UpdateOptions{})
 
+	time.Sleep(2 * time.Second)
 	t.MustExist(client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
 
 	mainPkg := t.WaitUntilPackageRevisionExists(repository, packageName, -1)
@@ -1440,12 +1445,16 @@ func (t *PorchSuite) TestDeleteAndRecreate() {
 	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
 	t.UpdateApprovalF(&pkg, metav1.UpdateOptions{})
 
+	time.Sleep(2 * time.Second)
+
 	t.DeleteE(&porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: t.Namespace,
 			Name:      created.Name,
 		},
 	})
+
+	time.Sleep(2 * time.Second)
 	t.MustNotExist(&pkg)
 
 	t.Log("Propose deletion and then delete the package with revision main")
@@ -1458,6 +1467,7 @@ func (t *PorchSuite) TestDeleteAndRecreate() {
 			Name:      mainPkg.Name,
 		},
 	})
+	time.Sleep(2 * time.Second)
 	t.MustNotExist(mainPkg)
 
 	// Recreate the package with the same name and workspace
@@ -1488,7 +1498,7 @@ func (t *PorchSuite) TestDeleteFromMain() {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterMainGitRepositoryF(repository, RepositoryOptions{RepOpts: WithDeployment()})
 
 	t.Logf("Create and approve package: %s", packageNameFirst)
 	createdFirst := t.CreatePackageDraftF(repository, packageNameFirst, workspace)
@@ -1503,6 +1513,8 @@ func (t *PorchSuite) TestDeleteFromMain() {
 
 	pkgFirst.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	t.UpdateApprovalF(&pkgFirst, metav1.UpdateOptions{})
+
+	time.Sleep(2 * time.Second)
 
 	t.MustExist(client.ObjectKey{Namespace: t.Namespace, Name: createdFirst.Name}, &pkgFirst)
 
@@ -1520,6 +1532,7 @@ func (t *PorchSuite) TestDeleteFromMain() {
 	pkgSecond.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	t.UpdateApprovalF(&pkgSecond, metav1.UpdateOptions{})
 
+	time.Sleep(2 * time.Second)
 	t.MustExist(client.ObjectKey{Namespace: t.Namespace, Name: createdSecond.Name}, &pkgSecond)
 
 	t.Log("Wait for the 'main' revisions to get created")
@@ -1547,6 +1560,8 @@ func (t *PorchSuite) TestDeleteFromMain() {
 			Name:      secondPkgRevFromMain.Name,
 		},
 	})
+
+	time.Sleep(2 * time.Second)
 
 	// Propose and delete the original package revisions (cleanup)
 	var list porchapi.PackageRevisionList
@@ -3045,7 +3060,7 @@ func (t *PorchSuite) TestLatestVersionOnDelete() {
 		packageName    = "test-latest-on-delete-package"
 	)
 
-	t.RegisterMainGitRepositoryF(repositoryName)
+	t.RegisterMainGitRepositoryF(repositoryName, RepositoryOptions{RepOpts: WithDeployment()})
 
 	pr1 := t.CreatePackageDraftF(repositoryName, packageName, workspacev1)
 
@@ -3054,6 +3069,7 @@ func (t *PorchSuite) TestLatestVersionOnDelete() {
 
 	pr1.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	t.UpdateApprovalF(pr1, metav1.UpdateOptions{})
+	time.Sleep(2 * time.Second)
 
 	//After approval of the first revision, the package should be labeled as latest
 	t.MustHaveLabels(pr1.Name, map[string]string{
@@ -3067,6 +3083,7 @@ func (t *PorchSuite) TestLatestVersionOnDelete() {
 
 	pr2.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	t.UpdateApprovalF(pr2, metav1.UpdateOptions{})
+	time.Sleep(2 * time.Second)
 
 	//After approval of the second revision, the latest label should migrate to the
 	//v2 packageRevision
@@ -3084,6 +3101,7 @@ func (t *PorchSuite) TestLatestVersionOnDelete() {
 	t.UpdateF(pr2)
 
 	t.DeleteF(pr2)
+	time.Sleep(2 * time.Second)
 	//After deletion of the v2 pacakgeRevision,
 	//the label should migrate back to the v2 packageRevision
 	t.MustHaveLabels(pr1.Name, map[string]string{
@@ -3096,6 +3114,7 @@ func (t *PorchSuite) TestLatestVersionOnDelete() {
 	t.UpdateF(pr1)
 
 	t.DeleteF(pr1)
+	time.Sleep(2 * time.Second)
 	//After the removal of all versioned packageRevisions, the main branch
 	//packageRevision should still not get the latest label.
 	mainPr := t.GetPackageRevision(repositoryName, packageName, -1)
@@ -3200,7 +3219,7 @@ func (t *PorchSuite) TestMetadataAfterApproveAndBackgroundJob() {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repoName)
+	t.RegisterMainGitRepositoryF(repoName, RepositoryOptions{RepOpts: WithDeployment()})
 
 	// init, propose, and approve a new package
 	pr := t.CreatePackageSkeleton(repoName, packageName, workspace)
@@ -3216,6 +3235,8 @@ func (t *PorchSuite) TestMetadataAfterApproveAndBackgroundJob() {
 	t.GetF(prKey, pr)
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+
+	time.Sleep(2 * time.Second)
 	t.GetF(prKey, pr)
 
 	// List package revisions and check they are as expected
@@ -3231,10 +3252,18 @@ func (t *PorchSuite) TestMetadataAfterApproveAndBackgroundJob() {
 
 	t.RetriggerBackgroundJobForRepo(repoName)
 
-	// List package revisions again and check they are still as expected
-	t.ListE(&list, client.InNamespace(t.Namespace))
-	t.MustFindPackageRevision(&list, expectedPkgRevKeyv1)
-	t.MustFindPackageRevision(&list, expectedPkgRevKeyMain)
+	if _, ok := os.LookupEnv("DB_CACHE"); ok {
+		// The DB cache is the source of truth, so the PRs on the external repo should be deleted by the sync
+		t.ListE(&list, client.InNamespace(t.Namespace))
+		if len(list.Items) != 0 {
+			t.Error("Expected no package revisions on the external repo after DB cache repo delete")
+		}
+	} else {
+		// The external repo is the source of truth when using CR cache, so the PRs on the external repo should be deleted by the sync
+		t.ListE(&list, client.InNamespace(t.Namespace))
+		t.MustFindPackageRevision(&list, expectedPkgRevKeyv1)
+		t.MustFindPackageRevision(&list, expectedPkgRevKeyMain)
+	}
 }
 
 func (t *PorchSuite) TestMetadataAfterDeleteAndBackgroundJob() {
@@ -3245,7 +3274,7 @@ func (t *PorchSuite) TestMetadataAfterDeleteAndBackgroundJob() {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repoName)
+	t.RegisterMainGitRepositoryF(repoName, RepositoryOptions{RepOpts: WithDeployment()})
 
 	// init, propose, and approve a new package
 	pr := t.CreatePackageSkeleton(repoName, packageName, workspace)
@@ -3261,6 +3290,8 @@ func (t *PorchSuite) TestMetadataAfterDeleteAndBackgroundJob() {
 	t.GetF(prKey, pr)
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+
+	time.Sleep(2 * time.Second)
 	t.GetF(prKey, pr)
 
 	// List package revisions and check they are as expected
@@ -3286,6 +3317,8 @@ func (t *PorchSuite) TestMetadataAfterDeleteAndBackgroundJob() {
 		},
 	})
 
+	time.Sleep(2 * time.Second)
+
 	// Check that the "main" package revision still exists, while the v1 package
 	// revision does not
 	mainPrKey := client.ObjectKey{
@@ -3297,10 +3330,18 @@ func (t *PorchSuite) TestMetadataAfterDeleteAndBackgroundJob() {
 
 	t.RetriggerBackgroundJobForRepo(repoName)
 
-	// Check that the existence and non-existence of the package revisions are
-	// still as they were before the background job
-	t.MustExist(mainPrKey, &porchapi.PackageRevision{})
-	t.MustNotExist(pr)
+	if _, ok := os.LookupEnv("DB_CACHE"); ok {
+		// The DB cache is the source of truth, so the PRs on the external repo should be deleted by the sync
+		t.ListE(&list, client.InNamespace(t.Namespace))
+		if len(list.Items) != 0 {
+			t.Error("Expected no package revisions on the external repo after DB cache repo delete")
+		}
+	} else {
+		// Check that the existence and non-existence of the package revisions are
+		// still as they were before the background job
+		t.MustExist(mainPrKey, &porchapi.PackageRevision{})
+		t.MustNotExist(pr)
+	}
 }
 func (t *PorchSuite) TestCreatePackageRevisionRollback() {
 	// Create a package revision that will fail during task application

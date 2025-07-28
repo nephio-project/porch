@@ -17,6 +17,7 @@ package dbcache
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -178,7 +179,7 @@ func (s *repositorySyncImpl) syncDeploymentRepo(ctx context.Context, cachedPrMap
 		return repositorySyncStats{}, err
 	}
 
-	markedPRsDeleted, err := s.deletePRsOnExternalMarkedForDeletion(ctx, cachedPrMap, inBoth)
+	markedPRsDeleted, err := s.deletePRsMarkedForDeletion(ctx, cachedPrMap, inBoth)
 	if err != nil {
 		return repositorySyncStats{}, err
 	}
@@ -287,19 +288,21 @@ func (s *repositorySyncImpl) deletePRsOnlyOnExternal(ctx context.Context, extern
 	return nil
 }
 
-func (s *repositorySyncImpl) deletePRsOnExternalMarkedForDeletion(ctx context.Context, cachedPrMap map[repository.PackageRevisionKey]repository.PackageRevision, inBoth []repository.PackageRevisionKey) (int, error) {
+func (s *repositorySyncImpl) deletePRsMarkedForDeletion(ctx context.Context, cachedPrMap map[repository.PackageRevisionKey]repository.PackageRevision, inBoth []repository.PackageRevisionKey) (int, error) {
 	var markedPRsDeleted = 0
 
-	for _, bothPRKey := range inBoth {
-		dbPR := cachedPrMap[bothPRKey].(*dbPackageRevision)
+	for _, pr := range cachedPrMap {
+		dbPR := pr.(*dbPackageRevision)
 
 		if dbPR.deplState != Deleting {
 			continue
 		}
 
-		if err := s.repo.externalRepo.DeletePackageRevision(ctx, dbPR); err != nil {
-			klog.Warningf("dbPackageRevision:Delete: deletion of %+v failed on external repository %q", dbPR.Key(), err)
-			return markedPRsDeleted, err
+		if slices.Contains(inBoth, dbPR.Key()) {
+			if err := s.repo.externalRepo.DeletePackageRevision(ctx, dbPR); err != nil {
+				klog.Warningf("dbPackageRevision:Delete: deletion of %+v failed on external repository %q", dbPR.Key(), err)
+				return markedPRsDeleted, err
+			}
 		}
 
 		if err := s.repo.deletePackageRevision(ctx, dbPR); err != nil {
