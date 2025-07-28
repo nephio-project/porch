@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	mockrepo "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
@@ -69,7 +70,12 @@ func TestPushPR(t *testing.T) {
 	_, err = PushPackageRevision(ctx, mockRepo, mockPR)
 	assert.NotNil(t, err)
 
-	mockRepo.EXPECT().ClosePackageRevisionDraft(mock.Anything, mock.Anything, mock.Anything).Return(mockPR, nil).Once()
+	mockRepo.EXPECT().ClosePackageRevisionDraft(mock.Anything, mock.Anything, mock.Anything).Return(mockPR, nil).Maybe()
+	mockPR.EXPECT().GetLock().Return(v1.Upstream{}, v1.UpstreamLock{}, err).Once()
+	_, err = PushPackageRevision(ctx, mockRepo, mockPR)
+	assert.NotNil(t, err)
+
+	mockPR.EXPECT().GetLock().Return(v1.Upstream{}, v1.UpstreamLock{}, nil).Maybe()
 	_, err = PushPackageRevision(ctx, mockRepo, mockPR)
 	assert.Nil(t, err)
 }
