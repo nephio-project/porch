@@ -107,3 +107,34 @@ func PrSlice2Map(prSlice []PackageRevision) map[PackageRevisionKey]PackageRevisi
 
 	return prMap
 }
+
+func KptUpstreamLock2APIUpstreamLock(kptLock kptfile.UpstreamLock) *api.UpstreamLock {
+	porchLock := &api.UpstreamLock{}
+
+	porchLock.Type = api.OriginType(kptLock.Type)
+	if kptLock.Git != nil {
+		porchLock.Git = &api.GitLock{
+			Repo:      kptLock.Git.Repo,
+			Directory: kptLock.Git.Directory,
+			Commit:    kptLock.Git.Commit,
+			Ref:       kptLock.Git.Ref,
+		}
+	}
+
+	return porchLock
+}
+
+func KptUpstreamLock2KptUpstream(kptLock kptfile.UpstreamLock) kptfile.Upstream {
+	kptUpstream := kptfile.Upstream{}
+
+	kptUpstream.Type = kptLock.Type
+	if kptLock.Git != nil {
+		kptUpstream.Git = &kptfile.Git{
+			Repo:      kptLock.Git.Repo,
+			Directory: kptLock.Git.Directory,
+			Ref:       kptLock.Git.Ref,
+		}
+	}
+
+	return kptUpstream
+}

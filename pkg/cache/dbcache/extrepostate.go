@@ -14,23 +14,23 @@
 
 package dbcache
 
-type deploymentState int
+type externalRepoState int
 
 const (
-	Undeployed deploymentState = iota
-	Deploying
-	Deployed
+	NotPushed externalRepoState = iota
+	BeingPushed
+	Pushed
 	Deleting
 )
 
-func (ds deploymentState) String() string {
-	switch ds {
-	case Undeployed:
-		return "Undeployed"
-	case Deploying:
-		return "Deploying"
-	case Deployed:
-		return "Deployed"
+func (ers externalRepoState) String() string {
+	switch ers {
+	case NotPushed:
+		return "NotPushed"
+	case BeingPushed:
+		return "BeingPushed"
+	case Pushed:
+		return "Pushed"
 	case Deleting:
 		return "Deleting"
 	default:
@@ -38,14 +38,14 @@ func (ds deploymentState) String() string {
 	}
 }
 
-func toDeploymentState(deplStateString string) deploymentState {
-	switch deplStateString {
-	case "Undeployed":
-		return Undeployed
-	case "Deploying":
-		return Deploying
-	case "Deployed":
-		return Deployed
+func toDeploymentState(externalRepoStateString string) externalRepoState {
+	switch externalRepoStateString {
+	case "NotPushed":
+		return NotPushed
+	case "BeingPushed":
+		return BeingPushed
+	case "Pushed":
+		return Pushed
 	case "Deleting":
 		return Deleting
 	default:

@@ -40,17 +40,18 @@ var (
 )
 
 type dbPackageRevision struct {
-	repo      *dbRepository
-	pkgRevKey repository.PackageRevisionKey
-	meta      metav1.ObjectMeta
-	spec      *porchapi.PackageRevisionSpec
-	updated   time.Time
-	updatedBy string
-	lifecycle porchapi.PackageRevisionLifecycle
-	deplState deploymentState
-	latest    bool
-	tasks     []porchapi.Task
-	resources map[string]string
+	repo         *dbRepository
+	pkgRevKey    repository.PackageRevisionKey
+	meta         metav1.ObjectMeta
+	spec         *porchapi.PackageRevisionSpec
+	updated      time.Time
+	updatedBy    string
+	lifecycle    porchapi.PackageRevisionLifecycle
+	extRepoState externalRepoState
+	extPRID      kptfile.UpstreamLock
+	latest       bool
+	tasks        []porchapi.Task
+	resources    map[string]string
 }
 
 func (pr *dbPackageRevision) KubeObjectName() string {
@@ -73,7 +74,7 @@ func (pr *dbPackageRevision) savePackageRevision(ctx context.Context, saveResour
 	_, span := tracer.Start(ctx, "dbPackageRevision::savePackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	if saveResources {
+	if saveResources && pr.repo.deployment {
 		pr.updated = time.Now()
 		pr.updatedBy = getCurrentUser()
 	}
@@ -138,31 +139,28 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 		}
 	}
 
-	_, lock, _ := pr.GetUpstreamLock(ctx)
-	lockCopy := &porchapi.UpstreamLock{}
-
-	// TODO: Comment copied from pkg/externalrepo/git/package.go
-	// Use kpt definition of UpstreamLock in the package revision status
-	// when https://github.com/GoogleContainerTools/kpt/issues/3297 is complete.
-	// Until then, we have to translate from one type to another.
-	if lock.Git != nil {
-		lockCopy = &porchapi.UpstreamLock{
-			Type: porchapi.OriginType(lock.Type),
-			Git: &porchapi.GitLock{
-				Repo:      lock.Git.Repo,
-				Directory: lock.Git.Directory,
-				Commit:    lock.Git.Commit,
-				Ref:       lock.Git.Ref,
-			},
-		}
-	}
-
+	_, upstreamLock, _ := pr.GetUpstreamLock(ctx)
 	kf, _ := readPR.GetKptfile(ctx)
 
 	status := porchapi.PackageRevisionStatus{
-		UpstreamLock: lockCopy,
+		UpstreamLock: repository.KptUpstreamLock2APIUpstreamLock(upstreamLock),
 		Deployment:   pr.repo.deployment,
 		Conditions:   repository.ToAPIConditions(kf),
+	}
+
+	if readPR.extPRID.Git != nil {
+		status.Conditions = append(status.Conditions, porchapi.Condition{
+			Type:    "ref",
+			Status:  porchapi.ConditionTrue,
+			Reason:  "",
+			Message: readPR.extPRID.Git.Ref,
+		})
+		status.Conditions = append(status.Conditions, porchapi.Condition{
+			Type:    "commit",
+			Status:  porchapi.ConditionTrue,
+			Reason:  "",
+			Message: readPR.extPRID.Git.Commit,
+		})
 	}
 
 	if porchapi.LifecycleIsPublished(readPR.Lifecycle(ctx)) {
@@ -275,15 +273,15 @@ func (pr *dbPackageRevision) ToMainPackageRevision(ctx context.Context) reposito
 			Revision:      -1,
 			WorkspaceName: pr.Key().RKey().PlaceholderWSname,
 		},
-		meta:      metav1.ObjectMeta{},
-		spec:      &porchapi.PackageRevisionSpec{},
-		updated:   time.Now(),
-		updatedBy: getCurrentUser(),
-		lifecycle: pr.lifecycle,
-		deplState: Deployed,
-		latest:    false,
-		tasks:     pr.tasks,
-		resources: pr.resources,
+		meta:         metav1.ObjectMeta{},
+		spec:         &porchapi.PackageRevisionSpec{},
+		updated:      time.Now(),
+		updatedBy:    getCurrentUser(),
+		lifecycle:    pr.lifecycle,
+		extRepoState: Pushed,
+		latest:       false,
+		tasks:        pr.tasks,
+		resources:    pr.resources,
 	}
 
 	if mainPR.pkgRevKey.WorkspaceName == "" {
@@ -324,37 +322,7 @@ func (pr *dbPackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, e
 }
 
 func (pr *dbPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, error) {
-	lockRef := ""
-
-	if porchapi.LifecycleIsPublished(pr.lifecycle) {
-		if pr.Key().Revision > 0 {
-			// Tag for a released revision of a PR
-			lockRef = fmt.Sprintf("%s/v%d", pr.Key().PKey().ToFullPathname(), pr.Key().Revision)
-		} else {
-			// Reference for the placeholder PR
-			lockRef = pr.Key().RKey().PlaceholderWSname
-		}
-	} else {
-		// Where the draft would be if it were in Git
-		lockRef = fmt.Sprintf("drafts/%s/%s"+pr.Key().PKey().ToPkgPathname(), pr.Key().WorkspaceName)
-	}
-
-	return kptfile.Upstream{
-			Type: kptfile.GitOrigin,
-			Git: &kptfile.Git{
-				Repo:      pr.repo.spec.Spec.Git.Repo,
-				Directory: pr.Key().PKey().ToPkgPathname(),
-				Ref:       lockRef,
-			},
-		}, kptfile.UpstreamLock{
-			Type: kptfile.GitOrigin,
-			Git: &kptfile.GitLock{
-				Repo:      pr.repo.spec.Spec.Git.Repo,
-				Directory: pr.Key().PKey().ToPkgPathname(),
-				Ref:       lockRef,
-				Commit:    "undefined",
-			},
-		}, nil
+	return repository.KptUpstreamLock2KptUpstream(pr.extPRID), pr.extPRID, nil
 }
 
 func (pr *dbPackageRevision) ResourceVersion() string {
@@ -410,7 +378,7 @@ func (pr *dbPackageRevision) publishPR(ctx context.Context, newLifecycle porchap
 
 	pr.pkgRevKey.Revision = latestRev + 1
 	pr.lifecycle = newLifecycle
-	pr.deplState = Deploying
+	pr.extRepoState = BeingPushed
 
 	if pr.pkgRevKey.Revision == 1 {
 		if err = pkgRevWriteToDB(ctx, pr.ToMainPackageRevision(ctx).(*dbPackageRevision)); err != nil {
