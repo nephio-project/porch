@@ -112,7 +112,7 @@ func TestDBRepoSync(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(prList)) // Sync should have added a cached PR that is in the external repo
 
-	testRepo.repositorySync.stop()
+	testRepo.repositorySync.Stop()
 
 	err = testRepo.Close(ctx)
 	assert.Nil(t, err)

@@ -26,8 +26,9 @@ import (
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo"
 	"github.com/nephio-project/porch/pkg/repository"
-	mocksql "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/dbcache"
+	mockdbcache "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/dbcache"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 )
@@ -109,7 +110,7 @@ func run(m *testing.M) (code int, err error) {
 }
 
 func switchToMockSQL(t *testing.T) {
-	mockSQL := mocksql.NewMockdbSQLInterface(t)
+	mockSQL := mockdbcache.NewMockdbSQLInterface(t)
 
 	savedDBHandler = GetDB()
 	dbHandler = nil
@@ -164,12 +165,19 @@ func TestDBRepositoryCrud(t *testing.T) {
 }
 
 func createTestRepo(t *testing.T, namespace, name string) dbRepository {
+	mockSync := mockdbcache.NewMockRepositorySync(t)
+	mockSync.EXPECT().GetLastSyncError().Return(nil).Maybe()
+	mockSync.EXPECT().SyncAfter(mock.Anything).Maybe()
+	mockSync.EXPECT().Stop().Maybe()
+
 	dbRepo := dbRepository{
 		repoKey: repository.RepositoryKey{
 			Namespace: namespace,
 			Name:      name,
 		},
+		repositorySync: mockSync,
 	}
+
 	err := repoWriteToDB(context.TODO(), &dbRepo)
 	assert.Nil(t, err)
 
