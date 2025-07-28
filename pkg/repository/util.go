@@ -65,6 +65,20 @@ func toAPIConditionStatus(s kptfile.ConditionStatus) api.ConditionStatus {
 	}
 }
 
+func UpsertAPICondition(conditions []api.Condition, condition api.Condition) []api.Condition {
+	updatedConditions := []api.Condition{}
+
+	for _, conditionItem := range conditions {
+		if conditionItem.Type != condition.Type {
+			updatedConditions = append(updatedConditions, conditionItem)
+		}
+	}
+
+	updatedConditions = append(updatedConditions, condition)
+
+	return updatedConditions
+}
+
 // AnyBlockOwnerDeletionSet checks whether there are any ownerReferences in the Object
 // which have blockOwnerDeletion enabled (meaning either nil or true).
 func AnyBlockOwnerDeletionSet(obj metav1.ObjectMeta) bool {

@@ -148,15 +148,22 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 		Conditions:   repository.ToAPIConditions(kf),
 	}
 
+	status.Conditions = repository.UpsertAPICondition(status.Conditions, porchapi.Condition{
+		Type:    "ext-repo-state",
+		Status:  porchapi.ConditionTrue,
+		Reason:  "",
+		Message: readPR.extRepoState.String(),
+	})
+
 	if readPR.extPRID.Git != nil {
-		status.Conditions = append(status.Conditions, porchapi.Condition{
-			Type:    "ref",
+		status.Conditions = repository.UpsertAPICondition(status.Conditions, porchapi.Condition{
+			Type:    "ext-repo-ref",
 			Status:  porchapi.ConditionTrue,
 			Reason:  "",
 			Message: readPR.extPRID.Git.Ref,
 		})
-		status.Conditions = append(status.Conditions, porchapi.Condition{
-			Type:    "commit",
+		status.Conditions = repository.UpsertAPICondition(status.Conditions, porchapi.Condition{
+			Type:    "ext-repo-commit",
 			Status:  porchapi.ConditionTrue,
 			Reason:  "",
 			Message: readPR.extPRID.Git.Commit,

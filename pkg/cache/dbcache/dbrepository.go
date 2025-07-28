@@ -178,9 +178,10 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *po
 	dbPkgRev.extPRID = kptfile.UpstreamLock{
 		Type: kptfile.GitOrigin,
 		Git: &kptfile.GitLock{
-			Repo:      dbPkgRev.repo.spec.Spec.Git.Repo,
+			Repo:      dbPkgRev.Key().RKey().Name,
 			Directory: dbPkgRev.Key().PKey().ToPkgPathname(),
 			Ref:       "drafts/" + dbPkgRev.Key().PKey().ToPkgPathname() + "/" + dbPkgRev.Key().WorkspaceName,
+			Commit:    "not-pushed",
 		},
 	}
 
