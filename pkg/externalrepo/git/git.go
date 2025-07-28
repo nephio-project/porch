@@ -155,7 +155,7 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 
 		r, err := openRepository(dir)
 		if err != nil {
-			return nil, pkgerrors.Wrapf(err, "error cloning git repository %+v, open of repository failed in gogit", spec.Repo)
+			return nil, pkgerrors.Wrapf(err, "error cloning git repository %+v, open of repository failed in gogit (check the local git cache)", spec.Repo)
 		}
 
 		repo = r
