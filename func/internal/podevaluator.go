@@ -362,12 +362,12 @@ func (pcm *podCacheManager) podCacheManager() {
 			_, found = pcm.waitlists[req.image]
 			if !found {
 				pcm.waitlists[req.image] = []chan<- *clientConnAndError{}
+				// We invoke the function with useGenerateName=true to avoid potential name collision, since if pod foo is
+				// being deleted and we can't use the same name.
+				go pcm.podManager.getFuncEvalPodClient(context.Background(), req.image, pcm.podTTL, true)
 			}
 			list := pcm.waitlists[req.image]
 			pcm.waitlists[req.image] = append(list, req.grpcClientCh)
-			// We invoke the function with useGenerateName=true to avoid potential name collision, since if pod foo is
-			// being deleted and we can't use the same name.
-			go pcm.podManager.getFuncEvalPodClient(context.Background(), req.image, pcm.podTTL, true)
 		case resp := <-pcm.podReadyCh:
 			if resp.err != nil {
 				klog.Warningf("received error from the pod manager: %v", resp.err)

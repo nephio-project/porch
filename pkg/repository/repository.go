@@ -164,7 +164,7 @@ func K8SName2PkgName(k8sName string) string {
 }
 
 func FromFullPathname(repoKey RepositoryKey, fullpath string) PackageKey {
-	pkgPath := strings.Trim(strings.TrimPrefix(fullpath, repoKey.Path), "/")
+	pkgPath := strings.Trim(fullpath, "/")
 	slashIndex := strings.LastIndex(pkgPath, "/")
 
 	if slashIndex >= 0 {
