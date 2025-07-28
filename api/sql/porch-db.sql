@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS package_revisions (
     updated          TIMESTAMP NOT NULL,
     updatedby        TEXT NOT NULL,
     lifecycle        TEXT CHECK (lifecycle IN ('Draft', 'Proposed', 'Published', 'DeletionProposed')) NOT NULL,
+    deploy_state     TEXT CHECK (deploy_state IN ('Undeployed', 'Deploying', 'Deployed', 'Deleting')) NOT NULL,
     latest           BOOLEAN NOT NULL DEFAULT FALSE,
     tasks            TEXT NOT NULL,
     PRIMARY KEY (k8s_name_space, k8s_name),
