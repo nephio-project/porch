@@ -73,7 +73,7 @@ func (pr *dbPackageRevision) savePackageRevision(ctx context.Context, saveResour
 	_, span := tracer.Start(ctx, "dbPackageRevision::savePackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	if saveResources && pr.repo.deployment {
+	if saveResources {
 		pr.updated = time.Now()
 		pr.updatedBy = getCurrentUser()
 	}
@@ -358,7 +358,7 @@ func (pr *dbPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, 
 }
 
 func (pr *dbPackageRevision) ResourceVersion() string {
-	return fmt.Sprintf("%s.%d", pr.KubeObjectName(), pr.updated.UnixMicro())
+	return fmt.Sprintf("%s.%d", pr.KubeObjectName(), pr.updated.UnixMilli())
 }
 
 func (pr *dbPackageRevision) Delete(ctx context.Context) error {
