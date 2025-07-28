@@ -40,7 +40,7 @@ type dbRepository struct {
 	meta           metav1.ObjectMeta
 	spec           *configapi.Repository
 	externalRepo   repository.Repository
-	repositorySync *repositorySync
+	repositorySync RepositorySync
 	updated        time.Time
 	updatedBy      string
 	deployment     bool
@@ -99,7 +99,7 @@ func (r *dbRepository) Close(ctx context.Context) error {
 
 	klog.V(5).Infof("dbRepository:close: closing repository %+v", r.Key())
 
-	r.repositorySync.stop()
+	r.repositorySync.Stop()
 
 	dbPkgs, err := pkgReadPkgsFromDB(ctx, r.Key())
 	if err != nil {
@@ -396,10 +396,10 @@ func (r *dbRepository) Refresh(ctx context.Context) error {
 	_, span := tracer.Start(ctx, "dbRepository::Refresh", trace.WithAttributes())
 	defer span.End()
 
-	if err := r.repositorySync.getLastSyncError(); err != nil {
+	if err := r.repositorySync.GetLastSyncError(); err != nil {
 		klog.Warningf("last sync returned error %q, refreshing . . .", err)
 	}
 
-	r.repositorySync.syncAfter(ctx, 30*time.Second)
+	r.repositorySync.SyncAfter(1 * time.Second)
 	return nil
 }

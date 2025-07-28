@@ -280,6 +280,7 @@ func (pr *dbPackageRevision) ToMainPackageRevision(ctx context.Context) reposito
 		updated:   time.Now(),
 		updatedBy: getCurrentUser(),
 		lifecycle: pr.lifecycle,
+		deplState: Deployed,
 		latest:    false,
 		tasks:     pr.tasks,
 		resources: pr.resources,
@@ -328,7 +329,7 @@ func (pr *dbPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, 
 	if porchapi.LifecycleIsPublished(pr.lifecycle) {
 		if pr.Key().Revision > 0 {
 			// Tag for a released revision of a PR
-			lockRef = fmt.Sprintf("%s/v%d", pr.Key().PKey().ToPkgPathname(), pr.Key().Revision)
+			lockRef = fmt.Sprintf("%s/v%d", pr.Key().PKey().ToFullPathname(), pr.Key().Revision)
 		} else {
 			// Reference for the placeholder PR
 			lockRef = pr.Key().RKey().PlaceholderWSname
@@ -343,6 +344,7 @@ func (pr *dbPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, 
 			Git: &kptfile.Git{
 				Repo:      pr.repo.spec.Spec.Git.Repo,
 				Directory: pr.Key().PKey().ToPkgPathname(),
+				Ref:       lockRef,
 			},
 		}, kptfile.UpstreamLock{
 			Type: kptfile.GitOrigin,
@@ -350,6 +352,7 @@ func (pr *dbPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, 
 				Repo:      pr.repo.spec.Spec.Git.Repo,
 				Directory: pr.Key().PKey().ToPkgPathname(),
 				Ref:       lockRef,
+				Commit:    "undefined",
 			},
 		}, nil
 }
@@ -407,6 +410,7 @@ func (pr *dbPackageRevision) publishPR(ctx context.Context, newLifecycle porchap
 
 	pr.pkgRevKey.Revision = latestRev + 1
 	pr.lifecycle = newLifecycle
+	pr.deplState = Deploying
 
 	if pr.pkgRevKey.Revision == 1 {
 		if err = pkgRevWriteToDB(ctx, pr.ToMainPackageRevision(ctx).(*dbPackageRevision)); err != nil {
@@ -417,8 +421,6 @@ func (pr *dbPackageRevision) publishPR(ctx context.Context, newLifecycle porchap
 			return pkgerrors.Wrapf(err, "dbPackageRevision:publishPR: could not update placeholder package revision for package revision %+v to DB", pr.Key())
 		}
 	}
-
-	pr.deplState = Deploying
 
 	if err = pr.repo.Refresh(ctx); err != nil {
 		return pkgerrors.Wrapf(err, "dbPackageRevision:publishPR: could not refresh repository for package revision %+v to DB", pr.Key())
