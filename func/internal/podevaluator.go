@@ -940,7 +940,6 @@ func (pm *podManager) getBasePodTemplate(ctx context.Context) (*corev1.Pod, stri
 
 		podTemplate, ok := podTemplateCm.Data["template"]
 		if !ok {
-			klog.Errorf("function pod template with key template does not exist in Configmap %s", pm.functionPodTemplateName)
 			return nil, "", fmt.Errorf("function pod template with key template does not exist in Configmap %s", pm.functionPodTemplateName)
 		}
 
@@ -949,7 +948,6 @@ func (pm *podManager) getBasePodTemplate(ctx context.Context) (*corev1.Pod, stri
 		err = decoder.Decode(&basePodTemplate)
 
 		if err != nil {
-			klog.Errorf("Could not decode function pod template: %s", pm.functionPodTemplateName)
 			return nil, "", fmt.Errorf("unable to decode function pod template: %w", err)
 		}
 
@@ -1086,7 +1084,6 @@ func (pm *podManager) getBaseServiceTemplate(ctx context.Context) (*corev1.Servi
 
 		serviceTemplate, ok := serviceTemplateCm.Data["serviceTemplate"]
 		if !ok {
-			klog.Errorf("function pod service template with key serviceTemplate does not exist in Configmap %s", pm.functionPodTemplateName)
 			return nil, fmt.Errorf("function pod service template with key serviceTemplate does not exist in Configmap %s", pm.functionPodTemplateName)
 		}
 
@@ -1095,7 +1092,6 @@ func (pm *podManager) getBaseServiceTemplate(ctx context.Context) (*corev1.Servi
 		err = decoder.Decode(&baseServiceTemplate)
 
 		if err != nil {
-			klog.Errorf("Could not decode function service template: %s", pm.functionPodTemplateName)
 			return nil, fmt.Errorf("unable to decode function service template: %w", err)
 		}
 
