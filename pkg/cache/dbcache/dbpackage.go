@@ -109,19 +109,19 @@ func (p *dbPackage) GetPackage(ctx context.Context) *v1alpha1.PorchPackage {
 	}
 }
 
-func (p *dbPackage) savePackageRevision(ctx context.Context, d *dbPackageRevision) (*dbPackageRevision, error) {
+func (p *dbPackage) savePackageRevision(ctx context.Context, d *dbPackageRevision, saveResources bool) (*dbPackageRevision, error) {
 	_, span := tracer.Start(ctx, "dbPackage:savePackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	return d.savePackageRevision(ctx, true)
+	return d.savePackageRevision(ctx, saveResources)
 }
 
-func (p *dbPackage) DeletePackageRevision(ctx context.Context, old repository.PackageRevision, deleteExternal bool) error {
+func (p *dbPackage) DeletePackageRevision(ctx context.Context, old repository.PackageRevision) error {
 	_, span := tracer.Start(ctx, "dbPackage:DeletePackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	dbPR := old.(*dbPackageRevision)
-	if err := dbPR.Delete(ctx, deleteExternal); err != nil {
+	dpPR := old.(*dbPackageRevision)
+	if err := dpPR.Delete(ctx); err != nil {
 		return err
 	}
 
@@ -149,7 +149,7 @@ func (p *dbPackage) GetLatestRevision(ctx context.Context) int {
 	}
 }
 
-func (p *dbPackage) Delete(ctx context.Context, deleteExternal bool) error {
+func (p *dbPackage) Delete(ctx context.Context) error {
 	_, span := tracer.Start(ctx, "dbPackage:Delete", trace.WithAttributes())
 	defer span.End()
 
@@ -159,7 +159,7 @@ func (p *dbPackage) Delete(ctx context.Context, deleteExternal bool) error {
 	}
 
 	for _, pkgRev := range dbPkgRevs {
-		if err := pkgRev.Delete(ctx, deleteExternal); err != nil {
+		if err := pkgRev.Delete(ctx); err != nil {
 			return err
 		}
 	}

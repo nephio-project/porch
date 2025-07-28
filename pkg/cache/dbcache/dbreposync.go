@@ -22,6 +22,7 @@ import (
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
+	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/repository"
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
@@ -36,6 +37,7 @@ type repositorySync struct {
 	lastExternalPRMap       map[repository.PackageRevisionKey]repository.PackageRevision
 	lastSyncError           error
 	lastSyncStats           repositorySyncStats
+	syncNeeded              bool
 }
 
 type repositorySyncStats struct {
@@ -48,8 +50,9 @@ func newRepositorySync(repo *dbRepository, options cachetypes.CacheOptions) *rep
 	ctx, cancel := context.WithCancel(context.Background())
 
 	s := &repositorySync{
-		repo:   repo,
-		cancel: cancel,
+		repo:       repo,
+		cancel:     cancel,
+		syncNeeded: false,
 	}
 
 	go s.syncForever(ctx, options.RepoSyncFrequency)
@@ -71,9 +74,26 @@ func (s *repositorySync) syncForever(ctx context.Context, repoSyncFrequency time
 			return
 		default:
 			s.lastSyncStats, s.lastSyncError = s.syncOnce(ctx)
-			time.Sleep(repoSyncFrequency)
+
+			if !s.syncNeeded {
+				time.Sleep(repoSyncFrequency)
+			}
 		}
 	}
+}
+
+func (s *repositorySync) syncAfter(_ context.Context, delayBeforeSync time.Duration) {
+	go s.syncWithStartDelay(delayBeforeSync)
+}
+
+func (s *repositorySync) syncWithStartDelay(delayBeforeSync time.Duration) {
+	time.Sleep(delayBeforeSync)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	s.lastSyncStats, s.lastSyncError = s.syncOnce(ctx)
+
+	cancel()
 }
 
 func (s *repositorySync) syncOnce(ctx context.Context) (repositorySyncStats, error) {
@@ -81,7 +101,10 @@ func (s *repositorySync) syncOnce(ctx context.Context) (repositorySyncStats, err
 	defer span.End()
 
 	if !s.mutex.TryLock() {
-		return repositorySyncStats{}, fmt.Errorf("repositorySync %+v: sync start failed because sync is already in progress", s.repo.Key())
+		s.syncNeeded = true
+		return repositorySyncStats{}, fmt.Errorf("repositorySync %+v: sync start deferred because sync is already in progress", s.repo.Key())
+	} else {
+		s.syncNeeded = false
 	}
 	defer s.mutex.Unlock()
 
@@ -90,9 +113,17 @@ func (s *repositorySync) syncOnce(ctx context.Context) (repositorySyncStats, err
 
 	defer func() {
 		klog.Infof("repositorySync %+v: sync finished in %f secs", s.repo.Key(), time.Since(start).Seconds())
-		klog.Infof(" %d package revisions were already cached", s.lastSyncStats.both)
-		klog.Infof(" %d package revisions were cached from the external repository", s.lastSyncStats.externalOnly)
-		klog.Infof(" %d cached package revisions not found in the external repo were removed from the cache", s.lastSyncStats.cachedOnly)
+
+		if s.repo.deployment {
+			klog.Infof(" %d package revisions in cached", s.lastSyncStats.both)
+			klog.Infof(" %d package revisions were deleted from the external repository", s.lastSyncStats.externalOnly)
+			klog.Infof(" %d cached package revisions not found in the external repo were pushed to the external repo", s.lastSyncStats.cachedOnly)
+
+		} else {
+			klog.Infof(" %d package revisions were already cached", s.lastSyncStats.both)
+			klog.Infof(" %d package revisions were cached from the external repository", s.lastSyncStats.externalOnly)
+			klog.Infof(" %d cached package revisions not found in the external repo were removed from the cache", s.lastSyncStats.cachedOnly)
+		}
 	}()
 
 	return s.sync(ctx)
@@ -123,11 +154,42 @@ func (s *repositorySync) sync(ctx context.Context) (repositorySyncStats, error) 
 	inCachedOnly, inBoth, inExternalOnly := s.comparePRMaps(ctx, cachedPrMap, externalPrMap)
 	klog.Infof("repositorySync %+v: found %d cached only, %d in both, %d external only", s.repo.Key(), len(inCachedOnly), len(inBoth), len(inExternalOnly))
 
-	if err = s.deletePRsOnlyInCache(ctx, cachedPrMap, inCachedOnly); err != nil {
+	if s.repo.deployment {
+		return s.syncDeploymentRepo(ctx, cachedPrMap, externalPrMap, inCachedOnly, inBoth, inExternalOnly)
+	} else {
+
+		return s.syncNonDeploymentRepo(ctx, cachedPrMap, externalPrMap, inCachedOnly, inBoth, inExternalOnly)
+	}
+}
+
+func (s *repositorySync) syncDeploymentRepo(ctx context.Context, cachedPrMap, externalPrMap map[repository.PackageRevisionKey]repository.PackageRevision, inCachedOnly, inBoth, inExternalOnly []repository.PackageRevisionKey) (repositorySyncStats, error) {
+	if err := s.deletePRsOnlyOnExternal(ctx, externalPrMap, inExternalOnly); err != nil {
 		return repositorySyncStats{}, err
 	}
 
-	if err = s.cacheExternalPRs(ctx, externalPrMap, inExternalOnly); err != nil {
+	markedPRsDeleted, err := s.deletePRsOnExternalMarkedForDeletion(ctx, cachedPrMap, inBoth)
+	if err != nil {
+		return repositorySyncStats{}, err
+	}
+
+	if err := s.pushCachedPRsToExternal(ctx, cachedPrMap, inCachedOnly); err != nil {
+		return repositorySyncStats{}, err
+	}
+
+	return repositorySyncStats{
+		cachedOnly:   len(inCachedOnly),
+		externalOnly: len(inExternalOnly) + markedPRsDeleted,
+		both:         len(inBoth) - markedPRsDeleted,
+	}, nil
+}
+
+func (s *repositorySync) syncNonDeploymentRepo(ctx context.Context, cachedPrMap, externalPrMap map[repository.PackageRevisionKey]repository.PackageRevision, inCachedOnly, inBoth, inExternalOnly []repository.PackageRevisionKey) (repositorySyncStats, error) {
+
+	if err := s.deletePRsOnlyInCache(ctx, cachedPrMap, inCachedOnly); err != nil {
+		return repositorySyncStats{}, err
+	}
+
+	if err := s.cacheExternalPRs(ctx, externalPrMap, inExternalOnly); err != nil {
 		return repositorySyncStats{}, err
 	}
 
@@ -202,6 +264,87 @@ func (s *repositorySync) comparePRMaps(ctx context.Context, leftMap, rightMap ma
 	return inLeftOnly, inBoth, inRightOnly
 }
 
+func (s *repositorySync) deletePRsOnlyOnExternal(ctx context.Context, externalPrMap map[repository.PackageRevisionKey]repository.PackageRevision, inExternalOnly []repository.PackageRevisionKey) error {
+	for _, extPRKey := range inExternalOnly {
+		extPR2Delete := externalPrMap[extPRKey]
+
+		if err := s.repo.externalRepo.DeletePackageRevision(ctx, extPR2Delete); err != nil {
+			klog.Warningf("dbPackageRevision:Delete: deletion of %+v failed on external repository %q", extPR2Delete.Key(), err)
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *repositorySync) deletePRsOnExternalMarkedForDeletion(ctx context.Context, cachedPrMap map[repository.PackageRevisionKey]repository.PackageRevision, inBoth []repository.PackageRevisionKey) (int, error) {
+	var markedPRsDeleted = 0
+
+	for _, bothPRKey := range inBoth {
+		dbPR := cachedPrMap[bothPRKey].(*dbPackageRevision)
+
+		if dbPR.deplState != Deleting {
+			continue
+		}
+
+		if err := s.repo.externalRepo.DeletePackageRevision(ctx, dbPR); err != nil {
+			klog.Warningf("dbPackageRevision:Delete: deletion of %+v failed on external repository %q", dbPR.Key(), err)
+			return markedPRsDeleted, err
+		}
+
+		if err := s.repo.deletePackageRevision(ctx, dbPR); err != nil {
+			klog.Errorf("repositorySync %+v: failed to delete cached PR %+v that was deleted on external repo", s.repo.Key(), dbPR.Key())
+			return markedPRsDeleted, err
+		}
+		markedPRsDeleted++
+	}
+	return markedPRsDeleted, nil
+}
+
+func (s *repositorySync) pushCachedPRsToExternal(ctx context.Context, cachedPrMap map[repository.PackageRevisionKey]repository.PackageRevision, inCachedOnly []repository.PackageRevisionKey) error {
+	for _, cachedPRKey := range inCachedOnly {
+		cachedPR := cachedPrMap[cachedPRKey]
+		dbPR := cachedPR.(*dbPackageRevision)
+
+		if err := engine.PushPackageRevision(ctx, s.repo.externalRepo, dbPR); err != nil {
+			klog.Warningf("push of package revision %+v to external repo failed, %q", dbPR.Key(), err)
+			return pkgerrors.Wrapf(err, "dbPackageRevision:publishPR: push of package revision %+v to external repo failed", dbPR.Key())
+		}
+
+		dbPR.deplState = Deployed
+		_, err := s.repo.savePackageRevision(ctx, dbPR, false)
+		if err != nil {
+			klog.Errorf("repositorySync %+v: failed to save external package revision %+v to database", s.repo.Key(), dbPR.Key())
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *repositorySync) deletePRsOnlyInCache(ctx context.Context, cachedPrMap map[repository.PackageRevisionKey]repository.PackageRevision, inCachedOnly []repository.PackageRevisionKey) error {
+	for _, dbPRKey := range inCachedOnly {
+		dbPR := cachedPrMap[dbPRKey]
+
+		pkgList, err := s.repo.ListPackages(ctx, repository.ListPackageFilter{Key: dbPR.Key().PKey()})
+		if err != nil {
+			return err
+		}
+
+		if len(pkgList) != 1 {
+			err := fmt.Errorf("deletePRsOnlyInCache: reading package %+v should return 1 package, it returned %d packages", dbPR.Key().PKey(), len(pkgList))
+			klog.Warning(err.Error())
+			return err
+		}
+
+		dbPkg := pkgList[0].(*dbPackage)
+		if err = dbPkg.DeletePackageRevision(ctx, dbPR); err != nil {
+			klog.Errorf("repositorySync %+v: failed to delete cached PR %+v not in external repo", s.repo.Key(), dbPRKey)
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *repositorySync) cacheExternalPRs(ctx context.Context, externalPrMap map[repository.PackageRevisionKey]repository.PackageRevision, inExternalOnly []repository.PackageRevisionKey) error {
 	for _, extPRKey := range inExternalOnly {
 		extPR := externalPrMap[extPRKey]
@@ -228,36 +371,12 @@ func (s *repositorySync) cacheExternalPRs(ctx context.Context, externalPrMap map
 			tasks:     extAPIPR.Spec.Tasks,
 			resources: extPRResources.Spec.Resources,
 		}
-		_, err = s.repo.savePackageRevision(ctx, &dbPR)
+		_, err = s.repo.savePackageRevision(ctx, &dbPR, true)
 		if err != nil {
 			klog.Errorf("repositorySync %+v: failed to save external package revision %+v to database", s.repo.Key(), extPRKey)
 			return err
 		}
 	}
 
-	return nil
-}
-
-func (s *repositorySync) deletePRsOnlyInCache(ctx context.Context, cachedPrMap map[repository.PackageRevisionKey]repository.PackageRevision, inCachedOnly []repository.PackageRevisionKey) error {
-	for _, dbPRKey := range inCachedOnly {
-		dbPR := cachedPrMap[dbPRKey]
-
-		pkgList, err := s.repo.ListPackages(ctx, repository.ListPackageFilter{Key: dbPR.Key().PKey()})
-		if err != nil {
-			return err
-		}
-
-		if len(pkgList) != 1 {
-			err := fmt.Errorf("deletePRsOnlyInCache: reading package %+v should return 1 package, it returned %d packages", dbPR.Key().PKey(), len(pkgList))
-			klog.Warning(err.Error())
-			return err
-		}
-
-		dbPkg := pkgList[0].(*dbPackage)
-		if err = dbPkg.DeletePackageRevision(ctx, dbPR, false); err != nil {
-			klog.Errorf("repositorySync %+v: failed to delete cached PR %+v not in external repo", s.repo.Key(), dbPRKey)
-			return err
-		}
-	}
 	return nil
 }
