@@ -101,6 +101,9 @@ func (cad *cadEngine) ListPackageRevisions(ctx context.Context, repositorySpec *
 	if err != nil {
 		return nil, err
 	}
+	if repo == nil {
+		return nil, pkgerrors.New("cache OpenRepository returned nil")
+	}
 
 	return repo.ListPackageRevisions(ctx, filter)
 }
@@ -154,7 +157,7 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 
 	revs, err := repo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{PkgKey: pkgKey}})
 	if err != nil {
-		return nil, fmt.Errorf("error listing package revisions: %w", err)
+		return nil, pkgerrors.Wrapf(err, "error listing package revisions")
 	}
 
 	if err := ensureUniqueWorkspaceName(newPr, revs); err != nil {

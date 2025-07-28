@@ -107,6 +107,8 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter reposit
 		workerCount = min(r.MaxConcurrentLists, repoCount)
 	}
 
+	klog.Infof("Listing %d repositories with %d workers", repoCount, workerCount)
+
 	resultsCh := make(chan pkgRevResult, workerCount)
 	repoQueue := make(chan *configapi.Repository, repoCount)
 

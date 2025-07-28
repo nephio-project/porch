@@ -180,8 +180,8 @@ func (b *background) handleRepositoryEvent(ctx context.Context, repo *configapi.
 
 func (b *background) runOnce(ctx context.Context) error {
 	klog.Infof("background-refreshing repositories")
-	var repositories configapi.RepositoryList
-	if err := b.coreClient.List(ctx, &repositories); err != nil {
+	repositories := &configapi.RepositoryList{}
+	if err := b.coreClient.List(ctx, repositories); err != nil {
 		return fmt.Errorf("error listing repository objects: %w", err)
 	}
 

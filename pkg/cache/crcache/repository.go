@@ -490,14 +490,16 @@ func (r *cachedRepository) Close(ctx context.Context) error {
 
 // pollForever will continue polling until the signal channel is closed or the ctx is done.
 func (r *cachedRepository) pollForever(ctx context.Context, repoSyncFrequency time.Duration) {
+	ticker := time.NewTicker(repoSyncFrequency)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
-			klog.V(2).Infof("repo %+v: exiting repository poller, because context is done: %v", r.Key(), ctx.Err())
+			klog.Infof("repo %+v: exiting repository poller, because context is done: %v", r.Key(), ctx.Err())
 			return
-		default:
+		case <-ticker.C:
 			r.pollOnce(ctx)
-			time.Sleep(repoSyncFrequency)
+			ticker.Reset(repoSyncFrequency)
 		}
 	}
 }
