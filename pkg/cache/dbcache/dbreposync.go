@@ -294,7 +294,7 @@ func (s *repositorySyncImpl) deletePRsMarkedForDeletion(ctx context.Context, cac
 	for _, pr := range cachedPrMap {
 		dbPR := pr.(*dbPackageRevision)
 
-		if dbPR.deplState != Deleting {
+		if dbPR.extRepoState != Deleting {
 			continue
 		}
 
@@ -319,13 +319,15 @@ func (s *repositorySyncImpl) pushCachedPRsToExternal(ctx context.Context, cached
 		cachedPR := cachedPrMap[cachedPRKey]
 		dbPR := cachedPR.(*dbPackageRevision)
 
-		if err := engine.PushPackageRevision(ctx, s.repo.externalRepo, dbPR); err != nil {
+		pushedPRExtID, err := engine.PushPackageRevision(ctx, s.repo.externalRepo, dbPR)
+		if err != nil {
 			klog.Warningf("push of package revision %+v to external repo failed, %q", dbPR.Key(), err)
 			return pkgerrors.Wrapf(err, "dbPackageRevision:publishPR: push of package revision %+v to external repo failed", dbPR.Key())
 		}
 
-		dbPR.deplState = Deployed
-		_, err := s.repo.savePackageRevision(ctx, dbPR, false)
+		dbPR.extRepoState = Pushed
+		dbPR.extPRID = pushedPRExtID
+		_, err = s.repo.savePackageRevision(ctx, dbPR, false)
 		if err != nil {
 			klog.Errorf("repositorySync %+v: failed to save external package revision %+v to database", s.repo.Key(), dbPR.Key())
 			return err
@@ -375,15 +377,20 @@ func (s *repositorySyncImpl) cacheExternalPRs(ctx context.Context, externalPrMap
 			return err
 		}
 
+		_, extPRUpstreamLock, _ := extPR.GetLock()
+
 		dbPR := dbPackageRevision{
-			repo:      s.repo,
-			pkgRevKey: extPRKey,
-			meta:      extAPIPR.ObjectMeta,
-			spec:      &extAPIPR.Spec,
-			updated:   extAPIPR.CreationTimestamp.Time,
-			lifecycle: extAPIPR.Spec.Lifecycle,
-			tasks:     extAPIPR.Spec.Tasks,
-			resources: extPRResources.Spec.Resources,
+			repo:         s.repo,
+			pkgRevKey:    extPRKey,
+			meta:         extAPIPR.ObjectMeta,
+			spec:         &extAPIPR.Spec,
+			updated:      extAPIPR.Status.PublishedAt.Time,
+			updatedBy:    extAPIPR.Status.PublishedBy,
+			lifecycle:    extAPIPR.Spec.Lifecycle,
+			extRepoState: NotPushed,
+			extPRID:      extPRUpstreamLock,
+			tasks:        extAPIPR.Spec.Tasks,
+			resources:    extPRResources.Spec.Resources,
 		}
 		_, err = s.repo.savePackageRevision(ctx, &dbPR, true)
 		if err != nil {

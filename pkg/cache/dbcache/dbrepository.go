@@ -24,6 +24,7 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/externalrepo"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
+	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
 	pkgerrors "github.com/pkg/errors"
@@ -166,12 +167,21 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *po
 			Revision:      0,
 			WorkspaceName: newPR.Spec.WorkspaceName,
 		},
-		meta:      newPR.ObjectMeta,
-		spec:      &newPR.Spec,
-		lifecycle: porchapi.PackageRevisionLifecycleDraft,
-		deplState: Undeployed,
-		updated:   time.Now(),
-		updatedBy: getCurrentUser(),
+		meta:         newPR.ObjectMeta,
+		spec:         &newPR.Spec,
+		lifecycle:    porchapi.PackageRevisionLifecycleDraft,
+		extRepoState: NotPushed,
+		updated:      time.Now(),
+		updatedBy:    getCurrentUser(),
+	}
+
+	dbPkgRev.extPRID = kptfile.UpstreamLock{
+		Type: kptfile.GitOrigin,
+		Git: &kptfile.GitLock{
+			Repo:      dbPkgRev.repo.spec.Spec.Git.Repo,
+			Directory: dbPkgRev.Key().PKey().ToPkgPathname(),
+			Ref:       "drafts/" + dbPkgRev.Key().PKey().ToPkgPathname() + "/" + dbPkgRev.Key().WorkspaceName,
+		},
 	}
 
 	prDraft, err := r.savePackageRevisionDraft(ctx, dbPkgRev, 0)
@@ -204,7 +214,7 @@ func (r *dbRepository) DeletePackageRevision(ctx context.Context, pr2Delete repo
 
 	if porchapi.LifecycleIsPublished(dbPR2Delete.lifecycle) {
 		klog.V(5).Infof("dbRepository:DeletePackageRevision: setting deploymet state on package revision %+v on repo %+v to \"deleting\"", pr2Delete.Key(), r.Key())
-		dbPR2Delete.deplState = Deleting
+		dbPR2Delete.extRepoState = Deleting
 
 		if _, err := r.savePackageRevision(ctx, dbPR2Delete, false); err != nil {
 			return pkgerrors.Wrapf(err, "dbRepository:DeletePackageRevision: could not save deployment state on package revision %+v on repo %+v", pr2Delete.Key(), r.Key())
