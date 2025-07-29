@@ -9,7 +9,6 @@ commands:
       - --namespace=repo-register
       - --name=test-blueprints
       - --description
-      - --deployment=true
       - Test Blueprints
   - args:
       - porchctl
