@@ -7,6 +7,7 @@ commands:
       - --repo-basic-username=nephio
       - --namespace=rpkg-copy
       - --name=git
+      - --deployment=true
       - http://gitea.gitea.svc.cluster.local:3000/nephio/rpkg-copy
   - args:
       - porchctl
@@ -101,5 +102,19 @@ commands:
             internal.config.kubernetes.io/path: namespace.yaml
             internal.kpt.dev/upstream-identifier: '|Namespace|default|example'
           name: example
+      - apiVersion: v1
+        data:
+          name: basens-edit
+          package-path: basens-edit
+        kind: ConfigMap
+        metadata:
+          annotations:
+            config.kubernetes.io/index: "0"
+            config.kubernetes.io/local-config: "true"
+            config.kubernetes.io/path: package-context.yaml
+            internal.config.kubernetes.io/index: "0"
+            internal.config.kubernetes.io/path: package-context.yaml
+            internal.kpt.dev/upstream-identifier: '|ConfigMap|default|kptfile.kpt.dev'
+          name: kptfile.kpt.dev
       kind: ResourceList
     yaml: true
