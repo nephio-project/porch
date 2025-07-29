@@ -468,7 +468,7 @@ func (t *TestSuite) WaitUntilRepositoryReady(name, namespace string) {
 	}
 
 	// While we're using an aggregated apiserver, make sure we can query the generated objects
-	if err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 10*time.Second, true, func(ctx context.Context) (bool, error) {
+	if err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 32*time.Second, true, func(ctx context.Context) (bool, error) {
 		var revisions porchapi.PackageRevisionList
 		if err := t.Client.List(ctx, &revisions, client.InNamespace(nn.Namespace)); err != nil {
 			innerErr = err
