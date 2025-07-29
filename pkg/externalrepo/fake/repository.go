@@ -75,10 +75,6 @@ func (r *Repository) CreatePackageRevisionDraft(_ context.Context, pr *v1alpha1.
 func (r *Repository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version int) (repository.PackageRevision, error) {
 	return &FakePackageRevision{
 		PrKey: prd.Key(),
-		Kptfile: v1.KptFile{
-			Upstream:     &v1.Upstream{},
-			UpstreamLock: &v1.UpstreamLock{},
-		},
 	}, nil
 }
 
