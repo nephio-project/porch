@@ -175,6 +175,13 @@ func createTestRepo(t *testing.T, namespace, name string) dbRepository {
 			Namespace: namespace,
 			Name:      name,
 		},
+		spec: &configapi.Repository{
+			Spec: configapi.RepositorySpec{
+				Git: &configapi.GitRepository{
+					Repo: "http://www.gitrepo.org/my-repo",
+				},
+			},
+		},
 		repositorySync: mockSync,
 	}
 

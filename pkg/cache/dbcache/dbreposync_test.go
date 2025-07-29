@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
@@ -40,9 +39,6 @@ func TestDBRepoSync(t *testing.T) {
 	ctx := context.TODO()
 
 	testRepo := createTestRepo(t, "my-ns", "my-repo-name")
-	testRepo.spec = &configapi.Repository{
-		Spec: configapi.RepositorySpec{},
-	}
 	mockCache.EXPECT().GetRepository(mock.Anything).Return(&testRepo).Maybe()
 
 	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
