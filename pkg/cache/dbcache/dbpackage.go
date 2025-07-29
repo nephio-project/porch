@@ -120,8 +120,8 @@ func (p *dbPackage) DeletePackageRevision(ctx context.Context, old repository.Pa
 	_, span := tracer.Start(ctx, "dbPackage:DeletePackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	dpPR := old.(*dbPackageRevision)
-	if err := dpPR.Delete(ctx); err != nil {
+	dbPR := old.(*dbPackageRevision)
+	if err := dbPR.Delete(ctx); err != nil {
 		return err
 	}
 
