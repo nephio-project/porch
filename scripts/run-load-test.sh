@@ -299,7 +299,7 @@ metadata:
 spec:
     description: "$git_repo_name"
     content: Package
-    deployment: false
+    deployment: true
     type: git
     git:
         repo: "http://$git_repo_server:3000/nephio/$git_repo_name.git"
