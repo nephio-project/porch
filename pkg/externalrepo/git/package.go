@@ -96,7 +96,7 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 	status := v1alpha1.PackageRevisionStatus{
 		UpstreamLock: lockCopy,
 		Deployment:   p.repo.deployment,
-		Conditions:   repository.ToAPIConditions(kf),
+		Conditions:   repository.ToApiConditions(kf),
 	}
 
 	if v1alpha1.LifecycleIsPublished(p.Lifecycle(ctx)) {
@@ -127,7 +127,7 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 			RepositoryName: key.RKey().Name,
 			Lifecycle:      p.Lifecycle(ctx),
 			Tasks:          p.tasks,
-			ReadinessGates: repository.ToAPIReadinessGates(kf),
+			ReadinessGates: repository.ToApiReadinessGates(kf),
 			WorkspaceName:  key.WorkspaceName,
 			Revision:       key.Revision,
 		},
