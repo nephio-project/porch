@@ -7,6 +7,7 @@ commands:
       - --name=git
       - --repo-basic-password=secret
       - --repo-basic-username=nephio
+      - --deployment=true
       - http://gitea.gitea.svc.cluster.local:3000/nephio/rpkg-unready
   - args:
       - porchctl
