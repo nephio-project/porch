@@ -58,9 +58,6 @@ func TestDBRepositoryPRCrud(t *testing.T) {
 	ctx := context.TODO()
 
 	testRepo := createTestRepo(t, "my-ns", "my-repo-name")
-	testRepo.spec = &configapi.Repository{
-		Spec: configapi.RepositorySpec{},
-	}
 	mockCache.EXPECT().GetRepository(mock.Anything).Return(&testRepo).Maybe()
 
 	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})

@@ -118,6 +118,20 @@ commands:
             internal.config.kubernetes.io/path: namespace.yaml
             internal.kpt.dev/upstream-identifier: '|Namespace|default|example'
           name: example
+      - apiVersion: v1
+        data:
+          name: basens-clone
+          package-path: basens-clone
+        kind: ConfigMap
+        metadata:
+          annotations:
+            config.kubernetes.io/index: "0"
+            config.kubernetes.io/local-config: "true"
+            config.kubernetes.io/path: package-context.yaml
+            internal.config.kubernetes.io/index: "0"
+            internal.config.kubernetes.io/path: package-context.yaml
+            internal.kpt.dev/upstream-identifier: '|ConfigMap|default|kptfile.kpt.dev'
+          name: kptfile.kpt.dev
       kind: ResourceList
     yaml: true
   - args:
@@ -165,5 +179,19 @@ commands:
             ref: empty/v1
             repo: http://gitea.gitea.svc.cluster.local:3000/nephio/test-blueprints.git
           type: git
+      - apiVersion: v1
+        data:
+          name: empty-clone
+          package-path: empty-clone
+        kind: ConfigMap
+        metadata:
+          annotations:
+            config.kubernetes.io/index: "0"
+            config.kubernetes.io/local-config: "true"
+            config.kubernetes.io/path: package-context.yaml
+            internal.config.kubernetes.io/index: "0"
+            internal.config.kubernetes.io/path: package-context.yaml
+            internal.kpt.dev/upstream-identifier: '|ConfigMap|default|kptfile.kpt.dev'
+          name: kptfile.kpt.dev
       kind: ResourceList
     yaml: true
