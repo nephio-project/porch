@@ -22,7 +22,7 @@ import (
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/util"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func ToApiReadinessGates(kf kptfile.KptFile) []api.ReadinessGate {
@@ -81,7 +81,7 @@ func UpsertAPICondition(conditions []api.Condition, condition api.Condition) []a
 
 // AnyBlockOwnerDeletionSet checks whether there are any ownerReferences in the Object
 // which have blockOwnerDeletion enabled (meaning either nil or true).
-func AnyBlockOwnerDeletionSet(obj client.Object) bool {
+func AnyBlockOwnerDeletionSet(obj metav1.ObjectMeta) bool {
 	for _, owner := range obj.GetOwnerReferences() {
 		if owner.BlockOwnerDeletion == nil || *owner.BlockOwnerDeletion {
 			return true
