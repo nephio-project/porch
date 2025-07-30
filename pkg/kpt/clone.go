@@ -25,7 +25,6 @@ import (
 
 // TODO: Accept a virtual filesystem or other package abstraction
 func UpdateUpstream(kptfileContents string, name string, upstream kptfilev1.Upstream, lock kptfilev1.UpstreamLock) (string, error) {
-
 	kptfile, err := internalpkg.DecodeKptfile(strings.NewReader(kptfileContents))
 	if err != nil {
 		return "", fmt.Errorf("cannot parse Kptfile: %w", err)
