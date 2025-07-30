@@ -830,7 +830,7 @@ func (t *PorchSuite) TestUpdateResourcesEmptyPatch() {
 		Name:      pr.Name,
 	}, &pkgBeforeUpdate)
 	tasksBeforeUpdate := pkgBeforeUpdate.Spec.Tasks
-	assert.Equal(t, 1, len(tasksBeforeUpdate))
+	assert.Len(t, tasksBeforeUpdate, 1)
 
 	// Get the package resources
 	var resourcesBeforeUpdate porchapi.PackageRevisionResources
@@ -849,9 +849,9 @@ func (t *PorchSuite) TestUpdateResourcesEmptyPatch() {
 		Name:      pr.Name,
 	}, &pkgAfterUpdate)
 	tasksAfterUpdate := pkgAfterUpdate.Spec.Tasks
-	assert.Equal(t, 1, len(tasksAfterUpdate))
+	assert.Len(t, tasksAfterUpdate, 1)
 
-	assert.True(t, reflect.DeepEqual(tasksBeforeUpdate, tasksAfterUpdate))
+	assert.True(t, reflect.DeepEqual(tasksBeforeUpdate, tasksAfterUpdate), fmt.Sprintf("%+v != %+v", tasksBeforeUpdate, tasksAfterUpdate))
 
 	// Get the package resources
 	var resourcesAfterUpdate porchapi.PackageRevisionResources
@@ -860,11 +860,13 @@ func (t *PorchSuite) TestUpdateResourcesEmptyPatch() {
 		Name:      pr.Name,
 	}, &resourcesAfterUpdate)
 
-	assert.Equal(t, 3, len(resourcesAfterUpdate.Spec.Resources))
+	assert.Len(t, resourcesAfterUpdate.Spec.Resources, 3)
 
 	assert.Equal(t, resourcesBeforeUpdate.Spec.Resources["Kptfile"], resourcesAfterUpdate.Spec.Resources["Kptfile"])
 	assert.Equal(t, resourcesBeforeUpdate.Spec.Resources["README.md"], resourcesAfterUpdate.Spec.Resources["README.md"])
 	assert.Equal(t, resourcesBeforeUpdate.Spec.Resources["package-context.yaml"], resourcesAfterUpdate.Spec.Resources["package-context.yaml"])
+
+	// TODO: add a check for the number of commits, if/when we handle empty commits
 }
 
 func (t *PorchSuite) TestConcurrentResourceUpdates() {
