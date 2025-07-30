@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -95,15 +96,6 @@ func (t *PorchSuite) TestGitRepository() {
 						},
 					},
 				},
-				{
-					Type: "eval",
-					Eval: &porchapi.FunctionEvalTaskSpec{
-						Image: t.gcrPrefix + "/set-namespace:v0.4.1",
-						ConfigMap: map[string]string{
-							"namespace": "bucket-namespace",
-						},
-					},
-				},
 			},
 		},
 	}
@@ -124,8 +116,8 @@ func (t *PorchSuite) TestGitRepository() {
 	if err != nil {
 		t.Errorf("yaml.Parse(\"bucket.yaml\") failed: %v", err)
 	}
-	if got, want := node.GetNamespace(), "bucket-namespace"; got != want {
-		t.Errorf("StorageBucket namespace: got %q, want %q", got, want)
+	if got, want := node.GetName(), "blueprints-project-bucket2"; got != want {
+		t.Errorf("StorageBucket name: got %q, want %q", got, want)
 	}
 }
 
@@ -667,12 +659,12 @@ func (t *PorchSuite) TestEditPackageRevision() {
 	for _, tsk := range tasks {
 		t.Logf("Task: %s", tsk.Type)
 	}
-	assert.Equal(t, 2, len(tasks))
+	assert.Equal(t, 1, len(tasks))
 }
 
 func (t *PorchSuite) TestConcurrentEdits() {
 	const (
-		repository  = "edit-test"
+		repository  = "concurrent-edit-test"
 		packageName = "simple-package-concurrent"
 		workspace   = "workspace"
 		workspace2  = "workspace2"
@@ -726,7 +718,7 @@ func (t *PorchSuite) TestConcurrentEdits() {
 		Name:      editPR.Name,
 	}, &pkgRev)
 	tasks := pkgRev.Spec.Tasks
-	assert.Equal(t, 2, len(tasks))
+	assert.Equal(t, 1, len(tasks))
 }
 
 // Test will initialize an empty package, update its resources, adding a function
@@ -796,7 +788,7 @@ func (t *PorchSuite) TestUpdateResources() {
 	renderStatus := newPackage.Status.RenderStatus
 	assert.Empty(t, renderStatus.Err, "render error must be empty for successful render operation.")
 	assert.Zero(t, renderStatus.Result.ExitCode, "exit code must be zero for successful render operation.")
-	assert.True(t, len(renderStatus.Result.Items) > 0)
+	assert.True(t, len(renderStatus.Result.Items) > 0, renderStatus.Result.Items)
 
 	golden := filepath.Join("testdata", "update-resources", "want-config-map.yaml")
 	if diff := t.CompareGoldenFileYAML(golden, updated); diff != "" {
@@ -840,7 +832,7 @@ func (t *PorchSuite) TestUpdateResourcesEmptyPatch() {
 		Name:      pr.Name,
 	}, &pkgBeforeUpdate)
 	tasksBeforeUpdate := pkgBeforeUpdate.Spec.Tasks
-	assert.Equal(t, 2, len(tasksBeforeUpdate))
+	assert.Len(t, tasksBeforeUpdate, 1)
 
 	// Get the package resources
 	var resourcesBeforeUpdate porchapi.PackageRevisionResources
@@ -859,9 +851,9 @@ func (t *PorchSuite) TestUpdateResourcesEmptyPatch() {
 		Name:      pr.Name,
 	}, &pkgAfterUpdate)
 	tasksAfterUpdate := pkgAfterUpdate.Spec.Tasks
-	assert.Equal(t, 2, len(tasksAfterUpdate))
+	assert.Len(t, tasksAfterUpdate, 1)
 
-	assert.True(t, reflect.DeepEqual(tasksBeforeUpdate, tasksAfterUpdate))
+	assert.True(t, reflect.DeepEqual(tasksBeforeUpdate, tasksAfterUpdate), fmt.Sprintf("%+v != %+v", tasksBeforeUpdate, tasksAfterUpdate))
 
 	// Get the package resources
 	var resourcesAfterUpdate porchapi.PackageRevisionResources
@@ -870,11 +862,13 @@ func (t *PorchSuite) TestUpdateResourcesEmptyPatch() {
 		Name:      pr.Name,
 	}, &resourcesAfterUpdate)
 
-	assert.Equal(t, 3, len(resourcesAfterUpdate.Spec.Resources))
+	assert.Len(t, resourcesAfterUpdate.Spec.Resources, 3)
 
 	assert.Equal(t, resourcesBeforeUpdate.Spec.Resources["Kptfile"], resourcesAfterUpdate.Spec.Resources["Kptfile"])
 	assert.Equal(t, resourcesBeforeUpdate.Spec.Resources["README.md"], resourcesAfterUpdate.Spec.Resources["README.md"])
 	assert.Equal(t, resourcesBeforeUpdate.Spec.Resources["package-context.yaml"], resourcesAfterUpdate.Spec.Resources["package-context.yaml"])
+
+	// TODO: add a check for the number of commits, if/when we handle empty commits
 }
 
 func (t *PorchSuite) TestConcurrentResourceUpdates() {
@@ -1623,9 +1617,9 @@ func (t *PorchSuite) TestCloneLeadingSlash() {
 	t.MustExist(client.ObjectKey{Namespace: t.Namespace, Name: new.Name}, &pr)
 }
 
-func (t *PorchSuite) TestPackageUpdate() {
+func (t *PorchSuite) TestPackageUpgrade() {
 	const (
-		gitRepository = "package-update"
+		gitRepository = "package-upgrade"
 	)
 
 	t.RegisterTestBlueprintRepository("test-blueprints", "")
@@ -1683,30 +1677,32 @@ func (t *PorchSuite) TestPackageUpdate() {
 	revisionResources.Spec.Resources["config-map.yaml"] = string(cm)
 	t.UpdateF(&revisionResources)
 
-	var newrr porchapi.PackageRevisionResources
-	t.GetF(client.ObjectKey{
-		Namespace: t.Namespace,
-		Name:      pr.Name,
-	}, &newrr)
+	// publish PackageRevision
+	t.GetF(client.ObjectKeyFromObject(pr), pr)
+	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	t.UpdateF(pr)
+	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
 
-	by, _ := yaml.Marshal(&newrr)
-	t.Logf("PRR: %s", string(by))
-
-	t.GetF(client.ObjectKey{
-		Namespace: t.Namespace,
-		Name:      pr.Name,
-	}, pr)
-
-	upstream := pr.Spec.Tasks[0].Clone.Upstream.DeepCopy()
-	upstream.UpstreamRef.Name = basensV2.Name
-	pr.Spec.Tasks = append(pr.Spec.Tasks, porchapi.Task{
-		Type: porchapi.TaskTypeUpdate,
-		Update: &porchapi.PackageUpdateTaskSpec{
-			Upstream: *upstream,
+	// upgrade "test-workspace" to basensV2
+	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDraft
+	pr.Spec.WorkspaceName = "test-workspace-upgrade"
+	pr.Spec.Tasks = []porchapi.Task{{
+		Type: porchapi.TaskTypeUpgrade,
+		Upgrade: &porchapi.PackageUpgradeTaskSpec{
+			OldUpstream: porchapi.PackageRevisionRef{
+				Name: basensV1.Name,
+			},
+			NewUpstream: porchapi.PackageRevisionRef{
+				Name: basensV2.Name,
+			},
+			LocalPackageRevisionRef: porchapi.PackageRevisionRef{
+				Name: pr.Name, // this is still the name of the "test-workspace" PR
+			},
 		},
-	})
+	}}
 
-	t.UpdateE(pr, &client.UpdateOptions{})
+	t.CreateF(pr)
 
 	t.GetF(client.ObjectKey{
 		Namespace: t.Namespace,
@@ -1720,7 +1716,7 @@ func (t *PorchSuite) TestPackageUpdate() {
 
 func (t *PorchSuite) TestConcurrentPackageUpdates() {
 	const (
-		gitRepository = "package-update"
+		gitRepository = "concurrent-package-update"
 		packageName   = "testns-concurrent"
 		workspace     = "test-workspace"
 	)
@@ -1752,18 +1748,11 @@ func (t *PorchSuite) TestConcurrentPackageUpdates() {
 	}
 	t.CreateF(pr)
 
-	upstream := pr.Spec.Tasks[0].Clone.Upstream.DeepCopy()
-	upstream.UpstreamRef.Name = basensV2.Name
-	pr.Spec.Tasks = append(pr.Spec.Tasks, porchapi.Task{
-		Type: porchapi.TaskTypeUpdate,
-		Update: &porchapi.PackageUpdateTaskSpec{
-			Upstream: *upstream,
-		},
-	})
+	pr.Spec.Tasks[0].Clone.Upstream.UpstreamRef.Name = basensV2.Name
 
 	// Two clients at the same time try to update the downstream package
 	updateFunction := func() any {
-		return t.Client.Update(t.GetContext(), pr, &client.UpdateOptions{})
+		return t.Client.Update(t.GetContext(), pr)
 	}
 	results := RunInParallel(updateFunction, updateFunction)
 
@@ -1826,26 +1815,6 @@ func (t *PorchSuite) TestBuiltinFunctionEvaluator() {
 						},
 					},
 				},
-				{
-					Type: "eval",
-					Eval: &porchapi.FunctionEvalTaskSpec{
-						//
-						Image: t.gcrPrefix + "/starlark:v0.4.3",
-						ConfigMap: map[string]string{
-							"source": `for resource in ctx.resource_list["items"]:
-		  resource["metadata"]["annotations"]["foo"] = "bar"`,
-						},
-					},
-				},
-				{
-					Type: "eval",
-					Eval: &porchapi.FunctionEvalTaskSpec{
-						Image: t.gcrPrefix + "/set-namespace:v0.4.1",
-						ConfigMap: map[string]string{
-							"namespace": "bucket-namespace",
-						},
-					},
-				},
 				// TODO: add test for apply-replacements, we can't do it now because FunctionEvalTaskSpec doesn't allow
 				// non-ConfigMap functionConfig due to a code generator issue when dealing with unstructured.
 			},
@@ -1854,11 +1823,18 @@ func (t *PorchSuite) TestBuiltinFunctionEvaluator() {
 	t.CreateF(pr)
 
 	// Get package resources
-	var resources porchapi.PackageRevisionResources
+	resources := &porchapi.PackageRevisionResources{}
 	t.GetF(client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
-	}, &resources)
+	}, resources)
+
+	t.AddMutator(resources, t.gcrPrefix+"/starlark:v0.4.3", WithConfigmap(map[string]string{
+		"source": `for resource in ctx.resource_list["items"]:
+		  resource["metadata"]["annotations"]["foo"] = "bar"`,
+	}))
+	t.AddMutator(resources, t.gcrPrefix+"/set-namespace:v0.4.1", WithConfigmap(map[string]string{"namespace": "bucket-namespace"}))
+	t.UpdateF(resources)
 
 	bucket, ok := resources.Spec.Resources["bucket.yaml"]
 	if !ok {
@@ -1907,40 +1883,28 @@ func (t *PorchSuite) TestExecFunctionEvaluator() {
 						},
 					},
 				},
-				{
-					Type: "eval",
-					Eval: &porchapi.FunctionEvalTaskSpec{
-						Image: t.gcrPrefix + "/starlark:v0.3.0",
-						ConfigMap: map[string]string{
-							"source": `# set the namespace on all resources
-
-for resource in ctx.resource_list["items"]:
-
-	  # mutate the resource
-	  resource["metadata"]["namespace"] = "bucket-namespace"`,
-						},
-					},
-				},
-				{
-					Type: "eval",
-					Eval: &porchapi.FunctionEvalTaskSpec{
-						Image: t.gcrPrefix + "/set-annotations:v0.1.4",
-						ConfigMap: map[string]string{
-							"foo": "bar",
-						},
-					},
-				},
 			},
 		},
 	}
 	t.CreateF(pr)
 
 	// Get package resources
-	var resources porchapi.PackageRevisionResources
+	resources := &porchapi.PackageRevisionResources{}
 	t.GetF(client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
-	}, &resources)
+	}, resources)
+
+	t.AddMutator(resources, t.gcrPrefix+"/starlark:v0.3.0", WithConfigmap(map[string]string{
+		"source": `# set the namespace on all resources
+
+for resource in ctx.resource_list["items"]:
+
+	  # mutate the resource
+	  resource["metadata"]["namespace"] = "bucket-namespace"`,
+	}))
+	t.AddMutator(resources, t.gcrPrefix+"/set-annotations:v0.1.4", WithConfigmap(map[string]string{"foo": "bar"}))
+	t.UpdateF(resources)
 
 	bucket, ok := resources.Spec.Resources["bucket.yaml"]
 	if !ok {
@@ -1992,45 +1956,28 @@ func (t *PorchSuite) TestPodFunctionEvaluatorWithDistrolessImage() {
 						},
 					},
 				},
-				{
-					Type: "patch",
-					Patch: &porchapi.PackagePatchTaskSpec{
-						Patches: []porchapi.PatchSpec{
-							{
-								File: "configmap.yaml",
-								Contents: `
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: kptfile.kpt.dev
-data:
-  name: bucket-namespace
-`,
-
-								PatchType: porchapi.PatchTypeCreateFile,
-							},
-						},
-					},
-				},
-				{
-					Type: "eval",
-					Eval: &porchapi.FunctionEvalTaskSpec{
-						// This image is a mirror of gcr.io/cad-demo-sdk/set-namespace@sha256:462e44020221e72e3eb337ee59bc4bc3e5cb50b5ed69d377f55e05bec3a93d11
-						// which uses gcr.io/distroless/base-debian11:latest as the base image.
-						Image: t.gcrPrefix + "-demo/set-namespace:v0.1.0",
-					},
-				},
 			},
 		},
 	}
 	t.CreateF(pr)
 
 	// Get package resources
-	var resources porchapi.PackageRevisionResources
+	resources := &porchapi.PackageRevisionResources{}
 	t.GetF(client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
-	}, &resources)
+	}, resources)
+
+	resources.Spec.Resources["configmap.yaml"] = `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kptfile.kpt.dev
+data:
+  name: bucket-namespace
+`
+	t.AddMutator(resources, t.gcrPrefix+"-demo/set-namespace:v0.1.0")
+	t.UpdateF(resources)
 
 	bucket, ok := resources.Spec.Resources["bucket.yaml"]
 	if !ok {
@@ -2090,34 +2037,23 @@ func (t *PorchSuite) TestPodEvaluator() {
 						},
 					},
 				},
-				// Testing pod evaluator with TS function
-				{
-					Type: "eval",
-					Eval: &porchapi.FunctionEvalTaskSpec{
-						Image: generateFolderImage,
-					},
-				},
-				// Testing pod evaluator with golang function
-				{
-					Type: "eval",
-					Eval: &porchapi.FunctionEvalTaskSpec{
-						Image: setAnnotationsImage,
-						ConfigMap: map[string]string{
-							"test-key": "test-val",
-						},
-					},
-				},
 			},
 		},
 	}
 	t.CreateF(pr)
 
 	// Get package resources
-	var resources porchapi.PackageRevisionResources
+	resources := &porchapi.PackageRevisionResources{}
 	t.GetF(client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
-	}, &resources)
+	}, resources)
+
+	// Testing pod evaluator with TS function
+	t.AddMutator(resources, generateFolderImage)
+	// Testing pod evaluator with golang function
+	t.AddMutator(resources, setAnnotationsImage, WithConfigmap(map[string]string{"test-key": "test-val"}))
+	t.UpdateF(resources)
 
 	counter := 0
 	for name, obj := range resources.Spec.Resources {
@@ -2187,23 +2123,6 @@ func (t *PorchSuite) TestPodEvaluator() {
 						},
 					},
 				},
-				// Testing pod evaluator with TS function
-				{
-					Type: "eval",
-					Eval: &porchapi.FunctionEvalTaskSpec{
-						Image: generateFolderImage,
-					},
-				},
-				// Testing pod evaluator with golang function
-				{
-					Type: "eval",
-					Eval: &porchapi.FunctionEvalTaskSpec{
-						Image: setAnnotationsImage,
-						ConfigMap: map[string]string{
-							"new-test-key": "new-test-val",
-						},
-					},
-				},
 			},
 		},
 	}
@@ -2213,7 +2132,13 @@ func (t *PorchSuite) TestPodEvaluator() {
 	t.GetF(client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr2.Name,
-	}, &resources)
+	}, resources)
+
+	// Testing pod evaluator with TS function
+	t.AddMutator(resources, generateFolderImage)
+	// Testing pod evaluator with golang function
+	t.AddMutator(resources, setAnnotationsImage, WithConfigmap(map[string]string{"new-test-key": "new-test-val"}))
+	t.UpdateF(resources)
 
 	counter = 0
 	for name, obj := range resources.Spec.Resources {
@@ -2266,17 +2191,21 @@ func (t *PorchSuite) TestPodEvaluatorWithFailure() {
 						},
 					},
 				},
-				{
-					Type: "eval",
-					Eval: &porchapi.FunctionEvalTaskSpec{
-						// This function is expect to fail due to not knowing schema for some CRDs.
-						Image: t.gcrPrefix + "/kubeval:v0.2.0",
-					},
-				},
 			},
 		},
 	}
-	err := t.Client.Create(t.GetContext(), pr)
+
+	t.CreateF(pr)
+
+	resources := &porchapi.PackageRevisionResources{}
+	t.GetF(client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      pr.Name,
+	}, resources)
+
+	t.AddMutator(resources, t.gcrPrefix+"/kubeval:v0.2.0")
+
+	err := t.Client.Update(t.GetContext(), resources)
 	expectedErrMsg := "Validating arbitrary CRDs is not supported"
 	if err == nil || !strings.Contains(err.Error(), expectedErrMsg) {
 		t.Fatalf("expected the error to contain %q, but got %v", expectedErrMsg, err)
@@ -2309,17 +2238,14 @@ func (t *PorchSuite) TestFailedPodEvictionAndRecovery() {
 						Upstream: porchapi.UpstreamPackage{
 							Type: "git",
 							Git: &porchapi.GitPackage{
-								Repo:      "https://github.com/GoogleCloudPlatform/blueprints.git",
+								Repo:      t.gcpBlueprintsRepo,
 								Ref:       "bucket-blueprint-v0.4.3",
 								Directory: "catalog/bucket",
+								SecretRef: porchapi.SecretRef{
+									Name: t.CreateGcpPackageRevisionSecret("test-fn-pod-bucket"),
+								},
 							},
 						},
-					},
-				},
-				{
-					Type: "eval",
-					Eval: &porchapi.FunctionEvalTaskSpec{
-						Image: bogusFnImage,
 					},
 				},
 			},
@@ -2327,18 +2253,21 @@ func (t *PorchSuite) TestFailedPodEvictionAndRecovery() {
 	}
 
 	// Create the package revision
-	err := t.Client.Create(t.GetContext(), pr)
+	t.CreateF(pr)
+
+	prr := &porchapi.PackageRevisionResources{}
+	t.GetF(client.ObjectKeyFromObject(pr), prr)
+
+	t.AddMutator(prr, bogusFnImage)
+
+	err := t.Client.Update(t.GetContext(), prr)
 
 	// Assert: creation should fail, and the error should reflect evaluator pod failure
-	if err == nil || !strings.Contains(err.Error(), "failed to evaluate function") {
-		t.Fatalf("expected evaluator failure for broken image, but got: %v", err)
-	}
+	t.Require().ErrorContains(err, "Error occurred rendering package in kpt function pipeline")
 
 	// Optional: verify no stuck pods exist for the failed image
 	pods := &corev1.PodList{}
-	if err := t.Client.List(t.GetContext(), pods, client.InNamespace(t.Namespace)); err != nil {
-		t.Fatalf("failed to list pods: %v", err)
-	}
+	t.ListF(pods, client.InNamespace(t.Namespace))
 
 	for _, pod := range pods.Items {
 		if strings.Contains(pod.Spec.Containers[0].Image, "kpt-fn-broken") {
@@ -3099,7 +3028,7 @@ func (t *PorchSuite) TestPackageRevisionFieldSelectors() {
 	}
 
 	revNo := 1
-	revSelector := client.MatchingFields(fields.Set{"spec.revision": repository.Revision2Str(revNo)})
+	revSelector := client.MatchingFields(fields.Set{"spec.revision": strconv.Itoa(revNo)})
 	t.ListE(&prList, client.InNamespace(t.Namespace), revSelector)
 	if len(prList.Items) == 0 {
 		t.Errorf("Expected at least one PackageRevision with revision=%q, but got none", revNo)
@@ -3146,7 +3075,7 @@ func (t *PorchSuite) TestPackageRevisionFieldSelectors() {
 	}
 
 	// test combined selectors
-	combinedSelector := client.MatchingFields(fields.Set{"spec.revision": repository.Revision2Str(revNo), "spec.packageName": pkgName})
+	combinedSelector := client.MatchingFields(fields.Set{"spec.revision": strconv.Itoa(revNo), "spec.packageName": pkgName})
 	t.ListE(&prList, client.InNamespace(t.Namespace), combinedSelector)
 	if len(prList.Items) == 0 {
 		t.Errorf("Expected at least one PackageRevision with packageName=%q and revision=%q, but got none", pkgName, revNo)
@@ -3459,16 +3388,6 @@ func (t *PorchSuite) TestCreatePackageRevisionRollback() {
 								Repo:      "https://github.com/nephio-project/porch.git",
 								Ref:       "main",
 								Directory: "testdata/test-repo",
-							},
-						},
-					},
-				},
-				{
-					Type: porchapi.TaskTypePatch,
-					Patch: &porchapi.PackagePatchTaskSpec{
-						Patches: []porchapi.PatchSpec{
-							{
-								File: "invalid-file.yaml", // This will cause task application to fail
 							},
 						},
 					},

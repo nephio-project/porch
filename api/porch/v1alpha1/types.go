@@ -16,7 +16,6 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // PackageRevision
@@ -30,6 +29,10 @@ type PackageRevision struct {
 
 	Spec   PackageRevisionSpec   `json:"spec,omitempty"`
 	Status PackageRevisionStatus `json:"status,omitempty"`
+}
+
+func (pr *PackageRevision) IsPublished() bool {
+	return LifecycleIsPublished(pr.Spec.Lifecycle)
 }
 
 // Key and value of the latest package revision label:
@@ -164,22 +167,21 @@ type PackageRevisionStatus struct {
 type TaskType string
 
 const (
-	TaskTypeInit   TaskType = "init"
-	TaskTypeClone  TaskType = "clone"
-	TaskTypePatch  TaskType = "patch"
-	TaskTypeEdit   TaskType = "edit"
-	TaskTypeEval   TaskType = "eval"
-	TaskTypeUpdate TaskType = "update"
+	TaskTypeInit    TaskType = "init"
+	TaskTypeClone   TaskType = "clone"
+	TaskTypeEdit    TaskType = "edit"
+	TaskTypeUpgrade TaskType = "upgrade"
+	TaskTypeRender  TaskType = "render"
+	TaskTypePush    TaskType = "push"
+	TaskTypeNone    TaskType = ""
 )
 
 type Task struct {
-	Type   TaskType               `json:"type"`
-	Init   *PackageInitTaskSpec   `json:"init,omitempty"`
-	Clone  *PackageCloneTaskSpec  `json:"clone,omitempty"`
-	Patch  *PackagePatchTaskSpec  `json:"patch,omitempty"`
-	Edit   *PackageEditTaskSpec   `json:"edit,omitempty"`
-	Eval   *FunctionEvalTaskSpec  `json:"eval,omitempty"`
-	Update *PackageUpdateTaskSpec `json:"update,omitempty"`
+	Type    TaskType                `json:"type"`
+	Init    *PackageInitTaskSpec    `json:"init,omitempty"`
+	Clone   *PackageCloneTaskSpec   `json:"clone,omitempty"`
+	Edit    *PackageEditTaskSpec    `json:"edit,omitempty"`
+	Upgrade *PackageUpgradeTaskSpec `json:"upgrade,omitempty"`
 }
 
 type TaskResult struct {
@@ -226,9 +228,28 @@ type PackageCloneTaskSpec struct {
 
 type PackageMergeStrategy string
 
-type PackageUpdateTaskSpec struct {
-	// `Upstream` is the reference to the upstream package.
-	Upstream UpstreamPackage `json:"upstreamRef,omitempty"`
+type PackageUpgradeTaskSpec struct {
+	// `OldUpstream` is the reference to the original upstream package revision that is
+	// the common ancestor of the local package and the new upstream package revision.
+	OldUpstream PackageRevisionRef `json:"oldUpstreamRef,omitempty"`
+
+	// `NewUpstream` is the reference to the new upstream package revision that the
+	// local package will be upgraded to.
+	NewUpstream PackageRevisionRef `json:"newUpstreamRef,omitempty"`
+
+	// `LocalPackageRevisionRef` is the reference to the local package revision that
+	// contains all the local changes on top of the `OldUpstream` package revision.
+	LocalPackageRevisionRef PackageRevisionRef `json:"localPackageRevisionRef,omitempty"`
+
+	// 	Defines which strategy should be used to update the package. It defaults to 'resource-merge'.
+	//  * resource-merge: Perform a structural comparison of the original /
+	//    updated resources, and merge the changes into the local package.
+	//  * fast-forward: Fail without updating if the local package was modified
+	//    since it was fetched.
+	//  * force-delete-replace: Wipe all the local changes to the package and replace
+	//    it with the remote version.
+	//  * copy-merge: Copy all the remote changes to the local package.
+	Strategy PackageMergeStrategy `json:"strategy,omitempty"`
 }
 
 const (
@@ -237,11 +258,6 @@ const (
 	ForceDeleteReplace PackageMergeStrategy = "force-delete-replace"
 	CopyMerge          PackageMergeStrategy = "copy-merge"
 )
-
-type PackagePatchTaskSpec struct {
-	// Patches is a list of individual patch operations.
-	Patches []PatchSpec `json:"patches,omitempty"`
-}
 
 type PatchType string
 
@@ -319,27 +335,6 @@ type PackageRevisionRef struct {
 type RepositoryRef struct {
 	// Name of the Repository resource referenced.
 	Name string `json:"name"`
-}
-
-type FunctionEvalTaskSpec struct {
-	// `Subpackage` is a directory path to a subpackage in which to evaluate the function.
-	Subpackage string `json:"subpackage,omitempty"`
-	// `Image` specifies the function image, such as `gcr.io/kpt-fn/gatekeeper:v0.2`.
-	Image string `json:"image,omitempty"`
-	// `ConfigMap` specifies the function config (https://kpt.dev/reference/cli/fn/eval/). Mutually exclusive with Config.
-	ConfigMap map[string]string `json:"configMap,omitempty"`
-
-	// `Config` specifies the function config, arbitrary KRM resource. Mutually exclusive with ConfigMap.
-	Config runtime.RawExtension `json:"config,omitempty"`
-
-	// If enabled, meta resources (i.e. `Kptfile` and `functionConfig`) are included
-	// in the input to the function. By default it is disabled.
-	IncludeMetaResources bool `json:"includeMetaResources,omitempty"`
-	// `EnableNetwork` controls whether the function has access to network. Defaults to `false`.
-	EnableNetwork bool `json:"enableNetwork,omitempty"`
-	// Match specifies the selection criteria for the function evaluation.
-	// Corresponds to `kpt fn eval --match-???` flgs (https://kpt.dev/reference/cli/fn/eval/).
-	Match Selector `json:"match,omitempty"`
 }
 
 // Selector corresponds to the `--match-???` set of flags of the `kpt fn eval` command:

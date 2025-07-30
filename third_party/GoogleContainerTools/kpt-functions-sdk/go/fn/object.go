@@ -445,11 +445,16 @@ func NewFromTypedObject(v interface{}) (*KubeObject, error) {
 	return asKubeObject(m), nil
 }
 
-// String serializes the object in yaml format.
-func (o *SubObject) String() string {
+// Bytes serializes the object in yaml format.
+func (o *SubObject) Bytes() []byte {
 	doc := internal.NewDoc([]*yaml.Node{o.obj.Node()}...)
 	s, _ := doc.ToYAML()
-	return string(s)
+	return s
+}
+
+// String serializes the object in yaml format.
+func (o *SubObject) String() string {
+	return string(o.Bytes())
 }
 
 // ShortString provides a human readable information for the KubeObject Identifier in the form of GVKNN.
@@ -747,6 +752,11 @@ func (o *KubeObject) MoveToResourceNode() *yaml.RNode {
 	ynode := o.obj.Node()
 	o.SubObject = NewEmptyKubeObject().SubObject
 	return yaml.NewRNode(ynode)
+}
+
+// CopyToKubeObject makes a copy of the internal yaml nodes of the RNode into a new KubeObject.
+func CopyToKubeObject(rn *yaml.RNode) *KubeObject {
+	return rnodeToKubeObject(rn.Copy())
 }
 
 // MoveToKubeObject transfers the ownership of the internal yaml nodes of the RNode

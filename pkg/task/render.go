@@ -45,13 +45,6 @@ func (m *renderPackageMutation) apply(ctx context.Context, resources repository.
 
 	fs := filesys.MakeFsInMemory()
 	taskResult := &api.TaskResult{
-		Task: &api.Task{
-			Type: api.TaskTypeEval,
-			Eval: &api.FunctionEvalTaskSpec{
-				Image:     "render",
-				ConfigMap: nil,
-			},
-		},
 		RenderStatus: &api.RenderStatus{},
 	}
 	pkgPath, err := writeResources(fs, resources)

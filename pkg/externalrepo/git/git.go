@@ -64,23 +64,25 @@ const (
 	commitMessageEdit            = "Creating new revision by copying previous revision"
 	commitMessageInit            = "Creating new empty revision"
 	commitMessageClone           = "Creating new revision by cloning"
-	commitMessagePatch           = "Applying patch to package"
+	commitMessageUpgrade         = "Upgrading revision"
 	commitMessageApproveTemplate = "Approving package revision %s/%d"
 )
 
 // formatCommitMessage returns a human-readable commit message based on the change type
-func formatCommitMessage(changeType string) string {
+func formatCommitMessage(changeType v1alpha1.TaskType) string {
 	switch changeType {
-	case "eval":
-		return commitMessageRendering
-	case "edit":
-		return commitMessageEdit
-	case "init":
+	case v1alpha1.TaskTypeInit:
 		return commitMessageInit
-	case "clone":
+	case v1alpha1.TaskTypeRender:
+		return commitMessageRendering
+	case v1alpha1.TaskTypeEdit:
+		return commitMessageEdit
+	case v1alpha1.TaskTypeClone:
 		return commitMessageClone
-	case "patch":
-		return commitMessagePatch
+	case v1alpha1.TaskTypeUpgrade:
+		return commitMessageUpgrade
+	case v1alpha1.TaskTypeNone:
+		return "Intermediate commit"
 	default:
 		return fmt.Sprintf("Intermediate commit: %s", changeType)
 	}
@@ -156,7 +158,7 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 
 		r, err := openRepository(dir)
 		if err != nil {
-			return nil, pkgerrors.Wrapf(err, "error cloning git repository %+v, open of repository failed in gogit", spec.Repo)
+			return nil, pkgerrors.Wrapf(err, "error cloning git repository %+v, open of repository failed in gogit (check the local git cache)", spec.Repo)
 		}
 
 		repo = r
@@ -1264,8 +1266,8 @@ func (r *gitRepository) loadTasks(_ context.Context, startCommit *object.Commit,
 				// reverse order.
 				// The entire `tasks` slice will get reversed later, which will give us the
 				// tasks in chronological order.
-				if gitAnnotation.Task != nil {
-					tasks = append(tasks, *gitAnnotation.Task)
+				if gitAnnotation.Task != nil && v1alpha1.IsValidFirstTaskType(gitAnnotation.Task.Type) {
+					tasks = []v1alpha1.Task{*gitAnnotation.Task}
 				}
 
 				if gitAnnotation.Task != nil && (gitAnnotation.Task.Type == v1alpha1.TaskTypeClone || gitAnnotation.Task.Type == v1alpha1.TaskTypeInit) {
@@ -1484,10 +1486,15 @@ func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPack
 		Revision:      repository.Revision2Str(draft.Key().Revision),
 		Task:          change,
 	}
-	message := formatCommitMessage("")
+	message := formatCommitMessage(v1alpha1.TaskTypeNone)
 	if change != nil {
-		message = formatCommitMessage(string(change.Type))
-		draft.tasks = append(draft.tasks, *change)
+		message = formatCommitMessage(change.Type)
+		if v1alpha1.IsValidFirstTaskType(change.Type) {
+			if len(draft.tasks) > 0 {
+				klog.Warningf("Replacing first task of %q", draft.Key())
+			}
+			draft.tasks = []v1alpha1.Task{*change}
+		}
 	}
 	message += "\n"
 

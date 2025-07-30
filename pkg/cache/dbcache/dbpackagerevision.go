@@ -390,8 +390,11 @@ func (pr *dbPackageRevision) UpdateResources(ctx context.Context, new *porchapi.
 
 	pr.resources = new.Spec.Resources
 
-	if change != nil {
-		pr.tasks = append(pr.tasks, *change)
+	if change != nil && porchapi.IsValidFirstTaskType(change.Type) {
+		if len(pr.tasks) > 0 {
+			klog.Warningf("Replacing first task of %q", pr.Key())
+		}
+		pr.tasks = []porchapi.Task{*change}
 	}
 
 	return nil
