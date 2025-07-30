@@ -42,7 +42,7 @@ func setNamespace(rl *framework.ResourceList) error {
 
 	for _, n := range rl.Items {
 		if err := n.SetNamespace(namespace); err != nil {
-			return err
+			return fmt.Errorf("failed to set namespace on resource: %w", err)
 		}
 	}
 

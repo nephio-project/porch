@@ -140,16 +140,16 @@ func (amc *AddMergeComment) Filter(object *kyaml.RNode) (*kyaml.RNode, error) {
 func ProcessWithCleanup(path string) (string, func(), error) {
 	expected, err := os.MkdirTemp("", "")
 	if err != nil {
-		return "", nil, err
+		return "", nil, fmt.Errorf("failed to create temporary directory: %w", err)
 	}
 	err = copyutil.CopyDir(filesys.FileSystemOrOnDisk{}, path, expected)
 	if err != nil {
-		return "", nil, err
+		return "", nil, fmt.Errorf("failed to copy directory from %s to %s: %w", path, expected, err)
 	}
 
 	err = Process(expected)
 	if err != nil {
-		return "", nil, err
+		return "", nil, fmt.Errorf("failed to process directory %s: %w", expected, err)
 	}
 
 	clean := func() {

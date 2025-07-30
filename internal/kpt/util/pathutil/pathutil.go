@@ -15,6 +15,7 @@
 package pathutil
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -23,7 +24,7 @@ import (
 func ResolveAbsAndRelPaths(path string) (string, string, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("failed to get current working directory: %w", err)
 	}
 
 	var relPath string
@@ -33,7 +34,7 @@ func ResolveAbsAndRelPaths(path string) (string, string, error) {
 		// comparing it to the current working directory.
 		relPath, err = filepath.Rel(cwd, path)
 		if err != nil {
-			return "", "", err
+			return "", "", fmt.Errorf("failed to resolve relative path from %s to %s: %w", cwd, path, err)
 		}
 		absPath = filepath.Clean(path)
 	} else {

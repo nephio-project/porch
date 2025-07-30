@@ -16,6 +16,7 @@
 package types
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -38,7 +39,7 @@ func (u UniquePath) Empty() bool {
 func (u UniquePath) RelativePath() (string, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to get current working directory: %w", err)
 	}
 	rPath, err := filepath.Rel(cwd, string(u))
 	if err != nil {

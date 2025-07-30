@@ -196,11 +196,11 @@ func createCerts(cfg *WebhookConfig) ([]byte, error) {
 
 	privateKey, err := rsa.GenerateKey(cryptorand.Reader, 4096)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to generate RSA private key: %w", err)
 	}
 	caBytes, err := x509.CreateCertificate(cryptorand.Reader, ca, ca, &privateKey.PublicKey, privateKey)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create CA certificate: %w", err)
 	}
 	caPEM = new(bytes.Buffer)
 	_ = pem.Encode(caPEM, &pem.Block{
@@ -225,11 +225,11 @@ func createCerts(cfg *WebhookConfig) ([]byte, error) {
 
 	serverPrivateKey, err := rsa.GenerateKey(cryptorand.Reader, 4096)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to generate server RSA private key: %w", err)
 	}
 	serverCertBytes, err := x509.CreateCertificate(cryptorand.Reader, cert, ca, &serverPrivateKey.PublicKey, privateKey)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create server certificate: %w", err)
 	}
 	serverCertPEM = new(bytes.Buffer)
 	_ = pem.Encode(serverCertPEM, &pem.Block{
@@ -244,15 +244,15 @@ func createCerts(cfg *WebhookConfig) ([]byte, error) {
 
 	err = os.MkdirAll(cfg.CertStorageDir, 0750)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create certificate storage directory %s: %w", cfg.CertStorageDir, err)
 	}
 	err = WriteFile(filepath.Join(cfg.CertStorageDir, "tls.crt"), serverCertPEM.Bytes())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to write TLS certificate file: %w", err)
 	}
 	err = WriteFile(filepath.Join(cfg.CertStorageDir, "tls.key"), serverPrivateKeyPEM.Bytes())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to write TLS key file: %w", err)
 	}
 
 	return caPEM.Bytes(), nil
@@ -262,13 +262,13 @@ func createCerts(cfg *WebhookConfig) ([]byte, error) {
 func WriteFile(filepath string, c []byte) error {
 	f, err := os.Create(filepath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create file %s: %w", filepath, err)
 	}
 	defer f.Close()
 
 	_, err = f.Write(c)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to write data to file %s: %w", filepath, err)
 	}
 	return nil
 }
@@ -333,7 +333,7 @@ func createValidatingWebhook(ctx context.Context, cfg *WebhookConfig, caCert []b
 	if _, err := kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(ctx, validateConfig,
 		metav1.CreateOptions{}); err != nil {
 		klog.Infof("failed to create validating webhook for package revision deletion: %s\n", err.Error())
-		return err
+		return fmt.Errorf("failed to create validating webhook configuration: %w", err)
 	}
 
 	return nil
@@ -343,12 +343,12 @@ func createValidatingWebhook(ctx context.Context, cfg *WebhookConfig, caCert []b
 func loadCertificate(certPath, keyPath string) (tls.Certificate, error) {
 	certInfo, err := os.Stat(certPath)
 	if err != nil {
-		return tls.Certificate{}, err
+		return tls.Certificate{}, fmt.Errorf("failed to stat certificate file %s: %w", certPath, err)
 	}
 	if certInfo.ModTime().After(certModTime) {
 		newCert, err := tls.LoadX509KeyPair(certPath, keyPath)
 		if err != nil {
-			return tls.Certificate{}, err
+			return tls.Certificate{}, fmt.Errorf("failed to load X509 key pair from %s and %s: %w", certPath, keyPath, err)
 		}
 		cert = newCert
 		certModTime = certInfo.ModTime()
@@ -413,7 +413,7 @@ func runWebhookServer(ctx context.Context, cfg *WebhookConfig) error {
 	_, err := loadCertificate(certFile, keyFile)
 	if err != nil {
 		klog.Errorf("failed to load certificate: %v", err)
-		return err
+		return fmt.Errorf("failed to load initial certificate: %w", err)
 	}
 	if cfg.CertManWebhook {
 		go watchCertificates(ctx, cfg.CertStorageDir, certFile, keyFile)
@@ -424,7 +424,7 @@ func runWebhookServer(ctx context.Context, cfg *WebhookConfig) error {
 		Addr: fmt.Sprintf(":%d", cfg.Port),
 		TLSConfig: &tls.Config{
 			GetCertificate: getCertificate,
-			MinVersion: tls.VersionTLS12,
+			MinVersion:     tls.VersionTLS12,
 		},
 		ReadHeaderTimeout: 10 * time.Second,
 	}
@@ -435,7 +435,6 @@ func runWebhookServer(ctx context.Context, cfg *WebhookConfig) error {
 		}
 	}()
 	return err
-
 }
 
 func validateDeletion(w http.ResponseWriter, r *http.Request) {
@@ -511,13 +510,13 @@ func decodeAdmissionReview(r *http.Request) (*admissionv1.AdmissionReview, error
 		var err error
 		requestData, err = io.ReadAll(r.Body)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to read request body: %w", err)
 		}
 	}
 	admissionReviewRequest := &admissionv1.AdmissionReview{}
 	deserializer := serializer.NewCodecFactory(runtime.NewScheme()).UniversalDeserializer()
 	if _, _, err := deserializer.Decode(requestData, nil, admissionReviewRequest); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode admission review request: %w", err)
 	}
 	if admissionReviewRequest.Request == nil {
 		return nil, fmt.Errorf("admission review request is empty")
@@ -543,12 +542,12 @@ func createPorchClient() (client.Client, error) {
 	cfg, err := config.GetConfig()
 	if err != nil {
 		klog.Errorf("could not get config: %s", err.Error())
-		return nil, err
+		return nil, fmt.Errorf("failed to get kubernetes config: %w", err)
 	}
 	porchClient, err := porch.CreateClient(cfg)
 	if err != nil {
 		klog.Errorf("could not get porch client: %s", err.Error())
-		return nil, err
+		return nil, fmt.Errorf("failed to create porch client: %w", err)
 	}
 	return porchClient, nil
 }

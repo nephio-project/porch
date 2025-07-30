@@ -124,12 +124,12 @@ func (e *singleFunctionEvaluator) EvaluateFunction(ctx context.Context, req *pb.
 			rl, pe := fn.ParseResourceList(outbytes)
 			if pe != nil {
 				// If we can't parse the output resource list, we only surface the content in stderr.
-				return nil, status.Errorf(codes.Internal, "failed to parse the output of function %q with stderr '%v': %+v", req.Image, stderrStr, pe)
+				return nil, fmt.Errorf("failed to parse the output of function %q with stderr '%v': %w", req.Image, stderrStr, status.Errorf(codes.Internal, "failed to parse the output of function %q with stderr '%v': %+v", req.Image, stderrStr, pe))
 			}
 
-			return nil, status.Errorf(codes.Internal, "failed to evaluate function %q with structured results: %v and stderr: %v", req.Image, rl.Results.Error(), stderrStr)
+			return nil, fmt.Errorf("failed to evaluate function %q with structured results: %v and stderr: %v: %w", req.Image, rl.Results.Error(), stderrStr, status.Errorf(codes.Internal, "failed to evaluate function %q with structured results: %v and stderr: %v", req.Image, rl.Results.Error(), stderrStr))
 		} else {
-			return nil, status.Errorf(codes.Internal, "Failed to execute function %q: %s (%s)", req.Image, err, stderrStr)
+			return nil, fmt.Errorf("Failed to execute function %q: %s (%s): %w", req.Image, err, stderrStr, status.Errorf(codes.Internal, "Failed to execute function %q: %s (%s)", req.Image, err, stderrStr))
 		}
 	}
 

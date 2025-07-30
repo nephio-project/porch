@@ -142,7 +142,7 @@ metadata:
 data: {}
 `)
 	if err := configMap.PipeE(yaml.SetField("data", node)); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to set data field in config map: %w", err)
 	}
 	return configMap, nil
 }

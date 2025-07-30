@@ -15,6 +15,8 @@
 package cfgflags
 
 import (
+	"fmt"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/discovery"
@@ -30,7 +32,7 @@ type UserAgentKubeConfigFlags struct {
 func (u *UserAgentKubeConfigFlags) ToRESTConfig() (*rest.Config, error) {
 	clientConfig, err := u.Delegate.ToRESTConfig()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get REST config from delegate: %w", err)
 	}
 	if u.UserAgent != "" {
 		clientConfig.UserAgent = u.UserAgent
@@ -39,11 +41,19 @@ func (u *UserAgentKubeConfigFlags) ToRESTConfig() (*rest.Config, error) {
 }
 
 func (u *UserAgentKubeConfigFlags) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
-	return u.Delegate.ToDiscoveryClient()
+	client, err := u.Delegate.ToDiscoveryClient()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get discovery client from delegate: %w", err)
+	}
+	return client, nil
 }
 
 func (u *UserAgentKubeConfigFlags) ToRESTMapper() (meta.RESTMapper, error) {
-	return u.Delegate.ToRESTMapper()
+	mapper, err := u.Delegate.ToRESTMapper()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get REST mapper from delegate: %w", err)
+	}
+	return mapper, nil
 }
 
 func (u *UserAgentKubeConfigFlags) ToRawKubeConfigLoader() clientcmd.ClientConfig {

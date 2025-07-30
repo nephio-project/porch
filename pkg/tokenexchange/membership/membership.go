@@ -17,6 +17,7 @@ package membership
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -52,16 +53,16 @@ type MembershipOwner struct {
 func Get(ctx context.Context, client dynamic.Interface) (*Membership, error) {
 	cr, err := client.Resource(gvr).Get(ctx, "membership", metav1.GetOptions{})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get membership resource: %w", err)
 	}
 	// round-trip through JSON is a convenient way to get at structured content
 	b, err := cr.MarshalJSON()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to marshal membership resource to JSON: %w", err)
 	}
 	membership := &Membership{}
 	if err := json.Unmarshal(b, membership); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal membership JSON: %w", err)
 	}
 	return membership, nil
 }

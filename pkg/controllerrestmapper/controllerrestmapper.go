@@ -28,7 +28,7 @@ import (
 func New(cfg *rest.Config, httpClient *http.Client) (meta.RESTMapper, error) {
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(cfg)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create discovery client: %w", err)
 	}
 
 	return &ControllerRESTMapper{

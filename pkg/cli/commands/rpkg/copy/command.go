@@ -122,7 +122,7 @@ func (r *runner) getPackageRevisionSpec() (*porchapi.PackageRevisionSpec, error)
 		Namespace: *r.cfg.Namespace,
 	}, &packageRevision)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get package revision %s: %w", r.copy.Source.Name, err)
 	}
 
 	if r.workspace == "" {

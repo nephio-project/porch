@@ -95,7 +95,7 @@ func SchemaToMetaGVR(gvr schema.GroupVersionResource) metav1.GroupVersionResourc
 
 func ValidateK8SName(k8sName string) error {
 	if k8sNameErrs := validation.IsDNS1123Label(k8sName); k8sNameErrs != nil {
-		return errors.New(strings.Join(k8sNameErrs, ","))
+		return fmt.Errorf("invalid k8s name %q: %s", k8sName, strings.Join(k8sNameErrs, ","))
 	}
 
 	return nil
@@ -118,7 +118,7 @@ func ValidateDirectoryName(directory string, mandatory bool) error {
 	if dirErrs == nil {
 		return nil
 	} else {
-		return errors.New(strings.Join(dirErrs, ","))
+		return fmt.Errorf("invalid directory name %q: %s", directory, strings.Join(dirErrs, ","))
 	}
 }
 
@@ -143,7 +143,7 @@ func ValidateRepository(repoName, directory string) error {
 		dirErrString = "directory name " + directory + invalidConst + dirErr.Error() + "\n"
 	}
 
-	return errors.New(repoErrString + dirErrString)
+	return fmt.Errorf("repository validation failed: %s%s", repoErrString, dirErrString)
 }
 
 func ComposePkgObjName(repoName, path, packageName string) string {

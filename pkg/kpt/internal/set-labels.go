@@ -16,6 +16,7 @@ package internal
 
 import (
 	"errors"
+	"fmt"
 
 	"sigs.k8s.io/kustomize/kyaml/fn/framework"
 	kyaml "sigs.k8s.io/kustomize/kyaml/yaml"
@@ -39,7 +40,7 @@ func setLabels(rl *framework.ResourceList) error {
 			l[k] = v
 		}
 		if err := n.SetLabels(l); err != nil {
-			return err
+			return fmt.Errorf("failed to set labels on resource: %w", err)
 		}
 	}
 

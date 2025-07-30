@@ -16,6 +16,7 @@ package healthchecker
 
 import (
 	"context"
+	"fmt"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -42,12 +43,16 @@ func (s *HealthChecker) Check(ctx context.Context, req *grpc_health_v1.HealthChe
 func (s *HealthChecker) Watch(req *grpc_health_v1.HealthCheckRequest, server grpc_health_v1.Health_WatchServer) error {
 	// Only logs if log-level is 3 or higher
 	klog.V(3).Info("Serving the Watch request for health check")
-	return server.Send(&grpc_health_v1.HealthCheckResponse{
+	err := server.Send(&grpc_health_v1.HealthCheckResponse{
 		Status: grpc_health_v1.HealthCheckResponse_SERVING,
 	})
+	if err != nil {
+		return fmt.Errorf("failed to send health check response: %w", err)
+	}
+	return nil
 }
 
 func (h *HealthChecker) List(ctx context.Context, req *grpc_health_v1.HealthListRequest) (*grpc_health_v1.HealthListResponse, error) {
 	// Return UNIMPLEMENTED if you don't actually support List
-	return nil, status.Errorf(codes.Unimplemented, "List is not implemented")
+	return nil, fmt.Errorf("List is not implemented: %w", status.Errorf(codes.Unimplemented, "List is not implemented"))
 }
