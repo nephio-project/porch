@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"maps"
 	"strings"
 	"time"
 
@@ -37,9 +38,6 @@ import (
 var (
 	_ repository.PackageRevision      = &dbPackageRevision{}
 	_ repository.PackageRevisionDraft = &dbPackageRevision{}
-
-	repositoryGVK      = porchapi.SchemeGroupVersion.WithKind("Repository")
-	packageRevisionGVK = porchapi.SchemeGroupVersion.WithKind("PackageRevision")
 )
 
 type dbPackageRevision struct {
@@ -112,15 +110,9 @@ func (pr *dbPackageRevision) UpdateLifecycle(ctx context.Context, newLifecycle p
 	defer span.End()
 
 	if pr.lifecycle == porchapi.PackageRevisionLifecycleProposed && newLifecycle == porchapi.PackageRevisionLifecyclePublished {
-		latestRev, err := pkgRevGetlatestRevFromDB(ctx, pr.Key().PkgKey)
-		if err != nil {
-			return err
-		}
-
-		pr.pkgRevKey.Revision = latestRev + 1
-		if err := pr.publishToExternalRepo(ctx, newLifecycle); err != nil {
+		if err := pr.publishPR(ctx, newLifecycle); err != nil {
 			pr.pkgRevKey.Revision = 0
-			return err
+			return pkgerrors.Wrapf(err, "dbPackageRevision:UpdateLifecycle: could not publish package revision %+v", pr.Key())
 		}
 	} else if porchapi.LifecycleIsPublished(pr.lifecycle) {
 		return pr.updateLifecycleOnPublishedPR(ctx, newLifecycle)
@@ -137,9 +129,14 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 	_, span := tracer.Start(ctx, "dbPackageRevision::GetPackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	readPr, err := pkgRevReadFromDB(ctx, pr.Key(), false)
+	readPR, err := pkgRevReadFromDB(ctx, pr.Key(), false)
 	if err != nil {
-		return nil, fmt.Errorf("package revision read on DB failed %+v, %q", pr.Key(), err)
+		if pr.GetMeta().DeletionTimestamp != nil {
+			// The PR is already deleted from the DB so we just return the metadata version of this PR that is just about to be removed from memory
+			readPR = pr
+		} else {
+			return nil, fmt.Errorf("package revision read on DB failed %+v, %q", pr.Key(), err)
+		}
 	}
 
 	_, lock, _ := pr.GetUpstreamLock(ctx)
@@ -161,7 +158,7 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 		}
 	}
 
-	kf, _ := readPr.GetKptfile(ctx)
+	kf, _ := readPR.GetKptfile(ctx)
 
 	status := porchapi.PackageRevisionStatus{
 		UpstreamLock: lockCopy,
@@ -169,24 +166,22 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 		Conditions:   repository.ToApiConditions(kf),
 	}
 
-	if porchapi.LifecycleIsPublished(readPr.Lifecycle(ctx)) {
-		if !readPr.updated.IsZero() {
-			status.PublishedAt = metav1.Time{Time: readPr.updated}
+	if porchapi.LifecycleIsPublished(readPR.Lifecycle(ctx)) {
+		if !readPR.updated.IsZero() {
+			status.PublishedAt = metav1.Time{Time: readPR.updated}
 		}
-		if readPr.updatedBy != "" {
-			status.PublishedBy = readPr.updatedBy
+		if readPR.updatedBy != "" {
+			status.PublishedBy = readPR.updatedBy
 		}
 	}
 
 	// Set the "latest" label
 	labels := pr.GetMeta().Labels
 
-	if pr.latest {
+	if readPR.latest {
 		// copy the labels in case the cached object is being read by another go routine
 		newLabels := make(map[string]string, len(labels))
-		for k, v := range labels {
-			newLabels[k] = v
-		}
+		maps.Copy(newLabels, labels)
 		newLabels[porchapi.LatestPackageRevisionKey] = porchapi.LatestPackageRevisionValue
 		labels = newLabels
 	}
@@ -197,31 +192,25 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            readPr.KubeObjectName(),
-			Namespace:       readPr.Key().RKey().Namespace,
-			UID:             readPr.UID(),
-			ResourceVersion: readPr.ResourceVersion(),
-			CreationTimestamp: metav1.Time{
-				Time: readPr.updated,
-			},
-			Labels: labels,
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: repositoryGVK.GroupVersion().String(),
-					Kind:       repositoryGVK.Kind,
-					Name:       pr.repo.repoKey.K8SName(),
-					UID:        pr.repo.UID(),
-				},
-			},
+			Name:              readPR.KubeObjectName(),
+			Namespace:         readPR.Key().RKey().Namespace,
+			UID:               readPR.UID(),
+			ResourceVersion:   readPR.ResourceVersion(),
+			CreationTimestamp: readPR.GetMeta().CreationTimestamp,
+			DeletionTimestamp: readPR.GetMeta().DeletionTimestamp,
+			Labels:            labels,
+			OwnerReferences:   readPR.GetMeta().OwnerReferences,
+			Annotations:       readPR.GetMeta().Annotations,
+			Finalizers:        readPR.GetMeta().Finalizers,
 		},
 		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    readPr.Key().PKey().Package,
-			RepositoryName: readPr.Key().RKey().Name,
-			Lifecycle:      readPr.Lifecycle(ctx),
-			Tasks:          readPr.tasks,
+			PackageName:    readPR.Key().PKey().ToPkgPathname(),
+			RepositoryName: readPR.Key().RKey().Name,
+			Lifecycle:      readPR.Lifecycle(ctx),
+			Tasks:          readPR.tasks,
 			ReadinessGates: repository.ToApiReadinessGates(kf),
-			WorkspaceName:  readPr.Key().WorkspaceName,
-			Revision:       readPr.Key().Revision,
+			WorkspaceName:  readPR.Key().WorkspaceName,
+			Revision:       readPR.Key().Revision,
 		},
 		Status: status,
 	}, nil
@@ -252,14 +241,6 @@ func (pr *dbPackageRevision) GetResources(ctx context.Context) (*porchapi.Packag
 			CreationTimestamp: metav1.Time{
 				Time: pr.updated,
 			},
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: packageRevisionGVK.GroupVersion().String(),
-					Kind:       packageRevisionGVK.Kind,
-					Name:       pr.Key().K8SName(),
-					UID:        pr.UID(),
-				},
-			},
 		},
 		Spec: porchapi.PackageRevisionResourcesSpec{
 			PackageName:    pr.Key().PKey().Package,
@@ -285,14 +266,37 @@ func (pr *dbPackageRevision) GetUpstreamLock(ctx context.Context) (kptfile.Upstr
 }
 
 func (pr *dbPackageRevision) ToMainPackageRevision(ctx context.Context) repository.PackageRevision {
-	_, span := tracer.Start(ctx, "dbPackageRevision::SetMeta", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "dbPackageRevision::ToMainPackageRevision", trace.WithAttributes())
 	defer span.End()
-	klog.V(5).Infof("ToMainPackageRevision: %+v, main package revisions are only generated on external repos", pr.Key().PKey())
-	return nil
+
+	mainPR := &dbPackageRevision{
+		repo: pr.repo,
+		pkgRevKey: repository.PackageRevisionKey{
+			PkgKey:        pr.Key().PKey(),
+			Revision:      -1,
+			WorkspaceName: pr.Key().RKey().PlaceholderWSname,
+		},
+		meta:      metav1.ObjectMeta{},
+		spec:      &porchapi.PackageRevisionSpec{},
+		updated:   time.Now(),
+		updatedBy: getCurrentUser(),
+		lifecycle: pr.lifecycle,
+		latest:    false,
+		tasks:     pr.tasks,
+		resources: pr.resources,
+	}
+
+	if mainPR.pkgRevKey.WorkspaceName == "" {
+		mainPR.pkgRevKey.WorkspaceName = "main"
+	}
+
+	klog.V(5).Infof("ToMainPackageRevision: %+v, main package revision generated", mainPR.Key())
+
+	return mainPR
 }
 
 func (pr *dbPackageRevision) GetMeta() metav1.ObjectMeta {
-	return metav1.ObjectMeta{}
+	return pr.meta
 }
 
 func (pr *dbPackageRevision) SetMeta(ctx context.Context, meta metav1.ObjectMeta) error {
@@ -393,15 +397,33 @@ func (pr *dbPackageRevision) UpdateResources(ctx context.Context, new *porchapi.
 	return nil
 }
 
-func (pr *dbPackageRevision) publishToExternalRepo(ctx context.Context, newLifecycle porchapi.PackageRevisionLifecycle) error {
+func (pr *dbPackageRevision) publishPR(ctx context.Context, newLifecycle porchapi.PackageRevisionLifecycle) error {
 	_, span := tracer.Start(ctx, "dbPackageRevision::publishToExternalRepo", trace.WithAttributes())
 	defer span.End()
 
+	latestRev, err := pkgRevGetlatestRevFromDB(ctx, pr.Key().PkgKey)
+	if err != nil {
+		return pkgerrors.Wrapf(err, "dbPackageRevision:publishPR: could not get latest package revision for package revision %+v from DB", pr.Key())
+	}
+
+	pr.pkgRevKey.Revision = latestRev + 1
 	pr.lifecycle = newLifecycle
+
 	if err := engine.PushPackageRevision(ctx, pr.repo.externalRepo, pr); err != nil {
 		klog.Warningf("push of package revision %+v to external repo failed, %q", pr.Key(), err)
+		pr.pkgRevKey.Revision = 0
 		pr.lifecycle = porchapi.PackageRevisionLifecycleProposed
-		return err
+		return pkgerrors.Wrapf(err, "dbPackageRevision:publishPR: push of package revision %+v to external repo failed", pr.Key())
+	}
+
+	if pr.pkgRevKey.Revision == 1 {
+		if err = pkgRevWriteToDB(ctx, pr.ToMainPackageRevision(ctx).(*dbPackageRevision)); err != nil {
+			return pkgerrors.Wrapf(err, "dbPackageRevision:UpdateLifecycle: could not write placeholder package revision for package revision %+v to DB", pr.Key())
+		}
+	} else if pr.pkgRevKey.Revision > 1 {
+		if err = pkgRevUpdateDB(ctx, pr.ToMainPackageRevision(ctx).(*dbPackageRevision), true); err != nil {
+			return pkgerrors.Wrapf(err, "dbPackageRevision:UpdateLifecycle: could not update placeholder package revision for package revision %+v to DB", pr.Key())
+		}
 	}
 
 	return nil

@@ -20,6 +20,7 @@ git_repo_server=""
 git_repo_count=0
 package_count=0
 package_revision_count=0
+parallelism=1
 result_file=load_test_results.txt
 repo_result_file=load_test_repo_results.csv
 log_file=load_test.log
@@ -42,45 +43,33 @@ usage()
     echo "         -o repo-result-file       - the file where the results by reop will be stored, defaults to $repo_result_file"
     echo "         -l log-file               - the file where the test log will be stored, defaults to $log_file"
     echo "         -y                        - dirty mode, do not clean up after tests"
+    echo "         -t parallelism            - number of parallel package creation threads per repo, defaults to 1"
     echo ""
     exit 255;
 }
 
-while getopts "hs:r:p:e:f:o:l:y" opt
+while getopts "hs:r:p:e:f:o:l:yt:" opt
 do
     case $opt in
-    h)
-        usage
-        ;;
-    s)
-        git_repo_server=$OPTARG
-        ;;
-    r)
-        git_repo_count=$OPTARG
-        ;;
-    p)
-        package_count=$OPTARG
-        ;;
-    e)
-        package_revision_count=$OPTARG
-       ;;
-    f)
-        result_file=$OPTARG
-       ;;
-    o)
-        repo_result_file=$OPTARG
-        ;;
-    l)
-        log_file=$OPTARG
-       ;;
-    y)
-        dirty_mode=true
-       ;;
-    \?)
-        usage
-       ;;
+    h) usage ;;
+    s) git_repo_server=$OPTARG ;;
+    r) git_repo_count=$OPTARG ;;
+    p) package_count=$OPTARG ;;
+    e) package_revision_count=$OPTARG ;;
+    f) result_file=$OPTARG ;;
+    o) repo_result_file=$OPTARG ;;
+    l) log_file=$OPTARG ;;
+    y) dirty_mode=true ;;
+    t) parallelism=$OPTARG ;;
+    \?) usage ;;
     esac
 done
+
+if [[ "$parallelism" -lt 1 ]]
+then
+    echo "parallelism must be a positive integer on the -t flag"
+    exit 1
+fi
 
 if [[ -z "$git_repo_server" ]]
 then
@@ -124,6 +113,7 @@ then
     exit 1
 fi
 
+echo "  up to $parallelism packages will be created in parallel per repo" 
 echo "running load test towards git server http://nephio:secret@$git_repo_server:3000/nephio/" 
 echo "  $git_repo_count repos will be created"
 echo "  $package_count packages in each repo"
@@ -244,6 +234,12 @@ create_package_revision() {
         rm -fr "$TMP_DIR"
     fi
 }
+wait_for_jobs() {
+    local max_jobs=$1
+    while (( $(jobs -rp | wc -l) >= max_jobs )); do
+        sleep 0.1
+    done
+}
 
 create_package () {
     start_prv1=$EPOCHREALTIME
@@ -313,13 +309,23 @@ spec:
         secretRef:
             name: gitea
 EOF
-    
+
     echo "created repo $git_repo_name"
 
+    # Run create_package in parallel based on $parallelism if it is greater than 1
+    running_jobs=0
     for j in $(seq 1 "$package_count")
     do 
-        create_package "$git_repo_name" "$j" >> "$log_file" 2>&1
+        create_package "$git_repo_name" "$j" >> "$log_file" 2>&1 &
+
+        ((running_jobs+=1))
+        if (( running_jobs >= parallelism )); then
+            wait -n  # wait for any background job to finish before starting a new one
+            ((running_jobs-=1))
+        fi
     done
+
+    wait  # wait for all background jobs to complete
 }
 
 create_namespace_secret() {

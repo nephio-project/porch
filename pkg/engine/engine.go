@@ -346,12 +346,14 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version int, re
 
 func (cad *cadEngine) updatePkgRevMeta(ctx context.Context, repoPkgRev repository.PackageRevision, apiPkgRev *api.PackageRevision) error {
 	pkgRevMeta := metav1.ObjectMeta{
-		Name:            repoPkgRev.KubeObjectName(),
-		Namespace:       repoPkgRev.KubeObjectNamespace(),
-		Labels:          apiPkgRev.Labels,
-		Annotations:     apiPkgRev.Annotations,
-		Finalizers:      apiPkgRev.Finalizers,
-		OwnerReferences: apiPkgRev.OwnerReferences,
+		Name:              repoPkgRev.KubeObjectName(),
+		Namespace:         repoPkgRev.KubeObjectNamespace(),
+		Labels:            apiPkgRev.Labels,
+		Annotations:       apiPkgRev.Annotations,
+		Finalizers:        apiPkgRev.Finalizers,
+		OwnerReferences:   apiPkgRev.OwnerReferences,
+		CreationTimestamp: apiPkgRev.GetCreationTimestamp(),
+		DeletionTimestamp: apiPkgRev.DeletionTimestamp,
 	}
 	return repoPkgRev.SetMeta(ctx, pkgRevMeta)
 }

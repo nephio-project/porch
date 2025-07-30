@@ -50,7 +50,7 @@ commands:
       - --name=empty
       - --revision=1
       - --output=jsonpath={.metadata.name}
-    stdout: test-blueprints.empty.v1
+    stdout: "test-blueprints.empty.v1\n"
   - args:
       - porchctl
       - rpkg

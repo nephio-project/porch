@@ -25,6 +25,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -157,6 +158,8 @@ func (s *CliTestSuite) RunTestCase(t *testing.T, tc TestCaseConfig) {
 
 		if command.Yaml {
 			reorderYamlStdout(t, &stdout)
+		} else {
+			reorderCommandStdout(t, &stdout)
 		}
 
 		cleanupStderr(t, &stderr)
@@ -343,6 +346,40 @@ func reorderYamlStdout(t *testing.T, buf *bytes.Buffer) {
 	buf.Reset()
 	if _, err := buf.Write(stable.Bytes()); err != nil {
 		t.Fatalf("Failed to update reordered yaml output: %v", err)
+	}
+}
+func reorderCommandStdout(t *testing.T, buf *bytes.Buffer) {
+	if buf.Len() == 0 {
+		return
+	}
+
+	scanner := bufio.NewScanner(buf)
+	var newBuf bytes.Buffer
+	var headerLine string
+	var bodyLines []string
+
+	if scanner.Scan() {
+		headerLine = scanner.Text()
+	} else {
+		return
+	}
+
+	for scanner.Scan() {
+		bodyLines = append(bodyLines, scanner.Text())
+	}
+	sort.Strings(bodyLines)
+
+	newBuf.Write([]byte(headerLine))
+	newBuf.Write([]byte("\n"))
+
+	for i := range bodyLines {
+		newBuf.Write([]byte(bodyLines[i]))
+		newBuf.Write([]byte("\n"))
+	}
+
+	buf.Reset()
+	if _, err := buf.Write(newBuf.Bytes()); err != nil {
+		t.Fatalf("Failed to update reordered command output: %v", err)
 	}
 }
 
