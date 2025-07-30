@@ -72,8 +72,8 @@ func (r *runner) findUpstreamUpdates(prs []porchapi.PackageRevision, repositorie
 			upstreamUpdates = append(upstreamUpdates, []string{pr.Name, upstreamName, "No update available"})
 		} else {
 			var revisions []string
-			for i := range availableUpdates {
-				revisions = append(revisions, repository.Revision2Str(availableUpdates[i].Spec.Revision))
+			for _, update := range availableUpdates {
+				revisions = append(revisions, "v"+repository.Revision2Str(update.Spec.Revision))
 			}
 			upstreamUpdates = append(upstreamUpdates, []string{pr.Name, upstreamName, strings.Join(revisions, ", ")})
 		}

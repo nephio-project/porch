@@ -31,7 +31,7 @@ func TestRevision2Int(t *testing.T) {
 }
 
 func TestRevision2Str(t *testing.T) {
-	assert.Equal(t, "v123", Revision2Str(123))
+	assert.Equal(t, "123", Revision2Str(123))
 	assert.Equal(t, "-1", Revision2Str(-1))
 }
 
