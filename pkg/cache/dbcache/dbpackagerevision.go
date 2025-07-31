@@ -40,18 +40,19 @@ var (
 )
 
 type dbPackageRevision struct {
-	repo         *dbRepository
-	pkgRevKey    repository.PackageRevisionKey
-	meta         metav1.ObjectMeta
-	spec         *porchapi.PackageRevisionSpec
-	updated      time.Time
-	updatedBy    string
-	lifecycle    porchapi.PackageRevisionLifecycle
-	extRepoState externalRepoState
-	extPRID      kptfile.UpstreamLock
-	latest       bool
-	tasks        []porchapi.Task
-	resources    map[string]string
+	repo          *dbRepository
+	pkgRevKey     repository.PackageRevisionKey
+	meta          metav1.ObjectMeta
+	spec          *porchapi.PackageRevisionSpec
+	updated       time.Time
+	updatedBy     string
+	lifecycle     porchapi.PackageRevisionLifecycle
+	existsOnExt   bool
+	deletingOnExt bool
+	extPRID       kptfile.UpstreamLock
+	latest        bool
+	tasks         []porchapi.Task
+	resources     map[string]string
 }
 
 func (pr *dbPackageRevision) KubeObjectName() string {
@@ -149,24 +150,23 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 	}
 
 	if porchapi.LifecycleIsPublished(readPR.Lifecycle(ctx)) {
-		status.Conditions = repository.UpsertAPICondition(status.Conditions, porchapi.Condition{
-			Type:    "ext-repo-state",
-			Status:  porchapi.ConditionTrue,
-			Reason:  "",
-			Message: readPR.extRepoState.String(),
-		})
-		if readPR.extPRID.Git != nil {
+		if pr.existsOnExt {
 			status.Conditions = repository.UpsertAPICondition(status.Conditions, porchapi.Condition{
-				Type:    "ext-repo-ref",
+				Type:    "exists-on-ext",
 				Status:  porchapi.ConditionTrue,
-				Reason:  "",
-				Message: readPR.extPRID.Git.Ref,
+				Message: valueAsJSON(pr.extPRID),
 			})
+		} else {
 			status.Conditions = repository.UpsertAPICondition(status.Conditions, porchapi.Condition{
-				Type:    "ext-repo-commit",
-				Status:  porchapi.ConditionTrue,
-				Reason:  "",
-				Message: readPR.extPRID.Git.Commit,
+				Type:   "exists-on-ext",
+				Status: porchapi.ConditionFalse,
+			})
+		}
+
+		if pr.deletingOnExt {
+			status.Conditions = repository.UpsertAPICondition(status.Conditions, porchapi.Condition{
+				Type:   "deleting-on-ext",
+				Status: porchapi.ConditionTrue,
 			})
 		}
 
@@ -279,16 +279,17 @@ func (pr *dbPackageRevision) ToMainPackageRevision(ctx context.Context) reposito
 			Revision:      -1,
 			WorkspaceName: pr.Key().RKey().PlaceholderWSname,
 		},
-		meta:         metav1.ObjectMeta{},
-		spec:         &porchapi.PackageRevisionSpec{},
-		updated:      time.Now(),
-		updatedBy:    getCurrentUser(),
-		lifecycle:    pr.lifecycle,
-		extRepoState: Pushed,
-		extPRID:      pr.extPRID,
-		latest:       false,
-		tasks:        pr.tasks,
-		resources:    pr.resources,
+		meta:          metav1.ObjectMeta{},
+		spec:          &porchapi.PackageRevisionSpec{},
+		updated:       time.Now(),
+		updatedBy:     getCurrentUser(),
+		lifecycle:     pr.lifecycle,
+		existsOnExt:   false,
+		deletingOnExt: false,
+		extPRID:       pr.extPRID,
+		latest:        false,
+		tasks:         pr.tasks,
+		resources:     pr.resources,
 	}
 
 	mainPR.meta.CreationTimestamp = metav1.Time{Time: time.Now()}
@@ -387,7 +388,6 @@ func (pr *dbPackageRevision) publishPR(ctx context.Context, newLifecycle porchap
 
 	pr.pkgRevKey.Revision = latestRev + 1
 	pr.lifecycle = newLifecycle
-	pr.extRepoState = BeingPushed
 
 	if err = pr.repo.Refresh(ctx); err != nil {
 		return pkgerrors.Wrapf(err, "dbPackageRevision:publishPR: could not refresh repository for package revision %+v to DB", pr.Key())

@@ -30,6 +30,13 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const (
+	delayBeforeResync           = 1 * time.Second
+	delayBeforeErroredSyncRetry = 10 * time.Second
+	delayBetweenExternalPushes  = 100 * time.Millisecond
+	delayBetweenExternalDeletes = 100 * time.Millisecond
+)
+
 type RepositorySync interface {
 	Stop()
 	GetLastSyncError() error
@@ -92,8 +99,18 @@ func (s *repositorySyncImpl) syncForever(ctx context.Context, repoSyncFrequency 
 		default:
 			s.lastSyncStats, s.lastSyncError = s.syncOnce(ctx)
 
-			if !s.syncNeeded {
-				time.Sleep(repoSyncFrequency)
+			if s.lastSyncError == nil {
+				if s.syncNeeded {
+					klog.Infof("repositorySync %+v: waiting for %s before deferred sync starts . . .", s.repo.Key(), delayBeforeResync)
+					time.Sleep(delayBeforeResync)
+				} else {
+					klog.Infof("repositorySync %+v: waiting for %s before next sync starts . . .", s.repo.Key(), repoSyncFrequency)
+					time.Sleep(repoSyncFrequency)
+				}
+			} else {
+				klog.Infof("repositorySync %+v: sync failed: %q", s.repo.Key(), s.lastSyncError)
+				klog.Infof("repositorySync %+v: waiting for %s before resync . . .", s.repo.Key(), delayBeforeErroredSyncRetry)
+				time.Sleep(delayBeforeErroredSyncRetry)
 			}
 		}
 	}
@@ -115,7 +132,8 @@ func (s *repositorySyncImpl) syncOnce(ctx context.Context) (repositorySyncStats,
 
 	if !s.mutex.TryLock() {
 		s.syncNeeded = true
-		return repositorySyncStats{}, fmt.Errorf("repositorySync %+v: sync start deferred until sync already in progress completes", s.repo.Key())
+		klog.Infof("repositorySync %+v: sync start deferred until sync already in progress completes", s.repo.Key())
+		return repositorySyncStats{}, nil
 	} else {
 		s.syncNeeded = false
 	}
@@ -294,7 +312,7 @@ func (s *repositorySyncImpl) deletePRsMarkedForDeletion(ctx context.Context, cac
 	for _, pr := range cachedPrMap {
 		dbPR := pr.(*dbPackageRevision)
 
-		if dbPR.extRepoState != Deleting {
+		if !dbPR.deletingOnExt {
 			continue
 		}
 
@@ -310,6 +328,8 @@ func (s *repositorySyncImpl) deletePRsMarkedForDeletion(ctx context.Context, cac
 			return markedPRsDeleted, err
 		}
 		markedPRsDeleted++
+
+		time.Sleep(delayBetweenExternalDeletes)
 	}
 	return markedPRsDeleted, nil
 }
@@ -324,7 +344,7 @@ func (s *repositorySyncImpl) pushCachedPRsToExternal(ctx context.Context, cached
 			return pkgerrors.Wrapf(err, "repositorySync %+v: push of package revision %+v to external repo failed", s.repo.Key(), dbPR.Key())
 		}
 
-		dbPR.extRepoState = Pushed
+		dbPR.existsOnExt = true
 		dbPR.extPRID = pushedPRExtID
 		_, err = s.repo.savePackageRevision(ctx, dbPR, false)
 		if err != nil {
@@ -334,6 +354,8 @@ func (s *repositorySyncImpl) pushCachedPRsToExternal(ctx context.Context, cached
 		if err = dbPR.publishPlaceholderPRForPR(ctx); err != nil {
 			return pkgerrors.Wrapf(err, "repositorySync %+v: failed to save placeholder package revision for package revisino %+v to database", s.repo.Key(), dbPR.Key())
 		}
+
+		time.Sleep(delayBetweenExternalPushes)
 	}
 
 	return nil
@@ -382,17 +404,18 @@ func (s *repositorySyncImpl) cacheExternalPRs(ctx context.Context, externalPrMap
 		_, extPRUpstreamLock, _ := extPR.GetLock()
 
 		dbPR := dbPackageRevision{
-			repo:         s.repo,
-			pkgRevKey:    extPRKey,
-			meta:         extAPIPR.ObjectMeta,
-			spec:         &extAPIPR.Spec,
-			updated:      extAPIPR.Status.PublishedAt.Time,
-			updatedBy:    extAPIPR.Status.PublishedBy,
-			lifecycle:    extAPIPR.Spec.Lifecycle,
-			extRepoState: NotPushed,
-			extPRID:      extPRUpstreamLock,
-			tasks:        extAPIPR.Spec.Tasks,
-			resources:    extPRResources.Spec.Resources,
+			repo:          s.repo,
+			pkgRevKey:     extPRKey,
+			meta:          extAPIPR.ObjectMeta,
+			spec:          &extAPIPR.Spec,
+			updated:       extAPIPR.Status.PublishedAt.Time,
+			updatedBy:     extAPIPR.Status.PublishedBy,
+			lifecycle:     extAPIPR.Spec.Lifecycle,
+			existsOnExt:   true,
+			deletingOnExt: false,
+			extPRID:       extPRUpstreamLock,
+			tasks:         extAPIPR.Spec.Tasks,
+			resources:     extPRResources.Spec.Resources,
 		}
 		_, err = s.repo.savePackageRevision(ctx, &dbPR, true)
 		if err != nil {
