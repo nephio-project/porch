@@ -1689,6 +1689,7 @@ func (t *PorchSuite) TestPackageUpgrade() {
 	}
 	revisionResources.Spec.Resources["config-map.yaml"] = string(cm)
 	t.UpdateF(&revisionResources)
+	time.Sleep(2 * time.Second)
 
 	// publish PackageRevision
 	t.GetF(client.ObjectKeyFromObject(pr), pr)

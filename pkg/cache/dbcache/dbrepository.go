@@ -175,6 +175,8 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *po
 		updatedBy:    getCurrentUser(),
 	}
 
+	dbPkgRev.meta.CreationTimestamp = metav1.Time{Time: time.Now()}
+
 	dbPkgRev.extPRID = kptfile.UpstreamLock{
 		Type: kptfile.GitOrigin,
 		Git: &kptfile.GitLock{
