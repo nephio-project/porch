@@ -34,6 +34,10 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const (
+	delayBeforeTriggeredSync = 1 * time.Second
+)
+
 var _ repository.Repository = &dbRepository{}
 
 type dbRepository struct {
@@ -167,12 +171,13 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *po
 			Revision:      0,
 			WorkspaceName: newPR.Spec.WorkspaceName,
 		},
-		meta:         newPR.ObjectMeta,
-		spec:         &newPR.Spec,
-		lifecycle:    porchapi.PackageRevisionLifecycleDraft,
-		extRepoState: NotPushed,
-		updated:      time.Now(),
-		updatedBy:    getCurrentUser(),
+		meta:          newPR.ObjectMeta,
+		spec:          &newPR.Spec,
+		lifecycle:     porchapi.PackageRevisionLifecycleDraft,
+		existsOnExt:   false,
+		deletingOnExt: false,
+		updated:       time.Now(),
+		updatedBy:     getCurrentUser(),
 	}
 
 	dbPkgRev.meta.CreationTimestamp = metav1.Time{Time: time.Now()}
@@ -217,7 +222,7 @@ func (r *dbRepository) DeletePackageRevision(ctx context.Context, pr2Delete repo
 
 	if porchapi.LifecycleIsPublished(dbPR2Delete.lifecycle) {
 		klog.V(5).Infof("dbRepository:DeletePackageRevision: setting deploymet state on package revision %+v on repo %+v to \"deleting\"", pr2Delete.Key(), r.Key())
-		dbPR2Delete.extRepoState = Deleting
+		dbPR2Delete.deletingOnExt = true
 
 		if _, err := r.savePackageRevision(ctx, dbPR2Delete, false); err != nil {
 			return pkgerrors.Wrapf(err, "dbRepository:DeletePackageRevision: could not save deployment state on package revision %+v on repo %+v", pr2Delete.Key(), r.Key())
@@ -413,6 +418,6 @@ func (r *dbRepository) Refresh(ctx context.Context) error {
 		klog.Warningf("last sync returned error %q, refreshing . . .", err)
 	}
 
-	r.repositorySync.SyncAfter(1 * time.Second)
+	r.repositorySync.SyncAfter(delayBeforeTriggeredSync)
 	return nil
 }
