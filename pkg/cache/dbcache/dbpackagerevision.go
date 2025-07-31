@@ -285,10 +285,13 @@ func (pr *dbPackageRevision) ToMainPackageRevision(ctx context.Context) reposito
 		updatedBy:    getCurrentUser(),
 		lifecycle:    pr.lifecycle,
 		extRepoState: Pushed,
+		extPRID:      pr.extPRID,
 		latest:       false,
 		tasks:        pr.tasks,
 		resources:    pr.resources,
 	}
+
+	mainPR.meta.CreationTimestamp = metav1.Time{Time: time.Now()}
 
 	if mainPR.pkgRevKey.WorkspaceName == "" {
 		mainPR.pkgRevKey.WorkspaceName = "main"
@@ -386,18 +389,38 @@ func (pr *dbPackageRevision) publishPR(ctx context.Context, newLifecycle porchap
 	pr.lifecycle = newLifecycle
 	pr.extRepoState = BeingPushed
 
-	if pr.pkgRevKey.Revision == 1 {
-		if err = pkgRevWriteToDB(ctx, pr.ToMainPackageRevision(ctx).(*dbPackageRevision)); err != nil {
-			return pkgerrors.Wrapf(err, "dbPackageRevision:publishPR: could not write placeholder package revision for package revision %+v to DB", pr.Key())
-		}
-	} else if pr.pkgRevKey.Revision > 1 {
-		if err = pkgRevUpdateDB(ctx, pr.ToMainPackageRevision(ctx).(*dbPackageRevision), true); err != nil {
-			return pkgerrors.Wrapf(err, "dbPackageRevision:publishPR: could not update placeholder package revision for package revision %+v to DB", pr.Key())
+	if err = pr.repo.Refresh(ctx); err != nil {
+		return pkgerrors.Wrapf(err, "dbPackageRevision:publishPR: could not refresh repository for package revision %+v to DB", pr.Key())
+	}
+
+	return nil
+}
+
+func (pr *dbPackageRevision) publishPlaceholderPRForPR(ctx context.Context) error {
+	_, span := tracer.Start(ctx, "dbPackageRevision::publishMainPRForPR", trace.WithAttributes())
+	defer span.End()
+
+	if !pr.latest {
+		return nil
+	}
+
+	prWithResources := pr
+	if len(prWithResources.resources) == 0 {
+		if readPR, err := pkgRevReadFromDB(ctx, pr.Key(), true); err == nil {
+			prWithResources = readPR
+		} else {
+			return pkgerrors.Wrapf(err, "dbPackageRevision:publishPlaceholderPRForPR: could read resources for package revision %+v to DB", pr.Key())
 		}
 	}
 
-	if err = pr.repo.Refresh(ctx); err != nil {
-		return pkgerrors.Wrapf(err, "dbPackageRevision:publishPR: could not refresh repository for package revision %+v to DB", pr.Key())
+	if prWithResources.pkgRevKey.Revision == 1 {
+		if err := pkgRevWriteToDB(ctx, prWithResources.ToMainPackageRevision(ctx).(*dbPackageRevision)); err != nil {
+			return pkgerrors.Wrapf(err, "dbPackageRevision:publishPlaceholderPRForPR: could not write placeholder package revision for package revision %+v to DB", prWithResources.Key())
+		}
+	} else if prWithResources.pkgRevKey.Revision > 1 {
+		if err := pkgRevUpdateDB(ctx, prWithResources.ToMainPackageRevision(ctx).(*dbPackageRevision), true); err != nil {
+			return pkgerrors.Wrapf(err, "dbPackageRevision:publishPlaceholderPRForPR: could not update placeholder package revision for package revision %+v to DB", prWithResources.Key())
+		}
 	}
 
 	return nil
