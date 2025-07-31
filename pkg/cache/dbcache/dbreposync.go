@@ -321,16 +321,18 @@ func (s *repositorySyncImpl) pushCachedPRsToExternal(ctx context.Context, cached
 
 		pushedPRExtID, err := engine.PushPackageRevision(ctx, s.repo.externalRepo, dbPR)
 		if err != nil {
-			klog.Warningf("push of package revision %+v to external repo failed, %q", dbPR.Key(), err)
-			return pkgerrors.Wrapf(err, "dbPackageRevision:publishPR: push of package revision %+v to external repo failed", dbPR.Key())
+			return pkgerrors.Wrapf(err, "repositorySync %+v: push of package revision %+v to external repo failed", s.repo.Key(), dbPR.Key())
 		}
 
 		dbPR.extRepoState = Pushed
 		dbPR.extPRID = pushedPRExtID
 		_, err = s.repo.savePackageRevision(ctx, dbPR, false)
 		if err != nil {
-			klog.Errorf("repositorySync %+v: failed to save external package revision %+v to database", s.repo.Key(), dbPR.Key())
-			return err
+			return pkgerrors.Wrapf(err, "repositorySync %+v: failed to save package revision %+v to database after push to external repo", s.repo.Key(), dbPR.Key())
+		}
+
+		if err = dbPR.publishPlaceholderPRForPR(ctx); err != nil {
+			return pkgerrors.Wrapf(err, "repositorySync %+v: failed to save placeholder package revision for package revisino %+v to database", s.repo.Key(), dbPR.Key())
 		}
 	}
 
