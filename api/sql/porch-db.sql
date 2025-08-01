@@ -73,17 +73,20 @@ CREATE OR REPLACE TRIGGER immutable_packages_columns
    EXECUTE PROCEDURE check_immutable_packages_columns();
 
 CREATE TABLE IF NOT EXISTS package_revisions (
-    k8s_name_space   TEXT NOT NULL CHECK (k8s_name_space != ''),
-    k8s_name         TEXT NOT NULL CHECK (k8s_name != ''),
-    package_k8s_name TEXT NOT NULL,
-    revision         INTEGER NOT NULL,
-    meta             TEXT NOT NULL,
-    spec             TEXT NOT NULL,
-    updated          TIMESTAMP NOT NULL,
-    updatedby        TEXT NOT NULL,
-    lifecycle        TEXT CHECK (lifecycle IN ('Draft', 'Proposed', 'Published', 'DeletionProposed')) NOT NULL,
-    latest           BOOLEAN NOT NULL DEFAULT FALSE,
-    tasks            TEXT NOT NULL,
+    k8s_name_space    TEXT NOT NULL CHECK (k8s_name_space != ''),
+    k8s_name          TEXT NOT NULL CHECK (k8s_name != ''),
+    package_k8s_name  TEXT NOT NULL,
+    revision          INTEGER NOT NULL,
+    meta              TEXT NOT NULL,
+    spec              TEXT NOT NULL,
+    updated           TIMESTAMP NOT NULL,
+    updatedby         TEXT NOT NULL,
+    lifecycle         TEXT CHECK (lifecycle IN ('Draft', 'Proposed', 'Published', 'DeletionProposed')) NOT NULL,
+    exists_on_ext     BOOLEAN NOT NULL DEFAULT FALSE,
+    deleting_on_ext   BOOLEAN NOT NULL DEFAULT FALSE,
+    ext_pr_id         TEXT NOT NULL,
+    latest            BOOLEAN NOT NULL DEFAULT FALSE,
+    tasks             TEXT NOT NULL,
     PRIMARY KEY (k8s_name_space, k8s_name),
     CONSTRAINT fk_package
         FOREIGN KEY (k8s_name_space, package_k8s_name)
