@@ -24,6 +24,7 @@ import (
 	"github.com/nephio-project/porch/pkg/externalrepo"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
+	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	mockcachetypes "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
 	"github.com/stretchr/testify/assert"
@@ -91,6 +92,10 @@ func TestDBUpstreamRepoSync(t *testing.T) {
 		PrKey:           dbPR.Key(),
 		PackageRevision: &newPRDef,
 		Resources:       &v1alpha1.PackageRevisionResources{},
+		Kptfile: v1.KptFile{
+			Upstream:     &v1.Upstream{},
+			UpstreamLock: &v1.UpstreamLock{},
+		},
 	}
 	fakeRepo.PackageRevisions = append(fakeRepo.PackageRevisions, &fakeExtPR)
 
@@ -198,4 +203,57 @@ func TestDBDeployRepoSync(t *testing.T) {
 
 	err = testRepo.Close(ctx)
 	assert.Nil(t, err)
+}
+
+func TestRepoSyncTickTock(t *testing.T) {
+	mockCache := mockcachetypes.NewMockCache(t)
+	cachetypes.CacheInstance = mockCache
+
+	externalrepo.ExternalRepoInUnitTestMode = true
+
+	ctx := context.TODO()
+
+	testRepo := createTestRepo(t, "my-ns", "my-repo-name")
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(&testRepo).Maybe()
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	assert.Nil(t, err)
+
+	cacheOptions := cachetypes.CacheOptions{
+		RepoSyncFrequency: 4 * time.Second,
+	}
+
+	testRepo.repositorySync = newRepositorySync(&testRepo, cacheOptions)
+	testRepo.repositorySync.Stop()
+
+	repoSyncImpl := testRepo.repositorySync.(*repositorySyncImpl)
+	assert.Equal(t, time.Duration(4*time.Second), repoSyncImpl.syncFrequency)
+
+	repoSyncImpl.syncCountdown = time.Duration(4 * time.Second)
+
+	repoSyncImpl.tickTock(ctx)
+	assert.Equal(t, time.Duration(3*time.Second), repoSyncImpl.syncCountdown)
+
+	repoSyncImpl.tickTock(ctx)
+	assert.Equal(t, time.Duration(2*time.Second), repoSyncImpl.syncCountdown)
+
+	repoSyncImpl.tickTock(ctx)
+	assert.Equal(t, time.Duration(1*time.Second), repoSyncImpl.syncCountdown)
+
+	repoSyncImpl.tickTock(ctx)
+	assert.Equal(t, time.Duration(4*time.Second), repoSyncImpl.syncCountdown)
+
+	fakeRepo := testRepo.externalRepo.(*fake.Repository)
+	fakeExtPR := fake.FakePackageRevision{
+		PrKey:     repository.PackageRevisionKey{},
+		Resources: &v1alpha1.PackageRevisionResources{},
+	}
+	fakeRepo.PackageRevisions = append(fakeRepo.PackageRevisions, &fakeExtPR)
+	fakeRepo.CurrentVersion = "A Different Version"
+	fakeRepo.ThrowError = true
+
+	repoSyncImpl.syncFrequency = time.Duration(60 * time.Second)
+	repoSyncImpl.syncCountdown = time.Duration(1 * time.Second)
+	repoSyncImpl.tickTock(ctx)
+	assert.Equal(t, time.Duration(10*time.Second), repoSyncImpl.syncCountdown)
 }
