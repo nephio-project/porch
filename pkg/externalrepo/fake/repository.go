@@ -56,7 +56,7 @@ func (r *Repository) Version(ctx context.Context) (string, error) {
 
 func (r *Repository) ListPackageRevisions(_ context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
 	if r.ThrowError {
-		return nil, errors.New("fake repository threw this error because it was told to")
+		return nil, errors.New("Fake Repository threw this error because it was told to")
 	}
 
 	var revs []repository.PackageRevision
@@ -75,6 +75,10 @@ func (r *Repository) CreatePackageRevisionDraft(_ context.Context, pr *v1alpha1.
 func (r *Repository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version int) (repository.PackageRevision, error) {
 	return &FakePackageRevision{
 		PrKey: prd.Key(),
+		Kptfile: v1.KptFile{
+			Upstream:     &v1.Upstream{},
+			UpstreamLock: &v1.UpstreamLock{},
+		},
 	}, nil
 }
 
