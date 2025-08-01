@@ -14,6 +14,8 @@
 
 package v1alpha1
 
+import "slices"
+
 func LifecycleIsPublished(lifecycle PackageRevisionLifecycle) bool {
 	return lifecycle == PackageRevisionLifecyclePublished || lifecycle == PackageRevisionLifecycleDeletionProposed
 }
@@ -37,4 +39,10 @@ func PackageRevisionIsReady(readinessGates []ReadinessGate, conditions []Conditi
 	}
 
 	return true
+}
+
+var validFirstTaskTypes = []TaskType{TaskTypeInit, TaskTypeEdit, TaskTypeClone, TaskTypeUpgrade}
+
+func IsValidFirstTaskType(t TaskType) bool {
+	return slices.Contains(validFirstTaskTypes, t)
 }

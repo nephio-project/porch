@@ -403,3 +403,9 @@ const (
 	ConditionFalse   ConditionStatus = "False"
 	ConditionUnknown ConditionStatus = "Unknown"
 )
+
+// BFSRenderAnnotation is an annotation that can be used to indicate that a package
+// should be hydrated from the root package to the subpackages in a Breadth-First Level Order manner.
+const (
+	BFSRenderAnnotation = "kpt.dev/bfs-rendering"
+)

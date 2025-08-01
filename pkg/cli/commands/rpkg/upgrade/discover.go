@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package update
+package upgrade
 
 import (
 	"fmt"
@@ -72,8 +72,8 @@ func (r *runner) findUpstreamUpdates(prs []porchapi.PackageRevision, repositorie
 			upstreamUpdates = append(upstreamUpdates, []string{pr.Name, upstreamName, "No update available"})
 		} else {
 			var revisions []string
-			for i := range availableUpdates {
-				revisions = append(revisions, repository.Revision2Str(availableUpdates[i].Spec.Revision))
+			for _, update := range availableUpdates {
+				revisions = append(revisions, "v"+repository.Revision2Str(update.Spec.Revision))
 			}
 			upstreamUpdates = append(upstreamUpdates, []string{pr.Name, upstreamName, strings.Join(revisions, ", ")})
 		}
@@ -171,7 +171,7 @@ func (r *runner) getRepositories() (*configapi.RepositoryList, error) {
 func (r *runner) getUpstreamRevisions(repo configapi.Repository, upstreamPackageName string) []porchapi.PackageRevision {
 	var result []porchapi.PackageRevision
 	for _, pkgRev := range r.prs {
-		if !porchapi.LifecycleIsPublished(pkgRev.Spec.Lifecycle) {
+		if !pkgRev.IsPublished() {
 			// only consider published packages
 			continue
 		}
@@ -206,7 +206,7 @@ func printDownstreamUpdates(downstreamUpdatesMap map[string][]porchapi.PackageRe
 			if draftName != "" {
 				// the upstream package revision is not published, so does not have a revision number
 				downstreamUpdates = append(downstreamUpdates,
-					[]string{upstreamPkgRevName, downstreamPkgRev.Name, fmt.Sprintf("(draft %q)->%s", draftName, upstreamPkgRevNum)})
+					[]string{upstreamPkgRevName, downstreamPkgRev.Name, fmt.Sprintf("(draft %q)->v%s", draftName, upstreamPkgRevNum)})
 				continue
 			}
 			// figure out which upstream revision the downstream revision is based on
@@ -217,7 +217,7 @@ func printDownstreamUpdates(downstreamUpdatesMap map[string][]porchapi.PackageRe
 			}
 			downstreamRev := downstreamPkgRev.Status.UpstreamLock.Git.Ref[lastIndex:]
 			downstreamUpdates = append(downstreamUpdates,
-				[]string{upstreamPkgRevName, downstreamPkgRev.Name, fmt.Sprintf("%s->%s", downstreamRev, upstreamPkgRevNum)})
+				[]string{upstreamPkgRevName, downstreamPkgRev.Name, fmt.Sprintf("%s->v%s", downstreamRev, upstreamPkgRevNum)})
 		}
 	}
 

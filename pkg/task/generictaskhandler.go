@@ -15,7 +15,6 @@
 package task
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 
@@ -26,9 +25,9 @@ import (
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
 	"github.com/nephio-project/porch/pkg/repository"
+	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kustomize/kyaml/comments"
 	"sigs.k8s.io/kustomize/kyaml/kio"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
@@ -69,114 +68,50 @@ func (th *genericTaskHandler) SetReferenceResolver(referenceResolver repository.
 	th.referenceResolver = referenceResolver
 }
 
-func (th *genericTaskHandler) ApplyTasks(ctx context.Context, draft repository.PackageRevisionDraft, repositoryObj *configapi.Repository, obj *api.PackageRevision, packageConfig *builtins.PackageConfig) error {
-	var mutations []mutation
-
-	// Unless first task is Init or Clone, insert Init to create an empty package.
-	tasks := obj.Spec.Tasks
-	if len(tasks) == 0 || !taskTypeOneOf(tasks[0].Type, api.TaskTypeInit, api.TaskTypeClone, api.TaskTypeEdit) {
-		mutations = append(mutations, &initPackageMutation{
-			name: obj.Spec.PackageName,
-			task: &api.Task{
-				Init: &api.PackageInitTaskSpec{
-					Subpackage:  "",
-					Description: fmt.Sprintf("%s description", obj.Spec.PackageName),
-				},
-			},
-		})
-	}
-	if len(tasks) > 0 {
-		cloneTask := obj.Spec.Tasks[0].Clone
-		if cloneTask != nil {
-			klog.Infof("Clone strategy is %s", cloneTask.Strategy)
-			th.cloneStrategy = cloneTask.Strategy
-		}
-	}
-	for i := range tasks {
-		task := &tasks[i]
-		mutation, err := th.mapTaskToMutation(ctx, obj, task, repositoryObj.Spec.Deployment, packageConfig)
-		if err != nil {
-			return err
-		}
-		mutations = append(mutations, mutation)
+func (th *genericTaskHandler) ApplyTask(ctx context.Context, draft repository.PackageRevisionDraft, repositoryObj *configapi.Repository, obj *api.PackageRevision, packageConfig *builtins.PackageConfig) error {
+	if len(obj.Spec.Tasks) != 1 {
+		return pkgerrors.New("task list must contain exactly 1 task")
 	}
 
-	// Render package after creation.
-	mutations = th.conditionalAddRender(obj, mutations)
-
-	baseResources := repository.PackageResources{}
-	if _, _, err := applyResourceMutations(ctx, draft, baseResources, mutations); err != nil {
-		return err
+	if cloneTask := obj.Spec.Tasks[0].Clone; cloneTask != nil {
+		klog.Infof("Clone strategy is %s", cloneTask.Strategy)
+		th.cloneStrategy = cloneTask.Strategy
 	}
 
-	return nil
-}
-
-func (th *genericTaskHandler) DoPRMutations(ctx context.Context, namespace string, repoPR repository.PackageRevision, oldObj *api.PackageRevision, newObj *api.PackageRevision, draft repository.PackageRevisionDraft) error {
-	ctx, span := tracer.Start(ctx, "genericTaskHandler::DoPRMutations", trace.WithAttributes())
-	defer span.End()
-
-	var mutations []mutation
-	if len(oldObj.Spec.Tasks) > len(newObj.Spec.Tasks) {
-		return fmt.Errorf("removing tasks is not yet supported")
-	}
-	for i := range oldObj.Spec.Tasks {
-		oldTask := &oldObj.Spec.Tasks[i]
-		newTask := &newObj.Spec.Tasks[i]
-		if oldTask.Type != newTask.Type {
-			return fmt.Errorf("changing task types is not yet supported")
-		}
-	}
-	if len(newObj.Spec.Tasks) > len(oldObj.Spec.Tasks) {
-		if len(newObj.Spec.Tasks) > len(oldObj.Spec.Tasks)+1 {
-			return fmt.Errorf("can only append one task at a time")
-		}
-
-		newTask := newObj.Spec.Tasks[len(newObj.Spec.Tasks)-1]
-		if newTask.Type != api.TaskTypeUpdate {
-			return fmt.Errorf("appended task is type %q, must be type %q", newTask.Type, api.TaskTypeUpdate)
-		}
-		if newTask.Update == nil {
-			return fmt.Errorf("update not set for updateTask of type %q", newTask.Type)
-		}
-
-		cloneTask := findCloneTask(oldObj)
-		if cloneTask == nil {
-			return fmt.Errorf("upstream source not found for package rev %q; only cloned packages can be updated", oldObj.Spec.PackageName)
-		}
-
-		mutation := &updatePackageMutation{
-			cloneTask:         cloneTask,
-			updateTask:        &newTask,
-			repoOpener:        th.repoOpener,
-			referenceResolver: th.referenceResolver,
-			namespace:         namespace,
-			pkgName:           oldObj.GetName(),
-		}
-		mutations = append(mutations, mutation)
-	}
-
-	// Re-render if we are making changes.
-	mutations = th.conditionalAddRender(newObj, mutations)
-
-	// If any of the fields in the API that are projections from the Kptfile
-	// must be updated in the Kptfile as well.
-	kfPatchTask, created, err := createKptfilePatchTask(ctx, repoPR, newObj)
+	mut, err := th.mapTaskToMutation(obj, &obj.Spec.Tasks[0], repositoryObj.Spec.Deployment, packageConfig)
 	if err != nil {
 		return err
 	}
-	if created {
-		kfPatchMutation, err := buildPatchMutation(ctx, kfPatchTask, th.cloneStrategy)
-		if err != nil {
-			return err
-		}
-		mutations = append(mutations, kfPatchMutation)
+
+	resources, taskResult, err := mut.apply(ctx, repository.PackageResources{})
+	if err != nil {
+		return err
 	}
 
-	// Re-render if we are making changes.
-	mutations = th.conditionalAddRender(newObj, mutations)
+	// Render package after creation.
+	draftMeta := draft.GetMeta()
+	resources, _, err = th.renderMutation(draftMeta.GetNamespace()).apply(ctx, resources)
+	if err != nil {
+		return err
+	}
 
-	// TODO: Handle the case if alongside lifecycle change, tasks are changed too.
+	prr := &api.PackageRevisionResources{
+		Spec: api.PackageRevisionResourcesSpec{
+			Resources: resources.Contents,
+		},
+	}
+
+	return draft.UpdateResources(ctx, prr, taskResult.Task)
+}
+
+func (th *genericTaskHandler) DoPRMutations(
+	ctx context.Context,
+	repoPR repository.PackageRevision,
+	oldObj, newObj *api.PackageRevision,
+	draft repository.PackageRevisionDraft) error {
+	ctx, span := tracer.Start(ctx, "genericTaskHandler::DoPRMutations", trace.WithAttributes())
+	defer span.End()
+
 	// Update package contents only if the package is in draft state
 	if oldObj.Spec.Lifecycle == api.PackageRevisionLifecycleDraft {
 		apiResources, err := repoPR.GetResources(ctx)
@@ -187,76 +122,115 @@ func (th *genericTaskHandler) DoPRMutations(ctx context.Context, namespace strin
 			Contents: apiResources.Spec.Resources,
 		}
 
-		if _, _, err := applyResourceMutations(ctx, draft, resources, mutations); err != nil {
-			return err
+		{
+			newKptfile, err := patchKptfile(ctx, repoPR, newObj)
+			if err != nil {
+				return err
+			}
+			marshalled, err := yaml.Marshal(newKptfile)
+			if err != nil {
+				return err
+			}
+			if str := string(marshalled); str != "{}\n" {
+				resources.Contents[kptfile.KptFileName] = str
+			}
 		}
+
+		// render
+		draftMeta := draft.GetMeta()
+		resources, _, err = th.renderMutation(draftMeta.GetNamespace()).apply(ctx, resources)
+		if err != nil {
+			klog.Error(err)
+			return renderError(err)
+		}
+
+		prr := &api.PackageRevisionResources{
+			Spec: api.PackageRevisionResourcesSpec{
+				Resources: resources.Contents,
+			},
+		}
+
+		return draft.UpdateResources(ctx, prr, &api.Task{Type: api.TaskTypeRender})
 	}
 
 	return nil
 }
 
-func taskTypeOneOf(taskType api.TaskType, oneOf ...api.TaskType) bool {
-	for _, tt := range oneOf {
-		if taskType == tt {
-			return true
-		}
-	}
-	return false
-}
-
-func (th *genericTaskHandler) DoPRResourceMutations(ctx context.Context, pr2Update repository.PackageRevision, draft repository.PackageRevisionDraft, oldRes, newRes *api.PackageRevisionResources) (*api.RenderStatus, error) {
+func (th *genericTaskHandler) DoPRResourceMutations(
+	ctx context.Context,
+	pr2Update repository.PackageRevision,
+	draft repository.PackageRevisionDraft,
+	oldRes, newRes *api.PackageRevisionResources) (*api.RenderStatus, error) {
 	ctx, span := tracer.Start(ctx, "genericTaskHandler::DoPRResourceMutations", trace.WithAttributes())
 	defer span.End()
 
-	runnerOptions := th.runnerOptionsResolver(oldRes.GetNamespace())
-
-	mutations := []mutation{
-		&replaceResourcesMutation{
-			newResources: newRes,
-			oldResources: oldRes,
-		},
+	mut := &replaceResourcesMutation{
+		newResources: newRes,
+		oldResources: oldRes,
 	}
 	prevResources, err := pr2Update.GetResources(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("cannot get package resources: %w", err)
+		return nil, pkgerrors.Wrap(err, "cannot get package resources")
 	}
 	resources := repository.PackageResources{
 		Contents: prevResources.Spec.Resources,
 	}
 
-	appliedResources, _, err := applyResourceMutations(ctx, draft, resources, mutations)
+	appliedResources, _, err := mut.apply(ctx, resources)
 	if err != nil {
 		return nil, err
 	}
 
-	var renderStatus *api.RenderStatus
-	if len(appliedResources.Contents) > 0 {
-		// Render the package
-		// Render failure will fail the overall API operation.
-		// The render error and result are captured as part of renderStatus above
-		// and are returned in the PackageRevisionResources API's status field.
-		// We do not push the package further to remote:
-		// the user's changes are captured on their local package,
-		// and can be amended using the error returned as a reference point to ensure
-		// the package renders properly, before retrying the push.
-		_, renderStatus, err = applyResourceMutations(ctx,
-			draft,
-			appliedResources,
-			[]mutation{&renderPackageMutation{
-				runnerOptions: runnerOptions,
-				runtime:       th.runtime,
-			}})
-		if err != nil {
-			return renderStatus, err
-		}
-	} else {
-		renderStatus = nil
+	// Render the package
+	// Render failure will fail the overall API operation.
+	// The render error and result are captured as part of renderStatus above
+	// and are returned in the PackageRevisionResources API's status field.
+	// We do not push the package further to remote:
+	// the user's changes are captured on their local package,
+	// and can be amended using the error returned as a reference point to ensure
+	// the package renders properly, before retrying the push.
+	var (
+		renderStatus *api.RenderStatus
+		renderResult *api.TaskResult
+	)
+	appliedResources, renderResult, err = th.renderMutation(oldRes.GetNamespace()).apply(ctx, appliedResources)
+	// keep last render result on empty patch
+	if renderResult != nil &&
+		renderResult.RenderStatus != nil &&
+		(renderResult.RenderStatus.Err != "" ||
+			len(renderResult.RenderStatus.Result.Items) != 0) {
+		renderStatus = renderResult.RenderStatus
+	}
+	if err != nil {
+		klog.Error(err)
+		return renderStatus, renderError(err)
 	}
 
-	return renderStatus, nil
+	prr := &api.PackageRevisionResources{
+		Spec: api.PackageRevisionResourcesSpec{
+			Resources: appliedResources.Contents,
+		},
+	}
+
+	return renderStatus, draft.UpdateResources(ctx, prr, &api.Task{Type: api.TaskTypeRender})
 }
 
-func (th *genericTaskHandler) mapTaskToMutation(ctx context.Context, obj *api.PackageRevision, task *api.Task, isDeployment bool, packageConfig *builtins.PackageConfig) (mutation, error) {
+func (th *genericTaskHandler) renderMutation(namespace string) mutation {
+	return &renderPackageMutation{
+		runnerOptions: th.runnerOptionsResolver(namespace),
+		runtime:       th.runtime,
+	}
+}
+
+func renderError(err error) error {
+	return pkgerrors.Wrap(err, `
+Error occurred rendering package in kpt function pipeline.
+Package has NOT been pushed to remote.
+Please fix package locally (modify until 'kpt fn render' succeeds) and retry.
+Details`)
+}
+
+func (th *genericTaskHandler) mapTaskToMutation(obj *api.PackageRevision, task *api.Task, isDeployment bool, packageConfig *builtins.PackageConfig) (mutation, error) {
 	switch task.Type {
 	case api.TaskTypeInit:
 		if task.Init == nil {
@@ -281,25 +255,17 @@ func (th *genericTaskHandler) mapTaskToMutation(ctx context.Context, obj *api.Pa
 			packageConfig:      packageConfig,
 		}, nil
 
-	case api.TaskTypeUpdate:
-		if task.Update == nil {
-			return nil, fmt.Errorf("update not set for task of type %q", task.Type)
+	case api.TaskTypeUpgrade:
+		if task.Upgrade == nil {
+			return nil, fmt.Errorf("upgrade field not set for task of type %q", task.Type)
 		}
-		cloneTask := findCloneTask(obj)
-		if cloneTask == nil {
-			return nil, fmt.Errorf("upstream source not found for package rev %q; only cloned packages can be updated", obj.Spec.PackageName)
-		}
-		return &updatePackageMutation{
-			cloneTask:         cloneTask,
-			updateTask:        task,
+		return &upgradePackageMutation{
+			upgradeTask:       task,
 			namespace:         obj.Namespace,
 			repoOpener:        th.repoOpener,
 			referenceResolver: th.referenceResolver,
 			pkgName:           obj.Spec.PackageName,
 		}, nil
-
-	case api.TaskTypePatch:
-		return buildPatchMutation(ctx, task, th.cloneStrategy)
 
 	case api.TaskTypeEdit:
 		if task.Edit == nil {
@@ -314,46 +280,19 @@ func (th *genericTaskHandler) mapTaskToMutation(ctx context.Context, obj *api.Pa
 			referenceResolver: th.referenceResolver,
 		}, nil
 
-	case api.TaskTypeEval:
-		if task.Eval == nil {
-			return nil, fmt.Errorf("eval not set for task of type %q", task.Type)
-		}
-		// TODO: We should find a different way to do this. Probably a separate
-		// task for render.
-		if task.Eval.Image == "render" {
-			runnerOptions := th.runnerOptionsResolver(obj.Namespace)
-			return &renderPackageMutation{
-				runnerOptions: runnerOptions,
-				runtime:       th.runtime,
-			}, nil
-		} else {
-			runnerOptions := th.runnerOptionsResolver(obj.Namespace)
-			return &evalFunctionMutation{
-				runnerOptions: runnerOptions,
-				runtime:       th.runtime,
-				task:          task,
-			}, nil
-		}
-
 	default:
 		return nil, fmt.Errorf("task of type %q not supported", task.Type)
 	}
 }
 
-func createKptfilePatchTask(ctx context.Context, oldPackage repository.PackageRevision, newObj *api.PackageRevision) (*api.Task, bool, error) {
-	kf, err := oldPackage.GetKptfile(ctx)
-	if err != nil {
-		return nil, false, err
-	}
-
-	var orgKfString string
+func patchKptfile(ctx context.Context, oldPackage repository.PackageRevision, newObj *api.PackageRevision) (*kptfile.KptFile, error) {
+	var kf *kptfile.KptFile
 	{
-		var buf bytes.Buffer
-		d := yaml.NewEncoder(&buf)
-		if err := d.Encode(kf); err != nil {
-			return nil, false, err
+		k, err := oldPackage.GetKptfile(ctx)
+		if err != nil {
+			return nil, err
 		}
-		orgKfString = buf.String()
+		kf = &k
 	}
 
 	var readinessGates []kptfile.ReadinessGate
@@ -387,32 +326,7 @@ func createKptfilePatchTask(ctx context.Context, oldPackage repository.PackageRe
 		kf.Status.Conditions = conditions
 	}
 
-	var newKfString string
-	{
-		var buf bytes.Buffer
-		d := yaml.NewEncoder(&buf)
-		if err := d.Encode(kf); err != nil {
-			return nil, false, err
-		}
-		newKfString = buf.String()
-	}
-	patchSpec, err := GeneratePatch(kptfile.KptFileName, orgKfString, newKfString)
-	if err != nil {
-		return nil, false, err
-	}
-	// If patch is empty, don't create a Task.
-	if patchSpec.Contents == "" {
-		return nil, false, nil
-	}
-
-	return &api.Task{
-		Type: api.TaskTypePatch,
-		Patch: &api.PackagePatchTaskSpec{
-			Patches: []api.PatchSpec{
-				patchSpec,
-			},
-		},
-	}, true, nil
+	return kf, nil
 }
 
 func convertStatusToKptfile(s api.ConditionStatus) kptfile.ConditionStatus {
@@ -426,76 +340,6 @@ func convertStatusToKptfile(s api.ConditionStatus) kptfile.ConditionStatus {
 	default:
 		panic(fmt.Errorf("unknown condition status: %v", s))
 	}
-}
-
-// conditionalAddRender adds a render mutation to the end of the mutations slice if the last
-// entry is not already a render mutation.
-func (th *genericTaskHandler) conditionalAddRender(subject client.Object, mutations []mutation) []mutation {
-	if len(mutations) == 0 || isRenderMutation(mutations[len(mutations)-1]) {
-		return mutations
-	}
-
-	runnerOptions := th.runnerOptionsResolver(subject.GetNamespace())
-
-	return append(mutations, &renderPackageMutation{
-		runnerOptions: runnerOptions,
-		runtime:       th.runtime,
-	})
-}
-
-func isRenderMutation(m mutation) bool {
-	_, isRender := m.(*renderPackageMutation)
-	return isRender
-}
-
-// applyResourceMutations mutates the resources and returns the most recent renderResult.
-func applyResourceMutations(ctx context.Context, draft repository.PackageRevisionDraft, baseResources repository.PackageResources, mutations []mutation) (applied repository.PackageResources, renderStatus *api.RenderStatus, err error) {
-	ctx, span := tracer.Start(ctx, "genericTaskHandler::applyResourceMutations", trace.WithAttributes())
-	defer span.End()
-
-	var lastApplied mutation
-	for _, m := range mutations {
-		updatedResources, taskResult, err := m.apply(ctx, baseResources)
-		if taskResult == nil && err == nil {
-			// a nil taskResult means nothing changed
-			continue
-		}
-
-		var task *api.Task
-		if taskResult != nil {
-			task = taskResult.Task
-		}
-		if taskResult != nil && task.Type == api.TaskTypeEval {
-			renderStatus = taskResult.RenderStatus
-			if err != nil {
-				klog.Error(err)
-				err = fmt.Errorf("%w\n\n%s\n%s\n%s", err, "Error occurred rendering package in kpt function pipeline.", "Package has NOT been pushed to remote.", "Please fix package locally (modify until 'kpt fn render' succeeds) and retry.")
-				return updatedResources, renderStatus, err
-			}
-		}
-		if err != nil {
-			klog.Error(err)
-			return updatedResources, renderStatus, err
-		}
-
-		// if the last applied mutation was a render mutation, and so is this one, skip it
-		if lastApplied != nil && isRenderMutation(m) && isRenderMutation(lastApplied) {
-			continue
-		}
-		lastApplied = m
-
-		if err := draft.UpdateResources(ctx, &api.PackageRevisionResources{
-			Spec: api.PackageRevisionResourcesSpec{
-				Resources: updatedResources.Contents,
-			},
-		}, task); err != nil {
-			return updatedResources, renderStatus, err
-		}
-		baseResources = updatedResources
-		applied = updatedResources
-	}
-
-	return applied, renderStatus, nil
 }
 
 func healConfig(old, new map[string]string) (map[string]string, error) {

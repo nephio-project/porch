@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"maps"
 	"strings"
 	"time"
 
@@ -37,9 +38,6 @@ import (
 var (
 	_ repository.PackageRevision      = &dbPackageRevision{}
 	_ repository.PackageRevisionDraft = &dbPackageRevision{}
-
-	repositoryGVK      = porchapi.SchemeGroupVersion.WithKind("Repository")
-	packageRevisionGVK = porchapi.SchemeGroupVersion.WithKind("PackageRevision")
 )
 
 type dbPackageRevision struct {
@@ -131,9 +129,14 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 	_, span := tracer.Start(ctx, "dbPackageRevision::GetPackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	readPr, err := pkgRevReadFromDB(ctx, pr.Key(), false)
+	readPR, err := pkgRevReadFromDB(ctx, pr.Key(), false)
 	if err != nil {
-		return nil, fmt.Errorf("package revision read on DB failed %+v, %q", pr.Key(), err)
+		if pr.GetMeta().DeletionTimestamp != nil {
+			// The PR is already deleted from the DB so we just return the metadata version of this PR that is just about to be removed from memory
+			readPR = pr
+		} else {
+			return nil, fmt.Errorf("package revision read on DB failed %+v, %q", pr.Key(), err)
+		}
 	}
 
 	_, lock, _ := pr.GetUpstreamLock(ctx)
@@ -155,7 +158,7 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 		}
 	}
 
-	kf, _ := readPr.GetKptfile(ctx)
+	kf, _ := readPR.GetKptfile(ctx)
 
 	status := porchapi.PackageRevisionStatus{
 		UpstreamLock: lockCopy,
@@ -163,24 +166,22 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 		Conditions:   repository.ToApiConditions(kf),
 	}
 
-	if porchapi.LifecycleIsPublished(readPr.Lifecycle(ctx)) {
-		if !readPr.updated.IsZero() {
-			status.PublishedAt = metav1.Time{Time: readPr.updated}
+	if porchapi.LifecycleIsPublished(readPR.Lifecycle(ctx)) {
+		if !readPR.updated.IsZero() {
+			status.PublishedAt = metav1.Time{Time: readPR.updated}
 		}
-		if readPr.updatedBy != "" {
-			status.PublishedBy = readPr.updatedBy
+		if readPR.updatedBy != "" {
+			status.PublishedBy = readPR.updatedBy
 		}
 	}
 
 	// Set the "latest" label
 	labels := pr.GetMeta().Labels
 
-	if pr.latest {
+	if readPR.latest {
 		// copy the labels in case the cached object is being read by another go routine
 		newLabels := make(map[string]string, len(labels))
-		for k, v := range labels {
-			newLabels[k] = v
-		}
+		maps.Copy(newLabels, labels)
 		newLabels[porchapi.LatestPackageRevisionKey] = porchapi.LatestPackageRevisionValue
 		labels = newLabels
 	}
@@ -191,31 +192,25 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            readPr.KubeObjectName(),
-			Namespace:       readPr.Key().RKey().Namespace,
-			UID:             readPr.UID(),
-			ResourceVersion: readPr.ResourceVersion(),
-			CreationTimestamp: metav1.Time{
-				Time: readPr.updated,
-			},
-			Labels: labels,
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: repositoryGVK.GroupVersion().String(),
-					Kind:       repositoryGVK.Kind,
-					Name:       pr.repo.repoKey.K8SName(),
-					UID:        pr.repo.UID(),
-				},
-			},
+			Name:              readPR.KubeObjectName(),
+			Namespace:         readPR.Key().RKey().Namespace,
+			UID:               readPR.UID(),
+			ResourceVersion:   readPR.ResourceVersion(),
+			CreationTimestamp: readPR.GetMeta().CreationTimestamp,
+			DeletionTimestamp: readPR.GetMeta().DeletionTimestamp,
+			Labels:            labels,
+			OwnerReferences:   readPR.GetMeta().OwnerReferences,
+			Annotations:       readPR.GetMeta().Annotations,
+			Finalizers:        readPR.GetMeta().Finalizers,
 		},
 		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    readPr.Key().PKey().Package,
-			RepositoryName: readPr.Key().RKey().Name,
-			Lifecycle:      readPr.Lifecycle(ctx),
-			Tasks:          readPr.tasks,
+			PackageName:    readPR.Key().PKey().ToPkgPathname(),
+			RepositoryName: readPR.Key().RKey().Name,
+			Lifecycle:      readPR.Lifecycle(ctx),
+			Tasks:          readPR.tasks,
 			ReadinessGates: repository.ToApiReadinessGates(kf),
-			WorkspaceName:  readPr.Key().WorkspaceName,
-			Revision:       readPr.Key().Revision,
+			WorkspaceName:  readPR.Key().WorkspaceName,
+			Revision:       readPR.Key().Revision,
 		},
 		Status: status,
 	}, nil
@@ -246,14 +241,6 @@ func (pr *dbPackageRevision) GetResources(ctx context.Context) (*porchapi.Packag
 			CreationTimestamp: metav1.Time{
 				Time: pr.updated,
 			},
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: packageRevisionGVK.GroupVersion().String(),
-					Kind:       packageRevisionGVK.Kind,
-					Name:       pr.Key().K8SName(),
-					UID:        pr.UID(),
-				},
-			},
 		},
 		Spec: porchapi.PackageRevisionResourcesSpec{
 			PackageName:    pr.Key().PKey().Package,
@@ -279,7 +266,7 @@ func (pr *dbPackageRevision) GetUpstreamLock(ctx context.Context) (kptfile.Upstr
 }
 
 func (pr *dbPackageRevision) ToMainPackageRevision(ctx context.Context) repository.PackageRevision {
-	_, span := tracer.Start(ctx, "dbPackageRevision::SetMeta", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "dbPackageRevision::ToMainPackageRevision", trace.WithAttributes())
 	defer span.End()
 
 	mainPR := &dbPackageRevision{
@@ -309,7 +296,7 @@ func (pr *dbPackageRevision) ToMainPackageRevision(ctx context.Context) reposito
 }
 
 func (pr *dbPackageRevision) GetMeta() metav1.ObjectMeta {
-	return metav1.ObjectMeta{}
+	return pr.meta
 }
 
 func (pr *dbPackageRevision) SetMeta(ctx context.Context, meta metav1.ObjectMeta) error {
@@ -403,8 +390,11 @@ func (pr *dbPackageRevision) UpdateResources(ctx context.Context, new *porchapi.
 
 	pr.resources = new.Spec.Resources
 
-	if change != nil {
-		pr.tasks = append(pr.tasks, *change)
+	if change != nil && porchapi.IsValidFirstTaskType(change.Type) {
+		if len(pr.tasks) > 0 {
+			klog.Warningf("Replacing first task of %q", pr.Key())
+		}
+		pr.tasks = []porchapi.Task{*change}
 	}
 
 	return nil

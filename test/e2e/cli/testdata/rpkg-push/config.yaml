@@ -264,6 +264,6 @@ commands:
     stderr: |
       Error occurred rendering package in kpt function pipeline.
       Package has NOT been pushed to remote.
-      Please fix package locally (modify until 'kpt fn render' succeeds) and retry. 
+      Please fix package locally (modify until 'kpt fn render' succeeds) and retry.
     containsErrorString: true
     exitCode: 1
