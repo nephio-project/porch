@@ -282,7 +282,7 @@ run-in-kind-no-controller: load-images-to-kind deployment-config-no-controller d
 run-in-kind-db-cache-no-controller: IMAGE_REPO=porch-kind
 run-in-kind-db-cache-no-controller: IMAGE_TAG=test
 run-in-kind-db-cache-no-controller: SKIP_CONTROLLER_BUILD=true
-run-in-kind-db-cache-no-controller: load-images-to-kind deployment-config-db-cache deployment-config-no-controller deploy-current-config ## Build and deploy porch without the controllers into a kind cluster
+run-in-kind-db-cache-no-controller: load-images-to-kind deployment-config-db-cache deployment-config-no-controller deploy-current-config ## Build and deploy porch without the controllers into a kind cluster with postgres backend
 
 .PHONY: destroy
 destroy: ## Deletes all porch resources installed by the last run-in-kind-* command

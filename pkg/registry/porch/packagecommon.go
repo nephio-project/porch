@@ -26,7 +26,7 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -57,45 +57,45 @@ type packageCommon struct {
 }
 
 func (r *packageCommon) listPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter,
-	selector labels.Selector, callback func(ctx context.Context, p repository.PackageRevision) error) error {
+	callback func(ctx context.Context, p repository.PackageRevision) error) error {
 	ctx, span := tracer.Start(ctx, "packageCommon::listPackageRevisions", trace.WithAttributes())
 	defer span.End()
 
 	var opts []client.ListOption
+
 	namespace, namespaced := genericapirequest.NamespaceFrom(ctx)
 	if namespaced && namespace != "" {
-		opts = append(opts, client.InNamespace(namespace))
-
-		if filter.Key.RKey().Namespace != "" && namespace != filter.Key.RKey().Namespace {
-			return fmt.Errorf("conflicting namespaces specified: %q and %q", namespace, filter.Key.RKey().Namespace)
+		if namespaceMatches, filteredNamespace := filter.MatchesNamespace(namespace); !namespaceMatches {
+			return fmt.Errorf("conflicting namespaces specified: %q and %q", namespace, filteredNamespace)
 		}
+
+		opts = append(opts, client.InNamespace(namespace))
 	}
 
-	// TODO: Filter on filter.Repository?
+	if filterRepo := filter.FilteredRepository(); filterRepo != "" {
+		opts = append(opts, client.MatchingFields(fields.Set{"metadata.name": filterRepo}))
+	}
+
 	var repositories configapi.RepositoryList
+
 	if err := r.coreClient.List(ctx, &repositories, opts...); err != nil {
 		return fmt.Errorf("error listing repository objects: %w", err)
 	}
 
-	for i := range repositories.Items {
-		repositoryObj := &repositories.Items[i]
+	for _, repositoryObj := range repositories.Items {
 
 		if filter.Key.RKey().Name != "" && filter.Key.RKey().Name != repositoryObj.GetName() {
 			continue
 		}
 
-		revisions, err := r.cad.ListPackageRevisions(ctx, repositoryObj, filter)
+		revisions, err := r.cad.ListPackageRevisions(ctx, &repositoryObj, filter)
 		if err != nil {
 			klog.Warningf("error listing package revisions from repository %s/%s: %+v", repositoryObj.GetNamespace(), repositoryObj.GetName(), err)
 			continue
 		}
 		for _, rev := range revisions {
-			apiPkgRev, err := rev.GetPackageRevision(ctx)
-			if err != nil {
-				return err
-			}
 
-			if selector != nil && !selector.Matches(labels.Set(apiPkgRev.Labels)) {
+			if !filter.Matches(ctx, rev) {
 				continue
 			}
 
