@@ -23,6 +23,7 @@ import (
 
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -290,6 +291,10 @@ type PackageRevision interface {
 	SetMeta(ctx context.Context, meta metav1.ObjectMeta) error
 }
 
+type hasLatestRevisionInfo interface {
+	IsLatestRevision() bool
+}
+
 // Package is an abstract package.
 type Package interface {
 	KubeObjectNamespace() string
@@ -355,8 +360,25 @@ func (f *ListPackageRevisionFilter) ParseAttrFunc(p PackageRevision) {
 		}
 	}
 
+	labelSet := func() labels.Set {
+		labels := p.GetMeta().Labels
+		if labels == nil {
+			labels = make(map[string]string, 1)
+		}
+		return labels
+	}()
+	isLatest := func() bool {
+		if cachedPr, ok := p.(hasLatestRevisionInfo); ok {
+			return cachedPr.IsLatestRevision()
+		}
+		return false
+	}()
+	if isLatest {
+		labelSet[api.LatestPackageRevisionKey] = api.LatestPackageRevisionValue
+	}
+
 	f.Predicate.GetAttrs = func(obj runtime.Object) (labels.Set, fields.Set, error) {
-		return p.GetMeta().Labels, fieldSet, nil
+		return labelSet, fieldSet, nil
 	}
 }
 

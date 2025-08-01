@@ -2590,10 +2590,12 @@ func (t *PorchSuite) TestNewPackageRevisionLabels() {
 
 func (t *PorchSuite) TestPackageRevisionLabelSelectors() {
 	const (
-		repository = "pkg-rev-label-selectors"
-		labelKey   = "kpt.dev/label"
-		labelVal1  = "foo"
-		labelVal2  = "bar"
+		repository       = "pkg-rev-label-selectors"
+		labelKey         = "kpt.dev/label"
+		labelVal1        = "foo"
+		labelVal2        = "bar"
+		latestLabelKey   = porchapi.LatestPackageRevisionKey
+		latestLabelValue = porchapi.LatestPackageRevisionValue
 	)
 
 	t.RegisterMainGitRepositoryF(repository)
@@ -2626,6 +2628,12 @@ func (t *PorchSuite) TestPackageRevisionLabelSelectors() {
 	}
 	t.CreateF(&pr)
 
+	// Propose and approve to ensure it has the latest-revision label
+	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	t.UpdateF(&pr)
+	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+	t.UpdateApprovalF(&pr, metav1.UpdateOptions{})
+
 	prList := porchapi.PackageRevisionList{}
 	pkgSelector := client.MatchingLabels(labels.Set{labelKey: labelVal1})
 	t.ListE(&prList, client.InNamespace(t.Namespace), pkgSelector)
@@ -2634,6 +2642,12 @@ func (t *PorchSuite) TestPackageRevisionLabelSelectors() {
 	pkgSelector = client.MatchingLabels(labels.Set{labelKey: labelVal2})
 	t.ListE(&prList, client.InNamespace(t.Namespace), pkgSelector)
 	require.Empty(t.T(), prList.Items)
+
+	// Special case for the kpt.dev/latest-revision label,
+	// which is managed by Porch and handled separately
+	pkgSelector = client.MatchingLabels(labels.Set{latestLabelKey: latestLabelValue})
+	t.ListE(&prList, client.InNamespace(t.Namespace), pkgSelector)
+	require.Equal(t.T(), 1, len(prList.Items))
 }
 
 func (t *PorchSuite) TestRegisteredPackageRevisionLabels() {
