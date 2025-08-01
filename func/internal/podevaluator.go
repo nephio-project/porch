@@ -1053,6 +1053,15 @@ func (pm *podManager) retrieveOrCreateService(ctx context.Context, serviceName s
 		err = pm.kubeClient.Create(ctx, serviceTemplate, client.FieldOwner(fieldManagerName))
 		if err != nil {
 			klog.Errorf("failed to create service %v/%v: %v", pm.namespace, serviceName, err)
+			// Try to retrieve again
+			if errors.IsAlreadyExists(err) {
+				klog.Infof("service %v/%v already exists - trying to retrieve it", pm.namespace, serviceName)
+				errExistingSvc := pm.kubeClient.Get(ctx, client.ObjectKey{Namespace: pm.namespace, Name: serviceName}, existingService)
+				if errExistingSvc == nil {
+					klog.Infof("retrieved function evaluator service %v/%v", existingService.Namespace, existingService.Name)
+					return client.ObjectKey{Namespace: existingService.Namespace, Name: existingService.Name}, nil
+				}
+			}
 			return client.ObjectKey{}, err
 		}
 
