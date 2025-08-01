@@ -79,27 +79,27 @@ func (fpr *FakePackageRevision) Lifecycle(ctx context.Context) v1alpha1.PackageR
 
 func (fpr *FakePackageRevision) GetPackageRevision(context.Context) (*v1alpha1.PackageRevision, error) {
 	fpr.Ops = append(fpr.Ops, "GetPackageRevision")
-	return fpr.PackageRevision, pr.Err
+	return fpr.PackageRevision, fpr.Err
 }
 
 func (fpr *FakePackageRevision) GetResources(context.Context) (*v1alpha1.PackageRevisionResources, error) {
 	fpr.Ops = append(fpr.Ops, "GetResources")
-	return fpr.Resources, pr.Err
+	return fpr.Resources, fpr.Err
 }
 
 func (fpr *FakePackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, error) {
 	fpr.Ops = append(fpr.Ops, "GetKptfile")
-	return fpr.Kptfile, pr.Err
+	return fpr.Kptfile, fpr.Err
 }
 
 func (fpr *FakePackageRevision) GetUpstreamLock(context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error) {
 	fpr.Ops = append(fpr.Ops, "GetUpstreamLock")
-	return *fpr.Kptfile.Upstream, *fpr.Kptfile.UpstreamLock, pr.Err
+	return *fpr.Kptfile.Upstream, *fpr.Kptfile.UpstreamLock, fpr.Err
 }
 
 func (fpr *FakePackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, error) {
 	fpr.Ops = append(fpr.Ops, "GetLock")
-	return *fpr.Kptfile.Upstream, *fpr.Kptfile.UpstreamLock, pr.Err
+	return *fpr.Kptfile.Upstream, *fpr.Kptfile.UpstreamLock, fpr.Err
 }
 
 func (fpr *FakePackageRevision) UpdateLifecycle(_ context.Context, lifecycle v1alpha1.PackageRevisionLifecycle) error {
@@ -108,7 +108,7 @@ func (fpr *FakePackageRevision) UpdateLifecycle(_ context.Context, lifecycle v1a
 	if fpr.PackageRevision != nil {
 		fpr.PackageRevision.Spec.Lifecycle = lifecycle
 	}
-	return pr.Err
+	return fpr.Err
 }
 
 func (fpr *FakePackageRevision) GetMeta() metav1.ObjectMeta {
@@ -118,11 +118,11 @@ func (fpr *FakePackageRevision) GetMeta() metav1.ObjectMeta {
 
 func (fpr *FakePackageRevision) SetMeta(context.Context, metav1.ObjectMeta) error {
 	fpr.Ops = append(fpr.Ops, "SetMeta")
-	return pr.Err
+	return fpr.Err
 }
 
 func (fpr *FakePackageRevision) UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, change *v1alpha1.Task) error {
 	fpr.Ops = append(fpr.Ops, "UpdateResources")
 	fpr.Resources = new
-	return pr.Err
+	return fpr.Err
 }
