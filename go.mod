@@ -4,6 +4,8 @@ go 1.23.8
 
 retract v1.3.0
 
+replace k8s.io/apiserver => ./third_party/k8s.io/apiserver
+
 require (
 	cloud.google.com/go/iam v1.1.12
 	github.com/GoogleContainerTools/kpt v1.0.0-beta.48
