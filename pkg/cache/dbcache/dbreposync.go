@@ -27,6 +27,7 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog/v2"
 )
 
@@ -336,6 +337,11 @@ func (s *repositorySyncImpl) deletePRsMarkedForDeletion(ctx context.Context, cac
 			}
 		}
 
+		if s.repo.repoPRChangeNotifier != nil {
+			sent := s.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Deleted, dbPR)
+			klog.V(2).Infof("repositorySync %+v: sent %d notifications for deleted package revision %+v", s.repo.Key(), sent, dbPR.Key())
+		}
+
 		if err := s.repo.deletePackageRevision(ctx, dbPR); err != nil {
 			klog.Errorf("repositorySync %+v: failed to delete cached PR %+v that was deleted on external repo", s.repo.Key(), dbPR.Key())
 			return markedPRsDeleted, err
@@ -372,6 +378,11 @@ func (s *repositorySyncImpl) pushCachedPRsToExternal(ctx context.Context, cached
 			return pkgerrors.Wrapf(err, "repositorySync %+v: failed to save package revision %+v to database after push to external repo", s.repo.Key(), dbPR.Key())
 		}
 
+		if s.repo.repoPRChangeNotifier != nil {
+			sent := s.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Added, dbPR)
+			klog.V(2).Infof("repositorySync %+v: sent %d notifications for added package revision %+v", s.repo.Key(), sent, dbPR.Key())
+		}
+
 		if err = dbPR.publishPlaceholderPRForPR(ctx); err != nil {
 			return pkgerrors.Wrapf(err, "repositorySync %+v: failed to save placeholder package revision for package revisino %+v to database", s.repo.Key(), dbPR.Key())
 		}
@@ -398,6 +409,12 @@ func (s *repositorySyncImpl) deletePRsOnlyInCache(ctx context.Context, cachedPrM
 		}
 
 		dbPkg := pkgList[0].(*dbPackage)
+
+		if s.repo.repoPRChangeNotifier != nil {
+			sent := s.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Deleted, dbPR)
+			klog.V(2).Infof("repositorySync %+v: sent %d notifications for deleted package revision %+v", s.repo.Key(), sent, dbPRKey)
+		}
+
 		if err = dbPkg.DeletePackageRevision(ctx, dbPR); err != nil {
 			klog.Errorf("repositorySync %+v: failed to delete cached PR %+v not in external repo", s.repo.Key(), dbPRKey)
 			return err
@@ -438,10 +455,15 @@ func (s *repositorySyncImpl) cacheExternalPRs(ctx context.Context, externalPrMap
 			tasks:         extAPIPR.Spec.Tasks,
 			resources:     extPRResources.Spec.Resources,
 		}
-		_, err = s.repo.savePackageRevision(ctx, &dbPR, true)
+		savedPR, err := s.repo.savePackageRevision(ctx, &dbPR, true)
 		if err != nil {
 			klog.Errorf("repositorySync %+v: failed to save external package revision %+v to database", s.repo.Key(), extPRKey)
 			return err
+		}
+
+		if s.repo.repoPRChangeNotifier != nil {
+			sent := s.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Added, savedPR)
+			klog.V(2).Infof("repositorySync %+v: sent %d notifications for added package revision %+v", s.repo.Key(), sent, savedPR.Key())
 		}
 	}
 

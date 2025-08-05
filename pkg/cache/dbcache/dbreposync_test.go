@@ -257,3 +257,101 @@ func TestRepoSyncTickTock(t *testing.T) {
 	repoSyncImpl.tickTock(ctx)
 	assert.Equal(t, time.Duration(10*time.Second), repoSyncImpl.syncCountdown)
 }
+
+func TestRepoSyncNotifications(t *testing.T) {
+	mockCache := mockcachetypes.NewMockCache(t)
+	cachetypes.CacheInstance = mockCache
+
+	externalrepo.ExternalRepoInUnitTestMode = true
+
+	ctx := context.TODO()
+
+	repoName := "my-repo-name-watch"
+	packageName := "test-package-watch"
+	externalPackageName := "external-package-watch"
+
+	testRepo := createTestRepo(t, "my-ns-watch", repoName)
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(&testRepo).Maybe()
+
+	mockNotifier := mockcachetypes.NewMockRepoPRChangeNotifier(t)
+	testRepo.repoPRChangeNotifier = mockNotifier
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	assert.Nil(t, err)
+
+	cacheOptions := cachetypes.CacheOptions{
+		RepoSyncFrequency: 1 * time.Second,
+	}
+
+	testRepo.repositorySync = newRepositorySync(&testRepo, cacheOptions)
+
+	newPRDef := v1alpha1.PackageRevision{
+		Spec: v1alpha1.PackageRevisionSpec{
+			RepositoryName: repoName,
+			PackageName:    packageName,
+			WorkspaceName:  "test-workspace",
+			Lifecycle:      v1alpha1.PackageRevisionLifecyclePublished,
+		},
+	}
+	dbPRDraft, err := testRepo.CreatePackageRevisionDraft(ctx, &newPRDef)
+	assert.Nil(t, err)
+	assert.NotNil(t, dbPRDraft)
+
+	dbPR, err := testRepo.ClosePackageRevisionDraft(ctx, dbPRDraft, 0)
+	assert.Nil(t, err)
+	assert.NotNil(t, dbPR)
+
+	fakeRepo := testRepo.externalRepo.(*fake.Repository)
+
+	// watch.Added
+	fakeExtPR := fake.FakePackageRevision{
+		PrKey: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				RepoKey: testRepo.Key(),
+				Package: externalPackageName,
+			},
+			Revision:      1,
+			WorkspaceName: "external-workspace",
+		},
+		PackageRevision: &v1alpha1.PackageRevision{
+			Spec: v1alpha1.PackageRevisionSpec{
+				RepositoryName: repoName,
+				PackageName:    externalPackageName,
+				WorkspaceName:  "external-workspace",
+				Lifecycle:      v1alpha1.PackageRevisionLifecyclePublished,
+			},
+		},
+		Resources: &v1alpha1.PackageRevisionResources{},
+		Kptfile: v1.KptFile{
+			Upstream:     &v1.Upstream{},
+			UpstreamLock: &v1.UpstreamLock{},
+		},
+	}
+	fakeRepo.PackageRevisions = append(fakeRepo.PackageRevisions, &fakeExtPR)
+	fakeRepo.CurrentVersion = "external-version"
+
+	mockNotifier.EXPECT().NotifyPackageRevisionChange(mock.Anything, mock.Anything).Return(1).Maybe()
+
+	time.Sleep(2 * time.Second)
+
+	// watch.Modified
+	testRepo.deployment = true
+	fakeRepo.CurrentVersion = "push-version"
+
+	mockNotifier.EXPECT().NotifyPackageRevisionChange(mock.Anything, mock.Anything).Return(1).Maybe()
+
+	time.Sleep(2 * time.Second)
+
+	// watch.Deleted
+	fakeRepo.PackageRevisions = nil
+	fakeRepo.CurrentVersion = "deleted-version"
+
+	mockNotifier.EXPECT().NotifyPackageRevisionChange(mock.Anything, mock.Anything).Return(1).Maybe()
+
+	time.Sleep(2 * time.Second)
+
+	testRepo.repositorySync.Stop()
+
+	err = testRepo.Close(ctx)
+	assert.Nil(t, err)
+}
