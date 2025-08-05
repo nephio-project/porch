@@ -30,6 +30,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/v2"
 )
 
 type gitPackageRevision struct {
@@ -121,6 +122,14 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 			CreationTimestamp: metav1.Time{
 				Time: p.metadata.CreationTimestamp.Time,
 			},
+			Labels: func() map[string]string {
+				if kptfile, err := p.GetKptfile(ctx); err == nil {
+					return kptfile.Labels
+				} else {
+					klog.Errorf("error getting package revision labels from Kptfile: %q", err)
+				}
+				return nil
+			}(),
 		},
 		Spec: v1alpha1.PackageRevisionSpec{
 			PackageName:    key.PkgKey.ToPkgPathname(),

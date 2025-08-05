@@ -17,6 +17,7 @@ package task
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -324,6 +325,15 @@ func patchKptfile(ctx context.Context, oldPackage repository.PackageRevision, ne
 	}
 	if len(conditions) > 0 {
 		kf.Status.Conditions = conditions
+	}
+
+	newObjLabels := newObj.Labels
+	labels := kf.Labels
+	if labels != nil {
+		maps.Copy(labels, newObjLabels)
+		kf.Labels = labels
+	} else {
+		kf.Labels = newObjLabels
 	}
 
 	return kf, nil

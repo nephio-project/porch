@@ -20,7 +20,9 @@ import (
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	"go.opentelemetry.io/otel/trace"
+	"k8s.io/klog/v2"
 )
 
 type editPackageMutation struct {
@@ -62,6 +64,18 @@ func (m *editPackageMutation) apply(ctx context.Context, resources repository.Pa
 	sourceResources, err := revision.GetResources(ctx)
 	if err != nil {
 		return repository.PackageResources{}, nil, fmt.Errorf("cannot read contents of package %q: %w", sourceRef.Name, err)
+	}
+
+	// We erase any labels that may have come in with the copied Kptfile
+	if kptfile, err := fn.NewKptfileFromPackage(sourceResources.Spec.Resources); err == nil {
+		if _, err := kptfile.Obj.RemoveNestedField("metadata", "labels"); err != nil {
+			klog.Errorf("error removing metadata.labels from resources' Kptfile: %q", err)
+		}
+		if err := kptfile.WriteToPackage(sourceResources.Spec.Resources); err != nil {
+			klog.Errorf("error writing Kptfile back to resources: %q", err)
+		}
+	} else {
+		klog.Warningf("unable to get resources' Kptfile to remove labels: %q", err)
 	}
 
 	return repository.PackageResources{

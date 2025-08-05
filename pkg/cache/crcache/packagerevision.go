@@ -16,6 +16,7 @@ package crcache
 
 import (
 	"context"
+	"maps"
 	"sync"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -63,20 +64,20 @@ func (c *cachedPackageRevision) GetPackageRevision(ctx context.Context) (*api.Pa
 		return nil, err
 	}
 
-	apiPR.Annotations = c.GetMeta().Annotations
-	apiPR.Finalizers = c.GetMeta().Finalizers
-	apiPR.OwnerReferences = c.GetMeta().OwnerReferences
-	apiPR.DeletionTimestamp = c.GetMeta().DeletionTimestamp
-	apiPR.Labels = c.GetMeta().Labels
+	cachedMeta := c.GetMeta()
+	apiPR.Annotations = cachedMeta.Annotations
+	apiPR.Finalizers = cachedMeta.Finalizers
+	apiPR.OwnerReferences = cachedMeta.OwnerReferences
+	apiPR.DeletionTimestamp = cachedMeta.DeletionTimestamp
+	apiPR.Labels = cachedMeta.Labels
+
 	c.mutex.Lock()
 	latest := c.isLatestRevision
 	c.mutex.Unlock()
 	if latest {
 		// copy the labels in case the cached object is being read by another go routine
 		labels := make(map[string]string, len(apiPR.Labels))
-		for k, v := range apiPR.Labels {
-			labels[k] = v
-		}
+		maps.Copy(labels, apiPR.Labels)
 		labels[api.LatestPackageRevisionKey] = api.LatestPackageRevisionValue
 		apiPR.Labels = labels
 	}

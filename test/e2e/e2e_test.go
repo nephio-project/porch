@@ -1377,6 +1377,11 @@ func (t *PorchSuite) TestProposeDeleteAndUndo() {
 			pkgRev.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
 			t.UpdateApprovalF(&pkgRev, metav1.UpdateOptions{})
 
+			t.GetF(client.ObjectKey{
+				Namespace: t.Namespace,
+				Name:      pkgRev.Name,
+			}, &pkgRev)
+
 			// Undo proposal of deletion
 			pkgRev.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 			t.UpdateApprovalF(&pkgRev, metav1.UpdateOptions{})
@@ -2455,36 +2460,16 @@ func (t *PorchSuite) TestNewPackageRevisionLabels() {
 	t.RegisterMainGitRepositoryF(repository)
 
 	// Create a package with labels and annotations.
-	pr := porchapi.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
-			APIVersion: porchapi.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-			Labels: map[string]string{
-				labelKey1: labelVal1,
-			},
-			Annotations: map[string]string{
-				annoKey1: annoVal1,
-				annoKey2: annoVal2,
-			},
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "new-package",
-			WorkspaceName:  "workspace",
-			RepositoryName: repository,
-			Tasks: []porchapi.Task{
-				{
-					Type: porchapi.TaskTypeInit,
-					Init: &porchapi.PackageInitTaskSpec{
-						Description: "this is a test",
-					},
-				},
-			},
-		},
+	pr := t.CreatePackageSkeleton(repository, "new-package", "workspace")
+	pr.ObjectMeta.Labels = map[string]string{
+		labelKey1: labelVal1,
 	}
-	t.CreateF(&pr)
+	pr.ObjectMeta.Annotations = map[string]string{
+		annoKey1: annoVal1,
+		annoKey2: annoVal2,
+	}
+
+	t.CreateF(pr)
 	t.ValidateLabelsAndAnnos(pr.Name,
 		map[string]string{
 			labelKey1: labelVal1,
@@ -2497,13 +2482,13 @@ func (t *PorchSuite) TestNewPackageRevisionLabels() {
 
 	// Propose the package.
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	t.UpdateF(&pr)
+	t.UpdateF(pr)
 
 	// retrieve the updated object
 	t.GetF(client.ObjectKey{
 		Namespace: pr.Namespace,
 		Name:      pr.Name,
-	}, &pr)
+	}, pr)
 
 	t.ValidateLabelsAndAnnos(pr.Name,
 		map[string]string{
@@ -2517,7 +2502,7 @@ func (t *PorchSuite) TestNewPackageRevisionLabels() {
 
 	// Approve the package
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	_ = t.UpdateApprovalF(&pr, metav1.UpdateOptions{})
+	_ = t.UpdateApprovalF(pr, metav1.UpdateOptions{})
 	t.ValidateLabelsAndAnnos(pr.Name,
 		map[string]string{
 			labelKey1:                         labelVal1,
@@ -2533,14 +2518,14 @@ func (t *PorchSuite) TestNewPackageRevisionLabels() {
 	t.GetF(client.ObjectKey{
 		Namespace: pr.Namespace,
 		Name:      pr.Name,
-	}, &pr)
+	}, pr)
 
 	// Update the labels and annotations on the approved package.
 	delete(pr.ObjectMeta.Labels, labelKey1)
 	pr.ObjectMeta.Labels[labelKey2] = labelVal2
 	delete(pr.ObjectMeta.Annotations, annoKey2)
 	pr.Spec.Revision = 1
-	t.UpdateF(&pr)
+	t.UpdateF(pr)
 	t.ValidateLabelsAndAnnos(pr.Name,
 		map[string]string{
 			labelKey2:                         labelVal2,
@@ -2553,34 +2538,177 @@ func (t *PorchSuite) TestNewPackageRevisionLabels() {
 
 	// Create PackageRevision from upstream repo. Labels and annotations should
 	// not be retained from upstream.
-	clonedPr := porchapi.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
-			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "cloned-package",
-			WorkspaceName:  "workspace",
-			RepositoryName: repository,
-			Tasks: []porchapi.Task{
-				{
-					Type: porchapi.TaskTypeClone,
-					Clone: &porchapi.PackageCloneTaskSpec{
-						Upstream: porchapi.UpstreamPackage{
-							UpstreamRef: &porchapi.PackageRevisionRef{
-								Name: pr.Name, // Package to be cloned
-							},
-						},
+	clonedPr := t.CreatePackageSkeleton(repository, "cloned-package", "workspace")
+	clonedPr.Spec.Tasks = []porchapi.Task{
+		{
+			Type: porchapi.TaskTypeClone,
+			Clone: &porchapi.PackageCloneTaskSpec{
+				Upstream: porchapi.UpstreamPackage{
+					UpstreamRef: &porchapi.PackageRevisionRef{
+						Name: pr.Name, // Package to be cloned
 					},
 				},
 			},
 		},
 	}
-	t.CreateF(&clonedPr)
+	t.CreateF(clonedPr)
 	t.ValidateLabelsAndAnnos(clonedPr.Name,
+		map[string]string{},
+		map[string]string{},
+	)
+
+	// Edit published PackageRevision. Labels and annotations should
+	// not be retained from upstream.
+	editedPr := t.CreatePackageSkeleton(repository, "new-package", "edited-package-workspace")
+	editedPr.Spec.Tasks = []porchapi.Task{
+		{
+			Type: porchapi.TaskTypeEdit,
+			Edit: &porchapi.PackageEditTaskSpec{
+				Source: &porchapi.PackageRevisionRef{
+					Name: pr.Name,
+				},
+			},
+		},
+	}
+	t.CreateF(editedPr)
+	t.ValidateLabelsAndAnnos(editedPr.Name,
+		map[string]string{},
+		map[string]string{},
+	)
+}
+
+func (t *PorchSuite) TestPackageRevisionLabelsInResourceKptfile() {
+	const (
+		repository = "pkg-rev-labels"
+		labelKey1  = "kpt.dev/label"
+		labelVal1  = "foo"
+		labelKey2  = "kpt.dev/other-label"
+		labelVal2  = "bar"
+	)
+
+	t.RegisterMainGitRepositoryF(repository)
+
+	// Create a package
+	pr := t.CreatePackageSkeleton(repository, "new-package", "workspace")
+	t.CreateF(pr)
+
+	// Get package resources
+	resources := &porchapi.PackageRevisionResources{}
+	t.GetF(client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      pr.Name,
+	}, resources)
+
+	// Update package resources to add a label
+	t.EditKptfile(resources, func(kptfile *kptfilev1.KptFile) {
+		kptfile.ObjectMeta.Labels = map[string]string{
+			labelKey1: labelVal1,
+		}
+	})
+	t.UpdateF(resources)
+
+	// Check that the labels are still in the Kptfile in the package resources
+	t.ValidateResourceLabels(pr.Name,
+		map[string]string{
+			labelKey1: labelVal1,
+		},
+	)
+
+	// Check the labels come through in the PackageRevision interface
+	t.ValidateLabelsAndAnnos(pr.Name,
+		map[string]string{
+			labelKey1: labelVal1,
+		}, nil,
+	)
+
+	// Add a label by updating the PackageRevision
+	t.GetF(client.ObjectKey{
+		Namespace: pr.Namespace,
+		Name:      pr.Name,
+	}, pr)
+	pr.ObjectMeta.Labels[labelKey2] = labelVal2
+	t.UpdateF(pr)
+
+	// Check that the labels were saved in the Kptfile in the package resources
+	t.ValidateResourceLabels(pr.Name,
+		map[string]string{
+			labelKey1: labelVal1,
+			labelKey2: labelVal2,
+		},
+	)
+
+	// Check that the labels come through in the PackageRevision interface
+	t.ValidateLabelsAndAnnos(pr.Name,
+		map[string]string{
+			labelKey1: labelVal1,
+			labelKey2: labelVal2,
+		}, nil,
+	)
+
+	// Propose and approve the package.
+	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	t.UpdateF(pr)
+	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+	_ = t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+
+	// Update the labels on the published package.
+	delete(pr.ObjectMeta.Labels, labelKey1)
+	pr.ObjectMeta.Labels[labelKey2] = labelVal2
+	pr.Spec.Revision = 1
+	t.UpdateF(pr)
+
+	// Check that the label change was NOT saved in the package resources
+	t.ValidateResourceLabels(pr.Name,
+		map[string]string{
+			labelKey1: labelVal1,
+			labelKey2: labelVal2,
+		},
+	)
+
+	// Check that the label change comes through in the PackageRevision interface
+	t.ValidateLabelsAndAnnos(pr.Name,
+		map[string]string{
+			labelKey2:                         labelVal2,
+			porchapi.LatestPackageRevisionKey: porchapi.LatestPackageRevisionValue,
+		}, nil,
+	)
+
+	// Clone PackageRevision. Labels and annotations should
+	// not be retained from upstream.
+	clonedPr := t.CreatePackageSkeleton(repository, "cloned-package", "workspace")
+	clonedPr.Spec.Tasks = []porchapi.Task{
+		{
+			Type: porchapi.TaskTypeClone,
+			Clone: &porchapi.PackageCloneTaskSpec{
+				Upstream: porchapi.UpstreamPackage{
+					UpstreamRef: &porchapi.PackageRevisionRef{
+						Name: pr.Name, // Package to be cloned
+					},
+				},
+			},
+		},
+	}
+	t.CreateF(clonedPr)
+	t.ValidateLabelsAndAnnos(clonedPr.Name,
+		map[string]string{},
+		map[string]string{},
+	)
+
+	// Edit PackageRevision. Labels and annotations should
+	// not be retained from upstream.
+	editedPr := t.CreatePackageSkeleton(repository, "new-package", "edited-package-workspace")
+	editedPr.Spec.Tasks = []porchapi.Task{
+		{
+			Type: porchapi.TaskTypeEdit,
+			Edit: &porchapi.PackageEditTaskSpec{
+				Source: &porchapi.PackageRevisionRef{
+					Name: pr.Name,
+				},
+			},
+		},
+	}
+	t.CreateF(editedPr)
+	t.ValidateLabelsAndAnnos(editedPr.Name,
 		map[string]string{},
 		map[string]string{},
 	)

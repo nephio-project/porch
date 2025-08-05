@@ -28,6 +28,7 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -186,15 +187,32 @@ func (t *TestSuite) ValidateLabelsAndAnnos(name string, labels, annos map[string
 
 	// Make this check to handle empty vs nil maps
 	if !(len(labels) == 0 && len(actualLabels) == 0) {
-		if diff := cmp.Diff(actualLabels, labels); diff != "" {
-			t.Errorf("Unexpected result (-want, +got): %s", diff)
-		}
+		diff := cmp.Diff(labels, actualLabels)
+		require.Emptyf(t.T(), diff, "Unexpected result (-want, +got): %s", diff)
 	}
 
 	if !(len(annos) == 0 && len(actualAnnos) == 0) {
-		if diff := cmp.Diff(actualAnnos, annos); diff != "" {
-			t.Errorf("Unexpected result (-want, +got): %s", diff)
-		}
+		diff := cmp.Diff(annos, actualAnnos)
+		require.Emptyf(t.T(), diff, "Unexpected result (-want, +got): %s", diff)
+	}
+}
+
+func (t *TestSuite) ValidateResourceLabels(name string, wantLabels map[string]string) {
+	t.T().Helper()
+	var prr porchapi.PackageRevisionResources
+	t.GetF(client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      name,
+	}, &prr)
+
+	kptfile := t.ParseKptfileF(&prr)
+
+	actualLabels := kptfile.Labels
+
+	// Make this check to handle empty vs nil maps
+	if !(len(wantLabels) == 0 && len(actualLabels) == 0) {
+		diff := cmp.Diff(wantLabels, actualLabels)
+		require.Emptyf(t.T(), diff, "Unexpected result (-want, +got): %s", diff)
 	}
 }
 

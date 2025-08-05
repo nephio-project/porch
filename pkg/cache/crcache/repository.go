@@ -16,6 +16,7 @@ package crcache
 
 import (
 	"context"
+	"maps"
 	"strings"
 	"sync"
 	"time"
@@ -244,9 +245,21 @@ func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd re
 		return nil, err
 	}
 	pkgRevMeta := metav1.ObjectMeta{
-		Name:            cachedPr.KubeObjectName(),
-		Namespace:       cachedPr.KubeObjectNamespace(),
-		Labels:          prd.GetMeta().Labels,
+		Name:      cachedPr.KubeObjectName(),
+		Namespace: cachedPr.KubeObjectNamespace(),
+		Labels: func() map[string]string {
+			if kptfile, err := cachedPr.GetKptfile(ctx); err == nil {
+				if kptfile.Labels != nil {
+					labels := kptfile.Labels
+					maps.Copy(labels, prd.GetMeta().Labels)
+					return labels
+				}
+			} else {
+				klog.Warningf("error getting Kptfile labels from cached package: %q", err)
+			}
+
+			return prd.GetMeta().Labels
+		}(),
 		Annotations:     prd.GetMeta().Annotations,
 		Finalizers:      prd.GetMeta().Finalizers,
 		OwnerReferences: prd.GetMeta().OwnerReferences,
@@ -562,8 +575,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 	}
 	// Create a map so we can quickly check if a specific PackageRevisionMeta exists.
 	existingPkgRevCRsMap := make(map[string]metav1.ObjectMeta)
-	for i := range existingPkgRevCRs {
-		pr := existingPkgRevCRs[i]
+	for _, pr := range existingPkgRevCRs {
 		existingPkgRevCRsMap[pr.Name] = pr
 	}
 
@@ -587,7 +599,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 			metadataStore:    r.metadataStore,
 			isLatestRevision: false,
 		}
-		newPackageRevisionNames[newPackageRevision.KubeObjectName()] = pkgRev
+		newPackageRevisionNames[kname] = pkgRev
 	}
 	r.mutex.Unlock()
 
@@ -622,10 +634,20 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 	addSent := 0
 	modSent := 0
 	for kname, newPackage := range newPackageRevisionNames {
-		oldPackage := oldPackageRevisionNames[kname]
-		if oldPackage == nil {
+		if oldPackage, present := oldPackageRevisionNames[kname]; !present || oldPackage == nil {
 			addSent += r.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Added, newPackage)
 		} else {
+
+			if kptfile, err := newPackage.GetKptfile(ctx); err == nil {
+				meta := newPackage.GetMeta()
+				meta.Labels = kptfile.Labels
+				if err := newPackage.SetMeta(ctx, meta); err != nil {
+					klog.Errorf("error setting meta after updating with labels from Kptfile: %q", err)
+				}
+			} else {
+				klog.Errorf("error getting Kptfile labels from package: %q", err)
+			}
+
 			if oldPackage.ResourceVersion() != newPackage.ResourceVersion() {
 				modSent += r.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Modified, newPackage)
 			}
@@ -636,9 +658,19 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 	// a corresponding PackageRev CR.
 	for pkgRevName, pkgRev := range newPackageRevisionNames {
 		if _, found := existingPkgRevCRsMap[pkgRevName]; !found {
+
 			pkgRevMeta := metav1.ObjectMeta{
 				Name:      pkgRevName,
 				Namespace: r.Key().Namespace,
+				Labels: func() map[string]string {
+					if kptfile, err := pkgRev.GetKptfile(ctx); err == nil {
+						return kptfile.Labels
+					}
+
+					klog.Warningf("error getting Kptfile labels from package: %q", err)
+					return nil
+
+				}(),
 			}
 			if _, err := r.metadataStore.Create(ctx, pkgRevMeta, r.Key().Name, pkgRev.UID()); err != nil {
 				// TODO: We should try to find a way to make these errors available through

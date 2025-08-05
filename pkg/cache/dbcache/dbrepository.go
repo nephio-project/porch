@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -26,6 +27,7 @@ import (
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
+	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -356,6 +358,21 @@ func (r *dbRepository) savePackageRevision(ctx context.Context, d *dbPackageRevi
 		if _, err := dbPkg.savePackage(ctx); err != nil {
 			return nil, err
 		}
+	}
+
+	if kptfile, err := fn.NewKptfileFromPackage(d.resources); err == nil {
+		kptfileLabels := kptfile.Obj.GetLabels()
+		if d.meta.Labels == nil {
+			d.meta.Labels = kptfileLabels
+		} else {
+			maps.Copy(d.meta.Labels, kptfileLabels)
+			kptfile.Obj.SetNestedField(d.meta.Labels, "metadata", "labels")
+			if err := kptfile.WriteToPackage(d.resources); err != nil {
+				klog.Errorf("error writing Kptfile back to resources: %q", err)
+			}
+		}
+	} else {
+		klog.Warningf("unable to get Kptfile to copy labels to: %q", err)
 	}
 
 	pkgRev, err := dbPkg.savePackageRevision(ctx, d)

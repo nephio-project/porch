@@ -891,7 +891,7 @@ func (r *gitRepository) updateDeletionProposedCache() error {
 			break
 		}
 
-		branch, isDeletionProposedBranch := getdeletionProposedBranchNameInLocal(ref.Name())
+		branch, isDeletionProposedBranch := getDeletionProposedBranchNameInLocal(ref.Name())
 		if isDeletionProposedBranch {
 			r.deletionProposedCache[deletionProposedPrefix+branch] = true
 		}
