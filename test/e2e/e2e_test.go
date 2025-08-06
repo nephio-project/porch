@@ -2589,7 +2589,7 @@ func (t *PorchSuite) TestPackageRevisionLabelsInResourceKptfile() {
 	t.RegisterMainGitRepositoryF(repository)
 
 	// Create a package
-	pr := t.CreatePackageSkeleton(repository, "new-package", "workspace")
+	pr := t.CreatePackageSkeleton(repository, "labels-package", "workspace")
 	t.CreateF(pr)
 
 	// Get package resources
@@ -2696,7 +2696,7 @@ func (t *PorchSuite) TestPackageRevisionLabelsInResourceKptfile() {
 
 	// Edit PackageRevision. Labels and annotations should
 	// not be retained from upstream.
-	editedPr := t.CreatePackageSkeleton(repository, "new-package", "edited-package-workspace")
+	editedPr := t.CreatePackageSkeleton(repository, "labels-package", "edited-package-workspace")
 	editedPr.Spec.Tasks = []porchapi.Task{
 		{
 			Type: porchapi.TaskTypeEdit,
@@ -2818,7 +2818,7 @@ func (t *PorchSuite) TestPackageRevisionGCWithOwner() {
 }
 
 func (t *PorchSuite) TestPackageRevisionGCAsOwner() {
-	// TODO: Garbage collection is not working when a DB cache PackageRevision resource owner is delted. We need to get this test running in DB cache
+	// TODO: Garbage collection is not working when a DB cache PackageRevision resource owner is deleted. We need to get this test running in DB cache
 	if _, ok := os.LookupEnv("DB_CACHE"); ok {
 		return
 	}
@@ -3065,7 +3065,7 @@ func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces() {
 
 	prs3 := registerRepoAndTestRevisions("test-3-blueprints", t.Namespace, prs1)
 	if len(prs3) != nPRs {
-		t.Errorf("number of PackageRevisions in repo-3: want %v, got %d", nPRs, len(prs2))
+		t.Errorf("number of PackageRevisions in repo-3: want %v, got %d", nPRs, len(prs3))
 	}
 }
 
