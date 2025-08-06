@@ -2591,13 +2591,14 @@ func (t *PorchSuite) TestPackageRevisionLabelsInResourceKptfile() {
 	// Create a package
 	pr := t.CreatePackageSkeleton(repository, "labels-package", "workspace")
 	t.CreateF(pr)
+	prKey := client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      pr.Name,
+	}
 
 	// Get package resources
 	resources := &porchapi.PackageRevisionResources{}
-	t.GetF(client.ObjectKey{
-		Namespace: t.Namespace,
-		Name:      pr.Name,
-	}, resources)
+	t.GetF(prKey, resources)
 
 	// Update package resources to add a label
 	t.EditKptfile(resources, func(kptfile *kptfilev1.KptFile) {
@@ -2608,42 +2609,25 @@ func (t *PorchSuite) TestPackageRevisionLabelsInResourceKptfile() {
 	t.UpdateF(resources)
 
 	// Check that the labels are still in the Kptfile in the package resources
-	t.ValidateResourceLabels(pr.Name,
-		map[string]string{
-			labelKey1: labelVal1,
-		},
-	)
+	expectedResourceLabels := map[string]string{
+		labelKey1: labelVal1,
+	}
+	t.ValidateResourceLabels(pr.Name, expectedResourceLabels)
 
 	// Check the labels come through in the PackageRevision interface
-	t.ValidateLabelsAndAnnos(pr.Name,
-		map[string]string{
-			labelKey1: labelVal1,
-		}, nil,
-	)
+	t.ValidateLabelsAndAnnos(pr.Name, expectedResourceLabels, nil)
 
 	// Add a label by updating the PackageRevision
-	t.GetF(client.ObjectKey{
-		Namespace: pr.Namespace,
-		Name:      pr.Name,
-	}, pr)
+	t.GetF(prKey, pr)
 	pr.ObjectMeta.Labels[labelKey2] = labelVal2
 	t.UpdateF(pr)
 
 	// Check that the labels were saved in the Kptfile in the package resources
-	t.ValidateResourceLabels(pr.Name,
-		map[string]string{
-			labelKey1: labelVal1,
-			labelKey2: labelVal2,
-		},
-	)
+	expectedResourceLabels[labelKey2] = labelVal2
+	t.ValidateResourceLabels(pr.Name, expectedResourceLabels)
 
 	// Check that the labels come through in the PackageRevision interface
-	t.ValidateLabelsAndAnnos(pr.Name,
-		map[string]string{
-			labelKey1: labelVal1,
-			labelKey2: labelVal2,
-		}, nil,
-	)
+	t.ValidateLabelsAndAnnos(pr.Name, expectedResourceLabels, nil)
 
 	// Propose and approve the package.
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
@@ -2658,12 +2642,7 @@ func (t *PorchSuite) TestPackageRevisionLabelsInResourceKptfile() {
 	t.UpdateF(pr)
 
 	// Check that the label change was NOT saved in the package resources
-	t.ValidateResourceLabels(pr.Name,
-		map[string]string{
-			labelKey1: labelVal1,
-			labelKey2: labelVal2,
-		},
-	)
+	t.ValidateResourceLabels(pr.Name, expectedResourceLabels)
 
 	// Check that the label change comes through in the PackageRevision interface
 	t.ValidateLabelsAndAnnos(pr.Name,
