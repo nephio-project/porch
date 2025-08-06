@@ -2675,7 +2675,7 @@ func (t *PorchSuite) TestPackageRevisionLabelsInResourceKptfile() {
 
 	// Clone PackageRevision. Labels and annotations should
 	// not be retained from upstream.
-	clonedPr := t.CreatePackageSkeleton(repository, "cloned-package", "workspace")
+	clonedPr := t.CreatePackageSkeleton(repository, "cloned-labels-package", "workspace")
 	clonedPr.Spec.Tasks = []porchapi.Task{
 		{
 			Type: porchapi.TaskTypeClone,
