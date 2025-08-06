@@ -366,12 +366,12 @@ func (r *dbRepository) savePackageRevision(ctx context.Context, d *dbPackageRevi
 			d.meta.Labels = kptfileLabels
 		} else {
 			maps.Copy(d.meta.Labels, kptfileLabels)
-			err := kptfile.Obj.SetNestedField(d.meta.Labels, "metadata", "labels")
-			if err = kptfile.WriteToPackage(d.resources); err != nil {
+			if err := kptfile.Obj.SetNestedField(d.meta.Labels, "metadata", "labels"); err == nil {
+				if err := kptfile.WriteToPackage(d.resources); err != nil {
+					klog.Errorf("error writing Kptfile back to resources: %q", err)
+				}
+			} else {
 				klog.Errorf("error writing labels back to Kptfile: %q", err)
-			}
-			if err = kptfile.WriteToPackage(d.resources); err != nil {
-				klog.Errorf("error writing Kptfile back to resources: %q", err)
 			}
 		}
 	} else {
