@@ -2649,7 +2649,7 @@ func (t *PorchSuite) TestPackageRevisionLabelsInResourceKptfile() {
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 	t.UpdateF(pr)
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	_ = t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+	pr = t.UpdateApprovalF(pr, metav1.UpdateOptions{})
 
 	// Update the labels on the published package.
 	delete(pr.ObjectMeta.Labels, labelKey1)
