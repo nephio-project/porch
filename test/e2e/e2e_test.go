@@ -1377,11 +1377,11 @@ func (t *PorchSuite) TestProposeDeleteAndUndo() {
 		t.Run(fmt.Sprintf("revision %d", pkgRev.Spec.Revision), func() {
 			// Propose deletion
 			pkgRev.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-			t.UpdateApprovalF(&pkgRev, metav1.UpdateOptions{})
+			pkgRev = *t.UpdateApprovalF(&pkgRev, metav1.UpdateOptions{})
 
 			// Undo proposal of deletion
 			pkgRev.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-			t.UpdateApprovalF(&pkgRev, metav1.UpdateOptions{})
+			pkgRev = *t.UpdateApprovalF(&pkgRev, metav1.UpdateOptions{})
 
 			// Try to delete the package. This should fail because the lifecycle should be changed back to Published.
 			t.DeleteL(&porchapi.PackageRevision{
@@ -1394,7 +1394,7 @@ func (t *PorchSuite) TestProposeDeleteAndUndo() {
 
 			// Propose deletion and then delete the package
 			pkgRev.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-			t.UpdateApprovalF(&pkgRev, metav1.UpdateOptions{})
+			pkgRev = *t.UpdateApprovalF(&pkgRev, metav1.UpdateOptions{})
 
 			t.DeleteE(&porchapi.PackageRevision{
 				ObjectMeta: metav1.ObjectMeta{
