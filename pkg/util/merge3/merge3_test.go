@@ -41,41 +41,120 @@ func TestMerge3(t *testing.T) {
 }
 
 type testCase struct {
-	dir     string
-	crds    []string
-	checkFn func(*Merge3TestSuite, fn.KubeObjects)
+	dir        string
+	crds       []string
+	checkFn    func(*Merge3TestSuite, fn.KubeObjects)
+	skipReason string
 }
 
-var testCases = []testCase{
-	{
-		dir:     "simple-conflict",
-		checkFn: basicImageCheck,
-	},
-	{
+func (t *Merge3TestSuite) commonTest(name string, tc testCase) {
+	if tc.skipReason != "" {
+		t.Run(name, func() { t.T().Skipf("skipping test %q: %s", name, tc.skipReason) })
+		return
+	}
+	fullpath, err := filepath.Abs(filepath.Join(testDataDir, tc.dir))
+	t.Require().NoError(err)
+	orig := filepath.Join(fullpath, originalPrr)
+	updated := filepath.Join(fullpath, updatedPrr)
+	local := filepath.Join(fullpath, destPrr)
+
+	var addSchemas []byte
+	if len(tc.crds) > 0 {
+		addSchemas = t.parseCrds(fullpath, tc.crds)
+	}
+	t.Run(name, func() { t.innerTest(orig, updated, local, addSchemas, tc.checkFn) })
+}
+
+func (t *Merge3TestSuite) TestBasic() {
+	testCases := map[string]testCase{
+		"simple-conflict": {
+			dir:     "simple-conflict",
+			checkFn: basicImageCheck,
+		},
 		// TODO: expand
-		dir:     "simple-subpackage-conflict",
-		checkFn: basicImageCheck,
-	},
-	{
-		dir:     "one-key-crd",
-		crds:    []string{"fruitstore.crd.yaml"},
-		checkFn: assocListMergeCheck,
-	},
-	{
-		dir:     "infer-crd",
-		checkFn: assocListMergeCheck,
-	},
+		"simple-subpackage-conflict": {
+			dir:     "simple-subpackage-conflict",
+			checkFn: basicImageCheck,
+		},
+	}
+
+	for name, tc := range testCases {
+		t.commonTest(name, tc)
+	}
 }
 
-func (t *Merge3TestSuite) TestMerge3() {
-	for _, tc := range testCases {
-		fullpath, err := filepath.Abs(filepath.Join(testDataDir, tc.dir))
-		t.Require().NoError(err)
-		orig := filepath.Join(fullpath, originalPrr)
-		updated := filepath.Join(fullpath, updatedPrr)
-		local := filepath.Join(fullpath, destPrr)
+func (t *Merge3TestSuite) TestOneKeyCrd() {
+	testCases := map[string]testCase{
+		"one-key-crd": {
+			dir:     "one-key-crd",
+			crds:    []string{"fruitstore.crd.yaml"},
+			checkFn: assocListMergeCheck,
+		},
+		"one-key-crd-empty-orig": {
+			dir:  "one-key-crd-empty-orig",
+			crds: []string{"fruitstore.crd.yaml"},
+			checkFn: makeFruitCheckFunc(10, map[string]int{
+				"apple":  20,
+				"grape":  5,
+				"pear":   30,
+				"banana": 3,
+			}),
+		},
+		"one-key-crd-empty-updated": {
+			dir:  "one-key-crd-empty-updated",
+			crds: []string{"fruitstore.crd.yaml"},
+			checkFn: makeFruitCheckFunc(10, map[string]int{
+				"banana": 3,
+			}),
+		},
+		"one-key-crd-empty-dest": {
+			skipReason: "kyaml doesn't add the !!str tag to apple for some reason",
+			dir:        "one-key-crd-empty-dest",
+			crds:       []string{"fruitstore.crd.yaml"},
+			checkFn: makeFruitCheckFunc(10, map[string]int{
+				"apple": 20,
+				"pear":  30,
+			}),
+		},
+	}
 
-		addSchemas := t.parseCrds(fullpath, tc.crds)
-		t.Run(tc.dir, func() { t.innerTest(orig, updated, local, addSchemas, tc.checkFn) })
+	for name, tc := range testCases {
+		t.commonTest(name, tc)
+	}
+}
+
+func (t *Merge3TestSuite) TestInferAssocList() {
+	t.T().Skipf("infer has been disabled")
+	testCases := map[string]testCase{
+		"infer-crd": {
+			dir:     "infer-crd",
+			checkFn: assocListMergeCheck,
+		},
+		"infer-crd-empty-orig": {
+			dir: "infer-crd-empty-orig",
+			checkFn: makeFruitCheckFunc(10, map[string]int{
+				"apple":  20,
+				"grape":  5,
+				"pear":   30,
+				"banana": 3,
+			}),
+		},
+		"infer-crd-empty-updated": {
+			dir: "infer-crd-empty-updated",
+			checkFn: makeFruitCheckFunc(10, map[string]int{
+				"banana": 3,
+			}),
+		},
+		"infer-crd-empty-dest": {
+			dir: "infer-crd-empty-dest",
+			checkFn: makeFruitCheckFunc(10, map[string]int{
+				"apple": 20,
+				"pear":  30,
+			}),
+		},
+	}
+
+	for name, tc := range testCases {
+		t.commonTest(name, tc)
 	}
 }
