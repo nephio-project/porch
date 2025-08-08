@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 
+	"slices"
+
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
@@ -57,6 +59,7 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 	}
 	r.Command.Flags().IntVar(&r.revision, "revision", 0, "Revision of the upstream package to upgrade to.")
 	r.Command.Flags().StringVar(&r.workspace, "workspace", "", "Workspace name of the upgrade package revision.")
+	r.Command.Flags().StringVar(&r.strategy, "strategy", "", "Strategy to use for the upgrade. Options: resource-merge (default), fast-forward, force-delete-replace, copy-merge.")
 	r.Command.Flags().StringVar(&r.discover, "discover", "",
 		`If set, search for available updates instead of performing an update.
 Setting this to 'upstream' will discover upstream updates of downstream packages.
@@ -72,6 +75,7 @@ type runner struct {
 
 	revision  int // Target package revision
 	workspace string
+	strategy  string // Merge strategy to use, default is "resource-merge"
 
 	discover string // If set, discover updates rather than do updates
 
@@ -101,6 +105,13 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 		}
 		if r.workspace == "" {
 			return errors.E(op, fmt.Errorf("workspace is required"))
+		}
+		if r.strategy != "" {
+			validStrategies := []string{"resource-merge", "fast-forward", "force-delete-replace", "copy-merge"}
+			valid := slices.Contains(validStrategies, r.strategy)
+			if !valid {
+				return errors.E(op, fmt.Errorf("invalid strategy %q; must be one of: %v", r.strategy, validStrategies))
+			}
 		}
 	case upstream, downstream:
 		// do nothing
@@ -189,6 +200,20 @@ func (r *runner) doUpgrade(pr *porchapi.PackageRevision) (*porchapi.PackageRevis
 		return nil, pkgerrors.Errorf("new upstream package revision %s is not published", newUpstreamPr.Name)
 	}
 
+	strategy := porchapi.ResourceMerge
+	if r.strategy != "" {
+		switch r.strategy {
+		case "resource-merge":
+			strategy = porchapi.ResourceMerge
+		case "fast-forward":
+			strategy = porchapi.FastForward
+		case "force-delete-replace":
+			strategy = porchapi.ForceDeleteReplace
+		case "copy-merge":
+			strategy = porchapi.CopyMerge
+		}
+	}
+
 	upgradeTask := &porchapi.Task{
 		Type: porchapi.TaskTypeUpgrade,
 		Upgrade: &porchapi.PackageUpgradeTaskSpec{
@@ -201,7 +226,7 @@ func (r *runner) doUpgrade(pr *porchapi.PackageRevision) (*porchapi.PackageRevis
 			LocalPackageRevisionRef: porchapi.PackageRevisionRef{
 				Name: pr.Name,
 			},
-			Strategy: porchapi.ResourceMerge,
+			Strategy: strategy,
 		},
 	}
 	newPr := makePackageRevision(pr, r.workspace, upgradeTask)

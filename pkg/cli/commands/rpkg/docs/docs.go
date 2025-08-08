@@ -308,6 +308,10 @@ Flags:
 
   --workspace
   The workspace name of the newly created package revision.
+
+  --strategy
+  The strategy to use for the upgrade.
+  Options: resource-merge (default), fast-forward, force-delete-replace, copy-merge.
 `
 var UpgradeExamples = `
   # upgrade deployment.some-package.v1 package to v3 of its upstream
@@ -315,4 +319,7 @@ var UpgradeExamples = `
 
   # upgrade deployment.some-package.v1 package to the latest of its upstream
   $ porchctl rpkg upgrade deployment.some-package.v1 --workspace=v2
+
+  # upgrade deployment.some-package.v1 package to v3 of its upstream, using copy-merge strategy
+  $ porchctl rpkg upgrade deployment.some-package.v1 --revision=3 --workspace=v2 --strategy=copy-merge
 `
