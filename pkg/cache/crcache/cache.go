@@ -157,8 +157,7 @@ func (c *Cache) GetRepositories() []*configapi.Repository {
 func (c *Cache) GetRepository(repoKey repository.RepositoryKey) repository.Repository {
 	c.mainLock.RLock()
 	defer c.mainLock.RUnlock()
-	repo, _ := c.repositories[repoKey]
-	return repo
+	return c.repositories[repoKey]
 }
 
 func (c *Cache) getOrInsertLock(key repository.RepositoryKey) *sync.Mutex {
