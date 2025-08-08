@@ -35,6 +35,7 @@ cd "third_party/k8s.io"
 git clone --depth=1 --branch="v${version}" https://github.com/kubernetes/apiserver.git apiserver -q
 rm -rf apiserver/.git
 rm -rf apiserver/.github
+rm apiserver/OWNERS #This needs to be removed so it doens't confuse prow with invalid owners from the k8s project
 cd "../.."
 
 echo "Updated vendoring for k8s.io/apiserver to version ${version}."
