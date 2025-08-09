@@ -176,11 +176,14 @@ func (pe *podEvaluator) EvaluateFunction(ctx context.Context, req *evaluator.Eva
 
 	// Waiting for the client from the channel. This step is blocking.
 	cc := <-ccChan
-	if cc.err != nil {
+	if cc == nil || cc.podClient == nil || cc.err != nil {
 		return nil, fmt.Errorf("unable to get the grpc client to the pod for %v: %w", req.Image, cc.err)
 	}
 
-	resp, err := evaluator.NewFunctionEvaluatorClient(cc.grpcClient).EvaluateFunction(ctx, req)
+	cc.podClient.mu.Lock()
+	defer cc.podClient.mu.Unlock()
+
+	resp, err := evaluator.NewFunctionEvaluatorClient(cc.podClient.grpcClient).EvaluateFunction(ctx, req)
 	if err != nil {
 		klog.V(4).Infof("Resource List: %s", req.ResourceList)
 		return nil, fmt.Errorf("unable to evaluate %v with pod evaluator: %w", req.Image, err)
@@ -230,13 +233,14 @@ type clientConnRequest struct {
 }
 
 type clientConnAndError struct {
-	grpcClient *grpc.ClientConn
-	err        error
+	podClient *podAndGRPCClient
+	err       error
 }
 
 type podAndGRPCClient struct {
 	grpcClient *grpc.ClientConn
 	pod        client.ObjectKey
+	mu         sync.Mutex
 }
 
 type imagePodAndGRPCClient struct {
@@ -344,7 +348,7 @@ func (pcm *podCacheManager) podCacheManager() {
 						serviceUrl := service.Name + "." + service.Namespace + serviceDnsNameSuffix
 						if pod.DeletionTimestamp == nil && net.JoinHostPort(serviceUrl, defaultWrapperServerPort) == podAndCl.grpcClient.Target() {
 							klog.Infof("reusing the connection to pod %v/%v to evaluate %v", pod.Namespace, pod.Name, req.image)
-							req.grpcClientCh <- &clientConnAndError{grpcClient: podAndCl.grpcClient}
+							req.grpcClientCh <- &clientConnAndError{podClient: podAndCl}
 							go patchPodWithUnixTimeAnnotation(pcm.podManager.kubeClient, podAndCl.pod, pcm.podTTL)
 							break
 						} else {
@@ -378,11 +382,10 @@ func (pcm *podCacheManager) podCacheManager() {
 			channels := pcm.waitlists[resp.image]
 			delete(pcm.waitlists, resp.image)
 			for i := range channels {
-				cce := &clientConnAndError{err: resp.err}
-				if resp.podAndGRPCClient != nil {
-					cce.grpcClient = resp.grpcClient
+				cce := &clientConnAndError{
+					podClient: resp.podAndGRPCClient,
+					err:       resp.err,
 				}
-				// The channel has one buffer size, nothing will be blocking.
 				channels[i] <- cce
 			}
 		case <-tick:

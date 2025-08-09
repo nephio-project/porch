@@ -23,3 +23,7 @@ build-image docker-build:
 .PHONY: push-image docker-push
 push-image docker-push:
 	docker buildx build --push --tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) -f Dockerfile ..
+
+.PHONY: build-sleep-image
+build-sleep-image:
+	docker buildx build --no-cache --load --tag mco-docker-local.esisoj70.emea.nsn-net.net/krm-fn/sleep:v1 -f sleep-mutator/Dockerfile .

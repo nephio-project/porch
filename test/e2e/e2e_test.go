@@ -2147,6 +2147,91 @@ func (t *PorchSuite) TestPodEvaluator() {
 	}
 }
 
+// TestPodEvaluatorSequentialParallel uses a local KRM sleeper image to verify sequential vs parallel pod execution.
+func (t *PorchSuite) TestPodEvaluatorSequentialParallel() {
+	if t.TestRunnerIsLocal {
+		t.Skipf("Skipping due to local mode without pod evaluator")
+	}
+
+	sleepMutationImagePrefix := "mco-docker-local.esisoj70.emea.nsn-net.net/krm-fn/"
+
+	fnImage := sleepMutationImagePrefix + "sleep:v1"
+	t.RegisterMainGitRepositoryF("git-fn-krm-sleep")
+
+	makeResources := func(wsSuffix string) (*porchapi.PackageRevisionResources, client.ObjectKey) {
+		pr := &porchapi.PackageRevision{
+			ObjectMeta: metav1.ObjectMeta{Namespace: t.Namespace},
+			Spec: porchapi.PackageRevisionSpec{
+				PackageName:    "test-krm-sleep",
+				WorkspaceName:  "ws-" + wsSuffix,
+				RepositoryName: "git-fn-krm-sleep",
+				Tasks: []porchapi.Task{
+					{
+						Type: "clone",
+						Clone: &porchapi.PackageCloneTaskSpec{
+							Upstream: porchapi.UpstreamPackage{
+								Type: "git",
+								Git: &porchapi.GitPackage{
+									Repo:      t.gcpBlueprintsRepo,
+									Ref:       t.gcpHierarchyRef,
+									Directory: "catalog/hierarchy/simple",
+									SecretRef: porchapi.SecretRef{
+										Name: t.CreateGcpPackageRevisionSecret("test-krm-sleep-" + wsSuffix),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		t.CreateF(pr)
+		key := client.ObjectKey{Namespace: t.Namespace, Name: pr.Name}
+		res := &porchapi.PackageRevisionResources{}
+		t.GetF(key, res)
+		return res, key
+	}
+
+	sleepDur := 10 // seconds
+	expectedSequential := 2 * time.Duration(sleepDur) * time.Second
+
+	pods := &corev1.PodList{}
+
+	// Parallel run
+	par1Res, par1Key := makeResources("par1")
+	par2Res, par2Key := makeResources("par2")
+	t.AddMutator(par1Res, fnImage, WithConfigmap(map[string]string{"sleepSeconds": strconv.Itoa(sleepDur)}))
+	t.AddMutator(par2Res, fnImage, WithConfigmap(map[string]string{"sleepSeconds": strconv.Itoa(sleepDur)}))
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	startPar := time.Now()
+	go func() {
+		defer wg.Done()
+		t.UpdateF(par1Res)
+		t.GetF(par1Key, par1Res)
+	}()
+	go func() {
+		defer wg.Done()
+		t.UpdateF(par2Res)
+		t.GetF(par2Key, par2Res)
+	}()
+	wg.Wait()
+	durPar := time.Since(startPar)
+	t.Logf("Parallel duration: %v", durPar)
+
+	if durPar > expectedSequential-time.Second {
+		t.Errorf("Parallel duration %v too high — expected < %v", durPar, expectedSequential)
+	}
+
+	t.ListF(pods, client.InNamespace("porch-fn-system"))
+	for _, p := range pods.Items {
+		if strings.Contains(p.Spec.Containers[0].Image, "krm-sleeper") {
+			t.DeleteF(&p)
+		}
+	}
+}
+
 func (t *PorchSuite) TestPodEvaluatorWithFailure() {
 	if t.TestRunnerIsLocal {
 		t.Skipf("Skipping due to not having pod evaluator in local mode")
