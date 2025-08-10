@@ -23,6 +23,7 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	"k8s.io/kube-openapi/pkg/validation/spec"
+	"sigs.k8s.io/kustomize/kyaml/openapi"
 	kyaml "sigs.k8s.io/kustomize/kyaml/yaml"
 	"sigs.k8s.io/yaml"
 )
@@ -104,6 +105,7 @@ func (t *Merge3TestSuite) parseCrd(directory string, crd string) map[string]spec
 func (t *Merge3TestSuite) innerTest(original, updated, dest string, addSchemas []byte, checkFn func(*Merge3TestSuite, fn.KubeObjects)) {
 	o, u, d := t.parsePrrsToKubeObjects(original, updated, dest)
 
+	openapi.ResetOpenAPI()
 	result, err := Merge(o, u, d, addSchemas)
 	t.Require().NoError(err)
 
@@ -156,23 +158,27 @@ func basicImageCheck(t *Merge3TestSuite, kos fn.KubeObjects) {
 }
 
 func assocListMergeCheck(t *Merge3TestSuite, kos fn.KubeObjects) {
-	obj, err := kos.Where(nameIs(testCrName)).EnsureSingleItem()
-	t.Require().NoError(err)
+	makeFruitCheckFunc(10, map[string]int{
+		"apple":  20,
+		"grape":  5,
+		"banana": 3,
+		"pear":   30,
+	})(t, kos)
+}
 
-	t.assertVal(&obj.SubObject, 10, "spec", "preferredTemperature")
+func makeFruitCheckFunc(expectedTemp int, expectedFruits map[string]int) func(*Merge3TestSuite, fn.KubeObjects) {
+	return func(t *Merge3TestSuite, kos fn.KubeObjects) {
+		obj, err := kos.Where(nameIs(testCrName)).EnsureSingleItem()
+		t.Require().NoError(err)
 
-	fruits := t.getSlice(&obj.SubObject, "spec", "fruits")
-	t.Require().Len(fruits, 4)
+		t.assertVal(&obj.SubObject, expectedTemp, "spec", "preferredTemperature")
 
-	so := t.findWithName(fruits, "apple")
-	t.assertVal(so, 20, "amount")
+		fruits := t.getSlice(&obj.SubObject, "spec", "fruits")
+		t.Require().Len(fruits, len(expectedFruits))
 
-	so = t.findWithName(fruits, "grape")
-	t.assertVal(so, 5, "amount")
-
-	so = t.findWithName(fruits, "banana")
-	t.assertVal(so, 3, "amount")
-
-	so = t.findWithName(fruits, "pear")
-	t.assertVal(so, 30, "amount")
+		for name, amount := range expectedFruits {
+			so := t.findWithName(fruits, name)
+			t.assertVal(so, amount, "amount")
+		}
+	}
 }
