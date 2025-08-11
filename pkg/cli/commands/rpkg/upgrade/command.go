@@ -59,7 +59,7 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 	}
 	r.Command.Flags().IntVar(&r.revision, "revision", 0, "Revision of the upstream package to upgrade to.")
 	r.Command.Flags().StringVar(&r.workspace, "workspace", "", "Workspace name of the upgrade package revision.")
-	r.Command.Flags().StringVar(&r.strategy, "strategy", "", "Strategy to use for the upgrade. Options: resource-merge (default), fast-forward, force-delete-replace, copy-merge.")
+	r.Command.Flags().StringVar(&r.strategy, "strategy", "resource-merge", "Strategy to use for the upgrade. Options: resource-merge (default), fast-forward, force-delete-replace, copy-merge.")
 	r.Command.Flags().StringVar(&r.discover, "discover", "",
 		`If set, search for available updates instead of performing an update.
 Setting this to 'upstream' will discover upstream updates of downstream packages.
@@ -107,7 +107,7 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 			return errors.E(op, fmt.Errorf("workspace is required"))
 		}
 		if r.strategy != "" {
-			validStrategies := []string{"resource-merge", "fast-forward", "force-delete-replace", "copy-merge"}
+			validStrategies := []string{string(porchapi.ResourceMerge), string(porchapi.FastForward), string(porchapi.ForceDeleteReplace), string(porchapi.CopyMerge)}
 			valid := slices.Contains(validStrategies, r.strategy)
 			if !valid {
 				return errors.E(op, fmt.Errorf("invalid strategy %q; must be one of: %v", r.strategy, validStrategies))
@@ -200,20 +200,6 @@ func (r *runner) doUpgrade(pr *porchapi.PackageRevision) (*porchapi.PackageRevis
 		return nil, pkgerrors.Errorf("new upstream package revision %s is not published", newUpstreamPr.Name)
 	}
 
-	strategy := porchapi.ResourceMerge
-	if r.strategy != "" {
-		switch r.strategy {
-		case "resource-merge":
-			strategy = porchapi.ResourceMerge
-		case "fast-forward":
-			strategy = porchapi.FastForward
-		case "force-delete-replace":
-			strategy = porchapi.ForceDeleteReplace
-		case "copy-merge":
-			strategy = porchapi.CopyMerge
-		}
-	}
-
 	upgradeTask := &porchapi.Task{
 		Type: porchapi.TaskTypeUpgrade,
 		Upgrade: &porchapi.PackageUpgradeTaskSpec{
@@ -226,7 +212,7 @@ func (r *runner) doUpgrade(pr *porchapi.PackageRevision) (*porchapi.PackageRevis
 			LocalPackageRevisionRef: porchapi.PackageRevisionRef{
 				Name: pr.Name,
 			},
-			Strategy: strategy,
+			Strategy: porchapi.PackageMergeStrategy(r.strategy),
 		},
 	}
 	newPr := makePackageRevision(pr, r.workspace, upgradeTask)
