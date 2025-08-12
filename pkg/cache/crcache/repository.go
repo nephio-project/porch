@@ -48,6 +48,10 @@ type cachedRepository struct {
 	repo     repository.Repository
 	cancel   context.CancelFunc
 
+	// Last version the cache has seen for this repository.
+	// This needs to be kept separately from the version in the externalRepository
+	// because there can be changes that are pushed down through the cache,
+	// but not reflected in the list of packageRevisions correctly.
 	lastVersion string
 
 	mutex                  sync.RWMutex
@@ -201,7 +205,7 @@ func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd re
 	ctx, span := tracer.Start(ctx, "cachedRepository::ClosePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
 
-	v, err := r.Version(ctx)
+	v, err := r.repo.Version(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -542,7 +546,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 	start := time.Now()
 	defer func() { klog.Infof("repo %+v: refresh finished in %f secs", r.Key(), time.Since(start).Seconds()) }()
 
-	curVer, err := r.Version(ctx)
+	curVer, err := r.repo.Version(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
