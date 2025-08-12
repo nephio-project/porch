@@ -448,7 +448,7 @@ func TestDiscoverUpdates(t *testing.T) {
 
 func TestPreRunStrategyValidation(t *testing.T) {
 	ns := "ns"
-	mockClient := mockclient.NewMockClient(t)
+	fakeClient := fake.NewClientBuilder().Build()
 	cfg := &genericclioptions.ConfigFlags{Namespace: &ns}
 	ctx := context.Background()
 
@@ -462,13 +462,13 @@ func TestPreRunStrategyValidation(t *testing.T) {
 			name:          "Valid strategy: copy-merge",
 			strategy:      string(porchapi.CopyMerge),
 			expectErr:     true,
-			expectedError: "the server is currently unable to handle the request",
+			expectedError: "cmdrpkgupgrade", // this means the strategy is valid and it fails elsewhere
 		},
 		{
 			name:          "Empty strategy is valid (uses default resource-merge)",
 			strategy:      "",
 			expectErr:     true,
-			expectedError: "the server is currently unable to handle the request",
+			expectedError: "cmdrpkgupgrade",
 		},
 		{
 			name:          "Invalid strategy",
@@ -483,7 +483,7 @@ func TestPreRunStrategyValidation(t *testing.T) {
 			r := &runner{
 				ctx:       ctx,
 				cfg:       cfg,
-				client:    mockClient,
+				client:    fakeClient,
 				revision:  2,
 				workspace: "v2",
 				strategy:  tc.strategy,
