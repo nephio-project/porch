@@ -448,7 +448,7 @@ func TestDiscoverUpdates(t *testing.T) {
 
 func TestPreRunStrategyValidation(t *testing.T) {
 	ns := "ns"
-	fakeClient := fake.NewClientBuilder().Build()
+	mockClient := mockclient.NewMockClient(t)
 	cfg := &genericclioptions.ConfigFlags{Namespace: &ns}
 	ctx := context.Background()
 
@@ -483,7 +483,7 @@ func TestPreRunStrategyValidation(t *testing.T) {
 			r := &runner{
 				ctx:       ctx,
 				cfg:       cfg,
-				client:    fakeClient,
+				client:    mockClient,
 				revision:  2,
 				workspace: "v2",
 				strategy:  tc.strategy,
