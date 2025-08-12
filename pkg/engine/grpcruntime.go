@@ -23,6 +23,7 @@ import (
 	"github.com/nephio-project/porch/pkg/kpt"
 	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"k8s.io/klog/v2"
@@ -52,6 +53,7 @@ func newGRPCFunctionRuntime(options GRPCRuntimeOptions) (*grpcRuntime, error) {
 			grpc.MaxCallRecvMsgSize(options.MaxGrpcMessageSize),
 			grpc.MaxCallSendMsgSize(options.MaxGrpcMessageSize),
 		),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial grpc function evaluator: %w", err)
