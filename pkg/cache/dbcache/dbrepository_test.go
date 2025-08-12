@@ -146,14 +146,16 @@ info:
 	`)
 	rsrcs, _ := updatedPR.GetResources(ctx)
 	rsrcs.Spec.Resources["Kptfile"] = dummyKptfile
-	updatedPRDraft.UpdateResources(ctx, rsrcs, &v1alpha1.Task{Type: "test"})
+	err = updatedPRDraft.UpdateResources(ctx, rsrcs, &v1alpha1.Task{Type: "test"})
+	assert.Nil(t, err)
 	updatedPR, err = testRepo.ClosePackageRevisionDraft(ctx, updatedPRDraft, -1)
 	assert.Nil(t, err)
 	assert.NotNil(t, updatedPR)
 
 	meta := updatedPRDraft.GetMeta()
 	meta.Labels = labels.Set{"something": "someValue"}
-	updatedPRDraft.(*dbPackageRevision).SetMeta(ctx, meta)
+	err = updatedPRDraft.(*dbPackageRevision).SetMeta(ctx, meta)
+	assert.Nil(t, err)
 	updatedPR, err = testRepo.ClosePackageRevisionDraft(ctx, updatedPRDraft, -1)
 	assert.Nil(t, err)
 	assert.NotNil(t, updatedPR)
