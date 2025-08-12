@@ -24,6 +24,7 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
+	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	mockmeta "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/crcache/meta"
 	mockcachetypes "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
@@ -31,6 +32,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
 func TestCachedRepoRefresh(t *testing.T) {
@@ -76,6 +78,28 @@ func TestCachedRepoRefresh(t *testing.T) {
 
 	fpr := fake.FakePackageRevision{
 		PrKey: prKey,
+		Kptfile: kptfile.KptFile{
+			ResourceMeta: yaml.ResourceMeta{
+				ObjectMeta: yaml.ObjectMeta{
+					Labels: map[string]string{
+						"a-label": "a-value",
+					},
+				},
+			},
+		},
+	}
+	fprErrored := fake.FakePackageRevision{
+		PrKey: prKey,
+		Kptfile: kptfile.KptFile{
+			Status: &kptfile.Status{
+				Conditions: []kptfile.Condition{
+					{
+						Type:    "FakeGetKptfileError",
+						Message: "some error getting Kptfile... data corruption?",
+					},
+				},
+			},
+		},
 	}
 
 	cr.cachedPackageRevisions = make(map[repository.PackageRevisionKey]*cachedPackageRevision)
@@ -140,10 +164,13 @@ func TestCachedRepoRefresh(t *testing.T) {
 
 	_, err = cr.ClosePackageRevisionDraft(context.TODO(), prd, 1)
 	assert.True(t, err != nil)
+	repoClosePRDCall.Return(&fprErrored, nil).Maybe()
+	mockGet := mockMeta.EXPECT().Get(mock.Anything, mock.Anything).Return(metav1.ObjectMeta{}, nil).Maybe()
+
+	_, err = cr.ClosePackageRevisionDraft(context.TODO(), prd, 1)
+	assert.True(t, err != nil)
 	repoClosePRDCall.Return(&fpr, nil).Maybe()
 	metaCreateCall.Return(metav1.ObjectMeta{}, nil)
-
-	mockGet := mockMeta.EXPECT().Get(mock.Anything, mock.Anything).Return(metav1.ObjectMeta{}, nil).Maybe()
 	mockUpdate := mockMeta.EXPECT().Update(mock.Anything, mock.Anything).Return(metav1.ObjectMeta{}, nil).Maybe()
 	pr, err := cr.ClosePackageRevisionDraft(context.TODO(), prd, 1)
 	assert.True(t, err == nil)

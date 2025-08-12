@@ -32,6 +32,7 @@ import (
 	mockcachetypes "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -132,6 +133,30 @@ func TestDBRepositoryPRCrud(t *testing.T) {
 	prMeta.Finalizers = []string{"a-finalizer"}
 	err = updatedPR.SetMeta(ctx, prMeta)
 	assert.Nil(t, err)
+
+	dummyKptfile := strings.TrimSpace(`
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadta:
+  name: example
+  annotations:
+    config.kubernetes.io/local-config: "true"
+info:
+  description: sample description
+	`)
+	rsrcs, _ := updatedPR.GetResources(ctx)
+	rsrcs.Spec.Resources["Kptfile"] = dummyKptfile
+	updatedPRDraft.UpdateResources(ctx, rsrcs, &v1alpha1.Task{Type: "test"})
+	updatedPR, err = testRepo.ClosePackageRevisionDraft(ctx, updatedPRDraft, -1)
+	assert.Nil(t, err)
+	assert.NotNil(t, updatedPR)
+
+	meta := updatedPRDraft.GetMeta()
+	meta.Labels = labels.Set{"something": "someValue"}
+	updatedPRDraft.(*dbPackageRevision).SetMeta(ctx, meta)
+	updatedPR, err = testRepo.ClosePackageRevisionDraft(ctx, updatedPRDraft, -1)
+	assert.Nil(t, err)
+	assert.NotNil(t, updatedPR)
 
 	updatedPR, err = testRepo.ClosePackageRevisionDraft(ctx, updatedPRDraft, -1)
 	assert.Nil(t, err)

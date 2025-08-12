@@ -103,15 +103,12 @@ func (m *clonePackageMutation) apply(ctx context.Context, resources repository.P
 	}
 
 	// We erase any labels that may have come in with the cloned Kptfile
-	if kptfile, err := fn.NewKptfileFromPackage(result.Contents); err == nil {
-		if _, err := kptfile.Obj.RemoveNestedField("metadata", "labels"); err != nil {
-			klog.Errorf("error removing metadata.labels from resources' Kptfile: %q", err)
-		}
-		if err := kptfile.WriteToPackage(result.Contents); err != nil {
-			klog.Errorf("error writing Kptfile back to resources: %q", err)
-		}
-	} else {
-		klog.Warningf("unable to get resources's Kptfile to remove labels: %q", err)
+	kptfile, _ := fn.NewKptfileFromPackage(result.Contents)
+	if _, err := kptfile.Obj.RemoveNestedField("metadata", "labels"); err != nil {
+		klog.Infof("failed to remove metadata.labels from resources' Kptfile: encountered error %v", err)
+	}
+	if err := kptfile.WriteToPackage(result.Contents); err != nil {
+		klog.Errorf("error writing Kptfile back to resources: %v", err)
 	}
 
 	return result, &api.TaskResult{Task: m.task}, nil

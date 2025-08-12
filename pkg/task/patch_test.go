@@ -23,6 +23,9 @@ import (
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
 func TestKptfilePatch(t *testing.T) {
@@ -282,6 +285,89 @@ func TestKptfilePatch(t *testing.T) {
 						{
 							Type:   "foo",
 							Status: kptfile.ConditionTrue,
+						},
+					},
+				},
+			},
+		},
+		"label added in PackageRevision": {
+			repoPkgRev: &fake.FakePackageRevision{
+				Kptfile: kptfile.KptFile{},
+			},
+			newApiPkgRev: &api.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: labels.Set{
+						"foo": "bar",
+					},
+				},
+			},
+			shouldChange: true,
+			newKptfile: &kptfile.KptFile{
+				ResourceMeta: yaml.ResourceMeta{
+					ObjectMeta: yaml.ObjectMeta{
+						Labels: labels.Set{
+							"foo": "bar",
+						},
+					},
+				},
+			},
+		},
+		"existing label in Kptfile; one added in PackageRevision": {
+			repoPkgRev: &fake.FakePackageRevision{
+				Kptfile: kptfile.KptFile{
+					ResourceMeta: yaml.ResourceMeta{
+						ObjectMeta: yaml.ObjectMeta{
+							Labels: labels.Set{
+								"bar": "baz",
+							},
+						},
+					}},
+			},
+			newApiPkgRev: &api.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: labels.Set{
+						"foo": "bar",
+					},
+				},
+			},
+			shouldChange: true,
+			newKptfile: &kptfile.KptFile{
+				ResourceMeta: yaml.ResourceMeta{
+					ObjectMeta: yaml.ObjectMeta{
+						Labels: labels.Set{
+							"bar": "baz",
+							"foo": "bar",
+						},
+					},
+				},
+			},
+		},
+		"existing labels in Kptfile; PackageRevision overrides one": {
+			repoPkgRev: &fake.FakePackageRevision{
+				Kptfile: kptfile.KptFile{
+					ResourceMeta: yaml.ResourceMeta{
+						ObjectMeta: yaml.ObjectMeta{
+							Labels: labels.Set{
+								"bar": "baz",
+								"foo": "bar",
+							},
+						},
+					}},
+			},
+			newApiPkgRev: &api.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: labels.Set{
+						"foo": "biscuit",
+					},
+				},
+			},
+			shouldChange: true,
+			newKptfile: &kptfile.KptFile{
+				ResourceMeta: yaml.ResourceMeta{
+					ObjectMeta: yaml.ObjectMeta{
+						Labels: labels.Set{
+							"bar": "baz",
+							"foo": "biscuit",
 						},
 					},
 				},

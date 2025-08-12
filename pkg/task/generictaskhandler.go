@@ -327,13 +327,12 @@ func patchKptfile(ctx context.Context, oldPackage repository.PackageRevision, ne
 		kf.Status.Conditions = conditions
 	}
 
-	newObjLabels := newObj.Labels
 	labels := kf.Labels
 	if labels != nil {
-		maps.Copy(labels, newObjLabels)
+		maps.Copy(labels, newObj.Labels)
 		kf.Labels = labels
 	} else {
-		kf.Labels = newObjLabels
+		kf.Labels = newObj.Labels
 	}
 
 	return kf, nil
