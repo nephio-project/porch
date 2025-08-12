@@ -16,8 +16,6 @@ package fake
 
 import (
 	"context"
-	"errors"
-	"slices"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
@@ -91,14 +89,6 @@ func (fpr *FakePackageRevision) GetResources(context.Context) (*v1alpha1.Package
 
 func (fpr *FakePackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, error) {
 	fpr.Ops = append(fpr.Ops, "GetKptfile")
-	if fpr.Kptfile.Status != nil {
-		if i := slices.IndexFunc(fpr.Kptfile.Status.Conditions, func(c kptfile.Condition) bool {
-			return c.Type == "FakeGetKptfileError"
-		}); i != -1 {
-			condition := fpr.Kptfile.Status.Conditions[i]
-			return fpr.Kptfile, errors.New(condition.Message)
-		}
-	}
 	return fpr.Kptfile, nil
 }
 
