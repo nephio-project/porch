@@ -1171,7 +1171,7 @@ func (g GitSuite) TestNested(t *testing.T) {
 		}
 		if rev.Spec.Revision == -1 {
 			// skip packages with the revision of the main registered branch,
-			// to match the above simplified package discovery algo.
+			// to match the above simplified package discovery algorithm.
 			continue
 		}
 		if rev.Spec.Lifecycle == v1alpha1.PackageRevisionLifecyclePublished {
