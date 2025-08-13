@@ -43,6 +43,7 @@ type gitPackageRevision struct {
 	tasks     []v1alpha1.Task
 	metadata  metav1.ObjectMeta
 	mutex     sync.Mutex
+	lifecycle v1alpha1.PackageRevisionLifecycle
 }
 
 var _ repository.PackageRevision = &gitPackageRevision{}
@@ -189,6 +190,7 @@ func (p *gitPackageRevision) ToMainPackageRevision(context.Context) repository.P
 		tree:      p.tree,
 		commit:    p.commit,
 		tasks:     p.tasks,
+		lifecycle: p.lifecycle,
 	}
 	mainPr.prKey.Revision = -1
 	mainPr.prKey.WorkspaceName = mainPr.Key().RKey().PlaceholderWSname
@@ -263,14 +265,19 @@ func (p *gitPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, 
 }
 
 func (p *gitPackageRevision) Lifecycle(ctx context.Context) v1alpha1.PackageRevisionLifecycle {
-	return p.repo.GetLifecycle(ctx, p)
+	return p.lifecycle
 }
 
 func (p *gitPackageRevision) UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error {
 	ctx, span := tracer.Start(ctx, "gitPackageRevision::UpdateLifecycle", trace.WithAttributes())
 	defer span.End()
+	err := p.repo.UpdateLifecycle(ctx, p, new)
+	if err != nil {
+		return err
+	}
+	p.lifecycle = new
 
-	return p.repo.UpdateLifecycle(ctx, p, new)
+	return nil
 }
 
 func (p *gitPackageRevision) GetMeta() metav1.ObjectMeta {
