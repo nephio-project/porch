@@ -542,7 +542,7 @@ func (r *cachedRepository) flush() {
 	r.cachedPackages = nil
 }
 
-// refreshAllCachedPackages updates the cached map for this repository with all the newPackages,
+// refreshAllCachedPackages updates the cached map for this repository with all new packages,
 // it also triggers notifications for all package changes.
 // mutex must be held.
 func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[repository.PackageKey]*cachedPackage, map[repository.PackageRevisionKey]*cachedPackageRevision, error) {
