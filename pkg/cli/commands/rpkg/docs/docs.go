@@ -308,11 +308,26 @@ Flags:
 
   --workspace
   The workspace name of the newly created package revision.
+
+  --strategy
+  (Optional) The strategy to use for the upgrade.
+  Options: resource-merge (default), fast-forward, force-delete-replace, copy-merge.
+
+  --discover
+  If set, search for available updates instead of performing an update.
+  Setting this to 'upstream' will discover upstream updates of downstream packages.
+  Setting this to 'downstream' will discover downstream package revisions of upstream packages that need to be updated.
 `
 var UpgradeExamples = `
+  # discover available upstream updates for downstream packages
+  $ porchctl rpkg upgrade --discover=upstream
+
   # upgrade deployment.some-package.v1 package to v3 of its upstream
   $ porchctl rpkg upgrade deployment.some-package.v1 --revision=3 --workspace=v2
 
   # upgrade deployment.some-package.v1 package to the latest of its upstream
   $ porchctl rpkg upgrade deployment.some-package.v1 --workspace=v2
+
+  # upgrade deployment.some-package.v1 package to v3 of its upstream, using copy-merge strategy
+  $ porchctl rpkg upgrade deployment.some-package.v1 --revision=3 --workspace=v2 --strategy=copy-merge
 `

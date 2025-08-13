@@ -445,3 +445,61 @@ func TestDiscoverUpdates(t *testing.T) {
 		assert.ErrorContains(t, err, "invalid argument \"lowstream\" for --discover")
 	})
 }
+
+func TestPreRunStrategyValidation(t *testing.T) {
+	ns := "ns"
+	fakeClient := fake.NewClientBuilder().Build()
+	cfg := &genericclioptions.ConfigFlags{Namespace: &ns}
+	ctx := context.Background()
+
+	testCases := []struct {
+		name          string
+		strategy      string
+		expectErr     bool
+		expectedError string
+	}{
+		{
+			name:          "Valid strategy: copy-merge",
+			strategy:      string(porchapi.CopyMerge),
+			expectErr:     true,
+			expectedError: "cmdrpkgupgrade", // this means the strategy is valid and it fails elsewhere
+		},
+		{
+			name:          "Empty strategy is valid (uses default resource-merge)",
+			strategy:      "",
+			expectErr:     true,
+			expectedError: "cmdrpkgupgrade",
+		},
+		{
+			name:          "Invalid strategy",
+			strategy:      "non-existent-strategy",
+			expectErr:     true,
+			expectedError: "invalid strategy \"non-existent-strategy\"; must be one of:",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := &runner{
+				ctx:       ctx,
+				cfg:       cfg,
+				client:    fakeClient,
+				revision:  2,
+				workspace: "v2",
+				strategy:  tc.strategy,
+			}
+			r.Command = NewCommand(r.ctx, r.cfg)
+
+			err := r.preRunE(r.Command, []string{"some-package-revision"})
+
+			if tc.expectErr {
+				assert.Error(t, err)
+				if tc.expectedError != "" {
+					assert.Contains(t, err.Error(), tc.expectedError)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
