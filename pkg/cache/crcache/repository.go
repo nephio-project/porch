@@ -610,9 +610,9 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 		oldPackageRevisionNames[oldPackage.KubeObjectName()] = oldPackage
 	}
 	r.mutex.Unlock()
-	// We go through all PackageRev CRs that represents PackageRevisions
-	// in the current repo and make sure they all have a corresponding
-	// PackageRevision. The ones that doesn't is removed.
+	// We go through all PackageRev CRs that represent PackageRevisions
+	// in the current repo, and make sure they each have a corresponding
+	// PackageRevision. The ones that don't are removed.
 	for _, prm := range existingPkgRevCRs {
 		if _, found := newPackageRevisionNames[prm.Name]; !found {
 			klog.Infof("repo %+v: deleting PackageRev %s/%s because parent PackageRevision was not found",
