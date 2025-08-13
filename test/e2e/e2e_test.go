@@ -1202,6 +1202,8 @@ func (t *PorchSuite) TestConcurrentDeletes() {
 		deleteFunction,
 		deleteFunction)
 
+	time.Sleep(60 * time.Second)
+
 	expectedResultCount := 8
 	actualResultCount := len(results)
 	assert.Equal(t, expectedResultCount, actualResultCount, "expected %d results but was %d", expectedResultCount, actualResultCount)
