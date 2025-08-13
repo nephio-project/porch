@@ -683,7 +683,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 	}
 
 	delSent := 0
-	// Send notifications for packages that was deleted in the SoT
+	// Send notifications for packages that were deleted in the SoT
 	for kname, oldPackage := range oldPackageRevisionNames {
 		if newPackageRevisionNames[kname] == nil {
 			nn := types.NamespacedName{
