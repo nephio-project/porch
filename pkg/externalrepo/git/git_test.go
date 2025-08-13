@@ -170,7 +170,7 @@ func (g GitSuite) TestGitPackageRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open repository: %v", err)
 	}
-	// TODO: is there any state? should we  defer repo.Close()
+	// TODO: is there any state? should we defer repo.Close()
 
 	t.Logf("repo is %#v", repo)
 
