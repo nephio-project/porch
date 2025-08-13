@@ -17,6 +17,7 @@ package crcache
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -50,7 +51,8 @@ func TestCachedRepoRefresh(t *testing.T) {
 
 	mockRepo.EXPECT().Refresh(mock.Anything).Return(nil).Maybe()
 	repoVersionCall := mockRepo.EXPECT().Version(mock.Anything).Return("v1.0", nil).Maybe()
-	repoListPRCall := mockRepo.EXPECT().ListPackageRevisions(mock.Anything, mock.Anything).Return(nil, nil).Maybe()
+	repoListPRCall := mockRepo.EXPECT().ListPackageRevisions(mock.Anything, mock.Anything)
+	repoListPRCall.Return(nil, nil).Maybe()
 	repoClosePRDCall := mockRepo.EXPECT().ClosePackageRevisionDraft(mock.Anything, mock.Anything, 1).Return(nil, errors.New("create draft error")).Maybe()
 
 	metaListCall := mockMeta.EXPECT().List(mock.Anything, mock.Anything).Return(metaMap, nil).Maybe()
@@ -78,6 +80,11 @@ func TestCachedRepoRefresh(t *testing.T) {
 
 	fpr := fake.FakePackageRevision{
 		PrKey: prKey,
+		PackageRevision: &porchtypes.PackageRevision{
+			ObjectMeta: metav1.ObjectMeta{
+				ResourceVersion: fmt.Sprint(prKey.Revision),
+			},
+		},
 		Kptfile: kptfile.KptFile{
 			ResourceMeta: yaml.ResourceMeta{
 				ObjectMeta: yaml.ObjectMeta{
@@ -90,6 +97,11 @@ func TestCachedRepoRefresh(t *testing.T) {
 	}
 	fprErrored := fake.FakePackageRevision{
 		PrKey: prKey,
+		PackageRevision: &porchtypes.PackageRevision{
+			ObjectMeta: metav1.ObjectMeta{
+				ResourceVersion: fmt.Sprint(prKey.Revision),
+			},
+		},
 		Kptfile: kptfile.KptFile{
 			Status: &kptfile.Status{
 				Conditions: []kptfile.Condition{
@@ -127,6 +139,31 @@ func TestCachedRepoRefresh(t *testing.T) {
 	assert.False(t, err == nil)
 	repoListPRCall.Return(nil, nil).Maybe()
 
+	repoListPRCall.Return([]repository.PackageRevision{&fpr}, nil).Maybe()
+	metaCreateCall := mockMeta.EXPECT().Create(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(metav1.ObjectMeta{}, errors.New("meta create error")).Maybe()
+	err = cr.Refresh(context.TODO())
+	assert.NoError(t, err)
+	metaCreateCall.Return(metav1.ObjectMeta{}, nil)
+
+	repoVersionCall.Return("v2.1", nil).Maybe()
+	mockGet := mockMeta.EXPECT().Get(mock.Anything, mock.Anything).Return(metav1.ObjectMeta{}, nil).Maybe()
+	mockUpdate := mockMeta.EXPECT().Update(mock.Anything, mock.Anything).Return(metav1.ObjectMeta{}, nil).Maybe()
+	err = cr.Refresh(context.TODO())
+	assert.NoError(t, err)
+
+	repoVersionCall.Return("v2.2", nil).Maybe()
+	mockUpdate.Return(metav1.ObjectMeta{}, errors.New("meta update error")).Maybe()
+	err = cr.Refresh(context.TODO())
+	assert.NoError(t, err)
+	repoListPRCall.Return(nil, nil).Maybe()
+	// mockUpdate.Return(metav1.ObjectMeta{}, nil).Maybe()
+
+	repoVersionCall.Return("v2.3", nil).Maybe()
+	repoListPRCall.Return([]repository.PackageRevision{&fprErrored}, nil).Maybe()
+	err = cr.Refresh(context.TODO())
+	assert.NoError(t, err)
+	repoListPRCall.Return(nil, nil).Maybe()
+
 	repoVersionCall.Return("v3.0", nil).Maybe()
 	metaDeleteCall := mockMeta.EXPECT().Delete(mock.Anything, mock.Anything, mock.Anything).Return(metav1.ObjectMeta{}, errors.New("delete error")).Maybe()
 	err = cr.Refresh(context.TODO())
@@ -160,18 +197,16 @@ func TestCachedRepoRefresh(t *testing.T) {
 	repoClosePRDCall.Return(&fpr, nil).Maybe()
 
 	repoClosePRDCall.Return(prd, nil).Maybe()
-	metaCreateCall := mockMeta.EXPECT().Create(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(metav1.ObjectMeta{}, errors.New("meta create error")).Maybe()
+	metaCreateCall.Return(metav1.ObjectMeta{}, errors.New("meta create error")).Maybe()
 
 	_, err = cr.ClosePackageRevisionDraft(context.TODO(), prd, 1)
 	assert.True(t, err != nil)
 	repoClosePRDCall.Return(&fprErrored, nil).Maybe()
-	mockGet := mockMeta.EXPECT().Get(mock.Anything, mock.Anything).Return(metav1.ObjectMeta{}, nil).Maybe()
 
 	_, err = cr.ClosePackageRevisionDraft(context.TODO(), prd, 1)
 	assert.True(t, err != nil)
 	repoClosePRDCall.Return(&fpr, nil).Maybe()
 	metaCreateCall.Return(metav1.ObjectMeta{}, nil)
-	mockUpdate := mockMeta.EXPECT().Update(mock.Anything, mock.Anything).Return(metav1.ObjectMeta{}, nil).Maybe()
 	pr, err := cr.ClosePackageRevisionDraft(context.TODO(), prd, 1)
 	assert.True(t, err == nil)
 	assert.True(t, pr != nil)
