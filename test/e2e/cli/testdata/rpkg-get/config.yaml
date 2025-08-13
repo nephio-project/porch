@@ -9,6 +9,7 @@ commands:
       - --namespace=rpkg-get
       - --name=test-blueprints
       - --description
+      - --deployment=true
       - Test Blueprints
   - args:
       - porchctl

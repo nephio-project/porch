@@ -20,10 +20,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
+	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
 	pkgerrors "github.com/pkg/errors"
@@ -33,17 +35,22 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const (
+	delayBeforeTriggeredSync = 1 * time.Second
+)
+
 var _ repository.Repository = &dbRepository{}
 
 type dbRepository struct {
-	repoKey        repository.RepositoryKey
-	meta           metav1.ObjectMeta
-	spec           *configapi.Repository
-	externalRepo   repository.Repository
-	repositorySync *repositorySync
-	updated        time.Time
-	updatedBy      string
-	deployment     bool
+	repoKey              repository.RepositoryKey
+	meta                 metav1.ObjectMeta
+	spec                 *configapi.Repository
+	externalRepo         repository.Repository
+	repositorySync       RepositorySync
+	updated              time.Time
+	updatedBy            string
+	deployment           bool
+	repoPRChangeNotifier cachetypes.RepoPRChangeNotifier
 }
 
 func (r *dbRepository) KubeObjectName() string {
@@ -99,7 +106,7 @@ func (r *dbRepository) Close(ctx context.Context) error {
 
 	klog.V(5).Infof("dbRepository:close: closing repository %+v", r.Key())
 
-	r.repositorySync.stop()
+	r.repositorySync.Stop()
 
 	dbPkgs, err := pkgReadPkgsFromDB(ctx, r.Key())
 	if err != nil {
@@ -108,7 +115,7 @@ func (r *dbRepository) Close(ctx context.Context) error {
 
 	for _, pkg := range dbPkgs {
 		// Delete cached packages but not packages on external storage
-		if err := pkg.Delete(ctx, false); err != nil {
+		if err := pkg.Delete(ctx); err != nil {
 			return err
 		}
 	}
@@ -153,7 +160,7 @@ func (r *dbRepository) ListPackageRevisions(ctx context.Context, filter reposito
 	return genericPkgRevs, nil
 }
 
-func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
+func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *porchapi.PackageRevision) (repository.PackageRevisionDraft, error) {
 	ctx, span := tracer.Start(ctx, "dbRepository::CreatePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
 
@@ -166,11 +173,25 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *v1
 			Revision:      0,
 			WorkspaceName: newPR.Spec.WorkspaceName,
 		},
-		meta:      newPR.ObjectMeta,
-		spec:      &newPR.Spec,
-		lifecycle: v1alpha1.PackageRevisionLifecycleDraft,
-		updated:   time.Now(),
-		updatedBy: getCurrentUser(),
+		meta:          newPR.ObjectMeta,
+		spec:          &newPR.Spec,
+		lifecycle:     porchapi.PackageRevisionLifecycleDraft,
+		existsOnExt:   false,
+		deletingOnExt: false,
+		updated:       time.Now(),
+		updatedBy:     getCurrentUser(),
+	}
+
+	dbPkgRev.meta.CreationTimestamp = metav1.Time{Time: time.Now()}
+
+	dbPkgRev.extPRID = kptfile.UpstreamLock{
+		Type: kptfile.GitOrigin,
+		Git: &kptfile.GitLock{
+			Repo:      dbPkgRev.repo.spec.Spec.Git.Repo,
+			Directory: dbPkgRev.Key().PKey().ToPkgPathname(),
+			Ref:       "drafts/" + dbPkgRev.Key().PKey().ToPkgPathname() + "/" + dbPkgRev.Key().WorkspaceName,
+			Commit:    "not-pushed",
+		},
 	}
 
 	prDraft, err := r.savePackageRevisionDraft(ctx, dbPkgRev, 0)
@@ -199,11 +220,31 @@ func (r *dbRepository) DeletePackageRevision(ctx context.Context, pr2Delete repo
 		return nil
 	}
 
-	klog.V(5).Infof("dbRepository:DeletePackageRevision: deleting package revision %+v on repo %+v", pr2Delete.Key(), r.Key())
+	dbPR2Delete := pr2Delete.(*dbPackageRevision)
+
+	if porchapi.LifecycleIsPublished(dbPR2Delete.lifecycle) {
+		klog.V(5).Infof("dbRepository:DeletePackageRevision: setting deploymet state on package revision %+v on repo %+v to \"deleting\"", pr2Delete.Key(), r.Key())
+		dbPR2Delete.deletingOnExt = true
+
+		if _, err := r.savePackageRevision(ctx, dbPR2Delete, false); err != nil {
+			return pkgerrors.Wrapf(err, "dbRepository:DeletePackageRevision: could not save deployment state on package revision %+v on repo %+v", pr2Delete.Key(), r.Key())
+		}
+
+		if err := r.Refresh(ctx); err != nil {
+			return pkgerrors.Wrapf(err, "dbRepository:DeletePackageRevision: could not refresh repository on package revision %+v on repo %+v", pr2Delete.Key(), r.Key())
+		}
+		return nil
+	}
+
+	return r.deletePackageRevision(ctx, dbPR2Delete)
+}
+
+func (r *dbRepository) deletePackageRevision(ctx context.Context, dbPR2Delete *dbPackageRevision) error {
+	klog.V(5).Infof("dbRepository:DeletePackageRevision: deleting package revision %+v on repo %+v", dbPR2Delete.Key(), r.Key())
 
 	pk := repository.PackageKey{
 		RepoKey: r.Key(),
-		Package: pr2Delete.Key().PKey().Package,
+		Package: dbPR2Delete.Key().PKey().Package,
 	}
 
 	foundPkg, err := pkgReadFromDB(ctx, pk)
@@ -211,8 +252,7 @@ func (r *dbRepository) DeletePackageRevision(ctx context.Context, pr2Delete repo
 		return err
 	}
 
-	// Delete both the cached and external package
-	if err := foundPkg.DeletePackageRevision(ctx, pr2Delete, true); err != nil && err != sql.ErrNoRows {
+	if err := foundPkg.DeletePackageRevision(ctx, dbPR2Delete); err != nil && err != sql.ErrNoRows {
 		return err
 	}
 
@@ -226,10 +266,10 @@ func (r *dbRepository) DeletePackageRevision(ctx context.Context, pr2Delete repo
 	}
 
 	if err = pkgDeleteFromDB(ctx, pk); err != nil {
-		klog.V(5).Infof("dbRepository:DeletePackageRevision: deletion of package revision %+v on repo %+v reported error %q", pr2Delete.Key(), r.Key(), err)
+		klog.V(5).Infof("dbRepository:DeletePackageRevision: deletion of package revision %+v on repo %+v reported error %q", dbPR2Delete.Key(), r.Key(), err)
 	}
 
-	klog.V(5).Infof("dbRepository:DeletePackageRevision: deleted package revision %+v on repo %+v", pr2Delete.Key(), r.Key())
+	klog.V(5).Infof("dbRepository:DeletePackageRevision: deleted package revision %+v on repo %+v", dbPR2Delete.Key(), r.Key())
 	return nil
 }
 
@@ -273,7 +313,7 @@ func (r *dbRepository) ListPackages(ctx context.Context, filter repository.ListP
 	return genericPkgs, nil
 }
 
-func (r *dbRepository) CreatePackage(ctx context.Context, newPkgDef *v1alpha1.PorchPackage) (repository.Package, error) {
+func (r *dbRepository) CreatePackage(ctx context.Context, newPkgDef *porchapi.PorchPackage) (repository.Package, error) {
 	_, span := tracer.Start(ctx, "dbRepository::CreatePackage", trace.WithAttributes())
 	defer span.End()
 
@@ -308,11 +348,11 @@ func (r *dbRepository) DeletePackage(ctx context.Context, old repository.Package
 		}
 	}
 
-	return foundPackage.Delete(ctx, true)
+	return foundPackage.Delete(ctx)
 }
 
 func (r *dbRepository) Version(ctx context.Context) (string, error) {
-	ctx, span := tracer.Start(ctx, "cachedRepository::Version", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "cachedRepository::Version", trace.WithAttributes())
 	defer span.End()
 
 	return r.externalRepo.Version(ctx)
@@ -333,10 +373,10 @@ func (r *dbRepository) savePackageRevisionDraft(ctx context.Context, prd reposit
 
 	d := prd.(*dbPackageRevision)
 
-	return r.savePackageRevision(ctx, d)
+	return r.savePackageRevision(ctx, d, true)
 }
 
-func (r *dbRepository) savePackageRevision(ctx context.Context, d *dbPackageRevision) (*dbPackageRevision, error) {
+func (r *dbRepository) savePackageRevision(ctx context.Context, d *dbPackageRevision, saveResources bool) (*dbPackageRevision, error) {
 	_, span := tracer.Start(ctx, "dbRepository::savePackageRevision", trace.WithAttributes())
 	defer span.End()
 
@@ -358,7 +398,7 @@ func (r *dbRepository) savePackageRevision(ctx context.Context, d *dbPackageRevi
 		}
 	}
 
-	pkgRev, err := dbPkg.savePackageRevision(ctx, d)
+	pkgRev, err := dbPkg.savePackageRevision(ctx, d, saveResources)
 	if err != nil {
 		return nil, err
 	}
@@ -376,44 +416,10 @@ func (r *dbRepository) Refresh(ctx context.Context) error {
 	_, span := tracer.Start(ctx, "dbRepository::Refresh", trace.WithAttributes())
 	defer span.End()
 
-	if err := r.repositorySync.getLastSyncError(); err != nil {
+	if err := r.repositorySync.GetLastSyncError(); err != nil {
 		klog.Warningf("last sync returned error %q, refreshing . . .", err)
 	}
 
-	if err := r.externalRepo.Refresh(ctx); err != nil {
-		return err
-	}
-
-	if _, err := r.repositorySync.syncOnce(ctx); err != nil {
-		klog.Warningf("sync returned error %q", err)
-		return err
-	}
-
+	r.repositorySync.SyncAfter(delayBeforeTriggeredSync)
 	return nil
-}
-
-func (r *dbRepository) getExternalPr(ctx context.Context, prKey repository.PackageRevisionKey) (repository.PackageRevision, error) {
-	_, span := tracer.Start(ctx, "dbRepository::getExternalPr", trace.WithAttributes())
-	defer span.End()
-
-	filter := repository.ListPackageRevisionFilter{Key: prKey}
-
-	prList, err := r.externalRepo.ListPackageRevisions(ctx, filter)
-
-	if err != nil {
-		klog.Warningf("error retrieving package revision %+v from external repo, %q", prKey, err)
-		return nil, err
-	}
-
-	if len(prList) != 1 {
-		if len(prList) > 1 {
-			err = fmt.Errorf("error retrieving package revision %+v from external repo, more than one package revision was returned", prKey)
-		} else {
-			err = fmt.Errorf("package revision %+v not found on external repo", prKey)
-		}
-		klog.Warning(err)
-		return nil, err
-	}
-
-	return prList[0], nil
 }

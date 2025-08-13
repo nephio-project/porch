@@ -7,6 +7,7 @@ commands:
     - --name=git
     - --repo-basic-password=secret
     - --repo-basic-username=nephio
+    - --deployment=true
     - http://gitea.gitea.svc.cluster.local:3000/nephio/rpkg-upgrade
   - args:
     - porchctl
@@ -34,6 +35,9 @@ commands:
     - --namespace=rpkg-upgrade
     - git.upgrade-orig.v1
     stdout: "git.upgrade-orig.v1 approved\n"
+  - args:
+    - sleep
+    - 2
   - args:
     - porchctl
     - rpkg
@@ -87,6 +91,9 @@ commands:
     - git.upgrade-downstream.v1
     stdout: "git.upgrade-downstream.v1 approved\n"
   - args:
+    - sleep
+    - 2
+  - args:
     - porchctl
     - rpkg
     - copy
@@ -134,6 +141,9 @@ commands:
     - --namespace=rpkg-upgrade
     - git.upgrade-orig.v2
     stdout: "git.upgrade-orig.v2 approved\n"
+  - args:
+    - sleep
+    - 2
   - args:
     - porchctl
     - rpkg
