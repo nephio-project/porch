@@ -566,7 +566,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 		return r.cachedPackages, r.cachedPackageRevisions, nil
 	}
 
-	// Look up all existing PackageRevCRs so we an compare those to the
+	// Look up all existing PackageRevCRs so we can compare those to the
 	// actual Packagerevisions found in git/oci, and add/prune PackageRevCRs
 	// as necessary.
 	existingPkgRevCRs, err := r.metadataStore.List(ctx, r.repoSpec)
