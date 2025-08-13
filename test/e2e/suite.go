@@ -804,6 +804,15 @@ func (t *TestSuite) SaveKptfileF(resources *porchapi.PackageRevisionResources, k
 	resources.Spec.Resources[kptfilev1.KptFileName] = string(b)
 }
 
+func (t *TestSuite) EditKptfile(resources *porchapi.PackageRevisionResources, editFunc func(*kptfilev1.KptFile)) {
+	t.T().Helper()
+	kptfile := t.ParseKptfileF(resources)
+
+	editFunc(kptfile)
+
+	t.SaveKptfileF(resources, kptfile)
+}
+
 func (t *TestSuite) FindAndDecodeF(resources *porchapi.PackageRevisionResources, name string, value interface{}) {
 	t.T().Helper()
 	contents, ok := resources.Spec.Resources[name]

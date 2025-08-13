@@ -170,7 +170,7 @@ func (g GitSuite) TestGitPackageRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open repository: %v", err)
 	}
-	// TODO: is there any state? should we  defer repo.Close()
+	// TODO: is there any state? should we defer repo.Close()
 
 	t.Logf("repo is %#v", repo)
 
@@ -478,7 +478,7 @@ func (g GitSuite) TestListPackagesTrivial(t *testing.T) {
 	}
 }
 
-// trivial-repository.tar has a repon with a `main` branch and a single empty commit.
+// trivial-repository.tar has a repo with a `main` branch and a single empty commit.
 func (g GitSuite) TestCreatePackageInTrivialRepository(t *testing.T) {
 	tempdir := t.TempDir()
 	tarfile := filepath.Join("testdata", "trivial-repository.tar")
@@ -506,7 +506,7 @@ func (g GitSuite) TestCreatePackageInTrivialRepository(t *testing.T) {
 		t.Fatalf("Failed to list packages from %q: %v", tarfile, err)
 	}
 	if got, want := len(revisions), 0; got != want {
-		t.Errorf("Number of packges in the trivial repository: got %d, want %d", got, want)
+		t.Errorf("Number of packages in the trivial repository: got %d, want %d", got, want)
 	}
 
 	packageRevision := &v1alpha1.PackageRevision{
@@ -1171,7 +1171,7 @@ func (g GitSuite) TestNested(t *testing.T) {
 		}
 		if rev.Spec.Revision == -1 {
 			// skip packages with the revision of the main registered branch,
-			// to match the above simplified package discovery algo.
+			// to match the above simplified package discovery algorithm.
 			continue
 		}
 		if rev.Spec.Lifecycle == v1alpha1.PackageRevisionLifecyclePublished {

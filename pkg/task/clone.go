@@ -27,6 +27,7 @@ import (
 	"github.com/nephio-project/porch/pkg/kpt"
 	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
@@ -99,6 +100,15 @@ func (m *clonePackageMutation) apply(ctx context.Context, resources repository.P
 	result, err := ensureMergeKey(ctx, cloned)
 	if err != nil {
 		klog.Infof("failed to add merge-key to resources %v", err)
+	}
+
+	// We erase any labels that may have come in with the cloned Kptfile
+	kptfile, _ := fn.NewKptfileFromPackage(result.Contents)
+	if _, err := kptfile.Obj.RemoveNestedField("metadata", "labels"); err != nil {
+		klog.Infof("failed to remove metadata.labels from resources' Kptfile: encountered error %v", err)
+	}
+	if err := kptfile.WriteToPackage(result.Contents); err != nil {
+		klog.Errorf("error writing Kptfile back to resources: %v", err)
 	}
 
 	return result, &api.TaskResult{Task: m.task}, nil
