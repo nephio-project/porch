@@ -156,7 +156,6 @@ func TestCachedRepoRefresh(t *testing.T) {
 	err = cr.Refresh(context.TODO())
 	assert.NoError(t, err)
 	repoListPRCall.Return(nil, nil).Maybe()
-	// mockUpdate.Return(metav1.ObjectMeta{}, nil).Maybe()
 
 	repoVersionCall.Return("v2.3", nil).Maybe()
 	repoListPRCall.Return([]repository.PackageRevision{&fprErrored}, nil).Maybe()
