@@ -34,6 +34,8 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/component-base/cli"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 func main() {
@@ -42,6 +44,7 @@ func main() {
 }
 
 func run() int {
+	log.SetLogger(zap.New(zap.UseDevMode(true)))
 	t := &telemetry{}
 	if err := t.Start(); err != nil {
 		klog.Warningf("failed to start telemetry: %v", err)

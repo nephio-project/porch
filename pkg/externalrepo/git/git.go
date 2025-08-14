@@ -197,8 +197,8 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 		deployment:         deployment,
 	}
 
-	if opts.ExternalRepoOptions.UseUserDefinedCaBundle {
-		if caBundle, err := opts.ExternalRepoOptions.CredentialResolver.ResolveCredential(ctx, namespace, namespace+"-ca-bundle"); err != nil {
+	if opts.UseUserDefinedCaBundle && opts.CaBundleResolver != nil {
+		if caBundle, err := opts.CaBundleResolver.ResolveCredential(ctx, namespace, namespace+"-ca-bundle"); err != nil {
 			klog.Errorf("failed to obtain caBundle from secret %s/%s: %v", namespace, namespace+"-ca-bundle", err)
 		} else {
 			repository.caBundle = []byte(caBundle.ToString())

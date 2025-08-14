@@ -40,7 +40,7 @@ func (t *tuple) merge() (*yaml.RNode, error) {
 		Sources:            []*yaml.RNode{t.dest, t.original, t.updated},
 
 		// added
-		InferAssociativeLists: true,
+		InferAssociativeLists: false,
 	}.Walk()
 }
 
