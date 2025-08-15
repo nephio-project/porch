@@ -14,4 +14,4 @@ RUN go build -o /usr/local/bin/sleep .
 
 FROM ${DOCKERHUB_MIRROR}alpine:3.21
 COPY --from=build /usr/local/bin/sleep /usr/local/bin/function
-ENTRYPOINT ["sleep"]
+ENTRYPOINT ["/usr/local/bin/function"]

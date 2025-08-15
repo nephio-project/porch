@@ -23,7 +23,7 @@
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "${workspaceFolder}/cmd/porch/main.go",
+            "program": "${workspaceFolder}/cmd/porch",
             "args": [
                 "--secure-port=4443",
                 "--kubeconfig=${env:KUBECONFIG}",
@@ -124,6 +124,20 @@
             "env": {
                 "E2E": "1",
                 "CLEANUP_ON_FAIL": "true"
+            }
+        },
+        {
+            "name": "Launch unit test",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}",
+            "args": [
+                // "-test.run", "TestPodEvaluatorExecutionSerial",
+                "-test.v",
+                "-test.failfast",
+            ],
+            "env": {
             }
         },
         {

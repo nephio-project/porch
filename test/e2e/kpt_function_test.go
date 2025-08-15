@@ -86,7 +86,7 @@ func (t *PorchSuite) doCleanup(pr *porchapi.PackageRevision, mutatorImage string
 	t.DeleteF(pr)
 
 	podList := &corev1.PodList{}
-	t.ListF(podList, client.InNamespace("porch-fn-system"))
+	t.ListF(podList, client.InNamespace(t.FnNamespaceName()))
 	for _, pod := range podList.Items {
 		img := pod.Spec.Containers[0].Image
 		if img == mutatorImage {

@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,10 +17,13 @@ package internal
 import (
 	"context"
 	"fmt"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/nephio-project/porch/func/evaluator"
-	util "github.com/nephio-project/porch/pkg/util"
+	"github.com/nephio-project/porch/pkg/util"
+	"google.golang.org/grpc"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -36,7 +39,6 @@ const (
 	reclaimAfterAnnotation    = "fn.kpt.dev/reclaim-after"
 	templateVersionAnnotation = "fn.kpt.dev/template-version"
 	inlineTemplateVersionv1   = "inline-v1"
-	fieldManagerName          = "krm-function-runner"
 	functionContainerName     = "function"
 	defaultManagerNamespace   = "porch-system"
 	defaultRegistry           = "gcr.io/kpt-fn/"
@@ -45,7 +47,7 @@ const (
 )
 
 type podEvaluator struct {
-	requestCh chan<- *clientConnRequest
+	requestCh chan<- *connectionRequest
 
 	podCacheManager *podCacheManager
 }
@@ -64,9 +66,44 @@ type PodEvaluatorOptions struct {
 	EnablePrivateRegistriesTls bool          // If enabled, will prioritize use of user provided TLS secret when accessing registries
 	TlsSecretPath              string        // The path of the secret used in tls configuration
 	MaxGrpcMessageSize         int           // Maximum size of grpc messages in bytes
+	DefaultImagePrefix         string        // Default image prefix to use when no prefix is given for an image
+	MaxWaitlistLength          int           // Maximum waitlist length per pod
+	MaxParallelPodsPerFunction int           // Maximum parallel pods per function
 }
 
 var _ Evaluator = &podEvaluator{}
+
+type podData struct {
+	// the OCI image name of the KRM function
+	image string
+	// connection to the grpc server running in the fn evaluator pod
+	grpcConnection *grpc.ClientConn
+	// namespaced name of the pod
+	podKey client.ObjectKey
+}
+
+type connectionRequest struct {
+	// the OCI image name of the KRM function
+	image string
+	// responseCh is the channel to send the response back.
+	responseCh chan<- *connectionResponse
+}
+
+type connectionResponse struct {
+	podData
+	// mutex used to prevent concurrent fn evaluations in the same pod
+	fnEvaluationMutex *sync.Mutex
+	// the number of currently ongoing and waiting fn evaluations in the pod
+	concurrentEvaluations *atomic.Int32
+	// err indicates the error that prevents us to allocate a pod for the fn evaluator
+	err error
+}
+
+type podReadyResponse struct {
+	podData
+	// err indicates the error that prevents us to allocate a pod for the fn evaluator
+	err error
+}
 
 func NewPodEvaluator(o PodEvaluatorOptions) (Evaluator, error) {
 
@@ -85,6 +122,15 @@ func NewPodEvaluator(o PodEvaluatorOptions) (Evaluator, error) {
 		return nil, fmt.Errorf("failed to create client: %w", err)
 	}
 
+	maxWaitlist := o.MaxWaitlistLength
+	if maxWaitlist <= 0 {
+		maxWaitlist = 2
+	}
+	maxPods := o.MaxParallelPodsPerFunction
+	if maxPods <= 0 {
+		maxPods = 1
+	}
+
 	managerNs, err := util.GetInClusterNamespace()
 	if err != nil {
 		klog.Errorf("failed to get the namespace where the function-runner is running: %v", err)
@@ -92,18 +138,19 @@ func NewPodEvaluator(o PodEvaluatorOptions) (Evaluator, error) {
 		managerNs = defaultManagerNamespace
 	}
 
-	reqCh := make(chan *clientConnRequest, channelBufferSize)
-	readyCh := make(chan *imagePodAndGRPCClient, channelBufferSize)
+	reqCh := make(chan *connectionRequest, channelBufferSize)
+	readyCh := make(chan *podReadyResponse, channelBufferSize)
 
 	pe := &podEvaluator{
 		requestCh: reqCh,
 		podCacheManager: &podCacheManager{
-			gcScanInterval: o.GcScanInterval,
-			podTTL:         o.PodTTL,
-			requestCh:      reqCh,
-			podReadyCh:     readyCh,
-			cache:          map[string]*podAndGRPCClient{},
-			waitlists:      map[string][]chan<- *clientConnAndError{},
+			gcScanInterval:             o.GcScanInterval,
+			podTTL:                     o.PodTTL,
+			connectionRequestCh:        reqCh,
+			podReadyCh:                 readyCh,
+			functions:                  map[string]*functionInfo{},
+			maxWaitlistLength:          maxWaitlist,
+			maxParallelPodsPerFunction: maxPods,
 
 			podManager: &podManager{
 				kubeClient:              cl,
@@ -143,23 +190,24 @@ func (pe *podEvaluator) EvaluateFunction(ctx context.Context, req *evaluator.Eva
 		klog.Infof("evaluating %v in pod took %v", req.Image, time.Since(starttime))
 	}()
 	// make a buffer for the channel to prevent unnecessary blocking when the pod cache manager sends it to multiple waiting goroutine in batch.
-	ccChan := make(chan *clientConnAndError, 1)
+	responseChannel := make(chan *connectionResponse, 1)
 	// Send a request to request a grpc client.
-	pe.requestCh <- &clientConnRequest{
-		image:        req.Image,
-		grpcClientCh: ccChan,
+	pe.requestCh <- &connectionRequest{
+		image:      req.Image,
+		responseCh: responseChannel,
 	}
 
 	// Waiting for the client from the channel. This step is blocking.
-	cc := <-ccChan
-	if cc == nil || cc.podClient == nil || cc.err != nil {
-		return nil, fmt.Errorf("unable to get the grpc client to the pod for %v: %w", req.Image, cc.err)
+	pod := <-responseChannel
+	if pod == nil || pod.grpcConnection == nil || pod.err != nil {
+		return nil, fmt.Errorf("unable to get the grpc client to the pod for %v: %w", req.Image, pod.err)
 	}
 
-	cc.podClient.mu.Lock()
-	defer cc.podClient.mu.Unlock()
+	defer pod.concurrentEvaluations.Add(-1)
+	pod.fnEvaluationMutex.Lock()
+	defer pod.fnEvaluationMutex.Unlock()
 
-	resp, err := evaluator.NewFunctionEvaluatorClient(cc.podClient.grpcClient).EvaluateFunction(ctx, req)
+	resp, err := evaluator.NewFunctionEvaluatorClient(pod.grpcConnection).EvaluateFunction(ctx, req)
 	if err != nil {
 		klog.V(4).Infof("Resource List: %s", req.ResourceList)
 		return nil, fmt.Errorf("unable to evaluate %v with pod evaluator: %w", req.Image, err)

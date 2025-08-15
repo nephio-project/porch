@@ -3,13 +3,16 @@ package internal
 import (
 	"context"
 	"net"
+	"slices"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	pb "github.com/nephio-project/porch/func/evaluator"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // fakeFnEvalServer delays every EvaluateFunction call.
@@ -33,7 +36,12 @@ func startFakeServer(ctx context.Context, t *testing.T, delay time.Duration) (st
 	addr := lis.Addr().String()
 	server := grpc.NewServer()
 	pb.RegisterFunctionEvaluatorServer(server, &fakeFnEvalServer{delay: delay})
-	go server.Serve(lis)
+	go func() {
+		err := server.Serve(lis)
+		if err != nil {
+			t.Errorf("fake grpc server returned with an error: %v", err)
+		}
+	}()
 
 	go func() {
 		<-ctx.Done()
@@ -55,19 +63,30 @@ func TestPodEvaluatorExecutionSerial(t *testing.T) {
 		t.Fatalf("failed to start fake server: %v", err)
 	}
 
-	conn, err := grpc.Dial(
+	conn, err := grpc.NewClient(
 		addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithNoProxy(),
 	)
 	if err != nil {
 		t.Fatalf("grpc dial failed: %v", err)
 	}
 
-	client := &podAndGRPCClient{grpcClient: conn}
-	reqCh := make(chan *clientConnRequest, 2)
+	reqCh := make(chan *connectionRequest, 2)
 	go func() {
+		lock := &sync.Mutex{}
+		counter := &atomic.Int32{}
 		for req := range reqCh {
-			req.grpcClientCh <- &clientConnAndError{podClient: client, err: nil}
+			req.responseCh <- &connectionResponse{
+				podData: podData{
+					image:          req.image,
+					grpcConnection: conn,
+					podKey:         client.ObjectKey{},
+				},
+				fnEvaluationMutex:     lock,
+				concurrentEvaluations: counter,
+				err:                   nil,
+			}
 		}
 	}()
 
@@ -75,29 +94,28 @@ func TestPodEvaluatorExecutionSerial(t *testing.T) {
 		requestCh: reqCh,
 	}
 
-	req := &pb.EvaluateFunctionRequest{ResourceList: []byte(`[]`), Image: "test-image"}
+	req := &pb.EvaluateFunctionRequest{ResourceList: []byte(`{}`), Image: "test-image"}
 	var wg sync.WaitGroup
-	durations := make([]time.Duration, 2)
-	wg.Add(2)
-	for i := 0; i < 2; i++ {
+	funcCallCount := 3
+	durations := make([]time.Duration, funcCallCount)
+	wg.Add(funcCallCount)
+	start := time.Now()
+	for i := range funcCallCount {
 		go func(i int) {
 			defer wg.Done()
-			start := time.Now()
 			_, err := pe.EvaluateFunction(context.Background(), req)
 			if err != nil {
-				t.Errorf("EvaluateFunction[%d] error: %v", i, err)
+				t.Errorf("ERROR: EvaluateFunction[%d]: %v", i, err)
 			}
 			durations[i] = time.Since(start)
 		}(i)
 	}
 	wg.Wait()
 
-	t.Logf("durations: first=%v, second=%v", durations[0], durations[1])
-	if durations[0] > durations[1] {
-		durations[0], durations[1] = durations[1], durations[0]
-	}
+	t.Logf("durations: %v", durations)
 
-	if durations[1] < 2*sleep {
-		t.Errorf("expected serial but second took only %v", durations[1])
+	slices.Sort(durations)
+	if durations[funcCallCount-1] < time.Duration(funcCallCount)*sleep {
+		t.Errorf("expected serial but slowest took only %v", durations[funcCallCount-1])
 	}
 }

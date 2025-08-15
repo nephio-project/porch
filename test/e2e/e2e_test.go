@@ -2063,7 +2063,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 
 	// Get the fn runner pods and delete them.
 	podList := &corev1.PodList{}
-	t.ListF(podList, client.InNamespace("porch-fn-system"))
+	t.ListF(podList, client.InNamespace(t.FnNamespaceName()))
 	for _, pod := range podList.Items {
 		img := pod.Spec.Containers[0].Image
 		if img == generateFolderImage || img == setAnnotationsImage {
@@ -2224,7 +2224,7 @@ func (t *PorchSuite) TestPodEvaluatorSequentialParallel() {
 		t.Errorf("Parallel duration %v too high — expected < %v", durPar, expectedSequential)
 	}
 
-	t.ListF(pods, client.InNamespace("porch-fn-system"))
+	t.ListF(pods, client.InNamespace(t.FnNamespaceName()))
 	for _, p := range pods.Items {
 		if strings.Contains(p.Spec.Containers[0].Image, "krm-sleeper") {
 			t.DeleteF(&p)
@@ -3612,4 +3612,101 @@ func (t *PorchSuite) TestPackageRevisionListWithTwoHangingRepositories() {
 	if !found {
 		t.Errorf("Expected PackageRevisions from working repository, got none")
 	}
+}
+
+func (t *PorchSuite) TestPodEvaluatorParallelExecution() {
+	if t.TestRunnerIsLocal {
+		t.Skipf("Skipping: pod evaluator is not enabled in local test mode.")
+	}
+
+	const (
+		repoName             = "git-fn-parallel-sleep"
+		parallelRequestCount = 4
+		maxWaitList          = 2 // this should be kept in sync with the max-wait-list argument of the function-runner
+		expectedPodCount     = (parallelRequestCount + maxWaitList - 1) / maxWaitList
+		sleepDuration        = 5 * time.Second
+	)
+
+	singleFunctionTime := sleepDuration
+	expectedSequentialTime := time.Duration(parallelRequestCount) * sleepDuration
+
+	t.RegisterMainGitRepositoryF(repoName)
+	t.DeleteFunctionPod(t.SleepFunctionName())
+	t.Cleanup(func() {
+		t.DeleteFunctionPod(t.SleepFunctionName())
+	})
+
+	var wg sync.WaitGroup
+	wg.Add(parallelRequestCount)
+	errChan := make(chan error, parallelRequestCount)
+
+	startTime := time.Now()
+
+	for i := range parallelRequestCount {
+		go func(idx int) {
+			defer wg.Done()
+			packageName := fmt.Sprintf("parallel-pkg-%d", idx)
+			workspaceName := fmt.Sprintf("workspace-%d", idx)
+
+			pr := t.CreatePackageDraftF(repoName, packageName, workspaceName)
+			t.Logf("PkgRev #%d: Adding sleep function to pipeline", idx)
+
+			err := t.AddSleepFunctionToPipeline(client.ObjectKeyFromObject(pr), sleepDuration)
+			if err != nil {
+				t.Errorf("PkgRev #%d: Failed to add & run sleep function: %v", idx, err)
+				errChan <- fmt.Errorf("PkgRev #%d: %w", idx, err)
+				return
+			}
+			t.Logf("PkgRev #%d: successfully evaluated sleep function for %s", idx, packageName)
+		}(i)
+	}
+
+	t.Logf("Waiting to observe %d parallel sleep function evaluator pods: %s", parallelRequestCount, t.SleepFunctionName())
+	err := wait.PollUntilContextTimeout(t.GetContext(), 1*time.Second, 45*time.Second, true, func(ctx context.Context) (bool, error) {
+		select {
+		case err := <-errChan:
+			return true, err
+		default:
+		}
+
+		podList := &corev1.PodList{}
+		if err := t.Client.List(ctx, podList, client.InNamespace(t.FnNamespaceName())); err != nil {
+			t.Logf("Error listing pods: %v", err)
+			return false, nil
+		}
+
+		runningPods := 0
+		for _, pod := range podList.Items {
+			if len(pod.Spec.Containers) > 0 && strings.Contains(pod.Spec.Containers[0].Image, t.SleepFunctionName()) && pod.DeletionTimestamp == nil && pod.Status.Phase == corev1.PodRunning {
+				runningPods++
+			}
+		}
+		t.Logf("Found %d running pods for the sleep function", runningPods)
+		if runningPods == expectedPodCount {
+			return true, nil
+		}
+		if runningPods > expectedPodCount {
+			return false,
+				fmt.Errorf("Found more than expected running pods for the sleep function: got: %d, want: %d",
+					runningPods, expectedPodCount)
+		}
+		return false, nil
+	})
+	assert.NoError(t, err, "Failed to observe parallel pod creation. This indicates the podCacheManager did not scale up as expected.")
+
+	t.Logf("Waiting for all %v sleep functions to complete.", parallelRequestCount)
+	wg.Wait()
+
+	totalDuration := time.Since(startTime)
+	t.Logf("Total duration for parallel execution: %v", totalDuration)
+
+	close(errChan)
+	for e := range errChan {
+		t.Errorf("An error occurred during parallel execution: %v", e)
+	}
+
+	assert.Less(t, totalDuration, expectedSequentialTime, "Total duration for parallel run was too long, suggesting sequential execution.")
+	assert.Greater(t, totalDuration, singleFunctionTime, "Total duration was too fast, suggesting the sleep function did not wait long enough.")
+
+	t.Log("All parallel evaluations completed, and duration check passed.")
 }

@@ -8,23 +8,26 @@ import (
 	"time"
 
 	"sigs.k8s.io/kustomize/kyaml/fn/framework"
-	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
 type SleepProcessor struct{}
 
 func (p *SleepProcessor) Process(rl *framework.ResourceList) error {
 	sleep := 10
-	if rl.FunctionConfig != nil && rl.FunctionConfig.GetKind() == "ConfigMap" {
-		node := rl.FunctionConfig
-		valueNode, err := node.Pipe(yaml.Lookup("data", "sleepSeconds"))
-		if err == nil && valueNode != nil {
-			raw, err := valueNode.String()
-			if err == nil {
-				raw = strings.TrimSpace(raw)
-				if parsed, err := strconv.Atoi(raw); err == nil {
-					sleep = parsed
-				}
+	config := rl.FunctionConfig
+	if config != nil && config.GetKind() == "ConfigMap" {
+		data := config.GetDataMap()
+		if data == nil {
+			err := fmt.Errorf("Couldn't parse FunctionConfig's data field")
+			return err
+		}
+		raw, ok := data["sleepSeconds"]
+		if ok {
+			raw = strings.TrimSpace(raw)
+			if parsed, err := strconv.Atoi(raw); err == nil {
+				sleep = parsed
+			} else {
+				return fmt.Errorf("couldn't parse sleepSeconds field of functionConfig: %w", err)
 			}
 		}
 	}

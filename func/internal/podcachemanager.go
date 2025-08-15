@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,75 +16,161 @@ package internal
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"os"
-	"strconv"
+	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
-	"google.golang.org/grpc"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // podCacheManager manages the cache of the pods and the corresponding GRPC clients.
 // It also does the garbage collection after pods' TTL.
-// It has 2 receive-only channels: requestCh and podReadyCh.
-// It listens to the requestCh channel and receives clientConnRequest from the
+// It has 2 receive-only channels: connectionRequestCh and podReadyCh.
+// It listens to the connectionRequestCh channel and receives clientConnRequest from the
 // GRPC request handlers and add them in the waitlists.
 // It also listens to the podReadyCh channel. If a pod is ready, it notifies the
 // goroutines by sending back the GRPC client by lookup the waitlists mapping.
-
-// Each function pod managed by podCacheManager has a frontend ClusterIP type
-// service added to it to make Porch modules compatible for deployment into a
-// cluster using service mesh like Istio
-// https://github.com/nephio-project/nephio/issues/879
 type podCacheManager struct {
 	gcScanInterval time.Duration
 	podTTL         time.Duration
 
-	// requestCh is a receive-only channel to receive
-	requestCh <-chan *clientConnRequest
+	// connectionRequestCh receives requests for a connection to a KRM function evaluator pod
+	connectionRequestCh <-chan *connectionRequest
 	// podReadyCh is a channel to receive the information when a pod is ready.
-	podReadyCh <-chan *imagePodAndGRPCClient
+	podReadyCh <-chan *podReadyResponse
 
-	// cache is a mapping from image name to <pod + grpc client>.
-	cache map[string]*podAndGRPCClient
-	// waitlists is a mapping from image name to a list of channels that are
-	// waiting for the GRPC client connections.
-	waitlists map[string][]chan<- *clientConnAndError
+	// functions maps KRM function image names to its pods and waitlist information.
+	functions map[string]*functionInfo
 
 	podManager *podManager
+
+	maxWaitlistLength          int
+	maxParallelPodsPerFunction int
 }
 
-type clientConnRequest struct {
-	image string
-
-	// grpcConn is a channel that a grpc client should be sent back.
-	grpcClientCh chan<- *clientConnAndError
+// functionInfo holds the list of all pod instances for the same KRM function image.
+type functionInfo struct {
+	// status of all pods belonging to the same KRM function image
+	pods []functionPodInfo
 }
 
-type clientConnAndError struct {
-	podClient *podAndGRPCClient
-	err       error
+// functionPodInfo represents the state of a single pod instance.
+type functionPodInfo struct {
+	// podData contains the information about the pod, returned by the podManager
+	// It is nil until the pod is actually started
+	*podData
+	// waitlist is used to temporarily store connection requests until the pod is started
+	waitlist []chan<- *connectionResponse
+	// time of last function evaluation, used by the garbage collector to identify idle pods
+	lastActivity time.Time
+	// mutex used to prevent concurrent fn evaluations in the same pod
+	fnEvaluationMutex *sync.Mutex
+	// the number of currently ongoing and waiting fn evaluations in the pod
+	concurrentEvaluations *atomic.Int32
 }
 
-type podAndGRPCClient struct {
-	grpcClient *grpc.ClientConn
-	pod        client.ObjectKey
-	mu         sync.Mutex
+// podCacheManager responds to the requestCh and the podReadyCh and does the
+// garbage collection synchronously.
+// We must run this method in one single goroutine. Doing it this way simplify
+// design around concurrency.
+func (pcm *podCacheManager) podCacheManager() {
+	//nolint:staticcheck
+	tick := time.Tick(pcm.gcScanInterval)
+	for {
+		select {
+		case req := <-pcm.connectionRequestCh:
+			//if pcm.podManager.imageResolver != nil {
+			//	req.image = pcm.podManager.imageResolver(req.image)
+			//}
+			fn := pcm.FunctionInfo(req.image)
+
+			shouldScaleUp := false
+			bestPodIndex, bestWaitlistLen := pcm.findBestPod(fn)
+			if bestPodIndex == -1 {
+				shouldScaleUp = true
+			} else {
+				if bestWaitlistLen >= pcm.maxWaitlistLength && len(fn.pods) < pcm.maxParallelPodsPerFunction {
+					shouldScaleUp = true
+				}
+			}
+
+			if shouldScaleUp {
+				klog.Infof("Scaling up for image %s. No idle pods available. Starting a new pod.", req.image)
+
+				fn.pods = append(fn.pods, NewPodInfo(req.responseCh))
+				go pcm.podManager.getFuncEvalPodClient(context.Background(), req.image, pcm.podTTL)
+			} else {
+				pod := &fn.pods[bestPodIndex]
+				klog.Infof("Queuing request for %s on pod instance #%d (queue length will be %d)", req.image, bestPodIndex, bestWaitlistLen+1)
+				pod.lastActivity = time.Now()
+				pod.concurrentEvaluations.Add(1)
+				if pod.podData != nil {
+					pod.SendResponse(req.responseCh, nil)
+				} else {
+					pod.waitlist = append(pod.waitlist, req.responseCh)
+				}
+			}
+
+		case podReadyMsg := <-pcm.podReadyCh:
+			if podReadyMsg.image == "" {
+				klog.Error("Received a 'pod ready' message with an empty KRM image name. This indicates a logical error in the code.")
+				continue
+			}
+			fn, ok := pcm.functions[podReadyMsg.image]
+			if !ok {
+				klog.Errorf("Received a ready pod for %q, but the KRM function is missing from the pool! Ignoring.", podReadyMsg.image)
+				continue
+			}
+			// Find the first pod with nil podData, which means it is pending creation.
+			toUpdate := slices.IndexFunc(fn.pods, func(pod functionPodInfo) bool {
+				return pod.podData == nil
+			})
+			if toUpdate == -1 {
+				klog.Errorf("Received a ready pod for %q, but no pending instance was found in the pod pool. Total of %d pods was in the pool. Ignoring.", podReadyMsg.image, len(fn.pods))
+				continue
+			}
+
+			if podReadyMsg.err != nil {
+				klog.Warningf("Pod creation failed for image %s: %v", podReadyMsg.image, podReadyMsg.err)
+				for _, ch := range fn.pods[toUpdate].waitlist {
+					fn.pods[toUpdate].SendResponse(ch, podReadyMsg.err)
+				}
+				fn.pods = slices.Delete(fn.pods, toUpdate, toUpdate+1)
+				continue
+			}
+
+			pod := &fn.pods[toUpdate]
+			pod.podData = &podReadyMsg.podData
+			pod.lastActivity = time.Now()
+			klog.Infof("New pod %s is ready for image %s. Total number of pods for image: %d", podReadyMsg.podKey.Name, podReadyMsg.image, len(fn.pods))
+			for _, ch := range pod.waitlist {
+				pod.SendResponse(ch, nil)
+			}
+			pod.waitlist = nil
+
+		case <-tick:
+			pcm.garbageCollector()
+		}
+	}
 }
 
-type imagePodAndGRPCClient struct {
-	image string
-	*podAndGRPCClient
-	err error
+func (pcm *podCacheManager) FunctionInfo(image string) *functionInfo {
+	fn, ok := pcm.functions[image]
+	if !ok {
+		fn = &functionInfo{}
+		pcm.functions[image] = fn
+	}
+	return fn
 }
 
-// warmupCache creates the pods and warms up the cache.
+// warmupCache starts preloading 1 pod in the background for each function specified in podCacheConfig
 func (pcm *podCacheManager) warmupCache(podCacheConfig string) error {
 	start := time.Now()
 	defer func() {
@@ -100,255 +186,162 @@ func (pcm *podCacheManager) warmupCache(podCacheConfig string) error {
 		return err
 	}
 
-	// We precreate the pods (concurrently) to speed it up.
-	forEachConcurrently(podsTTL, func(fnImage string, ttlStr string) {
+	for fnImage, ttlStr := range podsTTL {
 		klog.Infof("preloading pod cache for function %v with TTL %v", fnImage, ttlStr)
 
 		ttl, err := time.ParseDuration(ttlStr)
 		if err != nil {
-			klog.Warningf("unable to parse duration from the config file for function %v: %v", fnImage, err)
+			klog.Warningf("unable to parse TTL duration (%s) from the config file for function %q. Using default (%s) instead: %v", ttlStr, fnImage, pcm.podTTL, err)
 			ttl = pcm.podTTL
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-		defer cancel()
-
-		// We invoke the function with useGenerateName=false so that the pod name is fixed,
-		// since we want to ensure only one pod is created for each function.
-		pcm.podManager.getFuncEvalPodClient(ctx, fnImage, ttl, false)
-		klog.Infof("preloaded pod cache for function %v", fnImage)
-	})
-
+		fn := pcm.FunctionInfo(fnImage)
+		if len(fn.pods) == 0 {
+			fn.pods = append(fn.pods, NewPodInfo(nil))
+			go func() {
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				pcm.podManager.getFuncEvalPodClient(ctx, fnImage, ttl)
+			}()
+		}
+	}
 	return nil
 }
 
-// forEachConcurrently runs fn for each entry in the map m, in parallel goroutines.
-// It waits for each to finish before returning.
-func forEachConcurrently(m map[string]string, fn func(k string, v string)) {
-	var wg sync.WaitGroup
-	for k, v := range m {
-		k := k
-		v := v
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			fn(k, v)
-		}()
+// findBestPod returns with the index of the least loaded healthy pod for the given function.
+// If there are no suitable pods, it returns with -1.
+func (pcm *podCacheManager) findBestPod(fn *functionInfo) (int, int) {
+	if fn == nil {
+		return -1, 0
 	}
-	// Wait for all the functions to complete.
-	wg.Wait()
-}
-
-// podCacheManager responds to the requestCh and the podReadyCh and does the
-// garbage collection synchronously.
-// We must run this method in one single goroutine. Doing it this way simplify
-// design around concurrency.
-func (pcm *podCacheManager) podCacheManager() {
-	//nolint:staticcheck
-	tick := time.Tick(pcm.gcScanInterval)
-	for {
-		select {
-		case req := <-pcm.requestCh:
-			podAndCl, found := pcm.cache[req.image]
-			if found && podAndCl != nil {
-				// Ensure the pod still exists and is not being deleted before sending the grpc client back to the channel.
-				// We can't simply return grpc client from the cache and let evaluator try to connect to the pod.
-				// If the pod is deleted by others, it will take ~10 seconds for the evaluator to fail.
-				// Wasting 10 second is so much, so we check if the pod still exist first.
-				pod := &corev1.Pod{}
-				err := pcm.podManager.kubeClient.Get(context.Background(), podAndCl.pod, pod)
-				deleteCacheEntry := false
-				if err == nil {
-					// If the cached pod is in Failed state, delete it and evict from cache to trigger a fresh pod.
-					if pod.Status.Phase == corev1.PodFailed {
-						klog.Warningf("pod %v/%v is in Failed state. Deleting and recreating", pod.Namespace, pod.Name)
-						go pcm.deleteFailedPod(pod, req.image)
-						deleteCacheEntry = true
-					}
-
-					// GRPC client is made to Service IP instead of PoD directly, hence target host to be verified
-					// against Service Cluster IP
-
-					// Service name is Image Label set on Pod manifest
-					serviceName := pod.Labels[krmFunctionImageLabel]
-					service := &corev1.Service{}
-					serviceKey := client.ObjectKey{Namespace: pod.Namespace, Name: serviceName}
-					err = pcm.podManager.kubeClient.Get(context.Background(), serviceKey, service)
-					if err != nil {
-						// Service lookup should not fail.
-						// If it does, purge the cached entry and let Pod/Service be created again
-						deleteCacheEntry = true
-					} else {
-						serviceUrl := service.Name + "." + service.Namespace + serviceDnsNameSuffix
-						if pod.DeletionTimestamp == nil && net.JoinHostPort(serviceUrl, defaultWrapperServerPort) == podAndCl.grpcClient.Target() {
-							klog.Infof("reusing the connection to pod %v/%v to evaluate %v", pod.Namespace, pod.Name, req.image)
-							req.grpcClientCh <- &clientConnAndError{podClient: podAndCl}
-							go patchPodWithUnixTimeAnnotation(pcm.podManager.kubeClient, podAndCl.pod, pcm.podTTL)
-							break
-						} else {
-							deleteCacheEntry = true
-						}
-					}
-				} else if errors.IsNotFound(err) {
-					deleteCacheEntry = true
-				}
-				// We delete the cache entry if the pod has been deleted or being deleted.
-				if deleteCacheEntry {
-					delete(pcm.cache, req.image)
-				}
-			}
-			_, found = pcm.waitlists[req.image]
-			if !found {
-				pcm.waitlists[req.image] = []chan<- *clientConnAndError{}
-				// We invoke the function with useGenerateName=true to avoid potential name collision, since if pod foo is
-				// being deleted and we can't use the same name.
-				go pcm.podManager.getFuncEvalPodClient(context.Background(), req.image, pcm.podTTL, true)
-			}
-			list := pcm.waitlists[req.image]
-			pcm.waitlists[req.image] = append(list, req.grpcClientCh)
-		case resp := <-pcm.podReadyCh:
-			if resp.err != nil {
-				klog.Warningf("received error from the pod manager: %v", resp.err)
-			} else {
-				pcm.cache[resp.image] = resp.podAndGRPCClient
-			}
-			// notify all the goroutines that are waiting for the GRPC client.
-			channels := pcm.waitlists[resp.image]
-			delete(pcm.waitlists, resp.image)
-			for i := range channels {
-				cce := &clientConnAndError{
-					podClient: resp.podAndGRPCClient,
-					err:       resp.err,
-				}
-				channels[i] <- cce
-			}
-		case <-tick:
-			// synchronous GC
-			pcm.garbageCollector()
+	pcm.removeUnhealthyPods(fn, false)
+	if len(fn.pods) == 0 {
+		return -1, 0
+	}
+	bestPodIdx := 0
+	bestWaitlistLen := fn.pods[0].WaitlistLen()
+	for i := 1; i < len(fn.pods); i++ {
+		waitlistLen := fn.pods[i].WaitlistLen()
+		if waitlistLen < bestWaitlistLen {
+			bestPodIdx = i
+			bestWaitlistLen = waitlistLen
 		}
 	}
+	return bestPodIdx, bestWaitlistLen
 }
 
-// handleFailedPod checks if a pod is in Failed state and deletes it along with evicting it from the cache.
-func (pcm *podCacheManager) handleFailedPod(pod *corev1.Pod) bool {
-	if pod.Status.Phase != corev1.PodFailed {
+// removeUnhealthyPods removes unhealthy pods from the function's pod list.
+// If removeIdle is true, it will also remove idle pods that have reached their TTL.
+func (pcm *podCacheManager) removeUnhealthyPods(fn *functionInfo, removeIdle bool) {
+	if fn == nil {
+		return
+	}
+	fn.pods = slices.DeleteFunc(fn.pods, func(pod functionPodInfo) bool {
+		if pod.podData == nil {
+			// pod is under creation
+			return false
+		}
+
+		k8sPod := &corev1.Pod{}
+		err := pcm.podManager.kubeClient.Get(context.Background(), pod.podData.podKey, k8sPod)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				klog.Infof("Removing deleted pod from cache for image %v", pod.podData.image)
+			} else {
+				klog.Errorf("Failed to get pod %v, removing from cache: %v", pod.podData.podKey, err)
+			}
+			return true
+		}
+
+		if !k8sPod.DeletionTimestamp.IsZero() {
+			// Pod is under deletion
+			return true
+		}
+
+		if k8sPod.Status.Phase == corev1.PodFailed {
+			klog.Errorf("Evicting pod in failed state (%v/%v) from cache for image %v", k8sPod.Namespace, k8sPod.Name, pod.podData.image)
+			pcm.DeletePodInBackground(k8sPod)
+			return true
+		}
+
+		if net.JoinHostPort(k8sPod.Status.PodIP, defaultWrapperServerPort) != pod.podData.grpcConnection.Target() {
+			klog.Errorf("Evicting pod whose pod IP doesn't match with its grpc connection (%v/%v) from cache for image %v", k8sPod.Namespace, k8sPod.Name, pod.podData.image)
+			pcm.DeletePodInBackground(k8sPod)
+			return true
+		}
+		if removeIdle && pod.WaitlistLen() == 0 && time.Since(pod.lastActivity) > pcm.podTTL {
+			klog.Infof("Removing idle pod %q that reached its TTL from cache for image %v", k8sPod.Name, pod.podData.image)
+			pcm.DeletePodInBackground(k8sPod)
+			return true
+		}
+
 		return false
-	}
-
-	image := pod.Spec.Containers[0].Image
-	klog.Warningf("Found failed pod %v/%v, deleting immediately", pod.Namespace, pod.Name)
-	go pcm.deleteFailedPod(pod, image)
-
-	if cached, ok := pcm.cache[image]; ok && cached.pod.Name == pod.Name {
-		delete(pcm.cache, image)
-		klog.Infof("Evicted failed pod %v/%v from cache", pod.Namespace, pod.Name)
-	}
-
-	return true
+	})
 }
 
+// garbageCollector runs periodically and removes unhealthy and idle pods from the pool.
 // TODO: We can use Watch + periodically reconciliation to manage the pods,
 // the pod evaluator will become a controller.
 func (pcm *podCacheManager) garbageCollector() {
-	var err error
-	podList := &corev1.PodList{}
-	err = pcm.podManager.kubeClient.List(context.Background(), podList, client.InNamespace(pcm.podManager.namespace), client.HasLabels{krmFunctionImageLabel})
-	if err != nil {
-		klog.Warningf("unable to list pods in namespace %v: %v", pcm.podManager.namespace, err)
-		return
-	}
-	for i, pod := range podList.Items {
-		// Immediately delete and evict any pod found in Failed state, regardless of TTL expiry.
-		if pcm.handleFailedPod(&pod) {
-			continue
-		}
-		// If a pod is being deleted, skip it.
-		if pod.DeletionTimestamp != nil {
-			continue
-		}
-		reclaimAfterStr, found := pod.Annotations[reclaimAfterAnnotation]
-		// If a pod doesn't have a last-use annotation, we patch it. This should not happen, but if it happens,
-		// we give another TTL before deleting it.
-		if !found {
-			go patchPodWithUnixTimeAnnotation(pcm.podManager.kubeClient, client.ObjectKeyFromObject(&pod), pcm.podTTL)
-			continue
-		} else {
-			reclaimAfter, err := strconv.ParseInt(reclaimAfterStr, 10, 64)
-			// If the annotation is ill-formatted, we patch it with the current time and will try to GC it later.
-			// This should not happen, but if it happens, we give another TTL before deleting it.
-			if err != nil {
-				klog.Warningf("unable to convert the Unix time string to int64: %v", err)
-				go patchPodWithUnixTimeAnnotation(pcm.podManager.kubeClient, client.ObjectKeyFromObject(&pod), pcm.podTTL)
-				continue
-			}
-			// If the current time is after the reclaim-later annotation in the pod, we delete the pod and remove the corresponding cache entry.
-			if time.Now().After(time.Unix(reclaimAfter, 0)) {
-				var serviceIP string
+	// Process each image's pods
+	for image, fn := range pcm.functions {
+		pcm.removeUnhealthyPods(fn, true)
 
-				// Service name is Image Label set on Pod manifest
-				serviceName := pod.Labels[krmFunctionImageLabel]
-				service := &corev1.Service{}
-				serviceKey := client.ObjectKey{Namespace: pod.Namespace, Name: serviceName}
-				err = pcm.podManager.kubeClient.Get(context.Background(), serviceKey, service)
-				if err != nil {
-					klog.Warningf("unable to find expected service %s namespace %s: %v", serviceName, pod.Namespace, err)
-				} else {
-					serviceIP = service.Spec.ClusterIP
-					klog.Infof("Found service named %s with Cluster IP %s", serviceName, serviceIP)
-				}
-
-				go func(po corev1.Pod, svc corev1.Service) {
-					klog.Infof("deleting pod %v/%v", po.Namespace, po.Name)
-					err := pcm.podManager.kubeClient.Delete(context.Background(), &po)
-					if err != nil {
-						klog.Warningf("unable to delete pod %v/%v: %v", po.Namespace, po.Name, err)
-					}
-
-					klog.Infof("deleting service %v/%v", svc.Namespace, svc.Name)
-					err = pcm.podManager.kubeClient.Delete(context.Background(), &svc)
-					if err != nil {
-						klog.Warningf("unable to delete service %v/%v: %v", svc.Namespace, svc.Name, err)
-					}
-				}(podList.Items[i], *service)
-
-				image := pod.Spec.Containers[0].Image
-				podAndCl, found := pcm.cache[image]
-				if found {
-					target, _, err := net.SplitHostPort(podAndCl.grpcClient.Target())
-					// Service IP should match the Grcp Client target IP for image in cache; log warning if different
-					if err == nil && serviceIP != "" && target != serviceIP {
-						klog.Warningf("IP of Service %s/%s [%s] does not match the IP of GRPC client [%s] cached for Pod %s/%s",
-							pod.Namespace, serviceName, serviceIP, pod.Namespace, pod.Name, target)
-					}
-
-					// We delete the cache entry anyway
-					delete(pcm.cache, image)
-				}
-			}
+		// Clean up empty slices
+		if len(fn.pods) == 0 {
+			delete(pcm.functions, image)
 		}
 	}
 }
 
-func deletePodWithContext(kubeClient client.Client, pod *corev1.Pod) error {
-	return kubeClient.Delete(context.Background(), pod)
+func (pcm *podCacheManager) DeletePodInBackground(k8sPod *corev1.Pod) {
+	go func() {
+		err := pcm.podManager.kubeClient.Delete(context.Background(), k8sPod)
+		if err != nil {
+			klog.Errorf("Failed to delete pod %v/%v from cluster: %v", k8sPod.Namespace, k8sPod.Name, err)
+		}
+	}()
 }
 
-func isCurrentCachedPod(pcm *podCacheManager, image string, pod *corev1.Pod) bool {
-	cached, ok := pcm.cache[image]
-	return ok && cached.pod.Name == pod.Name
+func NewPodInfo(firstResponseCh chan<- *connectionResponse) functionPodInfo {
+	pod := functionPodInfo{
+		waitlist:              []chan<- *connectionResponse{},
+		podData:               nil, // This will be filled in when the pod is ready.
+		lastActivity:          time.Now(),
+		concurrentEvaluations: &atomic.Int32{},
+		fnEvaluationMutex:     &sync.Mutex{},
+	}
+	if firstResponseCh != nil {
+		pod.waitlist = append(pod.waitlist, firstResponseCh)
+		pod.concurrentEvaluations.Add(1)
+	}
+	return pod
 }
 
-// deleteFailedPod deletes a failed pod and removes it from cache if it is still the current pod.
-func (pcm *podCacheManager) deleteFailedPod(pod *corev1.Pod, image string) {
-	err := deletePodWithContext(pcm.podManager.kubeClient, pod)
-	if err != nil {
-		klog.Warningf("Failed to delete failed pod %v/%v: %v", pod.Namespace, pod.Name, err)
-		return
+// SendResponse sends a reply to the connection request containing the pod data.
+// If err != nil it sends `err` as an error response.
+// It sends and error response if the pod is not ready yet (this shouldn't happen).
+func (pod *functionPodInfo) SendResponse(responseCh chan<- *connectionResponse, err error) {
+	switch {
+	case err != nil:
+		responseCh <- &connectionResponse{
+			err: err,
+		}
+	case pod.podData == nil:
+		responseCh <- &connectionResponse{
+			err: fmt.Errorf("Pod is not ready, connection response sent prematurely. This is logical error in the code."),
+		}
+	default:
+		responseCh <- &connectionResponse{
+			podData:               *pod.podData,
+			fnEvaluationMutex:     pod.fnEvaluationMutex,
+			concurrentEvaluations: pod.concurrentEvaluations,
+			err:                   nil,
+		}
 	}
+}
 
-	if isCurrentCachedPod(pcm, image, pod) {
-		delete(pcm.cache, image)
-		klog.Infof("Evicted pod from cache for image %v", image)
-	}
+// WaitlistLen returns with the number of fn evaluations currently handled by the pod
+func (pod functionPodInfo) WaitlistLen() int {
+	return int(pod.concurrentEvaluations.Load())
 }

@@ -54,9 +54,10 @@ import (
 
 const (
 	// TODO: accept a flag?
-	PorchTestConfigFile = "porch-test-config.yaml"
-	updateGoldenFiles   = "UPDATE_GOLDEN_FILES"
-	TestGitServerImage  = "test-git-server"
+	PorchTestConfigFile        = "porch-test-config.yaml"
+	updateGoldenFiles          = "UPDATE_GOLDEN_FILES"
+	TestGitServerImage         = "test-git-server"
+	PorchTestGitServerImageEnv = "PORCH_TEST_GIT_SERVER_IMAGE"
 )
 
 type GitConfig struct {
@@ -90,6 +91,7 @@ type TestSuite struct {
 	Clientset porchclient.Interface
 
 	Namespace         string // K8s namespace for this test run
+	PorchSystemNs     string // Namespace where Porch is running
 	TestRunnerIsLocal bool   // Tests running against local dev porch
 
 	testBlueprintsRepo string
@@ -183,6 +185,21 @@ func (t *TestSuite) Initialize() {
 			t.Logf("Successfully cleaned up namespace %q", namespace)
 		}
 	})
+}
+
+func (t *TestSuite) PorchServerServiceKey() client.ObjectKey {
+	porchApiService := aggregatorv1.APIService{}
+	apiServiceName := porchapi.SchemeGroupVersion.Version + "." + porchapi.SchemeGroupVersion.Group
+	t.GetF(client.ObjectKey{Name: apiServiceName}, &porchApiService)
+
+	if porchApiService.Spec.Service == nil {
+		t.Fatalf("Porch APIService %q found, but its Spec.Service field is nil. Cannot determine Porch server Service.", apiServiceName)
+	}
+
+	return client.ObjectKey{
+		Namespace: porchApiService.Spec.Service.Namespace,
+		Name:      porchApiService.Spec.Service.Name,
+	}
 }
 
 func (t *TestSuite) IsPorchServerInCluster() bool {
@@ -558,6 +575,51 @@ func createLocalGitServer(t *testing.T) GitConfig {
 	}
 }
 
+func (t *TestSuite) FindFirstContainerByImageName(ns string, wantedImages ...string) *coreapi.Container {
+	var pods coreapi.PodList
+	if err := t.Client.List(t.GetContext(), &pods, client.InNamespace(ns)); err != nil {
+		t.Logf("FindFirstContainerByImageName: Failed to list pods in namespace %s: %v", ns, err)
+		return nil
+	}
+
+	t.ListF(&pods, client.InNamespace(ns))
+	for _, pod := range pods.Items {
+		for _, container := range pod.Spec.Containers {
+			_, imageGot, _ := SplitContainerFullName(container.Image)
+			for _, imageWanted := range wantedImages {
+				if strings.Contains(imageGot, imageWanted) {
+					return container.DeepCopy()
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (t *TestSuite) GetGitServerImageName() string {
+	customImage := os.Getenv(PorchTestGitServerImageEnv)
+	if customImage != "" {
+		t.Logf("Using test git server image from env var %s: %s", PorchTestGitServerImageEnv, customImage)
+		return customImage
+	}
+
+	t.Logf("Env var %s not set. Attempting to infer git-server image name.", PorchTestGitServerImageEnv)
+	porchSystemNs := t.PorchSystemNs
+
+	porchComponentBaseNames := []string{
+		"porch-server",
+		"porch-controllers",
+		"function-runner",
+	}
+
+	foundContainer := t.FindFirstContainerByImageName(porchSystemNs, porchComponentBaseNames...)
+	if foundContainer == nil {
+		return ""
+	}
+
+	return InferGitServerImage(foundContainer.Image)
+}
+
 func (t *TestSuite) createInClusterGitServer(exposeByLoadBalancer bool) GitConfig {
 	// Determine git-server image name. Use the same container registry and tag as the Porch server,
 	// replacing base image name with `git-server`. TODO: Make configurable?
@@ -756,6 +818,18 @@ func (t *TestSuite) createInClusterGitServer(exposeByLoadBalancer bool) GitConfi
 		Repo:      gitUrl,
 		Branch:    "main",
 		Directory: "/",
+	}
+}
+
+func SplitContainerFullName(fullName string) (repo, image, tag string) {
+	slash := strings.LastIndex(fullName, "/")
+	repo = fullName[:slash+1]
+	imageAndTag := fullName[slash+1:]
+	colon := strings.LastIndex(imageAndTag, ":")
+	if colon >= 0 {
+		return repo, imageAndTag[:colon], imageAndTag[colon:]
+	} else {
+		return repo, imageAndTag, ""
 	}
 }
 
