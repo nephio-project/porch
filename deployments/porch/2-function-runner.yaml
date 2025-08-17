@@ -142,7 +142,7 @@ data:
     spec:
       initContainers:
         - name: copy-wrapper-server
-          image: docker.io/nephio/porch-wrapper-server:latest
+          image: porch-kind/porch-wrapper-server:test
           command: 
             - cp
             - -a

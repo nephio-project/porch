@@ -30,7 +30,7 @@ func SetupOpenTelemetry(ctx context.Context) error {
 	}
 	http.DefaultTransport = otelhttp.NewTransport(http.DefaultClient.Transport)
 	http.DefaultClient.Transport = http.DefaultTransport
-	klog.Info("OpenTelemetry initialized in %s", time.Since(setupTiming))
+	klog.Infof("OpenTelemetry initialized in %s", time.Since(setupTiming))
 	return nil
 
 }

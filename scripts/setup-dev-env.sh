@@ -71,7 +71,7 @@ kubectl apply -f "${git_root}/deployments/local/metallb-conf.yaml"
 ############################################
 # Install gitea and setup test repos
 cd "${git_root}"
-./scripts/install-dev-gitea-setup.sh $git_repo_name $gitea_ip 
+./scripts/install-dev-gitea-setup.sh $git_repo_name $gitea_ip $porch_cluster_name
 
 ############################################
 h1 Generate certs and keys
