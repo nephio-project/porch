@@ -74,7 +74,7 @@ Flags:
     This is the downstream repository which the package revision will be cloned to.
 
   --workspace
-    The workspace to assign to the new downstream package revision. The default value is v1.
+    The workspace name assigned to the new downstream package revision. The default value is v1.
 
   --strategy
     Update strategy that should be used when updating the new
