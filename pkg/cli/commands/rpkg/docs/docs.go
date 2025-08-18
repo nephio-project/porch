@@ -71,7 +71,7 @@ Flags:
     is in git.
 
   --repository
-    This is the downstream repository to which the package revision will be cloned to.
+    This is the downstream repository which the package revision will be cloned to.
 
   --workspace
     The workspace to assign to the new downstream package revision. The default value is v1.
