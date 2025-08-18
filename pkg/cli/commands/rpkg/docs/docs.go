@@ -67,7 +67,7 @@ Flags:
 
   --ref
     Ref in the upstream repository where the package revision
-    is located. This can be a branch, tag or SHA. This only applies when the source package
+    is located. This can be a branch, a tag or a SHA. This only applies when the source package
     is in git.
 
   --repository
