@@ -51,13 +51,9 @@ func GetHandlingStrategy(original, updated, dest *yaml.RNode) filters.ResourceMe
 	// Do not re-add the resource if deleted from both upstream and local
 	case updated == nil && dest == nil:
 		return filters.Skip
-	// If deleted from upstream, only delete if local fork does not have changes.
+	// If deleted from upstream, delete.
 	case original != nil && updated == nil:
-		if equals(original, dest) {
-			return filters.Skip
-		} else {
-			return filters.KeepDest
-		}
+		return filters.Skip
 	// Do not re-add if deleted from local.
 	case original != nil && dest == nil:
 		return filters.Skip
