@@ -27,26 +27,10 @@ type CommentPreservingVisitor struct {
 }
 
 func (m CommentPreservingVisitor) VisitMap(sources walk.Sources, schema *openapi.ResourceSchema) (*yaml.RNode, error) {
-
-	if isNullNodeWithComments(sources.Dest()) {
-		// Null values are treated as a map
-		ynode := sources.Dest().YNode()
-		if ynode.Tag == yaml.NodeTagNull {
-			// Return a new node so that it won't have a "!!null" tag and therefore won't be cleared.
-			return yaml.NewScalarRNode(ynode.Value), nil
-		}
-		return sources.Dest(), nil
+	node := sources.Updated()
+	if node.IsTaggedNull() {
+		// Return a new node so that it won't have a "!!null" tag and therefore won't be cleared.
+		return yaml.NewScalarRNode(node.YNode().Value), nil
 	}
-	// If the destination is not a null node with comments, proceed with the default merge3 behavior
-	return merge3.Visitor{}.VisitMap(sources, schema)
-}
-
-func isNullNodeWithComments(node *yaml.RNode) bool {
-	if node == nil {
-		return false
-	}
-	if node.YNode().Tag != yaml.NodeTagNull {
-		return false
-	}
-	return node.YNode().HeadComment != "" || node.YNode().LineComment != "" || node.YNode().FootComment != ""
+	return sources.Updated(), nil
 }
