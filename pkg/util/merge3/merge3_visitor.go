@@ -21,32 +21,32 @@ import (
 	"sigs.k8s.io/kustomize/kyaml/yaml/walk"
 )
 
-// commentPreservingVisitor wraps the default merge3.Visitor
-// if it finds a null scalar with only comments it gets copied over
-// otherwise it behaves like the default merge3.Visitor
-type commentPreservingVisitor struct {
+// CommentPreservingVisitor is a merge3 visitor that preserves null nodes if they have comments.
+type CommentPreservingVisitor struct {
 	merge3.Visitor
 }
 
-func isNullScalarWithComments(node *yaml.RNode) bool {
+func (m CommentPreservingVisitor) VisitMap(sources walk.Sources, schema *openapi.ResourceSchema) (*yaml.RNode, error) {
+
+	if isNullNodeWithComments(sources.Dest()) {
+		// Null values are treated as a map
+		ynode := sources.Dest().YNode()
+		if ynode.Tag == yaml.NodeTagNull {
+			// Return a new node so that it won't have a "!!null" tag and therefore won't be cleared.
+			return yaml.NewScalarRNode(ynode.Value), nil
+		}
+		return sources.Dest(), nil
+	}
+	// If the destination is not a null node with comments, proceed with the default merge3 behavior
+	return merge3.Visitor{}.VisitMap(sources, schema)
+}
+
+func isNullNodeWithComments(node *yaml.RNode) bool {
 	if node == nil {
 		return false
 	}
-
-	if node.YNode().Kind != yaml.ScalarNode || node.YNode().Tag != yaml.NodeTagNull {
+	if node.YNode().Tag != yaml.NodeTagNull {
 		return false
 	}
-
 	return node.YNode().HeadComment != "" || node.YNode().LineComment != "" || node.YNode().FootComment != ""
-}
-
-// VisitScalar is an override that checks for comment-only null scalars before merging.
-func (v *commentPreservingVisitor) VisitScalar(nodes walk.Sources, s *openapi.ResourceSchema) (*yaml.RNode, error) {
-	updated := nodes.Updated()
-
-	if isNullScalarWithComments(updated) {
-		return updated.Copy(), nil
-	}
-
-	return v.Visitor.VisitScalar(nodes, s)
 }
