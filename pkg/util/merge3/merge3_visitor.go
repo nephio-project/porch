@@ -21,7 +21,7 @@ import (
 	"sigs.k8s.io/kustomize/kyaml/yaml/walk"
 )
 
-// CommentPreservingVisitor is a merge3 visitor that preserves null nodes if they have comments.
+// CommentPreservingVisitor is a merge3 visitor that preserves null nodes.
 type CommentPreservingVisitor struct {
 	merge3.Visitor
 }
