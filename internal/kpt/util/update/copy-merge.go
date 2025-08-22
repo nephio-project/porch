@@ -27,18 +27,24 @@ import (
 type CopyMergeUpdater struct{}
 
 // Update synchronizes the destination/local package with the source/update package by updating the Kptfile
-// and copying package contents. It takes an Options struct as input, which specifies the paths
+// and copying package contents. It deletes resources from the destination package if they were present
+// in the original package, but not present anymore in the source package.
+// It takes an Options struct as input, which specifies the paths
 // and other parameters for the update operation. Returns an error if the update fails.
 func (u CopyMergeUpdater) Update(options Options) error {
 	const op errors.Op = "update.Update"
 
 	dst := options.LocalPath
 	src := options.UpdatedPath
+	org := options.OriginPath
 
 	if err := kptfileutil.UpdateKptfile(dst, src, options.OriginPath, true); err != nil {
 		return errors.E(op, types.UniquePath(dst), err)
 	}
 	if err := pkgutil.CopyPackage(src, dst, options.IsRoot, pkg.All); err != nil {
+		return errors.E(op, types.UniquePath(dst), err)
+	}
+	if err := pkgutil.RemoveStaleItems(org, src, dst, options.IsRoot, pkg.All); err != nil {
 		return errors.E(op, types.UniquePath(dst), err)
 	}
 	return nil

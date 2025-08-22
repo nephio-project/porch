@@ -181,7 +181,7 @@ func TestCopyMerge(t *testing.T) {
 						WithResource(pkgbuilder.DeploymentResource),
 				),
 		},
-		"update existing file in origin, local, and updated": {
+		"file removal if file exists in origin but not in update": {
 			origin: pkgbuilder.NewRootPkg().
 				WithKptfile(
 					pkgbuilder.NewKptfile().
@@ -207,8 +207,7 @@ func TestCopyMerge(t *testing.T) {
 					pkgbuilder.NewKptfile().
 						WithUpstream(kptRepo, "/origin", "master", copyMergeLiteral).
 						WithUpstreamLock(kptRepo, "/origin", "master", "abc123"),
-				).
-				WithResource(pkgbuilder.DeploymentResource),
+				),
 		},
 	}
 
