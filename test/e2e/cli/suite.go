@@ -133,7 +133,7 @@ func (s *CliTestSuite) RunTestCase(t *testing.T, tc TestCaseConfig) {
 	}
 
 	for i := range tc.Commands {
-		time.Sleep(1 * time.Second)
+		// time.Sleep(1 * time.Second) // TODO: why was this necessary?
 		command := &tc.Commands[i]
 		for i, arg := range command.Args {
 			for search, replace := range s.SearchAndReplace {

@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -27,7 +28,6 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
-	"github.com/nephio-project/porch/pkg/repository"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -468,7 +468,7 @@ func (t *TestSuite) WaitUntilRepositoryReady(name, namespace string) {
 	}
 
 	// While we're using an aggregated apiserver, make sure we can query the generated objects
-	if err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 10*time.Second, true, func(ctx context.Context) (bool, error) {
+	if err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 32*time.Second, true, func(ctx context.Context) (bool, error) {
 		var revisions porchapi.PackageRevisionList
 		if err := t.Client.List(ctx, &revisions, client.InNamespace(nn.Namespace)); err != nil {
 			innerErr = err
@@ -642,7 +642,7 @@ func (t *TestSuite) GetPackageRevision(repo string, pkgName string, revision int
 	selector := client.MatchingFields(fields.Set{
 		"spec.repository":  repo,
 		"spec.packageName": pkgName,
-		"spec.revision":    repository.Revision2Str(revision),
+		"spec.revision":    strconv.Itoa(revision),
 	})
 	t.ListF(&prList, selector, client.InNamespace(t.Namespace))
 
@@ -684,7 +684,7 @@ func WithConfigPath(configPath string) MutatorOption {
 	}
 }
 
-// addMutator adds a mutator to the Kptfile pipeline of the resources (in-place)
+// AddMutator adds a mutator to the Kptfile pipeline of the resources (in-place)
 func (t *TestSuite) AddMutator(resources *porchapi.PackageRevisionResources, image string, opts ...MutatorOption) {
 	t.T().Helper()
 	kptf, ok := resources.Spec.Resources[kptfilev1.KptFileName]

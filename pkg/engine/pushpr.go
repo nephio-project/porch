@@ -49,7 +49,7 @@ func PushPackageRevision(ctx context.Context, repo repository.Repository, pr rep
 		return pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not create package revision draft:", pr.Key(), repo.Key())
 	}
 
-	if err = draft.UpdateResources(ctx, resources, nil); err != nil {
+	if err = draft.UpdateResources(ctx, resources, &v1alpha1.Task{Type: v1alpha1.TaskTypePush}); err != nil {
 		return pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not update package revision resources:", pr.Key(), repo.Key())
 	}
 

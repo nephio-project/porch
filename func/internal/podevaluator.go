@@ -938,12 +938,16 @@ func (pm *podManager) getBasePodTemplate(ctx context.Context) (*corev1.Pod, stri
 			return nil, "", err
 		}
 
-		decoder := yamlutil.NewYAMLOrJSONDecoder(strings.NewReader(podTemplateCm.Data["template"]), 100)
+		podTemplate, ok := podTemplateCm.Data["template"]
+		if !ok {
+			return nil, "", fmt.Errorf("function pod template with key template does not exist in Configmap %s", pm.functionPodTemplateName)
+		}
+
+		decoder := yamlutil.NewYAMLOrJSONDecoder(strings.NewReader(podTemplate), 100)
 		var basePodTemplate corev1.Pod
 		err = decoder.Decode(&basePodTemplate)
 
 		if err != nil {
-			klog.Errorf("Could not decode function pod template: %s", pm.functionPodTemplateName)
 			return nil, "", fmt.Errorf("unable to decode function pod template: %w", err)
 		}
 
@@ -1053,6 +1057,15 @@ func (pm *podManager) retrieveOrCreateService(ctx context.Context, serviceName s
 		err = pm.kubeClient.Create(ctx, serviceTemplate, client.FieldOwner(fieldManagerName))
 		if err != nil {
 			klog.Errorf("failed to create service %v/%v: %v", pm.namespace, serviceName, err)
+			// Try to retrieve again
+			if errors.IsAlreadyExists(err) {
+				klog.Infof("service %v/%v already exists - trying to retrieve it", pm.namespace, serviceName)
+				err = pm.kubeClient.Get(ctx, client.ObjectKey{Namespace: pm.namespace, Name: serviceName}, existingService)
+				if err == nil {
+					klog.Infof("retrieved function evaluator service %v/%v", existingService.Namespace, existingService.Name)
+					return client.ObjectKey{Namespace: existingService.Namespace, Name: existingService.Name}, nil
+				}
+			}
 			return client.ObjectKey{}, err
 		}
 
@@ -1078,12 +1091,16 @@ func (pm *podManager) getBaseServiceTemplate(ctx context.Context) (*corev1.Servi
 			return nil, err
 		}
 
-		decoder := yamlutil.NewYAMLOrJSONDecoder(strings.NewReader(serviceTemplateCm.Data["serviceTemplate"]), 100)
+		serviceTemplate, ok := serviceTemplateCm.Data["serviceTemplate"]
+		if !ok {
+			return nil, fmt.Errorf("function pod service template with key serviceTemplate does not exist in Configmap %s", pm.functionPodTemplateName)
+		}
+
+		decoder := yamlutil.NewYAMLOrJSONDecoder(strings.NewReader(serviceTemplate), 100)
 		var baseServiceTemplate corev1.Service
 		err = decoder.Decode(&baseServiceTemplate)
 
 		if err != nil {
-			klog.Errorf("Could not decode function service template: %s", pm.functionPodTemplateName)
 			return nil, fmt.Errorf("unable to decode function service template: %w", err)
 		}
 

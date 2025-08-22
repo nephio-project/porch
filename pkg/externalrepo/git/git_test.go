@@ -818,7 +818,7 @@ func (g GitSuite) TestApproveDraftWithHistory(t *testing.T) {
 	if got, want := rev.Spec.Lifecycle, v1alpha1.PackageRevisionLifecyclePublished; got != want {
 		t.Errorf("Approved package lifecycle: got %s, want %s", got, want)
 	}
-	if got, want := len(rev.Spec.Tasks), 4; got != want {
+	if got, want := len(rev.Spec.Tasks), 1; got != want {
 		t.Errorf("Approved package task count: got %d, want %d", got, want)
 	}
 
@@ -2216,12 +2216,12 @@ func TestDeleteOnManuallyMovedMainBranch(t *testing.T) {
 func TestFormatCommitMessage(t *testing.T) {
 	tests := []struct {
 		name       string
-		changeType string
+		changeType v1alpha1.TaskType
 		want       string
 	}{
 		{
-			name:       "eval commit",
-			changeType: "eval",
+			name:       "render commit",
+			changeType: "render",
 			want:       "Rendering package",
 		},
 		{
@@ -2240,11 +2240,6 @@ func TestFormatCommitMessage(t *testing.T) {
 			want:       "Creating new revision by cloning",
 		},
 		{
-			name:       "patch commit",
-			changeType: "patch",
-			want:       "Applying patch to package",
-		},
-		{
 			name:       "unknown type",
 			changeType: "unknown",
 			want:       "Intermediate commit: unknown",
@@ -2252,7 +2247,7 @@ func TestFormatCommitMessage(t *testing.T) {
 		{
 			name:       "empty type",
 			changeType: "",
-			want:       "Intermediate commit: ",
+			want:       "Intermediate commit",
 		},
 	}
 

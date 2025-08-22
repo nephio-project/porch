@@ -85,6 +85,11 @@ Flags:
     =force-delete-replace: Wipe all the local changes to the package and replace
       it with the remote version.
     =copy-merge: Copy all the remote changes to the local package.
+
+  --secret-ref
+    Name of the secret containing basic authentication used to authenticate with the upstream repository (git-only).
+    Naturally, this secret has to exist in the kubernetes cluster and must be in the namespace
+    where the package revision is to be created.
 `
 var CloneExamples = `
   # clone the 'example-repo.example-package-name.example-workspace' package and create a new package revision called
@@ -282,42 +287,48 @@ var RejectExamples = `
   $ porchctl rpkg reject example-repo.example-package-name.example-workspace --namespace=example-namespace
 `
 
-var UpdateShort = `Update a downstream package revision to a more recent revision of its upstream package.`
-var UpdateLong = `
-  porchctl rpkg update K8S_PACKAGE_REV_NAME [flags]
+var UpgradeShort = `Create a new revision which upgrades a published downstream to a more recent published revision of its upstream package.`
+var UpgradeLong = `
+  porchctl rpkg upgrade SOURCE_PACKAGE_REVISION [flags]
 
 Args:
 
-  K8S_PACKAGE_REV_NAME:
-  The kubernetes name of the target downstream package revision to be updated.
+  SOURCE_PACKAGE_REVISION:
+  The target downstream package revision to be upgraded. Must be published
+  and must be coming from a package that has an upstream package (typically
+  this means that it was cloned from another package).
 
 
 Flags:
 
   --revision
-  The revision number of the upstream kpt package that the target
-  downstream package (K8S_PACKAGE_REV_NAME) should be updated to. With
-  this flag, you can only specify one target downstream package.
+  (Optional) The revision number of the upstream kpt package that the target
+  downstream package revision (SOURCE_PACKAGE_REVISION) should be upgraded to.
+  The corresponding revision must be published.
+
+  --workspace
+  The workspace name of the newly created package revision.
+
+  --strategy
+  (Optional) The strategy to use for the upgrade.
+  Options: resource-merge (default), fast-forward, force-delete-replace, copy-merge.
 
   --discover
-  If set, list packages revisions that need updates rather than
-  performing an update. Must be one of 'upstream' or 'downstream'. If
-  set to 'upstream', this will list downstream package revisions that
-  have upstream updates available. If set to 'downstream', this will list
-  upstream package revisions whose downstream package revisions need
-  to be updated. You can optionally pass in package revision names as arguments
-  in order to just list updates for those package revisions, or you can
-  pass in no arguments in order to list available updates for all package
-  revisions.
-
+  If set, search for available updates instead of performing an update.
+  Setting this to 'upstream' will discover upstream updates of downstream packages.
+  Setting this to 'downstream' will discover downstream package revisions of upstream packages that need to be updated.
 `
-var UpdateExamples = `
-  # update 'example-repo.example-package-name.example-workspace' package to revision '3' of its upstream
-  $ porchctl rpkg update example-repo.example-package-name.example-workspace --revision=3
+var UpgradeExamples = `
+  # discover available upstream updates for downstream packages
+  $ porchctl rpkg upgrade --discover=upstream
 
-  # see available 'upstream' updates for all your downstream packages
-  $ porchctl rpkg update --discover=upstream
+  # upgrade deployment.some-package.v1 package to v3 of its upstream
+  $ porchctl rpkg upgrade deployment.some-package.v1 --revision=3 --workspace=v2
 
-  # see available updates for any 'downstream' packages that were created from the upstream 'example-repo.example-package-name.example-workspace' package
-  $ porchctl rpkg update --discover=downstream example-repo.example-package-name.example-workspace
+  # upgrade deployment.some-package.v1 package to the latest of its upstream
+  $ porchctl rpkg upgrade deployment.some-package.v1 --workspace=v2
+
+  # upgrade deployment.some-package.v1 package to v3 of its upstream, using copy-merge strategy
+  $ porchctl rpkg upgrade deployment.some-package.v1 --revision=3 --workspace=v2 --strategy=copy-merge
 `
+

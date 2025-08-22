@@ -99,10 +99,6 @@ func TestUpdateStrategy(t *testing.T) {
 								Description: "This is a test",
 							},
 						},
-						{
-							Type:  api.TaskTypePatch,
-							Patch: &api.PackagePatchTaskSpec{},
-						},
 					},
 				},
 			},
@@ -127,14 +123,18 @@ func TestUpdateStrategy(t *testing.T) {
 					Lifecycle: api.PackageRevisionLifecyclePublished,
 					Tasks: []api.Task{
 						{
-							Type: api.TaskTypeInit,
-							Init: &api.PackageInitTaskSpec{
-								Description: "This is a test",
+							Type: api.TaskTypeClone,
+							Clone: &api.PackageCloneTaskSpec{
+								Upstream: api.UpstreamPackage{
+									Type: api.RepositoryTypeGit,
+									Git: &api.GitPackage{
+										Repo:      "https://github.com/example/repo.git",
+										Ref:       "main",
+										Directory: "/path/to/package",
+									},
+								},
+								Strategy: "copy-merge",
 							},
-						},
-						{
-							Type:  api.TaskTypePatch,
-							Patch: &api.PackagePatchTaskSpec{},
 						},
 					},
 				},

@@ -366,6 +366,36 @@ deploy-current-config: ## Deploy the configuration that is currently in $(DEPLOY
 	@kubectl rollout status deployment porch-server --namespace porch-system 2>/dev/null || true
 	@echo "Done."
 
+.PHONY: reload-function-runner
+reload-function-runner: IMAGE_REPO=porch-kind
+reload-function-runner: IMAGE_TAG:=test
+reload-function-runner:
+	echo "Building $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):${IMAGE_TAG}"
+	IMAGE_NAME="$(PORCH_FUNCTION_RUNNER_IMAGE)" WRAPPER_SERVER_IMAGE_NAME="$(PORCH_WRAPPER_SERVER_IMAGE)" make -C func/ build-image
+	kind load docker-image $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):${IMAGE_TAG} $(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
+	kubectl rollout restart -n porch-system deployment/function-runner
+	@kubectl rollout status deployment function-runner -n porch-system 2>/dev/null || true
+
+.PHONY: reload-server
+reload-server: IMAGE_REPO=porch-kind
+reload-server: IMAGE_TAG:=test
+reload-server:
+	echo "Building $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):${IMAGE_TAG}"
+	docker build --load --tag $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):${IMAGE_TAG} -f ./build/Dockerfile "$(PORCHDIR)"
+	kind load docker-image $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
+	kubectl rollout restart -n porch-system deployment/porch-server
+	@kubectl rollout status deployment porch-server -n porch-system 2>/dev/null || true
+
+.PHONY: reload-controllers
+reload-controllers: IMAGE_REPO=porch-kind
+reload-controllers: IMAGE_TAG:=test
+reload-controllers:
+	echo "Building $(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):${IMAGE_TAG}"
+	IMAGE_NAME="$(PORCH_CONTROLLERS_IMAGE)" make -C controllers/ build-image
+	kind load docker-image $(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
+	kubectl rollout restart -n porch-system deployment/porch-controllers
+	@kubectl rollout status deployment porch-controllers -n porch-system 2>/dev/null || true
+
 PKG=gitea-dev
 .PHONY: deploy-gitea-dev-pkg
 deploy-gitea-dev-pkg:
@@ -401,3 +431,7 @@ test-e2e-cli-db-cache: run-in-kind-db-cache-no-git
 .PHONY: test-e2e-clean
 test-e2e-clean: porchctl ## Run end-to-end tests against a newly deployed porch in a newly created kind cluster
 	./scripts/clean-e2e-test.sh
+
+.PHONY: update-kube-apiserver-vendoring
+update-kube-apiserver-vendoring:
+	./scripts/update-kube-apiserver-vendoring.sh
