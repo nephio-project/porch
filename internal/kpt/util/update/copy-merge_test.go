@@ -414,3 +414,33 @@ func TestCopyMergeDifferentMetadata(t *testing.T) {
 		})
 	}
 }
+
+func TestCopyMergeErrorRemovingFile(t *testing.T) {
+	src := t.TempDir()
+	dst := t.TempDir()
+	org := t.TempDir()
+
+	// Create a file in org and dst, but not in src (so RemoveStaleItems will try to remove it)
+	fileName := "file.txt"
+	filePathDst := filepath.Join(dst, fileName)
+	filePathOrg := filepath.Join(org, fileName)
+
+	assert.NoError(t, os.WriteFile(filePathDst, []byte("content"), 0644))
+	assert.NoError(t, os.WriteFile(filePathOrg, []byte("content"), 0644))
+
+	assert.NoError(t, os.Remove(filePathDst))
+	assert.NoError(t, os.Mkdir(filePathDst, 0755))
+	assert.NoError(t, os.WriteFile(filepath.Join(filePathDst, "dummy"), []byte("x"), 0644))
+
+	updater := &CopyMergeUpdater{}
+	options := Options{
+		OriginPath:  org,
+		UpdatedPath: src,
+		LocalPath:   dst,
+		IsRoot:      true,
+	}
+
+	err := updater.Update(options)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "directory not empty")
+}
