@@ -1183,7 +1183,7 @@ func (t *PorchSuite) TestConcurrentDeletes() {
 	var draft porchapi.PackageRevision
 	t.MustExist(client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &draft)
 
-	// Delete the same package with two clients at the same time
+	// Delete the same package with multiple clients at the same time
 	deleteFunction := func() any {
 		return t.Client.Delete(t.GetContext(), &porchapi.PackageRevision{
 			ObjectMeta: metav1.ObjectMeta{
