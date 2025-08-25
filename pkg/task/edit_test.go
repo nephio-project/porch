@@ -112,6 +112,38 @@ info:
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("result mismatch (-want +got):\n%s", diff)
 	}
+
+	packageRevision.Resources.Spec.Resources["configmap.yaml"] = strings.TrimSpace(`
+	apiVersion: v1
+	kind: ConfigMap
+	metadata:
+	name: configmap-name
+	namespace: configmap-namespace
+	data:
+	key: value
+	`)
+	delete(packageRevision.Resources.Spec.Resources, kptfile.KptFileName)
+
+	res, _, err = epm.apply(context.Background(), repository.PackageResources{})
+	if err != nil {
+		t.Errorf("task apply failed: %v", err)
+	}
+
+	packageRevision.Resources.Spec.Resources[kptfile.KptFileName] = strings.TrimSpace(`
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadta:
+  name: example
+  annotations:
+    config.kubernetes.io/local-config: "true"
+info:
+  description: sample description
+	`)
+
+	res, _, err = epm.apply(context.Background(), repository.PackageResources{})
+	if err != nil {
+		t.Errorf("task apply failed: %v", err)
+	}
 }
 
 // Implementation of the ReferenceResolver interface for testing.

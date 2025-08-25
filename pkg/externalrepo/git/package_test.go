@@ -146,3 +146,46 @@ func TestPackageGetters(t *testing.T) {
 	assert.Equal(t, "my-namespace", gitPr.KubeObjectNamespace())
 	assert.Equal(t, types.UID("7007e8aa-0928-50f9-b980-92a44942f055"), gitPr.UID())
 }
+
+func TestGetPackageRevision(t *testing.T) {
+	tempdir := t.TempDir()
+	tarfile := filepath.Join("testdata", "drafts-repository.tar")
+	_, address := ServeGitRepositoryWithBranch(t, tarfile, tempdir, "labels-test")
+
+	ctx := context.Background()
+	const (
+		repositoryName = "lock"
+		namespace      = "default"
+		deployment     = true
+	)
+
+	git, err := OpenRepository(ctx, repositoryName, namespace, &configapi.GitRepository{
+		Repo:      address,
+		Branch:    "labels-test",
+		Directory: "/",
+	}, deployment, tempdir, GitRepositoryOptions{})
+	if err != nil {
+		t.Fatalf("Failed to open Git repository loaded from %q: %v", tarfile, err)
+	}
+
+	gitPr := gitPackageRevision{
+		prKey: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				RepoKey: repository.RepositoryKey{
+					Name:      "my-repo",
+					Namespace: "my-namespace",
+				},
+				Package: "my-package",
+			},
+			WorkspaceName: "my-workspace",
+		},
+	}
+
+	gitPr.repo = git.(*gitRepository)
+
+	pr, err := gitPr.GetPackageRevision(context.TODO())
+	assert.NoError(t, err)
+	assert.NotNil(t, pr)
+	assert.Nil(t, pr.GetLabels())
+
+}

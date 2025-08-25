@@ -192,7 +192,6 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 }
 
 // Update implements the Updater interface.
-
 // Update finds a resource in the storage and updates it. Some implementations
 // may allow updates creates the object - they should set the created boolean
 // to true.
