@@ -189,7 +189,7 @@ func (c completedConfig) getCoreV1Client() (*corev1client.CoreV1Client, error) {
 
 // New returns a new instance of PorchServer from the given config.
 func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
-	// REMOVE AFTER ASYNC IMPLEMENTATION IS READY.
+	// TODO: REMOVE AFTER ASYNC IMPLEMENTATION IS READY.
 	// Set the default request timeout just above hardcoded ctx timeout
 	c.GenericConfig.RequestTimeout = 291 * time.Second
 	genericServer, err := c.GenericConfig.New("porch-apiserver", genericapiserver.NewEmptyDelegate())
