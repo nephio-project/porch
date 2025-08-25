@@ -34,12 +34,11 @@ type tuple struct {
 // merge performs a 3-way merge on the tuple
 func (t *tuple) merge() (*yaml.RNode, error) {
 	return walk.Walker{
-		// same as in merge3.Merge()
-		Visitor:            merge3.Visitor{},
-		VisitKeysAsScalars: true,
-		Sources:            []*yaml.RNode{t.dest, t.original, t.updated},
-
-		// added
+		Visitor: &CommentPreservingVisitor{
+			Visitor: merge3.Visitor{},
+		},
+		VisitKeysAsScalars:    true,
+		Sources:               []*yaml.RNode{t.dest, t.original, t.updated},
 		InferAssociativeLists: false,
 	}.Walk()
 }
