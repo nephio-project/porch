@@ -17,6 +17,7 @@ package porch
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/nephio-project/porch/pkg/engine"
@@ -203,6 +204,12 @@ func (w *watcher) listAndWatchInner(ctx context.Context, r packageReader, filter
 			return false
 		}
 		obj, err := pr.GetPackageRevision(ctx)
+		// Ignoring False Positive error in DB cache on delete event due to Package Revision already deleted from DB during watch
+		if eventType == watch.Deleted && strings.Contains(err.Error(), "sql: no rows in result set") {
+			w.done = true
+			errorResult <- nil
+			return true
+		}
 		if err != nil {
 			w.done = true
 			errorResult <- err

@@ -32,6 +32,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog/v2"
 )
 
@@ -370,6 +372,10 @@ func (pr *dbPackageRevision) Delete(ctx context.Context, deleteExternal bool) er
 		klog.Warningf("dbPackage:DeletePackageRevision: deletion of %+v failed on database %q", pr.Key(), err)
 	}
 
+	if pr.repo.repoPRChangeNotifier != nil {
+		sent := pr.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Deleted, pr)
+		klog.V(2).Infof("DB cache %+v: sent %d notifications for deleted package revision %+v", pr.repo.Key(), sent, pr.Key())
+	}
 	return err
 }
 
@@ -426,6 +432,11 @@ func (pr *dbPackageRevision) publishPR(ctx context.Context, newLifecycle porchap
 		if err = pkgRevUpdateDB(ctx, pr.ToMainPackageRevision(ctx).(*dbPackageRevision), true); err != nil {
 			return pkgerrors.Wrapf(err, "dbPackageRevision:UpdateLifecycle: could not update placeholder package revision for package revision %+v to DB", pr.Key())
 		}
+	}
+
+	if pr.repo.repoPRChangeNotifier != nil {
+		sent := pr.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Added, pr)
+		klog.V(2).Infof("DB cache %+v: sent %d notifications for deleted package revision %+v", pr.repo.Key(), sent, pr.Key())
 	}
 
 	return nil
