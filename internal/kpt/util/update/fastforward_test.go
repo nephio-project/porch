@@ -130,7 +130,7 @@ func TestUpdate_FastForward(t *testing.T) {
 						WithResource(pkgbuilder.DeploymentResource),
 				),
 		},
-		"doesn't update the Kptfile": {
+		"Updates the Kptfile": {
 			origin: pkgbuilder.NewRootPkg().
 				WithKptfile(
 					pkgbuilder.NewKptfile().
@@ -155,7 +155,7 @@ func TestUpdate_FastForward(t *testing.T) {
 			expected: pkgbuilder.NewRootPkg().
 				WithKptfile(
 					pkgbuilder.NewKptfile().
-						WithUpstream(kptRepo, "/", "master", "fast-forward").
+						WithUpstream(kptRepo, "/", "v1.0", "fast-forward").
 						WithUpstreamLock(kptRepo, "/", "master", "abc123"),
 				).
 				WithResource(pkgbuilder.ConfigMapResource),

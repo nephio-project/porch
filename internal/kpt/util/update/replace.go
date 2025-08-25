@@ -22,6 +22,7 @@ import (
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/internal/kpt/types"
 	"github.com/nephio-project/porch/internal/kpt/util/pkgutil"
+	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
 )
 
 // Updater updates a package to a new upstream version.
@@ -32,11 +33,16 @@ type ReplaceUpdater struct{}
 
 func (u ReplaceUpdater) Update(options Options) error {
 	const op errors.Op = "update.Update"
+
+	// Update Kptfile for root package
+	if err := kptfileutil.UpdateKptfile(options.LocalPath, options.UpdatedPath, options.OriginPath, true); err != nil {
+		return errors.E(op, types.UniquePath(options.LocalPath), err)
+	}
+
 	paths, err := pkgutil.FindSubpackagesForPaths(pkg.Local, true, options.LocalPath, options.UpdatedPath)
 	if err != nil {
 		return errors.E(op, types.UniquePath(options.LocalPath), err)
 	}
-
 	for _, p := range append([]string{"."}, paths...) {
 		isRootPkg := false
 		if p == "." && options.IsRoot {
