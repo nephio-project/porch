@@ -115,17 +115,15 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter reposit
 	for i := 0; i < workerCount; i++ {
 		go func() {
 			for repo := range repoQueue {
+				klog.Infof("[WORKER %d] Processing repository %s", i, repo.Name)
 				listCtx := ctx
 				var cancel context.CancelFunc
 				if r.ListTimeoutPerRepository != 0 {
 					listCtx, cancel = context.WithTimeout(ctx, r.ListTimeoutPerRepository)
 				}
 				revisions, err := r.cad.ListPackageRevisions(listCtx, repo, filter)
-				select {
-				case resultsCh <- pkgRevResult{Revisions: revisions, Err: err}:
-				case <-ctx.Done():
-					resultsCh <- pkgRevResult{Revisions: nil, Err: listCtx.Err()}
-				}
+				klog.Infof("[WORKER %d] ListPackageRevisions for %s done, len: %d, err: %v", i, repo.Name, len(revisions), err)
+				resultsCh <- pkgRevResult{Revisions: revisions, Err: err}
 				if cancel != nil {
 					cancel()
 				}

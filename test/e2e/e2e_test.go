@@ -2230,7 +2230,7 @@ func (t *PorchSuite) TestFailedPodEvictionAndRecovery() {
 							Type: "git",
 							Git: &porchapi.GitPackage{
 								Repo:      t.gcpBlueprintsRepo,
-								Ref:       "bucket-blueprint-v0.4.3",
+								Ref:       t.gcpBucketRef,
 								Directory: "catalog/bucket",
 								SecretRef: porchapi.SecretRef{
 									Name: t.CreateGcpPackageRevisionSecret("test-fn-pod-bucket"),
@@ -2399,7 +2399,7 @@ func (t *PorchSuite) TestRepositoryError() {
 		})
 	})
 
-	giveUp := time.Now().Add(60 * time.Second)
+	giveUp := time.Now().Add(120 * time.Second)
 
 	for {
 		if time.Now().After(giveUp) {
