@@ -18,22 +18,22 @@ package docs
 
 var RpkgShort = `Manage packages.`
 var RpkgLong = `
-The ` + "`" + `rpkg` + "`" + ` command group contains subcommands for managing packages and revisions.
+The ` + "`" + `rpkg` + "`" + ` command group contains subcommands for managing packages and revisions (versions) of these packages.
 `
 
 var ApproveShort = `Approve a proposal to publish a package revision.`
 var ApproveLong = `
-  porchctl rpkg approve [PACKAGE_REV_NAME...] [flags]
+  porchctl rpkg approve [K8S_PACKAGE_REV_NAME...] [flags]
 
 Args:
 
-  PACKAGE_REV_NAME...:
-    The name of one or more package revisions. If more than
+  K8S_PACKAGE_REV_NAME...:
+    The kubernetes name of one or more package revisions. If more than
     one is provided, they must be space-separated.
 `
 var ApproveExamples = `
-  # approve package revision blueprint-91817620282c133138177d16c981cf35f0083cad
-  $ porchctl rpkg approve blueprint-91817620282c133138177d16c981cf35f0083cad --namespace=default
+  # approve package revision 'example-repo.example-package-name.example-workspace'
+  $ porchctl rpkg approve example-repo.example-package-name.example-workspace --namespace=example-namespace
 `
 
 var CloneShort = `Create a clone of an existing package revision.`
@@ -50,9 +50,9 @@ Args:
         oci://oci-repository/package-name
       * Git: A URI to a git repository must be provided.
         https://git-repository.git/package-name
-      * Package: The name of a package revision already available in the
+      * Package: The kubernetes name of a package revision already available in the
         repository.
-        blueprint-e982b2196b35a4f5e81e92f49a430fe463aa9f1a
+        example-repo.example-package-name.example-workspace
 
   TARGET_PACKAGE_NAME:
     The name of the new package.
@@ -61,21 +61,20 @@ Args:
 Flags:
 
   --directory
-    Directory within the repository where the upstream
+    Directory within the upstream repository where the upstream
     package revision is located. This only applies if the source package is in git
     or oci.
 
   --ref
-    Ref in the repository where the upstream package revision
-    is located (branch, tag, SHA). This only applies when the source package
+    Ref in the upstream repository where the package revision
+    is located. This can be a branch, a tag or a SHA. This only applies when the source package
     is in git.
 
   --repository
-    Repository to which package revision will be cloned
-    (downstream repository).
+    This is the downstream repository which the package revision will be cloned to.
 
   --workspace
-    Workspace for the new package. The default value is v1.
+    The workspace name assigned to the new downstream package revision. The default value is v1.
 
   --strategy
     Update strategy that should be used when updating the new
@@ -93,15 +92,13 @@ Flags:
     where the package revision is to be created.
 `
 var CloneExamples = `
-  # clone the blueprint-e982b2196b35a4f5e81e92f49a430fe463aa9f1a package and create a new package revision called
-  # foo in the blueprint repository with a custom workspaceName.
-  $ porchctl rpkg clone blueprint-e982b2196b35a4f5e81e92f49a430fe463aa9f1a foo --repository blueprint --workspace=first-draft
-  # packclone in the porch-test repository with a v1 workspaceName, and force-delete-replace update strategy
-  $ porchctl rpkg clone porch-test.pack.v1 packclone --namespace=porch-demo -repository=porch-test --workspace=v1 --strategy=force-delete-replace
+  # clone the 'example-repo.example-package-name.example-workspace' package and create a new package revision called
+  # 'example-package-name-2' in the 'example-repo-2' repository with a new workspace named 'example-workspace-2' and 'force-delete-replace' update strategy.
+  $ porchctl rpkg clone example-repo.example-package-name.example-workspace example-package-name-2 --repository=example-repo-2 --workspace=example-workspace-2 --strategy=force-delete-replace
 
-  # clone the git repository at https://github.com/repo/blueprint.git at reference base/v0 and in directory base. The new
-  # package revision will be created in repository blueprint and namespace default.
-  $ porchctl rpkg clone https://github.com/repo/blueprint.git bar --repository=blueprint --ref=base/v0 --namespace=default --directory=base
+  # clone the git repository at 'https://github.com/repo/blueprint.git' at reference 'base/v0' and in directory base. The new
+  # package revision will be created in repository 'blueprint' and namespace 'default'.
+  $ porchctl rpkg clone https://github.com/repo/blueprint.git example-downstream-package --repository=blueprint --ref=base/v0 --namespace=default --directory=base
 `
 
 var CopyShort = `Create a new package revision from an existing one.`
@@ -110,8 +107,8 @@ var CopyLong = `
 
 Args:
 
-  SOURCE_PACKAGE_REV_NAME:
-    The name of the package revision that will be used as the source
+  SOURCE_K8S_PACKAGE_REV_NAME:
+    The kubernetes name of the package revision that will be used as the source
     for creating a new package revision.
 
 Flags:
@@ -120,33 +117,33 @@ Flags:
     Workspace for the new package revision.
 `
 var CopyExamples = `
-  # create a new package from package blueprint-b47eadc99f3c525571d3834cc61b974453bc6be2
-  $ porchctl rpkg copy blueprint-b47eadc99f3c525571d3834cc61b974453bc6be2 --workspace=v10 --namespace=default
+  # create a new package from package 'example-repo.example-package-name.example-workspace' in the new workspace 'example-workspace-2'
+  $ porchctl rpkg copy example-repo.example-package-name.example-workspace --workspace=example-workspace-2 --namespace=example-namespace
 `
 
 var DelShort = `Delete a package revision.`
 var DelLong = `
-  porchctl rpkg del PACKAGE_REV_NAME... [flags]
+  porchctl rpkg del K8S_PACKAGE_REV_NAME... [flags]
 
 Args:
 
-  PACKAGE_REV_NAME...:
-    The name of one or more package revisions. If more than
+  K8S_PACKAGE_REV_NAME...:
+    The kubernetes name of one or more package revisions. If more than
     one is provided, they must be space-separated.
 `
 var DelExamples = `
-  # remove package revision blueprint-e982b2196b35a4f5e81e92f49a430fe463aa9f1a from the default namespace
-  $ porchctl rpkg del blueprint-e982b2196b35a4f5e81e92f49a430fe463aa9f1a --namespace=default
+  # remove package revision 'example-repo.example-package-name.example-workspace'
+  $ porchctl rpkg del example-repo.example-package-name.example-workspace -n example-namespace
 `
 
 var GetShort = `List package revisions in registered repositories.`
 var GetLong = `
-  porchctl rpkg get [PACKAGE_REV_NAME] [flags]
+  porchctl rpkg get [K8S_PACKAGE_REV_NAME] [flags]
 
 Args:
 
-  PACKAGE_REV_NAME:
-    The name of a package revision. If provided, only that specific
+  K8S_PACKAGE_REV_NAME:
+    The kubernetes name of a package revision. If provided, only that specific
     package revision will be shown. Defaults to showing all package
     revisions from all repositories.
 
@@ -161,17 +158,20 @@ Flags:
     matches this value will be included in the results.
 `
 var GetExamples = `
-  # get a specific package revision in the default namespace
-  $ porchctl rpkg get blueprint-e982b2196b35a4f5e81e92f49a430fe463aa9f1a --namespace=default
+  # get a specific package revision using its kubernetes resource name in the 'example-namespace' namespace
+  $ porchctl rpkg get example-repo.example-package-name.example-workspace --namespace=example-namespace
 
-  # get all package revisions in the bar namespace
-  $ porchctl rpkg get --namespace=bar
+  # get a specific package revision named 'example-package-name' in the 'example-namespace' namespace
+  $ porchctl rpkg get --name=example-package-name --namespace=example-namespace
 
-  # get all package revisions with revision v0
-  $ porchctl rpkg get --revision=v0
+  # get all package revisions in the 'example-namespace' namespace
+  $ porchctl rpkg get --namespace=example-namespace
+
+  # get all package revisions with revision '0'
+  $ porchctl rpkg get --revision=0
 `
 
-var InitShort = `Initializes a new package in a repository.`
+var InitShort = `Initializes a new package revision in a repository.`
 var InitLong = `
   porchctl rpkg init PACKAGE_NAME [flags]
 
@@ -198,93 +198,93 @@ Flags:
     Link to page with information about the package
 `
 var InitExamples = `
-  # create a new package named foo in the repository blueprint.
-  $ porchctl rpkg init foo --namespace=default --repository=blueprint --workspace=v1
+  # create a new package named 'example-package-name' in the repository 'example-repository' which exists in the namespace 'example-namespace'.
+  $ porchctl rpkg init example-package-name --repository=example-repository --workspace=example-workspace --namespace=example-namespace
 `
 
 var ProposeShort = `Propose that a package revision should be published.`
 var ProposeLong = `
-  porchctl rpkg propose [PACKAGE_REV_NAME...] [flags]
+  porchctl rpkg propose [K8S_PACKAGE_REV_NAME...] [flags]
 
 Args:
 
-  PACKAGE_REV_NAME...:
-    The name of one or more package revisions. If more than
+  K8S_PACKAGE_REV_NAME...:
+    The kubernetes name of one or more package revisions. If more than
     one is provided, they must be space-separated.
 `
 var ProposeExamples = `
-  # propose that package revision blueprint-91817620282c133138177d16c981cf35f0083cad should be finalized.
-  $ porchctl rpkg propose blueprint-91817620282c133138177d16c981cf35f0083cad --namespace=default
+  # propose that package revision 'example-repo.example-package-name.example-workspace' should be finalized.
+  $ porchctl rpkg propose example-repo.example-package-name.example-workspace --namespace=example-namespace
 `
 
 var ProposeDeleteShort = `Propose deletion of a published package revision.`
 var ProposeDeleteLong = `
-  porchctl rpkg propose-delete PACKAGE_REV_NAME... [flags]
+  porchctl rpkg propose-delete K8S_PACKAGE_REV_NAME... [flags]
 
 Args:
 
-  PACKAGE_REV_NAME...:
-  The name of one or more package revisions. If more than
+  K8S_PACKAGE_REV_NAME...:
+  The kubernetes name of one or more package revisions. If more than
   one is provided, they must be space-separated.
 `
 var ProposeDeleteExamples = `
-  # Propose published package revision blueprint-e982b2196b35a4f5e81e92f49a430fe463aa9f1a for deletion.
-  $ porchctl rpkg propose-delete blueprint-e982b2196b35a4f5e81e92f49a430fe463aa9f1a --namespace=default
+  # Propose published package revision 'example-repo.example-package-name.example-workspace' for deletion.
+  $ porchctl rpkg propose-delete example-repo.example-package-name.example-workspace --namespace=example-namespace
 `
 
 var PullShort = `Pull the content of the package revision.`
 var PullLong = `
-  porchctl rpkg pull PACKAGE_REV_NAME [DIR] [flags]
+  porchctl rpkg pull K8S_PACKAGE_REV_NAME [DIR] [flags]
 
 Args:
 
-  PACKAGE_REV_NAME:
-    The name of a an existing package revision in a repository.
+  K8S_PACKAGE_REV_NAME:
+    The kubernetes name of a an existing package revision in a repository.
 
   DIR:
     A local directory where the package manifests will be written.
     If not provided, the manifests are written to stdout.
 `
 var PullExamples = `
-  # pull the content of package revision blueprint-d5b944d27035efba53836562726fb96e51758d97
-  $ porchctl rpkg pull blueprint-d5b944d27035efba53836562726fb96e51758d97 --namespace=default
+  # pull the content of package revision 'example-repo.example-package-name.example-workspace'
+  $ porchctl rpkg pull example-repo.example-package-name.example-workspace --namespace=example-namespace
 `
 
 var PushShort = `Push resources to a package revision.`
 var PushLong = `
-  porchctl rpkg push PACKAGE_REV_NAME [DIR] [flags]
+  porchctl rpkg push K8S_PACKAGE_REV_NAME [DIR] [flags]
 
 Args:
 
-  PACKAGE_REV_NAME:
-    The name of a an existing package revision in a repository.
+  K8S_PACKAGE_REV_NAME:
+    The kubernetes name of a an existing package revision in a repository.
 
   DIR:
     A local directory with the new manifest. If the manifests have be read from stdin, use '-' in place of DIR.
 `
 var PushExamples = `
-  # update the package revision blueprint-f977350dff904fa677100b087a5bd989106d0456 with the resources
-  # in the ./package directory
-  $ porchctl rpkg push blueprint-f977350dff904fa677100b087a5bd989106d0456 ./package --namespace=default
+  # update the package revision 'example-repo.example-package-name.example-workspace' with the resources
+  # in the './example-package-dir' directory
+  $ porchctl rpkg push example-repo.example-package-name.example-workspace ./example-package-dir --namespace=example-namespace
 
-  # update the package revision blueprint-f977350dff904fa677100b087a5bd989106d0456 with the resources
-  # using stdin
-  $ porchctl rpkg push blueprint-f977350dff904fa677100b087a5bd989106d0456 - <stdin> --namespace=default
+  # update the package revision 'example-repo.example-package-name.example-workspace' with the resources
+  # using 'stdin'
+  $ porchctl rpkg push example-repo.example-package-name.example-workspace - <stdin> --namespace=example-namespace
 `
 
 var RejectShort = `Reject a proposal to publish or delete a package revision.`
 var RejectLong = `
-  porchctl rpkg reject [PACKAGE_REV_NAME...] [flags]
+  porchctl rpkg reject [K8S_PACKAGE_REV_NAME...] [flags]
 
 Args:
 
-  PACKAGE_REV_NAME...:
-    The name of one or more package revisions. If more than
+  K8S_PACKAGE_REV_NAME...:
+    The kubernetes name of one or more package revisions. If more than
     one is provided, they must be space-separated.
 `
 var RejectExamples = `
-  # reject the proposal for package revision blueprint-8f9a0c7bf29eb2cbac9476319cd1ad2e897be4f9
-  $ porchctl rpkg reject blueprint-8f9a0c7bf29eb2cbac9476319cd1ad2e897be4f9 --namespace=default
+  # reject the proposal for package revision 'example-repo.example-package-name.example-workspace'
+  $ porchctl rpkg reject example-repo.example-package-name.example-workspace --namespace=example-namespace
 `
 
 var UpgradeShort = `Create a new revision which upgrades a published downstream to a more recent published revision of its upstream package.`
@@ -331,3 +331,4 @@ var UpgradeExamples = `
   # upgrade deployment.some-package.v1 package to v3 of its upstream, using copy-merge strategy
   $ porchctl rpkg upgrade deployment.some-package.v1 --revision=3 --workspace=v2 --strategy=copy-merge
 `
+
