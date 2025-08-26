@@ -23,8 +23,7 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
-// Implementation of the repository.Repository interface for testing.
-// TODO(mortent): Implement stub functionality for all functions from the interface.
+// Repository fake implementation of the repository.Repository interface.
 type Repository struct {
 	key              repository.RepositoryKey
 	PackageRevisions []repository.PackageRevision
@@ -57,7 +56,7 @@ func (r *Repository) Version(ctx context.Context) (string, error) {
 
 func (r *Repository) ListPackageRevisions(_ context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
 	if r.ThrowError {
-		return nil, errors.New("Fake Repository threw this error because it was told to")
+		return nil, errors.New("fake repository threw this error because it was told to")
 	}
 
 	var revs []repository.PackageRevision
