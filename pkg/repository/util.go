@@ -22,10 +22,10 @@ import (
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/util"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func ToApiReadinessGates(kf kptfile.KptFile) []api.ReadinessGate {
+func ToAPIReadinessGates(kf kptfile.KptFile) []api.ReadinessGate {
 	var readinessGates []api.ReadinessGate
 	if kf.Info != nil {
 		for _, rg := range kf.Info.ReadinessGates {
@@ -37,13 +37,13 @@ func ToApiReadinessGates(kf kptfile.KptFile) []api.ReadinessGate {
 	return readinessGates
 }
 
-func ToApiConditions(kf kptfile.KptFile) []api.Condition {
+func ToAPIConditions(kf kptfile.KptFile) []api.Condition {
 	var conditions []api.Condition
 	if kf.Status != nil && kf.Status.Conditions != nil {
 		for _, s := range kf.Status.Conditions {
 			conditions = append(conditions, api.Condition{
 				Type:    s.Type,
-				Status:  toApiConditionStatus(s.Status),
+				Status:  toAPIConditionStatus(s.Status),
 				Reason:  s.Reason,
 				Message: s.Message,
 			})
@@ -52,7 +52,7 @@ func ToApiConditions(kf kptfile.KptFile) []api.Condition {
 	return conditions
 }
 
-func toApiConditionStatus(s kptfile.ConditionStatus) api.ConditionStatus {
+func toAPIConditionStatus(s kptfile.ConditionStatus) api.ConditionStatus {
 	switch s {
 	case kptfile.ConditionTrue:
 		return api.ConditionTrue
@@ -67,7 +67,7 @@ func toApiConditionStatus(s kptfile.ConditionStatus) api.ConditionStatus {
 
 // AnyBlockOwnerDeletionSet checks whether there are any ownerReferences in the Object
 // which have blockOwnerDeletion enabled (meaning either nil or true).
-func AnyBlockOwnerDeletionSet(obj client.Object) bool {
+func AnyBlockOwnerDeletionSet(obj metav1.ObjectMeta) bool {
 	for _, owner := range obj.GetOwnerReferences() {
 		if owner.BlockOwnerDeletion == nil || *owner.BlockOwnerDeletion {
 			return true

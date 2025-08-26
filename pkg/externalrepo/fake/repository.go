@@ -16,8 +16,10 @@ package fake
 
 import (
 	"context"
+	"errors"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
@@ -28,6 +30,7 @@ type Repository struct {
 	PackageRevisions []repository.PackageRevision
 	Packages         []repository.Package
 	CurrentVersion   string
+	ThrowError       bool
 }
 
 var _ repository.Repository = &Repository{}
@@ -53,6 +56,10 @@ func (r *Repository) Version(ctx context.Context) (string, error) {
 }
 
 func (r *Repository) ListPackageRevisions(_ context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
+	if r.ThrowError {
+		return nil, errors.New("Fake Repository threw this error because it was told to")
+	}
+
 	var revs []repository.PackageRevision
 	for _, rev := range r.PackageRevisions {
 		if filter.Key.Matches(rev.Key()) {
@@ -67,7 +74,13 @@ func (r *Repository) CreatePackageRevisionDraft(_ context.Context, pr *v1alpha1.
 }
 
 func (r *Repository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version int) (repository.PackageRevision, error) {
-	return nil, nil
+	return &FakePackageRevision{
+		PrKey: prd.Key(),
+		Kptfile: v1.KptFile{
+			Upstream:     &v1.Upstream{},
+			UpstreamLock: &v1.UpstreamLock{},
+		},
+	}, nil
 }
 
 func (r *Repository) DeletePackageRevision(context.Context, repository.PackageRevision) error {
