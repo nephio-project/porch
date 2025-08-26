@@ -94,18 +94,15 @@ func (t *Merge3TestSuite) TestOneKeyCrd() {
 			dir:  "one-key-crd-empty-orig",
 			crds: []string{"fruitstore.crd.yaml"},
 			checkFn: makeFruitCheckFunc(10, map[string]int{
-				"apple":  20,
-				"grape":  5,
-				"pear":   30,
-				"banana": 3,
+				"apple": 20,
+				"grape": 5,
+				"pear":  30,
 			}),
 		},
 		"one-key-crd-empty-updated": {
-			dir:  "one-key-crd-empty-updated",
-			crds: []string{"fruitstore.crd.yaml"},
-			checkFn: makeFruitCheckFunc(10, map[string]int{
-				"banana": 3,
-			}),
+			dir:     "one-key-crd-empty-updated",
+			crds:    []string{"fruitstore.crd.yaml"},
+			checkFn: makeFruitCheckFunc(10, map[string]int{}),
 		},
 		"one-key-crd-empty-dest": {
 			skipReason: "kyaml doesn't add the !!str tag to apple for some reason",
@@ -124,7 +121,7 @@ func (t *Merge3TestSuite) TestOneKeyCrd() {
 }
 
 func (t *Merge3TestSuite) TestInferAssocList() {
-	t.T().Skipf("infer has been disabled")
+	//t.T().Skipf("infer has been disabled")
 	testCases := map[string]testCase{
 		"infer-crd": {
 			dir:     "infer-crd",
@@ -133,23 +130,21 @@ func (t *Merge3TestSuite) TestInferAssocList() {
 		"infer-crd-empty-orig": {
 			dir: "infer-crd-empty-orig",
 			checkFn: makeFruitCheckFunc(10, map[string]int{
-				"apple":  20,
-				"grape":  5,
-				"pear":   30,
-				"banana": 3,
+				"apple": 20,
+				"grape": 5,
+				"pear":  30,
 			}),
 		},
 		"infer-crd-empty-updated": {
-			dir: "infer-crd-empty-updated",
-			checkFn: makeFruitCheckFunc(10, map[string]int{
-				"banana": 3,
-			}),
+			dir:     "infer-crd-empty-updated",
+			checkFn: makeFruitCheckFunc(10, map[string]int{}),
 		},
 		"infer-crd-empty-dest": {
 			dir: "infer-crd-empty-dest",
 			checkFn: makeFruitCheckFunc(10, map[string]int{
 				"apple": 20,
 				"pear":  30,
+				"grape": 5,
 			}),
 		},
 	}

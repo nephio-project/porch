@@ -27,10 +27,11 @@ type CommentPreservingVisitor struct {
 }
 
 func (m CommentPreservingVisitor) VisitMap(sources walk.Sources, schema *openapi.ResourceSchema) (*yaml.RNode, error) {
-	node := sources.Updated()
-	if node.IsTaggedNull() {
+	if sources.Updated().IsTaggedNull() || sources.Dest().IsTaggedNull() {
 		// Return a new node so that it won't have a "!!null" tag and therefore won't be cleared.
-		return yaml.NewScalarRNode(node.YNode().Value), nil
+		return yaml.NewScalarRNode(sources.Updated().YNode().Value), nil
 	}
+	// TODO: Should we fallback to the default Visitor?
+	//return m.Visitor.VisitMap(sources, schema)
 	return sources.Updated(), nil
 }
