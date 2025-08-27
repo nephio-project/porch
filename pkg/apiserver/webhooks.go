@@ -73,6 +73,7 @@ type WebhookConfig struct {
 	Port             int32
 	CertStorageDir   string
 	CertManWebhook   bool
+	timeout          int32
 }
 
 // newWebhookConfig creates a new WebhookConfig object filled with values read from environment variables
@@ -282,7 +283,8 @@ func createValidatingWebhook(ctx context.Context, cfg *WebhookConfig, caCert []b
 	if err != nil {
 		return fmt.Errorf("failed to setup kubeClient: %v", err)
 	}
-
+	// Set max timeout value for ValidatingWebhooks
+	cfg.timeout = 30
 	var (
 		validationCfgName = "packagerev-deletion-validating-webhook"
 		fail              = admissionregistrationv1.Fail
@@ -309,6 +311,7 @@ func createValidatingWebhook(ctx context.Context, cfg *WebhookConfig, caCert []b
 			AdmissionReviewVersions: []string{"v1", "v1beta1"},
 			SideEffects:             &none,
 			FailurePolicy:           &fail,
+			TimeoutSeconds:          &cfg.timeout,
 		}},
 	}
 	switch cfg.Type {
@@ -424,9 +427,9 @@ func runWebhookServer(ctx context.Context, cfg *WebhookConfig) error {
 		Addr: fmt.Sprintf(":%d", cfg.Port),
 		TLSConfig: &tls.Config{
 			GetCertificate: getCertificate,
-			MinVersion: tls.VersionTLS12,
+			MinVersion:     tls.VersionTLS12,
 		},
-		ReadHeaderTimeout: 10 * time.Second,
+		ReadHeaderTimeout: 30 * time.Second,
 	}
 	go func() {
 		err = server.ListenAndServeTLS("", "")
