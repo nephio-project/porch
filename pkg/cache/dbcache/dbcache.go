@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/*
-Package dbcache implements a database cache for Porch.
-*/
+// Package dbcache implements a database cache for Porch.
 package dbcache
 
 import (
