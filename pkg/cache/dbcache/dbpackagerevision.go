@@ -307,6 +307,10 @@ func (pr *dbPackageRevision) SetMeta(ctx context.Context, meta metav1.ObjectMeta
 	return pkgRevUpdateDB(ctx, pr, false)
 }
 
+func (pr *dbPackageRevision) IsLatestRevision() bool {
+	return pr.latest
+}
+
 func (pr *dbPackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, error) {
 	_, span := tracer.Start(ctx, "dbPackageRevision::GetKptfile", trace.WithAttributes())
 	defer span.End()

@@ -39,6 +39,7 @@ import (
 
 type fakePackageRevision struct {
 	namespace string
+	lifecycle string
 }
 
 func (f *fakePackageRevision) GetPackageRevision(ctx context.Context) (*api.PackageRevision, error) {
@@ -46,13 +47,16 @@ func (f *fakePackageRevision) GetPackageRevision(ctx context.Context) (*api.Pack
 }
 func (f *fakePackageRevision) KubeObjectNamespace() string { return f.namespace }
 func (f *fakePackageRevision) Key() repository.PackageRevisionKey {
-	return repository.PackageRevisionKey{}
+	return repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: f.namespace}}}
 }
-func (f *fakePackageRevision) KubeObjectName() string                                 { return "" }
-func (f *fakePackageRevision) UID() types.UID                                         { return "" }
-func (f *fakePackageRevision) SetMeta(context.Context, metav1.ObjectMeta) error       { return nil }
-func (f *fakePackageRevision) ResourceVersion() string                                { return "" }
-func (f *fakePackageRevision) Lifecycle(context.Context) api.PackageRevisionLifecycle { return "" }
+func (f *fakePackageRevision) KubeObjectName() string                           { return "" }
+func (f *fakePackageRevision) UID() types.UID                                   { return "" }
+func (f *fakePackageRevision) SetMeta(context.Context, metav1.ObjectMeta) error { return nil }
+func (f *fakePackageRevision) ResourceVersion() string                          { return "" }
+func (f *fakePackageRevision) Lifecycle(context.Context) api.PackageRevisionLifecycle {
+
+	return api.PackageRevisionLifecycle(f.lifecycle)
+}
 func (f *fakePackageRevision) GetResources(context.Context) (*api.PackageRevisionResources, error) {
 	return nil, nil
 }
@@ -222,7 +226,6 @@ func TestWatchPackages_NoNamespace(t *testing.T) {
 		called = true
 		return false
 	}}
-
 	filter := repository.ListPackageRevisionFilter{}
 	ctx := context.TODO() // No namespace set in context
 	err := pc.watchPackages(ctx, filter, callback)
@@ -264,7 +267,6 @@ func TestWatchPackages_WithNamespaceFilteringWatcher(t *testing.T) {
 		called = true
 		return false
 	}}
-
 	filter := repository.ListPackageRevisionFilter{}
 	ctx := context.TODO()
 	ctx = request.WithNamespace(ctx, "foo") // Set namespace in context
