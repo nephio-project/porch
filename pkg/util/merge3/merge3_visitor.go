@@ -32,6 +32,6 @@ func (m CommentPreservingVisitor) VisitMap(sources walk.Sources, schema *openapi
 		return yaml.NewScalarRNode(sources.Updated().YNode().Value), nil
 	}
 	// TODO: Should we fallback to the default Visitor?
-	//return m.Visitor.VisitMap(sources, schema)
-	return sources.Updated(), nil
+	return m.Visitor.VisitMap(sources, schema)
+	//return sources.Updated(), nil
 }
