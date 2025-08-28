@@ -389,11 +389,18 @@ func (pr *dbPackageRevision) publishPR(ctx context.Context, newLifecycle porchap
 	pr.pkgRevKey.Revision = latestRev + 1
 	pr.lifecycle = newLifecycle
 
-	if _, err := engine.PushPackageRevision(ctx, pr.repo.externalRepo, pr); err != nil {
+	pushedPRExtID, err := engine.PushPackageRevision(ctx, pr.repo.externalRepo, pr)
+	if err != nil {
 		klog.Warningf("push of package revision %+v to external repo failed, %q", pr.Key(), err)
 		pr.pkgRevKey.Revision = 0
 		pr.lifecycle = porchapi.PackageRevisionLifecycleProposed
 		return pkgerrors.Wrapf(err, "dbPackageRevision:publishPR: push of package revision %+v to external repo failed", pr.Key())
+	}
+
+	pr.extPRID = pushedPRExtID
+
+	if err = pkgRevUpdateDB(ctx, pr, false); err != nil {
+		return pkgerrors.Wrapf(err, "dbPackageRevision:publishPR: failed to save package revision %+v to database after push to external repo", pr.Key())
 	}
 
 	return pr.publishPlaceholderPRForPR(ctx)
