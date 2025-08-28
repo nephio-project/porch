@@ -180,7 +180,7 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *po
 		updatedBy:     getCurrentUser(),
 	}
 
-	dbPkgRev.meta.CreationTimestamp = metav1.Time{Time: time.Now()}
+	dbPkgRev.meta.CreationTimestamp = metav1.Time{Time: dbPkgRev.updated}
 
 	dbPkgRev.extPRID = kptfile.UpstreamLock{
 		Type: kptfile.GitOrigin,
@@ -221,7 +221,7 @@ func (r *dbRepository) DeletePackageRevision(ctx context.Context, pr2Delete repo
 	dbPR2Delete := pr2Delete.(*dbPackageRevision)
 
 	if porchapi.LifecycleIsPublished(dbPR2Delete.lifecycle) {
-		klog.V(5).Infof("dbRepository:DeletePackageRevision: setting deploymet state on package revision %+v on repo %+v to \"deleting\"", pr2Delete.Key(), r.Key())
+		klog.V(5).Infof("dbRepository:DeletePackageRevision: setting deployment state on package revision %+v on repo %+v to \"deleting\"", pr2Delete.Key(), r.Key())
 		dbPR2Delete.deletingOnExt = true
 
 		if _, err := r.savePackageRevision(ctx, dbPR2Delete, false); err != nil {

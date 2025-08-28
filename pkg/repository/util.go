@@ -43,7 +43,7 @@ func ToAPIConditions(kf kptfile.KptFile) []api.Condition {
 		for _, s := range kf.Status.Conditions {
 			conditions = append(conditions, api.Condition{
 				Type:    s.Type,
-				Status:  ToAPIConditionStatus(s.Status),
+				Status:  toAPIConditionStatus(s.Status),
 				Reason:  s.Reason,
 				Message: s.Message,
 			})
@@ -52,7 +52,7 @@ func ToAPIConditions(kf kptfile.KptFile) []api.Condition {
 	return conditions
 }
 
-func ToAPIConditionStatus(s kptfile.ConditionStatus) api.ConditionStatus {
+func toAPIConditionStatus(s kptfile.ConditionStatus) api.ConditionStatus {
 	switch s {
 	case kptfile.ConditionTrue:
 		return api.ConditionTrue

@@ -120,9 +120,9 @@ func TestToAPIConditions(t *testing.T) {
 }
 
 func TestToAPIConditionStatus(t *testing.T) {
-	assert.Equal(t, api.ConditionTrue, ToAPIConditionStatus(kptfile.ConditionTrue))
-	assert.Equal(t, api.ConditionFalse, ToAPIConditionStatus(kptfile.ConditionFalse))
-	assert.Equal(t, api.ConditionUnknown, ToAPIConditionStatus(kptfile.ConditionUnknown))
+	assert.Equal(t, api.ConditionTrue, toAPIConditionStatus(kptfile.ConditionTrue))
+	assert.Equal(t, api.ConditionFalse, toAPIConditionStatus(kptfile.ConditionFalse))
+	assert.Equal(t, api.ConditionUnknown, toAPIConditionStatus(kptfile.ConditionUnknown))
 }
 
 func TestUpsertAPICondition(t *testing.T) {

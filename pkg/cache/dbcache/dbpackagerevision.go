@@ -336,7 +336,7 @@ func (pr *dbPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, 
 }
 
 func (pr *dbPackageRevision) ResourceVersion() string {
-	return fmt.Sprintf("%s.%d", pr.KubeObjectName(), pr.updated.UnixMilli())
+	return fmt.Sprintf("%s.%d", pr.KubeObjectName(), pr.updated.UnixMicro())
 }
 
 func (pr *dbPackageRevision) Delete(ctx context.Context) error {
@@ -397,7 +397,7 @@ func (pr *dbPackageRevision) publishPR(ctx context.Context, newLifecycle porchap
 }
 
 func (pr *dbPackageRevision) publishPlaceholderPRForPR(ctx context.Context) error {
-	_, span := tracer.Start(ctx, "dbPackageRevision::publishMainPRForPR", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "dbPackageRevision::publishPlaceholderPRForPR", trace.WithAttributes())
 	defer span.End()
 
 	if !pr.latest {
