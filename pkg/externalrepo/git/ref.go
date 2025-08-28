@@ -102,7 +102,7 @@ func getDraftBranchNameInLocal(n plumbing.ReferenceName) (BranchName, bool) {
 	return BranchName(b), ok
 }
 
-func getdeletionProposedBranchNameInLocal(n plumbing.ReferenceName) (BranchName, bool) {
+func getDeletionProposedBranchNameInLocal(n plumbing.ReferenceName) (BranchName, bool) {
 	b, ok := trimOptionalPrefix(n.String(), deletionProposedPrefixInLocalRepo)
 	return BranchName(b), ok
 }
