@@ -24,7 +24,6 @@ import (
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
-	"github.com/nephio-project/porch/pkg/engine"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
@@ -80,6 +79,9 @@ func (pr *dbPackageRevision) savePackageRevision(ctx context.Context, saveResour
 		pr.updatedBy = getCurrentUser()
 	}
 
+	sent := pr.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Modified, pr)
+	klog.V(2).Infof("DB cache %+v: sent %d notifications for updated package revision %+v", pr.repo.Key(), sent, pr.Key())
+
 	_, err := pkgRevReadFromDB(ctx, pr.Key(), false)
 	if err == nil {
 		return pr, pkgRevUpdateDB(ctx, pr, saveResources)
@@ -87,7 +89,13 @@ func (pr *dbPackageRevision) savePackageRevision(ctx context.Context, saveResour
 		return pr, err
 	}
 
-	return pr, pkgRevWriteToDB(ctx, pr)
+	writeErr := pkgRevWriteToDB(ctx, pr)
+	if writeErr == nil {
+		sent := pr.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Added, pr)
+		klog.V(2).Infof("DB cache %+v: sent %d notifications for added package revision %+v", pr.repo.Key(), sent, pr.Key())
+	}
+
+	return pr, writeErr
 }
 
 func (pr *dbPackageRevision) UpdatePackageRevision(ctx context.Context) error {
@@ -135,6 +143,9 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 		if pr.GetMeta().DeletionTimestamp != nil {
 			// The PR is already deleted from the DB so we just return the metadata version of this PR that is just about to be removed from memory
 			readPR = pr
+		} else if strings.Contains(err.Error(), "sql: no rows in result set") {
+			klog.Warningf("%q", err)
+			return nil, nil
 		} else {
 			return nil, fmt.Errorf("package revision read on DB failed %+v, %q", pr.Key(), err)
 		}
@@ -372,10 +383,9 @@ func (pr *dbPackageRevision) Delete(ctx context.Context, deleteExternal bool) er
 		klog.Warningf("dbPackage:DeletePackageRevision: deletion of %+v failed on database %q", pr.Key(), err)
 	}
 
-	if pr.repo.repoPRChangeNotifier != nil {
-		sent := pr.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Deleted, pr)
-		klog.V(2).Infof("DB cache %+v: sent %d notifications for deleted package revision %+v", pr.repo.Key(), sent, pr.Key())
-	}
+	sent := pr.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Deleted, pr)
+	klog.V(2).Infof("DB cache %+v: sent %d notifications for deleted package revision %+v", pr.repo.Key(), sent, pr.Key())
+
 	return err
 }
 
@@ -417,26 +427,21 @@ func (pr *dbPackageRevision) publishPR(ctx context.Context, newLifecycle porchap
 	pr.pkgRevKey.Revision = latestRev + 1
 	pr.lifecycle = newLifecycle
 
-	if _, err := engine.PushPackageRevision(ctx, pr.repo.externalRepo, pr); err != nil {
-		klog.Warningf("push of package revision %+v to external repo failed, %q", pr.Key(), err)
-		pr.pkgRevKey.Revision = 0
-		pr.lifecycle = porchapi.PackageRevisionLifecycleProposed
-		return pkgerrors.Wrapf(err, "dbPackageRevision:publishPR: push of package revision %+v to external repo failed", pr.Key())
-	}
+	sent := pr.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Added, pr)
+	klog.V(2).Infof("DB cache %+v: sent %d notifications for added package revision %+v", pr.repo.Key(), sent, pr.Key())
 
 	if pr.pkgRevKey.Revision == 1 {
 		if err = pkgRevWriteToDB(ctx, pr.ToMainPackageRevision(ctx).(*dbPackageRevision)); err != nil {
 			return pkgerrors.Wrapf(err, "dbPackageRevision:UpdateLifecycle: could not write placeholder package revision for package revision %+v to DB", pr.Key())
 		}
+		sent = pr.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Modified, pr)
+		klog.V(2).Infof("DB cache %+v: sent %d notifications for updated package revision %+v", pr.repo.Key(), sent, pr.Key())
 	} else if pr.pkgRevKey.Revision > 1 {
 		if err = pkgRevUpdateDB(ctx, pr.ToMainPackageRevision(ctx).(*dbPackageRevision), true); err != nil {
 			return pkgerrors.Wrapf(err, "dbPackageRevision:UpdateLifecycle: could not update placeholder package revision for package revision %+v to DB", pr.Key())
 		}
-	}
-
-	if pr.repo.repoPRChangeNotifier != nil {
-		sent := pr.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Added, pr)
-		klog.V(2).Infof("DB cache %+v: sent %d notifications for deleted package revision %+v", pr.repo.Key(), sent, pr.Key())
+		sent = pr.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Modified, pr)
+		klog.V(2).Infof("DB cache %+v: sent %d notifications for updated package revision %+v", pr.repo.Key(), sent, pr.Key())
 	}
 
 	return nil
