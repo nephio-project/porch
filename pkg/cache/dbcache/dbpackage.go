@@ -109,11 +109,11 @@ func (p *dbPackage) GetPackage(ctx context.Context) *v1alpha1.PorchPackage {
 	}
 }
 
-func (p *dbPackage) savePackageRevision(ctx context.Context, d *dbPackageRevision) (*dbPackageRevision, error) {
+func (p *dbPackage) savePackageRevision(ctx context.Context, d *dbPackageRevision, saveResources bool) (*dbPackageRevision, error) {
 	_, span := tracer.Start(ctx, "dbPackage:savePackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	return d.savePackageRevision(ctx, true)
+	return d.savePackageRevision(ctx, saveResources)
 }
 
 func (p *dbPackage) DeletePackageRevision(ctx context.Context, old repository.PackageRevision, deleteExternal bool) error {
