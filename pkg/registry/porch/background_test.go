@@ -186,7 +186,81 @@ func TestBackground_HandleRepositoryEvent(t *testing.T) {
 }
 
 func TestBackground_RunOnce(t *testing.T) {
+	repository := *createRepo()
+	repositories := &configapi.RepositoryList{Items: []configapi.Repository{repository}}
 
+	tests := []struct {
+		name          string
+		setupMocks    func(*mockclient.MockWithWatch, *mockclient.MockSubResourceWriter, *mockcache.MockCache, *mockrepo.MockRepository)
+		expectedError error
+	}{
+		{
+			name: "Successfully list and cache",
+			setupMocks: func(mockClient *mockclient.MockWithWatch, mockResourceWriter *mockclient.MockSubResourceWriter,
+				mockCache *mockcache.MockCache, mockRepo *mockrepo.MockRepository) {
+				mockClient.On("List", mock.Anything, mock.AnythingOfType("*v1alpha1.RepositoryList")).Run(func(args mock.Arguments) {
+					repoList := args.Get(1).(*configapi.RepositoryList)
+					*repoList = *repositories
+				}).Return(nil)
+				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType("*v1alpha1.Repository")).Return(mockRepo, nil)
+				mockRepo.On("Refresh", mock.Anything).Return(nil)
+				mockClient.On("Status").Return(mockResourceWriter)
+				mockResourceWriter.On("Update", mock.Anything, mock.Anything).Return(nil)
+			},
+		},
+		{
+			name: "Listing repository failed",
+			setupMocks: func(mockClient *mockclient.MockWithWatch, mockResourceWriter *mockclient.MockSubResourceWriter,
+				mockCache *mockcache.MockCache, mockRepo *mockrepo.MockRepository) {
+				mockClient.On("List", mock.Anything, mock.AnythingOfType("*v1alpha1.RepositoryList")).
+					Return(fmt.Errorf("error listing repository objects"))
+			},
+			expectedError: fmt.Errorf("error listing repository objects"),
+		},
+		{
+			name: "Repository caching failed",
+			setupMocks: func(mockClient *mockclient.MockWithWatch, mockResourceWriter *mockclient.MockSubResourceWriter,
+				mockCache *mockcache.MockCache, mockRepo *mockrepo.MockRepository) {
+				mockClient.On("List", mock.Anything, mock.AnythingOfType("*v1alpha1.RepositoryList")).Run(func(args mock.Arguments) {
+					repoList := args.Get(1).(*configapi.RepositoryList)
+					*repoList = *repositories
+				}).Return(nil)
+				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType("*v1alpha1.Repository")).Return(mockRepo, nil)
+				mockRepo.On("Refresh", mock.Anything).Return(nil)
+				mockClient.On("Status").Return(mockResourceWriter)
+				mockResourceWriter.On("Update", mock.Anything, mock.Anything).Return(fmt.Errorf("status update failed"))
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := &mockclient.MockWithWatch{}
+			mockResourceWriter := &mockclient.MockSubResourceWriter{}
+			mockCache := &mockcache.MockCache{}
+			mockRepo := &mockrepo.MockRepository{}
+
+			b := &background{
+				coreClient: mockClient,
+				cache:      mockCache,
+			}
+
+			tt.setupMocks(mockClient, mockResourceWriter, mockCache, mockRepo)
+
+			err := b.runOnce(context.Background())
+
+			if tt.expectedError != nil {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedError.Error())
+			} else {
+				assert.NoError(t, err)
+			}
+
+			mockClient.AssertExpectations(t)
+			mockResourceWriter.AssertExpectations(t)
+			mockCache.AssertExpectations(t)
+			mockRepo.AssertExpectations(t)
+		})
+	}
 }
 
 func TestBackground_CacheRepository(t *testing.T) {
