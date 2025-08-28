@@ -26,7 +26,7 @@ import (
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo"
 	"github.com/nephio-project/porch/pkg/repository"
-	mocksql "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/dbcache"
+	mockdbcache "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/dbcache"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -126,7 +126,7 @@ func (n *mockNotifier) NotifyPackageRevisionChange(eventType watch.EventType, ob
 }
 
 func switchToMockSQL(t *testing.T) {
-	mockSQL := mocksql.NewMockdbSQLInterface(t)
+	mockDBCache := mockdbcache.NewMockdbSQLInterface(t)
 
 	savedDBHandler = GetDB()
 	dbHandler = nil
@@ -137,7 +137,7 @@ func switchToMockSQL(t *testing.T) {
 	dbHandler = &DBHandler{
 		dBCacheOptions: savedDBHandler.dBCacheOptions,
 		dataSource:     savedDBHandler.dataSource,
-		db:             mockSQL,
+		db:             mockDBCache,
 	}
 	assert.NotNil(t, dbHandler)
 }
@@ -180,18 +180,25 @@ func TestDBRepositoryCrud(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func createTestRepo(t *testing.T, namespace, name string) dbRepository {
+func createTestRepo(t *testing.T, namespace, name string) *dbRepository {
 	dbRepo := dbRepository{
 		repoKey: repository.RepositoryKey{
 			Namespace: namespace,
 			Name:      name,
 		},
 		repoPRChangeNotifier: &mockNotifier{returnVal: 1},
+		spec: &configapi.Repository{
+			Spec: configapi.RepositorySpec{
+				Git: &configapi.GitRepository{
+					Repo: "http://www.gitrepo.org/my-repo",
+				},
+			},
+		},
 	}
 	err := repoWriteToDB(context.TODO(), &dbRepo)
 	assert.Nil(t, err)
 
-	return dbRepo
+	return &dbRepo
 }
 
 func deleteTestRepo(t *testing.T, key repository.RepositoryKey) {

@@ -50,6 +50,7 @@ type dbPackageRevision struct {
 	updated   time.Time
 	updatedBy string
 	lifecycle porchapi.PackageRevisionLifecycle
+	extPRID   kptfile.UpstreamLock
 	latest    bool
 	tasks     []porchapi.Task
 	resources map[string]string
@@ -83,7 +84,7 @@ func (pr *dbPackageRevision) savePackageRevision(ctx context.Context, saveResour
 	_, err := pkgRevReadFromDB(ctx, pr.Key(), false)
 	if err == nil {
 		updErr := pkgRevUpdateDB(ctx, pr, saveResources)
-		if updErr == nil {
+		if updErr == nil && saveResources {
 			sent := pr.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Modified, pr)
 			klog.Infof("DB cache %+v: sent %d notifications for updated package revision %+v", pr.repo.Key(), sent, pr.Key())
 		}
@@ -151,29 +152,11 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 		}
 	}
 
-	_, lock, _ := pr.GetUpstreamLock(ctx)
-	lockCopy := &porchapi.UpstreamLock{}
-
-	// TODO: Comment copied from pkg/externalrepo/git/package.go
-	// Use kpt definition of UpstreamLock in the package revision status
-	// when https://github.com/GoogleContainerTools/kpt/issues/3297 is complete.
-	// Until then, we have to translate from one type to another.
-	if lock.Git != nil {
-		lockCopy = &porchapi.UpstreamLock{
-			Type: porchapi.OriginType(lock.Type),
-			Git: &porchapi.GitLock{
-				Repo:      lock.Git.Repo,
-				Directory: lock.Git.Directory,
-				Commit:    lock.Git.Commit,
-				Ref:       lock.Git.Ref,
-			},
-		}
-	}
-
+	_, upstreamLock, _ := pr.GetUpstreamLock(ctx)
 	kf, _ := readPR.GetKptfile(ctx)
 
 	status := porchapi.PackageRevisionStatus{
-		UpstreamLock: lockCopy,
+		UpstreamLock: repository.KptUpstreamLock2APIUpstreamLock(upstreamLock),
 		Deployment:   pr.repo.deployment,
 		Conditions:   repository.ToAPIConditions(kf),
 	}
@@ -293,10 +276,13 @@ func (pr *dbPackageRevision) ToMainPackageRevision(ctx context.Context) reposito
 		updated:   time.Now(),
 		updatedBy: getCurrentUser(),
 		lifecycle: pr.lifecycle,
+		extPRID:   pr.extPRID,
 		latest:    false,
 		tasks:     pr.tasks,
 		resources: pr.resources,
 	}
+
+	mainPR.meta.CreationTimestamp = metav1.Time{Time: time.Now()}
 
 	if mainPR.pkgRevKey.WorkspaceName == "" {
 		mainPR.pkgRevKey.WorkspaceName = "main"
@@ -336,31 +322,7 @@ func (pr *dbPackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, e
 }
 
 func (pr *dbPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, error) {
-	if porchapi.LifecycleIsPublished(pr.lifecycle) {
-		externalPr, err := pr.repo.getExternalPr(context.Background(), pr.Key())
-		if err != nil {
-			return kptfile.Upstream{}, kptfile.UpstreamLock{},
-				pkgerrors.Wrapf(err, "dbPackageRevision:GetLock: getting lock of %+v failed, could not find package revision on external repository", pr.Key())
-		}
-
-		return externalPr.GetLock()
-	} else {
-		return kptfile.Upstream{
-				Type: kptfile.GitOrigin,
-				Git: &kptfile.Git{
-					Repo:      pr.repo.spec.Spec.Git.Repo,
-					Directory: pr.Key().PKey().ToPkgPathname(),
-					Ref:       "drafts/" + pr.Key().PKey().ToPkgPathname() + "/" + pr.Key().WorkspaceName,
-				},
-			}, kptfile.UpstreamLock{
-				Type: kptfile.GitOrigin,
-				Git: &kptfile.GitLock{
-					Repo:      pr.repo.spec.Spec.Git.Repo,
-					Directory: pr.Key().PKey().ToPkgPathname(),
-					Ref:       "drafts/" + pr.Key().PKey().ToPkgPathname() + "/" + pr.Key().WorkspaceName,
-				},
-			}, nil
-	}
+	return repository.KptUpstreamLock2KptUpstream(pr.extPRID), pr.extPRID, nil
 }
 
 func (pr *dbPackageRevision) ResourceVersion() string {
@@ -434,18 +396,36 @@ func (pr *dbPackageRevision) publishPR(ctx context.Context, newLifecycle porchap
 		return pkgerrors.Wrapf(err, "dbPackageRevision:publishPR: push of package revision %+v to external repo failed", pr.Key())
 	}
 
-	if pr.pkgRevKey.Revision == 1 {
-		if err = pkgRevWriteToDB(ctx, pr.ToMainPackageRevision(ctx).(*dbPackageRevision)); err != nil {
-			return pkgerrors.Wrapf(err, "dbPackageRevision:UpdateLifecycle: could not write placeholder package revision for package revision %+v to DB", pr.Key())
+	return pr.publishPlaceholderPRForPR(ctx)
+}
+
+func (pr *dbPackageRevision) publishPlaceholderPRForPR(ctx context.Context) error {
+	_, span := tracer.Start(ctx, "dbPackageRevision::publishPlaceholderPRForPR", trace.WithAttributes())
+	defer span.End()
+
+	prWithResources := pr
+	if len(prWithResources.resources) == 0 {
+		if readPR, err := pkgRevReadFromDB(ctx, pr.Key(), true); err == nil {
+			prWithResources = readPR
+		} else {
+			return pkgerrors.Wrapf(err, "dbPackageRevision:publishPlaceholderPRForPR: could read resources for package revision %+v to DB", pr.Key())
 		}
-		sent := pr.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Added, pr)
-		klog.Infof("DB cache %+v: sent %d notifications for added package revision %+v", pr.repo.Key(), sent, pr.Key())
-	} else if pr.pkgRevKey.Revision > 1 {
-		if err = pkgRevUpdateDB(ctx, pr.ToMainPackageRevision(ctx).(*dbPackageRevision), true); err != nil {
-			return pkgerrors.Wrapf(err, "dbPackageRevision:UpdateLifecycle: could not update placeholder package revision for package revision %+v to DB", pr.Key())
+	}
+
+	placeholderPR := prWithResources.ToMainPackageRevision(ctx).(*dbPackageRevision)
+
+	if prWithResources.pkgRevKey.Revision == 1 {
+		if err := pkgRevWriteToDB(ctx, placeholderPR); err != nil {
+			return pkgerrors.Wrapf(err, "dbPackageRevision:publishPlaceholderPRForPR: could not write placeholder package revision for package revision %+v to DB", placeholderPR.Key())
 		}
-		sent := pr.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Modified, pr)
-		klog.Infof("DB cache %+v: sent %d notifications for updated package revision %+v", pr.repo.Key(), sent, pr.Key())
+		sent := placeholderPR.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Added, placeholderPR)
+		klog.Infof("DB cache %+v: sent %d notifications for added package revision %+v", placeholderPR.repo.Key(), sent, placeholderPR.Key())
+	} else if prWithResources.pkgRevKey.Revision > 1 {
+		if err := pkgRevUpdateDB(ctx, placeholderPR, true); err != nil {
+			return pkgerrors.Wrapf(err, "dbPackageRevision:publishPlaceholderPRForPR: could not update placeholder package revision for package revision %+v to DB", placeholderPR.Key())
+		}
+		sent := placeholderPR.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Modified, placeholderPR)
+		klog.Infof("DB cache %+v: sent %d notifications for updated package revision %+v", placeholderPR.repo.Key(), sent, placeholderPR.Key())
 	}
 
 	return nil

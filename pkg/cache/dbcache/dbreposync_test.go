@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
@@ -40,10 +39,7 @@ func TestDBRepoSync(t *testing.T) {
 	ctx := context.TODO()
 
 	testRepo := createTestRepo(t, "my-ns", "my-repo-name")
-	testRepo.spec = &configapi.Repository{
-		Spec: configapi.RepositorySpec{},
-	}
-	mockCache.EXPECT().GetRepository(mock.Anything).Return(&testRepo).Maybe()
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
 
 	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
 	assert.Nil(t, err)
@@ -52,7 +48,7 @@ func TestDBRepoSync(t *testing.T) {
 		RepoSyncFrequency: 1 * time.Second,
 	}
 
-	testRepo.repositorySync = newRepositorySync(&testRepo, cacheOptions)
+	testRepo.repositorySync = newRepositorySync(testRepo, cacheOptions)
 
 	newPRDef := v1alpha1.PackageRevision{
 		Spec: v1alpha1.PackageRevisionSpec{
@@ -112,7 +108,7 @@ func TestDBRepoSync(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(prList)) // Sync should have added a cached PR that is in the external repo
 
-	testRepo.repositorySync.stop()
+	testRepo.repositorySync.Stop()
 
 	err = testRepo.Close(ctx)
 	assert.Nil(t, err)

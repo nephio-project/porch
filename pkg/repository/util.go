@@ -65,6 +65,20 @@ func toAPIConditionStatus(s kptfile.ConditionStatus) api.ConditionStatus {
 	}
 }
 
+func UpsertAPICondition(conditions []api.Condition, condition api.Condition) []api.Condition {
+	updatedConditions := []api.Condition{}
+
+	for _, conditionItem := range conditions {
+		if conditionItem.Type != condition.Type {
+			updatedConditions = append(updatedConditions, conditionItem)
+		}
+	}
+
+	updatedConditions = append(updatedConditions, condition)
+
+	return updatedConditions
+}
+
 // AnyBlockOwnerDeletionSet checks whether there are any ownerReferences in the Object
 // which have blockOwnerDeletion enabled (meaning either nil or true).
 func AnyBlockOwnerDeletionSet(obj metav1.ObjectMeta) bool {
@@ -106,4 +120,35 @@ func PrSlice2Map(prSlice []PackageRevision) map[PackageRevisionKey]PackageRevisi
 	}
 
 	return prMap
+}
+
+func KptUpstreamLock2APIUpstreamLock(kptLock kptfile.UpstreamLock) *api.UpstreamLock {
+	porchLock := &api.UpstreamLock{}
+
+	porchLock.Type = api.OriginType(kptLock.Type)
+	if kptLock.Git != nil {
+		porchLock.Git = &api.GitLock{
+			Repo:      kptLock.Git.Repo,
+			Directory: kptLock.Git.Directory,
+			Commit:    kptLock.Git.Commit,
+			Ref:       kptLock.Git.Ref,
+		}
+	}
+
+	return porchLock
+}
+
+func KptUpstreamLock2KptUpstream(kptLock kptfile.UpstreamLock) kptfile.Upstream {
+	kptUpstream := kptfile.Upstream{}
+
+	kptUpstream.Type = kptLock.Type
+	if kptLock.Git != nil {
+		kptUpstream.Git = &kptfile.Git{
+			Repo:      kptLock.Git.Repo,
+			Directory: kptLock.Git.Directory,
+			Ref:       kptLock.Git.Ref,
+		}
+	}
+
+	return kptUpstream
 }

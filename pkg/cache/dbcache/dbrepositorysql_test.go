@@ -54,17 +54,17 @@ func TestRepoDBWriteRead(t *testing.T) {
 		deployment: false,
 	}
 
-	repoDBWriteReadTest(t, dbRepo, dbRepoUpdate)
+	repoDBWriteReadTest(t, &dbRepo, &dbRepoUpdate)
 
 	dbRepo.repoKey.Path = ""
 	dbRepo.repoKey.PlaceholderWSname = ""
 	dbRepoUpdate.repoKey.Path = ""
 	dbRepoUpdate.repoKey.PlaceholderWSname = ""
-	repoDBWriteReadTest(t, dbRepo, dbRepoUpdate)
+	repoDBWriteReadTest(t, &dbRepo, &dbRepoUpdate)
 
 	dbRepoUpdate = dbRepository{}
 	dbRepoUpdate.repoKey = dbRepo.repoKey
-	repoDBWriteReadTest(t, dbRepo, dbRepoUpdate)
+	repoDBWriteReadTest(t, &dbRepo, &dbRepoUpdate)
 }
 
 func TestRepoDBSchema(t *testing.T) {
@@ -109,24 +109,24 @@ func TestRepoDBSchema(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func repoDBWriteReadTest(t *testing.T, dbRepo, dbRepoUpdate dbRepository) {
-	err := repoWriteToDB(context.TODO(), &dbRepo)
+func repoDBWriteReadTest(t *testing.T, dbRepo, dbRepoUpdate *dbRepository) {
+	err := repoWriteToDB(context.TODO(), dbRepo)
 	assert.Nil(t, err)
 
 	readRepo, err := repoReadFromDB(context.TODO(), dbRepo.Key())
 	assert.Nil(t, err)
-	assertReposEqual(t, &dbRepo, readRepo)
+	assertReposEqual(t, dbRepo, readRepo)
 
-	err = repoWriteToDB(context.TODO(), &dbRepoUpdate)
+	err = repoWriteToDB(context.TODO(), dbRepoUpdate)
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "violates unique constraint"))
 
-	err = repoUpdateDB(context.TODO(), &dbRepoUpdate)
+	err = repoUpdateDB(context.TODO(), dbRepoUpdate)
 	assert.Nil(t, err)
 
 	readRepo, err = repoReadFromDB(context.TODO(), dbRepo.Key())
 	assert.Nil(t, err)
-	assertReposEqual(t, &dbRepoUpdate, readRepo)
+	assertReposEqual(t, dbRepoUpdate, readRepo)
 
 	err = repoDeleteFromDB(context.TODO(), dbRepo.Key())
 	assert.Nil(t, err)
@@ -135,7 +135,7 @@ func repoDBWriteReadTest(t *testing.T, dbRepo, dbRepoUpdate dbRepository) {
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "no rows in result set"))
 
-	err = repoUpdateDB(context.TODO(), &dbRepoUpdate)
+	err = repoUpdateDB(context.TODO(), dbRepoUpdate)
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "no rows or multiple rows found for updating"))
 

@@ -47,17 +47,17 @@ type repositorySyncStats struct {
 func newRepositorySync(repo *dbRepository, options cachetypes.CacheOptions) *repositorySync {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	s := &repositorySync{
+	s := repositorySync{
 		repo:   repo,
 		cancel: cancel,
 	}
 
 	go s.syncForever(ctx, options.RepoSyncFrequency)
 
-	return s
+	return &s
 }
 
-func (s *repositorySync) stop() {
+func (s *repositorySync) Stop() {
 	if s != nil {
 		s.cancel()
 	}
@@ -228,7 +228,7 @@ func (s *repositorySync) cacheExternalPRs(ctx context.Context, externalPrMap map
 			tasks:     extAPIPR.Spec.Tasks,
 			resources: extPRResources.Spec.Resources,
 		}
-		_, err = s.repo.savePackageRevision(ctx, &dbPR)
+		_, err = s.repo.savePackageRevision(ctx, &dbPR, true)
 		if err != nil {
 			klog.Errorf("repositorySync %+v: failed to save external package revision %+v to database", s.repo.Key(), extPRKey)
 			return err

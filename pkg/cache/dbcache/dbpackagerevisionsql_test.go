@@ -89,7 +89,7 @@ func TestPackageRevisionDBWriteRead(t *testing.T) {
 		resources: map[string]string{"Hello.txt": "Hello", "Goodbye.txt": "Goodbye"},
 	}
 
-	pkgRevDBWriteReadTest(t, dbRepo, dbPkg, dbPR, dbPRUpdate)
+	pkgRevDBWriteReadTest(t, &dbRepo, dbPkg, dbPR, dbPRUpdate)
 
 	dbPkg.pkgKey.Path = ""
 	dbPR.pkgRevKey.PkgKey = dbPkg.Key()
@@ -98,17 +98,17 @@ func TestPackageRevisionDBWriteRead(t *testing.T) {
 	dbPRUpdate.lifecycle = "Proposed"
 	dbPR.resources = map[string]string{"Hello.txt": "Hello", "Goodbye.txt": "Goodbye"}
 	dbPRUpdate.resources = map[string]string{"Hello.txt": "Hello"}
-	pkgRevDBWriteReadTest(t, dbRepo, dbPkg, dbPR, dbPRUpdate)
+	pkgRevDBWriteReadTest(t, &dbRepo, dbPkg, dbPR, dbPRUpdate)
 
 	dbPRUpdate.lifecycle = "Draft"
 	dbPR.resources = map[string]string{"Hello.txt": "Hello", "Goodbye.txt": "Goodbye"}
 	dbPRUpdate.resources = map[string]string{"AAA": "ZZZ", "BBB": "YYY"}
-	pkgRevDBWriteReadTest(t, dbRepo, dbPkg, dbPR, dbPRUpdate)
+	pkgRevDBWriteReadTest(t, &dbRepo, dbPkg, dbPR, dbPRUpdate)
 
 	dbPRUpdate.lifecycle = "Draft"
 	dbPR.resources = map[string]string{"Hello.txt": "Hello", "Goodbye.txt": "Goodbye"}
 	dbPRUpdate.resources = map[string]string{}
-	pkgRevDBWriteReadTest(t, dbRepo, dbPkg, dbPR, dbPRUpdate)
+	pkgRevDBWriteReadTest(t, &dbRepo, dbPkg, dbPR, dbPRUpdate)
 }
 
 func TestPackageRevisionLatest(t *testing.T) {
@@ -118,7 +118,7 @@ func TestPackageRevisionLatest(t *testing.T) {
 
 	dbRepo := createTestRepo(t, "my-ns", "my-repo")
 	dbPkg := createTestPkg(t, dbRepo.Key(), "my-package")
-	dbPkg.repo = &dbRepo
+	dbPkg.repo = dbRepo
 
 	dbPR1 := dbPackageRevision{
 		pkgRevKey: repository.PackageRevisionKey{
@@ -244,14 +244,14 @@ func TestPackageRevisionLatest(t *testing.T) {
 func TestPackageRevisionResources(t *testing.T) {
 	dbRepo := createTestRepo(t, "my-ns", "my-repo")
 	dbPkg := createTestPkg(t, dbRepo.Key(), "my-package")
-	dbPkg.repo = &dbRepo
+	dbPkg.repo = dbRepo
 
 	_, _, err := pkgRevResourceReadFromDB(context.TODO(), repository.PackageRevisionKey{}, "")
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "no rows in result set"))
 
 	dbPR := createTestPR(t, dbPkg.Key(), "my_pr")
-	dbPR.repo = &dbRepo
+	dbPR.repo = dbRepo
 
 	_, _, err = pkgRevResourceReadFromDB(context.TODO(), dbPR.Key(), "resource.txt")
 	assert.NotNil(t, err)
@@ -528,21 +528,21 @@ func TestMultiPackageRevisionList(t *testing.T) {
 	assert.Equal(t, 0, len(readRepoPkgPRs(t, dbRepo22Pkgs)))
 }
 
-func pkgRevDBWriteReadTest(t *testing.T, dbRepo dbRepository, dbPkg dbPackage, dbPR, dbPRUpdate dbPackageRevision) {
+func pkgRevDBWriteReadTest(t *testing.T, dbRepo *dbRepository, dbPkg dbPackage, dbPR, dbPRUpdate dbPackageRevision) {
 	err := pkgRevWriteToDB(context.TODO(), &dbPR)
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "violates foreign key constraint"))
 
-	err = repoWriteToDB(context.TODO(), &dbRepo)
+	err = repoWriteToDB(context.TODO(), dbRepo)
 	assert.Nil(t, err)
 
-	dbPkg.repo = &dbRepo
+	dbPkg.repo = dbRepo
 	dbPkg.pkgKey.RepoKey = dbRepo.Key()
 
 	err = pkgWriteToDB(context.TODO(), &dbPkg)
 	assert.Nil(t, err)
 
-	dbPR.repo = &dbRepo
+	dbPR.repo = dbRepo
 	dbPR.pkgRevKey.PkgKey = dbPkg.Key()
 
 	err = pkgRevWriteToDB(context.TODO(), &dbPR)
