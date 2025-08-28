@@ -143,9 +143,6 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 		if pr.GetMeta().DeletionTimestamp != nil {
 			// The PR is already deleted from the DB so we just return the metadata version of this PR that is just about to be removed from memory
 			readPR = pr
-		} else if strings.Contains(err.Error(), "sql: no rows in result set") {
-			klog.Warningf("%q", err)
-			return nil, nil
 		} else {
 			return nil, fmt.Errorf("package revision read on DB failed %+v, %q", pr.Key(), err)
 		}
