@@ -24,6 +24,7 @@ import (
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
+	"github.com/nephio-project/porch/pkg/engine"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
@@ -423,6 +424,13 @@ func (pr *dbPackageRevision) publishPR(ctx context.Context, newLifecycle porchap
 
 	pr.pkgRevKey.Revision = latestRev + 1
 	pr.lifecycle = newLifecycle
+
+	if _, err := engine.PushPackageRevision(ctx, pr.repo.externalRepo, pr); err != nil {
+		klog.Warningf("push of package revision %+v to external repo failed, %q", pr.Key(), err)
+		pr.pkgRevKey.Revision = 0
+		pr.lifecycle = porchapi.PackageRevisionLifecycleProposed
+		return pkgerrors.Wrapf(err, "dbPackageRevision:publishPR: push of package revision %+v to external repo failed", pr.Key())
+	}
 
 	sent := pr.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Added, pr)
 	klog.V(2).Infof("DB cache %+v: sent %d notifications for added package revision %+v", pr.repo.Key(), sent, pr.Key())
