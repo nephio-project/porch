@@ -334,7 +334,7 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version int, re
 
 	err = cad.updatePkgRevMeta(ctx, repoPkgRev, newObj)
 	if err != nil {
-		if (apierrors.IsUnauthorized(err) || apierrors.IsForbidden(err)) && repository.AnyBlockOwnerDeletionSet(newObj) {
+		if (apierrors.IsUnauthorized(err) || apierrors.IsForbidden(err)) && repository.AnyBlockOwnerDeletionSet(newObj.ObjectMeta) {
 			return nil, fmt.Errorf("failed to update internal PackageRev object, because blockOwnerDeletion is enabled for some ownerReference "+
 				"(it is likely that the serviceaccount of porch-server does not have the rights to update finalizers in the owner object): %w", err)
 		}

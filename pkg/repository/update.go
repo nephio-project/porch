@@ -26,7 +26,7 @@ import (
 
 const LocalUpdateDir = "kpt-pkg-update-*"
 
-// defaultPackageUpdater implements packageUpdater interface.
+// DefaultPackageUpdater implements packageUpdater interface.
 type DefaultPackageUpdater struct{}
 
 func (m *DefaultPackageUpdater) Update(

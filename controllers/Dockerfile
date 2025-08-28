@@ -19,6 +19,7 @@ WORKDIR /go/src
 # cache deps before building and copying source so that we don't need to re-download as much
 # and so that source changes don't invalidate our downloaded layer
 COPY go.mod go.sum ./
+COPY ./third_party ./third_party
 
 RUN echo "Downloading porch modules ..." \
  && go mod download
@@ -41,7 +42,7 @@ COPY ./pkg ./pkg
 COPY ./internal ./internal
 COPY ./controllers ./controllers
 COPY ./func ./func
-COPY ./third_party ./third_party
+
 
 WORKDIR /go/src/controllers/
 RUN CGO_ENABLED=0 go build -o /porch-controllers -v .

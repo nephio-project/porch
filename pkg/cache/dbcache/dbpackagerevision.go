@@ -73,8 +73,10 @@ func (pr *dbPackageRevision) savePackageRevision(ctx context.Context, saveResour
 	_, span := tracer.Start(ctx, "dbPackageRevision::savePackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	pr.updated = time.Now()
-	pr.updatedBy = getCurrentUser()
+	if saveResources && pr.repo.deployment {
+		pr.updated = time.Now()
+		pr.updatedBy = getCurrentUser()
+	}
 
 	_, err := pkgRevReadFromDB(ctx, pr.Key(), false)
 	if err == nil {
@@ -119,9 +121,6 @@ func (pr *dbPackageRevision) UpdateLifecycle(ctx context.Context, newLifecycle p
 	}
 
 	pr.lifecycle = newLifecycle
-	pr.updated = time.Now()
-	pr.updatedBy = getCurrentUser()
-
 	return nil
 }
 
@@ -163,7 +162,7 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 	status := porchapi.PackageRevisionStatus{
 		UpstreamLock: lockCopy,
 		Deployment:   pr.repo.deployment,
-		Conditions:   repository.ToApiConditions(kf),
+		Conditions:   repository.ToAPIConditions(kf),
 	}
 
 	if porchapi.LifecycleIsPublished(readPR.Lifecycle(ctx)) {
@@ -208,7 +207,7 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 			RepositoryName: readPR.Key().RKey().Name,
 			Lifecycle:      readPR.Lifecycle(ctx),
 			Tasks:          readPR.tasks,
-			ReadinessGates: repository.ToApiReadinessGates(kf),
+			ReadinessGates: repository.ToAPIReadinessGates(kf),
 			WorkspaceName:  readPR.Key().WorkspaceName,
 			Revision:       readPR.Key().Revision,
 		},
@@ -352,7 +351,7 @@ func (pr *dbPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, 
 }
 
 func (pr *dbPackageRevision) ResourceVersion() string {
-	return fmt.Sprintf("%s.%d", pr.KubeObjectName(), pr.updated.Unix())
+	return fmt.Sprintf("%s.%d", pr.KubeObjectName(), pr.updated.UnixMicro())
 }
 
 func (pr *dbPackageRevision) Delete(ctx context.Context, deleteExternal bool) error {
@@ -401,7 +400,7 @@ func (pr *dbPackageRevision) UpdateResources(ctx context.Context, new *porchapi.
 }
 
 func (pr *dbPackageRevision) publishPR(ctx context.Context, newLifecycle porchapi.PackageRevisionLifecycle) error {
-	_, span := tracer.Start(ctx, "dbPackageRevision::publishToExternalRepo", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "dbPackageRevision::publishPR", trace.WithAttributes())
 	defer span.End()
 
 	latestRev, err := pkgRevGetlatestRevFromDB(ctx, pr.Key().PkgKey)
@@ -412,7 +411,7 @@ func (pr *dbPackageRevision) publishPR(ctx context.Context, newLifecycle porchap
 	pr.pkgRevKey.Revision = latestRev + 1
 	pr.lifecycle = newLifecycle
 
-	if err := engine.PushPackageRevision(ctx, pr.repo.externalRepo, pr); err != nil {
+	if _, err := engine.PushPackageRevision(ctx, pr.repo.externalRepo, pr); err != nil {
 		klog.Warningf("push of package revision %+v to external repo failed, %q", pr.Key(), err)
 		pr.pkgRevKey.Revision = 0
 		pr.lifecycle = porchapi.PackageRevisionLifecycleProposed
@@ -437,8 +436,6 @@ func (pr *dbPackageRevision) updateLifecycleOnPublishedPR(ctx context.Context, n
 	defer span.End()
 
 	pr.lifecycle = newLifecycle
-	pr.updated = time.Now()
-	pr.updatedBy = getCurrentUser()
 
 	_, err := pr.savePackageRevision(ctx, false)
 	return err

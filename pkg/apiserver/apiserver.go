@@ -192,6 +192,9 @@ func (c completedConfig) getCoreV1Client() (*corev1client.CoreV1Client, error) {
 
 // New returns a new instance of PorchServer from the given config.
 func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
+	// TODO: REMOVE AFTER ASYNC IMPLEMENTATION IS READY.
+	// Set the default request timeout just above hardcoded ctx timeout
+	c.GenericConfig.RequestTimeout = 291 * time.Second
 	genericServer, err := c.GenericConfig.New("porch-apiserver", genericapiserver.NewEmptyDelegate())
 	if err != nil {
 		return nil, err
@@ -215,11 +218,11 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	resolverChain := []porch.Resolver{
 		porch.NewBasicAuthResolver(),
 		porch.NewBearerTokenAuthResolver(),
-		porch.NewCaBundleResolver(),
 		porch.NewGcloudWIResolver(coreV1Client, stsClient),
 	}
 
 	credentialResolver := porch.NewCredentialResolver(coreClient, resolverChain)
+	caBundleResolver := porch.NewCredentialResolver(coreClient, []porch.Resolver{porch.NewCaBundleResolver()})
 	referenceResolver := porch.NewReferenceResolver(coreClient)
 	userInfoProvider := &porch.ApiserverUserInfoProvider{}
 
@@ -228,6 +231,7 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	c.ExtraConfig.CacheOptions.CoreClient = coreClient
 	c.ExtraConfig.CacheOptions.RepoPRChangeNotifier = watcherMgr
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.CredentialResolver = credentialResolver
+	c.ExtraConfig.CacheOptions.ExternalRepoOptions.CaBundleResolver = caBundleResolver
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.UserInfoProvider = userInfoProvider
 
 	cacheImpl, err := cache.GetCacheImpl(ctx, c.ExtraConfig.CacheOptions)

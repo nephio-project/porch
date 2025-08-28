@@ -365,12 +365,12 @@ func (p *ociPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 
 			Lifecycle:      p.Lifecycle(ctx),
 			Tasks:          p.tasks,
-			ReadinessGates: repository.ToApiReadinessGates(kf),
+			ReadinessGates: repository.ToAPIReadinessGates(kf),
 		},
 		Status: v1alpha1.PackageRevisionStatus{
 			// TODO:        UpstreamLock,
 			Deployment: p.parent.deployment,
-			Conditions: repository.ToApiConditions(kf),
+			Conditions: repository.ToAPIConditions(kf),
 		},
 	}, nil
 }

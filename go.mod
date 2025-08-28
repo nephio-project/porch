@@ -4,6 +4,8 @@ go 1.23.8
 
 retract v1.3.0
 
+replace k8s.io/apiserver => ./third_party/k8s.io/apiserver
+
 require (
 	cloud.google.com/go/iam v1.1.12
 	github.com/GoogleContainerTools/kpt v1.0.0-beta.48
@@ -107,6 +109,7 @@ require (
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/go-logr/zapr v1.3.0 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
 	github.com/go-openapi/swag v0.22.4 // indirect

@@ -29,5 +29,6 @@ type ExternalRepoOptions struct {
 	LocalDirectory         string
 	UseUserDefinedCaBundle bool
 	CredentialResolver     repository.CredentialResolver
+	CaBundleResolver       repository.CredentialResolver
 	UserInfoProvider       repository.UserInfoProvider
 }
