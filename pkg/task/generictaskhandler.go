@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"strings"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -367,7 +368,11 @@ func healConfig(old, new map[string]string) (map[string]string, error) {
 				if n.GetNamespace() == original.GetNamespace() &&
 					n.GetName() == original.GetName() &&
 					n.GetApiVersion() == original.GetApiVersion() &&
-					n.GetKind() == original.GetKind() {
+					n.GetKind() == original.GetKind() &&
+					// Support ytt templates with #@ and #! comments
+					!strings.Contains(n.MustString(), "#@") && !strings.Contains(original.MustString(), "#@") &&
+					!strings.Contains(n.MustString(), "#!") && !strings.Contains(original.MustString(), "#!") {
+
 					err = comments.CopyComments(original, n)
 					if err != nil {
 						return nil, fmt.Errorf("failed to copy comments: %w", err)

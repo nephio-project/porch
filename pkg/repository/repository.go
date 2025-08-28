@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package repository defines Porch generic repository interfaces and provides utility functions for repositories.
 package repository
 
 import (
@@ -265,7 +266,7 @@ type PackageRevision interface {
 	// GetUpstreamLock returns the kpt lock information.
 	GetUpstreamLock(ctx context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error)
 
-	// GetKptfile returns the Kptfile for hte package
+	// GetKptfile returns the Kptfile for the package
 	GetKptfile(ctx context.Context) (kptfile.KptFile, error)
 
 	// GetLock returns the current revision's lock information.
