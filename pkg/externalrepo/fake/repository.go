@@ -56,7 +56,7 @@ func (r *Repository) Version(ctx context.Context) (string, error) {
 
 func (r *Repository) ListPackageRevisions(_ context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
 	if r.ThrowError {
-		return nil, errors.New("Fake Repository threw this error because it was told to")
+		return nil, errors.New("fake repository threw this error because it was told to")
 	}
 
 	var revs []repository.PackageRevision

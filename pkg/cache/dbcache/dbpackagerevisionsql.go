@@ -372,24 +372,27 @@ func pkgRevUpdateDB(ctx context.Context, pr *dbPackageRevision, updateResources 
         UPDATE package_revisions SET package_k8s_name=$3, revision=$4, meta=$5, spec=$6, updated=$7, updatedby=$8, lifecycle=$9, exists_on_ext=$10, deleting_on_ext=$11, ext_pr_id=$12, tasks=$13
         WHERE k8s_name_space=$1 AND k8s_name=$2
 	`
+
 	if pr.pkgRevKey.Revision == -1 {
 		sqlStatement = `
-    INSERT INTO package_revisions (
-        k8s_name_space, k8s_name, package_k8s_name, revision, meta, spec, updated, updatedby, lifecycle, tasks
-    ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
-    )
-    ON CONFLICT (k8s_name_space, k8s_name)
-    DO UPDATE SET
-        package_k8s_name = EXCLUDED.package_k8s_name,
-        meta = EXCLUDED.meta,
-		revision = EXCLUDED.revision,
-        spec = EXCLUDED.spec,
-        updated = EXCLUDED.updated,
-        updatedby = EXCLUDED.updatedby,
-        lifecycle = EXCLUDED.lifecycle,
-        tasks = EXCLUDED.tasks;
-	`
+    		INSERT INTO package_revisions (
+        		k8s_name_space, k8s_name, package_k8s_name, revision, meta, spec, updated, updatedby, lifecycle, exists_on_ext, deleting_on_ext, ext_pr_id, tasks
+    		) VALUES (
+        		$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+    		)
+    		ON CONFLICT (k8s_name_space, k8s_name) DO UPDATE SET
+        		package_k8s_name = EXCLUDED.package_k8s_name,
+        		meta             = EXCLUDED.meta,
+				revision         = EXCLUDED.revision,
+        		spec             = EXCLUDED.spec,
+        		updated          = EXCLUDED.updated,
+        		updatedby        = EXCLUDED.updatedby,
+        		lifecycle        = EXCLUDED.lifecycle,
+        		exists_on_ext    = EXCLUDED.exists_on_ext,
+        		deleting_on_ext  = EXCLUDED.deleting_on_ext,
+        		ext_pr_id        = EXCLUDED.ext_pr_id,
+        		tasks            = EXCLUDED.tasks;
+		`
 	}
 
 	klog.V(6).Infof("pkgRevUpdateDB: running query %q on package revision %+v", sqlStatement, pr)
