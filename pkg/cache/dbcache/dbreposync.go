@@ -218,6 +218,8 @@ func (s *repositorySync) cacheExternalPRs(ctx context.Context, externalPrMap map
 			return err
 		}
 
+		_, extPRUpstreamLock, _ := extPR.GetLock()
+
 		dbPR := dbPackageRevision{
 			repo:      s.repo,
 			pkgRevKey: extPRKey,
@@ -225,6 +227,7 @@ func (s *repositorySync) cacheExternalPRs(ctx context.Context, externalPrMap map
 			spec:      &extAPIPR.Spec,
 			updated:   extAPIPR.CreationTimestamp.Time,
 			lifecycle: extAPIPR.Spec.Lifecycle,
+			extPRID:   extPRUpstreamLock,
 			tasks:     extAPIPR.Spec.Tasks,
 			resources: extPRResources.Spec.Resources,
 		}
