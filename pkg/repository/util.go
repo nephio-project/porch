@@ -25,7 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func ToApiReadinessGates(kf kptfile.KptFile) []api.ReadinessGate {
+func ToAPIReadinessGates(kf kptfile.KptFile) []api.ReadinessGate {
 	var readinessGates []api.ReadinessGate
 	if kf.Info != nil {
 		for _, rg := range kf.Info.ReadinessGates {
@@ -37,13 +37,13 @@ func ToApiReadinessGates(kf kptfile.KptFile) []api.ReadinessGate {
 	return readinessGates
 }
 
-func ToApiConditions(kf kptfile.KptFile) []api.Condition {
+func ToAPIConditions(kf kptfile.KptFile) []api.Condition {
 	var conditions []api.Condition
 	if kf.Status != nil && kf.Status.Conditions != nil {
 		for _, s := range kf.Status.Conditions {
 			conditions = append(conditions, api.Condition{
 				Type:    s.Type,
-				Status:  toAPIConditionStatus(s.Status),
+				Status:  ToAPIConditionStatus(s.Status),
 				Reason:  s.Reason,
 				Message: s.Message,
 			})
@@ -52,7 +52,7 @@ func ToApiConditions(kf kptfile.KptFile) []api.Condition {
 	return conditions
 }
 
-func toAPIConditionStatus(s kptfile.ConditionStatus) api.ConditionStatus {
+func ToAPIConditionStatus(s kptfile.ConditionStatus) api.ConditionStatus {
 	switch s {
 	case kptfile.ConditionTrue:
 		return api.ConditionTrue

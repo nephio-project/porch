@@ -146,7 +146,7 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 	status := porchapi.PackageRevisionStatus{
 		UpstreamLock: repository.KptUpstreamLock2APIUpstreamLock(upstreamLock),
 		Deployment:   pr.repo.deployment,
-		Conditions:   repository.ToApiConditions(kf),
+		Conditions:   repository.ToAPIConditions(kf),
 	}
 
 	if porchapi.LifecycleIsPublished(readPR.Lifecycle(ctx)) {
@@ -211,7 +211,7 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 			RepositoryName: readPR.Key().RKey().Name,
 			Lifecycle:      readPR.Lifecycle(ctx),
 			Tasks:          readPR.tasks,
-			ReadinessGates: repository.ToApiReadinessGates(kf),
+			ReadinessGates: repository.ToAPIReadinessGates(kf),
 			WorkspaceName:  readPR.Key().WorkspaceName,
 			Revision:       readPR.Key().Revision,
 		},

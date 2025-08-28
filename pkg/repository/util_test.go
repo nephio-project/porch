@@ -81,32 +81,32 @@ func TestComposePkgRevObjName(t *testing.T) {
 func TestToAPIReadinessGate(t *testing.T) {
 	kf := kptfile.KptFile{}
 
-	readinessGates := ToApiReadinessGates(kf)
+	readinessGates := ToAPIReadinessGates(kf)
 	assert.Equal(t, 0, len(readinessGates))
 
 	kf.Info = &kptfile.PackageInfo{
 		ReadinessGates: []kptfile.ReadinessGate{},
 	}
-	readinessGates = ToApiReadinessGates(kf)
+	readinessGates = ToAPIReadinessGates(kf)
 	assert.Equal(t, 0, len(readinessGates))
 
 	kf.Info.ReadinessGates = append(kf.Info.ReadinessGates, kptfile.ReadinessGate{
 		ConditionType: "AConditionType",
 	})
-	readinessGates = ToApiReadinessGates(kf)
+	readinessGates = ToAPIReadinessGates(kf)
 	assert.Equal(t, 1, len(readinessGates))
 }
 
 func TestToAPIConditions(t *testing.T) {
 	kf := kptfile.KptFile{}
 
-	conditions := ToApiConditions(kf)
+	conditions := ToAPIConditions(kf)
 	assert.Equal(t, 0, len(conditions))
 
 	kf.Status = &kptfile.Status{
 		Conditions: []kptfile.Condition{},
 	}
-	conditions = ToApiConditions(kf)
+	conditions = ToAPIConditions(kf)
 	assert.Equal(t, 0, len(conditions))
 
 	kf.Status.Conditions = append(kf.Status.Conditions, kptfile.Condition{
@@ -115,14 +115,14 @@ func TestToAPIConditions(t *testing.T) {
 		Reason:  "A Reason",
 		Message: "A Message",
 	})
-	conditions = ToApiConditions(kf)
+	conditions = ToAPIConditions(kf)
 	assert.Equal(t, 1, len(conditions))
 }
 
 func TestToAPIConditionStatus(t *testing.T) {
-	assert.Equal(t, api.ConditionTrue, toAPIConditionStatus(kptfile.ConditionTrue))
-	assert.Equal(t, api.ConditionFalse, toAPIConditionStatus(kptfile.ConditionFalse))
-	assert.Equal(t, api.ConditionUnknown, toAPIConditionStatus(kptfile.ConditionUnknown))
+	assert.Equal(t, api.ConditionTrue, ToAPIConditionStatus(kptfile.ConditionTrue))
+	assert.Equal(t, api.ConditionFalse, ToAPIConditionStatus(kptfile.ConditionFalse))
+	assert.Equal(t, api.ConditionUnknown, ToAPIConditionStatus(kptfile.ConditionUnknown))
 }
 
 func TestUpsertAPICondition(t *testing.T) {
