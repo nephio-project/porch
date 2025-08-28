@@ -37,7 +37,7 @@ data:
 	assert.Equal(t, filters.Skip, strat)
 }
 
-func TestNotEqualWillKeepDest(t *testing.T) {
+func TestNotEqualWillSkip(t *testing.T) {
 	orig := yaml.MustParse(`
 apiVersion: v1
 kind: ConfigMap
@@ -50,5 +50,5 @@ data:
 	dest.SetDataMap(map[string]string{"foo.txt": "baz"})
 
 	strat := GetHandlingStrategy(orig, nil, dest)
-	assert.Equal(t, filters.KeepDest, strat)
+	assert.Equal(t, filters.Skip, strat)
 }
