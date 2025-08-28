@@ -120,7 +120,7 @@ func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revision
 		klog.Infof("Loaded tasks for package %s: %s", gitPrKey, marshalledTasks)
 	}
 
-	return &gitPackageRevision{
+	pr := &gitPackageRevision{
 		prKey:     gitPrKey,
 		repo:      repo,
 		updated:   updated,
@@ -129,7 +129,13 @@ func (p *packageListEntry) buildGitPackageRevision(ctx context.Context, revision
 		tree:      p.treeHash,
 		commit:    p.parent.commit.Hash,
 		tasks:     tasks,
-	}, nil
+	}
+	//TODO:This is resolving a circular dependency with looking up the repository. Maybe there is a better way?
+	pr.lifecycle, err = p.parent.parent.getLifecycle(pr)
+	if err != nil {
+		return nil, err
+	}
+	return pr, nil
 }
 
 // DiscoverPackagesOptions holds the configuration for walking a git tree
