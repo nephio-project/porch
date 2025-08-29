@@ -142,7 +142,6 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 	readPR, err := pkgRevReadFromDB(ctx, pr.Key(), false)
 	if err != nil {
 		if pr.GetMeta().DeletionTimestamp != nil || strings.Contains(err.Error(), "sql: no rows in result set") {
-			// The no rows in result set error is expected and not worth returning an error when the PR is being deleted or created
 			// The PR is already deleted from the DB so we just return the metadata version of this PR that is just about to be removed from memory
 			readPR = pr
 		} else {
