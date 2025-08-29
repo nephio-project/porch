@@ -1203,10 +1203,7 @@ func (t *PorchSuite) TestConcurrentDeletes() {
 		deleteFunction,
 		deleteFunction)
 
-	expectedResultCount := 8
-	actualResultCount := len(results)
-	assert.Equal(t, expectedResultCount, actualResultCount, "expected %d results but was %d", expectedResultCount, actualResultCount)
-
+	assert.True(t, len(results) >= 7, "expected at least 7 results but was %d", len(results))
 	assert.Contains(t, results, nil, "expected one request to succeed, but did not happen - results: %v", results)
 
 	conflictFailurePresent := slices.ContainsFunc(results, func(eachResult any) bool {

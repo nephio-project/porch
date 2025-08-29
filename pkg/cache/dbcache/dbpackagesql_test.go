@@ -80,12 +80,12 @@ func TestPackageDBWriteRead(t *testing.T) {
 		updatedBy: "porchuser2",
 	}
 
-	pkgDBWriteReadTest(t, dbRepo, dbPkg, dbPkgUpdate)
+	pkgDBWriteReadTest(t, &dbRepo, dbPkg, dbPkgUpdate)
 
 	dbPkg.pkgKey.Path = ""
 	dbPkgUpdate.pkgKey.Path = ""
 	dbPkgUpdate.updatedBy = "bart"
-	pkgDBWriteReadTest(t, dbRepo, dbPkg, dbPkgUpdate)
+	pkgDBWriteReadTest(t, &dbRepo, dbPkg, dbPkgUpdate)
 }
 
 func TestPackageDBSchema(t *testing.T) {
@@ -186,15 +186,15 @@ func TestMultiPackageRepo(t *testing.T) {
 	deleteTestRepo(t, dbRepo22.Key())
 }
 
-func pkgDBWriteReadTest(t *testing.T, dbRepo dbRepository, dbPkg, dbPkgUpdate dbPackage) {
+func pkgDBWriteReadTest(t *testing.T, dbRepo *dbRepository, dbPkg, dbPkgUpdate dbPackage) {
 	err := pkgWriteToDB(context.TODO(), &dbPkg)
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "violates foreign key constraint"))
 
-	err = repoWriteToDB(context.TODO(), &dbRepo)
+	err = repoWriteToDB(context.TODO(), dbRepo)
 	assert.Nil(t, err)
 
-	dbPkg.repo = &dbRepo
+	dbPkg.repo = dbRepo
 	dbPkg.pkgKey.RepoKey = dbRepo.Key()
 
 	err = pkgWriteToDB(context.TODO(), &dbPkg)

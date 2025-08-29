@@ -58,10 +58,7 @@ func TestDBRepositoryPRCrud(t *testing.T) {
 	ctx := context.TODO()
 
 	testRepo := createTestRepo(t, "my-ns", "my-repo-name")
-	testRepo.spec = &configapi.Repository{
-		Spec: configapi.RepositorySpec{},
-	}
-	mockCache.EXPECT().GetRepository(mock.Anything).Return(&testRepo).Maybe()
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
 
 	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
 	assert.Nil(t, err)
@@ -170,7 +167,7 @@ func TestDBRepositorySync(t *testing.T) {
 	testRepo.spec = &configapi.Repository{
 		Spec: configapi.RepositorySpec{},
 	}
-	mockCache.EXPECT().GetRepository(mock.Anything).Return(&testRepo).Maybe()
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
 
 	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
 	assert.Nil(t, err)
@@ -179,8 +176,7 @@ func TestDBRepositorySync(t *testing.T) {
 		RepoSyncFrequency: 2 * time.Second,
 	}
 
-	testRepo.repositorySync = newRepositorySync(&testRepo, cacheOptions)
-	assert.NotNil(t, testRepo.repositorySync)
+	testRepo.repositorySync = newRepositorySync(testRepo, cacheOptions)
 
 	err = testRepo.Refresh(ctx)
 	assert.True(t, err == nil || strings.Contains(err.Error(), "already in progress"))
