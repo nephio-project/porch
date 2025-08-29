@@ -59,12 +59,13 @@ func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.
 	c.mainLock.RUnlock()
 
 	dbRepo := &dbRepository{
-		repoKey:    repoKey,
-		meta:       repositorySpec.ObjectMeta,
-		spec:       repositorySpec,
-		updated:    time.Now(),
-		updatedBy:  getCurrentUser(),
-		deployment: repositorySpec.Spec.Deployment,
+		repoKey:              repoKey,
+		meta:                 repositorySpec.ObjectMeta,
+		spec:                 repositorySpec,
+		updated:              time.Now(),
+		updatedBy:            getCurrentUser(),
+		deployment:           repositorySpec.Spec.Deployment,
+		repoPRChangeNotifier: c.options.RepoPRChangeNotifier,
 	}
 
 	err = dbRepo.OpenRepository(ctx, c.options.ExternalRepoOptions)

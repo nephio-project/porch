@@ -22,6 +22,7 @@ import (
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -36,14 +37,15 @@ import (
 var _ repository.Repository = &dbRepository{}
 
 type dbRepository struct {
-	repoKey        repository.RepositoryKey
-	meta           metav1.ObjectMeta
-	spec           *configapi.Repository
-	externalRepo   repository.Repository
-	repositorySync *repositorySync
-	updated        time.Time
-	updatedBy      string
-	deployment     bool
+	repoKey              repository.RepositoryKey
+	meta                 metav1.ObjectMeta
+	spec                 *configapi.Repository
+	externalRepo         repository.Repository
+	repositorySync       *repositorySync
+	updated              time.Time
+	updatedBy            string
+	deployment           bool
+	repoPRChangeNotifier cachetypes.RepoPRChangeNotifier
 }
 
 func (r *dbRepository) KubeObjectName() string {
