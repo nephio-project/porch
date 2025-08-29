@@ -23,6 +23,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -85,7 +86,7 @@ func (t *PorchSuite) TestGitRepository() {
 							Type: "git",
 							Git: &porchapi.GitPackage{
 								Repo:      t.gcpBlueprintsRepo,
-								Ref:       "bucket-blueprint-v0.4.3",
+								Ref:       t.gcpBucketRef,
 								Directory: "catalog/bucket",
 								SecretRef: porchapi.SecretRef{
 									Name: t.CreateGcpPackageRevisionSecret("test-bucket"),
@@ -1804,7 +1805,7 @@ func (t *PorchSuite) TestBuiltinFunctionEvaluator() {
 							Type: "git",
 							Git: &porchapi.GitPackage{
 								Repo:      t.gcpBlueprintsRepo,
-								Ref:       "bucket-blueprint-v0.4.3",
+								Ref:       t.gcpBucketRef,
 								Directory: "catalog/bucket",
 								SecretRef: porchapi.SecretRef{
 									Name: t.CreateGcpPackageRevisionSecret("test-builtin-fn-bucket"),
@@ -1872,7 +1873,7 @@ func (t *PorchSuite) TestExecFunctionEvaluator() {
 							Type: "git",
 							Git: &porchapi.GitPackage{
 								Repo:      t.gcpBlueprintsRepo,
-								Ref:       "bucket-blueprint-v0.4.3",
+								Ref:       t.gcpBucketRef,
 								Directory: "catalog/bucket",
 								SecretRef: porchapi.SecretRef{
 									Name: t.CreateGcpPackageRevisionSecret("test-fn-bucket"),
@@ -1945,7 +1946,7 @@ func (t *PorchSuite) TestPodFunctionEvaluatorWithDistrolessImage() {
 							Type: "git",
 							Git: &porchapi.GitPackage{
 								Repo:      t.gcpBlueprintsRepo,
-								Ref:       "redis-bucket-blueprint-v0.3.2",
+								Ref:       t.gcpRedisBucketRef,
 								Directory: "catalog/redis-bucket",
 								SecretRef: porchapi.SecretRef{
 									Name: t.CreateGcpPackageRevisionSecret("test-fn-redis-bucket"),
@@ -1998,14 +1999,6 @@ func (t *PorchSuite) TestPodEvaluator() {
 	generateFolderImage := t.gcrPrefix + "/generate-folders:v0.1.1" // This function is a TS based function.
 	setAnnotationsImage := t.gcrPrefix + "/set-annotations:v0.1.3"  // set-annotations:v0.1.3 is an older version that porch maps neither to built-in nor exec.
 
-	// This is needed as this specific commit does not contain the config.kubernetes.io/local-config annotation in the kptfile.
-	// Furthermore, set-annotations is not cached - therefore when using an internal repos, need to pull the image without gcr prefix.
-	// Internal kptifle requires no gcr prefix in mutators and no config.kubernetes.io/local-config annotation.
-	repoRef := "783380ce4e6c3f21e9e90055b3a88bada0410154"
-	if os.Getenv(gcrPrefixEnv) != "" {
-		repoRef = os.Getenv(podEvalRefEnv)
-	}
-
 	// Register the repository as 'git-fn'
 	t.RegisterMainGitRepositoryF("git-fn-pod")
 
@@ -2026,7 +2019,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 							Type: "git",
 							Git: &porchapi.GitPackage{
 								Repo:      t.gcpBlueprintsRepo,
-								Ref:       repoRef,
+								Ref:       t.gcpHierarchyRef,
 								Directory: "catalog/hierarchy/simple",
 								SecretRef: porchapi.SecretRef{
 									Name: t.CreateGcpPackageRevisionSecret("test-fn-pod-hierarchy-workspace-1"),
@@ -2112,7 +2105,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 							Type: "git",
 							Git: &porchapi.GitPackage{
 								Repo:      t.gcpBlueprintsRepo,
-								Ref:       repoRef,
+								Ref:       t.gcpRedisBucketRef,
 								Directory: "catalog/hierarchy/simple",
 								SecretRef: porchapi.SecretRef{
 									Name: t.CreateGcpPackageRevisionSecret("test-fn-pod-hierarchy-workspace-2"),
@@ -2180,7 +2173,7 @@ func (t *PorchSuite) TestPodEvaluatorWithFailure() {
 							Type: "git",
 							Git: &porchapi.GitPackage{
 								Repo:      t.gcpBlueprintsRepo,
-								Ref:       "bucket-blueprint-v0.4.3",
+								Ref:       t.gcpBucketRef,
 								Directory: "catalog/bucket",
 								SecretRef: porchapi.SecretRef{
 									Name: t.CreateGcpPackageRevisionSecret("test-fn-pod-bucket"),
@@ -2237,7 +2230,7 @@ func (t *PorchSuite) TestFailedPodEvictionAndRecovery() {
 							Type: "git",
 							Git: &porchapi.GitPackage{
 								Repo:      t.gcpBlueprintsRepo,
-								Ref:       "bucket-blueprint-v0.4.3",
+								Ref:       t.gcpBucketRef,
 								Directory: "catalog/bucket",
 								SecretRef: porchapi.SecretRef{
 									Name: t.CreateGcpPackageRevisionSecret("test-fn-pod-bucket"),
@@ -2406,7 +2399,7 @@ func (t *PorchSuite) TestRepositoryError() {
 		})
 	})
 
-	giveUp := time.Now().Add(60 * time.Second)
+	giveUp := time.Now().Add(120 * time.Second)
 
 	for {
 		if time.Now().After(giveUp) {
@@ -3353,4 +3346,124 @@ func (t *PorchSuite) TestCreatePackageRevisionRollback() {
 	// Verify that the package revision was not created
 	_, err = t.Clientset.PorchV1alpha1().PackageRevisions(t.Namespace).Get(ctx, pr.Name, metav1.GetOptions{})
 	assert.True(t, apierrors.IsNotFound(err), "Expected package revision to be deleted after rollback")
+}
+
+func (t *PorchSuite) TestPackageRevisionListWithTwoHangingRepositories() {
+	const workingRepoName = "working-repo"
+
+	hangingURLs := []string{
+		"http://10.255.255.1/test.git",
+		"http://10.255.255.2/test.git",
+	}
+
+	// Create hanging repositories in parallel
+	var wg sync.WaitGroup
+	for i, url := range hangingURLs {
+		wg.Add(1)
+		go func(i int, url string) {
+			defer wg.Done()
+			repoName := fmt.Sprintf("hanging-repo-%d", i+1)
+			repo := &configapi.Repository{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       configapi.TypeRepository.Kind,
+					APIVersion: configapi.TypeRepository.APIVersion(),
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      repoName,
+					Namespace: t.Namespace,
+				},
+				Spec: configapi.RepositorySpec{
+					Description: "Hanging repo for blocking test",
+					Type:        configapi.RepositoryTypeGit,
+					Git: &configapi.GitRepository{
+						Repo: url,
+					},
+				},
+			}
+			t.CreateF(repo)
+			t.Cleanup(func() {
+				t.DeleteF(repo)
+			})
+		}(i, url)
+	}
+	wg.Wait()
+
+	// Create working repository
+	workingRepo := &configapi.Repository{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       configapi.TypeRepository.Kind,
+			APIVersion: configapi.TypeRepository.APIVersion(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      workingRepoName,
+			Namespace: t.Namespace,
+		},
+		Spec: configapi.RepositorySpec{
+			Description: "Working Git repository",
+			Type:        configapi.RepositoryTypeGit,
+			Git: &configapi.GitRepository{
+				Repo: t.GitConfig("working-repo").Repo,
+			},
+		},
+	}
+	t.CreateF(workingRepo)
+	t.Cleanup(func() {
+		t.DeleteF(workingRepo)
+	})
+
+	// Create a PackageRevision in the working repo
+	pr := &porchapi.PackageRevision{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PackageRevision",
+			APIVersion: porchapi.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: t.Namespace,
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			PackageName:    "test-package",
+			WorkspaceName:  "workspace",
+			RepositoryName: workingRepoName,
+			Tasks: []porchapi.Task{
+				{
+					Type: porchapi.TaskTypeInit,
+					Init: &porchapi.PackageInitTaskSpec{
+						Description: "Initial commit",
+					},
+				},
+			},
+		},
+	}
+	t.CreateF(pr)
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		err := t.Client.Delete(ctx, pr)
+		if err != nil {
+			t.Logf("Cleanup warning: could not delete PackageRevision: %v", err)
+		}
+	})
+
+	found := false
+	for i := 0; i < 5; i++ {
+		var list porchapi.PackageRevisionList
+		t.ListF(&list, client.InNamespace(t.Namespace))
+
+		for _, item := range list.Items {
+			t.Logf("Found PackageRevision: %s (repo: %s)", item.Name, item.Spec.RepositoryName)
+			if item.Spec.RepositoryName == workingRepoName {
+				found = true
+				break
+			}
+		}
+		if found {
+			break
+		}
+		t.Logf("Retry %d: PackageRevision from working repo not found yet", i+1)
+		time.Sleep(2 * time.Second)
+	}
+
+	if !found {
+		t.Errorf("Expected PackageRevisions from working repository, got none")
+	}
 }

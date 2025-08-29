@@ -10,6 +10,14 @@ packages:
         config:
           dir: "test/mockery/mocks/external/{{.InterfaceDirRelative}}"
           outpkg: "{{.PackageName}}"
+      SubResourceWriter:
+        config:
+          dir: "test/mockery/mocks/external/{{.InterfaceDirRelative}}"
+          outpkg: "{{.PackageName}}"
+      WithWatch:
+        config:
+          dir: "test/mockery/mocks/external/{{.InterfaceDirRelative}}"
+          outpkg: "{{.PackageName}}"
   github.com/nephio-project/porch/pkg/cache/crcache/meta:
     interfaces:
       MetadataStore:
