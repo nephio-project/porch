@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -58,7 +59,9 @@ func K8SName2PkgRevWSName(k8sNamePkg, k8sName string) string {
 }
 
 func PkgRevK8sName2Key(k8sNamespace, k8sName string) (PackageRevisionKey, error) {
-	parsedPRSlice := util.SplitIn3OnDelimiter(k8sName, ".")
+	conditionedK8SName, workspaceName := getPRWorkspaceName(k8sName)
+
+	parsedPRSlice := util.SplitIn3OnDelimiter(conditionedK8SName, ".")
 	parsedPkgSlice := util.SplitIn3OnDelimiter(parsedPRSlice[0]+"."+parsedPRSlice[1], ".")
 
 	packagePath := strings.ReplaceAll(parsedPkgSlice[1], ".", "/")
@@ -75,8 +78,22 @@ func PkgRevK8sName2Key(k8sNamespace, k8sName string) (PackageRevisionKey, error)
 			Path:    packagePath,
 			Package: parsedPkgSlice[2],
 		},
-		WorkspaceName: parsedPRSlice[2],
+		WorkspaceName: workspaceName,
 	}, nil
+}
+
+func getPRWorkspaceName(k8sName string) (string, string) {
+	if !strings.Contains(k8sName, ".") {
+		return k8sName, ""
+	}
+	if semverFound, _ := regexp.MatchString("\\.v[0-9\\.]*[0-9]$", k8sName); semverFound {
+		beforeWorkspaceName := k8sName[:strings.LastIndex(k8sName, ".v")]
+		workspaceName := k8sName[strings.LastIndex(k8sName, ".v")+1:]
+
+		return beforeWorkspaceName + "." + strings.ReplaceAll(workspaceName, ".", "-"), workspaceName
+	} else {
+		return k8sName, k8sName[strings.LastIndex(k8sName, ".")+1:]
+	}
 }
 
 func (k PackageRevisionKey) DeepCopy(outKey *PackageRevisionKey) {

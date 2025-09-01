@@ -173,3 +173,49 @@ func TestPackageRevisionKey(t *testing.T) {
 	_, err = PkgRevK8sName2Key("my-ns", "")
 	assert.NotNil(t, err)
 }
+
+func TestGetPRWorkspaceName(t *testing.T) {
+	conditionedName, wsName := getPRWorkspaceName("")
+	assert.Equal(t, "", conditionedName)
+	assert.Equal(t, "", wsName)
+
+	conditionedName, wsName = getPRWorkspaceName("hello")
+	assert.Equal(t, "hello", conditionedName)
+	assert.Equal(t, "", wsName)
+
+	conditionedName, wsName = getPRWorkspaceName("hello.there")
+	assert.Equal(t, "hello.there", conditionedName)
+	assert.Equal(t, "there", wsName)
+
+	conditionedName, wsName = getPRWorkspaceName(".")
+	assert.Equal(t, ".", conditionedName)
+	assert.Equal(t, "", wsName)
+
+	conditionedName, wsName = getPRWorkspaceName("v.")
+	assert.Equal(t, "v.", conditionedName)
+	assert.Equal(t, "", wsName)
+
+	conditionedName, wsName = getPRWorkspaceName("hello.v1.2.3")
+	assert.Equal(t, "hello.v1-2-3", conditionedName)
+	assert.Equal(t, "v1.2.3", wsName)
+
+	conditionedName, wsName = getPRWorkspaceName("hello.v1.2")
+	assert.Equal(t, "hello.v1-2", conditionedName)
+	assert.Equal(t, "v1.2", wsName)
+
+	conditionedName, wsName = getPRWorkspaceName("hello.v1")
+	assert.Equal(t, "hello.v1", conditionedName)
+	assert.Equal(t, "v1", wsName)
+
+	conditionedName, wsName = getPRWorkspaceName("hello.v1.v1")
+	assert.Equal(t, "hello.v1.v1", conditionedName)
+	assert.Equal(t, "v1", wsName)
+
+	conditionedName, wsName = getPRWorkspaceName("hello.v1.2.3.v4.5.6")
+	assert.Equal(t, "hello.v1.2.3.v4-5-6", conditionedName)
+	assert.Equal(t, "v4.5.6", wsName)
+
+	conditionedName, wsName = getPRWorkspaceName("hello.v1.2.3.end")
+	assert.Equal(t, "hello.v1.2.3.end", conditionedName)
+	assert.Equal(t, "end", wsName)
+}
