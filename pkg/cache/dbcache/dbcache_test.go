@@ -29,6 +29,7 @@ import (
 	mocksql "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/dbcache"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog/v2"
 )
 
@@ -108,6 +109,22 @@ func run(m *testing.M) (code int, err error) {
 	}
 }
 
+type mockNotifier struct {
+	calls []struct {
+		eventType watch.EventType
+		obj       repository.PackageRevision
+	}
+	returnVal int
+}
+
+func (n *mockNotifier) NotifyPackageRevisionChange(eventType watch.EventType, obj repository.PackageRevision) int {
+	n.calls = append(n.calls, struct {
+		eventType watch.EventType
+		obj       repository.PackageRevision
+	}{eventType: eventType, obj: obj})
+	return n.returnVal
+}
+
 func switchToMockSQL(t *testing.T) {
 	mockSQL := mocksql.NewMockdbSQLInterface(t)
 
@@ -169,6 +186,7 @@ func createTestRepo(t *testing.T, namespace, name string) dbRepository {
 			Namespace: namespace,
 			Name:      name,
 		},
+		repoPRChangeNotifier: &mockNotifier{returnVal: 1},
 	}
 	err := repoWriteToDB(context.TODO(), &dbRepo)
 	assert.Nil(t, err)
