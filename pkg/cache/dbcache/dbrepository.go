@@ -162,6 +162,10 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *po
 
 	klog.V(5).Infof("dbRepository:CreatePackageRevisionDraft: creating draft for %+v on repo %+v", newPR, r.Key())
 
+	if newPR.CreationTimestamp.Time.IsZero() {
+		newPR.CreationTimestamp.Time = time.Now()
+	}
+
 	dbPkgRev := &dbPackageRevision{
 		repo: r,
 		pkgRevKey: repository.PackageRevisionKey{
@@ -176,7 +180,7 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *po
 		updatedBy: getCurrentUser(),
 	}
 
-	dbPkgRev.meta.CreationTimestamp = metav1.Time{Time: dbPkgRev.updated}
+	dbPkgRev.meta.CreationTimestamp = metav1.Time{Time: time.Now()}
 
 	dbPkgRev.extPRID = kptfile.UpstreamLock{
 		Type: kptfile.GitOrigin,
