@@ -15,6 +15,7 @@
 package repository
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -175,47 +176,61 @@ func TestPackageRevisionKey(t *testing.T) {
 }
 
 func TestGetPRWorkspaceName(t *testing.T) {
-	conditionedName, wsName := getPRWorkspaceName("")
-	assert.Equal(t, "", conditionedName)
-	assert.Equal(t, "", wsName)
+	_, err := PkgRevK8sName2Key("my-ns", "")
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "package name part \"\" of object name invalid"))
 
-	conditionedName, wsName = getPRWorkspaceName("hello")
-	assert.Equal(t, "hello", conditionedName)
-	assert.Equal(t, "", wsName)
+	_, err = PkgRevK8sName2Key("my-ns", "hello")
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "package name part \"\" of object name invalid"))
 
-	conditionedName, wsName = getPRWorkspaceName("hello.there")
-	assert.Equal(t, "hello.there", conditionedName)
-	assert.Equal(t, "there", wsName)
+	prKey, err := PkgRevK8sName2Key("my-ns", "repo.hello.there")
+	assert.Nil(t, err)
+	assert.Equal(t, "hello", prKey.PkgKey.Package)
+	assert.Equal(t, "", prKey.PkgKey.Path)
+	assert.Equal(t, "there", prKey.WorkspaceName)
 
-	conditionedName, wsName = getPRWorkspaceName(".")
-	assert.Equal(t, ".", conditionedName)
-	assert.Equal(t, "", wsName)
+	prKey, err = PkgRevK8sName2Key("my-ns", "repo..")
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "package name part \"\" of object name invalid"))
 
-	conditionedName, wsName = getPRWorkspaceName("v.")
-	assert.Equal(t, "v.", conditionedName)
-	assert.Equal(t, "", wsName)
+	prKey, err = PkgRevK8sName2Key("my-ns", "v.")
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "workspace name part \"\" of package revision name invalid"))
 
-	conditionedName, wsName = getPRWorkspaceName("hello.v1.2.3")
-	assert.Equal(t, "hello.v1-2-3", conditionedName)
-	assert.Equal(t, "v1.2.3", wsName)
+	prKey, err = PkgRevK8sName2Key("my-ns", "repo.hello.v1.2.3")
+	assert.Nil(t, err)
+	assert.Equal(t, "hello", prKey.PkgKey.Package)
+	assert.Equal(t, "", prKey.PkgKey.Path)
+	assert.Equal(t, "v1.2.3", prKey.WorkspaceName)
 
-	conditionedName, wsName = getPRWorkspaceName("hello.v1.2")
-	assert.Equal(t, "hello.v1-2", conditionedName)
-	assert.Equal(t, "v1.2", wsName)
+	prKey, err = PkgRevK8sName2Key("my-ns", "repo.hello.v1.2")
+	assert.Nil(t, err)
+	assert.Equal(t, "hello", prKey.PkgKey.Package)
+	assert.Equal(t, "", prKey.PkgKey.Path)
+	assert.Equal(t, "v1.2", prKey.WorkspaceName)
 
-	conditionedName, wsName = getPRWorkspaceName("hello.v1")
-	assert.Equal(t, "hello.v1", conditionedName)
-	assert.Equal(t, "v1", wsName)
+	prKey, err = PkgRevK8sName2Key("my-ns", "repo.hello.v1")
+	assert.Nil(t, err)
+	assert.Equal(t, "hello", prKey.PkgKey.Package)
+	assert.Equal(t, "", prKey.PkgKey.Path)
+	assert.Equal(t, "v1", prKey.WorkspaceName)
 
-	conditionedName, wsName = getPRWorkspaceName("hello.v1.v1")
-	assert.Equal(t, "hello.v1.v1", conditionedName)
-	assert.Equal(t, "v1", wsName)
+	prKey, err = PkgRevK8sName2Key("my-ns", "repo.hello.v1.v1")
+	assert.Nil(t, err)
+	assert.Equal(t, "v1", prKey.PkgKey.Package)
+	assert.Equal(t, "hello", prKey.PkgKey.Path)
+	assert.Equal(t, "v1", prKey.WorkspaceName)
 
-	conditionedName, wsName = getPRWorkspaceName("hello.v1.2.3.v4.5.6")
-	assert.Equal(t, "hello.v1.2.3.v4-5-6", conditionedName)
-	assert.Equal(t, "v4.5.6", wsName)
+	prKey, err = PkgRevK8sName2Key("my-ns", "repo.hello.v1.2.3.v4.5.6")
+	assert.Nil(t, err)
+	assert.Equal(t, "3", prKey.PkgKey.Package)
+	assert.Equal(t, "hello/v1/2", prKey.PkgKey.Path)
+	assert.Equal(t, "v4.5.6", prKey.WorkspaceName)
 
-	conditionedName, wsName = getPRWorkspaceName("hello.v1.2.3.end")
-	assert.Equal(t, "hello.v1.2.3.end", conditionedName)
-	assert.Equal(t, "end", wsName)
+	prKey, err = PkgRevK8sName2Key("my-ns", "repo.hello.v1.2.3.end")
+	assert.Nil(t, err)
+	assert.Equal(t, "3", prKey.PkgKey.Package)
+	assert.Equal(t, "hello/v1/2", prKey.PkgKey.Path)
+	assert.Equal(t, "end", prKey.WorkspaceName)
 }

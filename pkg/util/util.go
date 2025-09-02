@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -227,6 +228,18 @@ func validPkgNamePart(repoName, path, packageName string) []string {
 	}
 
 	return errSlice
+}
+
+func GetPRWorkspaceName(k8sName string) string {
+	if !strings.Contains(k8sName, ".") {
+		return ""
+	}
+
+	if semverFound, _ := regexp.MatchString("\\.v[0-9\\.]*[0-9]$", k8sName); semverFound {
+		return k8sName[strings.LastIndex(k8sName, ".v")+1:]
+	} else {
+		return k8sName[strings.LastIndex(k8sName, ".")+1:]
+	}
 }
 
 func SplitIn3OnDelimiter(splitee, delimiter string) []string {
