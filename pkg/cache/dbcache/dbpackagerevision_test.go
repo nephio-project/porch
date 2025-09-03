@@ -47,7 +47,7 @@ func TestDBPackageRevision(t *testing.T) {
 			},
 		},
 	}
-	mockCache.EXPECT().GetRepository(mock.Anything).Return(&testRepo).Maybe()
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
 
 	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
 	assert.Nil(t, err)

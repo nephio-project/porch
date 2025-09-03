@@ -74,9 +74,11 @@ func init() {
 
 // ExtraConfig holds custom apiserver config
 type ExtraConfig struct {
-	CoreAPIKubeconfigPath string
-	GRPCRuntimeOptions    engine.GRPCRuntimeOptions
-	CacheOptions          cachetypes.CacheOptions
+	CoreAPIKubeconfigPath    string
+	GRPCRuntimeOptions       engine.GRPCRuntimeOptions
+	CacheOptions             cachetypes.CacheOptions
+	ListTimeoutPerRepository time.Duration
+	MaxConcurrentLists       int
 }
 
 // Config defines the config for the apiserver
@@ -91,6 +93,7 @@ type PorchServer struct {
 	coreClient                client.WithWatch
 	cache                     cachetypes.Cache
 	PeriodicRepoSyncFrequency time.Duration
+	ListTimeoutPerRepository  time.Duration
 }
 
 type completedConfig struct {
@@ -260,7 +263,15 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 		return nil, err
 	}
 
-	porchGroup, err := porch.NewRESTStorage(Scheme, Codecs, cad, coreClient)
+	restStorageOptions := porch.RESTStorageOptions{
+		Scheme:               Scheme,
+		Codecs:               Codecs,
+		CaD:                  cad,
+		CoreClient:           coreClient,
+		TimeoutPerRepository: c.ExtraConfig.ListTimeoutPerRepository,
+		MaxConcurrentLists:   c.ExtraConfig.MaxConcurrentLists,
+	}
+	porchGroup, err := restStorageOptions.NewRESTStorage()
 	if err != nil {
 		return nil, err
 	}
@@ -271,6 +282,7 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 		cache:            cacheImpl,
 		// Set background job periodic frequency the same as repo sync frequency.
 		PeriodicRepoSyncFrequency: c.ExtraConfig.CacheOptions.RepoSyncFrequency,
+		ListTimeoutPerRepository:  c.ExtraConfig.ListTimeoutPerRepository,
 	}
 
 	// Install the groups.
@@ -282,7 +294,10 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 }
 
 func (s *PorchServer) Run(ctx context.Context) error {
-	porch.RunBackground(ctx, s.coreClient, s.cache, s.PeriodicRepoSyncFrequency)
+	porch.RunBackground(ctx, s.coreClient, s.cache,
+		porch.WithPeriodicRepoSyncFrequency(s.PeriodicRepoSyncFrequency),
+		porch.WithListTimeoutPerRepo(s.ListTimeoutPerRepository),
+	)
 
 	// TODO: Reconsider if the existence of CERT_STORAGE_DIR was a good inidcator for webhook setup,
 	// but for now we keep backward compatiblity

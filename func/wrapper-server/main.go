@@ -133,7 +133,8 @@ func (e *singleFunctionEvaluator) EvaluateFunction(ctx context.Context, req *pb.
 		}
 	}
 
-	klog.Infof("Evaluated %q: stdout length: %d\nstderr:\n%v", req.Image, len(outbytes), stderrStr)
+	klog.Infof("Evaluated %q: stdout length in bytes: %d", req.Image, len(outbytes))
+
 	rl, pErr := fn.ParseResourceList(outbytes)
 	if pErr != nil {
 		klog.V(4).Infof("Input Resource List: %s\nOutput Resource List: %s", req.ResourceList, outbytes)
