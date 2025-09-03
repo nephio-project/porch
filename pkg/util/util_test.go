@@ -28,6 +28,74 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+func TestGetPRWorkspaceName(t *testing.T) {
+	wsName := GetPRWorkspaceName("")
+	assert.Equal(t, "", wsName)
+
+	wsName = GetPRWorkspaceName("hello")
+	assert.Equal(t, "", wsName)
+
+	wsName = GetPRWorkspaceName("hello.there")
+	assert.Equal(t, "there", wsName)
+
+	wsName = GetPRWorkspaceName(".")
+	assert.Equal(t, "", wsName)
+
+	wsName = GetPRWorkspaceName("v.")
+	assert.Equal(t, "", wsName)
+
+	wsName = GetPRWorkspaceName("hello.v1.2.3")
+	assert.Equal(t, "v1.2.3", wsName)
+
+	wsName = GetPRWorkspaceName("hello.v1.2")
+	assert.Equal(t, "v1.2", wsName)
+
+	wsName = GetPRWorkspaceName("hello.v1")
+	assert.Equal(t, "v1", wsName)
+
+	wsName = GetPRWorkspaceName("hello.v1.v1")
+	assert.Equal(t, "v1", wsName)
+
+	wsName = GetPRWorkspaceName("hello.v1.2.3.v4.5.6")
+	assert.Equal(t, "v4.5.6", wsName)
+
+	wsName = GetPRWorkspaceName("hello.v1.2.3.end")
+	assert.Equal(t, "end", wsName)
+
+	wsName = GetPRWorkspaceName("repo.")
+	assert.Equal(t, "", wsName)
+
+	wsName = GetPRWorkspaceName("repo.hello")
+	assert.Equal(t, "hello", wsName)
+
+	wsName = GetPRWorkspaceName("repo.hello.there")
+	assert.Equal(t, "there", wsName)
+
+	wsName = GetPRWorkspaceName(".")
+	assert.Equal(t, "", wsName)
+
+	wsName = GetPRWorkspaceName("repo.v.")
+	assert.Equal(t, "", wsName)
+
+	wsName = GetPRWorkspaceName("repo.hello.v1.2.3")
+	assert.Equal(t, "v1.2.3", wsName)
+
+	wsName = GetPRWorkspaceName("repo.hello.v1.2")
+	assert.Equal(t, "v1.2", wsName)
+
+	wsName = GetPRWorkspaceName("repo.hello.v1")
+	assert.Equal(t, "v1", wsName)
+
+	wsName = GetPRWorkspaceName("repo.hello.v1.v1")
+	assert.Equal(t, "v1", wsName)
+
+	wsName = GetPRWorkspaceName("repo.hello.v1.2.3.v4.5.6")
+	assert.Equal(t, "v4.5.6", wsName)
+
+	wsName = GetPRWorkspaceName("repo.hello.v1.2.3.end")
+	assert.Equal(t, "end", wsName)
+}
+
 func TestParseRepositoryNameOK(t *testing.T) {
 	testCases := map[string]struct {
 		pkgRevId string
