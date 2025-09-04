@@ -76,6 +76,19 @@ type functionPodInfo struct {
 	concurrentEvaluations *atomic.Int32
 }
 
+func (pcm *podCacheManager) redistributeLoad(image string, fn *functionInfo, connections []chan<- *connectionResponse) {
+	pcm.removeUnhealthyPods(fn, false)
+	for _, ch := range connections {
+		bestPodIndex, _ := pcm.findBestPod(fn)
+		pod := pcm.functions[image].pods[bestPodIndex]
+		if pod.podData != nil {
+			pod.SendResponse(ch, nil)
+		} else {
+			pod.waitlist = append(pod.waitlist, ch)
+		}
+	}
+}
+
 // podCacheManager responds to the requestCh and the podReadyCh and does the
 // garbage collection synchronously.
 // We must run this method in one single goroutine. Doing it this way simplify
@@ -92,6 +105,7 @@ func (pcm *podCacheManager) podCacheManager() {
 			fn := pcm.FunctionInfo(req.image)
 
 			shouldScaleUp := false
+			pcm.removeUnhealthyPods(fn, false)
 			bestPodIndex, bestWaitlistLen := pcm.findBestPod(fn)
 			if bestPodIndex == -1 {
 				shouldScaleUp = true
@@ -139,10 +153,16 @@ func (pcm *podCacheManager) podCacheManager() {
 
 			if podReadyMsg.err != nil {
 				klog.Warningf("Pod creation failed for image %s: %v", podReadyMsg.image, podReadyMsg.err)
-				for _, ch := range fn.pods[toUpdate].waitlist {
-					fn.pods[toUpdate].SendResponse(ch, podReadyMsg.err)
+				waitListToRedistribute := fn.pods[toUpdate].waitlist
+				if len(fn.pods) > 0 {
+					fn.pods = slices.Delete(fn.pods, toUpdate, toUpdate+1)
+					pcm.redistributeLoad(podReadyMsg.image, fn, waitListToRedistribute)
+				} else {
+					for _, ch := range waitListToRedistribute {
+						fn.pods[toUpdate].SendResponse(ch, podReadyMsg.err)
+					}
+					fn.pods = slices.Delete(fn.pods, toUpdate, toUpdate+1)
 				}
-				fn.pods = slices.Delete(fn.pods, toUpdate, toUpdate+1)
 				continue
 			}
 
@@ -214,7 +234,6 @@ func (pcm *podCacheManager) findBestPod(fn *functionInfo) (int, int) {
 	if fn == nil {
 		return -1, 0
 	}
-	pcm.removeUnhealthyPods(fn, false)
 	if len(fn.pods) == 0 {
 		return -1, 0
 	}
