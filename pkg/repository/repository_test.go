@@ -16,6 +16,7 @@ package repository
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -181,6 +182,66 @@ func TestPackageRevisionKey(t *testing.T) {
 
 	_, err = PkgRevK8sName2Key("my-ns", "")
 	assert.NotNil(t, err)
+}
+
+func TestGetPRWorkspaceName(t *testing.T) {
+	_, err := PkgRevK8sName2Key("my-ns", "")
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "package name part \"\" of object name invalid"))
+
+	_, err = PkgRevK8sName2Key("my-ns", "hello")
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "package name part \"\" of object name invalid"))
+
+	prKey, err := PkgRevK8sName2Key("my-ns", "repo.hello.there")
+	assert.Nil(t, err)
+	assert.Equal(t, "hello", prKey.PkgKey.Package)
+	assert.Equal(t, "", prKey.PkgKey.Path)
+	assert.Equal(t, "there", prKey.WorkspaceName)
+
+	prKey, err = PkgRevK8sName2Key("my-ns", "repo..")
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "package name part \"\" of object name invalid"))
+
+	prKey, err = PkgRevK8sName2Key("my-ns", "v.")
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "workspace name part \"\" of package revision name invalid"))
+
+	prKey, err = PkgRevK8sName2Key("my-ns", "repo.hello.v1.2.3")
+	assert.Nil(t, err)
+	assert.Equal(t, "hello", prKey.PkgKey.Package)
+	assert.Equal(t, "", prKey.PkgKey.Path)
+	assert.Equal(t, "v1.2.3", prKey.WorkspaceName)
+
+	prKey, err = PkgRevK8sName2Key("my-ns", "repo.hello.v1.2")
+	assert.Nil(t, err)
+	assert.Equal(t, "hello", prKey.PkgKey.Package)
+	assert.Equal(t, "", prKey.PkgKey.Path)
+	assert.Equal(t, "v1.2", prKey.WorkspaceName)
+
+	prKey, err = PkgRevK8sName2Key("my-ns", "repo.hello.v1")
+	assert.Nil(t, err)
+	assert.Equal(t, "hello", prKey.PkgKey.Package)
+	assert.Equal(t, "", prKey.PkgKey.Path)
+	assert.Equal(t, "v1", prKey.WorkspaceName)
+
+	prKey, err = PkgRevK8sName2Key("my-ns", "repo.hello.v1.v1")
+	assert.Nil(t, err)
+	assert.Equal(t, "v1", prKey.PkgKey.Package)
+	assert.Equal(t, "hello", prKey.PkgKey.Path)
+	assert.Equal(t, "v1", prKey.WorkspaceName)
+
+	prKey, err = PkgRevK8sName2Key("my-ns", "repo.hello.v1.2.3.v4.5.6")
+	assert.Nil(t, err)
+	assert.Equal(t, "3", prKey.PkgKey.Package)
+	assert.Equal(t, "hello/v1/2", prKey.PkgKey.Path)
+	assert.Equal(t, "v4.5.6", prKey.WorkspaceName)
+
+	prKey, err = PkgRevK8sName2Key("my-ns", "repo.hello.v1.2.3.end")
+	assert.Nil(t, err)
+	assert.Equal(t, "3", prKey.PkgKey.Package)
+	assert.Equal(t, "hello/v1/2", prKey.PkgKey.Path)
+	assert.Equal(t, "end", prKey.WorkspaceName)
 }
 
 func TestRepositoryKey_K8SNS(t *testing.T) {
