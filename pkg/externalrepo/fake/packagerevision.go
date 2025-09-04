@@ -99,6 +99,33 @@ func (fpr *FakePackageRevision) GetUpstreamLock(context.Context) (kptfile.Upstre
 
 func (fpr *FakePackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, error) {
 	fpr.Ops = append(fpr.Ops, "GetLock")
+
+	if fpr.Kptfile.Upstream == nil {
+		fpr.Kptfile.Upstream = &kptfile.Upstream{
+			Type: kptfile.GitOrigin,
+			Git: &kptfile.Git{
+				Repo:      fpr.PrKey.PkgKey.RepoKey.Name,
+				Directory: "/",
+				Ref:       "main",
+			},
+		}
+	}
+
+	if fpr.Kptfile.UpstreamLock == nil {
+		if fpr.Kptfile.UpstreamLock == nil {
+			fpr.Kptfile.UpstreamLock = &kptfile.UpstreamLock{
+				Type: kptfile.GitOrigin,
+				Git: &kptfile.GitLock{
+					Repo:      fpr.PrKey.PkgKey.RepoKey.Name,
+					Directory: "/",
+					Ref:       "main",
+					Commit:    "0",
+				},
+			}
+		}
+
+	}
+
 	return *fpr.Kptfile.Upstream, *fpr.Kptfile.UpstreamLock, fpr.Err
 }
 
