@@ -35,6 +35,10 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const (
+	delayBeforeTriggeredSync = 1 * time.Second
+)
+
 var _ repository.Repository = &dbRepository{}
 
 type dbRepository struct {
@@ -42,7 +46,7 @@ type dbRepository struct {
 	meta                 metav1.ObjectMeta
 	spec                 *configapi.Repository
 	externalRepo         repository.Repository
-	repositorySync       *repositorySync
+	repositorySync       RepositorySync
 	updated              time.Time
 	updatedBy            string
 	deployment           bool
@@ -398,7 +402,7 @@ func (r *dbRepository) Refresh(ctx context.Context) error {
 	_, span := tracer.Start(ctx, "dbRepository::Refresh", trace.WithAttributes())
 	defer span.End()
 
-	if err := r.repositorySync.getLastSyncError(); err != nil {
+	if err := r.repositorySync.GetLastSyncError(); err != nil {
 		klog.Warningf("last sync returned error %q, refreshing . . .", err)
 	}
 
@@ -406,10 +410,7 @@ func (r *dbRepository) Refresh(ctx context.Context) error {
 		return err
 	}
 
-	if _, err := r.repositorySync.syncOnce(ctx); err != nil {
-		klog.Warningf("sync returned error %q", err)
-		return err
-	}
+	r.repositorySync.SyncAfter(delayBeforeTriggeredSync)
 
 	return nil
 }
