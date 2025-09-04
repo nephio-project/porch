@@ -15,10 +15,19 @@
 package repository
 
 import (
+	"context"
 	"strings"
 	"testing"
 
+	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apiserver/pkg/storage"
 )
 
 func TestRepositoryKey(t *testing.T) {
@@ -234,3 +243,189 @@ func TestGetPRWorkspaceName(t *testing.T) {
 	assert.Equal(t, "hello/v1/2", prKey.PkgKey.Path)
 	assert.Equal(t, "end", prKey.WorkspaceName)
 }
+
+func TestRepositoryKey_K8SNS(t *testing.T) {
+	k := RepositoryKey{
+		Namespace: "foo",
+	}
+	require.Equal(t, "foo", k.K8SNS())
+}
+
+func TestRepositoryKey_K8SName(t *testing.T) {
+	k := RepositoryKey{
+		Name: "foo",
+	}
+	require.Equal(t, "foo", k.K8SName())
+}
+
+func TestListPackageRevisionFilter_Matches(t *testing.T) {
+	tests := []struct {
+		name     string
+		filter   ListPackageRevisionFilter
+		p        PackageRevision
+		negative bool
+	}{
+		{
+			name:   "key matches",
+			filter: ListPackageRevisionFilter{Key: PackageRevisionKey{PkgKey: PackageKey{RepoKey: RepositoryKey{Namespace: "ns"}}}},
+			p:      &fakePackageRevision{namespace: "ns"},
+		},
+		{
+			name:     "key doesn't match",
+			filter:   ListPackageRevisionFilter{Key: PackageRevisionKey{PkgKey: PackageKey{RepoKey: RepositoryKey{Namespace: "ns2"}}}},
+			p:        &fakePackageRevision{namespace: "ns"},
+			negative: true,
+		},
+		{
+			name:   "lifecycle matches",
+			filter: ListPackageRevisionFilter{Lifecycles: []api.PackageRevisionLifecycle{"Published"}},
+			p:      &fakePackageRevision{lifecycle: api.PackageRevisionLifecyclePublished},
+		},
+		{
+			name:     "lifecycle doesn't match",
+			filter:   ListPackageRevisionFilter{Lifecycles: []api.PackageRevisionLifecycle{"Published"}},
+			p:        &fakePackageRevision{lifecycle: api.PackageRevisionLifecycleDeletionProposed},
+			negative: true,
+		},
+		{
+			name:   "predicate matches",
+			filter: ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"spec.repository": "someRepo"}.AsSelector(), Label: labels.Everything()}},
+			p:      &fakePackageRevision{repoName: "someRepo"},
+		},
+		{
+			name:     "predicate doesn't match",
+			filter:   ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"spec.repository": "someReopWithAMisspelling"}.AsSelector(), Label: labels.Everything()}},
+			p:        &fakePackageRevision{repoName: "someRepo"},
+			negative: true,
+		},
+		{
+			name:   "predicate matches name",
+			filter: ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"metadata.name": "somePackageRevision"}.AsSelector(), Label: labels.Everything()}},
+			p:      &fakePackageRevision{name: "somePackageRevision"},
+		},
+		{
+			name:   "predicate matches namespace",
+			filter: ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"metadata.namespace": "someNamespace"}.AsSelector(), Label: labels.Everything()}},
+			p:      &fakePackageRevision{namespace: "someNamespace"},
+		},
+		{
+			name:   "predicate matches revision",
+			filter: ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"spec.revision": "1"}.AsSelector(), Label: labels.Everything()}},
+			p:      &fakePackageRevision{revision: 1},
+		},
+		{
+			name:   "predicate matches package name",
+			filter: ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"spec.packageName": "someSortOfRadio"}.AsSelector(), Label: labels.Everything()}},
+			p:      &fakePackageRevision{packageName: "someSortOfRadio"},
+		},
+		{
+			name:   "predicate matches multi-folder package name",
+			filter: ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"spec.packageName": "someSortOfNetwork/someSortOfRadio"}.AsSelector(), Label: labels.Everything()}},
+			p:      &fakePackageRevision{packagePath: "someSortOfNetwork", packageName: "someSortOfRadio"},
+		},
+		{
+			name:   "predicate matches repository name",
+			filter: ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"spec.repository": "someRepo"}.AsSelector(), Label: labels.Everything()}},
+			p:      &fakePackageRevision{repoName: "someRepo"},
+		},
+		{
+			name:   "predicate matches workspace name",
+			filter: ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"spec.workspaceName": "main"}.AsSelector(), Label: labels.Everything()}},
+			p:      &fakePackageRevision{workspaceName: "main"},
+		},
+		{
+			name:   "predicate matches lifecycle",
+			filter: ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"spec.lifecycle": "Published"}.AsSelector(), Label: labels.Everything()}},
+			p:      &fakePackageRevision{lifecycle: api.PackageRevisionLifecyclePublished},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.negative {
+				require.False(t, tt.filter.Matches(context.TODO(), tt.p))
+			} else {
+				require.True(t, tt.filter.Matches(context.TODO(), tt.p))
+			}
+		})
+	}
+}
+
+func TestListPackageFilter_Matches(t *testing.T) {
+	f := &ListPackageFilter{Key: PackageKey{RepoKey: RepositoryKey{Namespace: "ns"}}}
+	p := &fakePackage{namespace: "ns"}
+	require.True(t, f.Matches(p))
+}
+
+type fakePackageRevision struct {
+	name          string
+	namespace     string
+	lifecycle     api.PackageRevisionLifecycle
+	packagePath   string
+	packageName   string
+	revision      int
+	repoName      string
+	workspaceName string
+}
+
+func (f *fakePackageRevision) GetPackageRevision(ctx context.Context) (*api.PackageRevision, error) {
+	return &api.PackageRevision{ObjectMeta: metav1.ObjectMeta{Namespace: f.namespace}}, nil
+}
+func (f *fakePackageRevision) KubeObjectNamespace() string { return f.namespace }
+func (f *fakePackageRevision) Key() PackageRevisionKey {
+	return PackageRevisionKey{
+		PkgKey: PackageKey{
+			RepoKey: RepositoryKey{
+				Namespace: f.namespace,
+				Name:      f.repoName,
+			},
+			Path:    f.packagePath,
+			Package: f.packageName,
+		},
+		Revision:      f.revision,
+		WorkspaceName: f.workspaceName,
+	}
+}
+func (f *fakePackageRevision) KubeObjectName() string                           { return f.name }
+func (f *fakePackageRevision) UID() types.UID                                   { return "" }
+func (f *fakePackageRevision) SetMeta(context.Context, metav1.ObjectMeta) error { return nil }
+func (f *fakePackageRevision) ResourceVersion() string                          { return "" }
+func (f *fakePackageRevision) Lifecycle(context.Context) api.PackageRevisionLifecycle {
+
+	return api.PackageRevisionLifecycle(f.lifecycle)
+}
+func (f *fakePackageRevision) GetResources(context.Context) (*api.PackageRevisionResources, error) {
+	return nil, nil
+}
+func (f *fakePackageRevision) UpdateLifecycle(context.Context, api.PackageRevisionLifecycle) error {
+	return nil
+}
+func (f *fakePackageRevision) GetUpstreamLock(context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
+	return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil
+}
+func (f *fakePackageRevision) GetKptfile(context.Context) (kptfilev1.KptFile, error) {
+	return kptfilev1.KptFile{}, nil
+}
+func (f *fakePackageRevision) GetLock() (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
+	return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil
+}
+func (f *fakePackageRevision) ToMainPackageRevision(context.Context) PackageRevision {
+	return f
+}
+func (f *fakePackageRevision) GetMeta() metav1.ObjectMeta {
+	return metav1.ObjectMeta{Namespace: f.namespace}
+}
+
+type fakePackage struct {
+	namespace      string
+	latestRevision int
+}
+
+func (f *fakePackage) GetPackage(ctx context.Context) *api.PorchPackage {
+	return &api.PorchPackage{ObjectMeta: metav1.ObjectMeta{Namespace: f.namespace}}
+}
+func (f *fakePackage) KubeObjectNamespace() string { return f.namespace }
+func (f *fakePackage) Key() PackageKey {
+	return PackageKey{RepoKey: RepositoryKey{Namespace: f.namespace}}
+}
+func (f *fakePackage) KubeObjectName() string                    { return "" }
+func (f *fakePackage) GetLatestRevision(ctx context.Context) int { return f.latestRevision }

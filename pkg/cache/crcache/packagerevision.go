@@ -101,3 +101,7 @@ func (c *cachedPackageRevision) SetMeta(ctx context.Context, pkgRevMeta metav1.O
 
 	return c.PackageRevision.SetMeta(ctx, storedMeta)
 }
+
+func (c *cachedPackageRevision) IsLatestRevision() bool {
+	return c.isLatestRevision
+}
