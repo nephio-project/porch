@@ -94,7 +94,7 @@ func (f *ListPackageRevisionFilter) MatchesNamespace(namespace string) (bool, st
 }
 
 func (f *ListPackageRevisionFilter) FilteredRepository() string {
-	if f.Predicate.Field == nil {
+	if f.Predicate == nil || f.Predicate.Field == nil {
 		return ""
 	}
 

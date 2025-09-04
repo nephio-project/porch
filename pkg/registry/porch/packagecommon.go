@@ -79,11 +79,12 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter reposit
 	if filterRepo := filter.FilteredRepository(); filterRepo != "" {
 		opts = append(opts, client.MatchingFields(fields.Set{"metadata.name": filterRepo}))
 	}
-  
+
 	var repoList configapi.RepositoryList
 	if err := r.coreClient.List(ctx, &repoList, opts...); err != nil {
 		return fmt.Errorf("error listing repository objects: %w", err)
 	}
+	repos := repoList.Items
 
 	type pkgRevResult struct {
 		Revisions []repository.PackageRevision

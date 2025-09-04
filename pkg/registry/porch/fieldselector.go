@@ -111,7 +111,6 @@ func parsePackageRevisionFieldSelector(options *metainternalversion.ListOptions)
 	}
 
 	for _, requirement := range fieldSelector.Requirements() {
-
 		switch requirement.Operator {
 		case selection.Equals, selection.DoubleEquals, selection.NotEquals:
 			if requirement.Value == "" {

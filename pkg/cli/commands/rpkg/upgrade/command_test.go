@@ -448,8 +448,14 @@ func TestDiscoverUpdates(t *testing.T) {
 
 func TestPreRunStrategyValidation(t *testing.T) {
 	ns := "ns"
+	dummyApiServer := "http://localhost:999999" // expect no valid Kubernetes server will be running on this port
 	fakeClient := fake.NewClientBuilder().Build()
-	cfg := &genericclioptions.ConfigFlags{Namespace: &ns}
+	cfg := &genericclioptions.ConfigFlags{
+		// set the API server in case a development cluster is already running
+		// deliberately ensure ECONNREFUSED errors if we get as far as the List() call
+		APIServer: &dummyApiServer,
+		Namespace: &ns,
+	}
 	ctx := context.Background()
 
 	testCases := []struct {

@@ -280,11 +280,7 @@ func TestListPackageRevisions(t *testing.T) {
 						}
 					}).Return(nil)
 
-				pkgRev.On("GetPackageRevision", mock.Anything).Return(&api.PackageRevision{
-					ObjectMeta: metav1.ObjectMeta{
-						Labels: map[string]string{"test": "true"},
-					},
-				}, nil)
+				pkgRev.On("Key").Return(repository.PackageRevisionKey{})
 
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
@@ -306,9 +302,13 @@ func TestListPackageRevisions(t *testing.T) {
 						}
 					}).Return(nil)
 
-				pkgRev.On("GetPackageRevision", mock.Anything).Return(&api.PackageRevision{
-					ObjectMeta: metav1.ObjectMeta{Namespace: "test-namespace"},
-				}, nil)
+				pkgRev.On("Key").Return(repository.PackageRevisionKey{
+					PkgKey: repository.PackageKey{
+						RepoKey: repository.RepositoryKey{
+							Namespace: "test-namespace",
+						},
+					},
+				})
 
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
@@ -363,12 +363,16 @@ func TestListPackageRevisions(t *testing.T) {
 						list := args.Get(1).(*configapi.RepositoryList)
 						list.Items = []configapi.Repository{
 							{ObjectMeta: metav1.ObjectMeta{Name: "repo1"}},
-							{ObjectMeta: metav1.ObjectMeta{Name: "repo2"}},
 						}
 					}).Return(nil)
 
-				pkgRev.On("GetPackageRevision", mock.Anything).Return(
-					&api.PackageRevision{}, nil)
+				pkgRev.On("Key").Return(repository.PackageRevisionKey{
+					PkgKey: repository.PackageKey{
+						RepoKey: repository.RepositoryKey{
+							Name: "repo1",
+						},
+					},
+				})
 
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
@@ -396,12 +400,7 @@ func TestListPackageRevisions(t *testing.T) {
 						list.Items = []configapi.Repository{{}}
 					}).Return(nil)
 
-				pkgRev.On("GetPackageRevision", mock.Anything).Return(
-					&api.PackageRevision{
-						ObjectMeta: metav1.ObjectMeta{
-							Labels: map[string]string{"test": "true"},
-						},
-					}, nil)
+				pkgRev.On("Key").Return(repository.PackageRevisionKey{})
 
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
@@ -448,27 +447,6 @@ func TestListPackageRevisions(t *testing.T) {
 			ctx:           context.Background(),
 		},
 		{
-			name: "Package revision retrieval error",
-			setupMocks: func(c *mockclient.MockClient, pkgRev *mockrepo.MockPackageRevision, cad *mockcad.MockCaDEngine) {
-				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
-					Run(func(args mock.Arguments) {
-						list := args.Get(1).(*configapi.RepositoryList)
-						list.Items = []configapi.Repository{{}}
-					}).Return(nil)
-
-				pkgRev.On("GetPackageRevision", mock.Anything).
-					Return(&api.PackageRevision{}, fmt.Errorf("revision retrieval error"))
-
-				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
-					Return([]repository.PackageRevision{pkgRev}, nil)
-			},
-			filter:        repository.ListPackageRevisionFilter{},
-			selector:      labels.Everything(),
-			expectedError: nil,
-			expectedCalls: 0,
-			ctx:           context.Background(),
-		},
-		{
 			name: "Callback error",
 			setupMocks: func(c *mockclient.MockClient, pkgRev *mockrepo.MockPackageRevision, cad *mockcad.MockCaDEngine) {
 				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
@@ -477,8 +455,7 @@ func TestListPackageRevisions(t *testing.T) {
 						list.Items = []configapi.Repository{{}}
 					}).Return(nil)
 
-				pkgRev.On("GetPackageRevision", mock.Anything).
-					Return(&api.PackageRevision{}, nil)
+				pkgRev.On("Key").Return(repository.PackageRevisionKey{})
 
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
@@ -503,12 +480,7 @@ func TestListPackageRevisions(t *testing.T) {
 						}
 					}).Return(nil)
 
-				pkgRev.On("GetPackageRevision", mock.Anything).Return(
-					&api.PackageRevision{
-						ObjectMeta: metav1.ObjectMeta{
-							Labels: map[string]string{"test": "true"},
-						},
-					}, nil)
+				pkgRev.On("Key").Return(repository.PackageRevisionKey{})
 
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Run(func(args mock.Arguments) {
@@ -562,7 +534,7 @@ func TestListPackageRevisions(t *testing.T) {
 				defer cancel()
 			}
 
-			err := pc.listPackageRevisions(ctx, tt.filter, tt.selector, callback)
+			err := pc.listPackageRevisions(ctx, tt.filter, callback)
 
 			if tt.expectedError != nil {
 				assert.Error(t, err)

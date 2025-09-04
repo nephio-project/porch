@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"testing"
 
+	fakeextrepo "github.com/nephio-project/porch/pkg/externalrepo/fake"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/require"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
@@ -73,26 +74,42 @@ func Test_packageRevisionFilter_Matches(t *testing.T) {
 		{
 			name:          "nil selector",
 			fieldSelector: nil,
-			p:             &fakePackageRevision{},
+			p:             &fakeextrepo.FakePackageRevision{},
 			wantMatches:   true,
 		},
 		{
 			name:          "matching selector",
 			fieldSelector: fields.OneTermEqualSelector("metadata.namespace", "foo"),
-			p:             &fakePackageRevision{namespace: "foo"},
-			wantMatches:   true,
+			p: &fakeextrepo.FakePackageRevision{
+				PrKey: repository.PackageRevisionKey{
+					PkgKey: repository.PackageKey{
+						RepoKey: repository.RepositoryKey{
+							Namespace: "foo",
+						},
+					},
+				},
+			},
+			wantMatches: true,
 		},
 		{
 			name:          "different selector",
 			fieldSelector: fields.OneTermEqualSelector("spec.lifecycle", "Published"),
-			p:             &fakePackageRevision{lifecycle: "Published"},
+			p:             &fakeextrepo.FakePackageRevision{PackageLifecycle: "Published"},
 			wantMatches:   true,
 		},
 		{
 			name:          "non-matching selector",
 			fieldSelector: fields.OneTermEqualSelector("metadata.namespace", "bar"),
-			p:             &fakePackageRevision{namespace: "foo"},
-			wantMatches:   false,
+			p: &fakeextrepo.FakePackageRevision{
+				PrKey: repository.PackageRevisionKey{
+					PkgKey: repository.PackageKey{
+						RepoKey: repository.RepositoryKey{
+							Namespace: "foo",
+						},
+					},
+				},
+			},
+			wantMatches: false,
 		},
 	}
 	for _, tt := range tests {
