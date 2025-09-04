@@ -45,5 +45,10 @@ func TestPackageRevisionGetters(t *testing.T) {
 	meta := fakePr.GetMeta()
 	assert.Equal(t, "", meta.Name)
 
+	upstream, upstreamLock, err := fakePr.GetLock()
+	assert.NotNil(t, upstream)
+	assert.NotNil(t, upstreamLock)
+	assert.Nil(t, err)
+
 	assert.True(t, fakePr.SetMeta(context.TODO(), meta) == nil)
 }
