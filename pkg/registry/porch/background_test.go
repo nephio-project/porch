@@ -357,7 +357,7 @@ func TestBackground_CacheRepository(t *testing.T) {
 
 			tt.setupMocks(mockClient, mockResourceWriter, mockCache, mockRepo)
 
-			err := b.cacheRepository(context.Background(), repository)
+			_, err := b.cacheRepository(context.Background(), repository)
 
 			if tt.expectedError != nil {
 				assert.Error(t, err)
