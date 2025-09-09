@@ -101,6 +101,15 @@ func TestBackground_HandleRepositoryEvent(t *testing.T) {
 			},
 		},
 		{
+			name:  "Successfully delete repository event",
+			event: watch.Deleted,
+			setupMocks: func(mockClient *mockclient.MockWithWatch, mockResourceWriter *mockclient.MockSubResourceWriter,
+				mockCache *mockcache.MockCache, mockRepo *mockrepo.MockRepository) {
+				mockClient.On("List", mock.Anything, mock.Anything).Return(nil)
+				mockCache.On("CloseRepository", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			},
+		},
+		{
 			name:  "Successfully modified repository event",
 			event: watch.Modified,
 			setupMocks: func(mockClient *mockclient.MockWithWatch, mockResourceWriter *mockclient.MockSubResourceWriter,
@@ -110,15 +119,6 @@ func TestBackground_HandleRepositoryEvent(t *testing.T) {
 				mockRepo.On("Refresh", mock.Anything).Return(nil)
 				mockClient.On("Status").Return(mockResourceWriter)
 				mockResourceWriter.On("Update", mock.Anything, mock.Anything).Return(nil)
-			},
-		},
-		{
-			name:  "Successfully delete repository event",
-			event: watch.Deleted,
-			setupMocks: func(mockClient *mockclient.MockWithWatch, mockResourceWriter *mockclient.MockSubResourceWriter,
-				mockCache *mockcache.MockCache, mockRepo *mockrepo.MockRepository) {
-				mockClient.On("List", mock.Anything, mock.Anything).Return(nil)
-				mockCache.On("CloseRepository", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			},
 		},
 		{
