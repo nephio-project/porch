@@ -193,20 +193,6 @@ const (
 	CopyMerge          PackageMergeStrategy = "copy-merge"
 )
 
-type PatchType string
-
-const (
-	PatchTypeCreateFile PatchType = "CreateFile"
-	PatchTypeDeleteFile PatchType = "DeleteFile"
-	PatchTypePatchFile  PatchType = "PatchFile"
-)
-
-type PatchSpec struct {
-	File      string    `json:"file,omitempty"`
-	Contents  string    `json:"contents,omitempty"`
-	PatchType PatchType `json:"patchType,omitempty"`
-}
-
 type PackageEditTaskSpec struct {
 	Source *PackageRevisionRef `json:"sourceRef,omitempty"`
 }
