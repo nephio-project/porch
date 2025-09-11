@@ -53,6 +53,14 @@ type podCacheManager struct {
 
 	maxWaitlistLength          int
 	maxParallelPodsPerFunction int
+	configMap                  map[string]podCacheConfigEntry
+}
+
+type podCacheConfigEntry struct {
+	Name        string `yaml:"name"`
+	TimeToLive  string `yaml:"timeToLive"`
+	MaxWaitlist int    `yaml:"maxWaitlistLength"`
+	MaxPods     int    `yaml:"maxParallelPodsPerFunction"`
 }
 
 // functionInfo holds the list of all pod instances for the same KRM function image.
@@ -179,6 +187,51 @@ func (pcm *podCacheManager) podCacheManager() {
 			pcm.garbageCollector()
 		}
 	}
+}
+
+// loadPodCacheConfig loads the pod cache configuration from the given YAML file path.
+// It parses the YAML into a slice of podCacheConfigEntry, then builds a map from function image name to its config entry.
+// This map is used to look up per-function pod cache parameters (TTL, maxWaitlist, maxPods).
+func loadPodCacheConfig(configPath string) (map[string]podCacheConfigEntry, error) {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, err
+	}
+	var entries []podCacheConfigEntry
+	if err := yaml.Unmarshal(data, &entries); err != nil {
+		return nil, err
+	}
+	configMap := make(map[string]podCacheConfigEntry)
+	for _, entry := range entries {
+		configMap[entry.Name] = entry
+		klog.V(2).Infof("Loaded pod cache config: %s -> TTL: %s, MaxWaitlistLength: %d, MaxParallelPodsPerFunction: %d",
+			entry.Name, entry.TimeToLive, entry.MaxWaitlist, entry.MaxPods)
+	}
+
+	klog.Infof("Loaded %d pod cache configurations from %s", len(configMap), configPath)
+	return configMap, nil
+}
+
+// getParamsForImage returns the pod cache parameters (TTL, maxWaitlist, maxPods) for the given function image.
+// If the image is present in the configMap, it returns the specific parameters for that image.
+// Otherwise, it falls back to the global defaults (pcm.podTTL, pcm.maxWaitlistLength, pcm.maxParallelPodsPerFunction).
+func (pcm *podCacheManager) getParamsForImage(image string) (ttl time.Duration, maxWaitlist, maxPods int) {
+	if entry, ok := pcm.configMap[image]; ok {
+		parsedTTL, err := time.ParseDuration(entry.TimeToLive)
+		if err != nil || parsedTTL == 0 {
+			parsedTTL = pcm.podTTL
+		}
+		maxWaitlist := entry.MaxWaitlist
+		if maxWaitlist == 0 {
+			maxWaitlist = pcm.maxWaitlistLength
+		}
+		maxPods := entry.MaxPods
+		if maxPods == 0 {
+			maxPods = pcm.maxParallelPodsPerFunction
+		}
+		return parsedTTL, maxWaitlist, maxPods
+	}
+	return pcm.podTTL, pcm.maxWaitlistLength, pcm.maxParallelPodsPerFunction
 }
 
 func (pcm *podCacheManager) FunctionInfo(image string) *functionInfo {
