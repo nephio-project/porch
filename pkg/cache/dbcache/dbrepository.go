@@ -142,7 +142,6 @@ func (r *dbRepository) ListPackageRevisions(ctx context.Context, filter reposito
 	foundPkgRevs, err := pkgRevListPRsFromDB(ctx, filter)
 	if err != nil {
 		klog.Warningf("ListPackageRevisions: listing package revisions in repository %+v with filter %+v failed: %q", r.Key(), filter, err)
-
 		return nil, err
 	}
 
@@ -282,15 +281,18 @@ func (r *dbRepository) ListPackages(ctx context.Context, filter repository.ListP
 
 	klog.V(5).Infof("ListPackages: listing packages in repository %+v with filter %+v", r.Key(), filter)
 
-	dbPkgs, err := pkgReadPkgsFromDB(ctx, r.Key())
+	foundPkgs, err := pkgListPkgsFromDB(ctx, filter)
 	if err != nil {
+		klog.Warningf("ListPackages: listing packagess in repository %+v with filter %+v failed: %q", r.Key(), filter, err)
 		return nil, err
 	}
 
-	genericPkgs := make([]repository.Package, len(dbPkgs))
-	for i, pkg := range dbPkgs {
+	genericPkgs := make([]repository.Package, len(foundPkgs))
+	for i, pkg := range foundPkgs {
 		genericPkgs[i] = repository.Package(pkg)
 	}
+
+	klog.V(5).Infof("ListPackages: listed packages in repository %+v with filter %+v", r.Key(), filter)
 
 	return genericPkgs, nil
 }
