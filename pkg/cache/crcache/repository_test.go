@@ -41,7 +41,7 @@ func TestCachedRepoRefresh(t *testing.T) {
 	repoSpec := configapi.Repository{}
 	options := cachetypes.CacheOptions{
 		RepoPRChangeNotifier: mockNotifier,
-		RepoSyncFrequency:    time.Minute,
+		RepoCrSyncFrequency:  time.Minute,
 	}
 
 	metaMap := []metav1.ObjectMeta{}

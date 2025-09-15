@@ -22,6 +22,7 @@ import (
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
 	"github.com/nephio-project/porch/pkg/cli/commands/repo/docs"
 	"github.com/nephio-project/porch/pkg/cli/commands/repo/get"
+	"github.com/nephio-project/porch/pkg/cli/commands/repo/reconcile"
 	"github.com/nephio-project/porch/pkg/cli/commands/repo/reg"
 	"github.com/nephio-project/porch/pkg/cli/commands/repo/unreg"
 	"github.com/spf13/cobra"
@@ -64,6 +65,7 @@ func NewCommand(ctx context.Context, version string) *cobra.Command {
 		reg.NewCommand(ctx, kubeflags),
 		get.NewCommand(ctx, kubeflags),
 		unreg.NewCommand(ctx, kubeflags),
+		reconcile.NewCommand(ctx, kubeflags),
 	)
 
 	return repo

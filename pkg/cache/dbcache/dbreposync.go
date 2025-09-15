@@ -24,6 +24,7 @@ import (
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	pkgerrors "github.com/pkg/errors"
+	"github.com/robfig/cron/v3"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
 )
@@ -46,14 +47,13 @@ type repositorySyncStats struct {
 
 func newRepositorySync(repo *dbRepository, options cachetypes.CacheOptions) *repositorySync {
 	ctx, cancel := context.WithCancel(context.Background())
-
 	s := repositorySync{
 		repo:   repo,
 		cancel: cancel,
 	}
 
-	go s.syncForever(ctx, options.RepoSyncFrequency)
-
+	go s.syncForever(ctx, options.RepoCrSyncFrequency)
+	go s.handleRunOnceAt(ctx)
 	return &s
 }
 
@@ -63,15 +63,86 @@ func (s *repositorySync) Stop() {
 	}
 }
 
-func (s *repositorySync) syncForever(ctx context.Context, repoSyncFrequency time.Duration) {
+func (s *repositorySync) syncForever(ctx context.Context, RepoCrSyncFrequency time.Duration) {
+
+	// Sync once at the start
+	s.lastSyncStats, s.lastSyncError = s.syncOnce(ctx)
 	for {
+		cronExpr := s.repo.spec.Spec.Sync.Schedule
+		var waitDuration time.Duration
+		if cronExpr == "" {
+			klog.V(2).Infof("repositorySync %+v: sync.schedule is empty, falling back to repository cr sync interval: %v", s.repo.Key(), RepoCrSyncFrequency)
+			waitDuration = RepoCrSyncFrequency
+		} else {
+			schedule, err := cron.ParseStandard(cronExpr)
+			if err != nil {
+				klog.Warningf("repositorySync %+v: invalid cron expression '%s', falling back to default interval: %v", s.repo.Key(), cronExpr, RepoCrSyncFrequency)
+				waitDuration = RepoCrSyncFrequency
+			} else {
+				next := schedule.Next(time.Now())
+				waitDuration = time.Until(next)
+				klog.Infof("repositorySync %+v: next scheduled time: %v", s.repo.Key(), next)
+			}
+		}
 		select {
 		case <-ctx.Done():
 			klog.V(2).Infof("repositorySync %+v: exiting repository sync, because context is done: %v", s.repo.Key(), ctx.Err())
 			return
-		default:
+		case <-time.After(waitDuration):
 			s.lastSyncStats, s.lastSyncError = s.syncOnce(ctx)
-			time.Sleep(repoSyncFrequency)
+		}
+	}
+}
+
+func (s *repositorySync) handleRunOnceAt(ctx context.Context) {
+	var runOnceTimer *time.Timer
+	var runOnceChan <-chan time.Time
+	var scheduledRunOnceAt time.Time
+
+	for {
+		select {
+		case <-ctx.Done():
+			if runOnceTimer != nil {
+				runOnceTimer.Stop()
+			}
+			return
+		default:
+			runOnceAt := s.repo.spec.Spec.Sync.RunOnceAt
+			if !runOnceAt.IsZero() {
+				runOnceAtTime := runOnceAt.Time
+				if scheduledRunOnceAt.IsZero() || !runOnceAtTime.Equal(scheduledRunOnceAt) {
+					if runOnceTimer != nil {
+						runOnceTimer.Stop()
+					}
+					delay := time.Until(runOnceAtTime)
+					if delay > 0 {
+						klog.Infof("Scheduling one-time sync for repo %s at %s", s.repo.Key(), runOnceAtTime.Format(time.RFC3339))
+						runOnceTimer = time.NewTimer(delay)
+						runOnceChan = runOnceTimer.C
+						scheduledRunOnceAt = runOnceAtTime
+					} else {
+						klog.V(3).Infof("runOnceAt time for repo %s is in the past (%s), skipping", s.repo.Key(), runOnceAtTime.Format(time.RFC3339))
+						runOnceTimer = nil
+						runOnceChan = nil
+						scheduledRunOnceAt = time.Time{}
+					}
+				}
+			}
+			if runOnceChan != nil {
+				select {
+				case <-runOnceChan:
+					klog.Infof("Triggering scheduled one-time sync for repo %s", s.repo.Key())
+					s.lastSyncStats, s.lastSyncError = s.syncOnce(context.Background())
+					klog.Infof("Finished one-time sync for repo %s", s.repo.Key())
+					runOnceTimer = nil
+					runOnceChan = nil
+					scheduledRunOnceAt = time.Time{}
+				case <-time.After(10 * time.Second):
+					// Poll again in 10 second
+				}
+			} else {
+				time.Sleep(10 * time.Second)
+			}
 		}
 	}
 }

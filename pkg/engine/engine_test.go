@@ -252,7 +252,7 @@ type mockCache struct {
 
 var _ cachetypes.Cache = &mockCache{}
 
-func (m *mockCache) OpenRepository(ctx context.Context, repositoryObj *configapi.Repository) (repository.Repository, error) {
+func (m *mockCache) OpenRepository(ctx context.Context, repositoryObj *configapi.Repository, crModified ...bool) (repository.Repository, error) {
 	args := m.Called(ctx, repositoryObj)
 	return args.Get(0).(repository.Repository), args.Error(1)
 }

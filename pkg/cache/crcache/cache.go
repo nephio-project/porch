@@ -41,7 +41,7 @@ type Cache struct {
 
 var _ cachetypes.Cache = &Cache{}
 
-func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (repository.Repository, error) {
+func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Repository, crModified ...bool) (repository.Repository, error) {
 	ctx, span := tracer.Start(ctx, "Cache::OpenRepository", trace.WithAttributes())
 	defer span.End()
 	start := time.Now()
@@ -59,6 +59,11 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 	c.mainLock.RLock()
 	if repo, ok := c.repositories[key]; ok && repo != nil {
 		c.mainLock.RUnlock()
+		if len(crModified) > 0 && crModified[0] {
+			if err := repo.Refresh(ctx); err != nil {
+				klog.Errorf("Failed to refresh repository %q: %v", key, err)
+			}
+		}
 		// Test if credentials are okay for the cached repo and update the status accordingly
 		if _, err := externalrepo.CreateRepositoryImpl(ctx, repositorySpec, c.options.ExternalRepoOptions); err != nil {
 			return nil, err

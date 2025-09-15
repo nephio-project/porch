@@ -21,7 +21,6 @@ import (
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
-	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,9 +39,9 @@ func (f backgroundOptionFunc) apply(background *background) {
 	f(background)
 }
 
-func WithPeriodicRepoSyncFrequency(period time.Duration) BackgroundOption {
+func WithPeriodicRepoCrSyncFrequency(period time.Duration) BackgroundOption {
 	return backgroundOptionFunc(func(b *background) {
-		b.periodicRepoSyncFrequency = period
+		b.periodicRepoCrSyncFrequency = period
 	})
 }
 
@@ -67,10 +66,10 @@ func RunBackground(ctx context.Context, coreClient client.WithWatch, cache cache
 
 // background manages background tasks
 type background struct {
-	coreClient                client.WithWatch
-	cache                     cachetypes.Cache
-	periodicRepoSyncFrequency time.Duration
-	listTimeoutPerRepo        time.Duration
+	coreClient                  client.WithWatch
+	cache                       cachetypes.Cache
+	periodicRepoCrSyncFrequency time.Duration
+	listTimeoutPerRepo          time.Duration
 }
 
 const (
@@ -96,7 +95,7 @@ func (b *background) run(ctx context.Context) {
 	defer reconnect.Stop()
 
 	// Start ticker
-	ticker := time.NewTicker(b.periodicRepoSyncFrequency)
+	ticker := time.NewTicker(b.periodicRepoCrSyncFrequency)
 	defer ticker.Stop()
 
 loop:
@@ -194,19 +193,9 @@ func (b *background) handleRepositoryEvent(ctx context.Context, repo *configapi.
 	switch eventType {
 	case watch.Deleted:
 		err = b.cache.CloseRepository(listCtx, repo, repoList.Items)
-	case watch.Modified:
-		cachedRepo, err := b.cacheRepository(listCtx, repo)
-		if err == nil && cachedRepo != nil {
-			if err = cachedRepo.Refresh(ctx); err != nil {
-				klog.Warningf("Background repository refresh failed for repo %q: %v", repo.Name, err)
-			}
-		} else {
-			klog.Warningf("cacheRepository failed or returned nil for repo %q: err=%v", repo.Name, err)
-		}
 	default:
-		_, err = b.cacheRepository(listCtx, repo)
+		err = b.cacheRepository(listCtx, repo, true)
 	}
-
 	if err == nil {
 		klog.Infof("%s, handling completed in %s", msgPreamble, time.Since(start))
 		return nil
@@ -225,7 +214,7 @@ func (b *background) runOnce(ctx context.Context) error {
 	for i := range repositories.Items {
 		repo := &repositories.Items[i]
 
-		if _, err := b.cacheRepository(ctx, repo); err != nil {
+		if err := b.cacheRepository(ctx, repo, false); err != nil {
 			klog.Errorf("Failed to cache repository: %v", err)
 		}
 	}
@@ -233,11 +222,15 @@ func (b *background) runOnce(ctx context.Context) error {
 	return nil
 }
 
-func (b *background) cacheRepository(ctx context.Context, repo *configapi.Repository) (repository.Repository, error) {
+func (b *background) cacheRepository(ctx context.Context, repo *configapi.Repository, crModified ...bool) error {
 	start := time.Now()
 	defer func() { klog.V(4).Infof("background::cacheRepository (%s) took %s", repo.Name, time.Since(start)) }()
 	var condition v1.Condition
-	cachedRepo, err := b.cache.OpenRepository(ctx, repo)
+	modified := false
+	if len(crModified) > 0 {
+		modified = crModified[0]
+	}
+	_, err := b.cache.OpenRepository(ctx, repo, modified)
 	if err == nil {
 		condition = v1.Condition{
 			Type:               configapi.RepositoryReady,
@@ -260,9 +253,9 @@ func (b *background) cacheRepository(ctx context.Context, repo *configapi.Reposi
 
 	meta.SetStatusCondition(&repo.Status.Conditions, condition)
 	if err := b.coreClient.Status().Update(ctx, repo); err != nil {
-		return nil, fmt.Errorf("error updating repository status: %w", err)
+		return fmt.Errorf("error updating repository status: %w", err)
 	}
-	return cachedRepo, nil
+	return nil
 }
 
 type backoffTimer struct {
