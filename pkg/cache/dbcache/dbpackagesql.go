@@ -33,11 +33,21 @@ func pkgReadFromDB(ctx context.Context, pk repository.PackageKey) (*dbPackage, e
 
 	sqlStatement := `
 		SELECT
-			repositories.k8s_name_space, repositories.k8s_name, repositories.directory, repositories.default_ws_name,
-			packages.k8s_name, packages.package_path, packages.meta, packages.spec, packages.updated, packages.updatedby
+			repositories.k8s_name_space,
+			repositories.k8s_name,
+			repositories.directory,
+			repositories.default_ws_name,
+			packages.k8s_name,
+			packages.package_path,
+			packages.meta,
+			packages.spec,
+			packages.updated,
+			packages.updatedby
 		FROM packages INNER JOIN repositories
 			ON packages.k8s_name_space=repositories.k8s_name_space AND packages.repo_k8s_name=repositories.k8s_name
-		WHERE packages.k8s_name_space=$1 AND packages.k8s_name=$2`
+		WHERE packages.k8s_name_space=$1 AND packages.k8s_name=$2
+		ORDER BY packages.k8s_name_space, packages.k8s_name
+	`
 
 	klog.V(5).Infof("pkgReadFromDB: running query %q on package %+v", sqlStatement, pk)
 	rows, err := GetDB().db.Query(sqlStatement, pk.K8SNS(), pk.K8SName())
@@ -67,6 +77,44 @@ func pkgReadFromDB(ctx context.Context, pk repository.PackageKey) (*dbPackage, e
 	return pkgs[0], err
 }
 
+func pkgListPkgsFromDB(ctx context.Context, filter repository.ListPackageFilter) ([]*dbPackage, error) {
+	_, span := tracer.Start(ctx, "dbrepositorysql::pkgListPkgsFromDB", trace.WithAttributes())
+	defer span.End()
+
+	klog.V(5).Infof("pkgListPkgsFromDB: listing packages for filter %+v", filter)
+
+	sqlStatement := `
+		SELECT
+			repositories.k8s_name_space,
+			repositories.k8s_name,
+			repositories.directory,
+			repositories.default_ws_name,
+			packages.k8s_name,
+			packages.package_path,
+			packages.meta,
+			packages.spec,
+			packages.updated,
+			packages.updatedby
+		FROM packages INNER JOIN repositories
+			ON packages.k8s_name_space=repositories.k8s_name_space AND packages.repo_k8s_name=repositories.k8s_name
+	`
+
+	sqlStatement += pkgListFilter2WhereClause(filter)
+
+	sqlStatement += `
+			ORDER BY packages.k8s_name_space, packages.k8s_name
+	`
+
+	klog.V(6).Infof("pkgRevListPRsFromDB: running query %q on package revisions with filter %+v", sqlStatement, filter)
+	rows, err := GetDB().db.Query(sqlStatement)
+	if err != nil {
+		klog.Warningf("pkgRevListPRsFromDB: reading package revision list for filter %+v returned err: %q", filter, err)
+		return nil, err
+	}
+
+	return pkgScanRowsFromDB(ctx, rows)
+}
+
 func pkgReadPkgsFromDB(ctx context.Context, rk repository.RepositoryKey) ([]*dbPackage, error) {
 	_, span := tracer.Start(ctx, "dbpackagesql::pkgReadPkgsFromDB", trace.WithAttributes())
 	defer span.End()
@@ -75,11 +123,21 @@ func pkgReadPkgsFromDB(ctx context.Context, rk repository.RepositoryKey) ([]*dbP
 
 	sqlStatement := `
 		SELECT
-			repositories.k8s_name_space, repositories.k8s_name, repositories.directory, repositories.default_ws_name,
-			packages.k8s_name, packages.package_path, packages.meta, packages.spec, packages.updated, packages.updatedby
+			repositories.k8s_name_space,
+			repositories.k8s_name,
+			repositories.directory,
+			repositories.default_ws_name,
+			packages.k8s_name,
+			packages.package_path,
+			packages.meta,
+			packages.spec,
+			packages.updated,
+			packages.updatedby
 		FROM packages INNER JOIN repositories
 			ON packages.k8s_name_space=repositories.k8s_name_space AND packages.repo_k8s_name=repositories.k8s_name
-		WHERE packages.k8s_name_space=$1 AND packages.repo_k8s_name=$2`
+		WHERE packages.k8s_name_space=$1 AND packages.repo_k8s_name=$2
+		ORDER BY packages.k8s_name_space, packages.k8s_name
+	`
 
 	klog.V(5).Infof("pkgReadPkgsFromDB: running query %q on packages in repository %+v", sqlStatement, rk)
 	rows, err := GetDB().db.Query(sqlStatement, rk.Namespace, rk.Name)

@@ -19,7 +19,6 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
@@ -97,7 +96,7 @@ func pkgRevReadFromDB(ctx context.Context, prk repository.PackageRevisionKey, re
 }
 
 func pkgRevListPRsFromDB(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]*dbPackageRevision, error) {
-	_, span := tracer.Start(ctx, "dbrepositorysql::repoDeleteFromDB", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "dbrepositorysql::pkgRevListPRsFromDB", trace.WithAttributes())
 	defer span.End()
 
 	klog.V(5).Infof("pkgRevListPRsFromDB: listing package revisions for filter %+v", filter)
@@ -443,95 +442,4 @@ func pkgRevDeleteFromDB(ctx context.Context, prk repository.PackageRevisionKey) 
 	}
 
 	return err
-}
-
-func prListFilter2WhereClause(filter repository.ListPackageRevisionFilter) string {
-	whereStatement := ""
-
-	repoKey := filter.Key.RKey()
-	whereStatement, first := prListFilter2SubClauseStr(whereStatement, repoKey.Namespace, "repositories.k8s_name_space", true)
-	whereStatement, first = prListFilter2SubClauseStr(whereStatement, repoKey.Name, "repositories.k8s_name", first)
-	whereStatement, first = prListFilter2SubClauseStr(whereStatement, repoKey.Path, "repositories.directory", first)
-	whereStatement, first = prListFilter2SubClauseStr(whereStatement, repoKey.PlaceholderWSname, "repositories.default_ws_name", first)
-
-	pkgKey := filter.Key.PKey()
-	whereStatement, first = prListFilter2SubClauseStr(whereStatement, pkgKey.K8SName(), "packages.k8s_name", first)
-	whereStatement, first = prListFilter2SubClauseStr(whereStatement, pkgKey.Path, "packages.package_path", first)
-
-	prKey := filter.Key
-	whereStatement, first = prListFilter2SubClauseStr(whereStatement, prKey.K8SName(), "package_revisions.k8s_name", first)
-	whereStatement, first = prListFilter2SubClauseInt(whereStatement, prKey.Revision, "package_revisions.revision", first)
-	whereStatement, first = prListFilter2SubClauseWorkspace(whereStatement, prKey.WorkspaceName, "package_revisions.k8s_name", first)
-
-	whereStatement, _ = prListFilter2SubClauseLifecycle(whereStatement, filter.Lifecycles, "package_revisions.lifecycle", first)
-
-	if whereStatement == "" {
-		return whereStatement
-	} else {
-		return "WHERE\n" + whereStatement
-	}
-}
-
-func prListFilter2SubClauseStr(whereStatement, filterField, column string, first bool) (string, bool) {
-	if filterField == "" {
-		return whereStatement, first
-	}
-
-	subClause := fmt.Sprintf("%s='%s'\n", column, filterField)
-
-	if first {
-		return whereStatement + subClause, false
-	} else {
-		return whereStatement + "AND " + subClause, false
-	}
-}
-
-func prListFilter2SubClauseInt(whereStatement string, filterField int, column string, first bool) (string, bool) {
-	if filterField == 0 {
-		return whereStatement, first
-	}
-
-	subClause := fmt.Sprintf("%s=%d\n", column, filterField)
-
-	if first {
-		return whereStatement + subClause, false
-	} else {
-		return whereStatement + "AND " + subClause, false
-	}
-}
-
-func prListFilter2SubClauseWorkspace(whereStatement string, filterField string, column string, first bool) (string, bool) {
-	if filterField == "" {
-		return whereStatement, first
-	}
-
-	subClause := fmt.Sprintf("%s LIKE '%%.%s'\n", column, filterField)
-
-	if first {
-		return whereStatement + subClause, false
-	} else {
-		return whereStatement + "AND " + subClause, false
-	}
-}
-
-func prListFilter2SubClauseLifecycle(whereStatement string, filterField []v1alpha1.PackageRevisionLifecycle, column string, first bool) (string, bool) {
-	if len(filterField) == 0 {
-		return whereStatement, first
-	}
-
-	subClause := "("
-	for i, lifecycle := range filterField {
-		if i == 0 {
-			subClause = subClause + fmt.Sprintf("%s='%s'", column, lifecycle)
-		} else {
-			subClause = subClause + fmt.Sprintf(" OR %s='%s'", column, lifecycle)
-		}
-	}
-	subClause += ")"
-
-	if first {
-		return whereStatement + subClause, false
-	} else {
-		return whereStatement + "AND " + subClause, false
-	}
 }
