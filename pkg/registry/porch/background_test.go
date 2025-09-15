@@ -24,8 +24,8 @@ func TestBackground_Options(t *testing.T) {
 	}{
 		{
 			name:     "With periodic repo sync frequency",
-			options:  []BackgroundOption{WithPeriodicRepoSyncFrequency(5 * time.Second)},
-			expected: background{periodicRepoSyncFrequency: 5 * time.Second},
+			options:  []BackgroundOption{WithPeriodicRepoCrSyncFrequency(5 * time.Second)},
+			expected: background{periodicRepoCrSyncFrequency: 5 * time.Second},
 		},
 		{
 			name:     "With list timeout per repo",
@@ -35,12 +35,12 @@ func TestBackground_Options(t *testing.T) {
 		{
 			name: "With multiple options",
 			options: []BackgroundOption{
-				WithPeriodicRepoSyncFrequency(5 * time.Second),
+				WithPeriodicRepoCrSyncFrequency(5 * time.Second),
 				WithListTimeoutPerRepo(10 * time.Second),
 			},
 			expected: background{
-				periodicRepoSyncFrequency: 5 * time.Second,
-				listTimeoutPerRepo:        10 * time.Second,
+				periodicRepoCrSyncFrequency: 5 * time.Second,
+				listTimeoutPerRepo:          10 * time.Second,
 			},
 		},
 	}
@@ -51,7 +51,7 @@ func TestBackground_Options(t *testing.T) {
 			for _, o := range tt.options {
 				o.apply(b)
 			}
-			assert.Equal(t, tt.expected.periodicRepoSyncFrequency, b.periodicRepoSyncFrequency)
+			assert.Equal(t, tt.expected.periodicRepoCrSyncFrequency, b.periodicRepoCrSyncFrequency)
 			assert.Equal(t, tt.expected.listTimeoutPerRepo, b.listTimeoutPerRepo)
 		})
 	}
@@ -95,7 +95,7 @@ func TestBackground_HandleRepositoryEvent(t *testing.T) {
 			setupMocks: func(mockClient *mockclient.MockWithWatch, mockResourceWriter *mockclient.MockSubResourceWriter,
 				mockCache *mockcache.MockCache, mockRepo *mockrepo.MockRepository) {
 				mockClient.On("List", mock.Anything, mock.Anything).Return(nil)
-				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType("*v1alpha1.Repository")).Return(mockRepo, nil)
+				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType("*v1alpha1.Repository"), mock.Anything).Return(mockRepo, nil)
 				mockClient.On("Status").Return(mockResourceWriter)
 				mockResourceWriter.On("Update", mock.Anything, mock.Anything).Return(nil)
 			},
@@ -115,8 +115,7 @@ func TestBackground_HandleRepositoryEvent(t *testing.T) {
 			setupMocks: func(mockClient *mockclient.MockWithWatch, mockResourceWriter *mockclient.MockSubResourceWriter,
 				mockCache *mockcache.MockCache, mockRepo *mockrepo.MockRepository) {
 				mockClient.On("List", mock.Anything, mock.Anything).Return(nil)
-				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType("*v1alpha1.Repository")).Return(mockRepo, nil)
-				mockRepo.On("Refresh", mock.Anything).Return(nil)
+				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType("*v1alpha1.Repository"), mock.Anything).Return(mockRepo, nil)
 				mockClient.On("Status").Return(mockResourceWriter)
 				mockResourceWriter.On("Update", mock.Anything, mock.Anything).Return(nil)
 			},
@@ -224,7 +223,7 @@ func TestBackground_RunOnce(t *testing.T) {
 					repoList := args.Get(1).(*configapi.RepositoryList)
 					*repoList = *repositories
 				}).Return(nil)
-				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType("*v1alpha1.Repository")).Return(mockRepo, nil)
+				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType("*v1alpha1.Repository"), mock.Anything).Return(mockRepo, nil)
 				mockClient.On("Status").Return(mockResourceWriter)
 				mockResourceWriter.On("Update", mock.Anything, mock.Anything).Return(nil)
 			},
@@ -246,7 +245,7 @@ func TestBackground_RunOnce(t *testing.T) {
 					repoList := args.Get(1).(*configapi.RepositoryList)
 					*repoList = *repositories
 				}).Return(nil)
-				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType("*v1alpha1.Repository")).Return(mockRepo, nil)
+				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType("*v1alpha1.Repository"), mock.Anything).Return(mockRepo, nil)
 				mockClient.On("Status").Return(mockResourceWriter)
 				mockResourceWriter.On("Update", mock.Anything, mock.Anything).Return(fmt.Errorf("status update failed"))
 			},
@@ -294,7 +293,7 @@ func TestBackground_CacheRepository(t *testing.T) {
 			name: "Successful repository caching",
 			setupMocks: func(mockClient *mockclient.MockWithWatch, mockResourceWriter *mockclient.MockSubResourceWriter,
 				mockCache *mockcache.MockCache, mockRepo *mockrepo.MockRepository) {
-				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType("*v1alpha1.Repository")).Return(mockRepo, nil)
+				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType("*v1alpha1.Repository"), mock.Anything).Return(mockRepo, nil)
 				mockClient.On("Status").Return(mockResourceWriter)
 				mockResourceWriter.On("Update", mock.Anything, mock.Anything).Return(nil)
 			},
@@ -310,7 +309,7 @@ func TestBackground_CacheRepository(t *testing.T) {
 			name: "Failed to open repository",
 			setupMocks: func(mockClient *mockclient.MockWithWatch, mockResourceWriter *mockclient.MockSubResourceWriter,
 				mockCache *mockcache.MockCache, mockRepo *mockrepo.MockRepository) {
-				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType("*v1alpha1.Repository")).
+				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType("*v1alpha1.Repository"), mock.Anything).
 					Return(nil, fmt.Errorf("failed to open repo"))
 				mockClient.On("Status").Return(mockResourceWriter)
 				mockResourceWriter.On("Update", mock.Anything, mock.Anything).Return(nil)
@@ -327,7 +326,7 @@ func TestBackground_CacheRepository(t *testing.T) {
 			name: "Repository refresh failed",
 			setupMocks: func(mockClient *mockclient.MockWithWatch, mockResourceWriter *mockclient.MockSubResourceWriter,
 				mockCache *mockcache.MockCache, mockRepo *mockrepo.MockRepository) {
-				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType("*v1alpha1.Repository")).Return(mockRepo, nil)
+				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType("*v1alpha1.Repository"), mock.Anything).Return(mockRepo, nil)
 				mockClient.On("Status").Return(mockResourceWriter)
 				mockResourceWriter.On("Update", mock.Anything, mock.Anything).Return(nil)
 			},
@@ -343,7 +342,7 @@ func TestBackground_CacheRepository(t *testing.T) {
 			name: "Status update failed",
 			setupMocks: func(mockClient *mockclient.MockWithWatch, mockResourceWriter *mockclient.MockSubResourceWriter,
 				mockCache *mockcache.MockCache, mockRepo *mockrepo.MockRepository) {
-				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType("*v1alpha1.Repository")).Return(mockRepo, nil)
+				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType("*v1alpha1.Repository"), mock.Anything).Return(mockRepo, nil)
 				mockClient.On("Status").Return(mockResourceWriter)
 				mockResourceWriter.On("Update", mock.Anything, mock.Anything).Return(fmt.Errorf("status update failed"))
 			},
@@ -374,7 +373,7 @@ func TestBackground_CacheRepository(t *testing.T) {
 
 			tt.setupMocks(mockClient, mockResourceWriter, mockCache, mockRepo)
 
-			_, err := b.cacheRepository(context.Background(), repository)
+			err := b.cacheRepository(context.Background(), repository)
 
 			if tt.expectedError != nil {
 				assert.Error(t, err)

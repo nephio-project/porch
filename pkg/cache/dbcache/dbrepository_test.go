@@ -170,7 +170,7 @@ func (t *DbTestSuite) TestDBRepositorySync() {
 	t.Require().NoError(err)
 
 	cacheOptions := cachetypes.CacheOptions{
-		RepoSyncFrequency: 2 * time.Second,
+		RepoCrSyncFrequency: 2 * time.Second,
 	}
 
 	testRepo.repositorySync = newRepositorySync(testRepo, cacheOptions)

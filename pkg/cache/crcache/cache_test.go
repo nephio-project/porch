@@ -257,7 +257,7 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 				UseUserDefinedCaBundle: true,
 				CredentialResolver:     &fakecache.CredentialResolver{},
 			},
-			RepoSyncFrequency:    60 * time.Second,
+			RepoCrSyncFrequency:  60 * time.Second,
 			RepoPRChangeNotifier: &fakecache.ObjectNotifier{},
 		}}
 

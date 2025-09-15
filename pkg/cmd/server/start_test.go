@@ -39,7 +39,7 @@ func TestAddFlags(t *testing.T) {
 		),
 	}
 	o.AddFlags(&pflag.FlagSet{})
-	if o.RepoSyncFrequency < 5*time.Minute {
+	if o.RepoCrSyncFrequency < 5*time.Minute {
 		t.Fatalf("AddFlags(): repo-sync-frequency cannot be less that 5 minutes.")
 	}
 }

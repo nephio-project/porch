@@ -155,7 +155,7 @@ func (t *DbTestSuite) TestDBRepositoryCrud() {
 	ctx := t.Context()
 
 	options := cachetypes.CacheOptions{
-		RepoSyncFrequency: 60 * time.Minute,
+		RepoCrSyncFrequency: 60 * time.Minute,
 	}
 	dbCache, err := new(DBCacheFactory).NewCache(ctx, options)
 	t.NoError(err)
