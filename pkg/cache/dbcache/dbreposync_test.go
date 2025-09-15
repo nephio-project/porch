@@ -43,7 +43,7 @@ func (t *DbTestSuite) TestDBRepoSync() {
 	t.Require().NoError(err)
 
 	cacheOptions := cachetypes.CacheOptions{
-		RepoSyncFrequency: 1 * time.Second,
+		RepoCrSyncFrequency: 1 * time.Second,
 	}
 
 	testRepo.repositorySync = newRepositorySync(testRepo, cacheOptions)
@@ -95,7 +95,6 @@ func (t *DbTestSuite) TestDBRepoSync() {
 		},
 	}
 	fakeRepo.PackageRevisions = append(fakeRepo.PackageRevisions, &fakeExtPR)
-
 	time.Sleep(2 * time.Second)
 
 	prList, err = testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
@@ -103,7 +102,6 @@ func (t *DbTestSuite) TestDBRepoSync() {
 	t.Equal(0, len(prList)) // The version of the external repo has not changed
 
 	fakeRepo.CurrentVersion = "bar"
-
 	time.Sleep(2 * time.Second)
 
 	prList, err = testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})

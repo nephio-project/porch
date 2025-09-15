@@ -34,6 +34,9 @@ spec:
     - jsonPath: .spec.content
       name: Content
       type: string
+    - jsonPath: .spec.sync.schedule
+      name: Sync schedule
+      type: string
     - jsonPath: .spec.deployment
       name: Deployment
       type: boolean
@@ -155,9 +158,27 @@ spec:
                 required:
                 - registry
                 type: object
+              sync:
+                default: {}
+                description: Repository sync/reconcile details
+                properties:
+                  runOnceAt:
+                    description: Value in metav1.Time format to indicate when the
+                      repository should be synced once outside the periodic cron based
+                      reconcile loop.
+                    format: date-time
+                    type: string
+                  schedule:
+                    description: 'Cron value to indicate when the repository should
+                      be synced periodically. Example: `*/10 * * * *` to sync every
+                      10 minutes.'
+                    type: string
+                type: object
               type:
                 description: Type of the repository (i.e. git, OCI)
                 type: string
+            required:
+            - sync
             type: object
           status:
             description: RepositoryStatus defines the observed state of Repository

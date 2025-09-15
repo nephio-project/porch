@@ -105,3 +105,25 @@ var UnregExamples = `
   # unregister a repository and keep the auth secret.
   $ porchctl repo unreg registered-repository --namespace=default --keep-auth-secret
 `
+
+var SyncShort = `reconcile registered repositories.`
+var SyncLong = `
+  porchctl repo reconcile [REPOSITORY_NAME] [flags]
+
+Args:
+
+  REPOSITORY_NAME:
+    The name of a repository. If provided, only that specific
+    repository will be shown. Defaults to showing all registered
+    repositories.
+`
+var SyncExamples = `
+  # reconcile all repositories registered in the default namespace
+  $ porchctl repo reconcile --all --namespace default
+
+  # reconcile the repository named foo in the bar namespace
+  $ porchctl repo reconcile foo --namespace bar
+
+  # reconcile repository named foo1 and foo2 in namespace bar
+  $ porchctl repo reconcile foo1 foo2 --namespace bar
+`

@@ -67,7 +67,7 @@ type PorchServerOptions struct {
 	LocalStandaloneDebugging         bool // Enables local standalone running/debugging of the apiserver.
 	MaxConcurrentLists               int
 	MaxRequestBodySize               int
-	RepoSyncFrequency                time.Duration
+	RepoCrSyncFrequency              time.Duration
 	SharedInformerFactory            informers.SharedInformerFactory
 	StdOut                           io.Writer
 	StdErr                           io.Writer
@@ -287,8 +287,8 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 					LocalDirectory:         o.CacheDirectory,
 					UseUserDefinedCaBundle: o.UseUserDefinedCaBundle,
 				},
-				RepoSyncFrequency: o.RepoSyncFrequency,
-				CacheType:         cachetypes.CacheType(o.CacheType),
+				RepoCrSyncFrequency: o.RepoCrSyncFrequency,
+				CacheType:           cachetypes.CacheType(o.CacheType),
 				DBCacheOptions: cachetypes.DBCacheOptions{
 					Driver:     o.DbCacheDriver,
 					DataSource: o.DbCacheDataSource,
@@ -348,6 +348,6 @@ func (o *PorchServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.DurationVar(&o.ListTimeoutPerRepository, "list-timeout-per-repo", 10*time.Second, "Maximum amount of time to wait for a repository list request.")
 	fs.IntVar(&o.MaxRequestBodySize, "max-request-body-size", 6*1024*1024, "Maximum size of the request body in bytes. Keep this in sync with function-runner's corresponding argument.")
 	fs.IntVar(&o.MaxConcurrentLists, "max-parallel-repo-lists", 10, "Maximum number of repositories to list in parallel.")
-	fs.DurationVar(&o.RepoSyncFrequency, "repo-sync-frequency", 10*time.Minute, "Frequency in seconds at which registered repositories will be synced and the background job repository refresh runs.")
+	fs.DurationVar(&o.RepoCrSyncFrequency, "repo-sync-frequency", 10*time.Minute, "Frequency at which registered repository CRs will be synced.")
 	fs.BoolVar(&o.UseUserDefinedCaBundle, "use-user-cabundle", false, "Determine whether to use a user-defined CaBundle for TLS towards the repository system.")
 }

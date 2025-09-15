@@ -37,7 +37,7 @@ const (
 
 type CacheOptions struct {
 	ExternalRepoOptions  externalrepotypes.ExternalRepoOptions
-	RepoSyncFrequency    time.Duration
+	RepoCrSyncFrequency  time.Duration
 	RepoPRChangeNotifier RepoPRChangeNotifier
 	CoreClient           client.WithWatch
 	CacheType            CacheType
@@ -52,7 +52,7 @@ type DBCacheOptions struct {
 }
 
 type Cache interface {
-	OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (repository.Repository, error)
+	OpenRepository(ctx context.Context, repositorySpec *configapi.Repository, crModified ...bool) (repository.Repository, error)
 	CloseRepository(ctx context.Context, repositorySpec *configapi.Repository, allRepos []configapi.Repository) error
 	GetRepositories() []*configapi.Repository
 	GetRepository(repository.RepositoryKey) repository.Repository

@@ -42,7 +42,7 @@ type dbCache struct {
 	options      cachetypes.CacheOptions
 }
 
-func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (repository.Repository, error) {
+func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.Repository, crModified ...bool) (repository.Repository, error) {
 	_, span := tracer.Start(ctx, "dbCache::OpenRepository", trace.WithAttributes())
 	defer span.End()
 
@@ -54,6 +54,9 @@ func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.
 	c.mainLock.RLock()
 	if dbRepo, ok := c.repositories[repoKey]; ok {
 		c.mainLock.RUnlock()
+		if len(crModified) > 0 && crModified[0] {
+			dbRepo.spec = repositorySpec
+		}
 		return dbRepo, nil
 	}
 	c.mainLock.RUnlock()
