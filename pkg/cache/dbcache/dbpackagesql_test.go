@@ -186,6 +186,47 @@ func TestMultiPackageRepo(t *testing.T) {
 	deleteTestRepo(t, dbRepo22.Key())
 }
 
+func TestPackageFilter(t *testing.T) {
+	mockCache := mockcachetypes.NewMockCache(t)
+	cachetypes.CacheInstance = mockCache
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{})
+
+	dbRepo := createTestRepo(t, "my-ns", "my-repo")
+
+	dbRepoPkgs := createTestPkgs(t, dbRepo.Key(), "my-package", 4)
+
+	pkgFilter := repository.ListPackageFilter{}
+	listPkgs, err := pkgListPkgsFromDB(context.TODO(), pkgFilter)
+	assert.Nil(t, err)
+	assert.Equal(t, 4, len(listPkgs))
+
+	pkgFilter.Key.RepoKey = dbRepo.repoKey
+	pkgFilter.Key.Package = "my-package-2"
+	listPkgs, err = pkgListPkgsFromDB(context.TODO(), pkgFilter)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(listPkgs))
+
+	pkgFilter.Key.Package = "my-package-5"
+	listPkgs, err = pkgListPkgsFromDB(context.TODO(), pkgFilter)
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(listPkgs))
+
+	pkgFilter.Key.Package = "my-package-2"
+	pkgFilter.Key.Path = "a/path"
+	listPkgs, err = pkgListPkgsFromDB(context.TODO(), pkgFilter)
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(listPkgs))
+
+	pkgFilter.Key.Path = ""
+	listPkgs, err = pkgListPkgsFromDB(context.TODO(), pkgFilter)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(listPkgs))
+
+	deleteTestRepo(t, dbRepo.Key())
+
+	assert.Equal(t, 0, len(readRepoPkgPRs(t, dbRepoPkgs)))
+}
+
 func pkgDBWriteReadTest(t *testing.T, dbRepo *dbRepository, dbPkg, dbPkgUpdate dbPackage) {
 	err := pkgWriteToDB(context.TODO(), &dbPkg)
 	assert.NotNil(t, err)
