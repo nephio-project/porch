@@ -279,9 +279,6 @@ func (r *runner) findUpstreamName(pr *porchapi.PackageRevision) string {
 		if n := r.findEditOrigin(pr); n != "" {
 			return n
 		}
-		if pr.Spec.Parent != nil && pr.Spec.Parent.Name != "" {
-			return pr.Spec.Parent.Name
-		}
 		if pr.Status.UpstreamLock != nil {
 			if up := r.findUpstreamByLock(pr.Status.UpstreamLock); up != nil {
 				return up.Name
