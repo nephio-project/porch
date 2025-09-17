@@ -155,9 +155,6 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter reposit
 				klog.Warningf("error listing package revisions: %+v", res.Err)
 			}
 			for _, rev := range res.Revisions {
-				if !filter.Matches(ctx, rev) {
-					continue
-				}
 				if err := callback(ctx, rev); err != nil {
 					klog.Warningf("callback error for revision from repository: %+v", err)
 					continue

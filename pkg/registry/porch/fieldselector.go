@@ -24,7 +24,6 @@ import (
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/selection"
-	"k8s.io/apiserver/pkg/storage"
 )
 
 // convertPackageFieldSelector is the schema conversion function for normalizing the FieldSelector for Package
@@ -97,12 +96,11 @@ func parsePackageFieldSelector(fieldSelector fields.Selector) (repository.ListPa
 	return filter, nil
 }
 
-// parsePackageRevisionFieldSelector parses client-provided fields.Selector into a packageRevisionFilter
+// parsePackageRevisionFieldSelector parses client-provided fields.Selector into a ListPackageRevisionFilter
 func parsePackageRevisionFieldSelector(options *metainternalversion.ListOptions) (*repository.ListPackageRevisionFilter, error) {
 	filter := &repository.ListPackageRevisionFilter{
-		Predicate: &storage.SelectionPredicate{
-			Label: options.LabelSelector,
-		},
+		Label: options.LabelSelector,
+		Key:   repository.PackageRevisionKey{},
 	}
 
 	fieldSelector := options.FieldSelector
@@ -112,16 +110,19 @@ func parsePackageRevisionFieldSelector(options *metainternalversion.ListOptions)
 
 	for _, requirement := range fieldSelector.Requirements() {
 		switch requirement.Operator {
-		case selection.Equals, selection.DoubleEquals, selection.NotEquals:
+		case selection.Equals, selection.DoubleEquals:
 			if requirement.Value == "" {
 				return filter, apierrors.NewBadRequest(fmt.Sprintf("unsupported fieldSelector value %q for field %q with operator %q", requirement.Value, requirement.Field, requirement.Operator))
 			}
 		default:
 			return filter, apierrors.NewBadRequest(fmt.Sprintf("unsupported fieldSelector operator %q for field %q", requirement.Operator, requirement.Field))
 		}
-	}
 
-	filter.Predicate.Field = fieldSelector
+		filteredField := requirement.Field
+		if filterFunc, fieldSelectable := repository.RepoPrFilterMappings[filteredField]; fieldSelectable {
+			filterFunc(filter, requirement.Value)
+		}
+	}
 
 	return filter, nil
 }

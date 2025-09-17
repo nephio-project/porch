@@ -47,7 +47,6 @@ func (r *packageRevisions) Watch(ctx context.Context, options *metainternalversi
 		if namespaceMatches, filteredNamespace := filter.MatchesNamespace(namespace); !namespaceMatches {
 			return nil, fmt.Errorf("conflicting namespaces specified: %q and %q", namespace, filteredNamespace)
 		}
-		filter.Namespace(namespace)
 	}
 
 	ctx, cancel := context.WithCancel(ctx)

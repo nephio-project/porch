@@ -19,13 +19,12 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	fakeextrepo "github.com/nephio-project/porch/pkg/externalrepo/fake"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/require"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apiserver/pkg/storage"
 )
 
 func Test_convertPackageRevisionFieldSelector(t *testing.T) {
@@ -66,20 +65,20 @@ func Test_convertPackageRevisionFieldSelector(t *testing.T) {
 
 func Test_packageRevisionFilter_Matches(t *testing.T) {
 	tests := []struct {
-		name          string
-		fieldSelector fields.Selector
-		p             repository.PackageRevision
-		wantMatches   bool
+		name        string
+		filter      repository.ListPackageRevisionFilter
+		p           repository.PackageRevision
+		wantMatches bool
 	}{
 		{
-			name:          "nil selector",
-			fieldSelector: nil,
-			p:             &fakeextrepo.FakePackageRevision{},
-			wantMatches:   true,
+			name:        "nil selector",
+			filter:      repository.ListPackageRevisionFilter{},
+			p:           &fakeextrepo.FakePackageRevision{},
+			wantMatches: true,
 		},
 		{
-			name:          "matching selector",
-			fieldSelector: fields.OneTermEqualSelector("metadata.namespace", "foo"),
+			name:   "matching selector",
+			filter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "foo"}}}},
 			p: &fakeextrepo.FakePackageRevision{
 				PrKey: repository.PackageRevisionKey{
 					PkgKey: repository.PackageKey{
@@ -92,14 +91,14 @@ func Test_packageRevisionFilter_Matches(t *testing.T) {
 			wantMatches: true,
 		},
 		{
-			name:          "different selector",
-			fieldSelector: fields.OneTermEqualSelector("spec.lifecycle", "Published"),
-			p:             &fakeextrepo.FakePackageRevision{PackageLifecycle: "Published"},
-			wantMatches:   true,
+			name:        "different selector",
+			filter:      repository.ListPackageRevisionFilter{Lifecycles: []v1alpha1.PackageRevisionLifecycle{"Published"}},
+			p:           &fakeextrepo.FakePackageRevision{PackageLifecycle: "Published"},
+			wantMatches: true,
 		},
 		{
-			name:          "non-matching selector",
-			fieldSelector: fields.OneTermEqualSelector("metadata.namespace", "bar"),
+			name:   "non-matching selector",
+			filter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "bar"}}}},
 			p: &fakeextrepo.FakePackageRevision{
 				PrKey: repository.PackageRevisionKey{
 					PkgKey: repository.PackageKey{
@@ -114,14 +113,8 @@ func Test_packageRevisionFilter_Matches(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			filter := &repository.ListPackageRevisionFilter{
-				Predicate: &storage.SelectionPredicate{
-					Field: tt.fieldSelector,
-					Label: labels.Everything(),
-				},
-			}
 
-			gotMatches := filter.Matches(context.TODO(), tt.p)
+			gotMatches := tt.filter.Matches(context.TODO(), tt.p)
 			require.Equal(t, tt.wantMatches, gotMatches)
 		})
 	}
@@ -131,37 +124,29 @@ func Test_parsePackageRevisionFieldSelector(t *testing.T) {
 	// SETUP test cases with varying selectors for a packageRevisionFilter
 	//********************************************************************
 	positiveTests := []struct {
-		name         string
-		selector     string
-		wantSelector fields.Selector
+		name       string
+		selector   string
+		wantFilter repository.ListPackageRevisionFilter
 	}{
 		{
-			name:         "empty selector",
-			selector:     "",
-			wantSelector: fields.Set{}.AsSelector(),
+			name:       "empty selector",
+			selector:   "",
+			wantFilter: repository.ListPackageRevisionFilter{},
 		},
 		{
-			name:         "revision selector",
-			selector:     "spec.revision=1",
-			wantSelector: fields.Set{"spec.revision": "1"}.AsSelector(),
+			name:       "revision selector",
+			selector:   "spec.revision=1",
+			wantFilter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{Revision: 1}},
 		},
 		{
-			name:         "namespace selector",
-			selector:     "metadata.namespace=foo",
-			wantSelector: fields.Set{"metadata.namespace": "foo"}.AsSelector(),
+			name:       "namespace selector",
+			selector:   "metadata.namespace=foo",
+			wantFilter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "foo"}}}},
 		},
 		{
-			name:         "namespace selector with == operator",
-			selector:     "metadata.namespace==foo",
-			wantSelector: fields.Set{"metadata.namespace": "foo"}.AsSelector(),
-		},
-		{
-			name:     "namespace selector with != operator",
-			selector: "metadata.namespace!=foo",
-			wantSelector: func() fields.Selector {
-				selector, _ := fields.ParseSelector("metadata.namespace!=foo")
-				return selector
-			}(),
+			name:       "namespace selector with == operator",
+			selector:   "metadata.namespace==foo",
+			wantFilter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "foo"}}}},
 		},
 	}
 	for _, tt := range positiveTests {
@@ -175,12 +160,7 @@ func Test_parsePackageRevisionFieldSelector(t *testing.T) {
 
 			gotFilter, err := parsePackageRevisionFieldSelector(options)
 
-			wantFilter := &repository.ListPackageRevisionFilter{
-				Predicate: &storage.SelectionPredicate{
-					Field: tt.wantSelector,
-				},
-			}
-			require.EqualValues(t, wantFilter, gotFilter)
+			require.EqualValues(t, &tt.wantFilter, gotFilter)
 			require.NoError(t, err)
 		})
 	}
@@ -213,11 +193,7 @@ func Test_parsePackageRevisionFieldSelector(t *testing.T) {
 
 			gotFilter, err := parsePackageRevisionFieldSelector(options)
 
-			wantFilter := &repository.ListPackageRevisionFilter{
-				Predicate: &storage.SelectionPredicate{
-					Field: nil,
-				},
-			}
+			wantFilter := &repository.ListPackageRevisionFilter{}
 			require.EqualValues(t, wantFilter, gotFilter)
 			if tt.wantErr == "" {
 				require.NoError(t, err)
@@ -230,37 +206,29 @@ func Test_parsePackageRevisionFieldSelector(t *testing.T) {
 
 func Test_parsePackageRevisionResourcesFieldSelector(t *testing.T) {
 	tests := []struct {
-		name         string
-		selector     string
-		wantSelector fields.Selector
+		name       string
+		selector   string
+		wantFilter repository.ListPackageRevisionFilter
 	}{
 		{
-			name:         "empty selector",
-			selector:     "",
-			wantSelector: fields.Set{}.AsSelector(),
+			name:       "empty selector",
+			selector:   "",
+			wantFilter: repository.ListPackageRevisionFilter{},
 		},
 		{
-			name:         "revision selector",
-			selector:     "spec.revision=1",
-			wantSelector: fields.Set{"spec.revision": "1"}.AsSelector(),
+			name:       "revision selector",
+			selector:   "spec.revision=1",
+			wantFilter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{Revision: 1}},
 		},
 		{
-			name:         "namespace selector",
-			selector:     "metadata.namespace=foo",
-			wantSelector: fields.Set{"metadata.namespace": "foo"}.AsSelector(),
+			name:       "namespace selector",
+			selector:   "metadata.namespace=foo",
+			wantFilter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "foo"}}}},
 		},
 		{
-			name:         "namespace selector with == operator",
-			selector:     "metadata.namespace==foo",
-			wantSelector: fields.Set{"metadata.namespace": "foo"}.AsSelector(),
-		},
-		{
-			name:     "namespace selector with != operator",
-			selector: "metadata.namespace!=foo",
-			wantSelector: func() fields.Selector {
-				selector, _ := fields.ParseSelector("metadata.namespace!=foo")
-				return selector
-			}(),
+			name:       "namespace selector with == operator",
+			selector:   "metadata.namespace==foo",
+			wantFilter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "foo"}}}},
 		},
 	}
 	for _, tt := range tests {
@@ -274,12 +242,7 @@ func Test_parsePackageRevisionResourcesFieldSelector(t *testing.T) {
 
 			gotFilter, err := parsePackageRevisionResourcesFieldSelector(options)
 
-			wantFilter := &repository.ListPackageRevisionFilter{
-				Predicate: &storage.SelectionPredicate{
-					Field: tt.wantSelector,
-				},
-			}
-			require.EqualValues(t, wantFilter, gotFilter)
+			require.EqualValues(t, &tt.wantFilter, gotFilter)
 			require.NoError(t, err)
 		})
 	}

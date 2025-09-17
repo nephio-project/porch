@@ -280,8 +280,6 @@ func TestListPackageRevisions(t *testing.T) {
 						}
 					}).Return(nil)
 
-				pkgRev.On("Key").Return(repository.PackageRevisionKey{})
-
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
 			},
@@ -301,14 +299,6 @@ func TestListPackageRevisions(t *testing.T) {
 							{ObjectMeta: metav1.ObjectMeta{Name: "repo1", Namespace: "test-ns"}},
 						}
 					}).Return(nil)
-
-				pkgRev.On("Key").Return(repository.PackageRevisionKey{
-					PkgKey: repository.PackageKey{
-						RepoKey: repository.RepositoryKey{
-							Namespace: "test-namespace",
-						},
-					},
-				})
 
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
@@ -366,14 +356,6 @@ func TestListPackageRevisions(t *testing.T) {
 						}
 					}).Return(nil)
 
-				pkgRev.On("Key").Return(repository.PackageRevisionKey{
-					PkgKey: repository.PackageKey{
-						RepoKey: repository.RepositoryKey{
-							Name: "repo1",
-						},
-					},
-				})
-
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
 			},
@@ -399,8 +381,6 @@ func TestListPackageRevisions(t *testing.T) {
 						list := args.Get(1).(*configapi.RepositoryList)
 						list.Items = []configapi.Repository{{}}
 					}).Return(nil)
-
-				pkgRev.On("Key").Return(repository.PackageRevisionKey{})
 
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
@@ -455,8 +435,6 @@ func TestListPackageRevisions(t *testing.T) {
 						list.Items = []configapi.Repository{{}}
 					}).Return(nil)
 
-				pkgRev.On("Key").Return(repository.PackageRevisionKey{})
-
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
 			},
@@ -479,8 +457,6 @@ func TestListPackageRevisions(t *testing.T) {
 							{ObjectMeta: metav1.ObjectMeta{Name: "repo4"}},
 						}
 					}).Return(nil)
-
-				pkgRev.On("Key").Return(repository.PackageRevisionKey{})
 
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Run(func(args mock.Arguments) {

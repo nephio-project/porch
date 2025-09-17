@@ -15,94 +15,50 @@
 package repository
 
 import (
-	"context"
+	"strings"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-type prFieldMappingFunc func(p PackageRevision) string
+type prFilterFieldMappingFunc func(filter *ListPackageRevisionFilter, value string)
 
 var (
-	RepoPrFilterMappings = map[string]prFieldMappingFunc{
-		api.PackageRevisionSelectableFields.Name: func(p PackageRevision) string {
-			return p.KubeObjectName()
+	RepoPrFilterMappings = map[string]prFilterFieldMappingFunc{
+		api.PackageRevisionSelectableFields.Name: func(f *ListPackageRevisionFilter, name string) {
+			if filterKey, err := PkgRevK8sName2Key("", name); err == nil {
+				f.Key = filterKey
+			}
 		},
-		api.PackageRevisionSelectableFields.Namespace: func(p PackageRevision) string {
-			return p.Key().RKey().Namespace
+		api.PackageRevisionSelectableFields.Namespace: func(f *ListPackageRevisionFilter, namespace string) { f.Key.PkgKey.RepoKey.Namespace = namespace },
+		api.PackageRevisionSelectableFields.Revision:  func(f *ListPackageRevisionFilter, strRevision string) { f.Key.Revision = Revision2Int(strRevision) },
+		api.PackageRevisionSelectableFields.PackageName: func(f *ListPackageRevisionFilter, fullPkgName string) {
+			split := strings.Split(fullPkgName, "/")
+			if len(split) > 1 {
+				f.Key.PkgKey.Package = split[len(split)-1]
+				f.Key.PkgKey.Path = strings.Join(split[0:len(split)-1], "/")
+			} else {
+				f.Key.PkgKey.Package = fullPkgName
+			}
 		},
-		api.PackageRevisionSelectableFields.Revision: func(p PackageRevision) string {
-			return Revision2Str(p.Key().Revision)
-		},
-		api.PackageRevisionSelectableFields.PackageName: func(p PackageRevision) string {
-			key := p.Key()
-			return func() string {
-				if path := key.PkgKey.Path; path != "" {
-					return path + "/"
-				}
-				return ""
-			}() + key.PkgKey.Package
-		},
-		api.PackageRevisionSelectableFields.Repository: func(p PackageRevision) string {
-			return p.Key().PkgKey.RepoKey.Name
-		},
-		api.PackageRevisionSelectableFields.WorkspaceName: func(p PackageRevision) string {
-			return p.Key().WorkspaceName
-		},
-		api.PackageRevisionSelectableFields.Lifecycle: func(p PackageRevision) string {
-			return string(p.Lifecycle(context.TODO()))
+		api.PackageRevisionSelectableFields.Repository:    func(f *ListPackageRevisionFilter, repoName string) { f.Key.PkgKey.RepoKey.Name = repoName },
+		api.PackageRevisionSelectableFields.WorkspaceName: func(f *ListPackageRevisionFilter, workspaceName string) { f.Key.WorkspaceName = workspaceName },
+		api.PackageRevisionSelectableFields.Lifecycle: func(f *ListPackageRevisionFilter, lifecycle string) {
+			f.Lifecycles = append(f.Lifecycles, api.PackageRevisionLifecycle(lifecycle))
 		},
 	}
 )
 
-func (f *ListPackageRevisionFilter) Namespace(namespace string) *ListPackageRevisionFilter {
-	if f.Predicate == nil {
-		f.Key.PkgKey.RepoKey.Namespace = namespace
-		return f
-	}
-
-	namespaceSelector := fields.OneTermEqualSelector(api.PackageRevisionSelectableFields.Namespace, namespace)
-
-	field := f.Predicate.Field
-	if field == nil {
-		f.Predicate.Field = namespaceSelector
-	} else {
-		f.Predicate.Field = fields.AndSelectors(field, namespaceSelector)
-	}
-	return f
-}
-
 func (f *ListPackageRevisionFilter) MatchesNamespace(namespace string) (bool, string) {
-	if f.Predicate == nil {
-		filteredNamespace := f.Key.RKey().Namespace
-		return (filteredNamespace == "" || namespace == filteredNamespace), filteredNamespace
-	}
-
-	if f.Predicate.Field == nil {
-		return true, ""
-	}
-
-	filteredNamespace, filteringOnNamespace := f.Predicate.MatchesSingleNamespace()
-	if !filteringOnNamespace {
-		return true, ""
-	}
-	return (namespace == "" || namespace == filteredNamespace), filteredNamespace
+	filteredNamespace := f.Key.RKey().Namespace
+	return (filteredNamespace == "" || namespace == filteredNamespace), filteredNamespace
 }
 
 func (f *ListPackageRevisionFilter) FilteredRepository() string {
-	if f.Predicate == nil || f.Predicate.Field == nil {
-		return ""
-	}
-
-	if filteredRepo, filteringOnRepo := f.Predicate.Field.RequiresExactMatch(api.PackageRevisionSelectableFields.Repository); filteringOnRepo {
-		return filteredRepo
-	}
-
-	return ""
+	return f.Key.PKey().RKey().Name
 }
 
 type wrappedRepoPkgRev struct {

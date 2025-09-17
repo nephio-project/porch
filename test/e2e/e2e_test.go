@@ -3506,9 +3506,10 @@ func (t *PorchSuite) TestPackageRevisionListWithTwoHangingRepositories() {
 	})
 
 	found := false
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		var list porchapi.PackageRevisionList
-		t.ListF(&list, client.InNamespace(t.Namespace))
+		// include spec.repository selector to make sure we don't time out trying to list the hanging repositories as well
+		t.ListF(&list, client.InNamespace(t.Namespace), client.MatchingFields{"spec.repository": workingRepoName})
 
 		for _, item := range list.Items {
 			t.Logf("Found PackageRevision: %s (repo: %s)", item.Name, item.Spec.RepositoryName)

@@ -24,10 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apiserver/pkg/storage"
 )
 
 func TestRepositoryKey(t *testing.T) {
@@ -127,7 +124,6 @@ func TestPackageKey(t *testing.T) {
 	assert.NotNil(t, err)
 
 	assert.Equal(t, "pkg", K8SName2PkgName("repo.pkg"))
-
 }
 
 func TestPackageRevisionKey(t *testing.T) {
@@ -288,55 +284,40 @@ func TestListPackageRevisionFilter_Matches(t *testing.T) {
 			negative: true,
 		},
 		{
-			name:   "predicate matches",
-			filter: ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"spec.repository": "someRepo"}.AsSelector(), Label: labels.Everything()}},
+			name:   "repository matches",
+			filter: ListPackageRevisionFilter{Key: PackageRevisionKey{PkgKey: PackageKey{RepoKey: RepositoryKey{Name: "someRepo"}}}},
 			p:      &fakePackageRevision{repoName: "someRepo"},
 		},
 		{
-			name:     "predicate doesn't match",
-			filter:   ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"spec.repository": "someReopWithAMisspelling"}.AsSelector(), Label: labels.Everything()}},
+			name:     "repository doesn't match",
+			filter:   ListPackageRevisionFilter{Key: PackageRevisionKey{PkgKey: PackageKey{RepoKey: RepositoryKey{Name: "someReopWithAMisspelling"}}}},
 			p:        &fakePackageRevision{repoName: "someRepo"},
 			negative: true,
 		},
 		{
-			name:   "predicate matches name",
-			filter: ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"metadata.name": "somePackageRevision"}.AsSelector(), Label: labels.Everything()}},
+			name:   "name matches",
+			filter: ListPackageRevisionFilter{Key: func() PackageRevisionKey { key, _ := PkgRevK8sName2Key("", "somePackageRevision"); return key }()},
 			p:      &fakePackageRevision{name: "somePackageRevision"},
 		},
 		{
-			name:   "predicate matches namespace",
-			filter: ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"metadata.namespace": "someNamespace"}.AsSelector(), Label: labels.Everything()}},
-			p:      &fakePackageRevision{namespace: "someNamespace"},
-		},
-		{
-			name:   "predicate matches revision",
-			filter: ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"spec.revision": "1"}.AsSelector(), Label: labels.Everything()}},
+			name:   "revision matches",
+			filter: ListPackageRevisionFilter{Key: PackageRevisionKey{Revision: 1}},
 			p:      &fakePackageRevision{revision: 1},
 		},
 		{
-			name:   "predicate matches package name",
-			filter: ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"spec.packageName": "someSortOfRadio"}.AsSelector(), Label: labels.Everything()}},
+			name:   "package name matches",
+			filter: ListPackageRevisionFilter{Key: PackageRevisionKey{PkgKey: PackageKey{Package: "someSortOfRadio"}}},
 			p:      &fakePackageRevision{packageName: "someSortOfRadio"},
 		},
 		{
-			name:   "predicate matches multi-folder package name",
-			filter: ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"spec.packageName": "someSortOfNetwork/someSortOfRadio"}.AsSelector(), Label: labels.Everything()}},
+			name:   "multi-folder package name matches",
+			filter: ListPackageRevisionFilter{Key: PackageRevisionKey{PkgKey: PackageKey{Path: "someSortOfNetwork", Package: "someSortOfRadio"}}},
 			p:      &fakePackageRevision{packagePath: "someSortOfNetwork", packageName: "someSortOfRadio"},
 		},
 		{
-			name:   "predicate matches repository name",
-			filter: ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"spec.repository": "someRepo"}.AsSelector(), Label: labels.Everything()}},
-			p:      &fakePackageRevision{repoName: "someRepo"},
-		},
-		{
-			name:   "predicate matches workspace name",
-			filter: ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"spec.workspaceName": "main"}.AsSelector(), Label: labels.Everything()}},
+			name:   "workspace name matches",
+			filter: ListPackageRevisionFilter{Key: PackageRevisionKey{WorkspaceName: "main"}},
 			p:      &fakePackageRevision{workspaceName: "main"},
-		},
-		{
-			name:   "predicate matches lifecycle",
-			filter: ListPackageRevisionFilter{Predicate: &storage.SelectionPredicate{Field: fields.Set{"spec.lifecycle": "Published"}.AsSelector(), Label: labels.Everything()}},
-			p:      &fakePackageRevision{lifecycle: api.PackageRevisionLifecyclePublished},
 		},
 	}
 	for _, tt := range tests {
