@@ -15,18 +15,14 @@
 package dbcache
 
 import (
-	"context"
-	"strings"
-	"testing"
 	"time"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
-	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestRepoDBWriteRead(t *testing.T) {
+func (t *DbTestSuite) TestRepoDBWriteRead() {
 
 	dbRepo := dbRepository{
 		repoKey: repository.RepositoryKey{
@@ -54,99 +50,92 @@ func TestRepoDBWriteRead(t *testing.T) {
 		deployment: false,
 	}
 
-	repoDBWriteReadTest(t, &dbRepo, &dbRepoUpdate)
+	t.repoDBWriteReadTest(&dbRepo, &dbRepoUpdate)
 
 	dbRepo.repoKey.Path = ""
 	dbRepo.repoKey.PlaceholderWSname = ""
 	dbRepoUpdate.repoKey.Path = ""
 	dbRepoUpdate.repoKey.PlaceholderWSname = ""
-	repoDBWriteReadTest(t, &dbRepo, &dbRepoUpdate)
+	t.repoDBWriteReadTest(&dbRepo, &dbRepoUpdate)
 
 	dbRepoUpdate = dbRepository{}
 	dbRepoUpdate.repoKey = dbRepo.repoKey
-	repoDBWriteReadTest(t, &dbRepo, &dbRepoUpdate)
+	t.repoDBWriteReadTest(&dbRepo, &dbRepoUpdate)
 }
 
-func TestRepoDBSchema(t *testing.T) {
+func (t *DbTestSuite) TestRepoDBSchema() {
 	dbRepo := dbRepository{}
-	err := repoWriteToDB(context.TODO(), &dbRepo)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
+	err := repoWriteToDB(t.Context(), &dbRepo)
+	t.Require().ErrorContains(err, "violates check constraint")
 
 	dbRepo.repoKey = repository.RepositoryKey{
 		Namespace: "my-namespace",
 	}
 
-	err = repoWriteToDB(context.TODO(), &dbRepo)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
+	err = repoWriteToDB(t.Context(), &dbRepo)
+	t.Require().ErrorContains(err, "violates check constraint")
 
 	dbRepo.repoKey.Name = "my-name"
-	err = repoWriteToDB(context.TODO(), &dbRepo)
-	assert.Nil(t, err)
+	err = repoWriteToDB(t.Context(), &dbRepo)
+	t.Require().NoError(err)
 
 	dbRepo.repoKey.Path = "my-path"
-	err = repoUpdateDB(context.TODO(), &dbRepo)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "update not allowed on immutable columns"))
+	err = repoUpdateDB(t.Context(), &dbRepo)
+	t.Require().ErrorContains(err, "update not allowed on immutable columns")
 
 	dbRepo.repoKey.Path = ""
 	dbRepo.updatedBy = "homer"
-	err = repoUpdateDB(context.TODO(), &dbRepo)
-	assert.Nil(t, err)
+	err = repoUpdateDB(t.Context(), &dbRepo)
+	t.Require().NoError(err)
 
 	dbRepo.repoKey.PlaceholderWSname = "my-ws"
-	err = repoUpdateDB(context.TODO(), &dbRepo)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "update not allowed on immutable columns"))
+	err = repoUpdateDB(t.Context(), &dbRepo)
+	t.Require().ErrorContains(err, "update not allowed on immutable columns")
 
 	dbRepo.repoKey.PlaceholderWSname = ""
 	dbRepo.updatedBy = "lisa"
-	err = repoUpdateDB(context.TODO(), &dbRepo)
-	assert.Nil(t, err)
+	err = repoUpdateDB(t.Context(), &dbRepo)
+	t.Require().NoError(err)
 
-	err = repoDeleteFromDB(context.TODO(), dbRepo.Key())
-	assert.Nil(t, err)
+	err = repoDeleteFromDB(t.Context(), dbRepo.Key())
+	t.Require().NoError(err)
 }
 
-func repoDBWriteReadTest(t *testing.T, dbRepo, dbRepoUpdate *dbRepository) {
-	err := repoWriteToDB(context.TODO(), dbRepo)
-	assert.Nil(t, err)
+func (t *DbTestSuite) repoDBWriteReadTest(dbRepo, dbRepoUpdate *dbRepository) {
+	err := repoWriteToDB(t.Context(), dbRepo)
+	t.Require().NoError(err)
 
-	readRepo, err := repoReadFromDB(context.TODO(), dbRepo.Key())
-	assert.Nil(t, err)
-	assertReposEqual(t, dbRepo, readRepo)
+	readRepo, err := repoReadFromDB(t.Context(), dbRepo.Key())
+	t.Require().NoError(err)
+	t.assertReposEqual(dbRepo, readRepo)
 
-	err = repoWriteToDB(context.TODO(), dbRepoUpdate)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "violates unique constraint"))
+	err = repoWriteToDB(t.Context(), dbRepoUpdate)
+	t.Require().ErrorContains(err, "violates unique constraint")
 
-	err = repoUpdateDB(context.TODO(), dbRepoUpdate)
-	assert.Nil(t, err)
+	err = repoUpdateDB(t.Context(), dbRepoUpdate)
+	t.Require().NoError(err)
 
-	readRepo, err = repoReadFromDB(context.TODO(), dbRepo.Key())
-	assert.Nil(t, err)
-	assertReposEqual(t, dbRepoUpdate, readRepo)
+	readRepo, err = repoReadFromDB(t.Context(), dbRepo.Key())
+	t.Require().NoError(err)
+	t.assertReposEqual(dbRepoUpdate, readRepo)
 
-	err = repoDeleteFromDB(context.TODO(), dbRepo.Key())
-	assert.Nil(t, err)
+	err = repoDeleteFromDB(t.Context(), dbRepo.Key())
+	t.Require().NoError(err)
 
-	_, err = repoReadFromDB(context.TODO(), dbRepo.Key())
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "no rows in result set"))
+	_, err = repoReadFromDB(t.Context(), dbRepo.Key())
+	t.Require().ErrorContains(err, "no rows in result set")
 
-	err = repoUpdateDB(context.TODO(), dbRepoUpdate)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "no rows or multiple rows found for updating"))
+	err = repoUpdateDB(t.Context(), dbRepoUpdate)
+	t.Require().ErrorContains(err, "no rows or multiple rows found for updating")
 
-	err = repoDeleteFromDB(context.TODO(), dbRepo.Key())
-	assert.Nil(t, err)
+	err = repoDeleteFromDB(t.Context(), dbRepo.Key())
+	t.Require().NoError(err)
 }
 
-func assertReposEqual(t *testing.T, left, right *dbRepository) {
-	assert.Equal(t, left.Key(), right.Key())
-	assert.Equal(t, left.meta.Namespace, right.meta.Namespace)
-	assert.Equal(t, left.meta.Name, right.meta.Name)
-	assert.Equal(t, left.spec, right.spec)
-	assert.Equal(t, left.updatedBy, right.updatedBy)
+func (t *DbTestSuite) assertReposEqual(left, right *dbRepository) {
+	t.Equal(left.Key(), right.Key())
+	t.Equal(left.meta.Namespace, right.meta.Namespace)
+	t.Equal(left.meta.Name, right.meta.Name)
+	t.Equal(left.spec, right.spec)
+	t.Equal(left.updatedBy, right.updatedBy)
 }
