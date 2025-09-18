@@ -42,7 +42,7 @@ endif
 
 .PHONY: gosec-sarif
 gosec-sarif:  ## Build a container image from the local Dockerfile
-	ifeq ($(CONTAINER_RUNNABLE), 0)
+ifeq ($(CONTAINER_RUNNABLE), 0)
 	$(RUN_CONTAINER_COMMAND) securego/gosec:latest \
 		-fmt=sarif \
 		-out=gosec-results.sarif \
