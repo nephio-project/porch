@@ -25,7 +25,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/builtins"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
@@ -44,7 +43,7 @@ type testFixture struct {
 	mockCache       *mockCache
 	mockTaskHandler *mockTaskHandler
 	repositoryObj   *configapi.Repository
-	packageRevision *api.PackageRevision
+	packageRevision *porchapi.PackageRevision
 	engine          *cadEngine
 }
 
@@ -65,11 +64,11 @@ func newTestFixture(t *testing.T) *testFixture {
 		},
 	}
 
-	packageRevision := &api.PackageRevision{
+	packageRevision := &porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-pkg",
 		},
-		Spec: api.PackageRevisionSpec{
+		Spec: porchapi.PackageRevisionSpec{
 			PackageName:    "test-package",
 			WorkspaceName:  "test-workspace",
 			RepositoryName: "test-repo",
@@ -105,9 +104,9 @@ func setupMockPackageRevision(t *testing.T) *mockrepo.MockPackageRevision {
 	mockPkgRev.On("KubeObjectName").Return("test-pkg")
 	mockPkgRev.On("KubeObjectNamespace").Return("default")
 	mockPkgRev.On("UID").Return(types.UID("test-uid"))
-	mockPkgRev.On("Lifecycle", mock.Anything).Return(api.PackageRevisionLifecycleDraft)
-	mockPkgRev.On("GetPackageRevision", mock.Anything).Return(&api.PackageRevision{}, nil)
-	mockPkgRev.On("GetResources", mock.Anything).Return(&api.PackageRevisionResources{}, nil)
+	mockPkgRev.On("Lifecycle", mock.Anything).Return(porchapi.PackageRevisionLifecycleDraft)
+	mockPkgRev.On("GetPackageRevision", mock.Anything).Return(&porchapi.PackageRevision{}, nil)
+	mockPkgRev.On("GetResources", mock.Anything).Return(&porchapi.PackageRevisionResources{}, nil)
 	mockPkgRev.On("GetUpstreamLock", mock.Anything).Return(v1.Upstream{}, v1.UpstreamLock{}, nil)
 	mockPkgRev.On("GetLock").Return(v1.Upstream{}, v1.UpstreamLock{}, nil)
 	mockPkgRev.On("ResourceVersion").Return("1")
@@ -207,19 +206,19 @@ type mockTaskHandler struct {
 	mock.Mock
 }
 
-func (m *mockTaskHandler) ApplyTask(ctx context.Context, draft repository.PackageRevisionDraft, repositoryObj *configapi.Repository, obj *api.PackageRevision, packageConfig *builtins.PackageConfig) error {
+func (m *mockTaskHandler) ApplyTask(ctx context.Context, draft repository.PackageRevisionDraft, repositoryObj *configapi.Repository, obj *porchapi.PackageRevision, packageConfig *builtins.PackageConfig) error {
 	args := m.Called(ctx, draft, repositoryObj, obj, packageConfig)
 	return args.Error(0)
 }
 
-func (m *mockTaskHandler) DoPRMutations(ctx context.Context, repoPr repository.PackageRevision, oldObj *api.PackageRevision, newObj *api.PackageRevision, draft repository.PackageRevisionDraft) error {
+func (m *mockTaskHandler) DoPRMutations(ctx context.Context, repoPr repository.PackageRevision, oldObj *porchapi.PackageRevision, newObj *porchapi.PackageRevision, draft repository.PackageRevisionDraft) error {
 	args := m.Called(ctx, repoPr, oldObj, newObj, draft)
 	return args.Error(0)
 }
 
-func (m *mockTaskHandler) DoPRResourceMutations(ctx context.Context, pr2Update repository.PackageRevision, draft repository.PackageRevisionDraft, oldRes *api.PackageRevisionResources, newRes *api.PackageRevisionResources) (*api.RenderStatus, error) {
+func (m *mockTaskHandler) DoPRResourceMutations(ctx context.Context, pr2Update repository.PackageRevision, draft repository.PackageRevisionDraft, oldRes *porchapi.PackageRevisionResources, newRes *porchapi.PackageRevisionResources) (*porchapi.RenderStatus, error) {
 	args := m.Called(ctx, pr2Update, draft, oldRes, newRes)
-	return args.Get(0).(*api.RenderStatus), args.Error(1)
+	return args.Get(0).(*porchapi.RenderStatus), args.Error(1)
 }
 
 func (m *mockTaskHandler) GetRuntime() fn.FunctionRuntime {

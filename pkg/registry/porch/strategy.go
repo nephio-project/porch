@@ -63,9 +63,9 @@ func (s packageRevisionStrategy) ValidateUpdate(ctx context.Context, obj, old ru
 	case "", api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed:
 		// Packages in a draft or proposed state can only be updated to draft or proposed.
 		newLifecycle := newRevision.Spec.Lifecycle
-		if !(newLifecycle == api.PackageRevisionLifecycleDraft ||
-			newLifecycle == api.PackageRevisionLifecycleProposed ||
-			newLifecycle == "") {
+		if newLifecycle != api.PackageRevisionLifecycleDraft &&
+			newLifecycle != api.PackageRevisionLifecycleProposed &&
+			newLifecycle != "" {
 			allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle, fmt.Sprintf("value can be only updated to %s",
 				strings.Join([]string{
 					string(api.PackageRevisionLifecycleDraft),

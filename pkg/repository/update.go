@@ -116,7 +116,7 @@ func writeResourcesToDirectory(dir string, resources PackageResources) error {
 		if err := os.MkdirAll(dir, 0750); err != nil {
 			return fmt.Errorf("failed to create directory %q: %w", dir, err)
 		}
-		if err := os.WriteFile(p, []byte(v), 0644); err != nil {
+		if err := os.WriteFile(p, []byte(v), 0600); err != nil {
 			return fmt.Errorf("failed to write file %q: %w", dir, err)
 		}
 	}

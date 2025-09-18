@@ -143,7 +143,7 @@ func newHelp(e []string, c *cobra.Command) func(command *cobra.Command, strings 
 		}
 
 		b := &bytes.Buffer{}
-		pager := exec.Command(e[0])
+		pager := exec.Command(e[0]) // #nosec G204 -- variables controlled internally
 		if len(e) > 1 {
 			pager.Args = append(pager.Args, e[1:]...)
 		}

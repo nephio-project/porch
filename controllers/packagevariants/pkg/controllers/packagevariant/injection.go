@@ -77,11 +77,12 @@ func newInjectionPoint(file string, object *fn.KubeObject) *injectionPoint {
 		object:        object,
 		conditionType: injectionConditionType(object),
 	}
-	if annotation == "required" {
+	switch annotation {
+	case "required":
 		ip.required = true
-	} else if annotation == "optional" {
+	case "optional":
 		ip.required = false
-	} else {
+	default:
 		ip.errors = append(ip.errors, fmt.Sprintf("%s: %s/%s has invalid %q annotation value of %q",
 			file, object.GetKind(), object.GetName(), ConfigInjectionAnnotation, annotation))
 	}

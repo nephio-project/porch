@@ -142,17 +142,17 @@ func (r *PackageVariantSetReconciler) Reconcile(ctx context.Context, req ctrl.Re
 func (r *PackageVariantSetReconciler) init(ctx context.Context, req ctrl.Request) (*api.PackageVariantSet,
 	*porchapi.PackageRevisionList, *configapi.RepositoryList, error) {
 	var pvs api.PackageVariantSet
-	if err := r.Client.Get(ctx, req.NamespacedName, &pvs); err != nil {
+	if err := r.Get(ctx, req.NamespacedName, &pvs); err != nil {
 		return nil, nil, nil, client.IgnoreNotFound(err)
 	}
 
 	var prList porchapi.PackageRevisionList
-	if err := r.Client.List(ctx, &prList, client.InNamespace(pvs.Namespace)); err != nil {
+	if err := r.List(ctx, &prList, client.InNamespace(pvs.Namespace)); err != nil {
 		return nil, nil, nil, err
 	}
 
 	var repoList configapi.RepositoryList
-	if err := r.Client.List(ctx, &repoList, client.InNamespace(pvs.Namespace)); err != nil {
+	if err := r.List(ctx, &repoList, client.InNamespace(pvs.Namespace)); err != nil {
 		return nil, nil, nil, err
 	}
 
@@ -232,7 +232,7 @@ func (r *PackageVariantSetReconciler) unrollDownstreamTargets(ctx context.Contex
 		}
 		opts = append(opts, client.MatchingLabelsSelector{Selector: labelSelector})
 
-		if err := r.Client.List(ctx, uList, opts...); err != nil {
+		if err := r.List(ctx, uList, opts...); err != nil {
 			return nil, err
 		}
 
@@ -266,7 +266,7 @@ func (r *PackageVariantSetReconciler) ensurePackageVariants(ctx context.Context,
 	downstreams []pvContext) error {
 
 	var pvList pkgvarapi.PackageVariantList
-	if err := r.Client.List(ctx, &pvList,
+	if err := r.List(ctx, &pvList,
 		client.InNamespace(pvs.Namespace),
 		client.MatchingLabels{
 			PackageVariantSetOwnerLabel: string(pvs.UID),
@@ -322,7 +322,7 @@ func (r *PackageVariantSetReconciler) ensurePackageVariants(ctx context.Context,
 		} else {
 			// this PackageVariant exists in the existing PackageVariant set, but not
 			// the desired PackageVariant set, so we need to delete it.
-			err := r.Client.Delete(ctx, existingPV)
+			err := r.Delete(ctx, existingPV)
 			if err != nil {
 				return err
 			}
@@ -335,14 +335,14 @@ func (r *PackageVariantSetReconciler) ensurePackageVariants(ctx context.Context,
 			// existing PackageVariant set, so we update it
 			// we only change the spec
 			existingPv.Spec = desiredPv.Spec
-			err := r.Client.Update(ctx, existingPv)
+			err := r.Update(ctx, existingPv)
 			if err != nil {
 				return err
 			}
 		} else {
 			// this PackageVariant exists in the desired PackageVariant set, but not
 			// the existing PackageVariant set, so we need to create it.
-			err := r.Client.Create(ctx, desiredPv)
+			err := r.Create(ctx, desiredPv)
 			if err != nil {
 				return err
 			}

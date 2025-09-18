@@ -221,9 +221,9 @@ func (o *PorchServerOptions) setupDBCacheConn() error {
 	switch dbDriver {
 	case "pgx":
 		if dbSSLMode == "" || dbSSLMode == "disable" {
-			connStr = fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", dbUser, dbUserPass, dbHost, dbPort, dbName)
+			connStr = fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", dbUser, dbUserPass, net.JoinHostPort(dbHost, dbPort), dbName)
 		} else {
-			connStr = fmt.Sprintf("postgres://%s@%s:%s/%s?sslmode=%s", dbUser, dbHost, dbPort, dbName, dbSSLMode)
+			connStr = fmt.Sprintf("postgres://%s@%s/%s?sslmode=%s", dbUser, net.JoinHostPort(dbHost, dbPort), dbName, dbSSLMode)
 		}
 
 	case "mysql":
