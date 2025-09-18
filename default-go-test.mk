@@ -32,7 +32,7 @@ ifeq ($(CONTAINER_RUNNABLE), 0)
 	       GIT_AUTHOR_EMAIL=test@nephio.org \
 	       GIT_COMMITTER_NAME=test \
 	       GIT_COMMITTER_EMAIL=test@nephio.org \
-	       go test ./... -v -coverprofile=coverage.out 2>&1 | tee ${TEST_OUTPUT_LOG_FILE}; \
+	       go test ./... -v -coverprofile ${TEST_COVERAGE_FILE} 2>&1 | tee ${TEST_OUTPUT_LOG_FILE}; \
 	       go tool cover -html=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_HTML_FILE}; \
 	       go tool cover -func=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_FUNC_FILE}'"
 else

@@ -44,9 +44,9 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          
+
       - name: Run Gosec Security Scanner
-        run: make gosec
+        run: make gosec-sarif
 
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v3

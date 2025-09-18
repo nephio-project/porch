@@ -17,31 +17,50 @@ include $(GIT_ROOT_DIR)/detect-container-runtime.mk
 
 # Install link at https://github.com/securego/gosec#install if not running inside a container
 
-gosec: ## Inspect the source code for security problems by scanning the Go AST
+.PHONY: gosec
+gosec: ## Inspect the source code for security problems by scanning the Go Abstract Syntax Tree
 ifeq ($(CONTAINER_RUNNABLE), 0)
 	$(RUN_CONTAINER_COMMAND) securego/gosec:latest \
-		sh -c "\
-			# Run Gosec once in JSON format \
-			gosec -fmt=json -out=gosec-results.json \
-			      -exclude-dir=generated -exclude-dir=test -exclude-dir=third_party -exclude-dir=examples -exclude-generated \
-			      -severity=medium -exclude=G401,G501,G505,G304 ./... && \
-			# Generate HTML from JSON \
-			gosec -fmt=html -out=gosec-results.html -f=gosec-results.json && \
-			# Generate text output to stdout from JSON \
-			gosec -fmt=text -stdout -verbose=text -f=gosec-results.json && \
-			# Generate SARIF for GitHub Security Tab \
-			gosec -fmt=sarif -out=gosec-results.sarif -f=gosec-results.json"
+		-fmt=html \
+		-out=gosec-results.html \
+		-stdout -verbose=text \
+		-exclude-dir=generated \
+		-exclude-dir=test \
+		-exclude-dir=third_party \
+		-exclude-dir=examples \
+		-exclude-generated \
+		-severity=medium \
+		-exclude=G401,G501,G505,G304 ./...
 else
-	# Run Gosec once in JSON format
-	gosec -fmt=json -out=gosec-results.json \
-	      -exclude-dir=generated -exclude-dir=test -exclude-dir=third_party -exclude-dir=examples -exclude-generated \
-	      -severity=medium -exclude=G401,G501,G505,G304 ./...
-	# Generate HTML from JSON
-	gosec -fmt=html -out=gosec-results.html -f=gosec-results.json
-	# Generate text output to stdout from JSON
-	gosec -fmt=text -stdout -verbose=text -f=gosec-results.json
-	# Generate SARIF for GitHub Security Tab
-	gosec -fmt=sarif -out=gosec-results.sarif -f=gosec-results.json
+		gosec -fmt=html -out=gosec-results.html -stdout -verbose=text \
+		-exclude-dir=generated \
+		-exclude-dir=third_party \
+		-exclude-dir=test \
+		-exclude-dir=examples \
+		-exclude-generated -severity=medium -exclude=G401,G501,G505,G304 ./...
+endif
+
+.PHONY: gosec-sarif
+gosec-sarif:  ## Build a container image from the local Dockerfile
+	ifeq ($(CONTAINER_RUNNABLE), 0)
+	$(RUN_CONTAINER_COMMAND) securego/gosec:latest \
+		-fmt=sarif \
+		-out=gosec-results.sarif \
+		-stdout -verbose=text \
+		-exclude-dir=generated \
+		-exclude-dir=test \
+		-exclude-dir=third_party \
+		-exclude-dir=examples \
+		-exclude-generated \
+		-severity=medium \
+		-exclude=G401,G501,G505,G304 ./...
+else
+		gosec -fmt=sarif -out=gosec-results.sarif -stdout -verbose=text \
+		-exclude-dir=generated \
+		-exclude-dir=third_party \
+		-exclude-dir=test \
+		-exclude-dir=examples \
+		-exclude-generated -severity=medium -exclude=G401,G501,G505,G304 ./...
 endif
 
 # Excluding the following gosec rules:
