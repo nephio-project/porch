@@ -66,9 +66,7 @@ spec:
       hostIPC: false
       containers:
         - name: postgresql
-          # Latest Postgres image from https://hub.docker.com/r/bitnamisecure/postgresql/tags
-          #   as of 2025-09-18
-          image: docker.io/bitnamisecure/postgresql:sha256-1adcafe30e74d396e9fb55670a53722b8e84d7f3b410edcdc325ee0e97f3e238
+          image: docker.io/bitnamisecure/postgresql:latest
           imagePullPolicy: "IfNotPresent"
           securityContext:
             runAsUser: 1001
