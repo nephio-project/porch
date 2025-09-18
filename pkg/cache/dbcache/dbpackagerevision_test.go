@@ -223,6 +223,8 @@ upstreamLock:
 	err = newDBPR2.UpdateResources(ctx, prResources, &v1alpha1.Task{})
 	assert.Nil(t, err)
 
+	assert.False(t, newDBPR2.IsLatestRevision())
+
 	dbPR, err = testRepo.ClosePackageRevisionDraft(ctx, dbPR.(repository.PackageRevisionDraft), 0)
 	assert.Nil(t, err)
 	assert.NotNil(t, dbPR)

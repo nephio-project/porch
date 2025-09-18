@@ -22,9 +22,12 @@ import (
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	fakeextrepo "github.com/nephio-project/porch/pkg/externalrepo/fake"
 	"github.com/nephio-project/porch/pkg/repository"
+	mockrepo "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/repository"
 	"github.com/stretchr/testify/require"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 func Test_convertPackageRevisionFieldSelector(t *testing.T) {
@@ -71,13 +74,13 @@ func Test_packageRevisionFilter_Matches(t *testing.T) {
 		wantMatches bool
 	}{
 		{
-			name:        "nil selector",
+			name:        "nil filter",
 			filter:      repository.ListPackageRevisionFilter{},
 			p:           &fakeextrepo.FakePackageRevision{},
 			wantMatches: true,
 		},
 		{
-			name:   "matching selector",
+			name:   "matching filter",
 			filter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "foo"}}}},
 			p: &fakeextrepo.FakePackageRevision{
 				PrKey: repository.PackageRevisionKey{
@@ -91,13 +94,13 @@ func Test_packageRevisionFilter_Matches(t *testing.T) {
 			wantMatches: true,
 		},
 		{
-			name:        "different selector",
+			name:        "filter with different field",
 			filter:      repository.ListPackageRevisionFilter{Lifecycles: []v1alpha1.PackageRevisionLifecycle{"Published"}},
 			p:           &fakeextrepo.FakePackageRevision{PackageLifecycle: "Published"},
 			wantMatches: true,
 		},
 		{
-			name:   "non-matching selector",
+			name:   "non-matching filter",
 			filter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "bar"}}}},
 			p: &fakeextrepo.FakePackageRevision{
 				PrKey: repository.PackageRevisionKey{
@@ -108,6 +111,33 @@ func Test_packageRevisionFilter_Matches(t *testing.T) {
 					},
 				},
 			},
+			wantMatches: false,
+		},
+		{
+			name:   "filter on label",
+			filter: repository.ListPackageRevisionFilter{Label: labels.Set{"kpt.dev/someLabel": "foo"}.AsSelector()},
+			p: &fakeextrepo.FakePackageRevision{
+				Meta: &metav1.ObjectMeta{Labels: labels.Set{"kpt.dev/someLabel": "foo"}},
+			},
+			wantMatches: true,
+		},
+		{
+			name:        "filter on kpt.dev/latest-revision label (special case)",
+			filter:      repository.ListPackageRevisionFilter{Label: labels.Set{"kpt.dev/latest-revision": "true"}.AsSelector()},
+			p:           &fakeextrepo.FakePackageRevision{},
+			wantMatches: true,
+		},
+		{
+			name:   "filter on kpt.dev/latest-revision label == false (special case)",
+			filter: repository.ListPackageRevisionFilter{Label: labels.Set{"kpt.dev/latest-revision": "false"}.AsSelector()},
+			p: func() repository.PackageRevision {
+				mockPkgRev := &mockrepo.MockPackageRevision{}
+				mockPkgRev.On("Key").Return(repository.PackageRevisionKey{})
+				mockPkgRev.On("GetMeta").Return(metav1.ObjectMeta{})
+				mockPkgRev.On("IsLatestRevision").Return(false)
+
+				return mockPkgRev
+			}(),
 			wantMatches: false,
 		},
 	}
@@ -134,9 +164,9 @@ func Test_parsePackageRevisionFieldSelector(t *testing.T) {
 			wantFilter: repository.ListPackageRevisionFilter{},
 		},
 		{
-			name:       "revision selector",
-			selector:   "spec.revision=1",
-			wantFilter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{Revision: 1}},
+			name:       "name selector",
+			selector:   "metadata.name=blueprints.foo.v1",
+			wantFilter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "blueprints"}, Package: "foo"}, WorkspaceName: "v1"}},
 		},
 		{
 			name:       "namespace selector",
@@ -147,6 +177,36 @@ func Test_parsePackageRevisionFieldSelector(t *testing.T) {
 			name:       "namespace selector with == operator",
 			selector:   "metadata.namespace==foo",
 			wantFilter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Namespace: "foo"}}}},
+		},
+		{
+			name:       "revision selector",
+			selector:   "spec.revision=1",
+			wantFilter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{Revision: 1}},
+		},
+		{
+			name:       "packageName selector",
+			selector:   "spec.packageName=foo",
+			wantFilter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{Package: "foo"}}},
+		},
+		{
+			name:       "multi-level packageName selector",
+			selector:   "spec.packageName=foo/bar",
+			wantFilter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{Path: "foo", Package: "bar"}}},
+		},
+		{
+			name:       "repository selector",
+			selector:   "spec.repository=blueprints",
+			wantFilter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "blueprints"}}}},
+		},
+		{
+			name:       "workspaceName selector",
+			selector:   "spec.workspaceName=v1",
+			wantFilter: repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{WorkspaceName: "v1"}},
+		},
+		{
+			name:       "lifecycle selector",
+			selector:   "spec.lifecycle=Published",
+			wantFilter: repository.ListPackageRevisionFilter{Lifecycles: []v1alpha1.PackageRevisionLifecycle{"Published"}},
 		},
 	}
 	for _, tt := range positiveTests {
@@ -181,6 +241,14 @@ func Test_parsePackageRevisionFieldSelector(t *testing.T) {
 			name:     "empty selector value",
 			selector: fields.Set{"metadata.namespace": ""}.AsSelector(),
 			wantErr:  "unsupported fieldSelector value",
+		},
+		{
+			name: "unsupported operator",
+			selector: func() fields.Selector {
+				s, _ := fields.ParseSelector("metadata.namespace!=foo")
+				return s
+			}(),
+			wantErr: "unsupported fieldSelector operator",
 		},
 	}
 	for _, tt := range negativeTests {

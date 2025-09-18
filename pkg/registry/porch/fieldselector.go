@@ -17,6 +17,7 @@ package porch
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -24,6 +25,40 @@ import (
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/selection"
+)
+
+type prFilterFieldMappingFunc func(filter *repository.ListPackageRevisionFilter, value string)
+
+var (
+	PrFilterFieldMappings = map[string]prFilterFieldMappingFunc{
+		api.PackageRevisionSelectableFields.Name: func(f *repository.ListPackageRevisionFilter, name string) {
+			if filterKey, err := repository.PkgRevK8sName2Key("", name); err == nil {
+				f.Key = filterKey
+			}
+		},
+		api.PackageRevisionSelectableFields.Namespace: func(f *repository.ListPackageRevisionFilter, namespace string) {
+			f.Key.PkgKey.RepoKey.Namespace = namespace
+		},
+		api.PackageRevisionSelectableFields.Revision: func(f *repository.ListPackageRevisionFilter, strRevision string) {
+			f.Key.Revision = repository.Revision2Int(strRevision)
+		},
+		api.PackageRevisionSelectableFields.PackageName: func(f *repository.ListPackageRevisionFilter, fullPkgName string) {
+			split := strings.Split(fullPkgName, "/")
+			if len(split) > 1 {
+				f.Key.PkgKey.Package = split[len(split)-1]
+				f.Key.PkgKey.Path = strings.Join(split[0:len(split)-1], "/")
+			} else {
+				f.Key.PkgKey.Package = fullPkgName
+			}
+		},
+		api.PackageRevisionSelectableFields.Repository: func(f *repository.ListPackageRevisionFilter, repoName string) { f.Key.PkgKey.RepoKey.Name = repoName },
+		api.PackageRevisionSelectableFields.WorkspaceName: func(f *repository.ListPackageRevisionFilter, workspaceName string) {
+			f.Key.WorkspaceName = workspaceName
+		},
+		api.PackageRevisionSelectableFields.Lifecycle: func(f *repository.ListPackageRevisionFilter, lifecycle string) {
+			f.Lifecycles = append(f.Lifecycles, api.PackageRevisionLifecycle(lifecycle))
+		},
+	}
 )
 
 // convertPackageFieldSelector is the schema conversion function for normalizing the FieldSelector for Package
@@ -119,7 +154,7 @@ func parsePackageRevisionFieldSelector(options *metainternalversion.ListOptions)
 		}
 
 		filteredField := requirement.Field
-		if filterFunc, fieldSelectable := repository.RepoPrFilterMappings[filteredField]; fieldSelectable {
+		if filterFunc, fieldSelectable := PrFilterFieldMappings[filteredField]; fieldSelectable {
 			filterFunc(filter, requirement.Value)
 		}
 	}
