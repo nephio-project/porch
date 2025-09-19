@@ -16,6 +16,7 @@ TEST_COVERAGE_FILE=coverage.out
 TEST_COVERAGE_HTML_FILE=coverage_unit.html
 TEST_COVERAGE_FUNC_FILE=func_coverage.out
 TEST_OUTPUT_LOG_FILE=test_output.log
+TMPDIR=/tmp/coverage
 GIT_ROOT_DIR ?= $(dir $(lastword $(MAKEFILE_LIST)))
 include $(GIT_ROOT_DIR)/detect-container-runtime.mk
 
@@ -26,19 +27,21 @@ unit: test
 test: ## Run unit tests (go test)
 ifeq ($(CONTAINER_RUNNABLE), 0)
 	$(RUN_CONTAINER_COMMAND) golang:1.25.0-bookworm \
-	sh -c "useradd -m -s /bin/sh porch && \
-	       su porch -c 'PORCHDIR=${PORCHDIR} \
-	       GIT_AUTHOR_NAME=test \
-	       GIT_AUTHOR_EMAIL=test@nephio.org \
-	       GIT_COMMITTER_NAME=test \
-	       GIT_COMMITTER_EMAIL=test@nephio.org \
-	       go test ./... -v -coverprofile ${TEST_COVERAGE_FILE} 2>&1 | tee ${TEST_OUTPUT_LOG_FILE}; \
-	       go tool cover -html=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_HTML_FILE}; \
-	       go tool cover -func=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_FUNC_FILE}'"
+	sh -c "\
+    useradd -m -s /bin/sh porch && \
+    mkdir -p ${TMPDIR} && chown porch:porch ${TMPDIR} && \
+    su porch -c 'export TMPDIR=${TMPDIR}; \
+                 export PORCHDIR=${PORCHDIR}; \
+                 git config --global user.name test; \
+                 git config --global user.email test@nephio.org; \
+                 go test ./... -v -coverprofile=${TMPDIR}/${TEST_COVERAGE_FILE} 2>&1 | tee ${TMPDIR}/${TEST_OUTPUT_LOG_FILE}; \
+                 go tool cover -html=${TMPDIR}/${TEST_COVERAGE_FILE} -o ${TMPDIR}/${TEST_COVERAGE_HTML_FILE}; \
+                 go tool cover -func=${TMPDIR}/${TEST_COVERAGE_FILE} -o ${TMPDIR}/${TEST_COVERAGE_FUNC_FILE}'; \
+				 cp ${TMPDIR}/${TEST_OUTPUT_LOG_FILE} ${TMPDIR}/${TEST_COVERAGE_HTML_FILE} ."
 else
-		go test ./... -v -coverprofile ${TEST_COVERAGE_FILE}
-		go tool cover -html=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_HTML_FILE}
-		go tool cover -func=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_FUNC_FILE}
+	go test ./... -v -coverprofile=${TEST_COVERAGE_FILE}
+	go tool cover -html=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_HTML_FILE}
+	go tool cover -func=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_FUNC_FILE}
 endif
 
 .PHONY: unit-clean
