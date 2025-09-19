@@ -291,7 +291,7 @@ func (d *defaultPkgDiffer) Diff(pkgs ...string) error {
 	} else {
 		args = pkgs
 	}
-	cmd := exec.Command(d.DiffTool, args...)
+	cmd := exec.Command(d.DiffTool, args...) // #nosec G204 -- variables controlled internally
 	cmd.Stdout = d.Output
 	cmd.Stderr = d.Output
 
@@ -378,7 +378,7 @@ func (pg defaultPkgGetter) GetPkg(ctx context.Context, stagingDir, targetDir, re
 // subpath is the subdirectory that should be created inside path
 func stageDirectory(path, subpath string) (string, error) {
 	targetPath := filepath.Join(path, subpath)
-	err := os.Mkdir(targetPath, os.ModePerm)
+	err := os.Mkdir(targetPath, os.FileMode(0750))
 	return targetPath, err
 }
 

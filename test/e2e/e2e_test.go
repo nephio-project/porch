@@ -36,7 +36,6 @@ import (
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -2526,9 +2525,9 @@ func (t *PorchSuite) TestNewPackageRevisionLabels() {
 	}, &pr)
 
 	// Update the labels and annotations on the approved package.
-	delete(pr.ObjectMeta.Labels, labelKey1)
-	pr.ObjectMeta.Labels[labelKey2] = labelVal2
-	delete(pr.ObjectMeta.Annotations, annoKey2)
+	delete(pr.Labels, labelKey1)
+	pr.Labels[labelKey2] = labelVal2
+	delete(pr.Annotations, annoKey2)
 	pr.Spec.Revision = 1
 	t.UpdateF(&pr)
 	t.ValidateLabelsAndAnnos(pr.Name,
@@ -2590,14 +2589,14 @@ func (t *PorchSuite) TestRegisteredPackageRevisionLabels() {
 	t.ListE(&list, client.InNamespace(t.Namespace))
 
 	basens := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "test-blueprints"}, Package: "basens"}, Revision: 1})
-	if basens.ObjectMeta.Labels == nil {
-		basens.ObjectMeta.Labels = make(map[string]string)
+	if basens.Labels == nil {
+		basens.Labels = make(map[string]string)
 	}
-	basens.ObjectMeta.Labels[labelKey] = labelVal
-	if basens.ObjectMeta.Annotations == nil {
-		basens.ObjectMeta.Annotations = make(map[string]string)
+	basens.Labels[labelKey] = labelVal
+	if basens.Annotations == nil {
+		basens.Annotations = make(map[string]string)
 	}
-	basens.ObjectMeta.Annotations[annoKey] = annoVal
+	basens.Annotations[annoKey] = annoVal
 	t.UpdateF(basens)
 
 	t.ValidateLabelsAndAnnos(basens.Name,
@@ -2801,11 +2800,11 @@ func (t *PorchSuite) TestPackageRevisionOwnerReferences() {
 		Name:       cm.Name,
 		UID:        cm.UID,
 	}
-	pr.ObjectMeta.OwnerReferences = []metav1.OwnerReference{ownerRef}
+	pr.OwnerReferences = []metav1.OwnerReference{ownerRef}
 	t.UpdateF(pr)
 	t.ValidateOwnerReferences(pr.Name, []metav1.OwnerReference{ownerRef})
 
-	pr.ObjectMeta.OwnerReferences = []metav1.OwnerReference{}
+	pr.OwnerReferences = []metav1.OwnerReference{}
 	t.UpdateF(pr)
 	t.ValidateOwnerReferences(pr.Name, []metav1.OwnerReference{})
 }
@@ -3342,7 +3341,7 @@ func (t *PorchSuite) TestCreatePackageRevisionRollback() {
 
 	// Verify that the package revision was not created
 	_, err = t.Clientset.PorchV1alpha1().PackageRevisions(t.Namespace).Get(ctx, pr.Name, metav1.GetOptions{})
-	assert.True(t, apierrors.IsNotFound(err), "Expected package revision to be deleted after rollback")
+	assert.True(t, errors.IsNotFound(err), "Expected package revision to be deleted after rollback")
 }
 
 func (t *PorchSuite) TestPackageRevisionListWithTwoHangingRepositories() {

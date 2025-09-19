@@ -81,7 +81,7 @@ func (r *packages) List(ctx context.Context, options *metainternalversion.ListOp
 		return nil, err
 	}
 
-	if err := r.packageCommon.listPackages(ctx, filter, func(p repository.Package) error {
+	if err := r.listPackages(ctx, filter, func(p repository.Package) error {
 		item := p.GetPackage(ctx)
 		result.Items = append(result.Items, *item)
 		return nil
@@ -133,7 +133,7 @@ func (r *packages) Create(ctx context.Context, runtimeObject runtime.Object, cre
 		return nil, apierrors.NewBadRequest("spec.repository is required")
 	}
 
-	repositoryObj, err := r.packageCommon.getRepositoryObj(ctx, types.NamespacedName{Name: repositoryName, Namespace: ns})
+	repositoryObj, err := r.getRepositoryObj(ctx, types.NamespacedName{Name: repositoryName, Namespace: ns})
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +162,7 @@ func (r *packages) Update(ctx context.Context, name string, objInfo rest.Updated
 	ctx, span := tracer.Start(ctx, "packages::Update", trace.WithAttributes())
 	defer span.End()
 
-	return r.packageCommon.updatePackage(ctx, name, objInfo, createValidation, updateValidation, forceAllowCreate)
+	return r.updatePackage(ctx, name, objInfo, createValidation, updateValidation, forceAllowCreate)
 }
 
 // Delete implements the GracefulDeleter interface.
@@ -187,13 +187,13 @@ func (r *packages) Delete(ctx context.Context, name string, deleteValidation res
 		return nil, false, apierrors.NewBadRequest("namespace must be specified")
 	}
 
-	oldPackage, err := r.packageCommon.getPackage(ctx, name)
+	oldPackage, err := r.getPackage(ctx, name)
 	if err != nil {
 		return nil, false, err
 	}
 
 	oldObj := oldPackage.GetPackage(ctx)
-	repositoryObj, err := r.packageCommon.validateDelete(ctx, deleteValidation, oldObj, name, ns)
+	repositoryObj, err := r.validateDelete(ctx, deleteValidation, oldObj, name, ns)
 	if err != nil {
 		return nil, false, err
 	}

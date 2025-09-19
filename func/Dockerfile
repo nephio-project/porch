@@ -25,7 +25,7 @@ FROM gcr.io/kpt-fn/set-project-id:v0.2.0 AS set-project-id
 FROM gcr.io/kpt-fn/starlark:v0.3.0 AS starlark
 FROM gcr.io/kpt-fn/upsert-resource:v0.2.0 AS upsert-resource
 
-FROM golang:1.23.8-alpine3.21 AS builder
+FROM golang:1.25.0-alpine AS builder
 WORKDIR /go/src
 
 RUN go install github.com/grpc-ecosystem/grpc-health-probe@v0.4.11

@@ -106,7 +106,7 @@ func (m Command) Run() error {
 	}
 
 	// setup the man command
-	manCmd := exec.Command(m.GetExecCmd(), f.Name())
+	manCmd := exec.Command(m.GetExecCmd(), f.Name()) // #nosec G204 -- variables controlled internally
 	manCmd.Stderr = os.Stderr
 	manCmd.Stdin = os.Stdin
 	manCmd.Stdout = m.GetStdOut()

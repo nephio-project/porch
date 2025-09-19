@@ -107,7 +107,7 @@ type singleFunctionEvaluator struct {
 
 func (e *singleFunctionEvaluator) EvaluateFunction(ctx context.Context, req *pb.EvaluateFunctionRequest) (*pb.EvaluateFunctionResponse, error) {
 	var stdout, stderr bytes.Buffer
-	cmd := exec.CommandContext(ctx, e.entrypoint[0], e.entrypoint[1:]...)
+	cmd := exec.CommandContext(ctx, e.entrypoint[0], e.entrypoint[1:]...) // #nosec G204 -- variables controlled internally
 	cmd.Stdin = bytes.NewReader(req.ResourceList)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

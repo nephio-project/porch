@@ -143,7 +143,7 @@ func (t *PerformanceSuite) DeleteL(obj client.Object, opts ...client.DeleteOptio
 		hadError = true
 		t.Logf(format, args...)
 	}
-	MeasureAndRecord(OperationDelete, obj, func() { t.TestSuiteWithGit.DeleteEH(obj, handler, opts...) })
+	MeasureAndRecord(OperationDelete, obj, func() { t.DeleteEH(obj, handler, opts...) })
 	if !hadError {
 		t.decrementGuage(obj)
 	}

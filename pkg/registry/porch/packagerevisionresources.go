@@ -82,7 +82,7 @@ func (r *packageRevisionResources) List(ctx context.Context, options *metaintern
 		return nil, err
 	}
 
-	if err := r.packageCommon.listPackageRevisions(ctx, filter, options.LabelSelector, func(ctx context.Context, p repository.PackageRevision) error {
+	if err := r.listPackageRevisions(ctx, filter, options.LabelSelector, func(ctx context.Context, p repository.PackageRevision) error {
 		apiPkgResources, err := p.GetResources(ctx)
 		if err != nil {
 			return err
@@ -101,7 +101,7 @@ func (r *packageRevisionResources) Get(ctx context.Context, name string, options
 	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::Get", trace.WithAttributes())
 	defer span.End()
 
-	pkg, err := r.packageCommon.getRepoPkgRev(ctx, name)
+	pkg, err := r.getRepoPkgRev(ctx, name)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +137,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 	}
 	defer pkgMutex.Unlock()
 
-	oldRepoPkgRev, err := r.packageCommon.getRepoPkgRev(ctx, name)
+	oldRepoPkgRev, err := r.getRepoPkgRev(ctx, name)
 	if err != nil {
 		return nil, false, err
 	}
