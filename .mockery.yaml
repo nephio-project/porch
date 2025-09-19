@@ -60,3 +60,7 @@ packages:
         config:
           dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
           outpkg: "{{.PackageName}}"
+      WatcherManager:
+        config:
+          dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
+          outpkg: "{{.PackageName}}"

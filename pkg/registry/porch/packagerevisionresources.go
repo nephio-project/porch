@@ -77,12 +77,12 @@ func (r *packageRevisionResources) List(ctx context.Context, options *metaintern
 		},
 	}
 
-	filter, err := parsePackageRevisionResourcesFieldSelector(options.FieldSelector)
+	filter, err := parsePackageRevisionResourcesFieldSelector(options)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := r.listPackageRevisions(ctx, filter, options.LabelSelector, func(ctx context.Context, p repository.PackageRevision) error {
+	if err := r.listPackageRevisions(ctx, *filter, func(ctx context.Context, p repository.PackageRevision) error {
 		apiPkgResources, err := p.GetResources(ctx)
 		if err != nil {
 			return err

@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"slices"
 	"time"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -147,8 +148,14 @@ func (r *dbRepository) ListPackageRevisions(ctx context.Context, filter reposito
 
 	genericPkgRevs := make([]repository.PackageRevision, len(foundPkgRevs))
 	for i, pkgRev := range foundPkgRevs {
-		genericPkgRevs[i] = repository.PackageRevision(pkgRev)
+		genericPkgRev := repository.PackageRevision(pkgRev)
+		if filter.MatchesLabels(ctx, genericPkgRev) {
+			genericPkgRevs[i] = genericPkgRev
+		}
 	}
+	genericPkgRevs = slices.DeleteFunc(genericPkgRevs, func(rev repository.PackageRevision) bool {
+		return rev == nil
+	})
 
 	klog.V(5).Infof("ListPackageRevisions: listed package revisions in repository %+v with filter %+v", r.Key(), filter)
 

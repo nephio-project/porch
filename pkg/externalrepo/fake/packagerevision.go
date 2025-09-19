@@ -28,6 +28,7 @@ import (
 // Implementation of the repository.PackageRevision interface for testing.
 type FakePackageRevision struct {
 	PrKey            repository.PackageRevisionKey
+	Meta             *metav1.ObjectMeta
 	Uid              types.UID
 	PackageLifecycle v1alpha1.PackageRevisionLifecycle
 	PackageRevision  *v1alpha1.PackageRevision
@@ -113,7 +114,15 @@ func (fpr *FakePackageRevision) UpdateLifecycle(_ context.Context, lifecycle v1a
 
 func (fpr *FakePackageRevision) GetMeta() metav1.ObjectMeta {
 	fpr.Ops = append(fpr.Ops, "GetMeta")
+	if fpr.Meta != nil {
+		return *fpr.Meta
+	}
+
 	return metav1.ObjectMeta{}
+}
+
+func (fpr *FakePackageRevision) IsLatestRevision() bool {
+	return true
 }
 
 func (fpr *FakePackageRevision) SetMeta(context.Context, metav1.ObjectMeta) error {

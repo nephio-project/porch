@@ -16,11 +16,174 @@ package porch
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strings"
 	"testing"
 
+	"github.com/nephio-project/porch/api/porch"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/pkg/externalrepo/fake"
+	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/pkg/repository"
+	mockclient "github.com/nephio-project/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
+	mockengine "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/engine"
+	mockrepo "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/repository"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apiserver/pkg/endpoints/request"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var (
+	packagerevisions = &packageRevisions{
+		TableConvertor: packageRevisionTableConvertor,
+		packageCommon: packageCommon{
+			scheme:         runtime.NewScheme(),
+			gr:             porch.Resource("packagerevisions"),
+			coreClient:     nil,
+			updateStrategy: packageRevisionStrategy{},
+			createStrategy: packageRevisionStrategy{},
+		},
+	}
+	dummyRepoObject = configapi.Repository{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       configapi.TypeRepository.Kind,
+			APIVersion: configapi.TypeRepository.APIVersion(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "someDummyRepo",
+			Namespace: "someDummyNamespace",
+		},
+		Spec: configapi.RepositorySpec{
+			Description: "Repository With Error",
+			Type:        configapi.RepositoryTypeGit,
+			Git: &configapi.GitRepository{
+				// Use `invalid` domain: https://www.rfc-editor.org/rfc/rfc6761#section-6.4
+				Repo: "https://repo.invalid/repository.git",
+			},
+		},
+	}
+	repositoryName  = "repo"
+	pkg             = "1234567890"
+	revision        = 1
+	workspace       = "ws"
+	packageRevision = &fake.FakePackageRevision{
+		PrKey: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				RepoKey: repository.RepositoryKey{
+					Name: repositoryName,
+				},
+				Package: pkg,
+			},
+			Revision:      revision,
+			WorkspaceName: workspace,
+		},
+		PackageLifecycle: api.PackageRevisionLifecyclePublished,
+		PackageRevision: &api.PackageRevision{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: make(map[string]string),
+			},
+		},
+		Resources: &api.PackageRevisionResources{
+			Spec: api.PackageRevisionResourcesSpec{
+				PackageName:    pkg,
+				Revision:       revision,
+				RepositoryName: repositoryName,
+				Resources: map[string]string{
+					kptfile.KptFileName: strings.TrimSpace(`
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: example
+  annotations:
+    config.kubernetes.io/local-config: "true"
+info:
+  description: sample description
+					`),
+				},
+			},
+		},
+	}
+)
+
+func setup(t *testing.T) (mockClient *mockclient.MockClient, mockEngine *mockengine.MockCaDEngine) {
+	mockClient = mockclient.NewMockClient(t)
+	packagerevisions.coreClient = mockClient
+	mockEngine = mockengine.NewMockCaDEngine(t)
+	packagerevisions.cad = mockEngine
+	mockClient.On("List", mock.Anything, mock.Anything, mock.Anything).Return(func(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+		list.(*configapi.RepositoryList).Items = []configapi.Repository{
+			dummyRepoObject,
+		}
+		return nil
+	}).Maybe()
+
+	return
+}
+
+func TestList(t *testing.T) {
+	_, mockEngine := setup(t)
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{
+		packageRevision,
+	}, nil).Once()
+
+	result, err := packagerevisions.List(context.TODO(), &internalversion.ListOptions{})
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(result.(*api.PackageRevisionList).Items))
+
+	//=========================================================================================
+
+	result, err = packagerevisions.List(context.TODO(), &internalversion.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("something.crazy", "somethingOffTheWall"),
+	})
+	assert.Equal(t, nil, result)
+	assert.ErrorContains(t, err, "unknown fieldSelector field")
+
+	//=========================================================================================
+
+	mockPkgRev := mockrepo.NewMockPackageRevision(t)
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{
+		mockPkgRev,
+	}, nil)
+	mockPkgRev.On("GetPackageRevision", mock.Anything).Return(nil, errors.New("error getting API package revision")).Once()
+	result, err = packagerevisions.List(context.TODO(), &internalversion.ListOptions{})
+	resultList, isList := result.(*api.PackageRevisionList)
+	assert.True(t, isList)
+	assert.Equal(t, 0, len(resultList.Items))
+}
+
+func TestWatch(t *testing.T) {
+	_, mockEngine := setup(t)
+	mockWatcherManager := mockengine.NewMockWatcherManager(t)
+	mockEngine.On("ObjectCache").Return(mockWatcherManager).Maybe()
+
+	mockWatcherManager.On("WatchPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return(fmt.Errorf("error starting watch")).Maybe()
+
+	_, err := packagerevisions.Watch(context.TODO(), &internalversion.ListOptions{})
+	assert.NoError(t, err)
+
+	//=========================================================================================
+
+	result, err := packagerevisions.Watch(context.TODO(), &internalversion.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("something.crazy", "somethingOffTheWall"),
+	})
+	assert.Equal(t, nil, result)
+	assert.ErrorContains(t, err, "unknown fieldSelector field")
+
+	//=========================================================================================
+
+	result, err = packagerevisions.Watch(request.WithNamespace(context.TODO(), "foo"), &internalversion.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("metadata.namespace", "somethingOffTheWall"),
+	})
+	assert.Equal(t, nil, result)
+	assert.ErrorContains(t, err, "conflicting namespaces specified:")
+}
 
 func TestUpdateStrategyForLifecycle(t *testing.T) {
 	type testCase struct {

@@ -42,6 +42,26 @@ const (
 	LatestPackageRevisionValue = "true"
 )
 
+type pkgRevSelectable struct {
+	Name          string
+	Namespace     string
+	Revision      string
+	PackageName   string
+	Repository    string
+	WorkspaceName string
+	Lifecycle     string
+}
+
+var PackageRevisionSelectableFields = pkgRevSelectable{
+	Name:          "metadata.name",
+	Namespace:     "metadata.namespace",
+	Revision:      "spec.revision",
+	PackageName:   "spec.packageName",
+	Repository:    "spec.repository",
+	WorkspaceName: "spec.workspaceName",
+	Lifecycle:     "spec.lifecycle",
+}
+
 // PackageRevisionList
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type PackageRevisionList struct {
@@ -59,6 +79,18 @@ const (
 	PackageRevisionLifecyclePublished        PackageRevisionLifecycle = "Published"
 	PackageRevisionLifecycleDeletionProposed PackageRevisionLifecycle = "DeletionProposed"
 )
+
+func (l *PackageRevisionLifecycle) IsValid() bool {
+	switch *l {
+	case PackageRevisionLifecycleDraft,
+		PackageRevisionLifecycleProposed,
+		PackageRevisionLifecyclePublished,
+		PackageRevisionLifecycleDeletionProposed:
+		return true
+	default:
+		return false
+	}
+}
 
 // PackageRevisionSpec defines the desired state of PackageRevision
 type PackageRevisionSpec struct {
