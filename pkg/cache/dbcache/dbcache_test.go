@@ -28,6 +28,7 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 	mockdbcache "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/dbcache"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog/v2"
@@ -181,6 +182,11 @@ func TestDBRepositoryCrud(t *testing.T) {
 }
 
 func createTestRepo(t *testing.T, namespace, name string) *dbRepository {
+	mockSync := mockdbcache.NewMockRepositorySync(t)
+	mockSync.EXPECT().GetLastSyncError().Return(nil).Maybe()
+	mockSync.EXPECT().SyncAfter(mock.Anything).Maybe()
+	mockSync.EXPECT().Stop().Maybe()
+
 	dbRepo := dbRepository{
 		repoKey: repository.RepositoryKey{
 			Namespace: namespace,
@@ -194,7 +200,9 @@ func createTestRepo(t *testing.T, namespace, name string) *dbRepository {
 				},
 			},
 		},
+		repositorySync: mockSync,
 	}
+
 	err := repoWriteToDB(context.TODO(), &dbRepo)
 	assert.Nil(t, err)
 
