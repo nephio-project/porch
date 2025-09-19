@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/user"
 	"testing"
 	"time"
 
@@ -27,42 +28,50 @@ import (
 	"github.com/nephio-project/porch/pkg/externalrepo"
 	"github.com/nephio-project/porch/pkg/repository"
 	mockdbcache "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/dbcache"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog/v2"
 )
 
-var (
-	defaultPorchSQLSchema string = "api/sql/porch-db.sql"
-	nextPkgRev            int    = 1
-	savedDBHandler        *DBHandler
-)
+const defaultPorchSQLSchema = "api/sql/porch-db.sql"
 
-func TestMain(m *testing.M) {
-	code, err := run(m)
-	if err != nil {
-		klog.Errorf("tests failed: %q", err)
-	}
-	os.Exit(code)
+type DbTestSuite struct {
+	suite.Suite
+
+	ctx            context.Context
+	nextPkgRev     int
+	savedDBHandler *DBHandler
 }
 
-func run(m *testing.M) (code int, err error) {
+func Test_DbTestSuite(t *testing.T) {
+	if u, err := user.Current(); err == nil && u.Username == "root" {
+		t.Skipf("This test cannot run as %q user", u.Username)
+	}
+	// TODO: replace ctx with t.Context() in go 1.24<
+	suite.Run(t, &DbTestSuite{nextPkgRev: 1, ctx: context.Background()})
+}
+
+func (t *DbTestSuite) Context() context.Context {
+	t.T().Helper()
+	return t.ctx
+}
+
+func (t *DbTestSuite) SetupSuite() {
 	postgres := embeddedpostgres.NewDatabase(embeddedpostgres.DefaultConfig().
 		Username("porch").
 		Password("porch").
 		Database("porch").
 		Port(55432))
 
-	if err := postgres.Start(); err != nil {
-		return -1, fmt.Errorf("could not start test instance of postgres: %w", err)
-	}
+	err := postgres.Start()
+	t.Require().NoError(err, "could not start test instance of postgres")
 
-	defer func() {
+	t.T().Cleanup(func() {
 		if err := postgres.Stop(); err != nil {
 			klog.Errorf("stop of test database failed: %q", err)
 		}
-	}()
+	})
 
 	dbOpts := &cachetypes.CacheOptions{
 		DBCacheOptions: cachetypes.DBCacheOptions{
@@ -71,9 +80,17 @@ func run(m *testing.M) (code int, err error) {
 		},
 	}
 
-	if err := OpenDB(context.TODO(), *dbOpts); err != nil {
-		return -1, fmt.Errorf("could not connect to test database: %w", err)
-	}
+	err = OpenDB(t.Context(), *dbOpts)
+	t.Require().NoError(err, "could not connect to test database")
+
+	t.T().Cleanup(func() {
+		// TODO: is this sleep necessary?
+		time.Sleep(5 * time.Second)
+
+		if err := CloseDB(t.Context()); err != nil {
+			t.T().Log(err)
+		}
+	})
 
 	schemaFile, ok := os.LookupEnv("PORCH_SQL_SCHEMA")
 	if !ok {
@@ -89,24 +106,10 @@ func run(m *testing.M) (code int, err error) {
 	}
 
 	schemaBytes, err := os.ReadFile(schemaFile)
-	if err != nil {
-		return -1, fmt.Errorf("could not read Porch SQL schema file %q: %w", schemaFile, err)
-	}
+	t.Require().NoErrorf(err, "could not read Porch SQL schema file %q", schemaFile)
 
 	_, err = GetDB().db.Exec(string(schemaBytes))
-	if err != nil {
-		return -1, fmt.Errorf("could not process Porch SQL schema file %q: %w", schemaFile, err)
-	}
-
-	result := m.Run()
-
-	time.Sleep(5 * time.Second)
-
-	if err := CloseDB(context.TODO()); err == nil {
-		return result, nil
-	} else {
-		return result, err
-	}
+	t.Require().NoErrorf(err, "could not process Porch SQL schema file %q", schemaFile)
 }
 
 type mockNotifier struct {
@@ -125,38 +128,38 @@ func (n *mockNotifier) NotifyPackageRevisionChange(eventType watch.EventType, ob
 	return n.returnVal
 }
 
-func switchToMockSQL(t *testing.T) {
-	mockDBCache := mockdbcache.NewMockdbSQLInterface(t)
+func (t *DbTestSuite) switchToMockSQL() {
+	mockDBCache := mockdbcache.NewMockdbSQLInterface(t.T())
 
-	savedDBHandler = GetDB()
+	t.savedDBHandler = GetDB()
 	dbHandler = nil
 
-	err := CloseDB(context.TODO())
-	assert.Nil(t, err)
+	err := CloseDB(t.Context())
+	t.NoError(err)
 
 	dbHandler = &DBHandler{
-		dBCacheOptions: savedDBHandler.dBCacheOptions,
-		dataSource:     savedDBHandler.dataSource,
+		dBCacheOptions: t.savedDBHandler.dBCacheOptions,
+		dataSource:     t.savedDBHandler.dataSource,
 		db:             mockDBCache,
 	}
-	assert.NotNil(t, dbHandler)
+	t.NotNil(dbHandler)
 }
 
-func revertToPostgreSQL(_ *testing.T) {
-	dbHandler = savedDBHandler
+func (t *DbTestSuite) revertToPostgreSQL() {
+	dbHandler = t.savedDBHandler
 }
 
-func TestDBRepositoryCrud(t *testing.T) {
+func (t *DbTestSuite) TestDBRepositoryCrud() {
 	externalrepo.ExternalRepoInUnitTestMode = true
 
-	ctx := context.TODO()
+	ctx := t.Context()
 
 	options := cachetypes.CacheOptions{
 		RepoSyncFrequency: 60 * time.Minute,
 	}
 	dbCache, err := new(DBCacheFactory).NewCache(ctx, options)
-	assert.Nil(t, err)
-	assert.Equal(t, 0, len(dbCache.GetRepositories()))
+	t.NoError(err)
+	t.Empty(dbCache.GetRepositories())
 
 	repositorySpec := configapi.Repository{
 		ObjectMeta: v1.ObjectMeta{
@@ -165,22 +168,22 @@ func TestDBRepositoryCrud(t *testing.T) {
 		},
 	}
 	testRepo, err := dbCache.OpenRepository(ctx, &repositorySpec)
-	assert.Nil(t, err)
-	assert.Equal(t, "my-repo", testRepo.Key().Name)
+	t.NoError(err)
+	t.Equal("my-repo", testRepo.Key().Name)
 
 	gotRepo := dbCache.GetRepository(testRepo.Key())
-	assert.Equal(t, testRepo.Key(), gotRepo.Key())
+	t.Equal(testRepo.Key(), gotRepo.Key())
 
 	repositorySpec.Spec.Description = "My lovely Repo"
 
 	err = dbCache.UpdateRepository(ctx, &repositorySpec)
-	assert.Nil(t, err)
+	t.NoError(err)
 
 	err = dbCache.CloseRepository(ctx, &repositorySpec, nil)
-	assert.Nil(t, err)
+	t.NoError(err)
 }
 
-func createTestRepo(t *testing.T, namespace, name string) *dbRepository {
+func (t *DbTestSuite) createTestRepo(namespace, name string) *dbRepository {
 	dbRepo := dbRepository{
 		repoKey: repository.RepositoryKey{
 			Namespace: namespace,
@@ -195,18 +198,18 @@ func createTestRepo(t *testing.T, namespace, name string) *dbRepository {
 			},
 		},
 	}
-	err := repoWriteToDB(context.TODO(), &dbRepo)
-	assert.Nil(t, err)
+	err := repoWriteToDB(t.Context(), &dbRepo)
+	t.NoError(err)
 
 	return &dbRepo
 }
 
-func deleteTestRepo(t *testing.T, key repository.RepositoryKey) {
-	err := repoDeleteFromDB(context.TODO(), key)
-	assert.Nil(t, err)
+func (t *DbTestSuite) deleteTestRepo(key repository.RepositoryKey) {
+	err := repoDeleteFromDB(t.Context(), key)
+	t.NoError(err)
 }
 
-func createTestPkg(t *testing.T, repoKey repository.RepositoryKey, name string) dbPackage {
+func (t *DbTestSuite) createTestPkg(repoKey repository.RepositoryKey, name string) dbPackage {
 	dbPkg := dbPackage{
 		repo: cachetypes.CacheInstance.GetRepository(repoKey).(*dbRepository),
 		pkgKey: repository.PackageKey{
@@ -215,47 +218,47 @@ func createTestPkg(t *testing.T, repoKey repository.RepositoryKey, name string) 
 		},
 	}
 
-	err := pkgWriteToDB(context.TODO(), &dbPkg)
-	assert.Nil(t, err)
+	err := pkgWriteToDB(t.Context(), &dbPkg)
+	t.NoError(err)
 
 	return dbPkg
 }
 
-func createTestPkgs(t *testing.T, repoKey repository.RepositoryKey, namePrefix string, count int) []dbPackage {
+func (t *DbTestSuite) createTestPkgs(repoKey repository.RepositoryKey, namePrefix string, count int) []dbPackage {
 	var testPkgs []dbPackage
 
 	for i := range count {
-		testPkgs = append(testPkgs, createTestPkg(t, repoKey, fmt.Sprintf("%s-%d", namePrefix, i)))
+		testPkgs = append(testPkgs, t.createTestPkg(repoKey, fmt.Sprintf("%s-%d", namePrefix, i)))
 	}
 
 	return testPkgs
 }
 
-func createTestPR(t *testing.T, pkgKey repository.PackageKey, name string) dbPackageRevision {
+func (t *DbTestSuite) createTestPR(pkgKey repository.PackageKey, name string) dbPackageRevision {
 	dbPkgRev := dbPackageRevision{
 		pkgRevKey: repository.PackageRevisionKey{
 			PkgKey:        pkgKey,
 			WorkspaceName: name,
-			Revision:      nextPkgRev,
+			Revision:      t.nextPkgRev,
 		},
 		lifecycle: "Published",
 		resources: map[string]string{"Hello.txt": "Hello", "Goodbye.txt": "Goodbye"},
 	}
 
-	err := pkgRevWriteToDB(context.TODO(), &dbPkgRev)
-	assert.Nil(t, err)
+	err := pkgRevWriteToDB(t.Context(), &dbPkgRev)
+	t.NoError(err)
 
 	return dbPkgRev
 }
 
-func createTestPRs(t *testing.T, packages []dbPackage, wsNamePrefix string, count int) []dbPackageRevision {
+func (t *DbTestSuite) createTestPRs(packages []dbPackage, wsNamePrefix string, count int) []dbPackageRevision {
 	var testPRs []dbPackageRevision
 
 	for _, pkg := range packages {
-		nextPkgRev = 1
+		t.nextPkgRev = 1
 		for prNo := range count {
-			testPRs = append(testPRs, createTestPR(t, pkg.Key(), fmt.Sprintf("%s-%d", wsNamePrefix, prNo)))
-			nextPkgRev++
+			testPRs = append(testPRs, t.createTestPR(pkg.Key(), fmt.Sprintf("%s-%d", wsNamePrefix, prNo)))
+			t.nextPkgRev++
 		}
 	}
 	return testPRs

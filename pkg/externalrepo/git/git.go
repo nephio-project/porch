@@ -197,8 +197,8 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 		repo:               repo,
 		branch:             branch,
 		secret:             spec.SecretRef.Name,
-		credentialResolver: opts.ExternalRepoOptions.CredentialResolver,
-		userInfoProvider:   makeUserInfoProvider(spec, opts.ExternalRepoOptions.UserInfoProvider),
+		credentialResolver: opts.CredentialResolver,
+		userInfoProvider:   makeUserInfoProvider(spec, opts.UserInfoProvider),
 		cacheDir:           dir,
 		deployment:         deployment,
 	}
@@ -449,10 +449,10 @@ func (r *gitRepository) CreatePackageRevisionDraft(ctx context.Context, obj *v1a
 
 	var base plumbing.Hash
 	refName := r.branch.RefInLocal()
-	switch main, err := r.repo.Reference(refName, true); {
-	case err == nil:
+	switch main, err := r.repo.Reference(refName, true); err {
+	case nil:
 		base = main.Hash()
-	case err == plumbing.ErrReferenceNotFound:
+	case plumbing.ErrReferenceNotFound:
 		// reference not found - empty repository. Package draft has no parent commit
 	default:
 		return nil, fmt.Errorf("error when resolving target branch for the package: %w", err)

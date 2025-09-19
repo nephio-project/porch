@@ -14,24 +14,18 @@
 
 package dbcache
 
-import (
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-)
-
-func TestDBSQL(t *testing.T) {
+func (t *DbTestSuite) TestDBSQL() {
 	dbSQL := dbSQL{}
 
 	err := dbSQL.Close()
-	assert.Equal(t, "cannot close database, database is not initialized", err.Error())
+	t.Require().ErrorContains(err, "cannot close database, database is not initialized")
 
 	_, err = dbSQL.Exec("")
-	assert.Equal(t, "cannot execute query on database, database is not initialized", err.Error())
+	t.Require().ErrorContains(err, "cannot execute query on database, database is not initialized")
 
 	_, err = dbSQL.Query("")
-	assert.Equal(t, "cannot query database, database is not initialized", err.Error())
+	t.Require().ErrorContains(err, "cannot query database, database is not initialized")
 
 	nilRow := dbSQL.QueryRow("")
-	assert.Nil(t, nilRow)
+	t.Nil(nilRow)
 }

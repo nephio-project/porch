@@ -205,17 +205,17 @@ func (t *TestSuite) ValidateLabelsAndAnnos(name string, labels, annos map[string
 		Name:      name,
 	}, &pr)
 
-	actualLabels := pr.ObjectMeta.Labels
-	actualAnnos := pr.ObjectMeta.Annotations
+	actualLabels := pr.Labels
+	actualAnnos := pr.Annotations
 
 	// Make this check to handle empty vs nil maps
-	if !(len(labels) == 0 && len(actualLabels) == 0) {
+	if len(labels) != 0 || len(actualLabels) != 0 {
 		if diff := cmp.Diff(actualLabels, labels); diff != "" {
 			t.Errorf("Unexpected result (-want, +got): %s", diff)
 		}
 	}
 
-	if !(len(annos) == 0 && len(actualAnnos) == 0) {
+	if len(annos) != 0 || len(actualAnnos) != 0 {
 		if diff := cmp.Diff(actualAnnos, annos); diff != "" {
 			t.Errorf("Unexpected result (-want, +got): %s", diff)
 		}

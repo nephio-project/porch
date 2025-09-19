@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -323,7 +324,7 @@ func createValidatingWebhook(ctx context.Context, cfg *WebhookConfig, caCert []b
 			Port:      &cfg.Port,
 		}
 	case WebhookTypeUrl:
-		url := fmt.Sprintf("https://%s:%d%s", cfg.Host, cfg.Port, cfg.Path)
+		url := fmt.Sprintf("https://%s%s", net.JoinHostPort(cfg.Host, fmt.Sprintf("%d", cfg.Port)), cfg.Path)
 		validateConfig.Webhooks[0].ClientConfig.URL = &url
 	default:
 		return fmt.Errorf("invalid webhook type: %s", cfg.Type)

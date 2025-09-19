@@ -331,4 +331,3 @@ var UpgradeExamples = `
   # upgrade deployment.some-package.v1 package to v3 of its upstream, using copy-merge strategy
   $ porchctl rpkg upgrade deployment.some-package.v1 --revision=3 --workspace=v2 --strategy=copy-merge
 `
-

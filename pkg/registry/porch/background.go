@@ -170,11 +170,11 @@ func (b *background) updateCache(ctx context.Context, event watch.EventType, rep
 }
 
 func (b *background) handleRepositoryEvent(ctx context.Context, repo *configapi.Repository, eventType watch.EventType) error {
-	msgPreamble := fmt.Sprintf("repository %s event handling: repo %s:%s", eventType, repo.ObjectMeta.Namespace, repo.ObjectMeta.Name)
+	msgPreamble := fmt.Sprintf("repository %s event handling: repo %s:%s", eventType, repo.Namespace, repo.Name)
 	start := time.Now()
 	klog.Infof("%s, handling starting", msgPreamble)
 
-	if err := util.ValidateRepository(repo.ObjectMeta.Name, repo.Spec.Git.Directory); err != nil {
+	if err := util.ValidateRepository(repo.Name, repo.Spec.Git.Directory); err != nil {
 		return fmt.Errorf("%s, handling failed, repo specification invalid :%q", msgPreamble, err)
 	}
 
@@ -208,7 +208,7 @@ func (b *background) handleRepositoryEvent(ctx context.Context, repo *configapi.
 		klog.Infof("%s, handling completed in %s", msgPreamble, time.Since(start))
 		return nil
 	} else {
-		return fmt.Errorf("changing repository failed: %s:%s:%q", repo.ObjectMeta.Namespace, repo.ObjectMeta.Name, err)
+		return fmt.Errorf("changing repository failed: %s:%s:%q", repo.Namespace, repo.Name, err)
 	}
 }
 

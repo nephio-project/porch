@@ -15,6 +15,8 @@
 TEST_COVERAGE_FILE=coverage.out
 TEST_COVERAGE_HTML_FILE=coverage_unit.html
 TEST_COVERAGE_FUNC_FILE=func_coverage.out
+TEST_OUTPUT_LOG_FILE=test_output.log
+TMPDIR=/tmp/coverage
 GIT_ROOT_DIR ?= $(dir $(lastword $(MAKEFILE_LIST)))
 include $(GIT_ROOT_DIR)/detect-container-runtime.mk
 
@@ -24,17 +26,22 @@ unit: test
 .PHONY: test
 test: ## Run unit tests (go test)
 ifeq ($(CONTAINER_RUNNABLE), 0)
-		$(RUN_CONTAINER_COMMAND) docker.io/nephio/gotests:1919654500491071488 \
-		adduser --shell /bin/sh --group --disabled-password -home /home/ubuntu --no-create-home ubuntu; \
-		PORCHDIR=${PORCHDIR} sh -e -c "{ git config --global user.name 1>/dev/null || git config --global --add user.name test ; }; \
-		{ git config --global user.email 1>/dev/null || git config --global user.email test@nephio.org ; }; \
-		go test ./... -v -coverprofile=${TEST_COVERAGE_FILE}; \
-		go tool cover -html=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_HTML_FILE}; \
-		go tool cover -func=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_FUNC_FILE}"
+	$(RUN_CONTAINER_COMMAND) golang:1.25.0-bookworm \
+	sh -c "\
+    useradd -m -s /bin/sh porch && \
+    mkdir -p ${TMPDIR} && chown porch:porch ${TMPDIR} && \
+    su porch -c 'export TMPDIR=${TMPDIR}; \
+                 export PORCHDIR=${PORCHDIR}; \
+                 git config --global user.name test; \
+                 git config --global user.email test@nephio.org; \
+                 go test ./... -v -coverprofile=${TMPDIR}/${TEST_COVERAGE_FILE} 2>&1 | tee ${TMPDIR}/${TEST_OUTPUT_LOG_FILE}; \
+                 go tool cover -html=${TMPDIR}/${TEST_COVERAGE_FILE} -o ${TMPDIR}/${TEST_COVERAGE_HTML_FILE}; \
+                 go tool cover -func=${TMPDIR}/${TEST_COVERAGE_FILE} -o ${TMPDIR}/${TEST_COVERAGE_FUNC_FILE}'; \
+				 cp ${TMPDIR}/${TEST_OUTPUT_LOG_FILE} ${TMPDIR}/${TEST_COVERAGE_HTML_FILE} ${TMPDIR}/${TEST_COVERAGE_FILE} ."
 else
-		go test ./... -v -coverprofile ${TEST_COVERAGE_FILE}
-		go tool cover -html=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_HTML_FILE}
-		go tool cover -func=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_FUNC_FILE}
+	go test ./... -v -coverprofile=${TEST_COVERAGE_FILE}
+	go tool cover -html=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_HTML_FILE}
+	go tool cover -func=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_FUNC_FILE}
 endif
 
 .PHONY: unit-clean
@@ -42,4 +49,4 @@ unit-clean: ## Clean up the artifacts created by the unit tests
 ifeq ($(CONTAINER_RUNNABLE), 0)
 		$(CONTAINER_RUNTIME) system prune -f
 endif
-		rm -f ${TEST_COVERAGE_FILE} ${TEST_COVERAGE_HTML_FILE} ${TEST_COVERAGE_FUNC_FILE} > /dev/null 2>&1
+		rm -f ${TEST_COVERAGE_FILE} ${TEST_COVERAGE_HTML_FILE} ${TEST_COVERAGE_FUNC_FILE} ${TEST_OUTPUT_LOG_FILE} > /dev/null 2>&1

@@ -201,7 +201,7 @@ func (f *ContainerFn) getCmd(binName string) (*exec.Cmd, context.CancelFunc) {
 		timeout = f.Timeout
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	return exec.CommandContext(ctx, binName, args...), cancel
+	return exec.CommandContext(ctx, binName, args...), cancel // #nosec G204 -- variables controlled internally
 }
 
 // NewContainerEnvFromStringSlice returns a new ContainerEnv pointer with parsing

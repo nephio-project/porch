@@ -545,10 +545,10 @@ func buildPkg(pkgPath string, pkg *pkg, pkgName string, reposInfo ReposInfo) err
 // buildRGFile creates a ResourceGroup inventory file.
 func buildRGFile(pkg *pkg) string {
 	tmp := rgfilev1alpha1.ResourceGroup{ResourceMeta: rgfilev1alpha1.DefaultMeta}
-	tmp.ObjectMeta.Name = pkg.RGFile.Name
-	tmp.ObjectMeta.Namespace = pkg.RGFile.Namespace
+	tmp.Name = pkg.RGFile.Name
+	tmp.Namespace = pkg.RGFile.Namespace
 	if pkg.RGFile.ID != "" {
-		tmp.ObjectMeta.Labels = map[string]string{rgfilev1alpha1.RGInventoryIDLabel: pkg.RGFile.ID}
+		tmp.Labels = map[string]string{rgfilev1alpha1.RGInventoryIDLabel: pkg.RGFile.ID}
 	}
 
 	b, err := yaml.MarshalWithOptions(tmp, &yaml.EncoderOptions{SeqIndent: yaml.WideSequenceStyle})
@@ -589,7 +589,7 @@ func buildKptfile(pkg *pkg, pkgName string, reposInfo ReposInfo) string {
 
 	kptfile := &kptfilev1.KptFile{}
 	kptfile.APIVersion, kptfile.Kind = kptfilev1.KptFileGVK().ToAPIVersionAndKind()
-	kptfile.ObjectMeta.Name = pkgName
+	kptfile.Name = pkgName
 	if pkg.Kptfile.Upstream != nil {
 		kptfile.Upstream = &kptfilev1.Upstream{
 			Type: "git",

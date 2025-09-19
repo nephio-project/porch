@@ -85,7 +85,7 @@ func (r *packageRevisions) List(ctx context.Context, options *metainternalversio
 		return nil, err
 	}
 
-	if err := r.packageCommon.listPackageRevisions(ctx, *filter, func(ctx context.Context, p repository.PackageRevision) error {
+	if err := r.listPackageRevisions(ctx, *filter, func(ctx context.Context, p repository.PackageRevision) error {
 		item, err := p.GetPackageRevision(ctx)
 		if err != nil {
 			return err
@@ -145,7 +145,7 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 		return nil, apierrors.NewBadRequest("spec.repositoryName is required")
 	}
 
-	repositoryObj, err := r.packageCommon.getRepositoryObj(ctx, types.NamespacedName{Name: repositoryName, Namespace: ns})
+	repositoryObj, err := r.getRepositoryObj(ctx, types.NamespacedName{Name: repositoryName, Namespace: ns})
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +157,7 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 
 	var parentPackage repository.PackageRevision
 	if newApiPkgRev.Spec.Parent != nil && newApiPkgRev.Spec.Parent.Name != "" {
-		p, err := r.packageCommon.getRepoPkgRev(ctx, newApiPkgRev.Spec.Parent.Name)
+		p, err := r.getRepoPkgRev(ctx, newApiPkgRev.Spec.Parent.Name)
 		if err != nil {
 			return nil, fmt.Errorf("cannot get parent package %q: %w", newApiPkgRev.Spec.Parent.Name, err)
 		}
@@ -201,7 +201,7 @@ func (r *packageRevisions) Update(ctx context.Context, name string, objInfo rest
 	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Update", trace.WithAttributes())
 	defer span.End()
 
-	return r.packageCommon.updatePackageRevision(ctx, name, objInfo, createValidation, updateValidation, forceAllowCreate)
+	return r.updatePackageRevision(ctx, name, objInfo, createValidation, updateValidation, forceAllowCreate)
 }
 
 // Delete implements the GracefulDeleter interface.
@@ -224,7 +224,7 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 		return nil, false, apierrors.NewBadRequest("namespace must be specified")
 	}
 
-	repoPkgRev, err := r.packageCommon.getRepoPkgRev(ctx, name)
+	repoPkgRev, err := r.getRepoPkgRev(ctx, name)
 	if err != nil {
 		return nil, false, err
 	}
@@ -234,7 +234,7 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 		return nil, false, apierrors.NewInternalError(err)
 	}
 
-	repositoryObj, err := r.packageCommon.validateDelete(ctx, deleteValidation, apiPkgRev, name, ns)
+	repositoryObj, err := r.validateDelete(ctx, deleteValidation, apiPkgRev, name, ns)
 	if err != nil {
 		return nil, false, err
 	}

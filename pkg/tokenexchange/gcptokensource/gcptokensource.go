@@ -22,10 +22,10 @@ import (
 	iamv1 "cloud.google.com/go/iam/credentials/apiv1"
 	//nolint:staticcheck
 	"github.com/golang/protobuf/ptypes"
-	//nolint:staticcheck
-	iampb "google.golang.org/genproto/googleapis/iam/credentials/v1"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/option"
+	//nolint:staticcheck
+	iampb "google.golang.org/genproto/googleapis/iam/credentials/v1"
 	"k8s.io/klog/v2"
 )
 

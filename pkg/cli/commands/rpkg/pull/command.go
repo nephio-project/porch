@@ -143,7 +143,7 @@ func writeToDir(resources map[string]string, dir string) error {
 		if err := os.MkdirAll(d, 0750); err != nil {
 			return err
 		}
-		if err := os.WriteFile(f, []byte(v), 0644); err != nil {
+		if err := os.WriteFile(f, []byte(v), 0600); err != nil {
 			return err
 		}
 	}
