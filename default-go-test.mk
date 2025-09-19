@@ -37,7 +37,7 @@ ifeq ($(CONTAINER_RUNNABLE), 0)
                  go test ./... -v -coverprofile=${TMPDIR}/${TEST_COVERAGE_FILE} 2>&1 | tee ${TMPDIR}/${TEST_OUTPUT_LOG_FILE}; \
                  go tool cover -html=${TMPDIR}/${TEST_COVERAGE_FILE} -o ${TMPDIR}/${TEST_COVERAGE_HTML_FILE}; \
                  go tool cover -func=${TMPDIR}/${TEST_COVERAGE_FILE} -o ${TMPDIR}/${TEST_COVERAGE_FUNC_FILE}'; \
-				 cp ${TMPDIR}/${TEST_OUTPUT_LOG_FILE} ${TMPDIR}/${TEST_COVERAGE_HTML_FILE} ."
+				 cp ${TMPDIR}/${TEST_OUTPUT_LOG_FILE} ${TMPDIR}/${TEST_COVERAGE_HTML_FILE} ${TMPDIR}/${TEST_COVERAGE_FILE} ."
 else
 	go test ./... -v -coverprofile=${TEST_COVERAGE_FILE}
 	go tool cover -html=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_HTML_FILE}
