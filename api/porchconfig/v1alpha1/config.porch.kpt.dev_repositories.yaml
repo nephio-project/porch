@@ -159,7 +159,6 @@ spec:
                 - registry
                 type: object
               sync:
-                default: {}
                 description: Repository sync/reconcile details
                 properties:
                   runOnceAt:
@@ -177,8 +176,6 @@ spec:
               type:
                 description: Type of the repository (i.e. git, OCI)
                 type: string
-            required:
-            - sync
             type: object
           status:
             description: RepositoryStatus defines the observed state of Repository

@@ -69,8 +69,7 @@ type RepositorySpec struct {
 	// +kubebuilder:default="Package"
 	Content *RepositoryContent `json:"content,omitempty"`
 	// Repository sync/reconcile details
-	// +kubebuilder:default={}
-	Sync RepositorySync `json:"sync"`
+	Sync *RepositorySync `json:"sync,omitempty"`
 	// Git repository details. Required if `type` is `git`. Ignored if `type` is not `git`.
 	Git *GitRepository `json:"git,omitempty"`
 	// OCI repository details. Required if `type` is `oci`. Ignored if `type` is not `oci`.
@@ -79,7 +78,7 @@ type RepositorySpec struct {
 
 type RepositorySync struct {
 	// Value in metav1.Time format to indicate when the repository should be synced once outside the periodic cron based reconcile loop.
-	RunOnceAt metav1.Time `json:"runOnceAt,omitempty"`
+	RunOnceAt *metav1.Time `json:"runOnceAt,omitempty"`
 	// Cron value to indicate when the repository should be synced periodically. Example: `*/10 * * * *` to sync every 10 minutes.
 	Schedule string `json:"schedule,omitempty"`
 }

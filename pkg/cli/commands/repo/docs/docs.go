@@ -68,6 +68,10 @@ Flags:
     Directory within the repository where packages are found. The
     default is the root of the repository.
   
+  --sync-schedule:
+    Cron schedule for reconciling packages in the repository. 
+    If not specified, porch will use --repo-sync-frequency.
+  
   --name:
     Name of the repository. By default the last segment of the
     repository URL will be used as the name.
@@ -84,6 +88,9 @@ var RegExamples = `
 
   # register a new deployment repository with name foo.
   $ porchctl repo register https://github.com/platkrm/blueprints-deployment.git --name=foo --deployment --namespace=bar
+
+  # register a new deployment repository with name foo and set the cron schedule to run once every 10 minutes.
+  $ porchctl repo register https://github.com/platkrm/blueprints-deployment.git --name=foo --deployment --namespace=bar --sync-schedule="*/10 * * * *"
 `
 
 var UnregShort = `Unregister a repository.`
@@ -106,24 +113,33 @@ var UnregExamples = `
   $ porchctl repo unreg registered-repository --namespace=default --keep-auth-secret
 `
 
-var SyncShort = `reconcile registered repositories.`
+var SyncShort = `Schedule a one-time sync for registered repositories.`
+
 var SyncLong = `
-  porchctl repo reconcile [REPOSITORY_NAME] [flags]
+  porchctl repo sync [REPOSITORY_NAME] [flags]
+
+Description:
+
+  This command schedules a one-time sync for one or more registered repositories.
+  You can specify a delay using --run-once with a duration (e.g., 10m, 1h30m, 2m30s), or a specific time
+  using an RFC3339 timestamp (e.g., 2025-09-16T12:00:00Z). 
+  Minimum allowed duration is 1m. 
+  If omitted, the sync will be scheduled 1 minute from time of command invocation.
 
 Args:
 
   REPOSITORY_NAME:
-    The name of a repository. If provided, only that specific
-    repository will be shown. Defaults to showing all registered
-    repositories.
+    The name of one or more repositories. If provided, only those specific
+    repositories will be scheduled. Use --all to schedule syncs for all repositories
+    in the specified namespace.
 `
 var SyncExamples = `
-  # reconcile all repositories registered in the default namespace
-  $ porchctl repo reconcile --all --namespace default
+  # Schedule sync for all repositories in the default namespace after 1 minute
+  $ porchctl repo sync --all --namespace default
 
-  # reconcile the repository named foo in the bar namespace
-  $ porchctl repo reconcile foo --namespace bar
+  # Schedule sync for repository named foo in the bar namespace after 10 minutes
+  $ porchctl repo sync foo --namespace bar --run-once=10m
 
-  # reconcile repository named foo1 and foo2 in namespace bar
-  $ porchctl repo reconcile foo1 foo2 --namespace bar
+  # Schedule sync for repositories foo1 and foo2 in namespace bar at a specific time
+  $ porchctl repo sync foo1 foo2 --namespace bar --run-once=2025-09-16T14:00:00Z
 `

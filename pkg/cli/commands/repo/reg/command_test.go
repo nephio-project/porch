@@ -113,6 +113,28 @@ func TestRepoReg(t *testing.T) {
 			},
 		},
 		{
+			name: "FullRegisterWithSyncSchedule",
+			args: []string{
+				"https://github.com/platkrm/test-blueprints.git",
+				"--name=repository-resource-name",
+				"--description=\"Test Repository Description\"",
+				"--deployment",
+				"--directory=/catalog",
+				"--branch=main-branch",
+				"--create-branch",
+				"--namespace=repository-namespace",
+				"--sync-schedule=*/1 * * * *",
+			},
+			actions: []httpAction{
+				{
+					method:       http.MethodPost,
+					path:         "/apis/config.porch.kpt.dev/v1alpha1/namespaces/repository-namespace/repositories",
+					wantRequest:  "full-repository-sync-schedule.yaml",
+					sendResponse: "full-repository-sync-schedule.yaml",
+				},
+			},
+		},
+		{
 			name: "OCIRegister",
 			args: []string{"oci://test/test-blueprints"},
 			actions: []httpAction{
