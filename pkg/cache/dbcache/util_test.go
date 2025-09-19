@@ -15,18 +15,15 @@
 package dbcache
 
 import (
-	"testing"
 	"time"
-
-	"github.com/stretchr/testify/assert"
 )
 
-func TestUtil(t *testing.T) {
+func (t *DbTestSuite) TestUtil() {
 	// We can't marshal a function into JSON
-	jsonVal := valueAsJSON(TestDBSQL)
-	assert.Equal(t, "", jsonVal)
+	jsonVal := valueAsJSON(t.TestDBSQL)
+	t.Require().Equal("", jsonVal)
 
 	secondValue := time.Second
 	setValueFromJSON("", &secondValue)
-	assert.Equal(t, time.Second, secondValue)
+	t.Equal(time.Second, secondValue)
 }
