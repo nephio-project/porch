@@ -27,22 +27,26 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 )
 
-type prFilterFieldMappingFunc func(filter *repository.ListPackageRevisionFilter, value string)
+type prFilterFieldMappingFunc func(filter *repository.ListPackageRevisionFilter, value string) error
 
 var (
 	PrFilterFieldMappings = map[string]prFilterFieldMappingFunc{
-		api.PackageRevisionSelectableFields.Name: func(f *repository.ListPackageRevisionFilter, name string) {
+		api.PackageRevisionSelectableFields.Name: func(f *repository.ListPackageRevisionFilter, name string) error {
+			var err error
 			if filterKey, err := repository.PkgRevK8sName2Key("", name); err == nil {
 				f.Key = filterKey
 			}
+			return err
 		},
-		api.PackageRevisionSelectableFields.Namespace: func(f *repository.ListPackageRevisionFilter, namespace string) {
+		api.PackageRevisionSelectableFields.Namespace: func(f *repository.ListPackageRevisionFilter, namespace string) error {
 			f.Key.PkgKey.RepoKey.Namespace = namespace
+			return nil
 		},
-		api.PackageRevisionSelectableFields.Revision: func(f *repository.ListPackageRevisionFilter, strRevision string) {
+		api.PackageRevisionSelectableFields.Revision: func(f *repository.ListPackageRevisionFilter, strRevision string) error {
 			f.Key.Revision = repository.Revision2Int(strRevision)
+			return nil
 		},
-		api.PackageRevisionSelectableFields.PackageName: func(f *repository.ListPackageRevisionFilter, fullPkgName string) {
+		api.PackageRevisionSelectableFields.PackageName: func(f *repository.ListPackageRevisionFilter, fullPkgName string) error {
 			split := strings.Split(fullPkgName, "/")
 			if len(split) > 1 {
 				f.Key.PkgKey.Package = split[len(split)-1]
@@ -50,13 +54,25 @@ var (
 			} else {
 				f.Key.PkgKey.Package = fullPkgName
 			}
+			return nil
 		},
-		api.PackageRevisionSelectableFields.Repository: func(f *repository.ListPackageRevisionFilter, repoName string) { f.Key.PkgKey.RepoKey.Name = repoName },
-		api.PackageRevisionSelectableFields.WorkspaceName: func(f *repository.ListPackageRevisionFilter, workspaceName string) {
+		api.PackageRevisionSelectableFields.Repository: func(f *repository.ListPackageRevisionFilter, repoName string) error {
+			f.Key.PkgKey.RepoKey.Name = repoName
+			return nil
+		},
+		api.PackageRevisionSelectableFields.WorkspaceName: func(f *repository.ListPackageRevisionFilter, workspaceName string) error {
 			f.Key.WorkspaceName = workspaceName
+			return nil
 		},
-		api.PackageRevisionSelectableFields.Lifecycle: func(f *repository.ListPackageRevisionFilter, lifecycle string) {
-			f.Lifecycles = append(f.Lifecycles, api.PackageRevisionLifecycle(lifecycle))
+		api.PackageRevisionSelectableFields.Lifecycle: func(f *repository.ListPackageRevisionFilter, lifecycle string) error {
+			var err error
+			l := api.PackageRevisionLifecycle(lifecycle)
+			if l.IsValid() {
+				f.Lifecycles = append(f.Lifecycles, l)
+			} else {
+				err = apierrors.NewBadRequest(fmt.Sprintf("unsupported fieldSelector value %q for field %q", lifecycle, api.PackageRevisionSelectableFields.Lifecycle))
+			}
+			return err
 		},
 	}
 )
@@ -155,7 +171,11 @@ func parsePackageRevisionFieldSelector(options *metainternalversion.ListOptions)
 
 		filteredField := requirement.Field
 		if filterFunc, fieldSelectable := PrFilterFieldMappings[filteredField]; fieldSelectable {
-			filterFunc(filter, requirement.Value)
+			if err := filterFunc(filter, requirement.Value); err != nil {
+				return filter, err
+			}
+		} else {
+			return filter, apierrors.NewBadRequest(fmt.Sprintf("unknown fieldSelector field %q", requirement.Field))
 		}
 	}
 

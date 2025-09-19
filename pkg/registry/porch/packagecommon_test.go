@@ -260,7 +260,6 @@ func TestListPackageRevisions(t *testing.T) {
 		name          string
 		setupMocks    func(*mockclient.MockClient, *mockrepo.MockPackageRevision, *mockcad.MockCaDEngine)
 		filter        repository.ListPackageRevisionFilter
-		selector      labels.Selector
 		expectedError error
 		expectedCalls int
 		ctx           context.Context
@@ -284,7 +283,6 @@ func TestListPackageRevisions(t *testing.T) {
 					Return([]repository.PackageRevision{pkgRev}, nil)
 			},
 			filter:        repository.ListPackageRevisionFilter{},
-			selector:      labels.Everything(),
 			expectedError: nil,
 			expectedCalls: 1,
 			ctx:           context.Background(),
@@ -312,7 +310,6 @@ func TestListPackageRevisions(t *testing.T) {
 					},
 				},
 			},
-			selector:      labels.Everything(),
 			expectedError: nil,
 			expectedCalls: 1,
 			ctx:           genericapirequest.WithNamespace(context.Background(), "test-namespace"),
@@ -329,7 +326,6 @@ func TestListPackageRevisions(t *testing.T) {
 					},
 				},
 			},
-			selector:      labels.Everything(),
 			expectedError: fmt.Errorf("conflicting namespaces specified: %q and %q", "namespace-2", "namespace-1"),
 			expectedCalls: 0,
 			ctx:           genericapirequest.WithNamespace(context.Background(), "namespace-2"),
@@ -341,7 +337,6 @@ func TestListPackageRevisions(t *testing.T) {
 					Return(fmt.Errorf("list error"))
 			},
 			filter:        repository.ListPackageRevisionFilter{},
-			selector:      labels.Everything(),
 			expectedError: fmt.Errorf("error listing repository objects: list error"),
 			expectedCalls: 0,
 			ctx:           context.Background(),
@@ -368,7 +363,6 @@ func TestListPackageRevisions(t *testing.T) {
 					},
 				},
 			},
-			selector:      labels.Everything(),
 			expectedError: nil,
 			expectedCalls: 1,
 			ctx:           context.Background(),
@@ -385,8 +379,7 @@ func TestListPackageRevisions(t *testing.T) {
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
 			},
-			filter:        repository.ListPackageRevisionFilter{},
-			selector:      labels.SelectorFromSet(labels.Set{"test": "true"}),
+			filter:        repository.ListPackageRevisionFilter{Label: labels.SelectorFromSet(labels.Set{"test": "true"})},
 			expectedError: nil,
 			expectedCalls: 1,
 			ctx:           context.Background(),
@@ -404,7 +397,6 @@ func TestListPackageRevisions(t *testing.T) {
 					Return([]repository.PackageRevision{}, context.DeadlineExceeded)
 			},
 			filter:        repository.ListPackageRevisionFilter{},
-			selector:      labels.Everything(),
 			expectedError: nil,
 			expectedCalls: 0,
 		},
@@ -421,7 +413,6 @@ func TestListPackageRevisions(t *testing.T) {
 					Return([]repository.PackageRevision{}, fmt.Errorf("CaD engine error"))
 			},
 			filter:        repository.ListPackageRevisionFilter{},
-			selector:      labels.Everything(),
 			expectedError: nil,
 			expectedCalls: 0,
 			ctx:           context.Background(),
@@ -439,7 +430,6 @@ func TestListPackageRevisions(t *testing.T) {
 					Return([]repository.PackageRevision{pkgRev}, nil)
 			},
 			filter:        repository.ListPackageRevisionFilter{},
-			selector:      labels.Everything(),
 			expectedError: nil,
 			expectedCalls: 1,
 			ctx:           context.Background(),
@@ -472,7 +462,6 @@ func TestListPackageRevisions(t *testing.T) {
 					Return([]repository.PackageRevision{pkgRev}, nil)
 			},
 			filter:        repository.ListPackageRevisionFilter{},
-			selector:      labels.Everything(),
 			expectedError: nil,
 			expectedCalls: 4,
 			ctx:           context.Background(),

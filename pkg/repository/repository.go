@@ -350,22 +350,30 @@ func (f *ListPackageRevisionFilter) Matches(ctx context.Context, p PackageRevisi
 	return true
 }
 
+func (f *ListPackageRevisionFilter) MatchesNamespace(namespace string) (bool, string) {
+	filteredNamespace := f.Key.RKey().Namespace
+	return (filteredNamespace == "" || namespace == filteredNamespace), filteredNamespace
+}
+
+func (f *ListPackageRevisionFilter) FilteredRepository() string {
+	return f.Key.PKey().RKey().Name
+}
+
 // MatchesLabels returns true if the filter either:
 //   - does not filter on labels (nil Label field), OR
 //   - matches on labels of the provided PackageRevision
 func (f *ListPackageRevisionFilter) MatchesLabels(ctx context.Context, p PackageRevision) bool {
 	if f.Label != nil {
-		if pLabels := f.GetPkgRevLabels(p); !f.Label.Matches(pLabels) {
-			return false
-		}
+		return f.Label.Matches(getPkgRevLabels(p))
 	}
 
 	return true
 }
 
-// pkgRevGetAttrs returns fields of a given PackageRevision object for filtering purposes.
-// The fields are returned in the form of
-func (f *ListPackageRevisionFilter) GetPkgRevLabels(p PackageRevision) labels.Set {
+// getPkgRevLabels returns the metadata labels of a given PackageRevision for filtering purposes.
+// The labels are returned in the form of a Kubernetes labels.Set which can be easily matched
+// against a labels.Selector which came in in a list request.
+func getPkgRevLabels(p PackageRevision) labels.Set {
 	labelSet := func() labels.Set {
 		labels := p.GetMeta().Labels
 		if labels == nil {

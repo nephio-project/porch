@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -319,6 +320,23 @@ func TestListPackageRevisionFilter_Matches(t *testing.T) {
 			filter: ListPackageRevisionFilter{Key: PackageRevisionKey{WorkspaceName: "main"}},
 			p:      &fakePackageRevision{workspaceName: "main"},
 		},
+		{
+			name:   "filter on label",
+			filter: ListPackageRevisionFilter{Label: labels.Set{"kpt.dev/someLabel": "foo"}.AsSelector()},
+			p: &fakePackageRevision{
+				labels: labels.Set{"kpt.dev/someLabel": "foo"},
+			},
+		},
+		{
+			name:   "filter on kpt.dev/latest-revision label (special case)",
+			filter: ListPackageRevisionFilter{Label: labels.Set{"kpt.dev/latest-revision": "true"}.AsSelector()},
+			p:      &fakePackageRevision{isLatest: true},
+		},
+		{
+			name:   "filter on kpt.dev/latest-revision label == false (special case)",
+			filter: ListPackageRevisionFilter{},
+			p:      &fakePackageRevision{isLatest: false},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -327,6 +345,99 @@ func TestListPackageRevisionFilter_Matches(t *testing.T) {
 			} else {
 				require.True(t, tt.filter.Matches(context.TODO(), tt.p))
 			}
+		})
+	}
+}
+
+func TestListPackageRevisionFilter_MatchesNamespace(t *testing.T) {
+	// SETUP test cases with varying selectors for a packageRevisionFilter
+	//********************************************************************
+	tests := []struct {
+		name                  string
+		filter                *ListPackageRevisionFilter
+		wantMatches           bool
+		wantFilteredNamespace string
+	}{
+		{
+			name:                  "nil key",
+			filter:                &ListPackageRevisionFilter{},
+			wantMatches:           true,
+			wantFilteredNamespace: "",
+		},
+		{
+			name:                  "matching key",
+			filter:                &ListPackageRevisionFilter{Key: PackageRevisionKey{PkgKey: PackageKey{RepoKey: RepositoryKey{Namespace: "foo"}}}},
+			wantMatches:           true,
+			wantFilteredNamespace: "foo",
+		},
+		{
+			name:                  "non-matching key",
+			filter:                &ListPackageRevisionFilter{Key: PackageRevisionKey{PkgKey: PackageKey{RepoKey: RepositoryKey{Namespace: "bar"}}}},
+			wantMatches:           false,
+			wantFilteredNamespace: "bar",
+		},
+		{
+			name:                  "different key",
+			filter:                &ListPackageRevisionFilter{Key: PackageRevisionKey{PkgKey: PackageKey{Package: "something"}}},
+			wantMatches:           true,
+			wantFilteredNamespace: "",
+		},
+	}
+
+	for _, tt := range tests {
+		// GIVEN a packageRevisionFilter selecting on the specified PackageRevisionKey
+		//****************************************************************************
+		t.Run(tt.name, func(t *testing.T) {
+			filter := tt.filter
+
+			// WHEN we check if the filter matches a particular namespace
+			//***********************************************************
+			gotMatches, gotFilteredNamespace := filter.MatchesNamespace("foo")
+
+			// THEN the filter returns expected values for whether the namespace
+			//      matches, and what namespace is being matched against
+			//******************************************************************
+			require.Equal(t, tt.wantMatches, gotMatches)
+			require.Equal(t, tt.wantFilteredNamespace, gotFilteredNamespace)
+		})
+	}
+}
+
+func TestListPackageRevisionFilter_FilteredRepository(t *testing.T) {
+	// SETUP test cases with varying selectors for a packageRevisionFilter
+	//********************************************************************
+	tests := []struct {
+		name             string
+		filter           *ListPackageRevisionFilter
+		wantFilteredRepo string
+	}{
+		{
+			name:             "nil key",
+			filter:           &ListPackageRevisionFilter{},
+			wantFilteredRepo: "",
+		},
+		{
+			name:             "matching key",
+			filter:           &ListPackageRevisionFilter{Key: PackageRevisionKey{PkgKey: PackageKey{RepoKey: RepositoryKey{Name: "foo"}}}},
+			wantFilteredRepo: "foo",
+		},
+		{
+			name:             "different key",
+			filter:           &ListPackageRevisionFilter{Key: PackageRevisionKey{PkgKey: PackageKey{Package: "something"}}},
+			wantFilteredRepo: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// GIVEN a packageRevisionFilter selecting on the specified filter
+			//****************************************************************
+			// WHEN we get the filter's repository selector
+			//*********************************************
+			gotFilteredRepo := tt.filter.FilteredRepository()
+
+			// THEN the filter returns expected values for the repo being matched against
+			//***************************************************************************
+			require.Equal(t, tt.wantFilteredRepo, gotFilteredRepo)
 		})
 	}
 }
@@ -340,12 +451,14 @@ func TestListPackageFilter_Matches(t *testing.T) {
 type fakePackageRevision struct {
 	name          string
 	namespace     string
+	labels        map[string]string
 	lifecycle     api.PackageRevisionLifecycle
 	packagePath   string
 	packageName   string
 	revision      int
 	repoName      string
 	workspaceName string
+	isLatest      bool
 }
 
 func (f *fakePackageRevision) GetPackageRevision(ctx context.Context) (*api.PackageRevision, error) {
@@ -393,7 +506,11 @@ func (f *fakePackageRevision) ToMainPackageRevision(context.Context) PackageRevi
 	return f
 }
 func (f *fakePackageRevision) GetMeta() metav1.ObjectMeta {
-	return metav1.ObjectMeta{Namespace: f.namespace}
+	return metav1.ObjectMeta{Namespace: f.namespace, Labels: f.labels}
+}
+
+func (f *fakePackageRevision) IsLatestRevision() bool {
+	return f.isLatest
 }
 
 type fakePackage struct {
