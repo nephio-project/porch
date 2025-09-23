@@ -181,10 +181,11 @@ func (r *runner) printFnResult(fnResult *porchapi.Result, opt *printer.Options) 
 		for _, item := range fnResult.Results {
 			lines = append(lines, str(item))
 		}
-		ri := &fnruntime.MultiLineFormatter{
-			Title:          "Results",
-			Lines:          lines,
-			TruncateOutput: printer.TruncateOutput,
+		ri := &fnruntime.SingleLineFormatter{
+			Title:     "[Results]",
+			Lines:     lines,
+			UseQuote:  false,
+			Separator: ", ",
 		}
 		r.printer.OptPrintf(opt, "%s", ri.String())
 	}

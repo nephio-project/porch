@@ -2250,7 +2250,7 @@ func (t *PorchSuite) TestFailedPodEvictionAndRecovery() {
 	err := t.Client.Update(t.GetContext(), prr)
 
 	// Assert: creation should fail, and the error should reflect evaluator pod failure
-	t.Require().ErrorContains(err, "Error occurred rendering package in kpt function pipeline")
+	t.Require().ErrorContains(err, "Error rendering package in kpt function pipeline")
 
 	// Optional: verify no stuck pods exist for the failed image
 	pods := &corev1.PodList{}

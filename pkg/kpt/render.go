@@ -55,7 +55,7 @@ type packagePrinter struct{}
 var _ printer.Printer = &packagePrinter{}
 
 func (p *packagePrinter) PrintPackage(pkg *pkg.Pkg, leadingNewline bool) {
-	p.Printf("Package %q: ", pkg.DisplayPath)
+	p.Printf("Package: %q", pkg.DisplayPath)
 }
 
 func (p *packagePrinter) Printf(format string, args ...interface{}) {
@@ -69,9 +69,9 @@ func (p *packagePrinter) OptPrintf(opt *printer.Options, format string, args ...
 	}
 	var prefix string
 	if !opt.PkgDisplayPath.Empty() {
-		prefix = fmt.Sprintf("Package %q: ", string(opt.PkgDisplayPath))
+		prefix = fmt.Sprintf("Package: %q", string(opt.PkgDisplayPath))
 	} else if !opt.PkgPath.Empty() {
-		prefix = fmt.Sprintf("Package %q: ", string(opt.PkgPath))
+		prefix = fmt.Sprintf("Package: %q", string(opt.PkgPath))
 	}
 	p.Printf(prefix+format, args...)
 }

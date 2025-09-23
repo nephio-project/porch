@@ -93,7 +93,7 @@ func (e *Error) Error() string {
 		var wrappedErr *Error
 		if As(e.Err, &wrappedErr) {
 			if !wrappedErr.Zero() {
-				pad(b, ":\n\t")
+				pad(b, ": ")
 				b.WriteString(wrappedErr.Error())
 			}
 		} else {

@@ -98,58 +98,55 @@ data: {foo: bar}
 		})
 	}
 }
-
-func TestMultilineFormatter(t *testing.T) {
+func TestSingleLineFormatter(t *testing.T) {
 	type testcase struct {
-		ml       *MultiLineFormatter
+		sf       *SingleLineFormatter
 		expected string
 	}
 
 	testcases := map[string]testcase{
-		"multiline should format lines and truncate": {
-			ml: &MultiLineFormatter{
-				Title: "Results",
-				Lines: []string{
-					"line-1",
-					"line-2",
-					"line-3",
-					"line-4",
-					"line-5",
-				},
-				MaxLines:       3,
-				TruncateOutput: true,
+		"single line without quotes and comma separator": {
+			sf: &SingleLineFormatter{
+				Title:     "Summary",
+				Lines:     []string{"line1", "line2", "line3"},
+				UseQuote:  false,
+				Separator: ", ",
 			},
-			expected: `  Results:
-    line-1
-    line-2
-    line-3
-    ...(2 line(s) truncated, use '--truncate-output=false' to disable)
-`,
+			expected: `  Summary: line1, line2, line3`,
 		},
-		"multiline should format without truncate": {
-			ml: &MultiLineFormatter{
-				Title: "Results",
-				Lines: []string{
-					"line-1",
-					"line-2",
-					"line-3",
-					"line-4",
-					"line-5",
-				},
+		"single line with quotes and space separator": {
+			sf: &SingleLineFormatter{
+				Title:     "Summary",
+				Lines:     []string{"line1", "line2", "line3"},
+				UseQuote:  true,
+				Separator: " ",
 			},
-			expected: `  Results:
-    line-1
-    line-2
-    line-3
-    line-4
-    line-5
-`,
+			expected: `  Summary: "line1" "line2" "line3"`,
+		},
+		"single line with newline suppression": {
+			sf: &SingleLineFormatter{
+				Title:     "Summary",
+				Lines:     []string{"line1\n", "line2\nextra", "line3"},
+				UseQuote:  false,
+				Separator: ", ",
+			},
+			expected: `  Summary: line1, line2 extra, line3`,
+		},
+		"empty lines": {
+			sf: &SingleLineFormatter{
+				Title:     "Empty",
+				Lines:     []string{},
+				UseQuote:  false,
+				Separator: ", ",
+			},
+			expected: `  Empty: `,
 		},
 	}
+
 	for name, c := range testcases {
 		c := c
 		t.Run(name, func(t *testing.T) {
-			assert.Equal(t, c.expected, c.ml.String())
+			assert.Equal(t, c.expected, c.sf.String())
 		})
 	}
 }
