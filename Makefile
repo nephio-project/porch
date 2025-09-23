@@ -342,8 +342,7 @@ ifeq ($(SKIP_IMG_BUILD), false)
 	@if [ "$(SKIP_CONTROLLER_BUILD)" = "false" ]; then \
 		echo "Building $(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):${IMAGE_TAG}" ; \
 		IMAGE_NAME="$(PORCH_CONTROLLERS_IMAGE)" make -C controllers/ build-image && \
-		kind load docker-image $(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} && \
-		kubectl delete deployment -n porch-system --ignore-not-found=true porch-controllers ; \
+		kind load docker-image $(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} ; \
 	fi
 
 else

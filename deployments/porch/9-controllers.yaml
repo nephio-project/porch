@@ -47,6 +47,22 @@ spec:
           value: "true"
         - name: ENABLE_PACKAGEVARIANTSETS
           value: "true"
+        - name: OTEL_SERVICE_NAME
+          value: porch-controllers
+        - name: OTEL_METRICS_EXPORTER
+          value: "prometheus"
+        - name: OTEL_EXPORTER_PROMETHEUS_HOST
+          value: localhost # Default value, showing for visibility
+        - name: OTEL_EXPORTER_PROMETHEUS_PORT
+          value: "9464" # Default value, showing for visibility
+        - name: OTEL_TRACES_EXPORTER
+          value: otlp
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://jaeger-oltp:4317
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          value: grpc
+        - name: OTEL_METRICS_PRODUCERS
+          value: "controller-runtime"
         livenessProbe:
           failureThreshold: 3
           httpGet:
