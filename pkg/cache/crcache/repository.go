@@ -26,6 +26,7 @@ import (
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/pkg/errors"
+	"github.com/robfig/cron/v3"
 	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -76,6 +77,7 @@ func newRepository(repoKey repository.RepositoryKey, repoSpec *configapi.Reposit
 	// TODO: Should we fetch the packages here?
 
 	go r.pollForever(ctx, options.RepoCrSyncFrequency)
+	go r.handleRunOnceAt(ctx)
 
 	return r
 }
@@ -489,17 +491,42 @@ func (r *cachedRepository) Close(ctx context.Context) error {
 }
 
 // pollForever will continue polling until the signal channel is closed or the ctx is done.
-func (r *cachedRepository) pollForever(ctx context.Context, repoSyncFrequency time.Duration) {
-	ticker := time.NewTicker(repoSyncFrequency)
-	defer ticker.Stop()
+func (r *cachedRepository) pollForever(ctx context.Context, repoCrSyncFrequency time.Duration) {
+	// Sync once at startup/repo registration.
+	r.pollOnce(ctx)
 	for {
+		var waitDuration time.Duration
+		var cronExpr string
+
+		if r.repo == nil || r.repoSpec == nil || r.repoSpec.Spec.Sync == nil {
+			klog.Warningf("repo %+v: repo or sync spec is nil, falling back to default interval: %v", r.Key(), repoCrSyncFrequency)
+			waitDuration = repoCrSyncFrequency
+		} else {
+			cronExpr = r.repoSpec.Spec.Sync.Schedule
+			if cronExpr == "" {
+				klog.V(2).Infof("repo %+v: sync.schedule is empty, falling back to repository cr sync interval: %v", r.Key(), repoCrSyncFrequency)
+				waitDuration = repoCrSyncFrequency
+			} else {
+				schedule, err := cron.ParseStandard(cronExpr)
+				if err != nil {
+					klog.Warningf("repo %+v: invalid cron expression '%s', falling back to default interval: %v", r.Key(), cronExpr, repoCrSyncFrequency)
+					waitDuration = repoCrSyncFrequency
+				} else {
+					next := schedule.Next(time.Now())
+					waitDuration = time.Until(next)
+					klog.Infof("repo %+v: next scheduled time: %v", r.Key(), next)
+				}
+			}
+		}
+		ticker := time.NewTicker(waitDuration)
 		select {
 		case <-ctx.Done():
 			klog.Infof("repo %+v: exiting repository poller, because context is done: %v", r.Key(), ctx.Err())
+			ticker.Stop()
 			return
 		case <-ticker.C:
+			ticker.Stop()
 			r.pollOnce(ctx)
-			ticker.Reset(repoSyncFrequency)
 		}
 	}
 }
@@ -521,6 +548,68 @@ func (r *cachedRepository) pollOnce(ctx context.Context) {
 	//if _, err := r.getPackages(ctx, repository.ListPackageRevisionFilter{}, true); err != nil {
 	//	klog.Warningf("error polling repo packages %s: %v", r.Key(), err)
 	//}
+}
+
+// This function executes a sync once only if the RunOnceAt field is set in the repository CR spec.
+func (r *cachedRepository) handleRunOnceAt(ctx context.Context) {
+	var runOnceTimer *time.Timer
+	var runOnceChan <-chan time.Time
+	var scheduledRunOnceAt time.Time
+
+	for {
+		select {
+		case <-ctx.Done():
+			if runOnceTimer != nil {
+				runOnceTimer.Stop()
+			}
+			return
+		default:
+			// spec nil checks
+			if r.repo == nil || r.repoSpec == nil || r.repoSpec.Spec.Sync == nil {
+				klog.V(2).Infof("repo %+v: repo or sync spec is nil, skipping runOnceAt check", r.Key())
+				time.Sleep(10 * time.Second)
+				continue
+			}
+
+			runOnceAt := r.repoSpec.Spec.Sync.RunOnceAt
+			if !runOnceAt.IsZero() {
+				runOnceAtTime := runOnceAt.Time
+				if scheduledRunOnceAt.IsZero() || !runOnceAtTime.Equal(scheduledRunOnceAt) {
+					if runOnceTimer != nil {
+						runOnceTimer.Stop()
+					}
+					delay := time.Until(runOnceAtTime)
+					if delay > 0 {
+						klog.Infof("Scheduling one-time sync for repo %s at %s", r.Key(), runOnceAtTime.Format(time.RFC3339))
+						runOnceTimer = time.NewTimer(delay)
+						runOnceChan = runOnceTimer.C
+						scheduledRunOnceAt = runOnceAtTime
+					} else {
+						klog.V(2).Infof("runOnceAt time for repo %s is in the past (%s), skipping", r.Key(), runOnceAtTime.Format(time.RFC3339))
+						runOnceTimer = nil
+						runOnceChan = nil
+						scheduledRunOnceAt = time.Time{}
+					}
+				}
+			}
+
+			if runOnceChan != nil {
+				select {
+				case <-runOnceChan:
+					klog.Infof("Triggering scheduled one-time sync for repo %s", r.Key())
+					r.pollOnce(context.Background())
+					klog.Infof("Finished one-time sync for repo %s", r.Key())
+					runOnceTimer = nil
+					runOnceChan = nil
+					scheduledRunOnceAt = time.Time{}
+				case <-time.After(10 * time.Second):
+					// Poll again in 10 seconds
+				}
+			} else {
+				time.Sleep(10 * time.Second)
+			}
+		}
+	}
 }
 
 func (r *cachedRepository) flush() {

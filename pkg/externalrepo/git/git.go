@@ -661,14 +661,14 @@ func (r *gitRepository) fetchRemoteRepositoryWithRetry(ctx context.Context) erro
 		func(retryNumber int) error {
 			if retryNumber >= 0 {
 				if ctx.Err() != nil {
-					klog.Errorf("fetchRemoteRepositoryWithRetry %s ctx err: %v", r.Key(), ctx.Err())
+					klog.Infof("fetchRemoteRepositoryWithRetry %s ctx err: %v", r.Key(), ctx.Err())
 				}
 				if deadline, ok := ctx.Deadline(); ok {
-					klog.V(3).Infof("fetchRemoteRepositoryWithRetry %s deadline: %v, reached: %t", r.Key(), deadline, deadline.Compare(time.Now()) <= 0)
+					klog.Infof("fetchRemoteRepositoryWithRetry %s deadline: %v, reached: %t", r.Key(), deadline, deadline.Compare(time.Now()) <= 0)
 				}
 				select {
 				case <-ctx.Done():
-					klog.V(3).Infof("fetchRemoteRepositoryWithRetry %s ctx is done", r.Key())
+					klog.Infof("fetchRemoteRepositoryWithRetry %s ctx is done", r.Key())
 				default:
 				}
 

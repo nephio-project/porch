@@ -63,26 +63,26 @@ func (s *repositorySync) Stop() {
 	}
 }
 
-func (s *repositorySync) syncForever(ctx context.Context, RepoCrSyncFrequency time.Duration) {
-	// Sync once at the start
+func (s *repositorySync) syncForever(ctx context.Context, repoCrSyncFrequency time.Duration) {
+	// Sync once at startup/repo registration.
 	s.lastSyncStats, s.lastSyncError = s.syncOnce(ctx)
+
 	for {
 		var waitDuration time.Duration
 		var cronExpr string
-
 		if s.repo == nil || s.repo.spec == nil || s.repo.spec.Spec.Sync == nil {
-			klog.Warningf("repositorySync %+v: repo or sync spec is nil, falling back to default interval: %v", s.repo.Key(), RepoCrSyncFrequency)
-			waitDuration = RepoCrSyncFrequency
+			klog.Warningf("repositorySync %+v: repo or sync spec is nil, falling back to default interval: %v", s.repo.Key(), repoCrSyncFrequency)
+			waitDuration = repoCrSyncFrequency
 		} else {
 			cronExpr = s.repo.spec.Spec.Sync.Schedule
 			if cronExpr == "" {
-				klog.V(2).Infof("repositorySync %+v: sync.schedule is empty, falling back to repository cr sync interval: %v", s.repo.Key(), RepoCrSyncFrequency)
-				waitDuration = RepoCrSyncFrequency
+				klog.V(2).Infof("repositorySync %+v: sync.schedule is empty, falling back to repository cr sync interval: %v", s.repo.Key(), repoCrSyncFrequency)
+				waitDuration = repoCrSyncFrequency
 			} else {
 				schedule, err := cron.ParseStandard(cronExpr)
 				if err != nil {
-					klog.Warningf("repositorySync %+v: invalid cron expression '%s', falling back to default interval: %v", s.repo.Key(), cronExpr, RepoCrSyncFrequency)
-					waitDuration = RepoCrSyncFrequency
+					klog.Warningf("repositorySync %+v: invalid cron expression '%s', falling back to default interval: %v", s.repo.Key(), cronExpr, repoCrSyncFrequency)
+					waitDuration = repoCrSyncFrequency
 				} else {
 					next := schedule.Next(time.Now())
 					waitDuration = time.Until(next)
@@ -91,11 +91,14 @@ func (s *repositorySync) syncForever(ctx context.Context, RepoCrSyncFrequency ti
 			}
 		}
 
+		ticker := time.NewTicker(waitDuration)
 		select {
 		case <-ctx.Done():
 			klog.V(2).Infof("repositorySync %+v: exiting repository sync, because context is done: %v", s.repo.Key(), ctx.Err())
+			ticker.Stop()
 			return
-		case <-time.After(waitDuration):
+		case <-ticker.C:
+			ticker.Stop()
 			s.lastSyncStats, s.lastSyncError = s.syncOnce(ctx)
 		}
 	}
@@ -114,7 +117,7 @@ func (s *repositorySync) handleRunOnceAt(ctx context.Context) {
 			}
 			return
 		default:
-			// s.repo is nil checks
+			// spec nil checks
 			if s.repo == nil || s.repo.spec == nil || s.repo.spec.Spec.Sync == nil {
 				klog.V(2).Infof("repositorySync %+v: repo or sync spec is nil, skipping runOnceAt check", s.repo.Key())
 				time.Sleep(10 * time.Second)
