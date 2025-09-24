@@ -60,9 +60,7 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 	if repo, ok := c.repositories[key]; ok && repo != nil {
 		c.mainLock.RUnlock()
 		if len(crModified) > 0 && crModified[0] {
-			if err := repo.Refresh(ctx); err != nil {
-				klog.Errorf("Failed to refresh repository %q: %v", key, err)
-			}
+			repo.repoSpec = repositorySpec
 		}
 		// Test if credentials are okay for the cached repo and update the status accordingly
 		if _, err := externalrepo.CreateRepositoryImpl(ctx, repositorySpec, c.options.ExternalRepoOptions); err != nil {
