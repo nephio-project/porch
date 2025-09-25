@@ -26,7 +26,9 @@ packages:
 
   github.com/nephio-project/porch/pkg/cache/dbcache:
     interfaces:
-      dbSQLInterface: {}
+      dbSQLInterface:
+        config:
+          structname: "MockdbSQLInterface"
 
   github.com/nephio-project/porch/pkg/cache/types:
     interfaces:
