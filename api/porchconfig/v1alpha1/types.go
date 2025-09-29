@@ -148,11 +148,12 @@ type FunctionEval struct {
 const (
 	// Type of the Repository condition.
 	RepositoryReady = "Ready"
-
 	// Reason for the condition is error.
 	ReasonError = "Error"
-	// Reason for the condition is the repository is ready.
+	// Reason for the condition is ready.
 	ReasonReady = "Ready"
+	// Reason for the condition is repository reconciliation is in progress.
+	ReasonReconciling = "Reconciling"
 )
 
 // RepositoryStatus defines the observed state of Repository

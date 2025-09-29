@@ -74,7 +74,7 @@ func (r *dbRepository) OpenRepository(ctx context.Context, externalRepoOptions e
 
 	externalRepo, err := externalrepo.CreateRepositoryImpl(ctx, r.spec, externalRepoOptions)
 	if err != nil {
-		klog.Warningf("dbRepository:OpenRepository: %+v external DB read failed with error %q", r.Key(), err)
+		klog.Warningf("dbRepository:OpenRepository: repo %+v connectivity check failed with error %q", r.Key(), err)
 		return err
 	}
 

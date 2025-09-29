@@ -16,6 +16,7 @@ package crcache
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -33,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // We take advantage of the cache having a global view of all the packages
@@ -60,6 +62,7 @@ type cachedRepository struct {
 
 	metadataStore        meta.MetadataStore
 	repoPRChangeNotifier cachetypes.RepoPRChangeNotifier
+	coreClient           client.WithWatch
 }
 
 func newRepository(repoKey repository.RepositoryKey, repoSpec *configapi.Repository, repo repository.Repository,
@@ -72,6 +75,7 @@ func newRepository(repoKey repository.RepositoryKey, repoSpec *configapi.Reposit
 		metadataStore:        metadataStore,
 		repoPRChangeNotifier: options.RepoPRChangeNotifier,
 		cancel:               cancel,
+		coreClient:           options.CoreClient,
 	}
 
 	// TODO: Should we fetch the packages here?
@@ -494,6 +498,17 @@ func (r *cachedRepository) Close(ctx context.Context) error {
 func (r *cachedRepository) pollForever(ctx context.Context, repoCrSyncFrequency time.Duration) {
 	// Sync once at startup/repo registration.
 	r.pollOnce(ctx)
+	if r.refreshRevisionsError != nil {
+		klog.Warningf("repositorySync %+v: sync error: %v", r.repo.Key(), r.refreshRevisionsError)
+		if err := r.setRepositoryCondition(ctx, "error"); err != nil {
+			klog.Warningf("repositorySync %+v: failed to set repository condition: %v", r.repo.Key(), err)
+		}
+	} else {
+		if err := r.setRepositoryCondition(ctx, "ready"); err != nil {
+			klog.Warningf("repositorySync %+v: failed to set repository condition: %v", r.repo.Key(), err)
+		}
+	}
+
 	for {
 		var waitDuration time.Duration
 		var cronExpr string
@@ -527,6 +542,16 @@ func (r *cachedRepository) pollForever(ctx context.Context, repoCrSyncFrequency 
 		case <-ticker.C:
 			ticker.Stop()
 			r.pollOnce(ctx)
+			if r.refreshRevisionsError != nil {
+				klog.Warningf("repositorySync %+v: sync error: %v", r.repo.Key(), r.refreshRevisionsError)
+				if err := r.setRepositoryCondition(ctx, "error"); err != nil {
+					klog.Warningf("repositorySync %+v: failed to set repository condition: %v", r.repo.Key(), err)
+				}
+			} else {
+				if err := r.setRepositoryCondition(ctx, "ready"); err != nil {
+					klog.Warningf("repositorySync %+v: failed to set repository condition: %v", r.repo.Key(), err)
+				}
+			}
 		}
 	}
 }
@@ -534,6 +559,9 @@ func (r *cachedRepository) pollForever(ctx context.Context, repoCrSyncFrequency 
 func (r *cachedRepository) pollOnce(ctx context.Context) {
 	start := time.Now()
 	klog.Infof("repo %+v: poll started", r.Key())
+	if err := r.setRepositoryCondition(ctx, "sync-in-progress"); err != nil {
+		klog.Warningf("repositorySync %+v: failed to set repository condition: %v", r.repo.Key(), err)
+	}
 	defer func() { klog.Infof("repo %+v: poll finished in %s", r.Key(), time.Since(start)) }()
 	ctx, span := tracer.Start(ctx, "[START]::Repository::pollOnce", trace.WithAttributes())
 	defer span.End()
@@ -598,6 +626,16 @@ func (r *cachedRepository) handleRunOnceAt(ctx context.Context) {
 				case <-runOnceChan:
 					klog.Infof("Triggering scheduled one-time sync for repo %s", r.Key())
 					r.pollOnce(context.Background())
+					if r.refreshRevisionsError != nil {
+						klog.Warningf("repositorySync %+v: sync error: %v", r.repo.Key(), r.refreshRevisionsError)
+						if err := r.setRepositoryCondition(ctx, "error"); err != nil {
+							klog.Warningf("repositorySync %+v: failed to set repository condition: %v", r.repo.Key(), err)
+						}
+					} else {
+						if err := r.setRepositoryCondition(ctx, "ready"); err != nil {
+							klog.Warningf("repositorySync %+v: failed to set repository condition: %v", r.repo.Key(), err)
+						}
+					}
 					klog.Infof("Finished one-time sync for repo %s", r.Key())
 					runOnceTimer = nil
 					runOnceChan = nil
@@ -610,6 +648,69 @@ func (r *cachedRepository) handleRunOnceAt(ctx context.Context) {
 			}
 		}
 	}
+}
+
+func (r *cachedRepository) setRepositoryCondition(ctx context.Context, status string) error {
+	repo := &configapi.Repository{}
+	key := types.NamespacedName{
+		Name:      r.repo.Key().Name,
+		Namespace: r.repo.Key().Namespace,
+	}
+
+	if err := r.coreClient.Get(ctx, key, repo); err != nil {
+		return fmt.Errorf("failed to get repository: %w", err)
+	}
+
+	var condition metav1.Condition
+
+	switch status {
+	case "sync-in-progress":
+		condition = metav1.Condition{
+			Type:               configapi.RepositoryReady,
+			Status:             metav1.ConditionFalse,
+			ObservedGeneration: repo.Generation,
+			LastTransitionTime: metav1.Now(),
+			Reason:             configapi.ReasonReconciling,
+			Message:            "Repository reconciliation in progress",
+		}
+	case "ready":
+		condition = metav1.Condition{
+			Type:               configapi.RepositoryReady,
+			Status:             metav1.ConditionTrue,
+			ObservedGeneration: repo.Generation,
+			LastTransitionTime: metav1.Now(),
+			Reason:             configapi.ReasonReady,
+			Message:            "Repository Ready",
+		}
+	case "error":
+		condition = metav1.Condition{
+			Type:               configapi.RepositoryReady,
+			Status:             metav1.ConditionFalse,
+			ObservedGeneration: repo.Generation,
+			LastTransitionTime: metav1.Now(),
+			Reason:             configapi.ReasonError,
+			Message:            r.refreshRevisionsError.Error(),
+		}
+	default:
+		return fmt.Errorf("unknown status type: %s", status)
+	}
+
+	if repo.Status.Conditions == nil {
+		repo.Status.Conditions = []metav1.Condition{}
+	}
+
+	if len(repo.Status.Conditions) > 0 {
+		repo.Status.Conditions[0] = condition
+	} else {
+		repo.Status.Conditions = append(repo.Status.Conditions, condition)
+	}
+
+	if err := r.coreClient.Status().Update(ctx, repo); err != nil {
+		return fmt.Errorf("failed to update repository status: %w", err)
+	}
+
+	klog.V(2).Infof("Repository %s status updated to %s", repo.Name, status)
+	return nil
 }
 
 func (r *cachedRepository) flush() {

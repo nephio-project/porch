@@ -62,8 +62,8 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 		if len(crModified) > 0 && crModified[0] {
 			repo.repoSpec = repositorySpec
 		}
-		// Test if credentials are okay for the cached repo and update the status accordingly
-		if _, err := externalrepo.CreateRepositoryImpl(ctx, repositorySpec, c.options.ExternalRepoOptions); err != nil {
+		// Check external repo connectivity
+		if err := externalrepo.CheckRepositoryConnection(ctx, repositorySpec, c.options.ExternalRepoOptions); err != nil {
 			return nil, err
 		}
 		// If there is an error from the background refresh goroutine, return it.

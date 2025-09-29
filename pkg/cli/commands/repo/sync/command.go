@@ -85,12 +85,12 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 	allNamespaces := cmd.Flags().Lookup("all-namespaces").Value.String() == "true"
 
 	namespace := ""
-	if r.getFlags.ConfigFlags.Namespace == nil || *r.getFlags.ConfigFlags.Namespace == "" {
+	if r.getFlags.Namespace == nil || *r.getFlags.Namespace == "" {
 		if !allNamespaces {
 			return fmt.Errorf("namespace must be specified unless --all-namespaces is set")
 		}
 	} else {
-		namespace = *r.getFlags.ConfigFlags.Namespace
+		namespace = *r.getFlags.Namespace
 	}
 
 	runOnceStr := cmd.Flags().Lookup("run-once").Value.String()

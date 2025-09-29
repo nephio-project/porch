@@ -28,6 +28,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
+	"k8s.io/klog/v2"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -54,6 +55,12 @@ func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.
 	c.mainLock.RLock()
 	if dbRepo, ok := c.repositories[repoKey]; ok {
 		c.mainLock.RUnlock()
+		err := externalrepo.CheckRepositoryConnection(ctx, dbRepo.spec, c.options.ExternalRepoOptions)
+		if err != nil {
+			klog.Warningf("dbRepository:OpenRepository: repo %+v connectivity check failed with error %q", repoKey, err)
+			return nil, err
+		}
+		klog.V(2).Infof("dbCache::OpenRepository: verified repo connectivity %+v", repoKey)
 		if len(crModified) > 0 && crModified[0] {
 			dbRepo.spec = repositorySpec
 		}
