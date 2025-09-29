@@ -177,6 +177,11 @@ func (b *background) handleRepositoryEvent(ctx context.Context, repo *configapi.
 		return fmt.Errorf("%s, handling failed, repo specification invalid :%q", msgPreamble, err)
 	}
 
+	if eventType == watch.Modified && !specChanged(repo) {
+		klog.Infof("%s, handling completed in %s", msgPreamble, time.Since(start))
+		return nil
+	}
+
 	// Verify repositories can be listed (core client is alive)
 	listCtx := ctx
 	var cancel context.CancelFunc
@@ -204,6 +209,17 @@ func (b *background) handleRepositoryEvent(ctx context.Context, repo *configapi.
 	}
 }
 
+func specChanged(repo *configapi.Repository) bool {
+	// Compare observedGeneration in status with current generation
+	for _, cond := range repo.Status.Conditions {
+		if cond.Type == configapi.RepositoryReady {
+			return cond.ObservedGeneration < repo.Generation
+		}
+	}
+	// If no condition found, assume spec changed
+	return true
+}
+
 func (b *background) runOnce(ctx context.Context) error {
 	klog.Infof("background-refreshing repositories")
 	repositories := &configapi.RepositoryList{}
@@ -224,7 +240,9 @@ func (b *background) runOnce(ctx context.Context) error {
 
 func (b *background) cacheRepository(ctx context.Context, repo *configapi.Repository, crModified ...bool) error {
 	start := time.Now()
-	defer func() { klog.V(4).Infof("background::cacheRepository (%s) took %s", repo.Name, time.Since(start)) }()
+	defer func() {
+		klog.V(2).Infof("background::cacheRepository (%s) took %s", repo.Name, time.Since(start))
+	}()
 	var condition v1.Condition
 	modified := false
 	if len(crModified) > 0 {
@@ -232,6 +250,13 @@ func (b *background) cacheRepository(ctx context.Context, repo *configapi.Reposi
 	}
 	_, err := b.cache.OpenRepository(ctx, repo, modified)
 	if err == nil {
+		if repo.Status.Conditions == nil {
+			// Let's wait for sync job to create condition
+			return nil
+		} else if repo.Status.Conditions[0].Status == v1.ConditionTrue {
+			// Skip if status is already true
+			return nil
+		}
 		condition = v1.Condition{
 			Type:               configapi.RepositoryReady,
 			Status:             v1.ConditionTrue,
@@ -250,7 +275,6 @@ func (b *background) cacheRepository(ctx context.Context, repo *configapi.Reposi
 			Message:            err.Error(),
 		}
 	}
-
 	meta.SetStatusCondition(&repo.Status.Conditions, condition)
 	if err := b.coreClient.Status().Update(ctx, repo); err != nil {
 		return fmt.Errorf("error updating repository status: %w", err)
