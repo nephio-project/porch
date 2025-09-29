@@ -16,8 +16,24 @@ package v1alpha1
 
 import "slices"
 
+func (pr *PackageRevision) IsPublished() bool {
+	return LifecycleIsPublished(pr.Spec.Lifecycle)
+}
+
 func LifecycleIsPublished(lifecycle PackageRevisionLifecycle) bool {
 	return lifecycle == PackageRevisionLifecyclePublished || lifecycle == PackageRevisionLifecycleDeletionProposed
+}
+
+func (l *PackageRevisionLifecycle) IsValid() bool {
+	switch *l {
+	case PackageRevisionLifecycleDraft,
+		PackageRevisionLifecycleProposed,
+		PackageRevisionLifecyclePublished,
+		PackageRevisionLifecycleDeletionProposed:
+		return true
+	default:
+		return false
+	}
 }
 
 // Check ReadinessGates checks if the package has met all readiness gates

@@ -31,10 +31,6 @@ type PackageRevision struct {
 	Status PackageRevisionStatus `json:"status,omitempty"`
 }
 
-func (pr *PackageRevision) IsPublished() bool {
-	return LifecycleIsPublished(pr.Spec.Lifecycle)
-}
-
 // Key and value of the latest package revision label:
 
 const (
@@ -81,18 +77,6 @@ const (
 	PackageRevisionLifecyclePublished        PackageRevisionLifecycle = "Published"
 	PackageRevisionLifecycleDeletionProposed PackageRevisionLifecycle = "DeletionProposed"
 )
-
-func (l *PackageRevisionLifecycle) IsValid() bool {
-	switch *l {
-	case PackageRevisionLifecycleDraft,
-		PackageRevisionLifecycleProposed,
-		PackageRevisionLifecyclePublished,
-		PackageRevisionLifecycleDeletionProposed:
-		return true
-	default:
-		return false
-	}
-}
 
 // PackageRevisionSpec defines the desired state of PackageRevision
 type PackageRevisionSpec struct {
