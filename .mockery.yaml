@@ -1,62 +1,46 @@
-with-expecter: true
+template: testify
+template-data:
+  unroll-variadic: true
+filename: "mock_{{ .InterfaceName }}.go"
+dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
+
 packages:
   sigs.k8s.io/controller-runtime/pkg/client:
     interfaces:
       Client:
         config:
-          dir: "test/mockery/mocks/external/{{.InterfaceDirRelative}}"
-          outpkg: "{{.PackageName}}"
+          dir: "test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
       Reader:
         config:
-          dir: "test/mockery/mocks/external/{{.InterfaceDirRelative}}"
-          outpkg: "{{.PackageName}}"
+          dir: "test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
       SubResourceWriter:
         config:
-          dir: "test/mockery/mocks/external/{{.InterfaceDirRelative}}"
-          outpkg: "{{.PackageName}}"
+          dir: "test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
       WithWatch:
         config:
-          dir: "test/mockery/mocks/external/{{.InterfaceDirRelative}}"
-          outpkg: "{{.PackageName}}"
+          dir: "test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
+
   github.com/nephio-project/porch/pkg/cache/crcache/meta:
     interfaces:
-      MetadataStore:
-        config:
-          dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
-          outpkg: "{{.PackageName}}"
+      MetadataStore: {}
+
   github.com/nephio-project/porch/pkg/cache/dbcache:
     interfaces:
       dbSQLInterface:
         config:
-          dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
-          outpkg: "{{.PackageName}}"
+          structname: "MockdbSQLInterface"
+
   github.com/nephio-project/porch/pkg/cache/types:
     interfaces:
-      Cache:
-        config:
-          dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
-          outpkg: "{{.PackageName}}"
-      RepoPRChangeNotifier:
-        config:
-          dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
-          outpkg: "{{.PackageName}}"
+      Cache: {}
+      RepoPRChangeNotifier: {}
+
   github.com/nephio-project/porch/pkg/repository:
     interfaces:
-      Repository:
-        config:
-          dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
-          outpkg: "{{.PackageName}}"
-      PackageRevision:
-        config:
-          dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
-          outpkg: "{{.PackageName}}"
-      PackageRevisionDraft:
-        config:
-          dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
-          outpkg: "{{.PackageName}}"
+      Repository: {}
+      PackageRevision: {}
+      PackageRevisionDraft: {}
+
   github.com/nephio-project/porch/pkg/engine:
     interfaces:
-      CaDEngine:
-        config:
-          dir: "test/mockery/mocks/porch/{{.InterfaceDirRelative}}"
-          outpkg: "{{.PackageName}}"
+      CaDEngine: {}
