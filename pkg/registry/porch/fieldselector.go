@@ -16,7 +16,7 @@ package porch
 
 import (
 	"fmt"
-	"reflect"
+	"slices"
 	"strings"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -30,23 +30,23 @@ import (
 type prFilterFieldMappingFunc func(filter *repository.ListPackageRevisionFilter, value string) error
 
 var (
-	PrFilterFieldMappings = map[string]prFilterFieldMappingFunc{
-		api.PackageRevisionSelectableFields.Name: func(f *repository.ListPackageRevisionFilter, name string) error {
+	PrFilterFieldMappings = map[api.PkgRevFieldSelector]prFilterFieldMappingFunc{
+		api.PkgRevSelectorName: func(f *repository.ListPackageRevisionFilter, name string) error {
 			var err error
 			if filterKey, err := repository.PkgRevK8sName2Key("", name); err == nil {
 				f.Key = filterKey
 			}
 			return err
 		},
-		api.PackageRevisionSelectableFields.Namespace: func(f *repository.ListPackageRevisionFilter, namespace string) error {
+		api.PkgRevSelectorNamespace: func(f *repository.ListPackageRevisionFilter, namespace string) error {
 			f.Key.PkgKey.RepoKey.Namespace = namespace
 			return nil
 		},
-		api.PackageRevisionSelectableFields.Revision: func(f *repository.ListPackageRevisionFilter, strRevision string) error {
+		api.PkgRevSelectorRevision: func(f *repository.ListPackageRevisionFilter, strRevision string) error {
 			f.Key.Revision = repository.Revision2Int(strRevision)
 			return nil
 		},
-		api.PackageRevisionSelectableFields.PackageName: func(f *repository.ListPackageRevisionFilter, fullPkgName string) error {
+		api.PkgRevSelectorPackageName: func(f *repository.ListPackageRevisionFilter, fullPkgName string) error {
 			split := strings.Split(fullPkgName, "/")
 			if len(split) > 1 {
 				f.Key.PkgKey.Package = split[len(split)-1]
@@ -56,21 +56,21 @@ var (
 			}
 			return nil
 		},
-		api.PackageRevisionSelectableFields.Repository: func(f *repository.ListPackageRevisionFilter, repoName string) error {
+		api.PkgRevSelectorRepository: func(f *repository.ListPackageRevisionFilter, repoName string) error {
 			f.Key.PkgKey.RepoKey.Name = repoName
 			return nil
 		},
-		api.PackageRevisionSelectableFields.WorkspaceName: func(f *repository.ListPackageRevisionFilter, workspaceName string) error {
+		api.PkgRevSelectorWorkspaceName: func(f *repository.ListPackageRevisionFilter, workspaceName string) error {
 			f.Key.WorkspaceName = workspaceName
 			return nil
 		},
-		api.PackageRevisionSelectableFields.Lifecycle: func(f *repository.ListPackageRevisionFilter, lifecycle string) error {
+		api.PkgRevSelectorLifecycle: func(f *repository.ListPackageRevisionFilter, lifecycle string) error {
 			var err error
 			l := api.PackageRevisionLifecycle(lifecycle)
 			if l.IsValid() {
 				f.Lifecycles = append(f.Lifecycles, l)
 			} else {
-				err = apierrors.NewBadRequest(fmt.Sprintf("unsupported fieldSelector value %q for field %q", lifecycle, api.PackageRevisionSelectableFields.Lifecycle))
+				err = apierrors.NewBadRequest(fmt.Sprintf("unsupported fieldSelector value %q for field %q", lifecycle, api.PkgRevSelectorLifecycle))
 			}
 			return err
 		},
@@ -93,11 +93,8 @@ func convertPackageFieldSelector(label, value string) (internalLabel, internalVa
 
 // convertPackageRevisionFieldSelector is the schema conversion function for normalizing the FieldSelector for PackageRevision
 func convertPackageRevisionFieldSelector(label, value string) (internalLabel, internalValue string, err error) {
-	selectableFields := reflect.ValueOf(api.PackageRevisionSelectableFields)
-	for i := range selectableFields.NumField() {
-		if label == selectableFields.Field(i).String() {
-			return label, value, nil
-		}
+	if slices.Contains(api.PackageRevisionSelectableFields, api.PkgRevFieldSelector(label)) {
+		return label, value, nil
 	}
 	return "", "", fmt.Errorf("%q is not a known field selector", label)
 }
@@ -169,7 +166,7 @@ func parsePackageRevisionFieldSelector(options *metainternalversion.ListOptions)
 			return filter, apierrors.NewBadRequest(fmt.Sprintf("unsupported fieldSelector operator %q for field %q", requirement.Operator, requirement.Field))
 		}
 
-		filteredField := requirement.Field
+		filteredField := api.PkgRevFieldSelector(requirement.Field)
 		if filterFunc, fieldSelectable := PrFilterFieldMappings[filteredField]; fieldSelectable {
 			if err := filterFunc(filter, requirement.Value); err != nil {
 				return filter, err

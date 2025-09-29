@@ -42,24 +42,26 @@ const (
 	LatestPackageRevisionValue = "true"
 )
 
-type pkgRevSelectable struct {
-	Name          string
-	Namespace     string
-	Revision      string
-	PackageName   string
-	Repository    string
-	WorkspaceName string
-	Lifecycle     string
-}
+type PkgRevFieldSelector string
 
-var PackageRevisionSelectableFields = pkgRevSelectable{
-	Name:          "metadata.name",
-	Namespace:     "metadata.namespace",
-	Revision:      "spec.revision",
-	PackageName:   "spec.packageName",
-	Repository:    "spec.repository",
-	WorkspaceName: "spec.workspaceName",
-	Lifecycle:     "spec.lifecycle",
+const (
+	PkgRevSelectorName          PkgRevFieldSelector = "metadata.name"
+	PkgRevSelectorNamespace     PkgRevFieldSelector = "metadata.namespace"
+	PkgRevSelectorRevision      PkgRevFieldSelector = "spec.revision"
+	PkgRevSelectorPackageName   PkgRevFieldSelector = "spec.packageName"
+	PkgRevSelectorRepository    PkgRevFieldSelector = "spec.repository"
+	PkgRevSelectorWorkspaceName PkgRevFieldSelector = "spec.workspaceName"
+	PkgRevSelectorLifecycle     PkgRevFieldSelector = "spec.lifecycle"
+)
+
+var PackageRevisionSelectableFields = []PkgRevFieldSelector{
+	PkgRevSelectorName,
+	PkgRevSelectorNamespace,
+	PkgRevSelectorRevision,
+	PkgRevSelectorPackageName,
+	PkgRevSelectorRepository,
+	PkgRevSelectorWorkspaceName,
+	PkgRevSelectorLifecycle,
 }
 
 // PackageRevisionList
