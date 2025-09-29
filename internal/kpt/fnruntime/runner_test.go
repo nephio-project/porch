@@ -112,7 +112,7 @@ func TestSingleLineFormatter(t *testing.T) {
 				UseQuote:  false,
 				Separator: ", ",
 			},
-			expected: `  Summary: line1, line2, line3`,
+			expected: `Summary: line1, line2, line3`,
 		},
 		"single line with quotes and space separator": {
 			sf: &SingleLineFormatter{
@@ -121,7 +121,7 @@ func TestSingleLineFormatter(t *testing.T) {
 				UseQuote:  true,
 				Separator: " ",
 			},
-			expected: `  Summary: "line1" "line2" "line3"`,
+			expected: `Summary: "line1" "line2" "line3"`,
 		},
 		"single line with newline suppression": {
 			sf: &SingleLineFormatter{
@@ -130,7 +130,7 @@ func TestSingleLineFormatter(t *testing.T) {
 				UseQuote:  false,
 				Separator: ", ",
 			},
-			expected: `  Summary: line1, line2 extra, line3`,
+			expected: `Summary: line1, line2 extra, line3`,
 		},
 		"empty lines": {
 			sf: &SingleLineFormatter{
@@ -139,7 +139,7 @@ func TestSingleLineFormatter(t *testing.T) {
 				UseQuote:  false,
 				Separator: ", ",
 			},
-			expected: `  Empty: `,
+			expected: `Empty: `,
 		},
 	}
 
