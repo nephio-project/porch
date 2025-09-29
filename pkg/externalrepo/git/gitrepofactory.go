@@ -17,8 +17,12 @@ package git
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 
+	gogit "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing/transport"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -59,4 +63,50 @@ func (f *GitRepoFactory) NewRepositoryImpl(ctx context.Context, repositorySpec *
 	}
 
 	return repo, nil
+}
+
+func (f *GitRepoFactory) CheckRepositoryConnection(ctx context.Context, repositorySpec *configapi.Repository, options externalrepotypes.ExternalRepoOptions) error {
+	// Step 1: Fetch credentials from secret
+	secretName := repositorySpec.Spec.Git.SecretRef.Name
+	namespace := repositorySpec.Namespace
+	var auth transport.AuthMethod
+	if secretName != "" {
+		creds, err := options.CredentialResolver.ResolveCredential(ctx, namespace, secretName)
+		if err != nil {
+			return fmt.Errorf("failed to resolve credentials: %w", err)
+		}
+
+		if !creds.Valid() {
+			return fmt.Errorf("resolved credentials are invalid")
+		}
+
+		// Use the credentials for Git authentication
+		auth = creds.ToAuthMethod()
+	}
+	// Step 3: Check if branch exists
+	remote := gogit.NewRemote(nil, &config.RemoteConfig{
+		Name: "origin",
+		URLs: []string{repositorySpec.Spec.Git.Repo},
+	})
+
+	refs, err := remote.List(&gogit.ListOptions{
+		Auth: auth,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list remote refs: %w", err)
+	}
+
+	branchExists := false
+	for _, ref := range refs {
+		if ref.Name().IsBranch() && ref.Name().Short() == repositorySpec.Spec.Git.Branch {
+			branchExists = true
+			break
+		}
+	}
+
+	if !branchExists {
+		return fmt.Errorf("branch %q not found in repository", repositorySpec.Spec.Git.Branch)
+	}
+
+	return nil
 }

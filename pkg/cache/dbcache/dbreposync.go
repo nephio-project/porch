@@ -21,12 +21,16 @@ import (
 	"time"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	"go.opentelemetry.io/otel/trace"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type repositorySync struct {
@@ -37,6 +41,7 @@ type repositorySync struct {
 	lastExternalPRMap       map[repository.PackageRevisionKey]repository.PackageRevision
 	lastSyncError           error
 	lastSyncStats           repositorySyncStats
+	coreClient              client.WithWatch
 }
 
 type repositorySyncStats struct {
@@ -48,8 +53,9 @@ type repositorySyncStats struct {
 func newRepositorySync(repo *dbRepository, options cachetypes.CacheOptions) *repositorySync {
 	ctx, cancel := context.WithCancel(context.Background())
 	s := repositorySync{
-		repo:   repo,
-		cancel: cancel,
+		repo:       repo,
+		cancel:     cancel,
+		coreClient: options.CoreClient,
 	}
 
 	go s.syncForever(ctx, options.RepoCrSyncFrequency)
@@ -66,6 +72,16 @@ func (s *repositorySync) Stop() {
 func (s *repositorySync) syncForever(ctx context.Context, repoCrSyncFrequency time.Duration) {
 	// Sync once at startup/repo registration.
 	s.lastSyncStats, s.lastSyncError = s.syncOnce(ctx)
+	if s.lastSyncError != nil {
+		klog.Warningf("repositorySync %+v: sync error: %v", s.repo.Key(), s.lastSyncError)
+		if err := s.setRepositoryCondition(ctx, "error"); err != nil {
+			klog.Warningf("repositorySync %+v: failed to set repository condition: %v", s.repo.Key(), err)
+		}
+	} else {
+		if err := s.setRepositoryCondition(ctx, "ready"); err != nil {
+			klog.Warningf("repositorySync %+v: failed to set repository condition: %v", s.repo.Key(), err)
+		}
+	}
 
 	for {
 		var waitDuration time.Duration
@@ -100,6 +116,16 @@ func (s *repositorySync) syncForever(ctx context.Context, repoCrSyncFrequency ti
 		case <-ticker.C:
 			ticker.Stop()
 			s.lastSyncStats, s.lastSyncError = s.syncOnce(ctx)
+			if s.lastSyncError != nil {
+				klog.Warningf("repositorySync %+v: sync error: %v", s.repo.Key(), s.lastSyncError)
+				if err := s.setRepositoryCondition(ctx, "error"); err != nil {
+					klog.Warningf("repositorySync %+v: failed to set repository condition: %v", s.repo.Key(), err)
+				}
+			} else {
+				if err := s.setRepositoryCondition(ctx, "ready"); err != nil {
+					klog.Warningf("repositorySync %+v: failed to set repository condition: %v", s.repo.Key(), err)
+				}
+			}
 		}
 	}
 }
@@ -151,6 +177,16 @@ func (s *repositorySync) handleRunOnceAt(ctx context.Context) {
 				case <-runOnceChan:
 					klog.Infof("Triggering scheduled one-time sync for repo %s", s.repo.Key())
 					s.lastSyncStats, s.lastSyncError = s.syncOnce(context.Background())
+					if s.lastSyncError != nil {
+						klog.Warningf("repositorySync %+v: sync error: %v", s.repo.Key(), s.lastSyncError)
+						if err := s.setRepositoryCondition(ctx, "error"); err != nil {
+							klog.Warningf("repositorySync %+v: failed to set repository condition: %v", s.repo.Key(), err)
+						}
+					} else {
+						if err := s.setRepositoryCondition(ctx, "ready"); err != nil {
+							klog.Warningf("repositorySync %+v: failed to set repository condition: %v", s.repo.Key(), err)
+						}
+					}
 					klog.Infof("Finished one-time sync for repo %s", s.repo.Key())
 					runOnceTimer = nil
 					runOnceChan = nil
@@ -176,6 +212,9 @@ func (s *repositorySync) syncOnce(ctx context.Context) (repositorySyncStats, err
 
 	start := time.Now()
 	klog.Infof("repositorySync %+v: sync started", s.repo.Key())
+	if err := s.setRepositoryCondition(ctx, "sync-in-progress"); err != nil {
+		klog.Warningf("repositorySync %+v: failed to set repository condition: %v", s.repo.Key(), err)
+	}
 
 	defer func() {
 		klog.Infof("repositorySync %+v: sync finished in %f secs", s.repo.Key(), time.Since(start).Seconds())
@@ -197,14 +236,14 @@ func (s *repositorySync) sync(ctx context.Context) (repositorySyncStats, error) 
 
 	cachedPrMap, err := s.getCachedPRMap(ctx)
 	if err != nil {
-		return repositorySyncStats{}, pkgerrors.Wrap(err, "sync failed reading cached pacakge revisions")
+		return repositorySyncStats{}, pkgerrors.Wrap(err, "sync failed reading cached package revisions")
 	}
 
 	klog.Infof("repositorySync %+v: found %d deployed package revisions in cached repository", s.repo.Key(), len(cachedPrMap))
 
 	externalPrMap, err := s.getExternalPRMap(ctx)
 	if err != nil {
-		return repositorySyncStats{}, pkgerrors.Wrap(err, "sync failed reading external pacakge revisions")
+		return repositorySyncStats{}, pkgerrors.Wrap(err, "sync failed reading external package revisions")
 	}
 
 	klog.Infof("repositorySync %+v: found %d package revisions in external repository", s.repo.Key(), len(externalPrMap))
@@ -225,6 +264,69 @@ func (s *repositorySync) sync(ctx context.Context) (repositorySyncStats, error) 
 		externalOnly: len(inExternalOnly),
 		both:         len(inBoth),
 	}, nil
+}
+
+func (s *repositorySync) setRepositoryCondition(ctx context.Context, status string) error {
+	repo := &configapi.Repository{}
+	key := types.NamespacedName{
+		Name:      s.repo.Key().Name,
+		Namespace: s.repo.Key().Namespace,
+	}
+
+	if err := s.coreClient.Get(ctx, key, repo); err != nil {
+		return fmt.Errorf("failed to get repository: %w", err)
+	}
+
+	var condition v1.Condition
+
+	switch status {
+	case "sync-in-progress":
+		condition = v1.Condition{
+			Type:               configapi.RepositoryReady,
+			Status:             v1.ConditionFalse,
+			ObservedGeneration: repo.Generation,
+			LastTransitionTime: v1.Now(),
+			Reason:             configapi.ReasonReconciling,
+			Message:            "Repository reconciliation in progress",
+		}
+	case "ready":
+		condition = v1.Condition{
+			Type:               configapi.RepositoryReady,
+			Status:             v1.ConditionTrue,
+			ObservedGeneration: repo.Generation,
+			LastTransitionTime: v1.Now(),
+			Reason:             configapi.ReasonReady,
+			Message:            "Repository Ready",
+		}
+	case "error":
+		condition = v1.Condition{
+			Type:               configapi.RepositoryReady,
+			Status:             v1.ConditionFalse,
+			ObservedGeneration: repo.Generation,
+			LastTransitionTime: v1.Now(),
+			Reason:             configapi.ReasonError,
+			Message:            s.lastSyncError.Error(),
+		}
+	default:
+		return fmt.Errorf("unknown status type: %s", status)
+	}
+
+	if repo.Status.Conditions == nil {
+		repo.Status.Conditions = []v1.Condition{}
+	}
+
+	if len(repo.Status.Conditions) > 0 {
+		repo.Status.Conditions[0] = condition
+	} else {
+		repo.Status.Conditions = append(repo.Status.Conditions, condition)
+	}
+
+	if err := s.coreClient.Status().Update(ctx, repo); err != nil {
+		return fmt.Errorf("failed to update repository status: %w", err)
+	}
+
+	klog.V(2).Infof("Repository %s status updated to %s", repo.Name, status)
+	return nil
 }
 
 func (s *repositorySync) getCachedPRMap(ctx context.Context) (map[repository.PackageRevisionKey]repository.PackageRevision, error) {
