@@ -17,6 +17,7 @@ package porch
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -27,8 +28,10 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/klog/v2"
@@ -45,6 +48,7 @@ var _ rest.Getter = &packageRevisionResources{}
 var _ rest.Scoper = &packageRevisionResources{}
 var _ rest.Updater = &packageRevisionResources{}
 var _ rest.SingularNameProvider = &packageRevisionResources{}
+var _ rest.Watcher = &packageRevisionResources{}
 
 // GetSingularName implements the SingularNameProvider interface
 func (r *packageRevisionResources) GetSingularName() string {
@@ -201,4 +205,190 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 	klog.Infof("Update operation completed for packagerevisionresources: %s", name)
 
 	return created, false, nil
+}
+
+// Watch supports watching for changes to PackageRevisionResources.
+func (r *packageRevisionResources) Watch(ctx context.Context, options *metainternalversion.ListOptions) (watch.Interface, error) {
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::Watch", trace.WithAttributes())
+	defer span.End()
+
+	filter, err := parsePackageRevisionResourcesFieldSelector(options)
+	if err != nil {
+		return nil, err
+	}
+
+	if namespace, namespaced := genericapirequest.NamespaceFrom(ctx); namespaced {
+		if filter.Key.RKey().Namespace != "" && namespace != filter.Key.RKey().Namespace {
+			return nil, fmt.Errorf("conflicting namespaces specified: %q and %q", namespace, filter.Key.RKey().Namespace)
+		}
+		filter.Key.PkgKey.RepoKey.Namespace = namespace
+	}
+
+	ctx, cancel := context.WithCancel(ctx)
+
+	w := &packageRevisionResourcesWatcher{
+		cancel:     cancel,
+		resultChan: make(chan watch.Event, 64),
+	}
+
+	go w.listAndWatch(ctx, r, *filter, options.LabelSelector)
+
+	return w, nil
+}
+
+// packageRevisionResourcesWatcher implements watch.Interface for PackageRevisionResources
+type packageRevisionResourcesWatcher struct {
+	cancel     func()
+	resultChan chan watch.Event
+
+	mutex         sync.Mutex
+	eventCallback func(eventType watch.EventType, pr repository.PackageRevision) bool
+	done          bool
+	totalSent     int
+}
+
+var _ watch.Interface = &packageRevisionResourcesWatcher{}
+
+func (w *packageRevisionResourcesWatcher) Stop() {
+	w.cancel()
+}
+
+func (w *packageRevisionResourcesWatcher) ResultChan() <-chan watch.Event {
+	return w.resultChan
+}
+
+func (w *packageRevisionResourcesWatcher) listAndWatch(ctx context.Context, r *packageRevisionResources, filter repository.ListPackageRevisionFilter, selector labels.Selector) {
+	if err := w.listAndWatchInner(ctx, r, filter, selector); err != nil {
+		klog.Warningf("sending error to watch stream: %v", err)
+		ev := watch.Event{
+			Type: watch.Error,
+		}
+		w.resultChan <- ev
+	}
+	w.cancel()
+	close(w.resultChan)
+}
+
+func (w *packageRevisionResourcesWatcher) listAndWatchInner(ctx context.Context, r *packageRevisionResources, filter repository.ListPackageRevisionFilter, selector labels.Selector) error {
+	errorResult := make(chan error, 4)
+
+	var backlog []watch.Event
+	w.mutex.Lock()
+	w.eventCallback = func(eventType watch.EventType, pr repository.PackageRevision) bool {
+		if w.done {
+			return false
+		}
+		obj, err := pr.GetResources(ctx)
+		if err != nil {
+			w.done = true
+			errorResult <- err
+			return false
+		}
+
+		backlog = append(backlog, watch.Event{
+			Type:   eventType,
+			Object: obj,
+		})
+
+		return true
+	}
+	w.mutex.Unlock()
+
+	if err := r.packageCommon.watchPackages(ctx, filter, w); err != nil {
+		return err
+	}
+
+	sentAdd := 0
+	if err := r.packageCommon.listPackageRevisions(ctx, filter, func(ctx context.Context, p repository.PackageRevision) error {
+		obj, err := p.GetResources(ctx)
+		if err != nil {
+			w.mutex.Lock()
+			w.done = true
+			w.mutex.Unlock()
+			return err
+		}
+		ev := watch.Event{
+			Type:   watch.Added,
+			Object: obj,
+		}
+		sentAdd += 1
+		w.sendWatchEvent(ev)
+		return nil
+	}); err != nil {
+		w.mutex.Lock()
+		w.done = true
+		w.mutex.Unlock()
+		return err
+	}
+
+	sentBacklog := 0
+	for {
+		w.mutex.Lock()
+		chunk := backlog
+		backlog = nil
+		w.mutex.Unlock()
+
+		if len(chunk) == 0 {
+			break
+		}
+
+		for _, ev := range chunk {
+			sentBacklog += 1
+			w.sendWatchEvent(ev)
+		}
+	}
+
+	w.mutex.Lock()
+	sentNewBacklog := 0
+	for _, ev := range backlog {
+		sentNewBacklog += 1
+		w.sendWatchEvent(ev)
+	}
+
+	klog.Infof("packageRevisionResources watch %p: moving into streaming mode after sentAdd %d, sentBacklog %d, sentNewBacklog %d", w, sentAdd, sentBacklog, sentNewBacklog)
+	w.eventCallback = func(eventType watch.EventType, pr repository.PackageRevision) bool {
+		if w.done {
+			return false
+		}
+		obj, err := pr.GetResources(ctx)
+		if err != nil {
+			w.done = true
+			errorResult <- err
+			return false
+		}
+		ev := watch.Event{
+			Type:   eventType,
+			Object: obj,
+		}
+		w.sendWatchEvent(ev)
+		return true
+	}
+	w.mutex.Unlock()
+
+	select {
+	case <-ctx.Done():
+		w.mutex.Lock()
+		defer w.mutex.Unlock()
+		w.done = true
+		return ctx.Err()
+
+	case err := <-errorResult:
+		w.mutex.Lock()
+		defer w.mutex.Unlock()
+		w.done = true
+		return err
+	}
+}
+
+func (w *packageRevisionResourcesWatcher) sendWatchEvent(ev watch.Event) {
+	w.resultChan <- ev
+	w.totalSent += 1
+}
+
+// OnPackageRevisionChange is the callback called when a PackageRevision changes.
+func (w *packageRevisionResourcesWatcher) OnPackageRevisionChange(eventType watch.EventType, pr repository.PackageRevision) bool {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	return w.eventCallback(eventType, pr)
 }
