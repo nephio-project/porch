@@ -26,7 +26,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-
 	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
 	fakemeta "github.com/nephio-project/porch/pkg/cache/crcache/meta/fake"
 	fakecache "github.com/nephio-project/porch/pkg/cache/fake"
@@ -35,6 +34,8 @@ import (
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	k8sfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/yaml"
 )
 
@@ -246,21 +247,6 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 	_, address := git.ServeGitRepository(t, tarfile, tempdir)
 	metadataStore := createMetadataStoreFromArchive(t, fmt.Sprintf("%s-metadata.yaml", name), name)
 
-	cache := &Cache{
-		repositories:  map[repository.RepositoryKey]*cachedRepository{},
-		locks:         map[repository.RepositoryKey]*sync.Mutex{},
-		mainLock:      &sync.RWMutex{},
-		metadataStore: metadataStore,
-		options: cachetypes.CacheOptions{
-			ExternalRepoOptions: externalrepotypes.ExternalRepoOptions{
-				LocalDirectory:         t.TempDir(),
-				UseUserDefinedCaBundle: true,
-				CredentialResolver:     &fakecache.CredentialResolver{},
-			},
-			RepoCrSyncFrequency:  60 * time.Second,
-			RepoPRChangeNotifier: &fakecache.ObjectNotifier{},
-		}}
-
 	apiRepo := &v1alpha1.Repository{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       v1alpha1.TypeRepository.Kind,
@@ -278,6 +264,26 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 			},
 		},
 	}
+
+	scheme := runtime.NewScheme()
+	_ = v1alpha1.AddToScheme(scheme)
+
+	fakeClient := k8sfake.NewClientBuilder().WithScheme(scheme).WithObjects(apiRepo).Build()
+	cache := &Cache{
+		repositories:  map[repository.RepositoryKey]*cachedRepository{},
+		locks:         map[repository.RepositoryKey]*sync.Mutex{},
+		mainLock:      &sync.RWMutex{},
+		metadataStore: metadataStore,
+		options: cachetypes.CacheOptions{
+			ExternalRepoOptions: externalrepotypes.ExternalRepoOptions{
+				LocalDirectory:         t.TempDir(),
+				UseUserDefinedCaBundle: true,
+				CredentialResolver:     &fakecache.CredentialResolver{},
+			},
+			CoreClient:           fakeClient,
+			RepoCrSyncFrequency:  60 * time.Second,
+			RepoPRChangeNotifier: &fakecache.ObjectNotifier{},
+		}}
 	cachedRepo, err := cache.OpenRepository(ctx, apiRepo)
 	if err != nil {
 		t.Fatalf("OpenRepository(%q) of %q failed; %v", address, tarfile, err)
