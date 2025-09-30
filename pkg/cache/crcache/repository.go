@@ -498,42 +498,12 @@ func (r *cachedRepository) Close(ctx context.Context) error {
 func (r *cachedRepository) pollForever(ctx context.Context, repoCrSyncFrequency time.Duration) {
 	// Sync once at startup/repo registration.
 	r.pollOnce(ctx)
-	if r.refreshRevisionsError != nil {
-		klog.Warningf("repositorySync %+v: sync error: %v", r.repo.Key(), r.refreshRevisionsError)
-		if err := r.setRepositoryCondition(ctx, "error"); err != nil {
-			klog.Warningf("repositorySync %+v: failed to set repository condition: %v", r.repo.Key(), err)
-		}
-	} else {
-		if err := r.setRepositoryCondition(ctx, "ready"); err != nil {
-			klog.Warningf("repositorySync %+v: failed to set repository condition: %v", r.repo.Key(), err)
-		}
-	}
+	r.updateRepositoryCondition(ctx)
 
 	for {
-		var waitDuration time.Duration
-		var cronExpr string
-
-		if r.repo == nil || r.repoSpec == nil || r.repoSpec.Spec.Sync == nil {
-			klog.Warningf("repo %+v: repo or sync spec is nil, falling back to default interval: %v", r.Key(), repoCrSyncFrequency)
-			waitDuration = repoCrSyncFrequency
-		} else {
-			cronExpr = r.repoSpec.Spec.Sync.Schedule
-			if cronExpr == "" {
-				klog.V(2).Infof("repo %+v: sync.schedule is empty, falling back to repository cr sync interval: %v", r.Key(), repoCrSyncFrequency)
-				waitDuration = repoCrSyncFrequency
-			} else {
-				schedule, err := cron.ParseStandard(cronExpr)
-				if err != nil {
-					klog.Warningf("repo %+v: invalid cron expression '%s', falling back to default interval: %v", r.Key(), cronExpr, repoCrSyncFrequency)
-					waitDuration = repoCrSyncFrequency
-				} else {
-					next := schedule.Next(time.Now())
-					waitDuration = time.Until(next)
-					klog.Infof("repo %+v: next scheduled time: %v", r.Key(), next)
-				}
-			}
-		}
+		waitDuration := r.calculateWaitDuration(repoCrSyncFrequency)
 		ticker := time.NewTicker(waitDuration)
+
 		select {
 		case <-ctx.Done():
 			klog.Infof("repo %+v: exiting repository poller, because context is done: %v", r.Key(), ctx.Err())
@@ -542,16 +512,7 @@ func (r *cachedRepository) pollForever(ctx context.Context, repoCrSyncFrequency 
 		case <-ticker.C:
 			ticker.Stop()
 			r.pollOnce(ctx)
-			if r.refreshRevisionsError != nil {
-				klog.Warningf("repositorySync %+v: sync error: %v", r.repo.Key(), r.refreshRevisionsError)
-				if err := r.setRepositoryCondition(ctx, "error"); err != nil {
-					klog.Warningf("repositorySync %+v: failed to set repository condition: %v", r.repo.Key(), err)
-				}
-			} else {
-				if err := r.setRepositoryCondition(ctx, "ready"); err != nil {
-					klog.Warningf("repositorySync %+v: failed to set repository condition: %v", r.repo.Key(), err)
-				}
-			}
+			r.updateRepositoryCondition(ctx)
 		}
 	}
 }
@@ -583,6 +544,7 @@ func (r *cachedRepository) handleRunOnceAt(ctx context.Context) {
 	var runOnceTimer *time.Timer
 	var runOnceChan <-chan time.Time
 	var scheduledRunOnceAt time.Time
+	waitToCheckCRSpec := 10 * time.Second
 
 	for {
 		select {
@@ -592,32 +554,25 @@ func (r *cachedRepository) handleRunOnceAt(ctx context.Context) {
 			}
 			return
 		default:
-			// spec nil checks
-			if r.repo == nil || r.repoSpec == nil || r.repoSpec.Spec.Sync == nil {
-				klog.V(2).Infof("repo %+v: repo or sync spec is nil, skipping runOnceAt check", r.Key())
-				time.Sleep(10 * time.Second)
+			if !r.hasValidSyncSpec() {
+				time.Sleep(waitToCheckCRSpec)
 				continue
 			}
 
 			runOnceAt := r.repoSpec.Spec.Sync.RunOnceAt
-			if !runOnceAt.IsZero() {
-				runOnceAtTime := runOnceAt.Time
-				if scheduledRunOnceAt.IsZero() || !runOnceAtTime.Equal(scheduledRunOnceAt) {
-					if runOnceTimer != nil {
-						runOnceTimer.Stop()
-					}
-					delay := time.Until(runOnceAtTime)
-					if delay > 0 {
-						klog.Infof("Scheduling one-time sync for repo %s at %s", r.Key(), runOnceAtTime.Format(time.RFC3339))
-						runOnceTimer = time.NewTimer(delay)
-						runOnceChan = runOnceTimer.C
-						scheduledRunOnceAt = runOnceAtTime
-					} else {
-						klog.V(2).Infof("runOnceAt time for repo %s is in the past (%s), skipping", r.Key(), runOnceAtTime.Format(time.RFC3339))
-						runOnceTimer = nil
-						runOnceChan = nil
-						scheduledRunOnceAt = time.Time{}
-					}
+			if r.shouldScheduleRunOnce(runOnceAt, scheduledRunOnceAt) {
+				if runOnceTimer != nil {
+					runOnceTimer.Stop()
+				}
+				delay := time.Until(runOnceAt.Time)
+				if delay > 0 {
+					klog.Infof("Scheduling one-time sync for repo %s at %s", r.Key(), runOnceAt.Time.Format(time.RFC3339))
+					runOnceTimer = time.NewTimer(delay)
+					runOnceChan = runOnceTimer.C
+					scheduledRunOnceAt = runOnceAt.Time
+				} else {
+					klog.V(2).Infof("runOnceAt time for repo %s is in the past (%s), skipping", r.Key(), runOnceAt.Time.Format(time.RFC3339))
+					runOnceTimer, runOnceChan, scheduledRunOnceAt = nil, nil, time.Time{}
 				}
 			}
 
@@ -626,28 +581,58 @@ func (r *cachedRepository) handleRunOnceAt(ctx context.Context) {
 				case <-runOnceChan:
 					klog.Infof("Triggering scheduled one-time sync for repo %s", r.Key())
 					r.pollOnce(context.Background())
-					if r.refreshRevisionsError != nil {
-						klog.Warningf("repositorySync %+v: sync error: %v", r.repo.Key(), r.refreshRevisionsError)
-						if err := r.setRepositoryCondition(ctx, "error"); err != nil {
-							klog.Warningf("repositorySync %+v: failed to set repository condition: %v", r.repo.Key(), err)
-						}
-					} else {
-						if err := r.setRepositoryCondition(ctx, "ready"); err != nil {
-							klog.Warningf("repositorySync %+v: failed to set repository condition: %v", r.repo.Key(), err)
-						}
-					}
+					r.updateRepositoryCondition(ctx)
 					klog.Infof("Finished one-time sync for repo %s", r.Key())
-					runOnceTimer = nil
-					runOnceChan = nil
-					scheduledRunOnceAt = time.Time{}
-				case <-time.After(10 * time.Second):
-					// Poll again in 10 seconds
+					runOnceTimer, runOnceChan, scheduledRunOnceAt = nil, nil, time.Time{}
+				case <-time.After(waitToCheckCRSpec):
 				}
 			} else {
-				time.Sleep(10 * time.Second)
+				time.Sleep(waitToCheckCRSpec)
 			}
 		}
 	}
+}
+
+func (r *cachedRepository) updateRepositoryCondition(ctx context.Context) {
+	status := "ready"
+	if r.refreshRevisionsError != nil {
+		klog.Warningf("repositorySync %+v: sync error: %v", r.repo.Key(), r.refreshRevisionsError)
+		status = "error"
+	}
+	if err := r.setRepositoryCondition(ctx, status); err != nil {
+		klog.Warningf("repositorySync %+v: failed to set repository condition: %v", r.repo.Key(), err)
+	}
+}
+
+func (r *cachedRepository) calculateWaitDuration(defaultDuration time.Duration) time.Duration {
+	if !r.hasValidSyncSpec() {
+		klog.Warningf("repo %+v: repo or sync spec is nil, falling back to default interval: %v", r.Key(), defaultDuration)
+		return defaultDuration
+	}
+
+	cronExpr := r.repoSpec.Spec.Sync.Schedule
+	if cronExpr == "" {
+		klog.V(2).Infof("repo %+v: sync.schedule is empty, falling back to repository cr sync interval: %v", r.Key(), defaultDuration)
+		return defaultDuration
+	}
+
+	schedule, err := cron.ParseStandard(cronExpr)
+	if err != nil {
+		klog.Warningf("repo %+v: invalid cron expression '%s', falling back to default interval: %v", r.Key(), cronExpr, defaultDuration)
+		return defaultDuration
+	}
+
+	next := schedule.Next(time.Now())
+	klog.Infof("repo %+v: next scheduled time: %v", r.Key(), next)
+	return time.Until(next)
+}
+
+func (r *cachedRepository) hasValidSyncSpec() bool {
+	return r.repo != nil && r.repoSpec != nil && r.repoSpec.Spec.Sync != nil
+}
+
+func (r *cachedRepository) shouldScheduleRunOnce(runOnceAt *metav1.Time, scheduled time.Time) bool {
+	return runOnceAt != nil && !runOnceAt.IsZero() && (scheduled.IsZero() || !runOnceAt.Time.Equal(scheduled))
 }
 
 func (r *cachedRepository) setRepositoryCondition(ctx context.Context, status string) error {

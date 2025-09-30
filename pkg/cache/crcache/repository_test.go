@@ -31,6 +31,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	k8sfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestCachedRepoRefresh(t *testing.T) {
@@ -39,13 +41,18 @@ func TestCachedRepoRefresh(t *testing.T) {
 	mockNotifier := mockcachetypes.NewMockRepoPRChangeNotifier(t)
 
 	repoSpec := configapi.Repository{}
+	scheme := runtime.NewScheme()
+	_ = configapi.AddToScheme(scheme)
+	fakeClient := k8sfake.NewClientBuilder().WithScheme(scheme).WithObjects(&repoSpec).Build()
 	options := cachetypes.CacheOptions{
 		RepoPRChangeNotifier: mockNotifier,
 		RepoCrSyncFrequency:  time.Minute,
+		CoreClient:           fakeClient,
 	}
 
 	metaMap := []metav1.ObjectMeta{}
 
+	mockRepo.On("Key").Return(repository.RepositoryKey{Namespace: "the-ns", Name: "the-name"}).Maybe()
 	mockRepo.EXPECT().Refresh(mock.Anything).Return(nil).Maybe()
 	repoVersionCall := mockRepo.EXPECT().Version(mock.Anything).Return("v1.0", nil).Maybe()
 	repoListPRCall := mockRepo.EXPECT().ListPackageRevisions(mock.Anything, mock.Anything).Return(nil, nil).Maybe()

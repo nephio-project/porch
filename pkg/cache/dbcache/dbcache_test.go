@@ -30,8 +30,10 @@ import (
 	mockdbcache "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/dbcache"
 	"github.com/stretchr/testify/suite"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog/v2"
+	k8sfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 const defaultPorchSQLSchema = "api/sql/porch-db.sql"
@@ -153,21 +155,26 @@ func (t *DbTestSuite) TestDBRepositoryCrud() {
 	externalrepo.ExternalRepoInUnitTestMode = true
 
 	ctx := t.Context()
-
-	options := cachetypes.CacheOptions{
-		RepoCrSyncFrequency: 60 * time.Minute,
-	}
-	dbCache, err := new(DBCacheFactory).NewCache(ctx, options)
-	t.NoError(err)
-	t.Empty(dbCache.GetRepositories())
-
-	repositorySpec := configapi.Repository{
+	repositorySpec := &configapi.Repository{
 		ObjectMeta: v1.ObjectMeta{
 			Namespace: "my-ns",
 			Name:      "my-repo",
 		},
 	}
-	testRepo, err := dbCache.OpenRepository(ctx, &repositorySpec)
+	scheme := runtime.NewScheme()
+	_ = configapi.AddToScheme(scheme)
+
+	fakeClient := k8sfake.NewClientBuilder().WithScheme(scheme).WithObjects(repositorySpec).Build()
+
+	options := cachetypes.CacheOptions{
+		RepoCrSyncFrequency: 60 * time.Minute,
+		CoreClient:          fakeClient,
+	}
+	dbCache, err := new(DBCacheFactory).NewCache(ctx, options)
+	t.NoError(err)
+	t.Empty(dbCache.GetRepositories())
+
+	testRepo, err := dbCache.OpenRepository(ctx, repositorySpec)
 	t.NoError(err)
 	t.Equal("my-repo", testRepo.Key().Name)
 
@@ -176,10 +183,10 @@ func (t *DbTestSuite) TestDBRepositoryCrud() {
 
 	repositorySpec.Spec.Description = "My lovely Repo"
 
-	err = dbCache.UpdateRepository(ctx, &repositorySpec)
+	err = dbCache.UpdateRepository(ctx, repositorySpec)
 	t.NoError(err)
 
-	err = dbCache.CloseRepository(ctx, &repositorySpec, nil)
+	err = dbCache.CloseRepository(ctx, repositorySpec, nil)
 	t.NoError(err)
 }
 

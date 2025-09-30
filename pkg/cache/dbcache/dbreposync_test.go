@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
@@ -26,6 +27,9 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 	mockcachetypes "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
 	"github.com/stretchr/testify/mock"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	k8sfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func (t *DbTestSuite) TestDBRepoSync() {
@@ -35,6 +39,16 @@ func (t *DbTestSuite) TestDBRepoSync() {
 	externalrepo.ExternalRepoInUnitTestMode = true
 
 	ctx := t.Context()
+	scheme := runtime.NewScheme()
+	_ = configapi.AddToScheme(scheme)
+
+	repoObj := &configapi.Repository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-repo-name",
+			Namespace: "my-ns",
+		},
+	}
+	fakeClient := k8sfake.NewClientBuilder().WithScheme(scheme).WithObjects(repoObj).Build()
 
 	testRepo := t.createTestRepo("my-ns", "my-repo-name")
 	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
@@ -44,10 +58,10 @@ func (t *DbTestSuite) TestDBRepoSync() {
 
 	cacheOptions := cachetypes.CacheOptions{
 		RepoCrSyncFrequency: 1 * time.Second,
+		CoreClient:          fakeClient,
 	}
 
 	testRepo.repositorySync = newRepositorySync(testRepo, cacheOptions)
-
 	newPRDef := v1alpha1.PackageRevision{
 		Spec: v1alpha1.PackageRevisionSpec{
 			RepositoryName: "my-repo-name",

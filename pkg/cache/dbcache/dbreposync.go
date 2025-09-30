@@ -27,7 +27,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	"go.opentelemetry.io/otel/trace"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -70,44 +70,13 @@ func (s *repositorySync) Stop() {
 }
 
 func (s *repositorySync) syncForever(ctx context.Context, repoCrSyncFrequency time.Duration) {
-	// Sync once at startup/repo registration.
 	s.lastSyncStats, s.lastSyncError = s.syncOnce(ctx)
-	if s.lastSyncError != nil {
-		klog.Warningf("repositorySync %+v: sync error: %v", s.repo.Key(), s.lastSyncError)
-		if err := s.setRepositoryCondition(ctx, "error"); err != nil {
-			klog.Warningf("repositorySync %+v: failed to set repository condition: %v", s.repo.Key(), err)
-		}
-	} else {
-		if err := s.setRepositoryCondition(ctx, "ready"); err != nil {
-			klog.Warningf("repositorySync %+v: failed to set repository condition: %v", s.repo.Key(), err)
-		}
-	}
+	s.updateRepositoryCondition(ctx)
 
 	for {
-		var waitDuration time.Duration
-		var cronExpr string
-		if s.repo == nil || s.repo.spec == nil || s.repo.spec.Spec.Sync == nil {
-			klog.Warningf("repositorySync %+v: repo or sync spec is nil, falling back to default interval: %v", s.repo.Key(), repoCrSyncFrequency)
-			waitDuration = repoCrSyncFrequency
-		} else {
-			cronExpr = s.repo.spec.Spec.Sync.Schedule
-			if cronExpr == "" {
-				klog.V(2).Infof("repositorySync %+v: sync.schedule is empty, falling back to repository cr sync interval: %v", s.repo.Key(), repoCrSyncFrequency)
-				waitDuration = repoCrSyncFrequency
-			} else {
-				schedule, err := cron.ParseStandard(cronExpr)
-				if err != nil {
-					klog.Warningf("repositorySync %+v: invalid cron expression '%s', falling back to default interval: %v", s.repo.Key(), cronExpr, repoCrSyncFrequency)
-					waitDuration = repoCrSyncFrequency
-				} else {
-					next := schedule.Next(time.Now())
-					waitDuration = time.Until(next)
-					klog.Infof("repositorySync %+v: next scheduled time: %v", s.repo.Key(), next)
-				}
-			}
-		}
-
+		waitDuration := s.calculateWaitDuration(repoCrSyncFrequency)
 		ticker := time.NewTicker(waitDuration)
+
 		select {
 		case <-ctx.Done():
 			klog.V(2).Infof("repositorySync %+v: exiting repository sync, because context is done: %v", s.repo.Key(), ctx.Err())
@@ -116,16 +85,7 @@ func (s *repositorySync) syncForever(ctx context.Context, repoCrSyncFrequency ti
 		case <-ticker.C:
 			ticker.Stop()
 			s.lastSyncStats, s.lastSyncError = s.syncOnce(ctx)
-			if s.lastSyncError != nil {
-				klog.Warningf("repositorySync %+v: sync error: %v", s.repo.Key(), s.lastSyncError)
-				if err := s.setRepositoryCondition(ctx, "error"); err != nil {
-					klog.Warningf("repositorySync %+v: failed to set repository condition: %v", s.repo.Key(), err)
-				}
-			} else {
-				if err := s.setRepositoryCondition(ctx, "ready"); err != nil {
-					klog.Warningf("repositorySync %+v: failed to set repository condition: %v", s.repo.Key(), err)
-				}
-			}
+			s.updateRepositoryCondition(ctx)
 		}
 	}
 }
@@ -143,32 +103,26 @@ func (s *repositorySync) handleRunOnceAt(ctx context.Context) {
 			}
 			return
 		default:
-			// spec nil checks
-			if s.repo == nil || s.repo.spec == nil || s.repo.spec.Spec.Sync == nil {
+			if !s.hasValidSyncSpec() {
 				klog.V(2).Infof("repositorySync %+v: repo or sync spec is nil, skipping runOnceAt check", s.repo.Key())
 				time.Sleep(10 * time.Second)
 				continue
 			}
 
 			runOnceAt := s.repo.spec.Spec.Sync.RunOnceAt
-			if !runOnceAt.IsZero() {
-				runOnceAtTime := runOnceAt.Time
-				if scheduledRunOnceAt.IsZero() || !runOnceAtTime.Equal(scheduledRunOnceAt) {
-					if runOnceTimer != nil {
-						runOnceTimer.Stop()
-					}
-					delay := time.Until(runOnceAtTime)
-					if delay > 0 {
-						klog.Infof("Scheduling one-time sync for repo %s at %s", s.repo.Key(), runOnceAtTime.Format(time.RFC3339))
-						runOnceTimer = time.NewTimer(delay)
-						runOnceChan = runOnceTimer.C
-						scheduledRunOnceAt = runOnceAtTime
-					} else {
-						klog.V(2).Infof("runOnceAt time for repo %s is in the past (%s), skipping", s.repo.Key(), runOnceAtTime.Format(time.RFC3339))
-						runOnceTimer = nil
-						runOnceChan = nil
-						scheduledRunOnceAt = time.Time{}
-					}
+			if s.shouldScheduleRunOnce(runOnceAt, scheduledRunOnceAt) {
+				if runOnceTimer != nil {
+					runOnceTimer.Stop()
+				}
+				delay := time.Until(runOnceAt.Time)
+				if delay > 0 {
+					klog.Infof("Scheduling one-time sync for repo %s at %s", s.repo.Key(), runOnceAt.Time.Format(time.RFC3339))
+					runOnceTimer = time.NewTimer(delay)
+					runOnceChan = runOnceTimer.C
+					scheduledRunOnceAt = runOnceAt.Time
+				} else {
+					klog.V(2).Infof("runOnceAt time for repo %s is in the past (%s), skipping", s.repo.Key(), runOnceAt.Time.Format(time.RFC3339))
+					runOnceTimer, runOnceChan, scheduledRunOnceAt = nil, nil, time.Time{}
 				}
 			}
 
@@ -177,28 +131,58 @@ func (s *repositorySync) handleRunOnceAt(ctx context.Context) {
 				case <-runOnceChan:
 					klog.Infof("Triggering scheduled one-time sync for repo %s", s.repo.Key())
 					s.lastSyncStats, s.lastSyncError = s.syncOnce(context.Background())
-					if s.lastSyncError != nil {
-						klog.Warningf("repositorySync %+v: sync error: %v", s.repo.Key(), s.lastSyncError)
-						if err := s.setRepositoryCondition(ctx, "error"); err != nil {
-							klog.Warningf("repositorySync %+v: failed to set repository condition: %v", s.repo.Key(), err)
-						}
-					} else {
-						if err := s.setRepositoryCondition(ctx, "ready"); err != nil {
-							klog.Warningf("repositorySync %+v: failed to set repository condition: %v", s.repo.Key(), err)
-						}
-					}
+					s.updateRepositoryCondition(ctx)
 					klog.Infof("Finished one-time sync for repo %s", s.repo.Key())
-					runOnceTimer = nil
-					runOnceChan = nil
-					scheduledRunOnceAt = time.Time{}
+					runOnceTimer, runOnceChan, scheduledRunOnceAt = nil, nil, time.Time{}
 				case <-time.After(10 * time.Second):
-					// Poll again in 10 seconds
 				}
 			} else {
 				time.Sleep(10 * time.Second)
 			}
 		}
 	}
+}
+
+func (s *repositorySync) updateRepositoryCondition(ctx context.Context) {
+	status := "ready"
+	if s.lastSyncError != nil {
+		klog.Warningf("repositorySync %+v: sync error: %v", s.repo.Key(), s.lastSyncError)
+		status = "error"
+	}
+	if err := s.setRepositoryCondition(ctx, status); err != nil {
+		klog.Warningf("repositorySync %+v: failed to set repository condition: %v", s.repo.Key(), err)
+	}
+}
+
+func (s *repositorySync) calculateWaitDuration(defaultDuration time.Duration) time.Duration {
+	if !s.hasValidSyncSpec() {
+		klog.Warningf("repositorySync %+v: repo or sync spec is nil, falling back to default interval: %v", s.repo.Key(), defaultDuration)
+		return defaultDuration
+	}
+
+	cronExpr := s.repo.spec.Spec.Sync.Schedule
+	if cronExpr == "" {
+		klog.V(2).Infof("repositorySync %+v: sync.schedule is empty, falling back to repository cr sync interval: %v", s.repo.Key(), defaultDuration)
+		return defaultDuration
+	}
+
+	schedule, err := cron.ParseStandard(cronExpr)
+	if err != nil {
+		klog.Warningf("repositorySync %+v: invalid cron expression '%s', falling back to default interval: %v", s.repo.Key(), cronExpr, defaultDuration)
+		return defaultDuration
+	}
+
+	next := schedule.Next(time.Now())
+	klog.Infof("repositorySync %+v: next scheduled time: %v", s.repo.Key(), next)
+	return time.Until(next)
+}
+
+func (s *repositorySync) hasValidSyncSpec() bool {
+	return s.repo != nil && s.repo.spec != nil && s.repo.spec.Spec.Sync != nil
+}
+
+func (s *repositorySync) shouldScheduleRunOnce(runOnceAt *metav1.Time, scheduled time.Time) bool {
+	return runOnceAt != nil && !runOnceAt.IsZero() && (scheduled.IsZero() || !runOnceAt.Time.Equal(scheduled))
 }
 
 func (s *repositorySync) syncOnce(ctx context.Context) (repositorySyncStats, error) {
@@ -267,6 +251,10 @@ func (s *repositorySync) sync(ctx context.Context) (repositorySyncStats, error) 
 }
 
 func (s *repositorySync) setRepositoryCondition(ctx context.Context, status string) error {
+	if s.repo == nil {
+		klog.Warning("repositorySync: repo is nil, cannot set repository condition")
+		return fmt.Errorf("repository is nil")
+	}
 	repo := &configapi.Repository{}
 	key := types.NamespacedName{
 		Name:      s.repo.Key().Name,
@@ -277,42 +265,48 @@ func (s *repositorySync) setRepositoryCondition(ctx context.Context, status stri
 		return fmt.Errorf("failed to get repository: %w", err)
 	}
 
-	var condition v1.Condition
+	var condition metav1.Condition
 
 	switch status {
 	case "sync-in-progress":
-		condition = v1.Condition{
+		condition = metav1.Condition{
 			Type:               configapi.RepositoryReady,
-			Status:             v1.ConditionFalse,
+			Status:             metav1.ConditionFalse,
 			ObservedGeneration: repo.Generation,
-			LastTransitionTime: v1.Now(),
+			LastTransitionTime: metav1.Now(),
 			Reason:             configapi.ReasonReconciling,
 			Message:            "Repository reconciliation in progress",
 		}
 	case "ready":
-		condition = v1.Condition{
+		condition = metav1.Condition{
 			Type:               configapi.RepositoryReady,
-			Status:             v1.ConditionTrue,
+			Status:             metav1.ConditionTrue,
 			ObservedGeneration: repo.Generation,
-			LastTransitionTime: v1.Now(),
+			LastTransitionTime: metav1.Now(),
 			Reason:             configapi.ReasonReady,
 			Message:            "Repository Ready",
 		}
 	case "error":
-		condition = v1.Condition{
+		var msg string
+		if s.lastSyncError != nil {
+			msg = s.lastSyncError.Error()
+		} else {
+			msg = "unknown error"
+		}
+		condition = metav1.Condition{
 			Type:               configapi.RepositoryReady,
-			Status:             v1.ConditionFalse,
+			Status:             metav1.ConditionFalse,
 			ObservedGeneration: repo.Generation,
-			LastTransitionTime: v1.Now(),
+			LastTransitionTime: metav1.Now(),
 			Reason:             configapi.ReasonError,
-			Message:            s.lastSyncError.Error(),
+			Message:            msg,
 		}
 	default:
 		return fmt.Errorf("unknown status type: %s", status)
 	}
 
 	if repo.Status.Conditions == nil {
-		repo.Status.Conditions = []v1.Condition{}
+		repo.Status.Conditions = []metav1.Condition{}
 	}
 
 	if len(repo.Status.Conditions) > 0 {
