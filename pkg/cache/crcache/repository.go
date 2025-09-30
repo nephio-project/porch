@@ -544,7 +544,7 @@ func (r *cachedRepository) handleRunOnceAt(ctx context.Context) {
 	var runOnceTimer *time.Timer
 	var runOnceChan <-chan time.Time
 	var scheduledRunOnceAt time.Time
-	waitToCheckCRSpec := 10 * time.Second
+	specPollInterval := 10 * time.Second
 
 	for {
 		select {
@@ -555,7 +555,8 @@ func (r *cachedRepository) handleRunOnceAt(ctx context.Context) {
 			return
 		default:
 			if !r.hasValidSyncSpec() {
-				time.Sleep(waitToCheckCRSpec)
+				klog.V(2).Infof("repositorySync %+v: repo or sync spec is nil, skipping runOnceAt check", r.Key())
+				time.Sleep(specPollInterval)
 				continue
 			}
 
@@ -566,12 +567,12 @@ func (r *cachedRepository) handleRunOnceAt(ctx context.Context) {
 				}
 				delay := time.Until(runOnceAt.Time)
 				if delay > 0 {
-					klog.Infof("Scheduling one-time sync for repo %s at %s", r.Key(), runOnceAt.Time.Format(time.RFC3339))
+					klog.Infof("repositorySync %+v: Scheduling one-time sync at %s", r.Key(), runOnceAt.Time.Format(time.RFC3339))
 					runOnceTimer = time.NewTimer(delay)
 					runOnceChan = runOnceTimer.C
 					scheduledRunOnceAt = runOnceAt.Time
 				} else {
-					klog.V(2).Infof("runOnceAt time for repo %s is in the past (%s), skipping", r.Key(), runOnceAt.Time.Format(time.RFC3339))
+					klog.V(2).Infof("repositorySync %+v: runOnceAt time is in the past (%s), skipping", r.Key(), runOnceAt.Time.Format(time.RFC3339))
 					runOnceTimer, runOnceChan, scheduledRunOnceAt = nil, nil, time.Time{}
 				}
 			}
@@ -579,15 +580,15 @@ func (r *cachedRepository) handleRunOnceAt(ctx context.Context) {
 			if runOnceChan != nil {
 				select {
 				case <-runOnceChan:
-					klog.Infof("Triggering scheduled one-time sync for repo %s", r.Key())
+					klog.Infof("repositorySync %+v: Triggering scheduled one-time sync", r.Key())
 					r.pollOnce(context.Background())
 					r.updateRepositoryCondition(ctx)
-					klog.Infof("Finished one-time sync for repo %s", r.Key())
+					klog.Infof("repositorySync %+v: Finished one-time sync", r.Key())
 					runOnceTimer, runOnceChan, scheduledRunOnceAt = nil, nil, time.Time{}
-				case <-time.After(waitToCheckCRSpec):
+				case <-time.After(specPollInterval):
 				}
 			} else {
-				time.Sleep(waitToCheckCRSpec)
+				time.Sleep(specPollInterval)
 			}
 		}
 	}
