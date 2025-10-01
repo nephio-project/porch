@@ -31,16 +31,34 @@ type PackageRevision struct {
 	Status PackageRevisionStatus `json:"status,omitempty"`
 }
 
-func (pr *PackageRevision) IsPublished() bool {
-	return LifecycleIsPublished(pr.Spec.Lifecycle)
-}
-
 // Key and value of the latest package revision label:
 
 const (
 	LatestPackageRevisionKey   = "kpt.dev/latest-revision"
 	LatestPackageRevisionValue = "true"
 )
+
+type PkgRevFieldSelector string
+
+const (
+	PkgRevSelectorName          PkgRevFieldSelector = "metadata.name"
+	PkgRevSelectorNamespace     PkgRevFieldSelector = "metadata.namespace"
+	PkgRevSelectorRevision      PkgRevFieldSelector = "spec.revision"
+	PkgRevSelectorPackageName   PkgRevFieldSelector = "spec.packageName"
+	PkgRevSelectorRepository    PkgRevFieldSelector = "spec.repository"
+	PkgRevSelectorWorkspaceName PkgRevFieldSelector = "spec.workspaceName"
+	PkgRevSelectorLifecycle     PkgRevFieldSelector = "spec.lifecycle"
+)
+
+var PackageRevisionSelectableFields = []PkgRevFieldSelector{
+	PkgRevSelectorName,
+	PkgRevSelectorNamespace,
+	PkgRevSelectorRevision,
+	PkgRevSelectorPackageName,
+	PkgRevSelectorRepository,
+	PkgRevSelectorWorkspaceName,
+	PkgRevSelectorLifecycle,
+}
 
 // PackageRevisionList
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

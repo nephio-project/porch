@@ -80,12 +80,12 @@ func (r *packageRevisions) List(ctx context.Context, options *metainternalversio
 		},
 	}
 
-	filter, err := parsePackageRevisionFieldSelector(options.FieldSelector)
+	filter, err := parsePackageRevisionFieldSelector(options)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := r.listPackageRevisions(ctx, filter, options.LabelSelector, func(ctx context.Context, p repository.PackageRevision) error {
+	if err := r.listPackageRevisions(ctx, *filter, func(ctx context.Context, p repository.PackageRevision) error {
 		item, err := p.GetPackageRevision(ctx)
 		if err != nil {
 			return err

@@ -24,9 +24,7 @@ import (
 	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
 	"github.com/nephio-project/porch/pkg/repository"
-	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/watch"
 )
 
@@ -42,9 +40,8 @@ func TestWatcherClose(t *testing.T) {
 	r := &fakePackageReader{}
 	r.Add(1)
 	var filter repository.ListPackageRevisionFilter
-	options := &metainternalversion.ListOptions{}
 
-	go w.listAndWatch(ctx, r, filter, options.LabelSelector)
+	go w.listAndWatch(ctx, r, filter)
 
 	// Just make sure someone is pulling events of the result channel.
 	go func() {
@@ -97,6 +94,6 @@ func (f *fakePackageReader) watchPackages(ctx context.Context, filter repository
 	return nil
 }
 
-func (f *fakePackageReader) listPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter, selector labels.Selector, callback func(ctx context.Context, p repository.PackageRevision) error) error {
+func (f *fakePackageReader) listPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter, callback func(ctx context.Context, p repository.PackageRevision) error) error {
 	return nil
 }

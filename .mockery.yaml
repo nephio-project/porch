@@ -44,3 +44,4 @@ packages:
   github.com/nephio-project/porch/pkg/engine:
     interfaces:
       CaDEngine: {}
+      WatcherManager: {}

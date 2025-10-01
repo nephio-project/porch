@@ -195,7 +195,6 @@ func TestWatchPackages_NoNamespace(t *testing.T) {
 		called = true
 		return false
 	}}
-
 	filter := repository.ListPackageRevisionFilter{}
 	ctx := context.TODO() // No namespace set in context
 	err := pc.watchPackages(ctx, filter, callback)
@@ -239,7 +238,6 @@ func TestWatchPackages_WithNamespaceFilteringWatcher(t *testing.T) {
 		called = true
 		return false
 	}}
-
 	filter := repository.ListPackageRevisionFilter{}
 	ctx := context.TODO()
 	ctx = request.WithNamespace(ctx, "foo") // Set namespace in context
@@ -262,7 +260,6 @@ func TestListPackageRevisions(t *testing.T) {
 		name          string
 		setupMocks    func(*mockclient.MockClient, *mockrepo.MockPackageRevision, *mockcad.MockCaDEngine)
 		filter        repository.ListPackageRevisionFilter
-		selector      labels.Selector
 		expectedError error
 		expectedCalls int
 		ctx           context.Context
@@ -282,17 +279,10 @@ func TestListPackageRevisions(t *testing.T) {
 						}
 					}).Return(nil)
 
-				pkgRev.On("GetPackageRevision", mock.Anything).Return(&api.PackageRevision{
-					ObjectMeta: metav1.ObjectMeta{
-						Labels: map[string]string{"test": "true"},
-					},
-				}, nil)
-
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
 			},
 			filter:        repository.ListPackageRevisionFilter{},
-			selector:      labels.Everything(),
 			expectedError: nil,
 			expectedCalls: 1,
 			ctx:           context.Background(),
@@ -308,10 +298,6 @@ func TestListPackageRevisions(t *testing.T) {
 						}
 					}).Return(nil)
 
-				pkgRev.On("GetPackageRevision", mock.Anything).Return(&api.PackageRevision{
-					ObjectMeta: metav1.ObjectMeta{Namespace: "test-namespace"},
-				}, nil)
-
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
 			},
@@ -324,7 +310,6 @@ func TestListPackageRevisions(t *testing.T) {
 					},
 				},
 			},
-			selector:      labels.Everything(),
 			expectedError: nil,
 			expectedCalls: 1,
 			ctx:           genericapirequest.WithNamespace(context.Background(), "test-namespace"),
@@ -341,7 +326,6 @@ func TestListPackageRevisions(t *testing.T) {
 					},
 				},
 			},
-			selector:      labels.Everything(),
 			expectedError: fmt.Errorf("conflicting namespaces specified: %q and %q", "namespace-2", "namespace-1"),
 			expectedCalls: 0,
 			ctx:           genericapirequest.WithNamespace(context.Background(), "namespace-2"),
@@ -353,7 +337,6 @@ func TestListPackageRevisions(t *testing.T) {
 					Return(fmt.Errorf("list error"))
 			},
 			filter:        repository.ListPackageRevisionFilter{},
-			selector:      labels.Everything(),
 			expectedError: fmt.Errorf("error listing repository objects: list error"),
 			expectedCalls: 0,
 			ctx:           context.Background(),
@@ -365,12 +348,8 @@ func TestListPackageRevisions(t *testing.T) {
 						list := args.Get(1).(*configapi.RepositoryList)
 						list.Items = []configapi.Repository{
 							{ObjectMeta: metav1.ObjectMeta{Name: "repo1"}},
-							{ObjectMeta: metav1.ObjectMeta{Name: "repo2"}},
 						}
 					}).Return(nil)
-
-				pkgRev.On("GetPackageRevision", mock.Anything).Return(
-					&api.PackageRevision{}, nil)
 
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
@@ -384,7 +363,6 @@ func TestListPackageRevisions(t *testing.T) {
 					},
 				},
 			},
-			selector:      labels.Everything(),
 			expectedError: nil,
 			expectedCalls: 1,
 			ctx:           context.Background(),
@@ -398,18 +376,10 @@ func TestListPackageRevisions(t *testing.T) {
 						list.Items = []configapi.Repository{{}}
 					}).Return(nil)
 
-				pkgRev.On("GetPackageRevision", mock.Anything).Return(
-					&api.PackageRevision{
-						ObjectMeta: metav1.ObjectMeta{
-							Labels: map[string]string{"test": "true"},
-						},
-					}, nil)
-
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
 			},
-			filter:        repository.ListPackageRevisionFilter{},
-			selector:      labels.SelectorFromSet(labels.Set{"test": "true"}),
+			filter:        repository.ListPackageRevisionFilter{Label: labels.SelectorFromSet(labels.Set{"test": "true"})},
 			expectedError: nil,
 			expectedCalls: 1,
 			ctx:           context.Background(),
@@ -427,7 +397,6 @@ func TestListPackageRevisions(t *testing.T) {
 					Return([]repository.PackageRevision{}, context.DeadlineExceeded)
 			},
 			filter:        repository.ListPackageRevisionFilter{},
-			selector:      labels.Everything(),
 			expectedError: nil,
 			expectedCalls: 0,
 		},
@@ -444,28 +413,6 @@ func TestListPackageRevisions(t *testing.T) {
 					Return([]repository.PackageRevision{}, fmt.Errorf("CaD engine error"))
 			},
 			filter:        repository.ListPackageRevisionFilter{},
-			selector:      labels.Everything(),
-			expectedError: nil,
-			expectedCalls: 0,
-			ctx:           context.Background(),
-		},
-		{
-			name: "Package revision retrieval error",
-			setupMocks: func(c *mockclient.MockClient, pkgRev *mockrepo.MockPackageRevision, cad *mockcad.MockCaDEngine) {
-				c.On("List", mock.Anything, &configapi.RepositoryList{}, mock.Anything).
-					Run(func(args mock.Arguments) {
-						list := args.Get(1).(*configapi.RepositoryList)
-						list.Items = []configapi.Repository{{}}
-					}).Return(nil)
-
-				pkgRev.On("GetPackageRevision", mock.Anything).
-					Return(&api.PackageRevision{}, fmt.Errorf("revision retrieval error"))
-
-				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
-					Return([]repository.PackageRevision{pkgRev}, nil)
-			},
-			filter:        repository.ListPackageRevisionFilter{},
-			selector:      labels.Everything(),
 			expectedError: nil,
 			expectedCalls: 0,
 			ctx:           context.Background(),
@@ -479,14 +426,10 @@ func TestListPackageRevisions(t *testing.T) {
 						list.Items = []configapi.Repository{{}}
 					}).Return(nil)
 
-				pkgRev.On("GetPackageRevision", mock.Anything).
-					Return(&api.PackageRevision{}, nil)
-
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Return([]repository.PackageRevision{pkgRev}, nil)
 			},
 			filter:        repository.ListPackageRevisionFilter{},
-			selector:      labels.Everything(),
 			expectedError: nil,
 			expectedCalls: 1,
 			ctx:           context.Background(),
@@ -505,13 +448,6 @@ func TestListPackageRevisions(t *testing.T) {
 						}
 					}).Return(nil)
 
-				pkgRev.On("GetPackageRevision", mock.Anything).Return(
-					&api.PackageRevision{
-						ObjectMeta: metav1.ObjectMeta{
-							Labels: map[string]string{"test": "true"},
-						},
-					}, nil)
-
 				cad.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).
 					Run(func(args mock.Arguments) {
 						atomic.AddInt32(&currentConcurrent, 1)
@@ -526,7 +462,6 @@ func TestListPackageRevisions(t *testing.T) {
 					Return([]repository.PackageRevision{pkgRev}, nil)
 			},
 			filter:        repository.ListPackageRevisionFilter{},
-			selector:      labels.Everything(),
 			expectedError: nil,
 			expectedCalls: 4,
 			ctx:           context.Background(),
@@ -564,7 +499,7 @@ func TestListPackageRevisions(t *testing.T) {
 				defer cancel()
 			}
 
-			err := pc.listPackageRevisions(ctx, tt.filter, tt.selector, callback)
+			err := pc.listPackageRevisions(ctx, tt.filter, callback)
 
 			if tt.expectedError != nil {
 				assert.Error(t, err)
