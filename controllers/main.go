@@ -47,6 +47,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	//+kubebuilder:scaffold:imports
 )
@@ -125,7 +126,10 @@ func run(ctx context.Context) error {
 
 	managerOptions := ctrl.Options{
 		Scheme: scheme,
-
+		Metrics: metricsserver.Options{
+			// Disable the inbuilt metrics server in favor of the OpenTelemetry server
+			BindAddress: "0",
+		},
 		WebhookServer: webhook.NewServer(webhook.Options{
 			Port: 9443,
 		}),

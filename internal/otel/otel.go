@@ -11,10 +11,8 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/contrib/propagators/autoprop"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 	"k8s.io/klog/v2"
 	controllerruntimemetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 )
@@ -28,16 +26,11 @@ func SetupOpenTelemetry(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	//err = setupMetrics(ctx)
-	//if err != nil {
-	//	return err
-	//}
-	http.DefaultTransport = otelhttp.NewTransport(http.DefaultClient.Transport,
-		otelhttp.WithMetricAttributesFn(func(r *http.Request) []attribute.KeyValue {
-			return []attribute.KeyValue{
-				semconv.HTTPTarget(r.URL.RequestURI()),
-			}
-		}))
+	err = setupMetrics(ctx)
+	if err != nil {
+		return err
+	}
+	http.DefaultTransport = otelhttp.NewTransport(http.DefaultTransport)
 	http.DefaultClient.Transport = http.DefaultTransport
 	klog.Infof("OpenTelemetry initialized in %s", time.Since(setupTiming))
 	return nil
