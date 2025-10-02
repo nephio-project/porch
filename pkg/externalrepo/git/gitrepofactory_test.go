@@ -18,6 +18,7 @@ package git
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -50,4 +51,83 @@ func TestGitRepoFactory(t *testing.T) {
 	repoSpec.Spec.Git.CreateBranch = false
 	_, err = gf.NewRepositoryImpl(context.TODO(), &repoSpec, externalrepotypes.ExternalRepoOptions{})
 	assert.True(t, err != nil)
+}
+
+func TestCheckRepositoryConnection(t *testing.T) {
+	gf := &GitRepoFactory{}
+
+	// nil repositorySpec
+	err := gf.CheckRepositoryConnection(context.TODO(), nil, externalrepotypes.ExternalRepoOptions{})
+	assert.True(t, err != nil)
+	assert.Contains(t, err.Error(), "repositorySpec is nil or missing Git configuration")
+
+	// nil Git field
+	repoSpec := &configapi.Repository{
+		Spec: configapi.RepositorySpec{
+			Git: nil,
+		},
+	}
+	err = gf.CheckRepositoryConnection(context.TODO(), repoSpec, externalrepotypes.ExternalRepoOptions{})
+	assert.True(t, err != nil)
+	assert.Contains(t, err.Error(), "repositorySpec is nil or missing Git configuration")
+
+	// empty repo URL
+	repoSpec.Spec.Git = &configapi.GitRepository{
+		Repo:   "",
+		Branch: "main",
+	}
+	err = gf.CheckRepositoryConnection(context.TODO(), repoSpec, externalrepotypes.ExternalRepoOptions{})
+	assert.True(t, err != nil)
+	assert.Contains(t, err.Error(), "repository URL is empty")
+
+	// empty branch name
+	repoSpec.Spec.Git.Repo = "https://example.com/repo.git"
+	repoSpec.Spec.Git.Branch = ""
+	err = gf.CheckRepositoryConnection(context.TODO(), repoSpec, externalrepotypes.ExternalRepoOptions{})
+	assert.True(t, err != nil)
+	assert.Contains(t, err.Error(), "target branch is empty")
+
+	tempDir := t.TempDir()
+	tarfile := filepath.Join("testdata", "trivial-repository.tar")
+	branch := "main"
+
+	_, address := ServeGitRepositoryWithBranch(t, tarfile, tempDir, branch)
+
+	// valid branch
+	repoSpec = &configapi.Repository{
+		Spec: configapi.RepositorySpec{
+			Git: &configapi.GitRepository{
+				Repo:   address,
+				Branch: branch,
+			},
+		},
+	}
+	err = gf.CheckRepositoryConnection(context.TODO(), repoSpec, externalrepotypes.ExternalRepoOptions{})
+	assert.NoError(t, err)
+
+	// branch not found
+	repoSpec = &configapi.Repository{
+		Spec: configapi.RepositorySpec{
+			Git: &configapi.GitRepository{
+				Repo:   address,
+				Branch: "nonexistent-branch",
+			},
+		},
+	}
+	err = gf.CheckRepositoryConnection(context.TODO(), repoSpec, externalrepotypes.ExternalRepoOptions{})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), `branch "nonexistent-branch" not found`)
+
+	// remote list error
+	repoSpec = &configapi.Repository{
+		Spec: configapi.RepositorySpec{
+			Git: &configapi.GitRepository{
+				Repo:   "https://invalid-url.example.com/repo.git",
+				Branch: "main",
+			},
+		},
+	}
+	err = gf.CheckRepositoryConnection(context.TODO(), repoSpec, externalrepotypes.ExternalRepoOptions{})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to list remote refs")
 }

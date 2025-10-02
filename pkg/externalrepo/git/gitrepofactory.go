@@ -66,7 +66,18 @@ func (f *GitRepoFactory) NewRepositoryImpl(ctx context.Context, repositorySpec *
 }
 
 func (f *GitRepoFactory) CheckRepositoryConnection(ctx context.Context, repositorySpec *configapi.Repository, options externalrepotypes.ExternalRepoOptions) error {
-	// Step 1: Fetch credentials from secret
+	// Nil checks
+	if repositorySpec == nil || repositorySpec.Spec.Git == nil {
+		return fmt.Errorf("repositorySpec is nil or missing Git configuration")
+	}
+	if repositorySpec.Spec.Git.Repo == "" {
+		return fmt.Errorf("repository URL is empty")
+	}
+	if repositorySpec.Spec.Git.Branch == "" {
+		return fmt.Errorf("target branch is empty")
+	}
+
+	// Fetch credentials from secret
 	secretName := repositorySpec.Spec.Git.SecretRef.Name
 	namespace := repositorySpec.Namespace
 	var auth transport.AuthMethod
@@ -83,7 +94,7 @@ func (f *GitRepoFactory) CheckRepositoryConnection(ctx context.Context, reposito
 		// Use the credentials for Git authentication
 		auth = creds.ToAuthMethod()
 	}
-	// Step 3: Check if branch exists
+	// Check if branch exists
 	remote := gogit.NewRemote(nil, &config.RemoteConfig{
 		Name: "origin",
 		URLs: []string{repositorySpec.Spec.Git.Repo},

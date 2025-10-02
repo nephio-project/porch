@@ -95,10 +95,12 @@ func (s *repositorySync) handleRunOnceAt(ctx context.Context) {
 	var runOnceChan <-chan time.Time
 	var scheduledRunOnceAt time.Time
 	specPollInterval := 10 * time.Second
+	ctxDoneLog := "repositorySync %+v: exiting repository handleRunOnceAt sync, because context is done: %v"
 
 	for {
 		select {
 		case <-ctx.Done():
+			klog.Infof(ctxDoneLog, s.repo.Key(), ctx.Err())
 			if runOnceTimer != nil {
 				runOnceTimer.Stop()
 			}
@@ -106,7 +108,12 @@ func (s *repositorySync) handleRunOnceAt(ctx context.Context) {
 		default:
 			if !s.hasValidSyncSpec() {
 				klog.V(2).Infof("repositorySync %+v: repo or sync spec is nil, skipping runOnceAt check", s.repo.Key())
-				time.Sleep(specPollInterval)
+				select {
+				case <-ctx.Done():
+					klog.Infof(ctxDoneLog, s.repo.Key(), ctx.Err())
+					return
+				case <-time.After(specPollInterval):
+				}
 				continue
 			}
 
@@ -135,10 +142,18 @@ func (s *repositorySync) handleRunOnceAt(ctx context.Context) {
 					s.updateRepositoryCondition(ctx)
 					klog.Infof("repositorySync %+v: Finished one-time sync", s.repo.Key())
 					runOnceTimer, runOnceChan, scheduledRunOnceAt = nil, nil, time.Time{}
+				case <-ctx.Done():
+					klog.Infof(ctxDoneLog, s.repo.Key(), ctx.Err())
+					return
 				case <-time.After(specPollInterval):
 				}
 			} else {
-				time.Sleep(specPollInterval)
+				select {
+				case <-ctx.Done():
+					klog.Infof(ctxDoneLog, s.repo.Key(), ctx.Err())
+					return
+				case <-time.After(specPollInterval):
+				}
 			}
 		}
 	}
