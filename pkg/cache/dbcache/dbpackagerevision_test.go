@@ -30,12 +30,15 @@ import (
 func (t *DbTestSuite) TestDBPackageRevision() {
 	mockCache := mockcachetypes.NewMockCache(t.T())
 	cachetypes.CacheInstance = mockCache
-
+	repoName := "my-repo-name"
+	namespace := "my-ns"
+	workspace := "my-workspace"
+	branch := "my-branch"
 	externalrepo.ExternalRepoInUnitTestMode = true
 
 	ctx := t.Context()
 
-	testRepo := t.createTestRepo("my-ns", "my-repo-name")
+	testRepo := t.createTestRepo(namespace, repoName)
 	testRepo.spec = &configapi.Repository{
 		Spec: configapi.RepositorySpec{
 			Git: &configapi.GitRepository{
@@ -50,9 +53,9 @@ func (t *DbTestSuite) TestDBPackageRevision() {
 
 	newPRDef := v1alpha1.PackageRevision{
 		Spec: v1alpha1.PackageRevisionSpec{
-			RepositoryName: "my-repo-name",
+			RepositoryName: repoName,
 			PackageName:    "my-package",
-			WorkspaceName:  "my-workspace",
+			WorkspaceName:  workspace,
 		},
 	}
 
@@ -65,8 +68,8 @@ func (t *DbTestSuite) TestDBPackageRevision() {
 	t.Require().NotNil(dbPR)
 
 	t.Equal("main", dbPR.ToMainPackageRevision(ctx).Key().WorkspaceName)
-	dbPR.(*dbPackageRevision).pkgRevKey.PkgKey.RepoKey.PlaceholderWSname = "my-branch"
-	t.Equal("my-branch", dbPR.ToMainPackageRevision(ctx).Key().WorkspaceName)
+	dbPR.(*dbPackageRevision).pkgRevKey.PkgKey.RepoKey.PlaceholderWSname = branch
+	t.Equal(branch, dbPR.ToMainPackageRevision(ctx).Key().WorkspaceName)
 
 	meta := dbPR.GetMeta()
 	t.Equal(meta.Name, "")
@@ -82,13 +85,13 @@ func (t *DbTestSuite) TestDBPackageRevision() {
 	prKey := repository.PackageRevisionKey{
 		PkgKey: repository.PackageKey{
 			RepoKey: repository.RepositoryKey{
-				Namespace:         "my-ns",
-				Name:              "my-repo-name",
-				PlaceholderWSname: "my-branch",
+				Namespace:         namespace,
+				Name:              repoName,
+				PlaceholderWSname: branch,
 			},
 			Package: "my-package",
 		},
-		WorkspaceName: "my-workspace",
+		WorkspaceName: workspace,
 	}
 	t.Equal(prKey, dbPR.Key())
 	t.Equal(v1alpha1.PackageRevisionLifecycleDraft, dbPR.Lifecycle(ctx))
