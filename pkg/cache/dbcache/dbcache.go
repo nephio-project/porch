@@ -43,7 +43,7 @@ type dbCache struct {
 	options      cachetypes.CacheOptions
 }
 
-func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.Repository, crModified ...bool) (repository.Repository, error) {
+func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (repository.Repository, error) {
 	_, span := tracer.Start(ctx, "dbCache::OpenRepository", trace.WithAttributes())
 	defer span.End()
 
@@ -55,15 +55,14 @@ func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.
 	c.mainLock.RLock()
 	if dbRepo, ok := c.repositories[repoKey]; ok {
 		c.mainLock.RUnlock()
+		// Keep the spec updated in the cache.
+		dbRepo.spec = repositorySpec
 		err := externalrepo.CheckRepositoryConnection(ctx, dbRepo.spec, c.options.ExternalRepoOptions)
 		if err != nil {
 			klog.Warningf("dbRepository:OpenRepository: repo %+v connectivity check failed with error %q", repoKey, err)
 			return nil, err
 		}
 		klog.V(2).Infof("dbCache::OpenRepository: verified repo connectivity %+v", repoKey)
-		if len(crModified) > 0 && crModified[0] {
-			dbRepo.spec = repositorySpec
-		}
 		return dbRepo, nil
 	}
 	c.mainLock.RUnlock()

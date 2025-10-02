@@ -137,6 +137,9 @@ var SyncExamples = `
   # Schedule sync for all repositories in the default namespace after 1 minute
   $ porchctl repo sync --all --namespace default
 
+  # Schedule sync for repositorie named foo in the default namespace after 1 minute
+  $ porchctl repo sync foo --namespace default
+
   # Schedule sync for repository named foo in the bar namespace after 10 minutes
   $ porchctl repo sync foo --namespace bar --run-once=10m
 

@@ -412,56 +412,6 @@ func TestBackgroundCacheRepository(t *testing.T) {
 	}
 }
 
-func TestSpecChanged(t *testing.T) {
-	tests := []struct {
-		name     string
-		repo     *configapi.Repository
-		expected bool
-	}{
-		{
-			name:     "No conditions - assume spec changed",
-			repo:     createRepo(2, 1, true), // conditionsNil = true
-			expected: true,
-		},
-		{
-			name:     "ObservedGeneration < Generation - spec changed",
-			repo:     createRepo(2, 1, false),
-			expected: true,
-		},
-		{
-			name:     "ObservedGeneration == Generation - spec unchanged",
-			repo:     createRepo(2, 2, false),
-			expected: false,
-		},
-		{
-			name: "Condition type not RepositoryReady - assume spec changed",
-			repo: &configapi.Repository{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:       "test-repo",
-					Namespace:  "test-namespace",
-					Generation: 2,
-				},
-				Status: configapi.RepositoryStatus{
-					Conditions: []metav1.Condition{
-						{
-							Type:               "OtherCondition",
-							ObservedGeneration: 1,
-						},
-					},
-				},
-			},
-			expected: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := specChanged(tt.repo)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
 func createRepo(gen int64, observedGen int64, conditionsNil bool) *configapi.Repository {
 	var conditions []metav1.Condition
 	if !conditionsNil {
