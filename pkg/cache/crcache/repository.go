@@ -545,10 +545,12 @@ func (r *cachedRepository) handleRunOnceAt(ctx context.Context) {
 	var runOnceChan <-chan time.Time
 	var scheduledRunOnceAt time.Time
 	specPollInterval := 10 * time.Second
+	ctxDoneLog := "repositorySync %+v: exiting repository handleRunOnceAt sync, because context is done: %v"
 
 	for {
 		select {
 		case <-ctx.Done():
+			klog.Infof(ctxDoneLog, r.Key(), ctx.Err())
 			if runOnceTimer != nil {
 				runOnceTimer.Stop()
 			}
@@ -556,7 +558,12 @@ func (r *cachedRepository) handleRunOnceAt(ctx context.Context) {
 		default:
 			if !r.hasValidSyncSpec() {
 				klog.V(2).Infof("repositorySync %+v: repo or sync spec is nil, skipping runOnceAt check", r.Key())
-				time.Sleep(specPollInterval)
+				select {
+				case <-ctx.Done():
+					klog.Infof(ctxDoneLog, r.Key(), ctx.Err())
+					return
+				case <-time.After(specPollInterval):
+				}
 				continue
 			}
 
@@ -585,10 +592,18 @@ func (r *cachedRepository) handleRunOnceAt(ctx context.Context) {
 					r.updateRepositoryCondition(ctx)
 					klog.Infof("repositorySync %+v: Finished one-time sync", r.Key())
 					runOnceTimer, runOnceChan, scheduledRunOnceAt = nil, nil, time.Time{}
+				case <-ctx.Done():
+					klog.Infof(ctxDoneLog, r.Key(), ctx.Err())
+					return
 				case <-time.After(specPollInterval):
 				}
 			} else {
-				time.Sleep(specPollInterval)
+				select {
+				case <-ctx.Done():
+					klog.Infof(ctxDoneLog, r.Key(), ctx.Err())
+					return
+				case <-time.After(specPollInterval):
+				}
 			}
 		}
 	}
@@ -669,13 +684,19 @@ func (r *cachedRepository) setRepositoryCondition(ctx context.Context, status st
 			Message:            "Repository Ready",
 		}
 	case "error":
+		var msg string
+		if r.refreshRevisionsError != nil {
+			msg = r.refreshRevisionsError.Error()
+		} else {
+			msg = "unknown error"
+		}
 		condition = metav1.Condition{
 			Type:               configapi.RepositoryReady,
 			Status:             metav1.ConditionFalse,
 			ObservedGeneration: repo.Generation,
 			LastTransitionTime: metav1.Now(),
 			Reason:             configapi.ReasonError,
-			Message:            r.refreshRevisionsError.Error(),
+			Message:            msg,
 		}
 	default:
 		return fmt.Errorf("unknown status type: %s", status)

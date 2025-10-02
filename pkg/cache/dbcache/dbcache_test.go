@@ -31,8 +31,10 @@ import (
 	"github.com/stretchr/testify/suite"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	k8sfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -44,6 +46,49 @@ type DbTestSuite struct {
 	ctx            context.Context
 	nextPkgRev     int
 	savedDBHandler *DBHandler
+}
+
+// FakeClientWithStatusUpdate is a fake client that supports status updates
+type FakeClientWithStatusUpdate struct {
+	client.Client
+	statusStore map[types.NamespacedName]configapi.RepositoryStatus
+}
+
+func NewFakeClientWithStatus(scheme *runtime.Scheme, objs ...client.Object) *FakeClientWithStatusUpdate {
+	baseClient := k8sfake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
+	return &FakeClientWithStatusUpdate{
+		Client:      baseClient,
+		statusStore: make(map[types.NamespacedName]configapi.RepositoryStatus),
+	}
+}
+func (f *FakeClientWithStatusUpdate) Status() client.StatusWriter {
+	return &fakeStatusWriter{f}
+}
+
+type fakeStatusWriter struct {
+	f *FakeClientWithStatusUpdate
+}
+
+func (w *fakeStatusWriter) Update(ctx context.Context, obj client.Object, opts ...client.SubResourceUpdateOption) error {
+	repo, ok := obj.(*configapi.Repository)
+	if !ok {
+		return fmt.Errorf("status update only supported for Repository objects")
+	}
+	key := types.NamespacedName{Name: repo.Name, Namespace: repo.Namespace}
+	w.f.statusStore[key] = repo.Status
+	return nil
+}
+
+func (w *fakeStatusWriter) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.SubResourcePatchOption) error {
+	return nil
+}
+
+func (w *fakeStatusWriter) Create(ctx context.Context, obj client.Object, subresource client.Object, opts ...client.SubResourceCreateOption) error {
+	return nil
+}
+
+func (f *FakeClientWithStatusUpdate) Watch(ctx context.Context, list client.ObjectList, opts ...client.ListOption) (watch.Interface, error) {
+	return watch.NewEmptyWatch(), nil
 }
 
 func Test_DbTestSuite(t *testing.T) {
@@ -164,7 +209,7 @@ func (t *DbTestSuite) TestDBRepositoryCrud() {
 	scheme := runtime.NewScheme()
 	_ = configapi.AddToScheme(scheme)
 
-	fakeClient := k8sfake.NewClientBuilder().WithScheme(scheme).WithObjects(repositorySpec).Build()
+	fakeClient := NewFakeClientWithStatus(scheme, repositorySpec)
 
 	options := cachetypes.CacheOptions{
 		RepoCrSyncFrequency: 60 * time.Minute,

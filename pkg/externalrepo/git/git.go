@@ -654,7 +654,7 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, pr2Delete rep
 // fetchRemoteWithRetry retries fetching the remote repository up to 6 times with a delay of 1 second between each attempt.
 func (r *gitRepository) fetchRemoteRepositoryWithRetry(ctx context.Context) error {
 	if err := util.RetryOnErrorConditional(
-		6,
+		4,
 		func(error) bool {
 			return ctx.Err() == nil
 		},
