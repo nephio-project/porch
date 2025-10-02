@@ -102,13 +102,13 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 			runOnceAtTime = time.Now().Add(duration)
 			if duration < minDelay {
 				runOnceAtTime = time.Now().Add(minDelay)
-				fmt.Fprintf(cmd.OutOrStdout(), "Warning: minimum allowed duration is 1 minute. Rescheduled for 1 minute from now\n")
+				fmt.Fprintf(cmd.OutOrStdout(), "Warning: Duration must be at least 1 minute. Sync time adjusted to comply with minimum delay.\n")
 			}
 		} else if timestamp, err := time.Parse(time.RFC3339, runOnceStr); err == nil {
 			delay := time.Until(timestamp)
 			if delay < minDelay {
 				runOnceAtTime = time.Now().Add(minDelay)
-				fmt.Fprintf(cmd.OutOrStdout(), "Warning: scheduled time is less than 1 minute from now. Rescheduled for 1 minute from now\n")
+				fmt.Fprintf(cmd.OutOrStdout(), "Warning: Scheduled time is within 1 minute or in the past. Sync time adjusted to comply with minimum delay.\n")
 			} else {
 				runOnceAtTime = timestamp
 			}

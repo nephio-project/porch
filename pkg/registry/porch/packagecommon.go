@@ -101,7 +101,7 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter reposit
 		workerCount = min(r.MaxConcurrentLists, repoCount)
 	}
 
-	klog.Infof("Listing %d repositories with %d workers", repoCount, workerCount)
+	klog.V(3).Infof("Listing %d repositories with %d workers", repoCount, workerCount)
 
 	resultsCh := make(chan pkgRevResult, workerCount)
 	repoQueue := make(chan *configapi.Repository, repoCount)
@@ -109,14 +109,14 @@ func (r *packageCommon) listPackageRevisions(ctx context.Context, filter reposit
 	for i := 0; i < workerCount; i++ {
 		go func() {
 			for repo := range repoQueue {
-				klog.Infof("[WORKER %d] Processing repository %s", i, repo.Name)
+				klog.V(3).Infof("[WORKER %d] Processing repository %s", i, repo.Name)
 				listCtx := ctx
 				var cancel context.CancelFunc
 				if r.ListTimeoutPerRepository != 0 {
 					listCtx, cancel = context.WithTimeout(ctx, r.ListTimeoutPerRepository)
 				}
 				revisions, err := r.cad.ListPackageRevisions(listCtx, repo, filter)
-				klog.Infof("[WORKER %d] ListPackageRevisions for %s done, len: %d, err: %v", i, repo.Name, len(revisions), err)
+				klog.V(3).Infof("[WORKER %d] ListPackageRevisions for %s done, len: %d, err: %v", i, repo.Name, len(revisions), err)
 				resultsCh <- pkgRevResult{Revisions: revisions, Err: err}
 				if cancel != nil {
 					cancel()

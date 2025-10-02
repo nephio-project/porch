@@ -41,7 +41,7 @@ type Cache struct {
 
 var _ cachetypes.Cache = &Cache{}
 
-func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Repository, crModified ...bool) (repository.Repository, error) {
+func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (repository.Repository, error) {
 	ctx, span := tracer.Start(ctx, "Cache::OpenRepository", trace.WithAttributes())
 	defer span.End()
 	start := time.Now()
@@ -59,9 +59,8 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 	c.mainLock.RLock()
 	if repo, ok := c.repositories[key]; ok && repo != nil {
 		c.mainLock.RUnlock()
-		if len(crModified) > 0 && crModified[0] {
-			repo.repoSpec = repositorySpec
-		}
+		// Keep the spec updated in the cache.
+		repo.repoSpec = repositorySpec
 		// Check external repo connectivity
 		if err := externalrepo.CheckRepositoryConnection(ctx, repositorySpec, c.options.ExternalRepoOptions); err != nil {
 			return nil, err

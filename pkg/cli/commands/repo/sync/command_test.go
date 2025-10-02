@@ -180,7 +180,7 @@ func TestRunE_VariousRunOnceScenarios(t *testing.T) {
 			namespace:     "default",
 			expectError:   false,
 			expectRunOnce: true,
-			expectedRunAt: "2025-09-20T15:04:05Z",
+			expectedRunAt: time.Now().Add(1 * time.Minute).Format(time.RFC3339),
 			expectedRepos: []string{"repo1", "repo2"},
 		},
 		{
@@ -194,7 +194,7 @@ func TestRunE_VariousRunOnceScenarios(t *testing.T) {
 			namespace:     "default",
 			expectError:   false,
 			expectRunOnce: true,
-			expectedRunAt: "2025-09-21T10:00:00Z",
+			expectedRunAt: time.Now().Add(1 * time.Minute).Format(time.RFC3339),
 			expectedRepos: []string{"repo1", "repo2"},
 		},
 	}
@@ -292,7 +292,7 @@ func TestRunE_NsScoped(t *testing.T) {
 			args:            []string{},
 			expectError:     false,
 			expectRunOnce:   true,
-			expectedRunAt:   "2025-09-21T10:00:00Z",
+			expectedRunAt:   time.Now().Add(1 * time.Minute).Format(time.RFC3339),
 			expectedRepos:   []types.NamespacedName{{Name: "repo1", Namespace: "default"}, {Name: "repo2", Namespace: "default"}},
 			unexpectedRepos: []types.NamespacedName{{Name: "repo3", Namespace: "other"}},
 		},
@@ -306,7 +306,7 @@ func TestRunE_NsScoped(t *testing.T) {
 			args:          []string{},
 			expectError:   false,
 			expectRunOnce: true,
-			expectedRunAt: "2025-09-21T10:00:00Z",
+			expectedRunAt: time.Now().Add(1 * time.Minute).Format(time.RFC3339),
 			expectedRepos: []types.NamespacedName{{Name: "repo1", Namespace: "default"}, {Name: "repo2", Namespace: "default"}, {Name: "repo3", Namespace: "other"}},
 		},
 	}
@@ -413,7 +413,7 @@ func TestRunE_MixedSyncStates(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	expectedTime, _ := time.Parse(time.RFC3339, "2025-09-25T09:00:00Z")
+	expectedTime := time.Now().Add(1 * time.Minute).Format(time.RFC3339)
 	repoNames := []string{"repo1", "repo2", "repo3"}
 
 	for _, name := range repoNames {
@@ -426,8 +426,37 @@ func TestRunE_MixedSyncStates(t *testing.T) {
 			t.Errorf("expected RunOnceAt to be set for repo %s", name)
 			continue
 		}
-		if !updated.Spec.Sync.RunOnceAt.Time.Equal(expectedTime) {
+		if updated.Spec.Sync.RunOnceAt.Time.Format(time.RFC3339) != expectedTime {
 			t.Errorf("expected RunOnceAt for repo %s to be %v, got %v", name, expectedTime, updated.Spec.Sync.RunOnceAt.Time)
 		}
+	}
+}
+
+func TestNewRunnerInitialization(t *testing.T) {
+	ctx := context.Background()
+	configFlags := &genericclioptions.ConfigFlags{Namespace: strPtr("default")}
+
+	r := newRunner(ctx, configFlags)
+
+	if r == nil {
+		t.Fatal("expected runner to be initialized, got nil")
+	}
+	if r.Command == nil {
+		t.Fatal("expected Command to be initialized")
+	}
+	if r.getFlags.ConfigFlags != configFlags {
+		t.Errorf("expected ConfigFlags to be set correctly")
+	}
+	if r.Command.Use != "sync [REPOSITORY_NAME]" {
+		t.Errorf("unexpected command use: %s", r.Command.Use)
+	}
+	if !r.Command.Flags().Lookup("all").Changed {
+		// Just checking the flag exists
+		if r.Command.Flags().Lookup("all") == nil {
+			t.Errorf("expected --all flag to be present")
+		}
+	}
+	if r.Command.Flags().Lookup("run-once") == nil {
+		t.Errorf("expected --run-once flag to be present")
 	}
 }

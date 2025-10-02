@@ -23,6 +23,7 @@ import (
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
+	"github.com/nephio-project/porch/pkg/cache/util"
 	"github.com/nephio-project/porch/pkg/repository"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
@@ -281,62 +282,17 @@ func (s *repositorySync) setRepositoryCondition(ctx context.Context, status stri
 		return fmt.Errorf("failed to get repository: %w", err)
 	}
 
-	var condition metav1.Condition
-
-	switch status {
-	case "sync-in-progress":
-		condition = metav1.Condition{
-			Type:               configapi.RepositoryReady,
-			Status:             metav1.ConditionFalse,
-			ObservedGeneration: repo.Generation,
-			LastTransitionTime: metav1.Now(),
-			Reason:             configapi.ReasonReconciling,
-			Message:            "Repository reconciliation in progress",
-		}
-	case "ready":
-		condition = metav1.Condition{
-			Type:               configapi.RepositoryReady,
-			Status:             metav1.ConditionTrue,
-			ObservedGeneration: repo.Generation,
-			LastTransitionTime: metav1.Now(),
-			Reason:             configapi.ReasonReady,
-			Message:            "Repository Ready",
-		}
-	case "error":
-		var msg string
-		if s.lastSyncError != nil {
-			msg = s.lastSyncError.Error()
-		} else {
-			msg = "unknown error"
-		}
-		condition = metav1.Condition{
-			Type:               configapi.RepositoryReady,
-			Status:             metav1.ConditionFalse,
-			ObservedGeneration: repo.Generation,
-			LastTransitionTime: metav1.Now(),
-			Reason:             configapi.ReasonError,
-			Message:            msg,
-		}
-	default:
-		return fmt.Errorf("unknown status type: %s", status)
+	errorMsg := ""
+	if status == "error" && s.lastSyncError != nil {
+		errorMsg = s.lastSyncError.Error()
 	}
 
-	if repo.Status.Conditions == nil {
-		repo.Status.Conditions = []metav1.Condition{}
+	condition, err := util.BuildRepositoryCondition(repo, status, errorMsg)
+	if err != nil {
+		return err
 	}
 
-	if len(repo.Status.Conditions) > 0 {
-		repo.Status.Conditions[0] = condition
-	} else {
-		repo.Status.Conditions = append(repo.Status.Conditions, condition)
-	}
-
-	if err := s.coreClient.Status().Update(ctx, repo); err != nil {
-		return fmt.Errorf("failed to update repository status: %w", err)
-	}
-
-	klog.V(2).Infof("Repository %s status updated to %s", repo.Name, status)
-	return nil
+	return util.ApplyRepositoryCondition(ctx, s.coreClient.Status(), repo, condition, status)
 }
 
 func (s *repositorySync) getCachedPRMap(ctx context.Context) (map[repository.PackageRevisionKey]repository.PackageRevision, error) {
