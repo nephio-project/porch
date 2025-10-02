@@ -177,11 +177,6 @@ func (b *background) handleRepositoryEvent(ctx context.Context, repo *configapi.
 		return fmt.Errorf("%s, handling failed, repo specification invalid :%q", msgPreamble, err)
 	}
 
-	if eventType == watch.Modified && !specChanged(repo) {
-		klog.Infof("%s, handling completed in %s", msgPreamble, time.Since(start))
-		return nil
-	}
-
 	// Verify repositories can be listed (core client is alive)
 	listCtx := ctx
 	var cancel context.CancelFunc
@@ -199,7 +194,7 @@ func (b *background) handleRepositoryEvent(ctx context.Context, repo *configapi.
 	case watch.Deleted:
 		err = b.cache.CloseRepository(listCtx, repo, repoList.Items)
 	default:
-		err = b.cacheRepository(listCtx, repo, true)
+		err = b.cacheRepository(listCtx, repo)
 	}
 	if err == nil {
 		klog.Infof("%s, handling completed in %s", msgPreamble, time.Since(start))
@@ -207,17 +202,6 @@ func (b *background) handleRepositoryEvent(ctx context.Context, repo *configapi.
 	} else {
 		return fmt.Errorf("changing repository failed: %s:%s:%q", repo.Namespace, repo.Name, err)
 	}
-}
-
-func specChanged(repo *configapi.Repository) bool {
-	// Compare observedGeneration in status with current generation
-	for _, cond := range repo.Status.Conditions {
-		if cond.Type == configapi.RepositoryReady {
-			return cond.ObservedGeneration < repo.Generation
-		}
-	}
-	// If no condition found, assume spec changed
-	return true
 }
 
 func (b *background) runOnce(ctx context.Context) error {
@@ -230,7 +214,7 @@ func (b *background) runOnce(ctx context.Context) error {
 	for i := range repositories.Items {
 		repo := &repositories.Items[i]
 
-		if err := b.cacheRepository(ctx, repo, false); err != nil {
+		if err := b.cacheRepository(ctx, repo); err != nil {
 			klog.Errorf("Failed to cache repository: %v", err)
 		}
 	}
@@ -238,17 +222,13 @@ func (b *background) runOnce(ctx context.Context) error {
 	return nil
 }
 
-func (b *background) cacheRepository(ctx context.Context, repo *configapi.Repository, crModified ...bool) error {
+func (b *background) cacheRepository(ctx context.Context, repo *configapi.Repository) error {
 	start := time.Now()
 	defer func() {
 		klog.V(2).Infof("background::cacheRepository (%s) took %s", repo.Name, time.Since(start))
 	}()
 	var condition v1.Condition
-	modified := false
-	if len(crModified) > 0 {
-		modified = crModified[0]
-	}
-	_, err := b.cache.OpenRepository(ctx, repo, modified)
+	_, err := b.cache.OpenRepository(ctx, repo)
 	if err == nil {
 		if repo.Status.Conditions == nil {
 			// Let's wait for sync job to create condition
