@@ -61,8 +61,6 @@ spec:
           value: http://jaeger-oltp:4317
         - name: OTEL_EXPORTER_OTLP_PROTOCOL
           value: grpc
-        - name: OTEL_METRICS_PRODUCERS
-          value: "controller-runtime"
         livenessProbe:
           failureThreshold: 3
           httpGet:

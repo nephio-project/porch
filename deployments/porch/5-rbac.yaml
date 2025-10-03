@@ -59,7 +59,7 @@ kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: porch-function-executor
-  namespace: porch-system
+  namespace: porch-fn-system
 rules:
   # Needed to launch / read function executor pods
   - apiGroups: [""]

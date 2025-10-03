@@ -43,7 +43,7 @@ spec:
             - /server
             - --config=/config.yaml
             - --functions=/functions
-            - --pod-namespace=porch-system
+            - --pod-namespace=porch-fn-system
             - --function-pod-template=kpt-function-eval-pod-template
             - --max-request-body-size=6291456 # Keep this in sync with porch-server's corresponding argument
           env:
