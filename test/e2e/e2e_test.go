@@ -64,6 +64,50 @@ func TestE2E(t *testing.T) {
 	suite.Run(t, &PorchSuite{})
 }
 
+func (t *PorchSuite) TestMetricsEndpoint() {
+	porchServerShouldHaveRegexList := []string{
+		"go_*",
+		"http_server_*",
+		"http_client_*",
+		"rest_client_*",
+		"process_*",
+		"rpc_client_*",
+	}
+	porchControllerShouldHaveRegexList := []string{
+		"controller_*",
+		"go_*",
+	}
+	porchFunctionRunnerShouldHaveRegexList := []string{
+		"go_*",
+		"rpc_server_*",
+		"rpc_client_*",
+	}
+	porchWrapperServerShouldHaveRegexList := []string{
+		"go_*",
+		"rpc_server_*",
+	}
+
+	collectionResults, err := t.collectMetricsFromPods()
+	if err != nil {
+		t.Fatalf("failed to collect metrics from pods: %v", err)
+	}
+
+	for _, regex := range porchServerShouldHaveRegexList {
+		assert.Regexp(t.T(), regex, collectionResults.porchServerMetrics, "porch server metrics should contain %q", regex)
+	}
+
+	for _, regex := range porchControllerShouldHaveRegexList {
+		assert.Regexp(t.T(), regex, collectionResults.porchControllerMetrics, "porch controller metrics should contain %q", regex)
+	}
+
+	for _, regex := range porchFunctionRunnerShouldHaveRegexList {
+		assert.Regexp(t.T(), regex, collectionResults.porchFunctionRunnerMetrics, "porch function runner metrics should contain %q", regex)
+	}
+	for _, regex := range porchWrapperServerShouldHaveRegexList {
+		assert.Regexp(t.T(), regex, collectionResults.porchWrapperServerMetrics, "porch wrapper server metrics should contain %q", regex)
+	}
+}
+
 func (t *PorchSuite) TestGitRepository() {
 	// Register the repository as 'git'
 	t.RegisterMainGitRepositoryF("git")

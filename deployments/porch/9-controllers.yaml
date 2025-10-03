@@ -52,7 +52,7 @@ spec:
         - name: OTEL_METRICS_EXPORTER
           value: "prometheus"
         - name: OTEL_EXPORTER_PROMETHEUS_HOST
-          value: localhost # Default value, showing for visibility
+          value: "0.0.0.0" # Default value, showing for visibility
         - name: OTEL_EXPORTER_PROMETHEUS_PORT
           value: "9464" # Default value, showing for visibility
         - name: OTEL_TRACES_EXPORTER
