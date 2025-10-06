@@ -133,7 +133,19 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 	}
 
 	replace := strings.NewReplacer("/", "-", ":", "-")
-	dir := filepath.Join(root, replace.Replace(spec.Repo))
+	repoPath := replace.Replace(spec.Repo)
+	repoName := replace.Replace(name)
+
+	var dir string
+	isRoot := spec.Directory == "/"
+	var subdirName string
+	if isRoot {
+		dir = filepath.Join(root, repoPath)
+	} else {
+		directoryPath := strings.Trim(spec.Directory, "/")
+		subdirName = replace.Replace(directoryPath)
+		dir = filepath.Join(root, fmt.Sprintf("%s--%s---%s---%s", repoPath, subdirName, repoName, namespace))
+	}
 
 	// Cleanup the cache directory in case initialization fails.
 	cleanup := dir
