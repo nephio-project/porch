@@ -2487,9 +2487,20 @@ func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces() {
 			Name: t.Namespace + "-2",
 		},
 	}
+	ns3 := &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Namespace",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: t.Namespace + "-3",
+		},
+	}
 	t.CreateF(ns2)
+	t.CreateF(ns3)
 	t.Cleanup(func() {
 		t.DeleteE(ns2)
+		t.DeleteE(ns3)
 	})
 
 	prs1 := registerRepoAndTestRevisions("test-blueprints", t.Namespace, nil)
@@ -2501,7 +2512,7 @@ func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces() {
 		t.Errorf("number of PackageRevisions in namespace %s: want %v, got %d", ns2.Name, nPRs, len(prs2))
 	}
 
-	prs3 := registerRepoAndTestRevisions("test-3-blueprints", t.Namespace, prs1)
+	prs3 := registerRepoAndTestRevisions("test-3-blueprints", ns3.Name, prs1)
 	if len(prs3) != nPRs {
 		t.Errorf("number of PackageRevisions in repo-3: want %v, got %d", nPRs, len(prs2))
 	}
