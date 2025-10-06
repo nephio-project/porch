@@ -31,7 +31,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+type PorchClient interface {
+	List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error
+}
 
 func TestCachedRepoRefresh(t *testing.T) {
 	mockRepo := mockrepo.NewMockRepository(t)
