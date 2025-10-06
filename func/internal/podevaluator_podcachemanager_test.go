@@ -301,7 +301,7 @@ func TestPodCacheManager(t *testing.T) {
 				} else if tt.expectFail && cc.err == nil {
 					t.Errorf("Expected to get error, got client connection")
 				} else if cc.err == nil {
-					if cc.grpcClient == nil {
+					if cc.podClient == nil {
 						t.Errorf("Expected to get grpc client, got nil")
 					}
 				}
