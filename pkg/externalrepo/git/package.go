@@ -27,6 +27,7 @@ import (
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
+	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -73,33 +74,19 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 
 	key := p.Key()
 
-	_, lock, _ := p.GetUpstreamLock(ctx)
-	lockCopy := &porchapi.UpstreamLock{}
-
-	// TODO: Use kpt definition of UpstreamLock in the package revision status
-	// when https://github.com/kptdev/kpt/issues/3297 is complete.
-	// Until then, we have to translate from one type to another.
-	if lock.Git != nil {
-		lockCopy = &porchapi.UpstreamLock{
-			Type: porchapi.OriginType(lock.Type),
-			Git: &porchapi.GitLock{
-				Repo:      lock.Git.Repo,
-				Directory: lock.Git.Directory,
-				Commit:    lock.Git.Commit,
-				Ref:       lock.Git.Ref,
-			},
-		}
-	}
-
+	_, upstreamLock, _ := p.GetUpstreamLock(ctx)
+	_, selfLock, _ := p.GetLock()
 	kf, _ := p.GetKptfile(ctx)
 
 	status := porchapi.PackageRevisionStatus{
-		UpstreamLock: lockCopy,
+		UpstreamLock: repository.KptUpstreamLock2APIUpstreamLock(upstreamLock),
+		SelfLock:     repository.KptUpstreamLock2APIUpstreamLock(selfLock),
 		Deployment:   p.repo.deployment,
 		Conditions:   repository.ToAPIConditions(kf),
 	}
 
-	if porchapi.LifecycleIsPublished(p.Lifecycle(ctx)) {
+	lifecycle := p.Lifecycle(ctx)
+	if porchapi.LifecycleIsPublished(lifecycle) {
 		if !p.updated.IsZero() {
 			status.PublishedAt = metav1.Time{Time: p.updated}
 		}
@@ -125,7 +112,7 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 		Spec: porchapi.PackageRevisionSpec{
 			PackageName:    key.PkgKey.ToPkgPathname(),
 			RepositoryName: key.RKey().Name,
-			Lifecycle:      p.Lifecycle(ctx),
+			Lifecycle:      lifecycle,
 			Tasks:          p.tasks,
 			ReadinessGates: repository.ToAPIReadinessGates(kf),
 			WorkspaceName:  key.WorkspaceName,
@@ -141,7 +128,7 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 	return pr, nil
 }
 
-func (p *gitPackageRevision) GetResources(ctx context.Context) (*porchapi.PackageRevisionResources, error) {
+func (p *gitPackageRevision) GetResources(context.Context) (*porchapi.PackageRevisionResources, error) {
 	resources, err := p.repo.GetResources(p.tree)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load package resources: %w", err)
@@ -178,7 +165,7 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*porchapi.Packag
 
 // Creates a gitPackageRevision reference that is acting as the main branch package revision.
 // It doesn't do any git operations, so this package should only be used if the actual git updates
-// were exectued on the main branch.
+// were executed on the main branch.
 func (p *gitPackageRevision) ToMainPackageRevision(context.Context) repository.PackageRevision {
 	//Need to compute a separate reference, otherwise the ref will be the same as the versioned package,
 	//while the main gitPackageRevision needs to point at the main branch.
@@ -200,18 +187,14 @@ func (p *gitPackageRevision) ToMainPackageRevision(context.Context) repository.P
 	return mainPr
 }
 
-func (p *gitPackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, error) {
-	resources, err := p.repo.GetResources(p.tree)
+func (p *gitPackageRevision) GetKptfile(context.Context) (kptfile.KptFile, error) {
+	kfString, err := p.repo.GetResource(p.tree, kptfile.KptFileName)
 	if err != nil {
-		return kptfile.KptFile{}, fmt.Errorf("error loading package resources: %w", err)
-	}
-	kfString, found := resources[kptfile.KptFileName]
-	if !found {
-		return kptfile.KptFile{}, fmt.Errorf("packagerevision does not have a Kptfile")
+		return kptfile.KptFile{}, pkgerrors.Wrapf(err, "error getting %s resource", kptfile.KptFileName)
 	}
 	kf, err := pkg.DecodeKptfile(strings.NewReader(kfString))
 	if err != nil {
-		return kptfile.KptFile{}, fmt.Errorf("error decoding Kptfile: %w", err)
+		return kptfile.KptFile{}, pkgerrors.Wrapf(err, "error decoding %s", kptfile.KptFileName)
 	}
 	return *kf, nil
 }

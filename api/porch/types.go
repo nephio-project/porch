@@ -142,7 +142,10 @@ type ParentReference struct {
 // PackageRevisionStatus defines the observed state of PackageRevision
 type PackageRevisionStatus struct {
 	// UpstreamLock identifies the upstream data for this package.
-	UpstreamLock *UpstreamLock `json:"upstreamLock,omitempty"`
+	UpstreamLock *Locator `json:"upstreamLock,omitempty"`
+
+	// SelfLock identifies the location of the current package's data
+	SelfLock *Locator `json:"selfLock,omitempty"`
 
 	// PublishedBy is the identity of the user who approved the packagerevision.
 	PublishedBy string `json:"publishedBy,omitempty"`
@@ -318,14 +321,14 @@ type Selector struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-// The following types (UpstreamLock, OriginType, and GitLock) are duplicates from the kpt library.
+// The following types (Locator, OriginType, and GitLock) are duplicates from the kpt library.
 // We are repeating them here to avoid cyclic dependencies, but these duplicate type should be removed when
 // https://github.com/kptdev/kpt/issues/3297 is resolved.
 
 type OriginType string
 
-// UpstreamLock is a resolved locator for the last fetch of the package.
-type UpstreamLock struct {
+// Locator is a resolved locator for the last fetch of the package.
+type Locator struct {
 	// Type is the type of origin.
 	Type OriginType `json:"type,omitempty"`
 

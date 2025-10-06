@@ -373,6 +373,7 @@ func (p *ociPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 		},
 		Status: porchapi.PackageRevisionStatus{
 			// TODO:        UpstreamLock,
+			// TODO:        SelfLock,
 			Deployment: p.parent.deployment,
 			Conditions: repository.ToAPIConditions(kf),
 		},
