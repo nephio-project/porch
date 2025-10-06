@@ -2924,6 +2924,7 @@ func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces() {
 	registerRepoAndTestRevisions := func(repoName string, ns string, oldPRs []porchapi.PackageRevision) []porchapi.PackageRevision {
 
 		t.RegisterTestBlueprintRepository(repoName, "", RepositoryOptions{RepOpts: InNamespace(ns), SecOpts: SecretInNamespace(ns)})
+		time.Sleep(2 * time.Second) // give time for repo to by synced
 		prList := porchapi.PackageRevisionList{}
 		t.ListF(&prList, client.InNamespace(ns))
 		newPRs := prList.Items
@@ -2973,9 +2974,20 @@ func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces() {
 			Name: t.Namespace + "-2",
 		},
 	}
+	ns3 := &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Namespace",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: t.Namespace + "-3",
+		},
+	}
 	t.CreateF(ns2)
+	t.CreateF(ns3)
 	t.Cleanup(func() {
 		t.DeleteE(ns2)
+		t.DeleteE(ns3)
 	})
 
 	prs1 := registerRepoAndTestRevisions("test-blueprints", t.Namespace, nil)
@@ -2987,7 +2999,7 @@ func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces() {
 		t.Errorf("number of PackageRevisions in namespace %s: want %v, got %d", ns2.Name, nPRs, len(prs2))
 	}
 
-	prs3 := registerRepoAndTestRevisions("test-3-blueprints", t.Namespace, prs1)
+	prs3 := registerRepoAndTestRevisions("test-3-blueprints", ns3.Name, prs1)
 	if len(prs3) != nPRs {
 		t.Errorf("number of PackageRevisions in repo-3: want %v, got %d", nPRs, len(prs2))
 	}
@@ -2995,8 +3007,8 @@ func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces() {
 
 func (t *PorchSuite) TestUniquenessOfUIDs() {
 
-	t.RegisterTestBlueprintRepository("test-blueprints", "")
-	t.RegisterTestBlueprintRepository("test-2-blueprints", "")
+	t.RegisterTestBlueprintRepository("test-blueprints", "/abcd")
+	t.RegisterTestBlueprintRepository("test-2-blueprints", "/efgh")
 
 	prList := porchapi.PackageRevisionList{}
 	t.ListE(&prList, client.InNamespace(t.Namespace))
