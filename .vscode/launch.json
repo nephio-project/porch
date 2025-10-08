@@ -5,15 +5,17 @@
     "version": "0.2.0",
 
     "configurations": [
-        // A configuration for running the porch server through vscode for the use of debugging.
+        // A configuration for running the porch server through VS Code for the use of debugging.
         // Assumes a cluster is set up alongside Git (./scripts/setup-dev-env.sh) and porch components (make ../porch/run-in-kind-no-server) are pre-configured
-        // With the configuration above one can use Vscode (Run & Debug) and launch server.
-        // This launches the porch server through vscode outside the cluster and the logs can be viewed in the debug console.
+        // With the configuration above one can use VS Code (Run & Debug) and launch server.
+        // This launches the porch server through VS Code outside the cluster and the logs can be viewed in the debug console.
         // Breakpoints can be added throughout the porch server code to debug.
 
         // CGO_ENABLED & buildFlags
-        // Enables race condition checking (Slows down porch-server processing) NOTE: The Go race detector uses C code under the hood (via cgo),
-        // and to build it, your system needs a C toolchain—i.e., a compiler like gcc and other basic build tools.
+        // Enables race condition checking (Slows down porch-server processing)
+        // 
+        // NOTE: The Go race detector uses C code under the hood (via cgo),
+        // and to build it, your system needs a C toolchain - i.e., a compiler like gcc and other basic build tools.
         // on a linux distro e.g. ubuntu these can be installed with (sudo apt install build-essential),
         //  this will install the (gcc = GNU C Compiler, g++ = GNU C++ Compiler, make, libc6-dev etc...)
         {
@@ -77,9 +79,9 @@
                 "ENABLE_PACKAGEVARIANTSETS": "true"
             }
         },
-        // A configuration for running a porchctl command using the vscode debugger.
+        // A configuration for running a porchctl command using the VS Code debugger.
         // Assumes a cluster is set up alongside Git (scripts/setup-dev-env.sh) and porch components (make run-in-kind) in the /porch directory are pre-configured
-        // This allows for the running of porchctl commands through vscode outside the cluster and the logs can be viewed in the debug console.
+        // This allows for the running of porchctl commands through VS Code outside the cluster and the logs can be viewed in the debug console.
         // Breakpoints can be added throughout the porch server code to debug.
         {
             "name": "Run Porchctl command",

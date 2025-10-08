@@ -26,7 +26,7 @@ import (
 
 const LocalUpdateDir = "kpt-pkg-update-*"
 
-// defaultPackageUpdater implements packageUpdater interface.
+// DefaultPackageUpdater implements packageUpdater interface.
 type DefaultPackageUpdater struct{}
 
 func (m *DefaultPackageUpdater) Update(
@@ -116,7 +116,7 @@ func writeResourcesToDirectory(dir string, resources PackageResources) error {
 		if err := os.MkdirAll(dir, 0750); err != nil {
 			return fmt.Errorf("failed to create directory %q: %w", dir, err)
 		}
-		if err := os.WriteFile(p, []byte(v), 0644); err != nil {
+		if err := os.WriteFile(p, []byte(v), 0600); err != nil {
 			return fmt.Errorf("failed to write file %q: %w", dir, err)
 		}
 	}

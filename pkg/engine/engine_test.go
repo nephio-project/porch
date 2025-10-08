@@ -25,7 +25,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/builtins"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
@@ -44,7 +43,7 @@ type testFixture struct {
 	mockCache       *mockCache
 	mockTaskHandler *mockTaskHandler
 	repositoryObj   *configapi.Repository
-	packageRevision *api.PackageRevision
+	packageRevision *porchapi.PackageRevision
 	engine          *cadEngine
 }
 
@@ -65,11 +64,11 @@ func newTestFixture(t *testing.T) *testFixture {
 		},
 	}
 
-	packageRevision := &api.PackageRevision{
+	packageRevision := &porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-pkg",
 		},
-		Spec: api.PackageRevisionSpec{
+		Spec: porchapi.PackageRevisionSpec{
 			PackageName:    "test-package",
 			WorkspaceName:  "test-workspace",
 			RepositoryName: "test-repo",
@@ -96,10 +95,8 @@ func newTestFixture(t *testing.T) *testFixture {
 	}
 }
 
-var _ repository.PackageRevision = &mockPackageRevision{}
-
-func setupMockPackageRevision(t *testing.T) *mockPackageRevision {
-	mockPkgRev := &mockPackageRevision{}
+func setupMockPackageRevision(t *testing.T) *mockrepo.MockPackageRevision {
+	mockPkgRev := &mockrepo.MockPackageRevision{}
 	// Setup common mock package revision expectations
 	mockPkgRev.On("Key").Return(repository.PackageRevisionKey{})
 	mockPkgRev.On("GetMeta").Return(metav1.ObjectMeta{})
@@ -107,9 +104,9 @@ func setupMockPackageRevision(t *testing.T) *mockPackageRevision {
 	mockPkgRev.On("KubeObjectName").Return("test-pkg")
 	mockPkgRev.On("KubeObjectNamespace").Return("default")
 	mockPkgRev.On("UID").Return(types.UID("test-uid"))
-	mockPkgRev.On("Lifecycle", mock.Anything).Return(api.PackageRevisionLifecycleDraft)
-	mockPkgRev.On("GetPackageRevision", mock.Anything).Return(&api.PackageRevision{}, nil)
-	mockPkgRev.On("GetResources", mock.Anything).Return(&api.PackageRevisionResources{}, nil)
+	mockPkgRev.On("Lifecycle", mock.Anything).Return(porchapi.PackageRevisionLifecycleDraft)
+	mockPkgRev.On("GetPackageRevision", mock.Anything).Return(&porchapi.PackageRevision{}, nil)
+	mockPkgRev.On("GetResources", mock.Anything).Return(&porchapi.PackageRevisionResources{}, nil)
 	mockPkgRev.On("GetUpstreamLock", mock.Anything).Return(v1.Upstream{}, v1.UpstreamLock{}, nil)
 	mockPkgRev.On("GetLock").Return(v1.Upstream{}, v1.UpstreamLock{}, nil)
 	mockPkgRev.On("ResourceVersion").Return("1")
@@ -118,126 +115,16 @@ func setupMockPackageRevision(t *testing.T) *mockPackageRevision {
 	return mockPkgRev
 }
 
-var _ repository.PackageRevisionDraft = &mockPackageRevisionDraft{}
-
-type mockPackageRevisionDraft struct {
-	mock.Mock
-}
-
-func (m *mockPackageRevisionDraft) Key() repository.PackageRevisionKey {
-	args := m.Called()
-	return args.Get(0).(repository.PackageRevisionKey)
-}
-
-func (m *mockPackageRevisionDraft) GetMeta() metav1.ObjectMeta {
-	args := m.Called()
-	return args.Get(0).(metav1.ObjectMeta)
-}
-
-func (m *mockPackageRevisionDraft) UpdateResources(ctx context.Context, new *api.PackageRevisionResources, task *api.Task) error {
-	args := m.Called(ctx, new, task)
-	return args.Error(0)
-}
-
-func (m *mockPackageRevisionDraft) UpdateLifecycle(ctx context.Context, new api.PackageRevisionLifecycle) error {
-	args := m.Called(ctx, new)
-	return args.Error(0)
-}
-
-type mockPackageRevision struct {
-	mock.Mock
-}
-
-func (m *mockPackageRevision) Key() repository.PackageRevisionKey {
-	args := m.Called()
-	return args.Get(0).(repository.PackageRevisionKey)
-}
-
-func (m *mockPackageRevision) GetMeta() metav1.ObjectMeta {
-	args := m.Called()
-	return args.Get(0).(metav1.ObjectMeta)
-}
-
-func (m *mockPackageRevision) UpdateResources(ctx context.Context, new *api.PackageRevisionResources, task *api.Task) error {
-	args := m.Called(ctx, new, task)
-	return args.Error(0)
-}
-
-func (m *mockPackageRevision) UpdateLifecycle(ctx context.Context, new api.PackageRevisionLifecycle) error {
-	args := m.Called(ctx, new)
-	return args.Error(0)
-}
-
-func (m *mockPackageRevision) GetKptfile(ctx context.Context) (v1.KptFile, error) {
-	args := m.Called(ctx)
-	return args.Get(0).(v1.KptFile), args.Error(1)
-}
-
-func (m *mockPackageRevision) KubeObjectName() string {
-	args := m.Called()
-	return args.String(0)
-}
-
-func (m *mockPackageRevision) KubeObjectNamespace() string {
-	args := m.Called()
-	return args.String(0)
-}
-
-func (m *mockPackageRevision) UID() types.UID {
-	args := m.Called()
-	return args.Get(0).(types.UID)
-}
-
-func (m *mockPackageRevision) Lifecycle(ctx context.Context) api.PackageRevisionLifecycle {
-	args := m.Called(ctx)
-	return args.Get(0).(api.PackageRevisionLifecycle)
-}
-
-func (m *mockPackageRevision) GetPackageRevision(ctx context.Context) (*api.PackageRevision, error) {
-	args := m.Called(ctx)
-	return args.Get(0).(*api.PackageRevision), args.Error(1)
-}
-
-func (m *mockPackageRevision) GetResources(ctx context.Context) (*api.PackageRevisionResources, error) {
-	args := m.Called(ctx)
-	return args.Get(0).(*api.PackageRevisionResources), args.Error(1)
-}
-
-func (m *mockPackageRevision) GetUpstreamLock(ctx context.Context) (v1.Upstream, v1.UpstreamLock, error) {
-	args := m.Called(ctx)
-	return args.Get(0).(v1.Upstream), args.Get(1).(v1.UpstreamLock), args.Error(2)
-}
-
-func (m *mockPackageRevision) GetLock() (v1.Upstream, v1.UpstreamLock, error) {
-	args := m.Called()
-	return args.Get(0).(v1.Upstream), args.Get(1).(v1.UpstreamLock), args.Error(2)
-}
-
-func (m *mockPackageRevision) ResourceVersion() string {
-	args := m.Called()
-	return args.String(0)
-}
-
-func (m *mockPackageRevision) ToMainPackageRevision(ctx context.Context) repository.PackageRevision {
-	args := m.Called(ctx)
-	return args.Get(0).(repository.PackageRevision)
-}
-
-func (m *mockPackageRevision) SetMeta(ctx context.Context, meta metav1.ObjectMeta) error {
-	args := m.Called(ctx, meta)
-	return args.Error(0)
-}
-
 func TestCreatePackageRevisionRollback(t *testing.T) {
 	tests := []struct {
 		name          string
-		setupTest     func(*testFixture, *mockPackageRevision, *mockPackageRevisionDraft)
+		setupTest     func(*testFixture, *mockrepo.MockPackageRevision, *mockrepo.MockPackageRevisionDraft)
 		expectedError bool
 		errorContains string
 	}{
 		{
 			name: "rollback on task application failure",
-			setupTest: func(f *testFixture, mockPkgRev *mockPackageRevision, mockDraft *mockPackageRevisionDraft) {
+			setupTest: func(f *testFixture, mockPkgRev *mockrepo.MockPackageRevision, mockDraft *mockrepo.MockPackageRevisionDraft) {
 				mockDraft.On("UpdateResources", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 				mockDraft.On("UpdateLifecycle", mock.Anything, mock.Anything).Return(nil)
 
@@ -255,7 +142,7 @@ func TestCreatePackageRevisionRollback(t *testing.T) {
 		},
 		{
 			name: "rollback on lifecycle update failure",
-			setupTest: func(f *testFixture, mockPkgRev *mockPackageRevision, mockDraft *mockPackageRevisionDraft) {
+			setupTest: func(f *testFixture, mockPkgRev *mockrepo.MockPackageRevision, mockDraft *mockrepo.MockPackageRevisionDraft) {
 				mockDraft.On("UpdateResources", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 				mockDraft.On("UpdateLifecycle", mock.Anything, mock.Anything).Return(fmt.Errorf("lifecycle update failed"))
 
@@ -273,7 +160,7 @@ func TestCreatePackageRevisionRollback(t *testing.T) {
 		},
 		{
 			name: "rollback on close draft failure",
-			setupTest: func(f *testFixture, mockPkgRev *mockPackageRevision, mockDraft *mockPackageRevisionDraft) {
+			setupTest: func(f *testFixture, mockPkgRev *mockrepo.MockPackageRevision, mockDraft *mockrepo.MockPackageRevisionDraft) {
 				mockDraft.On("UpdateResources", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 				mockDraft.On("UpdateLifecycle", mock.Anything, mock.Anything).Return(nil)
 
@@ -294,7 +181,7 @@ func TestCreatePackageRevisionRollback(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newTestFixture(t)
 			mockPkgRev := setupMockPackageRevision(t)
-			mockDraft := &mockPackageRevisionDraft{}
+			mockDraft := &mockrepo.MockPackageRevisionDraft{}
 			tt.setupTest(f, mockPkgRev, mockDraft)
 
 			_, err := f.engine.CreatePackageRevision(context.Background(), f.repositoryObj, f.packageRevision, nil)
@@ -319,19 +206,19 @@ type mockTaskHandler struct {
 	mock.Mock
 }
 
-func (m *mockTaskHandler) ApplyTask(ctx context.Context, draft repository.PackageRevisionDraft, repositoryObj *configapi.Repository, obj *api.PackageRevision, packageConfig *builtins.PackageConfig) error {
+func (m *mockTaskHandler) ApplyTask(ctx context.Context, draft repository.PackageRevisionDraft, repositoryObj *configapi.Repository, obj *porchapi.PackageRevision, packageConfig *builtins.PackageConfig) error {
 	args := m.Called(ctx, draft, repositoryObj, obj, packageConfig)
 	return args.Error(0)
 }
 
-func (m *mockTaskHandler) DoPRMutations(ctx context.Context, repoPr repository.PackageRevision, oldObj *api.PackageRevision, newObj *api.PackageRevision, draft repository.PackageRevisionDraft) error {
+func (m *mockTaskHandler) DoPRMutations(ctx context.Context, repoPr repository.PackageRevision, oldObj *porchapi.PackageRevision, newObj *porchapi.PackageRevision, draft repository.PackageRevisionDraft) error {
 	args := m.Called(ctx, repoPr, oldObj, newObj, draft)
 	return args.Error(0)
 }
 
-func (m *mockTaskHandler) DoPRResourceMutations(ctx context.Context, pr2Update repository.PackageRevision, draft repository.PackageRevisionDraft, oldRes *api.PackageRevisionResources, newRes *api.PackageRevisionResources) (*api.RenderStatus, error) {
+func (m *mockTaskHandler) DoPRResourceMutations(ctx context.Context, pr2Update repository.PackageRevision, draft repository.PackageRevisionDraft, oldRes *porchapi.PackageRevisionResources, newRes *porchapi.PackageRevisionResources) (*porchapi.RenderStatus, error) {
 	args := m.Called(ctx, pr2Update, draft, oldRes, newRes)
-	return args.Get(0).(*api.RenderStatus), args.Error(1)
+	return args.Get(0).(*porchapi.RenderStatus), args.Error(1)
 }
 
 func (m *mockTaskHandler) GetRuntime() fn.FunctionRuntime {

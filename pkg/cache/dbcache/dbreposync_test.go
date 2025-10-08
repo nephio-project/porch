@@ -15,44 +15,38 @@
 package dbcache
 
 import (
-	"context"
-	"testing"
 	"time"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
+	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	mockcachetypes "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-func TestDBRepoSync(t *testing.T) {
-	mockCache := mockcachetypes.NewMockCache(t)
+func (t *DbTestSuite) TestDBRepoSync() {
+	mockCache := mockcachetypes.NewMockCache(t.T())
 	cachetypes.CacheInstance = mockCache
 
 	externalrepo.ExternalRepoInUnitTestMode = true
 
-	ctx := context.TODO()
+	ctx := t.Context()
 
-	testRepo := createTestRepo(t, "my-ns", "my-repo-name")
-	testRepo.spec = &configapi.Repository{
-		Spec: configapi.RepositorySpec{},
-	}
-	mockCache.EXPECT().GetRepository(mock.Anything).Return(&testRepo).Maybe()
+	testRepo := t.createTestRepo("my-ns", "my-repo-name")
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
 
 	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
-	assert.Nil(t, err)
+	t.Require().NoError(err)
 
 	cacheOptions := cachetypes.CacheOptions{
 		RepoSyncFrequency: 1 * time.Second,
 	}
 
-	testRepo.repositorySync = newRepositorySync(&testRepo, cacheOptions)
+	testRepo.repositorySync = newRepositorySync(testRepo, cacheOptions)
 
 	newPRDef := v1alpha1.PackageRevision{
 		Spec: v1alpha1.PackageRevisionSpec{
@@ -63,31 +57,31 @@ func TestDBRepoSync(t *testing.T) {
 		},
 	}
 	dbPRDraft, err := testRepo.CreatePackageRevisionDraft(ctx, &newPRDef)
-	assert.Nil(t, err)
-	assert.NotNil(t, dbPRDraft)
+	t.Require().NoError(err)
+	t.Require().NotNil(dbPRDraft)
 
 	dbPR, err := testRepo.ClosePackageRevisionDraft(ctx, dbPRDraft, 0)
-	assert.Nil(t, err)
+	t.Require().NoError(err)
 
 	err = dbPR.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleProposed)
-	assert.Nil(t, err)
+	t.Require().NoError(err)
 
 	dbPR, err = testRepo.ClosePackageRevisionDraft(ctx, dbPR.(repository.PackageRevisionDraft), 0)
-	assert.Nil(t, err)
-	assert.NotNil(t, dbPR)
+	t.Require().NoError(err)
+	t.Require().NotNil(dbPR)
 
 	err = dbPR.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
-	assert.Nil(t, err)
+	t.Require().NoError(err)
 
 	dbPR, err = testRepo.ClosePackageRevisionDraft(ctx, dbPR.(repository.PackageRevisionDraft), 0)
-	assert.Nil(t, err)
-	assert.NotNil(t, dbPR)
+	t.Require().NoError(err)
+	t.Require().NotNil(dbPR)
 
 	time.Sleep(2 * time.Second)
 
 	prList, err := testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
-	assert.Nil(t, err)
-	assert.Equal(t, 0, len(prList)) // Sync should have deleted the cached PR that is not in the external repo
+	t.Require().NoError(err)
+	t.Equal(0, len(prList)) // Sync should have deleted the cached PR that is not in the external repo
 
 	// Add the PR to the external repo
 	fakeRepo := testRepo.externalRepo.(*fake.Repository)
@@ -95,25 +89,29 @@ func TestDBRepoSync(t *testing.T) {
 		PrKey:           dbPR.Key(),
 		PackageRevision: &newPRDef,
 		Resources:       &v1alpha1.PackageRevisionResources{},
+		Kptfile: v1.KptFile{
+			Upstream:     &v1.Upstream{},
+			UpstreamLock: &v1.UpstreamLock{},
+		},
 	}
 	fakeRepo.PackageRevisions = append(fakeRepo.PackageRevisions, &fakeExtPR)
 
 	time.Sleep(2 * time.Second)
 
 	prList, err = testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
-	assert.Nil(t, err)
-	assert.Equal(t, 0, len(prList)) // The version of the external repo has not changed
+	t.Require().NoError(err)
+	t.Equal(0, len(prList)) // The version of the external repo has not changed
 
 	fakeRepo.CurrentVersion = "bar"
 
 	time.Sleep(2 * time.Second)
 
 	prList, err = testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
-	assert.Nil(t, err)
-	assert.Equal(t, 1, len(prList)) // Sync should have added a cached PR that is in the external repo
+	t.Require().NoError(err)
+	t.Equal(1, len(prList)) // Sync should have added a cached PR that is in the external repo
 
-	testRepo.repositorySync.stop()
+	testRepo.repositorySync.Stop()
 
 	err = testRepo.Close(ctx)
-	assert.Nil(t, err)
+	t.Require().NoError(err)
 }

@@ -84,6 +84,7 @@ func TestCachedRepoRefresh(t *testing.T) {
 		metadataStore:    mockMeta,
 		isLatestRevision: false,
 	}
+	assert.False(t, cr.cachedPackageRevisions[prKey].IsLatestRevision())
 
 	err := cr.Refresh(context.TODO())
 	assert.True(t, err == nil)

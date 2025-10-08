@@ -12,20 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/*
-Package dbcache implements a database cache for Porch.
-*/
+// Package dbcache implements a database cache for Porch.
 package dbcache
 
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo"
 	"github.com/nephio-project/porch/pkg/repository"
+	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 
@@ -38,6 +38,7 @@ var _ cachetypes.Cache = &dbCache{}
 
 type dbCache struct {
 	repositories map[repository.RepositoryKey]*dbRepository
+	mainLock     *sync.RWMutex
 	options      cachetypes.CacheOptions
 }
 
@@ -50,17 +51,21 @@ func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.
 		return nil, err
 	}
 
+	c.mainLock.RLock()
 	if dbRepo, ok := c.repositories[repoKey]; ok {
+		c.mainLock.RUnlock()
 		return dbRepo, nil
 	}
+	c.mainLock.RUnlock()
 
 	dbRepo := &dbRepository{
-		repoKey:    repoKey,
-		meta:       repositorySpec.ObjectMeta,
-		spec:       repositorySpec,
-		updated:    time.Now(),
-		updatedBy:  getCurrentUser(),
-		deployment: repositorySpec.Spec.Deployment,
+		repoKey:              repoKey,
+		meta:                 repositorySpec.ObjectMeta,
+		spec:                 repositorySpec,
+		updated:              time.Now(),
+		updatedBy:            getCurrentUser(),
+		deployment:           repositorySpec.Spec.Deployment,
+		repoPRChangeNotifier: c.options.RepoPRChangeNotifier,
 	}
 
 	err = dbRepo.OpenRepository(ctx, c.options.ExternalRepoOptions)
@@ -68,7 +73,9 @@ func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.
 		return nil, err
 	}
 
+	c.mainLock.Lock()
 	c.repositories[repoKey] = dbRepo
+	c.mainLock.Unlock()
 
 	dbRepo.repositorySync = newRepositorySync(dbRepo, c.options)
 
@@ -84,7 +91,9 @@ func (c *dbCache) UpdateRepository(ctx context.Context, repositorySpec *configap
 		return err
 	}
 
+	c.mainLock.RLock()
 	dbRepo, ok := c.repositories[repoKey]
+	c.mainLock.RUnlock()
 	if !ok {
 		return fmt.Errorf("dbcache.UpdateRepository: repo %+v not found", repoKey)
 	}
@@ -101,19 +110,32 @@ func (c *dbCache) CloseRepository(ctx context.Context, repositorySpec *configapi
 		return err
 	}
 
-	defer delete(c.repositories, repoKey)
-
+	c.mainLock.RLock()
 	dbRepo, ok := c.repositories[repoKey]
+	c.mainLock.RUnlock()
 	if !ok {
-		return fmt.Errorf("dbcache.CloseRepository: repo %+v not found", repoKey)
+		return pkgerrors.Errorf("dbcache.CloseRepository: repo %+v not found", repoKey)
 	}
 
-	return dbRepo.Close(ctx)
+	// TODO: should we still delete if close fails?
+	defer func() {
+		c.mainLock.Lock()
+		delete(c.repositories, repoKey)
+		c.mainLock.Unlock()
+	}()
+
+	if err := dbRepo.Close(ctx); err != nil {
+		return pkgerrors.Wrapf(err, "failed to close db repository %+v", repoKey)
+	}
+
+	return nil
 }
 
 func (c *dbCache) GetRepositories() []*configapi.Repository {
 	var repositories []*configapi.Repository
 
+	c.mainLock.RLock()
+	defer c.mainLock.RUnlock()
 	for _, repo := range c.repositories {
 		repositories = append(repositories, repo.spec)
 	}
@@ -122,5 +144,7 @@ func (c *dbCache) GetRepositories() []*configapi.Repository {
 }
 
 func (c *dbCache) GetRepository(repoKey repository.RepositoryKey) repository.Repository {
+	c.mainLock.RLock()
+	defer c.mainLock.RUnlock()
 	return c.repositories[repoKey]
 }

@@ -15,10 +15,8 @@
 package dbcache
 
 import (
-	"context"
 	"errors"
 	"strings"
-	"testing"
 	"time"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -30,12 +28,11 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 	mocksql "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/dbcache"
 	mockcachetypes "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func TestDBRepository(t *testing.T) {
+func (t *DbTestSuite) TestDBRepository() {
 	shellRepo := dbRepository{
 		repoKey: repository.RepositoryKey{
 			Namespace: "my-ns",
@@ -43,36 +40,33 @@ func TestDBRepository(t *testing.T) {
 		},
 	}
 
-	assert.Equal(t, "my-ns", shellRepo.KubeObjectNamespace())
-	assert.Equal(t, "my-repo-name", shellRepo.KubeObjectName())
-	assert.Equal(t, types.UID("82d3ab92-4a01-5679-8c52-b1c3daf6f016"), shellRepo.UID())
-	assert.Equal(t, repository.RepositoryKey{Namespace: "my-ns", Name: "my-repo-name"}, shellRepo.Key())
+	t.Equal("my-ns", shellRepo.KubeObjectNamespace())
+	t.Equal("my-repo-name", shellRepo.KubeObjectName())
+	t.Equal(types.UID("82d3ab92-4a01-5679-8c52-b1c3daf6f016"), shellRepo.UID())
+	t.Equal(repository.RepositoryKey{Namespace: "my-ns", Name: "my-repo-name"}, shellRepo.Key())
 }
 
-func TestDBRepositoryPRCrud(t *testing.T) {
-	mockCache := mockcachetypes.NewMockCache(t)
+func (t *DbTestSuite) TestDBRepositoryPRCrud() {
+	mockCache := mockcachetypes.NewMockCache(t.T())
 	cachetypes.CacheInstance = mockCache
 
 	externalrepo.ExternalRepoInUnitTestMode = true
 
-	ctx := context.TODO()
+	ctx := t.Context()
 
-	testRepo := createTestRepo(t, "my-ns", "my-repo-name")
-	testRepo.spec = &configapi.Repository{
-		Spec: configapi.RepositorySpec{},
-	}
-	mockCache.EXPECT().GetRepository(mock.Anything).Return(&testRepo).Maybe()
+	testRepo := t.createTestRepo("my-ns", "my-repo-name")
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
 
 	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
-	assert.Nil(t, err)
+	t.Require().NoError(err)
 
-	version, err := testRepo.Version(context.TODO())
-	assert.Nil(t, err)
-	assert.Equal(t, "", version)
+	version, err := testRepo.Version(t.Context())
+	t.Require().NoError(err)
+	t.Equal("", version)
 
 	pkgList, err := testRepo.ListPackages(ctx, repository.ListPackageFilter{})
-	assert.Nil(t, err)
-	assert.Equal(t, 0, len(pkgList))
+	t.Require().NoError(err)
+	t.Equal(0, len(pkgList))
 
 	newPkgDef := v1alpha1.PorchPackage{
 		Spec: v1alpha1.PackageSpec{
@@ -82,18 +76,18 @@ func TestDBRepositoryPRCrud(t *testing.T) {
 	}
 
 	newPkg, err := testRepo.CreatePackage(ctx, &newPkgDef)
-	assert.Nil(t, err)
-	assert.NotNil(t, newPkg)
+	t.Require().NoError(err)
+	t.Require().NotNil(newPkg)
 
 	pkgDef := newPkg.GetPackage(ctx)
-	assert.NotNil(t, pkgDef)
+	t.Require().NotNil(pkgDef)
 
 	err = testRepo.DeletePackage(ctx, newPkg)
-	assert.Nil(t, err)
+	t.Require().NoError(err)
 
 	prList, err := testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
-	assert.Nil(t, err)
-	assert.Equal(t, 0, len(prList))
+	t.Require().NoError(err)
+	t.Equal(0, len(prList))
 
 	newPRDef := v1alpha1.PackageRevision{
 		Spec: v1alpha1.PackageRevisionSpec{
@@ -103,39 +97,39 @@ func TestDBRepositoryPRCrud(t *testing.T) {
 		},
 	}
 	newPRDraft, err := testRepo.CreatePackageRevisionDraft(ctx, &newPRDef)
-	assert.Nil(t, err)
-	assert.NotNil(t, newPRDraft)
+	t.Require().NoError(err)
+	t.Require().NotNil(newPRDraft)
 
 	newPR, err := testRepo.ClosePackageRevisionDraft(ctx, newPRDraft, -1)
-	assert.Nil(t, err)
-	assert.NotNil(t, newPR)
+	t.Require().NoError(err)
+	t.Require().NotNil(newPR)
 
 	updatedPRDraft, err := testRepo.UpdatePackageRevision(ctx, newPR)
-	assert.Nil(t, err)
-	assert.NotNil(t, updatedPRDraft)
+	t.Require().NoError(err)
+	t.Require().NotNil(updatedPRDraft)
 
 	err = updatedPRDraft.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleProposed)
-	assert.Nil(t, err)
+	t.Require().NoError(err)
 
 	updatedPR, err := testRepo.ClosePackageRevisionDraft(ctx, updatedPRDraft, -1)
-	assert.Nil(t, err)
-	assert.NotNil(t, updatedPR)
+	t.Require().NoError(err)
+	t.Require().NotNil(updatedPR)
 
 	updatedPRDraft, err = testRepo.UpdatePackageRevision(ctx, newPR)
-	assert.Nil(t, err)
-	assert.NotNil(t, updatedPRDraft)
+	t.Require().NoError(err)
+	t.Require().NotNil(updatedPRDraft)
 
 	err = updatedPRDraft.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
-	assert.Nil(t, err)
+	t.Require().NoError(err)
 
 	prMeta := updatedPR.GetMeta()
 	prMeta.Finalizers = []string{"a-finalizer"}
 	err = updatedPR.SetMeta(ctx, prMeta)
-	assert.Nil(t, err)
+	t.Require().NoError(err)
 
 	updatedPR, err = testRepo.ClosePackageRevisionDraft(ctx, updatedPRDraft, -1)
-	assert.Nil(t, err)
-	assert.NotNil(t, updatedPR)
+	t.Require().NoError(err)
+	t.Require().NotNil(updatedPR)
 
 	fakeRepo := testRepo.externalRepo.(*fake.Repository)
 	fakeExtPR := fake.FakePackageRevision{
@@ -144,53 +138,52 @@ func TestDBRepositoryPRCrud(t *testing.T) {
 	fakeRepo.PackageRevisions = append(fakeRepo.PackageRevisions, &fakeExtPR)
 
 	err = testRepo.DeletePackageRevision(ctx, updatedPR)
-	assert.Nil(t, err)
+	t.Require().NoError(err)
 
 	prMeta = updatedPR.GetMeta()
 	prMeta.Finalizers = nil
 	err = updatedPR.SetMeta(ctx, prMeta)
-	assert.Nil(t, err)
+	t.Require().NoError(err)
 
 	err = testRepo.DeletePackageRevision(ctx, updatedPR)
-	assert.Nil(t, err)
+	t.Require().NoError(err)
 
 	err = testRepo.Close(ctx)
-	assert.Nil(t, err)
+	t.Require().NoError(err)
 }
 
-func TestDBRepositorySync(t *testing.T) {
-	mockCache := mockcachetypes.NewMockCache(t)
+func (t *DbTestSuite) TestDBRepositorySync() {
+	mockCache := mockcachetypes.NewMockCache(t.T())
 	cachetypes.CacheInstance = mockCache
 
 	externalrepo.ExternalRepoInUnitTestMode = true
 
-	ctx := context.TODO()
+	ctx := t.Context()
 
-	testRepo := createTestRepo(t, "my-ns", "my-repo-name")
+	testRepo := t.createTestRepo("my-ns", "my-repo-name")
 	testRepo.spec = &configapi.Repository{
 		Spec: configapi.RepositorySpec{},
 	}
-	mockCache.EXPECT().GetRepository(mock.Anything).Return(&testRepo).Maybe()
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
 
 	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
-	assert.Nil(t, err)
+	t.Require().NoError(err)
 
 	cacheOptions := cachetypes.CacheOptions{
 		RepoSyncFrequency: 2 * time.Second,
 	}
 
-	testRepo.repositorySync = newRepositorySync(&testRepo, cacheOptions)
-	assert.NotNil(t, testRepo.repositorySync)
+	testRepo.repositorySync = newRepositorySync(testRepo, cacheOptions)
 
 	err = testRepo.Refresh(ctx)
-	assert.True(t, err == nil || strings.Contains(err.Error(), "already in progress"))
+	t.Require().True(err == nil || strings.Contains(err.Error(), "already in progress"))
 
 	err = testRepo.Close(ctx)
-	assert.Nil(t, err)
+	t.Require().NoError(err)
 }
 
-func TestDBRepositorCorner(t *testing.T) {
-	switchToMockSQL(t)
+func (t *DbTestSuite) TestDBRepositorCorner() {
+	t.switchToMockSQL()
 
 	mockSQL := dbHandler.db.(*mocksql.MockdbSQLInterface)
 	mockSQL.EXPECT().Exec(
@@ -207,12 +200,12 @@ func TestDBRepositorCorner(t *testing.T) {
 
 	mockSQL.EXPECT().Close().Return(errors.New("DB close failed")).Maybe()
 
-	mockCache := mockcachetypes.NewMockCache(t)
+	mockCache := mockcachetypes.NewMockCache(t.T())
 	cachetypes.CacheInstance = mockCache
 
 	externalrepo.ExternalRepoInUnitTestMode = true
 
-	ctx := context.TODO()
+	ctx := t.Context()
 
 	dbRepo := dbRepository{
 		repoKey: repository.RepositoryKey{
@@ -221,7 +214,7 @@ func TestDBRepositorCorner(t *testing.T) {
 		},
 	}
 	err := repoWriteToDB(ctx, &dbRepo)
-	assert.NotNil(t, err)
+	t.Require().NotNil(err)
 
-	revertToPostgreSQL(t)
+	t.revertToPostgreSQL()
 }

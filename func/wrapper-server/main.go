@@ -124,7 +124,7 @@ func (e *singleFunctionEvaluator) EvaluateFunction(ctx context.Context, req *pb.
 	var stdout, stderr bytes.Buffer
 	ctx, span := tracer.Start(ctx, "EvaluateFunction")
 	defer span.End()
-	cmd := exec.CommandContext(ctx, e.entrypoint[0], e.entrypoint[1:]...)
+	cmd := exec.CommandContext(ctx, e.entrypoint[0], e.entrypoint[1:]...) // #nosec G204 -- variables controlled internally
 	cmd.Stdin = bytes.NewReader(req.ResourceList)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -150,7 +150,8 @@ func (e *singleFunctionEvaluator) EvaluateFunction(ctx context.Context, req *pb.
 		}
 	}
 
-	klog.Infof("Evaluated %q: stdout length: %d\nstderr:\n%v", req.Image, len(outbytes), stderrStr)
+	klog.Infof("Evaluated %q: stdout length in bytes: %d", req.Image, len(outbytes))
+
 	rl, pErr := fn.ParseResourceList(outbytes)
 	if pErr != nil {
 		klog.V(4).Infof("Input Resource List: %s\nOutput Resource List: %s", req.ResourceList, outbytes)

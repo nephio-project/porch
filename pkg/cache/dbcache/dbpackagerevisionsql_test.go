@@ -15,23 +15,19 @@
 package dbcache
 
 import (
-	"context"
 	"database/sql"
-	"strings"
-	"testing"
 	"time"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	mockcachetypes "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestPackageRevisionDBWriteRead(t *testing.T) {
-	mockCache := mockcachetypes.NewMockCache(t)
+func (t *DbTestSuite) TestPackageRevisionDBWriteRead() {
+	mockCache := mockcachetypes.NewMockCache(t.T())
 	cachetypes.CacheInstance = mockCache
 	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{})
 
@@ -89,7 +85,7 @@ func TestPackageRevisionDBWriteRead(t *testing.T) {
 		resources: map[string]string{"Hello.txt": "Hello", "Goodbye.txt": "Goodbye"},
 	}
 
-	pkgRevDBWriteReadTest(t, dbRepo, dbPkg, dbPR, dbPRUpdate)
+	t.pkgRevDBWriteReadTest(&dbRepo, dbPkg, dbPR, dbPRUpdate)
 
 	dbPkg.pkgKey.Path = ""
 	dbPR.pkgRevKey.PkgKey = dbPkg.Key()
@@ -98,27 +94,27 @@ func TestPackageRevisionDBWriteRead(t *testing.T) {
 	dbPRUpdate.lifecycle = "Proposed"
 	dbPR.resources = map[string]string{"Hello.txt": "Hello", "Goodbye.txt": "Goodbye"}
 	dbPRUpdate.resources = map[string]string{"Hello.txt": "Hello"}
-	pkgRevDBWriteReadTest(t, dbRepo, dbPkg, dbPR, dbPRUpdate)
+	t.pkgRevDBWriteReadTest(&dbRepo, dbPkg, dbPR, dbPRUpdate)
 
 	dbPRUpdate.lifecycle = "Draft"
 	dbPR.resources = map[string]string{"Hello.txt": "Hello", "Goodbye.txt": "Goodbye"}
 	dbPRUpdate.resources = map[string]string{"AAA": "ZZZ", "BBB": "YYY"}
-	pkgRevDBWriteReadTest(t, dbRepo, dbPkg, dbPR, dbPRUpdate)
+	t.pkgRevDBWriteReadTest(&dbRepo, dbPkg, dbPR, dbPRUpdate)
 
 	dbPRUpdate.lifecycle = "Draft"
 	dbPR.resources = map[string]string{"Hello.txt": "Hello", "Goodbye.txt": "Goodbye"}
 	dbPRUpdate.resources = map[string]string{}
-	pkgRevDBWriteReadTest(t, dbRepo, dbPkg, dbPR, dbPRUpdate)
+	t.pkgRevDBWriteReadTest(&dbRepo, dbPkg, dbPR, dbPRUpdate)
 }
 
-func TestPackageRevisionLatest(t *testing.T) {
-	mockCache := mockcachetypes.NewMockCache(t)
+func (t *DbTestSuite) TestPackageRevisionLatest() {
+	mockCache := mockcachetypes.NewMockCache(t.T())
 	cachetypes.CacheInstance = mockCache
 	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{})
 
-	dbRepo := createTestRepo(t, "my-ns", "my-repo")
-	dbPkg := createTestPkg(t, dbRepo.Key(), "my-package")
-	dbPkg.repo = &dbRepo
+	dbRepo := t.createTestRepo("my-ns", "my-repo")
+	dbPkg := t.createTestPkg(dbRepo.Key(), "my-package")
+	dbPkg.repo = dbRepo
 
 	dbPR1 := dbPackageRevision{
 		pkgRevKey: repository.PackageRevisionKey{
@@ -134,36 +130,36 @@ func TestPackageRevisionLatest(t *testing.T) {
 		resources: map[string]string{},
 	}
 
-	latestPR, err := pkgRevReadLatestPRFromDB(context.TODO(), dbPR1.pkgRevKey.PkgKey)
-	assert.Nil(t, err)
-	assert.Nil(t, latestPR)
+	latestPR, err := pkgRevReadLatestPRFromDB(t.Context(), dbPR1.pkgRevKey.PkgKey)
+	t.Require().NoError(err)
+	t.Require().Nil(latestPR)
 
-	err = pkgRevWriteToDB(context.TODO(), &dbPR1)
-	assert.Nil(t, err)
+	err = pkgRevWriteToDB(t.Context(), &dbPR1)
+	t.Require().NoError(err)
 
 	// Latest PR is only set on published PRs
-	latestPR, err = pkgRevReadLatestPRFromDB(context.TODO(), dbPR1.pkgRevKey.PkgKey)
-	assert.Nil(t, err)
-	assert.Nil(t, latestPR)
+	latestPR, err = pkgRevReadLatestPRFromDB(t.Context(), dbPR1.pkgRevKey.PkgKey)
+	t.Require().NoError(err)
+	t.Require().Nil(latestPR)
 
 	dbPR1.lifecycle = "Proposed"
-	err = pkgRevUpdateDB(context.TODO(), &dbPR1, true)
-	assert.Nil(t, err)
+	err = pkgRevUpdateDB(t.Context(), &dbPR1, true)
+	t.Require().NoError(err)
 
 	dbPR1.pkgRevKey.Revision = 1
 	dbPR1.lifecycle = "Published"
-	err = pkgRevUpdateDB(context.TODO(), &dbPR1, true)
-	assert.Nil(t, err)
+	err = pkgRevUpdateDB(t.Context(), &dbPR1, true)
+	t.Require().NoError(err)
 
-	latestPR, err = pkgRevReadLatestPRFromDB(context.TODO(), dbPR1.pkgRevKey.PkgKey)
-	assert.Nil(t, err)
-	assert.Equal(t, 1, latestPR.pkgRevKey.Revision)
+	latestPR, err = pkgRevReadLatestPRFromDB(t.Context(), dbPR1.pkgRevKey.PkgKey)
+	t.Require().NoError(err)
+	t.Equal(1, latestPR.pkgRevKey.Revision)
 
-	resources, err := pkgRevResourcesReadFromDB(context.TODO(), latestPR.Key())
-	assert.Nil(t, err)
+	resources, err := pkgRevResourcesReadFromDB(t.Context(), latestPR.Key())
+	t.Require().NoError(err)
 
 	latestPR.resources = resources
-	assertPackageRevsEqual(t, &dbPR1, latestPR)
+	t.assertPackageRevsEqual(&dbPR1, latestPR)
 
 	dbPR2 := dbPackageRevision{
 		pkgRevKey: repository.PackageRevisionKey{
@@ -179,12 +175,12 @@ func TestPackageRevisionLatest(t *testing.T) {
 		resources: map[string]string{},
 	}
 
-	err = pkgRevWriteToDB(context.TODO(), &dbPR2)
-	assert.Nil(t, err)
+	err = pkgRevWriteToDB(t.Context(), &dbPR2)
+	t.Require().NoError(err)
 
-	latestPR, err = pkgRevReadLatestPRFromDB(context.TODO(), dbPR1.pkgRevKey.PkgKey)
-	assert.Nil(t, err)
-	assert.Equal(t, 1, latestPR.pkgRevKey.Revision)
+	latestPR, err = pkgRevReadLatestPRFromDB(t.Context(), dbPR1.pkgRevKey.PkgKey)
+	t.Require().NoError(err)
+	t.Equal(1, latestPR.pkgRevKey.Revision)
 
 	dbPR3 := dbPackageRevision{
 		pkgRevKey: repository.PackageRevisionKey{
@@ -200,12 +196,12 @@ func TestPackageRevisionLatest(t *testing.T) {
 		resources: map[string]string{},
 	}
 
-	err = pkgRevWriteToDB(context.TODO(), &dbPR3)
-	assert.Nil(t, err)
+	err = pkgRevWriteToDB(t.Context(), &dbPR3)
+	t.Require().NoError(err)
 
-	latestPR, err = pkgRevReadLatestPRFromDB(context.TODO(), dbPR1.pkgRevKey.PkgKey)
-	assert.Nil(t, err)
-	assert.Equal(t, 10, latestPR.pkgRevKey.Revision)
+	latestPR, err = pkgRevReadLatestPRFromDB(t.Context(), dbPR1.pkgRevKey.PkgKey)
+	t.Require().NoError(err)
+	t.Equal(10, latestPR.pkgRevKey.Revision)
 
 	dbPR4 := dbPackageRevision{
 		pkgRevKey: repository.PackageRevisionKey{
@@ -221,100 +217,94 @@ func TestPackageRevisionLatest(t *testing.T) {
 		resources: map[string]string{},
 	}
 
-	err = pkgRevWriteToDB(context.TODO(), &dbPR4)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "revision 10 already exists"))
+	err = pkgRevWriteToDB(t.Context(), &dbPR4)
+	t.Require().ErrorContains(err, "revision 10 already exists")
 
-	latestPR, err = pkgRevReadLatestPRFromDB(context.TODO(), dbPR1.pkgRevKey.PkgKey)
-	assert.Nil(t, err)
-	assert.Equal(t, 10, latestPR.pkgRevKey.Revision)
+	latestPR, err = pkgRevReadLatestPRFromDB(t.Context(), dbPR1.pkgRevKey.PkgKey)
+	t.Require().NoError(err)
+	t.Equal(10, latestPR.pkgRevKey.Revision)
 
 	dbPR4.pkgRevKey.Revision = 11
-	err = pkgRevWriteToDB(context.TODO(), &dbPR4)
-	assert.Nil(t, err)
+	err = pkgRevWriteToDB(t.Context(), &dbPR4)
+	t.Require().NoError(err)
 
-	latestPR, err = pkgRevReadLatestPRFromDB(context.TODO(), dbPR1.pkgRevKey.PkgKey)
-	assert.Nil(t, err)
-	assert.Equal(t, 11, latestPR.pkgRevKey.Revision)
+	latestPR, err = pkgRevReadLatestPRFromDB(t.Context(), dbPR1.pkgRevKey.PkgKey)
+	t.Require().NoError(err)
+	t.Equal(11, latestPR.pkgRevKey.Revision)
 
-	err = repoDeleteFromDB(context.TODO(), dbRepo.Key())
-	assert.Nil(t, err)
+	err = repoDeleteFromDB(t.Context(), dbRepo.Key())
+	t.Require().NoError(err)
 }
 
-func TestPackageRevisionResources(t *testing.T) {
-	dbRepo := createTestRepo(t, "my-ns", "my-repo")
-	dbPkg := createTestPkg(t, dbRepo.Key(), "my-package")
-	dbPkg.repo = &dbRepo
+func (t *DbTestSuite) TestPackageRevisionResources() {
+	dbRepo := t.createTestRepo("my-ns", "my-repo")
+	dbPkg := t.createTestPkg(dbRepo.Key(), "my-package")
+	dbPkg.repo = dbRepo
 
-	_, _, err := pkgRevResourceReadFromDB(context.TODO(), repository.PackageRevisionKey{}, "")
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "no rows in result set"))
+	_, _, err := pkgRevResourceReadFromDB(t.Context(), repository.PackageRevisionKey{}, "")
+	t.Require().ErrorContains(err, "no rows in result set")
 
-	dbPR := createTestPR(t, dbPkg.Key(), "my_pr")
-	dbPR.repo = &dbRepo
+	dbPR := t.createTestPR(dbPkg.Key(), "my_pr")
+	dbPR.repo = dbRepo
 
-	_, _, err = pkgRevResourceReadFromDB(context.TODO(), dbPR.Key(), "resource.txt")
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "no rows in result set"))
+	_, _, err = pkgRevResourceReadFromDB(t.Context(), dbPR.Key(), "resource.txt")
+	t.Require().ErrorContains(err, "no rows in result set")
 
-	resKey, resVal, err := pkgRevResourceReadFromDB(context.TODO(), dbPR.Key(), "Hello.txt")
-	assert.Nil(t, err)
-	assert.Equal(t, "Hello.txt", resKey)
-	assert.Equal(t, "Hello", resVal)
+	resKey, resVal, err := pkgRevResourceReadFromDB(t.Context(), dbPR.Key(), "Hello.txt")
+	t.Require().NoError(err)
+	t.Equal("Hello.txt", resKey)
+	t.Equal("Hello", resVal)
 
-	resKey, resVal, err = pkgRevResourceReadFromDB(context.TODO(), dbPR.Key(), "Goodbye.txt")
-	assert.Nil(t, err)
-	assert.Equal(t, "Goodbye.txt", resKey)
-	assert.Equal(t, "Goodbye", resVal)
+	resKey, resVal, err = pkgRevResourceReadFromDB(t.Context(), dbPR.Key(), "Goodbye.txt")
+	t.Require().NoError(err)
+	t.Equal("Goodbye.txt", resKey)
+	t.Equal("Goodbye", resVal)
 
-	err = pkgRevResourceDeleteFromDB(context.TODO(), dbPR.Key(), "Goodbye.txt")
-	assert.Nil(t, err)
+	err = pkgRevResourceDeleteFromDB(t.Context(), dbPR.Key(), "Goodbye.txt")
+	t.Require().NoError(err)
 
-	err = pkgRevResourceDeleteFromDB(context.TODO(), dbPR.Key(), "Goodbye.txt")
-	assert.Nil(t, err)
+	err = pkgRevResourceDeleteFromDB(t.Context(), dbPR.Key(), "Goodbye.txt")
+	t.Require().NoError(err)
 
-	_, _, err = pkgRevResourceReadFromDB(context.TODO(), dbPR.Key(), "Goodbye.txt")
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "no rows in result set"))
+	_, _, err = pkgRevResourceReadFromDB(t.Context(), dbPR.Key(), "Goodbye.txt")
+	t.Require().ErrorContains(err, "no rows in result set")
 
-	err = pkgRevResourceWriteToDB(context.TODO(), dbPR.Key(), "Goodbye.txt", "So long")
-	assert.Nil(t, err)
+	err = pkgRevResourceWriteToDB(t.Context(), dbPR.Key(), "Goodbye.txt", "So long")
+	t.Require().NoError(err)
 
-	resKey, resVal, err = pkgRevResourceReadFromDB(context.TODO(), dbPR.Key(), "Goodbye.txt")
-	assert.Nil(t, err)
-	assert.Equal(t, "Goodbye.txt", resKey)
-	assert.Equal(t, "So long", resVal)
+	resKey, resVal, err = pkgRevResourceReadFromDB(t.Context(), dbPR.Key(), "Goodbye.txt")
+	t.Require().NoError(err)
+	t.Equal("Goodbye.txt", resKey)
+	t.Equal("So long", resVal)
 
-	err = pkgRevResourceWriteToDB(context.TODO(), dbPR.Key(), "Goodbye.txt", "See ya later")
-	assert.Nil(t, err)
+	err = pkgRevResourceWriteToDB(t.Context(), dbPR.Key(), "Goodbye.txt", "See ya later")
+	t.Require().NoError(err)
 
-	resKey, resVal, err = pkgRevResourceReadFromDB(context.TODO(), dbPR.Key(), "Goodbye.txt")
-	assert.Nil(t, err)
-	assert.Equal(t, "Goodbye.txt", resKey)
-	assert.Equal(t, "See ya later", resVal)
+	resKey, resVal, err = pkgRevResourceReadFromDB(t.Context(), dbPR.Key(), "Goodbye.txt")
+	t.Require().NoError(err)
+	t.Equal("Goodbye.txt", resKey)
+	t.Equal("See ya later", resVal)
 
-	err = pkgRevResourceWriteToDB(context.TODO(), dbPR.Key(), "Grand.txt", "Grand")
-	assert.Nil(t, err)
+	err = pkgRevResourceWriteToDB(t.Context(), dbPR.Key(), "Grand.txt", "Grand")
+	t.Require().NoError(err)
 
-	resKey, resVal, err = pkgRevResourceReadFromDB(context.TODO(), dbPR.Key(), "Grand.txt")
-	assert.Nil(t, err)
-	assert.Equal(t, "Grand.txt", resKey)
-	assert.Equal(t, "Grand", resVal)
+	resKey, resVal, err = pkgRevResourceReadFromDB(t.Context(), dbPR.Key(), "Grand.txt")
+	t.Require().NoError(err)
+	t.Equal("Grand.txt", resKey)
+	t.Equal("Grand", resVal)
 
 	dbPR.pkgRevKey.WorkspaceName = "bad"
-	err = pkgRevResourceWriteToDB(context.TODO(), dbPR.Key(), "Grand.txt", "Grand")
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "violates foreign key constraint"))
+	err = pkgRevResourceWriteToDB(t.Context(), dbPR.Key(), "Grand.txt", "Grand")
+	t.Require().ErrorContains(err, "violates foreign key constraint")
 
-	err = repoDeleteFromDB(context.TODO(), dbRepo.Key())
-	assert.Nil(t, err)
+	err = repoDeleteFromDB(t.Context(), dbRepo.Key())
+	t.Require().NoError(err)
 }
 
-func TestPackageRevisionDBSchema(t *testing.T) {
+func (t *DbTestSuite) TestPackageRevisionDBSchema() {
 	dbPR := dbPackageRevision{}
-	err := pkgRevWriteToDB(context.TODO(), &dbPR)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "revision value of 0 is only allowed on when lifecycle is Draft or Proposed"))
+	err := pkgRevWriteToDB(t.Context(), &dbPR)
+	t.Require().ErrorContains(err, "revision value of 0 is only allowed on when lifecycle is Draft or Proposed")
 
 	dbPR.pkgRevKey = repository.PackageRevisionKey{
 		PkgKey: repository.PackageKey{
@@ -324,40 +314,33 @@ func TestPackageRevisionDBSchema(t *testing.T) {
 		},
 	}
 
-	err = pkgRevWriteToDB(context.TODO(), &dbPR)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "revision value of 0 is only allowed on when lifecycle is Draft or Proposed"))
+	err = pkgRevWriteToDB(t.Context(), &dbPR)
+	t.Require().ErrorContains(err, "revision value of 0 is only allowed on when lifecycle is Draft or Proposed")
 
 	dbPR.lifecycle = v1alpha1.PackageRevisionLifecycleDraft
 	dbPR.pkgRevKey.PkgKey.RepoKey.Name = "my-repo"
-	err = pkgRevWriteToDB(context.TODO(), &dbPR)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
+	err = pkgRevWriteToDB(t.Context(), &dbPR)
+	t.Require().ErrorContains(err, "violates check constraint")
 
 	dbPR.pkgRevKey.PkgKey.Package = "my-package"
-	err = pkgRevWriteToDB(context.TODO(), &dbPR)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
+	err = pkgRevWriteToDB(t.Context(), &dbPR)
+	t.Require().ErrorContains(err, "violates check constraint")
 
 	dbPR.pkgRevKey.WorkspaceName = "my-ws"
-	err = pkgRevWriteToDB(context.TODO(), &dbPR)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "violates foreign key constraint"))
+	err = pkgRevWriteToDB(t.Context(), &dbPR)
+	t.Require().ErrorContains(err, "violates foreign key constraint")
 
 	dbPR.lifecycle = ""
-	err = pkgRevWriteToDB(context.TODO(), &dbPR)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "revision value of 0 is only allowed on when lifecycle is Draft or Proposed"))
+	err = pkgRevWriteToDB(t.Context(), &dbPR)
+	t.Require().ErrorContains(err, "revision value of 0 is only allowed on when lifecycle is Draft or Proposed")
 
 	dbPR.lifecycle = "StoneDead"
-	err = pkgRevWriteToDB(context.TODO(), &dbPR)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "revision value of 0 is only allowed on when lifecycle is Draft or Proposed"))
+	err = pkgRevWriteToDB(t.Context(), &dbPR)
+	t.Require().ErrorContains(err, "revision value of 0 is only allowed on when lifecycle is Draft or Proposed")
 
 	dbPR.lifecycle = "Draft"
-	err = pkgRevWriteToDB(context.TODO(), &dbPR)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "violates foreign key constraint"))
+	err = pkgRevWriteToDB(t.Context(), &dbPR)
+	t.Require().ErrorContains(err, "violates foreign key constraint")
 
 	dbRepo := dbRepository{
 		repoKey: repository.RepositoryKey{
@@ -366,8 +349,8 @@ func TestPackageRevisionDBSchema(t *testing.T) {
 		},
 	}
 
-	err = repoWriteToDB(context.TODO(), &dbRepo)
-	assert.Nil(t, err)
+	err = repoWriteToDB(t.Context(), &dbRepo)
+	t.Require().NoError(err)
 
 	dbPkg := dbPackage{
 		pkgKey: repository.PackageKey{
@@ -376,232 +359,228 @@ func TestPackageRevisionDBSchema(t *testing.T) {
 		},
 	}
 
-	err = pkgWriteToDB(context.TODO(), &dbPkg)
-	assert.Nil(t, err)
+	err = pkgWriteToDB(t.Context(), &dbPkg)
+	t.Require().NoError(err)
 
-	err = pkgRevWriteToDB(context.TODO(), &dbPR)
-	assert.Nil(t, err)
+	err = pkgRevWriteToDB(t.Context(), &dbPR)
+	t.Require().NoError(err)
 
 	dbPR.pkgRevKey.WorkspaceName = "my-other-ws"
-	err = pkgRevUpdateDB(context.TODO(), &dbPR, true)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "no rows or multiple rows found for updating"))
+	err = pkgRevUpdateDB(t.Context(), &dbPR, true)
+	t.Require().ErrorContains(err, "no rows or multiple rows found for updating")
 
 	dbPR.pkgRevKey.WorkspaceName = "my-ws"
 	dbPR.updatedBy = "Marge"
-	err = pkgRevUpdateDB(context.TODO(), &dbPR, true)
-	assert.Nil(t, err)
+	err = pkgRevUpdateDB(t.Context(), &dbPR, true)
+	t.Require().NoError(err)
 
-	err = repoDeleteFromDB(context.TODO(), dbRepo.Key())
-	assert.Nil(t, err)
+	err = repoDeleteFromDB(t.Context(), dbRepo.Key())
+	t.Require().NoError(err)
 
-	_, err = pkgRevReadFromDB(context.TODO(), dbPR.Key(), false)
-	assert.NotNil(t, err)
-	assert.Equal(t, sql.ErrNoRows, err)
+	_, err = pkgRevReadFromDB(t.Context(), dbPR.Key(), false)
+	t.Require().NotNil(err)
+	t.Equal(sql.ErrNoRows, err)
 }
 
-func TestMultiPackageRevisionRepo(t *testing.T) {
-	mockCache := mockcachetypes.NewMockCache(t)
+func (t *DbTestSuite) TestMultiPackageRevisionRepo() {
+	mockCache := mockcachetypes.NewMockCache(t.T())
 	cachetypes.CacheInstance = mockCache
 	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{})
 
-	dbRepo11 := createTestRepo(t, "my-ns1", "my-repo1")
-	dbRepo12 := createTestRepo(t, "my-ns1", "my-repo2")
-	dbRepo21 := createTestRepo(t, "my-ns2", "my-repo1")
-	dbRepo22 := createTestRepo(t, "my-ns2", "my-repo2")
+	dbRepo11 := t.createTestRepo("my-ns1", "my-repo1")
+	dbRepo12 := t.createTestRepo("my-ns1", "my-repo2")
+	dbRepo21 := t.createTestRepo("my-ns2", "my-repo1")
+	dbRepo22 := t.createTestRepo("my-ns2", "my-repo2")
 
-	dbRepo11Pkgs := createTestPkgs(t, dbRepo11.Key(), "my-package", 4)
-	dbRepo12Pkgs := createTestPkgs(t, dbRepo12.Key(), "my-package", 4)
-	dbRepo21Pkgs := createTestPkgs(t, dbRepo21.Key(), "my-package", 4)
-	dbRepo22Pkgs := createTestPkgs(t, dbRepo22.Key(), "my-package", 4)
+	dbRepo11Pkgs := t.createTestPkgs(dbRepo11.Key(), "my-package", 4)
+	dbRepo12Pkgs := t.createTestPkgs(dbRepo12.Key(), "my-package", 4)
+	dbRepo21Pkgs := t.createTestPkgs(dbRepo21.Key(), "my-package", 4)
+	dbRepo22Pkgs := t.createTestPkgs(dbRepo22.Key(), "my-package", 4)
 
-	dbRepo11PkgsPRs := createTestPRs(t, dbRepo11Pkgs, "my-ws", 4)
-	dbRepo12PkgsPRs := createTestPRs(t, dbRepo12Pkgs, "my-ws", 4)
-	dbRepo21PkgsPRs := createTestPRs(t, dbRepo21Pkgs, "my-ws", 4)
-	dbRepo22PkgsPRs := createTestPRs(t, dbRepo22Pkgs, "my-ws", 4)
+	dbRepo11PkgsPRs := t.createTestPRs(dbRepo11Pkgs, "my-ws", 4)
+	dbRepo12PkgsPRs := t.createTestPRs(dbRepo12Pkgs, "my-ws", 4)
+	dbRepo21PkgsPRs := t.createTestPRs(dbRepo21Pkgs, "my-ws", 4)
+	dbRepo22PkgsPRs := t.createTestPRs(dbRepo22Pkgs, "my-ws", 4)
 
-	readRepo11PkgsPRs := readRepoPkgPRs(t, dbRepo11Pkgs)
-	readRepo12PkgsPRs := readRepoPkgPRs(t, dbRepo12Pkgs)
-	readRepo21PkgsPRs := readRepoPkgPRs(t, dbRepo21Pkgs)
-	readRepo22PkgsPRs := readRepoPkgPRs(t, dbRepo22Pkgs)
+	readRepo11PkgsPRs := t.readRepoPkgPRs(dbRepo11Pkgs)
+	readRepo12PkgsPRs := t.readRepoPkgPRs(dbRepo12Pkgs)
+	readRepo21PkgsPRs := t.readRepoPkgPRs(dbRepo21Pkgs)
+	readRepo22PkgsPRs := t.readRepoPkgPRs(dbRepo22Pkgs)
 
-	assertPackageRevListsEqual(t, dbRepo11PkgsPRs, readRepo11PkgsPRs, 16)
-	assertPackageRevListsEqual(t, dbRepo12PkgsPRs, readRepo12PkgsPRs, 16)
-	assertPackageRevListsEqual(t, dbRepo21PkgsPRs, readRepo21PkgsPRs, 16)
-	assertPackageRevListsEqual(t, dbRepo22PkgsPRs, readRepo22PkgsPRs, 16)
+	t.assertPackageRevListsEqual(dbRepo11PkgsPRs, readRepo11PkgsPRs, 16)
+	t.assertPackageRevListsEqual(dbRepo12PkgsPRs, readRepo12PkgsPRs, 16)
+	t.assertPackageRevListsEqual(dbRepo21PkgsPRs, readRepo21PkgsPRs, 16)
+	t.assertPackageRevListsEqual(dbRepo22PkgsPRs, readRepo22PkgsPRs, 16)
 
-	assertPackageRevLatestIs(t, 4, readRepo11PkgsPRs)
-	assertPackageRevLatestIs(t, 4, readRepo12PkgsPRs)
-	assertPackageRevLatestIs(t, 4, readRepo21PkgsPRs)
-	assertPackageRevLatestIs(t, 4, readRepo22PkgsPRs)
+	t.assertPackageRevLatestIs(4, readRepo11PkgsPRs)
+	t.assertPackageRevLatestIs(4, readRepo12PkgsPRs)
+	t.assertPackageRevLatestIs(4, readRepo21PkgsPRs)
+	t.assertPackageRevLatestIs(4, readRepo22PkgsPRs)
 
-	deleteTestRepo(t, dbRepo11.Key())
-	deleteTestRepo(t, dbRepo12.Key())
-	deleteTestRepo(t, dbRepo21.Key())
-	deleteTestRepo(t, dbRepo22.Key())
+	t.deleteTestRepo(dbRepo11.Key())
+	t.deleteTestRepo(dbRepo12.Key())
+	t.deleteTestRepo(dbRepo21.Key())
+	t.deleteTestRepo(dbRepo22.Key())
 
-	assert.Equal(t, 0, len(readRepoPkgPRs(t, dbRepo11Pkgs)))
-	assert.Equal(t, 0, len(readRepoPkgPRs(t, dbRepo12Pkgs)))
-	assert.Equal(t, 0, len(readRepoPkgPRs(t, dbRepo21Pkgs)))
-	assert.Equal(t, 0, len(readRepoPkgPRs(t, dbRepo22Pkgs)))
+	t.Empty(t.readRepoPkgPRs(dbRepo11Pkgs))
+	t.Empty(t.readRepoPkgPRs(dbRepo12Pkgs))
+	t.Empty(t.readRepoPkgPRs(dbRepo21Pkgs))
+	t.Empty(t.readRepoPkgPRs(dbRepo22Pkgs))
 }
 
-func TestPackageRevisionFilter(t *testing.T) {
-	mockCache := mockcachetypes.NewMockCache(t)
+func (t *DbTestSuite) TestPackageRevisionFilter() {
+	mockCache := mockcachetypes.NewMockCache(t.T())
 	cachetypes.CacheInstance = mockCache
 	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{})
 
-	dbRepo := createTestRepo(t, "my-ns", "my-repo")
+	dbRepo := t.createTestRepo("my-ns", "my-repo")
 
-	dbRepoPkgs := createTestPkgs(t, dbRepo.Key(), "my-package", 4)
+	dbRepoPkgs := t.createTestPkgs(dbRepo.Key(), "my-package", 4)
 
-	_ = createTestPRs(t, dbRepoPkgs, "my-ws", 4)
+	_ = t.createTestPRs(dbRepoPkgs, "my-ws", 4)
 
 	prFilter := repository.ListPackageRevisionFilter{}
-	listPRs, err := pkgRevListPRsFromDB(context.TODO(), prFilter)
-	assert.Nil(t, err)
-	assert.Equal(t, 16, len(listPRs))
+	listPRs, err := pkgRevListPRsFromDB(t.Context(), prFilter)
+	t.Require().NoError(err)
+	t.Equal(16, len(listPRs))
 
 	prFilter.Key.WorkspaceName = "my-ws-2"
-	listPRs, err = pkgRevListPRsFromDB(context.TODO(), prFilter)
-	assert.Nil(t, err)
-	assert.Equal(t, 4, len(listPRs))
+	listPRs, err = pkgRevListPRsFromDB(t.Context(), prFilter)
+	t.Require().NoError(err)
+	t.Equal(4, len(listPRs))
 
 	prFilter.Key.Revision = 3
-	listPRs, err = pkgRevListPRsFromDB(context.TODO(), prFilter)
-	assert.Nil(t, err)
-	assert.Equal(t, 4, len(listPRs))
+	listPRs, err = pkgRevListPRsFromDB(t.Context(), prFilter)
+	t.Require().NoError(err)
+	t.Equal(4, len(listPRs))
 
 	prFilter.Key.Revision = 1
-	listPRs, err = pkgRevListPRsFromDB(context.TODO(), prFilter)
-	assert.Nil(t, err)
-	assert.Equal(t, 0, len(listPRs))
+	listPRs, err = pkgRevListPRsFromDB(t.Context(), prFilter)
+	t.Require().NoError(err)
+	t.Equal(0, len(listPRs))
 
-	deleteTestRepo(t, dbRepo.Key())
+	t.deleteTestRepo(dbRepo.Key())
 
-	assert.Equal(t, 0, len(readRepoPkgPRs(t, dbRepoPkgs)))
+	t.Empty(t.readRepoPkgPRs(dbRepoPkgs))
 }
 
-func TestMultiPackageRevisionList(t *testing.T) {
-	mockCache := mockcachetypes.NewMockCache(t)
+func (t *DbTestSuite) TestMultiPackageRevisionList() {
+	mockCache := mockcachetypes.NewMockCache(t.T())
 	cachetypes.CacheInstance = mockCache
 	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{})
 
-	dbRepo11 := createTestRepo(t, "my-ns1", "my-repo1")
-	dbRepo12 := createTestRepo(t, "my-ns1", "my-repo2")
-	dbRepo21 := createTestRepo(t, "my-ns2", "my-repo1")
-	dbRepo22 := createTestRepo(t, "my-ns2", "my-repo2")
+	dbRepo11 := t.createTestRepo("my-ns1", "my-repo1")
+	dbRepo12 := t.createTestRepo("my-ns1", "my-repo2")
+	dbRepo21 := t.createTestRepo("my-ns2", "my-repo1")
+	dbRepo22 := t.createTestRepo("my-ns2", "my-repo2")
 
-	dbRepo11Pkgs := createTestPkgs(t, dbRepo11.Key(), "my-package", 4)
-	dbRepo12Pkgs := createTestPkgs(t, dbRepo12.Key(), "my-package", 4)
-	dbRepo21Pkgs := createTestPkgs(t, dbRepo21.Key(), "my-package", 4)
-	dbRepo22Pkgs := createTestPkgs(t, dbRepo22.Key(), "my-package", 4)
+	dbRepo11Pkgs := t.createTestPkgs(dbRepo11.Key(), "my-package", 4)
+	dbRepo12Pkgs := t.createTestPkgs(dbRepo12.Key(), "my-package", 4)
+	dbRepo21Pkgs := t.createTestPkgs(dbRepo21.Key(), "my-package", 4)
+	dbRepo22Pkgs := t.createTestPkgs(dbRepo22.Key(), "my-package", 4)
 
-	dbRepo11PkgsPRs := createTestPRs(t, dbRepo11Pkgs, "my-ws", 4)
-	dbRepo12PkgsPRs := createTestPRs(t, dbRepo12Pkgs, "my-ws", 4)
-	dbRepo21PkgsPRs := createTestPRs(t, dbRepo21Pkgs, "my-ws", 4)
-	dbRepo22PkgsPRs := createTestPRs(t, dbRepo22Pkgs, "my-ws", 4)
+	dbRepo11PkgsPRs := t.createTestPRs(dbRepo11Pkgs, "my-ws", 4)
+	dbRepo12PkgsPRs := t.createTestPRs(dbRepo12Pkgs, "my-ws", 4)
+	dbRepo21PkgsPRs := t.createTestPRs(dbRepo21Pkgs, "my-ws", 4)
+	dbRepo22PkgsPRs := t.createTestPRs(dbRepo22Pkgs, "my-ws", 4)
 
-	listRepo11PkgsPRs := listRepoPkgPRs(t, dbRepo11Pkgs)
-	listRepo12PkgsPRs := listRepoPkgPRs(t, dbRepo12Pkgs)
-	listRepo21PkgsPRs := listRepoPkgPRs(t, dbRepo21Pkgs)
-	listRepo22PkgsPRs := listRepoPkgPRs(t, dbRepo22Pkgs)
+	listRepo11PkgsPRs := t.listRepoPkgPRs(dbRepo11Pkgs)
+	listRepo12PkgsPRs := t.listRepoPkgPRs(dbRepo12Pkgs)
+	listRepo21PkgsPRs := t.listRepoPkgPRs(dbRepo21Pkgs)
+	listRepo22PkgsPRs := t.listRepoPkgPRs(dbRepo22Pkgs)
 
-	assertPackageRevListsEqual(t, dbRepo11PkgsPRs, listRepo11PkgsPRs, 16)
-	assertPackageRevListsEqual(t, dbRepo12PkgsPRs, listRepo12PkgsPRs, 16)
-	assertPackageRevListsEqual(t, dbRepo21PkgsPRs, listRepo21PkgsPRs, 16)
-	assertPackageRevListsEqual(t, dbRepo22PkgsPRs, listRepo22PkgsPRs, 16)
+	t.assertPackageRevListsEqual(dbRepo11PkgsPRs, listRepo11PkgsPRs, 16)
+	t.assertPackageRevListsEqual(dbRepo12PkgsPRs, listRepo12PkgsPRs, 16)
+	t.assertPackageRevListsEqual(dbRepo21PkgsPRs, listRepo21PkgsPRs, 16)
+	t.assertPackageRevListsEqual(dbRepo22PkgsPRs, listRepo22PkgsPRs, 16)
 
-	assertPackageRevLatestIs(t, 4, listRepo11PkgsPRs)
-	assertPackageRevLatestIs(t, 4, listRepo12PkgsPRs)
-	assertPackageRevLatestIs(t, 4, listRepo21PkgsPRs)
-	assertPackageRevLatestIs(t, 4, listRepo22PkgsPRs)
+	t.assertPackageRevLatestIs(4, listRepo11PkgsPRs)
+	t.assertPackageRevLatestIs(4, listRepo12PkgsPRs)
+	t.assertPackageRevLatestIs(4, listRepo21PkgsPRs)
+	t.assertPackageRevLatestIs(4, listRepo22PkgsPRs)
 
-	deleteTestRepo(t, dbRepo11.Key())
-	deleteTestRepo(t, dbRepo12.Key())
-	deleteTestRepo(t, dbRepo21.Key())
-	deleteTestRepo(t, dbRepo22.Key())
+	t.deleteTestRepo(dbRepo11.Key())
+	t.deleteTestRepo(dbRepo12.Key())
+	t.deleteTestRepo(dbRepo21.Key())
+	t.deleteTestRepo(dbRepo22.Key())
 
-	assert.Equal(t, 0, len(readRepoPkgPRs(t, dbRepo11Pkgs)))
-	assert.Equal(t, 0, len(readRepoPkgPRs(t, dbRepo12Pkgs)))
-	assert.Equal(t, 0, len(readRepoPkgPRs(t, dbRepo21Pkgs)))
-	assert.Equal(t, 0, len(readRepoPkgPRs(t, dbRepo22Pkgs)))
+	t.Empty(t.readRepoPkgPRs(dbRepo11Pkgs))
+	t.Empty(t.readRepoPkgPRs(dbRepo12Pkgs))
+	t.Empty(t.readRepoPkgPRs(dbRepo21Pkgs))
+	t.Empty(t.readRepoPkgPRs(dbRepo22Pkgs))
 }
 
-func pkgRevDBWriteReadTest(t *testing.T, dbRepo dbRepository, dbPkg dbPackage, dbPR, dbPRUpdate dbPackageRevision) {
-	err := pkgRevWriteToDB(context.TODO(), &dbPR)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "violates foreign key constraint"))
+func (t *DbTestSuite) pkgRevDBWriteReadTest(dbRepo *dbRepository, dbPkg dbPackage, dbPR, dbPRUpdate dbPackageRevision) {
+	err := pkgRevWriteToDB(t.Context(), &dbPR)
+	t.Require().ErrorContains(err, "violates foreign key constraint")
 
-	err = repoWriteToDB(context.TODO(), &dbRepo)
-	assert.Nil(t, err)
+	err = repoWriteToDB(t.Context(), dbRepo)
+	t.Require().NoError(err)
 
-	dbPkg.repo = &dbRepo
+	dbPkg.repo = dbRepo
 	dbPkg.pkgKey.RepoKey = dbRepo.Key()
 
-	err = pkgWriteToDB(context.TODO(), &dbPkg)
-	assert.Nil(t, err)
+	err = pkgWriteToDB(t.Context(), &dbPkg)
+	t.Require().NoError(err)
 
-	dbPR.repo = &dbRepo
+	dbPR.repo = dbRepo
 	dbPR.pkgRevKey.PkgKey = dbPkg.Key()
 
-	err = pkgRevWriteToDB(context.TODO(), &dbPR)
-	assert.Nil(t, err)
+	err = pkgRevWriteToDB(t.Context(), &dbPR)
+	t.Require().NoError(err)
 
-	readPR, err := pkgRevReadFromDB(context.TODO(), dbPR.Key(), false)
-	assert.Nil(t, err)
+	readPR, err := pkgRevReadFromDB(t.Context(), dbPR.Key(), false)
+	t.Require().NoError(err)
 
-	resources, err := pkgRevResourcesReadFromDB(context.TODO(), readPR.Key())
-	assert.Nil(t, err)
-
-	readPR.resources = resources
-
-	assertPackageRevsEqual(t, &dbPR, readPR)
-
-	err = pkgRevWriteToDB(context.TODO(), &dbPRUpdate)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "violates unique constraint"))
-
-	err = pkgRevUpdateDB(context.TODO(), &dbPRUpdate, true)
-	assert.Nil(t, err)
-
-	readPR, err = pkgRevReadFromDB(context.TODO(), dbPR.Key(), false)
-	assert.Nil(t, err)
-
-	resources, err = pkgRevResourcesReadFromDB(context.TODO(), readPR.Key())
-	assert.Nil(t, err)
+	resources, err := pkgRevResourcesReadFromDB(t.Context(), readPR.Key())
+	t.Require().NoError(err)
 
 	readPR.resources = resources
 
-	assertPackageRevsEqual(t, &dbPRUpdate, readPR)
+	t.assertPackageRevsEqual(&dbPR, readPR)
 
-	err = pkgRevDeleteFromDB(context.TODO(), dbPR.Key())
-	assert.Nil(t, err)
+	err = pkgRevWriteToDB(t.Context(), &dbPRUpdate)
+	t.Require().ErrorContains(err, "violates unique constraint")
 
-	_, err = pkgRevReadFromDB(context.TODO(), dbPR.Key(), false)
-	assert.NotNil(t, err)
-	assert.Equal(t, sql.ErrNoRows, err)
+	err = pkgRevUpdateDB(t.Context(), &dbPRUpdate, true)
+	t.Require().NoError(err)
 
-	err = pkgRevUpdateDB(context.TODO(), &dbPRUpdate, false)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "no rows or multiple rows found for updating"))
+	readPR, err = pkgRevReadFromDB(t.Context(), dbPR.Key(), false)
+	t.Require().NoError(err)
 
-	err = pkgRevDeleteFromDB(context.TODO(), dbPR.Key())
-	assert.Nil(t, err)
+	resources, err = pkgRevResourcesReadFromDB(t.Context(), readPR.Key())
+	t.Require().NoError(err)
 
-	err = pkgDeleteFromDB(context.TODO(), dbPkg.Key())
-	assert.Nil(t, err)
+	readPR.resources = resources
 
-	err = repoDeleteFromDB(context.TODO(), dbRepo.Key())
-	assert.Nil(t, err)
+	t.assertPackageRevsEqual(&dbPRUpdate, readPR)
+
+	err = pkgRevDeleteFromDB(t.Context(), dbPR.Key())
+	t.Require().NoError(err)
+
+	_, err = pkgRevReadFromDB(t.Context(), dbPR.Key(), false)
+	t.Require().NotNil(err)
+	t.Equal(sql.ErrNoRows, err)
+
+	err = pkgRevUpdateDB(t.Context(), &dbPRUpdate, false)
+	t.Require().ErrorContains(err, "no rows or multiple rows found for updating")
+
+	err = pkgRevDeleteFromDB(t.Context(), dbPR.Key())
+	t.Require().NoError(err)
+
+	err = pkgDeleteFromDB(t.Context(), dbPkg.Key())
+	t.Require().NoError(err)
+
+	err = repoDeleteFromDB(t.Context(), dbRepo.Key())
+	t.Require().NoError(err)
 }
 
-func readRepoPkgPRs(t *testing.T, pkgs []dbPackage) []*dbPackageRevision {
+func (t *DbTestSuite) readRepoPkgPRs(pkgs []dbPackage) []*dbPackageRevision {
 	var readRepoPkgsPRs []*dbPackageRevision
 
 	for _, pkg := range pkgs {
-		readPRs, err := pkgRevReadPRsFromDB(context.TODO(), pkg.Key())
-		assert.Nil(t, err)
+		readPRs, err := pkgRevReadPRsFromDB(t.Context(), pkg.Key())
+		t.Require().NoError(err)
 
 		readRepoPkgsPRs = append(readRepoPkgsPRs, readPRs...)
 	}
@@ -609,7 +588,7 @@ func readRepoPkgPRs(t *testing.T, pkgs []dbPackage) []*dbPackageRevision {
 	return readRepoPkgsPRs
 }
 
-func listRepoPkgPRs(t *testing.T, pkgs []dbPackage) []*dbPackageRevision {
+func (t *DbTestSuite) listRepoPkgPRs(pkgs []dbPackage) []*dbPackageRevision {
 	var listRepoPkgsPRs []*dbPackageRevision
 
 	for _, pkg := range pkgs {
@@ -619,8 +598,8 @@ func listRepoPkgPRs(t *testing.T, pkgs []dbPackage) []*dbPackageRevision {
 			},
 		}
 
-		listPRs, err := pkgRevListPRsFromDB(context.TODO(), prFilter)
-		assert.Nil(t, err)
+		listPRs, err := pkgRevListPRsFromDB(t.Context(), prFilter)
+		t.Require().NoError(err)
 
 		listRepoPkgsPRs = append(listRepoPkgsPRs, listPRs...)
 	}
@@ -628,14 +607,14 @@ func listRepoPkgPRs(t *testing.T, pkgs []dbPackage) []*dbPackageRevision {
 	return listRepoPkgsPRs
 }
 
-func assertPackageRevListsEqual(t *testing.T, left []dbPackageRevision, right []*dbPackageRevision, count int) {
-	assert.Equal(t, count, len(left))
-	assert.Equal(t, count, len(right))
+func (t *DbTestSuite) assertPackageRevListsEqual(left []dbPackageRevision, right []*dbPackageRevision, count int) {
+	t.Len(left, count)
+	t.Len(right, count)
 
 	leftMap := make(map[repository.PackageRevisionKey]*dbPackageRevision)
 	for _, leftPr := range left {
-		resources, err := pkgRevResourcesReadFromDB(context.TODO(), leftPr.Key())
-		assert.Nil(t, err)
+		resources, err := pkgRevResourcesReadFromDB(t.Context(), leftPr.Key())
+		t.Require().NoError(err)
 
 		leftPr.resources = resources
 		leftMap[leftPr.Key()] = &leftPr
@@ -645,35 +624,35 @@ func assertPackageRevListsEqual(t *testing.T, left []dbPackageRevision, right []
 	for _, rightPr := range right {
 		rightMap[rightPr.Key()] = rightPr
 
-		resources, err := pkgRevResourcesReadFromDB(context.TODO(), rightPr.Key())
-		assert.Nil(t, err)
+		resources, err := pkgRevResourcesReadFromDB(t.Context(), rightPr.Key())
+		t.Require().NoError(err)
 
 		rightPr.resources = resources
 	}
 
 	for leftKey, leftPr := range leftMap {
 		rightPr, ok := rightMap[leftKey]
-		assert.True(t, ok)
+		t.True(ok)
 
-		assertPackageRevsEqual(t, leftPr, rightPr)
+		t.assertPackageRevsEqual(leftPr, rightPr)
 	}
 }
 
-func assertPackageRevsEqual(t *testing.T, left, right *dbPackageRevision) {
-	assert.Equal(t, left.Key(), right.Key())
-	assert.Equal(t, left.meta.Namespace, right.meta.Namespace)
-	assert.Equal(t, left.meta.Name, right.meta.Name)
-	assert.Equal(t, left.spec, right.spec)
-	assert.Equal(t, left.updatedBy, right.updatedBy)
-	assert.Equal(t, left.lifecycle, right.lifecycle)
-	assert.Equal(t, left.tasks, right.tasks)
-	assert.Equal(t, left.resources, right.resources)
+func (t *DbTestSuite) assertPackageRevsEqual(left, right *dbPackageRevision) {
+	t.Equal(left.Key(), right.Key())
+	t.Equal(left.meta.Namespace, right.meta.Namespace)
+	t.Equal(left.meta.Name, right.meta.Name)
+	t.Equal(left.spec, right.spec)
+	t.Equal(left.updatedBy, right.updatedBy)
+	t.Equal(left.lifecycle, right.lifecycle)
+	t.Equal(left.tasks, right.tasks)
+	t.Equal(left.resources, right.resources)
 }
 
-func assertPackageRevLatestIs(t *testing.T, expectedLatest int, prList []*dbPackageRevision) {
+func (t *DbTestSuite) assertPackageRevLatestIs(expectedLatest int, prList []*dbPackageRevision) {
 	for _, pr := range prList {
-		latestPrRev, err := pkgRevGetlatestRevFromDB(context.TODO(), pr.Key().PkgKey)
-		assert.True(t, err == nil)
-		assert.Equal(t, expectedLatest, latestPrRev)
+		latestPrRev, err := pkgRevGetlatestRevFromDB(t.Context(), pr.Key().PkgKey)
+		t.Require().NoError(err)
+		t.Equal(expectedLatest, latestPrRev)
 	}
 }

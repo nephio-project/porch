@@ -23,6 +23,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -124,6 +125,12 @@ func (prov *gitUserInfoProvider) GetUserInfo(context.Context) *repository.UserIn
 func OpenRepository(ctx context.Context, name, namespace string, spec *configapi.GitRepository, deployment bool, root string, opts GitRepositoryOptions) (GitRepository, error) {
 	ctx, span := tracer.Start(ctx, "git.go::OpenRepository", trace.WithAttributes())
 	defer span.End()
+	start := time.Now()
+	defer func() { klog.V(4).Infof("git.go::OpenRepository (%s) took %s", spec.Repo, time.Since(start)) }()
+
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 
 	replace := strings.NewReplacer("/", "-", ":", "-")
 	dir := filepath.Join(root, replace.Replace(spec.Repo))
@@ -190,8 +197,8 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 		repo:               repo,
 		branch:             branch,
 		secret:             spec.SecretRef.Name,
-		credentialResolver: opts.ExternalRepoOptions.CredentialResolver,
-		userInfoProvider:   makeUserInfoProvider(spec, opts.ExternalRepoOptions.UserInfoProvider),
+		credentialResolver: opts.CredentialResolver,
+		userInfoProvider:   makeUserInfoProvider(spec, opts.UserInfoProvider),
 		cacheDir:           dir,
 		deployment:         deployment,
 	}
@@ -407,7 +414,7 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 				}
 				klog.Warningf("Error loading tagged package from ref %q: %s", ref.Name(), err)
 			}
-			if tagged != nil && filter.Matches(ctx, tagged) {
+			if tagged != nil {
 				result = append(result, tagged)
 			}
 		}
@@ -422,18 +429,14 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 			}
 			klog.Warningf("Error discovering finalized packages: %s", err)
 		}
-		for _, p := range mainpkgs {
-			if filter.Matches(ctx, p) {
-				result = append(result, p)
-			}
-		}
+		result = append(result, mainpkgs...)
 	}
 
-	for _, p := range drafts {
-		if filter.Matches(ctx, p) {
-			result = append(result, p)
-		}
-	}
+	result = append(result, drafts...)
+
+	result = slices.DeleteFunc(result, func(p *gitPackageRevision) bool {
+		return !filter.Matches(ctx, p)
+	})
 
 	return result, nil
 }
@@ -446,10 +449,10 @@ func (r *gitRepository) CreatePackageRevisionDraft(ctx context.Context, obj *v1a
 
 	var base plumbing.Hash
 	refName := r.branch.RefInLocal()
-	switch main, err := r.repo.Reference(refName, true); {
-	case err == nil:
+	switch main, err := r.repo.Reference(refName, true); err {
+	case nil:
 		base = main.Hash()
-	case err == plumbing.ErrReferenceNotFound:
+	case plumbing.ErrReferenceNotFound:
 		// reference not found - empty repository. Package draft has no parent commit
 	default:
 		return nil, fmt.Errorf("error when resolving target branch for the package: %w", err)
@@ -650,10 +653,25 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, pr2Delete rep
 
 // fetchRemoteWithRetry retries fetching the remote repository up to 6 times with a delay of 1 second between each attempt.
 func (r *gitRepository) fetchRemoteRepositoryWithRetry(ctx context.Context) error {
-	if err := util.RetryOnError(
+	if err := util.RetryOnErrorConditional(
 		6,
+		func(error) bool {
+			return ctx.Err() == nil
+		},
 		func(retryNumber int) error {
 			if retryNumber >= 0 {
+				if ctx.Err() != nil {
+					klog.Infof("fetchRemoteRepositoryWithRetry %s ctx err: %v", r.Key(), ctx.Err())
+				}
+				if deadline, ok := ctx.Deadline(); ok {
+					klog.Infof("fetchRemoteRepositoryWithRetry %s deadline: %v, reached: %t", r.Key(), deadline, deadline.Compare(time.Now()) <= 0)
+				}
+				select {
+				case <-ctx.Done():
+					klog.Infof("fetchRemoteRepositoryWithRetry %s ctx is done", r.Key())
+				default:
+				}
+
 				err := r.fetchRemoteRepository(ctx)
 				if err != nil {
 					klog.Errorf("Fetching Remote Repository %+v failed - try number %d", r.Key(), retryNumber)
@@ -1043,25 +1061,33 @@ func (r *gitRepository) GetRepo() (string, error) {
 func (r *gitRepository) fetchRemoteRepository(ctx context.Context) error {
 	ctx, span := tracer.Start(ctx, "gitRepository::fetchRemoteRepository", trace.WithAttributes())
 	defer span.End()
+	start := time.Now()
+	defer func() { klog.V(4).Infof("Fetching repository %q took %s", r.key.Name, time.Since(start)) }()
 
-	// Fetch
-	switch err := r.doGitWithAuth(ctx, func(auth transport.AuthMethod) error {
-		return r.repo.Fetch(&git.FetchOptions{
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
+	err := r.doGitWithAuth(ctx, func(auth transport.AuthMethod) error {
+		return r.repo.FetchContext(ctx, &git.FetchOptions{
 			RemoteName: OriginName,
 			Auth:       auth,
 			Prune:      true,
 			CABundle:   r.caBundle,
 		})
-	}); err {
-	case nil: // OK
-	case git.NoErrAlreadyUpToDate:
-	case transport.ErrEmptyRemoteRepository:
+	})
 
-	default:
-		return fmt.Errorf("cannot fetch repository %s/%s: %w", r.Key().Namespace, r.Key().Name, err)
+	allowedErrors := []error{
+		nil,
+		git.NoErrAlreadyUpToDate,
+		transport.ErrEmptyRemoteRepository,
 	}
 
-	return nil
+	if slices.Contains(allowedErrors, err) {
+		return nil
+	}
+
+	return fmt.Errorf("cannot fetch repository %s: %w", r.Key(), err)
 }
 
 // Verifies repository. Repository must be fetched already.

@@ -1,6 +1,6 @@
 module github.com/nephio-project/porch
 
-go 1.23.8
+go 1.25.0
 
 retract v1.3.0
 
@@ -8,7 +8,7 @@ replace k8s.io/apiserver => ./third_party/k8s.io/apiserver
 
 require (
 	cloud.google.com/go/iam v1.1.12
-	github.com/GoogleContainerTools/kpt v1.0.0-beta.48
+	github.com/GoogleContainerTools/kpt v1.0.0-beta.57
 	github.com/bytecodealliance/wasmtime-go v1.0.0
 	github.com/cpuguy83/go-md2man/v2 v2.0.4
 	github.com/fergusstrange/embedded-postgres v1.31.0
@@ -33,6 +33,7 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.10.0
+	go.opentelemetry.io/contrib/bridges/prometheus v0.62.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.60.0
 	go.opentelemetry.io/contrib/propagators/autoprop v0.62.0
 	go.opentelemetry.io/otel v1.37.0
@@ -62,7 +63,7 @@ require (
 	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340
 	k8s.io/kubectl v0.30.3
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
-	sigs.k8s.io/cli-utils v0.35.0
+	sigs.k8s.io/cli-utils v0.36.0
 	sigs.k8s.io/controller-runtime v0.18.5
 	sigs.k8s.io/kustomize/api v0.17.2
 	sigs.k8s.io/kustomize/kyaml v0.17.2
@@ -72,7 +73,6 @@ require (
 require (
 	github.com/cenkalti/backoff/v5 v5.0.2 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
-	go.opentelemetry.io/contrib/bridges/prometheus v0.62.0 // indirect
 	go.opentelemetry.io/contrib/propagators/aws v1.37.0 // indirect
 	go.opentelemetry.io/contrib/propagators/b3 v1.37.0 // indirect
 	go.opentelemetry.io/contrib/propagators/jaeger v1.37.0 // indirect
@@ -122,7 +122,7 @@ require (
 	github.com/dustmop/soup v1.1.2-0.20190516214245-38228baa104e // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
-	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
+	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
@@ -146,7 +146,7 @@ require (
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.1 // indirect
-	github.com/imdario/mergo v0.3.12 // indirect
+	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
@@ -197,7 +197,7 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.60.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.37.0 // indirect
 	go.opentelemetry.io/otel/metric v1.37.0 // indirect
-	go.opentelemetry.io/proto/otlp v1.7.0 // indirect
+	go.opentelemetry.io/proto/otlp v1.7.0
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
 	golang.org/x/crypto v0.39.0 // indirect

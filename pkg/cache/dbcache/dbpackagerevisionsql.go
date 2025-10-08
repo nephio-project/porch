@@ -19,7 +19,6 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
@@ -47,6 +46,7 @@ func pkgRevReadFromDB(ctx context.Context, prk repository.PackageRevisionKey, re
 			package_revisions.updated,
 			package_revisions.updatedby,
 			package_revisions.lifecycle,
+			package_revisions.ext_pr_id,
 			package_revisions.latest,
 			package_revisions.tasks
 		FROM package_revisions INNER JOIN packages
@@ -96,7 +96,7 @@ func pkgRevReadFromDB(ctx context.Context, prk repository.PackageRevisionKey, re
 }
 
 func pkgRevListPRsFromDB(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]*dbPackageRevision, error) {
-	_, span := tracer.Start(ctx, "dbrepositorysql::repoDeleteFromDB", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "dbrepositorysql::pkgRevListPRsFromDB", trace.WithAttributes())
 	defer span.End()
 
 	klog.V(5).Infof("pkgRevListPRsFromDB: listing package revisions for filter %+v", filter)
@@ -116,6 +116,7 @@ func pkgRevListPRsFromDB(ctx context.Context, filter repository.ListPackageRevis
 			package_revisions.updated,
 			package_revisions.updatedby,
 			package_revisions.lifecycle,
+			package_revisions.ext_pr_id,
 			package_revisions.latest,
 			package_revisions.tasks
 		FROM package_revisions
@@ -162,6 +163,7 @@ func pkgRevReadPRsFromDB(ctx context.Context, pk repository.PackageKey) ([]*dbPa
 			package_revisions.updated,
 			package_revisions.updatedby,
 			package_revisions.lifecycle,
+			package_revisions.ext_pr_id,
 			package_revisions.latest,
 			package_revisions.tasks
 		FROM package_revisions INNER JOIN packages
@@ -209,6 +211,7 @@ func pkgRevReadLatestPRFromDB(ctx context.Context, pk repository.PackageKey) (*d
 			package_revisions.updated,
 			package_revisions.updatedby,
 			package_revisions.lifecycle,
+			package_revisions.ext_pr_id,
 			package_revisions.latest,
 			package_revisions.tasks
 		FROM package_revisions INNER JOIN packages
@@ -277,7 +280,7 @@ func pkgRevScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackageRevi
 
 	for rows.Next() {
 		var pkgRev dbPackageRevision
-		var pkgK8SName, prK8SName, metaAsJSON, specAsJSON, tasks string
+		var pkgK8SName, prK8SName, metaAsJSON, specAsJSON, extPRID, tasks string
 
 		err := rows.Scan(
 			&pkgRev.pkgRevKey.PkgKey.RepoKey.Namespace,
@@ -293,6 +296,7 @@ func pkgRevScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackageRevi
 			&pkgRev.updated,
 			&pkgRev.updatedBy,
 			&pkgRev.lifecycle,
+			&extPRID,
 			&pkgRev.latest,
 			&tasks)
 
@@ -306,6 +310,7 @@ func pkgRevScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackageRevi
 		pkgRev.pkgRevKey.WorkspaceName = repository.K8SName2PkgRevWSName(pkgK8SName, prK8SName)
 		setValueFromJSON(metaAsJSON, &pkgRev.meta)
 		setValueFromJSON(specAsJSON, &pkgRev.spec)
+		setValueFromJSON(extPRID, &pkgRev.extPRID)
 		setValueFromJSON(tasks, &pkgRev.tasks)
 
 		dbPkgRevs = append(dbPkgRevs, &pkgRev)
@@ -321,8 +326,8 @@ func pkgRevWriteToDB(ctx context.Context, pr *dbPackageRevision) error {
 	klog.V(5).Infof("pkgRevWriteToDB: writing package revision %+v", pr.Key())
 
 	sqlStatement := `
-        INSERT INTO package_revisions (k8s_name_space, k8s_name, package_k8s_name, revision, meta, spec, updated, updatedby, lifecycle, tasks)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        INSERT INTO package_revisions (k8s_name_space, k8s_name, package_k8s_name, revision, meta, spec, updated, updatedby, lifecycle, ext_pr_id, tasks)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`
 
 	klog.V(6).Infof("pkgRevWriteToDB: running query %q on package revision %+v", sqlStatement, pr)
@@ -330,7 +335,7 @@ func pkgRevWriteToDB(ctx context.Context, pr *dbPackageRevision) error {
 	if _, err := GetDB().db.Exec(
 		sqlStatement,
 		prk.K8SNS(), prk.K8SName(),
-		prk.PKey().K8SName(), prk.Revision, valueAsJSON(pr.meta), valueAsJSON(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle, valueAsJSON(pr.tasks)); err == nil {
+		prk.PKey().K8SName(), prk.Revision, valueAsJSON(pr.meta), valueAsJSON(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle, valueAsJSON(pr.extPRID), valueAsJSON(pr.tasks)); err == nil {
 		klog.V(5).Infof("pkgRevWriteToDB: query succeeded, row created")
 	} else {
 		klog.Warningf("pkgRevWriteToDB: query failed for %+v %q", pr.Key(), err)
@@ -353,16 +358,36 @@ func pkgRevUpdateDB(ctx context.Context, pr *dbPackageRevision, updateResources 
 	klog.V(5).Infof("pkgRevUpdateDB: updating package revision %+v", pr.Key())
 
 	sqlStatement := `
-        UPDATE package_revisions SET package_k8s_name=$3, revision=$4, meta=$5, spec=$6, updated=$7, updatedby=$8, lifecycle=$9, tasks=$10
+        UPDATE package_revisions SET package_k8s_name=$3, revision=$4, meta=$5, spec=$6, updated=$7, updatedby=$8, lifecycle=$9, ext_pr_id=$10, tasks=$11
         WHERE k8s_name_space=$1 AND k8s_name=$2
 	`
+	if pr.pkgRevKey.Revision == -1 {
+		sqlStatement = `
+    INSERT INTO package_revisions (
+        k8s_name_space, k8s_name, package_k8s_name, revision, meta, spec, updated, updatedby, lifecycle, ext_pr_id, tasks
+    ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+    )
+    ON CONFLICT (k8s_name_space, k8s_name)
+    DO UPDATE SET
+        package_k8s_name = EXCLUDED.package_k8s_name,
+        meta             = EXCLUDED.meta,
+		revision         = EXCLUDED.revision,
+        spec             = EXCLUDED.spec,
+        updated          = EXCLUDED.updated,
+        updatedby        = EXCLUDED.updatedby,
+        lifecycle        = EXCLUDED.lifecycle,
+        ext_pr_id        = EXCLUDED.ext_pr_id,
+        tasks            = EXCLUDED.tasks;
+	`
+	}
 
 	klog.V(6).Infof("pkgRevUpdateDB: running query %q on package revision %+v", sqlStatement, pr)
 	prk := pr.Key()
 	result, err := GetDB().db.Exec(
 		sqlStatement,
 		prk.K8SNS(), prk.K8SName(),
-		prk.PKey().K8SName(), prk.Revision, valueAsJSON(pr.meta), valueAsJSON(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle, valueAsJSON(pr.tasks))
+		prk.PKey().K8SName(), prk.Revision, valueAsJSON(pr.meta), valueAsJSON(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle, valueAsJSON(pr.extPRID), valueAsJSON(pr.tasks))
 
 	if err == nil {
 		if rowsAffected, _ := result.RowsAffected(); rowsAffected == 1 {
@@ -417,95 +442,4 @@ func pkgRevDeleteFromDB(ctx context.Context, prk repository.PackageRevisionKey) 
 	}
 
 	return err
-}
-
-func prListFilter2WhereClause(filter repository.ListPackageRevisionFilter) string {
-	whereStatement := ""
-
-	repoKey := filter.Key.RKey()
-	whereStatement, first := prListFilter2SubClauseStr(whereStatement, repoKey.Namespace, "repositories.k8s_name_space", true)
-	whereStatement, first = prListFilter2SubClauseStr(whereStatement, repoKey.Name, "repositories.k8s_name", first)
-	whereStatement, first = prListFilter2SubClauseStr(whereStatement, repoKey.Path, "repositories.directory", first)
-	whereStatement, first = prListFilter2SubClauseStr(whereStatement, repoKey.PlaceholderWSname, "repositories.default_ws_name", first)
-
-	pkgKey := filter.Key.PKey()
-	whereStatement, first = prListFilter2SubClauseStr(whereStatement, pkgKey.K8SName(), "packages.k8s_name", first)
-	whereStatement, first = prListFilter2SubClauseStr(whereStatement, pkgKey.Path, "packages.package_path", first)
-
-	prKey := filter.Key
-	whereStatement, first = prListFilter2SubClauseStr(whereStatement, prKey.K8SName(), "package_revisions.k8s_name", first)
-	whereStatement, first = prListFilter2SubClauseInt(whereStatement, prKey.Revision, "package_revisions.revision", first)
-	whereStatement, first = prListFilter2SubClauseWorkspace(whereStatement, prKey.WorkspaceName, "package_revisions.k8s_name", first)
-
-	whereStatement, _ = prListFilter2SubClauseLifecycle(whereStatement, filter.Lifecycles, "package_revisions.lifecycle", first)
-
-	if whereStatement == "" {
-		return whereStatement
-	} else {
-		return "WHERE\n" + whereStatement
-	}
-}
-
-func prListFilter2SubClauseStr(whereStatement, filterField, column string, first bool) (string, bool) {
-	if filterField == "" {
-		return whereStatement, first
-	}
-
-	subClause := fmt.Sprintf("%s='%s'\n", column, filterField)
-
-	if first {
-		return whereStatement + subClause, false
-	} else {
-		return whereStatement + "AND " + subClause, false
-	}
-}
-
-func prListFilter2SubClauseInt(whereStatement string, filterField int, column string, first bool) (string, bool) {
-	if filterField == 0 {
-		return whereStatement, first
-	}
-
-	subClause := fmt.Sprintf("%s=%d\n", column, filterField)
-
-	if first {
-		return whereStatement + subClause, false
-	} else {
-		return whereStatement + "AND " + subClause, false
-	}
-}
-
-func prListFilter2SubClauseWorkspace(whereStatement string, filterField string, column string, first bool) (string, bool) {
-	if filterField == "" {
-		return whereStatement, first
-	}
-
-	subClause := fmt.Sprintf("%s LIKE '%%.%s'\n", column, filterField)
-
-	if first {
-		return whereStatement + subClause, false
-	} else {
-		return whereStatement + "AND " + subClause, false
-	}
-}
-
-func prListFilter2SubClauseLifecycle(whereStatement string, filterField []v1alpha1.PackageRevisionLifecycle, column string, first bool) (string, bool) {
-	if len(filterField) == 0 {
-		return whereStatement, first
-	}
-
-	subClause := "("
-	for i, lifecycle := range filterField {
-		if i == 0 {
-			subClause = subClause + fmt.Sprintf("%s='%s'", column, lifecycle)
-		} else {
-			subClause = subClause + fmt.Sprintf(" OR %s='%s'", column, lifecycle)
-		}
-	}
-	subClause += ")"
-
-	if first {
-		return whereStatement + subClause, false
-	} else {
-		return whereStatement + "AND " + subClause, false
-	}
 }

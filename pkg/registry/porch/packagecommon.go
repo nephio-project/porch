@@ -16,8 +16,10 @@ package porch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	unversionedapi "github.com/nephio-project/porch/api/porch"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -26,7 +28,7 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -50,61 +52,120 @@ type packageCommon struct {
 
 	cad engine.CaDEngine
 	// coreClient is a client back to the core kubernetes API server, useful for querying CRDs etc
-	coreClient     client.Client
-	gr             schema.GroupResource
-	updateStrategy SimpleRESTUpdateStrategy
-	createStrategy SimpleRESTCreateStrategy
+	coreClient               client.Client
+	gr                       schema.GroupResource
+	updateStrategy           SimpleRESTUpdateStrategy
+	createStrategy           SimpleRESTCreateStrategy
+	ListTimeoutPerRepository time.Duration
+	MaxConcurrentLists       int
 }
 
 func (r *packageCommon) listPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter,
-	selector labels.Selector, callback func(ctx context.Context, p repository.PackageRevision) error) error {
+	callback func(ctx context.Context, p repository.PackageRevision) error) error {
 	ctx, span := tracer.Start(ctx, "packageCommon::listPackageRevisions", trace.WithAttributes())
 	defer span.End()
 
 	var opts []client.ListOption
+
 	namespace, namespaced := genericapirequest.NamespaceFrom(ctx)
 	if namespaced && namespace != "" {
-		opts = append(opts, client.InNamespace(namespace))
-
-		if filter.Key.RKey().Namespace != "" && namespace != filter.Key.RKey().Namespace {
-			return fmt.Errorf("conflicting namespaces specified: %q and %q", namespace, filter.Key.RKey().Namespace)
+		if namespaceMatches, filteredNamespace := filter.MatchesNamespace(namespace); !namespaceMatches {
+			return fmt.Errorf("conflicting namespaces specified: %q and %q", namespace, filteredNamespace)
 		}
+
+		opts = append(opts, client.InNamespace(namespace))
 	}
 
-	// TODO: Filter on filter.Repository?
-	var repositories configapi.RepositoryList
-	if err := r.coreClient.List(ctx, &repositories, opts...); err != nil {
+	if filterRepo := filter.FilteredRepository(); filterRepo != "" {
+		opts = append(opts, client.MatchingFields(fields.Set{"metadata.name": filterRepo}))
+	}
+
+	var repoList configapi.RepositoryList
+	if err := r.coreClient.List(ctx, &repoList, opts...); err != nil {
 		return fmt.Errorf("error listing repository objects: %w", err)
 	}
+	repos := repoList.Items
 
-	for i := range repositories.Items {
-		repositoryObj := &repositories.Items[i]
+	type pkgRevResult struct {
+		Revisions []repository.PackageRevision
+		Err       error
+	}
 
-		if filter.Key.RKey().Name != "" && filter.Key.RKey().Name != repositoryObj.GetName() {
-			continue
-		}
+	repoCount := len(repos)
+	if repoCount == 0 {
+		return nil
+	}
 
-		revisions, err := r.cad.ListPackageRevisions(ctx, repositoryObj, filter)
-		if err != nil {
-			klog.Warningf("error listing package revisions from repository %s/%s: %+v", repositoryObj.GetNamespace(), repositoryObj.GetName(), err)
-			continue
-		}
-		for _, rev := range revisions {
-			apiPkgRev, err := rev.GetPackageRevision(ctx)
-			if err != nil {
-				return err
+	workerCount := repoCount
+	if r.MaxConcurrentLists > 0 {
+		workerCount = min(r.MaxConcurrentLists, repoCount)
+	}
+
+	klog.V(3).Infof("Listing %d repositories with %d workers", repoCount, workerCount)
+
+	resultsCh := make(chan pkgRevResult, workerCount)
+	repoQueue := make(chan *configapi.Repository, repoCount)
+
+	for i := 0; i < workerCount; i++ {
+		go func() {
+			for repo := range repoQueue {
+				klog.V(3).Infof("[WORKER %d] Processing repository %s", i, repo.Name)
+				listCtx := ctx
+				var cancel context.CancelFunc
+				if r.ListTimeoutPerRepository != 0 {
+					listCtx, cancel = context.WithTimeout(ctx, r.ListTimeoutPerRepository)
+				}
+				revisions, err := r.cad.ListPackageRevisions(listCtx, repo, filter)
+				klog.V(3).Infof("[WORKER %d] ListPackageRevisions for %s done, len: %d, err: %v", i, repo.Name, len(revisions), err)
+				resultsCh <- pkgRevResult{Revisions: revisions, Err: err}
+				if cancel != nil {
+					cancel()
+				}
 			}
+		}()
+	}
 
-			if selector != nil && !selector.Matches(labels.Set(apiPkgRev.Labels)) {
-				continue
+	for _, repo := range repos {
+		repoQueue <- &repo
+	}
+
+	innerCtx := ctx
+	if deadline, ok := ctx.Deadline(); ok {
+		const buffer = 5 * time.Second
+		if timeout := time.Until(deadline.Add(-buffer)); timeout > 0 {
+			var cancel context.CancelFunc
+			innerCtx, cancel = context.WithTimeout(ctx, timeout)
+			defer cancel()
+		}
+	}
+
+	received := 0
+
+	for {
+		select {
+		case <-innerCtx.Done():
+			klog.Warningf("Timeout reached — returning partial results")
+			close(repoQueue)
+			return nil
+
+		case res := <-resultsCh:
+			received++
+			klog.V(4).Infof("listPackageRevisions received %d repo", received)
+			if res.Err != nil {
+				klog.Warningf("error listing package revisions: %+v", res.Err)
 			}
-
-			if err := callback(ctx, rev); err != nil {
-				return err
+			for _, rev := range res.Revisions {
+				if err := callback(ctx, rev); err != nil {
+					klog.Warningf("callback error for revision from repository: %+v", err)
+					continue
+				}
+			}
+			if received == repoCount {
+				close(repoQueue)
+				return nil
 			}
 		}
 	}
-	return nil
 }
 
 func (r *packageCommon) listPackages(ctx context.Context, filter repository.ListPackageFilter, callback func(p repository.Package) error) error {
@@ -205,8 +266,17 @@ func (r *packageCommon) getRepoPkgRev(ctx context.Context, name string) (reposit
 		return nil, err
 	}
 
+	var cancel context.CancelFunc
+	if r.ListTimeoutPerRepository != 0 {
+		ctx, cancel = context.WithTimeout(ctx, r.ListTimeoutPerRepository)
+		defer cancel()
+	}
+
 	revisions, err := r.cad.ListPackageRevisions(ctx, repositoryObj, repository.ListPackageRevisionFilter{Key: prKey})
 	if err != nil {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return nil, fmt.Errorf("%v: exceeded %v seconds trying to list package revisions", ctx.Err(), r.ListTimeoutPerRepository)
+		}
 		return nil, err
 	}
 	for _, rev := range revisions {

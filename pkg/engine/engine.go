@@ -101,6 +101,9 @@ func (cad *cadEngine) ListPackageRevisions(ctx context.Context, repositorySpec *
 	if err != nil {
 		return nil, err
 	}
+	if repo == nil {
+		return nil, pkgerrors.New("cache OpenRepository returned nil")
+	}
 
 	return repo.ListPackageRevisions(ctx, filter)
 }
@@ -148,13 +151,13 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	}
 
 	pkgKey := repository.FromFullPathname(repo.Key(), newPr.Spec.PackageName)
-	if err := util.ValidPkgRevObjName(repositoryObj.ObjectMeta.Name, pkgKey.Path, pkgKey.Package, newPr.Spec.WorkspaceName); err != nil {
+	if err := util.ValidPkgRevObjName(repositoryObj.Name, pkgKey.Path, pkgKey.Package, newPr.Spec.WorkspaceName); err != nil {
 		return nil, fmt.Errorf("failed to create packagerevision: %w", err)
 	}
 
 	revs, err := repo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{PkgKey: pkgKey}})
 	if err != nil {
-		return nil, fmt.Errorf("error listing package revisions: %w", err)
+		return nil, pkgerrors.Wrapf(err, "error listing package revisions")
 	}
 
 	if err := ensureUniqueWorkspaceName(newPr, revs); err != nil {
@@ -331,7 +334,7 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version int, re
 
 	err = cad.updatePkgRevMeta(ctx, repoPkgRev, newObj)
 	if err != nil {
-		if (apierrors.IsUnauthorized(err) || apierrors.IsForbidden(err)) && repository.AnyBlockOwnerDeletionSet(newObj) {
+		if (apierrors.IsUnauthorized(err) || apierrors.IsForbidden(err)) && repository.AnyBlockOwnerDeletionSet(newObj.ObjectMeta) {
 			return nil, fmt.Errorf("failed to update internal PackageRev object, because blockOwnerDeletion is enabled for some ownerReference "+
 				"(it is likely that the serviceaccount of porch-server does not have the rights to update finalizers in the owner object): %w", err)
 		}

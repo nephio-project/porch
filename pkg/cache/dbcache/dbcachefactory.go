@@ -16,6 +16,7 @@ package dbcache
 
 import (
 	"context"
+	"sync"
 
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -37,6 +38,7 @@ func (f *DBCacheFactory) NewCache(ctx context.Context, options cachetypes.CacheO
 
 	return &dbCache{
 		repositories: make(map[repository.RepositoryKey]*dbRepository),
+		mainLock:     &sync.RWMutex{},
 		options:      options,
 	}, nil
 }

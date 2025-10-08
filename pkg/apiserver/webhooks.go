@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -76,6 +77,7 @@ type WebhookConfig struct {
 	Port             int32
 	CertStorageDir   string
 	CertManWebhook   bool
+	timeout          int32
 }
 
 // newWebhookConfig creates a new WebhookConfig object filled with values read from environment variables
@@ -285,7 +287,8 @@ func createValidatingWebhook(ctx context.Context, cfg *WebhookConfig, caCert []b
 	if err != nil {
 		return fmt.Errorf("failed to setup kubeClient: %v", err)
 	}
-
+	// Set max timeout value for ValidatingWebhooks
+	cfg.timeout = 30
 	var (
 		validationCfgName = "packagerev-deletion-validating-webhook"
 		fail              = admissionregistrationv1.Fail
@@ -312,6 +315,7 @@ func createValidatingWebhook(ctx context.Context, cfg *WebhookConfig, caCert []b
 			AdmissionReviewVersions: []string{"v1", "v1beta1"},
 			SideEffects:             &none,
 			FailurePolicy:           &fail,
+			TimeoutSeconds:          &cfg.timeout,
 		}},
 	}
 	switch cfg.Type {
@@ -323,14 +327,14 @@ func createValidatingWebhook(ctx context.Context, cfg *WebhookConfig, caCert []b
 			Port:      &cfg.Port,
 		}
 	case WebhookTypeUrl:
-		url := fmt.Sprintf("https://%s:%d%s", cfg.Host, cfg.Port, cfg.Path)
+		url := fmt.Sprintf("https://%s%s", net.JoinHostPort(cfg.Host, fmt.Sprintf("%d", cfg.Port)), cfg.Path)
 		validateConfig.Webhooks[0].ClientConfig.URL = &url
 	default:
 		return fmt.Errorf("invalid webhook type: %s", cfg.Type)
 	}
 
 	if err := kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(ctx, validationCfgName, metav1.DeleteOptions{}); err != nil {
-		klog.Error("failed to delete existing webhook: %w", err)
+		klog.Warningf("failed to delete existing webhook: %v", err)
 	}
 
 	if _, err := kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(ctx, validateConfig,
@@ -429,7 +433,7 @@ func runWebhookServer(ctx context.Context, cfg *WebhookConfig) error {
 			GetCertificate: getCertificate,
 			MinVersion:     tls.VersionTLS12,
 		},
-		ReadHeaderTimeout: 10 * time.Second,
+		ReadHeaderTimeout: 30 * time.Second,
 	}
 	go func() {
 		err = server.ListenAndServeTLS("", "")

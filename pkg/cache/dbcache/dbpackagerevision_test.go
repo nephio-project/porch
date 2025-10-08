@@ -15,9 +15,6 @@
 package dbcache
 
 import (
-	"context"
-	"testing"
-
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
@@ -26,20 +23,19 @@ import (
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	mockcachetypes "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestDBPackageRevision(t *testing.T) {
-	mockCache := mockcachetypes.NewMockCache(t)
+func (t *DbTestSuite) TestDBPackageRevision() {
+	mockCache := mockcachetypes.NewMockCache(t.T())
 	cachetypes.CacheInstance = mockCache
 
 	externalrepo.ExternalRepoInUnitTestMode = true
 
-	ctx := context.TODO()
+	ctx := t.Context()
 
-	testRepo := createTestRepo(t, "my-ns", "my-repo-name")
+	testRepo := t.createTestRepo("my-ns", "my-repo-name")
 	testRepo.spec = &configapi.Repository{
 		Spec: configapi.RepositorySpec{
 			Git: &configapi.GitRepository{
@@ -47,10 +43,10 @@ func TestDBPackageRevision(t *testing.T) {
 			},
 		},
 	}
-	mockCache.EXPECT().GetRepository(mock.Anything).Return(&testRepo).Maybe()
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
 
 	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
-	assert.Nil(t, err)
+	t.Require().NoError(err)
 
 	newPRDef := v1alpha1.PackageRevision{
 		Spec: v1alpha1.PackageRevisionSpec{
@@ -61,28 +57,28 @@ func TestDBPackageRevision(t *testing.T) {
 	}
 
 	newPRDraft, err := testRepo.CreatePackageRevisionDraft(ctx, &newPRDef)
-	assert.Nil(t, err)
-	assert.NotNil(t, newPRDraft)
+	t.Require().NoError(err)
+	t.Require().NotNil(newPRDraft)
 
 	dbPR, err := testRepo.ClosePackageRevisionDraft(ctx, newPRDraft, -1)
-	assert.Nil(t, err)
-	assert.NotNil(t, dbPR)
+	t.Require().NoError(err)
+	t.Require().NotNil(dbPR)
 
-	assert.Equal(t, "main", dbPR.ToMainPackageRevision(ctx).Key().WorkspaceName)
+	t.Equal("main", dbPR.ToMainPackageRevision(ctx).Key().WorkspaceName)
 	dbPR.(*dbPackageRevision).pkgRevKey.PkgKey.RepoKey.PlaceholderWSname = "my-branch"
-	assert.Equal(t, "my-branch", dbPR.ToMainPackageRevision(ctx).Key().WorkspaceName)
+	t.Equal("my-branch", dbPR.ToMainPackageRevision(ctx).Key().WorkspaceName)
 
 	meta := dbPR.GetMeta()
-	assert.Equal(t, meta.Name, "")
+	t.Equal(meta.Name, "")
 
-	assert.Nil(t, dbPR.SetMeta(ctx, metav1.ObjectMeta{}))
+	t.Require().Nil(dbPR.SetMeta(ctx, metav1.ObjectMeta{}))
 
 	prDef, err := dbPR.GetPackageRevision(ctx)
-	assert.Nil(t, err)
-	assert.Equal(t, "my-workspace", prDef.Spec.WorkspaceName)
+	t.Require().NoError(err)
+	t.Equal("my-workspace", prDef.Spec.WorkspaceName)
 
-	assert.Equal(t, "my-ns", dbPR.KubeObjectNamespace())
-	assert.Equal(t, "my-repo-name.my-package.my-workspace", dbPR.KubeObjectName())
+	t.Equal("my-ns", dbPR.KubeObjectNamespace())
+	t.Equal("my-repo-name.my-package.my-workspace", dbPR.KubeObjectName())
 	prKey := repository.PackageRevisionKey{
 		PkgKey: repository.PackageKey{
 			RepoKey: repository.RepositoryKey{
@@ -94,23 +90,23 @@ func TestDBPackageRevision(t *testing.T) {
 		},
 		WorkspaceName: "my-workspace",
 	}
-	assert.Equal(t, prKey, dbPR.Key())
-	assert.Equal(t, v1alpha1.PackageRevisionLifecycleDraft, dbPR.Lifecycle(ctx))
+	t.Equal(prKey, dbPR.Key())
+	t.Equal(v1alpha1.PackageRevisionLifecycleDraft, dbPR.Lifecycle(ctx))
 
 	newPrUp, newPrUpLock, err := dbPR.GetUpstreamLock(ctx)
-	assert.NotNil(t, err)
-	assert.Nil(t, newPrUp.Git)
-	assert.Nil(t, newPrUpLock.Git)
+	t.Require().NotNil(err)
+	t.Require().Nil(newPrUp.Git)
+	t.Require().Nil(newPrUpLock.Git)
 
 	newPrUp, newPrUpLock, err = dbPR.GetLock()
-	assert.Nil(t, err)
-	assert.NotNil(t, newPrUp.Git)
-	assert.NotNil(t, newPrUpLock.Git)
+	t.Require().NoError(err)
+	t.Require().NotNil(newPrUp.Git)
+	t.Require().NotNil(newPrUpLock.Git)
 
 	prResources, err := dbPR.GetResources(ctx)
-	assert.Nil(t, err)
-	assert.NotNil(t, prResources)
-	assert.Equal(t, 0, len(prResources.Spec.Resources))
+	t.Require().NoError(err)
+	t.Require().NotNil(prResources)
+	t.Equal(0, len(prResources.Spec.Resources))
 
 	newDBPR := dbPR.(*dbPackageRevision)
 
@@ -125,29 +121,29 @@ info:
   description: some kpt package.`
 
 	err = newDBPR.UpdateResources(ctx, prResources, &v1alpha1.Task{})
-	assert.Nil(t, err)
+	t.Require().NoError(err)
 
 	dbPR, err = testRepo.ClosePackageRevisionDraft(ctx, dbPR.(repository.PackageRevisionDraft), 0)
-	assert.Nil(t, err)
-	assert.NotNil(t, dbPR)
+	t.Require().NoError(err)
+	t.Require().NotNil(dbPR)
 
 	gotKptFile, err := newDBPR.GetKptfile(ctx)
-	assert.Nil(t, err)
-	assert.Equal(t, "Kptfile", gotKptFile.Kind)
+	t.Require().NoError(err)
+	t.Equal("Kptfile", gotKptFile.Kind)
 
 	err = dbPR.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleProposed)
-	assert.Nil(t, err)
+	t.Require().NoError(err)
 
 	dbPR, err = testRepo.ClosePackageRevisionDraft(ctx, dbPR.(repository.PackageRevisionDraft), 0)
-	assert.Nil(t, err)
-	assert.NotNil(t, dbPR)
+	t.Require().NoError(err)
+	t.Require().NotNil(dbPR)
 
 	err = dbPR.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
-	assert.Nil(t, err)
+	t.Require().NoError(err)
 
 	dbPR, err = testRepo.ClosePackageRevisionDraft(ctx, dbPR.(repository.PackageRevisionDraft), 0)
-	assert.Nil(t, err)
-	assert.NotNil(t, dbPR)
+	t.Require().NoError(err)
+	t.Require().NotNil(dbPR)
 
 	dbPRdb := dbPR.(*dbPackageRevision)
 	dbPR2 := dbPackageRevision{
@@ -163,18 +159,18 @@ info:
 	}
 
 	err = dbPR2.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleProposed)
-	assert.Nil(t, err)
+	t.Require().NoError(err)
 
 	dbPR2i, err := testRepo.ClosePackageRevisionDraft(ctx, &dbPR2, 0)
-	assert.Nil(t, err)
-	assert.NotNil(t, dbPR2i)
+	t.Require().NoError(err)
+	t.Require().NotNil(dbPR2i)
 
 	err = dbPR2i.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
-	assert.Nil(t, err)
+	t.Require().NoError(err)
 
 	dbPR2i, err = testRepo.ClosePackageRevisionDraft(ctx, &dbPR2, 0)
-	assert.Nil(t, err)
-	assert.NotNil(t, dbPR2i)
+	t.Require().NoError(err)
+	t.Require().NotNil(dbPR2i)
 
 	fakeRepo := testRepo.externalRepo.(*fake.Repository)
 	fakeExtPR := fake.FakePackageRevision{
@@ -185,15 +181,15 @@ info:
 	dbPR.(*dbPackageRevision).lifecycle = v1alpha1.PackageRevisionLifecyclePublished
 	dbPR.(*dbPackageRevision).pkgRevKey.Revision = 1
 	err = dbPR.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleDeletionProposed)
-	assert.Nil(t, err)
+	t.Require().NoError(err)
 
 	dbPR, err = testRepo.ClosePackageRevisionDraft(ctx, dbPR.(repository.PackageRevisionDraft), 0)
-	assert.Nil(t, err)
-	assert.NotNil(t, dbPR)
+	t.Require().NoError(err)
+	t.Require().NotNil(dbPR)
 
 	prDef, err = dbPR.GetPackageRevision(ctx)
-	assert.Nil(t, err)
-	assert.Equal(t, v1alpha1.PackageRevisionLifecycleDeletionProposed, prDef.Spec.Lifecycle)
+	t.Require().NoError(err)
+	t.Equal(v1alpha1.PackageRevisionLifecycleDeletionProposed, prDef.Spec.Lifecycle)
 
 	prResources.Spec.Resources["Kptfile"] = `apiVersion: kpt.dev/v1
 kind: Kptfile
@@ -221,19 +217,21 @@ upstreamLock:
 	newDBPR2 := dbPR.(*dbPackageRevision)
 
 	err = newDBPR2.UpdateResources(ctx, prResources, &v1alpha1.Task{})
-	assert.Nil(t, err)
+	t.Require().NoError(err)
+
+	t.Require().False(newDBPR2.IsLatestRevision())
 
 	dbPR, err = testRepo.ClosePackageRevisionDraft(ctx, dbPR.(repository.PackageRevisionDraft), 0)
-	assert.Nil(t, err)
-	assert.NotNil(t, dbPR)
+	t.Require().NoError(err)
+	t.Require().NotNil(dbPR)
 
 	prDef, err = dbPR.GetPackageRevision(ctx)
-	assert.Nil(t, err)
-	assert.Equal(t, "basens-edit", prDef.Status.UpstreamLock.Git.Directory)
+	t.Require().NoError(err)
+	t.Equal("basens-edit", prDef.Status.UpstreamLock.Git.Directory)
 
 	err = testRepo.DeletePackageRevision(ctx, dbPR)
-	assert.Nil(t, err)
+	t.Require().NoError(err)
 
 	err = testRepo.Close(ctx)
-	assert.Nil(t, err)
+	t.Require().NoError(err)
 }

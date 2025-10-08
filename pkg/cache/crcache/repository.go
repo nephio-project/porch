@@ -148,7 +148,7 @@ func (r *cachedRepository) getRefreshError() error {
 }
 
 func (r *cachedRepository) getPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter, forceRefresh bool) ([]repository.PackageRevision, error) {
-
+	klog.Infof("Cache::OpenRepository(%s) fetching packages", r.Key())
 	_, packageRevisions, err := r.getCachedPackages(ctx, forceRefresh)
 	if err != nil {
 		return nil, err
@@ -494,14 +494,16 @@ func (r *cachedRepository) Close(ctx context.Context) error {
 
 // pollForever will continue polling until the signal channel is closed or the ctx is done.
 func (r *cachedRepository) pollForever(ctx context.Context, repoSyncFrequency time.Duration) {
+	ticker := time.NewTicker(repoSyncFrequency)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
-			klog.V(2).Infof("repo %+v: exiting repository poller, because context is done: %v", r.Key(), ctx.Err())
+			klog.Infof("repo %+v: exiting repository poller, because context is done: %v", r.Key(), ctx.Err())
 			return
-		default:
+		case <-ticker.C:
 			r.pollOnce(ctx)
-			time.Sleep(repoSyncFrequency)
+			ticker.Reset(repoSyncFrequency)
 		}
 	}
 }
@@ -509,7 +511,7 @@ func (r *cachedRepository) pollForever(ctx context.Context, repoSyncFrequency ti
 func (r *cachedRepository) pollOnce(ctx context.Context) {
 	start := time.Now()
 	klog.Infof("repo %+v: poll started", r.Key())
-	defer func() { klog.Infof("repo %+v: poll finished in %f secs", r.Key(), time.Since(start).Seconds()) }()
+	defer func() { klog.Infof("repo %+v: poll finished in %s", r.Key(), time.Since(start)) }()
 	ctx, span := tracer.Start(ctx, "[START]::Repository::pollOnce", trace.WithAttributes())
 	defer span.End()
 

@@ -98,7 +98,7 @@ func (g *GitLocalRunner) run(ctx context.Context, verbose bool, command string, 
 	const op errors.Op = "gitutil.run"
 
 	fullArgs := append([]string{command}, args...)
-	cmd := exec.CommandContext(ctx, g.gitPath, fullArgs...)
+	cmd := exec.CommandContext(ctx, g.gitPath, fullArgs...) // #nosec G204 -- variables controlled internally
 	cmd.Dir = g.Dir
 	// Disable git prompting the user for credentials.
 	cmd.Env = append(os.Environ(),

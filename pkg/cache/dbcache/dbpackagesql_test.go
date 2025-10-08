@@ -15,23 +15,19 @@
 package dbcache
 
 import (
-	"context"
 	"database/sql"
-	"strings"
-	"testing"
 	"time"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	mockcachetypes "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestPackageDBWriteRead(t *testing.T) {
-	mockCache := mockcachetypes.NewMockCache(t)
+func (t *DbTestSuite) TestPackageDBWriteRead() {
+	mockCache := mockcachetypes.NewMockCache(t.T())
 	cachetypes.CacheInstance = mockCache
 	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{})
 
@@ -80,38 +76,34 @@ func TestPackageDBWriteRead(t *testing.T) {
 		updatedBy: "porchuser2",
 	}
 
-	pkgDBWriteReadTest(t, dbRepo, dbPkg, dbPkgUpdate)
+	t.pkgDBWriteReadTest(&dbRepo, dbPkg, dbPkgUpdate)
 
 	dbPkg.pkgKey.Path = ""
 	dbPkgUpdate.pkgKey.Path = ""
 	dbPkgUpdate.updatedBy = "bart"
-	pkgDBWriteReadTest(t, dbRepo, dbPkg, dbPkgUpdate)
+	t.pkgDBWriteReadTest(&dbRepo, dbPkg, dbPkgUpdate)
 }
 
-func TestPackageDBSchema(t *testing.T) {
+func (t *DbTestSuite) TestPackageDBSchema() {
 	dbPkg := dbPackage{}
-	err := pkgWriteToDB(context.TODO(), &dbPkg)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
+	err := pkgWriteToDB(t.Context(), &dbPkg)
+	t.Require().ErrorContains(err, "violates check constraint")
 
 	dbPkg.pkgKey = repository.PackageKey{
 		RepoKey: repository.RepositoryKey{
 			Namespace: "my-ns",
 		},
 	}
-	err = pkgWriteToDB(context.TODO(), &dbPkg)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
+	err = pkgWriteToDB(t.Context(), &dbPkg)
+	t.Require().ErrorContains(err, "violates check constraint")
 
 	dbPkg.pkgKey.RepoKey.Name = "my-repo"
-	err = pkgWriteToDB(context.TODO(), &dbPkg)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "violates check constraint"))
+	err = pkgWriteToDB(t.Context(), &dbPkg)
+	t.Require().ErrorContains(err, "violates check constraint")
 
 	dbPkg.pkgKey.Package = "my-package"
-	err = pkgWriteToDB(context.TODO(), &dbPkg)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "violates foreign key constraint"))
+	err = pkgWriteToDB(t.Context(), &dbPkg)
+	t.Require().ErrorContains(err, "violates foreign key constraint")
 
 	dbRepo := dbRepository{
 		repoKey: repository.RepositoryKey{
@@ -119,123 +111,159 @@ func TestPackageDBSchema(t *testing.T) {
 			Name:      "my-repo",
 		},
 	}
-	err = repoWriteToDB(context.TODO(), &dbRepo)
-	assert.Nil(t, err)
+	err = repoWriteToDB(t.Context(), &dbRepo)
+	t.Require().NoError(err)
 
-	err = pkgWriteToDB(context.TODO(), &dbPkg)
-	assert.Nil(t, err)
+	err = pkgWriteToDB(t.Context(), &dbPkg)
+	t.Require().NoError(err)
 
 	dbPkg.pkgKey.Path = "my-path"
-	err = pkgUpdateDB(context.TODO(), &dbPkg)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "no rows or multiple rows found for updating"))
+	err = pkgUpdateDB(t.Context(), &dbPkg)
+	t.Require().ErrorContains(err, "no rows or multiple rows found for updating")
 
 	dbPkg.pkgKey.Path = ""
 	dbPkg.updatedBy = "Marge"
-	err = pkgUpdateDB(context.TODO(), &dbPkg)
-	assert.Nil(t, err)
+	err = pkgUpdateDB(t.Context(), &dbPkg)
+	t.Require().NoError(err)
 
 	dbPkg.pkgKey.Path = "my-path"
-	err = pkgUpdateDB(context.TODO(), &dbPkg)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "no rows or multiple rows found for updating"))
+	err = pkgUpdateDB(t.Context(), &dbPkg)
+	t.Require().ErrorContains(err, "no rows or multiple rows found for updating")
 
-	err = repoDeleteFromDB(context.TODO(), dbRepo.Key())
-	assert.Nil(t, err)
+	err = repoDeleteFromDB(t.Context(), dbRepo.Key())
+	t.Require().NoError(err)
 
-	_, err = pkgReadFromDB(context.TODO(), dbPkg.Key())
-	assert.NotNil(t, err)
-	assert.Equal(t, sql.ErrNoRows, err)
+	_, err = pkgReadFromDB(t.Context(), dbPkg.Key())
+	t.Require().NotNil(err)
+	t.Equal(sql.ErrNoRows, err)
 }
 
-func TestMultiPackageRepo(t *testing.T) {
-	mockCache := mockcachetypes.NewMockCache(t)
+func (t *DbTestSuite) TestMultiPackageRepo() {
+	mockCache := mockcachetypes.NewMockCache(t.T())
 	cachetypes.CacheInstance = mockCache
 	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{})
 
-	dbRepo11 := createTestRepo(t, "my-ns1", "my-repo1")
-	dbRepo12 := createTestRepo(t, "my-ns1", "my-repo2")
-	dbRepo21 := createTestRepo(t, "my-ns2", "my-repo1")
-	dbRepo22 := createTestRepo(t, "my-ns2", "my-repo2")
+	dbRepo11 := t.createTestRepo("my-ns1", "my-repo1")
+	dbRepo12 := t.createTestRepo("my-ns1", "my-repo2")
+	dbRepo21 := t.createTestRepo("my-ns2", "my-repo1")
+	dbRepo22 := t.createTestRepo("my-ns2", "my-repo2")
 
-	dbRepo11Pkgs := createTestPkgs(t, dbRepo11.Key(), "my-package", 4)
-	dbRepo12Pkgs := createTestPkgs(t, dbRepo12.Key(), "my-package", 4)
-	dbRepo21Pkgs := createTestPkgs(t, dbRepo21.Key(), "my-package", 4)
-	dbRepo22Pkgs := createTestPkgs(t, dbRepo22.Key(), "my-package", 4)
+	dbRepo11Pkgs := t.createTestPkgs(dbRepo11.Key(), "my-package", 4)
+	dbRepo12Pkgs := t.createTestPkgs(dbRepo12.Key(), "my-package", 4)
+	dbRepo21Pkgs := t.createTestPkgs(dbRepo21.Key(), "my-package", 4)
+	dbRepo22Pkgs := t.createTestPkgs(dbRepo22.Key(), "my-package", 4)
 
-	readRep11Pkgs, err := pkgReadPkgsFromDB(context.TODO(), dbRepo11.Key())
-	assert.Nil(t, err)
+	readRep11Pkgs, err := pkgReadPkgsFromDB(t.Context(), dbRepo11.Key())
+	t.Require().NoError(err)
 
-	readRep12Pkgs, err := pkgReadPkgsFromDB(context.TODO(), dbRepo12.Key())
-	assert.Nil(t, err)
+	readRep12Pkgs, err := pkgReadPkgsFromDB(t.Context(), dbRepo12.Key())
+	t.Require().NoError(err)
 
-	readRep21Pkgs, err := pkgReadPkgsFromDB(context.TODO(), dbRepo21.Key())
-	assert.Nil(t, err)
+	readRep21Pkgs, err := pkgReadPkgsFromDB(t.Context(), dbRepo21.Key())
+	t.Require().NoError(err)
 
-	readRep22Pkgs, err := pkgReadPkgsFromDB(context.TODO(), dbRepo22.Key())
-	assert.Nil(t, err)
+	readRep22Pkgs, err := pkgReadPkgsFromDB(t.Context(), dbRepo22.Key())
+	t.Require().NoError(err)
 
-	assertPackageListsEqual(t, dbRepo11Pkgs, readRep11Pkgs, 4)
-	assertPackageListsEqual(t, dbRepo12Pkgs, readRep12Pkgs, 4)
-	assertPackageListsEqual(t, dbRepo21Pkgs, readRep21Pkgs, 4)
-	assertPackageListsEqual(t, dbRepo22Pkgs, readRep22Pkgs, 4)
+	t.assertPackageListsEqual(dbRepo11Pkgs, readRep11Pkgs, 4)
+	t.assertPackageListsEqual(dbRepo12Pkgs, readRep12Pkgs, 4)
+	t.assertPackageListsEqual(dbRepo21Pkgs, readRep21Pkgs, 4)
+	t.assertPackageListsEqual(dbRepo22Pkgs, readRep22Pkgs, 4)
 
-	deleteTestRepo(t, dbRepo11.Key())
-	deleteTestRepo(t, dbRepo12.Key())
-	deleteTestRepo(t, dbRepo21.Key())
-	deleteTestRepo(t, dbRepo22.Key())
+	t.deleteTestRepo(dbRepo11.Key())
+	t.deleteTestRepo(dbRepo12.Key())
+	t.deleteTestRepo(dbRepo21.Key())
+	t.deleteTestRepo(dbRepo22.Key())
 }
 
-func pkgDBWriteReadTest(t *testing.T, dbRepo dbRepository, dbPkg, dbPkgUpdate dbPackage) {
-	err := pkgWriteToDB(context.TODO(), &dbPkg)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "violates foreign key constraint"))
+func (t *DbTestSuite) TestPackageFilter() {
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{})
 
-	err = repoWriteToDB(context.TODO(), &dbRepo)
-	assert.Nil(t, err)
+	dbRepo := t.createTestRepo("my-ns", "my-repo")
 
-	dbPkg.repo = &dbRepo
+	dbRepoPkgs := t.createTestPkgs(dbRepo.Key(), "my-package", 4)
+
+	pkgFilter := repository.ListPackageFilter{}
+	listPkgs, err := pkgListPkgsFromDB(t.Context(), pkgFilter)
+	t.Require().NoError(err)
+	t.Len(listPkgs, 4)
+
+	pkgFilter.Key.RepoKey = dbRepo.repoKey
+	pkgFilter.Key.Package = "my-package-2"
+	listPkgs, err = pkgListPkgsFromDB(t.Context(), pkgFilter)
+	t.Require().NoError(err)
+	t.Len(listPkgs, 1)
+
+	pkgFilter.Key.Package = "my-package-5"
+	listPkgs, err = pkgListPkgsFromDB(t.Context(), pkgFilter)
+	t.Require().NoError(err)
+	t.Empty(listPkgs)
+
+	pkgFilter.Key.Package = "my-package-2"
+	pkgFilter.Key.Path = "a/path"
+	listPkgs, err = pkgListPkgsFromDB(t.Context(), pkgFilter)
+	t.Require().NoError(err)
+	t.Empty(listPkgs)
+
+	pkgFilter.Key.Path = ""
+	listPkgs, err = pkgListPkgsFromDB(t.Context(), pkgFilter)
+	t.Require().NoError(err)
+	t.Len(listPkgs, 1)
+
+	t.deleteTestRepo(dbRepo.Key())
+
+	t.Empty(t.readRepoPkgPRs(dbRepoPkgs))
+}
+
+func (t *DbTestSuite) pkgDBWriteReadTest(dbRepo *dbRepository, dbPkg, dbPkgUpdate dbPackage) {
+	err := pkgWriteToDB(t.Context(), &dbPkg)
+	t.Require().ErrorContains(err, "violates foreign key constraint")
+
+	err = repoWriteToDB(t.Context(), dbRepo)
+	t.Require().NoError(err)
+
+	dbPkg.repo = dbRepo
 	dbPkg.pkgKey.RepoKey = dbRepo.Key()
 
-	err = pkgWriteToDB(context.TODO(), &dbPkg)
-	assert.Nil(t, err)
+	err = pkgWriteToDB(t.Context(), &dbPkg)
+	t.Require().NoError(err)
 
-	readPkg, err := pkgReadFromDB(context.TODO(), dbPkg.Key())
-	assert.Nil(t, err)
-	assertPackagesEqual(t, &dbPkg, readPkg)
+	readPkg, err := pkgReadFromDB(t.Context(), dbPkg.Key())
+	t.Require().NoError(err)
+	t.assertPackagesEqual(&dbPkg, readPkg)
 
-	err = pkgWriteToDB(context.TODO(), &dbPkgUpdate)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "violates unique constraint"))
+	err = pkgWriteToDB(t.Context(), &dbPkgUpdate)
+	t.Require().ErrorContains(err, "violates unique constraint")
 
-	err = pkgUpdateDB(context.TODO(), &dbPkgUpdate)
-	assert.Nil(t, err)
+	err = pkgUpdateDB(t.Context(), &dbPkgUpdate)
+	t.Require().NoError(err)
 
-	readPkg, err = pkgReadFromDB(context.TODO(), dbPkg.Key())
-	assert.Nil(t, err)
-	assertPackagesEqual(t, &dbPkgUpdate, readPkg)
+	readPkg, err = pkgReadFromDB(t.Context(), dbPkg.Key())
+	t.Require().NoError(err)
+	t.assertPackagesEqual(&dbPkgUpdate, readPkg)
 
-	err = pkgDeleteFromDB(context.TODO(), dbPkg.Key())
-	assert.Nil(t, err)
+	err = pkgDeleteFromDB(t.Context(), dbPkg.Key())
+	t.Require().NoError(err)
 
-	_, err = pkgReadFromDB(context.TODO(), dbPkg.Key())
-	assert.NotNil(t, err)
-	assert.Equal(t, sql.ErrNoRows, err)
+	_, err = pkgReadFromDB(t.Context(), dbPkg.Key())
+	t.Require().NotNil(err)
+	t.Equal(sql.ErrNoRows, err)
 
-	err = pkgUpdateDB(context.TODO(), &dbPkgUpdate)
-	assert.NotNil(t, err)
-	assert.True(t, strings.Contains(err.Error(), "no rows or multiple rows found for updating"))
+	err = pkgUpdateDB(t.Context(), &dbPkgUpdate)
+	t.Require().ErrorContains(err, "no rows or multiple rows found for updating")
 
-	err = pkgDeleteFromDB(context.TODO(), dbPkg.Key())
-	assert.Nil(t, err)
+	err = pkgDeleteFromDB(t.Context(), dbPkg.Key())
+	t.Require().NoError(err)
 
-	err = repoDeleteFromDB(context.TODO(), dbRepo.Key())
-	assert.Nil(t, err)
+	err = repoDeleteFromDB(t.Context(), dbRepo.Key())
+	t.Require().NoError(err)
 }
 
-func assertPackageListsEqual(t *testing.T, left []dbPackage, right []*dbPackage, count int) {
-	assert.Equal(t, count, len(left))
-	assert.Equal(t, count, len(right))
+func (t *DbTestSuite) assertPackageListsEqual(left []dbPackage, right []*dbPackage, count int) {
+	t.Len(left, count)
+	t.Len(right, count)
 
 	leftMap := make(map[repository.PackageKey]*dbPackage)
 	for _, leftPkg := range left {
@@ -249,16 +277,16 @@ func assertPackageListsEqual(t *testing.T, left []dbPackage, right []*dbPackage,
 
 	for leftKey, leftPkg := range leftMap {
 		rightPkg, ok := rightMap[leftKey]
-		assert.True(t, ok)
+		t.True(ok)
 
-		assertPackagesEqual(t, leftPkg, rightPkg)
+		t.assertPackagesEqual(leftPkg, rightPkg)
 	}
 }
 
-func assertPackagesEqual(t *testing.T, left, right *dbPackage) {
-	assert.Equal(t, left.Key(), right.Key())
-	assert.Equal(t, left.meta.Namespace, right.meta.Namespace)
-	assert.Equal(t, left.meta.Name, right.meta.Name)
-	assert.Equal(t, left.spec, right.spec)
-	assert.Equal(t, left.updatedBy, right.updatedBy)
+func (t *DbTestSuite) assertPackagesEqual(left, right *dbPackage) {
+	t.Equal(left.Key(), right.Key())
+	t.Equal(left.meta.Namespace, right.meta.Namespace)
+	t.Equal(left.meta.Name, right.meta.Name)
+	t.Equal(left.spec, right.spec)
+	t.Equal(left.updatedBy, right.updatedBy)
 }

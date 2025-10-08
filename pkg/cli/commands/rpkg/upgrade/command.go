@@ -276,7 +276,15 @@ func (r *runner) findUpstreamName(pr *porchapi.PackageRevision) string {
 	case porchapi.TaskTypeClone:
 		return pr.Spec.Tasks[0].Clone.Upstream.UpstreamRef.Name
 	case porchapi.TaskTypeEdit:
-		return r.findEditOrigin(pr)
+		if n := r.findEditOrigin(pr); n != "" {
+			return n
+		}
+		if pr.Status.UpstreamLock != nil {
+			if up := r.findUpstreamByLock(pr.Status.UpstreamLock); up != nil {
+				return up.Name
+			}
+		}
+		return ""
 	case porchapi.TaskTypeUpgrade:
 		return pr.Spec.Tasks[0].Upgrade.NewUpstream.Name
 	default:
@@ -300,4 +308,47 @@ func (r *runner) findEditOrigin(currentPr *porchapi.PackageRevision) string {
 		return r.findUpstreamName(pr)
 	}
 	return ""
+}
+
+func (r *runner) findUpstreamByLock(lock *porchapi.UpstreamLock) *porchapi.PackageRevision {
+	if lock == nil || lock.Git == nil {
+		return nil
+	}
+
+	target := lock.Git
+	var bestMatch *porchapi.PackageRevision
+
+	for i := range r.prs {
+		candidate := r.prs[i]
+
+		if !r.matchesTarget(candidate, target) {
+			continue
+		}
+
+		if target.Ref != "" && candidate.Status.UpstreamLock.Git.Ref == target.Ref {
+			if bestMatch == nil || candidate.Spec.Revision > bestMatch.Spec.Revision {
+				tmp := candidate
+				bestMatch = &tmp
+			}
+		}
+	}
+
+	return bestMatch
+}
+
+func (r *runner) matchesTarget(candidate porchapi.PackageRevision, target *porchapi.GitLock) bool {
+	if !candidate.IsPublished() {
+		return false
+	}
+	upstream := candidate.Status.UpstreamLock
+	if upstream == nil || upstream.Git == nil {
+		return false
+	}
+
+	cGit := upstream.Git
+	if cGit.Repo != target.Repo || cGit.Directory != target.Directory {
+		return false
+	}
+
+	return true
 }

@@ -20,6 +20,7 @@ import (
 
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -44,6 +45,10 @@ func TestPackageRevisionGetters(t *testing.T) {
 
 	meta := fakePr.GetMeta()
 	assert.Equal(t, "", meta.Name)
+	fakePr.Meta = &metav1.ObjectMeta{Name: "foo"}
+	meta = fakePr.GetMeta()
+	assert.Equal(t, "foo", meta.Name)
 
 	assert.True(t, fakePr.SetMeta(context.TODO(), meta) == nil)
+	assert.True(t, fakePr.IsLatestRevision())
 }

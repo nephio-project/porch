@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 
-MOCKERY_VERSION=2.53.3
+MOCKERY_VERSION=3.5.5
 GIT_ROOT_DIR ?= $(dir $(lastword $(MAKEFILE_LIST)))
 OS_ARCH ?= $(shell uname -m)
 OS ?= $(shell uname)

@@ -15,6 +15,8 @@
 package porch
 
 import (
+	"time"
+
 	"github.com/nephio-project/porch/api/porch"
 	apiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/engine"
@@ -27,53 +29,70 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewRESTStorage(scheme *runtime.Scheme, codecs serializer.CodecFactory, cad engine.CaDEngine, coreClient client.WithWatch) (genericapiserver.APIGroupInfo, error) {
+type RESTStorageOptions struct {
+	Scheme               *runtime.Scheme
+	Codecs               serializer.CodecFactory
+	CaD                  engine.CaDEngine
+	CoreClient           client.WithWatch
+	TimeoutPerRepository time.Duration
+	MaxConcurrentLists   int
+}
+
+func (r *RESTStorageOptions) NewRESTStorage() (genericapiserver.APIGroupInfo, error) {
 	packages := &packages{
 		TableConvertor: packageTableConvertor,
 		packageCommon: packageCommon{
-			scheme:         scheme,
-			cad:            cad,
-			gr:             porch.Resource("packages"),
-			coreClient:     coreClient,
-			updateStrategy: packageStrategy{},
-			createStrategy: packageStrategy{},
+			scheme:                   r.Scheme,
+			cad:                      r.CaD,
+			gr:                       porch.Resource("packages"),
+			coreClient:               r.CoreClient,
+			updateStrategy:           packageStrategy{},
+			createStrategy:           packageStrategy{},
+			ListTimeoutPerRepository: r.TimeoutPerRepository,
+			MaxConcurrentLists:       r.MaxConcurrentLists,
 		},
 	}
 
 	packageRevisions := &packageRevisions{
 		TableConvertor: packageRevisionTableConvertor,
 		packageCommon: packageCommon{
-			scheme:         scheme,
-			cad:            cad,
-			gr:             porch.Resource("packagerevisions"),
-			coreClient:     coreClient,
-			updateStrategy: packageRevisionStrategy{},
-			createStrategy: packageRevisionStrategy{},
+			scheme:                   r.Scheme,
+			cad:                      r.CaD,
+			gr:                       porch.Resource("packagerevisions"),
+			coreClient:               r.CoreClient,
+			updateStrategy:           packageRevisionStrategy{},
+			createStrategy:           packageRevisionStrategy{},
+			ListTimeoutPerRepository: r.TimeoutPerRepository,
+			MaxConcurrentLists:       r.MaxConcurrentLists,
 		},
 	}
 
 	packageRevisionsApproval := &packageRevisionsApproval{
 		common: packageCommon{
-			scheme:         scheme,
-			cad:            cad,
-			coreClient:     coreClient,
-			gr:             porch.Resource("packagerevisions"),
-			updateStrategy: packageRevisionApprovalStrategy{},
-			createStrategy: packageRevisionApprovalStrategy{},
+			scheme:                   r.Scheme,
+			cad:                      r.CaD,
+			coreClient:               r.CoreClient,
+			gr:                       porch.Resource("packagerevisions"),
+			updateStrategy:           packageRevisionApprovalStrategy{},
+			createStrategy:           packageRevisionApprovalStrategy{},
+			ListTimeoutPerRepository: r.TimeoutPerRepository,
+			MaxConcurrentLists:       r.MaxConcurrentLists,
 		},
 	}
 
 	packageRevisionResources := &packageRevisionResources{
 		TableConvertor: packageRevisionResourcesTableConvertor,
 		packageCommon: packageCommon{
-			scheme:     scheme,
-			cad:        cad,
-			gr:         porch.Resource("packagerevisionresources"),
-			coreClient: coreClient,
+			scheme:                   r.Scheme,
+			cad:                      r.CaD,
+			gr:                       porch.Resource("packagerevisionresources"),
+			coreClient:               r.CoreClient,
+			ListTimeoutPerRepository: r.TimeoutPerRepository,
+			MaxConcurrentLists:       r.MaxConcurrentLists,
 		},
 	}
 
-	group := genericapiserver.NewDefaultAPIGroupInfo(porch.GroupName, scheme, metav1.ParameterCodec, codecs)
+	group := genericapiserver.NewDefaultAPIGroupInfo(porch.GroupName, r.Scheme, metav1.ParameterCodec, r.Codecs)
 
 	group.VersionedResourcesStorageMap = map[string]map[string]rest.Storage{
 		apiv1alpha1.SchemeGroupVersion.Version: {
@@ -90,7 +109,7 @@ func NewRESTStorage(scheme *runtime.Scheme, codecs serializer.CodecFactory, cad 
 			Version: apiv1alpha1.SchemeGroupVersion.Version,
 			Kind:    "Package",
 		}
-		if err := scheme.AddFieldLabelConversionFunc(gvk, convertPackageFieldSelector); err != nil {
+		if err := r.Scheme.AddFieldLabelConversionFunc(gvk, convertPackageFieldSelector); err != nil {
 			return group, err
 		}
 	}
@@ -100,7 +119,7 @@ func NewRESTStorage(scheme *runtime.Scheme, codecs serializer.CodecFactory, cad 
 			Version: apiv1alpha1.SchemeGroupVersion.Version,
 			Kind:    "PackageRevision",
 		}
-		if err := scheme.AddFieldLabelConversionFunc(gvk, convertPackageRevisionFieldSelector); err != nil {
+		if err := r.Scheme.AddFieldLabelConversionFunc(gvk, convertPackageRevisionFieldSelector); err != nil {
 			return group, err
 		}
 	}
@@ -110,7 +129,7 @@ func NewRESTStorage(scheme *runtime.Scheme, codecs serializer.CodecFactory, cad 
 			Version: apiv1alpha1.SchemeGroupVersion.Version,
 			Kind:    "PackageRevisionResources",
 		}
-		if err := scheme.AddFieldLabelConversionFunc(gvk, convertPackageRevisionFieldSelector); err != nil {
+		if err := r.Scheme.AddFieldLabelConversionFunc(gvk, convertPackageRevisionFieldSelector); err != nil {
 			return group, err
 		}
 	}

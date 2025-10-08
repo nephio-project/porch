@@ -87,7 +87,7 @@ func (r *PackageVariantReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	}()
 
-	if !pv.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !pv.DeletionTimestamp.IsZero() {
 		// This object is being deleted, so we need to make sure the packagerevisions owned by this object
 		// are deleted. Normally, garbage collection can handle this, but we have a special case here because
 		// (a) we cannot delete published packagerevisions and instead have to propose deletion of them
@@ -156,12 +156,12 @@ func (r *PackageVariantReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 func (r *PackageVariantReconciler) init(ctx context.Context,
 	req ctrl.Request) (*api.PackageVariant, *porchapi.PackageRevisionList, error) {
 	var pv api.PackageVariant
-	if err := r.Client.Get(ctx, req.NamespacedName, &pv); err != nil {
+	if err := r.Get(ctx, req.NamespacedName, &pv); err != nil {
 		return nil, nil, client.IgnoreNotFound(err)
 	}
 
 	var prList porchapi.PackageRevisionList
-	if err := r.Client.List(ctx, &prList, client.InNamespace(pv.Namespace)); err != nil {
+	if err := r.List(ctx, &prList, client.InNamespace(pv.Namespace)); err != nil {
 		return nil, nil, err
 	}
 
@@ -375,7 +375,7 @@ func (r *PackageVariantReconciler) ensurePackageVariant(ctx context.Context,
 		},
 	}
 
-	if err = r.Client.Create(ctx, newPR); err != nil {
+	if err = r.Create(ctx, newPR); err != nil {
 		return nil, err
 	}
 	klog.Infoln(fmt.Sprintf("package variant %q created package revision %q", pv.Name, newPR.Name))
@@ -413,7 +413,7 @@ func (r *PackageVariantReconciler) findAndUpdateExistingRevisions(ctx context.Co
 			downstream.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 			// We update this now, because later we may use a Porch call to clone or update
 			// and we want to make sure the server is in sync with us
-			if err := r.Client.Update(ctx, downstream); err != nil {
+			if err := r.Update(ctx, downstream); err != nil {
 				klog.Errorf("error updating package revision lifecycle: %v", err)
 				return nil, err
 			}
@@ -493,7 +493,7 @@ func (r *PackageVariantReconciler) getDownstreamPRs(ctx context.Context,
 		//   to fetch all the packagerevisions so that we can determine which ones
 		//   we need to adopt. A mechanism to filter packagerevisions by repo/package
 		//   would be helpful for that.)
-		owned := r.hasOurOwnerReference(pv, pr.ObjectMeta.OwnerReferences)
+		owned := r.hasOurOwnerReference(pv, pr.OwnerReferences)
 		if !owned && pv.Spec.AdoptionPolicy != api.AdoptionPolicyAdoptExisting {
 			// this package revision doesn't belong to us
 			continue
@@ -572,8 +572,8 @@ func (r *PackageVariantReconciler) deleteOrOrphan(ctx context.Context,
 func (r *PackageVariantReconciler) orphanPackageRevision(ctx context.Context,
 	pr *porchapi.PackageRevision,
 	pv *api.PackageVariant) {
-	pr.ObjectMeta.OwnerReferences = removeOwnerRefByUID(pr.OwnerReferences, pv.UID)
-	if err := r.Client.Update(ctx, pr); err != nil {
+	pr.OwnerReferences = removeOwnerRefByUID(pr.OwnerReferences, pv.UID)
+	if err := r.Update(ctx, pr); err != nil {
 		klog.Errorf("error orphaning package revision: %v", err)
 	}
 }
@@ -594,31 +594,31 @@ func removeOwnerRefByUID(ownerRefs []metav1.OwnerReference,
 func (r *PackageVariantReconciler) adoptPackageRevision(ctx context.Context,
 	pr *porchapi.PackageRevision,
 	pv *api.PackageVariant) error {
-	pr.ObjectMeta.OwnerReferences = append(pr.OwnerReferences, constructOwnerReference(pv))
-	if len(pv.Spec.Labels) > 0 && pr.ObjectMeta.Labels == nil {
-		pr.ObjectMeta.Labels = make(map[string]string)
+	pr.OwnerReferences = append(pr.OwnerReferences, constructOwnerReference(pv))
+	if len(pv.Spec.Labels) > 0 && pr.Labels == nil {
+		pr.Labels = make(map[string]string)
 	}
 	for k, v := range pv.Spec.Labels {
-		pr.ObjectMeta.Labels[k] = v
+		pr.Labels[k] = v
 	}
-	if len(pv.Spec.Annotations) > 0 && pr.ObjectMeta.Annotations == nil {
-		pr.ObjectMeta.Annotations = make(map[string]string)
+	if len(pv.Spec.Annotations) > 0 && pr.Annotations == nil {
+		pr.Annotations = make(map[string]string)
 	}
 	for k, v := range pv.Spec.Annotations {
-		pr.ObjectMeta.Annotations[k] = v
+		pr.Annotations[k] = v
 	}
-	return r.Client.Update(ctx, pr)
+	return r.Update(ctx, pr)
 }
 
 func (r *PackageVariantReconciler) deletePackageRevision(ctx context.Context, pr *porchapi.PackageRevision) {
 	switch pr.Spec.Lifecycle {
 	case "", porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecycleProposed:
-		if err := r.Client.Delete(ctx, pr); err != nil {
+		if err := r.Delete(ctx, pr); err != nil {
 			klog.Errorf("error deleting package revision: %v", err)
 		}
 	case porchapi.PackageRevisionLifecyclePublished:
 		pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-		if err := r.Client.Update(ctx, pr); err != nil {
+		if err := r.Update(ctx, pr); err != nil {
 			klog.Errorf("error proposing deletion for published package revision: %v", err)
 		}
 	case porchapi.PackageRevisionLifecycleDeletionProposed:
@@ -632,12 +632,12 @@ func (r *PackageVariantReconciler) deletePackageRevision(ctx context.Context, pr
 // determine if the downstream PR needs to be updated
 func (r *PackageVariantReconciler) isUpToDate(pv *api.PackageVariant, downstream *porchapi.PackageRevision) bool {
 	if downstream.Status.UpstreamLock == nil {
-		klog.Warningf("status.upstreamLock field is empty/missing in downstream PackageRevision: %s", pv.ObjectMeta.Name)
+		klog.Warningf("status.upstreamLock field is empty/missing in downstream PackageRevision: %s", pv.Name)
 		return true
 	}
 	upstreamLock := downstream.Status.UpstreamLock
 	if upstreamLock.Git == nil || upstreamLock.Git.Ref == "" {
-		klog.Warningf("status.upstreamLock.git or status.upstreamLock.git.ref field is empty/missing in downstream PackageRevision: %s", pv.ObjectMeta.Name)
+		klog.Warningf("status.upstreamLock.git or status.upstreamLock.git.ref field is empty/missing in downstream PackageRevision: %s", pv.Name)
 		return true
 	}
 	if strings.HasPrefix(upstreamLock.Git.Ref, "drafts") {
@@ -695,7 +695,7 @@ func (r *PackageVariantReconciler) createUpgradeDraft(ctx context.Context,
 
 	klog.Infoln(fmt.Sprintf("package variant %q is creating upgrade package revision from {old: %q, new: %q, local: %q}",
 		pv.Name, oldUpstream.Name, newUpstream.Name, source.Name))
-	err = r.Client.Create(ctx, newPr)
+	err = r.Create(ctx, newPr)
 
 	return newPr, err
 }
@@ -719,7 +719,7 @@ func (r *PackageVariantReconciler) createEditDraft(ctx context.Context,
 	}
 
 	klog.Infoln(fmt.Sprintf("package variant %q is creating edit package revision from %q", pv.Name, source.Name))
-	err := r.Client.Create(ctx, newPr)
+	err := r.Create(ctx, newPr)
 
 	return newPr, err
 }
@@ -857,7 +857,7 @@ func (r *PackageVariantReconciler) calculateDraftResources(ctx context.Context,
 	// Load the PackageRevisionResources
 	var prr porchapi.PackageRevisionResources
 	prrKey := types.NamespacedName{Name: draft.GetName(), Namespace: draft.GetNamespace()}
-	if err := r.Client.Get(ctx, prrKey, &prr); err != nil {
+	if err := r.Get(ctx, prrKey, &prr); err != nil {
 		return nil, false, err
 	}
 
@@ -1055,7 +1055,7 @@ func ensureKRMFunctions(pv *api.PackageVariant,
 		}
 
 		for _, existingField := range existingFields {
-			ok, err := isPackageVariantFunc(existingField, pv.ObjectMeta.Name)
+			ok, err := isPackageVariantFunc(existingField, pv.Name)
 			if err != nil {
 				return err
 			}
@@ -1067,7 +1067,7 @@ func ensureKRMFunctions(pv *api.PackageVariant,
 		var newPVFieldVal = fn.SliceSubObjects{}
 		for i, newFields := range field {
 			newFieldVal := newFields.DeepCopy()
-			newFieldVal.Name = generatePVFuncName(newFields.Name, pv.ObjectMeta.Name, i)
+			newFieldVal.Name = generatePVFuncName(newFields.Name, pv.Name, i)
 			f, err := fn.NewFromTypedObject(newFieldVal)
 			if err != nil {
 				return err

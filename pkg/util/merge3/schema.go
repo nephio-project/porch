@@ -148,7 +148,7 @@ func extractSchema(version *fn.SubObject) (*spec.Schema, error) {
 }
 
 func addGVKExtension(schema *spec.Schema, group, version, kind string) {
-	schema.VendorExtensible.Extensions = map[string]any{
+	schema.Extensions = map[string]any{
 		kubernetesGVKExtensionKey: []map[string]string{
 			{
 				"group":   group,

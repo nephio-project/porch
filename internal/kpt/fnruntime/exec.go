@@ -54,7 +54,7 @@ func (f *ExecFn) Run(r io.Reader, w io.Writer) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, f.Path, f.Args...)
+	cmd := exec.CommandContext(ctx, f.Path, f.Args...) // #nosec G204 -- variables controlled internally
 
 	errSink := bytes.Buffer{}
 	cmd.Stdin = r
