@@ -140,7 +140,7 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 	isRoot := spec.Directory == "/"
 	var subdirName string
 	if isRoot {
-		dir = filepath.Join(root, repoPath)
+		dir = filepath.Join(root, fmt.Sprintf("%s---%s", repoPath, namespace))
 	} else {
 		directoryPath := strings.Trim(spec.Directory, "/")
 		subdirName = replace.Replace(directoryPath)
