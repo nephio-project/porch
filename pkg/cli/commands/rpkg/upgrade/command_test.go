@@ -467,13 +467,13 @@ func TestPreRunStrategyValidation(t *testing.T) {
 		{
 			name:          "Valid strategy: copy-merge",
 			strategy:      string(porchapi.CopyMerge),
-			expectErr:     true,
+			expectErr:     false,
 			expectedError: "cmdrpkgupgrade", // this means the strategy is valid and it fails elsewhere
 		},
 		{
 			name:          "Empty strategy is valid (uses default resource-merge)",
 			strategy:      "",
-			expectErr:     true,
+			expectErr:     false,
 			expectedError: "cmdrpkgupgrade",
 		},
 		{

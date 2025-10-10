@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -54,8 +54,10 @@ type packagePrinter struct{}
 
 var _ printer.Printer = &packagePrinter{}
 
+const packagePrefixFormat = "Package: %q"
+
 func (p *packagePrinter) PrintPackage(pkg *pkg.Pkg, leadingNewline bool) {
-	p.Printf("Package %q: ", pkg.DisplayPath)
+	p.Printf(packagePrefixFormat, pkg.DisplayPath)
 }
 
 func (p *packagePrinter) Printf(format string, args ...interface{}) {
@@ -69,9 +71,9 @@ func (p *packagePrinter) OptPrintf(opt *printer.Options, format string, args ...
 	}
 	var prefix string
 	if !opt.PkgDisplayPath.Empty() {
-		prefix = fmt.Sprintf("Package %q: ", string(opt.PkgDisplayPath))
+		prefix = fmt.Sprintf(packagePrefixFormat, string(opt.PkgDisplayPath))
 	} else if !opt.PkgPath.Empty() {
-		prefix = fmt.Sprintf("Package %q: ", string(opt.PkgPath))
+		prefix = fmt.Sprintf(packagePrefixFormat, string(opt.PkgPath))
 	}
 	p.Printf(prefix+format, args...)
 }

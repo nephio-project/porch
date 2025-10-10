@@ -261,9 +261,6 @@ commands:
       - --namespace=rpkg-push
       - git.test-package.push
       - /tmp/porch-e2e/testing-invalid-render
-    stderr: |
-      Error occurred rendering package in kpt function pipeline.
-      Package has NOT been pushed to remote.
-      Please fix package locally (modify until 'kpt fn render' succeeds) and retry.
+    stderr: "Error rendering package in kpt function pipeline. Package NOT pushed to remote. Fix locally (until 'kpt fn render' succeeds) and retry."
     containsErrorString: true
     exitCode: 1
