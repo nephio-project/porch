@@ -195,10 +195,13 @@ func (b *background) handleRepositoryEvent(ctx context.Context, repo *configapi.
 	case watch.Deleted:
 		err = b.cache.CloseRepository(listCtx, repo, repoList.Items)
 	case watch.Modified:
-		if cachedRepo, err := b.cacheRepository(listCtx, repo); err == nil {
+		cachedRepo, err := b.cacheRepository(listCtx, repo)
+		if err == nil && cachedRepo != nil {
 			if err = cachedRepo.Refresh(ctx); err != nil {
 				klog.Warningf("Background repository refresh failed for repo %q: %v", repo.Name, err)
 			}
+		} else {
+			klog.Warningf("cacheRepository failed or returned nil for repo %q: err=%v", repo.Name, err)
 		}
 	default:
 		_, err = b.cacheRepository(listCtx, repo)
