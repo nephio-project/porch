@@ -13,7 +13,7 @@ import (
 	mockrepo "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 )
 
@@ -106,6 +106,12 @@ func TestBackgroundHandleRepositoryEvent(t *testing.T) {
 				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType(v1alpha1Repo), mock.Anything).Return(mockRepo, nil)
 				mockClient.On("Status").Return(mockResourceWriter)
 				mockResourceWriter.On("Update", mock.Anything, mock.Anything).Return(nil)
+				mockClient.On("Get", mock.Anything, mock.AnythingOfType("types.NamespacedName"), mock.AnythingOfType("*v1alpha1.Repository")).
+					Run(func(args mock.Arguments) {
+						repo := args.Get(2).(*configapi.Repository)
+						repo.Status.Conditions = []v1.Condition{}
+					}).
+					Return(nil)
 			},
 		},
 		{
@@ -126,16 +132,13 @@ func TestBackgroundHandleRepositoryEvent(t *testing.T) {
 				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType(v1alpha1Repo), mock.Anything).Return(mockRepo, nil)
 				mockClient.On("Status").Return(mockResourceWriter)
 				mockResourceWriter.On("Update", mock.Anything, mock.Anything).Return(nil)
+				mockClient.On("Get", mock.Anything, mock.AnythingOfType("types.NamespacedName"), mock.AnythingOfType("*v1alpha1.Repository")).
+					Run(func(args mock.Arguments) {
+						repo := args.Get(2).(*configapi.Repository)
+						repo.Status.Conditions = []v1.Condition{}
+					}).
+					Return(nil)
 			},
-		},
-		{
-			name:  "Modified event with unchanged spec",
-			event: watch.Modified,
-			setupMocks: func(mockClient *mockclient.MockWithWatch, mockResourceWriter *mockclient.MockSubResourceWriter,
-				mockCache *mockcache.MockCache, mockRepo *mockrepo.MockRepository) {
-				// No mocks needed since it is a no-op
-			},
-			expectedError: nil,
 		},
 		{
 			name:  "Unsuccessful repository deletion event",
@@ -191,8 +194,6 @@ func TestBackgroundHandleRepositoryEvent(t *testing.T) {
 
 			var repository *configapi.Repository
 			switch tt.name {
-			case "Modified event with unchanged spec":
-				repository = createRepo(1, 1, false) // specChanged returns false
 			case "Invalid repository":
 				repository = createRepo(2, 1, false)
 				repository.Spec.Git.Directory = "invalid//directory"
@@ -238,6 +239,12 @@ func TestBackgroundRunOnce(t *testing.T) {
 				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType(v1alpha1Repo), mock.Anything).Return(mockRepo, nil)
 				mockClient.On("Status").Return(mockResourceWriter)
 				mockResourceWriter.On("Update", mock.Anything, mock.Anything).Return(nil)
+				mockClient.On("Get", mock.Anything, mock.AnythingOfType("types.NamespacedName"), mock.AnythingOfType("*v1alpha1.Repository")).
+					Run(func(args mock.Arguments) {
+						repo := args.Get(2).(*configapi.Repository)
+						repo.Status.Conditions = []v1.Condition{}
+					}).
+					Return(nil)
 			},
 		},
 		{
@@ -261,7 +268,12 @@ func TestBackgroundRunOnce(t *testing.T) {
 					Return(nil, fmt.Errorf("failed to cache"))
 				mockClient.On("Status").Return(mockResourceWriter)
 				mockResourceWriter.On("Update", mock.Anything, mock.Anything).Return(nil)
-
+				mockClient.On("Get", mock.Anything, mock.AnythingOfType("types.NamespacedName"), mock.AnythingOfType("*v1alpha1.Repository")).
+					Run(func(args mock.Arguments) {
+						repo := args.Get(2).(*configapi.Repository)
+						repo.Status.Conditions = []v1.Condition{}
+					}).
+					Return(nil)
 			},
 		},
 	}
@@ -301,7 +313,7 @@ func TestBackgroundCacheRepository(t *testing.T) {
 		name          string
 		setupMocks    func(*mockclient.MockWithWatch, *mockclient.MockSubResourceWriter, *mockcache.MockCache, *mockrepo.MockRepository)
 		expectedError error
-		expectedCond  metav1.Condition
+		expectedCond  v1.Condition
 	}{
 		{
 			name: "Successful repository caching",
@@ -309,11 +321,16 @@ func TestBackgroundCacheRepository(t *testing.T) {
 				mockCache *mockcache.MockCache, mockRepo *mockrepo.MockRepository) {
 				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType(v1alpha1Repo), mock.Anything).Return(mockRepo, nil)
 				mockClient.On("Status").Return(mockResourceWriter)
-				mockResourceWriter.On("Update", mock.Anything, mock.Anything).Return(nil)
+				mockClient.On("Get", mock.Anything, mock.AnythingOfType("types.NamespacedName"), mock.AnythingOfType("*v1alpha1.Repository")).
+					Run(func(args mock.Arguments) {
+						repo := args.Get(2).(*configapi.Repository)
+						repo.Status.Conditions = []v1.Condition{}
+					}).Return(nil)
+				mockResourceWriter.On("Update", mock.Anything, mock.AnythingOfType("*v1alpha1.Repository")).Return(nil)
 			},
-			expectedCond: metav1.Condition{
+			expectedCond: v1.Condition{
 				Type:               configapi.RepositoryReady,
-				Status:             metav1.ConditionTrue,
+				Status:             v1.ConditionTrue,
 				ObservedGeneration: 1,
 				Reason:             configapi.ReasonReady,
 				Message:            RepositoryReadyMsg,
@@ -326,30 +343,19 @@ func TestBackgroundCacheRepository(t *testing.T) {
 				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType(v1alpha1Repo), mock.Anything).
 					Return(nil, fmt.Errorf("failed to open repo"))
 				mockClient.On("Status").Return(mockResourceWriter)
-				mockResourceWriter.On("Update", mock.Anything, mock.Anything).Return(nil)
+				mockClient.On("Get", mock.Anything, mock.AnythingOfType("types.NamespacedName"), mock.AnythingOfType("*v1alpha1.Repository")).
+					Run(func(args mock.Arguments) {
+						repo := args.Get(2).(*configapi.Repository)
+						repo.Status.Conditions = []v1.Condition{}
+					}).Return(nil)
+				mockResourceWriter.On("Update", mock.Anything, mock.AnythingOfType("*v1alpha1.Repository")).Return(nil)
 			},
-			expectedCond: metav1.Condition{
+			expectedCond: v1.Condition{
 				Type:               configapi.RepositoryReady,
-				Status:             metav1.ConditionFalse,
+				Status:             v1.ConditionFalse,
 				ObservedGeneration: 1,
 				Reason:             configapi.ReasonError,
 				Message:            "failed to open repo",
-			},
-		},
-		{
-			name: "Repository refresh failed",
-			setupMocks: func(mockClient *mockclient.MockWithWatch, mockResourceWriter *mockclient.MockSubResourceWriter,
-				mockCache *mockcache.MockCache, mockRepo *mockrepo.MockRepository) {
-				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType(v1alpha1Repo), mock.Anything).Return(mockRepo, nil)
-				mockClient.On("Status").Return(mockResourceWriter)
-				mockResourceWriter.On("Update", mock.Anything, mock.Anything).Return(nil)
-			},
-			expectedCond: metav1.Condition{
-				Type:               configapi.RepositoryReady,
-				Status:             metav1.ConditionTrue,
-				ObservedGeneration: 1,
-				Reason:             configapi.ReasonReady,
-				Message:            RepositoryReadyMsg,
 			},
 		},
 		{
@@ -358,12 +364,17 @@ func TestBackgroundCacheRepository(t *testing.T) {
 				mockCache *mockcache.MockCache, mockRepo *mockrepo.MockRepository) {
 				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType(v1alpha1Repo), mock.Anything).Return(mockRepo, nil)
 				mockClient.On("Status").Return(mockResourceWriter)
-				mockResourceWriter.On("Update", mock.Anything, mock.Anything).Return(fmt.Errorf("status update failed"))
+				mockClient.On("Get", mock.Anything, mock.AnythingOfType("types.NamespacedName"), mock.AnythingOfType("*v1alpha1.Repository")).
+					Run(func(args mock.Arguments) {
+						repo := args.Get(2).(*configapi.Repository)
+						repo.Status.Conditions = []v1.Condition{}
+					}).Return(nil)
+				mockResourceWriter.On("Update", mock.Anything, mock.AnythingOfType("*v1alpha1.Repository")).Return(fmt.Errorf("status update failed"))
 			},
 			expectedError: fmt.Errorf("error updating repository status: status update failed"),
-			expectedCond: metav1.Condition{
+			expectedCond: v1.Condition{
 				Type:               configapi.RepositoryReady,
-				Status:             metav1.ConditionTrue,
+				Status:             v1.ConditionTrue,
 				ObservedGeneration: 1,
 				Reason:             configapi.ReasonReady,
 				Message:            RepositoryReadyMsg,
@@ -377,6 +388,12 @@ func TestBackgroundCacheRepository(t *testing.T) {
 			mockResourceWriter := &mockclient.MockSubResourceWriter{}
 			mockCache := &mockcache.MockCache{}
 			mockRepo := &mockrepo.MockRepository{}
+
+			var updatedRepo *configapi.Repository
+			mockResourceWriter.On("Update", mock.Anything, mock.AnythingOfType("*v1alpha1.Repository")).
+				Run(func(args mock.Arguments) {
+					updatedRepo = args.Get(1).(*configapi.Repository)
+				}).Return(tt.expectedError)
 
 			b := &background{
 				coreClient: mockClient,
@@ -396,8 +413,9 @@ func TestBackgroundCacheRepository(t *testing.T) {
 				assert.NoError(t, err)
 			}
 
-			assert.Len(t, repository.Status.Conditions, 1)
-			condition := repository.Status.Conditions[0]
+			assert.NotNil(t, updatedRepo)
+			assert.Len(t, updatedRepo.Status.Conditions, 1)
+			condition := updatedRepo.Status.Conditions[0]
 			assert.Equal(t, tt.expectedCond.Type, condition.Type)
 			assert.Equal(t, tt.expectedCond.Status, condition.Status)
 			assert.Equal(t, tt.expectedCond.ObservedGeneration, condition.ObservedGeneration)
@@ -413,19 +431,19 @@ func TestBackgroundCacheRepository(t *testing.T) {
 }
 
 func createRepo(gen int64, observedGen int64, conditionsNil bool) *configapi.Repository {
-	var conditions []metav1.Condition
+	var conditions []v1.Condition
 	if !conditionsNil {
-		conditions = []metav1.Condition{
+		conditions = []v1.Condition{
 			{
 				Type:               "Ready",
-				Status:             metav1.ConditionFalse,
+				Status:             v1.ConditionFalse,
 				ObservedGeneration: observedGen,
 			},
 		}
 	}
 
 	return &configapi.Repository{
-		ObjectMeta: metav1.ObjectMeta{
+		ObjectMeta: v1.ObjectMeta{
 			Name:       "test-repo",
 			Namespace:  "test-namespace",
 			Generation: gen,
