@@ -19,9 +19,12 @@ package util
 import (
 	"context"
 	"fmt"
+	"time"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -63,21 +66,41 @@ func BuildRepositoryCondition(repo *configapi.Repository, status string, errorMs
 	}
 }
 
-func ApplyRepositoryCondition(ctx context.Context, client client.StatusWriter, repo *configapi.Repository, condition metav1.Condition, status string) error {
-	if repo.Status.Conditions == nil {
-		repo.Status.Conditions = []metav1.Condition{}
+func ApplyRepositoryCondition(ctx context.Context, client client.Client, repo *configapi.Repository, condition metav1.Condition, status string) error {
+	for _, attempt := range []int{1, 2, 3} {
+		latestRepo := &configapi.Repository{}
+		err := client.Get(ctx, types.NamespacedName{
+			Namespace: repo.Namespace,
+			Name:      repo.Name,
+		}, latestRepo)
+		if err != nil {
+			return fmt.Errorf("failed to get latest repository object: %w", err)
+		}
+
+		if latestRepo.Status.Conditions == nil {
+			latestRepo.Status.Conditions = []metav1.Condition{}
+		}
+
+		if len(latestRepo.Status.Conditions) > 0 {
+			latestRepo.Status.Conditions[0] = condition
+		} else {
+			latestRepo.Status.Conditions = append(latestRepo.Status.Conditions, condition)
+		}
+
+		err = client.Status().Update(ctx, latestRepo)
+		if err == nil {
+			klog.V(2).Infof("Repository %s status updated to %s", repo.Name, status)
+			return nil
+		}
+
+		if apierrors.IsConflict(err) {
+			klog.V(3).Infof("Retrying status update for repository %q in namespace %q due to conflict (attempt %d)", repo.Name, repo.Namespace, attempt)
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
+
+		return fmt.Errorf("error updating repository status: %w", err)
 	}
 
-	if len(repo.Status.Conditions) > 0 {
-		repo.Status.Conditions[0] = condition
-	} else {
-		repo.Status.Conditions = append(repo.Status.Conditions, condition)
-	}
-
-	if err := client.Update(ctx, repo); err != nil {
-		return fmt.Errorf("failed to update repository status: %w", err)
-	}
-
-	klog.V(2).Infof("Repository %s status updated to %s", repo.Name, status)
-	return nil
+	return fmt.Errorf("failed to update repository status after retries")
 }

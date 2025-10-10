@@ -164,14 +164,26 @@ func TestApplyRepositoryCondition(t *testing.T) {
 	}
 
 	scheme := runtime.NewScheme()
-	_ = configapi.AddToScheme(scheme)
-	fakeClient := NewFakeClientWithStatus(scheme, repo)
+	require.NoError(t, configapi.AddToScheme(scheme))
 
-	err := ApplyRepositoryCondition(ctx, fakeClient.Status(), repo, condition, "ready")
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(repo).
+		WithObjects(repo).
+		Build()
+
+	err := ApplyRepositoryCondition(ctx, fakeClient, repo, condition, "ready")
 	require.NoError(t, err)
 
-	// Verify condition was applied
-	assert.Len(t, repo.Status.Conditions, 1)
-	assert.Equal(t, condition.Type, repo.Status.Conditions[0].Type)
-	assert.Equal(t, condition.Status, repo.Status.Conditions[0].Status)
+	// Fetch updated repo to verify condition
+	updatedRepo := &configapi.Repository{}
+	err = fakeClient.Get(ctx, types.NamespacedName{
+		Namespace: repo.Namespace,
+		Name:      repo.Name,
+	}, updatedRepo)
+	require.NoError(t, err)
+
+	assert.Len(t, updatedRepo.Status.Conditions, 1)
+	assert.Equal(t, condition.Type, updatedRepo.Status.Conditions[0].Type)
+	assert.Equal(t, condition.Status, updatedRepo.Status.Conditions[0].Status)
 }

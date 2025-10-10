@@ -27,6 +27,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	fakeprinter "github.com/nephio-project/porch/pkg/kpt/printer/fake"
+	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/rest"
@@ -288,4 +289,59 @@ func (p *fakePorch) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p.handler(action, w, r)
+}
+
+func TestValidateCronExpression(t *testing.T) {
+	tests := []struct {
+		name        string
+		expr        string
+		expectError bool
+	}{
+		{
+			name:        "Valid cron - every minute",
+			expr:        "* * * * *",
+			expectError: false,
+		},
+		{
+			name:        "Valid cron - every day at midnight",
+			expr:        "0 0 * * *",
+			expectError: false,
+		},
+		{
+			name:        "Valid cron - every Monday at 9am",
+			expr:        "0 9 * * 1",
+			expectError: false,
+		},
+		{
+			name:        "Invalid cron - too few fields",
+			expr:        "* * * *",
+			expectError: true,
+		},
+		{
+			name:        "Invalid cron - too many fields",
+			expr:        "* * * * * *",
+			expectError: true,
+		},
+		{
+			name:        "Invalid cron - non-numeric",
+			expr:        "a b c d e",
+			expectError: true,
+		},
+		{
+			name:        "Empty string",
+			expr:        "",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateCronExpression(tt.expr)
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
 }

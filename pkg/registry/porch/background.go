@@ -22,8 +22,10 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/util"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -227,14 +229,12 @@ func (b *background) cacheRepository(ctx context.Context, repo *configapi.Reposi
 	defer func() {
 		klog.V(2).Infof("background::cacheRepository (%s) took %s", repo.Name, time.Since(start))
 	}()
+
 	var condition v1.Condition
 	_, err := b.cache.OpenRepository(ctx, repo)
 	if err == nil {
-		if repo.Status.Conditions == nil {
-			// Let's wait for sync job to create condition
-			return nil
-		} else if repo.Status.Conditions[0].Status == v1.ConditionTrue {
-			// Skip if status is already true
+		if repo.Status.Conditions == nil || repo.Status.Conditions[0].Status == v1.ConditionTrue {
+			// Wait for sync job or skip if already ready
 			return nil
 		}
 		condition = v1.Condition{
@@ -255,11 +255,33 @@ func (b *background) cacheRepository(ctx context.Context, repo *configapi.Reposi
 			Message:            err.Error(),
 		}
 	}
-	meta.SetStatusCondition(&repo.Status.Conditions, condition)
-	if err := b.coreClient.Status().Update(ctx, repo); err != nil {
+
+	// Update status condition with retry only on API conflict
+	for _, attempt := range []int{1, 2, 3} {
+		latestRepo := &configapi.Repository{}
+		err := b.coreClient.Get(ctx, types.NamespacedName{
+			Namespace: repo.Namespace,
+			Name:      repo.Name,
+		}, latestRepo)
+		if err != nil {
+			return fmt.Errorf("failed to get latest repository object: %w", err)
+		}
+
+		meta.SetStatusCondition(&latestRepo.Status.Conditions, condition)
+		err = b.coreClient.Status().Update(ctx, latestRepo)
+		if err == nil {
+			return nil
+		}
+
+		if apierrors.IsConflict(err) {
+			klog.V(3).Infof("Retrying status update for repository %q in namespace %q due to conflict (attempt %d)", repo.Name, repo.Namespace, attempt)
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
+		// Return immediately for non-conflict errors
 		return fmt.Errorf("error updating repository status: %w", err)
 	}
-	return nil
+	return fmt.Errorf("failed to update repository status after retries")
 }
 
 type backoffTimer struct {

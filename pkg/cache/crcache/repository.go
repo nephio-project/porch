@@ -673,7 +673,7 @@ func (r *cachedRepository) setRepositoryCondition(ctx context.Context, status st
 		return err
 	}
 
-	return util.ApplyRepositoryCondition(ctx, r.coreClient.Status(), repo, condition, status)
+	return util.ApplyRepositoryCondition(ctx, r.coreClient, repo, condition, status)
 }
 
 func (r *cachedRepository) flush() {

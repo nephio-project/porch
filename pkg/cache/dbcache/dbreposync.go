@@ -292,7 +292,7 @@ func (s *repositorySync) setRepositoryCondition(ctx context.Context, status stri
 		return err
 	}
 
-	return util.ApplyRepositoryCondition(ctx, s.coreClient.Status(), repo, condition, status)
+	return util.ApplyRepositoryCondition(ctx, s.coreClient, repo, condition, status)
 }
 
 func (s *repositorySync) getCachedPRMap(ctx context.Context) (map[repository.PackageRevisionKey]repository.PackageRevision, error) {
