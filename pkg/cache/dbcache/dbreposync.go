@@ -179,7 +179,7 @@ func (s *repositorySync) calculateWaitDuration(defaultDuration time.Duration) ti
 
 	cronExpr := s.repo.spec.Spec.Sync.Schedule
 	if cronExpr == "" {
-		klog.V(2).Infof("repositorySync %+v: sync.schedule is empty, falling back to repository cr sync interval: %v", s.repo.Key(), defaultDuration)
+		klog.V(2).Infof("repositorySync %+v: sync.schedule is empty, falling back to default interval: %v", s.repo.Key(), defaultDuration)
 		return defaultDuration
 	}
 
