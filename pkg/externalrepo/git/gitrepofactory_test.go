@@ -118,6 +118,19 @@ func TestCheckRepositoryConnection(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), `branch "nonexistent-branch" not found`)
 
+	// empty secretName (no authentication)
+	repoSpec = &configapi.Repository{
+		Spec: configapi.RepositorySpec{
+			Git: &configapi.GitRepository{
+				Repo:      address,
+				Branch:    branch,
+				SecretRef: configapi.SecretRef{Name: ""},
+			},
+		},
+	}
+	err = gf.CheckRepositoryConnection(context.TODO(), repoSpec, externalrepotypes.ExternalRepoOptions{})
+	assert.NoError(t, err)
+
 	// remote list error
 	repoSpec = &configapi.Repository{
 		Spec: configapi.RepositorySpec{
