@@ -60,6 +60,7 @@ type cachedRepository struct {
 	// Error encountered on repository refresh by the refresh goroutine.
 	// This is returned back by the cache to the background goroutine when it calls the periodic refresh to resync repositories.
 	refreshRevisionsError error
+	nextSyncTime          *time.Time
 
 	metadataStore        meta.MetadataStore
 	repoPRChangeNotifier cachetypes.RepoPRChangeNotifier
@@ -499,6 +500,8 @@ func (r *cachedRepository) Close(ctx context.Context) error {
 func (r *cachedRepository) pollForever(ctx context.Context, repoCrSyncFrequency time.Duration) {
 	// Sync once at startup/repo registration.
 	r.pollOnce(ctx)
+	// Calculate next sync time after first sync
+	r.calculateWaitDuration(repoCrSyncFrequency)
 	r.updateRepositoryCondition(ctx)
 
 	for {
@@ -641,6 +644,7 @@ func (r *cachedRepository) calculateWaitDuration(defaultDuration time.Duration) 
 
 	next := schedule.Next(time.Now())
 	klog.Infof("repo %+v: next scheduled time: %v", r.Key(), next)
+	r.nextSyncTime = &next
 	return time.Until(next)
 }
 
@@ -668,7 +672,7 @@ func (r *cachedRepository) setRepositoryCondition(ctx context.Context, status st
 		errorMsg = r.refreshRevisionsError.Error()
 	}
 
-	condition, err := util.BuildRepositoryCondition(repo, status, errorMsg)
+	condition, err := util.BuildRepositoryCondition(repo, status, errorMsg, r.nextSyncTime)
 	if err != nil {
 		return err
 	}

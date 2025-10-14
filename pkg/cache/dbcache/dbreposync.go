@@ -42,6 +42,7 @@ type repositorySync struct {
 	lastExternalPRMap       map[repository.PackageRevisionKey]repository.PackageRevision
 	lastSyncError           error
 	lastSyncStats           repositorySyncStats
+	nextSyncTime            *time.Time
 	coreClient              client.WithWatch
 }
 
@@ -71,7 +72,10 @@ func (s *repositorySync) Stop() {
 }
 
 func (s *repositorySync) syncForever(ctx context.Context, repoCrSyncFrequency time.Duration) {
+	// Sync once at startup/repo registration.
 	s.lastSyncStats, s.lastSyncError = s.syncOnce(ctx)
+	// Calculate next sync time after first sync
+	s.calculateWaitDuration(repoCrSyncFrequency)
 	s.updateRepositoryCondition(ctx)
 
 	for {
@@ -191,6 +195,7 @@ func (s *repositorySync) calculateWaitDuration(defaultDuration time.Duration) ti
 
 	next := schedule.Next(time.Now())
 	klog.Infof("repositorySync %+v: next scheduled time: %v", s.repo.Key(), next)
+	s.nextSyncTime = &next
 	return time.Until(next)
 }
 
@@ -287,7 +292,7 @@ func (s *repositorySync) setRepositoryCondition(ctx context.Context, status stri
 		errorMsg = s.lastSyncError.Error()
 	}
 
-	condition, err := util.BuildRepositoryCondition(repo, status, errorMsg)
+	condition, err := util.BuildRepositoryCondition(repo, status, errorMsg, s.nextSyncTime)
 	if err != nil {
 		return err
 	}
