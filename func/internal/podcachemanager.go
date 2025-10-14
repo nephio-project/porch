@@ -272,7 +272,7 @@ func (pcm *podCacheManager) retrieveFunctionPods(ctx context.Context) error {
 				if isPodTemplateSameVersion(&pod, templateVersion) {
 
 					// Service name is Image Label set on Pod manifest
-					serviceName := pod.ObjectMeta.Labels[krmFunctionImageLabel]
+					serviceName := pod.Labels[krmFunctionImageLabel]
 					podKey := client.ObjectKeyFromObject(&pod)
 
 					serviceTemplate, err := pcm.podManager.retrieveOrCreateService(ctx, serviceName)
@@ -371,30 +371,30 @@ func (pcm *podCacheManager) removeUnhealthyPods(fn *functionInfo, removeIdle boo
 		}
 
 		k8sPod := &corev1.Pod{}
-		err := pcm.podManager.kubeClient.Get(context.Background(), pod.podData.podKey, k8sPod)
+		err := pcm.podManager.kubeClient.Get(context.Background(), pod.podKey, k8sPod)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				klog.Infof("Removing deleted pod from cache for image %v", pod.podData.image)
+				klog.Infof("Removing deleted pod from cache for image %v", pod.image)
 			} else {
-				klog.Errorf("Failed to get pod %v, removing from cache: %v", pod.podData.podKey, err)
+				klog.Errorf("Failed to get pod %v, removing from cache: %v", pod.podKey, err)
 			}
 			return true
 		}
 
 		service := &corev1.Service{}
-		err = pcm.podManager.kubeClient.Get(context.Background(), pod.podData.serviceKey, service)
+		err = pcm.podManager.kubeClient.Get(context.Background(), pod.serviceKey, service)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				klog.Infof("Removing deleted service from cache for image %v", pod.podData.image)
+				klog.Infof("Removing deleted service from cache for image %v", pod.image)
 			} else {
-				klog.Errorf("Failed to get service %v, removing from cache: %v", pod.podData.serviceKey, err)
+				klog.Errorf("Failed to get service %v, removing from cache: %v", pod.serviceKey, err)
 			}
 			return true
 		}
 
-		err = pcm.podManager.kubeClient.Get(context.Background(), pod.podData.serviceKey, service)
+		err = pcm.podManager.kubeClient.Get(context.Background(), pod.serviceKey, service)
 		if err != nil {
-			klog.Warningf("unable to find expected service %s namespace %s: %v", pod.podData.serviceKey.Name, k8sPod.Namespace, err)
+			klog.Warningf("unable to find expected service %s namespace %s: %v", pod.serviceKey.Name, k8sPod.Namespace, err)
 		}
 
 		if !k8sPod.DeletionTimestamp.IsZero() {
@@ -403,20 +403,20 @@ func (pcm *podCacheManager) removeUnhealthyPods(fn *functionInfo, removeIdle boo
 		}
 
 		if k8sPod.Status.Phase == corev1.PodFailed {
-			klog.Errorf("Evicting pod in failed state (%v/%v) from cache for image %v", k8sPod.Namespace, k8sPod.Name, pod.podData.image)
+			klog.Errorf("Evicting pod in failed state (%v/%v) from cache for image %v", k8sPod.Namespace, k8sPod.Name, pod.image)
 			pcm.DeletePodWithServiceInBackground(k8sPod, service)
 			return true
 		}
 
-		serviceUrl := service.ObjectMeta.Name + "." + service.ObjectMeta.Namespace + serviceDnsNameSuffix
-		if net.JoinHostPort(serviceUrl, defaultWrapperServerPort) != pod.podData.grpcConnection.Target() {
-			klog.Errorf("Evicting pod whose pod IP doesn't match with its grpc connection (%v/%v) from cache for image %v", k8sPod.Namespace, k8sPod.Name, pod.podData.image)
+		serviceUrl := service.Name + "." + service.Namespace + serviceDnsNameSuffix
+		if net.JoinHostPort(serviceUrl, defaultWrapperServerPort) != pod.grpcConnection.Target() {
+			klog.Errorf("Evicting pod whose pod IP doesn't match with its grpc connection (%v/%v) from cache for image %v", k8sPod.Namespace, k8sPod.Name, pod.image)
 			pcm.DeletePodWithServiceInBackground(k8sPod, service)
 			return true
 		}
-		ttl, _, _ := pcm.getParamsForImage(pod.podData.image)
+		ttl, _, _ := pcm.getParamsForImage(pod.image)
 		if removeIdle && pod.WaitlistLen() == 0 && time.Since(pod.lastActivity) > ttl {
-			klog.Infof("Removing idle pod %q that reached its TTL from cache for image %v", k8sPod.Name, pod.podData.image)
+			klog.Infof("Removing idle pod %q that reached its TTL from cache for image %v", k8sPod.Name, pod.image)
 			pcm.DeletePodWithServiceInBackground(k8sPod, service)
 			return true
 		}
@@ -494,7 +494,7 @@ func (pod *functionPodInfo) SendResponse(responseCh chan<- *connectionResponse, 
 		}
 	case pod.podData == nil:
 		responseCh <- &connectionResponse{
-			err: fmt.Errorf("Pod is not ready, connection response sent prematurely. This is logical error in the code."),
+			err: fmt.Errorf("pod is not ready, connection response sent prematurely. This is logical error in the code"),
 		}
 	default:
 		responseCh <- &connectionResponse{

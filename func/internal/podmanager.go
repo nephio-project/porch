@@ -142,7 +142,7 @@ func (pm *podManager) getFuncEvalPodClient(ctx context.Context, image string, tt
 		}
 
 		// Service name is Image Label set on Pod manifest
-		serviceName := podTemplate.ObjectMeta.Labels[krmFunctionImageLabel]
+		serviceName := podTemplate.Labels[krmFunctionImageLabel]
 		podKey := client.ObjectKeyFromObject(podTemplate)
 
 		serviceTemplate, err := pm.retrieveOrCreateService(ctx, serviceName)
@@ -582,12 +582,12 @@ func (pm *podManager) retrieveOrCreateService(ctx context.Context, serviceName s
 			return nil, err
 		}
 
-		serviceTemplate.ObjectMeta.Namespace = pm.namespace
-		serviceTemplate.ObjectMeta.Name = serviceName
-		if serviceTemplate.ObjectMeta.Labels == nil {
-			serviceTemplate.ObjectMeta.Labels = map[string]string{}
+		serviceTemplate.Namespace = pm.namespace
+		serviceTemplate.Name = serviceName
+		if serviceTemplate.Labels == nil {
+			serviceTemplate.Labels = map[string]string{}
 		}
-		serviceTemplate.ObjectMeta.Labels["app.kubernetes.io/name"] = serviceName
+		serviceTemplate.Labels["app.kubernetes.io/name"] = serviceName
 		if serviceTemplate.Spec.Selector == nil {
 			serviceTemplate.Spec.Selector = map[string]string{}
 		}
@@ -723,20 +723,20 @@ func (pm *podManager) patchNewPodContainer(pod *corev1.Pod, de digestAndEntrypoi
 
 // Patch labels and annotations so the cache manager can keep track of the pod
 func (pm *podManager) patchNewPodMetadata(pod *corev1.Pod, ttl time.Duration, podId string, templateVersion string) {
-	pod.ObjectMeta.Namespace = pm.namespace
-	annotations := pod.ObjectMeta.Annotations
+	pod.Namespace = pm.namespace
+	annotations := pod.Annotations
 	if annotations == nil {
 		annotations = make(map[string]string)
 	}
 	annotations[templateVersionAnnotation] = templateVersion
-	pod.ObjectMeta.Annotations = annotations
+	pod.Annotations = annotations
 
-	labels := pod.ObjectMeta.Labels
+	labels := pod.Labels
 	if labels == nil {
 		labels = make(map[string]string)
 	}
 	labels[krmFunctionImageLabel] = podId
-	pod.ObjectMeta.Labels = labels
+	pod.Labels = labels
 }
 
 // getServiceUrlOnceEndpointActive retrieves the service full FQDN Url once the backend PoD is
@@ -746,7 +746,7 @@ func (pm *podManager) getServiceUrlOnceEndpointActive(ctx context.Context, servi
 	var service corev1.Service
 	var pod corev1.Pod
 	var endpoint corev1.Endpoints
-	var podReady bool = false
+	var podReady = false
 
 	if e := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, pm.podReadyTimeout, true, func(ctx context.Context) (done bool, err error) {
 		if !podReady {
@@ -798,7 +798,7 @@ func (pm *podManager) getServiceUrlOnceEndpointActive(ctx context.Context, servi
 		return "", fmt.Errorf("error occurred when waiting the pod and service to be ready. If the error is caused by timeout, you may want to examine the pod/service in namespace %q. Error: %w", pm.namespace, e)
 	}
 
-	return service.ObjectMeta.Name + "." + service.ObjectMeta.Namespace + serviceDnsNameSuffix, nil
+	return service.Name + "." + service.Namespace + serviceDnsNameSuffix, nil
 }
 
 func podID(image, hash, postFix string) (string, error) {
