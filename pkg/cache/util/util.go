@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func BuildRepositoryCondition(repo *configapi.Repository, status string, errorMsg string) (metav1.Condition, error) {
+func BuildRepositoryCondition(repo *configapi.Repository, status string, errorMsg string, nextSyncTime *time.Time) (metav1.Condition, error) {
 	switch status {
 	case "sync-in-progress":
 		return metav1.Condition{
@@ -41,13 +41,17 @@ func BuildRepositoryCondition(repo *configapi.Repository, status string, errorMs
 			Message:            "Repository reconciliation in progress",
 		}, nil
 	case "ready":
+		message := "Repository Ready"
+		if nextSyncTime != nil {
+			message = fmt.Sprintf("Repository Ready (next sync scheduled at: %s)", nextSyncTime.Format(time.RFC3339))
+		}
 		return metav1.Condition{
 			Type:               configapi.RepositoryReady,
 			Status:             metav1.ConditionTrue,
 			ObservedGeneration: repo.Generation,
 			LastTransitionTime: metav1.Now(),
 			Reason:             configapi.ReasonReady,
-			Message:            "Repository Ready",
+			Message:            message,
 		}, nil
 	case "error":
 		if errorMsg == "" {

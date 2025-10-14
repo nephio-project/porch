@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -78,6 +79,8 @@ func TestBuildRepositoryCondition(t *testing.T) {
 		},
 	}
 
+	nextSync := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
+
 	tests := []struct {
 		name      string
 		status    string
@@ -125,11 +128,23 @@ func TestBuildRepositoryCondition(t *testing.T) {
 			errorMsg:  "",
 			expectErr: true,
 		},
+		{
+			name:     "ReadyWithNextSync",
+			status:   "ready",
+			errorMsg: "",
+			expected: metav1.ConditionTrue,
+			reason:   configapi.ReasonReady,
+			message:  "Repository Ready (next sync scheduled at: 2025-01-01T12:00:00Z)",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cond, err := BuildRepositoryCondition(repo, tt.status, tt.errorMsg)
+			var nextSyncTime *time.Time
+			if tt.name == "ReadyWithNextSync" {
+				nextSyncTime = &nextSync
+			}
+			cond, err := BuildRepositoryCondition(repo, tt.status, tt.errorMsg, nextSyncTime)
 
 			if tt.expectErr {
 				assert.Error(t, err)
