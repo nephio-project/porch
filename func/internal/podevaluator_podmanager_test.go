@@ -35,6 +35,7 @@ import (
 	"google.golang.org/grpc"
 	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -44,7 +45,7 @@ import (
 
 const (
 	defaultImageName               = "apply-replacements"
-	defaultPodName                 = "apply-replacements-5245a527"
+	defaultPodName                 = "apply-replacements-latest-1-5245a527"
 	defaultNamespace               = "porch-fn-system"
 	defaultServiceName             = defaultPodName
 	defaultEndpointName            = defaultServiceName
@@ -136,6 +137,17 @@ func TestPodManager(t *testing.T) {
 			},
 		},
 		PodIP: defaultPodIP,
+	}
+
+	podStatusRunningDifferentIP := corev1.PodStatus{
+		Phase: corev1.PodRunning,
+		Conditions: []corev1.PodCondition{
+			{
+				Type:   corev1.PodReady,
+				Status: corev1.ConditionTrue,
+			},
+		},
+		PodIP: "30.30.30.30",
 	}
 
 	podStatusNotRunning := corev1.PodStatus{
@@ -409,6 +421,62 @@ func TestPodManager(t *testing.T) {
 			},
 		},
 		{
+			name:          "Create a new pod but service is existing",
+			skip:          false,
+			expectFail:    false,
+			functionImage: defaultImageName,
+			kubeClient: fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
+				Create: fakeClientCreateFixInterceptor,
+			}).WithObjects([]client.Object{
+				defaultServiceObject,
+				defaultEndpointObject,
+			}...).Build(),
+			namespace:          defaultNamespace,
+			wrapperServerImage: defaultWrapperServerImage,
+			imageMetadataCache: defaultImageMetadataCache,
+			evalFunc:           defaultSuccessEvalFunc,
+			podPatch: &corev1.Pod{
+				Status: podStatusRunning,
+			},
+		},
+		{
+			name:          "Create a new pod but service does not get a new endpoint",
+			skip:          false,
+			expectFail:    true,
+			functionImage: defaultImageName,
+			kubeClient: fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
+				Create: fakeClientCreateFixInterceptor,
+			}).WithObjects([]client.Object{
+				defaultServiceObject,
+			}...).Build(),
+			namespace:          defaultNamespace,
+			wrapperServerImage: defaultWrapperServerImage,
+			imageMetadataCache: defaultImageMetadataCache,
+			evalFunc:           defaultSuccessEvalFunc,
+			podPatch: &corev1.Pod{
+				Status: podStatusRunning,
+			},
+		},
+		{
+			name:          "Create a new pod but endpoint ip does not match pod ip",
+			skip:          false,
+			expectFail:    true,
+			functionImage: defaultImageName,
+			kubeClient: fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
+				Create: fakeClientCreateFixInterceptor,
+			}).WithObjects([]client.Object{
+				defaultServiceObject,
+				defaultEndpointObject,
+			}...).Build(),
+			namespace:          defaultNamespace,
+			wrapperServerImage: defaultWrapperServerImage,
+			imageMetadataCache: defaultImageMetadataCache,
+			evalFunc:           defaultSuccessEvalFunc,
+			podPatch: &corev1.Pod{
+				Status: podStatusRunningDifferentIP,
+			},
+		},
+		{
 			name:               "Pod startup takes too long",
 			skip:               false,
 			expectFail:         true,
@@ -445,7 +513,7 @@ func TestPodManager(t *testing.T) {
 			kubeClient: fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
 				Create: func(ctx context.Context, client client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
 					if obj.GetObjectKind().GroupVersionKind().Kind == "Pod" {
-						return errors.NewInternalError(fmt.Errorf("Faked error"))
+						return apierrors.NewInternalError(fmt.Errorf("Faked error"))
 					}
 					return nil
 				},
@@ -464,7 +532,7 @@ func TestPodManager(t *testing.T) {
 				List: func(ctx context.Context, client client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
 					_, ok := list.(*corev1.PodList)
 					if ok {
-						return errors.NewInternalError(fmt.Errorf("Faked error"))
+						return apierrors.NewInternalError(fmt.Errorf("Faked error"))
 					}
 					return nil
 				},
@@ -513,7 +581,7 @@ func TestPodManager(t *testing.T) {
 			wrapperServerImage:      defaultWrapperServerImage,
 			imageMetadataCache:      defaultImageMetadataCache,
 			evalFunc:                defaultSuccessEvalFunc,
-			functionPodTemplateName: "function-pod-template",
+			functionPodTemplateName: defaultFunctionPodTemplateName,
 			managerNamespace:        defaultManagerNamespace,
 		},
 		{
@@ -535,7 +603,29 @@ func TestPodManager(t *testing.T) {
 			wrapperServerImage:      defaultWrapperServerImage,
 			imageMetadataCache:      defaultImageMetadataCache,
 			evalFunc:                defaultSuccessEvalFunc,
-			functionPodTemplateName: "function-pod-template",
+			functionPodTemplateName: defaultFunctionPodTemplateName,
+			managerNamespace:        defaultManagerNamespace,
+		},
+		{
+			name:          "Service template invalid resource type",
+			skip:          false,
+			expectFail:    true,
+			functionImage: defaultImageName,
+			kubeClient: fake.NewClientBuilder().WithObjects([]client.Object{&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      defaultFunctionPodTemplateName,
+					Namespace: defaultManagerNamespace,
+				},
+				Data: map[string]string{
+					"template":        string(marshalToYamlOrPanic(basePodTemplate)),
+					"serviceTemplate": string(marshalToYamlOrPanic(dummySecretTemplate)),
+				},
+			}}...).Build(),
+			namespace:               defaultNamespace,
+			wrapperServerImage:      defaultWrapperServerImage,
+			imageMetadataCache:      defaultImageMetadataCache,
+			evalFunc:                defaultSuccessEvalFunc,
+			functionPodTemplateName: defaultFunctionPodTemplateName,
 			managerNamespace:        defaultManagerNamespace,
 		},
 		{
@@ -556,7 +646,7 @@ func TestPodManager(t *testing.T) {
 			wrapperServerImage:      defaultWrapperServerImage,
 			imageMetadataCache:      defaultImageMetadataCache,
 			evalFunc:                defaultSuccessEvalFunc,
-			functionPodTemplateName: "function-pod-template",
+			functionPodTemplateName: defaultFunctionPodTemplateName,
 			managerNamespace:        defaultManagerNamespace,
 		},
 		{
@@ -577,7 +667,34 @@ func TestPodManager(t *testing.T) {
 			wrapperServerImage:      defaultWrapperServerImage,
 			imageMetadataCache:      defaultImageMetadataCache,
 			evalFunc:                defaultSuccessEvalFunc,
-			functionPodTemplateName: "function-pod-template",
+			functionPodTemplateName: defaultFunctionPodTemplateName,
+			managerNamespace:        defaultManagerNamespace,
+			podPatch: &corev1.Pod{
+				Status: podStatusRunning,
+			},
+		},
+		{
+			name:          "Function template generates pod",
+			skip:          false,
+			expectFail:    false,
+			functionImage: defaultImageName,
+			kubeClient: fake.NewClientBuilder().WithObjects([]client.Object{&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      defaultFunctionPodTemplateName,
+					Namespace: defaultManagerNamespace,
+				},
+				Data: map[string]string{
+					"template":        string(marshalToYamlOrPanic(basePodTemplate)),
+					"serviceTemplate": string(marshalToYamlOrPanic(baseServiceTemplate)),
+				},
+			},
+				defaultEndpointObject,
+			}...).Build(),
+			namespace:               defaultNamespace,
+			wrapperServerImage:      defaultWrapperServerImage,
+			imageMetadataCache:      defaultImageMetadataCache,
+			evalFunc:                defaultSuccessEvalFunc,
+			functionPodTemplateName: defaultFunctionPodTemplateName,
 			managerNamespace:        defaultManagerNamespace,
 			podPatch: &corev1.Pod{
 				Status: podStatusRunning,
@@ -605,7 +722,7 @@ func TestPodManager(t *testing.T) {
 			wrapperServerImage:      defaultWrapperServerImage,
 			imageMetadataCache:      defaultImageMetadataCache,
 			evalFunc:                defaultSuccessEvalFunc,
-			functionPodTemplateName: "function-pod-template",
+			functionPodTemplateName: defaultFunctionPodTemplateName,
 			managerNamespace:        defaultManagerNamespace,
 			podPatch: &corev1.Pod{
 				Status: podStatusRunning,
@@ -681,9 +798,10 @@ func TestPodManager(t *testing.T) {
 
 			fakeServer.evalFunc = tt.evalFunc
 
-			//Execute the function under test
-			go pm.getFuncEvalPodClient(ctx, tt.functionImage, time.Hour)
+			podConfig := podCacheConfigEntry{}
 
+			//Execute the function under test
+			go pm.getFuncEvalPodClient(ctx, tt.functionImage, time.Hour, 1, podConfig)
 			if tt.podPatch != nil {
 				go func() {
 					watchPod, err := tt.kubeClient.Watch(ctx, &corev1.PodList{}, client.InNamespace(tt.namespace))
@@ -731,25 +849,6 @@ func TestPodManager(t *testing.T) {
 
 		})
 	}
-}
-
-// Fake client handles pod patches incorrectly in case the pod doesn't exist
-func fakeClientPatchFixInterceptor(ctx context.Context, kubeClient client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
-	if obj.GetObjectKind().GroupVersionKind().Kind == "Pod" {
-		var canary corev1.Pod
-		err := kubeClient.Get(ctx, client.ObjectKeyFromObject(obj), &canary)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				err = kubeClient.Create(ctx, obj)
-				if err != nil {
-					return err
-				}
-				return nil
-			}
-			return err
-		}
-	}
-	return nil
 }
 
 func marshalToYamlOrPanic(obj interface{}) []byte {

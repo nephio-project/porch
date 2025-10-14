@@ -38,7 +38,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/klog/v2"
@@ -103,30 +105,70 @@ type digestAndEntrypoint struct {
 	entrypoint []string
 }
 
+func (pm *podManager) createPodData(ctx context.Context, serviceKey client.ObjectKey, podKey client.ObjectKey, image string) (*podData, error) {
+	serviceIP, err := pm.getServiceUrlOnceEndpointActive(ctx, serviceKey, podKey)
+	if err != nil {
+		return nil, err
+	}
+	if serviceIP == "" {
+		return nil, fmt.Errorf("service %s/%s did not have serviceIP", serviceKey.Namespace, serviceKey.Name)
+	}
+	address := net.JoinHostPort(serviceIP, defaultWrapperServerPort)
+	cc, err := grpc.NewClient(address,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(
+			grpc.MaxCallRecvMsgSize(pm.maxGrpcMessageSize),
+			grpc.MaxCallSendMsgSize(pm.maxGrpcMessageSize),
+		),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to dial grpc function evaluator on %q for pod %s/%s: %w", address, serviceKey.Namespace, serviceKey.Name, err)
+	}
+	return &podData{
+		serviceKey:     serviceKey,
+		podKey:         podKey,
+		grpcConnection: cc,
+		image:          image,
+	}, err
+}
+
 // getFuncEvalPodClient ensures there is a pod running and ready for the image.
 // It will send it to the podReadyCh channel when the pod is ready. ttl is the
 // time-to-live period for the pod. If useGenerateName is false, it will try to
 // create a pod with a fixed name. Otherwise, it will create a pod and let the
 // apiserver to generate the name from a template.
-func (pm *podManager) getFuncEvalPodClient(ctx context.Context, image string, ttl time.Duration) {
+func (pm *podManager) getFuncEvalPodClient(ctx context.Context, image string, ttl time.Duration, postFix int, podConfig podCacheConfigEntry) {
 	c, err := func() (*podData, error) {
-		podKey, err := pm.CreatePod(ctx, image, ttl)
+		podTemplate, err := pm.CreatePod(ctx, image, ttl, postFix, podConfig)
 		if err != nil {
 			return nil, err
 		}
-		podIP, err := pm.podIpIfRunningAndReady(ctx, podKey)
+
+		// Service name is Image Label set on Pod manifest
+		serviceName := podTemplate.ObjectMeta.Labels[krmFunctionImageLabel]
+		podKey := client.ObjectKeyFromObject(podTemplate)
+
+		serviceTemplate, err := pm.retrieveOrCreateService(ctx, serviceName)
 		if err != nil {
 			return nil, err
 		}
-		if podIP == "" {
-			return nil, fmt.Errorf("pod %s/%s did not have podIP", podKey.Namespace, podKey.Name)
+		serviceKey := client.ObjectKeyFromObject(serviceTemplate)
+		serviceUrl, err := pm.getServiceUrlOnceEndpointActive(ctx, serviceKey, podKey)
+		if err != nil {
+			return nil, err
 		}
-		address := net.JoinHostPort(podIP, defaultWrapperServerPort)
+
+		if serviceUrl == "" {
+			return nil, fmt.Errorf("service %s/%s does not have valid Url", serviceKey.Namespace, serviceKey.Name)
+		}
+
+		address := net.JoinHostPort(serviceUrl, defaultWrapperServerPort)
 		cc, err := grpc.NewClient(address,
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 			grpc.WithDefaultCallOptions(
 				grpc.MaxCallRecvMsgSize(pm.maxGrpcMessageSize),
 				grpc.MaxCallSendMsgSize(pm.maxGrpcMessageSize),
+				grpc.WaitForReady(true),
 			),
 		)
 		if err != nil {
@@ -134,6 +176,7 @@ func (pm *podManager) getFuncEvalPodClient(ctx context.Context, image string, tt
 		}
 		return &podData{
 			podKey:         podKey,
+			serviceKey:     serviceKey,
 			grpcConnection: cc,
 			image:          image,
 		}, nil
@@ -252,7 +295,7 @@ func (pm *podManager) imageDigestAndEntrypoint(ctx context.Context, image string
 		}
 	}
 
-	return pm.getImageMetadata(ctx, ref, auth)
+	return pm.getImageMetadata(ctx, ref, auth, image)
 }
 
 // ensureCustomAuthSecret ensures that, if an image from a custom registry is requested, the appropriate credentials are passed into a secret for function pods to use when pulling. If the secret does not already exist, it is created.
@@ -281,8 +324,8 @@ func (pm *podManager) getCustomAuth(ref name.Reference, registryAuthSecretPath s
 }
 
 // getImageMetadata retrieves the image digest and entrypoint.
-func (pm *podManager) getImageMetadata(ctx context.Context, ref name.Reference, auth authn.Authenticator) (*digestAndEntrypoint, error) {
-	img, err := pm.getImage(ctx, ref, auth)
+func (pm *podManager) getImageMetadata(ctx context.Context, ref name.Reference, auth authn.Authenticator, image string) (*digestAndEntrypoint, error) {
+	img, err := pm.getImage(ctx, ref, auth, image)
 	if err != nil {
 		return nil, err
 	}
@@ -304,11 +347,11 @@ func (pm *podManager) getImageMetadata(ctx context.Context, ref name.Reference, 
 		digest:     hash.Hex,
 		entrypoint: entrypoint,
 	}
-	pm.imageMetadataCache.Store(ref.String(), de)
+	pm.imageMetadataCache.Store(image, de)
 	return de, nil
 }
 
-func (pm *podManager) getImage(ctx context.Context, ref name.Reference, auth authn.Authenticator) (containerregistry.Image, error) {
+func (pm *podManager) getImage(ctx context.Context, ref name.Reference, auth authn.Authenticator, image string) (containerregistry.Image, error) {
 	// try getting the image from local first
 	img, daemonErr := daemon.Image(ref, daemon.WithContext(ctx))
 	if daemonErr == nil && img != nil {
@@ -316,7 +359,7 @@ func (pm *podManager) getImage(ctx context.Context, ref name.Reference, auth aut
 	}
 	klog.V(3).Infof("Image %s not found locally, pulling instead...", ref)
 	// if private registries or their appropriate tls configuration are disabled in the config we pull image with default operation otherwise try and use their tls cert's
-	if !pm.enablePrivateRegistries || strings.HasPrefix(ref.String(), defaultRegistry) || !pm.enablePrivateRegistriesTls {
+	if !pm.enablePrivateRegistries || strings.HasPrefix(image, defaultRegistry) || !pm.enablePrivateRegistriesTls {
 		return remote.Image(ref, remote.WithAuth(auth), remote.WithContext(ctx))
 	}
 	tlsFile := "ca.crt"
@@ -342,7 +385,7 @@ func (pm *podManager) getImage(ctx context.Context, ref name.Reference, auth aut
 	img, tlsErr := remote.Image(ref, remote.WithAuth(auth), remote.WithContext(ctx), remote.WithTransport(transport))
 	if tlsErr != nil {
 		// Attempt without given custom TLS cert but with default keychain
-		klog.Errorf("Pulling image %s with the provided TLS Cert has failed with error %v", ref.String(), tlsErr)
+		klog.Errorf("Pulling image %s with the provided TLS Cert has failed with error %v", image, tlsErr)
 		klog.Infof("Attempting image pull with default keychain instead of provided TLS Cert")
 		img, err = remote.Image(ref, remote.WithAuth(auth), remote.WithContext(ctx))
 		if err != nil {
@@ -378,43 +421,49 @@ func createTransport(tlsConfig *tls.Config) *http.Transport {
 }
 
 // CreatePod creates a pod for an image.
-func (pm *podManager) CreatePod(ctx context.Context, image string, ttl time.Duration) (client.ObjectKey, error) {
+func (pm *podManager) CreatePod(ctx context.Context, image string, ttl time.Duration, postFix int, podConfig podCacheConfigEntry) (*corev1.Pod, error) {
 	var de *digestAndEntrypoint
 	var err error
-	//if pm.imageResolver != nil {
-	//	image = pm.imageResolver(image)
-	//}
 	de, err = pm.imageDigestAndEntrypoint(ctx, image)
 	if err != nil {
-		return client.ObjectKey{}, fmt.Errorf("unable to get the entrypoint for %v: %w", image, err)
+		return nil, fmt.Errorf("unable to get the entrypoint for %v: %w", image, err)
 	}
 
-	podId, err := podID(image, de.digest)
+	podId, err := podID(image, de.digest, strconv.Itoa(postFix))
 	if err != nil {
-		return client.ObjectKey{}, err
+		return nil, err
 	}
 
 	podTemplate, templateVersion, err := pm.getBasePodTemplate(ctx)
 	if err != nil {
 		klog.Errorf("failed to generate a base pod template: %v", err)
-		return client.ObjectKey{}, fmt.Errorf("failed to generate a base pod template: %w", err)
+		return nil, fmt.Errorf("failed to generate a base pod template: %w", err)
 	}
 	pm.appendImagePullSecret(image, podTemplate)
 
 	err = pm.patchNewPodContainer(podTemplate, *de, image)
 	if err != nil {
-		return client.ObjectKey{}, fmt.Errorf("unable to apply the pod: %w", err)
+		return nil, fmt.Errorf("unable to apply the pod: %w", err)
 	}
 	pm.patchNewPodMetadata(podTemplate, ttl, podId, templateVersion)
+
+	// Set custom resources
+	if podConfig.Requests != nil {
+		podTemplate.Spec.Containers[0].Resources.Requests = podConfig.Requests
+	}
+
+	if podConfig.Limits != nil {
+		podTemplate.Spec.Containers[0].Resources.Limits = podConfig.Limits
+	}
 
 	podTemplate.GenerateName = podId + "-"
 	err = pm.kubeClient.Create(ctx, podTemplate)
 	if err != nil {
-		return client.ObjectKey{}, fmt.Errorf("unable to apply the pod: %w", err)
+		return nil, fmt.Errorf("unable to apply the pod: %w", err)
 	}
 
 	klog.Infof("created KRM function evaluator pod %v/%v for %q", podTemplate.Namespace, podTemplate.Name, image)
-	return client.ObjectKeyFromObject(podTemplate), nil
+	return podTemplate, nil
 }
 
 // Either gets the pod template from configmap, or from an inlined pod template. Also provides the version of the template
@@ -431,7 +480,12 @@ func (pm *podManager) getBasePodTemplate(ctx context.Context) (*corev1.Pod, stri
 			return nil, "", err
 		}
 
-		decoder := yamlutil.NewYAMLOrJSONDecoder(strings.NewReader(podTemplateCm.Data["template"]), 100)
+		podTemplate, ok := podTemplateCm.Data["template"]
+		if !ok {
+			return nil, "", fmt.Errorf("function pod template with key template does not exist in Configmap %s", pm.functionPodTemplateName)
+		}
+
+		decoder := yamlutil.NewYAMLOrJSONDecoder(strings.NewReader(podTemplate), 100)
 		var basePodTemplate corev1.Pod
 		err = decoder.Decode(&basePodTemplate)
 
@@ -512,6 +566,122 @@ func (pm *podManager) getBasePodTemplate(ctx context.Context) (*corev1.Pod, stri
 	}
 }
 
+// retrieveOrCreateService retrieves or creates a Service pointing to the Function PoD
+func (pm *podManager) retrieveOrCreateService(ctx context.Context, serviceName string) (*corev1.Service, error) {
+
+	// Try to retrieve the existing Service, if present
+	existingService := &corev1.Service{}
+	err := pm.kubeClient.Get(ctx, client.ObjectKey{Namespace: pm.namespace, Name: serviceName}, existingService)
+
+	if err == nil {
+		klog.Infof("retrieved function evaluator service %v/%v", existingService.Namespace, existingService.Name)
+		return existingService, nil
+	}
+
+	// If the service does not exist, generate template and create it
+	if errors.IsNotFound(err) {
+		serviceTemplate, err := pm.getBaseServiceTemplate(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		serviceTemplate.ObjectMeta.Namespace = pm.namespace
+		serviceTemplate.ObjectMeta.Name = serviceName
+		if serviceTemplate.ObjectMeta.Labels == nil {
+			serviceTemplate.ObjectMeta.Labels = map[string]string{}
+		}
+		serviceTemplate.ObjectMeta.Labels["app.kubernetes.io/name"] = serviceName
+		if serviceTemplate.Spec.Selector == nil {
+			serviceTemplate.Spec.Selector = map[string]string{}
+		}
+		// Pod has same Label as Service Name (PodId) for correct mapping
+		serviceTemplate.Spec.Selector[krmFunctionImageLabel] = serviceName
+
+		err = pm.kubeClient.Create(ctx, serviceTemplate, client.FieldOwner(fieldManagerName))
+		if err != nil {
+			klog.Errorf("failed to create service %v/%v: %v", pm.namespace, serviceName, err)
+			// Try to retrieve again
+			if errors.IsAlreadyExists(err) {
+				klog.Infof("service %v/%v already exists - trying to retrieve it", pm.namespace, serviceName)
+				err = pm.kubeClient.Get(ctx, client.ObjectKey{Namespace: pm.namespace, Name: serviceName}, existingService)
+				if err == nil {
+					klog.Infof("retrieved function evaluator service %v/%v", existingService.Namespace, existingService.Name)
+					return existingService, nil
+				}
+			}
+			return nil, err
+		}
+
+		klog.Infof("created frontend service %v for function evaluator pod", serviceName)
+		return serviceTemplate, nil
+	}
+
+	// Return other errors
+	klog.Errorf("failed to retrieve service %v/%v: %v", pm.namespace, serviceName, err)
+	return nil, err
+}
+
+func (pm *podManager) getBaseServiceTemplate(ctx context.Context) (*corev1.Service, error) {
+	if pm.functionPodTemplateName != "" {
+		serviceTemplateCm := &corev1.ConfigMap{}
+
+		err := pm.kubeClient.Get(ctx, client.ObjectKey{
+			Name:      pm.functionPodTemplateName,
+			Namespace: pm.managerNamespace,
+		}, serviceTemplateCm)
+		if err != nil {
+			klog.Errorf("Could not get ConfigMap containing function service template: %s/%s", pm.managerNamespace, pm.functionPodTemplateName)
+			return nil, err
+		}
+
+		serviceTemplate, ok := serviceTemplateCm.Data["serviceTemplate"]
+		if !ok {
+			return nil, fmt.Errorf("function pod service template with key serviceTemplate does not exist in Configmap %s", pm.functionPodTemplateName)
+		}
+
+		decoder := yamlutil.NewYAMLOrJSONDecoder(strings.NewReader(serviceTemplate), 100)
+		var baseServiceTemplate corev1.Service
+		err = decoder.Decode(&baseServiceTemplate)
+
+		if err != nil {
+			return nil, fmt.Errorf("unable to decode function service template: %w", err)
+		}
+
+		return &baseServiceTemplate, nil
+	} else {
+		servicePort, _ := strconv.Atoi(defaultWrapperServerPort)
+		inlineBaseServiceTemplate := &corev1.Service{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "v1",
+				Kind:       "Service",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					"internal.kpt.dev/upstream-identifier": "|Service|porch-system|function-runner",
+				},
+				Labels: map[string]string{
+					"app.kubernetes.io/name": "to-be-replaced",
+				},
+			},
+			Spec: corev1.ServiceSpec{
+				Selector: map[string]string{
+					krmFunctionImageLabel: "to-be-replaced",
+				},
+				Ports: []corev1.ServicePort{
+					{
+						Protocol:   corev1.ProtocolTCP,
+						Port:       int32(servicePort),
+						TargetPort: intstr.FromInt(servicePort),
+					},
+				},
+				Type: corev1.ServiceTypeClusterIP,
+			},
+		}
+
+		return inlineBaseServiceTemplate, nil
+	}
+}
+
 func hasImagePullSecret(podTemplate *corev1.Pod, secretName string) bool {
 	for _, secret := range podTemplate.Spec.ImagePullSecrets {
 		if secret.Name == secretName {
@@ -572,32 +742,69 @@ func (pm *podManager) patchNewPodMetadata(pod *corev1.Pod, ttl time.Duration, po
 	pod.ObjectMeta.Labels = labels
 }
 
-// podIpIfRunningAndReady waits for the pod to be running and ready and returns the pod IP and a potential error.
-func (pm *podManager) podIpIfRunningAndReady(ctx context.Context, podKey client.ObjectKey) (ip string, e error) {
+// getServiceUrlOnceEndpointActive retrieves the service full FQDN Url once the backend PoD is
+// ready and Endpoint is active.
+// Returned URL is in the format <service-name>.<namespace>.svc.cluster.local
+func (pm *podManager) getServiceUrlOnceEndpointActive(ctx context.Context, serviceKey client.ObjectKey, podKey client.ObjectKey) (string, error) {
+	var service corev1.Service
 	var pod corev1.Pod
-	// Wait until the pod is Running
+	var endpoint corev1.Endpoints
+	var podReady bool = false
 
 	if e := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, pm.podReadyTimeout, true, func(ctx context.Context) (done bool, err error) {
-		err = pm.kubeClient.Get(ctx, podKey, &pod)
-		if err != nil {
-			return false, err
-		}
-		if pod.Status.Phase != "Running" {
+		if !podReady {
+			err = pm.kubeClient.Get(ctx, podKey, &pod)
+			if err != nil {
+				return false, err
+			}
+
+			if pod.Status.Phase != "Running" {
+				return false, nil
+			}
+
+			for _, cond := range pod.Status.Conditions {
+				if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
+					podReady = true
+				}
+			}
 			return false, nil
 		}
-		for _, cond := range pod.Status.Conditions {
-			if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
-				return true, nil
-			}
+
+		podIP := pod.Status.PodIP
+
+		if err := pm.kubeClient.Get(ctx, serviceKey, &service); err != nil {
+			return false, err
 		}
-		return false, nil
+
+		// Wait till the service has an active endpoint
+		if err := pm.kubeClient.Get(ctx, serviceKey, &endpoint); err != nil {
+			return false, err
+		}
+
+		if len(endpoint.Subsets) == 0 || len(endpoint.Subsets[0].Addresses) == 0 {
+			return false, nil
+		}
+
+		// Log warning if service has more than one endpoint; there should be just 1 function pod
+		if len(endpoint.Subsets[0].Addresses) != 1 {
+			klog.Warningf("Service %s/%s has more than one endpoint: %+v", serviceKey.Namespace, serviceKey.Name, endpoint.Subsets)
+		}
+
+		endpointIP := endpoint.Subsets[0].Addresses[0].IP
+		if podIP != endpointIP {
+			klog.Warningf("pod IP %s does not match service endpoint IP %s", podIP, endpointIP)
+			return false, fmt.Errorf("pod IP %s does not match service endpoint IP %s", podIP, endpointIP)
+		}
+
+		return true, nil
 	}); e != nil {
-		return "", fmt.Errorf("error occurred when waiting the pod %q to be ready. If the error is caused by timeout, you may want to examine the pods in namespace %q. Error: %w", podKey.String(), pm.namespace, e)
+		return "", fmt.Errorf("error occurred when waiting the pod and service to be ready. If the error is caused by timeout, you may want to examine the pod/service in namespace %q. Error: %w", pm.namespace, e)
 	}
-	return pod.Status.PodIP, nil
+
+	return service.ObjectMeta.Name + "." + service.ObjectMeta.Namespace + serviceDnsNameSuffix, nil
 }
 
-func podID(image, hash string) (string, error) {
+func podID(image, hash, postFix string) (string, error) {
 	ref, err := name.ParseReference(image)
 	if err != nil {
 		return "", fmt.Errorf("unable to parse image reference %v: %w", image, err)
@@ -605,9 +812,10 @@ func podID(image, hash string) (string, error) {
 
 	// repoName will be something like gcr.io/kpt-fn/set-namespace
 	repoName := ref.Context().Name()
+	tag := strings.ReplaceAll(ref.Identifier(), ".", "")
 	parts := strings.Split(repoName, "/")
 	name := strings.ReplaceAll(parts[len(parts)-1], "_", "-")
-	return fmt.Sprintf("%v-%v", name, hash[:8]), nil
+	return fmt.Sprintf("%v-%v-%v-%v", name, tag, postFix, hash[:8]), nil
 }
 
 func isPodTemplateSameVersion(pod *corev1.Pod, templateVersion string) bool {

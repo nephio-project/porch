@@ -19,8 +19,8 @@ package internal
 import (
 	"context"
 	"flag"
-	"fmt"
 	"net"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -28,6 +28,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"k8s.io/klog/v2"
+	"k8s.io/klog/v2/ktesting"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -118,6 +119,18 @@ func TestPodCacheManager(t *testing.T) {
 		},
 	}
 
+	emptyEndpointObject := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      defaultEndpointName,
+			Namespace: defaultNamespace,
+		},
+		Subsets: []corev1.EndpointSubset{
+			{
+				Addresses: []corev1.EndpointAddress{},
+			},
+		},
+	}
+
 	// Fake client. When Pod creation is invoked, it creates the Pod if not present and patches it to Running status
 	// When Service creation is invoked, it creates endpoint object in additon to service
 	fakeClientCreateFixInterceptor := func(ctx context.Context, kubeClient client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
@@ -172,6 +185,17 @@ func TestPodCacheManager(t *testing.T) {
 		return nil
 	}
 
+	fakeClientListPodsInterceptor := func(ctx context.Context, client client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+		if pl, ok := list.(*corev1.PodList); ok {
+			pl.Items = []corev1.Pod{
+				*defaultPodObject,
+			}
+			return nil
+		}
+
+		return client.List(ctx, list, nil)
+	}
+
 	buildKubeClient := func(objects ...client.Object) client.WithWatch {
 		return fake.NewClientBuilder().
 			WithObjects(objects...).
@@ -179,79 +203,100 @@ func TestPodCacheManager(t *testing.T) {
 			Build()
 	}
 
-	address := net.JoinHostPort(defaultServiceIP, defaultWrapperServerPort)
+	serviceUrl := defaultServiceName + "." + defaultNamespace + serviceDnsNameSuffix
+
+	address := net.JoinHostPort(serviceUrl, defaultWrapperServerPort)
 	grpcClient, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatalf("Failed to create grpc client: %v", err)
 	}
 
-	blankCache := map[string]*podAndGRPCClient{}
+	blankCache := make(map[string]*functionInfo)
 
-	cacheWithDefaultPod := map[string]*podAndGRPCClient{}
-	cacheWithDefaultPod[defaultImageName] = &podAndGRPCClient{
-		pod:        client.ObjectKeyFromObject(defaultPodObject),
-		grpcClient: grpcClient,
+	pData := podData{
+		image:          defaultImageName,
+		grpcConnection: grpcClient,
+		podKey:         client.ObjectKeyFromObject(defaultPodObject),
+		serviceKey:     client.ObjectKeyFromObject(defaultServiceObject),
 	}
+
+	funcPodInfo := NewPodInfo(nil)
+	funcPodInfo.podData = &pData
+	funcPodInfo.concurrentEvaluations.Add(1)
+
+	funcInfo := functionInfo{
+		pods: []functionPodInfo{funcPodInfo},
+	}
+
+	functionWithDefaultPod := make(map[string]*functionInfo)
+	functionWithDefaultPod[defaultImageName] = &funcInfo
 
 	// These tests focus on the pod management logic in the pod cache manager covering
 	// the mechanism of creating pod/service corresponding to invoked function,
 	// waiting for it be ready via channel and managing the cache.
 	podManagementTests := []struct {
-		name       string
-		expectFail bool
-		skip       bool
-		kubeClient client.WithWatch
-		cache      map[string]*podAndGRPCClient
+		name         string
+		expectFail   bool
+		skip         bool
+		kubeClient   client.WithWatch
+		functions    map[string]*functionInfo
+		expectedLog  string
+		skipRetrieve bool
 	}{
 		{
 			name:       "Pod Exists but not in Cache",
 			skip:       false,
 			expectFail: false,
-			cache:      blankCache,
-			kubeClient: buildKubeClient(defaultPodObject, defaultServiceObject, defaultEndpointObject),
+			functions:  blankCache,
+			kubeClient: fake.NewClientBuilder().WithObjects(defaultPodObject, defaultServiceObject, defaultEndpointObject).
+				WithInterceptorFuncs(interceptor.Funcs{List: fakeClientListPodsInterceptor}).Build(),
+			expectedLog: "retrieved function evaluator pod porch-fn-system/apply-replacements-latest-1-5245a527 for apply-replacements",
 		},
 		{
-			name:       "Pod Exists and in Cache",
-			skip:       false,
-			expectFail: false,
-			cache:      cacheWithDefaultPod,
-			kubeClient: buildKubeClient(defaultPodObject, defaultServiceObject, defaultEndpointObject),
+			name:         "Pod Exists and in Cache",
+			skip:         false,
+			expectFail:   false,
+			functions:    functionWithDefaultPod,
+			kubeClient:   buildKubeClient(defaultPodObject, defaultServiceObject, defaultEndpointObject),
+			expectedLog:  "Queuing request for apply-replacements on pod",
+			skipRetrieve: true,
 		},
 		{
-			name:       "Pod does not Exists and not in Cache",
-			skip:       false,
-			expectFail: false,
-			cache:      blankCache,
-			kubeClient: buildKubeClient(),
+			name:        "Pod does not Exists and not in Cache",
+			skip:        false,
+			expectFail:  false,
+			functions:   blankCache,
+			kubeClient:  buildKubeClient(),
+			expectedLog: "Scaling up for image apply-replacements. No idle pods available. Starting a new pod.",
 		},
 		{
 			name:       "Pod does not Exists but in Cache",
 			skip:       false,
 			expectFail: false,
-			cache:      cacheWithDefaultPod,
+			functions:  functionWithDefaultPod,
 			kubeClient: fake.NewClientBuilder().
 				WithInterceptorFuncs(interceptor.Funcs{Create: fakeClientCreateFixInterceptor}).Build(),
+			expectedLog: "Removing deleted pod from cache for image apply-replacements",
 		},
 		{
 			name:       "Pod does not Exists but Service Exists and not in Cache",
 			skip:       false,
 			expectFail: false,
-			cache:      blankCache,
+			functions:  blankCache,
 			kubeClient: buildKubeClient(defaultServiceObject, defaultEndpointObject),
 		},
 		{
 			name:       "Pod Exists but Service does not Exists and not in Cache",
 			skip:       false,
 			expectFail: false,
-			cache:      blankCache,
+			functions:  blankCache,
 			kubeClient: buildKubeClient(defaultPodObject),
 		},
 	}
 
 	//Set up the podmanager and podcachemanager
-	podReadyCh := make(chan *imagePodAndGRPCClient)
-	requestCh := make(chan *clientConnRequest)
-	waitlists := make(map[string][]chan<- *clientConnAndError)
+	requestCh := make(chan *connectionRequest)
+	podReadyCh := make(chan *podReadyResponse)
 
 	pm := &podManager{
 		namespace:               defaultNamespace,
@@ -269,12 +314,13 @@ func TestPodCacheManager(t *testing.T) {
 
 	pcm := &podCacheManager{
 		// Setting to 5 minutes to avoid GC invocation
-		gcScanInterval: 5 * time.Minute,
-		podTTL:         10 * time.Minute,
-		requestCh:      requestCh,
-		podReadyCh:     podReadyCh,
-		waitlists:      waitlists,
-		podManager:     pm,
+		gcScanInterval:             5 * time.Minute,
+		podTTL:                     10 * time.Minute,
+		podReadyCh:                 podReadyCh,
+		podManager:                 pm,
+		connectionRequestCh:        requestCh,
+		maxWaitlistLength:          1,
+		maxParallelPodsPerFunction: 1,
 	}
 
 	go pcm.podCacheManager()
@@ -285,14 +331,26 @@ func TestPodCacheManager(t *testing.T) {
 				t.SkipNow()
 			}
 
-			pcm.cache = make(map[string]*podAndGRPCClient)
-			for k, v := range tt.cache {
-				pcm.cache[k] = v
+			logger := ktesting.NewLogger(t, ktesting.NewConfig(ktesting.BufferLogs(true)))
+			defer klog.ClearLogger() // restore global logger after test
+			klog.SetLogger(logger)
+
+			pcm.functions = make(map[string]*functionInfo)
+			for k, v := range tt.functions {
+				pcm.functions[k] = v
 			}
 			pcm.podManager.kubeClient = tt.kubeClient
 
-			clientConn := make(chan *clientConnAndError)
-			requestCh <- &clientConnRequest{defaultImageName, clientConn}
+			if !tt.skipRetrieve {
+				err = pcm.retrieveFunctionPods(context.Background())
+				if err != nil {
+					t.Logf("Something happened %v", err)
+				}
+
+			}
+
+			clientConn := make(chan *connectionResponse)
+			requestCh <- &connectionRequest{defaultImageName, clientConn}
 
 			select {
 			case cc := <-clientConn:
@@ -301,7 +359,7 @@ func TestPodCacheManager(t *testing.T) {
 				} else if tt.expectFail && cc.err == nil {
 					t.Errorf("Expected to get error, got client connection")
 				} else if cc.err == nil {
-					if cc.podClient == nil {
+					if cc.podData.grpcConnection == nil {
 						t.Errorf("Expected to get grpc client, got nil")
 					}
 				}
@@ -309,24 +367,33 @@ func TestPodCacheManager(t *testing.T) {
 			case <-time.After(5 * time.Second):
 				t.Errorf("Timed out waiting for client connection")
 			}
+			if under, ok := logger.GetSink().(ktesting.Underlier); ok {
+				if !strings.Contains(under.GetBuffer().String(), tt.expectedLog) {
+					t.Fatalf("missing expected log line")
+				}
+			}
 		})
 	}
 
 	oldPodObject := &corev1.Pod{}
 	deepCopyObject(defaultPodObject, oldPodObject)
-	// Set the pod Retention time annotation to be older than the current time
-	podTimestamp := time.Now().Add(-1 * time.Minute).Unix()
-	oldPodObject.Annotations[reclaimAfterAnnotation] = fmt.Sprintf("%d", podTimestamp)
 
 	newPodObject := &corev1.Pod{}
 	deepCopyObject(defaultPodObject, newPodObject)
-	// Set the pod Retention time annotation to be later than the current time
-	podTimestamp = time.Now().Add(1 * time.Minute).Unix()
-	newPodObject.Annotations[reclaimAfterAnnotation] = fmt.Sprintf("%d", podTimestamp)
 
 	podObjectInvalidRetentionTimestamp := &corev1.Pod{}
 	deepCopyObject(defaultPodObject, podObjectInvalidRetentionTimestamp)
-	podObjectInvalidRetentionTimestamp.Annotations[reclaimAfterAnnotation] = "dummy-value"
+
+	funcExpiredPodInfo := NewPodInfo(nil)
+	funcExpiredPodInfo.podData = &pData
+	funcExpiredPodInfo.lastActivity = time.Now().Add(-11 * time.Minute)
+
+	funcExpiredInfo := functionInfo{
+		pods: []functionPodInfo{funcExpiredPodInfo},
+	}
+
+	functionWithExpiredPod := make(map[string]*functionInfo)
+	functionWithExpiredPod[defaultImageName] = &funcExpiredInfo
 
 	// These tests focus on the pod cleanup / garbage collection logic in the pod
 	// cache manager covering automated deletion of pod/service after retention period
@@ -335,7 +402,7 @@ func TestPodCacheManager(t *testing.T) {
 		expectFail             bool
 		skip                   bool
 		kubeClient             client.WithWatch
-		cache                  map[string]*podAndGRPCClient
+		functions              map[string]*functionInfo
 		podShouldBeDeleted     bool
 		serviceShouldBeDeleted bool
 		cacheShouldBeEmpty     bool
@@ -344,8 +411,8 @@ func TestPodCacheManager(t *testing.T) {
 			name:                   "Garbage Collector - Expired Pod Exists and cleaned up",
 			expectFail:             false,
 			skip:                   false,
-			kubeClient:             buildKubeClient(oldPodObject, defaultServiceObject, defaultEndpointObject),
-			cache:                  cacheWithDefaultPod,
+			kubeClient:             buildKubeClient(oldPodObject, defaultServiceObject, emptyEndpointObject),
+			functions:              functionWithExpiredPod,
 			podShouldBeDeleted:     true,
 			serviceShouldBeDeleted: true,
 			cacheShouldBeEmpty:     true,
@@ -355,7 +422,7 @@ func TestPodCacheManager(t *testing.T) {
 			expectFail:             false,
 			skip:                   false,
 			kubeClient:             buildKubeClient(newPodObject, defaultServiceObject, defaultEndpointObject),
-			cache:                  cacheWithDefaultPod,
+			functions:              functionWithDefaultPod,
 			podShouldBeDeleted:     false,
 			serviceShouldBeDeleted: false,
 			cacheShouldBeEmpty:     false,
@@ -365,7 +432,7 @@ func TestPodCacheManager(t *testing.T) {
 			expectFail:             false,
 			skip:                   false,
 			kubeClient:             buildKubeClient(defaultPodObject, defaultServiceObject, defaultEndpointObject),
-			cache:                  cacheWithDefaultPod,
+			functions:              functionWithDefaultPod,
 			podShouldBeDeleted:     false,
 			serviceShouldBeDeleted: false,
 			cacheShouldBeEmpty:     false,
@@ -375,7 +442,7 @@ func TestPodCacheManager(t *testing.T) {
 			expectFail:             false,
 			skip:                   false,
 			kubeClient:             buildKubeClient(podObjectInvalidRetentionTimestamp, defaultServiceObject, defaultEndpointObject),
-			cache:                  cacheWithDefaultPod,
+			functions:              functionWithDefaultPod,
 			podShouldBeDeleted:     false,
 			serviceShouldBeDeleted: false,
 			cacheShouldBeEmpty:     false,
@@ -388,9 +455,9 @@ func TestPodCacheManager(t *testing.T) {
 				t.SkipNow()
 			}
 
-			pcm.cache = make(map[string]*podAndGRPCClient)
-			for k, v := range tt.cache {
-				pcm.cache[k] = v
+			pcm.functions = make(map[string]*functionInfo)
+			for k, v := range tt.functions {
+				pcm.functions[k] = v
 			}
 
 			pcm.podManager.kubeClient = tt.kubeClient
@@ -418,14 +485,14 @@ func TestPodCacheManager(t *testing.T) {
 			}
 
 			if tt.cacheShouldBeEmpty {
-				if len(pcm.cache) != 0 {
-					t.Errorf("Expected cache to be empty, but it has %d entries", len(pcm.cache))
+				if len(pcm.functions) != 0 {
+					t.Errorf("Expected cache to be empty, but it has %d entries", len(pcm.functions))
 				}
 			} else {
-				if len(pcm.cache) == 0 {
+				if len(pcm.functions) == 0 {
 					t.Errorf("Expected cache to have entries, but it is empty")
-				} else if len(pcm.cache) != 1 {
-					t.Errorf("Expected cache to have 1 entry, but it has %d entries", len(pcm.cache))
+				} else if len(pcm.functions) != 1 {
+					t.Errorf("Expected cache to have 1 entry, but it has %d entries", len(pcm.functions))
 				}
 			}
 		})

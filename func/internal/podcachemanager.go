@@ -28,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // podCacheManager manages the cache of the pods and the corresponding GRPC clients.
@@ -57,10 +58,12 @@ type podCacheManager struct {
 }
 
 type podCacheConfigEntry struct {
-	Name        string `yaml:"name"`
-	TimeToLive  string `yaml:"timeToLive"`
-	MaxWaitlist int    `yaml:"maxWaitlistLength"`
-	MaxPods     int    `yaml:"maxParallelPodsPerFunction"`
+	Name        string              `json:"name,omitempty"`
+	TimeToLive  string              `json:"timeToLive,omitempty"`
+	MaxWaitlist int                 `json:"maxWaitlist,omitempty"`
+	MaxPods     int                 `json:"maxPods,omitempty"`
+	Requests    corev1.ResourceList `json:"requests,omitempty"`
+	Limits      corev1.ResourceList `json:"limits,omitempty"`
 }
 
 // functionInfo holds the list of all pod instances for the same KRM function image.
@@ -84,17 +87,22 @@ type functionPodInfo struct {
 	concurrentEvaluations *atomic.Int32
 }
 
-func (pcm *podCacheManager) redistributeLoad(image string, fn *functionInfo, connections []chan<- *connectionResponse) {
+func (pcm *podCacheManager) redistributeLoad(image string, fn *functionInfo, connections []chan<- *connectionResponse) bool {
 	pcm.removeUnhealthyPods(fn, false)
+	redistributed := false
 	for _, ch := range connections {
 		bestPodIndex, _ := pcm.findBestPod(fn)
-		pod := pcm.functions[image].pods[bestPodIndex]
-		if pod.podData != nil {
-			pod.SendResponse(ch, nil)
-		} else {
-			pod.waitlist = append(pod.waitlist, ch)
+		if bestPodIndex != -1 {
+			pod := pcm.functions[image].pods[bestPodIndex]
+			if pod.podData != nil {
+				pod.SendResponse(ch, nil)
+			} else {
+				pod.waitlist = append(pod.waitlist, ch)
+			}
+			redistributed = true
 		}
 	}
+	return redistributed
 }
 
 // podCacheManager responds to the requestCh and the podReadyCh and does the
@@ -107,18 +115,16 @@ func (pcm *podCacheManager) podCacheManager() {
 	for {
 		select {
 		case req := <-pcm.connectionRequestCh:
-			//if pcm.podManager.imageResolver != nil {
-			//	req.image = pcm.podManager.imageResolver(req.image)
-			//}
 			fn := pcm.FunctionInfo(req.image)
 
 			shouldScaleUp := false
 			pcm.removeUnhealthyPods(fn, false)
 			bestPodIndex, bestWaitlistLen := pcm.findBestPod(fn)
+			ttl, maxWaitlist, maxPods := pcm.getParamsForImage(req.image)
 			if bestPodIndex == -1 {
 				shouldScaleUp = true
 			} else {
-				if bestWaitlistLen >= pcm.maxWaitlistLength && len(fn.pods) < pcm.maxParallelPodsPerFunction {
+				if bestWaitlistLen >= maxWaitlist && len(fn.pods) < maxPods {
 					shouldScaleUp = true
 				}
 			}
@@ -127,7 +133,7 @@ func (pcm *podCacheManager) podCacheManager() {
 				klog.Infof("Scaling up for image %s. No idle pods available. Starting a new pod.", req.image)
 
 				fn.pods = append(fn.pods, NewPodInfo(req.responseCh))
-				go pcm.podManager.getFuncEvalPodClient(context.Background(), req.image, pcm.podTTL)
+				go pcm.podManager.getFuncEvalPodClient(context.Background(), req.image, ttl, len(fn.pods), pcm.configMap[req.image])
 			} else {
 				pod := &fn.pods[bestPodIndex]
 				klog.Infof("Queuing request for %s on pod instance #%d (queue length will be %d)", req.image, bestPodIndex, bestWaitlistLen+1)
@@ -162,14 +168,19 @@ func (pcm *podCacheManager) podCacheManager() {
 			if podReadyMsg.err != nil {
 				klog.Warningf("Pod creation failed for image %s: %v", podReadyMsg.image, podReadyMsg.err)
 				waitListToRedistribute := fn.pods[toUpdate].waitlist
+				failedPod := fn.pods[toUpdate]
+				fn.pods = slices.Delete(fn.pods, toUpdate, toUpdate+1)
+				redistributed := false
 				if len(fn.pods) > 0 {
-					fn.pods = slices.Delete(fn.pods, toUpdate, toUpdate+1)
-					pcm.redistributeLoad(podReadyMsg.image, fn, waitListToRedistribute)
-				} else {
+					redistributed = pcm.redistributeLoad(podReadyMsg.image, fn, waitListToRedistribute)
+				}
+				if !redistributed {
 					for _, ch := range waitListToRedistribute {
-						fn.pods[toUpdate].SendResponse(ch, podReadyMsg.err)
+						failedPod.SendResponse(ch, podReadyMsg.err)
 					}
-					fn.pods = slices.Delete(fn.pods, toUpdate, toUpdate+1)
+				}
+				if failedPod.podData != nil {
+					pcm.DeletePodWithServiceInBackgroundByObjectKey(failedPod.podKey, failedPod.serviceKey)
 				}
 				continue
 			}
@@ -243,6 +254,58 @@ func (pcm *podCacheManager) FunctionInfo(image string) *functionInfo {
 	return fn
 }
 
+func (pcm *podCacheManager) retrieveFunctionPods(ctx context.Context) error {
+	_, templateVersion, err := pcm.podManager.getBasePodTemplate(ctx)
+	if err != nil {
+		klog.Errorf("failed to generate a base pod template: %v", err)
+		return fmt.Errorf("failed to generate a base pod template: %w", err)
+	}
+
+	podList := &corev1.PodList{}
+	err = pcm.podManager.kubeClient.List(ctx, podList, client.InNamespace(pcm.podManager.namespace), client.HasLabels{krmFunctionImageLabel})
+	if err != nil {
+		klog.Warningf("error when listing pods in namespace:  %q: %v", pcm.podManager.namespace, err)
+	}
+	if err == nil && len(podList.Items) > 0 {
+		for _, pod := range podList.Items {
+			if pod.DeletionTimestamp == nil {
+				if isPodTemplateSameVersion(&pod, templateVersion) {
+
+					// Service name is Image Label set on Pod manifest
+					serviceName := pod.ObjectMeta.Labels[krmFunctionImageLabel]
+					podKey := client.ObjectKeyFromObject(&pod)
+
+					serviceTemplate, err := pcm.podManager.retrieveOrCreateService(ctx, serviceName)
+					if err != nil {
+						return err
+					}
+					serviceKey := client.ObjectKeyFromObject(serviceTemplate)
+
+					image := pod.Spec.Containers[0].Image
+					fn := pcm.FunctionInfo(image)
+					if len(fn.pods) < pcm.maxParallelPodsPerFunction {
+						pData, err := pcm.podManager.createPodData(ctx, serviceKey, podKey, image)
+						if err != nil {
+							pcm.DeletePodWithServiceInBackground(&pod, serviceTemplate)
+						} else {
+							klog.Infof("retrieved function evaluator pod %v/%v for %v", pod.Namespace, pod.Name, image)
+							fn.pods = append(fn.pods, NewPodInfo(nil))
+							pcm.podManager.podReadyCh <- &podReadyResponse{
+								podData: *pData,
+								err:     nil,
+							}
+						}
+					} else {
+						klog.Infof("max parallel pods reached for %v, deleting %v/%v", image, pod.Namespace, pod.Name)
+						pcm.DeletePodWithServiceInBackground(&pod, serviceTemplate)
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // warmupCache starts preloading 1 pod in the background for each function specified in podCacheConfig
 func (pcm *podCacheManager) warmupCache(podCacheConfig string) error {
 	start := time.Now()
@@ -253,29 +316,22 @@ func (pcm *podCacheManager) warmupCache(podCacheConfig string) error {
 	if err != nil {
 		return err
 	}
-	var podsTTL map[string]string
-	err = yaml.Unmarshal(content, &podsTTL)
+	var entries []podCacheConfigEntry
+	err = yaml.Unmarshal(content, &entries)
 	if err != nil {
 		return err
 	}
 
-	for fnImage, ttlStr := range podsTTL {
-		klog.Infof("preloading pod cache for function %v with TTL %v", fnImage, ttlStr)
-
-		ttl, err := time.ParseDuration(ttlStr)
-		if err != nil {
-			klog.Warningf("unable to parse TTL duration (%s) from the config file for function %q. Using default (%s) instead: %v", ttlStr, fnImage, pcm.podTTL, err)
-			ttl = pcm.podTTL
-		}
-
-		fn := pcm.FunctionInfo(fnImage)
+	for _, entry := range entries {
+		ttl, _, _ := pcm.getParamsForImage(entry.Name)
+		fn := pcm.FunctionInfo(entry.Name)
 		if len(fn.pods) == 0 {
 			fn.pods = append(fn.pods, NewPodInfo(nil))
-			go func() {
+			go func(fnImage string, ttl time.Duration) {
 				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 				defer cancel()
-				pcm.podManager.getFuncEvalPodClient(ctx, fnImage, ttl)
-			}()
+				pcm.podManager.getFuncEvalPodClient(ctx, fnImage, ttl, 1, pcm.configMap[fnImage])
+			}(entry.Name, ttl)
 		}
 	}
 	return nil
@@ -325,6 +381,22 @@ func (pcm *podCacheManager) removeUnhealthyPods(fn *functionInfo, removeIdle boo
 			return true
 		}
 
+		service := &corev1.Service{}
+		err = pcm.podManager.kubeClient.Get(context.Background(), pod.podData.serviceKey, service)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				klog.Infof("Removing deleted service from cache for image %v", pod.podData.image)
+			} else {
+				klog.Errorf("Failed to get service %v, removing from cache: %v", pod.podData.serviceKey, err)
+			}
+			return true
+		}
+
+		err = pcm.podManager.kubeClient.Get(context.Background(), pod.podData.serviceKey, service)
+		if err != nil {
+			klog.Warningf("unable to find expected service %s namespace %s: %v", pod.podData.serviceKey.Name, k8sPod.Namespace, err)
+		}
+
 		if !k8sPod.DeletionTimestamp.IsZero() {
 			// Pod is under deletion
 			return true
@@ -332,18 +404,20 @@ func (pcm *podCacheManager) removeUnhealthyPods(fn *functionInfo, removeIdle boo
 
 		if k8sPod.Status.Phase == corev1.PodFailed {
 			klog.Errorf("Evicting pod in failed state (%v/%v) from cache for image %v", k8sPod.Namespace, k8sPod.Name, pod.podData.image)
-			pcm.DeletePodInBackground(k8sPod)
+			pcm.DeletePodWithServiceInBackground(k8sPod, service)
 			return true
 		}
 
-		if net.JoinHostPort(k8sPod.Status.PodIP, defaultWrapperServerPort) != pod.podData.grpcConnection.Target() {
+		serviceUrl := service.ObjectMeta.Name + "." + service.ObjectMeta.Namespace + serviceDnsNameSuffix
+		if net.JoinHostPort(serviceUrl, defaultWrapperServerPort) != pod.podData.grpcConnection.Target() {
 			klog.Errorf("Evicting pod whose pod IP doesn't match with its grpc connection (%v/%v) from cache for image %v", k8sPod.Namespace, k8sPod.Name, pod.podData.image)
-			pcm.DeletePodInBackground(k8sPod)
+			pcm.DeletePodWithServiceInBackground(k8sPod, service)
 			return true
 		}
-		if removeIdle && pod.WaitlistLen() == 0 && time.Since(pod.lastActivity) > pcm.podTTL {
+		ttl, _, _ := pcm.getParamsForImage(pod.podData.image)
+		if removeIdle && pod.WaitlistLen() == 0 && time.Since(pod.lastActivity) > ttl {
 			klog.Infof("Removing idle pod %q that reached its TTL from cache for image %v", k8sPod.Name, pod.podData.image)
-			pcm.DeletePodInBackground(k8sPod)
+			pcm.DeletePodWithServiceInBackground(k8sPod, service)
 			return true
 		}
 
@@ -366,11 +440,30 @@ func (pcm *podCacheManager) garbageCollector() {
 	}
 }
 
-func (pcm *podCacheManager) DeletePodInBackground(k8sPod *corev1.Pod) {
+func (pcm *podCacheManager) DeletePodWithServiceInBackgroundByObjectKey(podKey, serviceKey client.ObjectKey) {
+	k8sPod := &corev1.Pod{}
+	err := pcm.podManager.kubeClient.Get(context.Background(), podKey, k8sPod)
+	if err != nil {
+		klog.Warningf("unable to find pod %s in namespace: %s: %v", podKey.Name, podKey.Namespace, err)
+	}
+
+	service := &corev1.Service{}
+	err = pcm.podManager.kubeClient.Get(context.Background(), serviceKey, service)
+	if err != nil {
+		klog.Warningf("unable to find service %s in namespace %s: %v", serviceKey.Name, serviceKey.Namespace, err)
+	}
+	pcm.DeletePodWithServiceInBackground(k8sPod, service)
+}
+
+func (pcm *podCacheManager) DeletePodWithServiceInBackground(k8sPod *corev1.Pod, svc *corev1.Service) {
 	go func() {
 		err := pcm.podManager.kubeClient.Delete(context.Background(), k8sPod)
 		if err != nil {
 			klog.Errorf("Failed to delete pod %v/%v from cluster: %v", k8sPod.Namespace, k8sPod.Name, err)
+		}
+		err = pcm.podManager.kubeClient.Delete(context.Background(), svc)
+		if err != nil {
+			klog.Warningf("unable to delete service %v/%v: %v", svc.Namespace, svc.Name, err)
 		}
 	}()
 }

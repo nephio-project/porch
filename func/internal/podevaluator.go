@@ -36,9 +36,9 @@ const (
 	wrapperServerBin          = "wrapper-server"
 	gRPCProbeBin              = "grpc-health-probe"
 	krmFunctionImageLabel     = "fn.kpt.dev/image"
-	reclaimAfterAnnotation    = "fn.kpt.dev/reclaim-after"
 	templateVersionAnnotation = "fn.kpt.dev/template-version"
 	inlineTemplateVersionv1   = "inline-v1"
+	fieldManagerName          = "krm-function-runner"
 	functionContainerName     = "function"
 	defaultManagerNamespace   = "porch-system"
 	defaultRegistry           = "gcr.io/kpt-fn/"
@@ -80,6 +80,8 @@ type podData struct {
 	grpcConnection *grpc.ClientConn
 	// namespaced name of the pod
 	podKey client.ObjectKey
+	// namespaced name of the service
+	serviceKey client.ObjectKey
 }
 
 type connectionRequest struct {
@@ -141,6 +143,15 @@ func NewPodEvaluator(o PodEvaluatorOptions) (Evaluator, error) {
 	reqCh := make(chan *connectionRequest, channelBufferSize)
 	readyCh := make(chan *podReadyResponse, channelBufferSize)
 
+	var podCacheConfig map[string]podCacheConfigEntry
+	if o.PodCacheConfigFileName != "" {
+		var err error
+		podCacheConfig, err = loadPodCacheConfig(o.PodCacheConfigFileName)
+		if err != nil {
+			klog.Warningf("unable to load pod cache config file: %v", err)
+		}
+	}
+
 	pe := &podEvaluator{
 		requestCh: reqCh,
 		podCacheManager: &podCacheManager{
@@ -151,6 +162,7 @@ func NewPodEvaluator(o PodEvaluatorOptions) (Evaluator, error) {
 			functions:                  map[string]*functionInfo{},
 			maxWaitlistLength:          maxWaitlist,
 			maxParallelPodsPerFunction: maxPods,
+			configMap:                  podCacheConfig,
 
 			podManager: &podManager{
 				kubeClient:              cl,
@@ -171,6 +183,11 @@ func NewPodEvaluator(o PodEvaluatorOptions) (Evaluator, error) {
 		},
 	}
 	go pe.podCacheManager.podCacheManager()
+
+	err = pe.podCacheManager.retrieveFunctionPods(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve existing pods: %w", err)
+	}
 
 	if o.WarmUpPodCacheOnStartup {
 		// TODO(mengqiy): add watcher that support reloading the cache when the config file was changed.
