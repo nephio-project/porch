@@ -34,7 +34,6 @@ import (
 	containerregistry "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/daemon"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	corev1 "k8s.io/api/core/v1"
@@ -94,8 +93,6 @@ type podManager struct {
 	enablePrivateRegistriesTls bool
 	// The path of the secret used in tls configuration
 	tlsSecretPath string
-	// Image resolver that prepends a prefix if necessary
-	imageResolver fnruntime.ImageResolveFunc
 }
 
 type digestAndEntrypoint struct {
