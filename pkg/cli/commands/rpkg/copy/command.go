@@ -53,7 +53,6 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 		Hidden:  porch.HidePorchCommands,
 	}
 	r.Command.Flags().StringVar(&r.workspace, "workspace", "", "Workspace name of the copy of the package.")
-	r.Command.Flags().BoolVar(&r.replayStrategy, "replay-strategy", false, "Use replay strategy for creating new package revision.")
 	return r
 }
 
@@ -65,8 +64,7 @@ type runner struct {
 
 	copy porchapi.PackageEditTaskSpec
 
-	workspace      string // Target package revision workspaceName
-	replayStrategy bool
+	workspace string // Target package revision workspaceName
 }
 
 func (r *runner) preRunE(_ *cobra.Command, args []string) error {
@@ -135,19 +133,16 @@ func (r *runner) getPackageRevisionSpec() (*porchapi.PackageRevisionSpec, error)
 		RepositoryName: packageRevision.Spec.RepositoryName,
 	}
 
-	if len(packageRevision.Spec.Tasks) == 0 || !r.replayStrategy {
-		spec.Tasks = []porchapi.Task{
-			{
-				Type: porchapi.TaskTypeEdit,
-				Edit: &porchapi.PackageEditTaskSpec{
-					Source: &porchapi.PackageRevisionRef{
-						Name: packageRevision.Name,
-					},
+	spec.Tasks = []porchapi.Task{
+		{
+			Type: porchapi.TaskTypeEdit,
+			Edit: &porchapi.PackageEditTaskSpec{
+				Source: &porchapi.PackageRevisionRef{
+					Name: packageRevision.Name,
 				},
 			},
-		}
-	} else {
-		spec.Tasks = packageRevision.Spec.Tasks
+		},
 	}
+
 	return spec, nil
 }
