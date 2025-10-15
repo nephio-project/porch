@@ -38,6 +38,7 @@ var _ cachetypes.Cache = &dbCache{}
 
 type dbCache struct {
 	repositories map[repository.RepositoryKey]*dbRepository
+	repoLocks    map[string]*sync.Mutex
 	mainLock     *sync.RWMutex
 	options      cachetypes.CacheOptions
 }
@@ -118,6 +119,26 @@ func (c *dbCache) CloseRepository(ctx context.Context, repositorySpec *configapi
 	c.mainLock.RUnlock()
 	if !ok {
 		return pkgerrors.Errorf("dbcache.CloseRepository: repo %+v not found", repoKey)
+	}
+
+	cacheKey := c.getCacheKey(repositorySpec)
+	repoLock := c.getOrCreateLock(cacheKey)
+	repoLock.Lock()
+	defer repoLock.Unlock()
+
+	// For Git repositories, check sharing based on URL only
+	if repositorySpec.Spec.Type == configapi.RepositoryTypeGit {
+		for _, r := range allRepos {
+			if r.Name == repositorySpec.Name && r.Namespace == repositorySpec.Namespace {
+				continue
+			}
+			if r.Spec.Type == configapi.RepositoryTypeGit &&
+				r.Spec.Git.Repo == repositorySpec.Spec.Git.Repo {
+				// do not close cached repo if it is shared
+				dbRepo.repositorySync.Stop()
+				return nil
+			}
+		}
 	}
 
 	// TODO: should we still delete if close fails?

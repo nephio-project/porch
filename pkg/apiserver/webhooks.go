@@ -102,7 +102,7 @@ func newWebhookConfig(ctx context.Context) *WebhookConfig {
 		cfg.Host = getEnv("WEBHOOK_HOST", "localhost")
 	}
 	cfg.Path = serverEndpoint
-	// Always use the service port for repoitory webhook validation
+	// Always use the WebhookTypeService for repository webhook validation
 	cfg.RepositoryPath = repositoryValidationEndpoint
 	cfg.RepoServiceName, cfg.RepoServiceNamespace = webhookServiceName(ctx)
 	cfg.RepoHost = fmt.Sprintf("%s.%s.svc", cfg.RepoServiceName, cfg.RepoServiceNamespace)
@@ -193,7 +193,7 @@ func createCerts(cfg *WebhookConfig) ([]byte, error) {
 		dnsNames = append(dnsNames, fmt.Sprintf("%s.%s.svc.cluster.local", cfg.ServiceName, cfg.ServiceNamespace))
 	}
 
-	// repo validating webhook
+	// DNS names for CA config - repository-validating-webhook
 	dnsNames = append(dnsNames, cfg.RepoServiceName)
 	dnsNames = append(dnsNames, fmt.Sprintf("%s.%s", cfg.RepoServiceName, cfg.RepoServiceNamespace))
 	dnsNames = append(dnsNames, fmt.Sprintf("%s.%s.svc", cfg.RepoServiceName, cfg.RepoServiceNamespace))
@@ -764,14 +764,14 @@ func isConflict(existing, attempted *configapi.Repository) bool {
 	}
 
 	// Rule 2: Root directory conflicts with any other directory under same URL
-	if existingURL == attemptedURL && existing.Namespace == attempted.Namespace {
+	if existingURL == attemptedURL {
 		if (existingDir == "" && attemptedDir != "") || (existingDir != "" && attemptedDir == "") {
 			return true
 		}
 	}
 
-	// Rule 3: Nested directory conflicts with its base directory — only if namespace matches
-	if existingURL == attemptedURL && existing.Namespace == attempted.Namespace {
+	// Rule 3: Nested directory conflicts with its base directory
+	if existingURL == attemptedURL {
 		if isNestedConflict(existingDir, attemptedDir) {
 			return true
 		}
