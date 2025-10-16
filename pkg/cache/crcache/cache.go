@@ -59,8 +59,10 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 	c.mainLock.RLock()
 	if repo, ok := c.repositories[key]; ok && repo != nil {
 		c.mainLock.RUnlock()
-		// Test if credentials are okay for the cached repo and update the status accordingly
-		if _, err := externalrepo.CreateRepositoryImpl(ctx, repositorySpec, c.options.ExternalRepoOptions); err != nil {
+		// Keep the spec updated in the cache.
+		repo.repoSpec = repositorySpec
+		// Check external repo connectivity
+		if err := externalrepo.CheckRepositoryConnection(ctx, repositorySpec, c.options.ExternalRepoOptions); err != nil {
 			return nil, err
 		}
 		// If there is an error from the background refresh goroutine, return it.

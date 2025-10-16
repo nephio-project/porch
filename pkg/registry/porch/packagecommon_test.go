@@ -39,7 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/apiserver/pkg/endpoints/request"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -240,7 +239,7 @@ func TestWatchPackages_WithNamespaceFilteringWatcher(t *testing.T) {
 	}}
 	filter := repository.ListPackageRevisionFilter{}
 	ctx := context.TODO()
-	ctx = request.WithNamespace(ctx, "foo") // Set namespace in context
+	ctx = genericapirequest.WithNamespace(ctx, "foo") // Set namespace in context
 
 	err := pc.watchPackages(ctx, filter, callback)
 	if err != nil {

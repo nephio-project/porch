@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
@@ -26,31 +27,47 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 	mockcachetypes "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
 	"github.com/stretchr/testify/mock"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func (t *DbTestSuite) TestDBRepoSync() {
 	mockCache := mockcachetypes.NewMockCache(t.T())
 	cachetypes.CacheInstance = mockCache
-
+	repoName := "my-repo-name"
+	namespace := "my-ns"
 	externalrepo.ExternalRepoInUnitTestMode = true
 
 	ctx := t.Context()
+	scheme := runtime.NewScheme()
+	_ = configapi.AddToScheme(scheme)
 
-	testRepo := t.createTestRepo("my-ns", "my-repo-name")
+	repoObj := &configapi.Repository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      repoName,
+			Namespace: namespace,
+		},
+	}
+	repoObj.SetGroupVersionKind(configapi.GroupVersion.WithKind("Repository"))
+
+	fakeClient := NewFakeClientWithStatus(scheme, repoObj)
+
+	testRepo := t.createTestRepo(namespace, repoName)
 	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
 
 	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
 	t.Require().NoError(err)
 
 	cacheOptions := cachetypes.CacheOptions{
-		RepoSyncFrequency: 1 * time.Second,
+		RepoCrSyncFrequency: 1 * time.Second,
+		CoreClient:          fakeClient,
 	}
 
 	testRepo.repositorySync = newRepositorySync(testRepo, cacheOptions)
-
 	newPRDef := v1alpha1.PackageRevision{
 		Spec: v1alpha1.PackageRevisionSpec{
-			RepositoryName: "my-repo-name",
+			RepositoryName: repoName,
 			PackageName:    "my-package",
 			WorkspaceName:  "my-workspace",
 			Lifecycle:      v1alpha1.PackageRevisionLifecyclePublished,
@@ -95,7 +112,6 @@ func (t *DbTestSuite) TestDBRepoSync() {
 		},
 	}
 	fakeRepo.PackageRevisions = append(fakeRepo.PackageRevisions, &fakeExtPR)
-
 	time.Sleep(2 * time.Second)
 
 	prList, err = testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
@@ -103,7 +119,6 @@ func (t *DbTestSuite) TestDBRepoSync() {
 	t.Equal(0, len(prList)) // The version of the external repo has not changed
 
 	fakeRepo.CurrentVersion = "bar"
-
 	time.Sleep(2 * time.Second)
 
 	prList, err = testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
@@ -112,6 +127,140 @@ func (t *DbTestSuite) TestDBRepoSync() {
 
 	testRepo.repositorySync.Stop()
 
+	err = testRepo.Close(ctx)
+	t.Require().NoError(err)
+}
+
+func (t *DbTestSuite) TestDBSyncRunOnceAt() {
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+	repoName := "runonce-repo"
+	namespace := "runonce-ns"
+
+	externalrepo.ExternalRepoInUnitTestMode = true
+
+	ctx := t.Context()
+	scheme := runtime.NewScheme()
+	_ = configapi.AddToScheme(scheme)
+
+	runOnceTime := metav1.NewTime(time.Now().Add(7 * time.Second))
+
+	repoObj := &configapi.Repository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      repoName,
+			Namespace: namespace,
+		},
+		Spec: configapi.RepositorySpec{
+			Sync: &configapi.RepositorySync{
+				RunOnceAt: &runOnceTime,
+			},
+		},
+	}
+	repoObj.SetGroupVersionKind(configapi.GroupVersion.WithKind("Repository"))
+
+	fakeClient := NewFakeClientWithStatus(scheme, repoObj)
+	testRepo := t.createTestRepo(namespace, repoName)
+	testRepo.spec.Spec.Sync = &configapi.RepositorySync{
+		RunOnceAt: &runOnceTime,
+	}
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	t.Require().NoError(err)
+
+	cacheOptions := cachetypes.CacheOptions{
+		RepoCrSyncFrequency: 30 * time.Second,
+		CoreClient:          fakeClient,
+	}
+
+	sync := newRepositorySync(testRepo, cacheOptions)
+	testRepo.repositorySync = sync
+
+	newPRDef := v1alpha1.PackageRevision{
+		Spec: v1alpha1.PackageRevisionSpec{
+			RepositoryName: repoName,
+			PackageName:    "my-package",
+			WorkspaceName:  "my-workspace",
+			Lifecycle:      v1alpha1.PackageRevisionLifecyclePublished,
+		},
+	}
+	dbPRDraft, err := testRepo.CreatePackageRevisionDraft(ctx, &newPRDef)
+	t.Require().NoError(err)
+	t.Require().NotNil(dbPRDraft)
+
+	dbPR, err := testRepo.ClosePackageRevisionDraft(ctx, dbPRDraft, 0)
+	t.Require().NoError(err)
+
+	err = dbPR.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleProposed)
+	t.Require().NoError(err)
+
+	dbPR, err = testRepo.ClosePackageRevisionDraft(ctx, dbPR.(repository.PackageRevisionDraft), 0)
+	t.Require().NoError(err)
+	t.Require().NotNil(dbPR)
+
+	err = dbPR.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
+	t.Require().NoError(err)
+
+	dbPR, err = testRepo.ClosePackageRevisionDraft(ctx, dbPR.(repository.PackageRevisionDraft), 0)
+	t.Require().NoError(err)
+	t.Require().NotNil(dbPR)
+
+	time.Sleep(2 * time.Second)
+
+	// Add the PR to the external repo
+	fakeRepo := testRepo.externalRepo.(*fake.Repository)
+	fakeExtPR := fake.FakePackageRevision{
+		PrKey:           dbPR.Key(),
+		PackageRevision: &newPRDef,
+		Resources:       &v1alpha1.PackageRevisionResources{},
+		Kptfile: v1.KptFile{
+			Upstream:     &v1.Upstream{},
+			UpstreamLock: &v1.UpstreamLock{},
+		},
+	}
+	fakeRepo.PackageRevisions = append(fakeRepo.PackageRevisions, &fakeExtPR)
+	time.Sleep(2 * time.Second)
+	testRepo.externalRepo.(*fake.Repository).CurrentVersion = "bar"
+
+	// Wait until externalRepo.Version(ctx) returns "bar"
+	timeout := time.After(5 * time.Second)
+	tick := time.Tick(100 * time.Millisecond)
+
+	versionReady := false
+	for !versionReady {
+		select {
+		case <-timeout:
+			t.T().Fatal("Timed out waiting for externalRepo version to be 'bar'")
+		case <-tick:
+			version, _ := testRepo.externalRepo.Version(ctx)
+			if version == "bar" {
+				t.T().Log("externalRepo version is 'bar'")
+				versionReady = true
+			}
+		}
+	}
+
+	t.T().Log("Starting 5 second sleep...")
+	time.Sleep(5 * time.Second)
+	t.T().Log("Finished 5 second sleep")
+
+	prList, err := testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
+	t.Require().NoError(err)
+	t.Equal(1, len(prList)) // Sync should have deleted the cached PR that is not in the external repo and
+	// it should have added a cached PR that is in the external repo
+
+	// Check that sync stats were updated
+	t.Require().NotNil(sync.lastSyncStats)
+	t.Require().Nil(sync.getLastSyncError())
+
+	// Check statusStore for condition update
+	status, ok := fakeClient.statusStore[types.NamespacedName{Name: repoName, Namespace: namespace}]
+	t.Require().True(ok)
+	t.Require().Equal(configapi.RepositoryReady, status.Conditions[0].Type)
+	t.Require().Equal(metav1.ConditionTrue, status.Conditions[0].Status)
+	t.Require().Equal(configapi.ReasonReady, status.Conditions[0].Reason)
+
+	sync.Stop()
 	err = testRepo.Close(ctx)
 	t.Require().NoError(err)
 }

@@ -91,7 +91,7 @@ fi
 
 if [[ "$package_revision_count" -lt 1 ]]
 then
-    echo "pacakge revision count must be specified as a positive integer on the -e flag"
+    echo "package revision count must be specified as a positive integer on the -e flag"
     exit 1
 fi
 
@@ -117,7 +117,7 @@ echo "  up to $parallelism packages will be created in parallel per repo"
 echo "running load test towards git server http://nephio:secret@$git_repo_server:3000/nephio/" 
 echo "  $git_repo_count repos will be created"
 echo "  $package_count packages in each repo"
-echo "  $package_revision_count pacakge revisions in each package" 
+echo "  $package_revision_count package revisions in each package" 
 echo "  results will be stored in \"$result_file\""
 echo "  repo results will be stored in \"$repo_result_file\""
 echo "  the log will be stored in \"$log_file\""
