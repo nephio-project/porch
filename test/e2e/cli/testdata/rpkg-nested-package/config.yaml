@@ -1,0 +1,57 @@
+commands:
+  - args:
+      - /home/flapenta/NEPHIO/bugfix/porch/.build/porchctl
+      - repo
+      - register
+      - --namespace=rpkg-nested-package
+      - --name=porch-test
+      - --repo-basic-password=secret
+      - --repo-basic-username=nephio
+      - http://gitea.gitea.svc.cluster.local:3000/nephio/rpkg-nested-package
+  - args:
+      - /home/flapenta/NEPHIO/bugfix/porch/.build/porchctl
+      - rpkg
+      - init
+      - root
+      - --namespace=rpkg-nested-package
+      - --repository=porch-test
+      - --workspace=1
+    stdout: |
+      porch-test.root.1 created
+  - args:
+      - /home/flapenta/NEPHIO/bugfix/porch/.build/porchctl
+      - rpkg
+      - pull
+      - porch-test.root.1
+      - --namespace=rpkg-nested-package
+      - /tmp/porch-e2e/a00
+  - args:
+      - sh
+      - -c
+      - |
+        cp -r ../testdata/nested-packages/parent-pkg/* /tmp/porch-e2e/a00/ || true
+        mkdir -p /tmp/porch-e2e/a00/s
+        cp -r ../testdata/nested-packages/nested-pkg/* /tmp/porch-e2e/a00/s/
+  - args:
+      - /home/flapenta/NEPHIO/bugfix/porch/.build/porchctl
+      - rpkg
+      - push
+      - porch-test.root.1
+      - --namespace=rpkg-nested-package
+      - /tmp/porch-e2e/a00
+    stdout: |
+      porch-test.root.1 pushed
+    stderr: "[RUNNING] \"gcr.io/kpt-fn/starlark:v0.5.0\" \n[RUNNING] \"gcr.io/kpt-fn/starlark:v0.5.0\" \n"
+  - args:
+      - /home/flapenta/NEPHIO/bugfix/porch/.build/porchctl
+      - rpkg
+      - pull
+      - porch-test.root.1
+      - --namespace=rpkg-nested-package
+      - /tmp/porch-e2e/nested-pkg-result
+  - args:
+      - sh
+      - -c
+      - |
+        cat /tmp/porch-e2e/nested-pkg-result/s/configmap.yaml | grep "parent: parent-value"
+    exitCode: 1
