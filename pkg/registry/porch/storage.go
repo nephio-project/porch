@@ -17,8 +17,8 @@ package porch
 import (
 	"time"
 
-	"github.com/nephio-project/porch/api/porch"
 	apiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porch "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/engine"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"

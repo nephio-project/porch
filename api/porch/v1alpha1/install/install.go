@@ -15,12 +15,12 @@
 package install
 
 import (
-	"testing"
-
-	"github.com/nephio-project/porch/api/porch/fuzzer"
-	"k8s.io/apimachinery/pkg/api/apitesting/roundtrip"
+	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
-func TestRoundTripTypes(t *testing.T) {
-	roundtrip.RoundTripTestForAPIGroup(t, Install, fuzzer.Funcs)
+// Install registers the API group and adds types to a scheme
+func Install(scheme *runtime.Scheme) {
+	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 }
