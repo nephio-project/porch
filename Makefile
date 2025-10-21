@@ -166,6 +166,7 @@ API_MODULES = \
 
 .PHONY: generate-api
 generate-api:
+	rm -fr $(CURDIR)/api/porch/generated
 	KUBE_VERBOSE=2 $(CURDIR)/scripts/generate-api.sh
 
 .PHONY: generate

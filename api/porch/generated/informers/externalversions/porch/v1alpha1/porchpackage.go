@@ -20,9 +20,9 @@ import (
 	"context"
 	time "time"
 
-	versioned "github.com/nephio-project/porch/api/generated/clientset/versioned"
-	internalinterfaces "github.com/nephio-project/porch/api/generated/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/nephio-project/porch/api/generated/listers/porch/v1alpha1"
+	versioned "github.com/nephio-project/porch/api/porch/generated/clientset/versioned"
+	internalinterfaces "github.com/nephio-project/porch/api/porch/generated/informers/externalversions/internalinterfaces"
+	v1alpha1 "github.com/nephio-project/porch/api/porch/generated/listers/porch/v1alpha1"
 	porchv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"

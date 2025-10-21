@@ -32,7 +32,7 @@ ORG=github.com/nephio-project
 REPO=$ORG/porch
 API_PKG=$REPO/api
 INPUT_PKG=$API_PKG/porch
-CLIENT_PKG=$API_PKG/generated
+GEN_CLIENT_PKG=$INPUT_PKG/generated
 
 BOILERPLATE=$HERE/boilerplate.go.txt
 OPENAPI_REPORT=$ROOT/gen_openapi.report
@@ -68,15 +68,15 @@ kube::codegen::gen_helpers \
 	--extra-peer-dir "k8s.io/apimachinery/pkg/runtime" \
 	--extra-peer-dir "k8s.io/apimachinery/pkg/version"
 
-echo 'gen_openapi...'
+rm -fr "$GEN_CLIENT_PKG"
 
-rm -fr "$CLIENT_PKG/openapi"
+echo 'gen_openapi...'
 
 # Note: lots of validation errors from Kubernetes meta package; can be ignored
 kube::codegen::gen_openapi \
 	--output-base "$WORK" \
 	--input-pkg-root "$API_PKG" \
-	--output-pkg-root "$CLIENT_PKG" \
+	--output-pkg-root "$GEN_CLIENT_PKG" \
 	--boilerplate "$BOILERPLATE" \
 	--report-filename "$OPENAPI_REPORT" \
 	--update-report
@@ -90,7 +90,7 @@ kube::codegen::gen_client \
 	--with-watch \
 	--input-pkg-root "$API_PKG" \
 	--one-input-api "porch" \
-	--output-pkg-root "$CLIENT_PKG" \
+	--output-pkg-root "$GEN_CLIENT_PKG" \
 	--plural-exceptions "PackageRevisionResources:PackageRevisionResources" \
 	--boilerplate "$BOILERPLATE"
 

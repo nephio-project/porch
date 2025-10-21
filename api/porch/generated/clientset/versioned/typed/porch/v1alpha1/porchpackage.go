@@ -20,7 +20,7 @@ import (
 	"context"
 	"time"
 
-	scheme "github.com/nephio-project/porch/api/generated/clientset/versioned/scheme"
+	scheme "github.com/nephio-project/porch/api/porch/generated/clientset/versioned/scheme"
 	v1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
