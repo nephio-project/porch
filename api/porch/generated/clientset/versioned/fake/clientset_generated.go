@@ -17,10 +17,9 @@
 package fake
 
 import (
-	clientset "github.com/nephio-project/porch/api/generated/clientset/versioned"
-	porchv1alpha1 "github.com/nephio-project/porch/api/generated/clientset/versioned/typed/porch/v1alpha1"
-	fakeporchv1alpha1 "github.com/nephio-project/porch/api/generated/clientset/versioned/typed/porch/v1alpha1/fake"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clientset "github.com/nephio-project/porch/api/porch/generated/clientset/versioned"
+	porchv1alpha1 "github.com/nephio-project/porch/api/porch/generated/clientset/versioned/typed/porch/v1alpha1"
+	fakeporchv1alpha1 "github.com/nephio-project/porch/api/porch/generated/clientset/versioned/typed/porch/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"

@@ -28,8 +28,11 @@ HERE=$(dirname "$($READLINK --canonicalize "$BASH_SOURCE")")
 
 ROOT=$($READLINK --canonicalize "$HERE/..")
 
-PORCH_API_DIR=$ROOT/api
-PORCH_API_GENERATED_DIR=$ROOT/api/generated
+ORG=github.com/nephio-project
+REPO=$ORG/porch
+API_PKG=$REPO/api
+INPUT_PKG=$API_PKG/porch
+GEN_CLIENT_PKG=$INPUT_PKG/generated
 
 BOILERPLATE=$HERE/boilerplate.go.txt
 OPENAPI_REPORT=$ROOT/gen_openapi.report
@@ -61,12 +64,15 @@ kube::codegen::gen_helpers \
 	--extra-peer-dir "k8s.io/apimachinery/pkg/runtime" \
 	--extra-peer-dir "k8s.io/apimachinery/pkg/version"
 
+rm -fr "$GEN_CLIENT_PKG"
+
 echo 'gen_openapi...'
 
+# Note: lots of validation errors from Kubernetes meta package; can be ignored
 kube::codegen::gen_openapi \
-	"$PORCH_API_DIR" \
-	--output-dir "$PORCH_API_GENERATED_DIR/openapi" \
-	--output-pkg "github.com/nephio-project/porch/api/generated" \
+	--output-base "$WORK" \
+	--input-pkg-root "$API_PKG" \
+	--output-pkg-root "$GEN_CLIENT_PKG" \
 	--boilerplate "$BOILERPLATE" \
 	--report-filename "$OPENAPI_REPORT" \
 	--update-report
@@ -77,7 +83,9 @@ kube::codegen::gen_client \
 	"$PORCH_API_DIR" \
 	--output-dir "$PORCH_API_GENERATED_DIR" \
 	--with-watch \
-	--output-pkg "github.com/nephio-project/porch/api/generated" \
+	--input-pkg-root "$API_PKG" \
+	--one-input-api "porch" \
+	--output-pkg-root "$GEN_CLIENT_PKG" \
 	--plural-exceptions "PackageRevisionResources:PackageRevisionResources" \
 	--boilerplate "$BOILERPLATE"
 

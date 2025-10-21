@@ -29,7 +29,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	porchclient "github.com/nephio-project/porch/api/generated/clientset/versioned"
+	porchclient "github.com/nephio-project/porch/api/porch/generated/clientset/versioned"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
