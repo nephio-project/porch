@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package fuzzer
+package install
 
 import (
 	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
 )
 
-var Funcs = func(codecs runtimeserializer.CodecFactory) []interface{} {
+var FuzzerFuncs = func(codecs runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{}
 }
