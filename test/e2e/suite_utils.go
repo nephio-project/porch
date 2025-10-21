@@ -16,6 +16,7 @@ package e2e
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -28,6 +29,7 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -708,7 +710,101 @@ func WithConfigPath(configPath string) MutatorOption {
 	}
 }
 
-// AddMutator adds a mutator to the Kptfile pipeline of the resources (in-place)
+func (t *TestSuite) SleepFunctionName() string {
+	ret := os.Getenv("PORCH_TEST_SLEEP_FN_IMAGE")
+	if ret == "" {
+		ret = "docker.io/nephio/sleep-fn:latest"
+	}
+	return ret
+}
+
+func (t *TestSuite) FnNamespaceName() string {
+	defaultNamespace := "porch-fn-system"
+
+	porchSvcKey := t.PorchServerServiceKey()
+
+	container := t.FindFirstContainerByImageName(porchSvcKey.Namespace, "porch-function-runner", "porch-fnrunner")
+	if container != nil {
+		for _, arg := range container.Args {
+			if strings.Contains(arg, "pod-namespace") {
+				elements := strings.Split(arg, "=")
+				return elements[len(elements)-1]
+			}
+		}
+		for _, command := range container.Command {
+			if strings.Contains(command, "pod-namespace") {
+				elements := strings.Split(command, "=")
+				return elements[len(elements)-1]
+			}
+		}
+
+	}
+
+	return defaultNamespace
+}
+
+func (t *TestSuite) AddSleepFunctionToPipeline(prKey client.ObjectKey, sleepDuration time.Duration) error {
+	t.T().Helper()
+	resources := &porchapi.PackageRevisionResources{}
+	err := t.Client.Get(t.GetContext(), prKey, resources)
+	if err != nil {
+		return err
+	}
+	kptfile, err := fn.NewKptfileFromPackage(resources.Spec.Resources)
+	if err != nil {
+		return err
+	}
+
+	err = kptfile.AddMutationFunction(&kptfilev1.Function{
+		Name:  "test-sleep",
+		Image: t.SleepFunctionName(),
+		ConfigMap: map[string]string{
+			"sleepSeconds": fmt.Sprintf("%d", int(sleepDuration.Seconds())),
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	err = kptfile.WriteToPackage(resources.Spec.Resources)
+	if err != nil {
+		return err
+	}
+
+	err = t.Client.Update(t.GetContext(), resources)
+	if err != nil {
+		return err
+	}
+
+	err = t.CheckRenderError(&resources.Status.RenderStatus)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (t *TestSuite) CheckRenderError(rs *porchapi.RenderStatus) error {
+	if rs.Err != "" {
+		return fmt.Errorf("failed to render package: %s", rs.Err)
+	}
+
+	if rs.Result.ExitCode != 0 {
+		var errorDetails strings.Builder
+		errorDetails.WriteString(fmt.Sprintf("render pipeline failed with overall exit code %d.", rs.Result.ExitCode))
+
+		for _, item := range rs.Result.Items {
+			if item != nil && item.ExitCode != 0 {
+				errorDetails.WriteString(fmt.Sprintf("\n  - Function %q failed with exit code %d. Stderr: %s", item.Image, item.ExitCode, item.Stderr))
+			}
+		}
+		return errors.New(errorDetails.String())
+	}
+
+	return nil
+}
+
+// addMutator adds a mutator to the Kptfile pipeline of the resources (in-place)
 func (t *TestSuite) AddMutator(resources *porchapi.PackageRevisionResources, image string, opts ...MutatorOption) {
 	t.T().Helper()
 	kptf, ok := resources.Spec.Resources[kptfilev1.KptFileName]
@@ -750,4 +846,42 @@ func (t *TestSuite) AddResourceToPackage(resources *porchapi.PackageRevisionReso
 		t.Fatalf("Failed to read file from %q: %v", filePath, err)
 	}
 	resources.Spec.Resources[name] = string(file)
+}
+
+func (t *TestSuite) FailOnRenderError(resources *porchapi.PackageRevisionResources) {
+	if resources.Status.RenderStatus.Err != "" {
+		t.Fatalf("failed to render package: %v", resources.Status.RenderStatus.Err)
+	}
+	for _, result := range resources.Status.RenderStatus.Result.Items {
+		if result.ExitCode != 0 {
+			t.Fatalf("failed to render package: non-zero exit code for %v", result.Image)
+		}
+		for _, resultItem := range result.Results {
+			if resultItem.Severity == string(fn.Error) {
+				t.Fatalf("failed to render package: error in %v: %v", result.Image, resultItem.Message)
+			}
+		}
+	}
+}
+
+func (t *TestSuite) DeleteFunctionPod(mutatorImage string) {
+	podList := &corev1.PodList{}
+	t.ListF(podList, client.InNamespace(t.FnNamespaceName()))
+	for _, pod := range podList.Items {
+		img := pod.Spec.Containers[0].Image
+		if strings.Contains(img, mutatorImage) {
+			t.DeleteF(&pod)
+		}
+	}
+}
+
+func (t *TestSuite) AssertFunctionPodDoesNotExist(mutatorImage string) {
+	podList := &corev1.PodList{}
+	t.ListF(podList, client.InNamespace(t.FnNamespaceName()))
+	for _, pod := range podList.Items {
+		img := pod.Spec.Containers[0].Image
+		if strings.Contains(img, mutatorImage) {
+			t.Errorf("Pod %q exists with image %q", pod.Name, img)
+		}
+	}
 }
