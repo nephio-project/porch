@@ -17,7 +17,6 @@ package porch
 import (
 	"context"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	porch "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -85,7 +84,7 @@ var (
 	packageTableConvertor = tableConvertor{
 		resource: porch.Resource("packages"),
 		cells: func(obj runtime.Object) []interface{} {
-			pr, ok := obj.(*api.PorchPackage)
+			pr, ok := obj.(*porch.PorchPackage)
 			if !ok {
 				return nil
 			}
@@ -107,7 +106,7 @@ var (
 	packageRevisionTableConvertor = tableConvertor{
 		resource: porch.Resource("packagerevisions"),
 		cells: func(obj runtime.Object) []interface{} {
-			pr, ok := obj.(*api.PackageRevision)
+			pr, ok := obj.(*porch.PackageRevision)
 			if !ok {
 				return nil
 			}
@@ -135,7 +134,7 @@ var (
 	packageRevisionResourcesTableConvertor = tableConvertor{
 		resource: porch.Resource("packagerevisionresources"),
 		cells: func(obj runtime.Object) []interface{} {
-			pr, ok := obj.(*api.PackageRevisionResources)
+			pr, ok := obj.(*porch.PackageRevisionResources)
 			if !ok {
 				return nil
 			}
@@ -159,7 +158,7 @@ var (
 	}
 )
 
-func isLatest(pr *api.PackageRevision) bool {
-	val, ok := pr.Labels[api.LatestPackageRevisionKey]
-	return ok && val == api.LatestPackageRevisionValue
+func isLatest(pr *porch.PackageRevision) bool {
+	val, ok := pr.Labels[porch.LatestPackageRevisionKey]
+	return ok && val == porch.LatestPackageRevisionValue
 }
