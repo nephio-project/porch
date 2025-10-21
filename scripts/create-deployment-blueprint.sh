@@ -169,9 +169,9 @@ for resource in ctx.resource_list['items']:
 
 function main() {
   # Repository CRD
-  cp "./api/porchconfig/v1alpha1/config.porch.kpt.dev_repositories.yaml" \
+  cp "./api/config/crd/bases/config.porch.kpt.dev_repositories.yaml" \
      "${DESTINATION}/0-repositories.yaml"
-  cp "./internal/api/porchinternal/v1alpha1/config.porch.kpt.dev_packagerevs.yaml" \
+  cp "./internal/api/config/crd/bases/config.porch.kpt.dev_packagerevs.yaml" \
      "${DESTINATION}/0-packagerevs.yaml"
 
   # Porch Deployment Config
