@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 object:headerFile="../../../scripts/boilerplate.go.txt" crd:crdVersions=v1,headerFile="../../../scripts/boilerplate.yaml.txt" output:artifacts:config=../../config/apiresources/bases paths=./...
+
 package v1alpha1
 
 import (
