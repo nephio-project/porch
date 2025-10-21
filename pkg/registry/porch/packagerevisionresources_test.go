@@ -19,8 +19,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/nephio-project/porch/api/porch"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porch "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	mockclient "github.com/nephio-project/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
