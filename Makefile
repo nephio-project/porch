@@ -108,6 +108,7 @@ run-local: porch
 # API Modules
 API_MODULES = \
  api \
+ internal/api \
  pkg/kpt/api \
  controllers \
 
@@ -119,7 +120,8 @@ generate-api:
 .PHONY: generate
 generate: generate-api ## Generate CRDs, other K8s manifests and helper go code
 	@for f in $(API_MODULES); do (cd $$f; echo "Generating for $$f ..."; go generate -v ./...) || exit 1; done
- 
+	find $(CURDIR)/api/config/apiresources/bases -name 'porch.kpt.dev_*.yaml' -exec sed -i "s/^kind: CustomResourceDefinition$$/kind: PorchAPIRResourceDefinition/" {} \;
+
 .PHONY: tidy
 tidy:
 	go mod tidy
