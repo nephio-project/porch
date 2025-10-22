@@ -1,6 +1,6 @@
 commands:
   - args:
-      - /home/flapenta/NEPHIO/bugfix/porch/.build/porchctl
+      - porchctl
       - repo
       - register
       - --namespace=rpkg-nested-package
@@ -9,7 +9,7 @@ commands:
       - --repo-basic-username=nephio
       - http://gitea.gitea.svc.cluster.local:3000/nephio/rpkg-nested-package
   - args:
-      - /home/flapenta/NEPHIO/bugfix/porch/.build/porchctl
+      - porchctl
       - rpkg
       - init
       - root
@@ -19,7 +19,7 @@ commands:
     stdout: |
       git.root.1 created
   - args:
-      - /home/flapenta/NEPHIO/bugfix/porch/.build/porchctl
+      - porchctl
       - rpkg
       - pull
       - git.root.1
@@ -33,7 +33,7 @@ commands:
         mkdir -p /tmp/porch-e2e/a00/s
         cp -r ../testdata/nested-packages/nested-pkg/* /tmp/porch-e2e/a00/s/
   - args:
-      - /home/flapenta/NEPHIO/bugfix/porch/.build/porchctl
+      - porchctl
       - rpkg
       - push
       - git.root.1
@@ -43,7 +43,7 @@ commands:
       git.root.1 pushed
     stderr: "[RUNNING] \"gcr.io/kpt-fn/starlark:v0.5.0\" \n[RUNNING] \"gcr.io/kpt-fn/starlark:v0.5.0\" \n"
   - args:
-      - /home/flapenta/NEPHIO/bugfix/porch/.build/porchctl
+      - porchctl
       - rpkg
       - pull
       - git.root.1
