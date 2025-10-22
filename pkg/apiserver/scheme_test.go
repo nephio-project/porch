@@ -17,8 +17,8 @@ package apiserver
 import (
 	"testing"
 
-	"github.com/nephio-project/porch/api/porch/fuzzer"
 	"k8s.io/apimachinery/pkg/api/apitesting/roundtrip"
+	"k8s.io/apimachinery/pkg/apis/meta/fuzzer"
 )
 
 func TestRoundTripTypes(t *testing.T) {
