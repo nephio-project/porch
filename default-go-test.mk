@@ -26,12 +26,17 @@ unit: test
 .PHONY: test
 test: ## Run unit tests (go test)
 ifeq ($(CONTAINER_RUNNABLE), 0)
-	$(RUN_CONTAINER_COMMAND) golang:1.25.0-bookworm \
-	sh -c "git config --global user.name test; \
-                 git config --global user.email test@nephio.org; \
-                 go test ./... -v -coverprofile=${TEST_COVERAGE_FILE} && \
-                 go tool cover -html=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_HTML_FILE} && \
-                 go tool cover -func=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_FUNC_FILE}"
+	$(RUN_CONTAINER_COMMAND) -e CONTAINER_RUNNABLE golang:1.25.0-bookworm \
+	sh -c "useradd -m -s /bin/sh porch && \
+	         mkdir -p ${TMPDIR} && chown porch:porch ${TMPDIR} && \
+	         su porch -c 'export TMPDIR=${TMPDIR}; \
+	                       export PORCHDIR=${PORCHDIR}; \
+	                       git config --global user.name test; \
+	                       git config --global user.email test@nephio.org; \
+	                       go test ./... -v -coverprofile=${TMPDIR}/${TEST_COVERAGE_FILE} && \
+	                       go tool cover -html=${TMPDIR}/${TEST_COVERAGE_FILE} -o ${TMPDIR}/${TEST_COVERAGE_HTML_FILE} && \
+	                       go tool cover -func=${TMPDIR}/${TEST_COVERAGE_FILE} -o ${TMPDIR}/${TEST_COVERAGE_FUNC_FILE}' && \
+	         cp ${TMPDIR}/${TEST_COVERAGE_HTML_FILE} ${TMPDIR}/${TEST_COVERAGE_FILE} ${TMPDIR}/${TEST_COVERAGE_FUNC_FILE} ."
 else
 	go test ./... -v -coverprofile=${TEST_COVERAGE_FILE}
 	go tool cover -html=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_HTML_FILE}
