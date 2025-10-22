@@ -400,3 +400,103 @@ func TestValidateUpgradeTask(t *testing.T) {
 		assert.ErrorContains(t, err, local.KubeObjectName())
 	})
 }
+
+func TestCreateCloneTaskValidation(t *testing.T) {
+	tests := []struct {
+		name          string
+		existingRevs  []repository.PackageRevision
+		expectedError bool
+		errorContains string
+	}{
+		{
+			name:          "success - no existing revisions",
+			existingRevs:  []repository.PackageRevision{},
+			expectedError: false,
+		},
+		{
+			name: "success - existing revision in different repo",
+			existingRevs: []repository.PackageRevision{
+				&fake.FakePackageRevision{
+					PrKey: repository.PackageRevisionKey{
+						PkgKey: repository.PackageKey{
+							RepoKey: repository.RepositoryKey{
+								Name: "different-repo",
+							},
+							Package: "test-package",
+						},
+						WorkspaceName: "v1",
+					},
+				},
+			},
+			expectedError: false,
+		},
+		{
+			name: "failure - existing revision with same package and repo",
+			existingRevs: []repository.PackageRevision{
+				&fake.FakePackageRevision{
+					PrKey: repository.PackageRevisionKey{
+						PkgKey: repository.PackageKey{
+							RepoKey: repository.RepositoryKey{
+								Name: "test-repo",
+							},
+							Package: "test-package",
+						},
+						WorkspaceName: "v1",
+					},
+				},
+			},
+			expectedError: true,
+			errorContains: "`clone` cannot create a new revision for package \"test-package\" that already exists in repo \"test-repo\"",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newTestFixture(t)
+			mockPkgRev := setupMockPackageRevision(t)
+			mockDraft := &mockrepo.MockPackageRevisionDraft{}
+
+			// Create a package revision with CLONE task
+			f.packageRevision.Spec.Tasks = []porchapi.Task{
+				{
+					Type: porchapi.TaskTypeClone,
+					Clone: &porchapi.PackageCloneTaskSpec{
+						Strategy: porchapi.ResourceMerge,
+						Upstream: porchapi.UpstreamPackage{
+							Type: porchapi.RepositoryTypeGit,
+							Git: &porchapi.GitPackage{
+								Repo:      "https://example.com/repo",
+								Ref:       "main",
+								Directory: "/",
+							},
+						},
+					},
+				},
+			}
+
+			// Setup mocks
+			mockDraft.On("UpdateResources", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			mockDraft.On("UpdateLifecycle", mock.Anything, mock.Anything).Return(nil)
+
+			f.mockRepo.On("ListPackageRevisions", mock.Anything, mock.Anything).Return(tt.existingRevs, nil)
+			f.mockRepo.On("CreatePackageRevisionDraft", mock.Anything, mock.Anything).Return(mockDraft, nil).Maybe()
+			f.mockRepo.On("ClosePackageRevisionDraft", mock.Anything, mock.Anything, mock.Anything).Return(mockPkgRev, nil).Maybe()
+			f.mockRepo.On("Close", mock.Anything).Return(nil).Maybe()
+			f.mockRepo.On("Key", mock.Anything).Return(repository.RepositoryKey{}).Maybe()
+
+			f.mockTaskHandler.On("ApplyTask", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+
+			_, err := f.engine.CreatePackageRevision(context.Background(), f.repositoryObj, f.packageRevision, nil)
+
+			if tt.expectedError {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorContains)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			f.mockRepo.Close(context.Background())
+			f.mockRepo.AssertExpectations(t)
+		})
+	}
+}

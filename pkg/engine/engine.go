@@ -164,6 +164,12 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 		return nil, err
 	}
 
+	if newPr.Spec.Tasks[0].Type == api.TaskTypeClone {
+		if err := validateCloneTask(newPr, revs); err != nil {
+			return nil, err
+		}
+	}
+
 	if newPr.Spec.Tasks[0].Type == api.TaskTypeUpgrade {
 		if err := validateUpgradeTask(ctx, revs, newPr.Spec.Tasks[0].Upgrade); err != nil {
 			return nil, err
@@ -238,6 +244,18 @@ func ensureUniqueWorkspaceName(obj *api.PackageRevision, existingRevs []reposito
 		if k.WorkspaceName == obj.Spec.WorkspaceName {
 			return fmt.Errorf("package revision workspaceNames must be unique; package revision with name %s in repo %s with "+
 				"workspaceName %s already exists", obj.Spec.PackageName, obj.Spec.RepositoryName, obj.Spec.WorkspaceName)
+		}
+	}
+	return nil
+}
+
+// validateCloneTask returns an error if the package already exists in the repository
+func validateCloneTask(obj *api.PackageRevision, existingRevs []repository.PackageRevision) error {
+	for _, r := range existingRevs {
+		k := r.Key()
+		if k.PkgKey.RepoKey.Name == obj.Spec.RepositoryName && k.PkgKey.Package == obj.Spec.PackageName {
+			return fmt.Errorf("`clone` cannot create a new revision for package %q that already exists in repo %q; make subsequent revisions using `copy`",
+				obj.Spec.PackageName, obj.Spec.RepositoryName)
 		}
 	}
 	return nil
