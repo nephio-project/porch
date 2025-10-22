@@ -53,5 +53,5 @@ commands:
       - sh
       - -c
       - |
-        cat /tmp/porch-e2e/nested-pkg-result/s/configmap.yaml | grep "parent: parent-value"
-    exitCode: 1
+        grep -q "parent: parent-value" /tmp/porch-e2e/nested-pkg-result/s/configmap.yaml
+    exitCode: 0
