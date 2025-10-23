@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package cachetypes contains type definitions for caches in Porch.
-
 package util
 
 import (

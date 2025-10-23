@@ -15,9 +15,6 @@
 package dbcache
 
 import (
-	"context"
-	"errors"
-	"testing"
 	"time"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -29,9 +26,7 @@ import (
 	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	mockcachetypes "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -245,7 +240,9 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 		}
 	}
 
+	t.T().Log("Starting 5 second sleep...")
 	time.Sleep(5 * time.Second)
+	t.T().Log("Finished 5 second sleep")
 
 	prList, err := testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	t.Require().NoError(err)
@@ -254,7 +251,7 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 
 	// Check that sync stats were updated
 	t.Require().NotNil(sync.lastSyncStats)
-	t.Require().Nil(sync.lastSyncError)
+	t.Require().Nil(sync.getLastSyncError())
 
 	// Check statusStore for condition update
 	status, ok := fakeClient.statusStore[types.NamespacedName{Name: repoName, Namespace: namespace}]
@@ -267,352 +264,110 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 	err = testRepo.Close(ctx)
 	t.Require().NoError(err)
 }
+func (t *DbTestSuite) TestRepositorySync_SyncOnce() {
+	ctx := t.Context()
+	externalrepo.ExternalRepoInUnitTestMode = true
+	testRepo := t.createTestRepo("test-ns", "sync-once-repo")
+	defer t.deleteTestRepo(testRepo.Key())
 
-const (
-	failMsg = "sync failed"
-)
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	t.Require().NoError(err)
+	defer func() {
+		if err := testRepo.Close(ctx); err != nil {
+			t.T().Logf("Failed to close test repo: %v", err)
+		}
+	}()
 
-func TestSetRepositoryCondition(t *testing.T) {
+	sync := &repositorySync{
+		repo: testRepo,
+	}
+
+	err = sync.SyncOnce(ctx)
+	t.Require().NoError(err)
+}
+
+func (t *DbTestSuite) TestRepositorySync_Key() {
+	testRepo := t.createTestRepo("test-ns", "key-test-repo")
+	defer t.deleteTestRepo(testRepo.Key())
+
+	sync := &repositorySync{
+		repo: testRepo,
+	}
+
+	key := sync.Key()
+	t.Equal(testRepo.Key(), key)
+}
+
+func (t *DbTestSuite) TestRepositorySync_GetSpec() {
+	testRepo := t.createTestRepo("test-ns", "spec-test-repo")
+	defer t.deleteTestRepo(testRepo.Key())
+
+	sync := &repositorySync{
+		repo: testRepo,
+	}
+
+	spec := sync.GetSpec()
+	t.Equal(testRepo.spec, spec)
+}
+
+func (t *DbTestSuite) TestRepositorySync_getLastSyncError() {
+	testRepo := t.createTestRepo("test-ns", "error-test-repo")
+	defer t.deleteTestRepo(testRepo.Key())
+
+	// Test with nil syncManager
+	sync := &repositorySync{
+		repo: testRepo,
+	}
+
+	err := sync.getLastSyncError()
+	t.Nil(err)
+}
+func (t *DbTestSuite) TestNewRepositorySync() {
+	ctx := t.Context()
+	externalrepo.ExternalRepoInUnitTestMode = true
+	testRepo := t.createTestRepo("test-ns", "new-sync-repo")
+	defer t.deleteTestRepo(testRepo.Key())
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	t.Require().NoError(err)
+	defer func() {
+		if err := testRepo.Close(ctx); err != nil {
+			t.T().Logf("Failed to close test repo: %v", err)
+		}
+	}()
+
 	scheme := runtime.NewScheme()
 	_ = configapi.AddToScheme(scheme)
+	fakeClient := NewFakeClientWithStatus(scheme)
 
-	repoName := "test-repo"
-	namespace := "test-ns"
-
-	repoObj := &configapi.Repository{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      repoName,
-			Namespace: namespace,
-		},
-	}
-	repoObj.SetGroupVersionKind(configapi.GroupVersion.WithKind("Repository"))
-	repoObj.ResourceVersion = ""
-
-	client := NewFakeClientWithStatus(scheme, repoObj.DeepCopy())
-
-	dbRepo := &dbRepository{}
-	dbRepo.repoKey = repository.RepositoryKey{
-		Namespace: namespace,
-		Name:      repoName,
-	}
-	dbRepo.spec = &configapi.Repository{
-		Spec: configapi.RepositorySpec{
-			Git: &configapi.GitRepository{
-				Repo: "http://example.repo.org/my-repo",
-			},
-		},
+	options := cachetypes.CacheOptions{
+		RepoCrSyncFrequency: 1 * time.Second,
+		CoreClient:          fakeClient,
 	}
 
-	tests := []struct {
-		name           string
-		status         string
-		lastSyncError  error
-		expectErr      bool
-		expectedStatus metav1.ConditionStatus
-		expectedReason string
-		expectedMsg    string
-	}{
-		{
-			name:           "ready",
-			status:         "ready",
-			expectedStatus: metav1.ConditionTrue,
-			expectedReason: configapi.ReasonReady,
-			expectedMsg:    "Repository Ready",
-		},
-		{
-			name:           "error with message",
-			status:         "error",
-			lastSyncError:  errors.New(failMsg),
-			expectedStatus: metav1.ConditionFalse,
-			expectedReason: configapi.ReasonError,
-			expectedMsg:    failMsg,
-		},
-		{
-			name:           "error without message",
-			status:         "error",
-			expectedStatus: metav1.ConditionFalse,
-			expectedReason: configapi.ReasonError,
-			expectedMsg:    "unknown error",
-		},
-		{
-			name:           "sync-in-progress",
-			status:         "sync-in-progress",
-			expectedStatus: metav1.ConditionFalse,
-			expectedReason: configapi.ReasonReconciling,
-			expectedMsg:    "Repository reconciliation in progress",
-		},
-		{
-			name:      "unknown",
-			status:    "unknown",
-			expectErr: true,
-		},
-	}
+	sync := newRepositorySync(testRepo, options)
+	defer func() {
+		if sync != nil {
+			sync.Stop()
+		}
+	}()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			sync := &repositorySync{
-				repo:          dbRepo,
-				coreClient:    client,
-				lastSyncError: tt.lastSyncError,
-			}
-
-			err := sync.setRepositoryCondition(context.TODO(), tt.status)
-			if tt.expectErr {
-				require.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
-
-			status, ok := client.statusStore[types.NamespacedName{Name: repoName, Namespace: namespace}]
-			require.True(t, ok)
-			require.Len(t, status.Conditions, 1)
-
-			cond := status.Conditions[0]
-			require.Equal(t, configapi.RepositoryReady, cond.Type)
-			require.Equal(t, tt.expectedStatus, cond.Status)
-			require.Equal(t, tt.expectedReason, cond.Reason)
-			require.Equal(t, tt.expectedMsg, cond.Message)
-		})
-	}
+	t.NotNil(sync)
+	t.Equal(testRepo, sync.repo)
+	t.NotNil(sync.syncManager)
 }
 
-func TestUpdateRepositoryCondition(t *testing.T) {
-	scheme := runtime.NewScheme()
-	_ = configapi.AddToScheme(scheme)
+func (t *DbTestSuite) TestRepositorySync_Stop() {
+	testRepo := t.createTestRepo("test-ns", "stop-test-repo")
+	defer t.deleteTestRepo(testRepo.Key())
 
-	repoName := "test-repo"
-	namespace := "test-ns"
-
-	repoObj := &configapi.Repository{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      repoName,
-			Namespace: namespace,
-		},
+	// Test Stop with nil syncManager
+	sync := &repositorySync{
+		repo: testRepo,
 	}
-	repoObj.SetGroupVersionKind(configapi.GroupVersion.WithKind("Repository"))
-	repoObj.ResourceVersion = ""
+	sync.Stop() // Should not panic
 
-	client := NewFakeClientWithStatus(scheme, repoObj.DeepCopy())
-
-	dbRepo := &dbRepository{}
-	dbRepo.repoKey = repository.RepositoryKey{Name: repoName, Namespace: namespace}
-	dbRepo.spec = &configapi.Repository{}
-
-	tests := []struct {
-		name           string
-		lastSyncError  error
-		expectedStatus metav1.ConditionStatus
-		expectedReason string
-	}{
-		{
-			name:           "ready condition",
-			lastSyncError:  nil,
-			expectedStatus: metav1.ConditionTrue,
-			expectedReason: configapi.ReasonReady,
-		},
-		{
-			name:           "error condition",
-			lastSyncError:  errors.New(failMsg),
-			expectedStatus: metav1.ConditionFalse,
-			expectedReason: configapi.ReasonError,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			sync := &repositorySync{
-				repo:          dbRepo,
-				coreClient:    client,
-				lastSyncError: tt.lastSyncError,
-			}
-
-			sync.updateRepositoryCondition(context.TODO())
-
-			status, ok := client.statusStore[types.NamespacedName{Name: repoName, Namespace: namespace}]
-			require.True(t, ok)
-			require.Len(t, status.Conditions, 1)
-
-			cond := status.Conditions[0]
-			require.Equal(t, configapi.RepositoryReady, cond.Type)
-			require.Equal(t, tt.expectedStatus, cond.Status)
-			require.Equal(t, tt.expectedReason, cond.Reason)
-		})
-	}
-}
-
-func TestCalculateWaitDuration(t *testing.T) {
-	defaultDuration := 30 * time.Second
-
-	tests := []struct {
-		name      string
-		syncSpec  *configapi.RepositorySync
-		expectMin time.Duration
-		expectMax time.Duration
-	}{
-		{
-			name:      "nil sync spec",
-			syncSpec:  nil,
-			expectMin: defaultDuration,
-			expectMax: defaultDuration,
-		},
-		{
-			name: "empty schedule",
-			syncSpec: &configapi.RepositorySync{
-				Schedule: "",
-			},
-			expectMin: defaultDuration,
-			expectMax: defaultDuration,
-		},
-		{
-			name: "invalid cron",
-			syncSpec: &configapi.RepositorySync{
-				Schedule: "invalid-cron",
-			},
-			expectMin: defaultDuration,
-			expectMax: defaultDuration,
-		},
-		{
-			name: "valid cron with @every",
-			syncSpec: &configapi.RepositorySync{
-				Schedule: "@every 1m",
-			},
-			expectMin: 0,
-			expectMax: time.Minute,
-		},
-		{
-			name: "valid cron",
-			syncSpec: &configapi.RepositorySync{
-				Schedule: "*/10 * * * *",
-			},
-			expectMin: 0,
-			expectMax: 10 * time.Minute,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			dbRepo := &dbRepository{}
-			if tt.syncSpec != nil {
-				dbRepo.spec = &configapi.Repository{
-					Spec: configapi.RepositorySpec{
-						Sync: tt.syncSpec,
-					},
-				}
-			}
-
-			sync := &repositorySync{
-				repo: dbRepo,
-			}
-
-			d := sync.calculateWaitDuration(defaultDuration)
-			require.GreaterOrEqual(t, d, tt.expectMin)
-			require.LessOrEqual(t, d, tt.expectMax)
-		})
-	}
-}
-
-func TestHasValidSyncSpec(t *testing.T) {
-	tests := []struct {
-		name     string
-		repo     repository.Repository
-		repoSpec *configapi.Repository
-		expected bool
-	}{
-		{
-			name:     "nil repo and spec",
-			repo:     nil,
-			repoSpec: nil,
-			expected: false,
-		},
-		{
-			name:     "spec without sync",
-			repo:     &dbRepository{},
-			repoSpec: &configapi.Repository{},
-			expected: false,
-		},
-		{
-			name: "valid sync spec",
-			repo: &dbRepository{
-				spec: &configapi.Repository{
-					Spec: configapi.RepositorySpec{
-						Sync: &configapi.RepositorySync{},
-					},
-				},
-			},
-			repoSpec: &configapi.Repository{
-				Spec: configapi.RepositorySpec{
-					Sync: &configapi.RepositorySync{},
-				},
-			},
-			expected: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var sync *repositorySync
-			if tt.repo != nil {
-				dbRepo, ok := tt.repo.(*dbRepository)
-				if !ok {
-					t.Fatalf("repo is not of type *dbRepository")
-				}
-				sync = &repositorySync{repo: dbRepo}
-			} else {
-				sync = &repositorySync{repo: nil}
-			}
-			assert.Equal(t, tt.expected, sync.hasValidSyncSpec())
-		})
-	}
-
-}
-
-func TestShouldScheduleRunOnce(t *testing.T) {
-	now := time.Now()
-	runOnce := metav1.NewTime(now.Add(1 * time.Second))
-
-	tests := []struct {
-		name      string
-		runOnceAt *metav1.Time
-		scheduled time.Time
-		expected  bool
-	}{
-		{
-			name:      "nil runOnceAt",
-			runOnceAt: nil,
-			scheduled: time.Time{},
-			expected:  false,
-		},
-		{
-			name:      "zero runOnceAt",
-			runOnceAt: &metav1.Time{},
-			scheduled: time.Time{},
-			expected:  false,
-		},
-		{
-			name:      "scheduled is zero",
-			runOnceAt: &runOnce,
-			scheduled: time.Time{},
-			expected:  true,
-		},
-		{
-			name:      "runOnceAt != scheduled",
-			runOnceAt: &runOnce,
-			scheduled: now,
-			expected:  true,
-		},
-		{
-			name:      "runOnceAt == scheduled",
-			runOnceAt: &runOnce,
-			scheduled: runOnce.Time,
-			expected:  false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			sync := &repositorySync{}
-			result := sync.shouldScheduleRunOnce(tt.runOnceAt, tt.scheduled)
-			require.Equal(t, tt.expected, result)
-		})
-	}
+	// Test Stop with nil repositorySync
+	var nilSync *repositorySync
+	nilSync.Stop() // Should not panic
 }

@@ -415,7 +415,7 @@ func (r *dbRepository) Refresh(ctx context.Context) error {
 		return err
 	}
 
-	if _, err := r.repositorySync.syncOnce(ctx); err != nil {
+	if err := r.repositorySync.SyncOnce(ctx); err != nil {
 		klog.Warningf("sync returned error %q", err)
 		return err
 	}
