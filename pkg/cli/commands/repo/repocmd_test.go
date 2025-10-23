@@ -43,7 +43,7 @@ func TestRepoCommands(t *testing.T) {
 	assert.Equal(t, "repo", commands.Use, "Expected 'Use' to be 'repo'")
 
 	subcommands := commands.Commands()
-	expectedSubcommands := []string{"reg", "get", "unreg"}
+	expectedSubcommands := []string{"reg", "get", "unreg", "sync"}
 
 	for _, expected := range expectedSubcommands {
 		found := false
