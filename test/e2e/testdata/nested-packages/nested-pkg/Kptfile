@@ -8,5 +8,5 @@ info:
   description: sample description
 pipeline:
   mutators:
-  - image: gcr.io/kpt-fn/starlark:v0.5.0
+  - image: ghcr.io/kptdev/krm-functions-catalog/starlark:v0.5
     configPath: fn-config.yaml
