@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: subpackage-parameters
+data:
+  key1: value01
+  key2: value02
+  parent: child-value
