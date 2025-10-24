@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"io"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -105,6 +106,85 @@ func TestCmd(t *testing.T) {
 
 			if diff := cmp.Diff(string(tc.output), output.String()); diff != "" {
 				t.Errorf("Unexpected result (-want, +got): %s", diff)
+			}
+		})
+	}
+}
+
+func TestPrintFnResult(t *testing.T) {
+	var buf bytes.Buffer
+	ctx := fakeprint.CtxWithPrinter(&buf, &buf)
+	p := printer.FromContextOrDie(ctx)
+
+	r := &runner{
+		printer: p,
+	}
+
+	opt := printer.NewOpt()
+
+	tests := []struct {
+		name     string
+		result   *porchapi.Result
+		expected string // exact expected output
+	}{
+		{
+			name: "Multiple info messages",
+			result: &porchapi.Result{
+				Results: []porchapi.ResultItem{
+					{Message: "Validation passed", Severity: "info", Field: &porchapi.Field{Path: "spec"}},
+					{Message: "Writing to file: configurations/initial-config/secure/kustomization.yaml, secretGenerator key", Severity: "info"},
+				},
+			},
+			expected: "[Results]: [info] spec: Validation passed, [info]: Writing to file: configurations/initial-config/secure/kustomization.yaml, secretGenerator key",
+		},
+		{
+			name: "Single warning message",
+			result: &porchapi.Result{
+				Results: []porchapi.ResultItem{
+					{Message: "Deprecated field used", Severity: "warning"},
+				},
+			},
+			expected: "[Results]: [warning]: Deprecated field used",
+		},
+		{
+			name: "Single error message",
+			result: &porchapi.Result{
+				Results: []porchapi.ResultItem{
+					{Message: "Failed to apply patch", Severity: "error"},
+				},
+			},
+			expected: "[Results]: [error]: Failed to apply patch",
+		},
+		{
+			name: "Empty message and severity",
+			result: &porchapi.Result{
+				Results: []porchapi.ResultItem{
+					{Message: "", Severity: ""},
+				},
+			},
+			expected: "[Results]: [info]:",
+		},
+		{
+			name: "Mixed severities",
+			result: &porchapi.Result{
+				Results: []porchapi.ResultItem{
+					{Message: "Info message", Severity: "info"},
+					{Message: "Warning message", Severity: "warning"},
+					{Message: "Error message", Severity: "error"},
+				},
+			},
+			expected: "[Results]: [info]: Info message, [warning]: Warning message, [error]: Error message",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			buf.Reset()
+			r.printFnResult(tc.result, opt)
+			got := strings.TrimSpace(buf.String())
+
+			if got != tc.expected {
+				t.Errorf("unexpected output for %q:\nGot: %q\nWant: %q", tc.name, got, tc.expected)
 			}
 		})
 	}

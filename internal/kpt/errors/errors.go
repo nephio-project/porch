@@ -1,4 +1,4 @@
-// Copyright 2021 The kpt and Nephio Authors
+// Copyright 2021,2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -93,7 +93,7 @@ func (e *Error) Error() string {
 		var wrappedErr *Error
 		if As(e.Err, &wrappedErr) {
 			if !wrappedErr.Zero() {
-				pad(b, ":\n\t")
+				pad(b, ": ")
 				b.WriteString(wrappedErr.Error())
 			}
 		} else {

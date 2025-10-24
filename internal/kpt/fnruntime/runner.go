@@ -449,10 +449,11 @@ func printFnResult(ctx context.Context, fnResult *fnresult.Result, opt *printer.
 		for _, item := range fnResult.Results {
 			lines = append(lines, item.String())
 		}
-		ri := &MultiLineFormatter{
-			Title:          "Results",
-			Lines:          lines,
-			TruncateOutput: printer.TruncateOutput,
+		ri := &SingleLineFormatter{
+			Title:     "[Results]",
+			Lines:     lines,
+			UseQuote:  false,
+			Separator: ", ",
 		}
 		pr.OptPrintf(opt, "%s", ri.String())
 	}
@@ -470,13 +471,13 @@ func printFnExecErr(ctx context.Context, fnErr *ExecError) {
 func printFnStderr(ctx context.Context, stdErr string) {
 	pr := printer.FromContextOrDie(ctx)
 	if len(stdErr) > 0 {
-		errLines := &MultiLineFormatter{
-			Title:          "Stderr",
-			Lines:          strings.Split(stdErr, "\n"),
-			UseQuote:       true,
-			TruncateOutput: printer.TruncateOutput,
+		errLine := &SingleLineFormatter{
+			Title:     "Stderr",
+			Lines:     strings.Split(stdErr, "\n"),
+			UseQuote:  false,
+			Separator: ", ",
 		}
-		pr.Printf("%s", errLines.String())
+		pr.Printf("%s", errLine.String())
 	}
 }
 
@@ -514,63 +515,27 @@ func enforcePathInvariants(nodes []*yaml.RNode) error {
 	return nil
 }
 
-// MultiLineFormatter knows how to format multiple lines in pretty format
-// that can be displayed to an end user.
-type MultiLineFormatter struct {
-	// Title under which lines need to be printed
-	Title string
-
-	// Lines to be printed on the CLI.
-	Lines []string
-
-	// TruncateOuput determines if output needs to be truncated or not.
-	TruncateOutput bool
-
-	// MaxLines to be printed if truncation is enabled.
-	MaxLines int
-
-	// UseQuote determines if line needs to be quoted or not
-	UseQuote bool
+type SingleLineFormatter struct {
+	Title     string   // Label for the output
+	Lines     []string // Lines to be joined
+	UseQuote  bool     // Whether to quote each line
+	Separator string   // Separator between lines (e.g., comma, space)
 }
 
-// String returns multiline string.
-func (ri *MultiLineFormatter) String() string {
-	if ri.MaxLines == 0 {
-		ri.MaxLines = FnExecErrorTruncateLines
-	}
+func (sf *SingleLineFormatter) String() string {
 	strInterpolator := "%s"
-	if ri.UseQuote {
+	if sf.UseQuote {
 		strInterpolator = "%q"
 	}
 
-	var b strings.Builder
+	var formattedLines []string
+	for _, line := range sf.Lines {
+		line = strings.ReplaceAll(line, "\n", " ")
+		line = strings.TrimSpace(line)
+		formattedLines = append(formattedLines, fmt.Sprintf(strInterpolator, line))
+	}
 
-	b.WriteString(fmt.Sprintf("  %s:\n", ri.Title))
-	lineIndent := strings.Repeat(" ", FnExecErrorIndentation+2)
-	if !ri.TruncateOutput {
-		// stderr string should have indentations
-		for _, s := range ri.Lines {
-			// suppress newlines to avoid poor formatting
-			s = strings.ReplaceAll(s, "\n", " ")
-			b.WriteString(fmt.Sprintf(lineIndent+strInterpolator+"\n", s))
-		}
-		return b.String()
-	}
-	printedLines := 0
-	for i, s := range ri.Lines {
-		if i >= ri.MaxLines {
-			break
-		}
-		// suppress newlines to avoid poor formatting
-		s = strings.ReplaceAll(s, "\n", " ")
-		b.WriteString(fmt.Sprintf(lineIndent+strInterpolator+"\n", s))
-		printedLines++
-	}
-	truncatedLines := len(ri.Lines) - printedLines
-	if truncatedLines > 0 {
-		b.WriteString(fmt.Sprintf(lineIndent+"...(%d line(s) truncated, use '--truncate-output=false' to disable)\n", truncatedLines))
-	}
-	return b.String()
+	return fmt.Sprintf("%s: %s", sf.Title, strings.Join(formattedLines, sf.Separator))
 }
 
 func newFnConfig(fsys filesys.FileSystem, f *kptfilev1.Function, pkgPath types.UniquePath) (*yaml.RNode, error) {

@@ -122,6 +122,17 @@ func TestBackground_HandleRepositoryEvent(t *testing.T) {
 			},
 		},
 		{
+			name:  "Modified event with nil cachedRepo and no error",
+			event: watch.Modified,
+			setupMocks: func(mockClient *mockclient.MockWithWatch, mockResourceWriter *mockclient.MockSubResourceWriter,
+				mockCache *mockcache.MockCache, mockRepo *mockrepo.MockRepository) {
+				mockClient.On("List", mock.Anything, mock.Anything).Return(nil)
+				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType("*v1alpha1.Repository")).Return(nil, nil)
+				mockClient.On("Status").Return(mockResourceWriter)
+				mockResourceWriter.On("Update", mock.Anything, mock.Anything).Return(nil)
+			},
+		},
+		{
 			name:  "Unsuccessful repository deletion event",
 			event: watch.Deleted,
 			setupMocks: func(mockClient *mockclient.MockWithWatch, mockResourceWriter *mockclient.MockSubResourceWriter,

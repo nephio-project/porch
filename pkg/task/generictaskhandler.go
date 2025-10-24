@@ -224,11 +224,7 @@ func (th *genericTaskHandler) renderMutation(namespace string) mutation {
 }
 
 func renderError(err error) error {
-	return pkgerrors.Wrap(err, `
-Error occurred rendering package in kpt function pipeline.
-Package has NOT been pushed to remote.
-Please fix package locally (modify until 'kpt fn render' succeeds) and retry.
-Details`)
+	return pkgerrors.Wrap(err, "Error rendering package in kpt function pipeline. Package NOT pushed to remote. Fix locally (until 'kpt fn render' succeeds) and retry. Details")
 }
 
 func (th *genericTaskHandler) mapTaskToMutation(obj *api.PackageRevision, task *api.Task, isDeployment bool, packageConfig *builtins.PackageConfig) (mutation, error) {
