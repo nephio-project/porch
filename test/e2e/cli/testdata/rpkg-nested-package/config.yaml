@@ -41,7 +41,7 @@ commands:
       - /tmp/porch-e2e/a00
     stdout: |
       git.root.1 pushed
-    stderr: "[RUNNING] \"gcr.io/kpt-fn/starlark:v0.5.0\" \n[RUNNING] \"gcr.io/kpt-fn/starlark:v0.5.0\" \n"
+    stderr: "[RUNNING] \"ghcr.io/kptdev/krm-functions-catalog/starlark:v0.5\" \n[RUNNING] \"ghcr.io/kptdev/krm-functions-catalog/starlark:v0.5\" \n"
   - args:
       - porchctl
       - rpkg
@@ -54,4 +54,3 @@ commands:
       - -c
       - |
         grep -q "parent: parent-value" /tmp/porch-e2e/nested-pkg-result/s/configmap.yaml
-    exitCode: 0
