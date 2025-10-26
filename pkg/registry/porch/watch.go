@@ -29,7 +29,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// createGenericWatch creates a watch.Interface that uses the provided extractor function
+// createGenericWatch creates a watch.Interface that monitors package changes.
 func createGenericWatch(ctx context.Context, r packageReader, filter repository.ListPackageRevisionFilter, extractor objectExtractor) (watch.Interface, error) {
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -65,7 +65,6 @@ func (r *packageRevisions) Watch(ctx context.Context, options *metainternalversi
 		}
 	}
 
-	// Use the generic watch with PackageRevision extractor
 	return createGenericWatch(ctx, r, *filter, func(ctx context.Context, pr repository.PackageRevision) (runtime.Object, error) {
 		return pr.GetPackageRevision(ctx)
 	})
@@ -107,14 +106,14 @@ type packageReader interface {
 	listPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter, callback func(ctx context.Context, p repository.PackageRevision) error) error
 }
 
-// objectExtractor is a function that extracts the appropriate object from a PackageRevision
+// objectExtractor transforms a repository.PackageRevision into the appropriate
+// resource (PackageRevision or PackageRevisionResources).
 type objectExtractor func(ctx context.Context, pr repository.PackageRevision) (runtime.Object, error)
 
 // listAndWatch implements watch by doing a list, then sending any observed changes.
 // This is not a compliant implementation of watch, but it is a good-enough start for most controllers.
 // One trick is that we start the watch _before_ we perform the list, so we don't miss changes that happen immediately after the list.
 func (w *watcher) listAndWatch(ctx context.Context, r packageReader, filter repository.ListPackageRevisionFilter) {
-	// If no extractor is set, default to GetPackageRevision for backward compatibility
 	if w.extractor == nil {
 		w.extractor = func(ctx context.Context, pr repository.PackageRevision) (runtime.Object, error) {
 			return pr.GetPackageRevision(ctx)

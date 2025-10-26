@@ -205,7 +205,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 	return created, false, nil
 }
 
-// Watch supports watching for changes to PackageRevisionResources.
+// Watch supports watching for PackageRevisionResources changes.
 func (r *packageRevisionResources) Watch(ctx context.Context, options *metainternalversion.ListOptions) (watch.Interface, error) {
 	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::Watch", trace.WithAttributes())
 	defer span.End()
