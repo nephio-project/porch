@@ -222,7 +222,6 @@ func (r *packageRevisionResources) Watch(ctx context.Context, options *metainter
 		filter.Key.PkgKey.RepoKey.Namespace = namespace
 	}
 
-	// Use the generic watch with PackageRevisionResources extractor
 	return createGenericWatch(ctx, r, *filter, func(ctx context.Context, pr repository.PackageRevision) (runtime.Object, error) {
 		return pr.GetResources(ctx)
 	})
