@@ -16,26 +16,23 @@ package crcache
 
 import (
 	"context"
-	"fmt"
 	"strings"
-	"sync"
+	stdSync "sync"
 	"time"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
+	"github.com/nephio-project/porch/pkg/cache/sync"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
-	"github.com/nephio-project/porch/pkg/cache/util"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/pkg/errors"
-	"github.com/robfig/cron/v3"
 	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // We take advantage of the cache having a global view of all the packages
@@ -50,40 +47,36 @@ type cachedRepository struct {
 	key      repository.RepositoryKey
 	repoSpec *configapi.Repository
 	repo     repository.Repository
-	cancel   context.CancelFunc
 
 	lastVersion string
 
-	mutex                  sync.RWMutex
+	mutex                  stdSync.RWMutex
 	cachedPackageRevisions map[repository.PackageRevisionKey]*cachedPackageRevision
 	cachedPackages         map[repository.PackageKey]*cachedPackage
 	// Error encountered on repository refresh by the refresh goroutine.
 	// This is returned back by the cache to the background goroutine when it calls the periodic refresh to resync repositories.
 	refreshRevisionsError error
-	nextSyncTime          *time.Time
 
 	metadataStore        meta.MetadataStore
 	repoPRChangeNotifier cachetypes.RepoPRChangeNotifier
-	coreClient           client.WithWatch
+	syncManager          *sync.SyncManager
 }
 
 func newRepository(repoKey repository.RepositoryKey, repoSpec *configapi.Repository, repo repository.Repository,
 	metadataStore meta.MetadataStore, options cachetypes.CacheOptions) *cachedRepository {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx := context.Background()
 	r := &cachedRepository{
 		key:                  repoKey,
 		repoSpec:             repoSpec,
 		repo:                 repo,
 		metadataStore:        metadataStore,
 		repoPRChangeNotifier: options.RepoPRChangeNotifier,
-		cancel:               cancel,
-		coreClient:           options.CoreClient,
 	}
 
 	// TODO: Should we fetch the packages here?
 
-	go r.pollForever(ctx, options.RepoCrSyncFrequency)
-	go r.handleRunOnceAt(ctx)
+	r.syncManager = sync.NewSyncManager(r, options.CoreClient)
+	r.syncManager.Start(ctx, options.RepoCrSyncFrequency)
 
 	return r
 }
@@ -148,6 +141,9 @@ func (r *cachedRepository) getRefreshError() error {
 	// TODO: This should also check r.refreshPkgsError when
 	//   the package resource is fully supported.
 
+	if r.syncManager != nil {
+		return r.syncManager.GetLastSyncError()
+	}
 	return r.refreshRevisionsError
 }
 
@@ -468,7 +464,9 @@ func (r *cachedRepository) DeletePackage(ctx context.Context, old repository.Pac
 }
 
 func (r *cachedRepository) Close(ctx context.Context) error {
-	r.cancel()
+	if r.syncManager != nil {
+		r.syncManager.Stop()
+	}
 
 	// Make sure that watch events are sent for packagerevisions that are
 	// removed as part of closing the repository.
@@ -496,189 +494,41 @@ func (r *cachedRepository) Close(ctx context.Context) error {
 	return r.repo.Close(ctx)
 }
 
-// pollForever will continue polling until the signal channel is closed or the ctx is done.
-func (r *cachedRepository) pollForever(ctx context.Context, repoCrSyncFrequency time.Duration) {
-	// Sync once at startup/repo registration.
-	r.pollOnce(ctx)
-	// Calculate next sync time after first sync
-	r.calculateWaitDuration(repoCrSyncFrequency)
-	r.updateRepositoryCondition(ctx)
+// SyncOnce implements the SyncHandler interface
+func (r *cachedRepository) SyncOnce(ctx context.Context) error {
+	start := time.Now()
+	klog.Infof("repositorySync %+v: sync started", r.Key())
+	defer func() { klog.Infof("repositorySync %+v: sync finished in %s", r.Key(), time.Since(start)) }()
+	ctx, span := tracer.Start(ctx, "[START]::Repository::SyncOnce", trace.WithAttributes())
+	defer span.End()
 
-	for {
-		waitDuration := r.calculateWaitDuration(repoCrSyncFrequency)
-		ticker := time.NewTicker(waitDuration)
-
-		select {
-		case <-ctx.Done():
-			klog.Infof("repo %+v: exiting repository poller, because context is done: %v", r.Key(), ctx.Err())
-			ticker.Stop()
-			return
-		case <-ticker.C:
-			ticker.Stop()
-			r.pollOnce(ctx)
-			r.updateRepositoryCondition(ctx)
+	// Set condition to sync-in-progress
+	if r.syncManager != nil {
+		if err := r.syncManager.SetRepositoryCondition(ctx, "sync-in-progress"); err != nil {
+			klog.Warningf("repositorySync %+v: failed to set sync-in-progress condition: %v", r.Key(), err)
 		}
 	}
-}
-
-func (r *cachedRepository) pollOnce(ctx context.Context) {
-	start := time.Now()
-	klog.Infof("repo %+v: poll started", r.Key())
-	if err := r.setRepositoryCondition(ctx, "sync-in-progress"); err != nil {
-		klog.Warningf("repositorySync %+v: failed to set repository condition: %v", r.repo.Key(), err)
-	}
-	defer func() { klog.Infof("repo %+v: poll finished in %s", r.Key(), time.Since(start)) }()
-	ctx, span := tracer.Start(ctx, "[START]::Repository::pollOnce", trace.WithAttributes())
-	defer span.End()
 
 	if _, err := r.getPackageRevisions(ctx, repository.ListPackageRevisionFilter{}, true); err != nil {
 		r.refreshRevisionsError = err
-		klog.Warningf("error polling repo packages %s: %v", r.Key(), err)
+		klog.Warningf("error syncing repo packages %s: %v", r.Key(), err)
+		return err
 	} else {
 		r.refreshRevisionsError = nil
 	}
 	// TODO: Uncomment when package resources are fully supported
 	//if _, err := r.getPackages(ctx, repository.ListPackageRevisionFilter{}, true); err != nil {
-	//	klog.Warningf("error polling repo packages %s: %v", r.Key(), err)
+	//	klog.Warningf("error syncing repo packages %s: %v", r.Key(), err)
 	//}
+	return nil
 }
 
-// This function executes a sync once only if the RunOnceAt field is set in the repository CR spec.
-func (r *cachedRepository) handleRunOnceAt(ctx context.Context) {
-	var runOnceTimer *time.Timer
-	var runOnceChan <-chan time.Time
-	var scheduledRunOnceAt time.Time
-	specPollInterval := 10 * time.Second
-	ctxDoneLog := "repositorySync %+v: exiting repository handleRunOnceAt sync, because context is done: %v"
-
-	for {
-		select {
-		case <-ctx.Done():
-			klog.Infof(ctxDoneLog, r.Key(), ctx.Err())
-			if runOnceTimer != nil {
-				runOnceTimer.Stop()
-			}
-			return
-		default:
-			if !r.hasValidSyncSpec() {
-				klog.V(2).Infof("repositorySync %+v: repo or sync spec is nil, skipping runOnceAt check", r.Key())
-				select {
-				case <-ctx.Done():
-					klog.Infof(ctxDoneLog, r.Key(), ctx.Err())
-					return
-				case <-time.After(specPollInterval):
-				}
-				continue
-			}
-
-			runOnceAt := r.repoSpec.Spec.Sync.RunOnceAt
-			if r.shouldScheduleRunOnce(runOnceAt, scheduledRunOnceAt) {
-				if runOnceTimer != nil {
-					runOnceTimer.Stop()
-				}
-				delay := time.Until(runOnceAt.Time)
-				if delay > 0 {
-					klog.Infof("repositorySync %+v: Scheduling one-time sync at %s", r.Key(), runOnceAt.Time.Format(time.RFC3339))
-					runOnceTimer = time.NewTimer(delay)
-					runOnceChan = runOnceTimer.C
-					scheduledRunOnceAt = runOnceAt.Time
-				} else {
-					klog.V(2).Infof("repositorySync %+v: runOnceAt time is in the past (%s), skipping", r.Key(), runOnceAt.Time.Format(time.RFC3339))
-					runOnceTimer, runOnceChan, scheduledRunOnceAt = nil, nil, time.Time{}
-				}
-			}
-
-			if runOnceChan != nil {
-				select {
-				case <-runOnceChan:
-					klog.Infof("repositorySync %+v: Triggering scheduled one-time sync", r.Key())
-					r.pollOnce(context.Background())
-					r.updateRepositoryCondition(ctx)
-					klog.Infof("repositorySync %+v: Finished one-time sync", r.Key())
-					runOnceTimer, runOnceChan, scheduledRunOnceAt = nil, nil, time.Time{}
-				case <-ctx.Done():
-					klog.Infof(ctxDoneLog, r.Key(), ctx.Err())
-					return
-				case <-time.After(specPollInterval):
-				}
-			} else {
-				select {
-				case <-ctx.Done():
-					klog.Infof(ctxDoneLog, r.Key(), ctx.Err())
-					return
-				case <-time.After(specPollInterval):
-				}
-			}
-		}
-	}
+// GetSpec implements the SyncHandler interface
+func (r *cachedRepository) GetSpec() *configapi.Repository {
+	return r.repoSpec
 }
 
-func (r *cachedRepository) updateRepositoryCondition(ctx context.Context) {
-	status := "ready"
-	if r.refreshRevisionsError != nil {
-		klog.Warningf("repositorySync %+v: sync error: %v", r.repo.Key(), r.refreshRevisionsError)
-		status = "error"
-	}
-	if err := r.setRepositoryCondition(ctx, status); err != nil {
-		klog.Warningf("repositorySync %+v: failed to set repository condition: %v", r.repo.Key(), err)
-	}
-}
 
-func (r *cachedRepository) calculateWaitDuration(defaultDuration time.Duration) time.Duration {
-	if !r.hasValidSyncSpec() {
-		klog.Warningf("repo %+v: repo or sync spec is nil, falling back to default interval: %v", r.Key(), defaultDuration)
-		return defaultDuration
-	}
-
-	cronExpr := r.repoSpec.Spec.Sync.Schedule
-	if cronExpr == "" {
-		klog.V(2).Infof("repo %+v: sync.schedule is empty, falling back to default interval: %v", r.Key(), defaultDuration)
-		return defaultDuration
-	}
-
-	schedule, err := cron.ParseStandard(cronExpr)
-	if err != nil {
-		klog.Warningf("repo %+v: invalid cron expression '%s', falling back to default interval: %v", r.Key(), cronExpr, defaultDuration)
-		return defaultDuration
-	}
-
-	next := schedule.Next(time.Now())
-	klog.Infof("repo %+v: next scheduled time: %v", r.Key(), next)
-	r.nextSyncTime = &next
-	return time.Until(next)
-}
-
-func (r *cachedRepository) hasValidSyncSpec() bool {
-	return r.repo != nil && r.repoSpec != nil && r.repoSpec.Spec.Sync != nil
-}
-
-func (r *cachedRepository) shouldScheduleRunOnce(runOnceAt *metav1.Time, scheduled time.Time) bool {
-	return runOnceAt != nil && !runOnceAt.IsZero() && (scheduled.IsZero() || !runOnceAt.Time.Equal(scheduled))
-}
-
-func (r *cachedRepository) setRepositoryCondition(ctx context.Context, status string) error {
-	repo := &configapi.Repository{}
-	key := types.NamespacedName{
-		Name:      r.repo.Key().Name,
-		Namespace: r.repo.Key().Namespace,
-	}
-
-	if err := r.coreClient.Get(ctx, key, repo); err != nil {
-		return fmt.Errorf("failed to get repository: %w", err)
-	}
-
-	errorMsg := ""
-	if status == "error" && r.refreshRevisionsError != nil {
-		errorMsg = r.refreshRevisionsError.Error()
-	}
-
-	condition, err := util.BuildRepositoryCondition(repo, status, errorMsg, r.nextSyncTime)
-	if err != nil {
-		return err
-	}
-
-	return util.ApplyRepositoryCondition(ctx, r.coreClient, repo, condition, status)
-}
 
 func (r *cachedRepository) flush() {
 	r.mutex.Lock()
