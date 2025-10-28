@@ -235,10 +235,7 @@ func (b *background) cacheRepository(ctx context.Context, repo *configapi.Reposi
 	// Skip if repository is already ready or reconciling
 	if err == nil && len(repo.Status.Conditions) > 0 {
 		existingCondition := repo.Status.Conditions[0]
-		if existingCondition.Status == v1.ConditionTrue &&
-			existingCondition.Reason == configapi.ReasonReady {
-			return nil
-		} else if existingCondition.Status == v1.ConditionFalse &&
+		if existingCondition.Reason == configapi.ReasonReady ||
 			existingCondition.Reason == configapi.ReasonReconciling {
 			return nil
 		}
