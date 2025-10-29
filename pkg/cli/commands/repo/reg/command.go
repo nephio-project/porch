@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import (
 	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
 	"github.com/nephio-project/porch/pkg/cli/commands/repo/docs"
+	"github.com/robfig/cron/v3"
 	"github.com/spf13/cobra"
 	coreapi "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -60,6 +61,7 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 	c.Flags().StringVar(&r.username, "repo-basic-username", "", "Username for repository authentication using basic auth.")
 	c.Flags().StringVar(&r.password, "repo-basic-password", "", "Password for repository authentication using basic auth.")
 	c.Flags().BoolVar(&r.workloadIdentity, "repo-workload-identity", false, "Use workload identity for authentication with the repo")
+	c.Flags().StringVar(&r.syncSchedule, "sync-schedule", "", "Cron schedule for reconciling packages in the repository.")
 
 	return r
 }
@@ -84,6 +86,7 @@ type runner struct {
 	username         string
 	password         string
 	workloadIdentity bool
+	syncSchedule     string
 }
 
 func (r *runner) preRunE(_ *cobra.Command, _ []string) error {
@@ -164,6 +167,17 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 		}
 	}
 
+	var sync *configapi.RepositorySync
+	if r.syncSchedule != "" {
+		// validate the cron expression
+		if err := validateCronExpression(r.syncSchedule); err != nil {
+			return errors.E(op, fmt.Errorf("invalid sync-schedule cron expression: %w", err))
+		}
+		sync = &configapi.RepositorySync{
+			Schedule: r.syncSchedule,
+		}
+	}
+
 	if err := r.client.Create(r.ctx, &configapi.Repository{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Repository",
@@ -179,6 +193,7 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 			Deployment:  r.deployment,
 			Git:         git,
 			Oci:         oci,
+			Sync:        sync,
 		},
 	}); err != nil {
 		return errors.E(op, err)
@@ -233,4 +248,9 @@ func (r *runner) buildAuthSecret() (*coreapi.Secret, error) {
 		}, nil
 	}
 	return nil, nil
+}
+
+func validateCronExpression(expr string) error {
+	_, err := cron.ParseStandard(expr)
+	return err
 }
