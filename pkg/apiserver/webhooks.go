@@ -39,7 +39,6 @@ import (
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/util/porch"
 	"github.com/nephio-project/porch/pkg/util"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -50,7 +49,6 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 type WebhookType string
@@ -164,7 +162,7 @@ func webhookServiceName(ctx context.Context) (serviceName, serviceNamespace stri
 	return
 }
 
-func setupWebhooks(ctx context.Context) error {
+func setupWebhooks(ctx context.Context, porchClient client.Client) error {
 	cfg := newWebhookConfig(ctx)
 	if !cfg.CertManWebhook {
 		caBytes, err := createCerts(cfg)
@@ -176,7 +174,7 @@ func setupWebhooks(ctx context.Context) error {
 		}
 	}
 
-	if err := runWebhookServer(ctx, cfg); err != nil {
+	if err := runWebhookServer(ctx, cfg, porchClient); err != nil {
 		return err
 	}
 	return nil
@@ -470,7 +468,7 @@ func getCertificate(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	return &cert, nil
 }
 
-func runWebhookServer(ctx context.Context, cfg *WebhookConfig) error {
+func runWebhookServer(ctx context.Context, cfg *WebhookConfig, porchClient client.Client) error {
 	certFile := filepath.Join(cfg.CertStorageDir, "tls.crt")
 	keyFile := filepath.Join(cfg.CertStorageDir, "tls.key")
 	// load the cert for the first time
@@ -484,8 +482,12 @@ func runWebhookServer(ctx context.Context, cfg *WebhookConfig) error {
 		go watchCertificates(ctx, cfg.CertStorageDir, certFile, keyFile)
 	}
 	klog.Infoln("Starting webhook server")
-	http.HandleFunc(cfg.Path, validateDeletion)
-	http.HandleFunc(cfg.RepositoryPath, validateRepository)
+	http.HandleFunc(cfg.Path, func(w http.ResponseWriter, r *http.Request) {
+		validateDeletion(w, r, porchClient)
+	})
+	http.HandleFunc(cfg.RepositoryPath, func(w http.ResponseWriter, r *http.Request) {
+		validateRepository(w, r, porchClient)
+	})
 	server := http.Server{
 		Addr: fmt.Sprintf(":%d", cfg.Port),
 		TLSConfig: &tls.Config{
@@ -504,7 +506,7 @@ func runWebhookServer(ctx context.Context, cfg *WebhookConfig) error {
 
 }
 
-func validateDeletion(w http.ResponseWriter, r *http.Request) {
+func validateDeletion(w http.ResponseWriter, r *http.Request, porchClient client.Client) {
 	klog.Infoln("received request to validate deletion")
 
 	admissionReviewRequest, err := decodeAdmissionReview(r)
@@ -522,12 +524,6 @@ func validateDeletion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get the package revision using the name and namespace from the request.
-	porchClient, err := createPorchClient()
-	if err != nil {
-		errMsg := fmt.Sprintf("could not create porch client: %v", err)
-		writeErr(errMsg, &w)
-		return
-	}
 	pr := porchapi.PackageRevision{}
 	if err := porchClient.Get(context.Background(), client.ObjectKey{
 		Namespace: admissionReviewRequest.Request.Namespace,
@@ -605,20 +601,6 @@ func constructResponse(response *admissionv1.AdmissionResponse,
 	return resp, nil
 }
 
-func createPorchClient() (client.Client, error) {
-	cfg, err := config.GetConfig()
-	if err != nil {
-		klog.Errorf("could not get config: %s", err.Error())
-		return nil, err
-	}
-	porchClient, err := porch.CreateClient(cfg)
-	if err != nil {
-		klog.Errorf("could not get porch client: %s", err.Error())
-		return nil, err
-	}
-	return porchClient, nil
-}
-
 func writeErr(errMsg string, w *http.ResponseWriter) {
 	klog.Errorf("%s", errMsg)
 	(*w).WriteHeader(500)
@@ -664,7 +646,7 @@ func getEnvInt32(key string, defaultValue int32) int32 {
 	return int32(i64) // this is safe because of the size parameter of the ParseInt call
 }
 
-func validateRepository(w http.ResponseWriter, r *http.Request) {
+func validateRepository(w http.ResponseWriter, r *http.Request, porchClient client.Client) {
 	klog.Infoln("received request to validate repository")
 	admissionReviewRequest, err := decodeAdmissionReview(r)
 	if err != nil {
@@ -674,12 +656,6 @@ func validateRepository(w http.ResponseWriter, r *http.Request) {
 
 	if admissionReviewRequest.Request.Resource.Resource != "repositories" {
 		writeErr(fmt.Sprintf("unexpected resource: %s", admissionReviewRequest.Request.Resource.Resource), &w)
-		return
-	}
-
-	porchClient, err := createPorchClient()
-	if err != nil {
-		writeErr(fmt.Sprintf("could not create porch client: %v", err), &w)
 		return
 	}
 
@@ -757,21 +733,30 @@ func isConflict(existing, attempted *configapi.Repository) bool {
 	existingDir := strings.Trim(existing.Spec.Git.Directory, "/")
 	attemptedDir := strings.Trim(attempted.Spec.Git.Directory, "/")
 
-	// Rule 1: Same URL and same directory → conflict only if namespace matches
-	if existingURL == attemptedURL && existingDir == attemptedDir &&
+	existingBranch := existing.Spec.Git.Branch
+	if existingBranch == "" {
+		existingBranch = "main"
+	}
+	attemptedBranch := attempted.Spec.Git.Branch
+	if attemptedBranch == "" {
+		attemptedBranch = "main"
+	}
+
+	// Rule 1: Same URL, branch and directory → conflict only if namespace matches
+	if existingURL == attemptedURL && existingBranch == attemptedBranch && existingDir == attemptedDir &&
 		existing.Namespace == attempted.Namespace {
 		return true
 	}
 
-	// Rule 2: Root directory conflicts with any other directory under same URL
-	if existingURL == attemptedURL {
+	// Rule 2: Root directory conflicts with any other directory under same URL and branch
+	if existingURL == attemptedURL && existingBranch == attemptedBranch {
 		if (existingDir == "" && attemptedDir != "") || (existingDir != "" && attemptedDir == "") {
 			return true
 		}
 	}
 
-	// Rule 3: Nested directory conflicts with its base directory
-	if existingURL == attemptedURL {
+	// Rule 3: Nested directory conflicts with its base directory under same URL and branch
+	if existingURL == attemptedURL && existingBranch == attemptedBranch {
 		if isNestedConflict(existingDir, attemptedDir) {
 			return true
 		}

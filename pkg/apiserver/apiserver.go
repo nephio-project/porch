@@ -305,7 +305,7 @@ func (s *PorchServer) Run(ctx context.Context) error {
 	// but for now we keep backward compatiblity
 	certStorageDir, found := os.LookupEnv("CERT_STORAGE_DIR")
 	if found && strings.TrimSpace(certStorageDir) != "" {
-		if err := setupWebhooks(ctx); err != nil {
+		if err := setupWebhooks(ctx, s.coreClient); err != nil {
 			klog.Errorf("%v\n", err)
 			return err
 		}

@@ -33,6 +33,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestCreateCerts(t *testing.T) {
@@ -319,13 +320,16 @@ func TestWatchCertificatesGracefulTermination(t *testing.T) {
 }
 
 func TestValidateDeletion(t *testing.T) {
+	scheme := runtime.NewScheme()
+	configapi.AddToScheme(scheme)
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 	t.Run("invalid content-type", func(t *testing.T) {
 		request, err := http.NewRequest(http.MethodPost, serverEndpoint, nil)
 		require.NoError(t, err)
 		request.Header.Set("Content-Type", "foo")
 		response := httptest.NewRecorder()
 
-		validateDeletion(response, request)
+		validateDeletion(response, request, fakeClient)
 		require.Equal(t,
 			"error getting admission review from request: expected Content-Type 'application/json'",
 			response.Body.String())
@@ -336,7 +340,7 @@ func TestValidateDeletion(t *testing.T) {
 		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
 
-		validateDeletion(response, request)
+		validateDeletion(response, request, fakeClient)
 		require.Equal(t,
 			"error getting admission review from request: admission review request is empty",
 			response.Body.String())
@@ -366,7 +370,7 @@ func TestValidateDeletion(t *testing.T) {
 		require.NoError(t, err)
 
 		request.Body = io.NopCloser(bytes.NewReader(body))
-		validateDeletion(response, request)
+		validateDeletion(response, request, fakeClient)
 		require.Equal(t,
 			"did not receive PackageRevision, got not-a-package-revision",
 			response.Body.String())
@@ -374,13 +378,16 @@ func TestValidateDeletion(t *testing.T) {
 }
 
 func TestValidateRepository(t *testing.T) {
+	scheme := runtime.NewScheme()
+	configapi.AddToScheme(scheme)
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 	t.Run("invalid content-type", func(t *testing.T) {
 		request, err := http.NewRequest(http.MethodPost, repositoryValidationEndpoint, nil)
 		require.NoError(t, err)
 		request.Header.Set("Content-Type", "foo")
 		response := httptest.NewRecorder()
 
-		validateRepository(response, request)
+		validateRepository(response, request, fakeClient)
 		require.Equal(t,
 			"error decoding admission review: expected Content-Type 'application/json'",
 			response.Body.String())
@@ -392,7 +399,7 @@ func TestValidateRepository(t *testing.T) {
 		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
 
-		validateRepository(response, request)
+		validateRepository(response, request, fakeClient)
 		require.Equal(t,
 			"error decoding admission review: admission review request is empty",
 			response.Body.String())
@@ -423,13 +430,13 @@ func TestValidateRepository(t *testing.T) {
 		request.Body = io.NopCloser(bytes.NewReader(body))
 		response := httptest.NewRecorder()
 
-		validateRepository(response, request)
+		validateRepository(response, request, fakeClient)
 		require.Equal(t,
 			"unexpected resource: not-repositories",
 			response.Body.String())
 	})
 
-	createAdmissionReview := func(name, namespace, gitURL, directory string) []byte {
+	createAdmissionReview := func(name, namespace, gitURL, directory, branch string) []byte {
 		repo := configapi.Repository{
 			ObjectMeta: v1.ObjectMeta{
 				Name:      name,
@@ -439,6 +446,7 @@ func TestValidateRepository(t *testing.T) {
 				Git: &configapi.GitRepository{
 					Repo:      gitURL,
 					Directory: directory,
+					Branch:    branch,
 				},
 			},
 		}
@@ -466,14 +474,13 @@ func TestValidateRepository(t *testing.T) {
 		require.NoError(t, err)
 		return body
 	}
-	// Valid repository
-	// Cannot validate conflicts because of client getting created inside the validation function
 	tests := []struct {
 		name       string
 		repoName   string
 		namespace  string
 		gitURL     string
 		directory  string
+		branch     string
 		setupRepos []configapi.Repository
 		expectOK   bool
 	}{
@@ -483,6 +490,7 @@ func TestValidateRepository(t *testing.T) {
 			namespace: "ns1",
 			gitURL:    "http://gitea.local/myrepo.git",
 			directory: "dir1",
+			branch:    "main",
 			expectOK:  true,
 		},
 		{
@@ -491,11 +499,12 @@ func TestValidateRepository(t *testing.T) {
 			namespace: "ns2",
 			gitURL:    "http://gitea.local/myrepo.git",
 			directory: "dir1",
+			branch:    "main",
 			setupRepos: []configapi.Repository{
 				{
 					ObjectMeta: v1.ObjectMeta{Name: "repo1", Namespace: "ns1"},
 					Spec: configapi.RepositorySpec{
-						Git: &configapi.GitRepository{Repo: "http://gitea.local/myrepo.git", Directory: "dir1"},
+						Git: &configapi.GitRepository{Repo: "http://gitea.local/myrepo.git", Directory: "dir1", Branch: "main"},
 					},
 				},
 			},
@@ -507,27 +516,141 @@ func TestValidateRepository(t *testing.T) {
 			namespace: "ns1",
 			gitURL:    "http://gitea.local/myrepo.git",
 			directory: "dir2",
+			branch:    "main",
 			setupRepos: []configapi.Repository{
 				{
 					ObjectMeta: v1.ObjectMeta{Name: "repo1", Namespace: "ns1"},
 					Spec: configapi.RepositorySpec{
-						Git: &configapi.GitRepository{Repo: "http://gitea.local/myrepo.git", Directory: "dir1"},
+						Git: &configapi.GitRepository{Repo: "http://gitea.local/myrepo.git", Directory: "dir1", Branch: "main"},
 					},
 				},
 			},
 			expectOK: true,
 		},
+		{
+			name:      "same url, directory different branch - no conflict",
+			repoName:  "repo4",
+			namespace: "ns1",
+			gitURL:    "http://gitea.local/myrepo.git",
+			directory: "dir1",
+			branch:    "develop",
+			setupRepos: []configapi.Repository{
+				{
+					ObjectMeta: v1.ObjectMeta{Name: "repo1", Namespace: "ns1"},
+					Spec: configapi.RepositorySpec{
+						Git: &configapi.GitRepository{Repo: "http://gitea.local/myrepo.git", Directory: "dir1", Branch: "main"},
+					},
+				},
+			},
+			expectOK: true,
+		},
+		{
+			name:      "conflict: same url, branch, directory, and namespace",
+			repoName:  "repo5",
+			namespace: "ns1",
+			gitURL:    "http://gitea.local/myrepo.git",
+			directory: "dir1",
+			branch:    "main",
+			setupRepos: []configapi.Repository{
+				{
+					ObjectMeta: v1.ObjectMeta{Name: "repo1", Namespace: "ns1"},
+					Spec: configapi.RepositorySpec{
+						Git: &configapi.GitRepository{Repo: "http://gitea.local/myrepo.git", Directory: "dir1", Branch: "main"},
+					},
+				},
+			},
+			expectOK: false,
+		},
+		{
+			name:      "conflict: root directory vs subdirectory",
+			repoName:  "repo6",
+			namespace: "ns1",
+			gitURL:    "http://gitea.local/myrepo.git",
+			directory: "subdir",
+			branch:    "main",
+			setupRepos: []configapi.Repository{
+				{
+					ObjectMeta: v1.ObjectMeta{Name: "repo1", Namespace: "ns1"},
+					Spec: configapi.RepositorySpec{
+						Git: &configapi.GitRepository{Repo: "http://gitea.local/myrepo.git", Directory: "", Branch: "main"},
+					},
+				},
+			},
+			expectOK: false,
+		},
+		{
+			name:      "conflict: nested directory",
+			repoName:  "repo7",
+			namespace: "ns1",
+			gitURL:    "http://gitea.local/myrepo.git",
+			directory: "base/sub",
+			branch:    "main",
+			setupRepos: []configapi.Repository{
+				{
+					ObjectMeta: v1.ObjectMeta{Name: "repo1", Namespace: "ns1"},
+					Spec: configapi.RepositorySpec{
+						Git: &configapi.GitRepository{Repo: "http://gitea.local/myrepo.git", Directory: "base", Branch: "main"},
+					},
+				},
+			},
+			expectOK: false,
+		},
+		{
+			name:      "Valid: same url, directory, namespace different branch",
+			repoName:  "repo8",
+			namespace: "ns1",
+			gitURL:    "http://gitea.local/myrepo.git",
+			directory: "dir1",
+			branch:    "myBranch",
+			setupRepos: []configapi.Repository{
+				{
+					ObjectMeta: v1.ObjectMeta{Name: "repo1", Namespace: "ns1"},
+					Spec: configapi.RepositorySpec{
+						Git: &configapi.GitRepository{Repo: "http://gitea.local/myrepo.git", Directory: "dir1", Branch: "main"},
+					},
+				},
+			},
+			expectOK: true,
+		},
+		{
+			name:      "conflict: empty branch defaults to main",
+			repoName:  "repo9",
+			namespace: "ns1",
+			gitURL:    "http://gitea.local/myrepo.git",
+			directory: "dir1",
+			branch:    "",
+			setupRepos: []configapi.Repository{
+				{
+					ObjectMeta: v1.ObjectMeta{Name: "repo1", Namespace: "ns1"},
+					Spec: configapi.RepositorySpec{
+						Git: &configapi.GitRepository{Repo: "http://gitea.local/myrepo.git", Directory: "dir1", Branch: "main"},
+					},
+				},
+			},
+			expectOK: false,
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			body := createAdmissionReview(tc.repoName, tc.namespace, tc.gitURL, tc.directory)
+			// Create a fresh client for each test
+			scheme := runtime.NewScheme()
+			configapi.AddToScheme(scheme)
+			testClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+			// Setup existing repositories
+			for _, repo := range tc.setupRepos {
+				err := testClient.Create(context.Background(), &repo)
+				require.NoError(t, err)
+			}
+
+			body := createAdmissionReview(tc.repoName, tc.namespace, tc.gitURL, tc.directory, tc.branch)
 			request, err := http.NewRequest(http.MethodPost, repositoryValidationEndpoint, bytes.NewReader(body))
 			require.NoError(t, err)
 			request.Header.Set("Content-Type", "application/json")
 
 			response := httptest.NewRecorder()
-			validateRepository(response, request)
+			validateRepository(response, request, testClient)
 
 			if tc.expectOK {
 				require.Contains(t, response.Body.String(), "Repository validated successfully")
