@@ -102,3 +102,22 @@ func RepositoryKey(repositorySpec *configapi.Repository) (repository.RepositoryK
 		}
 	}
 }
+
+func CheckRepositoryConnection(ctx context.Context, repo *configapi.Repository, options externalrepotypes.ExternalRepoOptions) error {
+	ctx, span := tracer.Start(ctx, "Repository::CheckRepositoryConnection", trace.WithAttributes())
+	defer span.End()
+
+	var repoFactory externalrepotypes.ExternalRepoFactory
+
+	switch repo.Spec.Type {
+	case configapi.RepositoryTypeOCI:
+		repoFactory = new(oci.OciRepoFactory)
+	case configapi.RepositoryTypeGit:
+		repoFactory = new(git.GitRepoFactory)
+	default:
+		return fmt.Errorf("unsupported repository type: %q", repo.Spec.Type)
+	}
+
+	return repoFactory.CheckRepositoryConnection(ctx, repo, options)
+
+}
