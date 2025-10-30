@@ -433,6 +433,9 @@ func (t *TestSuite) WaitUntilRepositoryReady(name, namespace string) {
 		t.Fatalf("Repository not ready after wait: %v", innerErr)
 	}
 
+	// Add a 2-second delay after repository ready to allow background processes to complete
+	time.Sleep(2 * time.Second)
+
 	// While we're using an aggregated apiserver, make sure we can query the generated objects
 	if err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 32*time.Second, true, func(ctx context.Context) (bool, error) {
 		var revisions porchapi.PackageRevisionList

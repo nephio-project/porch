@@ -125,7 +125,6 @@ func (c *Cache) CloseRepository(ctx context.Context, repositorySpec *configapi.R
 			r.Spec.Type == configapi.RepositoryTypeGit &&
 			r.Spec.Git.Repo == repositorySpec.Spec.Git.Repo {
 			// do not close cached repo if it is shared, but cancel the polling goroutine
-			repo.cancel()
 			klog.Infof("Not closing cached repository %q because it is shared", key)
 			return nil
 		}
