@@ -22,7 +22,8 @@ self_dir="$(dirname "$(readlink -f "$0")")"
  
 git_repo_name=${1:-porch-test}
 gitea_ip=${2:-172.18.255.200}  # should be from the address range in deployments/local/metallb-conf.yaml
- 
+porch_cluster_name=${3:-porch-test}
+
 git_root="$(readlink -f "${self_dir}/..")"
 cd "${git_root}"
  
@@ -72,6 +73,17 @@ EOF
 fi
  
 kpt fn render
+
+# Find all image entries in the gitea pkg and side-load them
+results=$(grep "${git_root}/.build/gitea/deployment.yaml" -e "image:" | sed 's/image: //' | uniq | tr -d '"' )
+
+for image in $results; do
+  echo "Loading $image"
+  docker pull $image
+ 
+  kind load docker-image $image --name $porch_cluster_name
+done
+
 kpt live init || true
 kpt live apply --inventory-policy=adopt
 echo "Waiting for gitea to become ready..."
