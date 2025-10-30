@@ -23,6 +23,7 @@ import (
 
 type ExternalRepoFactory interface {
 	NewRepositoryImpl(ctx context.Context, repositorySpec *configapi.Repository, options ExternalRepoOptions) (repository.Repository, error)
+	CheckRepositoryConnection(ctx context.Context, repositorySpec *configapi.Repository, options ExternalRepoOptions) error
 }
 
 type ExternalRepoOptions struct {

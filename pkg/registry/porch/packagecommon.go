@@ -184,6 +184,9 @@ func (r *packageCommon) listPackages(ctx context.Context, filter repository.List
 		return fmt.Errorf("error listing repository objects: %w", err)
 	}
 
+	// Track seen packages to prevent duplicates
+	seenPackages := make(map[repository.PackageKey]bool)
+
 	for i := range repositories.Items {
 		repositoryObj := &repositories.Items[i]
 
@@ -197,6 +200,12 @@ func (r *packageCommon) listPackages(ctx context.Context, filter repository.List
 			continue
 		}
 		for _, rev := range revisions {
+			pkgKey := rev.Key()
+			if seenPackages[pkgKey] {
+				continue
+			}
+			seenPackages[pkgKey] = true
+
 			if err := callback(rev); err != nil {
 				return err
 			}

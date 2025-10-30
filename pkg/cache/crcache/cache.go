@@ -35,6 +35,7 @@ type Cache struct {
 	repositories  map[repository.RepositoryKey]*cachedRepository
 	mainLock      *sync.RWMutex
 	locks         map[repository.RepositoryKey]*sync.Mutex
+	cacheLocks    map[string]*sync.Mutex
 	metadataStore meta.MetadataStore
 	options       cachetypes.CacheOptions
 }
@@ -52,6 +53,11 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 		return nil, err
 	}
 
+	cacheKey := c.getCacheKey(repositorySpec)
+	cacheLock := c.getOrCreateCacheLock(cacheKey)
+	cacheLock.Lock()
+	defer cacheLock.Unlock()
+
 	lock := c.getOrInsertLock(key)
 	lock.Lock()
 	defer lock.Unlock()
@@ -59,10 +65,15 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 	c.mainLock.RLock()
 	if repo, ok := c.repositories[key]; ok && repo != nil {
 		c.mainLock.RUnlock()
-		// Test if credentials are okay for the cached repo and update the status accordingly
-		if _, err := externalrepo.CreateRepositoryImpl(ctx, repositorySpec, c.options.ExternalRepoOptions); err != nil {
+		// Keep the spec updated in the cache.
+		repo.repoSpec = repositorySpec
+		// Check external repo connectivity
+		err := externalrepo.CheckRepositoryConnection(ctx, repositorySpec, c.options.ExternalRepoOptions)
+		if err != nil {
+			klog.Warningf("dbRepository:OpenRepository: repo %+v connectivity check failed with error %q", key, err)
 			return nil, err
 		}
+		klog.V(2).Infof("dbCache::OpenRepository: verified repo connectivity %+v", key)
 		// If there is an error from the background refresh goroutine, return it.
 		if err := repo.getRefreshError(); err != nil {
 			return nil, err
@@ -98,17 +109,29 @@ func (c *Cache) CloseRepository(ctx context.Context, repositorySpec *configapi.R
 		return err
 	}
 
+	c.mainLock.RLock()
+	repo, ok := c.repositories[key]
+	c.mainLock.RUnlock()
+	if !ok {
+		return nil
+	}
+
+	cacheKey := c.getCacheKey(repositorySpec)
+	cacheLock := c.getOrCreateCacheLock(cacheKey)
+	cacheLock.Lock()
+	defer cacheLock.Unlock()
+
 	// check if repositorySpec shares the underlying cached repo with another repository
 	for _, r := range allRepos {
 		if r.Name == repositorySpec.Name && r.Namespace == repositorySpec.Namespace {
 			continue
 		}
-		otherKey, err := externalrepo.RepositoryKey(&r)
-		if err != nil {
-			return err
-		}
-		if otherKey == key {
-			// do not close cached repo if it is shared
+		// For Git repositories, check sharing based on URL only
+		if repositorySpec.Spec.Type == configapi.RepositoryTypeGit &&
+			r.Spec.Type == configapi.RepositoryTypeGit &&
+			r.Spec.Git.Repo == repositorySpec.Spec.Git.Repo {
+			// do not close cached repo if it is shared, but cancel the polling goroutine
+			repo.cancel()
 			klog.Infof("Not closing cached repository %q because it is shared", key)
 			return nil
 		}
@@ -117,10 +140,6 @@ func (c *Cache) CloseRepository(ctx context.Context, repositorySpec *configapi.R
 	lock := c.getOrInsertLock(key)
 	lock.Lock()
 	defer lock.Unlock()
-
-	c.mainLock.RLock()
-	repo, ok := c.repositories[key]
-	c.mainLock.RUnlock()
 
 	if ok {
 		c.mainLock.Lock()
@@ -173,5 +192,29 @@ func (c *Cache) getOrInsertLock(key repository.RepositoryKey) *sync.Mutex {
 	c.locks[key] = lock
 	c.mainLock.Unlock()
 
+	return lock
+}
+
+func (c *Cache) getCacheKey(repositorySpec *configapi.Repository) string {
+	if repositorySpec.Spec.Type == configapi.RepositoryTypeGit {
+		return repositorySpec.Spec.Git.Repo
+	}
+	return repositorySpec.Name + "---" + repositorySpec.Namespace
+}
+
+func (c *Cache) getOrCreateCacheLock(cacheKey string) *sync.Mutex {
+	c.mainLock.Lock()
+	defer c.mainLock.Unlock()
+
+	if c.cacheLocks == nil {
+		c.cacheLocks = make(map[string]*sync.Mutex)
+	}
+
+	if lock, exists := c.cacheLocks[cacheKey]; exists {
+		return lock
+	}
+
+	lock := &sync.Mutex{}
+	c.cacheLocks[cacheKey] = lock
 	return lock
 }
