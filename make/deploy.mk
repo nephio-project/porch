@@ -15,10 +15,10 @@
 # Deployment targets and configuration
 
 # Skip flags
-SKIP_IMG_BUILD ?= false
-SKIP_PORCHSERVER_BUILD ?= false
-SKIP_CONTROLLER_BUILD ?= false
-SKIP_LOCAL_GIT ?= false
+export SKIP_IMG_BUILD ?= false
+export SKIP_PORCHSERVER_BUILD ?= false
+export SKIP_CONTROLLER_BUILD ?= false
+export SKIP_LOCAL_GIT ?= false
 
 # Reconciler configuration
 ALL_RECONCILERS="packagevariants,packagevariantsets"

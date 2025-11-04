@@ -35,11 +35,11 @@ ifndef IMAGE_TAG
 endif
 
 # Image names
-PORCH_SERVER_IMAGE ?= porch-server
-PORCH_FUNCTION_RUNNER_IMAGE ?= porch-function-runner
-PORCH_CONTROLLERS_IMAGE ?= porch-controllers
-PORCH_WRAPPER_SERVER_IMAGE ?= porch-wrapper-server
-TEST_GIT_SERVER_IMAGE ?= test-git-server
+export PORCH_SERVER_IMAGE ?= porch-server
+export PORCH_FUNCTION_RUNNER_IMAGE ?= porch-function-runner
+export PORCH_CONTROLLERS_IMAGE ?= porch-controllers
+export PORCH_WRAPPER_SERVER_IMAGE ?= porch-wrapper-server
+export TEST_GIT_SERVER_IMAGE ?= test-git-server
 
 # Kind configuration
 KIND_CONTEXT_NAME ?= porch-test
