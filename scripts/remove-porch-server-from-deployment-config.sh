@@ -28,7 +28,7 @@ cd "${deployment_config_dir}"
 
 # expose function-runner to local processes
 kpt fn eval \
-  --image gcr.io/kpt-fn/starlark:v0.5.0 \
+  --image ghcr.io/kptdev/krm-functions-catalog/starlark:v0.5.0 \
   --match-kind Service \
   --match-name function-runner \
   --match-namespace porch-system \
@@ -41,7 +41,7 @@ for resource in ctx.resource_list["items"]:
 
 # remove porch-server Deployment from package
 kpt fn eval \
-  --image gcr.io/kpt-fn/starlark:v0.5.0 \
+  --image ghcr.io/kptdev/krm-functions-catalog/starlark:v0.5.0 \
   --match-kind Deployment \
   --match-name porch-server \
   --match-namespace porch-system \
@@ -52,7 +52,7 @@ if [[ "$(uname)" == "Darwin" || -n "${DOCKER_HOST+x}" ]] || docker info 2>/dev/n
 then
   echo "--- Docker Desktop detected. ---"
   kpt fn eval \
-    --image gcr.io/kpt-fn/starlark:v0.5.0 \
+    --image ghcr.io/kptdev/krm-functions-catalog/starlark:v0.5.0 \
     --match-kind Service \
     --match-name api \
     --match-namespace porch-system \
@@ -64,7 +64,7 @@ for resource in ctx.resource_list["items"]:
   }
 '
   kpt fn eval \
-    --image gcr.io/kpt-fn/search-replace:v0.2.0 \
+    --image ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.2.0 \
     --match-kind APIService \
     --match-name v1alpha1.porch.kpt.dev \
     -- 'by-path=spec.service.port' "put-value=4443"
@@ -75,13 +75,13 @@ else
     --image upsert-resource:v0.2.0 \
     --fn-config "${git_root}/deployments/local/porch-api-endpoints.yaml"
   kpt fn eval \
-    --image gcr.io/kpt-fn/search-replace:v0.2.0 \
+    --image ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.2.0 \
     --match-kind Endpoints \
     --match-name api \
     --match-namespace porch-system \
     -- 'by-path=subsets[0].addresses[0].ip' "put-value=$docker_bridge_ip"
   kpt fn eval \
-    --image gcr.io/kpt-fn/starlark:v0.5.0 \
+    --image ghcr.io/kptdev/krm-functions-catalog/starlark:v0.5.0 \
     --match-kind Service \
     --match-name api \
     --match-namespace porch-system \

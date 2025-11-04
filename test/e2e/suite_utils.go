@@ -49,7 +49,7 @@ const (
 	defaultGCPHierarchyRef    = "783380ce4e6c3f21e9e90055b3a88bada0410154"
 	defaultKptFunctionRef     = "spanner-blueprint-v0.3.2"
 	defaultKPTRepo            = "https://github.com/kptdev/kpt.git"
-	defaultGCRPrefix          = "gcr.io/kpt-fn"
+	defaultGCRPrefix          = "ghcr.io/kptdev/krm-functions-catalog"
 
 	// Optional environment variables which can be set to replace defaults when running e2e tests behind a proxy or firewall.
 	// Environment variables can be loaded from a .env file - refer to .env.template

@@ -115,7 +115,7 @@ metadata:
 upstream:
   type: git
   git:
-    repo: github.com/GoogleContainerTools/kpt
+    repo: github.com/kptdev/kpt
     directory: /
     ref: v1
 `,
@@ -127,7 +127,7 @@ metadata:
 upstream:
   type: git
   git:
-    repo: github.com/GoogleContainerTools/kpt
+    repo: github.com/kptdev/kpt
     directory: /
     ref: v2
 `,
@@ -155,7 +155,7 @@ metadata:
 upstream:
   type: git
   git:
-    repo: github.com/GoogleContainerTools/kpt
+    repo: github.com/kptdev/kpt
     directory: /
     ref: v1
 `,
@@ -167,13 +167,13 @@ metadata:
 upstream:
   type: git
   git:
-    repo: github.com/GoogleContainerTools/kpt
+    repo: github.com/kptdev/kpt
     directory: /
     ref: v2
 upstreamLock:
   type: git
   git:
-    repo: github.com/GoogleContainerTools/kpt
+    repo: github.com/kptdev/kpt
     directory: /
     ref: v2
     commit: abc123
@@ -193,13 +193,13 @@ metadata:
 upstream:
   type: git
   git:
-    repo: github.com/GoogleContainerTools/kpt
+    repo: github.com/kptdev/kpt
     directory: /
     ref: v2
 upstreamLock:
   type: git
   git:
-    repo: github.com/GoogleContainerTools/kpt
+    repo: github.com/kptdev/kpt
     directory: /
     ref: v2
     commit: abc123
@@ -626,7 +626,7 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-  - image: gcr.io/kpt/gen-folders
+  - image: ghcr.io/kptdev/krm-functions-catalog/gen-folders
 `,
 			local: `
 apiVersion: kpt.dev/v1
@@ -635,7 +635,7 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-  - image: gcr.io/kpt/folder-ref
+  - image: ghcr.io/kptdev/krm-functions-catalog/folder-ref
 `,
 			expected: `
 apiVersion: kpt.dev/v1
@@ -644,8 +644,8 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-  - image: gcr.io/kpt/folder-ref
-  - image: gcr.io/kpt/gen-folders
+  - image: ghcr.io/kptdev/krm-functions-catalog/folder-ref
+  - image: ghcr.io/kptdev/krm-functions-catalog/gen-folders
 `,
 		},
 
@@ -694,7 +694,7 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-    - image: gcr.io/kpt-fn/apply-setters:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.1
       configMap:
         image: nginx
         tag: 1.0.1
@@ -706,7 +706,7 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-    - image: gcr.io/kpt-fn/apply-setters:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.1alog/apply-setters:v0.1
       configMap:
         image: nginx
         tag: 1.0.1
@@ -719,7 +719,7 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-    - image: gcr.io/kpt-fn/apply-setters:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.1alog/apply-setters:v0.1
       configMap:
         image: nginx
         tag: 1.2.0 // value of tag is updated
@@ -731,7 +731,7 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-  - image: gcr.io/kpt-fn/apply-setters:v0.1
+  - image: ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.1alog/apply-setters:v0.1
     configMap:
       image: nginx
       new-setter: new-setter-value // new setter is added
@@ -747,7 +747,7 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-    - image: gcr.io/kpt-fn/apply-setters:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.1alog/apply-setters:v0.1
       configPath: setters.yaml
 `,
 			update: `
@@ -757,7 +757,7 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-    - image: gcr.io/kpt-fn/apply-setters:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.1alog/apply-setters:v0.1
       configPath: setters-updated.yaml
 `,
 			local: `
@@ -767,7 +767,7 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-    - image: gcr.io/kpt-fn/apply-setters:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.1alog/apply-setters:v0.1
       configPath: setters-local.yaml
 `,
 			expected: `
@@ -777,7 +777,7 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-  - image: gcr.io/kpt-fn/apply-setters:v0.1
+  - image: ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.1alog/apply-setters:v0.1
     configPath: setters-updated.yaml
 `,
 		},
@@ -790,7 +790,7 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-    - image: gcr.io/kpt-fn/apply-setters:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.1alog/apply-setters:v0.1
       configPath: setters.yaml
 `,
 			update: `
@@ -800,7 +800,7 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-    - image: gcr.io/kpt-fn/apply-setters:v0.1.2
+    - image: ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.1.2og/apply-setters:v0.1.2
       configPath: setters.yaml
 `,
 			local: `
@@ -810,7 +810,7 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-    - image: gcr.io/kpt-fn/apply-setters:v0.1.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.1.1og/apply-setters:v0.1.1
       configPath: setters.yaml
 `,
 			expected: `
@@ -820,7 +820,7 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-  - image: gcr.io/kpt-fn/apply-setters:v0.1.2
+  - image: ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.1.2og/apply-setters:v0.1.2
     configPath: setters.yaml
 `,
 		},
@@ -833,7 +833,7 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-    - image: gcr.io/kpt-fn/apply-setters:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.1alog/apply-setters:v0.1
       configPath: setters.yaml
 `,
 			update: `
@@ -843,9 +843,9 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-    - image: gcr.io/kpt-fn/apply-setters:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.1alog/apply-setters:v0.1
       configPath: setters.yaml
-    - image: gcr.io/kpt-fn/generate-folders:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/generate-folders:v0.1g/generate-folders:v0.1
 `,
 			local: `
 apiVersion: kpt.dev/v1
@@ -854,9 +854,9 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-    - image: gcr.io/kpt-fn/apply-setters:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.1alog/apply-setters:v0.1
       configPath: setters.yaml
-    - image: gcr.io/kpt-fn/set-namespace:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.1alog/set-namespace:v0.1
       configMap:
         namespace: foo
 `,
@@ -867,12 +867,12 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-  - image: gcr.io/kpt-fn/apply-setters:v0.1
+  - image: ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.1alog/apply-setters:v0.1
     configPath: setters.yaml
-  - image: gcr.io/kpt-fn/set-namespace:v0.1
+  - image: ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.1alog/set-namespace:v0.1
     configMap:
       namespace: foo
-  - image: gcr.io/kpt-fn/generate-folders:v0.1
+  - image: ghcr.io/kptdev/krm-functions-catalog/generate-folders:v0.1g/generate-folders:v0.1
 `,
 		},
 
@@ -884,9 +884,9 @@ metadata:
   name: pipeline
 pipeline:
   validators:
-    - image: gcr.io/kpt-fn/apply-setters:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.1alog/apply-setters:v0.1
       configPath: setters.yaml
-    - image: gcr.io/kpt-fn/generate-folders:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/generate-folders:v0.1g/generate-folders:v0.1
 `,
 			update: `
 apiVersion: kpt.dev/v1
@@ -895,7 +895,7 @@ metadata:
   name: pipeline
 pipeline:
   validators:
-    - image: gcr.io/kpt-fn/apply-setters:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.1alog/apply-setters:v0.1
       configPath: setters.yaml
 `,
 			local: `
@@ -905,10 +905,10 @@ metadata:
   name: pipeline
 pipeline:
   validators:
-    - image: gcr.io/kpt-fn/apply-setters:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.1alog/apply-setters:v0.1
       configPath: setters.yaml
-    - image: gcr.io/kpt-fn/generate-folders:v0.1
-    - image: gcr.io/kpt-fn/set-namespace:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/generate-folders:v0.1g/generate-folders:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.1alog/set-namespace:v0.1
       configMap:
         namespace: foo
 `,
@@ -919,9 +919,9 @@ metadata:
   name: pipeline
 pipeline:
   validators:
-  - image: gcr.io/kpt-fn/apply-setters:v0.1
+  - image: ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.1alog/apply-setters:v0.1
     configPath: setters.yaml
-  - image: gcr.io/kpt-fn/set-namespace:v0.1
+  - image: ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.1alog/set-namespace:v0.1
     configMap:
       namespace: foo
 `,
@@ -935,11 +935,11 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-    - image: gcr.io/kpt-fn/search-replace:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
       configMap:
         by-value: foo
         put-value: bar
-    - image: gcr.io/kpt-fn/search-replace:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
       configMap:
         by-value: abc
         put-comment: ${some-setter-name}
@@ -951,11 +951,11 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-    - image: gcr.io/kpt-fn/search-replace:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
       configMap:
         by-value: foo
         put-value: bar-new
-    - image: gcr.io/kpt-fn/search-replace:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
       configMap:
         by-value: abc
         put-comment: ${updated-setter-name}
@@ -967,19 +967,19 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-    - image: gcr.io/kpt-fn/generate-folders:v0.1
-    - image: gcr.io/kpt-fn/search-replace:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/generate-folders:v0.1g/generate-folders:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
       configMap:
         by-value: foo
         put-value: bar
-    - image: gcr.io/kpt-fn/set-labels:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1catalog/set-labels:v0.1
       configMap:
         app: db
-    - image: gcr.io/kpt-fn/search-replace:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
       configMap:
         by-value: abc
         put-comment: ${some-setter-name}
-    - image: gcr.io/kpt-fn/search-replace:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
       configMap:
         by-value: YOUR_TEAM
         put-value: my-team
@@ -991,11 +991,11 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-  - image: gcr.io/kpt-fn/search-replace:v0.1
+  - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
     configMap:
       by-value: foo
       put-value: bar-new
-  - image: gcr.io/kpt-fn/search-replace:v0.1
+  - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
     configMap:
       by-value: abc
       put-comment: ${updated-setter-name}
@@ -1010,11 +1010,11 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-    - image: gcr.io/kpt-fn/search-replace:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
       configMap:
         by-value: foo
         put-value: bar
-    - image: gcr.io/kpt-fn/search-replace:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
       configMap:
         by-value: abc
         put-comment: ${some-setter-name}
@@ -1026,11 +1026,11 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-    - image: gcr.io/kpt-fn/search-replace:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
       configMap:
         by-value: foo
         put-value: bar-new
-    - image: gcr.io/kpt-fn/search-replace:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
       configMap:
         by-value: abc
         put-comment: ${updated-setter-name}
@@ -1042,20 +1042,20 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-    - image: gcr.io/kpt-fn/search-replace:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
       name: my-new-function
       configMap:
         by-value: YOUR_TEAM
         put-value: my-team
-    - image: gcr.io/kpt-fn/generate-folders:v0.1
-    - image: gcr.io/kpt-fn/search-replace:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/generate-folders:v0.1g/generate-folders:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
       configMap:
         by-value: foo
         put-value: bar
-    - image: gcr.io/kpt-fn/set-labels:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1catalog/set-labels:v0.1
       configMap:
         app: db
-    - image: gcr.io/kpt-fn/search-replace:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
       configMap:
         by-value: abc
         put-comment: ${some-setter-name}
@@ -1067,11 +1067,11 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-  - image: gcr.io/kpt-fn/search-replace:v0.1
+  - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
     configMap:
       by-value: foo
       put-value: bar-new
-  - image: gcr.io/kpt-fn/search-replace:v0.1
+  - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
     configMap:
       by-value: abc
       put-comment: ${updated-setter-name}
@@ -1086,12 +1086,12 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-    - image: gcr.io/kpt-fn/search-replace:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
       name: sr1
       configMap:
         by-value: foo
         put-value: bar
-    - image: gcr.io/kpt-fn/search-replace:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
       name: sr2
       configMap:
         by-value: abc
@@ -1104,12 +1104,12 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-    - image: gcr.io/kpt-fn/search-replace:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
       name: sr1
       configMap:
         by-value: foo
         put-value: bar-new
-    - image: gcr.io/kpt-fn/search-replace:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
       name: sr2
       configMap:
         by-value: abc
@@ -1122,23 +1122,23 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-    - image: gcr.io/kpt-fn/search-replace:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
       name: my-new-function
       configMap:
         by-value: YOUR_TEAM
         put-value: my-team
-    - image: gcr.io/kpt-fn/generate-folders:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/generate-folders:v0.1g/generate-folders:v0.1
       name: gf1
-    - image: gcr.io/kpt-fn/search-replace:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
       name: sr1
       configMap:
         by-value: foo
         put-value: bar
-    - image: gcr.io/kpt-fn/set-labels:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1catalog/set-labels:v0.1
       name: sl1
       configMap:
         app: db
-    - image: gcr.io/kpt-fn/search-replace:v0.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
       name: sr2
       configMap:
         by-value: abc
@@ -1151,23 +1151,23 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-  - image: gcr.io/kpt-fn/search-replace:v0.1
+  - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
     configMap:
       by-value: YOUR_TEAM
       put-value: my-team
     name: my-new-function
-  - image: gcr.io/kpt-fn/generate-folders:v0.1
+  - image: ghcr.io/kptdev/krm-functions-catalog/generate-folders:v0.1g/generate-folders:v0.1
     name: gf1
-  - image: gcr.io/kpt-fn/search-replace:v0.1
+  - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
     configMap:
       by-value: foo
       put-value: bar-new
     name: sr1
-  - image: gcr.io/kpt-fn/set-labels:v0.1
+  - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1catalog/set-labels:v0.1
     configMap:
       app: db
     name: sl1
-  - image: gcr.io/kpt-fn/search-replace:v0.1
+  - image: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.1log/search-replace:v0.1
     configMap:
       by-value: abc
       put-comment: ${updated-setter-name}
@@ -1194,7 +1194,7 @@ metadata:
 pipeline:
   mutators:
   - name: gen-folders
-    image: gcr.io/kpt/gen-folders
+    image: ghcr.io/kptdev/krm-functions-catalog/gen-folders
 `,
 			local: `
 apiVersion: kpt.dev/v1
@@ -1204,7 +1204,7 @@ metadata:
 pipeline:
   mutators:
   - name: folder-ref
-    image: gcr.io/kpt/folder-ref
+    image: ghcr.io/kptdev/krm-functions-catalog/folder-ref
 `,
 			// The reordering of elements in the results is a bug in the
 			// merge logic I think.
@@ -1215,9 +1215,9 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-  - image: gcr.io/kpt/folder-ref
+  - image: ghcr.io/kptdev/krm-functions-catalog/folder-ref
     name: folder-ref
-  - image: gcr.io/kpt/gen-folders
+  - image: ghcr.io/kptdev/krm-functions-catalog/gen-folders
     name: gen-folders
 `,
 		},
@@ -1293,9 +1293,9 @@ metadata:
 pipeline:
   mutators:
   - name: gen-folder-upstream
-    image: gcr.io/kpt/gen-folders
+    image: ghcr.io/kptdev/krm-functions-catalog/gen-folders
   - name: ref-folders
-    image: gcr.io/kpt/ref-folders
+    image: ghcr.io/kptdev/krm-functions-catalog/ref-folders
     configMap:
       foo: bar
 `,
@@ -1307,11 +1307,11 @@ metadata:
 pipeline:
   mutators:
   - name: ref-folders
-    image: gcr.io/kpt/ref-folders
+    image: ghcr.io/kptdev/krm-functions-catalog/ref-folders
     configMap:
       bar: foo
   - name: gen-folder-local
-    image: gcr.io/kpt/gen-folders
+    image: ghcr.io/kptdev/krm-functions-catalog/gen-folders
 `,
 			expected: `
 apiVersion: kpt.dev/v1
@@ -1320,14 +1320,14 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-  - image: gcr.io/kpt/ref-folders
+  - image: ghcr.io/kptdev/krm-functions-catalog/ref-folders
     configMap:
       bar: foo
       foo: bar
     name: ref-folders
-  - image: gcr.io/kpt/gen-folders
+  - image: ghcr.io/kptdev/krm-functions-catalog/gen-folders
     name: gen-folder-local
-  - image: gcr.io/kpt/gen-folders
+  - image: ghcr.io/kptdev/krm-functions-catalog/gen-folders
     name: gen-folder-upstream
 `,
 		},
@@ -1349,7 +1349,7 @@ metadata:
 pipeline:
   mutators:
   - name: ref-folders
-    image: gcr.io/kpt/ref-folders
+    image: ghcr.io/kptdev/krm-functions-catalog/ref-folders
     configMap:
       band: sleater-kinney
 `,
@@ -1361,7 +1361,7 @@ metadata:
 pipeline:
   mutators:
   - name: ref-folders
-    image: gcr.io/kpt/ref-folders
+    image: ghcr.io/kptdev/krm-functions-catalog/ref-folders
     configMap:
       band: Hüsker Dü
 `,
@@ -1372,7 +1372,7 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-  - image: gcr.io/kpt/ref-folders
+  - image: ghcr.io/kptdev/krm-functions-catalog/ref-folders
     configMap:
       band: sleater-kinney
     name: ref-folders

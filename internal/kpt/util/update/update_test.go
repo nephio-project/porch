@@ -38,7 +38,7 @@ import (
 )
 
 const (
-	kptRepo         = "github.com/GoogleContainerTools/kpt"
+	kptRepo         = "github.com/kptdev/kpt"
 	masterBranch    = "master"
 	testPackageName = "test-package"
 )

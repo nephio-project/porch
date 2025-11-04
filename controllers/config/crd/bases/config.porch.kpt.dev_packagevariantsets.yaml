@@ -695,12 +695,13 @@ spec:
                                   image:
                                     description: "`Image` specifies the function container
                                       image.\nIt can either be fully qualified, e.g.:\n\n\timage:
-                                      gcr.io/kpt-fn/set-labels\n\nOptionally, kpt
-                                      can be configured to use a image\nregistry host-path
-                                      that will be used to resolve the image path
-                                      in case\nthe image path is missing (Defaults
-                                      to gcr.io/kpt-fn).\ne.g. The following resolves
-                                      to gcr.io/kpt-fn/set-labels:\n\n\timage: set-labels"
+                                      ghcr.io/kptdev/krm-functions-catalog/set-labels\n\nOptionally,
+                                      kpt can be configured to use a image\nregistry
+                                      host-path that will be used to resolve the image
+                                      path in case\nthe image path is missing (Defaults
+                                      to ghcr.io/kptdev/krm-functions-catalog).\ne.g.
+                                      The following resolves to ghcr.io/kptdev/krm-functions-catalog/set-labels:\n\n\timage:
+                                      set-labels"
                                     type: string
                                   name:
                                     description: |-
@@ -827,12 +828,13 @@ spec:
                                   image:
                                     description: "`Image` specifies the function container
                                       image.\nIt can either be fully qualified, e.g.:\n\n\timage:
-                                      gcr.io/kpt-fn/set-labels\n\nOptionally, kpt
-                                      can be configured to use a image\nregistry host-path
-                                      that will be used to resolve the image path
-                                      in case\nthe image path is missing (Defaults
-                                      to gcr.io/kpt-fn).\ne.g. The following resolves
-                                      to gcr.io/kpt-fn/set-labels:\n\n\timage: set-labels"
+                                      ghcr.io/kptdev/krm-functions-catalog/set-labels\n\nOptionally,
+                                      kpt can be configured to use a image\nregistry
+                                      host-path that will be used to resolve the image
+                                      path in case\nthe image path is missing (Defaults
+                                      to ghcr.io/kptdev/krm-functions-catalog).\ne.g.
+                                      The following resolves to ghcr.io/kptdev/krm-functions-catalog/set-labels:\n\n\timage:
+                                      set-labels"
                                     type: string
                                   name:
                                     description: |-

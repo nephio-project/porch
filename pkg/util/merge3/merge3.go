@@ -15,7 +15,7 @@
 package merge3
 
 import (
-	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
+	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
 	pkgerrors "github.com/pkg/errors"
 	"sigs.k8s.io/kustomize/kyaml/kio"
 	"sigs.k8s.io/kustomize/kyaml/kio/filters"

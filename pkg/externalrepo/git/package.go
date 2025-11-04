@@ -77,7 +77,7 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 	lockCopy := &v1alpha1.UpstreamLock{}
 
 	// TODO: Use kpt definition of UpstreamLock in the package revision status
-	// when https://github.com/GoogleContainerTools/kpt/issues/3297 is complete.
+	// when https://github.com/kptdev/kpt/issues/3297 is complete.
 	// Until then, we have to translate from one type to another.
 	if lock.Git != nil {
 		lockCopy = &v1alpha1.UpstreamLock{

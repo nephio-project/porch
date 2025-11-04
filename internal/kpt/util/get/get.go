@@ -63,7 +63,7 @@ type Command struct {
 	UpdateStrategy kptfilev1.UpdateStrategyType
 
 	// DefaultKrmFunctionImagePrefix is the prefix to be used with unqualified
-	// KRM function image names. Defaults to "gcr.io/kpt-fn/".
+	// KRM function image names. Defaults to "ghcr.io/kptdev/krm-functions-catalog/".
 	DefaultKrmFunctionImagePrefix string
 }
 

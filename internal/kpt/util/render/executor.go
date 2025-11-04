@@ -588,9 +588,8 @@ func (pn *pkgNode) runMutators(ctx context.Context, hctx *hydrationContext, inpu
 
 	for i, mutator := range mutators {
 		if pl.Mutators[i].ConfigPath != "" {
-			// kpt v1.0.0-beta15+ onwards, functionConfigs are included in the
-			// function inputs during `render` and as a result, they can be
-			// mutated during the `render`.
+			// functionConfigs are included in the function inputs during `render`
+			// and as a result, they can be mutated during the `render`.
 			// So functionConfigs needs be updated in the FunctionRunner instance
 			// before every run.
 			for _, r := range input {

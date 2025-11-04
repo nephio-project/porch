@@ -25,7 +25,7 @@ cd "${deployment_config_dir}"
 
 # add required db cache config to the porch server deployment
 kpt fn eval \
-  --image gcr.io/kpt-fn/starlark:v0.5.0 \
+  --image ghcr.io/kptdev/krm-functions-catalog/starlark:v0.5.0 \
   --match-kind Deployment \
   --match-name porch-server \
   --match-namespace porch-system \

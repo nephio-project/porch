@@ -245,20 +245,6 @@ const (
 	CopyMerge          PackageMergeStrategy = "copy-merge"
 )
 
-type PatchType string
-
-const (
-	PatchTypeCreateFile PatchType = "CreateFile"
-	PatchTypeDeleteFile PatchType = "DeleteFile"
-	PatchTypePatchFile  PatchType = "PatchFile"
-)
-
-type PatchSpec struct {
-	File      string    `json:"file,omitempty"`
-	Contents  string    `json:"contents,omitempty"`
-	PatchType PatchType `json:"patchType,omitempty"`
-}
-
 type PackageEditTaskSpec struct {
 	Source *PackageRevisionRef `json:"sourceRef,omitempty"`
 }
@@ -305,7 +291,7 @@ type SecretRef struct {
 	Name string `json:"name"`
 }
 
-// OciPackage describes a repository compatible with the Open Coutainer Registry standard.
+// OciPackage describes a repository compatible with the Open Container Registry standard.
 type OciPackage struct {
 	// Image is the address of an OCI image.
 	Image string `json:"image"`
@@ -338,7 +324,7 @@ type Selector struct {
 
 // The following types (UpstreamLock, OriginType, and GitLock) are duplicates from the kpt library.
 // We are repeating them here to avoid cyclic dependencies, but these duplicate type should be removed when
-// https://github.com/GoogleContainerTools/kpt/issues/3297 is resolved.
+// https://github.com/kptdev/kpt/issues/3297 is resolved.
 
 type OriginType string
 

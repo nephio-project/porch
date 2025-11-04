@@ -135,7 +135,7 @@
             "args": [
                 "--address=172.18.255.201:9445",
                 "--package=${workspaceFolder}/func/config/",
-                "--image=gcr.io/kpt-fn/set-namespace:v0.2.0",
+                "--image=ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.2.0",
                 "--",
                 "namespace=foo"
             ]

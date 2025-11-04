@@ -28,7 +28,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nephio-project/porch/api/generated/clientset/versioned"
+	"github.com/nephio-project/porch/api/porch/generated/client/clientset/versioned"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/prometheus/client_golang/prometheus/promhttp"

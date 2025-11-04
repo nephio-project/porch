@@ -50,7 +50,7 @@ else
   h1 Gitea LoadBalancer service does not exist. Mutating pkg...
  
   kpt fn eval \
-    --image gcr.io/kpt-fn/set-annotations:v0.1.4 \
+    --image ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1.4 \
     --match-kind Service \
     --match-name gitea \
     --match-namespace gitea \
@@ -67,7 +67,7 @@ metadata:
 EOF
  
   kpt fn eval \
-    --image gcr.io/kpt-fn/apply-replacements:v0.1.1 \
+    --image ghcr.io/kptdev/krm-functions-catalog/apply-replacements:v0.1.1 \
     --fn-config "${git_root}/deployments/local/replace-gitea-service-ports.yaml"
 fi
  

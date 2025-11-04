@@ -27,9 +27,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	clientset "github.com/nephio-project/porch/api/generated/clientset/versioned"
-	informers "github.com/nephio-project/porch/api/generated/informers/externalversions"
-	sampleopenapi "github.com/nephio-project/porch/api/generated/openapi"
+	clientset "github.com/nephio-project/porch/api/porch/generated/client/clientset/versioned"
+	informers "github.com/nephio-project/porch/api/porch/generated/client/informers/externalversions"
+	sampleopenapi "github.com/nephio-project/porch/api/porch/generated/openapi"
 	porchv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/apiserver"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
@@ -315,8 +315,8 @@ func (o PorchServerOptions) RunPorchServer(ctx context.Context) error {
 
 	if config.GenericConfig.SharedInformerFactory != nil {
 		server.GenericAPIServer.AddPostStartHookOrDie("start-sample-server-informers", func(context genericapiserver.PostStartHookContext) error {
-			config.GenericConfig.SharedInformerFactory.Start(context.StopCh)
-			o.SharedInformerFactory.Start(context.StopCh)
+			config.GenericConfig.SharedInformerFactory.Start(context.Done())
+			o.SharedInformerFactory.Start(context.Done())
 			return nil
 		})
 	}

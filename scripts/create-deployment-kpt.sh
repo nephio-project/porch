@@ -101,7 +101,7 @@ function validate() {
 
 
 function customize-pkg-images {
-	kpt fn eval "${DESTINATION}" --image gcr.io/kpt-fn/search-replace:v0.2.0 -- by-value-regex="${1}" put-value="${2}"
+	kpt fn eval "${DESTINATION}" --image ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.2.0 -- by-value-regex="${1}" put-value="${2}"
 }
 
 function deploy-gitea-dev-pkg {
@@ -133,7 +133,7 @@ function main() {
   rm -rf ${DESTINATION}/porch || true
   kpt pkg get https://github.com/nephio-project/catalog/tree/main/nephio/core/porch ${DESTINATION}
   kpt fn eval ${DESTINATION}/porch \
-    --image gcr.io/kpt-fn/starlark:v0.5.0 \
+    --image ghcr.io/kptdev/krm-functions-catalog/starlark:v0.5.0 \
     --match-kind Deployment \
     --match-name porch-controllers \
     --match-namespace porch-system \

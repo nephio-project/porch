@@ -63,10 +63,10 @@ metadata:
   name: app
 pipeline:
   mutators:
-    - image: gcr.io/kpt-fn/set-namespace:v0.4.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.4.1
       configMap:
         namespace: staging
-    - image: gcr.io/kpt-fn/set-labels:v0.1.5
+    - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1.5talog/set-labels:v0.1.5
       configMap:
         tier: backend`
 
@@ -141,10 +141,10 @@ metadata:
   name: app-with-db
 pipeline:
   mutators:
-    - image: gcr.io/kpt-fn/set-namespace:v0.4.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.4.1og/set-namespace:v0.4.1
       configMap:
         namespace: staging
-    - image: gcr.io/kpt-fn/set-labels:v0.1.5
+    - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1.5talog/set-labels:v0.1.5
       configMap:
         tier: db`
 
@@ -160,10 +160,10 @@ metadata:
   name: db
 pipeline:
   mutators:
-    - image: gcr.io/kpt-fn/set-namespace:v0.4.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.4.1og/set-namespace:v0.4.1
       configMap:
         namespace: db
-    - image: gcr.io/kpt-fn/set-labels:v0.1.5
+    - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1.5talog/set-labels:v0.1.5
       configMap:
         app: backend`
 

@@ -23,9 +23,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GoogleContainerTools/kpt/pkg/oci"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/google"
+	"github.com/kptdev/kpt/pkg/oci"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/pkg"

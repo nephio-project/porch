@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	gcrioPrefix    = "gcr.io/kpt-fn"
+	gcrioPrefix    = "ghcr.io/kptdev/krm-functions-catalog"
 	gcrioPrefixEnv = "PORCH_GCR_PREFIX_URL"
 )
 
