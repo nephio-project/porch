@@ -188,7 +188,7 @@ func TestValidateFunctionName(t *testing.T) {
 			true,
 		},
 		{
-			"ghcr.io/kptdev/krm-functions-catalog/generate-folders:v1.2.3generate-folders:v1.2.3-alpha1",
+			"ghcr.io/kptdev/krm-functions-catalog/generate-folders:v1.2.3-alpha1",
 			true,
 		},
 		{

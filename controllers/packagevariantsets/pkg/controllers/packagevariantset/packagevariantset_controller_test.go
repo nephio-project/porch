@@ -39,7 +39,6 @@ func TestConvertObjectToRNode(t *testing.T) {
 		input := `apiVersion: v1
 kind: Pod
 metadata:
-  creationTimestamp: null
   name: my-pod
 spec:
   containers: null
@@ -56,7 +55,6 @@ status: {}
 		input := `apiVersion: config.porch.kpt.dev/v1alpha1
 kind: Repository
 metadata:
-  creationTimestamp: null
   name: my-repo
 spec: {}
 status: {}

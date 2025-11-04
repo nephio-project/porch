@@ -131,7 +131,7 @@ spec:
     data:
       name: test
 `,
-			expectedErr: "spec.packageContext.data: Invalid value: map[string]string{\"name\":\"test\"}: must not contain the key \"name\"",
+			expectedErr: "spec.packageContext.data: Invalid value: {\"name\":\"test\"}: must not contain the key \"name\"",
 		},
 
 		"name in package context removeKeys": {
@@ -148,7 +148,7 @@ spec:
     removeKeys:
     - name
 `,
-			expectedErr: "spec.packageContext.removeKeys: Invalid value: []string{\"name\"}: must not contain the key \"name\"",
+			expectedErr: "spec.packageContext.removeKeys: Invalid value: [\"name\"]: must not contain the key \"name\"",
 		},
 
 		"package-path in package context data": {
@@ -165,7 +165,7 @@ spec:
     data:
       package-path: test
 `,
-			expectedErr: "spec.packageContext.data: Invalid value: map[string]string{\"package-path\":\"test\"}: must not contain the key \"package-path\"",
+			expectedErr: "spec.packageContext.data: Invalid value: {\"package-path\":\"test\"}: must not contain the key \"package-path\"",
 		},
 		"package-path in package context removeKeys": {
 			packageVariant: packageVariantHeader + `
@@ -181,7 +181,7 @@ spec:
     removeKeys:
     - package-path
 `,
-			expectedErr: "spec.packageContext.removeKeys: Invalid value: []string{\"package-path\"}: must not contain the key \"package-path\"",
+			expectedErr: "spec.packageContext.removeKeys: Invalid value: [\"package-path\"]: must not contain the key \"package-path\"",
 		},
 		"valid injectors": {
 			packageVariant: packageVariantHeader + `
@@ -393,7 +393,6 @@ items:
 			expected: []string{`apiVersion: porch.kpt.dev
 kind: PackageRevision
 metadata:
-  creationTimestamp: null
   name: my-pr
   ownerReferences:
   - apiVersion: config.porch.kpt.dev
@@ -461,7 +460,6 @@ items:
 			expected: []string{`apiVersion: porch.kpt.dev
 kind: PackageRevision
 metadata:
-  creationTimestamp: null
   name: my-pr
   ownerReferences:
   - apiVersion: config.porch.kpt.dev
@@ -478,7 +476,6 @@ status:
 `, `apiVersion: porch.kpt.dev
 kind: PackageRevision
 metadata:
-  creationTimestamp: null
   name: my-pr
   ownerReferences:
   - apiVersion: config.porch.kpt.dev
@@ -553,7 +550,6 @@ items:
 			expected: []string{`apiVersion: porch.kpt.dev
 kind: PackageRevision
 metadata:
-  creationTimestamp: null
   name: my-pr
   ownerReferences:
   - apiVersion: config.porch.kpt.dev
@@ -623,7 +619,6 @@ items:
 			expected: []string{`apiVersion: porch.kpt.dev
 kind: PackageRevision
 metadata:
-  creationTimestamp: null
   name: my-pr
   ownerReferences:
   - apiVersion: config.porch.kpt.dev
@@ -733,7 +728,6 @@ spec:
 			expectedPR: `apiVersion: porch.kpt.dev
 kind: PackageRevision
 metadata:
-  creationTimestamp: null
   name: my-pr
   ownerReferences:
   - apiVersion: config.porch.kpt.dev
@@ -769,7 +763,6 @@ status:
 			expectedPR: `apiVersion: porch.kpt.dev
 kind: PackageRevision
 metadata:
-  creationTimestamp: null
   name: my-pr
   ownerReferences:
   - apiVersion: config.porch.kpt.dev
@@ -873,7 +866,6 @@ items:
 			expected: []string{`apiVersion: porch.kpt.dev
 kind: PackageRevision
 metadata:
-  creationTimestamp: null
   name: my-pr-2
   ownerReferences:
   - apiVersion: config.porch.kpt.dev
@@ -924,7 +916,6 @@ items:
 			expected: []string{`apiVersion: porch.kpt.dev
 kind: PackageRevision
 metadata:
-  creationTimestamp: null
   name: my-pr-1
   ownerReferences:
   - apiVersion: config.porch.kpt.dev
@@ -1188,7 +1179,7 @@ spec:
             name: set-labels
             configMap:
               app: foo
-          - image: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1og/set-annotations:v0.1
+          - image: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1
             name: set-annotations`[1:],
 			pvPipeline: `
     mutators:
@@ -1204,22 +1195,22 @@ spec:
           image: ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.1alog/set-namespace:v0.1
           configMap:
             namespace: my-ns
-        - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1catalog/set-labels:v0.1
+        - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1
           name: set-labels
           configMap:
             app: foo
-        - image: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1og/set-annotations:v0.1
+        - image: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1
           name: set-annotations
 `[1:],
 		},
 		"add two mutators with existing": {
 			initialPipeline: `
         mutators:
-          - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1catalog/set-labels:v0.1
+          - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1
             name: set-labels
             configMap:
               app: foo
-          - image: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1og/set-annotations:v0.1
+          - image: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1
             name: set-annotations`[1:],
 			pvPipeline: `
     mutators:
@@ -1239,11 +1230,11 @@ spec:
             namespace: my-ns
         - name: PackageVariant.my-pv.format.1
           image: ghcr.io/kptdev/krm-functions-catalog/format:latest
-        - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1catalog/set-labels:v0.1
+        - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1
           name: set-labels
           configMap:
             app: foo
-        - image: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1og/set-annotations:v0.1
+        - image: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1
           name: set-annotations
 `[1:],
 		},
@@ -1268,34 +1259,34 @@ spec:
 		"add none with existing mutators": {
 			initialPipeline: `
         mutators:
-          - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1catalog/set-labels:v0.1
+          - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1
             name: set-labels
             configMap:
               app: foo
-          - image: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1og/set-annotations:v0.1
+          - image: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1
             name: set-annotations`[1:],
 			pvPipeline:  "",
 			expectedErr: "",
 			expectedPrr: prrBase + `
       pipeline:
         mutators:
-        - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1catalog/set-labels:v0.1
+        - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1
           name: set-labels
           configMap:
             app: foo
-        - image: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1og/set-annotations:v0.1
+        - image: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1
           name: set-annotations
 `[1:],
 		},
 		"add one mutator with existing with comments": {
 			initialPipeline: `
         mutators:
-          - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1catalog/set-labels:v0.1
+          - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1
             # this is a comment
             name: set-labels
             configMap:
               app: foo
-          - image: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1og/set-annotations:v0.1
+          - image: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1
             name: set-annotations`[1:],
 			pvPipeline: `
     mutators:
@@ -1311,12 +1302,12 @@ spec:
           image: ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.1alog/set-namespace:v0.1
           configMap:
             namespace: my-ns
-        - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1catalog/set-labels:v0.1
+        - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1
           # this is a comment
           name: set-labels
           configMap:
             app: foo
-        - image: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1og/set-annotations:v0.1
+        - image: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1
           name: set-annotations
 `[1:],
 		},
