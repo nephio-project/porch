@@ -15,7 +15,7 @@
 # Core configuration
 BUILDDIR=$(CURDIR)/.build
 CACHEDIR=$(CURDIR)/.cache
-PORCHDIR=$(abspath $(CURDIR))
+export PORCHDIR=$(abspath $(CURDIR))
 
 export DEPLOYPORCHCONFIGDIR ?= $(BUILDDIR)/deploy
 DEPLOYKPTCONFIGDIR=$(BUILDDIR)/kpt_pkgs
