@@ -71,7 +71,7 @@ func TestRender(t *testing.T) {
 				FileSystem: filesys.FileSystemOrOnDisk{},
 				Output:     &output,
 			}
-			r.RunnerOptions.InitDefaults(fnruntime.GCRImagePrefix)
+			r.RunnerOptions.InitDefaults(fnruntime.GHCRImagePrefix)
 
 			if _, err := r.Execute(fake.CtxWithDefaultPrinter()); err != nil {
 				t.Errorf("Render failed: %v", err)

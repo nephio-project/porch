@@ -106,7 +106,7 @@ spec:
 		FileSystem: fs,
 		Runtime:    &runtime{},
 	}
-	r.RunnerOptions.InitDefaults(fnruntime.GCRImagePrefix)
+	r.RunnerOptions.InitDefaults(fnruntime.GHCRImagePrefix)
 	r.RunnerOptions.ImagePullPolicy = fnruntime.IfNotPresentPull
 	_, err := r.Execute(fake.CtxWithDefaultPrinter())
 	if err != nil {
@@ -141,7 +141,7 @@ metadata:
   name: app-with-db
 pipeline:
   mutators:
-    - image: ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.4.1og/set-namespace:v0.4.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.4.1
       configMap:
         namespace: staging
     - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1.5
@@ -160,7 +160,7 @@ metadata:
   name: db
 pipeline:
   mutators:
-    - image: ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.4.1og/set-namespace:v0.4.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.4.1
       configMap:
         namespace: db
     - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1.5
@@ -220,7 +220,7 @@ spec:
 		FileSystem: fs,
 		Runtime:    &runtime{},
 	}
-	r.RunnerOptions.InitDefaults(fnruntime.GCRImagePrefix)
+	r.RunnerOptions.InitDefaults(fnruntime.GHCRImagePrefix)
 	r.RunnerOptions.ImagePullPolicy = fnruntime.IfNotPresentPull
 
 	_, err := r.Execute(fake.CtxWithDefaultPrinter())

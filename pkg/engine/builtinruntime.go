@@ -60,8 +60,8 @@ func newBuiltinRuntime(imagePrefix string) *builtinRuntime {
 	applyMappings := func(aliases []string, fn fnsdk.ResourceListProcessorFunc) {
 		for _, img := range aliases {
 			fnMap[img] = fn
-			fnMap[fnruntime.GCRImagePrefix+img] = fn
-			if imagePrefix != "" && imagePrefix != fnruntime.GCRImagePrefix {
+			fnMap[fnruntime.GHCRImagePrefix+img] = fn
+			if imagePrefix != "" && imagePrefix != fnruntime.GHCRImagePrefix {
 				fnMap[imagePrefix+"/"+img] = fn
 			}
 		}

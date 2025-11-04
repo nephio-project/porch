@@ -22,7 +22,7 @@ import (
 
 const (
 	gcrioPrefix    = "ghcr.io/kptdev/krm-functions-catalog"
-	gcrioPrefixEnv = "PORCH_GCR_PREFIX_URL"
+	gcrioPrefixEnv = "PORCH_GHCR_PREFIX_URL"
 )
 
 var (

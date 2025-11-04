@@ -226,7 +226,7 @@ func (c *Command) DefaultValues() error {
 	}
 
 	if len(c.DefaultKrmFunctionImagePrefix) == 0 {
-		c.DefaultKrmFunctionImagePrefix = fnruntime.GCRImagePrefix
+		c.DefaultKrmFunctionImagePrefix = fnruntime.GHCRImagePrefix
 	}
 
 	return nil
