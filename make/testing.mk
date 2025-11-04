@@ -1,4 +1,4 @@
-#  Copyright 2023, 2025 The Nephio Authors.
+#  Copyright 2025 The Nephio Authors.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -12,18 +12,19 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+# Testing tools and targets
+
 TEST_COVERAGE_FILE=coverage.out
 TEST_COVERAGE_HTML_FILE=coverage_unit.html
 TEST_COVERAGE_FUNC_FILE=func_coverage.out
 TEST_OUTPUT_LOG_FILE=test_output.log
 TMPDIR=/tmp/coverage
-GIT_ROOT_DIR ?= $(dir $(lastword $(MAKEFILE_LIST)))
-include $(GIT_ROOT_DIR)/detect-container-runtime.mk
 
-.PHONY: unit
+##@ Testing
+
+.PHONY: unit test
 unit: test
 
-.PHONY: test
 test: ## Run unit tests (go test)
 ifeq ($(CONTAINER_RUNNABLE), 0)
 	$(RUN_CONTAINER_COMMAND) -e CONTAINER_RUNNABLE golang:1.25.0-bookworm \
@@ -49,3 +50,26 @@ ifeq ($(CONTAINER_RUNNABLE), 0)
 		$(CONTAINER_RUNTIME) system prune -f
 endif
 		rm -f ${TEST_COVERAGE_FILE} ${TEST_COVERAGE_HTML_FILE} ${TEST_COVERAGE_FUNC_FILE} ${TEST_OUTPUT_LOG_FILE} > /dev/null 2>&1
+
+.PHONY: vulncheck
+vulncheck: build
+	# Scan the source
+	GOFLAGS= go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+.PHONY: test-e2e
+test-e2e: ## Run end-to-end tests
+	E2E=1 go test -v -failfast ./test/e2e
+
+.PHONY: test-e2e-cli
+test-e2e-cli: ## Run cli end-to-end tests
+test-e2e-cli: run-in-kind-no-git
+	E2E=1 go test -v -failfast ./test/e2e/cli
+
+.PHONY: test-e2e-cli-db-cache
+test-e2e-cli-db-cache: ## Run cli end-to-end tests with db-cache
+test-e2e-cli-db-cache: run-in-kind-db-cache-no-git
+	E2E=1 go test -v -failfast ./test/e2e/cli
+
+.PHONY: test-e2e-clean
+test-e2e-clean: porchctl ## Run end-to-end tests against a newly deployed porch in a newly created kind cluster
+	./scripts/clean-e2e-test.sh

@@ -1,4 +1,4 @@
-#  Copyright 2023-2024 The Nephio Authors.
+#  Copyright 2025 The Nephio Authors.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -12,11 +12,20 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-GOLANG_CI_VER ?= v2.4.0
-GIT_ROOT_DIR ?= $(dir $(lastword $(MAKEFILE_LIST)))
-include $(GIT_ROOT_DIR)/detect-container-runtime.mk
+# Core Go development tools
 
-# Install link at https://golangci-lint.run/usage/install/ if not running inside a container
+GOLANG_CI_VER ?= v2.4.0
+
+##@ Go Development
+
+.PHONY: fmt
+fmt: ## Run go fmt against the codebase
+	go fmt ./...
+
+.PHONY: vet
+vet: ## Run go vet against the codebase
+	go vet ./...
+
 .PHONY: lint
 lint: ## Run Go linter against the codebase
 ifeq ($(CONTAINER_RUNNABLE), 0)
@@ -25,3 +34,10 @@ ifeq ($(CONTAINER_RUNNABLE), 0)
 else
 	golangci-lint run ./... -v --timeout=10m --exclude-generated=true
 endif
+
+.PHONY: fix-headers
+fix-headers: ## Update license headers in source files
+	../scripts/update-license.sh
+
+.PHONY: fix-all
+fix-all: fix-headers fmt tidy ## Fix headers, format code, and tidy modules

@@ -16,14 +16,14 @@ IMAGE_TAG ?= latest
 IMAGE_REPO ?= docker.io/nephio
 IMAGE_NAME ?= hello-server
 
-# This includes the following targets:
-#   test, unit, unit-clean,
-#   gosec, lint,
-#   fmt, vet
-include ../../../default-go.mk
+# Go development, testing, and quality tools
+include ../../../make/go.mk
+include ../../../make/testing.mk
+include ../../../make/security.mk
+include ../../../make/mocks.mk
 
-# This includes the 'help' target that prints out all targets with their descriptions organized by categories
-include ../../../default-help.mk
+# Infrastructure tooling (help, container runtime)
+include ../../../make/infra.mk
 
 .PHONY: push-image docker-push
 push-image docker-push:
