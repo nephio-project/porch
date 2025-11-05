@@ -39,6 +39,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
+	discovery "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -1206,7 +1207,7 @@ func (pm *podManager) patchNewPodMetadata(pod *corev1.Pod, ttl time.Duration, po
 func (pm *podManager) getServiceUrlOnceEndpointActive(ctx context.Context, serviceKey client.ObjectKey, podKey client.ObjectKey) (string, error) {
 	var service corev1.Service
 	var pod corev1.Pod
-	var endpoint corev1.Endpoints
+	var endpointSlice discovery.EndpointSlice
 	var podReady = false
 
 	if e := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, pm.podReadyTimeout, true, func(ctx context.Context) (done bool, err error) {
@@ -1235,20 +1236,20 @@ func (pm *podManager) getServiceUrlOnceEndpointActive(ctx context.Context, servi
 		}
 
 		// Wait till the service has an active endpoint
-		if err := pm.kubeClient.Get(ctx, serviceKey, &endpoint); err != nil {
+		if err := pm.kubeClient.Get(ctx, serviceKey, &endpointSlice); err != nil {
 			return false, err
 		}
 
-		if len(endpoint.Subsets) == 0 || len(endpoint.Subsets[0].Addresses) == 0 {
+		if len(endpointSlice.Endpoints) == 0 || len(endpointSlice.Endpoints[0].Addresses) == 0 {
 			return false, nil
 		}
 
 		// Log warning if service has more than one endpoint; there should be just 1 function pod
-		if len(endpoint.Subsets[0].Addresses) != 1 {
-			klog.Warningf("Service %s/%s has more than one endpoint: %+v", serviceKey.Namespace, serviceKey.Name, endpoint.Subsets)
+		if len(endpointSlice.Endpoints[0].Addresses) != 1 {
+			klog.Warningf("Service %s/%s has more than one endpoint: %+v", serviceKey.Namespace, serviceKey.Name, endpointSlice.Endpoints)
 		}
 
-		endpointIP := endpoint.Subsets[0].Addresses[0].IP
+		endpointIP := endpointSlice.Endpoints[0].Addresses[0]
 		if podIP != endpointIP {
 			klog.Warningf("pod IP %s does not match service endpoint IP %s", podIP, endpointIP)
 			return false, fmt.Errorf("pod IP %s does not match service endpoint IP %s", podIP, endpointIP)

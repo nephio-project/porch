@@ -35,6 +35,7 @@ import (
 	"google.golang.org/grpc"
 	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
+	discovery "k8s.io/api/discovery/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -211,21 +212,19 @@ func TestPodManager(t *testing.T) {
 		},
 	}
 
-	defaultEndpointObject := &corev1.Endpoints{
+	defaultEndpointObject := &discovery.EndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      defaultEndpointName,
 			Namespace: defaultNamespace,
 		},
-		Subsets: []corev1.EndpointSubset{
+		Endpoints: []discovery.Endpoint{
 			{
-				Addresses: []corev1.EndpointAddress{
-					{
-						IP: defaultPodIP,
-						TargetRef: &corev1.ObjectReference{
-							Name:      defaultPodName,
-							Namespace: defaultNamespace,
-						},
-					},
+				Addresses: []string{
+					defaultPodIP,
+				},
+				TargetRef: &corev1.ObjectReference{
+					Name:      defaultPodName,
+					Namespace: defaultNamespace,
 				},
 			},
 		},

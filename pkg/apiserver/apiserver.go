@@ -307,5 +307,5 @@ func (s *PorchServer) Run(ctx context.Context) error {
 	} else {
 		klog.Infoln("Cert storage dir not provided, skipping webhook setup")
 	}
-	return s.GenericAPIServer.PrepareRun().Run(ctx.Done())
+	return s.GenericAPIServer.PrepareRun().RunWithContext(ctx)
 }
