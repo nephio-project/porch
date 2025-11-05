@@ -96,7 +96,7 @@ data:
     ghcr.io/kptdev/krm-functions-catalog/create-setters:v0.1.0: 30m
     ghcr.io/kptdev/krm-functions-catalog/ensure-name-substring:v0.2.0: 30m
     ghcr.io/kptdev/krm-functions-catalog/gatekeeper:v0.2.1: 30m
-    ghcr.io/kptdev/krm-functions-catalog/kubeval:v0.2.0: 30m
+    ghcr.io/kptdev/krm-functions-catalog/kubeconform:v0.2.0: 30m
     ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.2.0: 30m
     ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1.4: 30m
     ghcr.io/kptdev/krm-functions-catalog/set-enforcement-action:v0.1.0: 30m

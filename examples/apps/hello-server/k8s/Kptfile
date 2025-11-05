@@ -6,8 +6,8 @@ info:
   emails:
     - kpt-team@google.com
   description: This is an example package.
-# pipeline:
-#   validators:
-#     - image: ghcr.io/kptdev/krm-functions-catalog/kubeval:v0.1
-#       configMap:
-#         strict: "true"
+  pipeline:
+    validators:
+    - image: ghcr.io/kptdev/krm-functions-catalog/kubeconform:v0.1
+      configMap:
+        strict: "true"

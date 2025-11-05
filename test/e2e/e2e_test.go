@@ -2192,7 +2192,7 @@ func (t *PorchSuite) TestPodEvaluatorWithFailure() {
 		Name:      pr.Name,
 	}, resources)
 
-	t.AddMutator(resources, t.gcrPrefix+"/kubeval:v0.2.0")
+	t.AddMutator(resources, t.gcrPrefix+"/kubeconform:v0.1.1")
 
 	err := t.Client.Update(t.GetContext(), resources)
 	expectedErrMsg := "Validating arbitrary CRDs is not supported"

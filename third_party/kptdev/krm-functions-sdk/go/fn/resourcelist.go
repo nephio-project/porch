@@ -85,7 +85,7 @@ func ParseResourceList(in []byte) (*ResourceList, error) {
 	if rlObj.GetKind() != kio.ResourceListKind {
 		return nil, fmt.Errorf("input was of unexpected kind %q; expected ResourceList", rlObj.GetKind())
 	}
-	// Parse FunctionConfig. FunctionConfig can be empty, e.g. `kubeval` fn does not require a FunctionConfig.
+	// Parse FunctionConfig. FunctionConfig can be empty, e.g. `kubeconform` fn does not require a FunctionConfig.
 	fc, found, err := rlObj.obj.GetNestedMap("functionConfig")
 	if err != nil {
 		return nil, fmt.Errorf("failed when tried to get functionConfig: %w", err)
