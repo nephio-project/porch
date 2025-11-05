@@ -17,7 +17,7 @@ FROM ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.1.1 AS apply-setters-
 FROM ghcr.io/kptdev/krm-functions-catalog/ensure-name-substring:v0.1.1 AS ensure-name-substring
 FROM ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.2.0 AS search-replace
 FROM ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1.4 AS set-annotations
-FROM ghcr.io/kptdev/krm-functions-catalog/set-image:v0.1.0 AS set-image
+FROM ghcr.io/kptdev/krm-functions-catalog/set-image:v0.1.2 AS set-image
 FROM ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1.5 AS set-labels
 FROM ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.2.0 AS set-namespace
 FROM ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.3.4 AS set-namespace-v3
