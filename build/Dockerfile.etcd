@@ -19,7 +19,7 @@ ARG ETCD_VER=v3.5.21
 RUN curl -L https://github.com/etcd-io/etcd/releases/download/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz \
   | tar --strip-components 1 -xvz "etcd-${ETCD_VER}-linux-amd64/etcd"
 
-FROM gcr.io/distroless/static
+FROM scratch
 WORKDIR /data
 COPY --from=builder /workspace/etcd /etcd
 

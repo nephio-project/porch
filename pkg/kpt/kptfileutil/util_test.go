@@ -1241,9 +1241,9 @@ metadata:
 pipeline:
   mutators:
   - name: z-upstream
-    image: z-gcr.io/kpt/gen-folders
+    image: z-ghcr.io/kptdev/krm-functions-catalog/gen-folders
   - name: a-upstream
-    image: a-gcr.io/kpt/gen-folders
+    image: a-ghcr.io/kptdev/krm-functions-catalog/gen-folders
 `,
 			local: `
 apiVersion: kpt.dev/v1
@@ -1253,9 +1253,9 @@ metadata:
 pipeline:
   mutators:
   - name: x-local
-    image: x-gcr.io/kpt/gen-folders
+    image: x-ghcr.io/kptdev/krm-functions-catalog/gen-folders
   - name: b-local
-    image: b-gcr.io/kpt/gen-folders
+    image: b-ghcr.io/kptdev/krm-functions-catalog/gen-folders
 `,
 			expected: `
 apiVersion: kpt.dev/v1
@@ -1264,13 +1264,13 @@ metadata:
   name: pipeline
 pipeline:
   mutators:
-  - image: x-gcr.io/kpt/gen-folders
+  - image: x-ghcr.io/kptdev/krm-functions-catalog/gen-folders
     name: x-local
-  - image: b-gcr.io/kpt/gen-folders
+  - image: b-ghcr.io/kptdev/krm-functions-catalog/gen-folders
     name: b-local
-  - image: z-gcr.io/kpt/gen-folders
+  - image: z-ghcr.io/kptdev/krm-functions-catalog/gen-folders
     name: z-upstream
-  - image: a-gcr.io/kpt/gen-folders
+  - image: a-ghcr.io/kptdev/krm-functions-catalog/gen-folders
     name: a-upstream
 `,
 		},
