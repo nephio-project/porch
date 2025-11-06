@@ -22,7 +22,7 @@ COPY *.go .
 
 RUN CGO_ENABLED=0 go build -o /hello-server -v .
 
-FROM scratch
+FROM alpine
 WORKDIR /
 COPY --from=builder /hello-server /hello-server
 

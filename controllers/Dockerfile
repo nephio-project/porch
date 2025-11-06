@@ -47,7 +47,7 @@ COPY ./func ./func
 WORKDIR /go/src/controllers/
 RUN CGO_ENABLED=0 go build -o /porch-controllers -v .
 
-FROM scratch
+FROM alpine
 WORKDIR /data
 COPY --from=builder /porch-controllers /porch-controllers
 
