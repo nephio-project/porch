@@ -1995,7 +1995,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 	}
 
 	generateFolderImage := t.gcrPrefix + "/generate-folders:v0.1.1" // This function is a TS based function.
-	setAnnotationsImage := t.gcrPrefix + "/set-annotations:v0.1.3"  // set-annotations:v0.1.3 is an older version that porch maps neither to built-in nor exec.
+	setAnnotationsImage := t.gcrPrefix + "/set-annotations:v0.1.5"  // set-annotations:v0.1.5 is an older version that porch maps neither to built-in nor exec.
 
 	// Register the repository as 'git-fn'
 	t.RegisterMainGitRepositoryF("git-fn-pod")
@@ -2272,7 +2272,7 @@ func (t *PorchSuite) TestFailedPodEvictionAndRecovery() {
 func (t *PorchSuite) TestLargePackageRevision() {
 	const testDataSize = 5 * 1024 * 1024
 
-	setAnnotationsImage := t.gcrPrefix + "/set-annotations:v0.1.3" // set-annotations:v0.1.3 is an older version that porch maps neither to built-in nor exec.
+	setAnnotationsImage := t.gcrPrefix + "/set-annotations:v0.1.5" // set-annotations:v0.1.5 is an older version that porch maps neither to built-in nor exec.
 
 	t.RegisterMainGitRepositoryF("git-fn-pod-large")
 
