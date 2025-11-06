@@ -1973,7 +1973,7 @@ metadata:
 data:
   name: bucket-namespace
 `
-	t.AddMutator(resources, t.gcrPrefix+"-demo/set-namespace:v0.1.0")
+	t.AddMutator(resources, t.gcrPrefix+"/set-namespace:v0.4.2")
 	t.UpdateF(resources)
 
 	bucket, ok := resources.Spec.Resources["bucket.yaml"]
