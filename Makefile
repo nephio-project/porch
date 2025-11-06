@@ -49,6 +49,7 @@ ifndef IMAGE_TAG
   IMAGE_TAG=$(USER)-$(git_tag)
 endif
 
+PORCH_TEST_SLEEP_FN_IMAGE ?= docker.io/nephio/sleep-fn:latest
 PORCH_SERVER_IMAGE ?= porch-server
 PORCH_FUNCTION_RUNNER_IMAGE ?= porch-function-runner
 PORCH_CONTROLLERS_IMAGE ?= porch-controllers
@@ -57,7 +58,9 @@ TEST_GIT_SERVER_IMAGE ?= test-git-server
 SKIP_IMG_BUILD ?= false
 SKIP_PORCHSERVER_BUILD ?= false
 SKIP_CONTROLLER_BUILD ?= false
+SKIP_FUNCTION_RUNNER_BUILD ?= false
 SKIP_LOCAL_GIT ?= false
+SKIP_SLEEP_MUTATOR ?= false
 
 # Only enable a subset of reconcilers in porch controllers by default. Use the RECONCILERS
 # env variable to specify a specific list of reconcilers or use
@@ -324,11 +327,12 @@ ifeq ($(SKIP_IMG_BUILD), false)
 	else \
 		echo "Skipping building and loading $(IMAGE_REPO)/$(TEST_GIT_SERVER_IMAGE):${IMAGE_TAG}"; \
 	fi
-	@if ! docker exec "${KIND_CONTEXT_NAME}-control-plane" crictl images | grep -q "$(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE)  *${IMAGE_TAG} " ; then \
+	@if [ "$(SKIP_FUNCTION_RUNNER_BUILD)" = "false" ]; then \
 		echo "Building $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):${IMAGE_TAG}" ; \
 		IMAGE_NAME="$(PORCH_FUNCTION_RUNNER_IMAGE)" WRAPPER_SERVER_IMAGE_NAME="$(PORCH_WRAPPER_SERVER_IMAGE)" make -C func/ build-image && \
 		kind load docker-image $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} && \
-		kind load docker-image $(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} ; \
+		kind load docker-image $(IMAGE_REPO)/$(PORCH_WRAPPER_SERVER_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} && \
+		kubectl delete deployment -n porch-system --ignore-not-found=true function-runner ; \
 	else \
 		echo "Skipping building $(IMAGE_REPO)/$(PORCH_FUNCTION_RUNNER_IMAGE):${IMAGE_TAG} as it is already loaded into kind" ; \
 	fi
@@ -344,6 +348,13 @@ ifeq ($(SKIP_IMG_BUILD), false)
 		IMAGE_NAME="$(PORCH_CONTROLLERS_IMAGE)" make -C controllers/ build-image && \
 		kind load docker-image $(IMAGE_REPO)/$(PORCH_CONTROLLERS_IMAGE):${IMAGE_TAG} -n ${KIND_CONTEXT_NAME} && \
 		kubectl delete deployment -n porch-system --ignore-not-found=true porch-controllers ; \
+	fi
+	@if [ "$(SKIP_SLEEP_MUTATOR)" = "false" ] && ! docker exec "${KIND_CONTEXT_NAME}-control-plane" crictl images | grep -q "$(PORCH_TEST_SLEEP_FN_IMAGE)"; then \
+		echo "Building $(PORCH_TEST_SLEEP_FN_IMAGE)"; \
+		PORCH_TEST_SLEEP_FN_IMAGE="$(PORCH_TEST_SLEEP_FN_IMAGE)" make -C test/ build-sleep-image && \
+		kind load docker-image $(PORCH_TEST_SLEEP_FN_IMAGE) -n ${KIND_CONTEXT_NAME}; \
+	else \
+		echo "Skipping building and loading $(PORCH_TEST_SLEEP_FN_IMAGE)"; \
 	fi
 
 else
