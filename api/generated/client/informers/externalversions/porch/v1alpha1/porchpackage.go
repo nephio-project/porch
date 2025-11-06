@@ -20,9 +20,9 @@ import (
 	context "context"
 	time "time"
 
-	versioned "github.com/nephio-project/porch/api/porch/generated/client/clientset/versioned"
-	internalinterfaces "github.com/nephio-project/porch/api/porch/generated/client/informers/externalversions/internalinterfaces"
-	porchv1alpha1 "github.com/nephio-project/porch/api/porch/generated/client/listers/porch/v1alpha1"
+	versioned "github.com/nephio-project/porch/api/generated/client/clientset/versioned"
+	internalinterfaces "github.com/nephio-project/porch/api/generated/client/informers/externalversions/internalinterfaces"
+	porchv1alpha1 "github.com/nephio-project/porch/api/generated/client/listers/porch/v1alpha1"
 	apiporchv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -30,71 +30,71 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// PackageRevisionInformer provides access to a shared informer and lister for
-// PackageRevisions.
-type PackageRevisionInformer interface {
+// PorchPackageInformer provides access to a shared informer and lister for
+// PorchPackages.
+type PorchPackageInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() porchv1alpha1.PackageRevisionLister
+	Lister() porchv1alpha1.PorchPackageLister
 }
 
-type packageRevisionInformer struct {
+type porchPackageInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 	namespace        string
 }
 
-// NewPackageRevisionInformer constructs a new informer for PackageRevision type.
+// NewPorchPackageInformer constructs a new informer for PorchPackage type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewPackageRevisionInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredPackageRevisionInformer(client, namespace, resyncPeriod, indexers, nil)
+func NewPorchPackageInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredPorchPackageInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredPackageRevisionInformer constructs a new informer for PackageRevision type.
+// NewFilteredPorchPackageInformer constructs a new informer for PorchPackage type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredPackageRevisionInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredPorchPackageInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PorchV1alpha1().PackageRevisions(namespace).List(context.Background(), options)
+				return client.PorchV1alpha1().PorchPackages(namespace).List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PorchV1alpha1().PackageRevisions(namespace).Watch(context.Background(), options)
+				return client.PorchV1alpha1().PorchPackages(namespace).Watch(context.Background(), options)
 			},
 			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PorchV1alpha1().PackageRevisions(namespace).List(ctx, options)
+				return client.PorchV1alpha1().PorchPackages(namespace).List(ctx, options)
 			},
 			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PorchV1alpha1().PackageRevisions(namespace).Watch(ctx, options)
+				return client.PorchV1alpha1().PorchPackages(namespace).Watch(ctx, options)
 			},
 		},
-		&apiporchv1alpha1.PackageRevision{},
+		&apiporchv1alpha1.PorchPackage{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *packageRevisionInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredPackageRevisionInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *porchPackageInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredPorchPackageInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *packageRevisionInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apiporchv1alpha1.PackageRevision{}, f.defaultInformer)
+func (f *porchPackageInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&apiporchv1alpha1.PorchPackage{}, f.defaultInformer)
 }
 
-func (f *packageRevisionInformer) Lister() porchv1alpha1.PackageRevisionLister {
-	return porchv1alpha1.NewPackageRevisionLister(f.Informer().GetIndexer())
+func (f *porchPackageInformer) Lister() porchv1alpha1.PorchPackageLister {
+	return porchv1alpha1.NewPorchPackageLister(f.Informer().GetIndexer())
 }

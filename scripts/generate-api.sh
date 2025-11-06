@@ -29,7 +29,7 @@ HERE=$(dirname "$($READLINK --canonicalize "$BASH_SOURCE")")
 ROOT=$($READLINK --canonicalize "$HERE/..")
 
 PORCH_API_DIR=$ROOT/api
-PORCH_API_GENERATED_DIR=$ROOT/api/porch/generated
+PORCH_API_GENERATED_DIR=$ROOT/api/generated
 
 BOILERPLATE=$HERE/boilerplate.go.txt
 OPENAPI_REPORT=$ROOT/gen_openapi.report
@@ -66,7 +66,7 @@ echo 'gen_openapi...'
 kube::codegen::gen_openapi \
 	"$PORCH_API_DIR" \
 	--output-dir "$PORCH_API_GENERATED_DIR/openapi" \
-	--output-pkg "github.com/nephio-project/porch/api/porch/generated/client" \
+	--output-pkg "github.com/nephio-project/porch/api/generated/client" \
 	--boilerplate "$BOILERPLATE" \
 	--report-filename "$OPENAPI_REPORT" \
 	--update-report
@@ -77,7 +77,7 @@ kube::codegen::gen_client \
 	"$PORCH_API_DIR" \
 	--output-dir "$PORCH_API_GENERATED_DIR/client" \
 	--with-watch \
-	--output-pkg "github.com/nephio-project/porch/api/porch/generated/client" \
+	--output-pkg "github.com/nephio-project/porch/api/generated/client" \
 	--plural-exceptions "PackageRevisionResources:PackageRevisionResources" \
 	--boilerplate "$BOILERPLATE"
 

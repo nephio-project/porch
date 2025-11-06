@@ -19,7 +19,7 @@ package fake
 import (
 	context "context"
 
-	porchv1alpha1 "github.com/nephio-project/porch/api/porch/generated/client/clientset/versioned/typed/porch/v1alpha1"
+	porchv1alpha1 "github.com/nephio-project/porch/api/generated/client/clientset/versioned/typed/porch/v1alpha1"
 	v1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gentype "k8s.io/client-go/gentype"

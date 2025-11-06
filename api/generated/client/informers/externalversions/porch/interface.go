@@ -17,8 +17,8 @@
 package porch
 
 import (
-	internalinterfaces "github.com/nephio-project/porch/api/porch/generated/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/nephio-project/porch/api/porch/generated/client/informers/externalversions/porch/v1alpha1"
+	internalinterfaces "github.com/nephio-project/porch/api/generated/client/informers/externalversions/internalinterfaces"
+	v1alpha1 "github.com/nephio-project/porch/api/generated/client/informers/externalversions/porch/v1alpha1"
 )
 
 // Interface provides access to each of this group's versions.

@@ -27,9 +27,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	clientset "github.com/nephio-project/porch/api/porch/generated/client/clientset/versioned"
-	informers "github.com/nephio-project/porch/api/porch/generated/client/informers/externalversions"
-	sampleopenapi "github.com/nephio-project/porch/api/porch/generated/openapi"
+	clientset "github.com/nephio-project/porch/api/generated/client/clientset/versioned"
+	informers "github.com/nephio-project/porch/api/generated/client/informers/externalversions"
+	sampleopenapi "github.com/nephio-project/porch/api/generated/openapi"
 	porchv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/apiserver"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"

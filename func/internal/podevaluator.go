@@ -39,7 +39,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
-	discovery "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -64,7 +63,7 @@ const (
 	fieldManagerName          = "krm-function-runner"
 	functionContainerName     = "function"
 	defaultManagerNamespace   = "porch-system"
-	defaultRegistry           = "ghcr.io/kptdev/krm-functions-catalog/"
+	defaultRegistry           = "gcr.io/kpt-fn/"
 	serviceDnsNameSuffix      = ".svc.cluster.local"
 	channelBufferSize         = 128
 )
@@ -1207,7 +1206,7 @@ func (pm *podManager) patchNewPodMetadata(pod *corev1.Pod, ttl time.Duration, po
 func (pm *podManager) getServiceUrlOnceEndpointActive(ctx context.Context, serviceKey client.ObjectKey, podKey client.ObjectKey) (string, error) {
 	var service corev1.Service
 	var pod corev1.Pod
-	var endpointSlice discovery.EndpointSlice
+	var endpoint corev1.Endpoints
 	var podReady = false
 
 	if e := wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, pm.podReadyTimeout, true, func(ctx context.Context) (done bool, err error) {
@@ -1236,20 +1235,20 @@ func (pm *podManager) getServiceUrlOnceEndpointActive(ctx context.Context, servi
 		}
 
 		// Wait till the service has an active endpoint
-		if err := pm.kubeClient.Get(ctx, serviceKey, &endpointSlice); err != nil {
+		if err := pm.kubeClient.Get(ctx, serviceKey, &endpoint); err != nil {
 			return false, err
 		}
 
-		if len(endpointSlice.Endpoints) == 0 || len(endpointSlice.Endpoints[0].Addresses) == 0 {
+		if len(endpoint.Subsets) == 0 || len(endpoint.Subsets[0].Addresses) == 0 {
 			return false, nil
 		}
 
 		// Log warning if service has more than one endpoint; there should be just 1 function pod
-		if len(endpointSlice.Endpoints[0].Addresses) != 1 {
-			klog.Warningf("Service %s/%s has more than one endpoint: %+v", serviceKey.Namespace, serviceKey.Name, endpointSlice.Endpoints)
+		if len(endpoint.Subsets[0].Addresses) != 1 {
+			klog.Warningf("Service %s/%s has more than one endpoint: %+v", serviceKey.Namespace, serviceKey.Name, endpoint.Subsets)
 		}
 
-		endpointIP := endpointSlice.Endpoints[0].Addresses[0]
+		endpointIP := endpoint.Subsets[0].Addresses[0].IP
 		if podIP != endpointIP {
 			klog.Warningf("pod IP %s does not match service endpoint IP %s", podIP, endpointIP)
 			return false, fmt.Errorf("pod IP %s does not match service endpoint IP %s", podIP, endpointIP)
@@ -1281,7 +1280,7 @@ func podID(image, hash string) (string, error) {
 		return "", fmt.Errorf("unable to parse image reference %v: %w", image, err)
 	}
 
-	// repoName will be something like ghcr.io/kptdev/krm-functions-catalog/set-namespace
+	// repoName will be something like gcr.io/kpt-fn/set-namespace
 	repoName := ref.Context().Name()
 	parts := strings.Split(repoName, "/")
 	name := strings.ReplaceAll(parts[len(parts)-1], "_", "-")

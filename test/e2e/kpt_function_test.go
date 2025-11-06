@@ -100,14 +100,14 @@ func (t *PorchSuite) TestApplySetters() {
 	testCases := map[string]struct {
 		image string
 	}{
-		"apply-setter:v0.1": {
-			image: t.gcrPrefix + "/apply-setters:v0.1",
-		},
 		"apply-setter:v0.1.1": {
 			image: t.gcrPrefix + "/apply-setters:v0.1.1",
 		},
-		"apply-setter:v0.2.0": {
-			image: t.gcrPrefix + "/apply-setters:v0.2.0",
+		"apply-setter:v0.2": {
+			image: t.gcrPrefix + "/apply-setters:v0.2",
+		},
+		"apply-setter:v0.2.2": {
+			image: t.gcrPrefix + "/apply-setters:v0.2.2",
 		},
 	}
 

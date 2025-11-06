@@ -30,7 +30,6 @@ import (
 	"k8s.io/klog/v2"
 
 	corev1 "k8s.io/api/core/v1"
-	discovery "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -99,19 +98,21 @@ func TestPodCacheManager(t *testing.T) {
 		},
 	}
 
-	defaultEndpointObject := &discovery.EndpointSlice{
+	defaultEndpointObject := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      defaultEndpointName,
 			Namespace: defaultNamespace,
 		},
-		Endpoints: []discovery.Endpoint{
+		Subsets: []corev1.EndpointSubset{
 			{
-				Addresses: []string{
-					defaultPodIP,
-				},
-				TargetRef: &corev1.ObjectReference{
-					Name:      defaultPodName,
-					Namespace: defaultNamespace,
+				Addresses: []corev1.EndpointAddress{
+					{
+						IP: defaultPodIP,
+						TargetRef: &corev1.ObjectReference{
+							Name:      defaultPodName,
+							Namespace: defaultNamespace,
+						},
+					},
 				},
 			},
 		},
