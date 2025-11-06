@@ -35,4 +35,4 @@ kpt fn eval \
 cp "${git_root}/deployments/local/postgres/postgres-statefulset.yaml" 3-porch-postgres-statefulset.yaml
 
 # create the configmap to hold the db schema
-kubectl create configmap -n porch-system porch-schema --from-file="${git_root}/api/sql/porch-db.sql" --dry-run=client -o yaml > 3-porch-postgres-schema-configmap.yaml
+kubectl create configmap -n porch-system porch-schema --from-file="${git_root}/api/sql/porch-db.sql" --dry-run=client -o yaml | cat > 3-porch-postgres-schema-configmap.yaml
