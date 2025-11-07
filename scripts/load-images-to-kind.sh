@@ -30,7 +30,7 @@ if [ "${SKIP_IMG_BUILD}" = "false" ]; then
     # Build and load test-git-server if needed
     if [ "${SKIP_LOCAL_GIT}" = "false" ] && ! docker exec "${KIND_CONTEXT_NAME}-control-plane" crictl images | grep -q "${IMAGE_REPO}/${TEST_GIT_SERVER_IMAGE}  *${IMAGE_TAG}"; then
         echo "Building ${IMAGE_REPO}/${TEST_GIT_SERVER_IMAGE}:${IMAGE_TAG}"
-        IMAGE_NAME="${TEST_GIT_SERVER_IMAGE}" make -C test/ build-image
+        IMAGE_NAME="${TEST_GIT_SERVER_IMAGE}" IMAGE_REPO="${IMAGE_REPO}" IMAGE_TAG="${IMAGE_TAG}" make -C test/ build-image
         kind load docker-image ${IMAGE_REPO}/${TEST_GIT_SERVER_IMAGE}:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
     else
         echo "Skipping building and loading ${IMAGE_REPO}/${TEST_GIT_SERVER_IMAGE}:${IMAGE_TAG}"
@@ -39,7 +39,7 @@ if [ "${SKIP_IMG_BUILD}" = "false" ]; then
     # Build and load function runner if needed
     if ! docker exec "${KIND_CONTEXT_NAME}-control-plane" crictl images | grep -q "${IMAGE_REPO}/${PORCH_FUNCTION_RUNNER_IMAGE}  *${IMAGE_TAG} "; then
         echo "Building ${IMAGE_REPO}/${PORCH_FUNCTION_RUNNER_IMAGE}:${IMAGE_TAG}"
-        IMAGE_NAME="${PORCH_FUNCTION_RUNNER_IMAGE}" WRAPPER_SERVER_IMAGE_NAME="${PORCH_WRAPPER_SERVER_IMAGE}" make -C func/ build-image
+        IMAGE_NAME="${PORCH_FUNCTION_RUNNER_IMAGE}" WRAPPER_SERVER_IMAGE_NAME="${PORCH_WRAPPER_SERVER_IMAGE}" IMAGE_REPO="${IMAGE_REPO}" IMAGE_TAG="${IMAGE_TAG}" make -C func/ build-image
         kind load docker-image ${IMAGE_REPO}/${PORCH_FUNCTION_RUNNER_IMAGE}:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
         kind load docker-image ${IMAGE_REPO}/${PORCH_WRAPPER_SERVER_IMAGE}:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
     else
@@ -57,7 +57,7 @@ if [ "${SKIP_IMG_BUILD}" = "false" ]; then
     # Build and load controllers if needed
     if [ "${SKIP_CONTROLLER_BUILD}" = "false" ]; then
         echo "Building ${IMAGE_REPO}/${PORCH_CONTROLLERS_IMAGE}:${IMAGE_TAG}"
-        IMAGE_NAME="${PORCH_CONTROLLERS_IMAGE}" make -C controllers/ build-image
+        IMAGE_NAME="${PORCH_CONTROLLERS_IMAGE}" IMAGE_REPO="${IMAGE_REPO}" IMAGE_TAG="${IMAGE_TAG}" make -C controllers/ build-image
         kind load docker-image ${IMAGE_REPO}/${PORCH_CONTROLLERS_IMAGE}:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
         kubectl delete deployment -n porch-system --ignore-not-found=true porch-controllers
     fi
