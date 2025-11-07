@@ -1973,7 +1973,7 @@ metadata:
 data:
   name: bucket-namespace
 `
-	t.AddMutator(resources, t.gcrPrefix+"/set-namespace:v0.2.0")
+	t.AddMutator(resources, t.gcrPrefix+"/set-namespace:v0.4.1", WithConfigPath("configmap.yaml"))
 	t.UpdateF(resources)
 
 	bucket, ok := resources.Spec.Resources["bucket.yaml"]
@@ -2195,9 +2195,8 @@ func (t *PorchSuite) TestPodEvaluatorWithFailure() {
 	t.AddMutator(resources, t.gcrPrefix+"/kubeconform:v0.1.1")
 
 	err := t.Client.Update(t.GetContext(), resources)
-	expectedErrMsg := "Validating arbitrary CRDs is not supported"
-	if err == nil || !strings.Contains(err.Error(), expectedErrMsg) {
-		t.Fatalf("expected the error to contain %q, but got %v", expectedErrMsg, err)
+	if err != nil {
+		t.Fatalf("expected no error but got %v", err)
 	}
 }
 
