@@ -1,4 +1,18 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# Copyright 2025 The kpt and Nephio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # Local development environment management
 
 set -e
@@ -85,7 +99,10 @@ run_porch() {
 
 start_jaeger() {
     echo "Starting jaeger..."
-    docker run --rm --name jaeger -d -p4317:55680 -p6831:6831/udp -p16686:16686 \
+    docker stop jaeger 2>/dev/null || true
+    docker rm jaeger 2>/dev/null || true
+    docker run --network=porch --name jaeger -d \
+      -p 4317:4317 -p 6831:6831/udp -p 16686:16686 \
       jaegertracing/opentelemetry-all-in-one:latest
 }
 
