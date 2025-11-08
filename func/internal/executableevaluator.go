@@ -95,7 +95,7 @@ func (e *executableEvaluator) EvaluateFunction(ctx context.Context, req *pb.Eval
 
 	klog.Infof("Evaluating %q in executable mode", req.Image)
 	var stdout, stderr bytes.Buffer
-	cmd := exec.CommandContext(ctx, binary)// #nosec G204 -- variables controlled internally
+	cmd := exec.CommandContext(ctx, binary) // #nosec G204 -- variables controlled internally
 	cmd.Stdin = bytes.NewReader(req.ResourceList)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

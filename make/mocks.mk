@@ -12,12 +12,13 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+# Mock generation tools
 
 MOCKERY_VERSION=3.5.5
-GIT_ROOT_DIR ?= $(dir $(lastword $(MAKEFILE_LIST)))
 OS_ARCH ?= $(shell uname -m)
 OS ?= $(shell uname)
-include $(GIT_ROOT_DIR)/detect-container-runtime.mk
+
+##@ Mocking
 
 .PHONY: install-mockery
 install-mockery:
