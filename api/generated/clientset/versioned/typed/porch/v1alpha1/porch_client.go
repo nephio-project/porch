@@ -19,7 +19,7 @@ package v1alpha1
 import (
 	http "net/http"
 
-	scheme "github.com/nephio-project/porch/api/generated/client/clientset/versioned/scheme"
+	scheme "github.com/nephio-project/porch/api/generated/clientset/versioned/scheme"
 	porchv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	rest "k8s.io/client-go/rest"
 )

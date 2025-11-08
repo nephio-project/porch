@@ -66,7 +66,7 @@ echo 'gen_openapi...'
 kube::codegen::gen_openapi \
 	"$PORCH_API_DIR" \
 	--output-dir "$PORCH_API_GENERATED_DIR/openapi" \
-	--output-pkg "github.com/nephio-project/porch/api/generated/client" \
+	--output-pkg "github.com/nephio-project/porch/api/generated" \
 	--boilerplate "$BOILERPLATE" \
 	--report-filename "$OPENAPI_REPORT" \
 	--update-report
@@ -75,9 +75,9 @@ echo 'gen_client...'
 
 kube::codegen::gen_client \
 	"$PORCH_API_DIR" \
-	--output-dir "$PORCH_API_GENERATED_DIR/client" \
+	--output-dir "$PORCH_API_GENERATED_DIR" \
 	--with-watch \
-	--output-pkg "github.com/nephio-project/porch/api/generated/client" \
+	--output-pkg "github.com/nephio-project/porch/api/generated" \
 	--plural-exceptions "PackageRevisionResources:PackageRevisionResources" \
 	--boilerplate "$BOILERPLATE"
 

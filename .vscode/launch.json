@@ -50,7 +50,7 @@
                 "--secure-port=4443",
                 "--kubeconfig=${env:KUBECONFIG}",
                 "--cache-directory=${workspaceFolder}/.cache",
-                "--function-runner=172.18.255.201:9445",
+                "--function-runner=${env:FUNCTION_RUNNER_IP}:9445",
                 "--repo-sync-frequency=60s",
                 "--cache-type=db",
             ],
@@ -135,7 +135,7 @@
             "args": [
                 "--address=172.18.255.201:9445",
                 "--package=${workspaceFolder}/func/config/",
-                "--image=ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.2.0",
+                "--image=gcr.io/kpt-fn/set-namespace:v0.2.0",
                 "--",
                 "namespace=foo"
             ]
