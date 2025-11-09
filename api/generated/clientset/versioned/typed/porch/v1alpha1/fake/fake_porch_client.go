@@ -27,15 +27,15 @@ type FakePorchV1alpha1 struct {
 }
 
 func (c *FakePorchV1alpha1) PackageRevisions(namespace string) v1alpha1.PackageRevisionInterface {
-	return &FakePackageRevisions{c, namespace}
+	return newFakePackageRevisions(c, namespace)
 }
 
 func (c *FakePorchV1alpha1) PackageRevisionResources(namespace string) v1alpha1.PackageRevisionResourcesInterface {
-	return &FakePackageRevisionResources{c, namespace}
+	return newFakePackageRevisionResources(c, namespace)
 }
 
 func (c *FakePorchV1alpha1) PorchPackages(namespace string) v1alpha1.PorchPackageInterface {
-	return &FakePorchPackages{c, namespace}
+	return newFakePorchPackages(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

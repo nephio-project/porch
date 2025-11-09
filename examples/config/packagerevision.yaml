@@ -26,6 +26,6 @@ spec:
       upstreamRef:
         type: git
         git:
-          repo: https://github.com/GoogleContainerTools/kpt
+          repo: https://github.com/kptdev/kpt
           ref: v0.7
           directory: package-examples/wordpress

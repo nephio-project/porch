@@ -20,7 +20,7 @@ import (
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
-	fnsdk "github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
+	fnsdk "github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

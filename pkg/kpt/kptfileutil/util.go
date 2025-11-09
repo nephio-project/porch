@@ -225,7 +225,7 @@ func UpdateUpstreamLockFromGit(path string, spec *git.RepoSpec) error {
 }
 
 // merge merges the Kptfiles from various sources and updates localKf with output
-// please refer to https://github.com/GoogleContainerTools/kpt/blob/main/docs/design-docs/03-pipeline-merge.md
+// please refer to https://github.com/kptdev/kptblob/main/docs/design-docs/03-pipeline-merge.md
 // for related design
 func merge(localKf, updatedKf, originalKf *kptfilev1.KptFile) error {
 	shouldAddSyntheticMergeName := shouldAddFnKey(localKf, updatedKf, originalKf)

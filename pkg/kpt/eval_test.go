@@ -51,7 +51,7 @@ func ReadResourceList(t *testing.T, pkgdir string, config *yaml.RNode) []byte {
 func TestSetLabels(t *testing.T) {
 	r := &runtime{}
 	runner, err := r.GetRunner(context.Background(), &v1.Function{
-		Image: "gcr.io/kpt-fn/set-labels:v0.1.5",
+		Image: "ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1.5",
 	})
 	if err != nil {
 		t.Errorf("GetRunner failed: %v", err)

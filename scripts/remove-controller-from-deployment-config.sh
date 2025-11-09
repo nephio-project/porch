@@ -26,7 +26,7 @@ cd "${deployment_config_dir}"
 
 # remove porch-controllers Deployment from package
 kpt fn eval \
-  --image gcr.io/kpt-fn/starlark:v0.5.0 \
+  --image ghcr.io/kptdev/krm-functions-catalog/starlark:v0.5.0 \
   --match-kind Deployment \
   --match-name porch-controllers \
   --match-namespace porch-system \

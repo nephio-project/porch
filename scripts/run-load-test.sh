@@ -137,9 +137,9 @@ info:
 
 pipeline:
   mutators:
-    - image: gcr.io/kpt-fn/apply-replacements:v0.1.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/apply-replacements:v0.1.1
       configPath: apply-replacements-annotation1.yaml
-    - image: gcr.io/kpt-fn/apply-replacements:v0.1.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/apply-replacements:v0.1.1
       configPath: apply-replacements-annotation2.yaml
 EOF
 

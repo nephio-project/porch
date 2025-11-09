@@ -49,7 +49,7 @@ const (
 	defaultGCPHierarchyRef    = "783380ce4e6c3f21e9e90055b3a88bada0410154"
 	defaultKptFunctionRef     = "spanner-blueprint-v0.3.2"
 	defaultKPTRepo            = "https://github.com/kptdev/kpt.git"
-	defaultGCRPrefix          = "gcr.io/kpt-fn"
+	defaultGHCRPrefix         = "ghcr.io/kptdev/krm-functions-catalog"
 
 	// Optional environment variables which can be set to replace defaults when running e2e tests behind a proxy or firewall.
 	// Environment variables can be loaded from a .env file - refer to .env.template
@@ -69,7 +69,7 @@ const (
 	kptRepoUserEnv     = "PORCH_KPT_REPO_USER"
 	kptRepoPasswordEnv = "PORCH_KPT_REPO_PASSWORD"
 
-	gcrPrefixEnv = "PORCH_GCR_PREFIX_URL"
+	gcrPrefixEnv = "PORCH_GHCR_PREFIX_URL"
 )
 
 type TestSuiteWithGit struct {
@@ -95,7 +95,7 @@ func (t *TestSuiteWithGit) SetupEnvvars() {
 	t.gcpRedisBucketRef = defaultGCPRedisBucketRef
 	t.gcpHierarchyRef = defaultGCPHierarchyRef
 	t.kptRepo = defaultKPTRepo
-	t.gcrPrefix = defaultGCRPrefix
+	t.gcrPrefix = defaultGHCRPrefix
 	t.kptFunctionRef = defaultKptFunctionRef
 
 	if e := os.Getenv(testBlueprintsRepoUrlEnv); e != "" {

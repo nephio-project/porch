@@ -37,11 +37,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apimachinery/pkg/version"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/component-base/compatibility"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -108,14 +108,11 @@ type CompletedConfig struct {
 
 // Complete fills in any fields not set that are required to have valid data. It's mutating the receiver.
 func (cfg *Config) Complete() CompletedConfig {
+	cfg.GenericConfig.EffectiveVersion = compatibility.NewEffectiveVersionFromString("1.0", "1.0", "1.0")
+
 	c := completedConfig{
 		cfg.GenericConfig.Complete(),
 		&cfg.ExtraConfig,
-	}
-
-	c.GenericConfig.Version = &version.Info{
-		Major: "1",
-		Minor: "0",
 	}
 
 	return CompletedConfig{&c}
@@ -310,5 +307,5 @@ func (s *PorchServer) Run(ctx context.Context) error {
 	} else {
 		klog.Infoln("Cert storage dir not provided, skipping webhook setup")
 	}
-	return s.GenericAPIServer.PrepareRun().Run(ctx.Done())
+	return s.GenericAPIServer.PrepareRun().RunWithContext(ctx)
 }

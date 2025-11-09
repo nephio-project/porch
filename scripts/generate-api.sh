@@ -28,16 +28,13 @@ HERE=$(dirname "$($READLINK --canonicalize "$BASH_SOURCE")")
 
 ROOT=$($READLINK --canonicalize "$HERE/..")
 
-ORG=github.com/nephio-project
-REPO=$ORG/porch
-API_PKG=$REPO/api
-INPUT_PKG=$API_PKG/porch
-CLIENT_PKG=$API_PKG/generated
+PORCH_API_DIR=$ROOT/api
+PORCH_API_GENERATED_DIR=$ROOT/api/generated
 
 BOILERPLATE=$HERE/boilerplate.go.txt
 OPENAPI_REPORT=$ROOT/gen_openapi.report
 
-KUBERNETES_VERSION=0.29.8
+KUBERNETES_VERSION=0.34.1
 go get "k8s.io/code-generator@v$KUBERNETES_VERSION"
 CODE_GENERATOR=$(go list -f '{{.Dir}}' -m "k8s.io/code-generator@v$KUBERNETES_VERSION")
 . "${CODE_GENERATOR}/kube_codegen.sh"
@@ -55,14 +52,10 @@ function goodbye () {
 	old_goodbye $1
 }
 
-mkdir -p "$WORK/$ORG"
-ln -s "$ROOT" "$WORK/$REPO"
-
 echo 'gen_helpers...'
 
 kube::codegen::gen_helpers \
-	--output-base "$WORK" \
-	--input-pkg-root "$INPUT_PKG" \
+	"$PORCH_API_DIR" \
 	--boilerplate "$BOILERPLATE" \
 	--extra-peer-dir "k8s.io/apimachinery/pkg/apis/meta/v1" \
 	--extra-peer-dir "k8s.io/apimachinery/pkg/runtime" \
@@ -70,32 +63,24 @@ kube::codegen::gen_helpers \
 
 echo 'gen_openapi...'
 
-rm -fr "$CLIENT_PKG/openapi"
-
-# Note: lots of validation errors from Kubernetes meta package; can be ignored
 kube::codegen::gen_openapi \
-	--output-base "$WORK" \
-	--input-pkg-root "$API_PKG" \
-	--output-pkg-root "$CLIENT_PKG" \
+	"$PORCH_API_DIR" \
+	--output-dir "$PORCH_API_GENERATED_DIR/openapi" \
+	--output-pkg "github.com/nephio-project/porch/api/generated" \
 	--boilerplate "$BOILERPLATE" \
 	--report-filename "$OPENAPI_REPORT" \
 	--update-report
 
 echo 'gen_client...'
 
-. "${HERE}/kube_code_gen.sh"
-
 kube::codegen::gen_client \
-	--output-base "$WORK" \
+	"$PORCH_API_DIR" \
+	--output-dir "$PORCH_API_GENERATED_DIR" \
 	--with-watch \
-	--input-pkg-root "$API_PKG" \
-	--one-input-api "porch" \
-	--output-pkg-root "$CLIENT_PKG" \
+	--output-pkg "github.com/nephio-project/porch/api/generated" \
 	--plural-exceptions "PackageRevisionResources:PackageRevisionResources" \
 	--boilerplate "$BOILERPLATE"
 
-go get "k8s.io/kube-aggregator@v0.30.3"
-go get "sigs.k8s.io/controller-runtime@v0.18.5"
 # Our "go get" added dependencies that we don't need
 cd "$ROOT"
 go mod tidy

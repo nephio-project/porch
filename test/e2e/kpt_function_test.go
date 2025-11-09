@@ -21,7 +21,7 @@ import (
 
 	"github.com/google/uuid"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
+	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -100,14 +100,14 @@ func (t *PorchSuite) TestApplySetters() {
 	testCases := map[string]struct {
 		image string
 	}{
-		"apply-setter:v0.1": {
-			image: t.gcrPrefix + "/apply-setters:v0.1",
-		},
 		"apply-setter:v0.1.1": {
 			image: t.gcrPrefix + "/apply-setters:v0.1.1",
 		},
-		"apply-setter:v0.2.0": {
-			image: t.gcrPrefix + "/apply-setters:v0.2.0",
+		"apply-setter:v0.2": {
+			image: t.gcrPrefix + "/apply-setters:v0.2",
+		},
+		"apply-setter:v0.2.2": {
+			image: t.gcrPrefix + "/apply-setters:v0.2.2",
 		},
 	}
 

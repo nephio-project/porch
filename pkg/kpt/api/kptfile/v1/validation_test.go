@@ -48,7 +48,7 @@ func TestKptfileValidate(t *testing.T) {
 							Image: "patch-strategic-merge",
 						},
 						{
-							Image: "gcr.io/kpt-fn/set-annotations:v0.1",
+							Image: "ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1",
 							ConfigMap: map[string]string{
 								"environment": "dev",
 							},
@@ -56,7 +56,7 @@ func TestKptfileValidate(t *testing.T) {
 					},
 					Validators: []Function{
 						{
-							Image: "gcr.io/kpt-fn/gatekeeper",
+							Image: "ghcr.io/kptdev/krm-functions-catalog/gatekeeper",
 						},
 					},
 				},
@@ -172,7 +172,7 @@ func TestValidateFunctionName(t *testing.T) {
 	}
 	inputs := []input{
 		{
-			"gcr.io/kpt-fn/generate-folders",
+			"ghcr.io/kptdev/krm-functions-catalog/generate-folders",
 			true,
 		},
 		{
@@ -180,7 +180,7 @@ func TestValidateFunctionName(t *testing.T) {
 			true,
 		},
 		{
-			"gcr.io/kpt-fn/generate-folders:unstable",
+			"ghcr.io/kptdev/krm-functions-catalog/generate-folders:latest",
 			true,
 		},
 		{
@@ -188,7 +188,7 @@ func TestValidateFunctionName(t *testing.T) {
 			true,
 		},
 		{
-			"gcr.io/kpt-fn/generate-folders:v1.2.3-alpha1",
+			"ghcr.io/kptdev/krm-functions-catalog/generate-folders:v1.2.3-alpha1",
 			true,
 		},
 		{
