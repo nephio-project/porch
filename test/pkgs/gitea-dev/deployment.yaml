@@ -164,12 +164,13 @@ spec:
             timeoutSeconds: 1
           readinessProbe:
             failureThreshold: 3
-            initialDelaySeconds: 5
+            initialDelaySeconds: 30
             periodSeconds: 10
             successThreshold: 1
-            tcpSocket:
+            httpGet:
+              path: /api/v1/version
               port: http
-            timeoutSeconds: 1
+            timeoutSeconds: 5
           resources: {}
           securityContext: {}
           volumeMounts:
