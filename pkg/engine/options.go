@@ -127,3 +127,10 @@ func WithWatcherManager(watcherManager *watcherManager) EngineOption {
 		return nil
 	})
 }
+
+func WithRepoOperationRetryAttempts(retryAttempts int) EngineOption {
+	return EngineOptionFunc(func(engine *cadEngine) error {
+		engine.taskHandler.SetRepoOperationRetryAttempts(retryAttempts)
+		return nil
+	})
+}

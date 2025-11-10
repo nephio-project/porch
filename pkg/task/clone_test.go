@@ -243,8 +243,9 @@ func TestCloneGitBasicAuth(t *testing.T) {
 				},
 			},
 		},
-		namespace: "test-namespace",
-		name:      "test-configmap",
+		namespace:                  "test-namespace",
+		name:                       "test-configmap",
+		repoOperationRetryAttempts: 3,
 		credentialResolver: &credentialResolver{
 			username: "",
 			password: "",
@@ -257,6 +258,7 @@ func TestCloneGitBasicAuth(t *testing.T) {
 	}
 
 	cpm.credentialResolver = auth
+	cpm.repoOperationRetryAttempts = 3
 
 	r, _, err := cpm.apply(context.Background(), repository.PackageResources{})
 	if err != nil {

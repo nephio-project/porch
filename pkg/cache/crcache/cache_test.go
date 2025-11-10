@@ -279,9 +279,10 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 				LocalDirectory:         t.TempDir(),
 				UseUserDefinedCaBundle: true,
 				CredentialResolver:     &fakecache.CredentialResolver{},
+				RepoOperationRetryAttempts: 3,
 			},
 			CoreClient:           fakeClient,
-			RepoCrSyncFrequency:  60 * time.Second,
+			RepoSyncFrequency:    60 * time.Second,
 			RepoPRChangeNotifier: &fakecache.ObjectNotifier{},
 		}}
 	cachedRepo, err := cache.OpenRepository(ctx, apiRepo)

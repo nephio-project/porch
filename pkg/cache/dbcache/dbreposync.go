@@ -52,7 +52,7 @@ func newRepositorySync(repo *dbRepository, options cachetypes.CacheOptions) *rep
 	}
 
 	s.syncManager = sync.NewSyncManager(&s, options.CoreClient)
-	s.syncManager.Start(ctx, options.RepoCrSyncFrequency)
+	s.syncManager.Start(ctx, options.RepoSyncFrequency)
 	return &s
 }
 

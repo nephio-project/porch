@@ -212,8 +212,8 @@ func (t *DbTestSuite) TestDBRepositoryCrud() {
 	fakeClient := NewFakeClientWithStatus(scheme, repositorySpec)
 
 	options := cachetypes.CacheOptions{
-		RepoCrSyncFrequency: 60 * time.Minute,
-		CoreClient:          fakeClient,
+		RepoSyncFrequency: 60 * time.Minute,
+		CoreClient:        fakeClient,
 	}
 	dbCache, err := new(DBCacheFactory).NewCache(ctx, options)
 	t.NoError(err)

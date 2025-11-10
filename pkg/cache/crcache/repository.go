@@ -76,7 +76,7 @@ func newRepository(repoKey repository.RepositoryKey, repoSpec *configapi.Reposit
 	// TODO: Should we fetch the packages here?
 
 	r.syncManager = sync.NewSyncManager(r, options.CoreClient)
-	r.syncManager.Start(ctx, options.RepoCrSyncFrequency)
+	r.syncManager.Start(ctx, options.RepoSyncFrequency)
 
 	return r
 }
@@ -527,8 +527,6 @@ func (r *cachedRepository) SyncOnce(ctx context.Context) error {
 func (r *cachedRepository) GetSpec() *configapi.Repository {
 	return r.repoSpec
 }
-
-
 
 func (r *cachedRepository) flush() {
 	r.mutex.Lock()

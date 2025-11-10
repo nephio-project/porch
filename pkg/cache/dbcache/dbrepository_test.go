@@ -183,8 +183,8 @@ func (t *DbTestSuite) TestDBRepositorySync() {
 	}
 	fakeClient := k8sfake.NewClientBuilder().WithScheme(scheme).WithObjects(repoObj).Build()
 	cacheOptions := cachetypes.CacheOptions{
-		RepoCrSyncFrequency: 2 * time.Second,
-		CoreClient:          fakeClient,
+		RepoSyncFrequency: 2 * time.Second,
+		CoreClient:        fakeClient,
 	}
 
 	testRepo.repositorySync = newRepositorySync(testRepo, cacheOptions)

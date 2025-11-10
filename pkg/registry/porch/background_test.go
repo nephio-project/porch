@@ -34,8 +34,8 @@ func TestBackgroundOptions(t *testing.T) {
 	}{
 		{
 			name:     "With periodic repo sync frequency",
-			options:  []BackgroundOption{WithPeriodicRepoCrSyncFrequency(5 * time.Second)},
-			expected: background{periodicRepoCrSyncFrequency: 5 * time.Second},
+			options:  []BackgroundOption{WithPeriodicRepoSyncFrequency(5 * time.Second)},
+			expected: background{periodicRepoSyncFrequency: 5 * time.Second},
 		},
 		{
 			name:     "With list timeout per repo",
@@ -45,11 +45,11 @@ func TestBackgroundOptions(t *testing.T) {
 		{
 			name: "With multiple options",
 			options: []BackgroundOption{
-				WithPeriodicRepoCrSyncFrequency(5 * time.Second),
+				WithPeriodicRepoSyncFrequency(5 * time.Second),
 				WithListTimeoutPerRepo(10 * time.Second),
 			},
 			expected: background{
-				periodicRepoCrSyncFrequency: 5 * time.Second,
+				periodicRepoSyncFrequency: 5 * time.Second,
 				listTimeoutPerRepo:          10 * time.Second,
 			},
 		},
@@ -61,7 +61,7 @@ func TestBackgroundOptions(t *testing.T) {
 			for _, o := range tt.options {
 				o.apply(b)
 			}
-			assert.Equal(t, tt.expected.periodicRepoCrSyncFrequency, b.periodicRepoCrSyncFrequency)
+			assert.Equal(t, tt.expected.periodicRepoSyncFrequency, b.periodicRepoSyncFrequency)
 			assert.Equal(t, tt.expected.listTimeoutPerRepo, b.listTimeoutPerRepo)
 		})
 	}
@@ -189,9 +189,10 @@ func TestBackgroundHandleRepositoryEvent(t *testing.T) {
 			mockRepo := &mockrepo.MockRepository{}
 
 			b := &background{
-				coreClient:         mockClient,
-				cache:              mockCache,
-				listTimeoutPerRepo: 1 * time.Second,
+				coreClient:                 mockClient,
+				cache:                      mockCache,
+				listTimeoutPerRepo:         1 * time.Second,
+				repoOperationRetryAttempts: 3,
 			}
 
 			var repository *configapi.Repository
@@ -287,8 +288,9 @@ func TestBackgroundRunOnce(t *testing.T) {
 			mockRepo := &mockrepo.MockRepository{}
 
 			b := &background{
-				coreClient: mockClient,
-				cache:      mockCache,
+				coreClient:                 mockClient,
+				cache:                      mockCache,
+				repoOperationRetryAttempts: 3,
 			}
 
 			tt.setupMocks(mockClient, mockResourceWriter, mockCache, mockRepo)
@@ -498,8 +500,9 @@ func TestBackgroundCacheRepository(t *testing.T) {
 			}
 
 			b := &background{
-				coreClient: mockClient,
-				cache:      mockCache,
+				coreClient:                 mockClient,
+				cache:                      mockCache,
+				repoOperationRetryAttempts: 3,
 			}
 
 			repository := tt.setupRepo()

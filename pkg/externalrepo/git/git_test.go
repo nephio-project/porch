@@ -43,6 +43,15 @@ import (
 
 const k8sAdmin = "kubernetes-admin"
 
+// testGitRepositoryOptions returns GitRepositoryOptions with default retry attempts for tests
+func testGitRepositoryOptions() GitRepositoryOptions {
+	return GitRepositoryOptions{
+		ExternalRepoOptions: extrepo.ExternalRepoOptions{
+			RepoOperationRetryAttempts: 3,
+		},
+	}
+}
+
 func TestMain(m *testing.M) {
 	klog.InitFlags(nil)
 	flag.Parse()
@@ -98,15 +107,19 @@ func (g GitSuite) TestOpenEmptyRepository(t *testing.T) {
 		Directory: "/",
 	}
 
-	if _, err := OpenRepository(ctx, name, namespace, repository, deployment, tempdir, GitRepositoryOptions{}); err == nil {
+	if _, err := OpenRepository(ctx, name, namespace, repository, deployment, tempdir, testGitRepositoryOptions()); err == nil {
 		t.Errorf("Unexpectedly succeeded opening empty repository with main branch validation enabled.")
 	}
 
-	if _, err := OpenRepository(ctx, name, namespace, repository, deployment, tempdir, GitRepositoryOptions{MainBranchStrategy: SkipVerification}); err != nil {
+	opts := testGitRepositoryOptions()
+	opts.MainBranchStrategy = SkipVerification
+	if _, err := OpenRepository(ctx, name, namespace, repository, deployment, tempdir, opts); err != nil {
 		t.Errorf("Failed to open empty git repository with main branch validation disabled: %v", err)
 	}
 
-	if _, err := OpenRepository(ctx, name, namespace, repository, deployment, tempdir, GitRepositoryOptions{MainBranchStrategy: CreateIfMissing}); err != nil {
+	opts = testGitRepositoryOptions()
+	opts.MainBranchStrategy = CreateIfMissing
+	if _, err := OpenRepository(ctx, name, namespace, repository, deployment, tempdir, opts); err != nil {
 		t.Errorf("Failed to create new main branch: %v", err)
 	}
 	_, err := repo.Reference(BranchName(g.branch).RefInRemote(), false)
@@ -133,7 +146,7 @@ func (g GitSuite) TestOpenRepositoryBadBranchName(t *testing.T) {
 		Directory: "/",
 	}
 
-	if _, err := OpenRepository(ctx, name, namespace, repository, deployment, tempdir, GitRepositoryOptions{}); err == nil {
+	if _, err := OpenRepository(ctx, name, namespace, repository, deployment, tempdir, testGitRepositoryOptions()); err == nil {
 		t.Errorf("Unexpectedly succeeded opening repository with a bad branch name.")
 	}
 }
@@ -166,7 +179,7 @@ func (g GitSuite) TestGitPackageRoundTrip(t *testing.T) {
 	}
 
 	root := filepath.Join(tempdir, "work")
-	repo, err := OpenRepository(ctx, repositoryName, namespace, spec, deployment, root, GitRepositoryOptions{})
+	repo, err := OpenRepository(ctx, repositoryName, namespace, spec, deployment, root, testGitRepositoryOptions())
 	if err != nil {
 		t.Fatalf("failed to open repository: %v", err)
 	}
@@ -408,7 +421,7 @@ func (g GitSuite) TestListPackagesTrivial(t *testing.T) {
 		Branch:    g.branch,
 		Directory: "/",
 		SecretRef: configapi.SecretRef{},
-	}, deployment, tempdir, GitRepositoryOptions{})
+	}, deployment, tempdir, testGitRepositoryOptions())
 	if err != nil {
 		t.Fatalf("Failed to open Git repository loaded from %q: %v", tarfile, err)
 	}
@@ -496,7 +509,7 @@ func (g GitSuite) TestCreatePackageInTrivialRepository(t *testing.T) {
 		Branch:    g.branch,
 		Directory: "/",
 		SecretRef: configapi.SecretRef{},
-	}, deployment, tempdir, GitRepositoryOptions{})
+	}, deployment, tempdir, testGitRepositoryOptions())
 	if err != nil {
 		t.Fatalf("Failed to open Git repository loaded from %q: %v", tarfile, err)
 	}
@@ -572,7 +585,7 @@ func (g GitSuite) TestListPackagesSimple(t *testing.T) {
 		Branch:    g.branch,
 		Directory: "/",
 		SecretRef: configapi.SecretRef{},
-	}, deployment, tempdir, GitRepositoryOptions{})
+	}, deployment, tempdir, testGitRepositoryOptions())
 	if err != nil {
 		t.Fatalf("Failed to open Git repository loaded from %q: %v", tarfile, err)
 	}
@@ -637,7 +650,7 @@ func (g GitSuite) TestListPackagesDrafts(t *testing.T) {
 		Branch:    g.branch,
 		Directory: "/",
 		SecretRef: configapi.SecretRef{},
-	}, deployment, tempdir, GitRepositoryOptions{})
+	}, deployment, tempdir, testGitRepositoryOptions())
 	if err != nil {
 		t.Fatalf("Failed to open Git repository loaded from %q: %v", tarfile, err)
 	}
@@ -704,7 +717,7 @@ func (g GitSuite) TestApproveDraft(t *testing.T) {
 		Repo:      address,
 		Branch:    g.branch,
 		Directory: "/",
-	}, deployment, tempdir, GitRepositoryOptions{})
+	}, deployment, tempdir, testGitRepositoryOptions())
 	if err != nil {
 		t.Fatalf("Failed to open Git repository loaded from %q: %v", tarfile, err)
 	}
@@ -771,7 +784,7 @@ func (g GitSuite) TestApproveDraftWithHistory(t *testing.T) {
 		Repo:      address,
 		Branch:    g.branch,
 		Directory: "/",
-	}, deployment, tempdir, GitRepositoryOptions{})
+	}, deployment, tempdir, testGitRepositoryOptions())
 	if err != nil {
 		t.Fatalf("Failed to open Git repository loaded from %q: %v", tarfile, err)
 	}
@@ -842,7 +855,7 @@ func (g GitSuite) TestDeletePackages(t *testing.T) {
 	git, err := OpenRepository(ctx, repositoryName, namespace, &configapi.GitRepository{
 		Repo:   address,
 		Branch: g.branch,
-	}, deployment, tempdir, GitRepositoryOptions{})
+	}, deployment, tempdir, testGitRepositoryOptions())
 	if err != nil {
 		t.Fatalf("OpenRepository(%q) failed: %v", address, err)
 	}
@@ -974,7 +987,7 @@ func (g GitSuite) TestRefreshRepo(t *testing.T) {
 	ctx := context.Background()
 	git, err := OpenRepository(ctx, repositoryName, namespace, &configapi.GitRepository{
 		Repo: address,
-	}, deployment, downstreamDir, GitRepositoryOptions{})
+	}, deployment, downstreamDir, testGitRepositoryOptions())
 	if err != nil {
 		t.Fatalf("OpenRepository(%q) failed: %v", address, err)
 	}
@@ -1066,7 +1079,7 @@ func (g GitSuite) TestPruneRemotes(t *testing.T) {
 	git, err := OpenRepository(ctx, name, namespace, &configapi.GitRepository{
 		Repo:   address,
 		Branch: g.branch,
-	}, deployment, tempdir, GitRepositoryOptions{})
+	}, deployment, tempdir, testGitRepositoryOptions())
 	if err != nil {
 		t.Fatalf("OpenRepository(%q) failed: %v", address, err)
 	}
@@ -1129,7 +1142,7 @@ func (g GitSuite) TestNested(t *testing.T) {
 		Repo:      address,
 		Branch:    g.branch,
 		Directory: "/",
-	}, deployment, tempdir, GitRepositoryOptions{})
+	}, deployment, tempdir, testGitRepositoryOptions())
 	if err != nil {
 		t.Fatalf("Failed to open Git repository loaded from %q: %v", tarfile, err)
 	}
@@ -1259,7 +1272,7 @@ func (g GitSuite) TestNestedDirectories(t *testing.T) {
 				Repo:      address,
 				Branch:    g.branch,
 				Directory: tc.directory,
-			}, deployment, tempdir, GitRepositoryOptions{})
+			}, deployment, tempdir, testGitRepositoryOptions())
 			if err != nil {
 				t.Fatalf("Failed to open Git repository loaded from %q with directory %q: %v", tarfile, tc.directory, err)
 			}
@@ -1334,7 +1347,7 @@ func (g GitSuite) TestAuthor(t *testing.T) {
 			git, err := OpenRepository(ctx, repositoryName, namespace, &configapi.GitRepository{
 				Repo:   address,
 				Branch: g.branch,
-			}, deployment, tempdir, GitRepositoryOptions{})
+			}, deployment, tempdir, testGitRepositoryOptions())
 			if err != nil {
 				t.Fatalf("Failed to open Git repository loaded from %q: %v", tarfile, err)
 			}
@@ -1388,7 +1401,7 @@ func TestDiscoverManuallyTaggedPackageWithTagMessage(t *testing.T) {
 
 	git, err := OpenRepository(ctx, repositoryName, namespace, &configapi.GitRepository{
 		Repo: address,
-	}, deployment, tempdir, GitRepositoryOptions{})
+	}, deployment, tempdir, testGitRepositoryOptions())
 	if err != nil {
 		t.Fatalf("Failed to open Git repository loaded from %q: %v", tarfile, err)
 	}
@@ -1433,7 +1446,7 @@ func TestDiscoverWithBadKptAnnotationFromNestedRepository(t *testing.T) {
 	git, err := OpenRepository(ctx, repositoryName, namespace, &configapi.GitRepository{
 		Repo:      address,
 		Directory: directory,
-	}, deployment, tempdir, GitRepositoryOptions{})
+	}, deployment, tempdir, testGitRepositoryOptions())
 	if err != nil {
 		t.Fatalf("Failed to open Git repository loaded from %q and directory %q: %v", tarfile, directory, err)
 	}
@@ -1485,7 +1498,7 @@ func TestDiscoverWithBadKptAnnotationFromNestedRepositoryFromUnrelatedSubReposit
 	git, err := OpenRepository(ctx, repositoryName, namespace, &configapi.GitRepository{
 		Repo:      address,
 		Directory: directory,
-	}, deployment, tempdir, GitRepositoryOptions{})
+	}, deployment, tempdir, testGitRepositoryOptions())
 	if err != nil {
 		t.Fatalf("Failed to open Git repository loaded from %q and directory %q: %v", tarfile, directory, err)
 	}
@@ -1627,7 +1640,8 @@ func TestCommitAuthor(t *testing.T) {
 				localpath,
 				GitRepositoryOptions{
 					ExternalRepoOptions: extrepo.ExternalRepoOptions{
-						UserInfoProvider: makeUserInfoProvider(repoSpec, &mockK8sUsp{}),
+						UserInfoProvider:           makeUserInfoProvider(repoSpec, &mockK8sUsp{}),
+						RepoOperationRetryAttempts: 3,
 					},
 				},
 			)
@@ -1709,7 +1723,8 @@ func TestMultipleCommitAuthors(t *testing.T) {
 		localpath1,
 		GitRepositoryOptions{
 			ExternalRepoOptions: extrepo.ExternalRepoOptions{
-				UserInfoProvider: makeUserInfoProvider(repoSpec1, &mockK8sUsp{}),
+				UserInfoProvider:           makeUserInfoProvider(repoSpec1, &mockK8sUsp{}),
+				RepoOperationRetryAttempts: 3,
 			},
 		},
 	)
@@ -1732,7 +1747,8 @@ func TestMultipleCommitAuthors(t *testing.T) {
 		localpath2,
 		GitRepositoryOptions{
 			ExternalRepoOptions: extrepo.ExternalRepoOptions{
-				UserInfoProvider: makeUserInfoProvider(repoSpec2, &mockK8sUsp{}),
+				UserInfoProvider:           makeUserInfoProvider(repoSpec2, &mockK8sUsp{}),
+				RepoOperationRetryAttempts: 3,
 			},
 		},
 	)
@@ -1827,7 +1843,7 @@ func TestApproveOnManuallyMovedMain(t *testing.T) {
 
 	ctx := context.Background()
 
-	localRepo, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, GitRepositoryOptions{})
+	localRepo, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, testGitRepositoryOptions())
 	if err != nil {
 		t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
 	}
@@ -1917,7 +1933,7 @@ func TestDeleteOnManuallyMovedTag(t *testing.T) {
 
 	ctx := context.Background()
 
-	localRepo, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, GitRepositoryOptions{})
+	localRepo, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, testGitRepositoryOptions())
 	if err != nil {
 		t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
 	}
@@ -2054,7 +2070,7 @@ func TestDeleteManuallyMovedNonApproved(t *testing.T) {
 
 	ctx := context.Background()
 
-	localRepo, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, GitRepositoryOptions{})
+	localRepo, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, testGitRepositoryOptions())
 	if err != nil {
 		t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
 	}
@@ -2131,7 +2147,7 @@ func TestDeleteOnManuallyMovedMainBranch(t *testing.T) {
 
 	ctx := context.Background()
 
-	localRepo, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, GitRepositoryOptions{})
+	localRepo, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, testGitRepositoryOptions())
 	if err != nil {
 		t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
 	}

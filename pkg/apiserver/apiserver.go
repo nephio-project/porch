@@ -89,11 +89,12 @@ type Config struct {
 
 // PorchServer contains state for a Kubernetes cluster master/api server.
 type PorchServer struct {
-	GenericAPIServer            *genericapiserver.GenericAPIServer
-	coreClient                  client.WithWatch
-	cache                       cachetypes.Cache
-	periodicRepoCrSyncFrequency time.Duration
-	ListTimeoutPerRepository    time.Duration
+	GenericAPIServer          *genericapiserver.GenericAPIServer
+	coreClient                client.WithWatch
+	cache                     cachetypes.Cache
+	periodicRepoSyncFrequency    time.Duration
+	ListTimeoutPerRepository     time.Duration
+	repoOperationRetryAttempts   int
 }
 
 type completedConfig struct {
@@ -230,6 +231,7 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.CredentialResolver = credentialResolver
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.CaBundleResolver = caBundleResolver
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.UserInfoProvider = userInfoProvider
+	c.ExtraConfig.CacheOptions.ExternalRepoOptions.RepoOperationRetryAttempts = c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts
 
 	cacheImpl, err := cache.GetCacheImpl(ctx, c.ExtraConfig.CacheOptions)
 
@@ -255,6 +257,7 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 		engine.WithReferenceResolver(referenceResolver),
 		engine.WithUserInfoProvider(userInfoProvider),
 		engine.WithWatcherManager(watcherMgr),
+		engine.WithRepoOperationRetryAttempts(c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts),
 	)
 	if err != nil {
 		return nil, err
@@ -278,8 +281,9 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 		coreClient:       coreClient,
 		cache:            cacheImpl,
 		// Set background job periodic frequency the same as repo sync frequency.
-		periodicRepoCrSyncFrequency: c.ExtraConfig.CacheOptions.RepoCrSyncFrequency,
+		periodicRepoSyncFrequency: c.ExtraConfig.CacheOptions.RepoSyncFrequency,
 		ListTimeoutPerRepository:    c.ExtraConfig.ListTimeoutPerRepository,
+		repoOperationRetryAttempts:  c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts,
 	}
 
 	// Install the groups.
@@ -292,8 +296,9 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 
 func (s *PorchServer) Run(ctx context.Context) error {
 	porch.RunBackground(ctx, s.coreClient, s.cache,
-		porch.WithPeriodicRepoCrSyncFrequency(s.periodicRepoCrSyncFrequency),
+		porch.WithPeriodicRepoSyncFrequency(s.periodicRepoSyncFrequency),
 		porch.WithListTimeoutPerRepo(s.ListTimeoutPerRepository),
+		porch.WithRepoOperationRetryAttempts(s.repoOperationRetryAttempts),
 	)
 
 	// TODO: Reconsider if the existence of CERT_STORAGE_DIR was a good inidcator for webhook setup,

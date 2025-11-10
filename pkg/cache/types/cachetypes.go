@@ -37,8 +37,9 @@ const (
 
 type CacheOptions struct {
 	ExternalRepoOptions  externalrepotypes.ExternalRepoOptions
-	RepoCrSyncFrequency  time.Duration
-	RepoPRChangeNotifier RepoPRChangeNotifier
+	RepoSyncFrequency            time.Duration
+	RepoOperationRetryAttempts   int
+	RepoPRChangeNotifier         RepoPRChangeNotifier
 	CoreClient           client.WithWatch
 	CacheType            CacheType
 	DBCacheOptions       DBCacheOptions

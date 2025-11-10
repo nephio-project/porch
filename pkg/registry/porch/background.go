@@ -41,15 +41,21 @@ func (f backgroundOptionFunc) apply(background *background) {
 	f(background)
 }
 
-func WithPeriodicRepoCrSyncFrequency(period time.Duration) BackgroundOption {
+func WithPeriodicRepoSyncFrequency(period time.Duration) BackgroundOption {
 	return backgroundOptionFunc(func(b *background) {
-		b.periodicRepoCrSyncFrequency = period
+		b.periodicRepoSyncFrequency = period
 	})
 }
 
 func WithListTimeoutPerRepo(timeout time.Duration) BackgroundOption {
 	return backgroundOptionFunc(func(b *background) {
 		b.listTimeoutPerRepo = timeout
+	})
+}
+
+func WithRepoOperationRetryAttempts(count int) BackgroundOption {
+	return backgroundOptionFunc(func(b *background) {
+		b.repoOperationRetryAttempts = count
 	})
 }
 
@@ -68,10 +74,11 @@ func RunBackground(ctx context.Context, coreClient client.WithWatch, cache cache
 
 // background manages background tasks
 type background struct {
-	coreClient                  client.WithWatch
-	cache                       cachetypes.Cache
-	periodicRepoCrSyncFrequency time.Duration
-	listTimeoutPerRepo          time.Duration
+	coreClient                 client.WithWatch
+	cache                      cachetypes.Cache
+	periodicRepoSyncFrequency  time.Duration
+	listTimeoutPerRepo         time.Duration
+	repoOperationRetryAttempts int
 }
 
 const (
@@ -97,7 +104,7 @@ func (b *background) run(ctx context.Context) {
 	defer reconnect.Stop()
 
 	// Start ticker
-	ticker := time.NewTicker(b.periodicRepoCrSyncFrequency)
+	ticker := time.NewTicker(b.periodicRepoSyncFrequency)
 	defer ticker.Stop()
 
 loop:
@@ -263,7 +270,7 @@ func (b *background) cacheRepository(ctx context.Context, repo *configapi.Reposi
 	}
 
 	// Update status condition with retry only on API conflict
-	for _, attempt := range []int{1, 2, 3} {
+	for attempt := 1; attempt <= b.repoOperationRetryAttempts; attempt++ {
 		latestRepo := &configapi.Repository{}
 		err := b.coreClient.Get(ctx, types.NamespacedName{
 			Namespace: repo.Namespace,

@@ -100,7 +100,7 @@ func TestCachedRepoRefresh(t *testing.T) {
 
 	options := cachetypes.CacheOptions{
 		RepoPRChangeNotifier: mockNotifier,
-		RepoCrSyncFrequency:  time.Minute,
+		RepoSyncFrequency:    time.Minute,
 		CoreClient:           fakeClient,
 	}
 
@@ -262,7 +262,7 @@ func TestHandleRunOnceAt(t *testing.T) {
 
 	options := cachetypes.CacheOptions{
 		RepoPRChangeNotifier: mockNotifier,
-		RepoCrSyncFrequency:  time.Minute,
+		RepoSyncFrequency:    time.Minute,
 		CoreClient:           fakeClient,
 	}
 

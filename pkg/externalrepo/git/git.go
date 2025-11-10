@@ -194,13 +194,14 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 			Path:              strings.Trim(spec.Directory, "/"),
 			PlaceholderWSname: string(branch),
 		},
-		repo:               repo,
-		branch:             branch,
-		secret:             spec.SecretRef.Name,
-		credentialResolver: opts.CredentialResolver,
-		userInfoProvider:   makeUserInfoProvider(spec, opts.UserInfoProvider),
-		cacheDir:           dir,
-		deployment:         deployment,
+		repo:                       repo,
+		branch:                     branch,
+		secret:                     spec.SecretRef.Name,
+		credentialResolver:         opts.CredentialResolver,
+		userInfoProvider:           makeUserInfoProvider(spec, opts.UserInfoProvider),
+		cacheDir:                   dir,
+		deployment:                 deployment,
+		repoOperationRetryAttempts: opts.RepoOperationRetryAttempts,
 	}
 
 	if opts.UseUserDefinedCaBundle && opts.CaBundleResolver != nil {
@@ -250,7 +251,8 @@ type gitRepository struct {
 	userInfoProvider   repository.UserInfoProvider
 
 	// Folder used for the local git cache.
-	cacheDir string
+	cacheDir                   string
+	repoOperationRetryAttempts int
 
 	// deployment holds spec.deployment
 	// TODO: Better caching here, support repository spec changes
@@ -559,7 +561,7 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, pr2Delete rep
 	defer r.mutex.Unlock()
 
 	return util.RetryOnErrorConditional(
-		3,
+		r.repoOperationRetryAttempts,
 		func(err error) bool {
 			return pkgerrors.Is(err, conflictingRequiredRemoteRefError)
 		},
@@ -654,7 +656,7 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, pr2Delete rep
 // fetchRemoteWithRetry retries fetching the remote repository up to 4 times with a delay of 1 second between each attempt.
 func (r *gitRepository) fetchRemoteRepositoryWithRetry(ctx context.Context) error {
 	if err := util.RetryOnErrorConditional(
-		4,
+		r.repoOperationRetryAttempts,
 		func(error) bool {
 			return ctx.Err() == nil
 		},
