@@ -52,23 +52,9 @@ else
   kpt fn eval \
     --image ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1.4 \
     --match-kind Service \
-    --match-name gitea \
+    --match-name gitea-lb \
     --match-namespace gitea \
     -- "metallb.universe.tf/loadBalancerIPs=${gitea_ip}"
- 
-  cp -f "${git_root}/deployments/local/kind_porch_test_cluster.yaml" cluster-config.yaml
- 
-  # Append KRM metadata to the cluster-config
-  cat >> cluster-config.yaml <<EOF
-metadata:
-  name: not-used
-  annotations:
-    config.kubernetes.io/local-config: "true"
-EOF
- 
-  kpt fn eval \
-    --image ghcr.io/kptdev/krm-functions-catalog/apply-replacements:v0.1.1 \
-    --fn-config "${git_root}/deployments/local/replace-gitea-service-ports.yaml"
 fi
  
 kpt fn render
@@ -80,10 +66,10 @@ kubectl wait pod --all --for=condition=Ready --namespace=gitea --timeout=90s
 ###############################################################
  
 h1 Create git repos in gitea
-curl -v -k -H "content-type: application/json" "http://nephio:secret@localhost:3000/api/v1/user/repos" --data "{\"name\":\"$git_repo_name\"}"
+curl -v -k -H "content-type: application/json" "http://nephio:secret@${gitea_ip}:3000/api/v1/user/repos" --data "{\"name\":\"$git_repo_name\"}"
 TMP_DIR=$(mktemp -d)
 cd "$TMP_DIR"
-git clone "http://nephio:secret@localhost:3000/nephio/$git_repo_name.git"
+git clone "http://nephio:secret@${gitea_ip}:3000/nephio/$git_repo_name.git"
 cd "$git_repo_name"
 if ! git rev-parse -q --verify refs/remotes/origin/main >/dev/null; then
   echo "Add main branch to git repo:"
@@ -100,7 +86,7 @@ cd "${git_root}"
 rm -fr "$TMP_DIR"
  
 test_git_repo_name="test-blueprints"
-curl -v -k -H "content-type: application/json" "http://nephio:secret@localhost:3000/api/v1/user/repos" --data "{\"name\":\"$test_git_repo_name\"}"
+curl -v -k -H "content-type: application/json" "http://nephio:secret@${gitea_ip}:3000/api/v1/user/repos" --data "{\"name\":\"$test_git_repo_name\"}"
 TMP_DIR=$(mktemp -d)
 cd "$TMP_DIR"
 git clone "${git_root}/test/pkgs/test-pkgs/test-blueprints.bundle" -b main
@@ -108,7 +94,7 @@ cd "$test_git_repo_name"
  
 git gc
 git remote rename origin upstream
-git remote add origin "http://nephio:secret@localhost:3000/nephio/$test_git_repo_name"
+git remote add origin "http://nephio:secret@${gitea_ip}:3000/nephio/$test_git_repo_name"
 git push -u origin --all
 git push -u origin --tags
  
