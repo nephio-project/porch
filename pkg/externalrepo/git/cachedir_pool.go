@@ -15,6 +15,7 @@
 package git
 
 import (
+	"fmt"
 	"os"
 	"sync"
 
@@ -36,6 +37,46 @@ type SharedDirectory struct {
 
 var globalDirectoryPool = &DirectoryPool{
 	directories: make(map[string]*SharedDirectory),
+}
+
+// GetOrCreateSharedRepository safely initializes or reuses a git repository
+func (p *DirectoryPool) GetOrCreateSharedRepository(dir, repoURL string) (*SharedDirectory, error) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	if shared, exists := p.directories[dir]; exists {
+		shared.refCount++
+		klog.Infof("Reusing shared directory %s, refCount now: %d", dir, shared.refCount)
+		return shared, nil
+	}
+
+	// Initialize repository safely
+	var repo *git.Repository
+	if fi, err := os.Stat(dir); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, err
+		}
+		repo, err = initEmptyRepository(dir)
+		if err != nil {
+			return nil, err
+		}
+	} else if !fi.IsDir() {
+		return nil, fmt.Errorf("cache location %q is not a directory", dir)
+	} else {
+		repo, err = openRepository(dir)
+		if err != nil {
+			klog.Errorf("Failed to open repository %s: %v", dir, err)
+			return nil, fmt.Errorf("open of repository failed in gogit (check the local git cache): %w", err)
+		}
+	}
+
+	shared := &SharedDirectory{
+		repo:     repo,
+		refCount: 1,
+	}
+	p.directories[dir] = shared
+	klog.Infof("Created new shared directory %s, refCount: %d", dir, shared.refCount)
+	return shared, nil
 }
 
 // GetSharedRepository returns a thread-safe shared repository for the given directory

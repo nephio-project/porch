@@ -135,48 +135,13 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 	repoPath := replace.Replace(spec.Repo)
 	dir := filepath.Join(root, repoPath)
 
-	// Cleanup the cache directory in case initialization fails.
-	cleanup := dir
-	defer func() {
-		if cleanup != "" {
-			os.RemoveAll(cleanup)
-		}
-	}()
-
-	var repo *git.Repository
-
-	if fi, err := os.Stat(dir); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, err
-		}
-
-		r, err := initEmptyRepository(dir)
-		if err != nil {
-			return nil, pkgerrors.Wrapf(err, "error cloning git repository %+v, could not initialize empty repository", spec.Repo)
-		}
-
-		repo = r
-	} else if !fi.IsDir() {
-		// Internal error - corrupted cache. We will cleanup on the way out.
-		return nil, pkgerrors.Wrapf(err, "error cloning git repository %+v, local cache location %q is not a directory", spec.Repo, dir)
-	} else {
-		cleanup = "" // Existing directory; do not delete it.
-
-		r, err := openRepository(dir)
-		if err != nil {
-			// Repository might be corrupted, try to reinitialize
-			klog.Warningf("Failed to open repository %s, reinitializing: %v", dir, err)
-			if removeErr := os.RemoveAll(dir); removeErr != nil {
-				klog.Errorf("Failed to remove corrupted repository %s: %v", dir, removeErr)
-			}
-			r, err = initEmptyRepository(dir)
-			if err != nil {
-				return nil, pkgerrors.Wrapf(err, "error reinitializing git repository %+v after corruption", spec.Repo)
-			}
-		}
-
-		repo = r
+	// Get or create shared repository - let SharedDirectory handle cleanup
+	sharedDir, err := globalDirectoryPool.GetOrCreateSharedRepository(dir, spec.Repo)
+	if err != nil {
+		return nil, pkgerrors.Wrapf(err, "error cloning git repository %+v", spec.Repo)
 	}
+
+	repo := sharedDir.repo
 
 	// Create Remote
 	if err := initializeOrigin(repo, spec.Repo); err != nil {
@@ -194,9 +159,6 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 	if err := util.ValidateDirectoryName(string(branch), false); err != nil {
 		return nil, pkgerrors.Wrapf(err, "error cloning git repository %+v, branch name %q invalid", spec.Repo, branch)
 	}
-
-	// Use existing shared directory for thread-safe access
-	sharedDir := globalDirectoryPool.GetSharedRepository(dir, repo)
 
 	repository := &gitRepository{
 		key: repository.RepositoryKey{
@@ -231,7 +193,7 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 		return nil, pkgerrors.Wrapf(err, "error cloning git repository %+v, fetch of remote repository failed", spec.Repo)
 	}
 
-	cleanup = "" // Success. Keep the git directory.
+	// SharedDirectory handles cleanup automatically via reference counting
 
 	return repository, nil
 }
