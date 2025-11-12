@@ -85,15 +85,8 @@ func (p *DirectoryPool) ReleaseSharedRepository(dir string) {
 	}
 }
 
-// WithReadLock executes function with read access to the repository
-func (s *SharedDirectory) WithReadLock(fn func(*git.Repository) error) error {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	return fn(s.repo)
-}
-
-// WithWriteLock executes function with exclusive write access to the repository
-func (s *SharedDirectory) WithWriteLock(fn func(*git.Repository) error) error {
+// WithLock executes function with exclusive access to the repository
+func (s *SharedDirectory) WithLock(fn func(*git.Repository) error) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	return fn(s.repo)

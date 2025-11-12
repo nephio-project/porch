@@ -316,11 +316,8 @@ func (r *gitRepository) Version(ctx context.Context) (string, error) {
 		return "", err
 	}
 
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
 	var refs storer.ReferenceIter
-	err := r.sharedDir.WithReadLock(func(repo *git.Repository) error {
+	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
 		var err error
 		refs, err = repo.References()
 		return err
@@ -328,6 +325,9 @@ func (r *gitRepository) Version(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 
 	b := bytes.Buffer{}
 	for {
@@ -379,9 +379,6 @@ func (r *gitRepository) ListPackageRevisions(ctx context.Context, filter reposit
 		return nil, err
 	}
 
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
 	pkgRevs, err := r.listPackageRevisions(ctx, filter)
 	if err != nil {
 		return nil, err
@@ -398,7 +395,7 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 	defer span.End()
 
 	var refs storer.ReferenceIter
-	err := r.sharedDir.WithReadLock(func(repo *git.Repository) error {
+	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
 		var err error
 		refs, err = repo.References()
 		return err
@@ -471,12 +468,10 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 func (r *gitRepository) CreatePackageRevisionDraft(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
 	_, span := tracer.Start(ctx, "gitRepository::CreatePackageRevision", trace.WithAttributes())
 	defer span.End()
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
 
 	var base plumbing.Hash
 	refName := r.branch.RefInLocal()
-	err := r.sharedDir.WithReadLock(func(repo *git.Repository) error {
+	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
 		switch main, err := repo.Reference(refName, true); err {
 		case nil:
 			base = main.Hash()
@@ -491,6 +486,9 @@ func (r *gitRepository) CreatePackageRevisionDraft(ctx context.Context, obj *v1a
 	if err != nil {
 		return nil, err
 	}
+
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 
 	pkgKey := repository.FromFullPathname(r.Key(), obj.Spec.PackageName)
 	if err := util.ValidPkgRevObjName(r.Key().Name, pkgKey.Path, pkgKey.Package, obj.Spec.WorkspaceName); err != nil {
@@ -523,8 +521,6 @@ func (r *gitRepository) CreatePackageRevisionDraft(ctx context.Context, obj *v1a
 func (r *gitRepository) UpdatePackageRevision(ctx context.Context, old repository.PackageRevision) (repository.PackageRevisionDraft, error) {
 	ctx, span := tracer.Start(ctx, "gitRepository::UpdatePackageRevision", trace.WithAttributes())
 	defer span.End()
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
 
 	oldGitPackage, ok := old.(*gitPackageRevision)
 	if !ok {
@@ -537,7 +533,7 @@ func (r *gitRepository) UpdatePackageRevision(ctx context.Context, old repositor
 	}
 
 	var head *plumbing.Reference
-	err := r.sharedDir.WithReadLock(func(repo *git.Repository) error {
+	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
 		var err error
 		head, err = repo.Reference(ref.Name(), true)
 		return err
@@ -554,7 +550,9 @@ func (r *gitRepository) UpdatePackageRevision(ctx context.Context, old repositor
 		return nil, fmt.Errorf("cannot load draft package %q (package not found)", ref.Name())
 	}
 
+	r.mutex.Lock()
 	lifecycle := r.getLifecycle(oldGitPackage)
+	r.mutex.Unlock()
 
 	return &gitPackageRevisionDraft{
 		prKey:     oldGitPackage.prKey,
@@ -724,11 +722,7 @@ func (r *gitRepository) GetPackageRevision(ctx context.Context, version, path st
 		klog.Warningf("Failed to fetch latest references: %v", err)
 	}
 
-	// Now acquire mutex for local operations only
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
-	err := r.sharedDir.WithReadLock(func(repo *git.Repository) error {
+	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
 		for _, ref := range refNames {
 			if resolved, err := repo.ResolveRevision(plumbing.Revision(ref)); err != nil {
 				if pkgerrors.Is(err, plumbing.ErrReferenceNotFound) {
@@ -763,22 +757,31 @@ func (r *gitRepository) loadPackageRevision(ctx context.Context, version, path s
 		return nil, kptfilev1.GitLock{}, fmt.Errorf("cannot find package %s@%s; package is not under the Repository.spec.directory", path, version)
 	}
 
-	origin, err := r.repo.Remote("origin")
-	if err != nil {
-		return nil, kptfilev1.GitLock{}, pkgerrors.Wrap(err, "cannot determine repository origin")
-	}
+	var lock kptfilev1.GitLock
+	var commit *object.Commit
 
-	lock := kptfilev1.GitLock{
-		Repo:      origin.Config().URLs[0],
-		Directory: path,
-		Ref:       version,
-	}
+	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
+		origin, err := repo.Remote("origin")
+		if err != nil {
+			return pkgerrors.Wrap(err, "cannot determine repository origin")
+		}
 
-	commit, err := r.repo.CommitObject(hash)
+		lock = kptfilev1.GitLock{
+			Repo:      origin.Config().URLs[0],
+			Directory: path,
+			Ref:       version,
+		}
+
+		commit, err = repo.CommitObject(hash)
+		if err != nil {
+			return pkgerrors.Wrapf(err, "cannot resolve git reference %s (hash: %s) to commit", version, hash)
+		}
+		lock.Commit = commit.Hash.String()
+		return nil
+	})
 	if err != nil {
-		return nil, lock, pkgerrors.Wrapf(err, "cannot resolve git reference %s (hash: %s) to commit", version, hash)
+		return nil, lock, err
 	}
-	lock.Commit = commit.Hash.String()
 
 	krmPackage, err := r.findPackage(commit, path)
 	if err != nil {
@@ -821,7 +824,12 @@ func (r *gitRepository) discoverFinalizedPackages(ctx context.Context, ref *plum
 	ctx, span := tracer.Start(ctx, "gitRepository::discoverFinalizedPackages", trace.WithAttributes())
 	defer span.End()
 
-	commit, err := r.repo.CommitObject(ref.Hash())
+	var commit *object.Commit
+	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
+		var err error
+		commit, err = repo.CommitObject(ref.Hash())
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -874,7 +882,12 @@ func (r *gitRepository) loadDraft(ctx context.Context, ref *plumbing.Reference) 
 		return nil, nil
 	}
 
-	commit, err := r.repo.CommitObject(ref.Hash())
+	var commit *object.Commit
+	err = r.sharedDir.WithLock(func(repo *git.Repository) error {
+		var err error
+		commit, err = repo.CommitObject(ref.Hash())
+		return err
+	})
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "cannot resolve draft branch to commit (corrupted repository?)")
 	}
@@ -909,10 +922,11 @@ func (r *gitRepository) UpdateDeletionProposedCache(ctx context.Context) error {
 }
 
 func (r *gitRepository) updateDeletionProposedCache() error {
+	// Initialize cache - caller must hold mutex
 	r.deletionProposedCache = make(map[BranchName]bool)
 
 	var refs storer.ReferenceIter
-	err := r.sharedDir.WithReadLock(func(repo *git.Repository) error {
+	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
 		var err error
 		refs, err = repo.References()
 		return err
@@ -933,6 +947,7 @@ func (r *gitRepository) updateDeletionProposedCache() error {
 
 		branch, isDeletionProposedBranch := getdeletionProposedBranchNameInLocal(ref.Name())
 		if isDeletionProposedBranch {
+			// Caller must hold mutex
 			r.deletionProposedCache[deletionProposedPrefix+branch] = true
 		}
 	}
@@ -982,13 +997,22 @@ func (r *gitRepository) loadTaggedPackage(ctx context.Context, tag *plumbing.Ref
 		return nil, nil
 	}
 
-	resolvedHash, err := r.repo.ResolveRevision(plumbing.Revision(tag.Hash().String()))
+	var resolvedHash *plumbing.Hash
+	var commit *object.Commit
+	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
+		var err error
+		resolvedHash, err = repo.ResolveRevision(plumbing.Revision(tag.Hash().String()))
+		if err != nil {
+			return pkgerrors.Wrapf(err, "cannot resolve tag %q to git revision", name)
+		}
+		commit, err = repo.CommitObject(*resolvedHash)
+		if err != nil {
+			return pkgerrors.Wrapf(err, "cannot resolve tag %q (hash: %q) to commit (corrupted repository?)", name, resolvedHash)
+		}
+		return nil
+	})
 	if err != nil {
-		return nil, pkgerrors.Wrapf(err, "cannot resolve tag %q to git revision", name)
-	}
-	commit, err := r.repo.CommitObject(*resolvedHash)
-	if err != nil {
-		return nil, pkgerrors.Wrapf(err, "cannot resolve tag %q (hash: %q) to commit (corrupted repository?)", name, resolvedHash)
+		return nil, err
 	}
 
 	krmPackage, err := r.findPackage(commit, path)
@@ -1072,12 +1096,16 @@ func (r *gitRepository) getAuthMethod(ctx context.Context, forceRefresh bool) (t
 }
 
 func (r *gitRepository) GetRepo() (string, error) {
-	origin, err := r.repo.Remote("origin")
-	if err != nil {
-		return "", fmt.Errorf("cannot determine repository origin: %w", err)
-	}
-
-	return origin.Config().URLs[0], nil
+	var url string
+	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
+		origin, err := repo.Remote("origin")
+		if err != nil {
+			return fmt.Errorf("cannot determine repository origin: %w", err)
+		}
+		url = origin.Config().URLs[0]
+		return nil
+	})
+	return url, err
 }
 
 func (r *gitRepository) fetchRemoteRepository(ctx context.Context) error {
@@ -1091,7 +1119,7 @@ func (r *gitRepository) fetchRemoteRepository(ctx context.Context) error {
 	}
 
 	err := r.doGitWithAuth(ctx, func(auth transport.AuthMethod) error {
-		return r.sharedDir.WithWriteLock(func(repo *git.Repository) error {
+		return r.sharedDir.WithLock(func(repo *git.Repository) error {
 			return repo.FetchContext(ctx, &git.FetchOptions{
 				RemoteName: OriginName,
 				Auth:       auth,
@@ -1189,7 +1217,7 @@ func (r *gitRepository) createBranch(ctx context.Context, branch BranchName) err
 	return r.pushAndCleanup(ctx, refSpecs)
 }
 
-func (r *gitRepository) commitPackageToMainInRepo(ctx context.Context, repo *git.Repository, d *gitPackageRevisionDraft, auth transport.AuthMethod) (commitHash, newPackageTreeHash plumbing.Hash, err error) {
+func (r *gitRepository) commitPackageToMainInRepo(ctx context.Context, repo *git.Repository, d *gitPackageRevisionDraft) (commitHash, newPackageTreeHash plumbing.Hash, err error) {
 	branch := r.branch
 	localRef := branch.RefInLocal()
 
@@ -1244,7 +1272,7 @@ func (r *gitRepository) commitPackageToMainInRepo(ctx context.Context, repo *git
 	return hash, treeHash, nil
 }
 
-func (r *gitRepository) createPackageDeleteCommitInRepo(ctx context.Context, repo *git.Repository, branch plumbing.ReferenceName, prKey repository.PackageRevisionKey, auth transport.AuthMethod) (plumbing.Hash, error) {
+func (r *gitRepository) createPackageDeleteCommitInRepo(ctx context.Context, repo *git.Repository, branch plumbing.ReferenceName, prKey repository.PackageRevisionKey) (plumbing.Hash, error) {
 	var zero plumbing.Hash
 	// find the branch
 	ref, err := repo.Reference(branch, true)
@@ -1293,7 +1321,7 @@ func (r *gitRepository) createPackageDeleteCommitInRepo(ctx context.Context, rep
 	return hash, nil
 }
 
-func (r *gitRepository) executeCommitOperations(ctx context.Context, repo *git.Repository, ph *pushRefSpecBuilder, auth transport.AuthMethod) error {
+func (r *gitRepository) executeCommitOperations(ctx context.Context, repo *git.Repository, ph *pushRefSpecBuilder) error {
 	for _, op := range ph.commitOps {
 		switch op.Type {
 		case "approval":
@@ -1301,7 +1329,7 @@ func (r *gitRepository) executeCommitOperations(ctx context.Context, repo *git.R
 			d := data["draft"].(*gitPackageRevisionDraft)
 			tag := data["tag"].(plumbing.ReferenceName)
 
-			commitHash, newTreeHash, err := r.commitPackageToMainInRepo(ctx, repo, d, auth)
+			commitHash, newTreeHash, err := r.commitPackageToMainInRepo(ctx, repo, d)
 			if err != nil {
 				return err
 			}
@@ -1317,7 +1345,7 @@ func (r *gitRepository) executeCommitOperations(ctx context.Context, repo *git.R
 			branch := data["branch"].(plumbing.ReferenceName)
 			prKey := data["prKey"].(repository.PackageRevisionKey)
 
-			commitHash, err := r.createPackageDeleteCommitInRepo(ctx, repo, branch, prKey, auth)
+			commitHash, err := r.createPackageDeleteCommitInRepo(ctx, repo, branch, prKey)
 			if err != nil {
 				return err
 			}
@@ -1337,7 +1365,7 @@ func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuild
 	maxRetries := 5
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		if err := r.doGitWithAuth(ctx, func(auth transport.AuthMethod) error {
-			return r.sharedDir.WithWriteLock(func(repo *git.Repository) error {
+			return r.sharedDir.WithLock(func(repo *git.Repository) error {
 				if fetchErr := repo.Fetch(&git.FetchOptions{
 					RemoteName: OriginName,
 					Auth:       auth,
@@ -1348,7 +1376,7 @@ func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuild
 					}
 				}
 				// Execute commit operations with latest state
-				if err := r.executeCommitOperations(ctx, repo, ph, auth); err != nil {
+				if err := r.executeCommitOperations(ctx, repo, ph); err != nil {
 					return err
 				}
 
@@ -1428,7 +1456,12 @@ func (r *gitRepository) loadTasks(_ context.Context, startCommit *object.Commit,
 	// 	logOptions.PathFilter = pathFilter
 	// }
 
-	commits, err := r.repo.Log(&logOptions)
+	var commits object.CommitIter
+	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
+		var err error
+		commits, err = repo.Log(&logOptions)
+		return err
+	})
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "error walking commits")
 	}
@@ -1504,8 +1537,12 @@ func visitCommitsCollectErrors(iterator object.CommitIter, callback commitCallba
 func (r *gitRepository) GetResources(hash plumbing.Hash) (map[string]string, error) {
 	resources := map[string]string{}
 
-	tree, err := r.repo.TreeObject(hash)
-	if err == nil {
+	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
+		tree, err := repo.TreeObject(hash)
+		if err != nil {
+			return err
+		}
+
 		// Files() iterator iterates recursively over all files in the tree.
 		fit := tree.Files()
 		defer fit.Close()
@@ -1514,18 +1551,23 @@ func (r *gitRepository) GetResources(hash plumbing.Hash) (map[string]string, err
 			if err == io.EOF {
 				break
 			} else if err != nil {
-				return nil, fmt.Errorf("failed to load package resources: %w", err)
+				return fmt.Errorf("failed to load package resources: %w", err)
 			}
 
 			content, err := file.Contents()
 			if err != nil {
-				return nil, fmt.Errorf("failed to read package file contents: %q, %w", file.Name, err)
+				return fmt.Errorf("failed to read package file contents: %q, %w", file.Name, err)
 			}
 
 			// TODO: decide whether paths should include package directory or not.
 			resources[file.Name] = content
 			//resources[path.Join(p.path, file.Name)] = content
 		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
 	}
 	return resources, nil
 }
@@ -1647,61 +1689,62 @@ func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageR
 func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPackageRevisionDraft, new *v1alpha1.PackageRevisionResources, change *v1alpha1.Task) error {
 	ctx, span := tracer.Start(ctx, "gitRepository::UpdateResources", trace.WithAttributes())
 	defer span.End()
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
 
-	ch, err := newCommitHelper(r.repo, r.userInfoProvider, draft.commit, draft.Key().PkgKey.ToFullPathname(), plumbing.ZeroHash)
-	if err != nil {
-		return pkgerrors.Wrap(err, "failed to commit package:")
-	}
+	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
+		ch, err := newCommitHelper(repo, r.userInfoProvider, draft.commit, draft.Key().PkgKey.ToFullPathname(), plumbing.ZeroHash)
+		if err != nil {
+			return pkgerrors.Wrap(err, "failed to commit package:")
+		}
 
-	for k, v := range new.Spec.Resources {
-		if err := ch.storeFile(filepath.Join(draft.Key().PkgKey.ToFullPathname(), k), v); err != nil {
+		for k, v := range new.Spec.Resources {
+			if err := ch.storeFile(filepath.Join(draft.Key().PkgKey.ToFullPathname(), k), v); err != nil {
+				return err
+			}
+		}
+
+		// Because we can't read the package back without a Kptfile, make sure one is present
+		{
+			p := filepath.Join(draft.Key().PkgKey.ToFullPathname(), "Kptfile")
+			_, err := ch.readFile(p)
+			if os.IsNotExist(err) {
+				// We could write the file here; currently we return an error
+				return pkgerrors.Wrap(err, "package must contain Kptfile at root")
+			}
+		}
+
+		annotation := &gitAnnotation{
+			PackagePath:   draft.Key().PkgKey.ToFullPathname(),
+			WorkspaceName: draft.Key().WorkspaceName,
+			Revision:      repository.Revision2Str(draft.Key().Revision),
+			Task:          change,
+		}
+		message := formatCommitMessage(v1alpha1.TaskTypeNone)
+		if change != nil {
+			message = formatCommitMessage(change.Type)
+			if v1alpha1.IsValidFirstTaskType(change.Type) {
+				if len(draft.tasks) > 0 {
+					klog.Warningf("Replacing first task of %q", draft.Key())
+				}
+				draft.tasks = []v1alpha1.Task{*change}
+			}
+		}
+		message += "\n"
+
+		message, err = AnnotateCommitMessage(message, annotation)
+		if err != nil {
 			return err
 		}
-	}
 
-	// Because we can't read the package back without a Kptfile, make sure one is present
-	{
-		p := filepath.Join(draft.Key().PkgKey.ToFullPathname(), "Kptfile")
-		_, err := ch.readFile(p)
-		if os.IsNotExist(err) {
-			// We could write the file here; currently we return an error
-			return pkgerrors.Wrap(err, "package must contain Kptfile at root")
+		commitHash, packageTree, err := ch.commit(ctx, message, draft.Key().PkgKey.ToFullPathname())
+		if err != nil {
+			return pkgerrors.Wrap(err, "failed to commit package: %w")
 		}
-	}
 
-	annotation := &gitAnnotation{
-		PackagePath:   draft.Key().PkgKey.ToFullPathname(),
-		WorkspaceName: draft.Key().WorkspaceName,
-		Revision:      repository.Revision2Str(draft.Key().Revision),
-		Task:          change,
-	}
-	message := formatCommitMessage(v1alpha1.TaskTypeNone)
-	if change != nil {
-		message = formatCommitMessage(change.Type)
-		if v1alpha1.IsValidFirstTaskType(change.Type) {
-			if len(draft.tasks) > 0 {
-				klog.Warningf("Replacing first task of %q", draft.Key())
-			}
-			draft.tasks = []v1alpha1.Task{*change}
-		}
-	}
-	message += "\n"
-
-	message, err = AnnotateCommitMessage(message, annotation)
-	if err != nil {
-		return err
-	}
-
-	commitHash, packageTree, err := ch.commit(ctx, message, draft.Key().PkgKey.ToFullPathname())
-	if err != nil {
-		return pkgerrors.Wrap(err, "failed to commit package: %w")
-	}
-
-	draft.tree = packageTree
-	draft.commit = commitHash
-	return nil
+		draft.tree = packageTree
+		draft.commit = commitHash
+		return nil
+	})
+	return err
 }
 
 func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version int) (repository.PackageRevision, error) {

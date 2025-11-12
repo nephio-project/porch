@@ -59,10 +59,10 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 		// Check external repo connectivity
 		err := externalrepo.CheckRepositoryConnection(ctx, repositorySpec, c.options.ExternalRepoOptions)
 		if err != nil {
-			klog.Warningf("dbRepository:OpenRepository: repo %+v connectivity check failed with error %q", key, err)
+			klog.Warningf("Cache:OpenRepository: repo %+v connectivity check failed with error %q", key, err)
 			return nil, err
 		}
-		klog.V(2).Infof("dbCache::OpenRepository: verified repo connectivity %+v", key)
+		klog.V(2).Infof("Cache::OpenRepository: verified repo connectivity %+v", key)
 		// If there is an error from the background refresh goroutine, return it.
 		if err := repo.getRefreshError(); err != nil {
 			return nil, err
