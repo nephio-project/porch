@@ -12,13 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Api versions allow the api contract for a resource to be changed while keeping
-// backward compatibility by support multiple concurrent versions
-// of the same resource
+package install
 
-// +k8s:openapi-gen=true
-// +k8s:deepcopy-gen=package,register
-// +k8s:conversion-gen=github.com/nephio-project/porch/api/porch
-// +k8s:defaulter-gen=TypeMeta
-// +groupName=porch.kpt.dev
-package v1alpha1 // import "github.com/nephio-project/porch/api/porch/v1alpha1"
+import (
+	"testing"
+
+	"github.com/nephio-project/porch/api/porch/fuzzer"
+	"k8s.io/apimachinery/pkg/api/apitesting/roundtrip"
+)
+
+func TestRoundTripTypes(t *testing.T) {
+	roundtrip.RoundTripTestForAPIGroup(t, Install, fuzzer.Funcs)
+}

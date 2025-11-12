@@ -23,7 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 object:headerFile="../../../../scripts/boilerplate.go.txt" crd:crdVersions=v1,headerFile="../../../../scripts/boilerplate.yaml.txt" output:crd:artifacts:config=../../config/crd/bases paths=./...
+//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 object:headerFile="../../../../scripts/boilerplate.go.txt" crd:crdVersions=v1 output:crd:artifacts:config=. paths=./...
+
 var (
 	// GroupVersion is group version used to register these objects
 	GroupVersion = schema.GroupVersion{Group: "config.porch.kpt.dev", Version: "v1alpha1"}
