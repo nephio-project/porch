@@ -20,6 +20,7 @@ import (
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
+	"github.com/nephio-project/porch/pkg/cache/testutil"
 	"github.com/nephio-project/porch/pkg/externalrepo"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
@@ -51,7 +52,7 @@ func (t *DbTestSuite) TestDBRepoSync() {
 	}
 	repoObj.SetGroupVersionKind(configapi.GroupVersion.WithKind("Repository"))
 
-	fakeClient := NewFakeClientWithStatus(scheme, repoObj)
+	fakeClient := testutil.NewFakeClientWithStatus(scheme, repoObj)
 
 	testRepo := t.createTestRepo(namespace, repoName)
 	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
@@ -158,7 +159,7 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 	}
 	repoObj.SetGroupVersionKind(configapi.GroupVersion.WithKind("Repository"))
 
-	fakeClient := NewFakeClientWithStatus(scheme, repoObj)
+	fakeClient := testutil.NewFakeClientWithStatus(scheme, repoObj)
 	testRepo := t.createTestRepo(namespace, repoName)
 	testRepo.spec.Spec.Sync = &configapi.RepositorySync{
 		RunOnceAt: &runOnceTime,
@@ -254,7 +255,7 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 	t.Require().Nil(sync.getLastSyncError())
 
 	// Check statusStore for condition update
-	status, ok := fakeClient.statusStore[types.NamespacedName{Name: repoName, Namespace: namespace}]
+	status, ok := fakeClient.GetStatusStore()[types.NamespacedName{Name: repoName, Namespace: namespace}]
 	t.Require().True(ok)
 	t.Require().Equal(configapi.RepositoryReady, status.Conditions[0].Type)
 	t.Require().Equal(metav1.ConditionTrue, status.Conditions[0].Status)
@@ -338,7 +339,7 @@ func (t *DbTestSuite) TestNewRepositorySync() {
 
 	scheme := runtime.NewScheme()
 	_ = configapi.AddToScheme(scheme)
-	fakeClient := NewFakeClientWithStatus(scheme)
+	fakeClient := testutil.NewFakeClientWithStatus(scheme)
 
 	options := cachetypes.CacheOptions{
 		RepoSyncFrequency: 1 * time.Second,

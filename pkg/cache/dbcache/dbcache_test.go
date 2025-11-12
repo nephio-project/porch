@@ -24,18 +24,17 @@ import (
 
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/pkg/cache/testutil"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo"
 	"github.com/nephio-project/porch/pkg/repository"
 	mockdbcache "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/dbcache"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	k8sfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 const defaultPorchSQLSchema = "api/sql/porch-db.sql"
@@ -46,49 +45,6 @@ type DbTestSuite struct {
 	ctx            context.Context
 	nextPkgRev     int
 	savedDBHandler *DBHandler
-}
-
-// FakeClientWithStatusUpdate is a fake client that supports status updates
-type FakeClientWithStatusUpdate struct {
-	client.Client
-	statusStore map[types.NamespacedName]configapi.RepositoryStatus
-}
-
-func NewFakeClientWithStatus(scheme *runtime.Scheme, objs ...client.Object) *FakeClientWithStatusUpdate {
-	baseClient := k8sfake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
-	return &FakeClientWithStatusUpdate{
-		Client:      baseClient,
-		statusStore: make(map[types.NamespacedName]configapi.RepositoryStatus),
-	}
-}
-func (f *FakeClientWithStatusUpdate) Status() client.StatusWriter {
-	return &fakeStatusWriter{f}
-}
-
-type fakeStatusWriter struct {
-	f *FakeClientWithStatusUpdate
-}
-
-func (w *fakeStatusWriter) Update(ctx context.Context, obj client.Object, opts ...client.SubResourceUpdateOption) error {
-	repo, ok := obj.(*configapi.Repository)
-	if !ok {
-		return fmt.Errorf("status update only supported for Repository objects")
-	}
-	key := types.NamespacedName{Name: repo.Name, Namespace: repo.Namespace}
-	w.f.statusStore[key] = repo.Status
-	return nil
-}
-
-func (w *fakeStatusWriter) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.SubResourcePatchOption) error {
-	return nil
-}
-
-func (w *fakeStatusWriter) Create(ctx context.Context, obj client.Object, subresource client.Object, opts ...client.SubResourceCreateOption) error {
-	return nil
-}
-
-func (f *FakeClientWithStatusUpdate) Watch(ctx context.Context, list client.ObjectList, opts ...client.ListOption) (watch.Interface, error) {
-	return watch.NewEmptyWatch(), nil
 }
 
 func Test_DbTestSuite(t *testing.T) {
@@ -209,7 +165,7 @@ func (t *DbTestSuite) TestDBRepositoryCrud() {
 	scheme := runtime.NewScheme()
 	_ = configapi.AddToScheme(scheme)
 
-	fakeClient := NewFakeClientWithStatus(scheme, repositorySpec)
+	fakeClient := testutil.NewFakeClientWithStatus(scheme, repositorySpec)
 
 	options := cachetypes.CacheOptions{
 		RepoSyncFrequency: 60 * time.Minute,
@@ -233,6 +189,62 @@ func (t *DbTestSuite) TestDBRepositoryCrud() {
 
 	err = dbCache.CloseRepository(ctx, repositorySpec, nil)
 	t.NoError(err)
+}
+
+func (t *DbTestSuite) TestDBRepositoryConnectivityCheck() {
+	// Save original state
+	originalMode := externalrepo.ExternalRepoInUnitTestMode
+	defer func() {
+		externalrepo.ExternalRepoInUnitTestMode = originalMode
+	}()
+
+	ctx := t.Context()
+	scheme := runtime.NewScheme()
+	_ = configapi.AddToScheme(scheme)
+
+	// Test failure case - disable unit test mode
+	externalrepo.ExternalRepoInUnitTestMode = false
+	failureSpec := &configapi.Repository{
+		ObjectMeta: v1.ObjectMeta{
+			Namespace: "test-ns",
+			Name:      "test-repo-fail",
+		},
+		Spec: configapi.RepositorySpec{
+			Type: configapi.RepositoryTypeGit,
+			Git: &configapi.GitRepository{
+				Repo: "https://invalid-repo-url.com/test/repo",
+			},
+		},
+	}
+	fakeClient := testutil.NewFakeClientWithStatus(scheme, failureSpec)
+	options := cachetypes.CacheOptions{
+		RepoSyncFrequency: 60 * time.Second,
+		CoreClient:        fakeClient,
+	}
+	dbCache, err := new(DBCacheFactory).NewCache(ctx, options)
+	t.NoError(err)
+	_, err = dbCache.OpenRepository(ctx, failureSpec)
+	assert.Error(t.T(), err, "Expected connectivity check to fail for invalid repository")
+
+	// Test success case - enable unit test mode
+	externalrepo.ExternalRepoInUnitTestMode = true
+	successSpec := &configapi.Repository{
+		ObjectMeta: v1.ObjectMeta{
+			Namespace: "test-ns",
+			Name:      "test-repo-success",
+		},
+		Spec: configapi.RepositorySpec{
+			Type: "fake", // Use fake type to avoid real network calls
+		},
+	}
+	fakeClient = testutil.NewFakeClientWithStatus(scheme, successSpec)
+	options.CoreClient = fakeClient
+	dbCache, err = new(DBCacheFactory).NewCache(ctx, options)
+	t.NoError(err)
+	testRepo, err := dbCache.OpenRepository(ctx, successSpec)
+	assert.NoError(t.T(), err, "Expected connectivity check to succeed in unit test mode")
+	assert.NotNil(t.T(), testRepo)
+	assert.Equal(t.T(), "test-repo-success", testRepo.Key().Name)
 }
 
 func (t *DbTestSuite) createTestRepo(namespace, name string) *dbRepository {

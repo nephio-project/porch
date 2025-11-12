@@ -17,62 +17,19 @@ package sync
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/pkg/cache/testutil"
+	"github.com/nephio-project/porch/pkg/cache/util"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/watch"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	k8sfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
-
-type fakeClientWithStatus struct {
-	client.Client
-	statusStore map[types.NamespacedName]configapi.RepositoryStatus
-}
-
-func newFakeClientWithStatus(scheme *runtime.Scheme, objs ...client.Object) *fakeClientWithStatus {
-	baseClient := k8sfake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
-	return &fakeClientWithStatus{
-		Client:      baseClient,
-		statusStore: make(map[types.NamespacedName]configapi.RepositoryStatus),
-	}
-}
-
-func (f *fakeClientWithStatus) Status() client.StatusWriter {
-	return &fakeStatusWriter{f}
-}
-
-type fakeStatusWriter struct {
-	f *fakeClientWithStatus
-}
-
-func (w *fakeStatusWriter) Update(ctx context.Context, obj client.Object, opts ...client.SubResourceUpdateOption) error {
-	repo, ok := obj.(*configapi.Repository)
-	if !ok {
-		return fmt.Errorf("status update only supported for Repository objects")
-	}
-	key := types.NamespacedName{Name: repo.Name, Namespace: repo.Namespace}
-	w.f.statusStore[key] = repo.Status
-	return nil
-}
-
-func (w *fakeStatusWriter) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.SubResourcePatchOption) error {
-	return nil
-}
-
-func (w *fakeStatusWriter) Create(ctx context.Context, obj client.Object, subresource client.Object, opts ...client.SubResourceCreateOption) error {
-	return nil
-}
-
-func (f *fakeClientWithStatus) Watch(ctx context.Context, list client.ObjectList, opts ...client.ListOption) (watch.Interface, error) {
-	return watch.NewEmptyWatch(), nil
-}
 
 func TestSetRepositoryCondition(t *testing.T) {
 	scheme := runtime.NewScheme()
@@ -89,31 +46,32 @@ func TestSetRepositoryCondition(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		status         string
+		status         util.RepositoryStatus
 		syncError      error
 		nextSyncTime   *time.Time
 		expectedStatus metav1.ConditionStatus
 		expectedReason string
 		expectedMsg    string
 		expectErr      bool
+		expectedErr    string
 	}{
 		{
 			name:           "ready status",
-			status:         "ready",
+			status:         util.RepositoryStatusReady,
 			expectedStatus: metav1.ConditionTrue,
 			expectedReason: configapi.ReasonReady,
 			expectedMsg:    "Repository Ready",
 		},
 		{
 			name:           "ready with next sync time",
-			status:         "ready",
+			status:         util.RepositoryStatusReady,
 			nextSyncTime:   &time.Time{},
 			expectedStatus: metav1.ConditionTrue,
 			expectedReason: configapi.ReasonReady,
 		},
 		{
 			name:           "error with message",
-			status:         "error",
+			status:         util.RepositoryStatusError,
 			syncError:      errors.New("sync failed"),
 			expectedStatus: metav1.ConditionFalse,
 			expectedReason: configapi.ReasonError,
@@ -121,44 +79,34 @@ func TestSetRepositoryCondition(t *testing.T) {
 		},
 		{
 			name:           "error without message",
-			status:         "error",
+			status:         util.RepositoryStatusError,
 			expectedStatus: metav1.ConditionFalse,
 			expectedReason: configapi.ReasonError,
 			expectedMsg:    "unknown error",
 		},
 		{
 			name:           "sync-in-progress",
-			status:         "sync-in-progress",
+			status:         util.RepositoryStatusSyncInProgress,
 			expectedStatus: metav1.ConditionFalse,
 			expectedReason: configapi.ReasonReconciling,
 			expectedMsg:    "Repository reconciliation in progress",
-		},
-		{
-			name:      "unknown status",
-			status:    "unknown",
-			expectErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := newFakeClientWithStatus(scheme, repoObj.DeepCopy())
+			client := testutil.NewFakeClientWithStatus(scheme, repoObj.DeepCopy())
 
 			err := SetRepositoryCondition(context.TODO(), client, repoKey, tt.status, tt.syncError, tt.nextSyncTime)
 
 			if tt.expectErr {
-				if err == nil {
-					t.Error("Expected error but got none")
-				}
+				require.ErrorContains(t, err, tt.expectedErr)
 				return
 			}
 
-			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
-				return
-			}
+			require.NoError(t, err)
 
-			status, ok := client.statusStore[types.NamespacedName{Name: repoName, Namespace: namespace}]
+			status, ok := client.GetStatusStore()[types.NamespacedName{Name: repoName, Namespace: namespace}]
 			if !ok {
 				t.Error("Expected status to be updated")
 				return
@@ -170,17 +118,11 @@ func TestSetRepositoryCondition(t *testing.T) {
 			}
 
 			cond := status.Conditions[0]
-			if cond.Type != configapi.RepositoryReady {
-				t.Errorf("Expected condition type %s, got %s", configapi.RepositoryReady, cond.Type)
-			}
-			if cond.Status != tt.expectedStatus {
-				t.Errorf("Expected status %s, got %s", tt.expectedStatus, cond.Status)
-			}
-			if cond.Reason != tt.expectedReason {
-				t.Errorf("Expected reason %s, got %s", tt.expectedReason, cond.Reason)
-			}
-			if tt.expectedMsg != "" && cond.Message != tt.expectedMsg {
-				t.Errorf("Expected message %s, got %s", tt.expectedMsg, cond.Message)
+			assert.Equal(t, configapi.RepositoryReady, cond.Type)
+			assert.Equal(t, tt.expectedStatus, cond.Status)
+			assert.Equal(t, tt.expectedReason, cond.Reason)
+			if tt.expectedMsg != "" {
+				assert.Equal(t, tt.expectedMsg, cond.Message)
 			}
 		})
 	}

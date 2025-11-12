@@ -17,12 +17,12 @@ package crcache
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
 	porchtypes "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/pkg/cache/testutil"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -34,53 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/watch"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	k8sfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
-
-// FakeClientWithStatusUpdate is a fake client that supports status updates
-type FakeClientWithStatusUpdate struct {
-	client.Client
-	statusStore map[types.NamespacedName]configapi.RepositoryStatus
-}
-
-func NewFakeClientWithStatus(scheme *runtime.Scheme, objs ...client.Object) *FakeClientWithStatusUpdate {
-	baseClient := k8sfake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
-	return &FakeClientWithStatusUpdate{
-		Client:      baseClient,
-		statusStore: make(map[types.NamespacedName]configapi.RepositoryStatus),
-	}
-}
-func (f *FakeClientWithStatusUpdate) Status() client.StatusWriter {
-	return &fakeStatusWriter{f}
-}
-
-type fakeStatusWriter struct {
-	f *FakeClientWithStatusUpdate
-}
-
-func (w *fakeStatusWriter) Update(ctx context.Context, obj client.Object, opts ...client.SubResourceUpdateOption) error {
-	repo, ok := obj.(*configapi.Repository)
-	if !ok {
-		return fmt.Errorf("status update only supported for Repository objects")
-	}
-	key := types.NamespacedName{Name: repo.Name, Namespace: repo.Namespace}
-	w.f.statusStore[key] = repo.Status
-	return nil
-}
-
-func (w *fakeStatusWriter) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.SubResourcePatchOption) error {
-	return nil
-}
-
-func (w *fakeStatusWriter) Create(ctx context.Context, obj client.Object, subresource client.Object, opts ...client.SubResourceCreateOption) error {
-	return nil
-}
-
-func (f *FakeClientWithStatusUpdate) Watch(ctx context.Context, list client.ObjectList, opts ...client.ListOption) (watch.Interface, error) {
-	return watch.NewEmptyWatch(), nil
-}
 
 func TestCachedRepoRefresh(t *testing.T) {
 	mockRepo := mockrepo.NewMockRepository(t)
@@ -96,7 +50,7 @@ func TestCachedRepoRefresh(t *testing.T) {
 	}
 	scheme := runtime.NewScheme()
 	_ = configapi.AddToScheme(scheme)
-	fakeClient := NewFakeClientWithStatus(scheme, &repoSpec)
+	fakeClient := testutil.NewFakeClientWithStatus(scheme, &repoSpec)
 
 	options := cachetypes.CacheOptions{
 		RepoPRChangeNotifier: mockNotifier,
@@ -258,7 +212,7 @@ func TestHandleRunOnceAt(t *testing.T) {
 
 	scheme := runtime.NewScheme()
 	_ = configapi.AddToScheme(scheme)
-	fakeClient := NewFakeClientWithStatus(scheme, &repoSpec)
+	fakeClient := testutil.NewFakeClientWithStatus(scheme, &repoSpec)
 
 	options := cachetypes.CacheOptions{
 		RepoPRChangeNotifier: mockNotifier,
@@ -284,7 +238,7 @@ func TestHandleRunOnceAt(t *testing.T) {
 	time.Sleep(3 * time.Second)
 	// Verify status was updated
 	key := types.NamespacedName{Name: repoName, Namespace: namespace}
-	status := fakeClient.statusStore[key]
+	status := fakeClient.GetStatusStore()[key]
 
 	mockRepo.On("Close", mock.Anything).Return(nil).Maybe()
 	cr.Close(context.TODO())

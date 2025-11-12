@@ -27,7 +27,7 @@ import (
 )
 
 // SetRepositoryCondition sets the repository condition status
-func SetRepositoryCondition(ctx context.Context, coreClient client.WithWatch, repoKey repository.RepositoryKey, status string, syncError error, nextSyncTime *time.Time) error {
+func SetRepositoryCondition(ctx context.Context, coreClient client.WithWatch, repoKey repository.RepositoryKey, status util.RepositoryStatus, syncError error, nextSyncTime *time.Time) error {
 	if coreClient == nil {
 		return fmt.Errorf("client is nil")
 	}
@@ -43,7 +43,7 @@ func SetRepositoryCondition(ctx context.Context, coreClient client.WithWatch, re
 	}
 
 	errorMsg := ""
-	if status == "error" && syncError != nil {
+	if status == util.RepositoryStatusError && syncError != nil {
 		errorMsg = syncError.Error()
 	}
 

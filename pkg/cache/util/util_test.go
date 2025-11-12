@@ -16,13 +16,11 @@ package util
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -30,45 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 )
-
-// FakeClientWithStatusUpdate is a fake client that supports status updates
-type FakeClientWithStatusUpdate struct {
-	client.Client
-	statusStore map[types.NamespacedName]configapi.RepositoryStatus
-}
-
-func NewFakeClientWithStatus(scheme *runtime.Scheme, objs ...client.Object) *FakeClientWithStatusUpdate {
-	baseClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
-	return &FakeClientWithStatusUpdate{
-		Client:      baseClient,
-		statusStore: make(map[types.NamespacedName]configapi.RepositoryStatus),
-	}
-}
-func (f *FakeClientWithStatusUpdate) Status() client.StatusWriter {
-	return &fakeStatusWriter{f}
-}
-
-type fakeStatusWriter struct {
-	f *FakeClientWithStatusUpdate
-}
-
-func (w *fakeStatusWriter) Update(ctx context.Context, obj client.Object, opts ...client.SubResourceUpdateOption) error {
-	repo, ok := obj.(*configapi.Repository)
-	if !ok {
-		return fmt.Errorf("status update only supported for Repository objects")
-	}
-	key := types.NamespacedName{Name: repo.Name, Namespace: repo.Namespace}
-	w.f.statusStore[key] = repo.Status
-	return nil
-}
-
-func (w *fakeStatusWriter) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.SubResourcePatchOption) error {
-	return nil
-}
-
-func (w *fakeStatusWriter) Create(ctx context.Context, obj client.Object, subresource client.Object, opts ...client.SubResourceCreateOption) error {
-	return nil
-}
 
 func TestBuildRepositoryCondition(t *testing.T) {
 	repo := &configapi.Repository{
@@ -83,7 +42,7 @@ func TestBuildRepositoryCondition(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		status    string
+		status    RepositoryStatus
 		errorMsg  string
 		expected  metav1.ConditionStatus
 		reason    string
@@ -92,7 +51,7 @@ func TestBuildRepositoryCondition(t *testing.T) {
 	}{
 		{
 			name:     "SyncInProgress",
-			status:   "sync-in-progress",
+			status:   RepositoryStatusSyncInProgress,
 			errorMsg: "",
 			expected: metav1.ConditionFalse,
 			reason:   configapi.ReasonReconciling,
@@ -100,7 +59,7 @@ func TestBuildRepositoryCondition(t *testing.T) {
 		},
 		{
 			name:     "Ready",
-			status:   "ready",
+			status:   RepositoryStatusReady,
 			errorMsg: "",
 			expected: metav1.ConditionTrue,
 			reason:   configapi.ReasonReady,
@@ -108,7 +67,7 @@ func TestBuildRepositoryCondition(t *testing.T) {
 		},
 		{
 			name:     "ErrorWithMessage",
-			status:   "error",
+			status:   RepositoryStatusError,
 			errorMsg: "some error",
 			expected: metav1.ConditionFalse,
 			reason:   configapi.ReasonError,
@@ -116,7 +75,7 @@ func TestBuildRepositoryCondition(t *testing.T) {
 		},
 		{
 			name:     "ErrorWithoutMessage",
-			status:   "error",
+			status:   RepositoryStatusError,
 			errorMsg: "",
 			expected: metav1.ConditionFalse,
 			reason:   configapi.ReasonError,
@@ -130,7 +89,7 @@ func TestBuildRepositoryCondition(t *testing.T) {
 		},
 		{
 			name:     "ReadyWithNextSync",
-			status:   "ready",
+			status:   RepositoryStatusReady,
 			errorMsg: "",
 			expected: metav1.ConditionTrue,
 			reason:   configapi.ReasonReady,
@@ -187,7 +146,7 @@ func TestApplyRepositoryCondition(t *testing.T) {
 		WithObjects(repo).
 		Build()
 
-	err := ApplyRepositoryCondition(ctx, fakeClient, repo, condition, "ready")
+	err := ApplyRepositoryCondition(ctx, fakeClient, repo, condition, RepositoryStatusReady)
 	require.NoError(t, err)
 
 	// Fetch updated repo to verify condition

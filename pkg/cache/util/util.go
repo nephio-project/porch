@@ -27,9 +27,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func BuildRepositoryCondition(repo *configapi.Repository, status string, errorMsg string, nextSyncTime *time.Time) (metav1.Condition, error) {
+// RepositoryStatus represents the status of a repository sync operation
+type RepositoryStatus string
+
+const (
+	RepositoryStatusSyncInProgress RepositoryStatus = "sync-in-progress"
+	RepositoryStatusReady          RepositoryStatus = "ready"
+	RepositoryStatusError          RepositoryStatus = "error"
+)
+
+func BuildRepositoryCondition(repo *configapi.Repository, status RepositoryStatus, errorMsg string, nextSyncTime *time.Time) (metav1.Condition, error) {
 	switch status {
-	case "sync-in-progress":
+	case RepositoryStatusSyncInProgress:
 		return metav1.Condition{
 			Type:               configapi.RepositoryReady,
 			Status:             metav1.ConditionFalse,
@@ -38,7 +47,7 @@ func BuildRepositoryCondition(repo *configapi.Repository, status string, errorMs
 			Reason:             configapi.ReasonReconciling,
 			Message:            "Repository reconciliation in progress",
 		}, nil
-	case "ready":
+	case RepositoryStatusReady:
 		message := "Repository Ready"
 		if nextSyncTime != nil {
 			message = fmt.Sprintf("Repository Ready (next sync scheduled at: %s)", nextSyncTime.Format(time.RFC3339))
@@ -51,7 +60,7 @@ func BuildRepositoryCondition(repo *configapi.Repository, status string, errorMs
 			Reason:             configapi.ReasonReady,
 			Message:            message,
 		}, nil
-	case "error":
+	case RepositoryStatusError:
 		if errorMsg == "" {
 			errorMsg = "unknown error"
 		}
@@ -68,8 +77,8 @@ func BuildRepositoryCondition(repo *configapi.Repository, status string, errorMs
 	}
 }
 
-func ApplyRepositoryCondition(ctx context.Context, client client.Client, repo *configapi.Repository, condition metav1.Condition, status string) error {
-	for _, attempt := range []int{1, 2, 3} {
+func ApplyRepositoryCondition(ctx context.Context, client client.Client, repo *configapi.Repository, condition metav1.Condition, status RepositoryStatus) error {
+	for attempt := range 3 {
 		latestRepo := &configapi.Repository{}
 		err := client.Get(ctx, types.NamespacedName{
 			Namespace: repo.Namespace,

@@ -61,7 +61,6 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 	r.getFlags.AddFlags(c)
 	r.printFlags.AddFlags(c)
 
-	// Add --all flag
 	c.Flags().Bool("all", false, "Reconcile all repositories in the namespace")
 	c.Flags().String("run-once", "", "Schedule a one-time sync using a duration (e.g., 10m, 2h30m) or RFC3339 timestamp (e.g., 2025-09-16T12:00:00Z). Minimum allowed duration and default value is 1 minute from time of command invocation.")
 

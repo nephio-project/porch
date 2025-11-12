@@ -21,6 +21,8 @@ import (
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -133,20 +135,14 @@ func TestSyncManager_CalculateWaitDuration(t *testing.T) {
 			duration := manager.calculateWaitDuration(defaultDuration)
 
 			if tt.expectDefault {
-				if duration != defaultDuration {
-					t.Errorf("Expected duration %v, got %v", defaultDuration, duration)
-				}
+				assert.Equal(t, defaultDuration, duration)
 			} else {
-				if duration > 24*time.Hour {
-					t.Errorf("Expected duration less than 24 hours, got %v", duration)
-				}
-				if duration < 0 {
-					t.Errorf("Expected positive duration, got %v", duration)
-				}
+				assert.Less(t, duration, 24*time.Hour)
+				assert.Greater(t, duration, time.Duration(0))
 			}
 
-			if tt.expectNextSync && manager.nextSyncTime == nil {
-				t.Error("Expected nextSyncTime to be set")
+			if tt.expectNextSync {
+				assert.NotNil(t, manager.nextSyncTime)
 			}
 		})
 	}
@@ -188,14 +184,9 @@ func TestSyncManager_SetDefaultNextSyncTime(t *testing.T) {
 
 	after := time.Now()
 
-	if duration != defaultDuration {
-		t.Errorf("Expected duration %v, got %v", defaultDuration, duration)
-	}
+	assert.Equal(t, defaultDuration, duration)
 
-	if manager.nextSyncTime == nil {
-		t.Error("Expected nextSyncTime to be set")
-		return
-	}
+	require.NotNil(t, manager.nextSyncTime)
 
 	// Check that nextSyncTime is approximately now + defaultDuration
 	expectedTime := before.Add(defaultDuration)

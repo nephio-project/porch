@@ -19,10 +19,12 @@ import (
 	"time"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/pkg/cache/util"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/robfig/cron/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -86,9 +88,7 @@ func (m *SyncManager) GetLastSyncError() error {
 func (m *SyncManager) syncForever(ctx context.Context, defaultSyncFrequency time.Duration) {
 	// Sync once at startup
 	m.lastSyncError = m.handler.SyncOnce(ctx)
-	m.syncCountdown = m.calculateWaitDuration(defaultSyncFrequency)
-	klog.Infof(nextSyncLogFormat, m.handler.Key(), m.nextSyncTime)
-	m.updateRepositoryCondition(ctx)
+	m.scheduleNextSync(defaultSyncFrequency)
 
 	tickInterval := 5 * time.Second
 	if defaultSyncFrequency < 10*time.Second {
@@ -109,17 +109,13 @@ func (m *SyncManager) syncForever(ctx context.Context, defaultSyncFrequency time
 			}
 			if m.lastCronExpr != currentCronExpr {
 				m.lastCronExpr = currentCronExpr
-				m.syncCountdown = m.calculateWaitDuration(defaultSyncFrequency)
-				klog.Infof(nextSyncLogFormat, m.handler.Key(), m.nextSyncTime)
-				m.updateRepositoryCondition(ctx)
+				m.scheduleNextSync(defaultSyncFrequency)
 				continue
 			}
 			m.syncCountdown -= tickInterval
 			if m.syncCountdown <= 0 {
 				m.lastSyncError = m.handler.SyncOnce(ctx)
-				m.syncCountdown = m.calculateWaitDuration(defaultSyncFrequency)
-				klog.Infof(nextSyncLogFormat, m.handler.Key(), m.nextSyncTime)
-				m.updateRepositoryCondition(ctx)
+				m.scheduleNextSync(defaultSyncFrequency)
 			}
 		}
 	}
@@ -178,8 +174,7 @@ func (m *SyncManager) handleRunOnceAt(ctx context.Context) {
 }
 
 func (m *SyncManager) setDefaultNextSyncTime(defaultDuration time.Duration) time.Duration {
-	next := time.Now().Add(defaultDuration)
-	m.nextSyncTime = &next
+	m.nextSyncTime = ptr.To(time.Now().Add(defaultDuration))
 	return defaultDuration
 }
 
@@ -216,16 +211,22 @@ func (m *SyncManager) shouldScheduleRunOnce(runOnceAt *metav1.Time, scheduled ti
 }
 
 func (m *SyncManager) updateRepositoryCondition(ctx context.Context) {
-	status := "ready"
+	status := util.RepositoryStatusReady
 	if m.lastSyncError != nil {
 		klog.Warningf("repositorySync %+v: sync error: %v", m.handler.Key(), m.lastSyncError)
-		status = "error"
+		status = util.RepositoryStatusError
 	}
 	if err := m.SetRepositoryCondition(ctx, status); err != nil {
 		klog.Warningf("repositorySync %+v: failed to set repository condition: %v", m.handler.Key(), err)
 	}
 }
 
-func (m *SyncManager) SetRepositoryCondition(ctx context.Context, status string) error {
+func (m *SyncManager) SetRepositoryCondition(ctx context.Context, status util.RepositoryStatus) error {
 	return SetRepositoryCondition(ctx, m.coreClient, m.handler.Key(), status, m.lastSyncError, m.nextSyncTime)
+}
+
+func (m *SyncManager) scheduleNextSync(defaultSyncFrequency time.Duration) {
+	m.syncCountdown = m.calculateWaitDuration(defaultSyncFrequency)
+	klog.Infof(nextSyncLogFormat, m.handler.Key(), m.nextSyncTime)
+	m.updateRepositoryCondition(context.Background())
 }

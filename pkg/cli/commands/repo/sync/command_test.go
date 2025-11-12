@@ -10,6 +10,7 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/options"
 	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -459,4 +460,27 @@ func TestNewRunnerInitialization(t *testing.T) {
 	if r.Command.Flags().Lookup("run-once") == nil {
 		t.Errorf("expected --run-once flag to be present")
 	}
+}
+
+func TestRunE_ClientCreationFailure(t *testing.T) {
+	// Test the scenario where porch.CreateClientWithFlags fails
+	r := &runner{
+		ctx: context.Background(),
+		getFlags: options.Get{
+			ConfigFlags: &genericclioptions.ConfigFlags{
+				KubeConfig: strPtr("/invalid/path/to/kubeconfig"),
+				Namespace:  strPtr("default"),
+			},
+		},
+		client: nil, // Force client creation
+	}
+
+	cmd := &cobra.Command{}
+	cmd.Flags().String("all", "false", "")
+	cmd.Flags().String("all-namespaces", "false", "")
+	cmd.Flags().String("run-once", "", "")
+	r.Command = cmd
+
+	err := r.runE(cmd, []string{"test-repo"})
+	assert.Error(t, err, "expected error when client creation fails")
 }
