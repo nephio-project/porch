@@ -11,13 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: porch-system
-
----
-
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -120,7 +113,7 @@ spec:
               value: "pgaudit"
           ports:
             - name: tcp-postgresql
-              containerPort: 5432
+              containerPort: 5432  # Should match POSTGRESQL_PORT_NUMBER env var
 
           startupProbe:
             tcpSocket:
@@ -149,7 +142,7 @@ spec:
                 - -c
                 - -e
                 - |
-                  exec pg_isready -U "porch" -d "dbname=porch" -h 127.0.0.1 -p 5432
+                  exec pg_isready -U "$POSTGRESQL_USERNAME" -d "dbname=$POSTGRESQL_DATABASE" -h 127.0.0.1 -p "$POSTGRESQL_PORT_NUMBER"
                   [ -f /opt/bitnami/postgresql/tmp/.initialized ] || [ -f /bitnami/postgresql/.initialized ]
 
           resources:
@@ -171,7 +164,7 @@ spec:
             medium: Memory
         - name: initdb
           configMap:
-            name: porch-schema
+            name: porch-db-schema
   volumeClaimTemplates:
     - metadata:
         name: data

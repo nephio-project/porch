@@ -2,5 +2,12 @@ apiVersion: kpt.dev/v1
 kind: Kptfile
 metadata:
   name: porch
+  annotations:
+    config.kubernetes.io/local-config: "true"
 info:
-  description: porch
+  description: porch kpt package
+pipeline:
+  mutators:
+  - name: configure-porch-cache-type
+    image: ghcr.io/kptdev/krm-functions-catalog/starlark:latest
+    configPath: configure-porch-cache-type.yaml
