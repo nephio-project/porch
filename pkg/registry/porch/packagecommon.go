@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	unversionedapi "github.com/nephio-project/porch/api/porch"
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/engine"
@@ -372,6 +373,17 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 		return nil, false, err
 	}
 
+	// This type conversion is necessary because mutations work with unversioned types
+	// (mostly for historical reasons).  So the server-side-apply library returns an unversioned object.
+	if unversioned, isUnversioned := newRuntimeObj.(*unversionedapi.PackageRevision); isUnversioned {
+		klog.Warningf("converting from unversioned to versioned object")
+		typed := &api.PackageRevision{}
+		if err := r.scheme.Convert(unversioned, typed, nil); err != nil {
+			return nil, false, fmt.Errorf("failed to convert %T to %T: %w", unversioned, typed, err)
+		}
+		newRuntimeObj = typed
+	}
+
 	if err := r.validateUpdate(ctx, newRuntimeObj, oldApiPkgRev, isCreate, createValidation,
 		updateValidation, "PackageRevision", name); err != nil {
 		return nil, false, err
@@ -471,6 +483,17 @@ func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo 
 	if err != nil {
 		klog.Infof("update failed to construct UpdatedObject: %v", err)
 		return nil, false, err
+	}
+
+	// This type conversion is necessary because mutations work with unversioned types
+	// (mostly for historical reasons).  So the server-side-apply library returns an unversioned object.
+	if unversioned, isUnversioned := newRuntimeObj.(*unversionedapi.PackageRevision); isUnversioned {
+		klog.Warningf("converting from unversioned to versioned object")
+		typed := &api.PackageRevision{}
+		if err := r.scheme.Convert(unversioned, typed, nil); err != nil {
+			return nil, false, fmt.Errorf("failed to convert %T to %T: %w", unversioned, typed, err)
+		}
+		newRuntimeObj = typed
 	}
 
 	if err := r.validateUpdate(ctx, newRuntimeObj, oldRuntimeObj, isCreate, createValidation,

@@ -23,20 +23,49 @@ import (
 // +k8s:openapi-gen=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type PackageRevision struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   PackageRevisionSpec
-	Status PackageRevisionStatus
+	Spec   PackageRevisionSpec   `json:"spec,omitempty"`
+	Status PackageRevisionStatus `json:"status,omitempty"`
+}
+
+// Key and value of the latest package revision label:
+
+const (
+	LatestPackageRevisionKey   = "kpt.dev/latest-revision"
+	LatestPackageRevisionValue = "true"
+)
+
+type PkgRevFieldSelector string
+
+const (
+	PkgRevSelectorName          PkgRevFieldSelector = "metadata.name"
+	PkgRevSelectorNamespace     PkgRevFieldSelector = "metadata.namespace"
+	PkgRevSelectorRevision      PkgRevFieldSelector = "spec.revision"
+	PkgRevSelectorPackageName   PkgRevFieldSelector = "spec.packageName"
+	PkgRevSelectorRepository    PkgRevFieldSelector = "spec.repository"
+	PkgRevSelectorWorkspaceName PkgRevFieldSelector = "spec.workspaceName"
+	PkgRevSelectorLifecycle     PkgRevFieldSelector = "spec.lifecycle"
+)
+
+var PackageRevisionSelectableFields = []PkgRevFieldSelector{
+	PkgRevSelectorName,
+	PkgRevSelectorNamespace,
+	PkgRevSelectorRevision,
+	PkgRevSelectorPackageName,
+	PkgRevSelectorRepository,
+	PkgRevSelectorWorkspaceName,
+	PkgRevSelectorLifecycle,
 }
 
 // PackageRevisionList
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type PackageRevisionList struct {
-	metav1.TypeMeta
-	metav1.ListMeta
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
 
-	Items []PackageRevision
+	Items []PackageRevision `json:"items"`
 }
 
 type PackageRevisionLifecycle string
@@ -67,6 +96,25 @@ type PackageRevisionSpec struct {
 
 	Lifecycle PackageRevisionLifecycle `json:"lifecycle,omitempty"`
 
+	// The task slice holds zero or more tasks that describe the operations
+	// performed on the packagerevision. The are essentially a replayable history
+	// of the packagerevision,
+	//
+	// Packagerevisions that were not created in Porch may have an
+	// empty task list.
+	//
+	// Packagerevisions created and managed through Porch will always
+	// have either an Init, Edit, or a Clone task as the first entry in their
+	// task list. This represent packagerevisions created from scratch, based
+	// a copy of a different revision in the same package, or a packagerevision
+	// cloned from another package.
+	// Each change to the packagerevision will result in a correspondig
+	// task being added to the list of tasks. It will describe the operation
+	// performed and will have a corresponding entry (commit or layer) in git
+	// or oci.
+	// The task slice describes the history of the packagerevision, so it
+	// is an append only list (We might introduce some kind of compaction in the
+	// future to keep the number of tasks at a reasonable number).
 	Tasks []Task `json:"tasks,omitempty"`
 
 	ReadinessGates []ReadinessGate `json:"readinessGates,omitempty"`
@@ -108,6 +156,9 @@ const (
 	TaskTypeClone   TaskType = "clone"
 	TaskTypeEdit    TaskType = "edit"
 	TaskTypeUpgrade TaskType = "upgrade"
+	TaskTypeRender  TaskType = "render"
+	TaskTypePush    TaskType = "push"
+	TaskTypeNone    TaskType = ""
 )
 
 type Task struct {
@@ -257,6 +308,8 @@ type RepositoryRef struct {
 	Name string `json:"name"`
 }
 
+// Selector corresponds to the `--match-???` set of flags of the `kpt fn eval` command:
+// See https://kpt.dev/reference/cli/fn/eval/ for additional information.
 type Selector struct {
 	// APIVersion of the target resources
 	APIVersion string `json:"apiVersion,omitempty"`
@@ -270,7 +323,7 @@ type Selector struct {
 
 // The following types (UpstreamLock, OriginType, and GitLock) are duplicates from the kpt library.
 // We are repeating them here to avoid cyclic dependencies, but these duplicate type should be removed when
-// https://github.com/GoogleContainerTools/kpt/issues/3297 is resolved.
+// https://github.com/kptdev/kpt/issues/3297 is resolved.
 
 type OriginType string
 

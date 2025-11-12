@@ -17,7 +17,8 @@ package porch
 import (
 	"time"
 
-	porch "github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/api/porch"
+	apiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/engine"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -94,7 +95,7 @@ func (r *RESTStorageOptions) NewRESTStorage() (genericapiserver.APIGroupInfo, er
 	group := genericapiserver.NewDefaultAPIGroupInfo(porch.GroupName, r.Scheme, metav1.ParameterCodec, r.Codecs)
 
 	group.VersionedResourcesStorageMap = map[string]map[string]rest.Storage{
-		porch.SchemeGroupVersion.Version: {
+		apiv1alpha1.SchemeGroupVersion.Version: {
 			"packages":                  packages,
 			"packagerevisions":          packageRevisions,
 			"packagerevisions/approval": packageRevisionsApproval,
@@ -104,8 +105,8 @@ func (r *RESTStorageOptions) NewRESTStorage() (genericapiserver.APIGroupInfo, er
 
 	{
 		gvk := schema.GroupVersionKind{
-			Group:   porch.GroupName,
-			Version: porch.SchemeGroupVersion.Version,
+			Group:   apiv1alpha1.GroupName,
+			Version: apiv1alpha1.SchemeGroupVersion.Version,
 			Kind:    "Package",
 		}
 		if err := r.Scheme.AddFieldLabelConversionFunc(gvk, convertPackageFieldSelector); err != nil {
@@ -114,8 +115,8 @@ func (r *RESTStorageOptions) NewRESTStorage() (genericapiserver.APIGroupInfo, er
 	}
 	{
 		gvk := schema.GroupVersionKind{
-			Group:   porch.GroupName,
-			Version: porch.SchemeGroupVersion.Version,
+			Group:   apiv1alpha1.GroupName,
+			Version: apiv1alpha1.SchemeGroupVersion.Version,
 			Kind:    "PackageRevision",
 		}
 		if err := r.Scheme.AddFieldLabelConversionFunc(gvk, convertPackageRevisionFieldSelector); err != nil {
@@ -124,8 +125,8 @@ func (r *RESTStorageOptions) NewRESTStorage() (genericapiserver.APIGroupInfo, er
 	}
 	{
 		gvk := schema.GroupVersionKind{
-			Group:   porch.GroupName,
-			Version: porch.SchemeGroupVersion.Version,
+			Group:   apiv1alpha1.GroupName,
+			Version: apiv1alpha1.SchemeGroupVersion.Version,
 			Kind:    "PackageRevisionResources",
 		}
 		if err := r.Scheme.AddFieldLabelConversionFunc(gvk, convertPackageRevisionFieldSelector); err != nil {

@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Api versions allow the api contract for a resource to be changed while keeping
-// backward compatibility by support multiple concurrent versions
-// of the same resource
+// +domain=kpt.dev
 
-// +k8s:openapi-gen=true
-// +k8s:deepcopy-gen=package,register
-// +k8s:conversion-gen=github.com/nephio-project/porch/api/porch
-// +k8s:defaulter-gen=TypeMeta
-// +groupName=porch.kpt.dev
-package v1alpha1 // import "github.com/nephio-project/porch/api/porch/v1alpha1"
+package apis

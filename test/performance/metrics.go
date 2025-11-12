@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nephio-project/porch/api/porch/generated/clientset/versioned"
+	"github.com/nephio-project/porch/api/generated/clientset/versioned"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
