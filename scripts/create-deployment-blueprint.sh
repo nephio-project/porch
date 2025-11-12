@@ -33,6 +33,8 @@ Supported Flags:
   --enabled-reconcilers RECONCILDERS  ... comma-separated list of reconcilers that should be enabled in
                                           porch controller
   --ghcr-image-prefix PREFIX          ... ghcr image url prefix for running porch behind a proxy
+  --fn-runner-warm-up-pod-cache BOOL  ... disable warm-up-pod-cache in function runner
+  --porch-cache-type TYPE             ... porch cache type (CR or DB)
 EOF
   exit 1
 }
@@ -45,6 +47,8 @@ FUNCTION_IMAGE=""
 WRAPPER_SERVER_IMAGE=""
 ENABLED_RECONCILERS=""
 GHCR_IMAGE_PREFIX=""
+FN_RUNNER_WARM_UP_POD_CACHE="true"
+PORCH_CACHE_TYPE="CR"
 
 while [[ $# -gt 0 ]]; do
   key="${1}"
@@ -79,9 +83,17 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     --ghcr-image-prefix)
-          GHCR_IMAGE_PREFIX="${2}"
-          shift 2
-          ;;
+      GHCR_IMAGE_PREFIX="${2}"
+      shift 2
+      ;;
+    --fn-runner-warm-up-pod-cache)
+      FN_RUNNER_WARM_UP_POD_CACHE="${2}"
+      shift 2
+      ;;
+    --porch-cache-type)
+      PORCH_CACHE_TYPE="${2}"
+      shift 2
+      ;;
     *)
       error "Invalid argument: ${key}"
     ;;
@@ -167,10 +179,45 @@ for resource in ctx.resource_list['items']:
 "
 }
 
+function disable_fn_runner_warm_up_pod_cache() {
+    kpt fn eval ${DESTINATION} \
+      --image ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.2 \
+      --match-kind Deployment \
+      --match-name function-runner \
+      --match-namespace porch-system \
+      -- by-value="--warm-up-pod-cache=true" put-value="--warm-up-pod-cache=false"
+}
+
+function set_cache_type() {
+    kpt fn eval ${DESTINATION} \
+      --image ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.2 \
+      --match-kind ConfigMap \
+      --match-name porch-config \
+      --match-namespace porch-system \
+      -- by-path=data.cache-type put-value="${PORCH_CACHE_TYPE}"
+}
+
+function remove_cache_type_mutator() {
+  # Remove the mutator from Kptfile
+  kpt fn eval "${DESTINATION}" \
+    --image ghcr.io/kptdev/krm-functions-catalog/starlark:v0.5.0 \
+    --match-kind Kptfile \
+    -- "source=
+for resource in ctx.resource_list['items']:
+  if 'pipeline' in resource and 'mutators' in resource['pipeline']:
+    mutators = resource['pipeline']['mutators']
+    resource['pipeline']['mutators'] = [m for m in mutators if m.get('name') != 'configure-porch-cache-type']
+"
+  
+  # Remove the separate config file
+  rm -f "${DESTINATION}/configure-porch-cache-type.yaml"
+}
+
 function main() {
   # Repository CRD
   cp "./api/porchconfig/v1alpha1/config.porch.kpt.dev_repositories.yaml" \
      "${DESTINATION}/0-repositories.yaml"
+  # PackageRev CRD
   cp "./internal/api/porchinternal/v1alpha1/config.porch.kpt.dev_packagerevs.yaml" \
      "${DESTINATION}/0-packagerevs.yaml"
 
@@ -199,6 +246,12 @@ function main() {
           add_image_args_porch_server
   fi
 
+  if [[ "${FN_RUNNER_WARM_UP_POD_CACHE}" == "false" ]]; then
+    disable_fn_runner_warm_up_pod_cache
+  fi
+
+  set_cache_type
+
   customize-container-env
   
   customize-image \
@@ -213,6 +266,10 @@ function main() {
   customize-image-in-env \
     "docker.io/nephio/porch-wrapper-server:latest" \
     "${WRAPPER_SERVER_IMAGE}"
+  
+  kpt fn render "${DESTINATION}"
+  
+  remove_cache_type_mutator
 }
 
 validate
