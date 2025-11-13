@@ -18,7 +18,7 @@ TEST_COVERAGE_FILE=coverage.out
 TEST_COVERAGE_HTML_FILE=coverage_unit.html
 TEST_COVERAGE_FUNC_FILE=func_coverage.out
 TEST_OUTPUT_LOG_FILE=test_output.log
-TMPDIR=/tmp/coverage
+TEST_COVERAGE_TMP_DIR := $(shell mktemp --directory)
 
 ##@ Testing
 
@@ -29,15 +29,15 @@ test: ## Run unit tests (go test)
 ifeq ($(CONTAINER_RUNNABLE), 0)
 	$(RUN_CONTAINER_COMMAND) -e CONTAINER_RUNNABLE golang:1.25.0-bookworm \
 	sh -c "useradd -m -s /bin/sh porch && \
-	         mkdir -p ${TMPDIR} && chown porch:porch ${TMPDIR} && \
-	         su porch -c 'export TMPDIR=${TMPDIR}; \
+	         mkdir -p ${TEST_COVERAGE_TMP_DIR} && chown porch:porch ${TEST_COVERAGE_TMP_DIR} && \
+	         su porch -c 'export TEST_COVERAGE_TMP_DIR=${TEST_COVERAGE_TMP_DIR}; \
 	                       export PORCHDIR=${PORCHDIR}; \
 	                       git config --global user.name test; \
 	                       git config --global user.email test@nephio.org; \
-	                       go test ./... -v -coverprofile=${TMPDIR}/${TEST_COVERAGE_FILE} && \
-	                       go tool cover -html=${TMPDIR}/${TEST_COVERAGE_FILE} -o ${TMPDIR}/${TEST_COVERAGE_HTML_FILE} && \
-	                       go tool cover -func=${TMPDIR}/${TEST_COVERAGE_FILE} -o ${TMPDIR}/${TEST_COVERAGE_FUNC_FILE}' && \
-	         cp ${TMPDIR}/${TEST_COVERAGE_HTML_FILE} ${TMPDIR}/${TEST_COVERAGE_FILE} ${TMPDIR}/${TEST_COVERAGE_FUNC_FILE} ."
+	                       go test ./... -v -coverprofile=${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_FILE} && \
+	                       go tool cover -html=${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_HTML_FILE} && \
+	                       go tool cover -func=${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_FUNC_FILE}' && \
+	         cp ${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_HTML_FILE} ${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_FILE} ${TEST_COVERAGE_TMP_DIR}/${TEST_COVERAGE_FUNC_FILE} ."
 else
 	go test ./... -v -coverprofile=${TEST_COVERAGE_FILE}
 	go tool cover -html=${TEST_COVERAGE_FILE} -o ${TEST_COVERAGE_HTML_FILE}
