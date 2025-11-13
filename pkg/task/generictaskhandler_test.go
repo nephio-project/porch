@@ -93,6 +93,7 @@ func TestApplyTasks(t *testing.T) {
 						DisplayResourceCount: false,
 					}
 				},
+				repoOperationRetryAttempts: 3,
 			}
 
 			// Mock inputs

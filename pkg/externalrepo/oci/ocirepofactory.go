@@ -54,3 +54,8 @@ func (f *OciRepoFactory) NewRepositoryImpl(ctx context.Context, repositorySpec *
 		storage:    storage,
 	}, nil
 }
+
+func (f *OciRepoFactory) CheckRepositoryConnection(ctx context.Context, repositorySpec *configapi.Repository, options externalrepotypes.ExternalRepoOptions) error {
+	// TODO: check if credentials are valid for the registry
+	return nil
+}

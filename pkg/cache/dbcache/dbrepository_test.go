@@ -29,7 +29,10 @@ import (
 	mocksql "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/dbcache"
 	mockcachetypes "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
 	"github.com/stretchr/testify/mock"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	k8sfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func (t *DbTestSuite) TestDBRepository() {
@@ -169,8 +172,19 @@ func (t *DbTestSuite) TestDBRepositorySync() {
 	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
 	t.Require().NoError(err)
 
+	scheme := runtime.NewScheme()
+	_ = configapi.AddToScheme(scheme)
+
+	repoObj := &configapi.Repository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-repo-name",
+			Namespace: "my-ns",
+		},
+	}
+	fakeClient := k8sfake.NewClientBuilder().WithScheme(scheme).WithObjects(repoObj).Build()
 	cacheOptions := cachetypes.CacheOptions{
 		RepoSyncFrequency: 2 * time.Second,
+		CoreClient:        fakeClient,
 	}
 
 	testRepo.repositorySync = newRepositorySync(testRepo, cacheOptions)

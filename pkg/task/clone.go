@@ -41,11 +41,12 @@ type clonePackageMutation struct {
 	// TODO: merge namespace into referenceResolver?
 	namespace string
 
-	name               string // package target name
-	isDeployment       bool   // is the package deployable instance
-	repoOpener         repository.RepositoryOpener
-	credentialResolver repository.CredentialResolver
-	referenceResolver  repository.ReferenceResolver
+	name                       string // package target name
+	isDeployment               bool   // is the package deployable instance
+	repoOpener                 repository.RepositoryOpener
+	credentialResolver         repository.CredentialResolver
+	referenceResolver          repository.ReferenceResolver
+	repoOperationRetryAttempts int
 
 	// packageConfig contains the package configuration.
 	packageConfig *builtins.PackageConfig
@@ -157,9 +158,10 @@ func (m *clonePackageMutation) cloneFromGit(ctx context.Context, gitPackage *api
 
 	r, err := git.OpenRepository(ctx, "", m.namespace, &spec, false, dir, git.GitRepositoryOptions{
 		ExternalRepoOptions: externalrepotypes.ExternalRepoOptions{
-			CredentialResolver: m.credentialResolver,
+			CredentialResolver:         m.credentialResolver,
+			RepoOperationRetryAttempts: m.repoOperationRetryAttempts,
 		},
-		MainBranchStrategy: git.SkipVerification, // We are only reading so we don't need the main branch to exist.
+		MainBranchStrategy: git.SkipVerification,
 	})
 	if err != nil {
 		return repository.PackageResources{}, pkgerrors.Wrap(err, "cannot clone Git repository")
