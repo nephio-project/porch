@@ -68,6 +68,7 @@ type PorchServerOptions struct {
 	MaxConcurrentLists               int
 	MaxRequestBodySize               int
 	RepoSyncFrequency                time.Duration
+	RepoOperationRetryAttempts       int
 	SharedInformerFactory            informers.SharedInformerFactory
 	StdOut                           io.Writer
 	StdErr                           io.Writer
@@ -287,8 +288,9 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 					LocalDirectory:         o.CacheDirectory,
 					UseUserDefinedCaBundle: o.UseUserDefinedCaBundle,
 				},
-				RepoSyncFrequency: o.RepoSyncFrequency,
-				CacheType:         cachetypes.CacheType(o.CacheType),
+				RepoSyncFrequency:            o.RepoSyncFrequency,
+				RepoOperationRetryAttempts:   o.RepoOperationRetryAttempts,
+				CacheType:                    cachetypes.CacheType(o.CacheType),
 				DBCacheOptions: cachetypes.DBCacheOptions{
 					Driver:     o.DbCacheDriver,
 					DataSource: o.DbCacheDataSource,
@@ -345,9 +347,10 @@ func (o *PorchServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.DefaultImagePrefix, "default-image-prefix", fnruntime.GHCRImagePrefix, "Default prefix for unqualified function names")
 	fs.BoolVar(&o.DisableValidatingAdmissionPolicy, "disable-validating-admissions-policy", true, "Determine whether to (dis|en)able the Validating Admission Policy, which requires k8s version >= v1.30")
 	fs.StringVar(&o.FunctionRunnerAddress, "function-runner", "", "Address of the function runner gRPC service.")
-	fs.DurationVar(&o.ListTimeoutPerRepository, "list-timeout-per-repo", 10*time.Second, "Maximum amount of time to wait for a repository list request.")
+	fs.DurationVar(&o.ListTimeoutPerRepository, "list-timeout-per-repo", 20*time.Second, "Maximum amount of time to wait for a repository list request.")
 	fs.IntVar(&o.MaxRequestBodySize, "max-request-body-size", 6*1024*1024, "Maximum size of the request body in bytes. Keep this in sync with function-runner's corresponding argument.")
 	fs.IntVar(&o.MaxConcurrentLists, "max-parallel-repo-lists", 10, "Maximum number of repositories to list in parallel.")
-	fs.DurationVar(&o.RepoSyncFrequency, "repo-sync-frequency", 10*time.Minute, "Frequency in seconds at which registered repositories will be synced and the background job repository refresh runs.")
+	fs.DurationVar(&o.RepoSyncFrequency, "repo-sync-frequency", 10*time.Minute, "Frequency at which registered repository CRs will be synced.")
+	fs.IntVar(&o.RepoOperationRetryAttempts, "repo-operation-retry-attempts", 3, "Number of retry attempts for repository operations.")
 	fs.BoolVar(&o.UseUserDefinedCaBundle, "use-user-cabundle", false, "Determine whether to use a user-defined CaBundle for TLS towards the repository system.")
 }

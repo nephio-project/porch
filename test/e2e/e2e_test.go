@@ -3136,7 +3136,7 @@ func (t *PorchSuite) TestLatestVersionOnDelete() {
 	t.UpdateF(pr2)
 
 	t.DeleteF(pr2)
-	//After deletion of the v2 pacakgeRevision,
+	//After deletion of the v2 packageRevision,
 	//the label should migrate back to the v2 packageRevision
 	t.MustHaveLabels(pr1.Name, map[string]string{
 		porchapi.LatestPackageRevisionKey: porchapi.LatestPackageRevisionValue,

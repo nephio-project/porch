@@ -246,6 +246,10 @@ func (m *mockTaskHandler) SetRuntime(runtime fn.FunctionRuntime) {
 	m.Called(runtime)
 }
 
+func (m *mockTaskHandler) SetRepoOperationRetryAttempts(retryAttempts int) {
+	m.Called(retryAttempts)
+}
+
 type mockCache struct {
 	mock.Mock
 }

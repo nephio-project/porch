@@ -21,10 +21,11 @@ import (
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
-	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -52,6 +53,12 @@ func WithListTimeoutPerRepo(timeout time.Duration) BackgroundOption {
 	})
 }
 
+func WithRepoOperationRetryAttempts(count int) BackgroundOption {
+	return backgroundOptionFunc(func(b *background) {
+		b.repoOperationRetryAttempts = count
+	})
+}
+
 func RunBackground(ctx context.Context, coreClient client.WithWatch, cache cachetypes.Cache, options ...BackgroundOption) {
 	b := &background{
 		coreClient: coreClient,
@@ -67,10 +74,11 @@ func RunBackground(ctx context.Context, coreClient client.WithWatch, cache cache
 
 // background manages background tasks
 type background struct {
-	coreClient                client.WithWatch
-	cache                     cachetypes.Cache
-	periodicRepoSyncFrequency time.Duration
-	listTimeoutPerRepo        time.Duration
+	coreClient                 client.WithWatch
+	cache                      cachetypes.Cache
+	periodicRepoSyncFrequency  time.Duration
+	listTimeoutPerRepo         time.Duration
+	repoOperationRetryAttempts int
 }
 
 const (
@@ -194,19 +202,9 @@ func (b *background) handleRepositoryEvent(ctx context.Context, repo *configapi.
 	switch eventType {
 	case watch.Deleted:
 		err = b.cache.CloseRepository(listCtx, repo, repoList.Items)
-	case watch.Modified:
-		cachedRepo, err := b.cacheRepository(listCtx, repo)
-		if err == nil && cachedRepo != nil {
-			if err = cachedRepo.Refresh(ctx); err != nil {
-				klog.Warningf("Background repository refresh failed for repo %q: %v", repo.Name, err)
-			}
-		} else {
-			klog.Warningf("cacheRepository failed or returned nil for repo %q: err=%v", repo.Name, err)
-		}
 	default:
-		_, err = b.cacheRepository(listCtx, repo)
+		err = b.cacheRepository(listCtx, repo)
 	}
-
 	if err == nil {
 		klog.Infof("%s, handling completed in %s", msgPreamble, time.Since(start))
 		return nil
@@ -225,7 +223,7 @@ func (b *background) runOnce(ctx context.Context) error {
 	for i := range repositories.Items {
 		repo := &repositories.Items[i]
 
-		if _, err := b.cacheRepository(ctx, repo); err != nil {
+		if err := b.cacheRepository(ctx, repo); err != nil {
 			klog.Errorf("Failed to cache repository: %v", err)
 		}
 	}
@@ -233,11 +231,24 @@ func (b *background) runOnce(ctx context.Context) error {
 	return nil
 }
 
-func (b *background) cacheRepository(ctx context.Context, repo *configapi.Repository) (repository.Repository, error) {
+func (b *background) cacheRepository(ctx context.Context, repo *configapi.Repository) error {
 	start := time.Now()
-	defer func() { klog.V(4).Infof("background::cacheRepository (%s) took %s", repo.Name, time.Since(start)) }()
+	defer func() {
+		klog.V(2).Infof("background::cacheRepository (%s) took %s", repo.Name, time.Since(start))
+	}()
+
+	_, err := b.cache.OpenRepository(ctx, repo)
+
+	// Skip if repository is already ready or reconciling
+	if err == nil && len(repo.Status.Conditions) > 0 {
+		existingCondition := repo.Status.Conditions[0]
+		if existingCondition.Reason == configapi.ReasonReady ||
+			existingCondition.Reason == configapi.ReasonReconciling {
+			return nil
+		}
+	}
+
 	var condition v1.Condition
-	cachedRepo, err := b.cache.OpenRepository(ctx, repo)
 	if err == nil {
 		condition = v1.Condition{
 			Type:               configapi.RepositoryReady,
@@ -258,11 +269,32 @@ func (b *background) cacheRepository(ctx context.Context, repo *configapi.Reposi
 		}
 	}
 
-	meta.SetStatusCondition(&repo.Status.Conditions, condition)
-	if err := b.coreClient.Status().Update(ctx, repo); err != nil {
-		return nil, fmt.Errorf("error updating repository status: %w", err)
+	// Update status condition with retry only on API conflict
+	for attempt := 1; attempt <= b.repoOperationRetryAttempts; attempt++ {
+		latestRepo := &configapi.Repository{}
+		err := b.coreClient.Get(ctx, types.NamespacedName{
+			Namespace: repo.Namespace,
+			Name:      repo.Name,
+		}, latestRepo)
+		if err != nil {
+			return fmt.Errorf("failed to get latest repository object: %w", err)
+		}
+
+		meta.SetStatusCondition(&latestRepo.Status.Conditions, condition)
+		err = b.coreClient.Status().Update(ctx, latestRepo)
+		if err == nil {
+			return nil
+		}
+
+		if apierrors.IsConflict(err) {
+			klog.V(3).Infof("Retrying status update for repository %q in namespace %q due to conflict (attempt %d)", repo.Name, repo.Namespace, attempt)
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
+		// Return immediately for non-conflict errors
+		return fmt.Errorf("error updating repository status: %w", err)
 	}
-	return cachedRepo, nil
+	return fmt.Errorf("failed to update repository status after retries")
 }
 
 type backoffTimer struct {

@@ -23,12 +23,14 @@ import (
 
 type ExternalRepoFactory interface {
 	NewRepositoryImpl(ctx context.Context, repositorySpec *configapi.Repository, options ExternalRepoOptions) (repository.Repository, error)
+	CheckRepositoryConnection(ctx context.Context, repositorySpec *configapi.Repository, options ExternalRepoOptions) error
 }
 
 type ExternalRepoOptions struct {
 	LocalDirectory         string
 	UseUserDefinedCaBundle bool
-	CredentialResolver     repository.CredentialResolver
-	CaBundleResolver       repository.CredentialResolver
-	UserInfoProvider       repository.UserInfoProvider
+	CredentialResolver           repository.CredentialResolver
+	CaBundleResolver             repository.CredentialResolver
+	UserInfoProvider             repository.UserInfoProvider
+	RepoOperationRetryAttempts   int
 }

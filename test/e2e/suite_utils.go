@@ -690,6 +690,8 @@ func (t *TestSuite) RetriggerBackgroundJobForRepo(repoName string) {
 
 	// Delete and recreate repository to trigger background job on it
 	t.DeleteE(&repo)
+	t.WaitUntilRepositoryDeleted(repo.Name, t.Namespace)
+	time.Sleep(2 * time.Second)
 	t.CreateE(&repo)
 	t.WaitUntilRepositoryReady(repo.Name, t.Namespace)
 }

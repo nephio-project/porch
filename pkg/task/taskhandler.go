@@ -36,6 +36,7 @@ type TaskHandler interface {
 	SetRepoOpener(repository.RepositoryOpener)
 	SetCredentialResolver(repository.CredentialResolver)
 	SetReferenceResolver(repository.ReferenceResolver)
+	SetRepoOperationRetryAttempts(int)
 
 	ApplyTask(ctx context.Context, draft repository.PackageRevisionDraft, repositoryObj *configapi.Repository, obj *api.PackageRevision, packageConfig *builtins.PackageConfig) error
 	DoPRMutations(ctx context.Context, repoPR repository.PackageRevision, oldObj *api.PackageRevision, newObj *api.PackageRevision, draft repository.PackageRevisionDraft) error
