@@ -18,13 +18,11 @@ on:
     paths-ignore:
       - "docs/**"
       - "release/**"
-      - ".prow.yaml"
       - "OWNERS"
   pull_request:
     paths-ignore:
       - "docs/**"
       - "release/**"
-      - ".prow.yaml"
       - "OWNERS"
   workflow_dispatch:
 
