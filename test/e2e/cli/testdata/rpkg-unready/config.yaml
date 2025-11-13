@@ -22,35 +22,10 @@ commands:
   - args:
       - porchctl
       - rpkg
-      - copy
-      - --namespace=rpkg-unready
-      - --workspace=copy-2
-      - --replay-strategy=true
-      - git.unready-edit.clone-1
-    stdout: "git.unready-edit.copy-2 created\n"
-  - args:
-      - porchctl
-      - rpkg
-      - propose
-      - --namespace=rpkg-unready
-      - git.unready-edit.copy-2
-    stderr: "git.unready-edit.copy-2 failed (readiness conditions not met)\nError: errors:\n  readiness conditions not met \n"
-    exitCode: 1
-  - args:
-      - porchctl
-      - rpkg
-      - approve
-      - --namespace=rpkg-unready
-      - git.unready-edit.copy-2
-    stderr: "git.unready-edit.copy-2 failed (readiness conditions not met)\nError: errors:\n  readiness conditions not met \n"
-    exitCode: 1
-  - args:
-      - porchctl
-      - rpkg
       - pull
       - --namespace=rpkg-unready
-      - git.unready-edit.copy-2
-      - /tmp/porch-e2e/pkg-unready-git.unready-edit.copy-2
+      - git.unready-edit.clone-1
+      - /tmp/porch-e2e/pkg-unready-git.unready-edit.clone-1
   - args:
       - kpt
       - fn
@@ -59,7 +34,7 @@ commands:
       - ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.2.0
       - --match-kind
       - Kptfile
-      - /tmp/porch-e2e/pkg-unready-git.unready-edit.copy-2
+      - /tmp/porch-e2e/pkg-unready-git.unready-edit.clone-1
       - --
       - by-path=status.conditions[0].status
       - put-value=True
@@ -69,10 +44,37 @@ commands:
       - rpkg
       - push
       - --namespace=rpkg-unready
-      - git.unready-edit.copy-2
-      - /tmp/porch-e2e/pkg-unready-git.unready-edit.copy-2
+      - git.unready-edit.clone-1
+      - /tmp/porch-e2e/pkg-unready-git.unready-edit.clone-1
     stdout: |
-      git.unready-edit.copy-2 pushed
+      git.unready-edit.clone-1 pushed
+  - args:
+      - porchctl
+      - rpkg
+      - propose
+      - --namespace=rpkg-unready
+      - git.unready-edit.clone-1
+    stdout: |
+      git.unready-edit.clone-1 proposed
+    exitCode: 0
+  - args:
+      - porchctl
+      - rpkg
+      - approve
+      - --namespace=rpkg-unready
+      - git.unready-edit.clone-1
+    stdout: |
+      git.unready-edit.clone-1 approved
+    exitCode: 0
+  - args:
+      - porchctl
+      - rpkg
+      - copy
+      - --namespace=rpkg-unready
+      - --workspace=copy-2
+      - git.unready-edit.clone-1
+    stdout: "git.unready-edit.copy-2 created\n"
+    exitCode: 0
   - args:
       - porchctl
       - rpkg
@@ -91,4 +93,3 @@ commands:
     stdout: |
       git.unready-edit.copy-2 approved
     exitCode: 0
-  

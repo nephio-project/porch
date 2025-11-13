@@ -2092,7 +2092,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 			Namespace: t.Namespace,
 		},
 		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "test-fn-pod-hierarchy",
+			PackageName:    "test-fn-pod-hierarchy-2",
 			WorkspaceName:  "workspace-2",
 			RepositoryName: "git-fn-pod",
 			Tasks: []porchapi.Task{

@@ -52,23 +52,9 @@ else
   kpt fn eval \
     --image ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1.4 \
     --match-kind Service \
-    --match-name gitea \
+    --match-name gitea-lb \
     --match-namespace gitea \
     -- "metallb.universe.tf/loadBalancerIPs=${gitea_ip}"
- 
-  cp -f "${git_root}/deployments/local/kind_porch_test_cluster.yaml" cluster-config.yaml
- 
-  # Append KRM metadata to the cluster-config
-  cat >> cluster-config.yaml <<EOF
-metadata:
-  name: not-used
-  annotations:
-    config.kubernetes.io/local-config: "true"
-EOF
- 
-  kpt fn eval \
-    --image ghcr.io/kptdev/krm-functions-catalog/apply-replacements:v0.1.1 \
-    --fn-config "${git_root}/deployments/local/replace-gitea-service-ports.yaml"
 fi
  
 kpt fn render
