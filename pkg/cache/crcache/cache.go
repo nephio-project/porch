@@ -34,7 +34,6 @@ var tracer = otel.Tracer("crcache")
 type Cache struct {
 	repositories  map[repository.RepositoryKey]*cachedRepository
 	mainLock      *sync.RWMutex
-	locks         map[repository.RepositoryKey]*sync.Mutex
 	metadataStore meta.MetadataStore
 	options       cachetypes.CacheOptions
 }
@@ -52,17 +51,18 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 		return nil, err
 	}
 
-	lock := c.getOrInsertLock(key)
-	lock.Lock()
-	defer lock.Unlock()
-
 	c.mainLock.RLock()
 	if repo, ok := c.repositories[key]; ok && repo != nil {
 		c.mainLock.RUnlock()
-		// Test if credentials are okay for the cached repo and update the status accordingly
-		if _, err := externalrepo.CreateRepositoryImpl(ctx, repositorySpec, c.options.ExternalRepoOptions); err != nil {
+		// Keep the spec updated in the cache.
+		repo.repoSpec = repositorySpec
+		// Check external repo connectivity
+		err := externalrepo.CheckRepositoryConnection(ctx, repositorySpec, c.options.ExternalRepoOptions)
+		if err != nil {
+			klog.Warningf("Cache:OpenRepository: repo %+v connectivity check failed with error %q", key, err)
 			return nil, err
 		}
+		klog.V(2).Infof("Cache::OpenRepository: verified repo connectivity %+v", key)
 		// If there is an error from the background refresh goroutine, return it.
 		if err := repo.getRefreshError(); err != nil {
 			return nil, err
@@ -98,45 +98,21 @@ func (c *Cache) CloseRepository(ctx context.Context, repositorySpec *configapi.R
 		return err
 	}
 
-	// check if repositorySpec shares the underlying cached repo with another repository
-	for _, r := range allRepos {
-		if r.Name == repositorySpec.Name && r.Namespace == repositorySpec.Namespace {
-			continue
-		}
-		otherKey, err := externalrepo.RepositoryKey(&r)
-		if err != nil {
-			return err
-		}
-		if otherKey == key {
-			// do not close cached repo if it is shared
-			klog.Infof("Not closing cached repository %q because it is shared", key)
-			return nil
-		}
-	}
-
-	lock := c.getOrInsertLock(key)
-	lock.Lock()
-	defer lock.Unlock()
-
 	c.mainLock.RLock()
 	repo, ok := c.repositories[key]
 	c.mainLock.RUnlock()
+	if !ok {
+		return nil
+	}
 
-	if ok {
+	defer func() {
 		c.mainLock.Lock()
-		delete(c.locks, key)
 		delete(c.repositories, key)
 		c.mainLock.Unlock()
+	}()
 
-		if repo != nil {
-			return repo.Close(ctx)
-		} else {
-			klog.Warningf("cached repository with key %q had stored value nil", key)
-		}
-	} else {
-		c.mainLock.Lock()
-		delete(c.locks, key)
-		c.mainLock.Unlock()
+	if repo != nil {
+		return repo.Close(ctx)
 	}
 
 	return nil
@@ -158,20 +134,4 @@ func (c *Cache) GetRepository(repoKey repository.RepositoryKey) repository.Repos
 	c.mainLock.RLock()
 	defer c.mainLock.RUnlock()
 	return c.repositories[repoKey]
-}
-
-func (c *Cache) getOrInsertLock(key repository.RepositoryKey) *sync.Mutex {
-	c.mainLock.RLock()
-	if lock, exists := c.locks[key]; exists {
-		c.mainLock.RUnlock()
-		return lock
-	}
-	c.mainLock.RUnlock()
-
-	c.mainLock.Lock()
-	lock := &sync.Mutex{}
-	c.locks[key] = lock
-	c.mainLock.Unlock()
-
-	return lock
 }
