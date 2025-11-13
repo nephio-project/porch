@@ -61,7 +61,6 @@ type PorchServerOptions struct {
 	DbCacheDriver                    string
 	DbCacheDataSource                string
 	DefaultImagePrefix               string
-	DisableValidatingAdmissionPolicy bool
 	FunctionRunnerAddress            string
 	ListTimeoutPerRepository         time.Duration
 	LocalStandaloneDebugging         bool // Enables local standalone running/debugging of the apiserver.
@@ -256,9 +255,7 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 		o.SharedInformerFactory = informerFactory
 		return []admission.PluginInitializer{}, nil
 	}
-	if o.DisableValidatingAdmissionPolicy {
-		o.RecommendedOptions.Admission.DisablePlugins = []string{"ValidatingAdmissionPolicy"}
-	}
+
 	serverConfig := genericapiserver.NewRecommendedConfig(apiserver.Codecs)
 
 	serverConfig.OpenAPIConfig = genericapiserver.DefaultOpenAPIConfig(sampleopenapi.GetOpenAPIDefinitions, openapi.NewDefinitionNamer(apiserver.Scheme))
@@ -345,7 +342,6 @@ func (o *PorchServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.DbCacheDriver, "db-cache-driver", cachetypes.DefaultDBCacheDriver, "Database driver to use when for the database cache")
 	fs.StringVar(&o.DbCacheDataSource, "db-cache-data-source", "", "Address of the database, for example \"postgresql://user:pass@hostname:port/database\"")
 	fs.StringVar(&o.DefaultImagePrefix, "default-image-prefix", fnruntime.GHCRImagePrefix, "Default prefix for unqualified function names")
-	fs.BoolVar(&o.DisableValidatingAdmissionPolicy, "disable-validating-admissions-policy", true, "Determine whether to (dis|en)able the Validating Admission Policy, which requires k8s version >= v1.30")
 	fs.StringVar(&o.FunctionRunnerAddress, "function-runner", "", "Address of the function runner gRPC service.")
 	fs.DurationVar(&o.ListTimeoutPerRepository, "list-timeout-per-repo", 20*time.Second, "Maximum amount of time to wait for a repository list request.")
 	fs.IntVar(&o.MaxRequestBodySize, "max-request-body-size", 6*1024*1024, "Maximum size of the request body in bytes. Keep this in sync with function-runner's corresponding argument.")

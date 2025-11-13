@@ -21,9 +21,11 @@ rules:
     resources: ["namespaces", "secrets"]
     verbs: ["get", "watch", "list"]
   - apiGroups: ["admissionregistration.k8s.io"]
-    resources:
-      ["mutatingwebhookconfigurations", "validatingwebhookconfigurations"]
+    resources: ["mutatingwebhookconfigurations", "validatingwebhookconfigurations"]
     verbs: ["get", "watch", "list", "create", "patch", "delete"]
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["validatingadmissionpolicybindings", "validatingadmissionpolicies"]
+    verbs: ["get", "watch", "list"]
   - apiGroups: ["config.porch.kpt.dev"]
     resources: ["repositories", "repositories/status"]
     verbs: ["get", "list", "watch", "create", "update", "patch"]
