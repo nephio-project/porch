@@ -25,6 +25,8 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     name: porchctl-dev-release
+    permissions:
+      contents: write
     outputs:
       hashes: ${{ steps.hash.outputs.hashes }}
     steps:
