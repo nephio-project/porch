@@ -88,6 +88,7 @@ func TestListResources(t *testing.T) {
 	}, nil)
 	mockPkgRev.On("GetResources", mock.Anything).Return(nil, errors.New("error getting API package revision")).Once()
 	result, err = packagerevisionresources.List(context.TODO(), &internalversion.ListOptions{})
+	assert.NoError(t, err)
 	resultList, isList := result.(*api.PackageRevisionResourcesList)
 	assert.True(t, isList)
 	assert.Equal(t, 0, len(resultList.Items))

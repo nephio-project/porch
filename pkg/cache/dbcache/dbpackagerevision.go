@@ -339,8 +339,13 @@ func (pr *dbPackageRevision) Delete(ctx context.Context, deleteExternal bool) er
 
 	if deleteExternal && porchapi.LifecycleIsPublished(pr.lifecycle) {
 		if err := pr.repo.externalRepo.DeletePackageRevision(ctx, pr); err != nil {
-			klog.Warningf("dbPackageRevision:Delete: deletion of %+v failed on external repository %q", pr.Key(), err)
-			return err
+			// Check if the error indicates the package doesn't exist in external repo
+			if repository.IsNotFoundError(err) {
+				klog.Infof("dbPackageRevision:Delete: package revision %+v not found in external repository, continuing with cache deletion", pr.Key())
+			} else {
+				klog.Warningf("dbPackageRevision:Delete: deletion of %+v failed on external repository %q", pr.Key(), err)
+				return err
+			}
 		}
 	}
 

@@ -15,6 +15,9 @@
 package dbcache
 
 import (
+	"context"
+	"errors"
+
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
@@ -237,4 +240,73 @@ upstreamLock:
 
 	err = testRepo.Close(ctx)
 	t.Require().NoError(err)
+}
+
+func (t *DbTestSuite) TestDBPackageRevisionDeleteWithNotFoundError() {
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+	repoName := "test-repo"
+	namespace := "test-ns"
+	externalrepo.ExternalRepoInUnitTestMode = true
+
+	ctx := t.Context()
+
+	testRepo := t.createTestRepo(namespace, repoName)
+	testRepo.spec = &configapi.Repository{
+		Spec: configapi.RepositorySpec{
+			Git: &configapi.GitRepository{
+				Repo: "https://example.com/repo.git",
+			},
+		},
+	}
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	t.Require().NoError(err)
+
+	// Create a published package revision
+	newPRDef := v1alpha1.PackageRevision{
+		Spec: v1alpha1.PackageRevisionSpec{
+			RepositoryName: repoName,
+			PackageName:    "test-package",
+			WorkspaceName:  "test-workspace",
+		},
+	}
+
+	newPRDraft, err := testRepo.CreatePackageRevisionDraft(ctx, &newPRDef)
+	t.Require().NoError(err)
+
+	dbPR, err := testRepo.ClosePackageRevisionDraft(ctx, newPRDraft, -1)
+	t.Require().NoError(err)
+
+	// Update to published lifecycle
+	err = dbPR.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleProposed)
+	t.Require().NoError(err)
+
+	dbPR, err = testRepo.ClosePackageRevisionDraft(ctx, dbPR.(repository.PackageRevisionDraft), 0)
+	t.Require().NoError(err)
+
+	err = dbPR.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
+	t.Require().NoError(err)
+
+	dbPR, err = testRepo.ClosePackageRevisionDraft(ctx, dbPR.(repository.PackageRevisionDraft), 0)
+	t.Require().NoError(err)
+
+	// Replace external repo with one that returns "not found" error
+	testRepo.externalRepo = &fakeRepoWithDeleteError{}
+
+	// Delete should succeed despite external repo error
+	err = testRepo.DeletePackageRevision(ctx, dbPR)
+	t.Require().NoError(err)
+
+	err = testRepo.Close(ctx)
+	t.Require().NoError(err)
+}
+
+type fakeRepoWithDeleteError struct {
+	fake.Repository
+}
+
+func (r *fakeRepoWithDeleteError) DeletePackageRevision(context.Context, repository.PackageRevision) error {
+	return errors.New("package not found")
 }
