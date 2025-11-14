@@ -205,8 +205,6 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gotest.tools/v3 v3.2.0 // indirect
 	k8s.io/apiextensions-apiserver v0.34.1 // indirect
-	k8s.io/code-generator v0.34.1 // indirect
-	k8s.io/gengo/v2 v2.0.0-20250604051438-85fd79dbfd9f // indirect
 	k8s.io/kms v0.34.1 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.34.0 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
