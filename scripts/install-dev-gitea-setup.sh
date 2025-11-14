@@ -126,8 +126,8 @@ else
     exit 1
   fi
 fi
-TMP_DIR=$(mktemp -d)
-cd "$TMP_DIR"
+GITEA_TMP_DIR=$(mktemp -d)
+cd "$GITEA_TMP_DIR"
 git clone "http://nephio:secret@localhost:3000/nephio/$git_repo_name.git"
 cd "$git_repo_name"
 if ! git rev-parse -q --verify refs/remotes/origin/main >/dev/null; then
@@ -142,7 +142,7 @@ else
   echo "main branch already exists in git repo."
 fi
 cd "${git_root}"
-rm -fr "$TMP_DIR"
+rm -fr "$GITEA_TMP_DIR"
  
 test_git_repo_name="test-blueprints"
 
@@ -157,8 +157,8 @@ else
     exit 1
   fi
 fi
-TMP_DIR=$(mktemp -d)
-cd "$TMP_DIR"
+TEST_BLUEPRINTS_TMP_DIR=$(mktemp -d)
+cd "$TEST_BLUEPRINTS_TMP_DIR"
 git clone "${git_root}/test/pkgs/test-pkgs/test-blueprints.bundle" -b main
 cd "$test_git_repo_name"
  
@@ -169,7 +169,7 @@ git push -u origin --all
 git push -u origin --tags
  
 cd "${git_root}"
-rm -fr "$TMP_DIR"
+rm -fr "$TEST_BLUEPRINTS_TMP_DIR"
 
 # Clean up port-forward
 echo "Cleaning up port-forward..."
