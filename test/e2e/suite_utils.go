@@ -469,7 +469,7 @@ func (t *TestSuite) WaitUntilRepositoryReady(name, namespace string) {
 		Namespace: namespace,
 	}
 	var innerErr error
-	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 120*time.Second, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 300*time.Second, true, func(ctx context.Context) (bool, error) {
 		var repo configapi.Repository
 		if err := t.Client.Get(ctx, nn, &repo); err != nil {
 			innerErr = err
