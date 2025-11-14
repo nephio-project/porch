@@ -34,6 +34,17 @@ endif
 
 ##@ Build and deploy porch for development and testing
 
+.PHONY: install-porch
+install-porch: IMAGE_REPO=porch-kind## Setup dev environment and deploy porch into a kind cluster
+install-porch: IMAGE_TAG=test
+install-porch: deploy-cluster load-images-to-kind deployment-config deploy-current-config
+	@echo "Registering porch-test repository..."
+	$(BUILDDIR)/porchctl repo reg http://172.18.255.200:3000/nephio/porch-test.git --name=porch-test --repo-basic-username=nephio --repo-basic-password=secret
+
+.PHONY: deploy-cluster
+deploy-cluster: ## Setup development environment with kind cluster, gitea, and load balancing
+	./scripts/setup-dev-env.sh
+
 .PHONY: run-in-kind
 run-in-kind: IMAGE_REPO=porch-kind## Build and deploy porch into a kind cluster
 run-in-kind: IMAGE_TAG=test
