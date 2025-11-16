@@ -277,7 +277,7 @@ func TestPodCacheManager(t *testing.T) {
 		podManager:     pm,
 	}
 
-	go pcm.podCacheManager()
+	go pcm.podCacheManager(t.Context())
 
 	for _, tt := range podManagementTests {
 		t.Run(tt.name, func(t *testing.T) {
