@@ -73,7 +73,6 @@ items:
   metadata:
     name: repo-fjdos9u2nfe2f32
     namespace: ns
-    creationTimestamp: null
     resourceVersion: "999"
     annotations:
       config.kubernetes.io/index: '0'
@@ -137,7 +136,6 @@ items:
   metadata:
     name: repo-fjdos9u2nfe2f32
     namespace: ns
-    creationTimestamp: null
     resourceVersion: "999"
     annotations:
       config.kubernetes.io/index: '0'

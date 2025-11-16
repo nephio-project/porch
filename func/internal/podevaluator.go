@@ -1211,6 +1211,7 @@ func (pm *podManager) patchNewPodMetadata(pod *corev1.Pod, ttl time.Duration, po
 func (pm *podManager) getServiceUrlOnceEndpointActive(ctx context.Context, serviceKey client.ObjectKey, podKey client.ObjectKey) (string, error) {
 	var service corev1.Service
 	var pod corev1.Pod
+	//nolint:staticcheck
 	var endpoint corev1.Endpoints
 	var podReady = false
 

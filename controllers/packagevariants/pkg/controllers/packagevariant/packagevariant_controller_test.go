@@ -22,7 +22,7 @@ import (
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	api "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
-	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
+	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -134,7 +134,7 @@ spec:
     data:
       name: test
 `,
-			expectedErr: "spec.packageContext.data: Invalid value: map[string]string{\"name\":\"test\"}: must not contain the key \"name\"",
+			expectedErr: "spec.packageContext.data: Invalid value: {\"name\":\"test\"}: must not contain the key \"name\"",
 		},
 
 		"name in package context removeKeys": {
@@ -151,7 +151,7 @@ spec:
     removeKeys:
     - name
 `,
-			expectedErr: "spec.packageContext.removeKeys: Invalid value: []string{\"name\"}: must not contain the key \"name\"",
+			expectedErr: "spec.packageContext.removeKeys: Invalid value: [\"name\"]: must not contain the key \"name\"",
 		},
 
 		"package-path in package context data": {
@@ -168,7 +168,7 @@ spec:
     data:
       package-path: test
 `,
-			expectedErr: "spec.packageContext.data: Invalid value: map[string]string{\"package-path\":\"test\"}: must not contain the key \"package-path\"",
+			expectedErr: "spec.packageContext.data: Invalid value: {\"package-path\":\"test\"}: must not contain the key \"package-path\"",
 		},
 		"package-path in package context removeKeys": {
 			packageVariant: packageVariantHeader + `
@@ -184,7 +184,7 @@ spec:
     removeKeys:
     - package-path
 `,
-			expectedErr: "spec.packageContext.removeKeys: Invalid value: []string{\"package-path\"}: must not contain the key \"package-path\"",
+			expectedErr: "spec.packageContext.removeKeys: Invalid value: [\"package-path\"]: must not contain the key \"package-path\"",
 		},
 		"valid injectors": {
 			packageVariant: packageVariantHeader + `
@@ -396,7 +396,6 @@ items:
 			expected: []string{`apiVersion: porch.kpt.dev
 kind: PackageRevision
 metadata:
-  creationTimestamp: null
   name: my-pr
   ownerReferences:
   - apiVersion: config.porch.kpt.dev
@@ -464,7 +463,6 @@ items:
 			expected: []string{`apiVersion: porch.kpt.dev
 kind: PackageRevision
 metadata:
-  creationTimestamp: null
   name: my-pr
   ownerReferences:
   - apiVersion: config.porch.kpt.dev
@@ -481,7 +479,6 @@ status:
 `, `apiVersion: porch.kpt.dev
 kind: PackageRevision
 metadata:
-  creationTimestamp: null
   name: my-pr
   ownerReferences:
   - apiVersion: config.porch.kpt.dev
@@ -556,7 +553,6 @@ items:
 			expected: []string{`apiVersion: porch.kpt.dev
 kind: PackageRevision
 metadata:
-  creationTimestamp: null
   name: my-pr
   ownerReferences:
   - apiVersion: config.porch.kpt.dev
@@ -626,7 +622,6 @@ items:
 			expected: []string{`apiVersion: porch.kpt.dev
 kind: PackageRevision
 metadata:
-  creationTimestamp: null
   name: my-pr
   ownerReferences:
   - apiVersion: config.porch.kpt.dev
@@ -736,7 +731,6 @@ spec:
 			expectedPR: `apiVersion: porch.kpt.dev
 kind: PackageRevision
 metadata:
-  creationTimestamp: null
   name: my-pr
   ownerReferences:
   - apiVersion: config.porch.kpt.dev
@@ -772,7 +766,6 @@ status:
 			expectedPR: `apiVersion: porch.kpt.dev
 kind: PackageRevision
 metadata:
-  creationTimestamp: null
   name: my-pr
   ownerReferences:
   - apiVersion: config.porch.kpt.dev
@@ -876,7 +869,6 @@ items:
 			expected: []string{`apiVersion: porch.kpt.dev
 kind: PackageRevision
 metadata:
-  creationTimestamp: null
   name: my-pr-2
   ownerReferences:
   - apiVersion: config.porch.kpt.dev
@@ -927,7 +919,6 @@ items:
 			expected: []string{`apiVersion: porch.kpt.dev
 kind: PackageRevision
 metadata:
-  creationTimestamp: null
   name: my-pr-1
   ownerReferences:
   - apiVersion: config.porch.kpt.dev
@@ -1187,15 +1178,15 @@ spec:
 		"add one mutator with existing mutators": {
 			initialPipeline: `
         mutators:
-          - image: gcr.io/kpt-fn/set-labels:v0.1
+          - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1
             name: set-labels
             configMap:
               app: foo
-          - image: gcr.io/kpt-fn/set-annotations:v0.1
+          - image: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1
             name: set-annotations`[1:],
 			pvPipeline: `
     mutators:
-      - image: gcr.io/kpt-fn/set-namespace:v0.1
+      - image: ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.1alog/set-namespace:v0.1
         name: set-namespace
         configMap:
           namespace: my-ns`[1:],
@@ -1204,49 +1195,49 @@ spec:
       pipeline:
         mutators:
         - name: PackageVariant.my-pv.set-namespace.0
-          image: gcr.io/kpt-fn/set-namespace:v0.1
+          image: ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.1alog/set-namespace:v0.1
           configMap:
             namespace: my-ns
-        - image: gcr.io/kpt-fn/set-labels:v0.1
+        - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1
           name: set-labels
           configMap:
             app: foo
-        - image: gcr.io/kpt-fn/set-annotations:v0.1
+        - image: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1
           name: set-annotations
 `[1:],
 		},
 		"add two mutators with existing": {
 			initialPipeline: `
         mutators:
-          - image: gcr.io/kpt-fn/set-labels:v0.1
+          - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1
             name: set-labels
             configMap:
               app: foo
-          - image: gcr.io/kpt-fn/set-annotations:v0.1
+          - image: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1
             name: set-annotations`[1:],
 			pvPipeline: `
     mutators:
-      - image: gcr.io/kpt-fn/set-namespace:v0.1
+      - image: ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.1alog/set-namespace:v0.1
         name: set-namespace
         configMap:
           namespace: my-ns
-      - image: gcr.io/kpt-fn/format:unstable
+      - image: ghcr.io/kptdev/krm-functions-catalog/format:latest
         name: format`[1:],
 			expectedErr: "",
 			expectedPrr: prrBase + `
       pipeline:
         mutators:
         - name: PackageVariant.my-pv.set-namespace.0
-          image: gcr.io/kpt-fn/set-namespace:v0.1
+          image: ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.1alog/set-namespace:v0.1
           configMap:
             namespace: my-ns
         - name: PackageVariant.my-pv.format.1
-          image: gcr.io/kpt-fn/format:unstable
-        - image: gcr.io/kpt-fn/set-labels:v0.1
+          image: ghcr.io/kptdev/krm-functions-catalog/format:latest
+        - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1
           name: set-labels
           configMap:
             app: foo
-        - image: gcr.io/kpt-fn/set-annotations:v0.1
+        - image: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1
           name: set-annotations
 `[1:],
 		},
@@ -1254,7 +1245,7 @@ spec:
 			initialPipeline: "",
 			pvPipeline: `
     mutators:
-      - image: gcr.io/kpt-fn/set-namespace:v0.1
+      - image: ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.1alog/set-namespace:v0.1
         name: set-namespace
         configMap:
           namespace: my-ns`[1:],
@@ -1263,7 +1254,7 @@ spec:
       pipeline:
         mutators:
         - name: PackageVariant.my-pv.set-namespace.0
-          image: gcr.io/kpt-fn/set-namespace:v0.1
+          image: ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.1alog/set-namespace:v0.1
           configMap:
             namespace: my-ns
 `[1:],
@@ -1271,38 +1262,38 @@ spec:
 		"add none with existing mutators": {
 			initialPipeline: `
         mutators:
-          - image: gcr.io/kpt-fn/set-labels:v0.1
+          - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1
             name: set-labels
             configMap:
               app: foo
-          - image: gcr.io/kpt-fn/set-annotations:v0.1
+          - image: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1
             name: set-annotations`[1:],
 			pvPipeline:  "",
 			expectedErr: "",
 			expectedPrr: prrBase + `
       pipeline:
         mutators:
-        - image: gcr.io/kpt-fn/set-labels:v0.1
+        - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1
           name: set-labels
           configMap:
             app: foo
-        - image: gcr.io/kpt-fn/set-annotations:v0.1
+        - image: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1
           name: set-annotations
 `[1:],
 		},
 		"add one mutator with existing with comments": {
 			initialPipeline: `
         mutators:
-          - image: gcr.io/kpt-fn/set-labels:v0.1
+          - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1
             # this is a comment
             name: set-labels
             configMap:
               app: foo
-          - image: gcr.io/kpt-fn/set-annotations:v0.1
+          - image: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1
             name: set-annotations`[1:],
 			pvPipeline: `
     mutators:
-      - image: gcr.io/kpt-fn/set-namespace:v0.1
+      - image: ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.1alog/set-namespace:v0.1
         name: set-namespace
         configMap:
           namespace: my-ns`[1:],
@@ -1311,92 +1302,92 @@ spec:
       pipeline:
         mutators:
         - name: PackageVariant.my-pv.set-namespace.0
-          image: gcr.io/kpt-fn/set-namespace:v0.1
+          image: ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.1alog/set-namespace:v0.1
           configMap:
             namespace: my-ns
-        - image: gcr.io/kpt-fn/set-labels:v0.1
+        - image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1
           # this is a comment
           name: set-labels
           configMap:
             app: foo
-        - image: gcr.io/kpt-fn/set-annotations:v0.1
+        - image: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1
           name: set-annotations
 `[1:],
 		},
 		"add one validator with existing validators": {
 			initialPipeline: `
         validators:
-          - image: gcr.io/kpt-fn/gatekeeper-validate:v0.1
+          - image: ghcr.io/kptdev/krm-functions-catalog/gatekeeper-validate:v0.1atekeeper-validate:v0.1
             name: gatekeeper-validate`[1:],
 			pvPipeline: `
     validators:
-      - image: gcr.io/kpt-fn/validate-name:undefined
+      - image: ghcr.io/kptdev/krm-functions-catalog/validate-name:undefined
         name: validate-name `[1:],
 			expectedErr: "",
 			expectedPrr: prrBase + `
       pipeline:
         validators:
         - name: PackageVariant.my-pv.validate-name.0
-          image: gcr.io/kpt-fn/validate-name:undefined
-        - image: gcr.io/kpt-fn/gatekeeper-validate:v0.1
+          image: ghcr.io/kptdev/krm-functions-catalog/validate-name:undefined
+        - image: ghcr.io/kptdev/krm-functions-catalog/gatekeeper-validate:v0.1atekeeper-validate:v0.1
           name: gatekeeper-validate
 `[1:],
 		},
 		"add two validators with existing validators": {
 			initialPipeline: `
         validators:
-          - image: gcr.io/kpt-fn/gatekeeper-validate:v0.1
+          - image: ghcr.io/kptdev/krm-functions-catalog/gatekeeper-validate:v0.1atekeeper-validate:v0.1
             name: gatekeeper-validate`[1:],
 			pvPipeline: `
     validators:
-      - image: gcr.io/kpt-fn/validate-name:undefined
+      - image: ghcr.io/kptdev/krm-functions-catalog/validate-name:undefined
         name: validate-name `[1:],
 			expectedErr: "",
 			expectedPrr: prrBase + `
       pipeline:
         validators:
         - name: PackageVariant.my-pv.validate-name.0
-          image: gcr.io/kpt-fn/validate-name:undefined
-        - image: gcr.io/kpt-fn/gatekeeper-validate:v0.1
+          image: ghcr.io/kptdev/krm-functions-catalog/validate-name:undefined
+        - image: ghcr.io/kptdev/krm-functions-catalog/gatekeeper-validate:v0.1atekeeper-validate:v0.1
           name: gatekeeper-validate
 `[1:],
 		},
 		"add none with existing validator": {
 			initialPipeline: `
         validators:
-          - image: gcr.io/kpt-fn/gatekeeper-validate:v0.1
+          - image: ghcr.io/kptdev/krm-functions-catalog/gatekeeper-validate:v0.1atekeeper-validate:v0.1
             name: gatekeeper-validate`[1:],
 			pvPipeline:  "",
 			expectedErr: "",
 			expectedPrr: prrBase + `
       pipeline:
         validators:
-        - image: gcr.io/kpt-fn/gatekeeper-validate:v0.1
+        - image: ghcr.io/kptdev/krm-functions-catalog/gatekeeper-validate:v0.1atekeeper-validate:v0.1
           name: gatekeeper-validate
 `[1:],
 		},
 		"add validator and mutator with existing": {
 			initialPipeline: `
         validators:
-          - image: gcr.io/val1
+          - image: ghcr.io/kptdev/krm-functions-catalog/val1
             name: val1
-          - image: gcr.io/val2
+          - image: ghcr.io/kptdev/krm-functions-catalog/val2
             name: val2
         mutators:
-          - image: gcr.io/mut1
+          - image: ghcr.io/kptdev/krm-functions-catalog/mut1
             name: mut1
-          - image: gcr.io/mut2
+          - image: ghcr.io/kptdev/krm-functions-catalog/mut2
             name: mut2`[1:],
 			pvPipeline: `
     validators:
-    - image: gcr.io/val3
+    - image: ghcr.io/kptdev/krm-functions-catalog/val3
       name: val3
-    - image: gcr.io/val4
+    - image: ghcr.io/kptdev/krm-functions-catalog/val4
       name: val4
     mutators:
-    - image: gcr.io/mut3
+    - image: ghcr.io/kptdev/krm-functions-catalog/mut3
       name: mut3
-    - image: gcr.io/mut4
+    - image: ghcr.io/kptdev/krm-functions-catalog/mut4
       name: mut4
 `[1:],
 			expectedErr: "",
@@ -1404,28 +1395,28 @@ spec:
       pipeline:
         validators:
         - name: PackageVariant.my-pv.val3.0
-          image: gcr.io/val3
+          image: ghcr.io/kptdev/krm-functions-catalog/val3
         - name: PackageVariant.my-pv.val4.1
-          image: gcr.io/val4
-        - image: gcr.io/val1
+          image: ghcr.io/kptdev/krm-functions-catalog/val4
+        - image: ghcr.io/kptdev/krm-functions-catalog/val1
           name: val1
-        - image: gcr.io/val2
+        - image: ghcr.io/kptdev/krm-functions-catalog/val2
           name: val2
         mutators:
         - name: PackageVariant.my-pv.mut3.0
-          image: gcr.io/mut3
+          image: ghcr.io/kptdev/krm-functions-catalog/mut3
         - name: PackageVariant.my-pv.mut4.1
-          image: gcr.io/mut4
-        - image: gcr.io/mut1
+          image: ghcr.io/kptdev/krm-functions-catalog/mut4
+        - image: ghcr.io/kptdev/krm-functions-catalog/mut1
           name: mut1
-        - image: gcr.io/mut2
+        - image: ghcr.io/kptdev/krm-functions-catalog/mut2
           name: mut2
 `[1:],
 		},
 		"remove pv mutator": {
 			initialPipeline: `
         mutators:
-        - image: gcr.io/mut:v1
+        - image: ghcr.io/kptdev/krm-functions-catalog/mut:v1
           name: PackageVariant.my-pv.mut.0`[1:],
 			pvPipeline:  "",
 			expectedErr: "",
@@ -1434,7 +1425,7 @@ spec:
 		"remove pv validator": {
 			initialPipeline: `
         validators:
-        - image: gcr.io/val:v1
+        - image: ghcr.io/kptdev/krm-functions-catalog/val:v1
           name: PackageVariant.my-pv.val.0`[1:],
 			pvPipeline:  "",
 			expectedErr: "",
@@ -1443,16 +1434,16 @@ spec:
 		"remove pv validator, keep prr one": {
 			initialPipeline: `
         validators:
-        - image: gcr.io/val:v1
+        - image: ghcr.io/kptdev/krm-functions-catalog/val:v1
           name: PackageVariant.my-pv.val.0
-        - image: gcr.io/val:v1
+        - image: ghcr.io/kptdev/krm-functions-catalog/val:v1
           name: non-pv-val`[1:],
 			pvPipeline:  "",
 			expectedErr: "",
 			expectedPrr: prrBase + `
       pipeline:
         validators:
-        - image: gcr.io/val:v1
+        - image: ghcr.io/kptdev/krm-functions-catalog/val:v1
           name: non-pv-val
 `[1:],
 		},

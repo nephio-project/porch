@@ -18,6 +18,7 @@ spec:
   - name: http
     port: 3000
     targetPort: 3000
+    nodePort: 30000 # Should match the gitea nodes.extraPortMappings.containerPort on the Kind cluster
   selector:
     app.kubernetes.io/name: gitea
     app.kubernetes.io/instance: gitea

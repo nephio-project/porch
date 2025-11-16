@@ -108,26 +108,26 @@ metadata:
   namespace: porch-system
 data:
   pod-cache-config.yaml: |
-    gcr.io/kpt-fn/apply-replacements:v0.1.1: 30m
-    gcr.io/kpt-fn/apply-setters:v0.2.0: 30m
-    gcr.io/kpt-fn/create-setters:v0.1.0: 30m
-    gcr.io/kpt-fn/ensure-name-substring:v0.2.0: 30m
-    gcr.io/kpt-fn/gatekeeper:v0.2.1: 30m
-    gcr.io/kpt-fn/kubeval:v0.2.0: 30m
-    gcr.io/kpt-fn/search-replace:v0.2.0: 30m
-    gcr.io/kpt-fn/set-annotations:v0.1.4: 30m
-    gcr.io/kpt-fn/set-enforcement-action:v0.1.0: 30m
-    gcr.io/kpt-fn/set-image:v0.1.1: 30m
-    gcr.io/kpt-fn/set-labels:v0.1.5: 30m
-    gcr.io/kpt-fn/set-namespace:v0.4.1: 30m
-    gcr.io/kpt-fn/starlark:v0.4.3: 30m
-    gcr.io/kpt-fn/upsert-resource:v0.2.0: 30m
-    gcr.io/kpt-fn/enable-gcp-services:v0.1.0: 30m
-    gcr.io/kpt-fn/export-terraform:v0.1.0: 30m
-    gcr.io/kpt-fn/generate-folders:v0.1.1: 30m
-    gcr.io/kpt-fn/remove-local-config-resources:v0.1.0: 30m
-    gcr.io/kpt-fn/set-project-id:v0.2.0: 30m
----
+    ghcr.io/kptdev/krm-functions-catalog/apply-replacements:v0.1.1: 30m
+    ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.2.0: 30m
+    ghcr.io/kptdev/krm-functions-catalog/create-setters:v0.1.0: 30m
+    ghcr.io/kptdev/krm-functions-catalog/ensure-name-substring:v0.2.0: 30m
+    ghcr.io/kptdev/krm-functions-catalog/gatekeeper:v0.2.1: 30m
+    ghcr.io/kptdev/krm-functions-catalog/kubeconform:v0.2.0: 30m
+    ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.2.0: 30m
+    ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1.4: 30m
+    ghcr.io/kptdev/krm-functions-catalog/set-enforcement-action:v0.1.0: 30m
+    ghcr.io/kptdev/krm-functions-catalog/set-image:v0.1.1: 30m
+    ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1.5: 30m
+    ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.4.1: 30m
+    ghcr.io/kptdev/krm-functions-catalog/starlark:v0.4.3: 30m
+    ghcr.io/kptdev/krm-functions-catalog/upsert-resource:v0.2.0: 30m
+    ghcr.io/kptdev/krm-functions-catalog/enable-gcp-services:v0.1.0: 30m
+    ghcr.io/kptdev/krm-functions-catalog/export-terraform:v0.1.0: 30m
+    ghcr.io/kptdev/krm-functions-catalog/generate-folders:v0.1.1: 30m
+    ghcr.io/kptdev/krm-functions-catalog/remove-local-config-resources:v0.1.0: 30m
+    ghcr.io/kptdev/krm-functions-catalog/set-project-id:v0.2.0: 30m
+--
 apiVersion: v1
 kind: ConfigMap
 metadata:

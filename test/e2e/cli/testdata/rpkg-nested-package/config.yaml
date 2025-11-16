@@ -1,0 +1,56 @@
+commands:
+  - args:
+      - porchctl
+      - repo
+      - register
+      - --namespace=rpkg-nested-package
+      - --name=git
+      - --repo-basic-password=secret
+      - --repo-basic-username=nephio
+      - http://gitea.gitea.svc.cluster.local:3000/nephio/rpkg-nested-package
+  - args:
+      - porchctl
+      - rpkg
+      - init
+      - root
+      - --namespace=rpkg-nested-package
+      - --repository=git
+      - --workspace=1
+    stdout: |
+      git.root.1 created
+  - args:
+      - porchctl
+      - rpkg
+      - pull
+      - git.root.1
+      - --namespace=rpkg-nested-package
+      - /tmp/porch-e2e/a00
+  - args:
+      - sh
+      - -c
+      - |
+        cp -r ../testdata/nested-packages/parent-pkg/* /tmp/porch-e2e/a00/
+        mkdir -p /tmp/porch-e2e/a00/s
+        cp -r ../testdata/nested-packages/nested-pkg/* /tmp/porch-e2e/a00/s/
+  - args:
+      - porchctl
+      - rpkg
+      - push
+      - git.root.1
+      - --namespace=rpkg-nested-package
+      - /tmp/porch-e2e/a00
+    stdout: |
+      git.root.1 pushed
+    stderr: "[RUNNING] \"ghcr.io/kptdev/krm-functions-catalog/starlark:v0.5\" \n[RUNNING] \"ghcr.io/kptdev/krm-functions-catalog/starlark:v0.5\" \n"
+  - args:
+      - porchctl
+      - rpkg
+      - pull
+      - git.root.1
+      - --namespace=rpkg-nested-package
+      - /tmp/porch-e2e/nested-pkg-result
+  - args:
+      - sh
+      - -c
+      - |
+        grep -q "parent: parent-value" /tmp/porch-e2e/nested-pkg-result/s/configmap.yaml

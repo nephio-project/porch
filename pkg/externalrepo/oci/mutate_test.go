@@ -18,7 +18,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/GoogleContainerTools/kpt/pkg/oci"
+	"github.com/kptdev/kpt/pkg/oci"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"

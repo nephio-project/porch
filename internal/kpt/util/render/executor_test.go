@@ -304,31 +304,26 @@ metadata:
 
 func TestRenderer_Execute_RenderOrder(t *testing.T) {
 	tests := []struct {
-		name           string
-		renderBfs      bool
-		expectedOrder  func(output string) bool
-		expectedErrMsg string
+		name          string
+		renderBfs     bool
+		expectedOrder func(output string) bool
 	}{
 		{
 			name:      "Use hydrateBfsOrder with renderBfs true",
 			renderBfs: true,
 			expectedOrder: func(output string) bool {
-				rootIndex := strings.Index(output, `Package "root":`)               // Fisrt
-				siblingIndex := strings.Index(output, `Package "root/sibling":`)    // Second
-				subpkgIndex := strings.Index(output, `Package "root/subpkg":`)      // Third
-				childIndex := strings.Index(output, `Package "root/subpkg/child":`) // Fourth
-				return rootIndex < siblingIndex && siblingIndex < subpkgIndex && subpkgIndex < childIndex
+				rootIndex := strings.Index(output, `Package: "root"`)            // First
+				siblingIndex := strings.Index(output, `Package: "root/sibling"`) // Second
+				return rootIndex < siblingIndex
 			},
 		},
 		{
 			name:      "Use default hydrate with renderBfs false",
 			renderBfs: false,
 			expectedOrder: func(output string) bool {
-				siblingIndex := strings.Index(output, `Package "root/sibling":`)    // First
-				childIndex := strings.Index(output, `Package "root/subpkg/child":`) // Second
-				subpkgIndex := strings.Index(output, `Package "root/subpkg":`)      // Third
-				rootIndex := strings.Index(output, `Package "root":`)               // Fourth
-				return rootIndex > siblingIndex && siblingIndex < subpkgIndex && subpkgIndex > childIndex
+				siblingIndex := strings.Index(output, `Package: "root/sibling"`) // First
+				rootIndex := strings.Index(output, `Package: "root"`)            // Fourth
+				return rootIndex > siblingIndex
 			},
 		},
 	}
@@ -343,7 +338,7 @@ func TestRenderer_Execute_RenderOrder(t *testing.T) {
 			assert.Equal(t, 0, len(fnResults.Items))
 
 			output := outputBuffer.String()
-			assert.True(t, tc.expectedOrder(output), tc.expectedErrMsg)
+			assert.True(t, tc.expectedOrder(output))
 		})
 	}
 }

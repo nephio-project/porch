@@ -153,6 +153,7 @@ func TestList(t *testing.T) {
 	}, nil)
 	mockPkgRev.On("GetPackageRevision", mock.Anything).Return(nil, errors.New("error getting API package revision")).Once()
 	result, err = packagerevisions.List(context.TODO(), &internalversion.ListOptions{})
+	assert.NoError(t, err)
 	resultList, isList := result.(*api.PackageRevisionList)
 	assert.True(t, isList)
 	assert.Equal(t, 0, len(resultList.Items))
@@ -349,6 +350,29 @@ func TestUpdateStrategy(t *testing.T) {
 				},
 			},
 			valid: true,
+		},
+		"cannot modify latest-revision label": {
+			old: &api.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						api.LatestPackageRevisionKey: "true",
+					},
+				},
+				Spec: api.PackageRevisionSpec{
+					Lifecycle: api.PackageRevisionLifecycleDraft,
+				},
+			},
+			new: &api.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						api.LatestPackageRevisionKey: "false",
+					},
+				},
+				Spec: api.PackageRevisionSpec{
+					Lifecycle: api.PackageRevisionLifecycleDraft,
+				},
+			},
+			valid: false,
 		},
 	}
 

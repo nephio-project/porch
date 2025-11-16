@@ -25,7 +25,7 @@ cd "${deployment_config_dir}"
 
 # add required db cache config to the porch server deployment
 kpt fn eval \
-  --image gcr.io/kpt-fn/starlark:v0.5.0 \
+  --image ghcr.io/kptdev/krm-functions-catalog/starlark:v0.5.0 \
   --match-kind Deployment \
   --match-name porch-server \
   --match-namespace porch-system \
@@ -35,4 +35,4 @@ kpt fn eval \
 cp "${git_root}/deployments/local/postgres/postgres-statefulset.yaml" 3-porch-postgres-statefulset.yaml
 
 # create the configmap to hold the db schema
-kubectl create configmap -n porch-system porch-schema --from-file="${git_root}/api/sql/porch-db.sql" --dry-run=client -o yaml > 3-porch-postgres-schema-configmap.yaml
+kubectl create configmap -n porch-system porch-schema --from-file="${git_root}/api/sql/porch-db.sql" --dry-run=client -o yaml | cat > 3-porch-postgres-schema-configmap.yaml

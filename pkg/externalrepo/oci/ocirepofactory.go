@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	kptoci "github.com/GoogleContainerTools/kpt/pkg/oci"
+	kptoci "github.com/kptdev/kpt/pkg/oci"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -53,4 +53,9 @@ func (f *OciRepoFactory) NewRepositoryImpl(ctx context.Context, repositorySpec *
 		deployment: repositorySpec.Spec.Deployment,
 		storage:    storage,
 	}, nil
+}
+
+func (f *OciRepoFactory) CheckRepositoryConnection(ctx context.Context, repositorySpec *configapi.Repository, options externalrepotypes.ExternalRepoOptions) error {
+	// TODO: check if credentials are valid for the registry
+	return nil
 }

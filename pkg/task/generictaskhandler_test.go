@@ -16,6 +16,8 @@ package task
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"testing"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -91,6 +93,7 @@ func TestApplyTasks(t *testing.T) {
 						DisplayResourceCount: false,
 					}
 				},
+				repoOperationRetryAttempts: 3,
 			}
 
 			// Mock inputs
@@ -258,4 +261,24 @@ func TestDoPrResourceMutations(t *testing.T) {
 	})
 
 	// TODO: test rendering
+}
+
+func TestRenderError(t *testing.T) {
+	baseErr := errors.New("some base error")
+	wrappedErr := renderError(baseErr)
+
+	if wrappedErr == nil {
+		t.Fatal("expected non-nil error")
+	}
+
+	// Check that the error message contains both the base error and the wrapper message
+	got := wrappedErr.Error()
+
+	if !strings.Contains(got, "some base error") {
+		t.Errorf("expected base error message to be included, got: %q", got)
+	}
+
+	if !strings.Contains(got, "Error rendering package in kpt function pipeline") {
+		t.Errorf("expected wrapper message to be included, got: %q", got)
+	}
 }

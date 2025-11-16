@@ -1,7 +1,6 @@
 apiVersion: config.porch.kpt.dev/v1alpha1
 kind: Repository
 metadata:
-    creationTimestamp: null
     name: test-blueprints
     namespace: default
 spec:

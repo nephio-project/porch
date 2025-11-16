@@ -23,6 +23,7 @@ import (
 //+kubebuilder:resource:path=repositories,singular=repository
 //+kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type`
 //+kubebuilder:printcolumn:name="Content",type=string,JSONPath=`.spec.content`
+// +kubebuilder:printcolumn:name="Sync schedule",type=string,JSONPath=`.spec.sync.schedule`
 //+kubebuilder:printcolumn:name="Deployment",type=boolean,JSONPath=`.spec.deployment`
 //+kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=='Ready')].status`
 //+kubebuilder:printcolumn:name="Address",type=string,JSONPath=`.spec['git','oci']['repo','registry']`
@@ -67,11 +68,19 @@ type RepositorySpec struct {
 	// +kubebuilder:validation:XValidation:message="The 'content' field is deprecated, its only valid value is 'Package'",rule="self == '' || self == 'Package'"
 	// +kubebuilder:default="Package"
 	Content *RepositoryContent `json:"content,omitempty"`
-
+	// Repository sync/reconcile details
+	Sync *RepositorySync `json:"sync,omitempty"`
 	// Git repository details. Required if `type` is `git`. Ignored if `type` is not `git`.
 	Git *GitRepository `json:"git,omitempty"`
 	// OCI repository details. Required if `type` is `oci`. Ignored if `type` is not `oci`.
 	Oci *OciRepository `json:"oci,omitempty"`
+}
+
+type RepositorySync struct {
+	// Value in metav1.Time format to indicate when the repository should be synced once outside the periodic cron based reconcile loop.
+	RunOnceAt *metav1.Time `json:"runOnceAt,omitempty"`
+	// Cron value to indicate when the repository should be synced periodically. Example: `*/10 * * * *` to sync every 10 minutes.
+	Schedule string `json:"schedule,omitempty"`
 }
 
 // GitRepository describes a Git repository.
@@ -130,7 +139,7 @@ type SecretRef struct {
 }
 
 type FunctionEval struct {
-	// `Image` specifies the function image, such as `gcr.io/kpt-fn/gatekeeper:v0.2`.
+	// `Image` specifies the function image, such as `ghcr.io/kptdev/krm-functions-catalog/gatekeeper:v0.2`.
 	Image string `json:"image,omitempty"`
 	// `ConfigMap` specifies the function config (https://kpt.dev/reference/cli/fn/eval/).
 	ConfigMap map[string]string `json:"configMap,omitempty"`
@@ -139,11 +148,12 @@ type FunctionEval struct {
 const (
 	// Type of the Repository condition.
 	RepositoryReady = "Ready"
-
 	// Reason for the condition is error.
 	ReasonError = "Error"
 	// Reason for the condition is the repository is ready.
 	ReasonReady = "Ready"
+	// Reason for the condition is repository reconciliation is in progress.
+	ReasonReconciling = "Reconciling"
 )
 
 // RepositoryStatus defines the observed state of Repository

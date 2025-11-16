@@ -32,7 +32,7 @@ Supported Flags:
   --wrapper-server-image IMAGE        ... address of the Porch function wrapper server image
   --enabled-reconcilers RECONCILDERS  ... comma-separated list of reconcilers that should be enabled in
                                           porch controller
-  --gcr-image-prefix PREFIX           ... gcr image url prefix for running porch behind a proxy
+  --ghcr-image-prefix PREFIX          ... ghcr image url prefix for running porch behind a proxy
 EOF
   exit 1
 }
@@ -44,7 +44,7 @@ CONTROLLERS_IMAGE=""
 FUNCTION_IMAGE=""
 WRAPPER_SERVER_IMAGE=""
 ENABLED_RECONCILERS=""
-GCR_IMAGE_PREFIX=""
+GHCR_IMAGE_PREFIX=""
 
 while [[ $# -gt 0 ]]; do
   key="${1}"
@@ -78,8 +78,8 @@ while [[ $# -gt 0 ]]; do
       ENABLED_RECONCILERS="${2}"
       shift 2
       ;;
-    --gcr-image-prefix)
-          GCR_IMAGE_PREFIX="${2}"
+    --ghcr-image-prefix)
+          GHCR_IMAGE_PREFIX="${2}"
           shift 2
           ;;
     *)
@@ -139,7 +139,7 @@ EOF
 
 function customize-container-env {
   kpt fn eval ${DESTINATION} \
-    --image gcr.io/kpt-fn/starlark:v0.5.0 \
+    --image ghcr.io/kptdev/krm-functions-catalog/starlark:v0.5.0 \
     --match-kind Deployment \
     --match-name porch-controllers \
     --match-namespace porch-system \
@@ -163,7 +163,7 @@ for resource in ctx.resource_list["items"]:
 
 function add_image_args_porch_server() {
     kpt fn eval ${DESTINATION} \
-      --image gcr.io/kpt-fn/starlark:v0.5.0 \
+      --image ghcr.io/kptdev/krm-functions-catalog/starlark:v0.5.0 \
       --match-kind Deployment \
       --match-name porch-server \
       --match-namespace porch-system \
@@ -171,7 +171,7 @@ function add_image_args_porch_server() {
 for resource in ctx.resource_list['items']:
   containers = resource['spec']['template']['spec']['containers']
   for container in containers:
-    container['args'].append('--default-image-prefix=${GCR_IMAGE_PREFIX}')
+    container['args'].append('--default-image-prefix=${GHCR_IMAGE_PREFIX}')
 "
 }
 
@@ -203,7 +203,7 @@ function main() {
     "${DESTINATION}/9-porch-controller-${i}-clusterrolebinding.yaml"
   done
 
-  if [[ -n "${GCR_IMAGE_PREFIX}" ]]; then
+  if [[ -n "${GHCR_IMAGE_PREFIX}" ]]; then
           add_image_args_porch_server
   fi
 

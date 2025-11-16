@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,14 +16,19 @@ package kpt
 
 import (
 	"bytes"
+	"flag"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
+	"github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/internal/kpt/util/render"
+	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"github.com/nephio-project/porch/pkg/kpt/printer/fake"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 )
 
@@ -66,7 +71,7 @@ func TestRender(t *testing.T) {
 				FileSystem: filesys.FileSystemOrOnDisk{},
 				Output:     &output,
 			}
-			r.RunnerOptions.InitDefaults(fnruntime.GCRImagePrefix)
+			r.RunnerOptions.InitDefaults(fnruntime.GHCRImagePrefix)
 
 			if _, err := r.Execute(fake.CtxWithDefaultPrinter()); err != nil {
 				t.Errorf("Render failed: %v", err)
@@ -79,5 +84,34 @@ func TestRender(t *testing.T) {
 				t.Errorf("Unexpected result (-want, +got): %s", diff)
 			}
 		})
+	}
+}
+
+func TestPackagePrinter(t *testing.T) {
+	klog.InitFlags(nil)
+	flag.Set("logtostderr", "false")
+
+	var buf bytes.Buffer
+	klog.SetOutput(&buf)
+
+	p := &packagePrinter{}
+
+	testPkg := &pkg.Pkg{DisplayPath: "test/path"}
+	p.PrintPackage(testPkg, false)
+
+	opt := &printer.Options{
+		PkgDisplayPath: "display/path",
+	}
+	p.OptPrintf(opt, ": Hello %s", "World")
+
+	klog.Flush()
+
+	got := buf.String()
+
+	if !strings.Contains(got, `Package: "test/path"`) {
+		t.Errorf("PrintPackage output missing:\n%s", got)
+	}
+	if !strings.Contains(got, `Package: "display/path": Hello World`) {
+		t.Errorf("OptPrintf output missing:\n%s", got)
 	}
 }

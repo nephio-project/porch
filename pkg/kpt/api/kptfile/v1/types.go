@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
-//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.1 object:headerFile="../../../../../scripts/boilerplate.go.txt"
+//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 object:headerFile="../../../../../scripts/boilerplate.go.txt"
 
 const (
 	KptFileName = "Kptfile"
@@ -297,12 +297,12 @@ type Function struct {
 	// `Image` specifies the function container image.
 	// It can either be fully qualified, e.g.:
 	//
-	//	image: gcr.io/kpt-fn/set-labels
+	//	image: ghcr.io/kptdev/krm-functions-catalog/set-labels
 	//
 	// Optionally, kpt can be configured to use a image
 	// registry host-path that will be used to resolve the image path in case
-	// the image path is missing (Defaults to gcr.io/kpt-fn).
-	// e.g. The following resolves to gcr.io/kpt-fn/set-labels:
+	// the image path is missing (Defaults to ghcr.io/kptdev/krm-functions-catalog).
+	// e.g. The following resolves to ghcr.io/kptdev/krm-functions-catalog/set-labels:
 	//
 	//	image: set-labels
 	Image string `yaml:"image,omitempty" json:"image,omitempty"`

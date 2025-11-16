@@ -37,11 +37,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apimachinery/pkg/version"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/component-base/compatibility"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -92,8 +92,9 @@ type PorchServer struct {
 	GenericAPIServer          *genericapiserver.GenericAPIServer
 	coreClient                client.WithWatch
 	cache                     cachetypes.Cache
-	PeriodicRepoSyncFrequency time.Duration
-	ListTimeoutPerRepository  time.Duration
+	periodicRepoSyncFrequency    time.Duration
+	ListTimeoutPerRepository     time.Duration
+	repoOperationRetryAttempts   int
 }
 
 type completedConfig struct {
@@ -108,14 +109,11 @@ type CompletedConfig struct {
 
 // Complete fills in any fields not set that are required to have valid data. It's mutating the receiver.
 func (cfg *Config) Complete() CompletedConfig {
+	cfg.GenericConfig.EffectiveVersion = compatibility.NewEffectiveVersionFromString("1.0", "1.0", "1.0")
+
 	c := completedConfig{
 		cfg.GenericConfig.Complete(),
 		&cfg.ExtraConfig,
-	}
-
-	c.GenericConfig.Version = &version.Info{
-		Major: "1",
-		Minor: "0",
 	}
 
 	return CompletedConfig{&c}
@@ -233,6 +231,7 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.CredentialResolver = credentialResolver
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.CaBundleResolver = caBundleResolver
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.UserInfoProvider = userInfoProvider
+	c.ExtraConfig.CacheOptions.ExternalRepoOptions.RepoOperationRetryAttempts = c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts
 
 	cacheImpl, err := cache.GetCacheImpl(ctx, c.ExtraConfig.CacheOptions)
 
@@ -258,6 +257,7 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 		engine.WithReferenceResolver(referenceResolver),
 		engine.WithUserInfoProvider(userInfoProvider),
 		engine.WithWatcherManager(watcherMgr),
+		engine.WithRepoOperationRetryAttempts(c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts),
 	)
 	if err != nil {
 		return nil, err
@@ -281,8 +281,9 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 		coreClient:       coreClient,
 		cache:            cacheImpl,
 		// Set background job periodic frequency the same as repo sync frequency.
-		PeriodicRepoSyncFrequency: c.ExtraConfig.CacheOptions.RepoSyncFrequency,
-		ListTimeoutPerRepository:  c.ExtraConfig.ListTimeoutPerRepository,
+		periodicRepoSyncFrequency: c.ExtraConfig.CacheOptions.RepoSyncFrequency,
+		ListTimeoutPerRepository:    c.ExtraConfig.ListTimeoutPerRepository,
+		repoOperationRetryAttempts:  c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts,
 	}
 
 	// Install the groups.
@@ -295,8 +296,9 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 
 func (s *PorchServer) Run(ctx context.Context) error {
 	porch.RunBackground(ctx, s.coreClient, s.cache,
-		porch.WithPeriodicRepoSyncFrequency(s.PeriodicRepoSyncFrequency),
+		porch.WithPeriodicRepoSyncFrequency(s.periodicRepoSyncFrequency),
 		porch.WithListTimeoutPerRepo(s.ListTimeoutPerRepository),
+		porch.WithRepoOperationRetryAttempts(s.repoOperationRetryAttempts),
 	)
 
 	// TODO: Reconsider if the existence of CERT_STORAGE_DIR was a good inidcator for webhook setup,
@@ -310,5 +312,5 @@ func (s *PorchServer) Run(ctx context.Context) error {
 	} else {
 		klog.Infoln("Cert storage dir not provided, skipping webhook setup")
 	}
-	return s.GenericAPIServer.PrepareRun().Run(ctx.Done())
+	return s.GenericAPIServer.PrepareRun().RunWithContext(ctx)
 }

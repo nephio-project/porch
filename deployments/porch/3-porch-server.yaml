@@ -90,7 +90,7 @@ spec:
             - --cert-dir=/tmp/certs
             - --secure-port=4443
             - --repo-sync-frequency=3m
-            - --disable-validating-admissions-policy=true
+            - --repo-operation-retry-attempts=3
             - --max-request-body-size=6291456 # Keep this in sync with function-runner's corresponding argument
           #adding livenessProbes and readinessProbes for porch server
           livenessProbe:

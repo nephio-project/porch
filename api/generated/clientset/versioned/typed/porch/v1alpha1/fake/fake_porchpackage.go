@@ -17,123 +17,34 @@
 package fake
 
 import (
-	"context"
-
+	porchv1alpha1 "github.com/nephio-project/porch/api/generated/clientset/versioned/typed/porch/v1alpha1"
 	v1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakePorchPackages implements PorchPackageInterface
-type FakePorchPackages struct {
+// fakePorchPackages implements PorchPackageInterface
+type fakePorchPackages struct {
+	*gentype.FakeClientWithList[*v1alpha1.PorchPackage, *v1alpha1.PorchPackageList]
 	Fake *FakePorchV1alpha1
-	ns   string
 }
 
-var porchpackagesResource = v1alpha1.SchemeGroupVersion.WithResource("porchpackages")
-
-var porchpackagesKind = v1alpha1.SchemeGroupVersion.WithKind("PorchPackage")
-
-// Get takes name of the porchPackage, and returns the corresponding porchPackage object, and an error if there is any.
-func (c *FakePorchPackages) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.PorchPackage, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(porchpackagesResource, c.ns, name), &v1alpha1.PorchPackage{})
-
-	if obj == nil {
-		return nil, err
+func newFakePorchPackages(fake *FakePorchV1alpha1, namespace string) porchv1alpha1.PorchPackageInterface {
+	return &fakePorchPackages{
+		gentype.NewFakeClientWithList[*v1alpha1.PorchPackage, *v1alpha1.PorchPackageList](
+			fake.Fake,
+			namespace,
+			v1alpha1.SchemeGroupVersion.WithResource("porchpackages"),
+			v1alpha1.SchemeGroupVersion.WithKind("PorchPackage"),
+			func() *v1alpha1.PorchPackage { return &v1alpha1.PorchPackage{} },
+			func() *v1alpha1.PorchPackageList { return &v1alpha1.PorchPackageList{} },
+			func(dst, src *v1alpha1.PorchPackageList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.PorchPackageList) []*v1alpha1.PorchPackage {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha1.PorchPackageList, items []*v1alpha1.PorchPackage) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.PorchPackage), err
-}
-
-// List takes label and field selectors, and returns the list of PorchPackages that match those selectors.
-func (c *FakePorchPackages) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.PorchPackageList, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewListAction(porchpackagesResource, porchpackagesKind, c.ns, opts), &v1alpha1.PorchPackageList{})
-
-	if obj == nil {
-		return nil, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.PorchPackageList{ListMeta: obj.(*v1alpha1.PorchPackageList).ListMeta}
-	for _, item := range obj.(*v1alpha1.PorchPackageList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested porchPackages.
-func (c *FakePorchPackages) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(porchpackagesResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a porchPackage and creates it.  Returns the server's representation of the porchPackage, and an error, if there is any.
-func (c *FakePorchPackages) Create(ctx context.Context, porchPackage *v1alpha1.PorchPackage, opts v1.CreateOptions) (result *v1alpha1.PorchPackage, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(porchpackagesResource, c.ns, porchPackage), &v1alpha1.PorchPackage{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.PorchPackage), err
-}
-
-// Update takes the representation of a porchPackage and updates it. Returns the server's representation of the porchPackage, and an error, if there is any.
-func (c *FakePorchPackages) Update(ctx context.Context, porchPackage *v1alpha1.PorchPackage, opts v1.UpdateOptions) (result *v1alpha1.PorchPackage, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(porchpackagesResource, c.ns, porchPackage), &v1alpha1.PorchPackage{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.PorchPackage), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakePorchPackages) UpdateStatus(ctx context.Context, porchPackage *v1alpha1.PorchPackage, opts v1.UpdateOptions) (*v1alpha1.PorchPackage, error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(porchpackagesResource, "status", c.ns, porchPackage), &v1alpha1.PorchPackage{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.PorchPackage), err
-}
-
-// Delete takes name of the porchPackage and deletes it. Returns an error if one occurs.
-func (c *FakePorchPackages) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(porchpackagesResource, c.ns, name, opts), &v1alpha1.PorchPackage{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakePorchPackages) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(porchpackagesResource, c.ns, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.PorchPackageList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched porchPackage.
-func (c *FakePorchPackages) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.PorchPackage, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(porchpackagesResource, c.ns, name, pt, data, subresources...), &v1alpha1.PorchPackage{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.PorchPackage), err
 }

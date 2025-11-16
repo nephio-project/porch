@@ -17,10 +17,12 @@ package dbcache
 import (
 	"context"
 	"fmt"
-	"sync"
+	stdSync "sync"
 	"time"
 
 	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/pkg/cache/sync"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	pkgerrors "github.com/pkg/errors"
@@ -30,12 +32,11 @@ import (
 
 type repositorySync struct {
 	repo                    *dbRepository
-	cancel                  context.CancelFunc
-	mutex                   sync.Mutex
+	mutex                   stdSync.Mutex
 	lastExternalRepoVersion string
 	lastExternalPRMap       map[repository.PackageRevisionKey]repository.PackageRevision
-	lastSyncError           error
 	lastSyncStats           repositorySyncStats
+	syncManager             *sync.SyncManager
 }
 
 type repositorySyncStats struct {
@@ -45,39 +46,48 @@ type repositorySyncStats struct {
 }
 
 func newRepositorySync(repo *dbRepository, options cachetypes.CacheOptions) *repositorySync {
-	ctx, cancel := context.WithCancel(context.Background())
-
+	ctx := context.Background()
 	s := repositorySync{
-		repo:   repo,
-		cancel: cancel,
+		repo: repo,
 	}
 
-	go s.syncForever(ctx, options.RepoSyncFrequency)
-
+	s.syncManager = sync.NewSyncManager(&s, options.CoreClient)
+	s.syncManager.Start(ctx, options.RepoSyncFrequency)
 	return &s
 }
 
 func (s *repositorySync) Stop() {
-	if s != nil {
-		s.cancel()
+	if s != nil && s.syncManager != nil {
+		s.syncManager.Stop()
 	}
 }
 
-func (s *repositorySync) syncForever(ctx context.Context, repoSyncFrequency time.Duration) {
-	for {
-		select {
-		case <-ctx.Done():
-			klog.V(2).Infof("repositorySync %+v: exiting repository sync, because context is done: %v", s.repo.Key(), ctx.Err())
-			return
-		default:
-			s.lastSyncStats, s.lastSyncError = s.syncOnce(ctx)
-			time.Sleep(repoSyncFrequency)
-		}
-	}
+// SyncOnce implements the SyncHandler interface
+func (s *repositorySync) SyncOnce(ctx context.Context) error {
+	var err error
+	s.lastSyncStats, err = s.sync(ctx)
+	return err
 }
 
-func (s *repositorySync) syncOnce(ctx context.Context) (repositorySyncStats, error) {
-	ctx, span := tracer.Start(ctx, "Repository::syncOnce", trace.WithAttributes())
+// Key implements the SyncHandler interface
+func (s *repositorySync) Key() repository.RepositoryKey {
+	return s.repo.Key()
+}
+
+// GetSpec implements the SyncHandler interface
+func (s *repositorySync) GetSpec() *configapi.Repository {
+	return s.repo.spec
+}
+
+func (s *repositorySync) getLastSyncError() error {
+	if s.syncManager != nil {
+		return s.syncManager.GetLastSyncError()
+	}
+	return nil
+}
+
+func (s *repositorySync) sync(ctx context.Context) (repositorySyncStats, error) {
+	ctx, span := tracer.Start(ctx, "Repository::sync", trace.WithAttributes())
 	defer span.End()
 
 	if !s.mutex.TryLock() {
@@ -88,6 +98,13 @@ func (s *repositorySync) syncOnce(ctx context.Context) (repositorySyncStats, err
 	start := time.Now()
 	klog.Infof("repositorySync %+v: sync started", s.repo.Key())
 
+	// Set condition to sync-in-progress
+	if s.syncManager != nil {
+		if err := s.syncManager.SetRepositoryCondition(ctx, "sync-in-progress"); err != nil {
+			klog.Warningf("repositorySync %+v: failed to set sync-in-progress condition: %v", s.repo.Key(), err)
+		}
+	}
+
 	defer func() {
 		klog.Infof("repositorySync %+v: sync finished in %f secs", s.repo.Key(), time.Since(start).Seconds())
 		klog.Infof(" %d package revisions were already cached", s.lastSyncStats.both)
@@ -95,27 +112,16 @@ func (s *repositorySync) syncOnce(ctx context.Context) (repositorySyncStats, err
 		klog.Infof(" %d cached package revisions not found in the external repo were removed from the cache", s.lastSyncStats.cachedOnly)
 	}()
 
-	return s.sync(ctx)
-}
-
-func (s *repositorySync) getLastSyncError() error {
-	return s.lastSyncError
-}
-
-func (s *repositorySync) sync(ctx context.Context) (repositorySyncStats, error) {
-	_, span := tracer.Start(ctx, "Repository::sync", trace.WithAttributes())
-	defer span.End()
-
 	cachedPrMap, err := s.getCachedPRMap(ctx)
 	if err != nil {
-		return repositorySyncStats{}, pkgerrors.Wrap(err, "sync failed reading cached pacakge revisions")
+		return repositorySyncStats{}, pkgerrors.Wrap(err, "sync failed reading cached package revisions")
 	}
 
 	klog.Infof("repositorySync %+v: found %d deployed package revisions in cached repository", s.repo.Key(), len(cachedPrMap))
 
 	externalPrMap, err := s.getExternalPRMap(ctx)
 	if err != nil {
-		return repositorySyncStats{}, pkgerrors.Wrap(err, "sync failed reading external pacakge revisions")
+		return repositorySyncStats{}, pkgerrors.Wrap(err, "sync failed reading external package revisions")
 	}
 
 	klog.Infof("repositorySync %+v: found %d package revisions in external repository", s.repo.Key(), len(externalPrMap))

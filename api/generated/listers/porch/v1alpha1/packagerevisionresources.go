@@ -17,10 +17,10 @@
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	porchv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // PackageRevisionResourcesLister helps list PackageRevisionResources.
@@ -28,7 +28,7 @@ import (
 type PackageRevisionResourcesLister interface {
 	// List lists all PackageRevisionResources in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.PackageRevisionResources, err error)
+	List(selector labels.Selector) (ret []*porchv1alpha1.PackageRevisionResources, err error)
 	// PackageRevisionResources returns an object that can list and get PackageRevisionResources.
 	PackageRevisionResources(namespace string) PackageRevisionResourcesNamespaceLister
 	PackageRevisionResourcesListerExpansion
@@ -36,25 +36,17 @@ type PackageRevisionResourcesLister interface {
 
 // packageRevisionResourcesLister implements the PackageRevisionResourcesLister interface.
 type packageRevisionResourcesLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*porchv1alpha1.PackageRevisionResources]
 }
 
 // NewPackageRevisionResourcesLister returns a new PackageRevisionResourcesLister.
 func NewPackageRevisionResourcesLister(indexer cache.Indexer) PackageRevisionResourcesLister {
-	return &packageRevisionResourcesLister{indexer: indexer}
-}
-
-// List lists all PackageRevisionResources in the indexer.
-func (s *packageRevisionResourcesLister) List(selector labels.Selector) (ret []*v1alpha1.PackageRevisionResources, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.PackageRevisionResources))
-	})
-	return ret, err
+	return &packageRevisionResourcesLister{listers.New[*porchv1alpha1.PackageRevisionResources](indexer, porchv1alpha1.Resource("packagerevisionresources"))}
 }
 
 // PackageRevisionResources returns an object that can list and get PackageRevisionResources.
 func (s *packageRevisionResourcesLister) PackageRevisionResources(namespace string) PackageRevisionResourcesNamespaceLister {
-	return packageRevisionResourcesNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return packageRevisionResourcesNamespaceLister{listers.NewNamespaced[*porchv1alpha1.PackageRevisionResources](s.ResourceIndexer, namespace)}
 }
 
 // PackageRevisionResourcesNamespaceLister helps list and get PackageRevisionResources.
@@ -62,36 +54,15 @@ func (s *packageRevisionResourcesLister) PackageRevisionResources(namespace stri
 type PackageRevisionResourcesNamespaceLister interface {
 	// List lists all PackageRevisionResources in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.PackageRevisionResources, err error)
+	List(selector labels.Selector) (ret []*porchv1alpha1.PackageRevisionResources, err error)
 	// Get retrieves the PackageRevisionResources from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.PackageRevisionResources, error)
+	Get(name string) (*porchv1alpha1.PackageRevisionResources, error)
 	PackageRevisionResourcesNamespaceListerExpansion
 }
 
 // packageRevisionResourcesNamespaceLister implements the PackageRevisionResourcesNamespaceLister
 // interface.
 type packageRevisionResourcesNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all PackageRevisionResources in the indexer for a given namespace.
-func (s packageRevisionResourcesNamespaceLister) List(selector labels.Selector) (ret []*v1alpha1.PackageRevisionResources, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.PackageRevisionResources))
-	})
-	return ret, err
-}
-
-// Get retrieves the PackageRevisionResources from the indexer for a given namespace and name.
-func (s packageRevisionResourcesNamespaceLister) Get(name string) (*v1alpha1.PackageRevisionResources, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha1.Resource("packagerevisionresources"), name)
-	}
-	return obj.(*v1alpha1.PackageRevisionResources), nil
+	listers.ResourceIndexer[*porchv1alpha1.PackageRevisionResources]
 }

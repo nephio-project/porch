@@ -30,7 +30,7 @@ import (
 	"github.com/nephio-project/porch/func/healthchecker"
 	porchotel "github.com/nephio-project/porch/internal/otel"
 	contextsignal "github.com/nephio-project/porch/internal/signal"
-	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
+	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
 	"github.com/spf13/cobra"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel"

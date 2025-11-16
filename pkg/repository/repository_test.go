@@ -16,6 +16,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -527,3 +528,42 @@ func (f *fakePackage) Key() PackageKey {
 }
 func (f *fakePackage) KubeObjectName() string                    { return "" }
 func (f *fakePackage) GetLatestRevision(ctx context.Context) int { return f.latestRevision }
+
+func TestIsNotFoundError(t *testing.T) {
+	testCases := map[string]struct {
+		err      error
+		expected bool
+	}{
+		"nil error": {
+			err:      nil,
+			expected: false,
+		},
+		"not found error": {
+			err:      errors.New("package not found"),
+			expected: true,
+		},
+		"does not exist error": {
+			err:      errors.New("resource does not exist"),
+			expected: true,
+		},
+		"no such error": {
+			err:      errors.New("no such file"),
+			expected: true,
+		},
+		"404 error": {
+			err:      errors.New("HTTP 404 error"),
+			expected: true,
+		},
+		"other error": {
+			err:      errors.New("connection failed"),
+			expected: false,
+		},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			result := IsNotFoundError(tc.err)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}

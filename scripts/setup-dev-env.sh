@@ -20,8 +20,6 @@ set -o pipefail # Check errors in piped commands
 self_dir="$(dirname "$(readlink -f "$0")")"
 
 porch_cluster_name=${PORCH_TEST_CLUSTER:-porch-test}
-git_repo_name="$porch_cluster_name"
-gitea_ip=172.18.255.200  # should be from the address range in deployments/local/metallb-conf.yaml
 
 git_root="$(readlink -f "${self_dir}/..")"
 cd "${git_root}"
@@ -60,18 +58,24 @@ kind export kubeconfig --name="$porch_cluster_name"
 
 ##############################################
 h1 Install MetalLB
-kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.14.9/config/manifests/metallb-native.yaml
-sleep 1
-echo "Waiting for controller to become ready..."
-kubectl wait --namespace metallb-system deploy controller \
-                --for=condition=available \
-                --timeout=90s
-kubectl apply -f "${git_root}/deployments/local/metallb-conf.yaml"
+if ! kubectl get namespace metallb-system >/dev/null 2>&1; then
+  kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.14.9/config/manifests/metallb-native.yaml
+  sleep 1
+  echo "Waiting for controller to become ready..."
+  kubectl wait --namespace metallb-system deploy controller \
+                  --for=condition=available \
+                  --timeout=90s
+  kubectl apply -f "${git_root}/deployments/local/metallb-conf.yaml"
+else
+  echo "MetalLB already installed"
+fi
 
 ############################################
 # Install gitea and setup test repos
 cd "${git_root}"
-./scripts/install-dev-gitea-setup.sh $git_repo_name $gitea_ip $porch_cluster_name
+# Extract first IP from MetalLB address range
+gitea_ip=$(grep -A1 "addresses:" "${git_root}/deployments/local/metallb-conf.yaml" | grep -o "[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+" | head -1)
+./scripts/install-dev-gitea-setup.sh $porch_cluster_name $gitea_ip 
 
 ############################################
 h1 Generate certs and keys

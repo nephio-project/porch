@@ -31,9 +31,7 @@ func TestExecErrorString(t *testing.T) {
 		{
 			name:        "no truncate - empty stderr",
 			fnExecError: ExecError{},
-			expected: `  Stderr:
-    ""
-  Exit Code: 0
+			expected: `[Stderr]:   Exit Code: 0
 `,
 		},
 		{
@@ -43,10 +41,7 @@ func TestExecErrorString(t *testing.T) {
 error message2`,
 				ExitCode: 1,
 			},
-			expected: `  Stderr:
-    "error message1"
-    "error message2"
-  Exit Code: 1
+			expected: `[Stderr]: error message1, error message2  Exit Code: 1
 `,
 		},
 		{
@@ -59,13 +54,7 @@ error message
 error message`,
 				ExitCode: 1,
 			},
-			expected: `  Stderr:
-    "error message"
-    "error message"
-    "error message"
-    "error message"
-    "error message"
-  Exit Code: 1
+			expected: `[Stderr]: error message, error message, error message, error message, error message  Exit Code: 1
 `,
 		},
 		{
@@ -78,12 +67,7 @@ error message`,
 				ExitCode: 1,
 			},
 			truncate: true,
-			expected: `  Stderr:
-    "error message"
-    "error message"
-    "error message"
-    "error message"
-  Exit Code: 1
+			expected: `[Stderr]: error message, error message, error message, error message  Exit Code: 1
 `,
 		},
 		{
@@ -97,13 +81,7 @@ error message`,
 				ExitCode: 1,
 			},
 			truncate: true,
-			expected: `  Stderr:
-    "error message"
-    "error message"
-    "error message"
-    "error message"
-    ...(1 line(s) truncated, use '--truncate-output=false' to disable)
-  Exit Code: 1
+			expected: `[Stderr]: error message, error message, error message, error message, error message  Exit Code: 1
 `,
 		},
 		{
@@ -120,13 +98,7 @@ error message`,
 				ExitCode: 1,
 			},
 			truncate: true,
-			expected: `  Stderr:
-    "error message"
-    "error message"
-    "error message"
-    "error message"
-    ...(4 line(s) truncated, use '--truncate-output=false' to disable)
-  Exit Code: 1
+			expected: `[Stderr]: error message, error message, error message, error message, error message, error message, error message, error message  Exit Code: 1
 `,
 		},
 	}
@@ -148,7 +120,7 @@ func TestDockerCLIOutputFilter(t *testing.T) {
 	}{
 		{
 			name: "should filter docker CLI output successfully",
-			input: `Unable to find image 'gcr.io/kpt-fn/starlark:v0.3' locally
+			input: `Unable to find image 'ghcr.io/kptdev/krm-functions-catalog/starlark:v0.3' locally
 v0.3: Pulling from kpt-fn/starlark
 4e9f2cdf4387: Already exists
 aafbf7df3ddf: Pulling fs layer
@@ -157,13 +129,13 @@ aafbf7df3ddf: Download complete
 aafbf7df3ddf: Pull complete
 6b759ab96cb2: Waiting
 Digest: sha256:c347e28606fa1a608e8e02e03541a5a46e4a0152005df4a11e44f6c4ab1edd9a
-Status: Downloaded newer image for gcr.io/kpt-fn/starlark:v0.3
+Status: Downloaded newer image for ghcr.io/kptdev/krm-functions-catalog/starlark:v0.3s-catalog/starlark:v0.3
 `,
 			expected: "",
 		},
 		{
 			name: "should filter docker messages and shouldn't truncate trailing lines",
-			input: `Unable to find image 'gcr.io/kpt-fn/starlark:v0.3' locally
+			input: `Unable to find image 'ghcr.io/kptdev/krm-functions-catalog/starlark:v0.3s-catalog/starlark:v0.3' locally
 v0.3: Pulling from kpt-fn/starlark
 4e9f2cdf4387: Already exists
 aafbf7df3ddf: Pulling fs layer
@@ -172,7 +144,7 @@ aafbf7df3ddf: Download complete
 aafbf7df3ddf: Pull complete
 6b759ab96cb2: Waiting
 Digest: sha256:c347e28606fa1a608e8e02e03541a5a46e4a0152005df4a11e44f6c4ab1edd9a
-Status: Downloaded newer image for gcr.io/kpt-fn/starlark:v0.3
+Status: Downloaded newer image for ghcr.io/kptdev/krm-functions-catalog/starlark:v0.3s-catalog/starlark:v0.3
 line before last line
 lastline
 
@@ -184,7 +156,7 @@ lastline
 		{
 			name: "should filter interleaved docker messages",
 			input: `firstline
-Unable to find image 'gcr.io/kpt-fn/starlark:v0.3' locally
+Unable to find image 'ghcr.io/kptdev/krm-functions-catalog/starlark:v0.3s-catalog/starlark:v0.3' locally
 v0.3: Pulling from kpt-fn/starlark
 4e9f2cdf4387: Already exists
 aafbf7df3ddf: Pulling fs layer
@@ -194,7 +166,7 @@ aafbf7df3ddf: Download complete
 aafbf7df3ddf: Pull complete
 6b759ab96cb2: Waiting
 Digest: sha256:c347e28606fa1a608e8e02e03541a5a46e4a0152005df4a11e44f6c4ab1edd9a
-Status: Downloaded newer image for gcr.io/kpt-fn/starlark:v0.3
+Status: Downloaded newer image for ghcr.io/kptdev/krm-functions-catalog/starlark:v0.3s-catalog/starlark:v0.3
 lastline
 `,
 			expected: `firstline

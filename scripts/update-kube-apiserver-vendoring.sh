@@ -23,20 +23,23 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd "${repo_root}"
 
 # Get the k8s.io/apiserver version from the go.mod.
-version=$(grep "k8s.io/apiserver" go.mod | sed -n 's/.*k8s.io\/apiserver v\(.*\)/\1/p')
+version=$(grep "k8s.io/apiserver" go.mod | sed -n 's/.*k8s.io\/apiserver v\(.*\)/\1/p' | grep -v '=>')
 
 # Download the k8s.io/apiserver to the third_party.
-if [ -d "third_party/k8s.io/apiserver" ]; then
-    rm -rf "third_party/k8s.io/apiserver"
+
+if [ -d "third_party/k8s.io/apiserver-v${version}" ]; then
+    rm -rf "third_party/k8s.io/apiserver-v${version}"
 fi
 
 mkdir -p "third_party/k8s.io"
 cd "third_party/k8s.io"
-git clone --depth=1 --branch="v${version}" https://github.com/kubernetes/apiserver.git apiserver -q
-rm -rf apiserver/.git
-rm -rf apiserver/.github
-find apiserver -name OWNERS -type f -delete #This needs to be removed so it doens't confuse prow with invalid owners from the k8s project
+
+git clone --depth=1 --branch="v${version}" https://github.com/kubernetes/apiserver.git "apiserver-v${version}" -q 2> /dev/null
+rm -rf "apiserver-v${version}/.git"
+rm -rf "apiserver-v${version}/.github"
+find "apiserver-v${version}" -name OWNERS -type f -delete # This needs to be removed so it doesn't confuse prow with invalid owners from the k8s project
 cd "../.."
 
-echo "Updated vendoring for k8s.io/apiserver to version ${version}."
-echo "Please re-apply any changes that were done in the third_party directory." 
+echo "Vendored apiserver v${version} into third_party/k8s.io/apiserver-v${version}"
+echo "Please re-apply any changes that were done in the third_party directory."
+echo "Add the following to go.mod: \"replace k8s.io/apiserver v${version} => ./third_party/k8s.io/apiserver-v${version}\"" 
