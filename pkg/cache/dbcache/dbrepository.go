@@ -231,6 +231,7 @@ func (r *dbRepository) DeletePackageRevision(ctx context.Context, pr2Delete repo
 
 	pk := repository.PackageKey{
 		RepoKey: r.Key(),
+		Path:    pr2Delete.Key().PkgKey.Path,
 		Package: pr2Delete.Key().PKey().Package,
 	}
 
@@ -288,9 +289,10 @@ func (r *dbRepository) ListPackages(ctx context.Context, filter repository.ListP
 
 	klog.V(5).Infof("ListPackages: listing packages in repository %+v with filter %+v", r.Key(), filter)
 
+	filter.Key.RepoKey = r.Key()
 	foundPkgs, err := pkgListPkgsFromDB(ctx, filter)
 	if err != nil {
-		klog.Warningf("ListPackages: listing packagess in repository %+v with filter %+v failed: %q", r.Key(), filter, err)
+		klog.Warningf("ListPackages: listing packages in repository %+v with filter %+v failed: %q", r.Key(), filter, err)
 		return nil, err
 	}
 
