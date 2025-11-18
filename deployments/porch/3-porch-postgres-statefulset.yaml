@@ -39,7 +39,6 @@ spec:
         app.kubernetes.io/instance: porch
         app.kubernetes.io/component: primary
     spec:
-      serviceAccountName: default
       affinity:
         podAffinity:
         podAntiAffinity:
@@ -146,10 +145,14 @@ spec:
                   [ -f /opt/bitnami/postgresql/tmp/.initialized ] || [ -f /bitnami/postgresql/.initialized ]
 
           resources:
-            limits: {}
+            limits:
+              cpu: 500m
+              memory: 512Mi
+              ephemeral-storage: 1Gi
             requests:
               cpu: 250m
               memory: 256Mi
+              ephemeral-storage: 500Mi
           volumeMounts:
             - name: dshm
               mountPath: /dev/shm
