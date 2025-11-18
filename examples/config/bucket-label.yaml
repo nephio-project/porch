@@ -32,7 +32,7 @@ spec:
           directory: catalog/bucket
   - type: eval
     eval:
-      image: gcr.io/kpt-fn/set-labels:v0.1.5
+      image: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1.5
       configMap:
         bucket-label: bucket-label-value
         another-label: another-label-value

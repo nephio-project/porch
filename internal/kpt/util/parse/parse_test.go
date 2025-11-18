@@ -200,8 +200,8 @@ func Test_parseURL(t *testing.T) {
 			expected: expected{repo: "https://my.git-server.com/repository", dir: "/directory", version: "main"},
 		},
 		"no ref": {
-			ghURL:    "https://github.com/GoogleContainerTools/kpt-functions-catalog.git/examples/apply-replacements-simple",
-			expected: expected{repo: "https://github.com/GoogleContainerTools/kpt-functions-catalog", dir: "/examples/apply-replacements-simple", version: ""},
+			ghURL:    "https://github.com/kptdev/krm-functions-catalog.git/examples/apply-replacements-simple",
+			expected: expected{repo: "https://github.com/kptdev/krm-functions-catalog", dir: "/examples/apply-replacements-simple", version: ""},
 		},
 		".git appears in the middle": {
 			ghURL:    "https://my-site.com/root.gitops.git/foo@main",
@@ -225,9 +225,9 @@ func Test_GitParseArgs(t *testing.T) {
 		expected Target
 	}{
 		"git@ url with .git suffix": {
-			ghURL: "git@github.com:GoogleContainerTools/kpt.git",
+			ghURL: "git@github.com:kptdev/kpt.git",
 			expected: Target{Git: v1.Git{
-				Repo:      "git@github.com:GoogleContainerTools/kpt",
+				Repo:      "git@github.com:kptdev/kpt",
 				Directory: "/",
 				Ref:       "main",
 			},
@@ -236,18 +236,18 @@ func Test_GitParseArgs(t *testing.T) {
 			skip: true,
 		},
 		"http url with .git suffix": {
-			ghURL: "https://github.com/GoogleContainerTools/kpt.git",
+			ghURL: "https://github.com/kptdev/kpt.git",
 			expected: Target{Git: v1.Git{
-				Repo:      "https://github.com/GoogleContainerTools/kpt",
+				Repo:      "https://github.com/kptdev/kpt",
 				Directory: "/",
 				Ref:       "main",
 			},
 				Destination: "kpt"},
 		},
 		"starts with github.com": {
-			ghURL: "https://github.com/GoogleContainerTools/kpt",
+			ghURL: "https://github.com/kptdev/kpt",
 			expected: Target{Git: v1.Git{
-				Repo:      "https://github.com/GoogleContainerTools/kpt",
+				Repo:      "https://github.com/kptdev/kpt",
 				Directory: "/",
 				Ref:       "main",
 			},

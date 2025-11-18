@@ -91,7 +91,7 @@ fi
 
 if [[ "$package_revision_count" -lt 1 ]]
 then
-    echo "pacakge revision count must be specified as a positive integer on the -e flag"
+    echo "package revision count must be specified as a positive integer on the -e flag"
     exit 1
 fi
 
@@ -117,7 +117,7 @@ echo "  up to $parallelism packages will be created in parallel per repo"
 echo "running load test towards git server http://nephio:secret@$git_repo_server:3000/nephio/" 
 echo "  $git_repo_count repos will be created"
 echo "  $package_count packages in each repo"
-echo "  $package_revision_count pacakge revisions in each package" 
+echo "  $package_revision_count package revisions in each package" 
 echo "  results will be stored in \"$result_file\""
 echo "  repo results will be stored in \"$repo_result_file\""
 echo "  the log will be stored in \"$log_file\""
@@ -137,9 +137,9 @@ info:
 
 pipeline:
   mutators:
-    - image: gcr.io/kpt-fn/apply-replacements:v0.1.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/apply-replacements:v0.1.1
       configPath: apply-replacements-annotation1.yaml
-    - image: gcr.io/kpt-fn/apply-replacements:v0.1.1
+    - image: ghcr.io/kptdev/krm-functions-catalog/apply-replacements:v0.1.1
       configPath: apply-replacements-annotation2.yaml
 EOF
 
@@ -218,8 +218,8 @@ EOF
 }
 
 create_package_revision() {
-    TMP_DIR=$(mktemp -d)
-    pushd "$TMP_DIR" || return
+    LOAD_TEST_TMP_DIR=$(mktemp -d)
+    pushd "$LOAD_TEST_TMP_DIR" || return
 
     porchctl -n porch-scale rpkg pull "$1" "$1"
     update_package_resources "$1"
@@ -231,7 +231,7 @@ create_package_revision() {
 
     if ! $dirty_mode
     then
-        rm -fr "$TMP_DIR"
+        rm -fr "$LOAD_TEST_TMP_DIR"
     fi
 }
 wait_for_jobs() {
@@ -267,8 +267,8 @@ create_repo () {
     {
         curl -k -H "content-type: application/json" "http://nephio:secret@$git_repo_server:3000/api/v1/user/repos" --data '{"name":"'"$git_repo_name"'"}' >> "$log_file" 2>&1
 
-        TMP_DIR=$(mktemp -d)
-        pushd "$TMP_DIR" || return
+        REPO_TMP_DIR=$(mktemp -d)
+        pushd "$REPO_TMP_DIR" || return
         git clone "http://nephio:secret@$git_repo_server:3000/nephio/$git_repo_name.git"
 
         pushd "$git_repo_name" || return
@@ -284,7 +284,7 @@ create_repo () {
 
         if ! $dirty_mode
         then
-            rm -fr "$TMP_DIR"
+            rm -fr "$REPO_TMP_DIR"
         fi
     } >> "$log_file" 2>&1
 
@@ -368,13 +368,13 @@ delete_repo () {
 }
 
 split_repo_results() {
-    TMP_DIR=$(mktemp -d)
+    SPLIT_REPO_TMP_DIR=$(mktemp -d)
     CURRENT_DIR=$(pwd)
 
-    grep "approved, took" "$result_file" | awk '{printf("%s,%s,%s\n", $2, $3, $7)}' > "$TMP_DIR/approved.csv"
-    grep "deleted, took" "$result_file" | awk '{printf("%s,%s,%s\n", $2, $3, $6)}' > "$TMP_DIR/deleted.csv"
+    grep "approved, took" "$result_file" | awk '{printf("%s,%s,%s\n", $2, $3, $7)}' > "$SPLIT_REPO_TMP_DIR/approved.csv"
+    grep "deleted, took" "$result_file" | awk '{printf("%s,%s,%s\n", $2, $3, $6)}' > "$SPLIT_REPO_TMP_DIR/deleted.csv"
 
-    cd "$TMP_DIR" || exit
+    cd "$SPLIT_REPO_TMP_DIR" || exit
 
     for i in $(seq 1 "$git_repo_count")
     do
@@ -389,7 +389,7 @@ split_repo_results() {
     cd "$CURRENT_DIR" || exit
     if ! $dirty_mode
     then
-        rm -fr "$TMP_DIR"
+        rm -fr "$SPLIT_REPO_TMP_DIR"
     fi
 }
 

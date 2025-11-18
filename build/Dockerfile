@@ -46,7 +46,10 @@ COPY ./func ./func
 
 RUN go build -v -o /porch ./cmd/porch
 
-FROM gcr.io/distroless/static:nonroot
+FROM alpine
+RUN addgroup -g 10001 nonroot
+RUN adduser -D -G nonroot -u 10001 nonroot
+
 COPY --from=builder --chown=nonroot:nonroot /porch /home/nonroot/porch
 USER nonroot:nonroot
 ENTRYPOINT ["/home/nonroot/porch"]

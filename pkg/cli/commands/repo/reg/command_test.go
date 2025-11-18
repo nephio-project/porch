@@ -27,6 +27,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	fakeprinter "github.com/nephio-project/porch/pkg/kpt/printer/fake"
+	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/rest"
@@ -109,6 +110,28 @@ func TestRepoReg(t *testing.T) {
 					path:         "/apis/config.porch.kpt.dev/v1alpha1/namespaces/repository-namespace/repositories",
 					wantRequest:  "full-repository.yaml",
 					sendResponse: "full-repository.yaml",
+				},
+			},
+		},
+		{
+			name: "FullRegisterWithSyncSchedule",
+			args: []string{
+				"https://github.com/platkrm/test-blueprints.git",
+				"--name=repository-resource-name",
+				"--description=\"Test Repository Description\"",
+				"--deployment",
+				"--directory=/catalog",
+				"--branch=main-branch",
+				"--create-branch",
+				"--namespace=repository-namespace",
+				"--sync-schedule=*/1 * * * *",
+			},
+			actions: []httpAction{
+				{
+					method:       http.MethodPost,
+					path:         "/apis/config.porch.kpt.dev/v1alpha1/namespaces/repository-namespace/repositories",
+					wantRequest:  "full-repository-sync-schedule.yaml",
+					sendResponse: "full-repository-sync-schedule.yaml",
 				},
 			},
 		},
@@ -266,4 +289,59 @@ func (p *fakePorch) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p.handler(action, w, r)
+}
+
+func TestValidateCronExpression(t *testing.T) {
+	tests := []struct {
+		name        string
+		expr        string
+		expectError bool
+	}{
+		{
+			name:        "Valid cron - every minute",
+			expr:        "* * * * *",
+			expectError: false,
+		},
+		{
+			name:        "Valid cron - every day at midnight",
+			expr:        "0 0 * * *",
+			expectError: false,
+		},
+		{
+			name:        "Valid cron - every Monday at 9am",
+			expr:        "0 9 * * 1",
+			expectError: false,
+		},
+		{
+			name:        "Invalid cron - too few fields",
+			expr:        "* * * *",
+			expectError: true,
+		},
+		{
+			name:        "Invalid cron - too many fields",
+			expr:        "* * * * * *",
+			expectError: true,
+		},
+		{
+			name:        "Invalid cron - non-numeric",
+			expr:        "a b c d e",
+			expectError: true,
+		},
+		{
+			name:        "Empty string",
+			expr:        "",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateCronExpression(tt.expr)
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
 }

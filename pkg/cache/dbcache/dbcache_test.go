@@ -24,12 +24,15 @@ import (
 
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/pkg/cache/testutil"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo"
 	"github.com/nephio-project/porch/pkg/repository"
 	mockdbcache "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/dbcache"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog/v2"
 )
@@ -46,7 +49,7 @@ type DbTestSuite struct {
 
 func Test_DbTestSuite(t *testing.T) {
 	if u, err := user.Current(); err == nil && u.Username == "root" {
-		t.Skipf("This test cannot run as %q user", u.Username)
+		t.Fatalf("This test cannot run as %q user", u.Username)
 	}
 	// TODO: replace ctx with t.Context() in go 1.24<
 	suite.Run(t, &DbTestSuite{nextPkgRev: 1, ctx: context.Background()})
@@ -153,21 +156,26 @@ func (t *DbTestSuite) TestDBRepositoryCrud() {
 	externalrepo.ExternalRepoInUnitTestMode = true
 
 	ctx := t.Context()
-
-	options := cachetypes.CacheOptions{
-		RepoSyncFrequency: 60 * time.Minute,
-	}
-	dbCache, err := new(DBCacheFactory).NewCache(ctx, options)
-	t.NoError(err)
-	t.Empty(dbCache.GetRepositories())
-
-	repositorySpec := configapi.Repository{
+	repositorySpec := &configapi.Repository{
 		ObjectMeta: v1.ObjectMeta{
 			Namespace: "my-ns",
 			Name:      "my-repo",
 		},
 	}
-	testRepo, err := dbCache.OpenRepository(ctx, &repositorySpec)
+	scheme := runtime.NewScheme()
+	_ = configapi.AddToScheme(scheme)
+
+	fakeClient := testutil.NewFakeClientWithStatus(scheme, repositorySpec)
+
+	options := cachetypes.CacheOptions{
+		RepoSyncFrequency: 60 * time.Minute,
+		CoreClient:        fakeClient,
+	}
+	dbCache, err := new(DBCacheFactory).NewCache(ctx, options)
+	t.NoError(err)
+	t.Empty(dbCache.GetRepositories())
+
+	testRepo, err := dbCache.OpenRepository(ctx, repositorySpec)
 	t.NoError(err)
 	t.Equal("my-repo", testRepo.Key().Name)
 
@@ -176,11 +184,67 @@ func (t *DbTestSuite) TestDBRepositoryCrud() {
 
 	repositorySpec.Spec.Description = "My lovely Repo"
 
-	err = dbCache.UpdateRepository(ctx, &repositorySpec)
+	err = dbCache.UpdateRepository(ctx, repositorySpec)
 	t.NoError(err)
 
-	err = dbCache.CloseRepository(ctx, &repositorySpec, nil)
+	err = dbCache.CloseRepository(ctx, repositorySpec, nil)
 	t.NoError(err)
+}
+
+func (t *DbTestSuite) TestDBRepositoryConnectivityCheck() {
+	// Save original state
+	originalMode := externalrepo.ExternalRepoInUnitTestMode
+	defer func() {
+		externalrepo.ExternalRepoInUnitTestMode = originalMode
+	}()
+
+	ctx := t.Context()
+	scheme := runtime.NewScheme()
+	_ = configapi.AddToScheme(scheme)
+
+	// Test failure case - disable unit test mode
+	externalrepo.ExternalRepoInUnitTestMode = false
+	failureSpec := &configapi.Repository{
+		ObjectMeta: v1.ObjectMeta{
+			Namespace: "test-ns",
+			Name:      "test-repo-fail",
+		},
+		Spec: configapi.RepositorySpec{
+			Type: configapi.RepositoryTypeGit,
+			Git: &configapi.GitRepository{
+				Repo: "https://invalid-repo-url.com/test/repo",
+			},
+		},
+	}
+	fakeClient := testutil.NewFakeClientWithStatus(scheme, failureSpec)
+	options := cachetypes.CacheOptions{
+		RepoSyncFrequency: 60 * time.Second,
+		CoreClient:        fakeClient,
+	}
+	dbCache, err := new(DBCacheFactory).NewCache(ctx, options)
+	t.NoError(err)
+	_, err = dbCache.OpenRepository(ctx, failureSpec)
+	assert.Error(t.T(), err, "Expected connectivity check to fail for invalid repository")
+
+	// Test success case - enable unit test mode
+	externalrepo.ExternalRepoInUnitTestMode = true
+	successSpec := &configapi.Repository{
+		ObjectMeta: v1.ObjectMeta{
+			Namespace: "test-ns",
+			Name:      "test-repo-success",
+		},
+		Spec: configapi.RepositorySpec{
+			Type: "fake", // Use fake type to avoid real network calls
+		},
+	}
+	fakeClient = testutil.NewFakeClientWithStatus(scheme, successSpec)
+	options.CoreClient = fakeClient
+	dbCache, err = new(DBCacheFactory).NewCache(ctx, options)
+	t.NoError(err)
+	testRepo, err := dbCache.OpenRepository(ctx, successSpec)
+	assert.NoError(t.T(), err, "Expected connectivity check to succeed in unit test mode")
+	assert.NotNil(t.T(), testRepo)
+	assert.Equal(t.T(), "test-repo-success", testRepo.Key().Name)
 }
 
 func (t *DbTestSuite) createTestRepo(namespace, name string) *dbRepository {

@@ -44,6 +44,19 @@ func (s packageRevisionStrategy) ValidateUpdate(ctx context.Context, obj, old ru
 	oldRevision := old.(*api.PackageRevision)
 	newRevision := obj.(*api.PackageRevision)
 
+	// Prevent users from modifying the kpt.dev/latest-revision label
+	oldLatestRevision := ""
+	newLatestRevision := ""
+	if oldRevision.Labels != nil {
+		oldLatestRevision = oldRevision.Labels[api.LatestPackageRevisionKey]
+	}
+	if newRevision.Labels != nil {
+		newLatestRevision = newRevision.Labels[api.LatestPackageRevisionKey]
+	}
+	if oldLatestRevision != newLatestRevision {
+		allErrs = append(allErrs, field.Forbidden(field.NewPath("metadata", "labels", api.LatestPackageRevisionKey), "label is managed by porch and cannot be modified by users"))
+	}
+
 	// Verify that the new lifecycle value is valid.
 	switch lifecycle := newRevision.Spec.Lifecycle; lifecycle {
 	case "", api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed, api.PackageRevisionLifecyclePublished, api.PackageRevisionLifecycleDeletionProposed:
@@ -127,6 +140,13 @@ func (s packageRevisionStrategy) Validate(ctx context.Context, runtimeObj runtim
 	allErrs := field.ErrorList{}
 
 	obj := runtimeObj.(*api.PackageRevision)
+
+	// Prevent users from setting the kpt.dev/latest-revision label during creation
+	if obj.Labels != nil {
+		if _, exists := obj.Labels[api.LatestPackageRevisionKey]; exists {
+			allErrs = append(allErrs, field.Forbidden(field.NewPath("metadata", "labels", api.LatestPackageRevisionKey), "label is managed by porch and cannot be set by users"))
+		}
+	}
 
 	// A package name can have a path
 	if pkgNameErr := util.ValidateDirectoryName(obj.Spec.PackageName, true); pkgNameErr != nil {

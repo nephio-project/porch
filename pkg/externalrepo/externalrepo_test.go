@@ -93,3 +93,47 @@ func TestExternaRepo(t *testing.T) {
 	assert.Equal(t, "repo-name", defaultRepoKey.Name)
 
 }
+
+func TestCheckRepositoryConnection(t *testing.T) {
+	ctx := context.TODO()
+
+	// Test OCI repository connection check
+	ociRepo := &configapi.Repository{
+		Spec: configapi.RepositorySpec{
+			Type: configapi.RepositoryTypeOCI,
+			Oci: &configapi.OciRepository{
+				Registry: "test-registry",
+			},
+		},
+	}
+
+	// Connection checks may succeed in some environments, so just verify no panic
+	assert.NotPanics(t, func() {
+		CheckRepositoryConnection(ctx, ociRepo, externalrepotypes.ExternalRepoOptions{})
+	})
+
+	// Test Git repository connection check
+	gitRepo := &configapi.Repository{
+		Spec: configapi.RepositorySpec{
+			Type: configapi.RepositoryTypeGit,
+			Git: &configapi.GitRepository{
+				Repo: "https://github.com/test/repo",
+			},
+		},
+	}
+
+	assert.NotPanics(t, func() {
+		CheckRepositoryConnection(ctx, gitRepo, externalrepotypes.ExternalRepoOptions{})
+	})
+
+	// Test unsupported repository type
+	unsupportedRepo := &configapi.Repository{
+		Spec: configapi.RepositorySpec{
+			Type: "unsupported",
+		},
+	}
+
+	err := CheckRepositoryConnection(ctx, unsupportedRepo, externalrepotypes.ExternalRepoOptions{})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported repository type")
+}

@@ -596,13 +596,7 @@ func TestPrintFnStderr(t *testing.T) {
 4
 5`,
 			truncateOutput: true,
-			expected: `  Stderr:
-    "0"
-    "1"
-    "2"
-    "3"
-    ...(2 line(s) truncated, use '--truncate-output=false' to disable)
-`,
+			expected:       `Stderr: 0, 1, 2, 3, 4, 5`,
 		},
 		"non-truncated output": {
 			input: `0
@@ -612,14 +606,7 @@ func TestPrintFnStderr(t *testing.T) {
 4
 5`,
 			truncateOutput: false,
-			expected: `  Stderr:
-    "0"
-    "1"
-    "2"
-    "3"
-    "4"
-    "5"
-`,
+			expected:       `Stderr: 0, 1, 2, 3, 4, 5`,
 		},
 	}
 	cleanupFunc := func() func() {

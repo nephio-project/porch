@@ -471,3 +471,17 @@ type UserInfoProvider interface {
 	// processed, if any. If user cannot be determnined, returns nil.
 	GetUserInfo(ctx context.Context) *UserInfo
 }
+
+// IsNotFoundError checks if an error indicates that a package or resource was not found.
+// This is used to handle cases where a package exists in cache but not in external repository.
+func IsNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+	
+	errorStr := strings.ToLower(err.Error())
+	return strings.Contains(errorStr, "not found") ||
+		strings.Contains(errorStr, "does not exist") ||
+		strings.Contains(errorStr, "no such") ||
+		strings.Contains(errorStr, "404")
+}

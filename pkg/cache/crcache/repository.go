@@ -17,12 +17,13 @@ package crcache
 import (
 	"context"
 	"strings"
-	"sync"
+	stdSync "sync"
 	"time"
 
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
+	"github.com/nephio-project/porch/pkg/cache/sync"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/pkg/errors"
@@ -46,11 +47,10 @@ type cachedRepository struct {
 	key      repository.RepositoryKey
 	repoSpec *configapi.Repository
 	repo     repository.Repository
-	cancel   context.CancelFunc
 
 	lastVersion string
 
-	mutex                  sync.RWMutex
+	mutex                  stdSync.RWMutex
 	cachedPackageRevisions map[repository.PackageRevisionKey]*cachedPackageRevision
 	cachedPackages         map[repository.PackageKey]*cachedPackage
 	// Error encountered on repository refresh by the refresh goroutine.
@@ -59,23 +59,24 @@ type cachedRepository struct {
 
 	metadataStore        meta.MetadataStore
 	repoPRChangeNotifier cachetypes.RepoPRChangeNotifier
+	syncManager          *sync.SyncManager
 }
 
 func newRepository(repoKey repository.RepositoryKey, repoSpec *configapi.Repository, repo repository.Repository,
 	metadataStore meta.MetadataStore, options cachetypes.CacheOptions) *cachedRepository {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx := context.Background()
 	r := &cachedRepository{
 		key:                  repoKey,
 		repoSpec:             repoSpec,
 		repo:                 repo,
 		metadataStore:        metadataStore,
 		repoPRChangeNotifier: options.RepoPRChangeNotifier,
-		cancel:               cancel,
 	}
 
 	// TODO: Should we fetch the packages here?
 
-	go r.pollForever(ctx, options.RepoSyncFrequency)
+	r.syncManager = sync.NewSyncManager(r, options.CoreClient)
+	r.syncManager.Start(ctx, options.RepoSyncFrequency)
 
 	return r
 }
@@ -140,6 +141,9 @@ func (r *cachedRepository) getRefreshError() error {
 	// TODO: This should also check r.refreshPkgsError when
 	//   the package resource is fully supported.
 
+	if r.syncManager != nil {
+		return r.syncManager.GetLastSyncError()
+	}
 	return r.refreshRevisionsError
 }
 
@@ -460,7 +464,9 @@ func (r *cachedRepository) DeletePackage(ctx context.Context, old repository.Pac
 }
 
 func (r *cachedRepository) Close(ctx context.Context) error {
-	r.cancel()
+	if r.syncManager != nil {
+		r.syncManager.Stop()
+	}
 
 	// Make sure that watch events are sent for packagerevisions that are
 	// removed as part of closing the repository.
@@ -488,39 +494,38 @@ func (r *cachedRepository) Close(ctx context.Context) error {
 	return r.repo.Close(ctx)
 }
 
-// pollForever will continue polling until the signal channel is closed or the ctx is done.
-func (r *cachedRepository) pollForever(ctx context.Context, repoSyncFrequency time.Duration) {
-	ticker := time.NewTicker(repoSyncFrequency)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			klog.Infof("repo %+v: exiting repository poller, because context is done: %v", r.Key(), ctx.Err())
-			return
-		case <-ticker.C:
-			r.pollOnce(ctx)
-			ticker.Reset(repoSyncFrequency)
+// SyncOnce implements the SyncHandler interface
+func (r *cachedRepository) SyncOnce(ctx context.Context) error {
+	start := time.Now()
+	klog.Infof("repositorySync %+v: sync started", r.Key())
+	defer func() { klog.Infof("repositorySync %+v: sync finished in %s", r.Key(), time.Since(start)) }()
+	ctx, span := tracer.Start(ctx, "[START]::Repository::SyncOnce", trace.WithAttributes())
+	defer span.End()
+
+	// Set condition to sync-in-progress
+	if r.syncManager != nil {
+		if err := r.syncManager.SetRepositoryCondition(ctx, "sync-in-progress"); err != nil {
+			klog.Warningf("repositorySync %+v: failed to set sync-in-progress condition: %v", r.Key(), err)
 		}
 	}
-}
-
-func (r *cachedRepository) pollOnce(ctx context.Context) {
-	start := time.Now()
-	klog.Infof("repo %+v: poll started", r.Key())
-	defer func() { klog.Infof("repo %+v: poll finished in %s", r.Key(), time.Since(start)) }()
-	ctx, span := tracer.Start(ctx, "[START]::Repository::pollOnce", trace.WithAttributes())
-	defer span.End()
 
 	if _, err := r.getPackageRevisions(ctx, repository.ListPackageRevisionFilter{}, true); err != nil {
 		r.refreshRevisionsError = err
-		klog.Warningf("error polling repo packages %s: %v", r.Key(), err)
+		klog.Warningf("error syncing repo packages %s: %v", r.Key(), err)
+		return err
 	} else {
 		r.refreshRevisionsError = nil
 	}
 	// TODO: Uncomment when package resources are fully supported
 	//if _, err := r.getPackages(ctx, repository.ListPackageRevisionFilter{}, true); err != nil {
-	//	klog.Warningf("error polling repo packages %s: %v", r.Key(), err)
+	//	klog.Warningf("error syncing repo packages %s: %v", r.Key(), err)
 	//}
+	return nil
+}
+
+// GetSpec implements the SyncHandler interface
+func (r *cachedRepository) GetSpec() *configapi.Repository {
+	return r.repoSpec
 }
 
 func (r *cachedRepository) flush() {

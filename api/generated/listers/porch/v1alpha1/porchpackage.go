@@ -17,10 +17,10 @@
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	porchv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // PorchPackageLister helps list PorchPackages.
@@ -28,7 +28,7 @@ import (
 type PorchPackageLister interface {
 	// List lists all PorchPackages in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.PorchPackage, err error)
+	List(selector labels.Selector) (ret []*porchv1alpha1.PorchPackage, err error)
 	// PorchPackages returns an object that can list and get PorchPackages.
 	PorchPackages(namespace string) PorchPackageNamespaceLister
 	PorchPackageListerExpansion
@@ -36,25 +36,17 @@ type PorchPackageLister interface {
 
 // porchPackageLister implements the PorchPackageLister interface.
 type porchPackageLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*porchv1alpha1.PorchPackage]
 }
 
 // NewPorchPackageLister returns a new PorchPackageLister.
 func NewPorchPackageLister(indexer cache.Indexer) PorchPackageLister {
-	return &porchPackageLister{indexer: indexer}
-}
-
-// List lists all PorchPackages in the indexer.
-func (s *porchPackageLister) List(selector labels.Selector) (ret []*v1alpha1.PorchPackage, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.PorchPackage))
-	})
-	return ret, err
+	return &porchPackageLister{listers.New[*porchv1alpha1.PorchPackage](indexer, porchv1alpha1.Resource("porchpackage"))}
 }
 
 // PorchPackages returns an object that can list and get PorchPackages.
 func (s *porchPackageLister) PorchPackages(namespace string) PorchPackageNamespaceLister {
-	return porchPackageNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return porchPackageNamespaceLister{listers.NewNamespaced[*porchv1alpha1.PorchPackage](s.ResourceIndexer, namespace)}
 }
 
 // PorchPackageNamespaceLister helps list and get PorchPackages.
@@ -62,36 +54,15 @@ func (s *porchPackageLister) PorchPackages(namespace string) PorchPackageNamespa
 type PorchPackageNamespaceLister interface {
 	// List lists all PorchPackages in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.PorchPackage, err error)
+	List(selector labels.Selector) (ret []*porchv1alpha1.PorchPackage, err error)
 	// Get retrieves the PorchPackage from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.PorchPackage, error)
+	Get(name string) (*porchv1alpha1.PorchPackage, error)
 	PorchPackageNamespaceListerExpansion
 }
 
 // porchPackageNamespaceLister implements the PorchPackageNamespaceLister
 // interface.
 type porchPackageNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all PorchPackages in the indexer for a given namespace.
-func (s porchPackageNamespaceLister) List(selector labels.Selector) (ret []*v1alpha1.PorchPackage, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.PorchPackage))
-	})
-	return ret, err
-}
-
-// Get retrieves the PorchPackage from the indexer for a given namespace and name.
-func (s porchPackageNamespaceLister) Get(name string) (*v1alpha1.PorchPackage, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha1.Resource("porchpackage"), name)
-	}
-	return obj.(*v1alpha1.PorchPackage), nil
+	listers.ResourceIndexer[*porchv1alpha1.PorchPackage]
 }

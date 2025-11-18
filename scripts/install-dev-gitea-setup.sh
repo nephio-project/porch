@@ -31,6 +31,26 @@ function h1() {
   echo "** $*"
   echo
 }
+
+# Retry function for curl commands
+function retry_curl() {
+  local max_attempts=$1
+  local delay=$2
+  shift 2
+  local attempt=1
+  
+  while [ $attempt -le $max_attempts ]; do
+    if "$@"; then
+      return 0
+    fi
+    echo "Attempt $attempt/$max_attempts failed, retrying in ${delay} seconds..."
+    sleep $delay
+    attempt=$((attempt + 1))
+  done
+  
+  echo "ERROR: Command failed after $max_attempts attempts: $*"
+  return 1
+}
  
 h1 Install Gitea and init test repos
 mkdir -p "${git_root}/.build"
@@ -50,39 +70,64 @@ else
   h1 Gitea LoadBalancer service does not exist. Mutating pkg...
  
   kpt fn eval \
-    --image gcr.io/kpt-fn/set-annotations:v0.1.4 \
+    --image ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1.4 \
     --match-kind Service \
-    --match-name gitea \
+    --match-name gitea-lb \
     --match-namespace gitea \
     -- "metallb.universe.tf/loadBalancerIPs=${gitea_ip}"
- 
-  cp -f "${git_root}/deployments/local/kind_porch_test_cluster.yaml" cluster-config.yaml
- 
-  # Append KRM metadata to the cluster-config
-  cat >> cluster-config.yaml <<EOF
-metadata:
-  name: not-used
-  annotations:
-    config.kubernetes.io/local-config: "true"
-EOF
- 
-  kpt fn eval \
-    --image gcr.io/kpt-fn/apply-replacements:v0.1.1 \
-    --fn-config "${git_root}/deployments/local/replace-gitea-service-ports.yaml"
 fi
  
 kpt fn render
 kpt live init || true
 kpt live apply --inventory-policy=adopt
-echo "Waiting for gitea to become ready..."
-kubectl wait pod --all --for=condition=Ready --namespace=gitea --timeout=90s
+echo "Waiting for gitea deployment to become ready..."
+kubectl wait deployment gitea --for=condition=Available --namespace=gitea --timeout=120s
+echo "Waiting for gitea pod to become ready..."
+kubectl wait pod -l app=gitea --for=condition=Ready --namespace=gitea --timeout=90s
  
 ###############################################################
  
 h1 Create git repos in gitea
-curl -v -k -H "content-type: application/json" "http://nephio:secret@localhost:3000/api/v1/user/repos" --data "{\"name\":\"$git_repo_name\"}"
-TMP_DIR=$(mktemp -d)
-cd "$TMP_DIR"
+
+# Ensure port-forward is working and wait for Gitea API to be ready
+echo "Setting up port-forward to Gitea service..."
+kubectl port-forward -n gitea svc/gitea-lb 3000:3000 >/dev/null 2>&1 &
+PORT_FORWARD_PID=$!
+sleep 3
+
+# Wait for Gitea API to be ready with retry logic
+echo "Waiting for Gitea API to be ready..."
+max_attempts=30
+attempt=1
+while [ $attempt -le $max_attempts ]; do
+  if curl -s -f "http://localhost:3000/api/healthz" >/dev/null 2>&1; then
+    echo "Gitea API is ready after $attempt attempts"
+    break
+  fi
+  echo "Attempt $attempt/$max_attempts: Gitea API not ready, waiting 5 seconds..."
+  sleep 5
+  attempt=$((attempt + 1))
+done
+
+if [ $attempt -gt $max_attempts ]; then
+  echo "ERROR: Gitea API failed to become ready after $max_attempts attempts"
+  kill $PORT_FORWARD_PID 2>/dev/null || true
+  exit 1
+fi
+
+# Create repository with retry logic (handle existing repos gracefully)
+if curl -s -f "http://nephio:secret@localhost:3000/api/v1/repos/nephio/$git_repo_name" >/dev/null 2>&1; then
+  echo "Repository $git_repo_name already exists, skipping creation"
+else
+  if retry_curl 5 3 curl -s -f -H "content-type: application/json" "http://nephio:secret@localhost:3000/api/v1/user/repos" --data "{\"name\":\"$git_repo_name\"}"; then
+    echo "Successfully created repository $git_repo_name"
+  else
+    echo "ERROR: Failed to create repository $git_repo_name"
+    exit 1
+  fi
+fi
+GITEA_TMP_DIR=$(mktemp -d)
+cd "$GITEA_TMP_DIR"
 git clone "http://nephio:secret@localhost:3000/nephio/$git_repo_name.git"
 cd "$git_repo_name"
 if ! git rev-parse -q --verify refs/remotes/origin/main >/dev/null; then
@@ -97,12 +142,23 @@ else
   echo "main branch already exists in git repo."
 fi
 cd "${git_root}"
-rm -fr "$TMP_DIR"
+rm -fr "$GITEA_TMP_DIR"
  
 test_git_repo_name="test-blueprints"
-curl -v -k -H "content-type: application/json" "http://nephio:secret@localhost:3000/api/v1/user/repos" --data "{\"name\":\"$test_git_repo_name\"}"
-TMP_DIR=$(mktemp -d)
-cd "$TMP_DIR"
+
+# Create test-blueprints repository with retry logic (handle existing repos gracefully)
+if curl -s -f "http://nephio:secret@localhost:3000/api/v1/repos/nephio/$test_git_repo_name" >/dev/null 2>&1; then
+  echo "Repository $test_git_repo_name already exists, skipping creation"
+else
+  if retry_curl 5 3 curl -s -f -H "content-type: application/json" "http://nephio:secret@localhost:3000/api/v1/user/repos" --data "{\"name\":\"$test_git_repo_name\"}"; then
+    echo "Successfully created repository $test_git_repo_name"
+  else
+    echo "ERROR: Failed to create repository $test_git_repo_name"
+    exit 1
+  fi
+fi
+TEST_BLUEPRINTS_TMP_DIR=$(mktemp -d)
+cd "$TEST_BLUEPRINTS_TMP_DIR"
 git clone "${git_root}/test/pkgs/test-pkgs/test-blueprints.bundle" -b main
 cd "$test_git_repo_name"
  
@@ -113,4 +169,9 @@ git push -u origin --all
 git push -u origin --tags
  
 cd "${git_root}"
-rm -fr "$TMP_DIR"
+rm -fr "$TEST_BLUEPRINTS_TMP_DIR"
+
+# Clean up port-forward
+echo "Cleaning up port-forward..."
+kill $PORT_FORWARD_PID 2>/dev/null || true
+echo "Gitea setup completed successfully"

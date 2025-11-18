@@ -5,9 +5,9 @@ tags:
   - mutator
   - test
   - timing
-sourceURL: https://github.com/GoogleContainerTools/kpt-functions-catalog/functions/go/sleep
+sourceURL: https://github.com/kptdev/kpt-functions-catalog/functions/go/sleep
 examplePackageURLs:
-  - https://github.com/GoogleContainerTools/kpt-functions-catalog/examples/sleep-example
+  - https://github.com/kptdev/kpt-functions-catalog/examples/sleep-example
 emails:
   - your-team@example.com
 license: Apache-2.0

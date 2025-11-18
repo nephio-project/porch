@@ -17,123 +17,34 @@
 package fake
 
 import (
-	"context"
-
+	porchv1alpha1 "github.com/nephio-project/porch/api/generated/clientset/versioned/typed/porch/v1alpha1"
 	v1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakePackageRevisionResources implements PackageRevisionResourcesInterface
-type FakePackageRevisionResources struct {
+// fakePackageRevisionResources implements PackageRevisionResourcesInterface
+type fakePackageRevisionResources struct {
+	*gentype.FakeClientWithList[*v1alpha1.PackageRevisionResources, *v1alpha1.PackageRevisionResourcesList]
 	Fake *FakePorchV1alpha1
-	ns   string
 }
 
-var packagerevisionresourcesResource = v1alpha1.SchemeGroupVersion.WithResource("packagerevisionresources")
-
-var packagerevisionresourcesKind = v1alpha1.SchemeGroupVersion.WithKind("PackageRevisionResources")
-
-// Get takes name of the packageRevisionResources, and returns the corresponding packageRevisionResources object, and an error if there is any.
-func (c *FakePackageRevisionResources) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.PackageRevisionResources, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(packagerevisionresourcesResource, c.ns, name), &v1alpha1.PackageRevisionResources{})
-
-	if obj == nil {
-		return nil, err
+func newFakePackageRevisionResources(fake *FakePorchV1alpha1, namespace string) porchv1alpha1.PackageRevisionResourcesInterface {
+	return &fakePackageRevisionResources{
+		gentype.NewFakeClientWithList[*v1alpha1.PackageRevisionResources, *v1alpha1.PackageRevisionResourcesList](
+			fake.Fake,
+			namespace,
+			v1alpha1.SchemeGroupVersion.WithResource("packagerevisionresources"),
+			v1alpha1.SchemeGroupVersion.WithKind("PackageRevisionResources"),
+			func() *v1alpha1.PackageRevisionResources { return &v1alpha1.PackageRevisionResources{} },
+			func() *v1alpha1.PackageRevisionResourcesList { return &v1alpha1.PackageRevisionResourcesList{} },
+			func(dst, src *v1alpha1.PackageRevisionResourcesList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.PackageRevisionResourcesList) []*v1alpha1.PackageRevisionResources {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha1.PackageRevisionResourcesList, items []*v1alpha1.PackageRevisionResources) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.PackageRevisionResources), err
-}
-
-// List takes label and field selectors, and returns the list of PackageRevisionResources that match those selectors.
-func (c *FakePackageRevisionResources) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.PackageRevisionResourcesList, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewListAction(packagerevisionresourcesResource, packagerevisionresourcesKind, c.ns, opts), &v1alpha1.PackageRevisionResourcesList{})
-
-	if obj == nil {
-		return nil, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.PackageRevisionResourcesList{ListMeta: obj.(*v1alpha1.PackageRevisionResourcesList).ListMeta}
-	for _, item := range obj.(*v1alpha1.PackageRevisionResourcesList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested packageRevisionResources.
-func (c *FakePackageRevisionResources) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(packagerevisionresourcesResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a packageRevisionResources and creates it.  Returns the server's representation of the packageRevisionResources, and an error, if there is any.
-func (c *FakePackageRevisionResources) Create(ctx context.Context, packageRevisionResources *v1alpha1.PackageRevisionResources, opts v1.CreateOptions) (result *v1alpha1.PackageRevisionResources, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(packagerevisionresourcesResource, c.ns, packageRevisionResources), &v1alpha1.PackageRevisionResources{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.PackageRevisionResources), err
-}
-
-// Update takes the representation of a packageRevisionResources and updates it. Returns the server's representation of the packageRevisionResources, and an error, if there is any.
-func (c *FakePackageRevisionResources) Update(ctx context.Context, packageRevisionResources *v1alpha1.PackageRevisionResources, opts v1.UpdateOptions) (result *v1alpha1.PackageRevisionResources, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(packagerevisionresourcesResource, c.ns, packageRevisionResources), &v1alpha1.PackageRevisionResources{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.PackageRevisionResources), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakePackageRevisionResources) UpdateStatus(ctx context.Context, packageRevisionResources *v1alpha1.PackageRevisionResources, opts v1.UpdateOptions) (*v1alpha1.PackageRevisionResources, error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(packagerevisionresourcesResource, "status", c.ns, packageRevisionResources), &v1alpha1.PackageRevisionResources{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.PackageRevisionResources), err
-}
-
-// Delete takes name of the packageRevisionResources and deletes it. Returns an error if one occurs.
-func (c *FakePackageRevisionResources) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(packagerevisionresourcesResource, c.ns, name, opts), &v1alpha1.PackageRevisionResources{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakePackageRevisionResources) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(packagerevisionresourcesResource, c.ns, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.PackageRevisionResourcesList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched packageRevisionResources.
-func (c *FakePackageRevisionResources) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.PackageRevisionResources, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(packagerevisionresourcesResource, c.ns, name, pt, data, subresources...), &v1alpha1.PackageRevisionResources{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.PackageRevisionResources), err
 }

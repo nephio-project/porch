@@ -37,12 +37,13 @@ import (
 var _ TaskHandler = &genericTaskHandler{}
 
 type genericTaskHandler struct {
-	runnerOptionsResolver func(namespace string) fnruntime.RunnerOptions
-	runtime               fn.FunctionRuntime
-	repoOpener            repository.RepositoryOpener
-	credentialResolver    repository.CredentialResolver
-	referenceResolver     repository.ReferenceResolver
-	cloneStrategy         api.PackageMergeStrategy
+	runnerOptionsResolver      func(namespace string) fnruntime.RunnerOptions
+	runtime                    fn.FunctionRuntime
+	repoOpener                 repository.RepositoryOpener
+	credentialResolver         repository.CredentialResolver
+	referenceResolver          repository.ReferenceResolver
+	cloneStrategy              api.PackageMergeStrategy
+	repoOperationRetryAttempts int
 }
 
 func (th *genericTaskHandler) GetRuntime() fn.FunctionRuntime {
@@ -67,6 +68,10 @@ func (th *genericTaskHandler) SetCredentialResolver(credentialResolver repositor
 
 func (th *genericTaskHandler) SetReferenceResolver(referenceResolver repository.ReferenceResolver) {
 	th.referenceResolver = referenceResolver
+}
+
+func (th *genericTaskHandler) SetRepoOperationRetryAttempts(retryAttempts int) {
+	th.repoOperationRetryAttempts = retryAttempts
 }
 
 func (th *genericTaskHandler) ApplyTask(ctx context.Context, draft repository.PackageRevisionDraft, repositoryObj *configapi.Repository, obj *api.PackageRevision, packageConfig *builtins.PackageConfig) error {
@@ -242,14 +247,15 @@ func (th *genericTaskHandler) mapTaskToMutation(obj *api.PackageRevision, task *
 			return nil, fmt.Errorf("clone not set for task of type %q", task.Type)
 		}
 		return &clonePackageMutation{
-			task:               task,
-			namespace:          obj.Namespace,
-			name:               obj.Spec.PackageName,
-			isDeployment:       isDeployment,
-			repoOpener:         th.repoOpener,
-			credentialResolver: th.credentialResolver,
-			referenceResolver:  th.referenceResolver,
-			packageConfig:      packageConfig,
+			task:                       task,
+			namespace:                  obj.Namespace,
+			name:                       obj.Spec.PackageName,
+			isDeployment:               isDeployment,
+			repoOpener:                 th.repoOpener,
+			credentialResolver:         th.credentialResolver,
+			referenceResolver:          th.referenceResolver,
+			repoOperationRetryAttempts: th.repoOperationRetryAttempts,
+			packageConfig:              packageConfig,
 		}, nil
 
 	case api.TaskTypeUpgrade:

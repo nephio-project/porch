@@ -17,10 +17,10 @@
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	porchv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // PackageRevisionLister helps list PackageRevisions.
@@ -28,7 +28,7 @@ import (
 type PackageRevisionLister interface {
 	// List lists all PackageRevisions in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.PackageRevision, err error)
+	List(selector labels.Selector) (ret []*porchv1alpha1.PackageRevision, err error)
 	// PackageRevisions returns an object that can list and get PackageRevisions.
 	PackageRevisions(namespace string) PackageRevisionNamespaceLister
 	PackageRevisionListerExpansion
@@ -36,25 +36,17 @@ type PackageRevisionLister interface {
 
 // packageRevisionLister implements the PackageRevisionLister interface.
 type packageRevisionLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*porchv1alpha1.PackageRevision]
 }
 
 // NewPackageRevisionLister returns a new PackageRevisionLister.
 func NewPackageRevisionLister(indexer cache.Indexer) PackageRevisionLister {
-	return &packageRevisionLister{indexer: indexer}
-}
-
-// List lists all PackageRevisions in the indexer.
-func (s *packageRevisionLister) List(selector labels.Selector) (ret []*v1alpha1.PackageRevision, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.PackageRevision))
-	})
-	return ret, err
+	return &packageRevisionLister{listers.New[*porchv1alpha1.PackageRevision](indexer, porchv1alpha1.Resource("packagerevision"))}
 }
 
 // PackageRevisions returns an object that can list and get PackageRevisions.
 func (s *packageRevisionLister) PackageRevisions(namespace string) PackageRevisionNamespaceLister {
-	return packageRevisionNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return packageRevisionNamespaceLister{listers.NewNamespaced[*porchv1alpha1.PackageRevision](s.ResourceIndexer, namespace)}
 }
 
 // PackageRevisionNamespaceLister helps list and get PackageRevisions.
@@ -62,36 +54,15 @@ func (s *packageRevisionLister) PackageRevisions(namespace string) PackageRevisi
 type PackageRevisionNamespaceLister interface {
 	// List lists all PackageRevisions in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.PackageRevision, err error)
+	List(selector labels.Selector) (ret []*porchv1alpha1.PackageRevision, err error)
 	// Get retrieves the PackageRevision from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.PackageRevision, error)
+	Get(name string) (*porchv1alpha1.PackageRevision, error)
 	PackageRevisionNamespaceListerExpansion
 }
 
 // packageRevisionNamespaceLister implements the PackageRevisionNamespaceLister
 // interface.
 type packageRevisionNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all PackageRevisions in the indexer for a given namespace.
-func (s packageRevisionNamespaceLister) List(selector labels.Selector) (ret []*v1alpha1.PackageRevision, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.PackageRevision))
-	})
-	return ret, err
-}
-
-// Get retrieves the PackageRevision from the indexer for a given namespace and name.
-func (s packageRevisionNamespaceLister) Get(name string) (*v1alpha1.PackageRevision, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha1.Resource("packagerevision"), name)
-	}
-	return obj.(*v1alpha1.PackageRevision), nil
+	listers.ResourceIndexer[*porchv1alpha1.PackageRevision]
 }

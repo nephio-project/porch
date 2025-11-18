@@ -17,13 +17,13 @@
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
 	versioned "github.com/nephio-project/porch/api/generated/clientset/versioned"
 	internalinterfaces "github.com/nephio-project/porch/api/generated/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/nephio-project/porch/api/generated/listers/porch/v1alpha1"
-	porchv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchv1alpha1 "github.com/nephio-project/porch/api/generated/listers/porch/v1alpha1"
+	apiporchv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -34,7 +34,7 @@ import (
 // PackageRevisions.
 type PackageRevisionInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.PackageRevisionLister
+	Lister() porchv1alpha1.PackageRevisionLister
 }
 
 type packageRevisionInformer struct {
@@ -60,16 +60,28 @@ func NewFilteredPackageRevisionInformer(client versioned.Interface, namespace st
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PorchV1alpha1().PackageRevisions(namespace).List(context.TODO(), options)
+				return client.PorchV1alpha1().PackageRevisions(namespace).List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PorchV1alpha1().PackageRevisions(namespace).Watch(context.TODO(), options)
+				return client.PorchV1alpha1().PackageRevisions(namespace).Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.PorchV1alpha1().PackageRevisions(namespace).List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.PorchV1alpha1().PackageRevisions(namespace).Watch(ctx, options)
 			},
 		},
-		&porchv1alpha1.PackageRevision{},
+		&apiporchv1alpha1.PackageRevision{},
 		resyncPeriod,
 		indexers,
 	)
@@ -80,9 +92,9 @@ func (f *packageRevisionInformer) defaultInformer(client versioned.Interface, re
 }
 
 func (f *packageRevisionInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&porchv1alpha1.PackageRevision{}, f.defaultInformer)
+	return f.factory.InformerFor(&apiporchv1alpha1.PackageRevision{}, f.defaultInformer)
 }
 
-func (f *packageRevisionInformer) Lister() v1alpha1.PackageRevisionLister {
-	return v1alpha1.NewPackageRevisionLister(f.Informer().GetIndexer())
+func (f *packageRevisionInformer) Lister() porchv1alpha1.PackageRevisionLister {
+	return porchv1alpha1.NewPackageRevisionLister(f.Informer().GetIndexer())
 }

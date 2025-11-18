@@ -29,7 +29,7 @@ import (
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
-	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
+	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,7 +51,7 @@ const (
 	defaultGCPHierarchyRef    = "783380ce4e6c3f21e9e90055b3a88bada0410154"
 	defaultKptFunctionRef     = "spanner-blueprint-v0.3.2"
 	defaultKPTRepo            = "https://github.com/kptdev/kpt.git"
-	defaultGCRPrefix          = "gcr.io/kpt-fn"
+	defaultGHCRPrefix         = "ghcr.io/kptdev/krm-functions-catalog"
 
 	// Optional environment variables which can be set to replace defaults when running e2e tests behind a proxy or firewall.
 	// Environment variables can be loaded from a .env file - refer to .env.template
@@ -71,7 +71,7 @@ const (
 	kptRepoUserEnv     = "PORCH_KPT_REPO_USER"
 	kptRepoPasswordEnv = "PORCH_KPT_REPO_PASSWORD"
 
-	gcrPrefixEnv = "PORCH_GCR_PREFIX_URL"
+	gcrPrefixEnv = "PORCH_GHCR_PREFIX_URL"
 )
 
 type TestSuiteWithGit struct {
@@ -97,7 +97,7 @@ func (t *TestSuiteWithGit) SetupEnvvars() {
 	t.gcpRedisBucketRef = defaultGCPRedisBucketRef
 	t.gcpHierarchyRef = defaultGCPHierarchyRef
 	t.kptRepo = defaultKPTRepo
-	t.gcrPrefix = defaultGCRPrefix
+	t.gcrPrefix = defaultGHCRPrefix
 	t.kptFunctionRef = defaultKptFunctionRef
 
 	if e := os.Getenv(testBlueprintsRepoUrlEnv); e != "" {
@@ -471,7 +471,7 @@ func (t *TestSuite) WaitUntilRepositoryReady(name, namespace string) {
 		Namespace: namespace,
 	}
 	var innerErr error
-	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 120*time.Second, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 300*time.Second, true, func(ctx context.Context) (bool, error) {
 		var repo configapi.Repository
 		if err := t.Client.Get(ctx, nn, &repo); err != nil {
 			innerErr = err
@@ -692,6 +692,8 @@ func (t *TestSuite) RetriggerBackgroundJobForRepo(repoName string) {
 
 	// Delete and recreate repository to trigger background job on it
 	t.DeleteE(&repo)
+	t.WaitUntilRepositoryDeleted(repo.Name, t.Namespace)
+	time.Sleep(2 * time.Second)
 	t.CreateE(&repo)
 	t.WaitUntilRepositoryReady(repo.Name, t.Namespace)
 }

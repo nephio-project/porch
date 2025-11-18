@@ -20,7 +20,7 @@ WORKDIR /workspace/src/kubernetes
 RUN apt-get update && apt-get install --yes rsync
 RUN make kube-apiserver
 
-FROM gcr.io/distroless/static
+FROM alpine
 COPY --from=builder /workspace/src/kubernetes/_output/local/bin/linux/amd64/kube-apiserver /kube-apiserver
 
 #USER 65532:65532

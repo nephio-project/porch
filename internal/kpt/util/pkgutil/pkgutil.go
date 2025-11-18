@@ -366,7 +366,7 @@ func FormatPackage(pkgPath string) {
 
 // RoundTripKptfilesInPkg reads and writes all Kptfiles in the package including
 // subpackages. This is used to format Kptfiles in the order of go structures
-// TODO: phanimarupaka remove this method after addressing https://github.com/GoogleContainerTools/kpt/issues/2052
+// TODO: phanimarupaka remove this method after addressing https://github.com/kptdev/kpt/issues/2052
 func RoundTripKptfilesInPkg(pkgPath string) error {
 	paths, err := pkg.Subpackages(filesys.FileSystemOrOnDisk{}, pkgPath, pkg.All, true)
 	if err != nil {

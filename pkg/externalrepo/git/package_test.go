@@ -45,7 +45,7 @@ func (g GitSuite) TestLock(t *testing.T) {
 		Repo:      address,
 		Branch:    g.branch,
 		Directory: "/",
-	}, deployment, tempdir, GitRepositoryOptions{})
+	}, deployment, tempdir, testGitRepositoryOptions())
 	if err != nil {
 		t.Fatalf("Failed to open Git repository loaded from %q: %v", tarfile, err)
 	}

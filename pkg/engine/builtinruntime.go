@@ -23,10 +23,10 @@ import (
 	"github.com/nephio-project/porch/pkg/kpt"
 	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
-	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-catalog/functions/go/apply_replacements"
-	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-catalog/functions/go/set_namespace"
-	"github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-catalog/functions/go/starlark/starlark"
-	fnsdk "github.com/nephio-project/porch/third_party/GoogleContainerTools/kpt-functions-sdk/go/fn"
+	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-catalog/functions/go/apply_replacements"
+	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-catalog/functions/go/set_namespace"
+	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-catalog/functions/go/starlark/starlark"
+	fnsdk "github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
 )
 
 // When updating the version for the builtin functions, please also update the image version
@@ -60,8 +60,8 @@ func newBuiltinRuntime(imagePrefix string) *builtinRuntime {
 	applyMappings := func(aliases []string, fn fnsdk.ResourceListProcessorFunc) {
 		for _, img := range aliases {
 			fnMap[img] = fn
-			fnMap[fnruntime.GCRImagePrefix+img] = fn
-			if imagePrefix != "" && imagePrefix != fnruntime.GCRImagePrefix {
+			fnMap[fnruntime.GHCRImagePrefix+img] = fn
+			if imagePrefix != "" && imagePrefix != fnruntime.GHCRImagePrefix {
 				fnMap[imagePrefix+"/"+img] = fn
 			}
 		}

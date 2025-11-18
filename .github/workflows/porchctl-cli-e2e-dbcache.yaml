@@ -18,13 +18,11 @@ on:
     paths-ignore:
       - "docs/**"
       - "release/**"
-      - ".prow.yaml"
       - "OWNERS"
   pull_request:
     paths-ignore:
       - "docs/**"
       - "release/**"
-      - ".prow.yaml"
       - "OWNERS"
 jobs:
   tests:
@@ -44,12 +42,12 @@ jobs:
         uses: jaxxstorm/action-install-gh-release@v2.1.0
         with:
           repo: kptdev/kpt
-          tag: v1.0.0-beta.58
+          tag: v1.0.0-beta.59
           chmod: 0755
       - name: Install Kind
         uses: helm/kind-action@v1
         with:
-          version: v0.24.0
+          version: v0.30.0
           install_only: true
       - name: Set up Git config
         run: |

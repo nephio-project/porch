@@ -1,4 +1,4 @@
-module github.com/GoogleContainerTools/kpt-functions-catalog/functions/go/sleep
+module github.com/kptdev/kpt-functions-catalog/functions/go/sleep
 
 go 1.20
 

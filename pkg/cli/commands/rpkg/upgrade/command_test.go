@@ -448,39 +448,37 @@ func TestDiscoverUpdates(t *testing.T) {
 
 func TestPreRunStrategyValidation(t *testing.T) {
 	ns := "ns"
-	dummyApiServer := "http://localhost:999999" // expect no valid Kubernetes server will be running on this port
+	dummyApiServer := "http://localhost:9999"
 	fakeClient := fake.NewClientBuilder().Build()
 	cfg := &genericclioptions.ConfigFlags{
-		// set the API server in case a development cluster is already running
-		// deliberately ensure ECONNREFUSED errors if we get as far as the List() call
 		APIServer: &dummyApiServer,
 		Namespace: &ns,
 	}
 	ctx := context.Background()
 
 	testCases := []struct {
-		name          string
-		strategy      string
-		expectErr     bool
-		expectedError string
+		name                 string
+		strategy             string
+		validationShouldPass bool
+		expectedErrorMsg     string
 	}{
 		{
-			name:          "Valid strategy: copy-merge",
-			strategy:      string(porchapi.CopyMerge),
-			expectErr:     false,
-			expectedError: "cmdrpkgupgrade", // this means the strategy is valid and it fails elsewhere
+			name:                 "Valid strategy: copy-merge",
+			strategy:             string(porchapi.CopyMerge),
+			validationShouldPass: true,
+			// Will fail with connection error later, after validation passes
 		},
 		{
-			name:          "Empty strategy is valid (uses default resource-merge)",
-			strategy:      "",
-			expectErr:     false,
-			expectedError: "cmdrpkgupgrade",
+			name:                 "Empty strategy is valid (uses default resource-merge)",
+			strategy:             "",
+			validationShouldPass: true,
+			// Will fail with connection error later, after validation passes
 		},
 		{
-			name:          "Invalid strategy",
-			strategy:      "non-existent-strategy",
-			expectErr:     true,
-			expectedError: "invalid strategy \"non-existent-strategy\"; must be one of:",
+			name:                 "Invalid strategy",
+			strategy:             "non-existent-strategy",
+			validationShouldPass: false,
+			expectedErrorMsg:     "invalid strategy \"non-existent-strategy\"; must be one of:",
 		},
 	}
 
@@ -498,17 +496,20 @@ func TestPreRunStrategyValidation(t *testing.T) {
 
 			err := r.preRunE(r.Command, []string{"some-package-revision"})
 
-			if tc.expectErr {
+			if !tc.validationShouldPass {
+				// For invalid strategies, check specific validation error
 				assert.Error(t, err)
-				if tc.expectedError != "" {
-					assert.Contains(t, err.Error(), tc.expectedError)
-				}
+				assert.Contains(t, err.Error(), tc.expectedErrorMsg)
 			} else {
-				assert.NoError(t, err)
+				// For valid strategies, we expect a different error (connection error)
+				// since we provided an invalid API server
+				assert.Error(t, err)
+				assert.NotContains(t, err.Error(), "invalid strategy")
 			}
 		})
 	}
 }
+
 func TestFindUpstreamByLock(t *testing.T) {
 	const ns = "ns"
 

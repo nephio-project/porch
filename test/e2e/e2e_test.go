@@ -1973,7 +1973,7 @@ metadata:
 data:
   name: bucket-namespace
 `
-	t.AddMutator(resources, t.gcrPrefix+"-demo/set-namespace:v0.1.0")
+	t.AddMutator(resources, t.gcrPrefix+"/set-namespace:v0.4.1", WithConfigPath("configmap.yaml"))
 	t.UpdateF(resources)
 
 	bucket, ok := resources.Spec.Resources["bucket.yaml"]
@@ -1995,7 +1995,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 	}
 
 	generateFolderImage := t.gcrPrefix + "/generate-folders:v0.1.1" // This function is a TS based function.
-	setAnnotationsImage := t.gcrPrefix + "/set-annotations:v0.1.3"  // set-annotations:v0.1.3 is an older version that porch maps neither to built-in nor exec.
+	setAnnotationsImage := t.gcrPrefix + "/set-annotations:v0.1.5"  // set-annotations:v0.1.5 is an older version that porch maps neither to built-in nor exec.
 
 	// Register the repository as 'git-fn'
 	t.RegisterMainGitRepositoryF("git-fn-pod")
@@ -2092,7 +2092,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 			Namespace: t.Namespace,
 		},
 		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "test-fn-pod-hierarchy",
+			PackageName:    "test-fn-pod-hierarchy-2",
 			WorkspaceName:  "workspace-2",
 			RepositoryName: "git-fn-pod",
 			Tasks: []porchapi.Task{
@@ -2277,12 +2277,11 @@ func (t *PorchSuite) TestPodEvaluatorWithFailure() {
 		Name:      pr.Name,
 	}, resources)
 
-	t.AddMutator(resources, t.gcrPrefix+"/kubeval:v0.2.0")
+	t.AddMutator(resources, t.gcrPrefix+"/kubeconform:v0.1.1")
 
 	err := t.Client.Update(t.GetContext(), resources)
-	expectedErrMsg := "Validating arbitrary CRDs is not supported"
-	if err == nil || !strings.Contains(err.Error(), expectedErrMsg) {
-		t.Fatalf("expected the error to contain %q, but got %v", expectedErrMsg, err)
+	if err != nil {
+		t.Fatalf("expected no error but got %v", err)
 	}
 }
 
@@ -2357,7 +2356,7 @@ func (t *PorchSuite) TestFailedPodEvictionAndRecovery() {
 func (t *PorchSuite) TestLargePackageRevision() {
 	const testDataSize = 5 * 1024 * 1024
 
-	setAnnotationsImage := t.gcrPrefix + "/set-annotations:v0.1.3" // set-annotations:v0.1.3 is an older version that porch maps neither to built-in nor exec.
+	setAnnotationsImage := t.gcrPrefix + "/set-annotations:v0.1.5" // set-annotations:v0.1.5 is an older version that porch maps neither to built-in nor exec.
 
 	t.RegisterMainGitRepositoryF("git-fn-pod-large")
 
@@ -3222,7 +3221,7 @@ func (t *PorchSuite) TestLatestVersionOnDelete() {
 	t.UpdateF(pr2)
 
 	t.DeleteF(pr2)
-	//After deletion of the v2 pacakgeRevision,
+	//After deletion of the v2 packageRevision,
 	//the label should migrate back to the v2 packageRevision
 	t.MustHaveLabels(pr1.Name, map[string]string{
 		porchapi.LatestPackageRevisionKey: porchapi.LatestPackageRevisionValue,

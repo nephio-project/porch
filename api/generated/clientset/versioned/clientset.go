@@ -17,8 +17,8 @@
 package versioned
 
 import (
-	"fmt"
-	"net/http"
+	fmt "fmt"
+	http "net/http"
 
 	porchv1alpha1 "github.com/nephio-project/porch/api/generated/clientset/versioned/typed/porch/v1alpha1"
 	discovery "k8s.io/client-go/discovery"

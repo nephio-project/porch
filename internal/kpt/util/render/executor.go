@@ -460,7 +460,6 @@ func executePipelinesWithScopedVisibility(ctx context.Context, allNodes []*pkgNo
 		hctx.pkgs[node.pkg.UniquePath] = node
 
 		input := buildPipelineInputWithScopedVisibility(node, childrenMap)
-
 		output, err := node.runPipeline(ctx, hctx, input)
 		if err != nil {
 			return err
@@ -469,9 +468,50 @@ func executePipelinesWithScopedVisibility(ctx context.Context, allNodes []*pkgNo
 		node.resources = output
 		node.state = Wet
 		hctx.pkgs[node.pkg.UniquePath] = node
+
+		propagateResourcesAcrossNodes(node, allNodes)
 	}
 
+	aggregateRootResources(allNodes, hctx)
 	return nil
+}
+
+// propagateResourcesAcrossNodes distributes resources from the current node to their target packages
+func propagateResourcesAcrossNodes(currentNode *pkgNode, allNodes []*pkgNode) {
+	var remaining []*yaml.RNode
+	resourcesByPackage := make(map[string][]*yaml.RNode)
+
+	// Group resources by their target package path
+	for _, resource := range currentNode.resources {
+		pkgPath, _ := pkg.GetPkgPathAnnotation(resource)
+		if pkgPath == "" {
+			pkgPath = currentNode.pkg.UniquePath.String()
+		}
+		resourcesByPackage[pkgPath] = append(resourcesByPackage[pkgPath], resource)
+	}
+
+	// Distribute resources to their target nodes
+	for _, targetNode := range allNodes {
+		targetPath := targetNode.pkg.UniquePath.String()
+		if resources, exists := resourcesByPackage[targetPath]; exists {
+			if targetPath == currentNode.pkg.UniquePath.String() {
+				remaining = append(remaining, resources...)
+			} else {
+				targetNode.resources = resources
+			}
+		}
+	}
+
+	currentNode.resources = remaining
+}
+
+// aggregateRootResources rebuilds root resources from all package resources
+func aggregateRootResources(allNodes []*pkgNode, hctx *hydrationContext) {
+	var aggregated []*yaml.RNode
+	for _, node := range allNodes {
+		aggregated = append(aggregated, node.resources...)
+	}
+	hctx.root.resources = aggregated
 }
 
 // buildPipelineInputWithScopedVisibility creates the input resource
@@ -548,9 +588,8 @@ func (pn *pkgNode) runMutators(ctx context.Context, hctx *hydrationContext, inpu
 
 	for i, mutator := range mutators {
 		if pl.Mutators[i].ConfigPath != "" {
-			// kpt v1.0.0-beta15+ onwards, functionConfigs are included in the
-			// function inputs during `render` and as a result, they can be
-			// mutated during the `render`.
+			// functionConfigs are included in the function inputs during `render`
+			// and as a result, they can be mutated during the `render`.
 			// So functionConfigs needs be updated in the FunctionRunner instance
 			// before every run.
 			for _, r := range input {

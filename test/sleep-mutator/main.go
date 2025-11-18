@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/GoogleContainerTools/kpt-functions-catalog/functions/go/sleep/processor"
+	"github.com/kptdev/kpt-functions-catalog/functions/go/sleep/processor"
 	"sigs.k8s.io/kustomize/kyaml/fn/framework/command"
 )
 

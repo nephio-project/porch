@@ -17,8 +17,8 @@ package resolver
 import (
 	"fmt"
 
-	initialization "github.com/GoogleContainerTools/kpt/commands/live/init"
-	"github.com/GoogleContainerTools/kpt/pkg/live"
+	initialization "github.com/kptdev/kpt/commands/live/init"
+	"github.com/kptdev/kpt/pkg/live"
 	"github.com/nephio-project/porch/internal/kpt/cmdutil"
 	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
