@@ -7,7 +7,4 @@ metadata:
 info:
   description: porch kpt package
 pipeline:
-  mutators:
-  - name: configure-porch-cache-type
-    image: ghcr.io/kptdev/krm-functions-catalog/starlark:latest
-    configPath: configure-porch-cache-type.yaml
+  mutators: []

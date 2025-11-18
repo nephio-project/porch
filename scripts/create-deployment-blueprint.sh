@@ -19,6 +19,9 @@ set -u # Must predefine variables
 set -o pipefail # Check errors in piped commands
 
 PORCH_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
+STARLARK_IMG="ghcr.io/kptdev/krm-functions-catalog/starlark:v0.5"
+SEARCH_REPLACE_IMG="ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.2"
+SET_IMAGE_IMG="ghcr.io/kptdev/krm-functions-catalog/set-image:v0.1.1"
 
 function error() {
   cat <<EOF
@@ -108,19 +111,19 @@ function validate() {
   [ -n "${FUNCTION_IMAGE}"    ] || error "--function-image is required"
 }
 
-function customize-image {
+function customize_image {
   local OLD="${1}"
   local NEW="${2}"
   local TAG="${NEW##*:}"
   local IMG="${NEW%:*}"
 
-  kpt fn eval "${DESTINATION}" --image set-image:v0.1.1 -- \
+  kpt fn eval "${DESTINATION}" --image ${SET_IMAGE_IMG} -- \
     "name=${OLD}" \
     "newName=${IMG}" \
     "newTag=${TAG}"
 }
 
-function customize-image-in-env {
+function customize_image_in_env {
   local OLD="${1}"
   local NEW="${2}"
   local TAG="${NEW##*:}"
@@ -145,13 +148,13 @@ EOF
 
   trap "rm -f ${FN_CONFIG}" EXIT
 
-  kpt fn eval "${DESTINATION}" --image set-image:v0.1.1 --fn-config "${FN_CONFIG}" || echo "kpt fn eval failed"
+  kpt fn eval "${DESTINATION}" --image ${SET_IMAGE_IMG} --fn-config "${FN_CONFIG}" || echo "kpt fn eval failed"
 }
 
 
-function customize-container-env {
+function customize_controller_reconcilers {
   kpt fn eval ${DESTINATION} \
-    --image ghcr.io/kptdev/krm-functions-catalog/starlark:v0.5.0 \
+    --image ${STARLARK_IMG} \
     --match-kind Deployment \
     --match-name porch-controllers \
     --match-namespace porch-system \
@@ -167,7 +170,7 @@ for resource in ctx.resource_list["items"]:
 
 function add_image_args_porch_server() {
     kpt fn eval ${DESTINATION} \
-      --image ghcr.io/kptdev/krm-functions-catalog/starlark:v0.5.0 \
+      --image ${STARLARK_IMG} \
       --match-kind Deployment \
       --match-name porch-server \
       --match-namespace porch-system \
@@ -181,36 +184,55 @@ for resource in ctx.resource_list['items']:
 
 function disable_fn_runner_warm_up_pod_cache() {
     kpt fn eval ${DESTINATION} \
-      --image ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.2 \
+      --image ${SEARCH_REPLACE_IMG} \
       --match-kind Deployment \
       --match-name function-runner \
       --match-namespace porch-system \
       -- by-value="--warm-up-pod-cache=true" put-value="--warm-up-pod-cache=false"
 }
 
-function set_cache_type() {
+function configure_porch_cache() {
     kpt fn eval ${DESTINATION} \
-      --image ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.2 \
+      --image ${SEARCH_REPLACE_IMG} \
       --match-kind ConfigMap \
       --match-name porch-config \
       --match-namespace porch-system \
       -- by-path=data.cache-type put-value="${PORCH_CACHE_TYPE}"
-}
-
-function remove_cache_type_mutator() {
-  # Remove the mutator from Kptfile
-  kpt fn eval "${DESTINATION}" \
-    --image ghcr.io/kptdev/krm-functions-catalog/starlark:v0.5.0 \
-    --match-kind Kptfile \
-    -- "source=
+    
+    if [[ "${PORCH_CACHE_TYPE^^}" == "CR" ]]; then
+        echo "Configuring porch-api-server for CR cache"
+        
+        kpt fn eval ${DESTINATION} \
+          --image ${STARLARK_IMG} \
+          --match-kind Deployment \
+          --match-name porch-server \
+          --match-namespace porch-system \
+          -- "source=
 for resource in ctx.resource_list['items']:
-  if 'pipeline' in resource and 'mutators' in resource['pipeline']:
-    mutators = resource['pipeline']['mutators']
-    resource['pipeline']['mutators'] = [m for m in mutators if m.get('name') != 'configure-porch-cache-type']
-"
-  
-  # Remove the separate config file
-  rm -f "${DESTINATION}/configure-porch-cache-type.yaml"
+    podspec = resource['spec']['template']['spec']
+    
+    # Remove wait-for-postgres initContainer
+    if 'initContainers' in podspec:
+        new_init = [c for c in podspec['initContainers'] if c.get('name') != 'wait-for-postgres']
+        if new_init:
+            podspec['initContainers'] = new_init
+        else:
+            podspec.pop('initContainers')
+    
+    # Update containers
+    for container in podspec.get('containers', []):
+        if 'envFrom' in container:
+            container['envFrom'] = []
+        
+        args = container.get('args', [])
+        for i, arg in enumerate(args):
+            if arg.startswith('--cache-type='):
+                args[i] = '--cache-type=cr'"
+
+        rm -f "${DESTINATION}"/*porch-postgres*.yaml 2>/dev/null || true
+    else
+        echo "Configuring porch-api-server for DB cache"
+    fi
 }
 
 function main() {
@@ -250,26 +272,22 @@ function main() {
     disable_fn_runner_warm_up_pod_cache
   fi
 
-  set_cache_type
+  configure_porch_cache
 
-  customize-container-env
+  customize_controller_reconcilers
   
-  customize-image \
+  customize_image \
     "docker.io/nephio/porch-function-runner:latest" \
     "${FUNCTION_IMAGE}"
-  customize-image \
+  customize_image \
     "docker.io/nephio/porch-server:latest" \
     "${SERVER_IMAGE}"
-  customize-image \
+  customize_image \
     "docker.io/nephio/porch-controllers:latest" \
     "${CONTROLLERS_IMAGE}"
-  customize-image-in-env \
+  customize_image_in_env \
     "docker.io/nephio/porch-wrapper-server:latest" \
     "${WRAPPER_SERVER_IMAGE}"
-  
-  kpt fn render "${DESTINATION}"
-  
-  remove_cache_type_mutator
 }
 
 validate
