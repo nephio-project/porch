@@ -52,6 +52,7 @@ spec:
                 topologyKey: kubernetes.io/hostname
               weight: 1
         nodeAffinity:
+      automountServiceAccountToken: false
       securityContext:
         fsGroup: 1001
       hostNetwork: false
