@@ -148,7 +148,11 @@ func (r *cachedRepository) getRefreshError() error {
 }
 
 func (r *cachedRepository) getPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter, forceRefresh bool) ([]repository.PackageRevision, error) {
-	klog.Infof("Cache::OpenRepository(%s) fetching packages", r.Key())
+	if forceRefresh {
+		klog.Infof("Cache::OpenRepository(%s) fetching packages from external repository", r.Key())
+	} else {
+		klog.V(2).Infof("Cache::OpenRepository(%s) using cached packages", r.Key())
+	}
 	_, packageRevisions, err := r.getCachedPackages(ctx, forceRefresh)
 	if err != nil {
 		return nil, err

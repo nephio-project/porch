@@ -2924,7 +2924,6 @@ func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces() {
 	registerRepoAndTestRevisions := func(repoName string, ns string, oldPRs []porchapi.PackageRevision) []porchapi.PackageRevision {
 
 		t.RegisterTestBlueprintRepository(repoName, "", RepositoryOptions{RepOpts: InNamespace(ns), SecOpts: SecretInNamespace(ns)})
-		time.Sleep(2 * time.Second) // give time for repo to by synced
 		prList := porchapi.PackageRevisionList{}
 		t.ListF(&prList, client.InNamespace(ns))
 		newPRs := prList.Items
@@ -3007,8 +3006,23 @@ func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces() {
 
 func (t *PorchSuite) TestUniquenessOfUIDs() {
 
-	t.RegisterTestBlueprintRepository("test-blueprints", "/abcd")
-	t.RegisterTestBlueprintRepository("test-2-blueprints", "/efgh")
+	t.RegisterTestBlueprintRepository("test-blueprints", "/")
+
+	ns2 := &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Namespace",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: t.Namespace + "-2",
+		},
+	}
+	t.CreateF(ns2)
+	t.Cleanup(func() {
+		t.DeleteE(ns2)
+	})
+
+	t.RegisterTestBlueprintRepository("test-2-blueprints", "", RepositoryOptions{RepOpts: InNamespace(ns2.Name), SecOpts: SecretInNamespace(ns2.Name)})
 
 	prList := porchapi.PackageRevisionList{}
 	t.ListE(&prList, client.InNamespace(t.Namespace))
