@@ -33,6 +33,23 @@ spec:
         app: porch-server
     spec:
       serviceAccountName: porch-server
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:17-alpine
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h $DB_HOST -p $DB_PORT -U $DB_USER; do
+                echo "Waiting for PostgreSQL to be ready..."
+                sleep 2
+              done
+              echo "PostgreSQL is ready!"
+          envFrom:
+            - configMapRef:
+                name: porch-db-config
+            - secretRef:
+                name: porch-db-secret
       volumes:
         - name: cache-volume
           emptyDir: {}
@@ -62,6 +79,11 @@ spec:
               name: webhook-certs
             - name: api-server-certs
               mountPath: /tmp/certs
+          envFrom:
+            - configMapRef:
+                name: porch-db-config
+            - secretRef:
+                name: porch-db-secret
           env:
             # Uncomment to enable trace-reporting to jaeger
             #- name: OTEL
@@ -80,6 +102,7 @@ spec:
             - --repo-sync-frequency=3m
             - --repo-operation-retry-attempts=3
             - --max-request-body-size=6291456 # Keep this in sync with function-runner's corresponding argument
+            - --cache-type=db
           #adding livenessProbes and readinessProbes for porch server
           livenessProbe:
             httpGet:
