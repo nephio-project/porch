@@ -122,15 +122,65 @@ func (t *PorchSuite) TestGitRepository() {
 }
 
 func (t *PorchSuite) TestGitRepositoryWithReleaseTagsAndDirectory() {
-	t.RegisterGitRepositoryF(t.kptRepo, "kpt-repo", "package-examples", os.Getenv(kptRepoUserEnv), Password(os.Getenv(kptRepoPasswordEnv)))
+	const (
+		repoName  = "test-release-tag-dir"
+		directory = "test-dir"
+	)
+	// Create repository and register with directory filter
+	t.RegisterGitRepositoryWithDirectoryF(repoName, directory)
+
+	// Create a package in the filtered repository
+	pr := &porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: t.Namespace,
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			PackageName:    "test-package",
+			WorkspaceName:  "v1",
+			RepositoryName: repoName,
+			Tasks: []porchapi.Task{
+				{
+					Type: porchapi.TaskTypeInit,
+					Init: &porchapi.PackageInitTaskSpec{
+						Description: "Test package inside /test-dir",
+					},
+				},
+			},
+		},
+	}
+	t.CreateF(pr)
+
+	// Approve the package to create a tag
+	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	t.UpdateF(pr)
+	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+
+	// Unregister and re-register the same repo to mock an exisiting repo
+	// which contains a release tag and a directory
+	repoKey := client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      repoName,
+	}
+	var repo configapi.Repository
+	t.GetF(repoKey, &repo)
+	t.DeleteE(&repo)
+	t.WaitUntilRepositoryDeleted(repo.Name, t.Namespace)
+
+	// Wait additional time for full cleanup of cached directory inside porch
+	time.Sleep(2 * time.Second)
+
+	repo.ResourceVersion = ""
+	t.CreateE(&repo)
+	t.WaitUntilRepositoryReady(repo.Name, t.Namespace)
 
 	t.Log("Listing PackageRevisions in " + t.Namespace)
 	var list porchapi.PackageRevisionList
 	t.ListF(&list, client.InNamespace(t.Namespace))
-
 	for _, pr := range list.Items {
-		if strings.HasPrefix(pr.Spec.PackageName, "package-examples") {
-			t.Errorf("package name %q should not include repo directory %q as prefix", pr.Spec.PackageName, "package-examples")
+		t.Logf("PackageRevision %s/%s found with package name %s", pr.Namespace, pr.Name, pr.Spec.PackageName)
+		if strings.HasPrefix(pr.Spec.PackageName, directory) {
+			t.Errorf("package name %q should not include repo directory %q as prefix", pr.Spec.PackageName, directory)
 		}
 	}
 }
