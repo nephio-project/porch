@@ -21,7 +21,7 @@ import (
 	"path"
 	"strings"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/pkg/kpt"
 	fnresult "github.com/nephio-project/porch/pkg/kpt/api/fnresult/v1"
@@ -39,13 +39,13 @@ type renderPackageMutation struct {
 
 var _ mutation = &renderPackageMutation{}
 
-func (m *renderPackageMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
+func (m *renderPackageMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *porchapi.TaskResult, error) {
 	ctx, span := tracer.Start(ctx, "renderPackageMutation::apply", trace.WithAttributes())
 	defer span.End()
 
 	fs := filesys.MakeFsInMemory()
-	taskResult := &api.TaskResult{
-		RenderStatus: &api.RenderStatus{},
+	taskResult := &porchapi.TaskResult{
+		RenderStatus: &porchapi.RenderStatus{},
 	}
 	pkgPath, err := writeResources(fs, resources)
 	if err != nil {
@@ -63,7 +63,7 @@ func (m *renderPackageMutation) apply(ctx context.Context, resources repository.
 			Runtime: m.runtime,
 		})
 		if result != nil {
-			var rr api.ResultList
+			var rr porchapi.ResultList
 			err := convertResultList(result, &rr)
 			if err != nil {
 				return repository.PackageResources{}, taskResult, err
@@ -85,7 +85,7 @@ func (m *renderPackageMutation) apply(ctx context.Context, resources repository.
 	return renderedResources, taskResult, nil
 }
 
-func convertResultList(in *fnresult.ResultList, out *api.ResultList) error {
+func convertResultList(in *fnresult.ResultList, out *porchapi.ResultList) error {
 	if in == nil {
 		return nil
 	}

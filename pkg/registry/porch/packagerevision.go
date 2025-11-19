@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -55,13 +55,13 @@ func (r *packageRevisions) GetSingularName() string {
 }
 
 func (r *packageRevisions) New() runtime.Object {
-	return &api.PackageRevision{}
+	return &porchapi.PackageRevision{}
 }
 
 func (r *packageRevisions) Destroy() {}
 
 func (r *packageRevisions) NewList() runtime.Object {
-	return &api.PackageRevisionList{}
+	return &porchapi.PackageRevisionList{}
 }
 
 func (r *packageRevisions) NamespaceScoped() bool {
@@ -73,10 +73,10 @@ func (r *packageRevisions) List(ctx context.Context, options *metainternalversio
 	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::List", trace.WithAttributes())
 	defer span.End()
 
-	result := &api.PackageRevisionList{
+	result := &porchapi.PackageRevisionList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevisionList",
-			APIVersion: api.SchemeGroupVersion.Identifier(),
+			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
 		},
 	}
 
@@ -128,7 +128,7 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 		return nil, apierrors.NewBadRequest("namespace must be specified")
 	}
 
-	newApiPkgRev, ok := runtimeObject.(*api.PackageRevision)
+	newApiPkgRev, ok := runtimeObject.(*porchapi.PackageRevision)
 	if !ok {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected PackageRevision object, got %T", runtimeObject))
 	}
@@ -152,7 +152,7 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 
 	fieldErrors := r.createStrategy.Validate(ctx, runtimeObject)
 	if len(fieldErrors) > 0 {
-		return nil, apierrors.NewInvalid(api.SchemeGroupVersion.WithKind("PackageRevision").GroupKind(), newApiPkgRev.Name, fieldErrors)
+		return nil, apierrors.NewInvalid(porchapi.SchemeGroupVersion.WithKind("PackageRevision").GroupKind(), newApiPkgRev.Name, fieldErrors)
 	}
 
 	var parentPackage repository.PackageRevision
@@ -172,7 +172,7 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 		conflictError := creationConflictError(newApiPkgRev)
 		return nil,
 			apierrors.NewConflict(
-				api.Resource("packagerevisions"),
+				porchapi.Resource("packagerevisions"),
 				"(new creation)",
 				conflictError)
 	}
@@ -246,7 +246,7 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 	if !locked {
 		return nil, false,
 			apierrors.NewConflict(
-				api.Resource("packagerevisions"),
+				porchapi.Resource("packagerevisions"),
 				name,
 				fmt.Errorf(GenericConflictErrorMsg, "package revision", pkgMutexKey))
 	}
@@ -260,7 +260,7 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 	return apiPkgRev, true, nil
 }
 
-func uncreatedPackageMutexKey(newApiPkgRev *api.PackageRevision) string {
+func uncreatedPackageMutexKey(newApiPkgRev *porchapi.PackageRevision) string {
 	return fmt.Sprintf("%s-%s-%s-%s",
 		newApiPkgRev.Namespace,
 		newApiPkgRev.Spec.RepositoryName,
@@ -269,7 +269,7 @@ func uncreatedPackageMutexKey(newApiPkgRev *api.PackageRevision) string {
 	)
 }
 
-func creationConflictError(newApiPkgRev *api.PackageRevision) error {
+func creationConflictError(newApiPkgRev *porchapi.PackageRevision) error {
 	return fmt.Errorf(
 		fmt.Sprintf(
 			ConflictErrorMsgBase,

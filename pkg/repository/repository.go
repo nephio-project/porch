@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	"github.com/go-git/go-git/v5/plumbing/transport"
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -257,19 +257,19 @@ type PackageRevision interface {
 	UID() types.UID
 
 	// Lifecycle returns the current lifecycle state of the package.
-	Lifecycle(ctx context.Context) api.PackageRevisionLifecycle
+	Lifecycle(ctx context.Context) porchapi.PackageRevisionLifecycle
 
 	// UpdateLifecycle updates the desired lifecycle of the package. This can only
 	// be used for Published package revisions to go from Published to DeletionProposed
 	// or vice versa. Draft revisions should use PackageDraft.UpdateLifecycle.
-	UpdateLifecycle(ctx context.Context, lifecycle api.PackageRevisionLifecycle) error
+	UpdateLifecycle(ctx context.Context, lifecycle porchapi.PackageRevisionLifecycle) error
 
 	// GetPackageRevision returns the PackageRevision ("DRY") API representation of this package-revision
-	GetPackageRevision(ctx context.Context) (*api.PackageRevision, error)
+	GetPackageRevision(ctx context.Context) (*porchapi.PackageRevision, error)
 
 	// GetResources returns the PackageRevisionResources ("WET") API representation of this package-revision
 	// TODO: return PackageResources or filesystem abstraction?
-	GetResources(ctx context.Context) (*api.PackageRevisionResources, error)
+	GetResources(ctx context.Context) (*porchapi.PackageRevisionResources, error)
 
 	// GetUpstreamLock returns the kpt lock information.
 	GetUpstreamLock(ctx context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error)
@@ -306,7 +306,7 @@ type Package interface {
 	Key() PackageKey
 
 	// GetPackage returns the object representing this package
-	GetPackage(ctx context.Context) *api.PorchPackage
+	GetPackage(ctx context.Context) *porchapi.PorchPackage
 
 	// GetLatestRevision returns the name of the package revision that is the "latest" package
 	// revision belonging to this package
@@ -316,9 +316,9 @@ type Package interface {
 type PackageRevisionDraft interface {
 	Key() PackageRevisionKey
 	GetMeta() metav1.ObjectMeta
-	UpdateResources(context.Context, *api.PackageRevisionResources, *api.Task) error
+	UpdateResources(context.Context, *porchapi.PackageRevisionResources, *porchapi.Task) error
 	// Updates desired lifecycle of the package. The lifecycle is applied on Close.
-	UpdateLifecycle(context.Context, api.PackageRevisionLifecycle) error
+	UpdateLifecycle(context.Context, porchapi.PackageRevisionLifecycle) error
 }
 
 // ListPackageRevisionFilter is a predicate for filtering PackageRevision objects;
@@ -327,7 +327,7 @@ type ListPackageRevisionFilter struct {
 	Key PackageRevisionKey
 
 	// Lifecycle matches the spec.lifecycle of the package
-	Lifecycles []api.PackageRevisionLifecycle
+	Lifecycles []porchapi.PackageRevisionLifecycle
 
 	Label labels.Selector
 }
@@ -387,7 +387,7 @@ func getPkgRevLabels(p PackageRevision) labels.Set {
 		return false
 	}()
 	if isLatest {
-		labelSet[api.LatestPackageRevisionKey] = api.LatestPackageRevisionValue
+		labelSet[porchapi.LatestPackageRevisionKey] = porchapi.LatestPackageRevisionValue
 	}
 
 	return labelSet
@@ -415,7 +415,7 @@ type Repository interface {
 	ListPackageRevisions(ctx context.Context, filter ListPackageRevisionFilter) ([]PackageRevision, error)
 
 	// CreatePackageRevision creates a new package revision
-	CreatePackageRevisionDraft(ctx context.Context, obj *api.PackageRevision) (PackageRevisionDraft, error)
+	CreatePackageRevisionDraft(ctx context.Context, obj *porchapi.PackageRevision) (PackageRevisionDraft, error)
 
 	// ClosePackageRevisionDraft closes out a Package Revision Draft
 	ClosePackageRevisionDraft(ctx context.Context, prd PackageRevisionDraft, version int) (PackageRevision, error)
@@ -430,7 +430,7 @@ type Repository interface {
 	ListPackages(ctx context.Context, filter ListPackageFilter) ([]Package, error)
 
 	// CreatePackage creates a new package
-	CreatePackage(ctx context.Context, obj *api.PorchPackage) (Package, error)
+	CreatePackage(ctx context.Context, obj *porchapi.PorchPackage) (Package, error)
 
 	// DeletePackage deletes a package
 	DeletePackage(ctx context.Context, old Package) error
@@ -478,7 +478,7 @@ func IsNotFoundError(err error) bool {
 	if err == nil {
 		return false
 	}
-	
+
 	errorStr := strings.ToLower(err.Error())
 	return strings.Contains(errorStr, "not found") ||
 		strings.Contains(errorStr, "does not exist") ||

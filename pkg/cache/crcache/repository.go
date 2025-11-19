@@ -20,7 +20,7 @@ import (
 	stdSync "sync"
 	"time"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
 	"github.com/nephio-project/porch/pkg/cache/sync"
@@ -197,7 +197,7 @@ func (r *cachedRepository) getCachedPackages(ctx context.Context, forceRefresh b
 	return packages, packageRevisions, err
 }
 
-func (r *cachedRepository) CreatePackageRevisionDraft(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
+func (r *cachedRepository) CreatePackageRevisionDraft(ctx context.Context, obj *porchapi.PackageRevision) (repository.PackageRevisionDraft, error) {
 	return r.repo.CreatePackageRevisionDraft(ctx, obj)
 }
 
@@ -233,7 +233,7 @@ func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd re
 
 	highestRevision := 0
 	for _, rev := range revisions {
-		if v1alpha1.LifecycleIsPublished(rev.Lifecycle(ctx)) && rev.Key().Revision > highestRevision {
+		if porchapi.LifecycleIsPublished(rev.Lifecycle(ctx)) && rev.Key().Revision > highestRevision {
 			highestRevision = rev.Key().Revision
 		}
 	}
@@ -286,7 +286,7 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 	}
 
 	r.mutex.Lock()
-	if v1alpha1.LifecycleIsPublished(updated.Lifecycle(ctx)) {
+	if porchapi.LifecycleIsPublished(updated.Lifecycle(ctx)) {
 		prevKey := updated.Key()
 		prevKey.Revision = 0 // Drafts always have revision of 0
 		delete(r.cachedPackageRevisions, prevKey)
@@ -303,7 +303,7 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 	r.mutex.Unlock()
 
 	// Create the main package revision
-	if v1alpha1.LifecycleIsPublished(updated.Lifecycle(ctx)) {
+	if porchapi.LifecycleIsPublished(updated.Lifecycle(ctx)) {
 		updatedMain := updated.ToMainPackageRevision(ctx)
 		err := r.createMainPackageRevision(ctx, updatedMain)
 		if err != nil {
@@ -445,7 +445,7 @@ func (r *cachedRepository) ListPackages(ctx context.Context, filter repository.L
 	return packages, nil
 }
 
-func (r *cachedRepository) CreatePackage(ctx context.Context, obj *v1alpha1.PorchPackage) (repository.Package, error) {
+func (r *cachedRepository) CreatePackage(ctx context.Context, obj *porchapi.PorchPackage) (repository.Package, error) {
 	klog.Infoln("cachedRepository::CreatePackage")
 	return r.repo.CreatePackage(ctx, obj)
 }

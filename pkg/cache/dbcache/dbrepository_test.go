@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo"
@@ -71,8 +71,8 @@ func (t *DbTestSuite) TestDBRepositoryPRCrud() {
 	t.Require().NoError(err)
 	t.Equal(0, len(pkgList))
 
-	newPkgDef := v1alpha1.PorchPackage{
-		Spec: v1alpha1.PackageSpec{
+	newPkgDef := porchapi.PorchPackage{
+		Spec: porchapi.PackageSpec{
 			RepositoryName: "my-repo-name",
 			PackageName:    "my-new-package",
 		},
@@ -92,8 +92,8 @@ func (t *DbTestSuite) TestDBRepositoryPRCrud() {
 	t.Require().NoError(err)
 	t.Equal(0, len(prList))
 
-	newPRDef := v1alpha1.PackageRevision{
-		Spec: v1alpha1.PackageRevisionSpec{
+	newPRDef := porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
 			RepositoryName: "my-repo-name",
 			PackageName:    "my-package",
 			WorkspaceName:  "my-workspace",
@@ -111,7 +111,7 @@ func (t *DbTestSuite) TestDBRepositoryPRCrud() {
 	t.Require().NoError(err)
 	t.Require().NotNil(updatedPRDraft)
 
-	err = updatedPRDraft.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleProposed)
+	err = updatedPRDraft.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecycleProposed)
 	t.Require().NoError(err)
 
 	updatedPR, err := testRepo.ClosePackageRevisionDraft(ctx, updatedPRDraft, -1)
@@ -122,7 +122,7 @@ func (t *DbTestSuite) TestDBRepositoryPRCrud() {
 	t.Require().NoError(err)
 	t.Require().NotNil(updatedPRDraft)
 
-	err = updatedPRDraft.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
+	err = updatedPRDraft.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecyclePublished)
 	t.Require().NoError(err)
 
 	prMeta := updatedPR.GetMeta()

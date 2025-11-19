@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	pkgerrors "github.com/pkg/errors"
@@ -31,7 +31,7 @@ func PushPackageRevision(ctx context.Context, repo repository.Repository, pr rep
 	defer span.End()
 
 	prLifecycle := pr.Lifecycle(ctx)
-	if prLifecycle != v1alpha1.PackageRevisionLifecyclePublished {
+	if prLifecycle != porchapi.PackageRevisionLifecyclePublished {
 		return v1.UpstreamLock{}, fmt.Errorf("cannot push package revision %+v, package revision lifecycle is %q, it should be \"Published\"", pr.Key(), prLifecycle)
 	}
 
@@ -50,7 +50,7 @@ func PushPackageRevision(ctx context.Context, repo repository.Repository, pr rep
 		return v1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not create package revision draft:", pr.Key(), repo.Key())
 	}
 
-	commitTask := &v1alpha1.Task{Type: v1alpha1.TaskTypePush}
+	commitTask := &porchapi.Task{Type: porchapi.TaskTypePush}
 	if len(apiPr.Spec.Tasks) > 0 {
 		commitTask = &apiPr.Spec.Tasks[0]
 	}
@@ -59,7 +59,7 @@ func PushPackageRevision(ctx context.Context, repo repository.Repository, pr rep
 		return v1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not update package revision resources:", pr.Key(), repo.Key())
 	}
 
-	if err = draft.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished); err != nil {
+	if err = draft.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecyclePublished); err != nil {
 		return v1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not update package revision draft lifecycle to \"Published\":", pr.Key(), repo.Key())
 	}
 

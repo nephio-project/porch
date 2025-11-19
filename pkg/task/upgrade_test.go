@@ -18,7 +18,7 @@ import (
 	"context"
 	"testing"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
 )
@@ -37,16 +37,16 @@ func TestApplyErrorInvalidUpstreamUprade(t *testing.T) {
 
 	// Mock resources and tasks with valid upstream but no resources to fetch
 	resources := createMockedResources()
-	updateTask := &api.Task{
-		Type: api.TaskTypeUpgrade,
-		Upgrade: &api.PackageUpgradeTaskSpec{
-			OldUpstream: api.PackageRevisionRef{
+	updateTask := &porchapi.Task{
+		Type: porchapi.TaskTypeUpgrade,
+		Upgrade: &porchapi.PackageUpgradeTaskSpec{
+			OldUpstream: porchapi.PackageRevisionRef{
 				Name: "original",
 			},
-			NewUpstream: api.PackageRevisionRef{
+			NewUpstream: porchapi.PackageRevisionRef{
 				Name: "upstream",
 			},
-			LocalPackageRevisionRef: api.PackageRevisionRef{
+			LocalPackageRevisionRef: porchapi.PackageRevisionRef{
 				Name: "destination",
 			},
 		},

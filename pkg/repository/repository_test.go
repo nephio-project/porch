@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -276,13 +276,13 @@ func TestListPackageRevisionFilter_Matches(t *testing.T) {
 		},
 		{
 			name:   "lifecycle matches",
-			filter: ListPackageRevisionFilter{Lifecycles: []api.PackageRevisionLifecycle{"Published"}},
-			p:      &fakePackageRevision{lifecycle: api.PackageRevisionLifecyclePublished},
+			filter: ListPackageRevisionFilter{Lifecycles: []porchapi.PackageRevisionLifecycle{"Published"}},
+			p:      &fakePackageRevision{lifecycle: porchapi.PackageRevisionLifecyclePublished},
 		},
 		{
 			name:     "lifecycle doesn't match",
-			filter:   ListPackageRevisionFilter{Lifecycles: []api.PackageRevisionLifecycle{"Published"}},
-			p:        &fakePackageRevision{lifecycle: api.PackageRevisionLifecycleDeletionProposed},
+			filter:   ListPackageRevisionFilter{Lifecycles: []porchapi.PackageRevisionLifecycle{"Published"}},
+			p:        &fakePackageRevision{lifecycle: porchapi.PackageRevisionLifecycleDeletionProposed},
 			negative: true,
 		},
 		{
@@ -453,7 +453,7 @@ type fakePackageRevision struct {
 	name          string
 	namespace     string
 	labels        map[string]string
-	lifecycle     api.PackageRevisionLifecycle
+	lifecycle     porchapi.PackageRevisionLifecycle
 	packagePath   string
 	packageName   string
 	revision      int
@@ -462,8 +462,8 @@ type fakePackageRevision struct {
 	isLatest      bool
 }
 
-func (f *fakePackageRevision) GetPackageRevision(ctx context.Context) (*api.PackageRevision, error) {
-	return &api.PackageRevision{ObjectMeta: metav1.ObjectMeta{Namespace: f.namespace}}, nil
+func (f *fakePackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.PackageRevision, error) {
+	return &porchapi.PackageRevision{ObjectMeta: metav1.ObjectMeta{Namespace: f.namespace}}, nil
 }
 func (f *fakePackageRevision) KubeObjectNamespace() string { return f.namespace }
 func (f *fakePackageRevision) Key() PackageRevisionKey {
@@ -484,14 +484,14 @@ func (f *fakePackageRevision) KubeObjectName() string                           
 func (f *fakePackageRevision) UID() types.UID                                   { return "" }
 func (f *fakePackageRevision) SetMeta(context.Context, metav1.ObjectMeta) error { return nil }
 func (f *fakePackageRevision) ResourceVersion() string                          { return "" }
-func (f *fakePackageRevision) Lifecycle(context.Context) api.PackageRevisionLifecycle {
+func (f *fakePackageRevision) Lifecycle(context.Context) porchapi.PackageRevisionLifecycle {
 
-	return api.PackageRevisionLifecycle(f.lifecycle)
+	return porchapi.PackageRevisionLifecycle(f.lifecycle)
 }
-func (f *fakePackageRevision) GetResources(context.Context) (*api.PackageRevisionResources, error) {
+func (f *fakePackageRevision) GetResources(context.Context) (*porchapi.PackageRevisionResources, error) {
 	return nil, nil
 }
-func (f *fakePackageRevision) UpdateLifecycle(context.Context, api.PackageRevisionLifecycle) error {
+func (f *fakePackageRevision) UpdateLifecycle(context.Context, porchapi.PackageRevisionLifecycle) error {
 	return nil
 }
 func (f *fakePackageRevision) GetUpstreamLock(context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
@@ -519,8 +519,8 @@ type fakePackage struct {
 	latestRevision int
 }
 
-func (f *fakePackage) GetPackage(ctx context.Context) *api.PorchPackage {
-	return &api.PorchPackage{ObjectMeta: metav1.ObjectMeta{Namespace: f.namespace}}
+func (f *fakePackage) GetPackage(ctx context.Context) *porchapi.PorchPackage {
+	return &porchapi.PorchPackage{ObjectMeta: metav1.ObjectMeta{Namespace: f.namespace}}
 }
 func (f *fakePackage) KubeObjectNamespace() string { return f.namespace }
 func (f *fakePackage) Key() PackageKey {

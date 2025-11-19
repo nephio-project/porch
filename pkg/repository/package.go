@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/builtins"
 	"github.com/nephio-project/porch/pkg/objects"
@@ -33,7 +33,7 @@ type PackageFetcher struct {
 	ReferenceResolver ReferenceResolver
 }
 
-func (p *PackageFetcher) FetchRevision(ctx context.Context, packageRevisionRef *api.PackageRevisionRef, namespace string) (PackageRevision, error) {
+func (p *PackageFetcher) FetchRevision(ctx context.Context, packageRevisionRef *porchapi.PackageRevisionRef, namespace string) (PackageRevision, error) {
 	prKey, err := PkgRevK8sName2Key(namespace, packageRevisionRef.Name)
 	if err != nil {
 		return nil, err
@@ -61,7 +61,7 @@ func (p *PackageFetcher) FetchRevision(ctx context.Context, packageRevisionRef *
 	return revisions[0], nil
 }
 
-func (p *PackageFetcher) FetchResources(ctx context.Context, packageRevisionRef *api.PackageRevisionRef, namespace string) (*api.PackageRevisionResources, error) {
+func (p *PackageFetcher) FetchResources(ctx context.Context, packageRevisionRef *porchapi.PackageRevisionRef, namespace string) (*porchapi.PackageRevisionResources, error) {
 	revision, err := p.FetchRevision(ctx, packageRevisionRef, namespace)
 	if err != nil {
 		return nil, err
@@ -74,7 +74,7 @@ func (p *PackageFetcher) FetchResources(ctx context.Context, packageRevisionRef 
 	return resources, nil
 }
 
-func BuildPackageConfig(ctx context.Context, obj *api.PackageRevision, parent PackageRevision) (*builtins.PackageConfig, error) {
+func BuildPackageConfig(ctx context.Context, obj *porchapi.PackageRevision, parent PackageRevision) (*builtins.PackageConfig, error) {
 	config := &builtins.PackageConfig{}
 
 	parentPath := ""

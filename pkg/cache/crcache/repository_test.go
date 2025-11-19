@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	porchtypes "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache/testutil"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
@@ -128,7 +128,7 @@ func TestCachedRepoRefresh(t *testing.T) {
 	cr.flush()
 	assert.True(t, cr.cachedPackageRevisions == nil)
 
-	prMeta := porchtypes.PackageRevision{}
+	prMeta := porchapi.PackageRevision{}
 
 	repoCreatePRDCall := mockRepo.EXPECT().CreatePackageRevisionDraft(mock.Anything, mock.Anything).Return(nil, errors.New("create draft error")).Maybe()
 	_, err = cr.CreatePackageRevisionDraft(context.TODO(), &prMeta)

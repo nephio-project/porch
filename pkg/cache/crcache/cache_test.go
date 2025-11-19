@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
 	fakemeta "github.com/nephio-project/porch/pkg/cache/crcache/meta/fake"
@@ -64,9 +64,9 @@ func TestLatestPackages(t *testing.T) {
 			t.Errorf("didn't expect error, but got %v", err)
 		}
 
-		if latest, ok := rev.Labels[api.LatestPackageRevisionKey]; ok {
-			if got, want := latest, api.LatestPackageRevisionValue; got != want {
-				t.Errorf("%s label value: got %q, want %q", api.LatestPackageRevisionKey, got, want)
+		if latest, ok := rev.Labels[porchapi.LatestPackageRevisionKey]; ok {
+			if got, want := latest, porchapi.LatestPackageRevisionValue; got != want {
+				t.Errorf("%s label value: got %q, want %q", porchapi.LatestPackageRevisionKey, got, want)
 				continue
 			}
 
@@ -110,7 +110,7 @@ func TestPublishedLatest(t *testing.T) {
 
 	bucket := revisions[0]
 	// Expect draft package
-	if got, want := bucket.Lifecycle(ctx), api.PackageRevisionLifecycleDraft; got != want {
+	if got, want := bucket.Lifecycle(ctx), porchapi.PackageRevisionLifecycleDraft; got != want {
 		t.Fatalf("Bucket package lifecycle: got %s, want %s", got, want)
 	}
 
@@ -118,7 +118,7 @@ func TestPublishedLatest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpdatePackaeg(%s) failed: %v", bucket.Key(), err)
 	}
-	if err := update.UpdateLifecycle(ctx, api.PackageRevisionLifecyclePublished); err != nil {
+	if err := update.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecyclePublished); err != nil {
 		t.Fatalf("UpdateLifecycle failed; %v", err)
 	}
 	closed, err := cachedRepo.ClosePackageRevisionDraft(ctx, update, 0)
@@ -129,9 +129,9 @@ func TestPublishedLatest(t *testing.T) {
 	if err != nil {
 		t.Errorf("didn't expect error, but got %v", err)
 	}
-	if got, ok := resource.Labels[api.LatestPackageRevisionKey]; !ok {
-		t.Errorf("Label %s not found as expected", api.LatestPackageRevisionKey)
-	} else if want := api.LatestPackageRevisionValue; got != want {
+	if got, ok := resource.Labels[porchapi.LatestPackageRevisionKey]; !ok {
+		t.Errorf("Label %s not found as expected", porchapi.LatestPackageRevisionKey)
+	} else if want := porchapi.LatestPackageRevisionValue; got != want {
 		t.Errorf("Latest label: got %s, want %s", got, want)
 	}
 }
@@ -161,7 +161,7 @@ func TestDeletePublishedMain(t *testing.T) {
 
 	bucket := revisions[0]
 	// Expect draft package
-	if got, want := bucket.Lifecycle(ctx), api.PackageRevisionLifecycleDraft; got != want {
+	if got, want := bucket.Lifecycle(ctx), porchapi.PackageRevisionLifecycleDraft; got != want {
 		t.Fatalf("Bucket package lifecycle: got %s, want %s", got, want)
 	}
 
@@ -169,7 +169,7 @@ func TestDeletePublishedMain(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpdatePackage(%s) failed: %v", bucket.Key(), err)
 	}
-	if err := update.UpdateLifecycle(ctx, api.PackageRevisionLifecyclePublished); err != nil {
+	if err := update.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecyclePublished); err != nil {
 		t.Fatalf("UpdateLifecycle failed; %v", err)
 	}
 	closed, err := cachedRepo.ClosePackageRevisionDraft(ctx, update, 0)
@@ -190,7 +190,7 @@ func TestDeletePublishedMain(t *testing.T) {
 			WorkspaceName: "main",
 			Revision:      -1,
 		},
-		Lifecycles: []api.PackageRevisionLifecycle{api.PackageRevisionLifecyclePublished},
+		Lifecycles: []porchapi.PackageRevisionLifecycle{porchapi.PackageRevisionLifecyclePublished},
 	})
 	if err != nil {
 		t.Fatalf("ListPackageRevisions failed: %v", err)
@@ -203,11 +203,11 @@ func TestDeletePublishedMain(t *testing.T) {
 
 	approvedBucket := publishedRevisions[0]
 
-	if got, want := approvedBucket.Lifecycle(ctx), api.PackageRevisionLifecyclePublished; got != want {
+	if got, want := approvedBucket.Lifecycle(ctx), porchapi.PackageRevisionLifecyclePublished; got != want {
 		t.Fatalf("Approved Bucket package lifecycle: got %s, want %s", got, want)
 	}
 
-	err = approvedBucket.UpdateLifecycle(ctx, api.PackageRevisionLifecycleDeletionProposed)
+	err = approvedBucket.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecycleDeletionProposed)
 	if err != nil {
 		t.Fatalf("Deletion proposal for approved Bucket failed; %v", err)
 	}
@@ -225,7 +225,7 @@ func TestDeletePublishedMain(t *testing.T) {
 			WorkspaceName: "main",
 			Revision:      -1,
 		},
-		Lifecycles: []api.PackageRevisionLifecycle{api.PackageRevisionLifecyclePublished},
+		Lifecycles: []porchapi.PackageRevisionLifecycle{porchapi.PackageRevisionLifecyclePublished},
 	})
 
 	if err != nil {
@@ -276,9 +276,9 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 		metadataStore: metadataStore,
 		options: cachetypes.CacheOptions{
 			ExternalRepoOptions: externalrepotypes.ExternalRepoOptions{
-				LocalDirectory:         t.TempDir(),
-				UseUserDefinedCaBundle: true,
-				CredentialResolver:     &fakecache.CredentialResolver{},
+				LocalDirectory:             t.TempDir(),
+				UseUserDefinedCaBundle:     true,
+				CredentialResolver:         &fakecache.CredentialResolver{},
 				RepoOperationRetryAttempts: 3,
 			},
 			CoreClient:           fakeClient,

@@ -17,7 +17,7 @@ package fake
 import (
 	"context"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
@@ -30,9 +30,9 @@ type FakePackageRevision struct {
 	PrKey            repository.PackageRevisionKey
 	Meta             *metav1.ObjectMeta
 	Uid              types.UID
-	PackageLifecycle v1alpha1.PackageRevisionLifecycle
-	PackageRevision  *v1alpha1.PackageRevision
-	Resources        *v1alpha1.PackageRevisionResources
+	PackageLifecycle porchapi.PackageRevisionLifecycle
+	PackageRevision  *porchapi.PackageRevision
+	Resources        *porchapi.PackageRevisionResources
 	Kptfile          kptfile.KptFile
 	Ops              []string
 	Err              error
@@ -73,17 +73,17 @@ func (fpr *FakePackageRevision) Key() repository.PackageRevisionKey {
 	return fpr.PrKey
 }
 
-func (fpr *FakePackageRevision) Lifecycle(ctx context.Context) v1alpha1.PackageRevisionLifecycle {
+func (fpr *FakePackageRevision) Lifecycle(ctx context.Context) porchapi.PackageRevisionLifecycle {
 	fpr.Ops = append(fpr.Ops, "Lifecycle")
 	return fpr.PackageLifecycle
 }
 
-func (fpr *FakePackageRevision) GetPackageRevision(context.Context) (*v1alpha1.PackageRevision, error) {
+func (fpr *FakePackageRevision) GetPackageRevision(context.Context) (*porchapi.PackageRevision, error) {
 	fpr.Ops = append(fpr.Ops, "GetPackageRevision")
 	return fpr.PackageRevision, fpr.Err
 }
 
-func (fpr *FakePackageRevision) GetResources(context.Context) (*v1alpha1.PackageRevisionResources, error) {
+func (fpr *FakePackageRevision) GetResources(context.Context) (*porchapi.PackageRevisionResources, error) {
 	fpr.Ops = append(fpr.Ops, "GetResources")
 	return fpr.Resources, fpr.Err
 }
@@ -103,7 +103,7 @@ func (fpr *FakePackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLoc
 	return *fpr.Kptfile.Upstream, *fpr.Kptfile.UpstreamLock, fpr.Err
 }
 
-func (fpr *FakePackageRevision) UpdateLifecycle(_ context.Context, lifecycle v1alpha1.PackageRevisionLifecycle) error {
+func (fpr *FakePackageRevision) UpdateLifecycle(_ context.Context, lifecycle porchapi.PackageRevisionLifecycle) error {
 	fpr.Ops = append(fpr.Ops, "UpdateLifecycle")
 	fpr.PackageLifecycle = lifecycle
 	if fpr.PackageRevision != nil {
@@ -130,7 +130,7 @@ func (fpr *FakePackageRevision) SetMeta(context.Context, metav1.ObjectMeta) erro
 	return fpr.Err
 }
 
-func (fpr *FakePackageRevision) UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, change *v1alpha1.Task) error {
+func (fpr *FakePackageRevision) UpdateResources(ctx context.Context, new *porchapi.PackageRevisionResources, change *porchapi.Task) error {
 	fpr.Ops = append(fpr.Ops, "UpdateResources")
 	fpr.Resources = new
 	return fpr.Err

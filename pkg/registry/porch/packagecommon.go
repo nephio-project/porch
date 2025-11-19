@@ -22,7 +22,7 @@ import (
 	"time"
 
 	unversionedapi "github.com/nephio-project/porch/api/porch"
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -340,7 +340,7 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 	if !locked {
 		return nil, false,
 			apierrors.NewConflict(
-				api.Resource("packagerevisions"),
+				porchapi.Resource("packagerevisions"),
 				name,
 				fmt.Errorf(GenericConflictErrorMsg, "package revision", pkgMutexKey))
 	}
@@ -377,7 +377,7 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 	// (mostly for historical reasons).  So the server-side-apply library returns an unversioned object.
 	if unversioned, isUnversioned := newRuntimeObj.(*unversionedapi.PackageRevision); isUnversioned {
 		klog.Warningf("converting from unversioned to versioned object")
-		typed := &api.PackageRevision{}
+		typed := &porchapi.PackageRevision{}
 		if err := r.scheme.Convert(unversioned, typed, nil); err != nil {
 			return nil, false, fmt.Errorf("failed to convert %T to %T: %w", unversioned, typed, err)
 		}
@@ -389,7 +389,7 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 		return nil, false, err
 	}
 
-	newApiPkgRev, ok := newRuntimeObj.(*api.PackageRevision)
+	newApiPkgRev, ok := newRuntimeObj.(*porchapi.PackageRevision)
 	if !ok {
 		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("expected PackageRevision object, got %T", newRuntimeObj))
 	}
@@ -437,7 +437,7 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 		return createdApiPkgRev, true, nil
 	}
 
-	rev, err := r.cad.UpdatePackageRevision(ctx, 0, &repositoryObj, oldRepoPkgRev, oldApiPkgRev.(*api.PackageRevision), newApiPkgRev, parentPackage)
+	rev, err := r.cad.UpdatePackageRevision(ctx, 0, &repositoryObj, oldRepoPkgRev, oldApiPkgRev.(*porchapi.PackageRevision), newApiPkgRev, parentPackage)
 	if err != nil {
 		return nil, false, apierrors.NewInternalError(err)
 	}
@@ -489,7 +489,7 @@ func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo 
 	// (mostly for historical reasons).  So the server-side-apply library returns an unversioned object.
 	if unversioned, isUnversioned := newRuntimeObj.(*unversionedapi.PackageRevision); isUnversioned {
 		klog.Warningf("converting from unversioned to versioned object")
-		typed := &api.PackageRevision{}
+		typed := &porchapi.PackageRevision{}
 		if err := r.scheme.Convert(unversioned, typed, nil); err != nil {
 			return nil, false, fmt.Errorf("failed to convert %T to %T: %w", unversioned, typed, err)
 		}
@@ -501,7 +501,7 @@ func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo 
 		return nil, false, err
 	}
 
-	newObj, ok := newRuntimeObj.(*api.PorchPackage)
+	newObj, ok := newRuntimeObj.(*porchapi.PorchPackage)
 	if !ok {
 		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("expected Package object, got %T", newRuntimeObj))
 	}
@@ -528,7 +528,7 @@ func (r *packageCommon) updatePackage(ctx context.Context, name string, objInfo 
 	}
 
 	if !isCreate {
-		rev, err := r.cad.UpdatePackage(ctx, &repositoryObj, oldPackage, oldRuntimeObj.(*api.PorchPackage), newObj)
+		rev, err := r.cad.UpdatePackage(ctx, &repositoryObj, oldPackage, oldRuntimeObj.(*porchapi.PorchPackage), newObj)
 		if err != nil {
 			return nil, false, apierrors.NewInternalError(err)
 		}
@@ -584,7 +584,7 @@ func (r *packageCommon) validateUpdate(ctx context.Context, newRuntimeObj runtim
 
 		fieldErrors := r.createStrategy.Validate(ctx, newRuntimeObj)
 		if len(fieldErrors) > 0 {
-			return apierrors.NewInvalid(api.SchemeGroupVersion.WithKind(kind).GroupKind(), name, fieldErrors)
+			return apierrors.NewInvalid(porchapi.SchemeGroupVersion.WithKind(kind).GroupKind(), name, fieldErrors)
 		}
 	}
 
@@ -599,7 +599,7 @@ func (r *packageCommon) validateUpdate(ctx context.Context, newRuntimeObj runtim
 
 		fieldErrors := r.updateStrategy.ValidateUpdate(ctx, newRuntimeObj, oldRuntimeObj)
 		if len(fieldErrors) > 0 {
-			return apierrors.NewInvalid(api.SchemeGroupVersion.WithKind(kind).GroupKind(), name, fieldErrors)
+			return apierrors.NewInvalid(porchapi.SchemeGroupVersion.WithKind(kind).GroupKind(), name, fieldErrors)
 		}
 	}
 

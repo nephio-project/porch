@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/engine"
 	fakeextrepo "github.com/nephio-project/porch/pkg/externalrepo/fake"
@@ -115,7 +115,7 @@ func TestListPackageRevisionsNamespaceFilter(t *testing.T) {
 		},
 	}
 
-	var got []*api.PackageRevision
+	var got []*porchapi.PackageRevision
 	for _, rev := range revisions {
 		apiPkgRev, _ := rev.GetPackageRevision(ctx)
 		if apiPkgRev == nil || apiPkgRev.Namespace != ns {

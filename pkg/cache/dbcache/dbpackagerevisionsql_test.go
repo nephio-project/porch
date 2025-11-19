@@ -18,7 +18,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	mockcachetypes "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
@@ -78,7 +78,7 @@ func (t *DbTestSuite) TestPackageRevisionDBWriteRead() {
 			Name:      "meta-new-name",
 			Namespace: "meta-new-namespace",
 		},
-		spec:      &v1alpha1.PackageRevisionSpec{},
+		spec:      &porchapi.PackageRevisionSpec{},
 		updated:   time.Now().UTC(),
 		updatedBy: "porchuser2",
 		lifecycle: "Proposed",
@@ -317,7 +317,7 @@ func (t *DbTestSuite) TestPackageRevisionDBSchema() {
 	err = pkgRevWriteToDB(t.Context(), &dbPR)
 	t.Require().ErrorContains(err, "revision value of 0 is only allowed on when lifecycle is Draft or Proposed")
 
-	dbPR.lifecycle = v1alpha1.PackageRevisionLifecycleDraft
+	dbPR.lifecycle = porchapi.PackageRevisionLifecycleDraft
 	dbPR.pkgRevKey.PkgKey.RepoKey.Name = "my-repo"
 	err = pkgRevWriteToDB(t.Context(), &dbPR)
 	t.Require().ErrorContains(err, "violates check constraint")

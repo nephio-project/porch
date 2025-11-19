@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
@@ -34,13 +34,13 @@ func TestReplaceResources(t *testing.T) {
 	nocomment := removeComments(t, input)
 
 	replace := &replaceResourcesMutation{
-		newResources: &v1alpha1.PackageRevisionResources{
-			Spec: v1alpha1.PackageRevisionResourcesSpec{
+		newResources: &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
 				Resources: nocomment.Contents,
 			},
 		},
-		oldResources: &v1alpha1.PackageRevisionResources{
-			Spec: v1alpha1.PackageRevisionResourcesSpec{
+		oldResources: &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
 				Resources: input.Contents,
 			},
 		},

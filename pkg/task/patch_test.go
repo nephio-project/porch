@@ -18,7 +18,7 @@ import (
 	"context"
 	"testing"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -28,7 +28,7 @@ import (
 func TestKptfilePatch(t *testing.T) {
 	testCases := map[string]struct {
 		repoPkgRev   repository.PackageRevision
-		newApiPkgRev *api.PackageRevision
+		newApiPkgRev *porchapi.PackageRevision
 		shouldChange bool
 		newKptfile   *kptfile.KptFile
 	}{
@@ -36,8 +36,8 @@ func TestKptfilePatch(t *testing.T) {
 			repoPkgRev: &fake.FakePackageRevision{
 				Kptfile: kptfile.KptFile{},
 			},
-			newApiPkgRev: &api.PackageRevision{
-				Spec: api.PackageRevisionSpec{},
+			newApiPkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{},
 			},
 			shouldChange: false,
 		},
@@ -45,19 +45,19 @@ func TestKptfilePatch(t *testing.T) {
 			repoPkgRev: &fake.FakePackageRevision{
 				Kptfile: kptfile.KptFile{},
 			},
-			newApiPkgRev: &api.PackageRevision{
-				Spec: api.PackageRevisionSpec{
-					ReadinessGates: []api.ReadinessGate{
+			newApiPkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					ReadinessGates: []porchapi.ReadinessGate{
 						{
 							ConditionType: "foo",
 						},
 					},
 				},
-				Status: api.PackageRevisionStatus{
-					Conditions: []api.Condition{
+				Status: porchapi.PackageRevisionStatus{
+					Conditions: []porchapi.Condition{
 						{
 							Type:   "foo",
-							Status: api.ConditionTrue,
+							Status: porchapi.ConditionTrue,
 						},
 					},
 				},
@@ -101,9 +101,9 @@ func TestKptfilePatch(t *testing.T) {
 					},
 				},
 			},
-			newApiPkgRev: &api.PackageRevision{
-				Spec: api.PackageRevisionSpec{
-					ReadinessGates: []api.ReadinessGate{
+			newApiPkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					ReadinessGates: []porchapi.ReadinessGate{
 						{
 							ConditionType: "foo",
 						},
@@ -112,17 +112,17 @@ func TestKptfilePatch(t *testing.T) {
 						},
 					},
 				},
-				Status: api.PackageRevisionStatus{
-					Conditions: []api.Condition{
+				Status: porchapi.PackageRevisionStatus{
+					Conditions: []porchapi.Condition{
 						{
 							Type:    "foo",
-							Status:  api.ConditionTrue,
+							Status:  porchapi.ConditionTrue,
 							Reason:  "reason",
 							Message: "message",
 						},
 						{
 							Type:    "bar",
-							Status:  api.ConditionFalse,
+							Status:  porchapi.ConditionFalse,
 							Reason:  "reason",
 							Message: "message",
 						},
@@ -190,9 +190,9 @@ func TestKptfilePatch(t *testing.T) {
 					},
 				},
 			},
-			newApiPkgRev: &api.PackageRevision{
-				Spec: api.PackageRevisionSpec{
-					ReadinessGates: []api.ReadinessGate{
+			newApiPkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					ReadinessGates: []porchapi.ReadinessGate{
 						{
 							ConditionType: "foo",
 						},
@@ -201,17 +201,17 @@ func TestKptfilePatch(t *testing.T) {
 						},
 					},
 				},
-				Status: api.PackageRevisionStatus{
-					Conditions: []api.Condition{
+				Status: porchapi.PackageRevisionStatus{
+					Conditions: []porchapi.Condition{
 						{
 							Type:    "foo",
-							Status:  api.ConditionTrue,
+							Status:  porchapi.ConditionTrue,
 							Reason:  "reason",
 							Message: "message",
 						},
 						{
 							Type:    "bar",
-							Status:  api.ConditionFalse,
+							Status:  porchapi.ConditionFalse,
 							Reason:  "reason",
 							Message: "message",
 						},
@@ -251,19 +251,19 @@ func TestKptfilePatch(t *testing.T) {
 					},
 				},
 			},
-			newApiPkgRev: &api.PackageRevision{
-				Spec: api.PackageRevisionSpec{
-					ReadinessGates: []api.ReadinessGate{
+			newApiPkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					ReadinessGates: []porchapi.ReadinessGate{
 						{
 							ConditionType: "foo",
 						},
 					},
 				},
-				Status: api.PackageRevisionStatus{
-					Conditions: []api.Condition{
+				Status: porchapi.PackageRevisionStatus{
+					Conditions: []porchapi.Condition{
 						{
 							Type:   "foo",
-							Status: api.ConditionTrue,
+							Status: porchapi.ConditionTrue,
 						},
 					},
 				},

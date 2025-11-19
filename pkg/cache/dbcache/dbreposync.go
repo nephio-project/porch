@@ -20,7 +20,7 @@ import (
 	stdSync "sync"
 	"time"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache/sync"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
@@ -146,9 +146,9 @@ func (s *repositorySync) sync(ctx context.Context) (repositorySyncStats, error) 
 
 func (s *repositorySync) getCachedPRMap(ctx context.Context) (map[repository.PackageRevisionKey]repository.PackageRevision, error) {
 	deployedFilter := repository.ListPackageRevisionFilter{
-		Lifecycles: []api.PackageRevisionLifecycle{
-			api.PackageRevisionLifecyclePublished,
-			api.PackageRevisionLifecycleDeletionProposed,
+		Lifecycles: []porchapi.PackageRevisionLifecycle{
+			porchapi.PackageRevisionLifecyclePublished,
+			porchapi.PackageRevisionLifecycleDeletionProposed,
 		},
 	}
 	cachedPrList, err := s.repo.ListPackageRevisions(ctx, deployedFilter)

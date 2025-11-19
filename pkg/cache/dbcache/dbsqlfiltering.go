@@ -17,7 +17,7 @@ package dbcache
 import (
 	"fmt"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
@@ -110,7 +110,7 @@ func filter2SubClauseWorkspace(whereStatement string, filterField string, column
 	}
 }
 
-func filter2SubClauseLifecycle(whereStatement string, filterField []v1alpha1.PackageRevisionLifecycle, column string, first bool) (string, bool) {
+func filter2SubClauseLifecycle(whereStatement string, filterField []porchapi.PackageRevisionLifecycle, column string, first bool) (string, bool) {
 	if len(filterField) == 0 {
 		return whereStatement, first
 	}

@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/builtins"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
@@ -47,7 +47,7 @@ func newPackageContextGeneratorMutation(packageConfig *builtins.PackageConfig) (
 
 var _ mutation = &builtinEvalMutation{}
 
-func (m *builtinEvalMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
+func (m *builtinEvalMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *porchapi.TaskResult, error) {
 	_, span := tracer.Start(ctx, "builtinEvalMutation::Apply", trace.WithAttributes())
 	defer span.End()
 
@@ -81,5 +81,5 @@ func (m *builtinEvalMutation) apply(ctx context.Context, resources repository.Pa
 		result.Contents[k] = v
 	}
 
-	return result, &api.TaskResult{}, nil
+	return result, &porchapi.TaskResult{}, nil
 }

@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	fakeextrepo "github.com/nephio-project/porch/pkg/externalrepo/fake"
 	"github.com/nephio-project/porch/pkg/repository"
 	mockrepo "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/repository"
@@ -95,7 +95,7 @@ func Test_packageRevisionFilter_Matches(t *testing.T) {
 		},
 		{
 			name:        "filter with different field",
-			filter:      repository.ListPackageRevisionFilter{Lifecycles: []v1alpha1.PackageRevisionLifecycle{"Published"}},
+			filter:      repository.ListPackageRevisionFilter{Lifecycles: []porchapi.PackageRevisionLifecycle{"Published"}},
 			p:           &fakeextrepo.FakePackageRevision{PackageLifecycle: "Published"},
 			wantMatches: true,
 		},
@@ -206,7 +206,7 @@ func Test_parsePackageRevisionFieldSelector(t *testing.T) {
 		{
 			name:       "lifecycle selector",
 			selector:   "spec.lifecycle=Published",
-			wantFilter: repository.ListPackageRevisionFilter{Lifecycles: []v1alpha1.PackageRevisionLifecycle{"Published"}},
+			wantFilter: repository.ListPackageRevisionFilter{Lifecycles: []porchapi.PackageRevisionLifecycle{"Published"}},
 		},
 	}
 	for _, tt := range positiveTests {
