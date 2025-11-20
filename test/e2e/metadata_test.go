@@ -28,10 +28,7 @@ func (t *PorchSuite) TestPackageMetadataFromKptfile() {
 		workspace      = "test-workspace"
 	)
 
-	// Register the main git repository where we'll create the clone
 	t.RegisterMainGitRepositoryF(repositoryName)
-
-	// Register the test blueprint repository that contains the 'simple' package
 	t.RegisterTestBlueprintRepository("test-blueprints", "")
 
 	var list porchapi.PackageRevisionList
@@ -72,96 +69,123 @@ func (t *PorchSuite) TestPackageMetadataFromKptfile() {
 					},
 				},
 			},
+			PackageMetadata: &porchapi.PackageMetadata{
+				Labels: map[string]string{
+					"porch.dev/new-label": "new-label-value",
+				},
+				Annotations: map[string]string{
+					"porch.dev/new-annotation": "new-annotation-value",
+				},
+			},
 		},
 	}
 
-	// Create and wait for the package revision to be rendered
-	t.CreateF(clonePr)
+	t.Run("Initial creation", func() {
+		t.CreateF(clonePr)
+		t.GetF(client.ObjectKeyFromObject(clonePr), clonePr)
 
-	// Get the updated package revisions to verify any existing packageMetadata from the upstream
-	t.GetF(client.ObjectKeyFromObject(clonePr), clonePr)
-
-	// First validate any existing metadata that came from 'simple' package
-	t.Logf("Testing extraction of existing metadata from upstream Kptfile...")
-
-	if clonePr.Spec.PackageMetadata != nil {
-		if existingLabels := clonePr.Spec.PackageMetadata.Labels; len(existingLabels) > 0 {
-			t.Logf("Found existing labels from upstream: %v", existingLabels)
-			if testKey, exists := existingLabels["test-key"]; exists && testKey == "test-value" {
-				t.Logf("✓ Successfully extracted existing label 'test-key: test-value' from upstream Kptfile")
-			}
+		expectedLabels := map[string]string{
+			"test-key":            "test-value",      // from upstream
+			"porch.dev/new-label": "new-label-value", // from PackageMetadata
+		}
+		expectedAnnotations := map[string]string{
+			"config.kubernetes.io/local-config": "true",                 // from upstream
+			"porch.dev/new-annotation":          "new-annotation-value", // from PackageMetadata
+		}
+		t.Require().Equal(expectedLabels, clonePr.Spec.PackageMetadata.Labels)
+		for k, v := range expectedAnnotations {
+			actual, ok := clonePr.Spec.PackageMetadata.Annotations[k]
+			t.Require().True(ok)
+			t.Require().Equal(v, actual)
 		}
 
-		if existingAnnotations := clonePr.Spec.PackageMetadata.Annotations; len(existingAnnotations) > 0 {
-			t.Logf("Found existing annotations from upstream: %v", existingAnnotations)
-			if localConfig, exists := existingAnnotations["config.kubernetes.io/local-config"]; exists && localConfig == "true" {
-				t.Logf("✓ Successfully extracted existing annotation 'config.kubernetes.io/local-config: true' from upstream Kptfile")
-			}
+		var packageResources porchapi.PackageRevisionResources
+		t.GetF(client.ObjectKeyFromObject(clonePr), &packageResources)
+		kptfile := t.ParseKptfileF(&packageResources)
+		t.Require().Equal(expectedLabels, kptfile.Labels)
+		for k, v := range expectedAnnotations {
+			actual, ok := kptfile.Annotations[k]
+			t.Require().True(ok)
+			t.Require().Equal(v, actual)
 		}
-	}
+	})
 
-	// Adding new metadata by hand
-	t.Logf("Testing extraction of manually-added metadata to Kptfile...")
+	t.Run("Manual Kptfile metadata update", func() {
+		var packageResources porchapi.PackageRevisionResources
+		t.GetF(client.ObjectKeyFromObject(clonePr), &packageResources)
+		kptfile := t.ParseKptfileF(&packageResources)
+		kptfile.Labels["porch.dev/test-label"] = "added-by-e2e-test"
+		kptfile.Annotations["porch.dev/test-annotation"] = "e2e-test-annotation-value"
+		t.SaveKptfileF(&packageResources, kptfile)
+		t.UpdateF(&packageResources)
+		t.GetF(client.ObjectKeyFromObject(clonePr), clonePr)
 
-	// Get the package resources to modify the Kptfile
-	var packageResources porchapi.PackageRevisionResources
-	t.GetF(client.ObjectKeyFromObject(clonePr), &packageResources)
-
-	// Parse and modify the Kptfile to add labels and annotations
-	kptfile := t.ParseKptfileF(&packageResources)
-
-	if kptfile.Labels == nil {
-		kptfile.Labels = make(map[string]string)
-	}
-	kptfile.Labels["porch.dev/test-label"] = "added-by-e2e-test"
-
-	if kptfile.Annotations == nil {
-		kptfile.Annotations = make(map[string]string)
-	}
-	kptfile.Annotations["porch.dev/test-annotation"] = "e2e-test-annotation-value"
-
-	// Save the modifies Kptfile back to the package resources
-	t.SaveKptfileF(&packageResources, kptfile)
-
-	// Update the package resources and wait for re-render
-	t.UpdateF(&packageResources)
-
-	// Get the updated package revision to verify packageMetadata
-	t.GetF(client.ObjectKeyFromObject(clonePr), clonePr)
-
-	expectedLabelsFromKptfile := map[string]string{
-		"test-key":             "test-value",
-		"porch.dev/test-label": "added-by-e2e-test",
-	}
-
-	expectedKptfileAnnotations := map[string]string{
-		"config.kubernetes.io/local-config": "true",
-		"porch.dev/test-annotation":         "e2e-test-annotation-value",
-	}
-
-	t.Logf("Validating extracted labels...")
-	for expectedKey, expectedValue := range expectedLabelsFromKptfile {
-		if actualValue, found := clonePr.Spec.PackageMetadata.Labels[expectedKey]; !found {
-			t.Errorf("Expected label %s not found in PackageMetadata", expectedKey)
-		} else if actualValue != expectedValue {
-			t.Errorf("Label %s: got %v, want %v", expectedKey, actualValue, expectedValue)
-		} else {
-			t.Logf("✓ Found expected label: %s=%s", expectedKey, expectedValue)
+		expectedLabelsAfterManual := map[string]string{
+			"test-key":             "test-value",
+			"porch.dev/new-label":  "new-label-value",
+			"porch.dev/test-label": "added-by-e2e-test",
 		}
-	}
-
-	t.Logf("Validating extracted annotations...")
-	for expectedKey, expectedValue := range expectedKptfileAnnotations {
-		if actualValue, found := clonePr.Spec.PackageMetadata.Annotations[expectedKey]; !found {
-			t.Errorf("Expected annotation %s not found in PackageMetadata", expectedKey)
-		} else if actualValue != expectedValue {
-			t.Errorf("Annotation %s: got %v, want %v", expectedKey, actualValue, expectedValue)
-		} else {
-			t.Logf("✓ Found expected annotation: %s=%s", expectedKey, expectedValue)
+		expectedAnnotationsAfterManual := map[string]string{
+			"config.kubernetes.io/local-config": "true",
+			"porch.dev/new-annotation":          "new-annotation-value",
+			"porch.dev/test-annotation":         "e2e-test-annotation-value",
 		}
-	}
 
-	t.Logf("Successfully verified PackageMetadata extraction for both existing and newly-added metadata!")
-	t.Logf("Final PackageMetadata - Labels: %v", clonePr.Spec.PackageMetadata.Labels)
-	t.Logf("Final PackageMetadata - Annotations: %v", clonePr.Spec.PackageMetadata.Annotations)
+		t.Require().Equal(expectedLabelsAfterManual, clonePr.Spec.PackageMetadata.Labels)
+		for k, v := range expectedAnnotationsAfterManual {
+			actual, ok := clonePr.Spec.PackageMetadata.Annotations[k]
+			t.Require().True(ok)
+			t.Require().Equal(v, actual)
+		}
+
+		t.GetF(client.ObjectKeyFromObject(clonePr), &packageResources)
+		kptfile = t.ParseKptfileF(&packageResources)
+		t.Require().Equal(expectedLabelsAfterManual, kptfile.Labels)
+		for k, v := range expectedAnnotationsAfterManual {
+			actual, ok := kptfile.Annotations[k]
+			t.Require().True(ok)
+			t.Require().Equal(v, actual)
+		}
+	})
+
+	t.Run("Update PackageMetadata", func() {
+		clonePr.Spec.PackageMetadata = &porchapi.PackageMetadata{
+			Labels: map[string]string{
+				"porch.dev/new-label":   "changed-label-value", // changed
+				"porch.dev/added-label": "added-label-value",   // new
+			},
+			Annotations: map[string]string{
+				"porch.dev/new-annotation":   "changed-annotation-value", // changed
+				"porch.dev/added-annotation": "added-annotation-value",   // new
+			},
+		}
+		t.UpdateF(clonePr)
+		t.GetF(client.ObjectKeyFromObject(clonePr), clonePr)
+
+		expectedLabels := map[string]string{
+			"porch.dev/new-label":   "changed-label-value",
+			"porch.dev/added-label": "added-label-value",
+		}
+		expectedAnnotations := map[string]string{
+			"porch.dev/new-annotation":   "changed-annotation-value",
+			"porch.dev/added-annotation": "added-annotation-value",
+		}
+
+		t.Require().Equal(expectedLabels, clonePr.Spec.PackageMetadata.Labels)
+		for k, v := range expectedAnnotations {
+			actual, ok := clonePr.Spec.PackageMetadata.Annotations[k]
+			t.Require().True(ok)
+			t.Require().Equal(v, actual)
+		}
+
+		var packageResources porchapi.PackageRevisionResources
+		t.GetF(client.ObjectKeyFromObject(clonePr), &packageResources)
+		kptfile := t.ParseKptfileF(&packageResources)
+		t.Require().Equal(expectedLabels, kptfile.Labels)
+		for k, v := range expectedAnnotations {
+			actual, ok := kptfile.Annotations[k]
+			t.Require().True(ok)
+			t.Require().Equal(v, actual)
+		}
+	})
 }
