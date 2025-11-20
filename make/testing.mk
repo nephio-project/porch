@@ -73,3 +73,7 @@ test-e2e-cli-db-cache: run-in-kind-db-cache-no-git
 .PHONY: test-e2e-clean
 test-e2e-clean: porchctl ## Run end-to-end tests against a newly deployed porch in a newly created kind cluster
 	./scripts/clean-e2e-test.sh
+
+.PHONY: test-3pp-fns
+test-3pp-fns: ## Run 3pp fn-runner end-to-end tests
+	TPP=1 go test -v -failfast ./test/e2e/fn_runner

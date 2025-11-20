@@ -48,7 +48,6 @@ const (
 	defaultGCPRedisBucketRef  = "redis-bucket-blueprint-v0.3.2"
 	defaultGCPHierarchyRef    = "783380ce4e6c3f21e9e90055b3a88bada0410154"
 	defaultKptFunctionRef     = "spanner-blueprint-v0.3.2"
-	defaultKPTRepo            = "https://github.com/kptdev/kpt.git"
 	defaultGHCRPrefix         = "ghcr.io/kptdev/krm-functions-catalog"
 
 	// Optional environment variables which can be set to replace defaults when running e2e tests behind a proxy or firewall.
@@ -65,16 +64,21 @@ const (
 	gcpHierarchyRefEnv           = "PORCH_GCP_HIERARCHY_REF"
 	kptFunctionRefEnv            = "PORCH_KPT_FUNCTION_REF"
 
-	kptRepoUrlEnv      = "PORCH_KPT_REPO_URL"
-	kptRepoUserEnv     = "PORCH_KPT_REPO_USER"
-	kptRepoPasswordEnv = "PORCH_KPT_REPO_PASSWORD"
-
 	gcrPrefixEnv = "PORCH_GHCR_PREFIX_URL"
 )
 
 type TestSuiteWithGit struct {
 	TestSuite
 	gitConfig GitConfig
+
+	// Exported fields for external package access
+	TestBlueprintsRepo string
+	GcpBlueprintsRepo  string
+	GcpBucketRef       string
+	GcpRedisBucketRef  string
+	GcpHierarchyRef    string
+	KptFunctionRef     string
+	GcrPrefix          string
 }
 
 func (t *TestSuiteWithGit) SetupSuite() {
@@ -89,38 +93,34 @@ func (t *TestSuiteWithGit) SetupEnvvars() {
 		t.Logf("Could not load .env file: %v", err)
 	}
 
-	t.testBlueprintsRepo = defaultTestBlueprintsRepo
-	t.gcpBlueprintsRepo = defaultGCPBlueprintsRepo
-	t.gcpBucketRef = defaultGCPBucketRef
-	t.gcpRedisBucketRef = defaultGCPRedisBucketRef
-	t.gcpHierarchyRef = defaultGCPHierarchyRef
-	t.kptRepo = defaultKPTRepo
-	t.gcrPrefix = defaultGHCRPrefix
-	t.kptFunctionRef = defaultKptFunctionRef
+	t.TestBlueprintsRepo = defaultTestBlueprintsRepo
+	t.GcpBlueprintsRepo = defaultGCPBlueprintsRepo
+	t.GcpBucketRef = defaultGCPBucketRef
+	t.GcpRedisBucketRef = defaultGCPRedisBucketRef
+	t.GcpHierarchyRef = defaultGCPHierarchyRef
+	t.GcrPrefix = defaultGHCRPrefix
+	t.KptFunctionRef = defaultKptFunctionRef
 
 	if e := os.Getenv(testBlueprintsRepoUrlEnv); e != "" {
-		t.testBlueprintsRepo = e
+		t.TestBlueprintsRepo = e
 	}
 	if e := os.Getenv(gcpBlueprintsRepoUrlEnv); e != "" {
-		t.gcpBlueprintsRepo = e
+		t.GcpBlueprintsRepo = e
 	}
 	if e := os.Getenv(gcpBucketRefEnv); e != "" {
-		t.gcpBucketRef = e
+		t.GcpBucketRef = e
 	}
 	if e := os.Getenv(gcpRedisBucketRefEnv); e != "" {
-		t.gcpRedisBucketRef = e
+		t.GcpRedisBucketRef = e
 	}
 	if e := os.Getenv(gcpHierarchyRefEnv); e != "" {
-		t.gcpHierarchyRef = e
+		t.GcpHierarchyRef = e
 	}
 	if e := os.Getenv(kptFunctionRefEnv); e != "" {
-		t.kptFunctionRef = e
+		t.KptFunctionRef = e
 	}
 	if e := os.Getenv(gcrPrefixEnv); e != "" {
-		t.gcrPrefix = e
-	}
-	if e := os.Getenv(kptRepoUrlEnv); e != "" {
-		t.kptRepo = e
+		t.GcrPrefix = e
 	}
 
 }
@@ -257,11 +257,11 @@ func (t *TestSuite) MustNotHaveLabels(name string, labels []string) {
 	}
 }
 
-func (t *TestSuite) RegisterTestBlueprintRepository(name, directory string, opts ...RepositoryOptions) {
+func (t *TestSuiteWithGit) RegisterTestBlueprintRepository(name, directory string, opts ...RepositoryOptions) {
 	t.T().Helper()
 
 	config := GitConfig{
-		Repo:      t.testBlueprintsRepo,
+		Repo:      t.TestBlueprintsRepo,
 		Branch:    "main",
 		Directory: directory,
 		Username:  os.Getenv(testBlueprintsRepoUserEnv),
@@ -449,7 +449,7 @@ func (t *TestSuite) MustExist(key client.ObjectKey, obj client.Object) {
 
 func (t *TestSuite) MustNotExist(obj client.Object) {
 	t.T().Helper()
-	switch err := t.Client.Get(t.GetContext(), client.ObjectKeyFromObject(obj), obj); {
+	switch err := t.Reader.Get(t.GetContext(), client.ObjectKeyFromObject(obj), obj); {
 	case err == nil:
 		t.Errorf("No error returned getting a deleted package; expected error")
 	case !apierrors.IsNotFound(err):
@@ -471,7 +471,7 @@ func (t *TestSuite) WaitUntilRepositoryReady(name, namespace string) {
 	var innerErr error
 	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 300*time.Second, true, func(ctx context.Context) (bool, error) {
 		var repo configapi.Repository
-		if err := t.Client.Get(ctx, nn, &repo); err != nil {
+		if err := t.Reader.Get(ctx, nn, &repo); err != nil {
 			innerErr = err
 			return false, nil
 		}
@@ -494,7 +494,7 @@ func (t *TestSuite) WaitUntilRepositoryReady(name, namespace string) {
 	// While we're using an aggregated apiserver, make sure we can query the generated objects
 	if err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 32*time.Second, true, func(ctx context.Context) (bool, error) {
 		var revisions porchapi.PackageRevisionList
-		if err := t.Client.List(ctx, &revisions, client.InNamespace(nn.Namespace)); err != nil {
+		if err := t.Reader.List(ctx, &revisions, client.InNamespace(nn.Namespace)); err != nil {
 			innerErr = err
 			return false, nil
 		}
@@ -512,7 +512,7 @@ func (t *TestSuite) WaitUntilRepositoryDeleted(name, namespace string) {
 			Name:      name,
 			Namespace: namespace,
 		}
-		if err := t.Client.Get(ctx, nn, &repo); err != nil {
+		if err := t.Reader.Get(ctx, nn, &repo); err != nil {
 			if apierrors.IsNotFound(err) {
 				return true, nil
 			}
@@ -530,7 +530,7 @@ func (t *TestSuite) WaitUntilAllPackagesDeleted(repoName string, namespace strin
 	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 60*time.Second, true, func(ctx context.Context) (done bool, err error) {
 		t.T().Helper()
 		var pkgRevList porchapi.PackageRevisionList
-		if err := t.Client.List(ctx, &pkgRevList); err != nil {
+		if err := t.Reader.List(ctx, &pkgRevList); err != nil {
 			t.Logf("error listing packages: %v", err)
 			return false, nil
 		}
@@ -541,7 +541,7 @@ func (t *TestSuite) WaitUntilAllPackagesDeleted(repoName string, namespace strin
 			}
 		}
 		var internalPkgRevList internalapi.PackageRevList
-		if err := t.Client.List(ctx, &internalPkgRevList); err != nil {
+		if err := t.Reader.List(ctx, &internalPkgRevList); err != nil {
 			t.Logf("error list internal packages: %v", err)
 			return false, nil
 		}
@@ -564,7 +564,7 @@ func (t *TestSuite) WaitUntilObjectDeleted(gvk schema.GroupVersionKind, namespac
 	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, d, true, func(ctx context.Context) (bool, error) {
 		var u unstructured.Unstructured
 		u.SetGroupVersionKind(gvk)
-		if err := t.Client.Get(ctx, namespacedName, &u); err != nil {
+		if err := t.Reader.Get(ctx, namespacedName, &u); err != nil {
 			if apierrors.IsNotFound(err) {
 				return true, nil
 			}
@@ -587,7 +587,7 @@ func (t *TestSuite) WaitUntilPackageRevisionFulfillingConditionExists(
 	var foundPkgRev *porchapi.PackageRevision
 	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, timeout, true, func(ctx context.Context) (done bool, err error) {
 		var pkgRevList porchapi.PackageRevisionList
-		if err := t.Client.List(ctx, &pkgRevList); err != nil {
+		if err := t.Reader.List(ctx, &pkgRevList); err != nil {
 			t.Logf("error listing packages: %v", err)
 			return false, nil
 		}
@@ -642,7 +642,7 @@ func (t *TestSuite) WaitUntilPackageRevisionResourcesExists(
 	var foundPrr *porchapi.PackageRevisionResources
 	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, timeout, true, func(ctx context.Context) (done bool, err error) {
 		var prrList porchapi.PackageRevisionResourcesList
-		if err := t.Client.List(ctx, &prrList); err != nil {
+		if err := t.Reader.List(ctx, &prrList); err != nil {
 			t.Logf("error listing package revision resources: %v", err)
 			return false, nil
 		}
