@@ -83,6 +83,7 @@ type TestSuite struct {
 
 	Kubeconfig *rest.Config
 	Client     client.Client
+	Reader     client.Reader
 
 	// Strongly-typed client handy for reading e.g. pod logs
 	KubeClient kubernetes.Interface
@@ -147,6 +148,18 @@ func (t *TestSuite) Initialize() {
 	} else {
 		t.Client = c
 		t.Kubeconfig = cfg
+	}
+
+	// Create a direct API reader to avoid stale cache reads
+	if r, err := client.New(cfg, client.Options{
+		Scheme: scheme,
+		Cache: &client.CacheOptions{
+			DisableFor: []client.Object{},
+		},
+	}); err != nil {
+		t.Fatalf("Failed to initialize direct API reader (%s): %v", cfg.Host, err)
+	} else {
+		t.Reader = r
 	}
 
 	if kubeClient, err := kubernetes.NewForConfig(cfg); err != nil {
@@ -288,14 +301,14 @@ type ErrorHandler func(format string, args ...interface{})
 
 func (t *TestSuite) get(key client.ObjectKey, obj client.Object, eh ErrorHandler) {
 	t.T().Helper()
-	if err := t.Client.Get(t.GetContext(), key, obj); err != nil {
+	if err := t.Reader.Get(t.GetContext(), key, obj); err != nil {
 		eh("failed to get resource %T %s: %v", obj, key, err)
 	}
 }
 
 func (t *TestSuite) list(list client.ObjectList, opts []client.ListOption, eh ErrorHandler) {
 	t.T().Helper()
-	if err := t.Client.List(t.GetContext(), list, opts...); err != nil {
+	if err := t.Reader.List(t.GetContext(), list, opts...); err != nil {
 		eh("failed to list resources %T %+v: %v", list, list, err)
 	}
 }
