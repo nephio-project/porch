@@ -93,6 +93,7 @@ func (r *packageRevisionResources) List(ctx context.Context, options *metaintern
 		return nil, err
 	}
 
+	klog.V(3).Infof("List packagerevisionresources completed: found %d items", len(result.Items))
 	return result, nil
 }
 
@@ -110,6 +111,7 @@ func (r *packageRevisionResources) Get(ctx context.Context, name string, options
 	if err != nil {
 		return nil, err
 	}
+	klog.V(3).Infof("Get packagerevisionresources completed: %s", name)
 	return apiPkgResources, nil
 }
 
@@ -193,5 +195,6 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 		created.Status.RenderStatus = *renderStatus
 	}
 
+	klog.Infof("Update operation completed for packagerevisionresources: %s", name)
 	return created, false, nil
 }

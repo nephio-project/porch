@@ -447,7 +447,44 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 		return nil, false, apierrors.NewInternalError(err)
 	}
 
+	if action := getUpdateAction(oldApiPkgRev.(*api.PackageRevision), newApiPkgRev); action != "" {
+		klog.Infof("%s operation completed for package revision: %s", action, name)
+	}
+
 	return updated, false, nil
+}
+
+// getUpdateAction determines the type of update operation
+func getUpdateAction(oldPkgRev, newPkgRev *api.PackageRevision) string {
+	// Handle lifecycle changes
+	if oldPkgRev.Spec.Lifecycle != newPkgRev.Spec.Lifecycle {
+		// Propose operation: Draft -> Proposed
+		if oldPkgRev.Spec.Lifecycle == api.PackageRevisionLifecycleDraft &&
+			newPkgRev.Spec.Lifecycle == api.PackageRevisionLifecycleProposed {
+			return "Propose"
+		}
+		// Propose delete operation: Published -> DeletionProposed
+		if oldPkgRev.Spec.Lifecycle == api.PackageRevisionLifecyclePublished &&
+			newPkgRev.Spec.Lifecycle == api.PackageRevisionLifecycleDeletionProposed {
+			return "Propose-delete"
+		}
+		// Reject operation: Proposed -> Draft
+		if oldPkgRev.Spec.Lifecycle == api.PackageRevisionLifecycleProposed &&
+			newPkgRev.Spec.Lifecycle == api.PackageRevisionLifecycleDraft {
+			return "Reject"
+		}
+		// Approve operation: Proposed -> Published
+		if oldPkgRev.Spec.Lifecycle == api.PackageRevisionLifecycleProposed &&
+			newPkgRev.Spec.Lifecycle == api.PackageRevisionLifecyclePublished {
+			return "Approve"
+		}
+		// Approve or Reject Operation: Published -> Proposed
+		if oldPkgRev.Spec.Lifecycle == api.PackageRevisionLifecycleDeletionProposed &&
+			newPkgRev.Spec.Lifecycle == api.PackageRevisionLifecyclePublished {
+			return "Approve/Reject"
+		}
+	}
+	return "Update"
 }
 
 // Common implementation of Package update logic.

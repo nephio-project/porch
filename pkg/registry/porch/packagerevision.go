@@ -96,6 +96,7 @@ func (r *packageRevisions) List(ctx context.Context, options *metainternalversio
 		return nil, err
 	}
 
+	klog.V(3).Infof("List packagerevisions completed: found %d items", len(result.Items))
 	return result, nil
 }
 
@@ -114,6 +115,7 @@ func (r *packageRevisions) Get(ctx context.Context, name string, options *metav1
 		return nil, err
 	}
 
+	klog.V(3).Infof("Get packagerevision completed: %s", name)
 	return apiPkgRev, nil
 }
 
@@ -188,7 +190,29 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 		return nil, apierrors.NewInternalError(err)
 	}
 
+	action := getCreateAction(newApiPkgRev)
+	klog.Infof("%s operation completed for package revision: %s", action, createdApiPkgRev.Name)
 	return createdApiPkgRev, nil
+}
+
+func getCreateAction(pkgRev *api.PackageRevision) string {
+	// Check tasks for specific operation types
+	for _, task := range pkgRev.Spec.Tasks {
+		switch task.Type {
+		case api.TaskTypeInit:
+			return "Init"
+		case api.TaskTypeClone:
+			return "Clone"
+		case api.TaskTypeUpgrade:
+			return "Upgrade"
+		case api.TaskTypeEdit:
+			// Edit task with sourceRef indicates a copy operation
+			if task.Edit != nil && task.Edit.Source != nil {
+				return "Copy"
+			}
+		}
+	}
+	return "Create"
 }
 
 // Update implements the Updater interface.
@@ -256,6 +280,7 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 		return nil, false, apierrors.NewInternalError(err)
 	}
 
+	klog.Infof("Delete operation completed: %s", name)
 	// TODO: Should we do an async delete?
 	return apiPkgRev, true, nil
 }

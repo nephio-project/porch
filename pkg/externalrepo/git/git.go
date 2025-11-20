@@ -131,10 +131,6 @@ func OpenRepository(ctx context.Context, name, namespace string, spec *configapi
 	start := time.Now()
 	defer func() { klog.V(4).Infof("git.go::OpenRepository (%s) took %s", spec.Repo, time.Since(start)) }()
 
-	if ctx.Err() != nil {
-		return nil, ctx.Err()
-	}
-
 	replace := strings.NewReplacer("/", "-", ":", "-")
 	repoPath := replace.Replace(spec.Repo)
 	// Sanitize path to prevent traversal attacks
@@ -299,6 +295,7 @@ func (r *gitRepository) Version(ctx context.Context) (string, error) {
 		if err != nil {
 			return err
 		}
+		defer refs.Close()
 
 		for {
 			ref, err := refs.Next()
@@ -351,11 +348,6 @@ func (r *gitRepository) ListPackageRevisions(ctx context.Context, filter reposit
 	ctx, span := tracer.Start(ctx, "gitRepository::ListPackageRevisions", trace.WithAttributes())
 	defer span.End()
 
-	// Fetch remote without holding mutex - Locked in fetchRemoteRepository function
-	if err := r.fetchRemoteRepositoryWithRetry(ctx); err != nil {
-		return nil, err
-	}
-
 	pkgRevs, err := r.listPackageRevisions(ctx, filter)
 	if err != nil {
 		return nil, err
@@ -371,6 +363,11 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 	ctx, span := tracer.Start(ctx, "gitRepository::listPackageRevisions", trace.WithAttributes())
 	defer span.End()
 
+	// Fetch remote without holding mutex - Locked in fetchRemoteRepository function
+	if err := r.fetchRemoteRepositoryWithRetry(ctx); err != nil {
+		return nil, err
+	}
+
 	var refs storer.ReferenceIter
 	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
 		var err error
@@ -380,6 +377,7 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 	if err != nil {
 		return nil, err
 	}
+	defer refs.Close()
 
 	var main *plumbing.Reference
 	var drafts []*gitPackageRevision
@@ -652,7 +650,7 @@ func (r *gitRepository) fetchRemoteRepositoryWithRetry(ctx context.Context) erro
 					klog.Infof("fetchRemoteRepositoryWithRetry %s ctx err: %v", r.Key(), ctx.Err())
 				}
 				if deadline, ok := ctx.Deadline(); ok {
-					klog.Infof("fetchRemoteRepositoryWithRetry %s deadline: %v, reached: %t", r.Key(), deadline, deadline.Compare(time.Now()) <= 0)
+					klog.V(2).Infof("fetchRemoteRepositoryWithRetry %s deadline: %v, reached: %t", r.Key(), deadline, deadline.Compare(time.Now()) <= 0)
 				}
 				select {
 				case <-ctx.Done():
@@ -909,7 +907,7 @@ func (r *gitRepository) UpdateDeletionProposedCache(ctx context.Context) error {
 }
 
 func (r *gitRepository) updateDeletionProposedCache() error {
-	// Collect deletion proposed branches without holding r.mutex
+	// Collect deletion proposed branches
 	deletionProposed := make(map[BranchName]bool)
 
 	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
@@ -917,6 +915,7 @@ func (r *gitRepository) updateDeletionProposedCache() error {
 		if err != nil {
 			return err
 		}
+		defer refs.Close()
 
 		for {
 			ref, err := refs.Next()
@@ -938,7 +937,7 @@ func (r *gitRepository) updateDeletionProposedCache() error {
 		return err
 	}
 
-	// Update cache while holding r.mutex
+	// Update cache
 	r.deletionProposedCache = deletionProposed
 	return nil
 }
@@ -1036,6 +1035,7 @@ func (r *gitRepository) dumpAllRefs() {
 		if err != nil {
 			klog.Warningf("failed to get references: %v", err)
 		} else {
+			defer refs.Close()
 			for {
 				ref, err := refs.Next()
 				if err != nil {
@@ -1052,6 +1052,7 @@ func (r *gitRepository) dumpAllRefs() {
 		if err != nil {
 			klog.Warningf("failed to get branches: %v", err)
 		} else {
+			defer branches.Close()
 			for {
 				branch, err := branches.Next()
 				if err != nil {
