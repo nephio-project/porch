@@ -40,6 +40,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageCloneTaskSpec":           schema_porch_api_porch_v1alpha1_PackageCloneTaskSpec(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageEditTaskSpec":            schema_porch_api_porch_v1alpha1_PackageEditTaskSpec(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageInitTaskSpec":            schema_porch_api_porch_v1alpha1_PackageInitTaskSpec(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageMetadata":                schema_porch_api_porch_v1alpha1_PackageMetadata(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevision":                schema_porch_api_porch_v1alpha1_PackageRevision(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionList":            schema_porch_api_porch_v1alpha1_PackageRevisionList(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionRef":             schema_porch_api_porch_v1alpha1_PackageRevisionRef(ref),
@@ -590,6 +591,48 @@ func schema_porch_api_porch_v1alpha1_PackageInitTaskSpec(ref common.ReferenceCal
 	}
 }
 
+func schema_porch_api_porch_v1alpha1_PackageMetadata(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"labels": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"annotations": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_porch_api_porch_v1alpha1_PackageRevision(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -957,11 +1000,16 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionSpec(ref common.ReferenceCal
 							},
 						},
 					},
+					"packageMetadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageMetadata"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.ParentReference", "github.com/nephio-project/porch/api/porch/v1alpha1.ReadinessGate", "github.com/nephio-project/porch/api/porch/v1alpha1.Task"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.PackageMetadata", "github.com/nephio-project/porch/api/porch/v1alpha1.ParentReference", "github.com/nephio-project/porch/api/porch/v1alpha1.ReadinessGate", "github.com/nephio-project/porch/api/porch/v1alpha1.Task"},
 	}
 }
 

@@ -118,6 +118,13 @@ type PackageRevisionSpec struct {
 	Tasks []Task `json:"tasks,omitempty"`
 
 	ReadinessGates []ReadinessGate `json:"readinessGates,omitempty"`
+
+	PackageMetadata *PackageMetadata `json:"packageMetadata,omitempty"`
+}
+
+type PackageMetadata struct {
+	Labels      map[string]string `json:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 type ReadinessGate struct {

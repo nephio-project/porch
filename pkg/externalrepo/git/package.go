@@ -130,6 +130,10 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 			ReadinessGates: repository.ToAPIReadinessGates(kf),
 			WorkspaceName:  key.WorkspaceName,
 			Revision:       key.Revision,
+			PackageMetadata: &porchapi.PackageMetadata{
+				Labels:      kf.Labels,
+				Annotations: kf.Annotations,
+			},
 		},
 		Status: status,
 	}
