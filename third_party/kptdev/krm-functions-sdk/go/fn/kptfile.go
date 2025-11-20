@@ -94,9 +94,6 @@ func (kf *Kptfile) Conditions() SliceSubObjects {
 }
 
 func (kf *Kptfile) SetConditions(conditions SliceSubObjects) error {
-	sort.SliceStable(conditions, func(i, j int) bool {
-		return conditions[i].GetString("type") < conditions[j].GetString("type")
-	})
 	return kf.Status().SetSlice(conditions, conditionsFieldName)
 }
 
@@ -197,10 +194,17 @@ func (kf *Kptfile) SetLabels(labels map[string]string) {
 	}
 
 	existing := kf.Obj.GetLabels()
+	var keysToDelete []string
 	for k := range existing {
 		if _, ok := labels[k]; !ok {
-			_ = kf.Obj.RemoveLabel(k)
+			keysToDelete = append(keysToDelete, k)
 		}
+	}
+
+	sort.Strings(keysToDelete)
+
+	for _, k := range keysToDelete {
+		_ = kf.Obj.RemoveLabel(k)
 	}
 }
 
@@ -216,9 +220,16 @@ func (kf *Kptfile) SetAnnotations(annotations map[string]string) {
 	}
 
 	existing := kf.Obj.GetAnnotations()
+	var keysToDelete []string
 	for k := range existing {
 		if _, ok := annotations[k]; !ok {
-			_ = kf.Obj.RemoveAnnotation(k)
+			keysToDelete = append(keysToDelete, k)
 		}
+	}
+
+	sort.Strings(keysToDelete)
+
+	for _, k := range keysToDelete {
+		_ = kf.Obj.RemoveAnnotation(k)
 	}
 }

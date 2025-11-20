@@ -389,7 +389,7 @@ func PatchKptfile(
 	return content, true, nil
 }
 
-func applyMetadataToKptfile(kptf *kptfn.Kptfile, obj *api.PackageRevision, replace bool) (bool, error) {
+func applyMetadataToKptfile(kptf *kptfn.Kptfile, obj *porchapi.PackageRevision, replace bool) (bool, error) {
 	var changed bool
 
 	if obj.Spec.PackageMetadata != nil {
@@ -440,7 +440,7 @@ func applyMetadataToKptfile(kptf *kptfn.Kptfile, obj *api.PackageRevision, repla
 	}
 
 	if obj.Spec.ReadinessGates != nil {
-		desiredGatesMap := make(map[string]api.ReadinessGate)
+		desiredGatesMap := make(map[string]porchapi.ReadinessGate)
 		for _, rg := range obj.Spec.ReadinessGates {
 			desiredGatesMap[rg.ConditionType] = rg
 		}

@@ -153,7 +153,7 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 	}
 
 	_, upstreamLock, _ := pr.GetUpstreamLock(ctx)
-	_, selfLock, _ := pr.GetLock()
+	_, selfLock, _ := pr.GetLock(ctx)
 	kf, _ := readPR.GetKptfile(ctx)
 
 	status := porchapi.PackageRevisionStatus{

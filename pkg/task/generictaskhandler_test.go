@@ -313,9 +313,9 @@ info:
 		"Kptfile": originalKptfile,
 	}
 
-	obj := &api.PackageRevision{
-		Spec: api.PackageRevisionSpec{
-			PackageMetadata: &api.PackageMetadata{
+	obj := &porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
+			PackageMetadata: &porchapi.PackageMetadata{
 				Labels: map[string]string{
 					"new-label": "new-label-value",
 					"foo":       "bar-updated",
@@ -325,7 +325,7 @@ info:
 					"foo":            "bar-updated",
 				},
 			},
-			ReadinessGates: []api.ReadinessGate{
+			ReadinessGates: []porchapi.ReadinessGate{
 				{ConditionType: "Ready"},
 				{ConditionType: "Healthy"},
 			},
@@ -358,12 +358,12 @@ info:
 	require.NoError(t, kptf.WriteToPackage(resources))
 	got := resources["Kptfile"]
 
-	assert.True(t, strings.Contains(got, "# this is the package name"))
-	assert.True(t, strings.Contains(got, "# upstream label"))
-	assert.True(t, strings.Contains(got, "# upstream annotation"))
-	assert.True(t, strings.Contains(got, "# Top-level comment"))
-	assert.True(t, strings.Contains(got, "# This gate is important"))
-	assert.True(t, strings.Contains(got, "# readiness gate comment"))
+	assert.Contains(t, got, "# this is the package name")
+	assert.Contains(t, got, "# upstream label")
+	assert.Contains(t, got, "# upstream annotation")
+	assert.Contains(t, got, "# Top-level comment")
+	assert.Contains(t, got, "# This gate is important")
+	assert.Contains(t, got, "# readiness gate comment")
 
 	// Kptfile with labels/annotations initially empty
 	emptyKptfile := `
@@ -381,9 +381,9 @@ info:
 		"Kptfile": emptyKptfile,
 	}
 
-	obj2 := &api.PackageRevision{
-		Spec: api.PackageRevisionSpec{
-			PackageMetadata: &api.PackageMetadata{
+	obj2 := &porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
+			PackageMetadata: &porchapi.PackageMetadata{
 				Labels: map[string]string{
 					"foo": "bar",
 				},

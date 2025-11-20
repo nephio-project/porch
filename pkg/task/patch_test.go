@@ -40,8 +40,8 @@ func createFakePackageRevision(t *testing.T, kf kptfile.KptFile) *fake.FakePacka
 
 	return &fake.FakePackageRevision{
 		Kptfile: kf,
-		Resources: &api.PackageRevisionResources{
-			Spec: api.PackageRevisionResourcesSpec{
+		Resources: &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
 				Resources: resources,
 			},
 		},
@@ -432,8 +432,8 @@ status:
 `
 
 	repoPkgRev := &fake.FakePackageRevision{
-		Resources: &api.PackageRevisionResources{
-			Spec: api.PackageRevisionResourcesSpec{
+		Resources: &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
 				Resources: map[string]string{
 					kptfile.KptFileName: initialYAML,
 				},
@@ -441,9 +441,9 @@ status:
 		},
 	}
 
-	newApiPkgRev := &api.PackageRevision{
-		Spec: api.PackageRevisionSpec{
-			PackageMetadata: &api.PackageMetadata{
+	newApiPkgRev := &porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
+			PackageMetadata: &porchapi.PackageMetadata{
 				Labels: map[string]string{
 					"existing-label": "updated-value",
 					"keep-label":     "keep-value",
@@ -455,22 +455,22 @@ status:
 					"new.annotation":      "new-value",
 				},
 			},
-			ReadinessGates: []api.ReadinessGate{
+			ReadinessGates: []porchapi.ReadinessGate{
 				{ConditionType: "foo"},
 				{ConditionType: "new-gate"},
 			},
 		},
-		Status: api.PackageRevisionStatus{
-			Conditions: []api.Condition{
+		Status: porchapi.PackageRevisionStatus{
+			Conditions: []porchapi.Condition{
 				{
 					Type:    "foo",
-					Status:  api.ConditionTrue,
+					Status:  porchapi.ConditionTrue,
 					Reason:  "updated-foo",
 					Message: "updated foo message",
 				},
 				{
 					Type:    "new-condition",
-					Status:  api.ConditionFalse,
+					Status:  porchapi.ConditionFalse,
 					Reason:  "new-reason",
 					Message: "new message",
 				},

@@ -75,7 +75,7 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 	key := p.Key()
 
 	_, upstreamLock, _ := p.GetUpstreamLock(ctx)
-	_, selfLock, _ := p.GetLock()
+	_, selfLock, _ := p.GetLock(ctx)
 	kf, _ := p.GetKptfile(ctx)
 
 	status := porchapi.PackageRevisionStatus{
