@@ -18,7 +18,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	mockcachetypes "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
@@ -71,7 +71,7 @@ func (t *DbTestSuite) TestPackageDBWriteRead() {
 			Name:      "meta-new-name",
 			Namespace: "meta-new-namespace",
 		},
-		spec:      &v1alpha1.PackageSpec{},
+		spec:      &porchapi.PackageSpec{},
 		updated:   time.Now().UTC(),
 		updatedBy: "porchuser2",
 	}

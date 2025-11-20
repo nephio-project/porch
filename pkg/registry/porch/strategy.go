@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"strings"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -41,57 +41,57 @@ func (s packageRevisionStrategy) ValidateUpdate(ctx context.Context, obj, old ru
 	defer span.End()
 
 	allErrs := field.ErrorList{}
-	oldRevision := old.(*api.PackageRevision)
-	newRevision := obj.(*api.PackageRevision)
+	oldRevision := old.(*porchapi.PackageRevision)
+	newRevision := obj.(*porchapi.PackageRevision)
 
 	// Prevent users from modifying the kpt.dev/latest-revision label
 	oldLatestRevision := ""
 	newLatestRevision := ""
 	if oldRevision.Labels != nil {
-		oldLatestRevision = oldRevision.Labels[api.LatestPackageRevisionKey]
+		oldLatestRevision = oldRevision.Labels[porchapi.LatestPackageRevisionKey]
 	}
 	if newRevision.Labels != nil {
-		newLatestRevision = newRevision.Labels[api.LatestPackageRevisionKey]
+		newLatestRevision = newRevision.Labels[porchapi.LatestPackageRevisionKey]
 	}
 	if oldLatestRevision != newLatestRevision {
-		allErrs = append(allErrs, field.Forbidden(field.NewPath("metadata", "labels", api.LatestPackageRevisionKey), "label is managed by porch and cannot be modified by users"))
+		allErrs = append(allErrs, field.Forbidden(field.NewPath("metadata", "labels", porchapi.LatestPackageRevisionKey), "label is managed by porch and cannot be modified by users"))
 	}
 
 	// Verify that the new lifecycle value is valid.
 	switch lifecycle := newRevision.Spec.Lifecycle; lifecycle {
-	case "", api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed, api.PackageRevisionLifecyclePublished, api.PackageRevisionLifecycleDeletionProposed:
+	case "", porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecycleProposed, porchapi.PackageRevisionLifecyclePublished, porchapi.PackageRevisionLifecycleDeletionProposed:
 		// valid
 	default:
 		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle, fmt.Sprintf("value can be only updated to %s",
 			strings.Join([]string{
-				string(api.PackageRevisionLifecycleDraft),
-				string(api.PackageRevisionLifecycleProposed),
-				string(api.PackageRevisionLifecyclePublished),
-				string(api.PackageRevisionLifecycleDeletionProposed),
+				string(porchapi.PackageRevisionLifecycleDraft),
+				string(porchapi.PackageRevisionLifecycleProposed),
+				string(porchapi.PackageRevisionLifecyclePublished),
+				string(porchapi.PackageRevisionLifecycleDeletionProposed),
 			}, ",")),
 		))
 	}
 
 	switch lifecycle := oldRevision.Spec.Lifecycle; lifecycle {
-	case "", api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed:
+	case "", porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecycleProposed:
 		// Packages in a draft or proposed state can only be updated to draft or proposed.
 		newLifecycle := newRevision.Spec.Lifecycle
-		if newLifecycle != api.PackageRevisionLifecycleDraft &&
-			newLifecycle != api.PackageRevisionLifecycleProposed &&
+		if newLifecycle != porchapi.PackageRevisionLifecycleDraft &&
+			newLifecycle != porchapi.PackageRevisionLifecycleProposed &&
 			newLifecycle != "" {
 			allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle, fmt.Sprintf("value can be only updated to %s",
 				strings.Join([]string{
-					string(api.PackageRevisionLifecycleDraft),
-					string(api.PackageRevisionLifecycleProposed),
+					string(porchapi.PackageRevisionLifecycleDraft),
+					string(porchapi.PackageRevisionLifecycleProposed),
 				}, ",")),
 			))
 		}
-	case api.PackageRevisionLifecyclePublished, api.PackageRevisionLifecycleDeletionProposed:
+	case porchapi.PackageRevisionLifecyclePublished, porchapi.PackageRevisionLifecycleDeletionProposed:
 		// We don't allow any updates to the spec for packagerevision that have been published. That includes updates of the lifecycle. But
 		// we allow updates to metadata and status. The only exception is that the lifecycle
 		// can change between Published and DeletionProposed and vice versa.
 		newLifecycle := newRevision.Spec.Lifecycle
-		if api.LifecycleIsPublished(newLifecycle) {
+		if porchapi.LifecycleIsPublished(newLifecycle) {
 			// copy the lifecycle value over before calling reflect.DeepEqual to allow comparison
 			// of all other fields without error
 			newRevision.Spec.Lifecycle = oldRevision.Spec.Lifecycle
@@ -99,8 +99,8 @@ func (s packageRevisionStrategy) ValidateUpdate(ctx context.Context, obj, old ru
 		if !equality.Semantic.DeepEqual(oldRevision.Spec, newRevision.Spec) {
 			allErrs = append(allErrs, field.Invalid(field.NewPath("spec"), newRevision.Spec, fmt.Sprintf("spec can only update package with lifecycle value one of %s",
 				strings.Join([]string{
-					string(api.PackageRevisionLifecycleDraft),
-					string(api.PackageRevisionLifecycleProposed),
+					string(porchapi.PackageRevisionLifecycleDraft),
+					string(porchapi.PackageRevisionLifecycleProposed),
 				}, ",")),
 			))
 		}
@@ -108,10 +108,10 @@ func (s packageRevisionStrategy) ValidateUpdate(ctx context.Context, obj, old ru
 	default:
 		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle, fmt.Sprintf("can only update package with lifecycle value one of %s",
 			strings.Join([]string{
-				string(api.PackageRevisionLifecycleDraft),
-				string(api.PackageRevisionLifecycleProposed),
-				string(api.PackageRevisionLifecyclePublished),
-				string(api.PackageRevisionLifecycleDeletionProposed),
+				string(porchapi.PackageRevisionLifecycleDraft),
+				string(porchapi.PackageRevisionLifecycleProposed),
+				string(porchapi.PackageRevisionLifecyclePublished),
+				string(porchapi.PackageRevisionLifecycleDeletionProposed),
 			}, ",")),
 		))
 	}
@@ -120,10 +120,10 @@ func (s packageRevisionStrategy) ValidateUpdate(ctx context.Context, obj, old ru
 }
 
 func (s packageRevisionStrategy) Canonicalize(obj runtime.Object) {
-	pr := obj.(*api.PackageRevision)
+	pr := obj.(*porchapi.PackageRevision)
 	if pr.Spec.Lifecycle == "" {
 		// Set default
-		pr.Spec.Lifecycle = api.PackageRevisionLifecycleDraft
+		pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDraft
 	}
 }
 
@@ -139,12 +139,12 @@ func (s packageRevisionStrategy) Validate(ctx context.Context, runtimeObj runtim
 
 	allErrs := field.ErrorList{}
 
-	obj := runtimeObj.(*api.PackageRevision)
+	obj := runtimeObj.(*porchapi.PackageRevision)
 
 	// Prevent users from setting the kpt.dev/latest-revision label during creation
 	if obj.Labels != nil {
-		if _, exists := obj.Labels[api.LatestPackageRevisionKey]; exists {
-			allErrs = append(allErrs, field.Forbidden(field.NewPath("metadata", "labels", api.LatestPackageRevisionKey), "label is managed by porch and cannot be set by users"))
+		if _, exists := obj.Labels[porchapi.LatestPackageRevisionKey]; exists {
+			allErrs = append(allErrs, field.Forbidden(field.NewPath("metadata", "labels", porchapi.LatestPackageRevisionKey), "label is managed by porch and cannot be set by users"))
 		}
 	}
 
@@ -158,13 +158,13 @@ func (s packageRevisionStrategy) Validate(ctx context.Context, runtimeObj runtim
 	}
 
 	switch lifecycle := obj.Spec.Lifecycle; lifecycle {
-	case "", api.PackageRevisionLifecycleDraft:
+	case "", porchapi.PackageRevisionLifecycleDraft:
 		// valid
 
 	default:
 		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "lifecycle"), lifecycle, fmt.Sprintf("value can be only created as %s",
 			strings.Join([]string{
-				string(api.PackageRevisionLifecycleDraft),
+				string(porchapi.PackageRevisionLifecycleDraft),
 			}, ",")),
 		))
 	}

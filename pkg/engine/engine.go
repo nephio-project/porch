@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"slices"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -45,16 +45,16 @@ type CaDEngine interface {
 	// ObjectCache() is a cache of all our objects.
 	ObjectCache() WatcherManager
 
-	UpdatePackageResources(ctx context.Context, repositoryObj *configapi.Repository, oldPackage repository.PackageRevision, old, new *api.PackageRevisionResources) (repository.PackageRevision, *api.RenderStatus, error)
+	UpdatePackageResources(ctx context.Context, repositoryObj *configapi.Repository, oldPackage repository.PackageRevision, old, new *porchapi.PackageRevisionResources) (repository.PackageRevision, *porchapi.RenderStatus, error)
 
 	ListPackageRevisions(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error)
-	CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error)
-	UpdatePackageRevision(ctx context.Context, version int, repositoryObj *configapi.Repository, oldPackage repository.PackageRevision, old, new *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error)
+	CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj *porchapi.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error)
+	UpdatePackageRevision(ctx context.Context, version int, repositoryObj *configapi.Repository, oldPackage repository.PackageRevision, old, new *porchapi.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error)
 	DeletePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj repository.PackageRevision) error
 
 	ListPackages(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageFilter) ([]repository.Package, error)
-	CreatePackage(ctx context.Context, repositoryObj *configapi.Repository, obj *api.PorchPackage) (repository.Package, error)
-	UpdatePackage(ctx context.Context, repositoryObj *configapi.Repository, oldPackage repository.Package, old, new *api.PorchPackage) (repository.Package, error)
+	CreatePackage(ctx context.Context, repositoryObj *configapi.Repository, obj *porchapi.PorchPackage) (repository.Package, error)
+	UpdatePackage(ctx context.Context, repositoryObj *configapi.Repository, oldPackage repository.Package, old, new *porchapi.PorchPackage) (repository.Package, error)
 	DeletePackage(ctx context.Context, repositoryObj *configapi.Repository, obj repository.Package) error
 }
 
@@ -108,7 +108,7 @@ func (cad *cadEngine) ListPackageRevisions(ctx context.Context, repositorySpec *
 	return repo.ListPackageRevisions(ctx, filter)
 }
 
-func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, newPr *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
+func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, newPr *porchapi.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cadEngine::CreatePackageRevision", trace.WithAttributes())
 	defer span.End()
 
@@ -122,9 +122,9 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	}
 
 	if len(newPr.Spec.Tasks) == 0 {
-		newPr.Spec.Tasks = []api.Task{{
-			Type: api.TaskTypeInit,
-			Init: &api.PackageInitTaskSpec{
+		newPr.Spec.Tasks = []porchapi.Task{{
+			Type: porchapi.TaskTypeInit,
+			Init: &porchapi.PackageInitTaskSpec{
 				Subpackage:  "",
 				Description: fmt.Sprintf("%s description", newPr.Spec.PackageName),
 			},
@@ -135,10 +135,10 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	switch newPr.Spec.Lifecycle {
 	case "":
 		// Set draft as default
-		newPr.Spec.Lifecycle = api.PackageRevisionLifecycleDraft
-	case api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed:
+		newPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDraft
+	case porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecycleProposed:
 		// These values are ok
-	case api.PackageRevisionLifecyclePublished, api.PackageRevisionLifecycleDeletionProposed:
+	case porchapi.PackageRevisionLifecyclePublished, porchapi.PackageRevisionLifecycleDeletionProposed:
 		// TODO: generate errors that can be translated to correct HTTP responses
 		return nil, fmt.Errorf("cannot create a package revision with lifecycle value 'Final'")
 	default:
@@ -164,13 +164,13 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 		return nil, err
 	}
 
-	if newPr.Spec.Tasks[0].Type == api.TaskTypeClone {
+	if newPr.Spec.Tasks[0].Type == porchapi.TaskTypeClone {
 		if err := validateCloneTask(newPr, revs); err != nil {
 			return nil, err
 		}
 	}
 
-	if newPr.Spec.Tasks[0].Type == api.TaskTypeUpgrade {
+	if newPr.Spec.Tasks[0].Type == porchapi.TaskTypeUpgrade {
 		if err := validateUpgradeTask(ctx, revs, newPr.Spec.Tasks[0].Upgrade); err != nil {
 			return nil, err
 		}
@@ -221,7 +221,7 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 }
 
 // validateUpgradeTask returns an error if one of the source revisions of the upgrade are not published
-func validateUpgradeTask(ctx context.Context, revs []repository.PackageRevision, spec *api.PackageUpgradeTaskSpec) error {
+func validateUpgradeTask(ctx context.Context, revs []repository.PackageRevision, spec *porchapi.PackageUpgradeTaskSpec) error {
 	parts := []string{
 		spec.OldUpstream.Name,
 		spec.NewUpstream.Name,
@@ -229,7 +229,7 @@ func validateUpgradeTask(ctx context.Context, revs []repository.PackageRevision,
 	}
 	for _, rev := range revs {
 		if slices.Contains(parts, rev.KubeObjectName()) {
-			if !api.LifecycleIsPublished(rev.Lifecycle(ctx)) {
+			if !porchapi.LifecycleIsPublished(rev.Lifecycle(ctx)) {
 				return pkgerrors.Errorf("all source PackageRevisions of upgrade task must be published, %q is not", rev.KubeObjectName())
 			}
 		}
@@ -238,7 +238,7 @@ func validateUpgradeTask(ctx context.Context, revs []repository.PackageRevision,
 }
 
 // The workspaceName must be unique, because it used to generate the package revision's metadata.name.
-func ensureUniqueWorkspaceName(obj *api.PackageRevision, existingRevs []repository.PackageRevision) error {
+func ensureUniqueWorkspaceName(obj *porchapi.PackageRevision, existingRevs []repository.PackageRevision) error {
 	for _, r := range existingRevs {
 		k := r.Key()
 		if k.WorkspaceName == obj.Spec.WorkspaceName {
@@ -250,7 +250,7 @@ func ensureUniqueWorkspaceName(obj *api.PackageRevision, existingRevs []reposito
 }
 
 // validateCloneTask returns an error if the package already exists in the repository
-func validateCloneTask(obj *api.PackageRevision, existingRevs []repository.PackageRevision) error {
+func validateCloneTask(obj *porchapi.PackageRevision, existingRevs []repository.PackageRevision) error {
 	for _, r := range existingRevs {
 		k := r.Key()
 		if k.PkgKey.RepoKey.Name == obj.Spec.RepositoryName && k.PkgKey.Package == obj.Spec.PackageName {
@@ -261,7 +261,7 @@ func validateCloneTask(obj *api.PackageRevision, existingRevs []repository.Packa
 	return nil
 }
 
-func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version int, repositoryObj *configapi.Repository, repoPr repository.PackageRevision, oldObj, newObj *api.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
+func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version int, repositoryObj *configapi.Repository, repoPr repository.PackageRevision, oldObj, newObj *porchapi.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cadEngine::UpdatePackageRevision", trace.WithAttributes())
 	defer span.End()
 
@@ -271,7 +271,7 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version int, re
 	}
 
 	if newRV != oldObj.GetResourceVersion() {
-		return nil, apierrors.NewConflict(api.Resource("packagerevisions"), oldObj.GetName(), fmt.Errorf("%s", OptimisticLockErrorMsg))
+		return nil, apierrors.NewConflict(porchapi.Resource("packagerevisions"), oldObj.GetName(), fmt.Errorf("%s", OptimisticLockErrorMsg))
 	}
 
 	repo, err := cad.cache.OpenRepository(ctx, repositoryObj)
@@ -298,10 +298,10 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version int, re
 	// Validate package lifecycle. Can only update a draft.
 	switch lifecycle := oldObj.Spec.Lifecycle; lifecycle {
 
-	case api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed:
+	case porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecycleProposed:
 		// Draft or proposed can be updated.
 
-	case api.PackageRevisionLifecyclePublished, api.PackageRevisionLifecycleDeletionProposed:
+	case porchapi.PackageRevisionLifecyclePublished, porchapi.PackageRevisionLifecycleDeletionProposed:
 		// Only metadata (currently labels and annotations) and lifecycle can be updated for published packages.
 		if oldObj.Spec.Lifecycle != newObj.Spec.Lifecycle {
 			if err := repoPr.UpdateLifecycle(ctx, newObj.Spec.Lifecycle); err != nil {
@@ -323,7 +323,7 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version int, re
 
 	switch lifecycle := newObj.Spec.Lifecycle; lifecycle {
 
-	case api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed, api.PackageRevisionLifecyclePublished, api.PackageRevisionLifecycleDeletionProposed:
+	case porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecycleProposed, porchapi.PackageRevisionLifecyclePublished, porchapi.PackageRevisionLifecycleDeletionProposed:
 		// These values are ok
 
 	default:
@@ -365,7 +365,7 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version int, re
 	return repoPkgRev, nil
 }
 
-func (cad *cadEngine) updatePkgRevMeta(ctx context.Context, repoPkgRev repository.PackageRevision, apiPkgRev *api.PackageRevision) error {
+func (cad *cadEngine) updatePkgRevMeta(ctx context.Context, repoPkgRev repository.PackageRevision, apiPkgRev *porchapi.PackageRevision) error {
 	pkgRevMeta := metav1.ObjectMeta{
 		Name:              repoPkgRev.KubeObjectName(),
 		Namespace:         repoPkgRev.KubeObjectNamespace(),
@@ -421,7 +421,7 @@ func (cad *cadEngine) ListPackages(ctx context.Context, repositorySpec *configap
 	return packages, nil
 }
 
-func (cad *cadEngine) CreatePackage(ctx context.Context, repositoryObj *configapi.Repository, obj *api.PorchPackage) (repository.Package, error) {
+func (cad *cadEngine) CreatePackage(ctx context.Context, repositoryObj *configapi.Repository, obj *porchapi.PorchPackage) (repository.Package, error) {
 	ctx, span := tracer.Start(ctx, "cadEngine::CreatePackage", trace.WithAttributes())
 	defer span.End()
 
@@ -437,7 +437,7 @@ func (cad *cadEngine) CreatePackage(ctx context.Context, repositoryObj *configap
 	return pkg, nil
 }
 
-func (cad *cadEngine) UpdatePackage(ctx context.Context, repositoryObj *configapi.Repository, pkg2Update repository.Package, oldObj, newObj *api.PorchPackage) (repository.Package, error) {
+func (cad *cadEngine) UpdatePackage(ctx context.Context, repositoryObj *configapi.Repository, pkg2Update repository.Package, oldObj, newObj *porchapi.PorchPackage) (repository.Package, error) {
 	_, span := tracer.Start(ctx, "cadEngine::UpdatePackage", trace.WithAttributes())
 	defer span.End()
 
@@ -462,7 +462,7 @@ func (cad *cadEngine) DeletePackage(ctx context.Context, repositoryObj *configap
 	return nil
 }
 
-func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj *configapi.Repository, pr2Update repository.PackageRevision, oldRes, newRes *api.PackageRevisionResources) (repository.PackageRevision, *api.RenderStatus, error) {
+func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj *configapi.Repository, pr2Update repository.PackageRevision, oldRes, newRes *porchapi.PackageRevisionResources) (repository.PackageRevision, *porchapi.RenderStatus, error) {
 	ctx, span := tracer.Start(ctx, "cadEngine::UpdatePackageResources", trace.WithAttributes())
 	defer span.End()
 
@@ -477,16 +477,16 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 	}
 
 	if newRV != oldRes.GetResourceVersion() {
-		return nil, nil, apierrors.NewConflict(api.Resource("packagerevisionresources"), oldRes.GetName(), errors.New(OptimisticLockErrorMsg))
+		return nil, nil, apierrors.NewConflict(porchapi.Resource("packagerevisionresources"), oldRes.GetName(), errors.New(OptimisticLockErrorMsg))
 	}
 
 	// Validate package lifecycle. Can only update a draft.
 	switch lifecycle := rev.Spec.Lifecycle; lifecycle {
 	default:
 		return nil, nil, fmt.Errorf("invalid original lifecycle value: %q", lifecycle)
-	case api.PackageRevisionLifecycleDraft:
+	case porchapi.PackageRevisionLifecycleDraft:
 		// Only drafts can be updated.
-	case api.PackageRevisionLifecycleProposed, api.PackageRevisionLifecyclePublished, api.PackageRevisionLifecycleDeletionProposed:
+	case porchapi.PackageRevisionLifecycleProposed, porchapi.PackageRevisionLifecyclePublished, porchapi.PackageRevisionLifecycleDeletionProposed:
 		// TODO: generate errors that can be translated to correct HTTP responses
 		return nil, nil, fmt.Errorf("cannot update a package revision with lifecycle value %q; package must be Draft", lifecycle)
 	}

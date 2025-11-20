@@ -17,10 +17,10 @@ package dbcache
 import (
 	"time"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/cache/testutil"
+	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
@@ -66,12 +66,12 @@ func (t *DbTestSuite) TestDBRepoSync() {
 	}
 
 	testRepo.repositorySync = newRepositorySync(testRepo, cacheOptions)
-	newPRDef := v1alpha1.PackageRevision{
-		Spec: v1alpha1.PackageRevisionSpec{
+	newPRDef := porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
 			RepositoryName: repoName,
 			PackageName:    "my-package",
 			WorkspaceName:  "my-workspace",
-			Lifecycle:      v1alpha1.PackageRevisionLifecyclePublished,
+			Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
 		},
 	}
 	dbPRDraft, err := testRepo.CreatePackageRevisionDraft(ctx, &newPRDef)
@@ -81,14 +81,14 @@ func (t *DbTestSuite) TestDBRepoSync() {
 	dbPR, err := testRepo.ClosePackageRevisionDraft(ctx, dbPRDraft, 0)
 	t.Require().NoError(err)
 
-	err = dbPR.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleProposed)
+	err = dbPR.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecycleProposed)
 	t.Require().NoError(err)
 
 	dbPR, err = testRepo.ClosePackageRevisionDraft(ctx, dbPR.(repository.PackageRevisionDraft), 0)
 	t.Require().NoError(err)
 	t.Require().NotNil(dbPR)
 
-	err = dbPR.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
+	err = dbPR.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecyclePublished)
 	t.Require().NoError(err)
 
 	dbPR, err = testRepo.ClosePackageRevisionDraft(ctx, dbPR.(repository.PackageRevisionDraft), 0)
@@ -106,7 +106,7 @@ func (t *DbTestSuite) TestDBRepoSync() {
 	fakeExtPR := fake.FakePackageRevision{
 		PrKey:           dbPR.Key(),
 		PackageRevision: &newPRDef,
-		Resources:       &v1alpha1.PackageRevisionResources{},
+		Resources:       &porchapi.PackageRevisionResources{},
 		Kptfile: v1.KptFile{
 			Upstream:     &v1.Upstream{},
 			UpstreamLock: &v1.UpstreamLock{},
@@ -177,12 +177,12 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 	sync := newRepositorySync(testRepo, cacheOptions)
 	testRepo.repositorySync = sync
 
-	newPRDef := v1alpha1.PackageRevision{
-		Spec: v1alpha1.PackageRevisionSpec{
+	newPRDef := porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
 			RepositoryName: repoName,
 			PackageName:    "my-package",
 			WorkspaceName:  "my-workspace",
-			Lifecycle:      v1alpha1.PackageRevisionLifecyclePublished,
+			Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
 		},
 	}
 	dbPRDraft, err := testRepo.CreatePackageRevisionDraft(ctx, &newPRDef)
@@ -192,14 +192,14 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 	dbPR, err := testRepo.ClosePackageRevisionDraft(ctx, dbPRDraft, 0)
 	t.Require().NoError(err)
 
-	err = dbPR.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleProposed)
+	err = dbPR.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecycleProposed)
 	t.Require().NoError(err)
 
 	dbPR, err = testRepo.ClosePackageRevisionDraft(ctx, dbPR.(repository.PackageRevisionDraft), 0)
 	t.Require().NoError(err)
 	t.Require().NotNil(dbPR)
 
-	err = dbPR.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
+	err = dbPR.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecyclePublished)
 	t.Require().NoError(err)
 
 	dbPR, err = testRepo.ClosePackageRevisionDraft(ctx, dbPR.(repository.PackageRevisionDraft), 0)
@@ -213,7 +213,7 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 	fakeExtPR := fake.FakePackageRevision{
 		PrKey:           dbPR.Key(),
 		PackageRevision: &newPRDef,
-		Resources:       &v1alpha1.PackageRevisionResources{},
+		Resources:       &porchapi.PackageRevisionResources{},
 		Kptfile: v1.KptFile{
 			Upstream:     &v1.Upstream{},
 			UpstreamLock: &v1.UpstreamLock{},

@@ -19,7 +19,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel/trace"
@@ -34,7 +34,7 @@ type dbPackage struct {
 	repo      *dbRepository
 	pkgKey    repository.PackageKey
 	meta      metav1.ObjectMeta
-	spec      *v1alpha1.PackageSpec
+	spec      *porchapi.PackageSpec
 	updated   time.Time
 	updatedBy string
 }
@@ -71,7 +71,7 @@ func (p *dbPackage) savePackage(ctx context.Context) (*dbPackage, error) {
 		Namespace: p.KubeObjectNamespace(),
 	}
 
-	p.spec = &v1alpha1.PackageSpec{
+	p.spec = &porchapi.PackageSpec{
 		PackageName:    p.pkgKey.Package,
 		RepositoryName: p.Key().RKey().Name,
 	}
@@ -79,16 +79,16 @@ func (p *dbPackage) savePackage(ctx context.Context) (*dbPackage, error) {
 	return p, pkgWriteToDB(ctx, p)
 }
 
-func (p *dbPackage) GetPackage(ctx context.Context) *v1alpha1.PorchPackage {
+func (p *dbPackage) GetPackage(ctx context.Context) *porchapi.PorchPackage {
 	_, span := tracer.Start(ctx, "dbPackage:GetPackage", trace.WithAttributes())
 	defer span.End()
 
 	key := p.Key()
 
-	return &v1alpha1.PorchPackage{
+	return &porchapi.PorchPackage{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PorchPackage",
-			APIVersion: v1alpha1.SchemeGroupVersion.Identifier(),
+			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            p.KubeObjectName(),
@@ -99,11 +99,11 @@ func (p *dbPackage) GetPackage(ctx context.Context) *v1alpha1.PorchPackage {
 				Time: p.updated,
 			},
 		},
-		Spec: v1alpha1.PackageSpec{
+		Spec: porchapi.PackageSpec{
 			PackageName:    key.Package,
 			RepositoryName: key.RKey().Name,
 		},
-		Status: v1alpha1.PackageStatus{
+		Status: porchapi.PackageStatus{
 			LatestRevision: p.GetLatestRevision(ctx),
 		},
 	}

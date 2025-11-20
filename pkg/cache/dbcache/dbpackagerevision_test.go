@@ -18,7 +18,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo"
@@ -54,8 +54,8 @@ func (t *DbTestSuite) TestDBPackageRevision() {
 	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
 	t.Require().NoError(err)
 
-	newPRDef := v1alpha1.PackageRevision{
-		Spec: v1alpha1.PackageRevisionSpec{
+	newPRDef := porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
 			RepositoryName: repoName,
 			PackageName:    "my-package",
 			WorkspaceName:  workspace,
@@ -97,7 +97,7 @@ func (t *DbTestSuite) TestDBPackageRevision() {
 		WorkspaceName: workspace,
 	}
 	t.Equal(prKey, dbPR.Key())
-	t.Equal(v1alpha1.PackageRevisionLifecycleDraft, dbPR.Lifecycle(ctx))
+	t.Equal(porchapi.PackageRevisionLifecycleDraft, dbPR.Lifecycle(ctx))
 
 	newPrUp, newPrUpLock, err := dbPR.GetUpstreamLock(ctx)
 	t.Require().NotNil(err)
@@ -126,7 +126,7 @@ info:
   site: https://nephio.org
   description: some kpt package.`
 
-	err = newDBPR.UpdateResources(ctx, prResources, &v1alpha1.Task{})
+	err = newDBPR.UpdateResources(ctx, prResources, &porchapi.Task{})
 	t.Require().NoError(err)
 
 	dbPR, err = testRepo.ClosePackageRevisionDraft(ctx, dbPR.(repository.PackageRevisionDraft), 0)
@@ -137,14 +137,14 @@ info:
 	t.Require().NoError(err)
 	t.Equal("Kptfile", gotKptFile.Kind)
 
-	err = dbPR.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleProposed)
+	err = dbPR.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecycleProposed)
 	t.Require().NoError(err)
 
 	dbPR, err = testRepo.ClosePackageRevisionDraft(ctx, dbPR.(repository.PackageRevisionDraft), 0)
 	t.Require().NoError(err)
 	t.Require().NotNil(dbPR)
 
-	err = dbPR.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
+	err = dbPR.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecyclePublished)
 	t.Require().NoError(err)
 
 	dbPR, err = testRepo.ClosePackageRevisionDraft(ctx, dbPR.(repository.PackageRevisionDraft), 0)
@@ -159,19 +159,19 @@ info:
 			Revision:      0,
 			WorkspaceName: "my-workspace-2",
 		},
-		lifecycle: v1alpha1.PackageRevisionLifecycleDraft,
+		lifecycle: porchapi.PackageRevisionLifecycleDraft,
 		tasks:     dbPRdb.tasks,
 		resources: dbPRdb.resources,
 	}
 
-	err = dbPR2.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleProposed)
+	err = dbPR2.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecycleProposed)
 	t.Require().NoError(err)
 
 	dbPR2i, err := testRepo.ClosePackageRevisionDraft(ctx, &dbPR2, 0)
 	t.Require().NoError(err)
 	t.Require().NotNil(dbPR2i)
 
-	err = dbPR2i.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
+	err = dbPR2i.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecyclePublished)
 	t.Require().NoError(err)
 
 	dbPR2i, err = testRepo.ClosePackageRevisionDraft(ctx, &dbPR2, 0)
@@ -184,9 +184,9 @@ info:
 	}
 	fakeRepo.PackageRevisions = append(fakeRepo.PackageRevisions, &fakeExtPR)
 
-	dbPR.(*dbPackageRevision).lifecycle = v1alpha1.PackageRevisionLifecyclePublished
+	dbPR.(*dbPackageRevision).lifecycle = porchapi.PackageRevisionLifecyclePublished
 	dbPR.(*dbPackageRevision).pkgRevKey.Revision = 1
-	err = dbPR.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleDeletionProposed)
+	err = dbPR.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecycleDeletionProposed)
 	t.Require().NoError(err)
 
 	dbPR, err = testRepo.ClosePackageRevisionDraft(ctx, dbPR.(repository.PackageRevisionDraft), 0)
@@ -195,7 +195,7 @@ info:
 
 	prDef, err = dbPR.GetPackageRevision(ctx)
 	t.Require().NoError(err)
-	t.Equal(v1alpha1.PackageRevisionLifecycleDeletionProposed, prDef.Spec.Lifecycle)
+	t.Equal(porchapi.PackageRevisionLifecycleDeletionProposed, prDef.Spec.Lifecycle)
 
 	prResources.Spec.Resources["Kptfile"] = `apiVersion: kpt.dev/v1
 kind: Kptfile
@@ -222,7 +222,7 @@ upstreamLock:
 
 	newDBPR2 := dbPR.(*dbPackageRevision)
 
-	err = newDBPR2.UpdateResources(ctx, prResources, &v1alpha1.Task{})
+	err = newDBPR2.UpdateResources(ctx, prResources, &porchapi.Task{})
 	t.Require().NoError(err)
 
 	t.Require().False(newDBPR2.IsLatestRevision())
@@ -265,8 +265,8 @@ func (t *DbTestSuite) TestDBPackageRevisionDeleteWithNotFoundError() {
 	t.Require().NoError(err)
 
 	// Create a published package revision
-	newPRDef := v1alpha1.PackageRevision{
-		Spec: v1alpha1.PackageRevisionSpec{
+	newPRDef := porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
 			RepositoryName: repoName,
 			PackageName:    "test-package",
 			WorkspaceName:  "test-workspace",
@@ -280,13 +280,13 @@ func (t *DbTestSuite) TestDBPackageRevisionDeleteWithNotFoundError() {
 	t.Require().NoError(err)
 
 	// Update to published lifecycle
-	err = dbPR.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecycleProposed)
+	err = dbPR.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecycleProposed)
 	t.Require().NoError(err)
 
 	dbPR, err = testRepo.ClosePackageRevisionDraft(ctx, dbPR.(repository.PackageRevisionDraft), 0)
 	t.Require().NoError(err)
 
-	err = dbPR.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
+	err = dbPR.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecyclePublished)
 	t.Require().NoError(err)
 
 	dbPR, err = testRepo.ClosePackageRevisionDraft(ctx, dbPR.(repository.PackageRevisionDraft), 0)

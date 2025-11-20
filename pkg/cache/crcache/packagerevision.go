@@ -18,7 +18,7 @@ import (
 	"context"
 	"sync"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
@@ -54,7 +54,7 @@ func (c *cachedPackageRevision) UID() types.UID {
 	return util.GenerateUid("packagerevision:", c.KubeObjectNamespace(), c.KubeObjectName())
 }
 
-func (c *cachedPackageRevision) GetPackageRevision(ctx context.Context) (*api.PackageRevision, error) {
+func (c *cachedPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cachedPackageRevision::GetPackageRevision", trace.WithAttributes())
 	defer span.End()
 
@@ -77,7 +77,7 @@ func (c *cachedPackageRevision) GetPackageRevision(ctx context.Context) (*api.Pa
 		for k, v := range apiPR.Labels {
 			labels[k] = v
 		}
-		labels[api.LatestPackageRevisionKey] = api.LatestPackageRevisionValue
+		labels[porchapi.LatestPackageRevisionKey] = porchapi.LatestPackageRevisionValue
 		apiPR.Labels = labels
 	}
 

@@ -19,7 +19,7 @@ import (
 	"strings"
 
 	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/errors"
 	pkgerrors "github.com/pkg/errors"
 )
@@ -43,7 +43,7 @@ type gitAnnotation struct {
 	Revision string `json:"revision,omitempty"`
 
 	// Task holds the task we performed, if a task caused the commit.
-	Task *v1alpha1.Task `json:"task,omitempty"`
+	Task *porchapi.Task `json:"task,omitempty"`
 }
 
 // ExtractGitAnnotations reads the gitAnnotations from the given commit.

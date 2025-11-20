@@ -27,7 +27,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -72,7 +72,7 @@ func GetPorchApiServiceKey(ctx context.Context) (client.ObjectKey, error) {
 	}
 
 	apiSvc := registrationapi.APIService{}
-	apiSvcName := v1alpha1.SchemeGroupVersion.Version + "." + v1alpha1.SchemeGroupVersion.Group
+	apiSvcName := porchapi.SchemeGroupVersion.Version + "." + porchapi.SchemeGroupVersion.Group
 	err = c.Get(ctx, client.ObjectKey{
 		Name: apiSvcName,
 	}, &apiSvc)
@@ -279,7 +279,7 @@ func GenerateUid(prefix string, kubeNs string, kubeName string) types.UID {
 	space := uuid.MustParse(uuidSpace)
 	buff := bytes.Buffer{}
 	buff.WriteString(prefix)
-	buff.WriteString(strings.ToLower(v1alpha1.SchemeGroupVersion.Identifier()))
+	buff.WriteString(strings.ToLower(porchapi.SchemeGroupVersion.Identifier()))
 	buff.WriteString("/")
 	buff.WriteString(strings.ToLower(kubeNs))
 	buff.WriteString("/")

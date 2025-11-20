@@ -17,8 +17,7 @@ package porch
 import (
 	"time"
 
-	"github.com/nephio-project/porch/api/porch"
-	apiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/engine"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -44,7 +43,7 @@ func (r *RESTStorageOptions) NewRESTStorage() (genericapiserver.APIGroupInfo, er
 		packageCommon: packageCommon{
 			scheme:                   r.Scheme,
 			cad:                      r.CaD,
-			gr:                       porch.Resource("packages"),
+			gr:                       porchapi.Resource("packages"),
 			coreClient:               r.CoreClient,
 			updateStrategy:           packageStrategy{},
 			createStrategy:           packageStrategy{},
@@ -58,7 +57,7 @@ func (r *RESTStorageOptions) NewRESTStorage() (genericapiserver.APIGroupInfo, er
 		packageCommon: packageCommon{
 			scheme:                   r.Scheme,
 			cad:                      r.CaD,
-			gr:                       porch.Resource("packagerevisions"),
+			gr:                       porchapi.Resource("packagerevisions"),
 			coreClient:               r.CoreClient,
 			updateStrategy:           packageRevisionStrategy{},
 			createStrategy:           packageRevisionStrategy{},
@@ -72,7 +71,7 @@ func (r *RESTStorageOptions) NewRESTStorage() (genericapiserver.APIGroupInfo, er
 			scheme:                   r.Scheme,
 			cad:                      r.CaD,
 			coreClient:               r.CoreClient,
-			gr:                       porch.Resource("packagerevisions"),
+			gr:                       porchapi.Resource("packagerevisions"),
 			updateStrategy:           packageRevisionApprovalStrategy{},
 			createStrategy:           packageRevisionApprovalStrategy{},
 			ListTimeoutPerRepository: r.TimeoutPerRepository,
@@ -85,17 +84,17 @@ func (r *RESTStorageOptions) NewRESTStorage() (genericapiserver.APIGroupInfo, er
 		packageCommon: packageCommon{
 			scheme:                   r.Scheme,
 			cad:                      r.CaD,
-			gr:                       porch.Resource("packagerevisionresources"),
+			gr:                       porchapi.Resource("packagerevisionresources"),
 			coreClient:               r.CoreClient,
 			ListTimeoutPerRepository: r.TimeoutPerRepository,
 			MaxConcurrentLists:       r.MaxConcurrentLists,
 		},
 	}
 
-	group := genericapiserver.NewDefaultAPIGroupInfo(porch.GroupName, r.Scheme, metav1.ParameterCodec, r.Codecs)
+	group := genericapiserver.NewDefaultAPIGroupInfo(porchapi.GroupName, r.Scheme, metav1.ParameterCodec, r.Codecs)
 
 	group.VersionedResourcesStorageMap = map[string]map[string]rest.Storage{
-		apiv1alpha1.SchemeGroupVersion.Version: {
+		porchapi.SchemeGroupVersion.Version: {
 			"packages":                  packages,
 			"packagerevisions":          packageRevisions,
 			"packagerevisions/approval": packageRevisionsApproval,
@@ -105,8 +104,8 @@ func (r *RESTStorageOptions) NewRESTStorage() (genericapiserver.APIGroupInfo, er
 
 	{
 		gvk := schema.GroupVersionKind{
-			Group:   apiv1alpha1.GroupName,
-			Version: apiv1alpha1.SchemeGroupVersion.Version,
+			Group:   porchapi.GroupName,
+			Version: porchapi.SchemeGroupVersion.Version,
 			Kind:    "Package",
 		}
 		if err := r.Scheme.AddFieldLabelConversionFunc(gvk, convertPackageFieldSelector); err != nil {
@@ -115,8 +114,8 @@ func (r *RESTStorageOptions) NewRESTStorage() (genericapiserver.APIGroupInfo, er
 	}
 	{
 		gvk := schema.GroupVersionKind{
-			Group:   apiv1alpha1.GroupName,
-			Version: apiv1alpha1.SchemeGroupVersion.Version,
+			Group:   porchapi.GroupName,
+			Version: porchapi.SchemeGroupVersion.Version,
 			Kind:    "PackageRevision",
 		}
 		if err := r.Scheme.AddFieldLabelConversionFunc(gvk, convertPackageRevisionFieldSelector); err != nil {
@@ -125,8 +124,8 @@ func (r *RESTStorageOptions) NewRESTStorage() (genericapiserver.APIGroupInfo, er
 	}
 	{
 		gvk := schema.GroupVersionKind{
-			Group:   apiv1alpha1.GroupName,
-			Version: apiv1alpha1.SchemeGroupVersion.Version,
+			Group:   porchapi.GroupName,
+			Version: porchapi.SchemeGroupVersion.Version,
 			Kind:    "PackageRevisionResources",
 		}
 		if err := r.Scheme.AddFieldLabelConversionFunc(gvk, convertPackageRevisionFieldSelector); err != nil {

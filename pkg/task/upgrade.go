@@ -17,7 +17,7 @@ package task
 import (
 	"context"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/kpt"
 	"github.com/nephio-project/porch/pkg/repository"
 	pkgerrors "github.com/pkg/errors"
@@ -28,14 +28,14 @@ import (
 var _ mutation = &upgradePackageMutation{}
 
 type upgradePackageMutation struct {
-	upgradeTask       *api.Task
+	upgradeTask       *porchapi.Task
 	repoOpener        repository.RepositoryOpener
 	referenceResolver repository.ReferenceResolver
 	namespace         string
 	pkgName           string
 }
 
-func (m *upgradePackageMutation) apply(ctx context.Context, _ repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
+func (m *upgradePackageMutation) apply(ctx context.Context, _ repository.PackageResources) (repository.PackageResources, *porchapi.TaskResult, error) {
 	ctx, span := tracer.Start(ctx, "upgradePackageMutation::apply", trace.WithAttributes())
 	defer span.End()
 
@@ -100,5 +100,5 @@ func (m *upgradePackageMutation) apply(ctx context.Context, _ repository.Package
 	if err != nil {
 		klog.Infof("failed to add merge key comments: %v", err)
 	}
-	return result, &api.TaskResult{Task: m.upgradeTask}, nil
+	return result, &porchapi.TaskResult{Task: m.upgradeTask}, nil
 }

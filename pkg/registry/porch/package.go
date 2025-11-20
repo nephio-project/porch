@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -51,13 +51,13 @@ func (r *packages) GetSingularName() string {
 }
 
 func (r *packages) New() runtime.Object {
-	return &api.PorchPackage{}
+	return &porchapi.PorchPackage{}
 }
 
 func (r *packages) Destroy() {}
 
 func (r *packages) NewList() runtime.Object {
-	return &api.PorchPackageList{}
+	return &porchapi.PorchPackageList{}
 }
 
 func (r *packages) NamespaceScoped() bool {
@@ -69,10 +69,10 @@ func (r *packages) List(ctx context.Context, options *metainternalversion.ListOp
 	ctx, span := tracer.Start(ctx, "packages::List", trace.WithAttributes())
 	defer span.End()
 
-	result := &api.PorchPackageList{
+	result := &porchapi.PorchPackageList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageList",
-			APIVersion: api.SchemeGroupVersion.Identifier(),
+			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
 		},
 	}
 
@@ -116,7 +116,7 @@ func (r *packages) Create(ctx context.Context, runtimeObject runtime.Object, cre
 		return nil, apierrors.NewBadRequest("namespace must be specified")
 	}
 
-	obj, ok := runtimeObject.(*api.PorchPackage)
+	obj, ok := runtimeObject.(*porchapi.PorchPackage)
 	if !ok {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected Package object, got %T", runtimeObject))
 	}
@@ -140,7 +140,7 @@ func (r *packages) Create(ctx context.Context, runtimeObject runtime.Object, cre
 
 	fieldErrors := r.createStrategy.Validate(ctx, runtimeObject)
 	if len(fieldErrors) > 0 {
-		return nil, apierrors.NewInvalid(api.SchemeGroupVersion.WithKind("Package").GroupKind(), obj.Name, fieldErrors)
+		return nil, apierrors.NewInvalid(porchapi.SchemeGroupVersion.WithKind("Package").GroupKind(), obj.Name, fieldErrors)
 	}
 
 	rev, err := r.cad.CreatePackage(ctx, repositoryObj, obj)

@@ -19,8 +19,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/nephio-project/porch/api/porch"
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	mockclient "github.com/nephio-project/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,7 +38,7 @@ var (
 		TableConvertor: packageRevisionResourcesTableConvertor,
 		packageCommon: packageCommon{
 			scheme:         runtime.NewScheme(),
-			gr:             porch.Resource("packagerevisions"),
+			gr:             porchapi.Resource("packagerevisions"),
 			coreClient:     nil,
 			updateStrategy: packageRevisionStrategy{},
 			createStrategy: packageRevisionStrategy{},
@@ -70,7 +69,7 @@ func TestListResources(t *testing.T) {
 
 	result, err := packagerevisionresources.List(context.TODO(), &internalversion.ListOptions{})
 	assert.NoError(t, err)
-	assert.Equal(t, 1, len(result.(*api.PackageRevisionResourcesList).Items))
+	assert.Equal(t, 1, len(result.(*porchapi.PackageRevisionResourcesList).Items))
 
 	//=========================================================================================
 
@@ -89,7 +88,7 @@ func TestListResources(t *testing.T) {
 	mockPkgRev.On("GetResources", mock.Anything).Return(nil, errors.New("error getting API package revision")).Once()
 	result, err = packagerevisionresources.List(context.TODO(), &internalversion.ListOptions{})
 	assert.NoError(t, err)
-	resultList, isList := result.(*api.PackageRevisionResourcesList)
+	resultList, isList := result.(*porchapi.PackageRevisionResourcesList)
 	assert.True(t, isList)
 	assert.Equal(t, 0, len(resultList.Items))
 }

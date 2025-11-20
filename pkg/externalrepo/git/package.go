@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -40,7 +40,7 @@ type gitPackageRevision struct {
 	ref       *plumbing.Reference // ref is the Git reference at which the package exists
 	tree      plumbing.Hash       // Cached tree of the package itself, some descendent of commit.Tree()
 	commit    plumbing.Hash       // Current version of the package (commit sha)
-	tasks     []v1alpha1.Task
+	tasks     []porchapi.Task
 	metadata  metav1.ObjectMeta
 	mutex     sync.Mutex
 }
@@ -67,22 +67,22 @@ func (p *gitPackageRevision) Key() repository.PackageRevisionKey {
 	return p.prKey
 }
 
-func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.PackageRevision, error) {
+func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "gitPackageRevision::GetPackageRevision", trace.WithAttributes())
 	defer span.End()
 
 	key := p.Key()
 
 	_, lock, _ := p.GetUpstreamLock(ctx)
-	lockCopy := &v1alpha1.UpstreamLock{}
+	lockCopy := &porchapi.UpstreamLock{}
 
 	// TODO: Use kpt definition of UpstreamLock in the package revision status
 	// when https://github.com/kptdev/kpt/issues/3297 is complete.
 	// Until then, we have to translate from one type to another.
 	if lock.Git != nil {
-		lockCopy = &v1alpha1.UpstreamLock{
-			Type: v1alpha1.OriginType(lock.Type),
-			Git: &v1alpha1.GitLock{
+		lockCopy = &porchapi.UpstreamLock{
+			Type: porchapi.OriginType(lock.Type),
+			Git: &porchapi.GitLock{
 				Repo:      lock.Git.Repo,
 				Directory: lock.Git.Directory,
 				Commit:    lock.Git.Commit,
@@ -93,13 +93,13 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 
 	kf, _ := p.GetKptfile(ctx)
 
-	status := v1alpha1.PackageRevisionStatus{
+	status := porchapi.PackageRevisionStatus{
 		UpstreamLock: lockCopy,
 		Deployment:   p.repo.deployment,
 		Conditions:   repository.ToAPIConditions(kf),
 	}
 
-	if v1alpha1.LifecycleIsPublished(p.Lifecycle(ctx)) {
+	if porchapi.LifecycleIsPublished(p.Lifecycle(ctx)) {
 		if !p.updated.IsZero() {
 			status.PublishedAt = metav1.Time{Time: p.updated}
 		}
@@ -108,10 +108,10 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 		}
 	}
 	p.mutex.Lock()
-	pr := &v1alpha1.PackageRevision{
+	pr := &porchapi.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevision",
-			APIVersion: v1alpha1.SchemeGroupVersion.Identifier(),
+			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            p.KubeObjectName(),
@@ -122,7 +122,7 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 				Time: p.metadata.CreationTimestamp.Time,
 			},
 		},
-		Spec: v1alpha1.PackageRevisionSpec{
+		Spec: porchapi.PackageRevisionSpec{
 			PackageName:    key.PkgKey.ToPkgPathname(),
 			RepositoryName: key.RKey().Name,
 			Lifecycle:      p.Lifecycle(ctx),
@@ -137,17 +137,17 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 	return pr, nil
 }
 
-func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.PackageRevisionResources, error) {
+func (p *gitPackageRevision) GetResources(ctx context.Context) (*porchapi.PackageRevisionResources, error) {
 	resources, err := p.repo.GetResources(p.tree)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load package resources: %w", err)
 	}
 
 	p.mutex.Lock()
-	prRes := &v1alpha1.PackageRevisionResources{
+	prRes := &porchapi.PackageRevisionResources{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevisionResources",
-			APIVersion: v1alpha1.SchemeGroupVersion.Identifier(),
+			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            p.KubeObjectName(),
@@ -159,7 +159,7 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 			},
 			OwnerReferences: []metav1.OwnerReference{}, // TODO: should point to repository resource
 		},
-		Spec: v1alpha1.PackageRevisionResourcesSpec{
+		Spec: porchapi.PackageRevisionResourcesSpec{
 			PackageName:    p.Key().PkgKey.ToPkgPathname(),
 			WorkspaceName:  p.Key().WorkspaceName,
 			Revision:       p.Key().Revision,
@@ -262,11 +262,11 @@ func (p *gitPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, 
 		}, nil
 }
 
-func (p *gitPackageRevision) Lifecycle(ctx context.Context) v1alpha1.PackageRevisionLifecycle {
+func (p *gitPackageRevision) Lifecycle(ctx context.Context) porchapi.PackageRevisionLifecycle {
 	return p.repo.GetLifecycle(ctx, p)
 }
 
-func (p *gitPackageRevision) UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error {
+func (p *gitPackageRevision) UpdateLifecycle(ctx context.Context, new porchapi.PackageRevisionLifecycle) error {
 	ctx, span := tracer.Start(ctx, "gitPackageRevision::UpdateLifecycle", trace.WithAttributes())
 	defer span.End()
 

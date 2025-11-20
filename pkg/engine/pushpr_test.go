@@ -18,7 +18,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	mockrepo "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/repository"
@@ -36,21 +36,21 @@ func TestPushPR(t *testing.T) {
 	mockRepo.EXPECT().Key().Return(repository.RepositoryKey{}).Maybe()
 	mockPR.EXPECT().Key().Return(repository.PackageRevisionKey{}).Maybe()
 
-	mockPR.EXPECT().Lifecycle(mock.Anything).Return(v1alpha1.PackageRevisionLifecycleDraft).Once()
+	mockPR.EXPECT().Lifecycle(mock.Anything).Return(porchapi.PackageRevisionLifecycleDraft).Once()
 	_, err := PushPackageRevision(ctx, mockRepo, mockPR)
 	assert.NotNil(t, err)
 
-	mockPR.EXPECT().Lifecycle(mock.Anything).Return(v1alpha1.PackageRevisionLifecyclePublished).Maybe()
+	mockPR.EXPECT().Lifecycle(mock.Anything).Return(porchapi.PackageRevisionLifecyclePublished).Maybe()
 	mockPR.EXPECT().GetPackageRevision(mock.Anything).Return(nil, err).Once()
 	_, err = PushPackageRevision(ctx, mockRepo, mockPR)
 	assert.NotNil(t, err)
 
-	mockPR.EXPECT().GetPackageRevision(mock.Anything).Return(&v1alpha1.PackageRevision{}, nil).Maybe()
+	mockPR.EXPECT().GetPackageRevision(mock.Anything).Return(&porchapi.PackageRevision{}, nil).Maybe()
 	mockPR.EXPECT().GetResources(mock.Anything).Return(nil, err).Once()
 	_, err = PushPackageRevision(ctx, mockRepo, mockPR)
 	assert.NotNil(t, err)
 
-	mockPR.EXPECT().GetResources(mock.Anything).Return(&v1alpha1.PackageRevisionResources{}, nil).Maybe()
+	mockPR.EXPECT().GetResources(mock.Anything).Return(&porchapi.PackageRevisionResources{}, nil).Maybe()
 	mockRepo.EXPECT().CreatePackageRevisionDraft(mock.Anything, mock.Anything).Return(nil, err).Once()
 	_, err = PushPackageRevision(ctx, mockRepo, mockPR)
 	assert.NotNil(t, err)

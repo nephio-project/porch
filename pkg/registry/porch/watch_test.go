@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -62,7 +62,7 @@ func TestWatcherClose(t *testing.T) {
 			select {
 			case <-ch:
 				pkgRev := &fake.FakePackageRevision{
-					PackageRevision: &v1alpha1.PackageRevision{
+					PackageRevision: &porchapi.PackageRevision{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: make(map[string]string),
 						},

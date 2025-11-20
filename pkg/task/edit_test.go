@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
@@ -46,9 +46,9 @@ func TestEdit(t *testing.T) {
 			Revision:      revision,
 			WorkspaceName: workspace,
 		},
-		PackageLifecycle: v1alpha1.PackageRevisionLifecyclePublished,
-		Resources: &v1alpha1.PackageRevisionResources{
-			Spec: v1alpha1.PackageRevisionResourcesSpec{
+		PackageLifecycle: porchapi.PackageRevisionLifecyclePublished,
+		Resources: &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
 				PackageName:    pkg,
 				Revision:       revision,
 				RepositoryName: repositoryName,
@@ -77,10 +77,10 @@ info:
 	}
 
 	epm := editPackageMutation{
-		task: &v1alpha1.Task{
+		task: &porchapi.Task{
 			Type: "edit",
-			Edit: &v1alpha1.PackageEditTaskSpec{
-				Source: &v1alpha1.PackageRevisionRef{
+			Edit: &porchapi.PackageEditTaskSpec{
+				Source: &porchapi.PackageRevisionRef{
 					Name: packageName,
 				},
 			},

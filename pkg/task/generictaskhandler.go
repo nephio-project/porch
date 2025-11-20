@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"strings"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/builtins"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
@@ -42,7 +42,7 @@ type genericTaskHandler struct {
 	repoOpener                 repository.RepositoryOpener
 	credentialResolver         repository.CredentialResolver
 	referenceResolver          repository.ReferenceResolver
-	cloneStrategy              api.PackageMergeStrategy
+	cloneStrategy              porchapi.PackageMergeStrategy
 	repoOperationRetryAttempts int
 }
 
@@ -74,7 +74,7 @@ func (th *genericTaskHandler) SetRepoOperationRetryAttempts(retryAttempts int) {
 	th.repoOperationRetryAttempts = retryAttempts
 }
 
-func (th *genericTaskHandler) ApplyTask(ctx context.Context, draft repository.PackageRevisionDraft, repositoryObj *configapi.Repository, obj *api.PackageRevision, packageConfig *builtins.PackageConfig) error {
+func (th *genericTaskHandler) ApplyTask(ctx context.Context, draft repository.PackageRevisionDraft, repositoryObj *configapi.Repository, obj *porchapi.PackageRevision, packageConfig *builtins.PackageConfig) error {
 	if len(obj.Spec.Tasks) != 1 {
 		return pkgerrors.New("task list must contain exactly 1 task")
 	}
@@ -101,8 +101,8 @@ func (th *genericTaskHandler) ApplyTask(ctx context.Context, draft repository.Pa
 		return err
 	}
 
-	prr := &api.PackageRevisionResources{
-		Spec: api.PackageRevisionResourcesSpec{
+	prr := &porchapi.PackageRevisionResources{
+		Spec: porchapi.PackageRevisionResourcesSpec{
 			Resources: resources.Contents,
 		},
 	}
@@ -113,13 +113,13 @@ func (th *genericTaskHandler) ApplyTask(ctx context.Context, draft repository.Pa
 func (th *genericTaskHandler) DoPRMutations(
 	ctx context.Context,
 	repoPR repository.PackageRevision,
-	oldObj, newObj *api.PackageRevision,
+	oldObj, newObj *porchapi.PackageRevision,
 	draft repository.PackageRevisionDraft) error {
 	ctx, span := tracer.Start(ctx, "genericTaskHandler::DoPRMutations", trace.WithAttributes())
 	defer span.End()
 
 	// Update package contents only if the package is in draft state
-	if oldObj.Spec.Lifecycle == api.PackageRevisionLifecycleDraft {
+	if oldObj.Spec.Lifecycle == porchapi.PackageRevisionLifecycleDraft {
 		apiResources, err := repoPR.GetResources(ctx)
 		if err != nil {
 			return fmt.Errorf("cannot get package resources: %w", err)
@@ -150,13 +150,13 @@ func (th *genericTaskHandler) DoPRMutations(
 			return renderError(err)
 		}
 
-		prr := &api.PackageRevisionResources{
-			Spec: api.PackageRevisionResourcesSpec{
+		prr := &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
 				Resources: resources.Contents,
 			},
 		}
 
-		return draft.UpdateResources(ctx, prr, &api.Task{Type: api.TaskTypeRender})
+		return draft.UpdateResources(ctx, prr, &porchapi.Task{Type: porchapi.TaskTypeRender})
 	}
 
 	return nil
@@ -166,7 +166,7 @@ func (th *genericTaskHandler) DoPRResourceMutations(
 	ctx context.Context,
 	pr2Update repository.PackageRevision,
 	draft repository.PackageRevisionDraft,
-	oldRes, newRes *api.PackageRevisionResources) (*api.RenderStatus, error) {
+	oldRes, newRes *porchapi.PackageRevisionResources) (*porchapi.RenderStatus, error) {
 	ctx, span := tracer.Start(ctx, "genericTaskHandler::DoPRResourceMutations", trace.WithAttributes())
 	defer span.End()
 
@@ -196,8 +196,8 @@ func (th *genericTaskHandler) DoPRResourceMutations(
 	// and can be amended using the error returned as a reference point to ensure
 	// the package renders properly, before retrying the push.
 	var (
-		renderStatus *api.RenderStatus
-		renderResult *api.TaskResult
+		renderStatus *porchapi.RenderStatus
+		renderResult *porchapi.TaskResult
 	)
 	appliedResources, renderResult, err = th.renderMutation(oldRes.GetNamespace()).apply(ctx, appliedResources)
 	// keep last render result on empty patch
@@ -212,13 +212,13 @@ func (th *genericTaskHandler) DoPRResourceMutations(
 		return renderStatus, renderError(err)
 	}
 
-	prr := &api.PackageRevisionResources{
-		Spec: api.PackageRevisionResourcesSpec{
+	prr := &porchapi.PackageRevisionResources{
+		Spec: porchapi.PackageRevisionResourcesSpec{
 			Resources: appliedResources.Contents,
 		},
 	}
 
-	return renderStatus, draft.UpdateResources(ctx, prr, &api.Task{Type: api.TaskTypeRender})
+	return renderStatus, draft.UpdateResources(ctx, prr, &porchapi.Task{Type: porchapi.TaskTypeRender})
 }
 
 func (th *genericTaskHandler) renderMutation(namespace string) mutation {
@@ -232,9 +232,9 @@ func renderError(err error) error {
 	return pkgerrors.Wrap(err, "Error rendering package in kpt function pipeline. Package NOT pushed to remote. Fix locally (until 'kpt fn render' succeeds) and retry. Details")
 }
 
-func (th *genericTaskHandler) mapTaskToMutation(obj *api.PackageRevision, task *api.Task, isDeployment bool, packageConfig *builtins.PackageConfig) (mutation, error) {
+func (th *genericTaskHandler) mapTaskToMutation(obj *porchapi.PackageRevision, task *porchapi.Task, isDeployment bool, packageConfig *builtins.PackageConfig) (mutation, error) {
 	switch task.Type {
-	case api.TaskTypeInit:
+	case porchapi.TaskTypeInit:
 		if task.Init == nil {
 			return nil, fmt.Errorf("init not set for task of type %q", task.Type)
 		}
@@ -242,7 +242,7 @@ func (th *genericTaskHandler) mapTaskToMutation(obj *api.PackageRevision, task *
 			name: obj.Spec.PackageName,
 			task: task,
 		}, nil
-	case api.TaskTypeClone:
+	case porchapi.TaskTypeClone:
 		if task.Clone == nil {
 			return nil, fmt.Errorf("clone not set for task of type %q", task.Type)
 		}
@@ -258,7 +258,7 @@ func (th *genericTaskHandler) mapTaskToMutation(obj *api.PackageRevision, task *
 			packageConfig:              packageConfig,
 		}, nil
 
-	case api.TaskTypeUpgrade:
+	case porchapi.TaskTypeUpgrade:
 		if task.Upgrade == nil {
 			return nil, fmt.Errorf("upgrade field not set for task of type %q", task.Type)
 		}
@@ -270,7 +270,7 @@ func (th *genericTaskHandler) mapTaskToMutation(obj *api.PackageRevision, task *
 			pkgName:           obj.Spec.PackageName,
 		}, nil
 
-	case api.TaskTypeEdit:
+	case porchapi.TaskTypeEdit:
 		if task.Edit == nil {
 			return nil, fmt.Errorf("edit not set for task of type %q", task.Type)
 		}
@@ -288,7 +288,7 @@ func (th *genericTaskHandler) mapTaskToMutation(obj *api.PackageRevision, task *
 	}
 }
 
-func patchKptfile(ctx context.Context, oldPackage repository.PackageRevision, newObj *api.PackageRevision) (*kptfile.KptFile, error) {
+func patchKptfile(ctx context.Context, oldPackage repository.PackageRevision, newObj *porchapi.PackageRevision) (*kptfile.KptFile, error) {
 	var kf *kptfile.KptFile
 	{
 		k, err := oldPackage.GetKptfile(ctx)
@@ -332,13 +332,13 @@ func patchKptfile(ctx context.Context, oldPackage repository.PackageRevision, ne
 	return kf, nil
 }
 
-func convertStatusToKptfile(s api.ConditionStatus) kptfile.ConditionStatus {
+func convertStatusToKptfile(s porchapi.ConditionStatus) kptfile.ConditionStatus {
 	switch s {
-	case api.ConditionTrue:
+	case porchapi.ConditionTrue:
 		return kptfile.ConditionTrue
-	case api.ConditionFalse:
+	case porchapi.ConditionFalse:
 		return kptfile.ConditionFalse
-	case api.ConditionUnknown:
+	case porchapi.ConditionUnknown:
 		return kptfile.ConditionUnknown
 	default:
 		panic(fmt.Errorf("unknown condition status: %v", s))

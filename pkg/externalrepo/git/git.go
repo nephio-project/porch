@@ -35,7 +35,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/storer"
 	"github.com/go-git/go-git/v5/plumbing/transport"
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/errors"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
@@ -69,19 +69,19 @@ const (
 )
 
 // formatCommitMessage returns a human-readable commit message based on the change type
-func formatCommitMessage(changeType v1alpha1.TaskType) string {
+func formatCommitMessage(changeType porchapi.TaskType) string {
 	switch changeType {
-	case v1alpha1.TaskTypeInit:
+	case porchapi.TaskTypeInit:
 		return commitMessageInit
-	case v1alpha1.TaskTypeRender:
+	case porchapi.TaskTypeRender:
 		return commitMessageRendering
-	case v1alpha1.TaskTypeEdit:
+	case porchapi.TaskTypeEdit:
 		return commitMessageEdit
-	case v1alpha1.TaskTypeClone:
+	case porchapi.TaskTypeClone:
 		return commitMessageClone
-	case v1alpha1.TaskTypeUpgrade:
+	case porchapi.TaskTypeUpgrade:
 		return commitMessageUpgrade
-	case v1alpha1.TaskTypeNone:
+	case porchapi.TaskTypeNone:
 		return "Intermediate commit"
 	default:
 		return fmt.Sprintf("Intermediate commit: %s", changeType)
@@ -333,7 +333,7 @@ func (r *gitRepository) ListPackages(ctx context.Context, filter repository.List
 	return nil, fmt.Errorf("ListPackages not yet supported for git repos")
 }
 
-func (r *gitRepository) CreatePackage(ctx context.Context, obj *v1alpha1.PorchPackage) (repository.Package, error) {
+func (r *gitRepository) CreatePackage(ctx context.Context, obj *porchapi.PorchPackage) (repository.Package, error) {
 	//nolint:staticcheck
 	_, span := tracer.Start(ctx, "gitRepository::CreatePackage", trace.WithAttributes())
 	defer span.End()
@@ -443,7 +443,7 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 	return result, nil
 }
 
-func (r *gitRepository) CreatePackageRevisionDraft(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
+func (r *gitRepository) CreatePackageRevisionDraft(ctx context.Context, obj *porchapi.PackageRevision) (repository.PackageRevisionDraft, error) {
 	_, span := tracer.Start(ctx, "gitRepository::CreatePackageRevision", trace.WithAttributes())
 	defer span.End()
 	r.mutex.Lock()
@@ -479,7 +479,7 @@ func (r *gitRepository) CreatePackageRevisionDraft(ctx context.Context, obj *v1a
 		prKey:     draftKey,
 		repo:      r,
 		metadata:  obj.ObjectMeta,
-		lifecycle: v1alpha1.PackageRevisionLifecycleDraft,
+		lifecycle: porchapi.PackageRevisionLifecycleDraft,
 		updated:   time.Now(),
 		base:      nil, // Creating a new package
 		tasks:     nil, // Creating a new package
@@ -1246,7 +1246,7 @@ func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuild
 	return nil
 }
 
-func (r *gitRepository) loadTasks(_ context.Context, startCommit *object.Commit, key repository.PackageRevisionKey) ([]v1alpha1.Task, error) {
+func (r *gitRepository) loadTasks(_ context.Context, startCommit *object.Commit, key repository.PackageRevisionKey) ([]porchapi.Task, error) {
 
 	var logOptions = git.LogOptions{
 		From:  startCommit.Hash,
@@ -1272,7 +1272,7 @@ func (r *gitRepository) loadTasks(_ context.Context, startCommit *object.Commit,
 		return nil, pkgerrors.Wrap(err, "error walking commits")
 	}
 
-	var tasks []v1alpha1.Task
+	var tasks []porchapi.Task
 
 	done := false
 	visitCommit := func(commit *object.Commit) error {
@@ -1297,11 +1297,11 @@ func (r *gitRepository) loadTasks(_ context.Context, startCommit *object.Commit,
 				// reverse order.
 				// The entire `tasks` slice will get reversed later, which will give us the
 				// tasks in chronological order.
-				if gitAnnotation.Task != nil && v1alpha1.IsValidFirstTaskType(gitAnnotation.Task.Type) {
-					tasks = []v1alpha1.Task{*gitAnnotation.Task}
+				if gitAnnotation.Task != nil && porchapi.IsValidFirstTaskType(gitAnnotation.Task.Type) {
+					tasks = []porchapi.Task{*gitAnnotation.Task}
 				}
 
-				if gitAnnotation.Task != nil && (gitAnnotation.Task.Type == v1alpha1.TaskTypeClone || gitAnnotation.Task.Type == v1alpha1.TaskTypeInit) {
+				if gitAnnotation.Task != nil && (gitAnnotation.Task.Type == porchapi.TaskTypeClone || gitAnnotation.Task.Type == porchapi.TaskTypeInit) {
 					// we have reached the beginning of this package revision and don't need to
 					// continue further
 					done = true
@@ -1404,7 +1404,7 @@ func (r *gitRepository) findLatestPackageCommit(startCommit *object.Commit, key 
 // commitCallback is the function type that needs to be provided to the history iterator functions.
 type commitCallback func(*object.Commit) error
 
-func (r *gitRepository) GetLifecycle(ctx context.Context, pkgRev *gitPackageRevision) v1alpha1.PackageRevisionLifecycle {
+func (r *gitRepository) GetLifecycle(ctx context.Context, pkgRev *gitPackageRevision) porchapi.PackageRevisionLifecycle {
 	_, span := tracer.Start(ctx, "gitRepository::GetLifecycle", trace.WithAttributes())
 	defer span.End()
 	r.mutex.Lock()
@@ -1413,36 +1413,36 @@ func (r *gitRepository) GetLifecycle(ctx context.Context, pkgRev *gitPackageRevi
 	return r.getLifecycle(pkgRev)
 }
 
-func (r *gitRepository) getLifecycle(pkgRev *gitPackageRevision) v1alpha1.PackageRevisionLifecycle {
+func (r *gitRepository) getLifecycle(pkgRev *gitPackageRevision) porchapi.PackageRevisionLifecycle {
 	switch ref := pkgRev.ref; {
 	case ref == nil:
 		return r.checkPublishedLifecycle(pkgRev)
 	case isDraftBranchNameInLocal(ref.Name()):
-		return v1alpha1.PackageRevisionLifecycleDraft
+		return porchapi.PackageRevisionLifecycleDraft
 	case isProposedBranchNameInLocal(ref.Name()):
-		return v1alpha1.PackageRevisionLifecycleProposed
+		return porchapi.PackageRevisionLifecycleProposed
 	default:
 		return r.checkPublishedLifecycle(pkgRev)
 	}
 }
 
-func (r *gitRepository) checkPublishedLifecycle(pkgRev *gitPackageRevision) v1alpha1.PackageRevisionLifecycle {
+func (r *gitRepository) checkPublishedLifecycle(pkgRev *gitPackageRevision) porchapi.PackageRevisionLifecycle {
 	if r.deletionProposedCache == nil {
 		if err := r.updateDeletionProposedCache(); err != nil {
 			klog.Errorf("failed to update deletionProposed cache: %v", err)
-			return v1alpha1.PackageRevisionLifecyclePublished
+			return porchapi.PackageRevisionLifecyclePublished
 		}
 	}
 
 	branchName := createDeletionProposedName(pkgRev.Key())
 	if _, found := r.deletionProposedCache[branchName]; found {
-		return v1alpha1.PackageRevisionLifecycleDeletionProposed
+		return porchapi.PackageRevisionLifecycleDeletionProposed
 	}
 
-	return v1alpha1.PackageRevisionLifecyclePublished
+	return porchapi.PackageRevisionLifecyclePublished
 }
 
-func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageRevision, newLifecycle v1alpha1.PackageRevisionLifecycle) error {
+func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageRevision, newLifecycle porchapi.PackageRevisionLifecycle) error {
 	ctx, span := tracer.Start(ctx, "gitRepository::UpdateLifecycle", trace.WithAttributes())
 	defer span.End()
 
@@ -1450,22 +1450,22 @@ func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageR
 	defer r.mutex.Unlock()
 
 	old := r.getLifecycle(pkgRev)
-	if !v1alpha1.LifecycleIsPublished(old) {
+	if !porchapi.LifecycleIsPublished(old) {
 		return fmt.Errorf("cannot update lifecycle for draft package revision")
 	}
 	refSpecs := newPushRefSpecBuilder()
 	deletionProposedBranch := createDeletionProposedName(pkgRev.Key())
 
-	if old == v1alpha1.PackageRevisionLifecyclePublished {
-		if newLifecycle != v1alpha1.PackageRevisionLifecycleDeletionProposed {
+	if old == porchapi.PackageRevisionLifecyclePublished {
+		if newLifecycle != porchapi.PackageRevisionLifecycleDeletionProposed {
 			return fmt.Errorf("invalid new lifecycle value: %q", newLifecycle)
 		}
 		// Push the package revision into a deletionProposed branch.
 		r.deletionProposedCache[deletionProposedBranch] = true
 		refSpecs.AddRefToPush(pkgRev.commit, deletionProposedBranch.RefInLocal())
 	}
-	if old == v1alpha1.PackageRevisionLifecycleDeletionProposed {
-		if newLifecycle != v1alpha1.PackageRevisionLifecyclePublished {
+	if old == porchapi.PackageRevisionLifecycleDeletionProposed {
+		if newLifecycle != porchapi.PackageRevisionLifecyclePublished {
 			return fmt.Errorf("invalid new lifecycle value: %q", newLifecycle)
 		}
 
@@ -1484,7 +1484,7 @@ func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageR
 	return nil
 }
 
-func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPackageRevisionDraft, new *v1alpha1.PackageRevisionResources, change *v1alpha1.Task) error {
+func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPackageRevisionDraft, new *porchapi.PackageRevisionResources, change *porchapi.Task) error {
 	ctx, span := tracer.Start(ctx, "gitRepository::UpdateResources", trace.WithAttributes())
 	defer span.End()
 	r.mutex.Lock()
@@ -1517,14 +1517,14 @@ func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPack
 		Revision:      repository.Revision2Str(draft.Key().Revision),
 		Task:          change,
 	}
-	message := formatCommitMessage(v1alpha1.TaskTypeNone)
+	message := formatCommitMessage(porchapi.TaskTypeNone)
 	if change != nil {
 		message = formatCommitMessage(change.Type)
-		if v1alpha1.IsValidFirstTaskType(change.Type) {
+		if porchapi.IsValidFirstTaskType(change.Type) {
 			if len(draft.tasks) > 0 {
 				klog.Warningf("Replacing first task of %q", draft.Key())
 			}
-			draft.tasks = []v1alpha1.Task{*change}
+			draft.tasks = []porchapi.Task{*change}
 		}
 	}
 	message += "\n"
@@ -1560,7 +1560,7 @@ func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 	var newRef *plumbing.Reference
 
 	switch d.lifecycle {
-	case v1alpha1.PackageRevisionLifecyclePublished, v1alpha1.PackageRevisionLifecycleDeletionProposed:
+	case porchapi.PackageRevisionLifecyclePublished, porchapi.PackageRevisionLifecycleDeletionProposed:
 
 		if version == 0 {
 			return nil, pkgerrors.New("Version cannot be empty for the next package revision")
@@ -1590,7 +1590,7 @@ func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 		d.tree = newTreeHash
 		newRef = plumbing.NewHashReference(tag, commitHash)
 
-	case v1alpha1.PackageRevisionLifecycleProposed:
+	case porchapi.PackageRevisionLifecycleProposed:
 		// Push the package revision into a proposed branch.
 		refSpecs.AddRefToPush(d.commit, proposedBranch.RefInLocal())
 
@@ -1604,7 +1604,7 @@ func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 		// Update package reference (commit and tree hash stay the same)
 		newRef = plumbing.NewHashReference(proposedBranch.RefInLocal(), d.commit)
 
-	case v1alpha1.PackageRevisionLifecycleDraft:
+	case porchapi.PackageRevisionLifecycleDraft:
 		// Push the package revision into a draft branch.
 		refSpecs.AddRefToPush(d.commit, draftBranch.RefInLocal())
 		// Delete base branch (if one exists and should be deleted)

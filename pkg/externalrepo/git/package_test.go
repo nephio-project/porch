@@ -21,7 +21,7 @@ import (
 
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/google/go-cmp/cmp"
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -68,7 +68,7 @@ func (g GitSuite) TestLock(t *testing.T) {
 	}
 
 	for _, rev := range revisions {
-		if rev.Lifecycle(ctx) != v1alpha1.PackageRevisionLifecyclePublished {
+		if rev.Lifecycle(ctx) != porchapi.PackageRevisionLifecyclePublished {
 			continue
 		}
 

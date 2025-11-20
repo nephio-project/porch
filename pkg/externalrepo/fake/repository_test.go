@@ -18,7 +18,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
 )
@@ -76,7 +76,7 @@ func TestRepositoryFunctions(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(pkgRevs))
 
-	newPRDraft, err := fakeRepo.CreatePackageRevisionDraft(context.TODO(), &v1alpha1.PackageRevision{})
+	newPRDraft, err := fakeRepo.CreatePackageRevisionDraft(context.TODO(), &porchapi.PackageRevision{})
 	assert.Nil(t, err)
 
 	newPR, err := fakeRepo.ClosePackageRevisionDraft(context.TODO(), newPRDraft, 0)
@@ -89,7 +89,7 @@ func TestRepositoryFunctions(t *testing.T) {
 
 	assert.Nil(t, fakeRepo.DeletePackageRevision(context.TODO(), newPR))
 
-	newPkg, err := fakeRepo.CreatePackage(context.TODO(), &v1alpha1.PorchPackage{})
+	newPkg, err := fakeRepo.CreatePackage(context.TODO(), &porchapi.PorchPackage{})
 	assert.Nil(t, err)
 	assert.Nil(t, newPkg)
 

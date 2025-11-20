@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	"github.com/kptdev/kpt/pkg/oci"
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
 )
@@ -30,8 +30,8 @@ func TestCreateUpdateDeletePackageRevision(t *testing.T) {
 
 	ociRepo.spec.Registry = "my-registry"
 
-	apiPr := &v1alpha1.PackageRevision{
-		Spec: v1alpha1.PackageRevisionSpec{
+	apiPr := &porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
 			PackageName:   "my-package-name",
 			WorkspaceName: "my-wprkspace",
 		},
