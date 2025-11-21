@@ -25,6 +25,7 @@ IMAGE_REPO=${IMAGE_REPO:-porch-kind}
 IMAGE_TAG=${IMAGE_TAG:-test}
 
 echo "Loading images to kind cluster..."
+START_TIME=$(date +%s)
 
 if [ "${SKIP_IMG_BUILD}" = "false" ]; then
     # Start parallel builds
@@ -109,4 +110,6 @@ else
     kind load docker-image ${IMAGE_REPO}/${PORCH_CONTROLLERS_IMAGE}:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
 fi
 
-echo "Images loaded to kind cluster."
+END_TIME=$(date +%s)
+TOTAL_TIME=$((END_TIME - START_TIME))
+echo "Images loaded to kind cluster in ${TOTAL_TIME} seconds."
