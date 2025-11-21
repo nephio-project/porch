@@ -42,7 +42,6 @@ import (
 )
 
 const (
-	defaultTestBlueprintsRepo = "https://github.com/platkrm/test-blueprints.git"
 	defaultGCPBlueprintsRepo  = "https://github.com/GoogleCloudPlatform/blueprints.git"
 	defaultGCPBucketRef       = "bucket-blueprint-v0.4.3"
 	defaultGCPRedisBucketRef  = "redis-bucket-blueprint-v0.3.2"
@@ -89,7 +88,6 @@ func (t *TestSuiteWithGit) SetupEnvvars() {
 		t.Logf("Could not load .env file: %v", err)
 	}
 
-	t.testBlueprintsRepo = defaultTestBlueprintsRepo
 	t.gcpBlueprintsRepo = defaultGCPBlueprintsRepo
 	t.gcpBucketRef = defaultGCPBucketRef
 	t.gcpRedisBucketRef = defaultGCPRedisBucketRef
@@ -98,9 +96,6 @@ func (t *TestSuiteWithGit) SetupEnvvars() {
 	t.gcrPrefix = defaultGHCRPrefix
 	t.kptFunctionRef = defaultKptFunctionRef
 
-	if e := os.Getenv(testBlueprintsRepoUrlEnv); e != "" {
-		t.testBlueprintsRepo = e
-	}
 	if e := os.Getenv(gcpBlueprintsRepoUrlEnv); e != "" {
 		t.gcpBlueprintsRepo = e
 	}
@@ -257,18 +252,18 @@ func (t *TestSuite) MustNotHaveLabels(name string, labels []string) {
 	}
 }
 
-func (t *TestSuite) RegisterTestBlueprintRepository(name, directory string, opts ...RepositoryOptions) {
-	t.T().Helper()
+// func (t *TestSuite) RegisterTestBlueprintRepository(name, directory string, opts ...RepositoryOptions) {
+// 	t.T().Helper()
 
-	config := GitConfig{
-		Repo:      t.testBlueprintsRepo,
-		Branch:    "main",
-		Directory: directory,
-		Username:  os.Getenv(testBlueprintsRepoUserEnv),
-		Password:  Password(os.Getenv(testBlueprintsRepoPasswordEnv)),
-	}
-	t.registerGitRepositoryFromConfigF(name, config, opts...)
-}
+// 	config := GitConfig{
+// 		Repo:      t.testBlueprintsRepo,
+// 		Branch:    "main",
+// 		Directory: directory,
+// 		Username:  os.Getenv(testBlueprintsRepoUserEnv),
+// 		Password:  Password(os.Getenv(testBlueprintsRepoPasswordEnv)),
+// 	}
+// 	t.registerGitRepositoryFromConfigF(name, config, opts...)
+// }
 
 func (t *TestSuite) CreateGcpPackageRevisionSecret(name string, opts ...RepositoryOptions) string {
 	username := os.Getenv(gcpBlueprintsRepoUserEnv)
@@ -328,6 +323,9 @@ func (t *TestSuite) registerGitRepositoryFromConfigF(name string, config GitConf
 		t.DeleteE(repo)
 		t.WaitUntilRepositoryDeleted(name, t.Namespace)
 		t.WaitUntilAllPackagesDeleted(name, t.Namespace)
+		if IsPorchTestRepo(config.Repo) {
+			t.RecreateGiteaTestRepo()
+		}
 	})
 
 	// Make sure the repository is ready before we test to (hopefully)
@@ -449,6 +447,7 @@ func (t *TestSuite) MustExist(key client.ObjectKey, obj client.Object) {
 
 func (t *TestSuite) MustNotExist(obj client.Object) {
 	t.T().Helper()
+	t.Logf("Checking non existence of %q...", DebugFormat(obj))
 	switch err := t.Client.Get(t.GetContext(), client.ObjectKeyFromObject(obj), obj); {
 	case err == nil:
 		t.Errorf("No error returned getting a deleted package; expected error")
