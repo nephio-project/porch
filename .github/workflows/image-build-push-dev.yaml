@@ -23,6 +23,7 @@ env:
 
 permissions:
   contents: read
+  packages: write
 
 jobs:
   build-and-push-image:
@@ -40,9 +41,7 @@ jobs:
             image: ${{ github.event_name == 'pull_request' && 'ghcr.io' || 'docker.io' }}/${{ github.event_name == 'pull_request' && github.repository || 'nephio' }}/porch-function-runner
           - dockerfile: ./func/Dockerfile-wrapperserver
             image: ${{ github.event_name == 'pull_request' && 'ghcr.io' || 'docker.io' }}/${{ github.event_name == 'pull_request' && github.repository || 'nephio' }}/porch-wrapper-server
-    permissions:
-      contents: read
-      packages: write
+
 
     steps:
       - name: Harden Runner
