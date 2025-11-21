@@ -42,7 +42,6 @@ import (
 )
 
 const (
-	defaultTestBlueprintsRepo = "https://github.com/platkrm/test-blueprints.git"
 	defaultGCPBlueprintsRepo  = "https://github.com/GoogleCloudPlatform/blueprints.git"
 	defaultGCPBucketRef       = "bucket-blueprint-v0.4.3"
 	defaultGCPRedisBucketRef  = "redis-bucket-blueprint-v0.3.2"
@@ -93,7 +92,6 @@ func (t *TestSuiteWithGit) SetupEnvvars() {
 		t.Logf("Could not load .env file: %v", err)
 	}
 
-	t.TestBlueprintsRepo = defaultTestBlueprintsRepo
 	t.GcpBlueprintsRepo = defaultGCPBlueprintsRepo
 	t.GcpBucketRef = defaultGCPBucketRef
 	t.GcpRedisBucketRef = defaultGCPRedisBucketRef
@@ -328,6 +326,9 @@ func (t *TestSuite) registerGitRepositoryFromConfigF(name string, config GitConf
 		t.DeleteE(repo)
 		t.WaitUntilRepositoryDeleted(name, t.Namespace)
 		t.WaitUntilAllPackagesDeleted(name, t.Namespace)
+		if IsPorchTestRepo(config.Repo) {
+			t.RecreateGiteaTestRepo()
+		}
 	})
 
 	// Make sure the repository is ready before we test to (hopefully)

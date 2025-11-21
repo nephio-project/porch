@@ -90,10 +90,10 @@ type TestSuite struct {
 
 	Clientset porchclient.Interface
 
-	Namespace         string // K8s namespace for this test run
-	TestRunnerIsLocal bool   // Tests running against local dev porch
+	Namespace            string // K8s namespace for this test run
+	TestRunnerIsLocal    bool   // Tests running against local dev porch
+	porchServerInCluster *bool  // Cached result of IsPorchServerInCluster check
 
-	testBlueprintsRepo string
 	gcpBlueprintsRepo  string
 	gcpBucketRef       string
 	gcpRedisBucketRef  string
@@ -199,6 +199,10 @@ func (t *TestSuite) Initialize() {
 }
 
 func (t *TestSuite) IsPorchServerInCluster() bool {
+	if t.porchServerInCluster != nil {
+		return *t.porchServerInCluster
+	}
+
 	porch := aggregatorv1.APIService{}
 	t.GetF(client.ObjectKey{
 		Name: porchapi.SchemeGroupVersion.Version + "." + porchapi.SchemeGroupVersion.Group,
@@ -209,7 +213,9 @@ func (t *TestSuite) IsPorchServerInCluster() bool {
 		Name:      porch.Spec.Service.Name,
 	}, &service)
 
-	return len(service.Spec.Selector) > 0
+	result := len(service.Spec.Selector) > 0
+	t.porchServerInCluster = &result
+	return result
 }
 
 func (t *TestSuite) IsTestRunnerInCluster() bool {

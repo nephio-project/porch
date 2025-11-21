@@ -186,8 +186,9 @@ func (t *PorchSuite) TestGitRepositoryWithReleaseTagsAndDirectory() {
 }
 
 func (t *PorchSuite) TestCloneFromUpstream() {
+	testBlueprintsRepo := t.GetTestBlueprintsRepoURL()
 	// Register Upstream Repository
-	t.RegisterTestBlueprintRepository("test-blueprints", "")
+	t.RegisterGitRepositoryF(testBlueprintsRepo, TestBlueprintsRepoName, "", GiteaUser, GiteaPassword)
 
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
@@ -195,13 +196,13 @@ func (t *PorchSuite) TestCloneFromUpstream() {
 	upstreamPr := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{
 		PkgKey: repository.PackageKey{
 			RepoKey: repository.RepositoryKey{
-				Name: "test-blueprints",
+				Name: TestBlueprintsRepoName,
 			},
 			Package: "basens"},
 		Revision: 1})
 
 	// Register the repository as 'downstream'
-	t.RegisterMainGitRepositoryF("downstream")
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), PorchTestRepoName, "", GiteaUser, GiteaPassword)
 
 	// Create PackageRevision from upstream repo
 	clonedPr := &porchapi.PackageRevision{
@@ -215,7 +216,7 @@ func (t *PorchSuite) TestCloneFromUpstream() {
 		Spec: porchapi.PackageRevisionSpec{
 			PackageName:    "istions",
 			WorkspaceName:  "test-workspace",
-			RepositoryName: "downstream",
+			RepositoryName: PorchTestRepoName,
 			Tasks: []porchapi.Task{
 				{
 					Type: porchapi.TaskTypeClone,
@@ -294,8 +295,8 @@ func (t *PorchSuite) TestConcurrentClones() {
 	)
 
 	// Register Upstream and Downstream Repositories
-	t.RegisterTestBlueprintRepository(upstreamRepository, "")
-	t.RegisterMainGitRepositoryF(downstreamRepository)
+	t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), upstreamRepository, "", GiteaUser, GiteaPassword)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), downstreamRepository, "", GiteaUser, GiteaPassword)
 
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
@@ -482,22 +483,23 @@ func (t *PorchSuite) TestInitTaskPackage() {
 }
 
 func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
-	const downstreamRepository = "deployment"
 	const downstreamPackage = "istions"
 	const downstreamWorkspace = "test-workspace"
 
+	testBlueprintsRepo := t.GetTestBlueprintsRepoURL()
+
 	// Register the deployment repository
-	t.RegisterMainGitRepositoryF(downstreamRepository, RepositoryOptions{RepOpts: WithDeployment()})
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), PorchTestRepoName, "", GiteaUser, GiteaPassword, RepositoryOptions{RepOpts: WithDeployment()})
 
 	// Register the upstream repository
-	t.RegisterTestBlueprintRepository("test-blueprints", "")
+	t.RegisterGitRepositoryF(testBlueprintsRepo, TestBlueprintsRepoName, "", GiteaUser, GiteaPassword)
 
 	var upstreamPackages porchapi.PackageRevisionList
 	t.ListE(&upstreamPackages, client.InNamespace(t.Namespace))
 	upstreamPackage := t.MustFindPackageRevision(&upstreamPackages, repository.PackageRevisionKey{
 		PkgKey: repository.PackageKey{
 			RepoKey: repository.RepositoryKey{
-				Name: "test-blueprints",
+				Name: TestBlueprintsRepoName,
 			},
 			Package: "basens",
 		},
@@ -517,7 +519,7 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 		Spec: porchapi.PackageRevisionSpec{
 			PackageName:    downstreamPackage,
 			WorkspaceName:  downstreamWorkspace,
-			RepositoryName: downstreamRepository,
+			RepositoryName: PorchTestRepoName,
 			Tasks: []porchapi.Task{
 				{
 					Type: porchapi.TaskTypeClone,
@@ -986,7 +988,7 @@ func (t *PorchSuite) TestProposeApprove() {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a new package (via init)
 	pr := &porchapi.PackageRevision{
@@ -1058,7 +1060,7 @@ func (t *PorchSuite) TestConcurrentProposeApprove() {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a new package (via init)
 	pr := t.CreatePackageSkeleton(repository, packageName, workspace)
@@ -1199,7 +1201,7 @@ func (t *PorchSuite) TestDeleteDraft() {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a draft package
 	created := t.CreatePackageDraftF(repository, packageName, workspace)
@@ -1228,7 +1230,7 @@ func (t *PorchSuite) TestConcurrentDeletes() {
 	)
 
 	// Register the repository and create a draft package
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 	created := t.CreatePackageDraftF(repository, packageName, workspace)
 
 	// Check the package exists
@@ -1273,7 +1275,7 @@ func (t *PorchSuite) TestDeleteProposed() {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a draft package
 	created := t.CreatePackageDraftF(repository, packageName, workspace)
@@ -1305,7 +1307,7 @@ func (t *PorchSuite) TestDeleteFinal() {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a draft package
 	created := t.CreatePackageDraftF(repository, packageName, workspace)
@@ -1621,7 +1623,7 @@ func (t *PorchSuite) TestCloneLeadingSlash() {
 		workspace   = "workspace"
 	)
 
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Clone the package. Use leading slash in the directory (regression test)
 	new := &porchapi.PackageRevision{
@@ -1669,16 +1671,16 @@ func (t *PorchSuite) TestPackageUpgrade() {
 		gitRepository = "package-upgrade"
 	)
 
-	t.RegisterTestBlueprintRepository("test-blueprints", "")
+	t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), TestBlueprintsRepoName, "", GiteaUser, GiteaPassword)
+	
+	// Register the repository as 'downstream'
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), gitRepository, "", GiteaUser, GiteaPassword)
 
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
 
 	basensV1 := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "test-blueprints"}, Package: "basens"}, Revision: 1})
 	basensV2 := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "test-blueprints"}, Package: "basens"}, Revision: 2})
-
-	// Register the repository as 'downstream'
-	t.RegisterMainGitRepositoryF(gitRepository)
 
 	// Create PackageRevision from upstream repo
 	pr := &porchapi.PackageRevision{
@@ -1768,7 +1770,8 @@ func (t *PorchSuite) TestConcurrentPackageUpdates() {
 		workspace     = "test-workspace"
 	)
 
-	t.RegisterTestBlueprintRepository("test-blueprints", "")
+	// Register the upstream repository
+	t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), TestBlueprintsRepoName, "", GiteaUser, GiteaPassword)
 
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
@@ -2685,7 +2688,8 @@ func (t *PorchSuite) TestRegisteredPackageRevisionLabels() {
 		annoVal  = "foo"
 	)
 
-	t.RegisterTestBlueprintRepository("test-blueprints", "")
+	// Register the upstream repository
+	t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), TestBlueprintsRepoName, "", GiteaUser, GiteaPassword)
 
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
@@ -2961,8 +2965,8 @@ func (t *PorchSuite) TestPackageRevisionFinalizers() {
 func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces() {
 
 	registerRepoAndTestRevisions := func(repoName string, ns string, oldPRs []porchapi.PackageRevision) []porchapi.PackageRevision {
-
-		t.RegisterTestBlueprintRepository(repoName, "", RepositoryOptions{RepOpts: InNamespace(ns), SecOpts: SecretInNamespace(ns)})
+		t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), repoName, "", GiteaUser, GiteaPassword, 
+			RepositoryOptions{RepOpts: InNamespace(ns), SecOpts: SecretInNamespace(ns)})
 		prList := porchapi.PackageRevisionList{}
 		t.ListF(&prList, client.InNamespace(ns))
 		newPRs := prList.Items
@@ -3034,8 +3038,10 @@ func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces() {
 
 func (t *PorchSuite) TestUniquenessOfUIDs() {
 
-	t.RegisterTestBlueprintRepository("test-blueprints", "")
-	t.RegisterTestBlueprintRepository("test-2-blueprints", "")
+	// Register the upstream repository1
+	t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), TestBlueprintsRepoName, "", GiteaUser, GiteaPassword)
+	// Register the upstream repository2
+	t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), "test-2-blueprints", "", GiteaUser, GiteaPassword)
 
 	prList := porchapi.PackageRevisionList{}
 	t.ListE(&prList, client.InNamespace(t.Namespace))
@@ -3051,8 +3057,7 @@ func (t *PorchSuite) TestUniquenessOfUIDs() {
 }
 
 func (t *PorchSuite) TestPackageRevisionFieldSelectors() {
-	repo := "test-blueprints"
-	t.RegisterTestBlueprintRepository(repo, "")
+	t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), TestBlueprintsRepoName, "", GiteaUser, GiteaPassword)
 
 	prList := porchapi.PackageRevisionList{}
 
