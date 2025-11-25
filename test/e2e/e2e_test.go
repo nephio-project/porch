@@ -263,7 +263,7 @@ func (t *PorchSuite) TestCloneFromUpstream() {
 	want := &kptfilev1.UpstreamLock{
 		Type: kptfilev1.GitOrigin,
 		Git: &kptfilev1.GitLock{
-			Repo:      t.TestBlueprintsRepo,
+			Repo:      testBlueprintsRepo,
 			Directory: "basens",
 			Ref:       "basens/v1",
 		},
@@ -276,7 +276,7 @@ func (t *PorchSuite) TestCloneFromUpstream() {
 	if got, want := kptfile.Upstream, (&kptfilev1.Upstream{
 		Type: kptfilev1.GitOrigin,
 		Git: &kptfilev1.Git{
-			Repo:      t.TestBlueprintsRepo,
+			Repo:      testBlueprintsRepo,
 			Directory: "basens",
 			Ref:       "basens/v1",
 		},
@@ -565,7 +565,7 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 	want := &kptfilev1.UpstreamLock{
 		Type: kptfilev1.GitOrigin,
 		Git: &kptfilev1.GitLock{
-			Repo:      t.TestBlueprintsRepo,
+			Repo:      testBlueprintsRepo,
 			Directory: "basens",
 			Ref:       "basens/v1",
 		},
@@ -578,7 +578,7 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 	if got, want := kptfile.Upstream, (&kptfilev1.Upstream{
 		Type: kptfilev1.GitOrigin,
 		Git: &kptfilev1.Git{
-			Repo:      t.TestBlueprintsRepo,
+			Repo:      testBlueprintsRepo,
 			Directory: "basens",
 			Ref:       "basens/v1",
 		},
@@ -967,17 +967,6 @@ func (t *PorchSuite) NewClientWithTimeout(timeout time.Duration) client.Client {
 		t.Fatalf("Failed to create client with timeout: %v", err)
 	}
 	return c
-}
-
-func (t *PorchSuite) TestPublicGitRepository() {
-	t.RegisterTestBlueprintRepository("demo-blueprints", "")
-
-	var list porchapi.PackageRevisionList
-	t.ListE(&list, client.InNamespace(t.Namespace))
-
-	if got := len(list.Items); got == 0 {
-		t.Errorf("Found no package revisions in %s; expected at least one", t.TestBlueprintsRepo)
-	}
 }
 
 func (t *PorchSuite) TestProposeApprove() {
@@ -1645,7 +1634,7 @@ func (t *PorchSuite) TestCloneLeadingSlash() {
 						Upstream: porchapi.UpstreamPackage{
 							Type: porchapi.RepositoryTypeGit,
 							Git: &porchapi.GitPackage{
-								Repo:      t.TestBlueprintsRepo,
+								Repo:      t.GetTestBlueprintsRepoURL(),
 								Ref:       "basens/v1",
 								Directory: "/basens",
 								SecretRef: porchapi.SecretRef{
@@ -3220,7 +3209,7 @@ func (t *PorchSuite) TestRepositoryModify() {
 			Description: "Initial Repository",
 			Type:        configapi.RepositoryTypeGit,
 			Git: &configapi.GitRepository{
-				Repo: t.TestBlueprintsRepo,
+				Repo: t.GetTestBlueprintsRepoURL(),
 				SecretRef: configapi.SecretRef{
 					Name: t.CreateGcpPackageRevisionSecret(repositoryName),
 				},

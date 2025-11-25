@@ -71,7 +71,6 @@ type TestSuiteWithGit struct {
 	gitConfig GitConfig
 
 	// Exported fields for external package access
-	TestBlueprintsRepo string
 	GcpBlueprintsRepo  string
 	GcpBucketRef       string
 	GcpRedisBucketRef  string
@@ -99,9 +98,6 @@ func (t *TestSuiteWithGit) SetupEnvvars() {
 	t.GcrPrefix = defaultGHCRPrefix
 	t.KptFunctionRef = defaultKptFunctionRef
 
-	if e := os.Getenv(testBlueprintsRepoUrlEnv); e != "" {
-		t.TestBlueprintsRepo = e
-	}
 	if e := os.Getenv(gcpBlueprintsRepoUrlEnv); e != "" {
 		t.GcpBlueprintsRepo = e
 	}
@@ -253,19 +249,6 @@ func (t *TestSuite) MustNotHaveLabels(name string, labels []string) {
 			t.Errorf("Expected PR %s not to have label %s, but found it", pr.Name, label)
 		}
 	}
-}
-
-func (t *TestSuiteWithGit) RegisterTestBlueprintRepository(name, directory string, opts ...RepositoryOptions) {
-	t.T().Helper()
-
-	config := GitConfig{
-		Repo:      t.TestBlueprintsRepo,
-		Branch:    "main",
-		Directory: directory,
-		Username:  os.Getenv(testBlueprintsRepoUserEnv),
-		Password:  Password(os.Getenv(testBlueprintsRepoPasswordEnv)),
-	}
-	t.registerGitRepositoryFromConfigF(name, config, opts...)
 }
 
 func (t *TestSuite) CreateGcpPackageRevisionSecret(name string, opts ...RepositoryOptions) string {
