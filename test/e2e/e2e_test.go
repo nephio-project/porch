@@ -3497,7 +3497,7 @@ func (t *PorchSuite) TestPackageRevisionListWithTwoHangingRepositories() {
 			Description: "Working Git repository",
 			Type:        configapi.RepositoryTypeGit,
 			Git: &configapi.GitRepository{
-				Repo: t.GitConfig("working-repo").Repo,
+				Repo: t.GetPorchTestRepoURL(),
 			},
 		},
 	}
