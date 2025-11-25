@@ -82,7 +82,7 @@ type TestSuiteWithGit struct {
 func (t *TestSuiteWithGit) SetupSuite() {
 	t.SetupEnvvars()
 	t.TestSuite.SetupSuite()
-	t.gitConfig = t.CreateGitRepo()
+	//t.gitConfig = t.CreateGitRepo()
 }
 
 func (t *TestSuiteWithGit) SetupEnvvars() {

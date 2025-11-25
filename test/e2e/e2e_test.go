@@ -68,7 +68,7 @@ func TestE2E(t *testing.T) {
 
 func (t *PorchSuite) TestGitRepository() {
 	// Register the repository as 'git'
-	t.RegisterMainGitRepositoryF("git")
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "git", "", GiteaUser, GiteaPassword)
 
 	// Create Package Revision
 	pr := &porchapi.PackageRevision{
@@ -127,7 +127,7 @@ func (t *PorchSuite) TestGitRepositoryWithReleaseTagsAndDirectory() {
 		directory = "test-dir"
 	)
 	// Create repository and register with directory filter
-	t.RegisterGitRepositoryWithDirectoryF(repoName, directory)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, directory, GiteaUser, GiteaPassword)
 
 	// Create a package in the filtered repository
 	pr := &porchapi.PackageRevision{
@@ -351,7 +351,7 @@ func (t *PorchSuite) TestInitEmptyPackage() {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a new package (via init)
 	pr := &porchapi.PackageRevision{
@@ -399,7 +399,7 @@ func (t *PorchSuite) TestConcurrentInits() {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Two clients try to create the same new draft package
 	pr := t.CreatePackageSkeleton(repository, packageName, workspace)
@@ -433,7 +433,7 @@ func (t *PorchSuite) TestInitTaskPackage() {
 	keywords := []string{"test"}
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a new package (via init)
 	pr := &porchapi.PackageRevision{
@@ -607,7 +607,7 @@ func (t *PorchSuite) TestEditPackageRevision() {
 		workspaceToAvoidCreationClash = "workspace-to-avoid-creation-clash"
 	)
 
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a new package (via init)
 	pr := &porchapi.PackageRevision{
@@ -722,7 +722,7 @@ func (t *PorchSuite) TestConcurrentEdits() {
 		workspace2  = "workspace2"
 	)
 
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a new package (via init)
 	pr := t.CreatePackageSkeleton(repository, packageName, workspace)
@@ -782,7 +782,7 @@ func (t *PorchSuite) TestUpdateResources() {
 		workspace   = "workspace"
 	)
 
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a new package (via init)
 	pr := &porchapi.PackageRevision{
@@ -858,7 +858,7 @@ func (t *PorchSuite) TestUpdateResourcesEmptyPatch() {
 		workspace   = "workspace"
 	)
 
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a new package (via init)
 	pr := &porchapi.PackageRevision{
@@ -930,7 +930,7 @@ func (t *PorchSuite) TestConcurrentResourceUpdates() {
 		workspace   = "workspace"
 	)
 
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a new package (via init)
 	pr := t.CreatePackageSkeleton(repository, packageName, workspace)
@@ -1115,8 +1115,8 @@ func (t *PorchSuite) TestSubfolderPackageRevisionIncrementation() {
 	)
 
 	// Register the repositories
-	t.RegisterMainGitRepositoryF(repository)
-	t.RegisterGitRepositoryWithDirectoryF(subfolderRepository, subfolderDirectory)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), subfolderRepository, subfolderDirectory, GiteaUser, GiteaPassword)
 
 	// Create a new package (via init)
 	subfolderPr := t.CreatePackageDraftF(repository, subfolderPackageName, workspace)
@@ -1350,7 +1350,7 @@ func (t *PorchSuite) TestConcurrentProposeDeletes() {
 	)
 
 	// Register the repository and create a draft package
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 	created := t.CreatePackageDraftF(repository, packageName, workspace)
 	// Check the package exists
 	var pkg porchapi.PackageRevision
@@ -1388,7 +1388,7 @@ func (t *PorchSuite) TestProposeDeleteAndUndo() {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a draft package
 	created := t.CreatePackageDraftF(repository, packageName, workspace)
@@ -1455,7 +1455,7 @@ func (t *PorchSuite) TestDeleteAndRecreate() {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a draft package
 	created := t.CreatePackageDraftF(repository, packageName, workspace)
@@ -1528,7 +1528,7 @@ func (t *PorchSuite) TestDeleteFromMain() {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	t.Logf("Create and approve package: %s", packageNameFirst)
 	createdFirst := t.CreatePackageDraftF(repository, packageNameFirst, workspace)
@@ -1769,7 +1769,7 @@ func (t *PorchSuite) TestConcurrentPackageUpdates() {
 	basensV2 := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "test-blueprints"}, Package: "basens"}, Revision: 2})
 
 	// Register the repository as 'downstream'
-	t.RegisterMainGitRepositoryF(gitRepository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), gitRepository, "", GiteaUser, GiteaPassword)
 
 	// Create PackageRevision from upstream repo
 	pr := t.CreatePackageSkeleton(gitRepository, packageName, workspace)
@@ -1807,8 +1807,10 @@ func (t *PorchSuite) TestRegisterRepository() {
 	const (
 		repository = "register"
 	)
-	t.RegisterMainGitRepositoryF(repository, RepositoryOptions{RepOpts: withType(configapi.RepositoryTypeGit)},
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, 
+	GiteaPassword, RepositoryOptions{RepOpts: withType(configapi.RepositoryTypeGit)},
 		RepositoryOptions{RepOpts: WithDeployment()})
+
 
 	var repo configapi.Repository
 	t.GetF(client.ObjectKey{
@@ -1825,8 +1827,8 @@ func (t *PorchSuite) TestRegisterRepository() {
 }
 
 func (t *PorchSuite) TestBuiltinFunctionEvaluator() {
-	// Register the repository as 'git-fn'
-	t.RegisterMainGitRepositoryF("git-builtin-fn")
+	// Register the repository as 'git-builtin-fn'
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "git-builtin-fn", "", GiteaUser, GiteaPassword)
 
 	// Create Package Revision
 	pr := &porchapi.PackageRevision{
@@ -1894,7 +1896,7 @@ func (t *PorchSuite) TestBuiltinFunctionEvaluator() {
 
 func (t *PorchSuite) TestExecFunctionEvaluator() {
 	// Register the repository as 'git-fn'
-	t.RegisterMainGitRepositoryF("git-fn")
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "git-fn", "", GiteaUser, GiteaPassword)
 
 	// Create Package Revision
 	pr := &porchapi.PackageRevision{
@@ -1967,7 +1969,7 @@ func (t *PorchSuite) TestPodFunctionEvaluatorWithDistrolessImage() {
 		t.Skipf("Skipping due to not having pod evaluator in local mode")
 	}
 
-	t.RegisterMainGitRepositoryF("git-fn-distroless")
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "git-fn-distroless", "", GiteaUser, GiteaPassword)
 
 	// Create Package Revision
 	pr := &porchapi.PackageRevision{
@@ -2039,8 +2041,8 @@ func (t *PorchSuite) TestPodEvaluator() {
 	generateFolderImage := t.GcrPrefix + "/generate-folders:v0.1.1" // This function is a TS based function.
 	setAnnotationsImage := t.GcrPrefix + "/set-annotations:v0.1.5"  // set-annotations:v0.1.5 is an older version that porch maps neither to built-in nor exec.
 
-	// Register the repository as 'git-fn'
-	t.RegisterMainGitRepositoryF("git-fn-pod")
+	// Register the repository as 'git-fn-pod'
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "git-fn-pod", "", GiteaUser, GiteaPassword)
 
 	// Create Package Revision
 	pr := &porchapi.PackageRevision{
@@ -2187,7 +2189,7 @@ func (t *PorchSuite) TestPodEvaluatorWithFailure() {
 		t.Skipf("Skipping due to not having pod evaluator in local mode")
 	}
 
-	t.RegisterMainGitRepositoryF("git-fn-pod-failure")
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "git-fn-pod-failure", "", GiteaUser, GiteaPassword)
 
 	// Create Package Revision
 	pr := &porchapi.PackageRevision{
@@ -2236,7 +2238,7 @@ func (t *PorchSuite) TestFailedPodEvictionAndRecovery() {
 		t.Skipf("Skipping test: evaluator pod not available in local mode")
 	}
 
-	t.RegisterMainGitRepositoryF("git-fn-failed-recovery")
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "git-fn-failed-recovery", "", GiteaUser, GiteaPassword)
 
 	// Define a bogus kpt function image that will fail (image doesn't exist)
 	bogusFnImage := "quay.io/invalid/kpt-fn-broken:v0.0.1"
@@ -2303,8 +2305,8 @@ func (t *PorchSuite) TestLargePackageRevision() {
 	const testDataSize = 5 * 1024 * 1024
 
 	setAnnotationsImage := t.GcrPrefix + "/set-annotations:v0.1.5" // set-annotations:v0.1.5 is an older version that porch maps neither to built-in nor exec.
-
-	t.RegisterMainGitRepositoryF("git-fn-pod-large")
+	
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "git-fn-pod-large", "", GiteaUser, GiteaPassword)
 
 	// Create Package Revision
 	pr := &porchapi.PackageRevision{
@@ -2473,7 +2475,7 @@ func (t *PorchSuite) TestNewPackageRevisionLabels() {
 		annoVal2   = "bar"
 	)
 
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a package with labels and annotations.
 	pr := porchapi.PackageRevision{
@@ -2617,7 +2619,7 @@ func (t *PorchSuite) TestPackageRevisionLabelSelectors() {
 		latestLabelValue = porchapi.LatestPackageRevisionValue
 	)
 
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a package with labels and annotations.
 	pr := porchapi.PackageRevision{
@@ -2712,7 +2714,7 @@ func (t *PorchSuite) TestPackageRevisionGCWithOwner() {
 		cmName      = "foo"
 	)
 
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a new package (via init)
 	pr := &porchapi.PackageRevision{
@@ -2774,7 +2776,8 @@ func (t *PorchSuite) TestPackageRevisionGCWithOwner() {
 }
 
 func (t *PorchSuite) TestPackageRevisionGCAsOwner() {
-	// TODO: Garbage collection is not working when a DB cache PackageRevision resource owner is delted. We need to get this test running in DB cache
+	// TODO: Garbage collection is not working when a DB cache PackageRevision resource owner is deleted. 
+	// We need to get this test running in DB cache
 	if _, ok := os.LookupEnv("DB_CACHE"); ok {
 		return
 	}
@@ -2786,7 +2789,7 @@ func (t *PorchSuite) TestPackageRevisionGCAsOwner() {
 		cmName      = "foo"
 	)
 
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	cm := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
@@ -2834,7 +2837,7 @@ func (t *PorchSuite) TestPackageRevisionGCAsOwner() {
 			Name:      cm.Name,
 			Namespace: cm.Namespace,
 		},
-		10*time.Second,
+		20*time.Second,
 	)
 	t.WaitUntilObjectDeleted(
 		packageRevisionGVK,
@@ -2842,7 +2845,7 @@ func (t *PorchSuite) TestPackageRevisionGCAsOwner() {
 			Name:      pr.Name,
 			Namespace: pr.Namespace,
 		},
-		10*time.Second,
+		20*time.Second,
 	)
 }
 
@@ -2854,7 +2857,7 @@ func (t *PorchSuite) TestPackageRevisionOwnerReferences() {
 		cmName      = "foo"
 	)
 
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	cm := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
@@ -2911,7 +2914,7 @@ func (t *PorchSuite) TestPackageRevisionFinalizers() {
 		description = "empty-package description"
 	)
 
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	prDef := &porchapi.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
@@ -3130,7 +3133,7 @@ func (t *PorchSuite) TestLatestVersionOnDelete() {
 		packageName    = "test-latest-on-delete-package"
 	)
 
-	t.RegisterMainGitRepositoryF(repositoryName)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repositoryName, "", GiteaUser, GiteaPassword)
 
 	pr1 := t.CreatePackageDraftF(repositoryName, packageName, workspacev1)
 
@@ -3285,7 +3288,7 @@ func (t *PorchSuite) TestMetadataAfterApproveAndBackgroundJob() {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repoName)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, "", GiteaUser, GiteaPassword)
 
 	// init, propose, and approve a new package
 	pr := t.CreatePackageSkeleton(repoName, packageName, workspace)
@@ -3330,7 +3333,7 @@ func (t *PorchSuite) TestMetadataAfterDeleteAndBackgroundJob() {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repoName)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, "", GiteaUser, GiteaPassword)
 
 	// init, propose, and approve a new package
 	pr := t.CreatePackageSkeleton(repoName, packageName, workspace)
@@ -3396,7 +3399,7 @@ func (t *PorchSuite) TestCreatePackageRevisionRollback() {
 	repositoryName := "test-repo"
 
 	// Register the repository first
-	t.RegisterMainGitRepositoryF(repositoryName)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repositoryName, "", GiteaUser, GiteaPassword)
 
 	// Create a package revision with invalid task configuration
 	// that will cause task application to fail

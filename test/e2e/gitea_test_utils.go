@@ -20,11 +20,6 @@ import (
 	"strings"
 )
 
-// IsPorchTestRepo checks if a repository URL is specifically the porch-test repository
-func IsPorchTestRepo(repo string) bool {
-	return strings.Contains(repo, "porch-test")
-}
-
 const (
 	GiteaClusterURL        = "http://gitea.gitea.svc.cluster.local:3000/nephio/"
 	GiteaUser              = "nephio"
@@ -50,6 +45,11 @@ func (t *TestSuite) GetPorchTestRepoURL() string {
 // GetTestBlueprintsRepoURL returns the dynamic TestBlueprintsRepo URL
 func (t *TestSuite) GetTestBlueprintsRepoURL() string {
 	return t.getGiteaURL() + TestBlueprintsRepoName + ".git"
+}
+
+// IsPorchTestRepo checks if a repository URL is specifically the porch-test repository
+func IsPorchTestRepo(repo string) bool {
+	return strings.Contains(repo, "porch-test")
 }
 
 // RecreateGiteaTestRepo recreates the porch-test repository to its initial state
