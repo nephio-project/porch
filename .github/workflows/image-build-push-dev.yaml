@@ -15,13 +15,8 @@ on:
       - "docs/**"
       - "release/**"
       - "OWNERS"
-  workflow_dispatch:
-    inputs:
-      force_rebuild:
-        description: 'Force rebuild without cache'
-        required: false
-        default: false
-        type: boolean
+  issue_comment:
+    types: [created]
 
 env:
   REGISTRY: ${{ github.event_name == 'pull_request' && 'ghcr.io' || 'docker.io' }}
@@ -33,7 +28,11 @@ permissions:
 
 jobs:
   build-and-push-image:
-    if: github.repository_owner == 'nephio-project'
+    if: |
+      github.repository_owner == 'nephio-project' && (
+        github.event_name != 'issue_comment' ||
+        (github.event.issue.pull_request && contains(github.event.comment.body, '/rebuild'))
+      )
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -87,5 +86,5 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          no-cache: ${{ inputs.force_rebuild || false }}
+          no-cache: ${{ contains(github.event.comment.body, '/rebuild --no-cache') }}
           sbom: true
