@@ -1049,8 +1049,6 @@ func (r *gitRepository) getAuthMethod(ctx context.Context, forceRefresh bool) (t
 }
 
 func (r *gitRepository) GetRepo() (string, error) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
 
 	origin, err := r.repo.Remote("origin")
 	if err != nil {

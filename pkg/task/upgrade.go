@@ -87,7 +87,7 @@ func (m *upgradePackageMutation) apply(ctx context.Context, _ repository.Package
 		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error updating the package %q to revision %q", m.pkgName, targetUpstreamRef.Name)
 	}
 
-	newUpstream, newUpstreamLock, err := targetUpstreamRevision.GetLock()
+	newUpstream, newUpstreamLock, err := targetUpstreamRevision.GetLock(ctx)
 	if err != nil {
 		return repository.PackageResources{}, nil, pkgerrors.Wrapf(err, "error fetching the resources for package revision %q", targetUpstreamRef.Name)
 	}

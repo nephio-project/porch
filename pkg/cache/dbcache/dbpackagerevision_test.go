@@ -104,7 +104,7 @@ func (t *DbTestSuite) TestDBPackageRevision() {
 	t.Require().Nil(newPrUp.Git)
 	t.Require().Nil(newPrUpLock.Git)
 
-	newPrUp, newPrUpLock, err = dbPR.GetLock()
+	newPrUp, newPrUpLock, err = dbPR.GetLock(ctx)
 	t.Require().NoError(err)
 	t.Require().NotNil(newPrUp.Git)
 	t.Require().NotNil(newPrUpLock.Git)

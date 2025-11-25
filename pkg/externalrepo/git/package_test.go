@@ -72,7 +72,7 @@ func (g GitSuite) TestLock(t *testing.T) {
 			continue
 		}
 
-		upstream, lock, err := rev.GetLock()
+		upstream, lock, err := rev.GetLock(ctx)
 		if err != nil {
 			t.Errorf("GetUpstreamLock(%q) failed: %v", rev.Key(), err)
 		}

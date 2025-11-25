@@ -500,7 +500,7 @@ func (f *fakePackageRevision) GetUpstreamLock(context.Context) (kptfilev1.Upstre
 func (f *fakePackageRevision) GetKptfile(context.Context) (kptfilev1.KptFile, error) {
 	return kptfilev1.KptFile{}, nil
 }
-func (f *fakePackageRevision) GetLock() (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
+func (f *fakePackageRevision) GetLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
 	return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil
 }
 func (f *fakePackageRevision) ToMainPackageRevision(context.Context) PackageRevision {

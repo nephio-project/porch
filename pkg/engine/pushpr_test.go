@@ -71,11 +71,11 @@ func TestPushPR(t *testing.T) {
 	assert.NotNil(t, err)
 
 	mockRepo.EXPECT().ClosePackageRevisionDraft(mock.Anything, mock.Anything, mock.Anything).Return(mockPR, nil).Maybe()
-	mockPR.EXPECT().GetLock().Return(v1.Upstream{}, v1.UpstreamLock{}, err).Once()
+	mockPR.EXPECT().GetLock(mock.Anything).Return(v1.Upstream{}, v1.UpstreamLock{}, err).Once()
 	_, err = PushPackageRevision(ctx, mockRepo, mockPR)
 	assert.NotNil(t, err)
 
-	mockPR.EXPECT().GetLock().Return(v1.Upstream{}, v1.UpstreamLock{}, nil).Maybe()
+	mockPR.EXPECT().GetLock(mock.Anything).Return(v1.Upstream{}, v1.UpstreamLock{}, nil).Maybe()
 	_, err = PushPackageRevision(ctx, mockRepo, mockPR)
 	assert.Nil(t, err)
 }

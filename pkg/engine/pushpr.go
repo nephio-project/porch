@@ -68,7 +68,7 @@ func PushPackageRevision(ctx context.Context, repo repository.Repository, pr rep
 		return v1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not close package revision draft:", pr.Key(), repo.Key())
 	}
 
-	_, pushedPRUpstreamLock, err := pushedPR.GetLock()
+	_, pushedPRUpstreamLock, err := pushedPR.GetLock(ctx)
 	if err != nil {
 		return v1.UpstreamLock{}, pkgerrors.Wrapf(err, "read of upstream lock for package revision %+v pushed to repository %+v failed", pr.Key(), repo.Key())
 	}

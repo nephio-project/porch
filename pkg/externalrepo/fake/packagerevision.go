@@ -98,7 +98,7 @@ func (fpr *FakePackageRevision) GetUpstreamLock(context.Context) (kptfile.Upstre
 	return *fpr.Kptfile.Upstream, *fpr.Kptfile.UpstreamLock, fpr.Err
 }
 
-func (fpr *FakePackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, error) {
+func (fpr *FakePackageRevision) GetLock(ctx context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error) {
 	fpr.Ops = append(fpr.Ops, "GetLock")
 	return *fpr.Kptfile.Upstream, *fpr.Kptfile.UpstreamLock, fpr.Err
 }

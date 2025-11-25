@@ -228,7 +228,7 @@ func (s *repositorySync) cacheExternalPRs(ctx context.Context, externalPrMap map
 			extAPIPR.CreationTimestamp.Time = time.Now()
 		}
 
-		_, extPRUpstreamLock, _ := extPR.GetLock()
+		_, extPRUpstreamLock, _ := extPR.GetLock(ctx)
 
 		dbPR := dbPackageRevision{
 			repo:      s.repo,

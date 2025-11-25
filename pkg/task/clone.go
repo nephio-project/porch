@@ -123,7 +123,7 @@ func (m *clonePackageMutation) cloneFromRegisteredRepository(ctx context.Context
 		return repository.PackageResources{}, fmt.Errorf("cannot read contents of package %q: %w", ref.Name, err)
 	}
 
-	upstream, lock, err := upstreamRevision.GetLock()
+	upstream, lock, err := upstreamRevision.GetLock(ctx)
 	if err != nil {
 		return repository.PackageResources{}, fmt.Errorf("cannot determine upstream lock for package %q: %w", ref.Name, err)
 	}
