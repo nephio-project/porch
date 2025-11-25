@@ -87,5 +87,5 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          no-cache: ${{ github.event.inputs.force_rebuild == 'true' }}
+          no-cache: ${{ inputs.force_rebuild }}
           sbom: true
