@@ -3483,33 +3483,13 @@ func (t *PorchSuite) TestPackageRevisionListWithTwoHangingRepositories() {
 	}
 	wg.Wait()
 
-	// Create working repository
-	workingRepo := &configapi.Repository{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       configapi.TypeRepository.Kind,
-			APIVersion: configapi.TypeRepository.APIVersion(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      workingRepoName,
-			Namespace: t.Namespace,
-		},
-		Spec: configapi.RepositorySpec{
-			Description: "Working Git repository",
-			Type:        configapi.RepositoryTypeGit,
-			Git: &configapi.GitRepository{
-				Repo: t.GetPorchTestRepoURL(),
-			},
-		},
-	}
-	t.CreateF(workingRepo)
-	t.Cleanup(func() {
-		t.DeleteF(workingRepo)
-	})
+	// Register the repository first
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), workingRepoName, "", GiteaUser, GiteaPassword)
 
 	// Create a PackageRevision in the working repo
 	pr := &porchapi.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
+			Kind:       packageRevisionGVK.Kind,
 			APIVersion: porchapi.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
