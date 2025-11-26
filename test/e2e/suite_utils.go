@@ -51,10 +51,6 @@ const (
 
 	// Optional environment variables which can be set to replace defaults when running e2e tests behind a proxy or firewall.
 	// Environment variables can be loaded from a .env file - refer to .env.template
-	testBlueprintsRepoUrlEnv      = "PORCH_TEST_BLUEPRINTS_REPO_URL"
-	testBlueprintsRepoUserEnv     = "PORCH_TEST_BLUEPRINTS_REPO_USER"
-	testBlueprintsRepoPasswordEnv = "PORCH_TEST_BLUEPRINTS_REPO_PASSWORD"
-
 	gcpBlueprintsRepoUrlEnv      = "PORCH_GCP_BLUEPRINTS_REPO_URL"
 	gcpBlueprintsRepoUserEnv     = "PORCH_GCP_BLUEPRINTS_REPO_USER"
 	gcpBlueprintsRepoPasswordEnv = "PORCH_GCP_BLUEPRINTS_REPO_PASSWORD"
@@ -69,6 +65,7 @@ const (
 type TestSuiteWithGit struct {
 	TestSuite
 	gitConfig GitConfig
+	useGitea  bool
 
 	// Exported fields for external package access
 	GcpBlueprintsRepo  string
@@ -82,7 +79,9 @@ type TestSuiteWithGit struct {
 func (t *TestSuiteWithGit) SetupSuite() {
 	t.SetupEnvvars()
 	t.TestSuite.SetupSuite()
-	//t.gitConfig = t.CreateGitRepo()
+	if !t.useGitea {
+		t.gitConfig = t.CreateGitRepo()
+	}
 }
 
 func (t *TestSuiteWithGit) SetupEnvvars() {

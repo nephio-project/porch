@@ -63,7 +63,11 @@ func TestE2E(t *testing.T) {
 		t.Skip("set E2E to run this test")
 	}
 
-	suite.Run(t, &PorchSuite{})
+	suite.Run(t, &PorchSuite{
+		TestSuiteWithGit: TestSuiteWithGit{
+			useGitea: true,
+		},
+	})
 }
 
 func (t *PorchSuite) TestGitRepository() {
