@@ -8,48 +8,34 @@ on:
       - "docs/**"
       - "release/**"
       - "OWNERS"
-  pull_request_target:
-    branches:
-      - main
-    paths-ignore:
-      - "docs/**"
-      - "release/**"
-      - "OWNERS"
-  issue_comment:
-    types: [created]
+  workflow_dispatch:
 
 env:
-  REGISTRY: ${{ github.event_name == 'pull_request' && 'ghcr.io' || 'docker.io' }}
-  ORG: ${{ github.event_name == 'pull_request' && github.repository || 'nephio' }}
+  REGISTRY: docker.io
+  ORG: nephio
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   build-and-push-image:
-    if: |
-      github.repository_owner == 'nephio-project' && (
-        github.event_name != 'issue_comment' ||
-        (github.event.issue.pull_request && contains(github.event.comment.body, '/rebuild'))
-      )
+    if: github.repository_owner == 'nephio-project'
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
     strategy:
       fail-fast: false
       matrix:
         include:
           - dockerfile: ./build/Dockerfile
-            image: ${{ github.event_name == 'pull_request' && 'ghcr.io' || 'docker.io' }}/${{ github.event_name == 'pull_request' && github.repository || 'nephio' }}/porch-server
+            image: docker.io/nephio/porch-server
           - dockerfile: ./controllers/Dockerfile
-            image: ${{ github.event_name == 'pull_request' && 'ghcr.io' || 'docker.io' }}/${{ github.event_name == 'pull_request' && github.repository || 'nephio' }}/porch-controllers
+            image: docker.io/nephio/porch-controllers
           - dockerfile: ./func/Dockerfile
-            image: ${{ github.event_name == 'pull_request' && 'ghcr.io' || 'docker.io' }}/${{ github.event_name == 'pull_request' && github.repository || 'nephio' }}/porch-function-runner
+            image: docker.io/nephio/porch-function-runner
           - dockerfile: ./func/Dockerfile-wrapperserver
-            image: ${{ github.event_name == 'pull_request' && 'ghcr.io' || 'docker.io' }}/${{ github.event_name == 'pull_request' && github.repository || 'nephio' }}/porch-wrapper-server
-
+            image: docker.io/nephio/porch-wrapper-server
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Harden Runner
@@ -64,8 +50,8 @@ jobs:
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ github.event_name == 'pull_request' && github.actor || vars.DOCKERHUB_USERNAME }}
-          password: ${{ github.event_name == 'pull_request' && secrets.GITHUB_TOKEN || secrets.DOCKERHUB_TOKEN }}
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@988b5a0280414f521da01fcc63a27aeeb4b104db # v3.6.1
@@ -85,9 +71,7 @@ jobs:
           file: ${{ matrix.dockerfile }}
           push: true
           tags: |
-            ${{ matrix.image }}:${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || (github.ref_name == 'main' && 'latest' || github.ref_name) }}
+            ${{ matrix.image }}:${{ github.ref_name == 'main' && 'latest' || github.ref_name }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          no-cache: ${{ contains(github.event.comment.body, '/rebuild --no-cache') }}
+          no-cache: true
           sbom: true
