@@ -45,9 +45,8 @@ const (
 	proposedPrefixInLocalRepo  = branchPrefixInLocalRepo + proposedPrefix
 	proposedPrefixInRemoteRepo = branchPrefixInRemoteRepo + proposedPrefix
 
-	deletionProposedPrefix             = "deletionProposed/"
-	deletionProposedPrefixInLocalRepo  = branchPrefixInLocalRepo + deletionProposedPrefix
-	deletionProposedPrefixInRemoteRepo = branchPrefixInRemoteRepo + deletionProposedPrefix
+	deletionProposedPrefix            = "deletionProposed/"
+	deletionProposedPrefixInLocalRepo = branchPrefixInLocalRepo + deletionProposedPrefix
 )
 
 var (

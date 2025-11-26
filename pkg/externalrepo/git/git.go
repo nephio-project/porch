@@ -267,7 +267,7 @@ type gitRepository struct {
 	// through all the refs each time
 	deletionProposedCache map[BranchName]bool
 
-	mutex sync.Mutex
+	mutex sync.RWMutex
 
 	// caBundle to use for TLS communication towards git
 	caBundle []byte
@@ -298,12 +298,16 @@ func (r *gitRepository) Close(context.Context) error {
 func (r *gitRepository) Version(ctx context.Context) (string, error) {
 	_, span := tracer.Start(ctx, "gitRepository::Version", trace.WithAttributes())
 	defer span.End()
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
 
-	if err := r.fetchRemoteRepositoryWithRetry(ctx); err != nil {
+	r.mutex.Lock()
+	err := r.fetchRemoteRepositoryWithRetry(ctx)
+	r.mutex.Unlock()
+	if err != nil {
 		return "", err
 	}
+
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
 
 	refs, err := r.repo.References()
 	if err != nil {
@@ -444,10 +448,13 @@ func (r *gitRepository) listPackageRevisions(ctx context.Context, filter reposit
 }
 
 func (r *gitRepository) CreatePackageRevisionDraft(ctx context.Context, obj *porchapi.PackageRevision) (repository.PackageRevisionDraft, error) {
-	_, span := tracer.Start(ctx, "gitRepository::CreatePackageRevision", trace.WithAttributes())
+	_, span := tracer.Start(ctx, "gitRepository::CreatePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
+
+	_, mutexSpan := tracer.Start(ctx, "gitRepository::CreatePackageRevisionDraft::acquire_mutex")
+	r.mutex.RLock()
+	mutexSpan.End()
+	defer r.mutex.RUnlock()
 
 	var base plumbing.Hash
 	refName := r.branch.RefInLocal()
@@ -696,8 +703,8 @@ func (r *gitRepository) fetchRemoteRepositoryWithRetry(ctx context.Context) erro
 func (r *gitRepository) GetPackageRevision(ctx context.Context, version, path string) (repository.PackageRevision, kptfilev1.GitLock, error) {
 	ctx, span := tracer.Start(ctx, "gitRepository::GetPackageRevision", trace.WithAttributes())
 	defer span.End()
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
 
 	var hash plumbing.Hash
 
@@ -1339,8 +1346,8 @@ func visitCommitsCollectErrors(iterator object.CommitIter, callback commitCallba
 }
 
 func (r *gitRepository) GetResources(hash plumbing.Hash) (map[string]string, error) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
 
 	resources := map[string]string{}
 
@@ -1405,8 +1412,8 @@ type commitCallback func(*object.Commit) error
 func (r *gitRepository) GetLifecycle(ctx context.Context, pkgRev *gitPackageRevision) porchapi.PackageRevisionLifecycle {
 	_, span := tracer.Start(ctx, "gitRepository::GetLifecycle", trace.WithAttributes())
 	defer span.End()
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
 
 	return r.getLifecycle(pkgRev)
 }
@@ -1485,7 +1492,10 @@ func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageR
 func (r *gitRepository) UpdateDraftResources(ctx context.Context, draft *gitPackageRevisionDraft, new *porchapi.PackageRevisionResources, change *porchapi.Task) error {
 	ctx, span := tracer.Start(ctx, "gitRepository::UpdateResources", trace.WithAttributes())
 	defer span.End()
+
+	_, mutexSpan := tracer.Start(ctx, "gitRepository::UpdateDraftResources::acquire_mutex")
 	r.mutex.Lock()
+	mutexSpan.End()
 	defer r.mutex.Unlock()
 
 	ch, err := newCommitHelper(r.repo, r.userInfoProvider, draft.commit, draft.Key().PkgKey.ToFullPathname(), plumbing.ZeroHash)
@@ -1546,7 +1556,9 @@ func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 	ctx, span := tracer.Start(ctx, "gitRepository::ClosePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
 
+	_, mutexSpan := tracer.Start(ctx, "gitRepository::ClosePackageRevisionDraft::acquire_mutex")
 	r.mutex.Lock()
+	mutexSpan.End()
 	defer r.mutex.Unlock()
 
 	d := prd.(*gitPackageRevisionDraft)
