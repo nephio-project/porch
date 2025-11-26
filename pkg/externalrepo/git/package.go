@@ -229,7 +229,10 @@ func (p *gitPackageRevision) GetUpstreamLock(ctx context.Context) (kptfile.Upstr
 // GetLock returns the self version of the package. Think of it as the Git commit information
 // that represent the package revision of this package. Please note that it uses Upstream types
 // to represent this information but it has no connection with the associated upstream package (if any).
-func (p *gitPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, error) {
+func (p *gitPackageRevision) GetLock(ctx context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error) {
+	_, span := tracer.Start(ctx, "gitPackageRevision::GetLock", trace.WithAttributes())
+	defer span.End()
+
 	repo, err := p.repo.GetRepo()
 	if err != nil {
 		return kptfile.Upstream{}, kptfile.UpstreamLock{}, fmt.Errorf("cannot determine package lock: %w", err)

@@ -395,7 +395,9 @@ func (p *ociPackageRevision) GetUpstreamLock(context.Context) (kptfile.Upstream,
 	return kptfile.Upstream{}, kptfile.UpstreamLock{}, fmt.Errorf("upstreamLock is not supported for OCI packages (%s)", p.KubeObjectName())
 }
 
-func (p *ociPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, error) {
+func (p *ociPackageRevision) GetLock(ctx context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error) {
+	_, span := tracer.Start(ctx, "ociPackageRevision::GetLock", trace.WithAttributes())
+	defer span.End()
 	return kptfile.Upstream{}, kptfile.UpstreamLock{}, fmt.Errorf("lock is not supported for oci packages (%s)", p.KubeObjectName())
 }
 

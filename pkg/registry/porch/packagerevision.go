@@ -96,6 +96,8 @@ func (r *packageRevisions) List(ctx context.Context, options *metainternalversio
 		return nil, err
 	}
 
+	klog.V(3).Infof("List packagerevisions completed: found %d items", len(result.Items))
+
 	return result, nil
 }
 
@@ -113,6 +115,8 @@ func (r *packageRevisions) Get(ctx context.Context, name string, options *metav1
 	if err != nil {
 		return nil, err
 	}
+
+	klog.V(3).Infof("Get packagerevision completed: %s", name)
 
 	return apiPkgRev, nil
 }
@@ -188,7 +192,52 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 		return nil, apierrors.NewInternalError(err)
 	}
 
+	action := createAction(newApiPkgRev)
+	klog.Infof("%s operation completed for package revision: %s", action, createdApiPkgRev.Name)
+
 	return createdApiPkgRev, nil
+}
+
+func createAction(pkgRev *porchapi.PackageRevision) string {
+	// Nil checks
+	if pkgRev == nil || pkgRev.Spec.Tasks == nil {
+		return "Create"
+	}
+	// Check tasks for specific operation types
+	var taskType []porchapi.TaskType
+	for _, task := range pkgRev.Spec.Tasks {
+		switch task.Type {
+		case porchapi.TaskTypeInit:
+			taskType = append(taskType, porchapi.TaskTypeInit)
+		case porchapi.TaskTypeClone:
+			taskType = append(taskType, porchapi.TaskTypeClone)
+		case porchapi.TaskTypeUpgrade:
+			taskType = append(taskType, porchapi.TaskTypeUpgrade)
+		case porchapi.TaskTypeEdit:
+			// Edit task with sourceRef indicates a copy operation
+			if task.Edit != nil && task.Edit.Source != nil {
+				taskType = append(taskType, porchapi.TaskTypeEdit)
+			}
+		}
+	}
+	// If multiple different task types found, return "Create"
+	if len(taskType) > 1 {
+		return "Create"
+	}
+	// If single task type found, return specific action
+	if len(taskType) == 1 {
+		switch taskType[0] {
+		case porchapi.TaskTypeInit:
+			return "Init"
+		case porchapi.TaskTypeClone:
+			return "Clone"
+		case porchapi.TaskTypeUpgrade:
+			return "Upgrade"
+		case porchapi.TaskTypeEdit:
+			return "Copy"
+		}
+	}
+	return "Create"
 }
 
 // Update implements the Updater interface.
@@ -255,6 +304,8 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 	if err := r.cad.DeletePackageRevision(ctx, repositoryObj, repoPkgRev); err != nil {
 		return nil, false, apierrors.NewInternalError(err)
 	}
+
+	klog.Infof("Delete operation completed: %s", name)
 
 	// TODO: Should we do an async delete?
 	return apiPkgRev, true, nil
