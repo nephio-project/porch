@@ -80,19 +80,6 @@ func (m *clonePackageMutation) apply(ctx context.Context, resources repository.P
 		}
 	}
 
-	if m.isDeployment {
-		// TODO(droot): executing this as mutation is not really needed, but can be
-		// refactored once we finalize the task/mutation/commit model.
-		genPkgContextMutation, err := newPackageContextGeneratorMutation(m.packageConfig)
-		if err != nil {
-			return repository.PackageResources{}, nil, err
-		}
-		cloned, _, err = genPkgContextMutation.apply(ctx, cloned)
-		if err != nil {
-			return repository.PackageResources{}, nil, pkgerrors.Wrap(err, "failed to generate deployment context")
-		}
-	}
-
 	// ensure merge-key comment is added to newly added resources.
 	// this operation is done on best effort basis because if upstream contains
 	// valid YAML but invalid KRM resources, merge-key operation will fail
