@@ -830,6 +830,12 @@ func (r *gitRepository) discoverFinalizedPackages(ctx context.Context, ref *plum
 	ec := errors.NewErrorCollector().WithSeparator(";").WithFormat("{%s}")
 	var result []*gitPackageRevision
 	for _, krmPackage := range krmPackages.packages {
+		// Skip subpackages on main branch
+		pkgPath := krmPackage.pkgKey.ToFullPathname()
+		if strings.Contains(strings.TrimPrefix(pkgPath, r.Key().Path+"/"), "/") {
+			klog.V(2).Infof("Skipping subpackage %q on main branch", pkgPath)
+			continue
+		}
 		workspace := getPkgWorkspace(commit, krmPackage, ref)
 		if workspace == "" {
 			klog.Warningf("Failed to get workspace name for package %q (will use revision name): %s", krmPackage.pkgKey, err)
