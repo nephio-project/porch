@@ -447,7 +447,44 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 		return nil, false, apierrors.NewInternalError(err)
 	}
 
+	if action := getLifecycleTransition(oldApiPkgRev.(*porchapi.PackageRevision), newApiPkgRev); action != "" {
+		klog.Infof("%s operation completed for package revision: %s", action, name)
+	}
+
 	return updated, false, nil
+}
+
+// getUpdateAction determines the type of update operation
+func getLifecycleTransition(oldPkgRev, newPkgRev *porchapi.PackageRevision) string {
+	// Handle lifecycle changes
+	if oldPkgRev.Spec.Lifecycle != newPkgRev.Spec.Lifecycle {
+		// Propose operation: Draft -> Proposed
+		if oldPkgRev.Spec.Lifecycle == porchapi.PackageRevisionLifecycleDraft &&
+			newPkgRev.Spec.Lifecycle == porchapi.PackageRevisionLifecycleProposed {
+			return "Propose"
+		}
+		// Propose delete operation: Published -> DeletionProposed
+		if oldPkgRev.Spec.Lifecycle == porchapi.PackageRevisionLifecyclePublished &&
+			newPkgRev.Spec.Lifecycle == porchapi.PackageRevisionLifecycleDeletionProposed {
+			return "Propose-delete"
+		}
+		// Reject operation: Proposed -> Draft
+		if oldPkgRev.Spec.Lifecycle == porchapi.PackageRevisionLifecycleProposed &&
+			newPkgRev.Spec.Lifecycle == porchapi.PackageRevisionLifecycleDraft {
+			return "Reject"
+		}
+		// Approve operation: Proposed -> Published
+		if oldPkgRev.Spec.Lifecycle == porchapi.PackageRevisionLifecycleProposed &&
+			newPkgRev.Spec.Lifecycle == porchapi.PackageRevisionLifecyclePublished {
+			return "Approve"
+		}
+		// Approve or Reject Operation: Published -> Proposed
+		if oldPkgRev.Spec.Lifecycle == porchapi.PackageRevisionLifecycleDeletionProposed &&
+			newPkgRev.Spec.Lifecycle == porchapi.PackageRevisionLifecyclePublished {
+			return "Approve/Reject"
+		}
+	}
+	return "Update"
 }
 
 // Common implementation of Package update logic.

@@ -393,3 +393,89 @@ func TestUpdateStrategy(t *testing.T) {
 		})
 	}
 }
+func TestCreateAction(t *testing.T) {
+	testCases := map[string]struct {
+		pkgRev   *porchapi.PackageRevision
+		expected string
+	}{
+		"nil package revision": {
+			pkgRev:   nil,
+			expected: "Create",
+		},
+		"nil tasks": {
+			pkgRev:   &porchapi.PackageRevision{},
+			expected: "Create",
+		},
+		"init task": {
+			pkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Tasks: []porchapi.Task{
+						{Type: porchapi.TaskTypeInit},
+					},
+				},
+			},
+			expected: "Init",
+		},
+		"clone task": {
+			pkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Tasks: []porchapi.Task{
+						{Type: porchapi.TaskTypeClone},
+					},
+				},
+			},
+			expected: "Clone",
+		},
+		"upgrade task": {
+			pkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Tasks: []porchapi.Task{
+						{Type: porchapi.TaskTypeUpgrade},
+					},
+				},
+			},
+			expected: "Upgrade",
+		},
+		"edit task with source": {
+			pkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Tasks: []porchapi.Task{
+						{
+							Type: porchapi.TaskTypeEdit,
+							Edit: &porchapi.PackageEditTaskSpec{
+								Source: &porchapi.PackageRevisionRef{},
+							},
+						},
+					},
+				},
+			},
+			expected: "Copy",
+		},
+		"multiple different task types": {
+			pkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Tasks: []porchapi.Task{
+						{Type: porchapi.TaskTypeInit},
+						{Type: porchapi.TaskTypeClone},
+					},
+				},
+			},
+			expected: "Create",
+		},
+		"empty tasks slice": {
+			pkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Tasks: []porchapi.Task{},
+				},
+			},
+			expected: "Create",
+		},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			result := createAction(tc.pkgRev)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
