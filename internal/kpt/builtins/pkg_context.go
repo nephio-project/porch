@@ -95,7 +95,11 @@ func (pc *PackageContextGenerator) Process(resourceList *framework.ResourceList)
 				}
 				return resourceList.Results
 			}
-			contextResources = append(contextResources, pkgContext)
+
+			// Only add package context to the root of a kpt package
+			if pkgContext != nil {
+				contextResources = append(contextResources, pkgContext)
+			}
 		}
 	}
 
@@ -121,6 +125,12 @@ func pkgContextResource(kptfile *yaml.RNode, packageConfig *PackageConfig) (*yam
 	if err != nil {
 		return nil, err
 	}
+
+	// We only want one "package-context.yaml" in each kpt package
+	if kptfilePath != kptfilev1.KptFileGVK().Kind {
+		return nil, nil
+	}
+
 	annotations := map[string]string{
 		kioutil.PathAnnotation: path.Join(path.Dir(kptfilePath), PkgContextFile),
 	}
