@@ -362,6 +362,11 @@ type RepositoryOption func(*configapi.Repository)
 
 type SecretOption func(*corev1.Secret)
 
+func WithSync(sync string) RepositoryOption {
+	return func(r *configapi.Repository) {
+		r.Spec.Sync = &configapi.RepositorySync{Schedule: sync,}}
+}
+
 func WithDeployment() RepositoryOption {
 	return func(r *configapi.Repository) {
 		r.Spec.Deployment = true
