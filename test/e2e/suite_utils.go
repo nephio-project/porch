@@ -42,7 +42,6 @@ import (
 )
 
 const (
-	defaultTestBlueprintsRepo = "https://github.com/platkrm/test-blueprints.git"
 	defaultGCPBlueprintsRepo  = "https://github.com/GoogleCloudPlatform/blueprints.git"
 	defaultGCPBucketRef       = "bucket-blueprint-v0.4.3"
 	defaultGCPRedisBucketRef  = "redis-bucket-blueprint-v0.3.2"
@@ -52,10 +51,6 @@ const (
 
 	// Optional environment variables which can be set to replace defaults when running e2e tests behind a proxy or firewall.
 	// Environment variables can be loaded from a .env file - refer to .env.template
-	testBlueprintsRepoUrlEnv      = "PORCH_TEST_BLUEPRINTS_REPO_URL"
-	testBlueprintsRepoUserEnv     = "PORCH_TEST_BLUEPRINTS_REPO_USER"
-	testBlueprintsRepoPasswordEnv = "PORCH_TEST_BLUEPRINTS_REPO_PASSWORD"
-
 	gcpBlueprintsRepoUrlEnv      = "PORCH_GCP_BLUEPRINTS_REPO_URL"
 	gcpBlueprintsRepoUserEnv     = "PORCH_GCP_BLUEPRINTS_REPO_USER"
 	gcpBlueprintsRepoPasswordEnv = "PORCH_GCP_BLUEPRINTS_REPO_PASSWORD"
@@ -70,9 +65,9 @@ const (
 type TestSuiteWithGit struct {
 	TestSuite
 	gitConfig GitConfig
+	useGitea  bool
 
 	// Exported fields for external package access
-	TestBlueprintsRepo string
 	GcpBlueprintsRepo  string
 	GcpBucketRef       string
 	GcpRedisBucketRef  string
@@ -84,7 +79,9 @@ type TestSuiteWithGit struct {
 func (t *TestSuiteWithGit) SetupSuite() {
 	t.SetupEnvvars()
 	t.TestSuite.SetupSuite()
-	t.gitConfig = t.CreateGitRepo()
+	if !t.useGitea {
+		t.gitConfig = t.CreateGitRepo()
+	}
 }
 
 func (t *TestSuiteWithGit) SetupEnvvars() {
@@ -93,7 +90,6 @@ func (t *TestSuiteWithGit) SetupEnvvars() {
 		t.Logf("Could not load .env file: %v", err)
 	}
 
-	t.TestBlueprintsRepo = defaultTestBlueprintsRepo
 	t.GcpBlueprintsRepo = defaultGCPBlueprintsRepo
 	t.GcpBucketRef = defaultGCPBucketRef
 	t.GcpRedisBucketRef = defaultGCPRedisBucketRef
@@ -101,9 +97,6 @@ func (t *TestSuiteWithGit) SetupEnvvars() {
 	t.GcrPrefix = defaultGHCRPrefix
 	t.KptFunctionRef = defaultKptFunctionRef
 
-	if e := os.Getenv(testBlueprintsRepoUrlEnv); e != "" {
-		t.TestBlueprintsRepo = e
-	}
 	if e := os.Getenv(gcpBlueprintsRepoUrlEnv); e != "" {
 		t.GcpBlueprintsRepo = e
 	}
@@ -257,19 +250,6 @@ func (t *TestSuite) MustNotHaveLabels(name string, labels []string) {
 	}
 }
 
-func (t *TestSuiteWithGit) RegisterTestBlueprintRepository(name, directory string, opts ...RepositoryOptions) {
-	t.T().Helper()
-
-	config := GitConfig{
-		Repo:      t.TestBlueprintsRepo,
-		Branch:    "main",
-		Directory: directory,
-		Username:  os.Getenv(testBlueprintsRepoUserEnv),
-		Password:  Password(os.Getenv(testBlueprintsRepoPasswordEnv)),
-	}
-	t.registerGitRepositoryFromConfigF(name, config, opts...)
-}
-
 func (t *TestSuite) CreateGcpPackageRevisionSecret(name string, opts ...RepositoryOptions) string {
 	username := os.Getenv(gcpBlueprintsRepoUserEnv)
 	password := Password(os.Getenv(gcpBlueprintsRepoPasswordEnv))
@@ -328,6 +308,9 @@ func (t *TestSuite) registerGitRepositoryFromConfigF(name string, config GitConf
 		t.DeleteE(repo)
 		t.WaitUntilRepositoryDeleted(name, t.Namespace)
 		t.WaitUntilAllPackagesDeleted(name, t.Namespace)
+		if IsPorchTestRepo(config.Repo) {
+			t.RecreateGiteaTestRepo()
+		}
 	})
 
 	// Make sure the repository is ready before we test to (hopefully)
@@ -377,6 +360,11 @@ type RepositoryOptions struct {
 type RepositoryOption func(*configapi.Repository)
 
 type SecretOption func(*corev1.Secret)
+
+func WithSync(sync string) RepositoryOption {
+	return func(r *configapi.Repository) {
+		r.Spec.Sync = &configapi.RepositorySync{Schedule: sync,}}
+}
 
 func WithDeployment() RepositoryOption {
 	return func(r *configapi.Repository) {
