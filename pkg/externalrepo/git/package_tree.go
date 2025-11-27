@@ -160,6 +160,8 @@ func (t *packageList) discoverPackages(repoKey repository.RepositoryKey, tree *o
 				treeHash: tree.Hash,
 				parent:   t,
 			}
+			recurse = false
+			break
 		}
 	}
 
