@@ -34,12 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-type PorchClient interface {
-	List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error
-}
 
 func TestCachedRepoRefresh(t *testing.T) {
 	mockRepo := mockrepo.NewMockRepository(t)

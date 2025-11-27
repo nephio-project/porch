@@ -39,7 +39,6 @@ var _ cachetypes.Cache = &dbCache{}
 
 type dbCache struct {
 	repositories map[repository.RepositoryKey]*dbRepository
-	repoLocks    map[string]*sync.Mutex
 	mainLock     *sync.RWMutex
 	options      cachetypes.CacheOptions
 }
@@ -84,7 +83,6 @@ func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.
 	}
 
 	c.repositories[repoKey] = dbRepo
-
 	dbRepo.repositorySync = newRepositorySync(dbRepo, c.options)
 
 	return dbRepo, nil
@@ -125,27 +123,6 @@ func (c *dbCache) CloseRepository(ctx context.Context, repositorySpec *configapi
 		return pkgerrors.Errorf("dbcache.CloseRepository: repo %+v not found", repoKey)
 	}
 
-	cacheKey := c.getCacheKey(repositorySpec)
-	repoLock := c.getOrCreateLock(cacheKey)
-	repoLock.Lock()
-	defer repoLock.Unlock()
-
-	// For Git repositories, check sharing based on URL only
-	if repositorySpec.Spec.Type == configapi.RepositoryTypeGit {
-		for _, r := range allRepos {
-			if r.Name == repositorySpec.Name && r.Namespace == repositorySpec.Namespace {
-				continue
-			}
-			if r.Spec.Type == configapi.RepositoryTypeGit &&
-				r.Spec.Git.Repo == repositorySpec.Spec.Git.Repo {
-				// do not close cached repo if it is shared
-				dbRepo.repositorySync.Stop()
-				return nil
-			}
-		}
-	}
-
-	// TODO: should we still delete if close fails?
 	defer func() {
 		c.mainLock.Lock()
 		delete(c.repositories, repoKey)
@@ -175,28 +152,4 @@ func (c *dbCache) GetRepository(repoKey repository.RepositoryKey) repository.Rep
 	c.mainLock.RLock()
 	defer c.mainLock.RUnlock()
 	return c.repositories[repoKey]
-}
-
-func (c *dbCache) getCacheKey(repositorySpec *configapi.Repository) string {
-	if repositorySpec.Spec.Type == configapi.RepositoryTypeGit {
-		return repositorySpec.Spec.Git.Repo
-	}
-	return repositorySpec.Name + "---" + repositorySpec.Namespace
-}
-
-func (c *dbCache) getOrCreateLock(cacheKey string) *sync.Mutex {
-	c.mainLock.Lock()
-	defer c.mainLock.Unlock()
-
-	if c.repoLocks == nil {
-		c.repoLocks = make(map[string]*sync.Mutex)
-	}
-
-	if lock, exists := c.repoLocks[cacheKey]; exists {
-		return lock
-	}
-
-	lock := &sync.Mutex{}
-	c.repoLocks[cacheKey] = lock
-	return lock
 }

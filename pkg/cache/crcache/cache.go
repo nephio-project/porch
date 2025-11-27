@@ -34,8 +34,6 @@ var tracer = otel.Tracer("crcache")
 type Cache struct {
 	repositories  map[repository.RepositoryKey]*cachedRepository
 	mainLock      *sync.RWMutex
-	locks         map[repository.RepositoryKey]*sync.Mutex
-	cacheLocks    map[string]*sync.Mutex
 	metadataStore meta.MetadataStore
 	options       cachetypes.CacheOptions
 }
@@ -52,15 +50,6 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 	if err != nil {
 		return nil, err
 	}
-
-	cacheKey := c.getCacheKey(repositorySpec)
-	cacheLock := c.getOrCreateCacheLock(cacheKey)
-	cacheLock.Lock()
-	defer cacheLock.Unlock()
-
-	lock := c.getOrInsertLock(key)
-	lock.Lock()
-	defer lock.Unlock()
 
 	c.mainLock.Lock()
 	defer c.mainLock.Unlock()
@@ -87,7 +76,6 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 	}
 
 	cachedRepo := newRepository(key, repositorySpec, externalRepo, c.metadataStore, c.options)
-
 	c.repositories[key] = cachedRepo
 
 	return cachedRepo, nil
@@ -113,45 +101,14 @@ func (c *Cache) CloseRepository(ctx context.Context, repositorySpec *configapi.R
 		return nil
 	}
 
-	cacheKey := c.getCacheKey(repositorySpec)
-	cacheLock := c.getOrCreateCacheLock(cacheKey)
-	cacheLock.Lock()
-	defer cacheLock.Unlock()
-
-	// check if repositorySpec shares the underlying cached repo with another repository
-	for _, r := range allRepos {
-		if r.Name == repositorySpec.Name && r.Namespace == repositorySpec.Namespace {
-			continue
-		}
-		// For Git repositories, check sharing based on URL only
-		if repositorySpec.Spec.Type == configapi.RepositoryTypeGit &&
-			r.Spec.Type == configapi.RepositoryTypeGit &&
-			r.Spec.Git.Repo == repositorySpec.Spec.Git.Repo {
-			// do not close cached repo if it is shared, but cancel the polling goroutine
-			klog.Infof("Not closing cached repository %q because it is shared", key)
-			return nil
-		}
-	}
-
-	lock := c.getOrInsertLock(key)
-	lock.Lock()
-	defer lock.Unlock()
-
-	if ok {
+	defer func() {
 		c.mainLock.Lock()
-		delete(c.locks, key)
 		delete(c.repositories, key)
 		c.mainLock.Unlock()
+	}()
 
-		if repo != nil {
-			return repo.Close(ctx)
-		} else {
-			klog.Warningf("cached repository with key %q had stored value nil", key)
-		}
-	} else {
-		c.mainLock.Lock()
-		delete(c.locks, key)
-		c.mainLock.Unlock()
+	if repo != nil {
+		return repo.Close(ctx)
 	}
 
 	return nil
@@ -173,44 +130,4 @@ func (c *Cache) GetRepository(repoKey repository.RepositoryKey) repository.Repos
 	c.mainLock.RLock()
 	defer c.mainLock.RUnlock()
 	return c.repositories[repoKey]
-}
-
-func (c *Cache) getOrInsertLock(key repository.RepositoryKey) *sync.Mutex {
-	c.mainLock.RLock()
-	if lock, exists := c.locks[key]; exists {
-		c.mainLock.RUnlock()
-		return lock
-	}
-	c.mainLock.RUnlock()
-
-	c.mainLock.Lock()
-	lock := &sync.Mutex{}
-	c.locks[key] = lock
-	c.mainLock.Unlock()
-
-	return lock
-}
-
-func (c *Cache) getCacheKey(repositorySpec *configapi.Repository) string {
-	if repositorySpec.Spec.Type == configapi.RepositoryTypeGit {
-		return repositorySpec.Spec.Git.Repo
-	}
-	return repositorySpec.Name + "---" + repositorySpec.Namespace
-}
-
-func (c *Cache) getOrCreateCacheLock(cacheKey string) *sync.Mutex {
-	c.mainLock.Lock()
-	defer c.mainLock.Unlock()
-
-	if c.cacheLocks == nil {
-		c.cacheLocks = make(map[string]*sync.Mutex)
-	}
-
-	if lock, exists := c.cacheLocks[cacheKey]; exists {
-		return lock
-	}
-
-	lock := &sync.Mutex{}
-	c.cacheLocks[cacheKey] = lock
-	return lock
 }

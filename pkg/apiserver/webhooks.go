@@ -329,7 +329,7 @@ func createValidatingWebhook(ctx context.Context, cfg *WebhookConfig, caCert []b
 					Resources:   []string{porchapi.PackageRevisionGVR.Resource},
 				},
 			}},
-			AdmissionReviewVersions: []string{"v1", "v1beta1"},
+			AdmissionReviewVersions: []string{"v1"},
 			SideEffects:             &none,
 			FailurePolicy:           &fail,
 			TimeoutSeconds:          &cfg.timeout,
@@ -357,7 +357,7 @@ func createValidatingWebhook(ctx context.Context, cfg *WebhookConfig, caCert []b
 					Resources:   []string{"repositories"},
 				},
 			}},
-			AdmissionReviewVersions: []string{"v1", "v1beta1"},
+			AdmissionReviewVersions: []string{"v1"},
 			SideEffects:             &none,
 			FailurePolicy:           &fail,
 			TimeoutSeconds:          &cfg.timeout,
@@ -661,12 +661,28 @@ func validateRepository(w http.ResponseWriter, r *http.Request, porchClient clie
 
 	var attempted configapi.Repository
 	if err := json.Unmarshal(admissionReviewRequest.Request.Object.Raw, &attempted); err != nil {
+		klog.Errorf("failed to unmarshal repository object: %v", err)
 		writeErr(fmt.Sprintf("could not unmarshal repository: %v", err), &w)
 		return
 	}
 
+	// For UPDATE operations, check if URL or directory is being modified
+	if admissionReviewRequest.Request.Operation == admissionv1.Update {
+		var existing configapi.Repository
+		if err := json.Unmarshal(admissionReviewRequest.Request.OldObject.Raw, &existing); err != nil {
+			klog.Errorf("failed to unmarshal existing repository object: %v", err)
+			writeErr(fmt.Sprintf("could not unmarshal existing repository: %v", err), &w)
+			return
+		}
+
+		if err := validateRepositoryModification(&existing, &attempted, admissionReviewRequest, &w); err != nil {
+			return
+		}
+	}
+
 	var repoList configapi.RepositoryList
 	if err := porchClient.List(context.Background(), &repoList); err != nil {
+		klog.Errorf("failed to list repositories: %v", err)
 		writeErr(fmt.Sprintf("could not list repositories: %v", err), &w)
 		return
 	}
@@ -676,22 +692,8 @@ func validateRepository(w http.ResponseWriter, r *http.Request, porchClient clie
 			continue
 		}
 		if isConflict(&existing, &attempted) {
-			resp := &admissionv1.AdmissionResponse{
-				Allowed: false,
-				Result: &metav1.Status{
-					Status:  "Failure",
-					Message: fmt.Sprintf("Repository conflict with existing repository: %s/%s", existing.Namespace, existing.Name),
-					Reason:  "RepositoryConflict",
-				},
-			}
-			responseBytes, _ := constructResponse(resp, admissionReviewRequest)
-			w.Header().Set("Content-Type", "application/json")
-			_, err = w.Write(responseBytes)
-			if err != nil {
-				errMsg := fmt.Sprintf("error writing response: %v", err)
-				writeErr(errMsg, &w)
-				return
-			}
+			klog.Errorf("repository validation failed: conflict detected between attempted %s/%s and existing %s/%s", attempted.Namespace, attempted.Name, existing.Namespace, existing.Name)
+			writeModificationResponse(fmt.Sprintf("Repository conflict with existing repository: %s/%s", existing.Namespace, existing.Name), "RepositoryConflict", admissionReviewRequest, &w)
 			return
 		}
 	}
@@ -766,18 +768,64 @@ func isConflict(existing, attempted *configapi.Repository) bool {
 }
 
 func isNestedConflict(a, b string) bool {
-	aParts := strings.Split(a, "/")
-	bParts := strings.Split(b, "/")
+	// Check if one path is nested within the other using filepath.Rel
+	relAtoB, err1 := filepath.Rel(a, b)
+	relBtoA, err2 := filepath.Rel(b, a)
 
-	// a is base of b
-	if len(aParts) < len(bParts) && strings.Join(bParts[:len(aParts)], "/") == a {
-		return true
+	// If either relative path doesn't start with "../", it means one is nested in the other
+	if err1 == nil && !strings.HasPrefix(relAtoB, "../") && relAtoB != "." {
+		return true // b is nested within a
 	}
-
-	// b is base of a
-	if len(bParts) < len(aParts) && strings.Join(aParts[:len(bParts)], "/") == b {
-		return true
+	if err2 == nil && !strings.HasPrefix(relBtoA, "../") && relBtoA != "." {
+		return true // a is nested within b
 	}
 
 	return false
+}
+
+func validateRepositoryModification(existing, attempted *configapi.Repository, admissionReviewRequest *admissionv1.AdmissionReview, w *http.ResponseWriter) error {
+	if isURLModified(existing, attempted) {
+		klog.Errorf("repository validation failed: URL modification not allowed for %s/%s - delete the existing repository and create it if you want to change the URL", attempted.Namespace, attempted.Name)
+		writeModificationResponse("Repository URL cannot be modified after creation. Please delete the existing repository and create it if you want to change the URL", "URLModificationNotAllowed", admissionReviewRequest, w)
+		return fmt.Errorf("URL modification not allowed")
+	}
+
+	if isDirectoryModified(existing, attempted) {
+		klog.Errorf("repository validation failed: directory modification not allowed for %s/%s - delete the existing repository and create it if you want to change the directory", attempted.Namespace, attempted.Name)
+		writeModificationResponse("Repository directory cannot be modified after creation. Please delete the existing repository and create it if you want to change the directory", "DirectoryModificationNotAllowed", admissionReviewRequest, w)
+		return fmt.Errorf("directory modification not allowed")
+	}
+
+	return nil
+}
+
+func isURLModified(existing, attempted *configapi.Repository) bool {
+	return existing.Spec.Git.Repo != attempted.Spec.Git.Repo
+}
+
+func isDirectoryModified(existing, attempted *configapi.Repository) bool {
+	return existing.Spec.Git.Directory != attempted.Spec.Git.Directory
+}
+
+func writeModificationResponse(message, reason string, admissionReviewRequest *admissionv1.AdmissionReview, w *http.ResponseWriter) {
+	resp := &admissionv1.AdmissionResponse{
+		Allowed: false,
+		Result: &metav1.Status{
+			Status:  "Failure",
+			Message: message,
+			Reason:  metav1.StatusReason(reason),
+		},
+	}
+	responseBytes, err := constructResponse(resp, admissionReviewRequest)
+	if err != nil {
+		klog.Errorf("failed to construct modification response: %v", err)
+		writeErr(fmt.Sprintf("error constructing response: %v", err), w)
+		return
+	}
+	(*w).Header().Set("Content-Type", "application/json")
+	_, err = (*w).Write(responseBytes)
+	if err != nil {
+		errMsg := fmt.Sprintf("error writing response: %v", err)
+		writeErr(errMsg, w)
+	}
 }
