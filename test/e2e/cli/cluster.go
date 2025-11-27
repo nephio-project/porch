@@ -101,8 +101,6 @@ func KubectlWaitForRepoReady(t *testing.T, repoName, namespace string) {
 		ready := stdout.String()
 		if err == nil && string(ready) == "True" {
 			t.Logf("Repo %s/%s is Ready", namespace, repoName)
-			// Add a 2-second delay after repository ready to allow background processes to complete
-			time.Sleep(2 * time.Second)
 			return
 		}
 		if time.Now().After(giveUp) {

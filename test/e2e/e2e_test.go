@@ -2522,8 +2522,23 @@ func (t *PorchSuite) TestUniquenessOfUIDs() {
 
 	// Register the upstream repository1
 	t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), TestBlueprintsRepoName, "", GiteaUser, GiteaPassword)
+
+	ns2 := &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Namespace",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: t.Namespace + "-2",
+		},
+	}
+	t.CreateF(ns2)
+	t.Cleanup(func() {
+		t.DeleteE(ns2)
+	})
+
 	// Register the upstream repository2
-	t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), "test-2-blueprints", "", GiteaUser, GiteaPassword)
+	t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), "test-2-blueprints", "", GiteaUser, GiteaPassword, RepositoryOptions{RepOpts: InNamespace(ns2.Name), SecOpts: SecretInNamespace(ns2.Name)})
 
 	prList := porchapi.PackageRevisionList{}
 	t.ListE(&prList, client.InNamespace(t.Namespace))

@@ -38,7 +38,6 @@ var _ cachetypes.Cache = &dbCache{}
 
 type dbCache struct {
 	repositories map[repository.RepositoryKey]*dbRepository
-	repoLocks    map[string]*sync.Mutex
 	mainLock     *sync.RWMutex
 	options      cachetypes.CacheOptions
 }
@@ -52,15 +51,14 @@ func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.
 		return nil, err
 	}
 
-	c.mainLock.RLock()
+	c.mainLock.Lock()
+	defer c.mainLock.Unlock()
 
 	if dbRepo, ok := c.repositories[repoKey]; ok {
-		c.mainLock.RUnlock()
 		// Keep the spec updated in the cache.
 		dbRepo.spec = repositorySpec
 		return dbRepo, nil
 	}
-	c.mainLock.RUnlock()
 
 	dbRepo := &dbRepository{
 		repoKey:              repoKey,
@@ -77,10 +75,7 @@ func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.
 		return nil, err
 	}
 
-	c.mainLock.Lock()
 	c.repositories[repoKey] = dbRepo
-	c.mainLock.Unlock()
-
 	dbRepo.repositorySync = newRepositorySync(dbRepo, c.options)
 
 	return dbRepo, nil
@@ -121,27 +116,6 @@ func (c *dbCache) CloseRepository(ctx context.Context, repositorySpec *configapi
 		return pkgerrors.Errorf("dbcache.CloseRepository: repo %+v not found", repoKey)
 	}
 
-	cacheKey := c.getCacheKey(repositorySpec)
-	repoLock := c.getOrCreateLock(cacheKey)
-	repoLock.Lock()
-	defer repoLock.Unlock()
-
-	// For Git repositories, check sharing based on URL only
-	if repositorySpec.Spec.Type == configapi.RepositoryTypeGit {
-		for _, r := range allRepos {
-			if r.Name == repositorySpec.Name && r.Namespace == repositorySpec.Namespace {
-				continue
-			}
-			if r.Spec.Type == configapi.RepositoryTypeGit &&
-				r.Spec.Git.Repo == repositorySpec.Spec.Git.Repo {
-				// do not close cached repo if it is shared
-				dbRepo.repositorySync.Stop()
-				return nil
-			}
-		}
-	}
-
-	// TODO: should we still delete if close fails?
 	defer func() {
 		c.mainLock.Lock()
 		delete(c.repositories, repoKey)

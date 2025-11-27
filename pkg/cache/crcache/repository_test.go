@@ -35,12 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-type PorchClient interface {
-	List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error
-}
 
 func TestCachedRepoRefresh(t *testing.T) {
 	mockRepo := mockrepo.NewMockRepository(t)
