@@ -1,0 +1,172 @@
+# Copyright 2025 The Nephio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: End-to-End Tests
+on:
+  push:
+    paths-ignore:
+      - "docs/**"
+      - "release/**"
+      - "OWNERS"
+  pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "release/**"
+      - "OWNERS"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE_REPO: porch-kind
+  KIND_CONTEXT_NAME: porch-test
+  TEST_GIT_SERVER_IMAGE: test-git-server
+  PORCH_FUNCTION_RUNNER_IMAGE: porch-function-runner
+  PORCH_WRAPPER_SERVER_IMAGE: porch-wrapper-server
+  PORCH_SERVER_IMAGE: porch-server
+  PORCH_CONTROLLERS_IMAGE: porch-controllers
+
+jobs:
+  build:
+    name: Build Dev Images
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      IMAGE_TAG: ${{ github.sha }}
+    outputs:
+      image-tag: ${{ steps.vars.outputs.image-tag }}
+    steps:
+      - name: Checkout Porch
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Set variables
+        id: vars
+        run: echo "image-tag=${IMAGE_TAG:0:8}" >> $GITHUB_OUTPUT
+      - name: Setup dev env
+        run: ${GITHUB_WORKSPACE}/scripts/setup-dev-env.sh
+      - name: Build images in parallel
+        run: |
+          export IMAGE_TAG=${IMAGE_TAG:0:8}
+          IMAGE_NAME=${TEST_GIT_SERVER_IMAGE} make -C test/ build-image &
+          IMAGE_NAME=${PORCH_FUNCTION_RUNNER_IMAGE} WRAPPER_SERVER_IMAGE_NAME=${PORCH_WRAPPER_SERVER_IMAGE} make -C func/ build-image &
+          docker buildx build --load --tag ${IMAGE_REPO}/${PORCH_SERVER_IMAGE}:${IMAGE_TAG} -f ./build/Dockerfile . &
+          IMAGE_NAME=${PORCH_CONTROLLERS_IMAGE} make -C controllers/ build-image &
+          wait
+      - name: Save all images
+        run: |
+          export IMAGE_TAG=${IMAGE_TAG:0:8}
+          docker save \
+            ${IMAGE_REPO}/${PORCH_SERVER_IMAGE}:${IMAGE_TAG} \
+            ${IMAGE_REPO}/${PORCH_CONTROLLERS_IMAGE}:${IMAGE_TAG} \
+            ${IMAGE_REPO}/${PORCH_FUNCTION_RUNNER_IMAGE}:${IMAGE_TAG} \
+            ${IMAGE_REPO}/${PORCH_WRAPPER_SERVER_IMAGE}:${IMAGE_TAG} \
+            ${IMAGE_REPO}/${TEST_GIT_SERVER_IMAGE}:${IMAGE_TAG} \
+            | gzip > porch-images.tar.gz
+      - name: Upload images
+        uses: actions/upload-artifact@v4
+        with:
+          name: porch-images
+          path: porch-images.tar.gz
+          compression-level: 0
+          retention-days: 1
+
+  tests:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: "Porch E2E Tests"
+            make_target: "run-in-kind"
+            test_path: "${GITHUB_WORKSPACE}/test/e2e"
+            test_env: "E2E=1"
+            log_name: "porch-e2e-server.log"
+          - name: "Porch E2E Tests (DB Cache)"
+            make_target: "run-in-kind-db-cache"
+            test_path: "${GITHUB_WORKSPACE}/test/e2e"
+            test_env: "E2E=1 DB_CACHE=1"
+            log_name: "porch-e2e-dbcache-server.log"
+          - name: "Porch CLI E2E Tests"
+            make_target: "run-in-kind-no-git"
+            test_path: "${GITHUB_WORKSPACE}/test/e2e/cli"
+            test_env: "E2E=1"
+            log_name: "porch-cli-e2e-server.log"
+          - name: "Porch CLI E2E Tests (DB Cache)"
+            make_target: "run-in-kind-db-cache-no-git"
+            test_path: "${GITHUB_WORKSPACE}/test/e2e/cli"
+            test_env: "E2E=1"
+            log_name: "porch-cli-e2e-dbcache-server.log"
+
+    steps:
+      - name: Checkout Porch
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install kpt
+        uses: jaxxstorm/action-install-gh-release@v2.1.0
+        with:
+          repo: kptdev/kpt
+          tag: v1.0.0-beta.59
+          chmod: 0755
+      - name: Install Kind
+        uses: helm/kind-action@v1
+        with:
+          version: v0.30.0
+          install_only: true
+      - name: Set up Git config
+        run: |
+          git config --global user.name "Porch E2E"
+          git config --global user.email "porch-e2e@porch.dev"
+      - name: Setup dev env
+        run: ${GITHUB_WORKSPACE}/scripts/setup-dev-env.sh
+      - name: Download image artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: porch-images
+      - name: Load images to kind
+        run: |
+          gunzip -c porch-images.tar.gz | docker load
+          kind load docker-image ${IMAGE_REPO}/${PORCH_SERVER_IMAGE}:${{ needs.build.outputs.image-tag }} -n ${KIND_CONTEXT_NAME}
+          kind load docker-image ${IMAGE_REPO}/${PORCH_CONTROLLERS_IMAGE}:${{ needs.build.outputs.image-tag }} -n ${KIND_CONTEXT_NAME}
+          kind load docker-image ${IMAGE_REPO}/${PORCH_FUNCTION_RUNNER_IMAGE}:${{ needs.build.outputs.image-tag }} -n ${KIND_CONTEXT_NAME}
+          kind load docker-image ${IMAGE_REPO}/${PORCH_WRAPPER_SERVER_IMAGE}:${{ needs.build.outputs.image-tag }} -n ${KIND_CONTEXT_NAME}
+          kind load docker-image ${IMAGE_REPO}/${TEST_GIT_SERVER_IMAGE}:${{ needs.build.outputs.image-tag }} -n ${KIND_CONTEXT_NAME}
+      - name: Deploy porch kpt pkg
+        run: IMAGE_TAG=${{ needs.build.outputs.image-tag }} SKIP_IMG_BUILD=true make ${{ matrix.make_target }}
+      - name: Run E2E tests
+        run: ${{ matrix.test_env }} go test -v -timeout 20m ${{ matrix.test_path }}
+      - name: Export porch server logs
+        if: always()
+        run: |
+          name=$(kubectl -n porch-system get pod -l app=porch-server -o custom-columns=NAME:.metadata.name --no-headers=true)
+          kubectl -n porch-system logs $name > ${{ matrix.log_name }}
+      - name: Archive logs
+        if: always()
+        uses: actions/upload-artifact@v4  
+        with:
+          name: ${{ matrix.log_name }}
+          path: ${{ matrix.log_name }}
+          compression-level: 0
+          retention-days: 7
