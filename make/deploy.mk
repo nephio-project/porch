@@ -19,6 +19,7 @@ export SKIP_IMG_BUILD ?= false
 export SKIP_PORCHSERVER_BUILD ?= false
 export SKIP_CONTROLLER_BUILD ?= false
 export SKIP_LOCAL_GIT ?= false
+export PARALLEL_BUILDS ?= true
 
 # Reconciler configuration
 ALL_RECONCILERS="packagevariants,packagevariantsets"
