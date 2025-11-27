@@ -271,7 +271,6 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 	fakeClient := k8sfake.NewClientBuilder().WithScheme(scheme).WithObjects(apiRepo).Build()
 	cache := &Cache{
 		repositories:  map[repository.RepositoryKey]*cachedRepository{},
-		locks:         map[repository.RepositoryKey]*sync.Mutex{},
 		mainLock:      &sync.RWMutex{},
 		metadataStore: metadataStore,
 		options: cachetypes.CacheOptions{

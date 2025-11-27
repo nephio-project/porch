@@ -31,7 +31,6 @@ type CrCacheFactory struct {
 func (f *CrCacheFactory) NewCache(_ context.Context, options cachetypes.CacheOptions) (cachetypes.Cache, error) {
 	return &Cache{
 		repositories:  map[repository.RepositoryKey]*cachedRepository{},
-		locks:         map[repository.RepositoryKey]*sync.Mutex{},
 		mainLock:      &sync.RWMutex{},
 		metadataStore: meta.NewCrdMetadataStore(options.CoreClient),
 		options:       options,
