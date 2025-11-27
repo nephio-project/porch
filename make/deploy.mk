@@ -19,7 +19,7 @@ export SKIP_IMG_BUILD ?= false
 export SKIP_PORCHSERVER_BUILD ?= false
 export SKIP_CONTROLLER_BUILD ?= false
 export SKIP_LOCAL_GIT ?= false
-export IMAGE_TAG ?= test
+
 
 # Porch cache type: CR (Custom Resource) || DB (Database)
 export PORCH_CACHE_TYPE ?= CR
@@ -43,53 +43,45 @@ endif
 
 .PHONY: run-in-kind
 run-in-kind: IMAGE_REPO=porch-kind## Build and deploy porch into a kind cluster
-run-in-kind: IMAGE_TAG?=test
 run-in-kind: PORCH_CACHE_TYPE=CR
 run-in-kind: load-images-to-kind deployment-config deploy-current-config
 
 .PHONY: run-in-kind-db-cache
 run-in-kind-db-cache: IMAGE_REPO=porch-kind## Build and deploy porch into a kind cluster with postgres backend
-run-in-kind-db-cache: IMAGE_TAG?=test
 run-in-kind-db-cache: PORCH_CACHE_TYPE=DB
 run-in-kind-db-cache: load-images-to-kind deployment-config deploy-current-config
 
 .PHONY: run-in-kind-no-git
 run-in-kind-no-git: IMAGE_REPO=porch-kind## Build and deploy porch into a kind cluster without mock git server
-run-in-kind-no-git: IMAGE_TAG?=test
 run-in-kind-no-git: SKIP_LOCAL_GIT=true
 run-in-kind-no-git: PORCH_CACHE_TYPE=CR
 run-in-kind-no-git: load-images-to-kind deployment-config deploy-current-config
 
 .PHONY: run-in-kind-db-cache-no-git
 run-in-kind-db-cache-no-git: IMAGE_REPO=porch-kind## Build and deploy porch into a kind cluster with postgres backend without mock git server
-run-in-kind-db-cache-no-git: IMAGE_TAG?=test
 run-in-kind-db-cache-no-git: SKIP_LOCAL_GIT=true
 run-in-kind-db-cache-no-git: PORCH_CACHE_TYPE=DB
 run-in-kind-db-cache-no-git: load-images-to-kind deployment-config deploy-current-config
 
 .PHONY: run-in-kind-no-server
 run-in-kind-no-server: IMAGE_REPO=porch-kind## Build and deploy porch without the porch-server into a kind cluster
-run-in-kind-no-server: IMAGE_TAG?=test
 run-in-kind-no-server: SKIP_PORCHSERVER_BUILD=true
 run-in-kind-no-server: PORCH_CACHE_TYPE=CR
 run-in-kind-no-server: load-images-to-kind deployment-config-no-server deploy-current-config
 
 .PHONY: run-in-kind-db-cache-no-server
 run-in-kind-db-cache-no-server: IMAGE_REPO=porch-kind## Build and deploy porch into a kind cluster with postgres backend without the porch-server
-run-in-kind-db-cache-no-server: IMAGE_TAG?=test
 run-in-kind-db-cache-no-server: PORCH_CACHE_TYPE=DB
 run-in-kind-db-cache-no-server: load-images-to-kind deployment-config-no-server deploy-current-config
 
 .PHONY: run-in-kind-no-controller
 run-in-kind-no-controller: IMAGE_REPO=porch-kind## Build and deploy porch without the controllers into a kind cluster
-run-in-kind-no-controller: IMAGE_TAG?=test
 run-in-kind-no-controller: SKIP_CONTROLLER_BUILD=true
 run-in-kind-no-controller: SKIP_LOCAL_GIT=true
 run-in-kind-no-controller: load-images-to-kind deployment-config-no-controller deploy-current-config
 
 .PHONY: run-in-kind-db-cache-no-controller
 run-in-kind-db-cache-no-controller: IMAGE_REPO=porch-kind## Build and deploy porch without the controllers into a kind cluster with postgres backend
-run-in-kind-db-cache-no-controller: IMAGE_TAG?=test
 run-in-kind-db-cache-no-controller: SKIP_CONTROLLER_BUILD=true
 run-in-kind-db-cache-no-controller: SKIP_LOCAL_GIT=true
 run-in-kind-db-cache-no-controller: PORCH_CACHE_TYPE=DB
@@ -126,19 +118,16 @@ deploy-current-config:## Deploy the configuration that is currently in $(DEPLOYP
 
 .PHONY: reload-function-runner
 reload-function-runner: IMAGE_REPO=porch-kind## Rebuild and reload function-runner in kind cluster
-reload-function-runner: IMAGE_TAG?=test
 reload-function-runner:
 	./scripts/reload-component.sh function-runner
 
 .PHONY: reload-server
 reload-server: IMAGE_REPO=porch-kind## Rebuild and reload porch-server in kind cluster
-reload-server: IMAGE_TAG?=test
 reload-server:
 	./scripts/reload-component.sh server
 
 .PHONY: reload-controllers
 reload-controllers: IMAGE_REPO=porch-kind## Rebuild and reload porch-controllers in kind cluster
-reload-controllers: IMAGE_TAG?=test
 reload-controllers:
 	./scripts/reload-component.sh controllers
 
