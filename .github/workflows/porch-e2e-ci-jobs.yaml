@@ -58,8 +58,6 @@ jobs:
       - name: Set variables
         id: vars
         run: echo "image-tag=${IMAGE_TAG:0:8}" >> $GITHUB_OUTPUT
-      - name: Setup dev env
-        run: ${GITHUB_WORKSPACE}/scripts/setup-dev-env.sh
       - name: Build images in parallel
         run: |
           export IMAGE_TAG=${IMAGE_TAG:0:8}
