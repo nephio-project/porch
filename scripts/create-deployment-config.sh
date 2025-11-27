@@ -21,8 +21,6 @@ set -e
 source "$(dirname "$0")/common.sh"
 
 echo "Creating deployment configuration..."
-echo "DEBUG: IMAGE_TAG=${IMAGE_TAG}"
-echo "DEBUG: IMAGE_REPO=${IMAGE_REPO}"
 
 rm -rf "${DEPLOYPORCHCONFIGDIR}" || true
 mkdir -p "${DEPLOYPORCHCONFIGDIR}"
