@@ -141,51 +141,11 @@ func TestDeletePublishedMain(t *testing.T) {
 	testPath := filepath.Join("../..", "externalrepo", "git", "testdata")
 	cachedRepo := openRepositoryFromArchive(t, ctx, testPath, "nested")
 
-	revisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
+	// Verify that top-level package "sample" has a main branch
+	publishedRevisionsMain, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
 		Key: repository.PackageRevisionKey{
 			PkgKey: repository.PackageKey{
-				Path:    "catalog/gcp",
-				Package: "bucket",
-			},
-			WorkspaceName: "v2",
-		},
-	})
-	if err != nil {
-		t.Fatalf("ListPackageRevisions failed: %v", err)
-	}
-
-	// Expect a single result
-	if got, want := len(revisions), 1; got != want {
-		t.Fatalf("ListPackageRevisions returned %d packages; want %d", got, want)
-	}
-
-	bucket := revisions[0]
-	// Expect draft package
-	if got, want := bucket.Lifecycle(ctx), porchapi.PackageRevisionLifecycleDraft; got != want {
-		t.Fatalf("Bucket package lifecycle: got %s, want %s", got, want)
-	}
-
-	update, err := cachedRepo.UpdatePackageRevision(ctx, bucket)
-	if err != nil {
-		t.Fatalf("UpdatePackage(%s) failed: %v", bucket.Key(), err)
-	}
-	if err := update.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecyclePublished); err != nil {
-		t.Fatalf("UpdateLifecycle failed; %v", err)
-	}
-	closed, err := cachedRepo.ClosePackageRevisionDraft(ctx, update, 0)
-	if err != nil {
-		t.Fatalf("Close failed: %v", err)
-	}
-	_, err = closed.GetPackageRevision(ctx)
-	if err != nil {
-		t.Errorf("didn't expect error, but got %v", err)
-	}
-
-	publishedRevisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
-		Key: repository.PackageRevisionKey{
-			PkgKey: repository.PackageKey{
-				Path:    "catalog/gcp",
-				Package: "bucket",
+				Package: "sample",
 			},
 			WorkspaceName: "main",
 			Revision:      -1,
@@ -196,22 +156,22 @@ func TestDeletePublishedMain(t *testing.T) {
 		t.Fatalf("ListPackageRevisions failed: %v", err)
 	}
 
-	// Expect a single result
-	if got, want := len(publishedRevisions), 1; got != want {
+	// Expect a single result for top-level package
+	if got, want := len(publishedRevisionsMain), 1; got != want {
 		t.Fatalf("ListPackageRevisions returned %d packages; want %d", got, want)
 	}
 
-	approvedBucket := publishedRevisions[0]
+	approvedSample := publishedRevisionsMain[0]
 
-	if got, want := approvedBucket.Lifecycle(ctx), porchapi.PackageRevisionLifecyclePublished; got != want {
-		t.Fatalf("Approved Bucket package lifecycle: got %s, want %s", got, want)
+	if got, want := approvedSample.Lifecycle(ctx), porchapi.PackageRevisionLifecyclePublished; got != want {
+		t.Fatalf("Approved Sample package lifecycle: got %s, want %s", got, want)
 	}
 
-	err = approvedBucket.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecycleDeletionProposed)
+	err = approvedSample.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecycleDeletionProposed)
 	if err != nil {
-		t.Fatalf("Deletion proposal for approved Bucket failed; %v", err)
+		t.Fatalf("Deletion proposal for approved Sample failed; %v", err)
 	}
-	err = cachedRepo.DeletePackageRevision(ctx, approvedBucket)
+	err = cachedRepo.DeletePackageRevision(ctx, approvedSample)
 	if err != nil {
 		t.Fatalf("Deleting Main packageRevision failed; %v", err)
 	}
@@ -219,8 +179,7 @@ func TestDeletePublishedMain(t *testing.T) {
 	postDeletePublishedRevisions, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
 		Key: repository.PackageRevisionKey{
 			PkgKey: repository.PackageKey{
-				Path:    "catalog/gcp",
-				Package: "bucket",
+				Package: "sample",
 			},
 			WorkspaceName: "main",
 			Revision:      -1,
@@ -232,11 +191,30 @@ func TestDeletePublishedMain(t *testing.T) {
 		t.Fatalf("ListPackageRevisions failed: %v", err)
 	}
 
-	//Expect 0 entries
+	// Expect 0 entries after deletion
 	if got, want := len(postDeletePublishedRevisions), 0; got != want {
 		t.Fatalf("ListPackageRevisions returned %d packages; want %d", got, want)
 	}
 
+	// Verify that subpackages do NOT have main branches
+	subpackageMain, err := cachedRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
+		Key: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				Path:    "catalog/gcp",
+				Package: "bucket",
+			},
+			WorkspaceName: "main",
+			Revision:      -1,
+		},
+	})
+	if err != nil {
+		t.Fatalf("ListPackageRevisions failed: %v", err)
+	}
+
+	// Expect 0 entries - subpackages should NOT have main branches
+	if got, want := len(subpackageMain), 0; got != want {
+		t.Errorf("Subpackage should not have main branch: got %d packages; want %d", got, want)
+	}
 }
 
 func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name string) repository.Repository {
