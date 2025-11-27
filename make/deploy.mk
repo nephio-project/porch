@@ -19,6 +19,7 @@ export SKIP_IMG_BUILD ?= false
 export SKIP_PORCHSERVER_BUILD ?= false
 export SKIP_CONTROLLER_BUILD ?= false
 export SKIP_LOCAL_GIT ?= false
+export IMAGE_TAG ?= test
 
 # Porch cache type: CR (Custom Resource) || DB (Database)
 export PORCH_CACHE_TYPE ?= CR
