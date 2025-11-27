@@ -28,16 +28,10 @@ KPT_REPO='https://github.com/kptdev/kpt.git'
 cd "$PORCH_DIR"
 
 cleandown_before=${CLEANDOWN_BEFORE:-true}
-cleanup_after=${CLEANUP_AFTER:-true}
 
 data_kind_cluster="porch-disaster-test-data"
 crcache_kind_cluster="porch-disaster-test-crcache"
 dbcache_kind_cluster="porch-disaster-test-dbcache"
-
-if [[ $cleandown_before = "true" ]]; then
-    rm -rf "$self_dir/kubeconfigs"
-    mkdir "$self_dir/kubeconfigs"
-fi
 
 data_cluster_kubeconfig_file="$self_dir/kubeconfigs/data_cluster.conf"
 crcache_kubeconfig_file="$self_dir/kubeconfigs/porch_crcache.conf"
@@ -62,6 +56,8 @@ function porchctl_dbcache() {
 h1 "Cleandown before install"
 
 if [[ $cleandown_before = "true" ]]; then
+    rm -rf "$self_dir/kubeconfigs"
+    mkdir "$self_dir/kubeconfigs"
     kind delete cluster --name "$data_kind_cluster" || true
     kind delete cluster --name "$crcache_kind_cluster" || true
     kind delete cluster --name "$dbcache_kind_cluster" || true
@@ -159,7 +155,6 @@ mkdir "$self_dir"/edge1 && cd "$self_dir"/edge1 && {
 
 h1 "Create Porch repositories for workload"
 sed -i -e 's/\[GITEA_PLACEHOLDER\]/nephio:secret@'"$gitea_ip"':3000/' "$self_dir"/load-repositories/*.yaml
-# repo_total="$(grep -R "kind: Repository" "$self_dir"/load-repositories/*.yaml | wc -l)"
 for file in "$self_dir"/load-repositories/*.yaml; do
     h2 "Creating repositories in batch $file"
     kubectl_dbcache apply -f "$file"
