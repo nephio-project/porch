@@ -3,8 +3,10 @@
 # NOTE: Users should use root Makefile targets instead of calling scripts directly
 
 # Only set defaults if variables are not already exported from Makefile
+echo "DEBUG common.sh: IMAGE_TAG before fallback=${IMAGE_TAG}"
 IMAGE_REPO=${IMAGE_REPO:-docker.io/nephio}
 IMAGE_TAG=${IMAGE_TAG:-latest}
+echo "DEBUG common.sh: IMAGE_TAG after fallback=${IMAGE_TAG}"
 
 PORCH_SERVER_IMAGE=${PORCH_SERVER_IMAGE:-porch-server}
 PORCH_CONTROLLERS_IMAGE=${PORCH_CONTROLLERS_IMAGE:-porch-controllers}
