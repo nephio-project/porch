@@ -419,12 +419,6 @@ func (pr *dbPackageRevision) publishPlaceholderPRForPR(ctx context.Context) erro
 	_, span := tracer.Start(ctx, "dbPackageRevision::publishPlaceholderPRForPR", trace.WithAttributes())
 	defer span.End()
 
-	// Skip creating main for subfolders
-	pkgPath := pr.Key().PkgKey.Path
-	if strings.Contains(strings.TrimPrefix(pkgPath, pr.repo.Key().Path+"/"), "/") {
-		return nil
-	}
-
 	prWithResources := pr
 	if len(prWithResources.resources) == 0 {
 		if readPR, err := pkgRevReadFromDB(ctx, pr.Key(), true); err == nil {
