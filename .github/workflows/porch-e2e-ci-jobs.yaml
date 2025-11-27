@@ -89,6 +89,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: build
+    env:
+      IMAGE_TAG: ${{ needs.build.outputs.image-tag }}
     strategy:
       fail-fast: false
       matrix:
@@ -152,7 +154,10 @@ jobs:
           kind load docker-image ${IMAGE_REPO}/${PORCH_WRAPPER_SERVER_IMAGE}:${{ needs.build.outputs.image-tag }} -n ${KIND_CONTEXT_NAME}
           kind load docker-image ${IMAGE_REPO}/${TEST_GIT_SERVER_IMAGE}:${{ needs.build.outputs.image-tag }} -n ${KIND_CONTEXT_NAME}
       - name: Deploy porch kpt pkg
-        run: IMAGE_TAG=${{ needs.build.outputs.image-tag }} SKIP_IMG_BUILD=true make ${{ matrix.make_target }}
+        run: |
+          export IMAGE_TAG=${{ needs.build.outputs.image-tag }}
+          export SKIP_IMG_BUILD=true
+          make ${{ matrix.make_target }}
       - name: Run E2E tests
         run: ${{ matrix.test_env }} go test -v -timeout 20m ${{ matrix.test_path }}
       - name: Export porch server logs
