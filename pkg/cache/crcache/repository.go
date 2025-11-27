@@ -304,10 +304,14 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 
 	// Create the main package revision
 	if porchapi.LifecycleIsPublished(updated.Lifecycle(ctx)) {
-		updatedMain := updated.ToMainPackageRevision(ctx)
-		err := r.createMainPackageRevision(ctx, updatedMain)
-		if err != nil {
-			return nil, err
+		// Skip creating main for subfolders
+		pkgPath := updated.Key().PkgKey.Path
+		if !strings.Contains(strings.TrimPrefix(pkgPath, r.Key().Path+"/"), "/") {
+			updatedMain := updated.ToMainPackageRevision(ctx)
+			err := r.createMainPackageRevision(ctx, updatedMain)
+			if err != nil {
+				return nil, err
+			}
 		}
 	} else {
 		version, err := r.repo.Version(ctx)
