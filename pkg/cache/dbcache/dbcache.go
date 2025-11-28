@@ -83,7 +83,6 @@ func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.
 	}
 
 	c.repositories[repoKey] = dbRepo
-
 	dbRepo.repositorySync = newRepositorySync(dbRepo, c.options)
 
 	return dbRepo, nil
@@ -124,7 +123,6 @@ func (c *dbCache) CloseRepository(ctx context.Context, repositorySpec *configapi
 		return pkgerrors.Errorf("dbcache.CloseRepository: repo %+v not found", repoKey)
 	}
 
-	// TODO: should we still delete if close fails?
 	defer func() {
 		c.mainLock.Lock()
 		delete(c.repositories, repoKey)
