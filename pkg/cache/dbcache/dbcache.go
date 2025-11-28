@@ -52,9 +52,10 @@ func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.
 		return nil, err
 	}
 
-	c.mainLock.RLock()
+	c.mainLock.Lock()
+	defer c.mainLock.Unlock()
+
 	if dbRepo, ok := c.repositories[repoKey]; ok {
-		c.mainLock.RUnlock()
 		// Keep the spec updated in the cache.
 		dbRepo.spec = repositorySpec
 		err := externalrepo.CheckRepositoryConnection(ctx, dbRepo.spec, c.options.ExternalRepoOptions)
@@ -65,7 +66,6 @@ func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.
 		klog.V(2).Infof("dbCache::OpenRepository: verified repo connectivity %+v", repoKey)
 		return dbRepo, nil
 	}
-	c.mainLock.RUnlock()
 
 	dbRepo := &dbRepository{
 		repoKey:              repoKey,
@@ -82,9 +82,7 @@ func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.
 		return nil, err
 	}
 
-	c.mainLock.Lock()
 	c.repositories[repoKey] = dbRepo
-	c.mainLock.Unlock()
 
 	dbRepo.repositorySync = newRepositorySync(dbRepo, c.options)
 
