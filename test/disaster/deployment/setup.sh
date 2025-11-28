@@ -87,21 +87,13 @@ kubectl_data wait --namespace metallb-system deploy controller \
 kubectl_data apply -f "${PORCH_DIR}/deployments/local/metallb-conf.yaml"
 
 
-h1 "Install Postgres on data cluster"
-
-postgres_dir="$deploy_config_dir/external-postgres"
-mkdir "$postgres_dir"
-kpt pkg init "$postgres_dir"
-
-KUBECONFIG="$data_cluster_kubeconfig_file" DEPLOYPORCHCONFIGDIR="$postgres_dir" "${PORCH_DIR}/scripts/upsert-db-cache-data.sh"
-
-make KUBECONFIG="$data_cluster_kubeconfig_file" DEPLOYPORCHCONFIGDIR="$postgres_dir" deploy-current-config
-db_host_ip=$(kubectl_data --namespace porch-system get service porch-postgresql-lb -o custom-columns='IP:.status.loadBalancer.ingress[0].ip' --no-headers)
-
-
 h1 "Install Gitea on data cluster"
-# increment $db_host_ip by 1 to get next IP address in MetalLB address pool
-gitea_ip=${db_host_ip%.*}.$(( $(awk -F '.' '{print $4}' <<< "$db_host_ip") + 1 ))
+# Extract first IP from MetalLB address range
+gitea_ip=$(\
+    grep -A1 "addresses:" "${PORCH_DIR}/deployments/local/metallb-conf.yaml" \
+    | grep -o "[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+" \
+    | head -1 \
+)
 KUBECONFIG="$data_cluster_kubeconfig_file" "${PORCH_DIR}"/scripts/install-dev-gitea-setup.sh "disaster" "$gitea_ip"
 
 
@@ -109,10 +101,28 @@ KUBECONFIG="$data_cluster_kubeconfig_file" "${PORCH_DIR}"/scripts/install-dev-gi
 # make run-in-kind IMAGE_TAG='test' KIND_CONTEXT_NAME="$crcache_kind_cluster" DEPLOYPORCHCONFIGDIR="$deploy_config_dir/crcache" KUBECONFIG="$crcache_kubeconfig_file"
 
 
-h1 "Install Porch with DB cache (with no in-cluster DB)"
-make load-images-to-kind deployment-config-db-cache IMAGE_REPO='porch-kind' IMAGE_TAG='test' KIND_CONTEXT_NAME="$dbcache_kind_cluster" DEPLOYPORCHCONFIGDIR="$deploy_config_dir/dbcache" KUBECONFIG="$dbcache_kubeconfig_file"
-find "$deploy_config_dir/dbcache" -name "*porch-postgres*" -exec rm '{}' ';'
+h1 "Install Postgres on data cluster"
+h2 "Preparing deployment config for Porch with DB cache"
+make load-images-to-kind deployment-config PORCH_CACHE_TYPE='DB' IMAGE_REPO='porch-kind' IMAGE_TAG='test' KIND_CONTEXT_NAME="$dbcache_kind_cluster" DEPLOYPORCHCONFIGDIR="$deploy_config_dir/dbcache" KUBECONFIG="$dbcache_kubeconfig_file"
 
+h2 "Extracting Postgres deployment config for standalone DB"
+postgres_dir="$deploy_config_dir/external-postgres"
+mkdir "$postgres_dir"
+kpt pkg init "$postgres_dir"
+
+ls -al "$deploy_config_dir"/dbcache
+mv "$deploy_config_dir"/dbcache/*porch-postgres*.yaml "$postgres_dir"
+cp "$deploy_config_dir"/dbcache/*namespace*.yaml "$postgres_dir"
+kpt fn eval "$postgres_dir" \
+  --image ghcr.io/kptdev/krm-functions-catalog/starlark:v0.5.0 \
+  --match-kind Namespace --match-name porch-fn-system \
+  -- source='ctx.resource_list["items"] = []'
+
+h2 "Deploying Postgres"
+make KUBECONFIG="$data_cluster_kubeconfig_file" DEPLOYPORCHCONFIGDIR="$postgres_dir" deploy-current-config
+db_host_ip=$(kubectl_data --namespace porch-system get service porch-postgresql-lb -o custom-columns='IP:.status.loadBalancer.ingress[0].ip' --no-headers)
+
+h1 "Install Porch with DB cache (with no in-cluster DB)"
 h2 "Setting DB cache to use Postgres on data cluster"
 cp "$self_dir/postgres-config.yaml" "$deploy_config_dir/dbcache"
 sed -i -e 's/\(  DB_HOST: \).*/\1"'"$db_host_ip"'"/' "$deploy_config_dir/dbcache/postgres-config.yaml" && echo "Set"
@@ -133,7 +143,7 @@ h2 "Deploying..."
 make deploy-current-config IMAGE_TAG='test' KIND_CONTEXT_NAME="$dbcache_kind_cluster" DEPLOYPORCHCONFIGDIR="$deploy_config_dir/dbcache" KUBECONFIG="$dbcache_kubeconfig_file"
 
 
-h1 "Load Git with test packages from Nephio catalog"
+h1 "Load Git with test packages from Nephio catalog and Kpt examples"
 [[ -d "$self_dir/catalog" ]] || git clone "$CATALOG_REPO" "$self_dir/catalog"
 [[ -d "$self_dir/kpt" ]] || git clone "$KPT_REPO" "$self_dir/kpt"
 
@@ -155,7 +165,7 @@ mkdir "$self_dir"/edge1 && cd "$self_dir"/edge1 && {
 
 h1 "Create Porch repositories for workload"
 sed -i -e 's/\[GITEA_PLACEHOLDER\]/nephio:secret@'"$gitea_ip"':3000/' "$self_dir"/load-repositories/*.yaml
-for file in "$self_dir"/load-repositories/*.yaml; do
+for file in "$self_dir"/load-repositories/*batch*.yaml; do
     h2 "Creating repositories in batch $file"
     kubectl_dbcache apply -f "$file"
     h2 "Waiting for all repositories to have condition Ready==True"
