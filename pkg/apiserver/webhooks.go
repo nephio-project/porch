@@ -162,7 +162,7 @@ func webhookServiceName(ctx context.Context) (serviceName, serviceNamespace stri
 	return
 }
 
-func setupWebhooks(ctx context.Context, porchClient client.Client) error {
+func setupWebhooks(ctx context.Context, clientReader client.Reader) error {
 	cfg := newWebhookConfig(ctx)
 	if !cfg.CertManWebhook {
 		caBytes, err := createCerts(cfg)
@@ -174,7 +174,7 @@ func setupWebhooks(ctx context.Context, porchClient client.Client) error {
 		}
 	}
 
-	if err := runWebhookServer(ctx, cfg, porchClient); err != nil {
+	if err := runWebhookServer(ctx, cfg, clientReader); err != nil {
 		return err
 	}
 	return nil
@@ -342,7 +342,7 @@ func createValidatingWebhook(ctx context.Context, cfg *WebhookConfig, caCert []b
 			Name: repositoryCfgName,
 		},
 		Webhooks: []admissionregistrationv1.ValidatingWebhook{{
-			Name: "porchrepositorywebhook.google.com",
+			Name: "porchrepositorywebhook.nephio.org",
 			ClientConfig: admissionregistrationv1.WebhookClientConfig{
 				CABundle: caCert,
 			},
@@ -352,8 +352,8 @@ func createValidatingWebhook(ctx context.Context, cfg *WebhookConfig, caCert []b
 					admissionregistrationv1.Update,
 				},
 				Rule: admissionregistrationv1.Rule{
-					APIGroups:   []string{"config.porch.kpt.dev"},
-					APIVersions: []string{"v1alpha1"},
+					APIGroups:   []string{configapi.GroupVersion.Group},
+					APIVersions: []string{configapi.GroupVersion.Version},
 					Resources:   []string{"repositories"},
 				},
 			}},
@@ -468,7 +468,7 @@ func getCertificate(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	return &cert, nil
 }
 
-func runWebhookServer(ctx context.Context, cfg *WebhookConfig, porchClient client.Client) error {
+func runWebhookServer(ctx context.Context, cfg *WebhookConfig, clientReader client.Reader) error {
 	certFile := filepath.Join(cfg.CertStorageDir, "tls.crt")
 	keyFile := filepath.Join(cfg.CertStorageDir, "tls.key")
 	// load the cert for the first time
@@ -483,10 +483,10 @@ func runWebhookServer(ctx context.Context, cfg *WebhookConfig, porchClient clien
 	}
 	klog.Infoln("Starting webhook server")
 	http.HandleFunc(cfg.Path, func(w http.ResponseWriter, r *http.Request) {
-		validateDeletion(w, r, porchClient)
+		validateDeletion(w, r, clientReader)
 	})
 	http.HandleFunc(cfg.RepositoryPath, func(w http.ResponseWriter, r *http.Request) {
-		validateRepository(w, r, porchClient)
+		validateRepository(w, r, clientReader)
 	})
 	server := http.Server{
 		Addr: fmt.Sprintf(":%d", cfg.Port),
@@ -506,7 +506,7 @@ func runWebhookServer(ctx context.Context, cfg *WebhookConfig, porchClient clien
 
 }
 
-func validateDeletion(w http.ResponseWriter, r *http.Request, porchClient client.Client) {
+func validateDeletion(w http.ResponseWriter, r *http.Request, clientReader client.Reader) {
 	klog.Infoln("received request to validate deletion")
 
 	admissionReviewRequest, err := decodeAdmissionReview(r)
@@ -525,7 +525,7 @@ func validateDeletion(w http.ResponseWriter, r *http.Request, porchClient client
 
 	// Get the package revision using the name and namespace from the request.
 	pr := porchapi.PackageRevision{}
-	if err := porchClient.Get(context.Background(), client.ObjectKey{
+	if err := clientReader.Get(context.Background(), client.ObjectKey{
 		Namespace: admissionReviewRequest.Request.Namespace,
 		Name:      admissionReviewRequest.Request.Name,
 	}, &pr); err != nil {
@@ -646,13 +646,16 @@ func getEnvInt32(key string, defaultValue int32) int32 {
 	return int32(i64) // this is safe because of the size parameter of the ParseInt call
 }
 
-func validateRepository(w http.ResponseWriter, r *http.Request, porchClient client.Client) {
-	klog.Infoln("received request to validate repository")
+func validateRepository(w http.ResponseWriter, r *http.Request, clientReader client.Reader) {
 	admissionReviewRequest, err := decodeAdmissionReview(r)
 	if err != nil {
 		writeErr(fmt.Sprintf("error decoding admission review: %v", err), &w)
 		return
 	}
+
+	operation := strings.ToLower(string(admissionReviewRequest.Request.Operation))
+	repoName := fmt.Sprintf("%s/%s", admissionReviewRequest.Request.Namespace, admissionReviewRequest.Request.Name)
+	klog.Infof("received request to validate repository %s for %s", operation, repoName)
 
 	if admissionReviewRequest.Request.Resource.Resource != "repositories" {
 		writeErr(fmt.Sprintf("unexpected resource: %s", admissionReviewRequest.Request.Resource.Resource), &w)
@@ -681,7 +684,7 @@ func validateRepository(w http.ResponseWriter, r *http.Request, porchClient clie
 	}
 
 	var repoList configapi.RepositoryList
-	if err := porchClient.List(context.Background(), &repoList); err != nil {
+	if err := clientReader.List(context.Background(), &repoList); err != nil {
 		klog.Errorf("failed to list repositories: %v", err)
 		writeErr(fmt.Sprintf("could not list repositories: %v", err), &w)
 		return
@@ -715,8 +718,7 @@ func validateRepository(w http.ResponseWriter, r *http.Request, porchClient clie
 	w.Header().Set("Content-Type", "application/json")
 	_, err = w.Write(responseBytes)
 	if err != nil {
-		errMsg := fmt.Sprintf("error writing response: %v", err)
-		writeErr(errMsg, &w)
+		klog.Errorf("error writing response: %v", err)
 		return
 	}
 }
@@ -825,7 +827,6 @@ func writeModificationResponse(message, reason string, admissionReviewRequest *a
 	(*w).Header().Set("Content-Type", "application/json")
 	_, err = (*w).Write(responseBytes)
 	if err != nil {
-		errMsg := fmt.Sprintf("error writing response: %v", err)
-		writeErr(errMsg, w)
+		klog.Errorf("error writing response: %v", err)
 	}
 }
