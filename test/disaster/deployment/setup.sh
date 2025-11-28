@@ -169,7 +169,7 @@ for file in "$self_dir"/load-repositories/*batch*.yaml; do
     h2 "Creating repositories in batch $file"
     kubectl_dbcache apply -f "$file"
     h2 "Waiting for all repositories to have condition Ready==True"
-    kubectl_dbcache wait repos --all-namespaces --all --for condition=Ready --timeout 5m
+    kubectl_dbcache wait repositories --all-namespaces --all --for condition=Ready --timeout 5m
 done
 kubectl_dbcache apply -f "$self_dir/load-repositories/edge1-repository.yaml"
 
