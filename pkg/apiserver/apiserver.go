@@ -89,12 +89,13 @@ type Config struct {
 
 // PorchServer contains state for a Kubernetes cluster master/api server.
 type PorchServer struct {
-	GenericAPIServer          *genericapiserver.GenericAPIServer
-	coreClient                client.WithWatch
-	cache                     cachetypes.Cache
-	periodicRepoSyncFrequency    time.Duration
-	ListTimeoutPerRepository     time.Duration
-	repoOperationRetryAttempts   int
+	GenericAPIServer           *genericapiserver.GenericAPIServer
+	coreClient                 client.WithWatch
+	cache                      cachetypes.Cache
+	periodicRepoSyncFrequency  time.Duration
+	ListTimeoutPerRepository   time.Duration
+	repoOperationRetryAttempts int
+	cacheOptions               cachetypes.CacheOptions
 }
 
 type completedConfig struct {
@@ -281,9 +282,10 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 		coreClient:       coreClient,
 		cache:            cacheImpl,
 		// Set background job periodic frequency the same as repo sync frequency.
-		periodicRepoSyncFrequency: c.ExtraConfig.CacheOptions.RepoSyncFrequency,
-		ListTimeoutPerRepository:    c.ExtraConfig.ListTimeoutPerRepository,
-		repoOperationRetryAttempts:  c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts,
+		periodicRepoSyncFrequency:  c.ExtraConfig.CacheOptions.RepoSyncFrequency,
+		ListTimeoutPerRepository:   c.ExtraConfig.ListTimeoutPerRepository,
+		repoOperationRetryAttempts: c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts,
+		cacheOptions:               c.ExtraConfig.CacheOptions,
 	}
 
 	// Install the groups.
@@ -299,6 +301,7 @@ func (s *PorchServer) Run(ctx context.Context) error {
 		porch.WithPeriodicRepoSyncFrequency(s.periodicRepoSyncFrequency),
 		porch.WithListTimeoutPerRepo(s.ListTimeoutPerRepository),
 		porch.WithRepoOperationRetryAttempts(s.repoOperationRetryAttempts),
+		porch.WithExternalRepoOptions(s.cacheOptions.ExternalRepoOptions),
 	)
 
 	// TODO: Reconsider if the existence of CERT_STORAGE_DIR was a good inidcator for webhook setup,

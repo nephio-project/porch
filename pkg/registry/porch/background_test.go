@@ -4,10 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"testing"
 	"time"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	"github.com/nephio-project/porch/pkg/externalrepo/git"
+	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	mockclient "github.com/nephio-project/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
 	mockcache "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
 	mockrepo "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/repository"
@@ -50,7 +53,7 @@ func TestBackgroundOptions(t *testing.T) {
 			},
 			expected: background{
 				periodicRepoSyncFrequency: 5 * time.Second,
-				listTimeoutPerRepo:          10 * time.Second,
+				listTimeoutPerRepo:        10 * time.Second,
 			},
 		},
 	}
@@ -193,15 +196,20 @@ func TestBackgroundHandleRepositoryEvent(t *testing.T) {
 				cache:                      mockCache,
 				listTimeoutPerRepo:         1 * time.Second,
 				repoOperationRetryAttempts: 3,
+				externalRepoOptions:        externalrepotypes.ExternalRepoOptions{},
 			}
 
 			var repository *configapi.Repository
+			var cleanup func()
 			switch tt.name {
 			case "Invalid repository":
 				repository = createRepo(2, 1, false)
 				repository.Spec.Git.Directory = "invalid//directory"
+			case "Successfully add repository event", "Successfully modified repository event":
+				repository, cleanup = createRepoWithGitServer(t, 2, 1, false)
+				defer cleanup()
 			default:
-				repository = createRepo(2, 1, false) // specChanged returns true
+				repository = createRepo(2, 1, false)
 			}
 			tt.setupMocks(mockClient, mockResourceWriter, mockCache, mockRepo)
 
@@ -226,6 +234,11 @@ func TestBackgroundRunOnce(t *testing.T) {
 	repository := *createRepo(1, 2, false)
 	repositories := &configapi.RepositoryList{Items: []configapi.Repository{repository}}
 
+	// Create repository with Git server for successful test
+	successRepo, cleanup := createRepoWithGitServer(t, 1, 2, false)
+	defer cleanup()
+	successRepositories := &configapi.RepositoryList{Items: []configapi.Repository{*successRepo}}
+
 	tests := []struct {
 		name          string
 		setupMocks    func(*mockclient.MockWithWatch, *mockclient.MockSubResourceWriter, *mockcache.MockCache, *mockrepo.MockRepository)
@@ -237,7 +250,7 @@ func TestBackgroundRunOnce(t *testing.T) {
 				mockCache *mockcache.MockCache, mockRepo *mockrepo.MockRepository) {
 				mockClient.On("List", mock.Anything, mock.AnythingOfType(v1alpha1RepoList)).Run(func(args mock.Arguments) {
 					repoList := args.Get(1).(*configapi.RepositoryList)
-					*repoList = *repositories
+					*repoList = *successRepositories
 				}).Return(nil)
 				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType(v1alpha1Repo), mock.Anything).Return(mockRepo, nil)
 				mockClient.On("Status").Return(mockResourceWriter)
@@ -267,8 +280,7 @@ func TestBackgroundRunOnce(t *testing.T) {
 					repoList := args.Get(1).(*configapi.RepositoryList)
 					*repoList = *repositories
 				}).Return(nil)
-				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType(v1alpha1Repo), mock.Anything).
-					Return(nil, fmt.Errorf("failed to cache"))
+				// Connectivity check will fail, so we expect status update but no OpenRepository call
 				mockClient.On("Status").Return(mockResourceWriter)
 				mockResourceWriter.On("Update", mock.Anything, mock.Anything).Return(nil)
 				mockClient.On("Get", mock.Anything, mock.AnythingOfType("types.NamespacedName"), mock.AnythingOfType("*v1alpha1.Repository")).
@@ -291,6 +303,7 @@ func TestBackgroundRunOnce(t *testing.T) {
 				coreClient:                 mockClient,
 				cache:                      mockCache,
 				repoOperationRetryAttempts: 3,
+				externalRepoOptions:        externalrepotypes.ExternalRepoOptions{},
 			}
 
 			tt.setupMocks(mockClient, mockResourceWriter, mockCache, mockRepo)
@@ -556,6 +569,7 @@ func createRepo(gen int64, observedGen int64, conditionsNil bool) *configapi.Rep
 			Generation: gen,
 		},
 		Spec: configapi.RepositorySpec{
+			Type: configapi.RepositoryTypeGit,
 			Git: &configapi.GitRepository{
 				Directory: "/valid/path",
 			},
@@ -564,4 +578,44 @@ func createRepo(gen int64, observedGen int64, conditionsNil bool) *configapi.Rep
 			Conditions: conditions,
 		},
 	}
+}
+
+func createRepoWithGitServer(t *testing.T, gen int64, observedGen int64, conditionsNil bool) (*configapi.Repository, func()) {
+	tempDir := t.TempDir()
+	tarfile := filepath.Join("../../externalrepo/git/testdata", "trivial-repository.tar")
+	branch := "main"
+
+	_, address := git.ServeGitRepositoryWithBranch(t, tarfile, tempDir, branch)
+
+	var conditions []v1.Condition
+	if !conditionsNil {
+		conditions = []v1.Condition{
+			{
+				Type:               "Ready",
+				Status:             v1.ConditionFalse,
+				ObservedGeneration: observedGen,
+			},
+		}
+	}
+
+	repo := &configapi.Repository{
+		ObjectMeta: v1.ObjectMeta{
+			Name:       "test-repo",
+			Namespace:  "test-namespace",
+			Generation: gen,
+		},
+		Spec: configapi.RepositorySpec{
+			Type: configapi.RepositoryTypeGit,
+			Git: &configapi.GitRepository{
+				Repo:      address,
+				Branch:    branch,
+				Directory: "/valid/path",
+			},
+		},
+		Status: configapi.RepositoryStatus{
+			Conditions: conditions,
+		},
+	}
+
+	return repo, func() {} // cleanup function (server cleanup handled by t.TempDir())
 }
