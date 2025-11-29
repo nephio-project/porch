@@ -153,14 +153,6 @@ func createFinalTagNameInLocal(key repository.PackageRevisionKey) plumbing.Refer
 	}
 }
 
-func isFinalTagForPackage(key repository.PackageKey, ref plumbing.ReferenceName) bool {
-	return strings.HasPrefix(ref.String(), tagsPrefixInLocalRepo+key.ToFullPathname()+"/")
-}
-
-func pathAndRevisionFromReferenceName(n plumbing.ReferenceName) (string, string) {
-	return filepath.Dir(n.String()), filepath.Base(n.String())
-}
-
 func refInLocalFromRefInRemote(n plumbing.ReferenceName) (plumbing.ReferenceName, error) {
 	return translateReference(n, defaultFetchSpec)
 }
