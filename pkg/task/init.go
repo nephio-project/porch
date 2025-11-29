@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/kpt/kptpkg"
 	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"github.com/nephio-project/porch/pkg/kpt/printer/fake"
@@ -30,12 +30,12 @@ import (
 type initPackageMutation struct {
 	kptpkg.DefaultInitializer
 	name string
-	task *api.Task
+	task *porchapi.Task
 }
 
 var _ mutation = &initPackageMutation{}
 
-func (m *initPackageMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
+func (m *initPackageMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *porchapi.TaskResult, error) {
 	ctx, span := tracer.Start(ctx, "initPackageMutation::apply", trace.WithAttributes())
 	defer span.End()
 
@@ -65,5 +65,5 @@ func (m *initPackageMutation) apply(ctx context.Context, resources repository.Pa
 		return repository.PackageResources{}, nil, err
 	}
 
-	return result, &api.TaskResult{Task: m.task}, nil
+	return result, &porchapi.TaskResult{Task: m.task}, nil
 }

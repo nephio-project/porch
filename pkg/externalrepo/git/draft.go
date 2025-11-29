@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,10 +30,10 @@ type gitPackageRevisionDraft struct {
 	repo     *gitRepository // repo is repo containing the package
 	metadata metav1.ObjectMeta
 	updated  time.Time
-	tasks    []v1alpha1.Task
+	tasks    []porchapi.Task
 
 	// New value of the package revision lifecycle
-	lifecycle v1alpha1.PackageRevisionLifecycle
+	lifecycle porchapi.PackageRevisionLifecycle
 
 	// ref to the base of the package update commit chain (used for conditional push)
 	base *plumbing.Reference
@@ -58,14 +58,14 @@ func (d *gitPackageRevisionDraft) GetMeta() metav1.ObjectMeta {
 	return d.metadata
 }
 
-func (d *gitPackageRevisionDraft) UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, change *v1alpha1.Task) error {
+func (d *gitPackageRevisionDraft) UpdateResources(ctx context.Context, new *porchapi.PackageRevisionResources, change *porchapi.Task) error {
 	ctx, span := tracer.Start(ctx, "gitPackageDraft::UpdateResources", trace.WithAttributes())
 	defer span.End()
 
 	return d.repo.UpdateDraftResources(ctx, d, new, change)
 }
 
-func (d *gitPackageRevisionDraft) UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error {
+func (d *gitPackageRevisionDraft) UpdateLifecycle(ctx context.Context, new porchapi.PackageRevisionLifecycle) error {
 	d.lifecycle = new
 	return nil
 }

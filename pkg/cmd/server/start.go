@@ -30,7 +30,7 @@ import (
 	clientset "github.com/nephio-project/porch/api/generated/clientset/versioned"
 	informers "github.com/nephio-project/porch/api/generated/informers/externalversions"
 	sampleopenapi "github.com/nephio-project/porch/api/generated/openapi"
-	porchv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/apiserver"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/engine"
@@ -54,24 +54,24 @@ const (
 
 // PorchServerOptions contains state for master/api server
 type PorchServerOptions struct {
-	RecommendedOptions               *genericoptions.RecommendedOptions
-	CacheDirectory                   string
-	CacheType                        string
-	CoreAPIKubeconfigPath            string
-	DbCacheDriver                    string
-	DbCacheDataSource                string
-	DefaultImagePrefix               string
-	FunctionRunnerAddress            string
-	ListTimeoutPerRepository         time.Duration
-	LocalStandaloneDebugging         bool // Enables local standalone running/debugging of the apiserver.
-	MaxConcurrentLists               int
-	MaxRequestBodySize               int
-	RepoSyncFrequency                time.Duration
-	RepoOperationRetryAttempts       int
-	SharedInformerFactory            informers.SharedInformerFactory
-	StdOut                           io.Writer
-	StdErr                           io.Writer
-	UseUserDefinedCaBundle           bool
+	RecommendedOptions         *genericoptions.RecommendedOptions
+	CacheDirectory             string
+	CacheType                  string
+	CoreAPIKubeconfigPath      string
+	DbCacheDriver              string
+	DbCacheDataSource          string
+	DefaultImagePrefix         string
+	FunctionRunnerAddress      string
+	ListTimeoutPerRepository   time.Duration
+	LocalStandaloneDebugging   bool // Enables local standalone running/debugging of the apiserver.
+	MaxConcurrentLists         int
+	MaxRequestBodySize         int
+	RepoSyncFrequency          time.Duration
+	RepoOperationRetryAttempts int
+	SharedInformerFactory      informers.SharedInformerFactory
+	StdOut                     io.Writer
+	StdErr                     io.Writer
+	UseUserDefinedCaBundle     bool
 }
 
 // NewPorchServerOptions returns a new PorchServerOptions
@@ -80,7 +80,7 @@ func NewPorchServerOptions(out, errOut io.Writer) *PorchServerOptions {
 	// GroupVersions served by this server
 	//
 	versions := schema.GroupVersions{
-		porchv1alpha1.SchemeGroupVersion,
+		porchapi.SchemeGroupVersion,
 	}
 
 	o := &PorchServerOptions{
@@ -285,9 +285,9 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 					LocalDirectory:         o.CacheDirectory,
 					UseUserDefinedCaBundle: o.UseUserDefinedCaBundle,
 				},
-				RepoSyncFrequency:            o.RepoSyncFrequency,
-				RepoOperationRetryAttempts:   o.RepoOperationRetryAttempts,
-				CacheType:                    cachetypes.CacheType(o.CacheType),
+				RepoSyncFrequency:          o.RepoSyncFrequency,
+				RepoOperationRetryAttempts: o.RepoOperationRetryAttempts,
+				CacheType:                  cachetypes.CacheType(o.CacheType),
 				DBCacheOptions: cachetypes.DBCacheOptions{
 					Driver:     o.DbCacheDriver,
 					DataSource: o.DbCacheDataSource,

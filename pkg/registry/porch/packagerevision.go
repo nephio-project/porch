@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -55,13 +55,13 @@ func (r *packageRevisions) GetSingularName() string {
 }
 
 func (r *packageRevisions) New() runtime.Object {
-	return &api.PackageRevision{}
+	return &porchapi.PackageRevision{}
 }
 
 func (r *packageRevisions) Destroy() {}
 
 func (r *packageRevisions) NewList() runtime.Object {
-	return &api.PackageRevisionList{}
+	return &porchapi.PackageRevisionList{}
 }
 
 func (r *packageRevisions) NamespaceScoped() bool {
@@ -73,10 +73,10 @@ func (r *packageRevisions) List(ctx context.Context, options *metainternalversio
 	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::List", trace.WithAttributes())
 	defer span.End()
 
-	result := &api.PackageRevisionList{
+	result := &porchapi.PackageRevisionList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevisionList",
-			APIVersion: api.SchemeGroupVersion.Identifier(),
+			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
 		},
 	}
 
@@ -96,6 +96,8 @@ func (r *packageRevisions) List(ctx context.Context, options *metainternalversio
 		return nil, err
 	}
 
+	klog.V(3).Infof("List packagerevisions completed: found %d items", len(result.Items))
+
 	return result, nil
 }
 
@@ -114,6 +116,8 @@ func (r *packageRevisions) Get(ctx context.Context, name string, options *metav1
 		return nil, err
 	}
 
+	klog.V(3).Infof("Get packagerevision completed: %s", name)
+
 	return apiPkgRev, nil
 }
 
@@ -128,7 +132,7 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 		return nil, apierrors.NewBadRequest("namespace must be specified")
 	}
 
-	newApiPkgRev, ok := runtimeObject.(*api.PackageRevision)
+	newApiPkgRev, ok := runtimeObject.(*porchapi.PackageRevision)
 	if !ok {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected PackageRevision object, got %T", runtimeObject))
 	}
@@ -152,7 +156,7 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 
 	fieldErrors := r.createStrategy.Validate(ctx, runtimeObject)
 	if len(fieldErrors) > 0 {
-		return nil, apierrors.NewInvalid(api.SchemeGroupVersion.WithKind("PackageRevision").GroupKind(), newApiPkgRev.Name, fieldErrors)
+		return nil, apierrors.NewInvalid(porchapi.SchemeGroupVersion.WithKind("PackageRevision").GroupKind(), newApiPkgRev.Name, fieldErrors)
 	}
 
 	var parentPackage repository.PackageRevision
@@ -172,7 +176,7 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 		conflictError := creationConflictError(newApiPkgRev)
 		return nil,
 			apierrors.NewConflict(
-				api.Resource("packagerevisions"),
+				porchapi.Resource("packagerevisions"),
 				"(new creation)",
 				conflictError)
 	}
@@ -188,7 +192,52 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 		return nil, apierrors.NewInternalError(err)
 	}
 
+	action := createAction(newApiPkgRev)
+	klog.Infof("%s operation completed for package revision: %s", action, createdApiPkgRev.Name)
+
 	return createdApiPkgRev, nil
+}
+
+func createAction(pkgRev *porchapi.PackageRevision) string {
+	// Nil checks
+	if pkgRev == nil || pkgRev.Spec.Tasks == nil {
+		return "Create"
+	}
+	// Check tasks for specific operation types
+	var taskType []porchapi.TaskType
+	for _, task := range pkgRev.Spec.Tasks {
+		switch task.Type {
+		case porchapi.TaskTypeInit:
+			taskType = append(taskType, porchapi.TaskTypeInit)
+		case porchapi.TaskTypeClone:
+			taskType = append(taskType, porchapi.TaskTypeClone)
+		case porchapi.TaskTypeUpgrade:
+			taskType = append(taskType, porchapi.TaskTypeUpgrade)
+		case porchapi.TaskTypeEdit:
+			// Edit task with sourceRef indicates a copy operation
+			if task.Edit != nil && task.Edit.Source != nil {
+				taskType = append(taskType, porchapi.TaskTypeEdit)
+			}
+		}
+	}
+	// If multiple different task types found, return "Create"
+	if len(taskType) > 1 {
+		return "Create"
+	}
+	// If single task type found, return specific action
+	if len(taskType) == 1 {
+		switch taskType[0] {
+		case porchapi.TaskTypeInit:
+			return "Init"
+		case porchapi.TaskTypeClone:
+			return "Clone"
+		case porchapi.TaskTypeUpgrade:
+			return "Upgrade"
+		case porchapi.TaskTypeEdit:
+			return "Copy"
+		}
+	}
+	return "Create"
 }
 
 // Update implements the Updater interface.
@@ -246,7 +295,7 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 	if !locked {
 		return nil, false,
 			apierrors.NewConflict(
-				api.Resource("packagerevisions"),
+				porchapi.Resource("packagerevisions"),
 				name,
 				fmt.Errorf(GenericConflictErrorMsg, "package revision", pkgMutexKey))
 	}
@@ -256,11 +305,13 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 		return nil, false, apierrors.NewInternalError(err)
 	}
 
+	klog.Infof("Delete operation completed: %s", name)
+
 	// TODO: Should we do an async delete?
 	return apiPkgRev, true, nil
 }
 
-func uncreatedPackageMutexKey(newApiPkgRev *api.PackageRevision) string {
+func uncreatedPackageMutexKey(newApiPkgRev *porchapi.PackageRevision) string {
 	return fmt.Sprintf("%s-%s-%s-%s",
 		newApiPkgRev.Namespace,
 		newApiPkgRev.Spec.RepositoryName,
@@ -269,7 +320,7 @@ func uncreatedPackageMutexKey(newApiPkgRev *api.PackageRevision) string {
 	)
 }
 
-func creationConflictError(newApiPkgRev *api.PackageRevision) error {
+func creationConflictError(newApiPkgRev *porchapi.PackageRevision) error {
 	return fmt.Errorf(
 		fmt.Sprintf(
 			ConflictErrorMsgBase,

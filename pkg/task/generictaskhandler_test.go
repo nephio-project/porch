@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	fakeextrepo "github.com/nephio-project/porch/pkg/externalrepo/fake"
 	"github.com/stretchr/testify/require"
@@ -34,7 +34,7 @@ import (
 
 type mockPackageRevisionDraft struct{}
 
-func (m *mockPackageRevisionDraft) UpdateResources(ctx context.Context, resources *api.PackageRevisionResources, task *api.Task) error {
+func (m *mockPackageRevisionDraft) UpdateResources(ctx context.Context, resources *porchapi.PackageRevisionResources, task *porchapi.Task) error {
 	return nil
 }
 
@@ -45,7 +45,7 @@ func (m *mockPackageRevisionDraft) Key() repository.PackageRevisionKey {
 	}
 }
 
-func (m *mockPackageRevisionDraft) UpdateLifecycle(ctx context.Context, lifecycle api.PackageRevisionLifecycle) error {
+func (m *mockPackageRevisionDraft) UpdateLifecycle(ctx context.Context, lifecycle porchapi.PackageRevisionLifecycle) error {
 	return nil
 }
 
@@ -59,18 +59,18 @@ func (m *mockPackageRevisionDraft) GetMeta() metav1.ObjectMeta {
 func TestApplyTasks(t *testing.T) {
 	tests := []struct {
 		name          string
-		tasks         []api.Task
+		tasks         []porchapi.Task
 		expectedError string
 	}{
 		{
 			name: "Valid Clone task",
-			tasks: []api.Task{
+			tasks: []porchapi.Task{
 				{
-					Type: api.TaskTypeClone,
-					Clone: &api.PackageCloneTaskSpec{
-						Upstream: api.UpstreamPackage{
-							Type: api.RepositoryTypeGit,
-							Git: &api.GitPackage{
+					Type: porchapi.TaskTypeClone,
+					Clone: &porchapi.PackageCloneTaskSpec{
+						Upstream: porchapi.UpstreamPackage{
+							Type: porchapi.RepositoryTypeGit,
+							Git: &porchapi.GitPackage{
 								Repo:      "https://github.com/example/repo.git",
 								Ref:       "main",
 								Directory: "/path/to/package",
@@ -101,8 +101,8 @@ func TestApplyTasks(t *testing.T) {
 
 			draft := &mockPackageRevisionDraft{}
 			repositoryObj := &configapi.Repository{}
-			obj := &api.PackageRevision{
-				Spec: api.PackageRevisionSpec{
+			obj := &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
 					Tasks: tt.tasks,
 				},
 			}
@@ -125,23 +125,23 @@ func TestApplyTasks(t *testing.T) {
 func TestMapTaskToMutationUpgradeTask(t *testing.T) {
 	th := &genericTaskHandler{}
 
-	task := &api.Task{
-		Type: api.TaskTypeUpgrade,
-		Upgrade: &api.PackageUpgradeTaskSpec{
-			OldUpstream: api.PackageRevisionRef{
+	task := &porchapi.Task{
+		Type: porchapi.TaskTypeUpgrade,
+		Upgrade: &porchapi.PackageUpgradeTaskSpec{
+			OldUpstream: porchapi.PackageRevisionRef{
 				Name: "old-upstream",
 			},
-			NewUpstream: api.PackageRevisionRef{
+			NewUpstream: porchapi.PackageRevisionRef{
 				Name: "new-upstream",
 			},
-			LocalPackageRevisionRef: api.PackageRevisionRef{
+			LocalPackageRevisionRef: porchapi.PackageRevisionRef{
 				Name: "local",
 			},
 		},
 	}
 
-	obj := &api.PackageRevision{
-		Spec: api.PackageRevisionSpec{
+	obj := &porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
 			PackageName: "test-package",
 		},
 	}
@@ -168,8 +168,8 @@ func TestDoPrMutations(t *testing.T) {
 	}
 
 	repoPr := &fakeextrepo.FakePackageRevision{
-		Resources: &api.PackageRevisionResources{
-			Spec: api.PackageRevisionResourcesSpec{
+		Resources: &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
 				Resources: map[string]string{},
 			},
 		},
@@ -177,24 +177,24 @@ func TestDoPrMutations(t *testing.T) {
 	draft := repoPr
 
 	t.Run("No-op when not draft", func(t *testing.T) {
-		oldObj := &api.PackageRevision{
-			Spec: api.PackageRevisionSpec{
-				Lifecycle: api.PackageRevisionLifecyclePublished,
+		oldObj := &porchapi.PackageRevision{
+			Spec: porchapi.PackageRevisionSpec{
+				Lifecycle: porchapi.PackageRevisionLifecyclePublished,
 			},
 		}
-		err := th.DoPRMutations(context.TODO(), repoPr, oldObj, &api.PackageRevision{}, draft)
+		err := th.DoPRMutations(context.TODO(), repoPr, oldObj, &porchapi.PackageRevision{}, draft)
 		require.NoError(t, err)
 		assert.Empty(t, draft.Ops)
 	})
 
 	// Not exactly helpful, but gets coverage
 	t.Run("Success", func(t *testing.T) {
-		oldObj := &api.PackageRevision{
-			Spec: api.PackageRevisionSpec{
-				Lifecycle: api.PackageRevisionLifecycleDraft,
+		oldObj := &porchapi.PackageRevision{
+			Spec: porchapi.PackageRevisionSpec{
+				Lifecycle: porchapi.PackageRevisionLifecycleDraft,
 			},
 		}
-		err := th.DoPRMutations(context.TODO(), repoPr, oldObj, &api.PackageRevision{}, draft)
+		err := th.DoPRMutations(context.TODO(), repoPr, oldObj, &porchapi.PackageRevision{}, draft)
 		require.NoError(t, err)
 		require.NotEmpty(t, draft.Ops)
 		assert.Equal(t, "UpdateResources", draft.Ops[len(draft.Ops)-1])
@@ -216,8 +216,8 @@ func TestDoPrResourceMutations(t *testing.T) {
 	}
 
 	repoPr := &fakeextrepo.FakePackageRevision{
-		Resources: &api.PackageRevisionResources{
-			Spec: api.PackageRevisionResourcesSpec{
+		Resources: &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
 				Resources: map[string]string{},
 			},
 		},
@@ -225,8 +225,8 @@ func TestDoPrResourceMutations(t *testing.T) {
 	draft := repoPr
 
 	t.Run("Empty resources", func(t *testing.T) {
-		oldRes := &api.PackageRevisionResources{
-			Spec: api.PackageRevisionResourcesSpec{
+		oldRes := &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
 				Resources: map[string]string{},
 			},
 		}
@@ -240,8 +240,8 @@ func TestDoPrResourceMutations(t *testing.T) {
 	})
 
 	t.Run("Basic resources", func(t *testing.T) {
-		oldRes := &api.PackageRevisionResources{
-			Spec: api.PackageRevisionResourcesSpec{
+		oldRes := &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
 				Resources: map[string]string{
 					"foo.txt": "bar",
 				},

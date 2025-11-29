@@ -21,15 +21,15 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
 func TestInit(t *testing.T) {
 	init := &initPackageMutation{
 		name: "testpkg",
-		task: &api.Task{
-			Init: &api.PackageInitTaskSpec{
+		task: &porchapi.Task{
+			Init: &porchapi.PackageInitTaskSpec{
 				Description: "test package",
 				Keywords:    []string{"test", "kpt", "pkg"},
 				Site:        "http://kpt.dev/testpkg",

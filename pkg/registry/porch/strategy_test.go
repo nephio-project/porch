@@ -18,7 +18,7 @@ import (
 	"context"
 	"testing"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -27,37 +27,37 @@ func TestPackageRevisionStrategyValidate(t *testing.T) {
 	s := packageRevisionStrategy{}
 
 	testCases := map[string]struct {
-		obj   *api.PackageRevision
+		obj   *porchapi.PackageRevision
 		valid bool
 	}{
 		"cannot set latest-revision label during creation": {
-			obj: &api.PackageRevision{
+			obj: &porchapi.PackageRevision{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						api.LatestPackageRevisionKey: "true",
+						porchapi.LatestPackageRevisionKey: "true",
 					},
 				},
-				Spec: api.PackageRevisionSpec{
+				Spec: porchapi.PackageRevisionSpec{
 					PackageName:    "test-package",
 					WorkspaceName:  "test-workspace",
 					RepositoryName: "test-repo",
-					Lifecycle:      api.PackageRevisionLifecycleDraft,
+					Lifecycle:      porchapi.PackageRevisionLifecycleDraft,
 				},
 			},
 			valid: false,
 		},
 		"can create without latest-revision label": {
-			obj: &api.PackageRevision{
+			obj: &porchapi.PackageRevision{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"other-label": "value",
 					},
 				},
-				Spec: api.PackageRevisionSpec{
+				Spec: porchapi.PackageRevisionSpec{
 					PackageName:    "test-package",
 					WorkspaceName:  "test-workspace",
 					RepositoryName: "test-repo",
-					Lifecycle:      api.PackageRevisionLifecycleDraft,
+					Lifecycle:      porchapi.PackageRevisionLifecycleDraft,
 				},
 			},
 			valid: true,

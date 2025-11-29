@@ -325,7 +325,9 @@ func (pr *dbPackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, e
 	return *kf, nil
 }
 
-func (pr *dbPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, error) {
+func (pr *dbPackageRevision) GetLock(ctx context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error) {
+	_, span := tracer.Start(ctx, "dbPackageRevision::GetLock", trace.WithAttributes())
+	defer span.End()
 	return repository.KptUpstreamLock2KptUpstream(pr.extPRID), pr.extPRID, nil
 }
 

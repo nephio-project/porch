@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
@@ -89,20 +89,20 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 			Name:      name,
 		}
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			var pr v1alpha1.PackageRevision
+			var pr porchapi.PackageRevision
 			if err := r.client.Get(r.ctx, key, &pr); err != nil {
 				return err
 			}
 
 			switch pr.Spec.Lifecycle {
-			case v1alpha1.PackageRevisionLifecyclePublished:
-				pr.Spec.Lifecycle = v1alpha1.PackageRevisionLifecycleDeletionProposed
+			case porchapi.PackageRevisionLifecyclePublished:
+				pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
 				err := r.client.Update(r.ctx, &pr)
 				if err == nil {
 					fmt.Fprintf(r.Command.OutOrStdout(), "%s proposed for deletion\n", name)
 				}
 				return err
-			case v1alpha1.PackageRevisionLifecycleDeletionProposed:
+			case porchapi.PackageRevisionLifecycleDeletionProposed:
 				fmt.Fprintf(r.Command.OutOrStderr(), "%s is already proposed for deletion\n", name)
 				return nil
 			default:

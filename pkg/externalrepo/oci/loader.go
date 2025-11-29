@@ -26,7 +26,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/kptdev/kpt/pkg/oci"
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -41,7 +41,7 @@ const (
 
 var tracer = otel.Tracer("oci")
 
-func (r *ociRepository) getLifecycle(ctx context.Context, imageRef oci.ImageDigestName) (v1alpha1.PackageRevisionLifecycle, error) {
+func (r *ociRepository) getLifecycle(ctx context.Context, imageRef oci.ImageDigestName) (porchapi.PackageRevisionLifecycle, error) {
 	ctx, span := tracer.Start(ctx, "ociRepository::getLifecycle", trace.WithAttributes(
 		attribute.Stringer("image", imageRef),
 	))
@@ -59,14 +59,14 @@ func (r *ociRepository) getLifecycle(ctx context.Context, imageRef oci.ImageDige
 
 	lifecycleValue := manifest.Annotations[annotationKeyLifecycle]
 	switch lifecycleValue {
-	case "", string(v1alpha1.PackageRevisionLifecycleDraft):
-		return v1alpha1.PackageRevisionLifecycleDraft, nil
-	case string(v1alpha1.PackageRevisionLifecycleProposed):
-		return v1alpha1.PackageRevisionLifecycleProposed, nil
-	case string(v1alpha1.PackageRevisionLifecyclePublished):
-		return v1alpha1.PackageRevisionLifecyclePublished, nil
-	case string(v1alpha1.PackageRevisionLifecycleDeletionProposed):
-		return v1alpha1.PackageRevisionLifecycleDeletionProposed, nil
+	case "", string(porchapi.PackageRevisionLifecycleDraft):
+		return porchapi.PackageRevisionLifecycleDraft, nil
+	case string(porchapi.PackageRevisionLifecycleProposed):
+		return porchapi.PackageRevisionLifecycleProposed, nil
+	case string(porchapi.PackageRevisionLifecyclePublished):
+		return porchapi.PackageRevisionLifecyclePublished, nil
+	case string(porchapi.PackageRevisionLifecycleDeletionProposed):
+		return porchapi.PackageRevisionLifecycleDeletionProposed, nil
 	default:
 		return "", fmt.Errorf("unknown package revision lifecycle %q", lifecycleValue)
 	}
@@ -91,7 +91,7 @@ func (r *ociRepository) getRevisionNumber(ctx context.Context, imageRef oci.Imag
 	return repository.Revision2Int(manifest.Annotations[annotationKeyRevision]), nil
 }
 
-func (r *ociRepository) loadTasks(ctx context.Context, imageRef oci.ImageDigestName) ([]v1alpha1.Task, error) {
+func (r *ociRepository) loadTasks(ctx context.Context, imageRef oci.ImageDigestName) ([]porchapi.Task, error) {
 	ctx, span := tracer.Start(ctx, "ociRepository::loadTasks", trace.WithAttributes(
 		attribute.Stringer("image", imageRef),
 	))
@@ -102,12 +102,12 @@ func (r *ociRepository) loadTasks(ctx context.Context, imageRef oci.ImageDigestN
 		return nil, fmt.Errorf("error fetching config for image: %w", err)
 	}
 
-	var tasks []v1alpha1.Task
+	var tasks []porchapi.Task
 	for i := range configFile.History {
 		history := &configFile.History[i]
 		command := history.CreatedBy
 		if strings.HasPrefix(command, "kpt:") {
-			task := v1alpha1.Task{}
+			task := porchapi.Task{}
 			b := []byte(strings.TrimPrefix(command, "kpt:"))
 			if err := json.Unmarshal(b, &task); err != nil {
 				klog.Warningf("failed to unmarshal task command %q: %v", command, err)

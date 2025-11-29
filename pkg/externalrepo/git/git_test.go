@@ -31,7 +31,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/filemode"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/google/go-cmp/cmp"
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	extrepo "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -197,16 +197,16 @@ func (g GitSuite) TestGitPackageRoundTrip(t *testing.T) {
 	wantResources["Kptfile"] = "placeholder"
 
 	{
-		packageRevision := &v1alpha1.PackageRevision{
+		packageRevision := &porchapi.PackageRevision{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespace,
 			},
-			Spec: v1alpha1.PackageRevisionSpec{
+			Spec: porchapi.PackageRevisionSpec{
 				PackageName:    packageName,
 				WorkspaceName:  workspace,
 				RepositoryName: repositoryName,
 			},
-			Status: v1alpha1.PackageRevisionStatus{},
+			Status: porchapi.PackageRevisionStatus{},
 		}
 
 		draft, err := repo.CreatePackageRevisionDraft(ctx, packageRevision)
@@ -214,9 +214,9 @@ func (g GitSuite) TestGitPackageRoundTrip(t *testing.T) {
 			t.Fatalf("CreatePackageRevision(%#v) failed: %v", packageRevision, err)
 		}
 
-		newResources := &v1alpha1.PackageRevisionResources{}
+		newResources := &porchapi.PackageRevisionResources{}
 		newResources.Spec.Resources = wantResources
-		task := &v1alpha1.Task{}
+		task := &porchapi.Task{}
 		if err := draft.UpdateResources(ctx, newResources, task); err != nil {
 			t.Fatalf("draft.UpdateResources(%#v, %#v) failed: %v", newResources, task, err)
 		}
@@ -251,7 +251,7 @@ func (g GitSuite) TestGitPackageRoundTrip(t *testing.T) {
 		if err != nil {
 			t.Fatalf("UpdatePackageRevision(%#v failed: %v", original, err)
 		}
-		if err := update.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished); err != nil {
+		if err := update.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecyclePublished); err != nil {
 			t.Fatalf("UpdateLifecycle failed: %v", err)
 		}
 		approved, err := repo.ClosePackageRevisionDraft(ctx, update, 1)
@@ -434,15 +434,15 @@ func (g GitSuite) TestListPackagesTrivial(t *testing.T) {
 		t.Errorf("Number of packges in empty repository: got %d, want %d", got, want)
 	}
 
-	packageRevision := &v1alpha1.PackageRevision{
+	packageRevision := &porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 		},
-		Spec: v1alpha1.PackageRevisionSpec{
+		Spec: porchapi.PackageRevisionSpec{
 			PackageName:    "test-package",
 			WorkspaceName:  "test-workspace",
 			RepositoryName: repositoryName,
-			Lifecycle:      v1alpha1.PackageRevisionLifecycleDraft,
+			Lifecycle:      porchapi.PackageRevisionLifecycleDraft,
 		},
 	}
 
@@ -451,16 +451,16 @@ func (g GitSuite) TestListPackagesTrivial(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreatePackageRevision() failed: %v", err)
 	}
-	resources := &v1alpha1.PackageRevisionResources{
-		Spec: v1alpha1.PackageRevisionResourcesSpec{
+	resources := &porchapi.PackageRevisionResources{
+		Spec: porchapi.PackageRevisionResourcesSpec{
 			Resources: map[string]string{
 				"Kptfile": Kptfile,
 			},
 		},
 	}
-	if err := draft.UpdateResources(ctx, resources, &v1alpha1.Task{
-		Type: v1alpha1.TaskTypeInit,
-		Init: &v1alpha1.PackageInitTaskSpec{
+	if err := draft.UpdateResources(ctx, resources, &porchapi.Task{
+		Type: porchapi.TaskTypeInit,
+		Init: &porchapi.PackageInitTaskSpec{
 			Description: "Empty Package",
 		},
 	}); err != nil {
@@ -475,7 +475,7 @@ func (g GitSuite) TestListPackagesTrivial(t *testing.T) {
 	if err != nil {
 		t.Errorf("didn't expect error, but got %v", err)
 	}
-	if got, want := result.Spec.Lifecycle, v1alpha1.PackageRevisionLifecycleDraft; got != want {
+	if got, want := result.Spec.Lifecycle, porchapi.PackageRevisionLifecycleDraft; got != want {
 		t.Errorf("Newly created package type: got %q, want %q", got, want)
 	}
 
@@ -522,15 +522,15 @@ func (g GitSuite) TestCreatePackageInTrivialRepository(t *testing.T) {
 		t.Errorf("Number of packges in the trivial repository: got %d, want %d", got, want)
 	}
 
-	packageRevision := &v1alpha1.PackageRevision{
+	packageRevision := &porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 		},
-		Spec: v1alpha1.PackageRevisionSpec{
+		Spec: porchapi.PackageRevisionSpec{
 			PackageName:    "test-package",
 			WorkspaceName:  "test-workspace",
 			RepositoryName: repositoryName,
-			Lifecycle:      v1alpha1.PackageRevisionLifecycleDraft,
+			Lifecycle:      porchapi.PackageRevisionLifecycleDraft,
 		},
 	}
 
@@ -539,16 +539,16 @@ func (g GitSuite) TestCreatePackageInTrivialRepository(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreatePackageRevision() failed: %v", err)
 	}
-	resources := &v1alpha1.PackageRevisionResources{
-		Spec: v1alpha1.PackageRevisionResourcesSpec{
+	resources := &porchapi.PackageRevisionResources{
+		Spec: porchapi.PackageRevisionResourcesSpec{
 			Resources: map[string]string{
 				"Kptfile": Kptfile,
 			},
 		},
 	}
-	if err := draft.UpdateResources(ctx, resources, &v1alpha1.Task{
-		Type: v1alpha1.TaskTypeInit,
-		Init: &v1alpha1.PackageInitTaskSpec{
+	if err := draft.UpdateResources(ctx, resources, &porchapi.Task{
+		Type: porchapi.TaskTypeInit,
+		Init: &porchapi.PackageInitTaskSpec{
 			Description: "Empty Package",
 		},
 	}); err != nil {
@@ -563,7 +563,7 @@ func (g GitSuite) TestCreatePackageInTrivialRepository(t *testing.T) {
 	if err != nil {
 		t.Errorf("didn't expect error, but got %v", err)
 	}
-	if got, want := result.Spec.Lifecycle, v1alpha1.PackageRevisionLifecycleDraft; got != want {
+	if got, want := result.Spec.Lifecycle, porchapi.PackageRevisionLifecycleDraft; got != want {
 		t.Errorf("Newly created package type: got %q, want %q", got, want)
 	}
 }
@@ -595,22 +595,22 @@ func (g GitSuite) TestListPackagesSimple(t *testing.T) {
 		t.Fatalf("Failed to list packages from %q: %v", tarfile, err)
 	}
 
-	want := map[repository.PackageRevisionKey]v1alpha1.PackageRevisionLifecycle{
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "simple"}, Package: "empty"}, Revision: 1, WorkspaceName: "v1"}:   v1alpha1.PackageRevisionLifecyclePublished,
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "simple"}, Package: "basens"}, Revision: 1, WorkspaceName: "v1"}:  v1alpha1.PackageRevisionLifecyclePublished,
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "simple"}, Package: "basens"}, Revision: 2, WorkspaceName: "v2"}:  v1alpha1.PackageRevisionLifecyclePublished,
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "simple"}, Package: "istions"}, Revision: 1, WorkspaceName: "v1"}: v1alpha1.PackageRevisionLifecyclePublished,
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "simple"}, Package: "istions"}, Revision: 2, WorkspaceName: "v2"}: v1alpha1.PackageRevisionLifecyclePublished,
+	want := map[repository.PackageRevisionKey]porchapi.PackageRevisionLifecycle{
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "simple"}, Package: "empty"}, Revision: 1, WorkspaceName: "v1"}:   porchapi.PackageRevisionLifecyclePublished,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "simple"}, Package: "basens"}, Revision: 1, WorkspaceName: "v1"}:  porchapi.PackageRevisionLifecyclePublished,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "simple"}, Package: "basens"}, Revision: 2, WorkspaceName: "v2"}:  porchapi.PackageRevisionLifecyclePublished,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "simple"}, Package: "istions"}, Revision: 1, WorkspaceName: "v1"}: porchapi.PackageRevisionLifecyclePublished,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "simple"}, Package: "istions"}, Revision: 2, WorkspaceName: "v2"}: porchapi.PackageRevisionLifecyclePublished,
 
 		// TODO: may want to filter these out, for example by including only those package
 		// revisions from main branch that differ in content (their tree hash) from another
 		// taged revision of the package.
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "simple"}, Package: "empty"}, Revision: -1, WorkspaceName: g.branch}:   v1alpha1.PackageRevisionLifecyclePublished,
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "simple"}, Package: "basens"}, Revision: -1, WorkspaceName: g.branch}:  v1alpha1.PackageRevisionLifecyclePublished,
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "simple"}, Package: "istions"}, Revision: -1, WorkspaceName: g.branch}: v1alpha1.PackageRevisionLifecyclePublished,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "simple"}, Package: "empty"}, Revision: -1, WorkspaceName: g.branch}:   porchapi.PackageRevisionLifecyclePublished,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "simple"}, Package: "basens"}, Revision: -1, WorkspaceName: g.branch}:  porchapi.PackageRevisionLifecyclePublished,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "simple"}, Package: "istions"}, Revision: -1, WorkspaceName: g.branch}: porchapi.PackageRevisionLifecyclePublished,
 	}
 
-	got := map[repository.PackageRevisionKey]v1alpha1.PackageRevisionLifecycle{}
+	got := map[repository.PackageRevisionKey]porchapi.PackageRevisionLifecycle{}
 	for _, r := range revisions {
 		rev, err := r.GetPackageRevision(ctx)
 		if err != nil {
@@ -660,24 +660,24 @@ func (g GitSuite) TestListPackagesDrafts(t *testing.T) {
 		t.Fatalf("Failed to list packages from %q: %v", tarfile, err)
 	}
 
-	want := map[repository.PackageRevisionKey]v1alpha1.PackageRevisionLifecycle{
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "empty"}, Revision: 1, WorkspaceName: "v1"}:   v1alpha1.PackageRevisionLifecyclePublished,
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "basens"}, Revision: 1, WorkspaceName: "v1"}:  v1alpha1.PackageRevisionLifecyclePublished,
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "basens"}, Revision: 2, WorkspaceName: "v2"}:  v1alpha1.PackageRevisionLifecyclePublished,
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "istions"}, Revision: 1, WorkspaceName: "v1"}: v1alpha1.PackageRevisionLifecyclePublished,
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "istions"}, Revision: 2, WorkspaceName: "v2"}: v1alpha1.PackageRevisionLifecyclePublished,
+	want := map[repository.PackageRevisionKey]porchapi.PackageRevisionLifecycle{
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "empty"}, Revision: 1, WorkspaceName: "v1"}:   porchapi.PackageRevisionLifecyclePublished,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "basens"}, Revision: 1, WorkspaceName: "v1"}:  porchapi.PackageRevisionLifecyclePublished,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "basens"}, Revision: 2, WorkspaceName: "v2"}:  porchapi.PackageRevisionLifecyclePublished,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "istions"}, Revision: 1, WorkspaceName: "v1"}: porchapi.PackageRevisionLifecyclePublished,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "istions"}, Revision: 2, WorkspaceName: "v2"}: porchapi.PackageRevisionLifecyclePublished,
 
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "bucket"}, WorkspaceName: "v1"}:           v1alpha1.PackageRevisionLifecycleDraft,
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "none"}, WorkspaceName: "v1"}:             v1alpha1.PackageRevisionLifecycleDraft,
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "pkg-with-history"}, WorkspaceName: "v1"}: v1alpha1.PackageRevisionLifecycleDraft,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "bucket"}, WorkspaceName: "v1"}:           porchapi.PackageRevisionLifecycleDraft,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "none"}, WorkspaceName: "v1"}:             porchapi.PackageRevisionLifecycleDraft,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "pkg-with-history"}, WorkspaceName: "v1"}: porchapi.PackageRevisionLifecycleDraft,
 
 		// TODO: filter main branch out? see above
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "basens"}, WorkspaceName: g.branch, Revision: -1}:  v1alpha1.PackageRevisionLifecyclePublished,
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "empty"}, WorkspaceName: g.branch, Revision: -1}:   v1alpha1.PackageRevisionLifecyclePublished,
-		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "istions"}, WorkspaceName: g.branch, Revision: -1}: v1alpha1.PackageRevisionLifecyclePublished,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "basens"}, WorkspaceName: g.branch, Revision: -1}:  porchapi.PackageRevisionLifecyclePublished,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "empty"}, WorkspaceName: g.branch, Revision: -1}:   porchapi.PackageRevisionLifecyclePublished,
+		{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "drafts"}, Package: "istions"}, WorkspaceName: g.branch, Revision: -1}: porchapi.PackageRevisionLifecyclePublished,
 	}
 
-	got := map[repository.PackageRevisionKey]v1alpha1.PackageRevisionLifecycle{}
+	got := map[repository.PackageRevisionKey]porchapi.PackageRevisionLifecycle{}
 	for _, r := range revisions {
 		rev, err := r.GetPackageRevision(ctx)
 		if err != nil {
@@ -744,7 +744,7 @@ func (g GitSuite) TestApproveDraft(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpdatePackageRevision failed: %v", err)
 	}
-	err = update.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
+	err = update.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecyclePublished)
 	if err != nil {
 		t.Fatalf("UpdateLifecycle failed: %v", err)
 	}
@@ -758,7 +758,7 @@ func (g GitSuite) TestApproveDraft(t *testing.T) {
 	if err != nil {
 		t.Errorf("didn't expect error, but got %v", err)
 	}
-	if got, want := rev.Spec.Lifecycle, v1alpha1.PackageRevisionLifecyclePublished; got != want {
+	if got, want := rev.Spec.Lifecycle, porchapi.PackageRevisionLifecyclePublished; got != want {
 		t.Errorf("Approved package lifecycle: got %s, want %s", got, want)
 	}
 
@@ -814,7 +814,7 @@ func (g GitSuite) TestApproveDraftWithHistory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpdatePackageRevision failed: %v", err)
 	}
-	err = update.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
+	err = update.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecyclePublished)
 	if err != nil {
 		t.Fatalf("UpdateLifecycle failed: %v", err)
 	}
@@ -828,7 +828,7 @@ func (g GitSuite) TestApproveDraftWithHistory(t *testing.T) {
 	if err != nil {
 		t.Errorf("didn't expect error, but got %v", err)
 	}
-	if got, want := rev.Spec.Lifecycle, v1alpha1.PackageRevisionLifecyclePublished; got != want {
+	if got, want := rev.Spec.Lifecycle, porchapi.PackageRevisionLifecyclePublished; got != want {
 		t.Errorf("Approved package lifecycle: got %s, want %s", got, want)
 	}
 	if got, want := len(rev.Spec.Tasks), 1; got != want {
@@ -1156,15 +1156,15 @@ func (g GitSuite) TestNested(t *testing.T) {
 	branch := plumbing.NewBranchReferenceName(g.branch)
 
 	// Check that all tags and branches have their packages.
-	want := map[string]v1alpha1.PackageRevisionLifecycle{}
+	want := map[string]porchapi.PackageRevisionLifecycle{}
 	forEachRef(t, repo, func(ref *plumbing.Reference) error {
 		switch name := string(ref.Name()); {
 		case strings.HasPrefix(name, tagsPrefixInRemoteRepo):
-			want[strings.TrimPrefix(name, tagsPrefixInRemoteRepo)] = v1alpha1.PackageRevisionLifecyclePublished
+			want[strings.TrimPrefix(name, tagsPrefixInRemoteRepo)] = porchapi.PackageRevisionLifecyclePublished
 		case strings.HasPrefix(name, draftsPrefixInRemoteRepo):
-			want[strings.TrimPrefix(name, draftsPrefixInRemoteRepo)] = v1alpha1.PackageRevisionLifecycleDraft
+			want[strings.TrimPrefix(name, draftsPrefixInRemoteRepo)] = porchapi.PackageRevisionLifecycleDraft
 		case strings.HasPrefix(name, proposedPrefixInRemoteRepo):
-			want[strings.TrimPrefix(name, proposedPrefixInRemoteRepo)] = v1alpha1.PackageRevisionLifecycleProposed
+			want[strings.TrimPrefix(name, proposedPrefixInRemoteRepo)] = porchapi.PackageRevisionLifecycleProposed
 		case name == string(branch):
 			// Skip the registered 'main' branch.
 		case name == string(DefaultMainReferenceName), name == "HEAD":
@@ -1176,7 +1176,7 @@ func (g GitSuite) TestNested(t *testing.T) {
 		return nil
 	})
 
-	got := map[string]v1alpha1.PackageRevisionLifecycle{}
+	got := map[string]porchapi.PackageRevisionLifecycle{}
 	for _, pr := range revisions {
 		rev, err := pr.GetPackageRevision(ctx)
 		if err != nil {
@@ -1187,7 +1187,7 @@ func (g GitSuite) TestNested(t *testing.T) {
 			// to match the above simplified package discovery algo.
 			continue
 		}
-		if rev.Spec.Lifecycle == v1alpha1.PackageRevisionLifecyclePublished {
+		if rev.Spec.Lifecycle == porchapi.PackageRevisionLifecyclePublished {
 			got[fmt.Sprintf("%s/v%d", rev.Spec.PackageName, rev.Spec.Revision)] = rev.Spec.Lifecycle
 		} else {
 			got[fmt.Sprintf("%s/%s", rev.Spec.PackageName, rev.Spec.WorkspaceName)] = rev.Spec.Lifecycle
@@ -1529,12 +1529,12 @@ func (*mockK8sUsp) GetUserInfo(context.Context) *repository.UserInfo {
 	}
 }
 
-func createAndPublishPR(ctx context.Context, repo repository.Repository, pr *v1alpha1.PackageRevision) (repository.PackageRevision, error) {
+func createAndPublishPR(ctx context.Context, repo repository.Repository, pr *porchapi.PackageRevision) (repository.PackageRevision, error) {
 	draft, err := repo.CreatePackageRevisionDraft(ctx, pr)
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "Failed to create package revision draft")
 	}
-	if err := draft.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished); err != nil {
+	if err := draft.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecyclePublished); err != nil {
 		return nil, pkgerrors.Wrap(err, "Failed to update draft lifecycle")
 	}
 
@@ -1649,18 +1649,18 @@ func TestCommitAuthor(t *testing.T) {
 				t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
 			}
 
-			pr := &v1alpha1.PackageRevision{
+			pr := &porchapi.PackageRevision{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: repoName,
 				},
-				Spec: v1alpha1.PackageRevisionSpec{
+				Spec: porchapi.PackageRevisionSpec{
 					PackageName:    packageName,
 					WorkspaceName:  workspace,
 					RepositoryName: repoName,
-					Tasks: []v1alpha1.Task{
+					Tasks: []porchapi.Task{
 						{
-							Type: v1alpha1.TaskTypeInit,
-							Init: &v1alpha1.PackageInitTaskSpec{
+							Type: porchapi.TaskTypeInit,
+							Init: &porchapi.PackageInitTaskSpec{
 								Description: "Empty Package",
 							},
 						},
@@ -1757,18 +1757,18 @@ func TestMultipleCommitAuthors(t *testing.T) {
 		t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
 	}
 
-	pr1 := &v1alpha1.PackageRevision{
+	pr1 := &porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: repo1Name,
 		},
-		Spec: v1alpha1.PackageRevisionSpec{
+		Spec: porchapi.PackageRevisionSpec{
 			PackageName:    packageName,
 			WorkspaceName:  workspace1,
 			RepositoryName: repo1Name,
-			Tasks: []v1alpha1.Task{
+			Tasks: []porchapi.Task{
 				{
-					Type: v1alpha1.TaskTypeInit,
-					Init: &v1alpha1.PackageInitTaskSpec{
+					Type: porchapi.TaskTypeInit,
+					Init: &porchapi.PackageInitTaskSpec{
 						Description: "Empty Package",
 					},
 				},
@@ -1790,11 +1790,11 @@ func TestMultipleCommitAuthors(t *testing.T) {
 	pr2.GenerateName = repo2Name
 	pr2.Spec.WorkspaceName = workspace2
 	pr2.Spec.RepositoryName = repo2Name
-	pr2.Spec.Tasks = []v1alpha1.Task{
+	pr2.Spec.Tasks = []porchapi.Task{
 		{
-			Type: v1alpha1.TaskTypeEdit,
-			Edit: &v1alpha1.PackageEditTaskSpec{
-				Source: &v1alpha1.PackageRevisionRef{
+			Type: porchapi.TaskTypeEdit,
+			Edit: &porchapi.PackageEditTaskSpec{
+				Source: &porchapi.PackageRevisionRef{
 					Name: prv1.KubeObjectName(),
 				},
 			},
@@ -1848,18 +1848,18 @@ func TestApproveOnManuallyMovedMain(t *testing.T) {
 		t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
 	}
 
-	pr := &v1alpha1.PackageRevision{
+	pr := &porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: repoName,
 		},
-		Spec: v1alpha1.PackageRevisionSpec{
+		Spec: porchapi.PackageRevisionSpec{
 			PackageName:    packageName,
 			WorkspaceName:  workspace,
 			RepositoryName: repoName,
-			Tasks: []v1alpha1.Task{
+			Tasks: []porchapi.Task{
 				{
-					Type: v1alpha1.TaskTypeInit,
-					Init: &v1alpha1.PackageInitTaskSpec{
+					Type: porchapi.TaskTypeInit,
+					Init: &porchapi.PackageInitTaskSpec{
 						Description: "Empty Package",
 					},
 				},
@@ -1872,7 +1872,7 @@ func TestApproveOnManuallyMovedMain(t *testing.T) {
 		t.Fatalf("Failed to create draft PackageRevision %v", err)
 	}
 
-	err = draft1.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
+	err = draft1.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecyclePublished)
 
 	if err != nil {
 		t.Fatalf("Failed to create commit: %v", err)
@@ -1938,18 +1938,18 @@ func TestDeleteOnManuallyMovedTag(t *testing.T) {
 		t.Fatalf("Failed to open Git repository loaded from %q: %v", remotepath, err)
 	}
 
-	pr1 := &v1alpha1.PackageRevision{
+	pr1 := &porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: repoName,
 		},
-		Spec: v1alpha1.PackageRevisionSpec{
+		Spec: porchapi.PackageRevisionSpec{
 			PackageName:    packageName,
 			WorkspaceName:  workspace,
 			RepositoryName: repoName,
-			Tasks: []v1alpha1.Task{
+			Tasks: []porchapi.Task{
 				{
-					Type: v1alpha1.TaskTypeInit,
-					Init: &v1alpha1.PackageInitTaskSpec{
+					Type: porchapi.TaskTypeInit,
+					Init: &porchapi.PackageInitTaskSpec{
 						Description: "Empty Package",
 					},
 				},
@@ -2002,7 +2002,7 @@ func TestDeleteManuallyMovedNonApproved(t *testing.T) {
 		workspace      string
 		newFile        string
 		newFileContent string
-		apiPr          *v1alpha1.PackageRevision
+		apiPr          *porchapi.PackageRevision
 	}{
 		{
 
@@ -2010,19 +2010,19 @@ func TestDeleteManuallyMovedNonApproved(t *testing.T) {
 			workspace:      "delete-on-manually-moved-draft-ws",
 			newFile:        "new-file.md",
 			newFileContent: "new-file-content",
-			apiPr: &v1alpha1.PackageRevision{
+			apiPr: &porchapi.PackageRevision{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: repoName,
 				},
-				Spec: v1alpha1.PackageRevisionSpec{
+				Spec: porchapi.PackageRevisionSpec{
 					PackageName:    "delete-on-manually-moved-draft-pkg",
 					WorkspaceName:  "delete-on-manually-moved-draft-ws",
 					RepositoryName: repoName,
-					Lifecycle:      v1alpha1.PackageRevisionLifecycleDraft,
-					Tasks: []v1alpha1.Task{
+					Lifecycle:      porchapi.PackageRevisionLifecycleDraft,
+					Tasks: []porchapi.Task{
 						{
-							Type: v1alpha1.TaskTypeInit,
-							Init: &v1alpha1.PackageInitTaskSpec{
+							Type: porchapi.TaskTypeInit,
+							Init: &porchapi.PackageInitTaskSpec{
 								Description: "Empty Package",
 							},
 						},
@@ -2036,19 +2036,19 @@ func TestDeleteManuallyMovedNonApproved(t *testing.T) {
 			workspace:      "delete-on-manually-moved-proposed-ws",
 			newFile:        "new-file.md",
 			newFileContent: "new-file-content",
-			apiPr: &v1alpha1.PackageRevision{
+			apiPr: &porchapi.PackageRevision{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: repoName,
 				},
-				Spec: v1alpha1.PackageRevisionSpec{
+				Spec: porchapi.PackageRevisionSpec{
 					PackageName:    "delete-on-manually-moved-proposed-pkg",
 					WorkspaceName:  "delete-on-manually-moved-proposed-ws",
 					RepositoryName: repoName,
-					Lifecycle:      v1alpha1.PackageRevisionLifecycleProposed,
-					Tasks: []v1alpha1.Task{
+					Lifecycle:      porchapi.PackageRevisionLifecycleProposed,
+					Tasks: []porchapi.Task{
 						{
-							Type: v1alpha1.TaskTypeInit,
-							Init: &v1alpha1.PackageInitTaskSpec{
+							Type: porchapi.TaskTypeInit,
+							Init: &porchapi.PackageInitTaskSpec{
 								Description: "Empty Package",
 							},
 						},
@@ -2155,18 +2155,18 @@ func TestDeleteOnManuallyMovedMainBranch(t *testing.T) {
 		localRepo.Close(ctx)
 	})
 
-	pr1 := &v1alpha1.PackageRevision{
+	pr1 := &porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: repoName,
 		},
-		Spec: v1alpha1.PackageRevisionSpec{
+		Spec: porchapi.PackageRevisionSpec{
 			PackageName:    packageName,
 			WorkspaceName:  workspace,
 			RepositoryName: repoName,
-			Tasks: []v1alpha1.Task{
+			Tasks: []porchapi.Task{
 				{
-					Type: v1alpha1.TaskTypeInit,
-					Init: &v1alpha1.PackageInitTaskSpec{
+					Type: porchapi.TaskTypeInit,
+					Init: &porchapi.PackageInitTaskSpec{
 						Description: "Empty Package",
 					},
 				},
@@ -2174,8 +2174,8 @@ func TestDeleteOnManuallyMovedMainBranch(t *testing.T) {
 		},
 	}
 
-	resources := &v1alpha1.PackageRevisionResources{
-		Spec: v1alpha1.PackageRevisionResourcesSpec{
+	resources := &porchapi.PackageRevisionResources{
+		Spec: porchapi.PackageRevisionResourcesSpec{
 			Resources: map[string]string{
 				"Kptfile": Kptfile,
 			},
@@ -2192,7 +2192,7 @@ func TestDeleteOnManuallyMovedMainBranch(t *testing.T) {
 		t.Fatalf("Failed to update draft resources: %v", err)
 	}
 
-	err = draft.UpdateLifecycle(ctx, v1alpha1.PackageRevisionLifecyclePublished)
+	err = draft.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecyclePublished)
 	if err != nil {
 		t.Fatalf("Failed to update draft lifecycle: %v", err)
 	}
@@ -2232,7 +2232,7 @@ func TestDeleteOnManuallyMovedMainBranch(t *testing.T) {
 func TestFormatCommitMessage(t *testing.T) {
 	tests := []struct {
 		name       string
-		changeType v1alpha1.TaskType
+		changeType porchapi.TaskType
 		want       string
 	}{
 		{

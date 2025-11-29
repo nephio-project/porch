@@ -19,17 +19,17 @@ import (
 	"strconv"
 	"strings"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func ToAPIReadinessGates(kf kptfile.KptFile) []api.ReadinessGate {
-	var readinessGates []api.ReadinessGate
+func ToAPIReadinessGates(kf kptfile.KptFile) []porchapi.ReadinessGate {
+	var readinessGates []porchapi.ReadinessGate
 	if kf.Info != nil {
 		for _, rg := range kf.Info.ReadinessGates {
-			readinessGates = append(readinessGates, api.ReadinessGate{
+			readinessGates = append(readinessGates, porchapi.ReadinessGate{
 				ConditionType: rg.ConditionType,
 			})
 		}
@@ -37,11 +37,11 @@ func ToAPIReadinessGates(kf kptfile.KptFile) []api.ReadinessGate {
 	return readinessGates
 }
 
-func ToAPIConditions(kf kptfile.KptFile) []api.Condition {
-	var conditions []api.Condition
+func ToAPIConditions(kf kptfile.KptFile) []porchapi.Condition {
+	var conditions []porchapi.Condition
 	if kf.Status != nil && kf.Status.Conditions != nil {
 		for _, s := range kf.Status.Conditions {
-			conditions = append(conditions, api.Condition{
+			conditions = append(conditions, porchapi.Condition{
 				Type:    s.Type,
 				Status:  toAPIConditionStatus(s.Status),
 				Reason:  s.Reason,
@@ -52,21 +52,21 @@ func ToAPIConditions(kf kptfile.KptFile) []api.Condition {
 	return conditions
 }
 
-func toAPIConditionStatus(s kptfile.ConditionStatus) api.ConditionStatus {
+func toAPIConditionStatus(s kptfile.ConditionStatus) porchapi.ConditionStatus {
 	switch s {
 	case kptfile.ConditionTrue:
-		return api.ConditionTrue
+		return porchapi.ConditionTrue
 	case kptfile.ConditionFalse:
-		return api.ConditionFalse
+		return porchapi.ConditionFalse
 	case kptfile.ConditionUnknown:
-		return api.ConditionUnknown
+		return porchapi.ConditionUnknown
 	default:
 		panic(fmt.Errorf("unknown condition status: %v", s))
 	}
 }
 
-func UpsertAPICondition(conditions []api.Condition, condition api.Condition) []api.Condition {
-	updatedConditions := []api.Condition{}
+func UpsertAPICondition(conditions []porchapi.Condition, condition porchapi.Condition) []porchapi.Condition {
+	updatedConditions := []porchapi.Condition{}
 
 	for _, conditionItem := range conditions {
 		if conditionItem.Type != condition.Type {
@@ -122,12 +122,12 @@ func PrSlice2Map(prSlice []PackageRevision) map[PackageRevisionKey]PackageRevisi
 	return prMap
 }
 
-func KptUpstreamLock2APIUpstreamLock(kptLock kptfile.UpstreamLock) *api.UpstreamLock {
-	porchLock := &api.UpstreamLock{}
+func KptUpstreamLock2APIUpstreamLock(kptLock kptfile.UpstreamLock) *porchapi.UpstreamLock {
+	porchLock := &porchapi.UpstreamLock{}
 
-	porchLock.Type = api.OriginType(kptLock.Type)
+	porchLock.Type = porchapi.OriginType(kptLock.Type)
 	if kptLock.Git != nil {
-		porchLock.Git = &api.GitLock{
+		porchLock.Git = &porchapi.GitLock{
 			Repo:      kptLock.Git.Repo,
 			Directory: kptLock.Git.Directory,
 			Commit:    kptLock.Git.Commit,

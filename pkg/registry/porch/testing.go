@@ -19,19 +19,19 @@ import (
 	"fmt"
 	"testing"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 )
 
-func testValidateUpdate(t *testing.T, s SimpleRESTUpdateStrategy, old, new api.PackageRevisionLifecycle, valid bool) {
+func testValidateUpdate(t *testing.T, s SimpleRESTUpdateStrategy, old, new porchapi.PackageRevisionLifecycle, valid bool) {
 	ctx := context.Background()
 	t.Run(fmt.Sprintf("%s-%s", old, new), func(t *testing.T) {
-		oldRev := &api.PackageRevision{
-			Spec: api.PackageRevisionSpec{
+		oldRev := &porchapi.PackageRevision{
+			Spec: porchapi.PackageRevisionSpec{
 				Lifecycle: old,
 			},
 		}
-		newRev := &api.PackageRevision{
-			Spec: api.PackageRevisionSpec{
+		newRev := &porchapi.PackageRevision{
+			Spec: porchapi.PackageRevisionSpec{
 				Lifecycle: new,
 			},
 		}

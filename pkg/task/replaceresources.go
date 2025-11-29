@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -26,11 +26,11 @@ import (
 var _ mutation = &replaceResourcesMutation{}
 
 type replaceResourcesMutation struct {
-	newResources *api.PackageRevisionResources
-	oldResources *api.PackageRevisionResources
+	newResources *porchapi.PackageRevisionResources
+	oldResources *porchapi.PackageRevisionResources
 }
 
-func (m *replaceResourcesMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
+func (m *replaceResourcesMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *porchapi.TaskResult, error) {
 	_, span := tracer.Start(ctx, "mutationReplaceResources::apply", trace.WithAttributes())
 	defer span.End()
 

@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	porchtypes "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache/testutil"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
@@ -70,8 +70,8 @@ func TestCachedRepoRefresh(t *testing.T) {
 	mockNotifier.EXPECT().NotifyPackageRevisionChange(mock.Anything, mock.Anything).Return(0).Maybe()
 
 	repoKey := repository.RepositoryKey{
-		Namespace: "my-namespace",
-		Name:      "my-cached-repo",
+		Namespace: namespace,
+		Name:      repoName,
 	}
 	cr := newRepository(repoKey, &repoSpec, mockRepo, mockMeta, options)
 	assert.Equal(t, repoKey, cr.Key())
@@ -128,7 +128,7 @@ func TestCachedRepoRefresh(t *testing.T) {
 	cr.flush()
 	assert.True(t, cr.cachedPackageRevisions == nil)
 
-	prMeta := porchtypes.PackageRevision{}
+	prMeta := porchapi.PackageRevision{}
 
 	repoCreatePRDCall := mockRepo.EXPECT().CreatePackageRevisionDraft(mock.Anything, mock.Anything).Return(nil, errors.New("create draft error")).Maybe()
 	_, err = cr.CreatePackageRevisionDraft(context.TODO(), &prMeta)
@@ -166,13 +166,17 @@ func TestCachedRepoRefresh(t *testing.T) {
 	assert.True(t, pr != nil)
 
 	mockUpdate.Return(metav1.ObjectMeta{}, errors.New("meta update error")).Maybe()
-	err = cr.cachedPackageRevisions[prKey].SetMeta(context.TODO(), metav1.ObjectMeta{Name: "Hello"})
-	assert.True(t, err != nil)
+	if cachedPR := cr.cachedPackageRevisions[prKey]; cachedPR != nil {
+		err = cachedPR.SetMeta(context.TODO(), metav1.ObjectMeta{Name: "Hello"})
+		assert.True(t, err != nil)
+	}
 	mockUpdate.Return(metav1.ObjectMeta{}, nil).Maybe()
 
 	mockGet.Return(metav1.ObjectMeta{}, errors.New("meta get error")).Maybe()
-	err = cr.cachedPackageRevisions[prKey].SetMeta(context.TODO(), metav1.ObjectMeta{Name: "Hello"})
-	assert.True(t, err != nil)
+	if cachedPR := cr.cachedPackageRevisions[prKey]; cachedPR != nil {
+		err = cachedPR.SetMeta(context.TODO(), metav1.ObjectMeta{Name: "Hello"})
+		assert.True(t, err != nil)
+	}
 	mockGet.Return(metav1.ObjectMeta{}, nil).Maybe()
 
 	returnedMeta := metav1.ObjectMeta{

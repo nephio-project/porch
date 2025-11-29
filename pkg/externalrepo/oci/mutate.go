@@ -34,7 +34,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/stream"
 	"github.com/kptdev/kpt/pkg/oci"
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel/trace"
@@ -43,7 +43,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func (r *ociRepository) CreatePackageRevisionDraft(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
+func (r *ociRepository) CreatePackageRevisionDraft(ctx context.Context, obj *porchapi.PackageRevision) (repository.PackageRevisionDraft, error) {
 	base := empty.Image
 
 	packageName := obj.Spec.PackageName
@@ -65,10 +65,10 @@ func (r *ociRepository) CreatePackageRevisionDraft(ctx context.Context, obj *v1a
 		},
 		parent:    r,
 		metadata:  obj.ObjectMeta,
-		tasks:     []v1alpha1.Task{},
+		tasks:     []porchapi.Task{},
 		base:      base,
 		tag:       ociRepo.Tag(string(obj.Spec.WorkspaceName)),
-		lifecycle: v1alpha1.PackageRevisionLifecycleDraft,
+		lifecycle: porchapi.PackageRevisionLifecycleDraft,
 	}, nil
 }
 
@@ -107,7 +107,7 @@ func (r *ociRepository) UpdatePackageRevision(ctx context.Context, old repositor
 		},
 		parent:    r,
 		metadata:  old.GetMeta(),
-		tasks:     []v1alpha1.Task{},
+		tasks:     []porchapi.Task{},
 		base:      base,
 		tag:       ref,
 		lifecycle: oldPackage.Lifecycle(ctx),
@@ -118,17 +118,17 @@ type ociPackageRevisionDraft struct {
 	prKey     repository.PackageRevisionKey
 	parent    *ociRepository
 	metadata  metav1.ObjectMeta
-	tasks     []v1alpha1.Task
+	tasks     []porchapi.Task
 	base      v1.Image
 	tag       name.Tag
 	addendums []mutate.Addendum
 	created   time.Time
-	lifecycle v1alpha1.PackageRevisionLifecycle // New value of the package revision lifecycle
+	lifecycle porchapi.PackageRevisionLifecycle // New value of the package revision lifecycle
 }
 
 var _ repository.PackageRevisionDraft = (*ociPackageRevisionDraft)(nil)
 
-func (p *ociPackageRevisionDraft) UpdateResources(ctx context.Context, new *v1alpha1.PackageRevisionResources, task *v1alpha1.Task) error {
+func (p *ociPackageRevisionDraft) UpdateResources(ctx context.Context, new *porchapi.PackageRevisionResources, task *porchapi.Task) error {
 	_, span := tracer.Start(ctx, "ociPackageRevisionDraft::UpdateResources", trace.WithAttributes())
 	defer span.End()
 
@@ -198,7 +198,7 @@ func (p *ociPackageRevisionDraft) UpdateResources(ctx context.Context, new *v1al
 	return nil
 }
 
-func (p *ociPackageRevisionDraft) UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error {
+func (p *ociPackageRevisionDraft) UpdateLifecycle(ctx context.Context, new porchapi.PackageRevisionLifecycle) error {
 	p.lifecycle = new
 	return nil
 }
@@ -242,7 +242,7 @@ func (r *ociRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 			}
 			addendum.Annotations[annotationKeyLifecycle] = string(p.lifecycle)
 
-			if v1alpha1.LifecycleIsPublished(p.lifecycle) {
+			if porchapi.LifecycleIsPublished(p.lifecycle) {
 				r := p.parent
 				// Finalize the package revision. Assign it a revision number of latest + 1.
 				revisions, err := r.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
@@ -258,7 +258,7 @@ func (r *ociRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 
 				highestRev := -1
 				for _, rev := range revisions {
-					if v1alpha1.LifecycleIsPublished(rev.Lifecycle(ctx)) && rev.Key().Revision > highestRev {
+					if porchapi.LifecycleIsPublished(rev.Lifecycle(ctx)) && rev.Key().Revision > highestRev {
 						highestRev = rev.Key().Revision
 					}
 				}
@@ -340,7 +340,7 @@ func (r *ociRepository) DeletePackageRevision(ctx context.Context, old repositor
 	return nil
 }
 
-func (r *ociRepository) CreatePackage(ctx context.Context, obj *v1alpha1.PorchPackage) (repository.Package, error) {
+func (r *ociRepository) CreatePackage(ctx context.Context, obj *porchapi.PorchPackage) (repository.Package, error) {
 	return nil, fmt.Errorf("CreatePackage not supported for OCI packages")
 }
 

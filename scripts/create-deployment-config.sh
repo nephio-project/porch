@@ -32,6 +32,8 @@ mkdir -p "${DEPLOYPORCHCONFIGDIR}"
   --function-image "${IMAGE_REPO}/${PORCH_FUNCTION_RUNNER_IMAGE}:${IMAGE_TAG}" \
   --wrapper-server-image "${IMAGE_REPO}/${PORCH_WRAPPER_SERVER_IMAGE}:${IMAGE_TAG}" \
   --enabled-reconcilers "${ENABLED_RECONCILERS}" \
+  --fn-runner-warm-up-pod-cache "${FN_RUNNER_WARM_UP_POD_CACHE}" \
+  --porch-cache-type "${PORCH_CACHE_TYPE}" \
   $(if [ -n "${PORCH_GCR_PREFIX_URL}" ]; then echo "--gcr-image-prefix \"${PORCH_GCR_PREFIX_URL}\""; fi)
 
 echo "Deployment configuration created."

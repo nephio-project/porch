@@ -17,7 +17,7 @@ package repository
 import (
 	"testing"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -120,15 +120,15 @@ func TestToAPIConditions(t *testing.T) {
 }
 
 func TestToAPIConditionStatus(t *testing.T) {
-	assert.Equal(t, api.ConditionTrue, toAPIConditionStatus(kptfile.ConditionTrue))
-	assert.Equal(t, api.ConditionFalse, toAPIConditionStatus(kptfile.ConditionFalse))
-	assert.Equal(t, api.ConditionUnknown, toAPIConditionStatus(kptfile.ConditionUnknown))
+	assert.Equal(t, porchapi.ConditionTrue, toAPIConditionStatus(kptfile.ConditionTrue))
+	assert.Equal(t, porchapi.ConditionFalse, toAPIConditionStatus(kptfile.ConditionFalse))
+	assert.Equal(t, porchapi.ConditionUnknown, toAPIConditionStatus(kptfile.ConditionUnknown))
 }
 
 func TestUpsertAPICondition(t *testing.T) {
-	conditions := []api.Condition{}
+	conditions := []porchapi.Condition{}
 
-	condition0 := api.Condition{
+	condition0 := porchapi.Condition{
 		Type: "Condition0",
 	}
 
@@ -140,7 +140,7 @@ func TestUpsertAPICondition(t *testing.T) {
 	assert.Equal(t, 1, len(upsertedConditions))
 	assert.Equal(t, condition0, upsertedConditions[0])
 
-	condition1 := api.Condition{
+	condition1 := porchapi.Condition{
 		Type: "Condition1",
 	}
 
