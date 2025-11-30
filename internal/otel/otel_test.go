@@ -17,30 +17,12 @@ import (
 	otlptraces "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 )
 
-func TestOtelMetricsPush(t *testing.T) {
-
+func TestOtelMetricsPushHTTP(t *testing.T) {
 	requestWaitChannel := make(chan struct{})
 
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			t.Errorf("error reading request body: %v", err)
-			return
-		}
-		err = r.Body.Close()
-		if err != nil {
-			t.Errorf("error closing request body: %v", err)
+	ts := httptest.NewServer(&mockHTTPMetricsServer{t: t, ch: requestWaitChannel})
+	defer ts.Close()
 
-		}
-		req := &otlpmetrics.ExportMetricsServiceRequest{}
-		proto.Unmarshal(body, req)
-
-		if len(req.GetResourceMetrics()) < 1 {
-			t.Errorf("expected at least one resource metric")
-
-		}
-		close(requestWaitChannel)
-	}))
 	t.Setenv("OTEL_METRICS_EXPORTER", "otlp")
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", ts.URL)
 	t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf")
@@ -49,39 +31,19 @@ func TestOtelMetricsPush(t *testing.T) {
 
 	err := SetupOpenTelemetry(ctx)
 	if err != nil {
-		t.Errorf("SetupOpenTelemetry() error = %v, wantErr %v", err, false)
+		t.Errorf("SetupOpenTelemetry() error = %v", err)
 		cancel()
 	}
-	t.Log("Close the Otel collector for force a flush towards the server")
 	cancel()
 	<-requestWaitChannel
-	ts.Close()
 }
 
-func TestOtelTracesPush(t *testing.T) {
+func TestOtelTracesPushHTTP(t *testing.T) {
 	requestWaitChannel := make(chan struct{})
 
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			t.Errorf("error reading request body: %v", err)
-			return
-		}
-		err = r.Body.Close()
-		if err != nil {
-			t.Errorf("error closing request body: %v", err)
+	ts := httptest.NewServer(&mockHTTPTraceServer{t: t, ch: requestWaitChannel})
+	defer ts.Close()
 
-		}
-		req := &otlptraces.ExportTraceServiceRequest{}
-		proto.Unmarshal(body, req)
-
-		if len(req.GetResourceSpans()) < 1 {
-			t.Errorf("expected at least one resource span")
-
-		}
-		close(requestWaitChannel)
-
-	}))
 	t.Setenv("OTEL_TRACES_EXPORTER", "otlp")
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", ts.URL)
 	t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf")
@@ -89,14 +51,11 @@ func TestOtelTracesPush(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	err := SetupOpenTelemetry(ctx)
 	if err != nil {
-		t.Errorf("SetupOpenTelemetry() error = %v, wantErr %v", err, false)
+		t.Errorf("SetupOpenTelemetry() error = %v", err)
 		cancel()
-		return
 	}
-	t.Log("Close the Otel collector for force a flush towards the server")
 	cancel()
 	<-requestWaitChannel
-	ts.Close()
 }
 func TestSetupOpenTelemetryPrometheusEndpoint(t *testing.T) {
 	// Find available port
@@ -245,4 +204,48 @@ func (m *mockTraceServer) Export(ctx context.Context, req *otlptraces.ExportTrac
 	}
 	close(m.ch)
 	return &otlptraces.ExportTraceServiceResponse{}, nil
+}
+
+type mockHTTPMetricsServer struct {
+	t  *testing.T
+	ch chan struct{}
+}
+
+func (m *mockHTTPMetricsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		m.t.Errorf("error reading request body: %v", err)
+		return
+	}
+	r.Body.Close()
+
+	req := &otlpmetrics.ExportMetricsServiceRequest{}
+	proto.Unmarshal(body, req)
+
+	if len(req.GetResourceMetrics()) < 1 {
+		m.t.Errorf("expected at least one resource metric")
+	}
+	close(m.ch)
+}
+
+type mockHTTPTraceServer struct {
+	t  *testing.T
+	ch chan struct{}
+}
+
+func (m *mockHTTPTraceServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		m.t.Errorf("error reading request body: %v", err)
+		return
+	}
+	r.Body.Close()
+
+	req := &otlptraces.ExportTraceServiceRequest{}
+	proto.Unmarshal(body, req)
+
+	if len(req.GetResourceSpans()) < 1 {
+		m.t.Errorf("expected at least one resource span")
+	}
+	close(m.ch)
 }
