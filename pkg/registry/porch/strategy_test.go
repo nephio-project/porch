@@ -62,6 +62,23 @@ func TestPackageRevisionStrategyValidate(t *testing.T) {
 			},
 			valid: true,
 		},
+		"cannot clone into subfolder with slash": {
+			obj: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					PackageName:    "subfolder/test-package",
+					WorkspaceName:  "test-workspace",
+					RepositoryName: "test-repo",
+					Lifecycle:      porchapi.PackageRevisionLifecycleDraft,
+					Tasks: []porchapi.Task{
+						{
+							Type:  porchapi.TaskTypeClone,
+							Clone: &porchapi.PackageCloneTaskSpec{},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
 	}
 
 	for tn := range testCases {
