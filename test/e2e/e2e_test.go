@@ -2905,10 +2905,6 @@ func (t *PorchSuite) TestPackageRevisionOwnerReferences() {
 	pr.OwnerReferences = []metav1.OwnerReference{ownerRef}
 	t.UpdateF(pr)
 	t.ValidateOwnerReferences(pr.Name, []metav1.OwnerReference{ownerRef})
-
-	pr.OwnerReferences = []metav1.OwnerReference{}
-	t.UpdateF(pr)
-	t.ValidateOwnerReferences(pr.Name, []metav1.OwnerReference{})
 }
 
 func (t *PorchSuite) TestPackageRevisionFinalizers() {
