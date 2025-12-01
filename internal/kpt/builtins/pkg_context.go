@@ -75,7 +75,7 @@ func (pc *PackageContextGenerator) Process(resourceList *framework.ResourceList)
 
 	// This loop does the following:
 	// - Filters out package context resources from the input resources
-	// - Generates a package context resource for each kpt package (i.e Kptfile)
+	// - Generates a package context resource for the root kpt package (i.e Kptfile)
 	for _, resource := range resourceList.Items {
 		gvk := resid.GvkFromNode(resource)
 		if gvk.Equals(configMapGVK) && resource.GetName() == PkgContextName {
@@ -96,7 +96,7 @@ func (pc *PackageContextGenerator) Process(resourceList *framework.ResourceList)
 				return resourceList.Results
 			}
 
-			// Only add package context to the root of a kpt package
+			// Only add package context to the root kpt package
 			if pkgContext != nil {
 				contextResources = append(contextResources, pkgContext)
 			}
