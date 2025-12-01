@@ -56,7 +56,7 @@ jobs:
       - name: Setup dev env
         run: ${GITHUB_WORKSPACE}/scripts/setup-dev-env.sh
       - name: Build Images and Deploy porch kpt pkg
-        run: IMAGE_REPO=porch-kind IMAGE_TAG=${GITHUB_SHA:0:8} KIND_CONTEXT_NAME=porch-test make run-in-kind-db-cache-no-git
+        run: IMAGE_REPO=porch-kind IMAGE_TAG=${GITHUB_SHA:0:8} KIND_CONTEXT_NAME=porch-test PARALLEL_BUILDS=true make run-in-kind-db-cache-no-git
       - name: porchctl e2e test
         run: E2E=1 go test -v -timeout 20m ${GITHUB_WORKSPACE}/test/e2e/cli
       - name: Export porch server logs
