@@ -76,16 +76,6 @@ Flags:
   --workspace
     The workspace name assigned to the new downstream package revision. The default value is v1.
 
-  --strategy
-    Update strategy that should be used when updating the new
-    package revision. Must be one of:
-    =resource-merge: (Default) Perform a structural comparison of the original
-      updated resources, and merge the changes into the local package.
-    =fast-forward: Fail without updating if the local package was modified since it was fetched.
-    =force-delete-replace: Wipe all the local changes to the package and replace
-      it with the remote version.
-    =copy-merge: Copy all the remote changes to the local package.
-
   --secret-ref
     Name of the secret containing basic authentication used to authenticate with the upstream repository (git-only).
     Naturally, this secret has to exist in the kubernetes cluster and must be in the namespace
@@ -93,8 +83,8 @@ Flags:
 `
 var CloneExamples = `
   # clone the 'example-repo.example-package-name.example-workspace' package and create a new package revision called
-  # 'example-package-name-2' in the 'example-repo-2' repository with a new workspace named 'example-workspace-2' and 'force-delete-replace' update strategy.
-  $ porchctl rpkg clone example-repo.example-package-name.example-workspace example-package-name-2 --repository=example-repo-2 --workspace=example-workspace-2 --strategy=force-delete-replace
+  # 'example-package-name-2' in the 'example-repo-2' repository with a new workspace named 'example-workspace-2'.
+  $ porchctl rpkg clone example-repo.example-package-name.example-workspace example-package-name-2 --repository=example-repo-2 --workspace=example-workspace-2
 
   # clone the git repository at 'https://github.com/repo/blueprint.git' at reference 'base/v0' and in directory base. The new
   # package revision will be created in repository 'blueprint' and namespace 'default'.

@@ -1646,7 +1646,6 @@ func (t *PorchSuite) TestCloneLeadingSlash() {
 								},
 							},
 						},
-						Strategy: porchapi.ResourceMerge,
 					},
 				},
 			},

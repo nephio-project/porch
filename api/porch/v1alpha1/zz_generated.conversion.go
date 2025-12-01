@@ -591,7 +591,6 @@ func autoConvert_v1alpha1_PackageCloneTaskSpec_To_porch_PackageCloneTaskSpec(in 
 	if err := Convert_v1alpha1_UpstreamPackage_To_porch_UpstreamPackage(&in.Upstream, &out.Upstream, s); err != nil {
 		return err
 	}
-	out.Strategy = porch.PackageMergeStrategy(in.Strategy)
 	return nil
 }
 
@@ -604,7 +603,6 @@ func autoConvert_porch_PackageCloneTaskSpec_To_v1alpha1_PackageCloneTaskSpec(in 
 	if err := Convert_porch_UpstreamPackage_To_v1alpha1_UpstreamPackage(&in.Upstream, &out.Upstream, s); err != nil {
 		return err
 	}
-	out.Strategy = PackageMergeStrategy(in.Strategy)
 	return nil
 }
 
