@@ -133,6 +133,18 @@ func TestPreRunE(t *testing.T) {
 			flags:     map[string]string{"repository": "", "workspace": ""},
 			expectErr: true,
 		},
+		{
+			name:      "Invalid strategy",
+			args:      []string{"source-package", "target-package"},
+			flags:     map[string]string{"repository": "test-repo", "workspace": "test-workspace", "strategy": "invalid-strategy"},
+			expectErr: true,
+		},
+		{
+			name:      "Target package name with slash",
+			args:      []string{"source-package", "subfolder/target-package"},
+			flags:     map[string]string{"repository": "test-repo", "workspace": "test-workspace", "strategy": "resource-merge"},
+			expectErr: true,
+		},
 	}
 
 	for _, test := range tests {
