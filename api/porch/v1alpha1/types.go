@@ -200,16 +200,6 @@ type PackageCloneTaskSpec struct {
 
 	// `Upstream` is the reference to the upstream package to clone.
 	Upstream UpstreamPackage `json:"upstreamRef,omitempty"`
-
-	// 	Defines which strategy should be used to update the package. It defaults to 'resource-merge'.
-	//  * resource-merge: Perform a structural comparison of the original /
-	//    updated resources, and merge the changes into the local package.
-	//  * fast-forward: Fail without updating if the local package was modified
-	//    since it was fetched.
-	//  * force-delete-replace: Wipe all the local changes to the package and replace
-	//    it with the remote version.
-	//  * copy-merge: Copy all the remote changes to the local package.
-	Strategy PackageMergeStrategy `json:"strategy,omitempty"`
 }
 
 type PackageMergeStrategy string

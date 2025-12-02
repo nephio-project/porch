@@ -39,6 +39,63 @@ func (_m *MockCache) EXPECT() *MockCache_Expecter {
 	return &MockCache_Expecter{mock: &_m.Mock}
 }
 
+// CheckRepositoryConnectivity provides a mock function for the type MockCache
+func (_mock *MockCache) CheckRepositoryConnectivity(ctx context.Context, repositorySpec *v1alpha1.Repository) error {
+	ret := _mock.Called(ctx, repositorySpec)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CheckRepositoryConnectivity")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1alpha1.Repository) error); ok {
+		r0 = returnFunc(ctx, repositorySpec)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockCache_CheckRepositoryConnectivity_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CheckRepositoryConnectivity'
+type MockCache_CheckRepositoryConnectivity_Call struct {
+	*mock.Call
+}
+
+// CheckRepositoryConnectivity is a helper method to define mock.On call
+//   - ctx context.Context
+//   - repositorySpec *v1alpha1.Repository
+func (_e *MockCache_Expecter) CheckRepositoryConnectivity(ctx interface{}, repositorySpec interface{}) *MockCache_CheckRepositoryConnectivity_Call {
+	return &MockCache_CheckRepositoryConnectivity_Call{Call: _e.mock.On("CheckRepositoryConnectivity", ctx, repositorySpec)}
+}
+
+func (_c *MockCache_CheckRepositoryConnectivity_Call) Run(run func(ctx context.Context, repositorySpec *v1alpha1.Repository)) *MockCache_CheckRepositoryConnectivity_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *v1alpha1.Repository
+		if args[1] != nil {
+			arg1 = args[1].(*v1alpha1.Repository)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockCache_CheckRepositoryConnectivity_Call) Return(err error) *MockCache_CheckRepositoryConnectivity_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockCache_CheckRepositoryConnectivity_Call) RunAndReturn(run func(ctx context.Context, repositorySpec *v1alpha1.Repository) error) *MockCache_CheckRepositoryConnectivity_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CloseRepository provides a mock function for the type MockCache
 func (_mock *MockCache) CloseRepository(ctx context.Context, repositorySpec *v1alpha1.Repository, allRepos []v1alpha1.Repository) error {
 	ret := _mock.Called(ctx, repositorySpec, allRepos)

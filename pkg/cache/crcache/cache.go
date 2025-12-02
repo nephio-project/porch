@@ -62,12 +62,6 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 		c.mainLock.RUnlock()
 		// Keep the spec updated in the cache.
 		repo.repoSpec = repositorySpec
-		// Check external repo connectivity
-		if err := externalrepo.CheckRepositoryConnection(ctx, repositorySpec, c.options.ExternalRepoOptions); err != nil {
-			klog.Warningf("Cache:OpenRepository: repo %+v connectivity check failed with error %q", key, err)
-			return nil, err
-		}
-		klog.V(2).Infof("Cache::OpenRepository: verified repo connectivity %+v", key)
 		// If there is an error from the background refresh goroutine, return it.
 		if err := repo.getRefreshError(); err != nil {
 			return nil, err
@@ -163,6 +157,10 @@ func (c *Cache) GetRepository(repoKey repository.RepositoryKey) repository.Repos
 	c.mainLock.RLock()
 	defer c.mainLock.RUnlock()
 	return c.repositories[repoKey]
+}
+
+func (c *Cache) CheckRepositoryConnectivity(ctx context.Context, repositorySpec *configapi.Repository) error {
+	return externalrepo.CheckRepositoryConnection(ctx, repositorySpec, c.options.ExternalRepoOptions)
 }
 
 func (c *Cache) getOrInsertLock(key repository.RepositoryKey) *sync.Mutex {

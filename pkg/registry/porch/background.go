@@ -203,6 +203,19 @@ func (b *background) handleRepositoryEvent(ctx context.Context, repo *configapi.
 	case watch.Deleted:
 		err = b.cache.CloseRepository(listCtx, repo, repoList.Items)
 	default:
+		// Check connectivity before caching
+		if err = b.checkRepositoryConnectivity(listCtx, repo); err != nil {
+			klog.Warningf("Repository connectivity check failed for %s: %v", repo.Name, err)
+			condition := v1.Condition{
+				Type:               configapi.RepositoryReady,
+				Status:             v1.ConditionFalse,
+				ObservedGeneration: repo.Generation,
+				LastTransitionTime: v1.Now(),
+				Reason:             configapi.ReasonError,
+				Message:            fmt.Sprintf("Repository connectivity check failed: %v", err),
+			}
+			return b.updateRepositoryStatusCondition(listCtx, repo, condition)
+		}
 		err = b.cacheRepository(listCtx, repo)
 	}
 	if err == nil {
@@ -222,6 +235,23 @@ func (b *background) runOnce(ctx context.Context) error {
 
 	for i := range repositories.Items {
 		repo := &repositories.Items[i]
+
+		// Check repository connectivity
+		if err := b.checkRepositoryConnectivity(ctx, repo); err != nil {
+			klog.Warningf("Repository connectivity check failed for %s: %v", repo.Name, err)
+			condition := v1.Condition{
+				Type:               configapi.RepositoryReady,
+				Status:             v1.ConditionFalse,
+				ObservedGeneration: repo.Generation,
+				LastTransitionTime: v1.Now(),
+				Reason:             configapi.ReasonError,
+				Message:            fmt.Sprintf("Repository connectivity check failed: %v", err),
+			}
+			if err := b.updateRepositoryStatusCondition(ctx, repo, condition); err != nil {
+				klog.Errorf("Failed to update repository status for %s: %v", repo.Name, err)
+			}
+			continue // Skip cacheRepository if connectivity fails
+		}
 
 		if err := b.cacheRepository(ctx, repo); err != nil {
 			klog.Errorf("Failed to cache repository: %v", err)
@@ -269,7 +299,14 @@ func (b *background) cacheRepository(ctx context.Context, repo *configapi.Reposi
 		}
 	}
 
-	// Update status condition with retry only on API conflict
+	return b.updateRepositoryStatusCondition(ctx, repo, condition)
+}
+
+func (b *background) checkRepositoryConnectivity(ctx context.Context, repo *configapi.Repository) error {
+	return b.cache.CheckRepositoryConnectivity(ctx, repo)
+}
+
+func (b *background) updateRepositoryStatusCondition(ctx context.Context, repo *configapi.Repository, condition v1.Condition) error {
 	for attempt := 1; attempt <= b.repoOperationRetryAttempts; attempt++ {
 		latestRepo := &configapi.Repository{}
 		err := b.coreClient.Get(ctx, types.NamespacedName{
@@ -291,7 +328,6 @@ func (b *background) cacheRepository(ctx context.Context, repo *configapi.Reposi
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}
-		// Return immediately for non-conflict errors
 		return fmt.Errorf("error updating repository status: %w", err)
 	}
 	return fmt.Errorf("failed to update repository status after retries")

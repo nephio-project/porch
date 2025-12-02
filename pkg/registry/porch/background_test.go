@@ -50,7 +50,7 @@ func TestBackgroundOptions(t *testing.T) {
 			},
 			expected: background{
 				periodicRepoSyncFrequency: 5 * time.Second,
-				listTimeoutPerRepo:          10 * time.Second,
+				listTimeoutPerRepo:        10 * time.Second,
 			},
 		},
 	}
@@ -105,6 +105,7 @@ func TestBackgroundHandleRepositoryEvent(t *testing.T) {
 			setupMocks: func(mockClient *mockclient.MockWithWatch, mockResourceWriter *mockclient.MockSubResourceWriter,
 				mockCache *mockcache.MockCache, mockRepo *mockrepo.MockRepository) {
 				mockClient.On("List", mock.Anything, mock.Anything).Return(nil)
+				mockCache.On("CheckRepositoryConnectivity", mock.Anything, mock.AnythingOfType(v1alpha1Repo)).Return(nil)
 				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType(v1alpha1Repo), mock.Anything).Return(mockRepo, nil)
 				mockClient.On("Status").Return(mockResourceWriter)
 				mockResourceWriter.On("Update", mock.Anything, mock.Anything).Return(nil)
@@ -131,6 +132,7 @@ func TestBackgroundHandleRepositoryEvent(t *testing.T) {
 			setupMocks: func(mockClient *mockclient.MockWithWatch, mockResourceWriter *mockclient.MockSubResourceWriter,
 				mockCache *mockcache.MockCache, mockRepo *mockrepo.MockRepository) {
 				mockClient.On("List", mock.Anything, mock.Anything).Return(nil)
+				mockCache.On("CheckRepositoryConnectivity", mock.Anything, mock.AnythingOfType(v1alpha1Repo)).Return(nil)
 				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType(v1alpha1Repo), mock.Anything).Return(mockRepo, nil)
 				mockClient.On("Status").Return(mockResourceWriter)
 				mockResourceWriter.On("Update", mock.Anything, mock.Anything).Return(nil)
@@ -179,6 +181,30 @@ func TestBackgroundHandleRepositoryEvent(t *testing.T) {
 			},
 			expectedError: errors.New(listErr),
 		},
+		{
+			name:  "Repository connectivity check failed",
+			event: watch.Added,
+			setupMocks: func(mockClient *mockclient.MockWithWatch, mockResourceWriter *mockclient.MockSubResourceWriter,
+				mockCache *mockcache.MockCache, mockRepo *mockrepo.MockRepository) {
+				mockClient.On("List", mock.Anything, mock.Anything).Return(nil)
+				mockCache.On("CheckRepositoryConnectivity", mock.Anything, mock.AnythingOfType(v1alpha1Repo)).Return(fmt.Errorf("remote not found"))
+				mockClient.On("Status").Return(mockResourceWriter)
+				mockResourceWriter.On("Update", mock.Anything, mock.Anything).
+					Run(func(args mock.Arguments) {
+						repo := args.Get(1).(*configapi.Repository)
+						assert.Len(t, repo.Status.Conditions, 1)
+						assert.Equal(t, v1.ConditionFalse, repo.Status.Conditions[0].Status)
+						assert.Equal(t, configapi.ReasonError, repo.Status.Conditions[0].Reason)
+						assert.Contains(t, repo.Status.Conditions[0].Message, "remote not found")
+					}).Return(nil)
+				mockClient.On("Get", mock.Anything, mock.AnythingOfType("types.NamespacedName"), mock.AnythingOfType("*v1alpha1.Repository")).
+					Run(func(args mock.Arguments) {
+						repo := args.Get(2).(*configapi.Repository)
+						repo.Status.Conditions = []v1.Condition{}
+					}).
+					Return(nil)
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -200,8 +226,10 @@ func TestBackgroundHandleRepositoryEvent(t *testing.T) {
 			case "Invalid repository":
 				repository = createRepo(2, 1, false)
 				repository.Spec.Git.Directory = "invalid//directory"
+			case "Successfully add repository event", "Successfully modified repository event":
+				repository = createRepo(2, 1, false)
 			default:
-				repository = createRepo(2, 1, false) // specChanged returns true
+				repository = createRepo(2, 1, false)
 			}
 			tt.setupMocks(mockClient, mockResourceWriter, mockCache, mockRepo)
 
@@ -239,9 +267,16 @@ func TestBackgroundRunOnce(t *testing.T) {
 					repoList := args.Get(1).(*configapi.RepositoryList)
 					*repoList = *repositories
 				}).Return(nil)
+				mockCache.On("CheckRepositoryConnectivity", mock.Anything, mock.AnythingOfType(v1alpha1Repo)).Return(nil)
 				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType(v1alpha1Repo), mock.Anything).Return(mockRepo, nil)
 				mockClient.On("Status").Return(mockResourceWriter)
-				mockResourceWriter.On("Update", mock.Anything, mock.Anything).Return(nil)
+				mockResourceWriter.On("Update", mock.Anything, mock.Anything).
+					Run(func(args mock.Arguments) {
+						repo := args.Get(1).(*configapi.Repository)
+						assert.Len(t, repo.Status.Conditions, 1)
+						assert.Equal(t, v1.ConditionTrue, repo.Status.Conditions[0].Status)
+						assert.Equal(t, configapi.ReasonReady, repo.Status.Conditions[0].Reason)
+					}).Return(nil)
 				mockClient.On("Get", mock.Anything, mock.AnythingOfType("types.NamespacedName"), mock.AnythingOfType("*v1alpha1.Repository")).
 					Run(func(args mock.Arguments) {
 						repo := args.Get(2).(*configapi.Repository)
@@ -267,10 +302,43 @@ func TestBackgroundRunOnce(t *testing.T) {
 					repoList := args.Get(1).(*configapi.RepositoryList)
 					*repoList = *repositories
 				}).Return(nil)
+				mockCache.On("CheckRepositoryConnectivity", mock.Anything, mock.AnythingOfType(v1alpha1Repo)).Return(nil)
 				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType(v1alpha1Repo), mock.Anything).
 					Return(nil, fmt.Errorf("failed to cache"))
 				mockClient.On("Status").Return(mockResourceWriter)
-				mockResourceWriter.On("Update", mock.Anything, mock.Anything).Return(nil)
+				mockResourceWriter.On("Update", mock.Anything, mock.Anything).
+					Run(func(args mock.Arguments) {
+						repo := args.Get(1).(*configapi.Repository)
+						assert.Len(t, repo.Status.Conditions, 1)
+						assert.Equal(t, v1.ConditionFalse, repo.Status.Conditions[0].Status)
+						assert.Equal(t, configapi.ReasonError, repo.Status.Conditions[0].Reason)
+					}).Return(nil)
+				mockClient.On("Get", mock.Anything, mock.AnythingOfType("types.NamespacedName"), mock.AnythingOfType("*v1alpha1.Repository")).
+					Run(func(args mock.Arguments) {
+						repo := args.Get(2).(*configapi.Repository)
+						repo.Status.Conditions = []v1.Condition{}
+					}).
+					Return(nil)
+			},
+		},
+		{
+			name: "Repository connectivity check failed",
+			setupMocks: func(mockClient *mockclient.MockWithWatch, mockResourceWriter *mockclient.MockSubResourceWriter,
+				mockCache *mockcache.MockCache, mockRepo *mockrepo.MockRepository) {
+				mockClient.On("List", mock.Anything, mock.AnythingOfType(v1alpha1RepoList)).Run(func(args mock.Arguments) {
+					repoList := args.Get(1).(*configapi.RepositoryList)
+					*repoList = *repositories
+				}).Return(nil)
+				mockCache.On("CheckRepositoryConnectivity", mock.Anything, mock.AnythingOfType(v1alpha1Repo)).Return(fmt.Errorf("remote not found"))
+				mockClient.On("Status").Return(mockResourceWriter)
+				mockResourceWriter.On("Update", mock.Anything, mock.Anything).
+					Run(func(args mock.Arguments) {
+						repo := args.Get(1).(*configapi.Repository)
+						assert.Len(t, repo.Status.Conditions, 1)
+						assert.Equal(t, v1.ConditionFalse, repo.Status.Conditions[0].Status)
+						assert.Equal(t, configapi.ReasonError, repo.Status.Conditions[0].Reason)
+						assert.Contains(t, repo.Status.Conditions[0].Message, "remote not found")
+					}).Return(nil)
 				mockClient.On("Get", mock.Anything, mock.AnythingOfType("types.NamespacedName"), mock.AnythingOfType("*v1alpha1.Repository")).
 					Run(func(args mock.Arguments) {
 						repo := args.Get(2).(*configapi.Repository)
@@ -556,7 +624,10 @@ func createRepo(gen int64, observedGen int64, conditionsNil bool) *configapi.Rep
 			Generation: gen,
 		},
 		Spec: configapi.RepositorySpec{
+			Type: configapi.RepositoryTypeGit,
 			Git: &configapi.GitRepository{
+				Repo:      "https://mock-git-server.com/repo.git",
+				Branch:    "main",
 				Directory: "/valid/path",
 			},
 		},

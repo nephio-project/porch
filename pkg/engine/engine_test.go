@@ -281,6 +281,11 @@ func (m *mockCache) UpdateRepository(ctx context.Context, repositoryObj *configa
 	return args.Error(0)
 }
 
+func (m *mockCache) CheckRepositoryConnectivity(ctx context.Context, repositorySpec *configapi.Repository) error {
+	args := m.Called(ctx, repositorySpec)
+	return args.Error(0)
+}
+
 func TestCreatePRWith2Tasks(t *testing.T) {
 	pr := &porchapi.PackageRevision{
 		Spec: porchapi.PackageRevisionSpec{
@@ -465,7 +470,6 @@ func TestCreateCloneTaskValidation(t *testing.T) {
 				{
 					Type: porchapi.TaskTypeClone,
 					Clone: &porchapi.PackageCloneTaskSpec{
-						Strategy: porchapi.ResourceMerge,
 						Upstream: porchapi.UpstreamPackage{
 							Type: porchapi.RepositoryTypeGit,
 							Git: &porchapi.GitPackage{
