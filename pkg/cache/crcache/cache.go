@@ -56,10 +56,10 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 	lock.Lock()
 	defer lock.Unlock()
 
-	c.mainLock.Lock()
-	defer c.mainLock.Unlock()
+	c.mainLock.RLock()
 
 	if repo, ok := c.repositories[key]; ok && repo != nil {
+		c.mainLock.RUnlock()
 		// Keep the spec updated in the cache.
 		repo.repoSpec = repositorySpec
 		// Check external repo connectivity
@@ -74,6 +74,7 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 		}
 		return repo, nil
 	}
+	c.mainLock.RUnlock()
 
 	externalRepo, err := externalrepo.CreateRepositoryImpl(ctx, repositorySpec, c.options.ExternalRepoOptions)
 	if err != nil {
@@ -82,7 +83,9 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 
 	cachedRepo := newRepository(key, repositorySpec, externalRepo, c.metadataStore, c.options)
 
+	c.mainLock.Lock()
 	c.repositories[key] = cachedRepo
+	c.mainLock.Unlock()
 
 	return cachedRepo, nil
 }
