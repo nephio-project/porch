@@ -83,12 +83,14 @@ run-in-kind-db-cache-no-server: load-images-to-kind deployment-config-no-server 
 run-in-kind-no-controller: IMAGE_REPO=porch-kind## Build and deploy porch without the controllers into a kind cluster
 run-in-kind-no-controller: IMAGE_TAG=test
 run-in-kind-no-controller: SKIP_CONTROLLER_BUILD=true
+run-in-kind-no-controller: SKIP_LOCAL_GIT=true
 run-in-kind-no-controller: load-images-to-kind deployment-config-no-controller deploy-current-config
 
 .PHONY: run-in-kind-db-cache-no-controller
 run-in-kind-db-cache-no-controller: IMAGE_REPO=porch-kind## Build and deploy porch without the controllers into a kind cluster with postgres backend
 run-in-kind-db-cache-no-controller: IMAGE_TAG=test
 run-in-kind-db-cache-no-controller: SKIP_CONTROLLER_BUILD=true
+run-in-kind-db-cache-no-controller: SKIP_LOCAL_GIT=true
 run-in-kind-db-cache-no-controller: PORCH_CACHE_TYPE=DB
 run-in-kind-db-cache-no-controller: load-images-to-kind deployment-config-no-controller deploy-current-config
 
