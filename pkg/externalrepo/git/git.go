@@ -267,7 +267,7 @@ type gitRepository struct {
 	// through all the refs each time
 	deletionProposedCache map[BranchName]bool
 
-	mutex sync.RWMutex
+	mutex sync.Mutex
 
 	// caBundle to use for TLS communication towards git
 	caBundle []byte
