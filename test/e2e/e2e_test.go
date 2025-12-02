@@ -1665,7 +1665,7 @@ func (t *PorchSuite) TestPackageUpgrade() {
 	)
 
 	t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), TestBlueprintsRepoName, "", GiteaUser, GiteaPassword)
-	
+
 	// Register the repository as 'downstream'
 	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), gitRepository, "", GiteaUser, GiteaPassword)
 
@@ -1811,10 +1811,9 @@ func (t *PorchSuite) TestRegisterRepository() {
 	const (
 		repository = "register"
 	)
-	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, 
-	GiteaPassword, RepositoryOptions{RepOpts: withType(configapi.RepositoryTypeGit)},
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser,
+		GiteaPassword, RepositoryOptions{RepOpts: withType(configapi.RepositoryTypeGit)},
 		RepositoryOptions{RepOpts: WithDeployment()})
-
 
 	var repo configapi.Repository
 	t.GetF(client.ObjectKey{
@@ -2309,7 +2308,7 @@ func (t *PorchSuite) TestLargePackageRevision() {
 	const testDataSize = 5 * 1024 * 1024
 
 	setAnnotationsImage := t.GcrPrefix + "/set-annotations:v0.1.5" // set-annotations:v0.1.5 is an older version that porch maps neither to built-in nor exec.
-	
+
 	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "git-fn-pod-large", "", GiteaUser, GiteaPassword)
 
 	// Create Package Revision
@@ -2780,7 +2779,7 @@ func (t *PorchSuite) TestPackageRevisionGCWithOwner() {
 }
 
 func (t *PorchSuite) TestPackageRevisionGCAsOwner() {
-	// TODO: Garbage collection is not working when a DB cache PackageRevision resource owner is deleted. 
+	// TODO: Garbage collection is not working when a DB cache PackageRevision resource owner is deleted.
 	// We need to get this test running in DB cache
 	if _, ok := os.LookupEnv("DB_CACHE"); ok {
 		return
@@ -2961,7 +2960,7 @@ func (t *PorchSuite) TestPackageRevisionFinalizers() {
 func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces() {
 
 	registerRepoAndTestRevisions := func(repoName string, ns string, oldPRs []porchapi.PackageRevision) []porchapi.PackageRevision {
-		t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), repoName, "", GiteaUser, GiteaPassword, 
+		t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), repoName, "", GiteaUser, GiteaPassword,
 			RepositoryOptions{RepOpts: InNamespace(ns), SecOpts: SecretInNamespace(ns)})
 		prList := porchapi.PackageRevisionList{}
 		t.ListF(&prList, client.InNamespace(ns))
@@ -3273,6 +3272,11 @@ func (t *PorchSuite) TestRepositoryModify() {
 			continue
 		}
 
+		if ready.Status == metav1.ConditionFalse && ready.Reason == configapi.ReasonReconciling {
+			t.Logf("Repository sync in progress")
+			continue
+		}
+
 		if got, want := ready.Status, metav1.ConditionTrue; got != want {
 			t.Errorf("Repository Ready Condition Status; got %q, want %q", got, want)
 		}
@@ -3501,7 +3505,7 @@ func (t *PorchSuite) TestPackageRevisionListWithTwoHangingRepositories() {
 			Description: "Working Git repository",
 			Type:        configapi.RepositoryTypeGit,
 			Git: &configapi.GitRepository{
-				Repo:      t.GetPorchTestRepoURL(),
+				Repo: t.GetPorchTestRepoURL(),
 				SecretRef: configapi.SecretRef{
 					Name: t.CreateOrUpdateSecret(workingRepoName, GiteaUser, GiteaPassword),
 				},

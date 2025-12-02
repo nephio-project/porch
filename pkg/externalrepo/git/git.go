@@ -300,14 +300,11 @@ func (r *gitRepository) Version(ctx context.Context) (string, error) {
 	defer span.End()
 
 	r.mutex.Lock()
-	err := r.fetchRemoteRepositoryWithRetry(ctx)
-	r.mutex.Unlock()
-	if err != nil {
+	defer r.mutex.Unlock()
+
+	if err := r.fetchRemoteRepositoryWithRetry(ctx); err != nil {
 		return "", err
 	}
-
-	r.mutex.RLock()
-	defer r.mutex.RUnlock()
 
 	refs, err := r.repo.References()
 	if err != nil {
@@ -452,9 +449,9 @@ func (r *gitRepository) CreatePackageRevisionDraft(ctx context.Context, obj *por
 	defer span.End()
 
 	_, mutexSpan := tracer.Start(ctx, "gitRepository::CreatePackageRevisionDraft::acquire_mutex")
-	r.mutex.RLock()
+	r.mutex.Lock()
 	mutexSpan.End()
-	defer r.mutex.RUnlock()
+	defer r.mutex.Unlock()
 
 	var base plumbing.Hash
 	refName := r.branch.RefInLocal()
@@ -703,8 +700,8 @@ func (r *gitRepository) fetchRemoteRepositoryWithRetry(ctx context.Context) erro
 func (r *gitRepository) GetPackageRevision(ctx context.Context, version, path string) (repository.PackageRevision, kptfilev1.GitLock, error) {
 	ctx, span := tracer.Start(ctx, "gitRepository::GetPackageRevision", trace.WithAttributes())
 	defer span.End()
-	r.mutex.RLock()
-	defer r.mutex.RUnlock()
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 
 	var hash plumbing.Hash
 
@@ -1056,6 +1053,8 @@ func (r *gitRepository) getAuthMethod(ctx context.Context, forceRefresh bool) (t
 }
 
 func (r *gitRepository) GetRepo() (string, error) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 
 	origin, err := r.repo.Remote("origin")
 	if err != nil {
@@ -1346,8 +1345,8 @@ func visitCommitsCollectErrors(iterator object.CommitIter, callback commitCallba
 }
 
 func (r *gitRepository) GetResources(hash plumbing.Hash) (map[string]string, error) {
-	r.mutex.RLock()
-	defer r.mutex.RUnlock()
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 
 	resources := map[string]string{}
 
@@ -1412,8 +1411,8 @@ type commitCallback func(*object.Commit) error
 func (r *gitRepository) GetLifecycle(ctx context.Context, pkgRev *gitPackageRevision) porchapi.PackageRevisionLifecycle {
 	_, span := tracer.Start(ctx, "gitRepository::GetLifecycle", trace.WithAttributes())
 	defer span.End()
-	r.mutex.RLock()
-	defer r.mutex.RUnlock()
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 
 	return r.getLifecycle(pkgRev)
 }
