@@ -305,12 +305,12 @@ func (t *TestSuite) registerGitRepositoryFromConfigF(name string, config GitConf
 	t.CreateF(repo)
 
 	t.Cleanup(func() {
+		if IsPorchTestRepo(config.Repo) {
+			defer t.RecreateGiteaTestRepo()
+		}
 		t.DeleteE(repo)
 		t.WaitUntilRepositoryDeleted(name, t.Namespace)
 		t.WaitUntilAllPackagesDeleted(name, t.Namespace)
-		if IsPorchTestRepo(config.Repo) {
-			t.RecreateGiteaTestRepo()
-		}
 	})
 
 	// Make sure the repository is ready before we test to (hopefully)
@@ -513,37 +513,54 @@ func (t *TestSuite) WaitUntilRepositoryDeleted(name, namespace string) {
 	}
 }
 
-func (t *TestSuite) WaitUntilAllPackagesDeleted(repoName string, namespace string) {
+func (t *TestSuite) WaitUntilAllPackageRevisionsDeleted(repoName string, namespace string) {
 	t.T().Helper()
 	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 60*time.Second, true, func(ctx context.Context) (done bool, err error) {
-		t.T().Helper()
 		var pkgRevList porchapi.PackageRevisionList
 		if err := t.Reader.List(ctx, &pkgRevList); err != nil {
-			t.Logf("error listing packages: %v", err)
+			t.Logf("error listing PackageRevisions: %v", err)
 			return false, nil
 		}
 		for _, pkgRev := range pkgRevList.Items {
 			if pkgRev.Namespace == namespace && strings.HasPrefix(fmt.Sprintf("%s-", pkgRev.Name), repoName) {
-				t.Logf("Found package %s from repo %s", pkgRev.Name, repoName)
-				return false, nil
-			}
-		}
-		var internalPkgRevList internalapi.PackageRevList
-		if err := t.Reader.List(ctx, &internalPkgRevList); err != nil {
-			t.Logf("error list internal packages: %v", err)
-			return false, nil
-		}
-		for _, internalPkgRev := range internalPkgRevList.Items {
-			if internalPkgRev.Namespace == namespace && strings.HasPrefix(fmt.Sprintf("%s-", internalPkgRev.Name), repoName) {
-				t.Logf("Found internalPkg %s/%s from repo %s", internalPkgRev.Namespace, internalPkgRev.Name, repoName)
+				t.Logf("Found PackageRevision %s from repo %s", pkgRev.Name, repoName)
 				return false, nil
 			}
 		}
 		return true, nil
 	})
 	if err != nil {
-		t.Fatalf("Packages from repo %s still remains", repoName)
+		t.Fatalf("PackageRevisions from repo %s still remain", repoName)
 	}
+}
+
+func (t *TestSuite) WaitUntilAllPackageRevsDeleted(repoName string, namespace string) {
+	t.T().Helper()
+	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 60*time.Second, true, func(ctx context.Context) (done bool, err error) {
+		var internalPkgRevList internalapi.PackageRevList
+		if err := t.Reader.List(ctx, &internalPkgRevList); err != nil {
+			t.Logf("error listing PackageRevs: %v", err)
+			return false, nil
+		}
+		for _, internalPkgRev := range internalPkgRevList.Items {
+			if internalPkgRev.Namespace == namespace && strings.HasPrefix(fmt.Sprintf("%s-", internalPkgRev.Name), repoName) {
+				if len(internalPkgRev.Finalizers) > 0 {
+					t.removePkgRevFinalizers(ctx, &internalPkgRev)
+				}
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+	if err != nil {
+		t.Fatalf("PackageRevs from repo %s still remain", repoName)
+	}
+}
+
+func (t *TestSuite) WaitUntilAllPackagesDeleted(repoName string, namespace string) {
+	t.T().Helper()
+	t.WaitUntilAllPackageRevisionsDeleted(repoName, namespace)
+	t.WaitUntilAllPackageRevsDeleted(repoName, namespace)
 }
 
 func (t *TestSuite) WaitUntilObjectDeleted(gvk schema.GroupVersionKind, namespacedName types.NamespacedName, d time.Duration) {
@@ -740,4 +757,25 @@ func (t *TestSuite) AddResourceToPackage(resources *porchapi.PackageRevisionReso
 		t.Fatalf("Failed to read file from %q: %v", filePath, err)
 	}
 	resources.Spec.Resources[name] = string(file)
+}
+func (t *TestSuite) removePkgRevFinalizers(ctx context.Context, pkgRev *internalapi.PackageRev) {
+	t.Logf("removing finalizers from orphaned PackageRev %s/%s", pkgRev.Namespace, pkgRev.Name)
+	pkgRev.Finalizers = []string{}
+	for range 3 {
+		if err := t.Client.Update(ctx, pkgRev); err != nil {
+			if apierrors.IsConflict(err) {
+				key := client.ObjectKeyFromObject(pkgRev)
+				if getErr := t.Client.Get(ctx, key, pkgRev); getErr != nil {
+					if apierrors.IsNotFound(getErr) {
+						return
+					}
+					continue
+				}
+				pkgRev.Finalizers = []string{}
+				continue
+			}
+			t.Logf("failed to remove finalizers from PackageRev %s/%s: %v", pkgRev.Namespace, pkgRev.Name, err)
+		}
+		return
+	}
 }
