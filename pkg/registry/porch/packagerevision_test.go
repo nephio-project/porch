@@ -479,3 +479,68 @@ func TestCreateAction(t *testing.T) {
 		})
 	}
 }
+
+func TestPathsOverlap(t *testing.T) {
+	tests := []struct {
+		name     string
+		path1    string
+		path2    string
+		overlaps bool
+	}{
+		{
+			name:     "identical paths",
+			path1:    "root/sub1",
+			path2:    "root/sub1",
+			overlaps: true,
+		},
+		{
+			name:     "path2 is child of path1",
+			path1:    "root/sub4",
+			path2:    "root/sub4/sub4.2",
+			overlaps: true,
+		},
+		{
+			name:     "path1 is child of path2",
+			path1:    "root/sub4/sub4.3/sub4.3.1",
+			path2:    "root/sub4/sub4.3",
+			overlaps: true,
+		},
+		{
+			name:     "sibling paths no overlap",
+			path1:    "root/sub1",
+			path2:    "root/sub2",
+			overlaps: false,
+		},
+		{
+			name:     "different branches no overlap",
+			path1:    "root/sub4/sub4.1",
+			path2:    "root/sub4/sub4.2",
+			overlaps: false,
+		},
+		{
+			name:     "root level paths no overlap",
+			path1:    "package1",
+			path2:    "package2",
+			overlaps: false,
+		},
+		{
+			name:     "root vs nested no overlap",
+			path1:    "root",
+			path2:    "root-other/sub",
+			overlaps: false,
+		},
+		{
+			name:     "nested grandchild overlap",
+			path1:    "root/sub4",
+			path2:    "root/sub4/sub4.3/sub4.3.1",
+			overlaps: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := pathsOverlap(tt.path1, tt.path2)
+			assert.Equal(t, tt.overlaps, result, "pathsOverlap(%q, %q)", tt.path1, tt.path2)
+		})
+	}
+}

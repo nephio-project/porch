@@ -62,7 +62,7 @@ func TestPackageRevisionStrategyValidate(t *testing.T) {
 			},
 			valid: true,
 		},
-		"cannot clone into subfolder with slash": {
+		"can clone into subfolder with slash": {
 			obj: &porchapi.PackageRevision{
 				Spec: porchapi.PackageRevisionSpec{
 					PackageName:    "subfolder/test-package",
@@ -77,7 +77,7 @@ func TestPackageRevisionStrategyValidate(t *testing.T) {
 					},
 				},
 			},
-			valid: false,
+			valid: true,
 		},
 	}
 

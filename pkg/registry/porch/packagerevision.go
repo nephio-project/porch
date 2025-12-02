@@ -17,8 +17,10 @@ package porch
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -157,6 +159,11 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 	fieldErrors := r.createStrategy.Validate(ctx, runtimeObject)
 	if len(fieldErrors) > 0 {
 		return nil, apierrors.NewInvalid(porchapi.SchemeGroupVersion.WithKind("PackageRevision").GroupKind(), newApiPkgRev.Name, fieldErrors)
+	}
+
+	// Check for path overlap conflicts for init/clone operations
+	if err := r.validatePackagePathOverlap(ctx, newApiPkgRev, repositoryObj); err != nil {
+		return nil, err
 	}
 
 	var parentPackage repository.PackageRevision
@@ -331,4 +338,71 @@ func creationConflictError(newApiPkgRev *porchapi.PackageRevision) error {
 		newApiPkgRev.Spec.PackageName,
 		newApiPkgRev.Spec.WorkspaceName,
 	)
+}
+
+func (r *packageRevisions) validatePackagePathOverlap(ctx context.Context, newPkgRev *porchapi.PackageRevision, repo *configapi.Repository) error {
+	// Only validate for init and clone operations
+	isInitOrClone := false
+	for _, task := range newPkgRev.Spec.Tasks {
+		if task.Type == porchapi.TaskTypeInit || task.Type == porchapi.TaskTypeClone {
+			isInitOrClone = true
+			break
+		}
+	}
+	if !isInitOrClone {
+		return nil
+	}
+
+	newPath := newPkgRev.Spec.PackageName
+
+	// List existing package revisions in the same repository
+	filter := repository.ListPackageRevisionFilter{
+		Key: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				RepoKey: repository.RepositoryKey{
+					Namespace: newPkgRev.Namespace,
+					Name:      newPkgRev.Spec.RepositoryName,
+				},
+			},
+		},
+	}
+
+	existingPaths := []string{}
+	err := r.listPackageRevisions(ctx, filter, func(ctx context.Context, p repository.PackageRevision) error {
+		pkgRev, err := p.GetPackageRevision(ctx)
+		if err != nil {
+			return err
+		}
+		existingPaths = append(existingPaths, pkgRev.Spec.PackageName)
+		return nil
+	})
+	if err != nil {
+		return apierrors.NewInternalError(fmt.Errorf("failed to list existing packages: %w", err))
+	}
+
+	// Check for path overlaps
+	for _, existingPath := range existingPaths {
+		if pathsOverlap(newPath, existingPath) {
+			return apierrors.NewBadRequest(fmt.Sprintf("package path %q conflicts with existing package %q: packages cannot be nested", newPath, existingPath))
+		}
+	}
+
+	return nil
+}
+
+// pathsOverlap checks if two package paths would create a nesting conflict
+// Returns true if one path is a parent or child of the other
+func pathsOverlap(path1, path2 string) bool {
+	if path1 == path2 {
+		return true
+	}
+	// Check if path1 is a parent of path2
+	if strings.HasPrefix(path2+"/", path1+"/") {
+		return true
+	}
+	// Check if path2 is a parent of path1
+	if strings.HasPrefix(path1+"/", path2+"/") {
+		return true
+	}
+	return false
 }
