@@ -296,7 +296,6 @@ func TestUpdateStrategy(t *testing.T) {
 										Directory: "/path/to/package",
 									},
 								},
-								Strategy: "copy-merge",
 							},
 						},
 					},

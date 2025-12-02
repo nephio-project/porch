@@ -470,7 +470,6 @@ func TestCreateCloneTaskValidation(t *testing.T) {
 				{
 					Type: porchapi.TaskTypeClone,
 					Clone: &porchapi.PackageCloneTaskSpec{
-						Strategy: porchapi.ResourceMerge,
 						Upstream: porchapi.UpstreamPackage{
 							Type: porchapi.RepositoryTypeGit,
 							Git: &porchapi.GitPackage{
