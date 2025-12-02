@@ -15,9 +15,12 @@
 package e2e
 
 import (
+	"fmt"
+
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -92,6 +95,7 @@ func (t *PorchSuite) TestPackageMetadataFromKptfile() {
 			"config.kubernetes.io/local-config": "true",                 // from upstream
 			"porch.dev/new-annotation":          "new-annotation-value", // from PackageMetadata
 		}
+		t.Require().NotNil(clonePr.Spec.PackageMetadata)
 		t.Require().Equal(expectedLabels, clonePr.Spec.PackageMetadata.Labels)
 		for k, v := range expectedAnnotations {
 			actual, ok := clonePr.Spec.PackageMetadata.Annotations[k]
@@ -131,6 +135,7 @@ func (t *PorchSuite) TestPackageMetadataFromKptfile() {
 			"porch.dev/test-annotation":         "e2e-test-annotation-value",
 		}
 
+		t.Require().NotNil(clonePr.Spec.PackageMetadata)
 		t.Require().Equal(expectedLabelsAfterManual, clonePr.Spec.PackageMetadata.Labels)
 		for k, v := range expectedAnnotationsAfterManual {
 			actual, ok := clonePr.Spec.PackageMetadata.Annotations[k]
@@ -171,6 +176,7 @@ func (t *PorchSuite) TestPackageMetadataFromKptfile() {
 			"porch.dev/added-annotation": "added-annotation-value",
 		}
 
+		t.Require().NotNil(clonePr.Spec.PackageMetadata)
 		t.Require().Equal(expectedLabels, clonePr.Spec.PackageMetadata.Labels)
 		for k, v := range expectedAnnotations {
 			actual, ok := clonePr.Spec.PackageMetadata.Annotations[k]
@@ -187,5 +193,79 @@ func (t *PorchSuite) TestPackageMetadataFromKptfile() {
 			t.Require().True(ok)
 			t.Require().Equal(v, actual)
 		}
+	})
+}
+
+func (t *PorchSuite) TestPackageMetadataFieldSelectors() {
+	const (
+		repositoryName = "test-package-field-selector-repo"
+	)
+
+	t.RegisterMainGitRepositoryF(repositoryName)
+
+	t.RegisterTestBlueprintRepository("test-blueprints", "")
+
+	t.Run("filter by existing label", func() {
+		var list porchapi.PackageRevisionList
+
+		t.ListE(&list, client.InNamespace(t.Namespace))
+
+		simplePackage := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				RepoKey: repository.RepositoryKey{
+					Name: "test-blueprints",
+				},
+				Package: "simple",
+			},
+			Revision: 1,
+		})
+
+		t.Require().NotNil(simplePackage.Spec.PackageMetadata)
+		t.Require().NotNil(simplePackage.Spec.PackageMetadata.Labels)
+		t.Require().NotEmpty(simplePackage.Spec.PackageMetadata.Labels)
+
+		var testLabelKey, testLabelValue string
+		for key, value := range simplePackage.Spec.PackageMetadata.Labels {
+			testLabelKey = key
+			testLabelValue = value
+			break
+		}
+
+		fieldSelector := fmt.Sprintf("spec.packageMetadata.labels[%s]=%s", testLabelKey, testLabelValue)
+		listOptions := &client.ListOptions{
+			FieldSelector: fields.ParseSelectorOrDie(fieldSelector),
+		}
+
+		var filteredList porchapi.PackageRevisionList
+		t.ListE(&filteredList, client.InNamespace(t.Namespace), listOptions)
+
+		found := false
+		for _, item := range filteredList.Items {
+			t.Require().NotNil(item.Spec.PackageMetadata)
+			t.Require().NotNil(item.Spec.PackageMetadata.Labels)
+
+			actualValue, exists := item.Spec.PackageMetadata.Labels[testLabelKey]
+			t.Require().True(exists, testLabelKey)
+			t.Require().Equal(testLabelValue, actualValue)
+
+			if item.Spec.PackageName == "simple" && item.Spec.RepositoryName == "test-blueprints" {
+				found = true
+				t.Logf("Found expected simple package: %s", item.Name)
+			}
+		}
+
+		t.Require().True(found)
+	})
+
+	t.Run("filter by non-existing label", func() {
+		fieldSelector := "spec.packageMetadata.labels[non-existing-label-key]=non-existing-value"
+		listOptions := &client.ListOptions{
+			FieldSelector: fields.ParseSelectorOrDie(fieldSelector),
+		}
+
+		var filteredList porchapi.PackageRevisionList
+		t.ListE(&filteredList, client.InNamespace(t.Namespace), listOptions)
+
+		t.Require().Empty(filteredList.Items, len(filteredList.Items))
 	})
 }
