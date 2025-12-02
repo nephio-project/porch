@@ -254,10 +254,6 @@ func TestBackgroundRunOnce(t *testing.T) {
 	repository := *createRepo(1, 2, false)
 	repositories := &configapi.RepositoryList{Items: []configapi.Repository{repository}}
 
-	// Create repository for successful test
-	successRepo := createRepo(1, 2, false)
-	successRepositories := &configapi.RepositoryList{Items: []configapi.Repository{*successRepo}}
-
 	tests := []struct {
 		name          string
 		setupMocks    func(*mockclient.MockWithWatch, *mockclient.MockSubResourceWriter, *mockcache.MockCache, *mockrepo.MockRepository)
@@ -269,7 +265,7 @@ func TestBackgroundRunOnce(t *testing.T) {
 				mockCache *mockcache.MockCache, mockRepo *mockrepo.MockRepository) {
 				mockClient.On("List", mock.Anything, mock.AnythingOfType(v1alpha1RepoList)).Run(func(args mock.Arguments) {
 					repoList := args.Get(1).(*configapi.RepositoryList)
-					*repoList = *successRepositories
+					*repoList = *repositories
 				}).Return(nil)
 				mockCache.On("CheckRepositoryConnectivity", mock.Anything, mock.AnythingOfType(v1alpha1Repo)).Return(nil)
 				mockCache.On("OpenRepository", mock.Anything, mock.AnythingOfType(v1alpha1Repo), mock.Anything).Return(mockRepo, nil)
@@ -316,6 +312,32 @@ func TestBackgroundRunOnce(t *testing.T) {
 						assert.Len(t, repo.Status.Conditions, 1)
 						assert.Equal(t, v1.ConditionFalse, repo.Status.Conditions[0].Status)
 						assert.Equal(t, configapi.ReasonError, repo.Status.Conditions[0].Reason)
+					}).Return(nil)
+				mockClient.On("Get", mock.Anything, mock.AnythingOfType("types.NamespacedName"), mock.AnythingOfType("*v1alpha1.Repository")).
+					Run(func(args mock.Arguments) {
+						repo := args.Get(2).(*configapi.Repository)
+						repo.Status.Conditions = []v1.Condition{}
+					}).
+					Return(nil)
+			},
+		},
+		{
+			name: "Repository connectivity check failed",
+			setupMocks: func(mockClient *mockclient.MockWithWatch, mockResourceWriter *mockclient.MockSubResourceWriter,
+				mockCache *mockcache.MockCache, mockRepo *mockrepo.MockRepository) {
+				mockClient.On("List", mock.Anything, mock.AnythingOfType(v1alpha1RepoList)).Run(func(args mock.Arguments) {
+					repoList := args.Get(1).(*configapi.RepositoryList)
+					*repoList = *repositories
+				}).Return(nil)
+				mockCache.On("CheckRepositoryConnectivity", mock.Anything, mock.AnythingOfType(v1alpha1Repo)).Return(fmt.Errorf("remote not found"))
+				mockClient.On("Status").Return(mockResourceWriter)
+				mockResourceWriter.On("Update", mock.Anything, mock.Anything).
+					Run(func(args mock.Arguments) {
+						repo := args.Get(1).(*configapi.Repository)
+						assert.Len(t, repo.Status.Conditions, 1)
+						assert.Equal(t, v1.ConditionFalse, repo.Status.Conditions[0].Status)
+						assert.Equal(t, configapi.ReasonError, repo.Status.Conditions[0].Reason)
+						assert.Contains(t, repo.Status.Conditions[0].Message, "remote not found")
 					}).Return(nil)
 				mockClient.On("Get", mock.Anything, mock.AnythingOfType("types.NamespacedName"), mock.AnythingOfType("*v1alpha1.Repository")).
 					Run(func(args mock.Arguments) {
