@@ -30,9 +30,6 @@ import (
 func TestPackageCommitEmptyRepo(t *testing.T) {
 	tempdir := t.TempDir()
 	gitRepo := OpenGitRepositoryFromArchive(t, filepath.Join("testdata", "empty-repository.tar"), tempdir)
-	repo := &gitRepository{
-		repo: gitRepo,
-	}
 
 	ctx := context.Background()
 
@@ -40,7 +37,7 @@ func TestPackageCommitEmptyRepo(t *testing.T) {
 	parent := plumbing.ZeroHash      // Empty repository
 	packageTree := plumbing.ZeroHash // Empty package
 	packagePath := "catalog/namespaces/istions"
-	ch, err := newCommitHelper(repo.repo, userInfoProvider, parent, packagePath, packageTree)
+	ch, err := newCommitHelper(gitRepo, userInfoProvider, parent, packagePath, packageTree)
 	if err != nil {
 		t.Fatalf("newCommitHelper(%q) failed: %v", packagePath, err)
 	}
@@ -88,9 +85,6 @@ func TestPackageCommitEmptyRepo(t *testing.T) {
 func TestPackageCommitToMain(t *testing.T) {
 	tempdir := t.TempDir()
 	gitRepo := OpenGitRepositoryFromArchive(t, filepath.Join("testdata", "drafts-repository.tar"), tempdir)
-	repo := &gitRepository{
-		repo: gitRepo,
-	}
 
 	ctx := context.Background()
 
@@ -113,7 +107,7 @@ func TestPackageCommitToMain(t *testing.T) {
 	draftTree := getCommitTree(t, gitRepo, draft.Hash())
 	bucketEntry := findTreeEntry(t, draftTree, packagePath)
 	bucketTree := bucketEntry.Hash
-	ch, err := newCommitHelper(repo.repo, userInfoProvider, main.Hash(), packagePath, bucketTree)
+	ch, err := newCommitHelper(gitRepo, userInfoProvider, main.Hash(), packagePath, bucketTree)
 	if err != nil {
 		t.Fatalf("Failed to create commit helper: %v", err)
 	}
@@ -147,9 +141,6 @@ func (p *testUserInfoProvider) GetUserInfo(ctx context.Context) *repository.User
 func TestCommitWithUser(t *testing.T) {
 	tempdir := t.TempDir()
 	gitRepo := OpenGitRepositoryFromArchive(t, filepath.Join("testdata", "trivial-repository.tar"), tempdir)
-	repo := &gitRepository{
-		repo: gitRepo,
-	}
 
 	ctx := context.Background()
 	main := resolveReference(t, gitRepo, DefaultMainReferenceName)
@@ -167,7 +158,7 @@ func TestCommitWithUser(t *testing.T) {
 
 		var zeroHash plumbing.Hash
 		const packagePath = "testpackage"
-		ch, err := newCommitHelper(repo.repo, userInfoProvider, main.Hash(), packagePath, zeroHash)
+		ch, err := newCommitHelper(gitRepo, userInfoProvider, main.Hash(), packagePath, zeroHash)
 		if err != nil {
 			t.Fatalf("newCommitHelper(%q) failed: %v", packagePath, err)
 		}
@@ -210,7 +201,7 @@ func TestCommitWithUser(t *testing.T) {
 
 		var zeroHash plumbing.Hash
 		const packagePath = "testpackage-nouser"
-		ch, err := newCommitHelper(repo.repo, userInfoProvider, main.Hash(), packagePath, zeroHash)
+		ch, err := newCommitHelper(gitRepo, userInfoProvider, main.Hash(), packagePath, zeroHash)
 		if err != nil {
 			t.Fatalf("newCommitHelper(%q) failed: %v", packagePath, err)
 		}
