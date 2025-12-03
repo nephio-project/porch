@@ -373,6 +373,10 @@ func (r *packageRevisions) validatePackagePathOverlap(ctx context.Context, newPk
 		if err != nil {
 			return err
 		}
+		// Skip packages with same name and workspace (different revisions of same package)
+		if pkgRev.Spec.PackageName == newPath && pkgRev.Spec.WorkspaceName == newPkgRev.Spec.WorkspaceName {
+			return nil
+		}
 		existingPaths = append(existingPaths, pkgRev.Spec.PackageName)
 		return nil
 	})
