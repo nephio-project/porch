@@ -576,6 +576,7 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, pr2Delete rep
 			}
 
 			refSpecs := newPushRefSpecBuilder()
+			var commitOps *CommitOperationBuilder
 			deletionProposedBranch := createDeletionProposedName(pr2Delete.Key())
 
 			switch {
@@ -609,14 +610,15 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, pr2Delete rep
 				refSpecs.AddRefToDelete(ref)
 
 			case isBranchInLocalRepo(referenceName):
-				refSpecs.AddPackageDeletion(referenceName, pr2Delete.Key())
+				commitOps = NewCommitOperationBuilder()
+				commitOps.AddPackageDeletion(referenceName, pr2Delete.Key())
 				refSpecs.AddRefToDelete(plumbing.NewHashReference(deletionProposedBranch.RefInLocal(), plumbing.ZeroHash))
 
 			default:
 				return fmt.Errorf("cannot delete package with the ref name %s", referenceName)
 			}
 
-			if err := r.pushAndCleanup(ctx, refSpecs); err != nil {
+			if err := r.pushAndCleanup(ctx, refSpecs, commitOps); err != nil {
 				if pkgerrors.Is(err, git.NoErrAlreadyUpToDate) {
 					klog.Infof("All remote references are already up to date for deleting package %s", pr2Delete.Key())
 				} else {
@@ -1175,7 +1177,7 @@ func (r *gitRepository) verifyRepository(ctx context.Context, opts *GitRepositor
 	if needsCreation {
 		refSpecs := newPushRefSpecBuilder()
 		refSpecs.AddRefToPush(commitHash, r.branch.RefInLocal())
-		if err := r.pushAndCleanup(ctx, refSpecs); err != nil {
+		if err := r.pushAndCleanup(ctx, refSpecs, nil); err != nil {
 			return fmt.Errorf("error pushing main branch %q: %v", r.branch, err)
 		}
 	}
@@ -1336,8 +1338,8 @@ func (r *gitRepository) createPackageDeleteCommitInRepo(ctx context.Context, rep
 	return hash, nil
 }
 
-func (r *gitRepository) executeCommitOperations(ctx context.Context, repo *git.Repository, ph *pushRefSpecBuilder) error {
-	for _, op := range ph.commitOps {
+func (r *gitRepository) executeCommitOperations(ctx context.Context, repo *git.Repository, ph *pushRefSpecBuilder, commitOps *CommitOperationBuilder) error {
+	for _, op := range commitOps.GetOperations() {
 		switch op.Type {
 		case "approval":
 			data := op.Data.(map[string]interface{})
@@ -1373,7 +1375,7 @@ func (r *gitRepository) executeCommitOperations(ctx context.Context, repo *git.R
 	return nil
 }
 
-func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuilder) error {
+func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuilder, commitOps *CommitOperationBuilder) error {
 	ctx, span := tracer.Start(ctx, "gitRepository::pushAndCleanup", trace.WithAttributes())
 	defer span.End()
 
@@ -1390,9 +1392,11 @@ func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuild
 						klog.Warningf("Failed to fetch before retry %d: %v", attempt, fetchErr)
 					}
 				}
-				// Execute commit operations with latest state
-				if err := r.executeCommitOperations(ctx, repo, ph); err != nil {
-					return err
+				// Execute commit operations with latest state - Approve and Delete
+				if commitOps != nil {
+					if err := r.executeCommitOperations(ctx, repo, ph, commitOps); err != nil {
+						return err
+					}
 				}
 
 				ph.updateRequiredRefs(repo)
@@ -1687,7 +1691,7 @@ func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageR
 	}
 	r.mutex.Unlock() // Release mutex before git operations
 
-	if err := r.pushAndCleanup(ctx, refSpecs); err != nil {
+	if err := r.pushAndCleanup(ctx, refSpecs, nil); err != nil {
 		if !pkgerrors.Is(err, git.NoErrAlreadyUpToDate) {
 			return err
 		}
@@ -1764,6 +1768,7 @@ func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 	d := prd.(*gitPackageRevisionDraft)
 
 	refSpecs := newPushRefSpecBuilder()
+	commitOps := NewCommitOperationBuilder()
 	draftBranch := createDraftName(d.Key())
 	proposedBranch := createProposedName(d.Key())
 
@@ -1781,7 +1786,7 @@ func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 
 		// Finalize the package revision. Commit will be created in pushAndCleanup
 		tag := createFinalTagNameInLocal(d.Key())
-		refSpecs.AddPackageApproval(d, tag)
+		commitOps.AddPackageApproval(d, tag)
 
 		// Delete base branch (if one exists and should be deleted)
 		switch base := d.base; {
@@ -1824,7 +1829,7 @@ func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 		return nil, fmt.Errorf("package has unrecognized lifecycle: %q", d.lifecycle)
 	}
 
-	if err := d.repo.pushAndCleanup(ctx, refSpecs); err != nil {
+	if err := d.repo.pushAndCleanup(ctx, refSpecs, commitOps); err != nil {
 		if !pkgerrors.Is(err, git.NoErrAlreadyUpToDate) {
 			klog.Errorf("Failed to push package %s to main: %v", d.Key().PkgKey.ToFullPathname(), err)
 			return nil, err

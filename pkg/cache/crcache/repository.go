@@ -149,9 +149,9 @@ func (r *cachedRepository) getRefreshError() error {
 
 func (r *cachedRepository) getPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter, forceRefresh bool) ([]repository.PackageRevision, error) {
 	if forceRefresh {
-		klog.Infof("Cache::OpenRepository(%s) fetching packages from external repository", r.Key())
+		klog.Infof("crcache: getPackageRevisions(%s) fetching packages from external repository", r.Key())
 	} else {
-		klog.V(2).Infof("Cache::OpenRepository(%s) using cached packages", r.Key())
+		klog.V(2).Infof("crcache: getPackageRevisions(%s) using cached packages", r.Key())
 	}
 	_, packageRevisions, err := r.getCachedPackages(ctx, forceRefresh)
 	if err != nil {
@@ -270,7 +270,7 @@ func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd re
 	}
 
 	sent := r.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Added, cachedPr)
-	klog.Infof("cache: sent %d for new PackageRevision %s/%s", sent, cachedPr.KubeObjectNamespace(), cachedPr.KubeObjectName())
+	klog.Infof("crcache: sent %d for new PackageRevision %s/%s", sent, cachedPr.KubeObjectNamespace(), cachedPr.KubeObjectName())
 	return cachedPr, nil
 }
 
@@ -484,7 +484,8 @@ func (r *cachedRepository) ListPackages(ctx context.Context, filter repository.L
 }
 
 func (r *cachedRepository) CreatePackage(ctx context.Context, obj *porchapi.PorchPackage) (repository.Package, error) {
-	klog.Infoln("cachedRepository::CreatePackage")
+	ctx, span := tracer.Start(ctx, "cachedRepository::CreatePackage", trace.WithAttributes())
+	defer span.End()
 	return r.repo.CreatePackage(ctx, obj)
 }
 

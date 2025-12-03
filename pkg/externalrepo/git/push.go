@@ -22,37 +22,16 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 )
 
-type CommitOperation struct {
-	Type string
-	Data interface{}
-}
-
 type pushRefSpecBuilder struct {
 	pushRefs map[plumbing.ReferenceName]plumbing.Hash
 	require  map[plumbing.ReferenceName]plumbing.Hash
-	commitOps []CommitOperation
 }
 
 func newPushRefSpecBuilder() *pushRefSpecBuilder {
 	return &pushRefSpecBuilder{
 		pushRefs: map[plumbing.ReferenceName]plumbing.Hash{},
 		require:  map[plumbing.ReferenceName]plumbing.Hash{},
-		commitOps: []CommitOperation{},
 	}
-}
-
-func (b *pushRefSpecBuilder) AddPackageApproval(draft interface{}, tag plumbing.ReferenceName) {
-	b.commitOps = append(b.commitOps, CommitOperation{
-		Type: "approval",
-		Data: map[string]interface{}{"draft": draft, "tag": tag},
-	})
-}
-
-func (b *pushRefSpecBuilder) AddPackageDeletion(branch plumbing.ReferenceName, prKey interface{}) {
-	b.commitOps = append(b.commitOps, CommitOperation{
-		Type: "deletion",
-		Data: map[string]interface{}{"branch": branch, "prKey": prKey},
-	})
 }
 
 func (b *pushRefSpecBuilder) AddRefToPush(hash plumbing.Hash, to plumbing.ReferenceName) {
