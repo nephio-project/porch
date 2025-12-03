@@ -373,8 +373,8 @@ func (r *packageRevisions) validatePackagePathOverlap(ctx context.Context, newPk
 		if err != nil {
 			return err
 		}
-		// Skip packages with same name and workspace (different revisions of same package)
-		if pkgRev.Spec.PackageName == newPath && pkgRev.Spec.WorkspaceName == newPkgRev.Spec.WorkspaceName {
+		// Skip packages with same name (allows multiple revisions/workspaces of same package)
+		if pkgRev.Spec.PackageName == newPath {
 			return nil
 		}
 		existingPaths = append(existingPaths, pkgRev.Spec.PackageName)
@@ -385,13 +385,22 @@ func (r *packageRevisions) validatePackagePathOverlap(ctx context.Context, newPk
 	}
 
 	// Check for path overlaps
-	for _, existingPath := range existingPaths {
-		if pathsOverlap(newPath, existingPath) {
-			return apierrors.NewBadRequest(fmt.Sprintf("package path %q conflicts with existing package %q: packages cannot be nested", newPath, existingPath))
-		}
+	if conflictingPath := findPathConflict(newPath, existingPaths); conflictingPath != "" {
+		return apierrors.NewBadRequest(fmt.Sprintf("package path %q conflicts with existing package %q: packages cannot be nested", newPath, conflictingPath))
 	}
 
 	return nil
+}
+
+// findPathConflict checks if newPath conflicts with any existing paths.
+// Returns the conflicting path, or empty string if no conflict.
+func findPathConflict(newPath string, existingPaths []string) string {
+	for _, existingPath := range existingPaths {
+		if pathsOverlap(newPath, existingPath) {
+			return existingPath
+		}
+	}
+	return ""
 }
 
 // pathsOverlap checks if two package paths would create a nesting conflict
