@@ -99,7 +99,7 @@ func (r *runner) findDownstreamUpdates(prs []porchapi.PackageRevision, repositor
 	return printDownstreamUpdates(downstreamUpdatesMap, args, w)
 }
 
-func (r *runner) availableUpdates(upstreamLock *porchapi.UpstreamLock, repositories *configapi.RepositoryList) ([]porchapi.PackageRevision, string, string, error) {
+func (r *runner) availableUpdates(upstreamLock *porchapi.Locator, repositories *configapi.RepositoryList) ([]porchapi.PackageRevision, string, string, error) {
 	var availableUpdates []porchapi.PackageRevision
 	var upstream string
 

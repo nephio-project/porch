@@ -89,12 +89,12 @@ type Config struct {
 
 // PorchServer contains state for a Kubernetes cluster master/api server.
 type PorchServer struct {
-	GenericAPIServer          *genericapiserver.GenericAPIServer
-	coreClient                client.WithWatch
-	cache                     cachetypes.Cache
-	periodicRepoSyncFrequency    time.Duration
-	ListTimeoutPerRepository     time.Duration
-	repoOperationRetryAttempts   int
+	GenericAPIServer           *genericapiserver.GenericAPIServer
+	coreClient                 client.WithWatch
+	cache                      cachetypes.Cache
+	periodicRepoSyncFrequency  time.Duration
+	ListTimeoutPerRepository   time.Duration
+	repoOperationRetryAttempts int
 }
 
 type completedConfig struct {
@@ -281,9 +281,9 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 		coreClient:       coreClient,
 		cache:            cacheImpl,
 		// Set background job periodic frequency the same as repo sync frequency.
-		periodicRepoSyncFrequency: c.ExtraConfig.CacheOptions.RepoSyncFrequency,
-		ListTimeoutPerRepository:    c.ExtraConfig.ListTimeoutPerRepository,
-		repoOperationRetryAttempts:  c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts,
+		periodicRepoSyncFrequency:  c.ExtraConfig.CacheOptions.RepoSyncFrequency,
+		ListTimeoutPerRepository:   c.ExtraConfig.ListTimeoutPerRepository,
+		repoOperationRetryAttempts: c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts,
 	}
 
 	// Install the groups.

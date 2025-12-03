@@ -35,11 +35,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/nephio-project/porch/api/porch/v1alpha1.File":                           schema_porch_api_porch_v1alpha1_File(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.GitLock":                        schema_porch_api_porch_v1alpha1_GitLock(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.GitPackage":                     schema_porch_api_porch_v1alpha1_GitPackage(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.Locator":                        schema_porch_api_porch_v1alpha1_Locator(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.NameMeta":                       schema_porch_api_porch_v1alpha1_NameMeta(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.OciPackage":                     schema_porch_api_porch_v1alpha1_OciPackage(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageCloneTaskSpec":           schema_porch_api_porch_v1alpha1_PackageCloneTaskSpec(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageEditTaskSpec":            schema_porch_api_porch_v1alpha1_PackageEditTaskSpec(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageInitTaskSpec":            schema_porch_api_porch_v1alpha1_PackageInitTaskSpec(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageMetadata":                schema_porch_api_porch_v1alpha1_PackageMetadata(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevision":                schema_porch_api_porch_v1alpha1_PackageRevision(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionList":            schema_porch_api_porch_v1alpha1_PackageRevisionList(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionRef":             schema_porch_api_porch_v1alpha1_PackageRevisionRef(ref),
@@ -66,7 +68,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/nephio-project/porch/api/porch/v1alpha1.Selector":                       schema_porch_api_porch_v1alpha1_Selector(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.Task":                           schema_porch_api_porch_v1alpha1_Task(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.TaskResult":                     schema_porch_api_porch_v1alpha1_TaskResult(ref),
-		"github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamLock":                   schema_porch_api_porch_v1alpha1_UpstreamLock(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamPackage":                schema_porch_api_porch_v1alpha1_UpstreamPackage(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                     schema_pkg_apis_meta_v1_APIGroup(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                 schema_pkg_apis_meta_v1_APIGroupList(ref),
@@ -452,6 +453,34 @@ func schema_porch_api_porch_v1alpha1_GitPackage(ref common.ReferenceCallback) co
 	}
 }
 
+func schema_porch_api_porch_v1alpha1_Locator(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Locator is a resolved locator for the last fetch of the package.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type is the type of origin.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"git": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Git is the resolved locator for a package on Git.",
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.GitLock"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/nephio-project/porch/api/porch/v1alpha1.GitLock"},
+	}
+}
+
 func schema_porch_api_porch_v1alpha1_NameMeta(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -582,6 +611,48 @@ func schema_porch_api_porch_v1alpha1_PackageInitTaskSpec(ref common.ReferenceCal
 							Description: "`Site is a link to page with information about the package.",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_porch_api_porch_v1alpha1_PackageMetadata(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"labels": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"annotations": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
 						},
 					},
 				},
@@ -957,11 +1028,16 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionSpec(ref common.ReferenceCal
 							},
 						},
 					},
+					"packageMetadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha1.PackageMetadata"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.ParentReference", "github.com/nephio-project/porch/api/porch/v1alpha1.ReadinessGate", "github.com/nephio-project/porch/api/porch/v1alpha1.Task"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.PackageMetadata", "github.com/nephio-project/porch/api/porch/v1alpha1.ParentReference", "github.com/nephio-project/porch/api/porch/v1alpha1.ReadinessGate", "github.com/nephio-project/porch/api/porch/v1alpha1.Task"},
 	}
 }
 
@@ -975,7 +1051,13 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionStatus(ref common.ReferenceC
 					"upstreamLock": {
 						SchemaProps: spec.SchemaProps{
 							Description: "UpstreamLock identifies the upstream data for this package.",
-							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamLock"),
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.Locator"),
+						},
+					},
+					"selfLock": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SelfLock identifies the location of the current package's data",
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.Locator"),
 						},
 					},
 					"publishedBy": {
@@ -1015,7 +1097,7 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionStatus(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.Condition", "github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamLock", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.Condition", "github.com/nephio-project/porch/api/porch/v1alpha1.Locator", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
@@ -1641,34 +1723,6 @@ func schema_porch_api_porch_v1alpha1_TaskResult(ref common.ReferenceCallback) co
 		},
 		Dependencies: []string{
 			"github.com/nephio-project/porch/api/porch/v1alpha1.RenderStatus", "github.com/nephio-project/porch/api/porch/v1alpha1.Task"},
-	}
-}
-
-func schema_porch_api_porch_v1alpha1_UpstreamLock(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "UpstreamLock is a resolved locator for the last fetch of the package.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"type": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Type is the type of origin.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"git": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Git is the resolved locator for a package on Git.",
-							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.GitLock"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.GitLock"},
 	}
 }
 

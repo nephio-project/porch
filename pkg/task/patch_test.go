@@ -16,16 +16,48 @@ package task
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
+	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
+func createFakePackageRevision(t *testing.T, kf kptfile.KptFile) *fake.FakePackageRevision {
+	t.Helper()
+
+	kfYaml, err := yaml.Marshal(kf)
+	assert.NoError(t, err)
+
+	resources := map[string]string{
+		kptfile.KptFileName: string(kfYaml),
+	}
+
+	return &fake.FakePackageRevision{
+		Kptfile: kf,
+		Resources: &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
+				Resources: resources,
+			},
+		},
+	}
+}
+
 func TestKptfilePatch(t *testing.T) {
+	newBaseKptfile := func() kptfile.KptFile {
+		var k kptfile.KptFile
+		k.APIVersion, k.Kind = kptfile.KptFileGVK().ToAPIVersionAndKind()
+		k.Name = "pkg"
+		return k
+	}
+
+	correctApiVersion, correctKind := kptfile.KptFileGVK().ToAPIVersionAndKind()
+
 	testCases := map[string]struct {
 		repoPkgRev   repository.PackageRevision
 		newApiPkgRev *porchapi.PackageRevision
@@ -33,18 +65,14 @@ func TestKptfilePatch(t *testing.T) {
 		newKptfile   *kptfile.KptFile
 	}{
 		"no gates or conditions": {
-			repoPkgRev: &fake.FakePackageRevision{
-				Kptfile: kptfile.KptFile{},
-			},
+			repoPkgRev: createFakePackageRevision(t, newBaseKptfile()),
 			newApiPkgRev: &porchapi.PackageRevision{
 				Spec: porchapi.PackageRevisionSpec{},
 			},
 			shouldChange: false,
 		},
 		"first gate and condition added": {
-			repoPkgRev: &fake.FakePackageRevision{
-				Kptfile: kptfile.KptFile{},
-			},
+			repoPkgRev: createFakePackageRevision(t, newBaseKptfile()),
 			newApiPkgRev: &porchapi.PackageRevision{
 				Spec: porchapi.PackageRevisionSpec{
 					ReadinessGates: []porchapi.ReadinessGate{
@@ -64,6 +92,17 @@ func TestKptfilePatch(t *testing.T) {
 			},
 			shouldChange: true,
 			newKptfile: &kptfile.KptFile{
+				ResourceMeta: yaml.ResourceMeta{
+					TypeMeta: yaml.TypeMeta{
+						APIVersion: correctApiVersion,
+						Kind:       correctKind,
+					},
+					ObjectMeta: yaml.ObjectMeta{
+						NameMeta: yaml.NameMeta{
+							Name: "pkg",
+						},
+					},
+				},
 				Info: &kptfile.PackageInfo{
 					ReadinessGates: []kptfile.ReadinessGate{
 						{
@@ -82,25 +121,27 @@ func TestKptfilePatch(t *testing.T) {
 			},
 		},
 		"additional readinessGates and conditions added": {
-			repoPkgRev: &fake.FakePackageRevision{
-				Kptfile: kptfile.KptFile{
-					Info: &kptfile.PackageInfo{
-						ReadinessGates: []kptfile.ReadinessGate{
-							{
-								ConditionType: "foo",
-							},
-						},
-					},
-					Status: &kptfile.Status{
-						Conditions: []kptfile.Condition{
-							{
-								Type:   "foo",
-								Status: kptfile.ConditionTrue,
-							},
+			repoPkgRev: createFakePackageRevision(t, kptfile.KptFile{
+				ResourceMeta: yaml.ResourceMeta{
+					TypeMeta:   yaml.TypeMeta{APIVersion: correctApiVersion, Kind: correctKind},
+					ObjectMeta: yaml.ObjectMeta{NameMeta: yaml.NameMeta{Name: "pkg"}},
+				},
+				Info: &kptfile.PackageInfo{
+					ReadinessGates: []kptfile.ReadinessGate{
+						{
+							ConditionType: "foo",
 						},
 					},
 				},
-			},
+				Status: &kptfile.Status{
+					Conditions: []kptfile.Condition{
+						{
+							Type:   "foo",
+							Status: kptfile.ConditionTrue,
+						},
+					},
+				},
+			}),
 			newApiPkgRev: &porchapi.PackageRevision{
 				Spec: porchapi.PackageRevisionSpec{
 					ReadinessGates: []porchapi.ReadinessGate{
@@ -131,6 +172,17 @@ func TestKptfilePatch(t *testing.T) {
 			},
 			shouldChange: true,
 			newKptfile: &kptfile.KptFile{
+				ResourceMeta: yaml.ResourceMeta{
+					TypeMeta: yaml.TypeMeta{
+						APIVersion: correctApiVersion,
+						Kind:       correctKind,
+					},
+					ObjectMeta: yaml.ObjectMeta{
+						NameMeta: yaml.NameMeta{
+							Name: "pkg",
+						},
+					},
+				},
 				Info: &kptfile.PackageInfo{
 					ReadinessGates: []kptfile.ReadinessGate{
 						{
@@ -160,36 +212,45 @@ func TestKptfilePatch(t *testing.T) {
 			},
 		},
 		"no changes": {
-			repoPkgRev: &fake.FakePackageRevision{
-				Kptfile: kptfile.KptFile{
-					Info: &kptfile.PackageInfo{
-						ReadinessGates: []kptfile.ReadinessGate{
-							{
-								ConditionType: "foo",
-							},
-							{
-								ConditionType: "bar",
-							},
-						},
+			repoPkgRev: createFakePackageRevision(t, kptfile.KptFile{
+				ResourceMeta: yaml.ResourceMeta{
+					TypeMeta: yaml.TypeMeta{
+						APIVersion: correctApiVersion,
+						Kind:       correctKind,
 					},
-					Status: &kptfile.Status{
-						Conditions: []kptfile.Condition{
-							{
-								Type:    "foo",
-								Status:  kptfile.ConditionTrue,
-								Reason:  "reason",
-								Message: "message",
-							},
-							{
-								Type:    "bar",
-								Status:  kptfile.ConditionFalse,
-								Reason:  "reason",
-								Message: "message",
-							},
+					ObjectMeta: yaml.ObjectMeta{
+						NameMeta: yaml.NameMeta{
+							Name: "pkg",
 						},
 					},
 				},
-			},
+				Info: &kptfile.PackageInfo{
+					ReadinessGates: []kptfile.ReadinessGate{
+						{
+							ConditionType: "foo",
+						},
+						{
+							ConditionType: "bar",
+						},
+					},
+				},
+				Status: &kptfile.Status{
+					Conditions: []kptfile.Condition{
+						{
+							Type:    "foo",
+							Status:  kptfile.ConditionTrue,
+							Reason:  "reason",
+							Message: "message",
+						},
+						{
+							Type:    "bar",
+							Status:  kptfile.ConditionFalse,
+							Reason:  "reason",
+							Message: "message",
+						},
+					},
+				},
+			}),
 			newApiPkgRev: &porchapi.PackageRevision{
 				Spec: porchapi.PackageRevisionSpec{
 					ReadinessGates: []porchapi.ReadinessGate{
@@ -221,36 +282,45 @@ func TestKptfilePatch(t *testing.T) {
 			shouldChange: false,
 		},
 		"readinessGates and conditions removed": {
-			repoPkgRev: &fake.FakePackageRevision{
-				Kptfile: kptfile.KptFile{
-					Info: &kptfile.PackageInfo{
-						ReadinessGates: []kptfile.ReadinessGate{
-							{
-								ConditionType: "foo",
-							},
-							{
-								ConditionType: "bar",
-							},
-						},
+			repoPkgRev: createFakePackageRevision(t, kptfile.KptFile{
+				ResourceMeta: yaml.ResourceMeta{
+					TypeMeta: yaml.TypeMeta{
+						APIVersion: correctApiVersion,
+						Kind:       correctKind,
 					},
-					Status: &kptfile.Status{
-						Conditions: []kptfile.Condition{
-							{
-								Type:    "foo",
-								Status:  kptfile.ConditionTrue,
-								Reason:  "reason",
-								Message: "message",
-							},
-							{
-								Type:    "bar",
-								Status:  kptfile.ConditionFalse,
-								Reason:  "reason",
-								Message: "message",
-							},
+					ObjectMeta: yaml.ObjectMeta{
+						NameMeta: yaml.NameMeta{
+							Name: "pkg",
 						},
 					},
 				},
-			},
+				Info: &kptfile.PackageInfo{
+					ReadinessGates: []kptfile.ReadinessGate{
+						{
+							ConditionType: "foo",
+						},
+						{
+							ConditionType: "bar",
+						},
+					},
+				},
+				Status: &kptfile.Status{
+					Conditions: []kptfile.Condition{
+						{
+							Type:    "foo",
+							Status:  kptfile.ConditionTrue,
+							Reason:  "reason",
+							Message: "message",
+						},
+						{
+							Type:    "bar",
+							Status:  kptfile.ConditionFalse,
+							Reason:  "reason",
+							Message: "message",
+						},
+					},
+				},
+			}),
 			newApiPkgRev: &porchapi.PackageRevision{
 				Spec: porchapi.PackageRevisionSpec{
 					ReadinessGates: []porchapi.ReadinessGate{
@@ -270,6 +340,17 @@ func TestKptfilePatch(t *testing.T) {
 			},
 			shouldChange: true,
 			newKptfile: &kptfile.KptFile{
+				ResourceMeta: yaml.ResourceMeta{
+					TypeMeta: yaml.TypeMeta{
+						APIVersion: correctApiVersion,
+						Kind:       correctKind,
+					},
+					ObjectMeta: yaml.ObjectMeta{
+						NameMeta: yaml.NameMeta{
+							Name: "pkg",
+						},
+					},
+				},
 				Info: &kptfile.PackageInfo{
 					ReadinessGates: []kptfile.ReadinessGate{
 						{
@@ -292,17 +373,138 @@ func TestKptfilePatch(t *testing.T) {
 	for tn := range testCases {
 		tc := testCases[tn]
 		t.Run(tn, func(t *testing.T) {
-			newKf, err := patchKptfile(context.Background(), tc.repoPkgRev, tc.newApiPkgRev)
+			newKfContent, changed, err := PatchKptfile(context.Background(), tc.repoPkgRev, tc.newApiPkgRev)
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			if tc.shouldChange {
-				assert.Equal(t, tc.newKptfile, newKf)
+				assert.True(t, changed)
+				assert.NotEmpty(t, newKfContent)
+				parsed, err := pkg.DecodeKptfile(strings.NewReader(newKfContent))
+				assert.NoError(t, err)
+				assert.Equal(t, tc.newKptfile, parsed)
 			} else {
-				oldKf, _ := tc.repoPkgRev.GetKptfile(context.TODO())
-				assert.Equal(t, &oldKf, newKf)
+				assert.False(t, changed)
+				assert.Empty(t, newKfContent)
 			}
 		})
 	}
+}
+
+func TestKptfilePatchPreservesComments(t *testing.T) {
+	initialYAML := `apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: test-package
+  # Package level comment
+  labels:
+    # Existing label comment
+    existing-label: old-value
+    # Keep this label comment
+    keep-label: keep-value
+  annotations:
+    # Existing annotation comment
+    existing.annotation: old-value
+    # Keep this annotation comment
+    keep.annotation: keep-value
+# Comment before info section
+info:
+  # Comment about readiness gates
+  readinessGates:
+  - conditionType: foo # inline comment about foo
+  # Comment about another gate that will be removed
+  - conditionType: existing-gate
+# Comment before status
+status:
+  # Comment about conditions
+  conditions:
+  - type: foo
+    status: "True"
+    # Comment about foo reason
+    reason: initial-foo
+    message: initial foo message
+  - type: existing-condition
+    status: "False"
+    # Comment about existing reason that will be removed
+    reason: initial-existing
+    message: initial existing message
+`
+
+	repoPkgRev := &fake.FakePackageRevision{
+		Resources: &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
+				Resources: map[string]string{
+					kptfile.KptFileName: initialYAML,
+				},
+			},
+		},
+	}
+
+	newApiPkgRev := &porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
+			PackageMetadata: &porchapi.PackageMetadata{
+				Labels: map[string]string{
+					"existing-label": "updated-value",
+					"keep-label":     "keep-value",
+					"new-label":      "new-value",
+				},
+				Annotations: map[string]string{
+					"existing.annotation": "updated-value",
+					"keep.annotation":     "keep-value",
+					"new.annotation":      "new-value",
+				},
+			},
+			ReadinessGates: []porchapi.ReadinessGate{
+				{ConditionType: "foo"},
+				{ConditionType: "new-gate"},
+			},
+		},
+		Status: porchapi.PackageRevisionStatus{
+			Conditions: []porchapi.Condition{
+				{
+					Type:    "foo",
+					Status:  porchapi.ConditionTrue,
+					Reason:  "updated-foo",
+					Message: "updated foo message",
+				},
+				{
+					Type:    "new-condition",
+					Status:  porchapi.ConditionFalse,
+					Reason:  "new-reason",
+					Message: "new message",
+				},
+			},
+		},
+	}
+
+	actualYAML, changed, err := PatchKptfile(context.Background(), repoPkgRev, newApiPkgRev)
+	assert.NoError(t, err)
+	assert.True(t, changed)
+	assert.NotEmpty(t, actualYAML)
+
+	assert.Contains(t, actualYAML, "# Package level comment")
+	assert.Contains(t, actualYAML, "# Comment before info section")
+	assert.Contains(t, actualYAML, "# Comment about readiness gates")
+	assert.Contains(t, actualYAML, "# inline comment about foo")
+	assert.Contains(t, actualYAML, "# Comment before status")
+	assert.Contains(t, actualYAML, "# Comment about conditions")
+	assert.Contains(t, actualYAML, "# Comment about foo reason")
+
+	assert.Contains(t, actualYAML, "# Existing label comment")
+	assert.Contains(t, actualYAML, "# Keep this label comment")
+	assert.Contains(t, actualYAML, "# Existing annotation comment")
+
+	assert.NotContains(t, actualYAML, "# Comment about another gate that will be removed")
+	assert.NotContains(t, actualYAML, "# Comment about existing reason that will be removed")
+
+	assert.Contains(t, actualYAML, "existing-label: updated-value")
+	assert.Contains(t, actualYAML, "new-label: new-value")
+	assert.Contains(t, actualYAML, "existing.annotation: updated-value")
+	assert.Contains(t, actualYAML, "new.annotation: new-value")
+	assert.Contains(t, actualYAML, "conditionType: new-gate")
+	assert.NotContains(t, actualYAML, "conditionType: existing-gate")
+	assert.Contains(t, actualYAML, "reason: updated-foo")
+	assert.Contains(t, actualYAML, "type: new-condition")
+	assert.NotContains(t, actualYAML, "type: existing-condition")
 }
