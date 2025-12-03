@@ -956,6 +956,8 @@ func (t *PorchSuite) TestSubfolderPackageRevisionIncrementation() {
 		},
 	})
 
+	t.WaitUntilRepositoryReady(repository, t.Namespace)
+
 	// Create a new package (via init)
 	subfolderPr := t.CreatePackageDraftF(repository, subfolderPackageName, workspace)
 
@@ -964,6 +966,9 @@ func (t *PorchSuite) TestSubfolderPackageRevisionIncrementation() {
 	t.UpdateF(subfolderPr)
 	subfolderPr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	subfolderPr = t.UpdateApprovalF(subfolderPr, metav1.UpdateOptions{})
+
+	assert.Equal(t, porchapi.PackageRevisionLifecyclePublished, subfolderPr.Spec.Lifecycle)
+	assert.Equal(t, 1, subfolderPr.Spec.Revision)
 
 	// Create new package revisions via edit/copy
 	editedSubfolderPr := t.CreatePackageSkeleton(repository, subfolderPackageName, workspace2)
@@ -983,6 +988,9 @@ func (t *PorchSuite) TestSubfolderPackageRevisionIncrementation() {
 	t.UpdateF(editedSubfolderPr)
 	editedSubfolderPr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	editedSubfolderPr = t.UpdateApprovalF(editedSubfolderPr, metav1.UpdateOptions{})
+
+	assert.Equal(t, porchapi.PackageRevisionLifecyclePublished, editedSubfolderPr.Spec.Lifecycle)
+	assert.Equal(t, 2, editedSubfolderPr.Spec.Revision)
 
 	// Delete repo to avoid conflict
 	t.DeleteL(&configapi.Repository{
@@ -1007,8 +1015,6 @@ func (t *PorchSuite) TestSubfolderPackageRevisionIncrementation() {
 	prInSubfolder.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	prInSubfolder = t.UpdateApprovalF(prInSubfolder, metav1.UpdateOptions{})
 
-	assert.Equal(t, porchapi.PackageRevisionLifecyclePublished, subfolderPr.Spec.Lifecycle)
-	assert.Equal(t, 1, subfolderPr.Spec.Revision)
 	assert.Equal(t, porchapi.PackageRevisionLifecyclePublished, prInSubfolder.Spec.Lifecycle)
 	assert.Equal(t, 1, prInSubfolder.Spec.Revision)
 
@@ -1031,8 +1037,6 @@ func (t *PorchSuite) TestSubfolderPackageRevisionIncrementation() {
 	editedPrInSubfolder.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	editedPrInSubfolder = t.UpdateApprovalF(editedPrInSubfolder, metav1.UpdateOptions{})
 
-	assert.Equal(t, porchapi.PackageRevisionLifecyclePublished, editedSubfolderPr.Spec.Lifecycle)
-	assert.Equal(t, 2, editedSubfolderPr.Spec.Revision)
 	assert.Equal(t, porchapi.PackageRevisionLifecyclePublished, editedPrInSubfolder.Spec.Lifecycle)
 	assert.Equal(t, 2, editedPrInSubfolder.Spec.Revision)
 }
