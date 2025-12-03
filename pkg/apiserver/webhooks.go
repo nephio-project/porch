@@ -798,6 +798,12 @@ func validateRepositoryModification(existing, attempted *configapi.Repository, a
 		return fmt.Errorf("directory modification not allowed")
 	}
 
+	if isBranchModified(existing, attempted) {
+		klog.Errorf("repository validation failed: branch modification not allowed for %s/%s - delete the existing repository and create it if you want to change the branch", attempted.Namespace, attempted.Name)
+		writeModificationResponse("Repository branch cannot be modified after creation. Please delete the existing repository and create it if you want to change the branch", "BranchModificationNotAllowed", admissionReviewRequest, w)
+		return fmt.Errorf("branch modification not allowed")
+	}
+
 	return nil
 }
 
@@ -807,6 +813,10 @@ func isURLModified(existing, attempted *configapi.Repository) bool {
 
 func isDirectoryModified(existing, attempted *configapi.Repository) bool {
 	return existing.Spec.Git.Directory != attempted.Spec.Git.Directory
+}
+
+func isBranchModified(existing, attempted *configapi.Repository) bool {
+	return existing.Spec.Git.Branch != attempted.Spec.Git.Branch
 }
 
 func writeModificationResponse(message, reason string, admissionReviewRequest *admissionv1.AdmissionReview, w *http.ResponseWriter) {

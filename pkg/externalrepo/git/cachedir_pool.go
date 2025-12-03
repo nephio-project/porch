@@ -32,7 +32,7 @@ type DirectoryPool struct {
 
 type SharedDirectory struct {
 	repo     *git.Repository
-	mutex    sync.Mutex
+	mutex    sync.RWMutex
 	refCount int // number of gitRepository instances using this directory
 }
 
@@ -113,5 +113,12 @@ func (p *DirectoryPool) ReleaseSharedRepository(dir, reponame string) {
 func (s *SharedDirectory) WithLock(fn func(*git.Repository) error) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	return fn(s.repo)
+}
+
+// WithLock executes function with exclusive access to the cached git directory
+func (s *SharedDirectory) WithRLock(fn func(*git.Repository) error) error {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 	return fn(s.repo)
 }
