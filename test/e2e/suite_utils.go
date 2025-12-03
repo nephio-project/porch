@@ -42,12 +42,12 @@ import (
 )
 
 const (
-	defaultGCPBlueprintsRepo  = "https://github.com/GoogleCloudPlatform/blueprints.git"
-	defaultGCPBucketRef       = "bucket-blueprint-v0.4.3"
-	defaultGCPRedisBucketRef  = "redis-bucket-blueprint-v0.3.2"
-	defaultGCPHierarchyRef    = "783380ce4e6c3f21e9e90055b3a88bada0410154"
-	defaultKptFunctionRef     = "spanner-blueprint-v0.3.2"
-	defaultGHCRPrefix         = "ghcr.io/kptdev/krm-functions-catalog"
+	defaultGCPBlueprintsRepo = "https://github.com/GoogleCloudPlatform/blueprints.git"
+	defaultGCPBucketRef      = "bucket-blueprint-v0.4.3"
+	defaultGCPRedisBucketRef = "redis-bucket-blueprint-v0.3.2"
+	defaultGCPHierarchyRef   = "783380ce4e6c3f21e9e90055b3a88bada0410154"
+	defaultKptFunctionRef    = "spanner-blueprint-v0.3.2"
+	defaultGHCRPrefix        = "ghcr.io/kptdev/krm-functions-catalog"
 
 	// Optional environment variables which can be set to replace defaults when running e2e tests behind a proxy or firewall.
 	// Environment variables can be loaded from a .env file - refer to .env.template
@@ -68,12 +68,12 @@ type TestSuiteWithGit struct {
 	useGitea  bool
 
 	// Exported fields for external package access
-	GcpBlueprintsRepo  string
-	GcpBucketRef       string
-	GcpRedisBucketRef  string
-	GcpHierarchyRef    string
-	KptFunctionRef     string
-	GcrPrefix          string
+	GcpBlueprintsRepo string
+	GcpBucketRef      string
+	GcpRedisBucketRef string
+	GcpHierarchyRef   string
+	KptFunctionRef    string
+	GcrPrefix         string
 }
 
 func (t *TestSuiteWithGit) SetupSuite() {
@@ -363,7 +363,14 @@ type SecretOption func(*corev1.Secret)
 
 func WithSync(sync string) RepositoryOption {
 	return func(r *configapi.Repository) {
-		r.Spec.Sync = &configapi.RepositorySync{Schedule: sync,}}
+		r.Spec.Sync = &configapi.RepositorySync{Schedule: sync}
+	}
+}
+
+func WithBranch(branch string) RepositoryOption {
+	return func(r *configapi.Repository) {
+		r.Spec.Git.Branch = branch
+	}
 }
 
 func WithDeployment() RepositoryOption {

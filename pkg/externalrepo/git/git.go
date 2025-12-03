@@ -445,7 +445,7 @@ func (r *gitRepository) CreatePackageRevisionDraft(ctx context.Context, obj *por
 
 	var base plumbing.Hash
 	refName := r.branch.RefInLocal()
-	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
+	err := r.sharedDir.WithRLock(func(repo *git.Repository) error {
 		switch main, err := repo.Reference(refName, true); err {
 		case nil:
 			base = main.Hash()
@@ -460,9 +460,6 @@ func (r *gitRepository) CreatePackageRevisionDraft(ctx context.Context, obj *por
 	if err != nil {
 		return nil, err
 	}
-
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
 
 	pkgKey := repository.FromFullPathname(r.Key(), obj.Spec.PackageName)
 	if err := util.ValidPkgRevObjName(r.Key().Name, pkgKey.Path, pkgKey.Package, obj.Spec.WorkspaceName); err != nil {
@@ -1092,8 +1089,6 @@ func (r *gitRepository) getAuthMethod(ctx context.Context, forceRefresh bool) (t
 }
 
 func (r *gitRepository) GetRepo() (string, error) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
 
 	origin, err := r.sharedDir.repo.Remote("origin")
 	if err != nil {
