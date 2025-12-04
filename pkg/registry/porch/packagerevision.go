@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -162,7 +161,7 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 	}
 
 	// Check for path overlap conflicts for init/clone operations
-	if err := r.validatePackagePathOverlap(ctx, newApiPkgRev, repositoryObj); err != nil {
+	if err := r.validatePackagePathOverlap(ctx, newApiPkgRev); err != nil {
 		return nil, err
 	}
 
@@ -340,7 +339,7 @@ func creationConflictError(newApiPkgRev *porchapi.PackageRevision) error {
 	)
 }
 
-func (r *packageRevisions) validatePackagePathOverlap(ctx context.Context, newPkgRev *porchapi.PackageRevision, repo *configapi.Repository) error {
+func (r *packageRevisions) validatePackagePathOverlap(ctx context.Context, newPkgRev *porchapi.PackageRevision) error {
 	// Only validate for init and clone operations
 	isInitOrClone := false
 	for _, task := range newPkgRev.Spec.Tasks {
@@ -372,6 +371,10 @@ func (r *packageRevisions) validatePackagePathOverlap(ctx context.Context, newPk
 		pkgRev, err := p.GetPackageRevision(ctx)
 		if err != nil {
 			return err
+		}
+		// Only check packages in the same repository
+		if pkgRev.Spec.RepositoryName != newPkgRev.Spec.RepositoryName {
+			return nil
 		}
 		// Skip packages with same name (allows multiple revisions/workspaces of same package)
 		if pkgRev.Spec.PackageName == newPath {

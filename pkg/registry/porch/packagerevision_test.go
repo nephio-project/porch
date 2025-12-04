@@ -566,7 +566,7 @@ func TestValidatePackagePathOverlap(t *testing.T) {
 				},
 			},
 			existingPkgs: []*porchapi.PackageRevision{
-				{Spec: porchapi.PackageRevisionSpec{PackageName: "pkg2"}},
+				{Spec: porchapi.PackageRevisionSpec{PackageName: "pkg2", RepositoryName: "repo1"}},
 			},
 			expectError: false,
 		},
@@ -583,7 +583,7 @@ func TestValidatePackagePathOverlap(t *testing.T) {
 				},
 			},
 			existingPkgs: []*porchapi.PackageRevision{
-				{Spec: porchapi.PackageRevisionSpec{PackageName: "parent"}},
+				{Spec: porchapi.PackageRevisionSpec{PackageName: "parent", RepositoryName: "repo1"}},
 			},
 			expectError:   true,
 			errorContains: "conflicts with existing package",
@@ -601,7 +601,7 @@ func TestValidatePackagePathOverlap(t *testing.T) {
 				},
 			},
 			existingPkgs: []*porchapi.PackageRevision{
-				{Spec: porchapi.PackageRevisionSpec{PackageName: "parent"}},
+				{Spec: porchapi.PackageRevisionSpec{PackageName: "parent", RepositoryName: "repo1"}},
 			},
 			expectError: false,
 		},
@@ -618,7 +618,24 @@ func TestValidatePackagePathOverlap(t *testing.T) {
 				},
 			},
 			existingPkgs: []*porchapi.PackageRevision{
-				{Spec: porchapi.PackageRevisionSpec{PackageName: "pkg1"}},
+				{Spec: porchapi.PackageRevisionSpec{PackageName: "pkg1", RepositoryName: "repo1"}},
+			},
+			expectError: false,
+		},
+		{
+			name: "no conflict - different repository",
+			newPkgRev: &porchapi.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default"},
+				Spec: porchapi.PackageRevisionSpec{
+					PackageName:    "pkg1/nested",
+					RepositoryName: "repo1",
+					Tasks: []porchapi.Task{
+						{Type: porchapi.TaskTypeInit},
+					},
+				},
+			},
+			existingPkgs: []*porchapi.PackageRevision{
+				{Spec: porchapi.PackageRevisionSpec{PackageName: "pkg1", RepositoryName: "repo2"}},
 			},
 			expectError: false,
 		},
@@ -664,7 +681,7 @@ func TestValidatePackagePathOverlap(t *testing.T) {
 				},
 			}
 
-			err := pr.validatePackagePathOverlap(context.Background(), tt.newPkgRev, &configapi.Repository{})
+			err := pr.validatePackagePathOverlap(context.Background(), tt.newPkgRev)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -928,7 +945,6 @@ func TestCreate(t *testing.T) {
 			errorContains: "error getting repository",
 		},
 
-
 		{
 			name: "error - path overlap conflict",
 			pkgRev: &porchapi.PackageRevision{
@@ -951,7 +967,7 @@ func TestCreate(t *testing.T) {
 				existingPkgRev := mockrepo.NewMockPackageRevision(t)
 				me.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{existingPkgRev}, nil)
 				existingPkgRev.On("GetPackageRevision", mock.Anything).Return(&porchapi.PackageRevision{
-					Spec: porchapi.PackageRevisionSpec{PackageName: "parent"},
+					Spec: porchapi.PackageRevisionSpec{PackageName: "parent", RepositoryName: "test-repo"},
 				}, nil)
 			},
 			expectError:   true,
