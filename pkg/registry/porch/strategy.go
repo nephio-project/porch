@@ -148,6 +148,8 @@ func (s packageRevisionStrategy) Validate(ctx context.Context, runtimeObj runtim
 		}
 	}
 
+
+
 	// A package name can have a path
 	if pkgNameErr := util.ValidateDirectoryName(obj.Spec.PackageName, true); pkgNameErr != nil {
 		allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "packageName"), obj.Spec.PackageName, pkgNameErr.Error()))

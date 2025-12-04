@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -475,6 +475,567 @@ func TestCreateAction(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			result := createAction(tc.pkgRev)
 			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestPathsOverlap(t *testing.T) {
+	tests := []struct {
+		name     string
+		path1    string
+		path2    string
+		overlaps bool
+	}{
+		{
+			name:     "identical paths",
+			path1:    "root/sub1",
+			path2:    "root/sub1",
+			overlaps: true,
+		},
+		{
+			name:     "path2 is child of path1",
+			path1:    "root/sub4",
+			path2:    "root/sub4/sub4.2",
+			overlaps: true,
+		},
+		{
+			name:     "path1 is child of path2",
+			path1:    "root/sub4/sub4.3/sub4.3.1",
+			path2:    "root/sub4/sub4.3",
+			overlaps: true,
+		},
+		{
+			name:     "sibling paths no overlap",
+			path1:    "root/sub1",
+			path2:    "root/sub2",
+			overlaps: false,
+		},
+		{
+			name:     "different branches no overlap",
+			path1:    "root/sub4/sub4.1",
+			path2:    "root/sub4/sub4.2",
+			overlaps: false,
+		},
+		{
+			name:     "root level paths no overlap",
+			path1:    "package1",
+			path2:    "package2",
+			overlaps: false,
+		},
+		{
+			name:     "root vs nested no overlap",
+			path1:    "root",
+			path2:    "root-other/sub",
+			overlaps: false,
+		},
+		{
+			name:     "nested grandchild overlap",
+			path1:    "root/sub4",
+			path2:    "root/sub4/sub4.3/sub4.3.1",
+			overlaps: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := pathsOverlap(tt.path1, tt.path2)
+			assert.Equal(t, tt.overlaps, result, "pathsOverlap(%q, %q)", tt.path1, tt.path2)
+		})
+	}
+}
+
+func TestValidatePackagePathOverlap(t *testing.T) {
+	tests := []struct {
+		name          string
+		newPkgRev     *porchapi.PackageRevision
+		existingPkgs  []*porchapi.PackageRevision
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name: "no conflict - sibling paths",
+			newPkgRev: &porchapi.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default"},
+				Spec: porchapi.PackageRevisionSpec{
+					PackageName:    "pkg1",
+					RepositoryName: "repo1",
+					Tasks: []porchapi.Task{
+						{Type: porchapi.TaskTypeInit},
+					},
+				},
+			},
+			existingPkgs: []*porchapi.PackageRevision{
+				{Spec: porchapi.PackageRevisionSpec{PackageName: "pkg2", RepositoryName: "repo1"}},
+			},
+			expectError: false,
+		},
+		{
+			name: "conflict - nested path",
+			newPkgRev: &porchapi.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default"},
+				Spec: porchapi.PackageRevisionSpec{
+					PackageName:    "parent/child",
+					RepositoryName: "repo1",
+					Tasks: []porchapi.Task{
+						{Type: porchapi.TaskTypeClone},
+					},
+				},
+			},
+			existingPkgs: []*porchapi.PackageRevision{
+				{Spec: porchapi.PackageRevisionSpec{PackageName: "parent", RepositoryName: "repo1"}},
+			},
+			expectError:   true,
+			errorContains: "conflicts with existing package",
+		},
+		{
+			name: "no validation for non-init/clone",
+			newPkgRev: &porchapi.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default"},
+				Spec: porchapi.PackageRevisionSpec{
+					PackageName:    "parent/child",
+					RepositoryName: "repo1",
+					Tasks: []porchapi.Task{
+						{Type: porchapi.TaskTypeEdit},
+					},
+				},
+			},
+			existingPkgs: []*porchapi.PackageRevision{
+				{Spec: porchapi.PackageRevisionSpec{PackageName: "parent", RepositoryName: "repo1"}},
+			},
+			expectError: false,
+		},
+		{
+			name: "no conflict - same package name",
+			newPkgRev: &porchapi.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default"},
+				Spec: porchapi.PackageRevisionSpec{
+					PackageName:    "pkg1",
+					RepositoryName: "repo1",
+					Tasks: []porchapi.Task{
+						{Type: porchapi.TaskTypeInit},
+					},
+				},
+			},
+			existingPkgs: []*porchapi.PackageRevision{
+				{Spec: porchapi.PackageRevisionSpec{PackageName: "pkg1", RepositoryName: "repo1"}},
+			},
+			expectError: false,
+		},
+		{
+			name: "no conflict - different repository",
+			newPkgRev: &porchapi.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default"},
+				Spec: porchapi.PackageRevisionSpec{
+					PackageName:    "pkg1/nested",
+					RepositoryName: "repo1",
+					Tasks: []porchapi.Task{
+						{Type: porchapi.TaskTypeInit},
+					},
+				},
+			},
+			existingPkgs: []*porchapi.PackageRevision{
+				{Spec: porchapi.PackageRevisionSpec{PackageName: "pkg1", RepositoryName: "repo2"}},
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := mockclient.NewMockClient(t)
+			mockEngine := mockengine.NewMockCaDEngine(t)
+
+			// Only set up mocks if validation will run (init/clone tasks)
+			isInitOrClone := false
+			for _, task := range tt.newPkgRev.Spec.Tasks {
+				if task.Type == porchapi.TaskTypeInit || task.Type == porchapi.TaskTypeClone {
+					isInitOrClone = true
+					break
+				}
+			}
+
+			if isInitOrClone {
+				// Mock coreClient.List to return repository
+				mockClient.On("List", mock.Anything, mock.Anything, mock.Anything).Return(func(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+					list.(*configapi.RepositoryList).Items = []configapi.Repository{
+						{ObjectMeta: metav1.ObjectMeta{Name: "repo1", Namespace: "default"}},
+					}
+					return nil
+				})
+
+				// Mock ListPackageRevisions to return existing packages
+				var mockPkgRevs []repository.PackageRevision
+				for _, existingPkg := range tt.existingPkgs {
+					mockPkgRev := mockrepo.NewMockPackageRevision(t)
+					mockPkgRev.On("GetPackageRevision", mock.Anything).Return(existingPkg, nil)
+					mockPkgRevs = append(mockPkgRevs, mockPkgRev)
+				}
+				mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return(mockPkgRevs, nil)
+			}
+
+			pr := &packageRevisions{
+				packageCommon: packageCommon{
+					coreClient: mockClient,
+					cad:        mockEngine,
+				},
+			}
+
+			err := pr.validatePackagePathOverlap(context.Background(), tt.newPkgRev)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestApprovalUpdateStrategy(t *testing.T) {
+	s := packageRevisionApprovalStrategy{}
+
+	type testCase struct {
+		old     porchapi.PackageRevisionLifecycle
+		valid   []porchapi.PackageRevisionLifecycle
+		invalid []porchapi.PackageRevisionLifecycle
+	}
+
+	for _, tc := range []testCase{
+		{
+			old:     "",
+			valid:   []porchapi.PackageRevisionLifecycle{},
+			invalid: []porchapi.PackageRevisionLifecycle{"", "Wrong", porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecycleProposed, porchapi.PackageRevisionLifecyclePublished, porchapi.PackageRevisionLifecycleDeletionProposed},
+		},
+		{
+			old:     "Wrong",
+			valid:   []porchapi.PackageRevisionLifecycle{},
+			invalid: []porchapi.PackageRevisionLifecycle{"", "Wrong", porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecycleProposed, porchapi.PackageRevisionLifecyclePublished, porchapi.PackageRevisionLifecycleDeletionProposed},
+		},
+		{
+			old:     porchapi.PackageRevisionLifecycleDraft,
+			valid:   []porchapi.PackageRevisionLifecycle{},
+			invalid: []porchapi.PackageRevisionLifecycle{"", "Wrong", porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecycleProposed, porchapi.PackageRevisionLifecyclePublished, porchapi.PackageRevisionLifecycleDeletionProposed},
+		},
+		{
+			old:     porchapi.PackageRevisionLifecyclePublished,
+			valid:   []porchapi.PackageRevisionLifecycle{porchapi.PackageRevisionLifecycleDeletionProposed},
+			invalid: []porchapi.PackageRevisionLifecycle{"", "Wrong", porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecycleProposed, porchapi.PackageRevisionLifecyclePublished},
+		},
+		{
+			old:     porchapi.PackageRevisionLifecycleDeletionProposed,
+			valid:   []porchapi.PackageRevisionLifecycle{porchapi.PackageRevisionLifecyclePublished},
+			invalid: []porchapi.PackageRevisionLifecycle{"", "Wrong", porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecycleProposed, porchapi.PackageRevisionLifecycleDeletionProposed},
+		},
+		{
+			old:     porchapi.PackageRevisionLifecycleProposed,
+			valid:   []porchapi.PackageRevisionLifecycle{porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecyclePublished},
+			invalid: []porchapi.PackageRevisionLifecycle{"", "Wrong", porchapi.PackageRevisionLifecycleProposed, porchapi.PackageRevisionLifecycleDeletionProposed},
+		},
+	} {
+		for _, new := range tc.valid {
+			testValidateUpdate(t, s, tc.old, new, true)
+		}
+		for _, new := range tc.invalid {
+			testValidateUpdate(t, s, tc.old, new, false)
+		}
+	}
+}
+
+func TestFindPathConflict(t *testing.T) {
+	tests := []struct {
+		name           string
+		newPath        string
+		existingPaths  []string
+		expectConflict string
+	}{
+		{
+			name:           "no conflict with empty list",
+			newPath:        "pkg1",
+			existingPaths:  []string{},
+			expectConflict: "",
+		},
+		{
+			name:           "no conflict with siblings",
+			newPath:        "root/sub1",
+			existingPaths:  []string{"root/sub2", "root/sub3"},
+			expectConflict: "",
+		},
+		{
+			name:           "conflict with parent",
+			newPath:        "root/sub4/sub4.2",
+			existingPaths:  []string{"root/sub4"},
+			expectConflict: "root/sub4",
+		},
+		{
+			name:           "conflict with child",
+			newPath:        "root/sub4",
+			existingPaths:  []string{"root/sub4/sub4.2"},
+			expectConflict: "root/sub4/sub4.2",
+		},
+		{
+			name:           "no conflict with different branches",
+			newPath:        "root/sub4/sub4.1",
+			existingPaths:  []string{"root/sub4/sub4.2", "root/sub4/sub4.3"},
+			expectConflict: "",
+		},
+		{
+			name:           "conflict with grandchild",
+			newPath:        "root/sub4",
+			existingPaths:  []string{"root/sub4/sub4.3/sub4.3.1"},
+			expectConflict: "root/sub4/sub4.3/sub4.3.1",
+		},
+		{
+			name:           "no conflict with similar prefix",
+			newPath:        "test",
+			existingPaths:  []string{"test-package", "test-other"},
+			expectConflict: "",
+		},
+		{
+			name:           "multiple paths, one conflict",
+			newPath:        "root/sub4",
+			existingPaths:  []string{"root/sub1", "root/sub4/sub4.2", "root/sub5"},
+			expectConflict: "root/sub4/sub4.2",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := findPathConflict(tt.newPath, tt.existingPaths)
+			assert.Equal(t, tt.expectConflict, result)
+		})
+	}
+}
+
+func TestPathsOverlapDetailed(t *testing.T) {
+	tests := []struct {
+		name     string
+		path1    string
+		path2    string
+		overlaps bool
+	}{
+		{
+			name:     "single level packages no overlap",
+			path1:    "pkg1",
+			path2:    "pkg2",
+			overlaps: false,
+		},
+		{
+			name:     "similar prefix no overlap",
+			path1:    "test",
+			path2:    "test-package",
+			overlaps: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := pathsOverlap(tt.path1, tt.path2)
+			assert.Equal(t, tt.overlaps, result, "pathsOverlap(%q, %q)", tt.path1, tt.path2)
+
+			// Test symmetry
+			resultReverse := pathsOverlap(tt.path2, tt.path1)
+			assert.Equal(t, tt.overlaps, resultReverse, "pathsOverlap(%q, %q) should be symmetric", tt.path2, tt.path1)
+		})
+	}
+}
+
+func TestCreationConflictError(t *testing.T) {
+	pkgRev := &porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test-ns",
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: "test-repo",
+			PackageName:    "test-pkg",
+			WorkspaceName:  "test-ws",
+		},
+	}
+
+	err := creationConflictError(pkgRev)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "test-ns")
+	assert.Contains(t, err.Error(), "test-repo")
+	assert.Contains(t, err.Error(), "test-pkg")
+	assert.Contains(t, err.Error(), "test-ws")
+}
+
+func TestUncreatedPackageMutexKey(t *testing.T) {
+	pkgRev := &porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "test-ns"},
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: "test-repo",
+			PackageName:    "test-pkg",
+			WorkspaceName:  "test-ws",
+		},
+	}
+
+	key := uncreatedPackageMutexKey(pkgRev)
+	assert.Equal(t, "test-ns-test-repo-test-pkg-test-ws", key)
+}
+
+func TestCreate(t *testing.T) {
+	tests := []struct {
+		name          string
+		pkgRev        *porchapi.PackageRevision
+		setupMocks    func(*mockclient.MockClient, *mockengine.MockCaDEngine, *mockrepo.MockPackageRevision)
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name: "success - init task",
+			pkgRev: &porchapi.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default"},
+				Spec: porchapi.PackageRevisionSpec{
+					RepositoryName: "test-repo",
+					PackageName:    "test-pkg",
+					WorkspaceName:  "test-ws",
+					Tasks:          []porchapi.Task{{Type: porchapi.TaskTypeInit}},
+				},
+			},
+			setupMocks: func(mc *mockclient.MockClient, me *mockengine.MockCaDEngine, mpr *mockrepo.MockPackageRevision) {
+				mc.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+				mc.On("List", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(func(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+					list.(*configapi.RepositoryList).Items = []configapi.Repository{
+						{ObjectMeta: metav1.ObjectMeta{Name: "test-repo", Namespace: "default"}},
+					}
+					return nil
+				})
+				me.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil)
+				me.On("CreatePackageRevision", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(mpr, nil)
+				mpr.On("GetPackageRevision", mock.Anything).Return(&porchapi.PackageRevision{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-pkg-test-ws", Namespace: "default"},
+					Spec:       porchapi.PackageRevisionSpec{PackageName: "test-pkg"},
+				}, nil)
+			},
+			expectError: false,
+		},
+		{
+			name: "error - no namespace",
+			pkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{RepositoryName: "test-repo"},
+			},
+			setupMocks:    func(mc *mockclient.MockClient, me *mockengine.MockCaDEngine, mpr *mockrepo.MockPackageRevision) {},
+			expectError:   true,
+			errorContains: "namespace must be specified",
+		},
+		{
+			name: "error - missing repository name",
+			pkgRev: &porchapi.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default"},
+				Spec:       porchapi.PackageRevisionSpec{},
+			},
+			setupMocks:    func(mc *mockclient.MockClient, me *mockengine.MockCaDEngine, mpr *mockrepo.MockPackageRevision) {},
+			expectError:   true,
+			errorContains: "spec.repositoryName is required",
+		},
+		{
+			name: "error - repository not found",
+			pkgRev: &porchapi.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default"},
+				Spec:       porchapi.PackageRevisionSpec{RepositoryName: "missing-repo"},
+			},
+			setupMocks: func(mc *mockclient.MockClient, me *mockengine.MockCaDEngine, mpr *mockrepo.MockPackageRevision) {
+				mc.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("not found"))
+			},
+			expectError:   true,
+			errorContains: "error getting repository",
+		},
+
+		{
+			name: "error - path overlap conflict",
+			pkgRev: &porchapi.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default"},
+				Spec: porchapi.PackageRevisionSpec{
+					RepositoryName: "test-repo",
+					PackageName:    "parent/child",
+					WorkspaceName:  "test-ws",
+					Tasks:          []porchapi.Task{{Type: porchapi.TaskTypeInit}},
+				},
+			},
+			setupMocks: func(mc *mockclient.MockClient, me *mockengine.MockCaDEngine, mpr *mockrepo.MockPackageRevision) {
+				mc.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+				mc.On("List", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(func(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+					list.(*configapi.RepositoryList).Items = []configapi.Repository{
+						{ObjectMeta: metav1.ObjectMeta{Name: "test-repo", Namespace: "default"}},
+					}
+					return nil
+				})
+				existingPkgRev := mockrepo.NewMockPackageRevision(t)
+				me.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{existingPkgRev}, nil)
+				existingPkgRev.On("GetPackageRevision", mock.Anything).Return(&porchapi.PackageRevision{
+					Spec: porchapi.PackageRevisionSpec{PackageName: "parent", RepositoryName: "test-repo"},
+				}, nil)
+			},
+			expectError:   true,
+			errorContains: "conflicts with existing package",
+		},
+		{
+			name: "error - CreatePackageRevision fails",
+			pkgRev: &porchapi.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default"},
+				Spec: porchapi.PackageRevisionSpec{
+					RepositoryName: "test-repo",
+					PackageName:    "test-pkg",
+					WorkspaceName:  "test-ws",
+					Tasks:          []porchapi.Task{{Type: porchapi.TaskTypeInit}},
+				},
+			},
+			setupMocks: func(mc *mockclient.MockClient, me *mockengine.MockCaDEngine, mpr *mockrepo.MockPackageRevision) {
+				mc.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+				mc.On("List", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(func(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+					list.(*configapi.RepositoryList).Items = []configapi.Repository{
+						{ObjectMeta: metav1.ObjectMeta{Name: "test-repo", Namespace: "default"}},
+					}
+					return nil
+				})
+				me.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil)
+				me.On("CreatePackageRevision", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("creation failed"))
+			},
+			expectError:   true,
+			errorContains: "Internal error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := mockclient.NewMockClient(t)
+			mockEngine := mockengine.NewMockCaDEngine(t)
+			mockPkgRev := mockrepo.NewMockPackageRevision(t)
+
+			tt.setupMocks(mockClient, mockEngine, mockPkgRev)
+
+			pr := &packageRevisions{
+				TableConvertor: packageRevisionTableConvertor,
+				packageCommon: packageCommon{
+					scheme:         runtime.NewScheme(),
+					gr:             porchapi.Resource("packagerevisions"),
+					coreClient:     mockClient,
+					cad:            mockEngine,
+					updateStrategy: packageRevisionStrategy{},
+					createStrategy: packageRevisionStrategy{},
+				},
+			}
+
+			ctx := context.Background()
+			if tt.pkgRev.Namespace != "" {
+				ctx = request.WithNamespace(ctx, tt.pkgRev.Namespace)
+			}
+
+			result, err := pr.Create(ctx, tt.pkgRev, nil, nil)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
+				}
+				assert.Nil(t, result)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, result)
+			}
 		})
 	}
 }
