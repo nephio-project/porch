@@ -16,6 +16,7 @@ package sync
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -52,6 +53,8 @@ type SyncManager struct {
 	lastCronExpr  string
 	lastSyncError error
 	coreClient    client.WithWatch
+	mutex         sync.Mutex
+	running       bool
 }
 
 // NewSyncManager creates a new sync manager
@@ -65,6 +68,15 @@ func NewSyncManager(handler SyncHandler, coreClient client.WithWatch) *SyncManag
 
 // Start begins the sync process with periodic and one-time scheduling
 func (m *SyncManager) Start(ctx context.Context, defaultSyncFrequency time.Duration) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	if m.running {
+		klog.Warningf("repositorySync %+v: already running, ignoring start request", m.handler.Key())
+		return
+	}
+	m.running = true
+
 	// Create cancellable context for goroutines
 	syncCtx, cancel := context.WithCancel(ctx)
 	m.cancel = cancel
@@ -75,9 +87,13 @@ func (m *SyncManager) Start(ctx context.Context, defaultSyncFrequency time.Durat
 
 // Stop stops the sync manager
 func (m *SyncManager) Stop() {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
 	if m.cancel != nil {
 		m.cancel()
 	}
+	m.running = false
 }
 
 // GetLastSyncError returns the last sync error
