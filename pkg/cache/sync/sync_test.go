@@ -348,6 +348,39 @@ func TestSyncManager_Start(t *testing.T) {
 	}
 }
 
+func TestSyncManager_Start_PreventMultipleStarts(t *testing.T) {
+	handler := &mockSyncHandler{
+		repoKey: repository.RepositoryKey{Name: "test-repo", Namespace: "test-ns"},
+	}
+	manager := NewSyncManager(handler, nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// First start should succeed
+	manager.Start(ctx, 1*time.Second)
+	assert.True(t, manager.running, "Manager should be running after first start")
+
+	// Parallel starts should be ignored and not increase syncCount
+	manager.Start(ctx, 1*time.Second)
+	manager.Start(ctx, 1*time.Second)
+	manager.Start(ctx, 1*time.Second)
+
+	// Wait to ensure no additional goroutines were started
+	time.Sleep(100 * time.Millisecond)
+
+	// Sync count should not have increased
+	assert.Equal(t, handler.syncCount, 1, "Parallel starts should not create additional sync activity")
+
+	// Stop and verify we can start again
+	manager.Stop()
+	assert.False(t, manager.running, "Manager should not be running after stop")
+
+	// Should be able to start again after stop
+	manager.Start(ctx, 1*time.Second)
+	assert.True(t, manager.running, "Manager should be running after restart")
+}
+
 func TestSyncManager_HasValidSyncSpec(t *testing.T) {
 	tests := []struct {
 		name     string
