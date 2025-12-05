@@ -50,7 +50,7 @@ import (
 
 const (
 	defaultWorkspace   = "workspace"
-	defaultBucketBpRef = "bucket/bucket-blueprint-v0.4.3"
+	defaultBucketBpRef = "bucket/v1"
 
 	skipPodEvaluatorMsg = "Skipping due to not having pod evaluator in local mode"
 )
@@ -1688,7 +1688,7 @@ func (t *PorchSuite) TestPodFunctionEvaluatorWithDistrolessImage() {
 	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, "", GiteaUser, GiteaPassword)
 
 	// Create Package Revision
-	pr := t.CreatePackageCloneF(repoName, "test-fn-redis-bucket", "test-description", "redis-bucket/redis-bucket-blueprint-v0.3.2", "redis-bucket")
+	pr := t.CreatePackageCloneF(repoName, "test-fn-redis-bucket", "test-description", "redis-bucket/v1", "redis-bucket")
 
 	// Get package resources
 	resources := &porchapi.PackageRevisionResources{}
