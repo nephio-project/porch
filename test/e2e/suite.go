@@ -20,9 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"reflect"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -84,40 +82,11 @@ type TestSuite struct {
 	Namespace            string // K8s namespace for this test run
 	TestRunnerIsLocal    bool   // Tests running against local dev porch
 	porchServerInCluster *bool  // Cached result of IsPorchServerInCluster check
-
-	gcpBlueprintsRepo  string
-	gcpBucketRef       string
-	gcpRedisBucketRef  string
-	gcpHierarchyRef    string
-	kptFunctionRef     string
-	kptRepo            string
-	gcrPrefix          string
 }
 
 func (t *TestSuite) SetupSuite() {
 	t.ctx = context.Background()
 	t.Initialize()
-}
-
-func RunInParallel(functions ...func() any) []any {
-	var group sync.WaitGroup
-	var results []any
-	for _, eachFunction := range functions {
-		group.Add(1)
-		go func() {
-			defer group.Done()
-			if reflect.TypeOf(eachFunction).NumOut() == 0 {
-				results = append(results, nil)
-				eachFunction()
-			} else {
-				eachResult := eachFunction()
-
-				results = append(results, eachResult)
-			}
-		}()
-	}
-	group.Wait()
-	return results
 }
 
 func (t *TestSuite) Initialize() {
@@ -479,8 +448,6 @@ func (t *TestSuite) UpdateApprovalF(pr *porchapi.PackageRevision, opts metav1.Up
 	t.T().Helper()
 	return t.updateApproval(pr, opts, t.Fatalf)
 }
-
-// DeleteAllOf(ctx context.Context, obj Object, opts ...DeleteAllOfOption) error
 
 func createClientScheme(t *testing.T) *runtime.Scheme {
 	scheme := runtime.NewScheme()
