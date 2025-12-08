@@ -312,7 +312,7 @@ func (r *fakeRepoWithDeleteError) DeletePackageRevision(context.Context, reposit
 	return errors.New("package not found")
 }
 
-func (t *DbTestSuite) TestDBPackageRevisionDeleteLatest() {
+func (t *DbTestSuite) TestDBDeleteLatestRevision() {
 	// Test that the async notification logic is triggered
 	ctx := t.Context()
 

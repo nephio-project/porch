@@ -137,16 +137,17 @@ func (p *dbPackage) DeletePackageRevision(ctx context.Context, old repository.Pa
 
 	if dbPR.IsLatestRevision() {
 		klog.Infof("dbPackage %+v: latest PackageRevision deleted. Sending notification.", p.Key())
-		updateCtx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-		defer cancel()
-		go p.sendLatestPkgUpdateNotification(updateCtx)
+		go p.sendLatestPkgUpdateNotification()
 	}
 
 	return nil
 }
 
-func (p *dbPackage) sendLatestPkgUpdateNotification(ctx context.Context) {
-	_, span := tracer.Start(ctx, "dbPackage:sendLatestPkgUpdateNotification", trace.WithAttributes())
+// sendLatestPkgUpdateNotification sends async notification when a new latest package revision is identified
+func (p *dbPackage) sendLatestPkgUpdateNotification() {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	_, span := tracer.Start(ctx, "dbPackage::sendLatestPkgUpdateNotification", trace.WithAttributes())
 	defer span.End()
 
 	latestRevision, err := pkgRevReadLatestPRFromDB(ctx, p.Key())

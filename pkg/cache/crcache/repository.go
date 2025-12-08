@@ -405,6 +405,9 @@ func (r *cachedRepository) DeletePackageRevision(ctx context.Context, prToDelete
 	}
 	klog.Infof("PackageRevision %s deleted for real since no finalizers", prToDelete.KubeObjectName())
 
+	// Check if this is the latest revision before deletion
+	isLatest := prToDelete.(*cachedPackageRevision).IsLatestRevision()
+
 	// Unwrap
 	unwrapped := prToDelete.(*cachedPackageRevision).PackageRevision
 	if err := r.repo.DeletePackageRevision(ctx, unwrapped); err != nil {
@@ -421,6 +424,12 @@ func (r *cachedRepository) DeletePackageRevision(ctx context.Context, prToDelete
 		identifyLatestRevisions(ctx, r.cachedPackageRevisions)
 	}
 
+	// Check if we need to send async notification for new latest revision
+	if isLatest {
+		klog.Infof("crcache: %+v: latest PackageRevision deleted. Sending notification.", prToDelete.Key().PkgKey)
+		go r.sendLatestPkgUpdateNotification(prToDelete.Key().PkgKey)
+	}
+
 	r.mutex.Unlock()
 
 	if _, err := r.metadataStore.Delete(ctx, namespacedName, true); err != nil {
@@ -434,6 +443,27 @@ func (r *cachedRepository) DeletePackageRevision(ctx context.Context, prToDelete
 	klog.Infof("crcache: sent %d for deleted PackageRevision %s/%s", sent, prToDelete.KubeObjectNamespace(), prToDelete.KubeObjectName())
 
 	return nil
+}
+
+// sendLatestPkgUpdateNotification sends async notification when a new latest package revision is identified
+func (r *cachedRepository) sendLatestPkgUpdateNotification(pkgKey repository.PackageKey) {
+	// Find the new latest revision for this package
+	r.mutex.RLock()
+	var newLatest repository.PackageRevision
+	for _, pr := range r.cachedPackageRevisions {
+		if pr.Key().PkgKey == pkgKey && pr.IsLatestRevision() {
+			newLatest = pr
+			break
+		}
+	}
+	r.mutex.RUnlock()
+
+	if newLatest != nil {
+		sent := r.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Modified, newLatest)
+		klog.Infof("crcache: async notification sent %d for new latest PackageRevision %s/%s", sent, newLatest.KubeObjectNamespace(), newLatest.KubeObjectName())
+	} else {
+		klog.Infof("crcache: no new latest revision found for package %s after deletion. Notification not sent.", pkgKey.Package)
+	}
 }
 
 func (r *cachedRepository) ListPackages(ctx context.Context, filter repository.ListPackageFilter) ([]repository.Package, error) {
