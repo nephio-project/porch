@@ -447,6 +447,10 @@ func (r *cachedRepository) DeletePackageRevision(ctx context.Context, prToDelete
 
 // sendLatestPkgUpdateNotification sends async notification when a new latest package revision is identified
 func (r *cachedRepository) sendLatestPkgUpdateNotification(pkgKey repository.PackageKey) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	_, span := tracer.Start(ctx, "cachedRepository::sendLatestPkgUpdateNotification", trace.WithAttributes())
+	defer span.End()
 	// Find the new latest revision for this package
 	r.mutex.RLock()
 	var newLatest repository.PackageRevision
