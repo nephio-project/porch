@@ -50,5 +50,5 @@ commands:
       test-blueprints.basens.main   basens    main            -1         false    Published   test-blueprints
       test-blueprints.basens.v1     basens    v1              1          false    Published   test-blueprints
       test-blueprints.basens.v2     basens    v2              2          false    Published   test-blueprints
-      test-blueprints.basens.v3     basens    v3              3          true     Published   test-blueprints
+      test-blueprints.basens.v3     basens    v3              3          false    Published   test-blueprints
       test-blueprints.basens.v4     basens    v4              4          true     Published   test-blueprints
