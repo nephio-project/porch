@@ -4,10 +4,6 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - "docs/**"
-      - "release/**"
-      - "OWNERS"
   workflow_dispatch:
 
 env:
