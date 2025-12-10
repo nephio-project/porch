@@ -28,12 +28,12 @@ export PORCH_CACHE_TYPE ?= CR
 export FN_RUNNER_WARM_UP_POD_CACHE ?= true
 
 # Reconciler configuration
-ALL_RECONCILERS="packagevariants,packagevariantsets"
+ALL_RECONCILERS=packagevariants,packagevariantsets
 ifndef RECONCILERS
-  ENABLED_RECONCILERS="packagevariants,packagevariantsets"
+  ENABLED_RECONCILERS=$(ALL_RECONCILERS)
 else
   ifeq ($(RECONCILERS),*)
-    ENABLED_RECONCILERS=${ALL_RECONCILERS}
+    ENABLED_RECONCILERS=$(ALL_RECONCILERS)
   else
     ENABLED_RECONCILERS=$(RECONCILERS)
   endif

@@ -31,8 +31,8 @@ func (t *PorchSuite) TestPackageMetadataFromKptfile() {
 		workspace      = "test-workspace"
 	)
 
-	t.RegisterMainGitRepositoryF(repositoryName)
-	t.RegisterTestBlueprintRepository("test-blueprints", "")
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repositoryName, "", GiteaUser, GiteaPassword)
+	t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), TestBlueprintsRepoName, "", GiteaUser, GiteaPassword)
 
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
@@ -40,11 +40,11 @@ func (t *PorchSuite) TestPackageMetadataFromKptfile() {
 	simplePackage := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{
 		PkgKey: repository.PackageKey{
 			RepoKey: repository.RepositoryKey{
-				Name: "test-blueprints",
+				Name: TestBlueprintsRepoName,
 			},
-			Package: "simple",
+			Package: "basens",
 		},
-		Revision: 1,
+		Revision: 4,
 	})
 
 	// Create a PackageRevision that clones from the 'simple' package
@@ -88,12 +88,12 @@ func (t *PorchSuite) TestPackageMetadataFromKptfile() {
 		t.GetF(client.ObjectKeyFromObject(clonePr), clonePr)
 
 		expectedLabels := map[string]string{
-			"test-key":            "test-value",      // from upstream
+			"test-label":          "test-value",      // from upstream
 			"porch.dev/new-label": "new-label-value", // from PackageMetadata
 		}
 		expectedAnnotations := map[string]string{
-			"config.kubernetes.io/local-config": "true",                 // from upstream
-			"porch.dev/new-annotation":          "new-annotation-value", // from PackageMetadata
+			"test-annotation":          "true",                 // from upstream
+			"porch.dev/new-annotation": "new-annotation-value", // from PackageMetadata
 		}
 		t.Require().NotNil(clonePr.Spec.PackageMetadata)
 		t.Require().Equal(expectedLabels, clonePr.Spec.PackageMetadata.Labels)
@@ -125,14 +125,14 @@ func (t *PorchSuite) TestPackageMetadataFromKptfile() {
 		t.GetF(client.ObjectKeyFromObject(clonePr), clonePr)
 
 		expectedLabelsAfterManual := map[string]string{
-			"test-key":             "test-value",
+			"test-label":           "test-value",
 			"porch.dev/new-label":  "new-label-value",
 			"porch.dev/test-label": "added-by-e2e-test",
 		}
 		expectedAnnotationsAfterManual := map[string]string{
-			"config.kubernetes.io/local-config": "true",
-			"porch.dev/new-annotation":          "new-annotation-value",
-			"porch.dev/test-annotation":         "e2e-test-annotation-value",
+			"test-annotation":           "true",
+			"porch.dev/new-annotation":  "new-annotation-value",
+			"porch.dev/test-annotation": "e2e-test-annotation-value",
 		}
 
 		t.Require().NotNil(clonePr.Spec.PackageMetadata)
@@ -201,9 +201,8 @@ func (t *PorchSuite) TestPackageMetadataFieldSelectors() {
 		repositoryName = "test-package-field-selector-repo"
 	)
 
-	t.RegisterMainGitRepositoryF(repositoryName)
-
-	t.RegisterTestBlueprintRepository("test-blueprints", "")
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repositoryName, "", GiteaUser, GiteaPassword)
+	t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), TestBlueprintsRepoName, "", GiteaUser, GiteaPassword)
 
 	t.Run("filter by existing label", func() {
 		var list porchapi.PackageRevisionList
@@ -213,11 +212,11 @@ func (t *PorchSuite) TestPackageMetadataFieldSelectors() {
 		simplePackage := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{
 			PkgKey: repository.PackageKey{
 				RepoKey: repository.RepositoryKey{
-					Name: "test-blueprints",
+					Name: TestBlueprintsRepoName,
 				},
-				Package: "simple",
+				Package: "basens",
 			},
-			Revision: 1,
+			Revision: 4,
 		})
 
 		t.Require().NotNil(simplePackage.Spec.PackageMetadata)
@@ -248,9 +247,9 @@ func (t *PorchSuite) TestPackageMetadataFieldSelectors() {
 			t.Require().True(exists, testLabelKey)
 			t.Require().Equal(testLabelValue, actualValue)
 
-			if item.Spec.PackageName == "simple" && item.Spec.RepositoryName == "test-blueprints" {
+			if item.Spec.PackageName == "basens" && item.Spec.RepositoryName == "test-blueprints" {
 				found = true
-				t.Logf("Found expected simple package: %s", item.Name)
+				break
 			}
 		}
 

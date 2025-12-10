@@ -208,6 +208,10 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 			ReadinessGates: repository.ToAPIReadinessGates(kf),
 			WorkspaceName:  readPR.Key().WorkspaceName,
 			Revision:       readPR.Key().Revision,
+			PackageMetadata: &porchapi.PackageMetadata{
+				Labels:      kf.Labels,
+				Annotations: kf.Annotations,
+			},
 		},
 		Status: status,
 	}, nil
