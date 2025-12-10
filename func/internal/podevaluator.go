@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -804,6 +805,10 @@ func (pm *podManager) getImage(ctx context.Context, ref name.Reference, auth aut
 	// Attempt image pull with given custom TLS cert
 	img, tlsErr := remote.Image(ref, remote.WithAuth(auth), remote.WithContext(ctx), remote.WithTransport(transport))
 	if tlsErr != nil {
+		// If manifest doesn't exist, return immediately without retry
+		if matched, _ := regexp.MatchString("manifest[_ ]unknown", strings.ToLower(tlsErr.Error())); matched {
+			return nil, tlsErr
+		}
 		// Attempt without given custom TLS cert but with default keychain
 		klog.Errorf("Pulling image %s with the provided TLS Cert has failed with error %v", image, tlsErr)
 		klog.Infof("Attempting image pull with default keychain instead of provided TLS Cert")

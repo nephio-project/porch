@@ -15,15 +15,7 @@
 name: End-to-End Tests
 on:
   push:
-    paths-ignore:
-      - "docs/**"
-      - "release/**"
-      - "OWNERS"
   pull_request:
-    paths-ignore:
-      - "docs/**"
-      - "release/**"
-      - "OWNERS"
   workflow_dispatch:
 
 concurrency:
