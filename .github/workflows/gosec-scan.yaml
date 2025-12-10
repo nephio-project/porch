@@ -15,7 +15,6 @@
 name: Gosec security scan
 
 on:
-  push:
   pull_request:
   workflow_dispatch:
 
