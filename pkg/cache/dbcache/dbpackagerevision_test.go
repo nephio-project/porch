@@ -17,6 +17,7 @@ package dbcache
 import (
 	"context"
 	"errors"
+	"time"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -309,4 +310,98 @@ type fakeRepoWithDeleteError struct {
 
 func (r *fakeRepoWithDeleteError) DeletePackageRevision(context.Context, repository.PackageRevision) error {
 	return errors.New("package not found")
+}
+
+func (t *DbTestSuite) TestDBDeleteLatestRevision() {
+	// Test that the async notification logic is triggered
+	ctx := t.Context()
+
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+
+	dbRepo := t.createTestRepo("test-ns", "test-repo")
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(dbRepo)
+	dbPkg := t.createTestPkg(dbRepo.Key(), "test-package")
+	dbPkg.repo = dbRepo
+
+	// Create and write first package revision to database
+	dbPR1 := dbPackageRevision{
+		repo: dbRepo,
+		pkgRevKey: repository.PackageRevisionKey{
+			PkgKey:        dbPkg.Key(),
+			WorkspaceName: "workspace-1",
+			Revision:      1,
+		},
+		meta:      metav1.ObjectMeta{},
+		spec:      &porchapi.PackageRevisionSpec{},
+		updated:   time.Now().UTC(),
+		updatedBy: "testuser",
+		lifecycle: porchapi.PackageRevisionLifecyclePublished,
+		latest:    false,
+		resources: map[string]string{},
+	}
+
+	// Create and write main package revision to make sure len(prSlice) > 0
+	dbPRMain := dbPackageRevision{
+		repo: dbRepo,
+		pkgRevKey: repository.PackageRevisionKey{
+			PkgKey:        dbPkg.Key(),
+			WorkspaceName: "main",
+			Revision:      -1,
+		},
+		meta:      metav1.ObjectMeta{},
+		spec:      &porchapi.PackageRevisionSpec{},
+		updated:   time.Now().UTC(),
+		updatedBy: "testuser",
+		lifecycle: porchapi.PackageRevisionLifecyclePublished,
+		resources: map[string]string{},
+	}
+
+	err := pkgRevWriteToDB(ctx, &dbPR1)
+	t.Require().NoError(err)
+
+	err = pkgRevWriteToDB(ctx, &dbPRMain)
+	t.Require().NoError(err)
+
+	// Create and write second package revision to database (this will be latest)
+	dbPR2 := dbPackageRevision{
+		repo: dbRepo,
+		pkgRevKey: repository.PackageRevisionKey{
+			PkgKey:        dbPkg.Key(),
+			WorkspaceName: "workspace-2",
+			Revision:      2,
+		},
+		meta:      metav1.ObjectMeta{},
+		spec:      &porchapi.PackageRevisionSpec{},
+		updated:   time.Now().UTC(),
+		updatedBy: "testuser",
+		lifecycle: porchapi.PackageRevisionLifecyclePublished,
+		latest:    true,
+		resources: map[string]string{},
+	}
+
+	err = pkgRevWriteToDB(ctx, &dbPR2)
+	t.Require().NoError(err)
+
+	// Delete the latest revision - should trigger async notification
+	err = dbPkg.DeletePackageRevision(ctx, &dbPR2, false)
+	t.Require().NoError(err)
+
+	// wait for async call to finish
+	time.Sleep(100 * time.Millisecond)
+
+	dbPR1.latest = true
+	err = dbPkg.DeletePackageRevision(ctx, &dbPR1, false)
+	t.Require().NoError(err)
+
+	// wait for async call to finish
+	time.Sleep(100 * time.Millisecond)
+
+	// After deletion, dbPRMain should remain in database so len(prSlice) > 0
+	err = dbPkg.DeletePackageRevision(ctx, &dbPRMain, false)
+	t.Require().NoError(err)
+
+	// Clean up
+	err = repoDeleteFromDB(ctx, dbRepo.Key())
+	t.Require().NoError(err)
 }
