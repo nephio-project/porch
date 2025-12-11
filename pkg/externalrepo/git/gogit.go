@@ -54,7 +54,9 @@ func initializeDefaultBranches(repo *git.Repository) error {
 
 func openRepository(path string) (*git.Repository, error) {
 	dot := osfs.New(path)
-	storage := filesystem.NewStorage(dot, cache.NewObjectLRUDefault())
+	storage := filesystem.NewStorageWithOptions(dot, cache.NewObjectLRUDefault(), filesystem.Options{
+		ExclusiveAccess: true,
+	})
 	return git.Open(storage, dot)
 }
 
