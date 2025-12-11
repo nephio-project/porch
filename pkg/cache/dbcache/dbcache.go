@@ -61,6 +61,14 @@ func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.
 	}
 	c.mainLock.RUnlock()
 
+	// Double-check with write lock to avoid race condition
+	c.mainLock.Lock()
+	if dbRepo, ok := c.repositories[repoKey]; ok {
+		c.mainLock.Unlock()
+		dbRepo.spec = repositorySpec
+		return dbRepo, nil
+	}
+
 	dbRepo := &dbRepository{
 		repoKey:              repoKey,
 		meta:                 repositorySpec.ObjectMeta,
@@ -73,10 +81,10 @@ func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.
 
 	err = dbRepo.OpenRepository(ctx, c.options.ExternalRepoOptions)
 	if err != nil {
+		c.mainLock.Unlock()
 		return nil, err
 	}
 
-	c.mainLock.Lock()
 	c.repositories[repoKey] = dbRepo
 	c.mainLock.Unlock()
 

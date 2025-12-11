@@ -70,6 +70,17 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 	}
 	c.mainLock.RUnlock()
 
+	// Double-check with write lock to avoid race condition
+	c.mainLock.Lock()
+	if repo, ok := c.repositories[key]; ok && repo != nil {
+		c.mainLock.Unlock()
+		repo.repoSpec = repositorySpec
+		if err := repo.getRefreshError(); err != nil {
+			return nil, err
+		}
+		return repo, nil
+	}
+
 	externalRepo, err := externalrepo.CreateRepositoryImpl(ctx, repositorySpec, c.options.ExternalRepoOptions)
 	if err != nil {
 		return nil, err
@@ -77,7 +88,6 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 
 	cachedRepo := newRepository(key, repositorySpec, externalRepo, c.metadataStore, c.options)
 
-	c.mainLock.Lock()
 	c.repositories[key] = cachedRepo
 	c.mainLock.Unlock()
 
