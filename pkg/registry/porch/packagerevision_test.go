@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022-2025 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -475,6 +475,235 @@ func TestCreateAction(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			result := createAction(tc.pkgRev)
 			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+
+
+
+
+func TestApprovalUpdateStrategy(t *testing.T) {
+	s := packageRevisionApprovalStrategy{}
+
+	type testCase struct {
+		old     porchapi.PackageRevisionLifecycle
+		valid   []porchapi.PackageRevisionLifecycle
+		invalid []porchapi.PackageRevisionLifecycle
+	}
+
+	for _, tc := range []testCase{
+		{
+			old:     "",
+			valid:   []porchapi.PackageRevisionLifecycle{},
+			invalid: []porchapi.PackageRevisionLifecycle{"", "Wrong", porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecycleProposed, porchapi.PackageRevisionLifecyclePublished, porchapi.PackageRevisionLifecycleDeletionProposed},
+		},
+		{
+			old:     "Wrong",
+			valid:   []porchapi.PackageRevisionLifecycle{},
+			invalid: []porchapi.PackageRevisionLifecycle{"", "Wrong", porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecycleProposed, porchapi.PackageRevisionLifecyclePublished, porchapi.PackageRevisionLifecycleDeletionProposed},
+		},
+		{
+			old:     porchapi.PackageRevisionLifecycleDraft,
+			valid:   []porchapi.PackageRevisionLifecycle{},
+			invalid: []porchapi.PackageRevisionLifecycle{"", "Wrong", porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecycleProposed, porchapi.PackageRevisionLifecyclePublished, porchapi.PackageRevisionLifecycleDeletionProposed},
+		},
+		{
+			old:     porchapi.PackageRevisionLifecyclePublished,
+			valid:   []porchapi.PackageRevisionLifecycle{porchapi.PackageRevisionLifecycleDeletionProposed},
+			invalid: []porchapi.PackageRevisionLifecycle{"", "Wrong", porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecycleProposed, porchapi.PackageRevisionLifecyclePublished},
+		},
+		{
+			old:     porchapi.PackageRevisionLifecycleDeletionProposed,
+			valid:   []porchapi.PackageRevisionLifecycle{porchapi.PackageRevisionLifecyclePublished},
+			invalid: []porchapi.PackageRevisionLifecycle{"", "Wrong", porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecycleProposed, porchapi.PackageRevisionLifecycleDeletionProposed},
+		},
+		{
+			old:     porchapi.PackageRevisionLifecycleProposed,
+			valid:   []porchapi.PackageRevisionLifecycle{porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecyclePublished},
+			invalid: []porchapi.PackageRevisionLifecycle{"", "Wrong", porchapi.PackageRevisionLifecycleProposed, porchapi.PackageRevisionLifecycleDeletionProposed},
+		},
+	} {
+		for _, new := range tc.valid {
+			testValidateUpdate(t, s, tc.old, new, true)
+		}
+		for _, new := range tc.invalid {
+			testValidateUpdate(t, s, tc.old, new, false)
+		}
+	}
+}
+
+
+
+
+
+func TestCreationConflictError(t *testing.T) {
+	pkgRev := &porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test-ns",
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: "test-repo",
+			PackageName:    "test-pkg",
+			WorkspaceName:  "test-ws",
+		},
+	}
+
+	err := creationConflictError(pkgRev)
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "test-ns")
+	assert.ErrorContains(t, err, "test-repo")
+	assert.ErrorContains(t, err, "test-pkg")
+	assert.ErrorContains(t, err, "test-ws")
+}
+
+func TestUncreatedPackageMutexKey(t *testing.T) {
+	pkgRev := &porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "test-ns"},
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: "test-repo",
+			PackageName:    "test-pkg",
+			WorkspaceName:  "test-ws",
+		},
+	}
+
+	key := uncreatedPackageMutexKey(pkgRev)
+	assert.Equal(t, "test-ns-test-repo-test-pkg-test-ws", key)
+}
+
+func TestCreate(t *testing.T) {
+	tests := []struct {
+		name          string
+		pkgRev        *porchapi.PackageRevision
+		setupMocks    func(*mockclient.MockClient, *mockengine.MockCaDEngine, *mockrepo.MockPackageRevision)
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name: "success - init task",
+			pkgRev: &porchapi.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default"},
+				Spec: porchapi.PackageRevisionSpec{
+					RepositoryName: "test-repo",
+					PackageName:    "test-pkg",
+					WorkspaceName:  "test-ws",
+					Tasks:          []porchapi.Task{{Type: porchapi.TaskTypeInit}},
+				},
+			},
+			setupMocks: func(mc *mockclient.MockClient, me *mockengine.MockCaDEngine, mpr *mockrepo.MockPackageRevision) {
+				mc.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+				mc.On("List", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(func(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+					list.(*configapi.RepositoryList).Items = []configapi.Repository{
+						{ObjectMeta: metav1.ObjectMeta{Name: "test-repo", Namespace: "default"}},
+					}
+					return nil
+				})
+				me.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil)
+				me.On("CreatePackageRevision", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(mpr, nil)
+				mpr.On("GetPackageRevision", mock.Anything).Return(&porchapi.PackageRevision{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-pkg-test-ws", Namespace: "default"},
+					Spec:       porchapi.PackageRevisionSpec{PackageName: "test-pkg"},
+				}, nil)
+			},
+			expectError: false,
+		},
+		{
+			name: "error - no namespace",
+			pkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{RepositoryName: "test-repo"},
+			},
+			setupMocks:    func(mc *mockclient.MockClient, me *mockengine.MockCaDEngine, mpr *mockrepo.MockPackageRevision) {},
+			expectError:   true,
+			errorContains: "namespace must be specified",
+		},
+		{
+			name: "error - missing repository name",
+			pkgRev: &porchapi.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default"},
+				Spec:       porchapi.PackageRevisionSpec{},
+			},
+			setupMocks:    func(mc *mockclient.MockClient, me *mockengine.MockCaDEngine, mpr *mockrepo.MockPackageRevision) {},
+			expectError:   true,
+			errorContains: "spec.repositoryName is required",
+		},
+		{
+			name: "error - repository not found",
+			pkgRev: &porchapi.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default"},
+				Spec:       porchapi.PackageRevisionSpec{RepositoryName: "missing-repo"},
+			},
+			setupMocks: func(mc *mockclient.MockClient, me *mockengine.MockCaDEngine, mpr *mockrepo.MockPackageRevision) {
+				mc.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("not found"))
+			},
+			expectError:   true,
+			errorContains: "error getting repository",
+		},
+
+
+		{
+			name: "error - CreatePackageRevision fails",
+			pkgRev: &porchapi.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default"},
+				Spec: porchapi.PackageRevisionSpec{
+					RepositoryName: "test-repo",
+					PackageName:    "test-pkg",
+					WorkspaceName:  "test-ws",
+					Tasks:          []porchapi.Task{{Type: porchapi.TaskTypeInit}},
+				},
+			},
+			setupMocks: func(mc *mockclient.MockClient, me *mockengine.MockCaDEngine, mpr *mockrepo.MockPackageRevision) {
+				mc.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+				mc.On("List", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(func(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+					list.(*configapi.RepositoryList).Items = []configapi.Repository{
+						{ObjectMeta: metav1.ObjectMeta{Name: "test-repo", Namespace: "default"}},
+					}
+					return nil
+				})
+				me.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil)
+				me.On("CreatePackageRevision", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("creation failed"))
+			},
+			expectError:   true,
+			errorContains: "Internal error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := mockclient.NewMockClient(t)
+			mockEngine := mockengine.NewMockCaDEngine(t)
+			mockPkgRev := mockrepo.NewMockPackageRevision(t)
+
+			tt.setupMocks(mockClient, mockEngine, mockPkgRev)
+
+			pr := &packageRevisions{
+				TableConvertor: packageRevisionTableConvertor,
+				packageCommon: packageCommon{
+					scheme:         runtime.NewScheme(),
+					gr:             porchapi.Resource("packagerevisions"),
+					coreClient:     mockClient,
+					cad:            mockEngine,
+					updateStrategy: packageRevisionStrategy{},
+					createStrategy: packageRevisionStrategy{},
+				},
+			}
+
+			ctx := context.Background()
+			if tt.pkgRev.Namespace != "" {
+				ctx = request.WithNamespace(ctx, tt.pkgRev.Namespace)
+			}
+
+			result, err := pr.Create(ctx, tt.pkgRev, nil, nil)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.errorContains != "" {
+					assert.ErrorContains(t, err, tt.errorContains)
+				}
+				assert.Nil(t, result)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, result)
+			}
 		})
 	}
 }

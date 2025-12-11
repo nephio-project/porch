@@ -106,10 +106,6 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 	source := args[0]
 	target := args[1]
 
-	if strings.Contains(target, "/") {
-		return errors.E(op, fmt.Errorf("package name %q cannot contain '/' character", target))
-	}
-
 	pkgExists, err := util.PackageAlreadyExists(r.ctx, r.client, r.repository, target, *r.cfg.Namespace)
 	if err != nil {
 		return err

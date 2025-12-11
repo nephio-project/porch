@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -170,6 +171,12 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 		}
 	}
 
+	if porchapi.IsPackageCreation(newPr) {
+		if err := validatePackagePathOverlap(newPr, revs); err != nil {
+			return nil, err
+		}
+	}
+
 	if newPr.Spec.Tasks[0].Type == porchapi.TaskTypeUpgrade {
 		if err := validateUpgradeTask(ctx, revs, newPr.Spec.Tasks[0].Upgrade); err != nil {
 			return nil, err
@@ -259,6 +266,44 @@ func validateCloneTask(obj *porchapi.PackageRevision, existingRevs []repository.
 		}
 	}
 	return nil
+}
+
+// validatePackagePathOverlap checks for path conflicts with existing packages
+func validatePackagePathOverlap(newPr *porchapi.PackageRevision, existingRevs []repository.PackageRevision) error {
+	existingPaths := make(map[string]bool)
+	for _, r := range existingRevs {
+		pkgPath := r.Key().PkgKey.Package
+		// Check if package already exists (exact match in same repo)
+		if pkgPath == newPr.Spec.PackageName && r.Key().PkgKey.RepoKey.Name == newPr.Spec.RepositoryName {
+			return fmt.Errorf("package %q already exists in repository %q", newPr.Spec.PackageName, newPr.Spec.RepositoryName)
+		}
+		// Only check path overlaps for packages in the same repository
+		if r.Key().PkgKey.RepoKey.Name == newPr.Spec.RepositoryName {
+			existingPaths[pkgPath] = true
+		}
+	}
+
+	newPath := newPr.Spec.PackageName
+	for existingPath := range existingPaths {
+		if pathsOverlap(newPath, existingPath) {
+			return fmt.Errorf("package path %q conflicts with existing package %q: packages cannot be nested", newPath, existingPath)
+		}
+	}
+	return nil
+}
+
+// pathsOverlap checks if two package paths would create a nesting conflict
+func pathsOverlap(path1, path2 string) bool {
+	if path1 == path2 {
+		return false
+	}
+	if strings.HasPrefix(path2+"/", path1+"/") {
+		return true
+	}
+	if strings.HasPrefix(path1+"/", path2+"/") {
+		return true
+	}
+	return false
 }
 
 func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version int, repositoryObj *configapi.Repository, repoPr repository.PackageRevision, oldObj, newObj *porchapi.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
