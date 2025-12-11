@@ -1118,29 +1118,43 @@ func (t *PorchSuite) TestSubfolderPackageRevisionIncrementation() {
 		workspace2           = "workspace2"
 	)
 
-	// Register the repositories
-	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
-	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), subfolderRepository, subfolderDirectory, GiteaUser, GiteaPassword)
+	// Create initial repository
+	t.CreateF(&configapi.Repository{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       configapi.TypeRepository.Kind,
+			APIVersion: configapi.TypeRepository.APIVersion(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      repository,
+			Namespace: t.Namespace,
+		},
+		Spec: configapi.RepositorySpec{
+			Description: "Initial Repository",
+			Type:        configapi.RepositoryTypeGit,
+			Git: &configapi.GitRepository{
+				Repo:         t.GetPorchTestRepoURL(),
+				Branch:       "subfolder",
+				CreateBranch: true,
+				SecretRef: configapi.SecretRef{
+					Name: t.CreateOrUpdateSecret(repository, GiteaUser, GiteaPassword),
+				},
+			},
+		},
+	})
+
+	t.WaitUntilRepositoryReady(repository, t.Namespace)
 
 	// Create a new package (via init)
 	subfolderPr := t.CreatePackageDraftF(repository, subfolderPackageName, workspace)
-	prInSubfolder := t.CreatePackageDraftF(subfolderRepository, normalPackageName, workspace)
 
-	// Propose and approve the package revisions
+	// Propose and approve the package revision
 	subfolderPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	prInSubfolder.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 	t.UpdateF(subfolderPr)
-	t.UpdateF(prInSubfolder)
-
 	subfolderPr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	prInSubfolder.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	subfolderPr = t.UpdateApprovalF(subfolderPr, metav1.UpdateOptions{})
-	prInSubfolder = t.UpdateApprovalF(prInSubfolder, metav1.UpdateOptions{})
 
 	assert.Equal(t, porchapi.PackageRevisionLifecyclePublished, subfolderPr.Spec.Lifecycle)
 	assert.Equal(t, 1, subfolderPr.Spec.Revision)
-	assert.Equal(t, porchapi.PackageRevisionLifecyclePublished, prInSubfolder.Spec.Lifecycle)
-	assert.Equal(t, 1, prInSubfolder.Spec.Revision)
 
 	// Create new package revisions via edit/copy
 	editedSubfolderPr := t.CreatePackageSkeleton(repository, subfolderPackageName, workspace2)
@@ -1155,6 +1169,41 @@ func (t *PorchSuite) TestSubfolderPackageRevisionIncrementation() {
 		},
 	}
 	t.CreateF(editedSubfolderPr)
+
+	editedSubfolderPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	t.UpdateF(editedSubfolderPr)
+	editedSubfolderPr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+	editedSubfolderPr = t.UpdateApprovalF(editedSubfolderPr, metav1.UpdateOptions{})
+
+	assert.Equal(t, porchapi.PackageRevisionLifecyclePublished, editedSubfolderPr.Spec.Lifecycle)
+	assert.Equal(t, 2, editedSubfolderPr.Spec.Revision)
+
+	// Delete repo to avoid conflict
+	t.DeleteL(&configapi.Repository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      repository,
+			Namespace: t.Namespace,
+		},
+	})
+
+	t.WaitUntilRepositoryDeleted(repository, t.Namespace)
+
+	// Register the second repository with directory random/repo/folder
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), subfolderRepository, subfolderDirectory, GiteaUser, GiteaPassword, RepositoryOptions{
+		RepOpts: WithBranch("subfolder"),
+	})
+
+	// Create a new package (via init)
+	prInSubfolder := t.CreatePackageDraftF(subfolderRepository, normalPackageName, workspace)
+	// Propose and approve the package revisions
+	prInSubfolder.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	t.UpdateF(prInSubfolder)
+	prInSubfolder.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+	prInSubfolder = t.UpdateApprovalF(prInSubfolder, metav1.UpdateOptions{})
+
+	assert.Equal(t, porchapi.PackageRevisionLifecyclePublished, prInSubfolder.Spec.Lifecycle)
+	assert.Equal(t, 1, prInSubfolder.Spec.Revision)
+
 	editedPrInSubfolder := t.CreatePackageSkeleton(subfolderRepository, normalPackageName, workspace2)
 	editedPrInSubfolder.Spec.Tasks = []porchapi.Task{
 		{
@@ -1169,18 +1218,11 @@ func (t *PorchSuite) TestSubfolderPackageRevisionIncrementation() {
 	t.CreateF(editedPrInSubfolder)
 
 	// Propose and approve these package revisions as well
-	editedSubfolderPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 	editedPrInSubfolder.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	t.UpdateF(editedSubfolderPr)
 	t.UpdateF(editedPrInSubfolder)
-
-	editedSubfolderPr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 	editedPrInSubfolder.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	editedSubfolderPr = t.UpdateApprovalF(editedSubfolderPr, metav1.UpdateOptions{})
 	editedPrInSubfolder = t.UpdateApprovalF(editedPrInSubfolder, metav1.UpdateOptions{})
 
-	assert.Equal(t, porchapi.PackageRevisionLifecyclePublished, editedSubfolderPr.Spec.Lifecycle)
-	assert.Equal(t, 2, editedSubfolderPr.Spec.Revision)
 	assert.Equal(t, porchapi.PackageRevisionLifecyclePublished, editedPrInSubfolder.Spec.Lifecycle)
 	assert.Equal(t, 2, editedPrInSubfolder.Spec.Revision)
 }
@@ -3006,9 +3048,20 @@ func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces() {
 			Name: t.Namespace + "-2",
 		},
 	}
+	ns3 := &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Namespace",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: t.Namespace + "-3",
+		},
+	}
 	t.CreateF(ns2)
+	t.CreateF(ns3)
 	t.Cleanup(func() {
 		t.DeleteE(ns2)
+		t.DeleteE(ns3)
 	})
 
 	prs1 := registerRepoAndTestRevisions("test-blueprints", t.Namespace, nil)
@@ -3020,7 +3073,7 @@ func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces() {
 		t.Errorf("number of PackageRevisions in namespace %s: want %v, got %d", ns2.Name, nPRs, len(prs2))
 	}
 
-	prs3 := registerRepoAndTestRevisions("test-3-blueprints", t.Namespace, prs1)
+	prs3 := registerRepoAndTestRevisions("test-3-blueprints", ns3.Name, prs1)
 	if len(prs3) != nPRs {
 		t.Errorf("number of PackageRevisions in repo-3: want %v, got %d", nPRs, len(prs2))
 	}
@@ -3030,8 +3083,23 @@ func (t *PorchSuite) TestUniquenessOfUIDs() {
 
 	// Register the upstream repository1
 	t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), TestBlueprintsRepoName, "", GiteaUser, GiteaPassword)
+
+	ns2 := &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Namespace",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: t.Namespace + "-2",
+		},
+	}
+	t.CreateF(ns2)
+	t.Cleanup(func() {
+		t.DeleteE(ns2)
+	})
+
 	// Register the upstream repository2
-	t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), "test-2-blueprints", "", GiteaUser, GiteaPassword)
+	t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), "test-2-blueprints", "", GiteaUser, GiteaPassword, RepositoryOptions{RepOpts: InNamespace(ns2.Name), SecOpts: SecretInNamespace(ns2.Name)})
 
 	prList := porchapi.PackageRevisionList{}
 	t.ListE(&prList, client.InNamespace(t.Namespace))
