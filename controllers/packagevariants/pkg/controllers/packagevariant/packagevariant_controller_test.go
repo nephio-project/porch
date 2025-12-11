@@ -1066,7 +1066,7 @@ spec:
 `,
 			initialData: "        hello: there\n",
 			expectedErr: "",
-			expectedPRR: prrBase + "        foo: bar\n        hello: there\n",
+			expectedPRR: prrBase + "        hello: there\n        foo: bar\n",
 		},
 		"change existing": {
 			spec: `  packageContext:
@@ -1781,7 +1781,7 @@ func TestCreateUpgradeDraft(t *testing.T) {
 			Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
 		},
 		Status: porchapi.PackageRevisionStatus{
-			UpstreamLock: &porchapi.UpstreamLock{
+			UpstreamLock: &porchapi.Locator{
 				Git: &porchapi.GitLock{
 					Repo: "upstream-repo",
 					Ref:  "test-package/v1",

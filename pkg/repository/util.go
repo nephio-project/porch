@@ -122,8 +122,8 @@ func PrSlice2Map(prSlice []PackageRevision) map[PackageRevisionKey]PackageRevisi
 	return prMap
 }
 
-func KptUpstreamLock2APIUpstreamLock(kptLock kptfile.UpstreamLock) *porchapi.UpstreamLock {
-	porchLock := &porchapi.UpstreamLock{}
+func KptUpstreamLock2APIUpstreamLock(kptLock kptfile.UpstreamLock) *porchapi.Locator {
+	porchLock := &porchapi.Locator{}
 
 	porchLock.Type = porchapi.OriginType(kptLock.Type)
 	if kptLock.Git != nil {

@@ -15,7 +15,7 @@
 
 # Generate deployment configuration
 
-set -e
+set -xe
 
 # Source common configuration
 source "$(dirname "$0")/common.sh"
@@ -34,6 +34,6 @@ mkdir -p "${DEPLOYPORCHCONFIGDIR}"
   --enabled-reconcilers "${ENABLED_RECONCILERS}" \
   --fn-runner-warm-up-pod-cache "${FN_RUNNER_WARM_UP_POD_CACHE}" \
   --porch-cache-type "${PORCH_CACHE_TYPE}" \
-  $(if [ -n "${PORCH_GCR_PREFIX_URL}" ]; then echo "--gcr-image-prefix \"${PORCH_GCR_PREFIX_URL}\""; fi)
+  $(if [ -n "${PORCH_GHCR_PREFIX_URL}" ]; then echo "--ghcr-image-prefix \"${PORCH_GHCR_PREFIX_URL}\""; fi)
 
 echo "Deployment configuration created."

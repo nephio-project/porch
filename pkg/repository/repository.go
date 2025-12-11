@@ -329,6 +329,9 @@ type ListPackageRevisionFilter struct {
 	// Lifecycle matches the spec.lifecycle of the package
 	Lifecycles []porchapi.PackageRevisionLifecycle
 
+	// KptfileLabels matches labels specified in the Kptfile
+	KptfileLabels map[string]string
+
 	Label labels.Selector
 }
 
@@ -340,6 +343,24 @@ func (f *ListPackageRevisionFilter) Matches(ctx context.Context, p PackageRevisi
 
 	if len(f.Lifecycles) > 0 && !slices.Contains(f.Lifecycles, p.Lifecycle(ctx)) {
 		return false
+	}
+
+	if len(f.KptfileLabels) > 0 {
+		packageRevision, err := p.GetPackageRevision(ctx)
+		if err != nil {
+			return false
+		}
+
+		if packageRevision.Spec.PackageMetadata == nil {
+			return false
+		}
+
+		for labelKey, expectedlValue := range f.KptfileLabels {
+			actualValue, exists := packageRevision.Spec.PackageMetadata.Labels[labelKey]
+			if !exists || actualValue != expectedlValue {
+				return false
+			}
+		}
 	}
 
 	if !f.MatchesLabels(ctx, p) {

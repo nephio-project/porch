@@ -153,10 +153,12 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 	}
 
 	_, upstreamLock, _ := pr.GetUpstreamLock(ctx)
+	_, selfLock, _ := pr.GetLock(ctx)
 	kf, _ := readPR.GetKptfile(ctx)
 
 	status := porchapi.PackageRevisionStatus{
 		UpstreamLock: repository.KptUpstreamLock2APIUpstreamLock(upstreamLock),
+		SelfLock:     repository.KptUpstreamLock2APIUpstreamLock(selfLock),
 		Deployment:   pr.repo.deployment,
 		Conditions:   repository.ToAPIConditions(kf),
 	}
@@ -206,6 +208,10 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 			ReadinessGates: repository.ToAPIReadinessGates(kf),
 			WorkspaceName:  readPR.Key().WorkspaceName,
 			Revision:       readPR.Key().Revision,
+			PackageMetadata: &porchapi.PackageMetadata{
+				Labels:      kf.Labels,
+				Annotations: kf.Annotations,
+			},
 		},
 		Status: status,
 	}, nil

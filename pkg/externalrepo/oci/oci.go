@@ -366,9 +366,14 @@ func (p *ociPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 			Lifecycle:      p.Lifecycle(ctx),
 			Tasks:          p.tasks,
 			ReadinessGates: repository.ToAPIReadinessGates(kf),
+			PackageMetadata: &porchapi.PackageMetadata{
+				Labels:      kf.Labels,
+				Annotations: kf.Annotations,
+			},
 		},
 		Status: porchapi.PackageRevisionStatus{
 			// TODO:        UpstreamLock,
+			// TODO:        SelfLock,
 			Deployment: p.parent.deployment,
 			Conditions: repository.ToAPIConditions(kf),
 		},
