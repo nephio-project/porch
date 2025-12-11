@@ -187,7 +187,7 @@ func TestCreatePackageRevisionRollback(t *testing.T) {
 			_, err := f.engine.CreatePackageRevision(context.Background(), f.repositoryObj, f.packageRevision, nil)
 			if tt.expectedError {
 				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errorContains)
+				assert.ErrorContains(t, err, tt.errorContains)
 			} else {
 				assert.NoError(t, err)
 			}
@@ -498,7 +498,7 @@ func TestCreateCloneTaskValidation(t *testing.T) {
 
 			if tt.expectedError {
 				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errorContains)
+				assert.ErrorContains(t, err, tt.errorContains)
 			} else {
 				assert.NoError(t, err)
 			}
@@ -665,7 +665,7 @@ func TestValidatePackagePathOverlap(t *testing.T) {
 			if tt.expectError {
 				assert.Error(t, err)
 				if tt.errorContains != "" {
-					assert.Contains(t, err.Error(), tt.errorContains)
+					assert.ErrorContains(t, err, tt.errorContains)
 				}
 			} else {
 				assert.NoError(t, err)
