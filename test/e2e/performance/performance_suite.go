@@ -200,3 +200,17 @@ func getUpdateApprovalOperation(pr *porchapi.PackageRevision) Operation {
 		return OperationUpdateApproval
 	}
 }
+
+// copied, so the operation is recorded
+func (t *PerformanceSuite) CreatePackageDraftF(repository, packageName, workspace string) *porchapi.PackageRevision {
+	t.T().Helper()
+	pr := t.CreatePackageSkeleton(repository, packageName, workspace)
+	pr.Spec.Tasks = []porchapi.Task{
+		{
+			Type: porchapi.TaskTypeInit,
+			Init: &porchapi.PackageInitTaskSpec{},
+		},
+	}
+	t.CreateF(pr)
+	return pr
+}
