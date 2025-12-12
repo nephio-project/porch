@@ -152,3 +152,39 @@ func KptUpstreamLock2KptUpstream(kptLock kptfile.UpstreamLock) kptfile.Upstream 
 
 	return kptUpstream
 }
+
+// ValidatePackagePathOverlap checks for path conflicts with existing packages
+func ValidatePackagePathOverlap(newPr *porchapi.PackageRevision, existingRevs []PackageRevision) error {
+	existingPaths := make(map[string]bool)
+	for _, r := range existingRevs {
+		pkgPath := r.Key().PkgKey.Package
+		if pkgPath == newPr.Spec.PackageName && r.Key().PkgKey.RepoKey.Name == newPr.Spec.RepositoryName {
+			return fmt.Errorf("package %q already exists in repository %q", newPr.Spec.PackageName, newPr.Spec.RepositoryName)
+		}
+		if r.Key().PkgKey.RepoKey.Name == newPr.Spec.RepositoryName {
+			existingPaths[pkgPath] = true
+		}
+	}
+
+	newPath := newPr.Spec.PackageName
+	for existingPath := range existingPaths {
+		if PathsOverlap(newPath, existingPath) {
+			return fmt.Errorf("package path %q conflicts with existing package %q: packages cannot be nested", newPath, existingPath)
+		}
+	}
+	return nil
+}
+
+// PathsOverlap checks if two package paths would create a nesting conflict
+func PathsOverlap(path1, path2 string) bool {
+	if path1 == path2 {
+		return false
+	}
+	if strings.HasPrefix(path2+"/", path1+"/") {
+		return true
+	}
+	if strings.HasPrefix(path1+"/", path2+"/") {
+		return true
+	}
+	return false
+}

@@ -62,3 +62,13 @@ var validFirstTaskTypes = []TaskType{TaskTypeInit, TaskTypeEdit, TaskTypeClone, 
 func IsValidFirstTaskType(t TaskType) bool {
 	return slices.Contains(validFirstTaskTypes, t)
 }
+
+// IsPackageCreation checks if the package revision is an init or clone operation
+func IsPackageCreation(pkgRev *PackageRevision) bool {
+	for _, task := range pkgRev.Spec.Tasks {
+		if task.Type == TaskTypeInit || task.Type == TaskTypeClone {
+			return true
+		}
+	}
+	return false
+}
