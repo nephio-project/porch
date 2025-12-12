@@ -550,7 +550,7 @@ func TestPathsOverlap(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := pathsOverlap(tt.path1, tt.path2)
+			result := repository.PathsOverlap(tt.path1, tt.path2)
 			assert.Equal(t, tt.overlaps, result)
 		})
 	}
@@ -661,7 +661,7 @@ func TestValidatePackagePathOverlap(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validatePackagePathOverlap(tt.newPr, tt.existingRevs)
+			err := repository.ValidatePackagePathOverlap(tt.newPr, tt.existingRevs)
 			if tt.expectError {
 				assert.Error(t, err)
 				if tt.errorContains != "" {
