@@ -70,6 +70,19 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 	}
 	c.mainLock.RUnlock()
 
+	// Double-check with write lock to avoid race condition
+	c.mainLock.Lock()
+	defer c.mainLock.Unlock()
+
+	if repo, ok := c.repositories[key]; ok && repo != nil {
+		repo.repoSpec = repositorySpec
+		if err := repo.getRefreshError(); err != nil {
+			return nil, err
+		}
+		return repo, nil
+	}
+
+	klog.V(2).Infof("Creating new repository: %v", key)
 	externalRepo, err := externalrepo.CreateRepositoryImpl(ctx, repositorySpec, c.options.ExternalRepoOptions)
 	if err != nil {
 		return nil, err
@@ -77,9 +90,7 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 
 	cachedRepo := newRepository(key, repositorySpec, externalRepo, c.metadataStore, c.options)
 
-	c.mainLock.Lock()
 	c.repositories[key] = cachedRepo
-	c.mainLock.Unlock()
 
 	return cachedRepo, nil
 }
@@ -172,9 +183,12 @@ func (c *Cache) getOrInsertLock(key repository.RepositoryKey) *sync.Mutex {
 	c.mainLock.RUnlock()
 
 	c.mainLock.Lock()
+	defer c.mainLock.Unlock()
+	// Double-check after acquiring write lock
+	if lock, exists := c.locks[key]; exists {
+		return lock
+	}
 	lock := &sync.Mutex{}
 	c.locks[key] = lock
-	c.mainLock.Unlock()
-
 	return lock
 }

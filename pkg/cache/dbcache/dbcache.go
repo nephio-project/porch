@@ -28,6 +28,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
+	"k8s.io/klog/v2"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -61,6 +62,15 @@ func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.
 	}
 	c.mainLock.RUnlock()
 
+	// Double-check with write lock to avoid race condition
+	c.mainLock.Lock()
+	defer c.mainLock.Unlock()
+	if dbRepo, ok := c.repositories[repoKey]; ok {
+		dbRepo.spec = repositorySpec
+		return dbRepo, nil
+	}
+
+	klog.V(2).Infof("Creating new repository: %v", repoKey)
 	dbRepo := &dbRepository{
 		repoKey:              repoKey,
 		meta:                 repositorySpec.ObjectMeta,
@@ -76,9 +86,7 @@ func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.
 		return nil, err
 	}
 
-	c.mainLock.Lock()
 	c.repositories[repoKey] = dbRepo
-	c.mainLock.Unlock()
 
 	dbRepo.repositorySync = newRepositorySync(dbRepo, c.options)
 
