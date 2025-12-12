@@ -18,12 +18,13 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/joho/godotenv"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
@@ -42,100 +43,35 @@ import (
 )
 
 const (
-	defaultGCPBlueprintsRepo  = "https://github.com/GoogleCloudPlatform/blueprints.git"
-	defaultGCPBucketRef       = "bucket-blueprint-v0.4.3"
-	defaultGCPRedisBucketRef  = "redis-bucket-blueprint-v0.3.2"
-	defaultGCPHierarchyRef    = "783380ce4e6c3f21e9e90055b3a88bada0410154"
-	defaultKptFunctionRef     = "spanner-blueprint-v0.3.2"
-	defaultGHCRPrefix         = "ghcr.io/kptdev/krm-functions-catalog"
+	defaultKrmFuncRegistry = "ghcr.io/kptdev/krm-functions-catalog"
+)
 
-	// Optional environment variables which can be set to replace defaults when running e2e tests behind a proxy or firewall.
-	// Environment variables can be loaded from a .env file - refer to .env.template
-	gcpBlueprintsRepoUrlEnv      = "PORCH_GCP_BLUEPRINTS_REPO_URL"
-	gcpBlueprintsRepoUserEnv     = "PORCH_GCP_BLUEPRINTS_REPO_USER"
-	gcpBlueprintsRepoPasswordEnv = "PORCH_GCP_BLUEPRINTS_REPO_PASSWORD"
-	gcpBucketRefEnv              = "PORCH_GCP_BUCKET_REF"
-	gcpRedisBucketRefEnv         = "PORCH_GCP_REDIS_BUCKET_REF"
-	gcpHierarchyRefEnv           = "PORCH_GCP_HIERARCHY_REF"
-	kptFunctionRefEnv            = "PORCH_KPT_FUNCTION_REF"
-
-	gcrPrefixEnv = "PORCH_GHCR_PREFIX_URL"
+var (
+	PackageRevisionGVK = porchapi.SchemeGroupVersion.WithKind("PackageRevision")
 )
 
 type TestSuiteWithGit struct {
 	TestSuite
-	gitConfig GitConfig
-	useGitea  bool
-
-	// Exported fields for external package access
-	GcpBlueprintsRepo  string
-	GcpBucketRef       string
-	GcpRedisBucketRef  string
-	GcpHierarchyRef    string
-	KptFunctionRef     string
-	GcrPrefix          string
+	gitConfig            GitConfig
+	UseGitea             bool
+	KrmFunctionsRegistry string
 }
 
 func (t *TestSuiteWithGit) SetupSuite() {
-	t.SetupEnvvars()
+	t.KrmFunctionsRegistry = defaultKrmFuncRegistry
+	t.SetupEnvVars()
 	t.TestSuite.SetupSuite()
-	if !t.useGitea {
+	if !t.UseGitea {
+		// This is using the legacy stubbed git server
+		// which is no longer supported. Use the test gitea repo instead.
 		t.gitConfig = t.CreateGitRepo()
 	}
 }
 
-func (t *TestSuiteWithGit) SetupEnvvars() {
-	err := godotenv.Load("../../.env")
-	if err != nil {
-		t.Logf("Could not load .env file: %v", err)
+func (t *TestSuiteWithGit) SetupEnvVars() {
+	if customRegistry := os.Getenv("KRM_FN_REGISTRY_URL"); customRegistry != "" {
+		t.KrmFunctionsRegistry = customRegistry
 	}
-
-	t.GcpBlueprintsRepo = defaultGCPBlueprintsRepo
-	t.GcpBucketRef = defaultGCPBucketRef
-	t.GcpRedisBucketRef = defaultGCPRedisBucketRef
-	t.GcpHierarchyRef = defaultGCPHierarchyRef
-	t.GcrPrefix = defaultGHCRPrefix
-	t.KptFunctionRef = defaultKptFunctionRef
-
-	if e := os.Getenv(gcpBlueprintsRepoUrlEnv); e != "" {
-		t.GcpBlueprintsRepo = e
-	}
-	if e := os.Getenv(gcpBucketRefEnv); e != "" {
-		t.GcpBucketRef = e
-	}
-	if e := os.Getenv(gcpRedisBucketRefEnv); e != "" {
-		t.GcpRedisBucketRef = e
-	}
-	if e := os.Getenv(gcpHierarchyRefEnv); e != "" {
-		t.GcpHierarchyRef = e
-	}
-	if e := os.Getenv(kptFunctionRefEnv); e != "" {
-		t.KptFunctionRef = e
-	}
-	if e := os.Getenv(gcrPrefixEnv); e != "" {
-		t.GcrPrefix = e
-	}
-
-}
-
-func (t *TestSuiteWithGit) GitConfig(name string) GitConfig {
-	repoID := t.Namespace + "-" + name
-	config := t.gitConfig
-	config.Repo = config.Repo + "/" + repoID
-	return config
-}
-
-func (t *TestSuiteWithGit) RegisterMainGitRepositoryF(name string, opts ...RepositoryOptions) {
-	t.T().Helper()
-	config := t.GitConfig(name)
-	t.registerGitRepositoryFromConfigF(name, config, opts...)
-}
-
-func (t *TestSuiteWithGit) RegisterGitRepositoryWithDirectoryF(name string, directory string, opts ...RepositoryOptions) {
-	t.T().Helper()
-	config := t.GitConfig(name)
-	config.Directory = directory
-	t.registerGitRepositoryFromConfigF(name, config, opts...)
 }
 
 func (t *TestSuite) ValidateFinalizers(name string, finalizers []string) {
@@ -250,12 +186,6 @@ func (t *TestSuite) MustNotHaveLabels(name string, labels []string) {
 	}
 }
 
-func (t *TestSuite) CreateGcpPackageRevisionSecret(name string, opts ...RepositoryOptions) string {
-	username := os.Getenv(gcpBlueprintsRepoUserEnv)
-	password := Password(os.Getenv(gcpBlueprintsRepoPasswordEnv))
-	return t.CreateOrUpdateSecret(name, username, password, opts...)
-}
-
 func (t *TestSuite) RegisterGitRepositoryF(repo, name, directory string, username string, password Password, opts ...RepositoryOptions) {
 	t.T().Helper()
 	config := GitConfig{
@@ -273,7 +203,7 @@ func (t *TestSuite) registerGitRepositoryFromConfigF(name string, config GitConf
 
 	repo := &configapi.Repository{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "Repository",
+			Kind:       configapi.TypeRepository.Kind,
 			APIVersion: configapi.GroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -361,18 +291,13 @@ type RepositoryOption func(*configapi.Repository)
 
 type SecretOption func(*corev1.Secret)
 
-func WithSync(sync string) RepositoryOption {
-	return func(r *configapi.Repository) {
-		r.Spec.Sync = &configapi.RepositorySync{Schedule: sync,}}
-}
-
 func WithDeployment() RepositoryOption {
 	return func(r *configapi.Repository) {
 		r.Spec.Deployment = true
 	}
 }
 
-func withType(t configapi.RepositoryType) RepositoryOption {
+func WithType(t configapi.RepositoryType) RepositoryOption {
 	return func(r *configapi.Repository) {
 		r.Spec.Type = t
 	}
@@ -397,7 +322,36 @@ func (t *TestSuite) CreatePackageDraftF(repository, packageName, workspace strin
 	pr.Spec.Tasks = []porchapi.Task{
 		{
 			Type: porchapi.TaskTypeInit,
-			Init: &porchapi.PackageInitTaskSpec{},
+			Init: &porchapi.PackageInitTaskSpec{
+				Description: packageName + " description",
+			},
+		},
+	}
+	t.CreateF(pr)
+	return pr
+}
+
+// CreatePackageCloneF creates a package revision with a clone task.
+// Assumes the GitePackage.SecretRef was created by t.RegisterGitRepositoryF.
+func (t *TestSuite) CreatePackageCloneF(repoName, packageName, workspace, ref, directory string) *porchapi.PackageRevision {
+	t.T().Helper()
+	pr := t.CreatePackageSkeleton(repoName, packageName, workspace)
+	pr.Spec.Tasks = []porchapi.Task{
+		{
+			Type: porchapi.TaskTypeClone,
+			Clone: &porchapi.PackageCloneTaskSpec{
+				Upstream: porchapi.UpstreamPackage{
+					Type: porchapi.RepositoryTypeGit,
+					Git: &porchapi.GitPackage{
+						Repo:      t.GetTestBlueprintsRepoURL(),
+						Ref:       ref,
+						Directory: directory,
+						SecretRef: porchapi.SecretRef{
+							Name: fmt.Sprintf("%s-auth", repoName),
+						},
+					},
+				},
+			},
 		},
 	}
 	t.CreateF(pr)
@@ -407,7 +361,7 @@ func (t *TestSuite) CreatePackageDraftF(repository, packageName, workspace strin
 func (t *TestSuite) CreatePackageSkeleton(repoName, packageName, workspace string) *porchapi.PackageRevision {
 	return &porchapi.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
+			Kind:       PackageRevisionGVK.Kind,
 			APIVersion: porchapi.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -445,9 +399,9 @@ func (t *TestSuite) MustNotExist(obj client.Object) {
 	}
 }
 
-// WaitUntilRepositoryReady waits for up to 60 seconds for the repository with the
+// WaitUntilRepositoryReady waits for up to 300 seconds for the repository with the
 // provided name and namespace is ready, i.e. the Ready condition is true.
-// It also queries for Functions and PackageRevisions, to ensure these are also
+// It also queries for PackageRevisions, to ensure these are also
 // ready - this is an artifact of the way we've implemented the aggregated apiserver,
 // where the first fetch can sometimes be synchronous.
 func (t *TestSuite) WaitUntilRepositoryReady(name, namespace string) {
@@ -622,21 +576,6 @@ func (t *TestSuite) WaitUntilPackageRevisionExists(repository string, pkgName st
 	return foundPkgRev
 }
 
-func (t *TestSuite) WaitUntilDraftPackageRevisionExists(repository string, pkgName string) *porchapi.PackageRevision {
-	t.T().Helper()
-	t.Logf("Waiting for a draft revision for package %v/%v to exist", repository, pkgName)
-	timeout := 120 * time.Second
-	foundPkgRev, err := t.WaitUntilPackageRevisionFulfillingConditionExists(timeout, func(pkgRev porchapi.PackageRevision) bool {
-		return pkgRev.Spec.RepositoryName == repository &&
-			pkgRev.Spec.PackageName == pkgName &&
-			pkgRev.Spec.Lifecycle == porchapi.PackageRevisionLifecycleDraft
-	})
-	if err != nil {
-		t.Fatalf("No draft package revision found for package %v/%v in time (%v)", repository, pkgName, timeout)
-	}
-	return foundPkgRev
-}
-
 func (t *TestSuite) WaitUntilPackageRevisionResourcesExists(
 	key types.NamespacedName,
 ) *porchapi.PackageRevisionResources {
@@ -758,6 +697,28 @@ func (t *TestSuite) AddResourceToPackage(resources *porchapi.PackageRevisionReso
 	}
 	resources.Spec.Resources[name] = string(file)
 }
+
+func RunInParallel(functions ...func() any) []any {
+	var group sync.WaitGroup
+	var results []any
+	for _, eachFunction := range functions {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			if reflect.TypeOf(eachFunction).NumOut() == 0 {
+				results = append(results, nil)
+				eachFunction()
+			} else {
+				eachResult := eachFunction()
+
+				results = append(results, eachResult)
+			}
+		}()
+	}
+	group.Wait()
+	return results
+}
+
 func (t *TestSuite) removePkgRevFinalizers(ctx context.Context, pkgRev *internalapi.PackageRev) {
 	t.Logf("removing finalizers from orphaned PackageRev %s/%s", pkgRev.Namespace, pkgRev.Name)
 	pkgRev.Finalizers = []string{}
