@@ -2612,13 +2612,9 @@ func (t *PorchSuite) TestLatestVersionOnDelete() {
 		packageName    = "test-latest-on-delete-package"
 	)
 
-	t.Logf("Registering git repository...")
 	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repositoryName, "", GiteaUser, GiteaPassword)
-	t.Logf("Repository registered successfully")
 
-	t.Logf("Creating first package draft...")
 	pr1 := t.CreatePackageDraftF(repositoryName, packageName, workspacev1)
-	t.Logf("First package draft created: %s", pr1.Name)
 
 	pr1.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 	t.UpdateF(pr1)
