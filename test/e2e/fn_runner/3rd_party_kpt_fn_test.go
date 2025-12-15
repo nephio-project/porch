@@ -22,7 +22,7 @@ import (
 
 	"github.com/google/uuid"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/test/e2e"
+	suiteutils "github.com/nephio-project/porch/test/e2e/suiteutils"
 	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
@@ -33,7 +33,7 @@ import (
 )
 
 type FunctionRunnerSuite struct {
-	e2e.TestSuiteWithGit
+	suiteutils.TestSuiteWithGit
 }
 
 func TestE2E(t *testing.T) {
@@ -44,7 +44,7 @@ func TestE2E(t *testing.T) {
 		t.Skip("set TPP to run this test")
 	}
 	suite.Run(t, &FunctionRunnerSuite{
-		TestSuiteWithGit: e2e.TestSuiteWithGit{
+		TestSuiteWithGit: suiteutils.TestSuiteWithGit{
 			UseGitea: true,
 		},
 	})
@@ -65,7 +65,7 @@ func (t *FunctionRunnerSuite) TestApplySetters() {
 		},
 	}
 
-	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-apply-setters", "", e2e.GiteaUser, e2e.GiteaPassword)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-apply-setters", "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
 	for tn, tc := range testCases {
 		t.Run(tn, func() {
@@ -79,7 +79,7 @@ func (t *FunctionRunnerSuite) TestApplySetters() {
 
 			t.AddResourceToPackage(resources, "testdata/resources-for-krm-functions/project.yaml", "project.yaml")
 
-			t.AddMutator(resources, tc.image, e2e.WithConfigmap(map[string]string{
+			t.AddMutator(resources, tc.image, suiteutils.WithConfigmap(map[string]string{
 				"projects-namespace": "updated-projects",
 			}))
 
@@ -118,7 +118,7 @@ func (t *FunctionRunnerSuite) TestSetNamespace() {
 		},
 	}
 
-	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-set-namespace", "", e2e.GiteaUser, e2e.GiteaPassword)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-set-namespace", "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
 	for tn, tc := range testCases {
 		t.Run(tn, func() {
@@ -132,7 +132,7 @@ func (t *FunctionRunnerSuite) TestSetNamespace() {
 
 			t.AddResourceToPackage(resources, "testdata/resources-for-krm-functions/bucket.yaml", "bucket.yaml")
 
-			t.AddMutator(resources, tc.image, e2e.WithConfigmap(map[string]string{
+			t.AddMutator(resources, tc.image, suiteutils.WithConfigmap(map[string]string{
 				"namespace": "updated-namespace",
 			}))
 
@@ -169,7 +169,7 @@ func (t *FunctionRunnerSuite) TestSetLabels() {
 		},
 	}
 
-	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-set-labels", "", e2e.GiteaUser, e2e.GiteaPassword)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-set-labels", "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
 	for tn, tc := range testCases {
 		t.Run(tn, func() {
@@ -183,7 +183,7 @@ func (t *FunctionRunnerSuite) TestSetLabels() {
 
 			t.AddResourceToPackage(resources, "testdata/resources-for-krm-functions/daemonset.yaml", "daemonset.yaml")
 
-			t.AddMutator(resources, tc.image, e2e.WithConfigmap(map[string]string{
+			t.AddMutator(resources, tc.image, suiteutils.WithConfigmap(map[string]string{
 				"app": "updated-cloud-sql-auth-proxy",
 			}))
 
@@ -220,7 +220,7 @@ func (t *FunctionRunnerSuite) TestSetAnnotations() {
 		},
 	}
 
-	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-set-annotations", "", e2e.GiteaUser, e2e.GiteaPassword)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-set-annotations", "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
 	for tn, tc := range testCases {
 		t.Run(tn, func() {
@@ -234,7 +234,7 @@ func (t *FunctionRunnerSuite) TestSetAnnotations() {
 
 			t.AddResourceToPackage(resources, "testdata/resources-for-krm-functions/daemonset.yaml", "daemonset.yaml")
 
-			t.AddMutator(resources, tc.image, e2e.WithConfigmap(map[string]string{
+			t.AddMutator(resources, tc.image, suiteutils.WithConfigmap(map[string]string{
 				"cnrm.cloud.google.com/blueprint": "updated-cnrm/sql/auth-proxy/v0.2.0",
 			}))
 
@@ -268,7 +268,7 @@ func (t *FunctionRunnerSuite) TestSearchReplace() {
 		},
 	}
 
-	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-search-replace", "", e2e.GiteaUser, e2e.GiteaPassword)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-search-replace", "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
 	for tn, tc := range testCases {
 		t.Run(tn, func() {
@@ -282,7 +282,7 @@ func (t *FunctionRunnerSuite) TestSearchReplace() {
 
 			t.AddResourceToPackage(resources, "testdata/resources-for-krm-functions/service.yaml", "service.yaml")
 
-			t.AddMutator(resources, tc.image, e2e.WithConfigmap(map[string]string{
+			t.AddMutator(resources, tc.image, suiteutils.WithConfigmap(map[string]string{
 				"by-value":  "cloud-sql-auth-proxy",
 				"put-value": "updated-cloud-sql-auth-proxy",
 			}))
@@ -326,7 +326,7 @@ func (t *FunctionRunnerSuite) TestStarlark() {
 		},
 	}
 
-	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-starlark", "", e2e.GiteaUser, e2e.GiteaPassword)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-starlark", "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
 	for tn, tc := range testCases {
 		t.Run(tn, func() {
@@ -340,7 +340,7 @@ func (t *FunctionRunnerSuite) TestStarlark() {
 
 			t.AddResourceToPackage(resources, "testdata/resources-for-krm-functions/bucket.yaml", "bucket.yaml")
 
-			t.AddMutator(resources, tc.image, e2e.WithConfigmap(map[string]string{
+			t.AddMutator(resources, tc.image, suiteutils.WithConfigmap(map[string]string{
 				"source": `for resource in ctx.resource_list["items"]:
   resource["metadata"]["annotations"]["foo"] = "bar"`,
 			}))
@@ -378,7 +378,7 @@ func (t *FunctionRunnerSuite) TestEnsureNameSubstring() {
 		},
 	}
 
-	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-ensure-name-substring", "", e2e.GiteaUser, e2e.GiteaPassword)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-ensure-name-substring", "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
 	for tn, tc := range testCases {
 		t.Run(tn, func() {
@@ -392,7 +392,7 @@ func (t *FunctionRunnerSuite) TestEnsureNameSubstring() {
 
 			t.AddResourceToPackage(resources, "testdata/resources-for-krm-functions/service.yaml", "service.yaml")
 
-			t.AddMutator(resources, tc.image, e2e.WithConfigmap(map[string]string{
+			t.AddMutator(resources, tc.image, suiteutils.WithConfigmap(map[string]string{
 				"append": "-test",
 			}))
 
@@ -424,7 +424,7 @@ func (t *FunctionRunnerSuite) TestSetImage() {
 		},
 	}
 
-	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-set-image", "", e2e.GiteaUser, e2e.GiteaPassword)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-set-image", "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
 	for tn, tc := range testCases {
 		t.Run(tn, func() {
@@ -438,7 +438,7 @@ func (t *FunctionRunnerSuite) TestSetImage() {
 
 			t.AddResourceToPackage(resources, "testdata/resources-for-krm-functions/daemonset.yaml", "daemonset.yaml")
 
-			t.AddMutator(resources, tc.image, e2e.WithConfigmap(map[string]string{
+			t.AddMutator(resources, tc.image, suiteutils.WithConfigmap(map[string]string{
 				"name":    "gcr.io/cloud-sql-connectors/cloud-sql-proxy",
 				"newName": "bitnami/nginx-updated",
 				"newTag":  "1.22.0",
@@ -490,7 +490,7 @@ func (t *FunctionRunnerSuite) TestApplyReplacements() {
 		},
 	}
 
-	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-apply-replacements", "", e2e.GiteaUser, e2e.GiteaPassword)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-apply-replacements", "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
 	for tn, tc := range testCases {
 		t.Run(tn, func() {
@@ -506,7 +506,7 @@ func (t *FunctionRunnerSuite) TestApplyReplacements() {
 			t.AddResourceToPackage(resources, "testdata/resources-for-krm-functions/applyreplacement/resources.yaml", "resources.yaml")
 			t.AddResourceToPackage(resources, "testdata/resources-for-krm-functions/applyreplacement/applyreplacement.yaml", "applyreplacement.yaml")
 
-			t.AddMutator(resources, tc.image, e2e.WithConfigPath("applyreplacement.yaml"))
+			t.AddMutator(resources, tc.image, suiteutils.WithConfigPath("applyreplacement.yaml"))
 
 			t.UpdateF(resources)
 			t.failOnRenderError(resources)
@@ -541,7 +541,7 @@ func (t *FunctionRunnerSuite) TestCreateSetters() {
 		},
 	}
 
-	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-create-setters", "", e2e.GiteaUser, e2e.GiteaPassword)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-create-setters", "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
 	for tn, tc := range testCases {
 		t.Run(tn, func() {
@@ -556,9 +556,9 @@ func (t *FunctionRunnerSuite) TestCreateSetters() {
 			t.AddResourceToPackage(resources, "testdata/resources-for-krm-functions/createsetters/setters.yaml", "setters.yaml")
 			t.AddResourceToPackage(resources, "testdata/resources-for-krm-functions/createsetters/resources.yaml", "resources.yaml")
 
-			t.AddMutator(resources, tc.image, e2e.WithConfigPath("setters.yaml"))
+			t.AddMutator(resources, tc.image, suiteutils.WithConfigPath("setters.yaml"))
 
-			t.AddMutator(resources, t.TestSuiteWithGit.KrmFunctionsRegistry+"/apply-setters:v0.2.0", e2e.WithConfigmap(map[string]string{
+			t.AddMutator(resources, t.TestSuiteWithGit.KrmFunctionsRegistry+"/apply-setters:v0.2.0", suiteutils.WithConfigmap(map[string]string{
 				"nginx-replicas": "5",
 			}))
 

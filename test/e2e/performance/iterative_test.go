@@ -14,7 +14,7 @@ import (
 	"time"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/test/e2e"
+	suiteutils "github.com/nephio-project/porch/test/e2e/suiteutils"
 	"github.com/stretchr/testify/suite"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -119,10 +119,10 @@ func (t *IterativeTest) createRepos() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repo, repo, e2e.GiteaUser, e2e.GiteaPassword)
+			t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repo, repo, suiteutils.GiteaUser, suiteutils.GiteaPassword)
 		}()
 	}
-	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), testRepoName, "iterativedir", e2e.GiteaUser, e2e.GiteaPassword)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), testRepoName, "iterativedir", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 	wg.Wait()
 }
 
