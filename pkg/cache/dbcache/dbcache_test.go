@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"os"
 	"os/user"
+	goruntime "runtime"
+	"sync"
 	"testing"
 	"time"
 
@@ -326,4 +328,87 @@ func (t *DbTestSuite) createTestPRs(packages []dbPackage, wsNamePrefix string, c
 		}
 	}
 	return testPRs
+}
+
+func (t *DbTestSuite) TestOpenRepositoryNoGoroutineLeaks() {
+	externalrepo.ExternalRepoInUnitTestMode = true
+
+	ctx := t.Context()
+	repositorySpec := &configapi.Repository{
+		ObjectMeta: v1.ObjectMeta{
+			Namespace: "test-ns",
+			Name:      "goroutine-test-repo",
+		},
+	}
+	scheme := runtime.NewScheme()
+	_ = configapi.AddToScheme(scheme)
+
+	fakeClient := testutil.NewFakeClientWithStatus(scheme, repositorySpec)
+	options := cachetypes.CacheOptions{
+		RepoSyncFrequency: 60 * time.Second,
+		CoreClient:        fakeClient,
+	}
+	dbCache, err := new(DBCacheFactory).NewCache(ctx, options)
+	t.NoError(err)
+
+	cachedrepos := dbCache.GetRepositories()
+	t.Empty(cachedrepos, "Expected no cached repositories after close")
+
+	// Simulate concurrent calls to OpenRepository
+	const numGoroutines = 20
+	results := make(chan repository.Repository, numGoroutines)
+	errors := make(chan error, numGoroutines)
+	var wg sync.WaitGroup
+
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			repo, err := dbCache.OpenRepository(ctx, repositorySpec)
+			if err != nil {
+				errors <- err
+				return
+			}
+			results <- repo
+		}()
+	}
+
+	wg.Wait()
+	close(results)
+	close(errors)
+
+	// Check for errors
+	for err := range errors {
+		t.FailNow("Unexpected error: %v", err)
+	}
+
+	// Collect results
+	var repos []repository.Repository
+	for repo := range results {
+		repos = append(repos, repo)
+	}
+	t.Len(repos, numGoroutines)
+
+	// Count goroutines after concurrent operations
+	goRoutinesAfterOpen := goruntime.NumGoroutine()
+	t.T().Logf("Number of goroutines after repository open: %d", goRoutinesAfterOpen)
+
+	// Cleanup
+	err = dbCache.CloseRepository(ctx, repositorySpec, nil)
+	t.NoError(err)
+
+	// Allow time for goroutine cleanup
+	time.Sleep(4 * time.Second)
+
+	// Count goroutines after cleanup
+	finalGoroutines := goruntime.NumGoroutine()
+	t.T().Logf("Number of goroutines after repository close: %d", finalGoroutines)
+
+	// Check that goroutines were cleaned up (allow for some variation)
+	goroutineDiff := goRoutinesAfterOpen - finalGoroutines
+	if goroutineDiff >= 2 {
+		t.T().Logf("Goroutine count acceptable: started with %d, ended with %d (difference: %+d)", goRoutinesAfterOpen, finalGoroutines, goroutineDiff)
+	} else {
+		t.T().Errorf("Expected at least 2 goroutines to be cleaned up: started with %d, ended with %d (difference: %+d)", goRoutinesAfterOpen, finalGoroutines, goroutineDiff)
+	}
 }

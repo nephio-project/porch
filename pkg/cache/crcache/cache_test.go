@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"sync"
 	"testing"
 	"time"
@@ -33,6 +34,7 @@ import (
 	"github.com/nephio-project/porch/pkg/externalrepo/git"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -324,4 +326,118 @@ func createMetadataStoreFromArchive(t *testing.T, testPath, name string) meta.Me
 	return &fakemeta.MemoryMetadataStore{
 		Metas: metas,
 	}
+}
+
+func TestOpenRepositoryNoGoroutineLeaks(t *testing.T) {
+	ctx := context.Background()
+	tempdir := t.TempDir()
+	testPath := filepath.Join("..", "..", "externalrepo", "git", "testdata")
+	tarfile := filepath.Join(testPath, "simple-repository.tar")
+	_, address := git.ServeGitRepository(t, tarfile, tempdir)
+	metadataStore := createMetadataStoreFromArchive(t, "simple-metadata.yaml", "simple")
+
+	repo := &v1alpha1.Repository{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       v1alpha1.TypeRepository.Kind,
+			APIVersion: v1alpha1.TypeRepository.APIVersion(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "goroutine-test-repo",
+			Namespace: "default",
+		},
+		Spec: v1alpha1.RepositorySpec{
+			Deployment: false,
+			Type:       v1alpha1.RepositoryTypeGit,
+			Git: &v1alpha1.GitRepository{
+				Repo: address,
+			},
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	_ = v1alpha1.AddToScheme(scheme)
+
+	fakeClient := k8sfake.NewClientBuilder().WithScheme(scheme).WithObjects(repo).Build()
+	cache := &Cache{
+		repositories:  map[repository.RepositoryKey]*cachedRepository{},
+		locks:         map[repository.RepositoryKey]*sync.Mutex{},
+		mainLock:      &sync.RWMutex{},
+		metadataStore: metadataStore,
+		options: cachetypes.CacheOptions{
+			ExternalRepoOptions: externalrepotypes.ExternalRepoOptions{
+				LocalDirectory:             t.TempDir(),
+				UseUserDefinedCaBundle:     true,
+				CredentialResolver:         &fakecache.CredentialResolver{},
+				RepoOperationRetryAttempts: 1,
+			},
+			CoreClient:           fakeClient,
+			RepoSyncFrequency:    60 * time.Second,
+			RepoPRChangeNotifier: &fakecache.ObjectNotifier{},
+		}}
+
+	cachedrepos := cache.GetRepositories()
+	assert.Empty(t, cachedrepos, "Expected no cached repositories after close")
+
+	// Simulate concurrent calls to OpenRepository
+	const numGoroutines = 20
+	results := make(chan repository.Repository, numGoroutines)
+	errors := make(chan error, numGoroutines)
+	var wg sync.WaitGroup
+
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			repo, err := cache.OpenRepository(ctx, repo)
+			if err != nil {
+				errors <- err
+				return
+			}
+			results <- repo
+		}()
+	}
+
+	wg.Wait()
+	close(results)
+	close(errors)
+
+	// Check for errors
+	for err := range errors {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Collect results
+	var repos []repository.Repository
+	for repo := range results {
+		repos = append(repos, repo)
+	}
+	assert.Len(t, repos, numGoroutines)
+
+	// Count goroutines after single open
+	goRoutinesAfterOpen := goruntime.NumGoroutine()
+	t.Logf("Number of goroutines after repository open: %d", goRoutinesAfterOpen)
+
+	time.Sleep(4 * time.Second) // Allow some time before cleanup
+
+	// Cleanup - allow cleanup errors since they don't affect the test purpose
+	err := cache.CloseRepository(ctx, repo, []v1alpha1.Repository{*repo})
+	if err != nil {
+		t.Logf("CloseRepository failed (non-critical): %v", err)
+	}
+
+	// Allow time for go routine
+	time.Sleep(4 * time.Second)
+
+	// Count goroutines after cleanup
+	goRoutinesAfterClose := goruntime.NumGoroutine()
+	t.Logf("Number of goroutines after repository close: %d", goRoutinesAfterClose)
+
+	// Check that goroutines were cleaned up (allow for some variation)
+	goroutineDiff := goRoutinesAfterOpen - goRoutinesAfterClose
+	if goroutineDiff >= 2 {
+		t.Logf("Goroutine count acceptable: started with %d, ended with %d (difference: %+d)", goRoutinesAfterOpen, goRoutinesAfterClose, goroutineDiff)
+	} else {
+		t.Errorf("Expected at least 2 goroutines to be cleaned up: started with %d, ended with %d (difference: %+d)", goRoutinesAfterOpen, goRoutinesAfterClose, goroutineDiff)
+	}
+
 }
