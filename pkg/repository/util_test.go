@@ -204,3 +204,45 @@ func TestKptUpstreamLock2KptUpstream(t *testing.T) {
 
 	assert.Equal(t, "my-repo", KptUpstreamLock2KptUpstream(kptLock).Git.Repo)
 }
+
+func TestPathsOverlap(t *testing.T) {
+	assert.False(t, PathsOverlap("pkg1", "pkg1"))
+	assert.True(t, PathsOverlap("pkg", "pkg/sub"))
+	assert.True(t, PathsOverlap("pkg/sub", "pkg"))
+	assert.False(t, PathsOverlap("pkg1", "pkg2"))
+	assert.False(t, PathsOverlap("pkg", "pkg-other"))
+}
+
+func TestValidatePackagePathOverlap(t *testing.T) {
+	newPr := &porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
+			PackageName:    "new-pkg",
+			RepositoryName: "repo1",
+		},
+	}
+
+	assert.NoError(t, ValidatePackagePathOverlap(newPr, []PackageRevision{}))
+
+	samePackageNameRepoRev := &fakePackageRevision{
+		repoName:    "repo1",
+		packageName: "new-pkg",
+	}
+	err := ValidatePackagePathOverlap(newPr, []PackageRevision{samePackageNameRepoRev})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "already exists")
+
+	overlappingPathRev := &fakePackageRevision{
+		repoName:    "repo1",
+		packageName: "new",
+	}
+	newPr.Spec.PackageName = "new/sub"
+	err = ValidatePackagePathOverlap(newPr, []PackageRevision{overlappingPathRev})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "conflicts")
+
+	differentRepoRev := &fakePackageRevision{
+		repoName:    "repo2",
+		packageName: "new",
+	}
+	assert.NoError(t, ValidatePackagePathOverlap(newPr, []PackageRevision{differentRepoRev}))
+}

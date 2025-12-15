@@ -2627,7 +2627,16 @@ func (t *PorchSuite) TestLatestVersionOnDelete() {
 		porchapi.LatestPackageRevisionKey: porchapi.LatestPackageRevisionValue,
 	})
 
-	pr2 := t.CreatePackageDraftF(repositoryName, packageName, workspacev2)
+	pr2 := t.CreatePackageSkeleton(repositoryName, packageName, workspacev2)
+	pr2.Spec.Tasks = []porchapi.Task{{
+		Type: porchapi.TaskTypeEdit,
+		Edit: &porchapi.PackageEditTaskSpec{
+			Source: &porchapi.PackageRevisionRef{
+				Name: pr1.Name,
+			},
+		},
+	}}
+	t.CreateF(pr2)
 
 	pr2.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 	t.UpdateF(pr2)

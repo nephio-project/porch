@@ -155,9 +155,25 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 		return nil, fmt.Errorf("failed to create packagerevision: %w", err)
 	}
 
-	revs, err := repo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{Key: repository.PackageRevisionKey{PkgKey: pkgKey}})
+	sameRepoFilter := repository.ListPackageRevisionFilter{
+		Key: repository.PackageRevisionKey{
+			PkgKey: repository.PackageKey{
+				RepoKey: repository.RepositoryKey{
+					Name: newPr.Spec.RepositoryName,
+				},
+			},
+		},
+	}
+	sameRepoRevs, err := repo.ListPackageRevisions(ctx, sameRepoFilter)
 	if err != nil {
 		return nil, pkgerrors.Wrapf(err, "error listing package revisions")
+	}
+
+	var revs []repository.PackageRevision
+	for _, rev := range sameRepoRevs {
+		if rev.Key().PkgKey.Package == newPr.Spec.PackageName {
+			revs = append(revs, rev)
+		}
 	}
 
 	if err := ensureUniqueWorkspaceName(newPr, revs); err != nil {
@@ -166,6 +182,12 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 
 	if newPr.Spec.Tasks[0].Type == porchapi.TaskTypeClone {
 		if err := validateCloneTask(newPr, revs); err != nil {
+			return nil, err
+		}
+	}
+
+	if porchapi.IsPackageCreation(newPr) {
+		if err := repository.ValidatePackagePathOverlap(newPr, sameRepoRevs); err != nil {
 			return nil, err
 		}
 	}
