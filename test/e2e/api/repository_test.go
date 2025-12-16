@@ -276,6 +276,7 @@ func (t *PorchSuite) TestPackageRevisionListWithHangingRepository() {
 			t.CreateF(repo)
 			t.Cleanup(func() {
 				t.DeleteF(repo)
+				t.WaitUntilRepositoryDeleted(repoName, t.Namespace)
 			})
 		}(i, url)
 	}
@@ -303,12 +304,5 @@ func (t *PorchSuite) TestPackageRevisionListWithHangingRepository() {
 
 	if !found {
 		t.Errorf("Expected PackageRevisions from working repository, got none")
-	}
-
-	// Ensure hanging repositories are properly deleted before next test
-	// This prevents them from affecting subsequent tests
-	for i := range len(hangingURLs) {
-		repoName := fmt.Sprintf("hanging-repo-%d", i+1)
-		t.WaitUntilRepositoryDeleted(repoName, t.Namespace)
 	}
 }
