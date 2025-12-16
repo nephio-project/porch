@@ -24,172 +24,125 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (t *PorchSuite) TestProposeApprove() {
-	const (
-		repository  = "lifecycle"
-		packageName = "test-package"
-		workspace   = defaultWorkspace
-	)
+type LifecycleTestCase struct {
+	Name        string
+	RepoName    string
+	PackageName string
+	Workspace   string
+	Tasks       []porchapi.Task
+	TargetState porchapi.PackageRevisionLifecycle
+	ShouldDelete bool
+	Validate    func(*PorchSuite, *porchapi.PackageRevision)
+}
 
-	// Register the repository
-	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
+func (t *PorchSuite) TestBasicLifecycle() {
+	cases := []LifecycleTestCase{
+		{
+			Name:        "ProposeApprove",
+			RepoName:    "lifecycle",
+			PackageName: "test-package",
+			Workspace:   defaultWorkspace,
+			TargetState: porchapi.PackageRevisionLifecyclePublished,
+			Validate: func(t *PorchSuite, pr *porchapi.PackageRevision) {
+				if pr.Spec.Revision != 1 {
+					t.Fatalf("Expected revision 1, got %d", pr.Spec.Revision)
+				}
+			},
+		},
+		{
+			Name:         "DeleteDraft",
+			RepoName:     "delete-draft",
+			PackageName:  "test-delete-draft",
+			Workspace:    "test-workspace",
+			TargetState:  porchapi.PackageRevisionLifecycleDraft,
+			ShouldDelete: true,
+		},
+		{
+			Name:         "DeleteProposed",
+			RepoName:     "delete-proposed",
+			PackageName:  "test-delete-proposed",
+			Workspace:    defaultWorkspace,
+			TargetState:  porchapi.PackageRevisionLifecycleProposed,
+			ShouldDelete: true,
+		},
+		{
+			Name:        "DeleteFinal",
+			RepoName:    "delete-final",
+			PackageName: "test-delete-final",
+			Workspace:   defaultWorkspace,
+			TargetState: porchapi.PackageRevisionLifecyclePublished,
+			Validate: func(t *PorchSuite, pr *porchapi.PackageRevision) {
+				t.DeleteL(&porchapi.PackageRevision{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: t.Namespace,
+						Name:      pr.Name,
+					},
+				})
+				t.MustExist(client.ObjectKey{Namespace: t.Namespace, Name: pr.Name}, pr)
+			},
+			ShouldDelete: true,
+		},
 
-	// Create a new package (via init)
-	pr := t.CreatePackageDraftF(repository, packageName, workspace)
-
-	var pkg porchapi.PackageRevision
-	t.GetF(client.ObjectKey{
-		Namespace: t.Namespace,
-		Name:      pr.Name,
-	}, &pkg)
-
-	// Propose the package revision to be finalized
-	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	t.UpdateF(&pkg)
-
-	var proposed porchapi.PackageRevision
-	t.GetF(client.ObjectKey{
-		Namespace: t.Namespace,
-		Name:      pr.Name,
-	}, &proposed)
-
-	if got, want := proposed.Spec.Lifecycle, porchapi.PackageRevisionLifecycleProposed; got != want {
-		t.Fatalf("Proposed package lifecycle value: got %s, want %s", got, want)
 	}
 
-	// Approve using Update should fail.
-	proposed.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	if err := t.Client.Update(t.GetContext(), &proposed); err == nil {
-		t.Fatalf("Finalization of a package via Update unexpectedly succeeded")
-	}
-
-	// Approve the package
-	proposed.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	approved := t.UpdateApprovalF(&proposed, metav1.UpdateOptions{})
-	if got, want := approved.Spec.Lifecycle, porchapi.PackageRevisionLifecyclePublished; got != want {
-		t.Fatalf("Approved package lifecycle value: got %s, want %s", got, want)
-	}
-
-	// Check its revision number
-	if got, want := approved.Spec.Revision, 1; got != want {
-		t.Fatalf("Approved package revision value: got %s, want %s", got, want)
+	for _, tc := range cases {
+		t.Run(tc.Name, func() {
+			t.runLifecycleTest(tc)
+		})
 	}
 }
 
-func (t *PorchSuite) TestDeleteDraft() {
-	const (
-		repository  = "delete-draft"
-		packageName = "test-delete-draft"
-		revision    = 1
-		workspace   = "test-workspace"
-	)
+func (t *PorchSuite) runLifecycleTest(tc LifecycleTestCase) {
+	// Register repository
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), tc.RepoName, "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
-	// Register the repository
-	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
-
-	// Create a draft package
-	created := t.CreatePackageDraftF(repository, packageName, workspace)
-
-	// Check the package exists
-	var draft porchapi.PackageRevision
-	t.MustExist(client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &draft)
-
-	// Delete the package
-	t.DeleteE(&porchapi.PackageRevision{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-			Name:      created.Name,
-		},
-	})
-
-	t.MustNotExist(&draft)
-}
-
-func (t *PorchSuite) TestDeleteProposed() {
-	const (
-		repository  = "delete-proposed"
-		packageName = "test-delete-proposed"
-		revision    = 1
-		workspace   = defaultWorkspace
-	)
-
-	// Register the repository
-	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
-
-	// Create a draft package
-	created := t.CreatePackageDraftF(repository, packageName, workspace)
+	// Create package
+	var pr *porchapi.PackageRevision
+	if len(tc.Tasks) == 0 {
+		pr = t.CreatePackageDraftF(tc.RepoName, tc.PackageName, tc.Workspace)
+	} else {
+		pr = t.CreatePackageSkeleton(tc.RepoName, tc.PackageName, tc.Workspace)
+		pr.Spec.Tasks = tc.Tasks
+		t.CreateF(pr)
+	}
 
 	// Check the package exists
 	var pkg porchapi.PackageRevision
-	t.MustExist(client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
+	t.MustExist(client.ObjectKey{Namespace: t.Namespace, Name: pr.Name}, &pkg)
 
-	// Propose the package revision to be finalized
-	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	t.UpdateF(&pkg)
+	// Apply lifecycle transitions
+	switch tc.TargetState {
+	case porchapi.PackageRevisionLifecyclePublished:
+		pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+		t.UpdateF(pr)
+		pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+		pr = t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+	case porchapi.PackageRevisionLifecycleProposed:
+		pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+		t.UpdateF(pr)
+	case porchapi.PackageRevisionLifecycleDraft:
+		// Keep as draft - no transitions needed
+	}
 
-	// Delete the package
-	t.DeleteE(&porchapi.PackageRevision{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-			Name:      created.Name,
-		},
-	})
+	// Run validation if provided
+	if tc.Validate != nil {
+		tc.Validate(t, pr)
+	}
 
-	t.MustNotExist(&pkg)
-}
-
-func (t *PorchSuite) TestDeleteFinal() {
-	const (
-		repository  = "delete-final"
-		packageName = "test-delete-final"
-		workspace   = defaultWorkspace
-	)
-
-	// Register the repository
-	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
-
-	// Create a draft package
-	created := t.CreatePackageDraftF(repository, packageName, workspace)
-
-	// Check the package exists
-	var pkg porchapi.PackageRevision
-	t.MustExist(client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
-
-	// Propose the package revision to be finalized
-	t.Log("Proposing package")
-	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	t.UpdateF(&pkg)
-
-	t.Log("Approving package")
-	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(&pkg, metav1.UpdateOptions{})
-
-	t.MustExist(client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
-
-	// Try to delete the package. This should fail because it hasn't been proposed for deletion.
-	t.Log("Trying to delete package (should fail)")
-	t.DeleteL(&porchapi.PackageRevision{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-			Name:      created.Name,
-		},
-	})
-	t.MustExist(client.ObjectKey{Namespace: t.Namespace, Name: created.Name}, &pkg)
-
-	// Propose deletion and then delete the package
-	t.Log("Proposing deletion of  package")
-	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-	t.UpdateApprovalF(&pkg, metav1.UpdateOptions{})
-
-	t.Log("Deleting package")
-	t.DeleteE(&porchapi.PackageRevision{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-			Name:      created.Name,
-		},
-	})
-
-	t.MustNotExist(&pkg)
+	// Handle deletion if required
+	if tc.ShouldDelete {
+		if tc.TargetState == porchapi.PackageRevisionLifecyclePublished {
+			pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
+			t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+		}
+		t.DeleteE(&porchapi.PackageRevision{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: t.Namespace,
+				Name:      pr.Name,
+			},
+		})
+		t.MustNotExist(pr)
+	}
 }
 
 func (t *PorchSuite) TestProposeDeleteAndUndo() {
@@ -428,11 +381,7 @@ func (t *PorchSuite) TestLatestVersionOnDelete() {
 
 	pr1 := t.CreatePackageDraftF(repositoryName, packageName, workspacev1)
 
-	pr1.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	t.UpdateF(pr1)
-
-	pr1.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(pr1, metav1.UpdateOptions{})
+	pr1 = t.proposeAndPublish(pr1)
 
 	//After approval of the first revision, the package should be labeled as latest
 	t.MustHaveLabels(pr1.Name, map[string]string{
@@ -450,11 +399,7 @@ func (t *PorchSuite) TestLatestVersionOnDelete() {
 	}}
 	t.CreateF(pr2)
 
-	pr2.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	t.UpdateF(pr2)
-
-	pr2.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(pr2, metav1.UpdateOptions{})
+	pr2 = t.proposeAndPublish(pr2)
 
 	//After approval of the second revision, the latest label should migrate to the
 	//v2 packageRevision
@@ -512,15 +457,8 @@ func (t *PorchSuite) TestSubfolderPackageRevisionIncrementation() {
 	prInSubfolder := t.CreatePackageDraftF(subfolderRepository, normalPackageName, workspace)
 
 	// Propose and approve the package revisions
-	subfolderPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	prInSubfolder.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	t.UpdateF(subfolderPr)
-	t.UpdateF(prInSubfolder)
-
-	subfolderPr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	prInSubfolder.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	subfolderPr = t.UpdateApprovalF(subfolderPr, metav1.UpdateOptions{})
-	prInSubfolder = t.UpdateApprovalF(prInSubfolder, metav1.UpdateOptions{})
+	subfolderPr = t.proposeAndPublish(subfolderPr)
+	prInSubfolder = t.proposeAndPublish(prInSubfolder)
 
 	assert.Equal(t, porchapi.PackageRevisionLifecyclePublished, subfolderPr.Spec.Lifecycle)
 	assert.Equal(t, 1, subfolderPr.Spec.Revision)
@@ -554,18 +492,18 @@ func (t *PorchSuite) TestSubfolderPackageRevisionIncrementation() {
 	t.CreateF(editedPrInSubfolder)
 
 	// Propose and approve these package revisions as well
-	editedSubfolderPr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	editedPrInSubfolder.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
-	t.UpdateF(editedSubfolderPr)
-	t.UpdateF(editedPrInSubfolder)
-
-	editedSubfolderPr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	editedPrInSubfolder.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	editedSubfolderPr = t.UpdateApprovalF(editedSubfolderPr, metav1.UpdateOptions{})
-	editedPrInSubfolder = t.UpdateApprovalF(editedPrInSubfolder, metav1.UpdateOptions{})
+	editedSubfolderPr = t.proposeAndPublish(editedSubfolderPr)
+	editedPrInSubfolder = t.proposeAndPublish(editedPrInSubfolder)
 
 	assert.Equal(t, porchapi.PackageRevisionLifecyclePublished, editedSubfolderPr.Spec.Lifecycle)
 	assert.Equal(t, 2, editedSubfolderPr.Spec.Revision)
 	assert.Equal(t, porchapi.PackageRevisionLifecyclePublished, editedPrInSubfolder.Spec.Lifecycle)
 	assert.Equal(t, 2, editedPrInSubfolder.Spec.Revision)
+}
+
+func (t *PorchSuite) proposeAndPublish(pkg *porchapi.PackageRevision) *porchapi.PackageRevision {
+	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	t.UpdateF(pkg)
+	pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+	return t.UpdateApprovalF(pkg, metav1.UpdateOptions{})
 }

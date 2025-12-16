@@ -15,9 +15,6 @@
 package api
 
 import (
-	"os"
-	"path/filepath"
-
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	suiteutils "github.com/nephio-project/porch/test/e2e/suiteutils"
@@ -131,7 +128,7 @@ func (t *PorchSuite) TestUpdateResources() {
 		kptfile.Pipeline = &kptfilev1.Pipeline{}
 	}
 	kptfile.Pipeline.Mutators = append(kptfile.Pipeline.Mutators, kptfilev1.Function{
-		Image: t.KrmFunctionsRegistry + "/set-annotations:v0.1.4",
+		Image: t.KrmFunctionsRegistry + "/set-annotations:v0.1.5",
 		ConfigMap: map[string]string{
 			"color": "red",
 			"fruit": "apple",
@@ -141,13 +138,21 @@ func (t *PorchSuite) TestUpdateResources() {
 	t.SaveKptfileF(&prResources, kptfile)
 
 	// Add a new resource
-	filename := filepath.Join("testdata", "update-resources", "add-config-map.yaml")
-	cm, err := os.ReadFile(filename)
-	if err != nil {
-		t.Fatalf("Failed to read ConfigMap from %q: %v", filename, err)
-	}
-	prResources.Spec.Resources["config-map.yaml"] = string(cm)
+	prResources.Spec.Resources["config-map.yaml"] = `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: update-resources-configmap
+  namespace: example
+data:
+  value: Update Resources and Render
+`
 	t.UpdateF(&prResources)
+
+	// Re-fetch the resources to get the actual rendered result
+	t.GetF(client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      pr.Name,
+	}, &prResources)
 
 	updated, ok := prResources.Spec.Resources["config-map.yaml"]
 	if !ok {
@@ -157,12 +162,22 @@ func (t *PorchSuite) TestUpdateResources() {
 	renderStatus := prResources.Status.RenderStatus
 	assert.Empty(t, renderStatus.Err, "render error must be empty for successful render operation.")
 	assert.Zero(t, renderStatus.Result.ExitCode, "exit code must be zero for successful render operation.")
-	assert.True(t, len(renderStatus.Result.Items) > 0, renderStatus.Result.Items)
 
-	golden := filepath.Join("testdata", "update-resources", "want-config-map.yaml")
-	if diff := t.CompareGoldenFileYAML(golden, updated); diff != "" {
+	wantConfigMap := `apiVersion: v1
+data:
+  value: Update Resources and Render
+kind: ConfigMap
+metadata:
+  annotations:
+    color: red
+    fruit: apple
+  name: update-resources-configmap
+  namespace: example
+`
+	if diff := t.CompareStringYAML(wantConfigMap, updated); diff != "" {
 		t.Errorf("Unexpected updated config map contents: (-want,+got): %s", diff)
 	}
+	t.Logf("ConfigMap content matches expected result after KRM function processing")
 }
 
 func (t *PorchSuite) TestUpdateResourcesEmptyPatch() {

@@ -25,9 +25,8 @@ import (
 func (t *PorchSuite) TestInitEmptyPackage() {
 	// Create a new package via init, no task specified
 	const (
-		repository  = "git"
+		repository  = "init-empty"
 		packageName = "empty-package"
-		revision    = 1
 		workspace   = "test-workspace"
 		description = "empty-package description"
 	)
@@ -38,29 +37,15 @@ func (t *PorchSuite) TestInitEmptyPackage() {
 	// Create a new package (via init)
 	pr := t.CreatePackageDraftF(repository, packageName, workspace)
 
-	// Get the package
-	var newPackage porchapi.PackageRevisionResources
-	t.GetF(client.ObjectKey{
-		Namespace: t.Namespace,
-		Name:      pr.Name,
-	}, &newPackage)
-
-	kptfile := t.ParseKptfileF(&newPackage)
-	if got, want := kptfile.Name, "empty-package"; got != want {
-		t.Fatalf("New package name: got %q, want %q", got, want)
-	}
-	if got, want := kptfile.Info, (&kptfilev1.PackageInfo{
+	t.validateKptFileMetadata(pr, packageName, &kptfilev1.PackageInfo{
 		Description: description,
-	}); !cmp.Equal(want, got) {
-		t.Fatalf("unexpected %s/%s package info (-want, +got) %s", newPackage.Namespace, newPackage.Name, cmp.Diff(want, got))
-	}
+	})
 }
 
 func (t *PorchSuite) TestInitTaskPackage() {
 	const (
-		repository  = "git"
+		repository  = "init-task"
 		packageName = "new-package"
-		revision    = 1
 		workspace   = "test-workspace"
 		description = "New Package"
 		site        = "https://kpt.dev/new-package"
@@ -71,7 +56,7 @@ func (t *PorchSuite) TestInitTaskPackage() {
 	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
 	// Create PackageRevision from upstream repo
-	pr := t.CreatePackageSkeleton(repository, "new-package", workspace)
+	pr := t.CreatePackageSkeleton(repository, packageName, workspace)
 	pr.Spec.Tasks = []porchapi.Task{
 		{
 			Type: porchapi.TaskTypeInit,
@@ -84,22 +69,25 @@ func (t *PorchSuite) TestInitTaskPackage() {
 	}
 	t.CreateF(pr)
 
-	// Get the package
-	var newPackage porchapi.PackageRevisionResources
-	t.GetF(client.ObjectKey{
-		Namespace: t.Namespace,
-		Name:      pr.Name,
-	}, &newPackage)
-
-	kptfile := t.ParseKptfileF(&newPackage)
-	if got, want := kptfile.Name, "new-package"; got != want {
-		t.Fatalf("New package name: got %q, want %q", got, want)
-	}
-	if got, want := kptfile.Info, (&kptfilev1.PackageInfo{
+	t.validateKptFileMetadata(pr, packageName, &kptfilev1.PackageInfo{
 		Site:        site,
 		Description: description,
 		Keywords:    keywords,
-	}); !cmp.Equal(want, got) {
-		t.Fatalf("unexpected %s/%s package info (-want, +got) %s", newPackage.Namespace, newPackage.Name, cmp.Diff(want, got))
+	})
+}
+
+func (t *PorchSuite) validateKptFileMetadata(pr *porchapi.PackageRevision, expectedName string, expectedInfo *kptfilev1.PackageInfo) {
+	var pkg porchapi.PackageRevisionResources
+	t.GetF(client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      pr.Name,
+	}, &pkg)
+	
+	kptfile := t.ParseKptfileF(&pkg)
+	if got, want := kptfile.Name, expectedName; got != want {
+		t.Fatalf("Package name: got %q, want %q", got, want)
+	}
+	if got, want := kptfile.Info, expectedInfo; !cmp.Equal(want, got) {
+		t.Fatalf("unexpected %s/%s package info (-want, +got) %s", pkg.Namespace, pkg.Name, cmp.Diff(want, got))
 	}
 }

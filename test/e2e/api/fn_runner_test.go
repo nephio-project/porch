@@ -29,66 +29,29 @@ import (
 )
 
 const (
-	skipPodEvaluatorMsg = "Skipping due to not having pod evaluator in local mode"
+	bucketNamespace = "bucket-namespace"
+	fooAnnotation   = "foo"
+	barValue        = "bar"
+	
+	setNamespaceImage   = "set-namespace:v0.4.1"
+	setAnnotationsImage = "set-annotations:v0.1.4"
 )
 
 func (t *PorchSuite) TestBuiltinFunctionEvaluator() {
-	const (
-		repoName = "git-builtin-fn-eval"
-	)
-	// Register the repository as 'git-builtin-fn'
-	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
-
-	// Create Package Revision
-	pr := t.CreatePackageCloneF(repoName, "test-builtin-fn-bucket", "test-workspace", defaultBucketBpRef, "bucket")
-
-	// Get package resources
-	resources := &porchapi.PackageRevisionResources{}
-	t.GetF(client.ObjectKey{
-		Namespace: t.Namespace,
-		Name:      pr.Name,
-	}, resources)
+	resources := t.setupFunctionTestPackage("git-builtin-fn-eval", "test-builtin-fn-bucket", "test-workspace")
 
 	t.AddMutator(resources, t.KrmFunctionsRegistry+"/starlark:v0.4.3", suiteutils.WithConfigmap(map[string]string{
 		"source": `for resource in ctx.resource_list["items"]:
 		  resource["metadata"]["annotations"]["foo"] = "bar"`,
 	}))
-	t.AddMutator(resources, t.KrmFunctionsRegistry+"/set-namespace:v0.4.1", suiteutils.WithConfigmap(map[string]string{"namespace": "bucket-namespace"}))
+	t.AddMutator(resources, t.KrmFunctionsRegistry+"/"+setNamespaceImage, suiteutils.WithConfigmap(map[string]string{"namespace": bucketNamespace}))
 	t.UpdateF(resources)
 
-	bucket, ok := resources.Spec.Resources["bucket.yaml"]
-	if !ok {
-		t.Errorf("'bucket.yaml' not found among package resources")
-	}
-	node, err := yaml.Parse(bucket)
-	if err != nil {
-		t.Errorf("yaml.Parse(\"bucket.yaml\") failed: %v", err)
-	}
-	if got, want := node.GetNamespace(), "bucket-namespace"; got != want {
-		t.Errorf("StorageBucket namespace: got %q, want %q", got, want)
-	}
-	annotations := node.GetAnnotations()
-	if val, found := annotations["foo"]; !found || val != "bar" {
-		t.Errorf("StorageBucket annotations should contain foo=bar, but got %v", annotations)
-	}
+	t.validateBucketResource(resources, bucketNamespace, map[string]string{fooAnnotation: barValue})
 }
 
 func (t *PorchSuite) TestExecFunctionEvaluator() {
-	const (
-		repoName = "git-exec-fn-eval"
-	)
-	// Register the repository as 'git-fn'
-	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
-
-	// Create Package Revision
-	pr := t.CreatePackageCloneF(repoName, "test-fn-bucket", "test-workspace", defaultBucketBpRef, "bucket")
-
-	// Get package resources
-	resources := &porchapi.PackageRevisionResources{}
-	t.GetF(client.ObjectKey{
-		Namespace: t.Namespace,
-		Name:      pr.Name,
-	}, resources)
+	resources := t.setupFunctionTestPackage("git-exec-fn-eval", "test-fn-bucket", "test-workspace")
 
 	t.AddMutator(resources, t.KrmFunctionsRegistry+"/starlark:v0.3.0", suiteutils.WithConfigmap(map[string]string{
 		"source": `# set the namespace on all resources
@@ -98,45 +61,19 @@ for resource in ctx.resource_list["items"]:
 	  # mutate the resource
 	  resource["metadata"]["namespace"] = "bucket-namespace"`,
 	}))
-	t.AddMutator(resources, t.KrmFunctionsRegistry+"/set-annotations:v0.1.4", suiteutils.WithConfigmap(map[string]string{"foo": "bar"}))
+	t.AddMutator(resources, t.KrmFunctionsRegistry+"/"+setAnnotationsImage, suiteutils.WithConfigmap(map[string]string{fooAnnotation: barValue}))
 	t.UpdateF(resources)
 
-	bucket, ok := resources.Spec.Resources["bucket.yaml"]
-	if !ok {
-		t.Errorf("'bucket.yaml' not found among package resources")
-	}
-	node, err := yaml.Parse(bucket)
-	if err != nil {
-		t.Errorf("yaml.Parse(\"bucket.yaml\") failed: %v", err)
-	}
-	if got, want := node.GetNamespace(), "bucket-namespace"; got != want {
-		t.Errorf("StorageBucket namespace: got %q, want %q", got, want)
-	}
-	annotations := node.GetAnnotations()
-	if val, found := annotations["foo"]; !found || val != "bar" {
-		t.Errorf("StorageBucket annotations should contain foo=bar, but got %v", annotations)
-	}
+	t.validateBucketResource(resources, bucketNamespace, map[string]string{fooAnnotation: barValue})
 }
 
 func (t *PorchSuite) TestPodFunctionEvaluatorWithDistrolessImage() {
-	if t.TestRunnerIsLocal {
-		t.Skipf(skipPodEvaluatorMsg)
-	}
-	const (
-		repoName = "git-fn-distroless"
-	)
+	t.skipIfLocalPodEvaluator()
 
-	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
-
-	// Create Package Revision
-	pr := t.CreatePackageCloneF(repoName, "test-fn-redis-bucket", "test-description", "redis-bucket/v1", "redis-bucket")
-
-	// Get package resources
-	resources := &porchapi.PackageRevisionResources{}
-	t.GetF(client.ObjectKey{
-		Namespace: t.Namespace,
-		Name:      pr.Name,
-	}, resources)
+	resources := t.setupFunctionTestPackage("git-fn-distroless", "test-fn-redis-bucket", "test-description", TestPackageSetupOptions{
+		UpstreamRef: "redis-bucket/v1",
+		UpstreamDir: "redis-bucket",
+	})
 
 	resources.Spec.Resources["configmap.yaml"] = `
 apiVersion: v1
@@ -147,35 +84,23 @@ data:
   name: bucket-namespace
 `
 
-	t.AddMutator(resources, t.KrmFunctionsRegistry+"/set-namespace:v0.4.1", suiteutils.WithConfigPath("configmap.yaml"))
+	t.AddMutator(resources, t.KrmFunctionsRegistry+"/"+setNamespaceImage, suiteutils.WithConfigPath("configmap.yaml"))
 	t.UpdateF(resources)
 
-	bucket, ok := resources.Spec.Resources["bucket.yaml"]
-	if !ok {
-		t.Errorf("'bucket.yaml' not found among package resources")
-	}
-	node, err := yaml.Parse(bucket)
-	if err != nil {
-		t.Errorf("yaml.Parse(\"bucket.yaml\") failed: %v", err)
-	}
-	if got, want := node.GetNamespace(), "bucket-namespace"; got != want {
-		t.Errorf("StorageBucket namespace: got %q, want %q", got, want)
-	}
+	t.validateBucketResource(resources, bucketNamespace, nil)
 }
 
 func (t *PorchSuite) TestPodEvaluator() {
-	if t.TestRunnerIsLocal {
-		t.Skipf(skipPodEvaluatorMsg)
-	}
+	t.skipIfLocalPodEvaluator()
 	const repoName = "git-fn-pod-eval"
 
-	setAnnotationsImage := t.KrmFunctionsRegistry + "/set-annotations:v0.1.4"
+	setAnnotationsImg := t.KrmFunctionsRegistry + "/" + setAnnotationsImage
 	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
 	// Create first package revision
 	pr := t.CreatePackageCloneF(repoName, "test-fn-pod-bucket", "workspace-1", defaultBucketBpRef, "bucket")
 	resources := t.WaitUntilPackageRevisionResourcesExists(types.NamespacedName{Namespace: t.Namespace, Name: pr.Name})
-	t.AddMutator(resources, setAnnotationsImage, suiteutils.WithConfigmap(map[string]string{"test-key": "test-val"}))
+	t.AddMutator(resources, setAnnotationsImg, suiteutils.WithConfigmap(map[string]string{"test-key": "test-val"}))
 	t.UpdateF(resources)
 
 	// Wait for the correct pod to be created and capture suffix
@@ -186,7 +111,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 			return false, err
 		}
 		for _, pod := range podList.Items {
-			if pod.Spec.Containers[0].Image == setAnnotationsImage {
+			if pod.Spec.Containers[0].Image == setAnnotationsImg {
 				parts := strings.Split(pod.Name, "-")
 				if len(parts) > 0 {
 					firstPodSuffix = parts[len(parts)-1]
@@ -199,7 +124,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 		return false, nil
 	})
 	if err != nil {
-		t.Fatalf("Failed to find pod with image %s: %v", setAnnotationsImage, err)
+		t.Fatalf("Failed to find pod with image %s: %v", setAnnotationsImg, err)
 	}
 
 	// Create second package revision
@@ -207,7 +132,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 	resources = t.WaitUntilPackageRevisionResourcesExists(types.NamespacedName{Namespace: t.Namespace, Name: pr2.Name})
 
 	// Testing pod evaluator with golang function
-	t.AddMutator(resources, setAnnotationsImage, suiteutils.WithConfigmap(map[string]string{"new-test-key": "new-test-val"}))
+	t.AddMutator(resources, setAnnotationsImg, suiteutils.WithConfigmap(map[string]string{"new-test-key": "new-test-val"}))
 	t.UpdateF(resources)
 
 	// Verify second pod has different suffix
@@ -215,7 +140,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 	t.ListF(podList, client.InNamespace("porch-fn-system"))
 	var secondPodSuffix string
 	for _, pod := range podList.Items {
-		if pod.Spec.Containers[0].Image == setAnnotationsImage {
+		if pod.Spec.Containers[0].Image == setAnnotationsImg {
 			parts := strings.Split(pod.Name, "-")
 			if len(parts) > 0 {
 				secondPodSuffix = parts[len(parts)-1]
@@ -230,19 +155,11 @@ func (t *PorchSuite) TestPodEvaluator() {
 }
 
 func (t *PorchSuite) TestPodEvaluatorWithFailure() {
-	if t.TestRunnerIsLocal {
-		t.Skipf("Skipping due to not having pod evaluator in local mode")
-	}
-	const (
-		repoName = "git-pod-eval-fn-failure"
-	)
+	t.skipIfLocalPodEvaluator()
 
-	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
-
-	// Create Package Revision
-	pr := t.CreatePackageCloneF(repoName, "test-fn-pod-bucket", defaultWorkspace, defaultBucketBpRef, "bucket")
-
-	resources := t.WaitUntilPackageRevisionResourcesExists(types.NamespacedName{Namespace: t.Namespace, Name: pr.Name})
+	resources := t.setupFunctionTestPackage("git-pod-eval-fn-failure", "test-fn-pod-bucket", defaultWorkspace, TestPackageSetupOptions{
+		WaitForReady: true,
+	})
 
 	// Add invalid resource to make kubeconform fail
 	resources.Spec.Resources["invalid.yaml"] = `apiVersion: v1
@@ -261,22 +178,12 @@ spec:
 }
 
 func (t *PorchSuite) TestFailedPodEvictionAndRecovery() {
-	if t.TestRunnerIsLocal {
-		t.Skipf("Skipping test: evaluator pod not available in local mode")
-	}
-	const (
-		repoName = "git-fn-failed-recovery"
-	)
-	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
+	t.skipIfLocalPodEvaluator()
 
 	// Define a bogus kpt function image that will fail (image doesn't exist)
 	bogusFnImage := "quay.io/invalid/kpt-fn-broken:v0.0.1"
 
-	// Create a PackageRevision
-	pr := t.CreatePackageCloneF(repoName, "test-fn-pod-eviction", defaultWorkspace, defaultBucketBpRef, "bucket")
-
-	prr := &porchapi.PackageRevisionResources{}
-	t.GetF(client.ObjectKeyFromObject(pr), prr)
+	prr := t.setupFunctionTestPackage("git-fn-failed-recovery", "test-fn-pod-eviction", defaultWorkspace)
 
 	// Add an eval task that will fail
 	t.AddMutator(prr, bogusFnImage)
@@ -298,5 +205,71 @@ func (t *PorchSuite) TestFailedPodEvictionAndRecovery() {
 				t.Logf("Found pod %s in %s state", pod.Name, pod.Status.Phase)
 			}
 		}
+	}
+}
+
+type TestPackageSetupOptions struct {
+	UpstreamRef   string
+	UpstreamDir   string
+	WaitForReady  bool
+}
+
+func (t *PorchSuite) setupFunctionTestPackage(repoName, packageName, workspace string, opts ...TestPackageSetupOptions) *porchapi.PackageRevisionResources {
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
+	
+	// Set defaults
+	upstreamRef := defaultBucketBpRef
+	upstreamDir := "bucket"
+	waitForReady := false
+	
+	// Apply options
+	if len(opts) > 0 {
+		if opts[0].UpstreamRef != "" {
+			upstreamRef = opts[0].UpstreamRef
+		}
+		if opts[0].UpstreamDir != "" {
+			upstreamDir = opts[0].UpstreamDir
+		}
+		waitForReady = opts[0].WaitForReady
+	}
+	
+	pr := t.CreatePackageCloneF(repoName, packageName, workspace, upstreamRef, upstreamDir)
+	
+	if waitForReady {
+		return t.WaitUntilPackageRevisionResourcesExists(types.NamespacedName{Namespace: t.Namespace, Name: pr.Name})
+	}
+	
+	resources := &porchapi.PackageRevisionResources{}
+	t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: pr.Name}, resources)
+	return resources
+}
+
+func (t *PorchSuite) validateBucketResource(resources *porchapi.PackageRevisionResources, expectedNamespace string, expectedAnnotations map[string]string) {
+	bucket, ok := resources.Spec.Resources["bucket.yaml"]
+	if !ok {
+		t.Errorf("'bucket.yaml' not found among package resources")
+		return
+	}
+	node, err := yaml.Parse(bucket)
+	if err != nil {
+		t.Errorf("yaml.Parse(\"bucket.yaml\") failed: %v", err)
+		return
+	}
+	if got := node.GetNamespace(); got != expectedNamespace {
+		t.Errorf("StorageBucket namespace: got %q, want %q", got, expectedNamespace)
+	}
+	if expectedAnnotations != nil {
+		annotations := node.GetAnnotations()
+		for key, expectedVal := range expectedAnnotations {
+			if val, found := annotations[key]; !found || val != expectedVal {
+				t.Errorf("StorageBucket annotations should contain %s=%s, but got %v", key, expectedVal, annotations)
+			}
+		}
+	}
+}
+
+func (t *PorchSuite) skipIfLocalPodEvaluator() {
+	if t.TestRunnerIsLocal {
+		t.Skipf("Skipping due to not having pod evaluator in local mode")
 	}
 }

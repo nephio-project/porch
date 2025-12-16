@@ -15,9 +15,6 @@
 package api
 
 import (
-	"os"
-	"path/filepath"
-
 	"github.com/google/go-cmp/cmp"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
@@ -26,6 +23,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	istionsPackage = "istions"
+	basensPackage  = "basens"
+	basensDir      = "basens"
+	basensRef      = "basens/v1"
+	testWorkspace  = "test-workspace"
 )
 
 
@@ -43,14 +48,14 @@ func (t *PorchSuite) TestCloneFromUpstream() {
 			RepoKey: repository.RepositoryKey{
 				Name: suiteutils.TestBlueprintsRepoName,
 			},
-			Package: "basens"},
+			Package: basensPackage},
 		Revision: 1})
 
 	// Register the repository as 'downstream'
 	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), suiteutils.PorchTestRepoName, "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
 	// Create PackageRevision from upstream repo
-	clonedPr := t.CreatePackageSkeleton(suiteutils.PorchTestRepoName, "istions", "test-workspace")
+	clonedPr := t.CreatePackageSkeleton(suiteutils.PorchTestRepoName, istionsPackage, testWorkspace)
 	clonedPr.Spec.Tasks = []porchapi.Task{
 		{
 			Type: porchapi.TaskTypeClone,
@@ -74,53 +79,12 @@ func (t *PorchSuite) TestCloneFromUpstream() {
 	}, &istions)
 
 	kptfile := t.ParseKptfileF(&istions)
-
-	if got, want := kptfile.Name, "istions"; got != want {
-		t.Errorf("istions package Kptfile.metadata.name: got %q, want %q", got, want)
-	}
-	if kptfile.UpstreamLock == nil {
-		t.Fatalf("istions package upstreamLock is missing")
-	}
-	if kptfile.UpstreamLock.Git == nil {
-		t.Errorf("istions package upstreamLock.git is missing")
-	}
-	if kptfile.UpstreamLock.Git.Commit == "" {
-		t.Errorf("istions package upstreamLock.git.commit is missing")
-	}
-
-	// Remove commit from comparison
-	got := kptfile.UpstreamLock
-	got.Git.Commit = ""
-
-	want := &kptfilev1.UpstreamLock{
-		Type: kptfilev1.GitOrigin,
-		Git: &kptfilev1.GitLock{
-			Repo:      testBlueprintsRepo,
-			Directory: "basens",
-			Ref:       "basens/v1",
-		},
-	}
-	if !cmp.Equal(want, got) {
-		t.Errorf("unexpected upstreamlock returned (-want, +got) %s", cmp.Diff(want, got))
-	}
-
-	// Check Upstream
-	if got, want := kptfile.Upstream, (&kptfilev1.Upstream{
-		Type: kptfilev1.GitOrigin,
-		Git: &kptfilev1.Git{
-			Repo:      testBlueprintsRepo,
-			Directory: "basens",
-			Ref:       "basens/v1",
-		},
-	}); !cmp.Equal(want, got) {
-		t.Errorf("unexpected upstream returned (-want, +got) %s", cmp.Diff(want, got))
-	}
+	t.validateKptfileBasics(kptfile, istionsPackage)
+	t.validateUpstreamLock(kptfile, testBlueprintsRepo)
+	t.validateUpstream(kptfile, testBlueprintsRepo)
 }
 
 func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
-	const downstreamPackage = "istions"
-	const downstreamWorkspace = "test-workspace"
-
 	testBlueprintsRepo := t.GetTestBlueprintsRepoURL()
 
 	// Register the deployment repository
@@ -136,14 +100,14 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 			RepoKey: repository.RepositoryKey{
 				Name: suiteutils.TestBlueprintsRepoName,
 			},
-			Package: "basens",
+			Package: basensPackage,
 		},
 		Revision:      1,
 		WorkspaceName: "v1",
 	})
 
 	// Create PackageRevision from upstream repo
-	pr := t.CreatePackageSkeleton(suiteutils.PorchTestRepoName, downstreamPackage, downstreamWorkspace)
+	pr := t.CreatePackageSkeleton(suiteutils.PorchTestRepoName, istionsPackage, testWorkspace)
 	pr.Spec.Tasks = []porchapi.Task{
 		{
 			Type: porchapi.TaskTypeClone,
@@ -167,47 +131,9 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 	}, &istions)
 
 	kptfile := t.ParseKptfileF(&istions)
-
-	if got, want := kptfile.Name, "istions"; got != want {
-		t.Errorf("istions package Kptfile.metadata.name: got %q, want %q", got, want)
-	}
-	if kptfile.UpstreamLock == nil {
-		t.Fatalf("istions package upstreamLock is missing")
-	}
-	if kptfile.UpstreamLock.Git == nil {
-		t.Errorf("istions package upstreamLock.git is missing")
-	}
-	if kptfile.UpstreamLock.Git.Commit == "" {
-		t.Errorf("istions package upstreamLock.git.commit is missing")
-	}
-
-	// Remove commit from comparison
-	got := kptfile.UpstreamLock
-	got.Git.Commit = ""
-
-	want := &kptfilev1.UpstreamLock{
-		Type: kptfilev1.GitOrigin,
-		Git: &kptfilev1.GitLock{
-			Repo:      testBlueprintsRepo,
-			Directory: "basens",
-			Ref:       "basens/v1",
-		},
-	}
-	if !cmp.Equal(want, got) {
-		t.Errorf("unexpected upstreamlock returned (-want, +got) %s", cmp.Diff(want, got))
-	}
-
-	// Check Upstream
-	if got, want := kptfile.Upstream, (&kptfilev1.Upstream{
-		Type: kptfilev1.GitOrigin,
-		Git: &kptfilev1.Git{
-			Repo:      testBlueprintsRepo,
-			Directory: "basens",
-			Ref:       "basens/v1",
-		},
-	}); !cmp.Equal(want, got) {
-		t.Errorf("unexpected upstream returned (-want, +got) %s", cmp.Diff(want, got))
-	}
+	t.validateKptfileBasics(kptfile, istionsPackage)
+	t.validateUpstreamLock(kptfile, testBlueprintsRepo)
+	t.validateUpstream(kptfile, testBlueprintsRepo)
 
 	// Check generated context
 	var configmap corev1.ConfigMap
@@ -227,7 +153,7 @@ func (t *PorchSuite) TestCloneLeadingSlash() {
 	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
 	// Clone the package. Use leading slash in the directory (regression test)
-	new := t.CreatePackageCloneF(repository, "test-clone-ls", defaultWorkspace, "basens/v1", "/basens")
+	new := t.CreatePackageCloneF(repository, "test-clone-ls", defaultWorkspace, basensRef, "/basens")
 
 	var pr porchapi.PackageRevision
 	t.MustExist(client.ObjectKey{Namespace: t.Namespace, Name: new.Name}, &pr)
@@ -246,11 +172,11 @@ func (t *PorchSuite) TestPackageUpgrade() {
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
 
-	basensV1 := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "test-blueprints"}, Package: "basens"}, Revision: 1})
-	basensV2 := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "test-blueprints"}, Package: "basens"}, Revision: 2})
+	basensV1 := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: suiteutils.TestBlueprintsRepoName}, Package: basensPackage}, Revision: 1})
+	basensV2 := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: suiteutils.TestBlueprintsRepoName}, Package: basensPackage}, Revision: 2})
 
 	// Create PackageRevision from upstream repo
-	pr := t.CreatePackageSkeleton(gitRepository, "testns", "test-workspace")
+	pr := t.CreatePackageSkeleton(gitRepository, "testns", testWorkspace)
 	pr.Spec.Tasks = []porchapi.Task{
 		{
 			Type: porchapi.TaskTypeClone,
@@ -271,12 +197,14 @@ func (t *PorchSuite) TestPackageUpgrade() {
 		Name:      pr.Name,
 	}, &revisionResources)
 
-	filename := filepath.Join("testdata", "update-resources", "add-config-map.yaml")
-	cm, err := os.ReadFile(filename)
-	if err != nil {
-		t.Fatalf("Failed to read ConfigMap from %q: %v", filename, err)
-	}
-	revisionResources.Spec.Resources["config-map.yaml"] = string(cm)
+	revisionResources.Spec.Resources["config-map.yaml"] = `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: update-resources-configmap
+  namespace: example
+data:
+  value: Update Resources and Render
+`
 	t.UpdateF(&revisionResources)
 
 	// publish PackageRevision
@@ -288,7 +216,7 @@ func (t *PorchSuite) TestPackageUpgrade() {
 
 	// upgrade "test-workspace" to basensV2
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDraft
-	pr.Spec.WorkspaceName = "test-workspace-upgrade"
+	pr.Spec.WorkspaceName = testWorkspace + "-upgrade"
 	pr.Spec.Tasks = []porchapi.Task{{
 		Type: porchapi.TaskTypeUpgrade,
 		Upgrade: &porchapi.PackageUpgradeTaskSpec{
@@ -313,5 +241,51 @@ func (t *PorchSuite) TestPackageUpgrade() {
 
 	if _, found := revisionResources.Spec.Resources["resourcequota.yaml"]; !found {
 		t.Errorf("Updated package should contain 'resourcequota.yaml` file")
+	}
+}
+
+func (t *PorchSuite) validateKptfileBasics(kptfile *kptfilev1.KptFile, expectedName string) {
+	if got, want := kptfile.Name, expectedName; got != want {
+		t.Errorf("%s package Kptfile.metadata.name: got %q, want %q", expectedName, got, want)
+	}
+	if kptfile.UpstreamLock == nil {
+		t.Fatalf("%s package upstreamLock is missing", expectedName)
+	}
+	if kptfile.UpstreamLock.Git == nil {
+		t.Errorf("%s package upstreamLock.git is missing", expectedName)
+	}
+	if kptfile.UpstreamLock.Git.Commit == "" {
+		t.Errorf("%s package upstreamLock.git.commit is missing", expectedName)
+	}
+}
+
+func (t *PorchSuite) validateUpstreamLock(kptfile *kptfilev1.KptFile, testBlueprintsRepo string) {
+	got := kptfile.UpstreamLock
+	got.Git.Commit = ""
+	want := &kptfilev1.UpstreamLock{
+		Type: kptfilev1.GitOrigin,
+		Git: &kptfilev1.GitLock{
+			Repo:      testBlueprintsRepo,
+			Directory: basensDir,
+			Ref:       basensRef,
+		},
+	}
+	if !cmp.Equal(want, got) {
+		t.Errorf("unexpected upstreamlock returned (-want, +got) %s", cmp.Diff(want, got))
+	}
+}
+
+func (t *PorchSuite) validateUpstream(kptfile *kptfilev1.KptFile, testBlueprintsRepo string) {
+	got := kptfile.Upstream
+	want := &kptfilev1.Upstream{
+		Type: kptfilev1.GitOrigin,
+		Git: &kptfilev1.Git{
+			Repo:      testBlueprintsRepo,
+			Directory: basensDir,
+			Ref:       basensRef,
+		},
+	}
+	if !cmp.Equal(want, got) {
+		t.Errorf("unexpected upstream returned (-want, +got) %s", cmp.Diff(want, got))
 	}
 }
