@@ -34,7 +34,7 @@ var (
 )
 
 func init() {
-	localSchemeBuilder.Register(addKnownTypes)
+	localSchemeBuilder.Register(addKnownTypes, addConversions)
 }
 
 // Adds the list of known types to the given scheme.
@@ -52,6 +52,10 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil
+}
+
+func addConversions(scheme *runtime.Scheme) error {
+	return RegisterConversions(scheme)
 }
 
 // Resource takes an unqualified resource and returns a Group qualified GroupResource

@@ -23,7 +23,7 @@ import (
 
 	"sigs.k8s.io/kustomize/kyaml/kio"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	api "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
@@ -92,7 +92,7 @@ func newInjectionPoint(file string, object *fn.KubeObject) *injectionPoint {
 func ensureConfigInjection(ctx context.Context,
 	c client.Client,
 	pv *api.PackageVariant,
-	prr *porchapi.PackageRevisionResources) error {
+	prr *porchapiv1alpha1.PackageRevisionResources) error {
 
 	files, err := parseFiles(prr)
 	if err != nil {
@@ -139,7 +139,7 @@ func kubeobjectsToYaml(kos fn.KubeObjects) string {
 	return strings.Join(yamls, "---\n")
 }
 
-func parseFiles(prr *porchapi.PackageRevisionResources) (map[string]fn.KubeObjects, error) {
+func parseFiles(prr *porchapiv1alpha1.PackageRevisionResources) (map[string]fn.KubeObjects, error) {
 	result := make(map[string]fn.KubeObjects)
 	for file, r := range prr.Spec.Resources {
 		if !includeFile(file) {

@@ -20,7 +20,7 @@ import (
 	"sort"
 	"testing"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	api "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
@@ -220,7 +220,7 @@ spec:
 
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			var prr porchapi.PackageRevisionResources
+			var prr porchapiv1alpha1.PackageRevisionResources
 			require.NoError(t, yaml.Unmarshal([]byte(prrBase+tc.resources), &prr))
 
 			actualFiles, actualErr := parseFiles(&prr)
@@ -845,7 +845,7 @@ spec:
 		t.Run(tn, func(t *testing.T) {
 			var pv api.PackageVariant
 			require.NoError(t, yaml.Unmarshal([]byte(pvBase+tc.injectors), &pv))
-			var prr porchapi.PackageRevisionResources
+			var prr porchapiv1alpha1.PackageRevisionResources
 			require.NoError(t, yaml.Unmarshal([]byte(prrBase+baseKptfile+tc.injectionPoints), &prr))
 
 			c := &fakeClient{}
@@ -856,7 +856,7 @@ spec:
 				require.EqualError(t, actualErr, tc.expectedErr)
 			}
 
-			var expectedPRR porchapi.PackageRevisionResources
+			var expectedPRR porchapiv1alpha1.PackageRevisionResources
 			require.NoError(t, yaml.Unmarshal([]byte(tc.expectedPRR), &expectedPRR))
 
 			require.Equal(t, expectedPRR, prr)

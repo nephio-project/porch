@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	api "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
 	"github.com/stretchr/testify/assert"
@@ -326,7 +326,7 @@ items:
 
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			var prList porchapi.PackageRevisionList
+			var prList porchapiv1alpha1.PackageRevisionList
 			require.NoError(t, yaml.Unmarshal([]byte(tc.packageRevisionList), &prList))
 			actual := string(newWorkspaceName(&prList, "", ""))
 			require.Equal(t, tc.expected, actual)
@@ -646,7 +646,7 @@ status:
 
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			var prList porchapi.PackageRevisionList
+			var prList porchapiv1alpha1.PackageRevisionList
 			require.NoError(t, yaml.Unmarshal([]byte(tc.packageRevisionList), &prList))
 
 			fc := &fakeClient{}
@@ -712,21 +712,21 @@ spec:
 		// should delete the PR
 		"deletionPolicy delete, lifecycle draft": {
 			deletionPolicy: string(api.DeletionPolicyDelete),
-			prLifecycle:    string(porchapi.PackageRevisionLifecycleDraft),
+			prLifecycle:    string(porchapiv1alpha1.PackageRevisionLifecycleDraft),
 			expectedOutput: []string{"deleting object: my-pr"},
 		},
 
 		// should delete the PR
 		"deletionPolicy delete, lifecycle proposed": {
 			deletionPolicy: string(api.DeletionPolicyDelete),
-			prLifecycle:    string(porchapi.PackageRevisionLifecycleProposed),
+			prLifecycle:    string(porchapiv1alpha1.PackageRevisionLifecycleProposed),
 			expectedOutput: []string{"deleting object: my-pr"},
 		},
 
 		// should propose the PR for deletion
 		"deletionPolicy delete, lifecycle published": {
 			deletionPolicy: string(api.DeletionPolicyDelete),
-			prLifecycle:    string(porchapi.PackageRevisionLifecyclePublished),
+			prLifecycle:    string(porchapiv1alpha1.PackageRevisionLifecyclePublished),
 			expectedOutput: []string{"updating object: my-pr"},
 			expectedPR: `apiVersion: porch.kpt.dev
 kind: PackageRevision
@@ -754,14 +754,14 @@ status:
 		// should do nothing
 		"deletionPolicy delete, lifecycle deletionProposed": {
 			deletionPolicy: string(api.DeletionPolicyDelete),
-			prLifecycle:    string(porchapi.PackageRevisionLifecycleDeletionProposed),
+			prLifecycle:    string(porchapiv1alpha1.PackageRevisionLifecycleDeletionProposed),
 			expectedOutput: nil,
 		},
 
 		// should remove the pv's owner reference from the pr
 		"deletionPolicy orphan, lifecycle draft": {
 			deletionPolicy: string(api.DeletionPolicyOrphan),
-			prLifecycle:    string(porchapi.PackageRevisionLifecycleDraft),
+			prLifecycle:    string(porchapiv1alpha1.PackageRevisionLifecycleDraft),
 			expectedOutput: []string{"updating object: my-pr"},
 			expectedPR: `apiVersion: porch.kpt.dev
 kind: PackageRevision
@@ -789,7 +789,7 @@ status:
 			require.NoError(t, yaml.Unmarshal(
 				[]byte(fmt.Sprintf(pvStr, tc.deletionPolicy)), &pv))
 
-			var pr porchapi.PackageRevision
+			var pr porchapiv1alpha1.PackageRevision
 			require.NoError(t, yaml.Unmarshal(
 				[]byte(fmt.Sprintf(prStr, tc.prLifecycle)), &pr))
 
@@ -961,7 +961,7 @@ items:
 		t.Run(tn, func(t *testing.T) {
 			fc := &fakeClient{}
 			reconciler := &PackageVariantReconciler{Client: fc}
-			var prList porchapi.PackageRevisionList
+			var prList porchapiv1alpha1.PackageRevisionList
 			require.NoError(t, yaml.Unmarshal([]byte(tc.packageRevisionList), &prList))
 
 			var pv api.PackageVariant
@@ -1112,7 +1112,7 @@ spec:
 		t.Run(tn, func(t *testing.T) {
 			var pv api.PackageVariant
 			require.NoError(t, yaml.Unmarshal([]byte(pvBase+tc.spec), &pv))
-			var prr porchapi.PackageRevisionResources
+			var prr porchapiv1alpha1.PackageRevisionResources
 			require.NoError(t, yaml.Unmarshal([]byte(prrBase+tc.initialData), &prr))
 
 			actualErr := ensurePackageContext(&pv, &prr)
@@ -1122,7 +1122,7 @@ spec:
 				require.EqualError(t, actualErr, tc.expectedErr)
 			}
 
-			var expectedPRR porchapi.PackageRevisionResources
+			var expectedPRR porchapiv1alpha1.PackageRevisionResources
 			require.NoError(t, yaml.Unmarshal([]byte(tc.expectedPRR), &expectedPRR))
 
 			require.Equal(t, expectedPRR, prr)
@@ -1455,7 +1455,7 @@ spec:
 			if tc.initialPipeline != "" {
 				locPrrBase += "      pipeline:\n"
 			}
-			var prr porchapi.PackageRevisionResources
+			var prr porchapiv1alpha1.PackageRevisionResources
 			require.NoError(t, yaml.Unmarshal([]byte(locPrrBase+tc.initialPipeline), &prr))
 			var pv api.PackageVariant
 			require.NoError(t, yaml.Unmarshal([]byte(pvBase+tc.pvPipeline), &pv))
@@ -1466,7 +1466,7 @@ spec:
 			} else {
 				require.EqualError(t, actualErr, tc.expectedErr)
 			}
-			var expectedPRR porchapi.PackageRevisionResources
+			var expectedPRR porchapiv1alpha1.PackageRevisionResources
 			require.NoError(t, yaml.Unmarshal([]byte(tc.expectedPrr), &expectedPRR))
 
 			require.Equal(t, expectedPRR, prr)
@@ -1617,7 +1617,7 @@ func TestIsValidUpstram(t *testing.T) {
 func TestGetUpstreamPr(t *testing.T) {
 	pvReconcier := PackageVariantReconciler{}
 	upstream := api.Upstream{}
-	prList := porchapi.PackageRevisionList{}
+	prList := porchapiv1alpha1.PackageRevisionList{}
 
 	_, err := pvReconcier.getUpstreamPR(&upstream, &prList)
 	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
@@ -1626,12 +1626,12 @@ func TestGetUpstreamPr(t *testing.T) {
 	upstream.Package = "my-package"
 	upstream.WorkspaceName = "my-workspace"
 
-	prList.Items = append(prList.Items, porchapi.PackageRevision{})
+	prList.Items = append(prList.Items, porchapiv1alpha1.PackageRevision{})
 	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
 	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
 
-	prList.Items = append(prList.Items, porchapi.PackageRevision{
-		Spec: porchapi.PackageRevisionSpec{
+	prList.Items = append(prList.Items, porchapiv1alpha1.PackageRevision{
+		Spec: porchapiv1alpha1.PackageRevisionSpec{
 			RepositoryName: "another-repo",
 			PackageName:    "another-package",
 			WorkspaceName:  "another-workspace",
@@ -1641,8 +1641,8 @@ func TestGetUpstreamPr(t *testing.T) {
 	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
 	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
 
-	prList.Items = append(prList.Items, porchapi.PackageRevision{
-		Spec: porchapi.PackageRevisionSpec{
+	prList.Items = append(prList.Items, porchapiv1alpha1.PackageRevision{
+		Spec: porchapiv1alpha1.PackageRevisionSpec{
 			RepositoryName: "my-repo",
 			PackageName:    "my-package",
 			WorkspaceName:  "another-workspace",
@@ -1654,8 +1654,8 @@ func TestGetUpstreamPr(t *testing.T) {
 
 	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
 	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
-	prList.Items = append(prList.Items, porchapi.PackageRevision{
-		Spec: porchapi.PackageRevisionSpec{
+	prList.Items = append(prList.Items, porchapiv1alpha1.PackageRevision{
+		Spec: porchapiv1alpha1.PackageRevisionSpec{
 			RepositoryName: "my-repo",
 			PackageName:    "my-package",
 			WorkspaceName:  "my-workspace",
@@ -1672,8 +1672,8 @@ func TestGetUpstreamPr(t *testing.T) {
 	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
 	assert.True(t, strings.HasPrefix(err.Error(), "could not find upstream package revision"))
 
-	prList.Items = append(prList.Items, porchapi.PackageRevision{
-		Spec: porchapi.PackageRevisionSpec{
+	prList.Items = append(prList.Items, porchapiv1alpha1.PackageRevision{
+		Spec: porchapiv1alpha1.PackageRevisionSpec{
 			RepositoryName: "my-repo",
 			PackageName:    "my-package",
 			WorkspaceName:  "main",
@@ -1689,24 +1689,24 @@ func TestGetUpstreamPr(t *testing.T) {
 	upstream.Repo = "my-repo2"
 	upstream.Package = "my-package2"
 	upstream.Revision = -1
-	prList.Items = append(prList.Items, porchapi.PackageRevision{
-		Spec: porchapi.PackageRevisionSpec{
+	prList.Items = append(prList.Items, porchapiv1alpha1.PackageRevision{
+		Spec: porchapiv1alpha1.PackageRevisionSpec{
 			RepositoryName: "my-repo2",
 			PackageName:    "my-package2",
 			WorkspaceName:  "v3.2.1",
 			Revision:       -1,
 		},
 	})
-	prList.Items = append(prList.Items, porchapi.PackageRevision{
-		Spec: porchapi.PackageRevisionSpec{
+	prList.Items = append(prList.Items, porchapiv1alpha1.PackageRevision{
+		Spec: porchapiv1alpha1.PackageRevisionSpec{
 			RepositoryName: "my-repo2",
 			PackageName:    "my-package2",
 			WorkspaceName:  "maim",
 			Revision:       -1,
 		},
 	})
-	prList.Items = append(prList.Items, porchapi.PackageRevision{
-		Spec: porchapi.PackageRevisionSpec{
+	prList.Items = append(prList.Items, porchapiv1alpha1.PackageRevision{
+		Spec: porchapiv1alpha1.PackageRevisionSpec{
 			RepositoryName: "my-repo2",
 			PackageName:    "my-package2",
 			WorkspaceName:  "maio",
@@ -1716,8 +1716,8 @@ func TestGetUpstreamPr(t *testing.T) {
 	_, err = pvReconcier.getUpstreamPR(&upstream, &prList)
 	assert.True(t, err != nil)
 
-	prList.Items = append(prList.Items, porchapi.PackageRevision{
-		Spec: porchapi.PackageRevisionSpec{
+	prList.Items = append(prList.Items, porchapiv1alpha1.PackageRevision{
+		Spec: porchapiv1alpha1.PackageRevisionSpec{
 			RepositoryName: "my-repo2",
 			PackageName:    "my-package2",
 			WorkspaceName:  "main",
@@ -1729,7 +1729,7 @@ func TestGetUpstreamPr(t *testing.T) {
 }
 
 func TestGetPublishedUpstreamPr(t *testing.T) {
-	prList := &porchapi.PackageRevisionList{}
+	prList := &porchapiv1alpha1.PackageRevisionList{}
 	upstream := &api.Upstream{
 		Package:       "test-package",
 		Repo:          "test-repo",
@@ -1745,16 +1745,16 @@ func TestGetPublishedUpstreamPr(t *testing.T) {
 	_, err = r.getPublishedUpstreamByRevision(upstream, prList)
 	assert.ErrorContains(t, err, "could not find upstream package revision")
 
-	prList.Items = append(prList.Items, porchapi.PackageRevision{
+	prList.Items = append(prList.Items, porchapiv1alpha1.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-repo.test-package.v1",
 		},
-		Spec: porchapi.PackageRevisionSpec{
+		Spec: porchapiv1alpha1.PackageRevisionSpec{
 			RepositoryName: "test-repo",
 			PackageName:    "test-package",
 			WorkspaceName:  "not-the-same",
 			Revision:       1,
-			Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
+			Lifecycle:      porchapiv1alpha1.PackageRevisionLifecyclePublished,
 		},
 	})
 	pr, err := r.getPublishedUpstreamByRevision(upstream, prList)
@@ -1768,51 +1768,51 @@ func TestCreateUpgradeDraft(t *testing.T) {
 	r := &PackageVariantReconciler{
 		Client: client,
 	}
-	source := &porchapi.PackageRevision{
+	source := &porchapiv1alpha1.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "downstream-repo.test-package.packagevariant-1",
 			Namespace: "test-ns",
 		},
-		Spec: porchapi.PackageRevisionSpec{
+		Spec: porchapiv1alpha1.PackageRevisionSpec{
 			PackageName:    "test-package",
 			RepositoryName: "downstream-repo",
 			WorkspaceName:  "packagevariant-1",
 			Revision:       1,
-			Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
+			Lifecycle:      porchapiv1alpha1.PackageRevisionLifecyclePublished,
 		},
-		Status: porchapi.PackageRevisionStatus{
-			UpstreamLock: &porchapi.UpstreamLock{
-				Git: &porchapi.GitLock{
+		Status: porchapiv1alpha1.PackageRevisionStatus{
+			UpstreamLock: &porchapiv1alpha1.UpstreamLock{
+				Git: &porchapiv1alpha1.GitLock{
 					Repo: "upstream-repo",
 					Ref:  "test-package/v1",
 				},
 			},
 		},
 	}
-	oldUpstream := &porchapi.PackageRevision{
+	oldUpstream := &porchapiv1alpha1.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "upstream-repo.test-package.v1",
 			Namespace: "test-ns",
 		},
-		Spec: porchapi.PackageRevisionSpec{
+		Spec: porchapiv1alpha1.PackageRevisionSpec{
 			PackageName:    "test-package",
 			RepositoryName: "upstream-repo",
 			WorkspaceName:  "v1",
 			Revision:       1,
-			Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
+			Lifecycle:      porchapiv1alpha1.PackageRevisionLifecyclePublished,
 		},
 	}
-	newUpstream := &porchapi.PackageRevision{
+	newUpstream := &porchapiv1alpha1.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "upstream-repo.test-package.v2",
 			Namespace: "test-ns",
 		},
-		Spec: porchapi.PackageRevisionSpec{
+		Spec: porchapiv1alpha1.PackageRevisionSpec{
 			PackageName:    "test-package",
 			RepositoryName: "upstream-repo",
 			WorkspaceName:  "v2",
 			Revision:       2,
-			Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
+			Lifecycle:      porchapiv1alpha1.PackageRevisionLifecyclePublished,
 		},
 	}
 
@@ -1835,19 +1835,19 @@ func TestCreateUpgradeDraft(t *testing.T) {
 			},
 		},
 	}
-	prList := &porchapi.PackageRevisionList{
-		Items: []porchapi.PackageRevision{*source, *oldUpstream, *newUpstream},
+	prList := &porchapiv1alpha1.PackageRevisionList{
+		Items: []porchapiv1alpha1.PackageRevision{*source, *oldUpstream, *newUpstream},
 	}
 
 	draft, err := r.createUpgradeDraft(context.TODO(), source, pv, prList)
 	assert.NoError(t, err)
-	assert.Equal(t, porchapi.PackageRevisionLifecycleDraft, draft.Spec.Lifecycle)
+	assert.Equal(t, porchapiv1alpha1.PackageRevisionLifecycleDraft, draft.Spec.Lifecycle)
 	assert.Equal(t, source.Spec.PackageName, draft.Spec.PackageName)
 	assert.Equal(t, "packagevariant-2", draft.Spec.WorkspaceName)
 	assert.Equal(t, pv.Spec.Annotations, draft.Annotations)
 	assert.Equal(t, pv.Spec.Labels, draft.Labels)
 	assert.Contains(t, client.output[len(client.output)-1], "creating object")
-	require.Equal(t, porchapi.TaskTypeUpgrade, draft.Spec.Tasks[0].Type)
+	require.Equal(t, porchapiv1alpha1.TaskTypeUpgrade, draft.Spec.Tasks[0].Type)
 	assert.Equal(t, oldUpstream.Name, draft.Spec.Tasks[0].Upgrade.OldUpstream.Name)
 	assert.Equal(t, newUpstream.Name, draft.Spec.Tasks[0].Upgrade.NewUpstream.Name)
 	assert.Equal(t, source.Name, draft.Spec.Tasks[0].Upgrade.LocalPackageRevisionRef.Name)
@@ -1858,16 +1858,16 @@ func TestCreateEditDraft(t *testing.T) {
 	r := &PackageVariantReconciler{
 		Client: client,
 	}
-	source := &porchapi.PackageRevision{
+	source := &porchapiv1alpha1.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "test-ns",
 		},
-		Spec: porchapi.PackageRevisionSpec{
+		Spec: porchapiv1alpha1.PackageRevisionSpec{
 			PackageName:    "test-package",
 			RepositoryName: "downstream-repo",
 			WorkspaceName:  "packagevariant-1",
 			Revision:       1,
-			Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
+			Lifecycle:      porchapiv1alpha1.PackageRevisionLifecyclePublished,
 		},
 	}
 	pv := &api.PackageVariant{
@@ -1881,16 +1881,16 @@ func TestCreateEditDraft(t *testing.T) {
 			},
 		},
 	}
-	prList := &porchapi.PackageRevisionList{
-		Items: []porchapi.PackageRevision{*source},
+	prList := &porchapiv1alpha1.PackageRevisionList{
+		Items: []porchapiv1alpha1.PackageRevision{*source},
 	}
 
 	draft, err := r.createEditDraft(context.TODO(), source, pv, prList)
 	assert.NoError(t, err)
-	assert.Equal(t, porchapi.PackageRevisionLifecycleDraft, draft.Spec.Lifecycle)
+	assert.Equal(t, porchapiv1alpha1.PackageRevisionLifecycleDraft, draft.Spec.Lifecycle)
 	assert.Equal(t, source.Spec.PackageName, draft.Spec.PackageName)
 	assert.Equal(t, "packagevariant-2", draft.Spec.WorkspaceName)
-	assert.Equal(t, porchapi.TaskTypeEdit, draft.Spec.Tasks[0].Type)
+	assert.Equal(t, porchapiv1alpha1.TaskTypeEdit, draft.Spec.Tasks[0].Type)
 	assert.Equal(t, pv.Spec.Annotations, draft.Annotations)
 	assert.Equal(t, pv.Spec.Labels, draft.Labels)
 	assert.Contains(t, client.output[len(client.output)-1], "creating object")

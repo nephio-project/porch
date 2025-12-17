@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"testing"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	api "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
 	"github.com/stretchr/testify/require"
@@ -323,7 +323,7 @@ items:
 
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			var prList porchapi.PackageRevisionList
+			var prList porchapiv1alpha1.PackageRevisionList
 			require.NoError(t, yaml.Unmarshal([]byte(tc.packageRevisionList), &prList))
 			actual := string(newWorkspaceName(&prList, "", ""))
 			require.Equal(t, tc.expected, actual)
@@ -643,7 +643,7 @@ status:
 
 	for tn, tc := range testCases {
 		t.Run(tn, func(t *testing.T) {
-			var prList porchapi.PackageRevisionList
+			var prList porchapiv1alpha1.PackageRevisionList
 			require.NoError(t, yaml.Unmarshal([]byte(tc.packageRevisionList), &prList))
 
 			fc := &fakeClient{}
@@ -709,21 +709,21 @@ spec:
 		// should delete the PR
 		"deletionPolicy delete, lifecycle draft": {
 			deletionPolicy: string(api.DeletionPolicyDelete),
-			prLifecycle:    string(porchapi.PackageRevisionLifecycleDraft),
+			prLifecycle:    string(porchapiv1alpha1.PackageRevisionLifecycleDraft),
 			expectedOutput: []string{"deleting object: my-pr"},
 		},
 
 		// should delete the PR
 		"deletionPolicy delete, lifecycle proposed": {
 			deletionPolicy: string(api.DeletionPolicyDelete),
-			prLifecycle:    string(porchapi.PackageRevisionLifecycleProposed),
+			prLifecycle:    string(porchapiv1alpha1.PackageRevisionLifecycleProposed),
 			expectedOutput: []string{"deleting object: my-pr"},
 		},
 
 		// should propose the PR for deletion
 		"deletionPolicy delete, lifecycle published": {
 			deletionPolicy: string(api.DeletionPolicyDelete),
-			prLifecycle:    string(porchapi.PackageRevisionLifecyclePublished),
+			prLifecycle:    string(porchapiv1alpha1.PackageRevisionLifecyclePublished),
 			expectedOutput: []string{"updating object: my-pr"},
 			expectedPR: `apiVersion: porch.kpt.dev
 kind: PackageRevision
@@ -751,14 +751,14 @@ status:
 		// should do nothing
 		"deletionPolicy delete, lifecycle deletionProposed": {
 			deletionPolicy: string(api.DeletionPolicyDelete),
-			prLifecycle:    string(porchapi.PackageRevisionLifecycleDeletionProposed),
+			prLifecycle:    string(porchapiv1alpha1.PackageRevisionLifecycleDeletionProposed),
 			expectedOutput: nil,
 		},
 
 		// should remove the pv's owner reference from the pr
 		"deletionPolicy orphan, lifecycle draft": {
 			deletionPolicy: string(api.DeletionPolicyOrphan),
-			prLifecycle:    string(porchapi.PackageRevisionLifecycleDraft),
+			prLifecycle:    string(porchapiv1alpha1.PackageRevisionLifecycleDraft),
 			expectedOutput: []string{"updating object: my-pr"},
 			expectedPR: `apiVersion: porch.kpt.dev
 kind: PackageRevision
@@ -786,7 +786,7 @@ status:
 			require.NoError(t, yaml.Unmarshal(
 				[]byte(fmt.Sprintf(pvStr, tc.deletionPolicy)), &pv))
 
-			var pr porchapi.PackageRevision
+			var pr porchapiv1alpha1.PackageRevision
 			require.NoError(t, yaml.Unmarshal(
 				[]byte(fmt.Sprintf(prStr, tc.prLifecycle)), &pr))
 
@@ -958,7 +958,7 @@ items:
 		t.Run(tn, func(t *testing.T) {
 			fc := &fakeClient{}
 			reconciler := &PackageVariantReconciler{Client: fc}
-			var prList porchapi.PackageRevisionList
+			var prList porchapiv1alpha1.PackageRevisionList
 			require.NoError(t, yaml.Unmarshal([]byte(tc.packageRevisionList), &prList))
 
 			var pv api.PackageVariant
@@ -1109,7 +1109,7 @@ spec:
 		t.Run(tn, func(t *testing.T) {
 			var pv api.PackageVariant
 			require.NoError(t, yaml.Unmarshal([]byte(pvBase+tc.spec), &pv))
-			var prr porchapi.PackageRevisionResources
+			var prr porchapiv1alpha1.PackageRevisionResources
 			require.NoError(t, yaml.Unmarshal([]byte(prrBase+tc.initialData), &prr))
 
 			actualErr := ensurePackageContext(&pv, &prr)
@@ -1119,7 +1119,7 @@ spec:
 				require.EqualError(t, actualErr, tc.expectedErr)
 			}
 
-			var expectedPRR porchapi.PackageRevisionResources
+			var expectedPRR porchapiv1alpha1.PackageRevisionResources
 			require.NoError(t, yaml.Unmarshal([]byte(tc.expectedPRR), &expectedPRR))
 
 			require.Equal(t, expectedPRR, prr)
@@ -1452,7 +1452,7 @@ spec:
 			if tc.initialPipeline != "" {
 				locPrrBase += "      pipeline:\n"
 			}
-			var prr porchapi.PackageRevisionResources
+			var prr porchapiv1alpha1.PackageRevisionResources
 			require.NoError(t, yaml.Unmarshal([]byte(locPrrBase+tc.initialPipeline), &prr))
 			var pv api.PackageVariant
 			require.NoError(t, yaml.Unmarshal([]byte(pvBase+tc.pvPipeline), &pv))
@@ -1463,7 +1463,7 @@ spec:
 			} else {
 				require.EqualError(t, actualErr, tc.expectedErr)
 			}
-			var expectedPRR porchapi.PackageRevisionResources
+			var expectedPRR porchapiv1alpha1.PackageRevisionResources
 			require.NoError(t, yaml.Unmarshal([]byte(tc.expectedPrr), &expectedPRR))
 
 			require.Equal(t, expectedPRR, prr)

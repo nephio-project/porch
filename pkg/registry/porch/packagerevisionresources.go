@@ -156,7 +156,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 		klog.Infof("update failed to construct UpdatedObject: %v", err)
 		return nil, false, err
 	}
-	var newObj *porchapi.PackageRevisionResources
+	newObj := &porchapi.PackageRevisionResources{}
 	err = r.scheme.Convert(newRuntimeObj, newObj, nil)
 	if err != nil {
 		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("expected PackageRevisionResources object, got %T", newRuntimeObj))

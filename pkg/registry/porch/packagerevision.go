@@ -132,7 +132,7 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 		return nil, apierrors.NewBadRequest("namespace must be specified")
 	}
 
-	var newApiPkgRev *porchapi.PackageRevision
+	newApiPkgRev := &porchapi.PackageRevision{}
 	err := r.scheme.Convert(runtimeObject, newApiPkgRev, nil)
 	if err != nil {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected PackageRevision object, got %T", runtimeObject))

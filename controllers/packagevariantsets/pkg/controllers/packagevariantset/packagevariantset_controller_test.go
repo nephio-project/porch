@@ -19,7 +19,7 @@ import (
 	"sort"
 	"testing"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	pkgvarapi "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	api "github.com/nephio-project/porch/controllers/packagevariantsets/api/v1alpha2"
@@ -128,7 +128,7 @@ func TestEnsurePackageVariants(t *testing.T) {
 			},
 		},
 		&configapi.RepositoryList{},
-		&porchapi.PackageRevision{},
+		&porchapiv1alpha1.PackageRevision{},
 		downstreams))
 	require.Equal(t, 1, len(fc.deleted))
 	require.Equal(t, "my-pvs-dnrepo1-dnpkg1", fc.deleted[0].GetName())
@@ -144,8 +144,8 @@ func TestEnsurePackageVariants(t *testing.T) {
 }
 
 func TestGetUpstreamPr(t *testing.T) {
-	pr1 := porchapi.PackageRevision{
-		Spec: porchapi.PackageRevisionSpec{
+	pr1 := porchapiv1alpha1.PackageRevision{
+		Spec: porchapiv1alpha1.PackageRevisionSpec{
 			RepositoryName: "my-repo",
 			PackageName:    "my-package",
 			WorkspaceName:  "my-workspace",
@@ -153,8 +153,8 @@ func TestGetUpstreamPr(t *testing.T) {
 		},
 	}
 
-	prList := porchapi.PackageRevisionList{
-		Items: []porchapi.PackageRevision{pr1},
+	prList := porchapiv1alpha1.PackageRevisionList{
+		Items: []porchapiv1alpha1.PackageRevision{pr1},
 	}
 
 	upstream := pkgvarapi.Upstream{}
