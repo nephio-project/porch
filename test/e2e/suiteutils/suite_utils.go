@@ -1,4 +1,4 @@
-// Copyright 2024 The Nephio Authors
+// Copyright 2024-2025 The Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package e2e
+package suiteutils
 
 import (
 	"context"
