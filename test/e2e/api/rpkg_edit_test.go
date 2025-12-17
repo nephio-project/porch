@@ -100,7 +100,10 @@ func (t *PorchSuite) TestEditPackageRevision() {
 	for _, tsk := range tasks {
 		t.Logf("Task: %s", tsk.Type)
 	}
-	assert.Equal(t, 1, len(tasks))
+	assert.Len(t, tasks, 1)
+	assert.Equal(t, porchapi.TaskTypeEdit, tasks[0].Type) 
+	assert.NotNil(t, tasks[0].Edit)
+	assert.Equal(t, pr.Name, tasks[0].Edit.Source.Name)
 }
 
 func (t *PorchSuite) TestUpdateResources() {
