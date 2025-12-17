@@ -21,7 +21,7 @@ import (
 
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/google/go-cmp/cmp"
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -144,5 +144,5 @@ func TestPackageGetters(t *testing.T) {
 
 	assert.Equal(t, "my-repo.my-package.my-workspace", gitPr.KubeObjectName())
 	assert.Equal(t, "my-namespace", gitPr.KubeObjectNamespace())
-	assert.Equal(t, types.UID("7007e8aa-0928-50f9-b980-92a44942f055"), gitPr.UID())
+	assert.Equal(t, types.UID("a7e0edf9-38d5-5ecc-a9d8-ed2cf22d920a"), gitPr.UID())
 }

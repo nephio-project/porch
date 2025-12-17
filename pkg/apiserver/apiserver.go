@@ -21,8 +21,10 @@ import (
 	"strings"
 	"time"
 
+	porchapi "github.com/nephio-project/porch/api/porch"
 	"github.com/nephio-project/porch/api/porch/install"
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchv1alpha2 "github.com/nephio-project/porch/api/porch/v1alpha2"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
@@ -89,12 +91,12 @@ type Config struct {
 
 // PorchServer contains state for a Kubernetes cluster master/api server.
 type PorchServer struct {
-	GenericAPIServer          *genericapiserver.GenericAPIServer
-	coreClient                client.WithWatch
-	cache                     cachetypes.Cache
-	periodicRepoSyncFrequency    time.Duration
-	ListTimeoutPerRepository     time.Duration
-	repoOperationRetryAttempts   int
+	GenericAPIServer           *genericapiserver.GenericAPIServer
+	coreClient                 client.WithWatch
+	cache                      cachetypes.Cache
+	periodicRepoSyncFrequency  time.Duration
+	ListTimeoutPerRepository   time.Duration
+	repoOperationRetryAttempts int
 }
 
 type completedConfig struct {
@@ -155,6 +157,14 @@ func (c completedConfig) getCoreClient() (client.WithWatch, error) {
 	}
 
 	if err := porchapi.AddToScheme(scheme); err != nil {
+		return nil, fmt.Errorf("error building scheme: %w", err)
+	}
+
+	if err := porchv1alpha1.AddToScheme(scheme); err != nil {
+		return nil, fmt.Errorf("error building scheme: %w", err)
+	}
+
+	if err := porchv1alpha2.AddToScheme(scheme); err != nil {
 		return nil, fmt.Errorf("error building scheme: %w", err)
 	}
 
@@ -281,9 +291,9 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 		coreClient:       coreClient,
 		cache:            cacheImpl,
 		// Set background job periodic frequency the same as repo sync frequency.
-		periodicRepoSyncFrequency: c.ExtraConfig.CacheOptions.RepoSyncFrequency,
-		ListTimeoutPerRepository:    c.ExtraConfig.ListTimeoutPerRepository,
-		repoOperationRetryAttempts:  c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts,
+		periodicRepoSyncFrequency:  c.ExtraConfig.CacheOptions.RepoSyncFrequency,
+		ListTimeoutPerRepository:   c.ExtraConfig.ListTimeoutPerRepository,
+		repoOperationRetryAttempts: c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts,
 	}
 
 	// Install the groups.

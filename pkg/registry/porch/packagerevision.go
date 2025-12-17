@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -132,8 +132,9 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 		return nil, apierrors.NewBadRequest("namespace must be specified")
 	}
 
-	newApiPkgRev, ok := runtimeObject.(*porchapi.PackageRevision)
-	if !ok {
+	var newApiPkgRev *porchapi.PackageRevision
+	err := r.scheme.Convert(runtimeObject, newApiPkgRev, nil)
+	if err != nil {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected PackageRevision object, got %T", runtimeObject))
 	}
 

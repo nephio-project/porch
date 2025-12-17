@@ -40,7 +40,7 @@ func TestPackageRevisionGetters(t *testing.T) {
 
 	assert.Equal(t, "my-repo.my-package.my-workspace", fakePr.KubeObjectName())
 	assert.Equal(t, "my-namespace", fakePr.KubeObjectNamespace())
-	assert.Equal(t, types.UID("7007e8aa-0928-50f9-b980-92a44942f055"), fakePr.UID())
+	assert.Equal(t, types.UID("a7e0edf9-38d5-5ecc-a9d8-ed2cf22d920a"), fakePr.UID())
 	assert.True(t, fakePr.UpdateResources(context.TODO(), nil, nil) == nil)
 
 	meta := fakePr.GetMeta()

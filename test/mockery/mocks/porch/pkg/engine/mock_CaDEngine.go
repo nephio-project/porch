@@ -7,7 +7,7 @@ package engine
 import (
 	"context"
 
-	v1alpha10 "github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/api/porch"
 	"github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -42,7 +42,7 @@ func (_m *MockCaDEngine) EXPECT() *MockCaDEngine_Expecter {
 }
 
 // CreatePackage provides a mock function for the type MockCaDEngine
-func (_mock *MockCaDEngine) CreatePackage(ctx context.Context, repositoryObj *v1alpha1.Repository, obj *v1alpha10.PorchPackage) (repository.Package, error) {
+func (_mock *MockCaDEngine) CreatePackage(ctx context.Context, repositoryObj *v1alpha1.Repository, obj *porch.PorchPackage) (repository.Package, error) {
 	ret := _mock.Called(ctx, repositoryObj, obj)
 
 	if len(ret) == 0 {
@@ -51,17 +51,17 @@ func (_mock *MockCaDEngine) CreatePackage(ctx context.Context, repositoryObj *v1
 
 	var r0 repository.Package
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1alpha1.Repository, *v1alpha10.PorchPackage) (repository.Package, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1alpha1.Repository, *porch.PorchPackage) (repository.Package, error)); ok {
 		return returnFunc(ctx, repositoryObj, obj)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1alpha1.Repository, *v1alpha10.PorchPackage) repository.Package); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1alpha1.Repository, *porch.PorchPackage) repository.Package); ok {
 		r0 = returnFunc(ctx, repositoryObj, obj)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(repository.Package)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, *v1alpha1.Repository, *v1alpha10.PorchPackage) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *v1alpha1.Repository, *porch.PorchPackage) error); ok {
 		r1 = returnFunc(ctx, repositoryObj, obj)
 	} else {
 		r1 = ret.Error(1)
@@ -77,12 +77,12 @@ type MockCaDEngine_CreatePackage_Call struct {
 // CreatePackage is a helper method to define mock.On call
 //   - ctx context.Context
 //   - repositoryObj *v1alpha1.Repository
-//   - obj *v1alpha10.PorchPackage
+//   - obj *porch.PorchPackage
 func (_e *MockCaDEngine_Expecter) CreatePackage(ctx interface{}, repositoryObj interface{}, obj interface{}) *MockCaDEngine_CreatePackage_Call {
 	return &MockCaDEngine_CreatePackage_Call{Call: _e.mock.On("CreatePackage", ctx, repositoryObj, obj)}
 }
 
-func (_c *MockCaDEngine_CreatePackage_Call) Run(run func(ctx context.Context, repositoryObj *v1alpha1.Repository, obj *v1alpha10.PorchPackage)) *MockCaDEngine_CreatePackage_Call {
+func (_c *MockCaDEngine_CreatePackage_Call) Run(run func(ctx context.Context, repositoryObj *v1alpha1.Repository, obj *porch.PorchPackage)) *MockCaDEngine_CreatePackage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -92,9 +92,9 @@ func (_c *MockCaDEngine_CreatePackage_Call) Run(run func(ctx context.Context, re
 		if args[1] != nil {
 			arg1 = args[1].(*v1alpha1.Repository)
 		}
-		var arg2 *v1alpha10.PorchPackage
+		var arg2 *porch.PorchPackage
 		if args[2] != nil {
-			arg2 = args[2].(*v1alpha10.PorchPackage)
+			arg2 = args[2].(*porch.PorchPackage)
 		}
 		run(
 			arg0,
@@ -110,13 +110,13 @@ func (_c *MockCaDEngine_CreatePackage_Call) Return(packageParam repository.Packa
 	return _c
 }
 
-func (_c *MockCaDEngine_CreatePackage_Call) RunAndReturn(run func(ctx context.Context, repositoryObj *v1alpha1.Repository, obj *v1alpha10.PorchPackage) (repository.Package, error)) *MockCaDEngine_CreatePackage_Call {
+func (_c *MockCaDEngine_CreatePackage_Call) RunAndReturn(run func(ctx context.Context, repositoryObj *v1alpha1.Repository, obj *porch.PorchPackage) (repository.Package, error)) *MockCaDEngine_CreatePackage_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // CreatePackageRevision provides a mock function for the type MockCaDEngine
-func (_mock *MockCaDEngine) CreatePackageRevision(ctx context.Context, repositoryObj *v1alpha1.Repository, obj *v1alpha10.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
+func (_mock *MockCaDEngine) CreatePackageRevision(ctx context.Context, repositoryObj *v1alpha1.Repository, obj *porch.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
 	ret := _mock.Called(ctx, repositoryObj, obj, parent)
 
 	if len(ret) == 0 {
@@ -125,17 +125,17 @@ func (_mock *MockCaDEngine) CreatePackageRevision(ctx context.Context, repositor
 
 	var r0 repository.PackageRevision
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1alpha1.Repository, *v1alpha10.PackageRevision, repository.PackageRevision) (repository.PackageRevision, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1alpha1.Repository, *porch.PackageRevision, repository.PackageRevision) (repository.PackageRevision, error)); ok {
 		return returnFunc(ctx, repositoryObj, obj, parent)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1alpha1.Repository, *v1alpha10.PackageRevision, repository.PackageRevision) repository.PackageRevision); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1alpha1.Repository, *porch.PackageRevision, repository.PackageRevision) repository.PackageRevision); ok {
 		r0 = returnFunc(ctx, repositoryObj, obj, parent)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(repository.PackageRevision)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, *v1alpha1.Repository, *v1alpha10.PackageRevision, repository.PackageRevision) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *v1alpha1.Repository, *porch.PackageRevision, repository.PackageRevision) error); ok {
 		r1 = returnFunc(ctx, repositoryObj, obj, parent)
 	} else {
 		r1 = ret.Error(1)
@@ -151,13 +151,13 @@ type MockCaDEngine_CreatePackageRevision_Call struct {
 // CreatePackageRevision is a helper method to define mock.On call
 //   - ctx context.Context
 //   - repositoryObj *v1alpha1.Repository
-//   - obj *v1alpha10.PackageRevision
+//   - obj *porch.PackageRevision
 //   - parent repository.PackageRevision
 func (_e *MockCaDEngine_Expecter) CreatePackageRevision(ctx interface{}, repositoryObj interface{}, obj interface{}, parent interface{}) *MockCaDEngine_CreatePackageRevision_Call {
 	return &MockCaDEngine_CreatePackageRevision_Call{Call: _e.mock.On("CreatePackageRevision", ctx, repositoryObj, obj, parent)}
 }
 
-func (_c *MockCaDEngine_CreatePackageRevision_Call) Run(run func(ctx context.Context, repositoryObj *v1alpha1.Repository, obj *v1alpha10.PackageRevision, parent repository.PackageRevision)) *MockCaDEngine_CreatePackageRevision_Call {
+func (_c *MockCaDEngine_CreatePackageRevision_Call) Run(run func(ctx context.Context, repositoryObj *v1alpha1.Repository, obj *porch.PackageRevision, parent repository.PackageRevision)) *MockCaDEngine_CreatePackageRevision_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -167,9 +167,9 @@ func (_c *MockCaDEngine_CreatePackageRevision_Call) Run(run func(ctx context.Con
 		if args[1] != nil {
 			arg1 = args[1].(*v1alpha1.Repository)
 		}
-		var arg2 *v1alpha10.PackageRevision
+		var arg2 *porch.PackageRevision
 		if args[2] != nil {
-			arg2 = args[2].(*v1alpha10.PackageRevision)
+			arg2 = args[2].(*porch.PackageRevision)
 		}
 		var arg3 repository.PackageRevision
 		if args[3] != nil {
@@ -190,7 +190,7 @@ func (_c *MockCaDEngine_CreatePackageRevision_Call) Return(packageRevision repos
 	return _c
 }
 
-func (_c *MockCaDEngine_CreatePackageRevision_Call) RunAndReturn(run func(ctx context.Context, repositoryObj *v1alpha1.Repository, obj *v1alpha10.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error)) *MockCaDEngine_CreatePackageRevision_Call {
+func (_c *MockCaDEngine_CreatePackageRevision_Call) RunAndReturn(run func(ctx context.Context, repositoryObj *v1alpha1.Repository, obj *porch.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error)) *MockCaDEngine_CreatePackageRevision_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -516,7 +516,7 @@ func (_c *MockCaDEngine_ObjectCache_Call) RunAndReturn(run func() engine.Watcher
 }
 
 // UpdatePackage provides a mock function for the type MockCaDEngine
-func (_mock *MockCaDEngine) UpdatePackage(ctx context.Context, repositoryObj *v1alpha1.Repository, oldPackage repository.Package, old *v1alpha10.PorchPackage, new *v1alpha10.PorchPackage) (repository.Package, error) {
+func (_mock *MockCaDEngine) UpdatePackage(ctx context.Context, repositoryObj *v1alpha1.Repository, oldPackage repository.Package, old *porch.PorchPackage, new *porch.PorchPackage) (repository.Package, error) {
 	ret := _mock.Called(ctx, repositoryObj, oldPackage, old, new)
 
 	if len(ret) == 0 {
@@ -525,17 +525,17 @@ func (_mock *MockCaDEngine) UpdatePackage(ctx context.Context, repositoryObj *v1
 
 	var r0 repository.Package
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1alpha1.Repository, repository.Package, *v1alpha10.PorchPackage, *v1alpha10.PorchPackage) (repository.Package, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1alpha1.Repository, repository.Package, *porch.PorchPackage, *porch.PorchPackage) (repository.Package, error)); ok {
 		return returnFunc(ctx, repositoryObj, oldPackage, old, new)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1alpha1.Repository, repository.Package, *v1alpha10.PorchPackage, *v1alpha10.PorchPackage) repository.Package); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1alpha1.Repository, repository.Package, *porch.PorchPackage, *porch.PorchPackage) repository.Package); ok {
 		r0 = returnFunc(ctx, repositoryObj, oldPackage, old, new)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(repository.Package)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, *v1alpha1.Repository, repository.Package, *v1alpha10.PorchPackage, *v1alpha10.PorchPackage) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *v1alpha1.Repository, repository.Package, *porch.PorchPackage, *porch.PorchPackage) error); ok {
 		r1 = returnFunc(ctx, repositoryObj, oldPackage, old, new)
 	} else {
 		r1 = ret.Error(1)
@@ -552,13 +552,13 @@ type MockCaDEngine_UpdatePackage_Call struct {
 //   - ctx context.Context
 //   - repositoryObj *v1alpha1.Repository
 //   - oldPackage repository.Package
-//   - old *v1alpha10.PorchPackage
-//   - new *v1alpha10.PorchPackage
+//   - old *porch.PorchPackage
+//   - new *porch.PorchPackage
 func (_e *MockCaDEngine_Expecter) UpdatePackage(ctx interface{}, repositoryObj interface{}, oldPackage interface{}, old interface{}, new interface{}) *MockCaDEngine_UpdatePackage_Call {
 	return &MockCaDEngine_UpdatePackage_Call{Call: _e.mock.On("UpdatePackage", ctx, repositoryObj, oldPackage, old, new)}
 }
 
-func (_c *MockCaDEngine_UpdatePackage_Call) Run(run func(ctx context.Context, repositoryObj *v1alpha1.Repository, oldPackage repository.Package, old *v1alpha10.PorchPackage, new *v1alpha10.PorchPackage)) *MockCaDEngine_UpdatePackage_Call {
+func (_c *MockCaDEngine_UpdatePackage_Call) Run(run func(ctx context.Context, repositoryObj *v1alpha1.Repository, oldPackage repository.Package, old *porch.PorchPackage, new *porch.PorchPackage)) *MockCaDEngine_UpdatePackage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -572,13 +572,13 @@ func (_c *MockCaDEngine_UpdatePackage_Call) Run(run func(ctx context.Context, re
 		if args[2] != nil {
 			arg2 = args[2].(repository.Package)
 		}
-		var arg3 *v1alpha10.PorchPackage
+		var arg3 *porch.PorchPackage
 		if args[3] != nil {
-			arg3 = args[3].(*v1alpha10.PorchPackage)
+			arg3 = args[3].(*porch.PorchPackage)
 		}
-		var arg4 *v1alpha10.PorchPackage
+		var arg4 *porch.PorchPackage
 		if args[4] != nil {
-			arg4 = args[4].(*v1alpha10.PorchPackage)
+			arg4 = args[4].(*porch.PorchPackage)
 		}
 		run(
 			arg0,
@@ -596,13 +596,13 @@ func (_c *MockCaDEngine_UpdatePackage_Call) Return(packageParam repository.Packa
 	return _c
 }
 
-func (_c *MockCaDEngine_UpdatePackage_Call) RunAndReturn(run func(ctx context.Context, repositoryObj *v1alpha1.Repository, oldPackage repository.Package, old *v1alpha10.PorchPackage, new *v1alpha10.PorchPackage) (repository.Package, error)) *MockCaDEngine_UpdatePackage_Call {
+func (_c *MockCaDEngine_UpdatePackage_Call) RunAndReturn(run func(ctx context.Context, repositoryObj *v1alpha1.Repository, oldPackage repository.Package, old *porch.PorchPackage, new *porch.PorchPackage) (repository.Package, error)) *MockCaDEngine_UpdatePackage_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // UpdatePackageResources provides a mock function for the type MockCaDEngine
-func (_mock *MockCaDEngine) UpdatePackageResources(ctx context.Context, repositoryObj *v1alpha1.Repository, oldPackage repository.PackageRevision, old *v1alpha10.PackageRevisionResources, new *v1alpha10.PackageRevisionResources) (repository.PackageRevision, *v1alpha10.RenderStatus, error) {
+func (_mock *MockCaDEngine) UpdatePackageResources(ctx context.Context, repositoryObj *v1alpha1.Repository, oldPackage repository.PackageRevision, old *porch.PackageRevisionResources, new *porch.PackageRevisionResources) (repository.PackageRevision, *porch.RenderStatus, error) {
 	ret := _mock.Called(ctx, repositoryObj, oldPackage, old, new)
 
 	if len(ret) == 0 {
@@ -610,26 +610,26 @@ func (_mock *MockCaDEngine) UpdatePackageResources(ctx context.Context, reposito
 	}
 
 	var r0 repository.PackageRevision
-	var r1 *v1alpha10.RenderStatus
+	var r1 *porch.RenderStatus
 	var r2 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1alpha1.Repository, repository.PackageRevision, *v1alpha10.PackageRevisionResources, *v1alpha10.PackageRevisionResources) (repository.PackageRevision, *v1alpha10.RenderStatus, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1alpha1.Repository, repository.PackageRevision, *porch.PackageRevisionResources, *porch.PackageRevisionResources) (repository.PackageRevision, *porch.RenderStatus, error)); ok {
 		return returnFunc(ctx, repositoryObj, oldPackage, old, new)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1alpha1.Repository, repository.PackageRevision, *v1alpha10.PackageRevisionResources, *v1alpha10.PackageRevisionResources) repository.PackageRevision); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1alpha1.Repository, repository.PackageRevision, *porch.PackageRevisionResources, *porch.PackageRevisionResources) repository.PackageRevision); ok {
 		r0 = returnFunc(ctx, repositoryObj, oldPackage, old, new)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(repository.PackageRevision)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, *v1alpha1.Repository, repository.PackageRevision, *v1alpha10.PackageRevisionResources, *v1alpha10.PackageRevisionResources) *v1alpha10.RenderStatus); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *v1alpha1.Repository, repository.PackageRevision, *porch.PackageRevisionResources, *porch.PackageRevisionResources) *porch.RenderStatus); ok {
 		r1 = returnFunc(ctx, repositoryObj, oldPackage, old, new)
 	} else {
 		if ret.Get(1) != nil {
-			r1 = ret.Get(1).(*v1alpha10.RenderStatus)
+			r1 = ret.Get(1).(*porch.RenderStatus)
 		}
 	}
-	if returnFunc, ok := ret.Get(2).(func(context.Context, *v1alpha1.Repository, repository.PackageRevision, *v1alpha10.PackageRevisionResources, *v1alpha10.PackageRevisionResources) error); ok {
+	if returnFunc, ok := ret.Get(2).(func(context.Context, *v1alpha1.Repository, repository.PackageRevision, *porch.PackageRevisionResources, *porch.PackageRevisionResources) error); ok {
 		r2 = returnFunc(ctx, repositoryObj, oldPackage, old, new)
 	} else {
 		r2 = ret.Error(2)
@@ -646,13 +646,13 @@ type MockCaDEngine_UpdatePackageResources_Call struct {
 //   - ctx context.Context
 //   - repositoryObj *v1alpha1.Repository
 //   - oldPackage repository.PackageRevision
-//   - old *v1alpha10.PackageRevisionResources
-//   - new *v1alpha10.PackageRevisionResources
+//   - old *porch.PackageRevisionResources
+//   - new *porch.PackageRevisionResources
 func (_e *MockCaDEngine_Expecter) UpdatePackageResources(ctx interface{}, repositoryObj interface{}, oldPackage interface{}, old interface{}, new interface{}) *MockCaDEngine_UpdatePackageResources_Call {
 	return &MockCaDEngine_UpdatePackageResources_Call{Call: _e.mock.On("UpdatePackageResources", ctx, repositoryObj, oldPackage, old, new)}
 }
 
-func (_c *MockCaDEngine_UpdatePackageResources_Call) Run(run func(ctx context.Context, repositoryObj *v1alpha1.Repository, oldPackage repository.PackageRevision, old *v1alpha10.PackageRevisionResources, new *v1alpha10.PackageRevisionResources)) *MockCaDEngine_UpdatePackageResources_Call {
+func (_c *MockCaDEngine_UpdatePackageResources_Call) Run(run func(ctx context.Context, repositoryObj *v1alpha1.Repository, oldPackage repository.PackageRevision, old *porch.PackageRevisionResources, new *porch.PackageRevisionResources)) *MockCaDEngine_UpdatePackageResources_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -666,13 +666,13 @@ func (_c *MockCaDEngine_UpdatePackageResources_Call) Run(run func(ctx context.Co
 		if args[2] != nil {
 			arg2 = args[2].(repository.PackageRevision)
 		}
-		var arg3 *v1alpha10.PackageRevisionResources
+		var arg3 *porch.PackageRevisionResources
 		if args[3] != nil {
-			arg3 = args[3].(*v1alpha10.PackageRevisionResources)
+			arg3 = args[3].(*porch.PackageRevisionResources)
 		}
-		var arg4 *v1alpha10.PackageRevisionResources
+		var arg4 *porch.PackageRevisionResources
 		if args[4] != nil {
-			arg4 = args[4].(*v1alpha10.PackageRevisionResources)
+			arg4 = args[4].(*porch.PackageRevisionResources)
 		}
 		run(
 			arg0,
@@ -685,18 +685,18 @@ func (_c *MockCaDEngine_UpdatePackageResources_Call) Run(run func(ctx context.Co
 	return _c
 }
 
-func (_c *MockCaDEngine_UpdatePackageResources_Call) Return(packageRevision repository.PackageRevision, renderStatus *v1alpha10.RenderStatus, err error) *MockCaDEngine_UpdatePackageResources_Call {
+func (_c *MockCaDEngine_UpdatePackageResources_Call) Return(packageRevision repository.PackageRevision, renderStatus *porch.RenderStatus, err error) *MockCaDEngine_UpdatePackageResources_Call {
 	_c.Call.Return(packageRevision, renderStatus, err)
 	return _c
 }
 
-func (_c *MockCaDEngine_UpdatePackageResources_Call) RunAndReturn(run func(ctx context.Context, repositoryObj *v1alpha1.Repository, oldPackage repository.PackageRevision, old *v1alpha10.PackageRevisionResources, new *v1alpha10.PackageRevisionResources) (repository.PackageRevision, *v1alpha10.RenderStatus, error)) *MockCaDEngine_UpdatePackageResources_Call {
+func (_c *MockCaDEngine_UpdatePackageResources_Call) RunAndReturn(run func(ctx context.Context, repositoryObj *v1alpha1.Repository, oldPackage repository.PackageRevision, old *porch.PackageRevisionResources, new *porch.PackageRevisionResources) (repository.PackageRevision, *porch.RenderStatus, error)) *MockCaDEngine_UpdatePackageResources_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // UpdatePackageRevision provides a mock function for the type MockCaDEngine
-func (_mock *MockCaDEngine) UpdatePackageRevision(ctx context.Context, version int, repositoryObj *v1alpha1.Repository, oldPackage repository.PackageRevision, old *v1alpha10.PackageRevision, new *v1alpha10.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
+func (_mock *MockCaDEngine) UpdatePackageRevision(ctx context.Context, version int, repositoryObj *v1alpha1.Repository, oldPackage repository.PackageRevision, old *porch.PackageRevision, new *porch.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error) {
 	ret := _mock.Called(ctx, version, repositoryObj, oldPackage, old, new, parent)
 
 	if len(ret) == 0 {
@@ -705,17 +705,17 @@ func (_mock *MockCaDEngine) UpdatePackageRevision(ctx context.Context, version i
 
 	var r0 repository.PackageRevision
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int, *v1alpha1.Repository, repository.PackageRevision, *v1alpha10.PackageRevision, *v1alpha10.PackageRevision, repository.PackageRevision) (repository.PackageRevision, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, *v1alpha1.Repository, repository.PackageRevision, *porch.PackageRevision, *porch.PackageRevision, repository.PackageRevision) (repository.PackageRevision, error)); ok {
 		return returnFunc(ctx, version, repositoryObj, oldPackage, old, new, parent)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int, *v1alpha1.Repository, repository.PackageRevision, *v1alpha10.PackageRevision, *v1alpha10.PackageRevision, repository.PackageRevision) repository.PackageRevision); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, *v1alpha1.Repository, repository.PackageRevision, *porch.PackageRevision, *porch.PackageRevision, repository.PackageRevision) repository.PackageRevision); ok {
 		r0 = returnFunc(ctx, version, repositoryObj, oldPackage, old, new, parent)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(repository.PackageRevision)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, int, *v1alpha1.Repository, repository.PackageRevision, *v1alpha10.PackageRevision, *v1alpha10.PackageRevision, repository.PackageRevision) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int, *v1alpha1.Repository, repository.PackageRevision, *porch.PackageRevision, *porch.PackageRevision, repository.PackageRevision) error); ok {
 		r1 = returnFunc(ctx, version, repositoryObj, oldPackage, old, new, parent)
 	} else {
 		r1 = ret.Error(1)
@@ -733,14 +733,14 @@ type MockCaDEngine_UpdatePackageRevision_Call struct {
 //   - version int
 //   - repositoryObj *v1alpha1.Repository
 //   - oldPackage repository.PackageRevision
-//   - old *v1alpha10.PackageRevision
-//   - new *v1alpha10.PackageRevision
+//   - old *porch.PackageRevision
+//   - new *porch.PackageRevision
 //   - parent repository.PackageRevision
 func (_e *MockCaDEngine_Expecter) UpdatePackageRevision(ctx interface{}, version interface{}, repositoryObj interface{}, oldPackage interface{}, old interface{}, new interface{}, parent interface{}) *MockCaDEngine_UpdatePackageRevision_Call {
 	return &MockCaDEngine_UpdatePackageRevision_Call{Call: _e.mock.On("UpdatePackageRevision", ctx, version, repositoryObj, oldPackage, old, new, parent)}
 }
 
-func (_c *MockCaDEngine_UpdatePackageRevision_Call) Run(run func(ctx context.Context, version int, repositoryObj *v1alpha1.Repository, oldPackage repository.PackageRevision, old *v1alpha10.PackageRevision, new *v1alpha10.PackageRevision, parent repository.PackageRevision)) *MockCaDEngine_UpdatePackageRevision_Call {
+func (_c *MockCaDEngine_UpdatePackageRevision_Call) Run(run func(ctx context.Context, version int, repositoryObj *v1alpha1.Repository, oldPackage repository.PackageRevision, old *porch.PackageRevision, new *porch.PackageRevision, parent repository.PackageRevision)) *MockCaDEngine_UpdatePackageRevision_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -758,13 +758,13 @@ func (_c *MockCaDEngine_UpdatePackageRevision_Call) Run(run func(ctx context.Con
 		if args[3] != nil {
 			arg3 = args[3].(repository.PackageRevision)
 		}
-		var arg4 *v1alpha10.PackageRevision
+		var arg4 *porch.PackageRevision
 		if args[4] != nil {
-			arg4 = args[4].(*v1alpha10.PackageRevision)
+			arg4 = args[4].(*porch.PackageRevision)
 		}
-		var arg5 *v1alpha10.PackageRevision
+		var arg5 *porch.PackageRevision
 		if args[5] != nil {
-			arg5 = args[5].(*v1alpha10.PackageRevision)
+			arg5 = args[5].(*porch.PackageRevision)
 		}
 		var arg6 repository.PackageRevision
 		if args[6] != nil {
@@ -788,7 +788,7 @@ func (_c *MockCaDEngine_UpdatePackageRevision_Call) Return(packageRevision repos
 	return _c
 }
 
-func (_c *MockCaDEngine_UpdatePackageRevision_Call) RunAndReturn(run func(ctx context.Context, version int, repositoryObj *v1alpha1.Repository, oldPackage repository.PackageRevision, old *v1alpha10.PackageRevision, new *v1alpha10.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error)) *MockCaDEngine_UpdatePackageRevision_Call {
+func (_c *MockCaDEngine_UpdatePackageRevision_Call) RunAndReturn(run func(ctx context.Context, version int, repositoryObj *v1alpha1.Repository, oldPackage repository.PackageRevision, old *porch.PackageRevision, new *porch.PackageRevision, parent repository.PackageRevision) (repository.PackageRevision, error)) *MockCaDEngine_UpdatePackageRevision_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -357,7 +357,7 @@ func TestValidatePkgName(t *testing.T) {
 }
 
 func TestGenerateUid(t *testing.T) {
-	assert.Equal(t, types.UID("272983f7-a30d-58e0-a809-c38e8638666d"), GenerateUid("my-prefix", "my-namespace", "my.kube.name.of-something"))
+	assert.Equal(t, types.UID("a3ac519c-f539-50c7-bc0b-20a76c24113c"), GenerateUid("my-prefix", "my-namespace", "my.kube.name.of-something"))
 }
 
 func assertExpectedPartErrExists(t *testing.T, errorSlice []string, errString, prefix, part string) {

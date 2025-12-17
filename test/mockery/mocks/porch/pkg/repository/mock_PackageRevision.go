@@ -7,7 +7,7 @@ package repository
 import (
 	"context"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/api/porch"
 	"github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	mock "github.com/stretchr/testify/mock"
@@ -213,23 +213,23 @@ func (_c *MockPackageRevision_GetMeta_Call) RunAndReturn(run func() v10.ObjectMe
 }
 
 // GetPackageRevision provides a mock function for the type MockPackageRevision
-func (_mock *MockPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.PackageRevision, error) {
+func (_mock *MockPackageRevision) GetPackageRevision(ctx context.Context) (*porch.PackageRevision, error) {
 	ret := _mock.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetPackageRevision")
 	}
 
-	var r0 *v1alpha1.PackageRevision
+	var r0 *porch.PackageRevision
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) (*v1alpha1.PackageRevision, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (*porch.PackageRevision, error)); ok {
 		return returnFunc(ctx)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context) *v1alpha1.PackageRevision); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context) *porch.PackageRevision); ok {
 		r0 = returnFunc(ctx)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*v1alpha1.PackageRevision)
+			r0 = ret.Get(0).(*porch.PackageRevision)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
@@ -264,34 +264,34 @@ func (_c *MockPackageRevision_GetPackageRevision_Call) Run(run func(ctx context.
 	return _c
 }
 
-func (_c *MockPackageRevision_GetPackageRevision_Call) Return(packageRevision *v1alpha1.PackageRevision, err error) *MockPackageRevision_GetPackageRevision_Call {
+func (_c *MockPackageRevision_GetPackageRevision_Call) Return(packageRevision *porch.PackageRevision, err error) *MockPackageRevision_GetPackageRevision_Call {
 	_c.Call.Return(packageRevision, err)
 	return _c
 }
 
-func (_c *MockPackageRevision_GetPackageRevision_Call) RunAndReturn(run func(ctx context.Context) (*v1alpha1.PackageRevision, error)) *MockPackageRevision_GetPackageRevision_Call {
+func (_c *MockPackageRevision_GetPackageRevision_Call) RunAndReturn(run func(ctx context.Context) (*porch.PackageRevision, error)) *MockPackageRevision_GetPackageRevision_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetResources provides a mock function for the type MockPackageRevision
-func (_mock *MockPackageRevision) GetResources(ctx context.Context) (*v1alpha1.PackageRevisionResources, error) {
+func (_mock *MockPackageRevision) GetResources(ctx context.Context) (*porch.PackageRevisionResources, error) {
 	ret := _mock.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetResources")
 	}
 
-	var r0 *v1alpha1.PackageRevisionResources
+	var r0 *porch.PackageRevisionResources
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) (*v1alpha1.PackageRevisionResources, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (*porch.PackageRevisionResources, error)); ok {
 		return returnFunc(ctx)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context) *v1alpha1.PackageRevisionResources); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context) *porch.PackageRevisionResources); ok {
 		r0 = returnFunc(ctx)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*v1alpha1.PackageRevisionResources)
+			r0 = ret.Get(0).(*porch.PackageRevisionResources)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
@@ -326,12 +326,12 @@ func (_c *MockPackageRevision_GetResources_Call) Run(run func(ctx context.Contex
 	return _c
 }
 
-func (_c *MockPackageRevision_GetResources_Call) Return(packageRevisionResources *v1alpha1.PackageRevisionResources, err error) *MockPackageRevision_GetResources_Call {
+func (_c *MockPackageRevision_GetResources_Call) Return(packageRevisionResources *porch.PackageRevisionResources, err error) *MockPackageRevision_GetResources_Call {
 	_c.Call.Return(packageRevisionResources, err)
 	return _c
 }
 
-func (_c *MockPackageRevision_GetResources_Call) RunAndReturn(run func(ctx context.Context) (*v1alpha1.PackageRevisionResources, error)) *MockPackageRevision_GetResources_Call {
+func (_c *MockPackageRevision_GetResources_Call) RunAndReturn(run func(ctx context.Context) (*porch.PackageRevisionResources, error)) *MockPackageRevision_GetResources_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -535,18 +535,18 @@ func (_c *MockPackageRevision_KubeObjectNamespace_Call) RunAndReturn(run func() 
 }
 
 // Lifecycle provides a mock function for the type MockPackageRevision
-func (_mock *MockPackageRevision) Lifecycle(ctx context.Context) v1alpha1.PackageRevisionLifecycle {
+func (_mock *MockPackageRevision) Lifecycle(ctx context.Context) porch.PackageRevisionLifecycle {
 	ret := _mock.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Lifecycle")
 	}
 
-	var r0 v1alpha1.PackageRevisionLifecycle
-	if returnFunc, ok := ret.Get(0).(func(context.Context) v1alpha1.PackageRevisionLifecycle); ok {
+	var r0 porch.PackageRevisionLifecycle
+	if returnFunc, ok := ret.Get(0).(func(context.Context) porch.PackageRevisionLifecycle); ok {
 		r0 = returnFunc(ctx)
 	} else {
-		r0 = ret.Get(0).(v1alpha1.PackageRevisionLifecycle)
+		r0 = ret.Get(0).(porch.PackageRevisionLifecycle)
 	}
 	return r0
 }
@@ -575,12 +575,12 @@ func (_c *MockPackageRevision_Lifecycle_Call) Run(run func(ctx context.Context))
 	return _c
 }
 
-func (_c *MockPackageRevision_Lifecycle_Call) Return(packageRevisionLifecycle v1alpha1.PackageRevisionLifecycle) *MockPackageRevision_Lifecycle_Call {
+func (_c *MockPackageRevision_Lifecycle_Call) Return(packageRevisionLifecycle porch.PackageRevisionLifecycle) *MockPackageRevision_Lifecycle_Call {
 	_c.Call.Return(packageRevisionLifecycle)
 	return _c
 }
 
-func (_c *MockPackageRevision_Lifecycle_Call) RunAndReturn(run func(ctx context.Context) v1alpha1.PackageRevisionLifecycle) *MockPackageRevision_Lifecycle_Call {
+func (_c *MockPackageRevision_Lifecycle_Call) RunAndReturn(run func(ctx context.Context) porch.PackageRevisionLifecycle) *MockPackageRevision_Lifecycle_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -784,7 +784,7 @@ func (_c *MockPackageRevision_UID_Call) RunAndReturn(run func() types.UID) *Mock
 }
 
 // UpdateLifecycle provides a mock function for the type MockPackageRevision
-func (_mock *MockPackageRevision) UpdateLifecycle(ctx context.Context, lifecycle v1alpha1.PackageRevisionLifecycle) error {
+func (_mock *MockPackageRevision) UpdateLifecycle(ctx context.Context, lifecycle porch.PackageRevisionLifecycle) error {
 	ret := _mock.Called(ctx, lifecycle)
 
 	if len(ret) == 0 {
@@ -792,7 +792,7 @@ func (_mock *MockPackageRevision) UpdateLifecycle(ctx context.Context, lifecycle
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, v1alpha1.PackageRevisionLifecycle) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, porch.PackageRevisionLifecycle) error); ok {
 		r0 = returnFunc(ctx, lifecycle)
 	} else {
 		r0 = ret.Error(0)
@@ -807,20 +807,20 @@ type MockPackageRevision_UpdateLifecycle_Call struct {
 
 // UpdateLifecycle is a helper method to define mock.On call
 //   - ctx context.Context
-//   - lifecycle v1alpha1.PackageRevisionLifecycle
+//   - lifecycle porch.PackageRevisionLifecycle
 func (_e *MockPackageRevision_Expecter) UpdateLifecycle(ctx interface{}, lifecycle interface{}) *MockPackageRevision_UpdateLifecycle_Call {
 	return &MockPackageRevision_UpdateLifecycle_Call{Call: _e.mock.On("UpdateLifecycle", ctx, lifecycle)}
 }
 
-func (_c *MockPackageRevision_UpdateLifecycle_Call) Run(run func(ctx context.Context, lifecycle v1alpha1.PackageRevisionLifecycle)) *MockPackageRevision_UpdateLifecycle_Call {
+func (_c *MockPackageRevision_UpdateLifecycle_Call) Run(run func(ctx context.Context, lifecycle porch.PackageRevisionLifecycle)) *MockPackageRevision_UpdateLifecycle_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 v1alpha1.PackageRevisionLifecycle
+		var arg1 porch.PackageRevisionLifecycle
 		if args[1] != nil {
-			arg1 = args[1].(v1alpha1.PackageRevisionLifecycle)
+			arg1 = args[1].(porch.PackageRevisionLifecycle)
 		}
 		run(
 			arg0,
@@ -835,7 +835,7 @@ func (_c *MockPackageRevision_UpdateLifecycle_Call) Return(err error) *MockPacka
 	return _c
 }
 
-func (_c *MockPackageRevision_UpdateLifecycle_Call) RunAndReturn(run func(ctx context.Context, lifecycle v1alpha1.PackageRevisionLifecycle) error) *MockPackageRevision_UpdateLifecycle_Call {
+func (_c *MockPackageRevision_UpdateLifecycle_Call) RunAndReturn(run func(ctx context.Context, lifecycle porch.PackageRevisionLifecycle) error) *MockPackageRevision_UpdateLifecycle_Call {
 	_c.Call.Return(run)
 	return _c
 }

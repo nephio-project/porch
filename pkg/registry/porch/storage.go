@@ -17,7 +17,9 @@ package porch
 import (
 	"time"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha2 "github.com/nephio-project/porch/api/porch/v1alpha2"
 	"github.com/nephio-project/porch/pkg/engine"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -94,7 +96,13 @@ func (r *RESTStorageOptions) NewRESTStorage() (genericapiserver.APIGroupInfo, er
 	group := genericapiserver.NewDefaultAPIGroupInfo(porchapi.GroupName, r.Scheme, metav1.ParameterCodec, r.Codecs)
 
 	group.VersionedResourcesStorageMap = map[string]map[string]rest.Storage{
-		porchapi.SchemeGroupVersion.Version: {
+		porchapiv1alpha1.SchemeGroupVersion.Version: {
+			"packages":                  packages,
+			"packagerevisions":          packageRevisions,
+			"packagerevisions/approval": packageRevisionsApproval,
+			"packagerevisionresources":  packageRevisionResources,
+		},
+		porchapiv1alpha2.SchemeGroupVersion.Version: {
 			"packages":                  packages,
 			"packagerevisions":          packageRevisions,
 			"packagerevisions/approval": packageRevisionsApproval,
@@ -111,6 +119,7 @@ func (r *RESTStorageOptions) NewRESTStorage() (genericapiserver.APIGroupInfo, er
 		if err := r.Scheme.AddFieldLabelConversionFunc(gvk, convertPackageFieldSelector); err != nil {
 			return group, err
 		}
+		porchapiv1alpha1.RegisterConversions(r.Scheme)
 	}
 	{
 		gvk := schema.GroupVersionKind{

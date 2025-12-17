@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	fakeextrepo "github.com/nephio-project/porch/pkg/externalrepo/fake"
 	"github.com/stretchr/testify/require"

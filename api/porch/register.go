@@ -23,6 +23,12 @@ const GroupName = "porch.kpt.dev"
 
 var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: runtime.APIVersionInternal}
 
+var (
+	PackageGVR                  = SchemeGroupVersion.WithResource("packages")
+	PackageRevisionGVR          = SchemeGroupVersion.WithResource("packagerevisions")
+	PackageRevisionResourcesGVR = SchemeGroupVersion.WithResource("packagerevisionresources")
+)
+
 func Kind(kind string) schema.GroupKind {
 	return SchemeGroupVersion.WithKind(kind).GroupKind()
 }

@@ -17,7 +17,7 @@ package porch
 import (
 	"testing"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch"
 )
 
 func TestApprovalUpdateStrategy(t *testing.T) {

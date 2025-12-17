@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch"
 	"github.com/nephio-project/porch/pkg/apiserver"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"

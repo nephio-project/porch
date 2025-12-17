@@ -7,7 +7,7 @@ package repository
 import (
 	"context"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/api/porch"
 	"github.com/nephio-project/porch/pkg/repository"
 	mock "github.com/stretchr/testify/mock"
 )
@@ -165,7 +165,7 @@ func (_c *MockRepository_ClosePackageRevisionDraft_Call) RunAndReturn(run func(c
 }
 
 // CreatePackage provides a mock function for the type MockRepository
-func (_mock *MockRepository) CreatePackage(ctx context.Context, obj *v1alpha1.PorchPackage) (repository.Package, error) {
+func (_mock *MockRepository) CreatePackage(ctx context.Context, obj *porch.PorchPackage) (repository.Package, error) {
 	ret := _mock.Called(ctx, obj)
 
 	if len(ret) == 0 {
@@ -174,17 +174,17 @@ func (_mock *MockRepository) CreatePackage(ctx context.Context, obj *v1alpha1.Po
 
 	var r0 repository.Package
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1alpha1.PorchPackage) (repository.Package, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *porch.PorchPackage) (repository.Package, error)); ok {
 		return returnFunc(ctx, obj)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1alpha1.PorchPackage) repository.Package); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *porch.PorchPackage) repository.Package); ok {
 		r0 = returnFunc(ctx, obj)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(repository.Package)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, *v1alpha1.PorchPackage) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *porch.PorchPackage) error); ok {
 		r1 = returnFunc(ctx, obj)
 	} else {
 		r1 = ret.Error(1)
@@ -199,20 +199,20 @@ type MockRepository_CreatePackage_Call struct {
 
 // CreatePackage is a helper method to define mock.On call
 //   - ctx context.Context
-//   - obj *v1alpha1.PorchPackage
+//   - obj *porch.PorchPackage
 func (_e *MockRepository_Expecter) CreatePackage(ctx interface{}, obj interface{}) *MockRepository_CreatePackage_Call {
 	return &MockRepository_CreatePackage_Call{Call: _e.mock.On("CreatePackage", ctx, obj)}
 }
 
-func (_c *MockRepository_CreatePackage_Call) Run(run func(ctx context.Context, obj *v1alpha1.PorchPackage)) *MockRepository_CreatePackage_Call {
+func (_c *MockRepository_CreatePackage_Call) Run(run func(ctx context.Context, obj *porch.PorchPackage)) *MockRepository_CreatePackage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 *v1alpha1.PorchPackage
+		var arg1 *porch.PorchPackage
 		if args[1] != nil {
-			arg1 = args[1].(*v1alpha1.PorchPackage)
+			arg1 = args[1].(*porch.PorchPackage)
 		}
 		run(
 			arg0,
@@ -227,13 +227,13 @@ func (_c *MockRepository_CreatePackage_Call) Return(packageParam repository.Pack
 	return _c
 }
 
-func (_c *MockRepository_CreatePackage_Call) RunAndReturn(run func(ctx context.Context, obj *v1alpha1.PorchPackage) (repository.Package, error)) *MockRepository_CreatePackage_Call {
+func (_c *MockRepository_CreatePackage_Call) RunAndReturn(run func(ctx context.Context, obj *porch.PorchPackage) (repository.Package, error)) *MockRepository_CreatePackage_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // CreatePackageRevisionDraft provides a mock function for the type MockRepository
-func (_mock *MockRepository) CreatePackageRevisionDraft(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
+func (_mock *MockRepository) CreatePackageRevisionDraft(ctx context.Context, obj *porch.PackageRevision) (repository.PackageRevisionDraft, error) {
 	ret := _mock.Called(ctx, obj)
 
 	if len(ret) == 0 {
@@ -242,17 +242,17 @@ func (_mock *MockRepository) CreatePackageRevisionDraft(ctx context.Context, obj
 
 	var r0 repository.PackageRevisionDraft
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *porch.PackageRevision) (repository.PackageRevisionDraft, error)); ok {
 		return returnFunc(ctx, obj)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1alpha1.PackageRevision) repository.PackageRevisionDraft); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *porch.PackageRevision) repository.PackageRevisionDraft); ok {
 		r0 = returnFunc(ctx, obj)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(repository.PackageRevisionDraft)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, *v1alpha1.PackageRevision) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *porch.PackageRevision) error); ok {
 		r1 = returnFunc(ctx, obj)
 	} else {
 		r1 = ret.Error(1)
@@ -267,20 +267,20 @@ type MockRepository_CreatePackageRevisionDraft_Call struct {
 
 // CreatePackageRevisionDraft is a helper method to define mock.On call
 //   - ctx context.Context
-//   - obj *v1alpha1.PackageRevision
+//   - obj *porch.PackageRevision
 func (_e *MockRepository_Expecter) CreatePackageRevisionDraft(ctx interface{}, obj interface{}) *MockRepository_CreatePackageRevisionDraft_Call {
 	return &MockRepository_CreatePackageRevisionDraft_Call{Call: _e.mock.On("CreatePackageRevisionDraft", ctx, obj)}
 }
 
-func (_c *MockRepository_CreatePackageRevisionDraft_Call) Run(run func(ctx context.Context, obj *v1alpha1.PackageRevision)) *MockRepository_CreatePackageRevisionDraft_Call {
+func (_c *MockRepository_CreatePackageRevisionDraft_Call) Run(run func(ctx context.Context, obj *porch.PackageRevision)) *MockRepository_CreatePackageRevisionDraft_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 *v1alpha1.PackageRevision
+		var arg1 *porch.PackageRevision
 		if args[1] != nil {
-			arg1 = args[1].(*v1alpha1.PackageRevision)
+			arg1 = args[1].(*porch.PackageRevision)
 		}
 		run(
 			arg0,
@@ -295,7 +295,7 @@ func (_c *MockRepository_CreatePackageRevisionDraft_Call) Return(packageRevision
 	return _c
 }
 
-func (_c *MockRepository_CreatePackageRevisionDraft_Call) RunAndReturn(run func(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error)) *MockRepository_CreatePackageRevisionDraft_Call {
+func (_c *MockRepository_CreatePackageRevisionDraft_Call) RunAndReturn(run func(ctx context.Context, obj *porch.PackageRevision) (repository.PackageRevisionDraft, error)) *MockRepository_CreatePackageRevisionDraft_Call {
 	_c.Call.Return(run)
 	return _c
 }

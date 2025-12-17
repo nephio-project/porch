@@ -7,7 +7,7 @@ package repository
 import (
 	"context"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/nephio-project/porch/api/porch"
 	"github.com/nephio-project/porch/pkg/repository"
 	mock "github.com/stretchr/testify/mock"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -129,7 +129,7 @@ func (_c *MockPackageRevisionDraft_Key_Call) RunAndReturn(run func() repository.
 }
 
 // UpdateLifecycle provides a mock function for the type MockPackageRevisionDraft
-func (_mock *MockPackageRevisionDraft) UpdateLifecycle(context1 context.Context, packageRevisionLifecycle v1alpha1.PackageRevisionLifecycle) error {
+func (_mock *MockPackageRevisionDraft) UpdateLifecycle(context1 context.Context, packageRevisionLifecycle porch.PackageRevisionLifecycle) error {
 	ret := _mock.Called(context1, packageRevisionLifecycle)
 
 	if len(ret) == 0 {
@@ -137,7 +137,7 @@ func (_mock *MockPackageRevisionDraft) UpdateLifecycle(context1 context.Context,
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, v1alpha1.PackageRevisionLifecycle) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, porch.PackageRevisionLifecycle) error); ok {
 		r0 = returnFunc(context1, packageRevisionLifecycle)
 	} else {
 		r0 = ret.Error(0)
@@ -152,20 +152,20 @@ type MockPackageRevisionDraft_UpdateLifecycle_Call struct {
 
 // UpdateLifecycle is a helper method to define mock.On call
 //   - context1 context.Context
-//   - packageRevisionLifecycle v1alpha1.PackageRevisionLifecycle
+//   - packageRevisionLifecycle porch.PackageRevisionLifecycle
 func (_e *MockPackageRevisionDraft_Expecter) UpdateLifecycle(context1 interface{}, packageRevisionLifecycle interface{}) *MockPackageRevisionDraft_UpdateLifecycle_Call {
 	return &MockPackageRevisionDraft_UpdateLifecycle_Call{Call: _e.mock.On("UpdateLifecycle", context1, packageRevisionLifecycle)}
 }
 
-func (_c *MockPackageRevisionDraft_UpdateLifecycle_Call) Run(run func(context1 context.Context, packageRevisionLifecycle v1alpha1.PackageRevisionLifecycle)) *MockPackageRevisionDraft_UpdateLifecycle_Call {
+func (_c *MockPackageRevisionDraft_UpdateLifecycle_Call) Run(run func(context1 context.Context, packageRevisionLifecycle porch.PackageRevisionLifecycle)) *MockPackageRevisionDraft_UpdateLifecycle_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 v1alpha1.PackageRevisionLifecycle
+		var arg1 porch.PackageRevisionLifecycle
 		if args[1] != nil {
-			arg1 = args[1].(v1alpha1.PackageRevisionLifecycle)
+			arg1 = args[1].(porch.PackageRevisionLifecycle)
 		}
 		run(
 			arg0,
@@ -180,13 +180,13 @@ func (_c *MockPackageRevisionDraft_UpdateLifecycle_Call) Return(err error) *Mock
 	return _c
 }
 
-func (_c *MockPackageRevisionDraft_UpdateLifecycle_Call) RunAndReturn(run func(context1 context.Context, packageRevisionLifecycle v1alpha1.PackageRevisionLifecycle) error) *MockPackageRevisionDraft_UpdateLifecycle_Call {
+func (_c *MockPackageRevisionDraft_UpdateLifecycle_Call) RunAndReturn(run func(context1 context.Context, packageRevisionLifecycle porch.PackageRevisionLifecycle) error) *MockPackageRevisionDraft_UpdateLifecycle_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // UpdateResources provides a mock function for the type MockPackageRevisionDraft
-func (_mock *MockPackageRevisionDraft) UpdateResources(context1 context.Context, packageRevisionResources *v1alpha1.PackageRevisionResources, task *v1alpha1.Task) error {
+func (_mock *MockPackageRevisionDraft) UpdateResources(context1 context.Context, packageRevisionResources *porch.PackageRevisionResources, task *porch.Task) error {
 	ret := _mock.Called(context1, packageRevisionResources, task)
 
 	if len(ret) == 0 {
@@ -194,7 +194,7 @@ func (_mock *MockPackageRevisionDraft) UpdateResources(context1 context.Context,
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1alpha1.PackageRevisionResources, *v1alpha1.Task) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *porch.PackageRevisionResources, *porch.Task) error); ok {
 		r0 = returnFunc(context1, packageRevisionResources, task)
 	} else {
 		r0 = ret.Error(0)
@@ -209,25 +209,25 @@ type MockPackageRevisionDraft_UpdateResources_Call struct {
 
 // UpdateResources is a helper method to define mock.On call
 //   - context1 context.Context
-//   - packageRevisionResources *v1alpha1.PackageRevisionResources
-//   - task *v1alpha1.Task
+//   - packageRevisionResources *porch.PackageRevisionResources
+//   - task *porch.Task
 func (_e *MockPackageRevisionDraft_Expecter) UpdateResources(context1 interface{}, packageRevisionResources interface{}, task interface{}) *MockPackageRevisionDraft_UpdateResources_Call {
 	return &MockPackageRevisionDraft_UpdateResources_Call{Call: _e.mock.On("UpdateResources", context1, packageRevisionResources, task)}
 }
 
-func (_c *MockPackageRevisionDraft_UpdateResources_Call) Run(run func(context1 context.Context, packageRevisionResources *v1alpha1.PackageRevisionResources, task *v1alpha1.Task)) *MockPackageRevisionDraft_UpdateResources_Call {
+func (_c *MockPackageRevisionDraft_UpdateResources_Call) Run(run func(context1 context.Context, packageRevisionResources *porch.PackageRevisionResources, task *porch.Task)) *MockPackageRevisionDraft_UpdateResources_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 *v1alpha1.PackageRevisionResources
+		var arg1 *porch.PackageRevisionResources
 		if args[1] != nil {
-			arg1 = args[1].(*v1alpha1.PackageRevisionResources)
+			arg1 = args[1].(*porch.PackageRevisionResources)
 		}
-		var arg2 *v1alpha1.Task
+		var arg2 *porch.Task
 		if args[2] != nil {
-			arg2 = args[2].(*v1alpha1.Task)
+			arg2 = args[2].(*porch.Task)
 		}
 		run(
 			arg0,
@@ -243,7 +243,7 @@ func (_c *MockPackageRevisionDraft_UpdateResources_Call) Return(err error) *Mock
 	return _c
 }
 
-func (_c *MockPackageRevisionDraft_UpdateResources_Call) RunAndReturn(run func(context1 context.Context, packageRevisionResources *v1alpha1.PackageRevisionResources, task *v1alpha1.Task) error) *MockPackageRevisionDraft_UpdateResources_Call {
+func (_c *MockPackageRevisionDraft_UpdateResources_Call) RunAndReturn(run func(context1 context.Context, packageRevisionResources *porch.PackageRevisionResources, task *porch.Task) error) *MockPackageRevisionDraft_UpdateResources_Call {
 	_c.Call.Return(run)
 	return _c
 }

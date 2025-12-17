@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"testing"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch"
 )
 
 func testValidateUpdate(t *testing.T, s SimpleRESTUpdateStrategy, old, new porchapi.PackageRevisionLifecycle, valid bool) {

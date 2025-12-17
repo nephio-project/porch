@@ -19,7 +19,7 @@ import (
 	"strings"
 
 	"github.com/go-git/go-git/v5/plumbing/object"
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch"
 	"github.com/nephio-project/porch/pkg/errors"
 	pkgerrors "github.com/pkg/errors"
 )

@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	"github.com/kptdev/kpt/pkg/oci"
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
 )

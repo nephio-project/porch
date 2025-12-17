@@ -68,6 +68,43 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/nephio-project/porch/api/porch/v1alpha1.TaskResult":                     schema_porch_api_porch_v1alpha1_TaskResult(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamLock":                   schema_porch_api_porch_v1alpha1_UpstreamLock(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamPackage":                schema_porch_api_porch_v1alpha1_UpstreamPackage(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.Condition":                      schema_porch_api_porch_v1alpha2_Condition(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.Field":                          schema_porch_api_porch_v1alpha2_Field(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.File":                           schema_porch_api_porch_v1alpha2_File(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.GitLock":                        schema_porch_api_porch_v1alpha2_GitLock(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.GitPackage":                     schema_porch_api_porch_v1alpha2_GitPackage(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.NameMeta":                       schema_porch_api_porch_v1alpha2_NameMeta(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.OciPackage":                     schema_porch_api_porch_v1alpha2_OciPackage(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.PackageCloneTaskSpec":           schema_porch_api_porch_v1alpha2_PackageCloneTaskSpec(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.PackageEditTaskSpec":            schema_porch_api_porch_v1alpha2_PackageEditTaskSpec(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.PackageInitTaskSpec":            schema_porch_api_porch_v1alpha2_PackageInitTaskSpec(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevision":                schema_porch_api_porch_v1alpha2_PackageRevision(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionList":            schema_porch_api_porch_v1alpha2_PackageRevisionList(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionRef":             schema_porch_api_porch_v1alpha2_PackageRevisionRef(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionResources":       schema_porch_api_porch_v1alpha2_PackageRevisionResources(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionResourcesList":   schema_porch_api_porch_v1alpha2_PackageRevisionResourcesList(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionResourcesSpec":   schema_porch_api_porch_v1alpha2_PackageRevisionResourcesSpec(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionResourcesStatus": schema_porch_api_porch_v1alpha2_PackageRevisionResourcesStatus(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionSpec":            schema_porch_api_porch_v1alpha2_PackageRevisionSpec(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionStatus":          schema_porch_api_porch_v1alpha2_PackageRevisionStatus(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.PackageSpec":                    schema_porch_api_porch_v1alpha2_PackageSpec(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.PackageStatus":                  schema_porch_api_porch_v1alpha2_PackageStatus(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.PackageUpgradeTaskSpec":         schema_porch_api_porch_v1alpha2_PackageUpgradeTaskSpec(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.PorchPackage":                   schema_porch_api_porch_v1alpha2_PorchPackage(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.PorchPackageList":               schema_porch_api_porch_v1alpha2_PorchPackageList(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.ReadinessGate":                  schema_porch_api_porch_v1alpha2_ReadinessGate(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.RenderStatus":                   schema_porch_api_porch_v1alpha2_RenderStatus(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.RepositoryRef":                  schema_porch_api_porch_v1alpha2_RepositoryRef(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.ResourceIdentifier":             schema_porch_api_porch_v1alpha2_ResourceIdentifier(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.Result":                         schema_porch_api_porch_v1alpha2_Result(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.ResultItem":                     schema_porch_api_porch_v1alpha2_ResultItem(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.ResultList":                     schema_porch_api_porch_v1alpha2_ResultList(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.SecretRef":                      schema_porch_api_porch_v1alpha2_SecretRef(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.Selector":                       schema_porch_api_porch_v1alpha2_Selector(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.Task":                           schema_porch_api_porch_v1alpha2_Task(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.TaskResult":                     schema_porch_api_porch_v1alpha2_TaskResult(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.UpstreamLock":                   schema_porch_api_porch_v1alpha2_UpstreamLock(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.UpstreamPackage":                schema_porch_api_porch_v1alpha2_UpstreamPackage(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                     schema_pkg_apis_meta_v1_APIGroup(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                 schema_pkg_apis_meta_v1_APIGroupList(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResource":                                  schema_pkg_apis_meta_v1_APIResource(ref),
@@ -1709,6 +1746,1425 @@ func schema_porch_api_porch_v1alpha1_UpstreamPackage(ref common.ReferenceCallbac
 		},
 		Dependencies: []string{
 			"github.com/nephio-project/porch/api/porch/v1alpha1.GitPackage", "github.com/nephio-project/porch/api/porch/v1alpha1.OciPackage", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionRef"},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_Condition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"type", "status"},
+			},
+		},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_Field(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Field references a field in a resource",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"path": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Path is the field path. This field is required.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"currentValue": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CurrentValue is the current field value",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"proposedValue": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ProposedValue is the proposed value of the field to fix an issue.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_File(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "File references a file containing a resource",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"path": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Path is relative path to the file containing the resource. This field is required.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"index": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Index is the index into the file containing the resource (i.e. if there are multiple resources in a single file)",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_GitLock(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "GitLock is the resolved locator for a package on Git.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"repo": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Repo is the git repository that was fetched. e.g. 'https://github.com/kubernetes/examples.git'",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"directory": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Directory is the sub directory of the git repository that was fetched. e.g. 'staging/cockroachdb'",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"ref": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Ref can be a Git branch, tag, or a commit SHA-1 that was fetched. e.g. 'master'",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"commit": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Commit is the SHA-1 for the last fetch of the package. This is set by kpt for bookkeeping purposes.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_GitPackage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"repo": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Address of the Git repository, for example:\n  `https://github.com/GoogleCloudPlatform/blueprints.git`",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"ref": {
+						SchemaProps: spec.SchemaProps{
+							Description: "`Ref` is the git ref containing the package. Ref can be a branch, tag, or commit SHA.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"directory": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Directory within the Git repository where the packages are stored. A subdirectory of this directory containing a Kptfile is considered a package.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"secretRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Reference to secret containing authentication credentials. Optional.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha2.SecretRef"),
+						},
+					},
+				},
+				Required: []string{"repo", "ref", "directory"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/nephio-project/porch/api/porch/v1alpha2.SecretRef"},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_NameMeta(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "NameMeta contains name information.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the metadata.name field of a Resource",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"namespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Namespace is the metadata.namespace field of a Resource",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_OciPackage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "OciPackage describes a repository compatible with the Open Container Registry standard.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"image": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Image is the address of an OCI image.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"image"},
+			},
+		},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_PackageCloneTaskSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"upstreamRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "`Upstream` is the reference to the upstream package to clone.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha2.UpstreamPackage"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/nephio-project/porch/api/porch/v1alpha2.UpstreamPackage"},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_PackageEditTaskSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"sourceRef": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionRef"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionRef"},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_PackageInitTaskSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PackageInitTaskSpec defines the package initialization task.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"subpackage": {
+						SchemaProps: spec.SchemaProps{
+							Description: "`Subpackage` is a directory path to a subpackage to initialize. If unspecified, the main package will be initialized.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Description: "`Description` is a short description of the package.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"keywords": {
+						SchemaProps: spec.SchemaProps{
+							Description: "`Keywords` is a list of keywords describing the package.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"site": {
+						SchemaProps: spec.SchemaProps{
+							Description: "`Site is a link to page with information about the package.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_PackageRevision(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PackageRevision",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionSpec", "github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_PackageRevisionList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PackageRevisionList",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevision"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevision", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_PackageRevisionRef(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PackageRevisionRef is a reference to a package revision.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "`Name` is the name of the referenced PackageRevision resource.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_PackageRevisionResources(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PackageRevisionResources",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionResourcesSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionResourcesStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionResourcesSpec", "github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionResourcesStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_PackageRevisionResourcesList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PackageRevisionResourcesList",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionResources"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionResources", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_PackageRevisionResourcesSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PackageRevisionResourcesSpec represents resources (as ResourceList serialized as yaml string) of the PackageRevision.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"packageName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PackageName identifies the package in the repository.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"workspaceName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "WorkspaceName identifies the workspace of the package.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"revision": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Revision identifies the version of the package.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"repository": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RepositoryName is the name of the Repository object containing this package.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resources": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Resources are the content of the package.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_PackageRevisionResourcesStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PackageRevisionResourcesStatus represents state of the rendered package resources.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"renderStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RenderStatus contains the result of rendering the package resources.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha2.RenderStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/nephio-project/porch/api/porch/v1alpha2.RenderStatus"},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_PackageRevisionSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PackageRevisionSpec defines the desired state of PackageRevision",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"packageName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PackageName identifies the package in the repository.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"repository": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RepositoryName is the name of the Repository object containing this package.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"workspaceName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "WorkspaceName is a short, unique description of the changes contained in this package revision.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"revision": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Revision identifies the version of the package.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"lifecycle": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"tasks": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The task slice holds zero or more tasks that describe the operations performed on the packagerevision. The are essentially a replayable history of the packagerevision,\n\nPackagerevisions that were not created in Porch may have an empty task list.\n\nPackagerevisions created and managed through Porch will always have either an Init, Edit, or a Clone task as the first entry in their task list. This represent packagerevisions created from scratch, based a copy of a different revision in the same package, or a packagerevision cloned from another package. Each change to the packagerevision will result in a correspondig task being added to the list of tasks. It will describe the operation performed and will have a corresponding entry (commit or layer) in git or oci. The task slice describes the history of the packagerevision, so it is an append only list (We might introduce some kind of compaction in the future to keep the number of tasks at a reasonable number).",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha2.Task"),
+									},
+								},
+							},
+						},
+					},
+					"readinessGates": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha2.ReadinessGate"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/nephio-project/porch/api/porch/v1alpha2.ReadinessGate", "github.com/nephio-project/porch/api/porch/v1alpha2.Task"},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_PackageRevisionStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PackageRevisionStatus defines the observed state of PackageRevision",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"upstreamLock": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UpstreamLock identifies the upstream data for this package.",
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha2.UpstreamLock"),
+						},
+					},
+					"publishedBy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PublishedBy is the identity of the user who approved the packagerevision.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"publishTimestamp": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PublishedAt is the time when the packagerevision were approved.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"deployment": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Deployment is true if this is a deployment package (in a deployment repository).",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha2.Condition"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/nephio-project/porch/api/porch/v1alpha2.Condition", "github.com/nephio-project/porch/api/porch/v1alpha2.UpstreamLock", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_PackageSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PackageSpec defines the desired state of Package",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"packageName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PackageName identifies the package in the repository.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"repository": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RepositoryName is the name of the Repository object containing this package.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_PackageStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PackageStatus defines the observed state of Package",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"latestRevision": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LatestRevision identifies the package revision that is the latest published package revision belonging to this package. Latest is determined by comparing packages that have valid semantic version as their revision. In case of git backend, branch tracking revisions like \"main\" and in case of oci backend, revisions tracking \"latest\" are not considered during selection of the latest revision.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_PackageUpgradeTaskSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"oldUpstreamRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "`OldUpstream` is the reference to the original upstream package revision that is the common ancestor of the local package and the new upstream package revision.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionRef"),
+						},
+					},
+					"newUpstreamRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "`NewUpstream` is the reference to the new upstream package revision that the local package will be upgraded to.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionRef"),
+						},
+					},
+					"localPackageRevisionRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "`LocalPackageRevisionRef` is the reference to the local package revision that contains all the local changes on top of the `OldUpstream` package revision.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionRef"),
+						},
+					},
+					"strategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Defines which strategy should be used to update the package. It defaults to 'resource-merge'.\n * resource-merge: Perform a structural comparison of the original /\n   updated resources, and merge the changes into the local package.\n * fast-forward: Fail without updating if the local package was modified\n   since it was fetched.\n * force-delete-replace: Wipe all the local changes to the package and replace\n   it with the remote version.\n * copy-merge: Copy all the remote changes to the local package.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionRef"},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_PorchPackage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Package",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha2.PackageSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha2.PackageStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/nephio-project/porch/api/porch/v1alpha2.PackageSpec", "github.com/nephio-project/porch/api/porch/v1alpha2.PackageStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_PorchPackageList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PackageList",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha2.PorchPackage"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/nephio-project/porch/api/porch/v1alpha2.PorchPackage", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_ReadinessGate(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"conditionType": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_RenderStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "RenderStatus represents the result of performing render operation on a package resources.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"result": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha2.ResultList"),
+						},
+					},
+					"error": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"error"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/nephio-project/porch/api/porch/v1alpha2.ResultList"},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_RepositoryRef(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "RepositoryRef identifies a reference to a Repository resource.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of the Repository resource referenced.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_ResourceIdentifier(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ResourceIdentifier contains the information needed to uniquely identify a resource in a cluster.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the metadata.name field of a Resource",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"namespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Namespace is the metadata.namespace field of a Resource",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_Result(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Result contains the structured result from an individual function",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"image": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Image is the full name of the image that generates this result Image and Exec are mutually exclusive",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"exec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ExecPath is the the absolute os-specific path to the executable file If user provides an executable file with commands, ExecPath should contain the entire input string.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"stderr": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enable this once test harness supports filepath based assertions. Pkg is OS specific Absolute path to the package. Pkg string `yaml:\"pkg,omitempty\"` Stderr is the content in function stderr",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"exitCode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ExitCode is the exit code from running the function",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"results": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Results is the list of results for the function",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha2.ResultItem"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"exitCode"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/nephio-project/porch/api/porch/v1alpha2.ResultItem"},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_ResultItem(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ResultItem defines a validation result",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Message is a human readable message. This field is required.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"severity": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Severity is the severity of this result",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resourceRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ResourceRef is a reference to a resource. Required fields: apiVersion, kind, name.",
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha2.ResourceIdentifier"),
+						},
+					},
+					"field": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Field is a reference to the field in a resource this result refers to",
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha2.Field"),
+						},
+					},
+					"file": {
+						SchemaProps: spec.SchemaProps{
+							Description: "File references a file containing the resource this result refers to",
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha2.File"),
+						},
+					},
+					"tags": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Tags is an unstructured key value map stored with a result that may be set by external tools to store and retrieve arbitrary metadata",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/nephio-project/porch/api/porch/v1alpha2.Field", "github.com/nephio-project/porch/api/porch/v1alpha2.File", "github.com/nephio-project/porch/api/porch/v1alpha2.ResourceIdentifier"},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_ResultList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ResultList contains aggregated results from multiple functions",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"exitCode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ExitCode is the exit code of kpt command",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Items contain a list of function result",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha2.Result"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"exitCode"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/nephio-project/porch/api/porch/v1alpha2.Result", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_SecretRef(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of the secret. The secret is expected to be located in the same namespace as the resource containing the reference.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_Selector(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Selector corresponds to the `--match-???` set of flags of the `kpt fn eval` command: See https://kpt.dev/reference/cli/fn/eval/ for additional information.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion of the target resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind of the target resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of the target resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"namespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Namespace of the target resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_Task(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"init": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha2.PackageInitTaskSpec"),
+						},
+					},
+					"clone": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha2.PackageCloneTaskSpec"),
+						},
+					},
+					"edit": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha2.PackageEditTaskSpec"),
+						},
+					},
+					"upgrade": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha2.PackageUpgradeTaskSpec"),
+						},
+					},
+				},
+				Required: []string{"type"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/nephio-project/porch/api/porch/v1alpha2.PackageCloneTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha2.PackageEditTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha2.PackageInitTaskSpec", "github.com/nephio-project/porch/api/porch/v1alpha2.PackageUpgradeTaskSpec"},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_TaskResult(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"task": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha2.Task"),
+						},
+					},
+					"renderStatus": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/nephio-project/porch/api/porch/v1alpha2.RenderStatus"),
+						},
+					},
+				},
+				Required: []string{"task"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/nephio-project/porch/api/porch/v1alpha2.RenderStatus", "github.com/nephio-project/porch/api/porch/v1alpha2.Task"},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_UpstreamLock(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "UpstreamLock is a resolved locator for the last fetch of the package.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type is the type of origin.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"git": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Git is the resolved locator for a package on Git.",
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha2.GitLock"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/nephio-project/porch/api/porch/v1alpha2.GitLock"},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_UpstreamPackage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "UpstreamRepository repository may be specified directly or by referencing another Repository resource.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type of the repository (i.e. git, OCI). If empty, `upstreamRef` will be used.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"git": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Git upstream package specification. Required if `type` is `git`. Must be unspecified if `type` is not `git`.",
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha2.GitPackage"),
+						},
+					},
+					"oci": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OCI upstream package specification. Required if `type` is `oci`. Must be unspecified if `type` is not `oci`.",
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha2.OciPackage"),
+						},
+					},
+					"upstreamRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UpstreamRef is the reference to the package from a registered repository rather than external package.",
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionRef"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/nephio-project/porch/api/porch/v1alpha2.GitPackage", "github.com/nephio-project/porch/api/porch/v1alpha2.OciPackage", "github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionRef"},
 	}
 }
 

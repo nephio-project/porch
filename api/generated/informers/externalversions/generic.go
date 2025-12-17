@@ -20,6 +20,7 @@ import (
 	fmt "fmt"
 
 	v1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
+	v1alpha2 "github.com/nephio-project/porch/api/porch/v1alpha2"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -57,6 +58,14 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Porch().V1alpha1().PackageRevisionResources().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("porchpackages"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Porch().V1alpha1().PorchPackages().Informer()}, nil
+
+		// Group=porch.kpt.dev, Version=v1alpha2
+	case v1alpha2.SchemeGroupVersion.WithResource("packagerevisions"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Porch().V1alpha2().PackageRevisions().Informer()}, nil
+	case v1alpha2.SchemeGroupVersion.WithResource("packagerevisionresources"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Porch().V1alpha2().PackageRevisionResources().Informer()}, nil
+	case v1alpha2.SchemeGroupVersion.WithResource("porchpackages"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Porch().V1alpha2().PorchPackages().Informer()}, nil
 
 	}
 

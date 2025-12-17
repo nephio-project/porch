@@ -18,9 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch"
 	"github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
@@ -158,8 +156,9 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 		klog.Infof("update failed to construct UpdatedObject: %v", err)
 		return nil, false, err
 	}
-	newObj, ok := newRuntimeObj.(*porchapi.PackageRevisionResources)
-	if !ok {
+	var newObj *porchapi.PackageRevisionResources
+	err = r.scheme.Convert(newRuntimeObj, newObj, nil)
+	if err != nil {
 		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("expected PackageRevisionResources object, got %T", newRuntimeObj))
 	}
 
@@ -180,7 +179,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 	repositoryID := types.NamespacedName{Namespace: prKey.RKey().Namespace, Name: prKey.RKey().Name}
 	if err := r.coreClient.Get(ctx, repositoryID, &repositoryObj); err != nil {
 		if apierrors.IsNotFound(err) {
-			return nil, false, apierrors.NewNotFound(schema.GroupResource(porchapi.PackageRevisionResourcesGVR.GroupResource()), repositoryID.Name)
+			return nil, false, apierrors.NewNotFound(porchapi.PackageRevisionResourcesGVR.GroupResource(), repositoryID.Name)
 		}
 		return nil, false, apierrors.NewInternalError(fmt.Errorf("error getting repository %v: %w", repositoryID, err))
 	}

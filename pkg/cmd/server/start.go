@@ -30,7 +30,9 @@ import (
 	clientset "github.com/nephio-project/porch/api/generated/clientset/versioned"
 	informers "github.com/nephio-project/porch/api/generated/informers/externalversions"
 	sampleopenapi "github.com/nephio-project/porch/api/generated/openapi"
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch"
+	porchv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha2 "github.com/nephio-project/porch/api/porch/v1alpha2"
 	"github.com/nephio-project/porch/pkg/apiserver"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/engine"
@@ -80,6 +82,8 @@ func NewPorchServerOptions(out, errOut io.Writer) *PorchServerOptions {
 	// GroupVersions served by this server
 	//
 	versions := schema.GroupVersions{
+		porchv1alpha1.SchemeGroupVersion,
+		porchapiv1alpha2.SchemeGroupVersion,
 		porchapi.SchemeGroupVersion,
 	}
 

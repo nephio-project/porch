@@ -20,6 +20,8 @@ import (
 	clientset "github.com/nephio-project/porch/api/generated/clientset/versioned"
 	porchv1alpha1 "github.com/nephio-project/porch/api/generated/clientset/versioned/typed/porch/v1alpha1"
 	fakeporchv1alpha1 "github.com/nephio-project/porch/api/generated/clientset/versioned/typed/porch/v1alpha1/fake"
+	porchv1alpha2 "github.com/nephio-project/porch/api/generated/clientset/versioned/typed/porch/v1alpha2"
+	fakeporchv1alpha2 "github.com/nephio-project/porch/api/generated/clientset/versioned/typed/porch/v1alpha2/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -89,4 +91,9 @@ var (
 // PorchV1alpha1 retrieves the PorchV1alpha1Client
 func (c *Clientset) PorchV1alpha1() porchv1alpha1.PorchV1alpha1Interface {
 	return &fakeporchv1alpha1.FakePorchV1alpha1{Fake: &c.Fake}
+}
+
+// PorchV1alpha2 retrieves the PorchV1alpha2Client
+func (c *Clientset) PorchV1alpha2() porchv1alpha2.PorchV1alpha2Interface {
+	return &fakeporchv1alpha2.FakePorchV1alpha2{Fake: &c.Fake}
 }

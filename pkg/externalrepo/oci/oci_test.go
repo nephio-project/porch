@@ -69,7 +69,7 @@ func TestPackageGettersAndSetters(t *testing.T) {
 
 	assert.Equal(t, "oci-repo-name.my-package.my-workspace", fakePr.KubeObjectName())
 	assert.Equal(t, "my-namespace", fakePr.KubeObjectNamespace())
-	assert.Equal(t, types.UID("fd358d1c-04bc-5038-9727-044129e97880"), fakePr.UID())
+	assert.Equal(t, types.UID("447ebf27-e65c-5ddf-9c53-2aa02daa539c"), fakePr.UID())
 
 	inMeta := metav1.ObjectMeta{}
 	inMeta.Name = fakePr.Key().RKey().Name

@@ -36,7 +36,9 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha2 "github.com/nephio-project/porch/api/porch/v1alpha2"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
 	"github.com/nephio-project/porch/pkg/util"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -304,9 +306,12 @@ func createValidatingWebhook(ctx context.Context, cfg *WebhookConfig, caCert []b
 			Rules: []admissionregistrationv1.RuleWithOperations{{Operations: []admissionregistrationv1.OperationType{
 				admissionregistrationv1.Delete},
 				Rule: admissionregistrationv1.Rule{
-					APIGroups:   []string{porchapi.SchemeGroupVersion.Group},
-					APIVersions: []string{porchapi.SchemeGroupVersion.Version},
-					Resources:   []string{porchapi.PackageRevisionGVR.Resource},
+					APIGroups: []string{porchapiv1alpha1.SchemeGroupVersion.Group},
+					APIVersions: []string{
+						porchapiv1alpha1.SchemeGroupVersion.Version,
+						porchapiv1alpha2.SchemeGroupVersion.Version,
+					},
+					Resources: []string{porchapiv1alpha1.PackageRevisionGVR.Resource},
 				},
 			}},
 			AdmissionReviewVersions: []string{"v1", "v1beta1"},
@@ -453,7 +458,8 @@ func validateDeletion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify that we have a PackageRevision resource
-	if admissionReviewRequest.Request.Resource != util.SchemaToMetaGVR(porchapi.PackageRevisionGVR) {
+	if admissionReviewRequest.Request.Resource != util.SchemaToMetaGVR(porchapiv1alpha1.PackageRevisionGVR) &&
+		admissionReviewRequest.Request.Resource != util.SchemaToMetaGVR(porchapiv1alpha2.PackageRevisionGVR) {
 		errMsg := fmt.Sprintf("did not receive PackageRevision, got %s", admissionReviewRequest.Request.Resource.Resource)
 		writeErr(errMsg, &w)
 		return
