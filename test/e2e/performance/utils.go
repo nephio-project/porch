@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -29,9 +29,9 @@ func KindOf(o any) string {
 
 func NameOf(o any) string {
 	switch c := o.(type) {
-	case *porchapi.PackageRevision:
+	case *porchapiv1alpha1.PackageRevision:
 		return fmt.Sprintf("%s/%s", c.Spec.RepositoryName, c.Spec.PackageName)
-	case *porchapi.PackageRevisionResources:
+	case *porchapiv1alpha1.PackageRevisionResources:
 		return fmt.Sprintf("%s/%s", c.Spec.RepositoryName, c.Spec.PackageName)
 	case *configapi.Repository:
 		return c.Name

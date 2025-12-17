@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"strings"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
@@ -93,18 +93,18 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 			Name:      name,
 		}
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			var pr porchapi.PackageRevision
+			var pr porchapiv1alpha1.PackageRevision
 			if err := r.client.Get(r.ctx, key, &pr); err != nil {
 				return err
 			}
 			switch pr.Spec.Lifecycle {
-			case porchapi.PackageRevisionLifecycleProposed:
+			case porchapiv1alpha1.PackageRevisionLifecycleProposed:
 				proposedFor = "approval"
-				return porch.UpdatePackageRevisionApproval(r.ctx, r.client, &pr, porchapi.PackageRevisionLifecycleDraft)
-			case porchapi.PackageRevisionLifecycleDeletionProposed:
+				return porch.UpdatePackageRevisionApproval(r.ctx, r.client, &pr, porchapiv1alpha1.PackageRevisionLifecycleDraft)
+			case porchapiv1alpha1.PackageRevisionLifecycleDeletionProposed:
 				proposedFor = "deletion"
 				// NOTE(kispaljr): should we use UpdatePackageRevisionApproval() here?
-				pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+				pr.Spec.Lifecycle = porchapiv1alpha1.PackageRevisionLifecyclePublished
 				return r.client.Update(r.ctx, &pr)
 			default:
 				return fmt.Errorf("cannot reject %s with lifecycle '%s'", name, pr.Spec.Lifecycle)

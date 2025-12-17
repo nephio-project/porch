@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/test/e2e"
 	"github.com/stretchr/testify/suite"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -189,10 +189,10 @@ func (t *IterativeTest) TestIterative() {
 }
 
 func (t *IterativeTest) ensureTestPackagesDeleted() {
-	list := &porchapi.PackageRevisionList{}
+	list := &porchapiv1alpha1.PackageRevisionList{}
 	t.ListE(list, client.InNamespace(t.Namespace), client.MatchingFields{"spec.packageName": testPackageName})
 	for _, pr := range list.Items {
-		pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
+		pr.Spec.Lifecycle = porchapiv1alpha1.PackageRevisionLifecycleDeletionProposed
 		t.UpdateApprovalL(&pr, metav1.UpdateOptions{})
 		t.DeleteL(&pr)
 	}
@@ -233,31 +233,31 @@ func (t *IterativeTest) mergeMetrics(iterationMetrics []IterationMetricsData) {
 // collectMetrics runs the inner part of the test, collecting the specified metrics
 func (t *IterativeTest) collectMetrics() *IterationMetricsData {
 	output := &IterationMetricsData{}
-	var pr *porchapi.PackageRevision
+	var pr *porchapiv1alpha1.PackageRevision
 
-	output.List = Measure(func() { t.ListF(&porchapi.PackageRevisionList{}) })
+	output.List = Measure(func() { t.ListF(&porchapiv1alpha1.PackageRevisionList{}) })
 
 	output.Create = Measure(func() { pr = t.CreatePackageDraftF(testRepoName, testPackageName, startingWS) })
 	t.T().Cleanup(func() { t.DeleteL(pr) })
 
-	resources := &porchapi.PackageRevisionResources{}
+	resources := &porchapiv1alpha1.PackageRevisionResources{}
 	t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: pr.Name}, resources)
 	resources.Spec.Resources["README.md"] = "# updated readme"
 	output.UpdateResources = Measure(func() { t.UpdateF(resources) })
 
 	output.GetAfterResourceUpdate = Measure(func() { t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: pr.Name}, pr) })
 
-	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+	pr.Spec.Lifecycle = porchapiv1alpha1.PackageRevisionLifecycleProposed
 	output.Propose = Measure(func() { t.UpdateF(pr) })
 
 	output.GetAfterPropose = Measure(func() { t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: pr.Name}, pr) })
 
-	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+	pr.Spec.Lifecycle = porchapiv1alpha1.PackageRevisionLifecyclePublished
 	output.Approve = Measure(func() { t.UpdateApprovalF(pr, metav1.UpdateOptions{}) })
 
 	output.GetAfterPublish = Measure(func() { t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: pr.Name}, pr) })
 
-	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
+	pr.Spec.Lifecycle = porchapiv1alpha1.PackageRevisionLifecycleDeletionProposed
 	output.DeleteProposed = Measure(func() { t.UpdateApprovalF(pr, metav1.UpdateOptions{}) })
 
 	output.GetAfterProposeDelete = Measure(func() { t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: pr.Name}, pr) })
@@ -287,10 +287,10 @@ func (t *IterativeTest) deletePackageRevisions() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			prs := &porchapi.PackageRevisionList{}
+			prs := &porchapiv1alpha1.PackageRevisionList{}
 			t.ListE(prs, client.MatchingFields{"spec.repository": repo})
 			for _, pr := range prs.Items {
-				pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
+				pr.Spec.Lifecycle = porchapiv1alpha1.PackageRevisionLifecycleDeletionProposed
 				t.UpdateApprovalL(&pr, metav1.UpdateOptions{})
 				t.DeleteL(&pr)
 			}
@@ -300,17 +300,17 @@ func (t *IterativeTest) deletePackageRevisions() {
 }
 
 // createNewPackageRevisionFrom takes a PackageRevision and creates a new PackageRevision from it
-func (t *IterativeTest) createNewPackageRevisionFrom(pr *porchapi.PackageRevision, repoName string, i int) *porchapi.PackageRevision {
-	newPr := &porchapi.PackageRevision{
+func (t *IterativeTest) createNewPackageRevisionFrom(pr *porchapiv1alpha1.PackageRevision, repoName string, i int) *porchapiv1alpha1.PackageRevision {
+	newPr := &porchapiv1alpha1.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pr.Namespace,
 		},
-		Spec: porchapi.PackageRevisionSpec{
+		Spec: porchapiv1alpha1.PackageRevisionSpec{
 			PackageName:    pr.Spec.PackageName,
 			WorkspaceName:  fmt.Sprintf("v%d", i),
 			RepositoryName: repoName,
 			Tasks:          pr.Spec.Tasks,
-			Lifecycle:      porchapi.PackageRevisionLifecycleDraft,
+			Lifecycle:      porchapiv1alpha1.PackageRevisionLifecycleDraft,
 		},
 	}
 
@@ -319,11 +319,11 @@ func (t *IterativeTest) createNewPackageRevisionFrom(pr *porchapi.PackageRevisio
 }
 
 // publishPackageRevision proposes, then publishes an already existing draft PackageRevision
-func (t *IterativeTest) publishPackageRevision(pr *porchapi.PackageRevision) {
-	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+func (t *IterativeTest) publishPackageRevision(pr *porchapiv1alpha1.PackageRevision) {
+	pr.Spec.Lifecycle = porchapiv1alpha1.PackageRevisionLifecycleProposed
 	t.UpdateF(pr)
 
-	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+	pr.Spec.Lifecycle = porchapiv1alpha1.PackageRevisionLifecyclePublished
 	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
 }
 

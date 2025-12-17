@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
@@ -47,7 +47,7 @@ const (
 )
 
 var (
-	PackageRevisionGVK = porchapi.SchemeGroupVersion.WithKind("PackageRevision")
+	PackageRevisionGVK = porchapiv1alpha1.SchemeGroupVersion.WithKind("PackageRevision")
 )
 
 type TestSuiteWithGit struct {
@@ -76,7 +76,7 @@ func (t *TestSuiteWithGit) SetupEnvVars() {
 
 func (t *TestSuite) ValidateFinalizers(name string, finalizers []string) {
 	t.T().Helper()
-	var pr porchapi.PackageRevision
+	var pr porchapiv1alpha1.PackageRevision
 	t.GetF(client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      name,
@@ -102,7 +102,7 @@ func (t *TestSuite) ValidateFinalizers(name string, finalizers []string) {
 
 func (t *TestSuite) ValidateOwnerReferences(name string, ownerRefs []metav1.OwnerReference) {
 	t.T().Helper()
-	var pr porchapi.PackageRevision
+	var pr porchapiv1alpha1.PackageRevision
 	t.GetF(client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      name,
@@ -128,7 +128,7 @@ func (t *TestSuite) ValidateOwnerReferences(name string, ownerRefs []metav1.Owne
 
 func (t *TestSuite) ValidateLabelsAndAnnos(name string, labels, annos map[string]string) {
 	t.T().Helper()
-	var pr porchapi.PackageRevision
+	var pr porchapiv1alpha1.PackageRevision
 	t.GetF(client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      name,
@@ -153,7 +153,7 @@ func (t *TestSuite) ValidateLabelsAndAnnos(name string, labels, annos map[string
 
 func (t *TestSuite) MustHaveLabels(name string, labels map[string]string) {
 	t.T().Helper()
-	var pr porchapi.PackageRevision
+	var pr porchapiv1alpha1.PackageRevision
 	t.GetF(client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      name,
@@ -172,7 +172,7 @@ func (t *TestSuite) MustHaveLabels(name string, labels map[string]string) {
 
 func (t *TestSuite) MustNotHaveLabels(name string, labels []string) {
 	t.T().Helper()
-	var pr porchapi.PackageRevision
+	var pr porchapiv1alpha1.PackageRevision
 	t.GetF(client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      name,
@@ -316,13 +316,13 @@ func SecretInNamespace(ns string) SecretOption {
 }
 
 // Creates an empty package draft by initializing an empty package
-func (t *TestSuite) CreatePackageDraftF(repository, packageName, workspace string) *porchapi.PackageRevision {
+func (t *TestSuite) CreatePackageDraftF(repository, packageName, workspace string) *porchapiv1alpha1.PackageRevision {
 	t.T().Helper()
 	pr := t.CreatePackageSkeleton(repository, packageName, workspace)
-	pr.Spec.Tasks = []porchapi.Task{
+	pr.Spec.Tasks = []porchapiv1alpha1.Task{
 		{
-			Type: porchapi.TaskTypeInit,
-			Init: &porchapi.PackageInitTaskSpec{
+			Type: porchapiv1alpha1.TaskTypeInit,
+			Init: &porchapiv1alpha1.PackageInitTaskSpec{
 				Description: packageName + " description",
 			},
 		},
@@ -333,20 +333,20 @@ func (t *TestSuite) CreatePackageDraftF(repository, packageName, workspace strin
 
 // CreatePackageCloneF creates a package revision with a clone task.
 // Assumes the GitePackage.SecretRef was created by t.RegisterGitRepositoryF.
-func (t *TestSuite) CreatePackageCloneF(repoName, packageName, workspace, ref, directory string) *porchapi.PackageRevision {
+func (t *TestSuite) CreatePackageCloneF(repoName, packageName, workspace, ref, directory string) *porchapiv1alpha1.PackageRevision {
 	t.T().Helper()
 	pr := t.CreatePackageSkeleton(repoName, packageName, workspace)
-	pr.Spec.Tasks = []porchapi.Task{
+	pr.Spec.Tasks = []porchapiv1alpha1.Task{
 		{
-			Type: porchapi.TaskTypeClone,
-			Clone: &porchapi.PackageCloneTaskSpec{
-				Upstream: porchapi.UpstreamPackage{
-					Type: porchapi.RepositoryTypeGit,
-					Git: &porchapi.GitPackage{
+			Type: porchapiv1alpha1.TaskTypeClone,
+			Clone: &porchapiv1alpha1.PackageCloneTaskSpec{
+				Upstream: porchapiv1alpha1.UpstreamPackage{
+					Type: porchapiv1alpha1.RepositoryTypeGit,
+					Git: &porchapiv1alpha1.GitPackage{
 						Repo:      t.GetTestBlueprintsRepoURL(),
 						Ref:       ref,
 						Directory: directory,
-						SecretRef: porchapi.SecretRef{
+						SecretRef: porchapiv1alpha1.SecretRef{
 							Name: fmt.Sprintf("%s-auth", repoName),
 						},
 					},
@@ -358,21 +358,21 @@ func (t *TestSuite) CreatePackageCloneF(repoName, packageName, workspace, ref, d
 	return pr
 }
 
-func (t *TestSuite) CreatePackageSkeleton(repoName, packageName, workspace string) *porchapi.PackageRevision {
-	return &porchapi.PackageRevision{
+func (t *TestSuite) CreatePackageSkeleton(repoName, packageName, workspace string) *porchapiv1alpha1.PackageRevision {
+	return &porchapiv1alpha1.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       PackageRevisionGVK.Kind,
-			APIVersion: porchapi.SchemeGroupVersion.String(),
+			APIVersion: porchapiv1alpha1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: t.Namespace,
 		},
-		Spec: porchapi.PackageRevisionSpec{
+		Spec: porchapiv1alpha1.PackageRevisionSpec{
 			PackageName:    packageName,
 			WorkspaceName:  workspace,
 			RepositoryName: repoName,
 			// empty tasks list - set them as needed in the particular usage
-			Tasks: []porchapi.Task{},
+			Tasks: []porchapiv1alpha1.Task{},
 		},
 	}
 }
@@ -435,7 +435,7 @@ func (t *TestSuite) WaitUntilRepositoryReady(name, namespace string) {
 
 	// While we're using an aggregated apiserver, make sure we can query the generated objects
 	if err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 32*time.Second, true, func(ctx context.Context) (bool, error) {
-		var revisions porchapi.PackageRevisionList
+		var revisions porchapiv1alpha1.PackageRevisionList
 		if err := t.Reader.List(ctx, &revisions, client.InNamespace(nn.Namespace)); err != nil {
 			innerErr = err
 			return false, nil
@@ -470,7 +470,7 @@ func (t *TestSuite) WaitUntilRepositoryDeleted(name, namespace string) {
 func (t *TestSuite) WaitUntilAllPackageRevisionsDeleted(repoName string, namespace string) {
 	t.T().Helper()
 	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 60*time.Second, true, func(ctx context.Context) (done bool, err error) {
-		var pkgRevList porchapi.PackageRevisionList
+		var pkgRevList porchapiv1alpha1.PackageRevisionList
 		if err := t.Reader.List(ctx, &pkgRevList); err != nil {
 			t.Logf("error listing PackageRevisions: %v", err)
 			return false, nil
@@ -539,13 +539,13 @@ func (t *TestSuite) WaitUntilObjectDeleted(gvk schema.GroupVersionKind, namespac
 
 func (t *TestSuite) WaitUntilPackageRevisionFulfillingConditionExists(
 	timeout time.Duration,
-	condition func(porchapi.PackageRevision) bool,
-) (*porchapi.PackageRevision, error) {
+	condition func(porchapiv1alpha1.PackageRevision) bool,
+) (*porchapiv1alpha1.PackageRevision, error) {
 
 	t.T().Helper()
-	var foundPkgRev *porchapi.PackageRevision
+	var foundPkgRev *porchapiv1alpha1.PackageRevision
 	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, timeout, true, func(ctx context.Context) (done bool, err error) {
-		var pkgRevList porchapi.PackageRevisionList
+		var pkgRevList porchapiv1alpha1.PackageRevisionList
 		if err := t.Reader.List(ctx, &pkgRevList); err != nil {
 			t.Logf("error listing packages: %v", err)
 			return false, nil
@@ -561,11 +561,11 @@ func (t *TestSuite) WaitUntilPackageRevisionFulfillingConditionExists(
 	return foundPkgRev, err
 }
 
-func (t *TestSuite) WaitUntilPackageRevisionExists(repository string, pkgName string, revision int) *porchapi.PackageRevision {
+func (t *TestSuite) WaitUntilPackageRevisionExists(repository string, pkgName string, revision int) *porchapiv1alpha1.PackageRevision {
 	t.T().Helper()
 	t.Logf("Waiting for package revision (%v/%v/%v) to exist", repository, pkgName, revision)
 	timeout := 120 * time.Second
-	foundPkgRev, err := t.WaitUntilPackageRevisionFulfillingConditionExists(timeout, func(pkgRev porchapi.PackageRevision) bool {
+	foundPkgRev, err := t.WaitUntilPackageRevisionFulfillingConditionExists(timeout, func(pkgRev porchapiv1alpha1.PackageRevision) bool {
 		return pkgRev.Spec.RepositoryName == repository &&
 			pkgRev.Spec.PackageName == pkgName &&
 			pkgRev.Spec.Revision == revision
@@ -578,14 +578,14 @@ func (t *TestSuite) WaitUntilPackageRevisionExists(repository string, pkgName st
 
 func (t *TestSuite) WaitUntilPackageRevisionResourcesExists(
 	key types.NamespacedName,
-) *porchapi.PackageRevisionResources {
+) *porchapiv1alpha1.PackageRevisionResources {
 
 	t.T().Helper()
 	t.Logf("Waiting for PackageRevisionResources object %v to exist", key)
 	timeout := 120 * time.Second
-	var foundPrr *porchapi.PackageRevisionResources
+	var foundPrr *porchapiv1alpha1.PackageRevisionResources
 	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, timeout, true, func(ctx context.Context) (done bool, err error) {
-		var prrList porchapi.PackageRevisionResourcesList
+		var prrList porchapiv1alpha1.PackageRevisionResourcesList
 		if err := t.Reader.List(ctx, &prrList); err != nil {
 			t.Logf("error listing package revision resources: %v", err)
 			return false, nil
@@ -604,9 +604,9 @@ func (t *TestSuite) WaitUntilPackageRevisionResourcesExists(
 	return foundPrr
 }
 
-func (t *TestSuite) GetPackageRevision(repo string, pkgName string, revision int) *porchapi.PackageRevision {
+func (t *TestSuite) GetPackageRevision(repo string, pkgName string, revision int) *porchapiv1alpha1.PackageRevision {
 	t.T().Helper()
-	var prList porchapi.PackageRevisionList
+	var prList porchapiv1alpha1.PackageRevisionList
 	selector := client.MatchingFields(fields.Set{
 		"spec.repository":  repo,
 		"spec.packageName": pkgName,
@@ -655,7 +655,7 @@ func WithConfigPath(configPath string) MutatorOption {
 }
 
 // AddMutator adds a mutator to the Kptfile pipeline of the resources (in-place)
-func (t *TestSuite) AddMutator(resources *porchapi.PackageRevisionResources, image string, opts ...MutatorOption) {
+func (t *TestSuite) AddMutator(resources *porchapiv1alpha1.PackageRevisionResources, image string, opts ...MutatorOption) {
 	t.T().Helper()
 	kptf, ok := resources.Spec.Resources[kptfilev1.KptFileName]
 	if !ok {
@@ -689,7 +689,7 @@ func (t *TestSuite) AddMutator(resources *porchapi.PackageRevisionResources, ima
 	resources.Spec.Resources[kptfilev1.KptFileName] = string(marshalled)
 }
 
-func (t *TestSuite) AddResourceToPackage(resources *porchapi.PackageRevisionResources, filePath string, name string) {
+func (t *TestSuite) AddResourceToPackage(resources *porchapiv1alpha1.PackageRevisionResources, filePath string, name string) {
 	t.T().Helper()
 	file, err := os.ReadFile(filePath)
 	if err != nil {

@@ -18,7 +18,7 @@ import (
 	"context"
 	"testing"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	pkgvarapi "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	api "github.com/nephio-project/porch/controllers/packagevariantsets/api/v1alpha2"
@@ -67,7 +67,7 @@ func TestRenderPackageVariantSpec(t *testing.T) {
 			Upstream: &pkgvarapi.Upstream{Repo: "up-repo", Package: "up-pkg", Revision: 2},
 		},
 	}
-	upstreamPR := porchapi.PackageRevision{
+	upstreamPR := porchapiv1alpha1.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "p",
 			Namespace: "default",

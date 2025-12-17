@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/kpt/printer"
 	fakeprint "github.com/nephio-project/porch/pkg/kpt/printer/fake"
 	"github.com/spf13/cobra"
@@ -68,7 +68,7 @@ func TestCmd(t *testing.T) {
 		t.Run(tn, func(t *testing.T) {
 			c := fake.NewClientBuilder().
 				WithScheme(scheme).
-				WithObjects(&porchapi.PackageRevisionResources{
+				WithObjects(&porchapiv1alpha1.PackageRevisionResources{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      pkgRevName,
 						Namespace: ns,
@@ -124,14 +124,14 @@ func TestPrintFnResult(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		result   *porchapi.Result
+		result   *porchapiv1alpha1.Result
 		expected string // exact expected output
 	}{
 		{
 			name: "Multiple info messages",
-			result: &porchapi.Result{
-				Results: []porchapi.ResultItem{
-					{Message: "Validation passed", Severity: "info", Field: &porchapi.Field{Path: "spec"}},
+			result: &porchapiv1alpha1.Result{
+				Results: []porchapiv1alpha1.ResultItem{
+					{Message: "Validation passed", Severity: "info", Field: &porchapiv1alpha1.Field{Path: "spec"}},
 					{Message: "Writing to file: configurations/initial-config/secure/kustomization.yaml, secretGenerator key", Severity: "info"},
 				},
 			},
@@ -139,8 +139,8 @@ func TestPrintFnResult(t *testing.T) {
 		},
 		{
 			name: "Single warning message",
-			result: &porchapi.Result{
-				Results: []porchapi.ResultItem{
+			result: &porchapiv1alpha1.Result{
+				Results: []porchapiv1alpha1.ResultItem{
 					{Message: "Deprecated field used", Severity: "warning"},
 				},
 			},
@@ -148,8 +148,8 @@ func TestPrintFnResult(t *testing.T) {
 		},
 		{
 			name: "Single error message",
-			result: &porchapi.Result{
-				Results: []porchapi.ResultItem{
+			result: &porchapiv1alpha1.Result{
+				Results: []porchapiv1alpha1.ResultItem{
 					{Message: "Failed to apply patch", Severity: "error"},
 				},
 			},
@@ -157,8 +157,8 @@ func TestPrintFnResult(t *testing.T) {
 		},
 		{
 			name: "Empty message and severity",
-			result: &porchapi.Result{
-				Results: []porchapi.ResultItem{
+			result: &porchapiv1alpha1.Result{
+				Results: []porchapiv1alpha1.ResultItem{
 					{Message: "", Severity: ""},
 				},
 			},
@@ -166,8 +166,8 @@ func TestPrintFnResult(t *testing.T) {
 		},
 		{
 			name: "Mixed severities",
-			result: &porchapi.Result{
-				Results: []porchapi.ResultItem{
+			result: &porchapiv1alpha1.Result{
+				Results: []porchapiv1alpha1.ResultItem{
 					{Message: "Info message", Severity: "info"},
 					{Message: "Warning message", Severity: "warning"},
 					{Message: "Error message", Severity: "error"},

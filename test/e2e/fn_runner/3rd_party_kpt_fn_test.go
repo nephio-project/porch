@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/test/e2e"
 	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
 	"github.com/stretchr/testify/suite"
@@ -590,7 +590,7 @@ func (t *FunctionRunnerSuite) TestCreateSetters() {
 
 // Utility functions
 
-func (t *FunctionRunnerSuite) failOnRenderError(resources *porchapi.PackageRevisionResources) {
+func (t *FunctionRunnerSuite) failOnRenderError(resources *porchapiv1alpha1.PackageRevisionResources) {
 	if resources.Status.RenderStatus.Err != "" {
 		t.Fatalf("failed to render package: %v", resources.Status.RenderStatus.Err)
 	}
@@ -606,10 +606,10 @@ func (t *FunctionRunnerSuite) failOnRenderError(resources *porchapi.PackageRevis
 	}
 }
 
-func (t *FunctionRunnerSuite) doCleanup(pr *porchapi.PackageRevision, mutatorImage string) {
+func (t *FunctionRunnerSuite) doCleanup(pr *porchapiv1alpha1.PackageRevision, mutatorImage string) {
 	t.DeleteF(pr)
 	t.WaitUntilObjectDeleted(
-		porchapi.SchemeGroupVersion.WithKind("PackageRevision"),
+		porchapiv1alpha1.SchemeGroupVersion.WithKind("PackageRevision"),
 		types.NamespacedName{
 			Name:      pr.Name,
 			Namespace: pr.Namespace,
@@ -637,7 +637,7 @@ func createWorkspaceUUID(t *testing.T) string {
 	return workspace.String()
 }
 
-func (t *FunctionRunnerSuite) createTestPackage(repoName string) *porchapi.PackageRevision {
+func (t *FunctionRunnerSuite) createTestPackage(repoName string) *porchapiv1alpha1.PackageRevision {
 	workspace := createWorkspaceUUID(t.T())
 	return t.CreatePackageCloneF(repoName, "test-fn-pod", workspace, "empty/v1", "empty")
 }

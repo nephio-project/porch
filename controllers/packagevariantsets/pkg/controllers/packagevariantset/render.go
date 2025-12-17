@@ -22,7 +22,7 @@ import (
 
 	"github.com/google/cel-go/cel"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	pkgvarapi "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	api "github.com/nephio-project/porch/controllers/packagevariantsets/api/v1alpha2"
@@ -45,7 +45,7 @@ const (
 )
 
 func renderPackageVariantSpec(ctx context.Context, pvs *api.PackageVariantSet, repoList *configapi.RepositoryList,
-	upstreamPR *porchapi.PackageRevision, downstream pvContext) (*pkgvarapi.PackageVariantSpec, error) {
+	upstreamPR *porchapiv1alpha1.PackageRevision, downstream pvContext) (*pkgvarapi.PackageVariantSpec, error) {
 
 	spec := &pkgvarapi.PackageVariantSpec{
 		Upstream: pvs.Spec.Upstream,
@@ -197,7 +197,7 @@ func renderFunctionTemplateList(field string, templateList []api.FunctionTemplat
 	return results, nil
 }
 
-func buildBaseInputs(upstreamPR *porchapi.PackageRevision, downstream pvContext) (map[string]interface{}, error) {
+func buildBaseInputs(upstreamPR *porchapiv1alpha1.PackageRevision, downstream pvContext) (map[string]interface{}, error) {
 	inputs := make(map[string]interface{}, 5)
 	inputs[RepoDefaultVarName] = downstream.repoDefault
 	inputs[PackageDefaultVarName] = downstream.packageDefault

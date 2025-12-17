@@ -29,7 +29,7 @@ import (
 	"time"
 
 	"github.com/nephio-project/porch/api/generated/clientset/versioned"
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -111,24 +111,24 @@ func createAndTestPackage(t *testing.T, ctx context.Context, c client.Client, po
 	start := time.Now()
 
 	// Create new package
-	newPkg := &porchapi.PackageRevision{
+	newPkg := &porchapiv1alpha1.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevision",
-			APIVersion: porchapi.SchemeGroupVersion.String(),
+			APIVersion: porchapiv1alpha1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: fmt.Sprintf("%s-", repoName),
 			Namespace:    namespace,
 		},
-		Spec: porchapi.PackageRevisionSpec{
+		Spec: porchapiv1alpha1.PackageRevisionSpec{
 			PackageName:    pkgName,
 			WorkspaceName:  "main",
 			RepositoryName: repoName,
-			Lifecycle:      porchapi.PackageRevisionLifecycleDraft,
-			Tasks: []porchapi.Task{
+			Lifecycle:      porchapiv1alpha1.PackageRevisionLifecycleDraft,
+			Tasks: []porchapiv1alpha1.Task{
 				{
-					Type: porchapi.TaskTypeInit,
-					Init: &porchapi.PackageInitTaskSpec{
+					Type: porchapiv1alpha1.TaskTypeInit,
+					Init: &porchapiv1alpha1.PackageInitTaskSpec{
 						Description: "Test package for Porch metrics",
 						Keywords:    []string{"test", "metrics"},
 						Site:        "https://nephio.org",
@@ -156,12 +156,12 @@ func createAndTestPackage(t *testing.T, ctx context.Context, c client.Client, po
 	debugPackageStatus(t, c, ctx, namespace, newPkg.Name)
 
 	// First get the package
-	var pkg porchapi.PackageRevision
+	var pkg porchapiv1alpha1.PackageRevision
 	err = c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: newPkg.Name}, &pkg)
 	if err == nil {
 		// Start timing only the update operation
 		start = time.Now()
-		pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+		pkg.Spec.Lifecycle = porchapiv1alpha1.PackageRevisionLifecycleProposed
 		err = c.Update(ctx, &pkg)
 		duration = time.Since(start).Seconds()
 		recordMetric("Update to Proposed", repoName, pkgName, duration, err)
@@ -178,7 +178,7 @@ func createAndTestPackage(t *testing.T, ctx context.Context, c client.Client, po
 
 			// Publish the package with approval
 			start = time.Now()
-			pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
+			pkg.Spec.Lifecycle = porchapiv1alpha1.PackageRevisionLifecyclePublished
 			_, err = porchClientset.PorchV1alpha1().PackageRevisions(pkg.Namespace).UpdateApproval(ctx, pkg.Name, &pkg, metav1.UpdateOptions{})
 			duration = time.Since(start).Seconds()
 			recordMetric("Update to Published", repoName, pkgName, duration, err)
@@ -200,7 +200,7 @@ func createAndTestPackage(t *testing.T, ctx context.Context, c client.Client, po
 	err = c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: pkg.Name}, &pkg)
 	if err == nil {
 		start = time.Now()
-		pkg.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
+		pkg.Spec.Lifecycle = porchapiv1alpha1.PackageRevisionLifecycleDeletionProposed
 		_, err = porchClientset.PorchV1alpha1().PackageRevisions(pkg.Namespace).UpdateApproval(ctx, pkg.Name, &pkg, metav1.UpdateOptions{})
 		if err == nil {
 			time.Sleep(2 * time.Second)

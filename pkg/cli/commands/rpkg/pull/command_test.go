@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/kpt/printer"
 	fakeprint "github.com/nephio-project/porch/pkg/kpt/printer/fake"
 	"github.com/spf13/cobra"
@@ -175,12 +175,12 @@ items:
 		t.Run(tn, func(t *testing.T) {
 			c := fake.NewClientBuilder().
 				WithScheme(scheme).
-				WithObjects(&porchapi.PackageRevisionResources{
+				WithObjects(&porchapiv1alpha1.PackageRevisionResources{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      pkgRevName,
 						Namespace: "ns",
 					},
-					Spec: porchapi.PackageRevisionResourcesSpec{
+					Spec: porchapiv1alpha1.PackageRevisionResourcesSpec{
 						PackageName: "foo",
 						Resources:   tc.resources,
 					},

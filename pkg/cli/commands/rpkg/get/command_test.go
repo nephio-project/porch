@@ -18,7 +18,7 @@ import (
 	"context"
 	"testing"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	// repoGet "github.com/nephio-project/porch/pkg/cli/commands/repo/get" // Remove or comment out unless needed elsewhere
 
 	"github.com/spf13/cobra"
@@ -61,7 +61,7 @@ func TestGetCmd(t *testing.T) {
 	ns := "ns"
 
 	scheme := runtime.NewScheme()
-	if err := porchapi.AddToScheme(scheme); err != nil {
+	if err := porchapiv1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("Failed to add porch API to scheme: %v", err)
 	}
 

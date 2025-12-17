@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	. "github.com/nephio-project/porch/test/e2e"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -66,7 +66,7 @@ func (t *PerformanceSuite) incrementGuage(obj client.Object) {
 	if !t.T().Failed() {
 		switch KindOf(obj) {
 		case KindPackageRevision:
-			if obj.(*porchapi.PackageRevision).Spec.Revision != -1 {
+			if obj.(*porchapiv1alpha1.PackageRevision).Spec.Revision != -1 {
 				packageRevisionGuage.Inc()
 			}
 		case KindRepository:
@@ -79,7 +79,7 @@ func (t *PerformanceSuite) decrementGuage(obj client.Object) {
 	if !t.T().Failed() {
 		switch KindOf(obj) {
 		case KindPackageRevision:
-			if obj.(*porchapi.PackageRevision).Spec.Revision != -1 {
+			if obj.(*porchapiv1alpha1.PackageRevision).Spec.Revision != -1 {
 				packageRevisionGuage.Dec()
 			}
 		case KindRepository:
@@ -160,7 +160,7 @@ func (t *PerformanceSuite) UpdateE(obj client.Object, opts ...client.UpdateOptio
 }
 
 func getUpdateOperation(obj client.Object) Operation {
-	if pr, ok := obj.(*porchapi.PackageRevision); ok && pr.Spec.Lifecycle == porchapi.PackageRevisionLifecycleProposed {
+	if pr, ok := obj.(*porchapiv1alpha1.PackageRevision); ok && pr.Spec.Lifecycle == porchapiv1alpha1.PackageRevisionLifecycleProposed {
 		return OperationPropose
 	}
 	return OperationUpdate
@@ -176,25 +176,25 @@ func (t *PerformanceSuite) PatchE(obj client.Object, patch client.Patch, opts ..
 	MeasureAndRecord(OperationPatch, obj, func() { t.TestSuiteWithGit.PatchE(obj, patch, opts...) })
 }
 
-func (t *PerformanceSuite) UpdateApprovalL(pr *porchapi.PackageRevision, opts metav1.UpdateOptions) *porchapi.PackageRevision {
+func (t *PerformanceSuite) UpdateApprovalL(pr *porchapiv1alpha1.PackageRevision, opts metav1.UpdateOptions) *porchapiv1alpha1.PackageRevision {
 	t.T().Helper()
-	var ret *porchapi.PackageRevision
+	var ret *porchapiv1alpha1.PackageRevision
 	MeasureAndRecord(getUpdateApprovalOperation(pr), pr, func() { ret = t.TestSuiteWithGit.UpdateApprovalL(pr, opts) })
 	return ret
 }
 
-func (t *PerformanceSuite) UpdateApprovalF(pr *porchapi.PackageRevision, opts metav1.UpdateOptions) *porchapi.PackageRevision {
+func (t *PerformanceSuite) UpdateApprovalF(pr *porchapiv1alpha1.PackageRevision, opts metav1.UpdateOptions) *porchapiv1alpha1.PackageRevision {
 	t.T().Helper()
-	var ret *porchapi.PackageRevision
+	var ret *porchapiv1alpha1.PackageRevision
 	MeasureAndRecord(getUpdateApprovalOperation(pr), pr, func() { ret = t.TestSuiteWithGit.UpdateApprovalL(pr, opts) })
 	return ret
 }
 
-func getUpdateApprovalOperation(pr *porchapi.PackageRevision) Operation {
+func getUpdateApprovalOperation(pr *porchapiv1alpha1.PackageRevision) Operation {
 	switch pr.Spec.Lifecycle {
-	case porchapi.PackageRevisionLifecyclePublished:
+	case porchapiv1alpha1.PackageRevisionLifecyclePublished:
 		return OperationPublish
-	case porchapi.PackageRevisionLifecycleDeletionProposed:
+	case porchapiv1alpha1.PackageRevisionLifecycleDeletionProposed:
 		return OperationProposeDelete
 	default:
 		return OperationUpdateApproval
@@ -202,13 +202,13 @@ func getUpdateApprovalOperation(pr *porchapi.PackageRevision) Operation {
 }
 
 // copied, so the operation is recorded
-func (t *PerformanceSuite) CreatePackageDraftF(repository, packageName, workspace string) *porchapi.PackageRevision {
+func (t *PerformanceSuite) CreatePackageDraftF(repository, packageName, workspace string) *porchapiv1alpha1.PackageRevision {
 	t.T().Helper()
 	pr := t.CreatePackageSkeleton(repository, packageName, workspace)
-	pr.Spec.Tasks = []porchapi.Task{
+	pr.Spec.Tasks = []porchapiv1alpha1.Task{
 		{
-			Type: porchapi.TaskTypeInit,
-			Init: &porchapi.PackageInitTaskSpec{},
+			Type: porchapiv1alpha1.TaskTypeInit,
+			Init: &porchapiv1alpha1.PackageInitTaskSpec{},
 		},
 	}
 	t.CreateF(pr)

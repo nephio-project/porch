@@ -26,7 +26,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
@@ -124,16 +124,16 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 		return errors.E(op, err)
 	}
 
-	pkgResources := porchapi.PackageRevisionResources{
+	pkgResources := porchapiv1alpha1.PackageRevisionResources{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevisionResources",
-			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
+			APIVersion: porchapiv1alpha1.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      packageName,
 			Namespace: *r.cfg.Namespace,
 		},
-		Spec: porchapi.PackageRevisionResourcesSpec{
+		Spec: porchapiv1alpha1.PackageRevisionResourcesSpec{
 			Resources: resources,
 		},
 	}
@@ -174,7 +174,7 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 
 // printFnResult prints given function result in a user friendly
 // format on kpt CLI.
-func (r *runner) printFnResult(fnResult *porchapi.Result, opt *printer.Options) {
+func (r *runner) printFnResult(fnResult *porchapiv1alpha1.Result, opt *printer.Options) {
 	if len(fnResult.Results) > 0 {
 		// function returned structured results
 		var lines []string
@@ -192,7 +192,7 @@ func (r *runner) printFnResult(fnResult *porchapi.Result, opt *printer.Options) 
 }
 
 // String provides a human-readable message for the result item
-func str(i porchapi.ResultItem) string {
+func str(i porchapiv1alpha1.ResultItem) string {
 	identifier := i.ResourceRef
 	var idStringList []string
 	if identifier != nil {
@@ -283,7 +283,7 @@ func createScheme() (*runtime.Scheme, error) {
 	scheme := runtime.NewScheme()
 
 	for _, api := range (runtime.SchemeBuilder{
-		porchapi.AddToScheme,
+		porchapiv1alpha1.AddToScheme,
 	}) {
 		if err := api(scheme); err != nil {
 			return nil, err

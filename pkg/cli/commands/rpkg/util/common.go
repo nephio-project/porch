@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	fnsdk "github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,7 +31,7 @@ const (
 func PackageAlreadyExists(ctx context.Context, c client.Client, repository, packageName, namespace string) (bool, error) {
 	// only the first package revision can be created from init or clone, so
 	// we need to check that the package doesn't already exist.
-	packageRevisionList := porchapi.PackageRevisionList{}
+	packageRevisionList := porchapiv1alpha1.PackageRevisionList{}
 	if err := c.List(ctx, &packageRevisionList, &client.ListOptions{
 		Namespace: namespace,
 	}); err != nil {
@@ -45,7 +45,7 @@ func PackageAlreadyExists(ctx context.Context, c client.Client, repository, pack
 	return false, nil
 }
 
-func GetResourceFileKubeObject(prr *porchapi.PackageRevisionResources, file, kind, name string) (*fnsdk.KubeObject, error) {
+func GetResourceFileKubeObject(prr *porchapiv1alpha1.PackageRevisionResources, file, kind, name string) (*fnsdk.KubeObject, error) {
 	if prr.Spec.Resources == nil {
 		return nil, fmt.Errorf("nil resources found for PackageRevisionResources '%s/%s'", prr.Namespace, prr.Name)
 	}
@@ -68,7 +68,7 @@ func GetResourceFileKubeObject(prr *porchapi.PackageRevisionResources, file, kin
 	return ko, nil
 }
 
-func GetResourceVersion(prr *porchapi.PackageRevisionResources) (string, error) {
+func GetResourceVersion(prr *porchapiv1alpha1.PackageRevisionResources) (string, error) {
 	ko, err := GetResourceFileKubeObject(prr, kptfilev1.RevisionMetaDataFileName, kptfilev1.RevisionMetaDataKind, "")
 	if err != nil {
 		return "", err
@@ -77,7 +77,7 @@ func GetResourceVersion(prr *porchapi.PackageRevisionResources) (string, error) 
 	return rv, nil
 }
 
-func AddRevisionMetadata(prr *porchapi.PackageRevisionResources) error {
+func AddRevisionMetadata(prr *porchapiv1alpha1.PackageRevisionResources) error {
 	kptMetaDataKo := fnsdk.NewEmptyKubeObject()
 	if err := kptMetaDataKo.SetAPIVersion(prr.APIVersion); err != nil {
 		return fmt.Errorf("cannot set Api Version: %v", err)
@@ -93,7 +93,7 @@ func AddRevisionMetadata(prr *porchapi.PackageRevisionResources) error {
 	return nil
 }
 
-func RemoveRevisionMetadata(prr *porchapi.PackageRevisionResources) error {
+func RemoveRevisionMetadata(prr *porchapiv1alpha1.PackageRevisionResources) error {
 	delete(prr.Spec.Resources, kptfilev1.RevisionMetaDataFileName)
 	return nil
 }

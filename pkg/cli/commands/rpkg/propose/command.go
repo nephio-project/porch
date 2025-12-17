@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"strings"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
@@ -89,22 +89,22 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 			Name:      name,
 		}
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			var pr porchapi.PackageRevision
+			var pr porchapiv1alpha1.PackageRevision
 			if err := r.client.Get(r.ctx, key, &pr); err != nil {
 				return err
 			}
-			if !porchapi.PackageRevisionIsReady(pr.Spec.ReadinessGates, pr.Status.Conditions) {
+			if !porchapiv1alpha1.PackageRevisionIsReady(pr.Spec.ReadinessGates, pr.Status.Conditions) {
 				return fmt.Errorf("readiness conditions not met")
 			}
 			switch pr.Spec.Lifecycle {
-			case porchapi.PackageRevisionLifecycleDraft:
-				pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
+			case porchapiv1alpha1.PackageRevisionLifecycleDraft:
+				pr.Spec.Lifecycle = porchapiv1alpha1.PackageRevisionLifecycleProposed
 				err := r.client.Update(r.ctx, &pr)
 				if err == nil {
 					fmt.Fprintf(r.Command.OutOrStdout(), "%s proposed\n", name)
 				}
 				return err
-			case porchapi.PackageRevisionLifecycleProposed:
+			case porchapiv1alpha1.PackageRevisionLifecycleProposed:
 				fmt.Fprintf(r.Command.OutOrStderr(), "%s is already proposed\n", name)
 				return nil
 			default:

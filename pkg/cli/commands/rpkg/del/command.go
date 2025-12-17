@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"strings"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
@@ -84,10 +84,10 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 	var messages []string
 
 	for _, pkg := range args {
-		pr := &porchapi.PackageRevision{
+		pr := &porchapiv1alpha1.PackageRevision{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "PackageRevision",
-				APIVersion: porchapi.SchemeGroupVersion.Identifier(),
+				APIVersion: porchapiv1alpha1.SchemeGroupVersion.Identifier(),
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: *r.cfg.Namespace,

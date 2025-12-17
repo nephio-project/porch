@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/nephio-project/porch/api/generated/clientset/versioned"
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -38,7 +38,7 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(porchapi.AddToScheme(scheme))
+	utilruntime.Must(porchapiv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(configapi.AddToScheme(scheme))
 }
 
@@ -84,7 +84,7 @@ func createGiteaRepo(repoName string) error {
 }
 
 func debugPackageStatus(t *testing.T, c client.Client, ctx context.Context, namespace, name string) {
-	var pkg porchapi.PackageRevision
+	var pkg porchapiv1alpha1.PackageRevision
 	err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, &pkg)
 	if err != nil {
 		t.Logf("Error getting package: %v", err)
@@ -100,7 +100,7 @@ func debugPackageStatus(t *testing.T, c client.Client, ctx context.Context, name
 	t.Logf("  Tasks:")
 	for i, task := range pkg.Spec.Tasks {
 		t.Logf("    %d. Type: %s", i+1, task.Type)
-		if task.Type == porchapi.TaskTypeInit && task.Init != nil {
+		if task.Type == porchapiv1alpha1.TaskTypeInit && task.Init != nil {
 			t.Logf("       Description: %s", task.Init.Description)
 			t.Logf("       Keywords: %v", task.Init.Keywords)
 		}

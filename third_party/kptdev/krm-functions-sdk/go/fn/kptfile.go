@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"sort"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	kptfileapi "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 )
 
@@ -165,7 +165,7 @@ func (kf *Kptfile) DeleteConditionByType(conditionType string) error {
 	return kf.SetConditions(newConditions)
 }
 
-func (kf *Kptfile) AddReadinessGates(gates []porchapi.ReadinessGate) error {
+func (kf *Kptfile) AddReadinessGates(gates []porchapiv1alpha1.ReadinessGate) error {
 	info := kf.Obj.UpsertMap("info")
 	gateObjs := info.GetSlice("readinessGates")
 	for _, gate := range gates {

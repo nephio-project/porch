@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"strings"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/util/parse"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
@@ -70,7 +70,7 @@ type runner struct {
 	client  client.Client
 	Command *cobra.Command
 
-	clone porchapi.PackageCloneTaskSpec
+	clone porchapiv1alpha1.PackageCloneTaskSpec
 
 	// Flags
 	directory  string
@@ -115,8 +115,8 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 
 	switch {
 	case strings.HasPrefix(source, "oci://"):
-		r.clone.Upstream.Type = porchapi.RepositoryTypeOCI
-		r.clone.Upstream.Oci = &porchapi.OciPackage{
+		r.clone.Upstream.Type = porchapiv1alpha1.RepositoryTypeOCI
+		r.clone.Upstream.Oci = &porchapiv1alpha1.OciPackage{
 			Image: source,
 		}
 
@@ -150,18 +150,18 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 		if r.directory == "" {
 			r.directory = "/"
 		}
-		r.clone.Upstream.Type = porchapi.RepositoryTypeGit
-		r.clone.Upstream.Git = &porchapi.GitPackage{
+		r.clone.Upstream.Type = porchapiv1alpha1.RepositoryTypeGit
+		r.clone.Upstream.Git = &porchapiv1alpha1.GitPackage{
 			Repo:      source,
 			Ref:       r.ref,
 			Directory: r.directory,
-			SecretRef: porchapi.SecretRef{
+			SecretRef: porchapiv1alpha1.SecretRef{
 				Name: r.secretRef,
 			},
 		}
 
 	default:
-		r.clone.Upstream.UpstreamRef = &porchapi.PackageRevisionRef{
+		r.clone.Upstream.UpstreamRef = &porchapiv1alpha1.PackageRevisionRef{
 			Name: source,
 		}
 	}
@@ -173,21 +173,21 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 func (r *runner) runE(cmd *cobra.Command, _ []string) error {
 	const op errors.Op = command + ".runE"
 
-	pr := &porchapi.PackageRevision{
+	pr := &porchapiv1alpha1.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevision",
-			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
+			APIVersion: porchapiv1alpha1.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: *r.cfg.Namespace,
 		},
-		Spec: porchapi.PackageRevisionSpec{
+		Spec: porchapiv1alpha1.PackageRevisionSpec{
 			PackageName:    r.target,
 			WorkspaceName:  r.workspace,
 			RepositoryName: r.repository,
-			Tasks: []porchapi.Task{
+			Tasks: []porchapiv1alpha1.Task{
 				{
-					Type:  porchapi.TaskTypeClone,
+					Type:  porchapiv1alpha1.TaskTypeClone,
 					Clone: &r.clone,
 				},
 			},

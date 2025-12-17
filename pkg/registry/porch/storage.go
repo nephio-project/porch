@@ -45,7 +45,7 @@ func (r *RESTStorageOptions) NewRESTStorage() (genericapiserver.APIGroupInfo, er
 		packageCommon: packageCommon{
 			scheme:                   r.Scheme,
 			cad:                      r.CaD,
-			gr:                       porchapi.Resource("packages"),
+			gr:                       porchapiv1alpha1.Resource("packages"),
 			coreClient:               r.CoreClient,
 			updateStrategy:           packageStrategy{},
 			createStrategy:           packageStrategy{},
@@ -59,7 +59,7 @@ func (r *RESTStorageOptions) NewRESTStorage() (genericapiserver.APIGroupInfo, er
 		packageCommon: packageCommon{
 			scheme:                   r.Scheme,
 			cad:                      r.CaD,
-			gr:                       porchapi.Resource("packagerevisions"),
+			gr:                       porchapiv1alpha1.Resource("packagerevisions"),
 			coreClient:               r.CoreClient,
 			updateStrategy:           packageRevisionStrategy{},
 			createStrategy:           packageRevisionStrategy{},
@@ -73,7 +73,7 @@ func (r *RESTStorageOptions) NewRESTStorage() (genericapiserver.APIGroupInfo, er
 			scheme:                   r.Scheme,
 			cad:                      r.CaD,
 			coreClient:               r.CoreClient,
-			gr:                       porchapi.Resource("packagerevisions"),
+			gr:                       porchapiv1alpha1.Resource("packagerevisions"),
 			updateStrategy:           packageRevisionApprovalStrategy{},
 			createStrategy:           packageRevisionApprovalStrategy{},
 			ListTimeoutPerRepository: r.TimeoutPerRepository,
@@ -86,7 +86,7 @@ func (r *RESTStorageOptions) NewRESTStorage() (genericapiserver.APIGroupInfo, er
 		packageCommon: packageCommon{
 			scheme:                   r.Scheme,
 			cad:                      r.CaD,
-			gr:                       porchapi.Resource("packagerevisionresources"),
+			gr:                       porchapiv1alpha1.Resource("packagerevisionresources"),
 			coreClient:               r.CoreClient,
 			ListTimeoutPerRepository: r.TimeoutPerRepository,
 			MaxConcurrentLists:       r.MaxConcurrentLists,
@@ -112,19 +112,19 @@ func (r *RESTStorageOptions) NewRESTStorage() (genericapiserver.APIGroupInfo, er
 
 	{
 		gvk := schema.GroupVersionKind{
-			Group:   porchapi.GroupName,
-			Version: porchapi.SchemeGroupVersion.Version,
+			Group:   porchapiv1alpha1.GroupName,
+			Version: porchapiv1alpha1.SchemeGroupVersion.Version,
 			Kind:    "Package",
 		}
 		if err := r.Scheme.AddFieldLabelConversionFunc(gvk, convertPackageFieldSelector); err != nil {
 			return group, err
 		}
-		porchapiv1alpha1.RegisterConversions(r.Scheme)
+
 	}
 	{
 		gvk := schema.GroupVersionKind{
-			Group:   porchapi.GroupName,
-			Version: porchapi.SchemeGroupVersion.Version,
+			Group:   porchapiv1alpha1.GroupName,
+			Version: porchapiv1alpha1.SchemeGroupVersion.Version,
 			Kind:    "PackageRevision",
 		}
 		if err := r.Scheme.AddFieldLabelConversionFunc(gvk, convertPackageRevisionFieldSelector); err != nil {
@@ -133,8 +133,8 @@ func (r *RESTStorageOptions) NewRESTStorage() (genericapiserver.APIGroupInfo, er
 	}
 	{
 		gvk := schema.GroupVersionKind{
-			Group:   porchapi.GroupName,
-			Version: porchapi.SchemeGroupVersion.Version,
+			Group:   porchapiv1alpha1.GroupName,
+			Version: porchapiv1alpha1.SchemeGroupVersion.Version,
 			Kind:    "PackageRevisionResources",
 		}
 		if err := r.Scheme.AddFieldLabelConversionFunc(gvk, convertPackageRevisionFieldSelector); err != nil {

@@ -22,7 +22,7 @@ import (
 	"flag"
 	"fmt"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	pkgvarapi "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	api "github.com/nephio-project/porch/controllers/packagevariantsets/api/v1alpha2"
@@ -140,13 +140,13 @@ func (r *PackageVariantSetReconciler) Reconcile(ctx context.Context, req ctrl.Re
 }
 
 func (r *PackageVariantSetReconciler) init(ctx context.Context, req ctrl.Request) (*api.PackageVariantSet,
-	*porchapi.PackageRevisionList, *configapi.RepositoryList, error) {
+	*porchapiv1alpha1.PackageRevisionList, *configapi.RepositoryList, error) {
 	var pvs api.PackageVariantSet
 	if err := r.Get(ctx, req.NamespacedName, &pvs); err != nil {
 		return nil, nil, nil, client.IgnoreNotFound(err)
 	}
 
-	var prList porchapi.PackageRevisionList
+	var prList porchapiv1alpha1.PackageRevisionList
 	if err := r.List(ctx, &prList, client.InNamespace(pvs.Namespace)); err != nil {
 		return nil, nil, nil, err
 	}
@@ -160,7 +160,7 @@ func (r *PackageVariantSetReconciler) init(ctx context.Context, req ctrl.Request
 }
 
 func (r *PackageVariantSetReconciler) getUpstreamPR(upstream *pkgvarapi.Upstream,
-	prList *porchapi.PackageRevisionList) (*porchapi.PackageRevision, error) {
+	prList *porchapiv1alpha1.PackageRevisionList) (*porchapiv1alpha1.PackageRevision, error) {
 
 	for _, pr := range prList.Items {
 		if pr.Spec.RepositoryName == upstream.Repo &&
@@ -262,7 +262,7 @@ func (r *PackageVariantSetReconciler) convertObjectToRNode(obj runtime.Object) (
 }
 
 func (r *PackageVariantSetReconciler) ensurePackageVariants(ctx context.Context, pvs *api.PackageVariantSet,
-	repoList *configapi.RepositoryList, upstreamPR *porchapi.PackageRevision,
+	repoList *configapi.RepositoryList, upstreamPR *porchapiv1alpha1.PackageRevision,
 	downstreams []pvContext) error {
 
 	var pvList pkgvarapi.PackageVariantList
@@ -371,7 +371,7 @@ func (r *PackageVariantSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := api.AddToScheme(mgr.GetScheme()); err != nil {
 		return err
 	}
-	if err := porchapi.AddToScheme(mgr.GetScheme()); err != nil {
+	if err := porchapiv1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
 		return err
 	}
 	if err := configapi.AddToScheme(mgr.GetScheme()); err != nil {
@@ -391,7 +391,7 @@ func (r *PackageVariantSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&api.PackageVariantSet{}).
 		Watches(&pkgvarapi.PackageVariant{},
 			handler.EnqueueRequestsFromMapFunc(mapObjectsToRequests(r.Client))).
-		Watches(&porchapi.PackageRevision{},
+		Watches(&porchapiv1alpha1.PackageRevision{},
 			handler.EnqueueRequestsFromMapFunc(mapObjectsToRequests(r.Client))).
 		Complete(r)
 }

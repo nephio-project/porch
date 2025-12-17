@@ -26,7 +26,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	porchclient "github.com/nephio-project/porch/api/generated/clientset/versioned"
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	internalpkg "github.com/nephio-project/porch/internal/kpt/pkg"
@@ -165,7 +165,7 @@ func (t *TestSuite) IsPorchServerInCluster() bool {
 
 	porch := aggregatorv1.APIService{}
 	t.GetF(client.ObjectKey{
-		Name: porchapi.SchemeGroupVersion.Version + "." + porchapi.SchemeGroupVersion.Group,
+		Name: porchapiv1alpha1.SchemeGroupVersion.Version + "." + porchapiv1alpha1.SchemeGroupVersion.Group,
 	}, &porch)
 	service := coreapi.Service{}
 	t.GetF(client.ObjectKey{
@@ -187,7 +187,7 @@ func (t *TestSuite) IsTestRunnerInCluster() bool {
 	porch := aggregatorv1.APIService{}
 	ctx := context.TODO()
 	t.GetF(client.ObjectKey{
-		Name: porchapi.SchemeGroupVersion.Version + "." + porchapi.SchemeGroupVersion.Group,
+		Name: porchapiv1alpha1.SchemeGroupVersion.Version + "." + porchapiv1alpha1.SchemeGroupVersion.Group,
 	}, &porch)
 	service := coreapi.Service{}
 	err := t.Client.Get(ctx, client.ObjectKey{
@@ -350,7 +350,7 @@ func (t *TestSuite) patch(obj client.Object, patch client.Patch, opts []client.P
 	}
 }
 
-func (t *TestSuite) updateApproval(obj *porchapi.PackageRevision, opts metav1.UpdateOptions, eh ErrorHandler) *porchapi.PackageRevision {
+func (t *TestSuite) updateApproval(obj *porchapiv1alpha1.PackageRevision, opts metav1.UpdateOptions, eh ErrorHandler) *porchapiv1alpha1.PackageRevision {
 	t.T().Helper()
 	t.Logf("updating approval of %v", DebugFormat(obj))
 	if res, err := t.Clientset.PorchV1alpha1().PackageRevisions(obj.Namespace).UpdateApproval(t.GetContext(), obj.Name, obj, opts); err != nil {
@@ -439,12 +439,12 @@ func (t *TestSuite) PatchE(obj client.Object, patch client.Patch, opts ...client
 	t.patch(obj, patch, opts, t.Errorf)
 }
 
-func (t *TestSuite) UpdateApprovalL(pr *porchapi.PackageRevision, opts metav1.UpdateOptions) *porchapi.PackageRevision {
+func (t *TestSuite) UpdateApprovalL(pr *porchapiv1alpha1.PackageRevision, opts metav1.UpdateOptions) *porchapiv1alpha1.PackageRevision {
 	t.T().Helper()
 	return t.updateApproval(pr, opts, t.Logf)
 }
 
-func (t *TestSuite) UpdateApprovalF(pr *porchapi.PackageRevision, opts metav1.UpdateOptions) *porchapi.PackageRevision {
+func (t *TestSuite) UpdateApprovalF(pr *porchapiv1alpha1.PackageRevision, opts metav1.UpdateOptions) *porchapiv1alpha1.PackageRevision {
 	t.T().Helper()
 	return t.updateApproval(pr, opts, t.Fatalf)
 }
@@ -453,7 +453,7 @@ func createClientScheme(t *testing.T) *runtime.Scheme {
 	scheme := runtime.NewScheme()
 
 	for _, api := range (runtime.SchemeBuilder{
-		porchapi.AddToScheme,
+		porchapiv1alpha1.AddToScheme,
 		internalapi.AddToScheme,
 		configapi.AddToScheme,
 		coreapi.AddToScheme,
@@ -467,7 +467,7 @@ func createClientScheme(t *testing.T) *runtime.Scheme {
 	return scheme
 }
 
-func (t *TestSuite) ParseKptfileF(resources *porchapi.PackageRevisionResources) *kptfilev1.KptFile {
+func (t *TestSuite) ParseKptfileF(resources *porchapiv1alpha1.PackageRevisionResources) *kptfilev1.KptFile {
 	t.T().Helper()
 	contents, ok := resources.Spec.Resources[kptfilev1.KptFileName]
 	if !ok {
@@ -480,7 +480,7 @@ func (t *TestSuite) ParseKptfileF(resources *porchapi.PackageRevisionResources) 
 	return kptfile
 }
 
-func (t *TestSuite) SaveKptfileF(resources *porchapi.PackageRevisionResources, kptfile *kptfilev1.KptFile) {
+func (t *TestSuite) SaveKptfileF(resources *porchapiv1alpha1.PackageRevisionResources, kptfile *kptfilev1.KptFile) {
 	t.T().Helper()
 	b, err := yaml.MarshalWithOptions(kptfile, &yaml.EncoderOptions{SeqIndent: yaml.WideSequenceStyle})
 	if err != nil {
@@ -489,7 +489,7 @@ func (t *TestSuite) SaveKptfileF(resources *porchapi.PackageRevisionResources, k
 	resources.Spec.Resources[kptfilev1.KptFileName] = string(b)
 }
 
-func (t *TestSuite) FindAndDecodeF(resources *porchapi.PackageRevisionResources, name string, value interface{}) {
+func (t *TestSuite) FindAndDecodeF(resources *porchapiv1alpha1.PackageRevisionResources, name string, value interface{}) {
 	t.T().Helper()
 	contents, ok := resources.Spec.Resources[name]
 	if !ok {
@@ -542,7 +542,7 @@ func (t *TestSuite) normalizeYamlOrdering(contents string) string {
 	return stable.String()
 }
 
-func (t *TestSuite) MustFindPackageRevision(packages *porchapi.PackageRevisionList, name repository.PackageRevisionKey) *porchapi.PackageRevision {
+func (t *TestSuite) MustFindPackageRevision(packages *porchapiv1alpha1.PackageRevisionList, name repository.PackageRevisionKey) *porchapiv1alpha1.PackageRevision {
 	t.T().Helper()
 	for i := range packages.Items {
 		pr := &packages.Items[i]

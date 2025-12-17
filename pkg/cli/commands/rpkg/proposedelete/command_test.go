@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,7 +33,7 @@ func createScheme() (*runtime.Scheme, error) {
 	scheme := runtime.NewScheme()
 
 	for _, api := range (runtime.SchemeBuilder{
-		porchapi.AddToScheme,
+		porchapiv1alpha1.AddToScheme,
 	}) {
 		if err := api(scheme); err != nil {
 			return nil, err
@@ -49,7 +49,7 @@ func TestCmd(t *testing.T) {
 		t.Fatalf("error creating scheme: %v", err)
 	}
 	testCases := map[string]struct {
-		lc      porchapi.PackageRevisionLifecycle
+		lc      porchapiv1alpha1.PackageRevisionLifecycle
 		output  string
 		wantErr bool
 		ns      string
@@ -65,12 +65,12 @@ func TestCmd(t *testing.T) {
 			wantErr: true,
 		},
 		"Already propose for deletion": {
-			lc:     porchapi.PackageRevisionLifecycleDeletionProposed,
+			lc:     porchapiv1alpha1.PackageRevisionLifecycleDeletionProposed,
 			output: pkgRevName + " is already proposed for deletion\n",
 			ns:     "ns",
 		},
 		"Propose delete package": {
-			lc:     porchapi.PackageRevisionLifecyclePublished,
+			lc:     porchapiv1alpha1.PackageRevisionLifecyclePublished,
 			output: pkgRevName + " proposed for deletion\n",
 			ns:     "ns",
 		},
@@ -81,12 +81,12 @@ func TestCmd(t *testing.T) {
 		t.Run(tn, func(t *testing.T) {
 			c := fake.NewClientBuilder().
 				WithScheme(scheme).
-				WithObjects(&porchapi.PackageRevision{
+				WithObjects(&porchapiv1alpha1.PackageRevision{
 					TypeMeta: metav1.TypeMeta{
 						Kind:       "PackageRevision",
-						APIVersion: porchapi.SchemeGroupVersion.Identifier(),
+						APIVersion: porchapiv1alpha1.SchemeGroupVersion.Identifier(),
 					},
-					Spec: porchapi.PackageRevisionSpec{
+					Spec: porchapiv1alpha1.PackageRevisionSpec{
 						Lifecycle: tc.lc,
 					},
 					ObjectMeta: metav1.ObjectMeta{

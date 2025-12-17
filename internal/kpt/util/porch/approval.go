@@ -17,22 +17,22 @@ import (
 	"context"
 	"fmt"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const ApproveErrorOut = "cannot change approval from %s to %s"
 
-func UpdatePackageRevisionApproval(ctx context.Context, client client.Client, pr *porchapi.PackageRevision, new porchapi.PackageRevisionLifecycle) error {
+func UpdatePackageRevisionApproval(ctx context.Context, client client.Client, pr *porchapiv1alpha1.PackageRevision, new porchapiv1alpha1.PackageRevisionLifecycle) error {
 
 	switch lifecycle := pr.Spec.Lifecycle; lifecycle {
-	case porchapi.PackageRevisionLifecycleProposed:
+	case porchapiv1alpha1.PackageRevisionLifecycleProposed:
 		// Approve - change the package revision kind to 'final'.
-		if new != porchapi.PackageRevisionLifecyclePublished && new != porchapi.PackageRevisionLifecycleDraft {
+		if new != porchapiv1alpha1.PackageRevisionLifecyclePublished && new != porchapiv1alpha1.PackageRevisionLifecycleDraft {
 			return fmt.Errorf(ApproveErrorOut, lifecycle, new)
 		}
-	case porchapi.PackageRevisionLifecycleDeletionProposed:
-		if new != porchapi.PackageRevisionLifecyclePublished {
+	case porchapiv1alpha1.PackageRevisionLifecycleDeletionProposed:
+		if new != porchapiv1alpha1.PackageRevisionLifecyclePublished {
 			return fmt.Errorf(ApproveErrorOut, lifecycle, new)
 		}
 	case new:

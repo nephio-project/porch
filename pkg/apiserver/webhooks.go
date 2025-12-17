@@ -36,7 +36,6 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
-	porchapi "github.com/nephio-project/porch/api/porch"
 	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	porchapiv1alpha2 "github.com/nephio-project/porch/api/porch/v1alpha2"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
@@ -472,7 +471,7 @@ func validateDeletion(w http.ResponseWriter, r *http.Request) {
 		writeErr(errMsg, &w)
 		return
 	}
-	pr := porchapi.PackageRevision{}
+	pr := porchapiv1alpha1.PackageRevision{}
 	if err := porchClient.Get(context.Background(), client.ObjectKey{
 		Namespace: admissionReviewRequest.Request.Namespace,
 		Name:      admissionReviewRequest.Request.Name,
@@ -481,7 +480,7 @@ func validateDeletion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	admissionResponse := &admissionv1.AdmissionResponse{}
-	if pr.Spec.Lifecycle == porchapi.PackageRevisionLifecyclePublished {
+	if pr.Spec.Lifecycle == porchapiv1alpha1.PackageRevisionLifecyclePublished {
 		admissionResponse.Allowed = false
 		admissionResponse.Result = &metav1.Status{
 			Status:  "Failure",

@@ -22,7 +22,7 @@ import (
 	"sort"
 	"strings"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/util/cmdutil"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
@@ -105,7 +105,7 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 
 	packageName := args[0]
 
-	var resources porchapi.PackageRevisionResources
+	var resources porchapiv1alpha1.PackageRevisionResources
 	if err := r.client.Get(r.ctx, client.ObjectKey{
 		Namespace: *r.cfg.Namespace,
 		Name:      packageName,
@@ -191,7 +191,7 @@ func createScheme() (*runtime.Scheme, error) {
 	scheme := runtime.NewScheme()
 
 	for _, api := range (runtime.SchemeBuilder{
-		porchapi.AddToScheme,
+		porchapiv1alpha1.AddToScheme,
 	}) {
 		if err := api(scheme); err != nil {
 			return nil, err

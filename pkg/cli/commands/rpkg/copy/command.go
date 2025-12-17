@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
@@ -62,7 +62,7 @@ type runner struct {
 	client  client.Client
 	Command *cobra.Command
 
-	copy porchapi.PackageEditTaskSpec
+	copy porchapiv1alpha1.PackageEditTaskSpec
 
 	workspace string // Target package revision workspaceName
 }
@@ -82,7 +82,7 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 		return errors.E(op, fmt.Errorf("too many arguments; SOURCE_PACKAGE is the only accepted positional arguments"))
 	}
 
-	r.copy.Source = &porchapi.PackageRevisionRef{
+	r.copy.Source = &porchapiv1alpha1.PackageRevisionRef{
 		Name: args[0],
 	}
 	return nil
@@ -96,10 +96,10 @@ func (r *runner) runE(cmd *cobra.Command, _ []string) error {
 		return errors.E(op, err)
 	}
 
-	pr := &porchapi.PackageRevision{
+	pr := &porchapiv1alpha1.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevision",
-			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
+			APIVersion: porchapiv1alpha1.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: *r.cfg.Namespace,
@@ -113,8 +113,8 @@ func (r *runner) runE(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-func (r *runner) getPackageRevisionSpec() (*porchapi.PackageRevisionSpec, error) {
-	packageRevision := porchapi.PackageRevision{}
+func (r *runner) getPackageRevisionSpec() (*porchapiv1alpha1.PackageRevisionSpec, error) {
+	packageRevision := porchapiv1alpha1.PackageRevision{}
 	err := r.client.Get(r.ctx, types.NamespacedName{
 		Name:      r.copy.Source.Name,
 		Namespace: *r.cfg.Namespace,
@@ -127,17 +127,17 @@ func (r *runner) getPackageRevisionSpec() (*porchapi.PackageRevisionSpec, error)
 		return nil, fmt.Errorf("--workspace is required to specify workspace name")
 	}
 
-	spec := &porchapi.PackageRevisionSpec{
+	spec := &porchapiv1alpha1.PackageRevisionSpec{
 		PackageName:    packageRevision.Spec.PackageName,
 		WorkspaceName:  r.workspace,
 		RepositoryName: packageRevision.Spec.RepositoryName,
 	}
 
-	spec.Tasks = []porchapi.Task{
+	spec.Tasks = []porchapiv1alpha1.Task{
 		{
-			Type: porchapi.TaskTypeEdit,
-			Edit: &porchapi.PackageEditTaskSpec{
-				Source: &porchapi.PackageRevisionRef{
+			Type: porchapiv1alpha1.TaskTypeEdit,
+			Edit: &porchapiv1alpha1.PackageEditTaskSpec{
+				Source: &porchapiv1alpha1.PackageRevisionRef{
 					Name: packageRevision.Name,
 				},
 			},

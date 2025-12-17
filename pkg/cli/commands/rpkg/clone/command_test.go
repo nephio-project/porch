@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -34,13 +34,13 @@ import (
 func createScheme() (*runtime.Scheme, error) {
 	scheme := runtime.NewScheme()
 	for _, api := range (runtime.SchemeBuilder{
-		porchapi.AddToScheme,
+		porchapiv1alpha1.AddToScheme,
 	}) {
 		if err := api(scheme); err != nil {
 			return nil, err
 		}
 	}
-	scheme.AddKnownTypes(porchapi.SchemeGroupVersion, &porchapi.PackageRevision{})
+	scheme.AddKnownTypes(porchapiv1alpha1.SchemeGroupVersion, &porchapiv1alpha1.PackageRevision{})
 	return scheme, nil
 }
 

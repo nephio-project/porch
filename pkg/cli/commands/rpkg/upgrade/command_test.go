@@ -24,7 +24,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	mockclient "github.com/nephio-project/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
@@ -48,19 +48,19 @@ func makeWsName(revision int) string {
 	return fmt.Sprintf("ws%d", rand.Int()%10000)
 }
 
-func setLifecycleAndName(pr *porchapi.PackageRevision, revision int) {
+func setLifecycleAndName(pr *porchapiv1alpha1.PackageRevision, revision int) {
 	if revision == 0 {
-		pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDraft
-		pr.Status.UpstreamLock = &porchapi.UpstreamLock{
-			Git: &porchapi.GitLock{
+		pr.Spec.Lifecycle = porchapiv1alpha1.PackageRevisionLifecycleDraft
+		pr.Status.UpstreamLock = &porchapiv1alpha1.UpstreamLock{
+			Git: &porchapiv1alpha1.GitLock{
 				Ref:  fmt.Sprintf("/drafts/%s/%s", pr.Spec.PackageName, pr.Spec.WorkspaceName),
 				Repo: "https://github.com/user/repo",
 			},
 		}
 	} else {
-		pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-		pr.Status.UpstreamLock = &porchapi.UpstreamLock{
-			Git: &porchapi.GitLock{
+		pr.Spec.Lifecycle = porchapiv1alpha1.PackageRevisionLifecyclePublished
+		pr.Status.UpstreamLock = &porchapiv1alpha1.UpstreamLock{
+			Git: &porchapiv1alpha1.GitLock{
 				Ref:  fmt.Sprintf("/%s/v%d", pr.Spec.PackageName, pr.Spec.Revision),
 				Repo: "https://github.com/user/repo",
 			},
@@ -80,8 +80,8 @@ func setLifecycleAndName(pr *porchapi.PackageRevision, revision int) {
 	})
 }
 
-func createOrigPackageRevision(namespace, repo, pkgName string, revision int) *porchapi.PackageRevision {
-	pr := &porchapi.PackageRevision{
+func createOrigPackageRevision(namespace, repo, pkgName string, revision int) *porchapiv1alpha1.PackageRevision {
+	pr := &porchapiv1alpha1.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevision",
 			APIVersion: "porch.kpt.dev/v1alpha1",
@@ -89,19 +89,19 @@ func createOrigPackageRevision(namespace, repo, pkgName string, revision int) *p
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 		},
-		Spec: porchapi.PackageRevisionSpec{
+		Spec: porchapiv1alpha1.PackageRevisionSpec{
 			RepositoryName: repo,
 			PackageName:    pkgName,
 			Revision:       revision,
 			WorkspaceName:  makeWsName(revision),
-			Tasks: []porchapi.Task{
+			Tasks: []porchapiv1alpha1.Task{
 				{
-					Type: porchapi.TaskTypeInit,
-					Init: &porchapi.PackageInitTaskSpec{},
+					Type: porchapiv1alpha1.TaskTypeInit,
+					Init: &porchapiv1alpha1.PackageInitTaskSpec{},
 				},
 			},
 		},
-		Status: porchapi.PackageRevisionStatus{},
+		Status: porchapiv1alpha1.PackageRevisionStatus{},
 	}
 
 	setLifecycleAndName(pr, revision)
@@ -109,13 +109,13 @@ func createOrigPackageRevision(namespace, repo, pkgName string, revision int) *p
 	return pr
 }
 
-func createEditPackageRevision(pr *porchapi.PackageRevision, revision int) *porchapi.PackageRevision {
+func createEditPackageRevision(pr *porchapiv1alpha1.PackageRevision, revision int) *porchapiv1alpha1.PackageRevision {
 	newPr := pr.DeepCopy()
-	newPr.Spec.Tasks = []porchapi.Task{
+	newPr.Spec.Tasks = []porchapiv1alpha1.Task{
 		{
-			Type: porchapi.TaskTypeEdit,
-			Edit: &porchapi.PackageEditTaskSpec{
-				Source: &porchapi.PackageRevisionRef{
+			Type: porchapiv1alpha1.TaskTypeEdit,
+			Edit: &porchapiv1alpha1.PackageEditTaskSpec{
+				Source: &porchapiv1alpha1.PackageRevisionRef{
 					Name: pr.Name,
 				},
 			},
@@ -129,14 +129,14 @@ func createEditPackageRevision(pr *porchapi.PackageRevision, revision int) *porc
 	return newPr
 }
 
-func createClonePackageRevision(pr *porchapi.PackageRevision, pkgName string, revision int) *porchapi.PackageRevision {
+func createClonePackageRevision(pr *porchapiv1alpha1.PackageRevision, pkgName string, revision int) *porchapiv1alpha1.PackageRevision {
 	newPr := pr.DeepCopy()
-	newPr.Spec.Tasks = []porchapi.Task{
+	newPr.Spec.Tasks = []porchapiv1alpha1.Task{
 		{
-			Type: porchapi.TaskTypeClone,
-			Clone: &porchapi.PackageCloneTaskSpec{
-				Upstream: porchapi.UpstreamPackage{
-					UpstreamRef: &porchapi.PackageRevisionRef{
+			Type: porchapiv1alpha1.TaskTypeClone,
+			Clone: &porchapiv1alpha1.PackageCloneTaskSpec{
+				Upstream: porchapiv1alpha1.UpstreamPackage{
+					UpstreamRef: &porchapiv1alpha1.PackageRevisionRef{
 						Name: pr.Name,
 					},
 				},
@@ -152,7 +152,7 @@ func createClonePackageRevision(pr *porchapi.PackageRevision, pkgName string, re
 	return newPr
 }
 
-func createRunner(ctx context.Context, c client.Client, prs []porchapi.PackageRevision, ns string, revision int) *runner {
+func createRunner(ctx context.Context, c client.Client, prs []porchapiv1alpha1.PackageRevision, ns string, revision int) *runner {
 	return &runner{
 		ctx:      ctx,
 		cfg:      &genericclioptions.ConfigFlags{Namespace: &ns},
@@ -163,7 +163,7 @@ func createRunner(ctx context.Context, c client.Client, prs []porchapi.PackageRe
 	}
 }
 
-func createRunnerWithDiscovery(ctx context.Context, c client.Client, prs []porchapi.PackageRevision, ns, discover string, revision int) *runner {
+func createRunnerWithDiscovery(ctx context.Context, c client.Client, prs []porchapiv1alpha1.PackageRevision, ns, discover string, revision int) *runner {
 	rnr := createRunner(ctx, c, prs, ns, revision)
 	rnr.discover = discover
 	return rnr
@@ -174,7 +174,7 @@ func TestPreRun(t *testing.T) {
 
 	orig := createOrigPackageRevision(ns, "repo", "orig", 1)
 	clone := createClonePackageRevision(orig, "clone", 1)
-	prs := []porchapi.PackageRevision{*orig, *clone}
+	prs := []porchapiv1alpha1.PackageRevision{*orig, *clone}
 	r := createRunner(context.Background(), fake.NewClientBuilder().Build(), prs, ns, 2)
 	err := r.preRunE(r.Command, []string{"arg1", "arg2", "arg3"})
 	assert.Error(t, err)
@@ -195,7 +195,7 @@ func TestUpgradeCommand(t *testing.T) {
 	newUpstreamRevision := createEditPackageRevision(origRevision, 2)
 	localRevision := createClonePackageRevision(origRevision, "clone", 1)
 	localDraftRevision := createClonePackageRevision(origRevision, "clone-draft", 0)
-	prs := []porchapi.PackageRevision{
+	prs := []porchapiv1alpha1.PackageRevision{
 		*origRevision,
 		*newUpstreamRevision,
 		*localRevision,
@@ -204,7 +204,7 @@ func TestUpgradeCommand(t *testing.T) {
 
 	// Create fake client and add the package revision to it
 	scheme := runtime.NewScheme()
-	if err := porchapi.AddToScheme(scheme); err != nil {
+	if err := porchapiv1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("Failed to add porch API to scheme: %v", err)
 	}
 	interceptorFuncs := interceptor.Funcs{
@@ -249,7 +249,7 @@ func TestUpgradeCommand(t *testing.T) {
 			name:           "Draft package revision",
 			args:           []string{localDraftRevision.Name},
 			expectedOutput: "",
-			expectedError:  fmt.Sprintf("to upgrade a package, it must be in a published state, not %q", porchapi.PackageRevisionLifecycleDraft),
+			expectedError:  fmt.Sprintf("to upgrade a package, it must be in a published state, not %q", porchapiv1alpha1.PackageRevisionLifecycleDraft),
 			runner:         commonRunner,
 		},
 		{
@@ -288,7 +288,7 @@ func TestFindLatestPR(t *testing.T) {
 	origRevision := createOrigPackageRevision("ns", "repo", "orig", 1)
 	newUpstreamRevision := createEditPackageRevision(origRevision, 2)
 	localRevision := createClonePackageRevision(origRevision, "clone", 1)
-	prs := []porchapi.PackageRevision{
+	prs := []porchapiv1alpha1.PackageRevision{
 		*origRevision,
 		*newUpstreamRevision,
 		*localRevision,
@@ -303,17 +303,17 @@ func TestFindLatestPR(t *testing.T) {
 
 func TestFindEditOrigin(t *testing.T) {
 	const ns = "ns"
-	downstreamv1 := porchapi.PackageRevision{
+	downstreamv1 := porchapiv1alpha1.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "downstream.v1",
 		},
-		Spec: porchapi.PackageRevisionSpec{
-			Tasks: []porchapi.Task{
+		Spec: porchapiv1alpha1.PackageRevisionSpec{
+			Tasks: []porchapiv1alpha1.Task{
 				{
-					Type: porchapi.TaskTypeClone,
-					Clone: &porchapi.PackageCloneTaskSpec{
-						Upstream: porchapi.UpstreamPackage{
-							UpstreamRef: &porchapi.PackageRevisionRef{
+					Type: porchapiv1alpha1.TaskTypeClone,
+					Clone: &porchapiv1alpha1.PackageCloneTaskSpec{
+						Upstream: porchapiv1alpha1.UpstreamPackage{
+							UpstreamRef: &porchapiv1alpha1.PackageRevisionRef{
 								Name: "upstream.v1",
 							},
 						},
@@ -322,16 +322,16 @@ func TestFindEditOrigin(t *testing.T) {
 			},
 		},
 	}
-	downstreamv2 := porchapi.PackageRevision{
+	downstreamv2 := porchapiv1alpha1.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "downstream.v2",
 		},
-		Spec: porchapi.PackageRevisionSpec{
-			Tasks: []porchapi.Task{
+		Spec: porchapiv1alpha1.PackageRevisionSpec{
+			Tasks: []porchapiv1alpha1.Task{
 				{
-					Type: porchapi.TaskTypeEdit,
-					Edit: &porchapi.PackageEditTaskSpec{
-						Source: &porchapi.PackageRevisionRef{
+					Type: porchapiv1alpha1.TaskTypeEdit,
+					Edit: &porchapiv1alpha1.PackageEditTaskSpec{
+						Source: &porchapiv1alpha1.PackageRevisionRef{
 							Name: "downstream.v1",
 						},
 					},
@@ -341,8 +341,8 @@ func TestFindEditOrigin(t *testing.T) {
 	}
 	downstreamv3 := *downstreamv2.DeepCopy()
 	downstreamv3.Name = "downstream.v3"
-	downstreamv3.Spec.Tasks[0].Edit.Source = &porchapi.PackageRevisionRef{Name: "downstream.v2"}
-	prs := []porchapi.PackageRevision{
+	downstreamv3.Spec.Tasks[0].Edit.Source = &porchapiv1alpha1.PackageRevisionRef{Name: "downstream.v2"}
+	prs := []porchapiv1alpha1.PackageRevision{
 		downstreamv1,
 		downstreamv2,
 		downstreamv3,
@@ -389,7 +389,7 @@ func TestDiscoverUpdates(t *testing.T) {
 	output := &bytes.Buffer{}
 
 	t.Run("pr does not exist", func(t *testing.T) {
-		r := createRunnerWithDiscovery(ctx, mockClient, []porchapi.PackageRevision{}, ns, "upstream", 0)
+		r := createRunnerWithDiscovery(ctx, mockClient, []porchapiv1alpha1.PackageRevision{}, ns, "upstream", 0)
 		r.Command.SetOut(output)
 
 		err := r.discoverUpdates(r.Command, []string{basePr.Name})
@@ -397,7 +397,7 @@ func TestDiscoverUpdates(t *testing.T) {
 	})
 
 	t.Run("all downstream up to date", func(t *testing.T) {
-		r := createRunnerWithDiscovery(ctx, mockClient, []porchapi.PackageRevision{*basePr}, ns, "downstream", 0)
+		r := createRunnerWithDiscovery(ctx, mockClient, []porchapiv1alpha1.PackageRevision{*basePr}, ns, "downstream", 0)
 		r.Command.SetOut(output)
 
 		err := r.discoverUpdates(r.Command, []string{})
@@ -409,7 +409,7 @@ func TestDiscoverUpdates(t *testing.T) {
 
 	t.Run("downstream update found", func(t *testing.T) {
 		clonedPr := createClonePackageRevision(basePr, "clone", 1)
-		r := createRunnerWithDiscovery(ctx, mockClient, []porchapi.PackageRevision{*basePr, *basePrV2, *clonedPr}, ns, "downstream", 0)
+		r := createRunnerWithDiscovery(ctx, mockClient, []porchapiv1alpha1.PackageRevision{*basePr, *basePrV2, *clonedPr}, ns, "downstream", 0)
 		r.Command.SetOut(output)
 		err := r.discoverUpdates(r.Command, []string{basePrV2.Name})
 		assert.NoError(t, err)
@@ -419,7 +419,7 @@ func TestDiscoverUpdates(t *testing.T) {
 	output.Reset()
 
 	t.Run("all upstreams up to date", func(t *testing.T) {
-		r := createRunnerWithDiscovery(ctx, mockClient, []porchapi.PackageRevision{*basePr}, ns, "upstream", 0)
+		r := createRunnerWithDiscovery(ctx, mockClient, []porchapiv1alpha1.PackageRevision{*basePr}, ns, "upstream", 0)
 		r.Command.SetOut(output)
 		err := r.discoverUpdates(r.Command, []string{basePr.Name})
 		assert.NoError(t, err)
@@ -429,7 +429,7 @@ func TestDiscoverUpdates(t *testing.T) {
 	output.Reset()
 
 	t.Run("upstream update found", func(t *testing.T) {
-		r := createRunnerWithDiscovery(ctx, mockClient, []porchapi.PackageRevision{*basePr, *basePrV2}, ns, "upstream", 0)
+		r := createRunnerWithDiscovery(ctx, mockClient, []porchapiv1alpha1.PackageRevision{*basePr, *basePrV2}, ns, "upstream", 0)
 		r.Command.SetOut(output)
 		err := r.discoverUpdates(r.Command, []string{basePr.Name})
 		assert.NoError(t, err)
@@ -439,7 +439,7 @@ func TestDiscoverUpdates(t *testing.T) {
 	output.Reset()
 
 	t.Run("invalid discovery param", func(t *testing.T) {
-		r := createRunnerWithDiscovery(ctx, mockClient, []porchapi.PackageRevision{*basePr, *basePrV2}, ns, "lowstream", 0)
+		r := createRunnerWithDiscovery(ctx, mockClient, []porchapiv1alpha1.PackageRevision{*basePr, *basePrV2}, ns, "lowstream", 0)
 		r.Command.SetOut(output)
 		err := r.discoverUpdates(r.Command, []string{basePr.Name})
 		assert.ErrorContains(t, err, "invalid argument \"lowstream\" for --discover")
@@ -464,7 +464,7 @@ func TestPreRunStrategyValidation(t *testing.T) {
 	}{
 		{
 			name:                 "Valid strategy: copy-merge",
-			strategy:             string(porchapi.CopyMerge),
+			strategy:             string(porchapiv1alpha1.CopyMerge),
 			validationShouldPass: true,
 			// Will fail with connection error later, after validation passes
 		},
@@ -515,43 +515,43 @@ func TestFindUpstreamByLock(t *testing.T) {
 
 	testCases := []struct {
 		name     string
-		lock     *porchapi.UpstreamLock
-		prs      []porchapi.PackageRevision
+		lock     *porchapiv1alpha1.UpstreamLock
+		prs      []porchapiv1alpha1.PackageRevision
 		expected string
 	}{
 		{
 			name:     "nil lock returns nil",
 			lock:     nil,
-			prs:      []porchapi.PackageRevision{},
+			prs:      []porchapiv1alpha1.PackageRevision{},
 			expected: "",
 		},
 		{
 			name: "lock with nil Git returns nil",
-			lock: &porchapi.UpstreamLock{
+			lock: &porchapiv1alpha1.UpstreamLock{
 				Git: nil,
 			},
-			prs:      []porchapi.PackageRevision{},
+			prs:      []porchapiv1alpha1.PackageRevision{},
 			expected: "",
 		},
 		{
 			name: "no matching package revisions",
-			lock: &porchapi.UpstreamLock{
-				Git: &porchapi.GitLock{
+			lock: &porchapiv1alpha1.UpstreamLock{
+				Git: &porchapiv1alpha1.GitLock{
 					Repo:      "https://github.com/user/repo",
 					Directory: "packages/foo",
 					Ref:       "refs/tags/v1",
 				},
 			},
-			prs: []porchapi.PackageRevision{
+			prs: []porchapiv1alpha1.PackageRevision{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "different-repo"},
-					Spec: porchapi.PackageRevisionSpec{
+					Spec: porchapiv1alpha1.PackageRevisionSpec{
 						Revision:  1,
-						Lifecycle: porchapi.PackageRevisionLifecyclePublished,
+						Lifecycle: porchapiv1alpha1.PackageRevisionLifecyclePublished,
 					},
-					Status: porchapi.PackageRevisionStatus{
-						UpstreamLock: &porchapi.UpstreamLock{
-							Git: &porchapi.GitLock{
+					Status: porchapiv1alpha1.PackageRevisionStatus{
+						UpstreamLock: &porchapiv1alpha1.UpstreamLock{
+							Git: &porchapiv1alpha1.GitLock{
 								Repo:      "https://github.com/different/repo",
 								Directory: "packages/foo",
 								Ref:       "refs/tags/v1",
@@ -564,23 +564,23 @@ func TestFindUpstreamByLock(t *testing.T) {
 		},
 		{
 			name: "finds exact match with same ref",
-			lock: &porchapi.UpstreamLock{
-				Git: &porchapi.GitLock{
+			lock: &porchapiv1alpha1.UpstreamLock{
+				Git: &porchapiv1alpha1.GitLock{
 					Repo:      "https://github.com/user/repo",
 					Directory: "packages/foo",
 					Ref:       "refs/tags/v1",
 				},
 			},
-			prs: []porchapi.PackageRevision{
+			prs: []porchapiv1alpha1.PackageRevision{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "matching-pr-v1"},
-					Spec: porchapi.PackageRevisionSpec{
+					Spec: porchapiv1alpha1.PackageRevisionSpec{
 						Revision:  1,
-						Lifecycle: porchapi.PackageRevisionLifecyclePublished,
+						Lifecycle: porchapiv1alpha1.PackageRevisionLifecyclePublished,
 					},
-					Status: porchapi.PackageRevisionStatus{
-						UpstreamLock: &porchapi.UpstreamLock{
-							Git: &porchapi.GitLock{
+					Status: porchapiv1alpha1.PackageRevisionStatus{
+						UpstreamLock: &porchapiv1alpha1.UpstreamLock{
+							Git: &porchapiv1alpha1.GitLock{
 								Repo:      "https://github.com/user/repo",
 								Directory: "packages/foo",
 								Ref:       "refs/tags/v1",
@@ -593,23 +593,23 @@ func TestFindUpstreamByLock(t *testing.T) {
 		},
 		{
 			name: "finds highest revision when multiple matches with same ref",
-			lock: &porchapi.UpstreamLock{
-				Git: &porchapi.GitLock{
+			lock: &porchapiv1alpha1.UpstreamLock{
+				Git: &porchapiv1alpha1.GitLock{
 					Repo:      "https://github.com/user/repo",
 					Directory: "packages/foo",
 					Ref:       "refs/tags/v2",
 				},
 			},
-			prs: []porchapi.PackageRevision{
+			prs: []porchapiv1alpha1.PackageRevision{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "matching-pr-v1"},
-					Spec: porchapi.PackageRevisionSpec{
+					Spec: porchapiv1alpha1.PackageRevisionSpec{
 						Revision:  1,
-						Lifecycle: porchapi.PackageRevisionLifecyclePublished,
+						Lifecycle: porchapiv1alpha1.PackageRevisionLifecyclePublished,
 					},
-					Status: porchapi.PackageRevisionStatus{
-						UpstreamLock: &porchapi.UpstreamLock{
-							Git: &porchapi.GitLock{
+					Status: porchapiv1alpha1.PackageRevisionStatus{
+						UpstreamLock: &porchapiv1alpha1.UpstreamLock{
+							Git: &porchapiv1alpha1.GitLock{
 								Repo:      "https://github.com/user/repo",
 								Directory: "packages/foo",
 								Ref:       "refs/tags/v2",
@@ -619,13 +619,13 @@ func TestFindUpstreamByLock(t *testing.T) {
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "matching-pr-v3"},
-					Spec: porchapi.PackageRevisionSpec{
+					Spec: porchapiv1alpha1.PackageRevisionSpec{
 						Revision:  3,
-						Lifecycle: porchapi.PackageRevisionLifecyclePublished,
+						Lifecycle: porchapiv1alpha1.PackageRevisionLifecyclePublished,
 					},
-					Status: porchapi.PackageRevisionStatus{
-						UpstreamLock: &porchapi.UpstreamLock{
-							Git: &porchapi.GitLock{
+					Status: porchapiv1alpha1.PackageRevisionStatus{
+						UpstreamLock: &porchapiv1alpha1.UpstreamLock{
+							Git: &porchapiv1alpha1.GitLock{
 								Repo:      "https://github.com/user/repo",
 								Directory: "packages/foo",
 								Ref:       "refs/tags/v2",
@@ -635,13 +635,13 @@ func TestFindUpstreamByLock(t *testing.T) {
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "matching-pr-v2"},
-					Spec: porchapi.PackageRevisionSpec{
+					Spec: porchapiv1alpha1.PackageRevisionSpec{
 						Revision:  2,
-						Lifecycle: porchapi.PackageRevisionLifecyclePublished,
+						Lifecycle: porchapiv1alpha1.PackageRevisionLifecyclePublished,
 					},
-					Status: porchapi.PackageRevisionStatus{
-						UpstreamLock: &porchapi.UpstreamLock{
-							Git: &porchapi.GitLock{
+					Status: porchapiv1alpha1.PackageRevisionStatus{
+						UpstreamLock: &porchapiv1alpha1.UpstreamLock{
+							Git: &porchapiv1alpha1.GitLock{
 								Repo:      "https://github.com/user/repo",
 								Directory: "packages/foo",
 								Ref:       "refs/tags/v2",
@@ -654,23 +654,23 @@ func TestFindUpstreamByLock(t *testing.T) {
 		},
 		{
 			name: "ignores draft package revisions",
-			lock: &porchapi.UpstreamLock{
-				Git: &porchapi.GitLock{
+			lock: &porchapiv1alpha1.UpstreamLock{
+				Git: &porchapiv1alpha1.GitLock{
 					Repo:      "https://github.com/user/repo",
 					Directory: "packages/foo",
 					Ref:       "refs/tags/v1",
 				},
 			},
-			prs: []porchapi.PackageRevision{
+			prs: []porchapiv1alpha1.PackageRevision{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "draft-pr"},
-					Spec: porchapi.PackageRevisionSpec{
+					Spec: porchapiv1alpha1.PackageRevisionSpec{
 						Revision:  1,
-						Lifecycle: porchapi.PackageRevisionLifecycleDraft,
+						Lifecycle: porchapiv1alpha1.PackageRevisionLifecycleDraft,
 					},
-					Status: porchapi.PackageRevisionStatus{
-						UpstreamLock: &porchapi.UpstreamLock{
-							Git: &porchapi.GitLock{
+					Status: porchapiv1alpha1.PackageRevisionStatus{
+						UpstreamLock: &porchapiv1alpha1.UpstreamLock{
+							Git: &porchapiv1alpha1.GitLock{
 								Repo:      "https://github.com/user/repo",
 								Directory: "packages/foo",
 								Ref:       "refs/tags/v1",
@@ -683,21 +683,21 @@ func TestFindUpstreamByLock(t *testing.T) {
 		},
 		{
 			name: "ignores PRs with no upstream lock",
-			lock: &porchapi.UpstreamLock{
-				Git: &porchapi.GitLock{
+			lock: &porchapiv1alpha1.UpstreamLock{
+				Git: &porchapiv1alpha1.GitLock{
 					Repo:      "https://github.com/user/repo",
 					Directory: "packages/foo",
 					Ref:       "refs/tags/v1",
 				},
 			},
-			prs: []porchapi.PackageRevision{
+			prs: []porchapiv1alpha1.PackageRevision{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "no-lock-pr"},
-					Spec: porchapi.PackageRevisionSpec{
+					Spec: porchapiv1alpha1.PackageRevisionSpec{
 						Revision:  1,
-						Lifecycle: porchapi.PackageRevisionLifecyclePublished,
+						Lifecycle: porchapiv1alpha1.PackageRevisionLifecyclePublished,
 					},
-					Status: porchapi.PackageRevisionStatus{
+					Status: porchapiv1alpha1.PackageRevisionStatus{
 						UpstreamLock: nil,
 					},
 				},
@@ -725,26 +725,26 @@ func TestFindUpstreamByLock(t *testing.T) {
 func TestMatchesTarget(t *testing.T) {
 	testCases := []struct {
 		name      string
-		candidate porchapi.PackageRevision
-		target    *porchapi.GitLock
+		candidate porchapiv1alpha1.PackageRevision
+		target    *porchapiv1alpha1.GitLock
 		expected  bool
 	}{
 		{
 			name: "draft package revision does not match",
-			candidate: porchapi.PackageRevision{
-				Spec: porchapi.PackageRevisionSpec{
-					Lifecycle: porchapi.PackageRevisionLifecycleDraft,
+			candidate: porchapiv1alpha1.PackageRevision{
+				Spec: porchapiv1alpha1.PackageRevisionSpec{
+					Lifecycle: porchapiv1alpha1.PackageRevisionLifecycleDraft,
 				},
-				Status: porchapi.PackageRevisionStatus{
-					UpstreamLock: &porchapi.UpstreamLock{
-						Git: &porchapi.GitLock{
+				Status: porchapiv1alpha1.PackageRevisionStatus{
+					UpstreamLock: &porchapiv1alpha1.UpstreamLock{
+						Git: &porchapiv1alpha1.GitLock{
 							Repo:      "https://github.com/user/repo",
 							Directory: "packages/foo",
 						},
 					},
 				},
 			},
-			target: &porchapi.GitLock{
+			target: &porchapiv1alpha1.GitLock{
 				Repo:      "https://github.com/user/repo",
 				Directory: "packages/foo",
 			},
@@ -752,15 +752,15 @@ func TestMatchesTarget(t *testing.T) {
 		},
 		{
 			name: "candidate with no upstream lock does not match",
-			candidate: porchapi.PackageRevision{
-				Spec: porchapi.PackageRevisionSpec{
-					Lifecycle: porchapi.PackageRevisionLifecyclePublished,
+			candidate: porchapiv1alpha1.PackageRevision{
+				Spec: porchapiv1alpha1.PackageRevisionSpec{
+					Lifecycle: porchapiv1alpha1.PackageRevisionLifecyclePublished,
 				},
-				Status: porchapi.PackageRevisionStatus{
+				Status: porchapiv1alpha1.PackageRevisionStatus{
 					UpstreamLock: nil,
 				},
 			},
-			target: &porchapi.GitLock{
+			target: &porchapiv1alpha1.GitLock{
 				Repo:      "https://github.com/user/repo",
 				Directory: "packages/foo",
 			},
@@ -768,17 +768,17 @@ func TestMatchesTarget(t *testing.T) {
 		},
 		{
 			name: "candidate with no git lock does not match",
-			candidate: porchapi.PackageRevision{
-				Spec: porchapi.PackageRevisionSpec{
-					Lifecycle: porchapi.PackageRevisionLifecyclePublished,
+			candidate: porchapiv1alpha1.PackageRevision{
+				Spec: porchapiv1alpha1.PackageRevisionSpec{
+					Lifecycle: porchapiv1alpha1.PackageRevisionLifecyclePublished,
 				},
-				Status: porchapi.PackageRevisionStatus{
-					UpstreamLock: &porchapi.UpstreamLock{
+				Status: porchapiv1alpha1.PackageRevisionStatus{
+					UpstreamLock: &porchapiv1alpha1.UpstreamLock{
 						Git: nil,
 					},
 				},
 			},
-			target: &porchapi.GitLock{
+			target: &porchapiv1alpha1.GitLock{
 				Repo:      "https://github.com/user/repo",
 				Directory: "packages/foo",
 			},
@@ -786,20 +786,20 @@ func TestMatchesTarget(t *testing.T) {
 		},
 		{
 			name: "different repo does not match",
-			candidate: porchapi.PackageRevision{
-				Spec: porchapi.PackageRevisionSpec{
-					Lifecycle: porchapi.PackageRevisionLifecyclePublished,
+			candidate: porchapiv1alpha1.PackageRevision{
+				Spec: porchapiv1alpha1.PackageRevisionSpec{
+					Lifecycle: porchapiv1alpha1.PackageRevisionLifecyclePublished,
 				},
-				Status: porchapi.PackageRevisionStatus{
-					UpstreamLock: &porchapi.UpstreamLock{
-						Git: &porchapi.GitLock{
+				Status: porchapiv1alpha1.PackageRevisionStatus{
+					UpstreamLock: &porchapiv1alpha1.UpstreamLock{
+						Git: &porchapiv1alpha1.GitLock{
 							Repo:      "https://github.com/different/repo",
 							Directory: "packages/foo",
 						},
 					},
 				},
 			},
-			target: &porchapi.GitLock{
+			target: &porchapiv1alpha1.GitLock{
 				Repo:      "https://github.com/user/repo",
 				Directory: "packages/foo",
 			},
@@ -807,20 +807,20 @@ func TestMatchesTarget(t *testing.T) {
 		},
 		{
 			name: "different directory does not match",
-			candidate: porchapi.PackageRevision{
-				Spec: porchapi.PackageRevisionSpec{
-					Lifecycle: porchapi.PackageRevisionLifecyclePublished,
+			candidate: porchapiv1alpha1.PackageRevision{
+				Spec: porchapiv1alpha1.PackageRevisionSpec{
+					Lifecycle: porchapiv1alpha1.PackageRevisionLifecyclePublished,
 				},
-				Status: porchapi.PackageRevisionStatus{
-					UpstreamLock: &porchapi.UpstreamLock{
-						Git: &porchapi.GitLock{
+				Status: porchapiv1alpha1.PackageRevisionStatus{
+					UpstreamLock: &porchapiv1alpha1.UpstreamLock{
+						Git: &porchapiv1alpha1.GitLock{
 							Repo:      "https://github.com/user/repo",
 							Directory: "packages/bar",
 						},
 					},
 				},
 			},
-			target: &porchapi.GitLock{
+			target: &porchapiv1alpha1.GitLock{
 				Repo:      "https://github.com/user/repo",
 				Directory: "packages/foo",
 			},
@@ -828,13 +828,13 @@ func TestMatchesTarget(t *testing.T) {
 		},
 		{
 			name: "exact match returns true",
-			candidate: porchapi.PackageRevision{
-				Spec: porchapi.PackageRevisionSpec{
-					Lifecycle: porchapi.PackageRevisionLifecyclePublished,
+			candidate: porchapiv1alpha1.PackageRevision{
+				Spec: porchapiv1alpha1.PackageRevisionSpec{
+					Lifecycle: porchapiv1alpha1.PackageRevisionLifecyclePublished,
 				},
-				Status: porchapi.PackageRevisionStatus{
-					UpstreamLock: &porchapi.UpstreamLock{
-						Git: &porchapi.GitLock{
+				Status: porchapiv1alpha1.PackageRevisionStatus{
+					UpstreamLock: &porchapiv1alpha1.UpstreamLock{
+						Git: &porchapiv1alpha1.GitLock{
 							Repo:      "https://github.com/user/repo",
 							Directory: "packages/foo",
 							Ref:       "refs/tags/v1",
@@ -842,7 +842,7 @@ func TestMatchesTarget(t *testing.T) {
 					},
 				},
 			},
-			target: &porchapi.GitLock{
+			target: &porchapiv1alpha1.GitLock{
 				Repo:      "https://github.com/user/repo",
 				Directory: "packages/foo",
 				Ref:       "refs/tags/v2",
@@ -863,25 +863,25 @@ func TestMatchesTarget(t *testing.T) {
 func TestFindUpstreamInEditTaskWithUpstreamLock(t *testing.T) {
 	const ns = "ns"
 
-	editPr := porchapi.PackageRevision{
+	editPr := porchapiv1alpha1.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "broken-edit-pr",
 		},
-		Spec: porchapi.PackageRevisionSpec{
-			Tasks: []porchapi.Task{
+		Spec: porchapiv1alpha1.PackageRevisionSpec{
+			Tasks: []porchapiv1alpha1.Task{
 				{
-					Type: porchapi.TaskTypeEdit,
-					Edit: &porchapi.PackageEditTaskSpec{
-						Source: &porchapi.PackageRevisionRef{
+					Type: porchapiv1alpha1.TaskTypeEdit,
+					Edit: &porchapiv1alpha1.PackageEditTaskSpec{
+						Source: &porchapiv1alpha1.PackageRevisionRef{
 							Name: "non-existent-source",
 						},
 					},
 				},
 			},
 		},
-		Status: porchapi.PackageRevisionStatus{
-			UpstreamLock: &porchapi.UpstreamLock{
-				Git: &porchapi.GitLock{
+		Status: porchapiv1alpha1.PackageRevisionStatus{
+			UpstreamLock: &porchapiv1alpha1.UpstreamLock{
+				Git: &porchapiv1alpha1.GitLock{
 					Repo:      "https://github.com/user/repo",
 					Directory: "packages/foo",
 					Ref:       "refs/tags/v1",
@@ -890,17 +890,17 @@ func TestFindUpstreamInEditTaskWithUpstreamLock(t *testing.T) {
 		},
 	}
 
-	upstreamPr := porchapi.PackageRevision{
+	upstreamPr := porchapiv1alpha1.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "upstream-pr-v2",
 		},
-		Spec: porchapi.PackageRevisionSpec{
+		Spec: porchapiv1alpha1.PackageRevisionSpec{
 			Revision:  2,
-			Lifecycle: porchapi.PackageRevisionLifecyclePublished,
+			Lifecycle: porchapiv1alpha1.PackageRevisionLifecyclePublished,
 		},
-		Status: porchapi.PackageRevisionStatus{
-			UpstreamLock: &porchapi.UpstreamLock{
-				Git: &porchapi.GitLock{
+		Status: porchapiv1alpha1.PackageRevisionStatus{
+			UpstreamLock: &porchapiv1alpha1.UpstreamLock{
+				Git: &porchapiv1alpha1.GitLock{
 					Repo:      "https://github.com/user/repo",
 					Directory: "packages/foo",
 					Ref:       "refs/tags/v1",
@@ -909,7 +909,7 @@ func TestFindUpstreamInEditTaskWithUpstreamLock(t *testing.T) {
 		},
 	}
 
-	prs := []porchapi.PackageRevision{editPr, upstreamPr}
+	prs := []porchapiv1alpha1.PackageRevision{editPr, upstreamPr}
 	r := createRunner(context.Background(), fake.NewClientBuilder().Build(), prs, ns, 0)
 
 	result := r.findUpstreamName(&editPr)
@@ -921,28 +921,28 @@ func TestFindUpstreamInEditTaskNoUpstreamLock(t *testing.T) {
 	const ns = "ns"
 
 	// edit package revision with no upstream lock
-	editPrNoLock := porchapi.PackageRevision{
+	editPrNoLock := porchapiv1alpha1.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "edit-pr-no-lock",
 		},
-		Spec: porchapi.PackageRevisionSpec{
-			Tasks: []porchapi.Task{
+		Spec: porchapiv1alpha1.PackageRevisionSpec{
+			Tasks: []porchapiv1alpha1.Task{
 				{
-					Type: porchapi.TaskTypeEdit,
-					Edit: &porchapi.PackageEditTaskSpec{
-						Source: &porchapi.PackageRevisionRef{
+					Type: porchapiv1alpha1.TaskTypeEdit,
+					Edit: &porchapiv1alpha1.PackageEditTaskSpec{
+						Source: &porchapiv1alpha1.PackageRevisionRef{
 							Name: "non-existent-source",
 						},
 					},
 				},
 			},
 		},
-		Status: porchapi.PackageRevisionStatus{
+		Status: porchapiv1alpha1.PackageRevisionStatus{
 			UpstreamLock: nil,
 		},
 	}
 
-	prs := []porchapi.PackageRevision{editPrNoLock}
+	prs := []porchapiv1alpha1.PackageRevision{editPrNoLock}
 	r := createRunner(context.Background(), fake.NewClientBuilder().Build(), prs, ns, 0)
 
 	result := r.findUpstreamName(&editPrNoLock)
@@ -953,16 +953,16 @@ func TestFindUpstreamInEditTaskNoUpstreamLock(t *testing.T) {
 func TestFindUpstreamInUpgradeTask(t *testing.T) {
 	const ns = "ns"
 
-	upgradePr := porchapi.PackageRevision{
+	upgradePr := porchapiv1alpha1.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "upgrade-pr",
 		},
-		Spec: porchapi.PackageRevisionSpec{
-			Tasks: []porchapi.Task{
+		Spec: porchapiv1alpha1.PackageRevisionSpec{
+			Tasks: []porchapiv1alpha1.Task{
 				{
-					Type: porchapi.TaskTypeUpgrade,
-					Upgrade: &porchapi.PackageUpgradeTaskSpec{
-						NewUpstream: porchapi.PackageRevisionRef{
+					Type: porchapiv1alpha1.TaskTypeUpgrade,
+					Upgrade: &porchapiv1alpha1.PackageUpgradeTaskSpec{
+						NewUpstream: porchapiv1alpha1.PackageRevisionRef{
 							Name: "new-upstream-v2",
 						},
 					},
@@ -971,7 +971,7 @@ func TestFindUpstreamInUpgradeTask(t *testing.T) {
 		},
 	}
 
-	prs := []porchapi.PackageRevision{upgradePr}
+	prs := []porchapiv1alpha1.PackageRevision{upgradePr}
 	r := createRunner(context.Background(), fake.NewClientBuilder().Build(), prs, ns, 0)
 
 	result := r.findUpstreamName(&upgradePr)

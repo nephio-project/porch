@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -34,13 +34,13 @@ import (
 func createScheme() (*runtime.Scheme, error) {
 	scheme := runtime.NewScheme()
 	for _, api := range (runtime.SchemeBuilder{
-		porchapi.AddToScheme,
+		porchapiv1alpha1.AddToScheme,
 	}) {
 		if err := api(scheme); err != nil {
 			return nil, err
 		}
 	}
-	scheme.AddKnownTypes(porchapi.SchemeGroupVersion, &porchapi.PackageRevision{})
+	scheme.AddKnownTypes(porchapiv1alpha1.SchemeGroupVersion, &porchapiv1alpha1.PackageRevision{})
 	return scheme, nil
 }
 
@@ -61,13 +61,13 @@ func TestCmd(t *testing.T) {
 			output:  pkgRevName + " failed (packagerevisions.porch.kpt.dev \"" + pkgRevName + "\" not found)\n",
 			wantErr: true,
 			fakeclient: fake.NewClientBuilder().WithScheme(scheme).
-				WithObjects(&porchapi.PackageRevision{
+				WithObjects(&porchapiv1alpha1.PackageRevision{
 					TypeMeta: metav1.TypeMeta{
 						Kind:       "PackageRevision",
-						APIVersion: porchapi.SchemeGroupVersion.Identifier(),
+						APIVersion: porchapiv1alpha1.SchemeGroupVersion.Identifier(),
 					},
-					Spec: porchapi.PackageRevisionSpec{
-						Lifecycle:      porchapi.PackageRevisionLifecycleProposed,
+					Spec: porchapiv1alpha1.PackageRevisionSpec{
+						Lifecycle:      porchapiv1alpha1.PackageRevisionLifecycleProposed,
 						RepositoryName: repoName,
 					},
 					ObjectMeta: metav1.ObjectMeta{
@@ -78,13 +78,13 @@ func TestCmd(t *testing.T) {
 		"Reject deletion-proposed package": {
 			output: pkgRevName + " no longer proposed for deletion\n",
 			fakeclient: fake.NewClientBuilder().WithScheme(scheme).
-				WithObjects(&porchapi.PackageRevision{
+				WithObjects(&porchapiv1alpha1.PackageRevision{
 					TypeMeta: metav1.TypeMeta{
 						Kind:       "PackageRevision",
-						APIVersion: porchapi.SchemeGroupVersion.Identifier(),
+						APIVersion: porchapiv1alpha1.SchemeGroupVersion.Identifier(),
 					},
-					Spec: porchapi.PackageRevisionSpec{
-						Lifecycle:      porchapi.PackageRevisionLifecycleDeletionProposed,
+					Spec: porchapiv1alpha1.PackageRevisionSpec{
+						Lifecycle:      porchapiv1alpha1.PackageRevisionLifecycleDeletionProposed,
 						RepositoryName: repoName,
 					},
 					ObjectMeta: metav1.ObjectMeta{
@@ -96,13 +96,13 @@ func TestCmd(t *testing.T) {
 			wantErr: true,
 			output:  pkgRevName + " failed (cannot reject " + pkgRevName + " with lifecycle 'Draft')\n",
 			fakeclient: fake.NewClientBuilder().WithScheme(scheme).
-				WithObjects(&porchapi.PackageRevision{
+				WithObjects(&porchapiv1alpha1.PackageRevision{
 					TypeMeta: metav1.TypeMeta{
 						Kind:       "PackageRevision",
-						APIVersion: porchapi.SchemeGroupVersion.Identifier(),
+						APIVersion: porchapiv1alpha1.SchemeGroupVersion.Identifier(),
 					},
-					Spec: porchapi.PackageRevisionSpec{
-						Lifecycle:      porchapi.PackageRevisionLifecycleDraft,
+					Spec: porchapiv1alpha1.PackageRevisionSpec{
+						Lifecycle:      porchapiv1alpha1.PackageRevisionLifecycleDraft,
 						RepositoryName: repoName,
 					},
 					ObjectMeta: metav1.ObjectMeta{
@@ -114,13 +114,13 @@ func TestCmd(t *testing.T) {
 			wantErr: true,
 			output:  pkgRevName + " failed (cannot reject " + pkgRevName + " with lifecycle 'Published')\n",
 			fakeclient: fake.NewClientBuilder().WithScheme(scheme).
-				WithObjects(&porchapi.PackageRevision{
+				WithObjects(&porchapiv1alpha1.PackageRevision{
 					TypeMeta: metav1.TypeMeta{
 						Kind:       "PackageRevision",
-						APIVersion: porchapi.SchemeGroupVersion.Identifier(),
+						APIVersion: porchapiv1alpha1.SchemeGroupVersion.Identifier(),
 					},
-					Spec: porchapi.PackageRevisionSpec{
-						Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
+					Spec: porchapiv1alpha1.PackageRevisionSpec{
+						Lifecycle:      porchapiv1alpha1.PackageRevisionLifecyclePublished,
 						RepositoryName: repoName,
 					},
 					ObjectMeta: metav1.ObjectMeta{
@@ -136,13 +136,13 @@ func TestCmd(t *testing.T) {
 					return nil
 				},
 			}).WithScheme(scheme).
-				WithRuntimeObjects(&porchapi.PackageRevision{
+				WithRuntimeObjects(&porchapiv1alpha1.PackageRevision{
 					TypeMeta: metav1.TypeMeta{
 						Kind:       "PackageRevision",
-						APIVersion: porchapi.SchemeGroupVersion.Identifier(),
+						APIVersion: porchapiv1alpha1.SchemeGroupVersion.Identifier(),
 					},
-					Spec: porchapi.PackageRevisionSpec{
-						Lifecycle:      porchapi.PackageRevisionLifecycleProposed,
+					Spec: porchapiv1alpha1.PackageRevisionSpec{
+						Lifecycle:      porchapiv1alpha1.PackageRevisionLifecycleProposed,
 						RepositoryName: repoName,
 					},
 					ObjectMeta: metav1.ObjectMeta{

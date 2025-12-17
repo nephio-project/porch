@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
@@ -113,22 +113,22 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 func (r *runner) runE(cmd *cobra.Command, _ []string) error {
 	const op errors.Op = command + ".runE"
 
-	pr := &porchapi.PackageRevision{
+	pr := &porchapiv1alpha1.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevision",
-			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
+			APIVersion: porchapiv1alpha1.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: *r.cfg.Namespace,
 		},
-		Spec: porchapi.PackageRevisionSpec{
+		Spec: porchapiv1alpha1.PackageRevisionSpec{
 			PackageName:    r.name,
 			WorkspaceName:  r.workspace,
 			RepositoryName: r.repository,
-			Tasks: []porchapi.Task{
+			Tasks: []porchapiv1alpha1.Task{
 				{
-					Type: porchapi.TaskTypeInit,
-					Init: &porchapi.PackageInitTaskSpec{
+					Type: porchapiv1alpha1.TaskTypeInit,
+					Init: &porchapiv1alpha1.PackageInitTaskSpec{
 						Description: r.Description,
 						Keywords:    r.Keywords,
 						Site:        r.Site,
@@ -136,7 +136,7 @@ func (r *runner) runE(cmd *cobra.Command, _ []string) error {
 				},
 			},
 		},
-		Status: porchapi.PackageRevisionStatus{},
+		Status: porchapiv1alpha1.PackageRevisionStatus{},
 	}
 	if err := r.client.Create(r.ctx, pr); err != nil {
 		return errors.E(op, err)

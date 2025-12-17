@@ -17,7 +17,7 @@ package porch
 import (
 	"context"
 
-	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapiv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	coreapi "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -93,7 +93,7 @@ func CreateRESTClient(flags *genericclioptions.ConfigFlags) (rest.Interface, err
 
 	codecs := serializer.NewCodecFactory(scheme)
 
-	gv := porchapi.SchemeGroupVersion
+	gv := porchapiv1alpha1.SchemeGroupVersion
 	config.GroupVersion = &gv
 	config.APIPath = "/apis"
 	config.NegotiatedSerializer = codecs.WithoutConversion()
@@ -106,7 +106,7 @@ func createScheme() (*runtime.Scheme, error) {
 
 	for _, api := range (runtime.SchemeBuilder{
 		configapi.AddToScheme,
-		porchapi.AddToScheme,
+		porchapiv1alpha1.AddToScheme,
 		coreapi.AddToScheme,
 		metav1.AddMetaToScheme,
 	}) {
@@ -120,7 +120,7 @@ func createScheme() (*runtime.Scheme, error) {
 func createRESTMapper() meta.RESTMapper {
 	rm := meta.NewDefaultRESTMapper([]schema.GroupVersion{
 		configapi.GroupVersion,
-		porchapi.SchemeGroupVersion,
+		porchapiv1alpha1.SchemeGroupVersion,
 		coreapi.SchemeGroupVersion,
 		metav1.SchemeGroupVersion,
 	})
@@ -130,9 +130,9 @@ func createRESTMapper() meta.RESTMapper {
 		plural, singular string
 	}{
 		{kind: configapi.GroupVersion.WithKind("Repository"), plural: "repositories", singular: "repository"},
-		{kind: porchapi.SchemeGroupVersion.WithKind("PackageRevision"), plural: "packagerevisions", singular: "packagerevision"},
-		{kind: porchapi.SchemeGroupVersion.WithKind("PackageRevisionResources"), plural: "packagerevisionresources", singular: "packagerevisionresources"},
-		{kind: porchapi.SchemeGroupVersion.WithKind("Function"), plural: "functions", singular: "function"},
+		{kind: porchapiv1alpha1.SchemeGroupVersion.WithKind("PackageRevision"), plural: "packagerevisions", singular: "packagerevision"},
+		{kind: porchapiv1alpha1.SchemeGroupVersion.WithKind("PackageRevisionResources"), plural: "packagerevisionresources", singular: "packagerevisionresources"},
+		{kind: porchapiv1alpha1.SchemeGroupVersion.WithKind("Function"), plural: "functions", singular: "function"},
 		{kind: coreapi.SchemeGroupVersion.WithKind("Secret"), plural: "secrets", singular: "secret"},
 		{kind: metav1.SchemeGroupVersion.WithKind("Table"), plural: "tables", singular: "table"},
 	} {
