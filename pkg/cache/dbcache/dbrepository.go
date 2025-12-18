@@ -24,6 +24,7 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
+	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/externalrepo"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
@@ -356,6 +357,12 @@ func (r *dbRepository) ClosePackageRevisionDraft(ctx context.Context, prd reposi
 	defer span.End()
 
 	pr, err := r.savePackageRevisionDraft(ctx, prd, version)
+
+	if pr != nil && pr.Lifecycle(ctx) == porchapi.PackageRevisionLifecycleDraft {
+		if _, err = engine.PushPackageRevision(ctx, r.externalRepo, pr, porchapi.PackageRevisionLifecycleDraft); err != nil {
+			return nil, pkgerrors.Wrapf(err, "closing package revision draft %+v on repo %+v failed during push to external repo", pr.Key(), r.Key())
+		}
+	}
 
 	return repository.PackageRevision(pr), err
 }

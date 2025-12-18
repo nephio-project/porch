@@ -400,7 +400,7 @@ func (pr *dbPackageRevision) publishPR(ctx context.Context, newLifecycle porchap
 	pr.pkgRevKey.Revision = latestRev + 1
 	pr.lifecycle = newLifecycle
 
-	pushedPRExtID, err := engine.PushPackageRevision(ctx, pr.repo.externalRepo, pr)
+	pushedPRExtID, err := engine.PushPackageRevision(ctx, pr.repo.externalRepo, pr, porchapi.PackageRevisionLifecyclePublished)
 	if err != nil {
 		klog.Warningf("push of package revision %+v to external repo failed, %q", pr.Key(), err)
 		pr.pkgRevKey.Revision = 0

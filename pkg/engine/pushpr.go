@@ -26,7 +26,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func PushPackageRevision(ctx context.Context, repo repository.Repository, pr repository.PackageRevision) (v1.UpstreamLock, error) {
+func PushPackageRevision(ctx context.Context, repo repository.Repository, pr repository.PackageRevision, desiredLifecycle v1alpha1.PackageRevisionLifecycle) (v1.UpstreamLock, error) {
 	ctx, span := tracer.Start(ctx, "PushPackageRevision", trace.WithAttributes())
 	defer span.End()
 
@@ -45,9 +45,30 @@ func PushPackageRevision(ctx context.Context, repo repository.Repository, pr rep
 		return v1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not get package revision resources:", pr.Key(), repo.Key())
 	}
 
-	draft, err := repo.CreatePackageRevisionDraft(ctx, apiPr)
+	var draft repository.PackageRevisionDraft
+	existingPkgRevs, err := repo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
+		Key: pr.Key(),
+	})
 	if err != nil {
-		return v1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not create package revision draft:", pr.Key(), repo.Key())
+		klog.Warningf("Could not list package revisions in external repo: %v", err)
+	}
+
+	for _, existingPr := range existingPkgRevs {
+		existingLifecycle := existingPr.Lifecycle(ctx)
+		if existingLifecycle == v1alpha1.PackageRevisionLifecycleDraft || existingLifecycle == v1alpha1.PackageRevisionLifecycleProposed {
+			draft, err = repo.UpdatePackageRevision(ctx, existingPr)
+			if err != nil {
+				return v1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of draft package revision %+v to repository %+v failed, could not update existing package revision:", pr.Key(), repo.Key())
+			}
+			break
+		}
+	}
+
+	if draft == nil {
+		draft, err = repo.CreatePackageRevisionDraft(ctx, apiPr)
+		if err != nil {
+			return v1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not create package revision draft:", pr.Key(), repo.Key())
+		}
 	}
 
 	commitTask := &porchapi.Task{Type: porchapi.TaskTypePush}
