@@ -1,0 +1,15 @@
+---
+# SPDX-license-identifier: CC-BY-4.0
+# Copyright contributors to the Nephio Project
+
+matrix:
+  - name: markdown
+    dictionary:
+      wordlists:
+        - .wordlist.txt
+    pipeline:
+      - pyspelling.filters.markdown:
+    sources:
+      - '**/*.md'
+    aspell:
+      ignore-case: true

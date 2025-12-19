@@ -1,0 +1,22 @@
+# Hugo build configuration for Netlify
+# (https://gohugo.io/hosting-and-deployment/hosting-on-netlify/#configure-hugo-version-in-netlify)
+
+[build]
+  command = "hugo --environment $HUGO_ENV --config config.toml,config/$HUGO_ENV.toml"
+  publish = "public"
+
+[build.environment]
+  GO_VERSION = "1.24.5"
+  HUGO_VERSION = "v0.148.2"
+  HUGO_ENV = "production"
+
+[context.production.environment]
+  HUGO_ENV = "production"
+
+# Deploy previews (pull requests) context
+[context.deploy-preview.environment]
+  HUGO_ENV = "development"
+
+# Branch deploys context
+[context.branch-deploy.environment]
+  HUGO_ENV = "development"

@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repository Sync Architecture - Interactive Diagram</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .diagram-container {
+            position: relative;
+            padding: 20px;
+            text-align: center;
+        }
+        .svg-container {
+            display: inline-block;
+            position: relative;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+        }
+        .component {
+            cursor: pointer;
+        }
+        .info-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 300px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: none;
+            z-index: 1000;
+        }
+        .info-panel h3 {
+            margin-top: 0;
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 5px;
+        }
+        .info-panel p {
+            margin: 10px 0;
+            line-height: 1.5;
+            color: #000000;
+        }
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #999;
+        }
+        .close-btn:hover {
+            color: #333;
+        }
+        .navigation {
+            background: #ecf0f1;
+            padding: 15px 20px;
+            border-top: 1px solid #ddd;
+        }
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .nav-btn {
+            padding: 8px 16px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s ease;
+        }
+        .nav-btn:hover {
+            background: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Repository Sync Architecture</h1>
+            <p>Diagram showing the components and flow of the Porch repository synchronization system</p>
+        </div>
+        
+        <div class="diagram-container">
+            <div class="svg-container">
+                <svg xmlns="http://www.w3.org/2000/svg" width="921" height="621" viewBox="0 0 921 621">
+                    <!-- SyncManager -->
+                    <g class="component" data-component="syncmanager">
+                    <rect x="190" y="10" width="150" height="130" fill="#ffffff" stroke="#000000" stroke-width="2"/>
+                    <text x="265" y="35" text-anchor="middle" font-family="Arial" font-size="14" font-weight="bold" fill="#000000">SyncManager</text>
+                    <text x="200" y="55" font-family="Arial" font-size="12" font-weight="bold" fill="#000000">- handler</text>
+                    <text x="200" y="75" font-family="Arial" font-size="12" font-weight="bold" fill="#000000">- coreClient</text>
+                    <text x="200" y="95" font-family="Arial" font-size="12" font-weight="bold" fill="#000000">- nextSyncTime</text>
+                    <text x="200" y="115" font-family="Arial" font-size="12" font-weight="bold" fill="#000000">- lastSyncError</text>
+                    </g>
+                    
+                    <!-- Periodic Sync Goroutine -->
+                    <g class="component" data-component="periodic">
+                    <rect x="10" y="180" width="160" height="80" fill="#ffffff" stroke="#000000" stroke-width="2"/>
+                    <text x="90" y="205" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#000000">syncForever -</text>
+                    <text x="90" y="220" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#000000">Go Routine</text>
+                    <text x="90" y="240" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#000000">Periodic sync / Cron</text>
+                    </g>
+                    
+                    <!-- One-time Sync Goroutine -->
+                    <g class="component" data-component="onetime">
+                    <rect x="340" y="190" width="150" height="80" fill="#ffffff" stroke="#000000" stroke-width="2"/>
+                    <text x="415" y="215" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#000000">handleRunOnceAt -</text>
+                    <text x="415" y="230" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#000000">Go Routine</text>
+                    <text x="415" y="250" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#000000">One-time sync / Timer</text>
+                    </g>
+                    
+                    <!-- Cache Handlers Container -->
+                    <g class="component" data-component="handlers">
+                    <rect x="20" y="350" width="470" height="130" fill="#ffffff" stroke="#000000" stroke-width="2"/>
+                    <text x="255" y="375" text-anchor="middle" font-family="Arial" font-size="14" font-weight="bold" fill="#000000">Handlers/Caches - implements SyncHandler</text>
+                    
+                    <!-- DB Cache -->
+                    <rect x="40" y="400" width="120" height="60" fill="#ffffff" stroke="#000000" stroke-width="1"/>
+                    <text x="100" y="425" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#000000">repositorySync</text>
+                    <text x="100" y="445" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#000000">DB Cache</text>
+                    
+                    <!-- CR Cache -->
+                    <rect x="355" y="400" width="120" height="60" fill="#ffffff" stroke="#000000" stroke-width="1"/>
+                    <text x="415" y="425" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#000000">cachedRepository</text>
+                    <text x="415" y="445" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#000000">CR Cache</text>
+                    </g>
+                    
+                    <!-- Condition Management -->
+                    <g class="component" data-component="conditions">
+                    <rect x="135" y="550" width="260" height="60" fill="#ffffff" stroke="#000000" stroke-width="2"/>
+                    <text x="265" y="585" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#000000">Set/Build/ApplyRepositoryCondition</text>
+                    </g>
+                    
+                    <!-- Background Process Components -->
+                    <g class="component" data-component="background">
+                    <!-- K8S API -->
+                    <rect x="760" y="10" width="120" height="60" fill="#ffffff" stroke="#000000" stroke-width="2"/>
+                    <text x="820" y="45" text-anchor="middle" font-family="Arial" font-size="14" font-weight="bold" fill="#000000">K8S API</text>
+                    
+                    <!-- Repository CRs -->
+                    <rect x="760" y="100" width="120" height="60" fill="#ffffff" stroke="#000000" stroke-width="2"/>
+                    <text x="820" y="135" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#000000">Repository CRs</text>
+                    
+                    <!-- Watch Events -->
+                    <rect x="760" y="190" width="120" height="60" fill="#ffffff" stroke="#000000" stroke-width="2"/>
+                    <text x="820" y="225" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#000000">Watch Events</text>
+                    
+                    <!-- Background.go -->
+                    <rect x="760" y="330" width="120" height="60" fill="#ffffff" stroke="#000000" stroke-width="2"/>
+                    <text x="820" y="365" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#000000">Background.go</text>
+                    
+                    <!-- Cache Spec Update -->
+                    <rect x="550" y="280" width="120" height="60" fill="#ffffff" stroke="#000000" stroke-width="2"/>
+                    <text x="610" y="315" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#000000">Cache Spec Update</text>
+                    
+                    <!-- Periodic Ticker -->
+                    <rect x="730" y="430" width="180" height="90" fill="#ffffff" stroke="#000000" stroke-width="2"/>
+                    <text x="820" y="460" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#000000">Periodic Ticker -</text>
+                    <text x="820" y="485" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#000000">RepoSyncFrequency</text>
+                    </g>
+                    
+                    <!-- Arrows -->
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="#000"/>
+                        </marker>
+                    </defs>
+                    
+                    <!-- SyncManager to Goroutines -->
+                    <line x1="227" y1="140" x2="90" y2="180" stroke="#000" stroke-width="2" marker-end="url(#arrowhead)"/>
+                    <line x1="302" y1="140" x2="415" y2="190" stroke="#000" stroke-width="2" marker-end="url(#arrowhead)"/>
+                    
+                    <!-- Goroutines to Handlers -->
+                    <line x1="90" y1="260" x2="100" y2="400" stroke="#000" stroke-width="2" marker-end="url(#arrowhead)" stroke-dasharray="5,5"/>
+                    <line x1="415" y1="270" x2="415" y2="400" stroke="#000" stroke-width="2" marker-end="url(#arrowhead)" stroke-dasharray="5,5"/>
+                    
+                    <!-- Handlers to Conditions -->
+                    <line x1="100" y1="460" x2="200" y2="550" stroke="#000" stroke-width="2" marker-end="url(#arrowhead)"/>
+                    <line x1="415" y1="460" x2="330" y2="550" stroke="#000" stroke-width="2" marker-end="url(#arrowhead)"/>
+                    
+                    <!-- Background Process Flow -->
+                    <line x1="820" y1="70" x2="820" y2="100" stroke="#000" stroke-width="2" marker-end="url(#arrowhead)"/>
+                    <line x1="820" y1="160" x2="820" y2="190" stroke="#000" stroke-width="2" marker-end="url(#arrowhead)"/>
+                    <line x1="820" y1="250" x2="820" y2="330" stroke="#000" stroke-width="2" marker-end="url(#arrowhead)"/>
+                    <line x1="820" y1="390" x2="820" y2="430" stroke="#000" stroke-width="2" marker-end="url(#arrowhead)"/>
+                    
+                    <!-- Background to Cache Update -->
+                    <line x1="760" y1="360" x2="670" y2="310" stroke="#000" stroke-width="2" marker-end="url(#arrowhead)"/>
+                    
+                    <!-- Cache Update to Goroutines -->
+                    <line x1="550" y1="310" x2="490" y2="230" stroke="#000" stroke-width="2" marker-end="url(#arrowhead)" stroke-dasharray="8,8"/>
+                    <line x1="550" y1="300" x2="170" y2="220" stroke="#000" stroke-width="2" marker-end="url(#arrowhead)" stroke-dasharray="8,8"/>
+                </svg>
+            </div>
+            
+            <div class="info-panel" id="infoPanel">
+                <button class="close-btn" onclick="closeInfoPanel()">&times;</button>
+                <h3 id="componentTitle">Component Information</h3>
+                <p id="componentDescription">Click on a component to see detailed information.</p>
+            </div>
+        </div>
+        
+        <div class="navigation">
+            <h3>Navigate Components:</h3>
+            <div class="nav-buttons">
+                <button class="nav-btn" onclick="showComponent('syncmanager')">SyncManager</button>
+                <button class="nav-btn" onclick="showComponent('periodic')">Periodic Sync</button>
+                <button class="nav-btn" onclick="showComponent('onetime')">One-time Sync</button>
+                <button class="nav-btn" onclick="showComponent('handlers')">Cache Handlers</button>
+                <button class="nav-btn" onclick="showComponent('conditions')">Conditions</button>
+                <button class="nav-btn" onclick="showComponent('background')">Background Process</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const componentInfo = {
+            syncmanager: {
+                title: "SyncManager",
+                description: "Central orchestrator for repository synchronization operations. Contains handler interface, core client for Kubernetes API communication, next sync time tracking, and last sync error recording. Manages two main goroutines for periodic and one-time synchronization."
+            },
+            periodic: {
+                title: "Periodic Sync Goroutine",
+                description: "Handles recurring synchronization operations. Performs initial sync at startup, then uses timer to track intervals. Supports both cron expressions from repository configuration and default frequency fallback. Recalculates next sync time when cron expression changes."
+            },
+            onetime: {
+                title: "One-time Sync Goroutine", 
+                description: "Manages scheduled single synchronizations. Monitors repository configuration for one-time sync requests. Creates and cancels timers when the scheduled time changes. Skips past timestamps and handles timer cleanup. Operates independently of periodic sync schedule."
+            },
+            handlers: {
+                title: "Cache Handlers",
+                description: "Both cache implementations follow the SyncHandler interface. Database Cache provides persistent storage-backed repository cache, while Custom Resource Cache offers memory-based cache for faster access. Both synchronize with external GIT/OCI(experimental) repositories using thread-safe operations with mutex locks."
+            },
+            conditions: {
+                title: "Condition Management",
+                description: "Manages repository status conditions including 'sync-in-progress', 'ready', and 'error' states. Functions include Set Repository Condition (updates status), Build Repository Condition (creates condition objects), and Apply Repository Condition (writes updates to Kubernetes)."
+            },
+            background: {
+                title: "Background Process",
+                description: "Manages Repository CR lifecycle and cache updates. Components include K8S API as source of Repository CRs, Watch Events for real-time CR change notifications, and Periodic Ticker for RepoSyncFrequency-based updates. Handles Added/Modified/Deleted events and triggers cache updates."
+            }
+        };
+
+
+        function showComponent(componentId) {
+            const info = componentInfo[componentId];
+            if (info) {
+                document.getElementById('componentTitle').textContent = info.title;
+                document.getElementById('componentDescription').textContent = info.description;
+                document.getElementById('infoPanel').style.display = 'block';
+            }
+        }
+
+        function closeInfoPanel() {
+            document.getElementById('infoPanel').style.display = 'none';
+        }
+
+        document.querySelectorAll('.component').forEach(component => {
+            component.addEventListener('click', function() {
+                const componentId = this.getAttribute('data-component');
+                showComponent(componentId);
+            });
+        });
+    </script>
+</body>
+</html>
