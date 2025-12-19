@@ -1,2 +1,0 @@
-# Ignore drafts in production
-ignoreFiles = ["content/en/docs/neo-porch/.*"]
