@@ -1,7 +1,7 @@
 {
-  "name": "nephio-project-docs",
+  "name": "porch-project-docs",
   "version": "1.0.0",
-  "description": "Documentation website for Nephio - Kubernetes-based cloud-native network automation platform",
+  "description": "Documentation website for Porch - an orchestrator system for kpt packages",
   "main": "postcss.config.js",
   "scripts": {
     "build": "hugo --gc --minify",
