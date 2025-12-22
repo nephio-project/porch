@@ -192,7 +192,12 @@ func pkgScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackage, error
 			return nil, err
 		}
 
-		dbPkg.repo = cachetypes.CacheInstance.GetRepository(dbPkg.pkgKey.RepoKey).(*dbRepository)
+		repo := cachetypes.CacheInstance.GetRepository(dbPkg.pkgKey.RepoKey)
+		if repo == nil {
+			klog.V(5).Infof("pkgScanRowsFromDB: repository %+v not found in cache, skipping package", dbPkg.pkgKey.RepoKey)
+			continue
+		}
+		dbPkg.repo = repo.(*dbRepository)
 		dbPkg.pkgKey.Package = repository.K8SName2PkgName(pkgK8SName)
 		setValueFromJSON(metaAsJSON, &dbPkg.meta)
 		setValueFromJSON(specAsJSON, &dbPkg.spec)

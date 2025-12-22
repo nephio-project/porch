@@ -26,7 +26,7 @@ import (
 
 // DirectoryPool manages shared access to cached git directories
 type DirectoryPool struct {
-	directories map[string]*SharedDirectory
+	directories sync.Map
 	mutex       sync.Mutex
 }
 
@@ -37,7 +37,7 @@ type SharedDirectory struct {
 }
 
 var globalDirectoryPool = &DirectoryPool{
-	directories: make(map[string]*SharedDirectory),
+	directories: sync.Map{},
 }
 
 // GetOrCreateSharedRepository safely initializes or reuses a cached git directory
@@ -46,7 +46,8 @@ func (p *DirectoryPool) GetOrCreateSharedRepository(dir, reponame string) (*Shar
 	defer p.mutex.Unlock()
 
 	// Check if directory already exists
-	if shared, exists := p.directories[dir]; exists {
+	if sharedDir, exists := p.directories.Load(dir); exists {
+		shared := sharedDir.(*SharedDirectory)
 		shared.refCount++
 		klog.V(2).Infof("Repo %s is reusing shared directory %s, refCount now: %d", reponame, dir, shared.refCount)
 		return shared, nil
@@ -76,7 +77,7 @@ func (p *DirectoryPool) GetOrCreateSharedRepository(dir, reponame string) (*Shar
 		repo:     repo,
 		refCount: 1,
 	}
-	p.directories[dir] = shared
+	p.directories.Store(dir, shared)
 	klog.V(2).Infof("Created new shared directory %s, refCount: %d", dir, shared.refCount)
 	return shared, nil
 }
@@ -86,12 +87,13 @@ func (p *DirectoryPool) ReleaseSharedRepository(dir, reponame string) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	if shared, exists := p.directories[dir]; exists {
+	if sharedDir, exists := p.directories.Load(dir); exists {
+		shared := sharedDir.(*SharedDirectory)
 		shared.refCount--
 		klog.V(2).Infof("Released repo %s from %s, refCount now: %d", reponame, filepath.Base(dir), shared.refCount)
 
 		if shared.refCount <= 0 {
-			delete(p.directories, dir)
+			p.directories.Delete(dir)
 			klog.Infof("Cleaning up cached directory %s (refCount reached 0)", filepath.Base(dir))
 			if err := os.RemoveAll(dir); err != nil {
 				klog.Errorf("Failed to remove cached directory %s: %v", dir, err)
