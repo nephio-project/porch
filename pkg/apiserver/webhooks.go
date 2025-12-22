@@ -32,12 +32,13 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/util/porch"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/util"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -48,15 +49,15 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 type WebhookType string
 
 const (
-	WebhookTypeService WebhookType = "service"
-	WebhookTypeUrl     WebhookType = "url"
-	serverEndpoint                 = "/validate-deletion"
+	WebhookTypeService           WebhookType = "service"
+	WebhookTypeUrl               WebhookType = "url"
+	serverEndpoint                           = "/validate-deletion"
+	repositoryValidationEndpoint             = "/validate-repository"
 )
 
 var (
@@ -66,15 +67,19 @@ var (
 
 // WebhookConfig defines the configuration for the PackageRevision deletion webhook
 type WebhookConfig struct {
-	Type             WebhookType
-	ServiceName      string // only used if Type == WebhookTypeService
-	ServiceNamespace string // only used if Type == WebhookTypeService
-	Host             string // only used if Type == WebhookTypeUrl
-	Path             string
-	Port             int32
-	CertStorageDir   string
-	CertManWebhook   bool
-	timeout          int32
+	Type                 WebhookType
+	ServiceName          string // only used if Type == WebhookTypeService
+	ServiceNamespace     string // only used if Type == WebhookTypeService
+	Host                 string // only used if Type == WebhookTypeUrl
+	Path                 string
+	Port                 int32
+	RepositoryPath       string
+	RepoServiceName      string
+	RepoServiceNamespace string
+	RepoHost             string
+	CertStorageDir       string
+	CertManWebhook       bool
+	timeout              int32
 }
 
 // newWebhookConfig creates a new WebhookConfig object filled with values read from environment variables
@@ -95,6 +100,11 @@ func newWebhookConfig(ctx context.Context) *WebhookConfig {
 		cfg.Host = getEnv("WEBHOOK_HOST", "localhost")
 	}
 	cfg.Path = serverEndpoint
+	// Always use the WebhookTypeService for repository webhook validation
+	cfg.RepositoryPath = repositoryValidationEndpoint
+	cfg.RepoServiceName, cfg.RepoServiceNamespace = webhookServiceName(ctx)
+	cfg.RepoHost = fmt.Sprintf("%s.%s.svc", cfg.RepoServiceName, cfg.RepoServiceNamespace)
+
 	cfg.Port = getEnvInt32("WEBHOOK_PORT", 8443)
 	cfg.CertStorageDir = getEnv("CERT_STORAGE_DIR", "/tmp/cert")
 	cfg.CertManWebhook = getEnvBool("USE_CERT_MAN_FOR_WEBHOOK", false)
@@ -152,7 +162,7 @@ func webhookServiceName(ctx context.Context) (serviceName, serviceNamespace stri
 	return
 }
 
-func setupWebhooks(ctx context.Context) error {
+func setupWebhooks(ctx context.Context, clientReader client.Reader) error {
 	cfg := newWebhookConfig(ctx)
 	if !cfg.CertManWebhook {
 		caBytes, err := createCerts(cfg)
@@ -164,7 +174,7 @@ func setupWebhooks(ctx context.Context) error {
 		}
 	}
 
-	if err := runWebhookServer(ctx, cfg); err != nil {
+	if err := runWebhookServer(ctx, cfg, clientReader); err != nil {
 		return err
 	}
 	return nil
@@ -180,6 +190,12 @@ func createCerts(cfg *WebhookConfig) ([]byte, error) {
 		dnsNames = append(dnsNames, fmt.Sprintf("%s.%s.svc", cfg.ServiceName, cfg.ServiceNamespace))
 		dnsNames = append(dnsNames, fmt.Sprintf("%s.%s.svc.cluster.local", cfg.ServiceName, cfg.ServiceNamespace))
 	}
+
+	// DNS names for CA config - repository-validating-webhook
+	dnsNames = append(dnsNames, cfg.RepoServiceName)
+	dnsNames = append(dnsNames, fmt.Sprintf("%s.%s", cfg.RepoServiceName, cfg.RepoServiceNamespace))
+	dnsNames = append(dnsNames, fmt.Sprintf("%s.%s.svc", cfg.RepoServiceName, cfg.RepoServiceNamespace))
+	dnsNames = append(dnsNames, fmt.Sprintf("%s.%s.svc.cluster.local", cfg.RepoServiceName, cfg.RepoServiceNamespace))
 
 	var caPEM, serverCertPEM, serverPrivateKeyPEM *bytes.Buffer
 	// CA config
@@ -288,10 +304,12 @@ func createValidatingWebhook(ctx context.Context, cfg *WebhookConfig, caCert []b
 	cfg.timeout = 30
 	var (
 		validationCfgName = "packagerev-deletion-validating-webhook"
+		repositoryCfgName = "repository-validating-webhook"
 		fail              = admissionregistrationv1.Fail
 		none              = admissionregistrationv1.SideEffectClassNone
 	)
 
+	// Webhook for PackageRevision deletion
 	validateConfig := &admissionregistrationv1.ValidatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: validationCfgName,
@@ -299,22 +317,54 @@ func createValidatingWebhook(ctx context.Context, cfg *WebhookConfig, caCert []b
 		Webhooks: []admissionregistrationv1.ValidatingWebhook{{
 			Name: "packagerevdeletion.google.com",
 			ClientConfig: admissionregistrationv1.WebhookClientConfig{
-				CABundle: caCert, // CA bundle created earlier
+				CABundle: caCert,
 			},
-			Rules: []admissionregistrationv1.RuleWithOperations{{Operations: []admissionregistrationv1.OperationType{
-				admissionregistrationv1.Delete},
+			Rules: []admissionregistrationv1.RuleWithOperations{{
+				Operations: []admissionregistrationv1.OperationType{
+					admissionregistrationv1.Delete,
+				},
 				Rule: admissionregistrationv1.Rule{
 					APIGroups:   []string{porchapi.SchemeGroupVersion.Group},
 					APIVersions: []string{porchapi.SchemeGroupVersion.Version},
 					Resources:   []string{porchapi.PackageRevisionGVR.Resource},
 				},
 			}},
-			AdmissionReviewVersions: []string{"v1", "v1beta1"},
+			AdmissionReviewVersions: []string{"v1"},
 			SideEffects:             &none,
 			FailurePolicy:           &fail,
 			TimeoutSeconds:          &cfg.timeout,
 		}},
 	}
+
+	// Webhook for Repository validation
+	repositoryWebhook := admissionregistrationv1.ValidatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: repositoryCfgName,
+		},
+		Webhooks: []admissionregistrationv1.ValidatingWebhook{{
+			Name: "porchrepositorywebhook.nephio.org",
+			ClientConfig: admissionregistrationv1.WebhookClientConfig{
+				CABundle: caCert,
+			},
+			Rules: []admissionregistrationv1.RuleWithOperations{{
+				Operations: []admissionregistrationv1.OperationType{
+					admissionregistrationv1.Create,
+					admissionregistrationv1.Update,
+				},
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{configapi.GroupVersion.Group},
+					APIVersions: []string{configapi.GroupVersion.Version},
+					Resources:   []string{"repositories"},
+				},
+			}},
+			AdmissionReviewVersions: []string{"v1"},
+			SideEffects:             &none,
+			FailurePolicy:           &fail,
+			TimeoutSeconds:          &cfg.timeout,
+		}},
+	}
+
+	// Set service or URL for both webhooks
 	switch cfg.Type {
 	case WebhookTypeService:
 		validateConfig.Webhooks[0].ClientConfig.Service = &admissionregistrationv1.ServiceReference{
@@ -330,14 +380,23 @@ func createValidatingWebhook(ctx context.Context, cfg *WebhookConfig, caCert []b
 		return fmt.Errorf("invalid webhook type: %s", cfg.Type)
 	}
 
-	if err := kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(ctx, validationCfgName, metav1.DeleteOptions{}); err != nil {
-		klog.Warningf("failed to delete existing webhook: %v", err)
+	repositoryWebhook.Webhooks[0].ClientConfig.Service = &admissionregistrationv1.ServiceReference{
+		Name:      cfg.RepoServiceName,
+		Namespace: cfg.RepoServiceNamespace,
+		Path:      &cfg.RepositoryPath,
+		Port:      &cfg.Port,
 	}
 
-	if _, err := kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(ctx, validateConfig,
-		metav1.CreateOptions{}); err != nil {
-		klog.Infof("failed to create validating webhook for package revision deletion: %s\n", err.Error())
-		return err
+	// Delete and recreate both webhook to allow updates in webhook configurations
+	_ = kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(ctx, validationCfgName, metav1.DeleteOptions{})
+	_ = kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(ctx, repositoryCfgName, metav1.DeleteOptions{})
+
+	if _, err := kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(ctx, validateConfig, metav1.CreateOptions{}); err != nil {
+		return fmt.Errorf("failed to create package revision webhook: %w", err)
+	}
+
+	if _, err := kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(ctx, &repositoryWebhook, metav1.CreateOptions{}); err != nil {
+		return fmt.Errorf("failed to create repository validation webhook: %w", err)
 	}
 
 	return nil
@@ -409,7 +468,7 @@ func getCertificate(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	return &cert, nil
 }
 
-func runWebhookServer(ctx context.Context, cfg *WebhookConfig) error {
+func runWebhookServer(ctx context.Context, cfg *WebhookConfig, clientReader client.Reader) error {
 	certFile := filepath.Join(cfg.CertStorageDir, "tls.crt")
 	keyFile := filepath.Join(cfg.CertStorageDir, "tls.key")
 	// load the cert for the first time
@@ -423,7 +482,12 @@ func runWebhookServer(ctx context.Context, cfg *WebhookConfig) error {
 		go watchCertificates(ctx, cfg.CertStorageDir, certFile, keyFile)
 	}
 	klog.Infoln("Starting webhook server")
-	http.HandleFunc(cfg.Path, validateDeletion)
+	http.HandleFunc(cfg.Path, func(w http.ResponseWriter, r *http.Request) {
+		validateDeletion(w, r, clientReader)
+	})
+	http.HandleFunc(cfg.RepositoryPath, func(w http.ResponseWriter, r *http.Request) {
+		validateRepository(w, r, clientReader)
+	})
 	server := http.Server{
 		Addr: fmt.Sprintf(":%d", cfg.Port),
 		TLSConfig: &tls.Config{
@@ -442,7 +506,7 @@ func runWebhookServer(ctx context.Context, cfg *WebhookConfig) error {
 
 }
 
-func validateDeletion(w http.ResponseWriter, r *http.Request) {
+func validateDeletion(w http.ResponseWriter, r *http.Request, clientReader client.Reader) {
 	klog.Infoln("received request to validate deletion")
 
 	admissionReviewRequest, err := decodeAdmissionReview(r)
@@ -460,14 +524,8 @@ func validateDeletion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get the package revision using the name and namespace from the request.
-	porchClient, err := createPorchClient()
-	if err != nil {
-		errMsg := fmt.Sprintf("could not create porch client: %v", err)
-		writeErr(errMsg, &w)
-		return
-	}
 	pr := porchapi.PackageRevision{}
-	if err := porchClient.Get(context.Background(), client.ObjectKey{
+	if err := clientReader.Get(context.Background(), client.ObjectKey{
 		Namespace: admissionReviewRequest.Request.Namespace,
 		Name:      admissionReviewRequest.Request.Name,
 	}, &pr); err != nil {
@@ -543,20 +601,6 @@ func constructResponse(response *admissionv1.AdmissionResponse,
 	return resp, nil
 }
 
-func createPorchClient() (client.Client, error) {
-	cfg, err := config.GetConfig()
-	if err != nil {
-		klog.Errorf("could not get config: %s", err.Error())
-		return nil, err
-	}
-	porchClient, err := porch.CreateClient(cfg)
-	if err != nil {
-		klog.Errorf("could not get porch client: %s", err.Error())
-		return nil, err
-	}
-	return porchClient, nil
-}
-
 func writeErr(errMsg string, w *http.ResponseWriter) {
 	klog.Errorf("%s", errMsg)
 	(*w).WriteHeader(500)
@@ -600,4 +644,199 @@ func getEnvInt32(key string, defaultValue int32) int32 {
 		panic("could not parse int32 from environment variable: " + key)
 	}
 	return int32(i64) // this is safe because of the size parameter of the ParseInt call
+}
+
+func validateRepository(w http.ResponseWriter, r *http.Request, clientReader client.Reader) {
+	admissionReviewRequest, err := decodeAdmissionReview(r)
+	if err != nil {
+		writeErr(fmt.Sprintf("error decoding admission review: %v", err), &w)
+		return
+	}
+
+	operation := strings.ToLower(string(admissionReviewRequest.Request.Operation))
+	repoName := fmt.Sprintf("%s/%s", admissionReviewRequest.Request.Namespace, admissionReviewRequest.Request.Name)
+	klog.Infof("received request to validate repository %s for %s", operation, repoName)
+
+	if admissionReviewRequest.Request.Resource.Resource != "repositories" {
+		writeErr(fmt.Sprintf("unexpected resource: %s", admissionReviewRequest.Request.Resource.Resource), &w)
+		return
+	}
+
+	var attempted configapi.Repository
+	if err := json.Unmarshal(admissionReviewRequest.Request.Object.Raw, &attempted); err != nil {
+		klog.Errorf("failed to unmarshal repository object: %v", err)
+		writeErr(fmt.Sprintf("could not unmarshal repository: %v", err), &w)
+		return
+	}
+
+	// For UPDATE operations, check if URL or directory is being modified
+	if admissionReviewRequest.Request.Operation == admissionv1.Update {
+		var existing configapi.Repository
+		if err := json.Unmarshal(admissionReviewRequest.Request.OldObject.Raw, &existing); err != nil {
+			klog.Errorf("failed to unmarshal existing repository object: %v", err)
+			writeErr(fmt.Sprintf("could not unmarshal existing repository: %v", err), &w)
+			return
+		}
+
+		if err := validateRepositoryModification(&existing, &attempted, admissionReviewRequest, &w); err != nil {
+			return
+		}
+	}
+
+	var repoList configapi.RepositoryList
+	if err := clientReader.List(context.Background(), &repoList); err != nil {
+		klog.Errorf("failed to list repositories: %v", err)
+		writeErr(fmt.Sprintf("could not list repositories: %v", err), &w)
+		return
+	}
+
+	for _, existing := range repoList.Items {
+		if existing.Name == attempted.Name && existing.Namespace == attempted.Namespace {
+			continue
+		}
+		if isConflict(&existing, &attempted) {
+			klog.Errorf("repository validation failed: conflict detected between attempted %s/%s and existing %s/%s", attempted.Namespace, attempted.Name, existing.Namespace, existing.Name)
+			writeModificationResponse(fmt.Sprintf("Repository conflict with existing repository: %s/%s", existing.Namespace, existing.Name), "RepositoryConflict", admissionReviewRequest, &w)
+			return
+		}
+	}
+
+	resp := &admissionv1.AdmissionResponse{
+		Allowed: true,
+		Result: &metav1.Status{
+			Status:  "Success",
+			Message: "Repository validated successfully",
+		},
+	}
+	responseBytes, err := constructResponse(resp, admissionReviewRequest)
+	if err != nil {
+		errMsg := fmt.Sprintf("error constructing response: %v", err)
+		writeErr(errMsg, &w)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_, err = w.Write(responseBytes)
+	if err != nil {
+		klog.Errorf("error writing response: %v", err)
+		return
+	}
+}
+
+func normalizeURL(url string) string {
+	// Convert URL to cache-safe format
+	// Example: http://172.18.255.200:3000/nephio/myrepo.git → http---172.18.255.200-3000-nephio-myrepo.git
+	replace := strings.NewReplacer("://", "---", ":", "-", "/", "-")
+	return replace.Replace(url)
+}
+
+func isConflict(existing, attempted *configapi.Repository) bool {
+	existingURL := normalizeURL(existing.Spec.Git.Repo)
+	attemptedURL := normalizeURL(attempted.Spec.Git.Repo)
+
+	existingDir := strings.Trim(existing.Spec.Git.Directory, "/")
+	attemptedDir := strings.Trim(attempted.Spec.Git.Directory, "/")
+
+	existingBranch := existing.Spec.Git.Branch
+	if existingBranch == "" {
+		existingBranch = "main"
+	}
+	attemptedBranch := attempted.Spec.Git.Branch
+	if attemptedBranch == "" {
+		attemptedBranch = "main"
+	}
+
+	// Rule 1: Same URL, branch and directory → conflict only if namespace matches
+	if existingURL == attemptedURL && existingBranch == attemptedBranch && existingDir == attemptedDir &&
+		existing.Namespace == attempted.Namespace {
+		return true
+	}
+
+	// Rule 2: Root directory conflicts with any other directory under same URL and branch
+	if existingURL == attemptedURL && existingBranch == attemptedBranch {
+		if (existingDir == "" && attemptedDir != "") || (existingDir != "" && attemptedDir == "") {
+			return true
+		}
+	}
+
+	// Rule 3: Nested directory conflicts with its base directory under same URL and branch
+	if existingURL == attemptedURL && existingBranch == attemptedBranch {
+		if isNestedConflict(existingDir, attemptedDir) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func isNestedConflict(a, b string) bool {
+	// Check if one path is nested within the other using filepath.Rel
+	relAtoB, err1 := filepath.Rel(a, b)
+	relBtoA, err2 := filepath.Rel(b, a)
+
+	// If either relative path doesn't start with "../", it means one is nested in the other
+	if err1 == nil && !strings.HasPrefix(relAtoB, "../") && relAtoB != "." {
+		return true // b is nested within a
+	}
+	if err2 == nil && !strings.HasPrefix(relBtoA, "../") && relBtoA != "." {
+		return true // a is nested within b
+	}
+
+	return false
+}
+
+func validateRepositoryModification(existing, attempted *configapi.Repository, admissionReviewRequest *admissionv1.AdmissionReview, w *http.ResponseWriter) error {
+	if isURLModified(existing, attempted) {
+		klog.Errorf("repository validation failed: URL modification not allowed for %s/%s - delete the existing repository and create it if you want to change the URL", attempted.Namespace, attempted.Name)
+		writeModificationResponse("Repository URL cannot be modified after creation. Please delete the existing repository and create it if you want to change the URL", "URLModificationNotAllowed", admissionReviewRequest, w)
+		return fmt.Errorf("URL modification not allowed")
+	}
+
+	if isDirectoryModified(existing, attempted) {
+		klog.Errorf("repository validation failed: directory modification not allowed for %s/%s - delete the existing repository and create it if you want to change the directory", attempted.Namespace, attempted.Name)
+		writeModificationResponse("Repository directory cannot be modified after creation. Please delete the existing repository and create it if you want to change the directory", "DirectoryModificationNotAllowed", admissionReviewRequest, w)
+		return fmt.Errorf("directory modification not allowed")
+	}
+
+	if isBranchModified(existing, attempted) {
+		klog.Errorf("repository validation failed: branch modification not allowed for %s/%s - delete the existing repository and create it if you want to change the branch", attempted.Namespace, attempted.Name)
+		writeModificationResponse("Repository branch cannot be modified after creation. Please delete the existing repository and create it if you want to change the branch", "BranchModificationNotAllowed", admissionReviewRequest, w)
+		return fmt.Errorf("branch modification not allowed")
+	}
+
+	return nil
+}
+
+func isURLModified(existing, attempted *configapi.Repository) bool {
+	return existing.Spec.Git.Repo != attempted.Spec.Git.Repo
+}
+
+func isDirectoryModified(existing, attempted *configapi.Repository) bool {
+	return existing.Spec.Git.Directory != attempted.Spec.Git.Directory
+}
+
+func isBranchModified(existing, attempted *configapi.Repository) bool {
+	return existing.Spec.Git.Branch != attempted.Spec.Git.Branch
+}
+
+func writeModificationResponse(message, reason string, admissionReviewRequest *admissionv1.AdmissionReview, w *http.ResponseWriter) {
+	resp := &admissionv1.AdmissionResponse{
+		Allowed: false,
+		Result: &metav1.Status{
+			Status:  "Failure",
+			Message: message,
+			Reason:  metav1.StatusReason(reason),
+		},
+	}
+	responseBytes, err := constructResponse(resp, admissionReviewRequest)
+	if err != nil {
+		klog.Errorf("failed to construct modification response: %v", err)
+		writeErr(fmt.Sprintf("error constructing response: %v", err), w)
+		return
+	}
+	(*w).Header().Set("Content-Type", "application/json")
+	_, err = (*w).Write(responseBytes)
+	if err != nil {
+		klog.Errorf("error writing response: %v", err)
+	}
 }

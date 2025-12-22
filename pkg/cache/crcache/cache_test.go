@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 	"testing"
 	"time"
 
@@ -29,6 +28,7 @@ import (
 	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
 	fakemeta "github.com/nephio-project/porch/pkg/cache/crcache/meta/fake"
 	fakecache "github.com/nephio-project/porch/pkg/cache/fake"
+	"github.com/nephio-project/porch/pkg/cache/repomap"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo/git"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
@@ -270,9 +270,7 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 
 	fakeClient := k8sfake.NewClientBuilder().WithScheme(scheme).WithObjects(apiRepo).Build()
 	cache := &Cache{
-		repositories:  map[repository.RepositoryKey]*cachedRepository{},
-		locks:         map[repository.RepositoryKey]*sync.Mutex{},
-		mainLock:      &sync.RWMutex{},
+		repositories:  repomap.SafeRepoMap{},
 		metadataStore: metadataStore,
 		options: cachetypes.CacheOptions{
 			ExternalRepoOptions: externalrepotypes.ExternalRepoOptions{

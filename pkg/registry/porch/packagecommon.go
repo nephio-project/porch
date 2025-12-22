@@ -454,7 +454,7 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 	return updated, false, nil
 }
 
-// getUpdateAction determines the type of update operation
+// getLifecycleTransition determines the type of update operation
 func getLifecycleTransition(oldPkgRev, newPkgRev *porchapi.PackageRevision) string {
 	// Handle lifecycle changes
 	if oldPkgRev.Spec.Lifecycle != newPkgRev.Spec.Lifecycle {
