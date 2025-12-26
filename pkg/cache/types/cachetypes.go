@@ -58,6 +58,7 @@ type Cache interface {
 	GetRepositories() []*configapi.Repository
 	GetRepository(repository.RepositoryKey) repository.Repository
 	UpdateRepository(ctx context.Context, repositorySpec *configapi.Repository) error
+	CheckRepositoryConnectivity(ctx context.Context, repositorySpec *configapi.Repository) error
 }
 
 var (

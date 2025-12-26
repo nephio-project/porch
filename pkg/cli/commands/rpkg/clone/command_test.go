@@ -114,32 +114,6 @@ func TestCmd(t *testing.T) {
 	}
 }
 
-func TestToMergeStrategy(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected porchapi.PackageMergeStrategy
-		hasError bool
-	}{
-		{input: string(porchapi.ResourceMerge), expected: porchapi.ResourceMerge, hasError: false},
-		{input: string(porchapi.FastForward), expected: porchapi.FastForward, hasError: false},
-		{input: string(porchapi.ForceDeleteReplace), expected: porchapi.ForceDeleteReplace, hasError: false},
-		{input: string(porchapi.CopyMerge), expected: porchapi.CopyMerge, hasError: false},
-		{input: "invalid-strategy", expected: "", hasError: true},
-	}
-
-	for _, test := range tests {
-		t.Run(test.input, func(t *testing.T) {
-			result, err := toMergeStrategy(test.input)
-			if test.hasError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, test.expected, result)
-			}
-		})
-	}
-}
-
 func TestPreRunE(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -150,19 +124,13 @@ func TestPreRunE(t *testing.T) {
 		{
 			name:      "Missing arguments",
 			args:      []string{"source-package"},
-			flags:     map[string]string{"repository": "test-repo", "workspace": "test-workspace", "strategy": "copy-merge"},
+			flags:     map[string]string{"repository": "test-repo", "workspace": "test-workspace"},
 			expectErr: true,
 		},
 		{
 			name:      "Missing repository flag",
 			args:      []string{"source-package", "target-package"},
 			flags:     map[string]string{"repository": "", "workspace": ""},
-			expectErr: true,
-		},
-		{
-			name:      "Invalid strategy",
-			args:      []string{"source-package", "target-package"},
-			flags:     map[string]string{"repository": "test-repo", "workspace": "test-workspace", "strategy": "invalid-strategy"},
 			expectErr: true,
 		},
 	}
@@ -173,7 +141,6 @@ func TestPreRunE(t *testing.T) {
 			r := &runner{
 				ctx:        context.Background(),
 				cfg:        &genericclioptions.ConfigFlags{},
-				strategy:   test.flags["strategy"],
 				repository: test.flags["repository"],
 				workspace:  test.flags["workspace"],
 			}

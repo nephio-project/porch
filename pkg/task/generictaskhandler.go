@@ -42,7 +42,6 @@ type genericTaskHandler struct {
 	repoOpener                 repository.RepositoryOpener
 	credentialResolver         repository.CredentialResolver
 	referenceResolver          repository.ReferenceResolver
-	cloneStrategy              porchapi.PackageMergeStrategy
 	repoOperationRetryAttempts int
 }
 
@@ -77,11 +76,6 @@ func (th *genericTaskHandler) SetRepoOperationRetryAttempts(retryAttempts int) {
 func (th *genericTaskHandler) ApplyTask(ctx context.Context, draft repository.PackageRevisionDraft, repositoryObj *configapi.Repository, obj *porchapi.PackageRevision, packageConfig *builtins.PackageConfig) error {
 	if len(obj.Spec.Tasks) != 1 {
 		return pkgerrors.New("task list must contain exactly 1 task")
-	}
-
-	if cloneTask := obj.Spec.Tasks[0].Clone; cloneTask != nil {
-		klog.Infof("Clone strategy is %s", cloneTask.Strategy)
-		th.cloneStrategy = cloneTask.Strategy
 	}
 
 	mut, err := th.mapTaskToMutation(obj, &obj.Spec.Tasks[0], repositoryObj.Spec.Deployment, packageConfig)

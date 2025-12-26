@@ -66,15 +66,13 @@ func (f *GitRepoFactory) NewRepositoryImpl(ctx context.Context, repositorySpec *
 }
 
 func (f *GitRepoFactory) CheckRepositoryConnection(ctx context.Context, repositorySpec *configapi.Repository, options externalrepotypes.ExternalRepoOptions) error {
-	// Nil checks
-	if repositorySpec == nil || repositorySpec.Spec.Git == nil {
-		return fmt.Errorf("repositorySpec is nil or missing Git configuration")
+	if err := f.validateRepositorySpec(repositorySpec); err != nil {
+		return err
 	}
-	if repositorySpec.Spec.Git.Repo == "" {
-		return fmt.Errorf("repository URL is empty")
-	}
-	if repositorySpec.Spec.Git.Branch == "" {
-		return fmt.Errorf("target branch is empty")
+
+	branch := repositorySpec.Spec.Git.Branch
+	if branch == "" {
+		branch = "main"
 	}
 
 	// Fetch credentials from secret
@@ -101,7 +99,7 @@ func (f *GitRepoFactory) CheckRepositoryConnection(ctx context.Context, reposito
 	})
 
 	refs, err := remote.List(&gogit.ListOptions{
-		Auth: auth,
+		Auth:    auth,
 		Timeout: 20,
 	})
 	if err != nil {
@@ -110,15 +108,25 @@ func (f *GitRepoFactory) CheckRepositoryConnection(ctx context.Context, reposito
 
 	branchExists := false
 	for _, ref := range refs {
-		if ref.Name().IsBranch() && ref.Name().Short() == repositorySpec.Spec.Git.Branch {
+		if ref.Name().IsBranch() && ref.Name().Short() == branch {
 			branchExists = true
 			break
 		}
 	}
 
-	if !branchExists {
-		return fmt.Errorf("branch %q not found in repository", repositorySpec.Spec.Git.Branch)
+	if !branchExists && !repositorySpec.Spec.Git.CreateBranch {
+		return fmt.Errorf("branch %q not found in repository", branch)
 	}
 
+	return nil
+}
+
+func (f *GitRepoFactory) validateRepositorySpec(repositorySpec *configapi.Repository) error {
+	if repositorySpec == nil || repositorySpec.Spec.Git == nil {
+		return fmt.Errorf("repositorySpec is nil or missing Git configuration")
+	}
+	if repositorySpec.Spec.Git.Repo == "" {
+		return fmt.Errorf("repository URL is empty")
+	}
 	return nil
 }

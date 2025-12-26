@@ -155,10 +155,20 @@ func RemovePackagerevFinalizers(t *testing.T, namespace string) {
 	t.Logf("Removing Finalizers from PackageRevs: %v", packagerevs)
 
 	for _, pkgrev := range packagerevs {
-		cmd := exec.Command("kubectl", "patch", "packagerev", pkgrev, "--type", "json", "--patch=[{\"op\": \"remove\", \"path\": \"/metadata/finalizers\"}]", "--namespace", namespace)
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("Failed to remove Finalizer from %q: %v\n%s", pkgrev, err, string(out))
+		for range 3 {
+			cmd := exec.Command("kubectl", "patch", "packagerev", pkgrev, "--type", "json", "--patch=[{\"op\": \"remove\", \"path\": \"/metadata/finalizers\"}]", "--namespace", namespace)
+			out, err := cmd.CombinedOutput()
+			if err == nil {
+				break
+			}
+			if strings.Contains(string(out), "Operation cannot be fulfilled") {
+				t.Logf("Conflict removing finalizers from %q, retrying...", pkgrev)
+				continue
+			}
+			if strings.Contains(string(out), "NotFound") {
+				break
+			}
+			t.Errorf("Failed to remove Finalizer from %q: %v\n%s", pkgrev, err, string(out))
 		}
 	}
 }

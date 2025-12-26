@@ -34,6 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 )
 
 func TestCachedRepoRefresh(t *testing.T) {
@@ -249,4 +250,112 @@ func TestHandleRunOnceAt(t *testing.T) {
 
 	assert.NotNil(t, status, "Expected repository status to be updated")
 	assert.Contains(t, []string{"Ready", "Error", "Reconciling"}, status.Conditions[0].Reason)
+}
+
+func TestCRDeleteLatestRevision(t *testing.T) {
+	mockRepo := mockrepo.NewMockRepository(t)
+	mockMeta := mockmeta.NewMockMetadataStore(t)
+	mockNotifier := mockcachetypes.NewMockRepoPRChangeNotifier(t)
+
+	repoSpec := configapi.Repository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      repoName,
+			Namespace: namespace,
+		},
+	}
+
+	repoKey := repository.RepositoryKey{
+		Namespace: namespace,
+		Name:      repoName,
+	}
+
+	// Create two package revisions for the same package
+	prKey1 := repository.PackageRevisionKey{
+		PkgKey: repository.PackageKey{
+			RepoKey: repoKey,
+			Path:    "",
+			Package: "test-package",
+		},
+		WorkspaceName: "v1",
+		Revision:      1,
+	}
+
+	prKey2 := repository.PackageRevisionKey{
+		PkgKey: repository.PackageKey{
+			RepoKey: repoKey,
+			Path:    "",
+			Package: "test-package",
+		},
+		WorkspaceName: "v2",
+		Revision:      2,
+	}
+
+	fpr1 := &fake.FakePackageRevision{
+		PrKey:            prKey1,
+		PackageLifecycle: porchapi.PackageRevisionLifecyclePublished,
+	}
+
+	fpr2 := &fake.FakePackageRevision{
+		PrKey:            prKey2,
+		PackageLifecycle: porchapi.PackageRevisionLifecyclePublished,
+	}
+
+	// Setup mocks
+	mockRepo.On("Key").Return(repoKey).Maybe()
+	mockRepo.EXPECT().DeletePackageRevision(mock.Anything, mock.Anything).Return(nil).Maybe()
+	mockMeta.EXPECT().Delete(mock.Anything, mock.Anything, mock.Anything).Return(metav1.ObjectMeta{}, nil).Maybe()
+
+	// Expect exactly 2 notifications: one for deletion, one for async notification
+	mockNotifier.EXPECT().NotifyPackageRevisionChange(watch.Deleted, mock.Anything).Return(1).Once()
+	mockNotifier.EXPECT().NotifyPackageRevisionChange(watch.Modified, mock.Anything).Return(1).Once()
+
+	// Create repository manually to avoid sync manager
+	cr := &cachedRepository{
+		key:                  repoKey,
+		repoSpec:             &repoSpec,
+		repo:                 mockRepo,
+		metadataStore:        mockMeta,
+		repoPRChangeNotifier: mockNotifier,
+		cachedPackages:       make(map[repository.PackageKey]*cachedPackage), // Initialize to enable deletion
+	}
+
+	// Initialize cache with two revisions
+	cr.cachedPackageRevisions = make(map[repository.PackageRevisionKey]*cachedPackageRevision)
+	cr.cachedPackageRevisions[prKey1] = &cachedPackageRevision{
+		PackageRevision:  fpr1,
+		metadataStore:    mockMeta,
+		isLatestRevision: false,
+	}
+	cr.cachedPackageRevisions[prKey2] = &cachedPackageRevision{
+		PackageRevision:  fpr2,
+		metadataStore:    mockMeta,
+		isLatestRevision: false,
+	}
+
+	// Identify latest revisions (revision 2 should be latest)
+	identifyLatestRevisions(context.TODO(), cr.cachedPackageRevisions)
+
+	// Verify revision 2 is marked as latest before deletion
+	assert.True(t, cr.cachedPackageRevisions[prKey2].IsLatestRevision())
+	assert.False(t, cr.cachedPackageRevisions[prKey1].IsLatestRevision())
+
+	// Delete the latest revision (revision 2)
+	err := cr.DeletePackageRevision(context.TODO(), cr.cachedPackageRevisions[prKey2])
+	assert.NoError(t, err)
+
+	// Give time for async notification to complete
+	time.Sleep(100 * time.Millisecond)
+
+	// Now delete pkg1 - should only send 1 notification (deletion) since no more revisions remain
+	mockNotifier.EXPECT().NotifyPackageRevisionChange(watch.Deleted, mock.Anything).Return(1).Once()
+	// No async notification expected since no revisions remain
+
+	err = cr.DeletePackageRevision(context.TODO(), cr.cachedPackageRevisions[prKey1])
+	assert.NoError(t, err)
+
+	// Give time for any potential async notification
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify all expected mock calls were made
+	mockNotifier.AssertExpectations(t)
 }

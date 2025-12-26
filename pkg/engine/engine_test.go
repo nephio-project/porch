@@ -187,7 +187,7 @@ func TestCreatePackageRevisionRollback(t *testing.T) {
 			_, err := f.engine.CreatePackageRevision(context.Background(), f.repositoryObj, f.packageRevision, nil)
 			if tt.expectedError {
 				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errorContains)
+				assert.ErrorContains(t, err, tt.errorContains)
 			} else {
 				assert.NoError(t, err)
 			}
@@ -278,6 +278,11 @@ func (m *mockCache) GetRepository(repoKey repository.RepositoryKey) repository.R
 
 func (m *mockCache) UpdateRepository(ctx context.Context, repositoryObj *configapi.Repository) error {
 	args := m.Called(ctx, repositoryObj)
+	return args.Error(0)
+}
+
+func (m *mockCache) CheckRepositoryConnectivity(ctx context.Context, repositorySpec *configapi.Repository) error {
+	args := m.Called(ctx, repositorySpec)
 	return args.Error(0)
 }
 
@@ -465,7 +470,6 @@ func TestCreateCloneTaskValidation(t *testing.T) {
 				{
 					Type: porchapi.TaskTypeClone,
 					Clone: &porchapi.PackageCloneTaskSpec{
-						Strategy: porchapi.ResourceMerge,
 						Upstream: porchapi.UpstreamPackage{
 							Type: porchapi.RepositoryTypeGit,
 							Git: &porchapi.GitPackage{
@@ -494,13 +498,178 @@ func TestCreateCloneTaskValidation(t *testing.T) {
 
 			if tt.expectedError {
 				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errorContains)
+				assert.ErrorContains(t, err, tt.errorContains)
 			} else {
 				assert.NoError(t, err)
 			}
 
 			f.mockRepo.Close(context.Background())
 			f.mockRepo.AssertExpectations(t)
+		})
+	}
+}
+
+func TestPathsOverlap(t *testing.T) {
+	tests := []struct {
+		name     string
+		path1    string
+		path2    string
+		overlaps bool
+	}{
+		{
+			name:     "identical paths",
+			path1:    "pkg",
+			path2:    "pkg",
+			overlaps: false,
+		},
+		{
+			name:     "path2 is child of path1",
+			path1:    "parent",
+			path2:    "parent/child",
+			overlaps: true,
+		},
+		{
+			name:     "path1 is child of path2",
+			path1:    "parent/child",
+			path2:    "parent",
+			overlaps: true,
+		},
+		{
+			name:     "sibling paths",
+			path1:    "pkg1",
+			path2:    "pkg2",
+			overlaps: false,
+		},
+		{
+			name:     "similar prefix no overlap",
+			path1:    "test",
+			path2:    "test-package",
+			overlaps: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := repository.PathsOverlap(tt.path1, tt.path2)
+			assert.Equal(t, tt.overlaps, result)
+		})
+	}
+}
+
+func TestValidatePackagePathOverlap(t *testing.T) {
+	tests := []struct {
+		name          string
+		newPr         *porchapi.PackageRevision
+		existingRevs  []repository.PackageRevision
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name: "no conflict - empty list",
+			newPr: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					PackageName:    "pkg1",
+					RepositoryName: "repo1",
+				},
+			},
+			existingRevs: []repository.PackageRevision{},
+			expectError:  false,
+		},
+		{
+			name: "no conflict - sibling paths",
+			newPr: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					PackageName:    "pkg1",
+					RepositoryName: "repo1",
+				},
+			},
+			existingRevs: []repository.PackageRevision{
+				&fake.FakePackageRevision{
+					PrKey: repository.PackageRevisionKey{
+						PkgKey: repository.PackageKey{
+							RepoKey: repository.RepositoryKey{Name: "repo1"},
+							Package: "pkg2",
+						},
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "conflict - nested path",
+			newPr: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					PackageName:    "parent/child",
+					RepositoryName: "repo1",
+				},
+			},
+			existingRevs: []repository.PackageRevision{
+				&fake.FakePackageRevision{
+					PrKey: repository.PackageRevisionKey{
+						PkgKey: repository.PackageKey{
+							RepoKey: repository.RepositoryKey{Name: "repo1"},
+							Package: "parent",
+						},
+					},
+				},
+			},
+			expectError:   true,
+			errorContains: "conflicts with existing package",
+		},
+		{
+			name: "error - duplicate package",
+			newPr: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					PackageName:    "pkg1",
+					RepositoryName: "repo1",
+				},
+			},
+			existingRevs: []repository.PackageRevision{
+				&fake.FakePackageRevision{
+					PrKey: repository.PackageRevisionKey{
+						PkgKey: repository.PackageKey{
+							RepoKey: repository.RepositoryKey{Name: "repo1"},
+							Package: "pkg1",
+						},
+					},
+				},
+			},
+			expectError:   true,
+			errorContains: "already exists",
+		},
+		{
+			name: "no conflict - different repository",
+			newPr: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					PackageName:    "pkg1",
+					RepositoryName: "repo1",
+				},
+			},
+			existingRevs: []repository.PackageRevision{
+				&fake.FakePackageRevision{
+					PrKey: repository.PackageRevisionKey{
+						PkgKey: repository.PackageKey{
+							RepoKey: repository.RepositoryKey{Name: "repo2"},
+							Package: "pkg1",
+						},
+					},
+				},
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := repository.ValidatePackagePathOverlap(tt.newPr, tt.existingRevs)
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.errorContains != "" {
+					assert.ErrorContains(t, err, tt.errorContains)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }

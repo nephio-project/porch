@@ -14,16 +14,7 @@
 
 name: golangci-lint
 on:
-  push:
-    paths-ignore:
-      - "docs/**"
-      - "release/**"
-      - "OWNERS"
   pull_request:
-    paths-ignore:
-      - "docs/**"
-      - "release/**"
-      - "OWNERS"
   workflow_dispatch:
 
 permissions:

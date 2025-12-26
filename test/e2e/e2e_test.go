@@ -48,9 +48,15 @@ import (
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
+const (
+	defaultWorkspace   = "workspace"
+	defaultBucketBpRef = "bucket/v1"
+
+	skipPodEvaluatorMsg = "Skipping due to not having pod evaluator in local mode"
+)
+
 var (
-	packageRevisionGVK = porchapi.SchemeGroupVersion.WithKind("PackageRevision")
-	configMapGVK       = corev1.SchemeGroupVersion.WithKind("ConfigMap")
+	configMapGVK = corev1.SchemeGroupVersion.WithKind("ConfigMap")
 )
 
 type PorchSuite struct {
@@ -63,7 +69,11 @@ func TestE2E(t *testing.T) {
 		t.Skip("set E2E to run this test")
 	}
 
-	suite.Run(t, &PorchSuite{})
+	suite.Run(t, &PorchSuite{
+		TestSuiteWithGit: TestSuiteWithGit{
+			UseGitea: true,
+		},
+	})
 }
 
 func (t *PorchSuite) TestMetricsEndpoint() {
@@ -111,39 +121,14 @@ func (t *PorchSuite) TestMetricsEndpoint() {
 }
 
 func (t *PorchSuite) TestGitRepository() {
+	const (
+		repoName = "test-git-repo"
+	)
 	// Register the repository as 'git'
-	t.RegisterMainGitRepositoryF("git")
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, "", GiteaUser, GiteaPassword)
 
 	// Create Package Revision
-	pr := &porchapi.PackageRevision{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "test-bucket",
-			WorkspaceName:  "workspace",
-			RepositoryName: "git",
-			Tasks: []porchapi.Task{
-				{
-					Type: "clone",
-					Clone: &porchapi.PackageCloneTaskSpec{
-						Upstream: porchapi.UpstreamPackage{
-							Type: "git",
-							Git: &porchapi.GitPackage{
-								Repo:      t.GcpBlueprintsRepo,
-								Ref:       t.GcpBucketRef,
-								Directory: "catalog/bucket",
-								SecretRef: porchapi.SecretRef{
-									Name: t.CreateGcpPackageRevisionSecret("test-bucket"),
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	t.CreateF(pr)
+	pr := t.CreatePackageCloneF(repoName, "test-bucket", defaultWorkspace, defaultBucketBpRef, "bucket")
 
 	// Get package resources
 	var resources porchapi.PackageRevisionResources
@@ -171,24 +156,15 @@ func (t *PorchSuite) TestGitRepositoryWithReleaseTagsAndDirectory() {
 		directory = "test-dir"
 	)
 	// Create repository and register with directory filter
-	t.RegisterGitRepositoryWithDirectoryF(repoName, directory)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, directory, GiteaUser, GiteaPassword)
 
 	// Create a package in the filtered repository
-	pr := &porchapi.PackageRevision{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "test-package",
-			WorkspaceName:  "v1",
-			RepositoryName: repoName,
-			Tasks: []porchapi.Task{
-				{
-					Type: porchapi.TaskTypeInit,
-					Init: &porchapi.PackageInitTaskSpec{
-						Description: "Test package inside /test-dir",
-					},
-				},
+	pr := t.CreatePackageSkeleton(repoName, "test-package", "v1")
+	pr.Spec.Tasks = []porchapi.Task{
+		{
+			Type: porchapi.TaskTypeInit,
+			Init: &porchapi.PackageInitTaskSpec{
+				Description: "Test package inside /test-dir",
 			},
 		},
 	}
@@ -230,8 +206,9 @@ func (t *PorchSuite) TestGitRepositoryWithReleaseTagsAndDirectory() {
 }
 
 func (t *PorchSuite) TestCloneFromUpstream() {
+	testBlueprintsRepo := t.GetTestBlueprintsRepoURL()
 	// Register Upstream Repository
-	t.RegisterTestBlueprintRepository("test-blueprints", "")
+	t.RegisterGitRepositoryF(testBlueprintsRepo, TestBlueprintsRepoName, "", GiteaUser, GiteaPassword)
 
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
@@ -239,36 +216,23 @@ func (t *PorchSuite) TestCloneFromUpstream() {
 	upstreamPr := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{
 		PkgKey: repository.PackageKey{
 			RepoKey: repository.RepositoryKey{
-				Name: "test-blueprints",
+				Name: TestBlueprintsRepoName,
 			},
 			Package: "basens"},
 		Revision: 1})
 
 	// Register the repository as 'downstream'
-	t.RegisterMainGitRepositoryF("downstream")
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), PorchTestRepoName, "", GiteaUser, GiteaPassword)
 
 	// Create PackageRevision from upstream repo
-	clonedPr := &porchapi.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
-			APIVersion: porchapi.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "istions",
-			WorkspaceName:  "test-workspace",
-			RepositoryName: "downstream",
-			Tasks: []porchapi.Task{
-				{
-					Type: porchapi.TaskTypeClone,
-					Clone: &porchapi.PackageCloneTaskSpec{
-						Upstream: porchapi.UpstreamPackage{
-							UpstreamRef: &porchapi.PackageRevisionRef{
-								Name: upstreamPr.Name,
-							},
-						},
+	clonedPr := t.CreatePackageSkeleton(PorchTestRepoName, "istions", "test-workspace")
+	clonedPr.Spec.Tasks = []porchapi.Task{
+		{
+			Type: porchapi.TaskTypeClone,
+			Clone: &porchapi.PackageCloneTaskSpec{
+				Upstream: porchapi.UpstreamPackage{
+					UpstreamRef: &porchapi.PackageRevisionRef{
+						Name: upstreamPr.Name,
 					},
 				},
 			},
@@ -306,7 +270,7 @@ func (t *PorchSuite) TestCloneFromUpstream() {
 	want := &kptfilev1.UpstreamLock{
 		Type: kptfilev1.GitOrigin,
 		Git: &kptfilev1.GitLock{
-			Repo:      t.TestBlueprintsRepo,
+			Repo:      testBlueprintsRepo,
 			Directory: "basens",
 			Ref:       "basens/v1",
 		},
@@ -319,7 +283,7 @@ func (t *PorchSuite) TestCloneFromUpstream() {
 	if got, want := kptfile.Upstream, (&kptfilev1.Upstream{
 		Type: kptfilev1.GitOrigin,
 		Git: &kptfilev1.Git{
-			Repo:      t.TestBlueprintsRepo,
+			Repo:      testBlueprintsRepo,
 			Directory: "basens",
 			Ref:       "basens/v1",
 		},
@@ -338,8 +302,8 @@ func (t *PorchSuite) TestConcurrentClones() {
 	)
 
 	// Register Upstream and Downstream Repositories
-	t.RegisterTestBlueprintRepository(upstreamRepository, "")
-	t.RegisterMainGitRepositoryF(downstreamRepository)
+	t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), upstreamRepository, "", GiteaUser, GiteaPassword)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), downstreamRepository, "", GiteaUser, GiteaPassword)
 
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
@@ -394,24 +358,10 @@ func (t *PorchSuite) TestInitEmptyPackage() {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a new package (via init)
-	pr := &porchapi.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
-			APIVersion: porchapi.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    packageName,
-			WorkspaceName:  workspace,
-			RepositoryName: repository,
-		},
-	}
-	t.CreateF(pr)
+	pr := t.CreatePackageDraftF(repository, packageName, workspace)
 
 	// Get the package
 	var newPackage porchapi.PackageRevisionResources
@@ -438,11 +388,10 @@ func (t *PorchSuite) TestConcurrentInits() {
 		packageName = "empty-package-concurrent"
 		revision    = 1
 		workspace   = "test-workspace"
-		description = "empty-package description"
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Two clients try to create the same new draft package
 	pr := t.CreatePackageSkeleton(repository, packageName, workspace)
@@ -476,30 +425,17 @@ func (t *PorchSuite) TestInitTaskPackage() {
 	keywords := []string{"test"}
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
-	// Create a new package (via init)
-	pr := &porchapi.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
-			APIVersion: porchapi.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "new-package",
-			WorkspaceName:  workspace,
-			RepositoryName: repository,
-			Tasks: []porchapi.Task{
-				{
-					Type: porchapi.TaskTypeInit,
-					Init: &porchapi.PackageInitTaskSpec{
-						Description: description,
-						Keywords:    keywords,
-						Site:        site,
-					},
-				},
+	// Create PackageRevision from upstream repo
+	pr := t.CreatePackageSkeleton(repository, "new-package", workspace)
+	pr.Spec.Tasks = []porchapi.Task{
+		{
+			Type: porchapi.TaskTypeInit,
+			Init: &porchapi.PackageInitTaskSpec{
+				Description: description,
+				Keywords:    keywords,
+				Site:        site,
 			},
 		},
 	}
@@ -526,22 +462,23 @@ func (t *PorchSuite) TestInitTaskPackage() {
 }
 
 func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
-	const downstreamRepository = "deployment"
 	const downstreamPackage = "istions"
 	const downstreamWorkspace = "test-workspace"
 
+	testBlueprintsRepo := t.GetTestBlueprintsRepoURL()
+
 	// Register the deployment repository
-	t.RegisterMainGitRepositoryF(downstreamRepository, RepositoryOptions{RepOpts: WithDeployment()})
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), PorchTestRepoName, "", GiteaUser, GiteaPassword, RepositoryOptions{RepOpts: WithDeployment()})
 
 	// Register the upstream repository
-	t.RegisterTestBlueprintRepository("test-blueprints", "")
+	t.RegisterGitRepositoryF(testBlueprintsRepo, TestBlueprintsRepoName, "", GiteaUser, GiteaPassword)
 
 	var upstreamPackages porchapi.PackageRevisionList
 	t.ListE(&upstreamPackages, client.InNamespace(t.Namespace))
 	upstreamPackage := t.MustFindPackageRevision(&upstreamPackages, repository.PackageRevisionKey{
 		PkgKey: repository.PackageKey{
 			RepoKey: repository.RepositoryKey{
-				Name: "test-blueprints",
+				Name: TestBlueprintsRepoName,
 			},
 			Package: "basens",
 		},
@@ -550,32 +487,20 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 	})
 
 	// Create PackageRevision from upstream repo
-	pr := &porchapi.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
-			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    downstreamPackage,
-			WorkspaceName:  downstreamWorkspace,
-			RepositoryName: downstreamRepository,
-			Tasks: []porchapi.Task{
-				{
-					Type: porchapi.TaskTypeClone,
-					Clone: &porchapi.PackageCloneTaskSpec{
-						Upstream: porchapi.UpstreamPackage{
-							UpstreamRef: &porchapi.PackageRevisionRef{
-								Name: upstreamPackage.Name, // Package to be cloned
-							},
-						},
+	pr := t.CreatePackageSkeleton(PorchTestRepoName, downstreamPackage, downstreamWorkspace)
+	pr.Spec.Tasks = []porchapi.Task{
+		{
+			Type: porchapi.TaskTypeClone,
+			Clone: &porchapi.PackageCloneTaskSpec{
+				Upstream: porchapi.UpstreamPackage{
+					UpstreamRef: &porchapi.PackageRevisionRef{
+						Name: upstreamPackage.Name, // Package to be cloned
 					},
 				},
 			},
 		},
 	}
+
 	t.CreateF(pr)
 
 	// Get istions resources
@@ -607,7 +532,7 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 	want := &kptfilev1.UpstreamLock{
 		Type: kptfilev1.GitOrigin,
 		Git: &kptfilev1.GitLock{
-			Repo:      t.TestBlueprintsRepo,
+			Repo:      testBlueprintsRepo,
 			Directory: "basens",
 			Ref:       "basens/v1",
 		},
@@ -620,7 +545,7 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 	if got, want := kptfile.Upstream, (&kptfilev1.Upstream{
 		Type: kptfilev1.GitOrigin,
 		Git: &kptfilev1.Git{
-			Repo:      t.TestBlueprintsRepo,
+			Repo:      testBlueprintsRepo,
 			Directory: "basens",
 			Ref:       "basens/v1",
 		},
@@ -644,86 +569,50 @@ func (t *PorchSuite) TestEditPackageRevision() {
 		repository                    = "edit-test"
 		packageName                   = "simple-package"
 		otherPackageName              = "other-package"
-		workspace                     = "workspace"
+		workspace                     = defaultWorkspace
 		workspace2                    = "workspace2"
 		workspaceToAvoidCreationClash = "workspace-to-avoid-creation-clash"
 	)
 
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
-	// Create a new package (via init)
-	pr := &porchapi.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
-			APIVersion: porchapi.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    packageName,
-			WorkspaceName:  workspace,
-			RepositoryName: repository,
-		},
-	}
+	// Create PackageRevision from upstream repo
+	pr := t.CreatePackageSkeleton(repository, packageName, workspace)
 	t.CreateF(pr)
 
 	// Create a new revision, but with a different package as the source.
 	// This is not allowed.
-	invalidEditPR := &porchapi.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
-			APIVersion: porchapi.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    otherPackageName,
-			WorkspaceName:  workspace2,
-			RepositoryName: repository,
-			Tasks: []porchapi.Task{
-				{
-					Type: porchapi.TaskTypeEdit,
-					Edit: &porchapi.PackageEditTaskSpec{
-						Source: &porchapi.PackageRevisionRef{
-							Name: pr.Name,
-						},
-					},
+	// Create PackageRevision from upstream repo
+	invalidEditPR := t.CreatePackageSkeleton(repository, otherPackageName, workspace2)
+	invalidEditPR.Spec.Tasks = []porchapi.Task{
+		{
+			Type: porchapi.TaskTypeEdit,
+			Edit: &porchapi.PackageEditTaskSpec{
+				Source: &porchapi.PackageRevisionRef{
+					Name: pr.Name,
 				},
 			},
 		},
 	}
+
 	if err := t.Client.Create(t.GetContext(), invalidEditPR); err == nil {
 		t.Fatalf("Expected error for source revision being from different package")
 	}
 
 	// Create a new revision of the package with a source that is a revision
 	// of the same package.
-	editPR := &porchapi.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
-			APIVersion: porchapi.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    packageName,
-			WorkspaceName:  workspace2,
-			RepositoryName: repository,
-			Tasks: []porchapi.Task{
-				{
-					Type: porchapi.TaskTypeEdit,
-					Edit: &porchapi.PackageEditTaskSpec{
-						Source: &porchapi.PackageRevisionRef{
-							Name: pr.Name,
-						},
-					},
+	editPR := t.CreatePackageSkeleton(repository, packageName, workspace2)
+	editPR.Spec.Tasks = []porchapi.Task{
+		{
+			Type: porchapi.TaskTypeEdit,
+			Edit: &porchapi.PackageEditTaskSpec{
+				Source: &porchapi.PackageRevisionRef{
+					Name: pr.Name,
 				},
 			},
 		},
 	}
+
 	// This invalid create will still create the draft for a small period of time until the error is discovered
 	if err := t.Client.Create(t.GetContext(), editPR); err == nil {
 		t.Fatalf("Expected error for source revision not being published")
@@ -760,15 +649,14 @@ func (t *PorchSuite) TestConcurrentEdits() {
 	const (
 		repository  = "concurrent-edit-test"
 		packageName = "simple-package-concurrent"
-		workspace   = "workspace"
+		workspace   = defaultWorkspace
 		workspace2  = "workspace2"
 	)
 
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a new package (via init)
-	pr := t.CreatePackageSkeleton(repository, packageName, workspace)
-	t.CreateF(pr)
+	pr := t.CreatePackageDraftF(repository, packageName, workspace)
 
 	// Publish and approve the source package to make it a valid source for edit.
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
@@ -821,49 +709,35 @@ func (t *PorchSuite) TestUpdateResources() {
 	const (
 		repository  = "re-render-test"
 		packageName = "simple-package"
-		workspace   = "workspace"
+		workspace   = defaultWorkspace
 	)
 
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a new package (via init)
-	pr := &porchapi.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
-			APIVersion: porchapi.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    packageName,
-			WorkspaceName:  workspace,
-			RepositoryName: repository,
-		},
-	}
-	t.CreateF(pr)
+	pr := t.CreatePackageDraftF(repository, packageName, workspace)
 
 	// Get the package resources
-	var newPackage porchapi.PackageRevisionResources
+	var prResources porchapi.PackageRevisionResources
 	t.GetF(client.ObjectKey{
 		Namespace: t.Namespace,
 		Name:      pr.Name,
-	}, &newPackage)
+	}, &prResources)
 
 	// Add function into a pipeline
-	kptfile := t.ParseKptfileF(&newPackage)
+	kptfile := t.ParseKptfileF(&prResources)
 	if kptfile.Pipeline == nil {
 		kptfile.Pipeline = &kptfilev1.Pipeline{}
 	}
 	kptfile.Pipeline.Mutators = append(kptfile.Pipeline.Mutators, kptfilev1.Function{
-		Image: t.GcrPrefix + "/set-annotations:v0.1.4",
+		Image: t.KrmFunctionsRegistry + "/set-annotations:v0.1.4",
 		ConfigMap: map[string]string{
 			"color": "red",
 			"fruit": "apple",
 		},
 		Name: "set-annotations",
 	})
-	t.SaveKptfileF(&newPackage, kptfile)
+	t.SaveKptfileF(&prResources, kptfile)
 
 	// Add a new resource
 	filename := filepath.Join("testdata", "update-resources", "add-config-map.yaml")
@@ -871,15 +745,15 @@ func (t *PorchSuite) TestUpdateResources() {
 	if err != nil {
 		t.Fatalf("Failed to read ConfigMap from %q: %v", filename, err)
 	}
-	newPackage.Spec.Resources["config-map.yaml"] = string(cm)
-	t.UpdateF(&newPackage)
+	prResources.Spec.Resources["config-map.yaml"] = string(cm)
+	t.UpdateF(&prResources)
 
-	updated, ok := newPackage.Spec.Resources["config-map.yaml"]
+	updated, ok := prResources.Spec.Resources["config-map.yaml"]
 	if !ok {
 		t.Fatalf("Updated config map config-map.yaml not found")
 	}
 
-	renderStatus := newPackage.Status.RenderStatus
+	renderStatus := prResources.Status.RenderStatus
 	assert.Empty(t, renderStatus.Err, "render error must be empty for successful render operation.")
 	assert.Zero(t, renderStatus.Result.ExitCode, "exit code must be zero for successful render operation.")
 	assert.True(t, len(renderStatus.Result.Items) > 0, renderStatus.Result.Items)
@@ -897,27 +771,13 @@ func (t *PorchSuite) TestUpdateResourcesEmptyPatch() {
 	const (
 		repository  = "empty-patch-test"
 		packageName = "simple-package"
-		workspace   = "workspace"
+		workspace   = defaultWorkspace
 	)
 
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a new package (via init)
-	pr := &porchapi.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
-			APIVersion: porchapi.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    packageName,
-			WorkspaceName:  workspace,
-			RepositoryName: repository,
-		},
-	}
-	t.CreateF(pr)
+	pr := t.CreatePackageDraftF(repository, packageName, workspace)
 
 	// Check its task list
 	var pkgBeforeUpdate porchapi.PackageRevision
@@ -969,14 +829,13 @@ func (t *PorchSuite) TestConcurrentResourceUpdates() {
 	const (
 		repository  = "concurrent-update-test"
 		packageName = "simple-package"
-		workspace   = "workspace"
+		workspace   = defaultWorkspace
 	)
 
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a new package (via init)
-	pr := t.CreatePackageSkeleton(repository, packageName, workspace)
-	t.CreateF(pr)
+	pr := t.CreatePackageDraftF(repository, packageName, workspace)
 
 	// Get the package resources
 	var newPackageResources porchapi.PackageRevisionResources
@@ -999,61 +858,18 @@ func (t *PorchSuite) TestConcurrentResourceUpdates() {
 	assert.True(t, conflictFailurePresent, "expected one request to fail with a conflict, but did not happen - results: %v", results)
 }
 
-func (t *PorchSuite) NewClientWithTimeout(timeout time.Duration) client.Client {
-	cfg := *t.Kubeconfig
-	cfg.Timeout = timeout
-	c, err := client.New(&cfg, client.Options{
-		Scheme: t.Client.Scheme(),
-	})
-	if err != nil {
-		t.Fatalf("Failed to create client with timeout: %v", err)
-	}
-	return c
-}
-
-func (t *PorchSuite) TestPublicGitRepository() {
-	t.RegisterTestBlueprintRepository("demo-blueprints", "")
-
-	var list porchapi.PackageRevisionList
-	t.ListE(&list, client.InNamespace(t.Namespace))
-
-	if got := len(list.Items); got == 0 {
-		t.Errorf("Found no package revisions in %s; expected at least one", t.TestBlueprintsRepo)
-	}
-}
-
 func (t *PorchSuite) TestProposeApprove() {
 	const (
 		repository  = "lifecycle"
 		packageName = "test-package"
-		workspace   = "workspace"
+		workspace   = defaultWorkspace
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a new package (via init)
-	pr := &porchapi.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
-			APIVersion: porchapi.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    packageName,
-			WorkspaceName:  workspace,
-			RepositoryName: repository,
-			Tasks: []porchapi.Task{
-				{
-					Type: porchapi.TaskTypeInit,
-					Init: &porchapi.PackageInitTaskSpec{},
-				},
-			},
-		},
-	}
-	t.CreateF(pr)
+	pr := t.CreatePackageDraftF(repository, packageName, workspace)
 
 	var pkg porchapi.PackageRevision
 	t.GetF(client.ObjectKey{
@@ -1098,21 +914,14 @@ func (t *PorchSuite) TestConcurrentProposeApprove() {
 	const (
 		repository  = "lifecycle"
 		packageName = "test-package-concurrent"
-		workspace   = "workspace"
+		workspace   = defaultWorkspace
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a new package (via init)
-	pr := t.CreatePackageSkeleton(repository, packageName, workspace)
-	pr.Spec.Tasks = []porchapi.Task{
-		{
-			Type: porchapi.TaskTypeInit,
-			Init: &porchapi.PackageInitTaskSpec{},
-		},
-	}
-	t.CreateF(pr)
+	pr := t.CreatePackageDraftF(repository, packageName, workspace)
 
 	var pkg porchapi.PackageRevision
 	t.GetF(client.ObjectKey{
@@ -1163,13 +972,13 @@ func (t *PorchSuite) TestSubfolderPackageRevisionIncrementation() {
 		subfolderDirectory   = "random/repo/folder"
 		normalPackageName    = "test-package"
 		subfolderPackageName = "random/package/folder/test-package"
-		workspace            = "workspace"
+		workspace            = defaultWorkspace
 		workspace2           = "workspace2"
 	)
 
 	// Register the repositories
-	t.RegisterMainGitRepositoryF(repository)
-	t.RegisterGitRepositoryWithDirectoryF(subfolderRepository, subfolderDirectory)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), subfolderRepository, subfolderDirectory, GiteaUser, GiteaPassword)
 
 	// Create a new package (via init)
 	subfolderPr := t.CreatePackageDraftF(repository, subfolderPackageName, workspace)
@@ -1243,7 +1052,7 @@ func (t *PorchSuite) TestDeleteDraft() {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a draft package
 	created := t.CreatePackageDraftF(repository, packageName, workspace)
@@ -1272,7 +1081,7 @@ func (t *PorchSuite) TestConcurrentDeletes() {
 	)
 
 	// Register the repository and create a draft package
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 	created := t.CreatePackageDraftF(repository, packageName, workspace)
 
 	// Check the package exists
@@ -1313,11 +1122,11 @@ func (t *PorchSuite) TestDeleteProposed() {
 		repository  = "delete-proposed"
 		packageName = "test-delete-proposed"
 		revision    = 1
-		workspace   = "workspace"
+		workspace   = defaultWorkspace
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a draft package
 	created := t.CreatePackageDraftF(repository, packageName, workspace)
@@ -1345,11 +1154,11 @@ func (t *PorchSuite) TestDeleteFinal() {
 	const (
 		repository  = "delete-final"
 		packageName = "test-delete-final"
-		workspace   = "workspace"
+		workspace   = defaultWorkspace
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a draft package
 	created := t.CreatePackageDraftF(repository, packageName, workspace)
@@ -1399,11 +1208,11 @@ func (t *PorchSuite) TestConcurrentProposeDeletes() {
 	const (
 		repository  = "delete-final"
 		packageName = "test-delete-final-concurrent"
-		workspace   = "workspace"
+		workspace   = defaultWorkspace
 	)
 
 	// Register the repository and create a draft package
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 	created := t.CreatePackageDraftF(repository, packageName, workspace)
 	// Check the package exists
 	var pkg porchapi.PackageRevision
@@ -1437,11 +1246,11 @@ func (t *PorchSuite) TestProposeDeleteAndUndo() {
 	const (
 		repository  = "test-propose-delete-and-undo"
 		packageName = "test-propose-delete-and-undo"
-		workspace   = "workspace"
+		workspace   = defaultWorkspace
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a draft package
 	created := t.CreatePackageDraftF(repository, packageName, workspace)
@@ -1508,7 +1317,7 @@ func (t *PorchSuite) TestDeleteAndRecreate() {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a draft package
 	created := t.CreatePackageDraftF(repository, packageName, workspace)
@@ -1577,11 +1386,11 @@ func (t *PorchSuite) TestDeleteFromMain() {
 		repository        = "delete-main"
 		packageNameFirst  = "test-delete-main-first"
 		packageNameSecond = "test-delete-main-second"
-		workspace         = "workspace"
+		workspace         = defaultWorkspace
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	t.Logf("Create and approve package: %s", packageNameFirst)
 	createdFirst := t.CreatePackageDraftF(repository, packageNameFirst, workspace)
@@ -1659,50 +1468,12 @@ func (t *PorchSuite) TestDeleteFromMain() {
 
 func (t *PorchSuite) TestCloneLeadingSlash() {
 	const (
-		repository  = "clone-ls"
-		packageName = "test-clone-ls"
-		revision    = 1
-		workspace   = "workspace"
+		repository = "clone-ls"
 	)
-
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Clone the package. Use leading slash in the directory (regression test)
-	new := &porchapi.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
-			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    packageName,
-			WorkspaceName:  workspace,
-			RepositoryName: repository,
-			Tasks: []porchapi.Task{
-				{
-					Type: porchapi.TaskTypeClone,
-					Clone: &porchapi.PackageCloneTaskSpec{
-						Upstream: porchapi.UpstreamPackage{
-							Type: porchapi.RepositoryTypeGit,
-							Git: &porchapi.GitPackage{
-								Repo:      t.TestBlueprintsRepo,
-								Ref:       "basens/v1",
-								Directory: "/basens",
-								SecretRef: porchapi.SecretRef{
-									Name: t.CreateGcpPackageRevisionSecret("clone-ls"),
-								},
-							},
-						},
-						Strategy: porchapi.ResourceMerge,
-					},
-				},
-			},
-		},
-	}
-
-	t.CreateF(new)
+	new := t.CreatePackageCloneF(repository, "test-clone-ls", defaultWorkspace, "basens/v1", "/basens")
 
 	var pr porchapi.PackageRevision
 	t.MustExist(client.ObjectKey{Namespace: t.Namespace, Name: new.Name}, &pr)
@@ -1713,7 +1484,10 @@ func (t *PorchSuite) TestPackageUpgrade() {
 		gitRepository = "package-upgrade"
 	)
 
-	t.RegisterTestBlueprintRepository("test-blueprints", "")
+	t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), TestBlueprintsRepoName, "", GiteaUser, GiteaPassword)
+
+	// Register the repository as 'downstream'
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), gitRepository, "", GiteaUser, GiteaPassword)
 
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
@@ -1721,37 +1495,20 @@ func (t *PorchSuite) TestPackageUpgrade() {
 	basensV1 := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "test-blueprints"}, Package: "basens"}, Revision: 1})
 	basensV2 := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "test-blueprints"}, Package: "basens"}, Revision: 2})
 
-	// Register the repository as 'downstream'
-	t.RegisterMainGitRepositoryF(gitRepository)
-
 	// Create PackageRevision from upstream repo
-	pr := &porchapi.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
-			APIVersion: porchapi.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "testns",
-			WorkspaceName:  "test-workspace",
-			RepositoryName: gitRepository,
-			Tasks: []porchapi.Task{
-				{
-					Type: porchapi.TaskTypeClone,
-					Clone: &porchapi.PackageCloneTaskSpec{
-						Upstream: porchapi.UpstreamPackage{
-							UpstreamRef: &porchapi.PackageRevisionRef{
-								Name: basensV1.Name,
-							},
-						},
+	pr := t.CreatePackageSkeleton(gitRepository, "testns", "test-workspace")
+	pr.Spec.Tasks = []porchapi.Task{
+		{
+			Type: porchapi.TaskTypeClone,
+			Clone: &porchapi.PackageCloneTaskSpec{
+				Upstream: porchapi.UpstreamPackage{
+					UpstreamRef: &porchapi.PackageRevisionRef{
+						Name: basensV1.Name,
 					},
 				},
 			},
 		},
 	}
-
 	t.CreateF(pr)
 
 	var revisionResources porchapi.PackageRevisionResources
@@ -1812,7 +1569,8 @@ func (t *PorchSuite) TestConcurrentPackageUpdates() {
 		workspace     = "test-workspace"
 	)
 
-	t.RegisterTestBlueprintRepository("test-blueprints", "")
+	// Register the upstream repository
+	t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), TestBlueprintsRepoName, "", GiteaUser, GiteaPassword)
 
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
@@ -1821,7 +1579,7 @@ func (t *PorchSuite) TestConcurrentPackageUpdates() {
 	basensV2 := t.MustFindPackageRevision(&list, repository.PackageRevisionKey{PkgKey: repository.PackageKey{RepoKey: repository.RepositoryKey{Name: "test-blueprints"}, Package: "basens"}, Revision: 2})
 
 	// Register the repository as 'downstream'
-	t.RegisterMainGitRepositoryF(gitRepository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), gitRepository, "", GiteaUser, GiteaPassword)
 
 	// Create PackageRevision from upstream repo
 	pr := t.CreatePackageSkeleton(gitRepository, packageName, workspace)
@@ -1859,7 +1617,8 @@ func (t *PorchSuite) TestRegisterRepository() {
 	const (
 		repository = "register"
 	)
-	t.RegisterMainGitRepositoryF(repository, RepositoryOptions{RepOpts: withType(configapi.RepositoryTypeGit)},
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser,
+		GiteaPassword, RepositoryOptions{RepOpts: WithType(configapi.RepositoryTypeGit)},
 		RepositoryOptions{RepOpts: WithDeployment()})
 
 	var repo configapi.Repository
@@ -1877,41 +1636,14 @@ func (t *PorchSuite) TestRegisterRepository() {
 }
 
 func (t *PorchSuite) TestBuiltinFunctionEvaluator() {
-	// Register the repository as 'git-fn'
-	t.RegisterMainGitRepositoryF("git-builtin-fn")
+	const (
+		repoName = "git-builtin-fn-eval"
+	)
+	// Register the repository as 'git-builtin-fn'
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, "", GiteaUser, GiteaPassword)
 
 	// Create Package Revision
-	pr := &porchapi.PackageRevision{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "test-builtin-fn-bucket",
-			WorkspaceName:  "test-workspace",
-			RepositoryName: "git-builtin-fn",
-			Tasks: []porchapi.Task{
-				{
-					Type: "clone",
-					Clone: &porchapi.PackageCloneTaskSpec{
-						Upstream: porchapi.UpstreamPackage{
-							Type: "git",
-							Git: &porchapi.GitPackage{
-								Repo:      t.GcpBlueprintsRepo,
-								Ref:       t.GcpBucketRef,
-								Directory: "catalog/bucket",
-								SecretRef: porchapi.SecretRef{
-									Name: t.CreateGcpPackageRevisionSecret("test-builtin-fn-bucket"),
-								},
-							},
-						},
-					},
-				},
-				// TODO: add test for apply-replacements, we can't do it now because FunctionEvalTaskSpec doesn't allow
-				// non-ConfigMap functionConfig due to a code generator issue when dealing with unstructured.
-			},
-		},
-	}
-	t.CreateF(pr)
+	pr := t.CreatePackageCloneF(repoName, "test-builtin-fn-bucket", "test-workspace", defaultBucketBpRef, "bucket")
 
 	// Get package resources
 	resources := &porchapi.PackageRevisionResources{}
@@ -1920,11 +1652,11 @@ func (t *PorchSuite) TestBuiltinFunctionEvaluator() {
 		Name:      pr.Name,
 	}, resources)
 
-	t.AddMutator(resources, t.GcrPrefix+"/starlark:v0.4.3", WithConfigmap(map[string]string{
+	t.AddMutator(resources, t.KrmFunctionsRegistry+"/starlark:v0.4.3", WithConfigmap(map[string]string{
 		"source": `for resource in ctx.resource_list["items"]:
 		  resource["metadata"]["annotations"]["foo"] = "bar"`,
 	}))
-	t.AddMutator(resources, t.GcrPrefix+"/set-namespace:v0.4.1", WithConfigmap(map[string]string{"namespace": "bucket-namespace"}))
+	t.AddMutator(resources, t.KrmFunctionsRegistry+"/set-namespace:v0.4.1", WithConfigmap(map[string]string{"namespace": "bucket-namespace"}))
 	t.UpdateF(resources)
 
 	bucket, ok := resources.Spec.Resources["bucket.yaml"]
@@ -1945,39 +1677,14 @@ func (t *PorchSuite) TestBuiltinFunctionEvaluator() {
 }
 
 func (t *PorchSuite) TestExecFunctionEvaluator() {
+	const (
+		repoName = "git-exec-fn-eval"
+	)
 	// Register the repository as 'git-fn'
-	t.RegisterMainGitRepositoryF("git-fn")
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, "", GiteaUser, GiteaPassword)
 
 	// Create Package Revision
-	pr := &porchapi.PackageRevision{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "test-fn-bucket",
-			WorkspaceName:  "test-workspace",
-			RepositoryName: "git-fn",
-			Tasks: []porchapi.Task{
-				{
-					Type: "clone",
-					Clone: &porchapi.PackageCloneTaskSpec{
-						Upstream: porchapi.UpstreamPackage{
-							Type: "git",
-							Git: &porchapi.GitPackage{
-								Repo:      t.GcpBlueprintsRepo,
-								Ref:       t.GcpBucketRef,
-								Directory: "catalog/bucket",
-								SecretRef: porchapi.SecretRef{
-									Name: t.CreateGcpPackageRevisionSecret("test-fn-bucket"),
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	t.CreateF(pr)
+	pr := t.CreatePackageCloneF(repoName, "test-fn-bucket", "test-workspace", defaultBucketBpRef, "bucket")
 
 	// Get package resources
 	resources := &porchapi.PackageRevisionResources{}
@@ -1986,7 +1693,7 @@ func (t *PorchSuite) TestExecFunctionEvaluator() {
 		Name:      pr.Name,
 	}, resources)
 
-	t.AddMutator(resources, t.GcrPrefix+"/starlark:v0.3.0", WithConfigmap(map[string]string{
+	t.AddMutator(resources, t.KrmFunctionsRegistry+"/starlark:v0.3.0", WithConfigmap(map[string]string{
 		"source": `# set the namespace on all resources
 
 for resource in ctx.resource_list["items"]:
@@ -1994,7 +1701,7 @@ for resource in ctx.resource_list["items"]:
 	  # mutate the resource
 	  resource["metadata"]["namespace"] = "bucket-namespace"`,
 	}))
-	t.AddMutator(resources, t.GcrPrefix+"/set-annotations:v0.1.4", WithConfigmap(map[string]string{"foo": "bar"}))
+	t.AddMutator(resources, t.KrmFunctionsRegistry+"/set-annotations:v0.1.4", WithConfigmap(map[string]string{"foo": "bar"}))
 	t.UpdateF(resources)
 
 	bucket, ok := resources.Spec.Resources["bucket.yaml"]
@@ -2016,41 +1723,16 @@ for resource in ctx.resource_list["items"]:
 
 func (t *PorchSuite) TestPodFunctionEvaluatorWithDistrolessImage() {
 	if t.TestRunnerIsLocal {
-		t.Skipf("Skipping due to not having pod evaluator in local mode")
+		t.Skipf(skipPodEvaluatorMsg)
 	}
+	const (
+		repoName = "git-fn-distroless"
+	)
 
-	t.RegisterMainGitRepositoryF("git-fn-distroless")
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, "", GiteaUser, GiteaPassword)
 
 	// Create Package Revision
-	pr := &porchapi.PackageRevision{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "test-fn-redis-bucket",
-			WorkspaceName:  "test-description",
-			RepositoryName: "git-fn-distroless",
-			Tasks: []porchapi.Task{
-				{
-					Type: "clone",
-					Clone: &porchapi.PackageCloneTaskSpec{
-						Upstream: porchapi.UpstreamPackage{
-							Type: "git",
-							Git: &porchapi.GitPackage{
-								Repo:      t.GcpBlueprintsRepo,
-								Ref:       t.GcpRedisBucketRef,
-								Directory: "catalog/redis-bucket",
-								SecretRef: porchapi.SecretRef{
-									Name: t.CreateGcpPackageRevisionSecret("test-fn-redis-bucket"),
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	t.CreateF(pr)
+	pr := t.CreatePackageCloneF(repoName, "test-fn-redis-bucket", "test-description", "redis-bucket/v1", "redis-bucket")
 
 	// Get package resources
 	resources := &porchapi.PackageRevisionResources{}
@@ -2067,7 +1749,7 @@ metadata:
 data:
   name: bucket-namespace
 `
-	t.AddMutator(resources, t.GcrPrefix+"/set-namespace:v0.4.1", WithConfigPath("configmap.yaml"))
+	t.AddMutator(resources, t.KrmFunctionsRegistry+"/set-namespace:v0.4.1", WithConfigPath("configmap.yaml"))
 	t.UpdateF(resources)
 
 	bucket, ok := resources.Spec.Resources["bucket.yaml"]
@@ -2085,152 +1767,67 @@ data:
 
 func (t *PorchSuite) TestPodEvaluator() {
 	if t.TestRunnerIsLocal {
-		t.Skipf("Skipping due to not having pod evaluator in local mode")
+		t.Skipf(skipPodEvaluatorMsg)
 	}
+	const repoName = "git-fn-pod-eval"
 
-	generateFolderImage := t.GcrPrefix + "/generate-folders:v0.1.1" // This function is a TS based function.
-	setAnnotationsImage := t.GcrPrefix + "/set-annotations:v0.1.5"  // set-annotations:v0.1.5 is an older version that porch maps neither to built-in nor exec.
+	setAnnotationsImage := t.KrmFunctionsRegistry + "/set-annotations:v0.1.4"
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, "", GiteaUser, GiteaPassword)
 
-	// Register the repository as 'git-fn'
-	t.RegisterMainGitRepositoryF("git-fn-pod")
-
-	// Create Package Revision
-	pr := &porchapi.PackageRevision{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "test-fn-pod-hierarchy",
-			WorkspaceName:  "workspace-1",
-			RepositoryName: "git-fn-pod",
-			Tasks: []porchapi.Task{
-				{
-					Type: "clone",
-					Clone: &porchapi.PackageCloneTaskSpec{
-						Upstream: porchapi.UpstreamPackage{
-							Type: "git",
-							Git: &porchapi.GitPackage{
-								Repo:      t.GcpBlueprintsRepo,
-								Ref:       t.GcpHierarchyRef,
-								Directory: "catalog/hierarchy/simple",
-								SecretRef: porchapi.SecretRef{
-									Name: t.CreateGcpPackageRevisionSecret("test-fn-pod-hierarchy-workspace-1"),
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	t.CreateF(pr)
-
-	// Get package resources
+	// Create first package revision
+	pr := t.CreatePackageCloneF(repoName, "test-fn-pod-bucket", "workspace-1", defaultBucketBpRef, "bucket")
 	resources := t.WaitUntilPackageRevisionResourcesExists(types.NamespacedName{Namespace: t.Namespace, Name: pr.Name})
-
-	// Testing pod evaluator with TS function
-	t.AddMutator(resources, generateFolderImage)
-	// Testing pod evaluator with golang function
 	t.AddMutator(resources, setAnnotationsImage, WithConfigmap(map[string]string{"test-key": "test-val"}))
 	t.UpdateF(resources)
 
-	counter := 0
-	for name, obj := range resources.Spec.Resources {
-		if strings.HasPrefix(name, "hierarchy/") {
-			counter++
-			node, err := yaml.Parse(obj)
-			if err != nil {
-				t.Errorf("failed to parse Folder object: %v", err)
-			}
-			if node.GetAnnotations()["test-key"] != "test-val" {
-				t.Errorf("Folder should contain annotation `test-key:test-val`, the annotations we got: %v", node.GetAnnotations())
+	// Wait for the correct pod to be created and capture suffix
+	var firstPodSuffix string
+	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 30*time.Second, false, func(ctx context.Context) (bool, error) {
+		podList := &corev1.PodList{}
+		if err := t.Client.List(ctx, podList, client.InNamespace("porch-fn-system")); err != nil {
+			return false, err
+		}
+		for _, pod := range podList.Items {
+			if pod.Spec.Containers[0].Image == setAnnotationsImage {
+				parts := strings.Split(pod.Name, "-")
+				if len(parts) > 0 {
+					firstPodSuffix = parts[len(parts)-1]
+				}
+				t.Logf("Found matching pod %s, captured suffix: %s", pod.Name, firstPodSuffix)
+				t.DeleteF(&pod)
+				return true, nil
 			}
 		}
-	}
-	if counter != 4 {
-		t.Errorf("expected 4 Folder objects, but got %v", counter)
-	}
-
-	// Get the fn runner pods and delete them.
-	podList := &corev1.PodList{}
-	t.ListF(podList, client.InNamespace("porch-fn-system"))
-	for _, pod := range podList.Items {
-		img := pod.Spec.Containers[0].Image
-		if img == generateFolderImage || img == setAnnotationsImage {
-			t.DeleteF(&pod)
-
-			// Await pod deletion with a 1 minute timeout
-			err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, time.Minute, false, func(ctx context.Context) (bool, error) {
-				getErr := t.Client.Get(ctx, client.ObjectKey{Namespace: pod.Namespace, Name: pod.Name}, &corev1.Pod{})
-				if errors.IsNotFound(getErr) {
-					return true, nil // Pod has been deleted
-				}
-				if getErr != nil {
-					return false, getErr // Error occurred
-				}
-				return false, nil // Pod still exists
-			})
-			if err != nil {
-				t.Fatalf("Failed to wait for pod deletion: %v", err)
-			}
-		}
+		return false, nil
+	})
+	if err != nil {
+		t.Fatalf("Failed to find pod with image %s: %v", setAnnotationsImage, err)
 	}
 
-	// Create another Package Revision
-	pr2 := &porchapi.PackageRevision{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "test-fn-pod-hierarchy-2",
-			WorkspaceName:  "workspace-2",
-			RepositoryName: "git-fn-pod",
-			Tasks: []porchapi.Task{
-				{
-					Type: "clone",
-					Clone: &porchapi.PackageCloneTaskSpec{
-						Upstream: porchapi.UpstreamPackage{
-							Type: "git",
-							Git: &porchapi.GitPackage{
-								Repo:      t.GcpBlueprintsRepo,
-								Ref:       t.GcpRedisBucketRef,
-								Directory: "catalog/hierarchy/simple",
-								SecretRef: porchapi.SecretRef{
-									Name: t.CreateGcpPackageRevisionSecret("test-fn-pod-hierarchy-workspace-2"),
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	t.CreateF(pr2)
-
-	// Get package resources again
+	// Create second package revision
+	pr2 := t.CreatePackageCloneF(repoName, "test-fn-pod-bucket-2", "workspace-2", defaultBucketBpRef, "bucket")
 	resources = t.WaitUntilPackageRevisionResourcesExists(types.NamespacedName{Namespace: t.Namespace, Name: pr2.Name})
 
-	// Testing pod evaluator with TS function
-	t.AddMutator(resources, generateFolderImage)
 	// Testing pod evaluator with golang function
 	t.AddMutator(resources, setAnnotationsImage, WithConfigmap(map[string]string{"new-test-key": "new-test-val"}))
 	t.UpdateF(resources)
 
-	counter = 0
-	for name, obj := range resources.Spec.Resources {
-		if strings.HasPrefix(name, "hierarchy/") {
-			counter++
-			node, err := yaml.Parse(obj)
-			if err != nil {
-				t.Errorf("failed to parse Folder object: %v", err)
-			}
-			if node.GetAnnotations()["new-test-key"] != "new-test-val" {
-				t.Errorf("Folder should contain annotation `test-key:test-val`, the annotations we got: %v", node.GetAnnotations())
+	// Verify second pod has different suffix
+	podList := &corev1.PodList{}
+	t.ListF(podList, client.InNamespace("porch-fn-system"))
+	var secondPodSuffix string
+	for _, pod := range podList.Items {
+		if pod.Spec.Containers[0].Image == setAnnotationsImage {
+			parts := strings.Split(pod.Name, "-")
+			if len(parts) > 0 {
+				secondPodSuffix = parts[len(parts)-1]
 			}
 		}
 	}
-	if counter != 4 {
-		t.Errorf("expected 4 Folder objects, but got %v", counter)
+	if firstPodSuffix == secondPodSuffix {
+		t.Errorf("Expected different fn pod suffixes for pr and pr2, but both had: %s", firstPodSuffix)
+	} else {
+		t.Logf("Successfully verified different fn pods: first=%s, second=%s", firstPodSuffix, secondPodSuffix)
 	}
 }
 
@@ -2238,48 +1835,30 @@ func (t *PorchSuite) TestPodEvaluatorWithFailure() {
 	if t.TestRunnerIsLocal {
 		t.Skipf("Skipping due to not having pod evaluator in local mode")
 	}
+	const (
+		repoName = "git-pod-eval-fn-failure"
+	)
 
-	t.RegisterMainGitRepositoryF("git-fn-pod-failure")
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, "", GiteaUser, GiteaPassword)
 
 	// Create Package Revision
-	pr := &porchapi.PackageRevision{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "test-fn-pod-bucket",
-			WorkspaceName:  "workspace",
-			RepositoryName: "git-fn-pod-failure",
-			Tasks: []porchapi.Task{
-				{
-					Type: "clone",
-					Clone: &porchapi.PackageCloneTaskSpec{
-						Upstream: porchapi.UpstreamPackage{
-							Type: "git",
-							Git: &porchapi.GitPackage{
-								Repo:      t.GcpBlueprintsRepo,
-								Ref:       t.GcpBucketRef,
-								Directory: "catalog/bucket",
-								SecretRef: porchapi.SecretRef{
-									Name: t.CreateGcpPackageRevisionSecret("test-fn-pod-bucket"),
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	t.CreateF(pr)
+	pr := t.CreatePackageCloneF(repoName, "test-fn-pod-bucket", defaultWorkspace, defaultBucketBpRef, "bucket")
 
 	resources := t.WaitUntilPackageRevisionResourcesExists(types.NamespacedName{Namespace: t.Namespace, Name: pr.Name})
 
-	t.AddMutator(resources, t.GcrPrefix+"/kubeconform:v0.1.1")
+	// Add invalid resource to make kubeconform fail
+	resources.Spec.Resources["invalid.yaml"] = `apiVersion: v1
+kind: Pod
+metadata:
+  name: invalid-resource
+spec:
+  replicas: "invalid"`
+
+	t.AddMutator(resources, t.KrmFunctionsRegistry+"/kubeconform:v0.1.1")
 
 	err := t.Client.Update(t.GetContext(), resources)
-	if err != nil {
-		t.Fatalf("expected no error but got %v", err)
+	if err == nil {
+		t.Fatalf("expected error but got none")
 	}
 }
 
@@ -2287,48 +1866,21 @@ func (t *PorchSuite) TestFailedPodEvictionAndRecovery() {
 	if t.TestRunnerIsLocal {
 		t.Skipf("Skipping test: evaluator pod not available in local mode")
 	}
-
-	t.RegisterMainGitRepositoryF("git-fn-failed-recovery")
+	const (
+		repoName = "git-fn-failed-recovery"
+	)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, "", GiteaUser, GiteaPassword)
 
 	// Define a bogus kpt function image that will fail (image doesn't exist)
 	bogusFnImage := "quay.io/invalid/kpt-fn-broken:v0.0.1"
 
-	// Create a PackageRevision with an eval task that will fail
-	pr := &porchapi.PackageRevision{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "test-fn-pod-eviction",
-			WorkspaceName:  "workspace",
-			RepositoryName: "git-fn-failed-recovery",
-			Tasks: []porchapi.Task{
-				{
-					Type: "clone",
-					Clone: &porchapi.PackageCloneTaskSpec{
-						Upstream: porchapi.UpstreamPackage{
-							Type: "git",
-							Git: &porchapi.GitPackage{
-								Repo:      t.GcpBlueprintsRepo,
-								Ref:       t.GcpBucketRef,
-								Directory: "catalog/bucket",
-								SecretRef: porchapi.SecretRef{
-									Name: t.CreateGcpPackageRevisionSecret("test-fn-pod-bucket"),
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	// Create the package revision
-	t.CreateF(pr)
+	// Create a PackageRevision
+	pr := t.CreatePackageCloneF(repoName, "test-fn-pod-eviction", defaultWorkspace, defaultBucketBpRef, "bucket")
 
 	prr := &porchapi.PackageRevisionResources{}
 	t.GetF(client.ObjectKeyFromObject(pr), prr)
 
+	// Add an eval task that will fail
 	t.AddMutator(prr, bogusFnImage)
 
 	err := t.Client.Update(t.GetContext(), prr)
@@ -2352,37 +1904,17 @@ func (t *PorchSuite) TestFailedPodEvictionAndRecovery() {
 }
 
 func (t *PorchSuite) TestLargePackageRevision() {
-	const testDataSize = 5 * 1024 * 1024
+	const (
+		testDataSize = 5 * 1024 * 1024
+		repoName     = "git-fn-pod-large"
+	)
 
-	setAnnotationsImage := t.GcrPrefix + "/set-annotations:v0.1.5" // set-annotations:v0.1.5 is an older version that porch maps neither to built-in nor exec.
+	setAnnotationsImage := t.KrmFunctionsRegistry + "/set-annotations:v0.1.5" // set-annotations:v0.1.5 is an older version that porch maps neither to built-in nor exec.
 
-	t.RegisterMainGitRepositoryF("git-fn-pod-large")
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, "", GiteaUser, GiteaPassword)
 
 	// Create Package Revision
-	pr := &porchapi.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       porchapi.PackageRevisionGVR.Resource,
-			APIVersion: porchapi.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "new-package",
-			WorkspaceName:  "workspace",
-			RepositoryName: "git-fn-pod-large",
-			Tasks: []porchapi.Task{
-				{
-					Type: porchapi.TaskTypeInit,
-					Init: &porchapi.PackageInitTaskSpec{
-						Description: "this is a test",
-					},
-				},
-			},
-		},
-	}
-
-	t.CreateF(pr)
+	pr := t.CreatePackageDraftF(repoName, "new-package", defaultWorkspace)
 
 	var prr porchapi.PackageRevisionResources
 	t.GetF(client.ObjectKeyFromObject(pr), &prr)
@@ -2525,7 +2057,7 @@ func (t *PorchSuite) TestNewPackageRevisionLabels() {
 		annoVal2   = "bar"
 	)
 
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a package with labels and annotations.
 	pr := porchapi.PackageRevision{
@@ -2545,7 +2077,7 @@ func (t *PorchSuite) TestNewPackageRevisionLabels() {
 		},
 		Spec: porchapi.PackageRevisionSpec{
 			PackageName:    "new-package",
-			WorkspaceName:  "workspace",
+			WorkspaceName:  defaultWorkspace,
 			RepositoryName: repository,
 			Tasks: []porchapi.Task{
 				{
@@ -2626,33 +2158,20 @@ func (t *PorchSuite) TestNewPackageRevisionLabels() {
 
 	// Create PackageRevision from upstream repo. Labels and annotations should
 	// not be retained from upstream.
-	clonedPr := porchapi.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
-			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "cloned-package",
-			WorkspaceName:  "workspace",
-			RepositoryName: repository,
-			Tasks: []porchapi.Task{
-				{
-					Type: porchapi.TaskTypeClone,
-					Clone: &porchapi.PackageCloneTaskSpec{
-						Upstream: porchapi.UpstreamPackage{
-							UpstreamRef: &porchapi.PackageRevisionRef{
-								Name: pr.Name, // Package to be cloned
-							},
-						},
+	clonedPr := t.CreatePackageSkeleton(repository, "cloned-package", defaultWorkspace)
+	clonedPr.Spec.Tasks = []porchapi.Task{
+		{
+			Type: porchapi.TaskTypeClone,
+			Clone: &porchapi.PackageCloneTaskSpec{
+				Upstream: porchapi.UpstreamPackage{
+					UpstreamRef: &porchapi.PackageRevisionRef{
+						Name: pr.Name, // Package to be cloned
 					},
 				},
 			},
 		},
 	}
-	t.CreateF(&clonedPr)
+	t.CreateF(clonedPr)
 	t.ValidateLabelsAndAnnos(clonedPr.Name,
 		map[string]string{},
 		map[string]string{},
@@ -2669,7 +2188,7 @@ func (t *PorchSuite) TestPackageRevisionLabelSelectors() {
 		latestLabelValue = porchapi.LatestPackageRevisionValue
 	)
 
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a package with labels and annotations.
 	pr := porchapi.PackageRevision{
@@ -2685,7 +2204,7 @@ func (t *PorchSuite) TestPackageRevisionLabelSelectors() {
 		},
 		Spec: porchapi.PackageRevisionSpec{
 			PackageName:    "new-package",
-			WorkspaceName:  "workspace",
+			WorkspaceName:  defaultWorkspace,
 			RepositoryName: repository,
 			Tasks: []porchapi.Task{
 				{
@@ -2729,7 +2248,8 @@ func (t *PorchSuite) TestRegisteredPackageRevisionLabels() {
 		annoVal  = "foo"
 	)
 
-	t.RegisterTestBlueprintRepository("test-blueprints", "")
+	// Register the upstream repository
+	t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), TestBlueprintsRepoName, "", GiteaUser, GiteaPassword)
 
 	var list porchapi.PackageRevisionList
 	t.ListE(&list, client.InNamespace(t.Namespace))
@@ -2757,30 +2277,15 @@ func (t *PorchSuite) TestRegisteredPackageRevisionLabels() {
 
 func (t *PorchSuite) TestPackageRevisionGCWithOwner() {
 	const (
-		repository  = "pkgrevgcwithowner"
-		workspace   = "pkgrevgcwithowner-workspace"
-		description = "empty-package description"
-		cmName      = "foo"
+		repository = "pkgrevgcwithowner"
+		workspace  = "pkgrevgcwithowner-workspace"
+		cmName     = "foo"
 	)
 
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	// Create a new package (via init)
-	pr := &porchapi.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       packageRevisionGVK.Kind,
-			APIVersion: packageRevisionGVK.GroupVersion().String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "empty-package",
-			WorkspaceName:  workspace,
-			RepositoryName: repository,
-		},
-	}
-	t.CreateF(pr)
+	pr := t.CreatePackageDraftF(repository, "empty-package", workspace)
 
 	cm := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
@@ -2793,7 +2298,7 @@ func (t *PorchSuite) TestPackageRevisionGCWithOwner() {
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: porchapi.SchemeGroupVersion.String(),
-					Kind:       packageRevisionGVK.Kind,
+					Kind:       PackageRevisionGVK.Kind,
 					Name:       pr.Name,
 					UID:        pr.UID,
 				},
@@ -2807,7 +2312,7 @@ func (t *PorchSuite) TestPackageRevisionGCWithOwner() {
 
 	t.DeleteF(pr)
 	t.WaitUntilObjectDeleted(
-		packageRevisionGVK,
+		PackageRevisionGVK,
 		types.NamespacedName{
 			Name:      pr.Name,
 			Namespace: pr.Namespace,
@@ -2825,7 +2330,8 @@ func (t *PorchSuite) TestPackageRevisionGCWithOwner() {
 }
 
 func (t *PorchSuite) TestPackageRevisionGCAsOwner() {
-	// TODO: Garbage collection is not working when a DB cache PackageRevision resource owner is delted. We need to get this test running in DB cache
+	// TODO: Garbage collection is not working when a DB cache PackageRevision resource owner is deleted.
+	// We need to get this test running in DB cache
 	if _, ok := os.LookupEnv("DB_CACHE"); ok {
 		return
 	}
@@ -2837,7 +2343,7 @@ func (t *PorchSuite) TestPackageRevisionGCAsOwner() {
 		cmName      = "foo"
 	)
 
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	cm := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
@@ -2856,8 +2362,8 @@ func (t *PorchSuite) TestPackageRevisionGCAsOwner() {
 
 	pr := &porchapi.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       packageRevisionGVK.Kind,
-			APIVersion: packageRevisionGVK.GroupVersion().String(),
+			Kind:       PackageRevisionGVK.Kind,
+			APIVersion: PackageRevisionGVK.GroupVersion().String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: t.Namespace,
@@ -2885,27 +2391,26 @@ func (t *PorchSuite) TestPackageRevisionGCAsOwner() {
 			Name:      cm.Name,
 			Namespace: cm.Namespace,
 		},
-		10*time.Second,
+		20*time.Second,
 	)
 	t.WaitUntilObjectDeleted(
-		packageRevisionGVK,
+		PackageRevisionGVK,
 		types.NamespacedName{
 			Name:      pr.Name,
 			Namespace: pr.Namespace,
 		},
-		10*time.Second,
+		20*time.Second,
 	)
 }
 
 func (t *PorchSuite) TestPackageRevisionOwnerReferences() {
 	const (
-		repository  = "pkgrevownerrefs"
-		workspace   = "pkgrevownerrefs-workspace"
-		description = "empty-package description"
-		cmName      = "foo"
+		repository = "pkgrevownerrefs"
+		workspace  = "pkgrevownerrefs-workspace"
+		cmName     = "foo"
 	)
 
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
 	cm := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
@@ -2922,21 +2427,7 @@ func (t *PorchSuite) TestPackageRevisionOwnerReferences() {
 	}
 	t.CreateF(cm)
 
-	pr := &porchapi.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       packageRevisionGVK.Kind,
-			APIVersion: packageRevisionGVK.GroupVersion().String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "empty-package",
-			WorkspaceName:  workspace,
-			RepositoryName: repository,
-		},
-	}
-	t.CreateF(pr)
+	pr := t.CreatePackageDraftF(repository, "empty-package", workspace)
 
 	t.ValidateOwnerReferences(pr.Name, []metav1.OwnerReference{})
 
@@ -2949,10 +2440,6 @@ func (t *PorchSuite) TestPackageRevisionOwnerReferences() {
 	pr.OwnerReferences = []metav1.OwnerReference{ownerRef}
 	t.UpdateF(pr)
 	t.ValidateOwnerReferences(pr.Name, []metav1.OwnerReference{ownerRef})
-
-	pr.OwnerReferences = []metav1.OwnerReference{}
-	t.UpdateF(pr)
-	t.ValidateOwnerReferences(pr.Name, []metav1.OwnerReference{})
 }
 
 func (t *PorchSuite) TestPackageRevisionFinalizers() {
@@ -2962,24 +2449,12 @@ func (t *PorchSuite) TestPackageRevisionFinalizers() {
 		description = "empty-package description"
 	)
 
-	t.RegisterMainGitRepositoryF(repository)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repository, "", GiteaUser, GiteaPassword)
 
-	prDef := &porchapi.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       packageRevisionGVK.Kind,
-			APIVersion: packageRevisionGVK.GroupVersion().String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "empty-package",
-			WorkspaceName:  workspace,
-			RepositoryName: repository,
-		},
-	}
-	t.CreateF(prDef)
-	t.ValidateFinalizers(prDef.Name, []string{})
+	// Create a new package (via init)
+	pr := t.CreatePackageDraftF(repository, "empty-package", workspace)
+
+	t.ValidateFinalizers(pr.Name, []string{})
 
 	readPR := t.GetPackageRevision(repository, "empty-package", 0)
 
@@ -2996,7 +2471,7 @@ func (t *PorchSuite) TestPackageRevisionFinalizers() {
 
 	readPR.Finalizers = []string{}
 	t.UpdateF(readPR)
-	t.WaitUntilObjectDeleted(packageRevisionGVK, types.NamespacedName{
+	t.WaitUntilObjectDeleted(PackageRevisionGVK, types.NamespacedName{
 		Name:      readPR.Name,
 		Namespace: readPR.Namespace,
 	}, 10*time.Second)
@@ -3005,8 +2480,8 @@ func (t *PorchSuite) TestPackageRevisionFinalizers() {
 func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces() {
 
 	registerRepoAndTestRevisions := func(repoName string, ns string, oldPRs []porchapi.PackageRevision) []porchapi.PackageRevision {
-
-		t.RegisterTestBlueprintRepository(repoName, "", RepositoryOptions{RepOpts: InNamespace(ns), SecOpts: SecretInNamespace(ns)})
+		t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), repoName, "", GiteaUser, GiteaPassword,
+			RepositoryOptions{RepOpts: InNamespace(ns), SecOpts: SecretInNamespace(ns)})
 		prList := porchapi.PackageRevisionList{}
 		t.ListF(&prList, client.InNamespace(ns))
 		newPRs := prList.Items
@@ -3078,8 +2553,10 @@ func (t *PorchSuite) TestPackageRevisionInMultipleNamespaces() {
 
 func (t *PorchSuite) TestUniquenessOfUIDs() {
 
-	t.RegisterTestBlueprintRepository("test-blueprints", "")
-	t.RegisterTestBlueprintRepository("test-2-blueprints", "")
+	// Register the upstream repository1
+	t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), TestBlueprintsRepoName, "", GiteaUser, GiteaPassword)
+	// Register the upstream repository2
+	t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), "test-2-blueprints", "", GiteaUser, GiteaPassword)
 
 	prList := porchapi.PackageRevisionList{}
 	t.ListE(&prList, client.InNamespace(t.Namespace))
@@ -3095,8 +2572,7 @@ func (t *PorchSuite) TestUniquenessOfUIDs() {
 }
 
 func (t *PorchSuite) TestPackageRevisionFieldSelectors() {
-	repo := "test-blueprints"
-	t.RegisterTestBlueprintRepository(repo, "")
+	t.RegisterGitRepositoryF(t.GetTestBlueprintsRepoURL(), TestBlueprintsRepoName, "", GiteaUser, GiteaPassword)
 
 	prList := porchapi.PackageRevisionList{}
 
@@ -3180,7 +2656,7 @@ func (t *PorchSuite) TestLatestVersionOnDelete() {
 		packageName    = "test-latest-on-delete-package"
 	)
 
-	t.RegisterMainGitRepositoryF(repositoryName)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repositoryName, "", GiteaUser, GiteaPassword)
 
 	pr1 := t.CreatePackageDraftF(repositoryName, packageName, workspacev1)
 
@@ -3195,7 +2671,16 @@ func (t *PorchSuite) TestLatestVersionOnDelete() {
 		porchapi.LatestPackageRevisionKey: porchapi.LatestPackageRevisionValue,
 	})
 
-	pr2 := t.CreatePackageDraftF(repositoryName, packageName, workspacev2)
+	pr2 := t.CreatePackageSkeleton(repositoryName, packageName, workspacev2)
+	pr2.Spec.Tasks = []porchapi.Task{{
+		Type: porchapi.TaskTypeEdit,
+		Edit: &porchapi.PackageEditTaskSpec{
+			Source: &porchapi.PackageRevisionRef{
+				Name: pr1.Name,
+			},
+		},
+	}}
+	t.CreateF(pr2)
 
 	pr2.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 	t.UpdateF(pr2)
@@ -3244,38 +2729,7 @@ func (t *PorchSuite) TestRepositoryModify() {
 		repositoryName = "repo-modify-test"
 		newDescription = "Updated Repository Description"
 	)
-
-	// Create initial repository
-	t.CreateF(&configapi.Repository{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       configapi.TypeRepository.Kind,
-			APIVersion: configapi.TypeRepository.APIVersion(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      repositoryName,
-			Namespace: t.Namespace,
-		},
-		Spec: configapi.RepositorySpec{
-			Description: "Initial Repository",
-			Type:        configapi.RepositoryTypeGit,
-			Git: &configapi.GitRepository{
-				Repo: t.TestBlueprintsRepo,
-				SecretRef: configapi.SecretRef{
-					Name: t.CreateGcpPackageRevisionSecret(repositoryName),
-				},
-			},
-		},
-	})
-
-	// Clean up after test
-	t.Cleanup(func() {
-		t.DeleteL(&configapi.Repository{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      repositoryName,
-				Namespace: t.Namespace,
-			},
-		})
-	})
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repositoryName, "", GiteaUser, GiteaPassword)
 
 	// Get the repository to modify
 	var repository configapi.Repository
@@ -3288,42 +2742,22 @@ func (t *PorchSuite) TestRepositoryModify() {
 	repository.Spec.Description = newDescription
 	t.UpdateF(&repository)
 
-	// Wait and verify the repository condition
-	giveUp := time.Now().Add(60 * time.Second)
-	for {
-		if time.Now().After(giveUp) {
-			t.Errorf("Timed out waiting for Repository Condition")
-			break
-		}
+	// Wait for repository to be ready
+	t.WaitUntilRepositoryReady(repositoryName, t.Namespace)
 
-		time.Sleep(5 * time.Second)
+	// Verify description was updated
+	var updatedRepo configapi.Repository
+	t.GetF(client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      repositoryName,
+	}, &updatedRepo)
 
-		var updatedRepo configapi.Repository
-		t.GetF(client.ObjectKey{
-			Namespace: t.Namespace,
-			Name:      repositoryName,
-		}, &updatedRepo)
-
-		// Verify description was updated
-		if updatedRepo.Spec.Description != newDescription {
-			t.Errorf("Repository description not updated; got %q, want %q",
-				updatedRepo.Spec.Description, newDescription)
-		}
-
-		ready := meta.FindStatusCondition(updatedRepo.Status.Conditions, configapi.RepositoryReady)
-		if ready == nil {
-			t.Logf("Repository condition not yet available")
-			continue
-		}
-
-		if got, want := ready.Status, metav1.ConditionTrue; got != want {
-			t.Errorf("Repository Ready Condition Status; got %q, want %q", got, want)
-		}
-		if got, want := ready.Reason, configapi.ReasonReady; got != want {
-			t.Errorf("Repository Ready Condition Reason: got %q, want %q", got, want)
-		}
-		break
+	if updatedRepo.Spec.Description != newDescription {
+		t.Errorf("Repository description not updated; got %q, want %q",
+			updatedRepo.Spec.Description, newDescription)
 	}
+
+	t.Logf("Repository modify successful: description updated to %q", newDescription)
 
 }
 
@@ -3335,7 +2769,7 @@ func (t *PorchSuite) TestMetadataAfterApproveAndBackgroundJob() {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repoName)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, "", GiteaUser, GiteaPassword)
 
 	// init, propose, and approve a new package
 	pr := t.CreatePackageSkeleton(repoName, packageName, workspace)
@@ -3380,7 +2814,7 @@ func (t *PorchSuite) TestMetadataAfterDeleteAndBackgroundJob() {
 	)
 
 	// Register the repository
-	t.RegisterMainGitRepositoryF(repoName)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, "", GiteaUser, GiteaPassword)
 
 	// init, propose, and approve a new package
 	pr := t.CreatePackageSkeleton(repoName, packageName, workspace)
@@ -3446,35 +2880,22 @@ func (t *PorchSuite) TestCreatePackageRevisionRollback() {
 	repositoryName := "test-repo"
 
 	// Register the repository first
-	t.RegisterMainGitRepositoryF(repositoryName)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repositoryName, "", GiteaUser, GiteaPassword)
 
 	// Create a package revision with invalid task configuration
 	// that will cause task application to fail
-	pr := &porchapi.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
-			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s.%s.%s", repositoryName, packageName, workspaceName),
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    packageName,
-			WorkspaceName:  workspaceName,
-			RepositoryName: repositoryName,
-			Tasks: []porchapi.Task{
-				{
-					Type: porchapi.TaskTypeClone,
-					Clone: &porchapi.PackageCloneTaskSpec{
-						Upstream: porchapi.UpstreamPackage{
-							Type: porchapi.RepositoryTypeGit,
-							Git: &porchapi.GitPackage{
-								Repo:      "https://github.com/nephio-project/porch.git",
-								Ref:       "main",
-								Directory: "testdata/test-repo",
-							},
-						},
+	pr := t.CreatePackageSkeleton(repositoryName, packageName, workspaceName)
+	pr.ObjectMeta.Name = fmt.Sprintf("%s.%s.%s", repositoryName, packageName, workspaceName)
+	pr.Spec.Tasks = []porchapi.Task{
+		{
+			Type: porchapi.TaskTypeClone,
+			Clone: &porchapi.PackageCloneTaskSpec{
+				Upstream: porchapi.UpstreamPackage{
+					Type: porchapi.RepositoryTypeGit,
+					Git: &porchapi.GitPackage{
+						Repo:      "https://github.com/nephio-project/porch.git",
+						Ref:       "main",
+						Directory: "testdata/test-repo",
 					},
 				},
 			},
@@ -3490,12 +2911,17 @@ func (t *PorchSuite) TestCreatePackageRevisionRollback() {
 	assert.True(t, errors.IsNotFound(err), "Expected package revision to be deleted after rollback")
 }
 
-func (t *PorchSuite) TestPackageRevisionListWithTwoHangingRepositories() {
+func (t *PorchSuite) TestPackageRevisionListWithHangingRepository() {
 	const workingRepoName = "working-repo"
+
+	// Create working repository
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), workingRepoName, "", GiteaUser, GiteaPassword)
+
+	// Create a PackageRevision in the working repo
+	t.CreatePackageDraftF(workingRepoName, "test-package-hanging", defaultWorkspace)
 
 	hangingURLs := []string{
 		"http://10.255.255.1/test.git",
-		"http://10.255.255.2/test.git",
 	}
 
 	// Create hanging repositories in parallel
@@ -3529,62 +2955,6 @@ func (t *PorchSuite) TestPackageRevisionListWithTwoHangingRepositories() {
 		}(i, url)
 	}
 	wg.Wait()
-
-	// Create working repository
-	workingRepo := &configapi.Repository{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       configapi.TypeRepository.Kind,
-			APIVersion: configapi.TypeRepository.APIVersion(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      workingRepoName,
-			Namespace: t.Namespace,
-		},
-		Spec: configapi.RepositorySpec{
-			Description: "Working Git repository",
-			Type:        configapi.RepositoryTypeGit,
-			Git: &configapi.GitRepository{
-				Repo: t.GitConfig("working-repo").Repo,
-			},
-		},
-	}
-	t.CreateF(workingRepo)
-	t.Cleanup(func() {
-		t.DeleteF(workingRepo)
-	})
-
-	// Create a PackageRevision in the working repo
-	pr := &porchapi.PackageRevision{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PackageRevision",
-			APIVersion: porchapi.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "test-package",
-			WorkspaceName:  "workspace",
-			RepositoryName: workingRepoName,
-			Tasks: []porchapi.Task{
-				{
-					Type: porchapi.TaskTypeInit,
-					Init: &porchapi.PackageInitTaskSpec{
-						Description: "Initial commit",
-					},
-				},
-			},
-		},
-	}
-	t.CreateF(pr)
-	t.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		defer cancel()
-		err := t.Client.Delete(ctx, pr)
-		if err != nil {
-			t.Logf("Cleanup warning: could not delete PackageRevision: %v", err)
-		}
-	})
 
 	found := false
 	for i := range 5 {

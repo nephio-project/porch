@@ -28,7 +28,6 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
-	"k8s.io/klog/v2"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -52,20 +51,15 @@ func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.
 		return nil, err
 	}
 
-	c.mainLock.Lock()
-	defer c.mainLock.Unlock()
+	c.mainLock.RLock()
 
 	if dbRepo, ok := c.repositories[repoKey]; ok {
+		c.mainLock.RUnlock()
 		// Keep the spec updated in the cache.
 		dbRepo.spec = repositorySpec
-		err := externalrepo.CheckRepositoryConnection(ctx, dbRepo.spec, c.options.ExternalRepoOptions)
-		if err != nil {
-			klog.Warningf("dbRepository:OpenRepository: repo %+v connectivity check failed with error %q", repoKey, err)
-			return nil, err
-		}
-		klog.V(2).Infof("dbCache::OpenRepository: verified repo connectivity %+v", repoKey)
 		return dbRepo, nil
 	}
+	c.mainLock.RUnlock()
 
 	dbRepo := &dbRepository{
 		repoKey:              repoKey,
@@ -82,7 +76,9 @@ func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.
 		return nil, err
 	}
 
+	c.mainLock.Lock()
 	c.repositories[repoKey] = dbRepo
+	c.mainLock.Unlock()
 
 	dbRepo.repositorySync = newRepositorySync(dbRepo, c.options)
 
@@ -154,4 +150,8 @@ func (c *dbCache) GetRepository(repoKey repository.RepositoryKey) repository.Rep
 	c.mainLock.RLock()
 	defer c.mainLock.RUnlock()
 	return c.repositories[repoKey]
+}
+
+func (c *dbCache) CheckRepositoryConnectivity(ctx context.Context, repositorySpec *configapi.Repository) error {
+	return externalrepo.CheckRepositoryConnection(ctx, repositorySpec, c.options.ExternalRepoOptions)
 }
