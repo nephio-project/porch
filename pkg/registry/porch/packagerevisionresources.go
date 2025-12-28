@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/klog/v2"
@@ -45,6 +46,7 @@ var _ rest.Getter = &packageRevisionResources{}
 var _ rest.Scoper = &packageRevisionResources{}
 var _ rest.Updater = &packageRevisionResources{}
 var _ rest.SingularNameProvider = &packageRevisionResources{}
+var _ rest.Watcher = &packageRevisionResources{}
 
 // GetSingularName implements the SingularNameProvider interface
 func (r *packageRevisionResources) GetSingularName() string {
@@ -201,4 +203,26 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 	klog.Infof("Update operation completed for packagerevisionresources: %s", name)
 
 	return created, false, nil
+}
+
+// Watch supports watching for PackageRevisionResources changes.
+func (r *packageRevisionResources) Watch(ctx context.Context, options *metainternalversion.ListOptions) (watch.Interface, error) {
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::Watch", trace.WithAttributes())
+	defer span.End()
+
+	filter, err := parsePackageRevisionResourcesFieldSelector(options)
+	if err != nil {
+		return nil, err
+	}
+
+	if namespace, namespaced := genericapirequest.NamespaceFrom(ctx); namespaced {
+		if filter.Key.RKey().Namespace != "" && namespace != filter.Key.RKey().Namespace {
+			return nil, fmt.Errorf("conflicting namespaces specified: %q and %q", namespace, filter.Key.RKey().Namespace)
+		}
+		filter.Key.PkgKey.RepoKey.Namespace = namespace
+	}
+
+	return createGenericWatch(ctx, r, *filter, func(ctx context.Context, pr repository.PackageRevision) (runtime.Object, error) {
+		return pr.GetResources(ctx)
+	})
 }
