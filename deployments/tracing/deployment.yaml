@@ -16,14 +16,14 @@ kind: ServiceAccount
 apiVersion: v1
 metadata:
   name: jaeger
-  namespace: monitoring
+  namespace: porch-system
 
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: jaeger
-  namespace: monitoring
+  namespace: porch-system
 spec:
   replicas: 1
   selector:
@@ -51,7 +51,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: jaeger-oltp
-  namespace: monitoring
+  namespace: porch-system
 spec:
   ports:
     - port: 4317
@@ -64,7 +64,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: jaeger-http
-  namespace: monitoring
+  namespace: porch-system
 spec:
   ports:
     - port: 16686

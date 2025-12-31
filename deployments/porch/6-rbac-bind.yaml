@@ -51,16 +51,3 @@ subjects:
   - kind: ServiceAccount
     name: porch-fn-runner
     namespace: porch-system
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: porch-fn-runner
-  namespace: porch-system
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: porch-fn-runner
-subjects:
-  - kind: ServiceAccount
-    name: porch-fn-runner

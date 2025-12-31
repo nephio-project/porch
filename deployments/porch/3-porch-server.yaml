@@ -148,9 +148,5 @@ spec:
       protocol: TCP
       targetPort: 8443
       name: webhooks
-    - port: 9464
-      protocol: TCP
-      targetPort: 9464
-      name: metrics
   selector:
     app: porch-server

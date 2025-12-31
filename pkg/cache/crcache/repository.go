@@ -209,7 +209,7 @@ func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd re
 	ctx, span := tracer.Start(ctx, "cachedRepository::ClosePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
 
-	v, err := r.repo.Version(ctx)
+	v, err := r.Version(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -587,7 +587,7 @@ func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[re
 	start := time.Now()
 	defer func() { klog.Infof("repo %+v: refresh finished in %f secs", r.Key(), time.Since(start).Seconds()) }()
 
-	curVer, err := r.repo.Version(ctx)
+	curVer, err := r.Version(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
