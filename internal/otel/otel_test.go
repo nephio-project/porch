@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"go.opentelemetry.io/otel"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 
@@ -24,6 +25,7 @@ func TestOtelMetricsPushHTTP(t *testing.T) {
 	defer ts.Close()
 
 	t.Setenv("OTEL_METRICS_EXPORTER", "otlp")
+	t.Setenv("OTEL_TRACES_EXPORTER", "none")
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", ts.URL)
 	t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf")
 
@@ -45,6 +47,7 @@ func TestOtelTracesPushHTTP(t *testing.T) {
 	defer ts.Close()
 
 	t.Setenv("OTEL_TRACES_EXPORTER", "otlp")
+	t.Setenv("OTEL_METRICS_EXPORTER", "none")
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", ts.URL)
 	t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf")
 
@@ -53,7 +56,14 @@ func TestOtelTracesPushHTTP(t *testing.T) {
 	if err != nil {
 		t.Errorf("SetupOpenTelemetry() error = %v", err)
 		cancel()
+		return
 	}
+	
+	// Create a span to trigger trace export
+	tracer := otel.Tracer("test")
+	_, span := tracer.Start(ctx, "test-span")
+	span.End()
+	
 	cancel()
 	<-requestWaitChannel
 }
@@ -130,6 +140,7 @@ func TestOtelMetricsPushGRPC(t *testing.T) {
 	defer s.Stop()
 
 	t.Setenv("OTEL_METRICS_EXPORTER", "otlp")
+	t.Setenv("OTEL_TRACES_EXPORTER", "none")
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", fmt.Sprintf("http://localhost:%d", lis.Addr().(*net.TCPAddr).Port))
 	t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc")
 
@@ -164,6 +175,7 @@ func TestOtelTracesPushGRPC(t *testing.T) {
 	defer s.Stop()
 
 	t.Setenv("OTEL_TRACES_EXPORTER", "otlp")
+	t.Setenv("OTEL_METRICS_EXPORTER", "none")
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", fmt.Sprintf("http://localhost:%d", lis.Addr().(*net.TCPAddr).Port))
 	t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc")
 
@@ -173,7 +185,14 @@ func TestOtelTracesPushGRPC(t *testing.T) {
 	if err != nil {
 		t.Errorf("SetupOpenTelemetry() error = %v", err)
 		cancel()
+		return
 	}
+	
+	// Create a span to trigger trace export
+	tracer := otel.Tracer("test")
+	_, span := tracer.Start(ctx, "test-span")
+	span.End()
+	
 	cancel()
 	<-requestWaitChannel
 }

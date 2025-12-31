@@ -97,15 +97,11 @@ spec:
             - name: OTEL_METRICS_EXPORTER
               value: "prometheus"
             - name: OTEL_EXPORTER_PROMETHEUS_HOST
-              value: localhost # Default value, showing for visibility
+              value: 0.0.0.0
             - name: OTEL_EXPORTER_PROMETHEUS_PORT
               value: "9464" # Default value, showing for visibility
             - name: OTEL_TRACES_EXPORTER
-              value: otlp
-            - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: http://jaeger-oltp:4317
-            - name: OTEL_EXPORTER_OTLP_PROTOCOL
-              value: grpc
+              value: none
           args:
             - --function-runner=function-runner:9445
             - --cache-directory=/cache

@@ -43,7 +43,6 @@ spec:
             - --config=/config.yaml
             - --functions=/functions
             - --pod-namespace=porch-fn-system
-            - --function-pod-template=kpt-function-eval-pod-template
             - --max-request-body-size=6291456 # Keep this in sync with porch-server's corresponding argument
             - --warm-up-pod-cache=true
           env:
@@ -52,15 +51,11 @@ spec:
             - name: OTEL_METRICS_EXPORTER
               value: "prometheus"
             - name: OTEL_EXPORTER_PROMETHEUS_HOST
-              value: localhost # Default value, showing for visibility
+              value: 0.0.0.0
             - name: OTEL_EXPORTER_PROMETHEUS_PORT
               value: "9464" # Default value, showing for visibility
             - name: OTEL_TRACES_EXPORTER
-              value: otlp
-            - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: http://jaeger-oltp:4317
-            - name: OTEL_EXPORTER_OTLP_PROTOCOL
-              value: grpc
+              value: none
             - name: OTEL_SERVICE_NAME
               value: porch-function-runner
           ports:
@@ -127,64 +122,3 @@ data:
     ghcr.io/kptdev/krm-functions-catalog/generate-folders:v0.1.1: 30m
     ghcr.io/kptdev/krm-functions-catalog/remove-local-config-resources:v0.1.0: 30m
     ghcr.io/kptdev/krm-functions-catalog/set-project-id:v0.2.0: 30m
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: kpt-function-eval-pod-template
-  namespace: porch-system
-data:
-  template: |
-    apiVersion: v1
-    kind: Pod
-    annotations:
-      cluster-autoscaler.kubernetes.io/safe-to-evict: true
-    spec:
-      initContainers:
-        - name: copy-wrapper-server
-          image: porch-kind/porch-wrapper-server:test
-          command: 
-            - cp
-            - -a
-            - /wrapper-server/.
-            - /wrapper-server-tools
-          volumeMounts:
-            - name: wrapper-server-tools
-              mountPath: /wrapper-server-tools
-      containers:
-        - name: function
-          image: image-replaced-by-kpt-func-image
-          command: 
-            - /wrapper-server-tools/wrapper-server
-          env: 
-            - name: OTEL_METRICS_EXPORTER
-              value: "prometheus"
-            - name: OTEL_EXPORTER_PROMETHEUS_HOST
-              value: localhost # Default value, showing for visibility
-            - name: OTEL_EXPORTER_PROMETHEUS_PORT
-              value: "9464" # Default value, showing for visibility
-            - name: OTEL_TRACES_EXPORTER
-              value: otlp
-            - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: http://jaeger-oltp:4317
-            - name: OTEL_EXPORTER_OTLP_PROTOCOL
-              value: grpc
-            - name: OTEL_SERVICE_NAME
-              value: porch-wrapper-server
-          volumeMounts:
-            - name: wrapper-server-tools
-              mountPath: /wrapper-server-tools
-      volumes:
-        - name: wrapper-server-tools
-          emptyDir: {}
-  serviceTemplate: |
-    apiVersion: v1
-    kind: Service
-    spec:
-      ports:
-      - port: 9446
-        protocol: TCP
-        targetPort: 9446
-      selector:
-        fn.kpt.dev/image: to-be-replaced
-      type: ClusterIP

@@ -998,6 +998,20 @@ func (pm *podManager) getBasePodTemplate(ctx context.Context) (*corev1.Pod, stri
 						Name:    functionContainerName,
 						Image:   "to-be-replaced",
 						Command: []string{filepath.Join(volumeMountPath, wrapperServerBin)},
+						Env: []corev1.EnvVar{
+							{
+								Name:  "OTEL_METRICS_EXPORTER",
+								Value: "prometheus",
+							},
+							{
+								Name:  "OTEL_TRACES_EXPORTER",
+								Value: "none",
+							},
+							{
+								Name:  "OTEL_EXPORTER_PROMETHEUS_HOST",
+								Value: "0.0.0.0",
+							},
+						},
 						ReadinessProbe: &corev1.Probe{
 							ProbeHandler: corev1.ProbeHandler{
 								// TODO: use the k8s native GRPC prober when it has been rolled out in GKE.

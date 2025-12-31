@@ -99,6 +99,8 @@ func (t *PorchSuite) TestMetricsEndpoint() {
 		"rpc_server_*",
 	}
 
+	//This is needed to ensure that there is at least one wrapper-server instance.
+	t.TestPodEvaluator()
 	collectionResults, err := t.collectMetricsFromPods()
 	if err != nil {
 		t.Fatalf("failed to collect metrics from pods: %v", err)
