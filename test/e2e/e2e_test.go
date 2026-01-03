@@ -93,7 +93,7 @@ func (t *PorchSuite) TestMetricsEndpoint() {
 	porchFunctionRunnerShouldHaveRegexList := []string{
 		"go_*",
 		"rpc_server_*",
-		"rpc_client_*",
+		// "rpc_client_*", //There is no way to force both function runners to have at least one connection, so no metrics
 	}
 	porchWrapperServerShouldHaveRegexList := []string{
 		"go_*",
