@@ -1784,6 +1784,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 
 	// Wait for the correct pod to be created and capture suffix
 	var firstPodSuffix string
+	var firstPod *corev1.Pod
 	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 30*time.Second, false, func(ctx context.Context) (bool, error) {
 		podList := &corev1.PodList{}
 		if err := t.Client.List(ctx, podList, client.InNamespace("porch-fn-system")); err != nil {
@@ -1797,6 +1798,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 				}
 				t.Logf("Found matching pod %s, captured suffix: %s", pod.Name, firstPodSuffix)
 				t.DeleteF(&pod)
+				firstPod = &pod
 				return true, nil
 			}
 		}
@@ -1805,6 +1807,8 @@ func (t *PorchSuite) TestPodEvaluator() {
 	if err != nil {
 		t.Fatalf("Failed to find pod with image %s: %v", setAnnotationsImage, err)
 	}
+
+	t.WaitUntilObjectDeleted(firstPod.GroupVersionKind(), client.ObjectKeyFromObject(firstPod), 30*time.Second)
 
 	// Create second package revision
 	pr2 := t.CreatePackageCloneF(repoName, "test-fn-pod-bucket-2", "workspace-2", defaultBucketBpRef, "bucket")
