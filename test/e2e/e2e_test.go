@@ -57,6 +57,7 @@ const (
 
 var (
 	configMapGVK = corev1.SchemeGroupVersion.WithKind("ConfigMap")
+	podGVK       = corev1.SchemeGroupVersion.WithKind("Pod")
 )
 
 type PorchSuite struct {
@@ -1762,7 +1763,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 		t.Fatalf("Failed to find pod with image %s: %v", setAnnotationsImage, err)
 	}
 
-	t.WaitUntilObjectDeleted(firstPod.GroupVersionKind(), client.ObjectKeyFromObject(firstPod), 30*time.Second)
+	t.WaitUntilObjectDeleted(podGVK, client.ObjectKeyFromObject(firstPod), 30*time.Second)
 
 	// Create second package revision
 	pr2 := t.CreatePackageCloneF(repoName, "test-fn-pod-bucket-2", "workspace-2", defaultBucketBpRef, "bucket")
