@@ -108,6 +108,12 @@ func (o *options) run() error {
 	healthService := healthchecker.NewHealthChecker()
 	grpc_health_v1.RegisterHealthServer(server, healthService)
 
+	go func() {
+		<-ctx.Done()
+		klog.Info("Shutting down server...")
+		server.GracefulStop()
+	}()
+
 	if err := server.Serve(lis); err != nil {
 		return fmt.Errorf("server failed: %w", err)
 	}
