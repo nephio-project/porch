@@ -48,6 +48,10 @@ type cachedRepository struct {
 	repoSpec *configapi.Repository
 	repo     repository.Repository
 
+	// Last version the cache has seen for this repository.
+	// This needs to be kept separately from the version in the externalRepository
+	// because there can be changes that are pushed down through the cache,
+	// but not reflected in the list of packageRevisions correctly.
 	lastVersion string
 
 	mutex                  stdSync.RWMutex

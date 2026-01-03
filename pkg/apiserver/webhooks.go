@@ -35,6 +35,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"go.opentelemetry.io/otel"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
@@ -63,6 +64,8 @@ var (
 	cert        tls.Certificate
 	certModTime time.Time
 )
+
+var tracer = otel.Tracer("deletion-webhook")
 
 // WebhookConfig defines the configuration for the PackageRevision deletion webhook
 type WebhookConfig struct {
@@ -443,6 +446,8 @@ func runWebhookServer(ctx context.Context, cfg *WebhookConfig) error {
 }
 
 func validateDeletion(w http.ResponseWriter, r *http.Request) {
+	ctx, span := tracer.Start(r.Context(), "validateDeletion")
+	defer span.End()
 	klog.Infoln("received request to validate deletion")
 
 	admissionReviewRequest, err := decodeAdmissionReview(r)
@@ -467,7 +472,7 @@ func validateDeletion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pr := porchapi.PackageRevision{}
-	if err := porchClient.Get(context.Background(), client.ObjectKey{
+	if err := porchClient.Get(ctx, client.ObjectKey{
 		Namespace: admissionReviewRequest.Request.Namespace,
 		Name:      admissionReviewRequest.Request.Name,
 	}, &pr); err != nil {

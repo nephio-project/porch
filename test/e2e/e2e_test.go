@@ -57,6 +57,7 @@ const (
 
 var (
 	configMapGVK = corev1.SchemeGroupVersion.WithKind("ConfigMap")
+	podGVK       = corev1.SchemeGroupVersion.WithKind("Pod")
 )
 
 type PorchSuite struct {
@@ -74,6 +75,52 @@ func TestE2E(t *testing.T) {
 			UseGitea: true,
 		},
 	})
+}
+
+func (t *PorchSuite) TestMetricsEndpoint() {
+	porchServerShouldHaveRegexList := []string{
+		"go_*",
+		"http_server_*",
+		"http_client_*",
+		"rest_client_*",
+		"process_*",
+		"rpc_client_*",
+	}
+	porchControllerShouldHaveRegexList := []string{
+		"controller_*",
+		"go_*",
+	}
+	porchFunctionRunnerShouldHaveRegexList := []string{
+		"go_*",
+		"rpc_server_*",
+		// "rpc_client_*", //There is no way to force both function runners to have at least one connection, so no metrics
+	}
+	porchWrapperServerShouldHaveRegexList := []string{
+		"go_*",
+		"rpc_server_*",
+	}
+
+	//This is needed to ensure that there is at least one wrapper-server instance.
+	t.TestPodEvaluator()
+	collectionResults, err := t.collectMetricsFromPods()
+	if err != nil {
+		t.Fatalf("failed to collect metrics from pods: %v", err)
+	}
+
+	for _, regex := range porchServerShouldHaveRegexList {
+		assert.Regexp(t.T(), regex, collectionResults.porchServerMetrics, "porch server metrics should contain %q", regex)
+	}
+
+	for _, regex := range porchControllerShouldHaveRegexList {
+		assert.Regexp(t.T(), regex, collectionResults.porchControllerMetrics, "porch controller metrics should contain %q", regex)
+	}
+
+	for _, regex := range porchFunctionRunnerShouldHaveRegexList {
+		assert.Regexp(t.T(), regex, collectionResults.porchFunctionRunnerMetrics, "porch function runner metrics should contain %q", regex)
+	}
+	for _, regex := range porchWrapperServerShouldHaveRegexList {
+		assert.Regexp(t.T(), regex, collectionResults.porchWrapperServerMetrics, "porch wrapper server metrics should contain %q", regex)
+	}
 }
 
 func (t *PorchSuite) TestGitRepository() {
@@ -1738,6 +1785,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 
 	// Wait for the correct pod to be created and capture suffix
 	var firstPodSuffix string
+	var firstPod *corev1.Pod
 	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 30*time.Second, false, func(ctx context.Context) (bool, error) {
 		podList := &corev1.PodList{}
 		if err := t.Client.List(ctx, podList, client.InNamespace("porch-fn-system")); err != nil {
@@ -1751,6 +1799,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 				}
 				t.Logf("Found matching pod %s, captured suffix: %s", pod.Name, firstPodSuffix)
 				t.DeleteF(&pod)
+				firstPod = &pod
 				return true, nil
 			}
 		}
@@ -1759,6 +1808,8 @@ func (t *PorchSuite) TestPodEvaluator() {
 	if err != nil {
 		t.Fatalf("Failed to find pod with image %s: %v", setAnnotationsImage, err)
 	}
+
+	t.WaitUntilObjectDeleted(podGVK, client.ObjectKeyFromObject(firstPod), 30*time.Second)
 
 	// Create second package revision
 	pr2 := t.CreatePackageCloneF(repoName, "test-fn-pod-bucket-2", "workspace-2", defaultBucketBpRef, "bucket")

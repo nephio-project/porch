@@ -36,6 +36,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/nephio-project/porch/func/evaluator"
 	util "github.com/nephio-project/porch/pkg/util"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"gopkg.in/yaml.v2"
@@ -93,7 +94,7 @@ type PodEvaluatorOptions struct {
 
 var _ Evaluator = &podEvaluator{}
 
-func NewPodEvaluator(o PodEvaluatorOptions) (Evaluator, error) {
+func NewPodEvaluator(ctx context.Context, o PodEvaluatorOptions) (Evaluator, error) {
 
 	restCfg, err := config.GetConfig()
 	if err != nil {
@@ -148,7 +149,7 @@ func NewPodEvaluator(o PodEvaluatorOptions) (Evaluator, error) {
 			},
 		},
 	}
-	go pe.podCacheManager.podCacheManager()
+	go pe.podCacheManager.podCacheManager(ctx)
 
 	if o.WarmUpPodCacheOnStartup {
 		// TODO(mengqiy): add watcher that support reloading the cache when the config file was changed.
@@ -306,7 +307,7 @@ func forEachConcurrently(m map[string]string, fn func(k string, v string)) {
 // garbage collection synchronously.
 // We must run this method in one single goroutine. Doing it this way simplify
 // design around concurrency.
-func (pcm *podCacheManager) podCacheManager() {
+func (pcm *podCacheManager) podCacheManager(ctx context.Context) {
 	//nolint:staticcheck
 	tick := time.Tick(pcm.gcScanInterval)
 	for {
@@ -389,6 +390,9 @@ func (pcm *podCacheManager) podCacheManager() {
 		case <-tick:
 			// synchronous GC
 			pcm.garbageCollector()
+		case <-ctx.Done():
+			klog.Info("Pod cache manager shut down")
+			return
 		}
 	}
 }
@@ -612,6 +616,7 @@ func (pm *podManager) getFuncEvalPodClient(ctx context.Context, image string, tt
 				grpc.MaxCallSendMsgSize(pm.maxGrpcMessageSize),
 				grpc.WaitForReady(true),
 			),
+			grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to dial grpc function evaluator on %q for pod %s/%s: %w", address, podKey.Namespace, podKey.Name, err)
@@ -993,6 +998,20 @@ func (pm *podManager) getBasePodTemplate(ctx context.Context) (*corev1.Pod, stri
 						Name:    functionContainerName,
 						Image:   "to-be-replaced",
 						Command: []string{filepath.Join(volumeMountPath, wrapperServerBin)},
+						Env: []corev1.EnvVar{
+							{
+								Name:  "OTEL_METRICS_EXPORTER",
+								Value: "prometheus",
+							},
+							{
+								Name:  "OTEL_TRACES_EXPORTER",
+								Value: "none",
+							},
+							{
+								Name:  "OTEL_EXPORTER_PROMETHEUS_HOST",
+								Value: "0.0.0.0",
+							},
+						},
 						ReadinessProbe: &corev1.Probe{
 							ProbeHandler: corev1.ProbeHandler{
 								// TODO: use the k8s native GRPC prober when it has been rolled out in GKE.
