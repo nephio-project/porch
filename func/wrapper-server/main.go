@@ -29,7 +29,6 @@ import (
 	pb "github.com/nephio-project/porch/func/evaluator"
 	"github.com/nephio-project/porch/func/healthchecker"
 	porchotel "github.com/nephio-project/porch/internal/otel"
-	contextsignal "github.com/nephio-project/porch/internal/signal"
 	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
 	"github.com/spf13/cobra"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -38,6 +37,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
+	contextsignal "k8s.io/apiserver/pkg/server"
 	"k8s.io/klog/v2"
 )
 

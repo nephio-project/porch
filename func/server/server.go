@@ -27,10 +27,10 @@ import (
 	"github.com/nephio-project/porch/func/healthchecker"
 	"github.com/nephio-project/porch/func/internal"
 	porchotel "github.com/nephio-project/porch/internal/otel"
-	contextsignal "github.com/nephio-project/porch/internal/signal"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	contextsignal "k8s.io/apiserver/pkg/server"
 	"k8s.io/klog/v2"
 )
 
@@ -87,10 +87,6 @@ func main() {
 }
 
 func run(o *options) error {
-	// K8s Apiserver implements a OS signal handler that's quite useful.
-	// TODO: Maybe an overkill to import kube-apiserver as a dependency here,
-	// it doesn't bloat the binary, just makes go get slower.
-	// Maybe re-implement the same thing in Porch?
 	ctx := contextsignal.SetupSignalContext()
 
 	flagSet := flag.NewFlagSet("log-level", flag.ContinueOnError)
