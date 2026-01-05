@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package e2e
+package suiteutils
 
 import (
 	"bytes"
@@ -509,25 +509,16 @@ func (t *TestSuite) FindAndDecodeF(resources *porchapi.PackageRevisionResources,
 	}
 }
 
-func (t *TestSuite) CompareGoldenFileYAML(goldenPath string, gotContents string) string {
+func (t *TestSuite) CompareStringYAML(expectedContents string, gotContents string) string {
 	t.T().Helper()
+	expectedContents = t.normalizeYamlOrdering(expectedContents)
 	gotContents = t.normalizeYamlOrdering(gotContents)
-
-	if os.Getenv(updateGoldenFiles) != "" {
-		if err := os.WriteFile(goldenPath, []byte(gotContents), 0644); err != nil {
-			t.Fatalf("Failed to update golden file %q: %v", goldenPath, err)
-		}
-	}
-	golden, err := os.ReadFile(goldenPath)
-	if err != nil {
-		t.Fatalf("Failed to read golden file %q: %v", goldenPath, err)
-	}
-	return cmp.Diff(string(golden), gotContents)
+	return cmp.Diff(expectedContents, gotContents)
 }
 
 func (t *TestSuite) normalizeYamlOrdering(contents string) string {
 	t.T().Helper()
-	var data interface{}
+	var data any
 	if err := yaml.Unmarshal([]byte(contents), &data); err != nil {
 		// not yaml.
 		t.Fatalf("Failed to unmarshal yaml: %v\n%s\n", err, contents)
