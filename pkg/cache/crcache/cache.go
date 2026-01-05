@@ -16,11 +16,11 @@ package crcache
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
+	"github.com/nephio-project/porch/pkg/cache/repomap"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -32,8 +32,7 @@ import (
 var tracer = otel.Tracer("crcache")
 
 type Cache struct {
-	repositories  map[repository.RepositoryKey]*cachedRepository
-	mainLock      *sync.RWMutex
+	repositories  repomap.SafeRepoMap
 	metadataStore meta.MetadataStore
 	options       cachetypes.CacheOptions
 }
@@ -51,28 +50,28 @@ func (c *Cache) OpenRepository(ctx context.Context, repositorySpec *configapi.Re
 		return nil, err
 	}
 
-	c.mainLock.Lock()
-	defer c.mainLock.Unlock()
-
-	if repo, ok := c.repositories[key]; ok && repo != nil {
-		// Keep the spec updated in the cache.
-		repo.repoSpec = repositorySpec
-		// If there is an error from the background refresh goroutine, return it.
-		if err := repo.getRefreshError(); err != nil {
-			return nil, err
-		}
-		return repo, nil
-	}
-
-	externalRepo, err := externalrepo.CreateRepositoryImpl(ctx, repositorySpec, c.options.ExternalRepoOptions)
+	repo, err := c.repositories.LoadOrCreate(key, func() (repository.Repository, error) {
+		return c.createRepository(ctx, key, repositorySpec)
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	cachedRepo := newRepository(key, repositorySpec, externalRepo, c.metadataStore, c.options)
-	c.repositories[key] = cachedRepo
-
+	cachedRepo := repo.(*cachedRepository)
+	cachedRepo.repoSpec = repositorySpec
+	if err := cachedRepo.getRefreshError(); err != nil {
+		return nil, err
+	}
 	return cachedRepo, nil
+}
+
+func (c *Cache) createRepository(ctx context.Context, key repository.RepositoryKey, repositorySpec *configapi.Repository) (repository.Repository, error) {
+	klog.Infof("Creating repository : %v", key)
+	externalRepo, err := externalrepo.CreateRepositoryImpl(ctx, repositorySpec, c.options.ExternalRepoOptions)
+	if err != nil {
+		return nil, err
+	}
+	return newRepository(key, repositorySpec, externalRepo, c.metadataStore, c.options), nil
 }
 
 func (c *Cache) UpdateRepository(context.Context, *configapi.Repository) error {
@@ -88,21 +87,14 @@ func (c *Cache) CloseRepository(ctx context.Context, repositorySpec *configapi.R
 		return err
 	}
 
-	c.mainLock.RLock()
-	repo, ok := c.repositories[key]
-	c.mainLock.RUnlock()
-	if !ok {
-		return nil
-	}
+	repo, ok := c.repositories.LoadAndDelete(key)
 
-	defer func() {
-		c.mainLock.Lock()
-		delete(c.repositories, key)
-		c.mainLock.Unlock()
-	}()
-
-	if repo != nil {
-		return repo.Close(ctx)
+	if ok && repo != nil {
+		if err := repo.Close(ctx); err != nil {
+			return err
+		}
+	} else if ok {
+		klog.Warningf("cached repository with key %q had stored value nil", key)
 	}
 
 	return nil
@@ -111,19 +103,17 @@ func (c *Cache) CloseRepository(ctx context.Context, repositorySpec *configapi.R
 func (c *Cache) GetRepositories() []*configapi.Repository {
 	repoSlice := []*configapi.Repository{}
 
-	c.mainLock.RLock()
-	defer c.mainLock.RUnlock()
-	for _, repo := range c.repositories {
-		repoSlice = append(repoSlice, repo.repoSpec)
-	}
+	c.repositories.Range(func(key, value any) bool {
+		repoSlice = append(repoSlice, value.(*cachedRepository).repoSpec)
+		return true
+	})
 
 	return repoSlice
 }
 
 func (c *Cache) GetRepository(repoKey repository.RepositoryKey) repository.Repository {
-	c.mainLock.RLock()
-	defer c.mainLock.RUnlock()
-	return c.repositories[repoKey]
+	repo, _ := c.repositories.Load(repoKey)
+	return repo
 }
 
 func (c *Cache) CheckRepositoryConnectivity(ctx context.Context, repositorySpec *configapi.Repository) error {

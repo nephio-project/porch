@@ -91,7 +91,6 @@ type Config struct {
 type PorchServer struct {
 	GenericAPIServer           *genericapiserver.GenericAPIServer
 	coreClient                 client.WithWatch
-	clientReader               client.Reader
 	cache                      cachetypes.Cache
 	periodicRepoSyncFrequency  time.Duration
 	ListTimeoutPerRepository   time.Duration
@@ -140,7 +139,7 @@ func (c completedConfig) getRestConfig() (*rest.Config, error) {
 	}
 }
 
-func (c completedConfig) getCoreClient() (client.WithWatch, error) {
+func (c completedConfig) buildClient() (client.WithWatch, error) {
 	restConfig, err := c.getRestConfig()
 	if err != nil {
 		return nil, err
@@ -154,11 +153,9 @@ func (c completedConfig) getCoreClient() (client.WithWatch, error) {
 	if err := configapi.AddToScheme(scheme); err != nil {
 		return nil, fmt.Errorf("error building scheme: %w", err)
 	}
-
 	if err := porchapi.AddToScheme(scheme); err != nil {
 		return nil, fmt.Errorf("error building scheme: %w", err)
 	}
-
 	if err := corev1.AddToScheme(scheme); err != nil {
 		return nil, fmt.Errorf("error building scheme: %w", err)
 	}
@@ -166,50 +163,7 @@ func (c completedConfig) getCoreClient() (client.WithWatch, error) {
 		return nil, fmt.Errorf("error building scheme: %w", err)
 	}
 
-	coreClient, err := client.NewWithWatch(restConfig, client.Options{
-		Scheme: scheme,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("error building client for core apiserver: %w", err)
-	}
-
-	return coreClient, nil
-}
-
-func (c completedConfig) getClientReader() (client.Reader, error) {
-	restConfig, err := c.getRestConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	// set high qps/burst limits for parallel webhook operations
-	restConfig.QPS = 200
-	restConfig.Burst = 400
-
-	scheme := runtime.NewScheme()
-	if err := configapi.AddToScheme(scheme); err != nil {
-		return nil, fmt.Errorf("error building scheme: %w", err)
-	}
-
-	if err := porchapi.AddToScheme(scheme); err != nil {
-		return nil, fmt.Errorf("error building scheme: %w", err)
-	}
-
-	if err := corev1.AddToScheme(scheme); err != nil {
-		return nil, fmt.Errorf("error building scheme: %w", err)
-	}
-	if err := internalapi.AddToScheme(scheme); err != nil {
-		return nil, fmt.Errorf("error building scheme: %w", err)
-	}
-
-	clientReader, err := client.New(restConfig, client.Options{
-		Scheme: scheme,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("error building client reader: %w", err)
-	}
-
-	return clientReader, nil
+	return client.NewWithWatch(restConfig, client.Options{Scheme: scheme})
 }
 
 func (c completedConfig) getCoreV1Client() (*corev1client.CoreV1Client, error) {
@@ -235,14 +189,9 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 		return nil, err
 	}
 
-	coreClient, err := c.getCoreClient()
+	coreClient, err := c.buildClient()
 	if err != nil {
 		return nil, fmt.Errorf("failed to build client for core apiserver: %w", err)
-	}
-
-	clientReader, err := c.getClientReader()
-	if err != nil {
-		return nil, fmt.Errorf("failed to build client reader: %w", err)
 	}
 
 	coreV1Client, err := c.getCoreV1Client()
@@ -321,7 +270,6 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	s := &PorchServer{
 		GenericAPIServer: genericServer,
 		coreClient:       coreClient,
-		clientReader:     clientReader,
 		cache:            cacheImpl,
 		// Set background job periodic frequency the same as repo sync frequency.
 		periodicRepoSyncFrequency:  c.ExtraConfig.CacheOptions.RepoSyncFrequency,
@@ -348,7 +296,7 @@ func (s *PorchServer) Run(ctx context.Context) error {
 	// but for now we keep backward compatiblity
 	certStorageDir, found := os.LookupEnv("CERT_STORAGE_DIR")
 	if found && strings.TrimSpace(certStorageDir) != "" {
-		if err := setupWebhooks(ctx, s.clientReader); err != nil {
+		if err := setupWebhooks(ctx, s.coreClient); err != nil {
 			klog.Errorf("%v\n", err)
 			return err
 		}

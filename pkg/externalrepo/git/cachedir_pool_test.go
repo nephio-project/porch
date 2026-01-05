@@ -27,7 +27,7 @@ import (
 
 func TestDirectoryPool_GetOrCreateSharedRepository(t *testing.T) {
 	pool := &DirectoryPool{
-		directories: make(map[string]*SharedDirectory),
+		directories: sync.Map{},
 	}
 
 	tempDir := t.TempDir()
@@ -48,7 +48,7 @@ func TestDirectoryPool_GetOrCreateSharedRepository(t *testing.T) {
 
 func TestDirectoryPool_ReleaseSharedRepository(t *testing.T) {
 	pool := &DirectoryPool{
-		directories: make(map[string]*SharedDirectory),
+		directories: sync.Map{},
 	}
 
 	tempDir := t.TempDir()
@@ -68,7 +68,7 @@ func TestDirectoryPool_ReleaseSharedRepository(t *testing.T) {
 
 	// Second release should remove from pool and cleanup directory
 	pool.ReleaseSharedRepository(repoDir, "test-repo")
-	_, exists := pool.directories[repoDir]
+	_, exists := pool.directories.Load(repoDir)
 	assert.False(t, exists)
 	_, err = os.Stat(repoDir)
 	assert.True(t, os.IsNotExist(err))
@@ -118,7 +118,7 @@ func TestSharedDirectory_WithRLock(t *testing.T) {
 
 func TestDirectoryPool_ConcurrentAccess(t *testing.T) {
 	pool := &DirectoryPool{
-		directories: make(map[string]*SharedDirectory),
+		directories: sync.Map{},
 	}
 
 	tempDir := t.TempDir()
@@ -139,9 +139,8 @@ func TestDirectoryPool_ConcurrentAccess(t *testing.T) {
 	wg.Wait()
 
 	// Check final refCount
-	pool.mutex.Lock()
-	shared := pool.directories[repoDir]
-	pool.mutex.Unlock()
+	sharedDir, _ := pool.directories.Load(repoDir)
+	shared := sharedDir.(*SharedDirectory)
 
 	assert.Equal(t, numGoroutines, shared.refCount)
 
@@ -156,6 +155,6 @@ func TestDirectoryPool_ConcurrentAccess(t *testing.T) {
 	wg.Wait()
 
 	// Directory should be cleaned up
-	_, exists := pool.directories[repoDir]
+	_, exists := pool.directories.Load(repoDir)
 	assert.False(t, exists)
 }
