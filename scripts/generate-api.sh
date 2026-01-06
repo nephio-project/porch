@@ -31,7 +31,7 @@ ROOT=$($READLINK --canonicalize "$HERE/..")
 PORCH_API_DIR=$ROOT/api
 PORCH_API_GENERATED_DIR=$ROOT/api/generated
 
-BOILERPLATE=$HERE/boilerplate.go.thisyear.txt
+BOILERPLATE=$HERE/boilerplate.go.txt
 OPENAPI_REPORT=$ROOT/gen_openapi.report
 
 KUBERNETES_VERSION=0.34.1
