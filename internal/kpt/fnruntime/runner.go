@@ -26,11 +26,11 @@ import (
 	"time"
 
 	"github.com/google/shlex"
-	"github.com/kptdev/kpt/pkg/lib/types"
+	fnresult "github.com/kptdev/kpt/pkg/api/fnresult/v1"
 	"github.com/nephio-project/porch/internal/kpt/builtins"
 	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
-	fnresult "github.com/nephio-project/porch/pkg/kpt/api/fnresult/v1"
+	"github.com/nephio-project/porch/internal/kpt/types"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
 	"github.com/nephio-project/porch/pkg/kpt/printer"
