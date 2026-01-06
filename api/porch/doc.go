@@ -16,4 +16,7 @@
 
 // +k8s:deepcopy-gen=package,register
 // +groupName=porch.kpt.dev
+
+//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 crd:headerFile=../../scripts/boilerplate.yaml.txt paths="./..." output:crd:artifacts:config=../generated/openapi/yaml
+
 package porch

@@ -30,4 +30,7 @@ ROOT=$($READLINK --canonicalize "$HERE/..")
 
 PORCH_API_OPENAPI_YAML=$ROOT/api/generated/openapi/yaml
 
-sed -i -e 's/^kind: CustomResourceDefinition$/kind: PorchResourceDefinition/' -e "s/^# Copyright  The kpt and Nephio Authors$/# Copyright $(date '+%Y') The kpt and Nephio Authors/" "$PORCH_API_OPENAPI_YAML"/*.yaml
+sed -i \
+  -e 's/^kind: CustomResourceDefinition$/kind: PorchResourceDefinition/' \
+	-e "s/^# Copyright  The kpt and Nephio Authors$/# Copyright $(date '+%Y') The kpt and Nephio Authors/" \
+	"$PORCH_API_OPENAPI_YAML"/*.yaml
