@@ -35,7 +35,8 @@ generate-api:
 .PHONY: generate
 generate: generate-api ## Generate CRDs, other K8s manifests and helper go code
 	@for f in $(API_MODULES); do (cd $$f; echo "Generating for $$f ..."; go generate -v ./...) || exit 1; done
- 
+	$(CURDIR)/scripts/generate-fix-openapi-types.sh
+
 .PHONY: tidy
 tidy:
 	go mod tidy
