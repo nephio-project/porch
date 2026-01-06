@@ -16,18 +16,16 @@ package fn_runner
 
 import (
 	"os"
-	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/test/e2e"
+	suiteutils "github.com/nephio-project/porch/test/e2e/suiteutils"
 	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,18 +33,21 @@ import (
 )
 
 type FunctionRunnerSuite struct {
-	e2e.TestSuiteWithGit
+	suiteutils.TestSuiteWithGit
 }
 
 func TestE2E(t *testing.T) {
 	// https://github.com/nephio-project/porch/pull/256
-	// Updating 3rd party dependencies may break existing kpt functions because of api incompatibility. 
+	// Updating 3rd party dependencies may break existing kpt functions because of api incompatibility.
 	// This suite goes though all the used base kpt functions.
 	if os.Getenv("TPP") == "" {
 		t.Skip("set TPP to run this test")
 	}
-
-	suite.Run(t, &FunctionRunnerSuite{})
+	suite.Run(t, &FunctionRunnerSuite{
+		TestSuiteWithGit: suiteutils.TestSuiteWithGit{
+			UseGitea: true,
+		},
+	})
 }
 
 func (t *FunctionRunnerSuite) TestApplySetters() {
@@ -54,33 +55,31 @@ func (t *FunctionRunnerSuite) TestApplySetters() {
 		image string
 	}{
 		"apply-setter:v0.1.1": {
-			image: t.TestSuiteWithGit.GcrPrefix + "/apply-setters:v0.1.1",
+			image: t.TestSuiteWithGit.KrmFunctionsRegistry + "/apply-setters:v0.1.1",
 		},
 		"apply-setter:v0.2": {
-			image: t.TestSuiteWithGit.GcrPrefix + "/apply-setters:v0.2",
+			image: t.TestSuiteWithGit.KrmFunctionsRegistry + "/apply-setters:v0.2",
 		},
 		"apply-setter:v0.2.2": {
-			image: t.TestSuiteWithGit.GcrPrefix + "/apply-setters:v0.2.2",
+			image: t.TestSuiteWithGit.KrmFunctionsRegistry + "/apply-setters:v0.2.2",
 		},
 	}
 
-	t.RegisterMainGitRepositoryF("test-apply-setters")
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-apply-setters", "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
 	for tn, tc := range testCases {
-
 		t.Run(tn, func() {
-			pr := t.createEmptyPackageRevision("test-apply-setters")
-			t.CreateF(&pr)
+			pr := t.createTestPackage("test-apply-setters")
 			t.Cleanup(func() {
-				t.doCleanup(&pr, tc.image)
+				t.doCleanup(pr, tc.image)
 			})
 
 			// Get package resources
 			var resources = t.WaitUntilPackageRevisionResourcesExists(types.NamespacedName{Namespace: t.Namespace, Name: pr.Name})
 
-			t.AddResourceToPackage(resources, "../testdata/resources-for-krm-functions/project.yaml", "project.yaml")
+			t.AddResourceToPackage(resources, "testdata/resources-for-krm-functions/project.yaml", "project.yaml")
 
-			t.AddMutator(resources, tc.image, e2e.WithConfigmap(map[string]string{
+			t.AddMutator(resources, tc.image, suiteutils.WithConfigmap(map[string]string{
 				"projects-namespace": "updated-projects",
 			}))
 
@@ -109,32 +108,31 @@ func (t *FunctionRunnerSuite) TestSetNamespace() {
 		image string
 	}{
 		"set-namespace:v0.2.0": {
-			image: t.TestSuiteWithGit.GcrPrefix + "/set-namespace:v0.2.0",
+			image: t.TestSuiteWithGit.KrmFunctionsRegistry + "/set-namespace:v0.2.0",
 		},
 		"set-namespace:v0.3.4": {
-			image: t.TestSuiteWithGit.GcrPrefix + "/set-namespace:v0.3.4",
+			image: t.TestSuiteWithGit.KrmFunctionsRegistry + "/set-namespace:v0.3.4",
 		},
 		"set-namespace:v0.4.1": {
-			image: t.TestSuiteWithGit.GcrPrefix + "/set-namespace:v0.4.1",
+			image: t.TestSuiteWithGit.KrmFunctionsRegistry + "/set-namespace:v0.4.1",
 		},
 	}
 
-	t.RegisterMainGitRepositoryF("test-set-namespace")
-	for tn, tc := range testCases {
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-set-namespace", "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
+	for tn, tc := range testCases {
 		t.Run(tn, func() {
-			pr := t.createEmptyPackageRevision("test-set-namespace")
-			t.CreateF(&pr)
+			pr := t.createTestPackage("test-set-namespace")
 			t.Cleanup(func() {
-				t.doCleanup(&pr, tc.image)
+				t.doCleanup(pr, tc.image)
 			})
 
 			// Get package resources
 			var resources = t.WaitUntilPackageRevisionResourcesExists(types.NamespacedName{Namespace: t.Namespace, Name: pr.Name})
 
-			t.AddResourceToPackage(resources, "../testdata/resources-for-krm-functions/bucket.yaml", "bucket.yaml")
+			t.AddResourceToPackage(resources, "testdata/resources-for-krm-functions/bucket.yaml", "bucket.yaml")
 
-			t.AddMutator(resources, tc.image, e2e.WithConfigmap(map[string]string{
+			t.AddMutator(resources, tc.image, suiteutils.WithConfigmap(map[string]string{
 				"namespace": "updated-namespace",
 			}))
 
@@ -164,29 +162,28 @@ func (t *FunctionRunnerSuite) TestSetLabels() {
 		image string
 	}{
 		"set-labels:v0.1.5": {
-			image: t.TestSuiteWithGit.GcrPrefix + "/set-labels:v0.1.5",
+			image: t.TestSuiteWithGit.KrmFunctionsRegistry + "/set-labels:v0.1.5",
 		},
 		"set-labels:v0.2.0": {
-			image: t.TestSuiteWithGit.GcrPrefix + "/set-labels:v0.2.0",
+			image: t.TestSuiteWithGit.KrmFunctionsRegistry + "/set-labels:v0.2.0",
 		},
 	}
 
-	t.RegisterMainGitRepositoryF("test-set-labels")
-	for tn, tc := range testCases {
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-set-labels", "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
+	for tn, tc := range testCases {
 		t.Run(tn, func() {
-			pr := t.createEmptyPackageRevision("test-set-labels")
-			t.CreateF(&pr)
+			pr := t.createTestPackage("test-set-labels")
 			t.Cleanup(func() {
-				t.doCleanup(&pr, tc.image)
+				t.doCleanup(pr, tc.image)
 			})
 
 			// Get package resources
 			var resources = t.WaitUntilPackageRevisionResourcesExists(types.NamespacedName{Namespace: t.Namespace, Name: pr.Name})
 
-			t.AddResourceToPackage(resources, "../testdata/resources-for-krm-functions/daemonset.yaml", "daemonset.yaml")
+			t.AddResourceToPackage(resources, "testdata/resources-for-krm-functions/daemonset.yaml", "daemonset.yaml")
 
-			t.AddMutator(resources, tc.image, e2e.WithConfigmap(map[string]string{
+			t.AddMutator(resources, tc.image, suiteutils.WithConfigmap(map[string]string{
 				"app": "updated-cloud-sql-auth-proxy",
 			}))
 
@@ -219,26 +216,25 @@ func (t *FunctionRunnerSuite) TestSetAnnotations() {
 		image string
 	}{
 		"set-annotations:v0.1.4": {
-			image: t.TestSuiteWithGit.GcrPrefix + "/set-annotations:v0.1.4",
+			image: t.TestSuiteWithGit.KrmFunctionsRegistry + "/set-annotations:v0.1.4",
 		},
 	}
 
-	t.RegisterMainGitRepositoryF("test-set-annotations")
-	for tn, tc := range testCases {
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-set-annotations", "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
+	for tn, tc := range testCases {
 		t.Run(tn, func() {
-			pr := t.createEmptyPackageRevision("test-set-annotations")
-			t.CreateF(&pr)
+			pr := t.createTestPackage("test-set-annotations")
 			t.Cleanup(func() {
-				t.doCleanup(&pr, tc.image)
+				t.doCleanup(pr, tc.image)
 			})
 
 			// Get package resources
 			var resources = t.WaitUntilPackageRevisionResourcesExists(types.NamespacedName{Namespace: t.Namespace, Name: pr.Name})
 
-			t.AddResourceToPackage(resources, "../testdata/resources-for-krm-functions/daemonset.yaml", "daemonset.yaml")
+			t.AddResourceToPackage(resources, "testdata/resources-for-krm-functions/daemonset.yaml", "daemonset.yaml")
 
-			t.AddMutator(resources, tc.image, e2e.WithConfigmap(map[string]string{
+			t.AddMutator(resources, tc.image, suiteutils.WithConfigmap(map[string]string{
 				"cnrm.cloud.google.com/blueprint": "updated-cnrm/sql/auth-proxy/v0.2.0",
 			}))
 
@@ -268,26 +264,25 @@ func (t *FunctionRunnerSuite) TestSearchReplace() {
 		image string
 	}{
 		"search-replace:v0.2.0": {
-			image: t.TestSuiteWithGit.GcrPrefix + "/search-replace:v0.2.0",
+			image: t.TestSuiteWithGit.KrmFunctionsRegistry + "/search-replace:v0.2.0",
 		},
 	}
 
-	t.RegisterMainGitRepositoryF("test-search-replace")
-	for tn, tc := range testCases {
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-search-replace", "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
+	for tn, tc := range testCases {
 		t.Run(tn, func() {
-			pr := t.createEmptyPackageRevision("test-search-replace")
-			t.CreateF(&pr)
+			pr := t.createTestPackage("test-search-replace")
 			t.Cleanup(func() {
-				t.doCleanup(&pr, tc.image)
+				t.doCleanup(pr, tc.image)
 			})
 
 			// Get package resources
 			var resources = t.WaitUntilPackageRevisionResourcesExists(types.NamespacedName{Namespace: t.Namespace, Name: pr.Name})
 
-			t.AddResourceToPackage(resources, "../testdata/resources-for-krm-functions/service.yaml", "service.yaml")
+			t.AddResourceToPackage(resources, "testdata/resources-for-krm-functions/service.yaml", "service.yaml")
 
-			t.AddMutator(resources, tc.image, e2e.WithConfigmap(map[string]string{
+			t.AddMutator(resources, tc.image, suiteutils.WithConfigmap(map[string]string{
 				"by-value":  "cloud-sql-auth-proxy",
 				"put-value": "updated-cloud-sql-auth-proxy",
 			}))
@@ -321,32 +316,31 @@ func (t *FunctionRunnerSuite) TestStarlark() {
 		image string
 	}{
 		"starlark:v0.3.0": {
-			image: t.TestSuiteWithGit.GcrPrefix + "/starlark:v0.3.0",
+			image: t.TestSuiteWithGit.KrmFunctionsRegistry + "/starlark:v0.3.0",
 		},
 		"starlark:v0.4.3": {
-			image: t.TestSuiteWithGit.GcrPrefix + "/starlark:v0.4.3",
+			image: t.TestSuiteWithGit.KrmFunctionsRegistry + "/starlark:v0.4.3",
 		},
 		"starlark:v0.5.0": {
-			image: t.TestSuiteWithGit.GcrPrefix + "/starlark:v0.5.0",
+			image: t.TestSuiteWithGit.KrmFunctionsRegistry + "/starlark:v0.5.0",
 		},
 	}
 
-	t.RegisterMainGitRepositoryF("test-starlark")
-	for tn, tc := range testCases {
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-starlark", "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
+	for tn, tc := range testCases {
 		t.Run(tn, func() {
-			pr := t.createEmptyPackageRevision("test-starlark")
-			t.CreateF(&pr)
+			pr := t.createTestPackage("test-starlark")
 			t.Cleanup(func() {
-				t.doCleanup(&pr, tc.image)
+				t.doCleanup(pr, tc.image)
 			})
 
 			// Get package resources
 			var resources = t.WaitUntilPackageRevisionResourcesExists(types.NamespacedName{Namespace: t.Namespace, Name: pr.Name})
 
-			t.AddResourceToPackage(resources, "../testdata/resources-for-krm-functions/bucket.yaml", "bucket.yaml")
+			t.AddResourceToPackage(resources, "testdata/resources-for-krm-functions/bucket.yaml", "bucket.yaml")
 
-			t.AddMutator(resources, tc.image, e2e.WithConfigmap(map[string]string{
+			t.AddMutator(resources, tc.image, suiteutils.WithConfigmap(map[string]string{
 				"source": `for resource in ctx.resource_list["items"]:
   resource["metadata"]["annotations"]["foo"] = "bar"`,
 			}))
@@ -377,29 +371,28 @@ func (t *FunctionRunnerSuite) TestEnsureNameSubstring() {
 		image string
 	}{
 		"ensure-name-substring:v0.1.1": {
-			image: t.TestSuiteWithGit.GcrPrefix + "/ensure-name-substring:v0.1.1",
+			image: t.TestSuiteWithGit.KrmFunctionsRegistry + "/ensure-name-substring:v0.1.1",
 		},
 		"ensure-name-substring:v0.2.0": {
-			image: t.TestSuiteWithGit.GcrPrefix + "/ensure-name-substring:v0.2.0",
+			image: t.TestSuiteWithGit.KrmFunctionsRegistry + "/ensure-name-substring:v0.2.0",
 		},
 	}
 
-	t.RegisterMainGitRepositoryF("test-ensure-name-substring")
-	for tn, tc := range testCases {
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-ensure-name-substring", "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
+	for tn, tc := range testCases {
 		t.Run(tn, func() {
-			pr := t.createEmptyPackageRevision("test-ensure-name-substring")
-			t.CreateF(&pr)
+			pr := t.createTestPackage("test-ensure-name-substring")
 			t.Cleanup(func() {
-				t.doCleanup(&pr, tc.image)
+				t.doCleanup(pr, tc.image)
 			})
 
 			// Get package resources
 			var resources = t.WaitUntilPackageRevisionResourcesExists(types.NamespacedName{Namespace: t.Namespace, Name: pr.Name})
 
-			t.AddResourceToPackage(resources, "../testdata/resources-for-krm-functions/service.yaml", "service.yaml")
+			t.AddResourceToPackage(resources, "testdata/resources-for-krm-functions/service.yaml", "service.yaml")
 
-			t.AddMutator(resources, tc.image, e2e.WithConfigmap(map[string]string{
+			t.AddMutator(resources, tc.image, suiteutils.WithConfigmap(map[string]string{
 				"append": "-test",
 			}))
 
@@ -422,74 +415,30 @@ func (t *FunctionRunnerSuite) TestEnsureNameSubstring() {
 	}
 }
 
-func (t *FunctionRunnerSuite) TestGenerateFolders() {
-	testCases := map[string]struct {
-		image string
-	}{
-		"generate-folders:v0.1.1": {
-			image: t.TestSuiteWithGit.GcrPrefix + "/generate-folders:v0.1.1",
-		},
-	}
-
-	t.RegisterMainGitRepositoryF("test-generate-folders")
-	for tn, tc := range testCases {
-
-		t.Run(tn, func() {
-			pr := t.createEmptyPackageRevision("test-generate-folders")
-			t.CreateF(&pr)
-			t.Cleanup(func() {
-				t.doCleanup(&pr, tc.image)
-			})
-
-			// Get package resources
-			var resources = t.WaitUntilPackageRevisionResourcesExists(types.NamespacedName{Namespace: t.Namespace, Name: pr.Name})
-
-			t.AddResourceToPackage(resources, "../testdata/resources-for-krm-functions/folder-hiearchy.yaml", "folder-hiearchy.yaml")
-
-			t.AddMutator(resources, tc.image)
-
-			t.UpdateF(resources)
-			t.failOnRenderError(resources)
-
-			counter := 0
-			for name := range resources.Spec.Resources {
-				if strings.HasPrefix(name, "hierarchy/") {
-					counter++
-				}
-			}
-			if counter != 4 {
-				t.Errorf("expected 4 Folder objects, but got %v", counter)
-			}
-		})
-
-	}
-}
-
 func (t *FunctionRunnerSuite) TestSetImage() {
 	testCases := map[string]struct {
 		image string
 	}{
 		"set-image:v0.1.1": {
-			image: t.TestSuiteWithGit.GcrPrefix + "/set-image:v0.1.1",
+			image: t.TestSuiteWithGit.KrmFunctionsRegistry + "/set-image:v0.1.1",
 		},
 	}
 
-	t.RegisterMainGitRepositoryF("test-set-image")
-	for tn, tc := range testCases {
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-set-image", "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
+	for tn, tc := range testCases {
 		t.Run(tn, func() {
-			pr := t.createEmptyPackageRevision("test-set-image")
-			t.CreateF(&pr)
+			pr := t.createTestPackage("test-set-image")
 			t.Cleanup(func() {
-				t.doCleanup(&pr, tc.image)
+				t.doCleanup(pr, tc.image)
 			})
 
 			// Get package resources
 			var resources = t.WaitUntilPackageRevisionResourcesExists(types.NamespacedName{Namespace: t.Namespace, Name: pr.Name})
 
-			t.AddResourceToPackage(resources, "../testdata/resources-for-krm-functions/daemonset.yaml", "daemonset.yaml")
+			t.AddResourceToPackage(resources, "testdata/resources-for-krm-functions/daemonset.yaml", "daemonset.yaml")
 
-			t.AddMutator(resources, tc.image, e2e.WithConfigmap(map[string]string{
+			t.AddMutator(resources, tc.image, suiteutils.WithConfigmap(map[string]string{
 				"name":    "gcr.io/cloud-sql-connectors/cloud-sql-proxy",
 				"newName": "bitnami/nginx-updated",
 				"newTag":  "1.22.0",
@@ -537,28 +486,27 @@ func (t *FunctionRunnerSuite) TestApplyReplacements() {
 		image string
 	}{
 		"apply-replacements:v0.1.1": {
-			image: t.TestSuiteWithGit.GcrPrefix + "/apply-replacements:v0.1.1",
+			image: t.TestSuiteWithGit.KrmFunctionsRegistry + "/apply-replacements:v0.1.1",
 		},
 	}
 
-	t.RegisterMainGitRepositoryF("test-apply-replacements")
-	for tn, tc := range testCases {
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-apply-replacements", "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
+	for tn, tc := range testCases {
 		t.Run(tn, func() {
-			pr := t.createEmptyPackageRevision("test-apply-replacements")
-			t.CreateF(&pr)
+			pr := t.createTestPackage("test-apply-replacements")
 			t.Cleanup(func() {
-				t.doCleanup(&pr, tc.image)
+				t.doCleanup(pr, tc.image)
 			})
 
 			// Get package resources
 			var resources = t.WaitUntilPackageRevisionResourcesExists(types.NamespacedName{Namespace: t.Namespace, Name: pr.Name})
 
-			t.AddResourceToPackage(resources, "../testdata/resources-for-krm-functions/applyreplacement/job.yaml", "job.yaml")
-			t.AddResourceToPackage(resources, "../testdata/resources-for-krm-functions/applyreplacement/resources.yaml", "resources.yaml")
-			t.AddResourceToPackage(resources, "../testdata/resources-for-krm-functions/applyreplacement/applyreplacement.yaml", "applyreplacement.yaml")
+			t.AddResourceToPackage(resources, "testdata/resources-for-krm-functions/applyreplacement/job.yaml", "job.yaml")
+			t.AddResourceToPackage(resources, "testdata/resources-for-krm-functions/applyreplacement/resources.yaml", "resources.yaml")
+			t.AddResourceToPackage(resources, "testdata/resources-for-krm-functions/applyreplacement/applyreplacement.yaml", "applyreplacement.yaml")
 
-			t.AddMutator(resources, tc.image, e2e.WithConfigPath("applyreplacement.yaml"))
+			t.AddMutator(resources, tc.image, suiteutils.WithConfigPath("applyreplacement.yaml"))
 
 			t.UpdateF(resources)
 			t.failOnRenderError(resources)
@@ -589,29 +537,28 @@ func (t *FunctionRunnerSuite) TestCreateSetters() {
 		image string
 	}{
 		"create-setters:v0.1.0": {
-			image: t.TestSuiteWithGit.GcrPrefix + "/create-setters:v0.1.0",
+			image: t.TestSuiteWithGit.KrmFunctionsRegistry + "/create-setters:v0.1.0",
 		},
 	}
 
-	t.RegisterMainGitRepositoryF("test-create-setters")
-	for tn, tc := range testCases {
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "test-create-setters", "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
+	for tn, tc := range testCases {
 		t.Run(tn, func() {
-			pr := t.createEmptyPackageRevision("test-create-setters")
-			t.CreateF(&pr)
+			pr := t.createTestPackage("test-create-setters")
 			t.Cleanup(func() {
-				t.doCleanup(&pr, tc.image)
+				t.doCleanup(pr, tc.image)
 			})
 
 			// Get package resources
 			var resources = t.WaitUntilPackageRevisionResourcesExists(types.NamespacedName{Namespace: t.Namespace, Name: pr.Name})
 
-			t.AddResourceToPackage(resources, "../testdata/resources-for-krm-functions/createsetters/setters.yaml", "setters.yaml")
-			t.AddResourceToPackage(resources, "../testdata/resources-for-krm-functions/createsetters/resources.yaml", "resources.yaml")
+			t.AddResourceToPackage(resources, "testdata/resources-for-krm-functions/createsetters/setters.yaml", "setters.yaml")
+			t.AddResourceToPackage(resources, "testdata/resources-for-krm-functions/createsetters/resources.yaml", "resources.yaml")
 
-			t.AddMutator(resources, tc.image, e2e.WithConfigPath("setters.yaml"))
+			t.AddMutator(resources, tc.image, suiteutils.WithConfigPath("setters.yaml"))
 
-			t.AddMutator(resources, t.TestSuiteWithGit.GcrPrefix+"/apply-setters:v0.2.0", e2e.WithConfigmap(map[string]string{
+			t.AddMutator(resources, t.TestSuiteWithGit.KrmFunctionsRegistry+"/apply-setters:v0.2.0", suiteutils.WithConfigmap(map[string]string{
 				"nginx-replicas": "5",
 			}))
 
@@ -641,85 +588,7 @@ func (t *FunctionRunnerSuite) TestCreateSetters() {
 	}
 }
 
-func (t *FunctionRunnerSuite) TestEnableGcpServices() {
-	testCases := map[string]struct {
-		image string
-	}{
-		"enable-gcp-services:v0.1.0": {
-			image: t.TestSuiteWithGit.GcrPrefix + "/enable-gcp-services:v0.1.0",
-		},
-	}
-
-	t.RegisterMainGitRepositoryF("test-enable-gcp-services")
-	for tn, tc := range testCases {
-
-		t.Run(tn, func() {
-			pr := t.createEmptyPackageRevision("test-enable-gcp-services")
-			t.CreateF(&pr)
-			t.Cleanup(func() {
-				t.doCleanup(&pr, tc.image)
-			})
-
-			// Get package resources
-			var resources = t.WaitUntilPackageRevisionResourcesExists(types.NamespacedName{Namespace: t.Namespace, Name: pr.Name})
-
-			t.AddResourceToPackage(resources, "../testdata/resources-for-krm-functions/gcp-services.yaml", "gcp-services.yaml")
-
-			t.AddMutator(resources, tc.image)
-
-			t.UpdateF(resources)
-			t.failOnRenderError(resources)
-
-			keys := make([]string, 0, len(resources.Spec.Resources))
-			for k := range resources.Spec.Resources {
-				keys = append(keys, k)
-			}
-			expectedResource := "service_proj1-service-compute.yaml"
-			if !slices.Contains(keys, expectedResource) {
-				t.Errorf("Package should contain `%s`, but not found.", expectedResource)
-			}
-		})
-
-	}
-}
-
 // Utility functions
-
-func (t *FunctionRunnerSuite) createEmptyPackageRevision(repo string) porchapi.PackageRevision {
-	workspace, err := uuid.NewRandom()
-	if err != nil {
-		t.Fatalf("failed to create workspace UUID: %v", err)
-	}
-	pr := porchapi.PackageRevision{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: t.Namespace,
-		},
-		Spec: porchapi.PackageRevisionSpec{
-			PackageName:    "test-fn-pod",
-			WorkspaceName:  workspace.String(),
-			RepositoryName: repo,
-			Tasks: []porchapi.Task{
-				{
-					Type: "clone",
-					Clone: &porchapi.PackageCloneTaskSpec{
-						Upstream: porchapi.UpstreamPackage{
-							Type: "git",
-							Git: &porchapi.GitPackage{
-								Repo:      t.TestSuiteWithGit.GcpBlueprintsRepo,
-								Ref:       t.TestSuiteWithGit.KptFunctionRef,
-								Directory: "catalog/empty",
-								SecretRef: porchapi.SecretRef{
-									Name: t.CreateGcpPackageRevisionSecret("test-fn-pod"),
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	return pr
-}
 
 func (t *FunctionRunnerSuite) failOnRenderError(resources *porchapi.PackageRevisionResources) {
 	if resources.Status.RenderStatus.Err != "" {
@@ -757,4 +626,18 @@ func (t *FunctionRunnerSuite) doCleanup(pr *porchapi.PackageRevision, mutatorIma
 			time.Sleep(1 * time.Second)
 		}
 	}
+}
+
+func createWorkspaceUUID(t *testing.T) string {
+	t.Helper()
+	workspace, err := uuid.NewRandom()
+	if err != nil {
+		t.Fatalf("failed to create workspace UUID: %v", err)
+	}
+	return workspace.String()
+}
+
+func (t *FunctionRunnerSuite) createTestPackage(repoName string) *porchapi.PackageRevision {
+	workspace := createWorkspaceUUID(t.T())
+	return t.CreatePackageCloneF(repoName, "test-fn-pod", workspace, "empty/v1", "empty")
 }

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package e2e
+package suiteutils
 
 import (
 	"bytes"
@@ -20,9 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"reflect"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -84,40 +82,11 @@ type TestSuite struct {
 	Namespace            string // K8s namespace for this test run
 	TestRunnerIsLocal    bool   // Tests running against local dev porch
 	porchServerInCluster *bool  // Cached result of IsPorchServerInCluster check
-
-	gcpBlueprintsRepo  string
-	gcpBucketRef       string
-	gcpRedisBucketRef  string
-	gcpHierarchyRef    string
-	kptFunctionRef     string
-	kptRepo            string
-	gcrPrefix          string
 }
 
 func (t *TestSuite) SetupSuite() {
 	t.ctx = context.Background()
 	t.Initialize()
-}
-
-func RunInParallel(functions ...func() any) []any {
-	var group sync.WaitGroup
-	var results []any
-	for _, eachFunction := range functions {
-		group.Add(1)
-		go func() {
-			defer group.Done()
-			if reflect.TypeOf(eachFunction).NumOut() == 0 {
-				results = append(results, nil)
-				eachFunction()
-			} else {
-				eachResult := eachFunction()
-
-				results = append(results, eachResult)
-			}
-		}()
-	}
-	group.Wait()
-	return results
 }
 
 func (t *TestSuite) Initialize() {
@@ -480,8 +449,6 @@ func (t *TestSuite) UpdateApprovalF(pr *porchapi.PackageRevision, opts metav1.Up
 	return t.updateApproval(pr, opts, t.Fatalf)
 }
 
-// DeleteAllOf(ctx context.Context, obj Object, opts ...DeleteAllOfOption) error
-
 func createClientScheme(t *testing.T) *runtime.Scheme {
 	scheme := runtime.NewScheme()
 
@@ -542,25 +509,16 @@ func (t *TestSuite) FindAndDecodeF(resources *porchapi.PackageRevisionResources,
 	}
 }
 
-func (t *TestSuite) CompareGoldenFileYAML(goldenPath string, gotContents string) string {
+func (t *TestSuite) CompareStringYAML(expectedContents string, gotContents string) string {
 	t.T().Helper()
+	expectedContents = t.normalizeYamlOrdering(expectedContents)
 	gotContents = t.normalizeYamlOrdering(gotContents)
-
-	if os.Getenv(updateGoldenFiles) != "" {
-		if err := os.WriteFile(goldenPath, []byte(gotContents), 0644); err != nil {
-			t.Fatalf("Failed to update golden file %q: %v", goldenPath, err)
-		}
-	}
-	golden, err := os.ReadFile(goldenPath)
-	if err != nil {
-		t.Fatalf("Failed to read golden file %q: %v", goldenPath, err)
-	}
-	return cmp.Diff(string(golden), gotContents)
+	return cmp.Diff(expectedContents, gotContents)
 }
 
 func (t *TestSuite) normalizeYamlOrdering(contents string) string {
 	t.T().Helper()
-	var data interface{}
+	var data any
 	if err := yaml.Unmarshal([]byte(contents), &data); err != nil {
 		// not yaml.
 		t.Fatalf("Failed to unmarshal yaml: %v\n%s\n", err, contents)

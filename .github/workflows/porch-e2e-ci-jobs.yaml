@@ -14,7 +14,6 @@
 
 name: End-to-End Tests
 on:
-  push:
   pull_request:
   workflow_dispatch:
 
@@ -87,12 +86,12 @@ jobs:
         include:
           - name: "Porch E2E Tests"
             make_target: "run-in-kind"
-            test_path: "${GITHUB_WORKSPACE}/test/e2e"
+            test_path: "${GITHUB_WORKSPACE}/test/e2e/api"
             test_env: "E2E=1"
             log_name: "porch-e2e-server.log"
           - name: "Porch E2E Tests (DB Cache)"
             make_target: "run-in-kind-db-cache"
-            test_path: "${GITHUB_WORKSPACE}/test/e2e"
+            test_path: "${GITHUB_WORKSPACE}/test/e2e/api"
             test_env: "E2E=1 DB_CACHE=1"
             log_name: "porch-e2e-dbcache-server.log"
           - name: "Porch CLI E2E Tests"

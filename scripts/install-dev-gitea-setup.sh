@@ -19,11 +19,11 @@ set -u # Must predefine variables
 set -o pipefail # Check errors in piped commands
  
 self_dir="$(dirname "$(readlink -f "$0")")"
- 
 git_repo_name=${1:-porch-test}
 gitea_ip=${2:-172.18.255.200}  # should be from the address range in deployments/local/metallb-conf.yaml
  
 git_root="$(readlink -f "${self_dir}/..")"
+TEST_BLUEPRINTS_PATH="${git_root}/test/pkgs/test-pkgs/test-blueprints.bundle"
 cd "${git_root}"
  
 function h1() {
@@ -31,6 +31,48 @@ function h1() {
   echo "** $*"
   echo
 }
+
+# Function to reload test-blueprints from bundle
+reload_test_blueprints_bundle() {
+  h1 Reload test-blueprints from bundle
+  
+  # Setup port-forward
+  kubectl port-forward -n gitea svc/gitea-lb 3000:3000 >/dev/null 2>&1 &
+  PORT_FORWARD_PID=$!
+  sleep 3
+  
+  # Delete existing repo
+  h1 "Deleting existing test-blueprints repository"
+  curl -s -X DELETE "http://nephio:secret@localhost:3000/api/v1/repos/nephio/test-blueprints" >/dev/null 2>&1 || true
+  
+  # Recreate repo from bundle
+  h1 "Recreating test-blueprints repository"
+  curl -s -H "content-type: application/json" "http://nephio:secret@localhost:3000/api/v1/user/repos" --data '{"name":"test-blueprints"}' >/dev/null 2>&1
+  
+  TEST_BLUEPRINTS_TMP_DIR=$(mktemp -d)
+  cd "$TEST_BLUEPRINTS_TMP_DIR"
+  h1 "Cloning from bundle: $TEST_BLUEPRINTS_PATH"
+  git clone "$TEST_BLUEPRINTS_PATH" -b main
+  cd test-blueprints
+  
+  git gc
+  git remote rename origin upstream
+  git remote add origin "http://nephio:secret@localhost:3000/nephio/test-blueprints"
+  git push -u origin --all
+  git push -u origin --tags
+  
+  cd "${git_root}"
+  rm -fr "$TEST_BLUEPRINTS_TMP_DIR"
+  
+  kill $PORT_FORWARD_PID 2>/dev/null || true
+  echo "Test-blueprints repo reloaded from bundle"
+}
+ 
+# Check if reload command
+if [ $# -gt 0 ] && [ "$1" == "reload" ]; then
+  reload_test_blueprints_bundle
+  exit 0
+fi
 
 # Retry function for curl commands
 function retry_curl() {
@@ -159,7 +201,7 @@ else
 fi
 TEST_BLUEPRINTS_TMP_DIR=$(mktemp -d)
 cd "$TEST_BLUEPRINTS_TMP_DIR"
-git clone "${git_root}/test/pkgs/test-pkgs/test-blueprints.bundle" -b main
+git clone "$TEST_BLUEPRINTS_PATH" -b main
 cd "$test_git_repo_name"
  
 git gc
