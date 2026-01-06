@@ -31,6 +31,3 @@ ROOT=$($READLINK --canonicalize "$HERE/..")
 PORCH_API_OPENAPI_YAML=$ROOT/api/generated/openapi/yaml
 
 sed -i 's/^kind: CustomResourceDefinition$/kind: PorchResourceDefinition/' "$PORCH_API_OPENAPI_YAML"/*.yaml
-
-rm scripts/boilerplate.go.thisyear.txt
-rm scripts/boilerplate.yaml.thisyear.txt
