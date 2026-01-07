@@ -1,4 +1,4 @@
-// Copyright 2022, 2025 The kpt and Nephio Authors
+// Copyright 2022, 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import (
 )
 
 // When updating the version for the builtin functions, please also update the image version
-// in test TestBuiltinFunctionEvaluator in porch/test/e2e/e2e_test.go, if the versions mismatch
+// in test TestBuiltinFunctionEvaluator in porch/test/e2e/api/fn_runner_test.go, if the versions mismatch
 // the e2e test will fail in local deployment mode.
 var (
 	applyReplacementsImageAliases = []string{
