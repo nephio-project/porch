@@ -235,10 +235,31 @@ for resource in ctx.resource_list['items']:
     fi
 }
 
+function adjust_porch_server_resources() {
+    if [[ "${PORCH_CACHE_TYPE^^}" == "CR" ]]; then
+        echo "Adjusting porch-server resources for embedded Repository controller"
+        
+        kpt fn eval ${DESTINATION} \
+          --image ${STARLARK_IMG} \
+          --match-kind Deployment \
+          --match-name porch-server \
+          --match-namespace porch-system \
+          -- "source=
+for resource in ctx.resource_list['items']:
+    for container in resource['spec']['template']['spec'].get('containers', []):
+        # Increase resources for embedded controller
+        container['resources'] = {
+            'requests': {'memory': '384Mi', 'cpu': '350m'},
+            'limits': {'memory': '768Mi', 'cpu': '1000m'}
+        }"
+    fi
+}
+
 function main() {
   # Repository CRD
-  cp "./api/porchconfig/v1alpha1/config.porch.kpt.dev_repositories.yaml" \
-     "${DESTINATION}/0-repositories.yaml"
+  cp "./controllers/config/crd/bases/config.porch.kpt.dev_repositories.yaml" \
+   "${DESTINATION}/0-repositories.yaml"
+
   # PackageRev CRD
   cp "./internal/api/porchinternal/v1alpha1/config.porch.kpt.dev_packagerevs.yaml" \
      "${DESTINATION}/0-packagerevs.yaml"
@@ -273,6 +294,8 @@ function main() {
   fi
 
   configure_porch_cache
+
+  adjust_porch_server_resources
 
   customize_controller_reconcilers
   
