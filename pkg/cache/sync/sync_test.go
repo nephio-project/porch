@@ -16,13 +16,15 @@ package sync
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/runtime"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -51,7 +53,7 @@ func TestSyncManager_SyncOnce(t *testing.T) {
 		repoKey: repository.RepositoryKey{Name: "test-repo", Namespace: "test-ns"},
 		spec: &configapi.Repository{
 			Spec: configapi.RepositorySpec{
-				Sync: &configapi.RepositorySync{
+				Sync: &configapi.CacheSync{
 					Schedule: "*/5 * * * *",
 				},
 			},
@@ -82,7 +84,7 @@ func TestSyncManager_CalculateWaitDuration(t *testing.T) {
 			name: "valid cron schedule",
 			spec: &configapi.Repository{
 				Spec: configapi.RepositorySpec{
-					Sync: &configapi.RepositorySync{
+					Sync: &configapi.CacheSync{
 						Schedule: "0 0 * * *",
 					},
 				},
@@ -100,7 +102,7 @@ func TestSyncManager_CalculateWaitDuration(t *testing.T) {
 			name: "empty schedule fallback",
 			spec: &configapi.Repository{
 				Spec: configapi.RepositorySpec{
-					Sync: &configapi.RepositorySync{
+					Sync: &configapi.CacheSync{
 						Schedule: "",
 					},
 				},
@@ -112,7 +114,7 @@ func TestSyncManager_CalculateWaitDuration(t *testing.T) {
 			name: "invalid cron expression fallback",
 			spec: &configapi.Repository{
 				Spec: configapi.RepositorySpec{
-					Sync: &configapi.RepositorySync{
+					Sync: &configapi.CacheSync{
 						Schedule: "invalid-cron",
 					},
 				},
@@ -271,7 +273,7 @@ func TestSyncManager_SyncForever(t *testing.T) {
 			repoKey: repository.RepositoryKey{Name: "test-repo", Namespace: "test-ns"},
 			spec: &configapi.Repository{
 				Spec: configapi.RepositorySpec{
-					Sync: &configapi.RepositorySync{
+					Sync: &configapi.CacheSync{
 						Schedule: "*/1 * * * *",
 					},
 				},
@@ -305,7 +307,7 @@ func TestSyncManager_HandleRunOnceAt(t *testing.T) {
 			repoKey: repository.RepositoryKey{Name: "test-repo", Namespace: "test-ns"},
 			spec: &configapi.Repository{
 				Spec: configapi.RepositorySpec{
-					Sync: &configapi.RepositorySync{
+					Sync: &configapi.CacheSync{
 						RunOnceAt: &futureTime,
 					},
 				},
@@ -368,7 +370,7 @@ func TestSyncManager_HasValidSyncSpec(t *testing.T) {
 			name: "valid sync spec",
 			spec: &configapi.Repository{
 				Spec: configapi.RepositorySpec{
-					Sync: &configapi.RepositorySync{},
+					Sync: &configapi.CacheSync{},
 				},
 			},
 			expected: true,
@@ -384,4 +386,101 @@ func TestSyncManager_HasValidSyncSpec(t *testing.T) {
 			}
 		})
 	}
+}
+func TestSyncManager_UpdateRepositoryCondition_WithEventRecorder(t *testing.T) {
+	t.Run("sync success with event recorder", func(t *testing.T) {
+		mockEventRecorder := &mockEventRecorder{}
+		handler := &mockSyncHandler{
+			repoKey: repository.RepositoryKey{Name: "test-repo", Namespace: "test-ns"},
+			spec: &configapi.Repository{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-repo", Namespace: "test-ns"},
+			},
+		}
+		manager := NewSyncManagerWithEventRecorder(handler, nil, mockEventRecorder)
+		manager.nextSyncTime = &time.Time{}
+		*manager.nextSyncTime = time.Now().Add(5 * time.Minute)
+
+		manager.updateRepositoryCondition(context.Background())
+
+		assert.Equal(t, 1, len(mockEventRecorder.events))
+		event := mockEventRecorder.events[0]
+		assert.Equal(t, "Normal", event.eventType)
+		assert.Equal(t, "SyncCompleted", event.reason)
+		assert.Contains(t, event.message, "Repository sync completed")
+		assert.Contains(t, event.message, "next sync at:")
+		assert.NotNil(t, event.annotations)
+		assert.Contains(t, event.annotations, "porch.kpt.dev/next-sync-time")
+	})
+
+	t.Run("sync failure with event recorder", func(t *testing.T) {
+		mockEventRecorder := &mockEventRecorder{}
+		handler := &mockSyncHandler{
+			repoKey: repository.RepositoryKey{Name: "test-repo", Namespace: "test-ns"},
+			spec: &configapi.Repository{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-repo", Namespace: "test-ns"},
+			},
+		}
+		manager := NewSyncManagerWithEventRecorder(handler, nil, mockEventRecorder)
+		manager.lastSyncError = assert.AnError
+
+		manager.updateRepositoryCondition(context.Background())
+
+		assert.Equal(t, 1, len(mockEventRecorder.events))
+		event := mockEventRecorder.events[0]
+		assert.Equal(t, "Warning", event.eventType)
+		assert.Equal(t, "SyncFailed", event.reason)
+		assert.Equal(t, assert.AnError.Error(), event.message)
+	})
+
+	t.Run("sync success without next sync time", func(t *testing.T) {
+		mockEventRecorder := &mockEventRecorder{}
+		handler := &mockSyncHandler{
+			repoKey: repository.RepositoryKey{Name: "test-repo", Namespace: "test-ns"},
+			spec: &configapi.Repository{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-repo", Namespace: "test-ns"},
+			},
+		}
+		manager := NewSyncManagerWithEventRecorder(handler, nil, mockEventRecorder)
+
+		manager.updateRepositoryCondition(context.Background())
+
+		assert.Equal(t, 1, len(mockEventRecorder.events))
+		event := mockEventRecorder.events[0]
+		assert.Equal(t, "Normal", event.eventType)
+		assert.Equal(t, "SyncCompleted", event.reason)
+		assert.Equal(t, "Repository sync completed", event.message)
+		assert.Empty(t, event.annotations)
+	})
+}
+
+type mockEventRecorder struct {
+	events []mockEvent
+}
+
+type mockEvent struct {
+	eventType   string
+	reason      string
+	message     string
+	annotations map[string]string
+}
+
+func (m *mockEventRecorder) Event(object runtime.Object, eventtype, reason, message string) {
+	m.events = append(m.events, mockEvent{
+		eventType: eventtype,
+		reason:    reason,
+		message:   message,
+	})
+}
+
+func (m *mockEventRecorder) Eventf(object runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+	m.Event(object, eventtype, reason, fmt.Sprintf(messageFmt, args...))
+}
+
+func (m *mockEventRecorder) AnnotatedEventf(object runtime.Object, annotations map[string]string, eventtype, reason, messageFmt string, args ...interface{}) {
+	m.events = append(m.events, mockEvent{
+		eventType:   eventtype,
+		reason:      reason,
+		message:     fmt.Sprintf(messageFmt, args...),
+		annotations: annotations,
+	})
 }
