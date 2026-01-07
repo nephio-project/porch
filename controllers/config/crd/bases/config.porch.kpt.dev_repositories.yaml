@@ -24,6 +24,8 @@ spec:
     kind: Repository
     listKind: RepositoryList
     plural: repositories
+    shortNames:
+    - repo
     singular: repository
   scope: Namespaced
   versions:
@@ -159,18 +161,16 @@ spec:
                 - registry
                 type: object
               sync:
-                description: Repository sync/reconcile details
+                description: Porch cache sync scheduling
                 properties:
                   runOnceAt:
-                    description: Value in metav1.Time format to indicate when the
-                      repository should be synced once outside the periodic cron based
-                      reconcile loop.
+                    description: Value in metav1.Time format to trigger a one-time
+                      cache sync outside the periodic schedule.
                     format: date-time
                     type: string
                   schedule:
-                    description: 'Cron value to indicate when the repository should
-                      be synced periodically. Example: `*/10 * * * *` to sync every
-                      10 minutes.'
+                    description: 'Cron schedule for periodic cache sync. Example:
+                      `*/10 * * * *` to sync every 10 minutes.'
                     type: string
                 type: object
               type:

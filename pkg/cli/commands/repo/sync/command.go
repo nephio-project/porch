@@ -20,8 +20,7 @@ import (
 	"time"
 
 	"github.com/kptdev/kpt/pkg/lib/errors"
-	"github.com/kptdev/kpt/pkg/lib/options"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
 	"github.com/nephio-project/porch/pkg/cli/commands/repo/docs"
 	"github.com/spf13/cobra"
@@ -167,7 +166,7 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 
 	for _, repo := range repos {
 		if repo.Spec.Sync == nil {
-			repo.Spec.Sync = &configapi.RepositorySync{}
+			repo.Spec.Sync = &configapi.CacheSync{}
 		}
 		repo.Spec.Sync.RunOnceAt = &metav1.Time{Time: runOnceAtTime}
 
