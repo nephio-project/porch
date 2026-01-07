@@ -73,6 +73,7 @@ type PorchServerOptions struct {
 	SharedInformerFactory      informers.SharedInformerFactory
 	StdOut                     io.Writer
 	StdErr                     io.Writer
+	EnableSyncEvents           bool
 	UseUserDefinedCaBundle     bool
 }
 
@@ -302,6 +303,7 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 			},
 			ListTimeoutPerRepository: o.ListTimeoutPerRepository,
 			MaxConcurrentLists:       o.MaxConcurrentLists,
+			EnableSyncEvents:         o.EnableSyncEvents,
 		},
 	}
 	return config, nil
@@ -356,5 +358,6 @@ func (o *PorchServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.DurationVar(&o.RepoSyncFrequency, "repo-sync-frequency", 10*time.Minute, "Frequency at which registered repository CRs will be synced.")
 	fs.IntVar(&o.RepoOperationRetryAttempts, "repo-operation-retry-attempts", 3, "Number of retry attempts for repository operations.")
 	fs.StringSliceVar(&o.RetryableGitErrors, "retryable-git-errors", nil, "Additional retryable git error patterns. Can be specified multiple times or as comma-separated values.")
+	fs.BoolVar(&o.EnableSyncEvents, "enable-sync-events", false, "Enable sync event creation for repository status communication (default: direct status updates).")
 	fs.BoolVar(&o.UseUserDefinedCaBundle, "use-user-cabundle", false, "Determine whether to use a user-defined CaBundle for TLS towards the repository system.")
 }
