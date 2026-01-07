@@ -93,6 +93,7 @@ type PackageRevisionSpec struct {
 	Revision int `json:"revision,omitempty"`
 
 	// Parent references a package that provides resources to us
+	// WARNING: the field Parent is deprecated and will be removed in a future version of the Porch API
 	Parent *ParentReference `json:"parent,omitempty"`
 
 	Lifecycle PackageRevisionLifecycle `json:"lifecycle,omitempty"`
@@ -126,6 +127,7 @@ type ReadinessGate struct {
 }
 
 // ParentReference is a reference to a parent package
+// WARNING: the struct ParentReference is deprecated and will be removed in a future version of the Porch API
 type ParentReference struct {
 	// TODO: Should this be a revision or a package?
 
