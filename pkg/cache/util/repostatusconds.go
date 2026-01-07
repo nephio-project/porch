@@ -1,4 +1,4 @@
-// Copyright 2025 The kpt and Nephio Authors
+// Copyright 2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,8 @@ import (
 	"fmt"
 	"time"
 
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
+	"github.com/nephio-project/porch/pkg/repository"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -35,6 +36,35 @@ const (
 	RepositoryStatusReady          RepositoryStatus = "ready"
 	RepositoryStatusError          RepositoryStatus = "error"
 )
+
+// SetRepositoryCondition sets the repository condition status
+func SetRepositoryCondition(ctx context.Context, coreClient client.WithWatch, repoKey repository.RepositoryKey, status RepositoryStatus, syncError error, nextSyncTime *time.Time) error {
+	if coreClient == nil {
+		return fmt.Errorf("client is nil")
+	}
+
+	repo := &configapi.Repository{}
+	key := types.NamespacedName{
+		Name:      repoKey.Name,
+		Namespace: repoKey.Namespace,
+	}
+
+	if err := coreClient.Get(ctx, key, repo); err != nil {
+		return fmt.Errorf("failed to get repository: %w", err)
+	}
+
+	errorMsg := ""
+	if status == RepositoryStatusError && syncError != nil {
+		errorMsg = syncError.Error()
+	}
+
+	condition, err := BuildRepositoryCondition(repo, status, errorMsg, nextSyncTime)
+	if err != nil {
+		return err
+	}
+
+	return applyRepositoryCondition(ctx, coreClient, repo, condition, status)
+}
 
 func BuildRepositoryCondition(repo *configapi.Repository, status RepositoryStatus, errorMsg string, nextSyncTime *time.Time) (metav1.Condition, error) {
 	switch status {
@@ -77,7 +107,7 @@ func BuildRepositoryCondition(repo *configapi.Repository, status RepositoryStatu
 	}
 }
 
-func ApplyRepositoryCondition(ctx context.Context, client client.Client, repo *configapi.Repository, condition metav1.Condition, status RepositoryStatus) error {
+func applyRepositoryCondition(ctx context.Context, client client.Client, repo *configapi.Repository, condition metav1.Condition, status RepositoryStatus) error {
 	for attempt := range 3 {
 		latestRepo := &configapi.Repository{}
 		err := client.Get(ctx, types.NamespacedName{

@@ -16,13 +16,15 @@ package sync
 
 import (
 	"context"
+	"fmt"
 	"time"
 
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache/util"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/robfig/cron/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -52,6 +54,8 @@ type SyncManager struct {
 	lastCronExpr  string
 	lastSyncError error
 	coreClient    client.WithWatch
+	eventRecorder record.EventRecorder // Optional - can be nil
+	syncCount     int                  // Track sync count for cleanup
 }
 
 // NewSyncManager creates a new sync manager
@@ -60,6 +64,13 @@ func NewSyncManager(handler SyncHandler, coreClient client.WithWatch) *SyncManag
 		handler:    handler,
 		coreClient: coreClient,
 	}
+	return m
+}
+
+// NewSyncManagerWithEventRecorder creates a new sync manager with event recorder
+func NewSyncManagerWithEventRecorder(handler SyncHandler, coreClient client.WithWatch, eventRecorder record.EventRecorder) *SyncManager {
+	m := NewSyncManager(handler, coreClient)
+	m.eventRecorder = eventRecorder
 	return m
 }
 
@@ -86,9 +97,11 @@ func (m *SyncManager) GetLastSyncError() error {
 }
 
 func (m *SyncManager) syncForever(ctx context.Context, defaultSyncFrequency time.Duration) {
-	// Sync once at startup
+	// Sync immediately at startup for faster repository readiness
+	klog.Infof("repositorySync %+v: starting immediate initial sync", m.handler.Key())
 	m.lastSyncError = m.handler.SyncOnce(ctx)
 	m.scheduleNextSync(defaultSyncFrequency)
+	m.updateRepositoryCondition(ctx) // Update status/send event after startup sync
 
 	tickInterval := 5 * time.Second
 	if defaultSyncFrequency < 10*time.Second {
@@ -116,6 +129,8 @@ func (m *SyncManager) syncForever(ctx context.Context, defaultSyncFrequency time
 			if m.syncCountdown <= 0 {
 				m.lastSyncError = m.handler.SyncOnce(ctx)
 				m.scheduleNextSync(defaultSyncFrequency)
+				// Always update repository condition after sync attempt
+				m.updateRepositoryCondition(ctx)
 			}
 		}
 	}
@@ -216,17 +231,75 @@ func (m *SyncManager) updateRepositoryCondition(ctx context.Context) {
 		klog.Warningf("repositorySync %+v: sync error: %v", m.handler.Key(), m.lastSyncError)
 		status = util.RepositoryStatusError
 	}
-	if err := m.SetRepositoryCondition(ctx, status); err != nil {
-		klog.Warningf("repositorySync %+v: failed to set repository condition: %v", m.handler.Key(), err)
+
+	// Choose between status updates OR events (not both)
+	if m.eventRecorder != nil {
+		klog.Infof("repositorySync %+v: using event recorder for status updates", m.handler.Key())
+		// Send event for controller to handle status updates
+		if m.lastSyncError != nil {
+			klog.Infof("repositorySync %+v: sending SyncFailed event", m.handler.Key())
+			m.eventRecorder.Event(m.handler.GetSpec(), "Warning", "SyncFailed", m.lastSyncError.Error())
+		} else {
+			// Use annotations for structured data
+			annotations := map[string]string{}
+			if m.nextSyncTime != nil {
+				annotations["porch.kpt.dev/next-sync-time"] = m.nextSyncTime.Format(time.RFC3339)
+			}
+
+			// Send sync completed event
+			reason := "SyncCompleted"
+			message := "Repository sync completed"
+			if m.nextSyncTime != nil {
+				message = fmt.Sprintf("Repository sync completed (next sync at: %s)", m.nextSyncTime.Format(time.RFC3339))
+			}
+
+			klog.Infof("repositorySync %+v: sending SyncCompleted event with message: %s", m.handler.Key(), message)
+			m.eventRecorder.AnnotatedEventf(m.handler.GetSpec(), annotations, "Normal", reason, message)
+			klog.Infof("repositorySync %+v: SyncCompleted event sent successfully", m.handler.Key())
+		}
+	} else {
+		klog.Infof("repositorySync %+v: using direct status updates (no event recorder)", m.handler.Key())
+		// Update repository status (legacy behavior)
+		if err := m.SetRepositoryCondition(ctx, status); err != nil {
+			klog.Warningf("repositorySync %+v: failed to set repository condition: %v", m.handler.Key(), err)
+		}
+	}
+	
+	// Clean up old events every 5th sync to keep exactly 5 events
+	if m.eventRecorder != nil {
+		m.syncCount++
+		if m.syncCount%5 == 0 {
+			go func() {
+				repo := m.handler.GetSpec()
+				if repo != nil {
+					cleanupOldEvents(ctx, m.coreClient, repo.Name, repo.Namespace, 5)
+				}
+			}()
+		}
 	}
 }
 
 func (m *SyncManager) SetRepositoryCondition(ctx context.Context, status util.RepositoryStatus) error {
-	return SetRepositoryCondition(ctx, m.coreClient, m.handler.Key(), status, m.lastSyncError, m.nextSyncTime)
+	return util.SetRepositoryCondition(ctx, m.coreClient, m.handler.Key(), status, m.lastSyncError, m.nextSyncTime)
+}
+
+// NotifySyncInProgress notifies about sync-in-progress state via event or status update
+func (m *SyncManager) NotifySyncInProgress(ctx context.Context) {
+	if m.eventRecorder != nil {
+		klog.Infof("repositorySync %+v: sending SyncStarted event", m.handler.Key())
+		// Send SyncStarted immediately when called
+		m.eventRecorder.Event(m.handler.GetSpec(), "Normal", "SyncStarted", "Repository sync started")
+		klog.Infof("repositorySync %+v: SyncStarted event sent successfully", m.handler.Key())
+	} else {
+		klog.Infof("repositorySync %+v: using direct status update for sync-in-progress", m.handler.Key())
+		// Legacy mode: update status directly
+		if err := m.SetRepositoryCondition(ctx, "sync-in-progress"); err != nil {
+			klog.Warningf("repositorySync %+v: failed to set sync-in-progress condition: %v", m.handler.Key(), err)
+		}
+	}
 }
 
 func (m *SyncManager) scheduleNextSync(defaultSyncFrequency time.Duration) {
 	m.syncCountdown = m.calculateWaitDuration(defaultSyncFrequency)
 	klog.Infof(nextSyncLogFormat, m.handler.Key(), m.nextSyncTime)
-	m.updateRepositoryCondition(context.Background())
 }
