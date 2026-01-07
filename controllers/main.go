@@ -43,8 +43,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	"github.com/nephio-project/porch/controllers/packagevariants/pkg/controllers/packagevariant"
 	"github.com/nephio-project/porch/controllers/packagevariantsets/pkg/controllers/packagevariantset"
+	"github.com/nephio-project/porch/controllers/repositories/pkg/controllers/repository"
 	"github.com/nephio-project/porch/pkg/controllerrestmapper"
 	//+kubebuilder:scaffold:imports
 )
@@ -53,6 +55,7 @@ var (
 	reconcilers = map[string]Reconciler{
 		"packagevariants":    &packagevariant.PackageVariantReconciler{},
 		"packagevariantsets": &packagevariantset.PackageVariantSetReconciler{},
+		"repositories":       &repository.RepositoryReconciler{},
 	}
 )
 
@@ -118,6 +121,10 @@ func run(ctx context.Context) error {
 	}
 
 	if err := porchapi.AddToScheme(scheme); err != nil {
+		return fmt.Errorf("error initializing scheme: %w", err)
+	}
+
+	if err := configapi.AddToScheme(scheme); err != nil {
 		return fmt.Errorf("error initializing scheme: %w", err)
 	}
 

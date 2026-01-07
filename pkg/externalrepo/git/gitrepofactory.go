@@ -23,7 +23,7 @@ import (
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing/transport"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
 )
@@ -103,7 +103,17 @@ func (f *GitRepoFactory) CheckRepositoryConnection(ctx context.Context, reposito
 		Timeout: 20,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to list remote refs: %w", err)
+		// If auth fails but we have no credentials, try without auth for public repos
+		if auth != nil {
+			return fmt.Errorf("failed to list remote refs with authentication: %w", err)
+		}
+		// Try again without auth for public repositories
+		refs, err = remote.List(&gogit.ListOptions{
+			Timeout: 20,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to list remote refs: %w", err)
+		}
 	}
 
 	branchExists := false

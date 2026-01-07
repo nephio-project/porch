@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"strings"
 
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
 	"github.com/nephio-project/porch/pkg/externalrepo/git"
 	"github.com/nephio-project/porch/pkg/externalrepo/oci"

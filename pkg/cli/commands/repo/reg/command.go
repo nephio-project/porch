@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	"github.com/kptdev/kpt/pkg/lib/errors"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	cliutils "github.com/nephio-project/porch/internal/cliutils"
 	"github.com/nephio-project/porch/pkg/cli/commands/repo/docs"
 	"github.com/robfig/cron/v3"
@@ -167,13 +167,13 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 		}
 	}
 
-	var sync *configapi.RepositorySync
+	var sync *configapi.CacheSync
 	if r.syncSchedule != "" {
 		// validate the cron expression
 		if err := validateCronExpression(r.syncSchedule); err != nil {
 			return errors.E(op, fmt.Errorf("invalid sync-schedule cron expression: %w", err))
 		}
-		sync = &configapi.RepositorySync{
+		sync = &configapi.CacheSync{
 			Schedule: r.syncSchedule,
 		}
 	}
