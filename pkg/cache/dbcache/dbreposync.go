@@ -23,7 +23,7 @@ import (
 	"unicode/utf8"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache/sync"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -53,7 +53,13 @@ func newRepositorySync(repo *dbRepository, options cachetypes.CacheOptions) *rep
 		repo: repo,
 	}
 
-	s.syncManager = sync.NewSyncManager(&s, options.CoreClient)
+	// Create sync manager with event recorder if sync events are enabled
+	if options.EnableSyncEvents {
+		eventRecorder := sync.NewRepositoryEventRecorder(options.CoreClient)
+		s.syncManager = sync.NewSyncManagerWithEventRecorder(&s, options.CoreClient, eventRecorder)
+	} else {
+		s.syncManager = sync.NewSyncManager(&s, options.CoreClient)
+	}
 	s.syncManager.Start(ctx, options.RepoSyncFrequency)
 	return &s
 }
@@ -102,9 +108,8 @@ func (s *repositorySync) sync(ctx context.Context) (repositorySyncStats, error) 
 
 	// Set condition to sync-in-progress
 	if s.syncManager != nil {
-		if err := s.syncManager.SetRepositoryCondition(ctx, "sync-in-progress"); err != nil {
-			klog.Warningf("repositorySync %+v: failed to set sync-in-progress condition: %v", s.repo.Key(), err)
-		}
+		klog.Infof("repositorySync %+v: setting sync-in-progress condition", s.repo.Key())
+		s.syncManager.NotifySyncInProgress(ctx)
 	}
 
 	defer func() {
