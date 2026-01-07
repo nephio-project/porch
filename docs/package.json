@@ -11,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nephio-project/docs.git"
+    "url": "git+https://github.com/nephio-project/porch.git"
   },
   "keywords": ["nephio", "kubernetes", "documentation", "cloud-native", "network-automation", "5g", "hugo", "docsy"],
   "author": "Gergely Csatari <gegrely.csatari@nokia.com>",
