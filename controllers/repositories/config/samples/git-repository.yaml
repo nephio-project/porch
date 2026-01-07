@@ -1,0 +1,62 @@
+# Copyright 2026 The kpt and Nephio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  name: sample-git-repo
+  namespace: porch-system
+spec:
+  # User-friendly description of the repository
+  description: "Sample Git repository for package management"
+  
+  # The repository is a deployment repository; final packages are deployment ready
+  deployment: true
+  
+  # Type of the repository (git or oci)
+  type: git
+  
+  # Content type (deprecated, defaults to Package)
+  content: Package
+  
+  # Porch cache sync scheduling
+  sync:
+    # Cron schedule for periodic cache sync (every 10 minutes)
+    schedule: "*/10 * * * *"
+    # One-time sync trigger (optional)
+    # runOnceAt: "2025-01-02T15:04:05Z"
+  
+  # Git repository configuration
+  git:
+    # Address of the Git repository
+    repo: https://github.com/example/packages
+    
+    # Branch containing the packages (defaults to main)
+    branch: main
+    
+    # Create branch if it doesn't exist
+    createBranch: false
+    
+    # Directory within the Git repository where packages are stored
+    directory: /
+    
+    # Reference to secret containing authentication credentials
+    secretRef:
+      name: git-credentials
+    
+    # Author to use for commits
+    author: "Porch Bot"
+    
+    # Email to use for commits
+    email: "porch-bot@example.com"
