@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"time"
 
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/util"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
