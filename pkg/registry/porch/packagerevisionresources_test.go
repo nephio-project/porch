@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
+	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -106,4 +107,21 @@ func TestWatchResources(t *testing.T) {
 	if watcher != nil {
 		watcher.Stop()
 	}
+
+	//=========================================================================================
+
+	watcher, err = packagerevisionresources.Watch(context.TODO(), &internalversion.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("invalid.field", "somethingOffTheWall"),
+	})
+	assert.Equal(t, nil, watcher)
+	assert.ErrorContains(t, err, "unknown fieldSelector field")
+
+	//=========================================================================================
+
+	ctxWithConflictNamespace := genericapirequest.WithNamespace(context.TODO(), "foo")
+	watcher, err = packagerevisionresources.Watch(ctxWithConflictNamespace, &internalversion.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("metadata.namespace", "somethingOffTheWall"),
+	})
+	assert.Equal(t, nil, watcher)
+	assert.ErrorContains(t, err, "conflicting namespaces specified")
 }
