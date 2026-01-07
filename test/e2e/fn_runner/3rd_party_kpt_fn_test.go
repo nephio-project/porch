@@ -21,9 +21,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/kptdev/krm-functions-sdk/go/fn"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	suiteutils "github.com/nephio-project/porch/test/e2e/suiteutils"
-	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"

@@ -26,10 +26,10 @@ import (
 	api "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	pkgerrors "github.com/pkg/errors"
 
+	"github.com/kptdev/krm-functions-sdk/go/fn"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
 	"github.com/nephio-project/porch/pkg/repository"
-	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
