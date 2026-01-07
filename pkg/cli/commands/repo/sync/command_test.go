@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/kptdev/kpt/pkg/lib/util/cmdutil"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,7 +58,7 @@ func TestRunE_VariousRunOnceScenarios(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: configapi.RepositorySpec{
-			Sync: &configapi.RepositorySync{},
+			Sync: &configapi.CacheSync{},
 		},
 	}
 	repo2 := &configapi.Repository{
@@ -67,7 +67,7 @@ func TestRunE_VariousRunOnceScenarios(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: configapi.RepositorySpec{
-			Sync: &configapi.RepositorySync{},
+			Sync: &configapi.CacheSync{},
 		},
 	}
 
@@ -253,21 +253,21 @@ func TestRunE_NsScoped(t *testing.T) {
 			Name:      "repo1",
 			Namespace: "default",
 		},
-		Spec: configapi.RepositorySpec{Sync: &configapi.RepositorySync{}},
+		Spec: configapi.RepositorySpec{Sync: &configapi.CacheSync{}},
 	}
 	repoDefault2 := &configapi.Repository{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "repo2",
 			Namespace: "default",
 		},
-		Spec: configapi.RepositorySpec{Sync: &configapi.RepositorySync{}},
+		Spec: configapi.RepositorySpec{Sync: &configapi.CacheSync{}},
 	}
 	repoOther := &configapi.Repository{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "repo3",
 			Namespace: "other",
 		},
-		Spec: configapi.RepositorySpec{Sync: &configapi.RepositorySync{}},
+		Spec: configapi.RepositorySpec{Sync: &configapi.CacheSync{}},
 	}
 
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(repoDefault1, repoDefault2, repoOther).Build()
@@ -382,7 +382,7 @@ func TestRunE_MixedSyncStates(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: configapi.RepositorySpec{
-			Sync: &configapi.RepositorySync{},
+			Sync: &configapi.CacheSync{},
 		},
 	}
 
@@ -394,7 +394,7 @@ func TestRunE_MixedSyncStates(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: configapi.RepositorySpec{
-			Sync: &configapi.RepositorySync{
+			Sync: &configapi.CacheSync{
 				RunOnceAt: &existingTime,
 			},
 		},
