@@ -17,7 +17,7 @@
   "author": "Gergely Csatari <gegrely.csatari@nokia.com>",
   "license": "CC-BY-4.0",
   "bugs": {
-    "url": "https://github.com/nephio-project/docs/issues"
+    "url": "https://github.com/nephio-project/porch/issues"
   },
   "homepage": "https://github.com/nephio-project/docs#readme",
   "devDependencies": {
