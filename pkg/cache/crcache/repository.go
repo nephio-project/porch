@@ -21,7 +21,7 @@ import (
 	"time"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
 	"github.com/nephio-project/porch/pkg/cache/sync"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
@@ -75,7 +75,13 @@ func newRepository(repoKey repository.RepositoryKey, repoSpec *configapi.Reposit
 
 	// TODO: Should we fetch the packages here?
 
-	r.syncManager = sync.NewSyncManager(r, options.CoreClient)
+	// Create sync manager with event recorder if sync events are enabled
+	if options.EnableSyncEvents {
+		eventRecorder := sync.NewRepositoryEventRecorder(options.CoreClient)
+		r.syncManager = sync.NewSyncManagerWithEventRecorder(r, options.CoreClient, eventRecorder)
+	} else {
+		r.syncManager = sync.NewSyncManager(r, options.CoreClient)
+	}
 	r.syncManager.Start(ctx, options.RepoSyncFrequency)
 
 	return r
@@ -522,11 +528,9 @@ func (r *cachedRepository) SyncOnce(ctx context.Context) error {
 	ctx, span := tracer.Start(ctx, "[START]::Repository::SyncOnce", trace.WithAttributes())
 	defer span.End()
 
-	// Set condition to sync-in-progress
+	// Send SyncStarted event FIRST, before any work
 	if r.syncManager != nil {
-		if err := r.syncManager.SetRepositoryCondition(ctx, "sync-in-progress"); err != nil {
-			klog.Warningf("repositorySync %+v: failed to set sync-in-progress condition: %v", r.Key(), err)
-		}
+		r.syncManager.NotifySyncInProgress(ctx)
 	}
 
 	if _, err := r.getPackageRevisions(ctx, repository.ListPackageRevisionFilter{}, true); err != nil {

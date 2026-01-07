@@ -20,7 +20,7 @@ import (
 	"strings"
 	"time"
 
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	"k8s.io/apimachinery/pkg/watch"
@@ -36,13 +36,14 @@ const (
 )
 
 type CacheOptions struct {
-	ExternalRepoOptions        externalrepotypes.ExternalRepoOptions
-	RepoSyncFrequency          time.Duration
-	RepoOperationRetryAttempts int
-	RepoPRChangeNotifier       RepoPRChangeNotifier
-	CoreClient                 client.WithWatch
-	CacheType                  CacheType
-	DBCacheOptions             DBCacheOptions
+	ExternalRepoOptions  externalrepotypes.ExternalRepoOptions
+	RepoSyncFrequency            time.Duration
+	RepoOperationRetryAttempts   int
+	RepoPRChangeNotifier         RepoPRChangeNotifier
+	CoreClient           client.WithWatch
+	CacheType            CacheType
+	DBCacheOptions       DBCacheOptions
+	EnableSyncEvents     bool // Enable sync event creation instead of direct status updates
 }
 
 const DefaultDBCacheDriver string = "pgx"

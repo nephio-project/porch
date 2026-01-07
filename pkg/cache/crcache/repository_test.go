@@ -21,7 +21,7 @@ import (
 	"time"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache/testutil"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
@@ -206,7 +206,7 @@ func TestHandleRunOnceAt(t *testing.T) {
 			Namespace: namespace,
 		},
 		Spec: configapi.RepositorySpec{
-			Sync: &configapi.RepositorySync{
+			Sync: &configapi.CacheSync{
 				RunOnceAt: &metav1.Time{Time: runOnceTime},
 			},
 		},
