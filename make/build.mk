@@ -1,4 +1,4 @@
-#  Copyright 2025 The Nephio Authors.
+#  Copyright 2025-2026 The Nephio Authors.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 MYGOBIN := $(shell go env GOPATH)/bin
 PORCHCTL_VERSION := $(shell date '+development-%Y-%m-%dT%H:%M:%S')
+YEAR_GEN := $(shell date '+%Y')
 
 PORCH = $(BUILDDIR)/porch
 PORCHCTL = $(BUILDDIR)/porchctl
@@ -31,11 +32,13 @@ API_MODULES = \
 .PHONY: generate-api
 generate-api:
 	KUBE_VERBOSE=2 $(CURDIR)/scripts/generate-api.sh
+	$(CURDIR)/scripts/generate-post.sh
 
 .PHONY: generate
 generate: generate-api ## Generate CRDs, other K8s manifests and helper go code
-	@for f in $(API_MODULES); do (cd $$f; echo "Generating for $$f ..."; go generate -v ./...) || exit 1; done
- 
+	@for f in $(API_MODULES); do (cd $$f; echo "Generating for $$f ..."; YEAR_GEN=$(YEAR_GEN) go generate -v ./...) || exit 1; done
+	$(CURDIR)/scripts/generate-post.sh
+
 .PHONY: tidy
 tidy:
 	go mod tidy
