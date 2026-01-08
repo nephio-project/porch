@@ -649,7 +649,7 @@ func (r *PackageVariantReconciler) isUpToDate(pv *api.PackageVariant, downstream
 	return currentUpstreamRevision == pv.Spec.Upstream.Revision
 }
 
-func revisionFromUpstreamLock(lock *porchapi.UpstreamLock) int {
+func revisionFromUpstreamLock(lock *porchapi.Locator) int {
 	lastIndex := strings.LastIndex(lock.Git.Ref, "/")
 	return repository.Revision2Int(lock.Git.Ref[lastIndex+1:])
 }
