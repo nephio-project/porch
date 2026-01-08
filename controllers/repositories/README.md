@@ -1,76 +1,168 @@
 # Repository Controller
 
-The Repository controller manages the lifecycle of Repository CRDs, handling connectivity checks and cache warming operations.
-
-## Configuration
-
-### Cache Warming Settings
-
-The controller uses a worker pool pattern for asynchronous cache warming to handle large-scale deployments:
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--cache-warming-queue-size` | 1000 | Size of the bounded queue for cache warming requests |
-| `--cache-warming-worker-count` | 10 | Number of goroutines processing cache warming |
-
-### Sync Settings
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--default-sync-interval` | 5m | Default sync interval for repositories |
-| `--min-sync-interval` | 1m | Minimum allowed sync interval |
-| `--max-sync-interval` | 24h | Maximum allowed sync interval |
-| `--connectivity-retry-interval` | 1m | Retry interval for connectivity failures |
-
-## Scaling Recommendations
-
-### Embedded Controller (CRCache)
-For embedded deployment with API server:
-- **Queue size**: 100 - conservative for shared resources
-- **Workers**: 3 - minimal resource usage
-- **Scale**: Up to ~1K repositories
-
-### Separate Controller (DBCache)
-For dedicated controller deployment:
-- **1K repositories**: Default settings (queue: 1000, workers: 10)
-- **10K repositories**: `--repositories.cache-warming-queue-size=5000 --repositories.cache-warming-worker-count=20`
-- **100K repositories**: `--repositories.cache-warming-queue-size=10000 --repositories.cache-warming-worker-count=50`
-
-## Tuning for Specific Scenarios
-
-### Handling Bursts
-
-When many repositories are created/updated simultaneously (e.g., during initial deployment or mass updates):
-
-**Increase queue size** to buffer requests without dropping:
-```bash
---cache-warming-queue-size=5000  # Prevents "queue full" log messages
-```
-
-**Symptoms of insufficient queue size:**
-- Log messages: `Cache warming queue full, skipping`
-- Repositories stuck in "connecting" state longer than expected
-
-### Faster Cache Warming
-
-To reduce time for repositories to become ready:
-
-**Increase worker count** for more concurrent cache operations:
-```bash
---cache-warming-worker-count=50  # More parallel Git clones/fetches
-```
-
-**Trade-offs:**
-- More workers = faster cache warming but higher CPU/memory/network usage
-- Consider Git server rate limits and network bandwidth
-- Monitor pod resource usage and adjust accordingly
-
-### Optimal Ratio
-
-**Queue size should be ≥ worker count × average cache warming time (seconds) × reconciliation rate (repos/sec)**
-
-Example: 20 workers, 30s avg cache warming, 10 repos/sec burst = 20 × 30 × 10 = 6000 queue size
+The Repository controller manages the lifecycle of Repository CRDs in Porch, providing event-driven reconciliation with support for both embedded and standalone deployment modes.
 
 ## Architecture
 
-The controller separates fast operations (connectivity checks, status updates) from slow operations (cache warming) using a bounded queue and worker pool pattern. This prevents blocking the reconciliation loop while handling cache warming failures gracefully.
+### Event-Driven Reconciliation
+
+The controller uses a hybrid reconciliation approach:
+
+1. **Spec-based reconciliation**: Triggered by Repository CR changes (generation updates, finalizer changes)
+2. **Event-driven reconciliation**: Triggered by sync events from porch-server cache operations
+
+### Deployment Modes
+
+#### Embedded Mode (Default)
+- Runs inside porch-server process
+- Uses existing cache instance from porch-server
+- Minimal resource overhead
+- Suitable for most deployments
+
+#### Standalone Mode
+- Runs as separate controller deployment
+- Creates its own database cache instance
+- Better isolation and scaling
+- Suitable for large-scale deployments
+
+## Configuration
+
+### Controller Settings
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--max-concurrent-reconciles` | 10 | Maximum concurrent repository reconciliations |
+| `--connectivity-retry-interval` | 60s | Retry interval for connectivity failures |
+| `--repo-sync-frequency` | 60s | Default repository sync frequency |
+
+### Cache Settings (Standalone Mode Only)
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--cache-type` | "db" | Cache type ("db" for database cache) |
+| `--db-driver` | "pgx" | Database driver |
+| `--db-host` | "localhost" | Database host |
+| `--db-port` | "5432" | Database port |
+| `--db-name` | "porch" | Database name |
+| `--db-user` | "porch" | Database user |
+| `--db-password` | "porch" | Database password |
+
+## Reconciliation Logic
+
+### Repository Lifecycle
+
+1. **Creation**: Add finalizer → Open repository → Validate connectivity → Set Ready status
+2. **Updates**: Detect spec changes → Refresh repository → Validate → Update status
+3. **Deletion**: Close repository → Clean up cache → Remove finalizer
+
+### Status Management
+
+The controller manages Repository status conditions:
+
+- **Ready**: Repository is accessible and operational
+- **Error**: Connectivity or validation failures
+- **Reconciling**: Repository reconciliation in progress
+
+### Event Integration
+
+The controller watches for sync events from porch-server:
+
+- **SyncStarted**: Updates repository to Reconciling status
+- **SyncCompleted**: Updates repository to Ready status
+- **SyncFailed**: Updates repository to Error status with details
+
+Events are generated by the cache sync managers and processed by the controller to provide real-time status updates.
+
+## Sync Manager Integration
+
+### Event-Based Status Updates
+
+The controller integrates with sync managers that:
+
+1. Perform periodic repository synchronization
+2. Generate Kubernetes events for status changes
+3. Include structured data (next sync time, error details)
+4. Clean up old events to prevent accumulation
+
+### Sync Event Flow
+
+```
+Sync Manager → Kubernetes Event → Repository Controller → Repository Status Update
+```
+
+## Scaling Considerations
+
+### Embedded Mode
+- **Repositories**: Up to ~1K repositories
+- **Resources**: Shares resources with porch-server
+- **Concurrency**: Conservative settings to avoid impacting API server
+
+### Standalone Mode
+- **Repositories**: 10K+ repositories
+- **Resources**: Dedicated controller resources
+- **Concurrency**: Higher concurrent reconciles for better throughput
+- **Database**: Requires PostgreSQL for cache storage
+
+### Performance Tuning
+
+**For high repository counts:**
+```bash
+--max-concurrent-reconciles=50  # More concurrent reconciliations
+--connectivity-retry-interval=10s  # Faster retry for failed repositories
+```
+
+**For faster status updates:**
+```bash
+--repo-sync-frequency=30s  # More frequent sync operations
+```
+
+## Monitoring
+
+### Key Metrics
+
+- Repository reconciliation duration
+- Repository status distribution (Ready/Error/Reconciling)
+- Sync event processing rate
+- Cache operation success/failure rates
+
+### Health Indicators
+
+- All repositories in Ready state
+- Low reconciliation error rate
+- Timely sync event processing
+- Stable cache connectivity
+
+## Troubleshooting
+
+### Common Issues
+
+**Repository stuck in Reconciling state:**
+- Check connectivity to Git repository
+- Verify authentication credentials
+- Check porch-server logs for sync errors
+
+**High reconciliation latency:**
+- Increase `--max-concurrent-reconciles`
+- Check database performance (standalone mode)
+- Monitor resource usage
+
+**Sync events not processed:**
+- Verify event RBAC permissions
+- Check controller event watching configuration
+- Ensure porch-server is generating events
+
+### Debug Commands
+
+```bash
+# Check repository status
+kubectl get repositories -o wide
+
+# View repository events
+kubectl describe repository <repo-name>
+
+# Check sync events
+kubectl get events --field-selector involvedObject.kind=Repository
+
+# Controller logs
+kubectl logs -n porch-system deployment/porch-controllers
+```
