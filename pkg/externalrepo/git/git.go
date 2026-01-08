@@ -1538,20 +1538,22 @@ func visitCommitsCollectErrors(iterator object.CommitIter, callback commitCallba
 }
 
 func (r *gitRepository) GetResource(hash plumbing.Hash, filePath string) (string, error) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
+	var content string
+	err := r.sharedDir.WithLock(func(repo *git.Repository) error {
+		tree, err := repo.TreeObject(hash)
+		if err != nil {
+			return err
+		}
 
-	tree, err := r.repo.TreeObject(hash)
-	if err != nil {
-		return "", err
-	}
+		file, err := tree.File(filePath)
+		if err != nil {
+			return err
+		}
 
-	file, err := tree.File(filePath)
-	if err != nil {
-		return "", err
-	}
-
-	return file.Contents()
+		content, err = file.Contents()
+		return err
+	})
+	return content, err
 }
 
 func (r *gitRepository) GetResources(hash plumbing.Hash) (map[string]string, error) {
