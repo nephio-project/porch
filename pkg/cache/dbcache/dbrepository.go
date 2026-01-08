@@ -231,7 +231,7 @@ func (r *dbRepository) DeletePackageRevision(ctx context.Context, pr2Delete repo
 
 	pk := repository.PackageKey{
 		RepoKey: r.Key(),
-		Path:    pr2Delete.Key().PkgKey.Path,
+		Path:    pr2Delete.Key().PKey().Path,
 		Package: pr2Delete.Key().PKey().Package,
 	}
 
