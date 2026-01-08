@@ -20,7 +20,7 @@ import (
 	"errors"
 	"testing"
 
-	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	v1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
 	fnsdk "github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
 )

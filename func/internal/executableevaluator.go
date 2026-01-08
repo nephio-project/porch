@@ -22,8 +22,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	v1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	pb "github.com/nephio-project/porch/func/evaluator"
-	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

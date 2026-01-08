@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"io"
 
+	v1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/pkg/kpt"
-	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
 	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-catalog/functions/go/apply_replacements"
 	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-catalog/functions/go/set_namespace"

@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"os"
 
+	kptfile "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
-	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 )
 
 //nolint:gochecknoinits

@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"io"
 
+	v1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/nephio-project/porch/func/evaluator"
 	"github.com/nephio-project/porch/pkg/kpt"
-	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

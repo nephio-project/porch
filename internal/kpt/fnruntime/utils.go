@@ -20,8 +20,8 @@ import (
 	"path/filepath"
 
 	fnresult "github.com/kptdev/kpt/pkg/api/fnresult/v1"
-	"github.com/nephio-project/porch/internal/kpt/types"
-	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/kptdev/kpt/pkg/lib/types"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )

@@ -20,10 +20,10 @@ import (
 	"strings"
 	"testing"
 
+	kptfile "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	fakeextrepo "github.com/nephio-project/porch/pkg/externalrepo/fake"
-	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	kptfn "github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
 	"github.com/stretchr/testify/require"
 

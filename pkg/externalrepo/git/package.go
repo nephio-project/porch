@@ -22,9 +22,9 @@ import (
 	"time"
 
 	"github.com/go-git/go-git/v5/plumbing"
+	kptfile "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
-	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
 	pkgerrors "github.com/pkg/errors"
