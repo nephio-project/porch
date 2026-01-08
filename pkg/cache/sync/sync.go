@@ -71,6 +71,8 @@ func NewSyncManager(handler SyncHandler, coreClient client.WithWatch) *SyncManag
 func NewSyncManagerWithEventRecorder(handler SyncHandler, coreClient client.WithWatch, eventRecorder record.EventRecorder) *SyncManager {
 	m := NewSyncManager(handler, coreClient)
 	m.eventRecorder = eventRecorder
+	// Register with global deletion watcher (new architecture only)
+	RegisterSyncManager(handler.Key(), m)
 	return m
 }
 
@@ -89,6 +91,8 @@ func (m *SyncManager) Stop() {
 	if m.cancel != nil {
 		m.cancel()
 	}
+	// Unregister from global deletion watcher
+	UnregisterSyncManager(m.handler.Key())
 }
 
 // GetLastSyncError returns the last sync error
@@ -100,6 +104,11 @@ func (m *SyncManager) syncForever(ctx context.Context, defaultSyncFrequency time
 	// Sync immediately at startup for faster repository readiness
 	klog.Infof("repositorySync %+v: starting immediate initial sync", m.handler.Key())
 	m.lastSyncError = m.handler.SyncOnce(ctx)
+	// Check if context was cancelled during initial sync (e.g., by Stop() call)
+	if ctx.Err() != nil {
+		klog.Infof("repositorySync %+v: context cancelled during initial sync, exiting", m.handler.Key())
+		return
+	}
 	m.scheduleNextSync(defaultSyncFrequency)
 	m.updateRepositoryCondition(ctx) // Update status/send event after startup sync
 
@@ -128,6 +137,11 @@ func (m *SyncManager) syncForever(ctx context.Context, defaultSyncFrequency time
 			m.syncCountdown -= tickInterval
 			if m.syncCountdown <= 0 {
 				m.lastSyncError = m.handler.SyncOnce(ctx)
+				// Check if context was cancelled (e.g., by Stop() call)
+				if ctx.Err() != nil {
+					klog.Infof("repositorySync %+v: context cancelled during sync, exiting", m.handler.Key())
+					return
+				}
 				m.scheduleNextSync(defaultSyncFrequency)
 				// Always update repository condition after sync attempt
 				m.updateRepositoryCondition(ctx)
@@ -157,7 +171,7 @@ func (m *SyncManager) handleRunOnceAt(ctx context.Context) {
 			return
 		case <-runOnceChan:
 			klog.Infof("repositorySync %+v: Triggering scheduled one-time sync", m.handler.Key())
-			m.lastSyncError = m.handler.SyncOnce(context.Background())
+			m.lastSyncError = m.handler.SyncOnce(ctx)
 			m.updateRepositoryCondition(ctx)
 			klog.Infof("repositorySync %+v: Finished one-time sync", m.handler.Key())
 			runOnceTimer, runOnceChan, scheduledRunOnceAt = nil, nil, time.Time{}
