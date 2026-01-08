@@ -79,7 +79,7 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	repo := &api.Repository{}
 	if err := r.Get(ctx, req.NamespacedName, repo); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			log.V(1).Info("Repository not found (likely deleted)", "repository", req.Name)
+			log.V(1).Info("Repository not found (likely deleted), ignoring reconcile", "repository", req.Name)
 		}
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -169,7 +169,9 @@ func (r *RepositoryReconciler) openRepository(ctx context.Context, repo *api.Rep
 	if err := r.Cache.CheckRepositoryConnectivity(ctx, repo); err != nil {
 		log.FromContext(ctx).Error(err, "Repository connectivity check failed", "repository", repo.Name)
 		r.setCondition(repo, api.RepositoryReady, metav1.ConditionFalse, api.ReasonError, fmt.Sprintf("Connectivity check failed: %v", err))
-		r.updateRepoStatusWithBackoff(ctx, repo)
+		if updateErr := r.updateRepoStatusWithBackoff(ctx, repo); updateErr != nil {
+			log.FromContext(ctx).Error(updateErr, "Failed to update repository status", "repository", repo.Name)
+		}
 		return nil, err
 	}
 	return r.Cache.OpenRepository(ctx, repo)
