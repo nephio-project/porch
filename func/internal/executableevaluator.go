@@ -22,7 +22,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	v1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	pb "github.com/nephio-project/porch/func/evaluator"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
 	"google.golang.org/grpc/codes"
@@ -89,7 +89,7 @@ func (e *executableEvaluator) EvaluateFunction(ctx context.Context, req *pb.Eval
 	binary, cached := e.cache[req.Image]
 	if !cached {
 		return nil, &fn.NotFoundError{
-			Function: v1.Function{Image: req.Image},
+			Function: kptfilev1.Function{Image: req.Image},
 		}
 	}
 

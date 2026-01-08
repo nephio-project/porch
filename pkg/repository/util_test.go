@@ -17,7 +17,7 @@ package repository
 import (
 	"testing"
 
-	kptfile "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,18 +79,18 @@ func TestComposePkgRevObjName(t *testing.T) {
 }
 
 func TestToAPIReadinessGate(t *testing.T) {
-	kf := kptfile.KptFile{}
+	kf := kptfilev1.KptFile{}
 
 	readinessGates := ToAPIReadinessGates(kf)
 	assert.Equal(t, 0, len(readinessGates))
 
-	kf.Info = &kptfile.PackageInfo{
-		ReadinessGates: []kptfile.ReadinessGate{},
+	kf.Info = &kptfilev1.PackageInfo{
+		ReadinessGates: []kptfilev1.ReadinessGate{},
 	}
 	readinessGates = ToAPIReadinessGates(kf)
 	assert.Equal(t, 0, len(readinessGates))
 
-	kf.Info.ReadinessGates = append(kf.Info.ReadinessGates, kptfile.ReadinessGate{
+	kf.Info.ReadinessGates = append(kf.Info.ReadinessGates, kptfilev1.ReadinessGate{
 		ConditionType: "AConditionType",
 	})
 	readinessGates = ToAPIReadinessGates(kf)
@@ -98,20 +98,20 @@ func TestToAPIReadinessGate(t *testing.T) {
 }
 
 func TestToAPIConditions(t *testing.T) {
-	kf := kptfile.KptFile{}
+	kf := kptfilev1.KptFile{}
 
 	conditions := ToAPIConditions(kf)
 	assert.Equal(t, 0, len(conditions))
 
-	kf.Status = &kptfile.Status{
-		Conditions: []kptfile.Condition{},
+	kf.Status = &kptfilev1.Status{
+		Conditions: []kptfilev1.Condition{},
 	}
 	conditions = ToAPIConditions(kf)
 	assert.Equal(t, 0, len(conditions))
 
-	kf.Status.Conditions = append(kf.Status.Conditions, kptfile.Condition{
+	kf.Status.Conditions = append(kf.Status.Conditions, kptfilev1.Condition{
 		Type:    "AConditionType",
-		Status:  kptfile.ConditionTrue,
+		Status:  kptfilev1.ConditionTrue,
 		Reason:  "A Reason",
 		Message: "A Message",
 	})
@@ -120,9 +120,9 @@ func TestToAPIConditions(t *testing.T) {
 }
 
 func TestToAPIConditionStatus(t *testing.T) {
-	assert.Equal(t, porchapi.ConditionTrue, toAPIConditionStatus(kptfile.ConditionTrue))
-	assert.Equal(t, porchapi.ConditionFalse, toAPIConditionStatus(kptfile.ConditionFalse))
-	assert.Equal(t, porchapi.ConditionUnknown, toAPIConditionStatus(kptfile.ConditionUnknown))
+	assert.Equal(t, porchapi.ConditionTrue, toAPIConditionStatus(kptfilev1.ConditionTrue))
+	assert.Equal(t, porchapi.ConditionFalse, toAPIConditionStatus(kptfilev1.ConditionFalse))
+	assert.Equal(t, porchapi.ConditionUnknown, toAPIConditionStatus(kptfilev1.ConditionUnknown))
 }
 
 func TestUpsertAPICondition(t *testing.T) {
@@ -184,10 +184,10 @@ func TestTestPrSliceToMap(t *testing.T) {
 }
 
 func TestKptUpstreamLock2APIUpstreamLock(t *testing.T) {
-	kptLock := kptfile.UpstreamLock{}
+	kptLock := kptfilev1.UpstreamLock{}
 	assert.Nil(t, KptUpstreamLock2APIUpstreamLock(kptLock).Git)
 
-	kptLock.Git = &kptfile.GitLock{
+	kptLock.Git = &kptfilev1.GitLock{
 		Repo: "my-repo",
 	}
 
@@ -195,10 +195,10 @@ func TestKptUpstreamLock2APIUpstreamLock(t *testing.T) {
 }
 
 func TestKptUpstreamLock2KptUpstream(t *testing.T) {
-	kptLock := kptfile.UpstreamLock{}
+	kptLock := kptfilev1.UpstreamLock{}
 	assert.Nil(t, KptUpstreamLock2KptUpstream(kptLock).Git)
 
-	kptLock.Git = &kptfile.GitLock{
+	kptLock.Git = &kptfilev1.GitLock{
 		Repo: "my-repo",
 	}
 

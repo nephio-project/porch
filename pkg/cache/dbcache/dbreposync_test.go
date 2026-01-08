@@ -17,7 +17,7 @@ package dbcache
 import (
 	"time"
 
-	v1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache/testutil"
@@ -107,9 +107,9 @@ func (t *DbTestSuite) TestDBRepoSync() {
 		PrKey:           dbPR.Key(),
 		PackageRevision: &newPRDef,
 		Resources:       &porchapi.PackageRevisionResources{},
-		Kptfile: v1.KptFile{
-			Upstream:     &v1.Upstream{},
-			UpstreamLock: &v1.UpstreamLock{},
+		Kptfile: kptfilev1.KptFile{
+			Upstream:     &kptfilev1.Upstream{},
+			UpstreamLock: &kptfilev1.UpstreamLock{},
 		},
 	}
 	fakeRepo.PackageRevisions = append(fakeRepo.PackageRevisions, &fakeExtPR)
@@ -214,9 +214,9 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 		PrKey:           dbPR.Key(),
 		PackageRevision: &newPRDef,
 		Resources:       &porchapi.PackageRevisionResources{},
-		Kptfile: v1.KptFile{
-			Upstream:     &v1.Upstream{},
-			UpstreamLock: &v1.UpstreamLock{},
+		Kptfile: kptfilev1.KptFile{
+			Upstream:     &kptfilev1.Upstream{},
+			UpstreamLock: &kptfilev1.UpstreamLock{},
 		},
 	}
 	fakeRepo.PackageRevisions = append(fakeRepo.PackageRevisions, &fakeExtPR)

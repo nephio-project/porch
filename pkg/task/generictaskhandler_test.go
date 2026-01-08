@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	kptfile "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	fakeextrepo "github.com/nephio-project/porch/pkg/externalrepo/fake"
@@ -175,7 +175,7 @@ func TestDoPrMutations(t *testing.T) {
 			},
 		},
 	}
-	repoPr.Resources.Spec.Resources[kptfile.KptFileName] = `apiVersion: kpt.dev/v1
+	repoPr.Resources.Spec.Resources[kptfilev1.KptFileName] = `apiVersion: kpt.dev/v1
 kind: Kptfile
 metadata:
   name: test-package

@@ -21,7 +21,7 @@ import (
 	"slices"
 	"time"
 
-	kptfile "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
@@ -188,9 +188,9 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *po
 
 	dbPkgRev.meta.CreationTimestamp = metav1.Time{Time: time.Now()}
 
-	dbPkgRev.extPRID = kptfile.UpstreamLock{
-		Type: kptfile.GitOrigin,
-		Git: &kptfile.GitLock{
+	dbPkgRev.extPRID = kptfilev1.UpstreamLock{
+		Type: kptfilev1.GitOrigin,
+		Git: &kptfilev1.GitLock{
 			Repo:      dbPkgRev.repo.spec.Spec.Git.Repo,
 			Directory: dbPkgRev.Key().PKey().ToPkgPathname(),
 			Ref:       "drafts/" + dbPkgRev.Key().PKey().ToPkgPathname() + "/" + dbPkgRev.Key().WorkspaceName,

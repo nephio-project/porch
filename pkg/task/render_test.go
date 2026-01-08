@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	v1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/pkg/kpt"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -46,7 +46,7 @@ func TestRender(t *testing.T) {
 	r := &kio.LocalPackageReader{
 		PackagePath:        packagePath,
 		IncludeSubpackages: true,
-		MatchFilesGlob:     append(kio.MatchAll, v1.KptFileName),
+		MatchFilesGlob:     append(kio.MatchAll, kptfilev1.KptFileName),
 		FileSystem:         filesys.FileSystemOrOnDisk{},
 	}
 

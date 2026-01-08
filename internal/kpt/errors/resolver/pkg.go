@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"os"
 
-	kptfile "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 )
@@ -47,7 +47,7 @@ func (*pkgErrorResolver) Resolve(err error) (ResolvedResult, bool) {
 		return resolveNestedErr(remoteKptfileError, path)
 	}
 
-	var validateError *kptfile.ValidateError
+	var validateError *kptfilev1.ValidateError
 	if errors.As(err, &validateError) {
 		return ResolvedResult{
 			Message: validateError.Error(),

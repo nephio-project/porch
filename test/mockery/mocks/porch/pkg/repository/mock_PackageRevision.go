@@ -7,7 +7,7 @@ package repository
 import (
 	"context"
 
-	v1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	mock "github.com/stretchr/testify/mock"

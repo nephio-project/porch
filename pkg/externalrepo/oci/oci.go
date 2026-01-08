@@ -25,7 +25,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/google"
-	kptfile "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/oci"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -380,30 +380,30 @@ func (p *ociPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 	}, nil
 }
 
-func (p *ociPackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, error) {
+func (p *ociPackageRevision) GetKptfile(ctx context.Context) (kptfilev1.KptFile, error) {
 	resources, err := LoadResources(ctx, p.parent.storage, &p.digestName)
 	if err != nil {
-		return kptfile.KptFile{}, fmt.Errorf("error loading package resources for %v: %w", p.digestName, err)
+		return kptfilev1.KptFile{}, fmt.Errorf("error loading package resources for %v: %w", p.digestName, err)
 	}
-	kfString, found := resources.Contents[kptfile.KptFileName]
+	kfString, found := resources.Contents[kptfilev1.KptFileName]
 	if !found {
-		return kptfile.KptFile{}, fmt.Errorf("packagerevision does not have a Kptfile")
+		return kptfilev1.KptFile{}, fmt.Errorf("packagerevision does not have a Kptfile")
 	}
 	kf, err := pkg.DecodeKptfile(strings.NewReader(kfString))
 	if err != nil {
-		return kptfile.KptFile{}, fmt.Errorf("error decoding Kptfile: %w", err)
+		return kptfilev1.KptFile{}, fmt.Errorf("error decoding Kptfile: %w", err)
 	}
 	return *kf, nil
 }
 
-func (p *ociPackageRevision) GetUpstreamLock(context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error) {
-	return kptfile.Upstream{}, kptfile.UpstreamLock{}, fmt.Errorf("upstreamLock is not supported for OCI packages (%s)", p.KubeObjectName())
+func (p *ociPackageRevision) GetUpstreamLock(context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
+	return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, fmt.Errorf("upstreamLock is not supported for OCI packages (%s)", p.KubeObjectName())
 }
 
-func (p *ociPackageRevision) GetLock(ctx context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error) {
+func (p *ociPackageRevision) GetLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
 	_, span := tracer.Start(ctx, "ociPackageRevision::GetLock", trace.WithAttributes())
 	defer span.End()
-	return kptfile.Upstream{}, kptfile.UpstreamLock{}, fmt.Errorf("lock is not supported for oci packages (%s)", p.KubeObjectName())
+	return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, fmt.Errorf("lock is not supported for oci packages (%s)", p.KubeObjectName())
 }
 
 func (p *ociPackageRevision) Lifecycle(ctx context.Context) porchapi.PackageRevisionLifecycle {

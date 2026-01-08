@@ -19,7 +19,7 @@ import (
 	"strings"
 	"testing"
 
-	kptfile "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
@@ -28,14 +28,14 @@ import (
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
-func createFakePackageRevision(t *testing.T, kf kptfile.KptFile) *fake.FakePackageRevision {
+func createFakePackageRevision(t *testing.T, kf kptfilev1.KptFile) *fake.FakePackageRevision {
 	t.Helper()
 
 	kfYaml, err := yaml.Marshal(kf)
 	assert.NoError(t, err)
 
 	resources := map[string]string{
-		kptfile.KptFileName: string(kfYaml),
+		kptfilev1.KptFileName: string(kfYaml),
 	}
 
 	return &fake.FakePackageRevision{
@@ -49,20 +49,20 @@ func createFakePackageRevision(t *testing.T, kf kptfile.KptFile) *fake.FakePacka
 }
 
 func TestKptfilePatch(t *testing.T) {
-	newBaseKptfile := func() kptfile.KptFile {
-		var k kptfile.KptFile
-		k.APIVersion, k.Kind = kptfile.KptFileGVK().ToAPIVersionAndKind()
+	newBaseKptfile := func() kptfilev1.KptFile {
+		var k kptfilev1.KptFile
+		k.APIVersion, k.Kind = kptfilev1.KptFileGVK().ToAPIVersionAndKind()
 		k.Name = "pkg"
 		return k
 	}
 
-	correctApiVersion, correctKind := kptfile.KptFileGVK().ToAPIVersionAndKind()
+	correctApiVersion, correctKind := kptfilev1.KptFileGVK().ToAPIVersionAndKind()
 
 	testCases := map[string]struct {
 		repoPkgRev   repository.PackageRevision
 		newApiPkgRev *porchapi.PackageRevision
 		shouldChange bool
-		newKptfile   *kptfile.KptFile
+		newKptfile   *kptfilev1.KptFile
 	}{
 		"no gates or conditions": {
 			repoPkgRev: createFakePackageRevision(t, newBaseKptfile()),
@@ -91,7 +91,7 @@ func TestKptfilePatch(t *testing.T) {
 				},
 			},
 			shouldChange: true,
-			newKptfile: &kptfile.KptFile{
+			newKptfile: &kptfilev1.KptFile{
 				ResourceMeta: yaml.ResourceMeta{
 					TypeMeta: yaml.TypeMeta{
 						APIVersion: correctApiVersion,
@@ -103,15 +103,15 @@ func TestKptfilePatch(t *testing.T) {
 						},
 					},
 				},
-				Info: &kptfile.PackageInfo{
-					ReadinessGates: []kptfile.ReadinessGate{
+				Info: &kptfilev1.PackageInfo{
+					ReadinessGates: []kptfilev1.ReadinessGate{
 						{
 							ConditionType: "foo",
 						},
 					},
 				},
-				Status: &kptfile.Status{
-					Conditions: []kptfile.Condition{
+				Status: &kptfilev1.Status{
+					Conditions: []kptfilev1.Condition{
 						{
 							Type:   "foo",
 							Status: "True",
@@ -121,23 +121,23 @@ func TestKptfilePatch(t *testing.T) {
 			},
 		},
 		"additional readinessGates and conditions added": {
-			repoPkgRev: createFakePackageRevision(t, kptfile.KptFile{
+			repoPkgRev: createFakePackageRevision(t, kptfilev1.KptFile{
 				ResourceMeta: yaml.ResourceMeta{
 					TypeMeta:   yaml.TypeMeta{APIVersion: correctApiVersion, Kind: correctKind},
 					ObjectMeta: yaml.ObjectMeta{NameMeta: yaml.NameMeta{Name: "pkg"}},
 				},
-				Info: &kptfile.PackageInfo{
-					ReadinessGates: []kptfile.ReadinessGate{
+				Info: &kptfilev1.PackageInfo{
+					ReadinessGates: []kptfilev1.ReadinessGate{
 						{
 							ConditionType: "foo",
 						},
 					},
 				},
-				Status: &kptfile.Status{
-					Conditions: []kptfile.Condition{
+				Status: &kptfilev1.Status{
+					Conditions: []kptfilev1.Condition{
 						{
 							Type:   "foo",
-							Status: kptfile.ConditionTrue,
+							Status: kptfilev1.ConditionTrue,
 						},
 					},
 				},
@@ -171,7 +171,7 @@ func TestKptfilePatch(t *testing.T) {
 				},
 			},
 			shouldChange: true,
-			newKptfile: &kptfile.KptFile{
+			newKptfile: &kptfilev1.KptFile{
 				ResourceMeta: yaml.ResourceMeta{
 					TypeMeta: yaml.TypeMeta{
 						APIVersion: correctApiVersion,
@@ -183,8 +183,8 @@ func TestKptfilePatch(t *testing.T) {
 						},
 					},
 				},
-				Info: &kptfile.PackageInfo{
-					ReadinessGates: []kptfile.ReadinessGate{
+				Info: &kptfilev1.PackageInfo{
+					ReadinessGates: []kptfilev1.ReadinessGate{
 						{
 							ConditionType: "foo",
 						},
@@ -193,8 +193,8 @@ func TestKptfilePatch(t *testing.T) {
 						},
 					},
 				},
-				Status: &kptfile.Status{
-					Conditions: []kptfile.Condition{
+				Status: &kptfilev1.Status{
+					Conditions: []kptfilev1.Condition{
 						{
 							Type:    "foo",
 							Status:  "True",
@@ -212,7 +212,7 @@ func TestKptfilePatch(t *testing.T) {
 			},
 		},
 		"no changes": {
-			repoPkgRev: createFakePackageRevision(t, kptfile.KptFile{
+			repoPkgRev: createFakePackageRevision(t, kptfilev1.KptFile{
 				ResourceMeta: yaml.ResourceMeta{
 					TypeMeta: yaml.TypeMeta{
 						APIVersion: correctApiVersion,
@@ -224,8 +224,8 @@ func TestKptfilePatch(t *testing.T) {
 						},
 					},
 				},
-				Info: &kptfile.PackageInfo{
-					ReadinessGates: []kptfile.ReadinessGate{
+				Info: &kptfilev1.PackageInfo{
+					ReadinessGates: []kptfilev1.ReadinessGate{
 						{
 							ConditionType: "foo",
 						},
@@ -234,17 +234,17 @@ func TestKptfilePatch(t *testing.T) {
 						},
 					},
 				},
-				Status: &kptfile.Status{
-					Conditions: []kptfile.Condition{
+				Status: &kptfilev1.Status{
+					Conditions: []kptfilev1.Condition{
 						{
 							Type:    "foo",
-							Status:  kptfile.ConditionTrue,
+							Status:  kptfilev1.ConditionTrue,
 							Reason:  "reason",
 							Message: "message",
 						},
 						{
 							Type:    "bar",
-							Status:  kptfile.ConditionFalse,
+							Status:  kptfilev1.ConditionFalse,
 							Reason:  "reason",
 							Message: "message",
 						},
@@ -282,7 +282,7 @@ func TestKptfilePatch(t *testing.T) {
 			shouldChange: false,
 		},
 		"readinessGates and conditions removed": {
-			repoPkgRev: createFakePackageRevision(t, kptfile.KptFile{
+			repoPkgRev: createFakePackageRevision(t, kptfilev1.KptFile{
 				ResourceMeta: yaml.ResourceMeta{
 					TypeMeta: yaml.TypeMeta{
 						APIVersion: correctApiVersion,
@@ -294,8 +294,8 @@ func TestKptfilePatch(t *testing.T) {
 						},
 					},
 				},
-				Info: &kptfile.PackageInfo{
-					ReadinessGates: []kptfile.ReadinessGate{
+				Info: &kptfilev1.PackageInfo{
+					ReadinessGates: []kptfilev1.ReadinessGate{
 						{
 							ConditionType: "foo",
 						},
@@ -304,17 +304,17 @@ func TestKptfilePatch(t *testing.T) {
 						},
 					},
 				},
-				Status: &kptfile.Status{
-					Conditions: []kptfile.Condition{
+				Status: &kptfilev1.Status{
+					Conditions: []kptfilev1.Condition{
 						{
 							Type:    "foo",
-							Status:  kptfile.ConditionTrue,
+							Status:  kptfilev1.ConditionTrue,
 							Reason:  "reason",
 							Message: "message",
 						},
 						{
 							Type:    "bar",
-							Status:  kptfile.ConditionFalse,
+							Status:  kptfilev1.ConditionFalse,
 							Reason:  "reason",
 							Message: "message",
 						},
@@ -339,7 +339,7 @@ func TestKptfilePatch(t *testing.T) {
 				},
 			},
 			shouldChange: true,
-			newKptfile: &kptfile.KptFile{
+			newKptfile: &kptfilev1.KptFile{
 				ResourceMeta: yaml.ResourceMeta{
 					TypeMeta: yaml.TypeMeta{
 						APIVersion: correctApiVersion,
@@ -351,18 +351,18 @@ func TestKptfilePatch(t *testing.T) {
 						},
 					},
 				},
-				Info: &kptfile.PackageInfo{
-					ReadinessGates: []kptfile.ReadinessGate{
+				Info: &kptfilev1.PackageInfo{
+					ReadinessGates: []kptfilev1.ReadinessGate{
 						{
 							ConditionType: "foo",
 						},
 					},
 				},
-				Status: &kptfile.Status{
-					Conditions: []kptfile.Condition{
+				Status: &kptfilev1.Status{
+					Conditions: []kptfilev1.Condition{
 						{
 							Type:   "foo",
-							Status: kptfile.ConditionTrue,
+							Status: kptfilev1.ConditionTrue,
 						},
 					},
 				},
@@ -435,7 +435,7 @@ status:
 		Resources: &porchapi.PackageRevisionResources{
 			Spec: porchapi.PackageRevisionResourcesSpec{
 				Resources: map[string]string{
-					kptfile.KptFileName: initialYAML,
+					kptfilev1.KptFileName: initialYAML,
 				},
 			},
 		},

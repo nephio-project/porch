@@ -18,7 +18,7 @@ import (
 	"context"
 	"testing"
 
-	v1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	mockrepo "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/repository"
@@ -71,11 +71,11 @@ func TestPushPR(t *testing.T) {
 	assert.NotNil(t, err)
 
 	mockRepo.EXPECT().ClosePackageRevisionDraft(mock.Anything, mock.Anything, mock.Anything).Return(mockPR, nil).Maybe()
-	mockPR.EXPECT().GetLock(mock.Anything).Return(v1.Upstream{}, v1.UpstreamLock{}, err).Once()
+	mockPR.EXPECT().GetLock(mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, err).Once()
 	_, err = PushPackageRevision(ctx, mockRepo, mockPR)
 	assert.NotNil(t, err)
 
-	mockPR.EXPECT().GetLock(mock.Anything).Return(v1.Upstream{}, v1.UpstreamLock{}, nil).Maybe()
+	mockPR.EXPECT().GetLock(mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil).Maybe()
 	_, err = PushPackageRevision(ctx, mockRepo, mockPR)
 	assert.Nil(t, err)
 }
