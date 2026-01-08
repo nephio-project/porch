@@ -1,4 +1,4 @@
-// Copyright 2019 The kpt and Nephio Authors
+// Copyright 2019,2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,10 +23,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/kptdev/kpt/pkg/lib/types"
 	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/gitutil"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
-	"github.com/nephio-project/porch/internal/kpt/types"
 	"github.com/nephio-project/porch/internal/kpt/util/addmergecomment"
 	"github.com/nephio-project/porch/internal/kpt/util/fetch"
 	"github.com/nephio-project/porch/internal/kpt/util/git"

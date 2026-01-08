@@ -1,4 +1,4 @@
-// Copyright 2021 The kpt and Nephio Authors
+// Copyright 2021,2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/nephio-project/porch/internal/kpt/types"
+	"github.com/kptdev/kpt/pkg/lib/types"
 	fnresult "github.com/nephio-project/porch/pkg/kpt/api/fnresult/v1"
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
