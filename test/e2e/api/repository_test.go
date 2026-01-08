@@ -275,8 +275,16 @@ func (t *PorchSuite) TestPackageRevisionListWithHangingRepository() {
 			}
 			t.CreateF(repo)
 			t.Cleanup(func() {
-				t.DeleteF(repo)
-				t.WaitUntilRepositoryDeleted(repoName, t.Namespace)
+				// Force delete hanging repository by removing finalizers first
+				var hangingRepo configapi.Repository
+				if err := t.Client.Get(t.GetContext(), client.ObjectKey{Name: repoName, Namespace: t.Namespace}, &hangingRepo); err == nil {
+					if len(hangingRepo.Finalizers) > 0 {
+						hangingRepo.Finalizers = nil
+						t.Client.Update(t.GetContext(), &hangingRepo)
+					}
+					t.Client.Delete(t.GetContext(), &hangingRepo)
+					t.WaitUntilRepositoryDeleted(repoName, t.Namespace)
+				}
 			})
 		}(i, url)
 	}
