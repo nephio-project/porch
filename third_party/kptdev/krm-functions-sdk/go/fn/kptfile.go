@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"sort"
 
-	kptfileapi "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	kptfileapi "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 )
 
 const (

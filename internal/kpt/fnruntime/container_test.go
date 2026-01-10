@@ -21,7 +21,7 @@ import (
 	"context"
 	"testing"
 
-	fnresult "github.com/nephio-project/porch/pkg/kpt/api/fnresult/v1"
+	fnresult "github.com/kptdev/kpt/pkg/api/fnresult/v1"
 	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

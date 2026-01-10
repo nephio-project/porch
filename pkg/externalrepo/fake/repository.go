@@ -18,8 +18,8 @@ import (
 	"context"
 	"errors"
 
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
@@ -75,9 +75,9 @@ func (r *Repository) CreatePackageRevisionDraft(_ context.Context, pr *porchapi.
 func (r *Repository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version int) (repository.PackageRevision, error) {
 	return &FakePackageRevision{
 		PrKey: prd.Key(),
-		Kptfile: v1.KptFile{
-			Upstream:     &v1.Upstream{},
-			UpstreamLock: &v1.UpstreamLock{},
+		Kptfile: kptfilev1.KptFile{
+			Upstream:     &kptfilev1.Upstream{},
+			UpstreamLock: &kptfilev1.UpstreamLock{},
 		},
 	}, nil
 }

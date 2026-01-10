@@ -21,10 +21,10 @@ import (
 	"path"
 	"strings"
 
+	fnresult "github.com/kptdev/kpt/pkg/api/fnresult/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/pkg/kpt"
-	fnresult "github.com/nephio-project/porch/pkg/kpt/api/fnresult/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"

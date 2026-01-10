@@ -20,8 +20,8 @@ import (
 	"path"
 	"testing"
 
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
-	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"sigs.k8s.io/kustomize/kyaml/kio"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
@@ -50,7 +50,7 @@ func ReadResourceList(t *testing.T, pkgdir string, config *yaml.RNode) []byte {
 
 func TestSetLabels(t *testing.T) {
 	r := &runtime{}
-	runner, err := r.GetRunner(context.Background(), &v1.Function{
+	runner, err := r.GetRunner(context.Background(), &kptfilev1.Function{
 		Image: "ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1.5",
 	})
 	if err != nil {

@@ -23,12 +23,12 @@ import (
 	"path/filepath"
 	"sort"
 
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	rgfilev1alpha1 "github.com/kptdev/kpt/pkg/api/resourcegroup/v1alpha1"
 	"github.com/kptdev/kpt/pkg/lib/types"
 	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/util/git"
 	"github.com/nephio-project/porch/internal/kpt/util/pathutil"
-	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 	"sigs.k8s.io/kustomize/kyaml/kio"

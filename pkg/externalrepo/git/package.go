@@ -22,9 +22,9 @@ import (
 	"time"
 
 	"github.com/go-git/go-git/v5/plumbing"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
-	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
 	pkgerrors "github.com/pkg/errors"
@@ -187,28 +187,28 @@ func (p *gitPackageRevision) ToMainPackageRevision(context.Context) repository.P
 	return mainPr
 }
 
-func (p *gitPackageRevision) GetKptfile(context.Context) (kptfile.KptFile, error) {
-	kfString, err := p.repo.GetResource(p.tree, kptfile.KptFileName)
+func (p *gitPackageRevision) GetKptfile(context.Context) (kptfilev1.KptFile, error) {
+	kfString, err := p.repo.GetResource(p.tree, kptfilev1.KptFileName)
 	if err != nil {
-		return kptfile.KptFile{}, pkgerrors.Wrapf(err, "error getting %s resource", kptfile.KptFileName)
+		return kptfilev1.KptFile{}, pkgerrors.Wrapf(err, "error getting %s resource", kptfilev1.KptFileName)
 	}
 	kf, err := pkg.DecodeKptfile(strings.NewReader(kfString))
 	if err != nil {
-		return kptfile.KptFile{}, pkgerrors.Wrapf(err, "error decoding %s", kptfile.KptFileName)
+		return kptfilev1.KptFile{}, pkgerrors.Wrapf(err, "error decoding %s", kptfilev1.KptFileName)
 	}
 	return *kf, nil
 }
 
 // GetUpstreamLock returns the upstreamLock info present in the Kptfile of the package.
-func (p *gitPackageRevision) GetUpstreamLock(ctx context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error) {
+func (p *gitPackageRevision) GetUpstreamLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
 	kf, err := p.GetKptfile(ctx)
 	if err != nil {
-		return kptfile.Upstream{}, kptfile.UpstreamLock{}, fmt.Errorf("cannot determine package lock; cannot retrieve resources: %w", err)
+		return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, fmt.Errorf("cannot determine package lock; cannot retrieve resources: %w", err)
 	}
 
 	if kf.Upstream == nil || kf.UpstreamLock == nil || kf.Upstream.Git == nil {
 		// the package doesn't have any upstream package.
-		return kptfile.Upstream{}, kptfile.UpstreamLock{}, nil
+		return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil
 	}
 	return *kf.Upstream, *kf.UpstreamLock, nil
 }
@@ -216,34 +216,34 @@ func (p *gitPackageRevision) GetUpstreamLock(ctx context.Context) (kptfile.Upstr
 // GetLock returns the self version of the package. Think of it as the Git commit information
 // that represent the package revision of this package. Please note that it uses Upstream types
 // to represent this information but it has no connection with the associated upstream package (if any).
-func (p *gitPackageRevision) GetLock(ctx context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error) {
+func (p *gitPackageRevision) GetLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
 	_, span := tracer.Start(ctx, "gitPackageRevision::GetLock", trace.WithAttributes())
 	defer span.End()
 
 	repo, err := p.repo.GetRepo()
 	if err != nil {
-		return kptfile.Upstream{}, kptfile.UpstreamLock{}, fmt.Errorf("cannot determine package lock: %w", err)
+		return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, fmt.Errorf("cannot determine package lock: %w", err)
 	}
 
 	if p.ref == nil {
-		return kptfile.Upstream{}, kptfile.UpstreamLock{}, fmt.Errorf("cannot determine package lock; package has no ref")
+		return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, fmt.Errorf("cannot determine package lock; package has no ref")
 	}
 
 	ref, err := refInRemoteFromRefInLocal(p.ref.Name())
 	if err != nil {
-		return kptfile.Upstream{}, kptfile.UpstreamLock{}, fmt.Errorf("cannot determine package lock for %q: %v", p.ref, err)
+		return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, fmt.Errorf("cannot determine package lock for %q: %v", p.ref, err)
 	}
 
-	return kptfile.Upstream{
-			Type: kptfile.GitOrigin,
-			Git: &kptfile.Git{
+	return kptfilev1.Upstream{
+			Type: kptfilev1.GitOrigin,
+			Git: &kptfilev1.Git{
 				Repo:      repo,
 				Directory: p.prKey.PkgKey.ToPkgPathname(),
 				Ref:       ref.Short(),
 			},
-		}, kptfile.UpstreamLock{
-			Type: kptfile.GitOrigin,
-			Git: &kptfile.GitLock{
+		}, kptfilev1.UpstreamLock{
+			Type: kptfilev1.GitOrigin,
+			Git: &kptfilev1.GitLock{
 				Repo:      repo,
 				Directory: p.prKey.PkgKey.ToPkgPathname(),
 				Ref:       ref.Short(),

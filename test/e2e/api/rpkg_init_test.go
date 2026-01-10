@@ -16,8 +16,8 @@ package api
 
 import (
 	"github.com/google/go-cmp/cmp"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	suiteutils "github.com/nephio-project/porch/test/e2e/suiteutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -82,7 +82,7 @@ func (t *PorchSuite) validateKptFileMetadata(pr *porchapi.PackageRevision, expec
 		Namespace: t.Namespace,
 		Name:      pr.Name,
 	}, &pkg)
-	
+
 	kptfile := t.ParseKptfileF(&pkg)
 	if got, want := kptfile.Name, expectedName; got != want {
 		t.Fatalf("Package name: got %q, want %q", got, want)

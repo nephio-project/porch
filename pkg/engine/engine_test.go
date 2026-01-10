@@ -25,11 +25,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/builtins"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
-	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
 	mockrepo "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/repository"
 	"github.com/stretchr/testify/require"
@@ -100,15 +100,15 @@ func setupMockPackageRevision(t *testing.T) *mockrepo.MockPackageRevision {
 	// Setup common mock package revision expectations
 	mockPkgRev.On("Key").Return(repository.PackageRevisionKey{})
 	mockPkgRev.On("GetMeta").Return(metav1.ObjectMeta{})
-	mockPkgRev.On("GetKptfile", mock.Anything).Return(v1.KptFile{}, nil)
+	mockPkgRev.On("GetKptfile", mock.Anything).Return(kptfilev1.KptFile{}, nil)
 	mockPkgRev.On("KubeObjectName").Return("test-pkg")
 	mockPkgRev.On("KubeObjectNamespace").Return("default")
 	mockPkgRev.On("UID").Return(types.UID("test-uid"))
 	mockPkgRev.On("Lifecycle", mock.Anything).Return(porchapi.PackageRevisionLifecycleDraft)
 	mockPkgRev.On("GetPackageRevision", mock.Anything).Return(&porchapi.PackageRevision{}, nil)
 	mockPkgRev.On("GetResources", mock.Anything).Return(&porchapi.PackageRevisionResources{}, nil)
-	mockPkgRev.On("GetUpstreamLock", mock.Anything).Return(v1.Upstream{}, v1.UpstreamLock{}, nil)
-	mockPkgRev.On("GetLock").Return(v1.Upstream{}, v1.UpstreamLock{}, nil)
+	mockPkgRev.On("GetUpstreamLock", mock.Anything).Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil)
+	mockPkgRev.On("GetLock").Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil)
 	mockPkgRev.On("ResourceVersion").Return("1")
 	mockPkgRev.On("ToMainPackageRevision", mock.Anything).Return(mockPkgRev)
 	mockPkgRev.On("SetMeta", mock.Anything, mock.Anything).Return(nil)

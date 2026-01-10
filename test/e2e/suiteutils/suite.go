@@ -25,12 +25,12 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchclient "github.com/nephio-project/porch/api/generated/clientset/versioned"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	internalpkg "github.com/nephio-project/porch/internal/kpt/pkg"
-	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/suite"
 	appsv1 "k8s.io/api/apps/v1"

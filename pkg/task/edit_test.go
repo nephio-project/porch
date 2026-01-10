@@ -20,10 +20,10 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
-	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
@@ -53,7 +53,7 @@ func TestEdit(t *testing.T) {
 				Revision:       revision,
 				RepositoryName: repositoryName,
 				Resources: map[string]string{
-					kptfile.KptFileName: strings.TrimSpace(`
+					kptfilev1.KptFileName: strings.TrimSpace(`
 apiVersion: kpt.dev/v1
 kind: Kptfile
 metadata:
@@ -108,7 +108,7 @@ metadata:
 info:
   description: sample description
 	`)
-	got := strings.TrimSpace(res.Contents[kptfile.KptFileName])
+	got := strings.TrimSpace(res.Contents[kptfilev1.KptFileName])
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("result mismatch (-want +got):\n%s", diff)
 	}

@@ -15,8 +15,8 @@
 package api
 
 import (
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	suiteutils "github.com/nephio-project/porch/test/e2e/suiteutils"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -101,7 +101,7 @@ func (t *PorchSuite) TestEditPackageRevision() {
 		t.Logf("Task: %s", tsk.Type)
 	}
 	assert.Len(t, tasks, 1)
-	assert.Equal(t, porchapi.TaskTypeEdit, tasks[0].Type) 
+	assert.Equal(t, porchapi.TaskTypeEdit, tasks[0].Type)
 	assert.NotNil(t, tasks[0].Edit)
 	assert.Equal(t, pr.Name, tasks[0].Edit.Source.Name)
 }

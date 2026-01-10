@@ -23,7 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"sigs.k8s.io/kustomize/kyaml/kio"
 	"sigs.k8s.io/kustomize/kyaml/kio/kioutil"
 	"sigs.k8s.io/kustomize/kyaml/yaml"

@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"io"
 
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/pkg/kpt"
-	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
 	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-catalog/functions/go/apply_replacements"
 	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-catalog/functions/go/set_namespace"
@@ -78,7 +78,7 @@ func newBuiltinRuntime(imagePrefix string) *builtinRuntime {
 
 var _ kpt.FunctionRuntime = &builtinRuntime{}
 
-func (br *builtinRuntime) GetRunner(ctx context.Context, funct *v1.Function) (fn.FunctionRunner, error) {
+func (br *builtinRuntime) GetRunner(ctx context.Context, funct *kptfilev1.Function) (fn.FunctionRunner, error) {
 	processor, found := br.fnMapping[funct.Image]
 	if !found {
 		return nil, &fn.NotFoundError{Function: *funct}

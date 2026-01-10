@@ -19,7 +19,7 @@
 package v1alpha1
 
 import (
-	"github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	"github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )

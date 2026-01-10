@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"path/filepath"
 
+	fnresult "github.com/kptdev/kpt/pkg/api/fnresult/v1"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/lib/types"
-	fnresult "github.com/nephio-project/porch/pkg/kpt/api/fnresult/v1"
-	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )

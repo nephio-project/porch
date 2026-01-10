@@ -16,8 +16,8 @@ package api
 
 import (
 	"github.com/google/go-cmp/cmp"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	suiteutils "github.com/nephio-project/porch/test/e2e/suiteutils"
 	corev1 "k8s.io/api/core/v1"
@@ -32,8 +32,6 @@ const (
 	basensRef      = "basens/v1"
 	testWorkspace  = "test-workspace"
 )
-
-
 
 func (t *PorchSuite) TestCloneFromUpstream() {
 	testBlueprintsRepo := t.GetTestBlueprintsRepoURL()

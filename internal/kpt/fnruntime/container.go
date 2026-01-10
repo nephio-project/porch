@@ -28,7 +28,7 @@ import (
 	"sync"
 	"time"
 
-	fnresult "github.com/nephio-project/porch/pkg/kpt/api/fnresult/v1"
+	fnresult "github.com/kptdev/kpt/pkg/api/fnresult/v1"
 	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"golang.org/x/mod/semver"
 	"sigs.k8s.io/kustomize/kyaml/fn/runtime/runtimeutil"
