@@ -17,7 +17,7 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
+	"github.com/kptdev/krm-functions-sdk/go/fn"
 )
 
 const (

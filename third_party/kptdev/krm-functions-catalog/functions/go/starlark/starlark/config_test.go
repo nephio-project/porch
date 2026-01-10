@@ -3,7 +3,7 @@ package starlark
 import (
 	"testing"
 
-	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
+	"github.com/kptdev/krm-functions-sdk/go/fn"
 	"github.com/stretchr/testify/assert"
 )
 

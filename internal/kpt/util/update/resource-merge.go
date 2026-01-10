@@ -23,7 +23,7 @@ import (
 
 	"sigs.k8s.io/kustomize/kyaml/pathutil"
 
-	"github.com/kptdev/kpt/pkg/lib/types"
+	"github.com/kptdev/krm-functions-sdk/go/fn"
 	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	pkgdiff "github.com/nephio-project/porch/internal/kpt/util/diff"
@@ -32,7 +32,6 @@ import (
 	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
 	"github.com/nephio-project/porch/pkg/util/merge3"
-	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
 	"gopkg.in/yaml.v2"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/kustomize/kyaml/copyutil"

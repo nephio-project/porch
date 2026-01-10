@@ -1,7 +1,7 @@
 package starlark
 
 import (
-	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
+	"github.com/kptdev/krm-functions-sdk/go/fn"
 )
 
 func Process(resourceList *fn.ResourceList) (bool, error) {

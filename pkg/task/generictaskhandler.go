@@ -20,6 +20,7 @@ import (
 	"maps"
 	"strings"
 
+	kptfn "github.com/kptdev/krm-functions-sdk/go/fn"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/builtins"
@@ -27,7 +28,6 @@ import (
 	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
 	"github.com/nephio-project/porch/pkg/repository"
-	kptfn "github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
