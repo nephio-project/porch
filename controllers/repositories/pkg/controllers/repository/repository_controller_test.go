@@ -17,19 +17,29 @@ package repository
 import (
 	"context"
 	"errors"
+	"net/http"
 	"testing"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	api "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -364,28 +374,29 @@ func TestHandleUpsertRepo(t *testing.T) {
 }
 
 func TestSetupWithManager(t *testing.T) {
-	// Create a minimal scheme
 	scheme := runtime.NewScheme()
 	_ = api.AddToScheme(scheme)
 	_ = corev1.AddToScheme(scheme)
 
 	// Create fake manager
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme: scheme,
-	})
-	if err != nil {
-		t.Skip("Skipping test - no Kubernetes config available")
+	mgr := &fakeManager{
+		scheme: scheme,
+		client: mockclient.NewMockClient(t),
 	}
 
 	reconciler := &RepositoryReconciler{
-		Client:                  mgr.GetClient(),
-		Scheme:                  mgr.GetScheme(),
-		maxConcurrentReconciles: 10,
+		Cache:                   cachetypes.NewMockCache(t),
+		maxConcurrentReconciles: 5,
 	}
 
-	err = reconciler.SetupWithManager(mgr)
+	err := reconciler.SetupWithManager(mgr)
 	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
+		t.Errorf("SetupWithManager failed: %v", err)
+	}
+
+	// Verify client was set
+	if reconciler.Client == nil {
+		t.Error("Client should be set by SetupWithManager")
 	}
 }
 
@@ -404,4 +415,46 @@ func (m *mockStatusWriter) Patch(ctx context.Context, obj client.Object, patch c
 
 func (m *mockStatusWriter) Create(ctx context.Context, obj client.Object, subResource client.Object, opts ...client.SubResourceCreateOption) error {
 	return m.updateError
+}
+
+// fakeManager implements minimal ctrl.Manager interface for testing
+type fakeManager struct {
+	scheme *runtime.Scheme
+	client client.Client
+}
+
+func (f *fakeManager) GetConfig() *rest.Config { return nil }
+func (f *fakeManager) GetScheme() *runtime.Scheme { return f.scheme }
+func (f *fakeManager) GetClient() client.Client { return f.client }
+func (f *fakeManager) GetFieldIndexer() client.FieldIndexer { return &fakeFieldIndexer{} }
+func (f *fakeManager) GetCache() cache.Cache { return nil }
+func (f *fakeManager) GetEventRecorderFor(name string) record.EventRecorder { return nil }
+func (f *fakeManager) GetRESTMapper() meta.RESTMapper { return nil }
+func (f *fakeManager) GetAPIReader() client.Reader { return nil }
+func (f *fakeManager) Start(ctx context.Context) error { return nil }
+func (f *fakeManager) Add(manager.Runnable) error { return nil }
+func (f *fakeManager) Elected() <-chan struct{} { return nil }
+func (f *fakeManager) AddMetricsServerExtraHandler(path string, handler http.Handler) error { return nil }
+func (f *fakeManager) AddHealthzCheck(name string, check healthz.Checker) error { return nil }
+func (f *fakeManager) AddReadyzCheck(name string, check healthz.Checker) error { return nil }
+func (f *fakeManager) GetWebhookServer() webhook.Server { return nil }
+func (f *fakeManager) GetLogger() logr.Logger { return logr.Discard() }
+func (f *fakeManager) GetControllerOptions() config.Controller { return config.Controller{} }
+func (f *fakeManager) GetHTTPClient() *http.Client { return nil }
+
+type fakeFieldIndexer struct{}
+func (f *fakeFieldIndexer) IndexField(ctx context.Context, obj client.Object, field string, extractValue client.IndexerFunc) error {
+	return nil
+}
+func TestSetEmbeddedDefaults(t *testing.T) {
+	reconciler := &RepositoryReconciler{}
+	reconciler.SetEmbeddedDefaults()
+	
+	// Verify embedded defaults are set
+	if reconciler.maxConcurrentReconciles == 0 {
+		t.Error("maxConcurrentReconciles should be set")
+	}
+	if reconciler.connectivityRetryInterval == 0 {
+		t.Error("connectivityRetryInterval should be set")
+	}
 }

@@ -17,6 +17,7 @@ package sync
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -244,15 +245,18 @@ func TestGlobalDeletionWatcher_HandleRepositoryDeletion(t *testing.T) {
 	globalDeletionWatcher.mu.Unlock()
 
 	handler := &testSyncHandler{
-		repoKey: repository.RepositoryKey{Name: "test-repo", Namespace: "test-ns"},
+		repoKey: repository.RepositoryKey{Name: "test-repo", Namespace: "test-ns", PlaceholderWSname: "main"},
 	}
 	manager := NewSyncManager(handler, nil)
 	
 	// Track if Stop was called
 	stopCalled := false
+	var stopWait sync.WaitGroup
+	stopWait.Add(1)
 	originalCancel := manager.cancel
 	manager.cancel = func() {
 		stopCalled = true
+		stopWait.Done()
 		if originalCancel != nil {
 			originalCancel()
 		}
@@ -260,16 +264,24 @@ func TestGlobalDeletionWatcher_HandleRepositoryDeletion(t *testing.T) {
 
 	RegisterSyncManager(handler.Key(), manager)
 
-	// Create repository for deletion
+	// Create repository for deletion with Git spec
 	repo := &configapi.Repository{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-repo",
 			Namespace: "test-ns",
 		},
+		Spec: configapi.RepositorySpec{
+			Git: &configapi.GitRepository{
+				Branch: "main",
+			},
+		},
 	}
 
 	// Handle deletion
 	globalDeletionWatcher.handleRepositoryDeletion(repo)
+
+	// Wait for async Stop operation to complete
+	stopWait.Wait()
 
 	if !stopCalled {
 		t.Error("Expected Stop to be called on sync manager when repository is deleted")

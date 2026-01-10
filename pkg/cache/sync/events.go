@@ -55,17 +55,20 @@ func RegisterSyncManager(key repository.RepositoryKey, manager *SyncManager) {
 	globalDeletionWatcher.mu.Lock()
 	defer globalDeletionWatcher.mu.Unlock()
 	
-	globalDeletionWatcher.syncManagers[key.String()] = manager
+	// Use the exact key format that sync managers use
+	syncKey := key.String() // This should be namespace:name::branch format
+	globalDeletionWatcher.syncManagers[syncKey] = manager
 	
 	// Start global watcher if this is the first sync manager
 	if !globalDeletionWatcher.started && manager.coreClient != nil {
 		globalDeletionWatcher.client = manager.coreClient
+		klog.Info("Starting global repository deletion watcher")
 		go globalDeletionWatcher.start()
 		globalDeletionWatcher.started = true
 	}
 	
-	klog.V(2).Infof("Registered sync manager for repository %s (total: %d)", 
-		key.String(), len(globalDeletionWatcher.syncManagers))
+	klog.Infof("Registered sync manager for repository %s (total: %d)", 
+		syncKey, len(globalDeletionWatcher.syncManagers))
 }
 
 // UnregisterSyncManager removes a sync manager from deletion notifications
@@ -114,12 +117,14 @@ func (g *GlobalDeletionWatcher) watchRepositories() error {
 		switch event.Type {
 		case watch.Deleted:
 			if repo, ok := event.Object.(*api.Repository); ok {
+				klog.Infof("Repository deleted: %s/%s", repo.Namespace, repo.Name)
 				g.handleRepositoryDeletion(repo)
 			}
 		case watch.Modified:
 			// Check for repositories marked for deletion
 			if repo, ok := event.Object.(*api.Repository); ok {
 				if repo.DeletionTimestamp != nil {
+					klog.Infof("Repository marked for deletion: %s/%s", repo.Namespace, repo.Name)
 					g.handleRepositoryDeletion(repo)
 				}
 			}
@@ -132,33 +137,37 @@ func (g *GlobalDeletionWatcher) watchRepositories() error {
 
 // handleRepositoryDeletion notifies the appropriate sync manager of deletion
 func (g *GlobalDeletionWatcher) handleRepositoryDeletion(repo *api.Repository) {
-	repoKey := repository.RepositoryKey{
-		Name:      repo.Name,
-		Namespace: repo.Namespace,
+	// Build the exact sync manager key format: namespace:name::branch
+	branch := "main" // default branch
+	if repo.Spec.Git != nil && repo.Spec.Git.Branch != "" {
+		branch = repo.Spec.Git.Branch
 	}
+	syncKey := fmt.Sprintf("%s:%s::%s", repo.Namespace, repo.Name, branch)
 	
-	g.mu.RLock()
-	manager, exists := g.syncManagers[repoKey.String()]
-	g.mu.RUnlock()
-	
+	g.mu.Lock()
+	manager, exists := g.syncManagers[syncKey]
 	if exists {
-		klog.V(1).Infof("Stopping sync manager for deleted repository %s", repoKey.String())
+		klog.Infof("Stopping sync manager for deleted repository %s", syncKey)
 		manager.Stop()
+		delete(g.syncManagers, syncKey)
+	} else {
+		klog.V(2).Infof("No sync manager found for deleted repository %s", syncKey)
 	}
+	g.mu.Unlock()
 }
 
 // periodicCleanup runs periodic reconciliation to clean up orphaned sync managers
 func (g *GlobalDeletionWatcher) periodicCleanup() {
-	ticker := time.NewTicker(5 * time.Minute)
+	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 	
 	for range ticker.C {
-		g.reconcileSyncManagers()
+		g.cleanupOrphanedSyncManagers()
 	}
 }
 
-// reconcileSyncManagers compares registered sync managers against existing repositories
-func (g *GlobalDeletionWatcher) reconcileSyncManagers() {
+// cleanupOrphanedSyncManagers compares registered sync managers against existing repositories
+func (g *GlobalDeletionWatcher) cleanupOrphanedSyncManagers() {
 	ctx := context.Background()
 	repos := &api.RepositoryList{}
 	
@@ -170,37 +179,29 @@ func (g *GlobalDeletionWatcher) reconcileSyncManagers() {
 	// Build set of existing repositories
 	existingRepos := make(map[string]bool)
 	for _, repo := range repos.Items {
-		repoKey := repository.RepositoryKey{
-			Name:      repo.Name,
-			Namespace: repo.Namespace,
+		// Add the exact key format used by sync managers: namespace:name::branch
+		branch := "main" // default branch
+		if repo.Spec.Git != nil && repo.Spec.Git.Branch != "" {
+			branch = repo.Spec.Git.Branch
 		}
-		existingRepos[repoKey.String()] = true
+		syncKey := fmt.Sprintf("%s:%s::%s", repo.Namespace, repo.Name, branch)
+		existingRepos[syncKey] = true
 	}
 	
-	// Find orphaned sync managers
-	g.mu.RLock()
+	// Find and stop orphaned sync managers
+	g.mu.Lock()
 	var orphaned []string
-	for repoKey := range g.syncManagers {
+	for repoKey, manager := range g.syncManagers {
 		if !existingRepos[repoKey] {
 			orphaned = append(orphaned, repoKey)
-		}
-	}
-	g.mu.RUnlock()
-	
-	// Stop orphaned sync managers
-	for _, repoKey := range orphaned {
-		g.mu.RLock()
-		manager, exists := g.syncManagers[repoKey]
-		g.mu.RUnlock()
-		
-		if exists {
-			klog.Infof("Periodic cleanup: stopped sync manager for %s", repoKey)
 			manager.Stop()
+			delete(g.syncManagers, repoKey)
 		}
 	}
+	g.mu.Unlock()
 	
 	if len(orphaned) > 0 {
-		klog.Infof("Periodic cleanup: stopped %d orphaned sync managers", len(orphaned))
+		klog.V(2).Infof("Periodic cleanup: stopped %d orphaned sync managers for repos: %v", len(orphaned), orphaned)
 	} else {
 		klog.V(3).Infof("Periodic cleanup: no orphaned sync managers found")
 	}

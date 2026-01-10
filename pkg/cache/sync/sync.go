@@ -17,6 +17,7 @@ package sync
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
@@ -56,6 +57,8 @@ type SyncManager struct {
 	coreClient    client.WithWatch
 	eventRecorder record.EventRecorder // Optional - can be nil
 	syncCount     int                  // Track sync count for cleanup
+	stopped       bool                 // Track if already stopped
+	stopMutex     sync.Mutex           // Protect stop operation
 }
 
 // NewSyncManager creates a new sync manager
@@ -88,11 +91,27 @@ func (m *SyncManager) Start(ctx context.Context, defaultSyncFrequency time.Durat
 
 // Stop stops the sync manager
 func (m *SyncManager) Stop() {
-	if m.cancel != nil {
-		m.cancel()
+	// Try to acquire lock, but don't block if already stopping
+	if !m.stopMutex.TryLock() {
+		return // Another Stop() call is in progress, exit immediately
 	}
-	// Unregister from global deletion watcher
-	UnregisterSyncManager(m.handler.Key())
+	defer m.stopMutex.Unlock()
+	
+	if m.stopped {
+		return // Already stopped, idempotent
+	}
+	
+	m.stopped = true
+	if m.cancel != nil {
+		// Cancel context in a non-blocking way
+		go func() {
+			m.cancel()
+		}()
+	}
+	// Unregister from global deletion watcher in a non-blocking way
+	go func() {
+		UnregisterSyncManager(m.handler.Key())
+	}()
 }
 
 // GetLastSyncError returns the last sync error

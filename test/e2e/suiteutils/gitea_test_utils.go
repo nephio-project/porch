@@ -31,10 +31,10 @@ const (
 
 // getGiteaURL returns the appropriate Gitea URL based on whether Porch server is running in cluster
 func (t *TestSuite) getGiteaURL() string {
-	if t.IsPorchServerInCluster() {
-		return GiteaClusterURL
-	}
-	return "http://localhost:3000/nephio/"
+	// if t.IsPorchServerInCluster() {
+	// 	return GiteaClusterURL
+	// }
+	return "http://172.18.255.200:3000/nephio/"
 }
 
 // GetPorchTestRepoURL returns the dynamic PorchTestRepo URL
