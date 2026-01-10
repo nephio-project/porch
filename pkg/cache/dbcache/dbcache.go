@@ -21,6 +21,7 @@ import (
 	"time"
 
 	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
+	"github.com/nephio-project/porch/pkg/cache/repomap"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo"
 	"github.com/nephio-project/porch/pkg/repository"
