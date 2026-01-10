@@ -239,8 +239,8 @@ func (t *TestSuite) registerGitRepositoryFromConfigF(name string, config GitConf
 			defer t.RecreateGiteaTestRepo()
 		}
 		t.DeleteE(repo)
-		t.WaitUntilRepositoryDeleted(name, t.Namespace)
-		t.WaitUntilAllPackagesDeleted(name, t.Namespace)
+		t.WaitUntilRepositoryDeleted(name, repo.Namespace)
+		t.WaitUntilAllPackagesDeleted(name, repo.Namespace)
 	})
 
 	// Make sure the repository is ready before we test to (hopefully)
@@ -293,7 +293,7 @@ type SecretOption func(*corev1.Secret)
 
 func WithSync(sync string) RepositoryOption {
 	return func(r *configapi.Repository) {
-		r.Spec.Sync = &configapi.RepositorySync{Schedule: sync}
+		r.Spec.Sync = &configapi.CacheSync{Schedule: sync}
 	}
 }
 

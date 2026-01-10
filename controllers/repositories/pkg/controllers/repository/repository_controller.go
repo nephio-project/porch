@@ -71,8 +71,14 @@ type RepositoryReconciler struct {
 func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
+	log.Info("Reconcile called", "repository", req.Name, "cacheIsNil", r.Cache == nil, "clientIsNil", r.Client == nil, "reconcilerPtr", fmt.Sprintf("%p", r))
 	if r.Cache == nil {
+		log.Error(fmt.Errorf("cache is nil"), "Cache not available in reconcile", "repository", req.Name)
 		return ctrl.Result{}, fmt.Errorf("cache not available")
+	}
+	if r.Client == nil {
+		log.Error(fmt.Errorf("client is nil"), "Client not available in reconcile", "repository", req.Name)
+		return ctrl.Result{}, fmt.Errorf("client not available")
 	}
 
 	// Get Repository
@@ -192,13 +198,21 @@ func (r *RepositoryReconciler) refreshAndValidateRepository(ctx context.Context,
 
 // SetupWithManager sets up the controller with the Manager
 func (r *RepositoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	log := ctrl.Log.WithName("repository-controller")
+	log.Info("SetupWithManager called", "reconcilerPtr", fmt.Sprintf("%p", r), "cacheIsNil", r.Cache == nil)
+	
 	// Create cache if not already injected (standalone mode)
 	if r.Cache == nil {
 		// Create DB cache with sync events enabled
 		if err := r.createDBCache(context.Background(), mgr); err != nil {
 			return fmt.Errorf("failed to create database cache: %w", err)
 		}
+		log.Info("Cache created in SetupWithManager", "reconcilerPtr", fmt.Sprintf("%p", r))
 	}
+
+	// Set client explicitly before controller setup
+	r.Client = mgr.GetClient()
+	log.Info("Client injected", "reconcilerPtr", fmt.Sprintf("%p", r))
 
 	// Add field indexing for events to enable efficient lookups
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.Event{}, "involvedObject.name", func(rawObj client.Object) []string {
@@ -209,7 +223,7 @@ func (r *RepositoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	// Watch Repository CRs and Events on Repository objects
-	_, err := ctrl.NewControllerManagedBy(mgr).
+	err := ctrl.NewControllerManagedBy(mgr).
 		For(&api.Repository{}, builder.WithPredicates(predicate.Funcs{
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				// Trigger on generation changes OR finalizer changes
@@ -244,10 +258,10 @@ func (r *RepositoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				},
 			})).
 		Named("repository").
-		Build(r)
+		Complete(r)
 
 	if err == nil {
-		log.Log.V(1).Info("Repository controller successfully registered")
+		log.V(1).Info("Repository controller successfully registered")
 	}
 	return err
 }
