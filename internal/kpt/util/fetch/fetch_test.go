@@ -19,12 +19,12 @@ import (
 	"path/filepath"
 	"testing"
 
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	pkgtesting "github.com/nephio-project/porch/internal/kpt/pkg/testing"
 	"github.com/nephio-project/porch/internal/kpt/testutil"
 	"github.com/nephio-project/porch/internal/kpt/testutil/pkgbuilder"
 	. "github.com/nephio-project/porch/internal/kpt/util/fetch"
-	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
 	"github.com/nephio-project/porch/pkg/kpt/printer/fake"
 	"github.com/stretchr/testify/assert"

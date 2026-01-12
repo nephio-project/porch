@@ -19,13 +19,13 @@ import (
 	"strconv"
 	"strings"
 
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func ToAPIReadinessGates(kf kptfile.KptFile) []porchapi.ReadinessGate {
+func ToAPIReadinessGates(kf kptfilev1.KptFile) []porchapi.ReadinessGate {
 	var readinessGates []porchapi.ReadinessGate
 	if kf.Info != nil {
 		for _, rg := range kf.Info.ReadinessGates {
@@ -37,7 +37,7 @@ func ToAPIReadinessGates(kf kptfile.KptFile) []porchapi.ReadinessGate {
 	return readinessGates
 }
 
-func ToAPIConditions(kf kptfile.KptFile) []porchapi.Condition {
+func ToAPIConditions(kf kptfilev1.KptFile) []porchapi.Condition {
 	var conditions []porchapi.Condition
 	if kf.Status != nil && kf.Status.Conditions != nil {
 		for _, s := range kf.Status.Conditions {
@@ -52,13 +52,13 @@ func ToAPIConditions(kf kptfile.KptFile) []porchapi.Condition {
 	return conditions
 }
 
-func toAPIConditionStatus(s kptfile.ConditionStatus) porchapi.ConditionStatus {
+func toAPIConditionStatus(s kptfilev1.ConditionStatus) porchapi.ConditionStatus {
 	switch s {
-	case kptfile.ConditionTrue:
+	case kptfilev1.ConditionTrue:
 		return porchapi.ConditionTrue
-	case kptfile.ConditionFalse:
+	case kptfilev1.ConditionFalse:
 		return porchapi.ConditionFalse
-	case kptfile.ConditionUnknown:
+	case kptfilev1.ConditionUnknown:
 		return porchapi.ConditionUnknown
 	default:
 		panic(fmt.Errorf("unknown condition status: %v", s))
@@ -122,7 +122,7 @@ func PrSlice2Map(prSlice []PackageRevision) map[PackageRevisionKey]PackageRevisi
 	return prMap
 }
 
-func KptUpstreamLock2APIUpstreamLock(kptLock kptfile.UpstreamLock) *porchapi.Locator {
+func KptUpstreamLock2APIUpstreamLock(kptLock kptfilev1.UpstreamLock) *porchapi.Locator {
 	porchLock := &porchapi.Locator{}
 
 	porchLock.Type = porchapi.OriginType(kptLock.Type)
@@ -138,12 +138,12 @@ func KptUpstreamLock2APIUpstreamLock(kptLock kptfile.UpstreamLock) *porchapi.Loc
 	return porchLock
 }
 
-func KptUpstreamLock2KptUpstream(kptLock kptfile.UpstreamLock) kptfile.Upstream {
-	kptUpstream := kptfile.Upstream{}
+func KptUpstreamLock2KptUpstream(kptLock kptfilev1.UpstreamLock) kptfilev1.Upstream {
+	kptUpstream := kptfilev1.Upstream{}
 
 	kptUpstream.Type = kptLock.Type
 	if kptLock.Git != nil {
-		kptUpstream.Git = &kptfile.Git{
+		kptUpstream.Git = &kptfilev1.Git{
 			Repo:      kptLock.Git.Repo,
 			Directory: kptLock.Git.Directory,
 			Ref:       kptLock.Git.Ref,
