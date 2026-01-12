@@ -97,6 +97,7 @@ spec:
           args:
             - --function-runner=function-runner:9445
             - --cache-directory=/cache
+            - --db-push-drafts-to-git=true
             - --cert-dir=/tmp/certs
             - --secure-port=4443
             - --repo-sync-frequency=3m

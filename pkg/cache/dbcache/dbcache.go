@@ -37,9 +37,10 @@ var tracer = otel.Tracer("dbcache")
 var _ cachetypes.Cache = &dbCache{}
 
 type dbCache struct {
-	repositories map[repository.RepositoryKey]*dbRepository
-	mainLock     *sync.RWMutex
-	options      cachetypes.CacheOptions
+	repositories    map[repository.RepositoryKey]*dbRepository
+	mainLock        *sync.RWMutex
+	options         cachetypes.CacheOptions
+	PushDraftsToGit bool
 }
 
 func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (repository.Repository, error) {
@@ -69,6 +70,7 @@ func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.
 		updatedBy:            getCurrentUser(),
 		deployment:           repositorySpec.Spec.Deployment,
 		repoPRChangeNotifier: c.options.RepoPRChangeNotifier,
+		pushDraftsToGit:      c.PushDraftsToGit,
 	}
 
 	err = dbRepo.OpenRepository(ctx, c.options.ExternalRepoOptions)

@@ -26,7 +26,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func PushPackageRevision(ctx context.Context, repo repository.Repository, pr repository.PackageRevision, desiredLifecycle v1alpha1.PackageRevisionLifecycle) (v1.UpstreamLock, error) {
+func PushPublishedPackageRevision(ctx context.Context, repo repository.Repository, pr repository.PackageRevision, pushDraftsToGit bool, gitPR repository.PackageRevision) (v1.UpstreamLock, error) {
 	ctx, span := tracer.Start(ctx, "PushPackageRevision", trace.WithAttributes())
 	defer span.End()
 
@@ -46,38 +46,49 @@ func PushPackageRevision(ctx context.Context, repo repository.Repository, pr rep
 	}
 
 	var draft repository.PackageRevisionDraft
-	existingPkgRevs, err := repo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
-		Key: pr.Key(),
-	})
-	if err != nil {
-		klog.Warningf("Could not list package revisions in external repo: %v", err)
-	}
+	var foundExisting bool
 
-	for _, existingPr := range existingPkgRevs {
-		existingLifecycle := existingPr.Lifecycle(ctx)
-		if existingLifecycle == v1alpha1.PackageRevisionLifecycleDraft || existingLifecycle == v1alpha1.PackageRevisionLifecycleProposed {
-			draft, err = repo.UpdatePackageRevision(ctx, existingPr)
+	if pushDraftsToGit {
+		if gitPR != nil {
+			draft, err = repo.UpdatePackageRevision(ctx, gitPR)
 			if err != nil {
-				return v1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of draft package revision %+v to repository %+v failed, could not update existing package revision:", pr.Key(), repo.Key())
+				return v1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not update git PR:", pr.Key(), repo.Key())
 			}
-			break
+			foundExisting = true
+		} else {
+			existingPRs, err := repo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
+				Key: repository.PackageRevisionKey{
+					PkgKey:        pr.Key().PkgKey,
+					WorkspaceName: pr.Key().WorkspaceName,
+				},
+			})
+
+			if err == nil && len(existingPRs) > 0 {
+				draft, err = repo.UpdatePackageRevision(ctx, existingPRs[0])
+				if err != nil {
+					return v1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not update existing package revision:", pr.Key(), repo.Key())
+				}
+				foundExisting = true
+			}
 		}
 	}
 
-	if draft == nil {
+	if !foundExisting {
 		draft, err = repo.CreatePackageRevisionDraft(ctx, apiPr)
 		if err != nil {
 			return v1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not create package revision draft:", pr.Key(), repo.Key())
 		}
 	}
 
-	commitTask := &porchapi.Task{Type: porchapi.TaskTypePush}
-	if len(apiPr.Spec.Tasks) > 0 {
-		commitTask = &apiPr.Spec.Tasks[0]
-	}
+	if !foundExisting {
+		commitTask := &porchapi.Task{Type: porchapi.TaskTypePush}
+		if len(apiPr.Spec.Tasks) > 0 {
+			commitTask = &apiPr.Spec.Tasks[0]
+		}
 
-	if err = draft.UpdateResources(ctx, resources, commitTask); err != nil {
-		return v1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not update package revision resources:", pr.Key(), repo.Key())
+		if err = draft.UpdateResources(ctx, resources, commitTask); err != nil {
+			return v1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not update package revision resources:", pr.Key(), repo.Key())
+		}
 	}
 
 	if err = draft.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecyclePublished); err != nil {
@@ -96,4 +107,44 @@ func PushPackageRevision(ctx context.Context, repo repository.Repository, pr rep
 
 	klog.Infof("PushPackageRevision: package %+v pushed to repository %+v", pr.Key(), repo.Key())
 	return pushedPRUpstreamLock, nil
+}
+
+func GetOrCreateGitDraft(ctx context.Context, repo repository.Repository, pr repository.PackageRevision, gitPR repository.PackageRevision) (draft repository.PackageRevisionDraft, updatedGitPR repository.PackageRevision, err error) {
+	ctx, span := tracer.Start(ctx, "GetOrCreateGitDraft", trace.WithAttributes())
+	defer span.End()
+
+	if gitPR != nil {
+		gitDraft, err := repo.UpdatePackageRevision(ctx, gitPR)
+		if err != nil {
+			return nil, nil, pkgerrors.Wrapf(err, "failed to update git PR for %+v", pr.Key())
+		}
+		return gitDraft, gitPR, nil
+	}
+
+	existingPRs, err := repo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{
+		Key: repository.PackageRevisionKey{
+			PkgKey:        pr.Key().PkgKey,
+			WorkspaceName: pr.Key().WorkspaceName,
+		},
+	})
+
+	if err == nil && len(existingPRs) > 0 {
+		gitDraft, err := repo.UpdatePackageRevision(ctx, existingPRs[0])
+		if err != nil {
+			return nil, nil, pkgerrors.Wrapf(err, "failed to update existing git branch for %+v", pr.Key())
+		}
+		return gitDraft, existingPRs[0], nil
+	}
+
+	apiPr, err := pr.GetPackageRevision(ctx)
+	if err != nil {
+		return nil, nil, pkgerrors.Wrapf(err, "failed to get API representation for %+v", pr.Key())
+	}
+
+	gitDraft, err := repo.CreatePackageRevisionDraft(ctx, apiPr)
+	if err != nil {
+		return nil, nil, pkgerrors.Wrapf(err, "failed to create git draft for %+v", pr.Key())
+	}
+
+	return gitDraft, nil, nil
 }

@@ -145,7 +145,18 @@ func (s *repositorySync) sync(ctx context.Context) (repositorySyncStats, error) 
 }
 
 func (s *repositorySync) getCachedPRMap(ctx context.Context) (map[repository.PackageRevisionKey]repository.PackageRevision, error) {
-	deployedFilter := repository.ListPackageRevisionFilter{}
+	var deployedFilter repository.ListPackageRevisionFilter
+	if s.repo.pushDraftsToGit {
+		deployedFilter = repository.ListPackageRevisionFilter{}
+	} else {
+		deployedFilter = repository.ListPackageRevisionFilter{
+			Lifecycles: []api.PackageRevisionLifecycle{
+				api.PackageRevisionLifecyclePublished,
+				api.PackageRevisionLifecycleDeletionProposed,
+			},
+		}
+	}
+
 	cachedPrList, err := s.repo.ListPackageRevisions(ctx, deployedFilter)
 	if err != nil {
 		klog.Errorf("repositorySync %+v: failed to list cached package revisions", s.repo.Key())

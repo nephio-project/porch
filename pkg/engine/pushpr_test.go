@@ -37,45 +37,45 @@ func TestPushPR(t *testing.T) {
 	mockPR.EXPECT().Key().Return(repository.PackageRevisionKey{}).Maybe()
 
 	mockPR.EXPECT().Lifecycle(mock.Anything).Return(porchapi.PackageRevisionLifecycleDraft).Once()
-	_, err := PushPackageRevision(ctx, mockRepo, mockPR)
+	_, err := PushPublishedPackageRevision(ctx, mockRepo, mockPR, false, nil)
 	assert.NotNil(t, err)
 
 	mockPR.EXPECT().Lifecycle(mock.Anything).Return(porchapi.PackageRevisionLifecyclePublished).Maybe()
 	mockPR.EXPECT().GetPackageRevision(mock.Anything).Return(nil, err).Once()
-	_, err = PushPackageRevision(ctx, mockRepo, mockPR)
+	_, err = PushPublishedPackageRevision(ctx, mockRepo, mockPR, false, nil)
 	assert.NotNil(t, err)
 
 	mockPR.EXPECT().GetPackageRevision(mock.Anything).Return(&porchapi.PackageRevision{}, nil).Maybe()
 	mockPR.EXPECT().GetResources(mock.Anything).Return(nil, err).Once()
-	_, err = PushPackageRevision(ctx, mockRepo, mockPR)
+	_, err = PushPublishedPackageRevision(ctx, mockRepo, mockPR, false, nil)
 	assert.NotNil(t, err)
 
 	mockPR.EXPECT().GetResources(mock.Anything).Return(&porchapi.PackageRevisionResources{}, nil).Maybe()
 	mockRepo.EXPECT().CreatePackageRevisionDraft(mock.Anything, mock.Anything).Return(nil, err).Once()
-	_, err = PushPackageRevision(ctx, mockRepo, mockPR)
+	_, err = PushPublishedPackageRevision(ctx, mockRepo, mockPR, false, nil)
 	assert.NotNil(t, err)
 
 	mockRepo.EXPECT().CreatePackageRevisionDraft(mock.Anything, mock.Anything).Return(mockPRD, nil).Maybe()
 	mockPRD.EXPECT().UpdateResources(mock.Anything, mock.Anything, mock.Anything).Return(err).Once()
-	_, err = PushPackageRevision(ctx, mockRepo, mockPR)
+	_, err = PushPublishedPackageRevision(ctx, mockRepo, mockPR, false, nil)
 	assert.NotNil(t, err)
 
 	mockPRD.EXPECT().UpdateResources(mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 	mockPRD.EXPECT().UpdateLifecycle(mock.Anything, mock.Anything).Return(err).Once()
-	_, err = PushPackageRevision(ctx, mockRepo, mockPR)
+	_, err = PushPublishedPackageRevision(ctx, mockRepo, mockPR, false, nil)
 	assert.NotNil(t, err)
 
 	mockPRD.EXPECT().UpdateLifecycle(mock.Anything, mock.Anything).Return(nil).Maybe()
 	mockRepo.EXPECT().ClosePackageRevisionDraft(mock.Anything, mock.Anything, mock.Anything).Return(nil, err).Once()
-	_, err = PushPackageRevision(ctx, mockRepo, mockPR)
+	_, err = PushPublishedPackageRevision(ctx, mockRepo, mockPR, false, nil)
 	assert.NotNil(t, err)
 
 	mockRepo.EXPECT().ClosePackageRevisionDraft(mock.Anything, mock.Anything, mock.Anything).Return(mockPR, nil).Maybe()
 	mockPR.EXPECT().GetLock(mock.Anything).Return(v1.Upstream{}, v1.UpstreamLock{}, err).Once()
-	_, err = PushPackageRevision(ctx, mockRepo, mockPR)
+	_, err = PushPublishedPackageRevision(ctx, mockRepo, mockPR, false, nil)
 	assert.NotNil(t, err)
 
 	mockPR.EXPECT().GetLock(mock.Anything).Return(v1.Upstream{}, v1.UpstreamLock{}, nil).Maybe()
-	_, err = PushPackageRevision(ctx, mockRepo, mockPR)
+	_, err = PushPublishedPackageRevision(ctx, mockRepo, mockPR, false, nil)
 	assert.Nil(t, err)
 }
