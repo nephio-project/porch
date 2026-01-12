@@ -20,6 +20,7 @@ import (
 	"maps"
 	"strings"
 
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	kptfn "github.com/kptdev/krm-functions-sdk/go/fn"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -142,7 +143,7 @@ func (th *genericTaskHandler) DoPRMutations(
 			return err
 		}
 		if changed && newKptfileContent != "" && newKptfileContent != "{}\n" {
-			resources.Contents[kptfile.KptFileName] = newKptfileContent
+			resources.Contents[kptfilev1.KptFileName] = newKptfileContent
 		}
 
 		// render
@@ -316,9 +317,9 @@ func PatchKptfile(
 	}
 
 	if newObj.Status.Conditions != nil {
-		desiredMap := make(map[string]kptfile.Condition)
+		desiredMap := make(map[string]kptfilev1.Condition)
 		for _, c := range newObj.Status.Conditions {
-			desiredMap[c.Type] = kptfile.Condition{
+			desiredMap[c.Type] = kptfilev1.Condition{
 				Type:    c.Type,
 				Status:  convertStatusToKptfile(c.Status),
 				Reason:  c.Reason,
@@ -384,7 +385,7 @@ func PatchKptfile(
 	if err := kptf.WriteToPackage(resourceMap); err != nil {
 		return "", false, fmt.Errorf("write Kptfile: %w", err)
 	}
-	content := resourceMap[kptfile.KptFileName]
+	content := resourceMap[kptfilev1.KptFileName]
 	return content, true, nil
 }
 
@@ -476,14 +477,14 @@ func applyMetadataToKptfile(kptf *kptfn.Kptfile, obj *porchapi.PackageRevision, 
 	return changed, nil
 }
 
-func convertStatusToKptfile(s porchapi.ConditionStatus) kptfile.ConditionStatus {
+func convertStatusToKptfile(s porchapi.ConditionStatus) kptfilev1.ConditionStatus {
 	switch s {
 	case porchapi.ConditionTrue:
-		return kptfile.ConditionTrue
+		return kptfilev1.ConditionTrue
 	case porchapi.ConditionFalse:
-		return kptfile.ConditionFalse
+		return kptfilev1.ConditionFalse
 	case porchapi.ConditionUnknown:
-		return kptfile.ConditionUnknown
+		return kptfilev1.ConditionUnknown
 	default:
 		panic(fmt.Errorf("unknown condition status: %v", s))
 	}

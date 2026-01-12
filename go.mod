@@ -68,17 +68,6 @@ require (
 )
 
 require (
-	github.com/fatih/camelcase v1.0.0 // indirect
-	github.com/jedib0t/go-pretty/v6 v6.6.7 // indirect
-	github.com/jonboulle/clockwork v0.5.0 // indirect
-	github.com/kptdev/kpt/rollouts v0.0.0-20250604154015-93477536a4dd // indirect
-	github.com/mattn/go-runewidth v0.0.16 // indirect
-	github.com/rivo/uniseg v0.4.7 // indirect
-	github.com/spyzhov/ajson v0.9.6 // indirect
-	k8s.io/component-helpers v0.34.1 // indirect
-)
-
-require (
 	cel.dev/expr v0.25.0 // indirect
 	cloud.google.com/go/auth v0.17.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
