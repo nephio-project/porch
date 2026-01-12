@@ -18,7 +18,7 @@ import (
 	"maps"
 	"strings"
 
-	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
+	"github.com/kptdev/krm-functions-sdk/go/fn"
 	pkgerrors "github.com/pkg/errors"
 	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/validation/spec"

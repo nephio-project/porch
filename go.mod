@@ -21,6 +21,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/kptdev/kpt v1.0.0-beta.59.1
+	github.com/kptdev/krm-functions-sdk/go/fn v1.0.0
 	github.com/otiai10/copy v1.14.1
 	github.com/philopon/go-toposort v0.0.0-20170620085441-9be86dbd762f
 	github.com/pkg/errors v0.9.1
@@ -64,6 +65,17 @@ require (
 	sigs.k8s.io/kustomize/api v0.20.1
 	sigs.k8s.io/kustomize/kyaml v0.20.1
 	sigs.k8s.io/yaml v1.6.0
+)
+
+require (
+	github.com/fatih/camelcase v1.0.0 // indirect
+	github.com/jedib0t/go-pretty/v6 v6.6.7 // indirect
+	github.com/jonboulle/clockwork v0.5.0 // indirect
+	github.com/kptdev/kpt/rollouts v0.0.0-20250604154015-93477536a4dd // indirect
+	github.com/mattn/go-runewidth v0.0.16 // indirect
+	github.com/rivo/uniseg v0.4.7 // indirect
+	github.com/spyzhov/ajson v0.9.6 // indirect
+	k8s.io/component-helpers v0.34.1 // indirect
 )
 
 require (
