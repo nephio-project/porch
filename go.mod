@@ -70,9 +70,10 @@ require (
 require github.com/go-errors/errors v1.5.1 // indirect
 
 require (
-	github.com/qri-io/starlib v0.5.0 // indirect
-	go.starlark.net v0.0.0-20251029211736-7849196f18cf // indirect
-	sigs.k8s.io/kustomize/api v0.20.1 // indirect
+	github.com/kptdev/krm-functions-catalog/functions/go/apply-replacements v0.1.3 // indirect
+	github.com/kptdev/krm-functions-catalog/functions/go/apply-setters v0.2.2 // indirect
+	github.com/kptdev/krm-functions-catalog/functions/go/set-namespace v0.4.3 // indirect
+	github.com/kptdev/krm-functions-catalog/functions/go/starlark v0.5.3 // indirect
 )
 
 require (
