@@ -529,7 +529,7 @@ func validateDeletion(w http.ResponseWriter, r *http.Request, clientReader clien
 	}
 
 	// Get the package revision using the name and namespace from the request.
-	pr := porchapi.PackageRevision{}ß
+	pr := porchapi.PackageRevision{}
 	if err := clientReader.Get(ctx, client.ObjectKey{
 		Namespace: admissionReviewRequest.Request.Namespace,
 		Name:      admissionReviewRequest.Request.Name,
