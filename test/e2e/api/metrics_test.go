@@ -1,5 +1,10 @@
 package api
 
+import (
+	suiteutils "github.com/nephio-project/porch/test/e2e/suiteutils"
+	"github.com/stretchr/testify/assert"
+)
+
 func (t *PorchSuite) TestMetricsEndpoint() {
 	porchServerShouldHaveRegexList := []string{
 		"go_*",

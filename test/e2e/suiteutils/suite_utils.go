@@ -717,7 +717,7 @@ func (t *TestSuite) AddResourceToPackage(resources *porchapi.PackageRevisionReso
 	resources.Spec.Resources[name] = string(file)
 }
 
-func (t *TestSuite) collectMetricsFromPods() (*metricsCollectionResults, error) {
+func (t *TestSuite) CollectMetricsFromPods() (*metricsCollectionResults, error) {
 	ctx := context.Background()
 	podList, err := t.KubeClient.CoreV1().Pods("porch-system").List(ctx, metav1.ListOptions{})
 	if err != nil {
