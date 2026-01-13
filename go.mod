@@ -69,6 +69,13 @@ require (
 require github.com/go-errors/errors v1.5.1 // indirect
 
 require (
+	github.com/kptdev/krm-functions-catalog/functions/go/apply-replacements v0.1.3 // indirect
+	github.com/kptdev/krm-functions-catalog/functions/go/apply-setters v0.2.2 // indirect
+	github.com/kptdev/krm-functions-catalog/functions/go/set-namespace v0.4.3 // indirect
+	github.com/kptdev/krm-functions-catalog/functions/go/starlark v0.5.3 // indirect
+)
+
+require (
 	cel.dev/expr v0.25.0 // indirect
 	cloud.google.com/go/auth v0.17.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
