@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/kptdev/krm-functions-sdk/go/fn"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	api "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
-	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
 )
@@ -1063,7 +1063,7 @@ spec:
 `,
 			initialData: "        hello: there\n",
 			expectedErr: "",
-			expectedPRR: prrBase + "        foo: bar\n        hello: there\n",
+			expectedPRR: prrBase + "        hello: there\n        foo: bar\n",
 		},
 		"change existing": {
 			spec: `  packageContext:

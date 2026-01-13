@@ -26,10 +26,10 @@ import (
 	"os/exec"
 	"strconv"
 
+	"github.com/kptdev/krm-functions-sdk/go/fn"
 	pb "github.com/nephio-project/porch/func/evaluator"
 	"github.com/nephio-project/porch/func/healthchecker"
 	porchotel "github.com/nephio-project/porch/internal/otel"
-	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
 	"github.com/spf13/cobra"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel"

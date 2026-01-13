@@ -23,8 +23,8 @@ import (
 	"strings"
 
 	"github.com/go-git/go-git/v5/plumbing/transport"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -272,14 +272,14 @@ type PackageRevision interface {
 	GetResources(ctx context.Context) (*porchapi.PackageRevisionResources, error)
 
 	// GetUpstreamLock returns the kpt lock information.
-	GetUpstreamLock(ctx context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error)
+	GetUpstreamLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error)
 
 	// GetKptfile returns the Kptfile for the package
-	GetKptfile(ctx context.Context) (kptfile.KptFile, error)
+	GetKptfile(ctx context.Context) (kptfilev1.KptFile, error)
 
 	// GetLock returns the current revision's lock information.
 	// This will be the upstream info for downstream revisions.
-	GetLock(ctx context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error)
+	GetLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error)
 
 	// ResourceVersion returns the Kube resource version of the package
 	ResourceVersion() string
@@ -329,6 +329,9 @@ type ListPackageRevisionFilter struct {
 	// Lifecycle matches the spec.lifecycle of the package
 	Lifecycles []porchapi.PackageRevisionLifecycle
 
+	// KptfileLabels matches labels specified in the Kptfile
+	KptfileLabels map[string]string
+
 	Label labels.Selector
 }
 
@@ -340,6 +343,24 @@ func (f *ListPackageRevisionFilter) Matches(ctx context.Context, p PackageRevisi
 
 	if len(f.Lifecycles) > 0 && !slices.Contains(f.Lifecycles, p.Lifecycle(ctx)) {
 		return false
+	}
+
+	if len(f.KptfileLabels) > 0 {
+		packageRevision, err := p.GetPackageRevision(ctx)
+		if err != nil {
+			return false
+		}
+
+		if packageRevision.Spec.PackageMetadata == nil {
+			return false
+		}
+
+		for labelKey, expectedlValue := range f.KptfileLabels {
+			actualValue, exists := packageRevision.Spec.PackageMetadata.Labels[labelKey]
+			if !exists || actualValue != expectedlValue {
+				return false
+			}
+		}
 	}
 
 	if !f.MatchesLabels(ctx, p) {

@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kptdev/kpt/pkg/lib/options"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/options"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

@@ -17,6 +17,7 @@ package git
 import (
 	"fmt"
 
+	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 )
@@ -45,6 +46,21 @@ func (b *pushRefSpecBuilder) AddRefToDelete(ref *plumbing.Reference) {
 func (b *pushRefSpecBuilder) RequireRef(ref *plumbing.Reference) {
 	if ref != nil {
 		b.require[ref.Name()] = ref.Hash()
+	}
+}
+
+func (b *pushRefSpecBuilder) updateRequiredRefs(repo *git.Repository) {
+	for refName := range b.require {
+		// Try local ref first, then remote ref
+		if ref, err := repo.Reference(refName, true); err == nil {
+			b.require[refName] = ref.Hash()
+		} else {
+			// Try remote equivalent
+			remoteName := plumbing.ReferenceName("refs/remotes/origin/" + refName.Short())
+			if ref, err := repo.Reference(remoteName, true); err == nil {
+				b.require[refName] = ref.Hash()
+			}
+		}
 	}
 }
 

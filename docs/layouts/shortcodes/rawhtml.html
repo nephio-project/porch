@@ -1,0 +1,2 @@
+<!-- rawhtml -->
+{{ .Inner }}

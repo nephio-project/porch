@@ -258,8 +258,10 @@ github.com/klauspost/compress v1.18.1 h1:bcSGx7UbpBqMChDtsF28Lw6v/G94LPrrbMbdC3J
 github.com/klauspost/compress v1.18.1/go.mod h1:ZQFFVG+MdnR0P+l6wpXgIL4NTtwiKIdBnrBd8Nrxr+0=
 github.com/klauspost/cpuid/v2 v2.3.0 h1:S4CRMLnYUhGeDFDqkGriYKdfoFlDnMtqTiI/sFzhA9Y=
 github.com/klauspost/cpuid/v2 v2.3.0/go.mod h1:hqwkgyIinND0mEev00jJYCxPNVRVXFQeu1XKlok6oO0=
-github.com/kptdev/kpt v1.0.0-beta.59 h1:os8L0EGtgiExjmt2X3oOLVt5AHmHDTqvHOljVJney+A=
-github.com/kptdev/kpt v1.0.0-beta.59/go.mod h1:Cd50sUJEwm0/EiClfOse7ZDfOun9g0qWUFai7AWsMrk=
+github.com/kptdev/kpt v1.0.0-beta.59.1 h1:Kal5ifHexTZQiYGeDPlP3iksTDoDrHdpqOYu0+BI1Qo=
+github.com/kptdev/kpt v1.0.0-beta.59.1/go.mod h1:jyXC9tCyw1ret0guI03X9Iyqjwyc94aG1642jz0kmq4=
+github.com/kptdev/krm-functions-sdk/go/fn v1.0.0 h1:2xTAEw0/mWNnPNvBR7K3rvrnjmBMxVbtTyu2ZHJjQxo=
+github.com/kptdev/krm-functions-sdk/go/fn v1.0.0/go.mod h1:GxUbq9hEUYUtl2rGyQfzxz++xV+dSRrHpRxsx5l0PvA=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
 github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=

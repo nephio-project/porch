@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
+	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -91,4 +92,36 @@ func TestListResources(t *testing.T) {
 	resultList, isList := result.(*porchapi.PackageRevisionResourcesList)
 	assert.True(t, isList)
 	assert.Equal(t, 0, len(resultList.Items))
+}
+
+func TestWatchResources(t *testing.T) {
+	_, mockEngine := setupResourcesTest(t)
+	mockWatcherManager := mockengine.NewMockWatcherManager(t)
+	mockEngine.On("ObjectCache").Return(mockWatcherManager).Maybe()
+
+	mockWatcherManager.On("WatchPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil).Maybe()
+
+	watcher, err := packagerevisionresources.Watch(context.TODO(), &internalversion.ListOptions{})
+	assert.NoError(t, err)
+	if watcher != nil {
+		watcher.Stop()
+	}
+
+	//=========================================================================================
+
+	watcher, err = packagerevisionresources.Watch(context.TODO(), &internalversion.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("invalid.field", "somethingOffTheWall"),
+	})
+	assert.Equal(t, nil, watcher)
+	assert.ErrorContains(t, err, "unknown fieldSelector field")
+
+	//=========================================================================================
+
+	ctxWithConflictNamespace := genericapirequest.WithNamespace(context.TODO(), "foo")
+	watcher, err = packagerevisionresources.Watch(ctxWithConflictNamespace, &internalversion.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("metadata.namespace", "somethingOffTheWall"),
+	})
+	assert.Equal(t, nil, watcher)
+	assert.ErrorContains(t, err, "conflicting namespaces specified")
 }

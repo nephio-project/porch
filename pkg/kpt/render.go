@@ -20,10 +20,10 @@ import (
 	"io"
 	"os"
 
+	fnresult "github.com/kptdev/kpt/pkg/api/fnresult/v1"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/internal/kpt/util/render"
-	fnresult "github.com/nephio-project/porch/pkg/kpt/api/fnresult/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
 	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"k8s.io/klog/v2"
