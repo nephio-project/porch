@@ -21,8 +21,8 @@ import (
 	"testing"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	fnsdk "github.com/kptdev/krm-functions-sdk/go/fn"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
-	fnsdk "github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
 )
 
 const gcrImagePrefix = ""
