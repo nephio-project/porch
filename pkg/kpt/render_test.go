@@ -1,4 +1,4 @@
-// Copyright 2022, 2025 The kpt and Nephio Authors
+// Copyright 2022, 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,8 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
-	"strings"
+    goruntime "runtime"
+    "strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -114,4 +115,37 @@ func TestPackagePrinter(t *testing.T) {
 	if !strings.Contains(got, `Package: "display/path": Hello World`) {
 		t.Errorf("OptPrintf output missing:\n%s", got)
 	}
+}
+
+func TestPrinterLoggingDepth(t *testing.T) {
+    flag.Set("logtostderr", "false")
+
+    var buf bytes.Buffer
+    klog.SetOutput(&buf)
+
+    _, filename, _, _ := goruntime.Caller(0)
+    expectedFile := filepath.Base(filename)
+
+    p := &packagePrinter{}
+
+    tests := []struct {
+        name string
+        fn   func()
+    }{
+        {"Printf", func() { p.Printf("Printf test: %d", 42) }},
+        {"OptPrintf", func() { p.OptPrintf(&printer.Options{}, "OptPrintf test: %d", 42) }},
+        {"PrintPackage", func() { p.PrintPackage(&pkg.Pkg{}, false) }},
+    }
+
+    for _, test := range tests {
+        t.Run(test.name, func(t *testing.T) {
+            buf.Reset()
+            test.fn()
+            klog.Flush()
+            got := buf.String()
+            if !strings.Contains(got, expectedFile) {
+                t.Errorf("%s depth incorrect, expected %s in: %s", test.name, expectedFile, got)
+            }
+        })
+    }
 }
