@@ -33,6 +33,18 @@ type ObjectWatcher interface {
 	OnPackageRevisionChange(eventType watch.EventType, obj repository.PackageRevision) bool
 }
 
+func isContextError(err error) bool {
+	return err == context.Canceled || err == context.DeadlineExceeded
+}
+
+func logWatcherAction(watcher *watcher, action string, err error) {
+	if isContextError(err) {
+		klog.V(3).Infof("watcher %p %s: %v", watcher, action, err)
+	} else {
+		klog.Infof("watcher %p %s: %v", watcher, action, err)
+	}
+}
+
 func NewWatcherManager() *watcherManager {
 	return &watcherManager{}
 }
@@ -81,10 +93,10 @@ func (r *watcherManager) WatchPackageRevisions(ctx context.Context, filter repos
 					r.watchers[i] = w
 					inserted = true
 					active += 1
-					klog.Infof("watcher %p finished with: %v and is replaced by watcher %p", watcher, err, w)
+					logWatcherAction(watcher, "finished and is replaced by watcher", err)
 				} else {
 					r.watchers[i] = nil
-					klog.Infof("watcher %p finished with: %v and is removed", watcher, err)
+					logWatcherAction(watcher, "finished and is removed", err)
 				}
 			} else {
 				active += 1
@@ -102,7 +114,7 @@ func (r *watcherManager) WatchPackageRevisions(ctx context.Context, filter repos
 		r.watchers = append(r.watchers, w)
 	}
 
-	klog.Infof("added watcher %p; there are now %d active watchers and %d slots", w, active, len(r.watchers))
+	klog.V(3).Infof("added watcher %p; there are now %d active watchers and %d slots", w, active, len(r.watchers))
 	return nil
 }
 
@@ -117,7 +129,7 @@ func (r *watcherManager) NotifyPackageRevisionChange(eventType watch.EventType, 
 			continue
 		}
 		if err := watcher.isDoneFunction(); err != nil {
-			klog.Infof("stopping watcher in response to error %v", err)
+			logWatcherAction(watcher, "stopping in response to error", err)
 			r.watchers[i] = nil
 			continue
 		}

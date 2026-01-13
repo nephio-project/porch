@@ -25,6 +25,7 @@ import (
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
 	"github.com/nephio-project/porch/pkg/repository"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 )
 
@@ -96,4 +97,42 @@ func (f *fakePackageReader) watchPackages(ctx context.Context, filter repository
 
 func (f *fakePackageReader) listPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter, callback func(ctx context.Context, p repository.PackageRevision) error) error {
 	return nil
+}
+func TestWatcherNilObject(t *testing.T) {
+	ctx := context.Background()
+	ctx, cancelFunc := context.WithCancel(ctx)
+
+	w := &watcher{
+		cancel:     cancelFunc,
+		resultChan: make(chan watch.Event, 64),
+		extractor: func(ctx context.Context, pr repository.PackageRevision) (runtime.Object, error) {
+			return nil, nil // Return nil object
+		},
+	}
+
+	r := &fakePackageReader{}
+	r.Add(1)
+	var filter repository.ListPackageRevisionFilter
+
+	go w.listAndWatch(ctx, r, filter)
+
+	// Wait until the callback has been set
+	r.Wait()
+
+	// Send a watch event that will result in nil object
+	pkgRev := &fake.FakePackageRevision{
+		PackageRevision: &porchapi.PackageRevision{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: make(map[string]string),
+			},
+		},
+	}
+
+	// This should return true (continue watching) even with nil object
+	cont := r.callback.OnPackageRevisionChange(watch.Modified, pkgRev)
+	if !cont {
+		t.Error("Expected callback to return true for nil object")
+	}
+
+	cancelFunc()
 }
