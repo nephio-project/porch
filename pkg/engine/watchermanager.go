@@ -37,12 +37,13 @@ func isContextError(err error) bool {
 	return err == context.Canceled || err == context.DeadlineExceeded
 }
 
-func logWatcherAction(watcher *watcher, action string, err error) {
+func logWatcherAction(watcher *watcher, action string, err error) string {
 	if isContextError(err) {
 		klog.V(3).Infof("watcher %p %s: %v", watcher, action, err)
-	} else {
-		klog.Infof("watcher %p %s: %v", watcher, action, err)
+		return "debug"
 	}
+	klog.Infof("watcher %p %s: %v", watcher, action, err)
+	return "info"
 }
 
 func NewWatcherManager() *watcherManager {
