@@ -700,7 +700,7 @@ spec:
                                       host-path that will be used to resolve the image
                                       path in case\nthe image path is missing (Defaults
                                       to ghcr.io/kptdev/krm-functions-catalog).\ne.g.
-                                      The following resolves to ghcr.io/kptdev/krm-functions-catalog/set-labels:\n\n\timage:
+                                      The following resolves to ghcr.io/kptdev/krm-functions-catalog/set-labels\n\n\timage:
                                       set-labels"
                                     type: string
                                   name:
@@ -833,7 +833,7 @@ spec:
                                       host-path that will be used to resolve the image
                                       path in case\nthe image path is missing (Defaults
                                       to ghcr.io/kptdev/krm-functions-catalog).\ne.g.
-                                      The following resolves to ghcr.io/kptdev/krm-functions-catalog/set-labels:\n\n\timage:
+                                      The following resolves to ghcr.io/kptdev/krm-functions-catalog/set-labels\n\n\timage:
                                       set-labels"
                                     type: string
                                   name:

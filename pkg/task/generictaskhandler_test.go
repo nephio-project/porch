@@ -20,6 +20,8 @@ import (
 	"strings"
 	"testing"
 
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	kptfn "github.com/kptdev/krm-functions-sdk/go/fn"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	fakeextrepo "github.com/nephio-project/porch/pkg/externalrepo/fake"
@@ -173,6 +175,11 @@ func TestDoPrMutations(t *testing.T) {
 			},
 		},
 	}
+	repoPr.Resources.Spec.Resources[kptfilev1.KptFileName] = `apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: test-package
+`
 	draft := repoPr
 
 	t.Run("No-op when not draft", func(t *testing.T) {
@@ -280,4 +287,128 @@ func TestRenderError(t *testing.T) {
 	if !strings.Contains(got, "Error rendering package in kpt function pipeline") {
 		t.Errorf("expected wrapper message to be included, got: %q", got)
 	}
+}
+
+func TestKptfilePreservesComments(t *testing.T) {
+	// Kptfile with labels/annotations present
+	originalKptfile := `
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata: # kpt-merge: /my-pkg
+  name: my-pkg # this is the package name
+  labels:
+    foo: bar # upstream label
+    toremove: will-be-removed # label to be removed
+  annotations:
+    foo: bar # upstream annotation
+    toremove: will-be-removed # annotation to be removed
+# Top-level comment
+info:
+  readinessGates:
+    # This gate is important
+    - conditionType: Ready # readiness gate comment
+`
+
+	resources := map[string]string{
+		"Kptfile": originalKptfile,
+	}
+
+	obj := &porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
+			PackageMetadata: &porchapi.PackageMetadata{
+				Labels: map[string]string{
+					"new-label": "new-label-value",
+					"foo":       "bar-updated",
+				},
+				Annotations: map[string]string{
+					"new-annotation": "new-annotation-value",
+					"foo":            "bar-updated",
+				},
+			},
+			ReadinessGates: []porchapi.ReadinessGate{
+				{ConditionType: "Ready"},
+				{ConditionType: "Healthy"},
+			},
+		},
+	}
+
+	kptf, err := kptfn.NewKptfileFromPackage(resources)
+	require.NoError(t, err)
+
+	kptf.SetLabels(obj.Spec.PackageMetadata.Labels)
+	labelsAfter := kptf.GetLabels()
+	assert.Equal(t, "bar-updated", labelsAfter["foo"])
+	assert.Equal(t, "new-label-value", labelsAfter["new-label"])
+	assert.NotContains(t, labelsAfter, "toremove")
+
+	kptf.SetAnnotations(obj.Spec.PackageMetadata.Annotations)
+	annotationsAfter := kptf.GetAnnotations()
+	assert.Equal(t, "bar-updated", annotationsAfter["foo"])
+	assert.Equal(t, "new-annotation-value", annotationsAfter["new-annotation"])
+	assert.NotContains(t, annotationsAfter, "toremove")
+
+	var gates kptfn.SliceSubObjects
+	for _, rg := range obj.Spec.ReadinessGates {
+		ko, err := kptfn.NewFromTypedObject(rg)
+		require.NoError(t, err)
+		gates = append(gates, &ko.SubObject)
+	}
+	require.NoError(t, kptf.SetReadinessGates(gates))
+
+	require.NoError(t, kptf.WriteToPackage(resources))
+	got := resources["Kptfile"]
+
+	assert.Contains(t, got, "# this is the package name")
+	assert.Contains(t, got, "# upstream label")
+	assert.Contains(t, got, "# upstream annotation")
+	assert.Contains(t, got, "# Top-level comment")
+	assert.Contains(t, got, "# This gate is important")
+	assert.Contains(t, got, "# readiness gate comment")
+
+	// Kptfile with labels/annotations initially empty
+	emptyKptfile := `
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: my-pkg
+# Top-level comment
+info:
+  readinessGates:
+    - conditionType: Ready
+`
+
+	resources2 := map[string]string{
+		"Kptfile": emptyKptfile,
+	}
+
+	obj2 := &porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
+			PackageMetadata: &porchapi.PackageMetadata{
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+				Annotations: map[string]string{
+					"foo": "bar",
+				},
+			},
+		},
+	}
+	kptf2, err := kptfn.NewKptfileFromPackage(resources2)
+	require.NoError(t, err)
+
+	labels2 := kptf2.GetLabels()
+	for k, v := range obj2.Spec.PackageMetadata.Labels {
+		labels2[k] = v
+	}
+	kptf2.SetLabels(labels2)
+
+	annotations2 := kptf2.GetAnnotations()
+	for k, v := range obj2.Spec.PackageMetadata.Annotations {
+		annotations2[k] = v
+	}
+	kptf2.SetAnnotations(annotations2)
+	require.NoError(t, kptf2.WriteToPackage(resources2))
+	got2 := resources2["Kptfile"]
+	assert.Contains(t, got2, "foo: bar")
+	assert.Contains(t, got2, "# Top-level comment")
 }

@@ -17,8 +17,8 @@ package fake
 import (
 	"context"
 
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,7 +33,7 @@ type FakePackageRevision struct {
 	PackageLifecycle porchapi.PackageRevisionLifecycle
 	PackageRevision  *porchapi.PackageRevision
 	Resources        *porchapi.PackageRevisionResources
-	Kptfile          kptfile.KptFile
+	Kptfile          kptfilev1.KptFile
 	Ops              []string
 	Err              error
 }
@@ -88,17 +88,17 @@ func (fpr *FakePackageRevision) GetResources(context.Context) (*porchapi.Package
 	return fpr.Resources, fpr.Err
 }
 
-func (fpr *FakePackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, error) {
+func (fpr *FakePackageRevision) GetKptfile(ctx context.Context) (kptfilev1.KptFile, error) {
 	fpr.Ops = append(fpr.Ops, "GetKptfile")
 	return fpr.Kptfile, fpr.Err
 }
 
-func (fpr *FakePackageRevision) GetUpstreamLock(context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error) {
+func (fpr *FakePackageRevision) GetUpstreamLock(context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
 	fpr.Ops = append(fpr.Ops, "GetUpstreamLock")
 	return *fpr.Kptfile.Upstream, *fpr.Kptfile.UpstreamLock, fpr.Err
 }
 
-func (fpr *FakePackageRevision) GetLock(ctx context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error) {
+func (fpr *FakePackageRevision) GetLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
 	fpr.Ops = append(fpr.Ops, "GetLock")
 	return *fpr.Kptfile.Upstream, *fpr.Kptfile.UpstreamLock, fpr.Err
 }

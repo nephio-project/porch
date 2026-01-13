@@ -1,4 +1,4 @@
-// Copyright 2021,2025 The kpt and Nephio Authors
+// Copyright 2021,2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import (
 	goerrors "errors"
 
 	kyaml_errors "github.com/go-errors/errors"
-	"github.com/nephio-project/porch/internal/kpt/types"
+	"github.com/kptdev/kpt/pkg/lib/types"
 )
 
 // Error is the type that implements error interface used in the kpt codebase.
