@@ -60,16 +60,10 @@ require (
 require github.com/go-errors/errors v1.5.1 // indirect
 
 require (
-	github.com/bytecodealliance/wasmtime-go v1.0.0 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
-	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
+	github.com/kptdev/krm-functions-catalog/functions/go/apply-replacements v0.1.3 // indirect
 	github.com/kptdev/krm-functions-catalog/functions/go/apply-setters v0.2.2 // indirect
-	github.com/otiai10/copy v1.14.1 // indirect
-	github.com/prep/wasmexec v0.0.0-20220807105708-6554945c1dec // indirect
-	github.com/qri-io/starlib v0.5.0 // indirect
-	go.starlark.net v0.0.0-20251029211736-7849196f18cf // indirect
-	golang.org/x/mod v0.29.0 // indirect
-	sigs.k8s.io/kustomize/api v0.20.1 // indirect
+	github.com/kptdev/krm-functions-catalog/functions/go/set-namespace v0.4.3 // indirect
+	github.com/kptdev/krm-functions-catalog/functions/go/starlark v0.5.3 // indirect
 )
 
 require (
