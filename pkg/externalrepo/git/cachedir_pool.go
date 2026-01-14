@@ -42,16 +42,29 @@ var globalDirectoryPool = &DirectoryPool{
 
 // GetOrCreateSharedRepository safely initializes or reuses a cached git directory
 func (p *DirectoryPool) GetOrCreateSharedRepository(dir, reponame string) (*SharedDirectory, error) {
+	// Fast path: check if directory already exists
+	if sharedDir, exists := p.directories.Load(dir); exists {
+		p.mutex.Lock()
+		shared := sharedDir.(*SharedDirectory)
+		shared.refCount++
+		klog.V(2).Infof("Repo %s is reusing shared directory %s, refCount now: %d", reponame, dir, shared.refCount)
+		p.mutex.Unlock()
+		return shared, nil
+	}
+
+	// Slow path: create new directory with write lock - needed to avoid race condition during parallel operations
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	// Check if directory already exists
+	// Double-check after acquiring lock
 	if sharedDir, exists := p.directories.Load(dir); exists {
 		shared := sharedDir.(*SharedDirectory)
 		shared.refCount++
 		klog.V(2).Infof("Repo %s is reusing shared directory %s, refCount now: %d", reponame, dir, shared.refCount)
 		return shared, nil
 	}
+
+	klog.V(2).Infof("Repo %s initializing shared directory %s", reponame, dir)
 
 	// Initialize repository safely
 	var repo *git.Repository
@@ -118,7 +131,7 @@ func (s *SharedDirectory) WithLock(fn func(*git.Repository) error) error {
 	return fn(s.repo)
 }
 
-// WithLock executes function with exclusive access to the cached git directory
+// WithRLock executes function with read-only access to the cached git directory
 func (s *SharedDirectory) WithRLock(fn func(*git.Repository) error) error {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
