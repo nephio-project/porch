@@ -15,8 +15,8 @@
 package update
 
 import (
+	"github.com/kptdev/kpt/pkg/lib/errors"
 	"github.com/kptdev/kpt/pkg/lib/types"
-	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/internal/kpt/util/pkgutil"
 	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"

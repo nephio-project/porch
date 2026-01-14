@@ -17,8 +17,8 @@ package update
 import (
 	"reflect"
 
+	"github.com/kptdev/kpt/pkg/lib/errors"
 	"github.com/kptdev/kpt/pkg/lib/types"
-	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 )
