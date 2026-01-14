@@ -25,6 +25,7 @@ import (
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
 	"github.com/nephio-project/porch/pkg/repository"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 )
 
@@ -95,5 +96,114 @@ func (f *fakePackageReader) watchPackages(ctx context.Context, filter repository
 }
 
 func (f *fakePackageReader) listPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter, callback func(ctx context.Context, p repository.PackageRevision) error) error {
+	return nil
+}
+func TestWatcherNilObject(t *testing.T) {
+	tests := []struct {
+		name             string
+		packages         []repository.PackageRevision
+		waitForStreaming bool
+		sendEvent        bool
+	}{
+		{
+			name:      "backlog phase",
+			packages:  nil,
+			sendEvent: false,
+		},
+		{
+			name:             "streaming phase",
+			packages:         nil,
+			waitForStreaming: true,
+			sendEvent:        true,
+		},
+		{
+			name: "list phase",
+			packages: []repository.PackageRevision{
+				&fake.FakePackageRevision{
+					PackageRevision: &porchapi.PackageRevision{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: make(map[string]string),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancelFunc := context.WithCancel(context.Background())
+			defer cancelFunc()
+
+			w := &watcher{
+				cancel:     cancelFunc,
+				resultChan: make(chan watch.Event, 64),
+				extractor: func(ctx context.Context, pr repository.PackageRevision) (runtime.Object, error) {
+					return nil, nil
+				},
+			}
+
+			r := &nilCheckFakeReader{
+				packages:           tt.packages,
+				sendEventInBacklog: tt.name == "backlog phase",
+			}
+			r.Add(1)
+			var filter repository.ListPackageRevisionFilter
+			go w.listAndWatch(ctx, r, filter)
+			r.Wait()
+
+			if tt.waitForStreaming {
+				time.Sleep(100 * time.Millisecond)
+			}
+
+			if tt.sendEvent {
+				pkgRev := &fake.FakePackageRevision{
+					PackageRevision: &porchapi.PackageRevision{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: make(map[string]string),
+						},
+					},
+				}
+				cont := r.callback.OnPackageRevisionChange(watch.Modified, pkgRev)
+				if !cont {
+					t.Error("Expected callback to return true for nil object")
+				}
+			} else {
+				time.Sleep(10 * time.Millisecond)
+			}
+		})
+	}
+}
+
+type nilCheckFakeReader struct {
+	sync.WaitGroup
+	callback           engine.ObjectWatcher
+	packages           []repository.PackageRevision
+	sendEventInBacklog bool
+}
+
+func (f *nilCheckFakeReader) watchPackages(ctx context.Context, filter repository.ListPackageRevisionFilter, callback engine.ObjectWatcher) error {
+	f.callback = callback
+	if f.sendEventInBacklog {
+		// Send event synchronously in backlog phase
+		pkgRev := &fake.FakePackageRevision{
+			PackageRevision: &porchapi.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: make(map[string]string),
+				},
+			},
+		}
+		callback.OnPackageRevisionChange(watch.Modified, pkgRev)
+	}
+	f.Done()
+	return nil
+}
+
+func (f *nilCheckFakeReader) listPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter, callback func(ctx context.Context, p repository.PackageRevision) error) error {
+	for _, pkg := range f.packages {
+		if err := callback(ctx, pkg); err != nil {
+			return err
+		}
+	}
 	return nil
 }

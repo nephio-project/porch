@@ -122,11 +122,12 @@ func (w *watcher) listAndWatch(ctx context.Context, r packageReader, filter repo
 
 	if err := w.listAndWatchInner(ctx, r, filter); err != nil {
 		// TODO: We need to populate the object on this error
-		klog.Warningf("sending error to watch stream: %v", err)
-		ev := watch.Event{
-			Type: watch.Error,
+		if err == context.Canceled || err == context.DeadlineExceeded {
+			klog.V(3).Infof("sending error to watch stream: %v", err)
+		} else {
+			klog.Warningf("sending error to watch stream: %v", err)
 		}
-		w.resultChan <- ev
+		// Don't send error events with nil objects
 	}
 	w.cancel()
 	close(w.resultChan)
@@ -148,6 +149,9 @@ func (w *watcher) listAndWatchInner(ctx context.Context, r packageReader, filter
 			w.done = true
 			errorResult <- err
 			return false
+		}
+		if obj == nil {
+			return true
 		}
 
 		backlog = append(backlog, watch.Event{
@@ -172,6 +176,9 @@ func (w *watcher) listAndWatchInner(ctx context.Context, r packageReader, filter
 			w.done = true
 			w.mutex.Unlock()
 			return err
+		}
+		if obj == nil {
+			return nil
 		}
 		// TODO: Check resource version?
 		ev := watch.Event{
@@ -217,7 +224,7 @@ func (w *watcher) listAndWatchInner(ctx context.Context, r packageReader, filter
 		w.sendWatchEvent(ev)
 	}
 
-	klog.Infof("watch %p: moving watch into streaming mode after sentAdd %d, sentBacklog %d, sentNewBacklog %d", w, sentAdd, sentBacklog, sentNewBacklog)
+	klog.V(3).Infof("watch %p: moving watch into streaming mode after sentAdd %d, sentBacklog %d, sentNewBacklog %d", w, sentAdd, sentBacklog, sentNewBacklog)
 	w.eventCallback = func(eventType watch.EventType, pr repository.PackageRevision) bool {
 		if w.done {
 			return false
@@ -227,6 +234,9 @@ func (w *watcher) listAndWatchInner(ctx context.Context, r packageReader, filter
 			w.done = true
 			errorResult <- err
 			return false
+		}
+		if obj == nil {
+			return true
 		}
 		// TODO: Check resource version?
 		ev := watch.Event{
