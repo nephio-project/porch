@@ -1,4 +1,4 @@
-// Copyright 2025 The Nephio Authors
+// Copyright 2025-2026 The Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,9 +15,9 @@
 package update
 
 import (
+	"github.com/kptdev/kpt/pkg/lib/types"
 	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
-	"github.com/nephio-project/porch/internal/kpt/types"
 	"github.com/nephio-project/porch/internal/kpt/util/pkgutil"
 	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
 )

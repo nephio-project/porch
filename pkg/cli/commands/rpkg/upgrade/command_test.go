@@ -51,7 +51,7 @@ func makeWsName(revision int) string {
 func setLifecycleAndName(pr *porchapi.PackageRevision, revision int) {
 	if revision == 0 {
 		pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDraft
-		pr.Status.UpstreamLock = &porchapi.UpstreamLock{
+		pr.Status.UpstreamLock = &porchapi.Locator{
 			Git: &porchapi.GitLock{
 				Ref:  fmt.Sprintf("/drafts/%s/%s", pr.Spec.PackageName, pr.Spec.WorkspaceName),
 				Repo: "https://github.com/user/repo",
@@ -59,7 +59,7 @@ func setLifecycleAndName(pr *porchapi.PackageRevision, revision int) {
 		}
 	} else {
 		pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-		pr.Status.UpstreamLock = &porchapi.UpstreamLock{
+		pr.Status.UpstreamLock = &porchapi.Locator{
 			Git: &porchapi.GitLock{
 				Ref:  fmt.Sprintf("/%s/v%d", pr.Spec.PackageName, pr.Spec.Revision),
 				Repo: "https://github.com/user/repo",
@@ -515,7 +515,7 @@ func TestFindUpstreamByLock(t *testing.T) {
 
 	testCases := []struct {
 		name     string
-		lock     *porchapi.UpstreamLock
+		lock     *porchapi.Locator
 		prs      []porchapi.PackageRevision
 		expected string
 	}{
@@ -527,7 +527,7 @@ func TestFindUpstreamByLock(t *testing.T) {
 		},
 		{
 			name: "lock with nil Git returns nil",
-			lock: &porchapi.UpstreamLock{
+			lock: &porchapi.Locator{
 				Git: nil,
 			},
 			prs:      []porchapi.PackageRevision{},
@@ -535,7 +535,7 @@ func TestFindUpstreamByLock(t *testing.T) {
 		},
 		{
 			name: "no matching package revisions",
-			lock: &porchapi.UpstreamLock{
+			lock: &porchapi.Locator{
 				Git: &porchapi.GitLock{
 					Repo:      "https://github.com/user/repo",
 					Directory: "packages/foo",
@@ -550,7 +550,7 @@ func TestFindUpstreamByLock(t *testing.T) {
 						Lifecycle: porchapi.PackageRevisionLifecyclePublished,
 					},
 					Status: porchapi.PackageRevisionStatus{
-						UpstreamLock: &porchapi.UpstreamLock{
+						UpstreamLock: &porchapi.Locator{
 							Git: &porchapi.GitLock{
 								Repo:      "https://github.com/different/repo",
 								Directory: "packages/foo",
@@ -564,7 +564,7 @@ func TestFindUpstreamByLock(t *testing.T) {
 		},
 		{
 			name: "finds exact match with same ref",
-			lock: &porchapi.UpstreamLock{
+			lock: &porchapi.Locator{
 				Git: &porchapi.GitLock{
 					Repo:      "https://github.com/user/repo",
 					Directory: "packages/foo",
@@ -579,7 +579,7 @@ func TestFindUpstreamByLock(t *testing.T) {
 						Lifecycle: porchapi.PackageRevisionLifecyclePublished,
 					},
 					Status: porchapi.PackageRevisionStatus{
-						UpstreamLock: &porchapi.UpstreamLock{
+						UpstreamLock: &porchapi.Locator{
 							Git: &porchapi.GitLock{
 								Repo:      "https://github.com/user/repo",
 								Directory: "packages/foo",
@@ -593,7 +593,7 @@ func TestFindUpstreamByLock(t *testing.T) {
 		},
 		{
 			name: "finds highest revision when multiple matches with same ref",
-			lock: &porchapi.UpstreamLock{
+			lock: &porchapi.Locator{
 				Git: &porchapi.GitLock{
 					Repo:      "https://github.com/user/repo",
 					Directory: "packages/foo",
@@ -608,7 +608,7 @@ func TestFindUpstreamByLock(t *testing.T) {
 						Lifecycle: porchapi.PackageRevisionLifecyclePublished,
 					},
 					Status: porchapi.PackageRevisionStatus{
-						UpstreamLock: &porchapi.UpstreamLock{
+						UpstreamLock: &porchapi.Locator{
 							Git: &porchapi.GitLock{
 								Repo:      "https://github.com/user/repo",
 								Directory: "packages/foo",
@@ -624,7 +624,7 @@ func TestFindUpstreamByLock(t *testing.T) {
 						Lifecycle: porchapi.PackageRevisionLifecyclePublished,
 					},
 					Status: porchapi.PackageRevisionStatus{
-						UpstreamLock: &porchapi.UpstreamLock{
+						UpstreamLock: &porchapi.Locator{
 							Git: &porchapi.GitLock{
 								Repo:      "https://github.com/user/repo",
 								Directory: "packages/foo",
@@ -640,7 +640,7 @@ func TestFindUpstreamByLock(t *testing.T) {
 						Lifecycle: porchapi.PackageRevisionLifecyclePublished,
 					},
 					Status: porchapi.PackageRevisionStatus{
-						UpstreamLock: &porchapi.UpstreamLock{
+						UpstreamLock: &porchapi.Locator{
 							Git: &porchapi.GitLock{
 								Repo:      "https://github.com/user/repo",
 								Directory: "packages/foo",
@@ -654,7 +654,7 @@ func TestFindUpstreamByLock(t *testing.T) {
 		},
 		{
 			name: "ignores draft package revisions",
-			lock: &porchapi.UpstreamLock{
+			lock: &porchapi.Locator{
 				Git: &porchapi.GitLock{
 					Repo:      "https://github.com/user/repo",
 					Directory: "packages/foo",
@@ -669,7 +669,7 @@ func TestFindUpstreamByLock(t *testing.T) {
 						Lifecycle: porchapi.PackageRevisionLifecycleDraft,
 					},
 					Status: porchapi.PackageRevisionStatus{
-						UpstreamLock: &porchapi.UpstreamLock{
+						UpstreamLock: &porchapi.Locator{
 							Git: &porchapi.GitLock{
 								Repo:      "https://github.com/user/repo",
 								Directory: "packages/foo",
@@ -683,7 +683,7 @@ func TestFindUpstreamByLock(t *testing.T) {
 		},
 		{
 			name: "ignores PRs with no upstream lock",
-			lock: &porchapi.UpstreamLock{
+			lock: &porchapi.Locator{
 				Git: &porchapi.GitLock{
 					Repo:      "https://github.com/user/repo",
 					Directory: "packages/foo",
@@ -736,7 +736,7 @@ func TestMatchesTarget(t *testing.T) {
 					Lifecycle: porchapi.PackageRevisionLifecycleDraft,
 				},
 				Status: porchapi.PackageRevisionStatus{
-					UpstreamLock: &porchapi.UpstreamLock{
+					UpstreamLock: &porchapi.Locator{
 						Git: &porchapi.GitLock{
 							Repo:      "https://github.com/user/repo",
 							Directory: "packages/foo",
@@ -773,7 +773,7 @@ func TestMatchesTarget(t *testing.T) {
 					Lifecycle: porchapi.PackageRevisionLifecyclePublished,
 				},
 				Status: porchapi.PackageRevisionStatus{
-					UpstreamLock: &porchapi.UpstreamLock{
+					UpstreamLock: &porchapi.Locator{
 						Git: nil,
 					},
 				},
@@ -791,7 +791,7 @@ func TestMatchesTarget(t *testing.T) {
 					Lifecycle: porchapi.PackageRevisionLifecyclePublished,
 				},
 				Status: porchapi.PackageRevisionStatus{
-					UpstreamLock: &porchapi.UpstreamLock{
+					UpstreamLock: &porchapi.Locator{
 						Git: &porchapi.GitLock{
 							Repo:      "https://github.com/different/repo",
 							Directory: "packages/foo",
@@ -812,7 +812,7 @@ func TestMatchesTarget(t *testing.T) {
 					Lifecycle: porchapi.PackageRevisionLifecyclePublished,
 				},
 				Status: porchapi.PackageRevisionStatus{
-					UpstreamLock: &porchapi.UpstreamLock{
+					UpstreamLock: &porchapi.Locator{
 						Git: &porchapi.GitLock{
 							Repo:      "https://github.com/user/repo",
 							Directory: "packages/bar",
@@ -833,7 +833,7 @@ func TestMatchesTarget(t *testing.T) {
 					Lifecycle: porchapi.PackageRevisionLifecyclePublished,
 				},
 				Status: porchapi.PackageRevisionStatus{
-					UpstreamLock: &porchapi.UpstreamLock{
+					UpstreamLock: &porchapi.Locator{
 						Git: &porchapi.GitLock{
 							Repo:      "https://github.com/user/repo",
 							Directory: "packages/foo",
@@ -880,7 +880,7 @@ func TestFindUpstreamInEditTaskWithUpstreamLock(t *testing.T) {
 			},
 		},
 		Status: porchapi.PackageRevisionStatus{
-			UpstreamLock: &porchapi.UpstreamLock{
+			UpstreamLock: &porchapi.Locator{
 				Git: &porchapi.GitLock{
 					Repo:      "https://github.com/user/repo",
 					Directory: "packages/foo",
@@ -899,7 +899,7 @@ func TestFindUpstreamInEditTaskWithUpstreamLock(t *testing.T) {
 			Lifecycle: porchapi.PackageRevisionLifecyclePublished,
 		},
 		Status: porchapi.PackageRevisionStatus{
-			UpstreamLock: &porchapi.UpstreamLock{
+			UpstreamLock: &porchapi.Locator{
 				Git: &porchapi.GitLock{
 					Repo:      "https://github.com/user/repo",
 					Directory: "packages/foo",

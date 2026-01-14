@@ -20,7 +20,7 @@ import (
 	"time"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	suiteutils "github.com/nephio-project/porch/test/e2e/suiteutils"
+	"github.com/nephio-project/porch/test/e2e/suiteutils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -32,10 +32,12 @@ const (
 	bucketNamespace = "bucket-namespace"
 	fooAnnotation   = "foo"
 	barValue        = "bar"
-	
+
 	setNamespaceImage   = "set-namespace:v0.4.1"
 	setAnnotationsImage = "set-annotations:v0.1.4"
 )
+
+var podGVK = corev1.SchemeGroupVersion.WithKind("Pod")
 
 func (t *PorchSuite) TestBuiltinFunctionEvaluator() {
 	resources := t.setupFunctionTestPackage("git-builtin-fn-eval", "test-builtin-fn-bucket", "test-workspace")
@@ -105,6 +107,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 
 	// Wait for the correct pod to be created and capture suffix
 	var firstPodSuffix string
+	var firstPod *corev1.Pod
 	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 30*time.Second, false, func(ctx context.Context) (bool, error) {
 		podList := &corev1.PodList{}
 		if err := t.Client.List(ctx, podList, client.InNamespace("porch-fn-system")); err != nil {
@@ -118,6 +121,7 @@ func (t *PorchSuite) TestPodEvaluator() {
 				}
 				t.Logf("Found matching pod %s, captured suffix: %s", pod.Name, firstPodSuffix)
 				t.DeleteF(&pod)
+				firstPod = &pod
 				return true, nil
 			}
 		}
@@ -126,6 +130,8 @@ func (t *PorchSuite) TestPodEvaluator() {
 	if err != nil {
 		t.Fatalf("Failed to find pod with image %s: %v", setAnnotationsImg, err)
 	}
+
+	t.WaitUntilObjectDeleted(podGVK, client.ObjectKeyFromObject(firstPod), 30*time.Second)
 
 	// Create second package revision
 	pr2 := t.CreatePackageCloneF(repoName, "test-fn-pod-bucket-2", "workspace-2", defaultBucketBpRef, "bucket")
@@ -209,19 +215,19 @@ func (t *PorchSuite) TestFailedPodEvictionAndRecovery() {
 }
 
 type TestPackageSetupOptions struct {
-	UpstreamRef   string
-	UpstreamDir   string
-	WaitForReady  bool
+	UpstreamRef  string
+	UpstreamDir  string
+	WaitForReady bool
 }
 
 func (t *PorchSuite) setupFunctionTestPackage(repoName, packageName, workspace string, opts ...TestPackageSetupOptions) *porchapi.PackageRevisionResources {
 	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
-	
+
 	// Set defaults
 	upstreamRef := defaultBucketBpRef
 	upstreamDir := "bucket"
 	waitForReady := false
-	
+
 	// Apply options
 	if len(opts) > 0 {
 		if opts[0].UpstreamRef != "" {
@@ -232,13 +238,13 @@ func (t *PorchSuite) setupFunctionTestPackage(repoName, packageName, workspace s
 		}
 		waitForReady = opts[0].WaitForReady
 	}
-	
+
 	pr := t.CreatePackageCloneF(repoName, packageName, workspace, upstreamRef, upstreamDir)
-	
+
 	if waitForReady {
 		return t.WaitUntilPackageRevisionResourcesExists(types.NamespacedName{Namespace: t.Namespace, Name: pr.Name})
 	}
-	
+
 	resources := &porchapi.PackageRevisionResources{}
 	t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: pr.Name}, resources)
 	return resources

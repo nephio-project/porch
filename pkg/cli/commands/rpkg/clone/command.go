@@ -35,8 +35,6 @@ const (
 	command = "cmdrpkgclone"
 )
 
-
-
 func NewCommand(ctx context.Context, rcg *genericclioptions.ConfigFlags) *cobra.Command {
 	return newRunner(ctx, rcg).Command
 }

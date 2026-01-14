@@ -1,4 +1,4 @@
-#  Copyright 2025 The Nephio Authors.
+#  Copyright 2025-2026 The Nephio Authors.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -28,12 +28,12 @@ export PORCH_CACHE_TYPE ?= CR
 export FN_RUNNER_WARM_UP_POD_CACHE ?= true
 
 # Reconciler configuration
-ALL_RECONCILERS="packagevariants,packagevariantsets"
+ALL_RECONCILERS=packagevariants,packagevariantsets
 ifndef RECONCILERS
-  ENABLED_RECONCILERS="packagevariants,packagevariantsets"
+  ENABLED_RECONCILERS=$(ALL_RECONCILERS)
 else
   ifeq ($(RECONCILERS),*)
-    ENABLED_RECONCILERS=${ALL_RECONCILERS}
+    ENABLED_RECONCILERS=$(ALL_RECONCILERS)
   else
     ENABLED_RECONCILERS=$(RECONCILERS)
   endif
@@ -141,3 +141,9 @@ deploy-gitea-dev-pkg:## Deploy gitea development package
 	  --destination $(DEPLOYKPTCONFIGDIR) \
 	  --pkg ${PKG} \
 	  --kubeconfig $(KUBECONFIG)
+
+.PHONY: setup-dev-env
+setup-dev-env: PORCH_TEST_CLUSTER=porch-test ## Setup gitea, Metallb and test repository in kind cluster
+setup-dev-env: GIT_REPO_NAME=porch-test
+setup-dev-env:
+	./scripts/setup-dev-env.sh

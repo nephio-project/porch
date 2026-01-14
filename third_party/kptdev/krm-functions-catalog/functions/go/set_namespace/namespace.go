@@ -17,7 +17,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
+	"github.com/kptdev/krm-functions-sdk/go/fn"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -149,7 +149,7 @@ func ListAllOrigins(objects fn.KubeObjects) ([]string, fn.Results, error) {
 	originNss := sets.NewString()
 	for _, o := range objects {
 		if o.HasUpstreamOrigin() {
-			origin, err := o.GetOriginId()
+			origin, err := o.GetOriginID()
 			if err != nil {
 				continue
 			}
@@ -225,7 +225,7 @@ func VisitSpecialClusterResource(objects fn.KubeObjects, visitor func(origin str
 		case o.IsGVK("", "v1", "Namespace"):
 			name := o.GetName()
 			nsPtr := &name
-			origin, err := o.GetOriginId()
+			origin, err := o.GetOriginID()
 			if err != nil {
 				origin.Name = ""
 			}
@@ -264,7 +264,7 @@ func VisitNamespaceResource(objects fn.KubeObjects, visitor func(origin string, 
 	for _, o := range namespaceScoped {
 		namespace := o.GetNamespace()
 		nsPtr := &namespace
-		origin, err := o.GetOriginId()
+		origin, err := o.GetOriginID()
 		if err != nil {
 			origin.Namespace = fn.UnknownNamespace
 		}
@@ -278,7 +278,7 @@ func VisitNamespaceResource(objects fn.KubeObjects, visitor func(origin string, 
 func MapGKNNBeforeChange(objects fn.KubeObjects) map[string]struct{} {
 	dependsOnMap := map[string]struct{}{}
 	for _, o := range objects {
-		id := o.GetId()
+		id := o.GetID()
 		if id.Namespace == fn.UnknownNamespace {
 			continue
 		}

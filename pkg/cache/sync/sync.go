@@ -160,12 +160,12 @@ func (m *SyncManager) handleRunOnceAt(ctx context.Context) {
 				}
 				delay := time.Until(runOnceAt.Time)
 				if delay > 0 {
-					klog.Infof("repositorySync %+v: Scheduling one-time sync at %s", m.handler.Key(), runOnceAt.Time.Format(timeFormat))
+					klog.Infof("repositorySync %+v: Scheduling one-time sync at %s", m.handler.Key(), runOnceAt.Format(timeFormat))
 					runOnceTimer = time.NewTimer(delay)
 					runOnceChan = runOnceTimer.C
 					scheduledRunOnceAt = runOnceAt.Time
 				} else {
-					klog.V(2).Infof("repositorySync %+v: runOnceAt time is in the past (%s), skipping", m.handler.Key(), runOnceAt.Time.Format(time.RFC3339))
+					klog.V(2).Infof("repositorySync %+v: runOnceAt time is in the past (%s), skipping", m.handler.Key(), runOnceAt.Format(time.RFC3339))
 					runOnceTimer, runOnceChan, scheduledRunOnceAt = nil, nil, time.Time{}
 				}
 			}

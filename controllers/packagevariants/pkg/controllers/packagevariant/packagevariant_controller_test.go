@@ -20,9 +20,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kptdev/krm-functions-sdk/go/fn"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	api "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
-	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1066,7 +1066,7 @@ spec:
 `,
 			initialData: "        hello: there\n",
 			expectedErr: "",
-			expectedPRR: prrBase + "        foo: bar\n        hello: there\n",
+			expectedPRR: prrBase + "        hello: there\n        foo: bar\n",
 		},
 		"change existing": {
 			spec: `  packageContext:
@@ -1781,7 +1781,7 @@ func TestCreateUpgradeDraft(t *testing.T) {
 			Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
 		},
 		Status: porchapi.PackageRevisionStatus{
-			UpstreamLock: &porchapi.UpstreamLock{
+			UpstreamLock: &porchapi.Locator{
 				Git: &porchapi.GitLock{
 					Repo: "upstream-repo",
 					Ref:  "test-package/v1",

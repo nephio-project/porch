@@ -1,4 +1,4 @@
-// Copyright 2019 The kpt and Nephio Authors
+// Copyright 2019,2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,16 +23,16 @@ import (
 	"path/filepath"
 	"strings"
 
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/kptdev/kpt/pkg/lib/types"
 	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/gitutil"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
-	"github.com/nephio-project/porch/internal/kpt/types"
 	"github.com/nephio-project/porch/internal/kpt/util/addmergecomment"
 	"github.com/nephio-project/porch/internal/kpt/util/fetch"
 	"github.com/nephio-project/porch/internal/kpt/util/git"
 	"github.com/nephio-project/porch/internal/kpt/util/pkgutil"
 	"github.com/nephio-project/porch/internal/kpt/util/stack"
-	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
 	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"sigs.k8s.io/kustomize/kyaml/copyutil"

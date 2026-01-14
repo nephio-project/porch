@@ -19,13 +19,13 @@ import (
 	"fmt"
 	"os"
 
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/builtins"
 	"github.com/nephio-project/porch/pkg/externalrepo/git"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/kpt"
-	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
@@ -180,15 +180,15 @@ func (m *clonePackageMutation) cloneFromGit(ctx context.Context, gitPackage *por
 	contents := resources.Spec.Resources
 
 	// Update Kptfile
-	if err := kpt.UpdateKptfileUpstream(m.name, contents, v1.Upstream{
-		Type: v1.GitOrigin,
-		Git: &v1.Git{
+	if err := kpt.UpdateKptfileUpstream(m.name, contents, kptfilev1.Upstream{
+		Type: kptfilev1.GitOrigin,
+		Git: &kptfilev1.Git{
 			Repo:      lock.Repo,
 			Directory: lock.Directory,
 			Ref:       lock.Ref,
 		},
-	}, v1.UpstreamLock{
-		Type: v1.GitOrigin,
+	}, kptfilev1.UpstreamLock{
+		Type: kptfilev1.GitOrigin,
 		Git:  &lock,
 	}); err != nil {
 		return repository.PackageResources{}, pkgerrors.Wrapf(err, "failed to clone package %s@%s", gitPackage.Directory, gitPackage.Ref)

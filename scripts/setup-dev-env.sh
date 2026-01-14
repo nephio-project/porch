@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright 2022-2025 The kpt and Nephio Authors
+# Copyright 2022-2026 The kpt and Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ self_dir="$(dirname "$(readlink -f "$0")")"
 start_time=$(date +%s)
 
 porch_cluster_name=${PORCH_TEST_CLUSTER:-porch-test}
+git_repo_name=${GIT_REPO_NAME:-$porch_cluster_name}
 install_gitea=true
 
 # Parse command line arguments
@@ -102,7 +103,7 @@ if [ "$install_gitea" = true ]; then
   cd "${git_root}"
   # Extract first IP from MetalLB address range
   gitea_ip=$(grep -A1 "addresses:" "${git_root}/deployments/local/metallb-conf.yaml" | grep -o "[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+" | head -1)
-  ./scripts/install-dev-gitea-setup.sh $porch_cluster_name $gitea_ip
+  ./scripts/install-dev-gitea-setup.sh "$git_repo_name" $gitea_ip
 else
   echo "Skipping gitea installation (--no-gitea flag provided)"
 fi 

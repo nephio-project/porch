@@ -21,13 +21,13 @@ import (
 	"slices"
 	"time"
 
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/externalrepo"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
-	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
 	pkgerrors "github.com/pkg/errors"
@@ -190,9 +190,9 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *po
 
 	dbPkgRev.meta.CreationTimestamp = metav1.Time{Time: time.Now()}
 
-	dbPkgRev.extPRID = kptfile.UpstreamLock{
-		Type: kptfile.GitOrigin,
-		Git: &kptfile.GitLock{
+	dbPkgRev.extPRID = kptfilev1.UpstreamLock{
+		Type: kptfilev1.GitOrigin,
+		Git: &kptfilev1.GitLock{
 			Repo:      dbPkgRev.repo.spec.Spec.Git.Repo,
 			Directory: dbPkgRev.Key().PKey().ToPkgPathname(),
 			Ref:       "drafts/" + dbPkgRev.Key().PKey().ToPkgPathname() + "/" + dbPkgRev.Key().WorkspaceName,
@@ -242,7 +242,7 @@ func (r *dbRepository) DeletePackageRevision(ctx context.Context, pr2Delete repo
 
 	pk := repository.PackageKey{
 		RepoKey: r.Key(),
-		Path:    pr2Delete.Key().PkgKey.Path,
+		Path:    pr2Delete.Key().PKey().Path,
 		Package: pr2Delete.Key().PKey().Package,
 	}
 

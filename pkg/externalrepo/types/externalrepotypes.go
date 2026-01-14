@@ -27,10 +27,10 @@ type ExternalRepoFactory interface {
 }
 
 type ExternalRepoOptions struct {
-	LocalDirectory         string
-	UseUserDefinedCaBundle bool
-	CredentialResolver           repository.CredentialResolver
-	CaBundleResolver             repository.CredentialResolver
-	UserInfoProvider             repository.UserInfoProvider
-	RepoOperationRetryAttempts   int
+	LocalDirectory             string
+	UseUserDefinedCaBundle     bool
+	CredentialResolver         repository.CredentialResolver
+	CaBundleResolver           repository.CredentialResolver
+	UserInfoProvider           repository.UserInfoProvider
+	RepoOperationRetryAttempts int
 }

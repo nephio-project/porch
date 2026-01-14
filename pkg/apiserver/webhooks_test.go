@@ -28,9 +28,12 @@ import (
 	"testing"
 	"time"
 
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestCreateCerts(t *testing.T) {
@@ -317,13 +320,16 @@ func TestWatchCertificatesGracefulTermination(t *testing.T) {
 }
 
 func TestValidateDeletion(t *testing.T) {
+	scheme := runtime.NewScheme()
+	configapi.AddToScheme(scheme)
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 	t.Run("invalid content-type", func(t *testing.T) {
 		request, err := http.NewRequest(http.MethodPost, serverEndpoint, nil)
 		require.NoError(t, err)
 		request.Header.Set("Content-Type", "foo")
 		response := httptest.NewRecorder()
 
-		validateDeletion(response, request)
+		validateDeletion(response, request, fakeClient)
 		require.Equal(t,
 			"error getting admission review from request: expected Content-Type 'application/json'",
 			response.Body.String())
@@ -334,7 +340,7 @@ func TestValidateDeletion(t *testing.T) {
 		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
 
-		validateDeletion(response, request)
+		validateDeletion(response, request, fakeClient)
 		require.Equal(t,
 			"error getting admission review from request: admission review request is empty",
 			response.Body.String())
@@ -364,9 +370,415 @@ func TestValidateDeletion(t *testing.T) {
 		require.NoError(t, err)
 
 		request.Body = io.NopCloser(bytes.NewReader(body))
-		validateDeletion(response, request)
+		validateDeletion(response, request, fakeClient)
 		require.Equal(t,
 			"did not receive PackageRevision, got not-a-package-revision",
 			response.Body.String())
 	})
+}
+
+func TestValidateRepository(t *testing.T) {
+	scheme := runtime.NewScheme()
+	configapi.AddToScheme(scheme)
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	t.Run("invalid content-type", func(t *testing.T) {
+		request, err := http.NewRequest(http.MethodPost, repositoryValidationEndpoint, nil)
+		require.NoError(t, err)
+		request.Header.Set("Content-Type", "foo")
+		response := httptest.NewRecorder()
+
+		validateRepository(response, request, fakeClient)
+		require.Equal(t,
+			"error decoding admission review: expected Content-Type 'application/json'",
+			response.Body.String())
+	})
+
+	t.Run("valid content-type, but no body", func(t *testing.T) {
+		request, err := http.NewRequest(http.MethodPost, repositoryValidationEndpoint, nil)
+		require.NoError(t, err)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+
+		validateRepository(response, request, fakeClient)
+		require.Equal(t,
+			"error decoding admission review: admission review request is empty",
+			response.Body.String())
+	})
+
+	t.Run("unexpected resource type", func(t *testing.T) {
+		request, err := http.NewRequest(http.MethodPost, repositoryValidationEndpoint, nil)
+		require.NoError(t, err)
+		request.Header.Set("Content-Type", "application/json")
+
+		admissionReviewRequest := admissionv1.AdmissionReview{
+			TypeMeta: v1.TypeMeta{
+				Kind:       "AdmissionReview",
+				APIVersion: "admission.k8s.io/v1",
+			},
+			Request: &admissionv1.AdmissionRequest{
+				Resource: v1.GroupVersionResource{
+					Group:    "config.porch.kpt.dev",
+					Version:  "v1alpha1",
+					Resource: "not-repositories",
+				},
+			},
+		}
+
+		body, err := json.Marshal(admissionReviewRequest)
+		require.NoError(t, err)
+
+		request.Body = io.NopCloser(bytes.NewReader(body))
+		response := httptest.NewRecorder()
+
+		validateRepository(response, request, fakeClient)
+		require.Equal(t,
+			"unexpected resource: not-repositories",
+			response.Body.String())
+	})
+
+	createAdmissionReview := func(name, namespace, gitURL, directory, branch string) []byte {
+		repo := configapi.Repository{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      name,
+				Namespace: namespace,
+			},
+			Spec: configapi.RepositorySpec{
+				Git: &configapi.GitRepository{
+					Repo:      gitURL,
+					Directory: directory,
+					Branch:    branch,
+				},
+			},
+		}
+		rawRepo, err := json.Marshal(repo)
+		require.NoError(t, err)
+
+		admissionReview := admissionv1.AdmissionReview{
+			TypeMeta: v1.TypeMeta{
+				Kind:       "AdmissionReview",
+				APIVersion: "admission.k8s.io/v1",
+			},
+			Request: &admissionv1.AdmissionRequest{
+				UID: "12345",
+				Resource: v1.GroupVersionResource{
+					Group:    "config.porch.kpt.dev",
+					Version:  "v1alpha1",
+					Resource: "repositories",
+				},
+				Object:    runtime.RawExtension{Raw: rawRepo},
+				Name:      name,
+				Namespace: namespace,
+			},
+		}
+		body, err := json.Marshal(admissionReview)
+		require.NoError(t, err)
+		return body
+	}
+	tests := []struct {
+		name       string
+		repoName   string
+		namespace  string
+		gitURL     string
+		directory  string
+		branch     string
+		setupRepos []configapi.Repository
+		expectOK   bool
+	}{
+		{
+			name:      "valid repository creation",
+			repoName:  "repo1",
+			namespace: "ns1",
+			gitURL:    "http://gitea.local/myrepo.git",
+			directory: "dir1",
+			branch:    "main",
+			expectOK:  true,
+		},
+		{
+			name:      "same git url and directory in different namespace",
+			repoName:  "repo2",
+			namespace: "ns2",
+			gitURL:    "http://gitea.local/myrepo.git",
+			directory: "dir1",
+			branch:    "main",
+			setupRepos: []configapi.Repository{
+				{
+					ObjectMeta: v1.ObjectMeta{Name: "repo1", Namespace: "ns1"},
+					Spec: configapi.RepositorySpec{
+						Git: &configapi.GitRepository{Repo: "http://gitea.local/myrepo.git", Directory: "dir1", Branch: "main"},
+					},
+				},
+			},
+			expectOK: true,
+		},
+		{
+			name:      "same git url different directory in same namespace",
+			repoName:  "repo3",
+			namespace: "ns1",
+			gitURL:    "http://gitea.local/myrepo.git",
+			directory: "dir2",
+			branch:    "main",
+			setupRepos: []configapi.Repository{
+				{
+					ObjectMeta: v1.ObjectMeta{Name: "repo1", Namespace: "ns1"},
+					Spec: configapi.RepositorySpec{
+						Git: &configapi.GitRepository{Repo: "http://gitea.local/myrepo.git", Directory: "dir1", Branch: "main"},
+					},
+				},
+			},
+			expectOK: true,
+		},
+		{
+			name:      "same url, directory different branch - no conflict",
+			repoName:  "repo4",
+			namespace: "ns1",
+			gitURL:    "http://gitea.local/myrepo.git",
+			directory: "dir1",
+			branch:    "develop",
+			setupRepos: []configapi.Repository{
+				{
+					ObjectMeta: v1.ObjectMeta{Name: "repo1", Namespace: "ns1"},
+					Spec: configapi.RepositorySpec{
+						Git: &configapi.GitRepository{Repo: "http://gitea.local/myrepo.git", Directory: "dir1", Branch: "main"},
+					},
+				},
+			},
+			expectOK: true,
+		},
+		{
+			name:      "conflict: same url, branch, directory, and namespace",
+			repoName:  "repo5",
+			namespace: "ns1",
+			gitURL:    "http://gitea.local/myrepo.git",
+			directory: "dir1",
+			branch:    "main",
+			setupRepos: []configapi.Repository{
+				{
+					ObjectMeta: v1.ObjectMeta{Name: "repo1", Namespace: "ns1"},
+					Spec: configapi.RepositorySpec{
+						Git: &configapi.GitRepository{Repo: "http://gitea.local/myrepo.git", Directory: "dir1", Branch: "main"},
+					},
+				},
+			},
+			expectOK: false,
+		},
+		{
+			name:      "conflict: root directory vs subdirectory",
+			repoName:  "repo6",
+			namespace: "ns1",
+			gitURL:    "http://gitea.local/myrepo.git",
+			directory: "subdir",
+			branch:    "main",
+			setupRepos: []configapi.Repository{
+				{
+					ObjectMeta: v1.ObjectMeta{Name: "repo1", Namespace: "ns1"},
+					Spec: configapi.RepositorySpec{
+						Git: &configapi.GitRepository{Repo: "http://gitea.local/myrepo.git", Directory: "", Branch: "main"},
+					},
+				},
+			},
+			expectOK: false,
+		},
+		{
+			name:      "conflict: nested directory",
+			repoName:  "repo7",
+			namespace: "ns1",
+			gitURL:    "http://gitea.local/myrepo.git",
+			directory: "base/sub",
+			branch:    "main",
+			setupRepos: []configapi.Repository{
+				{
+					ObjectMeta: v1.ObjectMeta{Name: "repo1", Namespace: "ns1"},
+					Spec: configapi.RepositorySpec{
+						Git: &configapi.GitRepository{Repo: "http://gitea.local/myrepo.git", Directory: "base", Branch: "main"},
+					},
+				},
+			},
+			expectOK: false,
+		},
+		{
+			name:      "Valid: same url, directory, namespace different branch",
+			repoName:  "repo8",
+			namespace: "ns1",
+			gitURL:    "http://gitea.local/myrepo.git",
+			directory: "dir1",
+			branch:    "myBranch",
+			setupRepos: []configapi.Repository{
+				{
+					ObjectMeta: v1.ObjectMeta{Name: "repo1", Namespace: "ns1"},
+					Spec: configapi.RepositorySpec{
+						Git: &configapi.GitRepository{Repo: "http://gitea.local/myrepo.git", Directory: "dir1", Branch: "main"},
+					},
+				},
+			},
+			expectOK: true,
+		},
+		{
+			name:      "conflict: empty branch defaults to main",
+			repoName:  "repo9",
+			namespace: "ns1",
+			gitURL:    "http://gitea.local/myrepo.git",
+			directory: "dir1",
+			branch:    "",
+			setupRepos: []configapi.Repository{
+				{
+					ObjectMeta: v1.ObjectMeta{Name: "repo1", Namespace: "ns1"},
+					Spec: configapi.RepositorySpec{
+						Git: &configapi.GitRepository{Repo: "http://gitea.local/myrepo.git", Directory: "dir1", Branch: "main"},
+					},
+				},
+			},
+			expectOK: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create a fresh client for each test
+			scheme := runtime.NewScheme()
+			configapi.AddToScheme(scheme)
+			testClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+			// Setup existing repositories
+			for _, repo := range tc.setupRepos {
+				err := testClient.Create(context.Background(), &repo)
+				require.NoError(t, err)
+			}
+
+			body := createAdmissionReview(tc.repoName, tc.namespace, tc.gitURL, tc.directory, tc.branch)
+			request, err := http.NewRequest(http.MethodPost, repositoryValidationEndpoint, bytes.NewReader(body))
+			require.NoError(t, err)
+			request.Header.Set("Content-Type", "application/json")
+
+			response := httptest.NewRecorder()
+			validateRepository(response, request, testClient)
+
+			if tc.expectOK {
+				require.Contains(t, response.Body.String(), "Repository validated successfully")
+			} else {
+				require.Contains(t, response.Body.String(), "Repository conflict")
+			}
+		})
+	}
+}
+
+func TestNormalizeURL(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{
+			input:    "http://172.18.255.200:3000/nephio/myrepo.git",
+			expected: "http---172.18.255.200-3000-nephio-myrepo.git",
+		},
+		{
+			input:    "https://github.com/org/repo.git",
+			expected: "https---github.com-org-repo.git",
+		},
+		{
+			input:    "ssh://git@host.com:2222/repo.git",
+			expected: "ssh---git@host.com-2222-repo.git",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.input, func(t *testing.T) {
+			actual := normalizeURL(tc.input)
+			require.Equal(t, tc.expected, actual)
+		})
+	}
+}
+
+func TestIsNestedConflict(t *testing.T) {
+	tests := []struct {
+		a, b     string
+		expected bool
+	}{
+		{"base", "base/sub", true},
+		{"base/sub", "base", true},
+		{"base", "base", false},
+		{"base", "other", false},
+		{"base/sub", "base/sub/deep", true},
+		{"base/sub/deep", "base/sub", true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.a+"_"+tc.b, func(t *testing.T) {
+			actual := isNestedConflict(tc.a, tc.b)
+			require.Equal(t, tc.expected, actual)
+		})
+	}
+}
+
+func TestIsConflict(t *testing.T) {
+	makeRepo := func(name, ns, url, dir string) *configapi.Repository {
+		return &configapi.Repository{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      name,
+				Namespace: ns,
+			},
+			Spec: configapi.RepositorySpec{
+				Git: &configapi.GitRepository{
+					Repo:      url,
+					Directory: dir,
+				},
+			},
+		}
+	}
+
+	tests := []struct {
+		name     string
+		existing *configapi.Repository
+		attempt  *configapi.Repository
+		expected bool
+	}{
+		{
+			name:     "same url and dir in same namespace",
+			existing: makeRepo("repo1", "ns1", "http://host/repo.git", "dir"),
+			attempt:  makeRepo("repo2", "ns1", "http://host/repo.git", "dir"),
+			expected: true,
+		},
+		{
+			name:     "same url and dir in different namespace",
+			existing: makeRepo("repo1", "ns1", "http://host/repo.git", "dir"),
+			attempt:  makeRepo("repo2", "ns2", "http://host/repo.git", "dir"),
+			expected: false,
+		},
+		{
+			name:     "root vs non-root conflict",
+			existing: makeRepo("repo1", "ns1", "http://host/repo.git", ""),
+			attempt:  makeRepo("repo2", "ns1", "http://host/repo.git", "dir/sub"),
+			expected: true,
+		},
+		{
+			name:     "non-root vs root conflict",
+			existing: makeRepo("repo1", "ns1", "http://host/repo.git", "dir/sub"),
+			attempt:  makeRepo("repo2", "ns1", "http://host/repo.git", ""),
+			expected: true,
+		},
+		{
+			name:     "nested conflict",
+			existing: makeRepo("repo1", "ns1", "http://host/repo.git", "base"),
+			attempt:  makeRepo("repo2", "ns1", "http://host/repo.git", "base/sub"),
+			expected: true,
+		},
+		{
+			name:     "no conflict different url",
+			existing: makeRepo("repo1", "ns1", "http://host/repo1.git", "dir"),
+			attempt:  makeRepo("repo2", "ns1", "http://host/repo2.git", "dir"),
+			expected: false,
+		},
+		{
+			name:     "no conflict subdirectories",
+			existing: makeRepo("repo1", "ns1", "http://host/repo.git", "dir/sub/sub1"),
+			attempt:  makeRepo("repo2", "ns1", "http://host/repo.git", "dir/sub/sub2"),
+			expected: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := isConflict(tc.existing, tc.attempt)
+			require.Equal(t, tc.expected, actual)
+		})
+	}
 }

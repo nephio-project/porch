@@ -1,0 +1,19 @@
+{{- $img := .Page.Resources.GetMatch .Destination -}}
+{{- if and (not $img) .Page.File -}}
+{{ $path := path.Join .Page.File.Dir .Destination }}
+{{- $img = resources.Get $path -}}
+{{- end -}}
+{{- with $img -}}
+{{- $large := $img.Resize "1200x" -}}
+{{ $medium := $large.Fill "726x402" -}}
+{{ $small := $medium.Fill "458x254" -}}
+<figure class="image-caption">
+    <img alt="{{ $.Text }}" srcset="
+        {{ replace .RelPermalink "/static/" "/" | safeURL }} 458w,
+        {{ replace $medium.RelPermalink "/static/" "/" | safeURL }} 726w,
+        {{ replace $large.RelPermalink "/static/" "/" | safeURL }} 1200w" sizes="50vw" src="{{ replace $small.RelPermalink "/static/" "/" | safeURL }}" />
+
+    <figcaption>{{ with $.Title | safeHTML }}{{ . }}{{ end }}</figcaption>
+</figure>
+{{- else -}}
+<img src="{{ replace .Destination "/static/" "/" | safeURL }}" alt="{{ $.Text }}" />{{- end -}}

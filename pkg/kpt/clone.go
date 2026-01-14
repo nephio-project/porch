@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"strings"
 
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	internalpkg "github.com/nephio-project/porch/internal/kpt/pkg"
-	kptfilev1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
