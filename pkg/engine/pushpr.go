@@ -22,10 +22,11 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	pkgerrors "github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
 )
 
-func PushPackageRevision(ctx context.Context, repo repository.Repository, pr repository.PackageRevision) (kptfilev1.UpstreamLock, error) {
+func PushPublishedPackageRevision(ctx context.Context, repo repository.Repository, pr repository.PackageRevision, pushDraftsToGit bool, gitPR repository.PackageRevision) (kptfilev1.UpstreamLock, error) {
 	ctx, span := tracer.Start(ctx, "PushPackageRevision", trace.WithAttributes())
 	defer span.End()
 
@@ -51,7 +52,7 @@ func PushPackageRevision(ctx context.Context, repo repository.Repository, pr rep
 		if gitPR != nil {
 			draft, err = repo.UpdatePackageRevision(ctx, gitPR)
 			if err != nil {
-				return v1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not update git PR:", pr.Key(), repo.Key())
+				return kptfilev1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not update git PR:", pr.Key(), repo.Key())
 			}
 			foundExisting = true
 		} else {
@@ -65,7 +66,7 @@ func PushPackageRevision(ctx context.Context, repo repository.Repository, pr rep
 			if err == nil && len(existingPRs) > 0 {
 				draft, err = repo.UpdatePackageRevision(ctx, existingPRs[0])
 				if err != nil {
-					return v1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not update existing package revision:", pr.Key(), repo.Key())
+					return kptfilev1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not update existing package revision:", pr.Key(), repo.Key())
 				}
 				foundExisting = true
 			}
@@ -75,7 +76,7 @@ func PushPackageRevision(ctx context.Context, repo repository.Repository, pr rep
 	if !foundExisting {
 		draft, err = repo.CreatePackageRevisionDraft(ctx, apiPr)
 		if err != nil {
-			return v1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not create package revision draft:", pr.Key(), repo.Key())
+			return kptfilev1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not create package revision draft:", pr.Key(), repo.Key())
 		}
 	}
 
@@ -86,7 +87,7 @@ func PushPackageRevision(ctx context.Context, repo repository.Repository, pr rep
 		}
 
 		if err = draft.UpdateResources(ctx, resources, commitTask); err != nil {
-			return v1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not update package revision resources:", pr.Key(), repo.Key())
+			return kptfilev1.UpstreamLock{}, pkgerrors.Wrapf(err, "push of package revision %+v to repository %+v failed, could not update package revision resources:", pr.Key(), repo.Key())
 		}
 	}
 
