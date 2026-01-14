@@ -148,9 +148,9 @@ func (s *repositorySync) getCachedPRMap(ctx context.Context) (map[repository.Pac
 	deployedFilter := repository.ListPackageRevisionFilter{}
 	if !s.repo.pushDraftsToGit {
 		deployedFilter = repository.ListPackageRevisionFilter{
-			Lifecycles: []api.PackageRevisionLifecycle{
-				api.PackageRevisionLifecyclePublished,
-				api.PackageRevisionLifecycleDeletionProposed,
+			Lifecycles: []porchapi.PackageRevisionLifecycle{
+				porchapi.PackageRevisionLifecyclePublished,
+				porchapi.PackageRevisionLifecycleDeletionProposed,
 			},
 		}
 	}
