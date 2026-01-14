@@ -114,7 +114,7 @@ func TestPushPublishedPackageRevision_PushDraftsDisabled(t *testing.T) {
 				mockPRD.EXPECT().UpdateResources(mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 				mockPRD.EXPECT().UpdateLifecycle(mock.Anything, mock.Anything).Return(nil).Once()
 				mockRepo.EXPECT().ClosePackageRevisionDraft(mock.Anything, mock.Anything, mock.Anything).Return(mockPR, nil).Once()
-				mockPR.EXPECT().GetLock(context.TODO()).Return(v1.Upstream{}, v1.UpstreamLock{}, assert.AnError).Once()
+				mockPR.EXPECT().GetLock(context.TODO()).Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, assert.AnError).Once()
 			},
 			expectError: true,
 		},
@@ -128,7 +128,7 @@ func TestPushPublishedPackageRevision_PushDraftsDisabled(t *testing.T) {
 				mockPRD.EXPECT().UpdateResources(mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 				mockPRD.EXPECT().UpdateLifecycle(mock.Anything, mock.Anything).Return(nil).Once()
 				mockRepo.EXPECT().ClosePackageRevisionDraft(mock.Anything, mock.Anything, mock.Anything).Return(mockPR, nil).Once()
-				mockPR.EXPECT().GetLock(context.TODO()).Return(v1.Upstream{}, v1.UpstreamLock{}, nil).Once()
+				mockPR.EXPECT().GetLock(context.TODO()).Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil).Once()
 			},
 			expectError: false,
 		},
@@ -174,7 +174,7 @@ func TestPushPublishedPackageRevision_PushDraftsEnabled(t *testing.T) {
 				mockRepo.EXPECT().UpdatePackageRevision(mock.Anything, mockGitPR).Return(mockPRD, nil).Once()
 				mockPRD.EXPECT().UpdateLifecycle(mock.Anything, porchapi.PackageRevisionLifecyclePublished).Return(nil).Once()
 				mockRepo.EXPECT().ClosePackageRevisionDraft(mock.Anything, mockPRD, mock.Anything).Return(mockPR, nil).Once()
-				mockPR.EXPECT().GetLock(context.TODO()).Return(v1.Upstream{}, v1.UpstreamLock{}, nil).Once()
+				mockPR.EXPECT().GetLock(context.TODO()).Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil).Once()
 			},
 			expectError: false,
 		},
@@ -189,7 +189,7 @@ func TestPushPublishedPackageRevision_PushDraftsEnabled(t *testing.T) {
 				mockRepo.EXPECT().UpdatePackageRevision(mock.Anything, mockGitPR).Return(mockPRD, nil).Once()
 				mockPRD.EXPECT().UpdateLifecycle(mock.Anything, porchapi.PackageRevisionLifecyclePublished).Return(nil).Once()
 				mockRepo.EXPECT().ClosePackageRevisionDraft(mock.Anything, mockPRD, mock.Anything).Return(mockPR, nil).Once()
-				mockPR.EXPECT().GetLock(context.TODO()).Return(v1.Upstream{}, v1.UpstreamLock{}, nil).Once()
+				mockPR.EXPECT().GetLock(context.TODO()).Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil).Once()
 			},
 			expectError: false,
 		},
@@ -228,7 +228,7 @@ func TestPushPublishedPackageRevision_PushDraftsEnabled(t *testing.T) {
 				mockPRD.EXPECT().UpdateResources(mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 				mockPRD.EXPECT().UpdateLifecycle(mock.Anything, porchapi.PackageRevisionLifecyclePublished).Return(nil).Once()
 				mockRepo.EXPECT().ClosePackageRevisionDraft(mock.Anything, mockPRD, mock.Anything).Return(mockPR, nil).Once()
-				mockPR.EXPECT().GetLock(context.TODO()).Return(v1.Upstream{}, v1.UpstreamLock{}, nil).Once()
+				mockPR.EXPECT().GetLock(context.TODO()).Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil).Once()
 			},
 			expectError: false,
 		},
@@ -244,7 +244,7 @@ func TestPushPublishedPackageRevision_PushDraftsEnabled(t *testing.T) {
 				mockPRD.EXPECT().UpdateResources(mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 				mockPRD.EXPECT().UpdateLifecycle(mock.Anything, porchapi.PackageRevisionLifecyclePublished).Return(nil).Once()
 				mockRepo.EXPECT().ClosePackageRevisionDraft(mock.Anything, mockPRD, mock.Anything).Return(mockPR, nil).Once()
-				mockPR.EXPECT().GetLock(context.TODO()).Return(v1.Upstream{}, v1.UpstreamLock{}, nil).Once()
+				mockPR.EXPECT().GetLock(context.TODO()).Return(kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil).Once()
 			},
 			expectError: false,
 		},

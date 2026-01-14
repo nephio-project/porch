@@ -38,6 +38,5 @@ func (f *DBCacheFactory) NewCache(ctx context.Context, options cachetypes.CacheO
 	return &dbCache{
 		repositories: repomap.SafeRepoMap{},
 		options:      options,
-    PushDraftsToGit bool
 	}, nil
 }

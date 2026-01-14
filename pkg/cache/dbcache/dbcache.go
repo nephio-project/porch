@@ -40,7 +40,6 @@ var _ cachetypes.Cache = &dbCache{}
 type dbCache struct {
 	repositories repomap.SafeRepoMap
 	options      cachetypes.CacheOptions
-  PushDraftsToGit bool
 }
 
 func (c *dbCache) OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (repository.Repository, error) {
@@ -75,7 +74,7 @@ func (c *dbCache) createRepository(ctx context.Context, key repository.Repositor
 		updatedBy:            getCurrentUser(),
 		deployment:           repositorySpec.Spec.Deployment,
 		repoPRChangeNotifier: c.options.RepoPRChangeNotifier,
-		pushDraftsToGit:      c.PushDraftsToGit,
+		pushDraftsToGit:      c.options.DbPushDraftsToGit,
 	}
 
 	err := dbRepo.OpenRepository(ctx, c.options.ExternalRepoOptions)
