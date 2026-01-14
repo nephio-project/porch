@@ -717,7 +717,7 @@ func (t *TestSuite) AddResourceToPackage(resources *porchapi.PackageRevisionReso
 	resources.Spec.Resources[name] = string(file)
 }
 
-func (t *TestSuite) CollectMetricsFromPods() (*metricsCollectionResults, error) {
+func (t *TestSuite) CollectMetricsFromPods() (*MetricsCollectionResults, error) {
 	ctx := context.Background()
 	podList, err := t.KubeClient.CoreV1().Pods("porch-system").List(ctx, metav1.ListOptions{})
 	if err != nil {
@@ -743,7 +743,7 @@ func (t *TestSuite) CollectMetricsFromPods() (*metricsCollectionResults, error) 
 		}
 	}
 
-	collectionResults := &metricsCollectionResults{}
+	collectionResults := &MetricsCollectionResults{}
 
 	functionPodList, err := t.KubeClient.CoreV1().Pods("porch-fn-system").List(ctx, metav1.ListOptions{})
 	if err != nil {
@@ -762,25 +762,25 @@ func (t *TestSuite) CollectMetricsFromPods() (*metricsCollectionResults, error) 
 	if err != nil {
 		t.Fatalf("failed to get metrics for porch-server: %v", err)
 	}
-	collectionResults.porchServerMetrics = string(resp)
+	collectionResults.PorchServerMetrics = string(resp)
 
 	resp, err = t.KubeClient.CoreV1().Pods("porch-system").ProxyGet("", porchControllersPod.Name, "9464", "metrics", nil).DoRaw(ctx)
 	if err != nil {
 		t.Fatalf("failed to get metrics for porch-controllers: %v", err)
 	}
-	collectionResults.porchControllerMetrics = string(resp)
+	collectionResults.PorchControllerMetrics = string(resp)
 
 	resp, err = t.KubeClient.CoreV1().Pods("porch-system").ProxyGet("", porchFunctionRunnerPod.Name, "9464", "metrics", nil).DoRaw(ctx)
 	if err != nil {
 		t.Fatalf("failed to get metrics for function-runner: %v", err)
 	}
-	collectionResults.porchFunctionRunnerMetrics = string(resp)
+	collectionResults.PorchFunctionRunnerMetrics = string(resp)
 
 	resp, err = t.KubeClient.CoreV1().Pods("porch-fn-system").ProxyGet("", functionPod.Name, "9464", "metrics", nil).DoRaw(ctx)
 	if err != nil {
 		t.Fatalf("failed to get metrics for wrapper-server: %v", err)
 	}
-	collectionResults.porchWrapperServerMetrics = string(resp)
+	collectionResults.PorchWrapperServerMetrics = string(resp)
 
 	return collectionResults, nil
 }
