@@ -22,14 +22,10 @@ import (
 	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	pkgerrors "github.com/pkg/errors"
-	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
 )
 
 func PushPublishedPackageRevision(ctx context.Context, repo repository.Repository, pr repository.PackageRevision, pushDraftsToGit bool, gitPR repository.PackageRevision) (v1.UpstreamLock, error) {
-	ctx, span := tracer.Start(ctx, "PushPackageRevision", trace.WithAttributes())
-	defer span.End()
-
 	prLifecycle := pr.Lifecycle(ctx)
 	if prLifecycle != porchapi.PackageRevisionLifecyclePublished {
 		return v1.UpstreamLock{}, fmt.Errorf("cannot push package revision %+v, package revision lifecycle is %q, it should be \"Published\"", pr.Key(), prLifecycle)
@@ -110,9 +106,6 @@ func PushPublishedPackageRevision(ctx context.Context, repo repository.Repositor
 }
 
 func GetOrCreateGitDraft(ctx context.Context, repo repository.Repository, pr repository.PackageRevision, gitPR repository.PackageRevision) (draft repository.PackageRevisionDraft, updatedGitPR repository.PackageRevision, err error) {
-	ctx, span := tracer.Start(ctx, "GetOrCreateGitDraft", trace.WithAttributes())
-	defer span.End()
-
 	if gitPR != nil {
 		gitDraft, err := repo.UpdatePackageRevision(ctx, gitPR)
 		if err != nil {

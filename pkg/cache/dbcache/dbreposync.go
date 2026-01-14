@@ -145,10 +145,8 @@ func (s *repositorySync) sync(ctx context.Context) (repositorySyncStats, error) 
 }
 
 func (s *repositorySync) getCachedPRMap(ctx context.Context) (map[repository.PackageRevisionKey]repository.PackageRevision, error) {
-	var deployedFilter repository.ListPackageRevisionFilter
-	if s.repo.pushDraftsToGit {
-		deployedFilter = repository.ListPackageRevisionFilter{}
-	} else {
+	deployedFilter := repository.ListPackageRevisionFilter{}
+	if !s.repo.pushDraftsToGit {
 		deployedFilter = repository.ListPackageRevisionFilter{
 			Lifecycles: []api.PackageRevisionLifecycle{
 				api.PackageRevisionLifecyclePublished,
