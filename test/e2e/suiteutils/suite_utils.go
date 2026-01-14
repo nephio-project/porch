@@ -50,11 +50,11 @@ var (
 	PackageRevisionGVK = porchapi.SchemeGroupVersion.WithKind("PackageRevision")
 )
 
-type metricsCollectionResults struct {
-	porchServerMetrics         string
-	porchControllerMetrics     string
-	porchFunctionRunnerMetrics string
-	porchWrapperServerMetrics  string
+type MetricsCollectionResults struct {
+	PorchServerMetrics         string
+	PorchControllerMetrics     string
+	PorchFunctionRunnerMetrics string
+	PorchWrapperServerMetrics  string
 }
 
 type TestSuiteWithGit struct {

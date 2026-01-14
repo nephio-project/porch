@@ -47,23 +47,23 @@ data:
 	t.AddMutator(resources, t.KrmFunctionsRegistry+"/"+setNamespaceImage, suiteutils.WithConfigPath("configmap.yaml"))
 	t.UpdateF(resources)
 
-	collectionResults, err := t.collectMetricsFromPods()
+	collectionResults, err := t.CollectMetricsFromPods()
 	if err != nil {
 		t.Fatalf("failed to collect metrics from pods: %v", err)
 	}
 
 	for _, regex := range porchServerShouldHaveRegexList {
-		assert.Regexp(t.T(), regex, collectionResults.porchServerMetrics, "porch server metrics should contain %q", regex)
+		assert.Regexp(t.T(), regex, collectionResults.PorchServerMetrics, "porch server metrics should contain %q", regex)
 	}
 
 	for _, regex := range porchControllerShouldHaveRegexList {
-		assert.Regexp(t.T(), regex, collectionResults.porchControllerMetrics, "porch controller metrics should contain %q", regex)
+		assert.Regexp(t.T(), regex, collectionResults.PorchControllerMetrics, "porch controller metrics should contain %q", regex)
 	}
 
 	for _, regex := range porchFunctionRunnerShouldHaveRegexList {
-		assert.Regexp(t.T(), regex, collectionResults.porchFunctionRunnerMetrics, "porch function runner metrics should contain %q", regex)
+		assert.Regexp(t.T(), regex, collectionResults.PorchFunctionRunnerMetrics, "porch function runner metrics should contain %q", regex)
 	}
 	for _, regex := range porchWrapperServerShouldHaveRegexList {
-		assert.Regexp(t.T(), regex, collectionResults.porchWrapperServerMetrics, "porch wrapper server metrics should contain %q", regex)
+		assert.Regexp(t.T(), regex, collectionResults.PorchWrapperServerMetrics, "porch wrapper server metrics should contain %q", regex)
 	}
 }
