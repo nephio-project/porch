@@ -17,8 +17,8 @@ package task
 import (
 	"context"
 
+	"github.com/kptdev/kpt/pkg/lib/kpt"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/pkg/kpt"
 	"github.com/nephio-project/porch/pkg/repository"
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"

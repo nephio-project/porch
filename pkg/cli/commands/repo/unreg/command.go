@@ -20,7 +20,7 @@ import (
 
 	"github.com/kptdev/kpt/pkg/lib/errors"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/util/porch"
+	porch "github.com/nephio-project/porch/internal/clliutils"
 	"github.com/nephio-project/porch/pkg/cli/commands/repo/docs"
 	"github.com/spf13/cobra"
 	coreapi "k8s.io/api/core/v1"
