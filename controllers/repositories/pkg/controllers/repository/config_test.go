@@ -17,18 +17,17 @@ package repository
 import (
 	"flag"
 	"testing"
-	"time"
 )
 
 func TestInitDefaults(t *testing.T) {
 	r := &RepositoryReconciler{}
 	r.InitDefaults()
 
-	if r.connectivityRetryInterval != 10*time.Second {
-		t.Errorf("Expected connectivityRetryInterval 10s, got %v", r.connectivityRetryInterval)
+	if r.MaxConcurrentReconciles != 100 {
+		t.Errorf("Expected MaxConcurrentReconciles 100, got %d", r.MaxConcurrentReconciles)
 	}
-	if r.maxConcurrentReconciles != 50 {
-		t.Errorf("Expected maxConcurrentReconciles 50, got %d", r.maxConcurrentReconciles)
+	if r.MaxConcurrentSyncs != 200 {
+		t.Errorf("Expected MaxConcurrentSyncs 200, got %d", r.MaxConcurrentSyncs)
 	}
 }
 
@@ -40,17 +39,13 @@ func TestBindFlags(t *testing.T) {
 	
 	// Parse test flags
 	err := flags.Parse([]string{
-		"--repo-connectivity-retry-interval=30s",
 		"--repo-max-concurrent-reconciles=100",
 	})
 	if err != nil {
 		t.Fatalf("Failed to parse flags: %v", err)
 	}
 
-	if r.connectivityRetryInterval != 30*time.Second {
-		t.Errorf("Expected connectivityRetryInterval 30s, got %v", r.connectivityRetryInterval)
-	}
-	if r.maxConcurrentReconciles != 100 {
-		t.Errorf("Expected maxConcurrentReconciles 100, got %d", r.maxConcurrentReconciles)
+	if r.MaxConcurrentReconciles != 100 {
+		t.Errorf("Expected MaxConcurrentReconciles 100, got %d", r.MaxConcurrentReconciles)
 	}
 }
