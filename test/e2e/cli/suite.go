@@ -17,36 +17,27 @@ package e2e
 import (
 	"bufio"
 	"bytes"
-	"encoding/base64"
 	"errors"
-	"fmt"
 	"io/fs"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
+	"syscall"
 	"testing"
-	"time"
-
-	nethttp "net/http"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/nephio-project/porch/test/e2e/suiteutils"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
-
-	git "github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/config"
-	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/go-git/go-git/v5/plumbing/transport/http"
 )
 
 const (
 	updateGoldenFiles       = "UPDATE_GOLDEN_FILES"
-	testGitUserOrg          = "nephio"
-	testGitPassword         = "secret"
 	defaultTestGitServerUrl = "http://gitea.gitea.svc.cluster.local:3000"
+	porchTestRepo           = "porch-test"
 )
 
 type CliTestSuite struct {
@@ -80,7 +71,8 @@ func NewCliTestSuite(t *testing.T, testdataDir string) *CliTestSuite {
 	}
 
 	isPorchInCluster := IsPorchServerRunningInCluster(t)
-	if isPorchInCluster {
+	isControllerInCluster := IsRepoControllerRunningInCluster(t)
+	if isPorchInCluster && isControllerInCluster {
 		s.GitServerURL = defaultTestGitServerUrl
 	} else {
 		ip := KubectlWaitForLoadBalancerIp(t, "gitea", "gitea-lb")
@@ -118,19 +110,28 @@ func (s *CliTestSuite) RunTests(t *testing.T) {
 
 // RunTestCase runs a single test case.
 func (s *CliTestSuite) RunTestCase(t *testing.T, tc TestCaseConfig) {
-	repoURL := s.GitServerURL + "/" + testGitUserOrg + "/" + strings.ReplaceAll(tc.TestCase, "/", "-")
-
 	KubectlCreateNamespace(t, tc.TestCase)
-	t.Cleanup(func() {
+	
+	// Setup signal handler for Ctrl-C cleanup
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		t.Logf("Interrupt received, cleaning up namespace %s", tc.TestCase)
 		KubectlDeleteNamespace(t, tc.TestCase)
-		deleteRemoteTestRepo(t, tc.TestCase)
+		if tc.UsesPorchTestRepo {
+			suiteutils.RecreateGiteaRepo(t, porchTestRepo)
+		}
+		os.Exit(1)
+	}()
+	
+	t.Cleanup(func() {
+		signal.Stop(sigChan)
+		KubectlDeleteNamespace(t, tc.TestCase)
+		if tc.UsesPorchTestRepo {
+			suiteutils.RecreateGiteaRepo(t, porchTestRepo)
+		}
 	})
-
-	createRemoteTestRepo(t, tc.TestCase)
-
-	if tc.Repository != "" {
-		s.RegisterRepository(t, repoURL, tc.TestCase, tc.Repository)
-	}
 
 	for i := range tc.Commands {
 		// time.Sleep(1 * time.Second) // TODO: why was this necessary?
@@ -253,13 +254,6 @@ func (s *CliTestSuite) Porchctl(t *testing.T, args ...string) error {
 	outBytes, err := cmd.CombinedOutput()
 	t.Logf("porchctl output: %v", string(outBytes))
 	return err
-}
-
-func (s *CliTestSuite) RegisterRepository(t *testing.T, repoURL, namespace, name string) {
-	err := s.Porchctl(t, "repo", "register", "--namespace", namespace, "--name", name, repoURL)
-	if err != nil {
-		t.Fatalf("Failed to register repository %q: %v", repoURL, err)
-	}
 }
 
 func runUtilityCommand(t *testing.T, command string, args ...string) error {
@@ -397,166 +391,7 @@ func exitCode(exit error) int {
 	return 0
 }
 
-func deleteRemoteTestRepo(t *testing.T, testcaseName string) {
 
-	apiURL := fmt.Sprintf("http://localhost:3000/api/v1/repos/%s/%s", testGitUserOrg, testcaseName)
-
-	req, err := nethttp.NewRequest("DELETE", apiURL, nil)
-	if err != nil {
-		t.Fatalf("Failed to create DELETE request: %v", err)
-	}
-	auth := testGitUserOrg + ":" + testGitPassword
-	basicAuth := "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
-	req.Header.Set("Authorization", basicAuth)
-
-	resp, err := nethttp.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatalf("Failed to make request: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == nethttp.StatusNoContent {
-		t.Logf("Repo deleted successfully: %s", testcaseName)
-	} else {
-		t.Logf("Failed to delete repo: %s %s\n", testcaseName, resp.Status)
-	}
-
-	if testcaseName == "rpkg-upgrade" {
-		apiURL2 := fmt.Sprintf("http://localhost:3000/api/v1/repos/%s/rpkg-upgrade-downstream", testGitUserOrg)
-		req2, err := nethttp.NewRequest("DELETE", apiURL2, nil)
-		if err != nil {
-			t.Fatalf("Failed to create DELETE request: %v", err)
-		}
-		req2.Header.Set("Authorization", basicAuth)
-		resp2, err := nethttp.DefaultClient.Do(req2)
-		if err != nil {
-			t.Fatalf("Failed to make request: %v", err)
-		}
-		defer resp2.Body.Close()
-		if resp2.StatusCode == nethttp.StatusNoContent {
-			t.Logf("Repo deleted successfully: rpkg-upgrade-downstream")
-		} else {
-			t.Logf("Failed to delete repo: rpkg-upgrade-downstream %s\n", resp2.Status)
-		}
-	}
-}
-
-func createRemoteTestRepo(t *testing.T, testcaseName string) {
-
-	tmpPath := t.TempDir()
-	repo, err := git.PlainInit(tmpPath, false)
-	if err != nil {
-		t.Fatalf("Failed to init the repo %s: %v", testcaseName, err)
-	}
-
-	err = repo.Storer.SetReference(
-		plumbing.NewSymbolicReference(plumbing.HEAD, plumbing.NewBranchReferenceName("main")),
-	)
-	if err != nil {
-		t.Fatalf("Failed to set refs: %v", err)
-	}
-
-	err = os.WriteFile(tmpPath+"/README.md", []byte("# Test Go-Git Repo\nCreated programmatically."), 0644)
-	if err != nil {
-		t.Fatalf("Failed to write to file: %v", err)
-	}
-
-	wt, _ := repo.Worktree()
-	_, err = wt.Add("README.md")
-	if err != nil {
-		t.Fatalf("Failed to add README: %v", err)
-	}
-	_, err = wt.Commit("Initial commit", &git.CommitOptions{
-		Author: &object.Signature{
-			Name:  "Nephio O' Test",
-			Email: "nephiotest@example.com",
-			When:  time.Now(),
-		},
-	})
-	if err != nil {
-		t.Fatalf("Failed to commit to repo %s: %v", testcaseName, err)
-	}
-
-	repoUrl := fmt.Sprintf("http://localhost:3000/%s/%s", testGitUserOrg, testcaseName)
-	_, err = repo.CreateRemote(&config.RemoteConfig{
-		Name: "origin",
-		URLs: []string{repoUrl},
-	})
-	if err != nil {
-		t.Fatalf("Failed to create init commit: %v", err)
-	}
-
-	err = repo.Push(&git.PushOptions{
-		RemoteName: "origin",
-		Auth: &http.BasicAuth{
-			Username: testGitUserOrg,
-			Password: testGitPassword,
-		},
-		RequireRemoteRefs: []config.RefSpec{},
-	})
-	if err != nil {
-		t.Fatalf("Failed to push test repo %s: %v", testcaseName, err)
-	}
-	t.Logf("Test repo created successfully: %s", testcaseName)
-
-	if testcaseName == "rpkg-upgrade" {
-		tmpPath2 := t.TempDir()
-		repo2, err := git.PlainInit(tmpPath2, false)
-		if err != nil {
-			t.Fatalf("Failed to init the repo rpkg-upgrade-downstream: %v", err)
-		}
-
-		err = repo2.Storer.SetReference(
-			plumbing.NewSymbolicReference(plumbing.HEAD, plumbing.NewBranchReferenceName("main")),
-		)
-		if err != nil {
-			t.Fatalf("Failed to set refs: %v", err)
-		}
-
-		err = os.WriteFile(tmpPath2+"/README.md", []byte("# Test Go-Git Repo\nCreated programmatically."), 0644)
-		if err != nil {
-			t.Fatalf("Failed to write to file: %v", err)
-		}
-
-		wt2, _ := repo2.Worktree()
-		_, err = wt2.Add("README.md")
-		if err != nil {
-			t.Fatalf("Failed to add README: %v", err)
-		}
-		_, err = wt2.Commit("Initial commit", &git.CommitOptions{
-			Author: &object.Signature{
-				Name:  "Nephio O' Test",
-				Email: "nephiotest@example.com",
-				When:  time.Now(),
-			},
-		})
-		if err != nil {
-			t.Fatalf("Failed to commit to repo rpkg-upgrade-downstream: %v", err)
-		}
-
-		repoUrl2 := fmt.Sprintf("http://localhost:3000/%s/rpkg-upgrade-downstream", testGitUserOrg)
-		_, err = repo2.CreateRemote(&config.RemoteConfig{
-			Name: "origin",
-			URLs: []string{repoUrl2},
-		})
-		if err != nil {
-			t.Fatalf("Failed to create remote: %v", err)
-		}
-
-		err = repo2.Push(&git.PushOptions{
-			RemoteName: "origin",
-			Auth: &http.BasicAuth{
-				Username: testGitUserOrg,
-				Password: testGitPassword,
-			},
-			RequireRemoteRefs: []config.RefSpec{},
-		})
-		if err != nil {
-			t.Fatalf("Failed to push test repo rpkg-upgrade-downstream: %v", err)
-		}
-		t.Logf("Test repo created successfully: rpkg-upgrade-downstream")
-	}
-}
 
 func getRepoName(args []string) (string, bool) {
 	for _, arg := range args {
