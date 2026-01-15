@@ -26,6 +26,7 @@ import (
 	"github.com/nephio-project/porch/api/porch/install"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
+	repocontroller "github.com/nephio-project/porch/controllers/repositories/pkg/controllers/repository"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
@@ -76,14 +77,23 @@ func init() {
 	)
 }
 
+// RepoControllerConfig holds configuration for the embedded Repository controller
+type RepoControllerConfig struct {
+	MaxConcurrentReconciles int
+	MaxConcurrentSyncs      int
+	HealthCheckFrequency    time.Duration
+	FullSyncFrequency       time.Duration
+}
+
 // ExtraConfig holds custom apiserver config
 type ExtraConfig struct {
 	CoreAPIKubeconfigPath    string
 	GRPCRuntimeOptions       engine.GRPCRuntimeOptions
 	CacheOptions             cachetypes.CacheOptions
+	RepoControllerConfig     RepoControllerConfig
 	ListTimeoutPerRepository time.Duration
 	MaxConcurrentLists       int
-	EnableSyncEvents         bool // Enable sync event creation for repository status communication
+	UseLegacySync            bool // Use legacy background sync (true) vs controller-based sync (false)
 }
 
 // Config defines the config for the apiserver
@@ -215,7 +225,15 @@ func (c completedConfig) createEmbeddedController(coreClient client.WithWatch) (
 		return nil, fmt.Errorf("failed to build scheme: %w", err)
 	}
 
-	return createEmbeddedController(coreClient, restConfig, scheme)
+	config := repocontroller.EmbeddedConfig{
+		MaxConcurrentReconciles:    c.ExtraConfig.RepoControllerConfig.MaxConcurrentReconciles,
+		MaxConcurrentSyncs:         c.ExtraConfig.RepoControllerConfig.MaxConcurrentSyncs,
+		HealthCheckFrequency:       c.ExtraConfig.RepoControllerConfig.HealthCheckFrequency,
+		FullSyncFrequency:          c.ExtraConfig.RepoControllerConfig.FullSyncFrequency,
+		RepoOperationRetryAttempts: c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts,
+	}
+
+	return createEmbeddedController(coreClient, restConfig, scheme, config)
 }
 
 // New returns a new instance of PorchServer from the given config.
@@ -263,17 +281,15 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.UserInfoProvider = userInfoProvider
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.RepoOperationRetryAttempts = c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts
 
-	// Enable sync events for repo controller status updates
-	c.ExtraConfig.CacheOptions.EnableSyncEvents = c.ExtraConfig.EnableSyncEvents
+	c.ExtraConfig.CacheOptions.UseLegacySync = c.ExtraConfig.UseLegacySync
 
-	// Create embedded repo controller if enable-sync-events is enabled and using CR cache
+	// Create embedded repo controller if use-legacy-sync is disabled and using CR cache
 	var embeddedController *EmbeddedControllerManager
-	if c.ExtraConfig.EnableSyncEvents && c.ExtraConfig.CacheOptions.CacheType != cachetypes.DBCacheType {
+	if !c.ExtraConfig.UseLegacySync && c.ExtraConfig.CacheOptions.CacheType == cachetypes.CRCacheType {
 		embeddedController, err = c.createEmbeddedController(coreClient)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create embedded controller: %w", err)
 		}
-		klog.Info("Created embedded controller for sync events")
 	}
 
 	cacheImpl, err := cache.GetCacheImpl(ctx, c.ExtraConfig.CacheOptions)
@@ -340,26 +356,23 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 }
 
 func (s *PorchServer) Run(ctx context.Context) error {
-	if s.ExtraConfig.EnableSyncEvents {
-		if s.embeddedController != nil {
-			klog.Info("Starting embedded Repository controller with sync events")
-			s.embeddedController.cache = s.cache
-			go func() {
-				if err := s.embeddedController.Start(ctx); err != nil {
-					klog.Error(err, "Embedded controller failed")
-				}
-			}()
-		} else {
-			klog.Info("Sync events enabled - using standalone Repository controller")
-		}
-	} else {
-		klog.Info("Using legacy background.go service for Repository management")
-		// Use legacy background.go for all cache types when sync events are disabled
+	if s.ExtraConfig.UseLegacySync {
+		klog.Info("Using legacy SyncManager")
 		porch.RunBackground(ctx, s.coreClient, s.cache,
 			porch.WithPeriodicRepoSyncFrequency(s.repoCacheSyncFrequency),
 			porch.WithListTimeoutPerRepo(s.ListTimeoutPerRepository),
 			porch.WithRepoOperationRetryAttempts(s.repoOperationRetryAttempts),
 		)
+	} else if s.embeddedController != nil {
+		klog.Info("Starting embedded controller")
+		s.embeddedController.cache = s.cache
+		go func() {
+			if err := s.embeddedController.Start(ctx); err != nil {
+				klog.Error(err, "Embedded controller failed")
+			}
+		}()
+	} else {
+		klog.Info("Using standalone controller")
 	}
 
 	// TODO: Reconsider if the existence of CERT_STORAGE_DIR was a good inidcator for webhook setup,

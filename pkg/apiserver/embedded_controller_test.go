@@ -21,6 +21,7 @@ import (
 	"time"
 
 	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
+	repocontroller "github.com/nephio-project/porch/controllers/repositories/pkg/controllers/repository"
 	mockcache "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -35,8 +36,16 @@ func TestCreateEmbeddedController(t *testing.T) {
 	// Create fake client
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 	
-	// Test with invalid config (should succeed but create invalid manager)
-	manager, err := createEmbeddedController(fakeClient, &rest.Config{}, scheme)
+	// Create test config
+	config := repocontroller.EmbeddedConfig{
+		MaxConcurrentReconciles: 25,
+		MaxConcurrentSyncs:      50,
+		HealthCheckFrequency:    5 * time.Minute,
+		FullSyncFrequency:       1 * time.Hour,
+	}
+	
+	// Test with invalid rest config (should fail)
+	manager, err := createEmbeddedController(fakeClient, &rest.Config{}, scheme, config)
 	if err != nil {
 		// This is expected - invalid config should fail
 		t.Logf("Expected error with invalid config: %v", err)
@@ -47,10 +56,18 @@ func TestCreateEmbeddedController(t *testing.T) {
 
 func TestEmbeddedControllerManager_Start(t *testing.T) {
 	// Test Start with nil manager - should panic/fail
+	config := repocontroller.EmbeddedConfig{
+		MaxConcurrentReconciles: 25,
+		MaxConcurrentSyncs:      50,
+		HealthCheckFrequency:    5 * time.Minute,
+		FullSyncFrequency:       1 * time.Hour,
+	}
+	
 	manager := &EmbeddedControllerManager{
 		coreClient: fake.NewClientBuilder().Build(),
 		cache:      nil,
 		mgr:        nil,
+		config:     config,
 	}
 	
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
