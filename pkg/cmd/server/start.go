@@ -78,6 +78,7 @@ type PorchServerOptions struct {
 	StdOut                     io.Writer
 	StdErr                     io.Writer
 	UseLegacySync              bool
+	UseLegacySyncSet           bool // Track if flag was explicitly set
 	UseUserDefinedCaBundle     bool
 }
 
@@ -112,6 +113,10 @@ func NewCommandStartPorchServer(ctx context.Context, defaults *PorchServerOption
 		Short: "Launch a porch API server",
 		Long:  "Launch a porch API server",
 		RunE: func(c *cobra.Command, args []string) error {
+			// Check if use-legacy-sync was explicitly set
+			if c.Flags().Changed("use-legacy-sync") {
+				o.UseLegacySyncSet = true
+			}
 			if err := o.Complete(); err != nil {
 				return err
 			}
@@ -188,6 +193,20 @@ func (o *PorchServerOptions) Complete() error {
 	}
 
 	o.CacheType = strings.ToUpper(o.CacheType)
+	
+	// Apply smart defaults for use-legacy-sync based on cache type if not explicitly set
+	if !o.UseLegacySyncSet {
+		if o.CacheType == string(cachetypes.DBCacheType) {
+			// DB cache: default to legacy sync (no standalone controller required)
+			o.UseLegacySync = true
+			klog.Infof("Defaulting to legacy sync for DB cache (set --use-legacy-sync=false to use controller-based sync with standalone controller)")
+		} else {
+			// CR cache: default to controller-based sync (embedded controller available)
+			o.UseLegacySync = false
+			klog.Infof("Defaulting to controller-based sync for CR cache (embedded controller)")
+		}
+	}
+	
 	if o.CacheType == string(cachetypes.DBCacheType) {
 		if err := o.setupDBCacheConn(); err != nil {
 			return err
@@ -360,31 +379,40 @@ func (o *PorchServerOptions) AddFlags(fs *pflag.FlagSet) {
 	o.RecommendedOptions.AddFlags(fs)
 	utilfeature.DefaultMutableFeatureGate.AddFlag(fs)
 
-	// Add additional flags.
-
+	// Debugging flags
 	if os.Getenv("KUBERNETES_SERVICE_HOST") == "" && os.Getenv("KUBERNETES_SERVICE_PORT") == "" {
-		// Add this flag only when not running in k8s cluster.
 		fs.BoolVar(&o.LocalStandaloneDebugging, "standalone-debug-mode", false,
 			"Under the local-debug mode the apiserver will allow all access to its resources without "+
 				"authorizing the requests, this flag is only intended for debugging in your workstation.")
 	}
 
+	// Cache configuration
 	fs.StringVar(&o.CacheDirectory, "cache-directory", "", "Directory where Porch server stores repository and package caches.")
 	fs.StringVar(&o.CacheType, "cache-type", string(cachetypes.DefaultCacheType), "Type of cache to use for cacheing repos, supported types are \"CR\" (Custom Resource) and \"DB\" (DataBase)")
 	fs.StringVar(&o.DbCacheDriver, "db-cache-driver", cachetypes.DefaultDBCacheDriver, "Database driver to use when for the database cache")
 	fs.StringVar(&o.DbCacheDataSource, "db-cache-data-source", "", "Address of the database, for example \"postgresql://user:pass@hostname:port/database\"")
+
+	// Function runner configuration
 	fs.StringVar(&o.DefaultImagePrefix, "default-image-prefix", runneroptions.GHCRImagePrefix, "Default prefix for unqualified function names")
 	fs.StringVar(&o.FunctionRunnerAddress, "function-runner", "", "Address of the function runner gRPC service.")
-	fs.DurationVar(&o.ListTimeoutPerRepository, "list-timeout-per-repo", 20*time.Second, "Maximum amount of time to wait for a repository list request.")
 	fs.IntVar(&o.MaxRequestBodySize, "max-request-body-size", 6*1024*1024, "Maximum size of the request body in bytes. Keep this in sync with function-runner's corresponding argument.")
-	fs.IntVar(&o.MaxConcurrentLists, "max-parallel-repo-lists", 10, "Maximum number of repositories to list in parallel.")
-	fs.DurationVar(&o.RepoSyncFrequency, "repo-sync-frequency", 10*time.Minute, "Frequency at which registered repository CRs will be synced.")
+
+	// Repository operations configuration
+	fs.BoolVar(&o.UseUserDefinedCaBundle, "use-user-cabundle", false, "Determine whether to use a user-defined CaBundle for TLS towards the repository system.")
 	fs.IntVar(&o.RepoOperationRetryAttempts, "repo-operation-retry-attempts", 3, "Number of retry attempts for repository operations.")
 	fs.StringSliceVar(&o.RetryableGitErrors, "retryable-git-errors", nil, "Additional retryable git error patterns. Can be specified multiple times or as comma-separated values.")
+	fs.DurationVar(&o.ListTimeoutPerRepository, "list-timeout-per-repo", 20*time.Second, "Maximum amount of time to wait for a repository list request.")
+	fs.IntVar(&o.MaxConcurrentLists, "max-parallel-repo-lists", 10, "Maximum number of repositories to list in parallel.")
+
+	// Repository sync configuration (legacy)
+	fs.DurationVar(&o.RepoSyncFrequency, "repo-sync-frequency", 10*time.Minute, "Frequency at which registered repository CRs will be synced (legacy sync only).")
+
+	// Repository controller configuration (controller-based sync)
 	fs.IntVar(&o.RepoMaxConcurrentReconciles, "repo-max-concurrent-reconciles", 100, "Maximum number of repository reconciliations to run concurrently.")
 	fs.IntVar(&o.RepoMaxConcurrentSyncs, "repo-max-concurrent-syncs", 50, "Maximum number of repository syncs to run concurrently.")
 	fs.DurationVar(&o.RepoHealthCheckFrequency, "repo-health-check-frequency", 5*time.Minute, "Frequency at which repository health checks are performed.")
 	fs.DurationVar(&o.RepoFullSyncFrequency, "repo-full-sync-frequency", 1*time.Hour, "Frequency at which full repository syncs are performed.")
-	fs.BoolVar(&o.UseLegacySync, "use-legacy-sync", false, "Use legacy sync mode (deprecated).")
-	fs.BoolVar(&o.UseUserDefinedCaBundle, "use-user-cabundle", false, "Determine whether to use a user-defined CaBundle for TLS towards the repository system.")
+	
+	// Repository Sync mode selection
+	fs.BoolVar(&o.UseLegacySync, "use-legacy-sync", false, "Use legacy sync mode (deprecated). Defaults: false for CR cache (embedded controller), true for DB cache (requires standalone controller if false).")
 }
