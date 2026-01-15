@@ -22,11 +22,11 @@ import (
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/fn"
 	"github.com/kptdev/kpt/pkg/lib/fnruntime"
+	"github.com/kptdev/kpt/pkg/lib/kpt"
 	"github.com/kptdev/krm-functions-catalog/functions/go/apply-replacements/replacements"
 	set_namespace "github.com/kptdev/krm-functions-catalog/functions/go/set-namespace/transformer"
 	"github.com/kptdev/krm-functions-catalog/functions/go/starlark/starlark"
 	fnsdk "github.com/kptdev/krm-functions-sdk/go/fn"
-	"github.com/nephio-project/porch/pkg/kpt"
 )
 
 // When updating the version for the builtin functions, please also update the image version
