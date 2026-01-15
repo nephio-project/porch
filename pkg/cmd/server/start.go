@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nephio-project/porch/internal/kpt/fnruntime"
+	"github.com/kptdev/kpt/pkg/lib/fnruntime"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 

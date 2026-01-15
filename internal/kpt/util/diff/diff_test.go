@@ -26,10 +26,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nephio-project/porch/internal/kpt/testutil"
-	"github.com/nephio-project/porch/internal/kpt/testutil/pkgbuilder"
+	"github.com/kptdev/kpt/pkg/lib/testutil"
+	"github.com/kptdev/kpt/pkg/lib/testutil/pkgbuilder"
+	"github.com/kptdev/kpt/pkg/printer/fake"
 	. "github.com/nephio-project/porch/internal/kpt/util/diff"
-	"github.com/nephio-project/porch/pkg/kpt/printer/fake"
 	"github.com/stretchr/testify/assert"
 )
 

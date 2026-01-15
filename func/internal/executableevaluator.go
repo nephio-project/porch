@@ -23,8 +23,8 @@ import (
 	"path/filepath"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/kptdev/kpt/pkg/fn"
 	pb "github.com/nephio-project/porch/func/evaluator"
-	"github.com/nephio-project/porch/pkg/kpt/fn"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gopkg.in/yaml.v2"
