@@ -36,14 +36,14 @@ const (
 )
 
 type CacheOptions struct {
-	ExternalRepoOptions  externalrepotypes.ExternalRepoOptions
-	RepoSyncFrequency            time.Duration
-	RepoOperationRetryAttempts   int
-	RepoPRChangeNotifier         RepoPRChangeNotifier
-	CoreClient           client.WithWatch
-	CacheType            CacheType
-	DBCacheOptions       DBCacheOptions
-	UseLegacySync        bool
+	ExternalRepoOptions        externalrepotypes.ExternalRepoOptions
+	RepoSyncFrequency          time.Duration
+	RepoOperationRetryAttempts int
+	RepoPRChangeNotifier       RepoPRChangeNotifier
+	CoreClient                 client.WithWatch
+	CacheType                  CacheType
+	DBCacheOptions             DBCacheOptions
+	UseLegacySync              bool
 }
 
 const DefaultDBCacheDriver string = "pgx"

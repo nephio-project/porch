@@ -55,31 +55,31 @@ const (
 
 // PorchServerOptions contains state for master/api server
 type PorchServerOptions struct {
-	RecommendedOptions         *genericoptions.RecommendedOptions
-	CacheDirectory             string
-	CacheType                  string
-	CoreAPIKubeconfigPath      string
-	DbCacheDriver              string
-	DbCacheDataSource          string
-	DefaultImagePrefix         string
-	FunctionRunnerAddress      string
-	ListTimeoutPerRepository   time.Duration
-	LocalStandaloneDebugging   bool // Enables local standalone running/debugging of the apiserver.
-	MaxConcurrentLists         int
-	MaxRequestBodySize         int
-	RepoSyncFrequency          time.Duration
-	RepoOperationRetryAttempts int
+	RecommendedOptions          *genericoptions.RecommendedOptions
+	CacheDirectory              string
+	CacheType                   string
+	CoreAPIKubeconfigPath       string
+	DbCacheDriver               string
+	DbCacheDataSource           string
+	DefaultImagePrefix          string
+	FunctionRunnerAddress       string
+	ListTimeoutPerRepository    time.Duration
+	LocalStandaloneDebugging    bool // Enables local standalone running/debugging of the apiserver.
+	MaxConcurrentLists          int
+	MaxRequestBodySize          int
+	RepoSyncFrequency           time.Duration
+	RepoOperationRetryAttempts  int
 	RetryableGitErrors         []string // Additional retryable git error patterns
 	RepoMaxConcurrentReconciles int
 	RepoMaxConcurrentSyncs      int
 	RepoHealthCheckFrequency    time.Duration
 	RepoFullSyncFrequency       time.Duration
-	SharedInformerFactory      informers.SharedInformerFactory
-	StdOut                     io.Writer
-	StdErr                     io.Writer
-	UseLegacySync              bool
-	UseLegacySyncSet           bool // Track if flag was explicitly set
-	UseUserDefinedCaBundle     bool
+	SharedInformerFactory       informers.SharedInformerFactory
+	StdOut                      io.Writer
+	StdErr                      io.Writer
+	UseLegacySync               bool
+	UseLegacySyncSet            bool // Track if flag was explicitly set
+	UseUserDefinedCaBundle      bool
 }
 
 // NewPorchServerOptions returns a new PorchServerOptions
@@ -193,7 +193,7 @@ func (o *PorchServerOptions) Complete() error {
 	}
 
 	o.CacheType = strings.ToUpper(o.CacheType)
-	
+
 	// Apply smart defaults for use-legacy-sync based on cache type if not explicitly set
 	if !o.UseLegacySyncSet {
 		if o.CacheType == string(cachetypes.DBCacheType) {
@@ -206,7 +206,7 @@ func (o *PorchServerOptions) Complete() error {
 			klog.Infof("Defaulting to controller-based sync for CR cache (embedded controller)")
 		}
 	}
-	
+
 	if o.CacheType == string(cachetypes.DBCacheType) {
 		if err := o.setupDBCacheConn(); err != nil {
 			return err
@@ -345,7 +345,7 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 			},
 			ListTimeoutPerRepository: o.ListTimeoutPerRepository,
 			MaxConcurrentLists:       o.MaxConcurrentLists,
-			UseLegacySync:         o.UseLegacySync,
+			UseLegacySync:            o.UseLegacySync,
 		},
 	}
 	return config, nil
@@ -412,7 +412,7 @@ func (o *PorchServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.IntVar(&o.RepoMaxConcurrentSyncs, "repo-max-concurrent-syncs", 50, "Maximum number of repository syncs to run concurrently.")
 	fs.DurationVar(&o.RepoHealthCheckFrequency, "repo-health-check-frequency", 5*time.Minute, "Frequency at which repository health checks are performed.")
 	fs.DurationVar(&o.RepoFullSyncFrequency, "repo-full-sync-frequency", 1*time.Hour, "Frequency at which full repository syncs are performed.")
-	
+
 	// Repository Sync mode selection
 	fs.BoolVar(&o.UseLegacySync, "use-legacy-sync", false, "Use legacy sync mode (deprecated). Defaults: false for CR cache (embedded controller), true for DB cache (requires standalone controller if false).")
 }
