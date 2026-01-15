@@ -17,10 +17,10 @@ package engine
 import (
 	"fmt"
 
-	"github.com/nephio-project/porch/internal/kpt/fnruntime"
+	"github.com/kptdev/kpt/pkg/fn"
+	"github.com/kptdev/kpt/pkg/lib/fnruntime"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/kpt"
-	"github.com/nephio-project/porch/pkg/kpt/fn"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 

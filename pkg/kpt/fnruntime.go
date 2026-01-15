@@ -17,7 +17,7 @@ package kpt
 import (
 	"io"
 
-	"github.com/nephio-project/porch/pkg/kpt/fn"
+	"github.com/kptdev/kpt/pkg/fn"
 )
 
 type FunctionRuntime interface {

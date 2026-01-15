@@ -24,15 +24,15 @@ import (
 
 	fnresult "github.com/kptdev/kpt/pkg/api/fnresult/v1"
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/kptdev/kpt/pkg/fn"
 	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
 	"github.com/kptdev/kpt/pkg/lib/errors"
+	"github.com/kptdev/kpt/pkg/lib/fnruntime"
 	"github.com/kptdev/kpt/pkg/lib/pkg"
 	"github.com/kptdev/kpt/pkg/lib/types"
-	"github.com/nephio-project/porch/internal/kpt/fnruntime"
+	"github.com/kptdev/kpt/pkg/printer"
 	"github.com/nephio-project/porch/internal/kpt/util/attribution"
 	"github.com/nephio-project/porch/internal/kpt/util/printerutil"
-	"github.com/nephio-project/porch/pkg/kpt/fn"
-	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 	"sigs.k8s.io/kustomize/kyaml/kio"
 	"sigs.k8s.io/kustomize/kyaml/kio/kioutil"
@@ -615,7 +615,7 @@ func (pn *pkgNode) runMutators(ctx context.Context, hctx *hydrationContext, inpu
 
 		if len(selectors) > 0 || len(exclusions) > 0 {
 			// set kpt-resource-id annotation on each resource before mutation
-			err = fnruntime.SetResourceIds(input)
+			err = fnruntime.SetResourceIDs(input)
 			if err != nil {
 				return nil, err
 			}
@@ -644,7 +644,7 @@ func (pn *pkgNode) runMutators(ctx context.Context, hctx *hydrationContext, inpu
 			// merge the output resources with input resources
 			input = fnruntime.MergeWithInput(output.Nodes, selectedInput, input)
 			// delete the kpt-resource-id annotation on each resource
-			err = fnruntime.DeleteResourceIds(input)
+			err = fnruntime.DeleteResourceIDs(input)
 			if err != nil {
 				return nil, err
 			}

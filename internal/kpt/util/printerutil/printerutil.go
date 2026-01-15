@@ -17,7 +17,7 @@ package printerutil
 import (
 	"context"
 
-	"github.com/nephio-project/porch/pkg/kpt/printer"
+	"github.com/kptdev/kpt/pkg/printer"
 )
 
 // PrintFnResultInfo displays information about the function results file.

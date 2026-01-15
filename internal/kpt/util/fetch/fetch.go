@@ -28,12 +28,12 @@ import (
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
 	"github.com/kptdev/kpt/pkg/lib/errors"
+	"github.com/kptdev/kpt/pkg/lib/gitutil"
 	"github.com/kptdev/kpt/pkg/lib/pkg"
 	"github.com/kptdev/kpt/pkg/lib/types"
 	"github.com/kptdev/kpt/pkg/lib/util/git"
-	"github.com/nephio-project/porch/internal/kpt/gitutil"
+	"github.com/kptdev/kpt/pkg/printer"
 	"github.com/nephio-project/porch/internal/kpt/util/pkgutil"
-	"github.com/nephio-project/porch/pkg/kpt/printer"
 )
 
 // Command takes the upstream information in the Kptfile at the path for the

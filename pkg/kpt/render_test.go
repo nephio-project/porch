@@ -24,11 +24,11 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/kptdev/kpt/pkg/lib/fnruntime"
 	"github.com/kptdev/kpt/pkg/lib/pkg"
-	"github.com/nephio-project/porch/internal/kpt/fnruntime"
+	"github.com/kptdev/kpt/pkg/printer"
+	"github.com/kptdev/kpt/pkg/printer/fake"
 	"github.com/nephio-project/porch/internal/kpt/util/render"
-	"github.com/nephio-project/porch/pkg/kpt/printer"
-	"github.com/nephio-project/porch/pkg/kpt/printer/fake"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 )

@@ -21,10 +21,10 @@ import (
 	"testing"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
-	"github.com/nephio-project/porch/internal/kpt/testutil"
-	"github.com/nephio-project/porch/internal/kpt/testutil/pkgbuilder"
+	"github.com/kptdev/kpt/pkg/lib/testutil"
+	"github.com/kptdev/kpt/pkg/lib/testutil/pkgbuilder"
+	"github.com/kptdev/kpt/pkg/printer/fake"
 	. "github.com/nephio-project/porch/internal/kpt/util/get"
-	"github.com/nephio-project/porch/pkg/kpt/printer/fake"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/kustomize/kyaml/kio"
 	"sigs.k8s.io/kustomize/kyaml/kio/filters"
