@@ -18,8 +18,8 @@ import (
 )
 
 func (r *RepositoryReconciler) createCacheFromEnv(ctx context.Context, mgr ctrl.Manager) error {
-	if strings.ToUpper(r.cacheType) == string(cachetypes.CRCacheType) {
-		return fmt.Errorf("standalone controller requires DB cache")
+	if err := r.validateCacheType(); err != nil {
+		return err
 	}
 
 	coreClient, err := client.NewWithWatch(mgr.GetConfig(), client.Options{
@@ -36,7 +36,32 @@ func (r *RepositoryReconciler) createCacheFromEnv(ctx context.Context, mgr ctrl.
 	}
 
 	// Setup cache directory for git repositories
-	// Priority: 1. Env var, 2. User cache dir, 3. Temp dir
+	cacheDir := r.determineCacheDirectory()
+	klog.Infof("[Repository Controller] Using git cache directory: %s", cacheDir)
+
+	// Create credential resolver for git authentication
+	credentialResolver, caBundleResolver := r.createCredentialResolvers(coreClient)
+
+	// Simple user info provider for standalone controller
+	userInfoProvider := &simpleUserInfoProvider{}
+
+	options := r.buildCacheOptions(coreClient, dbOptions, cacheDir, credentialResolver, caBundleResolver, userInfoProvider)
+
+	r.Cache, err = cache.GetCacheImpl(ctx, options)
+	return err
+}
+
+// validateCacheType checks if the cache type is valid for standalone controller
+func (r *RepositoryReconciler) validateCacheType() error {
+	if strings.ToUpper(r.cacheType) == string(cachetypes.CRCacheType) {
+		return fmt.Errorf("standalone controller requires DB cache")
+	}
+	return nil
+}
+
+// determineCacheDirectory resolves the cache directory with fallback logic
+// Priority: 1. GIT_CACHE_DIR env var, 2. User cache dir, 3. Temp dir
+func (r *RepositoryReconciler) determineCacheDirectory() string {
 	cacheDir := os.Getenv("GIT_CACHE_DIR")
 	if cacheDir == "" {
 		var err error
@@ -47,20 +72,30 @@ func (r *RepositoryReconciler) createCacheFromEnv(ctx context.Context, mgr ctrl.
 		}
 		cacheDir = cacheDir + "/porch-repo-controller"
 	}
-	klog.Infof("[Repository Controller] Using git cache directory: %s", cacheDir)
+	return cacheDir
+}
 
-	// Create credential resolver for git authentication
+// createCredentialResolvers creates the credential and CA bundle resolvers
+func (r *RepositoryReconciler) createCredentialResolvers(coreClient client.Client) (repository.CredentialResolver, repository.CredentialResolver) {
 	resolverChain := []porch.Resolver{
 		porch.NewBasicAuthResolver(),
 		porch.NewBearerTokenAuthResolver(),
 	}
 	credentialResolver := porch.NewCredentialResolver(coreClient, resolverChain)
 	caBundleResolver := porch.NewCredentialResolver(coreClient, []porch.Resolver{porch.NewCaBundleResolver()})
+	return credentialResolver, caBundleResolver
+}
 
-	// Simple user info provider for standalone controller
-	userInfoProvider := &simpleUserInfoProvider{}
-
-	options := cachetypes.CacheOptions{
+// buildCacheOptions constructs the cache options from all components
+func (r *RepositoryReconciler) buildCacheOptions(
+	coreClient client.WithWatch,
+	dbOptions cachetypes.DBCacheOptions,
+	cacheDir string,
+	credentialResolver repository.CredentialResolver,
+	caBundleResolver repository.CredentialResolver,
+	userInfoProvider repository.UserInfoProvider,
+) cachetypes.CacheOptions {
+	return cachetypes.CacheOptions{
 		CoreClient:     coreClient,
 		CacheType:      cachetypes.CacheType(r.cacheType),
 		DBCacheOptions: dbOptions,
@@ -75,9 +110,6 @@ func (r *RepositoryReconciler) createCacheFromEnv(ctx context.Context, mgr ctrl.
 		RepoPRChangeNotifier: cachetypes.NewNoOpRepoPRChangeNotifier(),
 		UseLegacySync:        false, // Controllers handle sync
 	}
-
-	r.Cache, err = cache.GetCacheImpl(ctx, options)
-	return err
 }
 
 func (r *RepositoryReconciler) setupDBCacheOptionsFromEnv() (cachetypes.DBCacheOptions, error) {
