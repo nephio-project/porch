@@ -111,7 +111,7 @@ func (t *DbTestSuite) SetupSuite() {
 	schemaBytes, err := os.ReadFile(schemaFile)
 	t.Require().NoErrorf(err, "could not read Porch SQL schema file %q", schemaFile)
 
-	_, err = GetDB().db.Exec(string(schemaBytes))
+	_, err = GetDB().db.ExecContext(context.Background(), string(schemaBytes))
 	t.Require().NoErrorf(err, "could not process Porch SQL schema file %q", schemaFile)
 }
 

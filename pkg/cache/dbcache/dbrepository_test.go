@@ -200,7 +200,8 @@ func (t *DbTestSuite) TestDBRepositorCorner() {
 	t.switchToMockSQL()
 
 	mockSQL := dbHandler.db.(*mocksql.MockdbSQLInterface)
-	mockSQL.EXPECT().Exec(
+	mockSQL.EXPECT().ExecContext(
+		mock.Anything,
 		mock.Anything,
 		mock.Anything,
 		mock.Anything,

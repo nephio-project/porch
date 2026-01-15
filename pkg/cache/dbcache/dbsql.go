@@ -15,15 +15,16 @@
 package dbcache
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 )
 
 type dbSQLInterface interface {
 	Close() error
-	Exec(query string, args ...any) (sql.Result, error)
-	Query(string, ...any) (*sql.Rows, error)
-	QueryRow(string, ...any) *sql.Row
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 }
 
 var _ dbSQLInterface = &dbSQL{}
@@ -40,25 +41,25 @@ func (ds *dbSQL) Close() error {
 	}
 }
 
-func (ds *dbSQL) Exec(query string, args ...any) (sql.Result, error) {
+func (ds *dbSQL) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
 	if ds.db != nil {
-		return ds.db.Exec(query, args...)
+		return ds.db.ExecContext(ctx, query, args...)
 	} else {
 		return nil, fmt.Errorf("cannot execute query on database, database is not initialized")
 	}
 }
 
-func (ds *dbSQL) Query(query string, args ...any) (*sql.Rows, error) {
+func (ds *dbSQL) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
 	if ds.db != nil {
-		return ds.db.Query(query, args...)
+		return ds.db.QueryContext(ctx, query, args...)
 	} else {
 		return nil, fmt.Errorf("cannot query database, database is not initialized")
 	}
 }
 
-func (ds *dbSQL) QueryRow(query string, args ...any) *sql.Row {
+func (ds *dbSQL) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
 	if ds.db != nil {
-		return ds.db.QueryRow(query, args...)
+		return ds.db.QueryRowContext(ctx, query, args...)
 	} else {
 		return nil
 	}
