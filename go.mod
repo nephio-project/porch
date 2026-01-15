@@ -8,6 +8,7 @@ replace github.com/kptdev/kpt v1.0.0-beta.59.2 => /Users/liam/git/github/kptdev/
 
 require (
 	cloud.google.com/go/iam v1.5.3
+	github.com/cpuguy83/go-md2man/v2 v2.0.7
 	github.com/fergusstrange/embedded-postgres v1.32.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-git/go-billy/v5 v5.6.2
@@ -23,6 +24,7 @@ require (
 	github.com/kptdev/krm-functions-catalog/functions/go/set-namespace v0.4.3
 	github.com/kptdev/krm-functions-catalog/functions/go/starlark v0.5.3
 	github.com/kptdev/krm-functions-sdk/go/fn v1.0.0
+	github.com/otiai10/copy v1.14.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2
 	github.com/spf13/cobra v1.10.1
@@ -62,8 +64,14 @@ require (
 require github.com/go-errors/errors v1.5.1 // indirect
 
 require (
+	github.com/bytecodealliance/wasmtime-go v1.0.0 // indirect
+	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
+	github.com/philopon/go-toposort v0.0.0-20170620085441-9be86dbd762f // indirect
+	github.com/prep/wasmexec v0.0.0-20220807105708-6554945c1dec // indirect
 	github.com/qri-io/starlib v0.5.0 // indirect
 	go.starlark.net v0.0.0-20251029211736-7849196f18cf // indirect
+	golang.org/x/mod v0.29.0 // indirect
+	gotest.tools v2.2.0+incompatible // indirect
 	sigs.k8s.io/kustomize/api v0.20.1 // indirect
 )
 
