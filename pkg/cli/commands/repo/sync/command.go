@@ -167,7 +167,7 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 
 	for _, repo := range repos {
 		if repo.Spec.Sync == nil {
-			repo.Spec.Sync = &configapi.CacheSync{}
+			repo.Spec.Sync = &configapi.RepositorySync{}
 		}
 		repo.Spec.Sync.RunOnceAt = &metav1.Time{Time: runOnceAtTime}
 

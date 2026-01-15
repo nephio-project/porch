@@ -16,10 +16,10 @@ import (
 
 var _ = Describe("Repository Controller Integration", func() {
 	var (
-		reconciler *repository.RepositoryReconciler
-		testRepo   *configapi.Repository
+		reconciler     *repository.RepositoryReconciler
+		testRepo       *configapi.Repository
 		namespacedName types.NamespacedName
-		testCounter int
+		testCounter    int
 	)
 
 	BeforeEach(func() {
@@ -65,7 +65,7 @@ var _ = Describe("Repository Controller Integration", func() {
 				}
 				return false
 			}, time.Second*10, time.Millisecond*200).Should(BeTrue())
-			
+
 			// Check that full sync annotation was set
 			Expect(k8sClient.Get(ctx, namespacedName, updatedRepo)).To(Succeed())
 			Expect(updatedRepo.Annotations).To(HaveKey("config.porch.kpt.dev/last-full-sync"))
@@ -74,13 +74,13 @@ var _ = Describe("Repository Controller Integration", func() {
 		It("Should handle sync capacity exceeded", func() {
 			// Create reconciler with very low sync capacity
 			lowCapacityReconciler := &repository.RepositoryReconciler{
-				Client:                    k8sClient,
-				Scheme:                    k8sClient.Scheme(),
-				Cache:                     createMockCacheWithSlowSync(),
-				HealthCheckFrequency:      2 * time.Second,
-				FullSyncFrequency:         5 * time.Second,
-				SyncStaleTimeout:          10 * time.Second,
-				MaxConcurrentSyncs:        1, // Very low capacity
+				Client:               k8sClient,
+				Scheme:               k8sClient.Scheme(),
+				Cache:                createMockCacheWithSlowSync(),
+				HealthCheckFrequency: 2 * time.Second,
+				FullSyncFrequency:    5 * time.Second,
+				SyncStaleTimeout:     10 * time.Second,
+				MaxConcurrentSyncs:   1, // Very low capacity
 			}
 			// Initialize sync limiter
 			lowCapacityReconciler.InitializeSyncLimiter()
@@ -119,14 +119,14 @@ var _ = Describe("Repository Controller Integration", func() {
 			// Update status to show successful recent full sync
 			updatedRepo := &configapi.Repository{}
 			Expect(k8sClient.Get(ctx, namespacedName, updatedRepo)).To(Succeed())
-			
+
 			// Set annotation for recent full sync
 			if updatedRepo.Annotations == nil {
 				updatedRepo.Annotations = make(map[string]string)
 			}
 			updatedRepo.Annotations["config.porch.kpt.dev/last-full-sync"] = time.Now().Add(-1 * time.Second).Format(time.RFC3339)
 			Expect(k8sClient.Update(ctx, updatedRepo)).To(Succeed())
-			
+
 			// Set status to ready with recent update
 			Expect(k8sClient.Get(ctx, namespacedName, updatedRepo)).To(Succeed())
 			updatedRepo.Status.Conditions = []metav1.Condition{{
@@ -143,7 +143,7 @@ var _ = Describe("Repository Controller Integration", func() {
 			result, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: namespacedName})
 			Expect(err).NotTo(HaveOccurred())
 			// Should return health check interval (2 seconds in test config)
-			Expect(result.RequeueAfter).To(BeNumerically("<=", 2 * time.Second))
+			Expect(result.RequeueAfter).To(BeNumerically("<=", 2*time.Second))
 		})
 
 		It("Should perform full sync when spec changes", func() {
@@ -191,7 +191,7 @@ var _ = Describe("Repository Controller Integration", func() {
 	Context("When testing sync scheduling and intervals", func() {
 		It("Should calculate correct sync intervals for cron schedules", func() {
 			// Test repository with cron schedule
-			testRepo.Spec.Sync = &configapi.CacheSync{
+			testRepo.Spec.Sync = &configapi.RepositorySync{
 				Schedule: "0 */1 * * *", // Every hour
 			}
 			Expect(k8sClient.Update(ctx, testRepo)).To(Succeed())
@@ -204,7 +204,7 @@ var _ = Describe("Repository Controller Integration", func() {
 		})
 
 		It("Should use default frequency for invalid cron", func() {
-			testRepo.Spec.Sync = &configapi.CacheSync{
+			testRepo.Spec.Sync = &configapi.RepositorySync{
 				Schedule: "invalid-cron",
 			}
 			Expect(k8sClient.Update(ctx, testRepo)).To(Succeed())
@@ -221,14 +221,14 @@ var _ = Describe("Repository Controller Integration", func() {
 		It("Should not trigger reconcile for RunOnceAt clearing only", func() {
 			oldRepo := testRepo.DeepCopy()
 			oldRepo.Generation = 1
-			oldRepo.Spec.Sync = &configapi.CacheSync{
+			oldRepo.Spec.Sync = &configapi.RepositorySync{
 				Schedule:  "0 */6 * * *",
 				RunOnceAt: &metav1.Time{Time: time.Now()},
 			}
 
 			newRepo := testRepo.DeepCopy()
 			newRepo.Generation = 2
-			newRepo.Spec.Sync = &configapi.CacheSync{
+			newRepo.Spec.Sync = &configapi.RepositorySync{
 				Schedule:  "0 */6 * * *",
 				RunOnceAt: nil, // Cleared
 			}

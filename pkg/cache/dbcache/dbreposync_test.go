@@ -152,7 +152,7 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 			Namespace: namespace,
 		},
 		Spec: configapi.RepositorySpec{
-			Sync: &configapi.CacheSync{
+			Sync: &configapi.RepositorySync{
 				RunOnceAt: &runOnceTime,
 			},
 		},
@@ -161,7 +161,7 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 
 	fakeClient := testutil.NewFakeClientWithStatus(scheme, repoObj)
 	testRepo := t.createTestRepo(namespace, repoName)
-	testRepo.spec.Spec.Sync = &configapi.CacheSync{
+	testRepo.spec.Spec.Sync = &configapi.RepositorySync{
 		RunOnceAt: &runOnceTime,
 	}
 	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()

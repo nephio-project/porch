@@ -27,14 +27,6 @@ IMAGE_TAG=${IMAGE_TAG:-test}
 echo "Loading images to kind cluster..."
 
 if [ "${SKIP_IMG_BUILD}" = "false" ]; then
-    # # Build and load test-git-server if needed
-    # if [ "${SKIP_LOCAL_GIT}" = "false" ] && ! docker exec "${KIND_CONTEXT_NAME}-control-plane" crictl images | grep -q "${IMAGE_REPO}/${TEST_GIT_SERVER_IMAGE}  *${IMAGE_TAG}"; then
-    #     echo "Building ${IMAGE_REPO}/${TEST_GIT_SERVER_IMAGE}:${IMAGE_TAG}"
-    #     IMAGE_NAME="${TEST_GIT_SERVER_IMAGE}" IMAGE_REPO="${IMAGE_REPO}" IMAGE_TAG="${IMAGE_TAG}" make -C test/ build-image
-    #     kind load docker-image ${IMAGE_REPO}/${TEST_GIT_SERVER_IMAGE}:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
-    # else
-    #     echo "Skipping building and loading ${IMAGE_REPO}/${TEST_GIT_SERVER_IMAGE}:${IMAGE_TAG}"
-    # fi
 
     # Build and load function runner if needed
     if ! docker exec "${KIND_CONTEXT_NAME}-control-plane" crictl images | grep -q "${IMAGE_REPO}/${PORCH_FUNCTION_RUNNER_IMAGE}  *${IMAGE_TAG} "; then
@@ -64,9 +56,6 @@ if [ "${SKIP_IMG_BUILD}" = "false" ]; then
 else
     # Load pre-built images (skip in CI as they're already loaded)
     if [ "${CI:-false}" = "false" ]; then
-        # if [ "${SKIP_LOCAL_GIT}" = "false" ]; then
-        #     kind load docker-image ${IMAGE_REPO}/${TEST_GIT_SERVER_IMAGE}:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
-        # fi
         kind load docker-image ${IMAGE_REPO}/${PORCH_FUNCTION_RUNNER_IMAGE}:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
         kind load docker-image ${IMAGE_REPO}/${PORCH_WRAPPER_SERVER_IMAGE}:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
         kind load docker-image ${IMAGE_REPO}/${PORCH_SERVER_IMAGE}:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}

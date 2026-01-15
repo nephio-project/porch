@@ -42,8 +42,8 @@ const (
 type SyncType int
 
 const (
-	HealthCheck SyncType = iota // Lightweight connectivity check (like old background.go)
-	FullSync                    // Complete data synchronization (like old SyncManager)
+	HealthCheck SyncType = iota // Lightweight connectivity check
+	FullSync                    // Complete data synchronization
 )
 
 // RepositoryReconciler reconciles Repository objects
@@ -73,7 +73,7 @@ type RepositoryReconciler struct {
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=repositories/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch
 
-// Reconcile handles Repository reconciliation - replaces SyncManager functionality
+// Reconcile handles Repository reconciliation
 func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 	log.Info("Repository reconcile triggered", "repository", req.NamespacedName)
@@ -208,7 +208,6 @@ func (r *RepositoryReconciler) performFullSync(ctx context.Context, repo *api.Re
 func (r *RepositoryReconciler) performAsyncSync(ctx context.Context, repo *api.Repository) {
 	log := log.FromContext(ctx)
 
-	// syncRepository calls OpenRepository which does connectivity check + fetch with retries
 	err := r.syncRepository(ctx, repo)
 
 	var status util.RepositoryStatus

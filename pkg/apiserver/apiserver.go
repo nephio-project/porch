@@ -107,7 +107,7 @@ type PorchServer struct {
 	GenericAPIServer           *genericapiserver.GenericAPIServer
 	coreClient                 client.WithWatch
 	cache                      cachetypes.Cache
-	repoCacheSyncFrequency     time.Duration
+	periodicRepoSyncFrequency  time.Duration
 	ListTimeoutPerRepository   time.Duration
 	repoOperationRetryAttempts int
 	ExtraConfig                *ExtraConfig
@@ -342,7 +342,7 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 		ExtraConfig:        c.ExtraConfig,
 		embeddedController: embeddedController,
 		// Set background job periodic frequency the same as repo sync frequency.
-		repoCacheSyncFrequency:     c.ExtraConfig.CacheOptions.RepoSyncFrequency,
+		periodicRepoSyncFrequency:  c.ExtraConfig.CacheOptions.RepoSyncFrequency,
 		ListTimeoutPerRepository:   c.ExtraConfig.ListTimeoutPerRepository,
 		repoOperationRetryAttempts: c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts,
 	}
@@ -359,7 +359,7 @@ func (s *PorchServer) Run(ctx context.Context) error {
 	if s.ExtraConfig.UseLegacySync {
 		klog.Info("Using legacy SyncManager")
 		porch.RunBackground(ctx, s.coreClient, s.cache,
-			porch.WithPeriodicRepoSyncFrequency(s.repoCacheSyncFrequency),
+			porch.WithPeriodicRepoSyncFrequency(s.periodicRepoSyncFrequency),
 			porch.WithListTimeoutPerRepo(s.ListTimeoutPerRepository),
 			porch.WithRepoOperationRetryAttempts(s.repoOperationRetryAttempts),
 		)

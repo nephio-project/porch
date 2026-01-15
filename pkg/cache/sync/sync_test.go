@@ -51,7 +51,7 @@ func TestSyncManager_SyncOnce(t *testing.T) {
 		repoKey: repository.RepositoryKey{Name: "test-repo", Namespace: "test-ns"},
 		spec: &configapi.Repository{
 			Spec: configapi.RepositorySpec{
-				Sync: &configapi.CacheSync{
+				Sync: &configapi.RepositorySync{
 					Schedule: "*/5 * * * *",
 				},
 			},
@@ -82,7 +82,7 @@ func TestSyncManager_CalculateWaitDuration(t *testing.T) {
 			name: "valid cron schedule",
 			spec: &configapi.Repository{
 				Spec: configapi.RepositorySpec{
-					Sync: &configapi.CacheSync{
+					Sync: &configapi.RepositorySync{
 						Schedule: "0 0 * * *",
 					},
 				},
@@ -100,7 +100,7 @@ func TestSyncManager_CalculateWaitDuration(t *testing.T) {
 			name: "empty schedule fallback",
 			spec: &configapi.Repository{
 				Spec: configapi.RepositorySpec{
-					Sync: &configapi.CacheSync{
+					Sync: &configapi.RepositorySync{
 						Schedule: "",
 					},
 				},
@@ -112,7 +112,7 @@ func TestSyncManager_CalculateWaitDuration(t *testing.T) {
 			name: "invalid cron expression fallback",
 			spec: &configapi.Repository{
 				Spec: configapi.RepositorySpec{
-					Sync: &configapi.CacheSync{
+					Sync: &configapi.RepositorySync{
 						Schedule: "invalid-cron",
 					},
 				},
@@ -271,7 +271,7 @@ func TestSyncManager_SyncForever(t *testing.T) {
 			repoKey: repository.RepositoryKey{Name: "test-repo", Namespace: "test-ns"},
 			spec: &configapi.Repository{
 				Spec: configapi.RepositorySpec{
-					Sync: &configapi.CacheSync{
+					Sync: &configapi.RepositorySync{
 						Schedule: "*/1 * * * *",
 					},
 				},
@@ -305,7 +305,7 @@ func TestSyncManager_HandleRunOnceAt(t *testing.T) {
 			repoKey: repository.RepositoryKey{Name: "test-repo", Namespace: "test-ns"},
 			spec: &configapi.Repository{
 				Spec: configapi.RepositorySpec{
-					Sync: &configapi.CacheSync{
+					Sync: &configapi.RepositorySync{
 						RunOnceAt: &futureTime,
 					},
 				},
@@ -368,7 +368,7 @@ func TestSyncManager_HasValidSyncSpec(t *testing.T) {
 			name: "valid sync spec",
 			spec: &configapi.Repository{
 				Spec: configapi.RepositorySpec{
-					Sync: &configapi.CacheSync{},
+					Sync: &configapi.RepositorySync{},
 				},
 			},
 			expected: true,

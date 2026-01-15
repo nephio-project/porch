@@ -237,7 +237,7 @@ for resource in ctx.resource_list['items']:
 
 function adjust_porch_server_resources() {
     if [[ "${PORCH_CACHE_TYPE^^}" == "CR" ]]; then
-        echo "Adjusting porch-server resources for embedded Repository controller"
+        echo "Adjusting porch-server resources for CR cache with embedded Repository controller"
         
         kpt fn eval ${DESTINATION} \
           --image ${STARLARK_IMG} \
@@ -247,7 +247,9 @@ function adjust_porch_server_resources() {
           -- "source=
 for resource in ctx.resource_list['items']:
     for container in resource['spec']['template']['spec'].get('containers', []):
-        # Increase resources for embedded controller
+        # Increase resources for embedded controller (CR cache + controller-based sync)
+        # Note: When use-legacy-sync=false, the controller runs in porch-server
+        # and requires more resources for repository sync operations
         container['resources'] = {
             'requests': {'memory': '384Mi', 'cpu': '350m'},
             'limits': {'memory': '768Mi', 'cpu': '1000m'}

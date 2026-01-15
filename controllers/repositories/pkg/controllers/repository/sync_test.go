@@ -224,7 +224,7 @@ func TestIsFullSyncDue(t *testing.T) {
 					},
 				},
 				Spec: api.RepositorySpec{
-					Sync: &api.CacheSync{
+					Sync: &api.RepositorySync{
 						RunOnceAt: &metav1.Time{Time: now.Add(time.Hour)},
 					},
 				},
@@ -240,7 +240,7 @@ func TestIsFullSyncDue(t *testing.T) {
 					},
 				},
 				Spec: api.RepositorySpec{
-					Sync: &api.CacheSync{
+					Sync: &api.RepositorySync{
 						Schedule: "*/1 * * * *", // Every minute
 					},
 				},
@@ -334,7 +334,7 @@ func TestIsOneTimeSyncDue(t *testing.T) {
 			name: "one-time sync due",
 			repo: &api.Repository{
 				Spec: api.RepositorySpec{
-					Sync: &api.CacheSync{
+					Sync: &api.RepositorySync{
 						RunOnceAt: &metav1.Time{Time: now.Add(-time.Hour)},
 					},
 				},
@@ -345,7 +345,7 @@ func TestIsOneTimeSyncDue(t *testing.T) {
 			name: "one-time sync not due",
 			repo: &api.Repository{
 				Spec: api.RepositorySpec{
-					Sync: &api.CacheSync{
+					Sync: &api.RepositorySync{
 						RunOnceAt: &metav1.Time{Time: now.Add(time.Hour)},
 					},
 				},
@@ -356,7 +356,7 @@ func TestIsOneTimeSyncDue(t *testing.T) {
 			name: "no one-time sync",
 			repo: &api.Repository{
 				Spec: api.RepositorySpec{
-					Sync: &api.CacheSync{},
+					Sync: &api.RepositorySync{},
 				},
 			},
 			expected: false,
@@ -507,7 +507,7 @@ func TestClearOneTimeSyncFlag(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: api.RepositorySpec{
-					Sync: &api.CacheSync{
+					Sync: &api.RepositorySync{
 						RunOnceAt: &now,
 					},
 				},
@@ -522,7 +522,7 @@ func TestClearOneTimeSyncFlag(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: api.RepositorySpec{
-					Sync: &api.CacheSync{},
+					Sync: &api.RepositorySync{},
 				},
 			},
 			expectPatch: false,
@@ -548,7 +548,7 @@ func TestClearOneTimeSyncFlag(t *testing.T) {
 					Namespace: "test-ns",
 				},
 				Spec: api.RepositorySpec{
-					Sync: &api.CacheSync{
+					Sync: &api.RepositorySync{
 						RunOnceAt: &now,
 					},
 				},
@@ -592,11 +592,11 @@ func TestSyncRepositoryDetailed(t *testing.T) {
 	}
 
 	tests := []struct {
-		name          string
-		openError     error
-		refreshError  error
-		listError     error
-		expectError   bool
+		name         string
+		openError    error
+		refreshError error
+		listError    error
+		expectError  bool
 	}{
 		{
 			name: "successful sync",
@@ -870,7 +870,7 @@ func TestDetermineSyncDecision(t *testing.T) {
 			name: "RunOnceAt due",
 			repo: &api.Repository{
 				Spec: api.RepositorySpec{
-					Sync: &api.CacheSync{
+					Sync: &api.RepositorySync{
 						RunOnceAt: &metav1.Time{Time: now.Add(-time.Hour)},
 					},
 				},
