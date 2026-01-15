@@ -34,6 +34,7 @@ type EmbeddedControllerManager struct {
 	coreClient client.WithWatch
 	cache      cachetypes.Cache
 	mgr        ctrl.Manager
+	config     repocontroller.EmbeddedConfig
 }
 
 // createEmbeddedController creates controller manager
@@ -41,6 +42,7 @@ func createEmbeddedController(
 	coreClient client.WithWatch,
 	restConfig *rest.Config,
 	scheme *runtime.Scheme,
+	config repocontroller.EmbeddedConfig,
 ) (*EmbeddedControllerManager, error) {
 	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
 		Scheme:                 scheme,
@@ -55,6 +57,7 @@ func createEmbeddedController(
 	return &EmbeddedControllerManager{
 		coreClient: coreClient,
 		mgr:        mgr,
+		config:     config,
 	}, nil
 }
 
@@ -65,14 +68,14 @@ func (e *EmbeddedControllerManager) Start(ctx context.Context) error {
 		Scheme: e.mgr.GetScheme(),
 		Cache:  e.cache,
 	}
-	repoController.SetEmbeddedDefaults()
+	repoController.SetEmbeddedDefaults(e.config)
 	
 	if err := repoController.SetupWithManager(e.mgr); err != nil {
 		return fmt.Errorf("failed to setup controller: %w", err)
 	}
 	
-	// Initialize existing repositories
-	go e.initializeRepositories(ctx)
+	// Initialize existing repositories (may no monger be required)
+	//go e.initializeRepositories(ctx)
 	
 	return e.mgr.Start(ctx)
 }
