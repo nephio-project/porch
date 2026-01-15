@@ -18,7 +18,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/nephio-project/porch/internal/kpt/pkg"
+	"github.com/kptdev/kpt/pkg/lib/pkg"
 	"github.com/nephio-project/porch/pkg/kpt/printer"
 )
 

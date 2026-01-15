@@ -26,13 +26,13 @@ import (
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
 	"github.com/kptdev/kpt/pkg/lib/errors"
+	"github.com/kptdev/kpt/pkg/lib/pkg"
 	"github.com/kptdev/kpt/pkg/lib/types"
+	"github.com/kptdev/kpt/pkg/lib/util/git"
 	"github.com/nephio-project/porch/internal/kpt/gitutil"
-	"github.com/nephio-project/porch/internal/kpt/pkg"
-	"github.com/nephio-project/porch/internal/kpt/util/git"
 	"github.com/nephio-project/porch/internal/kpt/util/pkgutil"
-	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
 	"github.com/nephio-project/porch/pkg/kpt/printer"
 )
 
@@ -250,7 +250,7 @@ func (c *Cloner) ClonerUsingGitExec(ctx context.Context) error {
 
 	// Verify that if a Kptfile exists in the package, it contains the correct
 	// version of the Kptfile.
-	_, err = pkg.ReadKptfile(filesys.FileSystemOrOnDisk{}, pkgPath)
+	_, err = kptfileutil.ReadKptfile(filesys.FileSystemOrOnDisk{}, pkgPath)
 	if err != nil {
 		// A Kptfile isn't required, so it is fine if there is no Kptfile.
 		if errors.Is(err, os.ErrNotExist) {
@@ -261,7 +261,7 @@ func (c *Cloner) ClonerUsingGitExec(ctx context.Context) error {
 		// RemoteKptfileError. This allows us to provide information about the
 		// git source of the Kptfile instead of the path to some random
 		// temporary directory.
-		var kfError *pkg.KptfileError
+		var kfError *kptfileutil.KptfileError
 		if errors.As(err, &kfError) {
 			return &pkg.RemoteKptfileError{
 				RepoSpec: c.repoSpec,

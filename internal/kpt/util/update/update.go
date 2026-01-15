@@ -24,16 +24,16 @@ import (
 	"strings"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
 	"github.com/kptdev/kpt/pkg/lib/errors"
+	"github.com/kptdev/kpt/pkg/lib/pkg"
 	"github.com/kptdev/kpt/pkg/lib/types"
+	"github.com/kptdev/kpt/pkg/lib/util/git"
 	"github.com/nephio-project/porch/internal/kpt/gitutil"
-	"github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/internal/kpt/util/addmergecomment"
 	"github.com/nephio-project/porch/internal/kpt/util/fetch"
-	"github.com/nephio-project/porch/internal/kpt/util/git"
 	"github.com/nephio-project/porch/internal/kpt/util/pkgutil"
 	"github.com/nephio-project/porch/internal/kpt/util/stack"
-	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
 	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"sigs.k8s.io/kustomize/kyaml/copyutil"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
@@ -455,7 +455,7 @@ func (u Command) mergePackage(ctx context.Context, localPath, updatedPath, origi
 		// Both exists, so just go ahead as normal.
 	}
 
-	pkgKf, err := pkg.ReadKptfile(filesys.FileSystemOrOnDisk{}, localPath)
+	pkgKf, err := kptfileutil.ReadKptfile(filesys.FileSystemOrOnDisk{}, localPath)
 	if err != nil {
 		return errors.E(op, types.UniquePath(localPath), err)
 	}

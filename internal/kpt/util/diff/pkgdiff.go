@@ -20,7 +20,7 @@ import (
 	"path/filepath"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
-	"github.com/nephio-project/porch/internal/kpt/pkg"
+	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
 	"github.com/nephio-project/porch/internal/kpt/util/attribution"
 	"github.com/nephio-project/porch/internal/kpt/util/pkgutil"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
@@ -79,11 +79,11 @@ func PkgDiff(pkg1, pkg2 string) (sets.String, error) {
 }
 
 func kptfilesEqual(pkg1, pkg2, filePath string) (bool, error) {
-	pkg1Kf, err := pkg.ReadKptfile(filesys.FileSystemOrOnDisk{}, filepath.Join(pkg1, filepath.Dir(filePath)))
+	pkg1Kf, err := kptfileutil.ReadKptfile(filesys.FileSystemOrOnDisk{}, filepath.Join(pkg1, filepath.Dir(filePath)))
 	if err != nil {
 		return false, err
 	}
-	pkg2Kf, err := pkg.ReadKptfile(filesys.FileSystemOrOnDisk{}, filepath.Join(pkg2, filepath.Dir(filePath)))
+	pkg2Kf, err := kptfileutil.ReadKptfile(filesys.FileSystemOrOnDisk{}, filepath.Join(pkg2, filepath.Dir(filePath)))
 	if err != nil {
 		return false, err
 	}

@@ -18,11 +18,11 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
 	"github.com/kptdev/kpt/pkg/lib/errors"
+	"github.com/kptdev/kpt/pkg/lib/pkg"
 	"github.com/kptdev/kpt/pkg/lib/types"
-	"github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/internal/kpt/util/pkgutil"
-	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
 )
 
 // Updater updates a package to a new upstream version.

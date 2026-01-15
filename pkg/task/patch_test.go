@@ -20,8 +20,8 @@ import (
 	"testing"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
@@ -381,7 +381,7 @@ func TestKptfilePatch(t *testing.T) {
 			if tc.shouldChange {
 				assert.True(t, changed)
 				assert.NotEmpty(t, newKfContent)
-				parsed, err := pkg.DecodeKptfile(strings.NewReader(newKfContent))
+				parsed, err := kptfileutil.DecodeKptfile(strings.NewReader(newKfContent))
 				assert.NoError(t, err)
 				assert.Equal(t, tc.newKptfile, parsed)
 			} else {

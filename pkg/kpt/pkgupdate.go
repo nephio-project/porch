@@ -21,11 +21,10 @@ import (
 	"path/filepath"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
-	internalpkg "github.com/nephio-project/porch/internal/kpt/pkg"
+	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
+	"github.com/kptdev/kpt/pkg/lib/util/git"
 	"github.com/nephio-project/porch/internal/kpt/util/fetch"
-	"github.com/nephio-project/porch/internal/kpt/util/git"
 	"github.com/nephio-project/porch/internal/kpt/util/update"
-	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
 	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"k8s.io/klog/v2"
 )
@@ -51,7 +50,7 @@ func PkgUpdate(ctx context.Context, ref string, packageDir string, opts PkgUpdat
 	}
 	defer f.Close()
 
-	kf, err := internalpkg.DecodeKptfile(f)
+	kf, err := kptfileutil.DecodeKptfile(f)
 	if err != nil {
 		return fmt.Errorf("error parsing kptfile: %w", err)
 	}

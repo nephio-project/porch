@@ -22,8 +22,8 @@ import (
 	"strings"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
-	"github.com/nephio-project/porch/internal/kpt/pkg"
-	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
+	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
+	"github.com/kptdev/kpt/pkg/lib/pkg"
 	"sigs.k8s.io/kustomize/kyaml/copyutil"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 	"sigs.k8s.io/kustomize/kyaml/kio"
@@ -382,7 +382,7 @@ func RoundTripKptfilesInPkg(pkgPath string) error {
 	pkgsPaths = append(pkgsPaths, pkgPath)
 
 	for _, pkgPath := range pkgsPaths {
-		kf, err := pkg.ReadKptfile(filesys.FileSystemOrOnDisk{}, pkgPath)
+		kf, err := kptfileutil.ReadKptfile(filesys.FileSystemOrOnDisk{}, pkgPath)
 		if err != nil {
 			// do not throw error if formatting fails
 			return err

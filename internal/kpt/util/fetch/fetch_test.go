@@ -20,12 +20,11 @@ import (
 	"testing"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
-	"github.com/nephio-project/porch/internal/kpt/pkg"
-	pkgtesting "github.com/nephio-project/porch/internal/kpt/pkg/testing"
+	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
+	pkgtesting "github.com/kptdev/kpt/pkg/lib/pkg/testing"
 	"github.com/nephio-project/porch/internal/kpt/testutil"
 	"github.com/nephio-project/porch/internal/kpt/testutil/pkgbuilder"
 	. "github.com/nephio-project/porch/internal/kpt/util/fetch"
-	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
 	"github.com/nephio-project/porch/pkg/kpt/printer/fake"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
@@ -61,7 +60,7 @@ func createKptfile(workspace *testutil.TestWorkspace, git *kptfilev1.Git, strate
 }
 
 func setKptfileName(workspace *testutil.TestWorkspace, name string) error {
-	kf, err := pkg.ReadKptfile(filesys.FileSystemOrOnDisk{}, workspace.FullPackagePath())
+	kf, err := kptfileutil.ReadKptfile(filesys.FileSystemOrOnDisk{}, workspace.FullPackagePath())
 	if err != nil {
 		return err
 	}
