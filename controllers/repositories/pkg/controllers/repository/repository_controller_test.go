@@ -81,16 +81,22 @@ func TestReconcile(t *testing.T) {
 			expectRequeue: true,
 		},
 		{
-			name: "no sync needed",
+			name: "no sync needed - recently synced",
 			repo: func() *api.Repository {
 				repo := createTestRepo("test-repo", "test-ns")
 				repo.Generation = 1
+				// Use a fixed recent time to avoid timing issues
+				recentTime := metav1.NewTime(time.Now().Add(-50 * time.Millisecond))
 				repo.Status.Conditions = []metav1.Condition{{
 					Type: api.RepositoryReady,
 					Status: metav1.ConditionTrue,
 					ObservedGeneration: 1,
-					LastTransitionTime: metav1.NewTime(time.Now().Add(-2 * time.Minute)),
+					LastTransitionTime: recentTime,
 				}}
+				// Set annotation to indicate recent full sync (within 500ms window)
+				repo.ObjectMeta.Annotations = map[string]string{
+					"config.porch.kpt.dev/last-full-sync": recentTime.Format(time.RFC3339),
+				}
 				return repo
 			}(),
 			needsSync: false,
