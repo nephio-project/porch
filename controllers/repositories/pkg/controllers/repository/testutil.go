@@ -16,9 +16,7 @@ package repository
 
 import (
 	"testing"
-	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -45,29 +43,6 @@ func createTestRepoWithCondition(name, namespace string, condition metav1.Condit
 	repo := createTestRepo(name, namespace)
 	repo.Status.Conditions = []metav1.Condition{condition}
 	return repo
-}
-
-// createSyncEvent creates a sync event for testing
-func createSyncEvent(repoName, namespace, reason, message string, timestamp time.Time) corev1.Event {
-	return corev1.Event{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:              repoName + "-" + reason,
-			Namespace:         namespace,
-			CreationTimestamp: metav1.NewTime(timestamp),
-		},
-		InvolvedObject: corev1.ObjectReference{
-			Name:       repoName,
-			Namespace:  namespace,
-			APIVersion: configapi.GroupVersion.Identifier(),
-			Kind:       configapi.TypeRepository.Kind,
-		},
-		Source: corev1.EventSource{
-			Component: PorchCacheComponent,
-		},
-		Reason:  reason,
-		Message: message,
-		Type:    "Normal",
-	}
 }
 
 // Test assertion helpers

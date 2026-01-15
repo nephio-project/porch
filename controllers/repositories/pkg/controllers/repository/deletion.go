@@ -35,7 +35,7 @@ func (r *RepositoryReconciler) handleDeletion(ctx context.Context, repo *configa
 
 	allRepos, err := r.getAllRepositories(deleteCtx)
 	if err != nil {
-		if ctx.Err() == context.DeadlineExceeded {
+		if deleteCtx.Err() == context.DeadlineExceeded {
 			log.FromContext(ctx).Error(err, "Repository deletion timed out", "repository", repo.Name)
 			return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
 		}
