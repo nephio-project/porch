@@ -20,13 +20,16 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/kptdev/kpt v1.0.0-beta.59.2
+	github.com/kptdev/krm-functions-catalog/functions/go/apply-replacements v0.1.3
+	github.com/kptdev/krm-functions-catalog/functions/go/apply-setters v0.2.2
+	github.com/kptdev/krm-functions-catalog/functions/go/set-namespace v0.4.3
+	github.com/kptdev/krm-functions-catalog/functions/go/starlark v0.5.3
 	github.com/kptdev/krm-functions-sdk/go/fn v1.0.0
 	github.com/otiai10/copy v1.14.1
 	github.com/philopon/go-toposort v0.0.0-20170620085441-9be86dbd762f
 	github.com/pkg/errors v0.9.1
 	github.com/prep/wasmexec v0.0.0-20220807105708-6554945c1dec
 	github.com/prometheus/client_golang v1.23.2
-	github.com/qri-io/starlib v0.5.0
 	github.com/spf13/cobra v1.10.1
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.11.1
@@ -36,7 +39,6 @@ require (
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.38.0
 	go.opentelemetry.io/otel/sdk v1.38.0
 	go.opentelemetry.io/otel/trace v1.38.0
-	go.starlark.net v0.0.0-20251029211736-7849196f18cf
 	golang.org/x/exp v0.0.0-20251023183803-a4bb9ffd2546
 	golang.org/x/mod v0.29.0
 	golang.org/x/oauth2 v0.32.0
@@ -61,7 +63,6 @@ require (
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4
 	sigs.k8s.io/cli-utils v0.37.2
 	sigs.k8s.io/controller-runtime v0.22.4
-	sigs.k8s.io/kustomize/api v0.20.1
 	sigs.k8s.io/kustomize/kyaml v0.20.1
 	sigs.k8s.io/yaml v1.6.0
 )
@@ -69,10 +70,9 @@ require (
 require github.com/go-errors/errors v1.5.1 // indirect
 
 require (
-	github.com/kptdev/krm-functions-catalog/functions/go/apply-replacements v0.1.3 // indirect
-	github.com/kptdev/krm-functions-catalog/functions/go/apply-setters v0.2.2 // indirect
-	github.com/kptdev/krm-functions-catalog/functions/go/set-namespace v0.4.3 // indirect
-	github.com/kptdev/krm-functions-catalog/functions/go/starlark v0.5.3 // indirect
+	github.com/qri-io/starlib v0.5.0 // indirect
+	go.starlark.net v0.0.0-20251029211736-7849196f18cf // indirect
+	sigs.k8s.io/kustomize/api v0.20.1 // indirect
 )
 
 require (
