@@ -1,11 +1,15 @@
 package apiserver
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
 	repocontroller "github.com/nephio-project/porch/controllers/repositories/pkg/controllers/repository"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
 )
 
 func TestBuildCompleteScheme(t *testing.T) {
@@ -90,6 +94,96 @@ func TestSetupEmbeddedController(t *testing.T) {
 			}
 			if tt.expectNil && result != nil {
 				t.Error("expected nil controller")
+			}
+		})
+	}
+}
+
+func TestCreateEmbeddedControllerFunction(t *testing.T) {
+	// Test the standalone createEmbeddedController function
+	scheme := runtime.NewScheme()
+	config := repocontroller.EmbeddedConfig{
+		MaxConcurrentReconciles: 10,
+		MaxConcurrentSyncs:      5,
+		HealthCheckFrequency:    1 * time.Minute,
+		FullSyncFrequency:       10 * time.Minute,
+	}
+
+	// Use minimal rest config
+	restConfig := &rest.Config{
+		Host: "https://localhost:6443",
+	}
+
+	mgr, err := createEmbeddedController(nil, restConfig, scheme, config)
+	if err != nil {
+		t.Fatalf("createEmbeddedController failed: %v", err)
+	}
+	if mgr == nil {
+		t.Fatal("expected non-nil controller manager")
+	}
+	if mgr.config.MaxConcurrentReconciles != 10 {
+		t.Errorf("expected MaxConcurrentReconciles 10, got %d", mgr.config.MaxConcurrentReconciles)
+	}
+	if mgr.config.MaxConcurrentSyncs != 5 {
+		t.Errorf("expected MaxConcurrentSyncs 5, got %d", mgr.config.MaxConcurrentSyncs)
+	}
+}
+
+func TestBuildSchemeWithTypes(t *testing.T) {
+	tests := []struct {
+		name        string
+		builders    []schemeBuilder
+		expectError bool
+	}{
+		{
+			name: "success with valid builders",
+			builders: []schemeBuilder{
+				func(s *runtime.Scheme) error {
+					return corev1.AddToScheme(s)
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "error from first builder",
+			builders: []schemeBuilder{
+				func(s *runtime.Scheme) error {
+					return fmt.Errorf("mock error")
+				},
+			},
+			expectError: true,
+		},
+		{
+			name: "error from second builder",
+			builders: []schemeBuilder{
+				func(s *runtime.Scheme) error {
+					return corev1.AddToScheme(s)
+				},
+				func(s *runtime.Scheme) error {
+					return fmt.Errorf("second builder error")
+				},
+			},
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			scheme, err := buildSchemeWithTypes(tt.builders...)
+			if tt.expectError {
+				if err == nil {
+					t.Error("expected error but got none")
+				}
+				if scheme != nil {
+					t.Error("expected nil scheme on error")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+				if scheme == nil {
+					t.Error("expected non-nil scheme")
+				}
 			}
 		})
 	}

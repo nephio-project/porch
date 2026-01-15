@@ -963,3 +963,361 @@ func TestDetermineSyncDecision(t *testing.T) {
 		})
 	}
 }
+
+func TestIsErrorRetryDue(t *testing.T) {
+	now := time.Now()
+	tests := []struct {
+		name     string
+		repo     *api.Repository
+		expected bool
+	}{
+		{
+			name: "retry time in message - due",
+			repo: &api.Repository{
+				Status: api.RepositoryStatus{
+					Conditions: []metav1.Condition{{
+						Type:               api.RepositoryReady,
+						Status:             metav1.ConditionFalse,
+						Reason:             api.ReasonError,
+						Message:            "error (next retry at: " + now.Add(-time.Minute).Format(time.RFC3339) + ")",
+						LastTransitionTime: metav1.NewTime(now.Add(-10 * time.Minute)),
+					}},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "retry time in message - not due",
+			repo: &api.Repository{
+				Status: api.RepositoryStatus{
+					Conditions: []metav1.Condition{{
+						Type:               api.RepositoryReady,
+						Status:             metav1.ConditionFalse,
+						Reason:             api.ReasonError,
+						Message:            "error (next retry at: " + now.Add(time.Hour).Format(time.RFC3339) + ")",
+						LastTransitionTime: metav1.NewTime(now.Add(-10 * time.Minute)),
+					}},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "error message without retry time - due",
+			repo: &api.Repository{
+				Status: api.RepositoryStatus{
+					Conditions: []metav1.Condition{{
+						Type:               api.RepositoryReady,
+						Status:             metav1.ConditionFalse,
+						Reason:             api.ReasonError,
+						Message:            "connection refused",
+						LastTransitionTime: metav1.NewTime(now.Add(-time.Minute)),
+					}},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "error message without retry time - not due",
+			repo: &api.Repository{
+				Status: api.RepositoryStatus{
+					Conditions: []metav1.Condition{{
+						Type:               api.RepositoryReady,
+						Status:             metav1.ConditionFalse,
+						Reason:             api.ReasonError,
+						Message:            "connection refused",
+						LastTransitionTime: metav1.NewTime(now.Add(-10 * time.Second)),
+					}},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "no error condition",
+			repo: &api.Repository{
+				Status: api.RepositoryStatus{
+					Conditions: []metav1.Condition{{
+						Type:   api.RepositoryReady,
+						Status: metav1.ConditionTrue,
+					}},
+				},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RepositoryReconciler{}
+			result := r.isErrorRetryDue(tt.repo)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestGetRequeueInterval(t *testing.T) {
+	now := time.Now()
+	tests := []struct {
+		name     string
+		repo     *api.Repository
+		expected time.Duration
+	}{
+		{
+			name: "error with retry time - future",
+			repo: &api.Repository{
+				Status: api.RepositoryStatus{
+					Conditions: []metav1.Condition{{
+						Type:    api.RepositoryReady,
+						Status:  metav1.ConditionFalse,
+						Reason:  api.ReasonError,
+						Message: "error (next retry at: " + now.Add(5*time.Minute).Format(time.RFC3339) + ")",
+					}},
+				},
+			},
+			expected: 5 * time.Minute,
+		},
+		{
+			name: "error with retry time - past",
+			repo: &api.Repository{
+				Status: api.RepositoryStatus{
+					Conditions: []metav1.Condition{{
+						Type:    api.RepositoryReady,
+						Status:  metav1.ConditionFalse,
+						Reason:  api.ReasonError,
+						Message: "error (next retry at: " + now.Add(-time.Minute).Format(time.RFC3339) + ")",
+					}},
+				},
+			},
+			expected: 1 * time.Second,
+		},
+		{
+			name: "error with message - no retry time",
+			repo: &api.Repository{
+				Status: api.RepositoryStatus{
+					Conditions: []metav1.Condition{{
+						Type:    api.RepositoryReady,
+						Status:  metav1.ConditionFalse,
+						Reason:  api.ReasonError,
+						Message: "connection refused",
+					}},
+				},
+			},
+			expected: 30 * time.Second,
+		},
+		{
+			name: "error with empty message",
+			repo: &api.Repository{
+				Status: api.RepositoryStatus{
+					Conditions: []metav1.Condition{{
+						Type:    api.RepositoryReady,
+						Status:  metav1.ConditionFalse,
+						Reason:  api.ReasonError,
+						Message: "",
+					}},
+				},
+			},
+			expected: 30 * time.Second,
+		},
+		{
+			name: "no error - calculate next sync",
+			repo: &api.Repository{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"config.porch.kpt.dev/last-full-sync": now.Add(-30 * time.Minute).Format(time.RFC3339),
+					},
+				},
+				Status: api.RepositoryStatus{
+					Conditions: []metav1.Condition{{
+						Type:               api.RepositoryReady,
+						Status:             metav1.ConditionTrue,
+						LastTransitionTime: metav1.NewTime(now.Add(-2 * time.Minute)),
+					}},
+				},
+			},
+			expected: 3 * time.Minute,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RepositoryReconciler{
+				HealthCheckFrequency: 5 * time.Minute,
+				FullSyncFrequency:    1 * time.Hour,
+			}
+			result := r.getRequeueInterval(tt.repo)
+			assert.InDelta(t, tt.expected.Seconds(), result.Seconds(), 2.0)
+		})
+	}
+}
+
+func TestCalculateNextSyncIntervalExtended(t *testing.T) {
+	now := time.Now()
+	tests := []struct {
+		name     string
+		repo     *api.Repository
+		expected time.Duration
+	}{
+		{
+			name: "RunOnceAt in future",
+			repo: &api.Repository{
+				Spec: api.RepositorySpec{
+					Sync: &api.RepositorySync{
+						RunOnceAt: &metav1.Time{Time: now.Add(10 * time.Minute)},
+					},
+				},
+			},
+			expected: 10 * time.Minute,
+		},
+		{
+			name: "RunOnceAt in past",
+			repo: &api.Repository{
+				Spec: api.RepositorySpec{
+					Sync: &api.RepositorySync{
+						RunOnceAt: &metav1.Time{Time: now.Add(-time.Hour)},
+					},
+				},
+			},
+			expected: 0,
+		},
+		{
+			name: "custom schedule - next sync sooner",
+			repo: &api.Repository{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"config.porch.kpt.dev/last-full-sync": now.Add(-30 * time.Minute).Format(time.RFC3339),
+					},
+				},
+				Spec: api.RepositorySpec{
+					Sync: &api.RepositorySync{
+						Schedule: "*/1 * * * *",
+					},
+				},
+				Status: api.RepositoryStatus{
+					Conditions: []metav1.Condition{{
+						Type:               api.RepositoryReady,
+						Status:             metav1.ConditionTrue,
+						LastTransitionTime: metav1.NewTime(now.Add(-30 * time.Minute)),
+					}},
+				},
+			},
+			expected: 0,
+		},
+		{
+			name: "invalid schedule - fallback to default",
+			repo: &api.Repository{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"config.porch.kpt.dev/last-full-sync": now.Add(-30 * time.Minute).Format(time.RFC3339),
+					},
+				},
+				Spec: api.RepositorySpec{
+					Sync: &api.RepositorySync{
+						Schedule: "invalid",
+					},
+				},
+				Status: api.RepositoryStatus{
+					Conditions: []metav1.Condition{{
+						Type:               api.RepositoryReady,
+						Status:             metav1.ConditionTrue,
+						LastTransitionTime: metav1.NewTime(now.Add(-2 * time.Minute)),
+					}},
+				},
+			},
+			expected: 3 * time.Minute,
+		},
+		{
+			name: "no last sync time with schedule",
+			repo: &api.Repository{
+				Spec: api.RepositorySpec{
+					Sync: &api.RepositorySync{
+						Schedule: "0 * * * *",
+					},
+				},
+				Status: api.RepositoryStatus{
+					Conditions: []metav1.Condition{{
+						Type:               api.RepositoryReady,
+						Status:             metav1.ConditionTrue,
+						LastTransitionTime: metav1.NewTime(now.Add(-2 * time.Minute)),
+					}},
+				},
+			},
+			expected: 3 * time.Minute,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RepositoryReconciler{
+				HealthCheckFrequency: 5 * time.Minute,
+				FullSyncFrequency:    1 * time.Hour,
+			}
+			result := r.calculateNextSyncInterval(tt.repo)
+			assert.InDelta(t, tt.expected.Seconds(), result.Seconds(), 2.0)
+		})
+	}
+}
+
+func TestDetermineSyncDecisionExtended(t *testing.T) {
+	now := time.Now()
+	ctx := context.Background()
+
+	tests := []struct {
+		name         string
+		repo         *api.Repository
+		expectedType SyncType
+		expectedNeed bool
+	}{
+		{
+			name: "spec changed with future RunOnceAt",
+			repo: &api.Repository{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 2,
+				},
+				Spec: api.RepositorySpec{
+					Sync: &api.RepositorySync{
+						RunOnceAt: &metav1.Time{Time: now.Add(time.Hour)},
+					},
+				},
+				Status: api.RepositoryStatus{
+					Conditions: []metav1.Condition{{
+						Type:               api.RepositoryReady,
+						Status:             metav1.ConditionTrue,
+						ObservedGeneration: 1,
+					}},
+				},
+			},
+			expectedType: HealthCheck,
+			expectedNeed: false,
+		},
+		{
+			name: "nothing needed",
+			repo: &api.Repository{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"config.porch.kpt.dev/last-full-sync": now.Add(-30 * time.Minute).Format(time.RFC3339),
+					},
+				},
+				Status: api.RepositoryStatus{
+					Conditions: []metav1.Condition{{
+						Type:               api.RepositoryReady,
+						Status:             metav1.ConditionTrue,
+						LastTransitionTime: metav1.NewTime(now.Add(-2 * time.Minute)),
+					}},
+				},
+			},
+			expectedType: HealthCheck,
+			expectedNeed: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RepositoryReconciler{
+				HealthCheckFrequency: 5 * time.Minute,
+				FullSyncFrequency:    1 * time.Hour,
+			}
+			decision := r.determineSyncDecision(ctx, tt.repo)
+			assert.Equal(t, tt.expectedType, decision.Type)
+			assert.Equal(t, tt.expectedNeed, decision.Needed)
+		})
+	}
+}
