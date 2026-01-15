@@ -161,7 +161,7 @@ spec:
                 - registry
                 type: object
               sync:
-                description: Porch cache sync scheduling
+                description: Repository sync/reconcile details
                 properties:
                   runOnceAt:
                     description: Value in metav1.Time format to trigger a one-time
@@ -169,8 +169,9 @@ spec:
                     format: date-time
                     type: string
                   schedule:
-                    description: 'Cron schedule for periodic cache sync. Example:
-                      `*/10 * * * *` to sync every 10 minutes.'
+                    description: 'Cron value to indicate when the repository should
+                      be synced periodically. Example: `*/10 * * * *` to sync every
+                      10 minutes.'
                     type: string
                 type: object
               type:

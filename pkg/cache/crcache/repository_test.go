@@ -209,7 +209,7 @@ func TestHandleRunOnceAt(t *testing.T) {
 			Namespace: namespace,
 		},
 		Spec: configapi.RepositorySpec{
-			Sync: &configapi.CacheSync{
+			Sync: &configapi.RepositorySync{
 				RunOnceAt: &metav1.Time{Time: runOnceTime},
 			},
 		},

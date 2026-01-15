@@ -12,6 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package util provides shared utilities for repository status management.
+//
+// NOTE: Most of this file will be removed once legacy repository sync is removed.
+// The new controller-based sync uses BuildRepositoryCondition for API consistency,
+// but SetRepositoryCondition and applyRepositoryCondition are only needed for legacy sync.
 package util
 
 import (
@@ -38,6 +43,7 @@ const (
 )
 
 // SetRepositoryCondition sets the repository condition status
+// NOTE: This function is only used by legacy sync and will be removed when legacy sync is removed.
 func SetRepositoryCondition(ctx context.Context, coreClient client.WithWatch, repoKey repository.RepositoryKey, status RepositoryStatus, syncError error, nextSyncTime *time.Time) error {
 	if coreClient == nil {
 		return fmt.Errorf("client is nil")
@@ -66,6 +72,8 @@ func SetRepositoryCondition(ctx context.Context, coreClient client.WithWatch, re
 	return applyRepositoryCondition(ctx, coreClient, repo, condition, status)
 }
 
+// BuildRepositoryCondition builds a repository condition for the given status.
+// This function is shared between legacy sync and the new controller for API consistency.
 func BuildRepositoryCondition(repo *configapi.Repository, status RepositoryStatus, errorMsg string, nextSyncTime *time.Time) (metav1.Condition, error) {
 	switch status {
 	case RepositoryStatusSyncInProgress:
@@ -111,6 +119,8 @@ func BuildRepositoryCondition(repo *configapi.Repository, status RepositoryStatu
 	}
 }
 
+// applyRepositoryCondition applies the condition to the repository status with retries.
+// NOTE: This function is only used by legacy sync and will be removed when legacy sync is removed.
 func applyRepositoryCondition(ctx context.Context, client client.Client, repo *configapi.Repository, condition metav1.Condition, status RepositoryStatus) error {
 	for attempt := range 3 {
 		latestRepo := &configapi.Repository{}

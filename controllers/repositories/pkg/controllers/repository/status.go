@@ -29,19 +29,6 @@ import (
 	"github.com/nephio-project/porch/pkg/cache/util"
 )
 
-// setCondition sets Repository condition
-func (r *RepositoryReconciler) setCondition(repo *configapi.Repository, conditionType string, status metav1.ConditionStatus, reason, message string) {
-	condition := metav1.Condition{
-		Type:               conditionType,
-		Status:             status,
-		ObservedGeneration: repo.Generation,
-		LastTransitionTime: metav1.Now(),
-		Reason:             reason,
-		Message:            message,
-	}
-	meta.SetStatusCondition(&repo.Status.Conditions, condition)
-}
-
 // updateRepoStatusWithBackoff updates status with retry logic using Server-Side Apply
 // Uses shared util for all status updates to ensure API consistency
 func (r *RepositoryReconciler) updateRepoStatusWithBackoff(ctx context.Context, repo *configapi.Repository, status util.RepositoryStatus, syncError error, nextSyncTime *time.Time) error {
@@ -85,6 +72,19 @@ func (r *RepositoryReconciler) updateRepoStatusWithBackoff(ctx context.Context, 
 		}
 		return true, nil
 	})
+}
+
+// setCondition sets Repository condition
+func (r *RepositoryReconciler) setCondition(repo *configapi.Repository, conditionType string, status metav1.ConditionStatus, reason, message string) {
+	condition := metav1.Condition{
+		Type:               conditionType,
+		Status:             status,
+		ObservedGeneration: repo.Generation,
+		LastTransitionTime: metav1.Now(),
+		Reason:             reason,
+		Message:            message,
+	}
+	meta.SetStatusCondition(&repo.Status.Conditions, condition)
 }
 
 // hasSpecChanged determines if Repository spec changed using condition ObservedGeneration
