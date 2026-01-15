@@ -27,7 +27,7 @@ import (
 	"github.com/kptdev/kpt/pkg/lib/util/cmdutil"
 	"github.com/kptdev/kpt/pkg/printer"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	porch "github.com/nephio-project/porch/internal/clliutils"
+	"github.com/nephio-project/porch/internal/kpt/util/porch"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/util"
 	"github.com/spf13/cobra"
