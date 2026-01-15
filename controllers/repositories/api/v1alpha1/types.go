@@ -68,20 +68,18 @@ type RepositorySpec struct {
 	// +kubebuilder:validation:XValidation:message="The 'content' field is deprecated, its only valid value is 'Package'",rule="self == '' || self == 'Package'"
 	// +kubebuilder:default="Package"
 	Content *RepositoryContent `json:"content,omitempty"`
-	// Porch cache sync scheduling
-	Sync *CacheSync `json:"sync,omitempty"`
+	// Repository sync/reconcile details
+	Sync *RepositorySync `json:"sync,omitempty"`
 	// Git repository details. Required if `type` is `git`. Ignored if `type` is not `git`.
 	Git *GitRepository `json:"git,omitempty"`
 	// OCI repository details. Required if `type` is `oci`. Ignored if `type` is not `oci`.
 	Oci *OciRepository `json:"oci,omitempty"`
 }
 
-// CacheSync controls when Porch refreshes its internal cache from the repository.
-// This does not affect the repository itself, only Porch's view of it.
-type CacheSync struct {
+type RepositorySync struct {
 	// Value in metav1.Time format to trigger a one-time cache sync outside the periodic schedule.
 	RunOnceAt *metav1.Time `json:"runOnceAt,omitempty"`
-	// Cron schedule for periodic cache sync. Example: `*/10 * * * *` to sync every 10 minutes.
+	// Cron value to indicate when the repository should be synced periodically. Example: `*/10 * * * *` to sync every 10 minutes.
 	Schedule string `json:"schedule,omitempty"`
 }
 

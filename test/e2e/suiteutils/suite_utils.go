@@ -293,7 +293,7 @@ type SecretOption func(*corev1.Secret)
 
 func WithSync(sync string) RepositoryOption {
 	return func(r *configapi.Repository) {
-		r.Spec.Sync = &configapi.CacheSync{Schedule: sync}
+		r.Spec.Sync = &configapi.RepositorySync{Schedule: sync}
 	}
 }
 

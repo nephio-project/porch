@@ -167,13 +167,13 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 		}
 	}
 
-	var sync *configapi.CacheSync
+	var sync *configapi.RepositorySync
 	if r.syncSchedule != "" {
 		// validate the cron expression
 		if err := validateCronExpression(r.syncSchedule); err != nil {
 			return errors.E(op, fmt.Errorf("invalid sync-schedule cron expression: %w", err))
 		}
-		sync = &configapi.CacheSync{
+		sync = &configapi.RepositorySync{
 			Schedule: r.syncSchedule,
 		}
 	}

@@ -58,7 +58,7 @@ func TestRunE_VariousRunOnceScenarios(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: configapi.RepositorySpec{
-			Sync: &configapi.CacheSync{},
+			Sync: &configapi.RepositorySync{},
 		},
 	}
 	repo2 := &configapi.Repository{
@@ -67,7 +67,7 @@ func TestRunE_VariousRunOnceScenarios(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: configapi.RepositorySpec{
-			Sync: &configapi.CacheSync{},
+			Sync: &configapi.RepositorySync{},
 		},
 	}
 
@@ -253,21 +253,21 @@ func TestRunE_NsScoped(t *testing.T) {
 			Name:      "repo1",
 			Namespace: "default",
 		},
-		Spec: configapi.RepositorySpec{Sync: &configapi.CacheSync{}},
+		Spec: configapi.RepositorySpec{Sync: &configapi.RepositorySync{}},
 	}
 	repoDefault2 := &configapi.Repository{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "repo2",
 			Namespace: "default",
 		},
-		Spec: configapi.RepositorySpec{Sync: &configapi.CacheSync{}},
+		Spec: configapi.RepositorySpec{Sync: &configapi.RepositorySync{}},
 	}
 	repoOther := &configapi.Repository{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "repo3",
 			Namespace: "other",
 		},
-		Spec: configapi.RepositorySpec{Sync: &configapi.CacheSync{}},
+		Spec: configapi.RepositorySpec{Sync: &configapi.RepositorySync{}},
 	}
 
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(repoDefault1, repoDefault2, repoOther).Build()
@@ -382,7 +382,7 @@ func TestRunE_MixedSyncStates(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: configapi.RepositorySpec{
-			Sync: &configapi.CacheSync{},
+			Sync: &configapi.RepositorySync{},
 		},
 	}
 
@@ -394,7 +394,7 @@ func TestRunE_MixedSyncStates(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: configapi.RepositorySpec{
-			Sync: &configapi.CacheSync{
+			Sync: &configapi.RepositorySync{
 				RunOnceAt: &existingTime,
 			},
 		},
