@@ -226,9 +226,9 @@ func (r *RepositoryReconciler) performAsyncSync(ctx context.Context, repo *api.R
 		// Calculate next sync time
 		next := time.Now().Add(r.calculateNextSyncInterval(repo))
 		nextSyncTime = &next
-		// Record full sync timestamp
+		// Record full sync timestamp (best-effort, falls back to status timestamp)
 		if annotErr := r.setLastFullSyncTime(ctx, repo); annotErr != nil {
-			log.Error(annotErr, "Failed to set last full sync time", "repository", repo.Name)
+			log.Info("Could not update last-full-sync annotation, will use status timestamp as fallback", "repository", repo.Name, "error", annotErr.Error())
 		}
 		// Clear one-time sync flag after successful sync
 		if clearErr := r.clearOneTimeSyncFlag(ctx, repo); clearErr != nil {

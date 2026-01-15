@@ -136,28 +136,50 @@ func (cfg *Config) Complete() CompletedConfig {
 	return CompletedConfig{&c}
 }
 
+// schemeBuilder builds a complete scheme with all necessary types
+type schemeBuilder func(*runtime.Scheme) error
+
+// buildSchemeWithTypes builds a scheme by applying all provided builders
+func buildSchemeWithTypes(builders ...schemeBuilder) (*runtime.Scheme, error) {
+	scheme := runtime.NewScheme()
+	for _, builder := range builders {
+		if err := builder(scheme); err != nil {
+			return nil, err
+		}
+	}
+	return scheme, nil
+}
+
 // buildCompleteScheme returns a singleton runtime scheme with all necessary types registered
 func buildCompleteScheme() (*runtime.Scheme, error) {
 	var err error
 	schemeOnce.Do(func() {
-		scheme := runtime.NewScheme()
-		if e := configapi.AddToScheme(scheme); e != nil {
-			err = fmt.Errorf("error adding configapi to scheme: %w", e)
-			return
-		}
-		if e := porchapi.AddToScheme(scheme); e != nil {
-			err = fmt.Errorf("error adding porchapi to scheme: %w", e)
-			return
-		}
-		if e := corev1.AddToScheme(scheme); e != nil {
-			err = fmt.Errorf("error adding corev1 to scheme: %w", e)
-			return
-		}
-		if e := internalapi.AddToScheme(scheme); e != nil {
-			err = fmt.Errorf("error adding internalapi to scheme: %w", e)
-			return
-		}
-		completeScheme = scheme
+		completeScheme, err = buildSchemeWithTypes(
+			func(s *runtime.Scheme) error {
+				if e := configapi.AddToScheme(s); e != nil {
+					return fmt.Errorf("error adding configapi to scheme: %w", e)
+				}
+				return nil
+			},
+			func(s *runtime.Scheme) error {
+				if e := porchapi.AddToScheme(s); e != nil {
+					return fmt.Errorf("error adding porchapi to scheme: %w", e)
+				}
+				return nil
+			},
+			func(s *runtime.Scheme) error {
+				if e := corev1.AddToScheme(s); e != nil {
+					return fmt.Errorf("error adding corev1 to scheme: %w", e)
+				}
+				return nil
+			},
+			func(s *runtime.Scheme) error {
+				if e := internalapi.AddToScheme(s); e != nil {
+					return fmt.Errorf("error adding internalapi to scheme: %w", e)
+				}
+				return nil
+			},
+		)
 	})
 	return completeScheme, err
 }
