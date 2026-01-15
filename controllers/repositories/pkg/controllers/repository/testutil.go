@@ -38,13 +38,6 @@ func createTestRepo(name, namespace string) *configapi.Repository {
 	}
 }
 
-// createTestRepoWithCondition creates a Repository with a specific condition
-func createTestRepoWithCondition(name, namespace string, condition metav1.Condition) *configapi.Repository {
-	repo := createTestRepo(name, namespace)
-	repo.Status.Conditions = []metav1.Condition{condition}
-	return repo
-}
-
 // Test assertion helpers
 func assertError(t *testing.T, expectError bool, err error) {
 	if expectError && err == nil {
