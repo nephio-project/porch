@@ -152,14 +152,18 @@ func (r *RepositoryReconciler) performHealthCheckSync(ctx context.Context, repo 
 			retryInterval = minRetryInterval
 		}
 		nextSyncTime := time.Now().Add(retryInterval)
-		r.updateRepoStatusWithBackoff(ctx, repo, util.RepositoryStatusError, err, &nextSyncTime)
+		if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, util.RepositoryStatusError, err, &nextSyncTime); statusErr != nil {
+			log.Error(statusErr, "Failed to update repository status")
+		}
 		return ctrl.Result{RequeueAfter: retryInterval}, nil
 	}
 
 	// Health check passed
 	log.Info("Repository health check completed successfully", "repository", repo.Name)
 	nextHealthCheck := time.Now().Add(r.HealthCheckFrequency)
-	r.updateRepoStatusWithBackoff(ctx, repo, util.RepositoryStatusReady, nil, &nextHealthCheck)
+	if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, util.RepositoryStatusReady, nil, &nextHealthCheck); statusErr != nil {
+		log.Error(statusErr, "Failed to update repository status")
+	}
 	return ctrl.Result{RequeueAfter: r.HealthCheckFrequency}, nil
 }
 
@@ -186,7 +190,9 @@ func (r *RepositoryReconciler) performFullSync(ctx context.Context, repo *api.Re
 					panicCtx := context.Background()
 					retryInterval := 5 * time.Minute
 					nextSyncTime := time.Now().Add(retryInterval)
-					r.updateRepoStatusWithBackoff(panicCtx, repo, util.RepositoryStatusError, fmt.Errorf("repo sync panic: %v", panicErr), &nextSyncTime)
+					if statusErr := r.updateRepoStatusWithBackoff(panicCtx, repo, util.RepositoryStatusError, fmt.Errorf("repo sync panic: %v", panicErr), &nextSyncTime); statusErr != nil {
+						log.Error(statusErr, "Failed to update repository status after panic")
+					}
 				}
 			}()
 			// Use background context for async operation (prevents cancellation)
@@ -195,7 +201,9 @@ func (r *RepositoryReconciler) performFullSync(ctx context.Context, repo *api.Re
 		}()
 	default:
 		// Too many syncs running
-		r.updateRepoStatusWithBackoff(ctx, repo, util.RepositoryStatusError, fmt.Errorf("sync capacity exceeded"), nil)
+		if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, util.RepositoryStatusError, fmt.Errorf("sync capacity exceeded"), nil); statusErr != nil {
+			log.Error(statusErr, "Failed to update repository status after sync")
+		}
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
@@ -236,7 +244,9 @@ func (r *RepositoryReconciler) performAsyncSync(ctx context.Context, repo *api.R
 	}
 
 	// Update status with result and next sync time
-	r.updateRepoStatusWithBackoff(ctx, repo, status, err, nextSyncTime)
+	if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, status, err, nextSyncTime); statusErr != nil {
+		log.Error(statusErr, "Failed to update repository status after sync")
+	}
 }
 
 // GetSyncLimiter returns the sync limiter channel for testing

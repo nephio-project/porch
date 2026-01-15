@@ -220,6 +220,7 @@ func TestHandleRunOnceAt(t *testing.T) {
 		RepoPRChangeNotifier: mockNotifier,
 		RepoSyncFrequency:    time.Minute,
 		CoreClient:           fakeClient,
+		UseLegacySync:        true,
 	}
 
 	mockRepo.On("Key").Return(repository.RepositoryKey{Namespace: namespace, Name: repoName}).Maybe()
@@ -246,7 +247,9 @@ func TestHandleRunOnceAt(t *testing.T) {
 	cr.Close(context.TODO())
 
 	assert.NotNil(t, status, "Expected repository status to be updated")
-	assert.Contains(t, []string{"Ready", "Error", "Reconciling"}, status.Conditions[0].Reason)
+	if assert.NotEmpty(t, status.Conditions, "Expected at least one condition in status") {
+		assert.Contains(t, []string{"Ready", "Error", "Reconciling"}, status.Conditions[0].Reason)
+	}
 }
 
 func TestCRDeleteLatestRevision(t *testing.T) {
