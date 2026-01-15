@@ -85,15 +85,15 @@ func TestReconcile(t *testing.T) {
 			repo: func() *api.Repository {
 				repo := createTestRepo("test-repo", "test-ns")
 				repo.Generation = 1
-				// Use a fixed recent time to avoid timing issues
-				recentTime := metav1.NewTime(time.Now().Add(-50 * time.Millisecond))
+				// Use a time 1 second ago - well within the 5s full sync and 2s health check windows
+				recentTime := metav1.NewTime(time.Now().Add(-1 * time.Second))
 				repo.Status.Conditions = []metav1.Condition{{
 					Type: api.RepositoryReady,
 					Status: metav1.ConditionTrue,
 					ObservedGeneration: 1,
 					LastTransitionTime: recentTime,
 				}}
-				// Set annotation to indicate recent full sync (within 500ms window)
+				// Set annotation to indicate recent full sync
 				repo.ObjectMeta.Annotations = map[string]string{
 					"config.porch.kpt.dev/last-full-sync": recentTime.Format(time.RFC3339),
 				}
@@ -129,8 +129,9 @@ func TestReconcile(t *testing.T) {
 
 			reconciler := &RepositoryReconciler{
 				Client:                    mockClient,
-				HealthCheckFrequency:      100 * time.Millisecond,
-				FullSyncFrequency:         500 * time.Millisecond,
+				// Use shorter intervals for faster tests while still being robust enough for CI
+				HealthCheckFrequency:      2 * time.Second,
+				FullSyncFrequency:         5 * time.Second,
 				MaxConcurrentSyncs:        100,
 			}
 			
