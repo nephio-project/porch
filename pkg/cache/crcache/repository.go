@@ -75,14 +75,11 @@ func newRepository(repoKey repository.RepositoryKey, repoSpec *configapi.Reposit
 
 	// TODO: Should we fetch the packages here?
 
-	// Create sync manager with event recorder if sync events are enabled
-	if options.EnableSyncEvents {
-		eventRecorder := sync.NewRepositoryEventRecorder(options.CoreClient)
-		r.syncManager = sync.NewSyncManagerWithEventRecorder(r, options.CoreClient, eventRecorder)
-	} else {
+	// Create sync manager only if legacy sync is enabled
+	if options.UseLegacySync {
 		r.syncManager = sync.NewSyncManager(r, options.CoreClient)
+		r.syncManager.Start(ctx, options.RepoSyncFrequency)
 	}
-	r.syncManager.Start(ctx, options.RepoSyncFrequency)
 
 	return r
 }
@@ -528,9 +525,11 @@ func (r *cachedRepository) SyncOnce(ctx context.Context) error {
 	ctx, span := tracer.Start(ctx, "[START]::Repository::SyncOnce", trace.WithAttributes())
 	defer span.End()
 
-	// Send SyncStarted event FIRST, before any work
+	// Set condition to sync-in-progress
 	if r.syncManager != nil {
-		r.syncManager.NotifySyncInProgress(ctx)
+		if err := r.syncManager.SetRepositoryCondition(ctx, "sync-in-progress"); err != nil {
+			klog.Warningf("repositorySync %+v: failed to set sync-in-progress condition: %v", r.Key(), err)
+		}
 	}
 
 	if _, err := r.getPackageRevisions(ctx, repository.ListPackageRevisionFilter{}, true); err != nil {
