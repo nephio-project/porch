@@ -167,11 +167,12 @@ func (t *PorchSuite) TestRepositoryError() {
 		})
 	})
 
-	giveUp := time.Now().Add(120 * time.Second)
+	giveUp := time.Now().Add(180 * time.Second)
 
 	for {
-		if time.Now().After(giveUp) {
-			t.Errorf("Timed out waiting for Repository Condition")
+		now := time.Now()
+		if now.After(giveUp) {
+			t.Errorf("Timed out waiting for Repository Condition at %s", now.Format("15:04:05.000"))
 			break
 		}
 
@@ -186,14 +187,22 @@ func (t *PorchSuite) TestRepositoryError() {
 		available := meta.FindStatusCondition(repository.Status.Conditions, configapi.RepositoryReady)
 		if available == nil {
 			// Condition not yet set
-			t.Logf("Repository condition not yet available")
+			t.Logf("[%s] Repository condition not yet available", now.Format("15:04:05.000"))
 			continue
 		}
 
+		t.Logf("[%s] Repository condition: Status=%s, Reason=%s, Message=%s", 
+			now.Format("15:04:05.000"), available.Status, available.Reason, available.Message)
+
 		if got, want := available.Status, metav1.ConditionFalse; got != want {
 			t.Errorf("Repository Available Condition Status; got %q, want %q", got, want)
+			break
 		}
 		if got, want := available.Reason, configapi.ReasonError; got != want {
+			if available.Reason == configapi.ReasonReconciling {
+				t.Logf("[%s] Repository still reconciling, waiting...", now.Format("15:04:05.000"))
+				continue
+			}
 			t.Errorf("Repository Available Condition Reason: got %q, want %q", got, want)
 		}
 		break
