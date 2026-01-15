@@ -16,44 +16,93 @@ package repository
 
 import (
 	"flag"
-	"os"
 	"time"
 
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 )
 
-// InitDefaults initializes default values to match API server defaults
+// InitDefaults initializes default values for standalone controller
 func (r *RepositoryReconciler) InitDefaults() {
-	// Match background.go's reconnect behavior for connectivity retries
-	r.connectivityRetryInterval = 10 * time.Second
-	// Controller concurrency default
-	r.maxConcurrentReconciles = 50
-	// Cache defaults
+	// Controller behavior defaults
+	r.MaxConcurrentReconciles = 100  // High: reconcile is lightweight
+	r.MaxConcurrentSyncs = 50        // Limited by git cache locks (per-repo serialization)
+	r.HealthCheckFrequency = 5 * time.Minute
+	r.FullSyncFrequency = 1 * time.Hour
+	r.SyncStaleTimeout = 20 * time.Minute
+	r.RepoOperationRetryAttempts = 3
+	// Cache type for standalone mode
 	r.cacheType = string(cachetypes.DBCacheType)
-	r.dbDriver = cachetypes.DefaultDBCacheDriver
-	r.repoSyncFrequency = 60 * time.Second
+	// Validate configuration
+	r.validateConfig()
 }
 
-// SetEmbeddedDefaults sets defaults for embedded controller mode (cache already injected)
-func (r *RepositoryReconciler) SetEmbeddedDefaults() {
-	// Match background.go's reconnect behavior for connectivity retries
-	r.connectivityRetryInterval = 10 * time.Second
-	// Controller concurrency default
-	r.maxConcurrentReconciles = 50
-	// Sync frequency
-	r.repoSyncFrequency = 60 * time.Second
+// EmbeddedConfig holds configuration for embedded controller mode
+type EmbeddedConfig struct {
+	MaxConcurrentReconciles    int
+	MaxConcurrentSyncs         int
+	HealthCheckFrequency       time.Duration
+	FullSyncFrequency          time.Duration
+	RepoOperationRetryAttempts int
 }
 
-// BindFlags binds command line flags
+// SetEmbeddedDefaults sets configuration for embedded controller mode (cache already injected)
+// Zero values in config will be replaced with internal defaults during validation
+func (r *RepositoryReconciler) SetEmbeddedDefaults(config EmbeddedConfig) {
+	r.MaxConcurrentReconciles = config.MaxConcurrentReconciles
+	r.MaxConcurrentSyncs = config.MaxConcurrentSyncs
+	r.HealthCheckFrequency = config.HealthCheckFrequency
+	r.FullSyncFrequency = config.FullSyncFrequency
+	r.RepoOperationRetryAttempts = config.RepoOperationRetryAttempts
+	// Validate and apply defaults for zero values
+	r.validateConfig()
+}
+
+// DefaultEmbeddedConfig returns default configuration for embedded mode
+func DefaultEmbeddedConfig() EmbeddedConfig {
+	return EmbeddedConfig{
+		MaxConcurrentReconciles:    100,
+		MaxConcurrentSyncs:         50,
+		HealthCheckFrequency:       5 * time.Minute,
+		FullSyncFrequency:          1 * time.Hour,
+		RepoOperationRetryAttempts: 3,
+	}
+}
+
+// BindFlags binds controller-specific command line flags
 func (r *RepositoryReconciler) BindFlags(prefix string, flags *flag.FlagSet) {
-	flags.DurationVar(&r.connectivityRetryInterval, prefix+"connectivity-retry-interval", 10*time.Second, "Retry interval for connectivity failures")
-	flags.IntVar(&r.maxConcurrentReconciles, prefix+"max-concurrent-reconciles", 50, "Maximum number of concurrent repository reconciles")
+	flags.IntVar(&r.MaxConcurrentReconciles, prefix+"max-concurrent-reconciles", 100, "Maximum number of concurrent repository reconciles")
+	flags.IntVar(&r.MaxConcurrentSyncs, prefix+"max-concurrent-syncs", 50, "Maximum number of concurrent sync operations (limited by per-repo git cache locks)")
 	flags.StringVar(&r.cacheType, prefix+"cache-type", string(cachetypes.DBCacheType), "Cache type (DB or CR)")
-	flags.StringVar(&r.dbDriver, prefix+"db-driver", cachetypes.DefaultDBCacheDriver, "Database driver")
-	flags.StringVar(&r.dbHost, prefix+"db-host", os.Getenv("DB_HOST"), "Database host")
-	flags.StringVar(&r.dbPort, prefix+"db-port", os.Getenv("DB_PORT"), "Database port")
-	flags.StringVar(&r.dbName, prefix+"db-name", os.Getenv("DB_NAME"), "Database name")
-	flags.StringVar(&r.dbUser, prefix+"db-user", os.Getenv("DB_USER"), "Database user")
-	flags.StringVar(&r.dbPassword, prefix+"db-password", os.Getenv("DB_PASSWORD"), "Database password")
-	flags.DurationVar(&r.repoSyncFrequency, prefix+"repo-sync-frequency", 60*time.Second, "Repository sync frequency")
+	flags.DurationVar(&r.HealthCheckFrequency, prefix+"health-check-frequency", 5*time.Minute, "Frequency of repository health checks (connectivity verification)")
+	flags.DurationVar(&r.FullSyncFrequency, prefix+"full-sync-frequency", 1*time.Hour, "Frequency of full repository sync if Spec.Sync.Schedule is not specified")
+	flags.DurationVar(&r.SyncStaleTimeout, prefix+"sync-stale-timeout", 20*time.Minute, "Timeout for considering a sync stale")
+	flags.IntVar(&r.RepoOperationRetryAttempts, prefix+"repo-operation-retry-attempts", 3, "Number of retry attempts for git operations (fetch, push, delete)")
+	flags.BoolVar(&r.useUserDefinedCaBundle, prefix+"use-user-defined-ca-bundle", false, "Enable custom CA bundle support from secrets")
+}
+
+// validateConfig ensures configuration values are valid
+func (r *RepositoryReconciler) validateConfig() {
+	// Ensure HealthCheckFrequency is not zero to prevent infinite loops
+	if r.HealthCheckFrequency <= 0 {
+		r.HealthCheckFrequency = 5 * time.Minute
+	}
+	// Ensure FullSyncFrequency is not zero
+	if r.FullSyncFrequency <= 0 {
+		r.FullSyncFrequency = 1 * time.Hour
+	}
+	// Ensure SyncStaleTimeout is reasonable
+	if r.SyncStaleTimeout <= 0 {
+		r.SyncStaleTimeout = 20 * time.Minute
+	}
+	// Ensure concurrency limits are positive
+	if r.MaxConcurrentReconciles <= 0 {
+		r.MaxConcurrentReconciles = 10
+	}
+	if r.MaxConcurrentSyncs <= 0 {
+		r.MaxConcurrentSyncs = 50
+	}
+	// Ensure retry attempts is positive
+	if r.RepoOperationRetryAttempts <= 0 {
+		r.RepoOperationRetryAttempts = 3
+	}
 }
