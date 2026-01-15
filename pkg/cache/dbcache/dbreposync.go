@@ -53,14 +53,11 @@ func newRepositorySync(repo *dbRepository, options cachetypes.CacheOptions) *rep
 		repo: repo,
 	}
 
-	// Create sync manager with event recorder if sync events are enabled
-	if options.EnableSyncEvents {
-		eventRecorder := sync.NewRepositoryEventRecorder(options.CoreClient)
-		s.syncManager = sync.NewSyncManagerWithEventRecorder(&s, options.CoreClient, eventRecorder)
-	} else {
+	// Create sync manager only if legacy sync is enabled
+	if options.UseLegacySync {
 		s.syncManager = sync.NewSyncManager(&s, options.CoreClient)
+		s.syncManager.Start(ctx, options.RepoSyncFrequency)
 	}
-	s.syncManager.Start(ctx, options.RepoSyncFrequency)
 	return &s
 }
 
@@ -108,8 +105,9 @@ func (s *repositorySync) sync(ctx context.Context) (repositorySyncStats, error) 
 
 	// Set condition to sync-in-progress
 	if s.syncManager != nil {
-		klog.Infof("repositorySync %+v: setting sync-in-progress condition", s.repo.Key())
-		s.syncManager.NotifySyncInProgress(ctx)
+		if err := s.syncManager.SetRepositoryCondition(ctx, "sync-in-progress"); err != nil {
+			klog.Warningf("repositorySync %+v: failed to set sync-in-progress condition: %v", s.repo.Key(), err)
+		}
 	}
 
 	defer func() {

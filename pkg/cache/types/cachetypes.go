@@ -43,7 +43,7 @@ type CacheOptions struct {
 	CoreClient           client.WithWatch
 	CacheType            CacheType
 	DBCacheOptions       DBCacheOptions
-	EnableSyncEvents     bool // Enable sync event creation instead of direct status updates
+	UseLegacySync        bool
 }
 
 const DefaultDBCacheDriver string = "pgx"
@@ -72,6 +72,18 @@ type CacheFactory interface {
 
 type RepoPRChangeNotifier interface {
 	NotifyPackageRevisionChange(eventType watch.EventType, obj repository.PackageRevision) int
+}
+
+// noOpRepoPRChangeNotifier is a no-op implementation
+type noOpRepoPRChangeNotifier struct{}
+
+func (n *noOpRepoPRChangeNotifier) NotifyPackageRevisionChange(eventType watch.EventType, obj repository.PackageRevision) int {
+	return 0
+}
+
+// NewNoOpRepoPRChangeNotifier creates a no-op notifier
+func NewNoOpRepoPRChangeNotifier() RepoPRChangeNotifier {
+	return &noOpRepoPRChangeNotifier{}
 }
 
 func IsACacheType(ct string) bool {

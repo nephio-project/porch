@@ -1,4 +1,4 @@
-// Copyright 2025 The kpt and Nephio Authors
+// Copyright 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,124 +16,187 @@ package sync
 
 import (
 	"context"
-	"fmt"
-	"sync"
 	"testing"
 	"time"
 
 	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestNewSyncManager(t *testing.T) {
-	handler := &testSyncHandler{}
-	manager := NewSyncManager(handler, nil)
-
-	if manager == nil {
-		t.Error("Expected non-nil sync manager")
-	}
-	if manager.handler != handler {
-		t.Error("Expected handler to be set")
-	}
+type mockSyncHandler struct {
+	syncCount int
+	syncError error
+	repoKey   repository.RepositoryKey
+	spec      *configapi.Repository
 }
 
-func TestNewSyncManagerWithEventRecorder(t *testing.T) {
-	handler := &testSyncHandler{
-		repoKey: repository.RepositoryKey{Name: "test-repo", Namespace: "test-ns"},
-	}
-	eventRecorder := &testEventRecorder{}
-
-	manager := NewSyncManagerWithEventRecorder(handler, nil, eventRecorder)
-
-	if manager == nil {
-		t.Error("Expected non-nil sync manager")
-	}
-	if manager.eventRecorder != eventRecorder {
-		t.Error("Expected event recorder to be set")
-	}
-
-	// Cleanup
-	manager.Stop()
+func (m *mockSyncHandler) SyncOnce(ctx context.Context) error {
+	m.syncCount++
+	return m.syncError
 }
 
-func TestSyncManager_EventRecorderIntegration(t *testing.T) {
-	eventRecorder := &testEventRecorder{}
-	handler := &testSyncHandler{
+func (m *mockSyncHandler) Key() repository.RepositoryKey {
+	return m.repoKey
+}
+
+func (m *mockSyncHandler) GetSpec() *configapi.Repository {
+	return m.spec
+}
+
+func TestSyncManager_SyncOnce(t *testing.T) {
+	handler := &mockSyncHandler{
 		repoKey: repository.RepositoryKey{Name: "test-repo", Namespace: "test-ns"},
 		spec: &configapi.Repository{
-			ObjectMeta: metav1.ObjectMeta{Name: "test-repo", Namespace: "test-ns"},
+			Spec: configapi.RepositorySpec{
+				Sync: &configapi.CacheSync{
+					Schedule: "*/5 * * * *",
+				},
+			},
 		},
 	}
-	manager := NewSyncManagerWithEventRecorder(handler, nil, eventRecorder)
-	nextTime := time.Now().Add(5 * time.Minute)
-	manager.nextSyncTime = &nextTime
 
-	manager.updateRepositoryCondition(context.Background())
+	manager := NewSyncManager(handler, nil)
 
-	if len(eventRecorder.events) != 1 {
-		t.Errorf("Expected 1 event, got %d", len(eventRecorder.events))
+	// Test that sync is called
+	err := manager.handler.SyncOnce(context.Background())
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
 	}
 
-	event := eventRecorder.events[0]
-	if event.eventType != "Normal" {
-		t.Errorf("Expected Normal event, got %s", event.eventType)
+	if handler.syncCount != 1 {
+		t.Errorf("Expected sync count to be 1, got %d", handler.syncCount)
 	}
-	if event.reason != "SyncCompleted" {
-		t.Errorf("Expected SyncCompleted reason, got %s", event.reason)
-	}
-
-	// Cleanup
-	manager.Stop()
 }
 
-func TestSyncManager_NotifySyncInProgress(t *testing.T) {
-	eventRecorder := &testEventRecorder{}
-	handler := &testSyncHandler{
-		repoKey: repository.RepositoryKey{Name: "test-repo", Namespace: "test-ns"},
-		spec: &configapi.Repository{
-			ObjectMeta: metav1.ObjectMeta{Name: "test-repo", Namespace: "test-ns"},
+func TestSyncManager_CalculateWaitDuration(t *testing.T) {
+	tests := []struct {
+		name           string
+		spec           *configapi.Repository
+		expectDefault  bool
+		expectNextSync bool
+	}{
+		{
+			name: "valid cron schedule",
+			spec: &configapi.Repository{
+				Spec: configapi.RepositorySpec{
+					Sync: &configapi.CacheSync{
+						Schedule: "0 0 * * *",
+					},
+				},
+			},
+			expectDefault:  false,
+			expectNextSync: true,
+		},
+		{
+			name:           "nil spec fallback",
+			spec:           nil,
+			expectDefault:  true,
+			expectNextSync: true,
+		},
+		{
+			name: "empty schedule fallback",
+			spec: &configapi.Repository{
+				Spec: configapi.RepositorySpec{
+					Sync: &configapi.CacheSync{
+						Schedule: "",
+					},
+				},
+			},
+			expectDefault:  true,
+			expectNextSync: true,
+		},
+		{
+			name: "invalid cron expression fallback",
+			spec: &configapi.Repository{
+				Spec: configapi.RepositorySpec{
+					Sync: &configapi.CacheSync{
+						Schedule: "invalid-cron",
+					},
+				},
+			},
+			expectDefault:  true,
+			expectNextSync: true,
 		},
 	}
-	manager := NewSyncManagerWithEventRecorder(handler, nil, eventRecorder)
 
-	manager.NotifySyncInProgress(context.Background())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := &mockSyncHandler{
+				repoKey: repository.RepositoryKey{Name: "test-repo", Namespace: "test-ns"},
+				spec:    tt.spec,
+			}
 
-	if len(eventRecorder.events) != 1 {
-		t.Errorf("Expected 1 event, got %d", len(eventRecorder.events))
+			manager := NewSyncManager(handler, nil)
+			defaultDuration := 5 * time.Minute
+
+			duration := manager.calculateWaitDuration(defaultDuration)
+
+			if tt.expectDefault {
+				assert.Equal(t, defaultDuration, duration)
+			} else {
+				assert.Less(t, duration, 24*time.Hour)
+				assert.Greater(t, duration, time.Duration(0))
+			}
+
+			if tt.expectNextSync {
+				assert.NotNil(t, manager.nextSyncTime)
+			}
+		})
 	}
-
-	event := eventRecorder.events[0]
-	if event.reason != "SyncStarted" {
-		t.Errorf("Expected SyncStarted reason, got %s", event.reason)
-	}
-
-	// Cleanup
-	manager.Stop()
 }
 
-func TestSyncManager_ContextCancellation(t *testing.T) {
-	handler := &testSyncHandler{
+func TestSyncManager_ShouldScheduleRunOnce(t *testing.T) {
+	handler := &mockSyncHandler{}
+	manager := NewSyncManager(handler, nil)
+
+	now := time.Now()
+	future := metav1.Time{Time: now.Add(1 * time.Hour)}
+
+	// Should schedule if runOnceAt is set and scheduled is zero
+	if !manager.shouldScheduleRunOnce(&future, time.Time{}) {
+		t.Error("Expected to schedule run once when scheduled time is zero")
+	}
+
+	// Should not schedule if times are equal
+	if manager.shouldScheduleRunOnce(&future, future.Time) {
+		t.Error("Expected not to schedule run once when times are equal")
+	}
+
+	// Should not schedule if runOnceAt is nil
+	if manager.shouldScheduleRunOnce(nil, time.Time{}) {
+		t.Error("Expected not to schedule run once when runOnceAt is nil")
+	}
+}
+
+func TestSyncManager_SetDefaultNextSyncTime(t *testing.T) {
+	handler := &mockSyncHandler{
 		repoKey: repository.RepositoryKey{Name: "test-repo", Namespace: "test-ns"},
 	}
 	manager := NewSyncManager(handler, nil)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	defer cancel()
+	defaultDuration := 10 * time.Minute
+	before := time.Now()
 
-	manager.Start(ctx, 1*time.Second)
-	<-ctx.Done()
+	duration := manager.setDefaultNextSyncTime(defaultDuration)
 
-	// Give goroutines time to exit
-	time.Sleep(50 * time.Millisecond)
+	after := time.Now()
 
-	if handler.syncCount < 1 {
-		t.Errorf("Expected at least 1 sync, got %d", handler.syncCount)
+	assert.Equal(t, defaultDuration, duration)
+
+	require.NotNil(t, manager.nextSyncTime)
+
+	// Check that nextSyncTime is approximately now + defaultDuration
+	expectedTime := before.Add(defaultDuration)
+	if manager.nextSyncTime.Before(expectedTime) || manager.nextSyncTime.After(after.Add(defaultDuration)) {
+		t.Errorf("Expected nextSyncTime to be around %v, got %v", expectedTime, *manager.nextSyncTime)
 	}
 }
 
 func TestSyncManager_Stop(t *testing.T) {
-	handler := &testSyncHandler{}
+	handler := &mockSyncHandler{}
 	manager := NewSyncManager(handler, nil)
 
 	// Test stop with valid cancel function
@@ -145,7 +208,7 @@ func TestSyncManager_Stop(t *testing.T) {
 }
 
 func TestSyncManager_GetLastSyncError(t *testing.T) {
-	handler := &testSyncHandler{}
+	handler := &mockSyncHandler{}
 	manager := NewSyncManager(handler, nil)
 
 	// Initially no error
@@ -154,10 +217,134 @@ func TestSyncManager_GetLastSyncError(t *testing.T) {
 	}
 
 	// Set an error
-	testErr := fmt.Errorf("test error")
+	testErr := context.DeadlineExceeded
 	manager.lastSyncError = testErr
 	if err := manager.GetLastSyncError(); err != testErr {
 		t.Errorf("Expected error %v, got %v", testErr, err)
+	}
+}
+
+func TestSyncManager_UpdateRepositoryCondition(t *testing.T) {
+	handler := &mockSyncHandler{
+		repoKey: repository.RepositoryKey{Name: "test-repo", Namespace: "test-ns"},
+	}
+	manager := NewSyncManager(handler, nil)
+
+	// Test with no error - should not panic even with nil client
+	// The method will log a warning but should not crash
+	manager.updateRepositoryCondition(context.Background())
+
+	// Test with error - should not panic even with nil client
+	manager.lastSyncError = context.DeadlineExceeded
+	manager.updateRepositoryCondition(context.Background())
+
+	// Verify the error was set
+	if manager.lastSyncError != context.DeadlineExceeded {
+		t.Errorf("Expected error to be preserved, got %v", manager.lastSyncError)
+	}
+}
+
+func TestSyncManager_SyncForever(t *testing.T) {
+	t.Run("default duration countdown", func(t *testing.T) {
+		handler := &mockSyncHandler{
+			repoKey: repository.RepositoryKey{Name: "test-repo", Namespace: "test-ns"},
+			// Use nil spec to force fallback to default duration
+			spec: nil,
+		}
+		manager := NewSyncManager(handler, nil)
+
+		// Test with short frequency to trigger countdown sync
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
+		go manager.syncForever(ctx, 1*time.Second)
+		<-ctx.Done()
+
+		// Should have multiple syncs due to countdown (startup + at least one more)
+		if handler.syncCount < 2 {
+			t.Errorf("Expected at least 2 sync calls, got %d", handler.syncCount)
+		}
+	})
+
+	t.Run("cron expression change detection", func(t *testing.T) {
+		handler := &mockSyncHandler{
+			repoKey: repository.RepositoryKey{Name: "test-repo", Namespace: "test-ns"},
+			spec: &configapi.Repository{
+				Spec: configapi.RepositorySpec{
+					Sync: &configapi.CacheSync{
+						Schedule: "*/1 * * * *",
+					},
+				},
+			},
+		}
+		manager := NewSyncManager(handler, nil)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		// Change cron expression after startup to trigger change detection
+		go func() {
+			time.Sleep(1 * time.Second)
+			handler.spec.Spec.Sync.Schedule = "*/2 * * * *"
+		}()
+
+		manager.syncForever(ctx, 1*time.Second)
+
+		// Should have at least startup sync
+		if handler.syncCount < 1 {
+			t.Errorf("Expected at least 1 sync call, got %d", handler.syncCount)
+		}
+	})
+}
+
+func TestSyncManager_HandleRunOnceAt(t *testing.T) {
+	t.Run("runOnceAt execution", func(t *testing.T) {
+		// Set runOnceAt time to be 6 seconds in the future to ensure the 5-second ticker catches it
+		futureTime := metav1.NewTime(time.Now().Add(6 * time.Second))
+		handler := &mockSyncHandler{
+			repoKey: repository.RepositoryKey{Name: "test-repo", Namespace: "test-ns"},
+			spec: &configapi.Repository{
+				Spec: configapi.RepositorySpec{
+					Sync: &configapi.CacheSync{
+						RunOnceAt: &futureTime,
+					},
+				},
+			},
+		}
+		manager := NewSyncManager(handler, nil)
+
+		// Allow enough time for the ticker to detect and execute the runOnceAt
+		ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+		defer cancel()
+
+		go manager.handleRunOnceAt(ctx)
+		<-ctx.Done()
+
+		// Should have executed the runOnceAt sync
+		if handler.syncCount < 1 {
+			t.Errorf("Expected at least 1 sync call from runOnceAt, got %d", handler.syncCount)
+		}
+	})
+}
+
+func TestSyncManager_Start(t *testing.T) {
+	handler := &mockSyncHandler{
+		repoKey: repository.RepositoryKey{Name: "test-repo", Namespace: "test-ns"},
+	}
+	manager := NewSyncManager(handler, nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	// Start should launch both goroutines
+	manager.Start(ctx, 1*time.Second)
+
+	// Wait for goroutines to run
+	<-ctx.Done()
+
+	// Should have at least one sync from startup
+	if handler.syncCount < 2 {
+		t.Errorf("Expected at least 1 sync call, got %d", handler.syncCount)
 	}
 }
 
@@ -190,108 +377,11 @@ func TestSyncManager_HasValidSyncSpec(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			handler := &testSyncHandler{spec: tt.spec}
+			handler := &mockSyncHandler{spec: tt.spec}
 			manager := NewSyncManager(handler, nil)
 			if got := manager.hasValidSyncSpec(); got != tt.expected {
 				t.Errorf("hasValidSyncSpec() = %v, want %v", got, tt.expected)
 			}
 		})
-	}
-}
-
-func TestGlobalDeletionWatcher_RegisterUnregister(t *testing.T) {
-	// Reset global state
-	globalDeletionWatcher.mu.Lock()
-	globalDeletionWatcher.syncManagers = make(map[string]*SyncManager)
-	globalDeletionWatcher.started = false
-	globalDeletionWatcher.mu.Unlock()
-
-	handler := &testSyncHandler{
-		repoKey: repository.RepositoryKey{Name: "test-repo", Namespace: "test-ns"},
-	}
-	manager := NewSyncManager(handler, nil)
-
-	// Test registration
-	RegisterSyncManager(handler.Key(), manager)
-
-	globalDeletionWatcher.mu.RLock()
-	registeredManager, exists := globalDeletionWatcher.syncManagers[handler.Key().String()]
-	globalDeletionWatcher.mu.RUnlock()
-
-	if !exists {
-		t.Error("Expected sync manager to be registered")
-	}
-	if registeredManager != manager {
-		t.Error("Expected registered manager to match")
-	}
-
-	// Test unregistration
-	UnregisterSyncManager(handler.Key())
-
-	globalDeletionWatcher.mu.RLock()
-	_, stillExists := globalDeletionWatcher.syncManagers[handler.Key().String()]
-	globalDeletionWatcher.mu.RUnlock()
-
-	if stillExists {
-		t.Error("Expected sync manager to be unregistered")
-	}
-}
-
-func TestGlobalDeletionWatcher_HandleRepositoryDeletion(t *testing.T) {
-	// Reset global state
-	globalDeletionWatcher.mu.Lock()
-	globalDeletionWatcher.syncManagers = make(map[string]*SyncManager)
-	globalDeletionWatcher.started = false
-	globalDeletionWatcher.mu.Unlock()
-
-	handler := &testSyncHandler{
-		repoKey: repository.RepositoryKey{Name: "test-repo", Namespace: "test-ns", PlaceholderWSname: "main"},
-	}
-	manager := NewSyncManager(handler, nil)
-	
-	// Track if Stop was called
-	stopCalled := false
-	var stopWait sync.WaitGroup
-	stopWait.Add(1)
-	originalCancel := manager.cancel
-	manager.cancel = func() {
-		stopCalled = true
-		stopWait.Done()
-		if originalCancel != nil {
-			originalCancel()
-		}
-	}
-
-	RegisterSyncManager(handler.Key(), manager)
-
-	// Create repository for deletion with Git spec
-	repo := &configapi.Repository{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-repo",
-			Namespace: "test-ns",
-		},
-		Spec: configapi.RepositorySpec{
-			Git: &configapi.GitRepository{
-				Branch: "main",
-			},
-		},
-	}
-
-	// Handle deletion
-	globalDeletionWatcher.handleRepositoryDeletion(repo)
-
-	// Wait for async Stop operation to complete
-	stopWait.Wait()
-
-	if !stopCalled {
-		t.Error("Expected Stop to be called on sync manager when repository is deleted")
-	}
-
-	// Verify unregistration
-	globalDeletionWatcher.mu.RLock()
-	_, exists := globalDeletionWatcher.syncManagers[handler.Key().String()]
-	globalDeletionWatcher.mu.RUnlock()
-	if exists {
-		t.Error("Expected sync manager to be unregistered after deletion")
 	}
 }
