@@ -63,6 +63,7 @@ func (t *DbTestSuite) TestDBRepoSync() {
 	cacheOptions := cachetypes.CacheOptions{
 		RepoSyncFrequency: 1 * time.Second,
 		CoreClient:        fakeClient,
+		UseLegacySync:     true,
 	}
 
 	testRepo.repositorySync = newRepositorySync(testRepo, cacheOptions)
@@ -172,6 +173,7 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 	cacheOptions := cachetypes.CacheOptions{
 		RepoSyncFrequency: 30 * time.Second,
 		CoreClient:        fakeClient,
+		UseLegacySync:     true,
 	}
 
 	sync := newRepositorySync(testRepo, cacheOptions)
@@ -344,6 +346,7 @@ func (t *DbTestSuite) TestNewRepositorySync() {
 	options := cachetypes.CacheOptions{
 		RepoSyncFrequency: 1 * time.Second,
 		CoreClient:        fakeClient,
+		UseLegacySync:     true,
 	}
 
 	sync := newRepositorySync(testRepo, options)
