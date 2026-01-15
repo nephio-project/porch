@@ -10,7 +10,6 @@ require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.7
 	github.com/fergusstrange/embedded-postgres v1.32.0
 	github.com/fsnotify/fsnotify v1.9.0
-	github.com/go-errors/errors v1.5.1
 	github.com/go-git/go-billy/v5 v5.6.2
 	github.com/go-git/go-git/v5 v5.16.3
 	github.com/golang/protobuf v1.5.4
@@ -20,7 +19,7 @@ require (
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.6
-	github.com/kptdev/kpt v1.0.0-beta.59.1
+	github.com/kptdev/kpt v1.0.0-beta.59.2
 	github.com/kptdev/krm-functions-sdk/go/fn v1.0.0
 	github.com/otiai10/copy v1.14.1
 	github.com/philopon/go-toposort v0.0.0-20170620085441-9be86dbd762f
@@ -66,6 +65,8 @@ require (
 	sigs.k8s.io/kustomize/kyaml v0.20.1
 	sigs.k8s.io/yaml v1.6.0
 )
+
+require github.com/go-errors/errors v1.5.1 // indirect
 
 require (
 	cel.dev/expr v0.25.0 // indirect
