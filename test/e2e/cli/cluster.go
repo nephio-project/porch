@@ -38,6 +38,25 @@ func IsPorchServerRunningInCluster(t *testing.T) bool {
 	return stdout.String() != ""
 }
 
+func IsRepoControllerRunningInCluster(t *testing.T) bool {
+	cmd := exec.Command("kubectl", "get", "--namespace=porch-system", "deployment", "porch-controllers",
+		"--output=jsonpath={.spec.replicas}")
+
+	var stderr bytes.Buffer
+	var stdout bytes.Buffer
+
+	cmd.Stderr = &stderr
+	cmd.Stdout = &stdout
+
+	if err := cmd.Run(); err != nil {
+		if strings.Contains(stderr.String(), "NotFound") {
+			return false
+		}
+		t.Fatalf("Error when getting porch-controllers Deployment: %v: %s", err, stderr.String())
+	}
+	return stdout.String() != "" && stdout.String() != "0"
+}
+
 func KubectlApply(t *testing.T, config string) {
 	cmd := exec.Command("kubectl", "apply", "-f", "-")
 	cmd.Stdin = strings.NewReader(config)
@@ -127,7 +146,7 @@ func KubectlCreateNamespace(t *testing.T, name string) {
 func KubectlDeleteNamespace(t *testing.T, name string) {
 	//Removing Finalizers from PackageRevs in the test NameSpace to avoid locking when deleting
 	RemovePackagerevFinalizers(t, name)
-	cmd := exec.Command("kubectl", "delete", "namespace", name)
+	cmd := exec.Command("kubectl", "delete", "namespace", name, "--wait=false")
 	t.Logf("running command %v", strings.Join(cmd.Args, " "))
 	out, err := cmd.CombinedOutput()
 	if err != nil {
