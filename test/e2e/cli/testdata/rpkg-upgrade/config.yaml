@@ -1,3 +1,4 @@
+usesPorchTestRepo: true
 commands:
   - args:
     - porchctl
@@ -8,7 +9,7 @@ commands:
     - --repo-basic-password=secret
     - --repo-basic-username=nephio
     - --deployment=true
-    - http://gitea.gitea.svc.cluster.local:3000/nephio/rpkg-upgrade
+    - http://gitea.gitea.svc.cluster.local:3000/nephio/porch-test
   - args:
     - porchctl
     - rpkg

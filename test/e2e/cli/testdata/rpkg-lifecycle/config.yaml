@@ -1,3 +1,4 @@
+usesPorchTestRepo: true
 commands:
   - args:
       - porchctl
@@ -7,7 +8,7 @@ commands:
       - --name=git
       - --repo-basic-password=secret
       - --repo-basic-username=nephio
-      - http://gitea.gitea.svc.cluster.local:3000/nephio/rpkg-lifecycle
+      - http://gitea.gitea.svc.cluster.local:3000/nephio/porch-test
   - args:
       - porchctl
       - rpkg
