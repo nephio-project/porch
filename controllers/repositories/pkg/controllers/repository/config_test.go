@@ -26,8 +26,8 @@ func TestInitDefaults(t *testing.T) {
 	if r.MaxConcurrentReconciles != 100 {
 		t.Errorf("Expected MaxConcurrentReconciles 100, got %d", r.MaxConcurrentReconciles)
 	}
-	if r.MaxConcurrentSyncs != 200 {
-		t.Errorf("Expected MaxConcurrentSyncs 200, got %d", r.MaxConcurrentSyncs)
+	if r.MaxConcurrentSyncs != 50 {
+		t.Errorf("Expected MaxConcurrentSyncs 50, got %d", r.MaxConcurrentSyncs)
 	}
 }
 
