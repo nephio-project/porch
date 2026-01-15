@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022, 2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -124,4 +124,15 @@ func TestWatchResources(t *testing.T) {
 	})
 	assert.Equal(t, nil, watcher)
 	assert.ErrorContains(t, err, "conflicting namespaces specified")
+}
+
+func TestSetRenderStatus(t *testing.T) {
+	prr := &packageRevisionResources{}
+
+	t.Run("type assertion fails gracefully", func(t *testing.T) {
+		mockPR := mockrepo.NewMockPackageRevision(t)
+		rs := &porchapi.RenderStatus{Err: "test error"}
+		err := prr.setRenderStatus(context.TODO(), mockPR, rs)
+		assert.NoError(t, err)
+	})
 }

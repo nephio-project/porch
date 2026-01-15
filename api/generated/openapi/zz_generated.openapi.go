@@ -1093,11 +1093,17 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionStatus(ref common.ReferenceC
 							},
 						},
 					},
+					"renderStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RenderStatus contains the result of rendering the package resources.",
+							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.RenderStatus"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.Condition", "github.com/nephio-project/porch/api/porch/v1alpha1.Locator", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"github.com/nephio-project/porch/api/porch/v1alpha1.Condition", "github.com/nephio-project/porch/api/porch/v1alpha1.Locator", "github.com/nephio-project/porch/api/porch/v1alpha1.RenderStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
