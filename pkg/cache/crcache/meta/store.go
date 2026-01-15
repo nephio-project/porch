@@ -1,4 +1,4 @@
-// Copyright 2022, 2025 The kpt and Nephio Authors
+// Copyright 2022, 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,6 +50,7 @@ type MetadataStore interface {
 	Create(ctx context.Context, pkgRevMeta metav1.ObjectMeta, repoName string, pkgRevUID types.UID) (metav1.ObjectMeta, error)
 	Update(ctx context.Context, pkgRevMeta metav1.ObjectMeta) (metav1.ObjectMeta, error)
 	Delete(ctx context.Context, namespacedName types.NamespacedName, clearFinalizer bool) (metav1.ObjectMeta, error)
+	UpdateStatus(ctx context.Context, namespacedName types.NamespacedName, renderStatus *porchapi.RenderStatus) error
 }
 
 var _ MetadataStore = &crdMetadataStore{}
@@ -240,4 +241,16 @@ func isPackageRevOwnerRef(or metav1.OwnerReference, pkgRevName string) bool {
 	return or.APIVersion == packageRevisionGVK.GroupVersion().String() &&
 		or.Kind == packageRevisionGVK.Kind &&
 		or.Name == pkgRevName
+}
+
+func (c *crdMetadataStore) UpdateStatus(ctx context.Context, namespacedName types.NamespacedName, renderStatus *porchapi.RenderStatus) error {
+	var internalPkgRev internalapi.PackageRev
+	if err := c.coreClient.Get(ctx, namespacedName, &internalPkgRev); err != nil {
+		return err
+	}
+	if renderStatus != nil {
+		renderStatus.Result.ObjectMeta = metav1.ObjectMeta{}
+	}
+	internalPkgRev.Status.RenderStatus = renderStatus
+	return c.coreClient.Status().Update(ctx, &internalPkgRev)
 }

@@ -1,4 +1,4 @@
-// Copyright 2025 The Nephio Authors
+// Copyright 2025-2026 The Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -403,5 +403,55 @@ func (t *DbTestSuite) TestDBDeleteLatestRevision() {
 
 	// Clean up
 	err = repoDeleteFromDB(ctx, dbRepo.Key())
+	t.Require().NoError(err)
+}
+
+func (t *DbTestSuite) TestRenderStatus() {
+	ctx := t.Context()
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+	repoName := "test-repo"
+	namespace := "test-ns"
+	externalrepo.ExternalRepoInUnitTestMode = true
+
+	testRepo := t.createTestRepo(namespace, repoName)
+	testRepo.spec = &configapi.Repository{
+		Spec: configapi.RepositorySpec{
+			Git: &configapi.GitRepository{
+				Repo: "https://example.com/repo.git",
+			},
+		},
+	}
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	t.Require().NoError(err)
+
+	newPRDef := porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: repoName,
+			PackageName:    "test-package",
+			WorkspaceName:  "test-workspace",
+		},
+	}
+
+	newPRDraft, err := testRepo.CreatePackageRevisionDraft(ctx, &newPRDef)
+	t.Require().NoError(err)
+
+	dbPR, err := testRepo.ClosePackageRevisionDraft(ctx, newPRDraft, -1)
+	t.Require().NoError(err)
+
+	renderStatus := &porchapi.RenderStatus{Err: "test render error"}
+	dbPR.(*dbPackageRevision).SetRenderStatus(renderStatus)
+
+	err = dbPR.(*dbPackageRevision).SaveRenderStatus(ctx)
+	t.Require().NoError(err)
+
+	prDef, err := dbPR.GetPackageRevision(ctx)
+	t.Require().NoError(err)
+	t.Require().NotNil(prDef.Status.RenderStatus)
+	t.Equal("test render error", prDef.Status.RenderStatus.Err)
+
+	err = testRepo.Close(ctx)
 	t.Require().NoError(err)
 }

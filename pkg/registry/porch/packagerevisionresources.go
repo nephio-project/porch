@@ -1,4 +1,4 @@
-// Copyright 2022, 2024-2025 The kpt and Nephio Authors
+// Copyright 2022, 2024-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -198,9 +198,11 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 	}
 	if renderStatus != nil {
 		created.Status.RenderStatus = *renderStatus
+		if err := r.setRenderStatus(ctx, rev, renderStatus); err != nil {
+			klog.Warningf("Failed to store render status: %v", err)
+		}
 	}
-
-	klog.Infof("Update operation completed for packagerevisionresources: %s", name)
+    klog.Infof("Update operation completed for packagerevisionresources: %s", name)
 
 	return created, false, nil
 }
@@ -225,4 +227,16 @@ func (r *packageRevisionResources) Watch(ctx context.Context, options *metainter
 	return createGenericWatch(ctx, r, *filter, func(ctx context.Context, pr repository.PackageRevision) (runtime.Object, error) {
 		return pr.GetResources(ctx)
 	}, options)
+}
+
+func (r *packageRevisionResources) setRenderStatus(ctx context.Context, pr repository.PackageRevision, renderStatus *porchapi.RenderStatus) error {
+	type renderStatusSetter interface {
+		SetRenderStatus(*porchapi.RenderStatus)
+		SaveRenderStatus(context.Context) error
+	}
+	if rs, ok := pr.(renderStatusSetter); ok {
+		rs.SetRenderStatus(renderStatus)
+		return rs.SaveRenderStatus(ctx)
+	}
+	return nil
 }

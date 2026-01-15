@@ -1,4 +1,4 @@
-// Copyright 2022, 2025 The kpt and Nephio Authors
+// Copyright 2022, 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package fake
 import (
 	"context"
 
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,10 +26,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-// MemoryMetadataStore is an in-memory implementation of the MetadataStore interface. It
+// MemoryMetadataStore is an in-memory implementation of the  interface. It
 // means metadata about packagerevisions will be stored in memory, which is useful for testing.
 type MemoryMetadataStore struct {
-	Metas []metav1.ObjectMeta
+	Metas          []metav1.ObjectMeta
+	RenderStatuses map[string]*porchapi.RenderStatus
 }
 
 var _ meta.MetadataStore = &MemoryMetadataStore{}
@@ -96,4 +98,13 @@ func (m *MemoryMetadataStore) Delete(ctx context.Context, namespacedName types.N
 	}
 	m.Metas = metas
 	return deletedMeta, nil
+}
+
+func (m *MemoryMetadataStore) UpdateStatus(ctx context.Context, namespacedName types.NamespacedName, renderStatus *porchapi.RenderStatus) error {
+	if m.RenderStatuses == nil {
+		m.RenderStatuses = make(map[string]*porchapi.RenderStatus)
+	}
+	key := namespacedName.Namespace + "/" + namespacedName.Name
+	m.RenderStatuses[key] = renderStatus
+	return nil
 }

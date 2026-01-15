@@ -1,4 +1,4 @@
-// Copyright 2022, 2024-2025 The kpt and Nephio Authors
+// Copyright 2022, 2024-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@ type cachedPackageRevision struct {
 	repository.PackageRevision
 	metadataStore    meta.MetadataStore
 	isLatestRevision bool
+	renderStatus     *porchapi.RenderStatus
 	mutex            sync.Mutex
 }
 
@@ -70,6 +71,9 @@ func (c *cachedPackageRevision) GetPackageRevision(ctx context.Context) (*porcha
 	apiPR.Labels = c.GetMeta().Labels
 	c.mutex.Lock()
 	latest := c.isLatestRevision
+	if c.renderStatus != nil {
+		apiPR.Status.RenderStatus = c.renderStatus
+	}
 	c.mutex.Unlock()
 	if latest {
 		// copy the labels in case the cached object is being read by another go routine
@@ -104,4 +108,29 @@ func (c *cachedPackageRevision) SetMeta(ctx context.Context, pkgRevMeta metav1.O
 
 func (c *cachedPackageRevision) IsLatestRevision() bool {
 	return c.isLatestRevision
+}
+
+func (c *cachedPackageRevision) SetRenderStatus(renderStatus *porchapi.RenderStatus) {
+	c.mutex.Lock()
+	c.renderStatus = renderStatus
+	c.mutex.Unlock()
+	if setter, ok := c.PackageRevision.(interface{ SetRenderStatus(*porchapi.RenderStatus) }); ok {
+		setter.SetRenderStatus(renderStatus)
+	}
+}
+
+func (c *cachedPackageRevision) SaveRenderStatus(ctx context.Context) error {
+	if saver, ok := c.PackageRevision.(interface{ SaveRenderStatus(context.Context) error }); ok {
+		return saver.SaveRenderStatus(ctx)
+	}
+	c.mutex.Lock()
+	renderStatus := c.renderStatus
+	c.mutex.Unlock()
+	if renderStatus != nil {
+		return c.metadataStore.UpdateStatus(ctx, types.NamespacedName{
+			Name:      c.KubeObjectName(),
+			Namespace: c.KubeObjectNamespace(),
+		}, renderStatus)
+	}
+	return nil
 }

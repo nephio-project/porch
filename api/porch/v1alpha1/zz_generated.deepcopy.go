@@ -481,6 +481,11 @@ func (in *PackageRevisionStatus) DeepCopyInto(out *PackageRevisionStatus) {
 		*out = make([]Condition, len(*in))
 		copy(*out, *in)
 	}
+	if in.RenderStatus != nil {
+		in, out := &in.RenderStatus, &out.RenderStatus
+		*out = new(RenderStatus)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 
