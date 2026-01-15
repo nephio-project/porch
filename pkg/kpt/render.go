@@ -21,8 +21,8 @@ import (
 	"os"
 
 	fnresult "github.com/kptdev/kpt/pkg/api/fnresult/v1"
+	"github.com/kptdev/kpt/pkg/lib/pkg"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
-	"github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/internal/kpt/util/render"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
 	"github.com/nephio-project/porch/pkg/kpt/printer"

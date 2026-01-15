@@ -23,12 +23,11 @@ import (
 	"testing"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
-	"github.com/nephio-project/porch/internal/kpt/pkg"
-	pkgtest "github.com/nephio-project/porch/internal/kpt/pkg/testing"
+	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
+	pkgtest "github.com/kptdev/kpt/pkg/lib/pkg/testing"
 	"github.com/nephio-project/porch/internal/kpt/testutil"
 	"github.com/nephio-project/porch/internal/kpt/testutil/pkgbuilder"
 	. "github.com/nephio-project/porch/internal/kpt/util/update"
-	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
 	"github.com/nephio-project/porch/pkg/kpt/printer/fake"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/kustomize/kyaml/copyutil"
@@ -269,7 +268,7 @@ func TestCommand_Run_localPackageChanges(t *testing.T) {
 			expectedErr: "local package files have been modified",
 			expectedCommit: func(writer *testutil.TestSetupManager) (string, error) {
 				upstreamRepo := writer.Repos[testutil.Upstream]
-				f, err := pkg.ReadKptfile(filesys.FileSystemOrOnDisk{}, filepath.Join(writer.LocalWorkspace.WorkspaceDirectory, upstreamRepo.RepoName))
+				f, err := kptfileutil.ReadKptfile(filesys.FileSystemOrOnDisk{}, filepath.Join(writer.LocalWorkspace.WorkspaceDirectory, upstreamRepo.RepoName))
 				if err != nil {
 					return "", err
 				}
@@ -2046,7 +2045,7 @@ func TestCommand_Run_local_subpackages(t *testing.T) {
 
 				expectedPath := result.expectedLocal.ExpandPkgWithName(t,
 					g.LocalWorkspace.PackageDir, testutil.ToReposInfo(g.Repos))
-				kf, err := pkg.ReadKptfile(filesys.FileSystemOrOnDisk{}, expectedPath)
+				kf, err := kptfileutil.ReadKptfile(filesys.FileSystemOrOnDisk{}, expectedPath)
 				if !assert.NoError(t, err) {
 					t.FailNow()
 				}

@@ -19,13 +19,13 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
-    goruntime "runtime"
-    "strings"
+	goruntime "runtime"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/kptdev/kpt/pkg/lib/pkg"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
-	"github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/internal/kpt/util/render"
 	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"github.com/nephio-project/porch/pkg/kpt/printer/fake"
@@ -118,34 +118,34 @@ func TestPackagePrinter(t *testing.T) {
 }
 
 func TestPrinterLoggingDepth(t *testing.T) {
-    flag.Set("logtostderr", "false")
+	flag.Set("logtostderr", "false")
 
-    var buf bytes.Buffer
-    klog.SetOutput(&buf)
+	var buf bytes.Buffer
+	klog.SetOutput(&buf)
 
-    _, filename, _, _ := goruntime.Caller(0)
-    expectedFile := filepath.Base(filename)
+	_, filename, _, _ := goruntime.Caller(0)
+	expectedFile := filepath.Base(filename)
 
-    p := &packagePrinter{}
+	p := &packagePrinter{}
 
-    tests := []struct {
-        name string
-        fn   func()
-    }{
-        {"Printf", func() { p.Printf("Printf test: %d", 42) }},
-        {"OptPrintf", func() { p.OptPrintf(&printer.Options{}, "OptPrintf test: %d", 42) }},
-        {"PrintPackage", func() { p.PrintPackage(&pkg.Pkg{}, false) }},
-    }
+	tests := []struct {
+		name string
+		fn   func()
+	}{
+		{"Printf", func() { p.Printf("Printf test: %d", 42) }},
+		{"OptPrintf", func() { p.OptPrintf(&printer.Options{}, "OptPrintf test: %d", 42) }},
+		{"PrintPackage", func() { p.PrintPackage(&pkg.Pkg{}, false) }},
+	}
 
-    for _, test := range tests {
-        t.Run(test.name, func(t *testing.T) {
-            buf.Reset()
-            test.fn()
-            klog.Flush()
-            got := buf.String()
-            if !strings.Contains(got, expectedFile) {
-                t.Errorf("%s depth incorrect, expected %s in: %s", test.name, expectedFile, got)
-            }
-        })
-    }
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			buf.Reset()
+			test.fn()
+			klog.Flush()
+			got := buf.String()
+			if !strings.Contains(got, expectedFile) {
+				t.Errorf("%s depth incorrect, expected %s in: %s", test.name, expectedFile, got)
+			}
+		})
+	}
 }

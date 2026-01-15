@@ -15,11 +15,11 @@
 package update
 
 import (
+	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
 	"github.com/kptdev/kpt/pkg/lib/errors"
+	"github.com/kptdev/kpt/pkg/lib/pkg"
 	"github.com/kptdev/kpt/pkg/lib/types"
-	"github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/internal/kpt/util/pkgutil"
-	"github.com/nephio-project/porch/pkg/kpt/kptfileutil"
 )
 
 // CopyMergeUpdater is responsible for synchronizing the destination package

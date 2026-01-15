@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/nephio-project/porch/internal/kpt/pkg"
+	"github.com/kptdev/kpt/pkg/lib/pkg"
 )
 
 func TestOptPrintf_WithDisplayPath(t *testing.T) {

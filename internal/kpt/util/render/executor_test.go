@@ -22,9 +22,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kptdev/kpt/pkg/lib/pkg"
 	"github.com/kptdev/kpt/pkg/lib/types"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
-	"github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/kustomize/kyaml/filesys"

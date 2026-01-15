@@ -19,13 +19,13 @@ import (
 	"strings"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
-	internalpkg "github.com/nephio-project/porch/internal/kpt/pkg"
+	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
 // TODO: Accept a virtual filesystem or other package abstraction
 func UpdateUpstream(kptfileContents string, name string, upstream kptfilev1.Upstream, lock kptfilev1.UpstreamLock) (string, error) {
-	kptfile, err := internalpkg.DecodeKptfile(strings.NewReader(kptfileContents))
+	kptfile, err := kptfileutil.DecodeKptfile(strings.NewReader(kptfileContents))
 	if err != nil {
 		return "", fmt.Errorf("cannot parse Kptfile: %w", err)
 	}
@@ -50,7 +50,7 @@ func UpdateUpstream(kptfileContents string, name string, upstream kptfilev1.Upst
 }
 
 func UpdateName(kptfileContents string, name string) (string, error) {
-	kptfile, err := internalpkg.DecodeKptfile(strings.NewReader(kptfileContents))
+	kptfile, err := kptfileutil.DecodeKptfile(strings.NewReader(kptfileContents))
 	if err != nil {
 		return "", fmt.Errorf("cannot parse Kptfile: %w", err)
 	}
