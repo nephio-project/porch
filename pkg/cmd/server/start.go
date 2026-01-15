@@ -165,6 +165,21 @@ func (o PorchServerOptions) validateDeploymentMode() error {
 	return nil
 }
 
+// applyLegacySyncDefaults applies smart defaults for use-legacy-sync based on cache type
+func (o *PorchServerOptions) applyLegacySyncDefaults() {
+	if !o.UseLegacySyncSet {
+		if o.CacheType == string(cachetypes.DBCacheType) {
+			// DB cache: default to legacy sync (no standalone controller required)
+			o.UseLegacySync = true
+			klog.Infof("Defaulting to legacy sync for DB cache (set --use-legacy-sync=false to use controller-based sync with standalone controller)")
+		} else {
+			// CR cache: default to controller-based sync (embedded controller available)
+			o.UseLegacySync = false
+			klog.Infof("Defaulting to controller-based sync for CR cache (embedded controller)")
+		}
+	}
+}
+
 // Complete fills in fields required to have valid data
 func (o *PorchServerOptions) Complete() error {
 	o.CoreAPIKubeconfigPath = o.RecommendedOptions.CoreAPI.CoreAPIKubeconfigPath
@@ -195,17 +210,7 @@ func (o *PorchServerOptions) Complete() error {
 	o.CacheType = strings.ToUpper(o.CacheType)
 
 	// Apply smart defaults for use-legacy-sync based on cache type if not explicitly set
-	if !o.UseLegacySyncSet {
-		if o.CacheType == string(cachetypes.DBCacheType) {
-			// DB cache: default to legacy sync (no standalone controller required)
-			o.UseLegacySync = true
-			klog.Infof("Defaulting to legacy sync for DB cache (set --use-legacy-sync=false to use controller-based sync with standalone controller)")
-		} else {
-			// CR cache: default to controller-based sync (embedded controller available)
-			o.UseLegacySync = false
-			klog.Infof("Defaulting to controller-based sync for CR cache (embedded controller)")
-		}
-	}
+	o.applyLegacySyncDefaults()
 
 	if o.CacheType == string(cachetypes.DBCacheType) {
 		if err := o.setupDBCacheConn(); err != nil {

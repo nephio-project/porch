@@ -115,3 +115,84 @@ func TestSetupDBCacheConn(t *testing.T) {
 	assert.Equal(t, "pgx", opts.DbCacheDriver)
 	assert.Equal(t, "postgres://db-user@db-host:db-port/db-name?sslmode=verify-full", opts.DbCacheDataSource)
 }
+
+
+func TestValidateDeploymentMode(t *testing.T) {
+	tests := []struct {
+		name          string
+		useLegacySync bool
+	}{
+		{
+			name:          "legacy sync enabled",
+			useLegacySync: true,
+		},
+		{
+			name:          "legacy sync disabled",
+			useLegacySync: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := PorchServerOptions{
+				UseLegacySync: tt.useLegacySync,
+			}
+			err := opts.validateDeploymentMode()
+			assert.Nil(t, err)
+		})
+	}
+}
+
+
+func TestApplyLegacySyncDefaults(t *testing.T) {
+	tests := []struct {
+		name              string
+		cacheType         string
+		useLegacySyncSet  bool
+		initialLegacySync bool
+		expectedLegacySync bool
+	}{
+		{
+			name:              "DB cache - defaults to legacy sync",
+			cacheType:         "DB",
+			useLegacySyncSet:  false,
+			expectedLegacySync: true,
+		},
+		{
+			name:              "CR cache - defaults to controller-based sync",
+			cacheType:         "CR",
+			useLegacySyncSet:  false,
+			expectedLegacySync: false,
+		},
+		{
+			name:              "explicitly set - no change for DB",
+			cacheType:         "DB",
+			useLegacySyncSet:  true,
+			initialLegacySync: false,
+			expectedLegacySync: false,
+		},
+		{
+			name:              "explicitly set - no change for CR",
+			cacheType:         "CR",
+			useLegacySyncSet:  true,
+			initialLegacySync: true,
+			expectedLegacySync: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := &PorchServerOptions{
+				CacheType:        tt.cacheType,
+				UseLegacySyncSet: tt.useLegacySyncSet,
+				UseLegacySync:    tt.initialLegacySync,
+			}
+
+			opts.applyLegacySyncDefaults()
+
+			if opts.UseLegacySync != tt.expectedLegacySync {
+				t.Errorf("expected UseLegacySync %v, got %v", tt.expectedLegacySync, opts.UseLegacySync)
+			}
+		})
+	}
+}
