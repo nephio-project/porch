@@ -19,8 +19,8 @@ import (
 
 	"github.com/kptdev/kpt/pkg/fn"
 	"github.com/kptdev/kpt/pkg/lib/fnruntime"
+	"github.com/kptdev/kpt/pkg/lib/kpt"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
-	"github.com/nephio-project/porch/pkg/kpt"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 

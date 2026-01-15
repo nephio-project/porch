@@ -20,9 +20,9 @@ import (
 	"time"
 
 	"github.com/kptdev/kpt/pkg/lib/errors"
-	"github.com/kptdev/kpt/pkg/lib/options"
+	"github.com/kptdev/kpt/pkg/lib/util/cmdutil"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/util/porch"
+	porch "github.com/nephio-project/porch/internal/clliutils"
 	"github.com/nephio-project/porch/pkg/cli/commands/repo/docs"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,7 +43,7 @@ func NewCommand(ctx context.Context, rcg *genericclioptions.ConfigFlags) *cobra.
 func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner {
 	r := &runner{
 		ctx:        ctx,
-		getFlags:   options.Get{ConfigFlags: rcg},
+		getFlags:   cmdutil.Options{ConfigFlags: rcg},
 		printFlags: get.NewGetPrintFlags(),
 	}
 	c := &cobra.Command{
@@ -54,7 +54,7 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 		Example: docs.SyncExamples,
 		PreRunE: r.preRunE,
 		RunE:    r.runE,
-		Hidden:  porch.HidePorchCommands,
+		Hidden:  cliutil.HidePorchCommands,
 	}
 	r.Command = c
 
@@ -70,7 +70,7 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 type runner struct {
 	ctx        context.Context
 	Command    *cobra.Command
-	getFlags   options.Get
+	getFlags   cmdutil.Options
 	printFlags *get.PrintFlags
 	client     client.Client
 }
