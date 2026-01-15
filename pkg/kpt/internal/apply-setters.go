@@ -17,7 +17,7 @@ package internal
 import (
 	"fmt"
 
-	function "github.com/nephio-project/porch/third_party/kptdev/krm-functions-catalog/functions/go/applysetters"
+	function "github.com/kptdev/krm-functions-catalog/functions/go/apply-setters/applysetters"
 	"sigs.k8s.io/kustomize/kyaml/fn/framework"
 )
 
