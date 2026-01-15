@@ -43,9 +43,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	"github.com/nephio-project/porch/controllers/packagevariants/pkg/controllers/packagevariant"
 	"github.com/nephio-project/porch/controllers/packagevariantsets/pkg/controllers/packagevariantset"
+	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	"github.com/nephio-project/porch/controllers/repositories/pkg/controllers/repository"
 	"github.com/nephio-project/porch/pkg/controllerrestmapper"
 	//+kubebuilder:scaffold:imports

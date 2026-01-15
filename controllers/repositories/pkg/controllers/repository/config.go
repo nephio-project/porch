@@ -24,8 +24,8 @@ import (
 // InitDefaults initializes default values for standalone controller
 func (r *RepositoryReconciler) InitDefaults() {
 	// Controller behavior defaults
-	r.MaxConcurrentReconciles = 100  // High: reconcile is lightweight
-	r.MaxConcurrentSyncs = 50        // Limited by git cache locks (per-repo serialization)
+	r.MaxConcurrentReconciles = 100 // High: reconcile is lightweight
+	r.MaxConcurrentSyncs = 50       // Limited by git cache locks (per-repo serialization)
 	r.HealthCheckFrequency = 5 * time.Minute
 	r.FullSyncFrequency = 1 * time.Hour
 	r.SyncStaleTimeout = 20 * time.Minute

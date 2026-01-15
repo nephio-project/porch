@@ -21,7 +21,7 @@ func (r *RepositoryReconciler) createCacheFromEnv(ctx context.Context, mgr ctrl.
 	if strings.ToUpper(r.cacheType) == string(cachetypes.CRCacheType) {
 		return fmt.Errorf("standalone controller requires DB cache")
 	}
-	
+
 	coreClient, err := client.NewWithWatch(mgr.GetConfig(), client.Options{
 		Scheme: mgr.GetScheme(),
 	})
@@ -61,9 +61,9 @@ func (r *RepositoryReconciler) createCacheFromEnv(ctx context.Context, mgr ctrl.
 	userInfoProvider := &simpleUserInfoProvider{}
 
 	options := cachetypes.CacheOptions{
-		CoreClient:           coreClient,
-		CacheType:            cachetypes.CacheType(r.cacheType),
-		DBCacheOptions:       dbOptions,
+		CoreClient:     coreClient,
+		CacheType:      cachetypes.CacheType(r.cacheType),
+		DBCacheOptions: dbOptions,
 		ExternalRepoOptions: externalrepotypes.ExternalRepoOptions{
 			LocalDirectory:             cacheDir,
 			UseUserDefinedCaBundle:     r.useUserDefinedCaBundle,

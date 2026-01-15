@@ -18,24 +18,24 @@ import (
 // syncRepository performs repository synchronization
 func (r *RepositoryReconciler) syncRepository(ctx context.Context, repo *api.Repository) error {
 	log := log.FromContext(ctx)
-	
+
 	repoHandle, err := r.Cache.OpenRepository(ctx, repo)
 	if err != nil {
 		log.Error(err, "Failed to open repository for sync", "repository", repo.Name)
 		return err
 	}
-	
+
 	if err := repoHandle.Refresh(ctx); err != nil {
 		log.Error(err, "Repository refresh failed", "repository", repo.Name)
 		return err
 	}
-	
+
 	_, err = repoHandle.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	if err != nil {
 		log.Error(err, "Repository package listing failed", "repository", repo.Name)
 		return err
 	}
-	
+
 	log.Info("Repository sync completed successfully", "repository", repo.Name)
 	return nil
 }
@@ -58,7 +58,7 @@ func (r *RepositoryReconciler) determineSyncDecision(ctx context.Context, repo *
 	if r.isOneTimeSyncDue(repo) {
 		return SyncDecision{Type: FullSync, Needed: true, Interval: 0}
 	}
-	
+
 	// 2. Spec changed → Full sync immediately
 	if r.hasSpecChanged(repo) {
 		// If RunOnceAt is set but not yet due, wait for scheduled time
@@ -67,22 +67,22 @@ func (r *RepositoryReconciler) determineSyncDecision(ctx context.Context, repo *
 		}
 		return SyncDecision{Type: FullSync, Needed: true, Interval: 0}
 	}
-	
+
 	// 3. Error retry due → Full sync
 	if r.isErrorRetryDue(repo) {
 		return SyncDecision{Type: FullSync, Needed: true, Interval: 0}
 	}
-	
+
 	// 4. Full sync due → Full sync
 	if r.isFullSyncDue(repo) {
 		return SyncDecision{Type: FullSync, Needed: true, Interval: 0}
 	}
-	
+
 	// 5. Health check due → Health check
 	if r.isHealthCheckDue(repo) {
 		return SyncDecision{Type: HealthCheck, Needed: true, Interval: 0}
 	}
-	
+
 	// Nothing needed, return next check interval
 	return SyncDecision{Type: HealthCheck, Needed: false, Interval: r.getRequeueInterval(repo)}
 }
@@ -139,18 +139,18 @@ func (r *RepositoryReconciler) isFullSyncDue(repo *api.Repository) bool {
 	if repo.Spec.Sync != nil && repo.Spec.Sync.RunOnceAt != nil && time.Now().Before(repo.Spec.Sync.RunOnceAt.Time) {
 		return false
 	}
-	
+
 	for _, condition := range repo.Status.Conditions {
 		if condition.Type == api.RepositoryReady && condition.Status == metav1.ConditionFalse && condition.Reason == api.ReasonError {
 			return false
 		}
 	}
-	
+
 	lastFullSync := r.getLastFullSyncTime(repo)
 	if lastFullSync.IsZero() {
 		return true
 	}
-	
+
 	if repo.Spec.Sync != nil && repo.Spec.Sync.Schedule != "" {
 		schedule, err := cron.ParseStandard(repo.Spec.Sync.Schedule)
 		if err != nil {
@@ -160,7 +160,7 @@ func (r *RepositoryReconciler) isFullSyncDue(repo *api.Repository) bool {
 		next := schedule.Next(lastFullSync)
 		return time.Now().After(next)
 	}
-	
+
 	return time.Since(lastFullSync) >= r.FullSyncFrequency
 }
 
@@ -171,7 +171,7 @@ func (r *RepositoryReconciler) isHealthCheckDue(repo *api.Repository) bool {
 			return false
 		}
 	}
-	
+
 	lastUpdate := r.getLastStatusUpdateTime(repo)
 	if lastUpdate.IsZero() {
 		return true
@@ -308,7 +308,7 @@ func (r *RepositoryReconciler) determineRetryInterval(err error) time.Duration {
 	case strings.Contains(errStr, "no such host"), strings.Contains(errStr, "connection refused"):
 		return 30 * time.Second
 	case strings.Contains(errStr, "authentication"), strings.Contains(errStr, "permission denied"),
-		 strings.Contains(errStr, "failed to resolve credentials"), strings.Contains(errStr, "resolved credentials are invalid"):
+		strings.Contains(errStr, "failed to resolve credentials"), strings.Contains(errStr, "resolved credentials are invalid"):
 		return 10 * time.Minute
 	case strings.Contains(errStr, "not found"), strings.Contains(errStr, "invalid"), strings.Contains(errStr, "branch"):
 		return 2 * time.Minute

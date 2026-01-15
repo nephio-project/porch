@@ -53,7 +53,7 @@ func createEmbeddedController(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create controller manager: %w", err)
 	}
-	
+
 	return &EmbeddedControllerManager{
 		coreClient: coreClient,
 		mgr:        mgr,
@@ -69,27 +69,27 @@ func (e *EmbeddedControllerManager) Start(ctx context.Context) error {
 		Cache:  e.cache,
 	}
 	repoController.SetEmbeddedDefaults(e.config)
-	
+
 	if err := repoController.SetupWithManager(e.mgr); err != nil {
 		return fmt.Errorf("failed to setup controller: %w", err)
 	}
-	
+
 	// Initialize existing repositories (may no monger be required)
 	//go e.initializeRepositories(ctx)
-	
+
 	return e.mgr.Start(ctx)
 }
 
 func (e *EmbeddedControllerManager) initializeRepositories(ctx context.Context) {
 	time.Sleep(2 * time.Second)
 	klog.Info("Initializing existing repositories")
-	
+
 	repos := &configapi.RepositoryList{}
 	if err := e.coreClient.List(ctx, repos); err != nil {
 		klog.Error(err, "Failed to list repositories")
 		return
 	}
-	
+
 	klog.Infof("Found %d repositories to initialize", len(repos.Items))
 	for _, repo := range repos.Items {
 		if _, err := e.cache.OpenRepository(ctx, &repo); err != nil {
