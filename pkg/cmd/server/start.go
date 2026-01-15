@@ -70,10 +70,14 @@ type PorchServerOptions struct {
 	RepoSyncFrequency          time.Duration
 	RepoOperationRetryAttempts int
 	RetryableGitErrors         []string // Additional retryable git error patterns
+	RepoMaxConcurrentReconciles int
+	RepoMaxConcurrentSyncs      int
+	RepoHealthCheckFrequency    time.Duration
+	RepoFullSyncFrequency       time.Duration
 	SharedInformerFactory      informers.SharedInformerFactory
 	StdOut                     io.Writer
 	StdErr                     io.Writer
-	EnableSyncEvents           bool
+	UseLegacySync              bool
 	UseUserDefinedCaBundle     bool
 }
 
@@ -136,11 +140,24 @@ func (o PorchServerOptions) Validate(args []string) error {
 		errors = append(errors, fmt.Errorf("specified cache-type %s is not supported", o.CacheType))
 	}
 
+	// Validate deployment mode constraints
+	if err := o.validateDeploymentMode(); err != nil {
+		errors = append(errors, err)
+	}
+
 	if o.MaxConcurrentLists < 0 {
 		return fmt.Errorf("invalid value for max-parallel-repo-lists: 0 for no limit; > 0 for set limit")
 	}
 
 	return utilerrors.NewAggregate(errors)
+}
+
+// validateDeploymentMode validates the deployment mode configuration
+func (o PorchServerOptions) validateDeploymentMode() error {
+	if o.UseLegacySync {
+		klog.Warningf("Legacy sync mode is deprecated")
+	}
+	return nil
 }
 
 // Complete fills in fields required to have valid data
@@ -301,9 +318,15 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 					DataSource: o.DbCacheDataSource,
 				},
 			},
+			RepoControllerConfig: apiserver.RepoControllerConfig{
+				MaxConcurrentReconciles: o.RepoMaxConcurrentReconciles,
+				MaxConcurrentSyncs:      o.RepoMaxConcurrentSyncs,
+				HealthCheckFrequency:    o.RepoHealthCheckFrequency,
+				FullSyncFrequency:       o.RepoFullSyncFrequency,
+			},
 			ListTimeoutPerRepository: o.ListTimeoutPerRepository,
 			MaxConcurrentLists:       o.MaxConcurrentLists,
-			EnableSyncEvents:         o.EnableSyncEvents,
+			UseLegacySync:         o.UseLegacySync,
 		},
 	}
 	return config, nil
@@ -358,6 +381,10 @@ func (o *PorchServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.DurationVar(&o.RepoSyncFrequency, "repo-sync-frequency", 10*time.Minute, "Frequency at which registered repository CRs will be synced.")
 	fs.IntVar(&o.RepoOperationRetryAttempts, "repo-operation-retry-attempts", 3, "Number of retry attempts for repository operations.")
 	fs.StringSliceVar(&o.RetryableGitErrors, "retryable-git-errors", nil, "Additional retryable git error patterns. Can be specified multiple times or as comma-separated values.")
-	fs.BoolVar(&o.EnableSyncEvents, "enable-sync-events", false, "Enable sync event creation for repository status communication (default: direct status updates).")
+	fs.IntVar(&o.RepoMaxConcurrentReconciles, "repo-max-concurrent-reconciles", 100, "Maximum number of repository reconciliations to run concurrently.")
+	fs.IntVar(&o.RepoMaxConcurrentSyncs, "repo-max-concurrent-syncs", 50, "Maximum number of repository syncs to run concurrently.")
+	fs.DurationVar(&o.RepoHealthCheckFrequency, "repo-health-check-frequency", 5*time.Minute, "Frequency at which repository health checks are performed.")
+	fs.DurationVar(&o.RepoFullSyncFrequency, "repo-full-sync-frequency", 1*time.Hour, "Frequency at which full repository syncs are performed.")
+	fs.BoolVar(&o.UseLegacySync, "use-legacy-sync", false, "Use legacy sync mode (deprecated).")
 	fs.BoolVar(&o.UseUserDefinedCaBundle, "use-user-cabundle", false, "Determine whether to use a user-defined CaBundle for TLS towards the repository system.")
 }
