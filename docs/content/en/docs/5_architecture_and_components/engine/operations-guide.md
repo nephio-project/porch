@@ -9,14 +9,6 @@ This section covers operational aspects of the Engine including performance cons
 
 ## Performance Considerations
 
-### Operation Latency
-
-**Typical latencies**:
-- **List**: 10-100ms (served from cache)
-- **Create**: 500ms-2s (includes Git operations)
-- **Update**: 500ms-2s (includes Git operations)
-- **Delete**: 200ms-1s (Git delete)
-
 **Factors affecting performance**:
 - Git repository size and location
 - Network latency to Git/OCI
@@ -61,13 +53,6 @@ Balance between reliability and latency:
 ```go
 engine.WithRepoOperationRetryAttempts(3) // Default: 5
 ```
-
-### Scalability
-
-**Horizontal scaling**:
-- Engine is stateless
-- Multiple Porch Server replicas can run concurrently
-- Cache layer provides consistency
 
 **Bottlenecks**:
 - Git repository operations (sequential per package)
