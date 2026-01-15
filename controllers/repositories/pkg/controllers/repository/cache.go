@@ -3,70 +3,147 @@ package repository
 import (
 	"context"
 	"fmt"
+	"net"
+	"os"
+	"strings"
 
 	"github.com/nephio-project/porch/pkg/cache"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/registry/porch"
 	"github.com/nephio-project/porch/pkg/repository"
-	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// createDBCache creates a database cache instance for standalone controller with sync events
-func (r *RepositoryReconciler) createDBCache(ctx context.Context, mgr ctrl.Manager) error {
-	log := ctrl.LoggerFrom(ctx)
-	log.V(1).Info("Initializing database cache for repository controller")
+func (r *RepositoryReconciler) createCacheFromEnv(ctx context.Context, mgr ctrl.Manager) error {
+	if strings.ToUpper(r.cacheType) == string(cachetypes.CRCacheType) {
+		return fmt.Errorf("standalone controller requires DB cache")
+	}
 	
-	// Create WithWatch client from manager's config
 	coreClient, err := client.NewWithWatch(mgr.GetConfig(), client.Options{
 		Scheme: mgr.GetScheme(),
 	})
 	if err != nil {
-		log.Error(err, "Failed to create WithWatch client for database cache")
-		return fmt.Errorf("failed to create WithWatch client: %w", err)
+		return fmt.Errorf("failed to create client: %w", err)
 	}
 
-	dataSource := fmt.Sprintf("host=%s port=%s dbname=%s user=%s password=%s sslmode=disable",
-		r.dbHost, r.dbPort, r.dbName, r.dbUser, r.dbPassword)
-	log.V(2).Info("Database connection configured", "host", r.dbHost, "port", r.dbPort, "dbname", r.dbName)
+	// Read DB configuration from environment variables
+	dbOptions, err := r.setupDBCacheOptionsFromEnv()
+	if err != nil {
+		return fmt.Errorf("failed to setup DB cache options: %w", err)
+	}
 
-	// Create no-op change notifier for repository controller
-	noOpNotifier := &noOpRepoPRChangeNotifier{}
+	// Setup cache directory for git repositories
+	// Priority: 1. Env var, 2. User cache dir, 3. Temp dir
+	cacheDir := os.Getenv("GIT_CACHE_DIR")
+	if cacheDir == "" {
+		var err error
+		cacheDir, err = os.UserCacheDir()
+		if err != nil {
+			cacheDir = os.TempDir()
+			klog.Warningf("Cannot find user cache directory, using temporary directory %q", cacheDir)
+		}
+		cacheDir = cacheDir + "/porch-repo-controller"
+	}
+	klog.Infof("[Repository Controller] Using git cache directory: %s", cacheDir)
+
+	// Create credential resolver for git authentication
+	resolverChain := []porch.Resolver{
+		porch.NewBasicAuthResolver(),
+		porch.NewBearerTokenAuthResolver(),
+	}
+	credentialResolver := porch.NewCredentialResolver(coreClient, resolverChain)
+	caBundleResolver := porch.NewCredentialResolver(coreClient, []porch.Resolver{porch.NewCaBundleResolver()})
+
+	// Simple user info provider for standalone controller
+	userInfoProvider := &simpleUserInfoProvider{}
 
 	options := cachetypes.CacheOptions{
-		CoreClient:         coreClient,
-		CacheType:          cachetypes.DBCacheType,
-		EnableSyncEvents:   true, // Enable sync events for standalone controller
-		RepoPRChangeNotifier: noOpNotifier,
+		CoreClient:           coreClient,
+		CacheType:            cachetypes.CacheType(r.cacheType),
+		DBCacheOptions:       dbOptions,
 		ExternalRepoOptions: externalrepotypes.ExternalRepoOptions{
-			CredentialResolver: porch.NewCredentialResolver(coreClient, []porch.Resolver{
-				porch.NewBasicAuthResolver(),
-				porch.NewBearerTokenAuthResolver(),
-			}),
-			RepoOperationRetryAttempts: 3,
+			LocalDirectory:             cacheDir,
+			UseUserDefinedCaBundle:     r.useUserDefinedCaBundle,
+			CredentialResolver:         credentialResolver,
+			CaBundleResolver:           caBundleResolver,
+			UserInfoProvider:           userInfoProvider,
+			RepoOperationRetryAttempts: r.RepoOperationRetryAttempts,
 		},
-		DBCacheOptions: cachetypes.DBCacheOptions{
-			Driver:     r.dbDriver,
-			DataSource: dataSource,
-		},
+		RepoPRChangeNotifier: cachetypes.NewNoOpRepoPRChangeNotifier(),
+		UseLegacySync:        false, // Controllers handle sync
 	}
 
-	cacheImpl, err := cache.GetCacheImpl(ctx, options)
-	if err != nil {
-		log.Error(err, "Failed to initialize database cache", "driver", r.dbDriver)
-		return fmt.Errorf("failed to create database cache: %w", err)
-	}
-
-	r.Cache = cacheImpl
-	log.Info("Database cache initialized successfully")
-	return nil
+	r.Cache, err = cache.GetCacheImpl(ctx, options)
+	return err
 }
-// noOpRepoPRChangeNotifier is a no-op implementation for repository controller
-type noOpRepoPRChangeNotifier struct{}
 
-func (n *noOpRepoPRChangeNotifier) NotifyPackageRevisionChange(eventType watch.EventType, obj repository.PackageRevision) int {
-	// Repository controller doesn't need to notify itself
-	return 0
+func (r *RepositoryReconciler) setupDBCacheOptionsFromEnv() (cachetypes.DBCacheOptions, error) {
+	dbDriver := os.Getenv("DB_DRIVER")
+	dbHost := os.Getenv("DB_HOST")
+	dbPort := os.Getenv("DB_PORT")
+	dbName := os.Getenv("DB_NAME")
+	dbUser := os.Getenv("DB_USER")
+	dbUserPass := os.Getenv("DB_PASSWORD")
+	dbSSLMode := strings.ToLower(os.Getenv("DB_SSL_MODE"))
+
+	if dbDriver == "" {
+		dbDriver = "pgx"
+		klog.Infof("[Repository Controller] DB_DRIVER not provided, defaulting to: %v", dbDriver)
+	}
+
+	missingVars := []string{}
+	if dbHost == "" {
+		missingVars = append(missingVars, "DB_HOST")
+	}
+	if dbPort == "" {
+		missingVars = append(missingVars, "DB_PORT")
+	}
+	if dbName == "" {
+		missingVars = append(missingVars, "DB_NAME")
+	}
+	if dbUser == "" {
+		missingVars = append(missingVars, "DB_USER")
+	}
+	if dbSSLMode == "" || dbSSLMode == "disable" {
+		if dbUserPass == "" {
+			missingVars = append(missingVars, "DB_PASSWORD")
+		}
+	}
+
+	if len(missingVars) > 0 {
+		return cachetypes.DBCacheOptions{}, fmt.Errorf("missing required environment variables: %v", missingVars)
+	}
+
+	// Build connection string
+	var connStr string
+	switch dbDriver {
+	case "pgx":
+		if dbSSLMode == "" || dbSSLMode == "disable" {
+			connStr = fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", dbUser, dbUserPass, net.JoinHostPort(dbHost, dbPort), dbName)
+		} else {
+			connStr = fmt.Sprintf("postgres://%s@%s/%s?sslmode=%s", dbUser, net.JoinHostPort(dbHost, dbPort), dbName, dbSSLMode)
+		}
+	case "mysql":
+		connStr = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", dbUser, dbUserPass, dbHost, dbPort, dbName)
+	default:
+		return cachetypes.DBCacheOptions{}, fmt.Errorf("unsupported DB driver: %s", dbDriver)
+	}
+
+	return cachetypes.DBCacheOptions{
+		Driver:     dbDriver,
+		DataSource: connStr,
+	}, nil
+}
+
+// simpleUserInfoProvider provides default user info for git commits
+type simpleUserInfoProvider struct{}
+
+func (p *simpleUserInfoProvider) GetUserInfo(ctx context.Context) *repository.UserInfo {
+	return &repository.UserInfo{
+		Name:  "porch-controller",
+		Email: "porch-controller@kpt.dev",
+	}
 }
