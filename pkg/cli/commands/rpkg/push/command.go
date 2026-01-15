@@ -187,7 +187,7 @@ func (r *runner) printFnResult(fnResult *porchapi.Result, opt *printer.Options) 
 			UseQuote:  false,
 			Separator: ", ",
 		}
-		r.printer.OptPrintf(opt, "%s \n", ri.String())
+		r.printer.OptPrintf(opt, "%s", ri.String())
 	}
 }
 
