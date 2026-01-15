@@ -29,7 +29,7 @@ import (
 // handleDeletion handles Repository deletion with timeout protection
 func (r *RepositoryReconciler) handleDeletion(ctx context.Context, repo *configapi.Repository) (ctrl.Result, error) {
 	log.FromContext(ctx).Info("Repository deletion started", "repository", repo.Name)
-	
+
 	deleteCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
@@ -43,7 +43,7 @@ func (r *RepositoryReconciler) handleDeletion(ctx context.Context, repo *configa
 	}
 
 	r.cleanupRepositoryCache(deleteCtx, repo, allRepos)
-	
+
 	if err := r.removeFinalizer(ctx, repo); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -64,7 +64,7 @@ func (r *RepositoryReconciler) getAllRepositories(ctx context.Context) ([]config
 func (r *RepositoryReconciler) cleanupRepositoryCache(ctx context.Context, repo *configapi.Repository, allRepos []configapi.Repository) {
 	log := log.FromContext(ctx)
 	log.Info("Closing repository cache", "repository", repo.Name, "totalRepos", len(allRepos))
-	
+
 	if err := r.Cache.CloseRepository(ctx, repo, allRepos); err != nil {
 		log.Error(err, "Failed to close repository cache", "repository", repo.Name)
 	} else {
