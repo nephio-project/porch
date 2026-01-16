@@ -1,4 +1,4 @@
-// Copyright 2022, 2026 The kpt and Nephio Authors
+// Copyright 2022 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -122,8 +122,6 @@ func setup(t *testing.T) (mockClient *mockclient.MockClient, mockEngine *mockeng
 		}
 		return nil
 	}).Maybe()
-	// Mock Get for PackageRev CRD (RenderStatus retrieval)
-	mockClient.On("Get", mock.Anything, mock.Anything, mock.AnythingOfType("*v1alpha1.PackageRev")).Return(nil).Maybe()
 
 	return
 }

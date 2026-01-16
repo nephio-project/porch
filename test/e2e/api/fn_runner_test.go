@@ -16,7 +16,8 @@ package api
 
 import (
 	"context"
-	"strings"
+    "fmt"
+    "strings"
 	"time"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -178,24 +179,9 @@ spec:
 	t.AddMutator(resources, t.KrmFunctionsRegistry+"/kubeconform:v0.1.1")
 
 	err := t.Client.Update(t.GetContext(), resources)
-	// The test verifies that kubeconform runs, but the validation result may vary
-	// depending on the kubeconform version and configuration
-	if err != nil {
-		t.Logf("Update returned error (validation failed): %v", err)
-	} else {
-		t.Logf("Update succeeded (validation may have passed or been captured in RenderStatus)")
-	}
-
-	// Verify RenderStatus is populated
-	updatedResources := &porchapi.PackageRevisionResources{}
-	t.GetF(client.ObjectKeyFromObject(resources), updatedResources)
-	if updatedResources.Status.RenderStatus.Err != "" || len(updatedResources.Status.RenderStatus.Result.Items) > 0 {
-		t.Logf("RenderStatus populated: Err=%q, ResultCount=%d",
-			updatedResources.Status.RenderStatus.Err,
-			len(updatedResources.Status.RenderStatus.Result.Items))
-	} else {
-		t.Logf("RenderStatus not populated (validation may have passed)")
-	}
+    if err != nil && resources.Status.RenderStatus.Err == "" {
+        t.Fatalf("expected error but got none")
+    }
 }
 
 func (t *PorchSuite) TestFailedPodEvictionAndRecovery() {
@@ -211,33 +197,23 @@ func (t *PorchSuite) TestFailedPodEvictionAndRecovery() {
 
 	err := t.Client.Update(t.GetContext(), prr)
 
-	// The update should succeed (render errors don't fail the API operation)
-	if err != nil {
-		t.Logf("Update returned error (this is acceptable): %v", err)
-	}
+    // Assert: no error returned but the packagerevisionstatus shows the function eval error
+    t.Require().Contains(prr.Status.RenderStatus.Err, fmt.Sprintf("pkg.render:\n\tpipeline.run: func eval \"%s\" failed", bogusFnImage))
+    t.Require().NoError(err)
 
-	// Verify RenderStatus captures the failure
-	updatedPrr := &porchapi.PackageRevisionResources{}
-	t.GetF(client.ObjectKeyFromObject(prr), updatedPrr)
-	if updatedPrr.Status.RenderStatus.Err != "" {
-		t.Logf("RenderStatus correctly captured error: %s", updatedPrr.Status.RenderStatus.Err)
-	} else {
-		t.Logf("RenderStatus not populated or no error captured")
-	}
+    // Optional: verify no stuck pods exist for the failed image
+    pods := &corev1.PodList{}
+    t.ListF(pods, client.InNamespace(t.Namespace))
 
-	// Optional: verify no stuck pods exist for the failed image
-	pods := &corev1.PodList{}
-	t.ListF(pods, client.InNamespace(t.Namespace))
-
-	for _, pod := range pods.Items {
-		if strings.Contains(pod.Spec.Containers[0].Image, "kpt-fn-broken") {
-			if pod.Status.Phase == corev1.PodFailed {
-				t.Logf("Found pod %s in Failed state (expected, cleanup should follow)", pod.Name)
-			} else {
-				t.Logf("Found pod %s in %s state", pod.Name, pod.Status.Phase)
-			}
-		}
-	}
+    for _, pod := range pods.Items {
+        if strings.Contains(pod.Spec.Containers[0].Image, "kpt-fn-broken") {
+            if pod.Status.Phase == corev1.PodFailed {
+                t.Logf("Found pod %s in Failed state (expected, cleanup should follow)", pod.Name)
+            } else {
+                t.Logf("Found pod %s in %s state", pod.Name, pod.Status.Phase)
+            }
+        }
+    }
 }
 
 type TestPackageSetupOptions struct {

@@ -56,3 +56,57 @@ commands:
       test-blueprints.basens.v2     basens    v2              2          false    Published   test-blueprints
       test-blueprints.basens.v3     basens    v3              3          false    Published   test-blueprints
       test-blueprints.basens.v4     basens    v4              4          true     Published   test-blueprints
+  - args:
+      - porchctl
+      - repo
+      - register
+      - --namespace=rpkg-get
+      - --name=git
+      - --repo-basic-password=secret
+      - --repo-basic-username=nephio
+      - http://gitea.gitea.svc.cluster.local:3000/nephio/rpkg-get
+  - args:
+      - porchctl
+      - rpkg
+      - init
+      - --namespace=rpkg-get
+      - --repository=git
+      - --workspace=get
+      - get-package-render-failed
+    stdout: |
+      git.get-package-render-failed.get created
+  - args:
+      - porchctl
+      - rpkg
+      - pull
+      - --namespace=rpkg-get
+      - git.get-package-render-failed.get
+      - /tmp/porch-e2e/testing-invalid-render-get
+  - args:
+      - sh
+      - -c
+      - |
+        echo "pipeline:\n  mutators:\n  - image: ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.4.0\n    configMap:\n      namespace: example-ns\n  - image: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1.4\n" >> /tmp/porch-e2e/testing-invalid-render-get/Kptfile
+  - args:
+      - porchctl
+      - rpkg
+      - push
+      - --namespace=rpkg-get
+      - git.get-package-render-failed.get
+      - /tmp/porch-e2e/testing-invalid-render-get
+    stdout: |
+      git.get-package-render-failed.get pushed
+    stderr: "Package is updated, but failed to render the package."
+    containsErrorString: true
+    exitCode: 0
+  - args:
+      - porchctl
+      - rpkg
+      - get
+      - --namespace=rpkg-get
+      - git.get-package-render-failed.get
+      - --output=custom-columns=NAME:.metadata.name,RENDER-RESULT-EXITCODE:.status.renderStatus.result.exitCode
+    stdOutNewlineToWhitespace: true
+    stdout: |
+      NAME                                RENDER-RESULT-EXITCODE
+      git.get-package-render-failed.get   1

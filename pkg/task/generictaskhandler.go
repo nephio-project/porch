@@ -192,13 +192,13 @@ func (th *genericTaskHandler) DoPRResourceMutations(
 	}
 
 	// Render the package
-	// Render failure will fail the overall API operation.
-	// The render error and result are captured as part of renderStatus above
-	// and are returned in the PackageRevisionResources API's status field.
-	// We do not push the package further to remote:
-	// the user's changes are captured on their local package,
-	// and can be amended using the error returned as a reference point to ensure
-	// the package renders properly, before retrying the push.
+	// Render failure will NOT fail the overall API operation.
+	// The render error and result are captured in renderStatus below
+	// and persisted to the PackageRevision CRD's status.renderStatus field.
+	// The package is pushed to remote even if rendering fails:
+	// if rendering succeeds, the rendered resources are pushed;
+	// if rendering fails, the unrendered (user-provided) resources are pushed,
+	// allowing users to fix render errors in subsequent updates.
 	var (
 		appliedResources repository.PackageResources
 		renderStatus     *porchapi.RenderStatus
