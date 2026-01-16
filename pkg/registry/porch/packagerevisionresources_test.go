@@ -129,6 +129,8 @@ func TestWatchResources(t *testing.T) {
 func TestSetRenderStatus(t *testing.T) {
 	prr := &packageRevisionResources{}
 
+    // This test ensures that there is no error
+    // when the interface doesn't implement the renderStatus function
 	t.Run("type assertion fails gracefully", func(t *testing.T) {
 		mockPR := mockrepo.NewMockPackageRevision(t)
 		rs := &porchapi.RenderStatus{Err: "test error"}

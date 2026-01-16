@@ -229,6 +229,7 @@ func (r *packageRevisionResources) Watch(ctx context.Context, options *metainter
 	})
 }
 
+// Set render status on the package revision
 func (r *packageRevisionResources) setRenderStatus(ctx context.Context, pr repository.PackageRevision, renderStatus *porchapi.RenderStatus) error {
 	type renderStatusSetter interface {
 		SetRenderStatus(*porchapi.RenderStatus)

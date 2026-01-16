@@ -111,9 +111,7 @@ func (c *cachedPackageRevision) IsLatestRevision() bool {
 }
 
 func (c *cachedPackageRevision) SetRenderStatus(renderStatus *porchapi.RenderStatus) {
-	c.mutex.Lock()
 	c.renderStatus = renderStatus
-	c.mutex.Unlock()
 	if setter, ok := c.PackageRevision.(interface{ SetRenderStatus(*porchapi.RenderStatus) }); ok {
 		setter.SetRenderStatus(renderStatus)
 	}
@@ -123,9 +121,7 @@ func (c *cachedPackageRevision) SaveRenderStatus(ctx context.Context) error {
 	if saver, ok := c.PackageRevision.(interface{ SaveRenderStatus(context.Context) error }); ok {
 		return saver.SaveRenderStatus(ctx)
 	}
-	c.mutex.Lock()
 	renderStatus := c.renderStatus
-	c.mutex.Unlock()
 	if renderStatus != nil {
 		return c.metadataStore.UpdateStatus(ctx, types.NamespacedName{
 			Name:      c.KubeObjectName(),

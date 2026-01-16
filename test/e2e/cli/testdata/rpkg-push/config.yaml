@@ -265,3 +265,28 @@ commands:
     stderr: "Package is updated, but failed to render the package."
     containsErrorString: true
     exitCode: 0
+  - args:
+      - porchctl
+      - rpkg
+      - pull
+      - --namespace=rpkg-push
+      - git.test-package.push
+      - /tmp/porch-e2e/testing-post-invalid-render
+  - args:
+      - sh
+      - -c
+      - |
+        sed -i 's/v0\.4\.0/v0.4.3/g' /tmp/porch-e2e/testing-post-invalid-render/Kptfile && \
+        sed -i '/set-annotations:v0.1.4/a\    configMap:\n      foo: bar' /tmp/porch-e2e/testing-post-invalid-render/Kptfile
+  - args:
+      - porchctl
+      - rpkg
+      - push
+      - --namespace=rpkg-push
+      - git.test-package.push
+      - /tmp/porch-e2e/testing-post-invalid-render
+    stdout: |
+      git.test-package.push pushed
+    stderr: |
+      [RUNNING] "ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.4.3" 
+      [Results]: [info]: all matching namespaces are already "example-ns". no value changed, [info]: all `depends-on` annotations are up-to-date. no `namespace` changed[RUNNING] "ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1.4" 
