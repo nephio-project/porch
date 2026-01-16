@@ -132,33 +132,10 @@ The Engine provides operations for PorchPackage (package-level view):
 
 The Engine enforces package lifecycle state machine:
 
-```
-        ┌─────────┐
-        │  Draft  │◄────────────┐
-        └────┬────┘             │
-             │                  │
-             │ propose          │ reject
-             ▼                  │
-      ┌──────────┐              │
-      │ Proposed │──────────────┘
-      └─────┬────┘
-            │
-            │ approve
-            ▼
-      ┌───────────┐
-      │ Published │
-      └─────┬─────┘
-            │
-            │ mark for deletion
-            ▼
-   ┌──────────────────┐
-   │DeletionProposed  │
-   └──────────────────┘
-```
+![Flowchart](/static/images/porch/flowchart.drawio.svg)
 
 **Allowed Transitions**:
 - Draft → Proposed (propose for review)
-- Draft → Published (direct publish)
 - Proposed → Draft (reject, needs changes)
 - Proposed → Published (approve)
 - Published → DeletionProposed (mark for deletion)
@@ -343,92 +320,55 @@ The Engine coordinates function execution:
 
 ### Creating a New Package (Init)
 
-```
-User: kubectl apply -f packagerevision.yaml (with init task)
-  ↓
-Engine: Validate request
-  ↓
-Engine: Check workspace name unique
-  ↓
-Engine: Create draft in repository
-  ↓
-Engine: Apply init task (create Kptfile, README)
-  ↓
-Engine: Set lifecycle to Draft
-  ↓
-Engine: Commit to repository
-  ↓
-Engine: Notify watchers (ADDED event)
-  ↓
-User: Receives created PackageRevision
-```
+**Flow**:
+1. User submits package creation request with init task
+2. Engine validates request
+3. Engine checks workspace name is unique
+4. Engine creates draft in repository
+5. Engine applies init task (creates Kptfile, README)
+6. Engine sets lifecycle to Draft
+7. Engine commits to repository
+8. Engine notifies watchers with ADDED event
+9. User receives created PackageRevision
 
 ### Cloning a Package
 
-```
-User: kubectl apply -f packagerevision.yaml (with clone task)
-  ↓
-Engine: Validate request
-  ↓
-Engine: Check package doesn't already exist
-  ↓
-Engine: Check workspace name unique
-  ↓
-Engine: Create draft in repository
-  ↓
-Engine: Apply clone task (copy from upstream)
-  ↓
-Engine: Execute function pipeline (if specified)
-  ↓
-Engine: Set lifecycle to Draft
-  ↓
-Engine: Commit to repository
-  ↓
-Engine: Notify watchers (ADDED event)
-  ↓
-User: Receives created PackageRevision
-```
+**Flow**:
+1. User submits package creation request with clone task
+2. Engine validates request
+3. Engine checks package doesn't already exist
+4. Engine checks workspace name is unique
+5. Engine creates draft in repository
+6. Engine applies clone task (copies from upstream)
+7. Engine executes function pipeline if specified
+8. Engine sets lifecycle to Draft
+9. Engine commits to repository
+10. Engine notifies watchers with ADDED event
+11. User receives created PackageRevision
 
 ### Updating Package Content
 
-```
-User: kubectl apply -f packagerevisionresources.yaml
-  ↓
-Engine: Validate resourceVersion
-  ↓
-Engine: Check lifecycle is Draft
-  ↓
-Engine: Create draft
-  ↓
-Engine: Apply resource mutations (file changes)
-  ↓
-Engine: Execute function pipeline (render)
-  ↓
-Engine: Close draft (commit)
-  ↓
-Engine: Notify watchers (MODIFIED event)
-  ↓
-User: Receives updated PackageRevision
-```
+**Flow**:
+1. User submits package resources update
+2. Engine validates resourceVersion
+3. Engine checks lifecycle is Draft
+4. Engine creates draft
+5. Engine applies resource mutations (file changes)
+6. Engine executes function pipeline (renders package)
+7. Engine closes draft (commits)
+8. Engine notifies watchers with MODIFIED event
+9. User receives updated PackageRevision
 
 ### Approving a Package (Lifecycle Transition)
 
-```
-User: kubectl patch packagerevision --subresource=approval \
-      -p '{"spec":{"lifecycle":"Published"}}'
-  ↓
-Engine: Validate resourceVersion
-  ↓
-Engine: Check current lifecycle is Proposed
-  ↓
-Engine: Update lifecycle to Published
-  ↓
-Engine: Update metadata
-  ↓
-Engine: Notify watchers (MODIFIED event)
-  ↓
-User: Receives updated PackageRevision (now Published)
-```
+**Flow**:
+1. User submits approval request to change lifecycle to Published
+2. Engine validates resourceVersion
+3. Engine checks current lifecycle is Proposed
+4. Engine updates lifecycle to Published
+5. Engine updates metadata
+6. Engine notifies watchers with MODIFIED event
+7. User receives updated PackageRevision (now Published)
 
 ## Summary
 

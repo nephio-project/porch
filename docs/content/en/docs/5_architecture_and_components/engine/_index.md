@@ -27,31 +27,7 @@ The Engine's core responsibilities:
 
 ## How It Fits in Porch Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        Porch Server                         │
-│                                                             │
-│  ┌──────────────┐         ┌─────────────────────────────┐  │
-│  │  API Server  │────────▶│          Engine             │  │
-│  │              │         │  (Orchestration Logic)      │  │
-│  └──────────────┘         └─────────────────────────────┘  │
-│                                      │                      │
-│                           ┌──────────┼──────────┐          │
-│                           │          │          │          │
-│                           ▼          ▼          ▼          │
-│                      ┌────────┐ ┌────────┐ ┌──────────┐   │
-│                      │ Cache  │ │  Task  │ │ Function │   │
-│                      │        │ │Handler │ │ Runtime  │   │
-│                      └────────┘ └────────┘ └──────────┘   │
-│                           │                      │          │
-└───────────────────────────┼──────────────────────┼──────────┘
-                            │                      │
-                            ▼                      ▼
-                    ┌──────────────┐      ┌──────────────┐
-                    │ Git/OCI Repo │      │Function Runner│
-                    └──────────────┘      │  (gRPC)      │
-                                          └──────────────┘
-```
+![Engine Architecture](/static/images/porch/porch-engine-architecture.drawio.svg)
 
 **Flow**: API Server receives request → Engine orchestrates → Cache/Task Handler/Function Runtime execute → Engine returns result
 
