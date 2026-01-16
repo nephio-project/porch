@@ -51,11 +51,17 @@ Duplicated in:                    │ - Orchestrate│
                                     - Function Runtime
 ```
 
+**Benefits**:
+- Single source of truth for business logic
+- Consistent behavior across all clients
+- Easier to test and maintain
+- Clear separation of concerns
+
 ## Design Decisions
 
 ### 1. Interface-Based Design
 
-**Decision**: Engine exposes a clean interface (CaDEngine) with well-defined operations.
+**Decision**: Engine exposes a clean interface with well-defined operations.
 
 **Why**:
 - Allows multiple implementations (production, testing, mocking)
@@ -63,21 +69,14 @@ Duplicated in:                    │ - Orchestrate│
 - Easy to test in isolation
 - Future-proof for alternative implementations
 
-**Interface**:
-```go
-type CaDEngine interface {
-    CreatePackageRevision(...)
-    UpdatePackageRevision(...)
-    DeletePackageRevision(...)
-    ListPackageRevisions(...)
-    UpdatePackageResources(...)
-    // ...
-}
-```
+**Operations provided**:
+- Create, update, delete, and list package revisions
+- Update package revision resources (file contents)
+- Package-level operations (deprecated)
 
 ### 2. Dependency Injection via Options
 
-**Decision**: Engine dependencies are injected via functional options pattern.
+**Decision**: Engine dependencies are injected via configuration options.
 
 **Why**:
 - Flexible configuration without breaking API
@@ -85,15 +84,13 @@ type CaDEngine interface {
 - Clear separation of concerns
 - Testable (can inject mocks)
 
-**Example**:
-```go
-engine := NewCaDEngine(
-    WithCache(cache),
-    WithGRPCFunctionRuntime(options),
-    WithCredentialResolver(resolver),
-    WithWatcherManager(watcherManager),
-)
-```
+**Dependencies injected**:
+- Cache for repository access
+- Function runtimes (built-in, gRPC, or both)
+- Credential resolver for authentication
+- Reference resolver for package references
+- Watcher manager for real-time notifications
+- User info provider for audit trails
 
 ### 3. Optimistic Concurrency Control
 
@@ -136,36 +133,15 @@ engine := NewCaDEngine(
 - Users should never see corrupted packages
 - Repositories should stay consistent
 
-**Implementation**:
-```go
-// Create draft
-draft, err := repo.CreatePackageRevisionDraft(ctx, newPr)
-if err != nil {
-    return nil, err
-}
+**How it works**:
+1. Engine creates a draft package revision
+2. Engine sets up a rollback function
+3. Engine applies tasks (init, clone, edit, etc.)
+4. If any step fails, rollback function is called
+5. Rollback closes and deletes the draft
+6. On success, draft is committed to repository
 
-// Setup rollback function
-rollback := func() {
-    if pkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, 0); err == nil {
-        repo.DeletePackageRevision(ctx, pkgRev)
-    }
-}
-
-// Apply tasks
-if err := taskHandler.ApplyTask(ctx, draft, ...); err != nil {
-    rollback()  // Clean up on failure
-    return nil, err
-}
-
-// Update lifecycle
-if err := draft.UpdateLifecycle(ctx, lifecycle); err != nil {
-    rollback()  // Clean up on failure
-    return nil, err
-}
-
-// Success - commit
-return repo.ClosePackageRevisionDraft(ctx, draft, 0)
-```
+**Result**: Repository never contains partial or corrupted packages
 
 ### 5. Pluggable Function Runtime
 
@@ -268,25 +244,6 @@ return repo.ClosePackageRevisionDraft(ctx, draft, 0)
 - Rollback works in 99.9% of cases
 - Failed operations are logged
 - Operators can manually clean up if needed
-
-## Evolution and Future Directions
-
-### Current State
-
-The Engine has evolved from kpt's package manipulation logic:
-- Originally: kpt CLI performed operations locally
-- Now: Engine performs operations server-side
-- Reuses kpt's proven algorithms (3-way merge, function pipeline)
-
-### Future Enhancements
-
-Potential improvements being considered:
-
-1. **Better Rollback**: More robust cleanup mechanisms
-2. **Operation Queuing**: Queue operations per package to avoid conflicts
-3. **Async Operations**: Long-running operations return immediately, complete in background
-4. **Audit Trail**: Record all operations for compliance
-5. **Metrics**: Expose operation latency, success rates, etc.
 
 ## Summary
 

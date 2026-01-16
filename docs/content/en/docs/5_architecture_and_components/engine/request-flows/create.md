@@ -1,11 +1,11 @@
 ---
-title: "Sample Request Flow"
+title: "Request Flow"
 type: docs
 weight: 4
-description: Step-by-step flow for creating a new package revision inside the engine
+description: Example flow showing how the Engine processes a package creation request
 ---
 
-This section provides a detailed, step-by-step walkthrough of what happens inside the engine when a user creates a new package revision.
+This section provides a detailed walkthrough of what happens when a user creates a new package revision. This example demonstrates how the concepts from Design Rationale, Functionality, and Interactions come together in practice.
 
 ## User Perspective
 
@@ -38,14 +38,13 @@ EOF
 
 ### Step 1: API Server Receives Request
 
-**Component**: API Server (`pkg/registry/porch/packagerevision.go`)
+**Component**: API Server
 
 **What happens**:
-1. kubectl sends HTTP POST to `/apis/porch.kpt.dev/v1alpha1/namespaces/default/packagerevisions`
-2. Kubernetes API Server receives request
-3. Kubernetes API Server sees `porch.kpt.dev` API group
-4. Kubernetes API Server forwards to Porch API Server
-5. Porch API Server routes to `packageRevisions.Create()`
+1. User submits package creation request via kubectl
+2. Kubernetes API Server receives the request
+3. Request is routed to Porch API Server (via API aggregation)
+4. Porch API Server handles the package revision creation
 
 **Checks performed**:
 - Authentication (via Kubernetes)
@@ -53,14 +52,14 @@ EOF
 - Schema validation (OpenAPI schema)
 - Admission webhooks (validation/mutation)
 
-**Key operation**: `packageRevisions.Create()` delegates to `engine.CreatePackageRevision()`
+**Result**: Request is validated and forwarded to Engine for processing
 
 ### Step 2: Engine Validates Request
 
-**Component**: Engine (`pkg/engine/engine.go`)
+**Component**: Engine
 
 **What happens**:
-1. Engine receives `CreatePackageRevision()` call
+1. Engine receives package creation request
 2. Validates lifecycle value
 3. Builds package configuration
 4. Validates task list
@@ -85,12 +84,10 @@ EOF
 **Component**: Engine → Cache
 
 **What happens**:
-1. Engine calls `cache.OpenRepository(ctx, repositoryObj)`
+1. Engine requests repository from Cache
 2. Cache checks if repository is already open
 3. If not, Cache opens repository (Git or OCI)
 4. Cache returns Repository interface
-
-**Key operation**: `cache.OpenRepository()` returns a `Repository` interface
 
 **Repository types**:
 - **Git**: Opens Git repository, fetches latest
@@ -108,13 +105,13 @@ EOF
 3. Validates package name format
 
 **Validation process**:
-1. Call `repo.ListPackageRevisions()` to get existing revisions in repository
+1. Get existing revisions in repository
 2. Filter revisions to same package name
-3. Call `ensureUniqueWorkspaceName()` to verify no duplicate workspace names
+3. Verify no duplicate workspace names
 4. Reject if workspace name already exists
 
 **Why this matters**:
-- Workspace name is used to generate PackageRevision metadata.name
+- Workspace name is used to generate PackageRevision name
 - Must be unique within a package
 - Prevents naming conflicts
 
@@ -132,12 +129,12 @@ EOF
 - No special validation needed
 
 **For Clone task**:
-- Calls `validateCloneTask()` to ensure package doesn't already exist
+- Ensures package doesn't already exist
 - Clone can only create the first revision of a package
 - Subsequent revisions must use Copy or Upgrade
 
 **For Upgrade task**:
-- Calls `validateUpgradeTask()` to verify all source revisions are Published
+- Verifies all source revisions are Published
 - Ensures stable upstream sources for upgrade operations
 
 **Result**: Task validated, ready to execute
@@ -149,8 +146,6 @@ EOF
 **What happens**:
 1. Engine checks if package path overlaps with existing packages
 2. Prevents one package being subdirectory of another
-
-**Key operation**: `repository.ValidatePackagePathOverlap()` checks for path conflicts
 
 **Why this matters**:
 - Prevents ambiguity in repository structure
@@ -164,7 +159,7 @@ EOF
 **Component**: Repository (Git or OCI adapter)
 
 **What happens**:
-1. Engine calls `repo.CreatePackageRevisionDraft(ctx, newPr)`
+1. Engine requests draft creation from Repository
 2. Repository creates draft package revision
 3. Draft is a working copy, not yet committed
 
@@ -178,8 +173,6 @@ EOF
 - Initializes package structure
 - Returns draft object
 
-**Key operation**: `repo.CreatePackageRevisionDraft()` returns a `PackageRevisionDraft` interface
-
 **Result**: Draft package revision created, ready for modifications
 
 ### Step 8: Engine Sets Up Rollback
@@ -187,21 +180,13 @@ EOF
 **Component**: Engine
 
 **What happens**:
-1. Engine defines rollback function
+1. Engine defines rollback mechanism
 2. Rollback will be called if any subsequent step fails
 
 **Rollback mechanism**:
-```go
-rollback := func() {
-    // Close draft and delete package revision
-    // Logs warnings if cleanup fails
-}
-```
-
-If any subsequent step fails, this function:
-1. Closes the draft (converts to PackageRevision)
-2. Deletes the PackageRevision
-3. Logs warnings if cleanup fails
+- Closes the draft
+- Deletes the package revision
+- Logs warnings if cleanup fails
 
 **Why this matters**:
 - Ensures atomic operations
@@ -212,25 +197,23 @@ If any subsequent step fails, this function:
 
 ### Step 9: Task Handler Applies Task
 
-**Component**: Task Handler (`pkg/task/`)
+**Component**: Task Handler
 
 **What happens**:
-1. Engine calls `taskHandler.ApplyTask(ctx, draft, repositoryObj, newPr, packageConfig)`
+1. Engine delegates task execution to Task Handler
 2. Task Handler determines task type (Init in this case)
 3. Task Handler executes Init task
 
-**For Init task** (`pkg/task/init.go`):
+**For Init task**:
 1. Creates Kptfile with package metadata
 2. Creates README.md with description
 3. Writes files to draft
 
-**Key operation**: `taskHandler.ApplyTask()` executes the task and updates the draft
-
-**Init task creates** (see `pkg/task/init.go`):
+**Init task creates**:
 - `Kptfile`: Package metadata with name and description
 - `README.md`: Basic documentation template
 
-If task fails, `rollback()` is called to clean up the draft.
+If task fails, rollback is called to clean up the draft.
 
 **Result**: Package initialized with basic structure
 
@@ -239,21 +222,19 @@ If task fails, `rollback()` is called to clean up the draft.
 **Component**: Engine → Draft
 
 **What happens**:
-1. Engine calls `draft.UpdateLifecycle(ctx, newPr.Spec.Lifecycle)`
-2. Draft updates its lifecycle state to Draft
+1. Engine updates draft lifecycle state
+2. Draft lifecycle set to Draft (or Proposed if specified)
 
-**Key operation**: `draft.UpdateLifecycle()` sets the lifecycle state
+If update fails, rollback is called to clean up.
 
-If update fails, `rollback()` is called to clean up.
-
-**Result**: Package lifecycle set to Draft
+**Result**: Package lifecycle set correctly
 
 ### Step 11: Repository Closes Draft (Commits)
 
 **Component**: Repository
 
 **What happens**:
-1. Engine calls `repo.ClosePackageRevisionDraft(ctx, draft, 0)`
+1. Engine requests draft closure from Repository
 2. Repository commits draft to storage
 
 **For Git repository**:
@@ -265,8 +246,6 @@ If update fails, `rollback()` is called to clean up.
 - Packages content
 - Pushes to registry
 - Returns PackageRevision
-
-**Key operation**: `repo.ClosePackageRevisionDraft()` commits the draft
 
 **Note**: If this step fails, rollback is not attempted (would likely fail again). The draft may remain in the repository and will be cleaned up by garbage collection.
 
@@ -280,8 +259,6 @@ If update fails, `rollback()` is called to clean up.
 1. Repository sync detects new package
 2. Cache updates
 3. Watcher Manager sends ADDED events to registered watchers
-
-**Key operation**: `watcherManager.NotifyPackageRevisionChange(watch.Added, ...)` sends events
 
 **Note**: This happens during repository synchronization, not directly in the create flow.
 
@@ -300,8 +277,6 @@ If update fails, `rollback()` is called to clean up.
 1. Engine returns PackageRevision to API Server
 2. API Server converts to HTTP response
 3. Response sent to kubectl
-
-**Key operation**: Engine returns the created `PackageRevision` to API Server
 
 **Result**: PackageRevision returned to user
 
@@ -344,7 +319,7 @@ workspaceName v1 already exists
 
 **What happens**:
 1. Task Handler fails to apply task
-2. Engine calls rollback()
+2. Engine calls rollback
 3. Draft is deleted
 4. Error returned to user
 
@@ -375,17 +350,26 @@ failed to push to remote: <git error>
 
 ## Performance Considerations
 
-**Typical timing**:
-- Steps 1-6 (Validation): < 100ms
-- Step 7 (Create Draft): 100-500ms (Git fetch)
-- Step 9 (Apply Task): 50-200ms
-- Step 11 (Commit): 200-1000ms (Git push)
-- **Total**: 500ms - 2s
+**What affects Engine performance**:
 
-**Optimization opportunities**:
-- Cache reduces Git operations
-- Built-in functions avoid network calls
-- Parallel validation where possible
+**Validation overhead** (Steps 2-6) - **LOW impact**:
+- Workspace name uniqueness check (lists existing packages)
+- Package path overlap validation
+- Task type validation
+- Generally fast, in-memory operations
+
+**Orchestration complexity** - **LOW impact**:
+- Number of components to coordinate (Cache, Task Handler, Repository, Watcher Manager)
+- Rollback setup and teardown
+- Minimal overhead compared to delegated operations
+
+**Delegated operations** - **Impact varies by component**:
+- Repository operations (Git/OCI) - handled by Repository Adapters
+- Function execution - handled by Function Runner
+- Cache access - handled by Cache
+- *Engine orchestrates these but doesn't control their performance*
+
+**Key insight**: Engine itself is fast. Performance bottlenecks are typically in the components it delegates to (Repository for Git operations, Function Runner for KRM functions, Cache for repository access).
 
 ## Summary
 
@@ -405,11 +389,10 @@ Creating a package involves:
 12. **API Server**: Returns HTTP response
 13. **User**: Receives created package
 
-**Key features**:
-- Comprehensive validation at multiple layers
-- Rollback on failure ensures consistency
-- Clear error messages guide users
-- Watch notifications provide real-time updates
-- Atomic operation (all or nothing)
+**Key features demonstrated**:
+- **Validation** (from Functionality): Multiple validation layers ensure correctness
+- **Rollback** (from Design Rationale): Atomic operations maintain consistency
+- **Component Interaction** (from Interactions): Engine orchestrates Cache, Task Handler, Repository, Watcher Manager
+- **Design Patterns** (from Design Rationale): Optimistic locking, dependency injection, separation of concerns
 
 This flow demonstrates how the Engine orchestrates multiple components to provide reliable, consistent package creation.

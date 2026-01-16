@@ -9,52 +9,13 @@ This section describes how the Engine interacts with other Porch components, wha
 
 ## Component Interaction Overview
 
-```
-                    ┌──────────────────────────────────────┐
-                    │          API Server                  │
-                    │  - Receives HTTP requests            │
-                    │  - Authenticates/authorizes          │
-                    │  - Calls Engine operations           │
-                    └──────────────┬───────────────────────┘
-                                   │
-                                   │ CaDEngine interface
-                                   ▼
-                    ┌──────────────────────────────────────┐
-                    │            Engine                    │
-                    │  - Orchestrates operations           │
-                    │  - Enforces business rules           │
-                    │  - Manages lifecycle                 │
-                    └──────────────┬───────────────────────┘
-                                   │
-                ┌──────────────────┼──────────────────┐
-                │                  │                  │
-                ▼                  ▼                  ▼
-        ┌───────────────┐  ┌──────────────┐  ┌──────────────┐
-        │     Cache     │  │Task Handler  │  │   Watcher    │
-        │               │  │              │  │   Manager    │
-        └───────┬───────┘  └──────┬───────┘  └──────────────┘
-                │                 │
-                │                 │
-                ▼                 ▼
-        ┌───────────────┐  ┌──────────────┐
-        │  Repository   │  │   Function   │
-        │   Adapters    │  │   Runtime    │
-        │  (Git/OCI)    │  │              │
-        └───────────────┘  └──────┬───────┘
-                                  │
-                                  ▼
-                           ┌──────────────┐
-                           │  Function    │
-                           │   Runner     │
-                           │  (gRPC)      │
-                           └──────────────┘
-```
+![Engine Architecture](/static/images/porch/engine-component-interaction.drawio.svg)
 
 ## Dependencies (What the Engine Needs)
 
 ### 1. Cache
 
-**Interface**: `cachetypes.Cache`
+**Purpose**: Repository access and caching
 
 **What Engine uses it for**:
 - Opening repositories
@@ -62,23 +23,15 @@ This section describes how the Engine interacts with other Porch components, wha
 - Avoiding repeated Git/OCI operations
 
 **Key operations**:
-```go
-// Open a repository
-repo, err := engine.cache.OpenRepository(ctx, repositorySpec)
-
-// Repository then provides:
-// - ListPackageRevisions()
-// - CreatePackageRevisionDraft()
-// - UpdatePackageRevision()
-// - DeletePackageRevision()
-// - ClosePackageRevisionDraft()
-```
+- Open a repository by specification
+- Repository provides list, create, update, delete operations
+- Repository handles Git/OCI operations transparently
 
 **Interaction pattern**:
 1. Engine receives operation request
-2. Engine calls `cache.OpenRepository()`
-3. Cache returns Repository interface
-4. Engine calls operations on Repository
+2. Engine opens repository via cache
+3. Cache returns repository interface
+4. Engine calls operations on repository
 5. Repository handles Git/OCI operations
 6. Results flow back to Engine
 
@@ -87,11 +40,9 @@ repo, err := engine.cache.OpenRepository(ctx, repositorySpec)
 - Repository abstracts repo type (Git vs OCI)
 - Engine doesn't need to know about Git commands or OCI APIs
 
-**Configuration**: Injected via `WithCache()` option
-
 ### 2. Task Handler
 
-**Interface**: `task.TaskHandler`
+**Purpose**: Package task execution
 
 **What Engine uses it for**:
 - Executing package tasks (init, clone, edit, update, render)
@@ -99,16 +50,9 @@ repo, err := engine.cache.OpenRepository(ctx, repositorySpec)
 - Coordinating with Function Runtime
 
 **Key operations**:
-```go
-// Apply task during package creation
-err := engine.taskHandler.ApplyTask(ctx, draft, repositoryObj, packageRevision, packageConfig)
-
-// Apply mutations during package update
-err := engine.taskHandler.DoPRMutations(ctx, repoPr, oldObj, newObj, draft)
-
-// Apply resource mutations
-renderStatus, err := engine.taskHandler.DoPRResourceMutations(ctx, pr, draft, oldRes, newRes)
-```
+- Apply task during package creation
+- Apply mutations during package update
+- Apply resource mutations with rendering
 
 **Interaction pattern**:
 1. Engine creates draft package
@@ -126,24 +70,17 @@ renderStatus, err := engine.taskHandler.DoPRResourceMutations(ctx, pr, draft, ol
 - **Patch**: Apply patches to resources
 - **Eval**: Execute function pipeline
 
-**Configuration**: Created automatically, configured via Engine options
-
 ### 3. Function Runtime
 
-**Interface**: `fn.FunctionRuntime`
+**Purpose**: KRM function execution
 
 **What Engine uses it for**:
 - Executing KRM functions to transform packages
 - Rendering packages (applying function pipeline)
 
 **Key operations**:
-```go
-// Get runner for specific function
-runner, err := runtime.GetRunner(ctx, function)
-
-// Execute function
-err := runner.Run(inputReader, outputWriter)
-```
+- Get runner for specific function
+- Execute function with input/output
 
 **Interaction pattern**:
 1. Task Handler needs to execute function
@@ -172,11 +109,9 @@ err := runner.Run(inputReader, outputWriter)
 - Falls back to gRPC if not found
 - Best of both worlds
 
-**Configuration**: Injected via `WithBuiltinFunctionRuntime()`, `WithGRPCFunctionRuntime()`, or `WithFunctionRuntime()` options
-
 ### 4. Watcher Manager
 
-**Interface**: `WatcherManager`
+**Purpose**: Real-time change notifications
 
 **What Engine uses it for**:
 - Notifying clients of package changes
@@ -184,17 +119,14 @@ err := runner.Run(inputReader, outputWriter)
 - Providing real-time updates
 
 **Key operations**:
-```go
-// Notify watchers of change
-sent := engine.watcherManager.NotifyPackageRevisionChange(watch.Modified, packageRevision)
-```
+- Notify watchers of package changes (added, modified, deleted)
 
 **Interaction pattern**:
 1. Client registers watch via API Server
 2. API Server calls Engine's WatcherManager
 3. WatcherManager stores watcher
 4. Engine performs operation (create/update/delete)
-5. Engine calls `NotifyPackageRevisionChange()`
+5. Engine notifies WatcherManager of change
 6. WatcherManager sends events to matching watchers
 7. Clients receive real-time notifications
 
@@ -203,21 +135,16 @@ sent := engine.watcherManager.NotifyPackageRevisionChange(watch.Modified, packag
 - **MODIFIED**: Package updated
 - **DELETED**: Package deleted
 
-**Configuration**: Injected via `WithWatcherManager()` option
-
 ### 5. Credential Resolver
 
-**Interface**: `repository.CredentialResolver`
+**Purpose**: Authentication for private repositories
 
 **What Engine uses it for**:
 - Resolving Git/OCI credentials
 - Authenticating to private repositories
 
 **Key operations**:
-```go
-// Resolve credentials for repository
-credentials, err := resolver.ResolveCredential(ctx, namespace, secretRef)
-```
+- Resolve credentials from Kubernetes Secrets
 
 **Interaction pattern**:
 1. Task Handler needs to access private repository
@@ -231,21 +158,16 @@ credentials, err := resolver.ResolveCredential(ctx, namespace, secretRef)
 - Bearer token
 - GCP Workload Identity
 
-**Configuration**: Injected via `WithCredentialResolver()` option
-
 ### 6. Reference Resolver
 
-**Interface**: `repository.ReferenceResolver`
+**Purpose**: Package reference resolution
 
 **What Engine uses it for**:
 - Resolving package references for clone/upgrade
 - Finding upstream packages
 
 **Key operations**:
-```go
-// Resolve package reference
-packageRevision, err := resolver.ResolveReference(ctx, namespace, ref)
-```
+- Resolve package reference to actual package revision
 
 **Interaction pattern**:
 1. User specifies upstream package reference in clone/upgrade task
@@ -253,21 +175,16 @@ packageRevision, err := resolver.ResolveReference(ctx, namespace, ref)
 3. Resolver finds the referenced package
 4. Task Handler uses resolved package as source
 
-**Configuration**: Injected via `WithReferenceResolver()` option
-
 ### 7. User Info Provider
 
-**Interface**: `repository.UserInfoProvider`
+**Purpose**: User identification for audit trails
 
 **What Engine uses it for**:
 - Getting current user information
 - Recording who performed operations
 
 **Key operations**:
-```go
-// Get user info from context
-userInfo, err := provider.GetUserInfo(ctx)
-```
+- Extract user info from request context
 
 **Interaction pattern**:
 1. Engine receives operation request with context
@@ -275,13 +192,11 @@ userInfo, err := provider.GetUserInfo(ctx)
 3. Provider extracts user from Kubernetes authentication
 4. User info recorded in Git commits, audit logs
 
-**Configuration**: Injected via `WithUserInfoProvider()` option
-
 ## Dependents (What Needs the Engine)
 
 ### 1. API Server
 
-**Component**: `pkg/registry/porch/`
+**Component**: API Server REST handlers
 
 **How it uses Engine**:
 - Delegates all package operations to Engine
@@ -289,22 +204,11 @@ userInfo, err := provider.GetUserInfo(ctx)
 - Translates Engine responses to HTTP responses
 
 **Operations delegated**:
-```go
-// Create PackageRevision
-repoPkgRev, err := apiServer.cad.CreatePackageRevision(ctx, repositoryObj, newPr, parent)
-
-// Update PackageRevision
-repoPkgRev, err := apiServer.cad.UpdatePackageRevision(ctx, version, repositoryObj, repoPr, oldObj, newObj, parent)
-
-// Delete PackageRevision
-err := apiServer.cad.DeletePackageRevision(ctx, repositoryObj, pr2Del)
-
-// List PackageRevisions
-revs, err := apiServer.cad.ListPackageRevisions(ctx, repositorySpec, filter)
-
-// Update PackageRevisionResources
-repoPkgRev, renderStatus, err := apiServer.cad.UpdatePackageResources(ctx, repositoryObj, pr2Update, oldRes, newRes)
-```
+- Create PackageRevision
+- Update PackageRevision
+- Delete PackageRevision
+- List PackageRevisions
+- Update PackageRevisionResources
 
 **Why this design**:
 - API Server focuses on HTTP/Kubernetes concerns
@@ -352,142 +256,20 @@ porchctl → Kubernetes API → API Server → Engine
 - Works with any Kubernetes cluster running Porch
 - Don't need to link Engine code into CLI
 
-## Interaction Sequences
-
-### Creating a Package
-
-```
-User/Client
-    │
-    │ kubectl apply -f packagerevision.yaml
-    ▼
-API Server
-    │
-    │ packageRevisions.Create()
-    ▼
-Engine
-    │
-    ├─▶ Cache.OpenRepository()
-    │       │
-    │       └─▶ Returns Repository
-    │
-    ├─▶ Repository.CreatePackageRevisionDraft()
-    │       │
-    │       └─▶ Returns Draft
-    │
-    ├─▶ TaskHandler.ApplyTask()
-    │       │
-    │       ├─▶ FunctionRuntime.GetRunner()
-    │       │       │
-    │       │       └─▶ Returns Runner (built-in or gRPC)
-    │       │
-    │       ├─▶ Runner.Run()
-    │       │       │
-    │       │       └─▶ Executes function
-    │       │
-    │       └─▶ Updates Draft
-    │
-    ├─▶ Draft.UpdateLifecycle()
-    │
-    ├─▶ Repository.ClosePackageRevisionDraft()
-    │       │
-    │       └─▶ Commits to Git/OCI
-    │
-    ├─▶ WatcherManager.NotifyPackageRevisionChange()
-    │       │
-    │       └─▶ Sends ADDED events to watchers
-    │
-    └─▶ Returns PackageRevision
-        │
-        ▼
-API Server
-    │
-    │ Returns HTTP 201 Created
-    ▼
-User/Client
-```
-
-### Updating Package Resources
-
-```
-User/Client
-    │
-    │ kubectl apply -f packagerevisionresources.yaml
-    ▼
-API Server
-    │
-    │ packageRevisionResources.Update()
-    ▼
-Engine
-    │
-    ├─▶ Cache.OpenRepository()
-    │       │
-    │       └─▶ Returns Repository
-    │
-    ├─▶ Repository.UpdatePackageRevision()
-    │       │
-    │       └─▶ Returns Draft
-    │
-    ├─▶ TaskHandler.DoPRResourceMutations()
-    │       │
-    │       ├─▶ Applies resource changes
-    │       │
-    │       ├─▶ FunctionRuntime.GetRunner()
-    │       │       │
-    │       │       └─▶ Returns Runner
-    │       │
-    │       ├─▶ Runner.Run()
-    │       │       │
-    │       │       └─▶ Renders package
-    │       │
-    │       └─▶ Returns RenderStatus
-    │
-    ├─▶ Repository.ClosePackageRevisionDraft()
-    │       │
-    │       └─▶ Commits to Git/OCI
-    │
-    └─▶ Returns PackageRevision + RenderStatus
-        │
-        ▼
-API Server
-    │
-    │ Returns HTTP 200 OK
-    ▼
-User/Client
-```
-
 ## Configuration and Initialization
 
-The Engine is configured via functional options during initialization:
+The Engine is configured via options during initialization:
 
-```go
-// In API Server startup
-engine, err := engine.NewCaDEngine(
-    // Cache for repository access
-    engine.WithCache(cache),
-    
-    // Function runtimes
-    engine.WithBuiltinFunctionRuntime(imagePrefix),
-    engine.WithGRPCFunctionRuntime(grpcOptions),
-    
-    // Credential resolution
-    engine.WithCredentialResolver(credentialResolver),
-    
-    // Reference resolution
-    engine.WithReferenceResolver(referenceResolver),
-    
-    // User info
-    engine.WithUserInfoProvider(userInfoProvider),
-    
-    // Watch management
-    engine.WithWatcherManager(watcherManager),
-    
-    // Retry configuration
-    engine.WithRepoOperationRetryAttempts(retryAttempts),
-)
-```
+**Configuration options**:
+- Cache for repository access
+- Function runtimes (built-in, gRPC, or both)
+- Credential resolver for authentication
+- Reference resolver for package references
+- User info provider for audit trails
+- Watcher manager for real-time notifications
+- Retry configuration for repository operations
 
-**Why functional options**:
+**Why this approach**:
 - Flexible configuration
 - Easy to add new dependencies
 - Clear what's being configured
