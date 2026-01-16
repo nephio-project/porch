@@ -13,6 +13,4 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
--- Add render_status column to package_revisions table
 ALTER TABLE package_revisions ADD COLUMN IF NOT EXISTS render_status TEXT;
