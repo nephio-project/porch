@@ -444,3 +444,39 @@ func TestPerformAsyncSyncEdgeCases(t *testing.T) {
 		r.performAsyncSync(ctx, repo)
 	})
 }
+
+
+func TestReconcileSyncInProgress(t *testing.T) {
+	ctx := context.Background()
+	repo := createTestRepo("test-repo", "test-ns")
+	controllerutil.AddFinalizer(repo, RepositoryFinalizer)
+	// Set status to indicate sync in progress
+	repo.Status.Conditions = []metav1.Condition{{
+		Type:               api.RepositoryReady,
+		Status:             metav1.ConditionFalse,
+		Reason:             api.ReasonReconciling,
+		LastTransitionTime: metav1.Now(),
+	}}
+
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: repo.Name, Namespace: repo.Namespace}}
+	mockClient := mockclient.NewMockClient(t)
+	mockCache := cachetypes.NewMockCache(t)
+
+	mockClient.EXPECT().Get(ctx, req.NamespacedName, mock.AnythingOfType("*v1alpha1.Repository")).Run(func(
+		ctx context.Context, key types.NamespacedName, obj client.Object, opts ...client.GetOption,
+	) {
+		if r, ok := obj.(*api.Repository); ok {
+			*r = *repo
+		}
+	}).Return(nil)
+
+	r := newTestReconciler(mockClient, mockCache)
+	result, err := r.Reconcile(ctx, req)
+
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if result.RequeueAfter != r.HealthCheckFrequency {
+		t.Errorf("Expected requeue after %v, got %v", r.HealthCheckFrequency, result.RequeueAfter)
+	}
+}
