@@ -239,6 +239,25 @@ spec:
                   - type
                   type: object
                 type: array
+              gitCommitHash:
+                description: |-
+                  GitCommitHash is the commit hash of the configured branch for git repositories.
+                  Empty for OCI repositories.
+                type: string
+              lastFullSyncTime:
+                description: LastFullSyncTime is the timestamp of the last successful
+                  full repository sync.
+                format: date-time
+                type: string
+              observedGeneration:
+                description: ObservedGeneration is the generation of the Repository
+                  spec that was last reconciled.
+                format: int64
+                type: integer
+              packageCount:
+                description: PackageCount is the number of package revisions discovered
+                  in the repository.
+                type: integer
             type: object
         type: object
         x-kubernetes-validations:

@@ -30,9 +30,11 @@ const (
 	GiteaRepoAPi           = "http://localhost:3000/api/v1/repos/nephio/" + PorchTestRepoName
 )
 
-// getGiteaURL returns the appropriate Gitea URL based on whether Porch server is running in cluster
+// getGiteaURL returns the appropriate Gitea URL based on whether Porch server and controller are running in cluster
 func (t *TestSuite) getGiteaURL() string {
-	if t.IsPorchServerInCluster() {
+	// Both porch-server and controller need to reach Gitea
+	// Use cluster URL only if BOTH are in-cluster
+	if t.IsPorchServerInCluster() && t.IsRepoControllerInCluster() {
 		return GiteaClusterURL
 	}
 	return "http://172.18.255.200:3000/nephio/"

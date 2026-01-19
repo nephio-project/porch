@@ -21,18 +21,24 @@ import (
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 )
 
+const (
+	defaultMaxConcurrentReconciles    = 100
+	defaultMaxConcurrentSyncs         = 50
+	defaultHealthCheckFrequency       = 5 * time.Minute
+	defaultFullSyncFrequency          = 1 * time.Hour
+	defaultSyncStaleTimeout           = 20 * time.Minute
+	defaultRepoOperationRetryAttempts = 3
+)
+
 // InitDefaults initializes default values for standalone controller
 func (r *RepositoryReconciler) InitDefaults() {
-	// Controller behavior defaults
-	r.MaxConcurrentReconciles = 100 // High: reconcile is lightweight
-	r.MaxConcurrentSyncs = 50       // Limited by git cache locks (per-repo serialization)
-	r.HealthCheckFrequency = 5 * time.Minute
-	r.FullSyncFrequency = 1 * time.Hour
-	r.SyncStaleTimeout = 20 * time.Minute
-	r.RepoOperationRetryAttempts = 3
-	// Cache type for standalone mode
+	r.MaxConcurrentReconciles = defaultMaxConcurrentReconciles
+	r.MaxConcurrentSyncs = defaultMaxConcurrentSyncs
+	r.HealthCheckFrequency = defaultHealthCheckFrequency
+	r.FullSyncFrequency = defaultFullSyncFrequency
+	r.SyncStaleTimeout = defaultSyncStaleTimeout
+	r.RepoOperationRetryAttempts = defaultRepoOperationRetryAttempts
 	r.cacheType = string(cachetypes.DBCacheType)
-	// Validate configuration
 	r.validateConfig()
 }
 
@@ -45,64 +51,79 @@ type EmbeddedConfig struct {
 	RepoOperationRetryAttempts int
 }
 
-// SetEmbeddedDefaults sets configuration for embedded controller mode (cache already injected)
-// Zero values in config will be replaced with internal defaults during validation
+// SetEmbeddedDefaults sets configuration for embedded controller mode
 func (r *RepositoryReconciler) SetEmbeddedDefaults(config EmbeddedConfig) {
 	r.MaxConcurrentReconciles = config.MaxConcurrentReconciles
 	r.MaxConcurrentSyncs = config.MaxConcurrentSyncs
 	r.HealthCheckFrequency = config.HealthCheckFrequency
 	r.FullSyncFrequency = config.FullSyncFrequency
 	r.RepoOperationRetryAttempts = config.RepoOperationRetryAttempts
-	// Validate and apply defaults for zero values
 	r.validateConfig()
 }
 
 // DefaultEmbeddedConfig returns default configuration for embedded mode
 func DefaultEmbeddedConfig() EmbeddedConfig {
 	return EmbeddedConfig{
-		MaxConcurrentReconciles:    100,
-		MaxConcurrentSyncs:         50,
-		HealthCheckFrequency:       5 * time.Minute,
-		FullSyncFrequency:          1 * time.Hour,
-		RepoOperationRetryAttempts: 3,
+		MaxConcurrentReconciles:    defaultMaxConcurrentReconciles,
+		MaxConcurrentSyncs:         defaultMaxConcurrentSyncs,
+		HealthCheckFrequency:       defaultHealthCheckFrequency,
+		FullSyncFrequency:          defaultFullSyncFrequency,
+		RepoOperationRetryAttempts: defaultRepoOperationRetryAttempts,
 	}
 }
 
 // BindFlags binds controller-specific command line flags
 func (r *RepositoryReconciler) BindFlags(prefix string, flags *flag.FlagSet) {
-	flags.IntVar(&r.MaxConcurrentReconciles, prefix+"max-concurrent-reconciles", 100, "Maximum number of concurrent repository reconciles")
-	flags.IntVar(&r.MaxConcurrentSyncs, prefix+"max-concurrent-syncs", 50, "Maximum number of concurrent sync operations (limited by per-repo git cache locks)")
+	flags.IntVar(&r.MaxConcurrentReconciles, prefix+"max-concurrent-reconciles", defaultMaxConcurrentReconciles, "Maximum number of concurrent repository reconciles")
+	flags.IntVar(&r.MaxConcurrentSyncs, prefix+"max-concurrent-syncs", defaultMaxConcurrentSyncs, "Maximum number of concurrent sync operations")
 	flags.StringVar(&r.cacheType, prefix+"cache-type", string(cachetypes.DBCacheType), "Cache type (DB or CR)")
-	flags.DurationVar(&r.HealthCheckFrequency, prefix+"health-check-frequency", 5*time.Minute, "Frequency of repository health checks (connectivity verification)")
-	flags.DurationVar(&r.FullSyncFrequency, prefix+"full-sync-frequency", 1*time.Hour, "Frequency of full repository sync if Spec.Sync.Schedule is not specified")
-	flags.DurationVar(&r.SyncStaleTimeout, prefix+"sync-stale-timeout", 20*time.Minute, "Timeout for considering a sync stale")
-	flags.IntVar(&r.RepoOperationRetryAttempts, prefix+"repo-operation-retry-attempts", 3, "Number of retry attempts for git operations (fetch, push, delete)")
+	flags.DurationVar(&r.HealthCheckFrequency, prefix+"health-check-frequency", defaultHealthCheckFrequency, "Frequency of repository health checks")
+	flags.DurationVar(&r.FullSyncFrequency, prefix+"full-sync-frequency", defaultFullSyncFrequency, "Frequency of full repository sync")
+	flags.DurationVar(&r.SyncStaleTimeout, prefix+"sync-stale-timeout", defaultSyncStaleTimeout, "Timeout for considering a sync stale")
+	flags.IntVar(&r.RepoOperationRetryAttempts, prefix+"repo-operation-retry-attempts", defaultRepoOperationRetryAttempts, "Number of retry attempts for git operations")
 	flags.BoolVar(&r.useUserDefinedCaBundle, prefix+"use-user-defined-ca-bundle", false, "Enable custom CA bundle support from secrets")
 }
 
 // validateConfig ensures configuration values are valid
 func (r *RepositoryReconciler) validateConfig() {
-	// Ensure HealthCheckFrequency is not zero to prevent infinite loops
 	if r.HealthCheckFrequency <= 0 {
-		r.HealthCheckFrequency = 5 * time.Minute
+		r.HealthCheckFrequency = defaultHealthCheckFrequency
 	}
-	// Ensure FullSyncFrequency is not zero
 	if r.FullSyncFrequency <= 0 {
-		r.FullSyncFrequency = 1 * time.Hour
+		r.FullSyncFrequency = defaultFullSyncFrequency
 	}
-	// Ensure SyncStaleTimeout is reasonable
 	if r.SyncStaleTimeout <= 0 {
-		r.SyncStaleTimeout = 20 * time.Minute
+		r.SyncStaleTimeout = defaultSyncStaleTimeout
 	}
-	// Ensure concurrency limits are positive
 	if r.MaxConcurrentReconciles <= 0 {
-		r.MaxConcurrentReconciles = 10
+		r.MaxConcurrentReconciles = defaultMaxConcurrentReconciles
 	}
 	if r.MaxConcurrentSyncs <= 0 {
-		r.MaxConcurrentSyncs = 50
+		r.MaxConcurrentSyncs = defaultMaxConcurrentSyncs
 	}
-	// Ensure retry attempts is positive
 	if r.RepoOperationRetryAttempts <= 0 {
-		r.RepoOperationRetryAttempts = 3
+		r.RepoOperationRetryAttempts = defaultRepoOperationRetryAttempts
+	}
+}
+
+// LogConfig logs the controller configuration
+func (r *RepositoryReconciler) LogConfig(log interface{ Info(msg string, keysAndValues ...interface{}) }) {
+	log.Info("Repository controller configuration",
+		"healthCheckFrequency", r.HealthCheckFrequency,
+		"fullSyncFrequency", r.FullSyncFrequency,
+		"maxConcurrentReconciles", r.MaxConcurrentReconciles,
+		"maxConcurrentSyncs", r.MaxConcurrentSyncs,
+		"syncStaleTimeout", r.SyncStaleTimeout,
+		"repoOperationRetryAttempts", r.RepoOperationRetryAttempts)
+
+	if r.HealthCheckFrequency < defaultHealthCheckFrequency {
+		log.Info("Health check frequency is lower than recommended default",
+			"configured", r.HealthCheckFrequency,
+			"recommended", defaultHealthCheckFrequency)
+	}
+	if r.FullSyncFrequency < defaultFullSyncFrequency {
+		log.Info("Full sync frequency is lower than recommended default",
+			"configured", r.FullSyncFrequency,
+			"recommended", defaultFullSyncFrequency)
 	}
 }

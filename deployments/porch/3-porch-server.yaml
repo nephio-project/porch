@@ -103,6 +103,7 @@ spec:
             - --repo-operation-retry-attempts=3
             - --max-request-body-size=6291456 # Keep this in sync with function-runner's corresponding argument
             - --cache-type=db
+            - --use-legacy-sync=true
           #adding livenessProbes and readinessProbes for porch server
           livenessProbe:
             httpGet:

@@ -17,8 +17,10 @@ package repository
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -104,10 +106,17 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	// Determine what operation is needed
 	decision := r.determineSyncDecision(ctx, repo)
-	log.V(1).Info("Sync decision", "repository", repo.Name, "type", decision.Type, "needed", decision.Needed)
+	log.Info("Sync decision made", "repository", repo.Name, "type", decision.Type, "needed", decision.Needed, "interval", decision.Interval)
 
 	if !decision.Needed {
-		log.V(1).Info("No operation needed, requeuing", "repository", repo.Name, "after", decision.Interval)
+		// Defense in depth: Ensure we never return 0 requeue interval
+		// Primary mitigation is in calculateNextSyncInterval() which uses HealthCheckFrequency as floor
+		// This should never trigger in normal operation - if it does, indicates a bug
+		if decision.Interval <= 0 {
+			decision.Interval = 1 * time.Second
+			log.Info("Requeue interval was zero or negative, using 1s minimum", "repository", repo.Name)
+		}
+		log.Info("No operation needed, requeuing", "repository", repo.Name, "after", decision.Interval)
 		return ctrl.Result{RequeueAfter: decision.Interval}, nil
 	}
 
@@ -142,6 +151,15 @@ func (r *RepositoryReconciler) performHealthCheckSync(ctx context.Context, repo 
 	log := log.FromContext(ctx)
 	log.Info("Starting repository health check", "repository", repo.Name)
 
+	// Check if repo was previously in error state
+	wasInError := false
+	for _, condition := range repo.Status.Conditions {
+		if condition.Type == api.RepositoryReady && condition.Status == metav1.ConditionFalse && condition.Reason == api.ReasonError {
+			wasInError = true
+			break
+		}
+	}
+
 	// Lightweight connectivity check only - don't call OpenRepository which can block
 	if err := r.Cache.CheckRepositoryConnectivity(ctx, repo); err != nil {
 		log.Error(err, "Repository health check failed", "repository", repo.Name)
@@ -158,12 +176,26 @@ func (r *RepositoryReconciler) performHealthCheckSync(ctx context.Context, repo 
 		return ctrl.Result{RequeueAfter: retryInterval}, nil
 	}
 
-	// Health check passed
+	// Health check passed - if repo was in error, trigger immediate full sync to catch up
+	if wasInError {
+		log.Info("Repository recovered from error state, triggering immediate full sync", "repository", repo.Name)
+		// Clear error status first
+		nextHealthCheck := time.Now().Add(r.HealthCheckFrequency)
+		if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, util.RepositoryStatusReady, nil, &nextHealthCheck); statusErr != nil {
+			log.Error(statusErr, "Failed to update repository status")
+		}
+		// Trigger full sync immediately
+		return r.performFullSync(ctx, repo)
+	}
+
+	// Normal health check passed
 	log.Info("Repository health check completed successfully", "repository", repo.Name)
-	nextHealthCheck := time.Now().Add(r.HealthCheckFrequency)
-	if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, util.RepositoryStatusReady, nil, &nextHealthCheck); statusErr != nil {
+	nextFullSync := r.calculateNextFullSyncTime(repo)
+	if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, util.RepositoryStatusReady, nil, &nextFullSync); statusErr != nil {
 		log.Error(statusErr, "Failed to update repository status")
 	}
+	// Always requeue after HealthCheckFrequency - don't try to calculate based on potentially stale data
+	log.Info("Health check complete, requeuing", "repository", repo.Name, "requeueAfter", r.HealthCheckFrequency)
 	return ctrl.Result{RequeueAfter: r.HealthCheckFrequency}, nil
 }
 
@@ -185,59 +217,72 @@ func (r *RepositoryReconciler) performFullSync(ctx context.Context, repo *api.Re
 				<-r.syncLimiter
 				// Recover from panics to prevent goroutine death
 				if panicErr := recover(); panicErr != nil {
-					log.Error(fmt.Errorf("panic in async sync: %v", panicErr), "Panic recovered", "repository", repo.Name)
+					retryInterval := 5 * time.Minute
+					panicErr := fmt.Errorf("panic in async sync: %v\nStack: %s", panicErr, debug.Stack())
+					log.Error(panicErr, "Panic recovered, will retry",
+						"repository", repo.Name, "retryAfter", retryInterval)
 					// Update status to error on panic
 					panicCtx := context.Background()
-					retryInterval := 5 * time.Minute
 					nextSyncTime := time.Now().Add(retryInterval)
-					if statusErr := r.updateRepoStatusWithBackoff(panicCtx, repo, util.RepositoryStatusError, fmt.Errorf("repo sync panic: %v", panicErr), &nextSyncTime); statusErr != nil {
-						log.Error(statusErr, "Failed to update repository status after panic")
+					statusErr := fmt.Errorf("repo sync panic: %v, retrying after %v",
+						panicErr, retryInterval)
+					if err := r.updateRepoStatusWithBackoff(panicCtx, repo,
+						util.RepositoryStatusError, statusErr, &nextSyncTime); err != nil {
+						log.Error(err, "Failed to update repository status after panic")
 					}
 				}
 			}()
 			// Use background context for async operation (prevents cancellation)
 			asyncCtx := context.Background()
-			r.performAsyncSync(asyncCtx, repo)
+			// Make a copy to avoid race conditions with caller's repo object
+			repoCopy := repo.DeepCopy()
+			r.performAsyncSync(asyncCtx, repoCopy)
 		}()
 	default:
 		// Too many syncs running
-		if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, util.RepositoryStatusError, fmt.Errorf("sync capacity exceeded"), nil); statusErr != nil {
-			log.Error(statusErr, "Failed to update repository status after sync")
+		retryAfter := 30 * time.Second
+		log.V(0).Info("Sync capacity exceeded, will retry",
+			"repository", repo.Name,
+			"retryAfter", retryAfter,
+			"maxConcurrentSyncs", r.MaxConcurrentSyncs)
+		statusErr := fmt.Errorf("sync capacity exceeded, retrying after %v", retryAfter)
+		if err := r.updateRepoStatusWithBackoff(ctx, repo,
+			util.RepositoryStatusError, statusErr, nil); err != nil {
+			log.Error(err, "Failed to update repository status", "repository", repo.Name)
 		}
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		return ctrl.Result{RequeueAfter: retryAfter}, nil
 	}
 
-	// Requeue for stale detection (use stale timeout)
-	staleTimeout := r.getSyncStaleTimeout()
-	return ctrl.Result{RequeueAfter: staleTimeout}, nil
+	// Requeue after health check frequency to allow health checks between full syncs
+	// The decision logic will determine when next full sync is actually due
+	log.Info("Full sync launched in background, requeuing for next health check",
+		"repository", repo.Name, "requeueAfter", r.HealthCheckFrequency)
+	return ctrl.Result{RequeueAfter: r.HealthCheckFrequency}, nil
 }
 
 // performAsyncSync performs repository sync in background goroutine
 func (r *RepositoryReconciler) performAsyncSync(ctx context.Context, repo *api.Repository) {
 	log := log.FromContext(ctx)
 
-	err := r.syncRepository(ctx, repo)
+	packageCount, commitHash, err := r.syncRepository(ctx, repo)
 
 	var status util.RepositoryStatus
 	var nextSyncTime *time.Time
 	if err == nil {
 		status = util.RepositoryStatusReady
 		log.Info("Repository full sync completed successfully", "repository", repo.Name)
-		// Calculate next sync time
-		next := time.Now().Add(r.calculateNextSyncInterval(repo))
+		// Update status fields first
+		now := metav1.Now()
+		repo.Status.LastFullSyncTime = &now
+		repo.Status.ObservedGeneration = repo.Generation
+		repo.Status.PackageCount = packageCount
+		repo.Status.GitCommitHash = commitHash
+		// Calculate next sync time from current time
+		next := r.calculateNextFullSyncTime(repo)
 		nextSyncTime = &next
-		// Record full sync timestamp (best-effort, falls back to status timestamp)
-		if annotErr := r.setLastFullSyncTime(ctx, repo); annotErr != nil {
-			log.Info("Could not update last-full-sync annotation, will use status timestamp as fallback", "repository", repo.Name, "error", annotErr.Error())
-		}
-		// Clear one-time sync flag after successful sync
-		if clearErr := r.clearOneTimeSyncFlag(ctx, repo); clearErr != nil {
-			log.Error(clearErr, "Failed to clear one-time sync flag", "repository", repo.Name)
-		}
 	} else {
 		status = util.RepositoryStatusError
 		log.Error(err, "Repository sync failed", "repository", repo.Name)
-		// Use error-specific retry interval for sync failures
 		retryInterval := r.determineRetryInterval(err)
 		next := time.Now().Add(retryInterval)
 		nextSyncTime = &next
@@ -245,7 +290,18 @@ func (r *RepositoryReconciler) performAsyncSync(ctx context.Context, repo *api.R
 
 	// Update status with result and next sync time
 	if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, status, err, nextSyncTime); statusErr != nil {
+		if client.IgnoreNotFound(statusErr) == nil {
+			log.V(1).Info("Repository deleted during sync", "repository", repo.Name)
+			return
+		}
 		log.Error(statusErr, "Failed to update repository status after sync")
+	}
+
+	// Clear one-time sync flag after successful sync
+	if err == nil {
+		if clearErr := r.clearOneTimeSyncFlag(ctx, repo); clearErr != nil && client.IgnoreNotFound(clearErr) != nil {
+			log.Error(clearErr, "Failed to clear one-time sync flag (non-critical)", "repository", repo.Name)
+		}
 	}
 }
 
@@ -267,6 +323,9 @@ func (r *RepositoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	log := ctrl.Log.WithName("repository-controller")
 	log.Info("SetupWithManager called", "reconcilerPtr", fmt.Sprintf("%p", r), "cacheIsNil", r.Cache == nil)
 
+	// Log controller configuration
+	r.LogConfig(log.V(0))
+
 	// Initialize sync limiter
 	r.InitializeSyncLimiter()
 	log.Info("Sync limiter initialized", "maxConcurrentSyncs", r.MaxConcurrentSyncs)
@@ -285,10 +344,13 @@ func (r *RepositoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	log.Info("Client injected", "reconcilerPtr", fmt.Sprintf("%p", r))
 
 	// Watch Repository CRs only
+	// Note: Predicates only filter watch events, not requeues from RequeueAfter
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&api.Repository{}, builder.WithPredicates(predicate.Funcs{
 			UpdateFunc: func(e event.UpdateEvent) bool {
-				// Only trigger on user-initiated spec changes
+				// Only trigger on user-initiated spec changes (Generation increment)
+				// Status-only updates are filtered out to prevent reconciliation loops
+				// Health checks and periodic syncs are triggered via RequeueAfter, not watch events
 				return e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
 			},
 			CreateFunc: func(e event.CreateEvent) bool {

@@ -72,6 +72,7 @@ func NewCliTestSuite(t *testing.T, testdataDir string) *CliTestSuite {
 
 	isPorchInCluster := IsPorchServerRunningInCluster(t)
 	isControllerInCluster := IsRepoControllerRunningInCluster(t)
+	// Use gitea cluster DNS only if BOTH are in-cluster
 	if isPorchInCluster && isControllerInCluster {
 		s.GitServerURL = defaultTestGitServerUrl
 	} else {

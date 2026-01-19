@@ -74,8 +74,10 @@ func (e *EmbeddedControllerManager) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to setup controller: %w", err)
 	}
 
-	// Initialize existing repositories (may no monger be required)
-	//go e.initializeRepositories(ctx)
+	// Delay controller start to allow webhook server initialization
+	// Prevents race where controller updates annotations before webhook is ready
+	time.Sleep(5 * time.Second)
+	klog.Info("Starting embedded controller after webhook initialization delay")
 
 	return e.mgr.Start(ctx)
 }
