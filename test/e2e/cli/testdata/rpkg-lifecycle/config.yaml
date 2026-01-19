@@ -224,7 +224,7 @@ commands:
       - git.lifecycle-package-render-failure.lifecycle
       - /tmp/porch-e2e/lifecycle-package-render-failure
     stdout: |
-      git.lifecycle-package-render-failure.lifecycle pushed
+      git.lifecycle-package-render-failure.lifecycle pushed (non-rendered resources only; rendered resources NOT pushed due to render failure)
     stderr: "Package is updated, but failed to render the package."
     containsErrorString: true
     exitCode: 0

@@ -95,7 +95,7 @@ commands:
       - git.get-package-render-failed.get
       - /tmp/porch-e2e/testing-invalid-render-get
     stdout: |
-      git.get-package-render-failed.get pushed
+      git.get-package-render-failed.get pushed (non-rendered resources only; rendered resources NOT pushed due to render failure)
     stderr: "Package is updated, but failed to render the package."
     containsErrorString: true
     exitCode: 0

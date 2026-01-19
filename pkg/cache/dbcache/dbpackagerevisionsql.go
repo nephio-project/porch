@@ -284,7 +284,8 @@ func pkgRevScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackageRevi
 
 	for rows.Next() {
 		var pkgRev dbPackageRevision
-		var pkgK8SName, prK8SName, metaAsJSON, specAsJSON, extPRID, tasks, renderStatus string
+		var pkgK8SName, prK8SName, metaAsJSON, specAsJSON, extPRID, tasks string
+		var renderStatus sql.NullString
 
 		err := rows.Scan(
 			&pkgRev.pkgRevKey.PkgKey.RepoKey.Namespace,
@@ -317,7 +318,9 @@ func pkgRevScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackageRevi
 		setValueFromJSON(specAsJSON, &pkgRev.spec)
 		setValueFromJSON(extPRID, &pkgRev.extPRID)
 		setValueFromJSON(tasks, &pkgRev.tasks)
-		setValueFromJSON(renderStatus, &pkgRev.renderStatus)
+		if renderStatus.Valid {
+			setValueFromJSON(renderStatus.String, &pkgRev.renderStatus)
+		}
 
 		dbPkgRevs = append(dbPkgRevs, &pkgRev)
 	}

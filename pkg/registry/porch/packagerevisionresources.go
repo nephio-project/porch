@@ -202,7 +202,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 			klog.Warningf("Failed to store render status: %v", err)
 		}
 	}
-    klog.Infof("Update operation completed for packagerevisionresources: %s", name)
+	klog.Infof("Update operation completed for packagerevisionresources: %s", name)
 
 	return created, false, nil
 }
