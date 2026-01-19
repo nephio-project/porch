@@ -47,7 +47,7 @@ var _ = BeforeSuite(func() {
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDInstallOptions: envtest.CRDInstallOptions{
-			Paths: []string{filepath.Join("..", "..", "..", "config", "crd", "bases", "config.porch.kpt.dev_repositories.yaml")},
+			Paths: []string{filepath.Join("..", "..", "config", "crd", "bases", "config.porch.kpt.dev_repositories.yaml")},
 		},
 		ErrorIfCRDPathMissing: false,
 	}
@@ -107,6 +107,7 @@ func createReconcilerWithMockCache() (*repository.RepositoryReconciler, *mockcac
 	// Mock repository operations for sync
 	mockRepo.EXPECT().Refresh(mock.Anything).Return(nil).Maybe()
 	mockRepo.EXPECT().ListPackageRevisions(mock.Anything, mock.Anything).Return(nil, nil).Maybe()
+	mockRepo.EXPECT().BranchCommitHash(mock.Anything).Return("", nil).Maybe()
 	
 	reconciler := &repository.RepositoryReconciler{
 		Client:                    k8sClient,
@@ -139,6 +140,7 @@ func createMockCacheWithSlowSync() *mockcache.MockCache {
 		time.Sleep(2 * time.Second) // Simulate slow operation
 	}).Return(nil).Maybe()
 	mockRepo.EXPECT().ListPackageRevisions(mock.Anything, mock.Anything).Return(nil, nil).Maybe()
+	mockRepo.EXPECT().BranchCommitHash(mock.Anything).Return("", nil).Maybe()
 	
 	return mockCache
 }

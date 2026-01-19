@@ -2,11 +2,11 @@
 
 .PHONY: test-integration
 test-integration: setup-envtest ## Run integration tests only
-	export KUBEBUILDER_ASSETS=$$(setup-envtest use -p path) && cd integration && ginkgo -v --trace --tags=integration
+	export KUBEBUILDER_ASSETS=$$(setup-envtest use 1.34.x -p path) && cd integration && ginkgo -v --trace
 
 .PHONY: test-integration-watch
 test-integration-watch: setup-envtest ## Run integration tests in watch mode
-	export KUBEBUILDER_ASSETS=$$(setup-envtest use -p path) && cd integration && ginkgo watch -v --trace --tags=integration
+	export KUBEBUILDER_ASSETS=$$(setup-envtest use 1.34.x -p path) && cd integration && ginkgo watch -v --trace
 
 .PHONY: test-unit
 test-unit: ## Run unit tests only
@@ -19,7 +19,7 @@ test-all: test-unit test-integration ## Run all tests (unit + integration)
 setup-envtest: ## Setup test environment binaries
 	@which setup-envtest > /dev/null || go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 	@which ginkgo > /dev/null || go install github.com/onsi/ginkgo/v2/ginkgo@latest
-	@setup-envtest use --bin-dir ./testbin
+	@setup-envtest use 1.34.x --bin-dir ./testbin
 
 .PHONY: clean-testbin
 clean-testbin: ## Clean test binaries

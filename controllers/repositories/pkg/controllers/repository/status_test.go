@@ -25,8 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache/util"
@@ -38,14 +36,6 @@ func setupTest() (*runtime.Scheme, context.Context) {
 	scheme := runtime.NewScheme()
 	_ = configapi.AddToScheme(scheme)
 	return scheme, context.Background()
-}
-
-func createFakeClient(scheme *runtime.Scheme, objs ...client.Object) client.Client {
-	return fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).WithStatusSubresource(&configapi.Repository{}).Build()
-}
-
-func createReconciler(client client.Client) *RepositoryReconciler {
-	return &RepositoryReconciler{Client: client}
 }
 
 func TestSetCondition(t *testing.T) {

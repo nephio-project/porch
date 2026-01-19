@@ -237,9 +237,12 @@ func (c completedConfig) getCoreV1Client() (*corev1client.CoreV1Client, error) {
 
 // createEmbeddedController creates embedded controller manager
 func (c completedConfig) createEmbeddedController(coreClient client.WithWatch) (*EmbeddedControllerManager, error) {
-	restConfig, err := c.getRestConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get rest config: %w", err)
+	config := repocontroller.EmbeddedConfig{
+		MaxConcurrentReconciles:    c.ExtraConfig.RepoControllerConfig.MaxConcurrentReconciles,
+		MaxConcurrentSyncs:         c.ExtraConfig.RepoControllerConfig.MaxConcurrentSyncs,
+		HealthCheckFrequency:       c.ExtraConfig.RepoControllerConfig.HealthCheckFrequency,
+		FullSyncFrequency:          c.ExtraConfig.RepoControllerConfig.FullSyncFrequency,
+		RepoOperationRetryAttempts: c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts,
 	}
 
 	scheme, err := buildCompleteScheme()
@@ -247,12 +250,9 @@ func (c completedConfig) createEmbeddedController(coreClient client.WithWatch) (
 		return nil, fmt.Errorf("failed to build scheme: %w", err)
 	}
 
-	config := repocontroller.EmbeddedConfig{
-		MaxConcurrentReconciles:    c.ExtraConfig.RepoControllerConfig.MaxConcurrentReconciles,
-		MaxConcurrentSyncs:         c.ExtraConfig.RepoControllerConfig.MaxConcurrentSyncs,
-		HealthCheckFrequency:       c.ExtraConfig.RepoControllerConfig.HealthCheckFrequency,
-		FullSyncFrequency:          c.ExtraConfig.RepoControllerConfig.FullSyncFrequency,
-		RepoOperationRetryAttempts: c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts,
+	restConfig, err := c.getRestConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get rest config: %w", err)
 	}
 
 	return createEmbeddedController(coreClient, restConfig, scheme, config)
