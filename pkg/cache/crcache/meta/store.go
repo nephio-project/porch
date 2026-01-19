@@ -249,6 +249,7 @@ func (c *crdMetadataStore) UpdateStatus(ctx context.Context, namespacedName type
 		return err
 	}
 	if renderStatus != nil {
+		// Clear ObjectMeta to avoid storing redundant metadata in the status field
 		renderStatus.Result.ObjectMeta = metav1.ObjectMeta{}
 	}
 	internalPkgRev.Status.RenderStatus = renderStatus

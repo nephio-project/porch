@@ -261,7 +261,7 @@ commands:
       - git.test-package.push
       - /tmp/porch-e2e/testing-invalid-render
     stdout: |
-      git.test-package.push pushed
+      git.test-package.push pushed (non-rendered resources only; rendered resources NOT pushed due to render failure)
     stderr: "Package is updated, but failed to render the package."
     containsErrorString: true
     exitCode: 0
