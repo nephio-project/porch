@@ -78,7 +78,7 @@ func TestSetEmbeddedDefaults(t *testing.T) {
 			name:   "zero values get defaults",
 			config: EmbeddedConfig{},
 			want: EmbeddedConfig{
-				MaxConcurrentReconciles:    10,
+				MaxConcurrentReconciles:    100,
 				MaxConcurrentSyncs:         50,
 				HealthCheckFrequency:       5 * time.Minute,
 				FullSyncFrequency:          1 * time.Hour,
@@ -95,7 +95,7 @@ func TestSetEmbeddedDefaults(t *testing.T) {
 				RepoOperationRetryAttempts: -1,
 			},
 			want: EmbeddedConfig{
-				MaxConcurrentReconciles:    10,
+				MaxConcurrentReconciles:    100,
 				MaxConcurrentSyncs:         50,
 				HealthCheckFrequency:       5 * time.Minute,
 				FullSyncFrequency:          1 * time.Hour,

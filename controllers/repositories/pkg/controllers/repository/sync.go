@@ -54,7 +54,8 @@ type SyncDecision struct {
 func (r *RepositoryReconciler) determineSyncDecision(ctx context.Context, repo *api.Repository) SyncDecision {
 	// Don't start new operations if already in progress
 	if r.isSyncInProgress(ctx, repo) {
-		return SyncDecision{Type: HealthCheck, Needed: false, Interval: r.getRequeueInterval(repo)}
+		// Use health check frequency to avoid tight loops while waiting for sync to complete
+		return SyncDecision{Type: HealthCheck, Needed: false, Interval: r.HealthCheckFrequency}
 	}
 
 	// 1. One-time sync due → Full sync
@@ -294,15 +295,8 @@ func (r *RepositoryReconciler) calculateNextSyncInterval(repo *api.Repository) t
 	}
 
 	// Return the minimum of health check and full sync intervals
-	// Use health check frequency as floor to avoid tight loops
 	if nextHealthCheck < nextFullSync {
-		if nextHealthCheck <= 0 {
-			return r.HealthCheckFrequency
-		}
 		return nextHealthCheck
-	}
-	if nextFullSync <= 0 {
-		return r.HealthCheckFrequency
 	}
 	return nextFullSync
 }
