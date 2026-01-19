@@ -147,3 +147,93 @@ func TestDefaultEmbeddedConfig(t *testing.T) {
 		t.Errorf("RepoOperationRetryAttempts = %d, want 3", config.RepoOperationRetryAttempts)
 	}
 }
+
+type mockLogger struct {
+	infoCalls [][]interface{}
+}
+
+func (m *mockLogger) Info(msg string, keysAndValues ...interface{}) {
+	m.infoCalls = append(m.infoCalls, append([]interface{}{msg}, keysAndValues...))
+}
+
+func TestLogConfig(t *testing.T) {
+	tests := []struct {
+		name              string
+		reconciler        *RepositoryReconciler
+		expectWarnings    int
+	}{
+		{
+			name: "default config - no warnings",
+			reconciler: &RepositoryReconciler{
+				HealthCheckFrequency:       5 * time.Minute,
+				FullSyncFrequency:          1 * time.Hour,
+				MaxConcurrentReconciles:    100,
+				MaxConcurrentSyncs:         50,
+				SyncStaleTimeout:           20 * time.Minute,
+				RepoOperationRetryAttempts: 3,
+			},
+			expectWarnings: 0,
+		},
+		{
+			name: "low health check frequency - warning",
+			reconciler: &RepositoryReconciler{
+				HealthCheckFrequency:       1 * time.Minute,
+				FullSyncFrequency:          1 * time.Hour,
+				MaxConcurrentReconciles:    100,
+				MaxConcurrentSyncs:         50,
+				SyncStaleTimeout:           20 * time.Minute,
+				RepoOperationRetryAttempts: 3,
+			},
+			expectWarnings: 1,
+		},
+		{
+			name: "low full sync frequency - warning",
+			reconciler: &RepositoryReconciler{
+				HealthCheckFrequency:       5 * time.Minute,
+				FullSyncFrequency:          30 * time.Minute,
+				MaxConcurrentReconciles:    100,
+				MaxConcurrentSyncs:         50,
+				SyncStaleTimeout:           20 * time.Minute,
+				RepoOperationRetryAttempts: 3,
+			},
+			expectWarnings: 1,
+		},
+		{
+			name: "both frequencies low - two warnings",
+			reconciler: &RepositoryReconciler{
+				HealthCheckFrequency:       1 * time.Minute,
+				FullSyncFrequency:          30 * time.Minute,
+				MaxConcurrentReconciles:    100,
+				MaxConcurrentSyncs:         50,
+				SyncStaleTimeout:           20 * time.Minute,
+				RepoOperationRetryAttempts: 3,
+			},
+			expectWarnings: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := &mockLogger{}
+			tt.reconciler.LogConfig(logger)
+
+			if len(logger.infoCalls) == 0 {
+				t.Error("Expected at least one log call")
+			}
+
+			// First call should be the main config log
+			if len(logger.infoCalls) > 0 {
+				firstMsg := logger.infoCalls[0][0].(string)
+				if firstMsg != "Repository controller configuration" {
+					t.Errorf("Expected first log message to be config, got %q", firstMsg)
+				}
+			}
+
+			// Check warning count (total calls - 1 for main config)
+			warningCount := len(logger.infoCalls) - 1
+			if warningCount != tt.expectWarnings {
+				t.Errorf("Expected %d warnings, got %d", tt.expectWarnings, warningCount)
+			}
+		})
+	}
+}
