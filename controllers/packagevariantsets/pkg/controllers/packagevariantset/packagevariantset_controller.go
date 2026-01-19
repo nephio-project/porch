@@ -35,10 +35,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/kustomize/kyaml/resid"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
@@ -55,6 +55,7 @@ type PackageVariantSetReconciler struct {
 	Options
 
 	serializer *json.Serializer
+	loggerName string
 }
 
 const (
@@ -67,7 +68,12 @@ const (
 	PackageVariantNameHashLength = 8
 )
 
-//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 rbac:headerFile=../../../../../scripts/boilerplate.yaml.txt,roleName=porch-controllers-packagevariantsets,year=$YEAR_GEN webhook paths="." output:rbac:artifacts:config=../../../config/rbac
+// SetLogger sets the logger name for this reconciler
+func (r *PackageVariantSetReconciler) SetLogger(name string) {
+	r.loggerName = name
+}
+
+//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 rbac:headerFile=../../../../../scripts/boilerplate.yaml.txt,roleName=porch-controllers-packagevariantsets webhook paths="." output:rbac:artifacts:config=../../../config/rbac
 
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=packagevariantsets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=packagevariantsets/status,verbs=get;update;patch
@@ -78,6 +84,7 @@ const (
 
 // Reconcile implements the main kubernetes reconciliation loop.
 func (r *PackageVariantSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	log := log.FromContext(ctx)
 	pvs, prList, repoList, err := r.init(ctx, req)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -89,7 +96,7 @@ func (r *PackageVariantSetReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	defer func() {
 		if err := r.Client.Status().Update(ctx, pvs); err != nil {
-			klog.Errorf("could not update status: %v\n", err)
+			log.Error(err, "Could not update status")
 		}
 	}()
 
@@ -238,7 +245,7 @@ func (r *PackageVariantSetReconciler) unrollDownstreamTargets(ctx context.Contex
 
 		// TODO: fire event; set condition?
 		if len(uList.Items) == 0 {
-			klog.Warningf("no objects selected by spec.targets[%d]", i)
+			log.FromContext(ctx).Info("No objects selected by target", "targetIndex", i)
 		}
 		for _, u := range uList.Items {
 			result = append(result, pvContext{

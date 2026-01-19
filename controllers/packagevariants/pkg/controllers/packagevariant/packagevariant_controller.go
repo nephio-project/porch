@@ -52,6 +52,7 @@ func (o *Options) BindFlags(_ string, _ *flag.FlagSet) {}
 type PackageVariantReconciler struct {
 	client.Client
 	Options
+	loggerName string
 }
 
 const (
@@ -61,7 +62,12 @@ const (
 	ConditionTypeReady   = "Ready"   // whether or not the reconciliation succeeded
 )
 
-//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 rbac:headerFile=../../../../../scripts/boilerplate.yaml.txt,roleName=porch-controllers-packagevariants,year=$YEAR_GEN webhook paths="." output:rbac:artifacts:config=../../../config/rbac
+// SetLogger sets the logger name for this reconciler
+func (r *PackageVariantReconciler) SetLogger(name string) {
+	r.loggerName = name
+}
+
+//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 rbac:headerFile=../../../../../scripts/boilerplate.yaml.txt,roleName=porch-controllers-packagevariants webhook paths="." output:rbac:artifacts:config=../../../config/rbac
 
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=packagevariants,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=packagevariants/status,verbs=get;update;patch
