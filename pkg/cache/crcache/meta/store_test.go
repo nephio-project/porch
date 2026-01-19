@@ -21,6 +21,7 @@ import (
 	"errors"
 	"testing"
 
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
@@ -143,4 +144,93 @@ func TestStoreErrors(t *testing.T) {
 	mockClient.EXPECT().Get(mock.Anything, nsn, mock.Anything).Return(errors.New("get error3"))
 	_, err = store.Delete(ctxt, nsn, true)
 	assert.True(t, err != nil)
+}
+
+func TestUpdateStatus(t *testing.T) {
+	tests := []struct {
+		name         string
+		renderStatus *porchapi.RenderStatus
+		getErr       error
+		updateErr    error
+		wantErr      bool
+		validate     func(*testing.T, *v1alpha1.PackageRev)
+	}{
+		{
+			name: "success with render error",
+			renderStatus: &porchapi.RenderStatus{
+				Err: "render error",
+				Result: porchapi.ResultList{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "should-be-cleared",
+						Namespace: "should-be-cleared",
+					},
+				},
+			},
+			validate: func(t *testing.T, pkgRev *v1alpha1.PackageRev) {
+				assert.NotNil(t, pkgRev.Status.RenderStatus)
+				assert.Equal(t, "render error", pkgRev.Status.RenderStatus.Err)
+				assert.Empty(t, pkgRev.Status.RenderStatus.Result.ObjectMeta.Name)
+				assert.Empty(t, pkgRev.Status.RenderStatus.Result.ObjectMeta.Namespace)
+			},
+		},
+		{
+			name:         "success with nil render status",
+			renderStatus: nil,
+			validate: func(t *testing.T, pkgRev *v1alpha1.PackageRev) {
+				assert.Nil(t, pkgRev.Status.RenderStatus)
+			},
+		},
+		{
+			name:         "get error",
+			renderStatus: &porchapi.RenderStatus{},
+			getErr:       errors.New("get error"),
+			wantErr:      true,
+		},
+		{
+			name:         "update error",
+			renderStatus: &porchapi.RenderStatus{Err: "test error"},
+			updateErr:    errors.New("update error"),
+			wantErr:      true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := mockclient.NewMockClient(t)
+			mockStatusWriter := mockclient.NewMockSubResourceWriter(t)
+			ctx := context.TODO()
+
+			store := NewCrdMetadataStore(mockClient)
+			nsn := types.NamespacedName{Name: "test-pkg", Namespace: "test-ns"}
+
+			mockClient.EXPECT().
+				Get(ctx, nsn, mock.AnythingOfType("*v1alpha1.PackageRev")).
+				Return(tt.getErr).
+				Run(func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) {
+					if tt.getErr == nil {
+						obj.(*v1alpha1.PackageRev).Name = nsn.Name
+						obj.(*v1alpha1.PackageRev).Namespace = nsn.Namespace
+					}
+				})
+
+			if tt.getErr == nil {
+				mockClient.EXPECT().Status().Return(mockStatusWriter)
+				mockStatusWriter.EXPECT().
+					Update(ctx, mock.AnythingOfType("*v1alpha1.PackageRev")).
+					Return(tt.updateErr).
+					Run(func(_ context.Context, obj client.Object, _ ...client.SubResourceUpdateOption) {
+						if tt.validate != nil {
+							tt.validate(t, obj.(*v1alpha1.PackageRev))
+						}
+					})
+			}
+
+			err := store.UpdateStatus(ctx, nsn, tt.renderStatus)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
 }

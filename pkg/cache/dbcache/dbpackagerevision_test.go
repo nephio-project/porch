@@ -442,9 +442,9 @@ func (t *DbTestSuite) TestRenderStatus() {
 	t.Require().NoError(err)
 
 	renderStatus := &porchapi.RenderStatus{Err: "test render error"}
-	dbPR.(*dbPackageRevision).SetRenderStatus(renderStatus)
+	dbPR.(*dbPackageRevision).UpdateRenderStatusInMemory(renderStatus)
 
-	err = dbPR.(*dbPackageRevision).SaveRenderStatus(ctx)
+	err = dbPR.(*dbPackageRevision).PersistRenderStatus(ctx)
 	t.Require().NoError(err)
 
 	prDef, err := dbPR.GetPackageRevision(ctx)

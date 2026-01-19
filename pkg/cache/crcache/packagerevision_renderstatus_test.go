@@ -51,15 +51,15 @@ func TestCachedPackageRevisionRenderStatus(t *testing.T) {
 		metadataStore:   store,
 	}
 
-	t.Run("SetRenderStatus stores in memory", func(t *testing.T) {
+	t.Run("UpdateRenderStatusInMemory stores in memory", func(t *testing.T) {
 		rs := &porchapi.RenderStatus{Err: "test error"}
-		cached.SetRenderStatus(rs)
+		cached.UpdateRenderStatusInMemory(rs)
 
 		assert.Equal(t, "test error", cached.renderStatus.Err)
 	})
 
-	t.Run("SaveRenderStatus persists to MetadataStore", func(t *testing.T) {
-		err := cached.SaveRenderStatus(context.TODO())
+	t.Run("PersistRenderStatus persists to MetadataStore", func(t *testing.T) {
+		err := cached.PersistRenderStatus(context.TODO())
 		assert.NoError(t, err)
 
 		nsn := types.NamespacedName{

@@ -16,8 +16,8 @@ package api
 
 import (
 	"context"
-    "fmt"
-    "strings"
+	"fmt"
+	"strings"
 	"time"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -179,9 +179,9 @@ spec:
 	t.AddMutator(resources, t.KrmFunctionsRegistry+"/kubeconform:v0.1.1")
 
 	err := t.Client.Update(t.GetContext(), resources)
-    if err != nil && resources.Status.RenderStatus.Err == "" {
-        t.Fatalf("expected error but got none")
-    }
+	if err != nil && resources.Status.RenderStatus.Err == "" {
+		t.Fatalf("expected error but got none")
+	}
 }
 
 func (t *PorchSuite) TestFailedPodEvictionAndRecovery() {
@@ -198,22 +198,22 @@ func (t *PorchSuite) TestFailedPodEvictionAndRecovery() {
 	err := t.Client.Update(t.GetContext(), prr)
 
     // Assert: no error returned but the packagerevisionstatus shows the function eval error
-    t.Require().Contains(prr.Status.RenderStatus.Err, fmt.Sprintf("pkg.render:\n\tpipeline.run: func eval \"%s\" failed", bogusFnImage))
-    t.Require().NoError(err)
+	t.Require().Contains(prr.Status.RenderStatus.Err, fmt.Sprintf("pkg.render:\n\tpipeline.run: func eval \"%s\" failed", bogusFnImage))
+	t.Require().NoError(err)
 
-    // Optional: verify no stuck pods exist for the failed image
-    pods := &corev1.PodList{}
-    t.ListF(pods, client.InNamespace(t.Namespace))
+	// Optional: verify no stuck pods exist for the failed image
+	pods := &corev1.PodList{}
+	t.ListF(pods, client.InNamespace(t.Namespace))
 
-    for _, pod := range pods.Items {
-        if strings.Contains(pod.Spec.Containers[0].Image, "kpt-fn-broken") {
-            if pod.Status.Phase == corev1.PodFailed {
-                t.Logf("Found pod %s in Failed state (expected, cleanup should follow)", pod.Name)
-            } else {
-                t.Logf("Found pod %s in %s state", pod.Name, pod.Status.Phase)
-            }
-        }
-    }
+	for _, pod := range pods.Items {
+		if strings.Contains(pod.Spec.Containers[0].Image, "kpt-fn-broken") {
+			if pod.Status.Phase == corev1.PodFailed {
+				t.Logf("Found pod %s in Failed state (expected, cleanup should follow)", pod.Name)
+			} else {
+				t.Logf("Found pod %s in %s state", pod.Name, pod.Status.Phase)
+			}
+		}
+	}
 }
 
 type TestPackageSetupOptions struct {

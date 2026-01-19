@@ -229,15 +229,11 @@ func (r *packageRevisionResources) Watch(ctx context.Context, options *metainter
 	}, options)
 }
 
-// Set render status on the package revision
+// setRenderStatus sets and saves render status on the package revision if it supports the operation
 func (r *packageRevisionResources) setRenderStatus(ctx context.Context, pr repository.PackageRevision, renderStatus *porchapi.RenderStatus) error {
-	type renderStatusSetter interface {
-		SetRenderStatus(*porchapi.RenderStatus)
-		SaveRenderStatus(context.Context) error
-	}
-	if rs, ok := pr.(renderStatusSetter); ok {
-		rs.SetRenderStatus(renderStatus)
-		return rs.SaveRenderStatus(ctx)
+	if rs, ok := pr.(repository.RenderStatusSetter); ok {
+		rs.UpdateRenderStatusInMemory(renderStatus)
+		return rs.PersistRenderStatus(ctx)
 	}
 	return nil
 }

@@ -110,16 +110,16 @@ func (c *cachedPackageRevision) IsLatestRevision() bool {
 	return c.isLatestRevision
 }
 
-func (c *cachedPackageRevision) SetRenderStatus(renderStatus *porchapi.RenderStatus) {
+func (c *cachedPackageRevision) UpdateRenderStatusInMemory(renderStatus *porchapi.RenderStatus) {
 	c.renderStatus = renderStatus
-	if setter, ok := c.PackageRevision.(interface{ SetRenderStatus(*porchapi.RenderStatus) }); ok {
-		setter.SetRenderStatus(renderStatus)
+	if setter, ok := c.PackageRevision.(repository.RenderStatusSetter); ok {
+		setter.UpdateRenderStatusInMemory(renderStatus)
 	}
 }
 
-func (c *cachedPackageRevision) SaveRenderStatus(ctx context.Context) error {
-	if saver, ok := c.PackageRevision.(interface{ SaveRenderStatus(context.Context) error }); ok {
-		return saver.SaveRenderStatus(ctx)
+func (c *cachedPackageRevision) PersistRenderStatus(ctx context.Context) error {
+	if saver, ok := c.PackageRevision.(repository.RenderStatusSetter); ok {
+		return saver.PersistRenderStatus(ctx)
 	}
 	renderStatus := c.renderStatus
 	if renderStatus != nil {

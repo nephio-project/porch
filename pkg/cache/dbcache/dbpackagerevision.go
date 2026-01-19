@@ -397,11 +397,11 @@ func (pr *dbPackageRevision) UpdateResources(ctx context.Context, new *porchapi.
 	return nil
 }
 
-func (pr *dbPackageRevision) SetRenderStatus(renderStatus *porchapi.RenderStatus) {
+func (pr *dbPackageRevision) UpdateRenderStatusInMemory(renderStatus *porchapi.RenderStatus) {
 	pr.renderStatus = renderStatus
 }
 
-func (pr *dbPackageRevision) SaveRenderStatus(ctx context.Context) error {
+func (pr *dbPackageRevision) PersistRenderStatus(ctx context.Context) error {
 	return pkgRevUpdateDB(ctx, pr, false)
 }
 
