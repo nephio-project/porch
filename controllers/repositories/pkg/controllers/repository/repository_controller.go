@@ -66,6 +66,7 @@ type RepositoryReconciler struct {
 	cacheType              string        // Only cache type, will nedd DB details for dbcache
 	useUserDefinedCaBundle bool          // Whether to use custom CA bundles from secrets
 	syncLimiter            chan struct{} // Semaphore for sync concurrency
+	loggerName             string        // Logger name for this reconciler
 }
 
 //go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 rbac:headerFile=../../../../../scripts/boilerplate.yaml.txt,roleName=porch-controllers-repositories webhook paths="." output:rbac:artifacts:config=../../../config/rbac
@@ -78,7 +79,7 @@ type RepositoryReconciler struct {
 // Reconcile handles Repository reconciliation
 func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
-	log.Info("Repository reconcile triggered", "repository", req.NamespacedName)
+	log.Info("Repository reconcile triggered")
 
 	// Check if cache is available - this should never happen if SetupWithManager succeeded
 	if r.Cache == nil {
@@ -89,13 +90,13 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	// Get Repository
 	repo := &api.Repository{}
 	if err := r.Get(ctx, req.NamespacedName, repo); err != nil {
-		log.V(1).Info("Repository not found, likely deleted", "repository", req.NamespacedName)
+		log.V(1).Info("Repository not found, likely deleted")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	// Handle deletion
 	if !repo.DeletionTimestamp.IsZero() {
-		log.Info("Repository deletion detected", "repository", repo.Name)
+		log.Info("Repository deletion detected")
 		return r.handleDeletion(ctx, repo)
 	}
 
@@ -106,7 +107,7 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	// Determine what operation is needed
 	decision := r.determineSyncDecision(ctx, repo)
-	log.Info("Sync decision made", "repository", repo.Name, "type", decision.Type, "needed", decision.Needed, "interval", decision.Interval)
+	log.Info("Sync decision made", "type", decision.Type, "needed", decision.Needed, "interval", decision.Interval)
 
 	if !decision.Needed {
 		// Defense in depth: Ensure we never return 0 requeue interval
@@ -114,16 +115,16 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		// This should never trigger in normal operation - if it does, indicates a bug
 		if decision.Interval <= 0 {
 			decision.Interval = 1 * time.Second
-			log.Info("Requeue interval was zero or negative, using 1s minimum", "repository", repo.Name)
+			log.Info("Requeue interval was zero or negative, using 1s minimum")
 		}
-		log.Info("No operation needed, requeuing", "repository", repo.Name, "after", decision.Interval)
+		log.Info("No operation needed, requeuing", "after", decision.Interval)
 		return ctrl.Result{RequeueAfter: decision.Interval}, nil
 	}
 
 	if decision.Type == HealthCheck {
 		// Don't run health check if full sync is in progress (prevents concurrent status updates)
 		if r.isSyncInProgress(ctx, repo) {
-			log.V(1).Info("Skipping health check, full sync in progress", "repository", repo.Name)
+			log.V(1).Info("Skipping health check, full sync in progress")
 			return ctrl.Result{RequeueAfter: r.HealthCheckFrequency}, nil
 		}
 		return r.performHealthCheckSync(ctx, repo)
@@ -137,7 +138,7 @@ func (r *RepositoryReconciler) ensureFinalizer(ctx context.Context, repo *api.Re
 	if controllerutil.ContainsFinalizer(repo, RepositoryFinalizer) {
 		return false, nil
 	}
-	log.FromContext(ctx).Info("Adding finalizer to repository", "repository", repo.Name)
+	log.FromContext(ctx).Info("Adding finalizer to repository")
 	patch := client.MergeFrom(repo.DeepCopy())
 	controllerutil.AddFinalizer(repo, RepositoryFinalizer)
 	if err := r.Patch(ctx, repo, patch); err != nil {
@@ -149,7 +150,7 @@ func (r *RepositoryReconciler) ensureFinalizer(ctx context.Context, repo *api.Re
 // performHealthCheckSync executes synchronous health check
 func (r *RepositoryReconciler) performHealthCheckSync(ctx context.Context, repo *api.Repository) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
-	log.Info("Starting repository health check", "repository", repo.Name)
+	log.Info("Starting repository health check")
 
 	// Check if repo was previously in error state
 	wasInError := false
@@ -162,7 +163,8 @@ func (r *RepositoryReconciler) performHealthCheckSync(ctx context.Context, repo 
 
 	// Lightweight connectivity check only - don't call OpenRepository which can block
 	if err := r.Cache.CheckRepositoryConnectivity(ctx, repo); err != nil {
-		log.Error(err, "Repository health check failed", "repository", repo.Name)
+		repoURL, _, _ := getRepoFields(repo)
+		log.Error(err, "Repository health check failed", "repoURL", repoURL)
 		retryInterval := r.determineRetryInterval(err)
 		// Apply minimum retry interval to prevent aggressive retries
 		const minRetryInterval = 30 * time.Second
@@ -171,38 +173,38 @@ func (r *RepositoryReconciler) performHealthCheckSync(ctx context.Context, repo 
 		}
 		nextSyncTime := time.Now().Add(retryInterval)
 		if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, util.RepositoryStatusError, err, &nextSyncTime); statusErr != nil {
-			log.Error(statusErr, "Failed to update repository status after health check failure", "repository", repo.Name)
+			log.Error(statusErr, "Failed to update repository status after health check failure")
 		}
 		return ctrl.Result{RequeueAfter: retryInterval}, nil
 	}
 
 	// Health check passed - if repo was in error, trigger immediate full sync to catch up
 	if wasInError {
-		log.Info("Repository recovered from error state, triggering immediate full sync", "repository", repo.Name)
+		log.Info("Repository recovered from error state, triggering immediate full sync")
 		// Clear error status first
 		nextHealthCheck := time.Now().Add(r.HealthCheckFrequency)
 		if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, util.RepositoryStatusReady, nil, &nextHealthCheck); statusErr != nil {
-			log.Error(statusErr, "Failed to update repository status after error recovery", "repository", repo.Name)
+			log.Error(statusErr, "Failed to update repository status after error recovery")
 		}
 		// Trigger full sync immediately
 		return r.performFullSync(ctx, repo)
 	}
 
 	// Normal health check passed
-	log.Info("Repository health check completed successfully", "repository", repo.Name)
+	log.Info("Repository health check completed successfully")
 	nextFullSync := r.calculateNextFullSyncTime(repo)
 	if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, util.RepositoryStatusReady, nil, &nextFullSync); statusErr != nil {
-		log.Error(statusErr, "Failed to update repository status after successful health check", "repository", repo.Name)
+		log.Error(statusErr, "Failed to update repository status after successful health check")
 	}
 	// Always requeue after HealthCheckFrequency - don't try to calculate based on potentially stale data
-	log.Info("Health check complete, requeuing", "repository", repo.Name, "requeueAfter", r.HealthCheckFrequency)
+	log.Info("Health check complete, requeuing", "requeueAfter", r.HealthCheckFrequency)
 	return ctrl.Result{RequeueAfter: r.HealthCheckFrequency}, nil
 }
 
 // performFullSync executes asynchronous full sync
 func (r *RepositoryReconciler) performFullSync(ctx context.Context, repo *api.Repository) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
-	log.Info("Starting repository full sync", "repository", repo.Name)
+	log.Info("Starting repository full sync")
 
 	// Set sync in progress status
 	if err := r.updateRepoStatusWithBackoff(ctx, repo, util.RepositoryStatusSyncInProgress, nil, nil); err != nil {
@@ -219,21 +221,20 @@ func (r *RepositoryReconciler) performFullSync(ctx context.Context, repo *api.Re
 				if panicErr := recover(); panicErr != nil {
 					retryInterval := 5 * time.Minute
 					panicErr := fmt.Errorf("panic in async sync: %v\nStack: %s", panicErr, debug.Stack())
-					log.Error(panicErr, "Panic recovered, will retry",
-						"repository", repo.Name, "retryAfter", retryInterval)
+					log.Error(panicErr, "Panic recovered, will retry", "retryAfter", retryInterval)
 					// Update status to error on panic
-					panicCtx := context.Background()
+					panicCtx := ctrl.LoggerInto(context.Background(), log)
 					nextSyncTime := time.Now().Add(retryInterval)
 					statusErr := fmt.Errorf("repo sync panic: %v, retrying after %v",
 						panicErr, retryInterval)
 					if err := r.updateRepoStatusWithBackoff(panicCtx, repo,
 						util.RepositoryStatusError, statusErr, &nextSyncTime); err != nil {
-						log.Error(err, "Failed to update repository status after panic recovery", "repository", repo.Name)
+						log.Error(err, "Failed to update repository status after panic recovery")
 					}
 				}
 			}()
 			// Use background context for async operation (prevents cancellation)
-			asyncCtx := context.Background()
+			asyncCtx := ctrl.LoggerInto(context.Background(), log)
 			// Make a copy to avoid race conditions with caller's repo object
 			repoCopy := repo.DeepCopy()
 			r.performAsyncSync(asyncCtx, repoCopy)
@@ -242,21 +243,19 @@ func (r *RepositoryReconciler) performFullSync(ctx context.Context, repo *api.Re
 		// Too many syncs running
 		retryAfter := 30 * time.Second
 		log.V(0).Info("Sync capacity exceeded, will retry",
-			"repository", repo.Name,
 			"retryAfter", retryAfter,
 			"maxConcurrentSyncs", r.MaxConcurrentSyncs)
 		statusErr := fmt.Errorf("sync capacity exceeded, retrying after %v", retryAfter)
 		if err := r.updateRepoStatusWithBackoff(ctx, repo,
 			util.RepositoryStatusError, statusErr, nil); err != nil {
-			log.Error(err, "Failed to update repository status after sync capacity exceeded", "repository", repo.Name)
+			log.Error(err, "Failed to update repository status after sync capacity exceeded")
 		}
 		return ctrl.Result{RequeueAfter: retryAfter}, nil
 	}
 
 	// Requeue after health check frequency to allow health checks between full syncs
 	// The decision logic will determine when next full sync is actually due
-	log.Info("Full sync launched in background, requeuing for next health check",
-		"repository", repo.Name, "requeueAfter", r.HealthCheckFrequency)
+	log.Info("Full sync launched in background, requeuing for next health check", "requeueAfter", r.HealthCheckFrequency)
 	return ctrl.Result{RequeueAfter: r.HealthCheckFrequency}, nil
 }
 
@@ -270,7 +269,7 @@ func (r *RepositoryReconciler) performAsyncSync(ctx context.Context, repo *api.R
 	var nextSyncTime *time.Time
 	if err == nil {
 		status = util.RepositoryStatusReady
-		log.Info("Repository full sync completed successfully", "repository", repo.Name)
+		log.Info("Repository full sync completed successfully")
 		// Update status fields first
 		now := metav1.Now()
 		repo.Status.LastFullSyncTime = &now
@@ -282,7 +281,8 @@ func (r *RepositoryReconciler) performAsyncSync(ctx context.Context, repo *api.R
 		nextSyncTime = &next
 	} else {
 		status = util.RepositoryStatusError
-		log.Error(err, "Repository sync failed", "repository", repo.Name)
+		repoURL, _, _ := getRepoFields(repo)
+		log.Error(err, "Repository sync failed", "repoURL", repoURL)
 		retryInterval := r.determineRetryInterval(err)
 		next := time.Now().Add(retryInterval)
 		nextSyncTime = &next
@@ -291,7 +291,7 @@ func (r *RepositoryReconciler) performAsyncSync(ctx context.Context, repo *api.R
 	// Update status with result and next sync time
 	if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, status, err, nextSyncTime); statusErr != nil {
 		if client.IgnoreNotFound(statusErr) == nil {
-			log.V(1).Info("Repository deleted during sync", "repository", repo.Name)
+			log.V(1).Info("Repository deleted during sync")
 			return
 		}
 		log.Error(statusErr, "Failed to update repository status after sync")
@@ -300,7 +300,7 @@ func (r *RepositoryReconciler) performAsyncSync(ctx context.Context, repo *api.R
 	// Clear one-time sync flag after successful sync
 	if err == nil {
 		if clearErr := r.clearOneTimeSyncFlag(ctx, repo); clearErr != nil && client.IgnoreNotFound(clearErr) != nil {
-			log.Error(clearErr, "Failed to clear one-time sync flag (non-critical)", "repository", repo.Name)
+			log.Error(clearErr, "Failed to clear one-time sync flag (non-critical)")
 		}
 	}
 }
@@ -313,9 +313,25 @@ func (r *RepositoryReconciler) InitializeSyncLimiter() {
 	r.syncLimiter = make(chan struct{}, r.MaxConcurrentSyncs)
 }
 
+// SetLogger sets the logger name for this reconciler
+func (r *RepositoryReconciler) SetLogger(name string) {
+	r.loggerName = name
+}
+
+// getRepoFields extracts repository-specific fields for logging
+func getRepoFields(repo *api.Repository) (repoURL, branch, directory string) {
+	if repo.Spec.Git != nil {
+		return repo.Spec.Git.Repo, repo.Spec.Git.Branch, repo.Spec.Git.Directory
+	}
+	if repo.Spec.Oci != nil {
+		return repo.Spec.Oci.Registry, "", ""
+	}
+	return "", "", ""
+}
+
 // SetupWithManager sets up the controller with the Manager
 func (r *RepositoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	log := ctrl.Log.WithName("repository-controller")
+	log := ctrl.Log.WithName(r.loggerName)
 	log.Info("SetupWithManager called", "reconcilerPtr", fmt.Sprintf("%p", r), "cacheIsNil", r.Cache == nil)
 
 	// Log controller configuration

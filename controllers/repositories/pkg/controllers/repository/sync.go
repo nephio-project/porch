@@ -21,25 +21,28 @@ func (r *RepositoryReconciler) syncRepository(ctx context.Context, repo *api.Rep
 
 	repoHandle, err := r.Cache.OpenRepository(ctx, repo)
 	if err != nil {
-		log.Error(err, "Failed to open repository for sync", "repository", repo.Name)
+		repoURL, _, _ := getRepoFields(repo)
+		log.Error(err, "Failed to open repository for sync", "repoURL", repoURL)
 		return 0, "", err
 	}
 
 	if err := repoHandle.Refresh(ctx); err != nil {
-		log.Error(err, "Repository refresh failed", "repository", repo.Name)
+		repoURL, branch, _ := getRepoFields(repo)
+		log.Error(err, "Repository refresh failed", "repoURL", repoURL, "branch", branch)
 		return 0, "", err
 	}
 
 	pkgRevs, err := repoHandle.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	if err != nil {
-		log.Error(err, "Repository package listing failed", "repository", repo.Name)
+		repoURL, _, directory := getRepoFields(repo)
+		log.Error(err, "Repository package listing failed", "repoURL", repoURL, "directory", directory)
 		return 0, "", err
 	}
 
 	// Get commit hash (best effort - don't fail sync if this fails)
 	commitHash, _ = repoHandle.BranchCommitHash(ctx)
 
-	log.Info("Repository sync completed successfully", "repository", repo.Name, "packageCount", len(pkgRevs), "commitHash", commitHash)
+	log.Info("Repository sync completed successfully", "packageCount", len(pkgRevs), "commitHash", commitHash)
 	return len(pkgRevs), commitHash, nil
 }
 
@@ -102,7 +105,8 @@ func (r *RepositoryReconciler) isSyncInProgress(ctx context.Context, repo *api.R
 		if condition.Type == api.RepositoryReady && condition.Status == metav1.ConditionFalse && condition.Reason == api.ReasonReconciling {
 			staleTimeout := r.getSyncStaleTimeout()
 			if time.Since(condition.LastTransitionTime.Time) > staleTimeout {
-				log.FromContext(ctx).Info("Sync appears stale, will retry", "repository", repo.Name, "duration", time.Since(condition.LastTransitionTime.Time), "timeout", staleTimeout)
+				repoURL, _, _ := getRepoFields(repo)
+				log.FromContext(ctx).Info("Sync appears stale, will retry", "duration", time.Since(condition.LastTransitionTime.Time), "timeout", staleTimeout, "repoURL", repoURL)
 				return false
 			}
 			return true
@@ -158,7 +162,7 @@ func (r *RepositoryReconciler) isFullSyncDue(repo *api.Repository) bool {
 
 	lastFullSync := r.getLastFullSyncTime(repo)
 	if lastFullSync.IsZero() {
-		log.FromContext(context.Background()).Info("Full sync due: no previous sync", "repository", repo.Name)
+		log.FromContext(context.Background()).Info("Full sync due: no previous sync")
 		return true
 	}
 
@@ -170,13 +174,13 @@ func (r *RepositoryReconciler) isFullSyncDue(repo *api.Repository) bool {
 		}
 		next := schedule.Next(lastFullSync)
 		isDue := time.Now().After(next)
-		log.FromContext(context.Background()).Info("Cron schedule check", "repository", repo.Name, "schedule", repo.Spec.Sync.Schedule, "lastFullSync", lastFullSync.Format(time.RFC3339), "nextScheduled", next.Format(time.RFC3339), "now", time.Now().Format(time.RFC3339), "isDue", isDue)
+		log.FromContext(context.Background()).Info("Cron schedule check", "schedule", repo.Spec.Sync.Schedule, "lastFullSync", lastFullSync.Format(time.RFC3339), "nextScheduled", next.Format(time.RFC3339), "now", time.Now().Format(time.RFC3339), "isDue", isDue)
 		return isDue
 	}
 
 	timeSinceLastSync := time.Since(lastFullSync)
 	isDue := timeSinceLastSync >= r.FullSyncFrequency
-	log.FromContext(context.Background()).Info("Full sync check", "repository", repo.Name, "lastFullSync", lastFullSync.Format(time.RFC3339), "timeSince", timeSinceLastSync, "frequency", r.FullSyncFrequency, "isDue", isDue)
+	log.FromContext(context.Background()).Info("Full sync check", "lastFullSync", lastFullSync.Format(time.RFC3339), "timeSince", timeSinceLastSync, "frequency", r.FullSyncFrequency, "isDue", isDue)
 	return isDue
 }
 

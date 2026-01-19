@@ -71,6 +71,9 @@ type Reconciler interface {
 
 	// SetupWithManager registers the reconciler to run under the specified manager
 	SetupWithManager(ctrl.Manager) error
+
+	// SetLogger sets the logger for the reconciler
+	SetLogger(name string)
 }
 
 // We include our lease / events permissions in the main RBAC role
@@ -166,6 +169,8 @@ func run(ctx context.Context) error {
 		if !reconcilerIsEnabled(enabledReconcilers, name) {
 			continue
 		}
+		reconciler.SetLogger(name)
+		ctrl.Log.WithName(name).Info("setting up controller")
 		if err = reconciler.SetupWithManager(mgr); err != nil {
 			return fmt.Errorf("error creating %s reconciler: %w", name, err)
 		}
