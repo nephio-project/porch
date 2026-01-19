@@ -110,6 +110,10 @@ func (r *cachedRepository) Version(ctx context.Context) (string, error) {
 	return r.repo.Version(ctx)
 }
 
+func (r *cachedRepository) BranchCommitHash(ctx context.Context) (string, error) {
+	return r.repo.BranchCommitHash(ctx)
+}
+
 func (r *cachedRepository) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
 	packages, err := r.getPackageRevisions(ctx, filter, false)
 	if err != nil {

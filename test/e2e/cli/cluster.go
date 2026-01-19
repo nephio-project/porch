@@ -44,7 +44,6 @@ func IsRepoControllerRunningInCluster(t *testing.T) bool {
 
 	var stderr bytes.Buffer
 	var stdout bytes.Buffer
-
 	cmd.Stderr = &stderr
 	cmd.Stdout = &stdout
 
@@ -146,7 +145,7 @@ func KubectlCreateNamespace(t *testing.T, name string) {
 func KubectlDeleteNamespace(t *testing.T, name string) {
 	//Removing Finalizers from PackageRevs in the test NameSpace to avoid locking when deleting
 	RemovePackagerevFinalizers(t, name)
-	cmd := exec.Command("kubectl", "delete", "namespace", name, "--wait=false")
+	cmd := exec.Command("kubectl", "delete", "namespace", name, "--wait=true", "--timeout=2m")
 	t.Logf("running command %v", strings.Join(cmd.Args, " "))
 	out, err := cmd.CombinedOutput()
 	if err != nil {

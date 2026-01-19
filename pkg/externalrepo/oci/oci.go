@@ -113,6 +113,11 @@ func (r *ociRepository) Version(ctx context.Context) (string, error) {
 	return hex.EncodeToString(hash[:]), nil
 }
 
+func (r *ociRepository) BranchCommitHash(ctx context.Context) (string, error) {
+	// OCI repositories don't have branches or commits
+	return "", nil
+}
+
 func (r *ociRepository) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "ociRepository::ListPackageRevisions")
 	defer span.End()
