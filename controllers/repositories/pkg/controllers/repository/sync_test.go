@@ -503,7 +503,7 @@ func TestClearOneTimeSyncFlag(t *testing.T) {
 	}
 }
 
-func TestSyncRepositoryDetailed(t *testing.T) {
+func TestSyncRepository(t *testing.T) {
 	ctx := context.Background()
 	repo := &api.Repository{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1386,6 +1386,113 @@ func TestDetermineSyncDecision_RunOnceAtInteractions(t *testing.T) {
 			decision := r.determineSyncDecision(ctx, tt.repo)
 			assert.Equal(t, tt.expectedType, decision.Type)
 			assert.Equal(t, tt.expectedNeed, decision.Needed)
+		})
+	}
+}
+
+func TestGetSyncStaleTimeout(t *testing.T) {
+	tests := []struct {
+		name            string
+		syncStaleTimeout time.Duration
+		expected        time.Duration
+	}{
+		{
+			name:            "custom timeout set",
+			syncStaleTimeout: 30 * time.Minute,
+			expected:        30 * time.Minute,
+		},
+		{
+			name:            "default timeout",
+			syncStaleTimeout: 0,
+			expected:        20 * time.Minute,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RepositoryReconciler{
+				SyncStaleTimeout: tt.syncStaleTimeout,
+			}
+			result := r.getSyncStaleTimeout()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestCalculateNextFullSyncTime(t *testing.T) {
+	now := time.Now()
+	tests := []struct {
+		name     string
+		repo     *api.Repository
+		validate func(t *testing.T, result time.Time, now time.Time)
+	}{
+		{
+			name: "with cron schedule and last sync",
+			repo: &api.Repository{
+				Spec: api.RepositorySpec{
+					Sync: &api.RepositorySync{
+						Schedule: "0 */1 * * *", // Every hour at :00
+					},
+				},
+				Status: api.RepositoryStatus{
+					LastFullSyncTime: &metav1.Time{Time: now.Add(-30 * time.Minute)},
+				},
+			},
+			validate: func(t *testing.T, result time.Time, now time.Time) {
+				// Just verify it returns a valid time (not zero)
+				assert.False(t, result.IsZero(), "Should return a valid time")
+			},
+		},
+		{
+			name: "with invalid cron - uses default frequency",
+			repo: &api.Repository{
+				Spec: api.RepositorySpec{
+					Sync: &api.RepositorySync{
+						Schedule: "invalid",
+					},
+				},
+			},
+			validate: func(t *testing.T, result time.Time, now time.Time) {
+				expected := now.Add(1 * time.Hour)
+				assert.InDelta(t, expected.Unix(), result.Unix(), 2.0)
+			},
+		},
+		{
+			name: "no schedule - uses default frequency",
+			repo: &api.Repository{
+				Spec: api.RepositorySpec{},
+			},
+			validate: func(t *testing.T, result time.Time, now time.Time) {
+				expected := now.Add(1 * time.Hour)
+				assert.InDelta(t, expected.Unix(), result.Unix(), 2.0)
+			},
+		},
+		{
+			name: "cron with no last sync time",
+			repo: &api.Repository{
+				Spec: api.RepositorySpec{
+					Sync: &api.RepositorySync{
+						Schedule: "0 */1 * * *", // Every hour at :00
+					},
+				},
+				Status: api.RepositoryStatus{},
+			},
+			validate: func(t *testing.T, result time.Time, now time.Time) {
+				// Should be in the future
+				assert.True(t, result.After(now), "Next sync should be in future")
+				// Should be within 1 hour
+				assert.True(t, result.Before(now.Add(61*time.Minute)), "Next sync should be within 61 minutes")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RepositoryReconciler{
+				FullSyncFrequency: 1 * time.Hour,
+			}
+			result := r.calculateNextFullSyncTime(tt.repo)
+			tt.validate(t, result, now)
 		})
 	}
 }
