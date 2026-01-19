@@ -15,29 +15,32 @@ import (
 	"github.com/robfig/cron/v3"
 )
 
-// syncRepository performs repository synchronization
-func (r *RepositoryReconciler) syncRepository(ctx context.Context, repo *api.Repository) error {
+// syncRepository performs repository synchronization and returns sync metadata
+func (r *RepositoryReconciler) syncRepository(ctx context.Context, repo *api.Repository) (packageCount int, commitHash string, err error) {
 	log := log.FromContext(ctx)
 
 	repoHandle, err := r.Cache.OpenRepository(ctx, repo)
 	if err != nil {
 		log.Error(err, "Failed to open repository for sync", "repository", repo.Name)
-		return err
+		return 0, "", err
 	}
 
 	if err := repoHandle.Refresh(ctx); err != nil {
 		log.Error(err, "Repository refresh failed", "repository", repo.Name)
-		return err
+		return 0, "", err
 	}
 
-	_, err = repoHandle.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
+	pkgRevs, err := repoHandle.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	if err != nil {
 		log.Error(err, "Repository package listing failed", "repository", repo.Name)
-		return err
+		return 0, "", err
 	}
 
-	log.Info("Repository sync completed successfully", "repository", repo.Name)
-	return nil
+	// Get commit hash (best effort - don't fail sync if this fails)
+	commitHash, _ = repoHandle.BranchCommitHash(ctx)
+
+	log.Info("Repository sync completed successfully", "repository", repo.Name, "packageCount", len(pkgRevs), "commitHash", commitHash)
+	return len(pkgRevs), commitHash, nil
 }
 
 // SyncDecision represents what type of operation is needed
@@ -63,17 +66,22 @@ func (r *RepositoryReconciler) determineSyncDecision(ctx context.Context, repo *
 	if r.hasSpecChanged(repo) {
 		// If RunOnceAt is set but not yet due, wait for scheduled time
 		if repo.Spec.Sync != nil && repo.Spec.Sync.RunOnceAt != nil && time.Now().Before(repo.Spec.Sync.RunOnceAt.Time) {
-			return SyncDecision{Type: HealthCheck, Needed: false, Interval: time.Until(repo.Spec.Sync.RunOnceAt.Time)}
+			untilRunOnce := time.Until(repo.Spec.Sync.RunOnceAt.Time)
+			if untilRunOnce <= 0 {
+				// Race condition: time passed while we were checking, run sync now
+				return SyncDecision{Type: FullSync, Needed: true, Interval: 0}
+			}
+			return SyncDecision{Type: HealthCheck, Needed: false, Interval: untilRunOnce}
 		}
 		return SyncDecision{Type: FullSync, Needed: true, Interval: 0}
 	}
 
-	// 3. Error retry due → Full sync
+	// 3. Error retry due → Health check (not full sync)
 	if r.isErrorRetryDue(repo) {
-		return SyncDecision{Type: FullSync, Needed: true, Interval: 0}
+		return SyncDecision{Type: HealthCheck, Needed: true, Interval: 0}
 	}
 
-	// 4. Full sync due → Full sync
+	// 4. Full sync due → Full sync (only if not in error state)
 	if r.isFullSyncDue(repo) {
 		return SyncDecision{Type: FullSync, Needed: true, Interval: 0}
 	}
@@ -140,6 +148,7 @@ func (r *RepositoryReconciler) isFullSyncDue(repo *api.Repository) bool {
 		return false
 	}
 
+	// Don't attempt full sync if repository is in error state
 	for _, condition := range repo.Status.Conditions {
 		if condition.Type == api.RepositoryReady && condition.Status == metav1.ConditionFalse && condition.Reason == api.ReasonError {
 			return false
@@ -148,6 +157,7 @@ func (r *RepositoryReconciler) isFullSyncDue(repo *api.Repository) bool {
 
 	lastFullSync := r.getLastFullSyncTime(repo)
 	if lastFullSync.IsZero() {
+		log.FromContext(context.Background()).Info("Full sync due: no previous sync", "repository", repo.Name)
 		return true
 	}
 
@@ -158,14 +168,21 @@ func (r *RepositoryReconciler) isFullSyncDue(repo *api.Repository) bool {
 			return time.Since(lastFullSync) >= r.FullSyncFrequency
 		}
 		next := schedule.Next(lastFullSync)
-		return time.Now().After(next)
+		isDue := time.Now().After(next)
+		log.FromContext(context.Background()).Info("Cron schedule check", "repository", repo.Name, "schedule", repo.Spec.Sync.Schedule, "lastFullSync", lastFullSync.Format(time.RFC3339), "nextScheduled", next.Format(time.RFC3339), "now", time.Now().Format(time.RFC3339), "isDue", isDue)
+		return isDue
 	}
 
-	return time.Since(lastFullSync) >= r.FullSyncFrequency
+	timeSinceLastSync := time.Since(lastFullSync)
+	isDue := timeSinceLastSync >= r.FullSyncFrequency
+	log.FromContext(context.Background()).Info("Full sync check", "repository", repo.Name, "lastFullSync", lastFullSync.Format(time.RFC3339), "timeSince", timeSinceLastSync, "frequency", r.FullSyncFrequency, "isDue", isDue)
+	return isDue
 }
 
 // isHealthCheckDue checks if health check is needed
 func (r *RepositoryReconciler) isHealthCheckDue(repo *api.Repository) bool {
+	// Always perform health checks when in error state (handled by isErrorRetryDue)
+	// This function only checks if routine health check is due for healthy repos
 	for _, condition := range repo.Status.Conditions {
 		if condition.Type == api.RepositoryReady && condition.Status == metav1.ConditionFalse && condition.Reason == api.ReasonError {
 			return false
@@ -194,22 +211,8 @@ func (r *RepositoryReconciler) getLastStatusUpdateTime(repo *api.Repository) tim
 
 // getLastFullSyncTime gets timestamp of last successful full sync
 func (r *RepositoryReconciler) getLastFullSyncTime(repo *api.Repository) time.Time {
-	if repo.Annotations != nil {
-		if lastSync, ok := repo.Annotations["config.porch.kpt.dev/last-full-sync"]; ok {
-			if t, err := time.Parse(time.RFC3339, lastSync); err == nil {
-				return t
-			}
-		}
-	}
-	return r.getLastSyncTime(repo)
-}
-
-// getLastSyncTime extracts last sync time from status conditions
-func (r *RepositoryReconciler) getLastSyncTime(repo *api.Repository) time.Time {
-	for _, condition := range repo.Status.Conditions {
-		if condition.Type == api.RepositoryReady && condition.Status == metav1.ConditionTrue {
-			return condition.LastTransitionTime.Time
-		}
+	if repo.Status.LastFullSyncTime != nil {
+		return repo.Status.LastFullSyncTime.Time
 	}
 	return time.Time{}
 }
@@ -257,25 +260,20 @@ func (r *RepositoryReconciler) calculateNextSyncInterval(repo *api.Repository) t
 		if untilRunOnce > 0 {
 			return untilRunOnce
 		}
-		return 0
 	}
 
+	// If no status exists yet, use health check frequency to avoid tight loops
 	lastUpdate := r.getLastStatusUpdateTime(repo)
-	nextHealthCheck := r.HealthCheckFrequency
-	if !lastUpdate.IsZero() {
-		nextHealthCheck = r.HealthCheckFrequency - time.Since(lastUpdate)
-		if nextHealthCheck < 0 {
-			nextHealthCheck = 0
-		}
+	if lastUpdate.IsZero() {
+		return r.HealthCheckFrequency
 	}
+
+	nextHealthCheck := r.HealthCheckFrequency - time.Since(lastUpdate)
 
 	lastFullSync := r.getLastFullSyncTime(repo)
 	nextFullSync := r.FullSyncFrequency
 	if !lastFullSync.IsZero() {
 		nextFullSync = r.FullSyncFrequency - time.Since(lastFullSync)
-		if nextFullSync < 0 {
-			nextFullSync = 0
-		}
 	}
 
 	if repo.Spec.Sync != nil && repo.Spec.Sync.Schedule != "" {
@@ -283,7 +281,7 @@ func (r *RepositoryReconciler) calculateNextSyncInterval(repo *api.Repository) t
 		if err != nil {
 			log.FromContext(context.Background()).Error(err, "Invalid cron expression, ignoring schedule", "schedule", repo.Spec.Sync.Schedule)
 		} else {
-			lastSyncTime := r.getLastSyncTime(repo)
+			lastSyncTime := r.getLastFullSyncTime(repo)
 			if lastSyncTime.IsZero() {
 				lastSyncTime = time.Now()
 			}
@@ -295,8 +293,16 @@ func (r *RepositoryReconciler) calculateNextSyncInterval(repo *api.Repository) t
 		}
 	}
 
+	// Return the minimum of health check and full sync intervals
+	// Use health check frequency as floor to avoid tight loops
 	if nextHealthCheck < nextFullSync {
+		if nextHealthCheck <= 0 {
+			return r.HealthCheckFrequency
+		}
 		return nextHealthCheck
+	}
+	if nextFullSync <= 0 {
+		return r.HealthCheckFrequency
 	}
 	return nextFullSync
 }
@@ -323,16 +329,6 @@ func (r *RepositoryReconciler) determineRetryInterval(err error) time.Duration {
 	}
 }
 
-// setLastFullSyncTime records timestamp of last successful full sync in annotation
-func (r *RepositoryReconciler) setLastFullSyncTime(ctx context.Context, repo *api.Repository) error {
-	patch := client.MergeFrom(repo.DeepCopy())
-	if repo.Annotations == nil {
-		repo.Annotations = make(map[string]string)
-	}
-	repo.Annotations["config.porch.kpt.dev/last-full-sync"] = time.Now().Format(time.RFC3339)
-	return r.Patch(ctx, repo, patch)
-}
-
 // clearOneTimeSyncFlag clears the RunOnceAt flag after successful one-time sync
 func (r *RepositoryReconciler) clearOneTimeSyncFlag(ctx context.Context, repo *api.Repository) error {
 	if repo.Spec.Sync == nil || repo.Spec.Sync.RunOnceAt == nil {
@@ -342,4 +338,20 @@ func (r *RepositoryReconciler) clearOneTimeSyncFlag(ctx context.Context, repo *a
 	patch := client.MergeFrom(repo.DeepCopy())
 	repo.Spec.Sync.RunOnceAt = nil
 	return r.Patch(ctx, repo, patch)
+}
+
+// calculateNextFullSyncTime calculates when the next full sync should occur
+// This must match the logic in isFullSyncDue to show accurate status
+func (r *RepositoryReconciler) calculateNextFullSyncTime(repo *api.Repository) time.Time {
+	if repo.Spec.Sync != nil && repo.Spec.Sync.Schedule != "" {
+		if schedule, err := cron.ParseStandard(repo.Spec.Sync.Schedule); err == nil {
+			lastSync := r.getLastFullSyncTime(repo)
+			if lastSync.IsZero() {
+				lastSync = time.Now()
+			}
+			// Use same logic as isFullSyncDue: next run after last sync
+			return schedule.Next(lastSync)
+		}
+	}
+	return time.Now().Add(r.FullSyncFrequency)
 }

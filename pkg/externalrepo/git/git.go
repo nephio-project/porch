@@ -329,6 +329,26 @@ func (r *gitRepository) Version(ctx context.Context) (string, error) {
 	return hex.EncodeToString(hash[:]), nil
 }
 
+func (r *gitRepository) BranchCommitHash(ctx context.Context) (string, error) {
+	_, span := tracer.Start(ctx, "gitRepository::BranchCommitHash", trace.WithAttributes())
+	defer span.End()
+
+	var hash string
+	err := r.sharedDir.WithRLock(func(repo *git.Repository) error {
+		ref, err := repo.Reference(r.branch.RefInLocal(), true)
+		if err != nil {
+			// Branch doesn't exist yet - return empty string, not an error
+			if pkgerrors.Is(err, plumbing.ErrReferenceNotFound) {
+				return nil
+			}
+			return err
+		}
+		hash = ref.Hash().String()
+		return nil
+	})
+	return hash, err
+}
+
 func (r *gitRepository) ListPackages(_ context.Context, _ repository.ListPackageFilter) ([]repository.Package, error) {
 
 	// TODO

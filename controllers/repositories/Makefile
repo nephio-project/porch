@@ -2,15 +2,15 @@
 
 .PHONY: test-integration
 test-integration: setup-envtest ## Run integration tests only
-	export KUBEBUILDER_ASSETS=$$(setup-envtest use -p path) && cd pkg/controllers/repository/integration && ginkgo -v --trace --tags=integration
+	export KUBEBUILDER_ASSETS=$$(setup-envtest use -p path) && cd integration && ginkgo -v --trace --tags=integration
 
 .PHONY: test-integration-watch
 test-integration-watch: setup-envtest ## Run integration tests in watch mode
-	export KUBEBUILDER_ASSETS=$$(setup-envtest use -p path) && cd pkg/controllers/repository/integration && ginkgo watch -v --trace --tags=integration
+	export KUBEBUILDER_ASSETS=$$(setup-envtest use -p path) && cd integration && ginkgo watch -v --trace --tags=integration
 
 .PHONY: test-unit
 test-unit: ## Run unit tests only
-	cd pkg/controllers/repository && go test -v .
+	cd pkg && go test -v .
 
 .PHONY: test-all
 test-all: test-unit test-integration ## Run all tests (unit + integration)

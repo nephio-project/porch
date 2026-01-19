@@ -359,3 +359,46 @@ func TestCRDeleteLatestRevision(t *testing.T) {
 	// Verify all expected mock calls were made
 	mockNotifier.AssertExpectations(t)
 }
+
+func TestCachedRepoBranchCommitHash(t *testing.T) {
+	mockRepo := mockrepo.NewMockRepository(t)
+	mockMeta := mockmeta.NewMockMetadataStore(t)
+	mockNotifier := mockcachetypes.NewMockRepoPRChangeNotifier(t)
+	
+	repoName := "test-repo"
+	namespace := "test-ns"
+	repoKey := repository.RepositoryKey{
+		Namespace: namespace,
+		Name:      repoName,
+	}
+	
+	repoSpec := configapi.Repository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      repoName,
+			Namespace: namespace,
+		},
+	}
+	
+	scheme := runtime.NewScheme()
+	_ = configapi.AddToScheme(scheme)
+	fakeClient := testutil.NewFakeClientWithStatus(scheme, &repoSpec)
+	
+	options := cachetypes.CacheOptions{
+		RepoPRChangeNotifier: mockNotifier,
+		RepoSyncFrequency:    time.Minute,
+		CoreClient:           fakeClient,
+	}
+	
+	// Mock BranchCommitHash to return a test hash
+	mockRepo.EXPECT().BranchCommitHash(mock.Anything).Return("abc123def456", nil).Once()
+	mockRepo.On("Key").Return(repoKey).Maybe()
+	
+	cr := newRepository(repoKey, &repoSpec, mockRepo, mockMeta, options)
+	
+	// Test BranchCommitHash delegation
+	hash, err := cr.BranchCommitHash(context.TODO())
+	assert.NoError(t, err)
+	assert.Equal(t, "abc123def456", hash)
+	
+	mockRepo.AssertExpectations(t)
+}

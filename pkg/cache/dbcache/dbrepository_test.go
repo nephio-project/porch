@@ -67,6 +67,11 @@ func (t *DbTestSuite) TestDBRepositoryPRCrud() {
 	t.Require().NoError(err)
 	t.Equal("", version)
 
+	// Test BranchCommitHash delegation
+	commitHash, err := testRepo.BranchCommitHash(t.Context())
+	t.Require().NoError(err)
+	t.Equal("fake-commit-hash", commitHash) // Fake repo returns this
+
 	pkgList, err := testRepo.ListPackages(ctx, repository.ListPackageFilter{})
 	t.Require().NoError(err)
 	t.Equal(0, len(pkgList))

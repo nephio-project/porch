@@ -54,7 +54,11 @@ func (r *RepositoryReconciler) updateRepoStatusWithBackoff(ctx context.Context, 
 			Namespace: repo.Namespace,
 		},
 		Status: configapi.RepositoryStatus{
-			Conditions: []metav1.Condition{condition},
+			Conditions:         []metav1.Condition{condition},
+			LastFullSyncTime:   repo.Status.LastFullSyncTime,
+			ObservedGeneration: repo.Status.ObservedGeneration,
+			PackageCount:       repo.Status.PackageCount,
+			GitCommitHash:      repo.Status.GitCommitHash,
 		},
 	}
 
@@ -87,12 +91,7 @@ func (r *RepositoryReconciler) setCondition(repo *configapi.Repository, conditio
 	meta.SetStatusCondition(&repo.Status.Conditions, condition)
 }
 
-// hasSpecChanged determines if Repository spec changed using condition ObservedGeneration
+// hasSpecChanged determines if Repository spec changed using status ObservedGeneration
 func (r *RepositoryReconciler) hasSpecChanged(repo *configapi.Repository) bool {
-	for _, condition := range repo.Status.Conditions {
-		if condition.Type == configapi.RepositoryReady {
-			return condition.ObservedGeneration != repo.Generation
-		}
-	}
-	return true // No condition exists, treat as spec changed
+	return repo.Status.ObservedGeneration != repo.Generation
 }

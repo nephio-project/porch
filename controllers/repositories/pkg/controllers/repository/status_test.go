@@ -129,15 +129,46 @@ func TestHasSpecChanged(t *testing.T) {
 		expected bool
 	}{
 		{
-			name:     "no conditions - spec changed",
-			repo:     createTestRepo("test-repo", "test-ns"),
-			expected: true,
+			name: "no conditions - new repo",
+			repo: createTestRepo("test-repo", "test-ns"),
+			expected: true, // New repos have Generation=1, ObservedGeneration=0, so spec changed
+		},
+		{
+			name: "controller restart - status ObservedGeneration present",
+			repo: func() *configapi.Repository {
+				repo := createTestRepo("test-repo", "test-ns")
+				repo.Generation = 5
+				repo.Status.ObservedGeneration = 5 // Matches current generation
+				repo.Status.Conditions = []metav1.Condition{{
+					Type:               configapi.RepositoryReady,
+					Status:             metav1.ConditionTrue,
+					ObservedGeneration: 5,
+				}}
+				return repo
+			}(),
+			expected: false, // No spec change
+		},
+		{
+			name: "controller restart during spec change - generation mismatch",
+			repo: func() *configapi.Repository {
+				repo := createTestRepo("test-repo", "test-ns")
+				repo.Generation = 6 // Spec was changed
+				repo.Status.ObservedGeneration = 5 // Controller crashed before updating status
+				repo.Status.Conditions = []metav1.Condition{{
+					Type:               configapi.RepositoryReady,
+					Status:             metav1.ConditionTrue,
+					ObservedGeneration: 5,
+				}}
+				return repo
+			}(),
+			expected: true, // Spec changed - controller must reconcile the change
 		},
 		{
 			name: "observed generation matches - no change",
 			repo: func() *configapi.Repository {
 				repo := createTestRepo("test-repo", "test-ns")
 				repo.Generation = 5
+				repo.Status.ObservedGeneration = 5
 				repo.Status.Conditions = []metav1.Condition{{
 					Type:               configapi.RepositoryReady,
 					ObservedGeneration: 5,
@@ -151,6 +182,7 @@ func TestHasSpecChanged(t *testing.T) {
 			repo: func() *configapi.Repository {
 				repo := createTestRepo("test-repo", "test-ns")
 				repo.Generation = 6
+				repo.Status.ObservedGeneration = 5
 				repo.Status.Conditions = []metav1.Condition{{
 					Type:               configapi.RepositoryReady,
 					ObservedGeneration: 5,
@@ -229,10 +261,11 @@ func TestHasSpecChangedEdgeCases(t *testing.T) {
 		expected bool
 	}{
 		{
-			name: "multiple conditions - only RepositoryReady matters",
+			name: "multiple conditions - uses status ObservedGeneration",
 			repo: func() *configapi.Repository {
 				repo := createTestRepo("test-repo", "test-ns")
 				repo.Generation = 5
+				repo.Status.ObservedGeneration = 5
 				repo.Status.Conditions = []metav1.Condition{
 					{
 						Type:               "SomeOtherCondition",
@@ -252,6 +285,7 @@ func TestHasSpecChangedEdgeCases(t *testing.T) {
 			repo: func() *configapi.Repository {
 				repo := createTestRepo("test-repo", "test-ns")
 				repo.Generation = 0
+				repo.Status.ObservedGeneration = 0
 				repo.Status.Conditions = []metav1.Condition{{
 					Type:               configapi.RepositoryReady,
 					ObservedGeneration: 0,

@@ -1,6 +1,3 @@
-//go:build integration
-// +build integration
-
 package integration
 
 import (
@@ -47,7 +44,7 @@ var _ = BeforeSuite(func() {
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDInstallOptions: envtest.CRDInstallOptions{
-			Paths: []string{filepath.Join("..", "..", "..", "..", "..", "config", "crd", "bases", "config.porch.kpt.dev_repositories.yaml")},
+			Paths: []string{filepath.Join("..", "..", "..", "config", "crd", "bases", "config.porch.kpt.dev_repositories.yaml")},
 		},
 		ErrorIfCRDPathMissing: false,
 	}

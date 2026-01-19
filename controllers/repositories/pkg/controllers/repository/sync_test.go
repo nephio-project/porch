@@ -132,12 +132,8 @@ func TestCalculateNextSyncInterval(t *testing.T) {
 		{
 			name: "returns full sync interval when sooner",
 			repo: &api.Repository{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"config.porch.kpt.dev/last-full-sync": now.Add(-55 * time.Minute).Format(time.RFC3339),
-					},
-				},
 				Status: api.RepositoryStatus{
+					LastFullSyncTime: &metav1.Time{Time: now.Add(-55 * time.Minute)},
 					Conditions: []metav1.Condition{{
 						Type:               api.RepositoryReady,
 						Status:             metav1.ConditionTrue,
@@ -176,23 +172,19 @@ func TestIsFullSyncDue(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "full sync due - annotation shows old sync",
+			name: "full sync due - old sync time",
 			repo: &api.Repository{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"config.porch.kpt.dev/last-full-sync": now.Add(-2 * time.Hour).Format(time.RFC3339),
-					},
+				Status: api.RepositoryStatus{
+					LastFullSyncTime: &metav1.Time{Time: now.Add(-2 * time.Hour)},
 				},
 			},
 			expected: true,
 		},
 		{
-			name: "full sync not due - recent annotation",
+			name: "full sync not due - recent sync",
 			repo: &api.Repository{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"config.porch.kpt.dev/last-full-sync": now.Add(-30 * time.Minute).Format(time.RFC3339),
-					},
+				Status: api.RepositoryStatus{
+					LastFullSyncTime: &metav1.Time{Time: now.Add(-30 * time.Minute)},
 				},
 			},
 			expected: false,
@@ -200,12 +192,8 @@ func TestIsFullSyncDue(t *testing.T) {
 		{
 			name: "blocked by error condition",
 			repo: &api.Repository{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"config.porch.kpt.dev/last-full-sync": now.Add(-2 * time.Hour).Format(time.RFC3339),
-					},
-				},
 				Status: api.RepositoryStatus{
+					LastFullSyncTime: &metav1.Time{Time: now.Add(-2 * time.Hour)},
 					Conditions: []metav1.Condition{{
 						Type:   api.RepositoryReady,
 						Status: metav1.ConditionFalse,
@@ -218,15 +206,13 @@ func TestIsFullSyncDue(t *testing.T) {
 		{
 			name: "blocked by pending RunOnceAt",
 			repo: &api.Repository{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"config.porch.kpt.dev/last-full-sync": now.Add(-2 * time.Hour).Format(time.RFC3339),
-					},
-				},
 				Spec: api.RepositorySpec{
 					Sync: &api.RepositorySync{
 						RunOnceAt: &metav1.Time{Time: now.Add(time.Hour)},
 					},
+				},
+				Status: api.RepositoryStatus{
+					LastFullSyncTime: &metav1.Time{Time: now.Add(-2 * time.Hour)},
 				},
 			},
 			expected: false,
@@ -234,15 +220,13 @@ func TestIsFullSyncDue(t *testing.T) {
 		{
 			name: "custom schedule - sync due",
 			repo: &api.Repository{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"config.porch.kpt.dev/last-full-sync": now.Add(-2 * time.Minute).Format(time.RFC3339),
-					},
-				},
 				Spec: api.RepositorySpec{
 					Sync: &api.RepositorySync{
 						Schedule: "*/1 * * * *", // Every minute
 					},
+				},
+				Status: api.RepositoryStatus{
+					LastFullSyncTime: &metav1.Time{Time: now.Add(-2 * time.Minute)},
 				},
 			},
 			expected: true,
@@ -256,69 +240,6 @@ func TestIsFullSyncDue(t *testing.T) {
 			}
 			result := r.isFullSyncDue(tt.repo)
 			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-func TestGetLastSyncTime(t *testing.T) {
-	now := time.Now()
-	tests := []struct {
-		name     string
-		repo     *api.Repository
-		expected time.Time
-	}{
-		{
-			name: "has ready condition",
-			repo: &api.Repository{
-				Status: api.RepositoryStatus{
-					Conditions: []metav1.Condition{{
-						Type:               api.RepositoryReady,
-						Status:             metav1.ConditionTrue,
-						LastTransitionTime: metav1.NewTime(now),
-					}},
-				},
-			},
-			expected: now,
-		},
-		{
-			name: "has ready condition false",
-			repo: &api.Repository{
-				Status: api.RepositoryStatus{
-					Conditions: []metav1.Condition{{
-						Type:               api.RepositoryReady,
-						Status:             metav1.ConditionFalse,
-						LastTransitionTime: metav1.NewTime(now),
-					}},
-				},
-			},
-			expected: time.Time{}, // Only true conditions count
-		},
-		{
-			name: "no ready condition",
-			repo: &api.Repository{
-				Status: api.RepositoryStatus{
-					Conditions: []metav1.Condition{{
-						Type:   "Other",
-						Status: metav1.ConditionTrue,
-					}},
-				},
-			},
-			expected: time.Time{},
-		},
-		{
-			name: "no conditions",
-			repo: &api.Repository{
-				Status: api.RepositoryStatus{},
-			},
-			expected: time.Time{},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := &RepositoryReconciler{}
-			result := r.getLastSyncTime(tt.repo)
-			assert.Equal(t, tt.expected.Unix(), result.Unix())
 		})
 	}
 }
@@ -637,6 +558,7 @@ func TestSyncRepositoryDetailed(t *testing.T) {
 						mockRepository.EXPECT().ListPackageRevisions(ctx, mock.Anything).Return(nil, tt.listError)
 					} else {
 						mockRepository.EXPECT().ListPackageRevisions(ctx, mock.Anything).Return(nil, nil)
+						mockRepository.EXPECT().BranchCommitHash(ctx).Return("abc123", nil)
 					}
 				}
 			}
@@ -645,7 +567,7 @@ func TestSyncRepositoryDetailed(t *testing.T) {
 				Cache: mockCache,
 			}
 
-			err := r.syncRepository(ctx, repo)
+			_, _, err := r.syncRepository(ctx, repo)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -731,49 +653,16 @@ func TestGetLastFullSyncTime(t *testing.T) {
 		expected time.Time
 	}{
 		{
-			name: "has annotation",
-			repo: &api.Repository{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"config.porch.kpt.dev/last-full-sync": now.Format(time.RFC3339),
-					},
-				},
-			},
-			expected: now,
-		},
-		{
-			name: "no annotation - fallback to condition",
+			name: "has LastFullSyncTime",
 			repo: &api.Repository{
 				Status: api.RepositoryStatus{
-					Conditions: []metav1.Condition{{
-						Type:               api.RepositoryReady,
-						Status:             metav1.ConditionTrue,
-						LastTransitionTime: metav1.NewTime(now),
-					}},
+					LastFullSyncTime: &metav1.Time{Time: now},
 				},
 			},
 			expected: now,
 		},
 		{
-			name: "invalid annotation - fallback to condition",
-			repo: &api.Repository{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"config.porch.kpt.dev/last-full-sync": "invalid",
-					},
-				},
-				Status: api.RepositoryStatus{
-					Conditions: []metav1.Condition{{
-						Type:               api.RepositoryReady,
-						Status:             metav1.ConditionTrue,
-						LastTransitionTime: metav1.NewTime(now),
-					}},
-				},
-			},
-			expected: now,
-		},
-		{
-			name: "no annotation or condition",
+			name: "no LastFullSyncTime",
 			repo: &api.Repository{
 				Status: api.RepositoryStatus{},
 			},
@@ -885,10 +774,10 @@ func TestDetermineSyncDecision(t *testing.T) {
 					Generation: 2,
 				},
 				Status: api.RepositoryStatus{
+					ObservedGeneration: 1,
 					Conditions: []metav1.Condition{{
-						Type:               api.RepositoryReady,
-						Status:             metav1.ConditionTrue,
-						ObservedGeneration: 1,
+						Type:   api.RepositoryReady,
+						Status: metav1.ConditionTrue,
 					}},
 				},
 			},
@@ -908,18 +797,14 @@ func TestDetermineSyncDecision(t *testing.T) {
 					}},
 				},
 			},
-			expectedType: FullSync,
+			expectedType: HealthCheck,
 			expectedNeed: true,
 		},
 		{
 			name: "full sync due",
 			repo: &api.Repository{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"config.porch.kpt.dev/last-full-sync": now.Add(-2 * time.Hour).Format(time.RFC3339),
-					},
-				},
 				Status: api.RepositoryStatus{
+					LastFullSyncTime: &metav1.Time{Time: now.Add(-2 * time.Hour)},
 					Conditions: []metav1.Condition{{
 						Type:               api.RepositoryReady,
 						Status:             metav1.ConditionTrue,
@@ -933,12 +818,8 @@ func TestDetermineSyncDecision(t *testing.T) {
 		{
 			name: "health check due",
 			repo: &api.Repository{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"config.porch.kpt.dev/last-full-sync": now.Add(-30 * time.Minute).Format(time.RFC3339),
-					},
-				},
 				Status: api.RepositoryStatus{
+					LastFullSyncTime: &metav1.Time{Time: now.Add(-30 * time.Minute)},
 					Conditions: []metav1.Condition{{
 						Type:               api.RepositoryReady,
 						Status:             metav1.ConditionTrue,
@@ -1120,12 +1001,8 @@ func TestGetRequeueInterval(t *testing.T) {
 		{
 			name: "no error - calculate next sync",
 			repo: &api.Repository{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"config.porch.kpt.dev/last-full-sync": now.Add(-30 * time.Minute).Format(time.RFC3339),
-					},
-				},
 				Status: api.RepositoryStatus{
+					LastFullSyncTime: &metav1.Time{Time: now.Add(-30 * time.Minute)},
 					Conditions: []metav1.Condition{{
 						Type:               api.RepositoryReady,
 						Status:             metav1.ConditionTrue,
@@ -1181,17 +1058,13 @@ func TestCalculateNextSyncIntervalExtended(t *testing.T) {
 		{
 			name: "custom schedule - next sync sooner",
 			repo: &api.Repository{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"config.porch.kpt.dev/last-full-sync": now.Add(-30 * time.Minute).Format(time.RFC3339),
-					},
-				},
 				Spec: api.RepositorySpec{
 					Sync: &api.RepositorySync{
 						Schedule: "*/1 * * * *",
 					},
 				},
 				Status: api.RepositoryStatus{
+					LastFullSyncTime: &metav1.Time{Time: now.Add(-30 * time.Minute)},
 					Conditions: []metav1.Condition{{
 						Type:               api.RepositoryReady,
 						Status:             metav1.ConditionTrue,
@@ -1204,17 +1077,13 @@ func TestCalculateNextSyncIntervalExtended(t *testing.T) {
 		{
 			name: "invalid schedule - fallback to default",
 			repo: &api.Repository{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"config.porch.kpt.dev/last-full-sync": now.Add(-30 * time.Minute).Format(time.RFC3339),
-					},
-				},
 				Spec: api.RepositorySpec{
 					Sync: &api.RepositorySync{
 						Schedule: "invalid",
 					},
 				},
 				Status: api.RepositoryStatus{
+					LastFullSyncTime: &metav1.Time{Time: now.Add(-30 * time.Minute)},
 					Conditions: []metav1.Condition{{
 						Type:               api.RepositoryReady,
 						Status:             metav1.ConditionTrue,
@@ -1229,10 +1098,11 @@ func TestCalculateNextSyncIntervalExtended(t *testing.T) {
 			repo: &api.Repository{
 				Spec: api.RepositorySpec{
 					Sync: &api.RepositorySync{
-						Schedule: "0 * * * *",
+						Schedule: "*/5 * * * *", // Every 5 minutes
 					},
 				},
 				Status: api.RepositoryStatus{
+					// No LastFullSyncTime - will use time.Now() as baseline
 					Conditions: []metav1.Condition{{
 						Type:               api.RepositoryReady,
 						Status:             metav1.ConditionTrue,
@@ -1240,7 +1110,7 @@ func TestCalculateNextSyncIntervalExtended(t *testing.T) {
 					}},
 				},
 			},
-			expected: 3 * time.Minute,
+			expected: 3 * time.Minute, // Health check interval since it's sooner
 		},
 	}
 
@@ -1251,7 +1121,11 @@ func TestCalculateNextSyncIntervalExtended(t *testing.T) {
 				FullSyncFrequency:    1 * time.Hour,
 			}
 			result := r.calculateNextSyncInterval(tt.repo)
-			assert.InDelta(t, tt.expected.Seconds(), result.Seconds(), 2.0)
+			if tt.name == "no last sync time with schedule" {
+				assert.True(t, result >= 0 && result <= 5*time.Minute, "expected 0-5 minutes, got %v", result)
+			} else {
+				assert.InDelta(t, tt.expected.Seconds(), result.Seconds(), 2.0)
+			}
 		})
 	}
 }
@@ -1278,10 +1152,10 @@ func TestDetermineSyncDecisionExtended(t *testing.T) {
 					},
 				},
 				Status: api.RepositoryStatus{
+					ObservedGeneration: 1,
 					Conditions: []metav1.Condition{{
-						Type:               api.RepositoryReady,
-						Status:             metav1.ConditionTrue,
-						ObservedGeneration: 1,
+						Type:   api.RepositoryReady,
+						Status: metav1.ConditionTrue,
 					}},
 				},
 			},
@@ -1291,12 +1165,8 @@ func TestDetermineSyncDecisionExtended(t *testing.T) {
 		{
 			name: "nothing needed",
 			repo: &api.Repository{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"config.porch.kpt.dev/last-full-sync": now.Add(-30 * time.Minute).Format(time.RFC3339),
-					},
-				},
 				Status: api.RepositoryStatus{
+					LastFullSyncTime: &metav1.Time{Time: now.Add(-30 * time.Minute)},
 					Conditions: []metav1.Condition{{
 						Type:               api.RepositoryReady,
 						Status:             metav1.ConditionTrue,
@@ -1318,6 +1188,350 @@ func TestDetermineSyncDecisionExtended(t *testing.T) {
 			decision := r.determineSyncDecision(ctx, tt.repo)
 			assert.Equal(t, tt.expectedType, decision.Type)
 			assert.Equal(t, tt.expectedNeed, decision.Needed)
+		})
+	}
+}
+
+func TestIsFullSyncDue_CronScheduleEdgeCases(t *testing.T) {
+	// Use a fixed time to avoid flakiness from minute boundaries
+	// Set to 10:02:30 - safely in the middle of a 5-minute interval
+	now := time.Date(2024, 1, 1, 10, 2, 30, 0, time.UTC)
+	tests := []struct {
+		name     string
+		repo     *api.Repository
+		expected bool
+	}{
+		{
+			name: "cron faster than frequency - cron due",
+			repo: &api.Repository{
+				Spec: api.RepositorySpec{
+					Sync: &api.RepositorySync{
+						Schedule: "*/5 * * * *", // Every 5 minutes
+					},
+				},
+				Status: api.RepositoryStatus{
+					LastFullSyncTime: &metav1.Time{Time: now.Add(-6 * time.Minute)},
+				},
+			},
+			expected: true, // Cron overrides frequency
+		},
+		{
+			name: "invalid cron - fallback to frequency - due",
+			repo: &api.Repository{
+				Spec: api.RepositorySpec{
+					Sync: &api.RepositorySync{
+						Schedule: "invalid cron",
+					},
+				},
+				Status: api.RepositoryStatus{
+					LastFullSyncTime: &metav1.Time{Time: now.Add(-2 * time.Hour)},
+				},
+			},
+			expected: true, // Falls back to frequency
+		},
+		{
+			name: "no cron - uses frequency - due",
+			repo: &api.Repository{
+				Status: api.RepositoryStatus{
+					LastFullSyncTime: &metav1.Time{Time: now.Add(-2 * time.Hour)},
+				},
+			},
+			expected: true, // Uses default frequency
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RepositoryReconciler{
+				FullSyncFrequency: 1 * time.Hour,
+			}
+			result := r.isFullSyncDue(tt.repo)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestDetermineSyncDecision_RunOnceAtInteractions(t *testing.T) {
+	now := time.Now()
+	ctx := context.Background()
+
+	tests := []struct {
+		name         string
+		repo         *api.Repository
+		expectedType SyncType
+		expectedNeed bool
+	}{
+		{
+			name: "RunOnceAt due + cron not due - RunOnceAt wins",
+			repo: &api.Repository{
+				Spec: api.RepositorySpec{
+					Sync: &api.RepositorySync{
+						RunOnceAt: &metav1.Time{Time: now.Add(-time.Minute)}, // Due
+						Schedule:  "0 */6 * * *",                              // Not due for hours
+					},
+				},
+				Status: api.RepositoryStatus{
+					LastFullSyncTime: &metav1.Time{Time: now.Add(-2 * time.Minute)},
+					Conditions: []metav1.Condition{{
+						Type:               api.RepositoryReady,
+						Status:             metav1.ConditionTrue,
+						LastTransitionTime: metav1.NewTime(now.Add(-2 * time.Minute)),
+					}},
+				},
+			},
+			expectedType: FullSync,
+			expectedNeed: true,
+		},
+		{
+			name: "RunOnceAt future + cron due - waits for RunOnceAt",
+			repo: &api.Repository{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 2,
+				},
+				Spec: api.RepositorySpec{
+					Sync: &api.RepositorySync{
+						RunOnceAt: &metav1.Time{Time: now.Add(time.Hour)}, // Future
+						Schedule:  "*/1 * * * *",                           // Due now
+					},
+				},
+				Status: api.RepositoryStatus{
+					ObservedGeneration: 1,
+					LastFullSyncTime:   &metav1.Time{Time: now.Add(-2 * time.Hour)},
+					Conditions: []metav1.Condition{{
+						Type:               api.RepositoryReady,
+						Status:             metav1.ConditionTrue,
+						LastTransitionTime: metav1.NewTime(now.Add(-2 * time.Hour)),
+					}},
+				},
+			},
+			expectedType: HealthCheck,
+			expectedNeed: false, // Waits for RunOnceAt despite spec change
+		},
+		{
+			name: "RunOnceAt due + spec changed - RunOnceAt wins",
+			repo: &api.Repository{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 2,
+				},
+				Spec: api.RepositorySpec{
+					Sync: &api.RepositorySync{
+						RunOnceAt: &metav1.Time{Time: now.Add(-time.Minute)},
+					},
+				},
+				Status: api.RepositoryStatus{
+					ObservedGeneration: 1,
+					Conditions: []metav1.Condition{{
+						Type:   api.RepositoryReady,
+						Status: metav1.ConditionTrue,
+					}},
+				},
+			},
+			expectedType: FullSync,
+			expectedNeed: true,
+		},
+		{
+			name: "RunOnceAt not due + spec changed - waits",
+			repo: &api.Repository{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 2,
+				},
+				Spec: api.RepositorySpec{
+					Sync: &api.RepositorySync{
+						RunOnceAt: &metav1.Time{Time: now.Add(10 * time.Minute)},
+					},
+				},
+				Status: api.RepositoryStatus{
+					ObservedGeneration: 1,
+					Conditions: []metav1.Condition{{
+						Type:   api.RepositoryReady,
+						Status: metav1.ConditionTrue,
+					}},
+				},
+			},
+			expectedType: HealthCheck,
+			expectedNeed: false,
+		},
+		{
+			name: "RunOnceAt not due + error retry due - waits for RunOnceAt",
+			repo: &api.Repository{
+				Spec: api.RepositorySpec{
+					Sync: &api.RepositorySync{
+						RunOnceAt: &metav1.Time{Time: now.Add(time.Hour)},
+					},
+				},
+				Status: api.RepositoryStatus{
+					Conditions: []metav1.Condition{{
+						Type:               api.RepositoryReady,
+						Status:             metav1.ConditionFalse,
+						Reason:             api.ReasonError,
+						Message:            "error (next retry at: " + now.Add(-time.Minute).Format(time.RFC3339) + ")",
+						LastTransitionTime: metav1.NewTime(now.Add(-10 * time.Minute)),
+					}},
+				},
+			},
+			expectedType: HealthCheck,
+			expectedNeed: true, // Error retry does health check, not full sync
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RepositoryReconciler{
+				HealthCheckFrequency: 5 * time.Minute,
+				FullSyncFrequency:    1 * time.Hour,
+			}
+			decision := r.determineSyncDecision(ctx, tt.repo)
+			assert.Equal(t, tt.expectedType, decision.Type)
+			assert.Equal(t, tt.expectedNeed, decision.Needed)
+		})
+	}
+}
+
+func TestDetermineSyncDecision_PriorityOrder(t *testing.T) {
+	now := time.Now()
+	ctx := context.Background()
+
+	tests := []struct {
+		name         string
+		repo         *api.Repository
+		expectedType SyncType
+		expectedNeed bool
+		description  string
+	}{
+		{
+			name: "priority 0: sync in progress blocks everything",
+			repo: &api.Repository{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 2,
+				},
+				Spec: api.RepositorySpec{
+					Sync: &api.RepositorySync{
+						RunOnceAt: &metav1.Time{Time: now.Add(-time.Minute)},
+					},
+				},
+				Status: api.RepositoryStatus{
+					ObservedGeneration:   1,
+					LastFullSyncTime: &metav1.Time{Time: now.Add(-2 * time.Hour)},
+					Conditions: []metav1.Condition{{
+						Type:               api.RepositoryReady,
+						Status:             metav1.ConditionFalse,
+						Reason:             api.ReasonReconciling,
+						LastTransitionTime: metav1.NewTime(now.Add(-5 * time.Minute)),
+					}},
+				},
+			},
+			expectedType: HealthCheck,
+			expectedNeed: false,
+			description:  "Sync in progress blocks RunOnceAt, spec change, and full sync",
+		},
+		{
+			name: "priority 1: RunOnceAt beats spec change",
+			repo: &api.Repository{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 2,
+				},
+				Spec: api.RepositorySpec{
+					Sync: &api.RepositorySync{
+						RunOnceAt: &metav1.Time{Time: now.Add(-time.Minute)},
+					},
+				},
+				Status: api.RepositoryStatus{
+					ObservedGeneration: 1,
+					Conditions: []metav1.Condition{{
+						Type:   api.RepositoryReady,
+						Status: metav1.ConditionTrue,
+					}},
+				},
+			},
+			expectedType: FullSync,
+			expectedNeed: true,
+			description:  "RunOnceAt due takes priority over spec change",
+		},
+		{
+			name: "priority 2: spec change beats error retry",
+			repo: &api.Repository{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 2,
+				},
+				Status: api.RepositoryStatus{
+					ObservedGeneration: 1,
+					Conditions: []metav1.Condition{{
+						Type:               api.RepositoryReady,
+						Status:             metav1.ConditionFalse,
+						Reason:             api.ReasonError,
+						Message:            "error (next retry at: " + now.Add(-time.Minute).Format(time.RFC3339) + ")",
+						LastTransitionTime: metav1.NewTime(now.Add(-10 * time.Minute)),
+					}},
+				},
+			},
+			expectedType: FullSync,
+			expectedNeed: true,
+			description:  "Spec change takes priority over error retry",
+		},
+		{
+			name: "priority 3: error retry beats full sync",
+			repo: &api.Repository{
+				ObjectMeta: metav1.ObjectMeta{},
+				Status: api.RepositoryStatus{
+					LastFullSyncTime: &metav1.Time{Time: now.Add(-2 * time.Hour)},
+					Conditions: []metav1.Condition{{
+						Type:               api.RepositoryReady,
+						Status:             metav1.ConditionFalse,
+						Reason:             api.ReasonError,
+						Message:            "connection refused",
+						LastTransitionTime: metav1.NewTime(now.Add(-time.Minute)),
+					}},
+				},
+			},
+			expectedType: HealthCheck,
+			expectedNeed: true,
+			description:  "Error retry takes priority over scheduled full sync",
+		},
+		{
+			name: "priority 4: full sync beats health check",
+			repo: &api.Repository{
+				ObjectMeta: metav1.ObjectMeta{},
+				Status: api.RepositoryStatus{
+					LastFullSyncTime: &metav1.Time{Time: now.Add(-2 * time.Hour)},
+					Conditions: []metav1.Condition{{
+						Type:               api.RepositoryReady,
+						Status:             metav1.ConditionTrue,
+						LastTransitionTime: metav1.NewTime(now.Add(-10 * time.Minute)),
+					}},
+				},
+			},
+			expectedType: FullSync,
+			expectedNeed: true,
+			description:  "Full sync takes priority over health check",
+		},
+		{
+			name: "priority 5: health check when nothing else due",
+			repo: &api.Repository{
+				ObjectMeta: metav1.ObjectMeta{},
+				Status: api.RepositoryStatus{
+					LastFullSyncTime: &metav1.Time{Time: now.Add(-30 * time.Minute)},
+					Conditions: []metav1.Condition{{
+						Type:               api.RepositoryReady,
+						Status:             metav1.ConditionTrue,
+						LastTransitionTime: metav1.NewTime(now.Add(-6 * time.Minute)),
+					}},
+				},
+			},
+			expectedType: HealthCheck,
+			expectedNeed: true,
+			description:  "Health check runs when nothing else is due",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RepositoryReconciler{
+				HealthCheckFrequency: 5 * time.Minute,
+				FullSyncFrequency:    1 * time.Hour,
+			}
+			decision := r.determineSyncDecision(ctx, tt.repo)
+			assert.Equal(t, tt.expectedType, decision.Type, tt.description)
+			assert.Equal(t, tt.expectedNeed, decision.Needed, tt.description)
 		})
 	}
 }

@@ -29,6 +29,7 @@ func createTestRepo(name, namespace string) *configapi.Repository {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+			Generation: 1,
 		},
 		Spec: configapi.RepositorySpec{
 			Git: &configapi.GitRepository{

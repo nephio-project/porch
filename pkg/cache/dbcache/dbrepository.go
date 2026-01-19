@@ -313,6 +313,10 @@ func (r *dbRepository) Version(ctx context.Context) (string, error) {
 	return r.externalRepo.Version(ctx)
 }
 
+func (r *dbRepository) BranchCommitHash(ctx context.Context) (string, error) {
+	return r.externalRepo.BranchCommitHash(ctx)
+}
+
 func (r *dbRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version int) (repository.PackageRevision, error) {
 	_, span := tracer.Start(ctx, "dbRepository::ClosePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
