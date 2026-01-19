@@ -7,6 +7,14 @@ description: Example flow showing how the Engine processes a package creation re
 
 This section provides a detailed walkthrough of what happens when a user creates a new package revision. This example demonstrates how the concepts from Design Rationale, Functionality, and Interactions come together in practice.
 
+{{% alert title="Note" color="primary" %}}
+
+This section provides representative examples of how the Engine processes requests internally. These examples illustrate the typical patterns and interactions - they are not meant to exhaustively document every possible operation.
+
+Understanding one or two key flows (like creating a package) provides insight into how all Engine operations work, as they follow similar patterns.
+
+{{% /alert %}}
+
 ## User Perspective
 
 ```bash
