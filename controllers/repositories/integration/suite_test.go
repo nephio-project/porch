@@ -32,6 +32,9 @@ var (
 )
 
 func TestRepositoryIntegration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Repository Integration Suite")
 }
