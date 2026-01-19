@@ -69,6 +69,7 @@ func (e *EmbeddedControllerManager) Start(ctx context.Context) error {
 		Cache:  e.cache,
 	}
 	repoController.SetEmbeddedDefaults(e.config)
+	repoController.SetLogger("repositories")
 
 	if err := repoController.SetupWithManager(e.mgr); err != nil {
 		return fmt.Errorf("failed to setup controller: %w", err)

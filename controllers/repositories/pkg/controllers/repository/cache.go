@@ -12,12 +12,12 @@ import (
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/registry/porch"
 	"github.com/nephio-project/porch/pkg/repository"
-	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (r *RepositoryReconciler) createCacheFromEnv(ctx context.Context, mgr ctrl.Manager) error {
+	log := ctrl.Log.WithName(r.loggerName)
 	if err := r.validateCacheType(); err != nil {
 		return err
 	}
@@ -37,7 +37,7 @@ func (r *RepositoryReconciler) createCacheFromEnv(ctx context.Context, mgr ctrl.
 
 	// Setup cache directory for git repositories
 	cacheDir := r.determineCacheDirectory()
-	klog.Infof("[Repository Controller] Using git cache directory: %s", cacheDir)
+	log.Info("Using git cache directory", "cacheDir", cacheDir)
 
 	// Create credential resolver for git authentication
 	credentialResolver, caBundleResolver := r.createCredentialResolvers(coreClient)
@@ -62,13 +62,14 @@ func (r *RepositoryReconciler) validateCacheType() error {
 // determineCacheDirectory resolves the cache directory with fallback logic
 // Priority: 1. GIT_CACHE_DIR env var, 2. User cache dir, 3. Temp dir
 func (r *RepositoryReconciler) determineCacheDirectory() string {
+	log := ctrl.Log.WithName(r.loggerName)
 	cacheDir := os.Getenv("GIT_CACHE_DIR")
 	if cacheDir == "" {
 		var err error
 		cacheDir, err = os.UserCacheDir()
 		if err != nil {
 			cacheDir = os.TempDir()
-			klog.Warningf("Cannot find user cache directory, using temporary directory %q", cacheDir)
+			log.V(0).Info("Cannot find user cache directory, using temporary directory", "cacheDir", cacheDir)
 		}
 		cacheDir = cacheDir + "/porch-repo-controller"
 	}
@@ -113,6 +114,7 @@ func (r *RepositoryReconciler) buildCacheOptions(
 }
 
 func (r *RepositoryReconciler) setupDBCacheOptionsFromEnv() (cachetypes.DBCacheOptions, error) {
+	log := ctrl.Log.WithName(r.loggerName)
 	dbDriver := os.Getenv("DB_DRIVER")
 	dbHost := os.Getenv("DB_HOST")
 	dbPort := os.Getenv("DB_PORT")
@@ -123,7 +125,7 @@ func (r *RepositoryReconciler) setupDBCacheOptionsFromEnv() (cachetypes.DBCacheO
 
 	if dbDriver == "" {
 		dbDriver = "pgx"
-		klog.Infof("[Repository Controller] DB_DRIVER not provided, defaulting to: %v", dbDriver)
+		log.Info("DB_DRIVER not provided, using default", "dbDriver", dbDriver)
 	}
 
 	missingVars := []string{}
