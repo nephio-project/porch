@@ -1045,7 +1045,7 @@ func TestCalculateNextSyncIntervalExtended(t *testing.T) {
 			expected: 10 * time.Minute,
 		},
 		{
-			name: "RunOnceAt in past",
+			name: "RunOnceAt in past - no status",
 			repo: &api.Repository{
 				Spec: api.RepositorySpec{
 					Sync: &api.RepositorySync{
@@ -1053,14 +1053,16 @@ func TestCalculateNextSyncIntervalExtended(t *testing.T) {
 					},
 				},
 			},
-			expected: 0,
+			// When no status exists, use health check frequency to avoid tight loops
+			// In production, determineSyncDecision would detect this as "sync needed" and never call this function
+			expected: 5 * time.Minute,
 		},
 		{
-			name: "custom schedule - next sync sooner",
+			name: "custom schedule - next sync in future",
 			repo: &api.Repository{
 				Spec: api.RepositorySpec{
 					Sync: &api.RepositorySync{
-						Schedule: "*/1 * * * *",
+						Schedule: "0 */6 * * *", // Every 6 hours
 					},
 				},
 				Status: api.RepositoryStatus{
@@ -1068,11 +1070,12 @@ func TestCalculateNextSyncIntervalExtended(t *testing.T) {
 					Conditions: []metav1.Condition{{
 						Type:               api.RepositoryReady,
 						Status:             metav1.ConditionTrue,
-						LastTransitionTime: metav1.NewTime(now.Add(-30 * time.Minute)),
+						LastTransitionTime: metav1.NewTime(now.Add(-2 * time.Minute)),
 					}},
 				},
 			},
-			expected: 0,
+			// Health check is sooner (3 min) than next cron run (~5.5 hours)
+			expected: 3 * time.Minute,
 		},
 		{
 			name: "invalid schedule - fallback to default",
