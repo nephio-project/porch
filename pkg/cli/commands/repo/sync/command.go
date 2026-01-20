@@ -22,7 +22,7 @@ import (
 	"github.com/kptdev/kpt/pkg/lib/errors"
 	"github.com/kptdev/kpt/pkg/lib/util/cmdutil"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	porch "github.com/nephio-project/porch/internal/clliutils"
+	cliutils "github.com/nephio-project/porch/internal/clliutils"
 	"github.com/nephio-project/porch/pkg/cli/commands/repo/docs"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,7 +54,7 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 		Example: docs.SyncExamples,
 		PreRunE: r.preRunE,
 		RunE:    r.runE,
-		Hidden:  porch.HidePorchCommands,
+		Hidden:  cliutils.HidePorchCommands,
 	}
 	r.Command = c
 
@@ -89,7 +89,7 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 	if r.client != nil {
 		k8sClient = r.client
 	} else {
-		k8sClient, err = porch.CreateClientWithFlags(r.getFlags.ConfigFlags)
+		k8sClient, err = cliutils.CreateClientWithFlags(r.getFlags.ConfigFlags)
 		if err != nil {
 			return errors.E(op, err)
 		}
