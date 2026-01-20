@@ -83,11 +83,11 @@ jobs:
         workflow: CI test report
         run_id: ${{ github.event.workflow_run.id }}
         name: coverage-report
-        
-    - name: Fix Go module paths in coverage
-      run: |
-        sed -i 's|github.com/nephio-project/porch|.|g' coverage.out
-        
+        use_unzip: true
+
+    - name: Transform coverage paths
+      run: sed -i 's|github.com/nephio-project/porch/||g' coverage.out
+
     - name: SonarQube Scan on PR
       if: github.event.workflow_run.event == 'pull_request'
       uses: SonarSource/sonarqube-scan-action@v7.0.0
