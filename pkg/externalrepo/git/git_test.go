@@ -2275,3 +2275,177 @@ func TestFormatCommitMessage(t *testing.T) {
 		})
 	}
 }
+
+func TestPushRetryWithTransientError(t *testing.T) {
+	const (
+		repoName  = "push-permission-test-repo"
+		namespace = "default"
+	)
+
+	tempdir := t.TempDir()
+	tarfile := filepath.Join("testdata", "trivial-repository.tar")
+	remotepath := filepath.Join(tempdir, "remote")
+	localpath := filepath.Join(tempdir, "local")
+	_, address := ServeGitRepository(t, tarfile, remotepath)
+
+	repoSpec := &configapi.GitRepository{
+		Repo: address,
+	}
+
+	ctx := context.Background()
+
+	opts := testGitRepositoryOptions()
+	opts.RepoOperationRetryAttempts = 4
+
+	localRepo, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, opts)
+	if err != nil {
+		t.Fatalf("Failed to open Git repository: %v", err)
+	}
+	t.Cleanup(func() {
+		localRepo.Close(ctx)
+	})
+
+	testrepo := localRepo.(*gitRepository)
+
+	// Create a new commit to push
+	var newCommitHash plumbing.Hash
+	err = testrepo.sharedDir.WithLock(func(repo *gogit.Repository) error {
+		mainRef, err := repo.Reference(testrepo.branch.RefInLocal(), true)
+		if err != nil {
+			return err
+		}
+
+		uip := makeUserInfoProvider(repoSpec, &mockK8sUsp{})
+		ch, err := newCommitHelper(repo, uip, mainRef.Hash(), "", plumbing.ZeroHash)
+		if err != nil {
+			return err
+		}
+
+		err = ch.storeFile("test-file.txt", "test content")
+		if err != nil {
+			return err
+		}
+
+		newCommitHash, _, err = ch.commit(ctx, "Test commit", "")
+		return err
+	})
+	if err != nil {
+		t.Fatalf("Failed to create new commit: %v", err)
+	}
+
+	// Make remote directory read-only BEFORE push to cause errors
+	err = os.Chmod(remotepath, 0444)
+	if err != nil {
+		t.Fatalf("Failed to change permissions: %v", err)
+	}
+
+	// Restore permissions after delay to allow retry to succeed
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		os.Chmod(remotepath, 0755)
+	}()
+
+	refSpecs := newPushRefSpecBuilder()
+	refSpecs.AddRefToPush(newCommitHash, testrepo.branch.RefInLocal())
+
+	err = testrepo.pushAndCleanup(ctx, refSpecs, nil)
+
+	if err != nil {
+		t.Errorf("Push should have succeeded after retries, got error: %v", err)
+	}
+
+	// Ensure permissions are restored
+	os.Chmod(remotepath, 0755)
+}
+
+func TestPushRetryMissingFlush(t *testing.T) {
+	const (
+		repoName  = "push-retry-test-repo"
+		namespace = "default"
+	)
+
+	tempdir := t.TempDir()
+	tarfile := filepath.Join("testdata", "trivial-repository.tar")
+	remotepath := filepath.Join(tempdir, "remote")
+	localpath := filepath.Join(tempdir, "local")
+	gitRepo, address := ServeGitRepository(t, tarfile, remotepath)
+
+	repoSpec := &configapi.GitRepository{
+		Repo: address,
+	}
+
+	ctx := context.Background()
+
+	opts := testGitRepositoryOptions()
+	opts.RepoOperationRetryAttempts = 4
+
+	localRepo, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, opts)
+	if err != nil {
+		t.Fatalf("Failed to open Git repository: %v", err)
+	}
+	t.Cleanup(func() {
+		localRepo.Close(ctx)
+	})
+
+	testrepo := localRepo.(*gitRepository)
+
+	// Create a new commit to push
+	var newCommitHash plumbing.Hash
+	err = testrepo.sharedDir.WithLock(func(repo *gogit.Repository) error {
+		mainRef, err := repo.Reference(testrepo.branch.RefInLocal(), true)
+		if err != nil {
+			return err
+		}
+
+		uip := makeUserInfoProvider(repoSpec, &mockK8sUsp{})
+		ch, err := newCommitHelper(repo, uip, mainRef.Hash(), "", plumbing.ZeroHash)
+		if err != nil {
+			return err
+		}
+
+		err = ch.storeFile("test-file.txt", "test content")
+		if err != nil {
+			return err
+		}
+
+		newCommitHash, _, err = ch.commit(ctx, "Test commit", "")
+		return err
+	})
+	if err != nil {
+		t.Fatalf("Failed to create new commit: %v", err)
+	}
+
+	// Corrupt objects dir to cause transient errors
+	objectsDir := filepath.Join(remotepath, ".git", "objects")
+	err = os.Chmod(objectsDir, 0000)
+	if err != nil {
+		t.Fatalf("Failed to change permissions: %v", err)
+	}
+
+	// Restore after delay
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		os.Chmod(objectsDir, 0755)
+	}()
+
+	refSpecs := newPushRefSpecBuilder()
+	refSpecs.AddRefToPush(newCommitHash, testrepo.branch.RefInLocal())
+
+	err = testrepo.pushAndCleanup(ctx, refSpecs, nil)
+
+	if err != nil {
+		t.Errorf("Push should have succeeded after retries, got error: %v", err)
+	}
+
+	// Ensure permissions restored
+	os.Chmod(objectsDir, 0755)
+
+	// Verify commit was pushed
+	mainRef, err := gitRepo.Reference(plumbing.Main, true)
+	if err != nil {
+		t.Fatalf("Failed to get main ref: %v", err)
+	}
+	if mainRef.Hash() != newCommitHash {
+		t.Errorf("Commit not pushed: got %s, want %s", mainRef.Hash(), newCommitHash)
+	}
+}

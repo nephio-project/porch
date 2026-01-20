@@ -61,6 +61,29 @@ const (
 	hookRetryDelay = 1 * time.Second
 )
 
+// Retryable error patterns for git push operations
+var retryableErrors = []string{
+	"remote ref",
+	"failed to update ref",
+	"pre-receive hook declined",
+	"non-fast-forward update",
+	"stale file handle",
+	"unable to migrate objects to permanent storage",
+	"missing flush",
+	"failed to lock",
+	"broken pipe",
+	"status code: 500",
+}
+
+// AppendRetryableErrors adds additional error patterns to the retryable errors list.
+// Patterns can be specified multiple times or as comma-separated values.
+func AppendRetryableErrors(patterns []string) {
+	for _, p := range patterns {
+		retryableErrors = append(retryableErrors, strings.TrimSpace(p))
+	}
+	klog.Infof("Retryable git error patterns: %v", retryableErrors)
+}
+
 // Commit message constants for different operations
 const (
 	commitMessageRendering       = "Rendering package"
@@ -1104,7 +1127,7 @@ func (r *gitRepository) fetchRemoteRepository(ctx context.Context) error {
 	ctx, span := tracer.Start(ctx, "gitRepository::fetchRemoteRepository", trace.WithAttributes())
 	defer span.End()
 	start := time.Now()
-	defer func() { klog.V(4).Infof("Fetching repository %q took %s", r.key.Name, time.Since(start)) }()
+	defer func() { klog.V(2).Infof("Fetching repository %q took %s", r.key.Name, time.Since(start)) }()
 
 	if ctx.Err() != nil {
 		return ctx.Err()
@@ -1380,7 +1403,7 @@ func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuild
 	defer span.End()
 
 	maxRetries := r.repoOperationRetryAttempts
-	for attempt := 0; attempt <= maxRetries; attempt++ {
+	for attempt := 1; attempt <= maxRetries; attempt++ {
 		if err := r.doGitWithAuth(ctx, func(auth transport.AuthMethod) error {
 			return r.sharedDir.WithLock(func(repo *git.Repository) error {
 				if fetchErr := repo.Fetch(&git.FetchOptions{
@@ -1388,7 +1411,7 @@ func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuild
 					Auth:       auth,
 					CABundle:   r.caBundle,
 				}); fetchErr != nil && fetchErr != git.NoErrAlreadyUpToDate {
-					if attempt > 0 {
+					if attempt > 1 {
 						klog.Warningf("Failed to fetch before retry %d: %v", attempt, fetchErr)
 					}
 				}
@@ -1406,12 +1429,11 @@ func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuild
 					return err
 				}
 
-				if attempt > 0 {
-					if len(require) > 0 {
-						klog.Infof("Git push retry %d: pushing refs %v, requiring refs %v", attempt+1, specs, require)
-					} else {
-						klog.Infof("Git push retry %d: pushing refs %v", attempt+1, specs)
-					}
+				pushStart := time.Now()
+				if len(require) > 0 {
+					klog.Infof("git push attempt %d: pushing %v to %s/%s, requiring %v", attempt, specs, OriginName, r.key.Name, require)
+				} else {
+					klog.Infof("git push attempt %d: pushing %v to %s/%s", attempt, specs, OriginName, r.key.Name)
 				}
 
 				pushErr := repo.Push(&git.PushOptions{
@@ -1422,36 +1444,44 @@ func (r *gitRepository) pushAndCleanup(ctx context.Context, ph *pushRefSpecBuild
 					CABundle:   r.caBundle,
 				})
 				if pushErr != nil {
-					klog.Warningf("Push failed on attempt %d: %v", attempt+1, pushErr)
+					klog.Warningf("git push failed attempt %d: %v", attempt, pushErr)
+				} else {
+					klog.Infof("git push completed: pushed %v to %s/%s in %s", specs, OriginName, r.key.Name, time.Since(pushStart))
 				}
 				return pushErr
 			})
 		}); err != nil {
-			isRetryable := strings.Contains(err.Error(), "remote ref") ||
-				strings.Contains(err.Error(), "failed to update ref") ||
-				strings.Contains(err.Error(), "pre-receive hook declined") ||
-				strings.Contains(err.Error(), "non-fast-forward update")
-
-			if !isRetryable || attempt >= maxRetries {
-				if isRetryable {
-					return conflictingRequiredRemoteRefError
+			if err == git.NoErrAlreadyUpToDate {
+				return nil
+			}
+			if attempt >= maxRetries {
+				klog.V(2).Infof("Max retries (%d) reached, returning error: %v", maxRetries, err)
+				return err
+			}
+			isRetryable := false
+			for _, pattern := range retryableErrors {
+				if strings.Contains(err.Error(), pattern) {
+					klog.V(2).Infof("Pattern %q matched! Error is retryable", pattern)
+					isRetryable = true
+					break
 				}
+			}
+
+			if !isRetryable {
+				klog.V(2).Infof("Error %q is not retryable as it's in the allowed retryable list", err)
 				return err
 			}
 
-			klog.Warningf("Push conflict on attempt %d, retrying: %v", attempt+1, err)
-
-			// Longer delays for branch protection conflicts
-			baseDelay := time.Duration(attempt+1) * baseRetryDelay
+			baseDelay := time.Duration(attempt) * baseRetryDelay
 			if strings.Contains(err.Error(), "pre-receive hook declined") {
-				baseDelay = time.Duration(attempt+1) * hookRetryDelay
+				baseDelay = time.Duration(attempt) * hookRetryDelay
 			}
 			time.Sleep(baseDelay)
 			continue
 		}
 		return nil
 	}
-	return fmt.Errorf("push failed after %d retries", maxRetries+1)
+	return fmt.Errorf("push failed after %d attempts", maxRetries)
 }
 
 func (r *gitRepository) loadTasks(_ context.Context, startCommit *object.Commit, key repository.PackageRevisionKey) ([]porchapi.Task, error) {
