@@ -58,22 +58,14 @@ func TestEmbeddedControllerManagerStructure(t *testing.T) {
 
 func TestSetupEmbeddedController(t *testing.T) {
 	tests := []struct {
-		name          string
-		useLegacySync bool
-		cacheType     cachetypes.CacheType
-		expectNil     bool
+		name      string
+		cacheType cachetypes.CacheType
+		expectNil bool
 	}{
 		{
-			name:          "returns nil when legacy sync enabled",
-			useLegacySync: true,
-			cacheType:     cachetypes.CRCacheType,
-			expectNil:     true,
-		},
-		{
-			name:          "returns nil when DB cache type",
-			useLegacySync: false,
-			cacheType:     cachetypes.DBCacheType,
-			expectNil:     true,
+			name:      "returns nil when DB cache type",
+			cacheType: cachetypes.DBCacheType,
+			expectNil: true,
 		},
 	}
 
@@ -81,7 +73,6 @@ func TestSetupEmbeddedController(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c := completedConfig{
 				ExtraConfig: &ExtraConfig{
-					UseLegacySync: tt.useLegacySync,
 					CacheOptions: cachetypes.CacheOptions{
 						CacheType: tt.cacheType,
 					},

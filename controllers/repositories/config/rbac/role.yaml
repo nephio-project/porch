@@ -21,6 +21,7 @@ rules:
   - ""
   resources:
   - events
+  - secrets
   verbs:
   - get
   - list

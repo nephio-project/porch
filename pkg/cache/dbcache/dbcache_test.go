@@ -168,8 +168,7 @@ func (t *DbTestSuite) TestDBRepositoryCrud() {
 	fakeClient := testutil.NewFakeClientWithStatus(scheme, repositorySpec)
 
 	options := cachetypes.CacheOptions{
-		RepoSyncFrequency: 60 * time.Minute,
-		CoreClient:        fakeClient,
+		CoreClient: fakeClient,
 	}
 	dbCache, err := new(DBCacheFactory).NewCache(ctx, options)
 	t.NoError(err)
@@ -218,8 +217,7 @@ func (t *DbTestSuite) TestDBRepositoryConnectivityCheck() {
 	}
 	fakeClient := testutil.NewFakeClientWithStatus(scheme, failureSpec)
 	options := cachetypes.CacheOptions{
-		RepoSyncFrequency: 60 * time.Second,
-		CoreClient:        fakeClient,
+		CoreClient: fakeClient,
 	}
 	dbCache, err := new(DBCacheFactory).NewCache(ctx, options)
 	t.NoError(err)

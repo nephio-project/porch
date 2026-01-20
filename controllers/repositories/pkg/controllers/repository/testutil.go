@@ -18,7 +18,6 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 )
@@ -46,11 +45,5 @@ func assertError(t *testing.T, expectError bool, err error) {
 	}
 	if !expectError && err != nil {
 		t.Errorf("Unexpected error: %v", err)
-	}
-}
-
-func assertRequeue(t *testing.T, expectRequeue bool, result ctrl.Result) {
-	if expectRequeue && result.RequeueAfter == 0 {
-		t.Error("Expected requeue but got none")
 	}
 }
