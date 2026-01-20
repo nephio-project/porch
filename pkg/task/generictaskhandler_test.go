@@ -27,8 +27,8 @@ import (
 	fakeextrepo "github.com/nephio-project/porch/pkg/externalrepo/fake"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kptdev/kpt/pkg/lib/builtins"
-	"github.com/kptdev/kpt/pkg/lib/fnruntime"
+	"github.com/kptdev/kpt/pkg/lib/pkgcontext/pkgcontexttypes"
+	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -107,7 +107,7 @@ func TestApplyTasks(t *testing.T) {
 					Tasks: tt.tasks,
 				},
 			}
-			packageConfig := &builtintypes.PackageConfig{}
+			packageConfig := &pkgcontexttypes.PackageConfig{}
 
 			// Call ApplyTask
 			err := handler.ApplyTask(ctx, draft, repositoryObj, obj, packageConfig)

@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/kptdev/kpt/pkg/lib/builtins/builtintypes"
+	"github.com/kptdev/kpt/pkg/lib/pkgcontext/pkgcontexttypes"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
@@ -37,7 +37,7 @@ func TestPackageContext(t *testing.T) {
 
 	input := repository.ReadPackage(t, filepath.Join(testdata, "input"))
 
-	packageConfig := &builtintypes.PackageConfig{
+	packageConfig := &pkgcontexttypes.PackageConfig{
 		PackagePath: "parent1/parent1.2/parent1.2.3/me",
 	}
 	m, err := newPackageContextGeneratorMutation(packageConfig)

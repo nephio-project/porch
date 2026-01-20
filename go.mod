@@ -71,9 +71,6 @@ require (
 	github.com/qri-io/starlib v0.5.0 // indirect
 	go.starlark.net v0.0.0-20251029211736-7849196f18cf // indirect
 	golang.org/x/mod v0.29.0 // indirect
-	golang.org/x/tools v0.38.0 // indirect
-	k8s.io/code-generator v0.34.1 // indirect
-	k8s.io/gengo/v2 v2.0.0-20250604051438-85fd79dbfd9f // indirect
 	sigs.k8s.io/kustomize/api v0.20.1 // indirect
 )
 

@@ -21,8 +21,8 @@ import (
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/fn"
-	"github.com/kptdev/kpt/pkg/lib/fnruntime"
-	"github.com/kptdev/kpt/pkg/lib/kpt"
+	"github.com/kptdev/kpt/pkg/lib/kptops"
+	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	"github.com/kptdev/krm-functions-catalog/functions/go/apply-replacements/replacements"
 	set_namespace "github.com/kptdev/krm-functions-catalog/functions/go/set-namespace/transformer"
 	"github.com/kptdev/krm-functions-catalog/functions/go/starlark/starlark"

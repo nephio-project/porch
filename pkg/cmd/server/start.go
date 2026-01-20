@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kptdev/kpt/pkg/lib/fnruntime"
+	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 

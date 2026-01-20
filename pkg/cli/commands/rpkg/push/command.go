@@ -27,7 +27,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/kptdev/kpt/pkg/lib/errors"
-	"github.com/kptdev/kpt/pkg/lib/fnruntime"
+	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	"github.com/kptdev/kpt/pkg/printer"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	porch "github.com/nephio-project/porch/internal/clliutils"
