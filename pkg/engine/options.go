@@ -18,8 +18,8 @@ import (
 	"fmt"
 
 	"github.com/kptdev/kpt/pkg/fn"
-	"github.com/kptdev/kpt/pkg/lib/fnruntime"
-	"github.com/kptdev/kpt/pkg/lib/kpt"
+	"github.com/kptdev/kpt/pkg/lib/kptops"
+	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
 )
@@ -84,16 +84,16 @@ func WithFunctionRuntime(runtime fn.FunctionRuntime) EngineOption {
 
 func WithSimpleFunctionRuntime() EngineOption {
 	return EngineOptionFunc(func(engine *cadEngine) error {
-		engine.taskHandler.SetRuntime(kpt.NewSimpleFunctionRuntime())
+		engine.taskHandler.SetRuntime(kptops.NewSimpleFunctionRuntime())
 		return nil
 	})
 }
 
-func WithRunnerOptions(options fnruntime.RunnerOptions) EngineOption {
-	return WithRunnerOptionsResolver(func(namespace string) fnruntime.RunnerOptions { return options })
+func WithRunnerOptions(options runneroptions.RunnerOptions) EngineOption {
+	return WithRunnerOptionsResolver(func(namespace string) runneroptions.RunnerOptions { return options })
 }
 
-func WithRunnerOptionsResolver(fn func(namespace string) fnruntime.RunnerOptions) EngineOption {
+func WithRunnerOptionsResolver(fn func(namespace string) runneroptions.RunnerOptions) EngineOption {
 	return EngineOptionFunc(func(engine *cadEngine) error {
 		engine.taskHandler.SetRunnerOptionsResolver(fn)
 		return nil
