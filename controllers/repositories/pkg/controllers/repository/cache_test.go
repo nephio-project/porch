@@ -344,9 +344,6 @@ func TestBuildCacheOptions(t *testing.T) {
 	if options.ExternalRepoOptions.UserInfoProvider != userInfoProvider {
 		t.Error("expected user info provider to be set")
 	}
-	if options.UseLegacySync != false {
-		t.Error("expected UseLegacySync to be false")
-	}
 }
 
 func TestCreateCredentialResolvers(t *testing.T) {

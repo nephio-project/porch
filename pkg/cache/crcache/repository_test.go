@@ -33,7 +33,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 )
 
@@ -55,7 +54,6 @@ func TestCachedRepoRefresh(t *testing.T) {
 
 	options := cachetypes.CacheOptions{
 		RepoPRChangeNotifier: mockNotifier,
-		RepoSyncFrequency:    time.Minute,
 		CoreClient:           fakeClient,
 	}
 
@@ -193,65 +191,6 @@ const (
 	namespace = "the-ns"
 )
 
-func TestHandleRunOnceAt(t *testing.T) {
-	mockRepo := mockrepo.NewMockRepository(t)
-	mockMeta := mockmeta.NewMockMetadataStore(t)
-	mockNotifier := mockcachetypes.NewMockRepoPRChangeNotifier(t)
-
-	runOnceTime := time.Now().Add(100 * time.Millisecond)
-
-	repoSpec := configapi.Repository{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      repoName,
-			Namespace: namespace,
-		},
-		Spec: configapi.RepositorySpec{
-			Sync: &configapi.RepositorySync{
-				RunOnceAt: &metav1.Time{Time: runOnceTime},
-			},
-		},
-	}
-
-	scheme := runtime.NewScheme()
-	_ = configapi.AddToScheme(scheme)
-	fakeClient := testutil.NewFakeClientWithStatus(scheme, &repoSpec)
-
-	options := cachetypes.CacheOptions{
-		RepoPRChangeNotifier: mockNotifier,
-		RepoSyncFrequency:    time.Minute,
-		CoreClient:           fakeClient,
-		UseLegacySync:        true,
-	}
-
-	mockRepo.On("Key").Return(repository.RepositoryKey{Namespace: namespace, Name: repoName}).Maybe()
-	mockRepo.EXPECT().Refresh(mock.Anything).Return(nil).Maybe()
-	mockRepo.EXPECT().Version(mock.Anything).Return("v1.0", nil).Maybe()
-	mockRepo.EXPECT().ListPackageRevisions(mock.Anything, mock.Anything).Return(nil, nil).Maybe()
-
-	metaMap := []metav1.ObjectMeta{}
-	mockMeta.EXPECT().List(mock.Anything, mock.Anything).Return(metaMap, nil).Maybe()
-	mockNotifier.EXPECT().NotifyPackageRevisionChange(mock.Anything, mock.Anything).Return(0).Maybe()
-
-	repoKey := repository.RepositoryKey{
-		Namespace: namespace,
-		Name:      repoName,
-	}
-	cr := newRepository(repoKey, &repoSpec, mockRepo, mockMeta, options)
-
-	time.Sleep(3 * time.Second)
-	// Verify status was updated
-	key := types.NamespacedName{Name: repoName, Namespace: namespace}
-	status := fakeClient.GetStatusStore()[key]
-
-	mockRepo.On("Close", mock.Anything).Return(nil).Maybe()
-	cr.Close(context.TODO())
-
-	assert.NotNil(t, status, "Expected repository status to be updated")
-	if assert.NotEmpty(t, status.Conditions, "Expected at least one condition in status") {
-		assert.Contains(t, []string{"Ready", "Error", "Reconciling"}, status.Conditions[0].Reason)
-	}
-}
-
 func TestCRDeleteLatestRevision(t *testing.T) {
 	mockRepo := mockrepo.NewMockRepository(t)
 	mockMeta := mockmeta.NewMockMetadataStore(t)
@@ -385,7 +324,6 @@ func TestCachedRepoBranchCommitHash(t *testing.T) {
 	
 	options := cachetypes.CacheOptions{
 		RepoPRChangeNotifier: mockNotifier,
-		RepoSyncFrequency:    time.Minute,
 		CoreClient:           fakeClient,
 	}
 	

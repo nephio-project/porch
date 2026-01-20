@@ -209,8 +209,12 @@ func reconcilerIsEnabled(reconcilers []string, reconciler string) bool {
 	if slices.Contains(reconcilers, reconciler) {
 		return true
 	}
-	if _, found := os.LookupEnv(fmt.Sprintf("ENABLE_%s", strings.ToUpper(reconciler))); found {
-		return true
+	// Check env var value (not just existence)
+	envVar := fmt.Sprintf("ENABLE_%s", strings.ToUpper(reconciler))
+	if val := os.Getenv(envVar); val != "" {
+		// Parse as boolean: "true", "1", "yes" = enabled
+		valLower := strings.ToLower(val)
+		return valLower == "true" || val == "1" || valLower == "yes"
 	}
 	return false
 }

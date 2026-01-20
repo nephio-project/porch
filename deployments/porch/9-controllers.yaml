@@ -35,6 +35,33 @@ spec:
         k8s-app: porch-controllers
     spec:
       serviceAccountName: porch-controllers
+      initContainers:
+      - name: wait-for-postgres
+        image: postgres:17-alpine
+        command:
+        - sh
+        - -c
+        - |
+          # Only wait for postgres if DB config is provided (needed for repository controller)
+          if [ -z "$DB_HOST" ]; then
+            echo "DB_HOST not set, skipping postgres check (repository controller not enabled or DB config missing)"
+            exit 0
+          fi
+          until pg_isready -h $DB_HOST -p $DB_PORT -U $DB_USER; do
+            echo "Waiting for PostgreSQL to be ready..."
+            sleep 2
+          done
+          echo "PostgreSQL is ready!"
+        envFrom:
+        - configMapRef:
+            name: porch-db-config
+            optional: true
+        - secretRef:
+            name: porch-db-secret
+            optional: true
+      volumes:
+      - name: cache-volume
+        emptyDir: {}
       containers:
       - name: porch-controllers
         # Update to the image of your porch-controllers build.
@@ -51,6 +78,17 @@ spec:
           value: "true"
         - name: ENABLE_PACKAGEVARIANTSETS
           value: "true"
+        - name: ENABLE_REPOSITORIES
+          value: "true"
+        - name: GIT_CACHE_DIR
+          value: "/cache"
+        envFrom:
+        - configMapRef:
+            name: porch-db-config
+            optional: true
+        - secretRef:
+            name: porch-db-secret
+            optional: true
         livenessProbe:
           failureThreshold: 3
           httpGet:

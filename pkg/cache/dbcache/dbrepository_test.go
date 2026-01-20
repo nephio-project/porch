@@ -17,7 +17,6 @@ package dbcache
 import (
 	"errors"
 	"strings"
-	"time"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
@@ -171,8 +170,7 @@ func (t *DbTestSuite) TestDBRepositorySync() {
 	}
 	fakeClient := k8sfake.NewClientBuilder().WithScheme(scheme).WithObjects(repoObj).Build()
 	cacheOptions := cachetypes.CacheOptions{
-		RepoSyncFrequency: 2 * time.Second,
-		CoreClient:        fakeClient,
+		CoreClient: fakeClient,
 	}
 
 	testRepo.repositorySync = newRepositorySync(testRepo, cacheOptions)

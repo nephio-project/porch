@@ -59,20 +59,32 @@ func (r *RepositoryReconciler) validateCacheType() error {
 	return nil
 }
 
-// determineCacheDirectory resolves the cache directory with fallback logic
-// Priority: 1. GIT_CACHE_DIR env var, 2. User cache dir, 3. Temp dir
+// determineCacheDirectory resolves the cache directory
+// Priority: 1. Flag value, 2. GIT_CACHE_DIR env var, 3. User cache dir, 4. Temp dir
+// Matches porch-server behavior for consistency
 func (r *RepositoryReconciler) determineCacheDirectory() string {
 	log := ctrl.Log.WithName(r.loggerName)
-	cacheDir := os.Getenv("GIT_CACHE_DIR")
-	if cacheDir == "" {
-		var err error
-		cacheDir, err = os.UserCacheDir()
-		if err != nil {
-			cacheDir = os.TempDir()
-			log.V(0).Info("Cannot find user cache directory, using temporary directory", "cacheDir", cacheDir)
-		}
-		cacheDir = cacheDir + "/porch-repo-controller"
+	
+	// Priority 1: Use flag value if set
+	if r.cacheDirectory != "" {
+		return r.cacheDirectory
 	}
+	
+	// Priority 2: Use GIT_CACHE_DIR env var
+	cacheDir := os.Getenv("GIT_CACHE_DIR")
+	if cacheDir != "" {
+		return cacheDir
+	}
+	
+	// Priority 3: User cache directory (fallback)
+	var err error
+	cacheDir, err = os.UserCacheDir()
+	if err != nil {
+		// Priority 4: Temp directory as last resort
+		cacheDir = os.TempDir()
+		log.V(0).Info("Cannot find user cache directory, using temporary directory", "cacheDir", cacheDir)
+	}
+	cacheDir = cacheDir + "/porch-repo-controller"
 	return cacheDir
 }
 
@@ -109,7 +121,6 @@ func (r *RepositoryReconciler) buildCacheOptions(
 			RepoOperationRetryAttempts: r.RepoOperationRetryAttempts,
 		},
 		RepoPRChangeNotifier: cachetypes.NewNoOpRepoPRChangeNotifier(),
-		UseLegacySync:        false, // Controllers handle sync
 	}
 }
 

@@ -93,7 +93,6 @@ type ExtraConfig struct {
 	RepoControllerConfig     RepoControllerConfig
 	ListTimeoutPerRepository time.Duration
 	MaxConcurrentLists       int
-	UseLegacySync            bool // Use legacy background sync (true) vs controller-based sync (false)
 }
 
 // Config defines the config for the apiserver
@@ -107,7 +106,6 @@ type PorchServer struct {
 	GenericAPIServer           *genericapiserver.GenericAPIServer
 	coreClient                 client.WithWatch
 	cache                      cachetypes.Cache
-	periodicRepoSyncFrequency  time.Duration
 	ListTimeoutPerRepository   time.Duration
 	repoOperationRetryAttempts int
 	ExtraConfig                *ExtraConfig
@@ -258,9 +256,9 @@ func (c completedConfig) createEmbeddedController(coreClient client.WithWatch) (
 	return createEmbeddedController(coreClient, restConfig, scheme, config)
 }
 
-// setupEmbeddedController creates embedded controller if conditions are met
+// setupEmbeddedController creates embedded controller if CR cache is used
 func (c completedConfig) setupEmbeddedController(coreClient client.WithWatch) (*EmbeddedControllerManager, error) {
-	if c.ExtraConfig.UseLegacySync || c.ExtraConfig.CacheOptions.CacheType != cachetypes.CRCacheType {
+	if c.ExtraConfig.CacheOptions.CacheType != cachetypes.CRCacheType {
 		return nil, nil
 	}
 
@@ -316,8 +314,6 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.UserInfoProvider = userInfoProvider
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.RepoOperationRetryAttempts = c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts
 
-	c.ExtraConfig.CacheOptions.UseLegacySync = c.ExtraConfig.UseLegacySync
-
 	// Create embedded repo controller if needed
 	embeddedController, err := c.setupEmbeddedController(coreClient)
 	if err != nil {
@@ -368,13 +364,11 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	}
 
 	s := &PorchServer{
-		GenericAPIServer:   genericServer,
-		coreClient:         coreClient,
-		cache:              cacheImpl,
-		ExtraConfig:        c.ExtraConfig,
-		embeddedController: embeddedController,
-		// Set background job periodic frequency the same as repo sync frequency.
-		periodicRepoSyncFrequency:  c.ExtraConfig.CacheOptions.RepoSyncFrequency,
+		GenericAPIServer:           genericServer,
+		coreClient:                 coreClient,
+		cache:                      cacheImpl,
+		ExtraConfig:                c.ExtraConfig,
+		embeddedController:         embeddedController,
 		ListTimeoutPerRepository:   c.ExtraConfig.ListTimeoutPerRepository,
 		repoOperationRetryAttempts: c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts,
 	}
@@ -388,15 +382,8 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 }
 
 func (s *PorchServer) Run(ctx context.Context) error {
-	if s.ExtraConfig.UseLegacySync {
-		klog.Info("Using legacy SyncManager")
-		porch.RunBackground(ctx, s.coreClient, s.cache,
-			porch.WithPeriodicRepoSyncFrequency(s.periodicRepoSyncFrequency),
-			porch.WithListTimeoutPerRepo(s.ListTimeoutPerRepository),
-			porch.WithRepoOperationRetryAttempts(s.repoOperationRetryAttempts),
-		)
-	} else if s.embeddedController != nil {
-		klog.Info("Starting embedded controller")
+	if s.embeddedController != nil {
+		klog.Info("Starting embedded repository controller (CR cache mode)")
 		s.embeddedController.cache = s.cache
 		go func() {
 			if err := s.embeddedController.Start(ctx); err != nil {
@@ -404,7 +391,7 @@ func (s *PorchServer) Run(ctx context.Context) error {
 			}
 		}()
 	} else {
-		klog.Info("Using standalone controller")
+		klog.Info("Using standalone repository controller (DB cache mode)")
 	}
 
 	// TODO: Reconsider if the existence of CERT_STORAGE_DIR was a good inidcator for webhook setup,

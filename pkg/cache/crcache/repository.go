@@ -23,7 +23,7 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
-	"github.com/nephio-project/porch/pkg/cache/sync"
+
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/pkg/errors"
@@ -53,18 +53,14 @@ type cachedRepository struct {
 	mutex                  stdSync.RWMutex
 	cachedPackageRevisions map[repository.PackageRevisionKey]*cachedPackageRevision
 	cachedPackages         map[repository.PackageKey]*cachedPackage
-	// Error encountered on repository refresh by the refresh goroutine.
-	// This is returned back by the cache to the background goroutine when it calls the periodic refresh to resync repositories.
 	refreshRevisionsError error
 
 	metadataStore        meta.MetadataStore
 	repoPRChangeNotifier cachetypes.RepoPRChangeNotifier
-	syncManager          *sync.SyncManager
 }
 
 func newRepository(repoKey repository.RepositoryKey, repoSpec *configapi.Repository, repo repository.Repository,
 	metadataStore meta.MetadataStore, options cachetypes.CacheOptions) *cachedRepository {
-	ctx := context.Background()
 	r := &cachedRepository{
 		key:                  repoKey,
 		repoSpec:             repoSpec,
@@ -72,15 +68,6 @@ func newRepository(repoKey repository.RepositoryKey, repoSpec *configapi.Reposit
 		metadataStore:        metadataStore,
 		repoPRChangeNotifier: options.RepoPRChangeNotifier,
 	}
-
-	// TODO: Should we fetch the packages here?
-
-	// Create sync manager only if legacy sync is enabled
-	if options.UseLegacySync {
-		r.syncManager = sync.NewSyncManager(r, options.CoreClient)
-		r.syncManager.Start(ctx, options.RepoSyncFrequency)
-	}
-
 	return r
 }
 
@@ -144,13 +131,6 @@ func (r *cachedRepository) ListPackageRevisions(ctx context.Context, filter repo
 func (r *cachedRepository) getRefreshError() error {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
-
-	// TODO: This should also check r.refreshPkgsError when
-	//   the package resource is fully supported.
-
-	if r.syncManager != nil {
-		return r.syncManager.GetLastSyncError()
-	}
 	return r.refreshRevisionsError
 }
 
@@ -491,12 +471,6 @@ func (r *cachedRepository) ListPackages(ctx context.Context, filter repository.L
 }
 
 func (r *cachedRepository) Close(ctx context.Context) error {
-	if r.syncManager != nil {
-		r.syncManager.Stop()
-	}
-
-	// Make sure that watch events are sent for packagerevisions that are
-	// removed as part of closing the repository.
 	sent := 0
 	for _, pr := range r.cachedPackageRevisions {
 		nn := types.NamespacedName{
@@ -519,40 +493,6 @@ func (r *cachedRepository) Close(ctx context.Context) error {
 	}
 	klog.Infof("repo %+v: sent %d notifications for %d package revisions during close", r.Key(), sent, len(r.cachedPackageRevisions))
 	return r.repo.Close(ctx)
-}
-
-// SyncOnce implements the SyncHandler interface
-func (r *cachedRepository) SyncOnce(ctx context.Context) error {
-	start := time.Now()
-	klog.Infof("repositorySync %+v: sync started", r.Key())
-	defer func() { klog.Infof("repositorySync %+v: sync finished in %s", r.Key(), time.Since(start)) }()
-	ctx, span := tracer.Start(ctx, "[START]::Repository::SyncOnce", trace.WithAttributes())
-	defer span.End()
-
-	// Set condition to sync-in-progress
-	if r.syncManager != nil {
-		if err := r.syncManager.SetRepositoryCondition(ctx, "sync-in-progress"); err != nil {
-			klog.Warningf("repositorySync %+v: failed to set sync-in-progress condition: %v", r.Key(), err)
-		}
-	}
-
-	if _, err := r.getPackageRevisions(ctx, repository.ListPackageRevisionFilter{}, true); err != nil {
-		r.refreshRevisionsError = err
-		klog.Warningf("error syncing repo packages %s: %v", r.Key(), err)
-		return err
-	} else {
-		r.refreshRevisionsError = nil
-	}
-	// TODO: Uncomment when package resources are fully supported
-	//if _, err := r.getPackages(ctx, repository.ListPackageRevisionFilter{}, true); err != nil {
-	//	klog.Warningf("error syncing repo packages %s: %v", r.Key(), err)
-	//}
-	return nil
-}
-
-// GetSpec implements the SyncHandler interface
-func (r *cachedRepository) GetSpec() *configapi.Repository {
-	return r.repoSpec
 }
 
 // refreshAllCachedPackages updates the cached map for this repository with all the newPackages,
