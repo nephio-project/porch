@@ -67,7 +67,6 @@ type PorchServerOptions struct {
 	LocalStandaloneDebugging    bool // Enables local standalone running/debugging of the apiserver.
 	MaxConcurrentLists          int
 	MaxRequestBodySize          int
-	RepoSyncFrequency           time.Duration
 	RepoOperationRetryAttempts  int
 	RetryableGitErrors         []string // Additional retryable git error patterns
 	RepoMaxConcurrentReconciles int
@@ -77,8 +76,6 @@ type PorchServerOptions struct {
 	SharedInformerFactory       informers.SharedInformerFactory
 	StdOut                      io.Writer
 	StdErr                      io.Writer
-	UseLegacySync               bool
-	UseLegacySyncSet            bool // Track if flag was explicitly set
 	UseUserDefinedCaBundle      bool
 }
 
@@ -113,10 +110,6 @@ func NewCommandStartPorchServer(ctx context.Context, defaults *PorchServerOption
 		Short: "Launch a porch API server",
 		Long:  "Launch a porch API server",
 		RunE: func(c *cobra.Command, args []string) error {
-			// Check if use-legacy-sync was explicitly set
-			if c.Flags().Changed("use-legacy-sync") {
-				o.UseLegacySyncSet = true
-			}
 			if err := o.Complete(); err != nil {
 				return err
 			}
@@ -145,39 +138,11 @@ func (o PorchServerOptions) Validate(args []string) error {
 		errors = append(errors, fmt.Errorf("specified cache-type %s is not supported", o.CacheType))
 	}
 
-	// Validate deployment mode constraints
-	if err := o.validateDeploymentMode(); err != nil {
-		errors = append(errors, err)
-	}
-
 	if o.MaxConcurrentLists < 0 {
 		return fmt.Errorf("invalid value for max-parallel-repo-lists: 0 for no limit; > 0 for set limit")
 	}
 
 	return utilerrors.NewAggregate(errors)
-}
-
-// validateDeploymentMode validates the deployment mode configuration
-func (o PorchServerOptions) validateDeploymentMode() error {
-	if o.UseLegacySync {
-		klog.Warningf("Legacy sync mode is deprecated")
-	}
-	return nil
-}
-
-// applyLegacySyncDefaults applies smart defaults for use-legacy-sync based on cache type
-func (o *PorchServerOptions) applyLegacySyncDefaults() {
-	if !o.UseLegacySyncSet {
-		if o.CacheType == string(cachetypes.DBCacheType) {
-			// DB cache: default to legacy sync (no standalone controller required)
-			o.UseLegacySync = true
-			klog.Infof("Defaulting to legacy sync for DB cache (set --use-legacy-sync=false to use controller-based sync with standalone controller)")
-		} else {
-			// CR cache: default to controller-based sync (embedded controller available)
-			o.UseLegacySync = false
-			klog.Infof("Defaulting to controller-based sync for CR cache (embedded controller)")
-		}
-	}
 }
 
 // Complete fills in fields required to have valid data
@@ -208,9 +173,6 @@ func (o *PorchServerOptions) Complete() error {
 	}
 
 	o.CacheType = strings.ToUpper(o.CacheType)
-
-	// Apply smart defaults for use-legacy-sync based on cache type if not explicitly set
-	o.applyLegacySyncDefaults()
 
 	if o.CacheType == string(cachetypes.DBCacheType) {
 		if err := o.setupDBCacheConn(); err != nil {
@@ -334,7 +296,6 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 					LocalDirectory:         o.CacheDirectory,
 					UseUserDefinedCaBundle: o.UseUserDefinedCaBundle,
 				},
-				RepoSyncFrequency:          o.RepoSyncFrequency,
 				RepoOperationRetryAttempts: o.RepoOperationRetryAttempts,
 				CacheType:                  cachetypes.CacheType(o.CacheType),
 				DBCacheOptions: cachetypes.DBCacheOptions{
@@ -350,7 +311,6 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 			},
 			ListTimeoutPerRepository: o.ListTimeoutPerRepository,
 			MaxConcurrentLists:       o.MaxConcurrentLists,
-			UseLegacySync:            o.UseLegacySync,
 		},
 	}
 	return config, nil
@@ -409,15 +369,9 @@ func (o *PorchServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.DurationVar(&o.ListTimeoutPerRepository, "list-timeout-per-repo", 20*time.Second, "Maximum amount of time to wait for a repository list request.")
 	fs.IntVar(&o.MaxConcurrentLists, "max-parallel-repo-lists", 10, "Maximum number of repositories to list in parallel.")
 
-	// Repository sync configuration (legacy)
-	fs.DurationVar(&o.RepoSyncFrequency, "repo-sync-frequency", 10*time.Minute, "Frequency at which registered repository CRs will be synced (legacy sync only).")
-
 	// Repository controller configuration (controller-based sync)
 	fs.IntVar(&o.RepoMaxConcurrentReconciles, "repo-max-concurrent-reconciles", 100, "Maximum number of repository reconciliations to run concurrently.")
 	fs.IntVar(&o.RepoMaxConcurrentSyncs, "repo-max-concurrent-syncs", 50, "Maximum number of repository syncs to run concurrently.")
 	fs.DurationVar(&o.RepoHealthCheckFrequency, "repo-health-check-frequency", 5*time.Minute, "Frequency at which repository health checks are performed.")
 	fs.DurationVar(&o.RepoFullSyncFrequency, "repo-full-sync-frequency", 1*time.Hour, "Frequency at which full repository syncs are performed.")
-
-	// Repository Sync mode selection
-	fs.BoolVar(&o.UseLegacySync, "use-legacy-sync", false, "Use legacy sync mode (deprecated). Defaults: false for CR cache (embedded controller), true for DB cache (requires standalone controller if false).")
 }

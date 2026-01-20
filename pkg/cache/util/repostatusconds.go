@@ -14,23 +14,15 @@
 
 // Package util provides shared utilities for repository status management.
 //
-// NOTE: Most of this file will be removed once legacy repository sync is removed.
-// The new controller-based sync uses BuildRepositoryCondition for API consistency,
-// but SetRepositoryCondition and applyRepositoryCondition are only needed for legacy sync.
+// BuildRepositoryCondition is used by the repository controller for API consistency.
 package util
 
 import (
-	"context"
 	"fmt"
 	"time"
 
 	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
-	"github.com/nephio-project/porch/pkg/repository"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // RepositoryStatus represents the status of a repository sync operation
@@ -42,38 +34,8 @@ const (
 	RepositoryStatusError          RepositoryStatus = "error"
 )
 
-// SetRepositoryCondition sets the repository condition status
-// NOTE: This function is only used by legacy sync and will be removed when legacy sync is removed.
-func SetRepositoryCondition(ctx context.Context, coreClient client.WithWatch, repoKey repository.RepositoryKey, status RepositoryStatus, syncError error, nextSyncTime *time.Time) error {
-	if coreClient == nil {
-		return fmt.Errorf("client is nil")
-	}
-
-	repo := &configapi.Repository{}
-	key := types.NamespacedName{
-		Name:      repoKey.Name,
-		Namespace: repoKey.Namespace,
-	}
-
-	if err := coreClient.Get(ctx, key, repo); err != nil {
-		return fmt.Errorf("failed to get repository: %w", err)
-	}
-
-	errorMsg := ""
-	if status == RepositoryStatusError && syncError != nil {
-		errorMsg = syncError.Error()
-	}
-
-	condition, err := BuildRepositoryCondition(repo, status, errorMsg, nextSyncTime)
-	if err != nil {
-		return err
-	}
-
-	return applyRepositoryCondition(ctx, coreClient, repo, condition, status)
-}
-
 // BuildRepositoryCondition builds a repository condition for the given status.
-// This function is shared between legacy sync and the new controller for API consistency.
+// Used by the repository controller for API consistency.
 func BuildRepositoryCondition(repo *configapi.Repository, status RepositoryStatus, errorMsg string, nextSyncTime *time.Time) (metav1.Condition, error) {
 	switch status {
 	case RepositoryStatusSyncInProgress:
@@ -119,43 +81,3 @@ func BuildRepositoryCondition(repo *configapi.Repository, status RepositoryStatu
 	}
 }
 
-// applyRepositoryCondition applies the condition to the repository status with retries.
-// NOTE: This function is only used by legacy sync and will be removed when legacy sync is removed.
-func applyRepositoryCondition(ctx context.Context, client client.Client, repo *configapi.Repository, condition metav1.Condition, status RepositoryStatus) error {
-	for attempt := range 3 {
-		latestRepo := &configapi.Repository{}
-		err := client.Get(ctx, types.NamespacedName{
-			Namespace: repo.Namespace,
-			Name:      repo.Name,
-		}, latestRepo)
-		if err != nil {
-			return fmt.Errorf("failed to get latest repository object: %w", err)
-		}
-
-		if latestRepo.Status.Conditions == nil {
-			latestRepo.Status.Conditions = []metav1.Condition{}
-		}
-
-		if len(latestRepo.Status.Conditions) > 0 {
-			latestRepo.Status.Conditions[0] = condition
-		} else {
-			latestRepo.Status.Conditions = append(latestRepo.Status.Conditions, condition)
-		}
-
-		err = client.Status().Update(ctx, latestRepo)
-		if err == nil {
-			klog.V(2).Infof("Repository %s status updated to %s", repo.Name, status)
-			return nil
-		}
-
-		if apierrors.IsConflict(err) {
-			klog.V(3).Infof("Retrying status update for repository %q in namespace %q due to conflict (attempt %d)", repo.Name, repo.Namespace, attempt)
-			time.Sleep(100 * time.Millisecond)
-			continue
-		}
-
-		return fmt.Errorf("error updating repository status: %w", err)
-	}
-
-	return fmt.Errorf("failed to update repository status after retries")
-}

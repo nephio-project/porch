@@ -18,7 +18,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/apiserver"
@@ -39,9 +38,7 @@ func TestAddFlags(t *testing.T) {
 		),
 	}
 	o.AddFlags(&pflag.FlagSet{})
-	if o.RepoSyncFrequency < 5*time.Minute {
-		t.Fatalf("AddFlags(): repo-sync-frequency cannot be less that 5 minutes.")
-	}
+	// Test passes if AddFlags doesn't panic
 }
 
 func TestValidate(t *testing.T) {
@@ -116,83 +113,3 @@ func TestSetupDBCacheConn(t *testing.T) {
 	assert.Equal(t, "postgres://db-user@db-host:db-port/db-name?sslmode=verify-full", opts.DbCacheDataSource)
 }
 
-
-func TestValidateDeploymentMode(t *testing.T) {
-	tests := []struct {
-		name          string
-		useLegacySync bool
-	}{
-		{
-			name:          "legacy sync enabled",
-			useLegacySync: true,
-		},
-		{
-			name:          "legacy sync disabled",
-			useLegacySync: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			opts := PorchServerOptions{
-				UseLegacySync: tt.useLegacySync,
-			}
-			err := opts.validateDeploymentMode()
-			assert.Nil(t, err)
-		})
-	}
-}
-
-
-func TestApplyLegacySyncDefaults(t *testing.T) {
-	tests := []struct {
-		name              string
-		cacheType         string
-		useLegacySyncSet  bool
-		initialLegacySync bool
-		expectedLegacySync bool
-	}{
-		{
-			name:              "DB cache - defaults to legacy sync",
-			cacheType:         "DB",
-			useLegacySyncSet:  false,
-			expectedLegacySync: true,
-		},
-		{
-			name:              "CR cache - defaults to controller-based sync",
-			cacheType:         "CR",
-			useLegacySyncSet:  false,
-			expectedLegacySync: false,
-		},
-		{
-			name:              "explicitly set - no change for DB",
-			cacheType:         "DB",
-			useLegacySyncSet:  true,
-			initialLegacySync: false,
-			expectedLegacySync: false,
-		},
-		{
-			name:              "explicitly set - no change for CR",
-			cacheType:         "CR",
-			useLegacySyncSet:  true,
-			initialLegacySync: true,
-			expectedLegacySync: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			opts := &PorchServerOptions{
-				CacheType:        tt.cacheType,
-				UseLegacySyncSet: tt.useLegacySyncSet,
-				UseLegacySync:    tt.initialLegacySync,
-			}
-
-			opts.applyLegacySyncDefaults()
-
-			if opts.UseLegacySync != tt.expectedLegacySync {
-				t.Errorf("expected UseLegacySync %v, got %v", tt.expectedLegacySync, opts.UseLegacySync)
-			}
-		})
-	}
-}

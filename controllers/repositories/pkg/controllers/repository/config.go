@@ -28,6 +28,7 @@ const (
 	defaultFullSyncFrequency          = 1 * time.Hour
 	defaultSyncStaleTimeout           = 20 * time.Minute
 	defaultRepoOperationRetryAttempts = 3
+	defaultCacheDirectory             = "/cache"
 )
 
 // InitDefaults initializes default values for standalone controller
@@ -39,6 +40,7 @@ func (r *RepositoryReconciler) InitDefaults() {
 	r.SyncStaleTimeout = defaultSyncStaleTimeout
 	r.RepoOperationRetryAttempts = defaultRepoOperationRetryAttempts
 	r.cacheType = string(cachetypes.DBCacheType)
+	r.cacheDirectory = defaultCacheDirectory
 	r.validateConfig()
 }
 
@@ -77,6 +79,7 @@ func (r *RepositoryReconciler) BindFlags(prefix string, flags *flag.FlagSet) {
 	flags.IntVar(&r.MaxConcurrentReconciles, prefix+"max-concurrent-reconciles", defaultMaxConcurrentReconciles, "Maximum number of concurrent repository reconciles")
 	flags.IntVar(&r.MaxConcurrentSyncs, prefix+"max-concurrent-syncs", defaultMaxConcurrentSyncs, "Maximum number of concurrent sync operations")
 	flags.StringVar(&r.cacheType, prefix+"cache-type", string(cachetypes.DBCacheType), "Cache type (DB or CR)")
+	flags.StringVar(&r.cacheDirectory, prefix+"cache-directory", defaultCacheDirectory, "Directory for git repository cache")
 	flags.DurationVar(&r.HealthCheckFrequency, prefix+"health-check-frequency", defaultHealthCheckFrequency, "Frequency of repository health checks")
 	flags.DurationVar(&r.FullSyncFrequency, prefix+"full-sync-frequency", defaultFullSyncFrequency, "Frequency of full repository sync")
 	flags.DurationVar(&r.SyncStaleTimeout, prefix+"sync-stale-timeout", defaultSyncStaleTimeout, "Timeout for considering a sync stale")
@@ -107,14 +110,16 @@ func (r *RepositoryReconciler) validateConfig() {
 }
 
 // LogConfig logs the controller configuration
-func (r *RepositoryReconciler) LogConfig(log interface{ Info(msg string, keysAndValues ...interface{}) }) {
+func (r *RepositoryReconciler) LogConfig(log interface{ Info(msg string, keysAndValues ...any) }) {
 	log.Info("Repository controller configuration",
 		"healthCheckFrequency", r.HealthCheckFrequency,
 		"fullSyncFrequency", r.FullSyncFrequency,
 		"maxConcurrentReconciles", r.MaxConcurrentReconciles,
 		"maxConcurrentSyncs", r.MaxConcurrentSyncs,
 		"syncStaleTimeout", r.SyncStaleTimeout,
-		"repoOperationRetryAttempts", r.RepoOperationRetryAttempts)
+		"repoOperationRetryAttempts", r.RepoOperationRetryAttempts,
+		"cacheType", r.cacheType,
+		"cacheDirectory", r.cacheDirectory)
 
 	if r.HealthCheckFrequency < defaultHealthCheckFrequency {
 		log.Info("Health check frequency is lower than recommended default",

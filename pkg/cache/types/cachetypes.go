@@ -18,7 +18,6 @@ package cachetypes
 import (
 	"context"
 	"strings"
-	"time"
 
 	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
@@ -37,13 +36,11 @@ const (
 
 type CacheOptions struct {
 	ExternalRepoOptions        externalrepotypes.ExternalRepoOptions
-	RepoSyncFrequency          time.Duration
 	RepoOperationRetryAttempts int
 	RepoPRChangeNotifier       RepoPRChangeNotifier
 	CoreClient                 client.WithWatch
 	CacheType                  CacheType
 	DBCacheOptions             DBCacheOptions
-	UseLegacySync              bool
 }
 
 const DefaultDBCacheDriver string = "pgx"

@@ -62,11 +62,14 @@ type RepositoryReconciler struct {
 	SyncStaleTimeout           time.Duration // How long before sync is considered stale
 	RepoOperationRetryAttempts int           // Git operation retry attempts
 
+	// Configuration (set via flags or defaults)
+	cacheType              string // Cache type (DB or CR)
+	cacheDirectory         string // Directory for git repository cache
+	useUserDefinedCaBundle bool   // Whether to use custom CA bundles from secrets
+
 	// Private implementation details
-	cacheType              string        // Only cache type, will nedd DB details for dbcache
-	useUserDefinedCaBundle bool          // Whether to use custom CA bundles from secrets
-	syncLimiter            chan struct{} // Semaphore for sync concurrency
-	loggerName             string        // Logger name for this reconciler
+	syncLimiter chan struct{} // Semaphore for sync concurrency
+	loggerName  string        // Logger name for this reconciler
 }
 
 //go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 rbac:headerFile=../../../../../scripts/boilerplate.yaml.txt,roleName=porch-controllers-repositories webhook paths="." output:rbac:artifacts:config=../../../config/rbac
@@ -75,6 +78,7 @@ type RepositoryReconciler struct {
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=repositories/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=repositories/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 // Reconcile handles Repository reconciliation
 func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
