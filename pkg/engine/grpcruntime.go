@@ -21,7 +21,7 @@ import (
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/fn"
-	"github.com/kptdev/kpt/pkg/lib/kpt"
+	"github.com/kptdev/kpt/pkg/lib/kptops"
 	"github.com/nephio-project/porch/func/evaluator"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

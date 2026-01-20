@@ -18,8 +18,8 @@ import (
 	"fmt"
 
 	"github.com/kptdev/kpt/pkg/fn"
-	"github.com/kptdev/kpt/pkg/lib/fnruntime"
-	"github.com/kptdev/kpt/pkg/lib/kpt"
+	"github.com/kptdev/kpt/pkg/lib/kptops"
+	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
 )
