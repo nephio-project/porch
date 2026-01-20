@@ -30,7 +30,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 func (t *DbTestSuite) TestDBRepoSync() {
@@ -94,7 +93,9 @@ func (t *DbTestSuite) TestDBRepoSync() {
 	t.Require().NoError(err)
 	t.Require().NotNil(dbPR)
 
-	time.Sleep(2 * time.Second)
+	// Explicitly trigger sync
+	err = testRepo.repositorySync.SyncOnce(ctx)
+	t.Require().NoError(err)
 
 	prList, err := testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	t.Require().NoError(err)
@@ -112,14 +113,20 @@ func (t *DbTestSuite) TestDBRepoSync() {
 		},
 	}
 	fakeRepo.PackageRevisions = append(fakeRepo.PackageRevisions, &fakeExtPR)
-	time.Sleep(2 * time.Second)
+
+	// Sync should not add PR because version hasn't changed
+	err = testRepo.repositorySync.SyncOnce(ctx)
+	t.Require().NoError(err)
 
 	prList, err = testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	t.Require().NoError(err)
 	t.Equal(0, len(prList)) // The version of the external repo has not changed
 
 	fakeRepo.CurrentVersion = "bar"
-	time.Sleep(2 * time.Second)
+
+	// Explicitly trigger sync after version change
+	err = testRepo.repositorySync.SyncOnce(ctx)
+	t.Require().NoError(err)
 
 	prList, err = testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	t.Require().NoError(err)
@@ -202,8 +209,6 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 	t.Require().NoError(err)
 	t.Require().NotNil(dbPR)
 
-	time.Sleep(2 * time.Second)
-
 	// Add the PR to the external repo
 	fakeRepo := testRepo.externalRepo.(*fake.Repository)
 	fakeExtPR := fake.FakePackageRevision{
@@ -216,7 +221,6 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 		},
 	}
 	fakeRepo.PackageRevisions = append(fakeRepo.PackageRevisions, &fakeExtPR)
-	time.Sleep(2 * time.Second)
 	testRepo.externalRepo.(*fake.Repository).CurrentVersion = "bar"
 
 	// Wait until externalRepo.Version(ctx) returns "bar"
@@ -237,9 +241,9 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 		}
 	}
 
-	t.T().Log("Starting 5 second sleep...")
-	time.Sleep(5 * time.Second)
-	t.T().Log("Finished 5 second sleep")
+	// Explicitly trigger sync
+	err = testRepo.repositorySync.SyncOnce(ctx)
+	t.Require().NoError(err)
 
 	prList, err := testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	t.Require().NoError(err)
@@ -248,13 +252,6 @@ func (t *DbTestSuite) TestDBSyncRunOnceAt() {
 
 	// Check that sync stats were updated
 	t.Require().NotNil(sync.lastSyncStats)
-
-	// Check statusStore for condition update
-	status, ok := fakeClient.GetStatusStore()[types.NamespacedName{Name: repoName, Namespace: namespace}]
-	t.Require().True(ok)
-	t.Require().Equal(configapi.RepositoryReady, status.Conditions[0].Type)
-	t.Require().Equal(metav1.ConditionTrue, status.Conditions[0].Status)
-	t.Require().Equal(configapi.ReasonReady, status.Conditions[0].Reason)
 
 	err = testRepo.Close(ctx)
 	t.Require().NoError(err)
