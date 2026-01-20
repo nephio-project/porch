@@ -22,7 +22,7 @@ import (
 	"path/filepath"
 
 	"github.com/kptdev/kpt/pkg/lib/update"
-	updatetypes "github.com/kptdev/kpt/pkg/lib/update/types"
+	updatetypes "github.com/kptdev/kpt/pkg/lib/update/updatetypes"
 )
 
 const LocalUpdateDir = "kpt-pkg-update-*"

@@ -54,7 +54,7 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 		Example: docs.SyncExamples,
 		PreRunE: r.preRunE,
 		RunE:    r.runE,
-		Hidden:  cliutil.HidePorchCommands,
+		Hidden:  porch.HidePorchCommands,
 	}
 	r.Command = c
 

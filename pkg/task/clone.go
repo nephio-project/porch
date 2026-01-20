@@ -20,8 +20,8 @@ import (
 	"os"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
-	"github.com/kptdev/kpt/pkg/lib/builtins"
-	"github.com/kptdev/kpt/pkg/lib/kpt"
+	"github.com/kptdev/kpt/pkg/lib/kptops"
+	"github.com/kptdev/kpt/pkg/lib/pkgcontext/pkgcontexttypes"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/externalrepo/git"
@@ -49,7 +49,7 @@ type clonePackageMutation struct {
 	repoOperationRetryAttempts int
 
 	// packageConfig contains the package configuration.
-	packageConfig *builtins.PackageConfig
+	packageConfig *pkgcontexttypes.PackageConfig
 }
 
 func (m *clonePackageMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *porchapi.TaskResult, error) {
@@ -129,7 +129,7 @@ func (m *clonePackageMutation) cloneFromRegisteredRepository(ctx context.Context
 	}
 
 	// Update Kptfile
-	if err := kpt.UpdateKptfileUpstream(m.name, resources.Spec.Resources, upstream, lock); err != nil {
+	if err := kptops.UpdateKptfileUpstream(m.name, resources.Spec.Resources, upstream, lock); err != nil {
 		return repository.PackageResources{}, fmt.Errorf("failed to apply upstream lock to package %q: %w", ref.Name, err)
 	}
 
@@ -180,7 +180,7 @@ func (m *clonePackageMutation) cloneFromGit(ctx context.Context, gitPackage *por
 	contents := resources.Spec.Resources
 
 	// Update Kptfile
-	if err := kpt.UpdateKptfileUpstream(m.name, contents, kptfilev1.Upstream{
+	if err := kptops.UpdateKptfileUpstream(m.name, contents, kptfilev1.Upstream{
 		Type: kptfilev1.GitOrigin,
 		Git: &kptfilev1.Git{
 			Repo:      lock.Repo,

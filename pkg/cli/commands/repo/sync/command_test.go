@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kptdev/kpt/pkg/lib/util/cmdutil"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"

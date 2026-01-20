@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kptdev/kpt/pkg/lib/fnruntime"
+	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	"github.com/nephio-project/porch/api/porch/install"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -230,8 +230,8 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 		return nil, fmt.Errorf("failed to create repository cache: %w", err)
 	}
 
-	runnerOptionsResolver := func(namespace string) fnruntime.RunnerOptions {
-		runnerOptions := fnruntime.RunnerOptions{}
+	runnerOptionsResolver := func(namespace string) runneroptions.RunnerOptions {
+		runnerOptions := runneroptions.RunnerOptions{}
 		runnerOptions.InitDefaults(c.ExtraConfig.GRPCRuntimeOptions.DefaultImagePrefix)
 		return runnerOptions
 	}

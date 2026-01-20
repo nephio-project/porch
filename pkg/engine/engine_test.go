@@ -27,8 +27,8 @@ import (
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/fn"
-	"github.com/kptdev/kpt/pkg/lib/builtins"
-	"github.com/kptdev/kpt/pkg/lib/fnruntime"
+	"github.com/kptdev/kpt/pkg/lib/pkgcontext/pkgcontexttypes"
+	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	mockrepo "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/repository"
@@ -206,7 +206,7 @@ type mockTaskHandler struct {
 	mock.Mock
 }
 
-func (m *mockTaskHandler) ApplyTask(ctx context.Context, draft repository.PackageRevisionDraft, repositoryObj *configapi.Repository, obj *porchapi.PackageRevision, packageConfig *builtins.PackageConfig) error {
+func (m *mockTaskHandler) ApplyTask(ctx context.Context, draft repository.PackageRevisionDraft, repositoryObj *configapi.Repository, obj *porchapi.PackageRevision, packageConfig *pkgcontexttypes.PackageConfig) error {
 	args := m.Called(ctx, draft, repositoryObj, obj, packageConfig)
 	return args.Error(0)
 }
@@ -238,7 +238,7 @@ func (m *mockTaskHandler) SetRepoOpener(opener repository.RepositoryOpener) {
 	m.Called(opener)
 }
 
-func (m *mockTaskHandler) SetRunnerOptionsResolver(resolver func(namespace string) fnruntime.RunnerOptions) {
+func (m *mockTaskHandler) SetRunnerOptionsResolver(resolver func(namespace string) runneroptions.RunnerOptions) {
 	m.Called(resolver)
 }
 

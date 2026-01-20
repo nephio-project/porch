@@ -27,8 +27,8 @@ import (
 	fakeextrepo "github.com/nephio-project/porch/pkg/externalrepo/fake"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kptdev/kpt/pkg/lib/builtins"
-	"github.com/kptdev/kpt/pkg/lib/fnruntime"
+	"github.com/kptdev/kpt/pkg/lib/pkgcontext/pkgcontexttypes"
+	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -88,9 +88,9 @@ func TestApplyTasks(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			handler := &genericTaskHandler{
-				runnerOptionsResolver: func(namespace string) fnruntime.RunnerOptions {
+				runnerOptionsResolver: func(namespace string) runneroptions.RunnerOptions {
 					// Return a mock RunnerOptions
-					return fnruntime.RunnerOptions{
+					return runneroptions.RunnerOptions{
 						DisplayResourceCount: false,
 					}
 				},
@@ -107,7 +107,7 @@ func TestApplyTasks(t *testing.T) {
 					Tasks: tt.tasks,
 				},
 			}
-			packageConfig := &builtins.PackageConfig{}
+			packageConfig := &pkgcontexttypes.PackageConfig{}
 
 			// Call ApplyTask
 			err := handler.ApplyTask(ctx, draft, repositoryObj, obj, packageConfig)
@@ -155,9 +155,9 @@ func TestMapTaskToMutationUpgradeTask(t *testing.T) {
 }
 
 func TestDoPrMutations(t *testing.T) {
-	ror := func(namespace string) fnruntime.RunnerOptions {
-		return fnruntime.RunnerOptions{
-			ImagePullPolicy: fnruntime.IfNotPresentPull,
+	ror := func(namespace string) runneroptions.RunnerOptions {
+		return runneroptions.RunnerOptions{
+			ImagePullPolicy: runneroptions.IfNotPresentPull,
 			ResolveToImage: func(_ context.Context, image string) (string, error) {
 				return image, nil
 			},
@@ -208,9 +208,9 @@ metadata:
 }
 
 func TestDoPrResourceMutations(t *testing.T) {
-	ror := func(namespace string) fnruntime.RunnerOptions {
-		return fnruntime.RunnerOptions{
-			ImagePullPolicy: fnruntime.IfNotPresentPull,
+	ror := func(namespace string) runneroptions.RunnerOptions {
+		return runneroptions.RunnerOptions{
+			ImagePullPolicy: runneroptions.IfNotPresentPull,
 			ResolveToImage: func(_ context.Context, image string) (string, error) {
 				return image, nil
 			},
