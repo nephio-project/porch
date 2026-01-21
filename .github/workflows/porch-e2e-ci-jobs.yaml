@@ -169,3 +169,13 @@ jobs:
           path: ${{ matrix.log_name }}
           compression-level: 0
           retention-days: 7
+
+  e2e-summary:
+    name: E2E Tests Summary
+    if: always()
+    needs: [build, tests]
+    runs-on: ubuntu-latest
+    steps:
+      - run: exit 1
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+      - run: echo "All tests passed or skipped"

@@ -37,3 +37,13 @@ jobs:
           go-version-file: go.mod
       - name: Run Linter
         run: make lint
+
+  lint-summary:
+    name: Lint Summary
+    if: always()
+    needs: golangci
+    runs-on: ubuntu-latest
+    steps:
+      - run: exit 1
+        if: needs.golangci.result == 'failure' || needs.golangci.result == 'cancelled'
+      - run: echo "Lint passed or skipped"
