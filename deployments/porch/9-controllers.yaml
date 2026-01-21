@@ -52,6 +52,11 @@ spec:
             sleep 2
           done
           echo "PostgreSQL is ready!"
+        resources:
+          requests:
+            ephemeral-storage: 50Mi
+          limits:
+            ephemeral-storage: 100Mi
         envFrom:
         - configMapRef:
             name: porch-db-config
