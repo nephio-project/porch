@@ -19,6 +19,7 @@ menu: {main: {weight: 10}}
 
 {{< /blocks/cover >}}
 
+
 {{% blocks/lead color="primary" %}}
 [Nephio project's](https://nephio.org) mission is "to deliver carrier-grade, simple, open, Kubernetes-based cloud native intent automation and
 common automation templates that materially simplify the deployment and management of multi-vendor cloud infrastructure
