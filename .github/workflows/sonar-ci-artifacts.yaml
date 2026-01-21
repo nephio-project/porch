@@ -47,3 +47,13 @@ jobs:
       with:
         name: PR_NUMBER
         path: PR_NUMBER.txt
+
+  test-summary:
+    name: Test Summary
+    if: always()
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - run: exit 1
+        if: needs.build.result == 'failure' || needs.build.result == 'cancelled'
+      - run: echo "Tests passed or skipped"
