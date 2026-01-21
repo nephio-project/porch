@@ -5,7 +5,7 @@ weight: 2
 description: 
 ---
 
-Customers who want to take advantage of the benefits of [Configuration as Data]({{% relref "/docs/1_overview/relevant_old_docs/config-as-data.md" %}})
+
 can do so today using the [kpt](https://kpt.dev) CLI and the kpt function ecosystem, including its
 [functions catalog](https://catalog.kpt.dev/). Package authoring is possible using a variety of
 editors with [YAML](https://yaml.org/) support. That said, a UI experience of
