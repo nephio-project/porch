@@ -5,6 +5,7 @@ menu: {main: {weight: 20}}
 weight: 1
 ---
 
+
 <div style="border: 1px solid red; background-color: #ffe6e6; color: #b30000; padding: 1em; margin-bottom: 1em;">
   <strong>⚠️ Outdated Notice:</strong> The most up to date version of this restructure guide can be found
   <a href="https://lf-nephio.atlassian.net/wiki/spaces/HOME/pages/661749794/Porch+Documentation+Refactoring" target="_blank" rel="noopener noreferrer">here</a>.
