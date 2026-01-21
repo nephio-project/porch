@@ -4,8 +4,6 @@ go 1.25.6
 
 replace k8s.io/apiserver v0.34.1 => ./third_party/k8s.io/apiserver-v0.34.1
 
-replace github.com/kptdev/kpt v1.0.0-beta.59.2 => /Users/liam/git/github/kptdev/kpt-ref
-
 require (
 	cloud.google.com/go/iam v1.5.3
 	github.com/fergusstrange/embedded-postgres v1.32.0
@@ -18,7 +16,7 @@ require (
 	github.com/google/go-containerregistry v0.20.6
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.6
-	github.com/kptdev/kpt v1.0.0-beta.59.2
+	github.com/kptdev/kpt v1.0.0-beta.59.3
 	github.com/kptdev/krm-functions-catalog/functions/go/apply-replacements v0.1.3
 	github.com/kptdev/krm-functions-catalog/functions/go/set-namespace v0.4.3
 	github.com/kptdev/krm-functions-catalog/functions/go/starlark v0.5.3
