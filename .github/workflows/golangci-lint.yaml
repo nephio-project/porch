@@ -15,8 +15,6 @@
 name: golangci-lint
 on:
   pull_request:
-    paths-ignore:
-      - 'docs/**'
   workflow_dispatch:
 
 permissions:
