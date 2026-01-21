@@ -63,10 +63,14 @@ jobs:
         run_id: ${{ github.event.workflow_run.id }}
         name: coverage-report
         use_unzip: true
-
+        
+    - name: Fix Go module paths in coverage
+      run: |
+        sed -i 's|github.com/nephio-project/porch|.|g' coverage.out
+        
     - name: SonarQube Scan on PR
       if: github.event.workflow_run.event == 'pull_request'
-      uses: SonarSource/sonarqube-scan-action@v6.0.0
+      uses: SonarSource/sonarqube-scan-action@v7.0.0
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       with:
@@ -80,7 +84,7 @@ jobs:
 
     - name: SonarCloud Scan on push
       if: github.event.workflow_run.event == 'push' && github.event.workflow_run.head_repository.full_name == github.event.repository.full_name
-      uses: SonarSource/sonarqube-scan-action@v6.0.0
+      uses: SonarSource/sonarqube-scan-action@v7.0.0
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       with:
