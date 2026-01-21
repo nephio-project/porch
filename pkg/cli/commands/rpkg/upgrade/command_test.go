@@ -978,3 +978,55 @@ func TestFindUpstreamInUpgradeTask(t *testing.T) {
 
 	assert.Equal(t, "new-upstream-v2", result)
 }
+
+func TestAvailableUpdatesWithDirectory(t *testing.T) {
+	const ns = "ns"
+	ctx := context.Background()
+
+	// Create upstream package revisions in a repo with directory configured
+	upstreamPkg1 := createOrigPackageRevision(ns, "blueprints", "pkg", 1)
+	upstreamPkg2 := createEditPackageRevision(upstreamPkg1, 2)
+	upstreamPkg3 := createEditPackageRevision(upstreamPkg1, 3)
+
+	// Create downstream package that references upstream with directory in upstreamLock
+	downstreamPkg := createClonePackageRevision(upstreamPkg1, "downstream-pkg", 1)
+	downstreamPkg.Status.UpstreamLock = &porchapi.Locator{
+		Git: &porchapi.GitLock{
+			Repo: "https://github.com/user/repo.git",
+			Ref:  "packages/pkg/v1", // includes directory prefix
+		},
+	}
+
+	prs := []porchapi.PackageRevision{*upstreamPkg1, *upstreamPkg2, *upstreamPkg3, *downstreamPkg}
+
+	// Create repository with directory configured
+	repoWithDir := configapi.Repository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "blueprints",
+			Namespace: ns,
+		},
+		Spec: configapi.RepositorySpec{
+			Type: configapi.RepositoryTypeGit,
+			Git: &configapi.GitRepository{
+				Repo:      "https://github.com/user/repo.git",
+				Directory: "/packages",
+			},
+		},
+	}
+
+	repoList := &configapi.RepositoryList{
+		Items: []configapi.Repository{repoWithDir},
+	}
+
+	r := createRunner(ctx, fake.NewClientBuilder().Build(), prs, ns, 0)
+
+	// Test that availableUpdates finds v2 and v3 when downstream is at v1
+	availableUpdates, upstreamName, draftName, err := r.availableUpdates(downstreamPkg.Status.UpstreamLock, repoList)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "blueprints", upstreamName)
+	assert.Equal(t, "", draftName)
+	assert.Len(t, availableUpdates, 2, "Should find v2 and v3 as available updates")
+	assert.Equal(t, 2, availableUpdates[0].Spec.Revision)
+	assert.Equal(t, 3, availableUpdates[1].Spec.Revision)
+}

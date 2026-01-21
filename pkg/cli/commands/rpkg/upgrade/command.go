@@ -185,9 +185,6 @@ func (r *runner) doUpgrade(pr *porchapi.PackageRevision) (*porchapi.PackageRevis
 	}
 	upstreamPackageName := oldUpstreamPr.Spec.PackageName
 	upstreamRepoName := oldUpstreamPr.Spec.RepositoryName
-	if upstreamPackageName == "" || upstreamRepoName == "" {
-		return nil, pkgerrors.Errorf("upstream package revision %s has invalid package name or repository name", oldUpstreamPr.Name)
-	}
 	var newUpstreamPr *porchapi.PackageRevision
 	if r.revision == 0 {
 		newUpstreamPr = r.findLatestPackageRevisionForRef(upstreamPackageName, upstreamRepoName)
