@@ -16,8 +16,6 @@ name: Gosec security scan
 
 on:
   pull_request:
-    paths-ignore:
-      - 'docs/**'
   workflow_dispatch:
 
 jobs:
