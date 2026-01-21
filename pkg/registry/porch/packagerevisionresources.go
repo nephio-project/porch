@@ -72,6 +72,8 @@ func (r *packageRevisionResources) List(ctx context.Context, options *metaintern
 	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::List", trace.WithAttributes())
 	defer span.End()
 
+	klog.V(3).Infoln("List packageRevisionResources started")
+
 	result := &porchapi.PackageRevisionResourcesList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevisionResourcesList",
@@ -95,7 +97,7 @@ func (r *packageRevisionResources) List(ctx context.Context, options *metaintern
 		return nil, err
 	}
 
-	klog.V(3).Infof("List packagerevisionresources completed: found %d items", len(result.Items))
+	klog.V(3).Infof("List packageRevisionResources completed: found %d items", len(result.Items))
 
 	return result, nil
 }
@@ -104,6 +106,8 @@ func (r *packageRevisionResources) List(ctx context.Context, options *metaintern
 func (r *packageRevisionResources) Get(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
 	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::Get", trace.WithAttributes())
 	defer span.End()
+
+	klog.V(3).Infof("Get packageRevisionResources started: %s", name)
 
 	pkg, err := r.getRepoPkgRev(ctx, name)
 	if err != nil {
@@ -115,7 +119,7 @@ func (r *packageRevisionResources) Get(ctx context.Context, name string, options
 		return nil, err
 	}
 
-	klog.V(3).Infof("Get packagerevisionresources completed: %s", name)
+	klog.V(3).Infof("Get packageRevisionResources completed: %s", name)
 
 	return apiPkgResources, nil
 }
@@ -131,6 +135,8 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 	if !namespaced {
 		return nil, false, apierrors.NewBadRequest("namespace must be specified")
 	}
+
+	klog.Infof("Update operation started for packageRevisionResources: %s", name)
 
 	pkgMutexKey := getPackageMutexKey(namespace, name)
 	pkgMutex := getMutexForPackage(pkgMutexKey)
@@ -200,7 +206,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 		created.Status.RenderStatus = *renderStatus
 	}
 
-	klog.Infof("Update operation completed for packagerevisionresources: %s", name)
+	klog.Infof("Update operation completed for packageRevisionResources: %s", name)
 
 	return created, false, nil
 }
