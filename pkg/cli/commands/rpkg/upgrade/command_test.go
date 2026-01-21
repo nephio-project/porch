@@ -296,7 +296,7 @@ func TestFindLatestPR(t *testing.T) {
 
 	r := createRunner(context.Background(), fake.NewClientBuilder().Build(), prs, "ns", 0)
 
-	found := r.findLatestPackageRevisionForRef("orig")
+	found := r.findLatestPackageRevisionForRef("orig", "repo")
 	assert.Equal(t, "repo.orig.v2", found.Name)
 	assert.Equal(t, 2, found.Spec.Revision)
 }

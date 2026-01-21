@@ -183,16 +183,21 @@ func (r *runner) doUpgrade(pr *porchapi.PackageRevision) (*porchapi.PackageRevis
 	if !oldUpstreamPr.IsPublished() {
 		return nil, pkgerrors.Errorf("old upstream package revision %s is not published", oldUpstreamPr.Name)
 	}
+	upstreamPackageName := oldUpstreamPr.Spec.PackageName
+	upstreamRepoName := oldUpstreamPr.Spec.RepositoryName
+	if upstreamPackageName == "" || upstreamRepoName == "" {
+		return nil, pkgerrors.Errorf("upstream package revision %s has invalid package name or repository name", oldUpstreamPr.Name)
+	}
 	var newUpstreamPr *porchapi.PackageRevision
 	if r.revision == 0 {
-		newUpstreamPr = r.findLatestPackageRevisionForRef(oldUpstreamPr.Spec.PackageName)
+		newUpstreamPr = r.findLatestPackageRevisionForRef(upstreamPackageName, upstreamRepoName)
 		if newUpstreamPr == nil {
-			return nil, pkgerrors.Errorf("failed to find latest published revision for package %s (--revision was %d)", pr.Spec.PackageName, r.revision)
+			return nil, pkgerrors.Errorf("failed to find latest published revision for package %s in repo %s (--revision was %d)", upstreamPackageName, upstreamRepoName, r.revision)
 		}
 	} else {
-		newUpstreamPr = r.findPackageRevisionForRef(oldUpstreamPr.Spec.PackageName, r.revision)
+		newUpstreamPr = r.findPackageRevisionForRef(upstreamPackageName, upstreamRepoName, r.revision)
 		if newUpstreamPr == nil {
-			return nil, pkgerrors.Errorf("revision %d does not exist for package %s", r.revision, pr.Spec.PackageName)
+			return nil, pkgerrors.Errorf("revision %d does not exist for package %s in repo %s", r.revision, upstreamPackageName, upstreamRepoName)
 		}
 	}
 
@@ -249,21 +254,21 @@ func (r *runner) findPackageRevision(prName string) *porchapi.PackageRevision {
 	return nil
 }
 
-func (r *runner) findPackageRevisionForRef(name string, revision int) *porchapi.PackageRevision {
+func (r *runner) findPackageRevisionForRef(name, repo string, revision int) *porchapi.PackageRevision {
 	for i := range r.prs {
 		pr := r.prs[i]
-		if pr.Spec.PackageName == name && pr.IsPublished() && pr.Spec.Revision == revision {
+		if pr.Spec.PackageName == name && pr.Spec.RepositoryName == repo && pr.IsPublished() && pr.Spec.Revision == revision {
 			return &pr
 		}
 	}
 	return nil
 }
 
-func (r *runner) findLatestPackageRevisionForRef(name string) *porchapi.PackageRevision {
+func (r *runner) findLatestPackageRevisionForRef(name, repo string) *porchapi.PackageRevision {
 	latest := 0
 	var output *porchapi.PackageRevision
 	for _, pr := range r.prs {
-		if pr.Spec.PackageName == name && pr.IsPublished() && pr.Spec.Revision > latest {
+		if pr.Spec.PackageName == name && pr.Spec.RepositoryName == repo && pr.IsPublished() && pr.Spec.Revision > latest {
 			latest = pr.Spec.Revision
 			output = &pr
 		}
