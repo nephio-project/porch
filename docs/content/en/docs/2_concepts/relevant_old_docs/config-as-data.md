@@ -9,8 +9,6 @@ description:
   <strong>⚠️ Outdated Notice:</strong> This page refers to an older version of the documentation. This content has simply been moved into its relevant new section here and must be checked, modified, rewritten, updated, or removed entirely.
 </div>
 
-This document provides the background context for Package Orchestration, which is further
-elaborated in a dedicated [document]({{% relref "/docs/2_concepts/relevant_old_docs/package-orchestration.md" %}}).
 
 ## Configuration as data (CaD)
 

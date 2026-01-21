@@ -49,7 +49,6 @@ services, applications, etc.) which:
 * abstracts configuration file structure and storage from operations that act upon the configuration data; clients
   manipulating configuration data don’t need to directly interact with storage (git, container images)
 
-Source of definition and more information about Configuration as Data can be found in the [kpt documentation]({{% relref "/docs/1_overview/relevant_old_docs/config-as-data.md" %}}).
 
 ## Controller
 This term comes from Kubernetes where
