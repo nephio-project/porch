@@ -69,19 +69,9 @@ var retryableErrors = []string{
 	"non-fast-forward update",
 	"stale file handle",
 	"unable to migrate objects to permanent storage",
-	"missing flush",
 	"failed to lock",
 	"broken pipe",
 	"status code: 500",
-}
-
-// AppendRetryableErrors adds additional error patterns to the retryable errors list.
-// Patterns can be specified multiple times or as comma-separated values.
-func AppendRetryableErrors(patterns []string) {
-	for _, p := range patterns {
-		retryableErrors = append(retryableErrors, strings.TrimSpace(p))
-	}
-	klog.Infof("Retryable git error patterns: %v", retryableErrors)
 }
 
 // Commit message constants for different operations
@@ -1820,6 +1810,7 @@ func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 	commitOps := NewCommitOperationBuilder()
 	draftBranch := createDraftName(d.Key())
 	proposedBranch := createProposedName(d.Key())
+	targetBranch := string(r.branch)
 
 	var newRef *plumbing.Reference
 
@@ -1850,6 +1841,8 @@ func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 	case porchapi.PackageRevisionLifecycleProposed:
 		// Push the package revision into a proposed branch.
 		refSpecs.AddRefToPush(d.commit, proposedBranch.RefInLocal())
+		// Set the target to the proposed branch.
+		targetBranch = string(proposedBranch)
 
 		// Delete base branch (if one exists and should be deleted)
 		switch base := d.base; {
@@ -1864,6 +1857,8 @@ func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 	case porchapi.PackageRevisionLifecycleDraft:
 		// Push the package revision into a draft branch.
 		refSpecs.AddRefToPush(d.commit, draftBranch.RefInLocal())
+		// Set the target to the draft branch.
+		targetBranch = string(draftBranch)
 		// Delete base branch (if one exists and should be deleted)
 		switch base := d.base; {
 		case base == nil: // no branch to delete
@@ -1880,11 +1875,11 @@ func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 
 	if err := d.repo.pushAndCleanup(ctx, refSpecs, commitOps); err != nil {
 		if !pkgerrors.Is(err, git.NoErrAlreadyUpToDate) {
-			klog.Errorf("Failed to push package %s to main: %v", d.Key().PkgKey.ToFullPathname(), err)
+			klog.Errorf("Failed to push package %s to %s: %v", d.Key().PkgKey.ToFullPathname(), targetBranch, err)
 			return nil, err
 		}
 	} else {
-		klog.Infof("Successfully pushed package %s to main branch", d.Key().PkgKey.ToFullPathname())
+		klog.Infof("Successfully pushed package %s to %s branch", d.Key().PkgKey.ToFullPathname(), targetBranch)
 	}
 
 	// Create reference after successful push for published packages
@@ -2025,4 +2020,13 @@ func getPkgWorkspace(commit *object.Commit, p *packageListEntry, ref *plumbing.R
 		}
 	}
 	return ""
+}
+
+// AppendRetryableErrors adds additional error patterns to the retryable errors list.
+// Patterns can be specified multiple times or as comma-separated values.
+func AppendRetryableErrors(patterns []string) {
+	for _, p := range patterns {
+		retryableErrors = append(retryableErrors, strings.TrimSpace(p))
+	}
+	klog.V(2).Infof("Retryable git error patterns: [%s]", strings.Join(retryableErrors, ", "))
 }

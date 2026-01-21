@@ -700,6 +700,81 @@ func (g GitSuite) TestListPackagesDrafts(t *testing.T) {
 	}
 }
 
+func (g GitSuite) TestCloseProposedPackage(t *testing.T) {
+	tempdir := t.TempDir()
+	tarfile := filepath.Join("testdata", "trivial-repository.tar")
+	repo, address := ServeGitRepositoryWithBranch(t, tarfile, tempdir, g.branch)
+
+	const (
+		repositoryName = "proposed"
+		namespace      = "default"
+		packageName    = "test-pkg"
+		workspace      = "v1"
+		deployment     = false
+	)
+
+	ctx := context.Background()
+	git, err := OpenRepository(ctx, repositoryName, namespace, &configapi.GitRepository{
+		Repo:   address,
+		Branch: g.branch,
+	}, deployment, tempdir, testGitRepositoryOptions())
+	if err != nil {
+		t.Fatalf("Failed to open Git repository: %v", err)
+	}
+
+	pr := &porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			PackageName:    packageName,
+			WorkspaceName:  workspace,
+			RepositoryName: repositoryName,
+		},
+	}
+
+	draft, err := git.CreatePackageRevisionDraft(ctx, pr)
+	if err != nil {
+		t.Fatalf("CreatePackageRevision() failed: %v", err)
+	}
+
+	resources := &porchapi.PackageRevisionResources{
+		Spec: porchapi.PackageRevisionResourcesSpec{
+			Resources: map[string]string{
+				"Kptfile": Kptfile,
+			},
+		},
+	}
+	if err := draft.UpdateResources(ctx, resources, &porchapi.Task{
+		Type: porchapi.TaskTypeInit,
+		Init: &porchapi.PackageInitTaskSpec{
+			Description: "Test Package",
+		},
+	}); err != nil {
+		t.Fatalf("UpdateResources() failed: %v", err)
+	}
+
+	if err := draft.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecycleProposed); err != nil {
+		t.Fatalf("UpdateLifecycle() failed: %v", err)
+	}
+
+	newRevision, err := git.ClosePackageRevisionDraft(ctx, draft, 0)
+	if err != nil {
+		t.Fatalf("ClosePackageRevisionDraft() failed: %v", err)
+	}
+
+	result, err := newRevision.GetPackageRevision(ctx)
+	if err != nil {
+		t.Fatalf("GetPackageRevision() failed: %v", err)
+	}
+	if got, want := result.Spec.Lifecycle, porchapi.PackageRevisionLifecycleProposed; got != want {
+		t.Errorf("Package lifecycle: got %q, want %q", got, want)
+	}
+
+	proposedBranch := createProposedName(newRevision.Key())
+	refMustExist(t, repo, proposedBranch.RefInRemote())
+}
+
 func (g GitSuite) TestApproveDraft(t *testing.T) {
 	tempdir := t.TempDir()
 	tarfile := filepath.Join("testdata", "drafts-repository.tar")
@@ -2358,94 +2433,160 @@ func TestPushRetryWithTransientError(t *testing.T) {
 	os.Chmod(remotepath, 0755)
 }
 
-func TestPushRetryMissingFlush(t *testing.T) {
-	const (
-		repoName  = "push-retry-test-repo"
-		namespace = "default"
-	)
-
-	tempdir := t.TempDir()
-	tarfile := filepath.Join("testdata", "trivial-repository.tar")
-	remotepath := filepath.Join(tempdir, "remote")
-	localpath := filepath.Join(tempdir, "local")
-	gitRepo, address := ServeGitRepository(t, tarfile, remotepath)
-
-	repoSpec := &configapi.GitRepository{
-		Repo: address,
+func TestPushFailures(t *testing.T) {
+	tests := []struct {
+		name      string
+		chmodPath func(remotepath string) string
+		restoreFn func(path string)
+	}{
+		{
+			name: "objects directory inaccessible",
+			chmodPath: func(remotepath string) string {
+				return filepath.Join(remotepath, ".git", "objects")
+			},
+			restoreFn: func(path string) {
+				os.Chmod(path, 0755)
+			},
+		},
+		{
+			name: "remote directory inaccessible",
+			chmodPath: func(remotepath string) string {
+				return remotepath
+			},
+			restoreFn: func(path string) {
+				os.Chmod(path, 0755)
+			},
+		},
 	}
 
-	ctx := context.Background()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tempdir := t.TempDir()
+			tarfile := filepath.Join("testdata", "trivial-repository.tar")
+			remotepath := filepath.Join(tempdir, "remote")
+			localpath := filepath.Join(tempdir, "local")
+			_, address := ServeGitRepository(t, tarfile, remotepath)
 
-	opts := testGitRepositoryOptions()
-	opts.RepoOperationRetryAttempts = 4
+			repoSpec := &configapi.GitRepository{
+				Repo: address,
+			}
 
-	localRepo, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, opts)
-	if err != nil {
-		t.Fatalf("Failed to open Git repository: %v", err)
+			ctx := context.Background()
+			opts := testGitRepositoryOptions()
+			opts.RepoOperationRetryAttempts = 3
+
+			localRepo, err := OpenRepository(ctx, "push-test-repo", "default", repoSpec, false, localpath, opts)
+			if err != nil {
+				t.Fatalf("Failed to open Git repository: %v", err)
+			}
+			t.Cleanup(func() {
+				localRepo.Close(ctx)
+			})
+
+			testrepo := localRepo.(*gitRepository)
+
+			var newCommitHash plumbing.Hash
+			err = testrepo.sharedDir.WithLock(func(repo *gogit.Repository) error {
+				mainRef, err := repo.Reference(testrepo.branch.RefInLocal(), true)
+				if err != nil {
+					return err
+				}
+
+				uip := makeUserInfoProvider(repoSpec, &mockK8sUsp{})
+				ch, err := newCommitHelper(repo, uip, mainRef.Hash(), "", plumbing.ZeroHash)
+				if err != nil {
+					return err
+				}
+
+				err = ch.storeFile("test-file.txt", "test content")
+				if err != nil {
+					return err
+				}
+
+				newCommitHash, _, err = ch.commit(ctx, "Test commit", "")
+				return err
+			})
+			if err != nil {
+				t.Fatalf("Failed to create new commit: %v", err)
+			}
+
+			targetPath := tt.chmodPath(remotepath)
+			err = os.Chmod(targetPath, 0000)
+			if err != nil {
+				t.Fatalf("Failed to change permissions: %v", err)
+			}
+			t.Cleanup(func() {
+				tt.restoreFn(targetPath)
+			})
+
+			refSpecs := newPushRefSpecBuilder()
+			refSpecs.AddRefToPush(newCommitHash, testrepo.branch.RefInLocal())
+
+			err = testrepo.pushAndCleanup(ctx, refSpecs, nil)
+
+			if err == nil {
+				t.Error("Expected push to fail")
+			}
+		})
 	}
-	t.Cleanup(func() {
-		localRepo.Close(ctx)
-	})
+}
 
-	testrepo := localRepo.(*gitRepository)
-
-	// Create a new commit to push
-	var newCommitHash plumbing.Hash
-	err = testrepo.sharedDir.WithLock(func(repo *gogit.Repository) error {
-		mainRef, err := repo.Reference(testrepo.branch.RefInLocal(), true)
-		if err != nil {
-			return err
-		}
-
-		uip := makeUserInfoProvider(repoSpec, &mockK8sUsp{})
-		ch, err := newCommitHelper(repo, uip, mainRef.Hash(), "", plumbing.ZeroHash)
-		if err != nil {
-			return err
-		}
-
-		err = ch.storeFile("test-file.txt", "test content")
-		if err != nil {
-			return err
-		}
-
-		newCommitHash, _, err = ch.commit(ctx, "Test commit", "")
-		return err
-	})
-	if err != nil {
-		t.Fatalf("Failed to create new commit: %v", err)
-	}
-
-	// Corrupt objects dir to cause transient errors
-	objectsDir := filepath.Join(remotepath, ".git", "objects")
-	err = os.Chmod(objectsDir, 0000)
-	if err != nil {
-		t.Fatalf("Failed to change permissions: %v", err)
-	}
-
-	// Restore after delay
-	go func() {
-		time.Sleep(100 * time.Millisecond)
-		os.Chmod(objectsDir, 0755)
+func TestAppendRetryableErrors(t *testing.T) {
+	// Copy to avoid test pollution
+	original := make([]string, len(retryableErrors))
+	copy(original, retryableErrors)
+	defer func() {
+		retryableErrors = original
 	}()
 
-	refSpecs := newPushRefSpecBuilder()
-	refSpecs.AddRefToPush(newCommitHash, testrepo.branch.RefInLocal())
-
-	err = testrepo.pushAndCleanup(ctx, refSpecs, nil)
-
-	if err != nil {
-		t.Errorf("Push should have succeeded after retries, got error: %v", err)
+	tests := []struct {
+		name     string
+		patterns []string
+		want     []string
+	}{
+		{
+			name:     "patterns without spaces",
+			patterns: []string{"test error", "another error"},
+			want:     []string{"test error", "another error"},
+		},
+		{
+			name:     "patterns with leading spaces",
+			patterns: []string{" test error", " another error"},
+			want:     []string{"test error", "another error"},
+		},
+		{
+			name:     "patterns with trailing spaces",
+			patterns: []string{"test error ", "another error "},
+			want:     []string{"test error", "another error"},
+		},
+		{
+			name:     "patterns with both leading and trailing spaces",
+			patterns: []string{" test error ", " another error "},
+			want:     []string{"test error", "another error"},
+		},
 	}
 
-	// Ensure permissions restored
-	os.Chmod(objectsDir, 0755)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Reset to original state before each test
+			retryableErrors = make([]string, len(original))
+			copy(retryableErrors, original)
 
-	// Verify commit was pushed
-	mainRef, err := gitRepo.Reference(plumbing.Main, true)
-	if err != nil {
-		t.Fatalf("Failed to get main ref: %v", err)
-	}
-	if mainRef.Hash() != newCommitHash {
-		t.Errorf("Commit not pushed: got %s, want %s", mainRef.Hash(), newCommitHash)
+			initialLen := len(retryableErrors)
+			AppendRetryableErrors(tt.patterns)
+
+			// Verify the patterns were added
+			if len(retryableErrors) != initialLen+len(tt.want) {
+				t.Errorf("Expected %d patterns, got %d", initialLen+len(tt.want), len(retryableErrors))
+			}
+
+			// Verify the last added patterns match expected (trimmed)
+			for i, want := range tt.want {
+				got := retryableErrors[initialLen+i]
+				if got != want {
+					t.Errorf("Pattern %d: got %q, want %q", i, got, want)
+				}
+			}
+		})
 	}
 }
