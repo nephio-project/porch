@@ -27,7 +27,7 @@ When you create a new Draft PackageRevision, you specify a workspace name. This 
 
 ## Workspaces and Lifecycle
 
-Workspaces persist throughout a PackageRevision's lifecycle stages (Draft → Proposed → Published). The workspace name remains constant, providing continuity as the package moves through different stages. For details on lifecycle stages and transitions, see [Package Lifecycle]({{< relref "package-lifecycle" >}}).
+Workspaces persist throughout a PackageRevision's lifecycle stages (Draft → Proposed → Published). The workspace name remains constant, providing continuity as the package moves through different stages. For details on lifecycle stages and transitions, see [Package Lifecycle]({{% relref "/docs/2_concepts/package-lifecycle" %}}).
 
 ## Workspace Names
 
