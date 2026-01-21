@@ -5,7 +5,7 @@ menu: {main: {weight: 10}}
 ---
 {{< blocks/cover title="Porch" height="auto">}}
 <a class="btn btn-lg btn-primary me-3 mb-4" href="/docs/1_overview/">
-  Documentation <i class="fas fa-arrow-alt-circle-right ms-2"></i>
+  Documentation (Under Construction) <i class="fas fa-arrow-alt-circle-right ms-2"></i>
 </a>
 <a class="btn btn-lg btn-secondary me-3 mb-4" href="https://github.com/nephio-project/porch">
   GitHub <i class="fab fa-github ms-2 "></i>
@@ -19,7 +19,7 @@ menu: {main: {weight: 10}}
 {{< /blocks/cover >}}
 
 {{% blocks/lead color="primary" %}}
-Porch is a Kubernetes extension apiserver that manages the lifecycle of KRM configuration packages in Git and OCI repositories. 
+Porch is a Kubernetes extension apiserver that manages the lifecycle of KRM configuration packages in Git repositories.
 It provides package operations through Kubernetes resources, enabling GitOps workflows with approval gates, automation, and collaboration.
 {{% /blocks/lead %}}
 
@@ -46,11 +46,11 @@ Clone packages from upstream sources and automatically upgrade when new versions
 {{% /blocks/feature %}}
 
 {{% blocks/feature icon="fas fa-cogs" title="Function Execution" %}}
-Apply kpt functions to transform and validate packages. Functions run in isolated containers with results tracked in package history.
+Apply krm functions to transform and validate packages. Functions run in isolated containers with results tracked in package history.
 {{% /blocks/feature %}}
 
 {{% blocks/feature icon="fas fa-sync" title="Multi-Repository" %}}
-Manage packages across multiple Git and OCI repositories from a single control plane. Controllers automate cross-repository operations.
+Manage packages across multiple Git repositories from a single control plane. Controllers automate cross-repository operations.
 {{% /blocks/feature %}}
 
 {{% /blocks/section %}}
