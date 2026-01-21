@@ -327,6 +327,7 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 	defer span.End()
 
 	// TODO: Is this all boilerplate??
+	klog.V(3).Infof("PackageRevision update validation started: %s", name)
 
 	namespace, namespaced := genericapirequest.NamespaceFrom(ctx)
 	if !namespaced {
@@ -394,6 +395,15 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("expected PackageRevision object, got %T", newRuntimeObj))
 	}
 
+	klog.V(3).Infof("PackageRevision update validation completed: %s", name)
+
+	if oldApiPkgRev != nil {
+		action := getLifecycleTransition(oldApiPkgRev.(*porchapi.PackageRevision), newApiPkgRev)
+		klog.Infof("%s operation started for package revision: %s", action, name)
+	} else {
+		klog.Infof("Update operation started for package revision: %s", name)
+	}
+
 	prKey, err := repository.PkgRevK8sName2Key(namespace, name)
 	if err != nil {
 		return nil, false, err
@@ -454,7 +464,7 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 	return updated, false, nil
 }
 
-// getLifecycleTransition determines the type of update operation
+// getLifecycleTransition determines the type of lifecycle transition in progress
 func getLifecycleTransition(oldPkgRev, newPkgRev *porchapi.PackageRevision) string {
 	// Handle lifecycle changes
 	if oldPkgRev.Spec.Lifecycle != newPkgRev.Spec.Lifecycle {
