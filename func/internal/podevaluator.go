@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -89,6 +90,8 @@ type PodEvaluatorOptions struct {
 	EnablePrivateRegistriesTls bool          // If enabled, will prioritize use of user provided TLS secret when accessing registries
 	TlsSecretPath              string        // The path of the secret used in tls configuration
 	MaxGrpcMessageSize         int           // Maximum size of grpc messages in bytes
+	MaxParallelPodsPerFunction int           // Max concurrent pods per function image (default 1)
+	MaxWaitlistLength          int           // Waitlist threshold to spawn new pod
 }
 
 var _ Evaluator = &podEvaluator{}
@@ -120,15 +123,28 @@ func NewPodEvaluator(o PodEvaluatorOptions) (Evaluator, error) {
 	reqCh := make(chan *clientConnRequest, channelBufferSize)
 	readyCh := make(chan *imagePodAndGRPCClient, channelBufferSize)
 
+	// Set defaults for multi-pod config
+	maxParallelPods := o.MaxParallelPodsPerFunction
+	if maxParallelPods <= 0 {
+		maxParallelPods = 1
+	}
+	maxWaitlistLen := o.MaxWaitlistLength
+	if maxWaitlistLen <= 0 {
+		maxWaitlistLen = 10
+	}
+
 	pe := &podEvaluator{
 		requestCh: reqCh,
 		podCacheManager: &podCacheManager{
-			gcScanInterval: o.GcScanInterval,
-			podTTL:         o.PodTTL,
-			requestCh:      reqCh,
-			podReadyCh:     readyCh,
-			cache:          map[string]*podAndGRPCClient{},
-			waitlists:      map[string][]chan<- *clientConnAndError{},
+			gcScanInterval:  o.GcScanInterval,
+			podTTL:          o.PodTTL,
+			requestCh:       reqCh,
+			podReadyCh:      readyCh,
+			cache:           map[string]*podAndGRPCClient{},
+			waitlists:       map[string][]chan<- *clientConnAndError{},
+			pods:            map[string][]*podInfo{},
+			maxParallelPods: maxParallelPods,
+			maxWaitlistLen:  maxWaitlistLen,
 
 			podManager: &podManager{
 				kubeClient:              cl,
@@ -181,6 +197,16 @@ func (pe *podEvaluator) EvaluateFunction(ctx context.Context, req *evaluator.Eva
 		return nil, fmt.Errorf("unable to get the grpc client to the pod for %v: %w", req.Image, cc.err)
 	}
 
+	// track ongoing evaluations for load balancing (multi-pod mode only)
+	// counter was already incremented in podCacheManager before sending
+	if cc.podInfo != nil {
+		defer cc.podInfo.ongoingEvaluations.Add(-1)
+
+		// ensure sequential execution per pod
+		cc.podInfo.fnEvaluationMutex.Lock()
+		defer cc.podInfo.fnEvaluationMutex.Unlock()
+	}
+
 	resp, err := evaluator.NewFunctionEvaluatorClient(cc.grpcClient).EvaluateFunction(ctx, req)
 	if err != nil {
 		klog.V(4).Infof("Resource List: %s", req.ResourceList)
@@ -215,10 +241,18 @@ type podCacheManager struct {
 	podReadyCh <-chan *imagePodAndGRPCClient
 
 	// cache is a mapping from image name to <pod + grpc client>.
+	// Note: when maxParallelPods > 1, pods map is used instead
 	cache map[string]*podAndGRPCClient
 	// waitlists is a mapping from image name to a list of channels that are
 	// waiting for the GRPC client connections.
 	waitlists map[string][]chan<- *clientConnAndError
+
+	// pods is the multi-pod mode map, each image can have multiple pods
+	pods map[string][]*podInfo
+
+	// multi-pod config
+	maxParallelPods int // max pods per image
+	maxWaitlistLen  int // spawn new pod when waitlist exceeds this
 
 	podManager *podManager
 }
@@ -233,6 +267,62 @@ type clientConnRequest struct {
 type clientConnAndError struct {
 	grpcClient *grpc.ClientConn
 	err        error
+	// podInfo is set in multi-pod mode for tracking ongoing evaluations
+	podInfo *podInfo
+}
+
+// podInfo holds per-pod state for multi-pod load balancing
+type podInfo struct {
+	grpcClient *grpc.ClientConn
+	pod        client.ObjectKey
+
+	// waitlist for this pod
+	waitlist []chan<- *clientConnAndError
+
+	// ongoing request count (atomic for concurrent access)
+	ongoingEvaluations atomic.Int32
+
+	// mutex to ensure sequential execution per pod
+	fnEvaluationMutex sync.Mutex
+
+	lastActivity time.Time
+}
+
+func newPodInfo() *podInfo {
+	return &podInfo{
+		waitlist:     make([]chan<- *clientConnAndError, 0),
+		lastActivity: time.Now(),
+	}
+}
+
+// totalLoad returns the pod's total load (waitlist + ongoing)
+func (p *podInfo) totalLoad() int {
+	return len(p.waitlist) + int(p.ongoingEvaluations.Load())
+}
+
+// findBestPod finds the pod with lowest load, suggests spawning if all exceed threshold
+func findBestPod(pods []*podInfo, maxWaitlist, maxPods int) (idx int, shouldSpawn bool) {
+	if len(pods) == 0 {
+		return 0, true
+	}
+
+	bestIdx := 0
+	bestLoad := pods[0].totalLoad()
+
+	for i := 1; i < len(pods); i++ {
+		load := pods[i].totalLoad()
+		if load < bestLoad {
+			bestIdx = i
+			bestLoad = load
+		}
+	}
+
+	// spawn new pod if lowest load exceeds threshold and not at max
+	if bestLoad >= maxWaitlist && len(pods) < maxPods {
+		return len(pods), true
+	}
+
+	return bestIdx, false
 }
 
 type podAndGRPCClient struct {
@@ -312,6 +402,12 @@ func (pcm *podCacheManager) podCacheManager() {
 	for {
 		select {
 		case req := <-pcm.requestCh:
+			// use multi-pod logic when enabled
+			if pcm.maxParallelPods > 1 {
+				pcm.handleMultiPodRequest(req)
+				continue
+			}
+			// single pod logic below
 			podAndCl, found := pcm.cache[req.image]
 			if found && podAndCl != nil {
 				// Ensure the pod still exists and is not being deleted before sending the grpc client back to the channel.
@@ -370,6 +466,12 @@ func (pcm *podCacheManager) podCacheManager() {
 			list := pcm.waitlists[req.image]
 			pcm.waitlists[req.image] = append(list, req.grpcClientCh)
 		case resp := <-pcm.podReadyCh:
+			// use multi-pod logic when enabled
+			if pcm.maxParallelPods > 1 {
+				pcm.handleMultiPodReady(resp)
+				continue
+			}
+			// single pod logic below
 			if resp.err != nil {
 				klog.Warningf("received error from the pod manager: %v", resp.err)
 			} else {
@@ -393,6 +495,347 @@ func (pcm *podCacheManager) podCacheManager() {
 	}
 }
 
+// handleMultiPodRequest handles requests in multi-pod mode.
+// Uses findBestPod to select optimal pod, spawns new pod when needed.
+func (pcm *podCacheManager) handleMultiPodRequest(req *clientConnRequest) {
+	pods := pcm.pods[req.image]
+	idx, shouldSpawn := findBestPod(pods, pcm.maxWaitlistLen, pcm.maxParallelPods)
+
+	// spawn new pod if needed
+	if shouldSpawn {
+		pi := newPodInfo()
+		pcm.pods[req.image] = append(pcm.pods[req.image], pi)
+		go pcm.podManager.getFuncEvalPodClient(context.Background(), req.image, pcm.podTTL, true)
+	}
+
+	// ensure we have pods
+	pods = pcm.pods[req.image]
+	if len(pods) == 0 {
+		// should not happen, but safeguard to prevent request from hanging
+		klog.Warningf("multi-pod: no pods after spawn for %s, this should not happen", req.image)
+		pi := newPodInfo()
+		pi.waitlist = append(pi.waitlist, req.grpcClientCh)
+		pcm.pods[req.image] = append(pcm.pods[req.image], pi)
+		go pcm.podManager.getFuncEvalPodClient(context.Background(), req.image, pcm.podTTL, true)
+		return
+	}
+
+	// select target pod
+	targetIdx := idx
+	if targetIdx >= len(pods) {
+		targetIdx = len(pods) - 1
+	}
+	targetPod := pods[targetIdx]
+
+	// return grpc client if pod is ready
+	if targetPod.grpcClient != nil {
+		// health check: verify pod still exists and is healthy
+		if pcm.validatePodHealth(req.image, targetPod, targetIdx) {
+			// increment load counter before sending to prevent race in load balancing
+			targetPod.ongoingEvaluations.Add(1)
+			req.grpcClientCh <- &clientConnAndError{grpcClient: targetPod.grpcClient, podInfo: targetPod}
+			targetPod.lastActivity = time.Now()
+			// update TTL annotation
+			go patchPodWithUnixTimeAnnotation(pcm.podManager.kubeClient, targetPod.pod, pcm.podTTL)
+			return
+		}
+		// pod was unhealthy, try to find another healthy pod
+		// track the failed pod to avoid re-selecting it
+		failedPodName := targetPod.pod.Name
+
+		pods = pcm.pods[req.image]
+		if len(pods) == 0 {
+			// no pods left, spawn new one and wait
+			pi := newPodInfo()
+			pi.waitlist = append(pi.waitlist, req.grpcClientCh)
+			pcm.pods[req.image] = append(pcm.pods[req.image], pi)
+			go pcm.podManager.getFuncEvalPodClient(context.Background(), req.image, pcm.podTTL, true)
+			return
+		}
+
+		// try to find a healthy pod, excluding the one that just failed
+		// use index-safe iteration since validatePodHealth may modify the slice
+		for {
+			pods = pcm.pods[req.image]
+			if len(pods) == 0 {
+				break
+			}
+
+			foundCandidate := false
+			for i, pi := range pods {
+				// skip the pod that just failed validation
+				if pi.pod.Name == failedPodName {
+					continue
+				}
+				// skip pods without ready grpcClient
+				if pi.grpcClient == nil {
+					continue
+				}
+				foundCandidate = true
+				// validate this pod's health before using
+				if pcm.validatePodHealth(req.image, pi, i) {
+					pi.ongoingEvaluations.Add(1)
+					req.grpcClientCh <- &clientConnAndError{grpcClient: pi.grpcClient, podInfo: pi}
+					pi.lastActivity = time.Now()
+					go patchPodWithUnixTimeAnnotation(pcm.podManager.kubeClient, pi.pod, pcm.podTTL)
+					return
+				}
+				// health check failed and may have modified slice, restart iteration
+				break
+			}
+
+			// no more candidates with grpcClient
+			if !foundCandidate {
+				break
+			}
+		}
+
+		// no healthy pods with ready grpcClient found, add to a waitlist
+		// re-read pods in case they were modified by health checks
+		pods = pcm.pods[req.image]
+		if len(pods) == 0 {
+			// all pods removed, spawn new one
+			pi := newPodInfo()
+			pi.waitlist = append(pi.waitlist, req.grpcClientCh)
+			pcm.pods[req.image] = append(pcm.pods[req.image], pi)
+			go pcm.podManager.getFuncEvalPodClient(context.Background(), req.image, pcm.podTTL, true)
+			return
+		}
+		// find best pod for waitlist (could be one without grpcClient)
+		newIdx, _ := findBestPod(pods, pcm.maxWaitlistLen, pcm.maxParallelPods)
+		if newIdx >= len(pods) {
+			newIdx = len(pods) - 1
+		}
+		targetPod = pods[newIdx]
+	}
+
+	// add to pod's waitlist
+	targetPod.waitlist = append(targetPod.waitlist, req.grpcClientCh)
+}
+
+// validatePodHealth checks if a pod is still healthy for use
+// Returns false if pod should be removed from cache
+func (pcm *podCacheManager) validatePodHealth(image string, pi *podInfo, podIdx int) bool {
+	if pi.pod.Name == "" {
+		return false
+	}
+
+	pod := &corev1.Pod{}
+	err := pcm.podManager.kubeClient.Get(context.Background(), pi.pod, pod)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			klog.Warningf("multi-pod: pod %v not found, removing from cache", pi.pod)
+			pcm.removePodAtIndex(image, podIdx)
+		}
+		return false
+	}
+
+	// check if pod is being deleted
+	if pod.DeletionTimestamp != nil {
+		klog.Warningf("multi-pod: pod %v is being deleted, removing from cache", pi.pod)
+		pcm.removePodAtIndex(image, podIdx)
+		return false
+	}
+
+	// check if pod is failed
+	if pod.Status.Phase == corev1.PodFailed {
+		klog.Warningf("multi-pod: pod %v is in Failed state, removing from cache", pi.pod)
+		go pcm.deleteFailedPod(pod, image)
+		pcm.removePodAtIndex(image, podIdx)
+		return false
+	}
+
+	return true
+}
+
+// removePodAtIndex removes a pod from the pods slice at given index
+// and redistributes any pending waitlist items to other pods
+func (pcm *podCacheManager) removePodAtIndex(image string, idx int) {
+	pods := pcm.pods[image]
+	if idx < 0 || idx >= len(pods) {
+		return
+	}
+
+	// save waitlist for redistribution
+	failedPod := pods[idx]
+	waitlist := failedPod.waitlist
+	failedPod.waitlist = nil
+
+	// close grpcClient to prevent connection leak
+	// Note: in-flight evaluations using this connection will fail and should be retried upstream
+	if failedPod.grpcClient != nil {
+		if err := failedPod.grpcClient.Close(); err != nil {
+			klog.Warningf("failed to close grpc client for pod at index %d: %v", idx, err)
+		}
+		failedPod.grpcClient = nil
+	}
+
+	// remove pod from slice
+	pcm.pods[image] = append(pods[:idx], pods[idx+1:]...)
+	klog.Infof("Removed pod at index %d from multi-pod cache for image %s", idx, image)
+
+	// redistribute waitlist to other pods
+	if len(waitlist) > 0 {
+		pcm.redistributeWaitlist(image, waitlist)
+	}
+}
+
+// redistributeWaitlist distributes pending requests to available pods
+func (pcm *podCacheManager) redistributeWaitlist(image string, waitlist []chan<- *clientConnAndError) {
+	pods := pcm.pods[image]
+
+	// if no pods available, spawn new one and add all to its waitlist
+	if len(pods) == 0 {
+		klog.Infof("No pods available for %s, spawning new pod for %d waiting requests", image, len(waitlist))
+		pi := newPodInfo()
+		pi.waitlist = waitlist
+		pcm.pods[image] = append(pcm.pods[image], pi)
+		go pcm.podManager.getFuncEvalPodClient(context.Background(), image, pcm.podTTL, true)
+		return
+	}
+
+	// distribute to pods with ready grpcClient, or to waitlists
+	for _, ch := range waitlist {
+		// re-read pods as health checks may have modified the list
+		pods = pcm.pods[image]
+		if len(pods) == 0 {
+			// all pods gone, spawn new one
+			pi := newPodInfo()
+			pi.waitlist = append(pi.waitlist, ch)
+			pcm.pods[image] = append(pcm.pods[image], pi)
+			go pcm.podManager.getFuncEvalPodClient(context.Background(), image, pcm.podTTL, true)
+			continue
+		}
+
+		// find best pod for this request
+		idx, shouldSpawn := findBestPod(pods, pcm.maxWaitlistLen, pcm.maxParallelPods)
+
+		if shouldSpawn && idx >= len(pods) {
+			// spawn new pod
+			pi := newPodInfo()
+			pi.waitlist = append(pi.waitlist, ch)
+			pcm.pods[image] = append(pcm.pods[image], pi)
+			go pcm.podManager.getFuncEvalPodClient(context.Background(), image, pcm.podTTL, true)
+			continue
+		}
+
+		// select target pod
+		targetIdx := idx
+		if targetIdx >= len(pods) {
+			targetIdx = len(pods) - 1
+		}
+		targetPod := pods[targetIdx]
+
+		// if pod is ready, validate health before sending
+		if targetPod.grpcClient != nil {
+			if pcm.validatePodHealth(image, targetPod, targetIdx) {
+				// increment counter before sending to prevent race in load balancing
+				targetPod.ongoingEvaluations.Add(1)
+				ch <- &clientConnAndError{grpcClient: targetPod.grpcClient, podInfo: targetPod}
+				targetPod.lastActivity = time.Now()
+				go patchPodWithUnixTimeAnnotation(pcm.podManager.kubeClient, targetPod.pod, pcm.podTTL)
+				continue
+			}
+			// pod unhealthy, re-read pods and find another
+			for {
+				pods = pcm.pods[image]
+				if len(pods) == 0 {
+					pi := newPodInfo()
+					pi.waitlist = append(pi.waitlist, ch)
+					pcm.pods[image] = append(pcm.pods[image], pi)
+					go pcm.podManager.getFuncEvalPodClient(context.Background(), image, pcm.podTTL, true)
+					break
+				}
+
+				newIdx, _ := findBestPod(pods, pcm.maxWaitlistLen, pcm.maxParallelPods)
+				if newIdx >= len(pods) {
+					newIdx = len(pods) - 1
+				}
+				targetPod = pods[newIdx]
+
+				// if pod not ready, add to waitlist
+				if targetPod.grpcClient == nil {
+					targetPod.waitlist = append(targetPod.waitlist, ch)
+					break
+				}
+
+				// validate health before sending
+				if pcm.validatePodHealth(image, targetPod, newIdx) {
+					targetPod.ongoingEvaluations.Add(1)
+					ch <- &clientConnAndError{grpcClient: targetPod.grpcClient, podInfo: targetPod}
+					targetPod.lastActivity = time.Now()
+					go patchPodWithUnixTimeAnnotation(pcm.podManager.kubeClient, targetPod.pod, pcm.podTTL)
+					break
+				}
+				// health check failed, loop again with fresh pod list
+			}
+			continue
+		}
+
+		// add to waitlist
+		targetPod.waitlist = append(targetPod.waitlist, ch)
+	}
+
+	klog.Infof("Redistributed %d waiting requests for %s", len(waitlist), image)
+}
+
+// handleMultiPodReady handles pod ready notification in multi-pod mode
+func (pcm *podCacheManager) handleMultiPodReady(resp *imagePodAndGRPCClient) {
+	if resp.err != nil {
+		klog.Warningf("multi-pod: received error from pod manager: %v", resp.err)
+		// notify first waiting pod if any
+		pods := pcm.pods[resp.image]
+		for _, pi := range pods {
+			if len(pi.waitlist) > 0 && pi.grpcClient == nil {
+				for _, ch := range pi.waitlist {
+					ch <- &clientConnAndError{err: resp.err}
+				}
+				pi.waitlist = nil
+				break
+			}
+		}
+		return
+	}
+
+	// find and update the corresponding podInfo
+	pods := pcm.pods[resp.image]
+
+	// helper function to assign grpcClient and notify waiters
+	assignClientToPod := func(pi *podInfo) {
+		pi.grpcClient = resp.grpcClient
+		pi.pod = resp.pod
+		pi.lastActivity = time.Now()
+
+		// notify all waiters with podInfo for tracking
+		// increment counter before sending to prevent race in load balancing
+		for _, ch := range pi.waitlist {
+			pi.ongoingEvaluations.Add(1)
+			ch <- &clientConnAndError{grpcClient: resp.grpcClient, podInfo: pi}
+		}
+		pi.waitlist = nil
+	}
+
+	// first, try to match by pod identity (namespace/name) for accurate assignment
+	// when multiple pods are initializing concurrently
+	if resp.pod.Name != "" {
+		for _, pi := range pods {
+			if pi.pod.Name == resp.pod.Name && pi.pod.Namespace == resp.pod.Namespace {
+				assignClientToPod(pi)
+				return
+			}
+		}
+	}
+
+	// fallback: assign to first pod without grpcClient
+	// this handles the case when pod identity is not yet set
+	for _, pi := range pods {
+		if pi.grpcClient == nil {
+			assignClientToPod(pi)
+			break
+		}
+	}
+}
+
 // handleFailedPod checks if a pod is in Failed state and deletes it along with evicting it from the cache.
 func (pcm *podCacheManager) handleFailedPod(pod *corev1.Pod) bool {
 	if pod.Status.Phase != corev1.PodFailed {
@@ -403,12 +846,48 @@ func (pcm *podCacheManager) handleFailedPod(pod *corev1.Pod) bool {
 	klog.Warningf("Found failed pod %v/%v, deleting immediately", pod.Namespace, pod.Name)
 	go pcm.deleteFailedPod(pod, image)
 
+	// evict from single-pod cache
 	if cached, ok := pcm.cache[image]; ok && cached.pod.Name == pod.Name {
 		delete(pcm.cache, image)
 		klog.Infof("Evicted failed pod %v/%v from cache", pod.Namespace, pod.Name)
 	}
 
+	// evict from multi-pod cache
+	pcm.evictPodFromMultiPodCache(image, pod.Name)
+
 	return true
+}
+
+// evictPodFromMultiPodCache removes a pod by name from the pods map
+// and properly cleans up resources (waitlist redistribution, connection close)
+func (pcm *podCacheManager) evictPodFromMultiPodCache(image, podName string) {
+	pods := pcm.pods[image]
+	for i, pi := range pods {
+		if pi.pod.Name == podName {
+			// save waitlist before removal
+			waitlist := pi.waitlist
+			pi.waitlist = nil
+
+			// close grpcClient if present to prevent connection leak
+			if pi.grpcClient != nil {
+				if err := pi.grpcClient.Close(); err != nil {
+					klog.Warningf("failed to close grpc client for evicted pod %s: %v", podName, err)
+				}
+				pi.grpcClient = nil
+			}
+
+			// remove from slice
+			pcm.pods[image] = append(pods[:i], pods[i+1:]...)
+			klog.Infof("Evicted pod %s from multi-pod cache for image %s", podName, image)
+
+			// redistribute waitlist to remaining pods
+			if len(waitlist) > 0 {
+				klog.Infof("Redistributing %d waitlist items from evicted pod %s", len(waitlist), podName)
+				pcm.redistributeWaitlist(image, waitlist)
+			}
+			return
+		}
+	}
 }
 
 // TODO: We can use Watch + periodically reconciliation to manage the pods,
@@ -476,6 +955,7 @@ func (pcm *podCacheManager) garbageCollector() {
 				}(podList.Items[i], *service)
 
 				image := pod.Spec.Containers[0].Image
+				// evict from single-pod cache
 				podAndCl, found := pcm.cache[image]
 				if found {
 					target, _, err := net.SplitHostPort(podAndCl.grpcClient.Target())
@@ -488,6 +968,8 @@ func (pcm *podCacheManager) garbageCollector() {
 					// We delete the cache entry anyway
 					delete(pcm.cache, image)
 				}
+				// evict from multi-pod cache
+				pcm.evictPodFromMultiPodCache(image, pod.Name)
 			}
 		}
 	}
@@ -498,8 +980,18 @@ func deletePodWithContext(kubeClient client.Client, pod *corev1.Pod) error {
 }
 
 func isCurrentCachedPod(pcm *podCacheManager, image string, pod *corev1.Pod) bool {
+	// check single-pod cache
 	cached, ok := pcm.cache[image]
-	return ok && cached.pod.Name == pod.Name
+	if ok && cached.pod.Name == pod.Name {
+		return true
+	}
+	// check multi-pod cache
+	for _, pi := range pcm.pods[image] {
+		if pi.pod.Name == pod.Name {
+			return true
+		}
+	}
+	return false
 }
 
 // deleteFailedPod deletes a failed pod and removes it from cache if it is still the current pod.
@@ -510,7 +1002,8 @@ func (pcm *podCacheManager) deleteFailedPod(pod *corev1.Pod, image string) {
 		return
 	}
 
-	if isCurrentCachedPod(pcm, image, pod) {
+	// evict from single-pod cache
+	if cached, ok := pcm.cache[image]; ok && cached.pod.Name == pod.Name {
 		delete(pcm.cache, image)
 		klog.Infof("Evicted pod from cache for image %v", image)
 	}
@@ -1249,15 +1742,17 @@ func (pm *podManager) getServiceUrlOnceEndpointActive(ctx context.Context, servi
 			return false, nil
 		}
 
-		// Log warning if service has more than one endpoint; there should be just 1 function pod
-		if len(endpoint.Subsets[0].Addresses) != 1 {
-			klog.Warningf("Service %s/%s has more than one endpoint: %+v", serviceKey.Namespace, serviceKey.Name, endpoint.Subsets)
+		// check if pod IP exists in endpoint addresses
+		podIPFound := false
+		for _, addr := range endpoint.Subsets[0].Addresses {
+			if addr.IP == podIP {
+				podIPFound = true
+				break
+			}
 		}
-
-		endpointIP := endpoint.Subsets[0].Addresses[0].IP
-		if podIP != endpointIP {
-			klog.Warningf("pod IP %s does not match service endpoint IP %s", podIP, endpointIP)
-			return false, fmt.Errorf("pod IP %s does not match service endpoint IP %s", podIP, endpointIP)
+		if !podIPFound {
+			klog.Warningf("pod IP %s not found in service %s/%s endpoints", podIP, serviceKey.Namespace, serviceKey.Name)
+			return false, fmt.Errorf("pod IP %s not found in service endpoints", podIP)
 		}
 
 		return true, nil
