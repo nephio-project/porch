@@ -15,7 +15,9 @@ jobs:
       run: cat $GITHUB_EVENT_PATH
 
     - name: Download PR number artifact
+      id: download_pr_number
       if: github.event.workflow_run.event == 'pull_request'
+      continue-on-error: true
       uses: dawidd6/action-download-artifact@v9
       with:
         workflow: CI test report
@@ -23,14 +25,14 @@ jobs:
         name: PR_NUMBER
 
     - name: Read PR_NUMBER.txt
-      if: github.event.workflow_run.event == 'pull_request'
+      if: github.event.workflow_run.event == 'pull_request' && steps.download_pr_number.outcome == 'success'
       id: pr_number
       uses: juliangruber/read-file-action@v1.1.7
       with:
         path: ./PR_NUMBER.txt
 
     - name: Request GitHub API for PR data
-      if: github.event.workflow_run.event == 'pull_request'
+      if: github.event.workflow_run.event == 'pull_request' && steps.download_pr_number.outcome == 'success'
       uses: octokit/request-action@v2.x
       id: get_pr_data
       with:
