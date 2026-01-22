@@ -6,18 +6,37 @@ on:
     types: [completed]
 
 jobs:
-  sonarqube:
+  check-artifacts:
     runs-on: ubuntu-latest
     if: github.event.workflow_run.conclusion == 'success'
+    outputs:
+      has-artifacts: ${{ steps.check.outputs.has-artifacts }}
+    steps:
+      - name: Check for coverage artifact
+        id: check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: ${{ github.event.workflow_run.id }}
+            });
+            const hasCoverage = artifacts.data.artifacts.some(a => a.name === 'coverage-report');
+            core.setOutput('has-artifacts', hasCoverage);
+            return hasCoverage;
+
+  sonarqube:
+    needs: check-artifacts
+    if: needs.check-artifacts.outputs.has-artifacts == 'true'
+    runs-on: ubuntu-latest
     steps:
 
     - name: echo event
       run: cat $GITHUB_EVENT_PATH
 
     - name: Download PR number artifact
-      id: download_pr_number
       if: github.event.workflow_run.event == 'pull_request'
-      continue-on-error: true
       uses: dawidd6/action-download-artifact@v9
       with:
         workflow: CI test report
@@ -25,14 +44,14 @@ jobs:
         name: PR_NUMBER
 
     - name: Read PR_NUMBER.txt
-      if: github.event.workflow_run.event == 'pull_request' && steps.download_pr_number.outcome == 'success'
+      if: github.event.workflow_run.event == 'pull_request'
       id: pr_number
       uses: juliangruber/read-file-action@v1.1.7
       with:
         path: ./PR_NUMBER.txt
 
     - name: Request GitHub API for PR data
-      if: github.event.workflow_run.event == 'pull_request' && steps.download_pr_number.outcome == 'success'
+      if: github.event.workflow_run.event == 'pull_request'
       uses: octokit/request-action@v2.x
       id: get_pr_data
       with:
@@ -59,25 +78,18 @@ jobs:
         git clean -ffdx && git reset --hard HEAD
 
     - name: Download coverage artifact
-      id: download_coverage
-      continue-on-error: true
       uses: dawidd6/action-download-artifact@v9
       with:
         workflow: CI test report
         run_id: ${{ github.event.workflow_run.id }}
         name: coverage-report
-
-    - name: Unzip coverage
-      if: steps.download_coverage.outcome == 'success'
-      run: unzip -o coverage-report.zip
         
     - name: Fix Go module paths in coverage
-      if: steps.download_coverage.outcome == 'success'
       run: |
         sed -i 's|github.com/nephio-project/porch|.|g' coverage.out
         
     - name: SonarQube Scan on PR
-      if: github.event.workflow_run.event == 'pull_request' && steps.download_coverage.outcome == 'success'
+      if: github.event.workflow_run.event == 'pull_request'
       uses: SonarSource/sonarqube-scan-action@v7.0.0
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -91,7 +103,7 @@ jobs:
           -Dsonar.pullrequest.base=${{ fromJson(steps.get_pr_data.outputs.data).base.ref }}
 
     - name: SonarCloud Scan on push
-      if: github.event.workflow_run.event == 'push' && github.event.workflow_run.head_repository.full_name == github.event.repository.full_name && steps.download_coverage.outcome == 'success'
+      if: github.event.workflow_run.event == 'push' && github.event.workflow_run.head_repository.full_name == github.event.repository.full_name
       uses: SonarSource/sonarqube-scan-action@v7.0.0
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
