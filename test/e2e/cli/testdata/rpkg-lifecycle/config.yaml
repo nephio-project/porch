@@ -237,3 +237,47 @@ commands:
     stderr: "Error rendering package in kpt function pipeline. Package NOT pushed to remote."
     containsErrorString: true
     exitCode: 1
+  - args:
+      - porchctl
+      - rpkg
+      - init
+      - --namespace=rpkg-lifecycle
+      - --repository=git
+      - --workspace=lifecycle-val
+      - lifecycle-package-validator-failure
+    stdout: |
+      git.lifecycle-package-validator-failure.lifecycle-val created
+  - args:
+      - porchctl
+      - rpkg
+      - pull
+      - --namespace=rpkg-lifecycle
+      - git.lifecycle-package-validator-failure.lifecycle-val
+      - /tmp/porch-e2e/lifecycle-package-validator-failure
+  - args:
+      - sh
+      - -c
+      - |
+        echo "pipeline:\n  validators:\n  - image: ghcr.io/kptdev/krm-functions-catalog/kubeval:v0.3.0\n    configMap:\n      strict: \"true\"\n" >> /tmp/porch-e2e/lifecycle-package-validator-failure/Kptfile && \
+        echo "apiVersion: v1\nkind: InvalidResource\nmetadata:\n  name: invalid\n" > /tmp/porch-e2e/lifecycle-package-validator-failure/invalid.yaml
+  - args:
+      - porchctl
+      - rpkg
+      - push
+      - --namespace=rpkg-lifecycle
+      - git.lifecycle-package-validator-failure.lifecycle-val
+      - /tmp/porch-e2e/lifecycle-package-validator-failure
+    stdout: |
+      git.lifecycle-package-validator-failure.lifecycle-val pushed (non-rendered resources only; rendered resources NOT pushed due to render failure)
+    stderr: "Package is updated, but failed to render the package."
+    containsErrorString: true
+    exitCode: 0
+  - args:
+      - porchctl
+      - rpkg
+      - propose
+      - --namespace=rpkg-lifecycle
+      - git.lifecycle-package-validator-failure.lifecycle-val
+    stderr: "Error rendering package in kpt function pipeline. Package NOT pushed to remote."
+    containsErrorString: true
+    exitCode: 1
