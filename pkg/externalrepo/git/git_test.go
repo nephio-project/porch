@@ -37,6 +37,7 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 )
@@ -718,9 +719,7 @@ func (g GitSuite) TestCloseProposedPackage(t *testing.T) {
 		Repo:   address,
 		Branch: g.branch,
 	}, deployment, tempdir, testGitRepositoryOptions())
-	if err != nil {
-		t.Fatalf("Failed to open Git repository: %v", err)
-	}
+	require.NoError(t, err, "Failed to open Git repository")
 
 	pr := &porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
@@ -734,9 +733,7 @@ func (g GitSuite) TestCloseProposedPackage(t *testing.T) {
 	}
 
 	draft, err := git.CreatePackageRevisionDraft(ctx, pr)
-	if err != nil {
-		t.Fatalf("CreatePackageRevision() failed: %v", err)
-	}
+	require.NoError(t, err, "CreatePackageRevision() failed")
 
 	resources := &porchapi.PackageRevisionResources{
 		Spec: porchapi.PackageRevisionResourcesSpec{
@@ -745,31 +742,23 @@ func (g GitSuite) TestCloseProposedPackage(t *testing.T) {
 			},
 		},
 	}
-	if err := draft.UpdateResources(ctx, resources, &porchapi.Task{
+	err = draft.UpdateResources(ctx, resources, &porchapi.Task{
 		Type: porchapi.TaskTypeInit,
 		Init: &porchapi.PackageInitTaskSpec{
 			Description: "Test Package",
 		},
-	}); err != nil {
-		t.Fatalf("UpdateResources() failed: %v", err)
-	}
+	})
+	require.NoError(t, err, "UpdateResources() failed")
 
-	if err := draft.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecycleProposed); err != nil {
-		t.Fatalf("UpdateLifecycle() failed: %v", err)
-	}
+	err = draft.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecycleProposed)
+	require.NoError(t, err, "UpdateLifecycle() failed")
 
 	newRevision, err := git.ClosePackageRevisionDraft(ctx, draft, 0)
-	if err != nil {
-		t.Fatalf("ClosePackageRevisionDraft() failed: %v", err)
-	}
+	require.NoError(t, err, "ClosePackageRevisionDraft() failed")
 
 	result, err := newRevision.GetPackageRevision(ctx)
-	if err != nil {
-		t.Fatalf("GetPackageRevision() failed: %v", err)
-	}
-	if got, want := result.Spec.Lifecycle, porchapi.PackageRevisionLifecycleProposed; got != want {
-		t.Errorf("Package lifecycle: got %q, want %q", got, want)
-	}
+	require.NoError(t, err, "GetPackageRevision() failed")
+	assert.Equal(t, porchapi.PackageRevisionLifecycleProposed, result.Spec.Lifecycle, "Package lifecycle")
 
 	proposedBranch := createProposedName(newRevision.Key())
 	refMustExist(t, repo, proposedBranch.RefInRemote())
@@ -2373,9 +2362,7 @@ func TestPushRetryWithTransientError(t *testing.T) {
 	opts.RepoOperationRetryAttempts = 4
 
 	localRepo, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, opts)
-	if err != nil {
-		t.Fatalf("Failed to open Git repository: %v", err)
-	}
+	require.NoError(t, err, "Failed to open Git repository")
 	t.Cleanup(func() {
 		localRepo.Close(ctx)
 	})
@@ -2404,15 +2391,11 @@ func TestPushRetryWithTransientError(t *testing.T) {
 		newCommitHash, _, err = ch.commit(ctx, "Test commit", "")
 		return err
 	})
-	if err != nil {
-		t.Fatalf("Failed to create new commit: %v", err)
-	}
+	require.NoError(t, err, "Failed to create new commit")
 
 	// Make remote directory read-only BEFORE push to cause errors
 	err = os.Chmod(remotepath, 0444)
-	if err != nil {
-		t.Fatalf("Failed to change permissions: %v", err)
-	}
+	require.NoError(t, err, "Failed to change permissions")
 
 	// Restore permissions after delay to allow retry to succeed
 	go func() {
@@ -2425,9 +2408,7 @@ func TestPushRetryWithTransientError(t *testing.T) {
 
 	err = testrepo.pushAndCleanup(ctx, refSpecs, nil)
 
-	if err != nil {
-		t.Errorf("Push should have succeeded after retries, got error: %v", err)
-	}
+	assert.NoError(t, err, "Push should have succeeded after retries")
 
 	// Ensure permissions are restored
 	os.Chmod(remotepath, 0755)
@@ -2476,9 +2457,7 @@ func TestPushFailures(t *testing.T) {
 			opts.RepoOperationRetryAttempts = 3
 
 			localRepo, err := OpenRepository(ctx, "push-test-repo", "default", repoSpec, false, localpath, opts)
-			if err != nil {
-				t.Fatalf("Failed to open Git repository: %v", err)
-			}
+			require.NoError(t, err, "Failed to open Git repository")
 			t.Cleanup(func() {
 				localRepo.Close(ctx)
 			})
@@ -2506,15 +2485,11 @@ func TestPushFailures(t *testing.T) {
 				newCommitHash, _, err = ch.commit(ctx, "Test commit", "")
 				return err
 			})
-			if err != nil {
-				t.Fatalf("Failed to create new commit: %v", err)
-			}
+			require.NoError(t, err, "Failed to create new commit")
 
 			targetPath := tt.chmodPath(remotepath)
 			err = os.Chmod(targetPath, 0000)
-			if err != nil {
-				t.Fatalf("Failed to change permissions: %v", err)
-			}
+			require.NoError(t, err, "Failed to change permissions")
 			t.Cleanup(func() {
 				tt.restoreFn(targetPath)
 			})
@@ -2524,9 +2499,7 @@ func TestPushFailures(t *testing.T) {
 
 			err = testrepo.pushAndCleanup(ctx, refSpecs, nil)
 
-			if err == nil {
-				t.Error("Expected push to fail")
-			}
+			assert.Error(t, err, "Expected push to fail")
 		})
 	}
 }
@@ -2576,16 +2549,12 @@ func TestAppendRetryableErrors(t *testing.T) {
 			AppendRetryableErrors(tt.patterns)
 
 			// Verify the patterns were added
-			if len(retryableErrors) != initialLen+len(tt.want) {
-				t.Errorf("Expected %d patterns, got %d", initialLen+len(tt.want), len(retryableErrors))
-			}
+			assert.Equal(t, initialLen+len(tt.want), len(retryableErrors), "Expected patterns count")
 
 			// Verify the last added patterns match expected (trimmed)
 			for i, want := range tt.want {
 				got := retryableErrors[initialLen+i]
-				if got != want {
-					t.Errorf("Pattern %d: got %q, want %q", i, got, want)
-				}
+				assert.Equal(t, want, got, "Pattern %d", i)
 			}
 		})
 	}
