@@ -6,9 +6,30 @@ on:
     types: [completed]
 
 jobs:
-  sonarqube:
+  check-artifacts:
     runs-on: ubuntu-latest
     if: github.event.workflow_run.conclusion == 'success'
+    outputs:
+      has-artifacts: ${{ steps.check.outputs.has-artifacts }}
+    steps:
+      - name: Check for coverage artifact
+        id: check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: ${{ github.event.workflow_run.id }}
+            });
+            const hasCoverage = artifacts.data.artifacts.some(a => a.name === 'coverage-report');
+            core.setOutput('has-artifacts', hasCoverage);
+            return hasCoverage;
+
+  sonarqube:
+    needs: check-artifacts
+    if: needs.check-artifacts.outputs.has-artifacts == 'true'
+    runs-on: ubuntu-latest
     steps:
 
     - name: echo event
@@ -62,7 +83,6 @@ jobs:
         workflow: CI test report
         run_id: ${{ github.event.workflow_run.id }}
         name: coverage-report
-        use_unzip: true
         
     - name: Fix Go module paths in coverage
       run: |

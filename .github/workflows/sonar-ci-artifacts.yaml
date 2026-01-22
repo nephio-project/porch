@@ -3,16 +3,27 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - 'docs/**'
   pull_request:
       types: [opened, synchronize, reopened]
-      paths-ignore:
-        - 'docs/**'
 
 jobs:
+  check-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - '!docs/**'
+
   build:
     runs-on: ubuntu-latest
+    needs: check-changes
+    if: needs.check-changes.outputs.code == 'true'
     steps:
 
     - name: Checkout repo
@@ -47,3 +58,15 @@ jobs:
       with:
         name: PR_NUMBER
         path: PR_NUMBER.txt
+
+  test-summary:
+    name: Test Summary
+    if: always()
+    needs: [check-changes, build]
+    runs-on: ubuntu-latest
+    steps:
+      - run: exit 1
+        if: |
+          needs.check-changes.outputs.code == 'true' &&
+          (needs.build.result == 'failure' || needs.build.result == 'cancelled')
+      - run: echo "Tests passed or skipped"
