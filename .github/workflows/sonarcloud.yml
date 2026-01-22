@@ -57,19 +57,25 @@ jobs:
         git clean -ffdx && git reset --hard HEAD
 
     - name: Download coverage artifact
+      id: download_coverage
+      continue-on-error: true
       uses: dawidd6/action-download-artifact@v9
       with:
         workflow: CI test report
         run_id: ${{ github.event.workflow_run.id }}
         name: coverage-report
-        use_unzip: true
+
+    - name: Unzip coverage
+      if: steps.download_coverage.outcome == 'success'
+      run: unzip -o coverage-report.zip
         
     - name: Fix Go module paths in coverage
+      if: steps.download_coverage.outcome == 'success'
       run: |
         sed -i 's|github.com/nephio-project/porch|.|g' coverage.out
         
     - name: SonarQube Scan on PR
-      if: github.event.workflow_run.event == 'pull_request'
+      if: github.event.workflow_run.event == 'pull_request' && steps.download_coverage.outcome == 'success'
       uses: SonarSource/sonarqube-scan-action@v7.0.0
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -83,7 +89,7 @@ jobs:
           -Dsonar.pullrequest.base=${{ fromJson(steps.get_pr_data.outputs.data).base.ref }}
 
     - name: SonarCloud Scan on push
-      if: github.event.workflow_run.event == 'push' && github.event.workflow_run.head_repository.full_name == github.event.repository.full_name
+      if: github.event.workflow_run.event == 'push' && github.event.workflow_run.head_repository.full_name == github.event.repository.full_name && steps.download_coverage.outcome == 'success'
       uses: SonarSource/sonarqube-scan-action@v7.0.0
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
