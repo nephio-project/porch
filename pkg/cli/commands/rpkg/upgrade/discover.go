@@ -147,12 +147,7 @@ func (r *runner) availableUpdates(upstreamLock *porchapi.Locator, repositories *
 		}
 		if upstreamLock.Git.Repo == repo.Spec.Git.Repo {
 			upstream = repo.Name
-			// If the repo has a directory configured, strip it from the upstream package name
-			pkgNameToMatch := upstreamPackageName
-			if repo.Spec.Git != nil && repo.Spec.Git.Directory != "" {
-				pkgNameToMatch = strings.TrimPrefix(upstreamPackageName, strings.TrimPrefix(repo.Spec.Git.Directory, "/")+"/")
-			}
-			revisions = r.getUpstreamRevisions(repo, pkgNameToMatch)
+			revisions = r.getUpstreamRevisions(repo, upstreamPackageName)
 		}
 	}
 
@@ -180,16 +175,7 @@ func (r *runner) getUpstreamRevisions(repo configapi.Repository, upstreamPackage
 			// only consider published packages
 			continue
 		}
-		if pkgRev.Spec.RepositoryName != repo.Name {
-			continue
-		}
-		// The package name in the repo might have a directory prefix if the repo has a directory configured
-		pkgName := pkgRev.Spec.PackageName
-		if repo.Spec.Git != nil && repo.Spec.Git.Directory != "" {
-			// Strip the directory prefix if present
-			pkgName = strings.TrimPrefix(pkgName, repo.Spec.Git.Directory+"/")
-		}
-		if pkgName == upstreamPackageName {
+		if pkgRev.Spec.RepositoryName == repo.Name && pkgRev.Spec.PackageName == upstreamPackageName {
 			result = append(result, pkgRev)
 		}
 	}
