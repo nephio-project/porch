@@ -2,8 +2,10 @@
 # (https://gohugo.io/hosting-and-deployment/hosting-on-netlify/#configure-hugo-version-in-netlify)
 
 [build]
+  base = "docs"
   command = "hugo --environment $HUGO_ENV --config config.toml,config/$HUGO_ENV.toml"
   publish = "public"
+  ignore = "exit 0"  # Always build
 
 [build.environment]
   GO_VERSION = "1.24.5"
