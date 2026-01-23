@@ -73,7 +73,15 @@ func TestCmd(t *testing.T) {
 						Name:      pkgRevName,
 						Namespace: ns,
 					},
-				}).
+				},&porchapi.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      pkgRevName,
+					Namespace: ns,
+				},
+				Status: porchapi.PackageRevisionStatus{
+					RenderStatus: &porchapi.RenderStatus{},
+				},
+			}).
 				Build()
 			output := &bytes.Buffer{}
 			o := os.Stdout

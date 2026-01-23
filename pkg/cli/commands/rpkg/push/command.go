@@ -151,29 +151,37 @@ func (r *runner) runE(cmd *cobra.Command, args []string) error {
 	if err := r.client.Update(r.ctx, &pkgResources); err != nil {
 		return errors.E(op, err)
 	}
-	rs := pkgResources.Status.RenderStatus
-	renderFailed := rs.Err != ""
-	if renderFailed {
-		r.printer.Printf("Package is updated, but failed to render the package.\n")
-		r.printer.Printf("Error: %s\n", rs.Err)
+
+	var pkgRevision porchapi.PackageRevision
+	if err := r.client.Get(r.ctx, client.ObjectKey{Name: packageName, Namespace: *r.cfg.Namespace}, &pkgRevision); err != nil {
+		return errors.E(op, err)
 	}
-	if len(rs.Result.Items) > 0 {
-		for _, result := range rs.Result.Items {
-			r.printer.Printf("[RUNNING] %q \n", result.Image)
-			printOpt := printer.NewOpt()
-			if result.ExitCode != 0 {
-				r.printer.OptPrintf(printOpt, "[FAIL] %q\n", result.Image)
-			} else {
-				r.printer.OptPrintf(printOpt, "[PASS] %q\n", result.Image)
+
+	rs := pkgRevision.Status.RenderStatus
+	if rs != nil {
+		renderFailed := rs.Err != ""
+		if renderFailed {
+			r.printer.Printf("Package is updated, but failed to render the package.\n")
+			r.printer.Printf("Error: %s\n", rs.Err)
+		}
+		if len(rs.Result.Items) > 0 {
+			for _, result := range rs.Result.Items {
+				r.printer.Printf("[RUNNING] %q \n", result.Image)
+				printOpt := printer.NewOpt()
+				if result.ExitCode != 0 {
+					r.printer.OptPrintf(printOpt, "[FAIL] %q\n", result.Image)
+				} else {
+					r.printer.OptPrintf(printOpt, "[PASS] %q\n", result.Image)
+				}
+				r.printFnResult(result, printOpt)
 			}
-			r.printFnResult(result, printOpt)
+		}
+		if renderFailed {
+			fmt.Fprintf(cmd.OutOrStdout(), "%s pushed (non-rendered resources only; rendered resources NOT pushed due to render failure)\n", packageName)
+			return nil
 		}
 	}
-	if renderFailed {
-        fmt.Fprintf(cmd.OutOrStdout(), "%s pushed (non-rendered resources only; rendered resources NOT pushed due to render failure)\n", packageName)
-	} else {
-        fmt.Fprintf(cmd.OutOrStdout(), "%s pushed\n", packageName)
-	}
+	fmt.Fprintf(cmd.OutOrStdout(), "%s pushed\n", packageName)
 	return nil
 }
 
