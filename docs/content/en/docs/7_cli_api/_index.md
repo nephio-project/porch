@@ -59,7 +59,11 @@ Open [Swagger Editor](https://editor.swagger.io/) in your browser and import the
 
 ### API Reference Guide
 
-Complete field-level reference for Porch's Kubernetes Custom Resource Definitions (CRDs):
+Complete field-level reference for Porch's Aggregated API Resources and Kubernetes Custom Resource Definitions (CRDs):
+
+{{% alert title="Note" color="primary" %}}
+The `porch.kpt.dev/v1alpha1` are Aggregated API Resources not CRD's whilst the `config.porch.kpt.dev/v1alpha1` are CRDs
+{{% /alert %}}
 
 **porch.kpt.dev/v1alpha1:**
 
