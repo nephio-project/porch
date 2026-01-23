@@ -13,14 +13,27 @@ description: API reference documentation for Porch resources
 
 ---
 
+## Packages
+- [porch.kpt.dev/v1alpha1](#porchkptdevv1alpha1)
+
+
 ## porch.kpt.dev/v1alpha1
+
 
 ### Resource Types
 - [PackageRevision](#packagerevision)
 - [PackageRevisionResources](#packagerevisionresources)
 - [PorchPackage](#porchpackage)
 
+
+
 #### Condition
+
+
+
+
+
+
 
 _Appears in:_
 - [PackageRevisionStatus](#packagerevisionstatus)
@@ -37,6 +50,10 @@ _Appears in:_
 
 _Underlying type:_ _string_
 
+
+
+
+
 _Appears in:_
 - [Condition](#condition)
 
@@ -49,7 +66,11 @@ _Appears in:_
 
 #### Field
 
+
+
 Field references a field in a resource
+
+
 
 _Appears in:_
 - [ResultItem](#resultitem)
@@ -63,7 +84,11 @@ _Appears in:_
 
 #### File
 
+
+
 File references a file containing a resource
+
+
 
 _Appears in:_
 - [ResultItem](#resultitem)
@@ -76,7 +101,11 @@ _Appears in:_
 
 #### GitLock
 
+
+
 GitLock is the resolved locator for a package on Git.
+
+
 
 _Appears in:_
 - [UpstreamLock](#upstreamlock)
@@ -91,6 +120,12 @@ _Appears in:_
 
 #### GitPackage
 
+
+
+
+
+
+
 _Appears in:_
 - [UpstreamPackage](#upstreampackage)
 
@@ -104,7 +139,11 @@ _Appears in:_
 
 #### NameMeta
 
+
+
 NameMeta contains name information.
+
+
 
 _Appears in:_
 - [ResourceIdentifier](#resourceidentifier)
@@ -115,27 +154,26 @@ _Appears in:_
 | `namespace` _string_ | Namespace is the metadata.namespace field of a Resource |  |  |
 
 
-#### OciPackage
-
-OciPackage describes a repository compatible with the Open Container Registry standard.
-
-_Appears in:_
-- [UpstreamPackage](#upstreampackage)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `image` _string_ | Image is the address of an OCI image. |  |  |
-
-
 #### OriginType
 
 _Underlying type:_ _string_
+
+
+
+
 
 _Appears in:_
 - [UpstreamLock](#upstreamlock)
 
 
+
 #### PackageCloneTaskSpec
+
+
+
+
+
+
 
 _Appears in:_
 - [Task](#task)
@@ -147,6 +185,12 @@ _Appears in:_
 
 #### PackageEditTaskSpec
 
+
+
+
+
+
+
 _Appears in:_
 - [Task](#task)
 
@@ -157,7 +201,11 @@ _Appears in:_
 
 #### PackageInitTaskSpec
 
+
+
 PackageInitTaskSpec defines the package initialization task.
+
+
 
 _Appears in:_
 - [Task](#task)
@@ -174,6 +222,10 @@ _Appears in:_
 
 _Underlying type:_ _string_
 
+
+
+
+
 _Appears in:_
 - [PackageUpgradeTaskSpec](#packageupgradetaskspec)
 
@@ -187,7 +239,13 @@ _Appears in:_
 
 #### PackageRevision
 
-PackageRevision represents a specific revision of a package.
+
+
+PackageRevision
+
+
+
+
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -202,6 +260,10 @@ PackageRevision represents a specific revision of a package.
 
 _Underlying type:_ _string_
 
+
+
+
+
 _Appears in:_
 - [PackageRevisionSpec](#packagerevisionspec)
 
@@ -215,7 +277,11 @@ _Appears in:_
 
 #### PackageRevisionRef
 
+
+
 PackageRevisionRef is a reference to a package revision.
+
+
 
 _Appears in:_
 - [PackageEditTaskSpec](#packageedittaskspec)
@@ -229,7 +295,13 @@ _Appears in:_
 
 #### PackageRevisionResources
 
-PackageRevisionResources contains the actual file contents of a package revision.
+
+
+PackageRevisionResources
+
+
+
+
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -242,7 +314,11 @@ PackageRevisionResources contains the actual file contents of a package revision
 
 #### PackageRevisionResourcesSpec
 
+
+
 PackageRevisionResourcesSpec represents resources (as ResourceList serialized as yaml string) of the PackageRevision.
+
+
 
 _Appears in:_
 - [PackageRevisionResources](#packagerevisionresources)
@@ -258,7 +334,11 @@ _Appears in:_
 
 #### PackageRevisionResourcesStatus
 
+
+
 PackageRevisionResourcesStatus represents state of the rendered package resources.
+
+
 
 _Appears in:_
 - [PackageRevisionResources](#packagerevisionresources)
@@ -270,7 +350,11 @@ _Appears in:_
 
 #### PackageRevisionSpec
 
+
+
 PackageRevisionSpec defines the desired state of PackageRevision
+
+
 
 _Appears in:_
 - [PackageRevision](#packagerevision)
@@ -283,13 +367,17 @@ _Appears in:_
 | `revision` _integer_ | Revision identifies the version of the package. |  |  |
 | `parent` _[ParentReference](#parentreference)_ | Parent references a package that provides resources to us |  |  |
 | `lifecycle` _[PackageRevisionLifecycle](#packagerevisionlifecycle)_ |  |  |  |
-| `tasks` _[Task](#task) array_ | The task slice holds zero or more tasks that describe the operations performed on the packagerevision. |  |  |
+| `tasks` _[Task](#task) array_ | The task slice holds zero or more tasks that describe the operations<br />performed on the packagerevision. The are essentially a replayable history<br />of the packagerevision,<br />Packagerevisions that were not created in Porch may have an<br />empty task list.<br />Packagerevisions created and managed through Porch will always<br />have either an Init, Edit, or a Clone task as the first entry in their<br />task list. This represent packagerevisions created from scratch, based<br />a copy of a different revision in the same package, or a packagerevision<br />cloned from another package.<br />Each change to the packagerevision will result in a correspondig<br />task being added to the list of tasks. It will describe the operation<br />performed and will have a corresponding entry (commit or layer) in git<br />or oci.<br />The task slice describes the history of the packagerevision, so it<br />is an append only list (We might introduce some kind of compaction in the<br />future to keep the number of tasks at a reasonable number). |  |  |
 | `readinessGates` _[ReadinessGate](#readinessgate) array_ |  |  |  |
 
 
 #### PackageRevisionStatus
 
+
+
 PackageRevisionStatus defines the observed state of PackageRevision
+
+
 
 _Appears in:_
 - [PackageRevision](#packagerevision)
@@ -305,7 +393,11 @@ _Appears in:_
 
 #### PackageSpec
 
+
+
 PackageSpec defines the desired state of Package
+
+
 
 _Appears in:_
 - [PorchPackage](#porchpackage)
@@ -318,32 +410,46 @@ _Appears in:_
 
 #### PackageStatus
 
+
+
 PackageStatus defines the observed state of Package
+
+
 
 _Appears in:_
 - [PorchPackage](#porchpackage)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `latestRevision` _integer_ | LatestRevision identifies the package revision that is the latest published package revision belonging to this package. |  |  |
+| `latestRevision` _integer_ | LatestRevision identifies the package revision that is the latest<br />published package revision belonging to this package. Latest is determined by comparing<br />packages that have valid semantic version as their revision. In case of git backend, branch tracking<br />revisions like "main" and in case of oci backend, revisions tracking "latest" are not considered during<br />selection of the latest revision. |  |  |
 
 
 #### PackageUpgradeTaskSpec
+
+
+
+
+
+
 
 _Appears in:_
 - [Task](#task)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `oldUpstreamRef` _[PackageRevisionRef](#packagerevisionref)_ | `OldUpstream` is the reference to the original upstream package revision. |  |  |
-| `newUpstreamRef` _[PackageRevisionRef](#packagerevisionref)_ | `NewUpstream` is the reference to the new upstream package revision. |  |  |
-| `localPackageRevisionRef` _[PackageRevisionRef](#packagerevisionref)_ | `LocalPackageRevisionRef` is the reference to the local package revision. |  |  |
-| `strategy` _[PackageMergeStrategy](#packagemergestrategy)_ | Defines which strategy should be used to update the package. |  |  |
+| `oldUpstreamRef` _[PackageRevisionRef](#packagerevisionref)_ | `OldUpstream` is the reference to the original upstream package revision that is<br />the common ancestor of the local package and the new upstream package revision. |  |  |
+| `newUpstreamRef` _[PackageRevisionRef](#packagerevisionref)_ | `NewUpstream` is the reference to the new upstream package revision that the<br />local package will be upgraded to. |  |  |
+| `localPackageRevisionRef` _[PackageRevisionRef](#packagerevisionref)_ | `LocalPackageRevisionRef` is the reference to the local package revision that<br />contains all the local changes on top of the `OldUpstream` package revision. |  |  |
+| `strategy` _[PackageMergeStrategy](#packagemergestrategy)_ | 	Defines which strategy should be used to update the package. It defaults to 'resource-merge'.<br /> * resource-merge: Perform a structural comparison of the original /<br />   updated resources, and merge the changes into the local package.<br /> * fast-forward: Fail without updating if the local package was modified<br />   since it was fetched.<br /> * force-delete-replace: Wipe all the local changes to the package and replace<br />   it with the remote version.<br /> * copy-merge: Copy all the remote changes to the local package. |  |  |
 
 
 #### ParentReference
 
+
+
 ParentReference is a reference to a parent package
+
+
 
 _Appears in:_
 - [PackageRevisionSpec](#packagerevisionspec)
@@ -353,9 +459,17 @@ _Appears in:_
 | `name` _string_ | Name is the name of the parent PackageRevision |  |  |
 
 
+
+
 #### PorchPackage
 
-PorchPackage represents a package in a repository.
+
+
+Package
+
+
+
+
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -368,6 +482,12 @@ PorchPackage represents a package in a repository.
 
 #### ReadinessGate
 
+
+
+
+
+
+
 _Appears in:_
 - [PackageRevisionSpec](#packagerevisionspec)
 
@@ -378,7 +498,12 @@ _Appears in:_
 
 #### RenderStatus
 
-RenderStatus represents the result of performing render operation on a package resources.
+
+
+RenderStatus represents the result of performing render operation
+on a package resources.
+
+
 
 _Appears in:_
 - [PackageRevisionResourcesStatus](#packagerevisionresourcesstatus)
@@ -389,9 +514,15 @@ _Appears in:_
 | `error` _string_ |  |  |  |
 
 
+
+
 #### RepositoryType
 
 _Underlying type:_ _string_
+
+
+
+
 
 _Appears in:_
 - [UpstreamPackage](#upstreampackage)
@@ -404,7 +535,12 @@ _Appears in:_
 
 #### ResourceIdentifier
 
-ResourceIdentifier contains the information needed to uniquely identify a resource in a cluster.
+
+
+ResourceIdentifier contains the information needed to uniquely
+identify a resource in a cluster.
+
+
 
 _Appears in:_
 - [ResultItem](#resultitem)
@@ -415,9 +551,15 @@ _Appears in:_
 | `namespace` _string_ | Namespace is the metadata.namespace field of a Resource |  |  |
 
 
+
+
 #### ResultItem
 
+
+
 ResultItem defines a validation result
+
+
 
 _Appears in:_
 - [Result](#result)
@@ -426,13 +568,19 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `message` _string_ | Message is a human readable message. This field is required. |  |  |
 | `severity` _string_ | Severity is the severity of this result |  |  |
-| `resourceRef` _[ResourceIdentifier](#resourceidentifier)_ | ResourceRef is a reference to a resource. |  |  |
+| `resourceRef` _[ResourceIdentifier](#resourceidentifier)_ | ResourceRef is a reference to a resource.<br />Required fields: apiVersion, kind, name. |  |  |
 | `field` _[Field](#field)_ | Field is a reference to the field in a resource this result refers to |  |  |
 | `file` _[File](#file)_ | File references a file containing the resource this result refers to |  |  |
-| `tags` _object (keys:string, values:string)_ | Tags is an unstructured key value map stored with a result |  |  |
+| `tags` _object (keys:string, values:string)_ | Tags is an unstructured key value map stored with a result that may be set<br />by external tools to store and retrieve arbitrary metadata |  |  |
 
 
 #### SecretRef
+
+
+
+
+
+
 
 _Appears in:_
 - [GitPackage](#gitpackage)
@@ -442,7 +590,15 @@ _Appears in:_
 | `name` _string_ | Name of the secret. The secret is expected to be located in the same namespace as the resource containing the reference. |  |  |
 
 
+
+
 #### Task
+
+
+
+
+
+
 
 _Appears in:_
 - [PackageRevisionSpec](#packagerevisionspec)
@@ -457,9 +613,15 @@ _Appears in:_
 | `upgrade` _[PackageUpgradeTaskSpec](#packageupgradetaskspec)_ |  |  |  |
 
 
+
+
 #### TaskType
 
 _Underlying type:_ _string_
+
+
+
+
 
 _Appears in:_
 - [Task](#task)
@@ -477,7 +639,11 @@ _Appears in:_
 
 #### UpstreamLock
 
+
+
 UpstreamLock is a resolved locator for the last fetch of the package.
+
+
 
 _Appears in:_
 - [PackageRevisionStatus](#packagerevisionstatus)
@@ -490,7 +656,11 @@ _Appears in:_
 
 #### UpstreamPackage
 
+
+
 UpstreamRepository repository may be specified directly or by referencing another Repository resource.
+
+
 
 _Appears in:_
 - [PackageCloneTaskSpec](#packageclonetaskspec)
@@ -498,11 +668,16 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `type` _[RepositoryType](#repositorytype)_ | Type of the repository (i.e. git, OCI). If empty, `upstreamRef` will be used. |  |  |
-| `git` _[GitPackage](#gitpackage)_ | Git upstream package specification. Required if `type` is `git`. |  |  |
-| `oci` _[OciPackage](#ocipackage)_ | OCI upstream package specification. Required if `type` is `oci`. |  |  |
-| `upstreamRef` _[PackageRevisionRef](#packagerevisionref)_ | UpstreamRef is the reference to the package from a registered repository. |  |  |
+| `git` _[GitPackage](#gitpackage)_ | Git upstream package specification. Required if `type` is `git`. Must be unspecified if `type` is not `git`. |  |  |
+| `upstreamRef` _[PackageRevisionRef](#packagerevisionref)_ | UpstreamRef is the reference to the package from a registered repository rather than external package. |  |  |
+
+
 
 ---
+
+## Packages
+- [config.porch.kpt.dev/v1alpha1](#configporchkptdevv1alpha1)
+
 
 ## config.porch.kpt.dev/v1alpha1
 
@@ -512,9 +687,16 @@ Package v1alpha1 contains API Schema definitions for the v1alpha1 API group
 - [Repository](#repository)
 
 
+
+
+
 #### GitRepository
 
+
+
 GitRepository describes a Git repository.
+
+
 
 _Appears in:_
 - [RepositorySpec](#repositoryspec)
@@ -531,23 +713,15 @@ _Appears in:_
 | `email` _string_ | Email to use for commits |  |  |
 
 
-#### OciRepository
-
-OciRepository describes a repository compatible with the Open Container Registry standard.
-
-_Appears in:_
-- [RepositorySpec](#repositoryspec)
-- [UpstreamRepository](#upstreamrepository)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `registry` _string_ | Registry is the address of the OCI registry |  |  |
-| `secretRef` _[SecretRef](#secretref)_ | Reference to secret containing authentication credentials. |  |  |
-
-
 #### Repository
 
-Repository represents a Git or OCI repository containing packages.
+
+
+Repository
+
+
+
+
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -562,6 +736,10 @@ Repository represents a Git or OCI repository containing packages.
 
 _Underlying type:_ _string_
 
+
+
+
+
 _Appears in:_
 - [RepositorySpec](#repositoryspec)
 
@@ -572,7 +750,11 @@ _Appears in:_
 
 #### RepositoryRef
 
+
+
 RepositoryRef identifies a reference to a Repository resource.
+
+
 
 _Appears in:_
 - [UpstreamRepository](#upstreamrepository)
@@ -584,7 +766,14 @@ _Appears in:_
 
 #### RepositorySpec
 
+
+
 RepositorySpec defines the desired state of Repository
+
+Notes:
+  - deployment repository - in KRM API ConfigSync would be configured directly? (or via this API)
+
+
 
 _Appears in:_
 - [Repository](#repository)
@@ -594,15 +783,18 @@ _Appears in:_
 | `description` _string_ | User-friendly description of the repository |  |  |
 | `deployment` _boolean_ | The repository is a deployment repository; final packages in this repository are deployment ready. |  |  |
 | `type` _[RepositoryType](#repositorytype)_ | Type of the repository (i.e. git, OCI) |  |  |
-| `content` _[RepositoryContent](#repositorycontent)_ | The Content field is deprecated, please do not specify it in new manifests. | Package |  |
+| `content` _[RepositoryContent](#repositorycontent)_ | The Content field is deprecated, please do not specify it in new manifests.<br />For partial backward compatibility it is still recognized, but its only valid value is "Package", and if not specified its default value is also "Package". | Package |  |
 | `sync` _[RepositorySync](#repositorysync)_ | Repository sync/reconcile details |  |  |
 | `git` _[GitRepository](#gitrepository)_ | Git repository details. Required if `type` is `git`. Ignored if `type` is not `git`. |  |  |
-| `oci` _[OciRepository](#ocirepository)_ | OCI repository details. Required if `type` is `oci`. Ignored if `type` is not `oci`. |  |  |
 
 
 #### RepositoryStatus
 
+
+
 RepositoryStatus defines the observed state of Repository
+
+
 
 _Appears in:_
 - [Repository](#repository)
@@ -613,6 +805,12 @@ _Appears in:_
 
 
 #### RepositorySync
+
+
+
+
+
+
 
 _Appears in:_
 - [RepositorySpec](#repositoryspec)
@@ -627,6 +825,10 @@ _Appears in:_
 
 _Underlying type:_ _string_
 
+
+
+
+
 _Appears in:_
 - [RepositorySpec](#repositoryspec)
 - [UpstreamRepository](#upstreamrepository)
@@ -639,10 +841,21 @@ _Appears in:_
 
 #### SecretRef
 
+
+
+
+
+
+
 _Appears in:_
 - [GitRepository](#gitrepository)
-- [OciRepository](#ocirepository)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `name` _string_ | Name of the secret. The secret is expected to be located in the same namespace as the resource containing the reference. |  |  |
+
+
+
+
+
+
