@@ -16,6 +16,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -26,18 +27,70 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
-	"github.com/nephio-project/porch/pkg/cache/util"
 )
 
+// RepositoryStatus represents the status of a repository sync operation
+type RepositoryStatus string
+
+const (
+	RepositoryStatusSyncInProgress RepositoryStatus = "sync-in-progress"
+	RepositoryStatusReady          RepositoryStatus = "ready"
+	RepositoryStatusError          RepositoryStatus = "error"
+)
+
+// buildRepositoryCondition builds a repository condition for the given status.
+func buildRepositoryCondition(repo *configapi.Repository, status RepositoryStatus, errorMsg string, nextSyncTime *time.Time) (metav1.Condition, error) {
+	switch status {
+	case RepositoryStatusSyncInProgress:
+		return metav1.Condition{
+			Type:               configapi.RepositoryReady,
+			Status:             metav1.ConditionFalse,
+			ObservedGeneration: repo.Generation,
+			LastTransitionTime: metav1.Now(),
+			Reason:             configapi.ReasonReconciling,
+			Message:            "Repository reconciliation in progress",
+		}, nil
+	case RepositoryStatusReady:
+		message := "Repository Ready"
+		if nextSyncTime != nil {
+			message = fmt.Sprintf("Repository Ready (next sync scheduled at: %s)", nextSyncTime.Format(time.RFC3339))
+		}
+		return metav1.Condition{
+			Type:               configapi.RepositoryReady,
+			Status:             metav1.ConditionTrue,
+			ObservedGeneration: repo.Generation,
+			LastTransitionTime: metav1.Now(),
+			Reason:             configapi.ReasonReady,
+			Message:            message,
+		}, nil
+	case RepositoryStatusError:
+		if errorMsg == "" {
+			errorMsg = "unknown error"
+		}
+		message := errorMsg
+		if nextSyncTime != nil {
+			message = fmt.Sprintf("%s (next retry at: %s)", errorMsg, nextSyncTime.Format(time.RFC3339))
+		}
+		return metav1.Condition{
+			Type:               configapi.RepositoryReady,
+			Status:             metav1.ConditionFalse,
+			ObservedGeneration: repo.Generation,
+			LastTransitionTime: metav1.Now(),
+			Reason:             configapi.ReasonError,
+			Message:            message,
+		}, nil
+	default:
+		return metav1.Condition{}, fmt.Errorf("unknown status type: %s", status)
+	}
+}
+
 // updateRepoStatusWithBackoff updates status with retry logic using Server-Side Apply
-// Uses shared util for all status updates to ensure API consistency
-func (r *RepositoryReconciler) updateRepoStatusWithBackoff(ctx context.Context, repo *configapi.Repository, status util.RepositoryStatus, syncError error, nextSyncTime *time.Time) error {
-	// Use shared util to build condition for API consistency
+func (r *RepositoryReconciler) updateRepoStatusWithBackoff(ctx context.Context, repo *configapi.Repository, status RepositoryStatus, syncError error, nextSyncTime *time.Time) error {
 	errorMsg := ""
 	if syncError != nil {
 		errorMsg = syncError.Error()
 	}
-	condition, buildErr := util.BuildRepositoryCondition(repo, status, errorMsg, nextSyncTime)
+	condition, buildErr := buildRepositoryCondition(repo, status, errorMsg, nextSyncTime)
 	if buildErr != nil {
 		log.FromContext(ctx).Error(buildErr, "Failed to build repository condition", "repository", repo.Name)
 		return buildErr

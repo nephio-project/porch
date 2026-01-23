@@ -33,7 +33,6 @@ import (
 
 	api "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
-	"github.com/nephio-project/porch/pkg/cache/util"
 )
 
 const (
@@ -176,7 +175,7 @@ func (r *RepositoryReconciler) performHealthCheckSync(ctx context.Context, repo 
 			retryInterval = minRetryInterval
 		}
 		nextSyncTime := time.Now().Add(retryInterval)
-		if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, util.RepositoryStatusError, err, &nextSyncTime); statusErr != nil {
+		if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, RepositoryStatusError, err, &nextSyncTime); statusErr != nil {
 			log.Error(statusErr, "Failed to update repository status after health check failure")
 		}
 		return ctrl.Result{RequeueAfter: retryInterval}, nil
@@ -187,7 +186,7 @@ func (r *RepositoryReconciler) performHealthCheckSync(ctx context.Context, repo 
 		log.Info("Repository recovered from error state, triggering immediate full sync")
 		// Clear error status first
 		nextHealthCheck := time.Now().Add(r.HealthCheckFrequency)
-		if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, util.RepositoryStatusReady, nil, &nextHealthCheck); statusErr != nil {
+		if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, RepositoryStatusReady, nil, &nextHealthCheck); statusErr != nil {
 			log.Error(statusErr, "Failed to update repository status after error recovery")
 		}
 		// Trigger full sync immediately
@@ -197,7 +196,7 @@ func (r *RepositoryReconciler) performHealthCheckSync(ctx context.Context, repo 
 	// Normal health check passed
 	log.Info("Repository health check completed successfully")
 	nextFullSync := r.calculateNextFullSyncTime(repo)
-	if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, util.RepositoryStatusReady, nil, &nextFullSync); statusErr != nil {
+	if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, RepositoryStatusReady, nil, &nextFullSync); statusErr != nil {
 		log.Error(statusErr, "Failed to update repository status after successful health check")
 	}
 	// Always requeue after HealthCheckFrequency - don't try to calculate based on potentially stale data
@@ -211,7 +210,7 @@ func (r *RepositoryReconciler) performFullSync(ctx context.Context, repo *api.Re
 	log.Info("Starting repository full sync")
 
 	// Set sync in progress status
-	if err := r.updateRepoStatusWithBackoff(ctx, repo, util.RepositoryStatusSyncInProgress, nil, nil); err != nil {
+	if err := r.updateRepoStatusWithBackoff(ctx, repo, RepositoryStatusSyncInProgress, nil, nil); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -232,7 +231,7 @@ func (r *RepositoryReconciler) performFullSync(ctx context.Context, repo *api.Re
 					statusErr := fmt.Errorf("repo sync panic: %v, retrying after %v",
 						panicErr, retryInterval)
 					if err := r.updateRepoStatusWithBackoff(panicCtx, repo,
-						util.RepositoryStatusError, statusErr, &nextSyncTime); err != nil {
+						RepositoryStatusError, statusErr, &nextSyncTime); err != nil {
 						log.Error(err, "Failed to update repository status after panic recovery")
 					}
 				}
@@ -251,7 +250,7 @@ func (r *RepositoryReconciler) performFullSync(ctx context.Context, repo *api.Re
 			"maxConcurrentSyncs", r.MaxConcurrentSyncs)
 		statusErr := fmt.Errorf("sync capacity exceeded, retrying after %v", retryAfter)
 		if err := r.updateRepoStatusWithBackoff(ctx, repo,
-			util.RepositoryStatusError, statusErr, nil); err != nil {
+			RepositoryStatusError, statusErr, nil); err != nil {
 			log.Error(err, "Failed to update repository status after sync capacity exceeded")
 		}
 		return ctrl.Result{RequeueAfter: retryAfter}, nil
@@ -269,10 +268,10 @@ func (r *RepositoryReconciler) performAsyncSync(ctx context.Context, repo *api.R
 
 	packageCount, commitHash, err := r.syncRepository(ctx, repo)
 
-	var status util.RepositoryStatus
+	var status RepositoryStatus
 	var nextSyncTime *time.Time
 	if err == nil {
-		status = util.RepositoryStatusReady
+		status = RepositoryStatusReady
 		log.Info("Repository full sync completed successfully")
 		// Update status fields first
 		now := metav1.Now()
@@ -284,7 +283,7 @@ func (r *RepositoryReconciler) performAsyncSync(ctx context.Context, repo *api.R
 		next := r.calculateNextFullSyncTime(repo)
 		nextSyncTime = &next
 	} else {
-		status = util.RepositoryStatusError
+		status = RepositoryStatusError
 		repoURL, _, _ := getRepoFields(repo)
 		log.Error(err, "Repository sync failed", "repoURL", repoURL)
 		retryInterval := r.determineRetryInterval(err)
