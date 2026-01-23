@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
-	"github.com/nephio-project/porch/pkg/cache/util"
 	mockclient "github.com/nephio-project/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -106,7 +105,7 @@ func TestUpdateRepoStatusWithBackoff(t *testing.T) {
 			}
 
 			reconciler := &RepositoryReconciler{Client: mockClient}
-			err := reconciler.updateRepoStatusWithBackoff(ctx, repo, util.RepositoryStatusReady, nil, nil)
+			err := reconciler.updateRepoStatusWithBackoff(ctx, repo, RepositoryStatusReady, nil, nil)
 			assertError(t, tt.expectError, err)
 		})
 	}
@@ -199,28 +198,28 @@ func TestUpdateRepoStatusWithBackoffExtended(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		status       util.RepositoryStatus
+		status       RepositoryStatus
 		syncError    error
 		nextSyncTime *time.Time
 		expectError  bool
 	}{
 		{
 			name:        "status ready with next sync time",
-			status:      util.RepositoryStatusReady,
+			status:      RepositoryStatusReady,
 			syncError:   nil,
 			nextSyncTime: func() *time.Time { t := time.Now().Add(time.Hour); return &t }(),
 			expectError: false,
 		},
 		{
 			name:        "status error with sync error",
-			status:      util.RepositoryStatusError,
+			status:      RepositoryStatusError,
 			syncError:   errors.New("sync failed"),
 			nextSyncTime: nil,
 			expectError: false,
 		},
 		{
 			name:        "status sync in progress",
-			status:      util.RepositoryStatusSyncInProgress,
+			status:      RepositoryStatusSyncInProgress,
 			syncError:   nil,
 			nextSyncTime: nil,
 			expectError: false,
@@ -293,6 +292,110 @@ func TestHasSpecChangedEdgeCases(t *testing.T) {
 
 			if result != tt.expected {
 				t.Errorf("Expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestBuildRepositoryCondition(t *testing.T) {
+	repo := &configapi.Repository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "test-repo",
+			Namespace:  "default",
+			Generation: 1,
+		},
+	}
+
+	nextSync := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name      string
+		status    RepositoryStatus
+		errorMsg  string
+		expected  metav1.ConditionStatus
+		reason    string
+		message   string
+		expectErr bool
+	}{
+		{
+			name:     "SyncInProgress",
+			status:   RepositoryStatusSyncInProgress,
+			errorMsg: "",
+			expected: metav1.ConditionFalse,
+			reason:   configapi.ReasonReconciling,
+			message:  "Repository reconciliation in progress",
+		},
+		{
+			name:     "Ready",
+			status:   RepositoryStatusReady,
+			errorMsg: "",
+			expected: metav1.ConditionTrue,
+			reason:   configapi.ReasonReady,
+			message:  "Repository Ready",
+		},
+		{
+			name:     "ErrorWithMessage",
+			status:   RepositoryStatusError,
+			errorMsg: "some error",
+			expected: metav1.ConditionFalse,
+			reason:   configapi.ReasonError,
+			message:  "some error",
+		},
+		{
+			name:     "ErrorWithoutMessage",
+			status:   RepositoryStatusError,
+			errorMsg: "",
+			expected: metav1.ConditionFalse,
+			reason:   configapi.ReasonError,
+			message:  "unknown error",
+		},
+		{
+			name:      "UnknownStatus",
+			status:    "unknown",
+			errorMsg:  "",
+			expectErr: true,
+		},
+		{
+			name:     "ReadyWithNextSync",
+			status:   RepositoryStatusReady,
+			errorMsg: "",
+			expected: metav1.ConditionTrue,
+			reason:   configapi.ReasonReady,
+			message:  "Repository Ready (next sync scheduled at: 2025-01-01T12:00:00Z)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var nextSyncTime *time.Time
+			if tt.name == "ReadyWithNextSync" {
+				nextSyncTime = &nextSync
+			}
+			cond, err := buildRepositoryCondition(repo, tt.status, tt.errorMsg, nextSyncTime)
+
+			if tt.expectErr {
+				if err == nil {
+					t.Error("Expected error but got none")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+				if cond.Status != tt.expected {
+					t.Errorf("Expected status %v, got %v", tt.expected, cond.Status)
+				}
+				if cond.Reason != tt.reason {
+					t.Errorf("Expected reason %s, got %s", tt.reason, cond.Reason)
+				}
+				if cond.Message != tt.message {
+					t.Errorf("Expected message %s, got %s", tt.message, cond.Message)
+				}
+				if cond.ObservedGeneration != repo.Generation {
+					t.Errorf("Expected ObservedGeneration %d, got %d", repo.Generation, cond.ObservedGeneration)
+				}
+				if cond.LastTransitionTime.IsZero() {
+					t.Error("Expected LastTransitionTime to be set")
+				}
 			}
 		})
 	}
