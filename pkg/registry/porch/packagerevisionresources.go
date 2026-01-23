@@ -197,7 +197,6 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 		return nil, false, apierrors.NewInternalError(err)
 	}
 	if renderStatus != nil {
-		created.Status.RenderStatus = *renderStatus
 		if err := r.setRenderStatus(ctx, rev, renderStatus); err != nil {
 			klog.Warningf("Failed to store render status: %v", err)
 		}

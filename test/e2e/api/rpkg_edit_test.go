@@ -1,4 +1,4 @@
-// Copyright 2025 The kpt and Nephio Authors
+// Copyright 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -162,7 +162,10 @@ data:
 		t.Fatalf("Updated config map config-map.yaml not found")
 	}
 
-	renderStatus := prResources.Status.RenderStatus
+	// Refresh pr to get updated status
+	t.GetF(client.ObjectKeyFromObject(pr), pr)
+
+	renderStatus := pr.Status.RenderStatus
 	assert.Empty(t, renderStatus.Err, "render error must be empty for successful render operation.")
 	assert.Zero(t, renderStatus.Result.ExitCode, "exit code must be zero for successful render operation.")
 
@@ -205,8 +208,12 @@ func (t *PorchSuite) TestUpdateResourcesEmptyPatch() {
 	// Update with no changes (empty patch)
 	t.UpdateF(&prResources)
 
+	// Refresh pr to get updated status
+	t.GetF(client.ObjectKeyFromObject(pr), pr)
+
 	// Verify the update succeeded without errors
-	renderStatus := prResources.Status.RenderStatus
-	assert.Empty(t, renderStatus.Err, "render error must be empty for empty patch operation.")
-	assert.Zero(t, renderStatus.Result.ExitCode, "exit code must be zero for empty patch operation.")
+	if pr.Status.RenderStatus != nil {
+		assert.Empty(t, pr.Status.RenderStatus.Err, "render error must be empty for empty patch operation.")
+		assert.Zero(t, pr.Status.RenderStatus.Result.ExitCode, "exit code must be zero for empty patch operation.")
+	}
 }

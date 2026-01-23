@@ -936,21 +936,10 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionResourcesStatus(ref common.R
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "PackageRevisionResourcesStatus represents state of the rendered package resources.",
+				Description: "PackageRevisionResourcesStatus",
 				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"renderStatus": {
-						SchemaProps: spec.SchemaProps{
-							Description: "RenderStatus contains the result of rendering the package resources.",
-							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.RenderStatus"),
-						},
-					},
-				},
 			},
 		},
-		Dependencies: []string{
-			"github.com/nephio-project/porch/api/porch/v1alpha1.RenderStatus"},
 	}
 }
 

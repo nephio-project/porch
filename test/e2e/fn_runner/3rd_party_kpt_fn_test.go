@@ -1,4 +1,4 @@
-// Copyright 2025 The kpt and Nephio Authors
+// Copyright 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -84,7 +84,7 @@ func (t *FunctionRunnerSuite) TestApplySetters() {
 			}))
 
 			t.UpdateF(resources)
-			t.failOnRenderError(resources)
+			t.failOnRenderError(pr)
 
 			for name, obj := range resources.Spec.Resources {
 				if strings.HasPrefix(name, "project") {
@@ -137,7 +137,7 @@ func (t *FunctionRunnerSuite) TestSetNamespace() {
 			}))
 
 			t.UpdateF(resources)
-			t.failOnRenderError(resources)
+			t.failOnRenderError(pr)
 
 			bucket, ok := resources.Spec.Resources["bucket.yaml"]
 			if !ok {
@@ -188,7 +188,7 @@ func (t *FunctionRunnerSuite) TestSetLabels() {
 			}))
 
 			t.UpdateF(resources)
-			t.failOnRenderError(resources)
+			t.failOnRenderError(pr)
 
 			// Get package resources again
 			resources = t.WaitUntilPackageRevisionResourcesExists(types.NamespacedName{Namespace: t.Namespace, Name: pr.Name})
@@ -239,7 +239,7 @@ func (t *FunctionRunnerSuite) TestSetAnnotations() {
 			}))
 
 			t.UpdateF(resources)
-			t.failOnRenderError(resources)
+			t.failOnRenderError(pr)
 
 			daemonset, ok := resources.Spec.Resources["daemonset.yaml"]
 			if !ok {
@@ -288,7 +288,7 @@ func (t *FunctionRunnerSuite) TestSearchReplace() {
 			}))
 
 			t.UpdateF(resources)
-			t.failOnRenderError(resources)
+			t.failOnRenderError(pr)
 
 			service, ok := resources.Spec.Resources["service.yaml"]
 			if !ok {
@@ -346,7 +346,7 @@ func (t *FunctionRunnerSuite) TestStarlark() {
 			}))
 
 			t.UpdateF(resources)
-			t.failOnRenderError(resources)
+			t.failOnRenderError(pr)
 
 			bucket, ok := resources.Spec.Resources["bucket.yaml"]
 			if !ok {
@@ -397,7 +397,7 @@ func (t *FunctionRunnerSuite) TestEnsureNameSubstring() {
 			}))
 
 			t.UpdateF(resources)
-			t.failOnRenderError(resources)
+			t.failOnRenderError(pr)
 
 			service := resources.Spec.Resources["service.yaml"]
 
@@ -445,7 +445,7 @@ func (t *FunctionRunnerSuite) TestSetImage() {
 			}))
 
 			t.UpdateF(resources)
-			t.failOnRenderError(resources)
+			t.failOnRenderError(pr)
 
 			daemonset, ok := resources.Spec.Resources["daemonset.yaml"]
 			if !ok {
@@ -509,7 +509,7 @@ func (t *FunctionRunnerSuite) TestApplyReplacements() {
 			t.AddMutator(resources, tc.image, suiteutils.WithConfigPath("applyreplacement.yaml"))
 
 			t.UpdateF(resources)
-			t.failOnRenderError(resources)
+			t.failOnRenderError(pr)
 
 			job, ok := resources.Spec.Resources["job.yaml"]
 			if !ok {
@@ -563,7 +563,7 @@ func (t *FunctionRunnerSuite) TestCreateSetters() {
 			}))
 
 			t.UpdateF(resources)
-			t.failOnRenderError(resources)
+			t.failOnRenderError(pr)
 
 			packageResources, ok := resources.Spec.Resources["resources.yaml"]
 			if !ok {
@@ -590,7 +590,7 @@ func (t *FunctionRunnerSuite) TestCreateSetters() {
 
 // Utility functions
 
-func (t *FunctionRunnerSuite) failOnRenderError(resources *porchapi.PackageRevisionResources) {
+func (t *FunctionRunnerSuite) failOnRenderError(resources *porchapi.PackageRevision) {
 	if resources.Status.RenderStatus.Err != "" {
 		t.Fatalf("failed to render package: %v", resources.Status.RenderStatus.Err)
 	}
