@@ -1,6 +1,6 @@
 module github.com/nephio-project/porch
 
-go 1.25.0
+go 1.25.6
 
 replace k8s.io/apiserver v0.34.1 => ./third_party/k8s.io/apiserver-v0.34.1
 
