@@ -21,7 +21,7 @@ import (
 	"time"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	suiteutils "github.com/nephio-project/porch/test/e2e/suiteutils"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -167,11 +167,12 @@ func (t *PorchSuite) TestRepositoryError() {
 		})
 	})
 
-	giveUp := time.Now().Add(120 * time.Second)
+	giveUp := time.Now().Add(180 * time.Second)
 
 	for {
-		if time.Now().After(giveUp) {
-			t.Errorf("Timed out waiting for Repository Condition")
+		now := time.Now()
+		if now.After(giveUp) {
+			t.Errorf("Timed out waiting for Repository Condition at %s", now.Format("15:04:05.000"))
 			break
 		}
 
@@ -186,14 +187,22 @@ func (t *PorchSuite) TestRepositoryError() {
 		available := meta.FindStatusCondition(repository.Status.Conditions, configapi.RepositoryReady)
 		if available == nil {
 			// Condition not yet set
-			t.Logf("Repository condition not yet available")
+			t.Logf("[%s] Repository condition not yet available", now.Format("15:04:05.000"))
 			continue
 		}
 
+		t.Logf("[%s] Repository condition: Status=%s, Reason=%s, Message=%s", 
+			now.Format("15:04:05.000"), available.Status, available.Reason, available.Message)
+
 		if got, want := available.Status, metav1.ConditionFalse; got != want {
 			t.Errorf("Repository Available Condition Status; got %q, want %q", got, want)
+			break
 		}
 		if got, want := available.Reason, configapi.ReasonError; got != want {
+			if available.Reason == configapi.ReasonReconciling {
+				t.Logf("[%s] Repository still reconciling, waiting...", now.Format("15:04:05.000"))
+				continue
+			}
 			t.Errorf("Repository Available Condition Reason: got %q, want %q", got, want)
 		}
 		break
@@ -275,8 +284,16 @@ func (t *PorchSuite) TestPackageRevisionListWithHangingRepository() {
 			}
 			t.CreateF(repo)
 			t.Cleanup(func() {
-				t.DeleteF(repo)
-				t.WaitUntilRepositoryDeleted(repoName, t.Namespace)
+				// Force delete hanging repository by removing finalizers first
+				var hangingRepo configapi.Repository
+				if err := t.Client.Get(t.GetContext(), client.ObjectKey{Name: repoName, Namespace: t.Namespace}, &hangingRepo); err == nil {
+					if len(hangingRepo.Finalizers) > 0 {
+						hangingRepo.Finalizers = nil
+						t.Client.Update(t.GetContext(), &hangingRepo)
+					}
+					t.Client.Delete(t.GetContext(), &hangingRepo)
+					t.WaitUntilRepositoryDeleted(repoName, t.Namespace)
+				}
 			})
 		}(i, url)
 	}

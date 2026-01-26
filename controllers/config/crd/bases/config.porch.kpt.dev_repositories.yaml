@@ -24,6 +24,8 @@ spec:
     kind: Repository
     listKind: RepositoryList
     plural: repositories
+    shortNames:
+    - repo
     singular: repository
   scope: Namespaced
   versions:
@@ -162,9 +164,8 @@ spec:
                 description: Repository sync/reconcile details
                 properties:
                   runOnceAt:
-                    description: Value in metav1.Time format to indicate when the
-                      repository should be synced once outside the periodic cron based
-                      reconcile loop.
+                    description: Value in metav1.Time format to trigger a one-time
+                      cache sync outside the periodic schedule.
                     format: date-time
                     type: string
                   schedule:
@@ -238,6 +239,25 @@ spec:
                   - type
                   type: object
                 type: array
+              gitCommitHash:
+                description: |-
+                  GitCommitHash is the commit hash of the configured branch for git repositories.
+                  Empty for OCI repositories.
+                type: string
+              lastFullSyncTime:
+                description: LastFullSyncTime is the timestamp of the last successful
+                  full repository sync.
+                format: date-time
+                type: string
+              observedGeneration:
+                description: ObservedGeneration is the generation of the Repository
+                  spec that was last reconciled.
+                format: int64
+                type: integer
+              packageCount:
+                description: PackageCount is the number of package revisions discovered
+                  in the repository.
+                type: integer
             type: object
         type: object
         x-kubernetes-validations:

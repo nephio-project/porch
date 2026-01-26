@@ -17,10 +17,9 @@ package dbcache
 import (
 	"errors"
 	"strings"
-	"time"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
@@ -66,6 +65,11 @@ func (t *DbTestSuite) TestDBRepositoryPRCrud() {
 	version, err := testRepo.Version(t.Context())
 	t.Require().NoError(err)
 	t.Equal("", version)
+
+	// Test BranchCommitHash delegation
+	commitHash, err := testRepo.BranchCommitHash(t.Context())
+	t.Require().NoError(err)
+	t.Equal("fake-commit-hash", commitHash) // Fake repo returns this
 
 	pkgList, err := testRepo.ListPackages(ctx, repository.ListPackageFilter{})
 	t.Require().NoError(err)
@@ -183,8 +187,7 @@ func (t *DbTestSuite) TestDBRepositorySync() {
 	}
 	fakeClient := k8sfake.NewClientBuilder().WithScheme(scheme).WithObjects(repoObj).Build()
 	cacheOptions := cachetypes.CacheOptions{
-		RepoSyncFrequency: 2 * time.Second,
-		CoreClient:        fakeClient,
+		CoreClient: fakeClient,
 	}
 
 	testRepo.repositorySync = newRepositorySync(testRepo, cacheOptions)

@@ -45,6 +45,8 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/controllers/packagevariants/pkg/controllers/packagevariant"
 	"github.com/nephio-project/porch/controllers/packagevariantsets/pkg/controllers/packagevariantset"
+	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
+	"github.com/nephio-project/porch/controllers/repositories/pkg/controllers/repository"
 	"github.com/nephio-project/porch/pkg/controllerrestmapper"
 	//+kubebuilder:scaffold:imports
 )
@@ -53,6 +55,7 @@ var (
 	reconcilers = map[string]Reconciler{
 		"packagevariants":    &packagevariant.PackageVariantReconciler{},
 		"packagevariantsets": &packagevariantset.PackageVariantSetReconciler{},
+		"repositories":       &repository.RepositoryReconciler{},
 	}
 )
 
@@ -68,6 +71,9 @@ type Reconciler interface {
 
 	// SetupWithManager registers the reconciler to run under the specified manager
 	SetupWithManager(ctrl.Manager) error
+
+	// SetLogger sets the logger for the reconciler
+	SetLogger(name string)
 }
 
 // We include our lease / events permissions in the main RBAC role
@@ -121,6 +127,10 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("error initializing scheme: %w", err)
 	}
 
+	if err := configapi.AddToScheme(scheme); err != nil {
+		return fmt.Errorf("error initializing scheme: %w", err)
+	}
+
 	managerOptions := ctrl.Options{
 		Scheme: scheme,
 		Metrics: metricsserver.Options{
@@ -159,6 +169,8 @@ func run(ctx context.Context) error {
 		if !reconcilerIsEnabled(enabledReconcilers, name) {
 			continue
 		}
+		reconciler.SetLogger(name)
+		ctrl.Log.WithName(name).Info("setting up controller")
 		if err = reconciler.SetupWithManager(mgr); err != nil {
 			return fmt.Errorf("error creating %s reconciler: %w", name, err)
 		}
@@ -197,8 +209,12 @@ func reconcilerIsEnabled(reconcilers []string, reconciler string) bool {
 	if slices.Contains(reconcilers, reconciler) {
 		return true
 	}
-	if _, found := os.LookupEnv(fmt.Sprintf("ENABLE_%s", strings.ToUpper(reconciler))); found {
-		return true
+	// Check env var value (not just existence)
+	envVar := fmt.Sprintf("ENABLE_%s", strings.ToUpper(reconciler))
+	if val := os.Getenv(envVar); val != "" {
+		// Parse as boolean: "true", "1", "yes" = enabled
+		valLower := strings.ToLower(val)
+		return valLower == "true" || val == "1" || valLower == "yes"
 	}
 	return false
 }

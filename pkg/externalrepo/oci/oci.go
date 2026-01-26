@@ -28,7 +28,7 @@ import (
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/oci"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
@@ -111,6 +111,11 @@ func (r *ociRepository) Version(ctx context.Context) (string, error) {
 	}
 	hash := sha256.Sum256(b.Bytes())
 	return hex.EncodeToString(hash[:]), nil
+}
+
+func (r *ociRepository) BranchCommitHash(ctx context.Context) (string, error) {
+	// OCI repositories don't have branches or commits
+	return "", nil
 }
 
 func (r *ociRepository) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {

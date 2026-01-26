@@ -1,4 +1,4 @@
-// Copyright 2022-2025 The kpt and Nephio Authors
+// Copyright 2022-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import (
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:resource:path=repositories,singular=repository
+//+kubebuilder:resource:path=repositories,singular=repository,shortName=repo
 //+kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type`
 //+kubebuilder:printcolumn:name="Content",type=string,JSONPath=`.spec.content`
 // +kubebuilder:printcolumn:name="Sync schedule",type=string,JSONPath=`.spec.sync.schedule`
@@ -77,7 +77,7 @@ type RepositorySpec struct {
 }
 
 type RepositorySync struct {
-	// Value in metav1.Time format to indicate when the repository should be synced once outside the periodic cron based reconcile loop.
+	// Value in metav1.Time format to trigger a one-time cache sync outside the periodic schedule.
 	RunOnceAt *metav1.Time `json:"runOnceAt,omitempty"`
 	// Cron value to indicate when the repository should be synced periodically. Example: `*/10 * * * *` to sync every 10 minutes.
 	Schedule string `json:"schedule,omitempty"`
@@ -160,6 +160,19 @@ const (
 type RepositoryStatus struct {
 	// Conditions describes the reconciliation state of the object.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	// LastFullSyncTime is the timestamp of the last successful full repository sync.
+	// +optional
+	LastFullSyncTime *metav1.Time `json:"lastFullSyncTime,omitempty"`
+	// ObservedGeneration is the generation of the Repository spec that was last reconciled.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+	// PackageCount is the number of package revisions discovered in the repository.
+	// +optional
+	PackageCount int `json:"packageCount,omitempty"`
+	// GitCommitHash is the commit hash of the configured branch for git repositories.
+	// Empty for OCI repositories.
+	// +optional
+	GitCommitHash string `json:"gitCommitHash,omitempty"`
 }
 
 //+kubebuilder:object:root=true

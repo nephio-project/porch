@@ -28,7 +28,7 @@ import (
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchclient "github.com/nephio-project/porch/api/generated/clientset/versioned"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	internalpkg "github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -82,6 +82,7 @@ type TestSuite struct {
 	Namespace            string // K8s namespace for this test run
 	TestRunnerIsLocal    bool   // Tests running against local dev porch
 	porchServerInCluster *bool  // Cached result of IsPorchServerInCluster check
+	repoControllerInCluster *bool  // Cached result of IsRepoControllerInCluster check
 }
 
 func (t *TestSuite) SetupSuite() {
@@ -175,6 +176,27 @@ func (t *TestSuite) IsPorchServerInCluster() bool {
 
 	result := len(service.Spec.Selector) > 0
 	t.porchServerInCluster = &result
+	return result
+}
+
+func (t *TestSuite) IsRepoControllerInCluster() bool {
+	if t.repoControllerInCluster != nil {
+		return *t.repoControllerInCluster
+	}
+
+	deployment := appsv1.Deployment{}
+	err := t.Client.Get(t.GetContext(), client.ObjectKey{
+		Namespace: "porch-system",
+		Name:      "porch-controllers",
+	}, &deployment)
+	if err != nil {
+		result := false
+		t.repoControllerInCluster = &result
+		return false
+	}
+
+	result := deployment.Spec.Replicas != nil && *deployment.Spec.Replicas > 0
+	t.repoControllerInCluster = &result
 	return result
 }
 

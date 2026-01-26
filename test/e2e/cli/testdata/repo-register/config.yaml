@@ -16,6 +16,7 @@ commands:
       - get
       - --namespace=repo-register
       - --output=custom-columns=NAME:.metadata.name,ADDRESS:.spec.git.repo,BRANCH:.spec.git.branch,DIR:.spec.git.directory
+    ignoreWhitespace: true
     stdout: |
       NAME              ADDRESS                                                                BRANCH   DIR
       test-blueprints   http://gitea.gitea.svc.cluster.local:3000/nephio/test-blueprints.git   main     /
@@ -33,6 +34,7 @@ commands:
       - repo
       - get
       - --namespace=repo-register
+    ignoreWhitespace: true
     stdout: |
       NAME              TYPE   CONTENT   SYNC SCHEDULE   DEPLOYMENT   READY   ADDRESS
       test-blueprints   git    Package                                True    http://gitea.gitea.svc.cluster.local:3000/nephio/test-blueprints.git
@@ -43,7 +45,11 @@ commands:
       - --namespace=repo-register
       - test-blueprints
   - args:
+      - sleep
+      - "2"
+  - args:
       - porchctl
       - repo
       - get
       - --namespace=repo-register
+    ignoreWhitespace: true

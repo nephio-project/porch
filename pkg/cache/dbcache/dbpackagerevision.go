@@ -439,7 +439,7 @@ func (pr *dbPackageRevision) publishPlaceholderPRForPR(ctx context.Context) erro
 	placeholderPR := prWithResources.ToMainPackageRevision(ctx).(*dbPackageRevision)
 
 	if prWithResources.pkgRevKey.Revision == 1 {
-		if err := pkgRevWriteToDB(ctx, placeholderPR); err != nil {
+		if err := pkgRevUpdateDB(ctx, placeholderPR, true); err != nil {
 			return pkgerrors.Wrapf(err, "dbPackageRevision:publishPlaceholderPRForPR: could not write placeholder package revision for package revision %+v to DB", placeholderPR.Key())
 		}
 		sent := placeholderPR.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Added, placeholderPR)
