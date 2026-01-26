@@ -23,12 +23,12 @@ func (t *DbTestSuite) TestDBSQL() {
 	err := dbSQL.Close()
 	t.Require().ErrorContains(err, "cannot close database, database is not initialized")
 
-	_, err = dbSQL.ExecContext(ctx, "")
+	_, err = dbSQL.Exec(ctx, "")
 	t.Require().ErrorContains(err, "cannot execute query on database, database is not initialized")
 
-	_, err = dbSQL.QueryContext(ctx, "")
+	_, err = dbSQL.Query(ctx, "")
 	t.Require().ErrorContains(err, "cannot query database, database is not initialized")
 
-	nilRow := dbSQL.QueryRowContext(ctx, "")
+	nilRow := dbSQL.QueryRow(ctx, "")
 	t.Nil(nilRow)
 }

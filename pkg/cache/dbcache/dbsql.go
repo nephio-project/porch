@@ -22,9 +22,9 @@ import (
 
 type dbSQLInterface interface {
 	Close() error
-	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
-	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
-	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+	Exec(ctx context.Context, query string, args ...any) (sql.Result, error)
+	Query(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	QueryRow(ctx context.Context, query string, args ...any) *sql.Row
 }
 
 var _ dbSQLInterface = &dbSQL{}
@@ -41,7 +41,7 @@ func (ds *dbSQL) Close() error {
 	}
 }
 
-func (ds *dbSQL) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+func (ds *dbSQL) Exec(ctx context.Context, query string, args ...any) (sql.Result, error) {
 	if ds.db != nil {
 		return ds.db.ExecContext(ctx, query, args...)
 	} else {
@@ -49,7 +49,7 @@ func (ds *dbSQL) ExecContext(ctx context.Context, query string, args ...any) (sq
 	}
 }
 
-func (ds *dbSQL) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+func (ds *dbSQL) Query(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
 	if ds.db != nil {
 		return ds.db.QueryContext(ctx, query, args...)
 	} else {
@@ -57,7 +57,7 @@ func (ds *dbSQL) QueryContext(ctx context.Context, query string, args ...any) (*
 	}
 }
 
-func (ds *dbSQL) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
+func (ds *dbSQL) QueryRow(ctx context.Context, query string, args ...any) *sql.Row {
 	if ds.db != nil {
 		return ds.db.QueryRowContext(ctx, query, args...)
 	} else {
