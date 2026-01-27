@@ -12,9 +12,13 @@ This document describes the impact on Porch when one or more data stores fails.
 Porch has a relatively complex data storage model, such that it essentially acts as a mediator between sets of data stored
 in several locations:
 * the Kubernetes *cluster control plane* on which Porch is installed, including Porch's *custom resources*
-* *Git repositories* in which package resources are managed. For more details on how Porch interacts with Git repositories, see the [Repository Adapters documentation]({{% relref "<TODO>" %}})
+* *Git repositories* in which package resources are managed. For more details on how Porch interacts with Git repositories,
+  see the Repository Adapters documentation
+<!-- TODO: add link to Repository Adapters documentation once exists -->
 * and the contents of the *package revision cache* (which, depending on the cache option configured at install-time, may
-  be either incorporated in the cluster's control plane ("CR cache") or stored in a separate SQL database ("DB cache")). A more detailed explanation of the package revision cache and the different cache options can be found under the Architecture and Components section: [Cache]({{% relref "/docs/5_architecture_and_components/porch-server/cache/_index.md" %}}).
+  be either incorporated in the cluster's control plane ("CR cache") or stored in a separate SQL database ("DB cache")).
+  A more detailed explanation of the package revision cache and the different cache options can be found under the Architecture
+  and Components section: [Cache]({{% relref "/docs/5_architecture_and_components/porch-server/cache/_index.md" %}})
 
 Porch's data storage operations are covered in significantly greater depth in the [Architecture and Components section]({{% relref "/docs/5_architecture_and_components/_index.md" %}}).
 
@@ -275,8 +279,8 @@ Applicable only to Porch with DB cache configured.
     1. ```bash
         kubectl -n porch-system delete pod --selector app=porch-server --force --grace-period 0 
        ```
-    2. Porch will immediately begin to re-sync all repositories, resulting in a **decrease in quality of service** until all
-      repositories are deemed Ready
+    2. Porch will immediately begin to re-sync all repositories, resulting in a **decrease in quality of service** until
+       all repositories are deemed Ready
 3. Wait until all Repository objects have condition with type "Ready" and status set "True"
 4. List package revisions periodically, monitoring results until state stabilises
 
