@@ -37,3 +37,12 @@ __debug*
 ### Jetbrains IDEs ###
 .idea/*
 
+### Hugo ###
+# Generated files by hugo
+docs/.hugo_build.lock
+docs/public/
+docs/resources/
+
+# Temporary lock file while building
+/.hugo_build.lock
+
