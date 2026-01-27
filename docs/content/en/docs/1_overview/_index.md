@@ -6,22 +6,20 @@ description: >
   Porch is a Kubernetes extension apiserver for managing the lifecycle of KRM configuration packages in Git and OCI repositories. It provides a Kubernetes-native API for package operations, enabling GitOps workflows with approval gates, automation, and collaboration.
 ---
 
-This page is an overview of Porch.
-
-Porch (Package Orchestration Server) was originally developed in the [kpt project](https://github.com/kptdev/kpt) and donated to [Nephio](https://nephio.org) in December 2023. The name "Porch" is short for "Package Orchestration."
+Porch (Package Orchestration Server) was originally developed in the [kpt project](https://github.com/kptdev/kpt) and donated to [Nephio](https://nephio.org) in December 2023. The name "Porch" is short for "Package ORCHestration."
 
 ## Why you need Porch and what it can do
 
-Managing configuration packages across multiple repositories and teams is challenging. You need to clone repositories, edit YAML files, run kpt functions, handle merge conflicts, and push changes - all while maintaining consistency, applying governance policies, and coordinating with GitOps deployment tools.
+Managing configuration packages across multiple repositories and teams is challenging. You need to clone repositories, edit YAML files, run KRM functions, handle merge conflicts, and push changes - all while maintaining consistency, applying governance policies, and coordinating with GitOps deployment tools.
 
 What if you could manage packages through a Kubernetes API instead? That's where Porch comes in.
 
-Porch provides you with a Kubernetes-native way to manage KRM configuration packages. It handles the Git/OCI operations, applies transformations through kpt functions, enforces approval workflows, and keeps everything synchronized - all through standard Kubernetes resources.
+Porch provides you with a Kubernetes-native way to manage [KRM configuration packages](https://kpt.dev/book/03-packages/). It handles the Git/OCI operations, applies transformations through [KRM functions](https://kpt.dev/book/04-using-functions/), enforces approval workflows, and keeps everything synchronized - all through standard Kubernetes resources.
 
 Porch provides you with:
 
 * **Kubernetes-native package management**  
-  Manage packages through Kubernetes resources (PackageRevision, Repository) instead of direct Git operations. Use kubectl, client-go, or any Kubernetes tooling.
+  Manage packages through Kubernetes resources (PackageRevision, Repository) instead of direct Git operations. Use kubectl, client-go, or any Kubernetes tooling, or Porch's `porchctl` CLI utility.
 
 * **Approval workflows**  
   Packages move through lifecycle stages (Draft → Proposed → Published) with explicit approval gates. Prevent accidental publication of unreviewed changes.
@@ -30,13 +28,13 @@ Porch provides you with:
   Register a Git or OCI repository once, and Porch automatically discovers all packages within it. No manual inventory management.
 
 * **Function execution**  
-  Apply kpt functions to transform and validate packages. Functions run in isolated containers with results tracked in package history.
+  Apply KRM functions to transform and validate packages. Functions run in isolated containers with results tracked in package history.
 
 * **Package cloning and upgrades**  
   Clone packages from upstream sources and automatically upgrade them when new upstream versions are published. Three-way merge handles local customizations.
 
 * **GitOps integration**  
-  All changes are committed to Git with full history. Works seamlessly with Config Sync and other GitOps deployment tools.
+  All changes are committed to Git with full history. Works seamlessly with [Flux](https://fluxcd.io/), [Config Sync](https://docs.cloud.google.com/kubernetes-engine/config-sync/docs/how-to/installing-config-sync) and other GitOps deployment tools.
 
 * **Multi-repository orchestration**  
   Manage packages across multiple Git and OCI repositories from a single control plane. Controllers can automate cross-repository operations.
@@ -48,11 +46,11 @@ Porch provides you with:
   Porch detects changes made directly in Git (outside Porch) and synchronizes its cache. Supports both Porch-managed and externally-managed packages.
 
 * **Standard kpt packages**  
-  Packages remain standard kpt packages. No vendor lock-in - you can always work directly with Git if needed.
+  Packages remain standard kpt packages. No vendor lock-in or Porch specific DSL "code" in kpt packages.
 
 ## What Porch is not
 
-Porch is not a deployment tool. It manages packages in repositories but does not deploy them to clusters. That's the job of Config Sync, Flux, ArgoCD, or similar GitOps tools. Porch prepares and publishes packages; deployment tools consume them.
+Porch is not a deployment tool. It manages packages in repositories but does not deploy them to clusters. That's the job of Flux, ArgoCD,  Config Sync, or similar GitOps tools. Porch prepares and publishes packages to git; gitops deployment tools consume them.
 
 Porch:
 
@@ -71,9 +69,9 @@ Porch:
 Porch is a key component in configuration-as-data workflows:
 
 1. **Package authoring**: Users create and edit packages through Porch's Kubernetes API
-2. **Package transformation**: kpt functions validate and transform package contents
+2. **Package transformation**: KRM functions validate and transform package contents
 3. **Package publication**: Approved packages are published to deployment repositories
-4. **Package deployment**: Config Sync (or similar) deploys published packages to clusters
+4. **Package deployment**: The GitOps deployment system (Flux etc) deploys published packages to clusters
 5. **Package automation**: Controllers (PackageVariant, PackageVariantSet) automate package operations
 
 Porch sits between package authors and deployment tools, providing the orchestration layer that was previously handled by manual Git operations or custom scripts.
@@ -82,10 +80,10 @@ Porch sits between package authors and deployment tools, providing the orchestra
 
 Porch consists of four main deployable components:
 
-* **Porch Server**: Kubernetes aggregated apiserver that provides the PackageRevision and Repository APIs. Contains the Engine (orchestration logic), Cache (repository content), and Repository Adapters (Git/OCI abstraction).
+* **Porch Server**: A Kubernetes aggregated apiserver that provides the PackageRevision and Repository APIs. It contains the Engine (orchestration logic), Cache (repository content), and Repository Adapters (Git/OCI abstraction).
 
-* **Function Runner**: Separate gRPC service that executes kpt functions in containers. Handles both built-in functions and external function images.
+* **Function Runner**: A separate gRPC service that executes KRM functions in containers. It can run both  functions supplied by Porch and externally developed function images.
 
-* **Controllers**: Kubernetes controllers that automate package operations. PackageVariant clones and updates packages; PackageVariantSet manages sets of variants.
+* **Controllers**: Kubernetes controllers automate package operations. The PackageVariant controller clones and updates packages. The PackageVariantSet controller manages sets of package variants.
 
-* **Cache**: Storage backend for repository content. Can be CR-based (using Kubernetes custom resources) or PostgreSQL-based for larger deployments.
+* **Cache**: A storage backend for caching of repository content for performance reasons. Porch supports a CR-based cache (using a Kubernetes custom resources) or a PostgreSQL-based cache for larger deployments.
