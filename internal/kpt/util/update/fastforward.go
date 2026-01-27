@@ -20,8 +20,8 @@ import (
 	"path/filepath"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/kptdev/kpt/pkg/lib/errors"
 	"github.com/kptdev/kpt/pkg/lib/types"
-	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	pkgdiff "github.com/nephio-project/porch/internal/kpt/util/diff"
 	"github.com/nephio-project/porch/internal/kpt/util/pkgutil"

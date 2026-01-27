@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/nephio-project/porch/internal/kpt/builtins"
+	"github.com/kptdev/kpt/pkg/lib/builtins"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
