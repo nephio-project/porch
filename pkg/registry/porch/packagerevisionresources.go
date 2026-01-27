@@ -224,5 +224,5 @@ func (r *packageRevisionResources) Watch(ctx context.Context, options *metainter
 
 	return createGenericWatch(ctx, r, *filter, func(ctx context.Context, pr repository.PackageRevision) (runtime.Object, error) {
 		return pr.GetResources(ctx)
-	})
+	}, options)
 }
