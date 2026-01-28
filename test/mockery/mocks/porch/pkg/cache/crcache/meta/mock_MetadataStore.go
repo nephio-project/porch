@@ -7,6 +7,7 @@ package meta
 import (
 	"context"
 
+	v1alpha10 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	mock "github.com/stretchr/testify/mock"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -386,6 +387,69 @@ func (_c *MockMetadataStore_Update_Call) Return(objectMeta v1.ObjectMeta, err er
 }
 
 func (_c *MockMetadataStore_Update_Call) RunAndReturn(run func(ctx context.Context, pkgRevMeta v1.ObjectMeta) (v1.ObjectMeta, error)) *MockMetadataStore_Update_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateStatus provides a mock function for the type MockMetadataStore
+func (_mock *MockMetadataStore) UpdateStatus(ctx context.Context, namespacedName types.NamespacedName, renderStatus *v1alpha10.RenderStatus) error {
+	ret := _mock.Called(ctx, namespacedName, renderStatus)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateStatus")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, types.NamespacedName, *v1alpha10.RenderStatus) error); ok {
+		r0 = returnFunc(ctx, namespacedName, renderStatus)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockMetadataStore_UpdateStatus_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateStatus'
+type MockMetadataStore_UpdateStatus_Call struct {
+	*mock.Call
+}
+
+// UpdateStatus is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespacedName types.NamespacedName
+//   - renderStatus *v1alpha10.RenderStatus
+func (_e *MockMetadataStore_Expecter) UpdateStatus(ctx interface{}, namespacedName interface{}, renderStatus interface{}) *MockMetadataStore_UpdateStatus_Call {
+	return &MockMetadataStore_UpdateStatus_Call{Call: _e.mock.On("UpdateStatus", ctx, namespacedName, renderStatus)}
+}
+
+func (_c *MockMetadataStore_UpdateStatus_Call) Run(run func(ctx context.Context, namespacedName types.NamespacedName, renderStatus *v1alpha10.RenderStatus)) *MockMetadataStore_UpdateStatus_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 types.NamespacedName
+		if args[1] != nil {
+			arg1 = args[1].(types.NamespacedName)
+		}
+		var arg2 *v1alpha10.RenderStatus
+		if args[2] != nil {
+			arg2 = args[2].(*v1alpha10.RenderStatus)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMetadataStore_UpdateStatus_Call) Return(err error) *MockMetadataStore_UpdateStatus_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockMetadataStore_UpdateStatus_Call) RunAndReturn(run func(ctx context.Context, namespacedName types.NamespacedName, renderStatus *v1alpha10.RenderStatus) error) *MockMetadataStore_UpdateStatus_Call {
 	_c.Call.Return(run)
 	return _c
 }
