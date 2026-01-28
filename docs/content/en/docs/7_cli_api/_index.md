@@ -7,7 +7,7 @@ description: Command-line and API reference documentation for Porch
 
 ## Overview
 
-This section provides reference documentation for interacting with Porch through the command-line interface (CLI) and Kubernetes API.
+This section provides reference documentation for interacting with Porch through its command-line interface (CLI) or through the Kubernetes API.
 
 ## CLI Reference
 
@@ -15,7 +15,7 @@ The `porchctl` command-line tool provides commands for managing Porch repositori
 
 - Registering and managing Git/OCI repositories
 - Creating, cloning, and copying packages
-- Managing package lifecycle (Draft → Proposed → Published)
+- Managing package lifecycle from creation to deletion (Draft → Proposed → Published -> Deletion-Proposed)
 - Pulling and pushing package content
 - Upgrading downstream packages
 
@@ -59,10 +59,10 @@ Open [Swagger Editor](https://editor.swagger.io/) in your browser and import the
 
 ### API Reference Guide
 
-Complete field-level reference for Porch's Aggregated API Resources and Kubernetes Custom Resource Definitions (CRDs):
+The complete field-level reference for Porch's Aggregated API Resources and Kubernetes Custom Resource Definitions (CRDs):
 
 {{% alert title="Note" color="primary" %}}
-The `porch.kpt.dev/v1alpha1` are Aggregated API Resources not CRD's whilst the `config.porch.kpt.dev/v1alpha1` are CRDs
+The `porch.kpt.dev/v1alpha1` resources are Aggregated API Resources (not Custom Resources defined in a CRD) whilst the `config.porch.kpt.dev/v1alpha1` resources are Custom Resources.
 {{% /alert %}}
 
 **porch.kpt.dev/v1alpha1:**
