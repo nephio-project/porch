@@ -13,8 +13,7 @@ description:
 
 When deploying workloads across large fleets of clusters, it is often necessary to modify the
 workload configuration for a specific cluster. Additionally, these workloads may evolve over time
-with security or other patches that require updates. [Configuration as Data]({{% relref "/docs/1_overview/relevant_old_docs/config-as-data.md" %}}) in
-general, and [Package Orchestration]({{% relref "/docs/2_concepts/relevant_old_docs/package-orchestration.md" %}}) in particular, can assist in this.
+with security or other patches that require updates. in general, and [Package Orchestration]({{% relref "/docs/2_concepts/relevant_old_docs/package-orchestration.md" %}}) in particular, can assist in this.
 However, they are still centered around a manual, one-by-one hydration and configuration of a
 workload.
 
