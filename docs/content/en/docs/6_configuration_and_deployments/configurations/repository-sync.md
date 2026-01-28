@@ -1,9 +1,13 @@
 ---
-title: "Repository Sync Configuration"
+title: "Repository Sync"
 type: docs
 weight: 1
-description: Configure repository synchronization for Porch Repositories
+description: "Configure repository synchronization for Porch Repositories"
 ---
+
+{{% alert title="Documentation Location" color="info" %}}
+This documentation is currently located in the system configuration section but should be moved to a more logical location as it's about configuring individual Repository resources, not system-wide settings. This may be relocated in future documentation updates.
+{{% /alert %}}
 
 ## Sync Configuration Fields
 

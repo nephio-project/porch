@@ -1,0 +1,40 @@
+<script>
+// Function to add anchors to headings
+function addAnchors() {
+  document.querySelectorAll(".td-content h2, .td-content h3").forEach(h => {
+    if (h.id && !h.querySelector(".anchor")) {
+      const a = document.createElement("a");
+      a.href = "#" + h.id;
+      a.className = "anchor";
+      // You can use 🔗 emoji or Font Awesome icon if FA is loaded
+      a.innerHTML = "🔗";
+      h.appendChild(a);
+    }
+  });
+}
+
+// Run after DOM is ready
+document.addEventListener("DOMContentLoaded", function() {
+  addAnchors();
+
+  // Watch for dynamically added headings (collapsible sections, TOC pages, etc.)
+  const docContent = document.querySelector(".td-content");
+  if (docContent) {
+    const observer = new MutationObserver(addAnchors);
+    observer.observe(docContent, { childList: true, subtree: true });
+  }
+});
+</script>
+
+<style>
+/* Styling for the anchor icon */
+a.anchor {
+  margin-left: 6px;
+  text-decoration: none;
+  opacity: 0.4;
+  font-size: 0.6em;
+}
+a.anchor:hover {
+  opacity: 1;
+}
+</style>
