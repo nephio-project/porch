@@ -1,120 +1,46 @@
 ---
-title: "Engine (CaD Engine)"
+title: "Engine"
 type: docs
-weight: 2
-description: Core package orchestration logic
+weight: 1
+description: |
+  The CaD Engine that orchestrates package lifecycle operations.
 ---
 
 ## What is the Engine?
 
-The Engine (Configuration as Data Engine) is the **orchestration brain** of Porch. It sits between the API Server and the lower-level components (Cache, Task Handler, Repository Adapters, Function Runtime), coordinating all package lifecycle operations.
+The **Engine** (also called the **CaD Engine** - Configuration as Data Engine) is the central orchestration component in Porch that manages the complete lifecycle of package revisions and packages. It acts as the coordination layer between the API server, package cache, repository adapters, and task execution pipeline.
 
-**Think of it as a conductor**: It doesn't execute tasks directly, access repositories, or run functions itself. Instead, it orchestrates when and how each component performs its role to accomplish complex package operations.
+The Engine is responsible for:
 
-**Source Location**: `pkg/engine/`
+- **Package Revision Lifecycle Management**: Creating, updating, and deleting package revisions while enforcing lifecycle state transitions (Draft → Proposed → Published → DeletionProposed)
+- **Task Orchestration**: Coordinating the execution of package tasks (init, clone, render, upgrade, edit) through the task handler
+- **Repository Operations**: Opening repositories from the cache and delegating package operations to the appropriate repository adapter
+- **Validation and Constraints**: Enforcing business rules like workspace name uniqueness, lifecycle constraints, and package path validation
+- **Draft Management**: Managing the draft-commit workflow where changes are made to drafts and then closed to create immutable package revisions
+- **Change Notification**: Notifying watchers of package revision changes for real-time updates
 
-## What Does the Engine Do?
+## Role in the Architecture
 
-The Engine's core responsibilities:
-
-1. **Orchestrates Package Operations**: Coordinates multi-step workflows (create, update, delete, list)
-2. **Enforces Business Rules**: Validates lifecycle transitions, workspace uniqueness, package constraints
-3. **Manages Lifecycle States**: Controls transitions between Draft → Proposed → Published → DeletionProposed
-4. **Handles Concurrency**: Implements optimistic locking to prevent conflicting modifications
-5. **Coordinates Components**: Delegates to Cache (storage), Task Handler (operations), Function Runtime (KRM functions)
-6. **Provides Rollback**: Ensures atomic operations with cleanup on failure
-7. **Manages Watches**: Notifies clients of package changes in real-time
-
-## How It Fits in Porch Architecture
+The Engine sits between the Porch API Server and the lower-level components:
 
 ![Engine Architecture](/static/images/porch/porch-engine-architecture.drawio.svg)
 
-**Flow**: API Server receives request → Engine orchestrates → Cache/Task Handler/Function Runtime execute → Engine returns result
+**Key architectural responsibilities:**
 
-## Why Does the Engine Exist?
+1. **Abstraction Layer**: Provides a clean interface (CaDEngine) that hides the complexity of cache management, repository operations, and task execution from the API server
 
-### Separation of Concerns
+2. **Workflow Orchestration**: Implements the package revision workflow:
+   - Create draft → Apply tasks → Update lifecycle → Close draft → Persist to repository
+   - Handles rollback on errors to maintain consistency
 
-Without the Engine, the API Server would need to know:
-- How to interact with Git/OCI repositories
-- How to execute KRM functions  
-- How to manage caching
-- How to handle rollbacks
-- All business logic for package lifecycles
+3. **State Management**: Enforces package lifecycle state machine rules, ensuring packages can only transition through valid states
 
-This would create tight coupling and make the system unmaintainable.
+4. **Integration Point**: Connects multiple subsystems:
+   - Uses the **Package Cache** to access repositories
+   - Invokes the **Task Handler** to execute package operations
+   - Notifies the **Watcher Manager** of changes for API watch streams
+   - Delegates to **Repository Adapters** for storage operations
 
-### Centralized Business Logic
+5. **Validation Gateway**: Validates all package operations before execution, including workspace name uniqueness, lifecycle constraints, and task-specific validations
 
-All package lifecycle rules live in one place:
-- Which lifecycle transitions are allowed (Draft can become Proposed, but Published cannot become Draft)
-- When packages can be modified (only Draft/Proposed, not Published)
-- What validations must pass (unique workspace names, valid clone sources)
-- How to handle concurrent modifications (optimistic locking)
-
-### Transaction-like Semantics
-
-The Engine provides atomic operations with rollback:
-- If any step fails during package creation, the Engine rolls back changes
-- Ensures the system never ends up in an inconsistent state
-- Provides clean error messages to users
-
-## Quick Example: Creating a Package
-
-```bash
-# User runs this command
-kubectl apply -f packagerevision.yaml
-```
-
-**What the Engine does**:
-
-1. **Validates Request**: Checks lifecycle is Draft/Proposed, workspace name is unique
-2. **Opens Repository**: Asks Cache to open the target repository
-3. **Creates Draft**: Asks Repository to create a draft package revision
-4. **Applies Tasks**: Delegates to Task Handler to execute init/clone/edit tasks
-5. **Executes Functions**: If rendering, delegates to Function Runtime
-6. **Updates Lifecycle**: Sets the package to requested lifecycle state
-7. **Closes Draft**: Commits changes to repository
-8. **Notifies Watchers**: Sends watch events to listening clients
-9. **Returns Result**: Sends PackageRevision back to API Server
-
-If any step fails, the Engine rolls back the draft creation.
-
-## Key Concepts
-
-### Package Lifecycle States
-
-The Engine enforces these lifecycle states:
-
-- **Draft**: Work in progress, can be modified freely
-- **Proposed**: Ready for review, can still be modified
-- **Published**: Finalized, immutable (only metadata can change)
-- **DeletionProposed**: Marked for deletion, awaiting approval
-
-### Optimistic Concurrency Control
-
-The Engine uses resourceVersion to prevent conflicting updates:
-- Each package has a resourceVersion that increments on every change
-- Updates must provide the current resourceVersion
-- If resourceVersion doesn't match, update fails with 409 Conflict
-- Client must fetch latest version and retry
-
-### Rollback on Failure
-
-If any operation fails partway through:
-- Engine attempts to rollback changes (delete draft, revert state)
-- Ensures repository doesn't end up with partial/corrupted packages
-- Returns clear error message to user
-
-## Summary
-
-The Engine is the orchestration layer that makes Porch work. It:
-
-- **Coordinates** between API Server, Cache, Task Handler, Repository Adapters, and Function Runtime
-- **Enforces** business rules and lifecycle constraints
-- **Provides** atomic operations with rollback
-- **Manages** optimistic concurrency control
-- **Enables** real-time watch notifications
-- **Supports** multiple function execution strategies (built-in, gRPC, multi-runtime)
-
-Understanding the Engine is key to understanding how Porch manages package lifecycles, handles errors, and maintains consistency across distributed operations.
+The Engine is instantiated once during Porch API server startup and configured with dependencies (cache, task handler, function runtimes, credential resolvers) through a functional options pattern.

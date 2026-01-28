@@ -1,302 +1,302 @@
 ---
-title: "Interactions"
+title: "Engine Interactions"
 type: docs
-weight: 3
-description: How the Engine interacts with other components
+weight: 4
+description: |
+  How the Engine interacts with other Porch components.
 ---
 
-This section describes how the Engine interacts with other Porch components, what it depends on, and what depends on it.
+## Overall Interaction Overview
 
-## Component Interaction Overview
+![Engine Interaction Architecture](/static/images/porch/engine-component-interaction.drawio.svg)
 
-![Engine Architecture](/static/images/porch/engine-component-interaction.drawio.svg)
+## Cache Integration
 
-## Dependencies (What the Engine Needs)
+The Engine relies heavily on the Package Cache as its primary interface to repositories:
 
-### 1. Cache
+### Opening Repositories
 
-**Purpose**: Repository access and caching
+All repository access goes through the cache:
 
-**What Engine uses it for**:
-- Opening repositories
-- Accessing cached package data
-- Avoiding repeated Git/OCI operations
+```
+Engine
+     ↓
+OpenRepository(repositorySpec)
+     ↓
+Package Cache
+     ↓
+Repository Adapter (Git)
+```
 
-**Key operations**:
-- Open a repository by specification
-- Repository provides list, create, update, delete operations
-- Repository handles Git/OCI operations transparently
+**Process:**
+1. Engine receives a Repository CR specification
+2. Calls `cache.OpenRepository(ctx, repositorySpec)`
+3. Cache returns a Repository interface implementation
+4. Engine uses the repository abstraction for all operations
 
-**Interaction pattern**:
-1. Engine receives operation request
-2. Engine opens repository via cache
-3. Cache returns repository interface
-4. Engine calls operations on repository
-5. Repository handles Git/OCI operations
-6. Results flow back to Engine
+**Benefits of cache-mediated access:**
+- **Caching**: Frequently accessed repositories remain in memory
+- **Synchronization**: Cache handles background repository sync
+- **Abstraction**: Engine doesn't need to know if it's Git or another backend
+- **Connection pooling**: Cache manages repository connections efficiently
 
-**Why this design**:
-- Cache abstracts storage details (CR vs DB)
-- Repository abstracts repo type (Git vs OCI)
-- Engine doesn't need to know about Git commands or OCI APIs
+### Repository Operations
 
-### 2. Task Handler
+Once a repository is opened, the engine delegates all storage operations:
 
-**Purpose**: Package task execution
+**Package Revision Operations:**
+- `ListPackageRevisions`: Query package revisions with filtering
+- `CreatePackageRevisionDraft`: Create mutable draft
+- `UpdatePackageRevision`: Open existing revision as draft
+- `ClosePackageRevisionDraft`: Commit draft to create immutable revision
+- `DeletePackageRevision`: Remove package revision from storage
 
-**What Engine uses it for**:
-- Executing package tasks (init, clone, edit, update, render)
-- Applying mutations to package content
-- Coordinating with Function Runtime
+**Package Operations:**
+- `ListPackages`: Query packages
+- `CreatePackage`: Initialize new package
+- `DeletePackage`: Remove package and all revisions
 
-**Key operations**:
-- Apply task during package creation
-- Apply mutations during package update
-- Apply resource mutations with rendering
+**Repository Metadata:**
+- `Version`: Get repository version for change detection
+- `Refresh`: Trigger repository sync
+- `Close`: Clean up repository resources
 
-**Interaction pattern**:
-1. Engine creates draft package
-2. Engine calls Task Handler with task specification
-3. Task Handler executes task (init/clone/edit/update)
-4. Task Handler may call Function Runtime for rendering
-5. Task Handler updates draft with results
-6. Engine closes draft (commits)
+The engine never directly manipulates Git repositories or storage - all operations go through the repository abstraction provided by the cache.
 
-**Task types handled**:
-- **Init**: Create new empty package
+### Cache Invalidation
+
+The engine doesn't directly invalidate cache entries. Instead:
+
+- Cache monitors Repository CRs for changes
+- Background sync jobs refresh repository state periodically
+- Repository operations (create, update, delete) trigger cache updates automatically
+- Engine operations are always performed on the latest cached state
+
+## Task Handler Invocation
+
+The Engine delegates all package transformation operations to the Task Handler:
+
+### Task Execution During Creation
+
+When creating a package revision:
+
+```
+Engine
+     ↓
+ApplyTask(draft, repositoryObj, packageRevision, packageConfig)
+     ↓
+Task Handler
+     ↓
+Task Mutations (init, clone, render, etc.)
+```
+
+**Process:**
+1. Engine creates a draft package revision
+2. Calls `taskHandler.ApplyTask()` with:
+   - Draft to modify
+   - Repository object for context
+   - PackageRevision spec with task definition
+   - Package configuration (path, name, etc.)
+3. Task handler executes the task (init, clone, upgrade)
+4. Task handler applies builtin functions (package context generation)
+5. Returns modified draft or error
+
+**Task types handled:**
+- **Init**: Create new package with Kptfile
 - **Clone**: Copy package from upstream
-- **Edit**: Modify package content
-- **Update**: Merge upstream changes
-- **Patch**: Apply patches to resources
-- **Eval**: Execute function pipeline
+- **Upgrade**: Merge changes from new upstream version
+- **Edit**: Create new revision from existing one
 
-### 3. Function Runtime
+### Mutations During Updates
 
-**Purpose**: KRM function execution
+When updating a package revision:
 
-**What Engine uses it for**:
-- Executing KRM functions to transform packages
-- Rendering packages (applying function pipeline)
-
-**Key operations**:
-- Get runner for specific function
-- Execute function with input/output
-
-**Interaction pattern**:
-1. Task Handler needs to execute function
-2. Task Handler asks Function Runtime for runner
-3. Runtime returns appropriate runner (built-in or gRPC)
-4. Task Handler executes function via runner
-5. Function transforms package resources
-6. Results returned to Task Handler
-7. Task Handler updates package
-
-**Runtime types**:
-
-**Built-in Runtime**:
-- Executes functions directly in Engine process
-- Fast, no network overhead
-- Limited to pre-compiled functions (apply-replacements, set-namespace, starlark)
-
-**gRPC Runtime**:
-- Delegates to Function Runner service
-- Spawns function pods
-- Supports any function image
-- Network overhead
-
-**Multi-Runtime**:
-- Tries built-in first
-- Falls back to gRPC if not found
-- Best of both worlds
-
-### 4. Watcher Manager
-
-**Purpose**: Real-time change notifications
-
-**What Engine uses it for**:
-- Notifying clients of package changes
-- Managing watch registrations
-- Providing real-time updates
-
-**Key operations**:
-- Notify watchers of package changes (added, modified, deleted)
-
-**Interaction pattern**:
-1. Client registers watch via API Server
-2. API Server calls Engine's WatcherManager
-3. WatcherManager stores watcher
-4. Engine performs operation (create/update/delete)
-5. Engine notifies WatcherManager of change
-6. WatcherManager sends events to matching watchers
-7. Clients receive real-time notifications
-
-**Event types**:
-- **ADDED**: Package created
-- **MODIFIED**: Package updated
-- **DELETED**: Package deleted
-
-### 5. Credential Resolver
-
-**Purpose**: Authentication for private repositories
-
-**What Engine uses it for**:
-- Resolving Git/OCI credentials
-- Authenticating to private repositories
-
-**Key operations**:
-- Resolve credentials from Kubernetes Secrets
-
-**Interaction pattern**:
-1. Task Handler needs to access private repository
-2. Task Handler asks Credential Resolver for credentials
-3. Resolver fetches credentials from Kubernetes Secrets
-4. Credentials passed to Repository Adapter
-5. Repository Adapter uses credentials for Git/OCI operations
-
-**Credential types**:
-- Basic auth (username/password)
-- Bearer token
-- GCP Workload Identity
-
-### 6. Reference Resolver
-
-**Purpose**: Package reference resolution
-
-**What Engine uses it for**:
-- Resolving package references for clone/upgrade
-- Finding upstream packages
-
-**Key operations**:
-- Resolve package reference to actual package revision
-
-**Interaction pattern**:
-1. User specifies upstream package reference in clone/upgrade task
-2. Task Handler asks Reference Resolver to resolve reference
-3. Resolver finds the referenced package
-4. Task Handler uses resolved package as source
-
-### 7. User Info Provider
-
-**Purpose**: User identification for audit trails
-
-**What Engine uses it for**:
-- Getting current user information
-- Recording who performed operations
-
-**Key operations**:
-- Extract user info from request context
-
-**Interaction pattern**:
-1. Engine receives operation request with context
-2. Engine asks User Info Provider for user details
-3. Provider extracts user from Kubernetes authentication
-4. User info recorded in Git commits, audit logs
-
-## Dependents (What Needs the Engine)
-
-### 1. API Server
-
-**Component**: API Server REST handlers
-
-**How it uses Engine**:
-- Delegates all package operations to Engine
-- Translates HTTP requests to Engine calls
-- Translates Engine responses to HTTP responses
-
-**Operations delegated**:
-- Create PackageRevision
-- Update PackageRevision
-- Delete PackageRevision
-- List PackageRevisions
-- Update PackageRevisionResources
-
-**Why this design**:
-- API Server focuses on HTTP/Kubernetes concerns
-- Engine focuses on business logic
-- Clear separation of concerns
-- Easy to test independently
-
-### 2. Controllers
-
-**Components**: PackageVariant Controller, PackageVariantSet Controller
-
-**How they use Engine**:
-- Controllers don't directly use Engine
-- Controllers create/update PackageRevision resources via Kubernetes API
-- API Server delegates to Engine
-- Indirect usage through Kubernetes API
-
-**Pattern**:
 ```
-Controller → Kubernetes API → API Server → Engine
+Engine
+     ↓
+DoPRMutations(repoPR, oldObj, newObj, draft)
+     ↓
+Task Handler
+     ↓
+Apply new tasks to draft
 ```
 
-**Why this design**:
-- Controllers are standard Kubernetes controllers
-- They work with Kubernetes resources
-- Don't need to know about Engine internals
+**Process:**
+1. Engine opens draft from existing package revision
+2. Calls `taskHandler.DoPRMutations()` with old and new specs
+3. Task handler compares task lists
+4. Applies any new tasks to the draft
+5. Returns modified draft
 
-### 3. CLI (porchctl)
+### Resource Mutations
 
-**Component**: `pkg/cli/commands/`
+When updating package resources directly:
 
-**How it uses Engine**:
-- CLI doesn't directly use Engine
-- CLI creates/updates resources via Kubernetes API
-- API Server delegates to Engine
-- Indirect usage through Kubernetes API
-
-**Pattern**:
 ```
-porchctl → Kubernetes API → API Server → Engine
+Engine
+     ↓
+DoPRResourceMutations(pr, draft, oldRes, newRes)
+     ↓
+Task Handler
+     ↓
+Update resources + render
 ```
 
-**Why this design**:
-- CLI is a standard Kubernetes client
-- Works with any Kubernetes cluster running Porch
-- Don't need to link Engine code into CLI
+**Process:**
+1. Engine opens draft from package revision
+2. Calls `taskHandler.DoPRResourceMutations()` with resource changes
+3. Task handler updates package resources
+4. Task handler executes render task (runs function pipeline)
+5. Returns render status with function results
 
-## Configuration and Initialization
+**Key interaction points:**
+- Engine provides the draft workspace
+- Task handler modifies resources in the draft
+- Engine commits the draft after task completion
+- Task handler has no direct repository access
 
-The Engine is configured via options during initialization:
+### Function Runtime Integration
 
-**Configuration options**:
-- Cache for repository access
-- Function runtimes (built-in, gRPC, or both)
-- Credential resolver for authentication
-- Reference resolver for package references
-- User info provider for audit trails
-- Watcher manager for real-time notifications
-- Retry configuration for repository operations
+The task handler uses function runtimes configured in the engine:
 
-**Why this approach**:
-- Flexible configuration
-- Easy to add new dependencies
-- Clear what's being configured
-- Testable (can inject mocks)
+- **Builtin Runtime**: For built-in functions (set-namespace, etc.)
+- **gRPC Runtime**: For external function runner service
+- **Multi-Runtime**: Chains multiple runtimes together
 
-## Summary
+The engine configures these runtimes during initialization and passes them to the task handler.
 
-The Engine interacts with:
+## Repository Access
 
-**Dependencies (what it needs)**:
-- **Cache**: Repository access and caching
-- **Task Handler**: Package operation execution
-- **Function Runtime**: KRM function execution
-- **Watcher Manager**: Real-time notifications
-- **Credential Resolver**: Authentication
-- **Reference Resolver**: Package reference resolution
-- **User Info Provider**: User identification
+The Engine accesses repositories through a layered abstraction:
 
-**Dependents (what needs it)**:
-- **API Server**: Delegates all operations
-- **Controllers**: Indirect via Kubernetes API
-- **CLI**: Indirect via Kubernetes API
+### Repository Abstraction Layers
 
-**Interaction patterns**:
-- Engine orchestrates, components execute
-- Clear interfaces between components
-- Dependency injection for flexibility
-- Separation of concerns for maintainability
+```
+Engine
+     ↓
+Repository Interface (from cache)
+     ↓
+Repository Adapter (Git)
+     ↓
+External Repository (GitHub, GitLab, etc.)
+```
 
-The Engine sits at the center of Porch's architecture, coordinating all components to provide reliable, consistent package lifecycle management.
+### Repository Interface
+
+The engine works with the `Repository` interface which provides:
+
+**Package Revision Management:**
+- Draft creation and closure
+- Listing with filtering
+- Deletion
+
+**Package Management:**
+- Package listing
+- Package creation and deletion
+
+**Repository Metadata:**
+- Version tracking
+- Refresh operations
+- Resource cleanup
+
+This interface is implemented by repository adapters (Git adapter) but the engine never calls adapter code directly.
+
+### Draft Workflow
+
+The engine uses a draft-based workflow for all modifications:
+
+1. **Create/Open Draft**: Get mutable workspace
+   - `CreatePackageRevisionDraft`: For new revisions
+   - `UpdatePackageRevision`: For existing revisions
+
+2. **Modify Draft**: Apply changes through task handler
+   - Draft provides mutable access to package resources
+   - Changes are isolated until committed
+
+3. **Close Draft**: Commit changes
+   - `ClosePackageRevisionDraft`: Persists to repository
+   - Creates immutable package revision
+   - Generates Git commit or OCI layer
+
+4. **Rollback**: On errors, draft is discarded
+   - Ensures atomicity
+   - No partial changes persisted
+
+### Credential and Reference Resolution
+
+The engine is configured with resolvers for repository access:
+
+**Credential Resolver:**
+- Resolves authentication credentials for repositories
+- Supports basic auth, bearer tokens, and GCP workload identity
+- Passed to repository adapters through cache
+- Engine doesn't handle credentials directly
+
+**Reference Resolver:**
+- Resolves package references (upstream packages)
+- Used during clone and upgrade operations
+- Enables cross-repository package operations
+
+**User Info Provider:**
+- Provides authenticated user information
+- Used for audit trails (PublishedBy field)
+- Extracted from Kubernetes API request context
+
+These resolvers are configured during engine initialization and passed to components that need them.
+
+## Change Notification
+
+The Engine notifies watchers of package revision changes:
+
+### Watcher Manager Integration
+
+```
+Engine
+     ↓
+NotifyPackageRevisionChange(eventType, packageRevision)
+     ↓
+Watcher Manager
+     ↓
+API Server Watch Streams
+```
+
+**Notification events:**
+- **Added**: New package revision created
+- **Modified**: Package revision updated (metadata or lifecycle)
+- **Deleted**: Package revision removed
+
+**When notifications are sent:**
+- After successful package revision creation
+- After package revision updates (including lifecycle transitions)
+- After metadata-only updates on published packages
+- Not sent on failures or during draft operations
+
+### Watch Stream Support
+
+The watcher manager enables Kubernetes watch API support:
+
+1. **Client subscribes**: API server calls `WatchPackageRevisions`
+2. **Filter registration**: Watcher manager stores filter and callback
+3. **Change notification**: Engine calls `NotifyPackageRevisionChange`
+4. **Event delivery**: Watcher manager delivers to matching watchers
+5. **Client receives**: Watch event sent to client
+
+**Filter support:**
+- Repository name and namespace
+- Package name and path
+- Workspace name
+- Lifecycle state
+- Label selectors
+
+Only watchers with matching filters receive notifications.
+
+### Watcher Lifecycle
+
+Watchers are automatically cleaned up:
+
+- When client context is cancelled (connection closed)
+- When watcher callback returns false (stop watching)
+- Watcher manager periodically removes finished watchers
+- No manual cleanup required from engine
+
+The engine simply notifies changes and the watcher manager handles delivery and cleanup.
