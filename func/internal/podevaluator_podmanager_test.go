@@ -516,6 +516,41 @@ func TestPodManager(t *testing.T) {
 			},
 		},
 		{
+			// Test that when multiple Pods share a Service, the second Pod's IP correctly passes endpoint validation
+			name:          "Pod IP matches second endpoint address in multi-pod service",
+			skip:          false,
+			expectFail:    false,
+			functionImage: defaultImageName,
+			kubeClient: fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
+				Create: fakeClientCreateFixInterceptor,
+			}).WithObjects([]client.Object{
+				defaultServiceObject,
+				// endpoint contains IPs of two Pods
+				&corev1.Endpoints{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      defaultEndpointName,
+						Namespace: defaultNamespace,
+					},
+					Subsets: []corev1.EndpointSubset{
+						{
+							Addresses: []corev1.EndpointAddress{
+								{IP: "10.0.0.1"},    // First Pod
+								{IP: "30.30.30.30"}, // Second Pod (the one we're testing)
+							},
+						},
+					},
+				},
+			}...).Build(),
+			namespace:          defaultNamespace,
+			wrapperServerImage: defaultWrapperServerImage,
+			imageMetadataCache: defaultImageMetadataCache,
+			evalFunc:           defaultSuccessEvalFunc,
+			useGenerateName:    true,
+			podPatch: &corev1.Pod{
+				Status: podStatusRunningDifferentIP, // IP is 30.30.30.30
+			},
+		},
+		{
 			name:          "Create pod without name generation",
 			skip:          false,
 			expectFail:    false,
