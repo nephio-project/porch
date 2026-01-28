@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/nephio-project/porch/internal/kpt/util/addmergecomment"
+	"github.com/kptdev/kpt/pkg/lib/util/addmergecomment"
 	"github.com/nephio-project/porch/pkg/repository"
 	"sigs.k8s.io/kustomize/kyaml/kio"
 )

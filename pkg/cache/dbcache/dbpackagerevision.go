@@ -23,8 +23,8 @@ import (
 	"time"
 
 	kptfile "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
@@ -324,7 +324,7 @@ func (pr *dbPackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, e
 		return kptfile.KptFile{}, fmt.Errorf("no Kptfile for packagerevision %+v found in DB: %q", pr.Key(), err)
 	}
 
-	kf, err := pkg.DecodeKptfile(strings.NewReader(kfString))
+	kf, err := kptfileutil.DecodeKptfile(strings.NewReader(kfString))
 	if err != nil {
 		return kptfile.KptFile{}, fmt.Errorf("error decoding Kptfile: %w", err)
 	}

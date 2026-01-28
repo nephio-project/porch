@@ -26,7 +26,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	fakeprinter "github.com/nephio-project/porch/pkg/kpt/printer/fake"
+	fakeprinter "github.com/kptdev/kpt/pkg/printer/fake"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
