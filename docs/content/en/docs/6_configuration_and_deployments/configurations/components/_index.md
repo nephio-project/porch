@@ -5,7 +5,7 @@ weight: 1
 description: "Configure individual Porch components"
 ---
 
-Configure each Porch component individually for optimal performance and security.
+Configure each Porch component individually for optimal performance and security. All configurations are optional - Porch works with default settings.
 
 ## Core Components
 
@@ -13,13 +13,11 @@ Configure each Porch component individually for optimal performance and security
 The main API server that handles package operations and Git repository interactions:
 - [Git Authentication]({{% relref "porch-server-config/git-authentication" %}}) - Repository authentication methods
 - [Cert Manager Webhooks]({{% relref "porch-server-config/cert-manager-webhooks" %}}) - Webhook certificate management
+- [Jaeger Tracing]({{% relref "porch-server-config/jaeger-tracing" %}}) - Distributed tracing
+
 ### [Porch Controllers]({{% relref "porch-controllers-config" %}})
-Controllers that manage the lifecycle of PackageRevisions, PackageVariants, and other Porch resources.
+Manage the lifecycle of PackageVariants and PackageVariantSets.
 
 ### [Function Runner]({{% relref "function-runner-config" %}})
-Configure the KPT function execution environment:
-- Function registry settings
-- Security policies
-- Resource limits
-- Scaling configuration
-- [Private Registry Access]({{% relref "function-runner-config/private-registries-config" %}})
+Executes KRM functions in isolated containers:
+- [Private Registry Access]({{% relref "function-runner-config/private-registries-config" %}}) - Container registry authentication

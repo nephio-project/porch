@@ -11,9 +11,9 @@ This guide covers deploying Porch in production environments using the [Nephio c
 
 Before deploying Porch, determine which features you need:
 
-### Pre-deployment Configuration Required
+### Optional Pre-deployment Configuration
 
-These features must be configured **before** deployment:
+These **optional** features must be configured **before** deployment if you need them:
 
 #### Porch Server
 - [Cache Configuration]({{% relref "../configurations/cache" %}}) - Switch to database cache (requires deployment args)
@@ -28,7 +28,7 @@ These features must be configured **before** deployment:
 
 These features can be configured **after** deployment:
 
-- [Git Authentication]({{% relref "../configurations/components/porch-server-config/git-authentication" %}}) - Configure basic authentication and bearer token for Git repositories
+- [Git Authentication]({{% relref "../configurations/components/porch-server-config/git-authentication" %}}) - Configure Porch Server authentication for private Git repositories
 
 {{% alert title="Note" color="info" %}}
 [Repository Sync]({{% relref "../configurations/repository-sync" %}}) configuration is currently located in the system configuration section but should be moved to a more logical location as it's about configuring individual Repository resources, not system-wide settings.

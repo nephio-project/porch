@@ -41,8 +41,13 @@ Database cache uses PostgreSQL to store cache data, providing better performance
 
 ### Prerequisites
 
-- PostgreSQL database (v12+)
+- PostgreSQL database (v12+) **running and accessible**
 - Database credentials and connection details
+- Database must have the specified database created (e.g., `porch`)
+
+{{% alert title="Important" color="warning" %}}
+Ensure your PostgreSQL instance is running and accessible from the Porch server before configuring database cache. Porch will fail to start if it cannot connect to the database.
+{{% /alert %}}
 
 ### Configuration Steps
 
@@ -58,25 +63,42 @@ kubectl create secret generic porch-db-config \
   --from-literal=password=your_password
 ```
 
-2. **Update Porch Server Configuration:**
+2. **Configure Database Cache:**
+
+**For Catalog Deployments (Pre-deployment):**
+
+Modify the package configuration before deployment:
+
+```bash
+# Get the catalog package
+kpt pkg get https://github.com/nephio-project/catalog/tree/main/nephio/core/porch
+cd porch/
+# Edit the porch-server deployment YAML in the package
+```
+
+**For Manual Deployments (Post-deployment):**
+
+Update an existing deployment:
+
+```bash
+kubectl edit deployment -n porch-system porch-server
+```
+
+**Configuration (both methods):**
 
 Add database configuration to the porch-server deployment:
 
 ```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: porch-server
-  namespace: porch-system
 spec:
   template:
     spec:
       containers:
       - name: porch-server
         args:
-        - --cache-type=database
-        - --database-config-secret=porch-db-config
+        - --cache-type=DB
         env:
+        - name: DB_DRIVER
+          value: "pgx"
         - name: DB_HOST
           valueFrom:
             secretKeyRef:
@@ -87,7 +109,21 @@ spec:
             secretKeyRef:
               name: porch-db-config
               key: port
-        # ... additional environment variables
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: porch-db-config
+              key: database
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: porch-db-config
+              key: username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: porch-db-config
+              key: password
 ```
 
 3. **Restart Porch Server:**
@@ -98,16 +134,7 @@ kubectl rollout restart deployment/porch-server -n porch-system
 
 ## Local Development with Database Cache
 
-For local development, use the provided make target:
-
-```bash
-make run-in-kind-db-cache
-```
-
-This automatically:
-- Sets up PostgreSQL in the Kind cluster
-- Configures Porch to use database cache
-- Creates necessary secrets and configurations
+For local development with database cache, see the [Local Development Environment]({{% relref "../deployments/local-dev-env-deployment" %}}) guide which covers both CR cache and database cache options.
 
 ## Monitoring Cache Performance
 
