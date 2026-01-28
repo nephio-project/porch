@@ -59,13 +59,13 @@ function h1() {
 ##############################################
 # check if git user.name is set in your environment
 if ! git config --global user.name > /dev/null ; then
-  cat << ENDOFEMSG
+  cat << ENDOFMESG
 Please set the user.name and user.email global configuration values in your git environment.
 This is needed for porch tests to run correctly. 
 E.g:
   git config --global user.name "My Name"
   git config --global user.email "myemail@example.com"
-ENDOFEMSG
+ENDOFMESG
   exit 128
 fi
 
