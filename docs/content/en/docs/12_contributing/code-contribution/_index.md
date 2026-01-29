@@ -89,6 +89,29 @@ Branch naming conventions:
 1. Edit code, add tests, update documentation
 2. Follow the [Development Environment]({{% relref "development-environment" %}}) guide to build and test locally
 3. Ensure all checks and tests pass: `make check`, `make test` and `make test-e2e`
+## Update Copyright on files
+
+If you have added any new golang files, add [this golang copyright header](https://github.com/nephio-project/porch/blob/main/scripts/boilerplate.go.txt) to each new golang file you have added. If you have added any other files (Yaml, scripts, test data), add [this text copyright header](https://github.com/nephio-project/porch/blob/main/scripts/boilerplate.yaml.txt) file to each new file.
+
+If you have updated existing files, amend the dates on the copyright notice. Assuming you are updating the code in 2026, use the following guide.
+
+| ------------------- | ------------------------ |
+| Existing dates      | New Dates                |
+| ------------------- | ------------------------ |
+| 2026                | 2026                     |
+| 2025                | 2025-2026                |
+| 2024                | 2024, 2026               |
+| 2023                | 2023, 2026               |
+| 2025-2026           | 2025-2026                |
+| 2024-2026           | 2024-2026                |
+| 2022-2026           | 2022-2026                |
+| 2022-2025           | 2022-2026                |
+| 2022-2024           | 2022-2024, 2026          |
+| 2018-2020,2022-2025 | 2018-2020,2022-2026      |
+| 2018-2020,2022-2024 | 2018-2020,2022-2024,2026 |
+|         ...         |           ...            |
+| ------------------- | ------------------------ |
+
 
 ## Commit Your Changes
 
