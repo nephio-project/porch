@@ -64,9 +64,9 @@ External Repositories (Git)
    - Caches adapter responses
 
 6. **Change Notification**:
-   - Notifies the Core Engine when package revisions change
-   - Enables real-time watch streams for clients
-   - Propagates repository updates to watchers
+   - Sends watch events (Added/Modified/Deleted) when package revisions change
+   - Enables real-time watch streams for API clients through the CaDEngine's WatcherManager
+   - Propagates changes from direct operations and background synchronizations to all active watchers
 
 **Cache selection:**
 
