@@ -88,7 +88,7 @@ Branch naming conventions:
 
 1. Edit code, add tests, update documentation
 2. Follow the [Development Environment]({{% relref "development-environment" %}}) guide to build and test locally
-3. Ensure all tests pass: `make test` and `make test-e2e`
+3. Ensure all checks and tests pass: `make check`, `make test` and `make test-e2e`
 
 ## Commit Your Changes
 
