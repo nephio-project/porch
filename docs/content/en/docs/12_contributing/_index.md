@@ -26,6 +26,7 @@ See the [EasyCLA documentation](https://docs.linuxfoundation.org/lfx/easycla/v2-
 2. For first-time contributors, look for `good first issue` labels
 3. Comment on issues you'd like to work on
 4. Ask questions in GitHub issues or discussions
+5. Join the Nephio [SIG-Automation weekly meetings](https://lf-nephio.atlassian.net/wiki/spaces/HOME/pages/7077958/SIG+Automation)
 
 ## Resources
 
