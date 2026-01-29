@@ -117,7 +117,7 @@ If you have updated existing files, amend the dates on the copyright notice. Ass
 
 ```bash
 git add .
-git commit -m "feat: add package validation for lifecycle transitions"
+git commit -sm "feat: add package validation for lifecycle transitions"
 ```
 
 Commit message format:
