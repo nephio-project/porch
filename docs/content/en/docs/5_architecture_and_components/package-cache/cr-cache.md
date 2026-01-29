@@ -103,7 +103,7 @@ Each repository is wrapped in a `cachedRepository` that provides:
 
 ### Background Synchronization
 
-The CR Cache includes a **sync manager** for each repository:
+The CR Cache creates a **sync manager** for each repository:
 
 **Sync process:**
 1. Periodically triggers repository refresh (configurable frequency)
