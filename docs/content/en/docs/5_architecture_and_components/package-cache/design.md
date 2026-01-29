@@ -8,7 +8,7 @@ description: |
 
 ## Cache Interface
 
-The Package Cache provides a unified interface that abstracts the underlying storage mechanism. Both the CR Cache and DB Cache implementations conform to this common interface, allowing the Core Engine to work with either implementation without knowing which is in use.
+The Package Cache provides a unified interface that abstracts the underlying storage mechanism. Both the CR Cache and DB Cache implementations conform to this common interface, allowing the CaDEngine to work with either implementation without knowing which is in use.
 
 **Repository Operations:**
 - Open repository connections from Repository CR specifications
