@@ -52,10 +52,10 @@ External Repositories (Git)
    - **DB Cache**: Stores all package data and metadata in a PostgreSQL database
 
 4. **Background Synchronization**:
-   - Periodically refreshes repository state from external sources
-   - Detects new package revisions and updates
-   - Maintains cache consistency with external repositories
-   - Configurable sync frequency
+   - Periodically refreshes repository state from Git repositories to maintain cache consistency
+   - Detects new, modified, and deleted package revisions
+   - Sends watch events (Added/Modified/Deleted) to notify watchers
+   - Implements configurable per-repository synchronization frequency as specified in the spec of the Repository CRD
 
 5. **Repository Adapter Integration**:
    - Creates repository adapter instances (Git adapter)
