@@ -227,7 +227,7 @@ The CR Cache manages memory usage:
 - Suitable for hundreds of repositories
 - Thousands of package revisions per repository
 - Memory usage proportional to package count
-- For larger deployments, consider DB Cache
+- For larger deployments, consider using the DB Cache
 
 ### Repository Lifecycle
 
