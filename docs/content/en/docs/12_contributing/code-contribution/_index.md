@@ -156,7 +156,7 @@ The EasyCLA bot will prompt you to sign the CLA if you haven't already (see [Bef
 If maintainers request changes:
 
 1. Make the requested changes on your local branch
-2. Commit the changes: `git commit -m "fix: address review feedback"`
+2. Commit the changes: `git commit -sm "fix: address review feedback"`
 3. Push to your fork: `git push origin feature-add-package-validation`
 
 The PR will automatically update with your new commits.
