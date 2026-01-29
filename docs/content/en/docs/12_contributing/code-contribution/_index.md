@@ -95,7 +95,6 @@ If you have added any new golang files, add [this golang copyright header](https
 
 If you have updated existing files, amend the dates on the copyright notice. Assuming you are updating the code in 2026, use the following guide.
 
-| ------------------- | ------------------------ |
 | Existing dates      | New Dates                |
 | ------------------- | ------------------------ |
 | 2026                | 2026                     |
