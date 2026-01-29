@@ -63,7 +63,7 @@ Porch creates:
 1. A **PackageRevision** resource with metadata (name, repository, workspace, lifecycle=Draft)
 2. A **PackageRevisionResources** resource with initial content (Kptfile + any starter resources)
 3. A Git branch, containing the kpt package files, in the `blueprints` repository (if Porch is configured with the
-   [CR cache]({{% relref "../5_architecture_and_components/porch-server/cache/_index.md#cr-cache-explanation" %}}))
+   [CR cache]({{% relref "../5_architecture_and_components/package-cache/cr-cache" %}}))
 
 When you get "packages"/package revisions in Porch:
 

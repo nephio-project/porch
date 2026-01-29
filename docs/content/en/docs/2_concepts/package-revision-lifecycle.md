@@ -16,9 +16,9 @@ moves through different stages from creation to publication, with approval gates
 ### Draft
 
 A package revision in **Draft** stage is work in progress. It is being actively edited and not ready for deployment. If
-it is being cached by the [CR cache]({{% relref "../5_architecture_and_components/porch-server/cache/index.md#cr-cache-explanation" %}}),
+it is being cached by the [CR cache]({{% relref "../5_architecture_and_components/package-cache/cr-cache.md" %}}),
 its contents are stored in a temporary branch in the Git repository (e.g., `drafts/package-name/workspace`). If it is
-being cached by the [DB cache]({{% relref "../5_architecture_and_components/porch-server/cache/index.md#db-cache-explanation" %}}),
+being cached by the [DB cache]({{% relref "../5_architecture_and_components/package-cache/db-cache.md" %}}),
 its contents are only stored in the database and do not appear in Git at all.
 
 Users have complete freedom in the orchestration operations they can perform on a Draft package revision. They can modify

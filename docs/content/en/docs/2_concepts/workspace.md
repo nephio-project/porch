@@ -61,7 +61,7 @@ Common patterns:
 
 ## Workspaces and Git
 
-When Porch is installed with the [CR cache]({{% relref "../5_architecture_and_components/porch-server/cache/_index.md#cr-cache-explanation" %}}),
+When Porch is installed with the [CR cache]({{% relref "../5_architecture_and_components/package-cache/cr-cache" %}}),
 workspace names form part of the branches in Git:
 
 **Draft package revisions**: Stored in branches named `drafts/<package-path>/<workspace-name>`
