@@ -42,7 +42,7 @@ Once a repository is opened through the cache, the returned Repository interface
 The interface design follows the **Strategy Pattern**, where different caching strategies (CR-based or database-backed) can be swapped without affecting the CaDEngine's operation. This abstraction enables:
 - Deployment flexibility (choose cache based on scale requirements)
 - Testing with mock implementations
-- Future cache implementations without Core Engine changes
+- Future cache implementations without CaDEngine changes
 - Consistent behavior regardless of storage backend
 
 ## Factory Pattern
