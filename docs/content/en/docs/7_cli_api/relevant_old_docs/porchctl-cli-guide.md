@@ -153,7 +153,7 @@ $ porchctl repo register \
   --sync-schedule="0 */2 * * *"
 ```
 
-For more details on configuring authenticated repositories see [Authenticating to Remote Git Repositories]({{% relref "/docs/6_configuration_and_deployments/relevant_old_docs/git-authentication-config.md" %}}).
+For more details on configuring authenticated repositories see [Git Authentication]({{% relref "/docs/6_configuration_and_deployments/configurations/components/porch-server-config/git-authentication" %}}).
 
 The command line flags supported by `porchctl repo register` are:
 
