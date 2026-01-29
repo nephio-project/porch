@@ -17,7 +17,7 @@ The **Custom Resource (CR) Cache** is the default cache implementation in Porch.
 - **Kubernetes-native**: Leverages Kubernetes API and etcd for persistence
 - **Suitable for**: Small to medium deployments with moderate package counts
 - **No external dependencies**: Only requires Kubernetes cluster
-- **Git interaction**: Interacts with Git at every stage of package revision lifecycle
+- **Git interaction**: Interacts with Git at every stage of package revision lifecycle for presistence
 
 ## Implementation Details
 
