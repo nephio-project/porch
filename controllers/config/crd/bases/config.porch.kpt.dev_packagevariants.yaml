@@ -564,12 +564,6 @@ spec:
                 type: array
             type: object
         type: object
-    selectableFields:
-      - jsonPath: .spec.upstream.package
-      - jsonPath: .spec.upstream.repo
-      - jsonPath: .spec.upstream.revision
-      - jsonPath: .spec.downstream.package
-      - jsonPath: .spec.downstream.repo
     served: true
     storage: true
     subresources:

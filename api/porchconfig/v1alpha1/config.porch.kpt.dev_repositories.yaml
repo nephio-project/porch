@@ -25,9 +25,6 @@ spec:
     listKind: RepositoryList
     plural: repositories
     singular: repository
-    shortNames:
-      - repo
-      - repos
   scope: Namespaced
   versions:
   - additionalPrinterColumns:

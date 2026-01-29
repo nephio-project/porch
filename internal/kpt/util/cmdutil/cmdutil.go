@@ -103,11 +103,7 @@ func WriteToOutput(r io.Reader, w io.Writer, outDir string) error {
 func CheckDirectoryNotPresent(outDir string) error {
 	_, err := os.Stat(outDir)
 	if err == nil || os.IsExist(err) {
-		f, _ := os.Open(outDir)
-		if _, err = f.Readdirnames(1); err != io.EOF {
-			return fmt.Errorf("directory %q already exists and is not empty. Please provide an empty directory and retry", outDir)
-		}
-		return nil
+		return fmt.Errorf("directory %q already exists, please delete the directory and retry", outDir)
 	}
 	if !os.IsNotExist(err) {
 		return err

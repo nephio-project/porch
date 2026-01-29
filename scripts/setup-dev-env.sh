@@ -22,7 +22,7 @@ self_dir="$(dirname "$(readlink -f "$0")")"
 # Start timing
 start_time=$(date +%s)
 
-porch_cluster_name=${PORCH_TEST_CLUSTER:-porch}
+porch_cluster_name=${PORCH_TEST_CLUSTER:-porch-test}
 git_repo_name=${GIT_REPO_NAME:-$porch_cluster_name}
 install_gitea=true
 
@@ -51,26 +51,21 @@ git_root="$(readlink -f "${self_dir}/..")"
 cd "${git_root}"
 
 function h1() {
-  MESSAGE=" $* "
-  TERMINAL_WIDTH=$(tput -T xterm cols)
-  STAR_COUNT=$((((TERMINAL_WIDTH - ${#MESSAGE}) / 2) - 2))
-  STAR_SEGMENT="$(head -c "$STAR_COUNT" < /dev/zero | tr "\0" "-")"
-  STAR_LINE="$STAR_SEGMENT<$MESSAGE>$STAR_SEGMENT"
   echo
-  echo -e "$STAR_LINE"
+  echo "** $*"
   echo 
 }
 
 ##############################################
 # check if git user.name is set in your environment
 if ! git config --global user.name > /dev/null ; then
-  cat << ENDOFMESG
+  cat << ENDOFEMSG
 Please set the user.name and user.email global configuration values in your git environment.
 This is needed for porch tests to run correctly. 
 E.g:
   git config --global user.name "My Name"
   git config --global user.email "myemail@example.com"
-ENDOFMESG
+ENDOFEMSG
   exit 128
 fi
 

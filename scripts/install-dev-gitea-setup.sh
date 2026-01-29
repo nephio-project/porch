@@ -19,8 +19,7 @@ set -u # Must predefine variables
 set -o pipefail # Check errors in piped commands
  
 self_dir="$(dirname "$(readlink -f "$0")")"
- 
-git_repo_name=${1:-porch}
+git_repo_name=${1:-porch-test}
 gitea_ip=${2:-172.18.255.200}  # should be from the address range in deployments/local/metallb-conf.yaml
  
 git_root="$(readlink -f "${self_dir}/..")"
