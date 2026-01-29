@@ -221,5 +221,5 @@ git log --graph --oneline --all
 
 If you encounter Git issues:
 - Check existing GitHub issues
-- Ask in Nephio Slack #porch channel
+- Ask in the Nephio Slack #porch channel
 - Consult [GitHub documentation](https://docs.github.com)
