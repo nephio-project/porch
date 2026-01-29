@@ -92,7 +92,6 @@ Each repository is wrapped in a `cachedRepository` that provides:
 
 **Cache invalidation:**
 - Automatic on repository version change
-- Manual via `Refresh()` call
 - Full flush on package deletion
 - Incremental updates on package revision changes
 
