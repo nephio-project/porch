@@ -5,7 +5,7 @@ weight: 1
 description: How to contribute to the Porch codebase
 ---
 
-This guide explains how to set up your Git environment and contribute code to Porch using a fork-based workflow.
+This guide explains how to set up your Git environment and contribute code to Porch.
 
 ## Fork the Repository
 
