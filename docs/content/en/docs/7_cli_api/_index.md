@@ -13,7 +13,7 @@ This section provides reference documentation for interacting with Porch through
 
 The `porchctl` command-line tool provides commands for managing Porch repositories and packages. It communicates with the Porch API server to perform operations like:
 
-- Registering and managing Git/OCI repositories
+- Registering and managing Git repositories
 - Creating, cloning, and copying packages
 - Managing package lifecycle from creation to deletion (Draft → Proposed → Published -> Deletion-Proposed)
 - Pulling and pushing package content
@@ -65,15 +65,17 @@ The complete field-level reference for Porch's Aggregated API Resources and Kube
 The `porch.kpt.dev/v1alpha1` resources are Aggregated API Resources (not Custom Resources defined in a CRD) whilst the `config.porch.kpt.dev/v1alpha1` resources are Custom Resources.
 {{% /alert %}}
 
+The following lists provide a summary of the resources documented in the generated API and CRD guide:
+
 **porch.kpt.dev/v1alpha1:**
 
 - **PackageRevision** - Represents a specific revision of a package with metadata and lifecycle state
-- **PackageRevisionResources** - Contains the actual file contents of a package revision
-- **PorchPackage** - Represents a package in a repository
+- **PackageRevisionResources** - Contains a list of the files in a package revision, there is one PackageRevisionResources resource for each PackageRevision resource
+- **PorchPackage** - Represents a package in a repository, with one or more PackageRevision resources in each package
 
 **config.porch.kpt.dev/v1alpha1:**
 
-- **Repository** - Connects Porch to Git or OCI repositories
+- **Repository** - Connects Porch to Git repositories
 - **PackageVariant** - Automates package cloning and updates
 - **PackageVariantSet** - Manages sets of package variants
 
@@ -83,6 +85,11 @@ The API reference provides detailed information about:
 - Validation rules and constraints
 - Nested object structures
 - Enum values and options
+
+**Quick Links:**
+
+- [Aggregated API Resources]({{% relref "api-ref" %}})
+- [Custom Resources]({{% relref "crd-ref" %}})
 
 ## When to Use CLI vs API
 

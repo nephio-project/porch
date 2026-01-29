@@ -5,14 +5,6 @@ weight: 2
 description: API reference documentation for Porch resources
 ---
 
-# API Reference
-
-## Packages
-- [porch.kpt.dev/v1alpha1](#porchkptdevv1alpha1)
-- [config.porch.kpt.dev/v1alpha1](#configporchkptdevv1alpha1)
-
----
-
 ## Packages
 - [porch.kpt.dev/v1alpha1](#porchkptdevv1alpha1)
 
@@ -20,16 +12,9 @@ description: API reference documentation for Porch resources
 ## porch.kpt.dev/v1alpha1
 
 
-### Resource Types
-- [PackageRevision](#packagerevision)
-- [PackageRevisionResources](#packagerevisionresources)
-- [PorchPackage](#porchpackage)
-
 
 
 #### Condition
-
-
 
 
 
@@ -48,8 +33,6 @@ _Appears in:_
 
 #### ConditionStatus
 
-_Underlying type:_ _string_
-
 
 
 
@@ -65,8 +48,6 @@ _Appears in:_
 
 
 #### Field
-
-
 
 Field references a field in a resource
 
@@ -84,8 +65,6 @@ _Appears in:_
 
 #### File
 
-
-
 File references a file containing a resource
 
 
@@ -101,14 +80,12 @@ _Appears in:_
 
 #### GitLock
 
-
-
 GitLock is the resolved locator for a package on Git.
 
 
 
 _Appears in:_
-- [UpstreamLock](#upstreamlock)
+- [Locator](#locator)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -119,8 +96,6 @@ _Appears in:_
 
 
 #### GitPackage
-
-
 
 
 
@@ -137,9 +112,22 @@ _Appears in:_
 | `secretRef` _[SecretRef](#secretref)_ | Reference to secret containing authentication credentials. Optional. |  |  |
 
 
+#### Locator
+
+Locator is a resolved locator for the last fetch of the package.
+
+
+
+_Appears in:_
+- [PackageRevisionStatus](#packagerevisionstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `type` _[OriginType](#origintype)_ | Type is the type of origin. |  |  |
+| `git` _[GitLock](#gitlock)_ | Git is the resolved locator for a package on Git. |  |  |
+
+
 #### NameMeta
-
-
 
 NameMeta contains name information.
 
@@ -156,20 +144,16 @@ _Appears in:_
 
 #### OriginType
 
-_Underlying type:_ _string_
-
 
 
 
 
 _Appears in:_
-- [UpstreamLock](#upstreamlock)
+- [Locator](#locator)
 
 
 
 #### PackageCloneTaskSpec
-
-
 
 
 
@@ -189,8 +173,6 @@ _Appears in:_
 
 
 
-
-
 _Appears in:_
 - [Task](#task)
 
@@ -200,8 +182,6 @@ _Appears in:_
 
 
 #### PackageInitTaskSpec
-
-
 
 PackageInitTaskSpec defines the package initialization task.
 
@@ -215,12 +195,10 @@ _Appears in:_
 | `subpackage` _string_ | `Subpackage` is a directory path to a subpackage to initialize. If unspecified, the main package will be initialized. |  |  |
 | `description` _string_ | `Description` is a short description of the package. |  |  |
 | `keywords` _string array_ | `Keywords` is a list of keywords describing the package. |  |  |
-| `site` _string_ | `Site is a link to page with information about the package. |  |  |
+| `site` _string_ | `Site` is a link to page with information about the package. |  |  |
 
 
 #### PackageMergeStrategy
-
-_Underlying type:_ _string_
 
 
 
@@ -237,28 +215,37 @@ _Appears in:_
 | `copy-merge` |  |
 
 
+#### PackageMetadata
+
+
+
+
+
+_Appears in:_
+- [PackageRevisionSpec](#packagerevisionspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `labels` _object (keys:string, values:string)_ |  |  |  |
+| `annotations` _object (keys:string, values:string)_ |  |  |  |
+
+
 #### PackageRevision
-
-
 
 PackageRevision
 
 
 
-
+_Appears in:_
+- [PackageRevisionList](#packagerevisionlist)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `apiVersion` _string_ | `porch.kpt.dev/v1alpha1` | | |
-| `kind` _string_ | `PackageRevision` | | |
-| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
 | `spec` _[PackageRevisionSpec](#packagerevisionspec)_ |  |  |  |
 | `status` _[PackageRevisionStatus](#packagerevisionstatus)_ |  |  |  |
 
 
 #### PackageRevisionLifecycle
-
-_Underlying type:_ _string_
 
 
 
@@ -275,9 +262,9 @@ _Appears in:_
 | `DeletionProposed` |  |
 
 
+
+
 #### PackageRevisionRef
-
-
 
 PackageRevisionRef is a reference to a package revision.
 
@@ -295,26 +282,22 @@ _Appears in:_
 
 #### PackageRevisionResources
 
-
-
 PackageRevisionResources
 
 
 
-
+_Appears in:_
+- [PackageRevisionResourcesList](#packagerevisionresourceslist)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `apiVersion` _string_ | `porch.kpt.dev/v1alpha1` | | |
-| `kind` _string_ | `PackageRevisionResources` | | |
-| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
 | `spec` _[PackageRevisionResourcesSpec](#packagerevisionresourcesspec)_ |  |  |  |
 | `status` _[PackageRevisionResourcesStatus](#packagerevisionresourcesstatus)_ |  |  |  |
 
 
+
+
 #### PackageRevisionResourcesSpec
-
-
 
 PackageRevisionResourcesSpec represents resources (as ResourceList serialized as yaml string) of the PackageRevision.
 
@@ -334,8 +317,6 @@ _Appears in:_
 
 #### PackageRevisionResourcesStatus
 
-
-
 PackageRevisionResourcesStatus represents state of the rendered package resources.
 
 
@@ -350,8 +331,6 @@ _Appears in:_
 
 #### PackageRevisionSpec
 
-
-
 PackageRevisionSpec defines the desired state of PackageRevision
 
 
@@ -365,15 +344,14 @@ _Appears in:_
 | `repository` _string_ | RepositoryName is the name of the Repository object containing this package. |  |  |
 | `workspaceName` _string_ | WorkspaceName is a short, unique description of the changes contained in this package revision. |  |  |
 | `revision` _integer_ | Revision identifies the version of the package. |  |  |
-| `parent` _[ParentReference](#parentreference)_ | Parent references a package that provides resources to us |  |  |
+| `parent` _[ParentReference](#parentreference)_ | Deprecated. Parent references a package that provides resources to us |  |  |
 | `lifecycle` _[PackageRevisionLifecycle](#packagerevisionlifecycle)_ |  |  |  |
 | `tasks` _[Task](#task) array_ | The task slice holds zero or more tasks that describe the operations<br />performed on the packagerevision. The are essentially a replayable history<br />of the packagerevision,<br />Packagerevisions that were not created in Porch may have an<br />empty task list.<br />Packagerevisions created and managed through Porch will always<br />have either an Init, Edit, or a Clone task as the first entry in their<br />task list. This represent packagerevisions created from scratch, based<br />a copy of a different revision in the same package, or a packagerevision<br />cloned from another package.<br />Each change to the packagerevision will result in a correspondig<br />task being added to the list of tasks. It will describe the operation<br />performed and will have a corresponding entry (commit or layer) in git<br />or oci.<br />The task slice describes the history of the packagerevision, so it<br />is an append only list (We might introduce some kind of compaction in the<br />future to keep the number of tasks at a reasonable number). |  |  |
 | `readinessGates` _[ReadinessGate](#readinessgate) array_ |  |  |  |
+| `packageMetadata` _[PackageMetadata](#packagemetadata)_ |  |  |  |
 
 
 #### PackageRevisionStatus
-
-
 
 PackageRevisionStatus defines the observed state of PackageRevision
 
@@ -384,7 +362,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `upstreamLock` _[UpstreamLock](#upstreamlock)_ | UpstreamLock identifies the upstream data for this package. |  |  |
+| `upstreamLock` _[Locator](#locator)_ | UpstreamLock identifies the upstream data for this package. |  |  |
+| `selfLock` _[Locator](#locator)_ | SelfLock identifies the location of the current package's data |  |  |
 | `publishedBy` _string_ | PublishedBy is the identity of the user who approved the packagerevision. |  |  |
 | `publishTimestamp` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)_ | PublishedAt is the time when the packagerevision were approved. |  |  |
 | `deployment` _boolean_ | Deployment is true if this is a deployment package (in a deployment repository). |  |  |
@@ -392,8 +371,6 @@ _Appears in:_
 
 
 #### PackageSpec
-
-
 
 PackageSpec defines the desired state of Package
 
@@ -409,8 +386,6 @@ _Appears in:_
 
 
 #### PackageStatus
-
-
 
 PackageStatus defines the observed state of Package
 
@@ -430,8 +405,6 @@ _Appears in:_
 
 
 
-
-
 _Appears in:_
 - [Task](#task)
 
@@ -445,9 +418,7 @@ _Appears in:_
 
 #### ParentReference
 
-
-
-ParentReference is a reference to a parent package
+Deprecated. ParentReference is a reference to a parent package
 
 
 
@@ -463,26 +434,22 @@ _Appears in:_
 
 #### PorchPackage
 
-
-
 Package
 
 
 
-
+_Appears in:_
+- [PorchPackageList](#porchpackagelist)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `apiVersion` _string_ | `porch.kpt.dev/v1alpha1` | | |
-| `kind` _string_ | `PorchPackage` | | |
-| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
 | `spec` _[PackageSpec](#packagespec)_ |  |  |  |
 | `status` _[PackageStatus](#packagestatus)_ |  |  |  |
 
 
+
+
 #### ReadinessGate
-
-
 
 
 
@@ -498,8 +465,6 @@ _Appears in:_
 
 #### RenderStatus
 
-
-
 RenderStatus represents the result of performing render operation
 on a package resources.
 
@@ -511,14 +476,13 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
+| `result` _[ResultList](#resultlist)_ |  |  |  |
 | `error` _string_ |  |  |  |
 
 
 
 
 #### RepositoryType
-
-_Underlying type:_ _string_
 
 
 
@@ -535,8 +499,6 @@ _Appears in:_
 
 #### ResourceIdentifier
 
-
-
 ResourceIdentifier contains the information needed to uniquely
 identify a resource in a cluster.
 
@@ -551,11 +513,25 @@ _Appears in:_
 | `namespace` _string_ | Namespace is the metadata.namespace field of a Resource |  |  |
 
 
+#### Result
+
+Result contains the structured result from an individual function
+
+
+
+_Appears in:_
+- [ResultList](#resultlist)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `image` _string_ | Image is the full name of the image that generates this result<br />Image and Exec are mutually exclusive |  |  |
+| `exec` _string_ | ExecPath is the the absolute os-specific path to the executable file<br />If user provides an executable file with commands, ExecPath should<br />contain the entire input string. |  |  |
+| `stderr` _string_ | Enable this once test harness supports filepath based assertions.<br />Pkg is OS specific Absolute path to the package.<br />Pkg string `yaml:"pkg,omitempty"`<br />Stderr is the content in function stderr |  |  |
+| `exitCode` _integer_ | ExitCode is the exit code from running the function |  |  |
+| `results` _[ResultItem](#resultitem) array_ | Results is the list of results for the function |  |  |
 
 
 #### ResultItem
-
-
 
 ResultItem defines a validation result
 
@@ -574,9 +550,22 @@ _Appears in:_
 | `tags` _object (keys:string, values:string)_ | Tags is an unstructured key value map stored with a result that may be set<br />by external tools to store and retrieve arbitrary metadata |  |  |
 
 
+#### ResultList
+
+ResultList contains aggregated results from multiple functions
+
+
+
+_Appears in:_
+- [RenderStatus](#renderstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `exitCode` _integer_ | ExitCode is the exit code of kpt command |  |  |
+| `items` _[Result](#result) array_ | Items contain a list of function result |  |  |
+
+
 #### SecretRef
-
-
 
 
 
@@ -593,8 +582,6 @@ _Appears in:_
 
 
 #### Task
-
-
 
 
 
@@ -617,8 +604,6 @@ _Appears in:_
 
 #### TaskType
 
-_Underlying type:_ _string_
-
 
 
 
@@ -637,26 +622,7 @@ _Appears in:_
 | `` |  |
 
 
-#### UpstreamLock
-
-
-
-UpstreamLock is a resolved locator for the last fetch of the package.
-
-
-
-_Appears in:_
-- [PackageRevisionStatus](#packagerevisionstatus)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `type` _[OriginType](#origintype)_ | Type is the type of origin. |  |  |
-| `git` _[GitLock](#gitlock)_ | Git is the resolved locator for a package on Git. |  |  |
-
-
 #### UpstreamPackage
-
-
 
 UpstreamRepository repository may be specified directly or by referencing another Repository resource.
 
@@ -667,195 +633,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `type` _[RepositoryType](#repositorytype)_ | Type of the repository (i.e. git, OCI). If empty, `upstreamRef` will be used. |  |  |
+| `type` _[RepositoryType](#repositorytype)_ | Type of the repository (i.e. git). If empty, `upstreamRef` will be used. |  |  |
 | `git` _[GitPackage](#gitpackage)_ | Git upstream package specification. Required if `type` is `git`. Must be unspecified if `type` is not `git`. |  |  |
 | `upstreamRef` _[PackageRevisionRef](#packagerevisionref)_ | UpstreamRef is the reference to the package from a registered repository rather than external package. |  |  |
-
-
-
----
-
-## Packages
-- [config.porch.kpt.dev/v1alpha1](#configporchkptdevv1alpha1)
-
-
-## config.porch.kpt.dev/v1alpha1
-
-Package v1alpha1 contains API Schema definitions for the v1alpha1 API group
-
-### Resource Types
-- [Repository](#repository)
-
-
-
-
-
-#### GitRepository
-
-
-
-GitRepository describes a Git repository.
-
-
-
-_Appears in:_
-- [RepositorySpec](#repositoryspec)
-- [UpstreamRepository](#upstreamrepository)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `repo` _string_ | Address of the Git repository, for example:<br />  `https://github.com/GoogleCloudPlatform/blueprints.git` |  |  |
-| `branch` _string_ | Name of the branch containing the packages. Finalized packages will be committed to this branch (if the repository allows write access). If unspecified, defaults to "main". | main | MinLength: 1 <br /> |
-| `createBranch` _boolean_ | CreateBranch specifies if Porch should create the package branch if it doesn't exist. |  |  |
-| `directory` _string_ | Directory within the Git repository where the packages are stored. A subdirectory of this directory containing a Kptfile is considered a package. If unspecified, defaults to root directory. |  |  |
-| `secretRef` _[SecretRef](#secretref)_ | Reference to secret containing authentication credentials. |  |  |
-| `author` _string_ | Author to use for commits |  |  |
-| `email` _string_ | Email to use for commits |  |  |
-
-
-#### Repository
-
-
-
-Repository
-
-
-
-
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `apiVersion` _string_ | `config.porch.kpt.dev/v1alpha1` | | |
-| `kind` _string_ | `Repository` | | |
-| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
-| `spec` _[RepositorySpec](#repositoryspec)_ |  |  |  |
-| `status` _[RepositoryStatus](#repositorystatus)_ |  |  |  |
-
-
-#### RepositoryContent
-
-_Underlying type:_ _string_
-
-
-
-
-
-_Appears in:_
-- [RepositorySpec](#repositoryspec)
-
-| Field | Description |
-| --- | --- |
-| `Package` |  |
-
-
-#### RepositoryRef
-
-
-
-RepositoryRef identifies a reference to a Repository resource.
-
-
-
-_Appears in:_
-- [UpstreamRepository](#upstreamrepository)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `name` _string_ | Name of the Repository resource referenced. |  |  |
-
-
-#### RepositorySpec
-
-
-
-RepositorySpec defines the desired state of Repository
-
-Notes:
-  - deployment repository - in KRM API ConfigSync would be configured directly? (or via this API)
-
-
-
-_Appears in:_
-- [Repository](#repository)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `description` _string_ | User-friendly description of the repository |  |  |
-| `deployment` _boolean_ | The repository is a deployment repository; final packages in this repository are deployment ready. |  |  |
-| `type` _[RepositoryType](#repositorytype)_ | Type of the repository (i.e. git, OCI) |  |  |
-| `content` _[RepositoryContent](#repositorycontent)_ | The Content field is deprecated, please do not specify it in new manifests.<br />For partial backward compatibility it is still recognized, but its only valid value is "Package", and if not specified its default value is also "Package". | Package |  |
-| `sync` _[RepositorySync](#repositorysync)_ | Repository sync/reconcile details |  |  |
-| `git` _[GitRepository](#gitrepository)_ | Git repository details. Required if `type` is `git`. Ignored if `type` is not `git`. |  |  |
-
-
-#### RepositoryStatus
-
-
-
-RepositoryStatus defines the observed state of Repository
-
-
-
-_Appears in:_
-- [Repository](#repository)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#condition-v1-meta) array_ | Conditions describes the reconciliation state of the object. |  |  |
-
-
-#### RepositorySync
-
-
-
-
-
-
-
-_Appears in:_
-- [RepositorySpec](#repositoryspec)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `runOnceAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)_ | Value in metav1.Time format to indicate when the repository should be synced once outside the periodic cron based reconcile loop. |  |  |
-| `schedule` _string_ | Cron value to indicate when the repository should be synced periodically. Example: `*/10 * * * *` to sync every 10 minutes. |  |  |
-
-
-#### RepositoryType
-
-_Underlying type:_ _string_
-
-
-
-
-
-_Appears in:_
-- [RepositorySpec](#repositoryspec)
-- [UpstreamRepository](#upstreamrepository)
-
-| Field | Description |
-| --- | --- |
-| `git` |  |
-| `oci` |  |
-
-
-#### SecretRef
-
-
-
-
-
-
-
-_Appears in:_
-- [GitRepository](#gitrepository)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `name` _string_ | Name of the secret. The secret is expected to be located in the same namespace as the resource containing the reference. |  |  |
-
-
-
-
 
 

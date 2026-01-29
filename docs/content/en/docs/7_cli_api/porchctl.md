@@ -19,7 +19,7 @@ These flags are available for all porchctl commands:
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--kubeconfig string` | Path to kubeconfig file. Only required if out-of-cluster. | |
+| `--kubeconfig string` | Path to kubeconfig file. Only required if out-of-cluster. Can also be set via `KUBECONFIG` environment variable. | |
 | `--log-flush-frequency duration` | Maximum seconds between log flushes | `5s` |
 | `--truncate-output` | Enable output truncation | `true` |
 | `-v, --v Level` | Log level verbosity | |
@@ -57,12 +57,10 @@ These flags are available for all `repo` subcommands:
 | `--cluster string` | Name of the kubeconfig cluster to use |
 | `--context string` | Name of the kubeconfig context to use |
 | `--disable-compression` | Opt-out of response compression |
-| `--kubeconfig string` | Path to kubeconfig file |
 | `-n, --namespace string` | Namespace scope for this request |
 | `-s, --server string` | Address and port of Kubernetes API server |
 | `--tls-server-name string` | Server name for certificate validation |
 | `--user string` | Name of the kubeconfig user to use |
-| `-v, --v Level` | Log level verbosity |
 
 ---
 
@@ -79,7 +77,7 @@ porchctl repo reg REPOSITORY [flags]
 
 **Arguments:**
 
-- `REPOSITORY` - URI for the repository. Can be a Git repository URL or OCI repository (with `oci://` prefix).
+- `REPOSITORY` - URI for the repository. Can be a Git repository URL.
 
 **Flags:**
 
@@ -320,7 +318,6 @@ porchctl rpkg clone SOURCE_PACKAGE NAME [flags]
 **Arguments:**
 
 - `SOURCE_PACKAGE` - Source package to clone. Can be:
-  - OCI: `oci://oci-repository/package-name`
   - Git: `https://git-repository.git/package-name`
   - Package: `example-repo.example-package-name.example-workspace`
 - `NAME` - Name of the new package.
@@ -331,7 +328,7 @@ porchctl rpkg clone SOURCE_PACKAGE NAME [flags]
 |------|-------------|---------|
 | `--repository string` | Downstream repository for cloned package | (required) |
 | `--workspace string` | Workspace name for new package | `v1` |
-| `--directory string` | Directory within upstream repository (Git/OCI only) | |
+| `--directory string` | Directory within upstream repository (Git only) | |
 | `--ref string` | Branch, tag, or SHA in upstream repository (Git only) | |
 | `--strategy string` | Update strategy: `resource-merge`, `fast-forward`, `force-delete-replace`, `copy-merge` | `resource-merge` |
 | `--secret-ref string` | Secret name for basic auth (Git only) | |
@@ -567,56 +564,6 @@ porchctl rpkg reject example-repo.example-package-name.example-workspace \
 
 ---
 
-### rpkg del
-
-Delete a package revision.
-
-**Aliases:** `del`, `delete`
-
-**Usage:**
-```bash
-porchctl rpkg del PACKAGE [...] [flags]
-```
-
-**Arguments:**
-
-- `PACKAGE` - Kubernetes name(s) of package revision(s). Multiple packages can be space-separated.
-
-**Examples:**
-
-```bash
-# Delete package revision
-porchctl rpkg del example-repo.example-package-name.example-workspace \
-  -n example-namespace
-```
-
----
-
-### rpkg propose-delete
-
-Propose deletion of a published package revision.
-
-**Aliases:** `propose-delete`, `propose-del`
-
-**Usage:**
-```bash
-porchctl rpkg propose-delete PACKAGE [...] [flags]
-```
-
-**Arguments:**
-
-- `PACKAGE` - Kubernetes name(s) of package revision(s). Multiple packages can be space-separated.
-
-**Examples:**
-
-```bash
-# Propose deletion of published package
-porchctl rpkg propose-delete example-repo.example-package-name.example-workspace \
-  --namespace=example-namespace
-```
-
----
-
 ### rpkg upgrade
 
 Create a new revision upgrading a downstream package to a newer upstream version.
@@ -656,6 +603,63 @@ porchctl rpkg upgrade deployment.some-package.v1 \
   --revision=3 \
   --workspace=v2 \
   --strategy=copy-merge
+```
+
+---
+
+### rpkg propose-delete
+
+Propose deletion of a published package revision.
+
+**Aliases:** `propose-delete`, `propose-del`
+
+**Usage:**
+```bash
+porchctl rpkg propose-delete PACKAGE [...] [flags]
+```
+
+**Arguments:**
+
+- `PACKAGE` - Kubernetes name(s) of package revision(s). Multiple packages can be space-separated.
+
+**Examples:**
+
+```bash
+# Propose deletion of published package
+porchctl rpkg propose-delete example-repo.example-package-name.example-workspace \
+  --namespace=example-namespace
+```
+
+---
+
+
+### rpkg del
+
+Delete a package revision.
+
+{{% alert color="primary" title="Note" %}}
+To delete a **published** package revision, it must first be in the `DeletionProposed` lifecycle state.
+
+**Draft** and **Proposed** package revisions can be deleted directly without approval.
+{{% /alert %}}
+
+**Aliases:** `del`, `delete`
+
+**Usage:**
+```bash
+porchctl rpkg del PACKAGE [...] [flags]
+```
+
+**Arguments:**
+
+- `PACKAGE` - Kubernetes name(s) of package revision(s). Multiple packages can be space-separated.
+
+**Examples:**
+
+```bash
+# Delete package revision
+porchctl rpkg del example-repo.example-package-name.example-workspace \
+  -n example-namespace
 ```
 
 ---

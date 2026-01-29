@@ -1,0 +1,18 @@
+processor:
+  # Exclude List types from documentation
+  ignoreTypes:
+    # Exclude OCI-related types (not supported in Porch)
+    - "OciPackage$"
+    - "OciRepository$"
+    - "ObjectMeta$"
+  # Exclude common Kubernetes metadata fields
+  ignoreFields:
+    - "TypeMeta$"
+    - "ObjectMeta$"
+    - "ListMeta$"
+    # Exclude OCI-related fields (not supported in Porch)
+    - "^oci$"
+
+render:
+  # Kubernetes version for API documentation links
+  kubernetesVersion: 1.28
