@@ -13,7 +13,7 @@ The **Package Cache** is the intermediary layer between the CaD(configuration as
 The cache is responsible for:
 
 - **Repository Management**: Opening, closing, and tracking repository connections
-- **Data Caching**: Storing repository metadata, package revisions, and package resources
+- **Data Caching**: Storing repository metadata, package revisions, and package revision resources
 - **Background Synchronization**: Periodically refreshing cached data from external repositories
 - **Repository Abstraction**: Providing a unified interface regardless of storage backend (Git)
 - **Connection Pooling**: Managing connections to external repositories efficiently
