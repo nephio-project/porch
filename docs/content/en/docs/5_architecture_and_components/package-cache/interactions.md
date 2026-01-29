@@ -293,151 +293,19 @@ The cache is transparent to the Core Engine:
 
 ## Background Synchronization
 
-The cache synchronizes with external repositories in the background:
+The cache uses a SyncManager to synchronize with external repositories in the background. Each repository gets its own SyncManager instance that:
 
-### SyncManager Integration
+- Runs periodic sync based on configured frequency or cron schedule
+- Handles one-time sync requests via `spec.sync.runOnceAt`
+- Detects changes (added/modified/deleted package revisions)
+- Updates cache and sends watch notifications
+- Updates Repository CR status conditions
 
-```
-Cached Repository
-        ↓
-  Create SyncManager
-        ↓
-  Start Goroutines
-        ↓
-  ┌─────┴─────┐
-  ↓           ↓
-Periodic   One-time
- Sync       Sync
-  ↓           ↓
-  └─────┬─────┘
-        ↓
-  SyncOnce()
-        ↓
-  Fetch from Git
-        ↓
-  Compare with Cache
-        ↓
-  Update Cache
-        ↓
-  Notify Changes
-        ↓
-  Update Condition
-```
+**Manual sync:**
+- Use `porchctl repo sync <repository-name> -n <namespace>` for immediate sync
+- Or set `spec.sync.runOnceAt` in Repository CR to future timestamp
 
-**SyncManager lifecycle:**
-1. **Created** when repository opened
-2. **Started** with sync frequency configuration
-3. **Runs** two goroutines (periodic and one-time)
-4. **Calls** SyncOnce on cached repository
-5. **Stopped** when repository closed
-
-**Sync frequency sources:**
-- **Default frequency**: Configured at Porch server startup
-- **Cron schedule**: Repository CR can specify custom cron
-- **One-time sync**: Repository CR can schedule single sync
-
-### Change Detection and Notification
-
-```
-Background Sync
-        ↓
-  Fetch Git State
-        ↓
-  Compare with Cache
-        ↓
-  Identify Changes
-        ↓
-  ┌─────┴─────┬─────────┐
-  ↓           ↓         ↓
-Added      Modified  Deleted
-  ↓           ↓         ↓
-  └─────┬─────┴─────────┘
-        ↓
-  Update Cache
-        ↓
-  Notify Watchers
-        ↓
-  Update Condition
-```
-
-**Change notification flow:**
-1. **Sync detects** changes in Git repository
-2. **Cache updates** internal state
-3. **Notifier called** with event type and package revision
-4. **Watcher manager** delivers to matching watchers
-5. **API server** sends watch events to clients
-
-**Event types:**
-- **Added**: New package revision found in Git
-- **Modified**: Existing package revision changed
-- **Deleted**: Package revision removed from Git
-
-### Condition Management
-
-```
-Sync Operation
-      ↓
-Set "sync-in-progress"
-      ↓
-Update Repository CR
-      ↓
-Perform Sync
-      ↓
-Success? ──Yes──> Set "ready"
-      │
-      No
-      ↓
-Set "error" + Message
-      ↓
-Update Repository CR
-```
-
-**Condition states:**
-- **sync-in-progress**: Sync actively running
-- **ready**: Sync completed successfully
-- **error**: Sync failed with error details
-
-**Condition updates:**
-- Set at start of sync operation
-- Updated at end of sync operation
-- Include error messages on failure
-- Include next sync time on success
-- Visible in Repository CR status
-
-### Error Handling
-
-**Sync errors:**
-
-```
-Sync Failure
-    ↓
-Log Error
-    ↓
-Update Condition
-    ↓
-Keep Stale Cache
-    ↓
-Retry Next Cycle
-```
-
-**Error behavior:**
-- Sync errors logged with context
-- Repository condition updated with error
-- Cache remains available with stale data
-- Operations continue with warning
-- Automatic retry on next sync cycle
-
-**Adapter errors:**
-- Git connection failures
-- Authentication errors
-- Network timeouts
-- Invalid repository configuration
-
-**Recovery:**
-- Transient errors may resolve on retry
-- Persistent errors require configuration fix
-- Error details available in Repository CR status
-- Manual refresh can force retry
+For detailed synchronization architecture, see [Repository Synchronization](functionality/repository-synchronization).
 
 ## Watcher Notification Integration
 

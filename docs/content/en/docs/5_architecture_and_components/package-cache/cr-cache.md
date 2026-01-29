@@ -92,7 +92,6 @@ Each repository is wrapped in a `cachedRepository` that provides:
 
 **Cache invalidation:**
 - Automatic on repository version change
-- Full flush on package deletion
 - Incremental updates on package revision changes
 
 **Concurrency control:**
@@ -254,16 +253,20 @@ The CR Cache manages memory usage:
 
 ### Cache Invalidation
 
-The CR Cache uses **full cache flush** for package deletion:
+The CR Cache uses **selective invalidation** for package revision deletion:
 
-**Package deletion:**
-- Deletes package from Git repository
-- Flushes entire in-memory cache for the repository
-- Forces re-fetch from Git on next access
-- Ensures cache consistency after deletion
+**Package revision deletion:**
+- Deletes specific package revision from Git repository
+- Removes only that revision from in-memory cache
+- Deletes corresponding PackageRev CR
+- Other cached package revisions remain unaffected
+- Recomputes latest revision for the package
+
+**Package deletion (all revisions):**
+- Packages are deleted by removing all their revisions individually
 
 **Implications:**
-- Simple invalidation strategy
-- Temporary performance impact on next access
-- Guarantees no stale data remains
-- Trade-off: rebuilds cache even for unaffected packages
+- Efficient invalidation - only deleted revision removed from cache
+- No full cache rebuild required
+- No performance impact on other package revisions
+- Memory freed immediately for deleted revision

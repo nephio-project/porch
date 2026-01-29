@@ -114,7 +114,7 @@ Operation Request
 - Used when stale data suspected or after errors
 
 **Refresh triggers:**
-- Explicit Refresh() call on repository
+- User-driven one-time sync using `porchctl repo sync` or Repository CR `spec.sync.runOnceAt`
 - Background sync operations
 - Version mismatch detection
 - Recovery from sync errors

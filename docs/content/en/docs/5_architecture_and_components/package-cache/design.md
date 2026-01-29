@@ -104,7 +104,7 @@ Choosing between CR Cache and DB Cache depends on deployment requirements and sc
 **Considerations:**
 - In-memory caching requires re-fetch from Git on restart
 - Memory usage grows with package count
-- Full cache flush on package deletion
+- Selective cache invalidation on package deletion
 - Git must be available for all draft operations
 
 ### When to Use DB Cache
@@ -156,7 +156,6 @@ The two cache implementations differ fundamentally in how they interact with Git
 | **Draft Storage** | Git branches (immediate) | Database (deferred until publish) |
 | **Git Interaction** | Every lifecycle stage | Only on publish and sync |
 | **Sync Scope** | All lifecycles | Published + DeletionProposed only |
-| **Cache Invalidation** | Full flush on deletion | Targeted deletion |
 | **Persistence** | In-memory (re-fetch on restart) | Database (survives restart) |
 | **Git Availability** | Required for all operations | Required only for publish/sync |
 | **Memory Footprint** | Grows with package count | Minimal (database-backed) |

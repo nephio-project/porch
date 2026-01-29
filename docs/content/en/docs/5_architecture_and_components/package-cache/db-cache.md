@@ -273,9 +273,9 @@ The DB Cache uses **targeted deletion** for cache invalidation:
 
 **Implications:**
 - Efficient deletion without affecting other packages
-- No need to rebuild entire cache after deletion
+- No need to rebuild cache after deletion
 - Database handles cleanup automatically
-- Lower overhead compared to full cache flush
+- Minimal overhead for targeted deletion
 
 ### Data Persistence
 

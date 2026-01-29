@@ -136,16 +136,21 @@ Fetch Cached Packages ←→ Fetch External Packages
 - Used as fallback if cron expression invalid
 
 **Cron schedule:**
-- Repository CR can specify custom cron expression
+- Repository CR can specify custom cron expression in `spec.sync.cron`
 - Standard cron format supported
 - Dynamically recalculated when expression changes
 - Invalid expressions fall back to default frequency
 
 **One-time sync:**
-- Repository CR can specify specific time for single sync
+- Repository CR can specify specific time for single sync using `spec.sync.runOnceAt`
 - Scheduled independently of periodic sync
 - Past timestamps skipped automatically
 - Timer cancelled if scheduled time changes
+
+**Manual sync:**
+- Use `porchctl repo sync <repository-name>` to trigger immediate sync
+- Alternatively, update Repository CR `spec.sync.runOnceAt` to a future timestamp
+- Useful for testing or forcing sync after configuration changes
 
 ## Change Detection
 

@@ -34,11 +34,10 @@ For detailed architecture and process flows, see [Caching Behavior](caching-beha
 
 Maintains consistency with external repositories by invalidating stale data through:
 - **Automatic Invalidation**: Background sync and version-based detection
-- **Manual Invalidation**: Explicit refresh and package deletion handling
-- **Invalidation Strategies**: Different approaches for CR Cache (full flush) vs DB Cache (targeted deletion)
+- **Manual Invalidation**: User-driven one-time sync using porchctl or Repository CR update
+- **Invalidation Strategies**: Selective deletion for package revisions
 - **Metadata Cleanup**: Orphaned resource removal and missing metadata creation
 
-For detailed architecture and process flows, see [Cache Invalidation](cache-invalidation).
 
 ## How They Work Together
 
