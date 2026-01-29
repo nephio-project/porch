@@ -48,8 +48,8 @@ External Repositories (Git)
    - Handles repository sharing when multiple Repository CRs point to the same Git repository
 
 3. **Abstraction Layer**: Provides a consistent `Cache` interface with two implementations:
-   - **CR Cache**: Stores metadata in Kubernetes Custom Resources
-   - **DB Cache**: Stores metadata in a PostgreSQL database
+   - **CR Cache**: Caches package data in-memory, stores PackageRev CR metadata in Kubernetes
+   - **DB Cache**: Stores all package data and metadata in a PostgreSQL database
 
 4. **Background Synchronization**:
    - Periodically refreshes repository state from external sources
