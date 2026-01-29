@@ -43,7 +43,7 @@ The cache uses lazy loading and version-based refresh to minimize Git operations
 ### Initial Population
 
 ```
-Core Engine Request
+CaDEngine Request
         ↓
   OpenRepository
         ↓
@@ -61,7 +61,7 @@ Core Engine Request
 ```
 
 **Process:**
-1. **Repository opened** on first access from Core Engine
+1. **Repository opened** on first access from CaDEngine
 2. **Cache initially empty** (lazy loading strategy)
 3. **First operation triggers fetch** from Git repository
 4. **All package revisions loaded** into cache

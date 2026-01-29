@@ -8,7 +8,7 @@ description: |
 
 ## Overview
 
-The Package Cache acts as an intermediary layer that coordinates between the Core Engine, Repository Adapters, and external Git repositories. It provides caching, synchronization, and change notification services while maintaining a clean separation of concerns.
+The Package Cache acts as an intermediary layer that coordinates between the CaDEngine, Repository Adapters, and external Git repositories. It provides caching, synchronization, and change notification services while maintaining a clean separation of concerns.
 
 ### High-Level Architecture
 
@@ -17,7 +17,7 @@ The Package Cache acts as an intermediary layer that coordinates between the Cor
 │                  Package Cache Layer                    │
 │                                                         │
 │  ┌──────────────┐      ┌──────────────┐      ┌──────┐   │
-│  │ Core Engine  │ ───> │    Cache     │ ───> │ Repo │   │
+│  │ CaDEngine    │ ───> │    Cache     │ ───> │ Repo │   │
 │  │   Requests   │      │  Operations  │      │Adapt │   │
 │  │              │      │              │      │ ers  │   │
 │  └──────────────┘      └──────────────┘      └──────┘   │
@@ -66,7 +66,7 @@ Cache OpenRepository
 4. **Wrap adapter** in cachedRepository (CR Cache) or dbRepository (DB Cache)
 5. **Start SyncManager** for background synchronization
 6. **Store in cache map** keyed by namespace/name
-7. **Return wrapped repository** to Core Engine
+7. **Return wrapped repository** to CaDEngine
 
 **Adapter delegation:**
 
@@ -102,7 +102,7 @@ Cached Repository Method
 ### Credential and Configuration Flow
 
 ```
-Core Engine
+CaDEngine
      ↓
 Cache Options
      ↓
@@ -170,14 +170,14 @@ CloseRepository(key)
 - Only closes adapter when last Repository CR deleted
 - Prevents premature connection closure
 
-## Core Engine Access
+## CaDEngine Access
 
-The Core Engine accesses the cache through a clean interface:
+The CaDEngine accesses the cache through a clean interface:
 
 ### Cache Interface Operations
 
 ```
-Core Engine
+CaDEngine
      ↓
 Cache.OpenRepository(spec)
      ↓
@@ -189,20 +189,20 @@ List        Create      Update    Delete
 Packages    Draft       Draft     Package
 ```
 
-**Core Engine workflow:**
+**CaDEngine workflow:**
 
 1. **Open repository** through cache
 2. **Receive repository interface** (cached wrapper)
 3. **Call repository methods** (ListPackageRevisions, CreatePackageRevisionDraft, etc.)
 4. **Cache handles** caching, synchronization, notifications
-5. **Core Engine unaware** of caching implementation details
+5. **CaDEngine unaware** of caching implementation details
 
 ### Request Flow Examples
 
 **List package revisions:**
 
 ```
-Core Engine
+CaDEngine
      ↓
 ListPackageRevisions(filter)
      ↓
@@ -224,7 +224,7 @@ Return Results
 **Create package revision:**
 
 ```
-Core Engine
+CaDEngine
      ↓
 CreatePackageRevisionDraft
      ↓
@@ -236,7 +236,7 @@ Adapter Creates Draft
      ↓
 Return Draft
      ↓
-Core Engine Modifies
+CaDEngine Modifies
      ↓
 ClosePackageRevisionDraft
      ↓
@@ -250,7 +250,7 @@ Notify Watchers
 **Update package revision:**
 
 ```
-Core Engine
+CaDEngine
      ↓
 UpdatePackageRevision
      ↓
@@ -264,7 +264,7 @@ Adapter Opens Draft
      ↓
 Return Draft
      ↓
-Core Engine Modifies
+CaDEngine Modifies
      ↓
 ClosePackageRevisionDraft
      ↓
@@ -275,9 +275,9 @@ Notify Watchers
 
 ### Cache Transparency
 
-The cache is transparent to the Core Engine:
+The cache is transparent to the CaDEngine:
 
-**Core Engine perspective:**
+**CaDEngine perspective:**
 - Calls repository interface methods
 - Receives repository objects
 - Unaware of caching layer

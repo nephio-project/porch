@@ -26,7 +26,7 @@ Once a repository is opened through the cache, the returned Repository interface
 - List package revisions with filtering (repository, package, workspace, lifecycle)
 - Create package revision drafts for modifications
 - Update existing package revisions
-- Close drafts to create immutable package revisions
+- Finalize drafts to transition package revision lifecycle
 - Delete package revisions from repositories
 
 **Package Operations:**

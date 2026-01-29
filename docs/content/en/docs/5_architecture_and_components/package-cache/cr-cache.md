@@ -187,7 +187,7 @@ The CR Cache stores metadata in `PackageRev` CRs:
 apiVersion: internal.porch.kpt.dev/v1alpha1
 kind: PackageRev
 metadata:
-  name: <repo>-<package>-<workspace>
+  name: <repo>.<package>.<workspace>
   namespace: <repository-namespace>
   labels:
     internal.porch.kpt.dev/repository: <repo-name>
