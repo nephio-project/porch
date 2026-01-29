@@ -24,17 +24,17 @@ The cache is responsible for:
 The Package Cache sits between the CaD Engine and Repository Adapters:
 
 ```
-   Core Engine
+   CaDEngine
        ↓
   Package Cache
        ↓
     ┌──┴────┐
     ↓       ↓
-CR Cache  DB Cache  ← Two implementations
+CR Cache  DB Cache 
     ↓       ↓
-Repository Adapters (Git)
+Repository Adapter
         ↓
-External Repositories
+External Repositories (Git)
 ```
 
 **Key architectural responsibilities:**
