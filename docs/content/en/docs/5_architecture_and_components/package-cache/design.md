@@ -39,7 +39,7 @@ Once a repository is opened through the cache, the returned Repository interface
 - Refresh repository state from external sources
 - Close and clean up repository resources
 
-The interface design follows the **Strategy Pattern**, where different caching strategies (CR-based or database-backed) can be swapped without affecting the Core Engine's operation. This abstraction enables:
+The interface design follows the **Strategy Pattern**, where different caching strategies (CR-based or database-backed) can be swapped without affecting the CaDEngine's operation. This abstraction enables:
 - Deployment flexibility (choose cache based on scale requirements)
 - Testing with mock implementations
 - Future cache implementations without Core Engine changes
