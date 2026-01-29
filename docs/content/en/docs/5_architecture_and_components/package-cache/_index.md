@@ -21,7 +21,7 @@ The cache is responsible for:
 
 ## Role in the Architecture
 
-The Package Cache sits between the Core Engine and Repository Adapters:
+The Package Cache sits between the CaD Engine and Repository Adapters:
 
 ```
    Core Engine
