@@ -110,7 +110,6 @@ If you have updated existing files, amend the dates on the copyright notice. Ass
 | 2018-2020,2022-2025 | 2018-2020,2022-2026      |
 | 2018-2020,2022-2024 | 2018-2020,2022-2024,2026 |
 |         ...         |           ...            |
-| ------------------- | ------------------------ |
 
 
 ## Commit Your Changes
