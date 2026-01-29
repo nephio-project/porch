@@ -45,13 +45,13 @@ Cache OpenRepository
         │                      ↓
         │              externalrepo.CreateRepositoryImpl
         │                      ↓
-        │              Repository Adapter (Git/OCI)
+        │              Repository Adapter
         │                      ↓
         │              Wrap in cachedRepository
         │                      ↓
         │              Start SyncManager
         │                      ↓
-        └──────────────> Store in Cache Map
+        └────────────> Store in Cache Map
                                ↓
                         Return Repository
 ```
