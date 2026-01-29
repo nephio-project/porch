@@ -39,7 +39,7 @@ External Repositories (Git)
 
 **Key architectural responsibilities:**
 
-1. **Performance Optimization**: Reduces latency by caching repository data in memory or database rather than fetching from Git on every request
+1. **Performance Optimization**: Reduces latency by caching repository data in memory or a database rather than fetching from Git on every request
 
 2. **Repository Lifecycle Management**: 
    - Opens repositories on first access
