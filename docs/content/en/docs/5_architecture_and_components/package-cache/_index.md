@@ -8,7 +8,7 @@ description: |
 
 ## What is the Package Cache?
 
-The **Package Cache** is the intermediary layer between the Core Engine and external Git repositories. It maintains in-memory or database-backed representations of repositories, packages, and package revisions to improve performance and reduce load on external repository systems.
+The **Package Cache** is the intermediary layer between the CaD(configuration as data) Engine and external Git repositories. It maintains in-memory or database-backed representations of repositories, packages, and package revisions to improve performance and reduce load on external repository systems.
 
 The cache is responsible for:
 
