@@ -147,6 +147,7 @@ The CR Cache computes the latest package revision:
 - Used for filtering and queries
 - Automatically updated when new revisions published
 - Removed from old latest when new latest identified
+- External modifications to this label are rejected by API strategy validation
 
 **Async notification:**
 - When latest revision deleted, async goroutine identifies new latest
