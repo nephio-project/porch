@@ -8,7 +8,7 @@ description: |
 
 ## Overview
 
-The **Custom Resource (CR) Cache** is the default cache implementation in Porch. It stores package metadata using Kubernetes Custom Resources while keeping repository data in memory. This implementation is designed for standard Porch deployments where Kubernetes etcd provides sufficient storage and performance.
+The **Custom Resource (CR) Cache** is the default cache implementation in Porch. It stores package metadata using a Kubernetes Custom Resources while keeping repository data in memory. This implementation is designed for standard Porch deployments where Kubernetes `etcd` provides sufficient storage and performance.
 
 **Key characteristics:**
 
