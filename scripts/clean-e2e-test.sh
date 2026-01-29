@@ -21,7 +21,7 @@ set -o pipefail # Check errors in piped commands
 PORCH_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 cd $PORCH_DIR
 
-kind_cluster="porch-e2e"
+kind_cluster="porch"
 kind delete cluster --name "$kind_cluster" || true
 
 # NOTE: use a fix target dir, as opposed to a temporary one, to be able to check the deployment config after the tests have run

@@ -18,6 +18,7 @@ CACHEDIR=$(CURDIR)/.cache
 export PORCHDIR=$(abspath $(CURDIR))
 
 export DEPLOYPORCHCONFIGDIR ?= $(BUILDDIR)/deploy
+export CODELAUNCHJSON ?= $(CURDIR)/.vscode/launch.json
 DEPLOYKPTCONFIGDIR=$(BUILDDIR)/kpt_pkgs
 
 # Image configuration
@@ -42,7 +43,7 @@ export PORCH_WRAPPER_SERVER_IMAGE ?= porch-wrapper-server
 export TEST_GIT_SERVER_IMAGE ?= test-git-server
 
 # Kind configuration
-KIND_CONTEXT_NAME ?= porch-test
+KIND_CONTEXT_NAME ?= porch
 
 # Include environment file if it exists
 ifneq ("$(wildcard .env)", "")

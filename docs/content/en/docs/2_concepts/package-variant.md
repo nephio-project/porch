@@ -1,5 +1,5 @@
 ---
-title: "Package Variant's"
+title: "Package Variants and Package Variant Sets"
 type: docs
 weight: 8
 description: |
@@ -8,32 +8,34 @@ description: |
 
 ## What are PackageVariants?
 
-**PackageVariant** is a Kubernetes custom resource that automates the creation and maintenance of downstream package revisions based on an upstream package. It establishes a relationship between an upstream (source) package and one or more downstream (target) packages, automatically keeping them synchronized.
+A **PackageVariant** is a Kubernetes custom resource that automates the creation and maintenance of downstream package
+revisions based on an upstream package. It establishes a relationship between an upstream (source) package and one or
+more downstream (target) packages, automatically keeping them synchronized.
 
 PackageVariants enable:
-- Automatic cloning of packages from upstream to downstream repositories
-- Continuous tracking of upstream package changes
-- Automated creation of new downstream revisions when upstream updates
-- Customization of downstream packages through injectors, functions, and package context
+- Automatic cloning of package revisions from upstream to downstream repositories
+- Continuous tracking of package revisions of the upstream package
+- Automated creation of new downstream revisions when a new revision of the upstream is published
+- Customization of downstream package revisions through injectors, functions, and package context
 
 ## How PackageVariants Work
 
-A PackageVariant controller watches for changes to:
+Porch's PackageVariant controller watches for changes to:
 1. The PackageVariant resource itself
 2. The upstream PackageRevision it references
 3. The downstream PackageRevisions it owns
 
 When changes occur, the controller:
 - Creates a new downstream PackageRevision if none exists (via clone task)
-- Updates existing downstream packages when upstream changes (via upgrade task)
+- Updates existing downstream PackageRevisions when upstream changes (via upgrade task)
 - Applies customizations specified in the PackageVariant spec (functions, injectors, labels, annotations)
-- Manages the lifecycle of downstream packages (draft → published)
+- Manages the lifecycle of downstream PackageRevisions (draft → published)
 
 ## PackageVariant Spec
 
 A PackageVariant defines:
 
-**Upstream**: The source package to track
+**Upstream**: The source PackageRevision to track
 ```yaml
 upstream:
   repo: blueprints
@@ -41,36 +43,38 @@ upstream:
   revision: v1  # optional: tracks latest if omitted
 ```
 
-**Downstream**: The target package to create/maintain
+**Downstream**: The target PackageRevision to create/maintain
 ```yaml
 downstream:
   repo: deployments
   package: prod-my-app
 ```
 
-**Customizations**: How to modify the downstream package
+**Customizations**: How to modify the downstream PackageRevision
 - `pipeline`: Additional KRM functions (mutators/validators) to inject into the Kptfile
-- `injectors`: References to cluster objects whose data should be injected into the package
+- `injectors`: References to cluster objects whose data should be injected into the PackageRevision
 - `packageContext`: Key-value data to add/remove from the package-context.yaml ConfigMap
 - `labels` and `annotations`: Metadata to apply to the downstream PackageRevision
 
 **Policies**:
-- `adoptionPolicy`: Whether to adopt existing packages (`adoptNone` or `adoptExisting`)
-- `deletionPolicy`: Whether to delete or orphan downstream packages when PackageVariant is deleted (`delete` or `orphan`)
+- `adoptionPolicy`: Whether to adopt existing PackageRevisions (`adoptNone` or `adoptExisting`)
+- `deletionPolicy`: Whether to delete or orphan downstream PackageRevisions when the PackageVariant is deleted (`delete`
+  or `orphan`)
 
 ## PackageVariant Lifecycle
 
-The PackageVariant controller manages downstream packages through their lifecycle:
+The PackageVariant controller manages downstream PackageRevisions through their lifecycle:
 
 1. **Initial creation**: Creates a Draft PackageRevision with a clone task
 2. **Customization**: Applies functions, injectors, and package context modifications
 3. **Upstream updates**: When upstream changes, creates a new Draft with an upgrade task
 4. **Downstream modifications**: When customizations change, creates a new Draft with an edit task
-5. **Cleanup**: When PackageVariant is deleted, deletes or orphans downstream packages based on deletionPolicy
+5. **Cleanup**: When PackageVariant is deleted, deletes or orphans downstream PackageRevisions based on deletionPolicy
 
 ## What are PackageVariantSets?
 
-**PackageVariantSet** is a higher-level resource that creates multiple PackageVariants from a single upstream package to multiple downstream targets. It's essentially a template for generating PackageVariants.
+**PackageVariantSet** is a higher-level resource that creates multiple PackageVariants from a single upstream package to
+multiple downstream targets. It's essentially a template for generating PackageVariants.
 
 PackageVariantSets enable:
 - One-to-many package distribution (one upstream → many downstreams)
@@ -82,7 +86,7 @@ PackageVariantSets enable:
 
 A PackageVariantSet defines:
 
-**Upstream**: The source package (same as PackageVariant)
+**Upstream**: The source PackageRevision (same as PackageVariant)
 
 **Targets**: How to select downstream repositories
 - `repositories`: Explicit list of Repository resources
@@ -105,9 +109,9 @@ The PackageVariantSet controller:
 
 ## Key Points
 
-- PackageVariant automates the upstream → downstream package relationship
+- PackageVariant automates the upstream → downstream relationship between package revisions
 - The controller creates and updates downstream PackageRevisions automatically
-- Customizations (functions, injectors, context) are applied to downstream packages
+- Customizations (functions, injectors, context) are applied to downstream PackageRevisions
 - PackageVariantSet creates multiple PackageVariants from a single definition
 - Both resources use Kubernetes controller patterns for reconciliation
-- Adoption and deletion policies control how existing packages are handled
+- Adoption and deletion policies control how existing PackageRevisions are handled on PackageVariant creation and deletion

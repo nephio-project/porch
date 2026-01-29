@@ -247,6 +247,12 @@ func (t *TestSuite) registerGitRepositoryFromConfigF(name string, config GitConf
 	// avoid flakiness.
 	t.WaitUntilRepositoryReady(repo.Name, repo.Namespace)
 	t.Logf("Repository %s/%s is ready", repo.Namespace, repo.Name)
+
+	if t.UsingDbCache {
+		syncWait := 5 * time.Second
+		t.Logf("waiting %s for DB cache to sync...", syncWait)
+		time.Sleep(syncWait)
+	}
 }
 
 func (t *TestSuite) CreateOrUpdateSecret(name string, username string, password Password, opts ...RepositoryOptions) string {

@@ -6,54 +6,72 @@ description: |
   Understanding workspaces: how Porch isolates concurrent work on packages.
 ---
 
+{{% alert title="Important" color="warning" %}}
+
+**Workspace is merely a unique ID for a package revision!**
+
+The content of this page will shortly be updated to reflect this fact and moved into the PackageRevision page!
+
+{{% /alert %}}
+
 ## What is a Workspace?
 
-A **workspace** is a named, isolated environment for working on a package revision in Porch. Each Draft or Proposed PackageRevision has a unique workspace name that identifies the specific set of changes being made to a package.
+A **workspace** is a named, isolated environment for working on a package revision in Porch. Each Draft or Proposed
+package revision has a unique workspace name that identifies the specific set of changes being made to a package.
 
 Workspaces enable:
 - Multiple users to work on different changes to the same package simultaneously
-- Isolation of work-in-progress changes from published packages
-- Clear identification of what changes a PackageRevision contains
+- Isolation of work-in-progress changes from published package revisions
+- Clear identification of what changes a package revision contains
 - Tracking of package revision history and lineage
 
 ## How Workspaces Work
 
-When you create a new Draft PackageRevision, you specify a workspace name. This workspace name:
+When you create a new Draft package revision, you specify a workspace name. This workspace name:
 
-- **Must be unique** within a package (no two PackageRevisions of the same package can share a workspace name)
-- **Identifies the changes** contained in that PackageRevision
+- **Must be unique** within a package (no two package revisions of the same package can share a workspace name)
+- **Identifies the changes** contained in that package revision
 - **Maps to Git branches** (for Git repositories) in the format `drafts/<package-path>/<workspace-name>`
 - **Persists through lifecycle** transitions (Draft → Proposed → Published)
 
 ## Workspaces and Lifecycle
 
-Workspaces persist throughout a PackageRevision's lifecycle stages (Draft → Proposed → Published). The workspace name remains constant, providing continuity as the package moves through different stages. For details on lifecycle stages and transitions, see [Package Lifecycle]({{% relref "/docs/2_concepts/package-lifecycle" %}}).
+Workspaces persist throughout a package revision's lifecycle stages (Draft → Proposed → Published). The workspace name
+remains constant, providing continuity as the package revision moves through the stages. For details on lifecycle stages
+and transitions, see [Package Lifecycle]({{% relref "/docs/2_concepts/package-revision-lifecycle" %}}).
 
 ## Workspace Names
 
 Workspace names should be:
-- **Descriptive**: Indicate what changes the PackageRevision contains (e.g., `add-monitoring`, `update-v2`, `fix-rbac`)
-- **Unique**: No other PackageRevision of the same package can use the same workspace name
-- **Valid**: Follow Kubernetes naming conventions (lowercase alphanumeric, hyphens allowed)
+- **Descriptive**: Indicate what changes the package revision contains (e.g., `add-monitoring`, `update-v2`, `fix-rbac`)
+- **Unique**: No other package revision of the same package can use the same workspace name
+- **Valid**: Follow [Kubernetes naming conventions](https://kubernetes.io/docs/concepts/overview/working-with-objects/names#dns-label-names)
+  (lowercase alphanumeric, hyphens allowed)
 
 Common patterns:
 - Feature-based: `add-feature-x`, `enable-tls`
 - Version-based: `v1`, `v2`, `v3` (often auto-generated)
+  {{% alert title="Not a revision number!" color="warning" %}}
+
+  If a version-based workspace name is used, **do not confuse it** with [revision numbers](#workspace-and-revision-numbers)!
+
+  {{% /alert %}}
 - User-based: `alice-changes`, `bob-update`
 - Purpose-based: `security-patch`, `config-update`
 
 ## Workspaces and Git
 
-In Git repositories, workspaces map directly to Git branches:
+When Porch is installed with the [CR cache]({{% relref "../5_architecture_and_components/porch-server/cache/_index.md#cr-cache-explanation" %}}),
+workspace names form part of the branches in Git:
 
-**Draft packages**: Stored in branches named `drafts/<package-path>/<workspace-name>`
+**Draft package revisions**: Stored in branches named `drafts/<package-path>/<workspace-name>`
 - Example: `drafts/my-app/add-monitoring`
 
-**Proposed packages**: Stored in branches named `proposed/<package-path>/<workspace-name>`
+**Proposed package revisions**: Stored in branches named `proposed/<package-path>/<workspace-name>`
 - Example: `proposed/my-app/add-monitoring`
 
-**Published packages**: Committed to the main branch and tagged
-- The workspace name is preserved in the PackageRevision metadata
+**Published package revisions**: Committed to the `main` branch and tagged
+- The workspace name is preserved in the PackageRevision API resource's metadata
 - The Git branch is deleted after publication
 
 This Git mapping provides:
@@ -64,7 +82,8 @@ This Git mapping provides:
 
 ## Multiple Workspaces on the Same Package
 
-Multiple users can work on the same package simultaneously by using different workspaces:
+Multiple users can work on the same package simultaneously by using different workspaces to create multiple Draft package
+revisions:
 
 ```
 Package: my-app
@@ -79,7 +98,7 @@ Workspace: v3 (Published)
   - Current production version
 ```
 
-Each workspace is isolated. Changes in one workspace don't affect others until they're published.
+Each workspace is isolated. Changes in one workspace do not affect package contents until published.
 
 ## Workspace and Revision Numbers
 
@@ -92,17 +111,19 @@ Workspaces and revision numbers serve different purposes:
 
 **Revision number**: Identifies published versions
 - Permanent identifier
-- Auto-assigned by Porch (v1, v2, v3, ...)
+- Auto-assigned by Porch (`1`, `2`, `3`, ...)
 - Indicates version sequence
 
-When a PackageRevision is published, it receives a revision number, but the workspace name is preserved for historical tracking.
+When a package revision is published, it receives a revision number, but the workspace name is preserved for historical
+tracking.
 
 ## Key Points
 
-- Workspace = named, isolated environment for package changes
-- Each Draft/Proposed PackageRevision has a unique workspace name
+- Workspace = arbitrary ID to make a package revision completely unique
+- Each Draft/Proposed package revision has a unique workspace name
 - Workspace names must be unique within a package
 - Workspaces map to Git branches (drafts/ or proposed/ prefixes)
 - Multiple workspaces enable concurrent work on the same package
 - Workspace names are preserved after publication for tracking
 - Workspace names should be descriptive and follow naming conventions
+- Workspace names must not be confused with revision numbers

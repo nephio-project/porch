@@ -3,8 +3,18 @@
         "connectionId": "nephio-project",
         "projectKey": "nephio-project_porch"
     },
+    "go.lintTool": "golangci-lint",
+    "go.lintFlags": [
+        "--go=1.22.0 --exclude-dirs=test --exclude-generated=true"
+    ],
+    "go.lintOnSave": "package",
     "go.testEnvVars": {
       "RUN_E2E_LOCALLY": "false",
       "PORCH_SQL_SCHEMA": "${workspaceFolder}/api/sql/porch-db.sql"
-    }
+    },
+    "workbench.colorCustomizations": {
+        "titleBar.activeBackground":"#004400",
+        "titleBar.inactiveBackground":"#004400"
+    },
+    "editor.rulers": [120]
 }

@@ -82,6 +82,7 @@ type TestSuite struct {
 	Namespace            string // K8s namespace for this test run
 	TestRunnerIsLocal    bool   // Tests running against local dev porch
 	porchServerInCluster *bool  // Cached result of IsPorchServerInCluster check
+	UsingDbCache         bool   // Tests running against Porch with database cache
 }
 
 func (t *TestSuite) SetupSuite() {
@@ -144,6 +145,18 @@ func (t *TestSuite) Initialize() {
 	})
 
 	t.Namespace = namespace
+
+	t.UsingDbCache = func() bool {
+		var dbSet appsv1.StatefulSet
+
+		err := t.Client.Get(t.GetContext(),
+			client.ObjectKey{
+				Namespace: "porch-system",
+				Name:      "porch-postgresql",
+			}, &dbSet)
+		return err == nil && dbSet.Status.ReadyReplicas == *dbSet.Spec.Replicas
+	}()
+
 	c := t.Client
 	t.Cleanup(func() {
 		if err := c.Delete(t.GetContext(), &coreapi.Namespace{

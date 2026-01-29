@@ -35,7 +35,6 @@ kpt fn eval \
   -- "ip=${function_runner_ip}"  'source=
 ip = ctx.resource_list["functionConfig"]["data"]["ip"]
 for resource in ctx.resource_list["items"]:
-  resource["metadata"].setdefault("annotations", {})["metallb.universe.tf/loadBalancerIPs"] = ip
   resource["spec"]["type"] = "LoadBalancer"
   resource["spec"]["ports"][0]["nodePort"] = 30001'
 
@@ -48,7 +47,7 @@ kpt fn eval \
   -- 'source=ctx.resource_list["items"] = []'
 
 # make the api service point to the local porch-server
-if [[ "$(uname)" == "Darwin" || -n "${DOCKER_HOST+x}" ]] || docker info 2>/dev/null | grep -q "Docker Desktop";
+if [[ "$(uname)" == "Darwin" ]] || docker info 2>/dev/null | grep -q "Docker Desktop";
 then
   echo "--- Docker Desktop detected. ---"
   kpt fn eval \
