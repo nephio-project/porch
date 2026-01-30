@@ -868,9 +868,6 @@ func Convert_porch_PackageRevisionResourcesSpec_To_v1alpha1_PackageRevisionResou
 }
 
 func autoConvert_v1alpha1_PackageRevisionResourcesStatus_To_porch_PackageRevisionResourcesStatus(in *PackageRevisionResourcesStatus, out *porch.PackageRevisionResourcesStatus, s conversion.Scope) error {
-	if err := Convert_v1alpha1_RenderStatus_To_porch_RenderStatus(&in.RenderStatus, &out.RenderStatus, s); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -880,9 +877,6 @@ func Convert_v1alpha1_PackageRevisionResourcesStatus_To_porch_PackageRevisionRes
 }
 
 func autoConvert_porch_PackageRevisionResourcesStatus_To_v1alpha1_PackageRevisionResourcesStatus(in *porch.PackageRevisionResourcesStatus, out *PackageRevisionResourcesStatus, s conversion.Scope) error {
-	if err := Convert_porch_RenderStatus_To_v1alpha1_RenderStatus(&in.RenderStatus, &out.RenderStatus, s); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -934,6 +928,7 @@ func autoConvert_v1alpha1_PackageRevisionStatus_To_porch_PackageRevisionStatus(i
 	out.PublishedAt = in.PublishedAt
 	out.Deployment = in.Deployment
 	out.Conditions = *(*[]porch.Condition)(unsafe.Pointer(&in.Conditions))
+	out.RenderStatus = (*porch.RenderStatus)(unsafe.Pointer(in.RenderStatus))
 	return nil
 }
 
@@ -949,6 +944,7 @@ func autoConvert_porch_PackageRevisionStatus_To_v1alpha1_PackageRevisionStatus(i
 	out.PublishedAt = in.PublishedAt
 	out.Deployment = in.Deployment
 	out.Conditions = *(*[]Condition)(unsafe.Pointer(&in.Conditions))
+	out.RenderStatus = (*RenderStatus)(unsafe.Pointer(in.RenderStatus))
 	return nil
 }
 

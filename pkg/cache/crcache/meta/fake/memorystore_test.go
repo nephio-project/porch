@@ -1,4 +1,4 @@
-// Copyright 2025 The kpt and Nephio Authors
+// Copyright 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import (
 	"context"
 	"testing"
 
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,4 +80,19 @@ func TestFakeMemoryStore(t *testing.T) {
 
 	_, err = fakeMetadataStore.Delete(context.TODO(), nsn2, true)
 	assert.True(t, apierrors.IsNotFound(err))
+}
+
+func TestUpdateStatus(t *testing.T) {
+	store := MemoryMetadataStore{
+		RenderStatuses: make(map[string]*porchapi.RenderStatus),
+	}
+
+	nsn := types.NamespacedName{Namespace: "ns", Name: "pkg"}
+	renderStatus := &porchapi.RenderStatus{
+		Err: "render failed",
+	}
+
+	err := store.UpdateStatus(context.TODO(), nsn, renderStatus)
+	assert.NoError(t, err)
+	assert.Equal(t, "render failed", store.RenderStatuses["ns/pkg"].Err)
 }

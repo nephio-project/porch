@@ -1,4 +1,4 @@
-// Copyright 2024-2025 The Nephio Authors
+// Copyright 2024-2026 The Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -48,7 +48,8 @@ func pkgRevReadFromDB(ctx context.Context, prk repository.PackageRevisionKey, re
 			package_revisions.lifecycle,
 			package_revisions.ext_pr_id,
 			package_revisions.latest,
-			package_revisions.tasks
+			package_revisions.tasks,
+			package_revisions.render_status
 		FROM package_revisions INNER JOIN packages
 			ON package_revisions.k8s_name_space=packages.k8s_name_space AND package_revisions.package_k8s_name=packages.k8s_name
 		 INNER JOIN repositories
@@ -118,7 +119,8 @@ func pkgRevListPRsFromDB(ctx context.Context, filter repository.ListPackageRevis
 			package_revisions.lifecycle,
 			package_revisions.ext_pr_id,
 			package_revisions.latest,
-			package_revisions.tasks
+			package_revisions.tasks,
+			package_revisions.render_status
 		FROM package_revisions
 		INNER JOIN packages
 			ON package_revisions.k8s_name_space=packages.k8s_name_space AND package_revisions.package_k8s_name=packages.k8s_name
@@ -165,7 +167,8 @@ func pkgRevReadPRsFromDB(ctx context.Context, pk repository.PackageKey) ([]*dbPa
 			package_revisions.lifecycle,
 			package_revisions.ext_pr_id,
 			package_revisions.latest,
-			package_revisions.tasks
+			package_revisions.tasks,
+			package_revisions.render_status
 		FROM package_revisions INNER JOIN packages
 			ON package_revisions.k8s_name_space=packages.k8s_name_space AND package_revisions.package_k8s_name=packages.k8s_name
 		 INNER JOIN repositories
@@ -213,7 +216,8 @@ func pkgRevReadLatestPRFromDB(ctx context.Context, pk repository.PackageKey) (*d
 			package_revisions.lifecycle,
 			package_revisions.ext_pr_id,
 			package_revisions.latest,
-			package_revisions.tasks
+			package_revisions.tasks,
+			package_revisions.render_status
 		FROM package_revisions INNER JOIN packages
 			ON package_revisions.k8s_name_space=packages.k8s_name_space AND package_revisions.package_k8s_name=packages.k8s_name
 		 INNER JOIN repositories
@@ -281,6 +285,7 @@ func pkgRevScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackageRevi
 	for rows.Next() {
 		var pkgRev dbPackageRevision
 		var pkgK8SName, prK8SName, metaAsJSON, specAsJSON, extPRID, tasks string
+		var renderStatus sql.NullString
 
 		err := rows.Scan(
 			&pkgRev.pkgRevKey.PkgKey.RepoKey.Namespace,
@@ -298,7 +303,8 @@ func pkgRevScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackageRevi
 			&pkgRev.lifecycle,
 			&extPRID,
 			&pkgRev.latest,
-			&tasks)
+			&tasks,
+			&renderStatus)
 
 		if err != nil {
 			klog.Warningf("pkgRevScanRowsFromDB: scanning rows failed: %q", err)
@@ -312,6 +318,9 @@ func pkgRevScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackageRevi
 		setValueFromJSON(specAsJSON, &pkgRev.spec)
 		setValueFromJSON(extPRID, &pkgRev.extPRID)
 		setValueFromJSON(tasks, &pkgRev.tasks)
+		if renderStatus.Valid {
+			setValueFromJSON(renderStatus.String, &pkgRev.renderStatus)
+		}
 
 		dbPkgRevs = append(dbPkgRevs, &pkgRev)
 	}
@@ -326,8 +335,8 @@ func pkgRevWriteToDB(ctx context.Context, pr *dbPackageRevision) error {
 	klog.V(5).Infof("pkgRevWriteToDB: writing package revision %+v", pr.Key())
 
 	sqlStatement := `
-        INSERT INTO package_revisions (k8s_name_space, k8s_name, package_k8s_name, revision, meta, spec, updated, updatedby, lifecycle, ext_pr_id, tasks)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        INSERT INTO package_revisions (k8s_name_space, k8s_name, package_k8s_name, revision, meta, spec, updated, updatedby, lifecycle, ext_pr_id, tasks, render_status)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	`
 
 	klog.V(6).Infof("pkgRevWriteToDB: running query %q on package revision %+v", sqlStatement, pr)
@@ -335,7 +344,7 @@ func pkgRevWriteToDB(ctx context.Context, pr *dbPackageRevision) error {
 	if _, err := GetDB().db.Exec(ctx,
 		sqlStatement,
 		prk.K8SNS(), prk.K8SName(),
-		prk.PKey().K8SName(), prk.Revision, valueAsJSON(pr.meta), valueAsJSON(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle, valueAsJSON(pr.extPRID), valueAsJSON(pr.tasks)); err == nil {
+		prk.PKey().K8SName(), prk.Revision, valueAsJSON(pr.meta), valueAsJSON(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle, valueAsJSON(pr.extPRID), valueAsJSON(pr.tasks), valueAsJSON(pr.renderStatus)); err == nil {
 		klog.V(5).Infof("pkgRevWriteToDB: query succeeded, row created")
 	} else {
 		klog.Warningf("pkgRevWriteToDB: query failed for %+v %q", pr.Key(), err)
@@ -358,15 +367,15 @@ func pkgRevUpdateDB(ctx context.Context, pr *dbPackageRevision, updateResources 
 	klog.V(5).Infof("pkgRevUpdateDB: updating package revision %+v", pr.Key())
 
 	sqlStatement := `
-        UPDATE package_revisions SET package_k8s_name=$3, revision=$4, meta=$5, spec=$6, updated=$7, updatedby=$8, lifecycle=$9, ext_pr_id=$10, tasks=$11
+        UPDATE package_revisions SET package_k8s_name=$3, revision=$4, meta=$5, spec=$6, updated=$7, updatedby=$8, lifecycle=$9, ext_pr_id=$10, tasks=$11, render_status=$12
         WHERE k8s_name_space=$1 AND k8s_name=$2
 	`
 	if pr.pkgRevKey.Revision == -1 {
 		sqlStatement = `
     INSERT INTO package_revisions (
-        k8s_name_space, k8s_name, package_k8s_name, revision, meta, spec, updated, updatedby, lifecycle, ext_pr_id, tasks
+        k8s_name_space, k8s_name, package_k8s_name, revision, meta, spec, updated, updatedby, lifecycle, ext_pr_id, tasks, render_status
     ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
     )
     ON CONFLICT (k8s_name_space, k8s_name)
     DO UPDATE SET
@@ -378,7 +387,8 @@ func pkgRevUpdateDB(ctx context.Context, pr *dbPackageRevision, updateResources 
         updatedby        = EXCLUDED.updatedby,
         lifecycle        = EXCLUDED.lifecycle,
         ext_pr_id        = EXCLUDED.ext_pr_id,
-        tasks            = EXCLUDED.tasks;
+        tasks            = EXCLUDED.tasks,
+        render_status    = EXCLUDED.render_status;
 	`
 	}
 
@@ -387,7 +397,7 @@ func pkgRevUpdateDB(ctx context.Context, pr *dbPackageRevision, updateResources 
 	result, err := GetDB().db.Exec(ctx,
 		sqlStatement,
 		prk.K8SNS(), prk.K8SName(),
-		prk.PKey().K8SName(), prk.Revision, valueAsJSON(pr.meta), valueAsJSON(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle, valueAsJSON(pr.extPRID), valueAsJSON(pr.tasks))
+		prk.PKey().K8SName(), prk.Revision, valueAsJSON(pr.meta), valueAsJSON(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle, valueAsJSON(pr.extPRID), valueAsJSON(pr.tasks), valueAsJSON(pr.renderStatus))
 
 	if err == nil {
 		if rowsAffected, _ := result.RowsAffected(); rowsAffected == 1 {

@@ -1,4 +1,4 @@
-// Copyright 2024-2025 The Nephio Authors
+// Copyright 2024-2026 The Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -54,6 +54,7 @@ type dbPackageRevision struct {
 	latest    bool
 	tasks     []porchapi.Task
 	resources map[string]string
+    renderStatus *porchapi.RenderStatus
 }
 
 func (pr *dbPackageRevision) KubeObjectName() string {
@@ -161,6 +162,7 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 		SelfLock:     repository.KptUpstreamLock2APIUpstreamLock(selfLock),
 		Deployment:   pr.repo.deployment,
 		Conditions:   repository.ToAPIConditions(kf),
+		RenderStatus: readPR.renderStatus,
 	}
 
 	if porchapi.LifecycleIsPublished(readPR.Lifecycle(ctx)) {
@@ -376,6 +378,7 @@ func (pr *dbPackageRevision) copyToThis(otherPr *dbPackageRevision) {
 	pr.lifecycle = otherPr.lifecycle
 	pr.tasks = otherPr.tasks
 	pr.resources = otherPr.resources
+	pr.renderStatus = otherPr.renderStatus
 }
 
 func (pr *dbPackageRevision) UpdateResources(ctx context.Context, new *porchapi.PackageRevisionResources, change *porchapi.Task) error {
@@ -392,6 +395,14 @@ func (pr *dbPackageRevision) UpdateResources(ctx context.Context, new *porchapi.
 	}
 
 	return nil
+}
+
+func (pr *dbPackageRevision) UpdateRenderStatusInMemory(renderStatus *porchapi.RenderStatus) {
+	pr.renderStatus = renderStatus
+}
+
+func (pr *dbPackageRevision) PersistRenderStatus(ctx context.Context) error {
+	return pkgRevUpdateDB(ctx, pr, false)
 }
 
 func (pr *dbPackageRevision) publishPR(ctx context.Context, newLifecycle porchapi.PackageRevisionLifecycle) error {
