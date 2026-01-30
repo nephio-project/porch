@@ -11,14 +11,18 @@ This document describes the impact on Porch when one or more data stores fails.
 
 Porch has a relatively complex data storage model, such that it essentially acts as a mediator between sets of data stored
 in several locations:
-* the Kubernetes *cluster control plane* on which Porch is installed, including Porch's *custom resources*
-* *Git repositories* in which package resources are managed. For more details on how Porch interacts with Git repositories,
-  see the Repository Adapters documentation
-<!-- TODO: add link to Repository Adapters documentation once exists -->
-* and the contents of the *package revision cache* (which, depending on the cache option configured at install-time, may
-  be either incorporated in the cluster's control plane ("CR cache") or stored in a separate SQL database ("DB cache")).
-  A more detailed explanation of the package revision cache and the different cache options can be found under the Architecture
-  and Components section: [Cache]({{% relref "/docs/5_architecture_and_components/porch-server/cache/_index.md" %}})
+* the Kubernetes **cluster control plane** on which Porch is installed, including Porch's **custom resources**
+* the **storage repositories** in which package resources are stored (backing the Porch Repository objects). For more details
+  on how Porch interacts with repositories, see the documentation on Repositories and Repository Adapters
+        <!-- TODO: add links to Repositories and Repository Adapters documentation once each is merged -->
+        <!-- TODO: Repositories will be ../2_concepts/repositories.md -->
+        <!-- TODO: Repository Adapters will be ../2_concepts/repositories.md -->
+  * **Git** repositories are Porch's primary and fully-supported storage backend
+* and the contents of the **package revision cache** (which, depending on the cache option configured at install-time, may
+  be either **incorporated in the cluster's control plane** (with the CR cache) or stored in **a separate SQL database**
+  (with the DB cache)).
+  A more detailed explanation of the package revision cache and the different cache options can be found in the Architecture
+  and Components section: [Cache]({{% relref "/docs/5_architecture_and_components/package-cache/_index.md" %}})
 
 Porch's data storage operations are covered in significantly greater depth in the [Architecture and Components section]({{% relref "/docs/5_architecture_and_components/_index.md" %}}).
 
@@ -26,13 +30,13 @@ Each data store serves as the source of truth for different elements of Porch's 
 * custom resource objects on Kubernetes control plane:
     * Porch repositories (Repository objects)
     * package variants (and by extension package variant sets)
-    * **(if the CR cache is configured)** "work-in-progress" package revisions whose lifecycle state is "Draft", "Proposed",
+    * **(if the CR cache is configured)** "work-in-progress" package revisions whose lifecycle stage is "Draft", "Proposed",
       or "DeletionProposed"
 * Git repositories:
     * package revisions (Kpt package file contents and directory structures)
 * Package revision cache:
     * Kubernetes-related metadata for package revisions (e.g. labels and annotations)
-    * **(if the DB cache is configured)** "work-in-progress" package revisions whose lifecycle state is "Draft", "Proposed",
+    * **(if the DB cache is configured)** "work-in-progress" package revisions whose lifecycle stage is "Draft", "Proposed",
       or "DeletionProposed"
 
 ## Backup strategy
@@ -88,7 +92,7 @@ cache, this is not enough for Porch to restore a package revision that is not al
 
 If the DB cache option is selected at install time, the package revision cache is stored in an SQL database. Porch recommends
 backing up the entire contents of this database on a regular basis, as it contains all data for unpublished package revisions
-(in lifecycle states "Draft", "Proposed", or "DeletionProposed")
+(in lifecycle stages "Draft", "Proposed", or "DeletionProposed")
 
 {{% alert title="N.B." color="primary" %}}
 
@@ -107,8 +111,10 @@ data stores.
 - If the CR cache is configured and becomes corrupted, it can be recreated from the Git repositories. Porch recommends
   restarting the `porch-server` microservice to trigger this process (which will entail a decrease in quality of service
   until all repositories are deemed Ready).
-- If the DB cache is configured and becomes corrupted, it **must be restored from a valid database backup** - if a valid
-  backup is not available, data loss will ensue. Porch recommends backing up the entire contents of the DB cache database
+- If the DB cache is configured and becomes corrupted, it **must be restored from a valid database backup**. If a valid
+  backup is not available, data loss will ensue: "Draft" and "Proposed" package revisions will be lost completely, and "DeletionProposed" package revisions will be reverted to "Published".
+
+  Porch recommends backing up the entire contents of the DB cache database
   on a regular basis.
 
 {{% /alert %}}
@@ -178,7 +184,7 @@ Kubernetes cluster is lost with all nodes; Git repositories and DB cache databas
 None - complete recovery of state at time of cluster loss.
 
 Through using Git as the source of truth, we might expect Porch to automatically delete any state that only exists in the
-cache - e.g., package revisions in Draft state. However, the connection between Porch and Git is represented by the Repository
+cache - e.g., package revisions in "Draft" lifecycle stage. However, the connection between Porch and Git is represented by the Repository
 objects, so until they are recreated in the GitOps reconciliation, Porch does not know the state of Git to overwrite the
 cached state.
 
@@ -287,8 +293,8 @@ Applicable only to Porch with DB cache configured.
 #### Expected data loss
 
 All "work in progress" on package revisions lost:
-- package revisions in "Draft" or "Proposed" lifecycle states - complete loss
-- package revisions in "DeletionProposed" lifecycle state are reverted to "Published" lifecycle state
+- package revisions in "Draft" or "Proposed" lifecycle stages - complete loss
+- package revisions in "DeletionProposed" lifecycle stage are reverted to "Published" lifecycle stage
     - a similar effect to the use of `porchctl rpkg reject`
 
 {{% alert title="Warning" color="warning" %}}
