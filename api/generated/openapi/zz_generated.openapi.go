@@ -608,7 +608,7 @@ func schema_porch_api_porch_v1alpha1_PackageInitTaskSpec(ref common.ReferenceCal
 					},
 					"site": {
 						SchemaProps: spec.SchemaProps{
-							Description: "`Site is a link to page with information about the package.",
+							Description: "`Site` is a link to page with information about the package.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -991,7 +991,7 @@ func schema_porch_api_porch_v1alpha1_PackageRevisionSpec(ref common.ReferenceCal
 					},
 					"parent": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Parent references a package that provides resources to us",
+							Description: "Deprecated. Parent references a package that provides resources to us",
 							Ref:         ref("github.com/nephio-project/porch/api/porch/v1alpha1.ParentReference"),
 						},
 					},
@@ -1194,7 +1194,7 @@ func schema_porch_api_porch_v1alpha1_ParentReference(ref common.ReferenceCallbac
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ParentReference is a reference to a parent package",
+				Description: "Deprecated. ParentReference is a reference to a parent package",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"name": {
@@ -1735,7 +1735,7 @@ func schema_porch_api_porch_v1alpha1_UpstreamPackage(ref common.ReferenceCallbac
 				Properties: map[string]spec.Schema{
 					"type": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Type of the repository (i.e. git, OCI). If empty, `upstreamRef` will be used.",
+							Description: "Type of the repository (i.e. git). If empty, `upstreamRef` will be used.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
