@@ -49,7 +49,7 @@ revision may be in one of several lifecycle stages:
   cloning it to one or several downstream packages, as well as preparing new downstream package revisions when a new revision
   of the upstream package is published. Package variant sets enable the same behaviour for package variants themselves.
   Use of package variants involves advanced concepts worthy of their own separate document:
-  [Package Variants]({{% relref "/docs/5_architecture_and_components/controllers/pkg-variant-controllers.md" %}})
+  [Package Variants]({{% relref "/docs/5_architecture_and_components/controllers/_index.md" %}})
 
 
 In addition, some terms may be used with specific qualifiers, frequently enough to count them as sub-concepts:
