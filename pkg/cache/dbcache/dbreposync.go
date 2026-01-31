@@ -19,6 +19,7 @@ import (
 	"fmt"
 	stdSync "sync"
 	"time"
+	"unicode/utf8"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -224,6 +225,16 @@ func (s *repositorySync) cacheExternalPRs(ctx context.Context, externalPrMap map
 			return err
 		}
 
+		// 過濾掉 binary files（含 invalid UTF-8），避免 PostgreSQL 報錯
+		resources := make(map[string]string, len(extPRResources.Spec.Resources))
+		for key, val := range extPRResources.Spec.Resources {
+			if !utf8.ValidString(val) {
+				klog.Warningf("repositorySync %+v: skipping binary file %q in PR %+v (invalid UTF-8)", s.repo.Key(), key, extPRKey)
+				continue
+			}
+			resources[key] = val
+		}
+
 		if extAPIPR.CreationTimestamp.Time.IsZero() {
 			extAPIPR.CreationTimestamp.Time = time.Now()
 		}
@@ -239,7 +250,7 @@ func (s *repositorySync) cacheExternalPRs(ctx context.Context, externalPrMap map
 			lifecycle: extAPIPR.Spec.Lifecycle,
 			extPRID:   extPRUpstreamLock,
 			tasks:     extAPIPR.Spec.Tasks,
-			resources: extPRResources.Spec.Resources,
+			resources: resources,
 		}
 		_, err = s.repo.savePackageRevision(ctx, &dbPR, true)
 		if err != nil {

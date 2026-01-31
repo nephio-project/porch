@@ -372,3 +372,315 @@ func (t *DbTestSuite) TestRepositorySync_Stop() {
 	var nilSync *repositorySync
 	nilSync.Stop() // Should not panic
 }
+
+// TestCacheExternalPRs_SkipsBinaryFiles 驗證 sync 會跳過 binary files
+// 不讓 invalid UTF-8 內容進到 DB 導致 PostgreSQL 報錯
+func (t *DbTestSuite) TestCacheExternalPRs_SkipsBinaryFiles() {
+	ctx := t.Context()
+	externalrepo.ExternalRepoInUnitTestMode = true
+
+	testRepo := t.createTestRepo("binary-ns", "binary-repo")
+	defer t.deleteTestRepo(testRepo.Key())
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	t.Require().NoError(err)
+
+	repoSync := &repositorySync{
+		repo: testRepo,
+	}
+
+	// 準備測試資料：混合 text 和 binary files
+	prKey := repository.PackageRevisionKey{
+		PkgKey: repository.PackageKey{
+			RepoKey: testRepo.Key(),
+			Package: "test-pkg",
+		},
+		Revision:      1,
+		WorkspaceName: "ws",
+	}
+
+	prDef := &porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "test-pr",
+			Namespace:         "binary-ns",
+			CreationTimestamp: metav1.Now(),
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: "binary-repo",
+			PackageName:    "test-pkg",
+			WorkspaceName:  "ws",
+			Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
+		},
+	}
+
+	// 模擬 external repo 回傳的 resources
+	// 其中 image.png 含有 invalid UTF-8 bytes
+	resources := &porchapi.PackageRevisionResources{
+		Spec: porchapi.PackageRevisionResourcesSpec{
+			Resources: map[string]string{
+				"Kptfile":     "apiVersion: kpt.dev/v1\nkind: Kptfile\n",
+				"config.yaml": "key: value\n",
+				"image.png":   "\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR", // PNG header，不是 valid UTF-8
+			},
+		},
+	}
+
+	fakeExtPR := &fake.FakePackageRevision{
+		PrKey:            prKey,
+		PackageRevision:  prDef,
+		PackageLifecycle: porchapi.PackageRevisionLifecyclePublished,
+		Resources:        resources,
+		Kptfile: kptfilev1.KptFile{
+			Upstream:     &kptfilev1.Upstream{},
+			UpstreamLock: &kptfilev1.UpstreamLock{},
+		},
+	}
+
+	extPRMap := map[repository.PackageRevisionKey]repository.PackageRevision{
+		prKey: fakeExtPR,
+	}
+	inExternalOnly := []repository.PackageRevisionKey{prKey}
+
+	// 執行 cacheExternalPRs - 應該成功，不會因為 binary file 而失敗
+	err = repoSync.cacheExternalPRs(ctx, extPRMap, inExternalOnly)
+	t.Require().NoError(err, "sync 不該因為 binary file 而失敗")
+
+	// 驗證 resources 直接從 DB 讀取
+	cachedResources, err := pkgRevResourcesReadFromDB(ctx, prKey)
+	t.Require().NoError(err)
+
+	// text files 應該存在
+	_, hasKptfile := cachedResources["Kptfile"]
+	_, hasConfig := cachedResources["config.yaml"]
+	t.True(hasKptfile, "Kptfile 應該被 cached")
+	t.True(hasConfig, "config.yaml 應該被 cached")
+
+	// binary file 應該被 skip
+	_, hasBinary := cachedResources["image.png"]
+	t.False(hasBinary, "image.png (binary) 應該被 skip")
+}
+
+// TestCacheExternalPRs_AllTextFiles 驗證純文字檔案全部被 cache
+func (t *DbTestSuite) TestCacheExternalPRs_AllTextFiles() {
+	ctx := t.Context()
+	externalrepo.ExternalRepoInUnitTestMode = true
+
+	testRepo := t.createTestRepo("text-ns", "text-repo")
+	defer t.deleteTestRepo(testRepo.Key())
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	t.Require().NoError(err)
+
+	repoSync := &repositorySync{
+		repo: testRepo,
+	}
+
+	prKey := repository.PackageRevisionKey{
+		PkgKey: repository.PackageKey{
+			RepoKey: testRepo.Key(),
+			Package: "text-pkg",
+		},
+		Revision:      1,
+		WorkspaceName: "ws",
+	}
+
+	prDef := &porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "text-pr",
+			Namespace:         "text-ns",
+			CreationTimestamp: metav1.Now(),
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: "text-repo",
+			PackageName:    "text-pkg",
+			WorkspaceName:  "ws",
+			Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
+		},
+	}
+
+	// 全部都是 valid UTF-8 文字檔
+	resources := &porchapi.PackageRevisionResources{
+		Spec: porchapi.PackageRevisionResourcesSpec{
+			Resources: map[string]string{
+				"Kptfile":         "apiVersion: kpt.dev/v1\nkind: Kptfile\n",
+				"deployment.yaml": "apiVersion: apps/v1\nkind: Deployment\n",
+				"README.md":       "# Hello World\n",
+			},
+		},
+	}
+
+	fakeExtPR := &fake.FakePackageRevision{
+		PrKey:            prKey,
+		PackageRevision:  prDef,
+		PackageLifecycle: porchapi.PackageRevisionLifecyclePublished,
+		Resources:        resources,
+		Kptfile: kptfilev1.KptFile{
+			Upstream:     &kptfilev1.Upstream{},
+			UpstreamLock: &kptfilev1.UpstreamLock{},
+		},
+	}
+
+	extPRMap := map[repository.PackageRevisionKey]repository.PackageRevision{
+		prKey: fakeExtPR,
+	}
+	inExternalOnly := []repository.PackageRevisionKey{prKey}
+
+	err = repoSync.cacheExternalPRs(ctx, extPRMap, inExternalOnly)
+	t.Require().NoError(err)
+
+	cachedResources, err := pkgRevResourcesReadFromDB(ctx, prKey)
+	t.Require().NoError(err)
+
+	// 全部 3 個檔案都該存在
+	t.Equal(3, len(cachedResources), "所有 text files 都應該被 cached")
+	_, hasKptfile := cachedResources["Kptfile"]
+	_, hasDeployment := cachedResources["deployment.yaml"]
+	_, hasReadme := cachedResources["README.md"]
+	t.True(hasKptfile, "Kptfile 應該被 cached")
+	t.True(hasDeployment, "deployment.yaml 應該被 cached")
+	t.True(hasReadme, "README.md 應該被 cached")
+}
+
+// TestCacheExternalPRs_AllBinaryFiles 驗證全部是 binary 時不報錯但全部 skip
+func (t *DbTestSuite) TestCacheExternalPRs_AllBinaryFiles() {
+	ctx := t.Context()
+	externalrepo.ExternalRepoInUnitTestMode = true
+
+	testRepo := t.createTestRepo("allbin-ns", "allbin-repo")
+	defer t.deleteTestRepo(testRepo.Key())
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	t.Require().NoError(err)
+
+	repoSync := &repositorySync{
+		repo: testRepo,
+	}
+
+	prKey := repository.PackageRevisionKey{
+		PkgKey: repository.PackageKey{
+			RepoKey: testRepo.Key(),
+			Package: "allbin-pkg",
+		},
+		Revision:      1,
+		WorkspaceName: "ws",
+	}
+
+	prDef := &porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "allbin-pr",
+			Namespace:         "allbin-ns",
+			CreationTimestamp: metav1.Now(),
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: "allbin-repo",
+			PackageName:    "allbin-pkg",
+			WorkspaceName:  "ws",
+			Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
+		},
+	}
+
+	// 全部都是 binary files (invalid UTF-8)
+	resources := &porchapi.PackageRevisionResources{
+		Spec: porchapi.PackageRevisionResourcesSpec{
+			Resources: map[string]string{
+				"image.png": "\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR",
+				"data.bin":  "\x00\x01\x02\x03\xff\xfe\xfd",
+			},
+		},
+	}
+
+	fakeExtPR := &fake.FakePackageRevision{
+		PrKey:            prKey,
+		PackageRevision:  prDef,
+		PackageLifecycle: porchapi.PackageRevisionLifecyclePublished,
+		Resources:        resources,
+		Kptfile: kptfilev1.KptFile{
+			Upstream:     &kptfilev1.Upstream{},
+			UpstreamLock: &kptfilev1.UpstreamLock{},
+		},
+	}
+
+	extPRMap := map[repository.PackageRevisionKey]repository.PackageRevision{
+		prKey: fakeExtPR,
+	}
+	inExternalOnly := []repository.PackageRevisionKey{prKey}
+
+	// 不該報錯
+	err = repoSync.cacheExternalPRs(ctx, extPRMap, inExternalOnly)
+	t.Require().NoError(err, "全部 binary 不該導致 error")
+
+	cachedResources, err := pkgRevResourcesReadFromDB(ctx, prKey)
+	t.Require().NoError(err)
+
+	// 全部都該被 skip
+	t.Equal(0, len(cachedResources), "所有 binary files 都應該被 skip")
+}
+
+// TestCacheExternalPRs_EmptyResources 驗證空 resources 不報錯
+func (t *DbTestSuite) TestCacheExternalPRs_EmptyResources() {
+	ctx := t.Context()
+	externalrepo.ExternalRepoInUnitTestMode = true
+
+	testRepo := t.createTestRepo("empty-ns", "empty-repo")
+	defer t.deleteTestRepo(testRepo.Key())
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	t.Require().NoError(err)
+
+	repoSync := &repositorySync{
+		repo: testRepo,
+	}
+
+	prKey := repository.PackageRevisionKey{
+		PkgKey: repository.PackageKey{
+			RepoKey: testRepo.Key(),
+			Package: "empty-pkg",
+		},
+		Revision:      1,
+		WorkspaceName: "ws",
+	}
+
+	prDef := &porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "empty-pr",
+			Namespace:         "empty-ns",
+			CreationTimestamp: metav1.Now(),
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: "empty-repo",
+			PackageName:    "empty-pkg",
+			WorkspaceName:  "ws",
+			Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
+		},
+	}
+
+	// 空的 resources map
+	resources := &porchapi.PackageRevisionResources{
+		Spec: porchapi.PackageRevisionResourcesSpec{
+			Resources: map[string]string{},
+		},
+	}
+
+	fakeExtPR := &fake.FakePackageRevision{
+		PrKey:            prKey,
+		PackageRevision:  prDef,
+		PackageLifecycle: porchapi.PackageRevisionLifecyclePublished,
+		Resources:        resources,
+		Kptfile: kptfilev1.KptFile{
+			Upstream:     &kptfilev1.Upstream{},
+			UpstreamLock: &kptfilev1.UpstreamLock{},
+		},
+	}
+
+	extPRMap := map[repository.PackageRevisionKey]repository.PackageRevision{
+		prKey: fakeExtPR,
+	}
+	inExternalOnly := []repository.PackageRevisionKey{prKey}
+
+	err = repoSync.cacheExternalPRs(ctx, extPRMap, inExternalOnly)
+	t.Require().NoError(err, "空 resources 不該報錯")
+
+	cachedResources, err := pkgRevResourcesReadFromDB(ctx, prKey)
+	t.Require().NoError(err)
+	t.Equal(0, len(cachedResources), "空 resources 應該回傳空 map")
+}
