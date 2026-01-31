@@ -35,6 +35,7 @@ import (
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/engine"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
+	"github.com/nephio-project/porch/pkg/externalrepo/git"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apiserver/pkg/admission"
@@ -68,6 +69,7 @@ type PorchServerOptions struct {
 	MaxRequestBodySize         int
 	RepoSyncFrequency          time.Duration
 	RepoOperationRetryAttempts int
+	RetryableGitErrors         []string // Additional retryable git error patterns
 	SharedInformerFactory      informers.SharedInformerFactory
 	StdOut                     io.Writer
 	StdErr                     io.Writer
@@ -172,6 +174,11 @@ func (o *PorchServerOptions) Complete() error {
 		if err := o.setupDBCacheConn(); err != nil {
 			return err
 		}
+	}
+
+	// Parse and append additional retryable git errors
+	if len(o.RetryableGitErrors) > 0 {
+		git.AppendRetryableErrors(o.RetryableGitErrors)
 	}
 
 	return nil
@@ -348,5 +355,6 @@ func (o *PorchServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.IntVar(&o.MaxConcurrentLists, "max-parallel-repo-lists", 10, "Maximum number of repositories to list in parallel.")
 	fs.DurationVar(&o.RepoSyncFrequency, "repo-sync-frequency", 10*time.Minute, "Frequency at which registered repository CRs will be synced.")
 	fs.IntVar(&o.RepoOperationRetryAttempts, "repo-operation-retry-attempts", 3, "Number of retry attempts for repository operations.")
+	fs.StringSliceVar(&o.RetryableGitErrors, "retryable-git-errors", nil, "Additional retryable git error patterns. Can be specified multiple times or as comma-separated values.")
 	fs.BoolVar(&o.UseUserDefinedCaBundle, "use-user-cabundle", false, "Determine whether to use a user-defined CaBundle for TLS towards the repository system.")
 }

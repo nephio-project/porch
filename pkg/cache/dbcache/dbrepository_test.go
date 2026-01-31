@@ -210,6 +210,7 @@ func (t *DbTestSuite) TestDBRepositorCorner() {
 		mock.Anything,
 		mock.Anything,
 		mock.Anything,
+		mock.Anything,
 		mock.Anything).Return(nil, errors.New("DB exec failed")).Maybe()
 
 	mockSQL.EXPECT().Close().Return(errors.New("DB close failed")).Maybe()

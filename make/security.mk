@@ -42,7 +42,7 @@ endif
 .PHONY: gosec-sarif
 gosec-sarif:  ## Generate SARIF security report
 ifeq ($(CONTAINER_RUNNABLE), 0)
-	$(RUN_CONTAINER_COMMAND) securego/gosec:latest \
+	$(RUN_CONTAINER_COMMAND) -e GOTOOLCHAIN=auto securego/gosec:latest \
 		-fmt=sarif \
 		-out=gosec-results.sarif \
 		-stdout -verbose=text \
@@ -54,7 +54,7 @@ ifeq ($(CONTAINER_RUNNABLE), 0)
 		-severity=medium \
 		-exclude=G401,G501,G505,G304 ./...
 else
-		gosec -fmt=sarif -out=gosec-results.sarif -stdout -verbose=text \
+		GOTOOLCHAIN=auto gosec -fmt=sarif -out=gosec-results.sarif -stdout -verbose=text \
 		-exclude-dir=generated \
 		-exclude-dir=third_party \
 		-exclude-dir=test \

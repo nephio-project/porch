@@ -1,5 +1,5 @@
 ---
-title: "Getting Started"
+title: "Installation"
 type: docs
 weight: 3
 description: "A set of guides for installing Porch prerequisites, the porchctl CLI, and deploying Porch components on a Kubernetes cluster." 
@@ -7,14 +7,31 @@ description: "A set of guides for installing Porch prerequisites, the porchctl C
 
 ## Prerequisites
 
-1. A supported OS (Linux/MacOS)
-2. [git](https://git-scm.com/) ({{< params "version_git" >}})
-3. [Docker](https://www.docker.com/get-started/) - either Docker Desktop or Docker Engine ({{< params "version_docker" >}})
-4. [kubectl](https://kubernetes.io/docs/reference/kubectl/) - make sure that [kubectl context](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/) configured with your cluster ({{< params "version_kube" >}})
-5. [kpt](https://kpt.dev/installation/kpt-cli/) ({{< params "version_kpt" >}})
-6. [The go programming language](https://go.dev/) ({{< params "version_go" >}})
-7. A Kubernetes Cluster
+Before installing Porch, ensure you have:
 
-{{% alert color="primary" title="Note:" %}}
-The versions above relate to the latest tested versions confirmed to work and are **NOT** the only compatible versions.
+1. **A Kubernetes cluster** - Any of the following:
+   - Local cluster: [kind](https://kind.sigs.k8s.io/) (recommended for testing, **requires Docker**), [minikube](https://minikube.sigs.k8s.io/) (requires Docker or other driver), or similar
+   - Cloud cluster: GKE, EKS, AKS, or any managed Kubernetes service
+   - Bare-metal cluster with standard Kubernetes installation
+   - Minimum version: Kubernetes {{< params "version_kube" >}}
+
+2. **Required tools**:
+   - [kubectl](https://kubernetes.io/docs/reference/kubectl/) - configured with access to your cluster ({{< params "version_kube" >}})
+   - [kpt](https://kpt.dev/installation/kpt-cli/) - for deploying the Porch package ({{< params "version_kpt" >}})
+   - [git](https://git-scm.com/) - for repository operations ({{< params "version_git" >}})
+   - [Docker](https://www.docker.com/get-started/) - **if using kind or minikube with Docker driver** ({{< params "version_docker" >}})
+
+3. **Network access**:
+   - Internet connectivity to pull container images from GitHub Container Registry
+   - Or pre-pulled images available in your cluster's container registry
+
+4. **Optional tools** (only needed for building Porch from source or development):
+   - [Go programming language](https://go.dev/) ({{< params "version_go" >}})
+
+{{% alert color="primary" title="Note" %}}
+The versions above are the latest tested versions and are **NOT** the only compatible versions. Porch may work with other versions.
 {{% /alert %}}
+
+## Next Steps
+
+Once installed, see [Tutorials and How-Tos]({{% relref "/docs/4_tutorials_and_how-tos" %}}) to learn how to use Porch.

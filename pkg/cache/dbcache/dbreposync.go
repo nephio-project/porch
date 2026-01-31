@@ -225,7 +225,7 @@ func (s *repositorySync) cacheExternalPRs(ctx context.Context, externalPrMap map
 			return err
 		}
 
-		// 過濾掉 binary files（含 invalid UTF-8），避免 PostgreSQL 報錯
+		// Filter out binary files with invalid UTF-8 to avoid PostgreSQL errors
 		resources := make(map[string]string, len(extPRResources.Spec.Resources))
 		for key, val := range extPRResources.Spec.Resources {
 			if !utf8.ValidString(val) {

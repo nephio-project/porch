@@ -67,6 +67,17 @@ func TestValidate(t *testing.T) {
 	assert.True(t, err != nil)
 }
 
+func TestComplete(t *testing.T) {
+	opts := NewPorchServerOptions(os.Stdout, os.Stderr)
+
+	// Test with patterns that have leading/trailing spaces
+	opts.RetryableGitErrors = []string{" git error 1 ", "git error 2", " git error 3"}
+	assert.Equal(t, 3, len(opts.RetryableGitErrors))
+
+	err := opts.Complete()
+	assert.Nil(t, err)
+}
+
 func TestSetupDBCacheConn(t *testing.T) {
 	opts := NewPorchServerOptions(os.Stdout, os.Stderr)
 

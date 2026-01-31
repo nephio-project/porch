@@ -37,6 +37,7 @@ import (
 	"github.com/nephio-project/porch/pkg/repository"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 )
@@ -698,6 +699,69 @@ func (g GitSuite) TestListPackagesDrafts(t *testing.T) {
 	if !cmp.Equal(want, got) {
 		t.Errorf("Package Revisions in drafts-repository: (-want,+got): %s", cmp.Diff(want, got))
 	}
+}
+
+func (g GitSuite) TestCloseProposedPackage(t *testing.T) {
+	tempdir := t.TempDir()
+	tarfile := filepath.Join("testdata", "trivial-repository.tar")
+	repo, address := ServeGitRepositoryWithBranch(t, tarfile, tempdir, g.branch)
+
+	const (
+		repositoryName = "proposed"
+		namespace      = "default"
+		packageName    = "test-pkg"
+		workspace      = "v1"
+		deployment     = false
+	)
+
+	ctx := context.Background()
+	git, err := OpenRepository(ctx, repositoryName, namespace, &configapi.GitRepository{
+		Repo:   address,
+		Branch: g.branch,
+	}, deployment, tempdir, testGitRepositoryOptions())
+	require.NoError(t, err, "Failed to open Git repository")
+
+	pr := &porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			PackageName:    packageName,
+			WorkspaceName:  workspace,
+			RepositoryName: repositoryName,
+		},
+	}
+
+	draft, err := git.CreatePackageRevisionDraft(ctx, pr)
+	require.NoError(t, err, "CreatePackageRevision() failed")
+
+	resources := &porchapi.PackageRevisionResources{
+		Spec: porchapi.PackageRevisionResourcesSpec{
+			Resources: map[string]string{
+				"Kptfile": Kptfile,
+			},
+		},
+	}
+	err = draft.UpdateResources(ctx, resources, &porchapi.Task{
+		Type: porchapi.TaskTypeInit,
+		Init: &porchapi.PackageInitTaskSpec{
+			Description: "Test Package",
+		},
+	})
+	require.NoError(t, err, "UpdateResources() failed")
+
+	err = draft.UpdateLifecycle(ctx, porchapi.PackageRevisionLifecycleProposed)
+	require.NoError(t, err, "UpdateLifecycle() failed")
+
+	newRevision, err := git.ClosePackageRevisionDraft(ctx, draft, 0)
+	require.NoError(t, err, "ClosePackageRevisionDraft() failed")
+
+	result, err := newRevision.GetPackageRevision(ctx)
+	require.NoError(t, err, "GetPackageRevision() failed")
+	assert.Equal(t, porchapi.PackageRevisionLifecycleProposed, result.Spec.Lifecycle, "Package lifecycle")
+
+	proposedBranch := createProposedName(newRevision.Key())
+	refMustExist(t, repo, proposedBranch.RefInRemote())
 }
 
 func (g GitSuite) TestApproveDraft(t *testing.T) {
@@ -2271,6 +2335,226 @@ func TestFormatCommitMessage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := formatCommitMessage(tt.changeType); got != tt.want {
 				t.Errorf("formatCommitMessage() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPushRetryWithTransientError(t *testing.T) {
+	const (
+		repoName  = "push-permission-test-repo"
+		namespace = "default"
+	)
+
+	tempdir := t.TempDir()
+	tarfile := filepath.Join("testdata", "trivial-repository.tar")
+	remotepath := filepath.Join(tempdir, "remote")
+	localpath := filepath.Join(tempdir, "local")
+	_, address := ServeGitRepository(t, tarfile, remotepath)
+
+	repoSpec := &configapi.GitRepository{
+		Repo: address,
+	}
+
+	ctx := context.Background()
+
+	opts := testGitRepositoryOptions()
+	opts.RepoOperationRetryAttempts = 4
+
+	localRepo, err := OpenRepository(ctx, repoName, namespace, repoSpec, false, localpath, opts)
+	require.NoError(t, err, "Failed to open Git repository")
+	t.Cleanup(func() {
+		localRepo.Close(ctx)
+	})
+
+	testrepo := localRepo.(*gitRepository)
+
+	// Create a new commit to push
+	var newCommitHash plumbing.Hash
+	err = testrepo.sharedDir.WithLock(func(repo *gogit.Repository) error {
+		mainRef, err := repo.Reference(testrepo.branch.RefInLocal(), true)
+		if err != nil {
+			return err
+		}
+
+		uip := makeUserInfoProvider(repoSpec, &mockK8sUsp{})
+		ch, err := newCommitHelper(repo, uip, mainRef.Hash(), "", plumbing.ZeroHash)
+		if err != nil {
+			return err
+		}
+
+		err = ch.storeFile("test-file.txt", "test content")
+		if err != nil {
+			return err
+		}
+
+		newCommitHash, _, err = ch.commit(ctx, "Test commit", "")
+		return err
+	})
+	require.NoError(t, err, "Failed to create new commit")
+
+	// Make remote directory read-only BEFORE push to cause errors
+	err = os.Chmod(remotepath, 0444)
+	require.NoError(t, err, "Failed to change permissions")
+
+	// Restore permissions after delay to allow retry to succeed
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		os.Chmod(remotepath, 0755)
+	}()
+
+	refSpecs := newPushRefSpecBuilder()
+	refSpecs.AddRefToPush(newCommitHash, testrepo.branch.RefInLocal())
+
+	err = testrepo.pushAndCleanup(ctx, refSpecs, nil)
+
+	assert.NoError(t, err, "Push should have succeeded after retries")
+
+	// Ensure permissions are restored
+	os.Chmod(remotepath, 0755)
+}
+
+func TestPushFailures(t *testing.T) {
+	tests := []struct {
+		name      string
+		chmodPath func(remotepath string) string
+		restoreFn func(path string)
+	}{
+		{
+			name: "objects directory inaccessible",
+			chmodPath: func(remotepath string) string {
+				return filepath.Join(remotepath, ".git", "objects")
+			},
+			restoreFn: func(path string) {
+				os.Chmod(path, 0755)
+			},
+		},
+		{
+			name: "remote directory inaccessible",
+			chmodPath: func(remotepath string) string {
+				return remotepath
+			},
+			restoreFn: func(path string) {
+				os.Chmod(path, 0755)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tempdir := t.TempDir()
+			tarfile := filepath.Join("testdata", "trivial-repository.tar")
+			remotepath := filepath.Join(tempdir, "remote")
+			localpath := filepath.Join(tempdir, "local")
+			_, address := ServeGitRepository(t, tarfile, remotepath)
+
+			repoSpec := &configapi.GitRepository{
+				Repo: address,
+			}
+
+			ctx := context.Background()
+			opts := testGitRepositoryOptions()
+			opts.RepoOperationRetryAttempts = 3
+
+			localRepo, err := OpenRepository(ctx, "push-test-repo", "default", repoSpec, false, localpath, opts)
+			require.NoError(t, err, "Failed to open Git repository")
+			t.Cleanup(func() {
+				localRepo.Close(ctx)
+			})
+
+			testrepo := localRepo.(*gitRepository)
+
+			var newCommitHash plumbing.Hash
+			err = testrepo.sharedDir.WithLock(func(repo *gogit.Repository) error {
+				mainRef, err := repo.Reference(testrepo.branch.RefInLocal(), true)
+				if err != nil {
+					return err
+				}
+
+				uip := makeUserInfoProvider(repoSpec, &mockK8sUsp{})
+				ch, err := newCommitHelper(repo, uip, mainRef.Hash(), "", plumbing.ZeroHash)
+				if err != nil {
+					return err
+				}
+
+				err = ch.storeFile("test-file.txt", "test content")
+				if err != nil {
+					return err
+				}
+
+				newCommitHash, _, err = ch.commit(ctx, "Test commit", "")
+				return err
+			})
+			require.NoError(t, err, "Failed to create new commit")
+
+			targetPath := tt.chmodPath(remotepath)
+			err = os.Chmod(targetPath, 0000)
+			require.NoError(t, err, "Failed to change permissions")
+			t.Cleanup(func() {
+				tt.restoreFn(targetPath)
+			})
+
+			refSpecs := newPushRefSpecBuilder()
+			refSpecs.AddRefToPush(newCommitHash, testrepo.branch.RefInLocal())
+
+			err = testrepo.pushAndCleanup(ctx, refSpecs, nil)
+
+			assert.Error(t, err, "Expected push to fail")
+		})
+	}
+}
+
+func TestAppendRetryableErrors(t *testing.T) {
+	// Copy to avoid test pollution
+	original := make([]string, len(retryableErrors))
+	copy(original, retryableErrors)
+	defer func() {
+		retryableErrors = original
+	}()
+
+	tests := []struct {
+		name     string
+		patterns []string
+		want     []string
+	}{
+		{
+			name:     "patterns without spaces",
+			patterns: []string{"test error", "another error"},
+			want:     []string{"test error", "another error"},
+		},
+		{
+			name:     "patterns with leading spaces",
+			patterns: []string{" test error", " another error"},
+			want:     []string{"test error", "another error"},
+		},
+		{
+			name:     "patterns with trailing spaces",
+			patterns: []string{"test error ", "another error "},
+			want:     []string{"test error", "another error"},
+		},
+		{
+			name:     "patterns with both leading and trailing spaces",
+			patterns: []string{" test error ", " another error "},
+			want:     []string{"test error", "another error"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Reset to original state before each test
+			retryableErrors = make([]string, len(original))
+			copy(retryableErrors, original)
+
+			initialLen := len(retryableErrors)
+			AppendRetryableErrors(tt.patterns)
+
+			// Verify the patterns were added
+			assert.Equal(t, initialLen+len(tt.want), len(retryableErrors), "Expected patterns count")
+
+			// Verify the last added patterns match expected (trimmed)
+			for i, want := range tt.want {
+				got := retryableErrors[initialLen+i]
+				assert.Equal(t, want, got, "Pattern %d", i)
 			}
 		})
 	}

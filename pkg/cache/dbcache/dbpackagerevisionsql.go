@@ -58,7 +58,7 @@ func pkgRevReadFromDB(ctx context.Context, prk repository.PackageRevisionKey, re
 	`
 
 	klog.V(6).Infof("pkgRevReadFromDB: running query %q on package revision %+v", sqlStatement, prk)
-	rows, err := GetDB().db.Query(sqlStatement, prk.K8SNS(), prk.K8SName())
+	rows, err := GetDB().db.Query(ctx, sqlStatement, prk.K8SNS(), prk.K8SName())
 	if err != nil {
 		klog.Warningf("pkgRevReadFromDB: reading package revision %+v returned err: %q", prk, err)
 		return nil, err
@@ -133,7 +133,7 @@ func pkgRevListPRsFromDB(ctx context.Context, filter repository.ListPackageRevis
 	`
 
 	klog.V(6).Infof("pkgRevListPRsFromDB: running query %q on package revisions with filter %+v", sqlStatement, filter)
-	rows, err := GetDB().db.Query(sqlStatement)
+	rows, err := GetDB().db.Query(ctx, sqlStatement)
 	if err != nil {
 		klog.Warningf("pkgRevListPRsFromDB: reading package revision list for filter %+v returned err: %q", filter, err)
 		return nil, err
@@ -246,7 +246,7 @@ func pkgRevReadPRListFromDB(ctx context.Context, pk repository.PackageKey, sqlSt
 	klog.V(5).Infof("pkgRevReadPRListFromDB: reading package revisions for package %+v", pk)
 
 	klog.V(6).Infof("pkgRevReadPRListFromDB: running query %q on package revisions for package %+v", sqlStatement, pk)
-	rows, err := GetDB().db.Query(sqlStatement, pk.K8SNS(), pk.K8SName())
+	rows, err := GetDB().db.Query(ctx, sqlStatement, pk.K8SNS(), pk.K8SName())
 	if err != nil {
 		klog.Warningf("pkgRevReadPRListFromDB: query failed for %+v: %q", pk, err)
 		return nil, err
@@ -332,7 +332,7 @@ func pkgRevWriteToDB(ctx context.Context, pr *dbPackageRevision) error {
 
 	klog.V(6).Infof("pkgRevWriteToDB: running query %q on package revision %+v", sqlStatement, pr)
 	prk := pr.Key()
-	if _, err := GetDB().db.Exec(
+	if _, err := GetDB().db.Exec(ctx,
 		sqlStatement,
 		prk.K8SNS(), prk.K8SName(),
 		prk.PKey().K8SName(), prk.Revision, valueAsJSON(pr.meta), valueAsJSON(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle, valueAsJSON(pr.extPRID), valueAsJSON(pr.tasks)); err == nil {
@@ -384,7 +384,7 @@ func pkgRevUpdateDB(ctx context.Context, pr *dbPackageRevision, updateResources 
 
 	klog.V(6).Infof("pkgRevUpdateDB: running query %q on package revision %+v", sqlStatement, pr)
 	prk := pr.Key()
-	result, err := GetDB().db.Exec(
+	result, err := GetDB().db.Exec(ctx,
 		sqlStatement,
 		prk.K8SNS(), prk.K8SName(),
 		prk.PKey().K8SName(), prk.Revision, valueAsJSON(pr.meta), valueAsJSON(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle, valueAsJSON(pr.extPRID), valueAsJSON(pr.tasks))
@@ -433,7 +433,7 @@ func pkgRevDeleteFromDB(ctx context.Context, prk repository.PackageRevisionKey) 
 	`
 
 	klog.V(6).Infof("pkgRevDeleteFromDB: running query %q on package revision %+v", sqlStatement, prk)
-	_, err := GetDB().db.Exec(sqlStatement, prk.K8SNS(), prk.K8SName())
+	_, err := GetDB().db.Exec(ctx, sqlStatement, prk.K8SNS(), prk.K8SName())
 
 	if err == nil {
 		klog.V(5).Infof("pkgRevDeleteFromDB: deleted package revision %+v", prk)

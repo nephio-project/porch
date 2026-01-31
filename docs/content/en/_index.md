@@ -1,43 +1,69 @@
 ---
-title: Start
-description: Documentation of the Nephio project
+title: Porch
+description: Kubernetes-native package orchestration for KRM configuration packages
 menu: {main: {weight: 10}}
 ---
-{{< blocks/cover title="Welcome to the Nephio documentation" image_anchor="top" height="full" >}}
-<a class="btn btn-lg btn-primary me-3 mb-4" href="https://nephio.org/">
-  Homepage <i class="fas fa-arrow-alt-circle-right ms-2"></i>
+{{< blocks/cover title="Porch" height="auto">}}
+<a class="btn btn-lg btn-primary me-3 mb-4" href="/docs/1_overview/">
+  Documentation (Under Construction) <i class="fas fa-arrow-alt-circle-right ms-2"></i>
 </a>
-<a class="btn btn-lg btn-secondary me-3 mb-4" href="https://github.com/nephio-project">
+<a class="btn btn-lg btn-secondary me-3 mb-4" href="https://github.com/nephio-project/porch">
   GitHub <i class="fab fa-github ms-2 "></i>
 </a>
-<a class="btn btn-lg btn-primary me-3 mb-4" href="/docs/">
-  Documentation <i class="fas fa-arrow-alt-circle-right ms-2"></i>
+<a class="btn btn-lg btn-primary me-3 mb-4" href="/docs/3_getting_started/">
+  Install Porch <i class="fas fa-download ms-2"></i>
 </a>
 
-<p class="lead mt-5">Cloud Native Network Automation</p>
-{{< blocks/link-down color="primary" >}}
+<p class="lead mt-5">Kubernetes-native API for managing KRM configuration packages</p>
 
 {{< /blocks/cover >}}
 
 {{% blocks/lead color="primary" %}}
-[Nephio project's](https://nephio.org) mission is "to deliver carrier-grade, simple, open, Kubernetes-based cloud native intent automation and
-common automation templates that materially simplify the deployment and management of multi-vendor cloud infrastructure
-and network functions across large scale edge deployments."
+Porch is a Kubernetes extension apiserver that manages the lifecycle of KRM configuration packages in Git repositories.
+It provides package operations through Kubernetes resources, enabling GitOps workflows with approval gates, automation, and collaboration.
 {{% /blocks/lead %}}
 
 {{% blocks/section type="row" %}}
 
-{{% blocks/feature icon="fas fa-rocket" title="R3" %}}
-Welcome to the Release 3 of Nephio. This release is under ongoing development together with its documentation. It is
-possible to experience some incompleteness ;)
+{{% blocks/feature icon="fab fa-git-alt" title="GitOps Native" %}}
+All package changes are committed to Git with full history. Works seamlessly with Config Sync, Flux, and other GitOps tools.
 {{% /blocks/feature %}}
 
-{{% blocks/feature icon="fab fa-wikipedia-w" title="Wiki" %}}
-Mass amount of developer information is available in the [wiki](https://wiki.nephio.org/).
+{{% blocks/feature icon="fas fa-check-circle" title="Approval Workflows" %}}
+Packages move through lifecycle stages (Draft → Proposed → Published) with explicit approval gates to prevent accidental changes.
 {{% /blocks/feature %}}
 
-{{% blocks/feature icon="fas fa-balance-scale-right" title="Charter" %}}
-Technical charter of the project can be found [here](https://github.com/nephio-project/governance/blob/main/nephio-technical-charter-amended-2022-06-22.pdf).
+{{% blocks/feature icon="fas fa-cube" title="Standard kpt Packages" %}}
+Manages standard kpt packages with no vendor lock-in. Packages can be edited through Porch or directly in Git.
 {{% /blocks/feature %}}
+
+{{% /blocks/section %}}
+
+{{% blocks/section type="row" %}}
+
+{{% blocks/feature icon="fas fa-code-branch" title="Package Cloning & Upgrades" %}}
+Clone packages from upstream sources and automatically upgrade when new versions are published. Three-way merge handles local customizations.
+{{% /blocks/feature %}}
+
+{{% blocks/feature icon="fas fa-cogs" title="Function Execution" %}}
+Apply krm functions to transform and validate packages. Functions run in isolated containers with results tracked in package history.
+{{% /blocks/feature %}}
+
+{{% blocks/feature icon="fas fa-sync" title="Multi-Repository" %}}
+Manage packages across multiple Git repositories from a single control plane. Controllers automate cross-repository operations.
+{{% /blocks/feature %}}
+
+{{% /blocks/section %}}
+
+{{% blocks/section color="primary" %}}
+
+## Part of the Nephio Project
+
+Porch was originally developed in the [kpt project](https://github.com/kptdev/kpt) and donated to [Nephio](https://nephio.org) in December 2023.
+It is maintained by the Nephio community and continues to evolve as a key component for configuration-as-data workflows.
+
+<a class="btn btn-lg btn-secondary me-3 mb-4" href="https://nephio.org/">
+  Learn about Nephio <i class="fas fa-arrow-alt-circle-right ms-2"></i>
+</a>
 
 {{% /blocks/section %}}

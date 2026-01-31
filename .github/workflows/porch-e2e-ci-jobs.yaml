@@ -51,6 +51,7 @@ jobs:
     timeout-minutes: 15
     env:
       IMAGE_TAG: ${{ github.sha }}
+      GOTOOLCHAIN: auto
     outputs:
       image-tag: ${{ steps.vars.outputs.image-tag }}
     steps:

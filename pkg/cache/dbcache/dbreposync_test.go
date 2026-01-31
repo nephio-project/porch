@@ -373,8 +373,8 @@ func (t *DbTestSuite) TestRepositorySync_Stop() {
 	nilSync.Stop() // Should not panic
 }
 
-// TestCacheExternalPRs_SkipsBinaryFiles 驗證 sync 會跳過 binary files
-// 不讓 invalid UTF-8 內容進到 DB 導致 PostgreSQL 報錯
+// TestCacheExternalPRs_SkipsBinaryFiles verifies that sync skips binary files
+// to prevent invalid UTF-8 content from causing PostgreSQL errors
 func (t *DbTestSuite) TestCacheExternalPRs_SkipsBinaryFiles() {
 	ctx := t.Context()
 	externalrepo.ExternalRepoInUnitTestMode = true
@@ -389,7 +389,7 @@ func (t *DbTestSuite) TestCacheExternalPRs_SkipsBinaryFiles() {
 		repo: testRepo,
 	}
 
-	// 準備測試資料：混合 text 和 binary files
+	// Prepare test data with mixed text and binary files
 	prKey := repository.PackageRevisionKey{
 		PkgKey: repository.PackageKey{
 			RepoKey: testRepo.Key(),
@@ -413,14 +413,13 @@ func (t *DbTestSuite) TestCacheExternalPRs_SkipsBinaryFiles() {
 		},
 	}
 
-	// 模擬 external repo 回傳的 resources
-	// 其中 image.png 含有 invalid UTF-8 bytes
+	// Simulate resources from external repo where image.png contains invalid UTF-8 bytes
 	resources := &porchapi.PackageRevisionResources{
 		Spec: porchapi.PackageRevisionResourcesSpec{
 			Resources: map[string]string{
 				"Kptfile":     "apiVersion: kpt.dev/v1\nkind: Kptfile\n",
 				"config.yaml": "key: value\n",
-				"image.png":   "\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR", // PNG header，不是 valid UTF-8
+				"image.png":   "\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR", // PNG header, not valid UTF-8
 			},
 		},
 	}
@@ -441,26 +440,26 @@ func (t *DbTestSuite) TestCacheExternalPRs_SkipsBinaryFiles() {
 	}
 	inExternalOnly := []repository.PackageRevisionKey{prKey}
 
-	// 執行 cacheExternalPRs - 應該成功，不會因為 binary file 而失敗
+	// Execute cacheExternalPRs, should succeed without failing due to binary file
 	err = repoSync.cacheExternalPRs(ctx, extPRMap, inExternalOnly)
-	t.Require().NoError(err, "sync 不該因為 binary file 而失敗")
+	t.Require().NoError(err, "sync should not fail due to binary file")
 
-	// 驗證 resources 直接從 DB 讀取
+	// Verify resources read directly from DB
 	cachedResources, err := pkgRevResourcesReadFromDB(ctx, prKey)
 	t.Require().NoError(err)
 
-	// text files 應該存在
+	// Text files should exist
 	_, hasKptfile := cachedResources["Kptfile"]
 	_, hasConfig := cachedResources["config.yaml"]
-	t.True(hasKptfile, "Kptfile 應該被 cached")
-	t.True(hasConfig, "config.yaml 應該被 cached")
+	t.True(hasKptfile, "Kptfile should be cached")
+	t.True(hasConfig, "config.yaml should be cached")
 
-	// binary file 應該被 skip
+	// Binary file should be skipped
 	_, hasBinary := cachedResources["image.png"]
-	t.False(hasBinary, "image.png (binary) 應該被 skip")
+	t.False(hasBinary, "image.png (binary) should be skipped")
 }
 
-// TestCacheExternalPRs_AllTextFiles 驗證純文字檔案全部被 cache
+// TestCacheExternalPRs_AllTextFiles verifies all text files are cached
 func (t *DbTestSuite) TestCacheExternalPRs_AllTextFiles() {
 	ctx := t.Context()
 	externalrepo.ExternalRepoInUnitTestMode = true
@@ -498,7 +497,7 @@ func (t *DbTestSuite) TestCacheExternalPRs_AllTextFiles() {
 		},
 	}
 
-	// 全部都是 valid UTF-8 文字檔
+	// All files are valid UTF-8 text files
 	resources := &porchapi.PackageRevisionResources{
 		Spec: porchapi.PackageRevisionResourcesSpec{
 			Resources: map[string]string{
@@ -531,17 +530,17 @@ func (t *DbTestSuite) TestCacheExternalPRs_AllTextFiles() {
 	cachedResources, err := pkgRevResourcesReadFromDB(ctx, prKey)
 	t.Require().NoError(err)
 
-	// 全部 3 個檔案都該存在
-	t.Equal(3, len(cachedResources), "所有 text files 都應該被 cached")
+	// All 3 files should exist
+	t.Equal(3, len(cachedResources), "all text files should be cached")
 	_, hasKptfile := cachedResources["Kptfile"]
 	_, hasDeployment := cachedResources["deployment.yaml"]
 	_, hasReadme := cachedResources["README.md"]
-	t.True(hasKptfile, "Kptfile 應該被 cached")
-	t.True(hasDeployment, "deployment.yaml 應該被 cached")
-	t.True(hasReadme, "README.md 應該被 cached")
+	t.True(hasKptfile, "Kptfile should be cached")
+	t.True(hasDeployment, "deployment.yaml should be cached")
+	t.True(hasReadme, "README.md should be cached")
 }
 
-// TestCacheExternalPRs_AllBinaryFiles 驗證全部是 binary 時不報錯但全部 skip
+// TestCacheExternalPRs_AllBinaryFiles verifies all binary files are skipped without error
 func (t *DbTestSuite) TestCacheExternalPRs_AllBinaryFiles() {
 	ctx := t.Context()
 	externalrepo.ExternalRepoInUnitTestMode = true
@@ -579,7 +578,7 @@ func (t *DbTestSuite) TestCacheExternalPRs_AllBinaryFiles() {
 		},
 	}
 
-	// 全部都是 binary files (invalid UTF-8)
+	// All files are binary (invalid UTF-8)
 	resources := &porchapi.PackageRevisionResources{
 		Spec: porchapi.PackageRevisionResourcesSpec{
 			Resources: map[string]string{
@@ -605,18 +604,18 @@ func (t *DbTestSuite) TestCacheExternalPRs_AllBinaryFiles() {
 	}
 	inExternalOnly := []repository.PackageRevisionKey{prKey}
 
-	// 不該報錯
+	// Should not return error
 	err = repoSync.cacheExternalPRs(ctx, extPRMap, inExternalOnly)
-	t.Require().NoError(err, "全部 binary 不該導致 error")
+	t.Require().NoError(err, "all binary files should not cause error")
 
 	cachedResources, err := pkgRevResourcesReadFromDB(ctx, prKey)
 	t.Require().NoError(err)
 
-	// 全部都該被 skip
-	t.Equal(0, len(cachedResources), "所有 binary files 都應該被 skip")
+	// All should be skipped
+	t.Equal(0, len(cachedResources), "all binary files should be skipped")
 }
 
-// TestCacheExternalPRs_EmptyResources 驗證空 resources 不報錯
+// TestCacheExternalPRs_EmptyResources verifies empty resources do not cause error
 func (t *DbTestSuite) TestCacheExternalPRs_EmptyResources() {
 	ctx := t.Context()
 	externalrepo.ExternalRepoInUnitTestMode = true
@@ -654,7 +653,7 @@ func (t *DbTestSuite) TestCacheExternalPRs_EmptyResources() {
 		},
 	}
 
-	// 空的 resources map
+	// Empty resources map
 	resources := &porchapi.PackageRevisionResources{
 		Spec: porchapi.PackageRevisionResourcesSpec{
 			Resources: map[string]string{},
@@ -678,9 +677,9 @@ func (t *DbTestSuite) TestCacheExternalPRs_EmptyResources() {
 	inExternalOnly := []repository.PackageRevisionKey{prKey}
 
 	err = repoSync.cacheExternalPRs(ctx, extPRMap, inExternalOnly)
-	t.Require().NoError(err, "空 resources 不該報錯")
+	t.Require().NoError(err, "empty resources should not cause error")
 
 	cachedResources, err := pkgRevResourcesReadFromDB(ctx, prKey)
 	t.Require().NoError(err)
-	t.Equal(0, len(cachedResources), "空 resources 應該回傳空 map")
+	t.Equal(0, len(cachedResources), "empty resources should return empty map")
 }
