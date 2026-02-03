@@ -3,12 +3,12 @@ title: "Lifecycle Management"
 type: docs
 weight: 3
 description: |
-  Detailed architecture of package lifecycle state machine and enforcement.
+  Detailed architecture of package revision lifecycle state machine and enforcement.
 ---
 
 ## Overview
 
-The Engine enforces a strict lifecycle state machine for package revisions that governs their mutability, visibility, and progression from draft to published state. The lifecycle system ensures that packages follow a controlled workflow from creation through approval to deployment, with appropriate constraints at each stage.
+The Engine enforces a strict lifecycle state machine for package revisions that governs their mutability, visibility, and progression from draft to published state. The lifecycle system ensures that package revisions follow a controlled workflow from creation through approval to deployment, with appropriate constraints at each stage.
 
 ### High-Level Architecture
 
@@ -54,8 +54,8 @@ The lifecycle state machine defines four states that a package revision can be i
 - Default state when no lifecycle specified
 
 **Proposed:**
-- Indicates package is ready for review and approval
-- Still mutable like Draft
+- Indicates package revision is ready for review and approval
+- Still mutable in the sense that it can be rejected back to Draft for changes
 - Signals intent to publish
 - Used in approval workflows and GitOps processes
 - Can be reverted to Draft for rework
@@ -68,19 +68,19 @@ The lifecycle state machine defines four states that a package revision can be i
 - Cannot revert to Draft or Proposed
 
 **DeletionProposed:**
-- Marks package for removal
+- Marks package revision for removal
 - Considered "published" for lifecycle checks
-- Can revert to Published if deletion cancelled
+- Can revert to Published if deletion rejected
 - Final state before actual deletion
 - Maintains audit trail during deletion process
 
 ### Published State Definition
 
-The engine treats both Published and DeletionProposed states as "published" for lifecycle checks. A package is considered published if its lifecycle is either Published or DeletionProposed.
+The engine treats both Published and DeletionProposed states as "published" for lifecycle checks. A package revision is considered published if its lifecycle is either Published or DeletionProposed.
 
 **Why DeletionProposed is considered published:**
 - Maintains immutability during deletion process
-- Prevents modifications to packages being removed
+- Prevents modifications to package revisions being removed
 - Ensures consistency in dependency checks
 - Preserves audit trail until final deletion
 
@@ -91,7 +91,7 @@ The lifecycle state machine enforces specific allowed transitions:
 ### Allowed Transitions
 
 ```
-Draft ──────────────────> Proposed
+Draft <─────────────────> Proposed
   │                          │
   │                          │
   └──────────> Published <───┘
@@ -111,7 +111,7 @@ Draft ──────────────────> Proposed
 
 **Backward transitions:**
 - Proposed → Draft (return for rework)
-- DeletionProposed → Published (cancel deletion)
+- DeletionProposed → Published (reject deletion)
 
 **Forbidden transitions:**
 - Published → Draft (cannot unpublish)
@@ -194,7 +194,7 @@ Each lifecycle state has different constraints on what operations are allowed:
 
 **Allowed operations:**
 - Add/modify tasks
-- Update package resources
+- Update package revision resources
 - Update metadata (labels, annotations, finalizers)
 - Change lifecycle to Proposed or Published
 - Delete package revision
@@ -248,7 +248,7 @@ Proposed Update Request
 
 **Forbidden operations:**
 - Add or modify tasks
-- Update package resources
+- Update package revision resources
 - Change lifecycle to Draft or Proposed
 
 **Workflow:**
@@ -277,7 +277,7 @@ Published Update Request
 
 **Forbidden operations:**
 - Add or modify tasks
-- Update package resources
+- Update package revision resources
 - Change lifecycle to Draft or Proposed
 
 **Workflow:**
@@ -321,7 +321,7 @@ CreatePackageRevision
 
 **Validation checks:**
 1. **Lifecycle value**: Must be empty, Draft, or Proposed
-2. **Cannot create Published**: Packages must progress through Draft/Proposed
+2. **Cannot create Published**: Package revisions must progress through Draft/Proposed
 3. **Cannot create DeletionProposed**: Invalid initial state
 4. **Default to Draft**: If no lifecycle specified
 
@@ -373,7 +373,7 @@ UpdatePackageResources
 ```
 
 **Validation checks:**
-1. **Must be Draft**: Only Draft packages can have resources updated
+1. **Must be Draft**: Only Draft package revisions can have resources updated
 2. **Resource version**: Optimistic locking check
 3. **Proposed rejected**: Even though mutable, explicit resource updates not allowed
 4. **Published rejected**: Immutable content
@@ -432,25 +432,25 @@ Update Request
 ```
 
 **Finalizer behavior:**
-1. **Deletion timestamp set**: Package in terminating state
+1. **Deletion timestamp set**: Package revision in terminating state
 2. **Last finalizer removed**: Triggers actual deletion
 3. **Finalizers remain**: Update proceeds normally
 4. **Metadata updated**: Finalizers stored in metadata
 
 ## Audit and Tracking
 
-The lifecycle system maintains an audit trail of package evolution:
+The lifecycle system maintains an audit trail of package revision evolution:
 
 ### Audit Fields
 
 **PublishedBy:**
-- Records user who published the package
+- Records user who published the package revision
 - Set when lifecycle transitions to Published
 - Extracted from Kubernetes request context
 - Stored in PackageRevision status
 
 **PublishedAt:**
-- Timestamp when package was published
+- Timestamp when package revision was published
 - Set when lifecycle transitions to Published
 - Stored in PackageRevision status
 - Used for tracking approval timing
@@ -471,7 +471,7 @@ The lifecycle system maintains an audit trail of package evolution:
 ### Audit Trail Flow
 
 ```
-Package Creation
+Package Revision Creation
         ↓
   Task: Init/Clone/Edit
         ↓
@@ -495,18 +495,18 @@ Deletion Request
         ↓
 Actual Deletion
         ↓
-  Package Removed
+  Package Revision Removed
 ```
 
 ### Tracking Benefits
 
 **Compliance:**
-- Who approved packages for production
-- When packages were approved
+- Who approved package revisions for production
+- When package revisions were approved
 - What changes were made
 
 **Debugging:**
-- Package evolution history
+- Package revision evolution history
 - Task execution sequence
 - Lifecycle transition timeline
 
@@ -517,5 +517,5 @@ Actual Deletion
 
 **Governance:**
 - Enforce approval workflows
-- Audit package modifications
+- Audit package revision modifications
 - Track package lineage

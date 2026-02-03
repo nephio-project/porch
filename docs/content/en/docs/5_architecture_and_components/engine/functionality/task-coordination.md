@@ -506,7 +506,7 @@ Package Revision A          Package Revision B
 ```
 
 **Isolation guarantees:**
-- Each draft has separate workspace
+- Each draft has a separate context
 - Task execution doesn't affect other drafts
 - Concurrent task execution possible (different packages)
 - No shared state between tasks

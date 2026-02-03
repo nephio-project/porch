@@ -210,7 +210,7 @@ The engine uses a draft-based workflow for all modifications:
    - `UpdatePackageRevision`: For existing revisions
 
 2. **Modify Draft**: Apply changes through task handler
-   - Draft provides mutable access to package resources
+   - Draft provides mutable access to package revision resources
    - Changes are isolated until committed
 
 3. **Close Draft**: Commit changes
@@ -233,9 +233,9 @@ The engine is configured with resolvers for repository access:
 - Engine doesn't handle credentials directly
 
 **Reference Resolver:**
-- Resolves package references (upstream packages)
+- Resolves package revision references (upstream package revisions)
 - Used during clone and upgrade operations
-- Enables cross-repository package operations
+- Enables cross-repository package revision operations
 
 **User Info Provider:**
 - Provides authenticated user information

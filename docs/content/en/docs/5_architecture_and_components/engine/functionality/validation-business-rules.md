@@ -109,7 +109,7 @@ UpdatePackageRevision
 
 **Rationale:**
 - Published packages are immutable (content cannot change)
-- Draft/Proposed packages are mutable (work-in-progress)
+- Draft packages are mutable (work-in-progress)
 - Lifecycle transitions must follow state machine rules (see [Lifecycle Management](lifecycle-management))
 
 ## Task Validation
@@ -246,7 +246,7 @@ Clone Task Validation
 ### Clone vs Edit/Copy
 
 **When to use clone:**
-- Creating a new package from upstream source
+- Creating a new package revision from upstream source
 - Package doesn't exist in target repository
 - First time bringing package into repository
 
@@ -340,7 +340,7 @@ CreatePackageRevision (init/clone)
 ```
 
 **Validation process:**
-1. **Determine if package creation** (init or clone task)
+1. **Determine if package revision creation** (init or clone task)
 2. **List all package revisions** in repository
 3. **Check for path overlaps** with new package path
 4. **Reject if overlap detected**

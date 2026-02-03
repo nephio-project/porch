@@ -40,7 +40,7 @@ This pattern enables testing with mock implementations and supports different de
 
 ### Draft-Commit Workflow
 
-The engine implements a **draft-commit pattern** for all package modifications:
+The engine implements a **draft-commit pattern** for all package revision modifications:
 
 1. **Open Draft**: Create a mutable draft from an existing package revision or start fresh
 2. **Apply Changes**: Execute tasks or resource mutations on the draft
@@ -153,7 +153,7 @@ The Engine enforces a strict state machine for package revision lifecycle:
 - Cannot be created with Published or DeletionProposed lifecycle
 
 **Proposed State:**
-- Indicates package is ready for review
+- Indicates package revision is ready for review
 - Allows modifications like Draft
 - Can transition to: Draft (for rework), Published (for approval)
 - Typically used in approval workflows
@@ -165,7 +165,7 @@ The Engine enforces a strict state machine for package revision lifecycle:
 - Represents the deployed, production-ready state
 
 **DeletionProposed State:**
-- Marks package for deletion
+- Marks package revision for deletion
 - Considered "published" for lifecycle checks
 - Final state before actual deletion
 - Used to signal intent to remove while maintaining audit trail
@@ -174,15 +174,15 @@ The Engine enforces a strict state machine for package revision lifecycle:
 
 The engine enforces lifecycle rules at multiple points:
 
-1. **Creation Validation**: Prevents creating packages directly in Published or DeletionProposed states
+1. **Creation Validation**: Prevents creating package revisions directly in Published or DeletionProposed states
 2. **Update Validation**: Checks current lifecycle before allowing modifications
-3. **Resource Update Validation**: Only allows resource changes on Draft packages
+3. **Resource Update Validation**: Only allows resource changes on Draft package revisions
 4. **Transition Validation**: Ensures requested lifecycle transitions are valid
 5. **Optimistic Locking**: Uses resource versions to prevent concurrent modification conflicts
 
 ### Special Behaviors
 
-- **Published packages** are treated as immutable snapshots - their content cannot change
-- **DeletionProposed** packages are still considered "published" for dependency checks
-- **Draft and Proposed** packages can be freely modified until published
-- Lifecycle transitions are **one-way** - packages cannot revert from Published to Draft
+- **Published package revisions** are treated as immutable snapshots - their content cannot change
+- **DeletionProposed** package revisions are still considered "published" for dependency checks
+- **Draft** package revisions can be freely modified until published
+- **Proposed -> Published** Lifecycle transitions are one-way - package revisions cannot revert from Published to Draft

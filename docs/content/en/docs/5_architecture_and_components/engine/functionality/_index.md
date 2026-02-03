@@ -36,7 +36,7 @@ For detailed architecture and process flows, see [Validation & Business Rules](v
 ### Draft-Commit Workflow Orchestration
 
 Orchestrates the draft-commit pattern for all package revision modifications through:
-- **Draft Phase**: Mutable workspace where changes are applied
+- **Draft Phase**: Package revisions are mutable and changes are applied
 - **Commit Phase**: Draft closed to create immutable package revision
 - **Rollback Mechanism**: Automatic cleanup on errors to ensure atomicity
 - **Atomicity**: Either all changes succeed or all fail
