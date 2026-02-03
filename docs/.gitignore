@@ -1,0 +1,21 @@
+# Tox environments
+.idea
+.DS_Store
+.$*
+
+# Spell checker
+*.dic
+
+# Hugo
+.hugo*
+resources/
+public/*
+
+# nodejs
+package-lock.json
+node_modules/
+
+# AI DEV Tools
+*.mcp
+.mcp.json
+.env
