@@ -89,11 +89,5 @@ func TestRepositoryFunctions(t *testing.T) {
 
 	assert.Nil(t, fakeRepo.DeletePackageRevision(context.TODO(), newPR))
 
-	newPkg, err := fakeRepo.CreatePackage(context.TODO(), &porchapi.PorchPackage{})
-	assert.Nil(t, err)
-	assert.Nil(t, newPkg)
-
-	assert.Nil(t, fakeRepo.DeletePackage(context.TODO(), newPkg))
-
 	assert.Nil(t, fakeRepo.Refresh(context.TODO()))
 }

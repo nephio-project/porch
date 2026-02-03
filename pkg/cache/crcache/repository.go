@@ -483,25 +483,6 @@ func (r *cachedRepository) ListPackages(ctx context.Context, filter repository.L
 	return packages, nil
 }
 
-func (r *cachedRepository) CreatePackage(ctx context.Context, obj *porchapi.PorchPackage) (repository.Package, error) {
-	ctx, span := tracer.Start(ctx, "cachedRepository::CreatePackage", trace.WithAttributes())
-	defer span.End()
-	return r.repo.CreatePackage(ctx, obj)
-}
-
-func (r *cachedRepository) DeletePackage(ctx context.Context, old repository.Package) error {
-	// Unwrap
-	unwrapped := old.(*cachedPackage).Package
-	if err := r.repo.DeletePackage(ctx, unwrapped); err != nil {
-		return err
-	}
-
-	// TODO: Do something more efficient than a full cache flush
-	r.flush()
-
-	return nil
-}
-
 func (r *cachedRepository) Close(ctx context.Context) error {
 	if r.syncManager != nil {
 		r.syncManager.Stop()
