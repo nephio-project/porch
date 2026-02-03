@@ -92,7 +92,7 @@ type PackageRevisionSpec struct {
 	// Revision identifies the version of the package.
 	Revision int `json:"revision,omitempty"`
 
-	// Parent references a package that provides resources to us
+	// Deprecated. Parent references a package that provides resources to us
 	Parent *ParentReference `json:"parent,omitempty"`
 
 	Lifecycle PackageRevisionLifecycle `json:"lifecycle,omitempty"`
@@ -132,7 +132,7 @@ type ReadinessGate struct {
 	ConditionType string `json:"conditionType,omitempty"`
 }
 
-// ParentReference is a reference to a parent package
+// Deprecated. ParentReference is a reference to a parent package
 type ParentReference struct {
 	// TODO: Should this be a revision or a package?
 
@@ -200,7 +200,7 @@ type PackageInitTaskSpec struct {
 	Description string `json:"description,omitempty"`
 	// `Keywords` is a list of keywords describing the package.
 	Keywords []string `json:"keywords,omitempty"`
-	// `Site is a link to page with information about the package.
+	// `Site` is a link to page with information about the package.
 	Site string `json:"site,omitempty"`
 }
 
@@ -258,7 +258,7 @@ const (
 
 // UpstreamRepository repository may be specified directly or by referencing another Repository resource.
 type UpstreamPackage struct {
-	// Type of the repository (i.e. git, OCI). If empty, `upstreamRef` will be used.
+	// Type of the repository (i.e. git). If empty, `upstreamRef` will be used.
 	Type RepositoryType `json:"type,omitempty"`
 
 	// Git upstream package specification. Required if `type` is `git`. Must be unspecified if `type` is not `git`.
