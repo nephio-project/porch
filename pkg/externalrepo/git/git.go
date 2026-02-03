@@ -329,13 +329,10 @@ func (r *gitRepository) Version(ctx context.Context) (string, error) {
 	return hex.EncodeToString(hash[:]), nil
 }
 
-func (r *gitRepository) ListPackages(ctx context.Context, filter repository.ListPackageFilter) ([]repository.Package, error) {
-	//nolint:staticcheck
-	_, span := tracer.Start(ctx, "gitRepository::ListPackages", trace.WithAttributes())
-	defer span.End()
+func (r *gitRepository) ListPackages(_ context.Context, _ repository.ListPackageFilter) ([]repository.Package, error) {
 
 	// TODO
-	return nil, fmt.Errorf("ListPackages is only supported on repo caches")
+	return nil, fmt.Errorf("ListPackages() is only supported on repository caches")
 }
 
 func (r *gitRepository) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
