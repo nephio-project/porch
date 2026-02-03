@@ -14,7 +14,7 @@
 
 # Mock generation tools
 
-MOCKERY_VERSION=3.5.5
+MOCKERY_VERSION=3.6.3
 OS_ARCH ?= $(shell uname -m)
 OS ?= $(shell uname)
 
