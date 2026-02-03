@@ -70,9 +70,10 @@ Kubernetes distributions. Consult the documentation for your specific distributi
 ### Back up Git repositories
 
 The Git repositories contain the file content of the Kpt packages managed by Porch. The distributed nature of Git version
-control means backing up a few repositories can be as simple as using Git from a secure machine: `git clone` to back up
-and `git push` to restore. However, repositories in larger numbers or containing many large Kpt packages may require more
-specialized approaches to back up the Git servers themselves
+control means backing up a few repositories can be as simple as using Git from the Git server toward another, secured Git
+server: `git push` to back up and `git clone` or `git pull` (depending on the extent of the disaster) to restore. However,
+repositories in larger numbers or containing many large Kpt packages may require more specialized approaches to back up
+the Git servers themselves
 
 {{% alert title="N.B." color="primary" %}}
 
