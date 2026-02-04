@@ -20,8 +20,8 @@ import (
 	"os"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/kptdev/kpt/pkg/lib/builtins/builtintypes"
 	"github.com/kptdev/kpt/pkg/lib/kptops"
-	"github.com/kptdev/kpt/pkg/lib/pkgcontext/pkgcontexttypes"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/externalrepo/git"
@@ -49,7 +49,7 @@ type clonePackageMutation struct {
 	repoOperationRetryAttempts int
 
 	// packageConfig contains the package configuration.
-	packageConfig *pkgcontexttypes.PackageConfig
+	packageConfig *builtintypes.PackageConfig
 }
 
 func (m *clonePackageMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *porchapi.TaskResult, error) {
@@ -83,11 +83,11 @@ func (m *clonePackageMutation) apply(ctx context.Context, resources repository.P
 	if m.isDeployment {
 		// TODO(droot): executing this as mutation is not really needed, but can be
 		// refactored once we finalize the task/mutation/commit model.
-		genPkgContextMutation, err := newPackageContextGeneratorMutation(m.packageConfig)
+		genbuiltinsMutation, err := newPackageContextGeneratorMutation(m.packageConfig)
 		if err != nil {
 			return repository.PackageResources{}, nil, err
 		}
-		cloned, _, err = genPkgContextMutation.apply(ctx, cloned)
+		cloned, _, err = genbuiltinsMutation.apply(ctx, cloned)
 		if err != nil {
 			return repository.PackageResources{}, nil, pkgerrors.Wrap(err, "failed to generate deployment context")
 		}

@@ -22,7 +22,7 @@ import (
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/fn"
-	"github.com/kptdev/kpt/pkg/lib/pkgcontext/pkgcontexttypes"
+	"github.com/kptdev/kpt/pkg/lib/builtins/builtintypes"
 	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	kptfn "github.com/kptdev/krm-functions-sdk/go/fn"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -75,7 +75,7 @@ func (th *genericTaskHandler) SetRepoOperationRetryAttempts(retryAttempts int) {
 	th.repoOperationRetryAttempts = retryAttempts
 }
 
-func (th *genericTaskHandler) ApplyTask(ctx context.Context, draft repository.PackageRevisionDraft, repositoryObj *configapi.Repository, obj *porchapi.PackageRevision, packageConfig *pkgcontexttypes.PackageConfig) error {
+func (th *genericTaskHandler) ApplyTask(ctx context.Context, draft repository.PackageRevisionDraft, repositoryObj *configapi.Repository, obj *porchapi.PackageRevision, packageConfig *builtintypes.PackageConfig) error {
 	if len(obj.Spec.Tasks) != 1 {
 		return pkgerrors.New("task list must contain exactly 1 task")
 	}
@@ -236,7 +236,7 @@ func renderError(err error) error {
 	return pkgerrors.Wrap(err, "Error rendering package in kpt function pipeline. Package NOT pushed to remote. Fix locally (until 'kpt fn render' succeeds) and retry. Details")
 }
 
-func (th *genericTaskHandler) mapTaskToMutation(obj *porchapi.PackageRevision, task *porchapi.Task, isDeployment bool, packageConfig *pkgcontexttypes.PackageConfig) (mutation, error) {
+func (th *genericTaskHandler) mapTaskToMutation(obj *porchapi.PackageRevision, task *porchapi.Task, isDeployment bool, packageConfig *builtintypes.PackageConfig) (mutation, error) {
 	switch task.Type {
 	case porchapi.TaskTypeInit:
 		if task.Init == nil {

@@ -19,8 +19,8 @@ import (
 	"fmt"
 
 	"github.com/kptdev/kpt/pkg/fn"
-	"github.com/kptdev/kpt/pkg/lib/pkgcontext"
-	"github.com/kptdev/kpt/pkg/lib/pkgcontext/pkgcontexttypes"
+	"github.com/kptdev/kpt/pkg/lib/builtins"
+	"github.com/kptdev/kpt/pkg/lib/builtins/builtintypes"
 	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -35,8 +35,8 @@ type builtinEvalMutation struct {
 	runner   fn.FunctionRunner
 }
 
-func newPackageContextGeneratorMutation(packageConfig *pkgcontexttypes.PackageConfig) (mutation, error) {
-	runner := pkgcontext.GetGenerator(packageConfig)
+func newPackageContextGeneratorMutation(packageConfig *builtintypes.PackageConfig) (mutation, error) {
+	runner := builtins.GetBuiltinFn(packageConfig)
 
 	return &builtinEvalMutation{
 		function: runneroptions.FuncGenPkgContext,
