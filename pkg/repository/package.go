@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kptdev/kpt/pkg/lib/pkgcontext/pkgcontexttypes"
+	"github.com/kptdev/kpt/pkg/lib/builtins/builtintypes"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/objects"
@@ -74,8 +74,8 @@ func (p *PackageFetcher) FetchResources(ctx context.Context, packageRevisionRef 
 	return resources, nil
 }
 
-func BuildPackageConfig(ctx context.Context, obj *porchapi.PackageRevision, parent PackageRevision) (*pkgcontexttypes.PackageConfig, error) {
-	config := &pkgcontexttypes.PackageConfig{}
+func BuildPackageConfig(ctx context.Context, obj *porchapi.PackageRevision, parent PackageRevision) (*builtintypes.PackageConfig, error) {
+	config := &builtintypes.PackageConfig{}
 
 	parentPath := ""
 
@@ -103,7 +103,7 @@ func BuildPackageConfig(ctx context.Context, obj *porchapi.PackageRevision, pare
 			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(parentConfig.Object, &parentConfigMap); err != nil {
 				return nil, fmt.Errorf("error parsing ConfigMap from parent configuration: %w", err)
 			}
-			if s := parentConfigMap.Data[pkgcontexttypes.ConfigKeyPackagePath]; s != "" {
+			if s := parentConfigMap.Data[builtintypes.ConfigKeyPackagePath]; s != "" {
 				parentPath = s + "/" + parentPath
 			}
 		}
@@ -129,7 +129,7 @@ func extractContextConfigMap(resources map[string]string) (*unstructured.Unstruc
 	for _, o := range unstructureds {
 		configMapGK := schema.GroupKind{Kind: "ConfigMap"}
 		if o.GroupVersionKind().GroupKind() == configMapGK {
-			if o.GetName() == pkgcontexttypes.PkgContextName {
+			if o.GetName() == builtintypes.PkgContextName {
 				matches = append(matches, o)
 			}
 		}
@@ -139,7 +139,7 @@ func extractContextConfigMap(resources map[string]string) (*unstructured.Unstruc
 	}
 
 	if len(matches) > 1 {
-		return nil, fmt.Errorf("found multiple configmaps matching name %q", pkgcontexttypes.PkgContextFile)
+		return nil, fmt.Errorf("found multiple configmaps matching name %q", builtintypes.PkgContextFile)
 	}
 
 	return matches[0], nil
