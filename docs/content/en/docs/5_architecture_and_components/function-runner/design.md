@@ -35,7 +35,7 @@ Go Code     Runner     Runtimes
 
 **Function Runtime implementations:**
 
-1. **Builtin Runtime** (in Engine, not Function Runner): Executes specific functions in-process within Porch server as compiled Go code (apply-replacements, set-namespace, starlark)
+1. **Builtin Runtime** (in Engine, not Function Runner): Executes specific functions in-process within the Porch server as compiled Go code (apply-replacements, set-namespace, starlark)
 2. **gRPC Runtime** (in Engine): Calls the external Function Runner service via gRPC
 3. **Multi Runtime** (in Engine): Chains builtin and gRPC runtimes together with fallback logic
 
