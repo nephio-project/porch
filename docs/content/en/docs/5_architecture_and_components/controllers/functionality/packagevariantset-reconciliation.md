@@ -16,29 +16,29 @@ The PackageVariantSet controller implements a declarative fan-out pattern where 
 ┌─────────────────────────────────────────────────────────┐
 │        PackageVariantSet Reconciliation System          │
 │                                                         │
-│  ┌──────────────────┐      ┌──────────────────┐         │
-│  │  Target          │      │   Template       │         │
-│  │  Unrolling       │ ───> │   Evaluation     │         │
-│  │                  │      │                  │         │
-│  │  • Repository    │      │  • CEL Exprs     │         │
-│  │    List          │      │  • Context       │         │
-│  │  • Repository    │      │  • Dynamic       │         │
-│  │    Selector      │      │    Config        │         │
-│  │  • Object        │      │                  │         │
-│  │    Selector      │      │                  │         │
-│  └──────────────────┘      └──────────────────┘         │
-│           │                         │                   │
-│           └────────┬────────────────┘                   │
-│                    ↓                                    │
-│          ┌──────────────────┐                           │
-│          │   Set-Based      │                           │
-│          │  Reconciliation  │                           │
-│          │                  │                           │
-│          │  • Desired Set   │                           │
-│          │  • Existing Set  │                           │
-│          │  • Create/Update │                           │
-│          │  • Delete        │                           │
-│          └──────────────────┘                           │
+│      ┌──────────────────┐     ┌──────────────────┐      │
+│      │  Target          │     │   Template       │      │
+│      │  Unrolling       │ ──> │   Evaluation     │      │
+│      │                  │     │                  │      │
+│      │  • Repository    │     │  • CEL Exprs     │      │
+│      │    List          │     │  • Context       │      │
+│      │  • Repository    │     │  • Dynamic       │      │
+│      │    Selector      │     │    Config        │      │
+│      │  • Object        │     │                  │      │
+│      │    Selector      │     │                  │      │
+│      └──────────────────┘     └──────────────────┘      │
+│               │                         │               │
+│               └────────┬────────────────┘               │
+│                        ↓                                │
+│                  ┌──────────────────┐                   │
+│                  │   Set-Based      │                   │
+│                  │  Reconciliation  │                   │
+│                  │                  │                   │
+│                  │  • Desired Set   │                   │
+│                  │  • Existing Set  │                   │
+│                  │  • Create/Update │                   │
+│                  │  • Delete        │                   │
+│                  └──────────────────┘                   │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -718,7 +718,7 @@ The controller watches multiple resource types:
 ```
 Controller Manager
         ↓
-  Setup Watches
+  Set up Watches
         ↓
   ┌─────┴─────┬─────────────┐
   ↓           ↓             ↓
@@ -866,4 +866,3 @@ PackageVariant Controller Watches
         ↓
   Create/Update PackageRevisions
 ```
-

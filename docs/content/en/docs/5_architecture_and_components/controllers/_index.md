@@ -1,16 +1,18 @@
 ---
-title: "Controllers"
+title: "Porch Controllers"
 type: docs
 weight: 6
 description: |
   Kubernetes controllers that automate package variant creation and management.
 ---
 
-## What are the Controllers?
+## What are the Porch Controllers?
 
-The **Controllers** are Kubernetes controllers that watch high-level Custom Resources and automatically create and manage PackageRevisions through the Porch API. They provide declarative, template-based automation for creating multiple package variants from a single upstream package.
+The **Porch Controllers** are Kubernetes controllers which form the backend to Porch's higher-level Custom Resources and
+automatically create and manage PackageRevisions through the Porch API. They provide declarative, template-based automation
+for creating multiple downstream variants of a package from a single upstream package.
 
-The Controllers are responsible for:
+Responsibilities:
 
 - **PackageVariant Management**: Watching PackageVariant CRs and ensuring corresponding downstream PackageRevisions exist and stay synchronized with upstream changes
 - **Bulk Variant Creation**: Watching PackageVariantSet CRs and automatically generating multiple PackageVariant CRs based on target selectors
@@ -27,21 +29,21 @@ The Controllers sit above the Porch API Server and act as automation clients:
 ┌─────────────────────────────────────────────────────┐
 │              Controllers                            │
 │                                                     │
-│  ┌──────────────────┐     ┌──────────────────┐      │
-│  │ PackageVariant   │     │PackageVariantSet │      │
-│  │   Controller     │<────│   Controller     │      │
-│  │                  │     │                  │      │
-│  │ • Watch PV CRs   │     │ • Watch PVS CRs  │      │
-│  │ • Create/Update  │     │ • Generate PV    │      │
-│  │   PackageRevs    │     │   CRs            │      │
-│  │ • Sync Upstream  │     │ • Target Select  │      │
-│  └────────┬─────────┘     └──────────────────┘      │
-│           │                                         │
-└───────────┴─────────────────────────────────────────┘
-            ↓
-    Porch API Server
-            ↓
-    PackageRevisions
+│    ┌──────────────────┐     ┌──────────────────┐    │
+│    │ PackageVariant   │     │PackageVariantSet │    │
+│    │   Controller     │<────│   Controller     │    │
+│    │                  │     │                  │    │
+│    │ • Watch PV CRs   │     │ • Watch PVS CRs  │    │
+│    │ • Create/Update  │     │ • Generate PV    │    │
+│    │   PackageRevs    │     │   CRs            │    │
+│    │ • Sync Upstream  │     │ • Target Select  │    │
+│    └────────┬─────────┘     └──────────────────┘    │
+│             │                                       │
+└─────────────┴───────────────────────────────────────┘
+              ↓
+      Porch API Server
+              ↓
+      PackageRevisions
 ```
 
 **Key architectural responsibilities:**
@@ -66,17 +68,17 @@ The Controllers sit above the Porch API Server and act as automation clients:
 
 ## Controller Types
 
-### PackageVariant Controller
+### [PackageVariant Controller]({{% relref "packagevariants.md" %}})
 
 Manages individual package variants - one upstream package to one downstream package relationship. Creates downstream PackageRevisions (clones, upgrades, edits) and applies mutations (package context, pipeline functions, injections).
 
-### PackageVariantSet Controller
+### [PackageVariantSet Controller]({{% relref "packagevariantsets.md" %}})
 
 Manages bulk creation of PackageVariant CRs based on target selectors. Evaluates target selectors (repositories, repository selector, object selector) and generates PackageVariant CRs for each matching target using CEL expression templates.
 
 ## Integration with Porch
 
-The controllers are **clients** of the Porch API, not part of the Porch server. They run as a separate deployment using standard Kubernetes client-go to interact with Porch API, and can be enabled/disabled independently via `--reconcilers` flag.
+The controllers are **clients** of the Porch API, not part of the Porch server. They run as a separate deployment using standard Kubernetes client-go to interact with Porch API, and can be enabled/disabled independently using [the `--reconcilers` flag]({{% relref "../../6_configuration_and_deployments/configurations/components/porch-controllers-config.md#command-line-arguments" %}}).
 
 **Controller runtime:**
 - Built using controller-runtime framework

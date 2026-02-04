@@ -16,25 +16,25 @@ The PackageVariant controller implements a continuous synchronization pattern be
 ┌─────────────────────────────────────────────────────────┐
 │          PackageVariant Reconciliation System           │
 │                                                         │
-│  ┌──────────────────┐      ┌──────────────────┐         │
-│  │  State Machine   │      │   Upstream       │         │
-│  │                  │ ───> │   Tracking       │         │
-│  │  • No Downstream │      │                  │         │
-│  │  • Upstream Chg  │      │  • UpstreamLock  │         │
-│  │  • Mutation Chg  │      │  • Comparison    │         │
-│  │  • Up-to-date    │      │  • Detection     │         │
-│  └──────────────────┘      └──────────────────┘         │
-│           │                         │                   │
-│           └────────┬────────────────┘                   │
-│                    ↓                                    │
-│          ┌──────────────────┐                           │
-│          │   Draft          │                           │
-│          │   Management     │                           │
-│          │                  │                           │
-│          │  • Clone         │                           │
-│          │  • Upgrade       │                           │
-│          │  • Edit          │                           │
-│          └──────────────────┘                           │
+│      ┌──────────────────┐     ┌──────────────────┐      │
+│      │  State Machine   │     │   Upstream       │      │
+│      │                  │ ──> │   Tracking       │      │
+│      │  • No Downstream │     │                  │      │
+│      │  • Upstream Chg  │     │  • UpstreamLock  │      │
+│      │  • Mutation Chg  │     │  • Comparison    │      │
+│      │  • Up-to-date    │     │  • Detection     │      │
+│      └──────────────────┘     └──────────────────┘      │
+│               │                         │               │
+│               └───────────┬─────────────┘               │
+│                           ↓                             │
+│                 ┌──────────────────┐                    │
+│                 │   Draft          │                    │
+│                 │   Management     │                    │
+│                 │                  │                    │
+│                 │  • Clone         │                    │
+│                 │  • Upgrade       │                    │
+│                 │  • Edit          │                    │
+│                 └──────────────────┘                    │
 └─────────────────────────────────────────────────────────┘
 ```
 

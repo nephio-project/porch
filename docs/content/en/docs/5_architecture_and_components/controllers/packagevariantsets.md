@@ -1,7 +1,7 @@
 ---
 title: "PackageVariantSet Controller"
 type: docs
-weight: 4
+weight: 3
 description: |
   Controller for managing PackageVariantSet resources.
 ---
@@ -35,9 +35,9 @@ The PackageVariantSet controller implements a declarative fan-out pattern where 
 
 The controller supports three mechanisms for identifying downstream targets:
 
-**1. Repository List**: Explicit list of repositories and package names
-**2. Repository Selector**: Label-based selection of Repository CRs  
-**3. Object Selector**: Label-based selection of arbitrary Kubernetes objects
+1. **Repository List**: Explicit list of repositories and package names
+2. **Repository Selector**: Label-based selection of Repository CRs  
+3. **Object Selector**: Label-based selection of arbitrary Kubernetes objects
 
 **For detailed target selection mechanisms, unrolling process, and pvContext structure, see [PackageVariantSet Reconciliation - Target Unrolling](functionality/packagevariantset-reconciliation#target-unrolling).**
 

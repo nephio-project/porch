@@ -1,7 +1,7 @@
 ---
 title: "PackageVariant Controller"
 type: docs
-weight: 3
+weight: 2
 description: |
   Controller for managing PackageVariant resources.
 ---

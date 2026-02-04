@@ -1,7 +1,7 @@
 ---
-title: "Controllers Functionality"
+title: "Functionality"
 type: docs
-weight: 6
+weight: 4
 description: |
   Overview of controller functionality and detailed documentation pages.
 ---

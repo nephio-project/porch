@@ -1,14 +1,19 @@
 ---
-title: "Controllers Interactions"
+title: "Interactions with Porch APIs"
 type: docs
 weight: 5
 description: |
-  How controllers interact with Porch APIs.
+  How the Porch controllers interact with Porch APIs.
 ---
 
 ## Overview
 
-The Controllers are **clients** of the Porch API, not part of the Porch server. They run as a separate deployment and interact with Porch through standard Kubernetes client-go mechanisms. The controllers watch Porch API resources (PackageRevisions, Repositories) and create/update PackageRevisions through the Porch API to automate package variant creation and management.
+The Controllers are **clients** of the Porch API, not part of the Porch server. They run as a separate microservice, interacting
+with Porch through standard Kubernetes client-go mechanisms. The controllers watch Porch API resources (PackageRevisions,
+Repositories) and create/update/upgrade PackageRevisions (PackageVariant controller) and PackageVariants (PackageVariantSet
+controller) through the Porch API to automate creation and management of package revisions on two levels of templating.
+PackageVariants allow multiple downstream package revisions, each with its own defined customisations, to be spun off a
+single upstream package revision; PackageVariantSets enable the same behaviour for PackageVariants themselves.
 
 ### High-Level Architecture
 
@@ -16,36 +21,37 @@ The Controllers are **clients** of the Porch API, not part of the Porch server. 
 ┌─────────────────────────────────────────────────────────┐
 │              Controller Manager                         │
 │                                                         │
-│  ┌──────────────────┐      ┌──────────────────┐         │
-│  │ PackageVariant   │      │PackageVariantSet │         │
-│  │   Controller     │      │   Controller     │         │
-│  │                  │      │                  │         │
-│  │  • Watch PRs     │      │  • Watch PRs     │         │
-│  │  • Watch PVs     │      │  • Watch PVs     │         │
-│  │  • Create PRs    │      │  • Create PVs    │         │
-│  │  • Update Status │      │  • Update Status │         │
-│  └──────────────────┘      └──────────────────┘         │
-│           │                         │                   │
-│           └────────┬────────────────┘                   │
-│                    ↓                                    │
-│          ┌──────────────────┐                           │
-│          │  Kubernetes      │                           │
-│          │  Client-Go       │                           │
-│          │                  │                           │
-│          │  • Informers     │                           │
-│          │  • Watches       │                           │
-│          │  • CRUD Ops      │                           │
-│          └──────────────────┘                           │
+│     ┌──────────────────┐      ┌──────────────────┐      │
+│     │ PackageVariant   │      │PackageVariantSet │      │
+│     │   Controller     │      │   Controller     │      │
+│     │                  │      │                  │      │
+│     │  • Watch PRs     │      │  • Watch PRs     │      │
+│     │  • Watch PVs     │      │  • Watch PVs     │      │
+│     │  • Create PRs    │      │  • Watch PVSs    │      │
+│     │  • Update Status │      │  • Create PVs    │      │
+│     └──────────────────┘      │  • Update Status │      │
+│              │                └──────────────────┘      │
+│              │                         │                │
+│              └───────────┬─────────────┘                │
+│                          ↓                              │
+│                 ┌──────────────────┐                    │
+│                 │  Kubernetes      │                    │
+│                 │  Client-Go       │                    │
+│                 │                  │                    │
+│                 │  • Informers     │                    │
+│                 │  • Watches       │                    │
+│                 │  • CRUD Ops      │                    │
+│                 └──────────────────┘                    │
 └─────────────────────────────────────────────────────────┘
-                    ↓
-            Porch API Server
-                    ↓
-            PackageRevisions
+                           ↓
+                   Porch API Server
+                           ↓
+                   PackageRevisions
 ```
 
 **Key architectural characteristics:**
 
-1. **Separate Deployment**: Controllers run independently from Porch server, can be enabled/disabled via `--reconcilers` flag
+1. **Separate Deployment**: Controllers run independently from Porch server and can be enabled/disabled using [the `--reconcilers` flag]({{% relref "../../6_configuration_and_deployments/configurations/components/porch-controllers-config.md#command-line-arguments" %}}) at deployment time
 
 2. **Standard Kubernetes Patterns**: Uses controller-runtime framework with standard watch/reconcile patterns
 
@@ -64,16 +70,16 @@ The controllers use Kubernetes watch mechanisms to detect changes in Porch resou
 **PackageVariant Controller watches:**
 
 ```
-Controller Manager
-        ↓
-  Setup Watches
-        ↓
-  ┌─────┴─────┬─────────────┐
-  ↓           ↓             ↓
-Primary    Secondary    Secondary
-Watch      Watch        Watch
-  ↓           ↓             ↓
-PackageVariant  PackageRevision  (future: injected resources)
+       Controller Manager
+              ↓
+        Set up Watches
+              ↓
+        ┌─────┴──────────┬──────────────────────┐
+        ↓                ↓                      ↓
+     Primary         Secondary              Secondary
+      Watch            Watch                  Watch
+        ↓                ↓                      ↓
+  PackageVariant  PackageRevision  (future: injected resources)
 ```
 
 **Watch setup:**
@@ -84,15 +90,15 @@ PackageVariant  PackageRevision  (future: injected resources)
 **PackageVariantSet Controller watches:**
 
 ```
-Controller Manager
-        ↓
-  Setup Watches
-        ↓
-  ┌─────┴─────┬─────────────┐
-  ↓           ↓             ↓
-Primary    Secondary    Secondary
-Watch      Watch        Watch
-  ↓           ↓             ↓
+      Controller Manager
+              ↓
+        Set up Watches
+              ↓
+        ┌─────┴──────────┬────────────────┐
+        ↓                ↓                ↓
+     Primary         Secondary        Secondary
+      Watch            Watch            Watch
+        ↓                ↓                ↓
 PackageVariantSet  PackageVariant  PackageRevision
 ```
 
@@ -100,34 +106,6 @@ PackageVariantSet  PackageVariant  PackageRevision
 - **Primary watch**: PackageVariantSet CRs (main resource being reconciled)
 - **Secondary watch**: PackageVariant CRs (triggers reconciliation when child changes)
 - **Secondary watch**: PackageRevision CRs (triggers reconciliation when upstream changes)
-
-### Watch Mechanism
-
-**Informer-based watches:**
-
-```
-Kubernetes API Server
-        ↓
-  Watch Stream
-        ↓
-Controller-Runtime Informer
-        ↓
-  Cache Update
-        ↓
-  Event Handler
-        ↓
-  Enqueue Request
-        ↓
-  Reconcile Queue
-        ↓
-  Reconcile Loop
-```
-
-**Watch characteristics:**
-- **Informer caching**: Controller-runtime maintains in-memory cache of watched resources
-- **Event filtering**: Only relevant events trigger reconciliation
-- **Namespace scoping**: All watches limited to same namespace
-- **Automatic retry**: Failed reconciliations automatically requeued with backoff
 
 ### Secondary Watch Mapping
 
@@ -373,39 +351,12 @@ The controllers update status conditions to reflect reconciliation state:
 - **Conflict handling**: Retries on conflict with exponential backoff
 
 **For detailed condition meanings and update flows, see:**
-- [PackageVariant Controller - Condition Management](packagevariants#condition-management)
-- [PackageVariantSet Controller - Condition Management](packagevariantsets#condition-management)
+- [PackageVariant Controller - Condition Management](packagevariants#status-conditions)
+- [PackageVariantSet Controller - Condition Management](packagevariantsets#status-conditions)
 
 ## API Client Configuration
 
 The controllers use standard Kubernetes client-go configuration.
-
-### Client Setup
-
-```
-Controller Manager Initialization
-        ↓
-  Create Manager
-        ↓
-  • Scheme: Kubernetes + Porch APIs
-  • Client: controller-runtime client
-  • Cache: Informer cache
-  • Mapper: REST mapper for discovery
-        ↓
-  Configure Controllers
-        ↓
-  • SetupWithManager()
-  • Register watches
-  • Set client reference
-        ↓
-  Start Manager
-```
-
-**Client configuration:**
-- **Scheme**: Includes Kubernetes core types and Porch API types
-- **Client**: Cached client with informer-based reads
-- **Cache**: Disabled for PackageRevisionResources (too large to cache)
-- **Mapper**: Custom REST mapper for dynamic API discovery
 
 ### RBAC Permissions
 
@@ -465,36 +416,6 @@ Ignore   Retry    Requeue   Set Condition
 ## Integration Patterns
 
 The controllers follow standard Kubernetes controller patterns.
-
-### Reconciliation Loop
-
-```
-Watch Event
-        ↓
-  Enqueue Request
-        ↓
-  Reconcile(ctx, request)
-        ↓
-  Get Resource
-        ↓
-  Exists? ──No──> Return (deleted)
-        │
-       Yes
-        ↓
-  Validate
-        ↓
-  Ensure Desired State
-        ↓
-  Update Status
-        ↓
-  Return (Requeue if needed)
-```
-
-**Reconciliation characteristics:**
-- **Idempotent**: Can be called multiple times safely
-- **Level-triggered**: Works from current state, not events
-- **Error handling**: Returns error to trigger requeue with backoff
-- **Status updates**: Deferred to ensure they happen even on errors
 
 ### Owner References
 

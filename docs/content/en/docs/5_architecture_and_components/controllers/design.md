@@ -1,33 +1,34 @@
 ---
-title: "Controllers Design"
+title: "Design"
 type: docs
-weight: 2
+weight: 1
 description: |
   Architecture and design patterns of the Porch controllers.
 ---
 
-## Controller Architecture
+## Architecture
 
-The Controllers follow a **standard Kubernetes controller pattern** using the controller-runtime framework:
+The Controllers follow a [**standard Kubernetes controller pattern**](https://kubernetes.io/docs/concepts/architecture/controller/#controller-pattern)
+using the controller-runtime framework:
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│           Controller Manager                        │
+│                 Controller Manager                  │
 │                                                     │
-│  ┌──────────────────┐    ┌──────────────────┐       │
-│  │ PackageVariant   │    │PackageVariantSet │       │
-│  │   Reconciler     │    │   Reconciler     │       │
-│  │                  │    │                  │       │
-│  │  Watch/Reconcile │    │  Watch/Reconcile │       │
-│  │  Loop            │    │  Loop            │       │
-│  └────────┬─────────┘    └────────┬─────────┘       │
-│           │                       │                 │
-│           └───────────┬───────────┘                 │
-│                       ↓                             │
-│              ┌─────────────────┐                    │
-│              │  Shared Client  │                    │
-│              │  (Porch API)    │                    │
-│              └─────────────────┘                    │
+│    ┌──────────────────┐     ┌──────────────────┐    │
+│    │ PackageVariant   │     │PackageVariantSet │    │
+│    │   Reconciler     │     │   Reconciler     │    │
+│    │                  │     │                  │    │
+│    │  Watch/Reconcile │     │  Watch/Reconcile │    │
+│    │  Loop            │     │  Loop            │    │
+│    └────────┬─────────┘     └────────┬─────────┘    │
+│              │                       │              │
+│              └───────────┬───────────┘              │
+│                          ↓                          │
+│                 ┌─────────────────┐                 │
+│                 │  Shared Client  │                 │
+│                 │  (Porch API)    │                 │
+│                 └─────────────────┘                 │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -35,39 +36,36 @@ The Controllers follow a **standard Kubernetes controller pattern** using the co
 
 ### Controller-Runtime Framework
 
-Both controllers use the controller-runtime library which provides:
-
-- **Manager**: Coordinates controller lifecycle, client caching, and leader election
-- **Reconciler Interface**: Standard reconcile loop pattern with context and request
-- **Watch Mechanism**: Declarative watches on primary and secondary resources
-- **Client**: Cached Kubernetes client with automatic informer management
+Both controllers use the [Kubernetes controller-runtime library](https://pkg.go.dev/sigs.k8s.io/controller-runtime),
+which provides them with several Kubernetes-standard features, such as an interface to watch the resources they manage
+and a client to interact with the rest of the cluster.
 
 ### Reconciliation Loop Pattern
 
 Standard Kubernetes reconciliation pattern:
 
 ```
-Event Trigger
-     ↓
-Watch Detects Change
-     ↓
-Enqueue Request
-     ↓
-Reconcile(ctx, request)
-     ↓
-  ┌──┴──┐
-  │     │
-Read  Compute
-State  Desired
-  │     State
-  │     │
-  └──┬──┘
-     ↓
-Apply Changes
-     ↓
-Update Status
-     ↓
-Return (Requeue if needed)
+  Event Trigger
+       ↓
+  Watch Detects Change
+       ↓
+  Enqueue Request
+       ↓
+  Reconcile(ctx, request)
+       ↓
+  ┌────┴────┐
+  │         │
+Read      Compute
+State      Desired
+  │         State
+  │         │
+  └────┬────┘
+       ↓
+  Apply Changes
+       ↓
+  Update Status
+       ↓
+  Return (Requeue if needed)
 ```
 
 **Reconciliation characteristics:**
@@ -107,7 +105,7 @@ The PackageVariant controller implements a **continuous synchronization pattern*
 ```
 Upstream Package
        ↓
-  Monitor Changes
+ Monitor Changes
        ↓
   Detect Drift
        ↓
@@ -117,7 +115,7 @@ Upgrade   Edit
   ↓         ↓
   └────┬────┘
        ↓
-  Apply Mutations
+ Apply Mutations
        ↓
 Downstream Package
 ```
@@ -126,7 +124,8 @@ Downstream Package
 - **Declarative**: User declares desired upstream/downstream relationship
 - **Reactive**: Automatically responds to upstream changes
 - **Mutation-based**: Applies systematic transformations to packages
-- **Draft-driven**: All changes go through draft workflow
+- **Approval-driven**: All changes to the downstream must go through Porch draft/proposal/approval workflow before being
+  published
 
 ### Upstream Change Detection
 
@@ -179,18 +178,18 @@ Downstream Package
 PackageVariantSet implements a **declarative fan-out pattern** for bulk package creation:
 
 ```
-Single Upstream
-       ↓
+  Single Upstream
+        ↓
   Target Selector
-       ↓
-  ┌────┴────┬────────┐
-  ↓         ↓        ↓
+        ↓
+   ┌────┴───┬────────┐
+   ↓        ↓        ↓
 Target1  Target2  Target3
-  ↓         ↓        ↓
-  └────┬────┴────────┘
-       ↓
+   ↓        ↓        ↓
+   └────┬───┴────────┘
+        ↓
 Multiple PackageVariants
-       ↓
+        ↓
 Multiple Downstream Packages
 ```
 
