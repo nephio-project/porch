@@ -11,6 +11,9 @@ default.etcd/
 # Local cache files
 .cache/
 
+# Local backup files
+.$*.bkp
+
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 *.info
@@ -45,4 +48,3 @@ docs/resources/
 
 # Temporary lock file while building
 /.hugo_build.lock
-
