@@ -131,7 +131,7 @@ Choosing between evaluators depends on deployment requirements and function char
 ### When to Use Pod Evaluator
 
 **Deployment characteristics:**
-- Need to support arbitrary function images
+- Need to support arbitrary function images, that is images that may not be known at the build time of Porch
 - Functions require container isolation
 - Security requirements mandate containerization
 - No pre-caching infrastructure available
