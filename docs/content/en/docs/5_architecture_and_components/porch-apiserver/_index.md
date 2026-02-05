@@ -42,7 +42,6 @@ The Porch API Server sits at the top of the Porch architecture, serving as the i
 │  │                  │               │                      │
 │  │  • Repository    │               │                      │
 │  │  • PackageRev    │               │                      │
-│  │  • PackageVariant│               │                      │
 │  │  • PackageVarSet │               │                      │
 │  └──────────────────┘               │                      │
 │           │                         │                      │
