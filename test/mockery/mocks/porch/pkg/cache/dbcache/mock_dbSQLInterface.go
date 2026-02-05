@@ -5,6 +5,7 @@
 package dbcache
 
 import (
+	"context"
 	"database/sql"
 
 	mock "github.com/stretchr/testify/mock"
@@ -82,9 +83,9 @@ func (_c *MockdbSQLInterface_Close_Call) RunAndReturn(run func() error) *MockdbS
 }
 
 // Exec provides a mock function for the type MockdbSQLInterface
-func (_mock *MockdbSQLInterface) Exec(query string, args ...any) (sql.Result, error) {
+func (_mock *MockdbSQLInterface) Exec(ctx context.Context, query string, args ...any) (sql.Result, error) {
 	var _ca []interface{}
-	_ca = append(_ca, query)
+	_ca = append(_ca, ctx, query)
 	_ca = append(_ca, args...)
 	ret := _mock.Called(_ca...)
 
@@ -94,18 +95,18 @@ func (_mock *MockdbSQLInterface) Exec(query string, args ...any) (sql.Result, er
 
 	var r0 sql.Result
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string, ...any) (sql.Result, error)); ok {
-		return returnFunc(query, args...)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, ...any) (sql.Result, error)); ok {
+		return returnFunc(ctx, query, args...)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string, ...any) sql.Result); ok {
-		r0 = returnFunc(query, args...)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, ...any) sql.Result); ok {
+		r0 = returnFunc(ctx, query, args...)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(sql.Result)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(string, ...any) error); ok {
-		r1 = returnFunc(query, args...)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, ...any) error); ok {
+		r1 = returnFunc(ctx, query, args...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -118,30 +119,36 @@ type MockdbSQLInterface_Exec_Call struct {
 }
 
 // Exec is a helper method to define mock.On call
+//   - ctx context.Context
 //   - query string
 //   - args ...any
-func (_e *MockdbSQLInterface_Expecter) Exec(query interface{}, args ...interface{}) *MockdbSQLInterface_Exec_Call {
+func (_e *MockdbSQLInterface_Expecter) Exec(ctx interface{}, query interface{}, args ...interface{}) *MockdbSQLInterface_Exec_Call {
 	return &MockdbSQLInterface_Exec_Call{Call: _e.mock.On("Exec",
-		append([]interface{}{query}, args...)...)}
+		append([]interface{}{ctx, query}, args...)...)}
 }
 
-func (_c *MockdbSQLInterface_Exec_Call) Run(run func(query string, args ...any)) *MockdbSQLInterface_Exec_Call {
+func (_c *MockdbSQLInterface_Exec_Call) Run(run func(ctx context.Context, query string, args ...any)) *MockdbSQLInterface_Exec_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(string)
+			arg0 = args[0].(context.Context)
 		}
-		var arg1 []any
-		variadicArgs := make([]any, len(args)-1)
-		for i, a := range args[1:] {
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 []any
+		variadicArgs := make([]any, len(args)-2)
+		for i, a := range args[2:] {
 			if a != nil {
 				variadicArgs[i] = a.(any)
 			}
 		}
-		arg1 = variadicArgs
+		arg2 = variadicArgs
 		run(
 			arg0,
-			arg1...,
+			arg1,
+			arg2...,
 		)
 	})
 	return _c
@@ -152,16 +159,16 @@ func (_c *MockdbSQLInterface_Exec_Call) Return(result sql.Result, err error) *Mo
 	return _c
 }
 
-func (_c *MockdbSQLInterface_Exec_Call) RunAndReturn(run func(query string, args ...any) (sql.Result, error)) *MockdbSQLInterface_Exec_Call {
+func (_c *MockdbSQLInterface_Exec_Call) RunAndReturn(run func(ctx context.Context, query string, args ...any) (sql.Result, error)) *MockdbSQLInterface_Exec_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Query provides a mock function for the type MockdbSQLInterface
-func (_mock *MockdbSQLInterface) Query(s string, vs ...any) (*sql.Rows, error) {
+func (_mock *MockdbSQLInterface) Query(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
 	var _ca []interface{}
-	_ca = append(_ca, s)
-	_ca = append(_ca, vs...)
+	_ca = append(_ca, ctx, query)
+	_ca = append(_ca, args...)
 	ret := _mock.Called(_ca...)
 
 	if len(ret) == 0 {
@@ -170,18 +177,18 @@ func (_mock *MockdbSQLInterface) Query(s string, vs ...any) (*sql.Rows, error) {
 
 	var r0 *sql.Rows
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string, ...any) (*sql.Rows, error)); ok {
-		return returnFunc(s, vs...)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, ...any) (*sql.Rows, error)); ok {
+		return returnFunc(ctx, query, args...)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string, ...any) *sql.Rows); ok {
-		r0 = returnFunc(s, vs...)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, ...any) *sql.Rows); ok {
+		r0 = returnFunc(ctx, query, args...)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*sql.Rows)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(string, ...any) error); ok {
-		r1 = returnFunc(s, vs...)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, ...any) error); ok {
+		r1 = returnFunc(ctx, query, args...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -194,30 +201,36 @@ type MockdbSQLInterface_Query_Call struct {
 }
 
 // Query is a helper method to define mock.On call
-//   - s string
-//   - vs ...any
-func (_e *MockdbSQLInterface_Expecter) Query(s interface{}, vs ...interface{}) *MockdbSQLInterface_Query_Call {
+//   - ctx context.Context
+//   - query string
+//   - args ...any
+func (_e *MockdbSQLInterface_Expecter) Query(ctx interface{}, query interface{}, args ...interface{}) *MockdbSQLInterface_Query_Call {
 	return &MockdbSQLInterface_Query_Call{Call: _e.mock.On("Query",
-		append([]interface{}{s}, vs...)...)}
+		append([]interface{}{ctx, query}, args...)...)}
 }
 
-func (_c *MockdbSQLInterface_Query_Call) Run(run func(s string, vs ...any)) *MockdbSQLInterface_Query_Call {
+func (_c *MockdbSQLInterface_Query_Call) Run(run func(ctx context.Context, query string, args ...any)) *MockdbSQLInterface_Query_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(string)
+			arg0 = args[0].(context.Context)
 		}
-		var arg1 []any
-		variadicArgs := make([]any, len(args)-1)
-		for i, a := range args[1:] {
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 []any
+		variadicArgs := make([]any, len(args)-2)
+		for i, a := range args[2:] {
 			if a != nil {
 				variadicArgs[i] = a.(any)
 			}
 		}
-		arg1 = variadicArgs
+		arg2 = variadicArgs
 		run(
 			arg0,
-			arg1...,
+			arg1,
+			arg2...,
 		)
 	})
 	return _c
@@ -228,16 +241,16 @@ func (_c *MockdbSQLInterface_Query_Call) Return(rows *sql.Rows, err error) *Mock
 	return _c
 }
 
-func (_c *MockdbSQLInterface_Query_Call) RunAndReturn(run func(s string, vs ...any) (*sql.Rows, error)) *MockdbSQLInterface_Query_Call {
+func (_c *MockdbSQLInterface_Query_Call) RunAndReturn(run func(ctx context.Context, query string, args ...any) (*sql.Rows, error)) *MockdbSQLInterface_Query_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // QueryRow provides a mock function for the type MockdbSQLInterface
-func (_mock *MockdbSQLInterface) QueryRow(s string, vs ...any) *sql.Row {
+func (_mock *MockdbSQLInterface) QueryRow(ctx context.Context, query string, args ...any) *sql.Row {
 	var _ca []interface{}
-	_ca = append(_ca, s)
-	_ca = append(_ca, vs...)
+	_ca = append(_ca, ctx, query)
+	_ca = append(_ca, args...)
 	ret := _mock.Called(_ca...)
 
 	if len(ret) == 0 {
@@ -245,8 +258,8 @@ func (_mock *MockdbSQLInterface) QueryRow(s string, vs ...any) *sql.Row {
 	}
 
 	var r0 *sql.Row
-	if returnFunc, ok := ret.Get(0).(func(string, ...any) *sql.Row); ok {
-		r0 = returnFunc(s, vs...)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, ...any) *sql.Row); ok {
+		r0 = returnFunc(ctx, query, args...)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*sql.Row)
@@ -261,30 +274,36 @@ type MockdbSQLInterface_QueryRow_Call struct {
 }
 
 // QueryRow is a helper method to define mock.On call
-//   - s string
-//   - vs ...any
-func (_e *MockdbSQLInterface_Expecter) QueryRow(s interface{}, vs ...interface{}) *MockdbSQLInterface_QueryRow_Call {
+//   - ctx context.Context
+//   - query string
+//   - args ...any
+func (_e *MockdbSQLInterface_Expecter) QueryRow(ctx interface{}, query interface{}, args ...interface{}) *MockdbSQLInterface_QueryRow_Call {
 	return &MockdbSQLInterface_QueryRow_Call{Call: _e.mock.On("QueryRow",
-		append([]interface{}{s}, vs...)...)}
+		append([]interface{}{ctx, query}, args...)...)}
 }
 
-func (_c *MockdbSQLInterface_QueryRow_Call) Run(run func(s string, vs ...any)) *MockdbSQLInterface_QueryRow_Call {
+func (_c *MockdbSQLInterface_QueryRow_Call) Run(run func(ctx context.Context, query string, args ...any)) *MockdbSQLInterface_QueryRow_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(string)
+			arg0 = args[0].(context.Context)
 		}
-		var arg1 []any
-		variadicArgs := make([]any, len(args)-1)
-		for i, a := range args[1:] {
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 []any
+		variadicArgs := make([]any, len(args)-2)
+		for i, a := range args[2:] {
 			if a != nil {
 				variadicArgs[i] = a.(any)
 			}
 		}
-		arg1 = variadicArgs
+		arg2 = variadicArgs
 		run(
 			arg0,
-			arg1...,
+			arg1,
+			arg2...,
 		)
 	})
 	return _c
@@ -295,7 +314,7 @@ func (_c *MockdbSQLInterface_QueryRow_Call) Return(row *sql.Row) *MockdbSQLInter
 	return _c
 }
 
-func (_c *MockdbSQLInterface_QueryRow_Call) RunAndReturn(run func(s string, vs ...any) *sql.Row) *MockdbSQLInterface_QueryRow_Call {
+func (_c *MockdbSQLInterface_QueryRow_Call) RunAndReturn(run func(ctx context.Context, query string, args ...any) *sql.Row) *MockdbSQLInterface_QueryRow_Call {
 	_c.Call.Return(run)
 	return _c
 }
