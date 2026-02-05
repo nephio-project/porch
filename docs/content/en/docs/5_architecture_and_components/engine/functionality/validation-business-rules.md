@@ -99,8 +99,8 @@ UpdatePackageRevision
 ```
 
 **Validation rules:**
-- **Draft/Proposed**: Full updates allowed (tasks, resources, lifecycle, metadata)
-- **Published/DeletionProposed**: Only metadata and lifecycle updates allowed
+- **Draft**: Full updates allowed (tasks, resources, lifecycle, metadata)
+- **Proposed/Published/DeletionProposed**: Only metadata and lifecycle updates allowed
 - **Invalid current lifecycle**: Operation rejected
 
 **Error messages:**

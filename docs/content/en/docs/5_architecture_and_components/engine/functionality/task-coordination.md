@@ -145,8 +145,6 @@ Init     Clone    Edit    Upgrade
 - Builtin functions applied after task execution
 - Modified draft returned to Engine
 
-**For details on task implementations, see [Task Handler](../../task-handler).**
-
 **Task types:**
 - **init**: Create new package from scratch
 - **clone**: Copy package from upstream
@@ -585,7 +583,7 @@ The task coordination pattern provides several benefits:
 - Implement runtime interface
 - Configure at startup
 - Task handler uses new runtime
-- No core engine changes
+- No CaDEngine changes
 
 ### Testability
 
@@ -599,4 +597,4 @@ The task coordination pattern provides several benefits:
 - Mock draft interface
 - Test task implementations
 - Test function execution
-- Independent of core engine
+- Independent of CaDEngine

@@ -215,7 +215,7 @@ The engine uses a draft-based workflow for all modifications:
 
 3. **Close Draft**: Commit changes
    - `ClosePackageRevisionDraft`: Persists to repository
-   - Creates immutable package revision
+   - Creates package revision
    - Generates Git commit or OCI layer
 
 4. **Rollback**: On errors, draft is discarded

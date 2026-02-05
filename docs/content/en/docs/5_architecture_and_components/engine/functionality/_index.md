@@ -3,7 +3,7 @@ title: "Engine Functionality"
 type: docs
 weight: 3
 description: |
-  Overview of core engine functionality and detailed documentation pages.
+  Overview of CaDEngine functionality and detailed documentation pages.
 ---
 
 The Engine provides four core functional areas that work together to manage the complete lifecycle of package revisions:
@@ -26,6 +26,7 @@ Validates operations and enforces business rules to ensure correctness through:
 - **Lifecycle Validation**: Cannot create Published/DeletionProposed packages
 - **Task Validation**: Maximum one task during creation, defaults to init
 - **Workspace Name Uniqueness**: Prevents duplicate workspace names per package
+- **Package Name Validation**: Prevents invalid package names
 - **Clone Validation**: Clone can only create new packages, not new revisions
 - **Upgrade Validation**: Source revisions must be published
 - **Package Path Overlap**: Prevents nested package structures

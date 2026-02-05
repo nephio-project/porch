@@ -30,8 +30,8 @@ The Engine orchestrates a draft-commit workflow for all package revision modific
 │          │     Rollback     │                           │
 │          │    Mechanism     │                           │
 │          │                  │                           │
-│          │  • On Error      │                           │
-│          │  • Cleanup       │                           │
+│          │• Trigger On Error│                           │
+│          │• Does Cleanup    │                           │
 │          └──────────────────┘                           │
 └─────────────────────────────────────────────────────────┘
 ```

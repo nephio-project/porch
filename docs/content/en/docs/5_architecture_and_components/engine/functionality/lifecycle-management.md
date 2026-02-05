@@ -44,7 +44,7 @@ The lifecycle state machine defines four states that a package revision can be i
 
 ### State Definitions
 
-![Package Lifecycle Workflow](/static/images/porch/flowchart.drawio.svg)
+![Package Lifecycle Workflow](/static/images/porch/lifecycle-flowchart.drawio.svg)
 
 **Draft:**
 - Initial state for newly created package revisions
@@ -91,21 +91,24 @@ The lifecycle state machine enforces specific allowed transitions:
 ### Allowed Transitions
 
 ```
-Draft <─────────────────> Proposed
-  │                          │
-  │                          │
-  └──────────> Published <───┘
-                   │
-                   ↓
-            DeletionProposed
-                   │
-                   ↓
-            [Actual Deletion]
+          Draft
+           ↑
+           |
+           ↓
+        Proposed
+           │
+           ↓
+        Published
+           │
+           ↓
+    DeletionProposed
+           │
+           ↓
+    [Actual Deletion]
 ```
 
 **Forward transitions:**
 - Draft → Proposed (submit for review)
-- Draft → Published (direct publish, skip review)
 - Proposed → Published (approve)
 - Published → DeletionProposed (mark for deletion)
 
@@ -151,11 +154,11 @@ UpdatePackageRevision
         ↓
   Check Old Lifecycle
         ↓
-  Draft/Proposed? ──Yes──> Allow Full Update
+  Draft? ──Yes──> Allow Full Update
         │
         No
         ↓
-  Published/DeletionProposed? ──Yes──> Metadata Only
+  Proposed/Published/DeletionProposed? ──Yes──> Metadata Only
         ↓
   Check New Lifecycle
         ↓
@@ -163,13 +166,13 @@ UpdatePackageRevision
         │
         No
         ↓
-  Reject
+     Reject
 ```
 
 **Process:**
 1. **Check current state**: Determines allowed operations
-2. **Draft/Proposed**: Full update workflow (draft-commit)
-3. **Published/DeletionProposed**: Metadata-only update
+2. **Draft**: Full update workflow (draft-commit)
+3. **Proposed/Published/DeletionProposed**: Metadata-only update
 4. **Validate new lifecycle**: Ensure transition is valid
 5. **Apply or reject**: Based on validation results
 
@@ -180,9 +183,9 @@ Each lifecycle state has different constraints on what operations are allowed:
 ### Mutability Matrix
 
 | Operation | Draft | Proposed | Published | DeletionProposed |
-|-----------|-------|----------|-----------|------------------|
+|-----------|-------|---------|-----------|------------------|
 | Add Tasks | ✓ | ✓ | ✗ | ✗ |
-| Update Res | ✓ | ✓ | ✗ | ✗ |
+| Update Res | ✓ | ✗ | ✗ | ✗ |
 | Update Meta | ✓ | ✓ | ✓ | ✓ |
 | Update Life | ✓ | ✓ | ✓* | ✓* |
 | Delete | ✓ | ✓ | ✓** | ✓** |
@@ -217,7 +220,7 @@ Draft Update Request
 ### Proposed State Constraints
 
 **Allowed operations:**
-- Same as Draft state
+- Update metadata only (labels, annotations, finalizers, owner references)
 - Signals readiness for approval
 - Can revert to Draft
 - Can advance to Published
@@ -236,8 +239,6 @@ Proposed Update Request
         ↓
   Return Updated PR
 ```
-
-**Note:** Draft and Proposed have identical mutability - the difference is semantic (intent to publish).
 
 ### Published State Constraints
 

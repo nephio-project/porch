@@ -36,7 +36,7 @@ The engine is constructed using a **functional options pattern** that allows fle
 - Watcher manager for change notifications
 - User info provider for audit trails
 
-This pattern enables testing with mock implementations and supports different deployment configurations without changing the core engine code.
+This pattern enables testing with mock implementations and supports different deployment configurations without changing the CaDEngine code.
 
 ### Draft-Commit Workflow
 
@@ -122,9 +122,6 @@ The Engine exposes a single interface (`CaDEngine`) with operations grouped by r
 ### Package Operations
 
 - **ListPackages**: Query packages across repositories
-- **CreatePackage**: Initialize new packages
-- **UpdatePackage**: Modify package metadata (currently not fully implemented)
-- **DeletePackage**: Remove packages and all their revisions
 
 ### Supporting Operations
 
