@@ -13,7 +13,7 @@ The **Porch API Server** is a Kubernetes extension API server that exposes Porch
 The Porch API Server is responsible for:
 
 - **API Resource Registration**: Registering Porch's Kubernetes resources with the Kubernetes API aggregation layer
-- **Request Handling**: Processing CRUD operations (Create, Read, Update, Delete) and Watch requests for Porch resources
+- **Request Handling**: Processing CRUD operations (Create, Read, Update, Delete) and Watch requests for those resources
 - **REST Storage Implementation**: Providing storage backends for each API resource type that delegate to the Engine
 - **Validation and Admission**: Enforcing API validation rules and admission policies through strategies
 - **Authentication and Authorization**: Integrating with Kubernetes RBAC for access control
