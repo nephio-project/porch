@@ -85,7 +85,6 @@ The Porch API Server registers two API groups with Kubernetes:
 **Resources:**
 - **Repository**: Configures Git repositories for package storage
 - **PackageRev**: Internal metadata resource for tracking package revisions
-- **PackageVariantSet**: Manages sets of package variants
 
 **Versions:**
 - v1alpha1: Current version for all resources
