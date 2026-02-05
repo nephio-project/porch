@@ -82,7 +82,6 @@ Kubernetes API Request
 
 **Delete operations:**
 - DeletePackageRevision → Engine package revision deletion
-- DeletePackage → Engine package deletion
 
 **Watch operations:**
 - WatchPackageRevisions → Engine cache watch for package revisions
