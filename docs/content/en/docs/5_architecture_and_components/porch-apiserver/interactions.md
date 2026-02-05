@@ -68,7 +68,6 @@ Kubernetes API Request
 
 **Create operations:**
 - CreatePackageRevision → Engine package revision creation
-- CreatePackage → Engine package creation
 
 **Read operations:**
 - GetPackageRevision → Engine package revision listing (filtered by name)
