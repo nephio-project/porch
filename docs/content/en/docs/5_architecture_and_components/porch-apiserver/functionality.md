@@ -94,7 +94,6 @@ The API Server implements custom REST storage for each Porch resource type:
 - Represents package across all revisions
 - Tracks latest revision
 - Provides package-level metadata
-- Enables package-level operations
 
 
 ## Validation Strategies
