@@ -92,7 +92,7 @@ The Porch API Server registers two API groups with Kubernetes:
 - v1alpha2: Additional version for PackageVariantSet
 
 **Characteristics:**
-- Configuration API group for repository and variant management
+- Configuration API group for repository management
 - All resources are namespaced
 - Implemented as standard Kubernetes CRDs
 - Managed by separate controllers, not directly by API server
