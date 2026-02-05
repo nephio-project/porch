@@ -96,17 +96,6 @@ The API Server implements custom REST storage for each Porch resource type:
 - Provides package-level metadata
 - Enables package-level operations
 
-### Function Storage
-
-**Operations:**
-- **Get**: Retrieves function from catalog
-- **List**: Lists available functions
-
-**Catalog integration:**
-- Functions discovered from repositories
-- Provides function metadata (image, description)
-- Enables function discovery for clients
-- Read-only resource (no create/update/delete)
 
 ## Validation Strategies
 
