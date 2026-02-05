@@ -146,7 +146,7 @@ Pod      Pod       Pod
 - gRPC connection to wrapper server in pod
 - Wrapper server executes function binary and returns results
 
-**For detailed pod lifecycle, see [Pod Lifecycle Management](functionality/pod-lifecycle-management).**
+**For detailed pod lifecycle, see [Pod Lifecycle Management]({{% relref "/docs/5_architecture_and_components/function-runner/functionality/pod-lifecycle-management.md" %}}).**
 
 ### Executable-Based Execution
 
@@ -172,7 +172,7 @@ gRPC Request
 - Direct process execution with ResourceList input
 - NotFoundError triggers fallback in multi-evaluator
 
-**For detailed function evaluation, see [Function Evaluation](functionality/function-evaluation).**
+**For detailed function evaluation, see [Function Evaluation]({{% relref "/docs/5_architecture_and_components/function-runner/functionality/function-evaluation.md" %}}).**
 
 ## Kubernetes API Integration
 
@@ -204,7 +204,7 @@ Delete      Delete       Retrieval  Config
 - Inline templates as fallback defaults
 - Template version tracking for pod replacement on changes
 
-**For detailed pod management, see [Pod Lifecycle Management](functionality/pod-lifecycle-management).**
+**For detailed pod management, see [Pod Lifecycle Management]({{% relref "/docs/5_architecture_and_components/function-runner/functionality/pod-lifecycle-management.md" %}}).**
 
 ### Service Mesh Compatibility
 
@@ -254,7 +254,7 @@ Pod Creation
 - Faster pod creation (no digest resolution delay)
 - Cache persists for Function Runner lifetime
 
-**For detailed image management, see [Image and Registry Management](functionality/image-registry-management).**
+**For detailed image management, see [Image and Registry Management]({{% relref "/docs/5_architecture_and_components/function-runner/functionality/image-registry-management.md" %}}).**
 
 ### Authentication and TLS
 
@@ -448,4 +448,4 @@ The Function Runner handles concurrent operations safely:
 - Resource limits enforced by Kubernetes
 - No shared state between function executions
 
-**For detailed concurrency patterns, see [Pod Lifecycle Management](functionality/pod-lifecycle-management).**
+**For detailed concurrency patterns, see [Pod Lifecycle Management]({{% relref "/docs/5_architecture_and_components/function-runner/functionality/pod-lifecycle-management.md" %}}).**

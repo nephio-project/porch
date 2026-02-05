@@ -259,7 +259,7 @@ The controller creates three types of drafts depending on the situation:
 - Draft remains for human/automation approval
 - Controller does NOT auto-publish (separation of concerns)
 
-**For detailed draft creation flows and characteristics, see [PackageVariant Controller - Draft Management](packagevariants#draft-management).**
+**For detailed draft creation flows and characteristics, see [PackageVariant Controller - Draft Management]({{% relref "/docs/5_architecture_and_components/controllers/packagevariants.md#draft-management" %}}).**
 
 ### Resource Mutations
 
@@ -351,8 +351,8 @@ The controllers update status conditions to reflect reconciliation state:
 - **Conflict handling**: Retries on conflict with exponential backoff
 
 **For detailed condition meanings and update flows, see:**
-- [PackageVariant Controller - Condition Management](packagevariants#status-conditions)
-- [PackageVariantSet Controller - Condition Management](packagevariantsets#status-conditions)
+- [PackageVariant Controller - Condition Management]({{% relref "/docs/5_architecture_and_components/controllers/packagevariants.md#status-conditions" %}})
+- [PackageVariantSet Controller - Condition Management]({{% relref "/docs/5_architecture_and_components/controllers/packagevariantsets.md#status-conditions" %}})
 
 ## API Client Configuration
 

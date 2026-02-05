@@ -10,13 +10,13 @@ description: |
 
 The **Porch API Server** is a Kubernetes extension API server that exposes Porch's aggregated API resources (PackageRevision, PackageRevisionResources, Package) and CRDs (Repository, PackageRev) through the Kubernetes API. It acts as the entry point for client interactions with Porch, translating Kubernetes API requests into operations on the underlying Engine and Cache.
 
-> The PackageVaraint and PackageVariantSet CRDs are not controlled by the Porch API server. They are controlled by the [Porch Controllers](../controllers/_index.md)
+> The PackageVaraint and PackageVariantSet CRDs are not controlled by the Porch API server. They are controlled by the [Porch Controllers]({{% relref "/docs/5_architecture_and_components/controllers/_index.md" %}})
 
 The Porch API Server is responsible for:
 
 - **API Resource Registration**: Registering Porch's Kubernetes resources with the Kubernetes API aggregation layer
 - **Request Handling**: Processing CRUD operations (Create, Read, Update, Delete) and Watch requests for those resources
-- **REST Storage Implementation**: Interacting with the Porch [Cad Engine](../engine/_index.md) to provide storage backends for each API resource type
+- **REST Storage Implementation**: Interacting with the Porch [Cad Engine]({{% relref "/docs/5_architecture_and_components/engine/_index.md" %}}) to provide storage backends for each API resource type
 - **Validation and Admission**: Enforcing API validation rules and admission policies through strategies
 - **Authentication and Authorization**: Integrating with Kubernetes RBAC for access control
 - **Watch Stream Management**: Supporting real-time watch streams for resource changes

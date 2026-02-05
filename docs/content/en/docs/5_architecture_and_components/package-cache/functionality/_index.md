@@ -18,7 +18,7 @@ Manages the synchronization of package repositories between external Git sources
 - **Latest Revision Tracking**: Automatically identifies and labels the latest package revisions
 - **Condition Management**: Updates repository status for visibility
 
-For detailed architecture and process flows, see [Repository Synchronization](repository-synchronization).
+For detailed architecture and process flows, see [Repository Synchronization]({{% relref "/docs/5_architecture_and_components/package-cache/functionality/repository-synchronization.md" %}}).
 
 ### Caching Behavior
 
@@ -28,7 +28,7 @@ Optimizes performance by storing repository data and avoiding redundant operatio
 - **Cache Consistency**: Version tracking, optimistic locking, and metadata synchronization
 - **Performance Optimization**: Lock-free reads and efficient data structures
 
-For detailed architecture and process flows, see [Caching Behavior](caching-behavior).
+For detailed architecture and process flows, see [Caching Behavior]({{% relref "/docs/5_architecture_and_components/package-cache/functionality/caching-behavior.md" %}}).
 
 ### Cache Invalidation
 

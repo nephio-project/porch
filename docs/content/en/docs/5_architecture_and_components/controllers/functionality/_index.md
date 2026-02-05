@@ -14,19 +14,19 @@ The Controllers provide core functional areas that work together to automate pac
 
 [Content to be written]
 
-For detailed architecture and process flows, see [PackageVariant Reconciliation](packagevariant-reconciliation).
+For detailed architecture and process flows, see [PackageVariant Reconciliation]({{% relref "/docs/5_architecture_and_components/controllers/functionality/packagevariant-reconciliation.md" %}}).
 
 ### PackageVariantSet Reconciliation
 
 [Content to be written]
 
-For detailed architecture and process flows, see [PackageVariantSet Reconciliation](packagevariantset-reconciliation).
+For detailed architecture and process flows, see [PackageVariantSet Reconciliation]({{% relref "/docs/5_architecture_and_components/controllers/functionality/packagevariantset-reconciliation.md" %}}).
 
 ### Mutation Application
 
 [Content to be written]
 
-For detailed architecture and process flows, see [Mutation Application](mutation-application).
+For detailed architecture and process flows, see [Mutation Application]({{% relref "/docs/5_architecture_and_components/controllers/functionality/mutation-application.md" %}}).
 
 ## How They Work Together
 
