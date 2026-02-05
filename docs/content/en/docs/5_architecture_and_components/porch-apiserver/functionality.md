@@ -87,7 +87,6 @@ The API Server implements custom REST storage for each Porch resource type:
 **Operations:**
 - **Get**: Filters Engine package list by name
 - **List**: Calls Engine to list packages with filters
-- **Create**: Calls Engine to create package
 - **Delete**: Calls Engine to delete package (deletes all revisions)
 
 **Package aggregation:**
