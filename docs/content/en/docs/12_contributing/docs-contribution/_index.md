@@ -242,11 +242,11 @@ See [API Reference Generation]({{% relref "api-ref-generation" %}}) for instruct
 
 ### Adding Diagrams
 
-Diagrams are stored in `docs/diagrams/` as `.drawio` files. Export as PNG and place in `docs/static/images/porch/`.
+Diagrams are stored in `docs/static/images/porch/` as `.drawio.svg` files. They can be created on draw.io or edited by copy pasting them into draw.io and editing them acordingly after which being exported again as `.svg` format.
 
 Reference in markdown:
 ```markdown
-![Package Lifecycle](/images/porch/package-lifecycle.png)
+![Package Lifecycle](/images/porch/Porch-Architecture.drawio.svg)
 ```
 
 ### Adding New Sections
