@@ -8,7 +8,7 @@ description: |
 
 ## What is the Function Runner?
 
-The **Function Runner** is a standalone gRPC service that executes KRM (Kubernetes Resource Model) functions in isolated environments. It provides the runtime infrastructure for executing user-defined functions that transform, validate, and generate Kubernetes configuration resources.
+The **Function Runner** is a standalone gRPC service that executes KRM (Kubernetes Resource Model) functions in isolated environments. It provides the runtime infrastructure for executing user-defined functions that mutate, validate, and generate Kubernetes configuration resources.
 
 The Function Runner is responsible for:
 
