@@ -1,5 +1,5 @@
 ---
-title: "Api Reference Generation"
+title: "API Reference Generation"
 type: docs
 weight: 6
 description: Generating Porch API Reference Documentation
