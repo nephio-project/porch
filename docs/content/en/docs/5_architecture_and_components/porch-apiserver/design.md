@@ -88,7 +88,6 @@ The Porch API Server registers two API groups with Kubernetes:
 
 **Versions:**
 - v1alpha1: Current version for all resources
-- v1alpha2: Additional version for PackageVariantSet
 
 **Characteristics:**
 - Configuration API group for repository management
