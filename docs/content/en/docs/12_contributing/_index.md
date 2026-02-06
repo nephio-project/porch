@@ -23,7 +23,7 @@ See the [EasyCLA documentation](https://docs.linuxfoundation.org/lfx/easycla/v2-
 ## Getting Started
 
 1. Check existing issues and PRs to avoid duplicate work
-2. For first-time contributors, look for `good first issue` labels
+2. For first-time contributors, look for [the `good first issue` label](https://github.com/nephio-project/nephio/issues?q=is%3Aissue%20state%3Aopen%20label%3Aarea%2Fporch%20label%3A"good%20first%20issue")
 3. Comment on issues you'd like to work on
 4. Ask questions in GitHub issues or discussions
 5. Join the Nephio [SIG-Automation weekly meetings](https://lf-nephio.atlassian.net/wiki/spaces/HOME/pages/7077958/SIG+Automation)
