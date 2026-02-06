@@ -1,4 +1,4 @@
-baseURL = 'https://docs.porch.org/'
+baseURL = 'https://docs.porch.nephio.org/'
 languageCode = 'en-us'
 title = 'Porch Documentation'
 
@@ -65,7 +65,7 @@ ignoreFiles = []
 
 [params]
 
-copyright = "The Porch Authors"
+copyright = "The Kpt & Nephio Authors"
 
 #privacy_policy = ""
 
@@ -102,7 +102,7 @@ version_kpt = "v1.0.0-beta.59"
 # A link to latest version of the docs. Used in the "version-banner" partial to
 # point people to the main doc site.
 
-url_latest_version = "https://docs.porch.org/docs/"
+url_latest_version = "https://docs.porch.nephio.org/docs/"
 
 # Repository configuration (URLs for in-page links to opening issues and suggesting changes)
 
@@ -242,4 +242,4 @@ enable = false
 
 [[params.versions]]
   version = "latest"
-  url = "https://docs.porch.org/docs/"
+  url = "https://docs.porch.nephio.org/docs/"

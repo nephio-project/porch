@@ -18,7 +18,7 @@ Enforces package lifecycle state machine and business rules through:
 - **Validation**: Creation, update, transition, and resource update validation
 - **Audit Tracking**: PublishedBy, PublishedAt, tasks history, and resource versions
 
-For detailed architecture and process flows, see [Lifecycle Management](lifecycle-management).
+For detailed architecture and process flows, see [Lifecycle Management]({{% relref "/docs/5_architecture_and_components/engine/functionality/lifecycle-management.md" %}}).
 
 ### Validation & Business Rules
 
@@ -32,7 +32,7 @@ Validates operations and enforces business rules to ensure correctness through:
 - **Package Path Overlap**: Prevents nested package structures
 - **Optimistic Locking**: Resource version checking for concurrent modification prevention
 
-For detailed architecture and process flows, see [Validation & Business Rules](validation-business-rules).
+For detailed architecture and process flows, see [Validation & Business Rules]({{% relref "/docs/5_architecture_and_components/engine/functionality/validation-business-rules.md" %}}).
 
 ### Draft-Commit Workflow Orchestration
 
@@ -43,7 +43,7 @@ Orchestrates the draft-commit pattern for all package revision modifications thr
 - **Atomicity**: Either all changes succeed or all fail
 - **Isolation**: Draft changes don't affect other revisions
 
-For detailed architecture and process flows, see [Draft-Commit Workflow Orchestration](draft-commit-orchestration).
+For detailed architecture and process flows, see [Draft-Commit Workflow Orchestration]({{% relref "/docs/5_architecture_and_components/engine/functionality/draft-commit-orchestration.md" %}}).
 
 ### Task Coordination
 
@@ -54,7 +54,7 @@ Coordinates task execution by delegating to the Task Handler through:
 - **Function Runtime Integration**: Builtin and gRPC function execution
 - **Error Handling**: Task errors trigger rollback and cleanup
 
-For detailed architecture and process flows, see [Task Coordination](task-coordination).
+For detailed architecture and process flows, see [Task Coordination]({{% relref "/docs/5_architecture_and_components/engine/functionality/task-coordination.md" %}}).
 
 ## How They Work Together
 

@@ -305,7 +305,7 @@ The cache uses a SyncManager to synchronize with external repositories in the ba
 - Use `porchctl repo sync <repository-name> -n <namespace>` for immediate sync
 - Or set `spec.sync.runOnceAt` in Repository CR to future timestamp
 
-For detailed synchronization architecture, see [Repository Synchronization](functionality/repository-synchronization).
+For detailed synchronization architecture, see [Repository Synchronization]({{% relref "/docs/5_architecture_and_components/package-cache/functionality/repository-synchronization.md" %}}).
 
 ## Watcher Notification Integration
 

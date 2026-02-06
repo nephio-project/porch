@@ -20,7 +20,7 @@ Executes KRM functions through pluggable evaluator strategies:
 - **Request Channel Pattern**: Channel-based communication for pod cache coordination
 - **Wrapper Server Integration**: gRPC wrapper injected into function pods for structured execution
 
-For detailed architecture and process flows, see [Function Evaluation](function-evaluation).
+For detailed architecture and process flows, see [Function Evaluation]({{% relref "/docs/5_architecture_and_components/function-runner/functionality/function-evaluation.md" %}}).
 
 ### Pod Lifecycle Management
 
@@ -33,7 +33,7 @@ Manages function execution pods with caching and garbage collection:
 - **Garbage Collection**: Periodic cleanup of expired pods and failed pod handling
 - **Pod Warming**: Pre-creates pods for frequently-used functions
 
-For detailed architecture and process flows, see [Pod Lifecycle Management](pod-lifecycle-management).
+For detailed architecture and process flows, see [Pod Lifecycle Management]({{% relref "/docs/5_architecture_and_components/function-runner/functionality/pod-lifecycle-management.md" %}}).
 
 ### Image and Registry Management
 
@@ -45,7 +45,7 @@ Caches image metadata and handles private registry authentication:
 - **Secret Management**: Creates and attaches image pull secrets to function pods
 - **Registry Operations**: Handles manifest retrieval, authentication retry, and error handling
 
-For detailed architecture and process flows, see [Image and Registry Management](image-registry-management).
+For detailed architecture and process flows, see [Image and Registry Management]({{% relref "/docs/5_architecture_and_components/function-runner/functionality/image-registry-management.md" %}}).
 
 ## How They Work Together
 

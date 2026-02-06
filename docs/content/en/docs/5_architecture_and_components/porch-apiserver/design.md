@@ -8,7 +8,7 @@ description: |
 
 ## REST Storage Interface
 
-See [Functionality](functionality.md#rest-storage-implementation) for detailed CRUD operations and storage implementations.
+See [Functionality]({{% relref "/docs/5_architecture_and_components/porch-apiserver/functionality.md#rest-storage-implementation" %}}) for detailed CRUD operations and storage implementations.
 
 The Porch API Server implements Kubernetes' REST storage interface to provide custom storage backends for Porch resources. Unlike standard Kubernetes resources that store data in etcd, Porch resources delegate to the Engine which manages package data in Git repositories through the Cache.
 
@@ -26,7 +26,7 @@ The Porch API Server implements Kubernetes' REST storage interface to provide cu
 
 ## Strategy Pattern
 
-See [Functionality](functionality.md#validation-strategies) for detailed validation rules and processes.
+See [Functionality]({{% relref "/docs/5_architecture_and_components/porch-apiserver/functionality.md#validation-strategies" %}}) for detailed validation rules and processes.
 
 The API Server uses Kubernetes' strategy pattern to customize resource behavior:
 
@@ -99,7 +99,7 @@ The Porch API Server registers two API groups with Kubernetes:
 
 ## Background Operations
 
-See [Functionality](functionality.md#background-operations) for detailed implementation of background operations including repository synchronization and resource cleanup.
+See [Functionality]({{% relref "/docs/5_architecture_and_components/porch-apiserver/functionality.md#background-operations" %}}) for detailed implementation of background operations including repository synchronization and resource cleanup.
 
 ## Design Decisions
 

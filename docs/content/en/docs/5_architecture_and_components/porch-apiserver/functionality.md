@@ -38,7 +38,7 @@ The Porch API Server provides the Kubernetes API interface for Porch resources. 
 
 ## REST Storage Implementation
 
-See [Design](design.md#rest-storage-interface) for the design rationale behind custom REST storage.
+See [Design]({{% relref "/docs/5_architecture_and_components/porch-apiserver/design.md#rest-storage-interface" %}}) for the design rationale behind custom REST storage.
 
 The API Server implements custom REST storage for each Porch resource type:
 
@@ -96,7 +96,7 @@ The API Server implements custom REST storage for each Porch resource type:
 
 ## Validation Strategies
 
-See [Design](design.md#validation-strategy) for the design rationale behind validation strategies.
+See [Design]({{% relref "/docs/5_architecture_and_components/porch-apiserver/design.md#validation-strategy" %}}) for the design rationale behind validation strategies.
 
 Strategies enforce validation rules before Engine operations:
 
@@ -146,7 +146,7 @@ Strategies enforce validation rules before Engine operations:
 
 ## Admission Control
 
-See [Design](design.md#admission-strategy) for the design rationale behind admission control.
+See [Design]({{% relref "/docs/5_architecture_and_components/porch-apiserver/design.md#admission-strategy" %}}) for the design rationale behind admission control.
 
 Strategies apply admission policies and defaults:
 
@@ -196,7 +196,7 @@ Strategies apply admission policies and defaults:
 
 ## Table Conversion
 
-See [Design](design.md#table-conversion-strategy) for the design rationale behind table conversion.
+See [Design]({{% relref "/docs/5_architecture_and_components/porch-apiserver/design.md#table-conversion-strategy" %}}) for the design rationale behind table conversion.
 
 Strategies convert resources to table format for kubectl:
 
@@ -233,7 +233,7 @@ Strategies convert resources to table format for kubectl:
 
 ## Watch Stream Management
 
-See [Interactions](interactions.md#watch-stream-management) for how watch streams integrate with other components.
+See [Interactions]({{% relref "/docs/5_architecture_and_components/porch-apiserver/interactions.md#watch-stream-management" %}}) for how watch streams integrate with other components.
 
 The API Server provides real-time watch streams:
 
@@ -371,7 +371,7 @@ The API Server employs several optimization strategies:
 
 ## Error Handling
 
-See [Interactions](interactions.md#error-handling) for error handling across component boundaries.
+See [Interactions]({{% relref "/docs/5_architecture_and_components/porch-apiserver/interactions.md#error-handling" %}}) for error handling across component boundaries.
 
 The API Server handles errors at multiple levels:
 
@@ -418,7 +418,7 @@ The API Server handles errors at multiple levels:
 
 ## Concurrency Control
 
-See [Interactions](interactions.md#concurrency-and-safety) for concurrency patterns across component interactions.
+See [Interactions]({{% relref "/docs/5_architecture_and_components/porch-apiserver/interactions.md#concurrency-and-safety" %}}) for concurrency patterns across component interactions.
 
 The API Server handles concurrent operations:
 

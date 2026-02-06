@@ -29,7 +29,7 @@ The PackageVariantSet controller implements a declarative fan-out pattern where 
 - **CEL-powered**: Dynamic configuration using Common Expression Language
 - **Idempotent**: Safe to call multiple times
 
-**For detailed reconciliation flows, validation logic, error handling, and set-based reconciliation process, see [PackageVariantSet Reconciliation](functionality/packagevariantset-reconciliation).**
+**For detailed reconciliation flows, validation logic, error handling, and set-based reconciliation process, see [PackageVariantSet Reconciliation]({{% relref "/docs/5_architecture_and_components/controllers/functionality/packagevariantset-reconciliation.md" %}}).**
 
 ## Target Selection Overview
 
@@ -39,7 +39,7 @@ The controller supports three mechanisms for identifying downstream targets:
 2. **Repository Selector**: Label-based selection of Repository CRs  
 3. **Object Selector**: Label-based selection of arbitrary Kubernetes objects
 
-**For detailed target selection mechanisms, unrolling process, and pvContext structure, see [PackageVariantSet Reconciliation - Target Unrolling](functionality/packagevariantset-reconciliation#target-unrolling).**
+**For detailed target selection mechanisms, unrolling process, and pvContext structure, see [PackageVariantSet Reconciliation - Target Unrolling]({{% relref "/docs/5_architecture_and_components/controllers/functionality/packagevariantset-reconciliation.md#target-unrolling" %}}).**
 
 ## Template Evaluation Overview
 
@@ -56,7 +56,7 @@ The controller uses CEL (Common Expression Language) expressions for dynamic Pac
 - Prevents leaking sensitive cluster data
 - Namespace isolation enforced
 
-**For detailed CEL expression environment, template rendering process, evaluation order, and expression examples, see [PackageVariantSet Reconciliation - Template Evaluation](functionality/packagevariantset-reconciliation#template-evaluation).**
+**For detailed CEL expression environment, template rendering process, evaluation order, and expression examples, see [PackageVariantSet Reconciliation - Template Evaluation]({{% relref "/docs/5_architecture_and_components/controllers/functionality/packagevariantset-reconciliation.md#template-evaluation" %}}).**
 
 ## PackageVariant Generation Overview
 
@@ -77,7 +77,7 @@ The controller uses set-based reconciliation to manage PackageVariants:
 - Enables garbage collection
 - Cascading deletion
 
-**For detailed set-based reconciliation logic, identifier generation, PackageVariant creation structure, and update vs create logic, see [PackageVariantSet Reconciliation - PackageVariant Generation](functionality/packagevariantset-reconciliation#packagevariant-generation).**
+**For detailed set-based reconciliation logic, identifier generation, PackageVariant creation structure, and update vs create logic, see [PackageVariantSet Reconciliation - PackageVariant Generation]({{% relref "/docs/5_architecture_and_components/controllers/functionality/packagevariantset-reconciliation.md#packagevariant-generation" %}}).**
 
 ## Status Conditions
 
@@ -130,7 +130,7 @@ The PackageVariantSet controller implements three key design patterns:
 
 **Set-Based Reconciliation**: Compute desired state, compare with existing, apply minimal changes
 
-**For detailed pattern descriptions and benefits, see [PackageVariantSet Reconciliation - Design Patterns](functionality/packagevariantset-reconciliation#design-patterns).**
+**For detailed pattern descriptions and benefits, see [PackageVariantSet Reconciliation - Design Patterns]({{% relref "/docs/5_architecture_and_components/controllers/functionality/packagevariantset-reconciliation.md#design-patterns" %}}).**
 
 ## Error Handling
 
