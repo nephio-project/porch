@@ -182,11 +182,11 @@ Important information here.
 
 **Use examples**: Show, don't just tell
 
-**Verify accuracy**: Test commands and examples
+**Verify accuracy**: Test commands and examples; include expected command output if reasonably short
 
-**Consider audience**: Assume Kubernetes familiarity, explain Porch-specific concepts
+**Consider audience**: Assume Kubernetes familiarity; explain Porch-specific concepts
 
-**Avoid jargon**: Define terms on first use or link to glossary
+**Avoid jargon**: Define terms/expand acronyms on first use, or link to glossary
 
 ## Making Changes
 
