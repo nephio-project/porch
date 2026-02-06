@@ -85,6 +85,18 @@ kubectl get apiservice v1alpha1.porch.kpt.dev
 kubectl api-resources | grep porch
 ```
 
+**Expected Output:**
+
+```bash
+packagerevs                                      config.porch.kpt.dev/v1alpha1     true         PackageRev
+packagevariants                                  config.porch.kpt.dev/v1alpha1     true         PackageVariant
+packagevariantsets                               config.porch.kpt.dev/v1alpha2     true         PackageVariantSet
+repositories                                     config.porch.kpt.dev/v1alpha1     true         Repository
+packagerevisionresources                         porch.kpt.dev/v1alpha1            true         PackageRevisionResources
+packagerevisions                                 porch.kpt.dev/v1alpha1            true         PackageRevision
+packages                                         porch.kpt.dev/v1alpha1            true         PorchPackage
+```
+
 ### Debug Server (Server in VS Code, Controllers in Kind)
 
 Two configurations available depending on cache backend:
@@ -213,6 +225,10 @@ The make targets with `db-cache` in the name automatically deploy and configure 
 
 ### Create Test Repositories
 
+{{% alert title="Note" color="primary" %}}
+Please Note that these Repositories must already exist on the Git side. if they dont please create them before pointing the porch repository resources at them.
+{{% /alert %}}
+
 Create a `porch-repositories.yaml`:
 
 ```yaml
@@ -317,8 +333,6 @@ Debug individual test cases with breakpoints:
    ```
 3. Select **Run and Debug** → **Launch E2E CLI tests**
 
-The `CLEANUP_ON_FAIL` environment variable controls whether test resources are cleaned up on failure.
-
 ## Troubleshooting
 
 ### Server Not Connecting to Function Runner
@@ -378,6 +392,10 @@ Debug porchctl CLI commands with breakpoints:
 3. Select **Run and Debug** → **Run Porchctl command**
 
 This allows you to step through porchctl code execution and debug CLI behavior.
+
+{{% alert title="Note" color="primary" %}}
+Please Note that for this to work as you are debugging the CLI commands themselfs and not the server's internal workings when the command occurs you must use the debugger in `pkg/cli/commands` and apply breakpoints there instead of in the server's code.
+{{% /alert %}}
 
 ### Enable Race Condition Detection
 

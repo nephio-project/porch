@@ -91,35 +91,16 @@ Open your browser to `http://localhost:1313`. The site auto-reloads when you sav
 
 Porch documentation is organized in numbered sections:
 
-```
-docs/content/en/docs/
-├── 1_overview/              # What Porch is, why it exists
-├── 2_concepts/              # Core concepts (Package, Repository, Lifecycle)
-├── 3_getting_started/       # Installation and setup
-├── 4_tutorials_and_how-tos/ # Step-by-step guides
-├── 5_architecture_and_components/ # Internal architecture
-├── 6_configuration_and_deployments/ # Configuration options
-├── 7_cli_api/               # CLI and API reference
-├── 8_best_practices/        # Recommendations
-├── 9_troubleshooting_and_faq/ # Common issues
-├── 10_security_and_compliance/ # Security guidance
-├── 11_glossary/             # Term definitions
-└── 12_contributing/         # This section
-```
-
-### Section Guidelines
-
-**1_overview**: High-level introduction, problem/solution, ecosystem context
-
-**2_concepts**: Conceptual explanations without implementation details. No CLI commands or YAML examples.
-
-**3_getting_started**: Installation, prerequisites, first steps
-
-**4_tutorials_and_how-tos**: Task-oriented guides with step-by-step instructions, examples, and verification
-
-**7_cli_api**: Reference documentation (command syntax, flags, API fields)
-
-**11_glossary**: Term definitions organized by topic/domain
+- **Overview** - What Porch is, why it exists, and its role in the ecosystem
+- **Concepts** - Core concepts like Package, Repository, and Lifecycle
+- **Installation** - Installation, prerequisites, and first steps
+- **Guides** - Step-by-step task-oriented guides
+- **Architecture** - Internal architecture and component details
+- **Configuration** - Configuration options and deployment scenarios
+- **CLI & API** - CLI commands and API reference documentation
+- **Troubleshooting** - Common issues and solutions
+- **Glossaru** - Term definitions organized by topic
+- **Contribution** - How to contribute to Porch (this section)
 
 ## Writing Guidelines
 
