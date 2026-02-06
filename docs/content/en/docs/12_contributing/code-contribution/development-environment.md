@@ -351,7 +351,7 @@ If your cluster becomes unstable:
 kind delete cluster --name porch-test
 
 # Recreate
-./scripts/setup-dev-env.sh
+make setup-dev-env
 
 # Redeploy Porch
 make run-in-kind
