@@ -128,7 +128,7 @@ API Request
 
 ### Background Synchronization
 
-See [Functionality](functionality.md#repository-synchronization) for detailed sync process and configuration.
+See [Functionality]({{% relref "/docs/5_architecture_and_components/porch-apiserver/functionality.md#repository-synchronization" %}}) for detailed sync process and configuration.
 
 **Integration pattern:**
 - API Server starts background sync goroutines at startup
@@ -190,7 +190,7 @@ Kubernetes API Server
 
 ## Watch Stream Management
 
-See [Functionality](functionality.md#watch-stream-management) for detailed watch lifecycle and event delivery.
+See [Functionality]({{% relref "/docs/5_architecture_and_components/porch-apiserver/functionality.md#watch-stream-management" %}}) for detailed watch lifecycle and event delivery.
 
 The API Server integrates watch streams between clients and Engine:
 
@@ -232,7 +232,7 @@ Client Watch Request
 
 ## Background Job Coordination
 
-See [Functionality](functionality.md#background-operations) for detailed background operation implementation.
+See [Functionality]({{% relref "/docs/5_architecture_and_components/porch-apiserver/functionality.md#background-operations" %}}) for detailed background operation implementation.
 
 The API Server coordinates background operations across components:
 
@@ -266,7 +266,7 @@ API Server Startup
 
 ### Cleanup Coordination
 
-See [Functionality](functionality.md#resource-cleanup) for detailed cleanup operations.
+See [Functionality]({{% relref "/docs/5_architecture_and_components/porch-apiserver/functionality.md#resource-cleanup" %}}) for detailed cleanup operations.
 
 **Integration flow:**
 - Repository deletion detected via Kubernetes API
@@ -275,7 +275,7 @@ See [Functionality](functionality.md#resource-cleanup) for detailed cleanup oper
 
 ## Error Handling
 
-See [Functionality](functionality.md#error-handling) for detailed error handling within the API Server.
+See [Functionality]({{% relref "/docs/5_architecture_and_components/porch-apiserver/functionality.md#error-handling" %}}) for detailed error handling within the API Server.
 
 The API Server translates errors across component boundaries:
 
@@ -315,7 +315,7 @@ The API Server translates errors across component boundaries:
 
 ## Concurrency and Safety
 
-See [Functionality](functionality.md#concurrency-control) for detailed concurrency mechanisms.
+See [Functionality]({{% relref "/docs/5_architecture_and_components/porch-apiserver/functionality.md#concurrency-control" %}}) for detailed concurrency mechanisms.
 
 The API Server coordinates concurrent operations across components:
 

@@ -110,7 +110,7 @@ UpdatePackageRevision
 **Rationale:**
 - Published packages are immutable (content cannot change)
 - Draft packages are mutable (work-in-progress)
-- Lifecycle transitions must follow state machine rules (see [Lifecycle Management](lifecycle-management))
+- Lifecycle transitions must follow state machine rules (see [Lifecycle Management]({{% relref "/docs/5_architecture_and_components/engine/functionality/lifecycle-management.md" %}}))
 
 ## Task Validation
 

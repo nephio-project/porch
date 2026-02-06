@@ -231,7 +231,7 @@ The PackageVariant controller implements a continuous synchronization pattern be
 - **Status updates**: Deferred to ensure they happen even on errors
 - **Requeue on errors**: Transient errors trigger automatic retry
 
-**For detailed reconciliation flows, state machine, validation logic, and error handling, see [PackageVariant Reconciliation](functionality/packagevariant-reconciliation).**
+**For detailed reconciliation flows, state machine, validation logic, and error handling, see [PackageVariant Reconciliation]({{% relref "/docs/5_architecture_and_components/controllers/functionality/packagevariant-reconciliation.md" %}}).**
 
 ## Mutation Application Overview
 
@@ -252,7 +252,7 @@ The controller applies three types of mutations to downstream packages:
 - Enables cluster-specific configuration
 - Dynamic configuration based on cluster state
 
-**For detailed mutation application flows, ordering, and change detection, see [Mutation Application](functionality/mutation-application).**
+**For detailed mutation application flows, ordering, and change detection, see [Mutation Application]({{% relref "/docs/5_architecture_and_components/controllers/functionality/mutation-application.md" %}}).**
 
 ## Status Conditions
 

@@ -315,8 +315,6 @@ UpdatePackageResources
 - Executes render task (runs function pipeline)
 - Returns RenderStatus with function results
 
-**For details on render task and function execution, see [Task Handler](../../task-handler).**
-
 **Handback to Engine:**
 - **RenderStatus**: Contains function execution results
   - Result: Overall success/failure
@@ -365,7 +363,7 @@ NewCaDEngine(opts...)
 - Passed to task handler during engine initialization
 - Task handler uses runtime for function execution
 
-**For details on function runtime implementations, see [Function Runner](../../function-runner).**
+**For details on function runtime implementations, see [Function Runner]({{% relref "/docs/5_architecture_and_components/function-runner/_index.md" %}}).**
 
 ## Error Handling
 
