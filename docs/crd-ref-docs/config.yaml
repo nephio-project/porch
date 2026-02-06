@@ -15,4 +15,4 @@ processor:
 
 render:
   # Kubernetes version for API documentation links
-  kubernetesVersion: 1.28
+  kubernetesVersion: 1.34
