@@ -155,7 +155,7 @@ If maintainers request changes:
 
 1. Make the requested changes on your local branch
 2. Commit the changes: `git commit -sm "fix: address review feedback"`
-3. Push to your fork: `git push origin feature-add-package-validation`
+3. Push to the upstream branch on your fork: `git push origin feature-add-package-validation`
 
 The PR will automatically update with your new commits.
 
