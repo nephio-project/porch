@@ -159,7 +159,7 @@ kubectl get packagerevisions
 ```
 ````
 
-**Internal links**: Use Hugo relref shortcodes
+**Internal links**: Use [Hugo relref shortcodes](https://gohugo.io/shortcodes/relref/)
 ```markdown
 See [Package Lifecycle]({{%/* relref "package-lifecycle" */%}}).
 ```
