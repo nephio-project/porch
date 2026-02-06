@@ -203,7 +203,7 @@ make destroy
 
 Porch supports two cache backends:
 
-**CR Cache (Default):** Stores package data as Kubernetes Custom Resources. Simpler setup, suitable for development.
+**[CR Cache (Default)]({{% relref "../../5_architecture_and_components/package-cache/cr-cache" %}}):** Stores package data as Kubernetes Custom Resources. Simpler setup, suitable for development.
 
 **[DB Cache (PostgreSQL)]({{% relref "../../5_architecture_and_components/package-cache/db-cache" %}}):** Stores package data in PostgreSQL. Better performance with large repositories, closer to production setup.
 
