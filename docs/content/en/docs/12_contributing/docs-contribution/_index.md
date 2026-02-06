@@ -240,7 +240,7 @@ The EasyCLA bot will prompt you to sign the CLA if you haven't already (see cont
 
 See [API Reference Generation]({{% relref "api-ref-generation" %}}) for instructions on regenerating API documentation from Go source code.
 
-### Adding Diagrams
+### Adding and editing Diagrams
 
 Diagrams are stored in `docs/static/images/porch/` as `.drawio.svg` files. Diagrams created in this format can be opened in [the draw.io editor](https://github.com/jgraph/drawio-desktop/releases), edited freely, and saved as-is. They can then be referenced in the Markdown files as normal SVG images.
 
