@@ -236,7 +236,9 @@ spec:
   type: git
   content: Package
   git:
-    repo: http://172.18.255.200:3000/nephio/management.git
+repo: http://localhost:3000/nephio/management.git
+or
+repo: http://gitea.gitea.svc.cluster.local:3000/nephio/management.git
 ```
 
 Apply:
