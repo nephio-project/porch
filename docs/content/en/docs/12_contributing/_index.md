@@ -35,4 +35,4 @@ See the [EasyCLA documentation](https://docs.linuxfoundation.org/lfx/easycla/v2-
 - **Nephio Slack**: [nephio.slack.com](https://nephio.slack.com)
 - **Nephio Zulip**: [Nephio channel on the Linux Foundation Zulip](https://linuxfoundation.zulipchat.com/)
 
-By contributing to Porch, you agree that your contributions will be licensed under the Apache License 2.0.
+By contributing to Porch, you agree that your contributions will be licensed under [the Apache License 2.0](https://github.com/nephio-project/porch?tab=Apache-2.0-1-ov-file#readme).
