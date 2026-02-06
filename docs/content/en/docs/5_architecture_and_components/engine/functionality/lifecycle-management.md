@@ -134,17 +134,17 @@ CreatePackageRevision
         │
         No
         ↓
-  Draft/Proposed? ──Yes──> Allow
+  Draft? ──Yes──> Allow
         │
         No
         ↓
-  Published/DeletionProposed? ──Yes──> Reject
+  Proposed/Published/DeletionProposed? ──Yes──> Reject
 ```
 
 **Process:**
 1. **Empty lifecycle**: Defaults to Draft
-2. **Draft or Proposed**: Allowed for creation
-3. **Published or DeletionProposed**: Rejected with error
+2. **Draft**: Allowed for creation
+3. **Proposed or Published or DeletionProposed**: Rejected with error
 4. **Invalid value**: Rejected with error
 
 **Update validation:**
@@ -313,7 +313,7 @@ CreatePackageRevision
         │
         No
         ↓
-  Draft/Proposed? ──Yes──> Continue
+  Draft? ──Yes──> Continue
         │
         No
         ↓
@@ -337,11 +337,11 @@ UpdatePackageRevision
         ↓
   Check Current Lifecycle
         ↓
-  Draft/Proposed? ──Yes──> Full Update Path
+  Draft? ──Yes──> Full Update Path
         │
         No
         ↓
-  Published/DeletionProposed? ──Yes──> Metadata Only Path
+  Proposed/Published/DeletionProposed? ──Yes──> Metadata Only Path
         │
         No
         ↓
@@ -457,10 +457,8 @@ The lifecycle system maintains an audit trail of package revision evolution:
 - Used for tracking approval timing
 
 **Tasks:**
-- Append-only list of operations performed
-- Each task represents a modification
-- First task indicates creation method (init, clone, edit, upgrade)
-- Subsequent tasks show evolution history
+- Typically contains a single task indicating creation method (init, clone, edit, upgrade)
+- Render tasks may temporarily appear during package lifecycle operations but are generally cleaned up
 - Stored in PackageRevision spec
 
 **Resource Version:**
