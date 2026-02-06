@@ -124,7 +124,7 @@ make run-in-kind-db-cache-no-server
 
 This deploys all Porch components including PostgreSQL, except the server which runs locally using DB cache.
 
-**Database connection details:**
+**Default database connection details:**
 ```bash
 DB_DRIVER=pgx
 DB_HOST=172.18.255.202
