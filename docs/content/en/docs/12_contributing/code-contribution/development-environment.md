@@ -393,5 +393,5 @@ The `Launch Server` configuration supports Go's race detector for finding concur
    ```
 
 {{% alert title="Note" color="primary" %}}
-Race detection significantly slows down execution.
+Race detection significantly slows down Porch operations.
 {{% /alert %}}
