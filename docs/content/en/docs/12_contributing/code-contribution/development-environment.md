@@ -12,7 +12,7 @@ This guide walks you through setting up a local Porch development environment wi
 - [Docker](https://docs.docker.com/get-docker/)
 - [kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/)
-- [Go](https://go.dev/doc/install) (version specified in go.mod)
+- [Go](https://go.dev/doc/install) (version specified [in Porch's go.mod](https://github.com/nephio-project/porch/blob/main/go.mod#L3))
 - [VS Code](https://code.visualstudio.com/) with [Go extension](https://marketplace.visualstudio.com/items?itemName=golang.go)
 - [make](https://www.gnu.org/software/make/)
 
