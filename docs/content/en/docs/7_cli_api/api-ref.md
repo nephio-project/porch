@@ -365,7 +365,7 @@ _Appears in:_
 | `upstreamLock` _[Locator](#locator)_ | UpstreamLock identifies the upstream data for this package. |  |  |
 | `selfLock` _[Locator](#locator)_ | SelfLock identifies the location of the current package's data |  |  |
 | `publishedBy` _string_ | PublishedBy is the identity of the user who approved the packagerevision. |  |  |
-| `publishTimestamp` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)_ | PublishedAt is the time when the packagerevision were approved. |  |  |
+| `publishTimestamp` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.34/#time-v1-meta)_ | PublishedAt is the time when the packagerevision were approved. |  |  |
 | `deployment` _boolean_ | Deployment is true if this is a deployment package (in a deployment repository). |  |  |
 | `conditions` _[Condition](#condition) array_ |  |  |  |
 

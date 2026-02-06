@@ -34,7 +34,7 @@ This runs `scripts/generate-api-reference-md.sh` which:
 **Config:** `docs/crd-ref-docs/config.yaml`
 - Excludes OCI types (not supported)
 - Excludes standard Kubernetes metadata fields
-- Uses Kubernetes v1.28 for API links
+- Uses Kubernetes v1.34 for API links
 
 **Templates:** `docs/crd-ref-docs/markdown-templates/`
 - Custom markdown templates for output formatting
