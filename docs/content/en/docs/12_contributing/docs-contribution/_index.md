@@ -272,5 +272,6 @@ Address feedback by pushing additional commits to your branch.
 
 If you have questions:
 - Comment on your PR
-- Open a GitHub discussion
+- Open a [GitHub discussion](https://github.com/nephio-project/nephio/discussions?discussions_q=label%3Aarea%2Fporch+)
+  - Be sure to add the `area/porch` label when starting your discussion
 - Ask in the Nephio Slack #porch channel
