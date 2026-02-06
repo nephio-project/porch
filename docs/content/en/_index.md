@@ -4,7 +4,7 @@ description: Kubernetes-native package orchestration for KRM configuration packa
 menu: {main: {weight: 10}}
 ---
 {{< blocks/cover title="Porch" height="auto">}}
-<a class="btn btn-lg btn-primary me-3 mb-4" href="/docs/1_overview/">
+<a class="btn btn-lg btn-primary me-3 mb-4" href="/docs">
   Documentation (Under Construction) <i class="fas fa-arrow-alt-circle-right ms-2"></i>
 </a>
 <a class="btn btn-lg btn-secondary me-3 mb-4" href="https://github.com/nephio-project/porch">
