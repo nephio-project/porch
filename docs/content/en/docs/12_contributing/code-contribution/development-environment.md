@@ -32,7 +32,7 @@ This permanently changes your default bash version system-wide.
 The quickest way to set up your development environment:
 
 ```bash
-./scripts/setup-dev-env.sh
+make setup-dev-env
 ```
 
 This script:
