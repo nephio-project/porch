@@ -29,7 +29,7 @@ This permanently changes your default bash version system-wide.
 
 ## Automated Setup
 
-The quickest way to set up your development environment:
+The quickest way to set up your development environment - from the root directory of the Porch repository, run:
 
 ```bash
 make setup-dev-env
