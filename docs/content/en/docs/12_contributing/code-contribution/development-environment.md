@@ -69,7 +69,7 @@ make run-in-kind
 
 #### Option 2: DB Cache (PostgreSQL)
 
-Deploy all Porch components with PostgreSQL backend:
+Deploy all Porch components with PostgreSQL backend for the package revision cache:
 
 ```bash
 make run-in-kind-db-cache
