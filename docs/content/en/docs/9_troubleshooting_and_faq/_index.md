@@ -2,14 +2,91 @@
 title: "Troubleshooting & FAQ"
 type: docs
 weight: 9
-description: Trouble & FAQ Description
+description: Common issues, solutions, and frequently asked questions for Porch
 ---
 
-## Lorem Ipsum
+This section provides guidance for diagnosing and resolving common issues with Porch, along with answers to frequently asked questions.
 
-Examples:
+## What's Covered
 
-- Common problems & their solutions
-- Error messages & diagnostic steps
-- Debugging tips / tools
-- FAQ: questions new users often ask
+This troubleshooting guide addresses:
+
+- **Common problems and their solutions** - Step-by-step fixes for typical issues
+- **Error messages and diagnostic steps** - Understanding and resolving error conditions
+- **Debugging tips and tools** - Techniques for investigating problems
+- **Disaster recovery scenarios** - Recovering from data loss or system failures
+- **FAQ** - Answers to questions frequently asked by Porch users
+
+## Troubleshooting Topics
+
+### Repository Sync Troubleshooting
+
+Common issues with repository synchronization:
+- Repositories not syncing or updating
+- Authentication failures with Git repositories
+- Invalid cron expressions for sync schedules
+- Repositories stuck in reconciling state
+- One-time sync not triggering
+
+### Disaster Recovery
+
+Recovering from data loss scenarios:
+- Complete disaster (cluster, Git, and cache loss)
+- Kubernetes cluster loss
+- Porch microservice restarts
+- DB cache loss with and without backups
+- Backup strategies for Porch components
+
+## Getting Help
+
+If you encounter issues not covered in this guide:
+
+1. **Check Porch logs**: Most issues leave traces in the Porch server logs
+   ```bash
+   kubectl logs -n porch-system deployment/porch-server
+   ```
+
+2. **Verify resource status**: Check the status of Porch resources
+   ```bash
+   kubectl get repositories -A
+   kubectl describe repository <name> -n <namespace>
+   ```
+
+3. **Search existing issues**: Check the [Porch GitHub issues](https://github.com/nephio-project/nephio/issues)
+
+4. **Ask the community**: 
+   - Open a [GitHub discussion](https://github.com/nephio-project/nephio/discussions)
+   - Join the Nephio Slack #porch channel
+
+5. **Report a bug**: If you've found a bug, [open an issue](https://github.com/nephio-project/nephio/issues/new) with:
+   - Porch version
+   - Steps to reproduce
+   - Expected vs actual behavior
+   - Relevant logs and resource definitions
+
+## Quick Diagnostic Commands
+
+Useful commands for initial troubleshooting:
+
+```bash
+# Check Porch components are running
+kubectl get pods -n porch-system
+
+# Check API service status
+kubectl get apiservice v1alpha1.porch.kpt.dev
+
+# List all repositories
+kubectl get repositories -A
+
+# Check repository details
+kubectl describe repository <name> -n <namespace>
+
+# View Porch server logs
+kubectl logs -n porch-system deployment/porch-server --tail=100
+
+# View controller logs
+kubectl logs -n porch-system deployment/porch-controllers --tail=100
+
+# List package revisions
+kubectl get packagerevisions -A
+```
