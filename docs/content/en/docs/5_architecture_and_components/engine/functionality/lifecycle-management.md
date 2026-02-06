@@ -458,7 +458,6 @@ The lifecycle system maintains an audit trail of package revision evolution:
 
 **Tasks:**
 - Typically contains a single task indicating creation method (init, clone, edit, upgrade)
-- Render tasks may temporarily appear during package lifecycle operations but are generally cleaned up
 - Stored in PackageRevision spec
 
 **Resource Version:**

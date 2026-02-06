@@ -447,7 +447,6 @@ Task List: [init/clone/edit/upgrade]
 
 **Sequential execution:**
 - Typically one task (init, clone, edit, or upgrade)
-- Render tasks may temporarily appear but are cleaned up
 - Each task must succeed before next
 - First error stops execution
 - No parallel task execution
@@ -469,8 +468,6 @@ Update: [render]
 
 **Task list pattern:**
 - Single persistent task indicating [init/clone/edit/upgrade] method
-- Render tasks added temporarily during operations
-- Render tasks cleaned up after execution
 - Task history shows package origin
 
 ### Draft Isolation
