@@ -207,7 +207,7 @@ Porch supports two cache backends:
 
 **DB Cache (PostgreSQL):** Stores package data in PostgreSQL. Better performance with large repositories, closer to production setup.
 
-The make targets with `db-cache` in the name automatically deploy and configure PostgreSQL. The corresponding VS Code launch configurations include the necessary database connection parameters.
+The make targets with `db-cache` in the name automatically deploy and configure PostgreSQL in addition to Porch. The corresponding VS Code launch configurations include the necessary database connection parameters.
 
 ## Testing Your Setup
 
