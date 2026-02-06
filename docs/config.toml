@@ -46,6 +46,9 @@ ignoreFiles = []
   [markup.goldmark]
     [markup.goldmark.renderer]
       unsafe = true
+      headingAnchors = true
+    [markup.goldmark.parser]
+      autoHeadingID = true
     [markup.highlight]
 
       # Setting no default style; allows style to auto adjust between light and dark default markdown themes
@@ -86,7 +89,7 @@ archived_version = false
 version = "latest"
 
 # The version of the latest code build
-latestTag = "1.5.4"
+latestTag = "1.5.5"
 
 # latest tested versions
 version_docker = "v28.1.1"
@@ -137,6 +140,10 @@ offlineSearchMaxResults = 10
 # User interface configuration
 
 [params.ui]
+
+# Enable anchor links (clickable # icons)
+
+anchor = true
 
 # Enable Visibility of Light/Dark Mode Toggle
 

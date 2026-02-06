@@ -58,7 +58,7 @@ aggregation layer. The benefits of this approach are:
 The Porch server serves the primary Kubernetes
 resources required for basic package authoring and lifeycle management, including:
 
-* For each package revision (see [Package Revisions]({{% relref "/docs/2_concepts/fundamentals.md#package-revisions" %}})):
+* For each package revision (see [Package Revisions]({{% relref "/docs/2_concepts/package-revisions.md" %}})):
   * `PackageRevision` - represents the *metadata* of the package revision stored in a repository.
   * `PackageRevisionResources` - represents the *file contents* of the package revision.
     {{% alert color="primary" %}}

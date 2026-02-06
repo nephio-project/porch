@@ -38,7 +38,7 @@ func repoReadFromDB(ctx context.Context, rk repository.RepositoryKey) (*dbReposi
 	var metaAsJSON, specAsJSON string
 
 	klog.V(6).Infof("repoReadFromDB: running query %q on repository %+v", sqlStatement, rk)
-	err := GetDB().db.QueryRow(sqlStatement, rk.K8SNS(), rk.K8SName()).Scan(
+	err := GetDB().db.QueryRow(ctx, sqlStatement, rk.K8SNS(), rk.K8SName()).Scan(
 		&dbRepo.repoKey.Namespace,
 		&dbRepo.repoKey.Name,
 		&dbRepo.repoKey.Path,
@@ -74,7 +74,7 @@ func repoWriteToDB(ctx context.Context, r *dbRepository) error {
 
 	klog.V(6).Infof("repoWriteToDB: running query %q on repository %+v", sqlStatement, r)
 	rk := r.Key()
-	if _, err := GetDB().db.Exec(
+	if _, err := GetDB().db.Exec(ctx,
 		sqlStatement,
 		rk.K8SNS(), rk.K8SName(), rk.Path, rk.PlaceholderWSname, valueAsJSON(r.meta), valueAsJSON(r.spec), r.updated, r.updatedBy, r.deployment); err == nil {
 		klog.V(5).Infof("repoWriteToDB: query succeeded, row created for %+v", r.Key())
@@ -97,7 +97,7 @@ func repoUpdateDB(ctx context.Context, r *dbRepository) error {
 
 	rk := r.Key()
 	klog.V(6).Infof("repoUpdateDB: running query %q on repository %+v", sqlStatement, rk)
-	result, err := GetDB().db.Exec(
+	result, err := GetDB().db.Exec(ctx,
 		sqlStatement,
 		rk.K8SNS(), rk.K8SName(), rk.Path, rk.PlaceholderWSname, valueAsJSON(r.meta), valueAsJSON(r.spec), r.updated, r.updatedBy, r.deployment)
 
@@ -122,7 +122,7 @@ func repoDeleteFromDB(ctx context.Context, rk repository.RepositoryKey) error {
 	sqlStatement := `DELETE FROM repositories WHERE k8s_name_space=$1 AND k8s_name=$2`
 
 	klog.V(6).Infof("repoDeleteFromDB: running query %q on repository %+v", sqlStatement, rk)
-	_, err := GetDB().db.Exec(sqlStatement, rk.K8SNS(), rk.K8SName())
+	_, err := GetDB().db.Exec(ctx, sqlStatement, rk.K8SNS(), rk.K8SName())
 
 	if err == nil {
 		klog.V(5).Infof("repoDeleteFromDB: deleted repo %+v", rk)
