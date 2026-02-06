@@ -766,3 +766,86 @@ func (t *DbTestSuite) TestCacheExternalPRs_SkipsNulByteContent() {
 	_, hasScript := cachedResources["script.sh"]
 	t.False(hasScript, "script.sh (contains NUL byte) should be skipped")
 }
+
+// TestCacheExternalPRs_SkipsInvalidFilePath verifies that files with invalid UTF-8
+// in their path (resource_key) are skipped, since resource_key is also a PostgreSQL TEXT column
+func (t *DbTestSuite) TestCacheExternalPRs_SkipsInvalidFilePath() {
+	ctx := t.Context()
+	externalrepo.ExternalRepoInUnitTestMode = true
+
+	testRepo := t.createTestRepo("path-ns", "path-repo")
+	defer t.deleteTestRepo(testRepo.Key())
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	t.Require().NoError(err)
+
+	repoSync := &repositorySync{
+		repo: testRepo,
+	}
+
+	prKey := repository.PackageRevisionKey{
+		PkgKey: repository.PackageKey{
+			RepoKey: testRepo.Key(),
+			Package: "path-pkg",
+		},
+		Revision:      1,
+		WorkspaceName: "ws",
+	}
+
+	prDef := &porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "path-pr",
+			Namespace:         "path-ns",
+			CreationTimestamp: metav1.Now(),
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: "path-repo",
+			PackageName:    "path-pkg",
+			WorkspaceName:  "ws",
+			Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
+		},
+	}
+
+	// File with invalid UTF-8 in filename (e.g. Latin-1 encoded path from older systems)
+	resources := &porchapi.PackageRevisionResources{
+		Spec: porchapi.PackageRevisionResourcesSpec{
+			Resources: map[string]string{
+				"Kptfile":              "apiVersion: kpt.dev/v1\nkind: Kptfile\n",
+				"config.yaml":         "key: value\n",
+				"data/\xc0\xaf/f.yaml": "valid: content\n",
+			},
+		},
+	}
+
+	fakeExtPR := &fake.FakePackageRevision{
+		PrKey:            prKey,
+		PackageRevision:  prDef,
+		PackageLifecycle: porchapi.PackageRevisionLifecyclePublished,
+		Resources:        resources,
+		Kptfile: kptfilev1.KptFile{
+			Upstream:     &kptfilev1.Upstream{},
+			UpstreamLock: &kptfilev1.UpstreamLock{},
+		},
+	}
+
+	extPRMap := map[repository.PackageRevisionKey]repository.PackageRevision{
+		prKey: fakeExtPR,
+	}
+	inExternalOnly := []repository.PackageRevisionKey{prKey}
+
+	err = repoSync.cacheExternalPRs(ctx, extPRMap, inExternalOnly)
+	t.Require().NoError(err, "sync should not fail due to invalid filepath")
+
+	cachedResources, err := pkgRevResourcesReadFromDB(ctx, prKey)
+	t.Require().NoError(err)
+
+	// Valid files should be cached
+	_, hasKptfile := cachedResources["Kptfile"]
+	_, hasConfig := cachedResources["config.yaml"]
+	t.True(hasKptfile, "Kptfile should be cached")
+	t.True(hasConfig, "config.yaml should be cached")
+
+	// File with invalid UTF-8 filepath should be skipped
+	_, hasBadPath := cachedResources["data/\xc0\xaf/f.yaml"]
+	t.False(hasBadPath, "file with invalid UTF-8 filepath should be skipped")
+}
