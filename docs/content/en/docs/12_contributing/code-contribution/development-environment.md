@@ -268,7 +268,8 @@ make test
 ```bash
 # Against current cluster
 make test-e2e
-
+# Cli tests against current cluster
+make test-e2e-cli
 # With clean deployment
 make test-e2e-clean
 ```
