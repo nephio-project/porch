@@ -339,6 +339,7 @@ Clear the git cache before running tests:
 
 ```bash
 rm -rf .cache/git/*
+go clean -cache
 ```
 
 ### Clean Slate Restart
