@@ -372,3 +372,397 @@ func (t *DbTestSuite) TestRepositorySync_Stop() {
 	var nilSync *repositorySync
 	nilSync.Stop() // Should not panic
 }
+
+// TestCacheExternalPRs_SkipsBinaryFiles verifies that sync skips binary files
+// to prevent invalid UTF-8 content from causing PostgreSQL errors
+func (t *DbTestSuite) TestCacheExternalPRs_SkipsBinaryFiles() {
+	ctx := t.Context()
+	externalrepo.ExternalRepoInUnitTestMode = true
+
+	testRepo := t.createTestRepo("binary-ns", "binary-repo")
+	defer t.deleteTestRepo(testRepo.Key())
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	t.Require().NoError(err)
+
+	repoSync := &repositorySync{
+		repo: testRepo,
+	}
+
+	// Prepare test data with mixed text and binary files
+	prKey := repository.PackageRevisionKey{
+		PkgKey: repository.PackageKey{
+			RepoKey: testRepo.Key(),
+			Package: "test-pkg",
+		},
+		Revision:      1,
+		WorkspaceName: "ws",
+	}
+
+	prDef := &porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "test-pr",
+			Namespace:         "binary-ns",
+			CreationTimestamp: metav1.Now(),
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: "binary-repo",
+			PackageName:    "test-pkg",
+			WorkspaceName:  "ws",
+			Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
+		},
+	}
+
+	// Simulate resources from external repo where image.png contains invalid UTF-8 bytes
+	resources := &porchapi.PackageRevisionResources{
+		Spec: porchapi.PackageRevisionResourcesSpec{
+			Resources: map[string]string{
+				"Kptfile":     "apiVersion: kpt.dev/v1\nkind: Kptfile\n",
+				"config.yaml": "key: value\n",
+				"image.png":   "\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR", // PNG header, not valid UTF-8
+			},
+		},
+	}
+
+	fakeExtPR := &fake.FakePackageRevision{
+		PrKey:            prKey,
+		PackageRevision:  prDef,
+		PackageLifecycle: porchapi.PackageRevisionLifecyclePublished,
+		Resources:        resources,
+		Kptfile: kptfilev1.KptFile{
+			Upstream:     &kptfilev1.Upstream{},
+			UpstreamLock: &kptfilev1.UpstreamLock{},
+		},
+	}
+
+	extPRMap := map[repository.PackageRevisionKey]repository.PackageRevision{
+		prKey: fakeExtPR,
+	}
+	inExternalOnly := []repository.PackageRevisionKey{prKey}
+
+	// Execute cacheExternalPRs, should succeed without failing due to binary file
+	err = repoSync.cacheExternalPRs(ctx, extPRMap, inExternalOnly)
+	t.Require().NoError(err, "sync should not fail due to binary file")
+
+	// Verify resources read directly from DB
+	cachedResources, err := pkgRevResourcesReadFromDB(ctx, prKey)
+	t.Require().NoError(err)
+
+	// Text files should exist
+	_, hasKptfile := cachedResources["Kptfile"]
+	_, hasConfig := cachedResources["config.yaml"]
+	t.True(hasKptfile, "Kptfile should be cached")
+	t.True(hasConfig, "config.yaml should be cached")
+
+	// Binary file should be skipped
+	_, hasBinary := cachedResources["image.png"]
+	t.False(hasBinary, "image.png (binary) should be skipped")
+}
+
+// TestCacheExternalPRs_AllTextFiles verifies all text files are cached
+func (t *DbTestSuite) TestCacheExternalPRs_AllTextFiles() {
+	ctx := t.Context()
+	externalrepo.ExternalRepoInUnitTestMode = true
+
+	testRepo := t.createTestRepo("text-ns", "text-repo")
+	defer t.deleteTestRepo(testRepo.Key())
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	t.Require().NoError(err)
+
+	repoSync := &repositorySync{
+		repo: testRepo,
+	}
+
+	prKey := repository.PackageRevisionKey{
+		PkgKey: repository.PackageKey{
+			RepoKey: testRepo.Key(),
+			Package: "text-pkg",
+		},
+		Revision:      1,
+		WorkspaceName: "ws",
+	}
+
+	prDef := &porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "text-pr",
+			Namespace:         "text-ns",
+			CreationTimestamp: metav1.Now(),
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: "text-repo",
+			PackageName:    "text-pkg",
+			WorkspaceName:  "ws",
+			Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
+		},
+	}
+
+	// All files are valid UTF-8 text files
+	resources := &porchapi.PackageRevisionResources{
+		Spec: porchapi.PackageRevisionResourcesSpec{
+			Resources: map[string]string{
+				"Kptfile":         "apiVersion: kpt.dev/v1\nkind: Kptfile\n",
+				"deployment.yaml": "apiVersion: apps/v1\nkind: Deployment\n",
+				"README.md":       "# Hello World\n",
+			},
+		},
+	}
+
+	fakeExtPR := &fake.FakePackageRevision{
+		PrKey:            prKey,
+		PackageRevision:  prDef,
+		PackageLifecycle: porchapi.PackageRevisionLifecyclePublished,
+		Resources:        resources,
+		Kptfile: kptfilev1.KptFile{
+			Upstream:     &kptfilev1.Upstream{},
+			UpstreamLock: &kptfilev1.UpstreamLock{},
+		},
+	}
+
+	extPRMap := map[repository.PackageRevisionKey]repository.PackageRevision{
+		prKey: fakeExtPR,
+	}
+	inExternalOnly := []repository.PackageRevisionKey{prKey}
+
+	err = repoSync.cacheExternalPRs(ctx, extPRMap, inExternalOnly)
+	t.Require().NoError(err)
+
+	cachedResources, err := pkgRevResourcesReadFromDB(ctx, prKey)
+	t.Require().NoError(err)
+
+	// All 3 files should exist
+	t.Equal(3, len(cachedResources), "all text files should be cached")
+	_, hasKptfile := cachedResources["Kptfile"]
+	_, hasDeployment := cachedResources["deployment.yaml"]
+	_, hasReadme := cachedResources["README.md"]
+	t.True(hasKptfile, "Kptfile should be cached")
+	t.True(hasDeployment, "deployment.yaml should be cached")
+	t.True(hasReadme, "README.md should be cached")
+}
+
+// TestCacheExternalPRs_AllBinaryFiles verifies all binary files are skipped without error
+func (t *DbTestSuite) TestCacheExternalPRs_AllBinaryFiles() {
+	ctx := t.Context()
+	externalrepo.ExternalRepoInUnitTestMode = true
+
+	testRepo := t.createTestRepo("allbin-ns", "allbin-repo")
+	defer t.deleteTestRepo(testRepo.Key())
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	t.Require().NoError(err)
+
+	repoSync := &repositorySync{
+		repo: testRepo,
+	}
+
+	prKey := repository.PackageRevisionKey{
+		PkgKey: repository.PackageKey{
+			RepoKey: testRepo.Key(),
+			Package: "allbin-pkg",
+		},
+		Revision:      1,
+		WorkspaceName: "ws",
+	}
+
+	prDef := &porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "allbin-pr",
+			Namespace:         "allbin-ns",
+			CreationTimestamp: metav1.Now(),
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: "allbin-repo",
+			PackageName:    "allbin-pkg",
+			WorkspaceName:  "ws",
+			Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
+		},
+	}
+
+	// All files are binary (invalid UTF-8)
+	resources := &porchapi.PackageRevisionResources{
+		Spec: porchapi.PackageRevisionResourcesSpec{
+			Resources: map[string]string{
+				"image.png": "\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR",
+				"data.bin":  "\x00\x01\x02\x03\xff\xfe\xfd",
+			},
+		},
+	}
+
+	fakeExtPR := &fake.FakePackageRevision{
+		PrKey:            prKey,
+		PackageRevision:  prDef,
+		PackageLifecycle: porchapi.PackageRevisionLifecyclePublished,
+		Resources:        resources,
+		Kptfile: kptfilev1.KptFile{
+			Upstream:     &kptfilev1.Upstream{},
+			UpstreamLock: &kptfilev1.UpstreamLock{},
+		},
+	}
+
+	extPRMap := map[repository.PackageRevisionKey]repository.PackageRevision{
+		prKey: fakeExtPR,
+	}
+	inExternalOnly := []repository.PackageRevisionKey{prKey}
+
+	// Should not return error
+	err = repoSync.cacheExternalPRs(ctx, extPRMap, inExternalOnly)
+	t.Require().NoError(err, "all binary files should not cause error")
+
+	cachedResources, err := pkgRevResourcesReadFromDB(ctx, prKey)
+	t.Require().NoError(err)
+
+	// All should be skipped
+	t.Equal(0, len(cachedResources), "all binary files should be skipped")
+}
+
+// TestCacheExternalPRs_EmptyResources verifies empty resources do not cause error
+func (t *DbTestSuite) TestCacheExternalPRs_EmptyResources() {
+	ctx := t.Context()
+	externalrepo.ExternalRepoInUnitTestMode = true
+
+	testRepo := t.createTestRepo("empty-ns", "empty-repo")
+	defer t.deleteTestRepo(testRepo.Key())
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	t.Require().NoError(err)
+
+	repoSync := &repositorySync{
+		repo: testRepo,
+	}
+
+	prKey := repository.PackageRevisionKey{
+		PkgKey: repository.PackageKey{
+			RepoKey: testRepo.Key(),
+			Package: "empty-pkg",
+		},
+		Revision:      1,
+		WorkspaceName: "ws",
+	}
+
+	prDef := &porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "empty-pr",
+			Namespace:         "empty-ns",
+			CreationTimestamp: metav1.Now(),
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: "empty-repo",
+			PackageName:    "empty-pkg",
+			WorkspaceName:  "ws",
+			Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
+		},
+	}
+
+	// Empty resources map
+	resources := &porchapi.PackageRevisionResources{
+		Spec: porchapi.PackageRevisionResourcesSpec{
+			Resources: map[string]string{},
+		},
+	}
+
+	fakeExtPR := &fake.FakePackageRevision{
+		PrKey:            prKey,
+		PackageRevision:  prDef,
+		PackageLifecycle: porchapi.PackageRevisionLifecyclePublished,
+		Resources:        resources,
+		Kptfile: kptfilev1.KptFile{
+			Upstream:     &kptfilev1.Upstream{},
+			UpstreamLock: &kptfilev1.UpstreamLock{},
+		},
+	}
+
+	extPRMap := map[repository.PackageRevisionKey]repository.PackageRevision{
+		prKey: fakeExtPR,
+	}
+	inExternalOnly := []repository.PackageRevisionKey{prKey}
+
+	err = repoSync.cacheExternalPRs(ctx, extPRMap, inExternalOnly)
+	t.Require().NoError(err, "empty resources should not cause error")
+
+	cachedResources, err := pkgRevResourcesReadFromDB(ctx, prKey)
+	t.Require().NoError(err)
+	t.Equal(0, len(cachedResources), "empty resources should return empty map")
+}
+
+// TestCacheExternalPRs_SkipsNulByteContent verifies that files containing NUL bytes
+// are skipped even though NUL (0x00) is valid UTF-8, because PostgreSQL TEXT rejects it
+func (t *DbTestSuite) TestCacheExternalPRs_SkipsNulByteContent() {
+	ctx := t.Context()
+	externalrepo.ExternalRepoInUnitTestMode = true
+
+	testRepo := t.createTestRepo("nul-ns", "nul-repo")
+	defer t.deleteTestRepo(testRepo.Key())
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	t.Require().NoError(err)
+
+	repoSync := &repositorySync{
+		repo: testRepo,
+	}
+
+	prKey := repository.PackageRevisionKey{
+		PkgKey: repository.PackageKey{
+			RepoKey: testRepo.Key(),
+			Package: "nul-pkg",
+		},
+		Revision:      1,
+		WorkspaceName: "ws",
+	}
+
+	prDef := &porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "nul-pr",
+			Namespace:         "nul-ns",
+			CreationTimestamp: metav1.Now(),
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: "nul-repo",
+			PackageName:    "nul-pkg",
+			WorkspaceName:  "ws",
+			Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
+		},
+	}
+
+	// script.sh contains a NUL byte but is otherwise valid UTF-8
+	resources := &porchapi.PackageRevisionResources{
+		Spec: porchapi.PackageRevisionResourcesSpec{
+			Resources: map[string]string{
+				"Kptfile":     "apiVersion: kpt.dev/v1\nkind: Kptfile\n",
+				"config.yaml": "key: value\n",
+				"script.sh":   "#!/bin/sh\necho hello\x00world\n",
+			},
+		},
+	}
+
+	fakeExtPR := &fake.FakePackageRevision{
+		PrKey:            prKey,
+		PackageRevision:  prDef,
+		PackageLifecycle: porchapi.PackageRevisionLifecyclePublished,
+		Resources:        resources,
+		Kptfile: kptfilev1.KptFile{
+			Upstream:     &kptfilev1.Upstream{},
+			UpstreamLock: &kptfilev1.UpstreamLock{},
+		},
+	}
+
+	extPRMap := map[repository.PackageRevisionKey]repository.PackageRevision{
+		prKey: fakeExtPR,
+	}
+	inExternalOnly := []repository.PackageRevisionKey{prKey}
+
+	err = repoSync.cacheExternalPRs(ctx, extPRMap, inExternalOnly)
+	t.Require().NoError(err, "sync should not fail due to NUL byte content")
+
+	cachedResources, err := pkgRevResourcesReadFromDB(ctx, prKey)
+	t.Require().NoError(err)
+
+	// Text files should be cached
+	_, hasKptfile := cachedResources["Kptfile"]
+	_, hasConfig := cachedResources["config.yaml"]
+	t.True(hasKptfile, "Kptfile should be cached")
+	t.True(hasConfig, "config.yaml should be cached")
+
+	// File with NUL byte should be skipped
+	_, hasScript := cachedResources["script.sh"]
+	t.False(hasScript, "script.sh (contains NUL byte) should be skipped")
+}

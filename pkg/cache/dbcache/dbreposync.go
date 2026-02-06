@@ -17,8 +17,10 @@ package dbcache
 import (
 	"context"
 	"fmt"
+	"strings"
 	stdSync "sync"
 	"time"
+	"unicode/utf8"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -224,6 +226,16 @@ func (s *repositorySync) cacheExternalPRs(ctx context.Context, externalPrMap map
 			return err
 		}
 
+		// Filter out files with invalid UTF-8 or NUL bytes to avoid PostgreSQL TEXT errors
+		resources := make(map[string]string, len(extPRResources.Spec.Resources))
+		for key, val := range extPRResources.Spec.Resources {
+			if !utf8.ValidString(val) || strings.Contains(val, "\x00") {
+				klog.Warningf("repositorySync %+v: skipping binary file %q in PR %+v (not compatible with PostgreSQL TEXT)", s.repo.Key(), key, extPRKey)
+				continue
+			}
+			resources[key] = val
+		}
+
 		if extAPIPR.CreationTimestamp.Time.IsZero() {
 			extAPIPR.CreationTimestamp.Time = time.Now()
 		}
@@ -239,7 +251,7 @@ func (s *repositorySync) cacheExternalPRs(ctx context.Context, externalPrMap map
 			lifecycle: extAPIPR.Spec.Lifecycle,
 			extPRID:   extPRUpstreamLock,
 			tasks:     extAPIPR.Spec.Tasks,
-			resources: extPRResources.Spec.Resources,
+			resources: resources,
 		}
 		_, err = s.repo.savePackageRevision(ctx, &dbPR, true)
 		if err != nil {
