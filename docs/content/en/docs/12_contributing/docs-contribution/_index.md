@@ -242,7 +242,7 @@ See [API Reference Generation]({{% relref "api-ref-generation" %}}) for instruct
 
 ### Adding Diagrams
 
-Diagrams are stored in `docs/static/images/porch/` as `.drawio.svg` files. They can be created on draw.io or edited by copy pasting them into draw.io and editing them acordingly after which being exported again as `.svg` format.
+Diagrams are stored in `docs/static/images/porch/` as `.drawio.svg` files. Diagrams created in this format can be opened in [the draw.io editor](https://github.com/jgraph/drawio-desktop/releases), edited freely, and saved as-is. They can then be referenced in the Markdown files as normal SVG images.
 
 Reference in markdown:
 ```markdown
