@@ -205,7 +205,7 @@ Porch supports two cache backends:
 
 **CR Cache (Default):** Stores package data as Kubernetes Custom Resources. Simpler setup, suitable for development.
 
-**DB Cache (PostgreSQL):** Stores package data in PostgreSQL. Better performance with large repositories, closer to production setup.
+**[DB Cache (PostgreSQL)]({{% relref "../../5_architecture_and_components/package-cache/db-cache" %}}):** Stores package data in PostgreSQL. Better performance with large repositories, closer to production setup.
 
 The make targets with `db-cache` in the name automatically deploy and configure PostgreSQL in addition to Porch. The corresponding VS Code launch configurations include the necessary database connection parameters.
 
