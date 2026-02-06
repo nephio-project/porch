@@ -221,3 +221,4 @@ If you encounter Git issues:
 - Check existing GitHub issues
 - Ask in the Nephio Slack #porch channel
 - Consult [GitHub documentation](https://docs.github.com)
+- For issues with Git itself, consult [its documentation](https://git-scm.com/docs)
