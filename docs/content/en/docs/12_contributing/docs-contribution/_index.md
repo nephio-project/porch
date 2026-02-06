@@ -169,7 +169,7 @@ See [Package Lifecycle]({{%/* relref "package-lifecycle" */%}}).
 [Kubernetes documentation](https://kubernetes.io/docs/)
 ```
 
-**Alerts**: Use Hugo shortcodes
+**Alerts (info/warning boxes)**: Use [Docsy alert shortcodes](https://www.docsy.dev/docs/content/shortcodes/#alert)
 ```markdown
 {{%/* alert title="Note" color="primary" */%}}
 Important information here.
