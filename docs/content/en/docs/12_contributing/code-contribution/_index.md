@@ -93,7 +93,7 @@ Branch naming conventions:
 
 If you have added any new golang files, add [this golang copyright header](https://github.com/nephio-project/porch/blob/main/scripts/boilerplate.go.txt) to each new golang file you have added. If you have added any other files (Yaml, scripts, test data), add [this text copyright header](https://github.com/nephio-project/porch/blob/main/scripts/boilerplate.yaml.txt) file to each new file.
 
-If you have updated existing files, amend the dates on the copyright notice. Assuming you are updating the code in 2026, use the following guide.
+If you have updated existing files, **amend the dates on the copyright notice**. Assuming you are updating the code in 2026, use the following guide.
 
 | Existing dates      | New Dates                |
 | ------------------- | ------------------------ |
