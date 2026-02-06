@@ -431,24 +431,12 @@ ApplyTask/DoPRMutations/DoPRResourceMutations
 
 The Engine uses specific patterns for task coordination:
 
-### Sequential Task Execution
+### Task Execution
 
 ```
-Task List: [init, clone, render]
+Task List: [init/clone/edit/upgrade]
         ↓
-  Execute init
-        ↓
-  Success? ──No──> Return Error
-        │
-       Yes
-        ↓
-  Execute clone
-        ↓
-  Success? ──No──> Return Error
-        │
-       Yes
-        ↓
-  Execute render
+  Execute [init/clone/edit/upgrade]
         ↓
   Success? ──No──> Return Error
         │
@@ -458,7 +446,7 @@ Task List: [init, clone, render]
 ```
 
 **Sequential execution:**
-- Tasks executed in order
+- Typically one task (init, clone, edit, or upgrade)
 - Each task must succeed before next
 - First error stops execution
 - No parallel task execution
@@ -468,26 +456,19 @@ Task List: [init, clone, render]
 - Simplifies error handling
 - Maintains consistent state
 
-### Append-Only Task List
+### Task List Pattern
 
 ```
 Create: [init]
         ↓
-Update: [init, clone]
+Update: [clone/edit/upgrade]
         ↓
-Update: [init, clone, render]
+Update: [render]
 ```
 
-**Append-only pattern:**
-- Tasks never removed from list
-- New tasks appended to end
-- Task history preserved
-- Audit trail of operations
-
-**Benefits:**
-- Clear operation history
-- Reproducible package state
-- Debugging and troubleshooting
+**Task list pattern:**
+- Single persistent task indicating [init/clone/edit/upgrade] method
+- Task history shows package origin
 
 ### Draft Isolation
 
