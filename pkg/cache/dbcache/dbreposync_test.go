@@ -549,7 +549,7 @@ func (t *DbTestSuite) TestCacheExternalPRs_AllTextFiles() {
 	t.Require().NoError(err)
 
 	// All 3 files should exist
-	t.Equal(3, len(cachedResources), "all text files should be cached")
+	t.Len(cachedResources, 3, "all text files should be cached")
 	_, hasKptfile := cachedResources["Kptfile"]
 	_, hasDeployment := cachedResources["deployment.yaml"]
 	_, hasReadme := cachedResources["README.md"]
@@ -639,7 +639,7 @@ func (t *DbTestSuite) TestCacheExternalPRs_AllBinaryFiles() {
 	t.Require().NoError(err)
 
 	// All should be skipped
-	t.Equal(0, len(cachedResources), "all binary files should be skipped")
+	t.Empty(cachedResources, "all binary files should be skipped")
 }
 
 // TestCacheExternalPRs_EmptyResources verifies empty resources do not cause error
@@ -717,7 +717,7 @@ func (t *DbTestSuite) TestCacheExternalPRs_EmptyResources() {
 
 	cachedResources, err := pkgRevResourcesReadFromDB(ctx, prKey)
 	t.Require().NoError(err)
-	t.Equal(0, len(cachedResources), "empty resources should return empty map")
+	t.Empty(cachedResources, "empty resources should return empty map")
 }
 
 // TestCacheExternalPRs_SkipsNulByteContent verifies that files containing NUL bytes
@@ -902,4 +902,78 @@ func (t *DbTestSuite) TestCacheExternalPRs_SkipsInvalidFilePath() {
 	// File with invalid UTF-8 filepath should be skipped
 	_, hasBadPath := cachedResources["data/\xc0\xaf/f.yaml"]
 	t.False(hasBadPath, "file with invalid UTF-8 filepath should be skipped")
+}
+
+// TestCacheExternalPRs_NilResources verifies that nil return from GetResources
+// does not cause a panic, since the interface contract allows (nil, nil)
+func (t *DbTestSuite) TestCacheExternalPRs_NilResources() {
+	ctx := t.Context()
+	externalrepo.ExternalRepoInUnitTestMode = true
+
+	testRepo := t.createTestRepo("nilres-ns", "nilres-repo")
+	defer t.deleteTestRepo(testRepo.Key())
+
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
+
+	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
+	t.Require().NoError(err)
+	defer func() {
+		if err := testRepo.Close(ctx); err != nil {
+			t.T().Logf("Failed to close test repo: %v", err)
+		}
+	}()
+
+	repoSync := &repositorySync{
+		repo: testRepo,
+	}
+
+	prKey := repository.PackageRevisionKey{
+		PkgKey: repository.PackageKey{
+			RepoKey: testRepo.Key(),
+			Package: "nilres-pkg",
+		},
+		Revision:      1,
+		WorkspaceName: "ws",
+	}
+
+	prDef := &porchapi.PackageRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "nilres-pr",
+			Namespace:         "nilres-ns",
+			CreationTimestamp: metav1.Now(),
+		},
+		Spec: porchapi.PackageRevisionSpec{
+			RepositoryName: "nilres-repo",
+			PackageName:    "nilres-pkg",
+			WorkspaceName:  "ws",
+			Lifecycle:      porchapi.PackageRevisionLifecyclePublished,
+		},
+	}
+
+	// GetResources returns nil (simulating interface contract edge case)
+	fakeExtPR := &fake.FakePackageRevision{
+		PrKey:            prKey,
+		PackageRevision:  prDef,
+		PackageLifecycle: porchapi.PackageRevisionLifecyclePublished,
+		Resources:        nil,
+		Kptfile: kptfilev1.KptFile{
+			Upstream:     &kptfilev1.Upstream{},
+			UpstreamLock: &kptfilev1.UpstreamLock{},
+		},
+	}
+
+	extPRMap := map[repository.PackageRevisionKey]repository.PackageRevision{
+		prKey: fakeExtPR,
+	}
+	inExternalOnly := []repository.PackageRevisionKey{prKey}
+
+	// Should not panic or return error
+	err = repoSync.cacheExternalPRs(ctx, extPRMap, inExternalOnly)
+	t.Require().NoError(err, "nil resources should not cause panic or error")
+
+	cachedResources, err := pkgRevResourcesReadFromDB(ctx, prKey)
+	t.Require().NoError(err)
+	t.Empty(cachedResources, "nil resources should result in empty cached resources")
 }

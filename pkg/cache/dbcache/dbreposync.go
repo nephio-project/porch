@@ -226,16 +226,22 @@ func (s *repositorySync) cacheExternalPRs(ctx context.Context, externalPrMap map
 			return err
 		}
 
-		// Filter out files with invalid UTF-8 or NUL bytes to avoid PostgreSQL TEXT errors.
-		// Both resource_key and resource_value are TEXT columns, so both must be validated.
-		resources := make(map[string]string, len(extPRResources.Spec.Resources))
-		for key, val := range extPRResources.Spec.Resources {
-			if !utf8.ValidString(key) || strings.Contains(key, "\x00") ||
-				!utf8.ValidString(val) || strings.Contains(val, "\x00") {
-				klog.Warningf("repositorySync %+v: skipping file %q in PR %+v (not compatible with PostgreSQL TEXT)", s.repo.Key(), key, extPRKey)
-				continue
+		// Guard against nil return from GetResources (interface contract allows it).
+		var resources map[string]string
+		if extPRResources == nil || extPRResources.Spec.Resources == nil {
+			resources = make(map[string]string)
+		} else {
+			// Filter out files with invalid UTF-8 or NUL bytes to avoid PostgreSQL TEXT errors.
+			// Both resource_key and resource_value are TEXT columns, so both must be validated.
+			resources = make(map[string]string, len(extPRResources.Spec.Resources))
+			for key, val := range extPRResources.Spec.Resources {
+				if !utf8.ValidString(key) || strings.Contains(key, "\x00") ||
+					!utf8.ValidString(val) || strings.Contains(val, "\x00") {
+					klog.Warningf("repositorySync %+v: skipping file %q in PR %+v (not compatible with PostgreSQL TEXT)", s.repo.Key(), key, extPRKey)
+					continue
+				}
+				resources[key] = val
 			}
-			resources[key] = val
 		}
 
 		if extAPIPR.CreationTimestamp.Time.IsZero() {
