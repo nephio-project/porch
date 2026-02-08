@@ -382,8 +382,17 @@ func (t *DbTestSuite) TestCacheExternalPRs_SkipsBinaryFiles() {
 	testRepo := t.createTestRepo("binary-ns", "binary-repo")
 	defer t.deleteTestRepo(testRepo.Key())
 
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
+
 	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
 	t.Require().NoError(err)
+	defer func() {
+		if err := testRepo.Close(ctx); err != nil {
+			t.T().Logf("Failed to close test repo: %v", err)
+		}
+	}()
 
 	repoSync := &repositorySync{
 		repo: testRepo,
@@ -467,8 +476,17 @@ func (t *DbTestSuite) TestCacheExternalPRs_AllTextFiles() {
 	testRepo := t.createTestRepo("text-ns", "text-repo")
 	defer t.deleteTestRepo(testRepo.Key())
 
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
+
 	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
 	t.Require().NoError(err)
+	defer func() {
+		if err := testRepo.Close(ctx); err != nil {
+			t.T().Logf("Failed to close test repo: %v", err)
+		}
+	}()
 
 	repoSync := &repositorySync{
 		repo: testRepo,
@@ -548,8 +566,17 @@ func (t *DbTestSuite) TestCacheExternalPRs_AllBinaryFiles() {
 	testRepo := t.createTestRepo("allbin-ns", "allbin-repo")
 	defer t.deleteTestRepo(testRepo.Key())
 
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
+
 	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
 	t.Require().NoError(err)
+	defer func() {
+		if err := testRepo.Close(ctx); err != nil {
+			t.T().Logf("Failed to close test repo: %v", err)
+		}
+	}()
 
 	repoSync := &repositorySync{
 		repo: testRepo,
@@ -623,8 +650,17 @@ func (t *DbTestSuite) TestCacheExternalPRs_EmptyResources() {
 	testRepo := t.createTestRepo("empty-ns", "empty-repo")
 	defer t.deleteTestRepo(testRepo.Key())
 
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
+
 	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
 	t.Require().NoError(err)
+	defer func() {
+		if err := testRepo.Close(ctx); err != nil {
+			t.T().Logf("Failed to close test repo: %v", err)
+		}
+	}()
 
 	repoSync := &repositorySync{
 		repo: testRepo,
@@ -693,8 +729,17 @@ func (t *DbTestSuite) TestCacheExternalPRs_SkipsNulByteContent() {
 	testRepo := t.createTestRepo("nul-ns", "nul-repo")
 	defer t.deleteTestRepo(testRepo.Key())
 
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
+
 	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
 	t.Require().NoError(err)
+	defer func() {
+		if err := testRepo.Close(ctx); err != nil {
+			t.T().Logf("Failed to close test repo: %v", err)
+		}
+	}()
 
 	repoSync := &repositorySync{
 		repo: testRepo,
@@ -776,8 +821,17 @@ func (t *DbTestSuite) TestCacheExternalPRs_SkipsInvalidFilePath() {
 	testRepo := t.createTestRepo("path-ns", "path-repo")
 	defer t.deleteTestRepo(testRepo.Key())
 
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(testRepo).Maybe()
+
 	err := testRepo.OpenRepository(ctx, externalrepotypes.ExternalRepoOptions{})
 	t.Require().NoError(err)
+	defer func() {
+		if err := testRepo.Close(ctx); err != nil {
+			t.T().Logf("Failed to close test repo: %v", err)
+		}
+	}()
 
 	repoSync := &repositorySync{
 		repo: testRepo,
@@ -811,7 +865,7 @@ func (t *DbTestSuite) TestCacheExternalPRs_SkipsInvalidFilePath() {
 		Spec: porchapi.PackageRevisionResourcesSpec{
 			Resources: map[string]string{
 				"Kptfile":              "apiVersion: kpt.dev/v1\nkind: Kptfile\n",
-				"config.yaml":         "key: value\n",
+				"config.yaml":          "key: value\n",
 				"data/\xc0\xaf/f.yaml": "valid: content\n",
 			},
 		},
