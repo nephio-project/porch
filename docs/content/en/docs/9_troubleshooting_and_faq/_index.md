@@ -19,7 +19,7 @@ This troubleshooting guide addresses:
 
 ## Troubleshooting Topics
 
-### Repository Sync Troubleshooting
+### [Repository Sync Troubleshooting]({{% relref "repository-sync" %}})
 
 Common issues with repository synchronization:
 - Repositories not syncing or updating
