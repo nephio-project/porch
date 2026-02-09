@@ -28,7 +28,7 @@ Common issues with repository synchronization:
 - Repositories stuck in reconciling state
 - One-time sync not triggering
 
-### Disaster Recovery
+### [Disaster Recovery]({{% relref "disaster-recovery" %}})
 
 Recovering from data loss scenarios:
 - Complete disaster (cluster, Git, and cache loss)
