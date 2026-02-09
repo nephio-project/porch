@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,7 +71,7 @@ func newTestReconciler(mockClient *mockclient.MockClient, mockCache *cachetypes.
 }
 
 func TestEnsureFinalizer(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	tests := []struct {
 		name        string
@@ -115,16 +116,18 @@ func TestEnsureFinalizer(t *testing.T) {
 			reconciler := &RepositoryReconciler{Client: mockClient}
 			added, err := reconciler.ensureFinalizer(ctx, repo)
 
-			assertError(t, tt.expectError, err)
-			if added != tt.expectAdded {
-				t.Errorf("Expected added %v, got %v", tt.expectAdded, added)
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
+			assert.Equal(t, tt.expectAdded, added)
 		})
 	}
 }
 
 func TestReconcileNotFound(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-repo", Namespace: "test-ns"}}
 
 	mockClient := mockclient.NewMockClient(t)
@@ -139,16 +142,12 @@ func TestReconcileNotFound(t *testing.T) {
 
 	result, err := reconciler.Reconcile(ctx, req)
 
-	if err != nil {
-		t.Errorf("Expected no error, got %v", err)
-	}
-	if result.Requeue {
-		t.Error("Expected no requeue")
-	}
+	assert.NoError(t, err)
+	assert.False(t, result.Requeue)
 }
 
 func TestReconcileGetError(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-repo", Namespace: "test-ns"}}
 
 	mockClient := mockclient.NewMockClient(t)
@@ -163,13 +162,11 @@ func TestReconcileGetError(t *testing.T) {
 
 	_, err := reconciler.Reconcile(ctx, req)
 
-	if err == nil {
-		t.Error("Expected error, got nil")
-	}
+	assert.Error(t, err)
 }
 
 func TestReconcileCacheNil(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "test-repo", Namespace: "test-ns"}}
 
 	mockClient := mockclient.NewMockClient(t)
@@ -181,9 +178,7 @@ func TestReconcileCacheNil(t *testing.T) {
 
 	_, err := reconciler.Reconcile(ctx, req)
 
-	if err == nil {
-		t.Error("Expected error when cache is nil")
-	}
+	assert.Error(t, err)
 }
 
 func TestInitializeSyncLimiter(t *testing.T) {
@@ -216,25 +211,26 @@ func TestInitializeSyncLimiter(t *testing.T) {
 			}
 			r.InitializeSyncLimiter()
 
-			if r.MaxConcurrentSyncs != tt.expectedCapacity {
-				t.Errorf("Expected MaxConcurrentSyncs %d, got %d", tt.expectedCapacity, r.MaxConcurrentSyncs)
-			}
-			if cap(r.syncLimiter) != tt.expectedCapacity {
-				t.Errorf("Expected channel capacity %d, got %d", tt.expectedCapacity, cap(r.syncLimiter))
-			}
+			assert.Equal(t, tt.expectedCapacity, r.MaxConcurrentSyncs)
+			assert.Equal(t, tt.expectedCapacity, cap(r.syncLimiter))
 		})
 	}
 }
 
 func TestPerformAsyncSync(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	tests := []struct {
 		name      string
 		syncError error
 	}{
-		{name: "successful sync", syncError: nil},
-		{name: "sync fails", syncError: errors.New("sync failed")},
+		{
+			name: "successful sync", syncError: nil,
+		},
+		{
+			name: "sync fails", 
+			syncError: errors.New("sync failed"),
+		},
 	}
 
 	for _, tt := range tests {
@@ -259,7 +255,7 @@ func TestPerformAsyncSync(t *testing.T) {
 }
 
 func TestReconcileDecisionBranches(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	tests := []struct {
 		name           string
@@ -335,23 +331,30 @@ func TestReconcileDecisionBranches(t *testing.T) {
 
 			result, err := r.Reconcile(ctx, req)
 
-			assertError(t, tt.expectError, err)
-			if result.Requeue != tt.expectRequeue {
-				t.Errorf("Expected requeue %v, got %v", tt.expectRequeue, result.Requeue)
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
+			assert.Equal(t, tt.expectRequeue, result.Requeue)
 		})
 	}
 }
 
 func TestPerformHealthCheckSync(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	tests := []struct {
 		name            string
 		connectivityErr error
 	}{
-		{name: "health check passes", connectivityErr: nil},
-		{name: "health check fails", connectivityErr: errors.New("connection failed")},
+		{
+			name: "health check passes", connectivityErr: nil,
+		},
+		{
+			name: "health check fails", 
+			connectivityErr: errors.New("connection failed"),
+		},
 	}
 
 	for _, tt := range tests {
@@ -366,18 +369,14 @@ func TestPerformHealthCheckSync(t *testing.T) {
 			r := newTestReconciler(mockClient, mockCache)
 			result, err := r.performHealthCheckSync(ctx, repo)
 
-			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
-			}
-			if result.RequeueAfter == 0 {
-				t.Error("Expected requeue")
-			}
+			assert.NoError(t, err)
+			assert.NotZero(t, result.RequeueAfter)
 		})
 	}
 }
 
 func TestPerformFullSync(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := createTestRepo("test-repo", "test-ns")
 
 	t.Run("capacity exceeded", func(t *testing.T) {
@@ -391,12 +390,8 @@ func TestPerformFullSync(t *testing.T) {
 
 		result, err := r.performFullSync(ctx, repo)
 
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
-		if result.RequeueAfter != 30*time.Second {
-			t.Errorf("Expected 30s requeue, got %v", result.RequeueAfter)
-		}
+		assert.NoError(t, err)
+		assert.Equal(t, 30*time.Second, result.RequeueAfter)
 		<-r.syncLimiter // Clean up
 	})
 
@@ -408,14 +403,12 @@ func TestPerformFullSync(t *testing.T) {
 		r.InitializeSyncLimiter()
 
 		_, err := r.performFullSync(ctx, repo)
-		if err == nil {
-			t.Error("Expected error from status update")
-		}
+		assert.Error(t, err)
 	})
 }
 
 func TestPerformAsyncSyncEdgeCases(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("clear flag error", func(t *testing.T) {
 		repo := createTestRepo("test-repo", "test-ns")
@@ -447,7 +440,7 @@ func TestPerformAsyncSyncEdgeCases(t *testing.T) {
 
 
 func TestReconcileSyncInProgress(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := createTestRepo("test-repo", "test-ns")
 	controllerutil.AddFinalizer(repo, RepositoryFinalizer)
 	// Set status to indicate sync in progress
@@ -473,10 +466,6 @@ func TestReconcileSyncInProgress(t *testing.T) {
 	r := newTestReconciler(mockClient, mockCache)
 	result, err := r.Reconcile(ctx, req)
 
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
-	if result.RequeueAfter != r.HealthCheckFrequency {
-		t.Errorf("Expected requeue after %v, got %v", r.HealthCheckFrequency, result.RequeueAfter)
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, r.HealthCheckFrequency, result.RequeueAfter)
 }

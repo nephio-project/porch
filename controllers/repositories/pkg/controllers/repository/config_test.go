@@ -18,18 +18,17 @@ import (
 	"flag"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestInitDefaults(t *testing.T) {
 	r := &RepositoryReconciler{}
 	r.InitDefaults()
 
-	if r.MaxConcurrentReconciles != 100 {
-		t.Errorf("Expected MaxConcurrentReconciles 100, got %d", r.MaxConcurrentReconciles)
-	}
-	if r.MaxConcurrentSyncs != 50 {
-		t.Errorf("Expected MaxConcurrentSyncs 50, got %d", r.MaxConcurrentSyncs)
-	}
+	assert.Equal(t, 100, r.MaxConcurrentReconciles)
+	assert.Equal(t, 50, r.MaxConcurrentSyncs)
 }
 
 func TestBindFlags(t *testing.T) {
@@ -42,13 +41,9 @@ func TestBindFlags(t *testing.T) {
 	err := flags.Parse([]string{
 		"--repo-max-concurrent-reconciles=100",
 	})
-	if err != nil {
-		t.Fatalf("Failed to parse flags: %v", err)
-	}
+	require.NoError(t, err)
 
-	if r.MaxConcurrentReconciles != 100 {
-		t.Errorf("Expected MaxConcurrentReconciles 100, got %d", r.MaxConcurrentReconciles)
-	}
+	assert.Equal(t, 100, r.MaxConcurrentReconciles)
 }
 
 func TestSetEmbeddedDefaults(t *testing.T) {
@@ -109,21 +104,11 @@ func TestSetEmbeddedDefaults(t *testing.T) {
 			r := &RepositoryReconciler{}
 			r.SetEmbeddedDefaults(tt.config)
 
-			if r.MaxConcurrentReconciles != tt.want.MaxConcurrentReconciles {
-				t.Errorf("MaxConcurrentReconciles = %d, want %d", r.MaxConcurrentReconciles, tt.want.MaxConcurrentReconciles)
-			}
-			if r.MaxConcurrentSyncs != tt.want.MaxConcurrentSyncs {
-				t.Errorf("MaxConcurrentSyncs = %d, want %d", r.MaxConcurrentSyncs, tt.want.MaxConcurrentSyncs)
-			}
-			if r.HealthCheckFrequency != tt.want.HealthCheckFrequency {
-				t.Errorf("HealthCheckFrequency = %v, want %v", r.HealthCheckFrequency, tt.want.HealthCheckFrequency)
-			}
-			if r.FullSyncFrequency != tt.want.FullSyncFrequency {
-				t.Errorf("FullSyncFrequency = %v, want %v", r.FullSyncFrequency, tt.want.FullSyncFrequency)
-			}
-			if r.RepoOperationRetryAttempts != tt.want.RepoOperationRetryAttempts {
-				t.Errorf("RepoOperationRetryAttempts = %d, want %d", r.RepoOperationRetryAttempts, tt.want.RepoOperationRetryAttempts)
-			}
+			assert.Equal(t, tt.want.MaxConcurrentReconciles, r.MaxConcurrentReconciles)
+			assert.Equal(t, tt.want.MaxConcurrentSyncs, r.MaxConcurrentSyncs)
+			assert.Equal(t, tt.want.HealthCheckFrequency, r.HealthCheckFrequency)
+			assert.Equal(t, tt.want.FullSyncFrequency, r.FullSyncFrequency)
+			assert.Equal(t, tt.want.RepoOperationRetryAttempts, r.RepoOperationRetryAttempts)
 		})
 	}
 }
@@ -131,21 +116,11 @@ func TestSetEmbeddedDefaults(t *testing.T) {
 func TestDefaultEmbeddedConfig(t *testing.T) {
 	config := DefaultEmbeddedConfig()
 
-	if config.MaxConcurrentReconciles != 100 {
-		t.Errorf("MaxConcurrentReconciles = %d, want 100", config.MaxConcurrentReconciles)
-	}
-	if config.MaxConcurrentSyncs != 50 {
-		t.Errorf("MaxConcurrentSyncs = %d, want 50", config.MaxConcurrentSyncs)
-	}
-	if config.HealthCheckFrequency != 5*time.Minute {
-		t.Errorf("HealthCheckFrequency = %v, want 5m", config.HealthCheckFrequency)
-	}
-	if config.FullSyncFrequency != 1*time.Hour {
-		t.Errorf("FullSyncFrequency = %v, want 1h", config.FullSyncFrequency)
-	}
-	if config.RepoOperationRetryAttempts != 3 {
-		t.Errorf("RepoOperationRetryAttempts = %d, want 3", config.RepoOperationRetryAttempts)
-	}
+	assert.Equal(t, 100, config.MaxConcurrentReconciles)
+	assert.Equal(t, 50, config.MaxConcurrentSyncs)
+	assert.Equal(t, 5*time.Minute, config.HealthCheckFrequency)
+	assert.Equal(t, 1*time.Hour, config.FullSyncFrequency)
+	assert.Equal(t, 3, config.RepoOperationRetryAttempts)
 }
 
 type mockLogger struct {
@@ -217,23 +192,15 @@ func TestLogConfig(t *testing.T) {
 			logger := &mockLogger{}
 			tt.reconciler.LogConfig(logger)
 
-			if len(logger.infoCalls) == 0 {
-				t.Error("Expected at least one log call")
-			}
+			require.NotEmpty(t, logger.infoCalls)
 
 			// First call should be the main config log
-			if len(logger.infoCalls) > 0 {
-				firstMsg := logger.infoCalls[0][0].(string)
-				if firstMsg != "Repository controller configuration" {
-					t.Errorf("Expected first log message to be config, got %q", firstMsg)
-				}
-			}
+			firstMsg := logger.infoCalls[0][0].(string)
+			assert.Equal(t, "Repository controller configuration", firstMsg)
 
 			// Check warning count (total calls - 1 for main config)
 			warningCount := len(logger.infoCalls) - 1
-			if warningCount != tt.expectWarnings {
-				t.Errorf("Expected %d warnings, got %d", tt.expectWarnings, warningCount)
-			}
+			assert.Equal(t, tt.expectWarnings, warningCount)
 		})
 	}
 }

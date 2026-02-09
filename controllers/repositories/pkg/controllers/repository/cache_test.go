@@ -5,6 +5,9 @@ import (
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	mockclient "github.com/nephio-project/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
@@ -12,10 +15,9 @@ import (
 
 func TestSetupDBCacheOptionsFromEnv(t *testing.T) {
 	tests := []struct {
-		name        string
-		envVars     map[string]string
-		expectError bool
-		errorMsg    string
+		name    string
+		envVars map[string]string
+		wantErr string
 	}{
 		{
 			name: "valid pgx configuration",
@@ -27,7 +29,6 @@ func TestSetupDBCacheOptionsFromEnv(t *testing.T) {
 				"DB_USER":     "testuser",
 				"DB_PASSWORD": "testpass",
 			},
-			expectError: false,
 		},
 		{
 			name: "valid mysql configuration",
@@ -39,7 +40,6 @@ func TestSetupDBCacheOptionsFromEnv(t *testing.T) {
 				"DB_USER":     "testuser",
 				"DB_PASSWORD": "testpass",
 			},
-			expectError: false,
 		},
 		{
 			name: "pgx with SSL mode",
@@ -51,7 +51,6 @@ func TestSetupDBCacheOptionsFromEnv(t *testing.T) {
 				"DB_USER":     "testuser",
 				"DB_SSL_MODE": "require",
 			},
-			expectError: false,
 		},
 		{
 			name: "missing DB_HOST",
@@ -61,8 +60,7 @@ func TestSetupDBCacheOptionsFromEnv(t *testing.T) {
 				"DB_USER":     "testuser",
 				"DB_PASSWORD": "testpass",
 			},
-			expectError: true,
-			errorMsg:    "DB_HOST",
+			wantErr: "DB_HOST",
 		},
 		{
 			name: "missing DB_PORT",
@@ -72,8 +70,7 @@ func TestSetupDBCacheOptionsFromEnv(t *testing.T) {
 				"DB_USER":     "testuser",
 				"DB_PASSWORD": "testpass",
 			},
-			expectError: true,
-			errorMsg:    "DB_PORT",
+			wantErr: "DB_PORT",
 		},
 		{
 			name: "missing DB_NAME",
@@ -83,8 +80,7 @@ func TestSetupDBCacheOptionsFromEnv(t *testing.T) {
 				"DB_USER":     "testuser",
 				"DB_PASSWORD": "testpass",
 			},
-			expectError: true,
-			errorMsg:    "DB_NAME",
+			wantErr: "DB_NAME",
 		},
 		{
 			name: "missing DB_USER",
@@ -94,8 +90,7 @@ func TestSetupDBCacheOptionsFromEnv(t *testing.T) {
 				"DB_NAME":     "porch",
 				"DB_PASSWORD": "testpass",
 			},
-			expectError: true,
-			errorMsg:    "DB_USER",
+			wantErr: "DB_USER",
 		},
 		{
 			name: "missing DB_PASSWORD without SSL",
@@ -105,8 +100,7 @@ func TestSetupDBCacheOptionsFromEnv(t *testing.T) {
 				"DB_NAME": "porch",
 				"DB_USER": "testuser",
 			},
-			expectError: true,
-			errorMsg:    "DB_PASSWORD",
+			wantErr: "DB_PASSWORD",
 		},
 		{
 			name: "unsupported driver",
@@ -118,8 +112,7 @@ func TestSetupDBCacheOptionsFromEnv(t *testing.T) {
 				"DB_USER":     "testuser",
 				"DB_PASSWORD": "testpass",
 			},
-			expectError: true,
-			errorMsg:    "unsupported DB driver",
+			wantErr: "unsupported DB driver",
 		},
 	}
 
@@ -142,22 +135,13 @@ func TestSetupDBCacheOptionsFromEnv(t *testing.T) {
 			r := &RepositoryReconciler{}
 			opts, err := r.setupDBCacheOptionsFromEnv()
 
-			if tt.expectError {
-				if err == nil {
-					t.Errorf("expected error but got none")
-				} else if tt.errorMsg != "" && !contains(err.Error(), tt.errorMsg) {
-					t.Errorf("expected error containing %q, got %q", tt.errorMsg, err.Error())
-				}
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
 			} else {
-				if err != nil {
-					t.Errorf("unexpected error: %v", err)
-				}
-				if opts.Driver == "" {
-					t.Error("expected driver to be set")
-				}
-				if opts.DataSource == "" {
-					t.Error("expected data source to be set")
-				}
+				require.NoError(t, err)
+				assert.NotEmpty(t, opts.Driver)
+				assert.NotEmpty(t, opts.DataSource)
 			}
 		})
 	}
@@ -169,15 +153,9 @@ func TestSimpleUserInfoProvider(t *testing.T) {
 
 	userInfo := provider.GetUserInfo(ctx)
 
-	if userInfo == nil {
-		t.Fatal("expected user info, got nil")
-	}
-	if userInfo.Name != "porch-controller" {
-		t.Errorf("expected name 'porch-controller', got %q", userInfo.Name)
-	}
-	if userInfo.Email != "porch-controller@kpt.dev" {
-		t.Errorf("expected email 'porch-controller@kpt.dev', got %q", userInfo.Email)
-	}
+	require.NotNil(t, userInfo)
+	assert.Equal(t, "porch-controller", userInfo.Name)
+	assert.Equal(t, "porch-controller@kpt.dev", userInfo.Email)
 }
 
 func TestSimpleUserInfoProviderReturnsConsistentInfo(t *testing.T) {
@@ -187,26 +165,8 @@ func TestSimpleUserInfoProviderReturnsConsistentInfo(t *testing.T) {
 	info1 := provider.GetUserInfo(ctx)
 	info2 := provider.GetUserInfo(ctx)
 
-	if info1.Name != info2.Name {
-		t.Error("user info should be consistent across calls")
-	}
-	if info1.Email != info2.Email {
-		t.Error("user info should be consistent across calls")
-	}
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 || 
-		(len(s) > 0 && len(substr) > 0 && findSubstring(s, substr)))
-}
-
-func findSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
+	assert.Equal(t, info1.Name, info2.Name)
+	assert.Equal(t, info1.Email, info2.Email)
 }
 
 // Ensure simpleUserInfoProvider implements the interface
@@ -250,11 +210,10 @@ func TestValidateCacheType(t *testing.T) {
 			r := &RepositoryReconciler{cacheType: tt.cacheType}
 			err := r.validateCacheType()
 
-			if tt.expectError && err == nil {
-				t.Error("expected error but got none")
-			}
-			if !tt.expectError && err != nil {
-				t.Errorf("unexpected error: %v", err)
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}
@@ -293,18 +252,12 @@ func TestDetermineCacheDirectory(t *testing.T) {
 			r := &RepositoryReconciler{}
 			cacheDir := r.determineCacheDirectory()
 
-			if cacheDir == "" {
-				t.Error("cache directory should not be empty")
-			}
+			assert.NotEmpty(t, cacheDir)
 
 			if tt.gitCacheDirEnv != "" {
-				if cacheDir != tt.gitCacheDirEnv {
-					t.Errorf("expected cache dir %q, got %q", tt.gitCacheDirEnv, cacheDir)
-				}
+				assert.Equal(t, tt.gitCacheDirEnv, cacheDir)
 			} else if tt.expectSuffix != "" {
-				if !contains(cacheDir, tt.expectSuffix) {
-					t.Errorf("expected cache dir to contain %q, got %q", tt.expectSuffix, cacheDir)
-				}
+				assert.Contains(t, cacheDir, tt.expectSuffix)
 			}
 		})
 	}
@@ -326,24 +279,12 @@ func TestBuildCacheOptions(t *testing.T) {
 
 	options := r.buildCacheOptions(nil, dbOptions, "/test/cache", nil, nil, userInfoProvider)
 
-	if options.CacheType != cachetypes.CacheType("db") {
-		t.Errorf("expected cache type 'db', got %q", options.CacheType)
-	}
-	if options.DBCacheOptions.Driver != "pgx" {
-		t.Errorf("expected driver 'pgx', got %q", options.DBCacheOptions.Driver)
-	}
-	if options.ExternalRepoOptions.LocalDirectory != "/test/cache" {
-		t.Errorf("expected cache dir '/test/cache', got %q", options.ExternalRepoOptions.LocalDirectory)
-	}
-	if options.ExternalRepoOptions.UseUserDefinedCaBundle != true {
-		t.Error("expected UseUserDefinedCaBundle to be true")
-	}
-	if options.ExternalRepoOptions.RepoOperationRetryAttempts != 3 {
-		t.Errorf("expected retry attempts 3, got %d", options.ExternalRepoOptions.RepoOperationRetryAttempts)
-	}
-	if options.ExternalRepoOptions.UserInfoProvider != userInfoProvider {
-		t.Error("expected user info provider to be set")
-	}
+	assert.Equal(t, cachetypes.CacheType("db"), options.CacheType)
+	assert.Equal(t, "pgx", options.DBCacheOptions.Driver)
+	assert.Equal(t, "/test/cache", options.ExternalRepoOptions.LocalDirectory)
+	assert.True(t, options.ExternalRepoOptions.UseUserDefinedCaBundle)
+	assert.Equal(t, 3, options.ExternalRepoOptions.RepoOperationRetryAttempts)
+	assert.Equal(t, userInfoProvider, options.ExternalRepoOptions.UserInfoProvider)
 }
 
 func TestCreateCredentialResolvers(t *testing.T) {
@@ -353,10 +294,6 @@ func TestCreateCredentialResolvers(t *testing.T) {
 	r := &RepositoryReconciler{}
 	credResolver, caResolver := r.createCredentialResolvers(mockClient)
 
-	if credResolver == nil {
-		t.Error("expected credential resolver to be created")
-	}
-	if caResolver == nil {
-		t.Error("expected CA bundle resolver to be created")
-	}
+	assert.NotNil(t, credResolver)
+	assert.NotNil(t, caResolver)
 }

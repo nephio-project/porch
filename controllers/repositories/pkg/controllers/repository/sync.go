@@ -1,3 +1,17 @@
+// Copyright 2026 The kpt and Nephio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package repository
 
 import (
@@ -61,13 +75,13 @@ func (r *RepositoryReconciler) determineSyncDecision(ctx context.Context, repo *
 		return SyncDecision{Type: HealthCheck, Needed: false, Interval: r.HealthCheckFrequency}
 	}
 
-	// 1. One-time sync due → Full sync
-	if r.isOneTimeSyncDue(repo) {
+	switch {
+	case r.isOneTimeSyncDue(repo):
+		// 1. One-time sync due → Full sync
 		return SyncDecision{Type: FullSync, Needed: true, Interval: 0}
-	}
 
-	// 2. Spec changed → Full sync immediately
-	if r.hasSpecChanged(repo) {
+	case r.hasSpecChanged(repo):
+		// 2. Spec changed → Full sync immediately
 		// If RunOnceAt is set but not yet due, wait for scheduled time
 		if repo.Spec.Sync != nil && repo.Spec.Sync.RunOnceAt != nil && time.Now().Before(repo.Spec.Sync.RunOnceAt.Time) {
 			untilRunOnce := time.Until(repo.Spec.Sync.RunOnceAt.Time)
@@ -78,25 +92,23 @@ func (r *RepositoryReconciler) determineSyncDecision(ctx context.Context, repo *
 			return SyncDecision{Type: HealthCheck, Needed: false, Interval: untilRunOnce}
 		}
 		return SyncDecision{Type: FullSync, Needed: true, Interval: 0}
-	}
 
-	// 3. Error retry due → Health check (not full sync)
-	if r.isErrorRetryDue(repo) {
+	case r.isErrorRetryDue(repo):
+		// 3. Error retry due → Health check (not full sync)
 		return SyncDecision{Type: HealthCheck, Needed: true, Interval: 0}
-	}
 
-	// 4. Full sync due → Full sync (only if not in error state)
-	if r.isFullSyncDue(repo) {
+	case r.isFullSyncDue(repo):
+		// 4. Full sync due → Full sync (only if not in error state)
 		return SyncDecision{Type: FullSync, Needed: true, Interval: 0}
-	}
 
-	// 5. Health check due → Health check
-	if r.isHealthCheckDue(repo) {
+	case r.isHealthCheckDue(repo):
+		// 5. Health check due → Health check
 		return SyncDecision{Type: HealthCheck, Needed: true, Interval: 0}
-	}
 
-	// Nothing needed, return next check interval
-	return SyncDecision{Type: HealthCheck, Needed: false, Interval: r.getRequeueInterval(repo)}
+	default:
+		// Nothing needed, return next check interval
+		return SyncDecision{Type: HealthCheck, Needed: false, Interval: r.getRequeueInterval(repo)}
+	}
 }
 
 // isSyncInProgress checks if repository sync is currently in progress

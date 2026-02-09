@@ -15,8 +15,6 @@
 package repository
 
 import (
-	"testing"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
@@ -38,12 +36,3 @@ func createTestRepo(name, namespace string) *configapi.Repository {
 	}
 }
 
-// Test assertion helpers
-func assertError(t *testing.T, expectError bool, err error) {
-	if expectError && err == nil {
-		t.Error("Expected error but got none")
-	}
-	if !expectError && err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
-}
