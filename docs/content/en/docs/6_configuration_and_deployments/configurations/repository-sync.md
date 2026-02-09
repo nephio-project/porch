@@ -152,12 +152,9 @@ status:
 - Repository conditions show sync status
 - Porch-server logs contain detailed sync information, next sync times, and any errors
 
-
 ## CLI Commands
 
-For repository registration and sync commands, see the [porchctl CLI guide]({{% relref "/docs/7_cli_api/relevant_old_docs/porchctl-cli-guide.md" %}}):
-- [Repository Registration]({{% relref "/docs/7_cli_api/relevant_old_docs/porchctl-cli-guide.md#repository-registration" %}}) - Register repositories with sync configuration
-- [Repository Sync Command]({{% relref "/docs/7_cli_api/relevant_old_docs/porchctl-cli-guide.md#repository-sync-command" %}}) - Trigger immediate repository synchronization
+For repository registration and sync commands, see the [porchctl CLI guide]({{% relref "/docs/7_cli_api/porchctl.md" %}}):
 
 ---
 
