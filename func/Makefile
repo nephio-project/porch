@@ -1,4 +1,4 @@
-# Copyright 2019 The kpt and Nephio Authors
+# Copyright 2019,2026 The kpt and Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ IMAGE_REPO ?= docker.io/nephio
 IMAGE_NAME ?= function-runner
 WRAPPER_SERVER_IMAGE_NAME ?= wrapper-server
 COMPILED_PROTO=evaluator/evaluator_grpc.pb.go evaluator/evaluator.pb.go
+ALPINE_VERSION ?= 3.23.3
 
 PORCHDIR = $(abspath $(CURDIR)/..)
 
@@ -32,10 +33,10 @@ $(COMPILED_PROTO): evaluator/evaluator.proto
 
 .PHONY: build-image docker-build
 build-image docker-build:
-	docker buildx build --load --tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) -f ./Dockerfile "$(PORCHDIR)"
-	docker buildx build --load --tag $(IMAGE_REPO)/$(WRAPPER_SERVER_IMAGE_NAME):$(IMAGE_TAG) -f ./Dockerfile-wrapperserver "$(PORCHDIR)"
+	docker buildx build --load --tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) --build-arg ALPINE_VERSION=$(ALPINE_VERSION) -f ./Dockerfile "$(PORCHDIR)"
+	docker buildx build --load --tag $(IMAGE_REPO)/$(WRAPPER_SERVER_IMAGE_NAME):$(IMAGE_TAG) --build-arg ALPINE_VERSION=$(ALPINE_VERSION) -f ./Dockerfile-wrapperserver "$(PORCHDIR)"
 
 .PHONY: push-image docker-push
 push-image docker-push:
-	docker buildx build --push --tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) -f ./Dockerfile "$(PORCHDIR)"
-	docker buildx build --push --tag $(IMAGE_REPO)/$(WRAPPER_SERVER_IMAGE_NAME):$(IMAGE_TAG) -f ./Dockerfile-wrapperserver "$(PORCHDIR)"
+	docker buildx build --push --tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) --build-arg ALPINE_VERSION=$(ALPINE_VERSION) -f ./Dockerfile "$(PORCHDIR)"
+	docker buildx build --push --tag $(IMAGE_REPO)/$(WRAPPER_SERVER_IMAGE_NAME):$(IMAGE_TAG) --build-arg ALPINE_VERSION=$(ALPINE_VERSION) -f ./Dockerfile-wrapperserver "$(PORCHDIR)"

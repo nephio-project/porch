@@ -69,7 +69,7 @@ jobs:
         run: |
           export IMAGE_TAG=${IMAGE_TAG:0:8}
           IMAGE_NAME=${PORCH_FUNCTION_RUNNER_IMAGE} WRAPPER_SERVER_IMAGE_NAME=${PORCH_WRAPPER_SERVER_IMAGE} make -C func/ build-image &
-          docker buildx build --load --tag ${IMAGE_REPO}/${PORCH_SERVER_IMAGE}:${IMAGE_TAG} -f ./build/Dockerfile . &
+          IMAGE_NAME=${PORCH_SERVER_IMAGE} make -C build/ build-image &
           IMAGE_NAME=${PORCH_CONTROLLERS_IMAGE} make -C controllers/ build-image &
           wait
       - name: Save all images
