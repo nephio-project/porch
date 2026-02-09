@@ -1,7 +1,7 @@
 ---
 title: "Porch Controllers"
 type: docs
-weight: 6
+weight: 5
 description: |
   Kubernetes controllers that automate package variant creation and management.
 ---

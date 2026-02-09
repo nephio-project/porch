@@ -135,7 +135,7 @@ porchctl repo register https://github.com/nephio-project/catalog \
 - `--repo-workload-identity`: Use workload identity for authentication
 
 {{% alert title="Note" color="primary" %}}
-For complete command syntax and all available flags, see the [Porchctl CLI Guide]({{% relref "/docs/7_cli_api/relevant_old_docs/porchctl-cli-guide.md" %}}).
+For complete command syntax and all available flags, see the [Porchctl CLI Guide]({{% relref "/docs/7_cli_api/porchctl.md" %}}).
 {{% /alert %}}
 
 ---

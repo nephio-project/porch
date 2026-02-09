@@ -1,7 +1,7 @@
 ---
 title: "Function Runner"
 type: docs
-weight: 5
+weight: 4
 description: |
   Separate gRPC service for executing KRM functions in isolated environments.
 ---
