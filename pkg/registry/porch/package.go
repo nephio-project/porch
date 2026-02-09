@@ -104,7 +104,10 @@ func (r *packages) Get(ctx context.Context, name string, options *metav1.GetOpti
 
 // Create implements the Creater interface.
 func (r *packages) Create(_ context.Context, _ runtime.Object, _ rest.ValidateObjectFunc, _ *metav1.CreateOptions) (runtime.Object, error) {
-	return nil, apierrors.NewBadRequest("package creation is not supported directly over the API, create or clone a PackageRevision resource to create a package")
+	return nil, apierrors.NewMethodNotSupported(
+		porchapi.PackageGVR.GroupResource(),
+		"package creation is not supported directly over the API, create or clone a PackageRevision resource to create a package",
+	)
 }
 
 // Update implements the Updater interface.
@@ -115,7 +118,10 @@ func (r *packages) Create(_ context.Context, _ runtime.Object, _ rest.ValidateOb
 func (r *packages) Update(_ context.Context, _ string, _ rest.UpdatedObjectInfo, _ rest.ValidateObjectFunc,
 	_ rest.ValidateObjectUpdateFunc, _ bool, _ *metav1.UpdateOptions) (runtime.Object, bool, error) {
 
-	return nil, false, apierrors.NewBadRequest("package update is not supported directly over the API, update a PackageRevision resource to update a package")
+	return nil, false, apierrors.NewMethodNotSupported(
+		porchapi.PackageGVR.GroupResource(),
+		"package update is not supported directly over the API, update a PackageRevision resource to update a package",
+	)
 }
 
 // Delete implements the GracefulDeleter interface.
@@ -130,5 +136,8 @@ func (r *packages) Update(_ context.Context, _ string, _ rest.UpdatedObjectInfo,
 // It also returns a boolean which is set to true if the resource was instantly
 // deleted or false if it will be deleted asynchronously.
 func (r *packages) Delete(ctx context.Context, name string, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
-	return nil, false, apierrors.NewBadRequest("package deletion is not supported directly over the API, delete all PackageRevisions resources of a package to delete a package")
+	return nil, false, apierrors.NewMethodNotSupported(
+		porchapi.PackageGVR.GroupResource(),
+		"package deletion is not supported directly over the API, delete all PackageRevisions resources of a package to delete a package",
+	)
 }
