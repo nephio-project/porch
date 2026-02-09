@@ -20,7 +20,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -68,14 +70,11 @@ func TestGetAllRepositories(t *testing.T) {
 			reconciler := &RepositoryReconciler{Client: mockClient}
 			repos, err := reconciler.getAllRepositories(ctx)
 
-			if tt.expectError && err == nil {
-				t.Error("Expected error but got none")
-			}
-			if !tt.expectError && err != nil {
-				t.Errorf("Unexpected error: %v", err)
-			}
-			if !tt.expectError && len(repos) != len(tt.allRepos) {
-				t.Errorf("Expected %d repos, got %d", len(tt.allRepos), len(repos))
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Len(t, repos, len(tt.allRepos))
 			}
 		})
 	}
@@ -148,17 +147,14 @@ func TestRemoveFinalizer(t *testing.T) {
 			reconciler := &RepositoryReconciler{Client: mockClient}
 			err := reconciler.removeFinalizer(ctx, repo)
 
-			if tt.expectError && err == nil {
-				t.Error("Expected error but got none")
-			}
-			if !tt.expectError && err != nil {
-				t.Errorf("Unexpected error: %v", err)
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
 			
 			// Finalizer should always be removed regardless of update result
-			if controllerutil.ContainsFinalizer(repo, RepositoryFinalizer) {
-				t.Error("Expected finalizer to be removed")
-			}
+			assert.False(t, controllerutil.ContainsFinalizer(repo, RepositoryFinalizer))
 		})
 	}
 }
@@ -258,29 +254,22 @@ func TestHandleDeletion(t *testing.T) {
 			result, err := reconciler.handleDeletion(ctx, tt.repo)
 
 			// Check error expectation
-			if tt.expectError && err == nil {
-				t.Error("Expected error but got none")
-			}
-			if !tt.expectError && err != nil {
-				t.Errorf("Unexpected error: %v", err)
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
 
 			// Check requeue expectation
-			if tt.expectRequeue && result.RequeueAfter == 0 {
-				t.Error("Expected requeue but got none")
-			}
-			if !tt.expectRequeue && result.RequeueAfter > 0 {
-				t.Errorf("Unexpected requeue: %v", result.RequeueAfter)
+			if tt.expectRequeue {
+				assert.NotZero(t, result.RequeueAfter)
+			} else {
+				assert.Zero(t, result.RequeueAfter)
 			}
 
 			// Check finalizer expectation
 			hasFinalizer := controllerutil.ContainsFinalizer(tt.repo, RepositoryFinalizer)
-			if tt.expectFinalizer && !hasFinalizer {
-				t.Error("Expected finalizer to be present")
-			}
-			if !tt.expectFinalizer && hasFinalizer {
-				t.Error("Expected finalizer to be removed")
-			}
+			assert.Equal(t, tt.expectFinalizer, hasFinalizer)
 		})
 	}
 }
@@ -306,12 +295,8 @@ func TestHandleDeletionTimeout(t *testing.T) {
 	result, err := reconciler.handleDeletion(ctx, repo)
 
 	// Should requeue on timeout, not return error
-	if err != nil {
-		t.Errorf("Expected no error on timeout, got: %v", err)
-	}
-	if result.RequeueAfter == 0 {
-		t.Error("Expected requeue on timeout")
-	}
+	assert.NoError(t, err)
+	assert.NotZero(t, result.RequeueAfter)
 }
 
 // Helper functions

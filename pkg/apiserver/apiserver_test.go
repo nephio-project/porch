@@ -5,6 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	repocontroller "github.com/nephio-project/porch/controllers/repositories/pkg/controllers/repository"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	corev1 "k8s.io/api/core/v1"
@@ -14,21 +17,13 @@ import (
 
 func TestBuildCompleteScheme(t *testing.T) {
 	scheme, err := buildCompleteScheme()
-	if err != nil {
-		t.Fatalf("buildCompleteScheme failed: %v", err)
-	}
-	if scheme == nil {
-		t.Fatal("expected scheme to be non-nil")
-	}
+	require.NoError(t, err)
+	require.NotNil(t, scheme)
 
 	// Test singleton behavior - calling again should return same instance
 	scheme2, err := buildCompleteScheme()
-	if err != nil {
-		t.Fatalf("buildCompleteScheme second call failed: %v", err)
-	}
-	if scheme != scheme2 {
-		t.Error("expected buildCompleteScheme to return singleton instance")
-	}
+	require.NoError(t, err)
+	assert.Same(t, scheme, scheme2, "expected buildCompleteScheme to return singleton instance")
 }
 
 func TestEmbeddedControllerManagerStructure(t *testing.T) {
@@ -42,18 +37,10 @@ func TestEmbeddedControllerManagerStructure(t *testing.T) {
 		},
 	}
 
-	if mgr.config.MaxConcurrentReconciles != 5 {
-		t.Errorf("expected MaxConcurrentReconciles 5, got %d", mgr.config.MaxConcurrentReconciles)
-	}
-	if mgr.config.MaxConcurrentSyncs != 10 {
-		t.Errorf("expected MaxConcurrentSyncs 10, got %d", mgr.config.MaxConcurrentSyncs)
-	}
-	if mgr.config.HealthCheckFrequency != 30*time.Second {
-		t.Errorf("expected HealthCheckFrequency 30s, got %v", mgr.config.HealthCheckFrequency)
-	}
-	if mgr.config.FullSyncFrequency != 5*time.Minute {
-		t.Errorf("expected FullSyncFrequency 5m, got %v", mgr.config.FullSyncFrequency)
-	}
+	assert.Equal(t, 5, mgr.config.MaxConcurrentReconciles)
+	assert.Equal(t, 10, mgr.config.MaxConcurrentSyncs)
+	assert.Equal(t, 30*time.Second, mgr.config.HealthCheckFrequency)
+	assert.Equal(t, 5*time.Minute, mgr.config.FullSyncFrequency)
 }
 
 func TestSetupEmbeddedController(t *testing.T) {
@@ -80,11 +67,9 @@ func TestSetupEmbeddedController(t *testing.T) {
 			}
 
 			result, err := c.setupEmbeddedController(nil)
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-			}
-			if tt.expectNil && result != nil {
-				t.Error("expected nil controller")
+			assert.NoError(t, err)
+			if tt.expectNil {
+				assert.Nil(t, result)
 			}
 		})
 	}
@@ -106,18 +91,10 @@ func TestCreateEmbeddedControllerFunction(t *testing.T) {
 	}
 
 	mgr, err := createEmbeddedController(nil, restConfig, scheme, config)
-	if err != nil {
-		t.Fatalf("createEmbeddedController failed: %v", err)
-	}
-	if mgr == nil {
-		t.Fatal("expected non-nil controller manager")
-	}
-	if mgr.config.MaxConcurrentReconciles != 10 {
-		t.Errorf("expected MaxConcurrentReconciles 10, got %d", mgr.config.MaxConcurrentReconciles)
-	}
-	if mgr.config.MaxConcurrentSyncs != 5 {
-		t.Errorf("expected MaxConcurrentSyncs 5, got %d", mgr.config.MaxConcurrentSyncs)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, mgr)
+	assert.Equal(t, 10, mgr.config.MaxConcurrentReconciles)
+	assert.Equal(t, 5, mgr.config.MaxConcurrentSyncs)
 }
 
 func TestBuildSchemeWithTypes(t *testing.T) {
@@ -162,19 +139,12 @@ func TestBuildSchemeWithTypes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			scheme, err := buildSchemeWithTypes(tt.builders...)
 			if tt.expectError {
-				if err == nil {
-					t.Error("expected error but got none")
-				}
-				if scheme != nil {
-					t.Error("expected nil scheme on error")
-				}
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "error")
+				assert.Nil(t, scheme)
 			} else {
-				if err != nil {
-					t.Errorf("unexpected error: %v", err)
-				}
-				if scheme == nil {
-					t.Error("expected non-nil scheme")
-				}
+				require.NoError(t, err)
+				assert.NotNil(t, scheme)
 			}
 		})
 	}

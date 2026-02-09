@@ -89,7 +89,8 @@ func TestBranchCommitHash(t *testing.T) {
 
 			// Check error expectation
 			if tc.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "branch", "Error should mention branch issue")
 				return
 			}
 			require.NoError(t, err)

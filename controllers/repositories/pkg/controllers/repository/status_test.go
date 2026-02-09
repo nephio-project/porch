@@ -20,7 +20,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -44,23 +46,13 @@ func TestSetCondition(t *testing.T) {
 	reconciler := &RepositoryReconciler{}
 	reconciler.setCondition(repo, configapi.RepositoryReady, metav1.ConditionTrue, configapi.ReasonReady, "Repository is ready")
 
-	if len(repo.Status.Conditions) != 1 {
-		t.Errorf("Expected 1 condition, got %d", len(repo.Status.Conditions))
-	}
+	require.Len(t, repo.Status.Conditions, 1)
 
 	condition := repo.Status.Conditions[0]
-	if condition.Type != configapi.RepositoryReady {
-		t.Errorf("Expected type %s, got %s", configapi.RepositoryReady, condition.Type)
-	}
-	if condition.Status != metav1.ConditionTrue {
-		t.Errorf("Expected status True, got %s", condition.Status)
-	}
-	if condition.Reason != configapi.ReasonReady {
-		t.Errorf("Expected reason %s, got %s", configapi.ReasonReady, condition.Reason)
-	}
-	if condition.ObservedGeneration != 5 {
-		t.Errorf("Expected ObservedGeneration 5, got %d", condition.ObservedGeneration)
-	}
+	assert.Equal(t, configapi.RepositoryReady, condition.Type)
+	assert.Equal(t, metav1.ConditionTrue, condition.Status)
+	assert.Equal(t, configapi.ReasonReady, condition.Reason)
+	assert.Equal(t, int64(5), condition.ObservedGeneration)
 }
 
 func TestUpdateRepoStatusWithBackoff(t *testing.T) {
@@ -106,7 +98,11 @@ func TestUpdateRepoStatusWithBackoff(t *testing.T) {
 
 			reconciler := &RepositoryReconciler{Client: mockClient}
 			err := reconciler.updateRepoStatusWithBackoff(ctx, repo, RepositoryStatusReady, nil, nil)
-			assertError(t, tt.expectError, err)
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }
@@ -187,9 +183,7 @@ func TestHasSpecChanged(t *testing.T) {
 			reconciler := &RepositoryReconciler{}
 			result := reconciler.hasSpecChanged(tt.repo)
 
-			if result != tt.expected {
-				t.Errorf("Expected %v, got %v", tt.expected, result)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -238,7 +232,11 @@ func TestUpdateRepoStatusWithBackoffExtended(t *testing.T) {
 			
 			reconciler := &RepositoryReconciler{Client: mockClient}
 			err := reconciler.updateRepoStatusWithBackoff(ctx, repo, tt.status, tt.syncError, tt.nextSyncTime)
-			assertError(t, tt.expectError, err)
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }
@@ -290,9 +288,7 @@ func TestHasSpecChangedEdgeCases(t *testing.T) {
 			reconciler := &RepositoryReconciler{}
 			result := reconciler.hasSpecChanged(tt.repo)
 
-			if result != tt.expected {
-				t.Errorf("Expected %v, got %v", tt.expected, result)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -374,28 +370,14 @@ func TestBuildRepositoryCondition(t *testing.T) {
 			cond, err := buildRepositoryCondition(repo, tt.status, tt.errorMsg, nextSyncTime)
 
 			if tt.expectErr {
-				if err == nil {
-					t.Error("Expected error but got none")
-				}
+				assert.Error(t, err)
 			} else {
-				if err != nil {
-					t.Errorf("Unexpected error: %v", err)
-				}
-				if cond.Status != tt.expected {
-					t.Errorf("Expected status %v, got %v", tt.expected, cond.Status)
-				}
-				if cond.Reason != tt.reason {
-					t.Errorf("Expected reason %s, got %s", tt.reason, cond.Reason)
-				}
-				if cond.Message != tt.message {
-					t.Errorf("Expected message %s, got %s", tt.message, cond.Message)
-				}
-				if cond.ObservedGeneration != repo.Generation {
-					t.Errorf("Expected ObservedGeneration %d, got %d", repo.Generation, cond.ObservedGeneration)
-				}
-				if cond.LastTransitionTime.IsZero() {
-					t.Error("Expected LastTransitionTime to be set")
-				}
+				require.NoError(t, err)
+				assert.Equal(t, tt.expected, cond.Status)
+				assert.Equal(t, tt.reason, cond.Reason)
+				assert.Equal(t, tt.message, cond.Message)
+				assert.Equal(t, repo.Generation, cond.ObservedGeneration)
+				assert.False(t, cond.LastTransitionTime.IsZero())
 			}
 		})
 	}

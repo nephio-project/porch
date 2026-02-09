@@ -22,6 +22,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
@@ -411,14 +412,13 @@ func TestDetermineRetryInterval(t *testing.T) {
 
 func TestClearOneTimeSyncFlag(t *testing.T) {
 	ctx := context.Background()
-	now := metav1.NewTime(time.Now())
+	now := metav1.Now()
 
 	tests := []struct {
-		name        string
-		repo        *api.Repository
-		patchError  error
-		expectPatch bool
-		expectError bool
+		name          string
+		repo          *api.Repository
+		patchError    error
+		expectedError string
 	}{
 		{
 			name: "clears one-time sync flag",
@@ -433,7 +433,6 @@ func TestClearOneTimeSyncFlag(t *testing.T) {
 					},
 				},
 			},
-			expectPatch: true,
 		},
 		{
 			name: "no one-time sync flag",
@@ -446,7 +445,6 @@ func TestClearOneTimeSyncFlag(t *testing.T) {
 					Sync: &api.RepositorySync{},
 				},
 			},
-			expectPatch: false,
 		},
 		{
 			name: "nil sync spec",
@@ -459,7 +457,6 @@ func TestClearOneTimeSyncFlag(t *testing.T) {
 					Sync: nil,
 				},
 			},
-			expectPatch: false,
 		},
 		{
 			name: "patch fails",
@@ -474,9 +471,8 @@ func TestClearOneTimeSyncFlag(t *testing.T) {
 					},
 				},
 			},
-			patchError:  errors.New("patch failed"),
-			expectPatch: true,
-			expectError: true,
+			patchError:    errors.New("patch failed"),
+			expectedError: "patch failed",
 		},
 	}
 
@@ -484,7 +480,7 @@ func TestClearOneTimeSyncFlag(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockClient := mockclient.NewMockClient(t)
 
-			if tt.expectPatch {
+			if tt.repo.Spec.Sync != nil && tt.repo.Spec.Sync.RunOnceAt != nil {
 				mockClient.EXPECT().Patch(ctx, mock.Anything, mock.Anything).Return(tt.patchError)
 			}
 
@@ -494,8 +490,9 @@ func TestClearOneTimeSyncFlag(t *testing.T) {
 
 			err := r.clearOneTimeSyncFlag(ctx, tt.repo)
 
-			if tt.expectError {
-				assert.Error(t, err)
+			if tt.expectedError != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedError)
 			} else {
 				assert.NoError(t, err)
 			}
@@ -513,29 +510,29 @@ func TestSyncRepository(t *testing.T) {
 	}
 
 	tests := []struct {
-		name         string
-		openError    error
-		refreshError error
-		listError    error
-		expectError  bool
+		name          string
+		openError     error
+		refreshError  error
+		listError     error
+		expectedError string
 	}{
 		{
 			name: "successful sync",
 		},
 		{
-			name:        "open repository fails",
-			openError:   errors.New("failed to open repository"),
-			expectError: true,
+			name:          "open repository fails",
+			openError:     errors.New("failed to open repository"),
+			expectedError: "failed to open",
 		},
 		{
-			name:         "refresh fails",
-			refreshError: errors.New("refresh failed"),
-			expectError:  true,
+			name:          "refresh fails",
+			refreshError:  errors.New("refresh failed"),
+			expectedError: "refresh",
 		},
 		{
-			name:        "list packages fails",
-			listError:   errors.New("list failed"),
-			expectError: true,
+			name:          "list packages fails",
+			listError:     errors.New("list failed"),
+			expectedError: "list",
 		},
 	}
 
@@ -569,8 +566,9 @@ func TestSyncRepository(t *testing.T) {
 
 			_, _, err := r.syncRepository(ctx, repo)
 
-			if tt.expectError {
-				assert.Error(t, err)
+			if tt.expectedError != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedError)
 			} else {
 				assert.NoError(t, err)
 			}
