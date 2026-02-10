@@ -320,6 +320,10 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 
 	klog.InfoS("[API] Delete operation started for PackageRevision", context1.LogMetadataFrom(ctx)...)
 
+	if err := r.checkUpstreamDependencies(ctx, apiPkgRev); err != nil {
+		return nil, false, err
+	}
+
 	pkgMutexKey := getPackageMutexKey(ns, name)
 	pkgMutex := getMutexForPackage(pkgMutexKey)
 
@@ -363,4 +367,20 @@ func creationConflictError(newApiPkgRev *porchapi.PackageRevision) error {
 		newApiPkgRev.Spec.PackageName,
 		newApiPkgRev.Spec.WorkspaceName,
 	)
+}
+
+func (r *packageRevisions) checkUpstreamDependencies(ctx context.Context, apiPkgRev *porchapi.PackageRevision) error {
+	ns, _ := genericapirequest.NamespaceFrom(ctx)
+	dependent, err := r.cad.Cache().FindUpstreamDependent(ctx, ns, apiPkgRev.Name)
+	if err != nil {
+		return apierrors.NewInternalError(fmt.Errorf("failed to check upstream dependencies: %w", err))
+	}
+
+	if dependent != "" {
+		return apierrors.NewForbidden(
+			porchapi.Resource("packagerevisions"),
+			apiPkgRev.Name,
+			fmt.Errorf("cannot delete package revision that is an upstream for: %s", dependent))
+	}
+	return nil
 }

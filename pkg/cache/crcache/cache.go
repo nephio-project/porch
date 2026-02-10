@@ -119,3 +119,38 @@ func (c *Cache) GetRepository(repoKey repository.RepositoryKey) repository.Repos
 func (c *Cache) CheckRepositoryConnectivity(ctx context.Context, repositorySpec *configapi.Repository) error {
 	return externalrepo.CheckRepositoryConnection(ctx, repositorySpec, c.options.ExternalRepoOptions)
 }
+
+func (c *Cache) FindUpstreamDependent(ctx context.Context, namespace, prName string) (string, error) {
+	var dependentName string
+	c.repositories.Range(func(key, value any) bool {
+		repo := value.(*cachedRepository)
+		if repo.Key().Namespace != namespace {
+			return true
+		}
+		repo.mutex.RLock()
+		defer repo.mutex.RUnlock()
+		for _, pr := range repo.cachedPackageRevisions {
+			apiPR, err := pr.GetPackageRevision(ctx)
+			if err != nil {
+				continue
+			}
+			for _, task := range apiPR.Spec.Tasks {
+				var matched bool
+				switch task.Type {
+				case "clone":
+					matched = task.Clone != nil && task.Clone.Upstream.UpstreamRef != nil && task.Clone.Upstream.UpstreamRef.Name == prName
+				case "upgrade":
+					matched = task.Upgrade != nil && task.Upgrade.NewUpstream.Name == prName
+				case "edit":
+					matched = task.Edit != nil && task.Edit.Source != nil && task.Edit.Source.Name == prName
+				}
+				if matched {
+					dependentName = pr.KubeObjectName()
+					return false
+				}
+			}
+		}
+		return true
+	})
+	return dependentName, nil
+}

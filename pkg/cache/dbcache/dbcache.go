@@ -151,3 +151,7 @@ func (c *dbCache) GetRepository(repoKey repository.RepositoryKey) repository.Rep
 func (c *dbCache) CheckRepositoryConnectivity(ctx context.Context, repositorySpec *configapi.Repository) error {
 	return externalrepo.CheckRepositoryConnection(ctx, repositorySpec, c.options.ExternalRepoOptions)
 }
+
+func (c *dbCache) FindUpstreamDependent(ctx context.Context, namespace, prName string) (string, error) {
+	return pkgRevFindUpstreamDependentFromDB(ctx, namespace, prName)
+}

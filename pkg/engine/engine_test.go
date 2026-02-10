@@ -286,6 +286,11 @@ func (m *mockCache) CheckRepositoryConnectivity(ctx context.Context, repositoryS
 	return args.Error(0)
 }
 
+func (m *mockCache) FindUpstreamDependent(ctx context.Context, namespace, prName string) (string, error) {
+	args := m.Called(ctx, namespace, prName)
+	return args.String(0), args.Error(1)
+}
+
 func TestCreatePRWith2Tasks(t *testing.T) {
 	pr := &porchapi.PackageRevision{
 		Spec: porchapi.PackageRevisionSpec{
