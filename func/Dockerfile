@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG ALPINE_VERSION=3.23.3
+# Set via --build-arg or assign here for local usage
+ARG ALPINE_VERSION
 
 FROM ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.2.0 AS apply-setters
 FROM ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.1.1 AS apply-setters-v1

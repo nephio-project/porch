@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG ALPINE_VERSION=3.23.3
+# Set via --build-arg or assign here for local usage
+ARG ALPINE_VERSION
 
 FROM golang:1.25.6-bookworm AS builder
 
