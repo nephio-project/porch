@@ -51,8 +51,8 @@ func Test_DbTestSuite(t *testing.T) {
 	if u, err := user.Current(); err == nil && u.Username == "root" {
 		t.Fatalf("This test cannot run as %q user", u.Username)
 	}
-	// TODO: replace ctx with t.Context() in go 1.24<
-	suite.Run(t, &DbTestSuite{nextPkgRev: 1, ctx: context.Background()})
+	
+	suite.Run(t, &DbTestSuite{nextPkgRev: 1, ctx: t.Context()})
 }
 
 func (t *DbTestSuite) Context() context.Context {
