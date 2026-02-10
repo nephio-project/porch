@@ -17,6 +17,7 @@ package dbcache
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
@@ -48,6 +49,10 @@ func OpenDB(ctx context.Context, opts cachetypes.CacheOptions) error {
 		klog.V(4).Infof("OpenDB: database open failed: %q", err)
 		return err
 	}
+
+	db.SetMaxOpenConns(50)
+	db.SetMaxIdleConns(10)
+	db.SetConnMaxLifetime(5 * time.Minute)
 
 	if err := db.Ping(); err != nil {
 		db.Close()
