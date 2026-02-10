@@ -101,6 +101,8 @@ func (r *dbRepository) Close(ctx context.Context) error {
 	ctx, span := tracer.Start(ctx, "dbRepository::Close", trace.WithAttributes())
 	defer span.End()
 
+	r.repositorySync.syncWg.Wait()
+
 	klog.V(5).Infof("dbRepository:close: closing repository %+v", r.Key())
 
 	dbPkgs, err := pkgReadPkgsFromDB(ctx, r.Key())

@@ -33,6 +33,7 @@ import (
 type repositorySync struct {
 	repo                    *dbRepository
 	mutex                   stdSync.Mutex
+	syncWg                  stdSync.WaitGroup
 	lastExternalRepoVersion string
 	lastExternalPRMap       map[repository.PackageRevisionKey]repository.PackageRevision
 	lastSyncStats           repositorySyncStats
@@ -66,6 +67,9 @@ func (s *repositorySync) sync(ctx context.Context) (repositorySyncStats, error) 
 		return repositorySyncStats{}, fmt.Errorf("repositorySync %+v: sync start failed because sync is already in progress", s.repo.Key())
 	}
 	defer s.mutex.Unlock()
+
+	s.syncWg.Add(1)
+	defer s.syncWg.Done()
 
 	start := time.Now()
 	klog.Infof("repositorySync %+v: sync started", s.repo.Key())
