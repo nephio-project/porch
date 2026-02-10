@@ -51,6 +51,7 @@ type cachedRepository struct {
 	lastVersion string
 
 	mutex                  stdSync.RWMutex
+	refreshWg              stdSync.WaitGroup
 	cachedPackageRevisions map[repository.PackageRevisionKey]*cachedPackageRevision
 	cachedPackages         map[repository.PackageKey]*cachedPackage
 	refreshRevisionsError error
@@ -471,6 +472,7 @@ func (r *cachedRepository) ListPackages(ctx context.Context, filter repository.L
 }
 
 func (r *cachedRepository) Close(ctx context.Context) error {
+	r.refreshWg.Wait()
 	sent := 0
 	for _, pr := range r.cachedPackageRevisions {
 		nn := types.NamespacedName{
@@ -501,6 +503,9 @@ func (r *cachedRepository) Close(ctx context.Context) error {
 func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[repository.PackageKey]*cachedPackage, map[repository.PackageRevisionKey]*cachedPackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cachedRepository::refreshAllCachedPackages", trace.WithAttributes())
 	defer span.End()
+
+	r.refreshWg.Add(1)
+	defer r.refreshWg.Done()
 
 	// TODO: Avoid simultaneous fetches?
 	// TODO: Push-down partial refresh?

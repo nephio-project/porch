@@ -655,7 +655,7 @@ func validateRepository(w http.ResponseWriter, r *http.Request, clientReader cli
 
 	operation := strings.ToLower(string(admissionReviewRequest.Request.Operation))
 	repoName := fmt.Sprintf("%s/%s", admissionReviewRequest.Request.Namespace, admissionReviewRequest.Request.Name)
-	klog.Infof("received request to validate repository %s for %s", operation, repoName)
+	klog.Infof("received request to validate repository %s for %s", repoName, operation)
 
 	if admissionReviewRequest.Request.Resource.Resource != "repositories" {
 		writeErr(fmt.Sprintf("unexpected resource: %s", admissionReviewRequest.Request.Resource.Resource), &w)
@@ -691,6 +691,7 @@ func validateRepository(w http.ResponseWriter, r *http.Request, clientReader cli
 		}
 	}
 
+	klog.V(1).Infof("repository validation passed for %s", repoName)
 	resp := &admissionv1.AdmissionResponse{
 		Allowed: true,
 		Result: &metav1.Status{
