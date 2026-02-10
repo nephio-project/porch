@@ -323,3 +323,151 @@ func (t *PorchSuite) TestPackageRevisionListWithHangingRepository() {
 		t.Errorf("Expected PackageRevisions from working repository, got none")
 	}
 }
+
+func (t *PorchSuite) TestRepositoryImmutability() {
+	const repositoryName = "immutable-test-repo"
+
+	// Create initial repository
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repositoryName, "test-dir", suiteutils.GiteaUser, suiteutils.GiteaPassword)
+
+	var repo configapi.Repository
+	t.GetF(client.ObjectKey{
+		Namespace: t.Namespace,
+		Name:      repositoryName,
+	}, &repo)
+
+	originalRepo := repo.Spec.Git.Repo
+	originalBranch := repo.Spec.Git.Branch
+	originalDir := repo.Spec.Git.Directory
+	originalType := repo.Spec.Type
+
+	// Test 1: Attempt to modify spec.git.repo (should fail with CEL validation error)
+	t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: repositoryName}, &repo)
+	repo.Spec.Git.Repo = "https://different-repo.git"
+	err := t.Client.Update(t.GetContext(), &repo)
+	if err == nil {
+		t.Errorf("Expected CEL validation error when modifying spec.git.repo, but update succeeded")
+	} else if !strings.Contains(err.Error(), "immutable") {
+		t.Errorf("Expected CEL immutability error for spec.git.repo, got: %v", err)
+	} else {
+		t.Logf("Correctly rejected modification of spec.git.repo: %v", err)
+	}
+
+	// Verify field wasn't changed
+	t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: repositoryName}, &repo)
+	if repo.Spec.Git.Repo != originalRepo {
+		t.Errorf("spec.git.repo was modified despite CEL validation; got %q, want %q", repo.Spec.Git.Repo, originalRepo)
+	}
+
+	// Test 2: Attempt to modify spec.git.branch (should fail with CEL validation error)
+	t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: repositoryName}, &repo)
+	repo.Spec.Git.Branch = "different-branch"
+	err = t.Client.Update(t.GetContext(), &repo)
+	if err == nil {
+		t.Errorf("Expected CEL validation error when modifying spec.git.branch, but update succeeded")
+	} else if !strings.Contains(err.Error(), "immutable") {
+		t.Errorf("Expected CEL immutability error for spec.git.branch, got: %v", err)
+	} else {
+		t.Logf("Correctly rejected modification of spec.git.branch: %v", err)
+	}
+
+	// Verify field wasn't changed
+	t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: repositoryName}, &repo)
+	if repo.Spec.Git.Branch != originalBranch {
+		t.Errorf("spec.git.branch was modified despite CEL validation; got %q, want %q", repo.Spec.Git.Branch, originalBranch)
+	}
+
+	// Test 3: Attempt to modify spec.git.directory (should fail with CEL validation error)
+	t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: repositoryName}, &repo)
+	repo.Spec.Git.Directory = "different-dir"
+	err = t.Client.Update(t.GetContext(), &repo)
+	if err == nil {
+		t.Errorf("Expected CEL validation error when modifying spec.git.directory, but update succeeded")
+	} else if !strings.Contains(err.Error(), "immutable") {
+		t.Errorf("Expected CEL immutability error for spec.git.directory, got: %v", err)
+	} else {
+		t.Logf("Correctly rejected modification of spec.git.directory: %v", err)
+	}
+
+	// Verify field wasn't changed
+	t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: repositoryName}, &repo)
+	if repo.Spec.Git.Directory != originalDir {
+		t.Errorf("spec.git.directory was modified despite CEL validation; got %q, want %q", repo.Spec.Git.Directory, originalDir)
+	}
+
+	// Test 4: Attempt to modify spec.type (should fail with CEL validation error)
+	t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: repositoryName}, &repo)
+	repo.Spec.Type = configapi.RepositoryTypeOCI
+	err = t.Client.Update(t.GetContext(), &repo)
+	if err == nil {
+		t.Errorf("Expected CEL validation error when modifying spec.type, but update succeeded")
+	} else if !strings.Contains(err.Error(), "immutable") {
+		t.Errorf("Expected CEL immutability error for spec.type, got: %v", err)
+	} else {
+		t.Logf("Correctly rejected modification of spec.type: %v", err)
+	}
+
+	// Verify field wasn't changed
+	t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: repositoryName}, &repo)
+	if repo.Spec.Type != originalType {
+		t.Errorf("spec.type was modified despite CEL validation; got %q, want %q", repo.Spec.Type, originalType)
+	}
+
+	// Test 5: Verify mutable fields can still be updated (description)
+	t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: repositoryName}, &repo)
+	repo.Spec.Description = "Updated description for immutability test"
+	err = t.Client.Update(t.GetContext(), &repo)
+	if err != nil {
+		t.Errorf("Failed to update mutable field (description): %v", err)
+	} else {
+		t.Logf("Successfully updated mutable field (description)")
+	}
+
+	t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: repositoryName}, &repo)
+	if repo.Spec.Description != "Updated description for immutability test" {
+		t.Errorf("Mutable field (description) was not updated; got %q", repo.Spec.Description)
+	}
+}
+
+func (t *PorchSuite) TestRepositoryBranchDefault() {
+	const repositoryName = "branch-default-test"
+
+	// Create repository without specifying branch
+	repo := &configapi.Repository{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       configapi.TypeRepository.Kind,
+			APIVersion: configapi.TypeRepository.APIVersion(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      repositoryName,
+			Namespace: t.Namespace,
+		},
+		Spec: configapi.RepositorySpec{
+			Type: configapi.RepositoryTypeGit,
+			Git: &configapi.GitRepository{
+				Repo: t.GetPorchTestRepoURL(),
+				// Branch intentionally omitted to test default
+			},
+		},
+	}
+
+	t.CreateF(repo)
+	t.Cleanup(func() {
+		t.DeleteL(&configapi.Repository{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      repositoryName,
+				Namespace: t.Namespace,
+			},
+		})
+	})
+
+	// Verify branch defaults to "main"
+	var createdRepo configapi.Repository
+	t.GetF(client.ObjectKey{Namespace: t.Namespace, Name: repositoryName}, &createdRepo)
+
+	if createdRepo.Spec.Git.Branch != "main" {
+		t.Errorf("Branch did not default to 'main'; got %q", createdRepo.Spec.Git.Branch)
+	} else {
+		t.Logf("Branch correctly defaulted to 'main'")
+	}
+}
