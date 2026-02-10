@@ -669,20 +669,10 @@ func validateRepository(w http.ResponseWriter, r *http.Request, clientReader cli
 		return
 	}
 
-	// For UPDATE operations, check if URL or directory is being modified
-	if admissionReviewRequest.Request.Operation == admissionv1.Update {
-		var existing configapi.Repository
-		if err := json.Unmarshal(admissionReviewRequest.Request.OldObject.Raw, &existing); err != nil {
-			klog.Errorf("failed to unmarshal existing repository object: %v", err)
-			writeErr(fmt.Sprintf("could not unmarshal existing repository: %v", err), &w)
-			return
-		}
+	// NOTE: Immutability checks (URL, branch, directory) are now handled by CEL validation in the CRD.
+	// This webhook only performs complex cross-resource conflict detection that CEL cannot do.
 
-		if err := validateRepositoryModification(&existing, &attempted, admissionReviewRequest, &w); err != nil {
-			return
-		}
-	}
-
+	// Check for conflicts with existing repositories
 	var repoList configapi.RepositoryList
 	if err := clientReader.List(context.Background(), &repoList); err != nil {
 		klog.Errorf("failed to list repositories: %v", err)
@@ -696,7 +686,7 @@ func validateRepository(w http.ResponseWriter, r *http.Request, clientReader cli
 		}
 		if isConflict(&existing, &attempted) {
 			klog.Errorf("repository validation failed: conflict detected between attempted %s/%s and existing %s/%s", attempted.Namespace, attempted.Name, existing.Namespace, existing.Name)
-			writeModificationResponse(fmt.Sprintf("Repository conflict with existing repository: %s/%s", existing.Namespace, existing.Name), "RepositoryConflict", admissionReviewRequest, &w)
+			writeConflictResponse(fmt.Sprintf("Repository conflict with existing repository: %s/%s", existing.Namespace, existing.Name), "RepositoryConflict", admissionReviewRequest, &w)
 			return
 		}
 	}
@@ -737,16 +727,12 @@ func isConflict(existing, attempted *configapi.Repository) bool {
 	existingDir := strings.Trim(existing.Spec.Git.Directory, "/")
 	attemptedDir := strings.Trim(attempted.Spec.Git.Directory, "/")
 
+	// Branch defaults to "main" via CRD default, so no need to handle empty values
 	existingBranch := existing.Spec.Git.Branch
-	if existingBranch == "" {
-		existingBranch = "main"
-	}
 	attemptedBranch := attempted.Spec.Git.Branch
-	if attemptedBranch == "" {
-		attemptedBranch = "main"
-	}
 
-	// Rule 1: Same URL, branch and directory → conflict only if namespace matches
+	// Rule 1: Same URL, branch and directory in same namespace → conflict
+	// (Kubernetes only prevents duplicate names, not duplicate Git locations)
 	if existingURL == attemptedURL && existingBranch == attemptedBranch && existingDir == attemptedDir &&
 		existing.Namespace == attempted.Namespace {
 		return true
@@ -785,41 +771,7 @@ func isNestedConflict(a, b string) bool {
 	return false
 }
 
-func validateRepositoryModification(existing, attempted *configapi.Repository, admissionReviewRequest *admissionv1.AdmissionReview, w *http.ResponseWriter) error {
-	if isURLModified(existing, attempted) {
-		klog.Errorf("repository validation failed: URL modification not allowed for %s/%s - delete the existing repository and create it if you want to change the URL", attempted.Namespace, attempted.Name)
-		writeModificationResponse("Repository URL cannot be modified after creation. Please delete the existing repository and create it if you want to change the URL", "URLModificationNotAllowed", admissionReviewRequest, w)
-		return fmt.Errorf("URL modification not allowed")
-	}
-
-	if isDirectoryModified(existing, attempted) {
-		klog.Errorf("repository validation failed: directory modification not allowed for %s/%s - delete the existing repository and create it if you want to change the directory", attempted.Namespace, attempted.Name)
-		writeModificationResponse("Repository directory cannot be modified after creation. Please delete the existing repository and create it if you want to change the directory", "DirectoryModificationNotAllowed", admissionReviewRequest, w)
-		return fmt.Errorf("directory modification not allowed")
-	}
-
-	if isBranchModified(existing, attempted) {
-		klog.Errorf("repository validation failed: branch modification not allowed for %s/%s - delete the existing repository and create it if you want to change the branch", attempted.Namespace, attempted.Name)
-		writeModificationResponse("Repository branch cannot be modified after creation. Please delete the existing repository and create it if you want to change the branch", "BranchModificationNotAllowed", admissionReviewRequest, w)
-		return fmt.Errorf("branch modification not allowed")
-	}
-
-	return nil
-}
-
-func isURLModified(existing, attempted *configapi.Repository) bool {
-	return existing.Spec.Git.Repo != attempted.Spec.Git.Repo
-}
-
-func isDirectoryModified(existing, attempted *configapi.Repository) bool {
-	return existing.Spec.Git.Directory != attempted.Spec.Git.Directory
-}
-
-func isBranchModified(existing, attempted *configapi.Repository) bool {
-	return existing.Spec.Git.Branch != attempted.Spec.Git.Branch
-}
-
-func writeModificationResponse(message, reason string, admissionReviewRequest *admissionv1.AdmissionReview, w *http.ResponseWriter) {
+func writeConflictResponse(message, reason string, admissionReviewRequest *admissionv1.AdmissionReview, w *http.ResponseWriter) {
 	resp := &admissionv1.AdmissionResponse{
 		Allowed: false,
 		Result: &metav1.Status{
@@ -830,7 +782,7 @@ func writeModificationResponse(message, reason string, admissionReviewRequest *a
 	}
 	responseBytes, err := constructResponse(resp, admissionReviewRequest)
 	if err != nil {
-		klog.Errorf("failed to construct modification response: %v", err)
+		klog.Errorf("failed to construct conflict response: %v", err)
 		writeErr(fmt.Sprintf("error constructing response: %v", err), w)
 		return
 	}
