@@ -11,48 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: porch
-
----
-
-apiVersion: config.porch.kpt.dev/v1alpha1
-kind: Repository
-metadata:
-  labels:
-    kpt.dev/repository-content: external-blueprints
-  name: kpt-e2e-testdata-fn-render-1
-  namespace: porch
-spec:
-  content: Package
-  deployment: false
-  git:
-    branch: main
-    directory: /e2e/testdata/fn-render
-    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-1.git
-  type: git
-
----
-
-apiVersion: config.porch.kpt.dev/v1alpha1
-kind: Repository
-metadata:
-  labels:
-    kpt.dev/repository-content: external-blueprints
-  name: kpt-e2e-testdata-fn-render-2
-  namespace: porch
-spec:
-  content: Package
-  deployment: false
-  git:
-    branch: main
-    directory: /e2e/testdata/fn-render
-    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-2.git
-  type: git
-
----
 
 apiVersion: config.porch.kpt.dev/v1alpha1
 kind: Repository
@@ -60,7 +18,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-e2e-testdata-fn-render-3
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -78,7 +35,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-e2e-testdata-fn-render-4
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -96,7 +52,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-e2e-testdata-fn-render-5
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -113,87 +68,14 @@ kind: Repository
 metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
-  name: kpt-e2e-testdata-fn-render-selectors-1
-  namespace: porch
+  name: kpt-e2e-testdata-fn-render-6
 spec:
   content: Package
   deployment: false
   git:
     branch: main
-    directory: /e2e/testdata/fn-render/selectors
-    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-1.git
-  type: git
-
----
-
-apiVersion: config.porch.kpt.dev/v1alpha1
-kind: Repository
-metadata:
-  labels:
-    kpt.dev/repository-content: external-blueprints
-  name: kpt-e2e-testdata-fn-render-selectors-2
-  namespace: porch
-spec:
-  content: Package
-  deployment: false
-  git:
-    branch: main
-    directory: /e2e/testdata/fn-render/selectors
-    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-2.git
-  type: git
-
----
-
-apiVersion: config.porch.kpt.dev/v1alpha1
-kind: Repository
-metadata:
-  labels:
-    kpt.dev/repository-content: external-blueprints
-  name: kpt-e2e-testdata-fn-render-selectors-3
-  namespace: porch
-spec:
-  content: Package
-  deployment: false
-  git:
-    branch: main
-    directory: /e2e/testdata/fn-render/selectors
-    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-3.git
-  type: git
-
----
-
-apiVersion: config.porch.kpt.dev/v1alpha1
-kind: Repository
-metadata:
-  labels:
-    kpt.dev/repository-content: external-blueprints
-  name: kpt-e2e-testdata-fn-render-selectors-4
-  namespace: porch
-spec:
-  content: Package
-  deployment: false
-  git:
-    branch: main
-    directory: /e2e/testdata/fn-render/selectors
-    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-4.git
-  type: git
-
----
-
-apiVersion: config.porch.kpt.dev/v1alpha1
-kind: Repository
-metadata:
-  labels:
-    kpt.dev/repository-content: external-blueprints
-  name: kpt-e2e-testdata-fn-render-selectors-5
-  namespace: porch
-spec:
-  content: Package
-  deployment: false
-  git:
-    branch: main
-    directory: /e2e/testdata/fn-render/selectors
-    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-5.git
+    directory: /e2e/testdata/fn-render
+    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-6.git
   type: git
 
 ---
@@ -204,7 +86,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-e2e-testdata-fn-source-1
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -222,7 +103,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-e2e-testdata-fn-source-2
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -240,7 +120,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-e2e-testdata-fn-source-3
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -258,7 +137,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-e2e-testdata-fn-source-4
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -276,7 +154,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-e2e-testdata-fn-source-5
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -293,8 +170,24 @@ kind: Repository
 metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
+  name: kpt-e2e-testdata-fn-source-6
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /e2e/testdata/fn-source
+    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-6.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
   name: kpt-internal-testutil-testdata-1
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -312,7 +205,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-internal-testutil-testdata-2
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -330,7 +222,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-internal-testutil-testdata-3
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -348,7 +239,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-internal-testutil-testdata-4
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -366,7 +256,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-internal-testutil-testdata-5
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -374,4 +263,89 @@ spec:
     branch: main
     directory: /internal/testutil/testdata
     repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-5.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: kpt-internal-testutil-testdata-6
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /internal/testutil/testdata
+    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-6.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: kpt-package-examples-kustomize-bases-1
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /package-examples/kustomize/bases
+    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-1.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: kpt-package-examples-kustomize-bases-2
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /package-examples/kustomize/bases
+    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-2.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: kpt-package-examples-kustomize-bases-3
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /package-examples/kustomize/bases
+    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-3.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: kpt-package-examples-kustomize-bases-4
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /package-examples/kustomize/bases
+    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-4.git
   type: git

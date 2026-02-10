@@ -21,6 +21,7 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"strings"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -52,6 +53,7 @@ func (o *Options) BindFlags(_ string, _ *flag.FlagSet) {}
 // PackageVariantSetReconciler reconciles a PackageVariantSet object
 type PackageVariantSetReconciler struct {
 	client.Client
+	client.Reader
 	Options
 
 	serializer *json.Serializer
@@ -88,6 +90,16 @@ func (r *PackageVariantSetReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	}
 
 	defer func() {
+		pvs.ResourceVersion = func() string {
+			var latestVariantSet api.PackageVariantSet
+			if err := r.Reader.Get(ctx, types.NamespacedName{Name: pvs.GetName(), Namespace: pvs.GetNamespace()}, &latestVariantSet); err != nil {
+				if strings.Contains(err.Error(), fmt.Sprintf("packagevariantsets.config.porch.kpt.dev \"%s\" not found", pvs.GetName())) {
+					return ""
+				}
+				klog.Errorf("could not retrieve latest resource version for final status update: %s\n", err.Error())
+			}
+			return latestVariantSet.ResourceVersion
+		}()
 		if err := r.Client.Status().Update(ctx, pvs); err != nil {
 			klog.Errorf("could not update status: %v\n", err)
 		}
@@ -142,17 +154,17 @@ func (r *PackageVariantSetReconciler) Reconcile(ctx context.Context, req ctrl.Re
 func (r *PackageVariantSetReconciler) init(ctx context.Context, req ctrl.Request) (*api.PackageVariantSet,
 	*porchapi.PackageRevisionList, *configapi.RepositoryList, error) {
 	var pvs api.PackageVariantSet
-	if err := r.Get(ctx, req.NamespacedName, &pvs); err != nil {
+	if err := r.Client.Get(ctx, req.NamespacedName, &pvs); err != nil {
 		return nil, nil, nil, client.IgnoreNotFound(err)
 	}
 
 	var prList porchapi.PackageRevisionList
-	if err := r.List(ctx, &prList, client.InNamespace(pvs.Namespace)); err != nil {
+	if err := r.Client.List(ctx, &prList, client.InNamespace(pvs.Namespace)); err != nil {
 		return nil, nil, nil, err
 	}
 
 	var repoList configapi.RepositoryList
-	if err := r.List(ctx, &repoList, client.InNamespace(pvs.Namespace)); err != nil {
+	if err := r.Client.List(ctx, &repoList, client.InNamespace(pvs.Namespace)); err != nil {
 		return nil, nil, nil, err
 	}
 
@@ -232,7 +244,7 @@ func (r *PackageVariantSetReconciler) unrollDownstreamTargets(ctx context.Contex
 		}
 		opts = append(opts, client.MatchingLabelsSelector{Selector: labelSelector})
 
-		if err := r.List(ctx, uList, opts...); err != nil {
+		if err := r.Client.List(ctx, uList, opts...); err != nil {
 			return nil, err
 		}
 
@@ -266,7 +278,7 @@ func (r *PackageVariantSetReconciler) ensurePackageVariants(ctx context.Context,
 	downstreams []pvContext) error {
 
 	var pvList pkgvarapi.PackageVariantList
-	if err := r.List(ctx, &pvList,
+	if err := r.Client.List(ctx, &pvList,
 		client.InNamespace(pvs.Namespace),
 		client.MatchingLabels{
 			PackageVariantSetOwnerLabel: string(pvs.UID),
@@ -385,6 +397,7 @@ func (r *PackageVariantSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	r.Client = mgr.GetClient()
+	r.Reader = mgr.GetAPIReader()
 	r.serializer = json.NewSerializerWithOptions(json.DefaultMetaFactory, nil, nil, json.SerializerOptions{Yaml: true})
 
 	return ctrl.NewControllerManagedBy(mgr).

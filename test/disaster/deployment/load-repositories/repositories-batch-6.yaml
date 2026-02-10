@@ -11,174 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: porch
-
----
-
-apiVersion: config.porch.kpt.dev/v1alpha1
-kind: Repository
-metadata:
-  labels:
-    kpt.dev/repository-content: external-blueprints
-  name: kpt-package-examples-1
-  namespace: porch
-spec:
-  content: Package
-  deployment: false
-  git:
-    branch: main
-    directory: /package-examples
-    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-1.git
-  type: git
-
----
-
-apiVersion: config.porch.kpt.dev/v1alpha1
-kind: Repository
-metadata:
-  labels:
-    kpt.dev/repository-content: external-blueprints
-  name: kpt-package-examples-2
-  namespace: porch
-spec:
-  content: Package
-  deployment: false
-  git:
-    branch: main
-    directory: /package-examples
-    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-2.git
-  type: git
-
----
-
-apiVersion: config.porch.kpt.dev/v1alpha1
-kind: Repository
-metadata:
-  labels:
-    kpt.dev/repository-content: external-blueprints
-  name: kpt-package-examples-3
-  namespace: porch
-spec:
-  content: Package
-  deployment: false
-  git:
-    branch: main
-    directory: /package-examples
-    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-3.git
-  type: git
-
----
-
-apiVersion: config.porch.kpt.dev/v1alpha1
-kind: Repository
-metadata:
-  labels:
-    kpt.dev/repository-content: external-blueprints
-  name: kpt-package-examples-4
-  namespace: porch
-spec:
-  content: Package
-  deployment: false
-  git:
-    branch: main
-    directory: /package-examples
-    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-4.git
-  type: git
-
----
-
-apiVersion: config.porch.kpt.dev/v1alpha1
-kind: Repository
-metadata:
-  labels:
-    kpt.dev/repository-content: external-blueprints
-  name: kpt-package-examples-5
-  namespace: porch
-spec:
-  content: Package
-  deployment: false
-  git:
-    branch: main
-    directory: /package-examples
-    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-5.git
-  type: git
-
----
-
-apiVersion: config.porch.kpt.dev/v1alpha1
-kind: Repository
-metadata:
-  labels:
-    kpt.dev/repository-content: external-blueprints
-  name: kpt-package-examples-kustomize-bases-1
-  namespace: porch
-spec:
-  content: Package
-  deployment: false
-  git:
-    branch: main
-    directory: /package-examples/kustomize/bases
-    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-1.git
-  type: git
-
----
-
-apiVersion: config.porch.kpt.dev/v1alpha1
-kind: Repository
-metadata:
-  labels:
-    kpt.dev/repository-content: external-blueprints
-  name: kpt-package-examples-kustomize-bases-2
-  namespace: porch
-spec:
-  content: Package
-  deployment: false
-  git:
-    branch: main
-    directory: /package-examples/kustomize/bases
-    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-2.git
-  type: git
-
----
-
-apiVersion: config.porch.kpt.dev/v1alpha1
-kind: Repository
-metadata:
-  labels:
-    kpt.dev/repository-content: external-blueprints
-  name: kpt-package-examples-kustomize-bases-3
-  namespace: porch
-spec:
-  content: Package
-  deployment: false
-  git:
-    branch: main
-    directory: /package-examples/kustomize/bases
-    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-3.git
-  type: git
-
----
-
-apiVersion: config.porch.kpt.dev/v1alpha1
-kind: Repository
-metadata:
-  labels:
-    kpt.dev/repository-content: external-blueprints
-  name: kpt-package-examples-kustomize-bases-4
-  namespace: porch
-spec:
-  content: Package
-  deployment: false
-  git:
-    branch: main
-    directory: /package-examples/kustomize/bases
-    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-4.git
-  type: git
-
----
 
 apiVersion: config.porch.kpt.dev/v1alpha1
 kind: Repository
@@ -186,7 +18,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-package-examples-kustomize-bases-5
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -194,6 +25,23 @@ spec:
     branch: main
     directory: /package-examples/kustomize/bases
     repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-5.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: kpt-package-examples-kustomize-bases-6
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /package-examples/kustomize/bases
+    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-6.git
   type: git
 
 ---
@@ -204,7 +52,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-package-examples-kustomize-overlays-1
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -222,7 +69,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-package-examples-kustomize-overlays-2
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -240,7 +86,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-package-examples-kustomize-overlays-3
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -258,7 +103,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-package-examples-kustomize-overlays-4
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -276,7 +120,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-package-examples-kustomize-overlays-5
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -293,8 +136,24 @@ kind: Repository
 metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
+  name: kpt-package-examples-kustomize-overlays-6
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /package-examples/kustomize/overlays
+    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-6.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
   name: kpt-rollouts-1
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -312,7 +171,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-rollouts-2
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -330,7 +188,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-rollouts-3
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -348,7 +205,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-rollouts-4
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -366,7 +222,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-rollouts-5
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -374,4 +229,21 @@ spec:
     branch: main
     directory: /rollouts
     repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-5.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: kpt-rollouts-6
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /rollouts
+    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-6.git
   type: git

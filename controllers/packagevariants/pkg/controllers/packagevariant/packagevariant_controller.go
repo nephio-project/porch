@@ -51,6 +51,7 @@ func (o *Options) BindFlags(_ string, _ *flag.FlagSet) {}
 // PackageVariantReconciler reconciles a PackageVariant object
 type PackageVariantReconciler struct {
 	client.Client
+	client.Reader
 	Options
 }
 
@@ -82,6 +83,16 @@ func (r *PackageVariantReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	defer func() {
+		pv.ResourceVersion = func() string {
+			var latestVariant api.PackageVariant
+			if err := r.Reader.Get(ctx, types.NamespacedName{Name: pv.GetName(), Namespace: pv.GetNamespace()}, &latestVariant); err != nil {
+				if strings.Contains(err.Error(), fmt.Sprintf("packagevariants.config.porch.kpt.dev \"%s\" not found", pv.GetName())) {
+					return ""
+				}
+				klog.Errorf("could not retrieve latest resource version for final status update: %s\n", err.Error())
+			}
+			return latestVariant.ResourceVersion
+		}()
 		if err := r.Client.Status().Update(ctx, pv); err != nil {
 			klog.Errorf("could not update status: %s\n", err.Error())
 		}
@@ -156,12 +167,12 @@ func (r *PackageVariantReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 func (r *PackageVariantReconciler) init(ctx context.Context,
 	req ctrl.Request) (*api.PackageVariant, *porchapi.PackageRevisionList, error) {
 	var pv api.PackageVariant
-	if err := r.Get(ctx, req.NamespacedName, &pv); err != nil {
+	if err := r.Client.Get(ctx, req.NamespacedName, &pv); err != nil {
 		return nil, nil, client.IgnoreNotFound(err)
 	}
 
 	var prList porchapi.PackageRevisionList
-	if err := r.List(ctx, &prList, client.InNamespace(pv.Namespace)); err != nil {
+	if err := r.Client.List(ctx, &prList, client.InNamespace(pv.Namespace)); err != nil {
 		return nil, nil, err
 	}
 
@@ -820,6 +831,7 @@ func (r *PackageVariantReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	r.Client = mgr.GetClient()
+	r.Reader = mgr.GetAPIReader()
 
 	//TODO: establish watches on resource types injected in all the Package Revisions
 	//      we own, and use those to generate requests
@@ -858,7 +870,7 @@ func (r *PackageVariantReconciler) calculateDraftResources(ctx context.Context,
 	// Load the PackageRevisionResources
 	var prr porchapi.PackageRevisionResources
 	prrKey := types.NamespacedName{Name: draft.GetName(), Namespace: draft.GetNamespace()}
-	if err := r.Get(ctx, prrKey, &prr); err != nil {
+	if err := r.Client.Get(ctx, prrKey, &prr); err != nil {
 		return nil, false, err
 	}
 

@@ -15,7 +15,6 @@ apiVersion: config.porch.kpt.dev/v1alpha1
 kind: Repository
 metadata:
   name: edge1
-  namespace: porch
 spec:
   content: Package
   deployment: true

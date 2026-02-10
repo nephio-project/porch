@@ -11,26 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: porch
-
----
 
 apiVersion: config.porch.kpt.dev/v1alpha1
 kind: Repository
 metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
-  name: kpt-e2e-testdata-fn-eval-1
-  namespace: porch
+  name: kpt-e2e-live-1
 spec:
   content: Package
   deployment: false
   git:
     branch: main
-    directory: /e2e/testdata/fn-eval
+    directory: /e2e/live
     repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-1.git
   type: git
 
@@ -41,14 +34,13 @@ kind: Repository
 metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
-  name: kpt-e2e-testdata-fn-eval-2
-  namespace: porch
+  name: kpt-e2e-live-2
 spec:
   content: Package
   deployment: false
   git:
     branch: main
-    directory: /e2e/testdata/fn-eval
+    directory: /e2e/live
     repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-2.git
   type: git
 
@@ -59,14 +51,13 @@ kind: Repository
 metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
-  name: kpt-e2e-testdata-fn-eval-3
-  namespace: porch
+  name: kpt-e2e-live-3
 spec:
   content: Package
   deployment: false
   git:
     branch: main
-    directory: /e2e/testdata/fn-eval
+    directory: /e2e/live
     repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-3.git
   type: git
 
@@ -77,14 +68,13 @@ kind: Repository
 metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
-  name: kpt-e2e-testdata-fn-eval-4
-  namespace: porch
+  name: kpt-e2e-live-4
 spec:
   content: Package
   deployment: false
   git:
     branch: main
-    directory: /e2e/testdata/fn-eval
+    directory: /e2e/live
     repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-4.git
   type: git
 
@@ -95,14 +85,13 @@ kind: Repository
 metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
-  name: kpt-e2e-testdata-fn-eval-5
-  namespace: porch
+  name: kpt-e2e-live-5
 spec:
   content: Package
   deployment: false
   git:
     branch: main
-    directory: /e2e/testdata/fn-eval
+    directory: /e2e/live
     repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-5.git
   type: git
 
@@ -113,8 +102,24 @@ kind: Repository
 metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
+  name: kpt-e2e-live-6
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /e2e/live
+    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-6.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
   name: kpt-e2e-testdata-fn-eval-fn-source-1
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -132,7 +137,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-e2e-testdata-fn-eval-fn-source-2
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -150,7 +154,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-e2e-testdata-fn-eval-fn-source-3
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -168,7 +171,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-e2e-testdata-fn-eval-fn-source-4
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -186,7 +188,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-e2e-testdata-fn-eval-fn-source-5
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -203,8 +204,24 @@ kind: Repository
 metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
+  name: kpt-e2e-testdata-fn-eval-fn-source-6
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /e2e/testdata/fn-eval/fn-source
+    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-6.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
   name: kpt-e2e-testdata-fn-eval-save-fn-1
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -222,7 +239,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-e2e-testdata-fn-eval-save-fn-2
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -240,7 +256,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-e2e-testdata-fn-eval-save-fn-3
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -258,7 +273,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-e2e-testdata-fn-eval-save-fn-4
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -276,7 +290,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: kpt-e2e-testdata-fn-eval-save-fn-5
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -293,14 +306,30 @@ kind: Repository
 metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
-  name: kpt-e2e-testdata-fn-eval-save-fn-custom-pkg-path-1
-  namespace: porch
+  name: kpt-e2e-testdata-fn-eval-save-fn-6
 spec:
   content: Package
   deployment: false
   git:
     branch: main
-    directory: /e2e/testdata/fn-eval/save-fn/custom-pkg-path
+    directory: /e2e/testdata/fn-eval/save-fn
+    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-6.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: kpt-e2e-testdata-fn-render-1
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /e2e/testdata/fn-render
     repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-1.git
   type: git
 
@@ -311,67 +340,12 @@ kind: Repository
 metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
-  name: kpt-e2e-testdata-fn-eval-save-fn-custom-pkg-path-2
-  namespace: porch
+  name: kpt-e2e-testdata-fn-render-2
 spec:
   content: Package
   deployment: false
   git:
     branch: main
-    directory: /e2e/testdata/fn-eval/save-fn/custom-pkg-path
+    directory: /e2e/testdata/fn-render
     repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-2.git
-  type: git
-
----
-
-apiVersion: config.porch.kpt.dev/v1alpha1
-kind: Repository
-metadata:
-  labels:
-    kpt.dev/repository-content: external-blueprints
-  name: kpt-e2e-testdata-fn-eval-save-fn-custom-pkg-path-3
-  namespace: porch
-spec:
-  content: Package
-  deployment: false
-  git:
-    branch: main
-    directory: /e2e/testdata/fn-eval/save-fn/custom-pkg-path
-    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-3.git
-  type: git
-
----
-
-apiVersion: config.porch.kpt.dev/v1alpha1
-kind: Repository
-metadata:
-  labels:
-    kpt.dev/repository-content: external-blueprints
-  name: kpt-e2e-testdata-fn-eval-save-fn-custom-pkg-path-4
-  namespace: porch
-spec:
-  content: Package
-  deployment: false
-  git:
-    branch: main
-    directory: /e2e/testdata/fn-eval/save-fn/custom-pkg-path
-    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-4.git
-  type: git
-
----
-
-apiVersion: config.porch.kpt.dev/v1alpha1
-kind: Repository
-metadata:
-  labels:
-    kpt.dev/repository-content: external-blueprints
-  name: kpt-e2e-testdata-fn-eval-save-fn-custom-pkg-path-5
-  namespace: porch
-spec:
-  content: Package
-  deployment: false
-  git:
-    branch: main
-    directory: /e2e/testdata/fn-eval/save-fn/custom-pkg-path
-    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-5.git
   type: git

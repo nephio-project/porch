@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -338,8 +339,16 @@ func pkgRevWriteToDB(ctx context.Context, pr *dbPackageRevision) error {
 		prk.PKey().K8SName(), prk.Revision, valueAsJSON(pr.meta), valueAsJSON(pr.spec), pr.updated, pr.updatedBy, pr.lifecycle, valueAsJSON(pr.extPRID), valueAsJSON(pr.tasks)); err == nil {
 		klog.V(5).Infof("pkgRevWriteToDB: query succeeded, row created")
 	} else {
-		klog.Warningf("pkgRevWriteToDB: query failed for %+v %q", pr.Key(), err)
-		return err
+		klog.Warningf("pkgRevWriteToDB: query failed for %+v %q; attempting to update instead", pr.Key(), err)
+		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+			if updateErr := pkgRevUpdateDB(ctx, pr, false); updateErr != nil {
+				klog.Warningf("pkgRevWriteToDB: update also failed for %+v %q", pr.Key(), err)
+				return updateErr
+			}
+		} else {
+			klog.Warningf("pkgRevWriteToDB: query failed for %+v %q", pr.Key(), err)
+			return err
+		}
 	}
 
 	if err := pkgRevResourcesWriteToDB(ctx, pr); err == nil {
