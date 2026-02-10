@@ -548,14 +548,6 @@ func (r *cachedRepository) GetSpec() *configapi.Repository {
 	return r.repoSpec
 }
 
-func (r *cachedRepository) flush() {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
-	r.cachedPackageRevisions = nil
-	r.cachedPackages = nil
-}
-
 // refreshAllCachedPackages updates the cached map for this repository with all the newPackages,
 // it also triggers notifications for all package changes.
 // mutex must be held.

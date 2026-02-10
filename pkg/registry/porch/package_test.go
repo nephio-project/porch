@@ -27,15 +27,15 @@ func TestPackageCUD(t *testing.T) {
 
 	pkgObj, err := testPackages.Create(context.TODO(), nil, nil, nil)
 	assert.Nil(t, pkgObj)
-	assert.Equal(t, "package creation is not supported directly over the API, create or clone a PackageRevision resource to create a package", err.Error())
+	assert.Equal(t, "create or clone a PackageRevision resource to create a package as direct package creation is not supported on resources of kind \"packages.porch.kpt.dev\"", err.Error())
 
 	pkgObj, flag, err := testPackages.Update(context.TODO(), "", nil, nil, nil, false, nil)
 	assert.Nil(t, pkgObj)
 	assert.False(t, flag)
-	assert.Equal(t, "package update is not supported directly over the API, update a PackageRevision resource to update a package", err.Error())
+	assert.Equal(t, "update a PackageRevision resource to update a package as direct package update is not supported on resources of kind \"packages.porch.kpt.dev\"", err.Error())
 
 	pkgObj, flag, err = testPackages.Delete(context.TODO(), "", nil, nil)
 	assert.Nil(t, pkgObj)
 	assert.False(t, flag)
-	assert.Equal(t, "package deletion is not supported directly over the API, delete all PackageRevisions resources of a package to delete a package", err.Error())
+	assert.Equal(t, "delete all PackageRevisions resources of a package to delete a package as direct package deletion is not supported on resources of kind \"packages.porch.kpt.dev\"", err.Error())
 }

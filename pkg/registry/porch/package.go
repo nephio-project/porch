@@ -106,7 +106,7 @@ func (r *packages) Get(ctx context.Context, name string, options *metav1.GetOpti
 func (r *packages) Create(_ context.Context, _ runtime.Object, _ rest.ValidateObjectFunc, _ *metav1.CreateOptions) (runtime.Object, error) {
 	return nil, apierrors.NewMethodNotSupported(
 		porchapi.PackageGVR.GroupResource(),
-		"package creation is not supported directly over the API, create or clone a PackageRevision resource to create a package",
+		"create or clone a PackageRevision resource to create a package as direct package creation",
 	)
 }
 
@@ -120,7 +120,7 @@ func (r *packages) Update(_ context.Context, _ string, _ rest.UpdatedObjectInfo,
 
 	return nil, false, apierrors.NewMethodNotSupported(
 		porchapi.PackageGVR.GroupResource(),
-		"package update is not supported directly over the API, update a PackageRevision resource to update a package",
+		"update a PackageRevision resource to update a package as direct package update",
 	)
 }
 
@@ -138,6 +138,6 @@ func (r *packages) Update(_ context.Context, _ string, _ rest.UpdatedObjectInfo,
 func (r *packages) Delete(ctx context.Context, name string, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
 	return nil, false, apierrors.NewMethodNotSupported(
 		porchapi.PackageGVR.GroupResource(),
-		"package deletion is not supported directly over the API, delete all PackageRevisions resources of a package to delete a package",
+		"delete all PackageRevisions resources of a package to delete a package as direct package deletion",
 	)
 }
