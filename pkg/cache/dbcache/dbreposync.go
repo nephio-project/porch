@@ -54,6 +54,8 @@ func newRepositorySync(repo *dbRepository, options cachetypes.CacheOptions) *rep
 
 // SyncOnce synchronizes the DB cache with the external repository
 func (s *repositorySync) SyncOnce(ctx context.Context) error {
+	s.syncWg.Add(1)
+	defer s.syncWg.Done()
 	var err error
 	s.lastSyncStats, err = s.sync(ctx)
 	return err
@@ -67,9 +69,6 @@ func (s *repositorySync) sync(ctx context.Context) (repositorySyncStats, error) 
 		return repositorySyncStats{}, fmt.Errorf("repositorySync %+v: sync start failed because sync is already in progress", s.repo.Key())
 	}
 	defer s.mutex.Unlock()
-
-	s.syncWg.Add(1)
-	defer s.syncWg.Done()
 
 	start := time.Now()
 	klog.Infof("repositorySync %+v: sync started", s.repo.Key())
