@@ -1,0 +1,351 @@
+# Copyright 2025 The kpt and Nephio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: PackageVariant
+metadata:
+  name: cert-manager-variant
+spec:
+  upstream:
+    repo: catalog-distros-sandbox-3
+    package: cert-manager
+    revision: -1
+  downstream:
+    repo: edge1
+    package: cert-manager-variant
+  adoptionPolicy: "adoptExisting"
+  deletionPolicy: "orphan"
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: PackageVariant
+metadata:
+  name: gitea-variant
+spec:
+  upstream:
+    repo: catalog-distros-sandbox-3
+    package: gitea
+    revision: -1
+  downstream:
+    repo: edge1
+    package: gitea-variant
+  adoptionPolicy: "adoptExisting"
+  deletionPolicy: "orphan"
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: PackageVariant
+metadata:
+  name: metallb-sandbox-config-variant
+spec:
+  upstream:
+    repo: catalog-distros-sandbox-3
+    package: metallb-sandbox-config
+    revision: -1
+  downstream:
+    repo: edge1
+    package: metallb-sandbox-config-variant
+  adoptionPolicy: "adoptExisting"
+  deletionPolicy: "orphan"
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: PackageVariant
+metadata:
+  name: metallb-variant
+spec:
+  upstream:
+    repo: catalog-distros-sandbox-3
+    package: metallb
+    revision: -1  
+  downstream:
+    repo: edge1
+    package: metallb-variant
+  adoptionPolicy: "adoptExisting"
+  deletionPolicy: "orphan"
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: PackageVariant
+metadata:
+  name: network-variant
+spec:
+  upstream:
+    repo: catalog-distros-sandbox-3
+    package: network
+    revision: -1
+  downstream:
+    repo: edge1
+    package: network-variant
+  adoptionPolicy: "adoptExisting"
+  deletionPolicy: "orphan"
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: PackageVariant
+metadata:
+  name: repository-variant
+spec:
+  upstream:
+    repo: catalog-distros-sandbox-3
+    package: repository
+    revision: -1
+  downstream:
+    repo: edge1
+    package: repository-variant
+  adoptionPolicy: "adoptExisting"
+  deletionPolicy: "orphan"
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: PackageVariant
+metadata:
+  name: bmh-template-variant
+spec:
+  upstream:
+    repo: catalog-infra-baremetal-3
+    package: bmh-template
+    revision: -1
+  downstream:
+    repo: edge1
+    package: bmh-template-variant
+  adoptionPolicy: "adoptExisting"
+  deletionPolicy: "orphan"
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: PackageVariant
+metadata:
+  name: kubeadm-cluster-template-staticip-variant
+spec:
+  upstream:
+    repo: catalog-infra-baremetal-3
+    package: kubeadm-cluster-template-staticip
+    revision: -1
+  downstream:
+    repo: edge1
+    package: kubeadm-cluster-template-staticip-variant
+  adoptionPolicy: "adoptExisting"
+  deletionPolicy: "orphan"
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: PackageVariant
+metadata:
+  name: cluster-capi-infrastructure-bmo-variant
+spec:
+  upstream:
+    repo: catalog-infra-capi-3
+    package: cluster-capi-infrastructure-bmo
+    revision: -1
+  downstream:
+    repo: edge1
+    package: cluster-capi-infrastructure-bmo-variant
+  adoptionPolicy: "adoptExisting"
+  deletionPolicy: "orphan"
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: PackageVariant
+metadata:
+  name: cluster-capi-infrastructure-docker-variant
+spec:
+  upstream:
+    repo: catalog-infra-capi-3
+    package: cluster-capi-infrastructure-docker
+    revision: -1
+  downstream:
+    repo: edge1
+    package: cluster-capi-infrastructure-docker-variant
+  adoptionPolicy: "adoptExisting"
+  deletionPolicy: "orphan"
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: PackageVariant
+metadata:
+  name: cluster-capi-infrastructure-ironic-variant
+spec:
+  upstream:
+    repo: catalog-infra-capi-3
+    package: cluster-capi-infrastructure-ironic
+    revision: -1
+  downstream:
+    repo: edge1
+    package: cluster-capi-infrastructure-ironic-variant
+  adoptionPolicy: "adoptExisting"
+  deletionPolicy: "orphan"
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: PackageVariant
+metadata:
+  name: cluster-capi-infrastructure-metal3-variant
+spec:
+  upstream:
+    repo: catalog-infra-capi-3
+    package: cluster-capi-infrastructure-metal3
+    revision: -1
+  downstream:
+    repo: edge1
+    package: cluster-capi-infrastructure-metal3-variant
+  adoptionPolicy: "adoptExisting"
+  deletionPolicy: "orphan"
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: PackageVariant
+metadata:
+  name: cluster-capi-kind-docker-templates-variant
+spec:
+  upstream:
+    repo: catalog-infra-capi-3
+    package: cluster-capi-kind-docker-templates
+    revision: -1
+  downstream:
+    repo: edge1
+    package: cluster-capi-kind-docker-templates-variant
+  adoptionPolicy: "adoptExisting"
+  deletionPolicy: "orphan"
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: PackageVariant
+metadata:
+  name: vlanindex-variant
+spec:
+  upstream:
+    repo: catalog-infra-capi-3
+    package: vlanindex
+    revision: -1
+  downstream:
+    repo: edge1
+    package: vlanindex-variant
+  adoptionPolicy: "adoptExisting"
+  deletionPolicy: "orphan"
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: PackageVariant
+metadata:
+  name: cluster-capi-variant
+spec:
+  upstream:
+    repo: catalog-infra-capi-3
+    package: cluster-capi
+    revision: -1
+  downstream:
+    repo: edge1
+    package: cluster-capi-variant
+  adoptionPolicy: "adoptExisting"
+  deletionPolicy: "orphan"
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: PackageVariant
+metadata:
+  name: kindnet-variant
+spec:
+  upstream:
+    repo: catalog-infra-capi-3
+    package: kindnet
+    revision: -1
+  downstream:
+    repo: edge1
+    package: kindnet-variant
+  adoptionPolicy: "adoptExisting"
+  deletionPolicy: "orphan"
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: PackageVariant
+metadata:
+  name: local-path-provisioner-variant
+spec:
+  upstream:
+    repo: catalog-infra-capi-3
+    package: local-path-provisioner
+    revision: -1
+  downstream:
+    repo: edge1
+    package: local-path-provisioner-variant
+  adoptionPolicy: "adoptExisting"
+  deletionPolicy: "orphan"
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: PackageVariant
+metadata:
+  name: multus-variant
+spec:
+  upstream:
+    repo: catalog-infra-capi-3
+    package: multus
+    revision: -1
+  downstream:
+    repo: edge1
+    package: multus-variant
+  adoptionPolicy: "adoptExisting"
+  deletionPolicy: "orphan"
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: PackageVariant
+metadata:
+  name: nephio-workload-cluster-argo-variant
+spec:
+  upstream:
+    repo: catalog-infra-capi-3
+    package: nephio-workload-cluster-argo
+    revision: -1
+  downstream:
+    repo: edge1
+    package: nephio-workload-cluster-argo-variant
+  adoptionPolicy: "adoptExisting"
+  deletionPolicy: "orphan"
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: PackageVariant
+metadata:
+  name: nephio-workload-cluster-flux-variant
+spec:
+  upstream:
+    repo: catalog-infra-capi-3
+    package: nephio-workload-cluster-flux
+    revision: -1
+  downstream:
+    repo: edge1
+    package: nephio-workload-cluster-flux-variant
+  adoptionPolicy: "adoptExisting"
+  deletionPolicy: "orphan"

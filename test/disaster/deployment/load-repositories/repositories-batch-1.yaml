@@ -11,102 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: porch
-
----
-
-apiVersion: config.porch.kpt.dev/v1alpha1
-kind: Repository
-metadata:
-  labels:
-    kpt.dev/repository-content: external-blueprints
-  name: catalog-distros-gcp-1
-  namespace: porch
-spec:
-  content: Package
-  deployment: false
-  git:
-    branch: main
-    directory: /distros/gcp
-    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-1.git
-  type: git
-
----
-
-apiVersion: config.porch.kpt.dev/v1alpha1
-kind: Repository
-metadata:
-  labels:
-    kpt.dev/repository-content: external-blueprints
-  name: catalog-distros-gcp-2
-  namespace: porch
-spec:
-  content: Package
-  deployment: false
-  git:
-    branch: main
-    directory: /distros/gcp
-    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-2.git
-  type: git
-
----
-
-apiVersion: config.porch.kpt.dev/v1alpha1
-kind: Repository
-metadata:
-  labels:
-    kpt.dev/repository-content: external-blueprints
-  name: catalog-distros-gcp-3
-  namespace: porch
-spec:
-  content: Package
-  deployment: false
-  git:
-    branch: main
-    directory: /distros/gcp
-    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-3.git
-  type: git
-
----
-
-apiVersion: config.porch.kpt.dev/v1alpha1
-kind: Repository
-metadata:
-  labels:
-    kpt.dev/repository-content: external-blueprints
-  name: catalog-distros-gcp-4
-  namespace: porch
-spec:
-  content: Package
-  deployment: false
-  git:
-    branch: main
-    directory: /distros/gcp
-    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-4.git
-  type: git
-
----
-
-apiVersion: config.porch.kpt.dev/v1alpha1
-kind: Repository
-metadata:
-  labels:
-    kpt.dev/repository-content: external-blueprints
-  name: catalog-distros-gcp-5
-  namespace: porch
-spec:
-  content: Package
-  deployment: false
-  git:
-    branch: main
-    directory: /distros/gcp
-    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-5.git
-  type: git
-
----
 
 apiVersion: config.porch.kpt.dev/v1alpha1
 kind: Repository
@@ -114,7 +18,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: catalog-distros-sandbox-1
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -132,7 +35,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: catalog-distros-sandbox-2
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -150,7 +52,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: catalog-distros-sandbox-3
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -168,7 +69,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: catalog-distros-sandbox-4
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -186,7 +86,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: catalog-distros-sandbox-5
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -203,8 +102,24 @@ kind: Repository
 metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
+  name: catalog-distros-sandbox-6
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /distros/sandbox
+    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-6.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
   name: catalog-infra-baremetal-1
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -222,7 +137,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: catalog-infra-baremetal-2
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -240,7 +154,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: catalog-infra-baremetal-3
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -258,7 +171,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: catalog-infra-baremetal-4
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -276,7 +188,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: catalog-infra-baremetal-5
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -293,8 +204,24 @@ kind: Repository
 metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
+  name: catalog-infra-baremetal-6
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /infra/baremetal
+    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-6.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
   name: catalog-infra-capi-1
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -312,7 +239,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: catalog-infra-capi-2
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -330,7 +256,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: catalog-infra-capi-3
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -348,7 +273,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: catalog-infra-capi-4
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -366,7 +290,6 @@ metadata:
   labels:
     kpt.dev/repository-content: external-blueprints
   name: catalog-infra-capi-5
-  namespace: porch
 spec:
   content: Package
   deployment: false
@@ -374,4 +297,55 @@ spec:
     branch: main
     directory: /infra/capi
     repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-5.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: catalog-infra-capi-6
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /infra/capi
+    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-6.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: catalog-infra-gcp-1
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /infra/gcp
+    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-1.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: catalog-infra-gcp-2
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /infra/gcp
+    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-2.git
   type: git

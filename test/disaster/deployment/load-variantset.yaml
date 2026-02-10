@@ -1,0 +1,67 @@
+# Copyright 2025 The kpt and Nephio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: config.porch.kpt.dev/v1alpha2
+kind: PackageVariantSet
+metadata:
+  name: fn-render-variantset
+spec:
+  upstream:
+    package: generator
+    repo: kpt-e2e-testdata-fn-render-4
+    revision: -1
+  targets:
+  - repositories:
+    - name: variantset-edge-1
+      packageNames:
+      - fn-render-variantset-1
+      - fn-render-variantset-2
+    - name: variantset-edge-2
+      packageNames:
+      - fn-render-variantset-1
+      - fn-render-variantset-2
+    - name: variantset-edge-3
+      packageNames:
+      - fn-render-variantset-1
+      - fn-render-variantset-2
+    - name: variantset-edge-4
+      packageNames:
+      - fn-render-variantset-1
+      - fn-render-variantset-2
+    - name: variantset-edge-5
+      packageNames:
+      - fn-render-variantset-1
+      - fn-render-variantset-2
+    - name: variantset-edge-6
+      packageNames:
+      - fn-render-variantset-1
+      - fn-render-variantset-2
+    - name: variantset-edge-7
+      packageNames:
+      - fn-render-variantset-1
+      - fn-render-variantset-2
+    - name: variantset-edge-8
+      packageNames:
+      - fn-render-variantset-1
+      - fn-render-variantset-2
+    - name: variantset-edge-9
+      packageNames:
+      - fn-render-variantset-1
+      - fn-render-variantset-2
+    - name: variantset-edge-10
+      packageNames:
+      - fn-render-variantset-1
+      - fn-render-variantset-2
+    template:
+      adoptionPolicy: "adoptExisting"
