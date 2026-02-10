@@ -44,6 +44,8 @@ const (
 type CaDEngine interface {
 	// ObjectCache() is a cache of all our objects.
 	ObjectCache() WatcherManager
+	// Cache returns the underlying cache implementation
+	Cache() cachetypes.Cache
 
 	UpdatePackageResources(ctx context.Context, repositoryObj *configapi.Repository, oldPackage repository.PackageRevision, old, new *porchapi.PackageRevisionResources) (repository.PackageRevision, *porchapi.RenderStatus, error)
 
@@ -81,6 +83,11 @@ var _ CaDEngine = &cadEngine{}
 // ObjectCache is a cache of all our objects.
 func (cad *cadEngine) ObjectCache() WatcherManager {
 	return cad.watcherManager
+}
+
+// Cache returns the underlying cache implementation
+func (cad *cadEngine) Cache() cachetypes.Cache {
+	return cad.cache
 }
 
 func (cad *cadEngine) OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (repository.Repository, error) {

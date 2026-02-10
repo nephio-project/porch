@@ -9,6 +9,7 @@ import (
 
 	v1alpha10 "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/repository"
 	mock "github.com/stretchr/testify/mock"
@@ -39,6 +40,126 @@ type MockCaDEngine_Expecter struct {
 
 func (_m *MockCaDEngine) EXPECT() *MockCaDEngine_Expecter {
 	return &MockCaDEngine_Expecter{mock: &_m.Mock}
+}
+
+// Cache provides a mock function for the type MockCaDEngine
+func (_mock *MockCaDEngine) Cache() cachetypes.Cache {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Cache")
+	}
+
+	var r0 cachetypes.Cache
+	if returnFunc, ok := ret.Get(0).(func() cachetypes.Cache); ok {
+		r0 = returnFunc()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(cachetypes.Cache)
+		}
+	}
+	return r0
+}
+
+// MockCaDEngine_Cache_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Cache'
+type MockCaDEngine_Cache_Call struct {
+	*mock.Call
+}
+
+// Cache is a helper method to define mock.On call
+func (_e *MockCaDEngine_Expecter) Cache() *MockCaDEngine_Cache_Call {
+	return &MockCaDEngine_Cache_Call{Call: _e.mock.On("Cache")}
+}
+
+func (_c *MockCaDEngine_Cache_Call) Run(run func()) *MockCaDEngine_Cache_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockCaDEngine_Cache_Call) Return(cache cachetypes.Cache) *MockCaDEngine_Cache_Call {
+	_c.Call.Return(cache)
+	return _c
+}
+
+func (_c *MockCaDEngine_Cache_Call) RunAndReturn(run func() cachetypes.Cache) *MockCaDEngine_Cache_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CreatePackage provides a mock function for the type MockCaDEngine
+func (_mock *MockCaDEngine) CreatePackage(ctx context.Context, repositoryObj *v1alpha1.Repository, obj *v1alpha10.PorchPackage) (repository.Package, error) {
+	ret := _mock.Called(ctx, repositoryObj, obj)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreatePackage")
+	}
+
+	var r0 repository.Package
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1alpha1.Repository, *v1alpha10.PorchPackage) (repository.Package, error)); ok {
+		return returnFunc(ctx, repositoryObj, obj)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1alpha1.Repository, *v1alpha10.PorchPackage) repository.Package); ok {
+		r0 = returnFunc(ctx, repositoryObj, obj)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(repository.Package)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *v1alpha1.Repository, *v1alpha10.PorchPackage) error); ok {
+		r1 = returnFunc(ctx, repositoryObj, obj)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockCaDEngine_CreatePackage_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreatePackage'
+type MockCaDEngine_CreatePackage_Call struct {
+	*mock.Call
+}
+
+// CreatePackage is a helper method to define mock.On call
+//   - ctx context.Context
+//   - repositoryObj *v1alpha1.Repository
+//   - obj *v1alpha10.PorchPackage
+func (_e *MockCaDEngine_Expecter) CreatePackage(ctx interface{}, repositoryObj interface{}, obj interface{}) *MockCaDEngine_CreatePackage_Call {
+	return &MockCaDEngine_CreatePackage_Call{Call: _e.mock.On("CreatePackage", ctx, repositoryObj, obj)}
+}
+
+func (_c *MockCaDEngine_CreatePackage_Call) Run(run func(ctx context.Context, repositoryObj *v1alpha1.Repository, obj *v1alpha10.PorchPackage)) *MockCaDEngine_CreatePackage_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *v1alpha1.Repository
+		if args[1] != nil {
+			arg1 = args[1].(*v1alpha1.Repository)
+		}
+		var arg2 *v1alpha10.PorchPackage
+		if args[2] != nil {
+			arg2 = args[2].(*v1alpha10.PorchPackage)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockCaDEngine_CreatePackage_Call) Return(packageParam repository.Package, err error) *MockCaDEngine_CreatePackage_Call {
+	_c.Call.Return(packageParam, err)
+	return _c
+}
+
+func (_c *MockCaDEngine_CreatePackage_Call) RunAndReturn(run func(ctx context.Context, repositoryObj *v1alpha1.Repository, obj *v1alpha10.PorchPackage) (repository.Package, error)) *MockCaDEngine_CreatePackage_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // CreatePackageRevision provides a mock function for the type MockCaDEngine

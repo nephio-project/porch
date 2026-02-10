@@ -59,6 +59,7 @@ type Cache interface {
 	GetRepository(repository.RepositoryKey) repository.Repository
 	UpdateRepository(ctx context.Context, repositorySpec *configapi.Repository) error
 	CheckRepositoryConnectivity(ctx context.Context, repositorySpec *configapi.Repository) error
+	FindUpstreamDependent(ctx context.Context, namespace, prName string) (string, error)
 }
 
 var (
