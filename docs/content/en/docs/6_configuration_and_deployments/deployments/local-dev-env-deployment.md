@@ -1,91 +1,106 @@
 ---
-title: "Local Development Environment Setup"
+title: "Local Development Environment"
 type: docs
 weight: 3
-description: "A guide to setting up a local environment for developing and testing with Porch."
+description: "Set up a local development environment for Porch using Kind"
 ---
 
-# Local Development Environment Setup
-
-This guide provides instructions for setting up a local development environment using `kind` (Kubernetes in Docker). This setup is ideal for developing, testing, and exploring Porch functionalities.
-
-## Table of Contents
-
-- [Prerequisites](#prerequisites)
-- [Local Environment Setup](#local-environment-setup)
-- [Verifying the Setup](#verifying-the-setup)
+This guide provides instructions for setting up a local development environment using Kind (Kubernetes in Docker) for developing, testing, and exploring Porch.
 
 ## Prerequisites
 
-Before you begin, ensure you have the following tools installed on your system:
+- [Docker](https://docs.docker.com/get-docker/) - For running containers and Kind cluster
+- [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) - Kubernetes command-line tool
+- [kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation) - Local Kubernetes clusters using Docker
 
-*   **[Docker](https://docs.docker.com/get-docker/):** For running containers, including the `kind` cluster.
-*   **[kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/):** The Kubernetes command-line tool for interacting with your cluster.
-*   **[kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation):** A tool for running local Kubernetes clusters using Docker container "nodes".
+## Setup
 
-The setup scripts provided in the Porch repository will handle the installation of Porch itself and its CLI, `porchctl`.
+### 1. Create Kind Cluster
 
-## Local Environment Setup
+From the Porch repository root directory:
 
-Follow these steps from the root directory of your cloned Porch repository to set up your local environment.
+```bash
+./scripts/setup-dev-env.sh
+```
 
-1.  **Bring up the `kind` cluster:**
+This script:
+- Creates a Kind cluster named `porch-test`
+- Installs MetalLB load balancer
+- Deploys Gitea Git server
+- Generates PKI resources for testing
+- Builds the `porchctl` CLI binary
 
-    This script creates a local Kubernetes cluster with the necessary configuration for Porch.
+### 2. Deploy Porch
 
-    ```bash
-    ./scripts/setup-dev-env.sh
-    ```
+Choose your cache backend:
 
-2.  **Build and load Porch images:**
+**Option A: CR Cache (Default)**
+```bash
+make run-in-kind
+```
 
-    **Choose one of the following options** to build the Porch container images and load them into your `kind` cluster.
+**Option B: Database Cache**
+```bash
+make run-in-kind-db-cache
+```
 
-    *   **CR-CACHE (Default):** Uses a cache backed by a Custom Resource (CR).
-        ```bash
-        make run-in-kind
-        ```
+## Verification
 
-    *   **DB-CACHE:** Uses a PostgreSQL database as the cache backend.
-        ```bash
-        make run-in-kind-db-cache
-        ```
+### Check Pod Status
 
-## Verifying the Setup
+```bash
+kubectl get pods -n porch-system
+```
 
-After the setup scripts complete, verify that all components are running correctly.
+Expected output:
+```
+NAME                                 READY   STATUS    RESTARTS   AGE
+function-runner-xxx-xxx              1/1     Running   0          2m
+porch-controllers-xxx-xxx            1/1     Running   0          2m
+porch-server-xxx-xxx                 1/1     Running   0          2m
+```
 
-1.  **Check Pod Status:**
+### Verify API Resources
 
-    Ensure all pods in the `porch-system` namespace are in the `READY` state.
+```bash
+kubectl api-resources | grep porch
+```
 
-    ```bash
-    kubectl get pods -n porch-system
-    ```
+### Test porchctl CLI
 
-2.  **Verify CRD Availability:**
+```bash
+# Add to PATH (optional)
+export PATH="$(pwd)/.build:$PATH"
 
-    Confirm that the `PackageRevision` Custom Resource Definition (CRD) has been successfully registered.
+# Test CLI
+porchctl version
+```
 
-    ```bash
-    kubectl api-resources | grep packagerevisions
-    ```
+## Access Services
 
-3.  **Configure `porchctl` (Optional):**
+### Gitea Git Server
 
-    The `porchctl` binary is built into the `.build/` directory. For convenient access, add it to your system's `PATH`.
+- **URL**: http://localhost:3000
+- **Username**: `nephio`
+- **Password**: `secret`
 
-    ```bash
-    # You can copy the binary to a directory in your PATH, for example:
-    sudo cp ./.build/porchctl /usr/local/bin/porchctl
+### Porch API
 
-    # Alternatively, you can add the build directory to your PATH:
-    export PATH="$(pwd)/.build:$PATH"
-    ```
+```bash
+# Port forward to access Porch API
+kubectl port-forward -n porch-system svc/api 8080:8080
+```
 
-4.  **Access Gitea UI (Optional):**
+## Clean Up
 
-    The local environment includes a Gitea instance for Git repository hosting. You can access it at [http://localhost:3000](http://localhost:3000).
+To restart from scratch:
 
-    *   **Username:** `nephio`
-    *   **Password:** `secret`
+```bash
+kind delete cluster --name porch-test
+./scripts/setup-dev-env.sh
+```
+
+## Next Steps
+
+- Follow the [Getting Started tutorial]({{% relref "/docs/3_getting_started" %}}) to create your first packages
+- See [Development Process]({{% relref "/docs/12_contributing" %}}) for contributing guidelines

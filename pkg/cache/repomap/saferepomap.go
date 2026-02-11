@@ -25,19 +25,12 @@ type SafeRepoMap struct {
 	syncMap sync.Map
 }
 
-func (s *SafeRepoMap) Store(key repository.RepositoryKey, value repository.Repository) {
-	s.syncMap.Store(key, value)
-}
-
 func (s *SafeRepoMap) Load(key repository.RepositoryKey) (repository.Repository, bool) {
 	v, ok := s.syncMap.Load(key)
 	if !ok {
 		return nil, false
 	}
-	if loader, isLoader := v.(*repoLoader); isLoader {
-		return loader.repo, true
-	}
-	return v.(repository.Repository), true
+	return v.(*repoLoader).repo, true
 }
 
 func (s *SafeRepoMap) LoadAndDelete(key repository.RepositoryKey) (repository.Repository, bool) {
@@ -45,10 +38,7 @@ func (s *SafeRepoMap) LoadAndDelete(key repository.RepositoryKey) (repository.Re
 	if !ok {
 		return nil, false
 	}
-	if loader, isLoader := v.(*repoLoader); isLoader {
-		return loader.repo, true
-	}
-	return v.(repository.Repository), true
+	return v.(*repoLoader).repo, true
 }
 
 func (s *SafeRepoMap) Range(f func(key, value any) bool) {
@@ -63,13 +53,13 @@ type repoLoader struct {
 
 func (s *SafeRepoMap) LoadOrCreate(key repository.RepositoryKey, create func() (repository.Repository, error)) (repository.Repository, error) {
 	loader := &repoLoader{}
-	actual, _ := s.syncMap.LoadOrStore(key, loader)
+	actual, loaded := s.syncMap.LoadOrStore(key, loader)
 	l := actual.(*repoLoader)
 
 	l.once.Do(func() {
 		l.repo, l.err = create()
-		if l.err != nil {
-			// Remove failed entry so subsequent calls can retry
+		if l.err != nil && !loaded {
+			// Remove failed entry only if this thread created it, so subsequent calls can retry
 			s.syncMap.Delete(key)
 		}
 	})

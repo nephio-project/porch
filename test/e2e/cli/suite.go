@@ -420,6 +420,25 @@ func deleteRemoteTestRepo(t *testing.T, testcaseName string) {
 	} else {
 		t.Logf("Failed to delete repo: %s %s\n", testcaseName, resp.Status)
 	}
+
+	if testcaseName == "rpkg-upgrade" {
+		apiURL2 := fmt.Sprintf("http://localhost:3000/api/v1/repos/%s/rpkg-upgrade-downstream", testGitUserOrg)
+		req2, err := nethttp.NewRequest("DELETE", apiURL2, nil)
+		if err != nil {
+			t.Fatalf("Failed to create DELETE request: %v", err)
+		}
+		req2.Header.Set("Authorization", basicAuth)
+		resp2, err := nethttp.DefaultClient.Do(req2)
+		if err != nil {
+			t.Fatalf("Failed to make request: %v", err)
+		}
+		defer resp2.Body.Close()
+		if resp2.StatusCode == nethttp.StatusNoContent {
+			t.Logf("Repo deleted successfully: rpkg-upgrade-downstream")
+		} else {
+			t.Logf("Failed to delete repo: rpkg-upgrade-downstream %s\n", resp2.Status)
+		}
+	}
 }
 
 func createRemoteTestRepo(t *testing.T, testcaseName string) {
@@ -479,6 +498,64 @@ func createRemoteTestRepo(t *testing.T, testcaseName string) {
 		t.Fatalf("Failed to push test repo %s: %v", testcaseName, err)
 	}
 	t.Logf("Test repo created successfully: %s", testcaseName)
+
+	if testcaseName == "rpkg-upgrade" {
+		tmpPath2 := t.TempDir()
+		repo2, err := git.PlainInit(tmpPath2, false)
+		if err != nil {
+			t.Fatalf("Failed to init the repo rpkg-upgrade-downstream: %v", err)
+		}
+
+		err = repo2.Storer.SetReference(
+			plumbing.NewSymbolicReference(plumbing.HEAD, plumbing.NewBranchReferenceName("main")),
+		)
+		if err != nil {
+			t.Fatalf("Failed to set refs: %v", err)
+		}
+
+		err = os.WriteFile(tmpPath2+"/README.md", []byte("# Test Go-Git Repo\nCreated programmatically."), 0644)
+		if err != nil {
+			t.Fatalf("Failed to write to file: %v", err)
+		}
+
+		wt2, _ := repo2.Worktree()
+		_, err = wt2.Add("README.md")
+		if err != nil {
+			t.Fatalf("Failed to add README: %v", err)
+		}
+		_, err = wt2.Commit("Initial commit", &git.CommitOptions{
+			Author: &object.Signature{
+				Name:  "Nephio O' Test",
+				Email: "nephiotest@example.com",
+				When:  time.Now(),
+			},
+		})
+		if err != nil {
+			t.Fatalf("Failed to commit to repo rpkg-upgrade-downstream: %v", err)
+		}
+
+		repoUrl2 := fmt.Sprintf("http://localhost:3000/%s/rpkg-upgrade-downstream", testGitUserOrg)
+		_, err = repo2.CreateRemote(&config.RemoteConfig{
+			Name: "origin",
+			URLs: []string{repoUrl2},
+		})
+		if err != nil {
+			t.Fatalf("Failed to create remote: %v", err)
+		}
+
+		err = repo2.Push(&git.PushOptions{
+			RemoteName: "origin",
+			Auth: &http.BasicAuth{
+				Username: testGitUserOrg,
+				Password: testGitPassword,
+			},
+			RequireRemoteRefs: []config.RefSpec{},
+		})
+		if err != nil {
+			t.Fatalf("Failed to push test repo rpkg-upgrade-downstream: %v", err)
+		}
+		t.Logf("Test repo created successfully: rpkg-upgrade-downstream")
+	}
 }
 
 func getRepoName(args []string) (string, bool) {
