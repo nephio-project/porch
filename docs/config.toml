@@ -89,7 +89,7 @@ archived_version = false
 version = "latest"
 
 # The version of the latest code build
-latestTag = "1.5.5"
+latestTag = "1.5.6"
 
 # latest tested versions
 version_docker = "v28.1.1"
