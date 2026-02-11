@@ -19,7 +19,7 @@ import (
 	"flag"
 	"fmt"
 
-	porch "github.com/nephio-project/porch/internal/clliutils"
+	porch "github.com/nephio-project/porch/internal/cliutils"
 	"github.com/nephio-project/porch/pkg/cli/commands/repo/docs"
 	"github.com/nephio-project/porch/pkg/cli/commands/repo/get"
 	"github.com/nephio-project/porch/pkg/cli/commands/repo/reg"
