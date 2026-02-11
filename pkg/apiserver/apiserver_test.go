@@ -90,7 +90,7 @@ func TestCreateEmbeddedControllerManagerFunction(t *testing.T) {
 		Host: "https://localhost:6443",
 	}
 
-	mgr, err := createEmbeddedControllerManager(nil, restConfig, scheme, config)
+	mgr, err := createEmbeddedControllerManager(restConfig, scheme, config)
 	require.NoError(t, err)
 	require.NotNil(t, mgr)
 	assert.Equal(t, 10, mgr.config.MaxConcurrentReconciles)

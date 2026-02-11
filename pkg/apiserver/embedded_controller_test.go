@@ -42,7 +42,7 @@ func TestCreateEmbeddedController(t *testing.T) {
 	}
 
 	// Test with invalid rest config (should fail)
-	manager, err := createEmbeddedControllerManager(fakeClient, &rest.Config{}, scheme, config)
+	manager, err := createEmbeddedControllerManager(&rest.Config{}, scheme, config)
 	if err != nil {
 		// This is expected - invalid config should fail
 		t.Logf("Expected error with invalid config: %v", err)
@@ -61,10 +61,9 @@ func TestEmbeddedControllerManager_Start(t *testing.T) {
 	}
 
 	manager := &EmbeddedControllerManager{
-		coreClient: fake.NewClientBuilder().Build(),
-		cache:      nil,
-		mgr:        nil,
-		config:     config,
+		cache:  nil,
+		mgr:    nil,
+		config: config,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
@@ -105,7 +104,7 @@ func TestCompletedConfig_CreateEmbeddedController(t *testing.T) {
 
 	// This will fail because getRestConfig will fail (no kubeconfig)
 	// but it tests the function is callable and handles errors
-	manager, err := config.createEmbeddedControllerManager(fakeClient)
+	manager, err := config.createEmbeddedControllerManager()
 
 	if err == nil {
 		t.Error("Expected error when creating controller without valid kubeconfig")

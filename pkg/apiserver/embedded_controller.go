@@ -25,12 +25,10 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // EmbeddedControllerManager manages embedded Repository controller
 type EmbeddedControllerManager struct {
-	coreClient   client.WithWatch
 	cache        cachetypes.Cache
 	mgr          ctrl.Manager
 	config       repocontroller.EmbeddedConfig
@@ -39,7 +37,6 @@ type EmbeddedControllerManager struct {
 
 // createEmbeddedControllerManager creates controller manager
 func createEmbeddedControllerManager(
-	coreClient client.WithWatch,
 	restConfig *rest.Config,
 	scheme *runtime.Scheme,
 	config repocontroller.EmbeddedConfig,
@@ -55,16 +52,15 @@ func createEmbeddedControllerManager(
 	}
 
 	return &EmbeddedControllerManager{
-		coreClient: coreClient,
-		mgr:        mgr,
-		config:     config,
+		mgr:    mgr,
+		config: config,
 	}, nil
 }
 
 // Start sets up the controller manager, and the controller for it
 func (e *EmbeddedControllerManager) Start(ctx context.Context) error {
 	repoController := &repocontroller.RepositoryReconciler{
-		Client: e.coreClient,
+		Client: e.mgr.GetClient(),
 		Scheme: e.mgr.GetScheme(),
 		Cache:  e.cache,
 	}
