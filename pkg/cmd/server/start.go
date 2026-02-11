@@ -34,8 +34,8 @@ import (
 	"github.com/nephio-project/porch/pkg/apiserver"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/engine"
-	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/externalrepo/git"
+	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apiserver/pkg/admission"
@@ -68,7 +68,7 @@ type PorchServerOptions struct {
 	MaxConcurrentLists          int
 	MaxRequestBodySize          int
 	RepoOperationRetryAttempts  int
-	RetryableGitErrors         []string // Additional retryable git error patterns
+	RetryableGitErrors          []string // Additional retryable git error patterns
 	RepoMaxConcurrentReconciles int
 	RepoMaxConcurrentSyncs      int
 	RepoHealthCheckFrequency    time.Duration

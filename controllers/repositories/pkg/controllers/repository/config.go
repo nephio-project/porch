@@ -110,7 +110,9 @@ func (r *RepositoryReconciler) validateConfig() {
 }
 
 // LogConfig logs the controller configuration
-func (r *RepositoryReconciler) LogConfig(log interface{ Info(msg string, keysAndValues ...any) }) {
+func (r *RepositoryReconciler) LogConfig(log interface {
+	Info(msg string, keysAndValues ...any)
+}) {
 	log.Info("Repository controller configuration",
 		"healthCheckFrequency", r.HealthCheckFrequency,
 		"fullSyncFrequency", r.FullSyncFrequency,

@@ -105,7 +105,7 @@ func TestCompletedConfig_CreateEmbeddedController(t *testing.T) {
 
 	// This will fail because getRestConfig will fail (no kubeconfig)
 	// but it tests the function is callable and handles errors
-	manager, err := config.createEmbeddedController(fakeClient)
+	manager, err := config.createEmbeddedControllerManager(fakeClient)
 
 	if err == nil {
 		t.Error("Expected error when creating controller without valid kubeconfig")
