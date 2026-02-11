@@ -30,15 +30,15 @@ import (
 
 // EmbeddedControllerManager manages embedded Repository controller
 type EmbeddedControllerManager struct {
-	coreClient client.WithWatch
-	cache      cachetypes.Cache
-	mgr        ctrl.Manager
-	config     repocontroller.EmbeddedConfig
-	webhookReady <-chan struct{} 
+	coreClient   client.WithWatch
+	cache        cachetypes.Cache
+	mgr          ctrl.Manager
+	config       repocontroller.EmbeddedConfig
+	webhookReady <-chan struct{}
 }
 
-// createEmbeddedController creates controller manager
-func createEmbeddedController(
+// createEmbeddedControllerManager creates controller manager
+func createEmbeddedControllerManager(
 	coreClient client.WithWatch,
 	restConfig *rest.Config,
 	scheme *runtime.Scheme,
