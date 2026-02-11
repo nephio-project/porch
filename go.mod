@@ -16,7 +16,7 @@ require (
 	github.com/google/go-containerregistry v0.20.6
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.6
-	github.com/kptdev/kpt v1.0.0-beta.60
+	github.com/kptdev/kpt v1.0.0-beta.60.1
 	github.com/kptdev/krm-functions-catalog/functions/go/apply-replacements v0.1.3
 	github.com/kptdev/krm-functions-catalog/functions/go/set-namespace v0.4.3
 	github.com/kptdev/krm-functions-catalog/functions/go/starlark v0.5.3
