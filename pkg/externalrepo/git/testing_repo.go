@@ -189,14 +189,14 @@ func extractTar(t *testing.T, tarfile string, dir string) {
 		if hdr.FileInfo().IsDir() {
 			// #nosec G305
 			path := filepath.Join(dir, hdr.Name)
-			// #nosec G301
+			// #nosec G301 G703
 			if err := os.MkdirAll(path, 0755); err != nil {
 				t.Fatalf("MkdirAll(%q) failed: %v", path, err)
 			}
 			continue
 		}
 		path := filepath.Join(dir, filepath.Dir(hdr.Name))
-		// #nosec G301
+		// #nosec G301 G703
 		if err := os.MkdirAll(path, 0755); err != nil {
 			t.Fatalf("MkdirAll(%q) failed: %v", path, err)
 		}
@@ -209,7 +209,7 @@ func extractTar(t *testing.T, tarfile string, dir string) {
 func saveToFile(t *testing.T, path string, src io.Reader) {
 	t.Helper()
 
-	dst, err := os.Create(path) // #nosec G304
+	dst, err := os.Create(path) // #nosec G304 G703
 	if err != nil {
 		t.Fatalf("Create(%q) failed; %v", path, err)
 	}
