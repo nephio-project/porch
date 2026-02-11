@@ -13,8 +13,7 @@
 # limitations under the License.
 
 
-# Set via --build-arg or assign here for local usage
-ARG ALPINE_VERSION
+ARG ALPINE_VERSION=latest
 
 FROM golang:1.25.6-bookworm AS builder
 

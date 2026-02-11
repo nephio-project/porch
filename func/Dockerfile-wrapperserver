@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Set via --build-arg or assign here for local usage
-ARG ALPINE_VERSION
+ARG ALPINE_VERSION=latest
 
 FROM golang:1.25.6-alpine AS builder
 
