@@ -234,7 +234,7 @@ func (c completedConfig) getCoreV1Client() (*corev1client.CoreV1Client, error) {
 }
 
 // createEmbeddedControllerManager creates embedded controller manager
-func (c completedConfig) createEmbeddedControllerManager(coreClient client.WithWatch) (*EmbeddedControllerManager, error) {
+func (c completedConfig) createEmbeddedControllerManager() (*EmbeddedControllerManager, error) {
 	config := repocontroller.EmbeddedConfig{
 		MaxConcurrentReconciles:    c.ExtraConfig.RepoControllerConfig.MaxConcurrentReconciles,
 		MaxConcurrentSyncs:         c.ExtraConfig.RepoControllerConfig.MaxConcurrentSyncs,
@@ -253,16 +253,16 @@ func (c completedConfig) createEmbeddedControllerManager(coreClient client.WithW
 		return nil, fmt.Errorf("failed to get rest config: %w", err)
 	}
 
-	return createEmbeddedControllerManager(coreClient, restConfig, scheme, config)
+	return createEmbeddedControllerManager(restConfig, scheme, config)
 }
 
 // setupEmbeddedControllerManager creates embedded controller manager if CR cache is used
-func (c completedConfig) setupEmbeddedControllerManager(coreClient client.WithWatch) (*EmbeddedControllerManager, error) {
+func (c completedConfig) setupEmbeddedControllerManager() (*EmbeddedControllerManager, error) {
 	if c.ExtraConfig.CacheOptions.CacheType != cachetypes.CRCacheType {
 		return nil, nil
 	}
 
-	embeddedController, err := c.createEmbeddedControllerManager(coreClient)
+	embeddedController, err := c.createEmbeddedControllerManager()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create embedded controller: %w", err)
 	}
@@ -315,7 +315,7 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.RepoOperationRetryAttempts = c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts
 
 	// Create embedded repo controller if needed
-	embeddedController, err := c.setupEmbeddedControllerManager(coreClient)
+	embeddedController, err := c.setupEmbeddedControllerManager()
 	if err != nil {
 		return nil, err
 	}
