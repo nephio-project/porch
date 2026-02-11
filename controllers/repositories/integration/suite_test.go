@@ -49,7 +49,6 @@ var _ = BeforeSuite(func() {
 		CRDInstallOptions: envtest.CRDInstallOptions{
 			Paths: []string{filepath.Join("..", "..", "config", "crd", "bases", "config.porch.kpt.dev_repositories.yaml")},
 		},
-		ErrorIfCRDPathMissing: false,
 	}
 
 	var err error

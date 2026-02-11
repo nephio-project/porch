@@ -164,6 +164,10 @@ func webhookServiceName(ctx context.Context) (serviceName, serviceNamespace stri
 
 func setupWebhooks(ctx context.Context, clientReader client.Reader) error {
 	cfg := newWebhookConfig(ctx)
+	// TODO: Refactor webhook setup to support optional webhooks and better separation of concerns.
+	// Currently webhooks are always enabled and required for Repository/PackageRevision validation.
+	// Consider: 1) Making webhooks optional via explicit flag, 2) Separating cert management from webhook lifecycle,
+	// 3) Supporting webhook-less mode for development/testing.
 	if !cfg.CertManWebhook {
 		caBytes, err := createCerts(cfg)
 		if err != nil {

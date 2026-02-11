@@ -382,9 +382,12 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 }
 
 func (s *PorchServer) Run(ctx context.Context) error {
+	webhookReady := make(chan struct{})
+	
 	if s.embeddedController != nil {
 		klog.Info("Starting embedded repository controller (CR cache mode)")
 		s.embeddedController.cache = s.cache
+		s.embeddedController.webhookReady = webhookReady
 		go func() {
 			if err := s.embeddedController.Start(ctx); err != nil {
 				klog.Error(err, "Embedded controller failed")
@@ -402,8 +405,10 @@ func (s *PorchServer) Run(ctx context.Context) error {
 			klog.Errorf("%v\n", err)
 			return err
 		}
+		close(webhookReady) // Signal webhook is ready
 	} else {
 		klog.Infoln("Cert storage dir not provided, skipping webhook setup")
+		close(webhookReady) // No webhook, signal immediately
 	}
 	return s.GenericAPIServer.PrepareRun().RunWithContext(ctx)
 }
