@@ -66,7 +66,7 @@ func TestSetupEmbeddedControllerManager(t *testing.T) {
 				},
 			}
 
-			result, err := c.setupEmbeddedControllerManager(nil)
+			result, err := c.setupEmbeddedControllerManager()
 			assert.NoError(t, err)
 			if tt.expectNil {
 				assert.Nil(t, result)
