@@ -41,19 +41,20 @@ FROM alpine:${ALPINE_VERSION}
 RUN addgroup -g 10001 nonroot && \
     adduser -D -G nonroot -u 10001 nonroot
 
-COPY --from=apply-setters          --chown=nonroot:nonroot /usr/local/bin/function /home/nonroot/functions/apply-setters
-COPY --from=apply-setters-v1       --chown=nonroot:nonroot /usr/local/bin/function /home/nonroot/functions/apply-setters-v1
-COPY --from=ensure-name-substring  --chown=nonroot:nonroot /usr/local/bin/function /home/nonroot/functions/ensure-name-substring
-COPY --from=search-replace         --chown=nonroot:nonroot /usr/local/bin/function /home/nonroot/functions/search-replace
-COPY --from=set-annotations        --chown=nonroot:nonroot /usr/local/bin/function /home/nonroot/functions/set-annotations
-COPY --from=set-image              --chown=nonroot:nonroot /usr/local/bin/function /home/nonroot/functions/set-image
-COPY --from=set-labels             --chown=nonroot:nonroot /usr/local/bin/function /home/nonroot/functions/set-labels
-COPY --from=set-namespace          --chown=nonroot:nonroot /usr/local/bin/function /home/nonroot/functions/set-namespace
-COPY --from=set-namespace-v3       --chown=nonroot:nonroot /usr/local/bin/function /home/nonroot/functions/set-namespace-v3
-COPY --from=set-project-id         --chown=nonroot:nonroot /usr/local/bin/function /home/nonroot/functions/set-project-id
-COPY --from=starlark               --chown=nonroot:nonroot /usr/local/bin/star     /home/nonroot/functions/starlark
-COPY --from=upsert-resource        --chown=nonroot:nonroot /usr/local/bin/function /home/nonroot/functions/upsert-resource
-COPY --from=builder                --chown=nonroot:nonroot /server /grpc-health-probe /config.yaml /home/nonroot/
+COPY --from=apply-setters          --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/apply-setters
+COPY --from=apply-setters-v1       --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/apply-setters-v1
+COPY --from=ensure-name-substring  --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/ensure-name-substring
+COPY --from=search-replace         --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/search-replace
+COPY --from=set-annotations        --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/set-annotations
+COPY --from=set-image              --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/set-image
+COPY --from=set-labels             --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/set-labels
+COPY --from=set-namespace          --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/set-namespace
+COPY --from=set-namespace-v3       --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/set-namespace-v3
+COPY --from=set-project-id         --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/set-project-id
+COPY --from=starlark               --chown=root:root --chmod=555 /usr/local/bin/star     /home/nonroot/functions/starlark
+COPY --from=upsert-resource        --chown=root:root --chmod=555 /usr/local/bin/function /home/nonroot/functions/upsert-resource
+COPY --from=builder                --chown=root:root --chmod=555 /server /grpc-health-probe /home/nonroot/
+COPY --from=builder                --chown=root:root --chmod=444 /config.yaml /home/nonroot/
 
 USER nonroot:nonroot
 EXPOSE 9445/tcp

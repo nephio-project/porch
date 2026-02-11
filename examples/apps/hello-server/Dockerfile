@@ -28,6 +28,6 @@ FROM alpine:${ALPINE_VERSION}
 RUN addgroup -g 10001 nonroot && \
     adduser -D -G nonroot -u 10001 nonroot
 
-COPY --from=builder --chown=nonroot:nonroot /hello-server /home/nonroot/hello-server
+COPY --from=builder --chown=root:root --chmod=555 /hello-server /home/nonroot/hello-server
 USER nonroot:nonroot
 ENTRYPOINT ["/home/nonroot/hello-server"]
