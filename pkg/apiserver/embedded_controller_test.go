@@ -24,14 +24,10 @@ import (
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestCreateEmbeddedController(t *testing.T) {
 	scheme := runtime.NewScheme()
-
-	// Create fake client
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 
 	// Create test config
 	config := repocontroller.EmbeddedConfig{
@@ -85,8 +81,6 @@ func TestEmbeddedControllerManager_Start(t *testing.T) {
 func TestCompletedConfig_CreateEmbeddedController(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = configapi.AddToScheme(scheme)
-
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 
 	config := completedConfig{
 		ExtraConfig: &ExtraConfig{
