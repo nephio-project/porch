@@ -64,10 +64,13 @@ jobs:
           cache: true
       - name: Set variables
         id: vars
-        run: echo "image-tag=${IMAGE_TAG:0:8}" >> $GITHUB_OUTPUT
+        run: |
+          echo "image-tag=${IMAGE_TAG:0:8}" >> $GITHUB_OUTPUT
+          echo "alpine-version=$(make --eval='print: ; @echo $(ALPINE_VERSION)' print)" >> $GITHUB_OUTPUT
       - name: Build images in parallel
         run: |
           export IMAGE_TAG=${IMAGE_TAG:0:8}
+          export ALPINE_VERSION=${{ steps.vars.outputs.alpine-version }}
           IMAGE_NAME=${PORCH_FUNCTION_RUNNER_IMAGE} WRAPPER_SERVER_IMAGE_NAME=${PORCH_WRAPPER_SERVER_IMAGE} make -C func/ build-image &
           IMAGE_NAME=${PORCH_SERVER_IMAGE} make -C build/ build-image &
           IMAGE_NAME=${PORCH_CONTROLLERS_IMAGE} make -C controllers/ build-image &
