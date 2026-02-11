@@ -16,19 +16,15 @@ package apiserver
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
 	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	repocontroller "github.com/nephio-project/porch/controllers/repositories/pkg/controllers/repository"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
-	mockcache "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"github.com/stretchr/testify/mock"
 )
 
 func TestCreateEmbeddedController(t *testing.T) {
@@ -85,34 +81,6 @@ func TestEmbeddedControllerManager_Start(t *testing.T) {
 	if err == nil {
 		t.Error("Expected error with nil manager")
 	}
-}
-
-func TestEmbeddedControllerManager_initializeRepositories(t *testing.T) {
-	scheme := runtime.NewScheme()
-	_ = configapi.AddToScheme(scheme)
-	
-	// Create fake client with test repository
-	repo := &configapi.Repository{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-repo", Namespace: "default"},
-	}
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(repo).Build()
-	
-	// Use mockery-generated cache with flexible matchers
-	mockCache := mockcache.NewMockCache(t)
-	mockCache.On("OpenRepository", mock.Anything, mock.Anything).Return(nil, fmt.Errorf("mock error")).Maybe()
-	
-	manager := &EmbeddedControllerManager{
-		coreClient: fakeClient,
-		cache:      mockCache,
-	}
-	
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-	defer cancel()
-	
-	// Should not panic and should handle errors gracefully
-	manager.initializeRepositories(ctx)
-	
-	// Don't assert expectations since the function may not call the mock due to timing
 }
 
 func TestCompletedConfig_CreateEmbeddedController(t *testing.T) {

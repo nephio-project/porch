@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"time"
 
-	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	repocontroller "github.com/nephio-project/porch/controllers/repositories/pkg/controllers/repository"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -35,6 +34,7 @@ type EmbeddedControllerManager struct {
 	cache      cachetypes.Cache
 	mgr        ctrl.Manager
 	config     repocontroller.EmbeddedConfig
+	webhookReady <-chan struct{} 
 }
 
 // createEmbeddedController creates controller manager
@@ -61,7 +61,7 @@ func createEmbeddedController(
 	}, nil
 }
 
-// Start starts the embedded Repository controller
+// Start sets up the controller manager, and the controller for it
 func (e *EmbeddedControllerManager) Start(ctx context.Context) error {
 	repoController := &repocontroller.RepositoryReconciler{
 		Client: e.coreClient,
@@ -75,31 +75,17 @@ func (e *EmbeddedControllerManager) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to setup controller: %w", err)
 	}
 
-	// Delay controller start to allow webhook server initialization
-	// Prevents race where controller updates annotations before webhook is ready
-	time.Sleep(5 * time.Second)
-	klog.Info("Starting embedded controller after webhook initialization delay")
-
-	return e.mgr.Start(ctx)
-}
-
-func (e *EmbeddedControllerManager) initializeRepositories(ctx context.Context) {
-	time.Sleep(2 * time.Second)
-	klog.Info("Initializing existing repositories")
-
-	repos := &configapi.RepositoryList{}
-	if err := e.coreClient.List(ctx, repos); err != nil {
-		klog.Error(err, "Failed to list repositories")
-		return
-	}
-
-	klog.Infof("Found %d repositories to initialize", len(repos.Items))
-	for _, repo := range repos.Items {
-		if _, err := e.cache.OpenRepository(ctx, &repo); err != nil {
-			klog.Error(err, "Failed to initialize repository", "repository", repo.Name)
-		} else {
-			klog.V(1).Infof("Initialized repository %s", repo.Name)
+	// Wait for external webhook to be ready
+	if e.webhookReady != nil {
+		select {
+		case <-e.webhookReady:
+			klog.Info("Webhook ready, starting controller")
+		case <-time.After(30 * time.Second):
+			klog.Warning("Webhook readiness timeout, starting controller anyway")
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 	}
-	klog.Info("Repository initialization completed")
+
+	return e.mgr.Start(ctx)
 }
