@@ -17,7 +17,6 @@ IMAGE_REPO ?= docker.io/nephio
 IMAGE_NAME ?= function-runner
 WRAPPER_SERVER_IMAGE_NAME ?= wrapper-server
 COMPILED_PROTO=evaluator/evaluator_grpc.pb.go evaluator/evaluator.pb.go
-ALPINE_VERSION ?= 3.23.3
 
 PORCHDIR = $(abspath $(CURDIR)/..)
 

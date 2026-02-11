@@ -15,7 +15,6 @@
 IMAGE_TAG ?= latest
 IMAGE_REPO ?= docker.io/nephio
 IMAGE_NAME ?= porch-controllers
-ALPINE_VERSION ?= 3.23.3
 
 .PHONY: build-image docker-build
 build-image docker-build:
