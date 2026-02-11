@@ -54,7 +54,7 @@ type cachedRepository struct {
 	refreshWg              stdSync.WaitGroup
 	cachedPackageRevisions map[repository.PackageRevisionKey]*cachedPackageRevision
 	cachedPackages         map[repository.PackageKey]*cachedPackage
-	refreshRevisionsError error
+	refreshRevisionsError  error
 
 	metadataStore        meta.MetadataStore
 	repoPRChangeNotifier cachetypes.RepoPRChangeNotifier

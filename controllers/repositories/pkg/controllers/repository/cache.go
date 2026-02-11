@@ -64,18 +64,18 @@ func (r *RepositoryReconciler) validateCacheType() error {
 // Matches porch-server behavior for consistency
 func (r *RepositoryReconciler) determineCacheDirectory() string {
 	log := ctrl.Log.WithName(r.loggerName)
-	
+
 	// Priority 1: Use flag value if set
 	if r.cacheDirectory != "" {
 		return r.cacheDirectory
 	}
-	
+
 	// Priority 2: Use GIT_CACHE_DIR env var
 	cacheDir := os.Getenv("GIT_CACHE_DIR")
 	if cacheDir != "" {
 		return cacheDir
 	}
-	
+
 	// Priority 3: User cache directory (fallback)
 	var err error
 	cacheDir, err = os.UserCacheDir()

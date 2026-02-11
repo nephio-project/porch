@@ -43,7 +43,7 @@ func TestEmbeddedControllerManagerStructure(t *testing.T) {
 	assert.Equal(t, 5*time.Minute, mgr.config.FullSyncFrequency)
 }
 
-func TestSetupEmbeddedController(t *testing.T) {
+func TestSetupEmbeddedControllerManager(t *testing.T) {
 	tests := []struct {
 		name      string
 		cacheType cachetypes.CacheType
@@ -66,7 +66,7 @@ func TestSetupEmbeddedController(t *testing.T) {
 				},
 			}
 
-			result, err := c.setupEmbeddedController(nil)
+			result, err := c.setupEmbeddedControllerManager(nil)
 			assert.NoError(t, err)
 			if tt.expectNil {
 				assert.Nil(t, result)
@@ -75,8 +75,8 @@ func TestSetupEmbeddedController(t *testing.T) {
 	}
 }
 
-func TestCreateEmbeddedControllerFunction(t *testing.T) {
-	// Test the standalone createEmbeddedController function
+func TestCreateEmbeddedControllerManagerFunction(t *testing.T) {
+	// Test the standalone createEmbeddedControllerManager function
 	scheme := runtime.NewScheme()
 	config := repocontroller.EmbeddedConfig{
 		MaxConcurrentReconciles: 10,

@@ -68,7 +68,7 @@ type PorchServerOptions struct {
 	MaxConcurrentLists          int
 	MaxRequestBodySize          int
 	RepoOperationRetryAttempts  int
-	RetryableGitErrors         []string // Additional retryable git error patterns
+	RetryableGitErrors          []string // Additional retryable git error patterns
 	RepoMaxConcurrentReconciles int
 	RepoMaxConcurrentSyncs      int
 	RepoHealthCheckFrequency    time.Duration
