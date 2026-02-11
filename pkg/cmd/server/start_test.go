@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	porchv1alpha1 "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/apiserver"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
@@ -30,7 +30,7 @@ import (
 
 func TestAddFlags(t *testing.T) {
 	versions := schema.GroupVersions{
-		porchv1alpha1.SchemeGroupVersion,
+		porchapi.SchemeGroupVersion,
 	}
 	o := PorchServerOptions{
 		RecommendedOptions: genericoptions.NewRecommendedOptions(

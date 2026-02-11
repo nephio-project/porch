@@ -19,12 +19,13 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/klog/v2"
 )
 
@@ -34,7 +35,7 @@ type dbPackage struct {
 	repo      *dbRepository
 	pkgKey    repository.PackageKey
 	meta      metav1.ObjectMeta
-	spec      *v1alpha1.PackageSpec
+	spec      *porchapi.PackageSpec
 	updated   time.Time
 	updatedBy string
 }
@@ -71,7 +72,7 @@ func (p *dbPackage) savePackage(ctx context.Context) (*dbPackage, error) {
 		Namespace: p.KubeObjectNamespace(),
 	}
 
-	p.spec = &v1alpha1.PackageSpec{
+	p.spec = &porchapi.PackageSpec{
 		PackageName:    p.pkgKey.Package,
 		RepositoryName: p.Key().RKey().Name,
 	}
@@ -79,16 +80,16 @@ func (p *dbPackage) savePackage(ctx context.Context) (*dbPackage, error) {
 	return p, pkgWriteToDB(ctx, p)
 }
 
-func (p *dbPackage) GetPackage(ctx context.Context) *v1alpha1.PorchPackage {
+func (p *dbPackage) GetPackage(ctx context.Context) *porchapi.PorchPackage {
 	_, span := tracer.Start(ctx, "dbPackage:GetPackage", trace.WithAttributes())
 	defer span.End()
 
 	key := p.Key()
 
-	return &v1alpha1.PorchPackage{
+	return &porchapi.PorchPackage{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PorchPackage",
-			APIVersion: v1alpha1.SchemeGroupVersion.Identifier(),
+			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            p.KubeObjectName(),
@@ -99,11 +100,11 @@ func (p *dbPackage) GetPackage(ctx context.Context) *v1alpha1.PorchPackage {
 				Time: p.updated,
 			},
 		},
-		Spec: v1alpha1.PackageSpec{
+		Spec: porchapi.PackageSpec{
 			PackageName:    key.Package,
 			RepositoryName: key.RKey().Name,
 		},
-		Status: v1alpha1.PackageStatus{
+		Status: porchapi.PackageStatus{
 			LatestRevision: p.GetLatestRevision(ctx),
 		},
 	}
@@ -134,7 +135,33 @@ func (p *dbPackage) DeletePackageRevision(ctx context.Context, old repository.Pa
 		return pkgDeleteFromDB(ctx, p.Key())
 	}
 
+	if dbPR.IsLatestRevision() {
+		klog.Infof("dbPackage %+v: latest PackageRevision deleted. Sending notification.", p.Key())
+		go p.sendLatestPkgUpdateNotification()
+	}
+
 	return nil
+}
+
+// sendLatestPkgUpdateNotification sends async notification when a new latest package revision is identified
+func (p *dbPackage) sendLatestPkgUpdateNotification() {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	_, span := tracer.Start(ctx, "dbPackage::sendLatestPkgUpdateNotification", trace.WithAttributes())
+	defer span.End()
+
+	latestRevision, err := pkgRevReadLatestPRFromDB(ctx, p.Key())
+	if err != nil {
+		klog.Error(err)
+		return
+	} else if latestRevision == nil {
+		klog.Infof("dbPackage %+v: no new latest PackageRevision found. Notification not sent.", p.Key())
+		return
+	}
+
+	sent := p.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Modified, latestRevision)
+	klog.Infof("dbcache: sent %d for latest PackageRevision %s/%s", sent, latestRevision.KubeObjectNamespace(), latestRevision.KubeObjectName())
+
 }
 
 func (p *dbPackage) GetLatestRevision(ctx context.Context) int {

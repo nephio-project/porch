@@ -29,9 +29,9 @@ commands:
       - sh
       - -c
       - |
-        cp -r ../testdata/nested-packages/parent-pkg/* /tmp/porch-e2e/a00/
+        cp -r test_pkgs/nested-packages/parent-pkg/* /tmp/porch-e2e/a00/
         mkdir -p /tmp/porch-e2e/a00/s
-        cp -r ../testdata/nested-packages/nested-pkg/* /tmp/porch-e2e/a00/s/
+        cp -r test_pkgs/nested-packages/nested-pkg/* /tmp/porch-e2e/a00/s/
   - args:
       - porchctl
       - rpkg

@@ -47,6 +47,7 @@ KIND_CONTEXT_NAME ?= porch-test
 # Include environment file if it exists
 ifneq ("$(wildcard .env)", "")
     include .env
+    export
 endif
 
 # Include module makefiles

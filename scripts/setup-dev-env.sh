@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright 2022-2025 The kpt and Nephio Authors
+# Copyright 2022-2026 The kpt and Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,35 @@
 set -e # Exit on error
 set -u # Must predefine variables
 set -o pipefail # Check errors in piped commands
-self_dir="$(dirname "$(readlink -f "$0")")"
+self_dir="$(dirname "$(readlink -f "$0")")" 
+
+# Start timing
+start_time=$(date +%s)
 
 porch_cluster_name=${PORCH_TEST_CLUSTER:-porch-test}
+git_repo_name=${GIT_REPO_NAME:-$porch_cluster_name}
+install_gitea=true
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --no-gitea)
+      install_gitea=false
+      shift
+      ;;
+    --help|-h)
+      echo "Usage: $0 [--no-gitea] [--help]"
+      echo "  --no-gitea    Skip gitea installation"
+      echo "  --help        Show this help message"
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1"
+      echo "Use --help for usage information"
+      exit 1
+      ;;
+  esac
+done
 
 git_root="$(readlink -f "${self_dir}/..")"
 cd "${git_root}"
@@ -72,10 +98,15 @@ fi
 
 ############################################
 # Install gitea and setup test repos
-cd "${git_root}"
-# Extract first IP from MetalLB address range
-gitea_ip=$(grep -A1 "addresses:" "${git_root}/deployments/local/metallb-conf.yaml" | grep -o "[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+" | head -1)
-./scripts/install-dev-gitea-setup.sh $porch_cluster_name $gitea_ip 
+if [ "$install_gitea" = true ]; then
+  h1 "Install gitea and setup test repos"
+  cd "${git_root}"
+  # Extract first IP from MetalLB address range
+  gitea_ip=$(grep -A1 "addresses:" "${git_root}/deployments/local/metallb-conf.yaml" | grep -o "[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+" | head -1)
+  ./scripts/install-dev-gitea-setup.sh "$git_repo_name" $gitea_ip
+else
+  echo "Skipping gitea installation (--no-gitea flag provided)"
+fi 
 
 ############################################
 h1 Generate certs and keys
@@ -89,4 +120,5 @@ make porchctl
 
 ############################################
 echo
-echo Done.
+echo "Done."
+echo "Total setup time: $(($(date +%s) - start_time))s"

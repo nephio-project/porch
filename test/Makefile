@@ -15,7 +15,6 @@
 IMAGE_TAG  ?= latest
 IMAGE_REPO ?= docker.io/nephio
 IMAGE_NAME ?= test-git-server
-PORCH_TEST_SLEEP_FN_IMAGE ?= docker.io/nephio/sleep-fn:latest
 
 .PHONY: build-image docker-build
 build-image docker-build:
@@ -24,7 +23,3 @@ build-image docker-build:
 .PHONY: push-image docker-push
 push-image docker-push:
 	docker buildx build --push --tag $(IMAGE_REPO)/$(IMAGE_NAME):$(IMAGE_TAG) -f Dockerfile ..
-
-.PHONY: build-sleep-image
-build-sleep-image:
-	docker buildx build --no-cache --load --tag $(PORCH_TEST_SLEEP_FN_IMAGE) -f sleep-mutator/Dockerfile .

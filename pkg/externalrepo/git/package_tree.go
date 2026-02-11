@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/filemode"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -144,7 +145,7 @@ type DiscoverPackagesOptions struct {
 
 // discoverPackages is the recursive function we use to traverse the tree and find packages.
 // tree is the git-tree we are search, treePath is the repo-relative-path to tree.
-func (t *packageList) discoverPackages(repoKey repository.RepositoryKey, tree *object.Tree, treePath string, recurse bool) error {
+func (t *packageList) discoverPackages(repoKey repository.RepositoryKey, tree *object.Tree, treePath string, recurse bool, repo *git.Repository) error {
 	for _, e := range tree.Entries {
 		if e.Name == "Kptfile" {
 			p := path.Join(treePath, e.Name)
@@ -160,6 +161,8 @@ func (t *packageList) discoverPackages(repoKey repository.RepositoryKey, tree *o
 				treeHash: tree.Hash,
 				parent:   t,
 			}
+			recurse = false
+			break
 		}
 	}
 
@@ -169,13 +172,12 @@ func (t *packageList) discoverPackages(repoKey repository.RepositoryKey, tree *o
 				continue
 			}
 
-			// This is safe because this function is only called holding the mutex in gitRepository
-			dirTree, err := t.parent.repo.TreeObject(e.Hash)
+			dirTree, err := repo.TreeObject(e.Hash)
 			if err != nil {
 				return fmt.Errorf("error getting git tree %v: %w", e.Hash, err)
 			}
 
-			if err := t.discoverPackages(repoKey, dirTree, path.Join(treePath, e.Name), recurse); err != nil {
+			if err := t.discoverPackages(repoKey, dirTree, path.Join(treePath, e.Name), recurse, repo); err != nil {
 				return err
 			}
 		}

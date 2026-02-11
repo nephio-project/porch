@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/engine"
 	fakeextrepo "github.com/nephio-project/porch/pkg/externalrepo/fake"
@@ -115,7 +115,7 @@ func TestListPackageRevisionsNamespaceFilter(t *testing.T) {
 		},
 	}
 
-	var got []*api.PackageRevision
+	var got []*porchapi.PackageRevision
 	for _, rev := range revisions {
 		apiPkgRev, _ := rev.GetPackageRevision(ctx)
 		if apiPkgRev == nil || apiPkgRev.Namespace != ns {
@@ -799,6 +799,100 @@ func TestGetPackage(t *testing.T) {
 
 			mockCoreClient.AssertExpectations(t)
 			mockCaDEngine.AssertExpectations(t)
+		})
+	}
+}
+
+func TestGetLifecycleTransition(t *testing.T) {
+	testCases := map[string]struct {
+		oldPkgRev *porchapi.PackageRevision
+		newPkgRev *porchapi.PackageRevision
+		expected  string
+	}{
+		"draft to proposed": {
+			oldPkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Lifecycle: porchapi.PackageRevisionLifecycleDraft,
+				},
+			},
+			newPkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Lifecycle: porchapi.PackageRevisionLifecycleProposed,
+				},
+			},
+			expected: "Propose",
+		},
+		"published to deletion proposed": {
+			oldPkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Lifecycle: porchapi.PackageRevisionLifecyclePublished,
+				},
+			},
+			newPkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Lifecycle: porchapi.PackageRevisionLifecycleDeletionProposed,
+				},
+			},
+			expected: "Propose-delete",
+		},
+		"proposed to draft": {
+			oldPkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Lifecycle: porchapi.PackageRevisionLifecycleProposed,
+				},
+			},
+			newPkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Lifecycle: porchapi.PackageRevisionLifecycleDraft,
+				},
+			},
+			expected: "Reject",
+		},
+		"proposed to published": {
+			oldPkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Lifecycle: porchapi.PackageRevisionLifecycleProposed,
+				},
+			},
+			newPkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Lifecycle: porchapi.PackageRevisionLifecyclePublished,
+				},
+			},
+			expected: "Approve",
+		},
+		"deletion proposed to published": {
+			oldPkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Lifecycle: porchapi.PackageRevisionLifecycleDeletionProposed,
+				},
+			},
+			newPkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Lifecycle: porchapi.PackageRevisionLifecyclePublished,
+				},
+			},
+			expected: "Approve/Reject",
+		},
+		"no lifecycle change": {
+			oldPkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Lifecycle: porchapi.PackageRevisionLifecycleDraft,
+				},
+			},
+			newPkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Lifecycle: porchapi.PackageRevisionLifecycleDraft,
+				},
+			},
+			expected: "Update",
+		},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			result := getLifecycleTransition(tc.oldPkgRev, tc.newPkgRev)
+			assert.Equal(t, tc.expected, result)
 		})
 	}
 }

@@ -20,12 +20,14 @@ import (
 	"strings"
 	"testing"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	kptfn "github.com/kptdev/krm-functions-sdk/go/fn"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	fakeextrepo "github.com/nephio-project/porch/pkg/externalrepo/fake"
 	"github.com/stretchr/testify/require"
 
-	"github.com/nephio-project/porch/internal/kpt/builtins"
+	"github.com/kptdev/kpt/pkg/lib/builtins"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"
@@ -34,7 +36,7 @@ import (
 
 type mockPackageRevisionDraft struct{}
 
-func (m *mockPackageRevisionDraft) UpdateResources(ctx context.Context, resources *api.PackageRevisionResources, task *api.Task) error {
+func (m *mockPackageRevisionDraft) UpdateResources(ctx context.Context, resources *porchapi.PackageRevisionResources, task *porchapi.Task) error {
 	return nil
 }
 
@@ -45,7 +47,7 @@ func (m *mockPackageRevisionDraft) Key() repository.PackageRevisionKey {
 	}
 }
 
-func (m *mockPackageRevisionDraft) UpdateLifecycle(ctx context.Context, lifecycle api.PackageRevisionLifecycle) error {
+func (m *mockPackageRevisionDraft) UpdateLifecycle(ctx context.Context, lifecycle porchapi.PackageRevisionLifecycle) error {
 	return nil
 }
 
@@ -59,24 +61,23 @@ func (m *mockPackageRevisionDraft) GetMeta() metav1.ObjectMeta {
 func TestApplyTasks(t *testing.T) {
 	tests := []struct {
 		name          string
-		tasks         []api.Task
+		tasks         []porchapi.Task
 		expectedError string
 	}{
 		{
 			name: "Valid Clone task",
-			tasks: []api.Task{
+			tasks: []porchapi.Task{
 				{
-					Type: api.TaskTypeClone,
-					Clone: &api.PackageCloneTaskSpec{
-						Upstream: api.UpstreamPackage{
-							Type: api.RepositoryTypeGit,
-							Git: &api.GitPackage{
+					Type: porchapi.TaskTypeClone,
+					Clone: &porchapi.PackageCloneTaskSpec{
+						Upstream: porchapi.UpstreamPackage{
+							Type: porchapi.RepositoryTypeGit,
+							Git: &porchapi.GitPackage{
 								Repo:      "https://github.com/example/repo.git",
 								Ref:       "main",
 								Directory: "/path/to/package",
 							},
 						},
-						Strategy: "copy-merge",
 					},
 				},
 			},
@@ -101,8 +102,8 @@ func TestApplyTasks(t *testing.T) {
 
 			draft := &mockPackageRevisionDraft{}
 			repositoryObj := &configapi.Repository{}
-			obj := &api.PackageRevision{
-				Spec: api.PackageRevisionSpec{
+			obj := &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
 					Tasks: tt.tasks,
 				},
 			}
@@ -125,23 +126,23 @@ func TestApplyTasks(t *testing.T) {
 func TestMapTaskToMutationUpgradeTask(t *testing.T) {
 	th := &genericTaskHandler{}
 
-	task := &api.Task{
-		Type: api.TaskTypeUpgrade,
-		Upgrade: &api.PackageUpgradeTaskSpec{
-			OldUpstream: api.PackageRevisionRef{
+	task := &porchapi.Task{
+		Type: porchapi.TaskTypeUpgrade,
+		Upgrade: &porchapi.PackageUpgradeTaskSpec{
+			OldUpstream: porchapi.PackageRevisionRef{
 				Name: "old-upstream",
 			},
-			NewUpstream: api.PackageRevisionRef{
+			NewUpstream: porchapi.PackageRevisionRef{
 				Name: "new-upstream",
 			},
-			LocalPackageRevisionRef: api.PackageRevisionRef{
+			LocalPackageRevisionRef: porchapi.PackageRevisionRef{
 				Name: "local",
 			},
 		},
 	}
 
-	obj := &api.PackageRevision{
-		Spec: api.PackageRevisionSpec{
+	obj := &porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
 			PackageName: "test-package",
 		},
 	}
@@ -168,33 +169,38 @@ func TestDoPrMutations(t *testing.T) {
 	}
 
 	repoPr := &fakeextrepo.FakePackageRevision{
-		Resources: &api.PackageRevisionResources{
-			Spec: api.PackageRevisionResourcesSpec{
+		Resources: &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
 				Resources: map[string]string{},
 			},
 		},
 	}
+	repoPr.Resources.Spec.Resources[kptfilev1.KptFileName] = `apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: test-package
+`
 	draft := repoPr
 
 	t.Run("No-op when not draft", func(t *testing.T) {
-		oldObj := &api.PackageRevision{
-			Spec: api.PackageRevisionSpec{
-				Lifecycle: api.PackageRevisionLifecyclePublished,
+		oldObj := &porchapi.PackageRevision{
+			Spec: porchapi.PackageRevisionSpec{
+				Lifecycle: porchapi.PackageRevisionLifecyclePublished,
 			},
 		}
-		err := th.DoPRMutations(context.TODO(), repoPr, oldObj, &api.PackageRevision{}, draft)
+		err := th.DoPRMutations(context.TODO(), repoPr, oldObj, &porchapi.PackageRevision{}, draft)
 		require.NoError(t, err)
 		assert.Empty(t, draft.Ops)
 	})
 
 	// Not exactly helpful, but gets coverage
 	t.Run("Success", func(t *testing.T) {
-		oldObj := &api.PackageRevision{
-			Spec: api.PackageRevisionSpec{
-				Lifecycle: api.PackageRevisionLifecycleDraft,
+		oldObj := &porchapi.PackageRevision{
+			Spec: porchapi.PackageRevisionSpec{
+				Lifecycle: porchapi.PackageRevisionLifecycleDraft,
 			},
 		}
-		err := th.DoPRMutations(context.TODO(), repoPr, oldObj, &api.PackageRevision{}, draft)
+		err := th.DoPRMutations(context.TODO(), repoPr, oldObj, &porchapi.PackageRevision{}, draft)
 		require.NoError(t, err)
 		require.NotEmpty(t, draft.Ops)
 		assert.Equal(t, "UpdateResources", draft.Ops[len(draft.Ops)-1])
@@ -216,8 +222,8 @@ func TestDoPrResourceMutations(t *testing.T) {
 	}
 
 	repoPr := &fakeextrepo.FakePackageRevision{
-		Resources: &api.PackageRevisionResources{
-			Spec: api.PackageRevisionResourcesSpec{
+		Resources: &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
 				Resources: map[string]string{},
 			},
 		},
@@ -225,8 +231,8 @@ func TestDoPrResourceMutations(t *testing.T) {
 	draft := repoPr
 
 	t.Run("Empty resources", func(t *testing.T) {
-		oldRes := &api.PackageRevisionResources{
-			Spec: api.PackageRevisionResourcesSpec{
+		oldRes := &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
 				Resources: map[string]string{},
 			},
 		}
@@ -240,8 +246,8 @@ func TestDoPrResourceMutations(t *testing.T) {
 	})
 
 	t.Run("Basic resources", func(t *testing.T) {
-		oldRes := &api.PackageRevisionResources{
-			Spec: api.PackageRevisionResourcesSpec{
+		oldRes := &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
 				Resources: map[string]string{
 					"foo.txt": "bar",
 				},
@@ -281,4 +287,128 @@ func TestRenderError(t *testing.T) {
 	if !strings.Contains(got, "Error rendering package in kpt function pipeline") {
 		t.Errorf("expected wrapper message to be included, got: %q", got)
 	}
+}
+
+func TestKptfilePreservesComments(t *testing.T) {
+	// Kptfile with labels/annotations present
+	originalKptfile := `
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata: # kpt-merge: /my-pkg
+  name: my-pkg # this is the package name
+  labels:
+    foo: bar # upstream label
+    toremove: will-be-removed # label to be removed
+  annotations:
+    foo: bar # upstream annotation
+    toremove: will-be-removed # annotation to be removed
+# Top-level comment
+info:
+  readinessGates:
+    # This gate is important
+    - conditionType: Ready # readiness gate comment
+`
+
+	resources := map[string]string{
+		"Kptfile": originalKptfile,
+	}
+
+	obj := &porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
+			PackageMetadata: &porchapi.PackageMetadata{
+				Labels: map[string]string{
+					"new-label": "new-label-value",
+					"foo":       "bar-updated",
+				},
+				Annotations: map[string]string{
+					"new-annotation": "new-annotation-value",
+					"foo":            "bar-updated",
+				},
+			},
+			ReadinessGates: []porchapi.ReadinessGate{
+				{ConditionType: "Ready"},
+				{ConditionType: "Healthy"},
+			},
+		},
+	}
+
+	kptf, err := kptfn.NewKptfileFromPackage(resources)
+	require.NoError(t, err)
+
+	kptf.SetLabels(obj.Spec.PackageMetadata.Labels)
+	labelsAfter := kptf.GetLabels()
+	assert.Equal(t, "bar-updated", labelsAfter["foo"])
+	assert.Equal(t, "new-label-value", labelsAfter["new-label"])
+	assert.NotContains(t, labelsAfter, "toremove")
+
+	kptf.SetAnnotations(obj.Spec.PackageMetadata.Annotations)
+	annotationsAfter := kptf.GetAnnotations()
+	assert.Equal(t, "bar-updated", annotationsAfter["foo"])
+	assert.Equal(t, "new-annotation-value", annotationsAfter["new-annotation"])
+	assert.NotContains(t, annotationsAfter, "toremove")
+
+	var gates kptfn.SliceSubObjects
+	for _, rg := range obj.Spec.ReadinessGates {
+		ko, err := kptfn.NewFromTypedObject(rg)
+		require.NoError(t, err)
+		gates = append(gates, &ko.SubObject)
+	}
+	require.NoError(t, kptf.SetReadinessGates(gates))
+
+	require.NoError(t, kptf.WriteToPackage(resources))
+	got := resources["Kptfile"]
+
+	assert.Contains(t, got, "# this is the package name")
+	assert.Contains(t, got, "# upstream label")
+	assert.Contains(t, got, "# upstream annotation")
+	assert.Contains(t, got, "# Top-level comment")
+	assert.Contains(t, got, "# This gate is important")
+	assert.Contains(t, got, "# readiness gate comment")
+
+	// Kptfile with labels/annotations initially empty
+	emptyKptfile := `
+apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: my-pkg
+# Top-level comment
+info:
+  readinessGates:
+    - conditionType: Ready
+`
+
+	resources2 := map[string]string{
+		"Kptfile": emptyKptfile,
+	}
+
+	obj2 := &porchapi.PackageRevision{
+		Spec: porchapi.PackageRevisionSpec{
+			PackageMetadata: &porchapi.PackageMetadata{
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+				Annotations: map[string]string{
+					"foo": "bar",
+				},
+			},
+		},
+	}
+	kptf2, err := kptfn.NewKptfileFromPackage(resources2)
+	require.NoError(t, err)
+
+	labels2 := kptf2.GetLabels()
+	for k, v := range obj2.Spec.PackageMetadata.Labels {
+		labels2[k] = v
+	}
+	kptf2.SetLabels(labels2)
+
+	annotations2 := kptf2.GetAnnotations()
+	for k, v := range obj2.Spec.PackageMetadata.Annotations {
+		annotations2[k] = v
+	}
+	kptf2.SetAnnotations(annotations2)
+	require.NoError(t, kptf2.WriteToPackage(resources2))
+	got2 := resources2["Kptfile"]
+	assert.Contains(t, got2, "foo: bar")
+	assert.Contains(t, got2, "# Top-level comment")
 }

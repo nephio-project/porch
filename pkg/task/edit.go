@@ -18,13 +18,13 @@ import (
 	"context"
 	"fmt"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 )
 
 type editPackageMutation struct {
-	task              *api.Task
+	task              *porchapi.Task
 	namespace         string
 	repositoryName    string
 	packageName       string
@@ -34,7 +34,7 @@ type editPackageMutation struct {
 
 var _ mutation = &editPackageMutation{}
 
-func (m *editPackageMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
+func (m *editPackageMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *porchapi.TaskResult, error) {
 	ctx, span := tracer.Start(ctx, "editPackageMutation::apply", trace.WithAttributes())
 	defer span.End()
 
@@ -55,7 +55,7 @@ func (m *editPackageMutation) apply(ctx context.Context, resources repository.Pa
 	}
 
 	// We only allow edit to create new revisions from published packages.
-	if !api.LifecycleIsPublished(revision.Lifecycle(ctx)) {
+	if !porchapi.LifecycleIsPublished(revision.Lifecycle(ctx)) {
 		return repository.PackageResources{}, nil, fmt.Errorf("source revision must be published")
 	}
 
@@ -66,5 +66,5 @@ func (m *editPackageMutation) apply(ctx context.Context, resources repository.Pa
 
 	return repository.PackageResources{
 		Contents: sourceResources.Spec.Resources,
-	}, &api.TaskResult{Task: m.task}, nil
+	}, &porchapi.TaskResult{Task: m.task}, nil
 }

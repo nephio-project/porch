@@ -25,11 +25,11 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/google"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/oci"
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
-	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel/trace"
@@ -272,9 +272,9 @@ type ociPackageRevision struct {
 	metadata        metav1.ObjectMeta
 
 	parent *ociRepository
-	tasks  []v1alpha1.Task
+	tasks  []porchapi.Task
 
-	lifecycle v1alpha1.PackageRevisionLifecycle
+	lifecycle porchapi.PackageRevisionLifecycle
 }
 
 var _ repository.PackageRevision = &ociPackageRevision{}
@@ -291,7 +291,7 @@ func (c *ociPackageRevision) UID() types.UID {
 	return util.GenerateUid("packagerevision:", c.KubeObjectNamespace(), c.KubeObjectName())
 }
 
-func (p *ociPackageRevision) GetResources(ctx context.Context) (*v1alpha1.PackageRevisionResources, error) {
+func (p *ociPackageRevision) GetResources(ctx context.Context) (*porchapi.PackageRevisionResources, error) {
 	resources, err := LoadResources(ctx, p.parent.storage, &p.digestName)
 	if err != nil {
 		return nil, err
@@ -299,10 +299,10 @@ func (p *ociPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 
 	key := p.Key()
 
-	return &v1alpha1.PackageRevisionResources{
+	return &porchapi.PackageRevisionResources{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevisionResources",
-			APIVersion: v1alpha1.SchemeGroupVersion.Identifier(),
+			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: p.KubeObjectNamespace(),
@@ -313,7 +313,7 @@ func (p *ociPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 			ResourceVersion: p.resourceVersion,
 			UID:             p.uid,
 		},
-		Spec: v1alpha1.PackageRevisionResourcesSpec{
+		Spec: porchapi.PackageRevisionResourcesSpec{
 			PackageName:    key.PkgKey.Package,
 			WorkspaceName:  key.WorkspaceName,
 			Revision:       key.Revision,
@@ -332,7 +332,7 @@ func (p *ociPackageRevision) Key() repository.PackageRevisionKey {
 	return p.prKey
 }
 
-func (p *ociPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.PackageRevision, error) {
+func (p *ociPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "ociPackageRevision::GetPackageRevision", trace.WithAttributes())
 	defer span.End()
 
@@ -343,10 +343,10 @@ func (p *ociPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 		return nil, err
 	}
 
-	return &v1alpha1.PackageRevision{
+	return &porchapi.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevision",
-			APIVersion: v1alpha1.SchemeGroupVersion.Identifier(),
+			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: p.KubeObjectName(),
@@ -357,7 +357,7 @@ func (p *ociPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 			ResourceVersion: p.resourceVersion,
 			UID:             p.uid,
 		},
-		Spec: v1alpha1.PackageRevisionSpec{
+		Spec: porchapi.PackageRevisionSpec{
 			PackageName:    key.PkgKey.Package,
 			RepositoryName: key.RKey().Name,
 			Revision:       key.Revision,
@@ -366,40 +366,47 @@ func (p *ociPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 			Lifecycle:      p.Lifecycle(ctx),
 			Tasks:          p.tasks,
 			ReadinessGates: repository.ToAPIReadinessGates(kf),
+			PackageMetadata: &porchapi.PackageMetadata{
+				Labels:      kf.Labels,
+				Annotations: kf.Annotations,
+			},
 		},
-		Status: v1alpha1.PackageRevisionStatus{
+		Status: porchapi.PackageRevisionStatus{
 			// TODO:        UpstreamLock,
+			// TODO:        SelfLock,
 			Deployment: p.parent.deployment,
 			Conditions: repository.ToAPIConditions(kf),
 		},
 	}, nil
 }
 
-func (p *ociPackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, error) {
+func (p *ociPackageRevision) GetKptfile(ctx context.Context) (kptfilev1.KptFile, error) {
 	resources, err := LoadResources(ctx, p.parent.storage, &p.digestName)
 	if err != nil {
-		return kptfile.KptFile{}, fmt.Errorf("error loading package resources for %v: %w", p.digestName, err)
+		return kptfilev1.KptFile{}, fmt.Errorf("error loading package resources for %v: %w", p.digestName, err)
 	}
-	kfString, found := resources.Contents[kptfile.KptFileName]
+	kfString, found := resources.Contents[kptfilev1.KptFileName]
 	if !found {
-		return kptfile.KptFile{}, fmt.Errorf("packagerevision does not have a Kptfile")
+		return kptfilev1.KptFile{}, fmt.Errorf("packagerevision does not have a Kptfile")
 	}
 	kf, err := pkg.DecodeKptfile(strings.NewReader(kfString))
 	if err != nil {
-		return kptfile.KptFile{}, fmt.Errorf("error decoding Kptfile: %w", err)
+		return kptfilev1.KptFile{}, fmt.Errorf("error decoding Kptfile: %w", err)
 	}
 	return *kf, nil
 }
 
-func (p *ociPackageRevision) GetUpstreamLock(context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error) {
-	return kptfile.Upstream{}, kptfile.UpstreamLock{}, fmt.Errorf("upstreamLock is not supported for OCI packages (%s)", p.KubeObjectName())
+func (p *ociPackageRevision) GetUpstreamLock(context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
+	return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, fmt.Errorf("upstreamLock is not supported for OCI packages (%s)", p.KubeObjectName())
 }
 
-func (p *ociPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, error) {
-	return kptfile.Upstream{}, kptfile.UpstreamLock{}, fmt.Errorf("lock is not supported for oci packages (%s)", p.KubeObjectName())
+func (p *ociPackageRevision) GetLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
+	_, span := tracer.Start(ctx, "ociPackageRevision::GetLock", trace.WithAttributes())
+	defer span.End()
+	return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, fmt.Errorf("lock is not supported for oci packages (%s)", p.KubeObjectName())
 }
 
-func (p *ociPackageRevision) Lifecycle(ctx context.Context) v1alpha1.PackageRevisionLifecycle {
+func (p *ociPackageRevision) Lifecycle(ctx context.Context) porchapi.PackageRevisionLifecycle {
 	return p.lifecycle
 }
 
@@ -407,27 +414,27 @@ func (p *ociPackageRevision) Lifecycle(ctx context.Context) v1alpha1.PackageRevi
 //
 //	This function is currently only partially implemented; it still needs to store whether the package has been
 //	proposed for deletion somewhere in OCI, probably as another OCI image with a "deletionProposed" tag.
-func (p *ociPackageRevision) UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error {
+func (p *ociPackageRevision) UpdateLifecycle(ctx context.Context, new porchapi.PackageRevisionLifecycle) error {
 	ctx, span := tracer.Start(ctx, "ociPackageRevision::UpdateLifecycle", trace.WithAttributes())
 	defer span.End()
 
 	old := p.Lifecycle(ctx)
 
-	if old == v1alpha1.PackageRevisionLifecyclePublished {
-		if new != v1alpha1.PackageRevisionLifecycleDeletionProposed {
+	if old == porchapi.PackageRevisionLifecyclePublished {
+		if new != porchapi.PackageRevisionLifecycleDeletionProposed {
 			return fmt.Errorf("invalid new lifecycle value: %q", new)
 		}
 
 		// TODO: Create a "deletionProposed" OCI image tag.
-		p.lifecycle = v1alpha1.PackageRevisionLifecycleDeletionProposed
+		p.lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
 	}
-	if old == v1alpha1.PackageRevisionLifecycleDeletionProposed {
-		if new != v1alpha1.PackageRevisionLifecyclePublished {
+	if old == porchapi.PackageRevisionLifecycleDeletionProposed {
+		if new != porchapi.PackageRevisionLifecyclePublished {
 			return fmt.Errorf("invalid new lifecycle value: %q", new)
 		}
 
 		// TODO: Delete the "deletionProposed" OCI image tag.
-		p.lifecycle = v1alpha1.PackageRevisionLifecyclePublished
+		p.lifecycle = porchapi.PackageRevisionLifecyclePublished
 	}
 	return nil
 }

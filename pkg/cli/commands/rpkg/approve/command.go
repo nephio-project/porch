@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/errors"
+	"github.com/kptdev/kpt/pkg/lib/errors"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
 	"github.com/spf13/cobra"
@@ -89,14 +89,14 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 			Name:      name,
 		}
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			var pr v1alpha1.PackageRevision
+			var pr porchapi.PackageRevision
 			if err := r.client.Get(r.ctx, key, &pr); err != nil {
 				return err
 			}
-			if !v1alpha1.PackageRevisionIsReady(pr.Spec.ReadinessGates, pr.Status.Conditions) {
+			if !porchapi.PackageRevisionIsReady(pr.Spec.ReadinessGates, pr.Status.Conditions) {
 				return fmt.Errorf("readiness conditions not met")
 			}
-			return porch.UpdatePackageRevisionApproval(r.ctx, r.client, &pr, v1alpha1.PackageRevisionLifecyclePublished)
+			return porch.UpdatePackageRevisionApproval(r.ctx, r.client, &pr, porchapi.PackageRevisionLifecyclePublished)
 		})
 		if err != nil {
 			messages = append(messages, err.Error())

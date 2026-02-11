@@ -20,7 +20,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/klog/v2"
@@ -45,6 +46,7 @@ var _ rest.Getter = &packageRevisionResources{}
 var _ rest.Scoper = &packageRevisionResources{}
 var _ rest.Updater = &packageRevisionResources{}
 var _ rest.SingularNameProvider = &packageRevisionResources{}
+var _ rest.Watcher = &packageRevisionResources{}
 
 // GetSingularName implements the SingularNameProvider interface
 func (r *packageRevisionResources) GetSingularName() string {
@@ -52,13 +54,13 @@ func (r *packageRevisionResources) GetSingularName() string {
 }
 
 func (r *packageRevisionResources) New() runtime.Object {
-	return &api.PackageRevisionResources{}
+	return &porchapi.PackageRevisionResources{}
 }
 
 func (r *packageRevisionResources) Destroy() {}
 
 func (r *packageRevisionResources) NewList() runtime.Object {
-	return &api.PackageRevisionResourcesList{}
+	return &porchapi.PackageRevisionResourcesList{}
 }
 
 func (r *packageRevisionResources) NamespaceScoped() bool {
@@ -70,10 +72,10 @@ func (r *packageRevisionResources) List(ctx context.Context, options *metaintern
 	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::List", trace.WithAttributes())
 	defer span.End()
 
-	result := &api.PackageRevisionResourcesList{
+	result := &porchapi.PackageRevisionResourcesList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevisionResourcesList",
-			APIVersion: api.SchemeGroupVersion.Identifier(),
+			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
 		},
 	}
 
@@ -93,6 +95,8 @@ func (r *packageRevisionResources) List(ctx context.Context, options *metaintern
 		return nil, err
 	}
 
+	klog.V(3).Infof("List packagerevisionresources completed: found %d items", len(result.Items))
+
 	return result, nil
 }
 
@@ -110,6 +114,9 @@ func (r *packageRevisionResources) Get(ctx context.Context, name string, options
 	if err != nil {
 		return nil, err
 	}
+
+	klog.V(3).Infof("Get packagerevisionresources completed: %s", name)
+
 	return apiPkgResources, nil
 }
 
@@ -131,7 +138,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 	if !locked {
 		return nil, false,
 			apierrors.NewConflict(
-				api.Resource("packagerevisionresources"),
+				porchapi.Resource("packagerevisionresources"),
 				name,
 				fmt.Errorf(GenericConflictErrorMsg, "package revision resources", pkgMutexKey))
 	}
@@ -153,7 +160,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 		klog.Infof("update failed to construct UpdatedObject: %v", err)
 		return nil, false, err
 	}
-	newObj, ok := newRuntimeObj.(*api.PackageRevisionResources)
+	newObj, ok := newRuntimeObj.(*porchapi.PackageRevisionResources)
 	if !ok {
 		return nil, false, apierrors.NewBadRequest(fmt.Sprintf("expected PackageRevisionResources object, got %T", newRuntimeObj))
 	}
@@ -175,7 +182,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 	repositoryID := types.NamespacedName{Namespace: prKey.RKey().Namespace, Name: prKey.RKey().Name}
 	if err := r.coreClient.Get(ctx, repositoryID, &repositoryObj); err != nil {
 		if apierrors.IsNotFound(err) {
-			return nil, false, apierrors.NewNotFound(schema.GroupResource(api.PackageRevisionResourcesGVR.GroupResource()), repositoryID.Name)
+			return nil, false, apierrors.NewNotFound(schema.GroupResource(porchapi.PackageRevisionResourcesGVR.GroupResource()), repositoryID.Name)
 		}
 		return nil, false, apierrors.NewInternalError(fmt.Errorf("error getting repository %v: %w", repositoryID, err))
 	}
@@ -193,5 +200,29 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 		created.Status.RenderStatus = *renderStatus
 	}
 
+	klog.Infof("Update operation completed for packagerevisionresources: %s", name)
+
 	return created, false, nil
+}
+
+// Watch supports watching for PackageRevisionResources changes.
+func (r *packageRevisionResources) Watch(ctx context.Context, options *metainternalversion.ListOptions) (watch.Interface, error) {
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::Watch", trace.WithAttributes())
+	defer span.End()
+
+	filter, err := parsePackageRevisionResourcesFieldSelector(options)
+	if err != nil {
+		return nil, err
+	}
+
+	if namespace, namespaced := genericapirequest.NamespaceFrom(ctx); namespaced {
+		if filter.Key.RKey().Namespace != "" && namespace != filter.Key.RKey().Namespace {
+			return nil, fmt.Errorf("conflicting namespaces specified: %q and %q", namespace, filter.Key.RKey().Namespace)
+		}
+		filter.Key.PkgKey.RepoKey.Namespace = namespace
+	}
+
+	return createGenericWatch(ctx, r, *filter, func(ctx context.Context, pr repository.PackageRevision) (runtime.Object, error) {
+		return pr.GetResources(ctx)
+	})
 }

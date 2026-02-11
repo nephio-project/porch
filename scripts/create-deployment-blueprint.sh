@@ -19,6 +19,9 @@ set -u # Must predefine variables
 set -o pipefail # Check errors in piped commands
 
 PORCH_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
+STARLARK_IMG="ghcr.io/kptdev/krm-functions-catalog/starlark:v0.5"
+SEARCH_REPLACE_IMG="ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.2"
+SET_IMAGE_IMG="ghcr.io/kptdev/krm-functions-catalog/set-image:v0.1.1"
 
 function error() {
   cat <<EOF
@@ -33,6 +36,8 @@ Supported Flags:
   --enabled-reconcilers RECONCILDERS  ... comma-separated list of reconcilers that should be enabled in
                                           porch controller
   --ghcr-image-prefix PREFIX          ... ghcr image url prefix for running porch behind a proxy
+  --fn-runner-warm-up-pod-cache BOOL  ... disable warm-up-pod-cache in function runner
+  --porch-cache-type TYPE             ... porch cache type (CR or DB)
 EOF
   exit 1
 }
@@ -45,6 +50,8 @@ FUNCTION_IMAGE=""
 WRAPPER_SERVER_IMAGE=""
 ENABLED_RECONCILERS=""
 GHCR_IMAGE_PREFIX=""
+FN_RUNNER_WARM_UP_POD_CACHE="true"
+PORCH_CACHE_TYPE="CR"
 
 while [[ $# -gt 0 ]]; do
   key="${1}"
@@ -79,9 +86,17 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     --ghcr-image-prefix)
-          GHCR_IMAGE_PREFIX="${2}"
-          shift 2
-          ;;
+      GHCR_IMAGE_PREFIX="${2}"
+      shift 2
+      ;;
+    --fn-runner-warm-up-pod-cache)
+      FN_RUNNER_WARM_UP_POD_CACHE="${2}"
+      shift 2
+      ;;
+    --porch-cache-type)
+      PORCH_CACHE_TYPE="${2}"
+      shift 2
+      ;;
     *)
       error "Invalid argument: ${key}"
     ;;
@@ -96,19 +111,19 @@ function validate() {
   [ -n "${FUNCTION_IMAGE}"    ] || error "--function-image is required"
 }
 
-function customize-image {
+function customize_image {
   local OLD="${1}"
   local NEW="${2}"
   local TAG="${NEW##*:}"
   local IMG="${NEW%:*}"
 
-  kpt fn eval "${DESTINATION}" --image set-image:v0.1.1 -- \
+  kpt fn eval "${DESTINATION}" --image ${SET_IMAGE_IMG} -- \
     "name=${OLD}" \
     "newName=${IMG}" \
     "newTag=${TAG}"
 }
 
-function customize-image-in-env {
+function customize_image_in_env {
   local OLD="${1}"
   local NEW="${2}"
   local TAG="${NEW##*:}"
@@ -133,13 +148,13 @@ EOF
 
   trap "rm -f ${FN_CONFIG}" EXIT
 
-  kpt fn eval "${DESTINATION}" --image set-image:v0.1.1 --fn-config "${FN_CONFIG}" || echo "kpt fn eval failed"
+  kpt fn eval "${DESTINATION}" --image ${SET_IMAGE_IMG} --fn-config "${FN_CONFIG}" || echo "kpt fn eval failed"
 }
 
 
-function customize-container-env {
+function customize_controller_reconcilers {
   kpt fn eval ${DESTINATION} \
-    --image ghcr.io/kptdev/krm-functions-catalog/starlark:v0.5.0 \
+    --image ${STARLARK_IMG} \
     --match-kind Deployment \
     --match-name porch-controllers \
     --match-namespace porch-system \
@@ -155,7 +170,7 @@ for resource in ctx.resource_list["items"]:
 
 function add_image_args_porch_server() {
     kpt fn eval ${DESTINATION} \
-      --image ghcr.io/kptdev/krm-functions-catalog/starlark:v0.5.0 \
+      --image ${STARLARK_IMG} \
       --match-kind Deployment \
       --match-name porch-server \
       --match-namespace porch-system \
@@ -167,10 +182,64 @@ for resource in ctx.resource_list['items']:
 "
 }
 
+function disable_fn_runner_warm_up_pod_cache() {
+    kpt fn eval ${DESTINATION} \
+      --image ${SEARCH_REPLACE_IMG} \
+      --match-kind Deployment \
+      --match-name function-runner \
+      --match-namespace porch-system \
+      -- by-value="--warm-up-pod-cache=true" put-value="--warm-up-pod-cache=false"
+}
+
+function configure_porch_cache() {
+    kpt fn eval ${DESTINATION} \
+      --image ${SEARCH_REPLACE_IMG} \
+      --match-kind ConfigMap \
+      --match-name porch-config \
+      --match-namespace porch-system \
+      -- by-path=data.cache-type put-value="${PORCH_CACHE_TYPE}"
+    
+    if [[ "${PORCH_CACHE_TYPE^^}" == "CR" ]]; then
+        echo "Configuring porch-api-server for CR cache"
+        
+        kpt fn eval ${DESTINATION} \
+          --image ${STARLARK_IMG} \
+          --match-kind Deployment \
+          --match-name porch-server \
+          --match-namespace porch-system \
+          -- "source=
+for resource in ctx.resource_list['items']:
+    podspec = resource['spec']['template']['spec']
+    
+    # Remove wait-for-postgres initContainer
+    if 'initContainers' in podspec:
+        new_init = [c for c in podspec['initContainers'] if c.get('name') != 'wait-for-postgres']
+        if new_init:
+            podspec['initContainers'] = new_init
+        else:
+            podspec.pop('initContainers')
+    
+    # Update containers
+    for container in podspec.get('containers', []):
+        if 'envFrom' in container:
+            container['envFrom'] = []
+        
+        args = container.get('args', [])
+        for i, arg in enumerate(args):
+            if arg.startswith('--cache-type='):
+                args[i] = '--cache-type=cr'"
+
+        rm -f "${DESTINATION}"/*porch-postgres*.yaml 2>/dev/null || true
+    else
+        echo "Configuring porch-api-server for DB cache"
+    fi
+}
+
 function main() {
   # Repository CRD
   cp "./api/porchconfig/v1alpha1/config.porch.kpt.dev_repositories.yaml" \
      "${DESTINATION}/0-repositories.yaml"
+  # PackageRev CRD
   cp "./internal/api/porchinternal/v1alpha1/config.porch.kpt.dev_packagerevs.yaml" \
      "${DESTINATION}/0-packagerevs.yaml"
 
@@ -199,18 +268,24 @@ function main() {
           add_image_args_porch_server
   fi
 
-  customize-container-env
+  if [[ "${FN_RUNNER_WARM_UP_POD_CACHE}" == "false" ]]; then
+    disable_fn_runner_warm_up_pod_cache
+  fi
+
+  configure_porch_cache
+
+  customize_controller_reconcilers
   
-  customize-image \
+  customize_image \
     "docker.io/nephio/porch-function-runner:latest" \
     "${FUNCTION_IMAGE}"
-  customize-image \
+  customize_image \
     "docker.io/nephio/porch-server:latest" \
     "${SERVER_IMAGE}"
-  customize-image \
+  customize_image \
     "docker.io/nephio/porch-controllers:latest" \
     "${CONTROLLERS_IMAGE}"
-  customize-image-in-env \
+  customize_image_in_env \
     "docker.io/nephio/porch-wrapper-server:latest" \
     "${WRAPPER_SERVER_IMAGE}"
 }

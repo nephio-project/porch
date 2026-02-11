@@ -38,6 +38,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -134,9 +135,9 @@ func (pm *podManager) createPodData(ctx context.Context, serviceKey client.Objec
 // time-to-live period for the pod. If useGenerateName is false, it will try to
 // create a pod with a fixed name. Otherwise, it will create a pod and let the
 // apiserver to generate the name from a template.
-func (pm *podManager) getFuncEvalPodClient(ctx context.Context, image string, ttl time.Duration, postFix int, podConfig podCacheConfigEntry) {
+func (pm *podManager) getFuncEvalPodClient(ctx context.Context, image string, ttl time.Duration, postFix int, podConfig podCacheConfigEntry, useGenerateName bool) {
 	c, err := func() (*podData, error) {
-		podTemplate, err := pm.CreatePod(ctx, image, ttl, postFix, podConfig)
+		podTemplate, err := pm.CreatePod(ctx, image, ttl, postFix, podConfig, useGenerateName)
 		if err != nil {
 			return nil, err
 		}
@@ -418,7 +419,7 @@ func createTransport(tlsConfig *tls.Config) *http.Transport {
 }
 
 // CreatePod creates a pod for an image.
-func (pm *podManager) CreatePod(ctx context.Context, image string, ttl time.Duration, postFix int, podConfig podCacheConfigEntry) (*corev1.Pod, error) {
+func (pm *podManager) CreatePod(ctx context.Context, image string, ttl time.Duration, postFix int, podConfig podCacheConfigEntry, useGenerateName bool) (*corev1.Pod, error) {
 	var de *digestAndEntrypoint
 	var err error
 	de, err = pm.imageDigestAndEntrypoint(ctx, image)
@@ -431,12 +432,29 @@ func (pm *podManager) CreatePod(ctx context.Context, image string, ttl time.Dura
 		return nil, err
 	}
 
+	podList := &corev1.PodList{}
 	podTemplate, templateVersion, err := pm.getBasePodTemplate(ctx)
 	if err != nil {
 		klog.Errorf("failed to generate a base pod template: %v", err)
 		return nil, fmt.Errorf("failed to generate a base pod template: %w", err)
 	}
 	pm.appendImagePullSecret(image, podTemplate)
+
+	// Check if there is an existing pod for the image and remove it
+	err = pm.kubeClient.List(ctx, podList, client.InNamespace(pm.namespace), client.MatchingLabels(map[string]string{krmFunctionImageLabel: podId}))
+	if err != nil {
+		klog.Warningf("error when listing pods for %q: %v", image, err)
+	}
+	if err == nil && len(podList.Items) > 0 {
+		for _, pod := range podList.Items {
+			if pod.DeletionTimestamp == nil {
+				err = pm.kubeClient.Delete(ctx, &pod)
+				if err != nil {
+					return nil, fmt.Errorf("failed to delete old pod %v/%v: %w", pod.Namespace, pod.Name, err)
+				}
+			}
+		}
+	}
 
 	err = pm.patchNewPodContainer(podTemplate, *de, image)
 	if err != nil {
@@ -453,9 +471,17 @@ func (pm *podManager) CreatePod(ctx context.Context, image string, ttl time.Dura
 		podTemplate.Spec.Containers[0].Resources.Limits = podConfig.Limits
 	}
 
-	podTemplate.GenerateName = podId + "-"
+	if useGenerateName {
+		podTemplate.GenerateName = podId + "-"
+	} else {
+		podTemplate.ObjectMeta.Name = podId
+	}
+
 	err = pm.kubeClient.Create(ctx, podTemplate)
 	if err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			return nil, fmt.Errorf("the pod already exists")
+		}
 		return nil, fmt.Errorf("unable to apply the pod: %w", err)
 	}
 
@@ -745,6 +771,7 @@ func (pm *podManager) patchNewPodMetadata(pod *corev1.Pod, ttl time.Duration, po
 func (pm *podManager) getServiceUrlOnceEndpointActive(ctx context.Context, serviceKey client.ObjectKey, podKey client.ObjectKey) (string, error) {
 	var service corev1.Service
 	var pod corev1.Pod
+	//nolint:staticcheck
 	var endpoint corev1.Endpoints
 	var podReady = false
 

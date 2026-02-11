@@ -40,11 +40,15 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Download kpt CLI
-        run: mkdir -p bin && wget -O bin/kpt https://github.com/kptdev/kpt/releases/download/v1.0.0-beta.59/kpt_linux_amd64 && chmod +x bin/kpt
-
+      - name: Install kpt
+        uses: jaxxstorm/action-install-gh-release@v2.1.0
+        with:
+          repo: kptdev/kpt
+          tag: v1.0.0-beta.59
+          chmod: 0755
+          
       - name: Build porch blueprint
-        run: PATH=./bin:$PATH IMAGE_REPO=docker.io/nephio IMAGE_TAG=${{ github.ref_name }} make deployment-config
+        run: PATH=./bin:$PATH IMAGE_REPO=docker.io/nephio IMAGE_TAG=${{ github.ref_name }} PORCH_CACHE_TYPE=CR make deployment-config
 
       - name: Run GoReleaser
         id: run-goreleaser

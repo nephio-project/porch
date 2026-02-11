@@ -20,7 +20,7 @@ import (
 	stdSync "sync"
 	"time"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
 	"github.com/nephio-project/porch/pkg/cache/sync"
@@ -148,7 +148,11 @@ func (r *cachedRepository) getRefreshError() error {
 }
 
 func (r *cachedRepository) getPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter, forceRefresh bool) ([]repository.PackageRevision, error) {
-	klog.Infof("Cache::OpenRepository(%s) fetching packages", r.Key())
+	if forceRefresh {
+		klog.Infof("crcache: getPackageRevisions(%s) fetching packages from external repository", r.Key())
+	} else {
+		klog.V(2).Infof("crcache: getPackageRevisions(%s) using cached packages", r.Key())
+	}
 	_, packageRevisions, err := r.getCachedPackages(ctx, forceRefresh)
 	if err != nil {
 		return nil, err
@@ -197,7 +201,7 @@ func (r *cachedRepository) getCachedPackages(ctx context.Context, forceRefresh b
 	return packages, packageRevisions, err
 }
 
-func (r *cachedRepository) CreatePackageRevisionDraft(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
+func (r *cachedRepository) CreatePackageRevisionDraft(ctx context.Context, obj *porchapi.PackageRevision) (repository.PackageRevisionDraft, error) {
 	return r.repo.CreatePackageRevisionDraft(ctx, obj)
 }
 
@@ -233,7 +237,7 @@ func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd re
 
 	highestRevision := 0
 	for _, rev := range revisions {
-		if v1alpha1.LifecycleIsPublished(rev.Lifecycle(ctx)) && rev.Key().Revision > highestRevision {
+		if porchapi.LifecycleIsPublished(rev.Lifecycle(ctx)) && rev.Key().Revision > highestRevision {
 			highestRevision = rev.Key().Revision
 		}
 	}
@@ -266,7 +270,7 @@ func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd re
 	}
 
 	sent := r.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Added, cachedPr)
-	klog.Infof("cache: sent %d for new PackageRevision %s/%s", sent, cachedPr.KubeObjectNamespace(), cachedPr.KubeObjectName())
+	klog.Infof("crcache: sent %d for new PackageRevision %s/%s", sent, cachedPr.KubeObjectNamespace(), cachedPr.KubeObjectName())
 	return cachedPr, nil
 }
 
@@ -286,7 +290,7 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 	}
 
 	r.mutex.Lock()
-	if v1alpha1.LifecycleIsPublished(updated.Lifecycle(ctx)) {
+	if porchapi.LifecycleIsPublished(updated.Lifecycle(ctx)) {
 		prevKey := updated.Key()
 		prevKey.Revision = 0 // Drafts always have revision of 0
 		delete(r.cachedPackageRevisions, prevKey)
@@ -303,7 +307,7 @@ func (r *cachedRepository) update(ctx context.Context, updated repository.Packag
 	r.mutex.Unlock()
 
 	// Create the main package revision
-	if v1alpha1.LifecycleIsPublished(updated.Lifecycle(ctx)) {
+	if porchapi.LifecycleIsPublished(updated.Lifecycle(ctx)) {
 		updatedMain := updated.ToMainPackageRevision(ctx)
 		err := r.createMainPackageRevision(ctx, updatedMain)
 		if err != nil {
@@ -405,6 +409,9 @@ func (r *cachedRepository) DeletePackageRevision(ctx context.Context, prToDelete
 	}
 	klog.Infof("PackageRevision %s deleted for real since no finalizers", prToDelete.KubeObjectName())
 
+	// Check if this is the latest revision before deletion
+	isLatest := prToDelete.(*cachedPackageRevision).IsLatestRevision()
+
 	// Unwrap
 	unwrapped := prToDelete.(*cachedPackageRevision).PackageRevision
 	if err := r.repo.DeletePackageRevision(ctx, unwrapped); err != nil {
@@ -419,6 +426,12 @@ func (r *cachedRepository) DeletePackageRevision(ctx context.Context, prToDelete
 		// Recompute latest package revisions.
 		// TODO: Only for affected object / key?
 		identifyLatestRevisions(ctx, r.cachedPackageRevisions)
+	}
+
+	// Check if we need to send async notification for new latest revision
+	if isLatest {
+		klog.Infof("crcache: %+v: latest PackageRevision deleted. Sending notification.", prToDelete.Key().PkgKey)
+		go r.sendLatestPkgUpdateNotification(prToDelete.Key().PkgKey)
 	}
 
 	r.mutex.Unlock()
@@ -436,6 +449,31 @@ func (r *cachedRepository) DeletePackageRevision(ctx context.Context, prToDelete
 	return nil
 }
 
+// sendLatestPkgUpdateNotification sends async notification when a new latest package revision is identified
+func (r *cachedRepository) sendLatestPkgUpdateNotification(pkgKey repository.PackageKey) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	_, span := tracer.Start(ctx, "cachedRepository::sendLatestPkgUpdateNotification", trace.WithAttributes())
+	defer span.End()
+	// Find the new latest revision for this package
+	r.mutex.RLock()
+	var newLatest repository.PackageRevision
+	for _, pr := range r.cachedPackageRevisions {
+		if pr.Key().PkgKey == pkgKey && pr.IsLatestRevision() {
+			newLatest = pr
+			break
+		}
+	}
+	r.mutex.RUnlock()
+
+	if newLatest != nil {
+		sent := r.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Modified, newLatest)
+		klog.Infof("crcache: async notification sent %d for new latest PackageRevision %s/%s", sent, newLatest.KubeObjectNamespace(), newLatest.KubeObjectName())
+	} else {
+		klog.Infof("crcache: no new latest revision found for package %s after deletion. Notification not sent.", pkgKey.Package)
+	}
+}
+
 func (r *cachedRepository) ListPackages(ctx context.Context, filter repository.ListPackageFilter) ([]repository.Package, error) {
 	packages, err := r.getPackages(ctx, filter, false)
 	if err != nil {
@@ -445,8 +483,9 @@ func (r *cachedRepository) ListPackages(ctx context.Context, filter repository.L
 	return packages, nil
 }
 
-func (r *cachedRepository) CreatePackage(ctx context.Context, obj *v1alpha1.PorchPackage) (repository.Package, error) {
-	klog.Infoln("cachedRepository::CreatePackage")
+func (r *cachedRepository) CreatePackage(ctx context.Context, obj *porchapi.PorchPackage) (repository.Package, error) {
+	ctx, span := tracer.Start(ctx, "cachedRepository::CreatePackage", trace.WithAttributes())
+	defer span.End()
 	return r.repo.CreatePackage(ctx, obj)
 }
 

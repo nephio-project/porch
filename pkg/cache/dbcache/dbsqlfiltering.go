@@ -16,8 +16,9 @@ package dbcache
 
 import (
 	"fmt"
+	"strings"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
@@ -59,7 +60,8 @@ func prListFilter2WhereClause(filter repository.ListPackageRevisionFilter) strin
 	whereStatement, first = filter2SubClauseInt(whereStatement, prKey.Revision, "package_revisions.revision", first)
 	whereStatement, first = filter2SubClauseWorkspace(whereStatement, prKey.WorkspaceName, "package_revisions.k8s_name", first)
 
-	whereStatement, _ = filter2SubClauseLifecycle(whereStatement, filter.Lifecycles, "package_revisions.lifecycle", first)
+	whereStatement, first = filter2SubClauseLifecycle(whereStatement, filter.Lifecycles, "package_revisions.lifecycle", first)
+	whereStatement, _ = filter2SubClauseKptfileLabels(whereStatement, filter.KptfileLabels, first)
 
 	if whereStatement == "" {
 		return whereStatement
@@ -110,7 +112,7 @@ func filter2SubClauseWorkspace(whereStatement string, filterField string, column
 	}
 }
 
-func filter2SubClauseLifecycle(whereStatement string, filterField []v1alpha1.PackageRevisionLifecycle, column string, first bool) (string, bool) {
+func filter2SubClauseLifecycle(whereStatement string, filterField []porchapi.PackageRevisionLifecycle, column string, first bool) (string, bool) {
 	if len(filterField) == 0 {
 		return whereStatement, first
 	}
@@ -129,5 +131,26 @@ func filter2SubClauseLifecycle(whereStatement string, filterField []v1alpha1.Pac
 		return whereStatement + subClause, false
 	} else {
 		return whereStatement + "AND " + subClause, false
+	}
+}
+
+func filter2SubClauseKptfileLabels(whereStatement string, filterLabels map[string]string, first bool) (string, bool) {
+	if len(filterLabels) == 0 {
+		return whereStatement, first
+	}
+
+	var subClauses []string
+	for labelKey, labelValue := range filterLabels {
+		subClause := fmt.Sprintf("(package_revisions.spec::jsonb->'packageMetadata'->'labels'->>'%s' = '%s')",
+			labelKey, labelValue)
+		subClauses = append(subClauses, subClause)
+	}
+
+	combinedClause := "(" + strings.Join(subClauses, " AND ") + ")"
+
+	if first {
+		return whereStatement + combinedClause, false
+	} else {
+		return whereStatement + "AND " + combinedClause, false
 	}
 }

@@ -801,7 +801,7 @@ func TestPodManager(t *testing.T) {
 			podConfig := podCacheConfigEntry{}
 
 			//Execute the function under test
-			go pm.getFuncEvalPodClient(ctx, tt.functionImage, time.Hour, 1, podConfig)
+			go pm.getFuncEvalPodClient(ctx, tt.functionImage, time.Hour, 1, podConfig, false)
 			if tt.podPatch != nil {
 				go func() {
 					watchPod, err := tt.kubeClient.Watch(ctx, &corev1.PodList{}, client.InNamespace(tt.namespace))

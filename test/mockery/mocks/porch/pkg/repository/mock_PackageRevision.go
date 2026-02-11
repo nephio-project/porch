@@ -7,8 +7,8 @@ package repository
 import (
 	"context"
 
+	"github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	mock "github.com/stretchr/testify/mock"
 	v10 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -103,8 +103,8 @@ func (_c *MockPackageRevision_GetKptfile_Call) RunAndReturn(run func(ctx context
 }
 
 // GetLock provides a mock function for the type MockPackageRevision
-func (_mock *MockPackageRevision) GetLock() (v1.Upstream, v1.UpstreamLock, error) {
-	ret := _mock.Called()
+func (_mock *MockPackageRevision) GetLock(ctx context.Context) (v1.Upstream, v1.UpstreamLock, error) {
+	ret := _mock.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetLock")
@@ -113,21 +113,21 @@ func (_mock *MockPackageRevision) GetLock() (v1.Upstream, v1.UpstreamLock, error
 	var r0 v1.Upstream
 	var r1 v1.UpstreamLock
 	var r2 error
-	if returnFunc, ok := ret.Get(0).(func() (v1.Upstream, v1.UpstreamLock, error)); ok {
-		return returnFunc()
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (v1.Upstream, v1.UpstreamLock, error)); ok {
+		return returnFunc(ctx)
 	}
-	if returnFunc, ok := ret.Get(0).(func() v1.Upstream); ok {
-		r0 = returnFunc()
+	if returnFunc, ok := ret.Get(0).(func(context.Context) v1.Upstream); ok {
+		r0 = returnFunc(ctx)
 	} else {
 		r0 = ret.Get(0).(v1.Upstream)
 	}
-	if returnFunc, ok := ret.Get(1).(func() v1.UpstreamLock); ok {
-		r1 = returnFunc()
+	if returnFunc, ok := ret.Get(1).(func(context.Context) v1.UpstreamLock); ok {
+		r1 = returnFunc(ctx)
 	} else {
 		r1 = ret.Get(1).(v1.UpstreamLock)
 	}
-	if returnFunc, ok := ret.Get(2).(func() error); ok {
-		r2 = returnFunc()
+	if returnFunc, ok := ret.Get(2).(func(context.Context) error); ok {
+		r2 = returnFunc(ctx)
 	} else {
 		r2 = ret.Error(2)
 	}
@@ -140,13 +140,20 @@ type MockPackageRevision_GetLock_Call struct {
 }
 
 // GetLock is a helper method to define mock.On call
-func (_e *MockPackageRevision_Expecter) GetLock() *MockPackageRevision_GetLock_Call {
-	return &MockPackageRevision_GetLock_Call{Call: _e.mock.On("GetLock")}
+//   - ctx context.Context
+func (_e *MockPackageRevision_Expecter) GetLock(ctx interface{}) *MockPackageRevision_GetLock_Call {
+	return &MockPackageRevision_GetLock_Call{Call: _e.mock.On("GetLock", ctx)}
 }
 
-func (_c *MockPackageRevision_GetLock_Call) Run(run func()) *MockPackageRevision_GetLock_Call {
+func (_c *MockPackageRevision_GetLock_Call) Run(run func(ctx context.Context)) *MockPackageRevision_GetLock_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
 	})
 	return _c
 }
@@ -156,7 +163,7 @@ func (_c *MockPackageRevision_GetLock_Call) Return(upstream v1.Upstream, upstrea
 	return _c
 }
 
-func (_c *MockPackageRevision_GetLock_Call) RunAndReturn(run func() (v1.Upstream, v1.UpstreamLock, error)) *MockPackageRevision_GetLock_Call {
+func (_c *MockPackageRevision_GetLock_Call) RunAndReturn(run func(ctx context.Context) (v1.Upstream, v1.UpstreamLock, error)) *MockPackageRevision_GetLock_Call {
 	_c.Call.Return(run)
 	return _c
 }

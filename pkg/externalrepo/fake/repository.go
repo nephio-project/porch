@@ -18,8 +18,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
-	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
@@ -68,16 +68,16 @@ func (r *Repository) ListPackageRevisions(_ context.Context, filter repository.L
 	return revs, nil
 }
 
-func (r *Repository) CreatePackageRevisionDraft(_ context.Context, pr *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
+func (r *Repository) CreatePackageRevisionDraft(_ context.Context, pr *porchapi.PackageRevision) (repository.PackageRevisionDraft, error) {
 	return &FakePackageRevision{}, nil
 }
 
 func (r *Repository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version int) (repository.PackageRevision, error) {
 	return &FakePackageRevision{
 		PrKey: prd.Key(),
-		Kptfile: v1.KptFile{
-			Upstream:     &v1.Upstream{},
-			UpstreamLock: &v1.UpstreamLock{},
+		Kptfile: kptfilev1.KptFile{
+			Upstream:     &kptfilev1.Upstream{},
+			UpstreamLock: &kptfilev1.UpstreamLock{},
 		},
 	}, nil
 }
@@ -94,7 +94,7 @@ func (r *Repository) ListPackages(context.Context, repository.ListPackageFilter)
 	return r.Packages, nil
 }
 
-func (r *Repository) CreatePackage(_ context.Context, pr *v1alpha1.PorchPackage) (repository.Package, error) {
+func (r *Repository) CreatePackage(_ context.Context, pr *porchapi.PorchPackage) (repository.Package, error) {
 	return nil, nil
 }
 

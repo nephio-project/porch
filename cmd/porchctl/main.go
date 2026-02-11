@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/kptdev/kpt/pkg/lib/errors"
+	"github.com/kptdev/kpt/pkg/lib/errors/resolver"
 	"github.com/nephio-project/porch/cmd/porchctl/run"
-	"github.com/nephio-project/porch/internal/kpt/errors"
-	"github.com/nephio-project/porch/internal/kpt/errors/resolver"
 	"github.com/nephio-project/porch/internal/kpt/util/cmdutil"
 	"github.com/spf13/cobra"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"

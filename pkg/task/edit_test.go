@@ -20,10 +20,10 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
-	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
@@ -46,14 +46,14 @@ func TestEdit(t *testing.T) {
 			Revision:      revision,
 			WorkspaceName: workspace,
 		},
-		PackageLifecycle: v1alpha1.PackageRevisionLifecyclePublished,
-		Resources: &v1alpha1.PackageRevisionResources{
-			Spec: v1alpha1.PackageRevisionResourcesSpec{
+		PackageLifecycle: porchapi.PackageRevisionLifecyclePublished,
+		Resources: &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
 				PackageName:    pkg,
 				Revision:       revision,
 				RepositoryName: repositoryName,
 				Resources: map[string]string{
-					kptfile.KptFileName: strings.TrimSpace(`
+					kptfilev1.KptFileName: strings.TrimSpace(`
 apiVersion: kpt.dev/v1
 kind: Kptfile
 metadata:
@@ -77,10 +77,10 @@ info:
 	}
 
 	epm := editPackageMutation{
-		task: &v1alpha1.Task{
+		task: &porchapi.Task{
 			Type: "edit",
-			Edit: &v1alpha1.PackageEditTaskSpec{
-				Source: &v1alpha1.PackageRevisionRef{
+			Edit: &porchapi.PackageEditTaskSpec{
+				Source: &porchapi.PackageRevisionRef{
 					Name: packageName,
 				},
 			},
@@ -108,7 +108,7 @@ metadata:
 info:
   description: sample description
 	`)
-	got := strings.TrimSpace(res.Contents[kptfile.KptFileName])
+	got := strings.TrimSpace(res.Contents[kptfilev1.KptFileName])
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("result mismatch (-want +got):\n%s", diff)
 	}

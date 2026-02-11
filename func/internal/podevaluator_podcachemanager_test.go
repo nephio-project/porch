@@ -341,14 +341,6 @@ func TestPodCacheManager(t *testing.T) {
 			}
 			pcm.podManager.kubeClient = tt.kubeClient
 
-			if !tt.skipRetrieve {
-				err = pcm.retrieveFunctionPods(context.Background())
-				if err != nil {
-					t.Logf("Something happened %v", err)
-				}
-
-			}
-
 			clientConn := make(chan *connectionResponse)
 			requestCh <- &connectionRequest{defaultImageName, clientConn}
 

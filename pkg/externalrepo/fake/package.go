@@ -17,7 +17,7 @@ package fake
 import (
 	"context"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
@@ -42,8 +42,8 @@ func (p *FakePackage) Key() repository.PackageKey {
 	return p.PkgKey
 }
 
-func (p *FakePackage) GetPackage(ctx context.Context) *v1alpha1.PorchPackage {
-	return &v1alpha1.PorchPackage{}
+func (p *FakePackage) GetPackage(ctx context.Context) *porchapi.PorchPackage {
+	return &porchapi.PorchPackage{}
 }
 
 func (p *FakePackage) GetLatestRevision(ctx context.Context) int {

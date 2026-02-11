@@ -38,7 +38,7 @@ commands:
       - --
       - by-path=status.conditions[0].status
       - put-value=True
-    stderr: "[RUNNING] \"ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.2.0\" on 1 resource(s)\n  Results:\n    [info] status.conditions[0].status: Mutated field value to \"\\\"True\\\"\"\n"
+    stderr: "[RUNNING] \"ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.2.0\" on 1 resource(s)\n[Results]: [info] status.conditions[0].status: Mutated field value to \"\\\"True\\\"\"\n"
   - args:
       - porchctl
       - rpkg

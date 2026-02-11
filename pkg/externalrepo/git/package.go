@@ -22,11 +22,12 @@ import (
 	"time"
 
 	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
-	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
+	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,7 +41,7 @@ type gitPackageRevision struct {
 	ref       *plumbing.Reference // ref is the Git reference at which the package exists
 	tree      plumbing.Hash       // Cached tree of the package itself, some descendent of commit.Tree()
 	commit    plumbing.Hash       // Current version of the package (commit sha)
-	tasks     []v1alpha1.Task
+	tasks     []porchapi.Task
 	metadata  metav1.ObjectMeta
 	mutex     sync.Mutex
 }
@@ -67,39 +68,25 @@ func (p *gitPackageRevision) Key() repository.PackageRevisionKey {
 	return p.prKey
 }
 
-func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.PackageRevision, error) {
+func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "gitPackageRevision::GetPackageRevision", trace.WithAttributes())
 	defer span.End()
 
 	key := p.Key()
 
-	_, lock, _ := p.GetUpstreamLock(ctx)
-	lockCopy := &v1alpha1.UpstreamLock{}
-
-	// TODO: Use kpt definition of UpstreamLock in the package revision status
-	// when https://github.com/kptdev/kpt/issues/3297 is complete.
-	// Until then, we have to translate from one type to another.
-	if lock.Git != nil {
-		lockCopy = &v1alpha1.UpstreamLock{
-			Type: v1alpha1.OriginType(lock.Type),
-			Git: &v1alpha1.GitLock{
-				Repo:      lock.Git.Repo,
-				Directory: lock.Git.Directory,
-				Commit:    lock.Git.Commit,
-				Ref:       lock.Git.Ref,
-			},
-		}
-	}
-
+	_, upstreamLock, _ := p.GetUpstreamLock(ctx)
+	_, selfLock, _ := p.GetLock(ctx)
 	kf, _ := p.GetKptfile(ctx)
 
-	status := v1alpha1.PackageRevisionStatus{
-		UpstreamLock: lockCopy,
+	status := porchapi.PackageRevisionStatus{
+		UpstreamLock: repository.KptUpstreamLock2APIUpstreamLock(upstreamLock),
+		SelfLock:     repository.KptUpstreamLock2APIUpstreamLock(selfLock),
 		Deployment:   p.repo.deployment,
 		Conditions:   repository.ToAPIConditions(kf),
 	}
 
-	if v1alpha1.LifecycleIsPublished(p.Lifecycle(ctx)) {
+	lifecycle := p.Lifecycle(ctx)
+	if porchapi.LifecycleIsPublished(lifecycle) {
 		if !p.updated.IsZero() {
 			status.PublishedAt = metav1.Time{Time: p.updated}
 		}
@@ -108,10 +95,10 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 		}
 	}
 	p.mutex.Lock()
-	pr := &v1alpha1.PackageRevision{
+	pr := &porchapi.PackageRevision{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevision",
-			APIVersion: v1alpha1.SchemeGroupVersion.Identifier(),
+			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            p.KubeObjectName(),
@@ -122,14 +109,18 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 				Time: p.metadata.CreationTimestamp.Time,
 			},
 		},
-		Spec: v1alpha1.PackageRevisionSpec{
+		Spec: porchapi.PackageRevisionSpec{
 			PackageName:    key.PkgKey.ToPkgPathname(),
 			RepositoryName: key.RKey().Name,
-			Lifecycle:      p.Lifecycle(ctx),
+			Lifecycle:      lifecycle,
 			Tasks:          p.tasks,
 			ReadinessGates: repository.ToAPIReadinessGates(kf),
 			WorkspaceName:  key.WorkspaceName,
 			Revision:       key.Revision,
+			PackageMetadata: &porchapi.PackageMetadata{
+				Labels:      kf.Labels,
+				Annotations: kf.Annotations,
+			},
 		},
 		Status: status,
 	}
@@ -137,17 +128,17 @@ func (p *gitPackageRevision) GetPackageRevision(ctx context.Context) (*v1alpha1.
 	return pr, nil
 }
 
-func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.PackageRevisionResources, error) {
+func (p *gitPackageRevision) GetResources(context.Context) (*porchapi.PackageRevisionResources, error) {
 	resources, err := p.repo.GetResources(p.tree)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load package resources: %w", err)
 	}
 
 	p.mutex.Lock()
-	prRes := &v1alpha1.PackageRevisionResources{
+	prRes := &porchapi.PackageRevisionResources{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PackageRevisionResources",
-			APIVersion: v1alpha1.SchemeGroupVersion.Identifier(),
+			APIVersion: porchapi.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            p.KubeObjectName(),
@@ -159,7 +150,7 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 			},
 			OwnerReferences: []metav1.OwnerReference{}, // TODO: should point to repository resource
 		},
-		Spec: v1alpha1.PackageRevisionResourcesSpec{
+		Spec: porchapi.PackageRevisionResourcesSpec{
 			PackageName:    p.Key().PkgKey.ToPkgPathname(),
 			WorkspaceName:  p.Key().WorkspaceName,
 			Revision:       p.Key().Revision,
@@ -174,7 +165,7 @@ func (p *gitPackageRevision) GetResources(ctx context.Context) (*v1alpha1.Packag
 
 // Creates a gitPackageRevision reference that is acting as the main branch package revision.
 // It doesn't do any git operations, so this package should only be used if the actual git updates
-// were exectued on the main branch.
+// were executed on the main branch.
 func (p *gitPackageRevision) ToMainPackageRevision(context.Context) repository.PackageRevision {
 	//Need to compute a separate reference, otherwise the ref will be the same as the versioned package,
 	//while the main gitPackageRevision needs to point at the main branch.
@@ -196,32 +187,28 @@ func (p *gitPackageRevision) ToMainPackageRevision(context.Context) repository.P
 	return mainPr
 }
 
-func (p *gitPackageRevision) GetKptfile(ctx context.Context) (kptfile.KptFile, error) {
-	resources, err := p.repo.GetResources(p.tree)
+func (p *gitPackageRevision) GetKptfile(context.Context) (kptfilev1.KptFile, error) {
+	kfString, err := p.repo.GetResource(p.tree, kptfilev1.KptFileName)
 	if err != nil {
-		return kptfile.KptFile{}, fmt.Errorf("error loading package resources: %w", err)
-	}
-	kfString, found := resources[kptfile.KptFileName]
-	if !found {
-		return kptfile.KptFile{}, fmt.Errorf("packagerevision does not have a Kptfile")
+		return kptfilev1.KptFile{}, pkgerrors.Wrapf(err, "error getting %s resource", kptfilev1.KptFileName)
 	}
 	kf, err := pkg.DecodeKptfile(strings.NewReader(kfString))
 	if err != nil {
-		return kptfile.KptFile{}, fmt.Errorf("error decoding Kptfile: %w", err)
+		return kptfilev1.KptFile{}, pkgerrors.Wrapf(err, "error decoding %s", kptfilev1.KptFileName)
 	}
 	return *kf, nil
 }
 
 // GetUpstreamLock returns the upstreamLock info present in the Kptfile of the package.
-func (p *gitPackageRevision) GetUpstreamLock(ctx context.Context) (kptfile.Upstream, kptfile.UpstreamLock, error) {
+func (p *gitPackageRevision) GetUpstreamLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
 	kf, err := p.GetKptfile(ctx)
 	if err != nil {
-		return kptfile.Upstream{}, kptfile.UpstreamLock{}, fmt.Errorf("cannot determine package lock; cannot retrieve resources: %w", err)
+		return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, fmt.Errorf("cannot determine package lock; cannot retrieve resources: %w", err)
 	}
 
 	if kf.Upstream == nil || kf.UpstreamLock == nil || kf.Upstream.Git == nil {
 		// the package doesn't have any upstream package.
-		return kptfile.Upstream{}, kptfile.UpstreamLock{}, nil
+		return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, nil
 	}
 	return *kf.Upstream, *kf.UpstreamLock, nil
 }
@@ -229,31 +216,34 @@ func (p *gitPackageRevision) GetUpstreamLock(ctx context.Context) (kptfile.Upstr
 // GetLock returns the self version of the package. Think of it as the Git commit information
 // that represent the package revision of this package. Please note that it uses Upstream types
 // to represent this information but it has no connection with the associated upstream package (if any).
-func (p *gitPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, error) {
+func (p *gitPackageRevision) GetLock(ctx context.Context) (kptfilev1.Upstream, kptfilev1.UpstreamLock, error) {
+	_, span := tracer.Start(ctx, "gitPackageRevision::GetLock", trace.WithAttributes())
+	defer span.End()
+
 	repo, err := p.repo.GetRepo()
 	if err != nil {
-		return kptfile.Upstream{}, kptfile.UpstreamLock{}, fmt.Errorf("cannot determine package lock: %w", err)
+		return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, fmt.Errorf("cannot determine package lock: %w", err)
 	}
 
 	if p.ref == nil {
-		return kptfile.Upstream{}, kptfile.UpstreamLock{}, fmt.Errorf("cannot determine package lock; package has no ref")
+		return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, fmt.Errorf("cannot determine package lock; package has no ref")
 	}
 
 	ref, err := refInRemoteFromRefInLocal(p.ref.Name())
 	if err != nil {
-		return kptfile.Upstream{}, kptfile.UpstreamLock{}, fmt.Errorf("cannot determine package lock for %q: %v", p.ref, err)
+		return kptfilev1.Upstream{}, kptfilev1.UpstreamLock{}, fmt.Errorf("cannot determine package lock for %q: %v", p.ref, err)
 	}
 
-	return kptfile.Upstream{
-			Type: kptfile.GitOrigin,
-			Git: &kptfile.Git{
+	return kptfilev1.Upstream{
+			Type: kptfilev1.GitOrigin,
+			Git: &kptfilev1.Git{
 				Repo:      repo,
 				Directory: p.prKey.PkgKey.ToPkgPathname(),
 				Ref:       ref.Short(),
 			},
-		}, kptfile.UpstreamLock{
-			Type: kptfile.GitOrigin,
-			Git: &kptfile.GitLock{
+		}, kptfilev1.UpstreamLock{
+			Type: kptfilev1.GitOrigin,
+			Git: &kptfilev1.GitLock{
 				Repo:      repo,
 				Directory: p.prKey.PkgKey.ToPkgPathname(),
 				Ref:       ref.Short(),
@@ -262,11 +252,11 @@ func (p *gitPackageRevision) GetLock() (kptfile.Upstream, kptfile.UpstreamLock, 
 		}, nil
 }
 
-func (p *gitPackageRevision) Lifecycle(ctx context.Context) v1alpha1.PackageRevisionLifecycle {
+func (p *gitPackageRevision) Lifecycle(ctx context.Context) porchapi.PackageRevisionLifecycle {
 	return p.repo.GetLifecycle(ctx, p)
 }
 
-func (p *gitPackageRevision) UpdateLifecycle(ctx context.Context, new v1alpha1.PackageRevisionLifecycle) error {
+func (p *gitPackageRevision) UpdateLifecycle(ctx context.Context, new porchapi.PackageRevisionLifecycle) error {
 	ctx, span := tracer.Start(ctx, "gitPackageRevision::UpdateLifecycle", trace.WithAttributes())
 	defer span.End()
 

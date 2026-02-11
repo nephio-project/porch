@@ -20,8 +20,8 @@ import (
 
 	"slices"
 
+	"github.com/kptdev/kpt/pkg/lib/errors"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
 	pkgerrors "github.com/pkg/errors"
@@ -310,7 +310,7 @@ func (r *runner) findEditOrigin(currentPr *porchapi.PackageRevision) string {
 	return ""
 }
 
-func (r *runner) findUpstreamByLock(lock *porchapi.UpstreamLock) *porchapi.PackageRevision {
+func (r *runner) findUpstreamByLock(lock *porchapi.Locator) *porchapi.PackageRevision {
 	if lock == nil || lock.Git == nil {
 		return nil
 	}

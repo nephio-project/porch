@@ -17,13 +17,15 @@ package task
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strings"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/kptdev/kpt/pkg/lib/builtins"
+	kptfn "github.com/kptdev/krm-functions-sdk/go/fn"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/builtins"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
-	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
 	"github.com/nephio-project/porch/pkg/repository"
 	pkgerrors "github.com/pkg/errors"
@@ -42,7 +44,6 @@ type genericTaskHandler struct {
 	repoOpener                 repository.RepositoryOpener
 	credentialResolver         repository.CredentialResolver
 	referenceResolver          repository.ReferenceResolver
-	cloneStrategy              api.PackageMergeStrategy
 	repoOperationRetryAttempts int
 }
 
@@ -74,14 +75,9 @@ func (th *genericTaskHandler) SetRepoOperationRetryAttempts(retryAttempts int) {
 	th.repoOperationRetryAttempts = retryAttempts
 }
 
-func (th *genericTaskHandler) ApplyTask(ctx context.Context, draft repository.PackageRevisionDraft, repositoryObj *configapi.Repository, obj *api.PackageRevision, packageConfig *builtins.PackageConfig) error {
+func (th *genericTaskHandler) ApplyTask(ctx context.Context, draft repository.PackageRevisionDraft, repositoryObj *configapi.Repository, obj *porchapi.PackageRevision, packageConfig *builtins.PackageConfig) error {
 	if len(obj.Spec.Tasks) != 1 {
 		return pkgerrors.New("task list must contain exactly 1 task")
-	}
-
-	if cloneTask := obj.Spec.Tasks[0].Clone; cloneTask != nil {
-		klog.Infof("Clone strategy is %s", cloneTask.Strategy)
-		th.cloneStrategy = cloneTask.Strategy
 	}
 
 	mut, err := th.mapTaskToMutation(obj, &obj.Spec.Tasks[0], repositoryObj.Spec.Deployment, packageConfig)
@@ -94,6 +90,20 @@ func (th *genericTaskHandler) ApplyTask(ctx context.Context, draft repository.Pa
 		return err
 	}
 
+	// Upsert labels/annotations/readinessGates from obj.Spec.PackageMetadata and obj.Spec.ReadinessGates
+	kptf, err := kptfn.NewKptfileFromPackage(resources.Contents)
+	if err != nil {
+		return pkgerrors.Wrap(err, "failed to parse Kptfile")
+	}
+
+	if _, err := applyMetadataToKptfile(kptf, obj, false); err != nil {
+		return pkgerrors.Wrap(err, "failed to apply metadata to Kptfile")
+	}
+
+	if err := kptf.WriteToPackage(resources.Contents); err != nil {
+		return pkgerrors.Wrap(err, "failed to write to Kptfile")
+	}
+
 	// Render package after creation.
 	draftMeta := draft.GetMeta()
 	resources, _, err = th.renderMutation(draftMeta.GetNamespace()).apply(ctx, resources)
@@ -101,8 +111,8 @@ func (th *genericTaskHandler) ApplyTask(ctx context.Context, draft repository.Pa
 		return err
 	}
 
-	prr := &api.PackageRevisionResources{
-		Spec: api.PackageRevisionResourcesSpec{
+	prr := &porchapi.PackageRevisionResources{
+		Spec: porchapi.PackageRevisionResourcesSpec{
 			Resources: resources.Contents,
 		},
 	}
@@ -113,13 +123,13 @@ func (th *genericTaskHandler) ApplyTask(ctx context.Context, draft repository.Pa
 func (th *genericTaskHandler) DoPRMutations(
 	ctx context.Context,
 	repoPR repository.PackageRevision,
-	oldObj, newObj *api.PackageRevision,
+	oldObj, newObj *porchapi.PackageRevision,
 	draft repository.PackageRevisionDraft) error {
 	ctx, span := tracer.Start(ctx, "genericTaskHandler::DoPRMutations", trace.WithAttributes())
 	defer span.End()
 
 	// Update package contents only if the package is in draft state
-	if oldObj.Spec.Lifecycle == api.PackageRevisionLifecycleDraft {
+	if oldObj.Spec.Lifecycle == porchapi.PackageRevisionLifecycleDraft {
 		apiResources, err := repoPR.GetResources(ctx)
 		if err != nil {
 			return fmt.Errorf("cannot get package resources: %w", err)
@@ -128,18 +138,12 @@ func (th *genericTaskHandler) DoPRMutations(
 			Contents: apiResources.Spec.Resources,
 		}
 
-		{
-			newKptfile, err := patchKptfile(ctx, repoPR, newObj)
-			if err != nil {
-				return err
-			}
-			marshalled, err := yaml.Marshal(newKptfile)
-			if err != nil {
-				return err
-			}
-			if str := string(marshalled); str != "{}\n" {
-				resources.Contents[kptfile.KptFileName] = str
-			}
+		newKptfileContent, changed, err := PatchKptfile(ctx, repoPR, newObj)
+		if err != nil {
+			return err
+		}
+		if changed && newKptfileContent != "" && newKptfileContent != "{}\n" {
+			resources.Contents[kptfilev1.KptFileName] = newKptfileContent
 		}
 
 		// render
@@ -150,13 +154,13 @@ func (th *genericTaskHandler) DoPRMutations(
 			return renderError(err)
 		}
 
-		prr := &api.PackageRevisionResources{
-			Spec: api.PackageRevisionResourcesSpec{
+		prr := &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
 				Resources: resources.Contents,
 			},
 		}
 
-		return draft.UpdateResources(ctx, prr, &api.Task{Type: api.TaskTypeRender})
+		return draft.UpdateResources(ctx, prr, &porchapi.Task{Type: porchapi.TaskTypeRender})
 	}
 
 	return nil
@@ -166,7 +170,7 @@ func (th *genericTaskHandler) DoPRResourceMutations(
 	ctx context.Context,
 	pr2Update repository.PackageRevision,
 	draft repository.PackageRevisionDraft,
-	oldRes, newRes *api.PackageRevisionResources) (*api.RenderStatus, error) {
+	oldRes, newRes *porchapi.PackageRevisionResources) (*porchapi.RenderStatus, error) {
 	ctx, span := tracer.Start(ctx, "genericTaskHandler::DoPRResourceMutations", trace.WithAttributes())
 	defer span.End()
 
@@ -196,8 +200,8 @@ func (th *genericTaskHandler) DoPRResourceMutations(
 	// and can be amended using the error returned as a reference point to ensure
 	// the package renders properly, before retrying the push.
 	var (
-		renderStatus *api.RenderStatus
-		renderResult *api.TaskResult
+		renderStatus *porchapi.RenderStatus
+		renderResult *porchapi.TaskResult
 	)
 	appliedResources, renderResult, err = th.renderMutation(oldRes.GetNamespace()).apply(ctx, appliedResources)
 	// keep last render result on empty patch
@@ -212,13 +216,13 @@ func (th *genericTaskHandler) DoPRResourceMutations(
 		return renderStatus, renderError(err)
 	}
 
-	prr := &api.PackageRevisionResources{
-		Spec: api.PackageRevisionResourcesSpec{
+	prr := &porchapi.PackageRevisionResources{
+		Spec: porchapi.PackageRevisionResourcesSpec{
 			Resources: appliedResources.Contents,
 		},
 	}
 
-	return renderStatus, draft.UpdateResources(ctx, prr, &api.Task{Type: api.TaskTypeRender})
+	return renderStatus, draft.UpdateResources(ctx, prr, &porchapi.Task{Type: porchapi.TaskTypeRender})
 }
 
 func (th *genericTaskHandler) renderMutation(namespace string) mutation {
@@ -232,9 +236,9 @@ func renderError(err error) error {
 	return pkgerrors.Wrap(err, "Error rendering package in kpt function pipeline. Package NOT pushed to remote. Fix locally (until 'kpt fn render' succeeds) and retry. Details")
 }
 
-func (th *genericTaskHandler) mapTaskToMutation(obj *api.PackageRevision, task *api.Task, isDeployment bool, packageConfig *builtins.PackageConfig) (mutation, error) {
+func (th *genericTaskHandler) mapTaskToMutation(obj *porchapi.PackageRevision, task *porchapi.Task, isDeployment bool, packageConfig *builtins.PackageConfig) (mutation, error) {
 	switch task.Type {
-	case api.TaskTypeInit:
+	case porchapi.TaskTypeInit:
 		if task.Init == nil {
 			return nil, fmt.Errorf("init not set for task of type %q", task.Type)
 		}
@@ -242,7 +246,7 @@ func (th *genericTaskHandler) mapTaskToMutation(obj *api.PackageRevision, task *
 			name: obj.Spec.PackageName,
 			task: task,
 		}, nil
-	case api.TaskTypeClone:
+	case porchapi.TaskTypeClone:
 		if task.Clone == nil {
 			return nil, fmt.Errorf("clone not set for task of type %q", task.Type)
 		}
@@ -258,7 +262,7 @@ func (th *genericTaskHandler) mapTaskToMutation(obj *api.PackageRevision, task *
 			packageConfig:              packageConfig,
 		}, nil
 
-	case api.TaskTypeUpgrade:
+	case porchapi.TaskTypeUpgrade:
 		if task.Upgrade == nil {
 			return nil, fmt.Errorf("upgrade field not set for task of type %q", task.Type)
 		}
@@ -270,7 +274,7 @@ func (th *genericTaskHandler) mapTaskToMutation(obj *api.PackageRevision, task *
 			pkgName:           obj.Spec.PackageName,
 		}, nil
 
-	case api.TaskTypeEdit:
+	case porchapi.TaskTypeEdit:
 		if task.Edit == nil {
 			return nil, fmt.Errorf("edit not set for task of type %q", task.Type)
 		}
@@ -288,58 +292,199 @@ func (th *genericTaskHandler) mapTaskToMutation(obj *api.PackageRevision, task *
 	}
 }
 
-func patchKptfile(ctx context.Context, oldPackage repository.PackageRevision, newObj *api.PackageRevision) (*kptfile.KptFile, error) {
-	var kf *kptfile.KptFile
-	{
-		k, err := oldPackage.GetKptfile(ctx)
-		if err != nil {
-			return nil, err
+func PatchKptfile(
+	ctx context.Context,
+	oldPackage repository.PackageRevision,
+	newObj *porchapi.PackageRevision,
+) (string, bool, error) {
+	res, err := oldPackage.GetResources(ctx)
+	if err != nil {
+		return "", false, fmt.Errorf("getting resources: %w", err)
+	}
+	resourceMap := map[string]string{}
+	if res != nil {
+		resourceMap = res.Spec.Resources
+	}
+
+	kptf, err := kptfn.NewKptfileFromPackage(resourceMap)
+	if err != nil {
+		return "", false, fmt.Errorf("parse Kptfile: %w", err)
+	}
+
+	changed, err := applyMetadataToKptfile(kptf, newObj, true)
+	if err != nil {
+		return "", false, err
+	}
+
+	if newObj.Status.Conditions != nil {
+		desiredMap := make(map[string]kptfilev1.Condition)
+		for _, c := range newObj.Status.Conditions {
+			desiredMap[c.Type] = kptfilev1.Condition{
+				Type:    c.Type,
+				Status:  convertStatusToKptfile(c.Status),
+				Reason:  c.Reason,
+				Message: c.Message,
+			}
 		}
-		kf = &k
+
+		existingSub := kptf.Conditions()
+		finalConditions := make(kptfn.SliceSubObjects, 0, len(desiredMap))
+		hasChanged := false
+
+		for _, so := range existingSub {
+			condType := so.GetString("type")
+			if desiredCond, found := desiredMap[condType]; found {
+				isDifferent := so.GetString("status") != string(desiredCond.Status) ||
+					so.GetString("reason") != desiredCond.Reason ||
+					so.GetString("message") != desiredCond.Message
+
+				if isDifferent {
+					hasChanged = true
+					_ = so.SetNestedString(string(desiredCond.Status), "status")
+					if desiredCond.Reason != "" {
+						_ = so.SetNestedString(desiredCond.Reason, "reason")
+					} else {
+						_, _ = so.RemoveNestedField("reason")
+					}
+					if desiredCond.Message != "" {
+						_ = so.SetNestedString(desiredCond.Message, "message")
+					} else {
+						_, _ = so.RemoveNestedField("message")
+					}
+				}
+				finalConditions = append(finalConditions, so)
+				delete(desiredMap, condType)
+			} else {
+				hasChanged = true
+			}
+		}
+
+		if len(desiredMap) > 0 {
+			hasChanged = true
+			for _, newCond := range desiredMap {
+				ko, err := kptfn.NewFromTypedObject(newCond)
+				if err != nil {
+					return "", false, fmt.Errorf("convert new condition: %w", err)
+				}
+				finalConditions = append(finalConditions, &ko.SubObject)
+			}
+		}
+
+		if hasChanged {
+			changed = true
+			if err := kptf.SetConditions(finalConditions); err != nil {
+				return "", false, fmt.Errorf("set final conditions: %w", err)
+			}
+		}
 	}
 
-	var readinessGates []kptfile.ReadinessGate
-	for _, rg := range newObj.Spec.ReadinessGates {
-		readinessGates = append(readinessGates, kptfile.ReadinessGate{
-			ConditionType: rg.ConditionType,
-		})
+	if !changed {
+		return "", false, nil
 	}
 
-	var conditions []kptfile.Condition
-	for _, c := range newObj.Status.Conditions {
-		conditions = append(conditions, kptfile.Condition{
-			Type:    c.Type,
-			Status:  convertStatusToKptfile(c.Status),
-			Reason:  c.Reason,
-			Message: c.Message,
-		})
+	if err := kptf.WriteToPackage(resourceMap); err != nil {
+		return "", false, fmt.Errorf("write Kptfile: %w", err)
 	}
-
-	if kf.Info == nil && len(readinessGates) > 0 {
-		kf.Info = &kptfile.PackageInfo{}
-	}
-	if len(readinessGates) > 0 {
-		kf.Info.ReadinessGates = readinessGates
-	}
-
-	if kf.Status == nil && len(conditions) > 0 {
-		kf.Status = &kptfile.Status{}
-	}
-	if len(conditions) > 0 {
-		kf.Status.Conditions = conditions
-	}
-
-	return kf, nil
+	content := resourceMap[kptfilev1.KptFileName]
+	return content, true, nil
 }
 
-func convertStatusToKptfile(s api.ConditionStatus) kptfile.ConditionStatus {
+func applyMetadataToKptfile(kptf *kptfn.Kptfile, obj *porchapi.PackageRevision, replace bool) (bool, error) {
+	var changed bool
+
+	if obj.Spec.PackageMetadata != nil {
+		if obj.Spec.PackageMetadata.Labels != nil {
+			cur := kptf.GetLabels()
+			desired := obj.Spec.PackageMetadata.Labels
+			if replace {
+				if !maps.Equal(cur, desired) {
+					changed = true
+					kptf.SetLabels(desired)
+				}
+			} else {
+				didChange := false
+				for k, v := range desired {
+					if cv, ok := cur[k]; !ok || cv != v {
+						cur[k] = v
+						didChange = true
+					}
+				}
+				if didChange {
+					changed = true
+					kptf.SetLabels(cur)
+				}
+			}
+		}
+		if obj.Spec.PackageMetadata.Annotations != nil {
+			cur := kptf.GetAnnotations()
+			desired := obj.Spec.PackageMetadata.Annotations
+			if replace {
+				if !maps.Equal(cur, desired) {
+					changed = true
+					kptf.SetAnnotations(desired)
+				}
+			} else {
+				didChange := false
+				for k, v := range desired {
+					if cv, ok := cur[k]; !ok || cv != v {
+						cur[k] = v
+						didChange = true
+					}
+				}
+				if didChange {
+					changed = true
+					kptf.SetAnnotations(cur)
+				}
+			}
+		}
+	}
+
+	if obj.Spec.ReadinessGates != nil {
+		desiredGatesMap := make(map[string]porchapi.ReadinessGate)
+		for _, rg := range obj.Spec.ReadinessGates {
+			desiredGatesMap[rg.ConditionType] = rg
+		}
+		existingGates := kptf.ReadinessGates()
+		finalGates := make(kptfn.SliceSubObjects, 0, len(desiredGatesMap))
+		hasChangedInGates := false
+		for _, so := range existingGates {
+			gateType := so.GetString("conditionType")
+			if _, found := desiredGatesMap[gateType]; found {
+				finalGates = append(finalGates, so)
+				delete(desiredGatesMap, gateType)
+			} else {
+				hasChangedInGates = true
+			}
+		}
+		if len(desiredGatesMap) > 0 {
+			hasChangedInGates = true
+			for _, newGate := range desiredGatesMap {
+				ko, err := kptfn.NewFromTypedObject(newGate)
+				if err != nil {
+					return false, fmt.Errorf("convert new readiness gate: %w", err)
+				}
+				finalGates = append(finalGates, &ko.SubObject)
+			}
+		}
+		if hasChangedInGates {
+			changed = true
+			if err := kptf.SetReadinessGates(finalGates); err != nil {
+				return false, fmt.Errorf("set final readiness gates: %w", err)
+			}
+		}
+	}
+
+	return changed, nil
+}
+
+func convertStatusToKptfile(s porchapi.ConditionStatus) kptfilev1.ConditionStatus {
 	switch s {
-	case api.ConditionTrue:
-		return kptfile.ConditionTrue
-	case api.ConditionFalse:
-		return kptfile.ConditionFalse
-	case api.ConditionUnknown:
-		return kptfile.ConditionUnknown
+	case porchapi.ConditionTrue:
+		return kptfilev1.ConditionTrue
+	case porchapi.ConditionFalse:
+		return kptfilev1.ConditionFalse
+	case porchapi.ConditionUnknown:
+		return kptfilev1.ConditionUnknown
 	default:
 		panic(fmt.Errorf("unknown condition status: %v", s))
 	}

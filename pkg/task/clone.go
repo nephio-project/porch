@@ -19,13 +19,13 @@ import (
 	"fmt"
 	"os"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/kptdev/kpt/pkg/lib/builtins"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/builtins"
 	"github.com/nephio-project/porch/pkg/externalrepo/git"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/kpt"
-	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	pkgerrors "github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
@@ -35,7 +35,7 @@ import (
 var _ mutation = &clonePackageMutation{}
 
 type clonePackageMutation struct {
-	task *api.Task
+	task *porchapi.Task
 
 	// namespace is the namespace against which we resolve references.
 	// TODO: merge namespace into referenceResolver?
@@ -52,7 +52,7 @@ type clonePackageMutation struct {
 	packageConfig *builtins.PackageConfig
 }
 
-func (m *clonePackageMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error) {
+func (m *clonePackageMutation) apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *porchapi.TaskResult, error) {
 	ctx, span := tracer.Start(ctx, "clonePackageMutation::apply", trace.WithAttributes())
 	defer span.End()
 
@@ -102,10 +102,10 @@ func (m *clonePackageMutation) apply(ctx context.Context, resources repository.P
 		klog.Infof("failed to add merge-key to resources %v", err)
 	}
 
-	return result, &api.TaskResult{Task: m.task}, nil
+	return result, &porchapi.TaskResult{Task: m.task}, nil
 }
 
-func (m *clonePackageMutation) cloneFromRegisteredRepository(ctx context.Context, ref *api.PackageRevisionRef) (repository.PackageResources, error) {
+func (m *clonePackageMutation) cloneFromRegisteredRepository(ctx context.Context, ref *porchapi.PackageRevisionRef) (repository.PackageResources, error) {
 	if ref.Name == "" {
 		return repository.PackageResources{}, fmt.Errorf("upstreamRef.name is required")
 	}
@@ -123,7 +123,7 @@ func (m *clonePackageMutation) cloneFromRegisteredRepository(ctx context.Context
 		return repository.PackageResources{}, fmt.Errorf("cannot read contents of package %q: %w", ref.Name, err)
 	}
 
-	upstream, lock, err := upstreamRevision.GetLock()
+	upstream, lock, err := upstreamRevision.GetLock(ctx)
 	if err != nil {
 		return repository.PackageResources{}, fmt.Errorf("cannot determine upstream lock for package %q: %w", ref.Name, err)
 	}
@@ -138,7 +138,7 @@ func (m *clonePackageMutation) cloneFromRegisteredRepository(ctx context.Context
 	}, nil
 }
 
-func (m *clonePackageMutation) cloneFromGit(ctx context.Context, gitPackage *api.GitPackage) (repository.PackageResources, error) {
+func (m *clonePackageMutation) cloneFromGit(ctx context.Context, gitPackage *porchapi.GitPackage) (repository.PackageResources, error) {
 	// TODO: Cache unregistered repositories with appropriate cache eviction policy.
 	// TODO: Separate low-level repository access from Repository abstraction?
 
@@ -180,15 +180,15 @@ func (m *clonePackageMutation) cloneFromGit(ctx context.Context, gitPackage *api
 	contents := resources.Spec.Resources
 
 	// Update Kptfile
-	if err := kpt.UpdateKptfileUpstream(m.name, contents, v1.Upstream{
-		Type: v1.GitOrigin,
-		Git: &v1.Git{
+	if err := kpt.UpdateKptfileUpstream(m.name, contents, kptfilev1.Upstream{
+		Type: kptfilev1.GitOrigin,
+		Git: &kptfilev1.Git{
 			Repo:      lock.Repo,
 			Directory: lock.Directory,
 			Ref:       lock.Ref,
 		},
-	}, v1.UpstreamLock{
-		Type: v1.GitOrigin,
+	}, kptfilev1.UpstreamLock{
+		Type: kptfilev1.GitOrigin,
 		Git:  &lock,
 	}); err != nil {
 		return repository.PackageResources{}, pkgerrors.Wrapf(err, "failed to clone package %s@%s", gitPackage.Directory, gitPackage.Ref)
@@ -199,6 +199,6 @@ func (m *clonePackageMutation) cloneFromGit(ctx context.Context, gitPackage *api
 	}, nil
 }
 
-func (m *clonePackageMutation) cloneFromOci(_ context.Context, _ *api.OciPackage) (repository.PackageResources, error) {
+func (m *clonePackageMutation) cloneFromOci(_ context.Context, _ *porchapi.OciPackage) (repository.PackageResources, error) {
 	return repository.PackageResources{}, pkgerrors.New("clone from OCI is not implemented")
 }

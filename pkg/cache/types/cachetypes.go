@@ -36,13 +36,13 @@ const (
 )
 
 type CacheOptions struct {
-	ExternalRepoOptions  externalrepotypes.ExternalRepoOptions
-	RepoSyncFrequency            time.Duration
-	RepoOperationRetryAttempts   int
-	RepoPRChangeNotifier         RepoPRChangeNotifier
-	CoreClient           client.WithWatch
-	CacheType            CacheType
-	DBCacheOptions       DBCacheOptions
+	ExternalRepoOptions        externalrepotypes.ExternalRepoOptions
+	RepoSyncFrequency          time.Duration
+	RepoOperationRetryAttempts int
+	RepoPRChangeNotifier       RepoPRChangeNotifier
+	CoreClient                 client.WithWatch
+	CacheType                  CacheType
+	DBCacheOptions             DBCacheOptions
 }
 
 const DefaultDBCacheDriver string = "pgx"
@@ -58,6 +58,7 @@ type Cache interface {
 	GetRepositories() []*configapi.Repository
 	GetRepository(repository.RepositoryKey) repository.Repository
 	UpdateRepository(ctx context.Context, repositorySpec *configapi.Repository) error
+	CheckRepositoryConnectivity(ctx context.Context, repositorySpec *configapi.Repository) error
 }
 
 var (

@@ -19,7 +19,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 )
 
@@ -36,7 +36,7 @@ func identifyLatestRevisions(ctx context.Context, result map[repository.PackageR
 
 		// Check if the current package revision is more recent than the one seen so far.
 		// Only consider Published packages
-		if !v1alpha1.LifecycleIsPublished(current.Lifecycle(ctx)) {
+		if !porchapi.LifecycleIsPublished(current.Lifecycle(ctx)) {
 			continue
 		}
 

@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/errors"
+	"github.com/kptdev/kpt/pkg/lib/errors"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
 	"github.com/spf13/cobra"
@@ -93,18 +93,18 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 			Name:      name,
 		}
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			var pr v1alpha1.PackageRevision
+			var pr porchapi.PackageRevision
 			if err := r.client.Get(r.ctx, key, &pr); err != nil {
 				return err
 			}
 			switch pr.Spec.Lifecycle {
-			case v1alpha1.PackageRevisionLifecycleProposed:
+			case porchapi.PackageRevisionLifecycleProposed:
 				proposedFor = "approval"
-				return porch.UpdatePackageRevisionApproval(r.ctx, r.client, &pr, v1alpha1.PackageRevisionLifecycleDraft)
-			case v1alpha1.PackageRevisionLifecycleDeletionProposed:
+				return porch.UpdatePackageRevisionApproval(r.ctx, r.client, &pr, porchapi.PackageRevisionLifecycleDraft)
+			case porchapi.PackageRevisionLifecycleDeletionProposed:
 				proposedFor = "deletion"
 				// NOTE(kispaljr): should we use UpdatePackageRevisionApproval() here?
-				pr.Spec.Lifecycle = v1alpha1.PackageRevisionLifecyclePublished
+				pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 				return r.client.Update(r.ctx, &pr)
 			default:
 				return fmt.Errorf("cannot reject %s with lifecycle '%s'", name, pr.Spec.Lifecycle)

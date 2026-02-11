@@ -80,13 +80,6 @@ func TestCheckRepositoryConnection(t *testing.T) {
 	assert.True(t, err != nil)
 	assert.Contains(t, err.Error(), "repository URL is empty")
 
-	// empty branch name
-	repoSpec.Spec.Git.Repo = "https://example.com/repo.git"
-	repoSpec.Spec.Git.Branch = ""
-	err = gf.CheckRepositoryConnection(context.TODO(), repoSpec, externalrepotypes.ExternalRepoOptions{})
-	assert.True(t, err != nil)
-	assert.Contains(t, err.Error(), "target branch is empty")
-
 	tempDir := t.TempDir()
 	tarfile := filepath.Join("testdata", "trivial-repository.tar")
 	branch := "main"
@@ -99,6 +92,31 @@ func TestCheckRepositoryConnection(t *testing.T) {
 			Git: &configapi.GitRepository{
 				Repo:   address,
 				Branch: branch,
+			},
+		},
+	}
+	err = gf.CheckRepositoryConnection(context.TODO(), repoSpec, externalrepotypes.ExternalRepoOptions{})
+	assert.NoError(t, err)
+
+	// empty branch defaults to main
+	repoSpec = &configapi.Repository{
+		Spec: configapi.RepositorySpec{
+			Git: &configapi.GitRepository{
+				Repo:   address,
+				Branch: "", // empty branch should default to main
+			},
+		},
+	}
+	err = gf.CheckRepositoryConnection(context.TODO(), repoSpec, externalrepotypes.ExternalRepoOptions{})
+	assert.NoError(t, err)
+
+	// branch not found but createBranch is set to true
+	repoSpec = &configapi.Repository{
+		Spec: configapi.RepositorySpec{
+			Git: &configapi.GitRepository{
+				Repo:         address,
+				Branch:       "nonexistent-branch",
+				CreateBranch: true,
 			},
 		},
 	}

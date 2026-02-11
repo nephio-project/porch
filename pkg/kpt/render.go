@@ -1,4 +1,4 @@
-// Copyright 2022, 2025 The kpt and Nephio Authors
+// Copyright 2022, 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,10 +20,10 @@ import (
 	"io"
 	"os"
 
+	fnresult "github.com/kptdev/kpt/pkg/api/fnresult/v1"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/internal/kpt/util/render"
-	fnresult "github.com/nephio-project/porch/pkg/kpt/api/fnresult/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
 	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"k8s.io/klog/v2"
@@ -54,14 +54,21 @@ type packagePrinter struct{}
 
 var _ printer.Printer = &packagePrinter{}
 
-const packagePrefixFormat = "Package: %q"
+const (
+	packagePrefixFormat = "Package: %q"
+	logDepth            = 2
+)
 
 func (p *packagePrinter) PrintPackage(pkg *pkg.Pkg, leadingNewline bool) {
-	p.Printf(packagePrefixFormat, pkg.DisplayPath)
+	p.printfDepth(logDepth, packagePrefixFormat, pkg.DisplayPath)
 }
 
 func (p *packagePrinter) Printf(format string, args ...interface{}) {
-	klog.Infof(format, args...)
+	p.printfDepth(logDepth, format, args...)
+}
+
+func (p *packagePrinter) printfDepth(depth int, format string, args ...interface{}) {
+	klog.InfofDepth(depth, format, args...)
 }
 
 func (p *packagePrinter) OptPrintf(opt *printer.Options, format string, args ...interface{}) {
@@ -75,7 +82,7 @@ func (p *packagePrinter) OptPrintf(opt *printer.Options, format string, args ...
 	} else if !opt.PkgPath.Empty() {
 		prefix = fmt.Sprintf(packagePrefixFormat, string(opt.PkgPath))
 	}
-	p.Printf(prefix+format, args...)
+	p.printfDepth(logDepth, prefix+format, args...)
 }
 
 func (p *packagePrinter) OutStream() io.Writer {

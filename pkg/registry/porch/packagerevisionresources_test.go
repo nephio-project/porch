@@ -19,8 +19,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/nephio-project/porch/api/porch"
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	mockclient "github.com/nephio-project/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
+	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -39,7 +39,7 @@ var (
 		TableConvertor: packageRevisionResourcesTableConvertor,
 		packageCommon: packageCommon{
 			scheme:         runtime.NewScheme(),
-			gr:             porch.Resource("packagerevisions"),
+			gr:             porchapi.Resource("packagerevisions"),
 			coreClient:     nil,
 			updateStrategy: packageRevisionStrategy{},
 			createStrategy: packageRevisionStrategy{},
@@ -70,7 +70,7 @@ func TestListResources(t *testing.T) {
 
 	result, err := packagerevisionresources.List(context.TODO(), &internalversion.ListOptions{})
 	assert.NoError(t, err)
-	assert.Equal(t, 1, len(result.(*api.PackageRevisionResourcesList).Items))
+	assert.Equal(t, 1, len(result.(*porchapi.PackageRevisionResourcesList).Items))
 
 	//=========================================================================================
 
@@ -89,7 +89,39 @@ func TestListResources(t *testing.T) {
 	mockPkgRev.On("GetResources", mock.Anything).Return(nil, errors.New("error getting API package revision")).Once()
 	result, err = packagerevisionresources.List(context.TODO(), &internalversion.ListOptions{})
 	assert.NoError(t, err)
-	resultList, isList := result.(*api.PackageRevisionResourcesList)
+	resultList, isList := result.(*porchapi.PackageRevisionResourcesList)
 	assert.True(t, isList)
 	assert.Equal(t, 0, len(resultList.Items))
+}
+
+func TestWatchResources(t *testing.T) {
+	_, mockEngine := setupResourcesTest(t)
+	mockWatcherManager := mockengine.NewMockWatcherManager(t)
+	mockEngine.On("ObjectCache").Return(mockWatcherManager).Maybe()
+
+	mockWatcherManager.On("WatchPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil).Maybe()
+
+	watcher, err := packagerevisionresources.Watch(context.TODO(), &internalversion.ListOptions{})
+	assert.NoError(t, err)
+	if watcher != nil {
+		watcher.Stop()
+	}
+
+	//=========================================================================================
+
+	watcher, err = packagerevisionresources.Watch(context.TODO(), &internalversion.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("invalid.field", "somethingOffTheWall"),
+	})
+	assert.Equal(t, nil, watcher)
+	assert.ErrorContains(t, err, "unknown fieldSelector field")
+
+	//=========================================================================================
+
+	ctxWithConflictNamespace := genericapirequest.WithNamespace(context.TODO(), "foo")
+	watcher, err = packagerevisionresources.Watch(ctxWithConflictNamespace, &internalversion.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("metadata.namespace", "somethingOffTheWall"),
+	})
+	assert.Equal(t, nil, watcher)
+	assert.ErrorContains(t, err, "conflicting namespaces specified")
 }

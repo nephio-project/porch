@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/kptdev/kpt/pkg/lib/errors"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/util/parse"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
@@ -33,15 +33,6 @@ import (
 
 const (
 	command = "cmdrpkgclone"
-)
-
-var (
-	strategies = []string{
-		string(porchapi.ResourceMerge),
-		string(porchapi.FastForward),
-		string(porchapi.ForceDeleteReplace),
-		string(porchapi.CopyMerge),
-	}
 )
 
 func NewCommand(ctx context.Context, rcg *genericclioptions.ConfigFlags) *cobra.Command {
@@ -64,8 +55,6 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 	}
 	r.Command = c
 
-	c.Flags().StringVar(&r.strategy, "strategy", string(porchapi.ResourceMerge),
-		"update strategy that should be used when updating this package; one of: "+strings.Join(strategies, ","))
 	c.Flags().StringVar(&r.directory, "directory", "", "Directory within the repository where the upstream package is located.")
 	c.Flags().StringVar(&r.ref, "ref", "", "Branch in the repository where the upstream package is located.")
 	c.Flags().StringVar(&r.repository, "repository", "", "Repository to which package will be cloned (downstream repository).")
@@ -84,7 +73,6 @@ type runner struct {
 	clone porchapi.PackageCloneTaskSpec
 
 	// Flags
-	strategy   string
 	directory  string
 	ref        string
 	repository string // Target repository
@@ -100,12 +88,6 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 		return errors.E(op, err)
 	}
 	r.client = client
-
-	mergeStrategy, err := toMergeStrategy(r.strategy)
-	if err != nil {
-		return errors.E(op, err)
-	}
-	r.clone.Strategy = mergeStrategy
 
 	if len(args) < 2 {
 		return errors.E(op, fmt.Errorf("SOURCE_PACKAGE and NAME are required positional arguments; %d provided", len(args)))
@@ -217,19 +199,4 @@ func (r *runner) runE(cmd *cobra.Command, _ []string) error {
 
 	fmt.Fprintf(cmd.OutOrStdout(), "%s created\n", pr.Name)
 	return nil
-}
-
-func toMergeStrategy(strategy string) (porchapi.PackageMergeStrategy, error) {
-	switch strategy {
-	case string(porchapi.ResourceMerge):
-		return porchapi.ResourceMerge, nil
-	case string(porchapi.FastForward):
-		return porchapi.FastForward, nil
-	case string(porchapi.ForceDeleteReplace):
-		return porchapi.ForceDeleteReplace, nil
-	case string(porchapi.CopyMerge):
-		return porchapi.CopyMerge, nil
-	default:
-		return "", fmt.Errorf("invalid strategy: %q", strategy)
-	}
 }

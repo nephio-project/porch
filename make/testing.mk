@@ -1,4 +1,4 @@
-#  Copyright 2025 The Nephio Authors.
+#  Copyright 2025-2026 The Nephio Authors.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ vulncheck: build
 
 .PHONY: test-e2e
 test-e2e: ## Run end-to-end tests
-	E2E=1 go test -v -failfast ./test/e2e
+	E2E=1 go test -v -failfast ./test/e2e/api
 
 .PHONY: test-e2e-cli
 test-e2e-cli: ## Run cli end-to-end tests
@@ -73,3 +73,7 @@ test-e2e-cli-db-cache: run-in-kind-db-cache-no-git
 .PHONY: test-e2e-clean
 test-e2e-clean: porchctl ## Run end-to-end tests against a newly deployed porch in a newly created kind cluster
 	./scripts/clean-e2e-test.sh
+
+.PHONY: test-3pp-fns
+test-3pp-fns: ## Run 3pp fn-runner end-to-end tests
+	TPP=1 go test -v -failfast ./test/e2e/fn_runner

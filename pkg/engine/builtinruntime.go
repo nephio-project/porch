@@ -1,4 +1,4 @@
-// Copyright 2022, 2025 The kpt and Nephio Authors
+// Copyright 2022, 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,18 +19,18 @@ import (
 	"fmt"
 	"io"
 
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/kptdev/krm-functions-catalog/functions/go/apply-replacements/replacements"
+	set_namespace "github.com/kptdev/krm-functions-catalog/functions/go/set-namespace/transformer"
+	"github.com/kptdev/krm-functions-catalog/functions/go/starlark/starlark"
+	fnsdk "github.com/kptdev/krm-functions-sdk/go/fn"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/pkg/kpt"
-	v1 "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
-	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-catalog/functions/go/apply_replacements"
-	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-catalog/functions/go/set_namespace"
-	"github.com/nephio-project/porch/third_party/kptdev/krm-functions-catalog/functions/go/starlark/starlark"
-	fnsdk "github.com/nephio-project/porch/third_party/kptdev/krm-functions-sdk/go/fn"
 )
 
 // When updating the version for the builtin functions, please also update the image version
-// in test TestBuiltinFunctionEvaluator in porch/test/e2e/e2e_test.go, if the versions mismatch
+// in test TestBuiltinFunctionEvaluator in porch/test/e2e/api/fn_runner_test.go, if the versions mismatch
 // the e2e test will fail in local deployment mode.
 var (
 	applyReplacementsImageAliases = []string{
@@ -67,7 +67,7 @@ func newBuiltinRuntime(imagePrefix string) *builtinRuntime {
 		}
 	}
 
-	applyMappings(applyReplacementsImageAliases, apply_replacements.ApplyReplacements)
+	applyMappings(applyReplacementsImageAliases, replacements.ApplyReplacements)
 	applyMappings(setNamespaceImageAliases, set_namespace.Run)
 	applyMappings(starlarkImageAliases, starlark.Process)
 
@@ -78,7 +78,7 @@ func newBuiltinRuntime(imagePrefix string) *builtinRuntime {
 
 var _ kpt.FunctionRuntime = &builtinRuntime{}
 
-func (br *builtinRuntime) GetRunner(ctx context.Context, funct *v1.Function) (fn.FunctionRunner, error) {
+func (br *builtinRuntime) GetRunner(ctx context.Context, funct *kptfilev1.Function) (fn.FunctionRunner, error) {
 	processor, found := br.fnMapping[funct.Image]
 	if !found {
 		return nil, &fn.NotFoundError{Function: *funct}

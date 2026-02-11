@@ -48,6 +48,7 @@ type podCacheManager struct {
 	podReadyCh <-chan *podReadyResponse
 
 	// functions maps KRM function image names to its pods and waitlist information.
+	mu        sync.RWMutex
 	functions map[string]*functionInfo
 
 	podManager *podManager
@@ -133,7 +134,7 @@ func (pcm *podCacheManager) podCacheManager() {
 				klog.Infof("Scaling up for image %s. No idle pods available. Starting a new pod.", req.image)
 
 				fn.pods = append(fn.pods, NewPodInfo(req.responseCh))
-				go pcm.podManager.getFuncEvalPodClient(context.Background(), req.image, ttl, len(fn.pods), pcm.configMap[req.image])
+				go pcm.podManager.getFuncEvalPodClient(context.Background(), req.image, ttl, len(fn.pods), pcm.configMap[req.image], true)
 			} else {
 				pod := &fn.pods[bestPodIndex]
 				klog.Infof("Queuing request for %s on pod instance #%d (queue length will be %d)", req.image, bestPodIndex, bestWaitlistLen+1)
@@ -269,18 +270,17 @@ func (pcm *podCacheManager) retrieveFunctionPods(ctx context.Context) error {
 	if err == nil && len(podList.Items) > 0 {
 		for _, pod := range podList.Items {
 			if pod.DeletionTimestamp == nil {
+				// Service name is Image Label set on Pod manifest
+				serviceName := pod.Labels[krmFunctionImageLabel]
+				podKey := client.ObjectKeyFromObject(&pod)
+
+				serviceTemplate, err := pcm.podManager.retrieveOrCreateService(ctx, serviceName)
+				if err != nil {
+					return err
+				}
+
 				if isPodTemplateSameVersion(&pod, templateVersion) {
-
-					// Service name is Image Label set on Pod manifest
-					serviceName := pod.Labels[krmFunctionImageLabel]
-					podKey := client.ObjectKeyFromObject(&pod)
-
-					serviceTemplate, err := pcm.podManager.retrieveOrCreateService(ctx, serviceName)
-					if err != nil {
-						return err
-					}
 					serviceKey := client.ObjectKeyFromObject(serviceTemplate)
-
 					image := pod.Spec.Containers[0].Image
 					fn := pcm.FunctionInfo(image)
 					if len(fn.pods) < pcm.maxParallelPodsPerFunction {
@@ -299,6 +299,8 @@ func (pcm *podCacheManager) retrieveFunctionPods(ctx context.Context) error {
 						klog.Infof("max parallel pods reached for %v, deleting %v/%v", image, pod.Namespace, pod.Name)
 						pcm.DeletePodWithServiceInBackground(&pod, serviceTemplate)
 					}
+				} else {
+					pcm.DeletePodWithServiceInBackground(&pod, serviceTemplate)
 				}
 			}
 		}
@@ -322,19 +324,35 @@ func (pcm *podCacheManager) warmupCache(podCacheConfig string) error {
 		return err
 	}
 
-	for _, entry := range entries {
+	forEachConcurrently(entries, func(entry podCacheConfigEntry) {
 		ttl, _, _ := pcm.getParamsForImage(entry.Name)
+		pcm.mu.Lock()
 		fn := pcm.FunctionInfo(entry.Name)
+		pcm.mu.Unlock()
 		if len(fn.pods) == 0 {
 			fn.pods = append(fn.pods, NewPodInfo(nil))
-			go func(fnImage string, ttl time.Duration) {
-				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-				defer cancel()
-				pcm.podManager.getFuncEvalPodClient(ctx, fnImage, ttl, 1, pcm.configMap[fnImage])
-			}(entry.Name, ttl)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			defer cancel()
+			pcm.podManager.getFuncEvalPodClient(ctx, entry.Name, ttl, 1, pcm.configMap[entry.Name], false)
 		}
-	}
+		klog.Infof("preloaded pod cache for function %v", entry.Name)
+	})
 	return nil
+}
+
+func forEachConcurrently(m []podCacheConfigEntry, fn func(k podCacheConfigEntry)) {
+	var wg sync.WaitGroup
+	for _, v := range m {
+		v := v
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			fn(v)
+		}()
+	}
+	// Wait for all the functions to complete.
+	wg.Wait()
 }
 
 // findBestPod returns with the index of the least loaded healthy pod for the given function.

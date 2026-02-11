@@ -35,7 +35,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/storage/memory"
-	"github.com/nephio-project/porch/api/porch/v1alpha1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/externalrepo/git"
 	"github.com/nephio-project/porch/pkg/repository"
 )
@@ -227,16 +227,16 @@ func TestCloneGitBasicAuth(t *testing.T) {
 	addr := startGitServer(t, repo)
 
 	cpm := clonePackageMutation{
-		task: &v1alpha1.Task{
+		task: &porchapi.Task{
 			Type: "clone",
-			Clone: &v1alpha1.PackageCloneTaskSpec{
-				Upstream: v1alpha1.UpstreamPackage{
+			Clone: &porchapi.PackageCloneTaskSpec{
+				Upstream: porchapi.UpstreamPackage{
 					Type: "git",
-					Git: &v1alpha1.GitPackage{
+					Git: &porchapi.GitPackage{
 						Repo:      addr,
 						Ref:       "main",
 						Directory: "configmap",
-						SecretRef: v1alpha1.SecretRef{
+						SecretRef: porchapi.SecretRef{
 							Name: "git-credentials",
 						},
 					},

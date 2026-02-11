@@ -14,6 +14,7 @@ import (
 	"time"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
+	suiteutils "github.com/nephio-project/porch/test/e2e/suiteutils"
 	"github.com/stretchr/testify/suite"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -57,7 +58,9 @@ func TestIterative(t *testing.T) {
 	if os.Getenv("PERF") != "1" {
 		t.Skip("PERF != 1")
 	}
-	suite.Run(t, &IterativeTest{})
+	test := &IterativeTest{}
+	test.UseGitea = true
+	suite.Run(t, test)
 }
 
 func (t *IterativeTest) SetupSuite() {
@@ -116,10 +119,10 @@ func (t *IterativeTest) createRepos() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			t.RegisterGitRepositoryWithDirectoryF(repo, repo)
+			t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repo, repo, suiteutils.GiteaUser, suiteutils.GiteaPassword)
 		}()
 	}
-	t.RegisterGitRepositoryWithDirectoryF(testRepoName, testRepoName)
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), testRepoName, "iterativedir", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 	wg.Wait()
 }
 

@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 kind: ServiceAccount
 apiVersion: v1
 metadata:
@@ -46,6 +45,7 @@ spec:
             - --pod-namespace=porch-fn-system
             - --max-request-body-size=6291456 # Keep this in sync with porch-server's corresponding argument
             - --max-parallel-pods-per-function=2
+            - --warm-up-pod-cache=true
           env:
             - name: WRAPPER_SERVER_IMAGE
               value: docker.io/nephio/porch-wrapper-server:latest
@@ -92,83 +92,79 @@ metadata:
   namespace: porch-system
 data:
   pod-cache-config.yaml: |
-    - name: gcr.io/kpt-fn/apply-replacements:v0.1.1
+    - name: ghcr.io/kptdev/krm-functions-catalog/apply-replacements:v0.1.1
       timeToLive: 30m
       maxWaitlistLength: 2
       maxParallelPodsPerFunction: 2
-    - name: gcr.io/kpt-fn/apply-setters:v0.2.0
+    - name: ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.2.0
       timeToLive: 30m
       maxWaitlistLength: 2
       maxParallelPodsPerFunction: 2
-    - name: gcr.io/kpt-fn/create-setters:v0.1.0
+    - name: ghcr.io/kptdev/krm-functions-catalog/create-setters:v0.1.0
       timeToLive: 30m
       maxWaitlistLength: 2
       maxParallelPodsPerFunction: 2
-    - name: gcr.io/kpt-fn/ensure-name-substring:v0.2.0
+    - name: ghcr.io/kptdev/krm-functions-catalog/ensure-name-substring:v0.2.0
       timeToLive: 30m
       maxWaitlistLength: 2
       maxParallelPodsPerFunction: 2
-    - name: gcr.io/kpt-fn/gatekeeper:v0.2.1
+    - name: ghcr.io/kptdev/krm-functions-catalog/gatekeeper:v0.2.1
       timeToLive: 30m
       maxWaitlistLength: 2
       maxParallelPodsPerFunction: 2
-    - name: gcr.io/kpt-fn/kubeval:v0.2.0
+    - name: ghcr.io/kptdev/krm-functions-catalog/kubeconform:v0.1.1
       timeToLive: 30m
       maxWaitlistLength: 2
       maxParallelPodsPerFunction: 2
-    - name: gcr.io/kpt-fn/search-replace:v0.2.0
+    - name: ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.2.0
       timeToLive: 30m
       maxWaitlistLength: 2
       maxParallelPodsPerFunction: 2
-    - name: gcr.io/kpt-fn/set-annotations:v0.1.4
+    - name: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1.4
       timeToLive: 30m
       maxWaitlistLength: 2
       maxParallelPodsPerFunction: 2
-    - name: gcr.io/kpt-fn/set-enforcement-action:v0.1.0
+    - name: ghcr.io/kptdev/krm-functions-catalog/set-enforcement-action:v0.1.0
       timeToLive: 30m
       maxWaitlistLength: 2
       maxParallelPodsPerFunction: 2
-    - name: gcr.io/kpt-fn/set-image:v0.1.1
+    - name: ghcr.io/kptdev/krm-functions-catalog/set-image:v0.1.1
       timeToLive: 30m
       maxWaitlistLength: 2
       maxParallelPodsPerFunction: 2
-    - name: gcr.io/kpt-fn/set-labels:v0.1.5
+    - name: ghcr.io/kptdev/krm-functions-catalog/set-labels:v0.1.5
       timeToLive: 30m
       maxWaitlistLength: 2
       maxParallelPodsPerFunction: 2
-    - name: gcr.io/kpt-fn/set-namespace:v0.4.1
+    - name: ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.4.1
       timeToLive: 30m
       maxWaitlistLength: 2
       maxParallelPodsPerFunction: 2
-    - name: gcr.io/kpt-fn/starlark:v0.4.3
+    - name: ghcr.io/kptdev/krm-functions-catalog/starlark:v0.4.3
       timeToLive: 30m
       maxWaitlistLength: 2
       maxParallelPodsPerFunction: 2
-    - name: gcr.io/kpt-fn/upsert-resource:v0.2.0
+    - name: ghcr.io/kptdev/krm-functions-catalog/upsert-resource:v0.2.0
       timeToLive: 30m
       maxWaitlistLength: 2
       maxParallelPodsPerFunction: 2
-    - name: gcr.io/kpt-fn/enable-gcp-services:v0.1.0
+    - name: ghcr.io/kptdev/krm-functions-catalog/enable-gcp-services:v0.1.0
       timeToLive: 30m
       maxWaitlistLength: 2
       maxParallelPodsPerFunction: 2
-    - name: gcr.io/kpt-fn/export-terraform:v0.1.0
+    - name: ghcr.io/kptdev/krm-functions-catalog/export-terraform:v0.1.0
       timeToLive: 30m
       maxWaitlistLength: 2
       maxParallelPodsPerFunction: 2
-    - name: gcr.io/kpt-fn/generate-folders:v0.1.1
+    - name: ghcr.io/kptdev/krm-functions-catalog/generate-folders:v0.1.1
       timeToLive: 30m
       maxWaitlistLength: 2
       maxParallelPodsPerFunction: 2
-    - name: gcr.io/kpt-fn/remove-local-config-resources:v0.1.0
+    - name: ghcr.io/kptdev/krm-functions-catalog/remove-local-config-resources:v0.1.0
       timeToLive: 30m
       maxWaitlistLength: 2
       maxParallelPodsPerFunction: 2
-    - name: gcr.io/kpt-fn/set-project-id:v0.2.0
+    - name: ghcr.io/kptdev/krm-functions-catalog/set-project-id:v0.2.0
       timeToLive: 30m
-      maxWaitlistLength: 2
-      maxParallelPodsPerFunction: 2
-    - name: docker.io/nephio/sleep-fn:latest
-      timeToLive: 1m
       maxWaitlistLength: 2
       maxParallelPodsPerFunction: 2

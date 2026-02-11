@@ -17,9 +17,9 @@ package task
 import (
 	"context"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	"github.com/kptdev/kpt/pkg/lib/builtins"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/builtins"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/pkg/kpt/fn"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -38,13 +38,13 @@ type TaskHandler interface {
 	SetReferenceResolver(repository.ReferenceResolver)
 	SetRepoOperationRetryAttempts(int)
 
-	ApplyTask(ctx context.Context, draft repository.PackageRevisionDraft, repositoryObj *configapi.Repository, obj *api.PackageRevision, packageConfig *builtins.PackageConfig) error
-	DoPRMutations(ctx context.Context, repoPR repository.PackageRevision, oldObj *api.PackageRevision, newObj *api.PackageRevision, draft repository.PackageRevisionDraft) error
-	DoPRResourceMutations(ctx context.Context, pr2Update repository.PackageRevision, draft repository.PackageRevisionDraft, oldRes, newRes *api.PackageRevisionResources) (*api.RenderStatus, error)
+	ApplyTask(ctx context.Context, draft repository.PackageRevisionDraft, repositoryObj *configapi.Repository, obj *porchapi.PackageRevision, packageConfig *builtins.PackageConfig) error
+	DoPRMutations(ctx context.Context, repoPR repository.PackageRevision, oldObj *porchapi.PackageRevision, newObj *porchapi.PackageRevision, draft repository.PackageRevisionDraft) error
+	DoPRResourceMutations(ctx context.Context, pr2Update repository.PackageRevision, draft repository.PackageRevisionDraft, oldRes, newRes *porchapi.PackageRevisionResources) (*porchapi.RenderStatus, error)
 }
 
 type mutation interface {
-	apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *api.TaskResult, error)
+	apply(ctx context.Context, resources repository.PackageResources) (repository.PackageResources, *porchapi.TaskResult, error)
 }
 
 func GetDefaultTaskHandler() TaskHandler {

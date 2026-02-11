@@ -19,17 +19,17 @@ import (
 	"strconv"
 	"strings"
 
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
-	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func ToAPIReadinessGates(kf kptfile.KptFile) []api.ReadinessGate {
-	var readinessGates []api.ReadinessGate
+func ToAPIReadinessGates(kf kptfilev1.KptFile) []porchapi.ReadinessGate {
+	var readinessGates []porchapi.ReadinessGate
 	if kf.Info != nil {
 		for _, rg := range kf.Info.ReadinessGates {
-			readinessGates = append(readinessGates, api.ReadinessGate{
+			readinessGates = append(readinessGates, porchapi.ReadinessGate{
 				ConditionType: rg.ConditionType,
 			})
 		}
@@ -37,11 +37,11 @@ func ToAPIReadinessGates(kf kptfile.KptFile) []api.ReadinessGate {
 	return readinessGates
 }
 
-func ToAPIConditions(kf kptfile.KptFile) []api.Condition {
-	var conditions []api.Condition
+func ToAPIConditions(kf kptfilev1.KptFile) []porchapi.Condition {
+	var conditions []porchapi.Condition
 	if kf.Status != nil && kf.Status.Conditions != nil {
 		for _, s := range kf.Status.Conditions {
-			conditions = append(conditions, api.Condition{
+			conditions = append(conditions, porchapi.Condition{
 				Type:    s.Type,
 				Status:  toAPIConditionStatus(s.Status),
 				Reason:  s.Reason,
@@ -52,21 +52,21 @@ func ToAPIConditions(kf kptfile.KptFile) []api.Condition {
 	return conditions
 }
 
-func toAPIConditionStatus(s kptfile.ConditionStatus) api.ConditionStatus {
+func toAPIConditionStatus(s kptfilev1.ConditionStatus) porchapi.ConditionStatus {
 	switch s {
-	case kptfile.ConditionTrue:
-		return api.ConditionTrue
-	case kptfile.ConditionFalse:
-		return api.ConditionFalse
-	case kptfile.ConditionUnknown:
-		return api.ConditionUnknown
+	case kptfilev1.ConditionTrue:
+		return porchapi.ConditionTrue
+	case kptfilev1.ConditionFalse:
+		return porchapi.ConditionFalse
+	case kptfilev1.ConditionUnknown:
+		return porchapi.ConditionUnknown
 	default:
 		panic(fmt.Errorf("unknown condition status: %v", s))
 	}
 }
 
-func UpsertAPICondition(conditions []api.Condition, condition api.Condition) []api.Condition {
-	updatedConditions := []api.Condition{}
+func UpsertAPICondition(conditions []porchapi.Condition, condition porchapi.Condition) []porchapi.Condition {
+	updatedConditions := []porchapi.Condition{}
 
 	for _, conditionItem := range conditions {
 		if conditionItem.Type != condition.Type {
@@ -122,12 +122,12 @@ func PrSlice2Map(prSlice []PackageRevision) map[PackageRevisionKey]PackageRevisi
 	return prMap
 }
 
-func KptUpstreamLock2APIUpstreamLock(kptLock kptfile.UpstreamLock) *api.UpstreamLock {
-	porchLock := &api.UpstreamLock{}
+func KptUpstreamLock2APIUpstreamLock(kptLock kptfilev1.UpstreamLock) *porchapi.Locator {
+	porchLock := &porchapi.Locator{}
 
-	porchLock.Type = api.OriginType(kptLock.Type)
+	porchLock.Type = porchapi.OriginType(kptLock.Type)
 	if kptLock.Git != nil {
-		porchLock.Git = &api.GitLock{
+		porchLock.Git = &porchapi.GitLock{
 			Repo:      kptLock.Git.Repo,
 			Directory: kptLock.Git.Directory,
 			Commit:    kptLock.Git.Commit,
@@ -138,12 +138,12 @@ func KptUpstreamLock2APIUpstreamLock(kptLock kptfile.UpstreamLock) *api.Upstream
 	return porchLock
 }
 
-func KptUpstreamLock2KptUpstream(kptLock kptfile.UpstreamLock) kptfile.Upstream {
-	kptUpstream := kptfile.Upstream{}
+func KptUpstreamLock2KptUpstream(kptLock kptfilev1.UpstreamLock) kptfilev1.Upstream {
+	kptUpstream := kptfilev1.Upstream{}
 
 	kptUpstream.Type = kptLock.Type
 	if kptLock.Git != nil {
-		kptUpstream.Git = &kptfile.Git{
+		kptUpstream.Git = &kptfilev1.Git{
 			Repo:      kptLock.Git.Repo,
 			Directory: kptLock.Git.Directory,
 			Ref:       kptLock.Git.Ref,
@@ -151,4 +151,40 @@ func KptUpstreamLock2KptUpstream(kptLock kptfile.UpstreamLock) kptfile.Upstream 
 	}
 
 	return kptUpstream
+}
+
+// ValidatePackagePathOverlap checks for path conflicts with existing packages
+func ValidatePackagePathOverlap(newPr *porchapi.PackageRevision, existingRevs []PackageRevision) error {
+	existingPaths := make(map[string]bool)
+	for _, r := range existingRevs {
+		pkgPath := r.Key().PkgKey.Package
+		if pkgPath == newPr.Spec.PackageName && r.Key().PkgKey.RepoKey.Name == newPr.Spec.RepositoryName {
+			return fmt.Errorf("package %q already exists in repository %q", newPr.Spec.PackageName, newPr.Spec.RepositoryName)
+		}
+		if r.Key().PkgKey.RepoKey.Name == newPr.Spec.RepositoryName {
+			existingPaths[pkgPath] = true
+		}
+	}
+
+	newPath := newPr.Spec.PackageName
+	for existingPath := range existingPaths {
+		if PathsOverlap(newPath, existingPath) {
+			return fmt.Errorf("package path %q conflicts with existing package %q: packages cannot be nested", newPath, existingPath)
+		}
+	}
+	return nil
+}
+
+// PathsOverlap checks if two package paths would create a nesting conflict
+func PathsOverlap(path1, path2 string) bool {
+	if path1 == path2 {
+		return false
+	}
+	if strings.HasPrefix(path2+"/", path1+"/") {
+		return true
+	}
+	if strings.HasPrefix(path1+"/", path2+"/") {
+		return true
+	}
+	return false
 }

@@ -21,11 +21,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nephio-project/porch/api/porch"
-	api "github.com/nephio-project/porch/api/porch/v1alpha1"
+	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
-	kptfile "github.com/nephio-project/porch/pkg/kpt/api/kptfile/v1"
 	"github.com/nephio-project/porch/pkg/repository"
 	mockclient "github.com/nephio-project/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
 	mockengine "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/engine"
@@ -45,7 +44,7 @@ var (
 		TableConvertor: packageRevisionTableConvertor,
 		packageCommon: packageCommon{
 			scheme:         runtime.NewScheme(),
-			gr:             porch.Resource("packagerevisions"),
+			gr:             porchapi.Resource("packagerevisions"),
 			coreClient:     nil,
 			updateStrategy: packageRevisionStrategy{},
 			createStrategy: packageRevisionStrategy{},
@@ -84,19 +83,19 @@ var (
 			Revision:      revision,
 			WorkspaceName: workspace,
 		},
-		PackageLifecycle: api.PackageRevisionLifecyclePublished,
-		PackageRevision: &api.PackageRevision{
+		PackageLifecycle: porchapi.PackageRevisionLifecyclePublished,
+		PackageRevision: &porchapi.PackageRevision{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: make(map[string]string),
 			},
 		},
-		Resources: &api.PackageRevisionResources{
-			Spec: api.PackageRevisionResourcesSpec{
+		Resources: &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
 				PackageName:    pkg,
 				Revision:       revision,
 				RepositoryName: repositoryName,
 				Resources: map[string]string{
-					kptfile.KptFileName: strings.TrimSpace(`
+					kptfilev1.KptFileName: strings.TrimSpace(`
 apiVersion: kpt.dev/v1
 kind: Kptfile
 metadata:
@@ -135,7 +134,7 @@ func TestList(t *testing.T) {
 
 	result, err := packagerevisions.List(context.TODO(), &internalversion.ListOptions{})
 	assert.NoError(t, err)
-	assert.Equal(t, 1, len(result.(*api.PackageRevisionList).Items))
+	assert.Equal(t, 1, len(result.(*porchapi.PackageRevisionList).Items))
 
 	//=========================================================================================
 
@@ -154,7 +153,7 @@ func TestList(t *testing.T) {
 	mockPkgRev.On("GetPackageRevision", mock.Anything).Return(nil, errors.New("error getting API package revision")).Once()
 	result, err = packagerevisions.List(context.TODO(), &internalversion.ListOptions{})
 	assert.NoError(t, err)
-	resultList, isList := result.(*api.PackageRevisionList)
+	resultList, isList := result.(*porchapi.PackageRevisionList)
 	assert.True(t, isList)
 	assert.Equal(t, 0, len(resultList.Items))
 }
@@ -188,9 +187,9 @@ func TestWatch(t *testing.T) {
 
 func TestUpdateStrategyForLifecycle(t *testing.T) {
 	type testCase struct {
-		old     api.PackageRevisionLifecycle
-		valid   []api.PackageRevisionLifecycle
-		invalid []api.PackageRevisionLifecycle
+		old     porchapi.PackageRevisionLifecycle
+		valid   []porchapi.PackageRevisionLifecycle
+		invalid []porchapi.PackageRevisionLifecycle
 	}
 
 	s := packageRevisionStrategy{}
@@ -198,28 +197,28 @@ func TestUpdateStrategyForLifecycle(t *testing.T) {
 	for _, tc := range []testCase{
 		{
 			old:     "",
-			valid:   []api.PackageRevisionLifecycle{"", api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed},
-			invalid: []api.PackageRevisionLifecycle{"Wrong", api.PackageRevisionLifecyclePublished},
+			valid:   []porchapi.PackageRevisionLifecycle{"", porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecycleProposed},
+			invalid: []porchapi.PackageRevisionLifecycle{"Wrong", porchapi.PackageRevisionLifecyclePublished},
 		},
 		{
-			old:     api.PackageRevisionLifecycleDraft,
-			valid:   []api.PackageRevisionLifecycle{"", api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed},
-			invalid: []api.PackageRevisionLifecycle{"Wrong", api.PackageRevisionLifecyclePublished},
+			old:     porchapi.PackageRevisionLifecycleDraft,
+			valid:   []porchapi.PackageRevisionLifecycle{"", porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecycleProposed},
+			invalid: []porchapi.PackageRevisionLifecycle{"Wrong", porchapi.PackageRevisionLifecyclePublished},
 		},
 		{
-			old:     api.PackageRevisionLifecycleProposed,
-			valid:   []api.PackageRevisionLifecycle{"", api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed},
-			invalid: []api.PackageRevisionLifecycle{"Wrong", api.PackageRevisionLifecyclePublished},
+			old:     porchapi.PackageRevisionLifecycleProposed,
+			valid:   []porchapi.PackageRevisionLifecycle{"", porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecycleProposed},
+			invalid: []porchapi.PackageRevisionLifecycle{"Wrong", porchapi.PackageRevisionLifecyclePublished},
 		},
 		{
-			old:     api.PackageRevisionLifecyclePublished,
-			valid:   []api.PackageRevisionLifecycle{api.PackageRevisionLifecyclePublished},
-			invalid: []api.PackageRevisionLifecycle{"", "Wrong", api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed},
+			old:     porchapi.PackageRevisionLifecyclePublished,
+			valid:   []porchapi.PackageRevisionLifecycle{porchapi.PackageRevisionLifecyclePublished},
+			invalid: []porchapi.PackageRevisionLifecycle{"", "Wrong", porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecycleProposed},
 		},
 		{
 			old:     "Wrong",
-			valid:   []api.PackageRevisionLifecycle{},
-			invalid: []api.PackageRevisionLifecycle{"", "Wrong", api.PackageRevisionLifecycleDraft, api.PackageRevisionLifecycleProposed, api.PackageRevisionLifecyclePublished},
+			valid:   []porchapi.PackageRevisionLifecycle{},
+			invalid: []porchapi.PackageRevisionLifecycle{"", "Wrong", porchapi.PackageRevisionLifecycleDraft, porchapi.PackageRevisionLifecycleProposed, porchapi.PackageRevisionLifecyclePublished},
 		},
 	} {
 		for _, new := range tc.valid {
@@ -235,31 +234,31 @@ func TestUpdateStrategy(t *testing.T) {
 	s := packageRevisionStrategy{}
 
 	testCases := map[string]struct {
-		old   *api.PackageRevision
-		new   *api.PackageRevision
+		old   *porchapi.PackageRevision
+		new   *porchapi.PackageRevision
 		valid bool
 	}{
 		"spec can be updated for draft": {
-			old: &api.PackageRevision{
-				Spec: api.PackageRevisionSpec{
-					Lifecycle: api.PackageRevisionLifecycleDraft,
-					Tasks: []api.Task{
+			old: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Lifecycle: porchapi.PackageRevisionLifecycleDraft,
+					Tasks: []porchapi.Task{
 						{
-							Type: api.TaskTypeInit,
-							Init: &api.PackageInitTaskSpec{
+							Type: porchapi.TaskTypeInit,
+							Init: &porchapi.PackageInitTaskSpec{
 								Description: "This is a test",
 							},
 						},
 					},
 				},
 			},
-			new: &api.PackageRevision{
-				Spec: api.PackageRevisionSpec{
-					Lifecycle: api.PackageRevisionLifecycleDraft,
-					Tasks: []api.Task{
+			new: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Lifecycle: porchapi.PackageRevisionLifecycleDraft,
+					Tasks: []porchapi.Task{
 						{
-							Type: api.TaskTypeInit,
-							Init: &api.PackageInitTaskSpec{
+							Type: porchapi.TaskTypeInit,
+							Init: &porchapi.PackageInitTaskSpec{
 								Description: "This is a test",
 							},
 						},
@@ -269,35 +268,34 @@ func TestUpdateStrategy(t *testing.T) {
 			valid: true,
 		},
 		"spec can not be updated for published": {
-			old: &api.PackageRevision{
-				Spec: api.PackageRevisionSpec{
-					Lifecycle: api.PackageRevisionLifecyclePublished,
-					Tasks: []api.Task{
+			old: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Lifecycle: porchapi.PackageRevisionLifecyclePublished,
+					Tasks: []porchapi.Task{
 						{
-							Type: api.TaskTypeInit,
-							Init: &api.PackageInitTaskSpec{
+							Type: porchapi.TaskTypeInit,
+							Init: &porchapi.PackageInitTaskSpec{
 								Description: "This is a test",
 							},
 						},
 					},
 				},
 			},
-			new: &api.PackageRevision{
-				Spec: api.PackageRevisionSpec{
-					Lifecycle: api.PackageRevisionLifecyclePublished,
-					Tasks: []api.Task{
+			new: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Lifecycle: porchapi.PackageRevisionLifecyclePublished,
+					Tasks: []porchapi.Task{
 						{
-							Type: api.TaskTypeClone,
-							Clone: &api.PackageCloneTaskSpec{
-								Upstream: api.UpstreamPackage{
-									Type: api.RepositoryTypeGit,
-									Git: &api.GitPackage{
+							Type: porchapi.TaskTypeClone,
+							Clone: &porchapi.PackageCloneTaskSpec{
+								Upstream: porchapi.UpstreamPackage{
+									Type: porchapi.RepositoryTypeGit,
+									Git: &porchapi.GitPackage{
 										Repo:      "https://github.com/example/repo.git",
 										Ref:       "main",
 										Directory: "/path/to/package",
 									},
 								},
-								Strategy: "copy-merge",
 							},
 						},
 					},
@@ -306,70 +304,70 @@ func TestUpdateStrategy(t *testing.T) {
 			valid: false,
 		},
 		"labels can be updated for published": {
-			old: &api.PackageRevision{
+			old: &porchapi.PackageRevision{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"foo": "bar",
 					},
 				},
-				Spec: api.PackageRevisionSpec{
-					Lifecycle: api.PackageRevisionLifecyclePublished,
+				Spec: porchapi.PackageRevisionSpec{
+					Lifecycle: porchapi.PackageRevisionLifecyclePublished,
 				},
 			},
-			new: &api.PackageRevision{
+			new: &porchapi.PackageRevision{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"bar": "foo",
 					},
 				},
-				Spec: api.PackageRevisionSpec{
-					Lifecycle: api.PackageRevisionLifecyclePublished,
+				Spec: porchapi.PackageRevisionSpec{
+					Lifecycle: porchapi.PackageRevisionLifecyclePublished,
 				},
 			},
 			valid: true,
 		},
 		"annotations can be updated for published": {
-			old: &api.PackageRevision{
+			old: &porchapi.PackageRevision{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						"foo": "bar",
 					},
 				},
-				Spec: api.PackageRevisionSpec{
-					Lifecycle: api.PackageRevisionLifecyclePublished,
+				Spec: porchapi.PackageRevisionSpec{
+					Lifecycle: porchapi.PackageRevisionLifecyclePublished,
 				},
 			},
-			new: &api.PackageRevision{
+			new: &porchapi.PackageRevision{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						"bar": "foo",
 					},
 				},
-				Spec: api.PackageRevisionSpec{
-					Lifecycle: api.PackageRevisionLifecyclePublished,
+				Spec: porchapi.PackageRevisionSpec{
+					Lifecycle: porchapi.PackageRevisionLifecyclePublished,
 				},
 			},
 			valid: true,
 		},
 		"cannot modify latest-revision label": {
-			old: &api.PackageRevision{
+			old: &porchapi.PackageRevision{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						api.LatestPackageRevisionKey: "true",
+						porchapi.LatestPackageRevisionKey: "true",
 					},
 				},
-				Spec: api.PackageRevisionSpec{
-					Lifecycle: api.PackageRevisionLifecycleDraft,
+				Spec: porchapi.PackageRevisionSpec{
+					Lifecycle: porchapi.PackageRevisionLifecycleDraft,
 				},
 			},
-			new: &api.PackageRevision{
+			new: &porchapi.PackageRevision{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						api.LatestPackageRevisionKey: "false",
+						porchapi.LatestPackageRevisionKey: "false",
 					},
 				},
-				Spec: api.PackageRevisionSpec{
-					Lifecycle: api.PackageRevisionLifecycleDraft,
+				Spec: porchapi.PackageRevisionSpec{
+					Lifecycle: porchapi.PackageRevisionLifecycleDraft,
 				},
 			},
 			valid: false,
@@ -391,6 +389,92 @@ func TestUpdateStrategy(t *testing.T) {
 					t.Error("Update should fail but didn't")
 				}
 			}
+		})
+	}
+}
+func TestCreateAction(t *testing.T) {
+	testCases := map[string]struct {
+		pkgRev   *porchapi.PackageRevision
+		expected string
+	}{
+		"nil package revision": {
+			pkgRev:   nil,
+			expected: "Create",
+		},
+		"nil tasks": {
+			pkgRev:   &porchapi.PackageRevision{},
+			expected: "Create",
+		},
+		"init task": {
+			pkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Tasks: []porchapi.Task{
+						{Type: porchapi.TaskTypeInit},
+					},
+				},
+			},
+			expected: "Init",
+		},
+		"clone task": {
+			pkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Tasks: []porchapi.Task{
+						{Type: porchapi.TaskTypeClone},
+					},
+				},
+			},
+			expected: "Clone",
+		},
+		"upgrade task": {
+			pkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Tasks: []porchapi.Task{
+						{Type: porchapi.TaskTypeUpgrade},
+					},
+				},
+			},
+			expected: "Upgrade",
+		},
+		"edit task with source": {
+			pkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Tasks: []porchapi.Task{
+						{
+							Type: porchapi.TaskTypeEdit,
+							Edit: &porchapi.PackageEditTaskSpec{
+								Source: &porchapi.PackageRevisionRef{},
+							},
+						},
+					},
+				},
+			},
+			expected: "Copy",
+		},
+		"multiple different task types": {
+			pkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Tasks: []porchapi.Task{
+						{Type: porchapi.TaskTypeInit},
+						{Type: porchapi.TaskTypeClone},
+					},
+				},
+			},
+			expected: "Create",
+		},
+		"empty tasks slice": {
+			pkgRev: &porchapi.PackageRevision{
+				Spec: porchapi.PackageRevisionSpec{
+					Tasks: []porchapi.Task{},
+				},
+			},
+			expected: "Create",
+		},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			result := createAction(tc.pkgRev)
+			assert.Equal(t, tc.expected, result)
 		})
 	}
 }
