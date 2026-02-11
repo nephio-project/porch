@@ -39,9 +39,9 @@ spec:
           image: docker.io/nephio/porch-function-runner:latest
           imagePullPolicy: IfNotPresent
           command:
-            - /server
-            - --config=/config.yaml
-            - --functions=/functions
+            - /home/nonroot/server
+            - --config=/home/nonroot/config.yaml
+            - --functions=/home/nonroot/functions
             - --pod-namespace=porch-fn-system
             - --max-request-body-size=6291456 # Keep this in sync with porch-server's corresponding argument
             - --warm-up-pod-cache=true
@@ -54,7 +54,7 @@ spec:
           readinessProbe:
             exec:
               command:
-                - /grpc-health-probe
+                - /home/nonroot/grpc-health-probe
                 - -addr
                 - localhost:9445
           resources:

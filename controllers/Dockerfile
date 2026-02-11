@@ -50,7 +50,9 @@ WORKDIR /go/src/controllers/
 RUN CGO_ENABLED=0 go build -o /porch-controllers -v .
 
 FROM alpine:${ALPINE_VERSION}
-WORKDIR /data
-COPY --from=builder /porch-controllers /porch-controllers
+RUN addgroup -g 10001 nonroot && \
+    adduser -D -G nonroot -u 10001 nonroot
 
-ENTRYPOINT ["/porch-controllers"]
+COPY --from=builder --chown=nonroot:nonroot /porch-controllers /home/nonroot/porch-controllers
+USER nonroot:nonroot
+ENTRYPOINT ["/home/nonroot/porch-controllers"]
