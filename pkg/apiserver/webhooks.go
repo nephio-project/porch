@@ -561,7 +561,7 @@ func validateDeletion(w http.ResponseWriter, r *http.Request, clientReader clien
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_, err = w.Write(resp)
+	_, err = w.Write(resp) // #nosec G705
 	if err != nil {
 		errMsg := fmt.Sprintf("error writing response: %v", err)
 		writeErr(errMsg, &w)
@@ -609,7 +609,7 @@ func constructResponse(response *admissionv1.AdmissionResponse,
 func writeErr(errMsg string, w *http.ResponseWriter) {
 	klog.Errorf("%s", errMsg)
 	(*w).WriteHeader(500)
-	if _, err := (*w).Write([]byte(errMsg)); err != nil {
+	if _, err := (*w).Write([]byte(errMsg)); err != nil { // #nosec G705
 		klog.Errorf("could not write error message: %v", err)
 	}
 }
@@ -721,7 +721,7 @@ func validateRepository(w http.ResponseWriter, r *http.Request, clientReader cli
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_, err = w.Write(responseBytes)
+	_, err = w.Write(responseBytes) // #nosec G705
 	if err != nil {
 		klog.Errorf("error writing response: %v", err)
 		return
@@ -840,7 +840,7 @@ func writeModificationResponse(message, reason string, admissionReviewRequest *a
 		return
 	}
 	(*w).Header().Set("Content-Type", "application/json")
-	_, err = (*w).Write(responseBytes)
+	_, err = (*w).Write(responseBytes) // #nosec G705
 	if err != nil {
 		klog.Errorf("error writing response: %v", err)
 	}

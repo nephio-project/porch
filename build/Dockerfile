@@ -1,4 +1,4 @@
-# Copyright 2022-2025 The kpt and Nephio Authors
+# Copyright 2022-2026 The kpt and Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,9 @@
 # limitations under the License.
 
 
-FROM golang:1.25.0-bookworm AS builder
+ARG ALPINE_VERSION=latest
+
+FROM golang:1.25.6-bookworm AS builder
 
 WORKDIR /go/src
 
@@ -46,9 +48,9 @@ COPY ./func ./func
 
 RUN go build -v -o /porch ./cmd/porch
 
-FROM alpine
-RUN addgroup -g 10001 nonroot
-RUN adduser -D -G nonroot -u 10001 nonroot
+FROM alpine:${ALPINE_VERSION}
+RUN addgroup -g 10001 nonroot && \
+    adduser -D -G nonroot -u 10001 nonroot
 
 COPY --from=builder --chown=nonroot:nonroot /porch /home/nonroot/porch
 USER nonroot:nonroot

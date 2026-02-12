@@ -27,7 +27,7 @@ import (
 	fakeextrepo "github.com/nephio-project/porch/pkg/externalrepo/fake"
 	"github.com/stretchr/testify/require"
 
-	"github.com/nephio-project/porch/internal/kpt/builtins"
+	"github.com/kptdev/kpt/pkg/lib/builtins"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/stretchr/testify/assert"

@@ -71,7 +71,7 @@ func (ts *ksaTokenSource) Token() (*oauth2.Token, error) {
 
 	audience := fmt.Sprintf("identitynamespace:%s:%s", workloadIdentityPool, identityProvider)
 
-	request := &stsv1.GoogleIdentityStsV1ExchangeTokenRequest{
+	request := &stsv1.GoogleIdentityStsV1ExchangeTokenRequest{ // #nosec G101
 		GrantType:          "urn:ietf:params:oauth:grant-type:token-exchange",
 		SubjectTokenType:   "urn:ietf:params:oauth:token-type:jwt",
 		SubjectToken:       ksaToken.AccessToken,

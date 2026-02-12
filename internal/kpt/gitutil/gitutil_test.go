@@ -21,7 +21,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nephio-project/porch/internal/kpt/errors"
+	"github.com/kptdev/kpt/pkg/lib/errors"
 	. "github.com/nephio-project/porch/internal/kpt/gitutil"
 	"github.com/nephio-project/porch/internal/kpt/testutil"
 	"github.com/nephio-project/porch/internal/kpt/testutil/pkgbuilder"

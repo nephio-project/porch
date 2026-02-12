@@ -31,7 +31,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nephio-project/porch/internal/kpt/errors"
+	"github.com/kptdev/kpt/pkg/lib/errors"
 	"github.com/nephio-project/porch/pkg/kpt/printer"
 )
 

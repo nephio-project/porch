@@ -645,11 +645,12 @@ func (r *PackageVariantReconciler) isUpToDate(pv *api.PackageVariant, downstream
 		// will always be a published revision, so we will need to do an update.
 		return false
 	}
-	currentUpstreamRevision := revisionFromUpstreamLock(upstreamLock)
+	currentUpstreamRevision := revisionFromLocator(upstreamLock)
 	return currentUpstreamRevision == pv.Spec.Upstream.Revision
 }
 
-func revisionFromUpstreamLock(lock *porchapi.Locator) int {
+// revisionFromLocator extracts the revision number from a Locator's Git ref.
+func revisionFromLocator(lock *porchapi.Locator) int {
 	lastIndex := strings.LastIndex(lock.Git.Ref, "/")
 	return repository.Revision2Int(lock.Git.Ref[lastIndex+1:])
 }
@@ -661,7 +662,7 @@ func (r *PackageVariantReconciler) createUpgradeDraft(ctx context.Context,
 
 	newPr := createDraftTemplate(source, pv, prList)
 
-	oldRevision := revisionFromUpstreamLock(source.Status.UpstreamLock)
+	oldRevision := revisionFromLocator(source.Status.UpstreamLock)
 	oldUpstreamRef := pv.Spec.Upstream
 	oldUpstreamRef.Revision = oldRevision
 

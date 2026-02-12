@@ -26,8 +26,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/kptdev/kpt/pkg/lib/errors"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/errors"
 	"github.com/nephio-project/porch/internal/kpt/fnruntime"
 	"github.com/nephio-project/porch/internal/kpt/util/porch"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"

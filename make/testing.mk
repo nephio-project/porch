@@ -1,4 +1,4 @@
-#  Copyright 2025 The Nephio Authors.
+#  Copyright 2025-2026 The Nephio Authors.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ unit: test
 
 test: ## Run unit tests (go test)
 ifeq ($(CONTAINER_RUNNABLE), 0)
-	$(RUN_CONTAINER_COMMAND) -e CONTAINER_RUNNABLE golang:1.25.0-bookworm \
+	$(RUN_CONTAINER_COMMAND) -e CONTAINER_RUNNABLE golang:1.25.6-bookworm \
 	sh -c "useradd -m -s /bin/sh porch && \
 	         mkdir -p ${TEST_COVERAGE_TMP_DIR} && chown porch:porch ${TEST_COVERAGE_TMP_DIR} && \
 	         su porch -c 'export TEST_COVERAGE_TMP_DIR=${TEST_COVERAGE_TMP_DIR}; \
@@ -58,7 +58,7 @@ vulncheck: build
 
 .PHONY: test-e2e
 test-e2e: ## Run end-to-end tests
-	E2E=1 go test -v -failfast ./test/e2e
+	E2E=1 go test -v -failfast ./test/e2e/api
 
 .PHONY: test-e2e-cli
 test-e2e-cli: ## Run cli end-to-end tests

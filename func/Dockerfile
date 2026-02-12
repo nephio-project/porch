@@ -1,4 +1,4 @@
-# Copyright 2022-2025 The kpt and Nephio Authors
+# Copyright 2022-2026 The kpt and Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+ARG ALPINE_VERSION=latest
 
 FROM ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.2.0 AS apply-setters
 FROM ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.1.1 AS apply-setters-v1
@@ -25,7 +27,7 @@ FROM ghcr.io/kptdev/krm-functions-catalog/set-project-id:v0.2.0 AS set-project-i
 FROM ghcr.io/kptdev/krm-functions-catalog/starlark:v0.3.0 AS starlark
 FROM ghcr.io/kptdev/krm-functions-catalog/upsert-resource:v0.2.0 AS upsert-resource
 
-FROM golang:1.25.0-alpine AS builder
+FROM golang:1.25.6-alpine AS builder
 WORKDIR /go/src
 
 RUN go install github.com/grpc-ecosystem/grpc-health-probe@v0.4.11
@@ -35,7 +37,7 @@ COPY . .
 RUN cd func ; go build -v -o /server ./server
 COPY func/config.yaml /config.yaml
 
-FROM alpine:3.21
+FROM alpine:${ALPINE_VERSION}
 
 COPY --from=apply-setters          /usr/local/bin/function /functions/apply-setters
 COPY --from=apply-setters-v1       /usr/local/bin/function /functions/apply-setters-v1

@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/nephio-project/porch/pkg/externalrepo/fake"
@@ -87,4 +88,43 @@ func countActiveWatchers(manager *watcherManager) (int, int) {
 		}
 	}
 	return active, len(manager.watchers)
+}
+
+func TestIsContextError(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{"context canceled", context.Canceled, true},
+		{"context deadline", context.DeadlineExceeded, true},
+		{"regular error", errors.New("test error"), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isContextError(tt.err)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestLogWatcherAction(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected string
+	}{
+		{"context canceled", context.Canceled, "debug"},
+		{"context deadline", context.DeadlineExceeded, "debug"},
+		{"regular error", errors.New("test error"), "info"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := &watcher{}
+			result := logWatcherAction(w, "test", tt.err)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }

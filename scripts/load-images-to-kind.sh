@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright 2025 The kpt and Nephio Authors
+# Copyright 2025-2026 The kpt and Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ if [ "${SKIP_IMG_BUILD}" = "false" ]; then
     # Build and load porch server if needed
     if [ "${SKIP_PORCHSERVER_BUILD}" = "false" ]; then
         echo "Building ${IMAGE_REPO}/${PORCH_SERVER_IMAGE}:${IMAGE_TAG}"
-        docker buildx build --load --tag ${IMAGE_REPO}/${PORCH_SERVER_IMAGE}:${IMAGE_TAG} -f ./build/Dockerfile "${PORCHDIR}"
+        IMAGE_NAME="${PORCH_SERVER_IMAGE}" IMAGE_REPO="${IMAGE_REPO}" IMAGE_TAG="${IMAGE_TAG}" make -C build/ build-image
         kind load docker-image ${IMAGE_REPO}/${PORCH_SERVER_IMAGE}:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
         kubectl delete deployment -n porch-system --ignore-not-found=true porch-server
     fi

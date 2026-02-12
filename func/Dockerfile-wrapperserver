@@ -1,4 +1,4 @@
-# Copyright 2022-2025 The kpt and Nephio Authors
+# Copyright 2022-2026 The kpt and Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.25.0-alpine AS builder
+ARG ALPINE_VERSION=latest
+
+FROM golang:1.25.6-alpine AS builder
 
 WORKDIR /go/src
 
@@ -31,6 +33,6 @@ COPY ./third_party ./third_party
 RUN cd func ; go build -v -o /wrapper-server/wrapper-server ./wrapper-server
 RUN cp $GOPATH/bin/grpc-health-probe /wrapper-server/
 
-FROM alpine:3.21
+FROM alpine:${ALPINE_VERSION}
 
 COPY --from=builder /wrapper-server/* /wrapper-server/
