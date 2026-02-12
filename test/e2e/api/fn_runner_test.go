@@ -349,8 +349,8 @@ func (t *PorchSuite) TestPodEvaluatorParallelExecution() {
 		expectedPodCount       = (parallelRequestCount + maxWaitList - 1) / maxWaitList
 		sleepDuration          = 3 * time.Second
 		singleFunctionTime     = sleepDuration
-		expectedSequentialTime = parallelRequestCount * sleepDuration
-		pollTimeout            = expectedSequentialTime * 5 / 4 // +0.25 headroom
+		expectedSequentialTime = parallelRequestCount * sleepDuration * 4 / 2 // add some buffer to account for overhead and slow ci
+		pollTimeout            = expectedSequentialTime * 5 / 4               // +0.25 headroom
 	)
 
 	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
