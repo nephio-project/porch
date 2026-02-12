@@ -464,7 +464,7 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 	return updated, false, nil
 }
 
-// getLifecycleTransition determines the type of lifecycle transition in progress
+// getLifecycleTransition determines the type of update operation
 func getLifecycleTransition(oldPkgRev, newPkgRev *porchapi.PackageRevision) string {
 	// Handle lifecycle changes
 	if oldPkgRev.Spec.Lifecycle != newPkgRev.Spec.Lifecycle {
@@ -488,7 +488,7 @@ func getLifecycleTransition(oldPkgRev, newPkgRev *porchapi.PackageRevision) stri
 			newPkgRev.Spec.Lifecycle == porchapi.PackageRevisionLifecyclePublished {
 			return "Approve"
 		}
-		// Approve or Reject Operation: Published -> Proposed
+		// Approve or Reject Operation: DeletionProposed -> Published
 		if oldPkgRev.Spec.Lifecycle == porchapi.PackageRevisionLifecycleDeletionProposed &&
 			newPkgRev.Spec.Lifecycle == porchapi.PackageRevisionLifecyclePublished {
 			return "Approve/Reject"
