@@ -16,11 +16,15 @@ package api
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/test/e2e/suiteutils"
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -35,6 +39,7 @@ const (
 
 	setNamespaceImage   = "set-namespace:v0.4.1"
 	setAnnotationsImage = "set-annotations:v0.1.4"
+	sleepImage          = "sleep:latest"
 )
 
 var podGVK = corev1.SchemeGroupVersion.WithKind("Pod")
@@ -272,6 +277,157 @@ func (t *PorchSuite) validateBucketResource(resources *porchapi.PackageRevisionR
 			}
 		}
 	}
+}
+
+func (t *PorchSuite) TestPodEvaluatorSequentialParallel() {
+	const (
+		repoName = "git-fn-krm-sleep"
+	)
+	if t.TestRunnerIsLocal {
+		t.Skipf("Skipping due to local mode without pod evaluator")
+	}
+
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), "git-fn-krm-sleep", "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
+
+	makeResources := func(wsSuffix, packageSuffix string) *porchapi.PackageRevisionResources {
+		pr := t.CreatePackageCloneF(repoName, "test-bucket"+packageSuffix, defaultWorkspace+wsSuffix, defaultBucketBpRef, "bucket")
+
+		res := &porchapi.PackageRevisionResources{}
+		t.GetF(client.ObjectKeyFromObject(pr), res)
+		return res
+	}
+
+	const (
+		sleepDur = 5 // seconds
+		extra    = 3 // seconds
+	)
+	expectedSequential := (2*sleepDur + extra) * time.Second
+
+	pods := &corev1.PodList{}
+
+	// TODO: review
+	// Parallel run
+	prr1, prr2 := makeResources("par1", "par1"), makeResources("par2", "par2")
+	t.AddMutator(prr1, t.KrmFunctionsRegistry+"/"+sleepImage, suiteutils.WithConfigmap(map[string]string{"sleepSeconds": strconv.Itoa(sleepDur)}))
+	t.AddMutator(prr2, t.KrmFunctionsRegistry+"/"+sleepImage, suiteutils.WithConfigmap(map[string]string{"sleepSeconds": strconv.Itoa(sleepDur)}))
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	startPar := time.Now()
+	go func() {
+		defer wg.Done()
+		t.UpdateF(prr1)
+	}()
+	go func() {
+		defer wg.Done()
+		t.UpdateF(prr2)
+	}()
+	wg.Wait()
+	timeTaken := time.Since(startPar)
+	t.Logf("Parallel duration: %v", timeTaken)
+
+	t.LessOrEqual(timeTaken, expectedSequential, "Parallel duration too high")
+	t.GreaterOrEqual(timeTaken, sleepDur*time.Second, "Parallel duration too low (the sleep function did not work?)")
+
+	t.ListF(pods, client.InNamespace(t.FnNamespaceName()))
+	for _, p := range pods.Items {
+		if strings.Contains(p.Spec.Containers[0].Image, "krm-sleeper") {
+			t.DeleteF(&p)
+		}
+	}
+}
+
+func (t *PorchSuite) TestPodEvaluatorParallelExecution() {
+	if t.TestRunnerIsLocal {
+		t.Skipf("Skipping: pod evaluator is not enabled in local test mode.")
+	}
+
+	const (
+		repoName               = "git-fn-parallel-sleep"
+		parallelRequestCount   = 4
+		maxWaitList            = 2 // this should be kept in sync with the max-wait-list argument of the function-runner
+		expectedPodCount       = (parallelRequestCount + maxWaitList - 1) / maxWaitList
+		sleepDuration          = 3 * time.Second
+		singleFunctionTime     = sleepDuration
+		expectedSequentialTime = parallelRequestCount * sleepDuration * 4 / 2 // add some buffer to account for overhead and slow ci
+		pollTimeout            = expectedSequentialTime * 5 / 4               // +0.25 headroom
+	)
+
+	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
+
+	var wg sync.WaitGroup
+	wg.Add(parallelRequestCount)
+	errChan := make(chan error, parallelRequestCount)
+
+	startTime := time.Now()
+
+	for i := range parallelRequestCount {
+		go func(idx int) {
+			defer wg.Done()
+			packageName := fmt.Sprintf("parallel-pkg-%d", idx)
+			workspaceName := fmt.Sprintf("workspace-%d", idx)
+
+			pr := t.CreatePackageDraftF(repoName, packageName, workspaceName)
+			t.Logf("PkgRev #%d: Adding sleep function to pipeline", idx)
+
+			err := t.AddSleepFunctionToPipeline(client.ObjectKeyFromObject(pr), sleepDuration)
+			if err != nil {
+				t.Errorf("PkgRev #%d: Failed to add sleep function: %v", idx, err)
+				errChan <- fmt.Errorf("PkgRev #%d: %w", idx, err)
+				return
+			}
+			t.Logf("PkgRev #%d: successfully evaluated sleep function for %s", idx, packageName)
+		}(i)
+	}
+
+	t.Logf("Waiting to observe %d parallel sleep function evaluator pods: %s", parallelRequestCount, t.KrmFunctionsRegistry+"/"+sleepImage)
+	err := wait.PollUntilContextTimeout(t.GetContext(), 1*time.Second, pollTimeout, true, func(ctx context.Context) (bool, error) {
+		select {
+		case err := <-errChan:
+			return true, err
+		default:
+		}
+
+		podList := &corev1.PodList{}
+		if err := t.Client.List(ctx, podList, client.InNamespace(t.FnNamespaceName())); err != nil {
+			t.Logf("Error listing pods: %v", err)
+			return false, nil
+		}
+
+		runningPods := 0
+		for _, pod := range podList.Items {
+			if len(pod.Spec.Containers) > 0 && strings.Contains(pod.Spec.Containers[0].Image, t.KrmFunctionsRegistry+"/"+sleepImage) && pod.DeletionTimestamp == nil && pod.Status.Phase == corev1.PodRunning {
+				runningPods++
+			}
+		}
+		t.Logf("Found %d running pods for the sleep function", runningPods)
+		if runningPods == expectedPodCount {
+			return true, nil
+		}
+		if runningPods > expectedPodCount {
+			return false,
+				fmt.Errorf("Found more than expected running pods for the sleep function: got: %d, want: %d",
+					runningPods, expectedPodCount)
+		}
+		return false, nil
+	})
+	assert.NoError(t, err, "Failed to observe parallel pod creation. This indicates the podCacheManager did not scale up as expected.")
+
+	t.Logf("Waiting for all %v sleep functions to complete.", parallelRequestCount)
+	wg.Wait()
+
+	totalDuration := time.Since(startTime)
+	t.Logf("Total duration for parallel execution: %v", totalDuration)
+
+	close(errChan)
+	for e := range errChan {
+		t.Errorf("An error occurred during parallel execution: %v", e)
+	}
+
+	assert.Less(t, totalDuration, expectedSequentialTime, "Total duration for parallel run was too long, suggesting sequential execution.")
+	assert.Greater(t, totalDuration, singleFunctionTime, "Total duration was too fast, suggesting the sleep function did not wait long enough.")
+
+	t.Log("All parallel evaluations completed, and duration check passed.")
 }
 
 func (t *PorchSuite) skipIfLocalPodEvaluator() {

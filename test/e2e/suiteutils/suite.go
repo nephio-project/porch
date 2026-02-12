@@ -158,6 +158,21 @@ func (t *TestSuite) Initialize() {
 	})
 }
 
+func (t *TestSuite) PorchServerServiceKey() client.ObjectKey {
+	porchApiService := aggregatorv1.APIService{}
+	apiServiceName := porchapi.SchemeGroupVersion.Version + "." + porchapi.SchemeGroupVersion.Group
+	t.GetF(client.ObjectKey{Name: apiServiceName}, &porchApiService)
+
+	if porchApiService.Spec.Service == nil {
+		t.Fatalf("Porch APIService %q found, but its Spec.Service field is nil. Cannot determine Porch server Service.", apiServiceName)
+	}
+
+	return client.ObjectKey{
+		Namespace: porchApiService.Spec.Service.Namespace,
+		Name:      porchApiService.Spec.Service.Name,
+	}
+}
+
 func (t *TestSuite) IsPorchServerInCluster() bool {
 	if t.porchServerInCluster != nil {
 		return *t.porchServerInCluster
