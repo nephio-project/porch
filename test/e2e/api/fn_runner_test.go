@@ -343,16 +343,15 @@ func (t *PorchSuite) TestPodEvaluatorParallelExecution() {
 	}
 
 	const (
-		repoName             = "git-fn-parallel-sleep"
-		parallelRequestCount = 4
-		maxWaitList          = 2 // this should be kept in sync with the max-wait-list argument of the function-runner
-		expectedPodCount     = (parallelRequestCount + maxWaitList - 1) / maxWaitList
-		sleepDuration        = 3 * time.Second
+		repoName               = "git-fn-parallel-sleep"
+		parallelRequestCount   = 4
+		maxWaitList            = 2 // this should be kept in sync with the max-wait-list argument of the function-runner
+		expectedPodCount       = (parallelRequestCount + maxWaitList - 1) / maxWaitList
+		sleepDuration          = 3 * time.Second
+		singleFunctionTime     = sleepDuration
+		expectedSequentialTime = parallelRequestCount * sleepDuration
+		pollTimeout            = expectedSequentialTime * 5 / 4 // +0.25 headroom
 	)
-
-	singleFunctionTime := sleepDuration
-	expectedSequentialTime := parallelRequestCount * sleepDuration
-	pollTimeout := expectedSequentialTime * 5 / 4 // +0.25 headroom
 
 	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 

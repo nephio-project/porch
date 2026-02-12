@@ -668,7 +668,7 @@ func (pm *podManager) getBaseServiceTemplate(ctx context.Context) (*corev1.Servi
 				Ports: []corev1.ServicePort{
 					{
 						Protocol:   corev1.ProtocolTCP,
-						Port:       int32(servicePort),
+						Port:       int32(servicePort), // #nosec G115 G109 -- servicePort always in 1–65535
 						TargetPort: intstr.FromInt(servicePort),
 					},
 				},
