@@ -83,16 +83,6 @@ func (r *PackageVariantReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	defer func() {
-		pv.ResourceVersion = func() string {
-			var latestVariant api.PackageVariant
-			if err := r.Reader.Get(ctx, types.NamespacedName{Name: pv.GetName(), Namespace: pv.GetNamespace()}, &latestVariant); err != nil {
-				if strings.Contains(err.Error(), fmt.Sprintf("packagevariants.config.porch.kpt.dev \"%s\" not found", pv.GetName())) {
-					return ""
-				}
-				klog.Errorf("could not retrieve latest resource version for final status update: %s\n", err.Error())
-			}
-			return latestVariant.ResourceVersion
-		}()
 		if err := r.Client.Status().Update(ctx, pv); err != nil {
 			klog.Errorf("could not update status: %s\n", err.Error())
 		}

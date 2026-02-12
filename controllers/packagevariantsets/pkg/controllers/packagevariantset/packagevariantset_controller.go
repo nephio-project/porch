@@ -21,7 +21,6 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"strings"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -90,16 +89,6 @@ func (r *PackageVariantSetReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	}
 
 	defer func() {
-		pvs.ResourceVersion = func() string {
-			var latestVariantSet api.PackageVariantSet
-			if err := r.Reader.Get(ctx, types.NamespacedName{Name: pvs.GetName(), Namespace: pvs.GetNamespace()}, &latestVariantSet); err != nil {
-				if strings.Contains(err.Error(), fmt.Sprintf("packagevariantsets.config.porch.kpt.dev \"%s\" not found", pvs.GetName())) {
-					return ""
-				}
-				klog.Errorf("could not retrieve latest resource version for final status update: %s\n", err.Error())
-			}
-			return latestVariantSet.ResourceVersion
-		}()
 		if err := r.Client.Status().Update(ctx, pvs); err != nil {
 			klog.Errorf("could not update status: %v\n", err)
 		}

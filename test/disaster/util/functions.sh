@@ -11,6 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+self_dir="$(dirname "$(readlink -f "$0")")"
+
+data_cluster_kubeconfig_file="$self_dir/kubeconfigs/data_cluster.conf"
+crcache_kubeconfig_file="$self_dir/kubeconfigs/porch_crcache.conf"
+dbcache_kubeconfig_file="$self_dir/kubeconfigs/porch_dbcache.conf"
+
 function h1() {
   MESSAGE=" $* "
   TERMINAL_WIDTH=$(tput -T xterm cols)
@@ -24,7 +31,23 @@ function h1() {
 
 function h2() {
   MESSAGE=" $* "
-  MESSAGE_LINE="$(tput setaf 4)===\u200B===\u200B===\u200B===>>$(tput sgr0) $MESSAGE"
+  MESSAGE_LINE="$(tput setaf 4)===\u200B==>>$(tput sgr0) $MESSAGE"
   echo
   echo -e "$MESSAGE_LINE"
+}
+
+function kubectl_data() {
+    kubectl --kubeconfig "$data_cluster_kubeconfig_file" "$@"
+}
+function kubectl_crcache() {
+    kubectl --kubeconfig "$crcache_kubeconfig_file" "$@"
+}
+function kubectl_dbcache() {
+    kubectl --kubeconfig "$dbcache_kubeconfig_file" "$@"
+}
+function porchctl_crcache() {
+    porchctl --kubeconfig "$crcache_kubeconfig_file" -n default "$@"
+}
+function porchctl_dbcache() {
+    porchctl --kubeconfig "$dbcache_kubeconfig_file" -n default "$@"
 }
