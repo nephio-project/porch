@@ -1,4 +1,4 @@
-// Copyright 2022,2026 The kpt and Nephio Authors
+// Copyright 2022 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,5 @@
 
 // +k8s:deepcopy-gen=package,register
 // +groupName=porch.kpt.dev
-
-//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 crd:headerFile=../../scripts/boilerplate.yaml.txt,year=$YEAR_GEN paths="./..." output:crd:artifacts:config=../generated/openapi/yaml
 
 package porch
