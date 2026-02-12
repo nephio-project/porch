@@ -32,12 +32,10 @@ API_MODULES = \
 .PHONY: generate-api
 generate-api:
 	KUBE_VERBOSE=2 $(CURDIR)/scripts/generate-api.sh
-	$(CURDIR)/scripts/generate-post.sh
 
 .PHONY: generate
 generate: generate-api ## Generate CRDs, other K8s manifests and helper go code
 	@for f in $(API_MODULES); do (cd $$f; echo "Generating for $$f ..."; YEAR_GEN=$(YEAR_GEN) go generate -v ./...) || exit 1; done
-	$(CURDIR)/scripts/generate-post.sh
 
 .PHONY: tidy
 tidy:
