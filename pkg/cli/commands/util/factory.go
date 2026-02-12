@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/nephio-project/porch/internal/kpt/util/cfgflags"
+	"github.com/kptdev/kpt/pkg/lib/util/cfgflags"
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/rest"

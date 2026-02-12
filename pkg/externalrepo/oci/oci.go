@@ -26,10 +26,10 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/google"
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
+	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
 	"github.com/kptdev/kpt/pkg/oci"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/pkg"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel/trace"
@@ -389,7 +389,7 @@ func (p *ociPackageRevision) GetKptfile(ctx context.Context) (kptfilev1.KptFile,
 	if !found {
 		return kptfilev1.KptFile{}, fmt.Errorf("packagerevision does not have a Kptfile")
 	}
-	kf, err := pkg.DecodeKptfile(strings.NewReader(kfString))
+	kf, err := kptfileutil.DecodeKptfile(strings.NewReader(kfString))
 	if err != nil {
 		return kptfilev1.KptFile{}, fmt.Errorf("error decoding Kptfile: %w", err)
 	}

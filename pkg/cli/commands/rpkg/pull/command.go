@@ -24,12 +24,12 @@ import (
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/lib/errors"
+	"github.com/kptdev/kpt/pkg/lib/util/cmdutil"
+	"github.com/kptdev/kpt/pkg/printer"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/util/cmdutil"
-	"github.com/nephio-project/porch/internal/kpt/util/porch"
+	cliutils "github.com/nephio-project/porch/internal/cliutils"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/util"
-	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -56,7 +56,7 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 		Example:    docs.PullExamples,
 		PreRunE:    r.preRunE,
 		RunE:       r.runE,
-		Hidden:     porch.HidePorchCommands,
+		Hidden:     cliutils.HidePorchCommands,
 	}
 	r.Command = c
 	return r

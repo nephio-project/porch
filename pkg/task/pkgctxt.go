@@ -18,10 +18,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kptdev/kpt/pkg/fn"
 	"github.com/kptdev/kpt/pkg/lib/builtins"
+	"github.com/kptdev/kpt/pkg/lib/builtins/builtintypes"
+	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/fnruntime"
-	"github.com/nephio-project/porch/pkg/kpt/fn"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 	"sigs.k8s.io/kustomize/kyaml/fn/runtime/runtimeutil"
@@ -34,13 +35,11 @@ type builtinEvalMutation struct {
 	runner   fn.FunctionRunner
 }
 
-func newPackageContextGeneratorMutation(packageConfig *builtins.PackageConfig) (mutation, error) {
-	runner := &builtins.PackageContextGenerator{
-		PackageConfig: packageConfig,
-	}
+func newPackageContextGeneratorMutation(packageConfig *builtintypes.PackageConfig) (mutation, error) {
+	runner := builtins.GetBuiltinFn(packageConfig)
 
 	return &builtinEvalMutation{
-		function: fnruntime.FuncGenPkgContext,
+		function: runneroptions.FuncGenPkgContext,
 		runner:   runner,
 	}, nil
 }
