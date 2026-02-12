@@ -25,7 +25,7 @@ spec:
     repo: edge1
     package: cert-manager-variant
   adoptionPolicy: "adoptExisting"
-  deletionPolicy: "orphan"
+  # deletionPolicy: "orphan"
 
 ---
 
@@ -42,7 +42,7 @@ spec:
     repo: edge1
     package: gitea-variant
   adoptionPolicy: "adoptExisting"
-  deletionPolicy: "orphan"
+  # deletionPolicy: "orphan"
 
 ---
 
@@ -59,7 +59,7 @@ spec:
     repo: edge1
     package: metallb-sandbox-config-variant
   adoptionPolicy: "adoptExisting"
-  deletionPolicy: "orphan"
+  # deletionPolicy: "orphan"
 
 ---
 
@@ -76,7 +76,7 @@ spec:
     repo: edge1
     package: metallb-variant
   adoptionPolicy: "adoptExisting"
-  deletionPolicy: "orphan"
+  # deletionPolicy: "orphan"
 
 ---
 
@@ -93,7 +93,7 @@ spec:
     repo: edge1
     package: network-variant
   adoptionPolicy: "adoptExisting"
-  deletionPolicy: "orphan"
+  # deletionPolicy: "orphan"
 
 ---
 
@@ -110,7 +110,7 @@ spec:
     repo: edge1
     package: repository-variant
   adoptionPolicy: "adoptExisting"
-  deletionPolicy: "orphan"
+  # deletionPolicy: "orphan"
 
 ---
 
@@ -127,7 +127,7 @@ spec:
     repo: edge1
     package: bmh-template-variant
   adoptionPolicy: "adoptExisting"
-  deletionPolicy: "orphan"
+  # deletionPolicy: "orphan"
 
 ---
 
@@ -144,7 +144,7 @@ spec:
     repo: edge1
     package: kubeadm-cluster-template-staticip-variant
   adoptionPolicy: "adoptExisting"
-  deletionPolicy: "orphan"
+  # deletionPolicy: "orphan"
 
 ---
 
@@ -161,7 +161,7 @@ spec:
     repo: edge1
     package: cluster-capi-infrastructure-bmo-variant
   adoptionPolicy: "adoptExisting"
-  deletionPolicy: "orphan"
+  # deletionPolicy: "orphan"
 
 ---
 
@@ -178,7 +178,7 @@ spec:
     repo: edge1
     package: cluster-capi-infrastructure-docker-variant
   adoptionPolicy: "adoptExisting"
-  deletionPolicy: "orphan"
+  # deletionPolicy: "orphan"
 
 ---
 
@@ -195,7 +195,7 @@ spec:
     repo: edge1
     package: cluster-capi-infrastructure-ironic-variant
   adoptionPolicy: "adoptExisting"
-  deletionPolicy: "orphan"
+  # deletionPolicy: "orphan"
 
 ---
 
@@ -212,7 +212,7 @@ spec:
     repo: edge1
     package: cluster-capi-infrastructure-metal3-variant
   adoptionPolicy: "adoptExisting"
-  deletionPolicy: "orphan"
+  # deletionPolicy: "orphan"
 
 ---
 
@@ -229,7 +229,7 @@ spec:
     repo: edge1
     package: cluster-capi-kind-docker-templates-variant
   adoptionPolicy: "adoptExisting"
-  deletionPolicy: "orphan"
+  # deletionPolicy: "orphan"
 
 ---
 
@@ -246,7 +246,7 @@ spec:
     repo: edge1
     package: vlanindex-variant
   adoptionPolicy: "adoptExisting"
-  deletionPolicy: "orphan"
+  # deletionPolicy: "orphan"
 
 ---
 
@@ -263,7 +263,7 @@ spec:
     repo: edge1
     package: cluster-capi-variant
   adoptionPolicy: "adoptExisting"
-  deletionPolicy: "orphan"
+  # deletionPolicy: "orphan"
 
 ---
 
@@ -280,7 +280,7 @@ spec:
     repo: edge1
     package: kindnet-variant
   adoptionPolicy: "adoptExisting"
-  deletionPolicy: "orphan"
+  # deletionPolicy: "orphan"
 
 ---
 
@@ -297,7 +297,7 @@ spec:
     repo: edge1
     package: local-path-provisioner-variant
   adoptionPolicy: "adoptExisting"
-  deletionPolicy: "orphan"
+  # deletionPolicy: "orphan"
 
 ---
 
@@ -314,7 +314,7 @@ spec:
     repo: edge1
     package: multus-variant
   adoptionPolicy: "adoptExisting"
-  deletionPolicy: "orphan"
+  # deletionPolicy: "orphan"
 
 ---
 
@@ -331,7 +331,7 @@ spec:
     repo: edge1
     package: nephio-workload-cluster-argo-variant
   adoptionPolicy: "adoptExisting"
-  deletionPolicy: "orphan"
+  # deletionPolicy: "orphan"
 
 ---
 
@@ -348,4 +348,4 @@ spec:
     repo: edge1
     package: nephio-workload-cluster-flux-variant
   adoptionPolicy: "adoptExisting"
-  deletionPolicy: "orphan"
+  # deletionPolicy: "orphan"
