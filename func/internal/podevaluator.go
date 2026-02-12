@@ -79,9 +79,9 @@ type podData struct {
 	// connection to the grpc server running in the fn evaluator pod
 	grpcConnection *grpc.ClientConn
 	// namespaced name of the pod
-	podKey client.ObjectKey
+	podKey *client.ObjectKey
 	// namespaced name of the service
-	serviceKey client.ObjectKey
+	serviceKey *client.ObjectKey
 }
 
 type connectionRequest struct {

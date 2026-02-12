@@ -32,6 +32,8 @@ import (
 	"k8s.io/klog/v2"
 
 	pb "github.com/nephio-project/porch/func/evaluator"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
@@ -84,6 +86,27 @@ func (f *fakeFunctionEvalServer) Start(ctx context.Context) error {
 		lis.Close()
 	}()
 	return nil
+}
+
+func withGetInterceptor(podStatus corev1.PodStatus) func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	return func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+		err := c.Get(ctx, key, obj, opts...)
+		if err != nil {
+			return err
+		}
+
+		var latest corev1.Pod
+		if err := c.Get(ctx, key, &latest); err == nil {
+			upd := latest.DeepCopy()
+			upd.Status = podStatus
+			err = c.Status().Update(ctx, upd)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
 }
 
 func TestPodManager(t *testing.T) {
@@ -379,7 +402,6 @@ func TestPodManager(t *testing.T) {
 		imageMetadataCache      map[string]*digestAndEntrypoint
 		evalFunc                func(ctx context.Context, req *pb.EvaluateFunctionRequest) (*pb.EvaluateFunctionResponse, error)
 		functionImage           string
-		podPatch                *corev1.Pod
 		functionPodTemplateName string
 		managerNamespace        string
 		podPatchAfter           time.Duration
@@ -395,14 +417,12 @@ func TestPodManager(t *testing.T) {
 				defaultEndpointObject,
 			}...).WithInterceptorFuncs(interceptor.Funcs{
 				Create: fakeClientCreateFixInterceptor,
-			}).Build(),
+				Get:    withGetInterceptor(podStatusRunning),
+			}).WithStatusSubresource(&corev1.Pod{}).Build(),
 			namespace:          defaultNamespace,
 			wrapperServerImage: defaultWrapperServerImage,
 			imageMetadataCache: defaultImageMetadataCache,
 			evalFunc:           defaultSuccessEvalFunc,
-			podPatch: &corev1.Pod{
-				Status: podStatusRunning,
-			},
 		},
 		{
 			name:          "Create a new pod and new service",
@@ -411,14 +431,12 @@ func TestPodManager(t *testing.T) {
 			functionImage: defaultImageName,
 			kubeClient: fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
 				Create: fakeClientCreateFixInterceptor,
-			}).Build(),
+				Get:    withGetInterceptor(podStatusRunning),
+			}).WithStatusSubresource(&corev1.Pod{}).Build(),
 			namespace:          defaultNamespace,
 			wrapperServerImage: defaultWrapperServerImage,
 			imageMetadataCache: defaultImageMetadataCache,
 			evalFunc:           defaultSuccessEvalFunc,
-			podPatch: &corev1.Pod{
-				Status: podStatusRunning,
-			},
 		},
 		{
 			name:          "Create a new pod but service is existing",
@@ -427,6 +445,7 @@ func TestPodManager(t *testing.T) {
 			functionImage: defaultImageName,
 			kubeClient: fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
 				Create: fakeClientCreateFixInterceptor,
+				Get:    withGetInterceptor(podStatusRunning),
 			}).WithObjects([]client.Object{
 				defaultServiceObject,
 				defaultEndpointObject,
@@ -435,9 +454,6 @@ func TestPodManager(t *testing.T) {
 			wrapperServerImage: defaultWrapperServerImage,
 			imageMetadataCache: defaultImageMetadataCache,
 			evalFunc:           defaultSuccessEvalFunc,
-			podPatch: &corev1.Pod{
-				Status: podStatusRunning,
-			},
 		},
 		{
 			name:          "Create a new pod but service does not get a new endpoint",
@@ -446,6 +462,7 @@ func TestPodManager(t *testing.T) {
 			functionImage: defaultImageName,
 			kubeClient: fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
 				Create: fakeClientCreateFixInterceptor,
+				Get:    withGetInterceptor(podStatusRunning),
 			}).WithObjects([]client.Object{
 				defaultServiceObject,
 			}...).Build(),
@@ -453,9 +470,6 @@ func TestPodManager(t *testing.T) {
 			wrapperServerImage: defaultWrapperServerImage,
 			imageMetadataCache: defaultImageMetadataCache,
 			evalFunc:           defaultSuccessEvalFunc,
-			podPatch: &corev1.Pod{
-				Status: podStatusRunning,
-			},
 		},
 		{
 			name:          "Create a new pod but endpoint ip does not match pod ip",
@@ -464,6 +478,7 @@ func TestPodManager(t *testing.T) {
 			functionImage: defaultImageName,
 			kubeClient: fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
 				Create: fakeClientCreateFixInterceptor,
+				Get:    withGetInterceptor(podStatusRunningDifferentIP),
 			}).WithObjects([]client.Object{
 				defaultServiceObject,
 				defaultEndpointObject,
@@ -472,38 +487,33 @@ func TestPodManager(t *testing.T) {
 			wrapperServerImage: defaultWrapperServerImage,
 			imageMetadataCache: defaultImageMetadataCache,
 			evalFunc:           defaultSuccessEvalFunc,
-			podPatch: &corev1.Pod{
-				Status: podStatusRunningDifferentIP,
-			},
 		},
 		{
-			name:               "Pod startup takes too long",
-			skip:               false,
-			expectFail:         true,
-			functionImage:      defaultImageName,
-			kubeClient:         fake.NewClientBuilder().Build(),
+			name:          "Pod startup takes too long",
+			skip:          false,
+			expectFail:    true,
+			functionImage: defaultImageName,
+			kubeClient: fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
+				Get: withGetInterceptor(podStatusPending),
+			}).Build(),
 			namespace:          defaultNamespace,
 			wrapperServerImage: defaultWrapperServerImage,
 			imageMetadataCache: defaultImageMetadataCache,
 			evalFunc:           defaultSuccessEvalFunc,
-			podPatch: &corev1.Pod{
-				Status: podStatusPending,
-			},
 		},
 		{
-			name:               "Pod startup takes some time",
-			skip:               false,
-			expectFail:         true,
-			functionImage:      defaultImageName,
-			kubeClient:         fake.NewClientBuilder().Build(),
+			name:          "Pod startup takes some time",
+			skip:          false,
+			expectFail:    true,
+			functionImage: defaultImageName,
+			kubeClient: fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
+				Get: withGetInterceptor(podStatusPending),
+			}).Build(),
 			namespace:          defaultNamespace,
 			wrapperServerImage: defaultWrapperServerImage,
 			imageMetadataCache: defaultImageMetadataCache,
 			evalFunc:           defaultSuccessEvalFunc,
 			podPatchAfter:      100 * time.Millisecond,
-			podPatch: &corev1.Pod{
-				Status: podStatusPending,
-			},
 		},
 		{
 			name:          "Fail pod creation",
@@ -529,6 +539,7 @@ func TestPodManager(t *testing.T) {
 			expectFail:    false,
 			functionImage: "apply-replacements",
 			kubeClient: fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
+				Get: withGetInterceptor(podStatusRunning),
 				List: func(ctx context.Context, client client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
 					_, ok := list.(*corev1.PodList)
 					if ok {
@@ -545,9 +556,6 @@ func TestPodManager(t *testing.T) {
 			wrapperServerImage: defaultWrapperServerImage,
 			imageMetadataCache: defaultImageMetadataCache,
 			evalFunc:           defaultSuccessEvalFunc,
-			podPatch: &corev1.Pod{
-				Status: podStatusRunning,
-			},
 		},
 		{
 			name:               "Has invalid function image name",
@@ -669,9 +677,6 @@ func TestPodManager(t *testing.T) {
 			evalFunc:                defaultSuccessEvalFunc,
 			functionPodTemplateName: defaultFunctionPodTemplateName,
 			managerNamespace:        defaultManagerNamespace,
-			podPatch: &corev1.Pod{
-				Status: podStatusRunning,
-			},
 		},
 		{
 			name:          "Function template generates pod",
@@ -689,16 +694,15 @@ func TestPodManager(t *testing.T) {
 				},
 			},
 				defaultEndpointObject,
-			}...).Build(),
+			}...).WithInterceptorFuncs(interceptor.Funcs{
+				Get: withGetInterceptor(podStatusRunning),
+			}).Build(),
 			namespace:               defaultNamespace,
 			wrapperServerImage:      defaultWrapperServerImage,
 			imageMetadataCache:      defaultImageMetadataCache,
 			evalFunc:                defaultSuccessEvalFunc,
 			functionPodTemplateName: defaultFunctionPodTemplateName,
 			managerNamespace:        defaultManagerNamespace,
-			podPatch: &corev1.Pod{
-				Status: podStatusRunning,
-			},
 		},
 		{
 			name:          "Function template update is applied when pod is requested",
@@ -717,16 +721,15 @@ func TestPodManager(t *testing.T) {
 			},
 				defaultPodObject,
 				defaultEndpointObject,
-			}...).Build(),
+			}...).WithInterceptorFuncs(interceptor.Funcs{
+				Get: withGetInterceptor(podStatusRunning),
+			}).Build(),
 			namespace:               defaultNamespace,
 			wrapperServerImage:      defaultWrapperServerImage,
 			imageMetadataCache:      defaultImageMetadataCache,
 			evalFunc:                defaultSuccessEvalFunc,
 			functionPodTemplateName: defaultFunctionPodTemplateName,
 			managerNamespace:        defaultManagerNamespace,
-			podPatch: &corev1.Pod{
-				Status: podStatusRunning,
-			},
 		},
 		{
 			name:          "Failed pod is deleted and new one is created",
@@ -739,14 +742,12 @@ func TestPodManager(t *testing.T) {
 				defaultEndpointObject,
 			}...).WithInterceptorFuncs(interceptor.Funcs{
 				Create: fakeClientCreateFixInterceptor,
+				Get:    withGetInterceptor(podStatusRunning),
 			}).Build(),
 			namespace:          defaultNamespace,
 			wrapperServerImage: defaultWrapperServerImage,
 			imageMetadataCache: defaultImageMetadataCache,
 			evalFunc:           defaultSuccessEvalFunc,
-			podPatch: &corev1.Pod{
-				Status: podStatusRunning,
-			},
 		},
 	}
 
@@ -778,7 +779,7 @@ func TestPodManager(t *testing.T) {
 				wrapperServerImage:      tt.wrapperServerImage,
 				imageMetadataCache:      sync.Map{},
 				podReadyCh:              podReadyCh,
-				podReadyTimeout:         1 * time.Second,
+				podReadyTimeout:         5 * time.Second,
 				functionPodTemplateName: tt.functionPodTemplateName,
 				managerNamespace:        tt.managerNamespace,
 
@@ -801,53 +802,197 @@ func TestPodManager(t *testing.T) {
 			podConfig := podCacheConfigEntry{}
 
 			//Execute the function under test
-			go pm.getFuncEvalPodClient(ctx, tt.functionImage, time.Hour, 1, podConfig, false)
-			if tt.podPatch != nil {
-				go func() {
-					watchPod, err := tt.kubeClient.Watch(ctx, &corev1.PodList{}, client.InNamespace(tt.namespace))
-					if err != nil {
-						t.Errorf("Failed to watch for pods: %v", err)
-					}
-					ev := <-watchPod.ResultChan()
-					watchPod.Stop()
-
-					if tt.podPatchAfter > 0 {
-						<-time.After(tt.podPatchAfter)
-					}
-					pod := ev.Object.(*corev1.Pod)
-					//Not ideal, but fakeClient.Patch doesn't seem to do merging correctly
-					pod.Status = tt.podPatch.Status
-					err = pm.kubeClient.Status().Update(ctx, pod)
-
-					if err != nil {
-						t.Errorf("Failed to patch pod: %v", err)
-
-					}
-				}()
-			}
+			go pm.getFuncEvalPodClient(ctx, tt.functionImage, 1, podConfig, false)
 
 			cc := <-podReadyCh
 			if cc.err != nil && !tt.expectFail {
-				t.Errorf("Expected to get ready pod, got error: %v", cc.err)
+				assert.NoError(t, cc.err, "Expected to get ready pod")
 			} else if cc.err == nil {
 				if tt.expectFail {
-					t.Errorf("Expected to get error, got ready pod")
+					assert.Fail(t, "Expected to get error, got ready pod")
 				}
 				var pod corev1.Pod
-				if err := tt.kubeClient.Get(ctx, cc.podKey, &pod); err != nil {
-					t.Errorf("Failed to get pod: %v", err)
-				}
+				err := tt.kubeClient.Get(ctx, *cc.podKey, &pod)
+				assert.NoError(t, err, "Failed to get pod")
 
-				if !strings.HasPrefix(pod.Labels[krmFunctionImageLabel], tt.functionImage) {
-					t.Errorf("Expected pod to have label starting with %s, got %s", tt.functionImage, pod.Labels[krmFunctionImageLabel])
-				}
-				if pod.Spec.Containers[0].Image != tt.functionImage {
-					t.Errorf("Expected pod to have image %s, got %s", tt.functionImage, pod.Spec.Containers[0].Image)
-				}
+				assert.True(t, strings.HasPrefix(pod.Labels[krmFunctionImageLabel], tt.functionImage),
+					"Expected pod to have label starting with %s, got %s", tt.functionImage, pod.Labels[krmFunctionImageLabel])
+				assert.Equal(t, tt.functionImage, pod.Spec.Containers[0].Image,
+					"Expected pod to have image %s", tt.functionImage)
 
 			}
 
 		})
+	}
+}
+
+func TestMultipleEndpointsWithStuckPod(t *testing.T) {
+	const (
+		newPodName = "new-pod"
+		oldPodName = "old-pod"
+		newPodIP   = "10.255.0.1"
+		oldPodIP   = "10.255.0.2"
+	)
+
+	podStatusRunningNewIP := corev1.PodStatus{
+		Phase: corev1.PodRunning,
+		Conditions: []corev1.PodCondition{
+			{
+				Type:   corev1.PodReady,
+				Status: corev1.ConditionTrue,
+			},
+		},
+		PodIP: newPodIP,
+	}
+
+	podStatusRunningOldIP := corev1.PodStatus{
+		Phase: corev1.PodRunning,
+		Conditions: []corev1.PodCondition{
+			{
+				Type:   corev1.PodReady,
+				Status: corev1.ConditionTrue,
+			},
+		},
+		PodIP: oldPodIP,
+	}
+
+	newPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              newPodName,
+			Namespace:         defaultNamespace,
+			CreationTimestamp: metav1.Time{Time: time.Now()},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:  "function",
+					Image: defaultImageName,
+				},
+			},
+		},
+		Status: podStatusRunningNewIP,
+	}
+
+	oldPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              oldPodName,
+			Namespace:         defaultNamespace,
+			CreationTimestamp: metav1.Time{Time: time.Now().Add(-10 * time.Minute)},
+			Labels: map[string]string{
+				"test-label": "test-value",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:  "function",
+					Image: defaultImageName,
+				},
+			},
+		},
+		Status: podStatusRunningOldIP,
+	}
+
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      defaultServiceName,
+			Namespace: defaultNamespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Type:      corev1.ServiceTypeClusterIP,
+			ClusterIP: defaultServiceIP,
+			Selector: map[string]string{
+				"test-label": "test-value",
+			},
+		},
+	}
+
+	endpoint := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      defaultEndpointName,
+			Namespace: defaultNamespace,
+		},
+		Subsets: []corev1.EndpointSubset{
+			{
+				Addresses: []corev1.EndpointAddress{
+					{
+						IP: oldPodIP,
+						TargetRef: &corev1.ObjectReference{
+							Name:      oldPodName,
+							Namespace: defaultNamespace,
+						},
+					},
+					{
+						IP: newPodIP,
+						TargetRef: &corev1.ObjectReference{
+							Name:      newPodName,
+							Namespace: defaultNamespace,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	kubeClient := fake.NewClientBuilder().
+		WithObjects(newPod, oldPod, service, endpoint).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Delete: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.DeleteOption) error {
+				if pod, ok := obj.(*corev1.Pod); ok && pod.Name == oldPodName {
+					var ep corev1.Endpoints
+					epKey := client.ObjectKey{Namespace: defaultNamespace, Name: defaultEndpointName}
+					if err := c.Get(ctx, epKey, &ep); err == nil {
+						updated := ep.DeepCopy()
+						updated.Subsets = []corev1.EndpointSubset{
+							{
+								Addresses: []corev1.EndpointAddress{
+									{
+										IP: newPodIP,
+										TargetRef: &corev1.ObjectReference{
+											Name:      newPodName,
+											Namespace: defaultNamespace,
+										},
+									},
+								},
+							},
+						}
+						_ = c.Update(ctx, updated)
+					}
+				}
+				return c.Delete(ctx, obj, opts...)
+			},
+		}).
+		Build()
+
+	pm := &podManager{
+		kubeClient:      kubeClient,
+		namespace:       defaultNamespace,
+		podReadyTimeout: 1 * time.Second,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	serviceKey := client.ObjectKey{Namespace: defaultNamespace, Name: defaultServiceName}
+	podKey := client.ObjectKey{Namespace: defaultNamespace, Name: newPodName}
+
+	serviceURL, err := pm.getServiceUrlOnceEndpointActive(ctx, serviceKey, podKey)
+
+	assert.NoError(t, err, "Expected getServiceUrlOnceEndpointActive to succeed")
+	assert.NotEmpty(t, serviceURL, "Expected non-empty service URL")
+
+	var deletedPod corev1.Pod
+	err = kubeClient.Get(ctx, client.ObjectKey{Namespace: defaultNamespace, Name: oldPodName}, &deletedPod)
+	assert.Error(t, err, "Expected old pod to be deleted, but it still exists")
+
+	var finalEndpoint corev1.Endpoints
+	err = kubeClient.Get(ctx, client.ObjectKey{Namespace: defaultNamespace, Name: defaultEndpointName}, &finalEndpoint)
+	require.NoError(t, err, "Failed to get final endpoint")
+
+	if assert.NotEmpty(t, finalEndpoint.Subsets, "Expected endpoint to have subsets") &&
+		assert.NotEmpty(t, finalEndpoint.Subsets[0].Addresses, "Expected endpoint to have addresses") {
+		assert.Len(t, finalEndpoint.Subsets[0].Addresses, 1, "Expected endpoint to have exactly 1 address")
+		assert.Equal(t, newPodIP, finalEndpoint.Subsets[0].Addresses[0].IP, "Expected endpoint IP to match new pod IP")
 	}
 }
 

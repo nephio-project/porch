@@ -29,6 +29,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/ktesting"
+	"k8s.io/utils/ptr"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -216,8 +217,8 @@ func TestPodCacheManager(t *testing.T) {
 	pData := podData{
 		image:          defaultImageName,
 		grpcConnection: grpcClient,
-		podKey:         client.ObjectKeyFromObject(defaultPodObject),
-		serviceKey:     client.ObjectKeyFromObject(defaultServiceObject),
+		podKey:         ptr.To(client.ObjectKeyFromObject(defaultPodObject)),
+		serviceKey:     ptr.To(client.ObjectKeyFromObject(defaultServiceObject)),
 	}
 
 	funcPodInfo := NewPodInfo(nil)
@@ -340,6 +341,14 @@ func TestPodCacheManager(t *testing.T) {
 				pcm.functions[k] = v
 			}
 			pcm.podManager.kubeClient = tt.kubeClient
+
+			if !tt.skipRetrieve {
+				err = pcm.retrieveFunctionPods(context.Background())
+				if err != nil {
+					t.Logf("Something happened %v", err)
+				}
+
+			}
 
 			clientConn := make(chan *connectionResponse)
 			requestCh <- &connectionRequest{defaultImageName, clientConn}

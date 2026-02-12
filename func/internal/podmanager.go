@@ -37,9 +37,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
@@ -104,30 +104,32 @@ type digestAndEntrypoint struct {
 }
 
 func (pm *podManager) createPodData(ctx context.Context, serviceKey client.ObjectKey, podKey client.ObjectKey, image string) (*podData, error) {
-	serviceIP, err := pm.getServiceUrlOnceEndpointActive(ctx, serviceKey, podKey)
+	podData := &podData{
+		image:      image,
+		podKey:     &podKey,
+		serviceKey: &serviceKey,
+	}
+	serviceUrl, err := pm.getServiceUrlOnceEndpointActive(ctx, serviceKey, podKey)
 	if err != nil {
-		return nil, err
+		return podData, err
 	}
-	if serviceIP == "" {
-		return nil, fmt.Errorf("service %s/%s did not have serviceIP", serviceKey.Namespace, serviceKey.Name)
+	if serviceUrl == "" {
+		return podData, fmt.Errorf("service %s/%s did not have serviceIP", serviceKey.Namespace, serviceKey.Name)
 	}
-	address := net.JoinHostPort(serviceIP, defaultWrapperServerPort)
+	address := net.JoinHostPort(serviceUrl, defaultWrapperServerPort)
 	cc, err := grpc.NewClient(address,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(pm.maxGrpcMessageSize),
 			grpc.MaxCallSendMsgSize(pm.maxGrpcMessageSize),
+			grpc.WaitForReady(true),
 		),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to dial grpc function evaluator on %q for pod %s/%s: %w", address, serviceKey.Namespace, serviceKey.Name, err)
+		return podData, fmt.Errorf("failed to dial grpc function evaluator on %q for pod %s/%s: %w", address, serviceKey.Namespace, serviceKey.Name, err)
 	}
-	return &podData{
-		serviceKey:     serviceKey,
-		podKey:         podKey,
-		grpcConnection: cc,
-		image:          image,
-	}, err
+	podData.grpcConnection = cc
+	return podData, err
 }
 
 // getFuncEvalPodClient ensures there is a pod running and ready for the image.
@@ -135,62 +137,35 @@ func (pm *podManager) createPodData(ctx context.Context, serviceKey client.Objec
 // time-to-live period for the pod. If useGenerateName is false, it will try to
 // create a pod with a fixed name. Otherwise, it will create a pod and let the
 // apiserver to generate the name from a template.
-func (pm *podManager) getFuncEvalPodClient(ctx context.Context, image string, ttl time.Duration, postFix int, podConfig podCacheConfigEntry, useGenerateName bool) {
+func (pm *podManager) getFuncEvalPodClient(ctx context.Context, image string, postFix int, podConfig podCacheConfigEntry, useGenerateName bool) {
 	c, err := func() (*podData, error) {
-		podTemplate, err := pm.CreatePod(ctx, image, ttl, postFix, podConfig, useGenerateName)
-		if err != nil {
-			return nil, err
+		podData := &podData{
+			image: image,
 		}
+		podTemplate, err := pm.CreatePod(ctx, image, postFix, podConfig, useGenerateName)
+		if err != nil {
+
+			return podData, err
+		}
+
+		podKey := client.ObjectKeyFromObject(podTemplate)
+		podData.podKey = &podKey
 
 		// Service name is Image Label set on Pod manifest
 		serviceName := podTemplate.Labels[krmFunctionImageLabel]
-		podKey := client.ObjectKeyFromObject(podTemplate)
 
 		serviceTemplate, err := pm.retrieveOrCreateService(ctx, serviceName)
 		if err != nil {
-			return nil, err
+			return podData, err
 		}
 		serviceKey := client.ObjectKeyFromObject(serviceTemplate)
-		serviceUrl, err := pm.getServiceUrlOnceEndpointActive(ctx, serviceKey, podKey)
-		if err != nil {
-			return nil, err
-		}
-
-		if serviceUrl == "" {
-			return nil, fmt.Errorf("service %s/%s does not have valid Url", serviceKey.Namespace, serviceKey.Name)
-		}
-
-		address := net.JoinHostPort(serviceUrl, defaultWrapperServerPort)
-		cc, err := grpc.NewClient(address,
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-			grpc.WithDefaultCallOptions(
-				grpc.MaxCallRecvMsgSize(pm.maxGrpcMessageSize),
-				grpc.MaxCallSendMsgSize(pm.maxGrpcMessageSize),
-				grpc.WaitForReady(true),
-			),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to dial grpc function evaluator on %q for pod %s/%s: %w", address, podKey.Namespace, podKey.Name, err)
-		}
-		return &podData{
-			podKey:         podKey,
-			serviceKey:     serviceKey,
-			grpcConnection: cc,
-			image:          image,
-		}, nil
+		podData, err = pm.createPodData(ctx, serviceKey, podKey, image)
+		return podData, err
 	}()
-	if err != nil {
-		pm.podReadyCh <- &podReadyResponse{
-			podData: podData{
-				image: image,
-			},
-			err: err,
-		}
-	} else {
-		pm.podReadyCh <- &podReadyResponse{
-			podData: *c,
-			err:     nil,
-		}
+
+	pm.podReadyCh <- &podReadyResponse{
+		podData: *c,
+		err:     err,
 	}
 }
 
@@ -419,7 +394,7 @@ func createTransport(tlsConfig *tls.Config) *http.Transport {
 }
 
 // CreatePod creates a pod for an image.
-func (pm *podManager) CreatePod(ctx context.Context, image string, ttl time.Duration, postFix int, podConfig podCacheConfigEntry, useGenerateName bool) (*corev1.Pod, error) {
+func (pm *podManager) CreatePod(ctx context.Context, image string, postFix int, podConfig podCacheConfigEntry, useGenerateName bool) (*corev1.Pod, error) {
 	var de *digestAndEntrypoint
 	var err error
 	de, err = pm.imageDigestAndEntrypoint(ctx, image)
@@ -460,27 +435,27 @@ func (pm *podManager) CreatePod(ctx context.Context, image string, ttl time.Dura
 	if err != nil {
 		return nil, fmt.Errorf("unable to apply the pod: %w", err)
 	}
-	pm.patchNewPodMetadata(podTemplate, ttl, podId, templateVersion)
+	pm.patchNewPodMetadata(podTemplate, podId, templateVersion)
 
 	// Set custom resources
-	if podConfig.Requests != nil {
-		podTemplate.Spec.Containers[0].Resources.Requests = podConfig.Requests
+	if podConfig.Resources.Requests != nil {
+		podTemplate.Spec.Containers[0].Resources.Requests = podConfig.Resources.Requests
 	}
 
-	if podConfig.Limits != nil {
-		podTemplate.Spec.Containers[0].Resources.Limits = podConfig.Limits
+	if podConfig.Resources.Limits != nil {
+		podTemplate.Spec.Containers[0].Resources.Limits = podConfig.Resources.Limits
 	}
 
 	if useGenerateName {
 		podTemplate.GenerateName = podId + "-"
 	} else {
-		podTemplate.ObjectMeta.Name = podId
+		podTemplate.Name = podId
 	}
 
 	err = pm.kubeClient.Create(ctx, podTemplate)
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
-			return nil, fmt.Errorf("the pod already exists")
+			return podTemplate, nil
 		}
 		return nil, fmt.Errorf("unable to apply the pod: %w", err)
 	}
@@ -602,7 +577,7 @@ func (pm *podManager) retrieveOrCreateService(ctx context.Context, serviceName s
 	}
 
 	// If the service does not exist, generate template and create it
-	if errors.IsNotFound(err) {
+	if apierrors.IsNotFound(err) {
 		serviceTemplate, err := pm.getBaseServiceTemplate(ctx)
 		if err != nil {
 			return nil, err
@@ -624,7 +599,7 @@ func (pm *podManager) retrieveOrCreateService(ctx context.Context, serviceName s
 		if err != nil {
 			klog.Errorf("failed to create service %v/%v: %v", pm.namespace, serviceName, err)
 			// Try to retrieve again
-			if errors.IsAlreadyExists(err) {
+			if apierrors.IsAlreadyExists(err) {
 				klog.Infof("service %v/%v already exists - trying to retrieve it", pm.namespace, serviceName)
 				err = pm.kubeClient.Get(ctx, client.ObjectKey{Namespace: pm.namespace, Name: serviceName}, existingService)
 				if err == nil {
@@ -748,7 +723,7 @@ func (pm *podManager) patchNewPodContainer(pod *corev1.Pod, de digestAndEntrypoi
 }
 
 // Patch labels and annotations so the cache manager can keep track of the pod
-func (pm *podManager) patchNewPodMetadata(pod *corev1.Pod, ttl time.Duration, podId string, templateVersion string) {
+func (pm *podManager) patchNewPodMetadata(pod *corev1.Pod, podId string, templateVersion string) {
 	pod.Namespace = pm.namespace
 	annotations := pod.Annotations
 	if annotations == nil {
@@ -814,6 +789,22 @@ func (pm *podManager) getServiceUrlOnceEndpointActive(ctx context.Context, servi
 			klog.Warningf("Service %s/%s has more than one endpoint: %+v", serviceKey.Namespace, serviceKey.Name, endpoint.Subsets)
 		}
 
+		// Try to detect if there are any stuck pods
+		if len(endpoint.Subsets[0].Addresses) > 1 {
+			err = pm.removeStuckPod(ctx, &service, podIP)
+			if err != nil {
+				return false, err
+			}
+			// Re-fetch the endpoint after removing the stuck pod to get the updated endpoint list
+			if err := pm.kubeClient.Get(ctx, serviceKey, &endpoint); err != nil {
+				return false, err
+			}
+			// Check if endpoint still exists after cleanup
+			if len(endpoint.Subsets) == 0 || len(endpoint.Subsets[0].Addresses) == 0 {
+				return false, nil
+			}
+		}
+
 		endpointIP := endpoint.Subsets[0].Addresses[0].IP
 		if podIP != endpointIP {
 			klog.Warningf("pod IP %s does not match service endpoint IP %s", podIP, endpointIP)
@@ -848,4 +839,51 @@ func isPodTemplateSameVersion(pod *corev1.Pod, templateVersion string) bool {
 		return false
 	}
 	return true
+}
+
+func (pm *podManager) findPodsForService(ctx context.Context, svc *corev1.Service) ([]corev1.Pod, error) {
+	selector := labels.SelectorFromSet(svc.Spec.Selector)
+
+	var podList corev1.PodList
+	if err := pm.kubeClient.List(ctx, &podList, &client.ListOptions{
+		Namespace:     svc.Namespace,
+		LabelSelector: selector,
+	}); err != nil {
+		return nil, err
+	}
+
+	return podList.Items, nil
+}
+
+func (pm *podManager) removeStuckPod(ctx context.Context, service *corev1.Service, expectedIP string) error {
+	//nolint:staticcheck
+	var endpoint corev1.Endpoints
+	var err error
+	podList, err := pm.findPodsForService(ctx, service)
+	if err != nil {
+		return err
+	}
+	indexToRemove := 0
+	for i := 1; i < len(podList); i++ {
+		if podList[i].CreationTimestamp.Before(&podList[indexToRemove].CreationTimestamp) {
+			indexToRemove = i
+		}
+	}
+
+	err = pm.kubeClient.Delete(ctx, &podList[indexToRemove])
+	if err != nil {
+		return fmt.Errorf("unable to delete stucked pod: %w", err)
+	}
+
+	err = wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, pm.podReadyTimeout, true, func(ctx context.Context) (bool, error) {
+		err = pm.kubeClient.Get(ctx, client.ObjectKeyFromObject(service), &endpoint)
+		if err != nil {
+			return false, err
+		}
+		if len(endpoint.Subsets) == 0 || len(endpoint.Subsets[0].Addresses) == 0 {
+			return false, nil
+		}
+		return endpoint.Subsets[0].Addresses[0].IP == expectedIP, nil
+	})
+	return err
 }

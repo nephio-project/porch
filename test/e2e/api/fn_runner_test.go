@@ -347,11 +347,12 @@ func (t *PorchSuite) TestPodEvaluatorParallelExecution() {
 		parallelRequestCount = 4
 		maxWaitList          = 2 // this should be kept in sync with the max-wait-list argument of the function-runner
 		expectedPodCount     = (parallelRequestCount + maxWaitList - 1) / maxWaitList
-		sleepDuration        = 8 * time.Second
+		sleepDuration        = 3 * time.Second
 	)
 
 	singleFunctionTime := sleepDuration
-	expectedSequentialTime := time.Duration(parallelRequestCount) * sleepDuration
+	expectedSequentialTime := parallelRequestCount * sleepDuration
+	pollTimeout := expectedSequentialTime * 5 / 4 // +0.25 headroom
 
 	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
@@ -381,7 +382,7 @@ func (t *PorchSuite) TestPodEvaluatorParallelExecution() {
 	}
 
 	t.Logf("Waiting to observe %d parallel sleep function evaluator pods: %s", parallelRequestCount, t.KrmFunctionsRegistry+"/"+sleepImage)
-	err := wait.PollUntilContextTimeout(t.GetContext(), 1*time.Second, 45*time.Second, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(t.GetContext(), 1*time.Second, pollTimeout, true, func(ctx context.Context) (bool, error) {
 		select {
 		case err := <-errChan:
 			return true, err

@@ -12,6 +12,7 @@ import (
 	pb "github.com/nephio-project/porch/func/evaluator"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -81,7 +82,7 @@ func TestPodEvaluatorExecutionSerial(t *testing.T) {
 				podData: podData{
 					image:          req.image,
 					grpcConnection: conn,
-					podKey:         client.ObjectKey{},
+					podKey:         ptr.To(client.ObjectKey{}),
 				},
 				fnEvaluationMutex:     lock,
 				concurrentEvaluations: counter,
