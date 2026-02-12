@@ -21,7 +21,7 @@ import (
 
 	"github.com/kptdev/kpt/pkg/lib/errors"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	porch "github.com/nephio-project/porch/internal/cliutils"
+	cliutils "github.com/nephio-project/porch/internal/cliutils"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -51,7 +51,7 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 		Example: docs.ProposeExamples,
 		PreRunE: r.preRunE,
 		RunE:    r.runE,
-		Hidden:  porch.HidePorchCommands,
+		Hidden:  cliutils.HidePorchCommands,
 	}
 	r.Command = c
 
@@ -70,7 +70,7 @@ type runner struct {
 func (r *runner) preRunE(_ *cobra.Command, _ []string) error {
 	const op errors.Op = command + ".preRunE"
 
-	client, err := porch.CreateClientWithFlags(r.cfg)
+	client, err := cliutils.CreateClientWithFlags(r.cfg)
 	if err != nil {
 		return errors.E(op, err)
 	}
