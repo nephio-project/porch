@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright 2025 The kpt and Nephio Authors
+# Copyright 2025-2026 The kpt and Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ case $COMPONENT in
         ;;
     "server")
         echo "Building ${IMAGE_REPO}/${PORCH_SERVER_IMAGE}:${IMAGE_TAG}"
-        docker build --load --tag ${IMAGE_REPO}/${PORCH_SERVER_IMAGE}:${IMAGE_TAG} -f ./build/Dockerfile "${PORCHDIR}"
+        IMAGE_NAME="${PORCH_SERVER_IMAGE}" make -C build/ build-image
         kind load docker-image ${IMAGE_REPO}/${PORCH_SERVER_IMAGE}:${IMAGE_TAG} -n ${KIND_CONTEXT_NAME}
         kubectl rollout restart -n porch-system deployment/porch-server
         kubectl rollout status deployment porch-server -n porch-system 2>/dev/null || true

@@ -1,4 +1,4 @@
-# Copyright 2022-2025 The kpt and Nephio Authors
+# Copyright 2022-2026 The kpt and Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+ARG ALPINE_VERSION=latest
 
 FROM golang:1.25.6-bookworm AS builder
 
@@ -47,7 +49,7 @@ COPY ./func ./func
 WORKDIR /go/src/controllers/
 RUN CGO_ENABLED=0 go build -o /porch-controllers -v .
 
-FROM alpine
+FROM alpine:${ALPINE_VERSION}
 WORKDIR /data
 COPY --from=builder /porch-controllers /porch-controllers
 

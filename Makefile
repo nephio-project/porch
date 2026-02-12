@@ -1,4 +1,4 @@
-# Copyright 2022-2025 The kpt and Nephio Authors
+# Copyright 2022-2026 The kpt and Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,9 @@
 BUILDDIR=$(CURDIR)/.build
 CACHEDIR=$(CURDIR)/.cache
 export PORCHDIR=$(abspath $(CURDIR))
+
+# Base image versions
+export ALPINE_VERSION ?= 3.23.3
 
 export DEPLOYPORCHCONFIGDIR ?= $(BUILDDIR)/deploy
 DEPLOYKPTCONFIGDIR=$(BUILDDIR)/kpt_pkgs
