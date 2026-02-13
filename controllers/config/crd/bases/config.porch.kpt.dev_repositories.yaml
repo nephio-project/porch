@@ -254,6 +254,12 @@ spec:
                   spec that was last reconciled.
                 format: int64
                 type: integer
+              observedRunOnceAt:
+                description: |-
+                  ObservedRunOnceAt tracks the last observed value of spec.sync.runOnceAt.
+                  Used to detect when runOnceAt is set, updated, or cleared to prevent redundant syncs.
+                format: date-time
+                type: string
               packageCount:
                 description: PackageCount is the number of package revisions discovered
                   in the repository.

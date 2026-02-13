@@ -56,7 +56,6 @@ func (r *RepositoryReconciler) syncRepository(ctx context.Context, repo *api.Rep
 	// Get commit hash (best effort - don't fail sync if this fails)
 	commitHash, _ = repoHandle.BranchCommitHash(ctx)
 
-	log.Info("Repository sync completed successfully", "packageCount", len(pkgRevs), "commitHash", commitHash)
 	return len(pkgRevs), commitHash, nil
 }
 
@@ -78,19 +77,24 @@ func (r *RepositoryReconciler) determineSyncDecision(ctx context.Context, repo *
 	switch {
 	case r.isOneTimeSyncDue(repo):
 		// 1. One-time sync due → Full sync
+		log.FromContext(ctx).Info("RunOnceAt sync triggered", "scheduledTime", repo.Spec.Sync.RunOnceAt.Time.Format(time.RFC3339))
 		return SyncDecision{Type: FullSync, Needed: true, Interval: 0}
 
 	case r.hasSpecChanged(repo):
-		// 2. Spec changed → Full sync immediately
-		// If RunOnceAt is set but not yet due, wait for scheduled time
-		if repo.Spec.Sync != nil && repo.Spec.Sync.RunOnceAt != nil && time.Now().Before(repo.Spec.Sync.RunOnceAt.Time) {
-			untilRunOnce := time.Until(repo.Spec.Sync.RunOnceAt.Time)
-			if untilRunOnce <= 0 {
-				// Race condition: time passed while we were checking, run sync now
-				return SyncDecision{Type: FullSync, Needed: true, Interval: 0}
-			}
-			return SyncDecision{Type: HealthCheck, Needed: false, Interval: untilRunOnce}
+		// 2. Spec changed → Check if only runOnceAt changed
+		specRunOnceAt := getRunOnceAt(repo)
+		statusRunOnceAt := repo.Status.ObservedRunOnceAt
+		
+		// If only runOnceAt changed (not other spec fields), update ObservedGeneration and skip sync
+		// The sync will trigger when the scheduled time arrives via isOneTimeSyncDue
+		if !equalTimes(specRunOnceAt, statusRunOnceAt) {
+			// Just update ObservedGeneration to acknowledge we've seen the spec change
+			// Don't update ObservedRunOnceAt yet - that happens after sync completes
+			repo.Status.ObservedGeneration = repo.Generation
+			return SyncDecision{Type: HealthCheck, Needed: false, Interval: r.getRequeueInterval(repo)}
 		}
+		
+		// runOnceAt didn't change, other spec fields changed → Full sync
 		return SyncDecision{Type: FullSync, Needed: true, Interval: 0}
 
 	case r.isErrorRetryDue(repo):
@@ -132,7 +136,11 @@ func (r *RepositoryReconciler) isOneTimeSyncDue(repo *api.Repository) bool {
 	if repo.Spec.Sync == nil || repo.Spec.Sync.RunOnceAt == nil {
 		return false
 	}
-	return time.Now().After(repo.Spec.Sync.RunOnceAt.Time)
+	// Only trigger if time has passed AND we haven't already observed this value
+	if !time.Now().After(repo.Spec.Sync.RunOnceAt.Time) {
+		return false
+	}
+	return !equalTimes(repo.Spec.Sync.RunOnceAt, repo.Status.ObservedRunOnceAt)
 }
 
 // isErrorRetryDue checks if error retry time has elapsed
@@ -186,13 +194,13 @@ func (r *RepositoryReconciler) isFullSyncDue(repo *api.Repository) bool {
 		}
 		next := schedule.Next(lastFullSync)
 		isDue := time.Now().After(next)
-		log.FromContext(context.Background()).Info("Cron schedule check", "schedule", repo.Spec.Sync.Schedule, "lastFullSync", lastFullSync.Format(time.RFC3339), "nextScheduled", next.Format(time.RFC3339), "now", time.Now().Format(time.RFC3339), "isDue", isDue)
+		log.FromContext(context.Background()).V(2).Info("Cron schedule check", "schedule", repo.Spec.Sync.Schedule, "lastFullSync", lastFullSync.Format(time.RFC3339), "nextScheduled", next.Format(time.RFC3339), "now", time.Now().Format(time.RFC3339), "isDue", isDue)
 		return isDue
 	}
 
 	timeSinceLastSync := time.Since(lastFullSync)
 	isDue := timeSinceLastSync >= r.FullSyncFrequency
-	log.FromContext(context.Background()).Info("Full sync check", "lastFullSync", lastFullSync.Format(time.RFC3339), "timeSince", timeSinceLastSync, "frequency", r.FullSyncFrequency, "isDue", isDue)
+	log.FromContext(context.Background()).V(2).Info("Full sync check", "lastFullSync", lastFullSync.Format(time.RFC3339), "timeSince", timeSinceLastSync, "frequency", r.FullSyncFrequency, "isDue", isDue)
 	return isDue
 }
 
@@ -272,6 +280,7 @@ func (r *RepositoryReconciler) getRequeueInterval(repo *api.Repository) time.Dur
 
 // calculateNextSyncInterval determines when to requeue for next sync
 func (r *RepositoryReconciler) calculateNextSyncInterval(repo *api.Repository) time.Duration {
+	// If runOnceAt is set and in the future, wait until then (even if no status)
 	if repo.Spec.Sync != nil && repo.Spec.Sync.RunOnceAt != nil {
 		untilRunOnce := time.Until(repo.Spec.Sync.RunOnceAt.Time)
 		if untilRunOnce > 0 {
@@ -285,12 +294,24 @@ func (r *RepositoryReconciler) calculateNextSyncInterval(repo *api.Repository) t
 		return r.HealthCheckFrequency
 	}
 
+	// If runOnceAt is in the past but still set, return small interval
+	if repo.Spec.Sync != nil && repo.Spec.Sync.RunOnceAt != nil {
+		// runOnceAt is in the past but still set - it will trigger sync soon
+		return 1 * time.Second
+	}
+
 	nextHealthCheck := r.HealthCheckFrequency - time.Since(lastUpdate)
+	if nextHealthCheck <= 0 {
+		nextHealthCheck = r.HealthCheckFrequency
+	}
 
 	lastFullSync := r.getLastFullSyncTime(repo)
 	nextFullSync := r.FullSyncFrequency
 	if !lastFullSync.IsZero() {
 		nextFullSync = r.FullSyncFrequency - time.Since(lastFullSync)
+		if nextFullSync <= 0 {
+			nextFullSync = r.FullSyncFrequency
+		}
 	}
 
 	if repo.Spec.Sync != nil && repo.Spec.Sync.Schedule != "" {
@@ -364,4 +385,23 @@ func (r *RepositoryReconciler) calculateNextFullSyncTime(repo *api.Repository) t
 		}
 	}
 	return time.Now().Add(r.FullSyncFrequency)
+}
+
+// getRunOnceAt safely extracts runOnceAt from repository spec
+func getRunOnceAt(repo *api.Repository) *metav1.Time {
+	if repo.Spec.Sync != nil && repo.Spec.Sync.RunOnceAt != nil {
+		return repo.Spec.Sync.RunOnceAt
+	}
+	return nil
+}
+
+// equalTimes compares two metav1.Time pointers for equality
+func equalTimes(t1, t2 *metav1.Time) bool {
+	if t1 == nil && t2 == nil {
+		return true
+	}
+	if t1 == nil || t2 == nil {
+		return false
+	}
+	return t1.Equal(t2)
 }

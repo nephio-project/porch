@@ -173,6 +173,10 @@ type RepositoryStatus struct {
 	// ObservedGeneration is the generation of the Repository spec that was last reconciled.
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+	// ObservedRunOnceAt tracks the last observed value of spec.sync.runOnceAt.
+	// Used to detect when runOnceAt is set, updated, or cleared to prevent redundant syncs.
+	// +optional
+	ObservedRunOnceAt *metav1.Time `json:"observedRunOnceAt,omitempty"`
 	// PackageCount is the number of package revisions discovered in the repository.
 	// +optional
 	PackageCount int `json:"packageCount,omitempty"`
