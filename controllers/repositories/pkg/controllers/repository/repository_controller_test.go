@@ -46,6 +46,7 @@ func setupMockStatusWriter(t *testing.T, mockClient *mockclient.MockClient, retu
 		mock.Anything,
 		mock.Anything,
 		mock.Anything,
+		mock.Anything,
 	).Return(returnErr).Maybe()
 	return mockStatusWriter
 }
@@ -462,6 +463,8 @@ func TestReconcileSyncInProgress(t *testing.T) {
 			*r = *repo
 		}
 	}).Return(nil)
+
+	setupMockStatusWriter(t, mockClient, nil)
 
 	r := newTestReconciler(mockClient, mockCache)
 	result, err := r.Reconcile(ctx, req)

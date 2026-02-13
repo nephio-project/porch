@@ -110,6 +110,7 @@ func (r *RepositoryReconciler) updateRepoStatusWithBackoff(ctx context.Context, 
 			Conditions:         []metav1.Condition{condition},
 			LastFullSyncTime:   repo.Status.LastFullSyncTime,
 			ObservedGeneration: repo.Status.ObservedGeneration,
+			ObservedRunOnceAt:  repo.Status.ObservedRunOnceAt,
 			PackageCount:       repo.Status.PackageCount,
 			GitCommitHash:      repo.Status.GitCommitHash,
 		},
@@ -121,7 +122,7 @@ func (r *RepositoryReconciler) updateRepoStatusWithBackoff(ctx context.Context, 
 		Jitter:   0.1,
 		Steps:    2,
 	}, func() (bool, error) {
-		if err := r.Status().Patch(ctx, patch, client.Apply, client.FieldOwner("repository-controller")); err != nil {
+		if err := r.Status().Patch(ctx, patch, client.Apply, client.FieldOwner("repository-controller"), client.ForceOwnership); err != nil {
 			if errors.IsConflict(err) {
 				return false, nil // Retry
 			}

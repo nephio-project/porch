@@ -90,10 +90,10 @@ func TestUpdateRepoStatusWithBackoff(t *testing.T) {
 			mockClient.EXPECT().Status().Return(mockStatusWriter)
 			if tt.name == "conflict error retries" {
 				// First call returns conflict, second call succeeds
-				mockStatusWriter.EXPECT().Patch(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tt.patchError).Once()
-				mockStatusWriter.EXPECT().Patch(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+				mockStatusWriter.EXPECT().Patch(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tt.patchError).Once()
+				mockStatusWriter.EXPECT().Patch(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 			} else {
-				mockStatusWriter.EXPECT().Patch(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tt.patchError)
+				mockStatusWriter.EXPECT().Patch(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tt.patchError)
 			}
 
 			reconciler := &RepositoryReconciler{Client: mockClient}
@@ -228,7 +228,7 @@ func TestUpdateRepoStatusWithBackoffExtended(t *testing.T) {
 			mockStatusWriter := mockclient.NewMockSubResourceWriter(t)
 			
 			mockClient.EXPECT().Status().Return(mockStatusWriter)
-			mockStatusWriter.EXPECT().Patch(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			mockStatusWriter.EXPECT().Patch(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			
 			reconciler := &RepositoryReconciler{Client: mockClient}
 			err := reconciler.updateRepoStatusWithBackoff(ctx, repo, tt.status, tt.syncError, tt.nextSyncTime)

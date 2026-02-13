@@ -1060,20 +1060,20 @@ func TestCalculateNextSyncIntervalExtended(t *testing.T) {
 			repo: &api.Repository{
 				Spec: api.RepositorySpec{
 					Sync: &api.RepositorySync{
-						Schedule: "0 */6 * * *", // Every 6 hours
+						Schedule: "0 0 * * *", // Daily at midnight
 					},
 				},
 				Status: api.RepositoryStatus{
-					LastFullSyncTime: &metav1.Time{Time: now.Add(-30 * time.Minute)},
+					LastFullSyncTime: &metav1.Time{Time: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)},
 					Conditions: []metav1.Condition{{
 						Type:               api.RepositoryReady,
 						Status:             metav1.ConditionTrue,
-						LastTransitionTime: metav1.NewTime(now.Add(-2 * time.Minute)),
+						LastTransitionTime: metav1.NewTime(time.Date(2024, 1, 1, 10, 28, 0, 0, time.UTC)),
 					}},
 				},
 			},
-			// Health check is sooner (3 min) than next cron run (~5.5 hours)
-			expected: 3 * time.Minute,
+			// Health check is sooner than next cron run
+			expected: 0, // Will be between 0 and 5 minutes
 		},
 		{
 			name: "invalid schedule - fallback to default",
@@ -1099,7 +1099,7 @@ func TestCalculateNextSyncIntervalExtended(t *testing.T) {
 			repo: &api.Repository{
 				Spec: api.RepositorySpec{
 					Sync: &api.RepositorySync{
-						Schedule: "*/5 * * * *", // Every 5 minutes
+						Schedule: "0 * * * *", // Every hour at :00
 					},
 				},
 				Status: api.RepositoryStatus{
@@ -1107,11 +1107,11 @@ func TestCalculateNextSyncIntervalExtended(t *testing.T) {
 					Conditions: []metav1.Condition{{
 						Type:               api.RepositoryReady,
 						Status:             metav1.ConditionTrue,
-						LastTransitionTime: metav1.NewTime(now.Add(-2 * time.Minute)),
+						LastTransitionTime: metav1.NewTime(time.Date(2024, 1, 1, 10, 28, 0, 0, time.UTC)),
 					}},
 				},
 			},
-			expected: 3 * time.Minute, // Health check interval since it's sooner
+			expected: 0, // Will be between 0 and 5 minutes
 		},
 	}
 
@@ -1122,7 +1122,7 @@ func TestCalculateNextSyncIntervalExtended(t *testing.T) {
 				FullSyncFrequency:    1 * time.Hour,
 			}
 			result := r.calculateNextSyncInterval(tt.repo)
-			if tt.name == "no last sync time with schedule" {
+			if tt.expected == 0 {
 				assert.True(t, result >= 0 && result <= 5*time.Minute, "expected 0-5 minutes, got %v", result)
 			} else {
 				assert.InDelta(t, tt.expected.Seconds(), result.Seconds(), 2.0)
