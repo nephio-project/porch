@@ -28,7 +28,7 @@ import (
 	"testing"
 	"time"
 
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -613,12 +613,12 @@ func TestValidateRepository(t *testing.T) {
 			expectOK: true,
 		},
 		{
-			name:      "conflict: empty branch defaults to main",
+			name:      "conflict: branch defaults to main (CRD handles defaulting)",
 			repoName:  "repo9",
 			namespace: "ns1",
 			gitURL:    "http://gitea.local/myrepo.git",
 			directory: "dir1",
-			branch:    "",
+			branch:    "main",
 			setupRepos: []configapi.Repository{
 				{
 					ObjectMeta: v1.ObjectMeta{Name: "repo1", Namespace: "ns1"},

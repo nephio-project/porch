@@ -36,7 +36,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	"github.com/nephio-project/porch/pkg/errors"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -327,6 +327,26 @@ func (r *gitRepository) Version(ctx context.Context) (string, error) {
 
 	hash := sha256.Sum256(b.Bytes())
 	return hex.EncodeToString(hash[:]), nil
+}
+
+func (r *gitRepository) BranchCommitHash(ctx context.Context) (string, error) {
+	_, span := tracer.Start(ctx, "gitRepository::BranchCommitHash", trace.WithAttributes())
+	defer span.End()
+
+	var hash string
+	err := r.sharedDir.WithRLock(func(repo *git.Repository) error {
+		ref, err := repo.Reference(r.branch.RefInLocal(), true)
+		if err != nil {
+			// Branch doesn't exist yet - return empty string, not an error
+			if pkgerrors.Is(err, plumbing.ErrReferenceNotFound) {
+				return nil
+			}
+			return err
+		}
+		hash = ref.Hash().String()
+		return nil
+	})
+	return hash, err
 }
 
 func (r *gitRepository) ListPackages(ctx context.Context, filter repository.ListPackageFilter) ([]repository.Package, error) {

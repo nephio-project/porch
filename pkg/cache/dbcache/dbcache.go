@@ -18,9 +18,10 @@ package dbcache
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache/repomap"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/externalrepo"
@@ -78,7 +79,16 @@ func (c *dbCache) createRepository(ctx context.Context, key repository.Repositor
 
 	err := dbRepo.OpenRepository(ctx, c.options.ExternalRepoOptions)
 	if err != nil {
-		return nil, err
+		// Retry once if corrupted cache was removed - allows cache to be recreated
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "repository does not exist") || strings.Contains(errMsg, "corrupted cache was removed") {
+			klog.V(4).Infof("Retrying repository open after corrupted cache for %v", key)
+			time.Sleep(100 * time.Millisecond)
+			err = dbRepo.OpenRepository(ctx, c.options.ExternalRepoOptions)
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	dbRepo.repositorySync = newRepositorySync(dbRepo, c.options)
@@ -113,7 +123,8 @@ func (c *dbCache) CloseRepository(ctx context.Context, repositorySpec *configapi
 
 	dbRepo, ok := c.repositories.Load(repoKey)
 	if !ok {
-		return pkgerrors.Errorf("dbcache.CloseRepository: repo %+v not found", repoKey)
+		klog.V(4).Infof("dbcache.CloseRepository: repo %+v not found in cache (may have failed to open)", repoKey)
+		return nil
 	}
 
 	defer func() {

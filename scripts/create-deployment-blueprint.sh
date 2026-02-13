@@ -162,9 +162,11 @@ function customize_controller_reconcilers {
 reconcilers = ctx.resource_list["functionConfig"]["data"]["reconcilers"].split(",")
 for resource in ctx.resource_list["items"]:
   c = resource["spec"]["template"]["spec"]["containers"][0]
-  c["env"] = []
-  for r in reconcilers:
-    c["env"].append({"name": "ENABLE_" + r.upper(), "value": "true"})
+  # Preserve existing env vars that are not ENABLE_* vars
+  existing_env = [e for e in c.get("env", []) if not e["name"].startswith("ENABLE_")]
+  # Add ENABLE_* vars for reconcilers
+  enable_env = [{"name": "ENABLE_" + r.upper(), "value": "true"} for r in reconcilers]
+  c["env"] = existing_env + enable_env
 '
 }
 
@@ -192,6 +194,10 @@ function disable_fn_runner_warm_up_pod_cache() {
 }
 
 function configure_porch_cache() {
+    echo "Configuring Porch: cache=${PORCH_CACHE_TYPE}"
+    
+    adjust_reconcilers_for_cache_type
+    
     kpt fn eval ${DESTINATION} \
       --image ${SEARCH_REPLACE_IMG} \
       --match-kind ConfigMap \
@@ -235,10 +241,47 @@ for resource in ctx.resource_list['items']:
     fi
 }
 
+function adjust_reconcilers_for_cache_type() {
+    if [[ "${PORCH_CACHE_TYPE^^}" == "DB" ]]; then
+        if [[ ! ",${ENABLED_RECONCILERS}," =~ ",repositories," ]]; then
+            if [[ -n "${ENABLED_RECONCILERS}" ]]; then
+                ENABLED_RECONCILERS="${ENABLED_RECONCILERS},repositories"
+            else
+                ENABLED_RECONCILERS="repositories"
+            fi
+            echo "Added 'repositories' to reconcilers list for DB cache (standalone controller)"
+        fi
+    else
+        ENABLED_RECONCILERS=$(echo "${ENABLED_RECONCILERS}" | sed 's/,repositories//g' | sed 's/repositories,//g' | sed 's/repositories//g')
+        echo "Removed 'repositories' from reconcilers list for CR cache (embedded controller)"
+    fi
+}
+
+function adjust_porch_server_resources() {
+    if [[ "${PORCH_CACHE_TYPE^^}" == "CR" ]]; then
+        echo "Adjusting porch-server resources for CR cache with embedded Repository controller"
+        
+        kpt fn eval ${DESTINATION} \
+          --image ${STARLARK_IMG} \
+          --match-kind Deployment \
+          --match-name porch-server \
+          --match-namespace porch-system \
+          -- "source=
+for resource in ctx.resource_list['items']:
+    for container in resource['spec']['template']['spec'].get('containers', []):
+        # CR cache: embedded controller needs more resources than DB cache (which has no controller)
+        container['resources'] = {
+            'requests': {'memory': '384Mi', 'cpu': '350m'},
+            'limits': {'memory': '768Mi', 'cpu': '1000m'}
+        }"
+    fi
+}
+
 function main() {
   # Repository CRD
-  cp "./api/porchconfig/v1alpha1/config.porch.kpt.dev_repositories.yaml" \
-     "${DESTINATION}/0-repositories.yaml"
+  cp "./controllers/config/crd/bases/config.porch.kpt.dev_repositories.yaml" \
+   "${DESTINATION}/0-repositories.yaml"
+
   # PackageRev CRD
   cp "./internal/api/porchinternal/v1alpha1/config.porch.kpt.dev_packagerevs.yaml" \
      "${DESTINATION}/0-packagerevs.yaml"
@@ -273,6 +316,8 @@ function main() {
   fi
 
   configure_porch_cache
+
+  adjust_porch_server_resources
 
   customize_controller_reconcilers
   

@@ -17,7 +17,7 @@ package fake
 import (
 	"context"
 
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

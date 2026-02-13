@@ -50,8 +50,8 @@ type TestCaseConfig struct {
 	// ConfigFile stores the name of the config file from which the config was loaded.
 	// Used when generating or updating golden files.
 	ConfigFile string `yaml:"-"`
-	// Repository is the name of the k8s Repository resource to register the default Git repo.
-	Repository string `yaml:"repository,omitempty"`
+	// UsesPorchTestRepo indicates if this test modifies the porch-test repo and needs it recreated after
+	UsesPorchTestRepo bool `yaml:"usesPorchTestRepo,omitempty"`
 	// Commands is a list of porchctl commands to be executed by the test.
 	Commands []Command `yaml:"commands,omitempty"`
 	// Skip the test? If the value is not empty, it will be used as a message with which to skip the test.

@@ -29,7 +29,7 @@ import (
 	"github.com/kptdev/kpt/pkg/kptfile/kptfileutil"
 	"github.com/kptdev/kpt/pkg/oci"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/nephio-project/porch/pkg/util"
 	"go.opentelemetry.io/otel/trace"
@@ -111,6 +111,11 @@ func (r *ociRepository) Version(ctx context.Context) (string, error) {
 	}
 	hash := sha256.Sum256(b.Bytes())
 	return hex.EncodeToString(hash[:]), nil
+}
+
+func (r *ociRepository) BranchCommitHash(ctx context.Context) (string, error) {
+	// OCI repositories don't have branches or commits
+	return "", nil
 }
 
 func (r *ociRepository) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
