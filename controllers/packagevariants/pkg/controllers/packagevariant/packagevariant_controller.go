@@ -1,4 +1,4 @@
-// Copyright 2023-2025 The kpt and Nephio Authors
+// Copyright 2023-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -386,7 +386,7 @@ func (r *PackageVariantReconciler) ensurePackageVariant(ctx context.Context,
 	}
 	if changed {
 		// Save the updated PackageRevisionResources
-		if err = r.updatePackageResources(ctx, prr, pv); err != nil {
+		if err = r.updatePackageResources(ctx, prr, pv, newPR); err != nil {
 			return nil, err
 		}
 	}
@@ -463,7 +463,7 @@ func (r *PackageVariantReconciler) findAndUpdateExistingRevisions(ctx context.Co
 				}
 			}
 			// Save the updated PackageRevisionResources
-			if err := r.updatePackageResources(ctx, prr, pv); err != nil {
+			if err := r.updatePackageResources(ctx, prr, pv, downstream); err != nil {
 				return nil, err
 			}
 		}
@@ -1145,19 +1145,24 @@ func generatePVFuncName(funcName, pvName string, pos int) string {
 	return fmt.Sprintf("%s.%s.%s.%d", PackageVariantFuncPrefix, pvName, funcName, pos)
 }
 
-func (r *PackageVariantReconciler) updatePackageResources(ctx context.Context, prr *porchapi.PackageRevisionResources, pv *api.PackageVariant) error {
+func (r *PackageVariantReconciler) updatePackageResources(ctx context.Context, prr *porchapi.PackageRevisionResources, pv *api.PackageVariant, pr *porchapi.PackageRevision) error {
 	if err := r.Update(ctx, prr); err != nil {
 		return err
 	}
+
+	if err := r.Get(ctx, client.ObjectKeyFromObject(pr), pr); err != nil {
+		return err
+	}
+
 	for i, target := range pv.Status.DownstreamTargets {
 		if target.Name == prr.Name {
-			pv.Status.DownstreamTargets[i].RenderStatus = prr.Status.RenderStatus
+			pv.Status.DownstreamTargets[i].RenderStatus = *pr.Status.RenderStatus
 			return nil
 		}
 	}
 	pv.Status.DownstreamTargets = append(pv.Status.DownstreamTargets, api.DownstreamTarget{
 		Name:         prr.Name,
-		RenderStatus: prr.Status.RenderStatus,
+		RenderStatus: *pr.Status.RenderStatus,
 	})
 	return nil
 }

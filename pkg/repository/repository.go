@@ -1,4 +1,4 @@
-// Copyright 2022, 2024-2025 The kpt and Nephio Authors
+// Copyright 2022, 2024-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -293,6 +293,14 @@ type PackageRevision interface {
 
 	// Set the Kubernetes metadata for the package revision
 	SetMeta(ctx context.Context, meta metav1.ObjectMeta) error
+}
+
+// RenderStatusSetter is an interface for package revisions that support render status persistence
+type RenderStatusSetter interface {
+	// UpdateRenderStatusInMemory updates the render status in memory without persisting it
+	UpdateRenderStatusInMemory(*porchapi.RenderStatus)
+	// PersistRenderStatus persists the render status to storage (database or CRD)
+	PersistRenderStatus(context.Context) error
 }
 
 type hasLatestRevisionInfo interface {
