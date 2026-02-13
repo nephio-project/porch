@@ -147,16 +147,6 @@ func (r *RepositoryReconciler) isOneTimeSyncDue(repo *api.Repository) bool {
 func (r *RepositoryReconciler) isErrorRetryDue(repo *api.Repository) bool {
 	for _, condition := range repo.Status.Conditions {
 		if condition.Type == api.RepositoryReady && condition.Status == metav1.ConditionFalse && condition.Reason == api.ReasonError {
-			if strings.Contains(condition.Message, "next retry at:") {
-				start := strings.Index(condition.Message, "next retry at: ") + len("next retry at: ")
-				end := strings.Index(condition.Message[start:], ")")
-				if end != -1 {
-					timestampStr := condition.Message[start : start+end]
-					if retryTime, err := time.Parse(time.RFC3339, timestampStr); err == nil {
-						return time.Now().After(retryTime)
-					}
-				}
-			}
 			if condition.Message != "" {
 				err := fmt.Errorf("%s", condition.Message)
 				retryInterval := r.determineRetryInterval(err)
@@ -254,20 +244,6 @@ func (r *RepositoryReconciler) getSyncStaleTimeout() time.Duration {
 func (r *RepositoryReconciler) getRequeueInterval(repo *api.Repository) time.Duration {
 	for _, condition := range repo.Status.Conditions {
 		if condition.Type == api.RepositoryReady && condition.Status == metav1.ConditionFalse && condition.Reason == api.ReasonError {
-			if strings.Contains(condition.Message, "next retry at:") {
-				start := strings.Index(condition.Message, "next retry at: ") + len("next retry at: ")
-				end := strings.Index(condition.Message[start:], ")")
-				if end != -1 {
-					timestampStr := condition.Message[start : start+end]
-					if retryTime, err := time.Parse(time.RFC3339, timestampStr); err == nil {
-						duration := time.Until(retryTime)
-						if duration > 0 {
-							return duration
-						}
-						return 1 * time.Second
-					}
-				}
-			}
 			if condition.Message != "" {
 				err := fmt.Errorf("%s", condition.Message)
 				return r.determineRetryInterval(err)

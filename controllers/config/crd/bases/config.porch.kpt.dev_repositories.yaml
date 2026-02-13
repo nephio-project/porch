@@ -48,6 +48,12 @@ spec:
     - jsonPath: .spec['git','oci']['repo','registry']
       name: Address
       type: string
+    - jsonPath: .spec.git.branch
+      name: Branch
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -247,6 +253,11 @@ spec:
               lastFullSyncTime:
                 description: LastFullSyncTime is the timestamp of the last successful
                   full repository sync.
+                format: date-time
+                type: string
+              nextFullSyncTime:
+                description: NextFullSyncTime is the timestamp when the next full
+                  sync is scheduled to occur.
                 format: date-time
                 type: string
               observedGeneration:

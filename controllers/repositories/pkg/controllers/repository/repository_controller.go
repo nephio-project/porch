@@ -302,6 +302,7 @@ func (r *RepositoryReconciler) performAsyncSync(ctx context.Context, repo *api.R
 		// Calculate next sync time from current time
 		next := r.calculateNextFullSyncTime(repo)
 		nextSyncTime = &next
+		repo.Status.NextFullSyncTime = &metav1.Time{Time: next}
 	} else {
 		status = RepositoryStatusError
 		repoURL, _, _ := getRepoFields(repo)

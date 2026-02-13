@@ -27,6 +27,8 @@ import (
 //+kubebuilder:printcolumn:name="Deployment",type=boolean,JSONPath=`.spec.deployment`
 //+kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=='Ready')].status`
 //+kubebuilder:printcolumn:name="Address",type=string,JSONPath=`.spec['git','oci']['repo','registry']`
+//+kubebuilder:printcolumn:name="Branch",type=string,JSONPath=`.spec.git.branch`
+//+kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 // +kubebuilder:validation:XValidation:rule="self.metadata.name.matches('^[a-z0-9]([-a-z0-9]*[a-z0-9])?$')",message="metadata.name must conform to the RFC1123 DNS label standard"
 // +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 63",message="metadata.name must be no more than 63 characters"
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.spec.type) || self.spec.type == oldSelf.spec.type",message="spec.type is immutable"
@@ -184,6 +186,9 @@ type RepositoryStatus struct {
 	// Empty for OCI repositories.
 	// +optional
 	GitCommitHash string `json:"gitCommitHash,omitempty"`
+	// NextFullSyncTime is the timestamp when the next full sync is scheduled to occur.
+	// +optional
+	NextFullSyncTime *metav1.Time `json:"nextFullSyncTime,omitempty"`
 }
 
 //+kubebuilder:object:root=true
