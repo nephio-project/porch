@@ -51,25 +51,17 @@ func buildRepositoryCondition(repo *configapi.Repository, status RepositoryStatu
 			Message:            "Repository reconciliation in progress",
 		}, nil
 	case RepositoryStatusReady:
-		message := "Repository Ready"
-		if nextSyncTime != nil {
-			message = fmt.Sprintf("Repository Ready (next sync scheduled at: %s)", nextSyncTime.Format(time.RFC3339))
-		}
 		return metav1.Condition{
 			Type:               configapi.RepositoryReady,
 			Status:             metav1.ConditionTrue,
 			ObservedGeneration: repo.Generation,
 			LastTransitionTime: metav1.Now(),
 			Reason:             configapi.ReasonReady,
-			Message:            message,
+			Message:            "Repository Ready",
 		}, nil
 	case RepositoryStatusError:
 		if errorMsg == "" {
 			errorMsg = "unknown error"
-		}
-		message := errorMsg
-		if nextSyncTime != nil {
-			message = fmt.Sprintf("%s (next retry at: %s)", errorMsg, nextSyncTime.Format(time.RFC3339))
 		}
 		return metav1.Condition{
 			Type:               configapi.RepositoryReady,
@@ -77,7 +69,7 @@ func buildRepositoryCondition(repo *configapi.Repository, status RepositoryStatu
 			ObservedGeneration: repo.Generation,
 			LastTransitionTime: metav1.Now(),
 			Reason:             configapi.ReasonError,
-			Message:            message,
+			Message:            errorMsg,
 		}, nil
 	default:
 		return metav1.Condition{}, fmt.Errorf("unknown status type: %s", status)
@@ -113,6 +105,7 @@ func (r *RepositoryReconciler) updateRepoStatusWithBackoff(ctx context.Context, 
 			ObservedRunOnceAt:  repo.Status.ObservedRunOnceAt,
 			PackageCount:       repo.Status.PackageCount,
 			GitCommitHash:      repo.Status.GitCommitHash,
+			NextFullSyncTime:   repo.Status.NextFullSyncTime,
 		},
 	}
 
