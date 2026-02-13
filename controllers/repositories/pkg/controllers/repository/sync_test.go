@@ -926,7 +926,7 @@ func TestGetRequeueInterval(t *testing.T) {
 		expected time.Duration
 	}{
 		{
-			name: "error with retry time - future",
+			name: "error with generic message",
 			repo: &api.Repository{
 				Status: api.RepositoryStatus{
 					Conditions: []metav1.Condition{{
@@ -937,7 +937,7 @@ func TestGetRequeueInterval(t *testing.T) {
 					}},
 				},
 			},
-			expected: 5 * time.Minute,
+			expected: 30 * time.Second,
 		},
 		{
 			name: "error with message - no retry time",
