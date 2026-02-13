@@ -61,10 +61,11 @@ All environment variables apply to all Porch components: porch-server, porch-con
 
 | Variable | Description | Default | Examples |
 |----------|-------------|---------|----------|
-| `OTEL_TRACES_EXPORTER` | Trace exporter type | `otlp` | `otlp`, `none` |
+| `OTEL_TRACES_EXPORTER` | Trace exporter type | `otlp` | `otlp`, `console`, `none` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector endpoint (applies to all signals) | - | `http://localhost:4318`, `https://otel-collector.example.com` |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | Protocol for OTLP export (applies to all signals) | `http/protobuf` | `http/protobuf`, `grpc` |
 | `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | Traces-specific endpoint (overrides general endpoint) | - | `http://localhost:4318/v1/traces` |
+| `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL` | Traces-specific protocol (overrides general protocol) | - | `http/protobuf`, `grpc` |
 
 ## Metrics Configuration
 
@@ -120,14 +121,13 @@ All environment variables apply to all Porch components: porch-server, porch-con
 
 | Variable | Description | Default | Examples |
 |----------|-------------|---------|----------|
-| `OTEL_METRICS_EXPORTER` | Metrics exporter type | `otlp` | `otlp`, `prometheus`, `none` |
+| `OTEL_METRICS_EXPORTER` | Metrics exporter type | `otlp` | `otlp`, `prometheus`, `console`, `none` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector endpoint (applies to all signals) | - | `http://localhost:4318` |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | Protocol for OTLP export (applies to all signals) | `http/protobuf` | `http/protobuf`, `grpc` |
 | `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` | Metrics-specific endpoint (overrides general endpoint) | - | `http://localhost:4318/v1/metrics` |
+| `OTEL_EXPORTER_OTLP_METRICS_PROTOCOL` | Metrics-specific protocol (overrides general protocol) | - | `http/protobuf`, `grpc` |
 | `OTEL_EXPORTER_PROMETHEUS_HOST` | Prometheus endpoint host | `localhost` | `0.0.0.0`, `127.0.0.1` |
 | `OTEL_EXPORTER_PROMETHEUS_PORT` | Prometheus endpoint port | `9464` | `9090`, `8080` |
-| `OTEL_METRIC_EXPORT_INTERVAL` | Time interval (in milliseconds) between metric exports | `60000` | `30000`, `120000` |
-| `OTEL_METRIC_EXPORT_TIMEOUT` | Maximum allowed time (in milliseconds) to export metrics | `30000` | `10000`, `60000` |
 
 ## Prometheus Auto-Discovery
 
