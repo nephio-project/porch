@@ -25,7 +25,9 @@ COPY *.go .
 RUN CGO_ENABLED=0 go build -o /hello-server -v .
 
 FROM alpine:${ALPINE_VERSION}
-WORKDIR /
-COPY --from=builder /hello-server /hello-server
+RUN addgroup -g 10001 nonroot && \
+    adduser -D -G nonroot -u 10001 nonroot
 
-ENTRYPOINT ["/hello-server"]
+COPY --from=builder --chown=root:root --chmod=555 /hello-server /home/nonroot/hello-server
+USER nonroot:nonroot
+ENTRYPOINT ["/home/nonroot/hello-server"]

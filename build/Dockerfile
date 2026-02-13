@@ -52,6 +52,6 @@ FROM alpine:${ALPINE_VERSION}
 RUN addgroup -g 10001 nonroot && \
     adduser -D -G nonroot -u 10001 nonroot
 
-COPY --from=builder --chown=nonroot:nonroot /porch /home/nonroot/porch
+COPY --from=builder --chown=root:root --chmod=555 /porch /home/nonroot/porch
 USER nonroot:nonroot
 ENTRYPOINT ["/home/nonroot/porch"]

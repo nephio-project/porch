@@ -21,8 +21,8 @@ import (
 
 	"github.com/kptdev/kpt/pkg/lib/errors"
 	"github.com/kptdev/kpt/pkg/lib/errors/resolver"
+	"github.com/kptdev/kpt/pkg/lib/util/cmdutil"
 	"github.com/nephio-project/porch/cmd/porchctl/run"
-	"github.com/nephio-project/porch/internal/kpt/util/cmdutil"
 	"github.com/spf13/cobra"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/component-base/cli"

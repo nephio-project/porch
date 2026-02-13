@@ -23,7 +23,7 @@ PORCHCTL = $(BUILDDIR)/porchctl
 # API Modules
 API_MODULES = \
  api \
- pkg/kpt/api \
+ internal/api \
  controllers \
 
 ##@ Build

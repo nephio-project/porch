@@ -27,12 +27,12 @@ import (
 	"unicode/utf8"
 
 	"github.com/kptdev/kpt/pkg/lib/errors"
+	"github.com/kptdev/kpt/pkg/lib/runneroptions"
+	"github.com/kptdev/kpt/pkg/printer"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/fnruntime"
-	"github.com/nephio-project/porch/internal/kpt/util/porch"
+	cliutils "github.com/nephio-project/porch/internal/cliutils"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/util"
-	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -61,7 +61,7 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 		Example:    docs.PushExamples,
 		PreRunE:    r.preRunE,
 		RunE:       r.runE,
-		Hidden:     porch.HidePorchCommands,
+		Hidden:     cliutils.HidePorchCommands,
 	}
 	r.Command = c
 	return r
@@ -181,7 +181,8 @@ func (r *runner) printFnResult(fnResult *porchapi.Result, opt *printer.Options) 
 		for _, item := range fnResult.Results {
 			lines = append(lines, str(item))
 		}
-		ri := &fnruntime.SingleLineFormatter{
+
+		ri := &runneroptions.SingleLineFormatter{
 			Title:     "[Results]",
 			Lines:     lines,
 			UseQuote:  false,

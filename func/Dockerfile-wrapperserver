@@ -34,5 +34,8 @@ RUN cd func ; go build -v -o /wrapper-server/wrapper-server ./wrapper-server
 RUN cp $GOPATH/bin/grpc-health-probe /wrapper-server/
 
 FROM alpine:${ALPINE_VERSION}
+RUN addgroup -g 10001 nonroot && \
+    adduser -D -G nonroot -u 10001 nonroot
 
-COPY --from=builder /wrapper-server/* /wrapper-server/
+COPY --from=builder --chown=root:root --chmod=555 /wrapper-server/* /home/nonroot/wrapper-server/
+USER nonroot:nonroot

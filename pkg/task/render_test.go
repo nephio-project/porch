@@ -22,20 +22,20 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
-	"github.com/nephio-project/porch/internal/kpt/fnruntime"
-	"github.com/nephio-project/porch/pkg/kpt"
+	"github.com/kptdev/kpt/pkg/lib/kptops"
+	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	"github.com/nephio-project/porch/pkg/repository"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 	"sigs.k8s.io/kustomize/kyaml/kio"
 )
 
 func TestRender(t *testing.T) {
-	runnerOptions := fnruntime.RunnerOptions{}
-	runnerOptions.InitDefaults(fnruntime.GHCRImagePrefix)
+	runnerOptions := runneroptions.RunnerOptions{}
+	runnerOptions.InitDefaults(runneroptions.GHCRImagePrefix)
 
 	render := &renderPackageMutation{
 		runnerOptions: runnerOptions,
-		runtime:       kpt.NewSimpleFunctionRuntime(),
+		runtime:       kptops.NewSimpleFunctionRuntime(),
 	}
 
 	testdata, err := filepath.Abs(filepath.Join(".", "testdata", "simple-render"))
