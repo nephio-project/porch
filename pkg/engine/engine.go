@@ -53,9 +53,6 @@ type CaDEngine interface {
 	DeletePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj repository.PackageRevision) error
 
 	ListPackages(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageFilter) ([]repository.Package, error)
-	CreatePackage(ctx context.Context, repositoryObj *configapi.Repository, obj *porchapi.PorchPackage) (repository.Package, error)
-	UpdatePackage(ctx context.Context, repositoryObj *configapi.Repository, oldPackage repository.Package, old, new *porchapi.PorchPackage) (repository.Package, error)
-	DeletePackage(ctx context.Context, repositoryObj *configapi.Repository, obj repository.Package) error
 }
 
 func NewCaDEngine(opts ...EngineOption) (CaDEngine, error) {
@@ -441,47 +438,6 @@ func (cad *cadEngine) ListPackages(ctx context.Context, repositorySpec *configap
 	packages = append(packages, pkgs...)
 
 	return packages, nil
-}
-
-func (cad *cadEngine) CreatePackage(ctx context.Context, repositoryObj *configapi.Repository, obj *porchapi.PorchPackage) (repository.Package, error) {
-	ctx, span := tracer.Start(ctx, "cadEngine::CreatePackage", trace.WithAttributes())
-	defer span.End()
-
-	repo, err := cad.cache.OpenRepository(ctx, repositoryObj)
-	if err != nil {
-		return nil, err
-	}
-	pkg, err := repo.CreatePackage(ctx, obj)
-	if err != nil {
-		return nil, err
-	}
-
-	return pkg, nil
-}
-
-func (cad *cadEngine) UpdatePackage(ctx context.Context, repositoryObj *configapi.Repository, pkg2Update repository.Package, oldObj, newObj *porchapi.PorchPackage) (repository.Package, error) {
-	_, span := tracer.Start(ctx, "cadEngine::UpdatePackage", trace.WithAttributes())
-	defer span.End()
-
-	// TODO
-	var pkg repository.Package
-	return pkg, errors.New("updating packages is not yet supported")
-}
-
-func (cad *cadEngine) DeletePackage(ctx context.Context, repositoryObj *configapi.Repository, pkg2Del repository.Package) error {
-	ctx, span := tracer.Start(ctx, "cadEngine::DeletePackage", trace.WithAttributes())
-	defer span.End()
-
-	repo, err := cad.cache.OpenRepository(ctx, repositoryObj)
-	if err != nil {
-		return err
-	}
-
-	if err := repo.DeletePackage(ctx, pkg2Del); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj *configapi.Repository, pr2Update repository.PackageRevision, oldRes, newRes *porchapi.PackageRevisionResources) (repository.PackageRevision, *porchapi.RenderStatus, error) {

@@ -306,44 +306,6 @@ func (r *dbRepository) ListPackages(ctx context.Context, filter repository.ListP
 	return genericPkgs, nil
 }
 
-func (r *dbRepository) CreatePackage(ctx context.Context, newPkgDef *porchapi.PorchPackage) (repository.Package, error) {
-	_, span := tracer.Start(ctx, "dbRepository::CreatePackage", trace.WithAttributes())
-	defer span.End()
-
-	klog.V(5).Infof("dbRepository:CreatePackage: creating package for %+v on repo %+v", newPkgDef, r.Key())
-
-	dbPkg := &dbPackage{
-		repo: r,
-		pkgKey: repository.PackageKey{
-			RepoKey: r.Key(),
-			Package: newPkgDef.Spec.PackageName,
-		},
-		meta:      newPkgDef.ObjectMeta,
-		spec:      &newPkgDef.Spec,
-		updated:   time.Now(),
-		updatedBy: getCurrentUser(),
-	}
-
-	err := pkgWriteToDB(ctx, dbPkg)
-	return dbPkg, err
-}
-
-func (r *dbRepository) DeletePackage(ctx context.Context, old repository.Package) error {
-	ctx, span := tracer.Start(ctx, "dbRepository::DeletePackage", trace.WithAttributes())
-	defer span.End()
-
-	foundPackage, err := pkgReadFromDB(ctx, old.Key())
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil
-		} else {
-			return err
-		}
-	}
-
-	return foundPackage.Delete(ctx, true)
-}
-
 func (r *dbRepository) Version(ctx context.Context) (string, error) {
 	_, span := tracer.Start(ctx, "cachedRepository::Version", trace.WithAttributes())
 	defer span.End()

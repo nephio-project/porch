@@ -126,9 +126,6 @@ func TestCachedRepoRefresh(t *testing.T) {
 	assert.True(t, err == nil)
 	metaDeleteCall.Return(metav1.ObjectMeta{}, nil).Maybe()
 
-	cr.flush()
-	assert.True(t, cr.cachedPackageRevisions == nil)
-
 	prMeta := porchapi.PackageRevision{}
 
 	repoCreatePRDCall := mockRepo.EXPECT().CreatePackageRevisionDraft(mock.Anything, mock.Anything).Return(nil, errors.New("create draft error")).Maybe()
