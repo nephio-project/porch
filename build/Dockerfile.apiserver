@@ -23,8 +23,9 @@ RUN apt-get update && apt-get install --yes rsync
 RUN make kube-apiserver
 
 FROM alpine:${ALPINE_VERSION}
-COPY --from=builder /workspace/src/kubernetes/_output/local/bin/linux/amd64/kube-apiserver /kube-apiserver
+RUN addgroup -g 10001 nonroot && \
+    adduser -D -G nonroot -u 10001 nonroot
 
-#USER 65532:65532
-
-ENTRYPOINT ["/kube-apiserver"]
+COPY --from=builder --chown=root:root --chmod=555 /workspace/src/kubernetes/_output/local/bin/linux/amd64/kube-apiserver /home/nonroot/kube-apiserver
+USER nonroot:nonroot
+ENTRYPOINT ["/home/nonroot/kube-apiserver"]

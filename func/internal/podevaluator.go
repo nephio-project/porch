@@ -977,7 +977,7 @@ func (pm *podManager) getBasePodTemplate(ctx context.Context) (*corev1.Pod, stri
 						Command: []string{
 							"cp",
 							"-a",
-							"/wrapper-server/.",
+							"/home/nonroot/wrapper-server/.",
 							volumeMountPath,
 						},
 						VolumeMounts: []corev1.VolumeMount{
