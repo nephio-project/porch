@@ -16,7 +16,7 @@ require (
 	github.com/google/go-containerregistry v0.20.6
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.6
-	github.com/kptdev/kpt v1.0.0-beta.60.1
+	github.com/kptdev/kpt v1.0.0-beta.60.2
 	github.com/kptdev/krm-functions-catalog/functions/go/apply-replacements v0.1.3
 	github.com/kptdev/krm-functions-catalog/functions/go/set-namespace v0.4.3
 	github.com/kptdev/krm-functions-catalog/functions/go/starlark v0.5.3
@@ -71,6 +71,7 @@ require (
 	github.com/qri-io/starlib v0.5.0 // indirect
 	go.starlark.net v0.0.0-20251029211736-7849196f18cf // indirect
 	golang.org/x/mod v0.29.0 // indirect
+	golang.org/x/tools v0.38.0 // indirect
 	sigs.k8s.io/kustomize/api v0.20.1 // indirect
 )
 
