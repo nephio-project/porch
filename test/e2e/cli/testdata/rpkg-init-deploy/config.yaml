@@ -90,5 +90,5 @@ commands:
       - get
       - --namespace=rpkg-init-deploy
     stdout: |
-      NAME   TYPE   CONTENT   SYNC SCHEDULE   DEPLOYMENT   READY   ADDRESS
-      git    git    Package                   true         True    http://gitea.gitea.svc.cluster.local:3000/nephio/porch-test
+      NAME   TYPE   CONTENT   SYNC SCHEDULE   DEPLOYMENT   READY   ADDRESS                                                       BRANCH   AGE
+      git    git    Package                   true         True    http://gitea.gitea.svc.cluster.local:3000/nephio/porch-test   main     1s
