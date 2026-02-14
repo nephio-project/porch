@@ -51,6 +51,7 @@ func (o *Options) BindFlags(_ string, _ *flag.FlagSet) {}
 // PackageVariantReconciler reconciles a PackageVariant object
 type PackageVariantReconciler struct {
 	client.Client
+	client.Reader
 	Options
 }
 
@@ -156,12 +157,12 @@ func (r *PackageVariantReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 func (r *PackageVariantReconciler) init(ctx context.Context,
 	req ctrl.Request) (*api.PackageVariant, *porchapi.PackageRevisionList, error) {
 	var pv api.PackageVariant
-	if err := r.Get(ctx, req.NamespacedName, &pv); err != nil {
+	if err := r.Client.Get(ctx, req.NamespacedName, &pv); err != nil {
 		return nil, nil, client.IgnoreNotFound(err)
 	}
 
 	var prList porchapi.PackageRevisionList
-	if err := r.List(ctx, &prList, client.InNamespace(pv.Namespace)); err != nil {
+	if err := r.Client.List(ctx, &prList, client.InNamespace(pv.Namespace)); err != nil {
 		return nil, nil, err
 	}
 
@@ -820,6 +821,7 @@ func (r *PackageVariantReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	r.Client = mgr.GetClient()
+	r.Reader = mgr.GetAPIReader()
 
 	//TODO: establish watches on resource types injected in all the Package Revisions
 	//      we own, and use those to generate requests
@@ -858,7 +860,7 @@ func (r *PackageVariantReconciler) calculateDraftResources(ctx context.Context,
 	// Load the PackageRevisionResources
 	var prr porchapi.PackageRevisionResources
 	prrKey := types.NamespacedName{Name: draft.GetName(), Namespace: draft.GetNamespace()}
-	if err := r.Get(ctx, prrKey, &prr); err != nil {
+	if err := r.Client.Get(ctx, prrKey, &prr); err != nil {
 		return nil, false, err
 	}
 
