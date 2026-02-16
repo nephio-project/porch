@@ -449,9 +449,11 @@ func pkgRevFindUpstreamDependentFromDB(ctx context.Context, namespace, prName st
 	defer span.End()
 
 	// Match newUpstreamRef (upgrade), nested upstreamRef (clone), or sourceRef (edit)
+	// Exclude main branch packages (revision = -1) as they are auto-managed
 	sqlStatement := `
 		SELECT k8s_name FROM package_revisions
 		WHERE k8s_name_space=$1
+		  AND revision != -1
 		  AND tasks::text ~ ('"(upstreamRef|newUpstreamRef|sourceRef)":\{"name":"' || $2 || '"')
 		LIMIT 1
 	`
