@@ -47,7 +47,8 @@ func (r *RepositoryReconciler) handleDeletion(ctx context.Context, repo *configa
 			log.FromContext(ctx).Error(err, "Cache cleanup timed out", "repository", repo.Name)
 			return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
 		}
-		return ctrl.Result{}, err
+		log.FromContext(ctx).Error(err, "Cache cleanup failed, will retry", "repository", repo.Name)
+		return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
 	}
 
 	if err := r.removeFinalizer(ctx, repo); err != nil {

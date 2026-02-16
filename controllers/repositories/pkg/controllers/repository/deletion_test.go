@@ -93,7 +93,7 @@ func TestCleanupRepositoryCache(t *testing.T) {
 			name: "successful cleanup",
 		},
 		{
-			name:       "cache error logged",
+			name:       "cache error returns error",
 			cacheError: errors.New("cache close failed"),
 		},
 	}
@@ -195,13 +195,14 @@ func TestHandleDeletion(t *testing.T) {
 			expectFinalizer: true,
 		},
 		{
-			name: "cache close error continues deletion",
+			name: "cache close error prevents finalizer removal",
 			repo: createTestRepoWithFinalizer("test-repo", "test-ns"),
 			allRepos: []configapi.Repository{
 				*createTestRepo("other-repo", "test-ns"),
 			},
 			cacheError: errors.New("cache close failed"),
-			expectFinalizer: false,
+			expectRequeue: true,
+			expectFinalizer: true,
 		},
 		{
 			name:        "update error after finalizer removal",
@@ -227,8 +228,8 @@ func TestHandleDeletion(t *testing.T) {
 				}).Return(nil)
 			}
 			
-			// Setup Update expectation (only if no list error)
-			if tt.listError == nil {
+			// Setup Update expectation (only if no list error and no cache error)
+			if tt.listError == nil && tt.cacheError == nil {
 				if tt.updateError != nil {
 					mockClient.EXPECT().Update(mock.Anything, tt.repo).Return(tt.updateError)
 				} else {
