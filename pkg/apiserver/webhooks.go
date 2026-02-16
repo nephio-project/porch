@@ -673,7 +673,7 @@ func validateRepository(w http.ResponseWriter, r *http.Request, clientReader cli
 		return
 	}
 
-	// NOTE: Immutability checks (URL, branch, directory) are now handled by CEL validation in the CRD.
+	// NOTE: Immutability checks (URL, branch, directory) are handled by CEL validation in the CRD.
 	// This webhook only performs complex cross-resource conflict detection that CEL cannot do.
 
 	// Check for conflicts with existing repositories
