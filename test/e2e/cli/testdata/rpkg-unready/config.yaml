@@ -39,7 +39,10 @@ commands:
       - --
       - by-path=status.conditions[0].status
       - put-value=True
-    stderr: "[RUNNING] \"ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.2.0\" on 1 resource(s)\n[Results]: [info] status.conditions[0].status: Mutated field value to \"\\\"True\\\"\"\n"
+    stderr: |
+      [RUNNING] "ghcr.io/kptdev/krm-functions-catalog/search-replace:v0.2.0" on 1 resource(s)
+        Results:
+          [info] status.conditions[0].status: Mutated field value to "\"True\""
   - args:
       - porchctl
       - rpkg
@@ -57,7 +60,6 @@ commands:
       - git.unready-edit.clone-1
     stdout: |
       git.unready-edit.clone-1 proposed
-    exitCode: 0
   - args:
       - porchctl
       - rpkg
@@ -66,7 +68,6 @@ commands:
       - git.unready-edit.clone-1
     stdout: |
       git.unready-edit.clone-1 approved
-    exitCode: 0
   - args:
       - porchctl
       - rpkg
@@ -74,8 +75,8 @@ commands:
       - --namespace=rpkg-unready
       - --workspace=copy-2
       - git.unready-edit.clone-1
-    stdout: "git.unready-edit.copy-2 created\n"
-    exitCode: 0
+    stdout: |
+      git.unready-edit.copy-2 created
   - args:
       - porchctl
       - rpkg
@@ -84,7 +85,6 @@ commands:
       - git.unready-edit.copy-2
     stdout: |
       git.unready-edit.copy-2 proposed
-    exitCode: 0
   - args:
       - porchctl
       - rpkg
@@ -93,4 +93,3 @@ commands:
       - git.unready-edit.copy-2
     stdout: |
       git.unready-edit.copy-2 approved
-    exitCode: 0

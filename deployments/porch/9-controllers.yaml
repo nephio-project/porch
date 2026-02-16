@@ -76,6 +76,9 @@ spec:
           runAsNonRoot: true
           runAsUser: 10001
           runAsGroup: 10001
+        volumeMounts:
+        - name: cache-volume
+          mountPath: /cache
         # Note: only the existence of the variable matters for enabling the reconciler
         # So, be sure to remove the var not just change the value to false
         env:
