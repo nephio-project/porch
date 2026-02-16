@@ -42,7 +42,13 @@ func (r *RepositoryReconciler) handleDeletion(ctx context.Context, repo *configa
 		return ctrl.Result{}, err
 	}
 
-	r.cleanupRepositoryCache(deleteCtx, repo, allRepos)
+	if err := r.cleanupRepositoryCache(deleteCtx, repo, allRepos); err != nil {
+		if deleteCtx.Err() == context.DeadlineExceeded {
+			log.FromContext(ctx).Error(err, "Cache cleanup timed out", "repository", repo.Name)
+			return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
+		}
+		return ctrl.Result{}, err
+	}
 
 	if err := r.removeFinalizer(ctx, repo); err != nil {
 		return ctrl.Result{}, err
@@ -61,15 +67,16 @@ func (r *RepositoryReconciler) getAllRepositories(ctx context.Context) ([]config
 }
 
 // cleanupRepositoryCache closes the repository in the cache
-func (r *RepositoryReconciler) cleanupRepositoryCache(ctx context.Context, repo *configapi.Repository, allRepos []configapi.Repository) {
+func (r *RepositoryReconciler) cleanupRepositoryCache(ctx context.Context, repo *configapi.Repository, allRepos []configapi.Repository) error {
 	log := log.FromContext(ctx)
 	log.Info("Closing repository cache", "repository", repo.Name, "totalRepos", len(allRepos))
 
 	if err := r.Cache.CloseRepository(ctx, repo, allRepos); err != nil {
 		log.Error(err, "Failed to close repository cache", "repository", repo.Name)
-	} else {
-		log.Info("Repository cache closed successfully", "repository", repo.Name)
+		return err
 	}
+	log.Info("Repository cache closed successfully", "repository", repo.Name)
+	return nil
 }
 
 // removeFinalizer removes the repository finalizer and updates the object

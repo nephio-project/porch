@@ -36,20 +36,20 @@ func (r *RepositoryReconciler) syncRepository(ctx context.Context, repo *api.Rep
 	repoHandle, err := r.Cache.OpenRepository(ctx, repo)
 	if err != nil {
 		repoURL, _, _ := getRepoFields(repo)
-		log.Error(err, "Failed to open repository for sync", "repoURL", repoURL)
+		log.Error(err, "Failed to open repository for sync", "repo", repo.Name, "repoURL", repoURL)
 		return 0, "", err
 	}
 
 	if err := repoHandle.Refresh(ctx); err != nil {
 		repoURL, branch, _ := getRepoFields(repo)
-		log.Error(err, "Repository refresh failed", "repoURL", repoURL, "branch", branch)
+		log.Error(err, "Repository refresh failed", "repo", repo.Name, "repoURL", repoURL, "branch", branch)
 		return 0, "", err
 	}
 
 	pkgRevs, err := repoHandle.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	if err != nil {
 		repoURL, _, directory := getRepoFields(repo)
-		log.Error(err, "Repository package listing failed", "repoURL", repoURL, "directory", directory)
+		log.Error(err, "Repository package listing failed", "repo", repo.Name, "repoURL", repoURL, "directory", directory)
 		return 0, "", err
 	}
 
