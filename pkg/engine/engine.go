@@ -44,8 +44,6 @@ const (
 type CaDEngine interface {
 	// ObjectCache() is a cache of all our objects.
 	ObjectCache() WatcherManager
-	// Cache returns the underlying cache implementation
-	Cache() cachetypes.Cache
 
 	UpdatePackageResources(ctx context.Context, repositoryObj *configapi.Repository, oldPackage repository.PackageRevision, old, new *porchapi.PackageRevisionResources) (repository.PackageRevision, *porchapi.RenderStatus, error)
 
@@ -55,6 +53,8 @@ type CaDEngine interface {
 	DeletePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj repository.PackageRevision) error
 
 	ListPackages(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageFilter) ([]repository.Package, error)
+
+	FindUpstreamDependent(ctx context.Context, namespace, prName string) (string, error)
 }
 
 func NewCaDEngine(opts ...EngineOption) (CaDEngine, error) {
@@ -83,11 +83,6 @@ var _ CaDEngine = &cadEngine{}
 // ObjectCache is a cache of all our objects.
 func (cad *cadEngine) ObjectCache() WatcherManager {
 	return cad.watcherManager
-}
-
-// Cache returns the underlying cache implementation
-func (cad *cadEngine) Cache() cachetypes.Cache {
-	return cad.cache
 }
 
 func (cad *cadEngine) OpenRepository(ctx context.Context, repositorySpec *configapi.Repository) (repository.Repository, error) {
@@ -496,4 +491,8 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 	}
 
 	return repoPkgRev, renderStatus, nil
+}
+
+func (cad *cadEngine) FindUpstreamDependent(ctx context.Context, namespace, prName string) (string, error) {
+	return cad.cache.FindUpstreamDependent(ctx, namespace, prName)
 }

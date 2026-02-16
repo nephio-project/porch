@@ -448,11 +448,11 @@ func pkgRevFindUpstreamDependentFromDB(ctx context.Context, namespace, prName st
 	_, span := tracer.Start(ctx, "dbpackagerevisionsql::pkgRevFindUpstreamDependentFromDB", trace.WithAttributes())
 	defer span.End()
 
-	// Matches task references: upstreamRef (clone), newUpstreamRef (upgrade), source (edit)
+	// Match newUpstreamRef (upgrade), nested upstreamRef (clone), or sourceRef (edit)
 	sqlStatement := `
 		SELECT k8s_name FROM package_revisions
 		WHERE k8s_name_space=$1
-		  AND tasks::text ~ ('"(upstreamRef|newUpstreamRef|source)":\{"name":"' || $2 || '"')
+		  AND tasks::text ~ ('"(upstreamRef|newUpstreamRef|sourceRef)":\{"name":"' || $2 || '"')
 		LIMIT 1
 	`
 

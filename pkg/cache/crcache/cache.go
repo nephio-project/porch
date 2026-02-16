@@ -123,13 +123,16 @@ func (c *Cache) CheckRepositoryConnectivity(ctx context.Context, repositorySpec 
 func (c *Cache) FindUpstreamDependent(ctx context.Context, namespace, prName string) (string, error) {
 	var dependentName string
 	c.repositories.Range(func(key, value any) bool {
-		repo := value.(*cachedRepository)
-		if repo.Key().Namespace != namespace {
+		repo, ok := c.repositories.Load(key.(repository.RepositoryKey))
+		if !ok {
 			return true
 		}
-		repo.mutex.RLock()
-		defer repo.mutex.RUnlock()
-		for _, pr := range repo.cachedPackageRevisions {
+		cachedRepo := repo.(*cachedRepository)
+		if cachedRepo.Key().Namespace != namespace {
+			return true
+		}
+		cachedRepo.mutex.RLock()
+		for _, pr := range cachedRepo.cachedPackageRevisions {
 			apiPR, err := pr.GetPackageRevision(ctx)
 			if err != nil {
 				continue
@@ -146,10 +149,12 @@ func (c *Cache) FindUpstreamDependent(ctx context.Context, namespace, prName str
 				}
 				if matched {
 					dependentName = pr.KubeObjectName()
+					cachedRepo.mutex.RUnlock()
 					return false
 				}
 			}
 		}
+		cachedRepo.mutex.RUnlock()
 		return true
 	})
 	return dependentName, nil

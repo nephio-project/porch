@@ -339,7 +339,7 @@ func creationConflictError(newApiPkgRev *porchapi.PackageRevision) error {
 
 func (r *packageRevisions) checkUpstreamDependencies(ctx context.Context, apiPkgRev *porchapi.PackageRevision) error {
 	ns, _ := genericapirequest.NamespaceFrom(ctx)
-	dependent, err := r.cad.Cache().FindUpstreamDependent(ctx, ns, apiPkgRev.Name)
+	dependent, err := r.cad.FindUpstreamDependent(ctx, ns, apiPkgRev.Name)
 	if err != nil {
 		return apierrors.NewInternalError(fmt.Errorf("failed to check upstream dependencies: %w", err))
 	}
