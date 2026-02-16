@@ -133,6 +133,10 @@ func (c *Cache) FindUpstreamDependent(ctx context.Context, namespace, prName str
 		}
 		cachedRepo.mutex.RLock()
 		for _, pr := range cachedRepo.cachedPackageRevisions {
+			// Skip main branch packages (revision = -1) as they are auto-managed
+			if pr.Key().Revision == -1 {
+				continue
+			}
 			apiPR, err := pr.GetPackageRevision(ctx)
 			if err != nil {
 				continue
