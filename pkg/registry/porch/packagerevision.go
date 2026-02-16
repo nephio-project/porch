@@ -341,6 +341,7 @@ func (r *packageRevisions) checkUpstreamDependencies(ctx context.Context, apiPkg
 	ns, _ := genericapirequest.NamespaceFrom(ctx)
 	dependent, err := r.cad.FindUpstreamDependent(ctx, ns, apiPkgRev.Name)
 	if err != nil {
+		klog.Warningf("Failed to check upstream dependencies for %s: %v", apiPkgRev.Name, err)
 		return apierrors.NewInternalError(fmt.Errorf("failed to check upstream dependencies: %w", err))
 	}
 
