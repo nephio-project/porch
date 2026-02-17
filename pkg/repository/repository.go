@@ -450,12 +450,6 @@ type Repository interface {
 	// ListPackages lists all packages in the repository
 	ListPackages(ctx context.Context, filter ListPackageFilter) ([]Package, error)
 
-	// CreatePackage creates a new package
-	CreatePackage(ctx context.Context, obj *porchapi.PorchPackage) (Package, error)
-
-	// DeletePackage deletes a package
-	DeletePackage(ctx context.Context, old Package) error
-
 	// Version returns a string that is guaranteed to be different if any change has been made to the repo contents
 	Version(ctx context.Context) (string, error)
 

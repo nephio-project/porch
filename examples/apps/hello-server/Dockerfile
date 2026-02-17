@@ -1,4 +1,4 @@
-# Copyright 2022-2025 The kpt and Nephio Authors
+# Copyright 2022-2026 The kpt and Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+ARG ALPINE_VERSION=latest
+
 FROM golang:1.25.6-bookworm AS builder
 
 WORKDIR /src
@@ -22,8 +24,10 @@ COPY *.go .
 
 RUN CGO_ENABLED=0 go build -o /hello-server -v .
 
-FROM alpine
-WORKDIR /
-COPY --from=builder /hello-server /hello-server
+FROM alpine:${ALPINE_VERSION}
+RUN addgroup -g 10001 nonroot && \
+    adduser -D -G nonroot -u 10001 nonroot
 
-ENTRYPOINT ["/hello-server"]
+COPY --from=builder --chown=root:root --chmod=555 /hello-server /home/nonroot/hello-server
+USER nonroot:nonroot
+ENTRYPOINT ["/home/nonroot/hello-server"]

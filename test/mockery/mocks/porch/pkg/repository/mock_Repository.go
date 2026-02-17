@@ -164,74 +164,6 @@ func (_c *MockRepository_ClosePackageRevisionDraft_Call) RunAndReturn(run func(c
 	return _c
 }
 
-// CreatePackage provides a mock function for the type MockRepository
-func (_mock *MockRepository) CreatePackage(ctx context.Context, obj *v1alpha1.PorchPackage) (repository.Package, error) {
-	ret := _mock.Called(ctx, obj)
-
-	if len(ret) == 0 {
-		panic("no return value specified for CreatePackage")
-	}
-
-	var r0 repository.Package
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1alpha1.PorchPackage) (repository.Package, error)); ok {
-		return returnFunc(ctx, obj)
-	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1alpha1.PorchPackage) repository.Package); ok {
-		r0 = returnFunc(ctx, obj)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(repository.Package)
-		}
-	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, *v1alpha1.PorchPackage) error); ok {
-		r1 = returnFunc(ctx, obj)
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
-
-// MockRepository_CreatePackage_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreatePackage'
-type MockRepository_CreatePackage_Call struct {
-	*mock.Call
-}
-
-// CreatePackage is a helper method to define mock.On call
-//   - ctx context.Context
-//   - obj *v1alpha1.PorchPackage
-func (_e *MockRepository_Expecter) CreatePackage(ctx interface{}, obj interface{}) *MockRepository_CreatePackage_Call {
-	return &MockRepository_CreatePackage_Call{Call: _e.mock.On("CreatePackage", ctx, obj)}
-}
-
-func (_c *MockRepository_CreatePackage_Call) Run(run func(ctx context.Context, obj *v1alpha1.PorchPackage)) *MockRepository_CreatePackage_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 *v1alpha1.PorchPackage
-		if args[1] != nil {
-			arg1 = args[1].(*v1alpha1.PorchPackage)
-		}
-		run(
-			arg0,
-			arg1,
-		)
-	})
-	return _c
-}
-
-func (_c *MockRepository_CreatePackage_Call) Return(packageParam repository.Package, err error) *MockRepository_CreatePackage_Call {
-	_c.Call.Return(packageParam, err)
-	return _c
-}
-
-func (_c *MockRepository_CreatePackage_Call) RunAndReturn(run func(ctx context.Context, obj *v1alpha1.PorchPackage) (repository.Package, error)) *MockRepository_CreatePackage_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // CreatePackageRevisionDraft provides a mock function for the type MockRepository
 func (_mock *MockRepository) CreatePackageRevisionDraft(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error) {
 	ret := _mock.Called(ctx, obj)
@@ -296,63 +228,6 @@ func (_c *MockRepository_CreatePackageRevisionDraft_Call) Return(packageRevision
 }
 
 func (_c *MockRepository_CreatePackageRevisionDraft_Call) RunAndReturn(run func(ctx context.Context, obj *v1alpha1.PackageRevision) (repository.PackageRevisionDraft, error)) *MockRepository_CreatePackageRevisionDraft_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// DeletePackage provides a mock function for the type MockRepository
-func (_mock *MockRepository) DeletePackage(ctx context.Context, old repository.Package) error {
-	ret := _mock.Called(ctx, old)
-
-	if len(ret) == 0 {
-		panic("no return value specified for DeletePackage")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, repository.Package) error); ok {
-		r0 = returnFunc(ctx, old)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// MockRepository_DeletePackage_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeletePackage'
-type MockRepository_DeletePackage_Call struct {
-	*mock.Call
-}
-
-// DeletePackage is a helper method to define mock.On call
-//   - ctx context.Context
-//   - old repository.Package
-func (_e *MockRepository_Expecter) DeletePackage(ctx interface{}, old interface{}) *MockRepository_DeletePackage_Call {
-	return &MockRepository_DeletePackage_Call{Call: _e.mock.On("DeletePackage", ctx, old)}
-}
-
-func (_c *MockRepository_DeletePackage_Call) Run(run func(ctx context.Context, old repository.Package)) *MockRepository_DeletePackage_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 repository.Package
-		if args[1] != nil {
-			arg1 = args[1].(repository.Package)
-		}
-		run(
-			arg0,
-			arg1,
-		)
-	})
-	return _c
-}
-
-func (_c *MockRepository_DeletePackage_Call) Return(err error) *MockRepository_DeletePackage_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *MockRepository_DeletePackage_Call) RunAndReturn(run func(ctx context.Context, old repository.Package) error) *MockRepository_DeletePackage_Call {
 	_c.Call.Return(run)
 	return _c
 }

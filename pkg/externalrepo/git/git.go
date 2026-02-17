@@ -329,31 +329,10 @@ func (r *gitRepository) Version(ctx context.Context) (string, error) {
 	return hex.EncodeToString(hash[:]), nil
 }
 
-func (r *gitRepository) ListPackages(ctx context.Context, filter repository.ListPackageFilter) ([]repository.Package, error) {
-	//nolint:staticcheck
-	_, span := tracer.Start(ctx, "gitRepository::ListPackages", trace.WithAttributes())
-	defer span.End()
+func (r *gitRepository) ListPackages(_ context.Context, _ repository.ListPackageFilter) ([]repository.Package, error) {
 
 	// TODO
-	return nil, fmt.Errorf("ListPackages not yet supported for git repos")
-}
-
-func (r *gitRepository) CreatePackage(ctx context.Context, obj *porchapi.PorchPackage) (repository.Package, error) {
-	//nolint:staticcheck
-	_, span := tracer.Start(ctx, "gitRepository::CreatePackage", trace.WithAttributes())
-	defer span.End()
-
-	// TODO: Create a 'Package' resource and an initial, empty 'PackageRevision'
-	return nil, fmt.Errorf("CreatePackage not yet supported for git repos")
-}
-
-func (r *gitRepository) DeletePackage(ctx context.Context, obj repository.Package) error {
-	//nolint:staticcheck
-	_, span := tracer.Start(ctx, "gitRepository::DeletePackage", trace.WithAttributes())
-	defer span.End()
-
-	// TODO: Support package deletion using subresources (similar to the package revision approval flow)
-	return fmt.Errorf("DeletePackage not yet supported for git repos")
+	return nil, fmt.Errorf("ListPackages() is only supported on repository caches")
 }
 
 func (r *gitRepository) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {

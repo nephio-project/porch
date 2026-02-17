@@ -25,9 +25,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/nephio-project/porch/internal/kpt/util/cmdutil"
+	"github.com/kptdev/kpt/pkg/lib/util/cmdutil"
+	"github.com/kptdev/kpt/pkg/printer"
 	"github.com/nephio-project/porch/pkg/cli/commands"
-	"github.com/nephio-project/porch/pkg/kpt/printer"
 	"github.com/spf13/cobra"
 )
 

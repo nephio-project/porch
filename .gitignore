@@ -48,3 +48,6 @@ docs/resources/
 
 # Temporary lock file while building
 /.hugo_build.lock
+
+# gosec artifacts
+*.sarif

@@ -1,4 +1,4 @@
-#  Copyright 2025 The Nephio Authors.
+#  Copyright 2025-2026 The Nephio Authors.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ PORCHCTL = $(BUILDDIR)/porchctl
 # API Modules
 API_MODULES = \
  api \
- pkg/kpt/api \
+ internal/api \
  controllers \
 
 ##@ Build
@@ -50,21 +50,21 @@ porchctl:
 
 .PHONY: build-images
 build-images:
-	docker buildx build --load --tag $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG) -f ./build/Dockerfile "$(PORCHDIR)"
-	IMAGE_NAME="$(PORCH_CONTROLLERS_IMAGE)" make -C controllers/ build-image
-	IMAGE_NAME="$(PORCH_FUNCTION_RUNNER_IMAGE)" WRAPPER_SERVER_IMAGE_NAME="$(PORCH_WRAPPER_SERVER_IMAGE)" make -C func/ build-image
+	ALPINE_VERSION="$(ALPINE_VERSION)" IMAGE_NAME="$(PORCH_SERVER_IMAGE)" make -C build/ build-image
+	ALPINE_VERSION="$(ALPINE_VERSION)" IMAGE_NAME="$(PORCH_CONTROLLERS_IMAGE)" make -C controllers/ build-image
+	ALPINE_VERSION="$(ALPINE_VERSION)" IMAGE_NAME="$(PORCH_FUNCTION_RUNNER_IMAGE)" WRAPPER_SERVER_IMAGE_NAME="$(PORCH_WRAPPER_SERVER_IMAGE)" make -C func/ build-image
 	IMAGE_NAME="$(TEST_GIT_SERVER_IMAGE)" make -C test/ build-image
 
 .PHONY: push-images
 push-images:
-	docker buildx build --push --tag $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG) -f ./build/Dockerfile "$(PORCHDIR)"
-	IMAGE_NAME="$(PORCH_CONTROLLERS_IMAGE)" make -C controllers/ push-image
-	IMAGE_NAME="$(PORCH_FUNCTION_RUNNER_IMAGE)" WRAPPER_SERVER_IMAGE_NAME="$(PORCH_WRAPPER_SERVER_IMAGE)" make -C func/ push-image
+	ALPINE_VERSION="$(ALPINE_VERSION)" IMAGE_NAME="$(PORCH_SERVER_IMAGE)" make -C build/ push-image
+	ALPINE_VERSION="$(ALPINE_VERSION)" IMAGE_NAME="$(PORCH_CONTROLLERS_IMAGE)" make -C controllers/ push-image
+	ALPINE_VERSION="$(ALPINE_VERSION)" IMAGE_NAME="$(PORCH_FUNCTION_RUNNER_IMAGE)" WRAPPER_SERVER_IMAGE_NAME="$(PORCH_WRAPPER_SERVER_IMAGE)" make -C func/ push-image
 	IMAGE_NAME="$(TEST_GIT_SERVER_IMAGE)" make -C test/ push-image
 
 .PHONY: dev-server
 dev-server:
-	docker buildx build --push --tag $(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):$(IMAGE_TAG) -f ./build/Dockerfile "$(PORCHDIR)"
+	ALPINE_VERSION="$(ALPINE_VERSION)" IMAGE_NAME="$(PORCH_SERVER_IMAGE)" make -C build/ push-image
 	kubectl set image -n porch-system deployment/porch-server porch-server=$(IMAGE_REPO)/$(PORCH_SERVER_IMAGE):${IMAGE_TAG}
 
 .PHONY: update-kube-apiserver-vendoring

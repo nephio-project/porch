@@ -17,8 +17,10 @@ package dbcache
 import (
 	"context"
 	"fmt"
+	"strings"
 	stdSync "sync"
 	"time"
+	"unicode/utf8"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
@@ -224,6 +226,24 @@ func (s *repositorySync) cacheExternalPRs(ctx context.Context, externalPrMap map
 			return err
 		}
 
+		// Guard against nil return from GetResources (interface contract allows it).
+		var resources map[string]string
+		if extPRResources == nil || extPRResources.Spec.Resources == nil {
+			resources = make(map[string]string)
+		} else {
+			// Filter out files with invalid UTF-8 or NUL bytes to avoid PostgreSQL TEXT errors.
+			// Both resource_key and resource_value are TEXT columns, so both must be validated.
+			resources = make(map[string]string, len(extPRResources.Spec.Resources))
+			for key, val := range extPRResources.Spec.Resources {
+				if !utf8.ValidString(key) || strings.Contains(key, "\x00") ||
+					!utf8.ValidString(val) || strings.Contains(val, "\x00") {
+					klog.Warningf("repositorySync %+v: skipping file %q in PR %+v (not compatible with PostgreSQL TEXT)", s.repo.Key(), key, extPRKey)
+					continue
+				}
+				resources[key] = val
+			}
+		}
+
 		if extAPIPR.CreationTimestamp.Time.IsZero() {
 			extAPIPR.CreationTimestamp.Time = time.Now()
 		}
@@ -239,7 +259,7 @@ func (s *repositorySync) cacheExternalPRs(ctx context.Context, externalPrMap map
 			lifecycle: extAPIPR.Spec.Lifecycle,
 			extPRID:   extPRUpstreamLock,
 			tasks:     extAPIPR.Spec.Tasks,
-			resources: extPRResources.Spec.Resources,
+			resources: resources,
 		}
 		_, err = s.repo.savePackageRevision(ctx, &dbPR, true)
 		if err != nil {

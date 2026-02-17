@@ -71,23 +71,6 @@ func (t *DbTestSuite) TestDBRepositoryPRCrud() {
 	t.Require().NoError(err)
 	t.Equal(0, len(pkgList))
 
-	newPkgDef := porchapi.PorchPackage{
-		Spec: porchapi.PackageSpec{
-			RepositoryName: "my-repo-name",
-			PackageName:    "my-new-package",
-		},
-	}
-
-	newPkg, err := testRepo.CreatePackage(ctx, &newPkgDef)
-	t.Require().NoError(err)
-	t.Require().NotNil(newPkg)
-
-	pkgDef := newPkg.GetPackage(ctx)
-	t.Require().NotNil(pkgDef)
-
-	err = testRepo.DeletePackage(ctx, newPkg)
-	t.Require().NoError(err)
-
 	prList, err := testRepo.ListPackageRevisions(ctx, repository.ListPackageRevisionFilter{})
 	t.Require().NoError(err)
 	t.Equal(0, len(prList))

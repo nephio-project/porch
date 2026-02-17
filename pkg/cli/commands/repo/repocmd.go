@@ -19,7 +19,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/nephio-project/porch/internal/kpt/util/porch"
+	cliutils "github.com/nephio-project/porch/internal/cliutils"
 	"github.com/nephio-project/porch/pkg/cli/commands/repo/docs"
 	"github.com/nephio-project/porch/pkg/cli/commands/repo/get"
 	"github.com/nephio-project/porch/pkg/cli/commands/repo/reg"
@@ -46,7 +46,7 @@ func NewCommand(ctx context.Context, version string) *cobra.Command {
 			}
 			return cmd.Usage()
 		},
-		Hidden: porch.HidePorchCommands,
+		Hidden: cliutils.HidePorchCommands,
 	}
 
 	pf := repo.PersistentFlags()
