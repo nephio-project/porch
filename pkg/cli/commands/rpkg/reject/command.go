@@ -21,7 +21,7 @@ import (
 
 	"github.com/kptdev/kpt/pkg/lib/errors"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/util/porch"
+	cliutils "github.com/nephio-project/porch/internal/cliutils"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -50,7 +50,7 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 		Example: docs.RejectExamples,
 		PreRunE: r.preRunE,
 		RunE:    r.runE,
-		Hidden:  porch.HidePorchCommands,
+		Hidden:  cliutils.HidePorchCommands,
 	}
 	r.Command = c
 
@@ -73,7 +73,7 @@ func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 		return errors.E(op, "PACKAGE_REVISION is a required positional argument")
 	}
 
-	client, err := porch.CreateClientWithFlags(r.cfg)
+	client, err := cliutils.CreateClientWithFlags(r.cfg)
 	if err != nil {
 		return errors.E(op, err)
 	}
@@ -100,7 +100,7 @@ func (r *runner) runE(_ *cobra.Command, args []string) error {
 			switch pr.Spec.Lifecycle {
 			case porchapi.PackageRevisionLifecycleProposed:
 				proposedFor = "approval"
-				return porch.UpdatePackageRevisionApproval(r.ctx, r.client, &pr, porchapi.PackageRevisionLifecycleDraft)
+				return cliutils.UpdatePackageRevisionApproval(r.ctx, r.client, &pr, porchapi.PackageRevisionLifecycleDraft)
 			case porchapi.PackageRevisionLifecycleDeletionProposed:
 				proposedFor = "deletion"
 				// NOTE(kispaljr): should we use UpdatePackageRevisionApproval() here?

@@ -22,10 +22,10 @@ import (
 	"strings"
 
 	fnresult "github.com/kptdev/kpt/pkg/api/fnresult/v1"
+	"github.com/kptdev/kpt/pkg/fn"
+	"github.com/kptdev/kpt/pkg/lib/kptops"
+	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/fnruntime"
-	"github.com/nephio-project/porch/pkg/kpt"
-	"github.com/nephio-project/porch/pkg/kpt/fn"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/klog/v2"
@@ -34,7 +34,7 @@ import (
 
 type renderPackageMutation struct {
 	runtime       fn.FunctionRuntime
-	runnerOptions fnruntime.RunnerOptions
+	runnerOptions runneroptions.RunnerOptions
 }
 
 var _ mutation = &renderPackageMutation{}
@@ -57,7 +57,7 @@ func (m *renderPackageMutation) apply(ctx context.Context, resources repository.
 		// TODO: we should handle this better
 		klog.Warningf("skipping render as no package was found")
 	} else {
-		renderer := kpt.NewRenderer(m.runnerOptions)
+		renderer := kptops.NewRenderer(m.runnerOptions)
 		result, err := renderer.Render(ctx, fs, fn.RenderOptions{
 			PkgPath: pkgPath,
 			Runtime: m.runtime,

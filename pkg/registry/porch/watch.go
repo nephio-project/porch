@@ -18,11 +18,14 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
+	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/repository"
 	"go.opentelemetry.io/otel/trace"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -30,15 +33,16 @@ import (
 )
 
 // createGenericWatch creates a watch.Interface that monitors package changes.
-func createGenericWatch(ctx context.Context, r packageReader, filter repository.ListPackageRevisionFilter, extractor objectExtractor) (watch.Interface, error) {
+func createGenericWatch(ctx context.Context, r packageReader, filter repository.ListPackageRevisionFilter, extractor objectExtractor, options *metainternalversion.ListOptions) (watch.Interface, error) {
 	ctx, cancel := context.WithCancel(ctx)
 
 	w := &watcher{
-		cancel:     cancel,
-		resultChan: make(chan watch.Event, 64),
-		extractor:  extractor,
+		cancel:              cancel,
+		resultChan:          make(chan watch.Event, 64),
+		extractor:           extractor,
+		allowWatchBookmarks: options != nil && options.AllowWatchBookmarks,
+		bookmarkInterval:    1 * time.Minute, // Default bookmark interval which aligns with Kubernetes standards. Enables code to be tested.
 	}
-
 	go w.listAndWatch(ctx, r, filter)
 
 	return w, nil
@@ -67,7 +71,7 @@ func (r *packageRevisions) Watch(ctx context.Context, options *metainternalversi
 
 	return createGenericWatch(ctx, r, *filter, func(ctx context.Context, pr repository.PackageRevision) (runtime.Object, error) {
 		return pr.GetPackageRevision(ctx)
-	})
+	}, options)
 }
 
 // watcher implements watch.Interface, and holds the state for an active watch.
@@ -83,7 +87,11 @@ type watcher struct {
 	totalSent     int
 
 	// objectExtractor function to get the appropriate object from PackageRevision
-	extractor objectExtractor
+	extractor           objectExtractor
+	allowWatchBookmarks bool
+	lastResourceVersion string
+	initialEventsSent   bool
+	bookmarkInterval    time.Duration
 }
 
 var _ watch.Interface = &watcher{}
@@ -225,6 +233,17 @@ func (w *watcher) listAndWatchInner(ctx context.Context, r packageReader, filter
 	}
 
 	klog.V(3).Infof("watch %p: moving watch into streaming mode after sentAdd %d, sentBacklog %d, sentNewBacklog %d", w, sentAdd, sentBacklog, sentNewBacklog)
+
+	// Send initial bookmark after list completes if requested
+	// For empty namespaces, use "0" as the resource version
+	if w.allowWatchBookmarks {
+		if w.lastResourceVersion == "" {
+			w.lastResourceVersion = "0"
+		}
+		w.sendBookmark(true)
+		w.initialEventsSent = true
+	}
+
 	w.eventCallback = func(eventType watch.EventType, pr repository.PackageRevision) bool {
 		if w.done {
 			return false
@@ -248,26 +267,81 @@ func (w *watcher) listAndWatchInner(ctx context.Context, r packageReader, filter
 	}
 	w.mutex.Unlock()
 
-	select {
-	case <-ctx.Done():
-		w.mutex.Lock()
-		defer w.mutex.Unlock()
-		w.done = true
-		return ctx.Err()
-
-	case err := <-errorResult:
-		w.mutex.Lock()
-		defer w.mutex.Unlock()
-		w.done = true
-		return err
+	// Send periodic bookmarks if requested
+	var bookmarkTicker *time.Ticker
+	var bookmarkChan <-chan time.Time
+	if w.allowWatchBookmarks {
+		interval := w.bookmarkInterval
+		if interval == 0 {
+			interval = 1 * time.Minute
+		}
+		bookmarkTicker = time.NewTicker(interval)
+		defer bookmarkTicker.Stop()
+		bookmarkChan = bookmarkTicker.C
 	}
 
+	for {
+		select {
+		case <-ctx.Done():
+			w.mutex.Lock()
+			defer w.mutex.Unlock()
+			w.done = true
+			return ctx.Err()
+
+		case err := <-errorResult:
+			w.mutex.Lock()
+			defer w.mutex.Unlock()
+			w.done = true
+			return err
+
+		case <-bookmarkChan:
+			w.mutex.Lock()
+			w.sendBookmark(false)
+			w.mutex.Unlock()
+		}
+	}
 }
 
 func (w *watcher) sendWatchEvent(ev watch.Event) {
 	// TODO: Handle the case that the watch channel is full?
 	w.resultChan <- ev
 	w.totalSent += 1
+	// Track resource version for bookmarks
+	if obj, ok := ev.Object.(metav1.Object); ok {
+		w.lastResourceVersion = obj.GetResourceVersion()
+	}
+}
+
+func (w *watcher) sendBookmark(initialEvents bool) {
+	if w.done {
+		return
+	}
+
+	// Create a bookmark event with the last known resource version
+	if w.lastResourceVersion != "" {
+		// Create a minimal PackageRevision object for the bookmark
+		obj := &porchapi.PackageRevision{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "PackageRevision",
+				APIVersion: porchapi.SchemeGroupVersion.String(),
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				ResourceVersion: w.lastResourceVersion,
+			},
+		}
+		// Add annotation to mark end of initial events
+		if initialEvents {
+			obj.Annotations = map[string]string{
+				"k8s.io/initial-events-end": "true",
+			}
+		}
+		ev := watch.Event{
+			Type:   watch.Bookmark,
+			Object: obj,
+		}
+		w.resultChan <- ev
+		klog.V(2).Infof("watch %p: sent bookmark with resourceVersion %s (initialEvents=%v)", w, w.lastResourceVersion, initialEvents)
+	}
 }
 
 // OnPackageRevisionChange is the callback called when a PackageRevision changes.

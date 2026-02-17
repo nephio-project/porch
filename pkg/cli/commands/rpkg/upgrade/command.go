@@ -22,7 +22,7 @@ import (
 
 	"github.com/kptdev/kpt/pkg/lib/errors"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	"github.com/nephio-project/porch/internal/kpt/util/porch"
+	cliutils "github.com/nephio-project/porch/internal/cliutils"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -55,7 +55,7 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 		Short:   docs.UpgradeShort,
 		Long:    docs.UpgradeShort + "\n" + docs.UpgradeLong,
 		Example: docs.UpgradeExamples,
-		Hidden:  porch.HidePorchCommands,
+		Hidden:  cliutils.HidePorchCommands,
 	}
 	r.Command.Flags().IntVar(&r.revision, "revision", 0, "Revision of the upstream package to upgrade to.")
 	r.Command.Flags().StringVar(&r.workspace, "workspace", "", "Workspace name of the upgrade package revision.")
@@ -86,7 +86,7 @@ type runner struct {
 
 func (r *runner) preRunE(_ *cobra.Command, args []string) error {
 	const op errors.Op = command + ".preRunE"
-	c, err := porch.CreateClientWithFlags(r.cfg)
+	c, err := cliutils.CreateClientWithFlags(r.cfg)
 	if err != nil {
 		return errors.E(op, err)
 	}

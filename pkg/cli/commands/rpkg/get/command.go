@@ -21,8 +21,8 @@ import (
 	"strings"
 
 	"github.com/kptdev/kpt/pkg/lib/errors"
-	"github.com/kptdev/kpt/pkg/lib/options"
-	"github.com/nephio-project/porch/internal/kpt/util/porch"
+	"github.com/kptdev/kpt/pkg/lib/util/cmdutil"
+	cliutils "github.com/nephio-project/porch/internal/cliutils"
 	"github.com/nephio-project/porch/pkg/cli/commands/rpkg/docs"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,7 +45,7 @@ const (
 func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner {
 	r := &runner{
 		ctx:        ctx,
-		getFlags:   options.Get{ConfigFlags: rcg},
+		getFlags:   cmdutil.Options{ConfigFlags: rcg},
 		printFlags: get.NewGetPrintFlags(),
 	}
 	cmd := &cobra.Command{
@@ -57,7 +57,7 @@ func newRunner(ctx context.Context, rcg *genericclioptions.ConfigFlags) *runner 
 		Example:    docs.GetExamples,
 		PreRunE:    r.preRunE,
 		RunE:       r.runE,
-		Hidden:     porch.HidePorchCommands,
+		Hidden:     cliutils.HidePorchCommands,
 	}
 	r.Command = cmd
 
@@ -78,7 +78,7 @@ func NewCommand(ctx context.Context, rcg *genericclioptions.ConfigFlags) *cobra.
 
 type runner struct {
 	ctx      context.Context
-	getFlags options.Get
+	getFlags cmdutil.Options
 	Command  *cobra.Command
 
 	// Flags

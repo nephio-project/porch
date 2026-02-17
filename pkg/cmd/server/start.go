@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nephio-project/porch/internal/kpt/fnruntime"
+	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -34,8 +34,8 @@ import (
 	"github.com/nephio-project/porch/pkg/apiserver"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/engine"
-	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/externalrepo/git"
+	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apiserver/pkg/admission"
@@ -351,7 +351,7 @@ func (o *PorchServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.DbCacheDriver, "db-cache-driver", cachetypes.DefaultDBCacheDriver, "Database driver to use when for the database cache")
 	fs.StringVar(&o.DbCacheDataSource, "db-cache-data-source", "", "Address of the database, for example \"postgresql://user:pass@hostname:port/database\"")
 	fs.BoolVar(&o.DbPushDrafsToGit, "db-push-drafts-to-git", false, "If true, Porch will push draft package revisions to git when using the DB cache")
-	fs.StringVar(&o.DefaultImagePrefix, "default-image-prefix", fnruntime.GHCRImagePrefix, "Default prefix for unqualified function names")
+	fs.StringVar(&o.DefaultImagePrefix, "default-image-prefix", runneroptions.GHCRImagePrefix, "Default prefix for unqualified function names")
 	fs.StringVar(&o.FunctionRunnerAddress, "function-runner", "", "Address of the function runner gRPC service.")
 	fs.DurationVar(&o.ListTimeoutPerRepository, "list-timeout-per-repo", 20*time.Second, "Maximum amount of time to wait for a repository list request.")
 	fs.IntVar(&o.MaxRequestBodySize, "max-request-body-size", 6*1024*1024, "Maximum size of the request body in bytes. Keep this in sync with function-runner's corresponding argument.")
