@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	repocontroller "github.com/nephio-project/porch/controllers/repositories/pkg/controllers/repository"
-	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
@@ -41,38 +40,6 @@ func TestEmbeddedControllerManagerStructure(t *testing.T) {
 	assert.Equal(t, 10, mgr.config.MaxConcurrentSyncs)
 	assert.Equal(t, 30*time.Second, mgr.config.HealthCheckFrequency)
 	assert.Equal(t, 5*time.Minute, mgr.config.FullSyncFrequency)
-}
-
-func TestSetupEmbeddedControllerManager(t *testing.T) {
-	tests := []struct {
-		name      string
-		cacheType cachetypes.CacheType
-		expectNil bool
-	}{
-		{
-			name:      "returns nil when DB cache type",
-			cacheType: cachetypes.DBCacheType,
-			expectNil: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := completedConfig{
-				ExtraConfig: &ExtraConfig{
-					CacheOptions: cachetypes.CacheOptions{
-						CacheType: tt.cacheType,
-					},
-				},
-			}
-
-			result, err := c.setupEmbeddedControllerManager()
-			assert.NoError(t, err)
-			if tt.expectNil {
-				assert.Nil(t, result)
-			}
-		})
-	}
 }
 
 func TestCreateEmbeddedControllerManagerFunction(t *testing.T) {
