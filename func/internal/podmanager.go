@@ -32,7 +32,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	containerregistry "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/daemon"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -325,12 +324,6 @@ func (pm *podManager) getImageMetadata(ctx context.Context, ref name.Reference, 
 }
 
 func (pm *podManager) getImage(ctx context.Context, ref name.Reference, auth authn.Authenticator, image string) (containerregistry.Image, error) {
-	// try getting the image from local first
-	img, daemonErr := daemon.Image(ref, daemon.WithContext(ctx))
-	if daemonErr == nil && img != nil {
-		return img, nil
-	}
-	klog.V(3).Infof("Image %s not found locally, pulling instead...", ref)
 	// if private registries or their appropriate tls configuration are disabled in the config we pull image with default operation otherwise try and use their tls cert's
 	if !pm.enablePrivateRegistries || strings.HasPrefix(image, defaultRegistry) || !pm.enablePrivateRegistriesTls {
 		return remote.Image(ref, remote.WithAuth(auth), remote.WithContext(ctx))
@@ -872,7 +865,7 @@ func (pm *podManager) removeStuckPod(ctx context.Context, service *corev1.Servic
 
 	err = pm.kubeClient.Delete(ctx, &podList[indexToRemove])
 	if err != nil {
-		return fmt.Errorf("unable to delete stucked pod: %w", err)
+		return fmt.Errorf("unable to delete stuck pod: %w", err)
 	}
 
 	err = wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, pm.podReadyTimeout, true, func(ctx context.Context) (bool, error) {
