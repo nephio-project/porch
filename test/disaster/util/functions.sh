@@ -15,8 +15,16 @@
 self_dir="$(dirname "$(readlink -f "$0")")"
 
 data_cluster_kubeconfig_file="$self_dir/kubeconfigs/data_cluster.conf"
-crcache_kubeconfig_file="$self_dir/kubeconfigs/porch_crcache.conf"
 dbcache_kubeconfig_file="$self_dir/kubeconfigs/porch_dbcache.conf"
+
+export logs_dir='/tmp/disaster-test-logs_'$$
+mkdir -p "$logs_dir"
+trap 'set -x; cleanUpLogs' EXIT
+function cleanUpLogs() {
+    h1 "Clean up log pipes..."
+    rm -frv "$logs_dir"
+    pkill -ef 'sed.*\|>'
+}
 
 function h1() {
   MESSAGE=" $* "
@@ -36,17 +44,36 @@ function h2() {
   echo -e "$MESSAGE_LINE"
 }
 
+function prefixLogs() {
+    while [[ -n "${1-DONE}" ]] ; do
+        XCASE=$( tr "[:upper:]" "[:lower:]" <<< "${1-DONE}" )
+        case $XCASE in
+            --prefix)
+                shift
+                prefix_string="$1"
+                ;;
+            --colour|--color)
+                shift
+                colour="$1"
+                ;;
+            *)
+                break
+                ;;
+        esac
+        shift
+    done
+
+    tmp_logfile="$logs_dir"'/'"${prefix_string// /_}"'_'$$'.tmp'
+    mknod "$tmp_logfile" p
+    sed -e 's/^\(.\)/'"$(tput setaf "$colour")$prefix_string"'|>'"$(tput sgr0)"' \1/' --unbuffered <"$tmp_logfile" &
+    exec &> "$tmp_logfile"
+}
+
 function kubectl_data() {
     kubectl --kubeconfig "$data_cluster_kubeconfig_file" "$@"
 }
-function kubectl_crcache() {
-    kubectl --kubeconfig "$crcache_kubeconfig_file" "$@"
-}
 function kubectl_dbcache() {
     kubectl --kubeconfig "$dbcache_kubeconfig_file" "$@"
-}
-function porchctl_crcache() {
-    porchctl --kubeconfig "$crcache_kubeconfig_file" -n default "$@"
 }
 function porchctl_dbcache() {
     porchctl --kubeconfig "$dbcache_kubeconfig_file" -n default "$@"
