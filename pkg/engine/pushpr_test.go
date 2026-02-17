@@ -145,7 +145,7 @@ func TestPushPublishedPackageRevision_PushDraftsDisabled(t *testing.T) {
 
 			tt.setupMocks(mockRepo, mockPR, mockPRD)
 
-			_, err := PushPublishedPackageRevision(ctx, mockRepo, mockPR, false, nil)
+			_, err := PushPackageRevision(ctx, mockRepo, mockPR, false, nil)
 			if tt.expectError {
 				assert.NotNil(t, err)
 			} else {
@@ -267,7 +267,7 @@ func TestPushPublishedPackageRevision_PushDraftsEnabled(t *testing.T) {
 
 			tt.setupMocks(mockRepo, mockPR, mockGitPR, mockPRD)
 
-			_, err := PushPublishedPackageRevision(ctx, mockRepo, mockPR, true, gitPR)
+			_, err := PushPackageRevision(ctx, mockRepo, mockPR, true, gitPR)
 			if tt.expectError {
 				assert.NotNil(t, err)
 			} else {

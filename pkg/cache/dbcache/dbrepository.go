@@ -200,13 +200,12 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *po
 		},
 	}
 
-	if r.pushDraftsToGit && r.externalRepo != nil {
+	if r.pushDraftsToGit {
 		gitPRDraft, err := r.externalRepo.CreatePackageRevisionDraft(ctx, newPR)
 		if err != nil {
-			klog.Warningf("failed to create git draft for %+v: %v", newPR, err)
-		} else {
-			dbPkgRev.gitPRDraft = gitPRDraft
+			return nil, pkgerrors.Wrapf(err, "failed to create git draft for %+v, not saving to DB", dbPkgRev.Key())
 		}
+		dbPkgRev.gitPRDraft = gitPRDraft
 	}
 
 	if prDraft, err := r.savePackageRevisionDraft(ctx, dbPkgRev, 0); err == nil {
@@ -291,15 +290,14 @@ func (r *dbRepository) UpdatePackageRevision(ctx context.Context, updatePR repos
 	updatePkgRev.updated = time.Now()
 	updatePkgRev.updatedBy = getCurrentUser()
 
-	if r.pushDraftsToGit && r.externalRepo != nil && updatePkgRev.gitPRDraft == nil {
+	if r.pushDraftsToGit && updatePkgRev.gitPRDraft == nil {
 		gitPRDraft, gitPR, err := engine.GetOrCreateGitDraft(ctx, r.externalRepo, updatePkgRev, updatePkgRev.gitPR)
 		if err != nil {
-			klog.Warningf("failed to get or create git draft for %+v: %v", updatePkgRev.Key(), err)
-		} else {
-			updatePkgRev.gitPRDraft = gitPRDraft
-			if gitPR != nil {
-				updatePkgRev.gitPR = gitPR
-			}
+			return nil, pkgerrors.Wrapf(err, "failed to get or create git draft for %+v", updatePkgRev.Key())
+		}
+		updatePkgRev.gitPRDraft = gitPRDraft
+		if gitPR != nil {
+			updatePkgRev.gitPR = gitPR
 		}
 	}
 
@@ -378,19 +376,20 @@ func (r *dbRepository) ClosePackageRevisionDraft(ctx context.Context, prd reposi
 	_, span := tracer.Start(ctx, "dbRepository::ClosePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
 
+	dbPrd := prd.(*dbPackageRevision)
+
+	if r.pushDraftsToGit && dbPrd.gitPRDraft != nil {
+		gitPR, err := r.externalRepo.ClosePackageRevisionDraft(ctx, dbPrd.gitPRDraft, 0)
+		if err != nil {
+			return nil, pkgerrors.Wrapf(err, "failed to close git draft for %+v, not saving to DB", dbPrd.Key())
+		}
+		dbPrd.gitPR = gitPR
+		dbPrd.gitPRDraft = nil
+	}
+
 	pr, err := r.savePackageRevisionDraft(ctx, prd, version)
 	if err != nil {
 		return nil, err
-	}
-
-	if r.pushDraftsToGit && pr.gitPRDraft != nil && r.externalRepo != nil {
-		gitPR, err := r.externalRepo.ClosePackageRevisionDraft(ctx, pr.gitPRDraft, 0)
-		if err != nil {
-			klog.Warningf("failed to close git draft for %+v: %v", pr.Key(), err)
-		} else {
-			pr.gitPR = gitPR
-			pr.gitPRDraft = nil
-		}
 	}
 
 	return repository.PackageRevision(pr), nil

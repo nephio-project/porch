@@ -26,7 +26,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func PushPublishedPackageRevision(ctx context.Context, repo repository.Repository, pr repository.PackageRevision, pushDraftsToGit bool, gitPR repository.PackageRevision) (kptfilev1.UpstreamLock, error) {
+func PushPackageRevision(ctx context.Context, repo repository.Repository, pr repository.PackageRevision, pushDraftsToGit bool, gitPR repository.PackageRevision) (kptfilev1.UpstreamLock, error) {
 	ctx, span := tracer.Start(ctx, "PushPackageRevision", trace.WithAttributes())
 	defer span.End()
 
