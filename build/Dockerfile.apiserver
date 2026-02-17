@@ -13,8 +13,9 @@
 # limitations under the License.
 
 ARG ALPINE_VERSION=latest
+ARG GOLANG_BOOKWORM_VERSION=latest
 
-FROM golang:1.25.7-bookworm AS builder
+FROM golang:${GOLANG_BOOKWORM_VERSION} AS builder
 
 WORKDIR /workspace/src
 RUN git clone https://github.com/kubernetes/kubernetes --branch v1.30.3 --depth=1
