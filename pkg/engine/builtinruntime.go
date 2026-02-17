@@ -1,4 +1,4 @@
-// Copyright 2022, 2025-2026 The kpt and Nephio Authors
+// Copyright 2022,2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"slices"
+	"strings"
 
+	"github.com/Masterminds/semver/v3"
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/kptdev/kpt/pkg/fn"
 	"github.com/kptdev/kpt/pkg/lib/kptops"
@@ -27,6 +30,7 @@ import (
 	set_namespace "github.com/kptdev/krm-functions-catalog/functions/go/set-namespace/transformer"
 	"github.com/kptdev/krm-functions-catalog/functions/go/starlark/starlark"
 	fnsdk "github.com/kptdev/krm-functions-sdk/go/fn"
+	"k8s.io/klog/v2"
 )
 
 // When updating the version for the builtin functions, please also update the image version
@@ -79,14 +83,71 @@ func newBuiltinRuntime(imagePrefix string) *builtinRuntime {
 var _ kptops.FunctionRuntime = &builtinRuntime{}
 
 func (br *builtinRuntime) GetRunner(ctx context.Context, funct *kptfilev1.Function) (fn.FunctionRunner, error) {
-	processor, found := br.fnMapping[funct.Image]
-	if !found {
-		return nil, &fn.NotFoundError{Function: *funct}
+	c, err := semver.NewConstraint(funct.Tag)
+	if err != nil {
+		return nil, &fn.NotFoundError{
+			Function: kptfilev1.Function{Image: funct.Image},
+		}
 	}
+	// Filter the cache map by semver constraint validation
+	type candidate struct {
+		baseName  string
+		version   *semver.Version
+		processor fnsdk.ResourceListProcessor
+	}
+
+	// Filter the cache map by semver constraint validation
+	var filteredCache []candidate
+	for img, proc := range br.fnMapping {
+		// Extract the version string after ":v" in the image name
+		idx := strings.LastIndex(img, ":v")
+		// Currently, hashed and latest tagged images would be filtered out
+		if idx == -1 {
+			continue
+		}
+
+		baseName := img[:idx]
+		if baseName != funct.Image {
+			continue
+		}
+
+		versionStr := img[idx+1:] // skip past ":"
+		v, err := semver.NewVersion(versionStr)
+		if err != nil {
+			klog.Infof("Failed to parse version %q from cached image %q: %v", versionStr, img, err)
+			continue
+		}
+
+		cand := candidate{
+			baseName:  baseName,
+			version:   v,
+			processor: proc,
+		}
+		if c.Check(v) {
+			filteredCache = append(filteredCache, cand)
+		}
+	}
+
+	// Check if any matching image was found
+	if len(filteredCache) == 0 {
+		return nil, &fn.NotFoundError{
+			Function: kptfilev1.Function{Image: funct.Image},
+		}
+	}
+
+	// Sort by semver and select the greatest version
+	slices.SortFunc(filteredCache, func(a, b candidate) int {
+		return a.version.Compare(b.version)
+	})
+
+	selected := filteredCache[len(filteredCache)-1]
+
+	klog.Infof("Selected image \"%s:%s\" (version %s) for request %q",
+		selected.baseName, selected.version.Original(), selected.version, funct.Image)
 
 	return &builtinRunner{
 		ctx:       ctx,
-		processor: processor,
+		processor: selected.processor,
 	}, nil
 }
 
