@@ -67,7 +67,7 @@ func (r *RepositoryReconciler) createCacheFromEnv(ctx context.Context, mgr ctrl.
 
 // validateCacheType checks if the cache type is valid for standalone controller
 func (r *RepositoryReconciler) validateCacheType() error {
-	if strings.ToUpper(r.cacheType) == string(cachetypes.CRCacheType) {
+	if strings.ToUpper(r.cacheType) != string(cachetypes.DBCacheType) {
 		return fmt.Errorf("standalone controller requires DB cache")
 	}
 	return nil

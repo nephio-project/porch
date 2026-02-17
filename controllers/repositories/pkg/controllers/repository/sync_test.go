@@ -735,7 +735,7 @@ func TestDetermineSyncDecision(t *testing.T) {
 	tests := []struct {
 		name         string
 		repo         *api.Repository
-		expectedType SyncType
+		expectedType OperationType
 		expectedNeed bool
 	}{
 		{
@@ -750,7 +750,7 @@ func TestDetermineSyncDecision(t *testing.T) {
 					}},
 				},
 			},
-			expectedType: HealthCheck,
+			expectedType: OperationHealthCheck,
 			expectedNeed: false,
 		},
 		{
@@ -762,7 +762,7 @@ func TestDetermineSyncDecision(t *testing.T) {
 					},
 				},
 			},
-			expectedType: FullSync,
+			expectedType: OperationFullSync,
 			expectedNeed: true,
 		},
 		{
@@ -779,7 +779,7 @@ func TestDetermineSyncDecision(t *testing.T) {
 					}},
 				},
 			},
-			expectedType: FullSync,
+			expectedType: OperationFullSync,
 			expectedNeed: true,
 		},
 		{
@@ -790,12 +790,12 @@ func TestDetermineSyncDecision(t *testing.T) {
 						Type:               api.RepositoryReady,
 						Status:             metav1.ConditionFalse,
 						Reason:             api.ReasonError,
-						Message: "error",
+						Message:            "error",
 						LastTransitionTime: metav1.NewTime(now.Add(-10 * time.Minute)),
 					}},
 				},
 			},
-			expectedType: HealthCheck,
+			expectedType: OperationHealthCheck,
 			expectedNeed: true,
 		},
 		{
@@ -810,7 +810,7 @@ func TestDetermineSyncDecision(t *testing.T) {
 					}},
 				},
 			},
-			expectedType: FullSync,
+			expectedType: OperationFullSync,
 			expectedNeed: true,
 		},
 		{
@@ -825,7 +825,7 @@ func TestDetermineSyncDecision(t *testing.T) {
 					}},
 				},
 			},
-			expectedType: HealthCheck,
+			expectedType: OperationHealthCheck,
 			expectedNeed: true,
 		},
 	}
@@ -838,7 +838,7 @@ func TestDetermineSyncDecision(t *testing.T) {
 			}
 			decision := r.determineSyncDecision(ctx, tt.repo)
 			assert.Equal(t, tt.expectedType, decision.Type)
-			assert.Equal(t, tt.expectedNeed, decision.Needed)
+			assert.Equal(t, tt.expectedNeed, decision.SyncNecessary)
 		})
 	}
 }
@@ -858,7 +858,7 @@ func TestIsErrorRetryDue(t *testing.T) {
 						Type:               api.RepositoryReady,
 						Status:             metav1.ConditionFalse,
 						Reason:             api.ReasonError,
-						Message: "error",
+						Message:            "error",
 						LastTransitionTime: metav1.NewTime(now.Add(-10 * time.Minute)),
 					}},
 				},
@@ -1109,7 +1109,7 @@ func TestDetermineSyncDecisionExtended(t *testing.T) {
 	tests := []struct {
 		name         string
 		repo         *api.Repository
-		expectedType SyncType
+		expectedType OperationType
 		expectedNeed bool
 	}{
 		{
@@ -1131,7 +1131,7 @@ func TestDetermineSyncDecisionExtended(t *testing.T) {
 					}},
 				},
 			},
-			expectedType: HealthCheck,
+			expectedType: OperationHealthCheck,
 			expectedNeed: false,
 		},
 		{
@@ -1146,7 +1146,7 @@ func TestDetermineSyncDecisionExtended(t *testing.T) {
 					}},
 				},
 			},
-			expectedType: HealthCheck,
+			expectedType: OperationHealthCheck,
 			expectedNeed: false,
 		},
 	}
@@ -1159,7 +1159,7 @@ func TestDetermineSyncDecisionExtended(t *testing.T) {
 			}
 			decision := r.determineSyncDecision(ctx, tt.repo)
 			assert.Equal(t, tt.expectedType, decision.Type)
-			assert.Equal(t, tt.expectedNeed, decision.Needed)
+			assert.Equal(t, tt.expectedNeed, decision.SyncNecessary)
 		})
 	}
 }
@@ -1230,7 +1230,7 @@ func TestDetermineSyncDecision_RunOnceAtInteractions(t *testing.T) {
 	tests := []struct {
 		name         string
 		repo         *api.Repository
-		expectedType SyncType
+		expectedType OperationType
 		expectedNeed bool
 	}{
 		{
@@ -1239,7 +1239,7 @@ func TestDetermineSyncDecision_RunOnceAtInteractions(t *testing.T) {
 				Spec: api.RepositorySpec{
 					Sync: &api.RepositorySync{
 						RunOnceAt: &metav1.Time{Time: now.Add(-time.Minute)}, // Due
-						Schedule:  "0 */6 * * *",                              // Not due for hours
+						Schedule:  "0 */6 * * *",                             // Not due for hours
 					},
 				},
 				Status: api.RepositoryStatus{
@@ -1251,7 +1251,7 @@ func TestDetermineSyncDecision_RunOnceAtInteractions(t *testing.T) {
 					}},
 				},
 			},
-			expectedType: FullSync,
+			expectedType: OperationFullSync,
 			expectedNeed: true,
 		},
 		{
@@ -1263,7 +1263,7 @@ func TestDetermineSyncDecision_RunOnceAtInteractions(t *testing.T) {
 				Spec: api.RepositorySpec{
 					Sync: &api.RepositorySync{
 						RunOnceAt: &metav1.Time{Time: now.Add(time.Hour)}, // Future
-						Schedule:  "*/1 * * * *",                           // Due now
+						Schedule:  "*/1 * * * *",                          // Due now
 					},
 				},
 				Status: api.RepositoryStatus{
@@ -1276,7 +1276,7 @@ func TestDetermineSyncDecision_RunOnceAtInteractions(t *testing.T) {
 					}},
 				},
 			},
-			expectedType: HealthCheck,
+			expectedType: OperationHealthCheck,
 			expectedNeed: false, // Waits for RunOnceAt despite spec change
 		},
 		{
@@ -1298,7 +1298,7 @@ func TestDetermineSyncDecision_RunOnceAtInteractions(t *testing.T) {
 					}},
 				},
 			},
-			expectedType: FullSync,
+			expectedType: OperationFullSync,
 			expectedNeed: true,
 		},
 		{
@@ -1320,7 +1320,7 @@ func TestDetermineSyncDecision_RunOnceAtInteractions(t *testing.T) {
 					}},
 				},
 			},
-			expectedType: HealthCheck,
+			expectedType: OperationHealthCheck,
 			expectedNeed: false,
 		},
 		{
@@ -1336,12 +1336,12 @@ func TestDetermineSyncDecision_RunOnceAtInteractions(t *testing.T) {
 						Type:               api.RepositoryReady,
 						Status:             metav1.ConditionFalse,
 						Reason:             api.ReasonError,
-						Message: "error",
+						Message:            "error",
 						LastTransitionTime: metav1.NewTime(now.Add(-10 * time.Minute)),
 					}},
 				},
 			},
-			expectedType: HealthCheck,
+			expectedType: OperationHealthCheck,
 			expectedNeed: true, // Error retry does health check, not full sync
 		},
 	}
@@ -1354,26 +1354,26 @@ func TestDetermineSyncDecision_RunOnceAtInteractions(t *testing.T) {
 			}
 			decision := r.determineSyncDecision(ctx, tt.repo)
 			assert.Equal(t, tt.expectedType, decision.Type)
-			assert.Equal(t, tt.expectedNeed, decision.Needed)
+			assert.Equal(t, tt.expectedNeed, decision.SyncNecessary)
 		})
 	}
 }
 
 func TestGetSyncStaleTimeout(t *testing.T) {
 	tests := []struct {
-		name            string
+		name             string
 		syncStaleTimeout time.Duration
-		expected        time.Duration
+		expected         time.Duration
 	}{
 		{
-			name:            "custom timeout set",
+			name:             "custom timeout set",
 			syncStaleTimeout: 30 * time.Minute,
-			expected:        30 * time.Minute,
+			expected:         30 * time.Minute,
 		},
 		{
-			name:            "default timeout",
+			name:             "default timeout",
 			syncStaleTimeout: 0,
-			expected:        20 * time.Minute,
+			expected:         20 * time.Minute,
 		},
 	}
 
@@ -1473,7 +1473,7 @@ func TestDetermineSyncDecision_PriorityOrder(t *testing.T) {
 	tests := []struct {
 		name         string
 		repo         *api.Repository
-		expectedType SyncType
+		expectedType OperationType
 		expectedNeed bool
 		description  string
 	}{
@@ -1489,8 +1489,8 @@ func TestDetermineSyncDecision_PriorityOrder(t *testing.T) {
 					},
 				},
 				Status: api.RepositoryStatus{
-					ObservedGeneration:   1,
-					LastFullSyncTime: &metav1.Time{Time: now.Add(-2 * time.Hour)},
+					ObservedGeneration: 1,
+					LastFullSyncTime:   &metav1.Time{Time: now.Add(-2 * time.Hour)},
 					Conditions: []metav1.Condition{{
 						Type:               api.RepositoryReady,
 						Status:             metav1.ConditionFalse,
@@ -1499,7 +1499,7 @@ func TestDetermineSyncDecision_PriorityOrder(t *testing.T) {
 					}},
 				},
 			},
-			expectedType: HealthCheck,
+			expectedType: OperationHealthCheck,
 			expectedNeed: false,
 			description:  "Sync in progress blocks RunOnceAt, spec change, and full sync",
 		},
@@ -1522,7 +1522,7 @@ func TestDetermineSyncDecision_PriorityOrder(t *testing.T) {
 					}},
 				},
 			},
-			expectedType: FullSync,
+			expectedType: OperationFullSync,
 			expectedNeed: true,
 			description:  "RunOnceAt due takes priority over spec change",
 		},
@@ -1538,12 +1538,12 @@ func TestDetermineSyncDecision_PriorityOrder(t *testing.T) {
 						Type:               api.RepositoryReady,
 						Status:             metav1.ConditionFalse,
 						Reason:             api.ReasonError,
-						Message: "error",
+						Message:            "error",
 						LastTransitionTime: metav1.NewTime(now.Add(-10 * time.Minute)),
 					}},
 				},
 			},
-			expectedType: FullSync,
+			expectedType: OperationFullSync,
 			expectedNeed: true,
 			description:  "Spec change takes priority over error retry",
 		},
@@ -1562,7 +1562,7 @@ func TestDetermineSyncDecision_PriorityOrder(t *testing.T) {
 					}},
 				},
 			},
-			expectedType: HealthCheck,
+			expectedType: OperationHealthCheck,
 			expectedNeed: true,
 			description:  "Error retry takes priority over scheduled full sync",
 		},
@@ -1579,7 +1579,7 @@ func TestDetermineSyncDecision_PriorityOrder(t *testing.T) {
 					}},
 				},
 			},
-			expectedType: FullSync,
+			expectedType: OperationFullSync,
 			expectedNeed: true,
 			description:  "Full sync takes priority over health check",
 		},
@@ -1596,7 +1596,7 @@ func TestDetermineSyncDecision_PriorityOrder(t *testing.T) {
 					}},
 				},
 			},
-			expectedType: HealthCheck,
+			expectedType: OperationHealthCheck,
 			expectedNeed: true,
 			description:  "Health check runs when nothing else is due",
 		},
@@ -1610,7 +1610,43 @@ func TestDetermineSyncDecision_PriorityOrder(t *testing.T) {
 			}
 			decision := r.determineSyncDecision(ctx, tt.repo)
 			assert.Equal(t, tt.expectedType, decision.Type, tt.description)
-			assert.Equal(t, tt.expectedNeed, decision.Needed, tt.description)
+			assert.Equal(t, tt.expectedNeed, decision.SyncNecessary, tt.description)
+		})
+	}
+}
+
+func TestInitializeSyncLimiter(t *testing.T) {
+	tests := []struct {
+		name                string
+		maxConcurrentSyncs  int
+		expectedCapacity    int
+	}{
+		{
+			name:                "uses custom value",
+			maxConcurrentSyncs:  50,
+			expectedCapacity:    50,
+		},
+		{
+			name:                "uses default when zero",
+			maxConcurrentSyncs:  0,
+			expectedCapacity:    100,
+		},
+		{
+			name:                "uses default when negative",
+			maxConcurrentSyncs:  -1,
+			expectedCapacity:    100,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RepositoryReconciler{
+				MaxConcurrentSyncs: tt.maxConcurrentSyncs,
+			}
+			r.InitializeSyncLimiter()
+
+			assert.Equal(t, tt.expectedCapacity, r.MaxConcurrentSyncs)
+			assert.Equal(t, tt.expectedCapacity, cap(r.syncLimiter))
 		})
 	}
 }

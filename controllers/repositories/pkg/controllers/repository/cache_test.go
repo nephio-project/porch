@@ -216,7 +216,7 @@ func TestValidateCacheType(t *testing.T) {
 		{
 			name:        "empty cache type",
 			cacheType:   "",
-			expectError: false,
+			expectError: true,
 		},
 	}
 

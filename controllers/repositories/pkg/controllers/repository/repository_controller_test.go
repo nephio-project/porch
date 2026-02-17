@@ -182,42 +182,6 @@ func TestReconcileCacheNil(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestInitializeSyncLimiter(t *testing.T) {
-	tests := []struct {
-		name                string
-		maxConcurrentSyncs  int
-		expectedCapacity    int
-	}{
-		{
-			name:                "uses custom value",
-			maxConcurrentSyncs:  50,
-			expectedCapacity:    50,
-		},
-		{
-			name:                "uses default when zero",
-			maxConcurrentSyncs:  0,
-			expectedCapacity:    100,
-		},
-		{
-			name:                "uses default when negative",
-			maxConcurrentSyncs:  -1,
-			expectedCapacity:    100,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := &RepositoryReconciler{
-				MaxConcurrentSyncs: tt.maxConcurrentSyncs,
-			}
-			r.InitializeSyncLimiter()
-
-			assert.Equal(t, tt.expectedCapacity, r.MaxConcurrentSyncs)
-			assert.Equal(t, tt.expectedCapacity, cap(r.syncLimiter))
-		})
-	}
-}
-
 func TestPerformAsyncSync(t *testing.T) {
 	ctx := t.Context()
 
@@ -250,7 +214,8 @@ func TestPerformAsyncSync(t *testing.T) {
 			mockClient.EXPECT().Patch(mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 
 			r := &RepositoryReconciler{Client: mockClient, Cache: mockCache}
-			r.performAsyncSync(ctx, repo)
+			sync := &Sync{reconciler: r}
+			sync.PerformAsyncSync(ctx, repo)
 		})
 	}
 }
@@ -423,7 +388,8 @@ func TestPerformAsyncSyncEdgeCases(t *testing.T) {
 		mockClient.EXPECT().Patch(mock.Anything, mock.Anything, mock.Anything).Return(errors.New("patch failed"))
 
 		r := &RepositoryReconciler{Client: mockClient, Cache: mockCache}
-		r.performAsyncSync(ctx, repo)
+		sync := &Sync{reconciler: r}
+		sync.PerformAsyncSync(ctx, repo)
 	})
 
 	t.Run("repo deleted during sync", func(t *testing.T) {
@@ -435,7 +401,8 @@ func TestPerformAsyncSyncEdgeCases(t *testing.T) {
 		setupMockStatusWriter(t, mockClient, apierrors.NewNotFound(schema.GroupResource{}, "test-repo"))
 
 		r := &RepositoryReconciler{Client: mockClient, Cache: mockCache}
-		r.performAsyncSync(ctx, repo)
+		sync := &Sync{reconciler: r}
+		sync.PerformAsyncSync(ctx, repo)
 	})
 }
 
@@ -470,5 +437,6 @@ func TestReconcileSyncInProgress(t *testing.T) {
 	result, err := r.Reconcile(ctx, req)
 
 	assert.NoError(t, err)
-	assert.Equal(t, r.HealthCheckFrequency, result.RequeueAfter)
+	assert.True(t, result.Requeue)
+	assert.Equal(t, time.Duration(0), result.RequeueAfter)
 }

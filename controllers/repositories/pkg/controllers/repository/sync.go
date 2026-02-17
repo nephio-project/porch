@@ -29,6 +29,97 @@ import (
 	"github.com/robfig/cron/v3"
 )
 
+// OperationType defines the type of operation
+type OperationType int
+
+const (
+	OperationHealthCheck OperationType = iota // Lightweight connectivity check
+	OperationFullSync                         // Complete data synchronization
+)
+
+// SyncDecision represents what type of operation is needed
+type SyncDecision struct {
+	Type                  OperationType
+	SyncNecessary         bool
+	UseExponentialBackoff bool          // Use controller backoff instead of fixed interval
+	DelayBeforeNextSync   time.Duration // Requeue interval (ignored if UseExponentialBackoff=true)
+}
+
+// SyncResult contains the result of a sync operation
+type SyncResult struct {
+	Status       RepositoryStatus
+	Error        error
+	NextSyncTime *time.Time
+}
+
+// Sync handles repository synchronization operations
+type Sync struct {
+	reconciler *RepositoryReconciler
+}
+
+// HandleSync performs the sync operation and returns the result
+func (s *Sync) HandleSync(ctx context.Context, repo *api.Repository) SyncResult {
+	log := log.FromContext(ctx)
+
+	packageCount, commitHash, err := s.reconciler.syncRepository(ctx, repo)
+
+	if err != nil {
+		repoURL, _, _ := getRepoFields(repo)
+		log.Error(err, "Repository sync failed", "repoURL", repoURL)
+		retryInterval := s.reconciler.determineRetryInterval(err)
+		next := time.Now().Add(retryInterval)
+		return SyncResult{Status: RepositoryStatusError, Error: err, NextSyncTime: &next}
+	}
+
+	// Sync succeeded
+	syncReason := "scheduled"
+	if repo.Spec.Sync != nil && repo.Spec.Sync.RunOnceAt != nil {
+		syncReason = "runOnceAt"
+	} else if repo.Spec.Sync != nil && repo.Spec.Sync.Schedule != "" {
+		syncReason = "cron:" + repo.Spec.Sync.Schedule
+	}
+	log.Info("Repository full sync completed successfully", "trigger", syncReason)
+
+	// Update status fields
+	now := metav1.Now()
+	repo.Status.LastFullSyncTime = &now
+	repo.Status.ObservedGeneration = repo.Generation
+	if repo.Spec.Sync != nil && repo.Spec.Sync.RunOnceAt != nil {
+		repo.Status.ObservedRunOnceAt = repo.Spec.Sync.RunOnceAt
+	} else if repo.Status.ObservedRunOnceAt != nil {
+		repo.Status.ObservedRunOnceAt = nil
+	}
+	repo.Status.PackageCount = packageCount
+	repo.Status.GitCommitHash = commitHash
+
+	next := s.reconciler.calculateNextFullSyncTime(repo)
+	repo.Status.NextFullSyncTime = &metav1.Time{Time: next}
+
+	return SyncResult{Status: RepositoryStatusReady, Error: nil, NextSyncTime: &next}
+}
+
+// PerformAsyncSync performs repository sync in background goroutine
+func (s *Sync) PerformAsyncSync(ctx context.Context, repo *api.Repository) {
+	log := log.FromContext(ctx)
+
+	result := s.HandleSync(ctx, repo)
+
+	if statusErr := s.reconciler.updateRepoStatusWithBackoff(ctx, repo, result.Status, result.Error, result.NextSyncTime); statusErr != nil {
+		if client.IgnoreNotFound(statusErr) == nil {
+			log.V(1).Info("Repository deleted during sync")
+			return
+		}
+		log.Error(statusErr, "Failed to update repository status after sync")
+		return
+	}
+
+	if result.Error == nil && repo.Spec.Sync != nil && repo.Spec.Sync.RunOnceAt != nil {
+		if clearErr := s.reconciler.clearOneTimeSyncFlag(ctx, repo); clearErr != nil && client.IgnoreNotFound(clearErr) != nil {
+			log.Error(clearErr, "Failed to clear one-time sync flag (non-critical)")
+		}
+	}
+}
+
 // syncRepository performs repository synchronization and returns sync metadata
 func (r *RepositoryReconciler) syncRepository(ctx context.Context, repo *api.Repository) (packageCount int, commitHash string, err error) {
 	log := log.FromContext(ctx)
@@ -59,59 +150,52 @@ func (r *RepositoryReconciler) syncRepository(ctx context.Context, repo *api.Rep
 	return len(pkgRevs), commitHash, nil
 }
 
-// SyncDecision represents what type of operation is needed
-type SyncDecision struct {
-	Type     SyncType
-	Needed   bool
-	Interval time.Duration // How long to wait before next check
-}
-
 // determineSyncDecision decides what operation is needed and when to requeue
 func (r *RepositoryReconciler) determineSyncDecision(ctx context.Context, repo *api.Repository) SyncDecision {
 	// Don't start new operations if already in progress
 	if r.isSyncInProgress(ctx, repo) {
-		// Use health check frequency to avoid tight loops while waiting for sync to complete
-		return SyncDecision{Type: HealthCheck, Needed: false, Interval: r.HealthCheckFrequency}
+		// Use exponential backoff to avoid tight loops while waiting for sync to complete
+		return SyncDecision{Type: OperationHealthCheck, SyncNecessary: false, UseExponentialBackoff: true}
 	}
 
 	switch {
 	case r.isOneTimeSyncDue(repo):
 		// 1. One-time sync due → Full sync
 		log.FromContext(ctx).Info("RunOnceAt sync triggered", "scheduledTime", repo.Spec.Sync.RunOnceAt.Time.Format(time.RFC3339))
-		return SyncDecision{Type: FullSync, Needed: true, Interval: 0}
+		return SyncDecision{Type: OperationFullSync, SyncNecessary: true, DelayBeforeNextSync: 0}
 
 	case r.hasSpecChanged(repo):
 		// 2. Spec changed → Check if only runOnceAt changed
 		specRunOnceAt := getRunOnceAt(repo)
 		statusRunOnceAt := repo.Status.ObservedRunOnceAt
-		
+
 		// If only runOnceAt changed (not other spec fields), update ObservedGeneration and skip sync
 		// The sync will trigger when the scheduled time arrives via isOneTimeSyncDue
 		if !equalTimes(specRunOnceAt, statusRunOnceAt) {
 			// Just update ObservedGeneration to acknowledge we've seen the spec change
 			// Don't update ObservedRunOnceAt yet - that happens after sync completes
 			repo.Status.ObservedGeneration = repo.Generation
-			return SyncDecision{Type: HealthCheck, Needed: false, Interval: r.getRequeueInterval(repo)}
+			return SyncDecision{Type: OperationHealthCheck, SyncNecessary: false, DelayBeforeNextSync: r.getRequeueInterval(repo)}
 		}
-		
+
 		// runOnceAt didn't change, other spec fields changed → Full sync
-		return SyncDecision{Type: FullSync, Needed: true, Interval: 0}
+		return SyncDecision{Type: OperationFullSync, SyncNecessary: true, DelayBeforeNextSync: 0}
 
 	case r.isErrorRetryDue(repo):
 		// 3. Error retry due → Health check (not full sync)
-		return SyncDecision{Type: HealthCheck, Needed: true, Interval: 0}
+		return SyncDecision{Type: OperationHealthCheck, SyncNecessary: true, DelayBeforeNextSync: 0}
 
 	case r.isFullSyncDue(repo):
 		// 4. Full sync due → Full sync (only if not in error state)
-		return SyncDecision{Type: FullSync, Needed: true, Interval: 0}
+		return SyncDecision{Type: OperationFullSync, SyncNecessary: true, DelayBeforeNextSync: 0}
 
 	case r.isHealthCheckDue(repo):
 		// 5. Health check due → Health check
-		return SyncDecision{Type: HealthCheck, Needed: true, Interval: 0}
+		return SyncDecision{Type: OperationHealthCheck, SyncNecessary: true, DelayBeforeNextSync: 0}
 
 	default:
 		// Nothing needed, return next check interval
-		return SyncDecision{Type: HealthCheck, Needed: false, Interval: r.getRequeueInterval(repo)}
+		return SyncDecision{Type: OperationHealthCheck, SyncNecessary: false, DelayBeforeNextSync: r.getRequeueInterval(repo)}
 	}
 }
 
@@ -380,4 +464,12 @@ func equalTimes(t1, t2 *metav1.Time) bool {
 		return false
 	}
 	return t1.Equal(t2)
+}
+
+// InitializeSyncLimiter initializes the sync limiter for testing
+func (r *RepositoryReconciler) InitializeSyncLimiter() {
+	if r.MaxConcurrentSyncs <= 0 {
+		r.MaxConcurrentSyncs = 100 // Default limit
+	}
+	r.syncLimiter = make(chan struct{}, r.MaxConcurrentSyncs)
 }

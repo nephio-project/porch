@@ -285,7 +285,8 @@ var _ = Describe("Repository Controller Integration", func() {
 
 			result, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: namespacedName})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.RequeueAfter).To(Equal(2 * time.Second))
+			Expect(result.RequeueAfter).To(Equal(time.Duration(0)))
+			Expect(result.Requeue).To(BeTrue())
 		})
 
 		It("Should detect stale sync and retry", func() {

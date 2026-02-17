@@ -256,19 +256,6 @@ func (c completedConfig) createEmbeddedControllerManager() (*EmbeddedControllerM
 	return createEmbeddedControllerManager(restConfig, scheme, config)
 }
 
-// setupEmbeddedControllerManager creates embedded controller manager if CR cache is used
-func (c completedConfig) setupEmbeddedControllerManager() (*EmbeddedControllerManager, error) {
-	if c.ExtraConfig.CacheOptions.CacheType != cachetypes.CRCacheType {
-		return nil, nil
-	}
-
-	embeddedController, err := c.createEmbeddedControllerManager()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create embedded controller: %w", err)
-	}
-	return embeddedController, nil
-}
-
 // New returns a new instance of PorchServer from the given config.
 func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	// TODO: REMOVE AFTER ASYNC IMPLEMENTATION IS READY.
@@ -315,9 +302,12 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.RepoOperationRetryAttempts = c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts
 
 	// Create embedded repo controller if needed
-	embeddedController, err := c.setupEmbeddedControllerManager()
-	if err != nil {
-		return nil, err
+	var embeddedController *EmbeddedControllerManager = nil
+	if c.ExtraConfig.CacheOptions.CacheType == cachetypes.CRCacheType {
+		embeddedController, err = c.createEmbeddedControllerManager()
+		if err != nil {
+			return nil, fmt.Errorf("failed to create embedded controller: %w", err)
+		}
 	}
 
 	cacheImpl, err := cache.GetCacheImpl(ctx, c.ExtraConfig.CacheOptions)

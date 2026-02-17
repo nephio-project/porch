@@ -39,14 +39,6 @@ const (
 	RepositoryFinalizer = "config.porch.kpt.dev/repository"
 )
 
-// SyncType defines the type of sync operation
-type SyncType int
-
-const (
-	HealthCheck SyncType = iota // Lightweight connectivity check
-	FullSync                    // Complete data synchronization
-)
-
 // RepositoryReconciler reconciles Repository objects
 type RepositoryReconciler struct {
 	client.Client
@@ -110,51 +102,36 @@ func (r *RepositoryReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	// Determine what operation is needed
 	decision := r.determineSyncDecision(ctx, repo)
-	log.V(2).Info("Sync decision made", "type", decision.Type, "needed", decision.Needed, "interval", decision.Interval)
+	log.V(2).Info("Sync decision made", "type", decision.Type, "needed", decision.SyncNecessary, "interval", decision.DelayBeforeNextSync)
 
 	// If status was modified (e.g., ObservedRunOnceAt), persist it using SSA
-	if !decision.Needed {
+	if !decision.SyncNecessary {
 		// Update status if it changed (e.g., ObservedRunOnceAt was set)
 		if err := r.updateRepoStatusWithBackoff(ctx, repo, RepositoryStatusReady, nil, nil); err != nil {
 			log.Error(err, "Failed to update repository status")
 			return ctrl.Result{}, err
 		}
-		
-		// Defense in depth: Ensure we never return 0 requeue interval
-		// Primary mitigation is in calculateNextSyncInterval() which uses HealthCheckFrequency as floor
-		// This should never trigger in normal operation - if it does, indicates a bug
-		if decision.Interval <= 0 {
-			decision.Interval = 1 * time.Second
+
+		// Use exponential backoff if requested (e.g., waiting for sync to complete)
+		if decision.UseExponentialBackoff {
+			log.V(2).Info("Using exponential backoff for requeue")
+			return ctrl.Result{Requeue: true}, nil
+		}
+
+		// Ensure we never return 0 or negative requeue interval
+		if decision.DelayBeforeNextSync <= 0 {
+			decision.DelayBeforeNextSync = 1 * time.Second
 			log.Info("Requeue interval was zero or negative, using 1s minimum")
 		}
-		log.V(2).Info("No operation needed, requeuing", "after", decision.Interval)
-		return ctrl.Result{RequeueAfter: decision.Interval}, nil
+		log.V(2).Info("No operation needed, requeuing", "after", decision.DelayBeforeNextSync)
+		return ctrl.Result{RequeueAfter: decision.DelayBeforeNextSync}, nil
 	}
 
-	if decision.Type == HealthCheck {
-		// Don't run health check if full sync is in progress (prevents concurrent status updates)
-		if r.isSyncInProgress(ctx, repo) {
-			log.V(1).Info("Skipping health check, full sync in progress")
-			return ctrl.Result{RequeueAfter: r.HealthCheckFrequency}, nil
-		}
+	if decision.Type == OperationHealthCheck {
 		return r.performHealthCheckSync(ctx, repo)
 	}
 
 	return r.performFullSync(ctx, repo)
-}
-
-// ensureFinalizer adds finalizer if missing using patch to avoid generation increment
-func (r *RepositoryReconciler) ensureFinalizer(ctx context.Context, repo *api.Repository) (bool, error) {
-	if controllerutil.ContainsFinalizer(repo, RepositoryFinalizer) {
-		return false, nil
-	}
-	log.FromContext(ctx).Info("Adding finalizer to repository")
-	patch := client.MergeFrom(repo.DeepCopy())
-	controllerutil.AddFinalizer(repo, RepositoryFinalizer)
-	if err := r.Patch(ctx, repo, patch); err != nil {
-		return false, err
-	}
-	return true, nil
 }
 
 // performHealthCheckSync executes synchronous health check
@@ -246,7 +223,8 @@ func (r *RepositoryReconciler) performFullSync(ctx context.Context, repo *api.Re
 			asyncCtx := ctrl.LoggerInto(context.Background(), log)
 			// Make a copy to avoid race conditions with caller's repo object
 			repoCopy := repo.DeepCopy()
-			r.performAsyncSync(asyncCtx, repoCopy)
+			sync := &Sync{reconciler: r}
+			sync.PerformAsyncSync(asyncCtx, repoCopy)
 		}()
 	default:
 		// Too many syncs running
@@ -268,79 +246,23 @@ func (r *RepositoryReconciler) performFullSync(ctx context.Context, repo *api.Re
 	return ctrl.Result{RequeueAfter: r.HealthCheckFrequency}, nil
 }
 
-// performAsyncSync performs repository sync in background goroutine
-func (r *RepositoryReconciler) performAsyncSync(ctx context.Context, repo *api.Repository) {
-	log := log.FromContext(ctx)
-
-	packageCount, commitHash, err := r.syncRepository(ctx, repo)
-
-	var status RepositoryStatus
-	var nextSyncTime *time.Time
-	if err == nil {
-		status = RepositoryStatusReady
-		// Determine sync trigger reason
-		syncReason := "scheduled"
-		if repo.Spec.Sync != nil && repo.Spec.Sync.RunOnceAt != nil {
-			syncReason = "runOnceAt"
-		} else if repo.Spec.Sync != nil && repo.Spec.Sync.Schedule != "" {
-			syncReason = "cron:" + repo.Spec.Sync.Schedule
-		}
-		log.Info("Repository full sync completed successfully", "trigger", syncReason)
-		// Update status fields
-		now := metav1.Now()
-		repo.Status.LastFullSyncTime = &now
-		repo.Status.ObservedGeneration = repo.Generation
-		// Update ObservedRunOnceAt if runOnceAt was set (will be cleared after status update)
-		if repo.Spec.Sync != nil && repo.Spec.Sync.RunOnceAt != nil {
-			repo.Status.ObservedRunOnceAt = repo.Spec.Sync.RunOnceAt
-		} else if repo.Status.ObservedRunOnceAt != nil {
-			// Clear ObservedRunOnceAt if runOnceAt is no longer set
-			repo.Status.ObservedRunOnceAt = nil
-		}
-		repo.Status.PackageCount = packageCount
-		repo.Status.GitCommitHash = commitHash
-		// Calculate next sync time from current time
-		next := r.calculateNextFullSyncTime(repo)
-		nextSyncTime = &next
-		repo.Status.NextFullSyncTime = &metav1.Time{Time: next}
-	} else {
-		status = RepositoryStatusError
-		repoURL, _, _ := getRepoFields(repo)
-		log.Error(err, "Repository sync failed", "repoURL", repoURL)
-		retryInterval := r.determineRetryInterval(err)
-		next := time.Now().Add(retryInterval)
-		nextSyncTime = &next
-	}
-
-	// Update status with result and next sync time
-	if statusErr := r.updateRepoStatusWithBackoff(ctx, repo, status, err, nextSyncTime); statusErr != nil {
-		if client.IgnoreNotFound(statusErr) == nil {
-			log.V(1).Info("Repository deleted during sync")
-			return
-		}
-		log.Error(statusErr, "Failed to update repository status after sync")
-		return // Don't clear runOnceAt if status update failed
-	}
-
-	// Clear one-time sync flag after successful sync
-	if err == nil && repo.Spec.Sync != nil && repo.Spec.Sync.RunOnceAt != nil {
-		if clearErr := r.clearOneTimeSyncFlag(ctx, repo); clearErr != nil && client.IgnoreNotFound(clearErr) != nil {
-			log.Error(clearErr, "Failed to clear one-time sync flag (non-critical)")
-		}
-	}
-}
-
-// InitializeSyncLimiter initializes the sync limiter for testing
-func (r *RepositoryReconciler) InitializeSyncLimiter() {
-	if r.MaxConcurrentSyncs <= 0 {
-		r.MaxConcurrentSyncs = 100 // Default limit
-	}
-	r.syncLimiter = make(chan struct{}, r.MaxConcurrentSyncs)
-}
-
 // SetLogger sets the logger name for this reconciler
 func (r *RepositoryReconciler) SetLogger(name string) {
 	r.loggerName = name
+}
+
+// ensureFinalizer adds finalizer if missing using patch to avoid generation increment
+func (r *RepositoryReconciler) ensureFinalizer(ctx context.Context, repo *api.Repository) (bool, error) {
+	if controllerutil.ContainsFinalizer(repo, RepositoryFinalizer) {
+		return false, nil
+	}
+	log.FromContext(ctx).Info("Adding finalizer to repository")
+	patch := client.MergeFrom(repo.DeepCopy())
+	controllerutil.AddFinalizer(repo, RepositoryFinalizer)
+	if err := r.Patch(ctx, repo, patch); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // getRepoFields extracts repository-specific fields for logging
