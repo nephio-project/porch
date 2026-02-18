@@ -22,6 +22,7 @@ import (
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	kptfn "github.com/kptdev/krm-functions-sdk/go/fn"
+	kptfileko "github.com/kptdev/krm-functions-sdk/go/fn/kptfileko"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	fakeextrepo "github.com/nephio-project/porch/pkg/externalrepo/fake"
@@ -332,7 +333,7 @@ info:
 		},
 	}
 
-	kptf, err := kptfn.NewKptfileFromPackage(resources)
+	kptf, err := kptfileko.NewFromPackage(resources)
 	require.NoError(t, err)
 
 	kptf.SetLabels(obj.Spec.PackageMetadata.Labels)
@@ -393,7 +394,7 @@ info:
 			},
 		},
 	}
-	kptf2, err := kptfn.NewKptfileFromPackage(resources2)
+	kptf2, err := kptfileko.NewFromPackage(resources2)
 	require.NoError(t, err)
 
 	labels2 := kptf2.GetLabels()

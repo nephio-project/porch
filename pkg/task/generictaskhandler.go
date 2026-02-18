@@ -25,6 +25,7 @@ import (
 	"github.com/kptdev/kpt/pkg/lib/builtins/builtintypes"
 	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	kptfn "github.com/kptdev/krm-functions-sdk/go/fn"
+	kptfileko "github.com/kptdev/krm-functions-sdk/go/fn/kptfileko"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -91,7 +92,7 @@ func (th *genericTaskHandler) ApplyTask(ctx context.Context, draft repository.Pa
 	}
 
 	// Upsert labels/annotations/readinessGates from obj.Spec.PackageMetadata and obj.Spec.ReadinessGates
-	kptf, err := kptfn.NewKptfileFromPackage(resources.Contents)
+	kptf, err := kptfileko.NewFromPackage(resources.Contents)
 	if err != nil {
 		return pkgerrors.Wrap(err, "failed to parse Kptfile")
 	}
@@ -306,7 +307,7 @@ func PatchKptfile(
 		resourceMap = res.Spec.Resources
 	}
 
-	kptf, err := kptfn.NewKptfileFromPackage(resourceMap)
+	kptf, err := kptfileko.NewFromPackage(resourceMap)
 	if err != nil {
 		return "", false, fmt.Errorf("parse Kptfile: %w", err)
 	}
@@ -389,7 +390,7 @@ func PatchKptfile(
 	return content, true, nil
 }
 
-func applyMetadataToKptfile(kptf *kptfn.Kptfile, obj *porchapi.PackageRevision, replace bool) (bool, error) {
+func applyMetadataToKptfile(kptf *kptfileko.KptfileKubeObject, obj *porchapi.PackageRevision, replace bool) (bool, error) {
 	var changed bool
 
 	if obj.Spec.PackageMetadata != nil {
