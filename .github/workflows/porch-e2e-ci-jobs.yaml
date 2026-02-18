@@ -14,8 +14,10 @@
 
 name: End-to-End Tests
 on:
+  push:
+    branches: [main, feature-*]  # Validates cherry-picks
   pull_request:
-    branches: [main]
+    branches: [main, feature-*]
   workflow_dispatch:
 
 concurrency:
@@ -106,7 +108,7 @@ jobs:
       matrix:
         include:
           - name: "Porch E2E Tests"
-            make_target: "run-in-kind-no-controller"
+            make_target: "run-in-kind"
             test_path: "${GITHUB_WORKSPACE}/test/e2e/api"
             test_env: "E2E=1"
             log_prefix: "porch-e2e"
@@ -116,7 +118,7 @@ jobs:
             test_env: "E2E=1 DB_CACHE=1"
             log_prefix: "porch-e2e-dbcache"
           - name: "Porch CLI E2E Tests"
-            make_target: "run-in-kind-no-controller"
+            make_target: "run-in-kind"
             test_path: "${GITHUB_WORKSPACE}/test/e2e/cli"
             test_env: "E2E=1"
             log_prefix: "porch-cli-e2e"
