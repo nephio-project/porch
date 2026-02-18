@@ -285,7 +285,7 @@ func TestDetermineCacheDirectory(t *testing.T) {
 
 func TestBuildCacheOptions(t *testing.T) {
 	r := &RepositoryReconciler{
-		cacheType:                  "db",
+		cacheType:                  "DB",
 		useUserDefinedCaBundle:     true,
 		RepoOperationRetryAttempts: 3,
 	}
@@ -299,7 +299,7 @@ func TestBuildCacheOptions(t *testing.T) {
 
 	options := r.buildCacheOptions(nil, dbOptions, "/test/cache", nil, nil, userInfoProvider)
 
-	assert.Equal(t, cachetypes.CacheType("db"), options.CacheType)
+	assert.Equal(t, cachetypes.CacheType("DB"), options.CacheType)
 	assert.Equal(t, "pgx", options.DBCacheOptions.Driver)
 	assert.Equal(t, "/test/cache", options.ExternalRepoOptions.LocalDirectory)
 	assert.True(t, options.ExternalRepoOptions.UseUserDefinedCaBundle)
