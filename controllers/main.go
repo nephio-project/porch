@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2022,2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
 
 package main
 
-//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 rbac:headerFile=../scripts/boilerplate.yaml.txt,roleName=porch-controllers webhook paths="."
+//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 rbac:headerFile=../scripts/boilerplate.yaml.txt,roleName=porch-controllers,year=$YEAR_GEN webhook paths="."
 
-//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 crd:headerFile=../scripts/boilerplate.yaml.txt paths="./..." output:crd:artifacts:config=config/crd/bases
+//go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 crd:headerFile=../scripts/boilerplate.yaml.txt,year=$YEAR_GEN paths="./..." output:crd:artifacts:config=config/crd/bases
 
 import (
 	"context"
