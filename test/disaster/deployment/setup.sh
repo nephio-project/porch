@@ -28,8 +28,8 @@ KPT_REPO='https://github.com/kptdev/kpt.git'
 cd "$PORCH_DIR"
 
 export cleandown=${CLEANDOWN:-true}
-export skip_variant_sets=${SKIP_VARIANT_SETS:-true}
-export skip_variants=${SKIP_VARIANTS:-true}
+export skip_package_variant_sets=${SKIP_PACKAGE_VARIANT_SETS:-true}
+export skip_package_variants=${SKIP_PACKAGE_VARIANTS:-true}
 export SKIP_IMG_BUILD="false"
 
 data_kind_cluster="porch-disaster-test-data"
@@ -148,11 +148,11 @@ function resetTestWorkload() {
         (
             prefixLogs --prefix "cleaning down DB cache cluster" --colour 3
 
-            if [[ $skip_variant_sets != "true" ]]; then
+            if [[ $skip_package_variant_sets != "true" ]]; then
                 h2 "Deleting package variant sets"
                 kubectl_dbcache delete packagevariantsets --all
             fi
-            if [[ $skip_variants != "true" ]]; then
+            if [[ $skip_package_variants != "true" ]]; then
                 h2 "Deleting package variants"
                 kubectl_dbcache delete packagevariants --all
             fi
@@ -220,7 +220,7 @@ function resetTestWorkload() {
             
             git remote add origin http://nephio:secret@"$gitea_ip":3000/nephio/edge1.git; git push -u origin main
 
-            if [[ $skip_variant_sets != "true" ]]; then
+            if [[ $skip_package_variant_sets != "true" ]]; then
                 for copy in {1..10}; do
                     h2 "Pushing http://nephio:secret@$gitea_ip:3000/nephio/variantset-edge-$copy"
                     git remote set-url origin "http://nephio:secret@$gitea_ip:3000/nephio/variantset-edge-$copy"
@@ -239,7 +239,7 @@ function resetTestWorkload() {
 
     kubectl_dbcache apply -f "$self_dir/load-repositories/edge1-repository.yaml"
 
-    if [[ $skip_variant_sets != "true" ]]; then
+    if [[ $skip_package_variant_sets != "true" ]]; then
         h2 "Creating variant-set repositories from $self_dir/load-repositories/variantset-repositories.yaml"
         kubectl_dbcache apply -f "$self_dir/load-repositories/variantset-repositories.yaml"
         h2 "Waiting for all repositories to have condition Ready==True"
@@ -251,7 +251,7 @@ function resetTestWorkload() {
         kubectl_dbcache wait packagevariantsets --all --all-namespaces --for 'condition=Ready=True' --timeout 5m
     fi
 
-    if [[ $skip_variants != "true" ]]; then
+    if [[ $skip_package_variants != "true" ]]; then
         h2 "Creating package variants from $self_dir/load-variants.yaml"
         kubectl_dbcache apply -f "$self_dir/load-variants.yaml"
     fi
@@ -264,7 +264,7 @@ function resetTestWorkload() {
         kubectl_dbcache wait repositories --all-namespaces --all --for 'condition=Ready=True' --timeout 20m
     done
 
-    if [[ $skip_variant_sets != "true" || $skip_variants != "true" ]]; then
+    if [[ $skip_package_variant_sets != "true" || $skip_package_variants != "true" ]]; then
 
         h2 "Waiting for all package variants to have condition Ready==True"
         kubectl_dbcache wait packagevariants --all --all-namespaces --for 'condition=Ready=True' --timeout 10m
@@ -317,12 +317,12 @@ function resetTestWorkload() {
     edited="$(grep -E "\.edit-" <<< "$package_revisions")" || { echo "Error picking out edited package revisions"; exit 1; }
 
 
-    if [[ $skip_variant_sets != "true" ]]; then
+    if [[ $skip_package_variant_sets != "true" ]]; then
         variantset_created="$(grep -E 'variantset' <<< "$package_revisions")" || { echo "Error picking out package revisions created from variant-set"; exit 1; }
     else
         variantset_created=""
     fi
-    if [[ $skip_variants != "true" ]]; then
+    if [[ $skip_package_variants != "true" ]]; then
         variant_created="$(grep -E '\-variant\.' <<< "$package_revisions")" || { echo "Error picking out package revisions created from variants"; exit 1; }
     else
         variant_created=""
