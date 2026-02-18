@@ -72,6 +72,8 @@ spec:
         # Update to the image of your porch-controllers build.
         image: docker.io/nephio/porch-controllers:latest
         imagePullPolicy: IfNotPresent
+        args:
+        - --repositories.cache-type=DB
         securityContext:
           runAsNonRoot: true
           runAsUser: 10001
@@ -97,6 +99,13 @@ spec:
         - secretRef:
             name: porch-db-secret
             optional: true
+        resources:
+          requests:
+            memory: 512Mi
+            cpu: 500m
+          limits:
+            memory: 1Gi
+            cpu: 1000m
         livenessProbe:
           failureThreshold: 3
           httpGet:

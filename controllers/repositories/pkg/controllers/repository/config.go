@@ -44,36 +44,6 @@ func (r *RepositoryReconciler) InitDefaults() {
 	r.validateConfig()
 }
 
-// EmbeddedConfig holds configuration for embedded controller mode
-type EmbeddedConfig struct {
-	MaxConcurrentReconciles    int
-	MaxConcurrentSyncs         int
-	HealthCheckFrequency       time.Duration
-	FullSyncFrequency          time.Duration
-	RepoOperationRetryAttempts int
-}
-
-// SetEmbeddedDefaults sets configuration for embedded controller mode
-func (r *RepositoryReconciler) SetEmbeddedDefaults(config EmbeddedConfig) {
-	r.MaxConcurrentReconciles = config.MaxConcurrentReconciles
-	r.MaxConcurrentSyncs = config.MaxConcurrentSyncs
-	r.HealthCheckFrequency = config.HealthCheckFrequency
-	r.FullSyncFrequency = config.FullSyncFrequency
-	r.RepoOperationRetryAttempts = config.RepoOperationRetryAttempts
-	r.validateConfig()
-}
-
-// DefaultEmbeddedConfig returns default configuration for embedded mode
-func DefaultEmbeddedConfig() EmbeddedConfig {
-	return EmbeddedConfig{
-		MaxConcurrentReconciles:    defaultMaxConcurrentReconciles,
-		MaxConcurrentSyncs:         defaultMaxConcurrentSyncs,
-		HealthCheckFrequency:       defaultHealthCheckFrequency,
-		FullSyncFrequency:          defaultFullSyncFrequency,
-		RepoOperationRetryAttempts: defaultRepoOperationRetryAttempts,
-	}
-}
-
 // BindFlags binds controller-specific command line flags
 func (r *RepositoryReconciler) BindFlags(prefix string, flags *flag.FlagSet) {
 	flags.IntVar(&r.MaxConcurrentReconciles, prefix+"max-concurrent-reconciles", defaultMaxConcurrentReconciles, "Maximum number of concurrent repository reconciles")

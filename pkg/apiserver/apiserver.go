@@ -26,7 +26,6 @@ import (
 	"github.com/nephio-project/porch/api/porch/install"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
-	repocontroller "github.com/nephio-project/porch/controllers/repositories/pkg/controllers/repository"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
@@ -77,20 +76,11 @@ func init() {
 	)
 }
 
-// RepoControllerConfig holds configuration for the embedded Repository controller
-type RepoControllerConfig struct {
-	MaxConcurrentReconciles int
-	MaxConcurrentSyncs      int
-	HealthCheckFrequency    time.Duration
-	FullSyncFrequency       time.Duration
-}
-
 // ExtraConfig holds custom apiserver config
 type ExtraConfig struct {
 	CoreAPIKubeconfigPath    string
 	GRPCRuntimeOptions       engine.GRPCRuntimeOptions
 	CacheOptions             cachetypes.CacheOptions
-	RepoControllerConfig     RepoControllerConfig
 	ListTimeoutPerRepository time.Duration
 	MaxConcurrentLists       int
 }
@@ -109,7 +99,6 @@ type PorchServer struct {
 	ListTimeoutPerRepository   time.Duration
 	repoOperationRetryAttempts int
 	ExtraConfig                *ExtraConfig
-	embeddedController         *EmbeddedControllerManager
 }
 
 type completedConfig struct {
@@ -233,29 +222,6 @@ func (c completedConfig) getCoreV1Client() (*corev1client.CoreV1Client, error) {
 	return corev1Client, nil
 }
 
-// createEmbeddedControllerManager creates embedded controller manager
-func (c completedConfig) createEmbeddedControllerManager() (*EmbeddedControllerManager, error) {
-	config := repocontroller.EmbeddedConfig{
-		MaxConcurrentReconciles:    c.ExtraConfig.RepoControllerConfig.MaxConcurrentReconciles,
-		MaxConcurrentSyncs:         c.ExtraConfig.RepoControllerConfig.MaxConcurrentSyncs,
-		HealthCheckFrequency:       c.ExtraConfig.RepoControllerConfig.HealthCheckFrequency,
-		FullSyncFrequency:          c.ExtraConfig.RepoControllerConfig.FullSyncFrequency,
-		RepoOperationRetryAttempts: c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts,
-	}
-
-	scheme, err := buildCompleteScheme()
-	if err != nil {
-		return nil, fmt.Errorf("failed to build scheme: %w", err)
-	}
-
-	restConfig, err := c.getRestConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get rest config: %w", err)
-	}
-
-	return createEmbeddedControllerManager(restConfig, scheme, config)
-}
-
 // New returns a new instance of PorchServer from the given config.
 func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	// TODO: REMOVE AFTER ASYNC IMPLEMENTATION IS READY.
@@ -301,14 +267,7 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.UserInfoProvider = userInfoProvider
 	c.ExtraConfig.CacheOptions.ExternalRepoOptions.RepoOperationRetryAttempts = c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts
 
-	// Create embedded repo controller if needed
-	var embeddedController *EmbeddedControllerManager = nil
-	if c.ExtraConfig.CacheOptions.CacheType == cachetypes.CRCacheType {
-		embeddedController, err = c.createEmbeddedControllerManager()
-		if err != nil {
-			return nil, fmt.Errorf("failed to create embedded controller: %w", err)
-		}
-	}
+
 
 	cacheImpl, err := cache.GetCacheImpl(ctx, c.ExtraConfig.CacheOptions)
 
@@ -358,7 +317,6 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 		coreClient:                 coreClient,
 		cache:                      cacheImpl,
 		ExtraConfig:                c.ExtraConfig,
-		embeddedController:         embeddedController,
 		ListTimeoutPerRepository:   c.ExtraConfig.ListTimeoutPerRepository,
 		repoOperationRetryAttempts: c.ExtraConfig.CacheOptions.RepoOperationRetryAttempts,
 	}
@@ -372,21 +330,6 @@ func (c completedConfig) New(ctx context.Context) (*PorchServer, error) {
 }
 
 func (s *PorchServer) Run(ctx context.Context) error {
-	webhookReady := make(chan struct{})
-
-	if s.embeddedController != nil {
-		klog.Info("Starting embedded repository controller (CR cache mode)")
-		s.embeddedController.cache = s.cache
-		s.embeddedController.webhookReady = webhookReady
-		go func() {
-			if err := s.embeddedController.Start(ctx); err != nil {
-				klog.Error(err, "Embedded controller failed")
-			}
-		}()
-	} else {
-		klog.Info("Using standalone repository controller (DB cache mode)")
-	}
-
 	// TODO: Reconsider if the existence of CERT_STORAGE_DIR was a good inidcator for webhook setup,
 	// but for now we keep backward compatiblity
 	certStorageDir, found := os.LookupEnv("CERT_STORAGE_DIR")
@@ -395,10 +338,8 @@ func (s *PorchServer) Run(ctx context.Context) error {
 			klog.Errorf("%v\n", err)
 			return err
 		}
-		close(webhookReady) // Signal webhook is ready
 	} else {
 		klog.Infoln("Cert storage dir not provided, skipping webhook setup")
-		close(webhookReady) // No webhook, signal immediately
 	}
 	return s.GenericAPIServer.PrepareRun().RunWithContext(ctx)
 }

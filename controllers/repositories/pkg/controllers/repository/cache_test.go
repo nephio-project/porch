@@ -204,13 +204,18 @@ func TestValidateCacheType(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:        "invalid CR cache type",
+			name:        "valid CR cache type",
 			cacheType:   "cr",
-			expectError: true,
+			expectError: false,
 		},
 		{
-			name:        "invalid CR cache type uppercase",
+			name:        "valid CR cache type uppercase",
 			cacheType:   "CR",
+			expectError: false,
+		},
+		{
+			name:        "invalid cache type",
+			cacheType:   "invalid",
 			expectError: true,
 		},
 		{
@@ -300,6 +305,7 @@ func TestBuildCacheOptions(t *testing.T) {
 	assert.True(t, options.ExternalRepoOptions.UseUserDefinedCaBundle)
 	assert.Equal(t, 3, options.ExternalRepoOptions.RepoOperationRetryAttempts)
 	assert.Equal(t, userInfoProvider, options.ExternalRepoOptions.UserInfoProvider)
+	assert.NotNil(t, options.RepoPRChangeNotifier)
 }
 
 func TestCreateCredentialResolvers(t *testing.T) {

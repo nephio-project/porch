@@ -69,10 +69,6 @@ type PorchServerOptions struct {
 	MaxRequestBodySize          int
 	RepoOperationRetryAttempts  int
 	RetryableGitErrors          []string // Additional retryable git error patterns
-	RepoMaxConcurrentReconciles int
-	RepoMaxConcurrentSyncs      int
-	RepoHealthCheckFrequency    time.Duration
-	RepoFullSyncFrequency       time.Duration
 	SharedInformerFactory       informers.SharedInformerFactory
 	StdOut                      io.Writer
 	StdErr                      io.Writer
@@ -303,12 +299,6 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 					DataSource: o.DbCacheDataSource,
 				},
 			},
-			RepoControllerConfig: apiserver.RepoControllerConfig{
-				MaxConcurrentReconciles: o.RepoMaxConcurrentReconciles,
-				MaxConcurrentSyncs:      o.RepoMaxConcurrentSyncs,
-				HealthCheckFrequency:    o.RepoHealthCheckFrequency,
-				FullSyncFrequency:       o.RepoFullSyncFrequency,
-			},
 			ListTimeoutPerRepository: o.ListTimeoutPerRepository,
 			MaxConcurrentLists:       o.MaxConcurrentLists,
 		},
@@ -368,10 +358,4 @@ func (o *PorchServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringSliceVar(&o.RetryableGitErrors, "retryable-git-errors", nil, "Additional retryable git error patterns. Can be specified multiple times or as comma-separated values.")
 	fs.DurationVar(&o.ListTimeoutPerRepository, "list-timeout-per-repo", 20*time.Second, "Maximum amount of time to wait for a repository list request.")
 	fs.IntVar(&o.MaxConcurrentLists, "max-parallel-repo-lists", 10, "Maximum number of repositories to list in parallel.")
-
-	// Repository controller configuration (controller-based sync)
-	fs.IntVar(&o.RepoMaxConcurrentReconciles, "repo-max-concurrent-reconciles", 100, "Maximum number of repository reconciliations to run concurrently.")
-	fs.IntVar(&o.RepoMaxConcurrentSyncs, "repo-max-concurrent-syncs", 50, "Maximum number of repository syncs to run concurrently.")
-	fs.DurationVar(&o.RepoHealthCheckFrequency, "repo-health-check-frequency", 5*time.Minute, "Frequency at which repository health checks are performed.")
-	fs.DurationVar(&o.RepoFullSyncFrequency, "repo-full-sync-frequency", 1*time.Hour, "Frequency at which full repository syncs are performed.")
 }

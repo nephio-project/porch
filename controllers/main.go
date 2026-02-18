@@ -47,9 +47,12 @@ import (
 	"github.com/nephio-project/porch/controllers/packagevariantsets/pkg/controllers/packagevariantset"
 	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
 	"github.com/nephio-project/porch/controllers/repositories/pkg/controllers/repository"
+	porchinternal "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	"github.com/nephio-project/porch/pkg/controllerrestmapper"
 	//+kubebuilder:scaffold:imports
 )
+
+const errInitScheme = "error initializing scheme: %w"
 
 var (
 	reconcilers = map[string]Reconciler{
@@ -120,15 +123,19 @@ func run(ctx context.Context) error {
 
 	scheme := runtime.NewScheme()
 	if err := clientgoscheme.AddToScheme(scheme); err != nil {
-		return fmt.Errorf("error initializing scheme: %w", err)
+		return fmt.Errorf(errInitScheme, err)
 	}
 
 	if err := porchapi.AddToScheme(scheme); err != nil {
-		return fmt.Errorf("error initializing scheme: %w", err)
+		return fmt.Errorf(errInitScheme, err)
 	}
 
 	if err := configapi.AddToScheme(scheme); err != nil {
-		return fmt.Errorf("error initializing scheme: %w", err)
+		return fmt.Errorf(errInitScheme, err)
+	}
+
+	if err := porchinternal.AddToScheme(scheme); err != nil {
+		return fmt.Errorf(errInitScheme, err)
 	}
 
 	managerOptions := ctrl.Options{

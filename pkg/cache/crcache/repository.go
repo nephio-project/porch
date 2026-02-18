@@ -473,27 +473,38 @@ func (r *cachedRepository) ListPackages(ctx context.Context, filter repository.L
 
 func (r *cachedRepository) Close(ctx context.Context) error {
 	r.refreshWg.Wait()
-	sent := 0
-	for _, pr := range r.cachedPackageRevisions {
-		nn := types.NamespacedName{
-			Name:      pr.KubeObjectName(),
-			Namespace: pr.KubeObjectNamespace(),
+	
+	// Query PackageRevs from API server to ensure we delete all of them,
+	// not just those in the in-memory cache
+	pkgRevs, err := r.metadataStore.List(ctx, r.repoSpec)
+	if err != nil {
+		klog.Warningf("repo %+v: error listing PackageRevs during close: %v", r.Key(), err)
+	} else {
+		klog.Infof("repo %+v: Close called, found %d PackageRevs to delete", r.Key(), len(pkgRevs))
+		sent := 0
+		for _, pkgRevMeta := range pkgRevs {
+			nn := types.NamespacedName{
+				Name:      pkgRevMeta.Name,
+				Namespace: pkgRevMeta.Namespace,
+			}
+			klog.Infof("repo %+v: deleting packagerev %s/%s because repository is closed", r.Key(), nn.Namespace, nn.Name)
+			_, err := r.metadataStore.Delete(ctx, nn, true)
+			if err != nil {
+				klog.Warningf("repo %+v: error deleting packagerev %s: %v", r.Key(), nn.Name, err)
+			} else {
+				klog.Infof("repo %+v: successfully deleted packagerev %s/%s", r.Key(), nn.Namespace, nn.Name)
+			}
+			// Send delete notification if we have the PR in cache
+			for _, pr := range r.cachedPackageRevisions {
+				if pr.KubeObjectName() == nn.Name && pr.KubeObjectNamespace() == nn.Namespace {
+					sent += r.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Deleted, pr)
+					break
+				}
+			}
 		}
-		// There isn't really any correct way to handle finalizers here. We are removing
-		// the repository, so we have to just delete the PackageRevision regardless of any
-		// finalizers.
-		klog.Infof("repo %+v: deleting packagerev %s/%s because repository is closed", r.Key(), nn.Namespace, nn.Name)
-		_, err := r.metadataStore.Delete(context.TODO(), nn, true)
-		if err != nil {
-			// There isn't much use in returning an error here, so we just log it
-			// and create a PackageRevisionMeta with just name and namespace. This
-			// makes sure that the Delete event is sent.
-			klog.Warningf("repo %+v: error deleting packagerev for %s: %v", r.Key(), nn.Name, err)
-		}
-		klog.Infof("repo %+v: successfully deleted packagerev %s/%s", r.Key(), nn.Namespace, nn.Name)
-		sent += r.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Deleted, pr)
+		klog.Infof("repo %+v: sent %d notifications for %d package revisions during close", r.Key(), sent, len(pkgRevs))
 	}
-	klog.Infof("repo %+v: sent %d notifications for %d package revisions during close", r.Key(), sent, len(r.cachedPackageRevisions))
+	
 	return r.repo.Close(ctx)
 }
 

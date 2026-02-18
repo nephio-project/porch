@@ -51,7 +51,7 @@ WRAPPER_SERVER_IMAGE=""
 ENABLED_RECONCILERS=""
 GHCR_IMAGE_PREFIX=""
 FN_RUNNER_WARM_UP_POD_CACHE="true"
-PORCH_CACHE_TYPE="CR"
+PORCH_CACHE_TYPE="DB"
 
 while [[ $# -gt 0 ]]; do
   key="${1}"
@@ -236,44 +236,52 @@ for resource in ctx.resource_list['items']:
                 args[i] = '--cache-type=cr'"
 
         rm -f "${DESTINATION}"/*porch-postgres*.yaml 2>/dev/null || true
+        
+        configure_controllers_for_cr_cache
     else
         echo "Configuring porch-api-server for DB cache"
     fi
 }
 
-function adjust_reconcilers_for_cache_type() {
-    if [[ "${PORCH_CACHE_TYPE^^}" == "DB" ]]; then
-        if [[ ! ",${ENABLED_RECONCILERS}," =~ ",repositories," ]]; then
-            if [[ -n "${ENABLED_RECONCILERS}" ]]; then
-                ENABLED_RECONCILERS="${ENABLED_RECONCILERS},repositories"
-            else
-                ENABLED_RECONCILERS="repositories"
-            fi
-            echo "Added 'repositories' to reconcilers list for DB cache (standalone controller)"
-        fi
-    else
-        ENABLED_RECONCILERS=$(echo "${ENABLED_RECONCILERS}" | sed 's/,repositories//g' | sed 's/repositories,//g' | sed 's/repositories//g')
-        echo "Removed 'repositories' from reconcilers list for CR cache (embedded controller)"
-    fi
+function configure_controllers_for_cr_cache() {
+    echo "Configuring porch-controllers for CR cache (no database)"
+    kpt fn eval ${DESTINATION} \
+      --image ${STARLARK_IMG} \
+      --match-kind Deployment \
+      --match-name porch-controllers \
+      --match-namespace porch-system \
+      -- "source=
+for resource in ctx.resource_list['items']:
+    podspec = resource['spec']['template']['spec']
+    
+    # Remove wait-for-postgres initContainer
+    if 'initContainers' in podspec:
+        new_init = [c for c in podspec['initContainers'] if c.get('name') != 'wait-for-postgres']
+        if new_init:
+            podspec['initContainers'] = new_init
+        else:
+            podspec.pop('initContainers')
+    
+    # Update container args and remove database env vars
+    for container in podspec.get('containers', []):
+        if container.get('name') == 'porch-controllers':
+            args = container.get('args', [])
+            for i, arg in enumerate(args):
+                if arg.startswith('--repositories.cache-type='):
+                    args[i] = '--repositories.cache-type=CR'
+        if 'envFrom' in container:
+            container['envFrom'] = []"
 }
 
-function adjust_porch_server_resources() {
-    if [[ "${PORCH_CACHE_TYPE^^}" == "CR" ]]; then
-        echo "Adjusting porch-server resources for CR cache with embedded Repository controller"
-        
-        kpt fn eval ${DESTINATION} \
-          --image ${STARLARK_IMG} \
-          --match-kind Deployment \
-          --match-name porch-server \
-          --match-namespace porch-system \
-          -- "source=
-for resource in ctx.resource_list['items']:
-    for container in resource['spec']['template']['spec'].get('containers', []):
-        # CR cache: embedded controller needs more resources than DB cache (which has no controller)
-        container['resources'] = {
-            'requests': {'memory': '384Mi', 'cpu': '350m'},
-            'limits': {'memory': '768Mi', 'cpu': '1000m'}
-        }"
+function adjust_reconcilers_for_cache_type() {
+    # Always ensure repositories reconciler is enabled for standalone controller
+    if [[ ! ",${ENABLED_RECONCILERS}," =~ ",repositories," ]]; then
+        if [[ -n "${ENABLED_RECONCILERS}" ]]; then
+            ENABLED_RECONCILERS="${ENABLED_RECONCILERS},repositories"
+        else
+            ENABLED_RECONCILERS="repositories"
+        fi
+        echo "Added 'repositories' to reconcilers list (standalone controller required for both CR and DB cache)"
     fi
 }
 
@@ -316,8 +324,6 @@ function main() {
   fi
 
   configure_porch_cache
-
-  adjust_porch_server_resources
 
   customize_controller_reconcilers
   

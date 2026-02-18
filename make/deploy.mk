@@ -21,7 +21,7 @@ export SKIP_CONTROLLER_BUILD ?= false
 
 
 # Porch cache type: CR (Custom Resource) || DB (Database)
-export PORCH_CACHE_TYPE ?= CR
+export PORCH_CACHE_TYPE ?= DB
 
 # Function runner warm-up pod cache
 export FN_RUNNER_WARM_UP_POD_CACHE ?= true
@@ -41,12 +41,12 @@ endif
 ##@ Build and deploy porch for development and testing
 
 .PHONY: run-in-kind
-run-in-kind: IMAGE_REPO=porch-kind## Build and deploy porch into a kind cluster
+run-in-kind: IMAGE_REPO=porch-kind## Build and deploy porch into a kind cluster with CR cache
 run-in-kind: PORCH_CACHE_TYPE=CR
 run-in-kind: load-images-to-kind deployment-config deploy-current-config
 
 .PHONY: run-in-kind-db-cache
-run-in-kind-db-cache: IMAGE_REPO=porch-kind## Build and deploy porch into a kind cluster with postgres backend and standalone repository controller
+run-in-kind-db-cache: IMAGE_REPO=porch-kind## Build and deploy porch into a kind cluster with postgres backend
 run-in-kind-db-cache: PORCH_CACHE_TYPE=DB
 run-in-kind-db-cache: load-images-to-kind deployment-config deploy-current-config
 
@@ -58,16 +58,18 @@ run-in-kind-no-server: load-images-to-kind deployment-config-no-server deploy-cu
 
 .PHONY: run-in-kind-db-cache-no-server
 run-in-kind-db-cache-no-server: IMAGE_REPO=porch-kind## Build and deploy porch into a kind cluster with postgres backend without the porch-server
+run-in-kind-db-cache-no-server: SKIP_PORCHSERVER_BUILD=true
 run-in-kind-db-cache-no-server: PORCH_CACHE_TYPE=DB
 run-in-kind-db-cache-no-server: load-images-to-kind deployment-config-no-server deploy-current-config
 
 .PHONY: run-in-kind-no-controller
-run-in-kind-no-controller: IMAGE_REPO=porch-kind## Build and deploy porch without the controllers into a kind cluster
+run-in-kind-no-controller: IMAGE_REPO=porch-kind## Build and deploy porch without the controllers into a kind cluster (WARNING: repositories will not sync without controller)
 run-in-kind-no-controller: SKIP_CONTROLLER_BUILD=true
+run-in-kind-no-controller: PORCH_CACHE_TYPE=CR
 run-in-kind-no-controller: load-images-to-kind deployment-config-no-controller deploy-current-config
 
 .PHONY: run-in-kind-db-cache-no-controller
-run-in-kind-db-cache-no-controller: IMAGE_REPO=porch-kind## Build and deploy porch without the controllers into a kind cluster with postgres backend (WARNING: repositories will not sync without standalone controller)
+run-in-kind-db-cache-no-controller: IMAGE_REPO=porch-kind## Build and deploy porch without the controllers into a kind cluster with postgres backend (WARNING: repositories will not sync without controller)
 run-in-kind-db-cache-no-controller: SKIP_CONTROLLER_BUILD=true
 run-in-kind-db-cache-no-controller: PORCH_CACHE_TYPE=DB
 run-in-kind-db-cache-no-controller: load-images-to-kind deployment-config-no-controller deploy-current-config

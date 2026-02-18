@@ -20,7 +20,6 @@ import (
 	"os"
 	"reflect"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -235,12 +234,12 @@ func (t *TestSuite) registerGitRepositoryFromConfigF(name string, config GitConf
 	t.CreateF(repo)
 
 	t.Cleanup(func() {
-		if IsPorchTestRepo(config.Repo) {
-			defer t.RecreateGiteaTestRepo()
-		}
 		t.DeleteE(repo)
 		t.WaitUntilRepositoryDeleted(name, repo.Namespace)
 		t.WaitUntilAllPackagesDeleted(name, repo.Namespace)
+		if IsPorchTestRepo(config.Repo) {
+			t.RecreateGiteaTestRepo()
+		}
 	})
 
 	// Make sure the repository is ready before we test to (hopefully)
@@ -483,12 +482,12 @@ func (t *TestSuite) WaitUntilAllPackageRevisionsDeleted(repoName string, namespa
 	t.T().Helper()
 	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 60*time.Second, true, func(ctx context.Context) (done bool, err error) {
 		var pkgRevList porchapi.PackageRevisionList
-		if err := t.Reader.List(ctx, &pkgRevList); err != nil {
+		if err := t.Reader.List(ctx, &pkgRevList, client.InNamespace(namespace)); err != nil {
 			t.Logf("error listing PackageRevisions: %v", err)
 			return false, nil
 		}
 		for _, pkgRev := range pkgRevList.Items {
-			if pkgRev.Namespace == namespace && strings.HasPrefix(fmt.Sprintf("%s-", pkgRev.Name), repoName) {
+			if pkgRev.Spec.RepositoryName == repoName {
 				t.Logf("Found PackageRevision %s from repo %s", pkgRev.Name, repoName)
 				return false, nil
 			}
@@ -504,17 +503,20 @@ func (t *TestSuite) WaitUntilAllPackageRevsDeleted(repoName string, namespace st
 	t.T().Helper()
 	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 60*time.Second, true, func(ctx context.Context) (done bool, err error) {
 		var internalPkgRevList internalapi.PackageRevList
-		if err := t.Reader.List(ctx, &internalPkgRevList); err != nil {
+		if err := t.Reader.List(ctx, &internalPkgRevList, client.InNamespace(namespace), client.MatchingLabels{
+			"internal.porch.kpt.dev/repository": repoName,
+		}); err != nil {
 			t.Logf("error listing PackageRevs: %v", err)
 			return false, nil
 		}
-		for _, internalPkgRev := range internalPkgRevList.Items {
-			if internalPkgRev.Namespace == namespace && strings.HasPrefix(fmt.Sprintf("%s-", internalPkgRev.Name), repoName) {
+		if len(internalPkgRevList.Items) > 0 {
+			t.Logf("Found %d PackageRevs from repo %s", len(internalPkgRevList.Items), repoName)
+			for _, internalPkgRev := range internalPkgRevList.Items {
 				if len(internalPkgRev.Finalizers) > 0 {
 					t.removePkgRevFinalizers(ctx, &internalPkgRev)
 				}
-				return false, nil
 			}
+			return false, nil
 		}
 		return true, nil
 	})

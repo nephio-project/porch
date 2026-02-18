@@ -68,6 +68,7 @@ type RepositoryReconciler struct {
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=repositories,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=repositories/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=repositories/finalizers,verbs=update
+//+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=packagerevs,verbs=create;get;list;watch;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 

@@ -29,6 +29,7 @@ rules:
 - apiGroups:
   - config.porch.kpt.dev
   resources:
+  - packagerevs
   - repositories
   verbs:
   - create

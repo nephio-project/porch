@@ -43,10 +43,13 @@ func (r *RepositoryReconciler) createCacheFromEnv(ctx context.Context, mgr ctrl.
 		return fmt.Errorf("failed to create client: %w", err)
 	}
 
-	// Read DB configuration from environment variables
-	dbOptions, err := r.setupDBCacheOptionsFromEnv()
-	if err != nil {
-		return fmt.Errorf("failed to setup DB cache options: %w", err)
+	// Read DB configuration from environment variables (only for DB cache)
+	var dbOptions cachetypes.DBCacheOptions
+	if strings.ToUpper(r.cacheType) == string(cachetypes.DBCacheType) {
+		dbOptions, err = r.setupDBCacheOptionsFromEnv()
+		if err != nil {
+			return fmt.Errorf("failed to setup DB cache options: %w", err)
+		}
 	}
 
 	// Setup cache directory for git repositories
@@ -67,8 +70,9 @@ func (r *RepositoryReconciler) createCacheFromEnv(ctx context.Context, mgr ctrl.
 
 // validateCacheType checks if the cache type is valid for standalone controller
 func (r *RepositoryReconciler) validateCacheType() error {
-	if strings.ToUpper(r.cacheType) != string(cachetypes.DBCacheType) {
-		return fmt.Errorf("standalone controller requires DB cache")
+	cacheTypeUpper := strings.ToUpper(r.cacheType)
+	if cacheTypeUpper != string(cachetypes.DBCacheType) && cacheTypeUpper != string(cachetypes.CRCacheType) {
+		return fmt.Errorf("invalid cache type: %s (must be DB or CR)", r.cacheType)
 	}
 	return nil
 }
@@ -124,7 +128,7 @@ func (r *RepositoryReconciler) buildCacheOptions(
 ) cachetypes.CacheOptions {
 	return cachetypes.CacheOptions{
 		CoreClient:     coreClient,
-		CacheType:      cachetypes.CacheType(r.cacheType),
+		CacheType:      cachetypes.CacheType(strings.ToUpper(r.cacheType)),
 		DBCacheOptions: dbOptions,
 		ExternalRepoOptions: externalrepotypes.ExternalRepoOptions{
 			LocalDirectory:             cacheDir,

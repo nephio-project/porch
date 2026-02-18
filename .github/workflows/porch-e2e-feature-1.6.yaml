@@ -1,4 +1,4 @@
-# Copyright 2025-2026 The Nephio Authors
+# Copyright 2026 The Nephio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: End-to-End Tests
+name: E2E Tests (feature-*)
 on:
+  push:
+    branches: [feature-*]
   pull_request:
-    branches: [main]
+    branches: [feature-*]
   workflow_dispatch:
 
 concurrency:
@@ -105,26 +107,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: "Porch E2E Tests"
-            make_target: "run-in-kind-no-controller"
+          - name: "Porch E2E (Standalone CR Cache)"
+            make_target: "run-in-kind-standalone"
             test_path: "${GITHUB_WORKSPACE}/test/e2e/api"
             test_env: "E2E=1"
-            log_prefix: "porch-e2e"
-          - name: "Porch E2E Tests (DB Cache)"
-            make_target: "run-in-kind-db-cache"
+            log_prefix: "porch-e2e-standalone-cr"
+          - name: "Porch E2E (Standalone DB Cache)"
+            make_target: "run-in-kind-standalone-db"
             test_path: "${GITHUB_WORKSPACE}/test/e2e/api"
             test_env: "E2E=1 DB_CACHE=1"
-            log_prefix: "porch-e2e-dbcache"
-          - name: "Porch CLI E2E Tests"
-            make_target: "run-in-kind-no-controller"
+            log_prefix: "porch-e2e-standalone-db"
+          - name: "Porch CLI E2E (Standalone)"
+            make_target: "run-in-kind-standalone"
             test_path: "${GITHUB_WORKSPACE}/test/e2e/cli"
             test_env: "E2E=1"
-            log_prefix: "porch-cli-e2e"
-          - name: "Porch CLI E2E Tests (DB Cache)"
-            make_target: "run-in-kind-db-cache"
-            test_path: "${GITHUB_WORKSPACE}/test/e2e/cli"
-            test_env: "E2E=1"
-            log_prefix: "porch-cli-e2e-dbcache"
+            log_prefix: "porch-cli-e2e-standalone"
 
     steps:
       - name: Checkout Porch
@@ -183,13 +180,13 @@ jobs:
       - name: Export porch controllers logs
         if: always()
         run: |
-          name=$(kubectl -n porch-system get pod -l k8s-app=porch-controllers -o custom-columns=NAME:.metadata.name --no-headers=true 2>/dev/null || true)
+          name=$(kubectl -n porch-system get pod -l app=porch-controllers -o custom-columns=NAME:.metadata.name --no-headers=true 2>/dev/null || true)
           if [ -n "$name" ]; then
             kubectl -n porch-system logs $name > ${{ matrix.log_prefix }}-controllers.log 2>/dev/null || true
           fi
       - name: Archive logs
         if: always()
-        uses: actions/upload-artifact@v4  
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.log_prefix }}-logs
           path: "*.log"
