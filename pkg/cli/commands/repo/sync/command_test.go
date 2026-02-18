@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/kptdev/kpt/pkg/lib/util/cmdutil"
-	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

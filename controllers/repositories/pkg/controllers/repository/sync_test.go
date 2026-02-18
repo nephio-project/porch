@@ -25,7 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	api "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
+	api "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	mockclient "github.com/nephio-project/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
 	cachetypes "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
 	mockRepo "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/repository"

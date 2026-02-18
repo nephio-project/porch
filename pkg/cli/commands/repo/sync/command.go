@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/kptdev/kpt/pkg/lib/errors"
-	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/kptdev/kpt/pkg/lib/util/cmdutil"
 	cliutils "github.com/nephio-project/porch/internal/cliutils"
 	"github.com/nephio-project/porch/pkg/cli/commands/repo/docs"

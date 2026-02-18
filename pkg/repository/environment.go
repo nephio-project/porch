@@ -17,7 +17,7 @@ package repository
 import (
 	"context"
 
-	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )

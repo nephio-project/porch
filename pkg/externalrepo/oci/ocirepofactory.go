@@ -20,7 +20,7 @@ import (
 	"path/filepath"
 
 	kptoci "github.com/kptdev/kpt/pkg/oci"
-	configapi "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
 )

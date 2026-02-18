@@ -287,7 +287,7 @@ function adjust_reconcilers_for_cache_type() {
 
 function main() {
   # Repository CRD
-  cp "./controllers/config/crd/bases/config.porch.kpt.dev_repositories.yaml" \
+  cp "./api/porchconfig/v1alpha1/config.porch.kpt.dev_repositories.yaml" \
    "${DESTINATION}/0-repositories.yaml"
 
   # PackageRev CRD

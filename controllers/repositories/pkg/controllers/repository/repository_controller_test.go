@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	api "github.com/nephio-project/porch/controllers/repositories/api/v1alpha1"
+	api "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	mockclient "github.com/nephio-project/porch/test/mockery/mocks/external/sigs.k8s.io/controller-runtime/pkg/client"
 	cachetypes "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/cache/types"
 	mockrepo "github.com/nephio-project/porch/test/mockery/mocks/porch/pkg/repository"
