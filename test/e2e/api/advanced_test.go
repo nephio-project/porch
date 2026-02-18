@@ -1,4 +1,4 @@
-// Copyright 2025 The kpt and Nephio Authors
+// Copyright 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -74,7 +74,10 @@ data:
 
 	t.UpdateF(&prr)
 
-	rs := prr.Status.RenderStatus
+	// Refresh pr to get updated status
+	t.GetF(client.ObjectKeyFromObject(pr), pr)
+
+	rs := pr.Status.RenderStatus
 	if rs.Err != "" || rs.Result.ExitCode != 0 {
 		t.Fatalf("Couldn't render large package! exit code: %v,\n%v", rs.Result.ExitCode, rs.Err)
 	}

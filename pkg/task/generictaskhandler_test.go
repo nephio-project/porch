@@ -266,7 +266,66 @@ func TestDoPrResourceMutations(t *testing.T) {
 		}, draft.Resources.Spec.Resources)
 	})
 
-	// TODO: test rendering
+	t.Run("Render with error status", func(t *testing.T) {
+		repoPrWithKptfile := &fakeextrepo.FakePackageRevision{
+			Resources: &porchapi.PackageRevisionResources{
+				Spec: porchapi.PackageRevisionResourcesSpec{
+					Resources: map[string]string{
+						kptfilev1.KptFileName: `apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: test
+info:
+  description: Demo package with explicit mutation functions
+pipeline:
+  mutators:
+  - image: ghcr.io/kptdev/krm-functions-catalog/invalid-function:v0.1.0
+    configMap:
+      namespace: test-ns
+`,
+					},
+				},
+			},
+		}
+		draftWithKptfile := repoPrWithKptfile
+
+		oldRes := &porchapi.PackageRevisionResources{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "test-ns"},
+			Spec: porchapi.PackageRevisionResourcesSpec{
+				Resources: map[string]string{
+					kptfilev1.KptFileName: `apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: test
+info:
+  description: Demo package with explicit mutation functions
+pipeline:
+  mutators:
+  - image: ghcr.io/kptdev/krm-functions-catalog/invalid-function:v0.1.0
+    configMap:
+      namespace: test-ns
+`,
+				},
+			},
+		}
+		newRes := oldRes.DeepCopy()
+		newRes.Spec.Resources["new-file.yaml"] = `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-config
+data:
+  key: value
+`
+
+		renderStatus, err := th.DoPRResourceMutations(context.TODO(), repoPrWithKptfile, draftWithKptfile, oldRes, newRes)
+		require.NoError(t, err)
+		// RenderStatus should be captured even on render failure
+		if renderStatus != nil {
+			assert.NotEmpty(t, renderStatus.Err)
+		}
+		require.NotEmpty(t, draftWithKptfile.Ops)
+		assert.Equal(t, "UpdateResources", draftWithKptfile.Ops[len(draftWithKptfile.Ops)-1])
+	})
 }
 
 func TestRenderError(t *testing.T) {

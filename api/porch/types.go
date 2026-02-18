@@ -158,6 +158,9 @@ type PackageRevisionStatus struct {
 	Deployment bool `json:"deployment,omitempty"`
 
 	Conditions []Condition `json:"conditions,omitempty"`
+
+	// RenderStatus contains the result of rendering the package resources.
+	RenderStatus *RenderStatus `json:"renderStatus,omitempty"`
 }
 
 type TaskType string
@@ -518,10 +521,8 @@ type PackageRevisionResourcesSpec struct {
 	Resources map[string]string `json:"resources,omitempty"`
 }
 
-// PackageRevisionResourcesStatus represents state of the rendered package resources.
+// PackageRevisionResourcesStatus
 type PackageRevisionResourcesStatus struct {
-	// RenderStatus contains the result of rendering the package resources.
-	RenderStatus RenderStatus `json:"renderStatus,omitempty"`
 }
 
 // Package

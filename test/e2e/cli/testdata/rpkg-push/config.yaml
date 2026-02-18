@@ -260,6 +260,58 @@ commands:
       - --namespace=rpkg-push
       - git.test-package.push
       - /tmp/porch-e2e/testing-invalid-render
-    stderr: "Error rendering package in kpt function pipeline. Package NOT pushed to remote. Fix locally (until 'kpt fn render' succeeds) and retry."
+    stdout: |
+      git.test-package.push pushed (non-rendered resources only; rendered resources NOT pushed due to render failure)
+    stderr: "Package is updated, but failed to render the package."
     containsErrorString: true
-    exitCode: 1
+    exitCode: 0
+  - args:
+      - porchctl
+      - rpkg
+      - pull
+      - --namespace=rpkg-push
+      - git.test-package.push
+      - /tmp/porch-e2e/testing-post-invalid-render
+  - args:
+      - sh
+      - -c
+      - |
+        sed -i 's/v0\.4\.0/v0.4.3/g' /tmp/porch-e2e/testing-post-invalid-render/Kptfile && \
+        sed -i '/set-annotations:v0.1.4/a\    configMap:\n      foo: bar' /tmp/porch-e2e/testing-post-invalid-render/Kptfile
+  - args:
+      - porchctl
+      - rpkg
+      - push
+      - --namespace=rpkg-push
+      - git.test-package.push
+      - /tmp/porch-e2e/testing-post-invalid-render
+    stdout: |
+      git.test-package.push pushed
+    stderr: |
+      [RUNNING] "ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.4.3" 
+      [Results]: [info]: all matching namespaces are already "example-ns". no value changed, [info]: all `depends-on` annotations are up-to-date. no `namespace` changed[RUNNING] "ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1.4" 
+  - args:
+      - porchctl
+      - rpkg
+      - pull
+      - --namespace=rpkg-push
+      - git.test-package.push
+      - /tmp/porch-e2e/testing-validator-failure
+  - args:
+      - sh
+      - -c
+      - |
+        echo "pipeline:\n  validators:\n  - image: ghcr.io/kptdev/krm-functions-catalog/kubeval:v0.3.0\n    configMap:\n      strict: \"true\"\n" >> /tmp/porch-e2e/testing-validator-failure/Kptfile && \
+        echo "apiVersion: v1\nkind: InvalidResource\nmetadata:\n  name: invalid\n" > /tmp/porch-e2e/testing-validator-failure/invalid.yaml
+  - args:
+      - porchctl
+      - rpkg
+      - push
+      - --namespace=rpkg-push
+      - git.test-package.push
+      - /tmp/porch-e2e/testing-validator-failure
+    stdout: |
+      git.test-package.push pushed (non-rendered resources only; rendered resources NOT pushed due to render failure)
+    stderr: "Package is updated, but failed to render the package."
+    containsErrorString: true
+    exitCode: 0

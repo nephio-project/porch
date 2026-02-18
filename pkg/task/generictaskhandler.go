@@ -1,4 +1,4 @@
-// Copyright 2022, 2025 The kpt and Nephio Authors
+// Copyright 2022, 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -186,24 +186,27 @@ func (th *genericTaskHandler) DoPRResourceMutations(
 		Contents: prevResources.Spec.Resources,
 	}
 
-	appliedResources, _, err := mut.apply(ctx, resources)
+	currentResources, _, err := mut.apply(ctx, resources)
 	if err != nil {
 		return nil, err
 	}
 
 	// Render the package
-	// Render failure will fail the overall API operation.
-	// The render error and result are captured as part of renderStatus above
-	// and are returned in the PackageRevisionResources API's status field.
-	// We do not push the package further to remote:
-	// the user's changes are captured on their local package,
-	// and can be amended using the error returned as a reference point to ensure
-	// the package renders properly, before retrying the push.
+	// Render failure will NOT fail the overall API operation.
+	// The render error and result are captured in renderStatus below
+	// and persisted to the PackageRevision CRD's status.renderStatus field.
+	// The package is pushed to remote even if rendering fails:
+	// if rendering succeeds, the rendered resources are pushed;
+	// if rendering fails, the unrendered (user-provided) resources are pushed,
+	// allowing users to fix render errors in subsequent updates.
 	var (
-		renderStatus *porchapi.RenderStatus
-		renderResult *porchapi.TaskResult
+		appliedResources repository.PackageResources
+		renderStatus     *porchapi.RenderStatus
+		renderResult     *porchapi.TaskResult
 	)
-	appliedResources, renderResult, err = th.renderMutation(oldRes.GetNamespace()).apply(ctx, appliedResources)
+	prr := &porchapi.PackageRevisionResources{}
+
+	appliedResources, renderResult, err = th.renderMutation(oldRes.GetNamespace()).apply(ctx, currentResources)
 	// keep last render result on empty patch
 	if renderResult != nil &&
 		renderResult.RenderStatus != nil &&
@@ -212,14 +215,14 @@ func (th *genericTaskHandler) DoPRResourceMutations(
 		renderStatus = renderResult.RenderStatus
 	}
 	if err != nil {
-		klog.Error(err)
-		return renderStatus, renderError(err)
-	}
-
-	prr := &porchapi.PackageRevisionResources{
-		Spec: porchapi.PackageRevisionResourcesSpec{
+		klog.Error(renderError(err))
+		prr.Spec = porchapi.PackageRevisionResourcesSpec{
+			Resources: currentResources.Contents,
+		}
+	} else {
+		prr.Spec = porchapi.PackageRevisionResourcesSpec{
 			Resources: appliedResources.Contents,
-		},
+		}
 	}
 
 	return renderStatus, draft.UpdateResources(ctx, prr, &porchapi.Task{Type: porchapi.TaskTypeRender})

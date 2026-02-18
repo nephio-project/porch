@@ -1,4 +1,4 @@
-// Copyright 2022, 2025 The kpt and Nephio Authors
+// Copyright 2022, 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +26,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/yaml"
 )
 
@@ -1894,4 +1896,115 @@ func TestCreateEditDraft(t *testing.T) {
 	assert.Equal(t, pv.Spec.Annotations, draft.Annotations)
 	assert.Equal(t, pv.Spec.Labels, draft.Labels)
 	assert.Contains(t, client.output[len(client.output)-1], "creating object")
+}
+
+
+func TestUpdatePackageResources(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, porchapi.AddToScheme(scheme))
+	require.NoError(t, api.AddToScheme(scheme))
+
+	testCases := map[string]struct {
+		prr            *porchapi.PackageRevisionResources
+		pr             *porchapi.PackageRevision
+		pv             *api.PackageVariant
+		expectedStatus []api.DownstreamTarget
+	}{
+		"new downstream target": {
+			prr: &porchapi.PackageRevisionResources{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pr",
+					Namespace: "default",
+				},
+			},
+			pr: &porchapi.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pr",
+					Namespace: "default",
+				},
+				Status: porchapi.PackageRevisionStatus{
+					RenderStatus: &porchapi.RenderStatus{
+						Err: "",
+					},
+				},
+			},
+			pv: &api.PackageVariant{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pv",
+					Namespace: "default",
+				},
+				Status: api.PackageVariantStatus{
+					DownstreamTargets: []api.DownstreamTarget{},
+				},
+			},
+			expectedStatus: []api.DownstreamTarget{
+				{
+					Name: "test-pr",
+					RenderStatus: porchapi.RenderStatus{
+						Err: "",
+					},
+				},
+			},
+		},
+		"update existing downstream target": {
+			prr: &porchapi.PackageRevisionResources{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pr",
+					Namespace: "default",
+				},
+			},
+			pr: &porchapi.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pr",
+					Namespace: "default",
+				},
+				Status: porchapi.PackageRevisionStatus{
+					RenderStatus: &porchapi.RenderStatus{
+						Err: "updated error",
+					},
+				},
+			},
+			pv: &api.PackageVariant{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pv",
+					Namespace: "default",
+				},
+				Status: api.PackageVariantStatus{
+					DownstreamTargets: []api.DownstreamTarget{
+						{
+							Name: "test-pr",
+							RenderStatus: porchapi.RenderStatus{
+								Err: "old error",
+							},
+						},
+					},
+				},
+			},
+			expectedStatus: []api.DownstreamTarget{
+				{
+					Name: "test-pr",
+					RenderStatus: porchapi.RenderStatus{
+						Err: "updated error",
+					},
+				},
+			},
+		},
+	}
+
+	for tn, tc := range testCases {
+		t.Run(tn, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(tc.prr, tc.pr).
+				Build()
+
+			r := &PackageVariantReconciler{
+				Client: fakeClient,
+			}
+
+			err := r.updatePackageResources(context.Background(), tc.prr, tc.pv, tc.pr)
+			require.NoError(t, err)
+			assert.Equal(t, tc.expectedStatus, tc.pv.Status.DownstreamTargets)
+		})
+	}
 }
