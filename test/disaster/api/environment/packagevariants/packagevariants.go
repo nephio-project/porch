@@ -1,4 +1,4 @@
-// Copyright 2025 The Nephio Authors
+// Copyright 2026 The Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ func Backup(t *suiteutils.MultiClusterTestSuite) *pvapi.PackageVariantList {
 	return &variants
 }
 
-func Reconcile(t *suiteutils.MultiClusterTestSuite, variants *pvapi.PackageVariantList, batchSize int) {
+func Restore(t *suiteutils.MultiClusterTestSuite, variants *pvapi.PackageVariantList, batchSize int) {
 	t.T().Helper()
 
 	for batch := range slices.Chunk(variants.Items, batchSize) {

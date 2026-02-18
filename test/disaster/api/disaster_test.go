@@ -39,14 +39,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type PorchDisasterSuite struct {
+type PorchDisasterRecoverySuite struct {
 	suiteutils.MultiClusterTestSuite
 
-	skipVariants, skipVariantSets bool
+	skipPackageVariants, skipPackageVariantSets bool
 }
 
 var (
-	reconcileDescription = "reconcile [Repositories, PackageVariants, PackageVariantSets]"
+	porchResourceRestoreDescription = "restore [Repositories, PackageVariants, PackageVariantSets]"
 )
 
 func TestDisasterRecovery(t *testing.T) {
@@ -55,13 +55,13 @@ func TestDisasterRecovery(t *testing.T) {
 		t.Skip("Skipping disaster-recovery tests in non-disaster-recovery environment")
 	}
 
-	suite.Run(t, &PorchDisasterSuite{
-		skipVariants:    true,
-		skipVariantSets: true,
+	suite.Run(t, &PorchDisasterRecoverySuite{
+		skipPackageVariants:    true,
+		skipPackageVariantSets: true,
 	})
 }
 
-func (t *PorchDisasterSuite) SetupSuite() {
+func (t *PorchDisasterRecoverySuite) SetupSuite() {
 	s := &t.MultiClusterTestSuite
 
 	t.PorchRoot = func() string {
@@ -76,13 +76,13 @@ func (t *PorchDisasterSuite) SetupSuite() {
 		return strings.Replace(fs.Root(), "/.git", "", 1)
 	}()
 
-	if t.skipVariantSets {
-		os.Setenv("SKIP_VARIANT_SETS", "true")
-		reconcileDescription = strings.ReplaceAll(reconcileDescription, ", PackageVariantSets", "")
+	if t.skipPackageVariantSets {
+		os.Setenv("SKIP_PACKAGE_VARIANT_SETS", "true")
+		porchResourceRestoreDescription = strings.ReplaceAll(porchResourceRestoreDescription, ", PackageVariantSets", "")
 	}
-	if t.skipVariants {
-		os.Setenv("SKIP_VARIANTS", "true")
-		reconcileDescription = strings.ReplaceAll(reconcileDescription, ", PackageVariants", "")
+	if t.skipPackageVariants {
+		os.Setenv("SKIP_PACKAGE_VARIANTS", "true")
+		porchResourceRestoreDescription = strings.ReplaceAll(porchResourceRestoreDescription, ", PackageVariants", "")
 	}
 
 	if os.Getenv("SETUP_ENV") == "true" {
@@ -92,7 +92,7 @@ func (t *PorchDisasterSuite) SetupSuite() {
 	s.SetupSuite()
 }
 
-func (t *PorchDisasterSuite) SetupTest() {
+func (t *PorchDisasterRecoverySuite) SetupTest() {
 	s := &t.MultiClusterTestSuite
 	kind.UseDBCacheCluster(s)
 	actualCounts := t.CountPackageRevisions()
@@ -135,16 +135,16 @@ func (t *PorchDisasterSuite) SetupTest() {
 	}
 }
 
-func (t *PorchDisasterSuite) TestCompleteDisaster() {
+func (t *PorchDisasterRecoverySuite) TestCompleteDisaster() {
 	s := &t.MultiClusterTestSuite
 
 	gitea.Backup(s)
 	postgres.Backup(s)
 
 	kind.UseDBCacheCluster(s)
-	repositoriesToReconcile := repositories.Backup(s)
-	variantsToReconcile := packagevariants.Backup(s)
-	variantSetsToReconcile := packagevariantsets.Backup(s)
+	repositoriesToRestore := repositories.Backup(s)
+	variantsToRestore := packagevariants.Backup(s)
+	variantSetsToRestore := packagevariantsets.Backup(s)
 
 	kind.Wipe(s)
 	gitea.Wipe(s)
@@ -154,12 +154,12 @@ func (t *PorchDisasterSuite) TestCompleteDisaster() {
 	gitea.Restore(s)
 	postgres.Restore(s)
 
-	t.TimingHelper(reconcileDescription, func(t *suiteutils.TestSuite) {
+	t.TimingHelper(porchResourceRestoreDescription, func(t *suiteutils.TestSuite) {
 		t.T().Helper()
 		kind.UseDBCacheCluster(s)
-		repositories.Reconcile(s, repositoriesToReconcile, 20)
-		packagevariants.Reconcile(s, variantsToReconcile, 20)
-		packagevariantsets.Reconcile(s, variantSetsToReconcile, 20)
+		repositories.Restore(s, repositoriesToRestore, 20)
+		packagevariants.Restore(s, variantsToRestore, 20)
+		packagevariantsets.Restore(s, variantSetsToRestore, 20)
 	})
 
 	expectedCountsAfter := &suiteutils.PackageRevisionStatusCounts{
@@ -172,24 +172,24 @@ func (t *PorchDisasterSuite) TestCompleteDisaster() {
 	t.PackageRevisionCountsMustMatch(expectedCountsAfter)
 }
 
-func (t *PorchDisasterSuite) TestKubernetesClusterLoss() {
+func (t *PorchDisasterRecoverySuite) TestKubernetesClusterLoss() {
 	s := &t.MultiClusterTestSuite
 
 	kind.UseDBCacheCluster(s)
-	repositoriesToReconcile := repositories.Backup(s)
-	variantsToReconcile := packagevariants.Backup(s)
-	variantSetsToReconcile := packagevariantsets.Backup(s)
+	repositoriesToRestore := repositories.Backup(s)
+	variantsToRestore := packagevariants.Backup(s)
+	variantSetsToRestore := packagevariantsets.Backup(s)
 
 	kind.Wipe(s)
 
 	kind.Reinstall(s)
 
-	t.TimingHelper(reconcileDescription, func(t *suiteutils.TestSuite) {
+	t.TimingHelper(porchResourceRestoreDescription, func(t *suiteutils.TestSuite) {
 		t.T().Helper()
 		kind.UseDBCacheCluster(s)
-		repositories.Reconcile(s, repositoriesToReconcile, 20)
-		packagevariants.Reconcile(s, variantsToReconcile, 20)
-		packagevariantsets.Reconcile(s, variantSetsToReconcile, 20)
+		repositories.Restore(s, repositoriesToRestore, 20)
+		packagevariants.Restore(s, variantsToRestore, 20)
+		packagevariantsets.Restore(s, variantSetsToRestore, 20)
 	})
 
 	expectedCountsAfter := &suiteutils.PackageRevisionStatusCounts{
@@ -202,7 +202,7 @@ func (t *PorchDisasterSuite) TestKubernetesClusterLoss() {
 	t.PackageRevisionCountsMustMatch(expectedCountsAfter)
 }
 
-func (t *PorchDisasterSuite) TestDBCacheLossWithoutBackup() {
+func (t *PorchDisasterRecoverySuite) TestDBCacheLossWithoutBackup() {
 	s := &t.MultiClusterTestSuite
 
 	//************************************************************
@@ -212,18 +212,18 @@ func (t *PorchDisasterSuite) TestDBCacheLossWithoutBackup() {
 	postgres.Backup(s)
 
 	kind.UseDBCacheCluster(s)
-	repositoriesToReconcile := repositories.Backup(s)
-	variantsToReconcile := packagevariants.Backup(s)
-	variantSetsToReconcile := packagevariantsets.Backup(s)
+	repositoriesToRestore := repositories.Backup(s)
+	variantsToRestore := packagevariants.Backup(s)
+	variantSetsToRestore := packagevariantsets.Backup(s)
 
 	postgres.Wipe(s)
 
 	t.TimingHelper("restart porch-server and rebuild from Git", func(t *suiteutils.TestSuite) {
 		t.T().Helper()
 		kind.UseDBCacheCluster(s)
-		repositories.Reconcile(s, repositoriesToReconcile, 20)
-		packagevariants.Reconcile(s, variantsToReconcile, 20)
-		packagevariantsets.Reconcile(s, variantSetsToReconcile, 20)
+		repositories.Restore(s, repositoriesToRestore, 20)
+		packagevariants.Restore(s, variantsToRestore, 20)
+		packagevariantsets.Restore(s, variantSetsToRestore, 20)
 
 		// no package revisions available with no DB cache
 		expectedCountsAfter := &suiteutils.PackageRevisionStatusCounts{
@@ -254,15 +254,15 @@ func (t *PorchDisasterSuite) TestDBCacheLossWithoutBackup() {
 	postgres.Restore(s)
 }
 
-func (t *PorchDisasterSuite) TestDBCacheLossWithBackup() {
+func (t *PorchDisasterRecoverySuite) TestDBCacheLossWithBackup() {
 	s := &t.MultiClusterTestSuite
 
 	postgres.Backup(s)
 
 	kind.UseDBCacheCluster(s)
-	repositoriesToReconcile := repositories.Backup(s)
-	variantsToReconcile := packagevariants.Backup(s)
-	variantSetsToReconcile := packagevariantsets.Backup(s)
+	repositoriesToRestore := repositories.Backup(s)
+	variantsToRestore := packagevariants.Backup(s)
+	variantSetsToRestore := packagevariantsets.Backup(s)
 
 	kind.UseDataCluster(s)
 	postgres.Wipe(s)
@@ -270,12 +270,12 @@ func (t *PorchDisasterSuite) TestDBCacheLossWithBackup() {
 	kind.UseDataCluster(s)
 	postgres.Restore(s)
 
-	t.TimingHelper(reconcileDescription, func(t *suiteutils.TestSuite) {
+	t.TimingHelper(porchResourceRestoreDescription, func(t *suiteutils.TestSuite) {
 		t.T().Helper()
 		kind.UseDBCacheCluster(s)
-		repositories.Reconcile(s, repositoriesToReconcile, 20)
-		packagevariants.Reconcile(s, variantsToReconcile, 20)
-		packagevariantsets.Reconcile(s, variantSetsToReconcile, 20)
+		repositories.Restore(s, repositoriesToRestore, 20)
+		packagevariants.Restore(s, variantsToRestore, 20)
+		packagevariantsets.Restore(s, variantSetsToRestore, 20)
 	})
 
 	expectedCountsAfter := &suiteutils.PackageRevisionStatusCounts{
@@ -288,7 +288,7 @@ func (t *PorchDisasterSuite) TestDBCacheLossWithBackup() {
 	t.PackageRevisionCountsMustMatch(expectedCountsAfter)
 }
 
-func (t *PorchDisasterSuite) TestPorchPodsUngracefulRestart() {
+func (t *PorchDisasterRecoverySuite) TestPorchPodsUngracefulRestart() {
 	s := &t.MultiClusterTestSuite
 
 	t.TimingHelper("recover after Porch pods restarted", func(t *suiteutils.TestSuite) {

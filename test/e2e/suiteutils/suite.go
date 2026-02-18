@@ -1,4 +1,4 @@
-// Copyright 2022, 2025 The kpt and Nephio Authors
+// Copyright 2022, 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -315,15 +315,16 @@ func (t *TestSuite) createOrUpdate(obj client.Object, opts []client.CreateOption
 		t.Logf("took %v to %s %s/%s", time.Since(start), succeededOp, obj.GetNamespace(), obj.GetName())
 	}()
 
-	// for create, object MUST NOT have resourceVersion set
+	// For create, object MUST NOT have resourceVersion set.
 	obj.SetResourceVersion("")
 	if err := t.Client.Create(t.GetContext(), obj, opts...); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			succeededOp = "update"
 			t.Logf("resource already exists - attempting to update resource %v", DebugFormat(obj))
 
-			// for update, object MUST have resourceVersion set
-			// get it to make sure we have the most up-to-date resourceVersion
+			// For update, object MUST have resourceVersion set - get the
+			// 		existing object first to make sure we have the most
+			// 		up-to-date resourceVersion.
 			upToDateObj := obj.DeepCopyObject().(client.Object)
 			t.Reader.Get(t.GetContext(), client.ObjectKeyFromObject(obj), upToDateObj)
 			obj.SetResourceVersion(upToDateObj.GetResourceVersion())
@@ -576,22 +577,22 @@ func (t *MultiClusterTestSuite) PackageRevisionCountsMustMatch(expected *Package
 
 	actual := t.CountPackageRevisions()
 
-	// use assert.Equal for the individual lifecycle statuses so as to check all of them
-	// gather as much potentially-useful information as possible
+	// use assert.Equal for the individual lifecycle statuses so as to check all of them and
+	// 		gather as much potentially-useful information as possible
 	assert.Equal(t.T(), expected.Draft, actual.Draft, "Count of Draft PackageRevisions not as expected")
 	assert.Equal(t.T(), expected.Proposed, actual.Proposed, "Count of Proposed PackageRevisions not as expected")
 	assert.Equal(t.T(), expected.Published, actual.Published, "Count of Published PackageRevisions not as expected")
 	assert.Equal(t.T(), expected.DeletionProposed, actual.DeletionProposed, "Count of DeletionProposed PackageRevisions not as expected")
 
-	// allow Fatal'ing the test case right at the end
+	// allow it to fail the test case at the end
 	require.Equal(t.T(), expected.Total, actual.Total, "Total count of PackageRevisions not as expected")
 }
 
 func (t *TestSuite) CountPackageRevisions() *PackageRevisionStatusCounts {
-	packageRevisions, err := t.Clientset.PorchV1alpha1().PackageRevisions(t.Namespace).
-		List(t.GetContext(), metav1.ListOptions{})
-	if err != nil {
-		t.Errorf("error getting package revisions to count: %w", err)
+	var packageRevisions porchapi.PackageRevisionList
+	if err := t.Reader.List(t.GetContext(), &packageRevisions, client.InNamespace(t.Namespace)); err != nil {
+		t.Errorf("error listing package revisions to count: %w", err)
+		return nil
 	}
 
 	counts := &PackageRevisionStatusCounts{}
