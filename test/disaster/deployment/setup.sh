@@ -375,6 +375,14 @@ while [[ -n "${1:-DONE}" ]] ; do
     shift
 done
 
+if ! which porchctl && ! ls "${PORCH_DIR}/.build/porchctl" && ! ls "${PORCH_DIR}/.build/disaster-test/porchctl" ; then
+    {
+        prefixLogs --prefix "building porchctl" --colour 7
+        make porchctl PORCHCTL="${PORCH_DIR}/.build/disaster-test/porchctl"
+    } &
+    export PATH="${PORCH_DIR}/.build/disaster-test:$PATH"
+fi
+
 if [[ "${RESET:-false}" != "true" ]]; then
     install
     export CLEANDOWN="false"
