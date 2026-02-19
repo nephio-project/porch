@@ -1,0 +1,351 @@
+# Copyright 2026 The kpt and Nephio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: catalog-workloads-free5gc-5
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /workloads/free5gc
+    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-5.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: catalog-workloads-free5gc-6
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /workloads/free5gc
+    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-6.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: catalog-workloads-oai-1
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /workloads/oai
+    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-1.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: catalog-workloads-oai-2
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /workloads/oai
+    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-2.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: catalog-workloads-oai-3
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /workloads/oai
+    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-3.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: catalog-workloads-oai-4
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /workloads/oai
+    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-4.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: catalog-workloads-oai-5
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /workloads/oai
+    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-5.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: catalog-workloads-oai-6
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /workloads/oai
+    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-6.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: catalog-workloads-ric-1
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /workloads/ric
+    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-1.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: catalog-workloads-ric-2
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /workloads/ric
+    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-2.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: catalog-workloads-ric-3
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /workloads/ric
+    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-3.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: catalog-workloads-ric-4
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /workloads/ric
+    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-4.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: catalog-workloads-ric-5
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /workloads/ric
+    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-5.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: catalog-workloads-ric-6
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /workloads/ric
+    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-6.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: catalog-workloads-tools-1
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /workloads/tools
+    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-1.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: catalog-workloads-tools-2
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /workloads/tools
+    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-2.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: catalog-workloads-tools-3
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /workloads/tools
+    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-3.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: catalog-workloads-tools-4
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /workloads/tools
+    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-4.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: catalog-workloads-tools-5
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /workloads/tools
+    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-5.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: catalog-workloads-tools-6
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /workloads/tools
+    repo: http://[GITEA_PLACEHOLDER]/nephio/catalog-load-6.git
+  type: git
