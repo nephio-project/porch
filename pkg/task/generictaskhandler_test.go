@@ -413,3 +413,68 @@ info:
 	assert.Contains(t, got2, "foo: bar")
 	assert.Contains(t, got2, "# Top-level comment")
 }
+
+func TestApplyMapMetadata(t *testing.T) {
+	tests := []struct {
+		name    string
+		cur     map[string]string
+		desired map[string]string
+		replace bool
+		want    bool
+		wantMap map[string]string
+	}{
+		{
+			name:    "replace mode - no change",
+			cur:     map[string]string{"a": "1"},
+			desired: map[string]string{"a": "1"},
+			replace: true,
+			want:    false,
+			wantMap: map[string]string{"a": "1"},
+		},
+		{
+			name:    "replace mode - with change",
+			cur:     map[string]string{"a": "1"},
+			desired: map[string]string{"b": "2"},
+			replace: true,
+			want:    true,
+			wantMap: map[string]string{"b": "2"},
+		},
+		{
+			name:    "merge mode - no change",
+			cur:     map[string]string{"a": "1"},
+			desired: map[string]string{"a": "1"},
+			replace: false,
+			want:    false,
+			wantMap: map[string]string{"a": "1"},
+		},
+		{
+			name:    "merge mode - add new key",
+			cur:     map[string]string{"a": "1"},
+			desired: map[string]string{"b": "2"},
+			replace: false,
+			want:    true,
+			wantMap: map[string]string{"a": "1", "b": "2"},
+		},
+		{
+			name:    "merge mode - update existing",
+			cur:     map[string]string{"a": "1"},
+			desired: map[string]string{"a": "2"},
+			replace: false,
+			want:    true,
+			wantMap: map[string]string{"a": "2"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var result map[string]string
+			got := applyMapMetadata(tt.cur, tt.desired, tt.replace, func(m map[string]string) {
+				result = m
+			})
+			assert.Equal(t, tt.want, got)
+			if got {
+				assert.Equal(t, tt.wantMap, result)
+			}
+		})
+	}
+}
