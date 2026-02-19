@@ -3,86 +3,28 @@ title: "Porch Controllers"
 type: docs
 weight: 5
 description: |
-  Kubernetes controllers that automate package variant creation and management.
+  Kubernetes controllers that automate Porch operations.
 ---
 
-## What are the Porch Controllers?
+## Overview
 
-The **Porch Controllers** are Kubernetes controllers which form the backend to Porch's higher-level Custom Resources and
-automatically create and manage PackageRevisions through the Porch API. They provide declarative, template-based automation
-for creating multiple downstream variants of a package from a single upstream package.
+Porch controllers are Kubernetes controllers that automate repository synchronization and package variant management. They run as a single deployment and can be individually enabled or disabled based on your needs.
 
-Responsibilities:
+## Architecture
 
-- **PackageVariant Management**: Watching PackageVariant CRs and ensuring corresponding downstream PackageRevisions exist and stay synchronized with upstream changes
-- **Bulk Variant Creation**: Watching PackageVariantSet CRs and automatically generating multiple PackageVariant CRs based on target selectors
-- **Lifecycle Synchronization**: Detecting upstream package changes and creating new downstream package revisions (upgrades or edits) as needed
-- **Adoption and Deletion Policies**: Managing ownership of existing packages and handling cleanup when PackageVariant CRs are deleted
-- **Resource Injection**: Dynamically injecting configuration from in-cluster resources into generated packages
-- **Template Evaluation**: Using CEL expressions to dynamically generate package metadata, labels, annotations, and configuration
+All Porch controllers typically run together in a single pod and share the controller-runtime framework. They use standard Kubernetes controller patterns - watching resources, reconciling state, and requeuing when needed. You can enable or disable individual controllers using the `--reconcilers` flag, and they all act as clients of the Porch API server rather than being part of it.
 
-## Role in the Architecture
+While controllers share a pod by default, each controller can run in its own deployment if needed for scaling or isolation purposes, though this configuration is not covered in the documentation. See the [configuration guide]({{% relref "/docs/6_configuration_and_deployments/configurations/components/porch-controllers-config.md" %}}) for standard deployment details.
 
-The Controllers sit above the Porch API Server and act as automation clients:
+## Available Controllers
 
-```
-┌─────────────────────────────────────────────────────┐
-│              Controllers                            │
-│                                                     │
-│    ┌──────────────────┐     ┌──────────────────┐    │
-│    │ PackageVariant   │     │PackageVariantSet │    │
-│    │   Controller     │<────│   Controller     │    │
-│    │                  │     │                  │    │
-│    │ • Watch PV CRs   │     │ • Watch PVS CRs  │    │
-│    │ • Create/Update  │     │ • Generate PV    │    │
-│    │   PackageRevs    │     │   CRs            │    │
-│    │ • Sync Upstream  │     │ • Target Select  │    │
-│    └────────┬─────────┘     └──────────────────┘    │
-│             │                                       │
-└─────────────┴───────────────────────────────────────┘
-              ↓
-      Porch API Server
-              ↓
-      PackageRevisions
-```
+### [Repository Controller]({{% relref "/docs/5_architecture_and_components/controllers/repository-controller/_index.md" %}})
 
-**Key architectural responsibilities:**
+Synchronizes Repository custom resources with their backing Git or OCI repositories. The controller performs health checks and full syncs to keep package metadata current in Porch's cache layer.
 
-1. **Declarative Package Management**: Enables users to declare desired package variants rather than manually creating each PackageRevision
+### [PackageVariant Controllers]({{% relref "/docs/5_architecture_and_components/controllers/packagevariants/_index.md" %}})
 
-2. **Automation Layer**: Bridges the gap between high-level intent (PackageVariant/PackageVariantSet) and low-level operations (PackageRevision CRUD)
+Automate creation and management of package variants through declarative configuration. Two controllers work together:
 
-3. **Multi-Target Distribution**: PackageVariantSet controller enables creating variants across multiple repositories or for multiple targets from a single declaration
-
-4. **Change Detection and Reconciliation**:
-   - Watches upstream PackageRevisions for new published versions
-   - Automatically creates upgrade or edit drafts when changes detected
-   - Ensures downstream packages stay synchronized with upstream
-
-5. **Template-Based Generation**: Uses templates with CEL expressions to dynamically generate package configuration based on target context
-
-6. **Ownership Management**:
-   - Tracks which PackageRevisions are owned by which PackageVariant
-   - Supports adopting existing packages or creating new ones
-   - Handles cleanup with configurable deletion policies (delete or orphan)
-
-## Controller Types
-
-### [PackageVariant Controller]({{% relref "packagevariants.md" %}})
-
-Manages individual package variants - one upstream package to one downstream package relationship. Creates downstream PackageRevisions (clones, upgrades, edits) and applies mutations (package context, pipeline functions, injections).
-
-### [PackageVariantSet Controller]({{% relref "packagevariantsets.md" %}})
-
-Manages bulk creation of PackageVariant CRs based on target selectors. Evaluates target selectors (repositories, repository selector, object selector) and generates PackageVariant CRs for each matching target using CEL expression templates.
-
-## Integration with Porch
-
-The controllers are **clients** of the Porch API, not part of the Porch server. They run as a separate deployment using standard Kubernetes client-go to interact with Porch API, and can be enabled/disabled independently using [the `--reconcilers` flag]({{% relref "../../6_configuration_and_deployments/configurations/components/porch-controllers-config.md#command-line-arguments" %}}).
-
-**Controller runtime:**
-- Built using controller-runtime framework
-- Standard Kubernetes controller patterns (watch, reconcile, requeue)
-- Leader election support (currently disabled)
-
-The controllers are instantiated once during startup and run continuously, reconciling resources as they change.
+- **PackageVariant Controller**: Manages individual package variants with one-to-one upstream-to-downstream relationships
+- **PackageVariantSet Controller**: Generates multiple PackageVariant resources based on target selectors for bulk operations

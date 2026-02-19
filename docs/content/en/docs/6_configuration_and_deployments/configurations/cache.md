@@ -1,57 +1,91 @@
 ---
-title: "Cache"
+title: "Cache Configuration"
 type: docs
 weight: 2
 description: "Configure Porch caching mechanisms"
 ---
 
-Porch supports two caching mechanisms to store package metadata and improve performance.
+Porch supports two caching mechanisms for storing package metadata. Choose based on your deployment scale and infrastructure.
 
 ## Cache Types
 
 ### CR Cache (Default)
 
-By default, Porch uses Custom Resource (CR) cache, which stores cache data as Kubernetes Custom Resources.
+Uses Custom Resources for metadata tracking while package content is served through Porch's aggregated API server. Suitable for development and smaller deployments.
 
-**Advantages:**
-- No additional infrastructure required
+**Characteristics:**
+- No external database required
+- Metadata stored in Kubernetes etcd via Custom Resources
+- Package content served through aggregated API server
 - Automatic backup with cluster backups
-- Simple setup and maintenance
+- Simple operational model
 
-**Use when:**
+**Best For:**
+- Development and testing environments
+- Small-scale deployments (<100 repositories)
+- Environments without database infrastructure
 - Getting started with Porch
-- Small to medium deployments
-- Simplicity is preferred
 
 ### Database Cache
 
-Database cache uses PostgreSQL to store cache data, providing better performance for large deployments.
+Uses PostgreSQL to store package metadata and content while still serving through Porch's aggregated API server. Recommended for production deployments.
 
-**Advantages:**
-- Better performance with large datasets
+**Characteristics:**
+- Better performance at scale
 - Advanced querying capabilities
 - Separate scaling from Kubernetes cluster
+- Production-grade reliability
 
-**Use when:**
-- Large-scale deployments
+**Best For:**
+- Production deployments
+- Large-scale environments (>100 repositories)
 - High-performance requirements
-- Advanced querying needs
+- Environments requiring analytics
 
-## Switching to Database Cache
+## Configuration
 
-### Prerequisites
+### CR Cache Setup
 
-- PostgreSQL database (v12+) **running and accessible**
+CR Cache is enabled by default. No additional configuration required.
+
+**API Server:**
+```yaml
+args:
+  - --cache-type=CR
+```
+
+**Repository Controller:**
+```yaml
+args:
+  - --reconcilers=repositories
+  - --repositories.cache-type=CR
+```
+
+### Database Cache Setup
+
+#### Prerequisites
+
+- PostgreSQL database (v12+) running and accessible
 - Database credentials and connection details
-- Database must have the specified database created (e.g., `porch`)
+- Database initialized with Porch schema (`api/sql/porch-db.sql`)
 
 {{% alert title="Important" color="warning" %}}
-Ensure your PostgreSQL instance is running and accessible from the Porch server before configuring database cache. Porch will fail to start if it cannot connect to the database.
+Before configuring database cache:
+1. Ensure PostgreSQL is running and accessible
+2. Initialize the database schema using `api/sql/porch-db.sql`
+3. Porch will fail to start if it cannot connect or if the schema is not initialized
 {{% /alert %}}
 
-### Configuration Steps
+#### Configuration Steps
 
-1. **Create Database Secret:**
+**1. Initialize Database Schema:**
+
+```bash
+# From Porch repository root
+PGPASSWORD=your_password psql -h postgresql.example.com -U porch_user -d porch -f api/sql/porch-db.sql
+```
+
+**2. Create Database Secret:**
 
 ```bash
 kubectl create secret generic porch-db-config \
@@ -63,30 +97,7 @@ kubectl create secret generic porch-db-config \
   --from-literal=password=your_password
 ```
 
-2. **Configure Database Cache:**
-
-**For Catalog Deployments (Pre-deployment):**
-
-Modify the package configuration before deployment:
-
-```bash
-# Get the catalog package
-kpt pkg get https://github.com/nephio-project/catalog/tree/main/nephio/core/porch
-cd porch/
-# Edit the porch-server deployment YAML in the package
-```
-
-**For Manual Deployments (Post-deployment):**
-
-Update an existing deployment:
-
-```bash
-kubectl edit deployment -n porch-system porch-server
-```
-
-**Configuration (both methods):**
-
-Add database configuration to the porch-server deployment:
+**3. Configure Porch Server:**
 
 ```yaml
 spec:
@@ -126,51 +137,89 @@ spec:
               key: password
 ```
 
-3. **Restart Porch Server:**
+**4. Configure Repository Controller:**
 
+```yaml
+spec:
+  template:
+    spec:
+      containers:
+      - name: controller
+        args:
+        - --reconcilers=repositories
+        - --repositories.cache-type=DB
+        - --repositories.max-concurrent-reconciles=100
+        - --repositories.max-concurrent-syncs=50
+        env:
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: porch-db-config
+              key: host
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: porch-db-config
+              key: database
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: porch-db-config
+              key: username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: porch-db-config
+              key: password
+```
+
+**5. Apply Configuration:**
+
+```bash
+kubectl apply -f porch-server-deployment.yaml
+kubectl apply -f porch-controllers-deployment.yaml
+```
+
+## Switching Between Cache Types
+
+### From CR Cache to Database Cache
+
+**1. Deploy and initialize PostgreSQL:**
+```bash
+# Deploy PostgreSQL
+kubectl apply -f deployments/porch/3-porch-postgres-bundle.yaml
+
+# Initialize schema
+PGPASSWORD=porch psql -h <db-host> -U porch -d porch -f api/sql/porch-db.sql
+```
+
+**2. Create database secret** (see Configuration Steps above)
+
+**3. Update Porch Server deployment:**
+- Change `--cache-type=CR` to `--cache-type=DB`
+- Add database environment variables (DB_HOST, DB_NAME, DB_USER, DB_PASSWORD, DB_DRIVER)
+
+**4. Update Repository Controller deployment:**
+- Change `--repositories.cache-type=CR` to `--repositories.cache-type=DB`
+- Add database environment variables (DB_HOST, DB_NAME, DB_USER, DB_PASSWORD)
+
+**5. Restart components:**
 ```bash
 kubectl rollout restart deployment/porch-server -n porch-system
+kubectl rollout restart deployment/porch-controllers -n porch-system
 ```
 
-## Local Development with Database Cache
-
-For local development with database cache, see the [Local Development Environment]({{% relref "../deployments/local-dev-env-deployment" %}}) guide which covers both CR cache and database cache options.
-
-## Monitoring Cache Performance
-
-### Metrics
-
-Porch exposes cache-related metrics:
-
+**6. Verify:**
 ```bash
-# Check cache hit rates
-kubectl port-forward -n porch-system svc/porch-server 8080:8080
-curl http://localhost:8080/metrics | grep cache
+# Check pods are running
+kubectl get pods -n porch-system
+
+# Check repositories are syncing
+kubectl get repositories -A
 ```
 
-### Logs
+## Related Documentation
 
-Monitor cache operations:
-
-```bash
-kubectl logs -n porch-system -l app=porch-server -f | grep cache
-```
-
-## Troubleshooting
-
-### Common Issues
-
-**Database connection failures:**
-```bash
-# Check secret configuration
-kubectl get secret porch-db-config -n porch-system -o yaml
-
-# Verify database connectivity
-kubectl run -it --rm debug --image=postgres:12 --restart=Never -- \
-  psql -h postgresql.example.com -U porch_user -d porch
-```
-
-**Performance issues:**
-- Monitor database performance
-- Check network latency between Porch and database
-- Review database indexes and query performance
+- [Repository Controller Architecture]({{% relref "/docs/5_architecture_and_components/controllers/repository-controller/_index.md" %}}) - How cache modes work
+- [Repository Sync Configuration]({{% relref "repository-sync" %}}) - Sync scheduling and tuning
+- [Porch Controllers Configuration]({{% relref "components/porch-controllers-config" %}}) - Controller flags and settings
