@@ -77,3 +77,9 @@ test-e2e-clean: porchctl ## Run end-to-end tests against a newly deployed porch 
 .PHONY: test-3pp-fns
 test-3pp-fns: ## Run 3pp fn-runner end-to-end tests
 	TPP=1 go test -v -failfast ./test/e2e/fn_runner
+
+.PHONY: test-disaster-recovery
+test-disaster-recovery: ## Run disaster-recovery test scenarios against environment deployed by `test/disaster/deployment/setup.sh`
+# To automatically run `test/disaster/deployment/setup.sh`, prepend the environment variable SETUP_ENV=true
+#	to the `go test` command line below
+	DISASTER=1 gotestsum --format standard-verbose -- -count 1 -v -failfast -timeout 60m ./test/disaster/api
