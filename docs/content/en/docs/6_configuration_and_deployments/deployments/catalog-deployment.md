@@ -111,7 +111,6 @@ kubectl api-resources | grep porch
 ```
 
 
-
 ## Troubleshooting
 
 ### Common Issues
