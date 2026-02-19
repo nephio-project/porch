@@ -173,7 +173,7 @@ func TestRunE_VariousRunOnceScenarios(t *testing.T) {
 		{
 			name: "Successful sync with RFC3339 time for multiple repos",
 			flags: map[string]string{
-				"run-once":       "2025-09-20T15:04:05Z",
+				"run-once":       time.Now().Add(5 * time.Minute).Format(time.RFC3339),
 				"all":            "false",
 				"all-namespaces": "false",
 			},
@@ -181,13 +181,13 @@ func TestRunE_VariousRunOnceScenarios(t *testing.T) {
 			namespace:     "default",
 			expectError:   false,
 			expectRunOnce: true,
-			expectedRunAt: time.Now().Add(1 * time.Minute).Format(time.RFC3339),
+			expectedRunAt: time.Now().Add(5 * time.Minute).Format(time.RFC3339),
 			expectedRepos: []string{"repo1", "repo2"},
 		},
 		{
 			name: "Sync all repos with RFC3339 time using --all",
 			flags: map[string]string{
-				"run-once":       "2025-09-21T10:00:00Z",
+				"run-once":       time.Now().Add(5 * time.Minute).Format(time.RFC3339),
 				"all":            "true",
 				"all-namespaces": "false",
 			},
@@ -195,7 +195,7 @@ func TestRunE_VariousRunOnceScenarios(t *testing.T) {
 			namespace:     "default",
 			expectError:   false,
 			expectRunOnce: true,
-			expectedRunAt: time.Now().Add(1 * time.Minute).Format(time.RFC3339),
+			expectedRunAt: time.Now().Add(5 * time.Minute).Format(time.RFC3339),
 			expectedRepos: []string{"repo1", "repo2"},
 		},
 	}
@@ -286,28 +286,28 @@ func TestRunE_NsScoped(t *testing.T) {
 		{
 			name: "Sync all repos in default namespace only",
 			flags: map[string]string{
-				"run-once":       "2025-09-21T10:00:00Z",
+				"run-once":       time.Now().Add(5 * time.Minute).Format(time.RFC3339),
 				"all":            "true",
 				"all-namespaces": "false",
 			},
 			args:            []string{},
 			expectError:     false,
 			expectRunOnce:   true,
-			expectedRunAt:   time.Now().Add(1 * time.Minute).Format(time.RFC3339),
+			expectedRunAt:   time.Now().Add(5 * time.Minute).Format(time.RFC3339),
 			expectedRepos:   []types.NamespacedName{{Name: "repo1", Namespace: "default"}, {Name: "repo2", Namespace: "default"}},
 			unexpectedRepos: []types.NamespacedName{{Name: "repo3", Namespace: "other"}},
 		},
 		{
 			name: "Sync all repos in all namespaces",
 			flags: map[string]string{
-				"run-once":       "2025-09-21T10:00:00Z",
+				"run-once":       time.Now().Add(5 * time.Minute).Format(time.RFC3339),
 				"all":            "true",
 				"all-namespaces": "true",
 			},
 			args:          []string{},
 			expectError:   false,
 			expectRunOnce: true,
-			expectedRunAt: time.Now().Add(1 * time.Minute).Format(time.RFC3339),
+			expectedRunAt: time.Now().Add(5 * time.Minute).Format(time.RFC3339),
 			expectedRepos: []types.NamespacedName{{Name: "repo1", Namespace: "default"}, {Name: "repo2", Namespace: "default"}, {Name: "repo3", Namespace: "other"}},
 		},
 	}
@@ -402,8 +402,9 @@ func TestRunE_MixedSyncStates(t *testing.T) {
 
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(repo1, repo2, repo3).Build()
 
+	runOnceTime := time.Now().Add(5 * time.Minute)
 	flags := map[string]string{
-		"run-once":       "2025-09-25T09:00:00Z",
+		"run-once":       runOnceTime.Format(time.RFC3339),
 		"all":            "true",
 		"all-namespaces": "false",
 	}
@@ -414,7 +415,7 @@ func TestRunE_MixedSyncStates(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	expectedTime := time.Now().Add(1 * time.Minute).Format(time.RFC3339)
+	expectedTime, _ := time.Parse(time.RFC3339, runOnceTime.Format(time.RFC3339))
 	repoNames := []string{"repo1", "repo2", "repo3"}
 
 	for _, name := range repoNames {
@@ -427,7 +428,7 @@ func TestRunE_MixedSyncStates(t *testing.T) {
 			t.Errorf("expected RunOnceAt to be set for repo %s", name)
 			continue
 		}
-		if updated.Spec.Sync.RunOnceAt.Time.Format(time.RFC3339) != expectedTime {
+		if !updated.Spec.Sync.RunOnceAt.Time.Equal(expectedTime) {
 			t.Errorf("expected RunOnceAt for repo %s to be %v, got %v", name, expectedTime, updated.Spec.Sync.RunOnceAt.Time)
 		}
 	}

@@ -23,7 +23,7 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/cache/crcache/meta"
-	"github.com/nephio-project/porch/pkg/cache/sync"
+
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
 	"github.com/nephio-project/porch/pkg/repository"
 	"github.com/pkg/errors"
@@ -51,20 +51,17 @@ type cachedRepository struct {
 	lastVersion string
 
 	mutex                  stdSync.RWMutex
+	refreshWg              stdSync.WaitGroup
 	cachedPackageRevisions map[repository.PackageRevisionKey]*cachedPackageRevision
 	cachedPackages         map[repository.PackageKey]*cachedPackage
-	// Error encountered on repository refresh by the refresh goroutine.
-	// This is returned back by the cache to the background goroutine when it calls the periodic refresh to resync repositories.
-	refreshRevisionsError error
+	refreshRevisionsError  error
 
 	metadataStore        meta.MetadataStore
 	repoPRChangeNotifier cachetypes.RepoPRChangeNotifier
-	syncManager          *sync.SyncManager
 }
 
 func newRepository(repoKey repository.RepositoryKey, repoSpec *configapi.Repository, repo repository.Repository,
 	metadataStore meta.MetadataStore, options cachetypes.CacheOptions) *cachedRepository {
-	ctx := context.Background()
 	r := &cachedRepository{
 		key:                  repoKey,
 		repoSpec:             repoSpec,
@@ -72,12 +69,6 @@ func newRepository(repoKey repository.RepositoryKey, repoSpec *configapi.Reposit
 		metadataStore:        metadataStore,
 		repoPRChangeNotifier: options.RepoPRChangeNotifier,
 	}
-
-	// TODO: Should we fetch the packages here?
-
-	r.syncManager = sync.NewSyncManager(r, options.CoreClient)
-	r.syncManager.Start(ctx, options.RepoSyncFrequency)
-
 	return r
 }
 
@@ -105,6 +96,10 @@ func (r *cachedRepository) Version(ctx context.Context) (string, error) {
 	defer span.End()
 
 	return r.repo.Version(ctx)
+}
+
+func (r *cachedRepository) BranchCommitHash(ctx context.Context) (string, error) {
+	return r.repo.BranchCommitHash(ctx)
 }
 
 func (r *cachedRepository) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
@@ -137,13 +132,6 @@ func (r *cachedRepository) ListPackageRevisions(ctx context.Context, filter repo
 func (r *cachedRepository) getRefreshError() error {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
-
-	// TODO: This should also check r.refreshPkgsError when
-	//   the package resource is fully supported.
-
-	if r.syncManager != nil {
-		return r.syncManager.GetLastSyncError()
-	}
 	return r.refreshRevisionsError
 }
 
@@ -484,68 +472,40 @@ func (r *cachedRepository) ListPackages(ctx context.Context, filter repository.L
 }
 
 func (r *cachedRepository) Close(ctx context.Context) error {
-	if r.syncManager != nil {
-		r.syncManager.Stop()
-	}
-
-	// Make sure that watch events are sent for packagerevisions that are
-	// removed as part of closing the repository.
-	sent := 0
-	for _, pr := range r.cachedPackageRevisions {
-		nn := types.NamespacedName{
-			Name:      pr.KubeObjectName(),
-			Namespace: pr.KubeObjectNamespace(),
-		}
-		// There isn't really any correct way to handle finalizers here. We are removing
-		// the repository, so we have to just delete the PackageRevision regardless of any
-		// finalizers.
-		klog.Infof("repo %+v: deleting packagerev %s/%s because repository is closed", r.Key(), nn.Namespace, nn.Name)
-		_, err := r.metadataStore.Delete(context.TODO(), nn, true)
-		if err != nil {
-			// There isn't much use in returning an error here, so we just log it
-			// and create a PackageRevisionMeta with just name and namespace. This
-			// makes sure that the Delete event is sent.
-			klog.Warningf("repo %+v: error deleting packagerev for %s: %v", r.Key(), nn.Name, err)
-		}
-		klog.Infof("repo %+v: successfully deleted packagerev %s/%s", r.Key(), nn.Namespace, nn.Name)
-		sent += r.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Deleted, pr)
-	}
-	klog.Infof("repo %+v: sent %d notifications for %d package revisions during close", r.Key(), sent, len(r.cachedPackageRevisions))
-	return r.repo.Close(ctx)
-}
-
-// SyncOnce implements the SyncHandler interface
-func (r *cachedRepository) SyncOnce(ctx context.Context) error {
-	start := time.Now()
-	klog.Infof("repositorySync %+v: sync started", r.Key())
-	defer func() { klog.Infof("repositorySync %+v: sync finished in %s", r.Key(), time.Since(start)) }()
-	ctx, span := tracer.Start(ctx, "[START]::Repository::SyncOnce", trace.WithAttributes())
-	defer span.End()
-
-	// Set condition to sync-in-progress
-	if r.syncManager != nil {
-		if err := r.syncManager.SetRepositoryCondition(ctx, "sync-in-progress"); err != nil {
-			klog.Warningf("repositorySync %+v: failed to set sync-in-progress condition: %v", r.Key(), err)
-		}
-	}
-
-	if _, err := r.getPackageRevisions(ctx, repository.ListPackageRevisionFilter{}, true); err != nil {
-		r.refreshRevisionsError = err
-		klog.Warningf("error syncing repo packages %s: %v", r.Key(), err)
-		return err
+	r.refreshWg.Wait()
+	
+	// Query PackageRevs from API server to ensure we delete all of them,
+	// not just those in the in-memory cache
+	pkgRevs, err := r.metadataStore.List(ctx, r.repoSpec)
+	if err != nil {
+		klog.Warningf("repo %+v: error listing PackageRevs during close: %v", r.Key(), err)
 	} else {
-		r.refreshRevisionsError = nil
+		klog.Infof("repo %+v: Close called, found %d PackageRevs to delete", r.Key(), len(pkgRevs))
+		sent := 0
+		for _, pkgRevMeta := range pkgRevs {
+			nn := types.NamespacedName{
+				Name:      pkgRevMeta.Name,
+				Namespace: pkgRevMeta.Namespace,
+			}
+			klog.Infof("repo %+v: deleting packagerev %s/%s because repository is closed", r.Key(), nn.Namespace, nn.Name)
+			_, err := r.metadataStore.Delete(ctx, nn, true)
+			if err != nil {
+				klog.Warningf("repo %+v: error deleting packagerev %s: %v", r.Key(), nn.Name, err)
+			} else {
+				klog.Infof("repo %+v: successfully deleted packagerev %s/%s", r.Key(), nn.Namespace, nn.Name)
+			}
+			// Send delete notification if we have the PR in cache
+			for _, pr := range r.cachedPackageRevisions {
+				if pr.KubeObjectName() == nn.Name && pr.KubeObjectNamespace() == nn.Namespace {
+					sent += r.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Deleted, pr)
+					break
+				}
+			}
+		}
+		klog.Infof("repo %+v: sent %d notifications for %d package revisions during close", r.Key(), sent, len(pkgRevs))
 	}
-	// TODO: Uncomment when package resources are fully supported
-	//if _, err := r.getPackages(ctx, repository.ListPackageRevisionFilter{}, true); err != nil {
-	//	klog.Warningf("error syncing repo packages %s: %v", r.Key(), err)
-	//}
-	return nil
-}
-
-// GetSpec implements the SyncHandler interface
-func (r *cachedRepository) GetSpec() *configapi.Repository {
-	return r.repoSpec
+	
+	return r.repo.Close(ctx)
 }
 
 // refreshAllCachedPackages updates the cached map for this repository with all the newPackages,
@@ -554,6 +514,9 @@ func (r *cachedRepository) GetSpec() *configapi.Repository {
 func (r *cachedRepository) refreshAllCachedPackages(ctx context.Context) (map[repository.PackageKey]*cachedPackage, map[repository.PackageRevisionKey]*cachedPackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cachedRepository::refreshAllCachedPackages", trace.WithAttributes())
 	defer span.End()
+
+	r.refreshWg.Add(1)
+	defer r.refreshWg.Done()
 
 	// TODO: Avoid simultaneous fetches?
 	// TODO: Push-down partial refresh?

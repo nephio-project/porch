@@ -22,8 +22,8 @@ import (
 	"strings"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
-	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	api "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
+	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	pkgerrors "github.com/pkg/errors"
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
@@ -52,6 +52,7 @@ func (o *Options) BindFlags(_ string, _ *flag.FlagSet) {}
 type PackageVariantReconciler struct {
 	client.Client
 	Options
+	loggerName string
 }
 
 const (
@@ -60,6 +61,11 @@ const (
 	ConditionTypeStalled = "Stalled" // whether or not the packagevariant object is making progress or not
 	ConditionTypeReady   = "Ready"   // whether or not the reconciliation succeeded
 )
+
+// SetLogger sets the logger name for this reconciler
+func (r *PackageVariantReconciler) SetLogger(name string) {
+	r.loggerName = name
+}
 
 //go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 rbac:headerFile=../../../../../scripts/boilerplate.yaml.txt,roleName=porch-controllers-packagevariants,year=$YEAR_GEN webhook paths="." output:rbac:artifacts:config=../../../config/rbac
 

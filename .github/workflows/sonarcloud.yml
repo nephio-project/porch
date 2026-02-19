@@ -83,6 +83,7 @@ jobs:
         workflow: CI test report
         run_id: ${{ github.event.workflow_run.id }}
         name: coverage-report
+        use_unzip: true
         
     - name: Fix Go module paths in coverage
       run: |

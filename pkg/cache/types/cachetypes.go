@@ -18,7 +18,6 @@ package cachetypes
 import (
 	"context"
 	"strings"
-	"time"
 
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
@@ -37,7 +36,6 @@ const (
 
 type CacheOptions struct {
 	ExternalRepoOptions        externalrepotypes.ExternalRepoOptions
-	RepoSyncFrequency          time.Duration
 	RepoOperationRetryAttempts int
 	RepoPRChangeNotifier       RepoPRChangeNotifier
 	CoreClient                 client.WithWatch
@@ -71,6 +69,18 @@ type CacheFactory interface {
 
 type RepoPRChangeNotifier interface {
 	NotifyPackageRevisionChange(eventType watch.EventType, obj repository.PackageRevision) int
+}
+
+// noOpRepoPRChangeNotifier is a no-op implementation
+type noOpRepoPRChangeNotifier struct{}
+
+func (n *noOpRepoPRChangeNotifier) NotifyPackageRevisionChange(eventType watch.EventType, obj repository.PackageRevision) int {
+	return 0
+}
+
+// NewNoOpRepoPRChangeNotifier creates a no-op notifier
+func NewNoOpRepoPRChangeNotifier() RepoPRChangeNotifier {
+	return &noOpRepoPRChangeNotifier{}
 }
 
 func IsACacheType(ct string) bool {

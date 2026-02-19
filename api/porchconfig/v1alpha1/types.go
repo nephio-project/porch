@@ -1,4 +1,4 @@
-// Copyright 2022-2025 The kpt and Nephio Authors
+// Copyright 2022-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,15 +20,22 @@ import (
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:resource:path=repositories,singular=repository
+//+kubebuilder:resource:path=repositories,singular=repository,shortName=repo
 //+kubebuilder:printcolumn:name="Type",type=string,JSONPath=`.spec.type`
 //+kubebuilder:printcolumn:name="Content",type=string,JSONPath=`.spec.content`
 // +kubebuilder:printcolumn:name="Sync schedule",type=string,JSONPath=`.spec.sync.schedule`
 //+kubebuilder:printcolumn:name="Deployment",type=boolean,JSONPath=`.spec.deployment`
 //+kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=='Ready')].status`
 //+kubebuilder:printcolumn:name="Address",type=string,JSONPath=`.spec['git','oci']['repo','registry']`
+//+kubebuilder:printcolumn:name="Branch",type=string,JSONPath=`.spec.git.branch`
+//+kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 // +kubebuilder:validation:XValidation:rule="self.metadata.name.matches('^[a-z0-9]([-a-z0-9]*[a-z0-9])?$')",message="metadata.name must conform to the RFC1123 DNS label standard"
 // +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 63",message="metadata.name must be no more than 63 characters"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.spec.type) || self.spec.type == oldSelf.spec.type",message="spec.type is immutable"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.spec.git) || !has(oldSelf.spec.git.repo) || self.spec.git.repo == oldSelf.spec.git.repo",message="spec.git.repo is immutable"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.spec.git) || !has(oldSelf.spec.git.branch) || self.spec.git.branch == oldSelf.spec.git.branch",message="spec.git.branch is immutable"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.spec.git) || !has(oldSelf.spec.git.directory) || self.spec.git.directory == oldSelf.spec.git.directory",message="spec.git.directory is immutable"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.spec.oci) || !has(oldSelf.spec.oci.registry) || self.spec.oci.registry == oldSelf.spec.oci.registry",message="spec.oci.registry is immutable"
 
 // Repository
 type Repository struct {
@@ -77,7 +84,7 @@ type RepositorySpec struct {
 }
 
 type RepositorySync struct {
-	// Value in metav1.Time format to indicate when the repository should be synced once outside the periodic cron based reconcile loop.
+	// Value in metav1.Time format to trigger a one-time cache sync outside the periodic schedule.
 	RunOnceAt *metav1.Time `json:"runOnceAt,omitempty"`
 	// Cron value to indicate when the repository should be synced periodically. Example: `*/10 * * * *` to sync every 10 minutes.
 	Schedule string `json:"schedule,omitempty"`
@@ -92,10 +99,12 @@ type GitRepository struct {
 	// +kubebuilder:default=main
 	// +kubebuilder:validation:MinLength=1
 	// Name of the branch containing the packages. Finalized packages will be committed to this branch (if the repository allows write access). If unspecified, defaults to "main".
+	// This field is immutable after creation.
 	Branch string `json:"branch,omitempty"`
 	// CreateBranch specifies if Porch should create the package branch if it doesn't exist.
 	CreateBranch bool `json:"createBranch,omitempty"`
 	// Directory within the Git repository where the packages are stored. A subdirectory of this directory containing a Kptfile is considered a package. If unspecified, defaults to root directory.
+	// This field is immutable after creation.
 	Directory string `json:"directory,omitempty"`
 	// Reference to secret containing authentication credentials.
 	SecretRef SecretRef `json:"secretRef,omitempty"`
@@ -160,6 +169,26 @@ const (
 type RepositoryStatus struct {
 	// Conditions describes the reconciliation state of the object.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	// LastFullSyncTime is the timestamp of the last successful full repository sync.
+	// +optional
+	LastFullSyncTime *metav1.Time `json:"lastFullSyncTime,omitempty"`
+	// ObservedGeneration is the generation of the Repository spec that was last reconciled.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+	// ObservedRunOnceAt tracks the last observed value of spec.sync.runOnceAt.
+	// Used to detect when runOnceAt is set, updated, or cleared to prevent redundant syncs.
+	// +optional
+	ObservedRunOnceAt *metav1.Time `json:"observedRunOnceAt,omitempty"`
+	// PackageCount is the number of package revisions discovered in the repository.
+	// +optional
+	PackageCount int `json:"packageCount,omitempty"`
+	// GitCommitHash is the commit hash of the configured branch for git repositories.
+	// Empty for OCI repositories.
+	// +optional
+	GitCommitHash string `json:"gitCommitHash,omitempty"`
+	// NextFullSyncTime is the timestamp when the next full sync is scheduled to occur.
+	// +optional
+	NextFullSyncTime *metav1.Time `json:"nextFullSyncTime,omitempty"`
 }
 
 //+kubebuilder:object:root=true

@@ -53,7 +53,7 @@ func (t *PorchSuite) TestCloneFromUpstream() {
 	t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), suiteutils.PorchTestRepoName, "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 
 	// Create PackageRevision from upstream repo
-	clonedPr := t.CreatePackageSkeleton(suiteutils.PorchTestRepoName, istionsPackage, testWorkspace)
+	clonedPr := t.CreatePackageSkeleton(suiteutils.PorchTestRepoName, istionsPackage, "clone-upstream-workspace")
 	clonedPr.Spec.Tasks = []porchapi.Task{
 		{
 			Type: porchapi.TaskTypeClone,
@@ -105,7 +105,7 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 	})
 
 	// Create PackageRevision from upstream repo
-	pr := t.CreatePackageSkeleton(suiteutils.PorchTestRepoName, istionsPackage, testWorkspace)
+	pr := t.CreatePackageSkeleton(suiteutils.PorchTestRepoName, "istions-deployment", "clone-deployment-workspace")
 	pr.Spec.Tasks = []porchapi.Task{
 		{
 			Type: porchapi.TaskTypeClone,
@@ -129,7 +129,7 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 	}, &istions)
 
 	kptfile := t.ParseKptfileF(&istions)
-	t.validateKptfileBasics(kptfile, istionsPackage)
+	t.validateKptfileBasics(kptfile, "istions-deployment")
 	t.validateUpstreamLock(kptfile, testBlueprintsRepo)
 	t.validateUpstream(kptfile, testBlueprintsRepo)
 
@@ -139,7 +139,7 @@ func (t *PorchSuite) TestCloneIntoDeploymentRepository() {
 	if got, want := configmap.Name, "kptfile.kpt.dev"; got != want {
 		t.Errorf("package context name: got %s, want %s", got, want)
 	}
-	if got, want := configmap.Data["name"], "istions"; got != want {
+	if got, want := configmap.Data["name"], "istions-deployment"; got != want {
 		t.Errorf("package context 'data.name': got %s, want %s", got, want)
 	}
 }

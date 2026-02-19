@@ -1,3 +1,4 @@
+usesPorchTestRepo: true
 commands:
   - args:
       - porchctl
@@ -7,7 +8,7 @@ commands:
       - --name=git
       - --repo-basic-password=secret
       - --repo-basic-username=nephio
-      - http://gitea.gitea.svc.cluster.local:3000/nephio/rpkg-push
+      - http://gitea.gitea.svc.cluster.local:3000/nephio/porch-test
   - args:
       - porchctl
       - rpkg
@@ -237,8 +238,7 @@ commands:
             internal.config.kubernetes.io/path: package-context.yaml
           name: kptfile.kpt.dev
       kind: ResourceList
-    stderr: |
-      Error: Internal error occurred: Operation cannot be fulfilled on packagerevisionresources.porch.kpt.dev "git.test-package.push": the object has been modified; please apply your changes to the latest version and try again 
+    stderr: "Error: Internal error occurred: Operation cannot be fulfilled on packagerevisionresources.porch.kpt.dev \"git.test-package.push\": the object has been modified; please apply your changes to the latest version and try again \n"
     exitCode: 1
     yaml: true
   - args:
@@ -249,10 +249,10 @@ commands:
       - git.test-package.push
       - /tmp/porch-e2e/testing-invalid-render
   - args:
-    - sh
-    - -c
-    - |
-      echo "pipeline:\n  mutators:\n  - image: ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.4.0\n    configMap:\n      namespace: example-ns\n  - image: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1.4\n" >> /tmp/porch-e2e/testing-invalid-render/Kptfile
+      - sh
+      - -c
+      - |
+        echo "pipeline:\n  mutators:\n  - image: ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.4.0\n    configMap:\n      namespace: example-ns\n  - image: ghcr.io/kptdev/krm-functions-catalog/set-annotations:v0.1.4\n" >> /tmp/porch-e2e/testing-invalid-render/Kptfile
   - args:
       - porchctl
       - rpkg
@@ -260,6 +260,6 @@ commands:
       - --namespace=rpkg-push
       - git.test-package.push
       - /tmp/porch-e2e/testing-invalid-render
-    stderr: "Error rendering package in kpt function pipeline. Package NOT pushed to remote. Fix locally (until 'kpt fn render' succeeds) and retry."
-    containsErrorString: true
+    stderr: "Error: Internal error occurred: Error rendering package in kpt function pipeline. Package NOT pushed to remote. Fix locally (until 'kpt fn render' succeeds) and retry. Details: fn.render: pkg .:\n\tpkg.render:\n\tpipeline.run: func eval \"ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.4.0\" failed: rpc error: code = Unknown desc = unable to get the grpc client to the pod for ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.4.0: unable to get the entrypoint for ghcr.io/kptdev/krm-functions-catalog/set-namespace:v0.4.0: GET https://ghcr.io/v2/kptdev/krm-functions-catalog/set-namespace/manifests/v0.4.0: MANIFEST_UNKNOWN: manifest unknown \n"
     exitCode: 1
+    containsErrorString: true

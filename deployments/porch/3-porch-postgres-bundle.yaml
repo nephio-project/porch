@@ -111,6 +111,8 @@ spec:
               value: "error"
             - name: POSTGRESQL_SHARED_PRELOAD_LIBRARIES
               value: "pgaudit"
+            - name: POSTGRESQL_MAX_CONNECTIONS
+              value: "200"
           ports:
             - name: tcp-postgresql
               containerPort: 5432  # Should match POSTGRESQL_PORT_NUMBER env var

@@ -20,7 +20,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -280,7 +279,6 @@ func openRepositoryFromArchive(t *testing.T, ctx context.Context, testPath, name
 				RepoOperationRetryAttempts: 3,
 			},
 			CoreClient:           fakeClient,
-			RepoSyncFrequency:    60 * time.Second,
 			RepoPRChangeNotifier: &fakecache.ObjectNotifier{},
 		}}
 	cachedRepo, err := cache.OpenRepository(ctx, apiRepo)

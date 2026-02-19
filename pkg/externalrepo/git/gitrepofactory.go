@@ -103,7 +103,17 @@ func (f *GitRepoFactory) CheckRepositoryConnection(ctx context.Context, reposito
 		Timeout: 20,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to list remote refs: %w", err)
+		// If auth fails but we have no credentials, try without auth for public repos
+		if auth != nil {
+			return fmt.Errorf("failed to list remote refs with authentication: %w", err)
+		}
+		// Try again without auth for public repositories
+		refs, err = remote.List(&gogit.ListOptions{
+			Timeout: 20,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to list remote refs: %w", err)
+		}
 	}
 
 	branchExists := false

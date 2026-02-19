@@ -101,9 +101,11 @@ func (r *dbRepository) Close(ctx context.Context) error {
 	ctx, span := tracer.Start(ctx, "dbRepository::Close", trace.WithAttributes())
 	defer span.End()
 
-	klog.V(5).Infof("dbRepository:close: closing repository %+v", r.Key())
+	if r.repositorySync != nil {
+		r.repositorySync.syncWg.Wait()
+	}
 
-	r.repositorySync.Stop()
+	klog.V(5).Infof("dbRepository:close: closing repository %+v", r.Key())
 
 	dbPkgs, err := pkgReadPkgsFromDB(ctx, r.Key())
 	if err != nil {
@@ -313,6 +315,10 @@ func (r *dbRepository) Version(ctx context.Context) (string, error) {
 	return r.externalRepo.Version(ctx)
 }
 
+func (r *dbRepository) BranchCommitHash(ctx context.Context) (string, error) {
+	return r.externalRepo.BranchCommitHash(ctx)
+}
+
 func (r *dbRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version int) (repository.PackageRevision, error) {
 	_, span := tracer.Start(ctx, "dbRepository::ClosePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
@@ -370,10 +376,6 @@ func (r *dbRepository) savePackageRevision(ctx context.Context, d *dbPackageRevi
 func (r *dbRepository) Refresh(ctx context.Context) error {
 	_, span := tracer.Start(ctx, "dbRepository::Refresh", trace.WithAttributes())
 	defer span.End()
-
-	if err := r.repositorySync.getLastSyncError(); err != nil {
-		klog.Warningf("last sync returned error %q, refreshing . . .", err)
-	}
 
 	if err := r.externalRepo.Refresh(ctx); err != nil {
 		return err

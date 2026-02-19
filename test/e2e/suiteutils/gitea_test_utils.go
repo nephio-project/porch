@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"testing"
 )
 
 const (
@@ -29,12 +30,14 @@ const (
 	GiteaRepoAPi           = "http://localhost:3000/api/v1/repos/nephio/" + PorchTestRepoName
 )
 
-// getGiteaURL returns the appropriate Gitea URL based on whether Porch server is running in cluster
+// getGiteaURL returns the appropriate Gitea URL based on whether Porch server and controller are running in cluster
 func (t *TestSuite) getGiteaURL() string {
-	if t.IsPorchServerInCluster() {
+	// Both porch-server and controller need to reach Gitea
+	// Use cluster URL only if BOTH are in-cluster
+	if t.IsPorchServerInCluster() && t.IsRepoControllerInCluster() {
 		return GiteaClusterURL
 	}
-	return "http://localhost:3000/nephio/"
+	return "http://172.18.255.200:3000/nephio/"
 }
 
 // GetPorchTestRepoURL returns the dynamic PorchTestRepo URL
@@ -52,32 +55,38 @@ func IsPorchTestRepo(repo string) bool {
 	return strings.Contains(repo, "porch-test")
 }
 
-// RecreateGiteaTestRepo recreates the porch-test repository to its initial state
-func (t *TestSuite) RecreateGiteaTestRepo() {
-	t.T().Helper()
+// RecreateGiteaRepo recreates a Gitea repository to its initial state
+func RecreateGiteaRepo(t *testing.T, repoName string) {
+	t.Helper()
 
 	// Skip cleanup only if test failed and KEEP_GITEA_ON_FAILURE is set in local development
-	if t.T().Failed() && os.Getenv("KEEP_GITEA_ON_FAILURE") == "true" && os.Getenv("CI") == "" {
+	if t.Failed() && os.Getenv("KEEP_GITEA_ON_FAILURE") == "true" && os.Getenv("CI") == "" {
 		t.Logf("Skipping gitea cleanup due to test failure (KEEP_GITEA_ON_FAILURE=true, local dev)")
 		return
 	}
 
-	t.Logf("recreating gitea porch-test repository to initial state")
+	t.Logf("recreating gitea %s repository to initial state", repoName)
 
 	// Delete the repository
-	req, _ := http.NewRequest("DELETE", GiteaRepoAPi, nil)
+	apiURL := "http://localhost:3000/api/v1/repos/" + GiteaUser + "/" + repoName
+	req, _ := http.NewRequest("DELETE", apiURL, nil)
 	req.SetBasicAuth(GiteaUser, GiteaPassword)
 	if _, err := http.DefaultClient.Do(req); err != nil {
-		t.Fatalf("Failed to delete gitea porch-test repository: %v", err)
+		t.Fatalf("Failed to delete gitea %s repository: %v", repoName, err)
 	}
 
 	// Recreate the repository
-	body := `{"name": "porch-test", "auto_init": true, "readme": "Default"}`
+	body := `{"name": "` + repoName + `", "auto_init": true, "readme": "Default"}`
 	req, _ = http.NewRequest("POST", "http://localhost:3000/api/v1/user/repos", strings.NewReader(body))
 	req.SetBasicAuth(GiteaUser, GiteaPassword)
 	req.Header.Set("Content-Type", "application/json")
 	if _, err := http.DefaultClient.Do(req); err != nil {
-		t.Fatalf("Failed to recreate gitea porch-test repository: %v", err)
+		t.Fatalf("Failed to recreate gitea %s repository: %v", repoName, err)
 	}
-	t.Logf("Successfully recreated gitea porch-test repository")
+	t.Logf("Successfully recreated gitea %s repository", repoName)
+}
+
+// RecreateGiteaTestRepo recreates the porch-test repository to its initial state
+func (t *TestSuite) RecreateGiteaTestRepo() {
+	RecreateGiteaRepo(t.T(), PorchTestRepoName)
 }

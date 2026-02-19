@@ -14,7 +14,10 @@
 
 name: End-to-End Tests
 on:
+  push:
+    branches: [main, feature-*]  # Validates cherry-picks
   pull_request:
+    branches: [main, feature-*]
   workflow_dispatch:
 
 concurrency:
@@ -108,22 +111,22 @@ jobs:
             make_target: "run-in-kind"
             test_path: "${GITHUB_WORKSPACE}/test/e2e/api"
             test_env: "E2E=1"
-            log_name: "porch-e2e-server.log"
+            log_prefix: "porch-e2e"
           - name: "Porch E2E Tests (DB Cache)"
             make_target: "run-in-kind-db-cache"
             test_path: "${GITHUB_WORKSPACE}/test/e2e/api"
             test_env: "E2E=1 DB_CACHE=1"
-            log_name: "porch-e2e-dbcache-server.log"
+            log_prefix: "porch-e2e-dbcache"
           - name: "Porch CLI E2E Tests"
-            make_target: "run-in-kind-no-git"
+            make_target: "run-in-kind"
             test_path: "${GITHUB_WORKSPACE}/test/e2e/cli"
             test_env: "E2E=1"
-            log_name: "porch-cli-e2e-server.log"
+            log_prefix: "porch-cli-e2e"
           - name: "Porch CLI E2E Tests (DB Cache)"
-            make_target: "run-in-kind-db-cache-no-git"
+            make_target: "run-in-kind-db-cache"
             test_path: "${GITHUB_WORKSPACE}/test/e2e/cli"
             test_env: "E2E=1"
-            log_name: "porch-cli-e2e-dbcache-server.log"
+            log_prefix: "porch-cli-e2e-dbcache"
 
     steps:
       - name: Checkout Porch
@@ -178,15 +181,22 @@ jobs:
         if: always()
         run: |
           name=$(kubectl -n porch-system get pod -l app=porch-server -o custom-columns=NAME:.metadata.name --no-headers=true)
-          kubectl -n porch-system logs $name > ${{ matrix.log_name }}
+          kubectl -n porch-system logs $name > ${{ matrix.log_prefix }}-server.log
+      - name: Export porch controllers logs
+        if: always()
+        run: |
+          name=$(kubectl -n porch-system get pod -l k8s-app=porch-controllers -o custom-columns=NAME:.metadata.name --no-headers=true 2>/dev/null || true)
+          if [ -n "$name" ]; then
+            kubectl -n porch-system logs $name > ${{ matrix.log_prefix }}-controllers.log 2>/dev/null || true
+          fi
       - name: Archive logs
         if: always()
         uses: actions/upload-artifact@v4  
         with:
-          name: ${{ matrix.log_name }}
-          path: ${{ matrix.log_name }}
+          name: ${{ matrix.log_prefix }}-logs
+          path: "*.log"
           compression-level: 0
-          retention-days: 7
+          retention-days: 2
 
   e2e-summary:
     name: E2E Tests Summary

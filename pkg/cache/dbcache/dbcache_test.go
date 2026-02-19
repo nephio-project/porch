@@ -51,8 +51,8 @@ func Test_DbTestSuite(t *testing.T) {
 	if u, err := user.Current(); err == nil && u.Username == "root" {
 		t.Fatalf("This test cannot run as %q user", u.Username)
 	}
-	// TODO: replace ctx with t.Context() in go 1.24<
-	suite.Run(t, &DbTestSuite{nextPkgRev: 1, ctx: context.Background()})
+	
+	suite.Run(t, &DbTestSuite{nextPkgRev: 1, ctx: t.Context()})
 }
 
 func (t *DbTestSuite) Context() context.Context {
@@ -168,8 +168,7 @@ func (t *DbTestSuite) TestDBRepositoryCrud() {
 	fakeClient := testutil.NewFakeClientWithStatus(scheme, repositorySpec)
 
 	options := cachetypes.CacheOptions{
-		RepoSyncFrequency: 60 * time.Minute,
-		CoreClient:        fakeClient,
+		CoreClient: fakeClient,
 	}
 	dbCache, err := new(DBCacheFactory).NewCache(ctx, options)
 	t.NoError(err)
@@ -218,8 +217,7 @@ func (t *DbTestSuite) TestDBRepositoryConnectivityCheck() {
 	}
 	fakeClient := testutil.NewFakeClientWithStatus(scheme, failureSpec)
 	options := cachetypes.CacheOptions{
-		RepoSyncFrequency: 60 * time.Second,
-		CoreClient:        fakeClient,
+		CoreClient: fakeClient,
 	}
 	dbCache, err := new(DBCacheFactory).NewCache(ctx, options)
 	t.NoError(err)
