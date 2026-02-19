@@ -9,14 +9,24 @@ This guide covers deploying Porch in production environments using the [Nephio c
 
 ## Configuration Planning
 
-Before deploying Porch, determine which features you need:
+Before deploying Porch, determine which features you need.
+
+### Cache Mode Selection
+
+Choose your cache backend based on deployment scale and requirements:
+
+- **CR Cache** (default): Development and small deployments (<100 repositories)
+- **DB Cache**: Production deployments requiring scale and reliability
+
+{{% alert title="Important" color="warning" %}}
+If using **DB Cache**, you must configure database settings for **both** Porch Server and Repository Controller before deployment. See [Cache Configuration]({{% relref "/docs/6_configuration_and_deployments/configurations/cache" %}}) for complete setup instructions including database initialization.
+{{% /alert %}}
 
 ### Optional Pre-deployment Configuration
 
 These **optional** features must be configured **before** deployment if you need them:
 
 #### Porch Server
-- [Cache Configuration]({{% relref "../configurations/cache" %}}) - Switch to database cache (requires deployment args)
 - [Cert-Manager Webhooks]({{% relref "../configurations/components/porch-server-config/cert-manager-webhooks" %}}) - Enable cert-manager webhook integration (requires deployment env vars)
 - [Jaeger Tracing]({{% relref "../configurations/components/porch-server-config/jaeger-tracing" %}}) - Enable distributed tracing (requires deployment env vars)
 - [Git Custom TLS]({{% relref "../configurations/components/porch-server-config/git-authentication#3-httpstls-configuration" %}}) - Enable custom TLS certificates for Git repositories (requires `--use-git-cabundle=true` arg)
@@ -29,10 +39,6 @@ These **optional** features must be configured **before** deployment if you need
 These features can be configured **after** deployment:
 
 - [Git Authentication]({{% relref "../configurations/components/porch-server-config/git-authentication" %}}) - Configure Porch Server authentication for private Git repositories
-
-{{% alert title="Note" color="info" %}}
-[Repository Sync]({{% relref "../configurations/repository-sync" %}}) configuration is currently located in the system configuration section but should be moved to a more logical location as it's about configuring individual Repository resources, not system-wide settings.
-{{% /alert %}}
 
 ## Prerequisites
 
@@ -49,14 +55,19 @@ These features can be configured **after** deployment:
 kpt pkg get https://github.com/nephio-project/catalog/tree/main/nephio/core/porch
 ```
 
-### 2. Configure the Package (Optional)
+### 2. Customize Configuration (Optional)
 
-Review and modify the configuration in the `porch/` directory if needed:
+If you need any pre-deployment features from the [Configuration Planning](#configuration-planning) section above, modify the package now:
 
 ```bash
 cd porch/
-# Review configuration files
-ls -la
+
+# Example: Configure database cache for Porch Server
+kpt fn eval --image gcr.io/kpt-fn/set-annotations:v0.1 -- \
+  annotations='cache-type=DB'
+
+# Review your changes
+kpt pkg tree
 ```
 
 ### 3. Render and Apply

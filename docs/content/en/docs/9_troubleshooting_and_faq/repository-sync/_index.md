@@ -23,10 +23,10 @@ kubectl describe repository <repo-name> -n <namespace>
 kubectl get repository <repo-name> -n <namespace> -o yaml | grep -A5 sync
 
 # Check repository synchronization logs
-kubectl logs -n porch-system deployment/porch-server | grep "repositorySync.*<repo-name>"
+kubectl logs -n porch-system deployment/porch-controllers | grep "sync.*<repo-name>"
 
 # Check for sync errors
-kubectl logs -n porch-system deployment/porch-server | grep "<repo-name>.*error"
+kubectl logs -n porch-system deployment/porch-controllers | grep "<repo-name>.*error"
 ```
 
 **Common causes**:
@@ -60,7 +60,8 @@ kubectl create secret generic <secret-name> \
   --from-literal=username=<user> \
   --from-literal=password=<token>
 
-# Porch will automatically retry authentication at every repo-sync-frequency set in porch-server(default 10m)
+# Porch controller will automatically retry authentication based on error-specific intervals
+# See error handling documentation for retry timing details
 
 # For immediate retry, re-register the repository with correct credentials:
 kubectl delete repository <repo-name> -n <namespace>
@@ -120,7 +121,7 @@ kubectl get repository <repo-name> -n <namespace> -o jsonpath='{.spec.sync.runOn
 date -u  # Compare with runOnceAt value
 
 # Check one-time synchronization logs
-kubectl logs -n porch-system deployment/porch-server | grep "one-time sync"
+kubectl logs -n porch-system deployment/porch-controllers | grep "runOnceAt"
 ```
 
 **Solutions**:
@@ -164,8 +165,8 @@ porchctl repo sync <repo> --run-once "2024-12-01T15:00:00Z"
 
 ### Enable Verbose Logging
 ```bash
-# Increase Porch server log level
-kubectl patch deployment porch-server -n porch-system -p '{"spec":{"template":{"spec":{"containers":[{"name":"porch-server","args":["--v=2"]}]}}}}'
+# Increase controller log level
+kubectl patch deployment porch-controllers -n porch-system -p '{"spec":{"template":{"spec":{"containers":[{"name":"porch-controllers","args":["--v=2"]}]}}}}'
 ```
 
 ### Monitor Repository Events
@@ -180,10 +181,10 @@ kubectl get events -n <namespace> --field-selector involvedObject.kind=Repositor
 ### Check Repository Synchronization Status
 ```bash
 # Repository sync logs
-kubectl logs -n porch-system deployment/porch-server | grep "repositorySync.*<repo-name>"
+kubectl logs -n porch-system deployment/porch-controllers | grep "sync.*<repo-name>"
 
-# Next sync time
-kubectl logs -n porch-system deployment/porch-server | grep "next scheduled time"
+# Next sync time from status
+kubectl get repository <repo-name> -n <namespace> -o jsonpath='{.status.nextFullSyncTime}'
 ```
 
 ### Validate Repository Structure
@@ -199,7 +200,14 @@ git branch -r | grep <branch-name>
 ## FAQ
 
 ### Q: How often do repositories sync by default?
-**A**: Without a custom sync schedule, repositories use the system default frequency of 10 minutes. This default can be customized by setting the `repo-sync-frequency` parameter in the Porch server deployment.
+**A**: Without a custom sync schedule, repositories use the system default frequency of 1 hour for full syncs and 5 minutes for health checks. These defaults can be customized using controller flags:
+
+```bash
+--repositories.full-sync-frequency=1h
+--repositories.health-check-frequency=5m
+```
+
+See [Repository Controller Configuration]({{% relref "/docs/6_configuration_and_deployments/configurations/components/porch-controllers-config.md#repository-controller-configuration" %}}) for details.
 
 ### Q: Can I have both periodic and one-time sync?
 **A**: Yes, periodic scheduling and one-time sync work independently. One-time synchronization executes regardless of the periodic schedule.
