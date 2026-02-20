@@ -25,6 +25,7 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	cachetypes "github.com/nephio-project/porch/pkg/cache/types"
+	"github.com/nephio-project/porch/pkg/engine"
 	"github.com/nephio-project/porch/pkg/externalrepo"
 	externalrepotypes "github.com/nephio-project/porch/pkg/externalrepo/types"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -48,6 +49,7 @@ type dbRepository struct {
 	updatedBy            string
 	deployment           bool
 	repoPRChangeNotifier cachetypes.RepoPRChangeNotifier
+	pushDraftsToGit      bool
 }
 
 func (r *dbRepository) KubeObjectName() string {
@@ -198,6 +200,14 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *po
 		},
 	}
 
+	if r.pushDraftsToGit {
+		gitPRDraft, err := r.externalRepo.CreatePackageRevisionDraft(ctx, newPR)
+		if err != nil {
+			return nil, pkgerrors.Wrapf(err, "failed to create git draft for %+v, not saving to DB", dbPkgRev.Key())
+		}
+		dbPkgRev.gitPRDraft = gitPRDraft
+	}
+
 	if prDraft, err := r.savePackageRevisionDraft(ctx, dbPkgRev, 0); err == nil {
 		return repository.PackageRevisionDraft(prDraft), nil
 	} else {
@@ -280,6 +290,17 @@ func (r *dbRepository) UpdatePackageRevision(ctx context.Context, updatePR repos
 	updatePkgRev.updated = time.Now()
 	updatePkgRev.updatedBy = getCurrentUser()
 
+	if r.pushDraftsToGit && updatePkgRev.gitPRDraft == nil {
+		gitPRDraft, gitPR, err := engine.GetOrCreateGitDraft(ctx, r.externalRepo, updatePkgRev, updatePkgRev.gitPR)
+		if err != nil {
+			return nil, pkgerrors.Wrapf(err, "failed to get or create git draft for %+v", updatePkgRev.Key())
+		}
+		updatePkgRev.gitPRDraft = gitPRDraft
+		if gitPR != nil {
+			updatePkgRev.gitPR = gitPR
+		}
+	}
+
 	return updatePkgRev, nil
 }
 
@@ -317,9 +338,23 @@ func (r *dbRepository) ClosePackageRevisionDraft(ctx context.Context, prd reposi
 	_, span := tracer.Start(ctx, "dbRepository::ClosePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
 
-	pr, err := r.savePackageRevisionDraft(ctx, prd, version)
+	dbPrd := prd.(*dbPackageRevision)
 
-	return repository.PackageRevision(pr), err
+	if r.pushDraftsToGit && dbPrd.gitPRDraft != nil {
+		gitPR, err := r.externalRepo.ClosePackageRevisionDraft(ctx, dbPrd.gitPRDraft, 0)
+		if err != nil {
+			return nil, pkgerrors.Wrapf(err, "failed to close git draft for %+v, not saving to DB", dbPrd.Key())
+		}
+		dbPrd.gitPR = gitPR
+		dbPrd.gitPRDraft = nil
+	}
+
+	pr, err := r.savePackageRevisionDraft(ctx, prd, version)
+	if err != nil {
+		return nil, err
+	}
+
+	return repository.PackageRevision(pr), nil
 }
 
 func (r *dbRepository) savePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, _ int) (*dbPackageRevision, error) {

@@ -74,6 +74,7 @@ func (c *dbCache) createRepository(ctx context.Context, key repository.Repositor
 		updatedBy:            getCurrentUser(),
 		deployment:           repositorySpec.Spec.Deployment,
 		repoPRChangeNotifier: c.options.RepoPRChangeNotifier,
+		pushDraftsToGit:      c.options.DbPushDraftsToGit,
 	}
 
 	err := dbRepo.OpenRepository(ctx, c.options.ExternalRepoOptions)

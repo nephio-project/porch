@@ -61,6 +61,7 @@ type PorchServerOptions struct {
 	CoreAPIKubeconfigPath      string
 	DbCacheDriver              string
 	DbCacheDataSource          string
+	DbPushDrafsToGit           bool
 	DefaultImagePrefix         string
 	FunctionRunnerAddress      string
 	ListTimeoutPerRepository   time.Duration
@@ -299,6 +300,7 @@ func (o *PorchServerOptions) Config() (*apiserver.Config, error) {
 					Driver:     o.DbCacheDriver,
 					DataSource: o.DbCacheDataSource,
 				},
+				DbPushDraftsToGit: o.DbPushDrafsToGit,
 			},
 			ListTimeoutPerRepository: o.ListTimeoutPerRepository,
 			MaxConcurrentLists:       o.MaxConcurrentLists,
@@ -348,6 +350,7 @@ func (o *PorchServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.CacheType, "cache-type", string(cachetypes.DefaultCacheType), "Type of cache to use for cacheing repos, supported types are \"CR\" (Custom Resource) and \"DB\" (DataBase)")
 	fs.StringVar(&o.DbCacheDriver, "db-cache-driver", cachetypes.DefaultDBCacheDriver, "Database driver to use when for the database cache")
 	fs.StringVar(&o.DbCacheDataSource, "db-cache-data-source", "", "Address of the database, for example \"postgresql://user:pass@hostname:port/database\"")
+	fs.BoolVar(&o.DbPushDrafsToGit, "db-push-drafts-to-git", false, "If true, Porch will push draft package revisions to git when using the DB cache")
 	fs.StringVar(&o.DefaultImagePrefix, "default-image-prefix", runneroptions.GHCRImagePrefix, "Default prefix for unqualified function names")
 	fs.StringVar(&o.FunctionRunnerAddress, "function-runner", "", "Address of the function runner gRPC service.")
 	fs.DurationVar(&o.ListTimeoutPerRepository, "list-timeout-per-repo", 20*time.Second, "Maximum amount of time to wait for a repository list request.")
