@@ -53,7 +53,7 @@ data:
 	}
 
 	for _, regex := range porchServerShouldHaveRegexList {
-		assert.Regexp(t.T(), regex, collectionResults.PorchServerMetrics, "porch server metrics should contain %q", regex)
+		t.Regexp(regex, collectionResults.PorchServerMetrics, "porch server metrics should contain %q", regex)
 	}
 
 	for _, regex := range porchControllerShouldHaveRegexList {
