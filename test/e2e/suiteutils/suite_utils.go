@@ -746,12 +746,9 @@ func (t *TestSuite) CollectMetricsFromPods() (*MetricsCollectionResults, error) 
 	collectionResults := &MetricsCollectionResults{}
 
 	functionPodList, err := t.KubeClient.CoreV1().Pods("porch-fn-system").List(ctx, metav1.ListOptions{})
-	if err != nil {
-		t.Fatalf("failed to list pods from porch-fn-system: %v", err)
-	}
-	if len(functionPodList.Items) == 0 {
-		t.Fatalf("no pods found in porch-fn-system")
-	}
+	t.Require().NoError(err, "failed to list pods from porch-fn-system")
+	t.Require().Greater(len(functionPodList.Items), 0, "expected at least one pod in porch-fn-system")
+
 	functionPod := functionPodList.Items[0]
 
 	if porchServerPod == nil || porchControllersPod == nil || porchFunctionRunnerPod == nil {
@@ -759,26 +756,24 @@ func (t *TestSuite) CollectMetricsFromPods() (*MetricsCollectionResults, error) 
 	}
 
 	resp, err := t.KubeClient.CoreV1().Pods("porch-system").ProxyGet("", porchServerPod.Name, "9464", "metrics", nil).DoRaw(ctx)
-	if err != nil {
-		t.Fatalf("failed to get metrics for porch-server: %v", err)
-	}
+	t.Require().NoError(err, "failed to get metrics for porch-server")
 	collectionResults.PorchServerMetrics = string(resp)
 
 	resp, err = t.KubeClient.CoreV1().Pods("porch-system").ProxyGet("", porchControllersPod.Name, "9464", "metrics", nil).DoRaw(ctx)
 	if err != nil {
-		t.Fatalf("failed to get metrics for porch-controllers: %v", err)
+		t.Require().NoError(err, "failed to get metrics for porch-controllers")
 	}
 	collectionResults.PorchControllerMetrics = string(resp)
 
 	resp, err = t.KubeClient.CoreV1().Pods("porch-system").ProxyGet("", porchFunctionRunnerPod.Name, "9464", "metrics", nil).DoRaw(ctx)
 	if err != nil {
-		t.Fatalf("failed to get metrics for function-runner: %v", err)
+		t.Require().NoError(err, "failed to get metrics for function-runner")
 	}
 	collectionResults.PorchFunctionRunnerMetrics = string(resp)
 
 	resp, err = t.KubeClient.CoreV1().Pods("porch-fn-system").ProxyGet("", functionPod.Name, "9464", "metrics", nil).DoRaw(ctx)
 	if err != nil {
-		t.Fatalf("failed to get metrics for wrapper-server: %v", err)
+		t.Require().NoError(err, "failed to get metrics for wrapper-server")
 	}
 	collectionResults.PorchWrapperServerMetrics = string(resp)
 
