@@ -305,7 +305,18 @@ func pkgRevScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackageRevi
 			return nil, err
 		}
 
-		pkgRev.repo = cachetypes.CacheInstance.GetRepository(pkgRev.pkgRevKey.PkgKey.RepoKey).(*dbRepository)
+		repo := cachetypes.CacheInstance.GetRepository(pkgRev.pkgRevKey.PkgKey.RepoKey)
+		if repo != nil {
+			if dbRepo, ok := repo.(*dbRepository); ok {
+				pkgRev.repo = dbRepo
+			} else {
+				klog.Warningf("pkgRevScanRowsFromDB: repository %+v is not a dbRepository for package revision %s", pkgRev.pkgRevKey.PkgKey.RepoKey, prK8SName)
+				pkgRev.repo = nil
+			}
+		} else {
+			klog.V(4).Infof("pkgRevScanRowsFromDB: repository %+v not found in cache for package revision %s", pkgRev.pkgRevKey.PkgKey.RepoKey, prK8SName)
+			pkgRev.repo = nil
+		}
 		pkgRev.pkgRevKey.PkgKey.Package = repository.K8SName2PkgName(pkgK8SName)
 		pkgRev.pkgRevKey.WorkspaceName = repository.K8SName2PkgRevWSName(pkgK8SName, prK8SName)
 		setValueFromJSON(metaAsJSON, &pkgRev.meta)
