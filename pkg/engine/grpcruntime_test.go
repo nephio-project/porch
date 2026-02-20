@@ -24,6 +24,8 @@ import (
 
 	v1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	"github.com/nephio-project/porch/func/evaluator"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -42,18 +44,10 @@ func TestNewGRPCFunctionRuntimeSuccess(t *testing.T) {
 	}
 
 	runtime, err := newGRPCFunctionRuntime(options)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if runtime == nil {
-		t.Fatal("expected runtime to be non-nil")
-	}
-	if runtime.cc == nil {
-		t.Error("expected connection to be non-nil")
-	}
-	if runtime.client == nil {
-		t.Error("expected client to be non-nil")
-	}
+	require.NoError(t, err)
+	require.NotNil(t, runtime)
+	assert.NotNil(t, runtime.cc)
+	assert.NotNil(t, runtime.client)
 	runtime.Close()
 }
 
@@ -62,13 +56,8 @@ func TestNewGRPCFunctionRuntimeEmptyAddress(t *testing.T) {
 		MaxGrpcMessageSize: 1024,
 	}
 	runtime, err := newGRPCFunctionRuntime(options)
-	if err == nil {
-		t.Error("expected error but got none")
-		return
-	}
-	if !strings.Contains(err.Error(), "address is required") {
-		t.Errorf("expected error to contain %q, got %q", "address is required", err.Error())
-	}
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "address is required")
 	if runtime != nil {
 		runtime.Close()
 	}
@@ -84,9 +73,7 @@ func TestGRPCRuntimeGetRunner(t *testing.T) {
 	}
 
 	runtime, err := newGRPCFunctionRuntime(options)
-	if err != nil {
-		t.Fatalf("failed to create runtime: %v", err)
-	}
+	require.NoError(t, err)
 	defer runtime.Close()
 
 	fn := &v1.Function{
@@ -94,26 +81,14 @@ func TestGRPCRuntimeGetRunner(t *testing.T) {
 	}
 
 	runner, err := runtime.GetRunner(t.Context(), fn)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if runner == nil {
-		t.Fatal("expected runner to be non-nil")
-	}
+	require.NoError(t, err)
+	require.NotNil(t, runner)
 
 	grpcRunner, ok := runner.(*grpcRunner)
-	if !ok {
-		t.Fatal("expected runner to be grpcRunner")
-	}
-	if grpcRunner.image != fn.Image {
-		t.Errorf("expected image %q, got %q", fn.Image, grpcRunner.image)
-	}
-	if grpcRunner.ctx == nil {
-		t.Error("expected context to be non-nil")
-	}
-	if grpcRunner.client == nil {
-		t.Error("expected client to be non-nil")
-	}
+	require.True(t, ok)
+	assert.Equal(t, fn.Image, grpcRunner.image)
+	assert.NotNil(t, grpcRunner.ctx)
+	assert.NotNil(t, grpcRunner.client)
 }
 
 func TestGRPCRuntimeCloseWithConnection(t *testing.T) {
@@ -126,17 +101,11 @@ func TestGRPCRuntimeCloseWithConnection(t *testing.T) {
 	}
 
 	runtime, err := newGRPCFunctionRuntime(options)
-	if err != nil {
-		t.Fatalf("failed to create runtime: %v", err)
-	}
+	require.NoError(t, err)
 
 	err = runtime.Close()
-	if err != nil {
-		t.Errorf("Close() error = %v", err)
-	}
-	if runtime.cc != nil {
-		t.Error("expected connection to be nil after close")
-	}
+	assert.NoError(t, err)
+	assert.Nil(t, runtime.cc)
 }
 
 func TestGRPCRuntimeCloseMultipleCalls(t *testing.T) {
@@ -149,24 +118,14 @@ func TestGRPCRuntimeCloseMultipleCalls(t *testing.T) {
 	}
 
 	runtime, err := newGRPCFunctionRuntime(options)
-	if err != nil {
-		t.Fatalf("failed to create runtime: %v", err)
-	}
+	require.NoError(t, err)
 
-	// First close
 	err = runtime.Close()
-	if err != nil {
-		t.Errorf("first Close() error = %v", err)
-	}
-	if runtime.cc != nil {
-		t.Error("expected connection to be nil after first close")
-	}
+	assert.NoError(t, err)
+	assert.Nil(t, runtime.cc)
 
-	// Second close should not error
 	err = runtime.Close()
-	if err != nil {
-		t.Errorf("second Close() error = %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestGRPCRunnerRunSuccess(t *testing.T) {
@@ -212,12 +171,8 @@ functionConfig:
 	var writer bytes.Buffer
 
 	err := runner.Run(reader, &writer)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if !strings.Contains(writer.String(), "test-ns") {
-		t.Errorf("expected output to contain namespace test-ns, got %q", writer.String())
-	}
+	require.NoError(t, err)
+	assert.Contains(t, writer.String(), "test-ns")
 }
 
 func TestGRPCRunnerRunEvaluationError(t *testing.T) {
@@ -247,12 +202,8 @@ items:
 	var writer bytes.Buffer
 
 	err := runner.Run(reader, &writer)
-	if err == nil {
-		t.Error("expected error but got none")
-	}
-	if !strings.Contains(err.Error(), "func eval") {
-		t.Errorf("expected error to contain %q, got %q", "func eval", err.Error())
-	}
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "func eval")
 }
 
 func TestGRPCRunnerRunReadError(t *testing.T) {
@@ -266,13 +217,8 @@ func TestGRPCRunnerRunReadError(t *testing.T) {
 	var writer bytes.Buffer
 
 	err := runner.Run(reader, &writer)
-	if err == nil {
-		t.Error("expected error but got none")
-		return
-	}
-	if !strings.Contains(err.Error(), "failed to read function runner input") {
-		t.Errorf("expected error to contain read error message, got %q", err.Error())
-	}
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read function runner input")
 }
 
 func TestGRPCRunnerRunWriteError(t *testing.T) {
@@ -314,13 +260,8 @@ items:
 	writer := &errorWriter{}
 
 	err := runner.Run(reader, writer)
-	if err == nil {
-		t.Error("expected error but got none")
-		return
-	}
-	if !strings.Contains(err.Error(), "failed to write function runner output") {
-		t.Errorf("expected error to contain write error message, got %q", err.Error())
-	}
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to write function runner output")
 }
 
 type mockClient struct {
@@ -345,9 +286,7 @@ func startMockServer(t *testing.T) (string, func()) {
 	server := grpc.NewServer()
 	evaluator.RegisterFunctionEvaluatorServer(server, mock)
 	lis, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatalf("failed to listen: %v", err)
-	}
+	require.NoError(t, err)
 	go func() {
 		server.Serve(lis)
 	}()
