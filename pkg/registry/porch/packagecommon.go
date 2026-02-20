@@ -399,9 +399,9 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 
 	if oldApiPkgRev != nil {
 		action := getLifecycleTransition(oldApiPkgRev.(*porchapi.PackageRevision), newApiPkgRev)
-		klog.Infof("%s operation started for package revision: %s", action, name)
+		klog.Infof("[API] %s operation started for PackageRevision: %s", action, name)
 	} else {
-		klog.Infof("Update operation started for package revision: %s", name)
+		klog.Infof("[API] Update operation started for PackageRevision: %s", name)
 	}
 
 	prKey, err := repository.PkgRevK8sName2Key(namespace, name)
@@ -458,7 +458,7 @@ func (r *packageCommon) updatePackageRevision(ctx context.Context, name string, 
 	}
 
 	if action := getLifecycleTransition(oldApiPkgRev.(*porchapi.PackageRevision), newApiPkgRev); action != "" {
-		klog.Infof("%s operation completed for package revision: %s", action, name)
+		klog.Infof("[API] %s operation completed for PackageRevision: %s", action, name)
 	}
 
 	return updated, false, nil

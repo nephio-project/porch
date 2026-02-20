@@ -125,6 +125,21 @@ func (pr *dbPackageRevision) UpdateLifecycle(ctx context.Context, newLifecycle p
 	_, span := tracer.Start(ctx, "dbPackageRevision::UpdateLifecycle", trace.WithAttributes())
 	defer span.End()
 
+	pkgKey := fmt.Sprintf("%s.%s.%s", pr.repo.Key().Name, pr.Key().PKey().Package, pr.Key().WorkspaceName)
+	
+	// Only Approve (Proposed → Published) pushes to external repo
+	if pr.lifecycle == porchapi.PackageRevisionLifecycleProposed && newLifecycle == porchapi.PackageRevisionLifecyclePublished {
+		klog.Infof("[DB Cache] Updating lifecycle in database and pushing to external repo for PackageRevision: %s", pkgKey)
+		defer func() {
+			klog.V(3).Infof("[DB Cache] Lifecycle updated in database and pushed to external repo for PackageRevision: %s", pkgKey)
+		}()
+	} else {
+		klog.Infof("[DB Cache] Updating lifecycle in database for PackageRevision: %s", pkgKey)
+		defer func() {
+			klog.V(3).Infof("[DB Cache] Lifecycle updated in database for PackageRevision: %s", pkgKey)
+		}()
+	}
+
 	if pr.lifecycle == porchapi.PackageRevisionLifecycleProposed && newLifecycle == porchapi.PackageRevisionLifecyclePublished {
 		if err := pr.publishPR(ctx, newLifecycle); err != nil {
 			pr.pkgRevKey.Revision = 0
@@ -381,6 +396,12 @@ func (pr *dbPackageRevision) copyToThis(otherPr *dbPackageRevision) {
 func (pr *dbPackageRevision) UpdateResources(ctx context.Context, new *porchapi.PackageRevisionResources, change *porchapi.Task) error {
 	_, span := tracer.Start(ctx, "dbPackageRevision::UpdateResources", trace.WithAttributes())
 	defer span.End()
+
+	pkgKey := fmt.Sprintf("%s.%s.%s", pr.repo.Key().Name, pr.Key().PKey().Package, pr.Key().WorkspaceName)
+	klog.Infof("[DB Cache] Updating resources in memory for PackageRevision: %s", pkgKey)
+	defer func() {
+		klog.V(3).Infof("[DB Cache] Resources updated in memory for PackageRevision: %s", pkgKey)
+	}()
 
 	pr.resources = new.Spec.Resources
 

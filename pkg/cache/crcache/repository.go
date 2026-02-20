@@ -16,6 +16,7 @@ package crcache
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	stdSync "sync"
 	"time"
@@ -108,6 +109,11 @@ func (r *cachedRepository) Version(ctx context.Context) (string, error) {
 }
 
 func (r *cachedRepository) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
+	klog.V(3).Infof("[CR Cache] Retrieving cached packages and enriching with PackageRev CR metadata from etcd for repository: %s", r.Key())
+	defer func() {
+		klog.V(3).Infof("[CR Cache] Completed retrieving and enriching packages with PackageRev CR metadata for repository: %s", r.Key())
+	}()
+
 	packages, err := r.getPackageRevisions(ctx, filter, false)
 	if err != nil {
 		return nil, err
@@ -202,12 +208,24 @@ func (r *cachedRepository) getCachedPackages(ctx context.Context, forceRefresh b
 }
 
 func (r *cachedRepository) CreatePackageRevisionDraft(ctx context.Context, obj *porchapi.PackageRevision) (repository.PackageRevisionDraft, error) {
+	pkgKey := fmt.Sprintf("%s.%s.%s", r.Key().Name, obj.Spec.PackageName, obj.Spec.WorkspaceName)
+	klog.Infof("[CR Cache] Creating draft and preparing to save to Git for PackageRevision: %s", pkgKey)
+	defer func() {
+		klog.V(3).Infof("[CR Cache] Draft created and saved to Git for PackageRevision: %s", pkgKey)
+	}()
+
 	return r.repo.CreatePackageRevisionDraft(ctx, obj)
 }
 
 func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd repository.PackageRevisionDraft, version int) (repository.PackageRevision, error) {
 	ctx, span := tracer.Start(ctx, "cachedRepository::ClosePackageRevisionDraft", trace.WithAttributes())
 	defer span.End()
+
+	pkgKey := fmt.Sprintf("%s.%s.%s", r.Key().Name, prd.Key().PkgKey.Package, prd.Key().WorkspaceName)
+	klog.Infof("[CR Cache] Closing draft and pushing lifecycle change to Git for PackageRevision: %s", pkgKey)
+	defer func() {
+		klog.V(3).Infof("[CR Cache] Draft closed and lifecycle change pushed to Git for PackageRevision: %s", pkgKey)
+	}()
 
 	v, err := r.Version(ctx)
 	if err != nil {
@@ -275,6 +293,12 @@ func (r *cachedRepository) ClosePackageRevisionDraft(ctx context.Context, prd re
 }
 
 func (r *cachedRepository) UpdatePackageRevision(ctx context.Context, old repository.PackageRevision) (repository.PackageRevisionDraft, error) {
+	pkgKey := fmt.Sprintf("%s.%s.%s", r.Key().Name, old.Key().PkgKey.Package, old.Key().WorkspaceName)
+	klog.Infof("[CR Cache] Loading draft for update from Git for PackageRevision: %s", pkgKey)
+	defer func() {
+		klog.V(3).Infof("[CR Cache] Draft loaded and ready for modifications for PackageRevision: %s", pkgKey)
+	}()
+
 	// Unwrap
 	unwrapped := old.(*cachedPackageRevision).PackageRevision
 
@@ -392,6 +416,12 @@ func (r *cachedRepository) DeletePackageRevision(ctx context.Context, prToDelete
 	// terminating state.
 	// But we only delete the PackageRevision from the repo once all finalizers
 	// have been removed.
+	pkgKey := fmt.Sprintf("%s.%s.%s", r.Key().Name, prToDelete.Key().PkgKey.Package, prToDelete.Key().WorkspaceName)
+	klog.Infof("[CR Cache] Deleting PackageRev CR from etcd and branch from Git for PackageRevision: %s", pkgKey)
+	defer func() {
+		klog.V(3).Infof("[CR Cache] PackageRev CR and Git branch deleted for PackageRevision: %s", pkgKey)
+	}()
+
 	namespacedName := types.NamespacedName{
 		Name:      prToDelete.KubeObjectName(),
 		Namespace: prToDelete.KubeObjectNamespace(),
