@@ -125,9 +125,10 @@ func (pr *dbPackageRevision) UpdateLifecycle(ctx context.Context, newLifecycle p
 	_, span := tracer.Start(ctx, "dbPackageRevision::UpdateLifecycle", trace.WithAttributes())
 	defer span.End()
 
-	pkgKey := fmt.Sprintf("%s.%s.%s", pr.repo.Key().Name, pr.Key().PKey().Package, pr.Key().WorkspaceName)
+	pkgKey := pr.Key().K8SName()
 	
 	// Only Approve (Proposed → Published) pushes to external repo
+	// TODO should be replaced with flag when option for db-cache push to git regardless PR comes in
 	if pr.lifecycle == porchapi.PackageRevisionLifecycleProposed && newLifecycle == porchapi.PackageRevisionLifecyclePublished {
 		klog.Infof("[DB Cache] Updating lifecycle in database and pushing to external repo for PackageRevision: %s", pkgKey)
 		defer func() {
@@ -397,7 +398,7 @@ func (pr *dbPackageRevision) UpdateResources(ctx context.Context, new *porchapi.
 	_, span := tracer.Start(ctx, "dbPackageRevision::UpdateResources", trace.WithAttributes())
 	defer span.End()
 
-	pkgKey := fmt.Sprintf("%s.%s.%s", pr.repo.Key().Name, pr.Key().PKey().Package, pr.Key().WorkspaceName)
+	pkgKey := pr.Key().K8SName()
 	klog.Infof("[DB Cache] Updating resources in memory for PackageRevision: %s", pkgKey)
 	defer func() {
 		klog.V(3).Infof("[DB Cache] Resources updated in memory for PackageRevision: %s", pkgKey)
