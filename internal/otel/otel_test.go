@@ -7,9 +7,10 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
@@ -30,12 +31,11 @@ func TestOtelMetricsPushHTTP(t *testing.T) {
 	t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf")
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	err := SetupOpenTelemetry(ctx)
-	if err != nil {
-		t.Errorf("SetupOpenTelemetry() error = %v", err)
-		cancel()
-	}
+	require.NoError(t, err)
+
 	cancel()
 	<-requestWaitChannel
 }
@@ -52,27 +52,22 @@ func TestOtelTracesPushHTTP(t *testing.T) {
 	t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf")
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	err := SetupOpenTelemetry(ctx)
-	if err != nil {
-		t.Errorf("SetupOpenTelemetry() error = %v", err)
-		cancel()
-		return
-	}
-	
+	require.NoError(t, err)
+
 	// Create a span to trigger trace export
 	tracer := otel.Tracer("test")
 	_, span := tracer.Start(ctx, "test-span")
 	span.End()
-	
-	cancel()
+
 	<-requestWaitChannel
 }
 func TestSetupOpenTelemetryPrometheusEndpoint(t *testing.T) {
 	// Find available port
 	listener, err := net.Listen("tcp", ":0")
-	if err != nil {
-		t.Fatalf("Failed to find available port: %v", err)
-	}
+	require.NoError(t, err)
 	port := listener.Addr().(*net.TCPAddr).Port
 	listener.Close()
 
@@ -84,49 +79,26 @@ func TestSetupOpenTelemetryPrometheusEndpoint(t *testing.T) {
 	defer cancel()
 
 	err = SetupOpenTelemetry(ctx)
-	if err != nil {
-		t.Fatalf("SetupOpenTelemetry() error = %v", err)
-	}
+	require.NoError(t, err)
 
 	// Make request to the Prometheus metrics endpoint
 	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/metrics", port))
-	if err != nil {
-		t.Fatalf("Failed to get metrics: %v", err)
-	}
+	require.NoError(t, err)
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("Failed to read response body: %v", err)
-	}
+	require.NoError(t, err)
 
 	metricsText := string(body)
-	if len(strings.TrimSpace(metricsText)) == 0 {
-		t.Fatal("Expected metrics output, got empty response")
-	}
-
-	// Verify at least one metric is present
-	lines := strings.Split(metricsText, "\n")
-	metricCount := 0
-	for _, line := range lines {
-		if strings.HasPrefix(line, "#") || strings.TrimSpace(line) == "" {
-			continue
-		}
-		metricCount++
-	}
-
-	if metricCount == 0 {
-		t.Fatal("Expected at least one metric endpoint, got none")
-	}
+	// Verify at least one metric line exists (non-comment, non-empty)
+	assert.Regexp(t, `(?m)^([a-zA-Z_][a-zA-Z0-9_]*)`, metricsText)
 }
 
 func TestOtelMetricsPushGRPC(t *testing.T) {
 	requestWaitChannel := make(chan struct{})
 
 	lis, err := net.Listen("tcp", ":0")
-	if err != nil {
-		t.Fatalf("Failed to listen: %v", err)
-	}
+	require.NoError(t, err)
 	defer lis.Close()
 
 	s := grpc.NewServer()
@@ -145,12 +117,11 @@ func TestOtelMetricsPushGRPC(t *testing.T) {
 	t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc")
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	err = SetupOpenTelemetry(ctx)
-	if err != nil {
-		t.Errorf("SetupOpenTelemetry() error = %v", err)
-		cancel()
-	}
+	require.NoError(t, err)
+
 	cancel()
 	<-requestWaitChannel
 }
@@ -159,9 +130,7 @@ func TestOtelTracesPushGRPC(t *testing.T) {
 	requestWaitChannel := make(chan struct{})
 
 	lis, err := net.Listen("tcp", ":0")
-	if err != nil {
-		t.Fatalf("Failed to listen: %v", err)
-	}
+	require.NoError(t, err)
 	defer lis.Close()
 
 	s := grpc.NewServer()
@@ -180,19 +149,16 @@ func TestOtelTracesPushGRPC(t *testing.T) {
 	t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc")
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	err = SetupOpenTelemetry(ctx)
-	if err != nil {
-		t.Errorf("SetupOpenTelemetry() error = %v", err)
-		cancel()
-		return
-	}
-	
+	require.NoError(t, err)
+
 	// Create a span to trigger trace export
 	tracer := otel.Tracer("test")
 	_, span := tracer.Start(ctx, "test-span")
 	span.End()
-	
+
 	cancel()
 	<-requestWaitChannel
 }
@@ -204,9 +170,7 @@ type mockMetricsServer struct {
 }
 
 func (m *mockMetricsServer) Export(ctx context.Context, req *otlpmetrics.ExportMetricsServiceRequest) (*otlpmetrics.ExportMetricsServiceResponse, error) {
-	if len(req.GetResourceMetrics()) < 1 {
-		m.t.Errorf("expected at least one resource metric")
-	}
+	assert.NotEmpty(m.t, req.GetResourceMetrics())
 	close(m.ch)
 	return &otlpmetrics.ExportMetricsServiceResponse{}, nil
 }
@@ -218,9 +182,7 @@ type mockTraceServer struct {
 }
 
 func (m *mockTraceServer) Export(ctx context.Context, req *otlptraces.ExportTraceServiceRequest) (*otlptraces.ExportTraceServiceResponse, error) {
-	if len(req.GetResourceSpans()) < 1 {
-		m.t.Errorf("expected at least one resource span")
-	}
+	assert.NotEmpty(m.t, req.GetResourceSpans())
 	close(m.ch)
 	return &otlptraces.ExportTraceServiceResponse{}, nil
 }
@@ -232,18 +194,13 @@ type mockHTTPMetricsServer struct {
 
 func (m *mockHTTPMetricsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		m.t.Errorf("error reading request body: %v", err)
-		return
-	}
+	require.NoError(m.t, err)
 	r.Body.Close()
 
 	req := &otlpmetrics.ExportMetricsServiceRequest{}
 	proto.Unmarshal(body, req)
 
-	if len(req.GetResourceMetrics()) < 1 {
-		m.t.Errorf("expected at least one resource metric")
-	}
+	assert.NotEmpty(m.t, req.GetResourceMetrics())
 	close(m.ch)
 }
 
@@ -254,17 +211,12 @@ type mockHTTPTraceServer struct {
 
 func (m *mockHTTPTraceServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		m.t.Errorf("error reading request body: %v", err)
-		return
-	}
+	require.NoError(m.t, err)
 	r.Body.Close()
 
 	req := &otlptraces.ExportTraceServiceRequest{}
 	proto.Unmarshal(body, req)
 
-	if len(req.GetResourceSpans()) < 1 {
-		m.t.Errorf("expected at least one resource span")
-	}
+	assert.NotEmpty(m.t, req.GetResourceSpans())
 	close(m.ch)
 }
