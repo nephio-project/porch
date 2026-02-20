@@ -16,6 +16,7 @@ package dbcache
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
@@ -655,4 +656,86 @@ func (t *DbTestSuite) assertPackageRevLatestIs(expectedLatest int, prList []*dbP
 		t.Require().NoError(err)
 		t.Equal(expectedLatest, latestPrRev)
 	}
+}
+
+func (t *DbTestSuite) TestFindUpstreamDependent() {
+	mockCache := mockcachetypes.NewMockCache(t.T())
+	cachetypes.CacheInstance = mockCache
+	mockCache.EXPECT().GetRepository(mock.Anything).Return(&dbRepository{})
+
+	upstreamRepo := t.createTestRepo("test-ns", "upstream")
+	downstreamRepo := t.createTestRepo("test-ns", "downstream")
+
+	upstreamPkg := t.createTestPkg(upstreamRepo.Key(), "basepkg")
+	upstreamPkg.repo = upstreamRepo
+
+	upstreamPR := dbPackageRevision{
+		pkgRevKey: repository.PackageRevisionKey{
+			PkgKey:        upstreamPkg.Key(),
+			WorkspaceName: "v1",
+			Revision:      1,
+		},
+		meta:      metav1.ObjectMeta{Name: "upstream.basepkg.v1", Namespace: "test-ns"},
+		lifecycle: porchapi.PackageRevisionLifecyclePublished,
+	}
+	err := pkgRevWriteToDB(t.Context(), &upstreamPR)
+	t.Require().NoError(err)
+
+	tests := []struct {
+		name      string
+		namespace string
+		pkgName   string
+		wsName    string
+		taskType  string
+		wantDep   string
+	}{
+		{name: "no dependent", namespace: "test-ns", wantDep: ""},
+		{name: "clone task", namespace: "test-ns", pkgName: "edge-cluster", wsName: "v1", taskType: "clone", wantDep: "downstream.edge-cluster.v1"},
+		{name: "upgrade task", namespace: "test-ns", pkgName: "edge-cluster", wsName: "v2", taskType: "upgrade", wantDep: "downstream.edge-cluster.v2"},
+		{name: "edit task", namespace: "test-ns", pkgName: "edge-cluster", wsName: "v3", taskType: "edit", wantDep: "downstream.edge-cluster.v3"},
+		{name: "different namespace", namespace: "other-ns", wantDep: ""},
+		{name: "non-existent upstream", namespace: "test-ns", wantDep: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func() {
+			if tt.taskType != "" {
+				downstreamPkg := t.createTestPkg(downstreamRepo.Key(), tt.pkgName)
+				downstreamPkg.repo = downstreamRepo
+
+				var task porchapi.Task
+				switch tt.taskType {
+				case "clone":
+					task = porchapi.Task{Type: porchapi.TaskTypeClone, Clone: &porchapi.PackageCloneTaskSpec{
+						Upstream: porchapi.UpstreamPackage{UpstreamRef: &porchapi.PackageRevisionRef{Name: upstreamPR.meta.Name}},
+					}}
+				case "upgrade":
+					task = porchapi.Task{Type: porchapi.TaskTypeUpgrade, Upgrade: &porchapi.PackageUpgradeTaskSpec{
+						NewUpstream: porchapi.PackageRevisionRef{Name: upstreamPR.meta.Name},
+					}}
+				case "edit":
+					task = porchapi.Task{Type: porchapi.TaskTypeEdit, Edit: &porchapi.PackageEditTaskSpec{
+						Source: &porchapi.PackageRevisionRef{Name: upstreamPR.meta.Name},
+					}}
+				}
+				pr := dbPackageRevision{
+					pkgRevKey: repository.PackageRevisionKey{PkgKey: downstreamPkg.Key(), WorkspaceName: tt.wsName},
+					meta:      metav1.ObjectMeta{Name: fmt.Sprintf("downstream.%s.%s", tt.pkgName, tt.wsName), Namespace: "test-ns"},
+					lifecycle: porchapi.PackageRevisionLifecycleDraft,
+					tasks:     []porchapi.Task{task},
+				}
+				t.Require().NoError(pkgRevWriteToDB(t.Context(), &pr))
+				defer pkgRevDeleteFromDB(t.Context(), pr.Key())
+				defer pkgDeleteFromDB(t.Context(), downstreamPkg.Key())
+			}
+			dependent, err := pkgRevFindUpstreamDependentFromDB(t.Context(), tt.namespace, upstreamPR.meta.Name)
+			t.Require().NoError(err)
+			t.Equal(tt.wantDep, dependent)
+		})
+	}
+
+	err = repoDeleteFromDB(t.Context(), upstreamRepo.Key())
+	t.Require().NoError(err)
+	err = repoDeleteFromDB(t.Context(), downstreamRepo.Key())
+	t.Require().NoError(err)
 }

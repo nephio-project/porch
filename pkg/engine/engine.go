@@ -53,6 +53,8 @@ type CaDEngine interface {
 	DeletePackageRevision(ctx context.Context, repositoryObj *configapi.Repository, obj repository.PackageRevision) error
 
 	ListPackages(ctx context.Context, repositorySpec *configapi.Repository, filter repository.ListPackageFilter) ([]repository.Package, error)
+
+	FindUpstreamDependent(ctx context.Context, namespace, prName string) (string, error)
 }
 
 func NewCaDEngine(opts ...EngineOption) (CaDEngine, error) {
@@ -489,4 +491,8 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 	}
 
 	return repoPkgRev, renderStatus, nil
+}
+
+func (cad *cadEngine) FindUpstreamDependent(ctx context.Context, namespace, prName string) (string, error) {
+	return cad.cache.FindUpstreamDependent(ctx, namespace, prName)
 }

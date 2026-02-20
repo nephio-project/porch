@@ -119,3 +119,47 @@ func (c *Cache) GetRepository(repoKey repository.RepositoryKey) repository.Repos
 func (c *Cache) CheckRepositoryConnectivity(ctx context.Context, repositorySpec *configapi.Repository) error {
 	return externalrepo.CheckRepositoryConnection(ctx, repositorySpec, c.options.ExternalRepoOptions)
 }
+
+func (c *Cache) FindUpstreamDependent(ctx context.Context, namespace, prName string) (string, error) {
+	var dependentName string
+	c.repositories.Range(func(key, value any) bool {
+		repo, ok := c.repositories.Load(key.(repository.RepositoryKey))
+		if !ok {
+			return true
+		}
+		cachedRepo := repo.(*cachedRepository)
+		if cachedRepo.Key().Namespace != namespace {
+			return true
+		}
+		cachedRepo.mutex.RLock()
+		for _, pr := range cachedRepo.cachedPackageRevisions {
+			// Skip main branch packages (revision = -1) as they are auto-managed
+			if pr.Key().Revision == -1 {
+				continue
+			}
+			apiPR, err := pr.GetPackageRevision(ctx)
+			if err != nil {
+				continue
+			}
+			for _, task := range apiPR.Spec.Tasks {
+				var matched bool
+				switch task.Type {
+				case "clone":
+					matched = task.Clone != nil && task.Clone.Upstream.UpstreamRef != nil && task.Clone.Upstream.UpstreamRef.Name == prName
+				case "upgrade":
+					matched = task.Upgrade != nil && task.Upgrade.NewUpstream.Name == prName
+				case "edit":
+					matched = task.Edit != nil && task.Edit.Source != nil && task.Edit.Source.Name == prName
+				}
+				if matched {
+					dependentName = pr.KubeObjectName()
+					cachedRepo.mutex.RUnlock()
+					return false
+				}
+			}
+		}
+		cachedRepo.mutex.RUnlock()
+		return true
+	})
+	return dependentName, nil
+}

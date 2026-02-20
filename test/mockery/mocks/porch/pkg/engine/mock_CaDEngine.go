@@ -184,6 +184,78 @@ func (_c *MockCaDEngine_DeletePackageRevision_Call) RunAndReturn(run func(ctx co
 	return _c
 }
 
+// FindUpstreamDependent provides a mock function for the type MockCaDEngine
+func (_mock *MockCaDEngine) FindUpstreamDependent(ctx context.Context, namespace string, prName string) (string, error) {
+	ret := _mock.Called(ctx, namespace, prName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindUpstreamDependent")
+	}
+
+	var r0 string
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) (string, error)); ok {
+		return returnFunc(ctx, namespace, prName)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) string); ok {
+		r0 = returnFunc(ctx, namespace, prName)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = returnFunc(ctx, namespace, prName)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockCaDEngine_FindUpstreamDependent_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindUpstreamDependent'
+type MockCaDEngine_FindUpstreamDependent_Call struct {
+	*mock.Call
+}
+
+// FindUpstreamDependent is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespace string
+//   - prName string
+func (_e *MockCaDEngine_Expecter) FindUpstreamDependent(ctx interface{}, namespace interface{}, prName interface{}) *MockCaDEngine_FindUpstreamDependent_Call {
+	return &MockCaDEngine_FindUpstreamDependent_Call{Call: _e.mock.On("FindUpstreamDependent", ctx, namespace, prName)}
+}
+
+func (_c *MockCaDEngine_FindUpstreamDependent_Call) Run(run func(ctx context.Context, namespace string, prName string)) *MockCaDEngine_FindUpstreamDependent_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockCaDEngine_FindUpstreamDependent_Call) Return(s string, err error) *MockCaDEngine_FindUpstreamDependent_Call {
+	_c.Call.Return(s, err)
+	return _c
+}
+
+func (_c *MockCaDEngine_FindUpstreamDependent_Call) RunAndReturn(run func(ctx context.Context, namespace string, prName string) (string, error)) *MockCaDEngine_FindUpstreamDependent_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListPackageRevisions provides a mock function for the type MockCaDEngine
 func (_mock *MockCaDEngine) ListPackageRevisions(ctx context.Context, repositorySpec *v1alpha1.Repository, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
 	ret := _mock.Called(ctx, repositorySpec, filter)

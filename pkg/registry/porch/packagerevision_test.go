@@ -478,3 +478,48 @@ func TestCreateAction(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckUpstreamDependencies(t *testing.T) {
+	_, mockEngine := setup(t)
+
+	testCases := map[string]struct {
+		dependent string
+		engineErr error
+		expectErr bool
+	}{
+		"no dependencies": {
+			dependent: "",
+			engineErr: nil,
+			expectErr: false,
+		},
+		"has dependent": {
+			dependent: "dependent-pkg",
+			engineErr: nil,
+			expectErr: true,
+		},
+		"engine error": {
+			dependent: "",
+			engineErr: errors.New("engine failure"),
+			expectErr: true,
+		},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			mockEngine.On("FindUpstreamDependent", mock.Anything, mock.Anything, mock.Anything).Return(tc.dependent, tc.engineErr).Once()
+
+			apiPkgRev := &porchapi.PackageRevision{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-pkg"},
+			}
+			ctx := request.WithNamespace(context.Background(), "test-ns")
+
+			err := packagerevisions.checkUpstreamDependencies(ctx, apiPkgRev)
+
+			if tc.expectErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
