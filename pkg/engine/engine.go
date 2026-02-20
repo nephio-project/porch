@@ -419,7 +419,7 @@ func (cad *cadEngine) DeletePackageRevision(ctx context.Context, repositoryObj *
 	ctx, span := tracer.Start(ctx, "cadEngine::DeletePackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	pkgKey := fmt.Sprintf("%s.%s.%s", repositoryObj.Name, pr2Del.Key().PkgKey.Package, pr2Del.Key().WorkspaceName)
+	pkgKey := pr2Del.Key().K8SName()
 	klog.Infof("[CaD Engine] Preparing to delete PackageRevision: %s", pkgKey)
 	defer func() {
 		klog.V(3).Infof("[CaD Engine] PackageRevision deletion delegated to cache: %s", pkgKey)
@@ -467,7 +467,7 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 	ctx, span := tracer.Start(ctx, "cadEngine::UpdatePackageResources", trace.WithAttributes())
 	defer span.End()
 
-	pkgKey := fmt.Sprintf("%s.%s.%s", repositoryObj.Name, pr2Update.Key().PkgKey.Package, pr2Update.Key().WorkspaceName)
+	pkgKey := pr2Update.Key().K8SName()
 	klog.Infof("[CaD Engine] Processing resource updates for PackageRevision: %s", pkgKey)
 	defer func() {
 		klog.V(3).Infof("[CaD Engine] Resource updates processed and delegated to cache for PackageRevision: %s", pkgKey)
