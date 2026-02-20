@@ -73,7 +73,7 @@ func (r *packageRevisions) List(ctx context.Context, options *metainternalversio
 	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::List", trace.WithAttributes())
 	defer span.End()
 
-	klog.V(3).Infof("List packageRevisions started")
+	klog.V(3).Infof("[API] List operation started for PackageRevisions")
 
 	result := &porchapi.PackageRevisionList{
 		TypeMeta: metav1.TypeMeta{
@@ -100,7 +100,7 @@ func (r *packageRevisions) List(ctx context.Context, options *metainternalversio
 		return nil, err
 	}
 
-	klog.V(3).Infof("List packageRevisions completed: found %d items", len(result.Items))
+	klog.V(3).Infof("[API] List operation completed for PackageRevisions: found %d items", len(result.Items))
 
 	return result, nil
 }
@@ -110,7 +110,7 @@ func (r *packageRevisions) Get(ctx context.Context, name string, options *metav1
 	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Get", trace.WithAttributes())
 	defer span.End()
 
-	klog.V(3).Infof("Get packageRevisions started: %s", name)
+	klog.V(3).Infof("[API] Get operation started for PackageRevision: %s", name)
 
 	repoPkgRev, err := r.getRepoPkgRev(ctx, name)
 	if err != nil {
@@ -122,7 +122,7 @@ func (r *packageRevisions) Get(ctx context.Context, name string, options *metav1
 		return nil, err
 	}
 
-	klog.V(3).Infof("Get packageRevisions completed: %s", name)
+	klog.V(3).Infof("[API] Get operation completed for PackageRevision: %s", name)
 
 	return apiPkgRev, nil
 }
@@ -156,7 +156,8 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 	}
 
 	action := createAction(newApiPkgRev)
-	klog.Infof("%s operation started for packageRevision: %s.%s.%s", action, repositoryName, newApiPkgRev.Spec.PackageName, newApiPkgRev.Spec.WorkspaceName)
+	k8sName := fmt.Sprintf("%s.%s.%s", repositoryName, newApiPkgRev.Spec.PackageName, newApiPkgRev.Spec.WorkspaceName)
+	klog.Infof("[API] %s operation started for PackageRevision: %s", action, k8sName)
 
 	repositoryObj, err := r.getRepositoryObj(ctx, types.NamespacedName{Name: repositoryName, Namespace: ns})
 	if err != nil {
@@ -201,7 +202,7 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 		return nil, apierrors.NewInternalError(err)
 	}
 
-	klog.Infof("%s operation completed for packageRevision: %s", action, createdApiPkgRev.Name)
+	klog.Infof("[API] %s operation completed for PackageRevision: %s", action, createdApiPkgRev.Name)
 
 	return createdApiPkgRev, nil
 }
@@ -281,7 +282,7 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 		return nil, false, apierrors.NewBadRequest("namespace must be specified")
 	}
 
-	klog.Infof("Delete operation started for packageRevision: %s", name)
+	klog.Infof("[API] Delete operation started for PackageRevision: %s", name)
 
 	repoPkgRev, err := r.getRepoPkgRev(ctx, name)
 	if err != nil {
@@ -315,7 +316,7 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 		return nil, false, apierrors.NewInternalError(err)
 	}
 
-	klog.Infof("Delete operation completed for packageRevision: %s", name)
+	klog.Infof("[API] Delete operation completed for PackageRevision: %s", name)
 
 	// TODO: Should we do an async delete?
 	return apiPkgRev, true, nil

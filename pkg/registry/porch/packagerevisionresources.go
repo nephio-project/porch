@@ -136,7 +136,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 		return nil, false, apierrors.NewBadRequest("namespace must be specified")
 	}
 
-	klog.Infof("Update operation started for packageRevisionResources: %s", name)
+	klog.Infof("[API] Update operation started for packageRevisionResources: %s", name)
 
 	pkgMutexKey := getPackageMutexKey(namespace, name)
 	pkgMutex := getMutexForPackage(pkgMutexKey)
@@ -206,7 +206,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 		created.Status.RenderStatus = *renderStatus
 	}
 
-	klog.Infof("Update operation completed for packageRevisionResources: %s", name)
+	klog.Infof("[API] Update operation completed for packageRevisionResources: %s", name)
 
 	return created, false, nil
 }
