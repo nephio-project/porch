@@ -2,7 +2,7 @@
 
 module k8s.io/apiserver
 
-go 1.24.0
+go 1.25.7
 
 godebug default=go1.24
 

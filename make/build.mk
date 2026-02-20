@@ -16,6 +16,7 @@
 
 MYGOBIN := $(shell go env GOPATH)/bin
 PORCHCTL_VERSION := $(shell date '+development-%Y-%m-%dT%H:%M:%S')
+YEAR_GEN := $(shell date '+%Y')
 
 PORCH = $(BUILDDIR)/porch
 PORCHCTL = $(BUILDDIR)/porchctl
@@ -34,8 +35,8 @@ generate-api:
 
 .PHONY: generate
 generate: generate-api ## Generate CRDs, other K8s manifests and helper go code
-	@for f in $(API_MODULES); do (cd $$f; echo "Generating for $$f ..."; go generate -v ./...) || exit 1; done
- 
+	@for f in $(API_MODULES); do (cd $$f; echo "Generating for $$f ..."; YEAR_GEN=$(YEAR_GEN) go generate -v ./...) || exit 1; done
+
 .PHONY: tidy
 tidy:
 	go mod tidy

@@ -1,6 +1,6 @@
 module github.com/nephio-project/porch
 
-go 1.25.6
+go 1.25.7
 
 replace k8s.io/apiserver v0.34.1 => ./third_party/k8s.io/apiserver-v0.34.1
 
@@ -16,11 +16,11 @@ require (
 	github.com/google/go-containerregistry v0.20.6
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.6
-	github.com/kptdev/kpt v1.0.0-beta.60.1
-	github.com/kptdev/krm-functions-catalog/functions/go/apply-replacements v0.1.3
-	github.com/kptdev/krm-functions-catalog/functions/go/set-namespace v0.4.3
-	github.com/kptdev/krm-functions-catalog/functions/go/starlark v0.5.3
-	github.com/kptdev/krm-functions-sdk/go/fn v1.0.0
+	github.com/kptdev/kpt v1.0.0-beta.61
+	github.com/kptdev/krm-functions-catalog/functions/go/apply-replacements v0.1.5
+	github.com/kptdev/krm-functions-catalog/functions/go/set-namespace v0.4.5
+	github.com/kptdev/krm-functions-catalog/functions/go/starlark v0.5.5
+	github.com/kptdev/krm-functions-sdk/go/fn v1.0.2
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2
 	github.com/spf13/cobra v1.10.1
@@ -66,6 +66,7 @@ require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/kptdev/krm-functions-catalog/functions/go/apply-setters v0.2.2 // indirect
+	github.com/onsi/ginkgo/v2 v2.23.3 // indirect
 	github.com/otiai10/copy v1.14.1 // indirect
 	github.com/prep/wasmexec v0.0.0-20220807105708-6554945c1dec // indirect
 	github.com/qri-io/starlib v0.5.0 // indirect
