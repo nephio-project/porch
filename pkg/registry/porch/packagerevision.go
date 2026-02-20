@@ -349,7 +349,7 @@ func (r *packageRevisions) checkUpstreamDependencies(ctx context.Context, apiPkg
 		return apierrors.NewForbidden(
 			porchapi.Resource("packagerevisions"),
 			apiPkgRev.Name,
-			fmt.Errorf("cannot delete package revision that is an upstream for: %s", dependent))
+			fmt.Errorf("cannot delete package revision, it is an upstream package revision for: %s", dependent))
 	}
 	return nil
 }
