@@ -72,7 +72,7 @@ for resource in ctx.resource_list["items"]:
 func (t *PorchSuite) TestPodFunctionEvaluatorWithDistrolessImage() {
 	t.skipIfLocalPodEvaluator()
 
-	resources := t.setupFunctionTestPackage("git-fn-distroless", "test-fn-redis-bucket", "test-description", TestPackageSetupOptions{
+	resources := t.setupFunctionTestPackage("git-fn-distroless", "test-fn-redis-bucket", "workspace-distroless", TestPackageSetupOptions{
 		UpstreamRef: "redis-bucket/v1",
 		UpstreamDir: "redis-bucket",
 	})
