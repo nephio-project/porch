@@ -22,30 +22,33 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
 	"golang.org/x/exp/slices"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/textlogger"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/controllers/packagevariants/pkg/controllers/packagevariant"
 	"github.com/nephio-project/porch/controllers/packagevariantsets/pkg/controllers/packagevariantset"
+	porchotel "github.com/nephio-project/porch/internal/otel"
 	"github.com/nephio-project/porch/pkg/controllerrestmapper"
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -124,7 +127,8 @@ func run(ctx context.Context) error {
 	managerOptions := ctrl.Options{
 		Scheme: scheme,
 		Metrics: metricsserver.Options{
-			BindAddress: ":8080",
+			// Disable the inbuilt metrics server in favor of the OpenTelemetry server
+			BindAddress: "0",
 		},
 		WebhookServer: webhook.NewServer(webhook.Options{
 			Port: 9443,
@@ -147,8 +151,19 @@ func run(ctx context.Context) error {
 		textlogger.Output(os.Stdout),
 	)
 	ctrl.SetLogger(textlogger.NewLogger(config))
+	cfg := ctrl.GetConfigOrDie()
+	cfg.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
+		klog.Infof("Wrapping client-go transport with OpenTelemetry")
+		return otelhttp.NewTransport(rt)
+	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), managerOptions)
+	otel.SetLogger(klog.NewKlogr())
+	err := porchotel.SetupOpenTelemetry(ctx)
+	if err != nil {
+		return fmt.Errorf("error setting up OpenTelemetry: %w", err)
+	}
+
+	mgr, err := ctrl.NewManager(cfg, managerOptions)
 	if err != nil {
 		return fmt.Errorf("error creating manager: %w", err)
 	}
