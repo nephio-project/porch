@@ -69,14 +69,11 @@ const (
 	PackageVariantNameHashLength = 8
 )
 
-<<<<<<< HEAD
 // SetLogger sets the logger name for this reconciler
 func (r *PackageVariantSetReconciler) SetLogger(name string) {
 	r.loggerName = name
 }
 
-=======
->>>>>>> upstream/main
 //go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 rbac:headerFile=../../../../../scripts/boilerplate.yaml.txt,roleName=porch-controllers-packagevariantsets,year=$YEAR_GEN webhook paths="." output:rbac:artifacts:config=../../../config/rbac
 
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=packagevariantsets,verbs=get;list;watch;create;update;patch;delete
