@@ -52,6 +52,7 @@ func (o *Options) BindFlags(_ string, _ *flag.FlagSet) {}
 // PackageVariantSetReconciler reconciles a PackageVariantSet object
 type PackageVariantSetReconciler struct {
 	client.Client
+	client.Reader
 	Options
 
 	serializer *json.Serializer
@@ -68,11 +69,14 @@ const (
 	PackageVariantNameHashLength = 8
 )
 
+<<<<<<< HEAD
 // SetLogger sets the logger name for this reconciler
 func (r *PackageVariantSetReconciler) SetLogger(name string) {
 	r.loggerName = name
 }
 
+=======
+>>>>>>> upstream/main
 //go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0 rbac:headerFile=../../../../../scripts/boilerplate.yaml.txt,roleName=porch-controllers-packagevariantsets,year=$YEAR_GEN webhook paths="." output:rbac:artifacts:config=../../../config/rbac
 
 //+kubebuilder:rbac:groups=config.porch.kpt.dev,resources=packagevariantsets,verbs=get;list;watch;create;update;patch;delete
@@ -149,17 +153,17 @@ func (r *PackageVariantSetReconciler) Reconcile(ctx context.Context, req ctrl.Re
 func (r *PackageVariantSetReconciler) init(ctx context.Context, req ctrl.Request) (*api.PackageVariantSet,
 	*porchapi.PackageRevisionList, *configapi.RepositoryList, error) {
 	var pvs api.PackageVariantSet
-	if err := r.Get(ctx, req.NamespacedName, &pvs); err != nil {
+	if err := r.Client.Get(ctx, req.NamespacedName, &pvs); err != nil {
 		return nil, nil, nil, client.IgnoreNotFound(err)
 	}
 
 	var prList porchapi.PackageRevisionList
-	if err := r.List(ctx, &prList, client.InNamespace(pvs.Namespace)); err != nil {
+	if err := r.Client.List(ctx, &prList, client.InNamespace(pvs.Namespace)); err != nil {
 		return nil, nil, nil, err
 	}
 
 	var repoList configapi.RepositoryList
-	if err := r.List(ctx, &repoList, client.InNamespace(pvs.Namespace)); err != nil {
+	if err := r.Client.List(ctx, &repoList, client.InNamespace(pvs.Namespace)); err != nil {
 		return nil, nil, nil, err
 	}
 
@@ -239,7 +243,7 @@ func (r *PackageVariantSetReconciler) unrollDownstreamTargets(ctx context.Contex
 		}
 		opts = append(opts, client.MatchingLabelsSelector{Selector: labelSelector})
 
-		if err := r.List(ctx, uList, opts...); err != nil {
+		if err := r.Client.List(ctx, uList, opts...); err != nil {
 			return nil, err
 		}
 
@@ -273,7 +277,7 @@ func (r *PackageVariantSetReconciler) ensurePackageVariants(ctx context.Context,
 	downstreams []pvContext) error {
 
 	var pvList pkgvarapi.PackageVariantList
-	if err := r.List(ctx, &pvList,
+	if err := r.Client.List(ctx, &pvList,
 		client.InNamespace(pvs.Namespace),
 		client.MatchingLabels{
 			PackageVariantSetOwnerLabel: string(pvs.UID),
@@ -392,6 +396,7 @@ func (r *PackageVariantSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	r.Client = mgr.GetClient()
+	r.Reader = mgr.GetAPIReader()
 	r.serializer = json.NewSerializerWithOptions(json.DefaultMetaFactory, nil, nil, json.SerializerOptions{Yaml: true})
 
 	return ctrl.NewControllerManagedBy(mgr).

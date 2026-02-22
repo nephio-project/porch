@@ -1,0 +1,183 @@
+# Copyright 2025 The kpt and Nephio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+#********************************************************************************************************
+# PackageVariantSet's upstream Repository - copy of Repository in
+#     /test/disaster/deployment/load-repositories/repositories-batch-5.yaml
+# This allows us to create it before all the others so the PackageVariantSet can get up to speed quicker.
+#********************************************************************************************************
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  labels:
+    kpt.dev/repository-content: external-blueprints
+  name: kpt-e2e-testdata-fn-render-4
+spec:
+  content: Package
+  deployment: false
+  git:
+    branch: main
+    directory: /e2e/testdata/fn-render
+    repo: http://[GITEA_PLACEHOLDER]/nephio/kpt-load-4.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  name: variantset-edge-1
+spec:
+  content: Package
+  deployment: true
+  git:
+    branch: main
+    directory: /
+    repo: http://[GITEA_PLACEHOLDER]/nephio/variantset-edge-1.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  name: variantset-edge-2
+spec:
+  content: Package
+  deployment: true
+  git:
+    branch: main
+    directory: /
+    repo: http://[GITEA_PLACEHOLDER]/nephio/variantset-edge-2.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  name: variantset-edge-3
+spec:
+  content: Package
+  deployment: true
+  git:
+    branch: main
+    directory: /
+    repo: http://[GITEA_PLACEHOLDER]/nephio/variantset-edge-3.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  name: variantset-edge-4
+spec:
+  content: Package
+  deployment: true
+  git:
+    branch: main
+    directory: /
+    repo: http://[GITEA_PLACEHOLDER]/nephio/variantset-edge-4.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  name: variantset-edge-5
+spec:
+  content: Package
+  deployment: true
+  git:
+    branch: main
+    directory: /
+    repo: http://[GITEA_PLACEHOLDER]/nephio/variantset-edge-5.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  name: variantset-edge-6
+spec:
+  content: Package
+  deployment: true
+  git:
+    branch: main
+    directory: /
+    repo: http://[GITEA_PLACEHOLDER]/nephio/variantset-edge-6.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  name: variantset-edge-7
+spec:
+  content: Package
+  deployment: true
+  git:
+    branch: main
+    directory: /
+    repo: http://[GITEA_PLACEHOLDER]/nephio/variantset-edge-7.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  name: variantset-edge-8
+spec:
+  content: Package
+  deployment: true
+  git:
+    branch: main
+    directory: /
+    repo: http://[GITEA_PLACEHOLDER]/nephio/variantset-edge-8.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  name: variantset-edge-9
+spec:
+  content: Package
+  deployment: true
+  git:
+    branch: main
+    directory: /
+    repo: http://[GITEA_PLACEHOLDER]/nephio/variantset-edge-9.git
+  type: git
+
+---
+
+apiVersion: config.porch.kpt.dev/v1alpha1
+kind: Repository
+metadata:
+  name: variantset-edge-10
+spec:
+  content: Package
+  deployment: true
+  git:
+    branch: main
+    directory: /
+    repo: http://[GITEA_PLACEHOLDER]/nephio/variantset-edge-10.git
+  type: git

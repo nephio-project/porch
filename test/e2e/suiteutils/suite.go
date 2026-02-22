@@ -1,4 +1,4 @@
-// Copyright 2022, 2025 The kpt and Nephio Authors
+// Copyright 2022, 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,8 +30,12 @@ import (
 	porchclient "github.com/nephio-project/porch/api/generated/clientset/versioned"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	pvapi "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
+	pvsetapi "github.com/nephio-project/porch/controllers/packagevariantsets/api/v1alpha2"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	appsv1 "k8s.io/api/apps/v1"
 	coreapi "k8s.io/api/core/v1"
@@ -327,15 +331,25 @@ func (t *TestSuite) createOrUpdate(obj client.Object, opts []client.CreateOption
 	t.T().Helper()
 	t.Logf("creating object %v", DebugFormat(obj))
 	start := time.Now()
+	succeededOp := "create"
 	defer func() {
 		t.T().Helper()
-		t.Logf("took %v to create %s/%s", time.Since(start), obj.GetNamespace(), obj.GetName())
+		t.Logf("took %v to %s %s/%s", time.Since(start), succeededOp, obj.GetNamespace(), obj.GetName())
 	}()
 
+	// For create, object MUST NOT have resourceVersion set.
+	obj.SetResourceVersion("")
 	if err := t.Client.Create(t.GetContext(), obj, opts...); err != nil {
 		if apierrors.IsAlreadyExists(err) {
-			t.Logf("failed to create resource - attempting to update resource %v", DebugFormat(obj))
+			succeededOp = "update"
+			t.Logf("resource already exists - attempting to update resource %v", DebugFormat(obj))
 
+			// For update, object MUST have resourceVersion set - get the
+			// 		existing object first to make sure we have the most
+			// 		up-to-date resourceVersion.
+			upToDateObj := obj.DeepCopyObject().(client.Object)
+			t.Reader.Get(t.GetContext(), client.ObjectKeyFromObject(obj), upToDateObj)
+			obj.SetResourceVersion(upToDateObj.GetResourceVersion())
 			if err := t.Client.Update(t.GetContext(), obj); err != nil {
 				eh("failed to update resource %s: %v", DebugFormat(obj), err)
 			}
@@ -420,6 +434,11 @@ func (t *TestSuite) CreateOrUpdateF(obj client.Object, opts ...client.CreateOpti
 	t.createOrUpdate(obj, opts, t.Fatalf)
 }
 
+func (t *TestSuite) CreateOrUpdateE(obj client.Object, opts ...client.CreateOption) {
+	t.T().Helper()
+	t.createOrUpdate(obj, opts, t.Errorf)
+}
+
 func (t *TestSuite) DeleteF(obj client.Object, opts ...client.DeleteOption) {
 	t.T().Helper()
 	t.delete(obj, opts, t.Fatalf)
@@ -476,6 +495,8 @@ func createClientScheme(t *testing.T) *runtime.Scheme {
 
 	for _, api := range (runtime.SchemeBuilder{
 		porchapi.AddToScheme,
+		pvsetapi.AddToScheme,
+		pvapi.AddToScheme,
 		internalapi.AddToScheme,
 		configapi.AddToScheme,
 		coreapi.AddToScheme,
@@ -567,4 +588,48 @@ func (t *TestSuite) MustFindPackageRevision(packages *porchapi.PackageRevisionLi
 	}
 	t.Fatalf("Failed to find package %q", name)
 	return nil
+}
+
+type PackageRevisionStatusCounts struct {
+	Total, Draft, Proposed, Published, DeletionProposed int
+}
+
+func (t *MultiClusterTestSuite) PackageRevisionCountsMustMatch(expected *PackageRevisionStatusCounts) {
+	t.T().Helper()
+
+	actual := t.CountPackageRevisions()
+
+	// use assert.Equal for the individual lifecycle statuses so as to check all of them and
+	// 		gather as much potentially-useful information as possible
+	assert.Equal(t.T(), expected.Draft, actual.Draft, "Count of Draft PackageRevisions not as expected")
+	assert.Equal(t.T(), expected.Proposed, actual.Proposed, "Count of Proposed PackageRevisions not as expected")
+	assert.Equal(t.T(), expected.Published, actual.Published, "Count of Published PackageRevisions not as expected")
+	assert.Equal(t.T(), expected.DeletionProposed, actual.DeletionProposed, "Count of DeletionProposed PackageRevisions not as expected")
+
+	// allow it to fail the test case at the end
+	require.Equal(t.T(), expected.Total, actual.Total, "Total count of PackageRevisions not as expected")
+}
+
+func (t *TestSuite) CountPackageRevisions() *PackageRevisionStatusCounts {
+	var packageRevisions porchapi.PackageRevisionList
+	if err := t.Reader.List(t.GetContext(), &packageRevisions, client.InNamespace(t.Namespace)); err != nil {
+		t.Errorf("error listing package revisions to count: %w", err)
+		return nil
+	}
+
+	counts := &PackageRevisionStatusCounts{}
+	for _, each := range packageRevisions.Items {
+		counts.Total += 1
+		switch each.Spec.Lifecycle {
+		case porchapi.PackageRevisionLifecycleDraft:
+			counts.Draft += 1
+		case porchapi.PackageRevisionLifecycleProposed:
+			counts.Proposed += 1
+		case porchapi.PackageRevisionLifecyclePublished:
+			counts.Published += 1
+		case porchapi.PackageRevisionLifecycleDeletionProposed:
+			counts.DeletionProposed += 1
+		}
+	}
+	return counts
 }

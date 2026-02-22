@@ -52,8 +52,20 @@ spec:
           env:
             - name: WRAPPER_SERVER_IMAGE
               value: docker.io/nephio/porch-wrapper-server:latest
+            - name: OTEL_METRICS_EXPORTER
+              value: "prometheus"
+            - name: OTEL_EXPORTER_PROMETHEUS_HOST
+              value: 0.0.0.0
+            - name: OTEL_EXPORTER_PROMETHEUS_PORT
+              value: "9464" # Default value, showing for visibility
+            - name: OTEL_TRACES_EXPORTER
+              value: none
+            - name: OTEL_SERVICE_NAME
+              value: porch-function-runner
           ports:
             - containerPort: 9445
+            - containerPort: 9464
+              name: metrics
           # Add grpc readiness probe to ensure the cache is ready
           readinessProbe:
             exec:

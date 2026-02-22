@@ -92,6 +92,16 @@ spec:
           value: "true"
         - name: GIT_CACHE_DIR
           value: "/cache"
+        - name: OTEL_SERVICE_NAME
+          value: porch-controllers
+        - name: OTEL_METRICS_EXPORTER
+          value: "prometheus"
+        - name: OTEL_EXPORTER_PROMETHEUS_HOST
+          value: "0.0.0.0"
+        - name: OTEL_EXPORTER_PROMETHEUS_PORT
+          value: "9464" # Default value, showing for visibility
+        - name: OTEL_TRACES_EXPORTER
+          value: none
         envFrom:
         - configMapRef:
             name: porch-db-config

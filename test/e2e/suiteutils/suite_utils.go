@@ -1,4 +1,4 @@
-// Copyright 2024-2025 The Nephio Authors
+// Copyright 2024-2026 The Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -27,6 +28,7 @@ import (
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
+	pvapi "github.com/nephio-project/porch/controllers/packagevariants/api/v1alpha1"
 	internalapi "github.com/nephio-project/porch/internal/api/porchinternal/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -48,6 +50,13 @@ const (
 var (
 	PackageRevisionGVK = porchapi.SchemeGroupVersion.WithKind("PackageRevision")
 )
+
+type MetricsCollectionResults struct {
+	PorchServerMetrics         string
+	PorchControllerMetrics     string
+	PorchFunctionRunnerMetrics string
+	PorchWrapperServerMetrics  string
+}
 
 type TestSuiteWithGit struct {
 	TestSuite
@@ -457,6 +466,69 @@ func (t *TestSuite) WaitUntilRepositoryReady(name, namespace string) {
 	}
 }
 
+func (t *TestSuite) WaitUntilMultipleRepositoriesReady(waitingRepos []configapi.Repository) {
+	t.T().Helper()
+
+	repoNames := func() (names []string) {
+		for _, repo := range waitingRepos {
+			names = append(names, repo.Name)
+		}
+		return
+	}()
+
+	t.Logf("Waiting for %d repositories in namespace %q to be ready: %s", len(repoNames), t.Namespace, repoNames)
+
+	var innerErr error
+	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 300*time.Second, true, func(ctx context.Context) (bool, error) {
+		var repos configapi.RepositoryList
+		if err := t.Reader.List(t.GetContext(), &repos, client.InNamespace(t.Namespace)); err != nil {
+			innerErr = err
+			return false, err
+		}
+
+		for _, each := range repoNames {
+			if !slices.ContainsFunc(repos.Items, func(aRepo configapi.Repository) bool { return aRepo.Name == each }) {
+				return false, nil
+			}
+		}
+
+		allReady := !slices.ContainsFunc(repos.Items, func(aRepo configapi.Repository) bool {
+			return slices.Contains(repoNames, aRepo.Name) &&
+				(aRepo.Status.Conditions == nil ||
+					slices.ContainsFunc(aRepo.Status.Conditions, func(aCondition metav1.Condition) bool {
+						return aCondition.Type == configapi.RepositoryReady && aCondition.Status != metav1.ConditionTrue
+					}))
+		})
+		return allReady, nil
+	})
+	if err != nil {
+		t.Fatalf("Repositories not ready after wait: %w (inner error: %w)", err, innerErr)
+	}
+}
+
+func (t *TestSuite) WaitUntilAllPackageVariantsReady() {
+	t.T().Helper()
+
+	var innerErr error
+	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 300*time.Second, true, func(ctx context.Context) (bool, error) {
+		var repos pvapi.PackageVariantList
+		if err := t.Reader.List(t.GetContext(), &repos, client.InNamespace(t.Namespace)); err != nil {
+			innerErr = err
+			return false, err
+		}
+
+		allReady := !slices.ContainsFunc(repos.Items, func(aRepo pvapi.PackageVariant) bool {
+			return aRepo.Status.Conditions == nil || slices.ContainsFunc(aRepo.Status.Conditions, func(aCondition metav1.Condition) bool {
+				return aCondition.Type == configapi.RepositoryReady && aCondition.Status != metav1.ConditionTrue
+			})
+		})
+		return allReady, nil
+	})
+	if err != nil {
+		t.Fatalf("Repositories not ready after wait: %v", innerErr)
+	}
+}
+
 func (t *TestSuite) WaitUntilRepositoryDeleted(name, namespace string) {
 	t.T().Helper()
 	err := wait.PollUntilContextTimeout(t.GetContext(), time.Second, 20*time.Second, true, func(ctx context.Context) (done bool, err error) {
@@ -710,6 +782,87 @@ func (t *TestSuite) AddResourceToPackage(resources *porchapi.PackageRevisionReso
 		t.Fatalf("Failed to read file from %q: %v", filePath, err)
 	}
 	resources.Spec.Resources[name] = string(file)
+}
+
+func (t *TestSuite) CollectMetricsFromPods() (*MetricsCollectionResults, error) {
+	ctx := context.Background()
+	podList, err := t.KubeClient.CoreV1().Pods("porch-system").List(ctx, metav1.ListOptions{})
+	if err != nil {
+		t.Fatalf("failed to list pods: %v", err)
+		return nil, err
+	}
+	if len(podList.Items) == 0 {
+		t.Fatalf("no pods found")
+	}
+	var porchServerPod *corev1.Pod
+	var porchControllersPod *corev1.Pod
+	var porchFunctionRunnerPod *corev1.Pod
+
+	for _, pod := range podList.Items {
+		if strings.HasPrefix(pod.Name, "porch-server") {
+			porchServerPod = &pod
+		}
+		if strings.HasPrefix(pod.Name, "porch-controllers") {
+			porchControllersPod = &pod
+		}
+		if strings.HasPrefix(pod.Name, "function-runner") {
+			porchFunctionRunnerPod = &pod
+		}
+	}
+
+	collectionResults := &MetricsCollectionResults{}
+
+	functionPodList, err := t.KubeClient.CoreV1().Pods("porch-fn-system").List(ctx, metav1.ListOptions{})
+	t.Require().NoError(err, "failed to list pods from porch-fn-system")
+	t.Require().Greater(len(functionPodList.Items), 0, "expected at least one pod in porch-fn-system")
+
+	functionPod := functionPodList.Items[0]
+
+	if porchServerPod == nil || porchControllersPod == nil || porchFunctionRunnerPod == nil {
+		t.Fatalf("failed to find pods")
+	}
+
+	resp, err := t.KubeClient.CoreV1().Pods("porch-system").ProxyGet("", porchServerPod.Name, "9464", "metrics", nil).DoRaw(ctx)
+	t.Require().NoError(err, "failed to get metrics for porch-server")
+	collectionResults.PorchServerMetrics = string(resp)
+
+	resp, err = t.KubeClient.CoreV1().Pods("porch-system").ProxyGet("", porchControllersPod.Name, "9464", "metrics", nil).DoRaw(ctx)
+	if err != nil {
+		t.Require().NoError(err, "failed to get metrics for porch-controllers")
+	}
+	collectionResults.PorchControllerMetrics = string(resp)
+
+	resp, err = t.KubeClient.CoreV1().Pods("porch-system").ProxyGet("", porchFunctionRunnerPod.Name, "9464", "metrics", nil).DoRaw(ctx)
+	if err != nil {
+		t.Require().NoError(err, "failed to get metrics for function-runner")
+	}
+	collectionResults.PorchFunctionRunnerMetrics = string(resp)
+
+	resp, err = t.KubeClient.CoreV1().Pods("porch-fn-system").ProxyGet("", functionPod.Name, "9464", "metrics", nil).DoRaw(ctx)
+	if err != nil {
+		t.Require().NoError(err, "failed to get metrics for wrapper-server")
+	}
+	collectionResults.PorchWrapperServerMetrics = string(resp)
+
+	return collectionResults, nil
+}
+
+func (t *TestSuite) TimingHelper(operationDescription string, toTime func(t *TestSuite)) {
+	t.T().Helper()
+	start := time.Now()
+
+	defer func() {
+		t.T().Helper()
+		descForLog := func() string {
+			if operationDescription != "" {
+				return " to " + operationDescription
+			}
+			return ""
+		}()
+		t.Logf("took %v%s", time.Since(start), descForLog)
+	}()
+
+	toTime(t)
 }
 
 func RunInParallel(functions ...func() any) []any {
