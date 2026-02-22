@@ -13,6 +13,7 @@
 # limitations under the License.
 
 ARG ALPINE_VERSION=latest
+ARG GOLANG_ALPINE_VERSION=latest
 
 FROM ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.2.0 AS apply-setters
 FROM ghcr.io/kptdev/krm-functions-catalog/apply-setters:v0.1.1 AS apply-setters-v1
@@ -27,7 +28,8 @@ FROM ghcr.io/kptdev/krm-functions-catalog/set-project-id:v0.2.0 AS set-project-i
 FROM ghcr.io/kptdev/krm-functions-catalog/starlark:v0.3.0 AS starlark
 FROM ghcr.io/kptdev/krm-functions-catalog/upsert-resource:v0.2.0 AS upsert-resource
 
-FROM golang:1.25.7-alpine AS builder
+
+FROM golang:${GOLANG_ALPINE_VERSION} AS builder
 WORKDIR /go/src
 
 RUN go install github.com/grpc-ecosystem/grpc-health-probe@v0.4.11
