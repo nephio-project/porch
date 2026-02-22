@@ -162,9 +162,17 @@ function customize_controller_reconcilers {
 reconcilers = ctx.resource_list["functionConfig"]["data"]["reconcilers"].split(",")
 for resource in ctx.resource_list["items"]:
   c = resource["spec"]["template"]["spec"]["containers"][0]
-  c["env"] = []
+  if c["env"] == None:
+    c["env"] = []
   for r in reconcilers:
-    c["env"].append({"name": "ENABLE_" + r.upper(), "value": "true"})
+    found = False
+    for env in c["env"]:
+      if env["name"] == "ENABLE_" + r.upper():
+        env["value"] = "true"
+        found = True
+        break
+    if not found:
+      c["env"].append({"name": "ENABLE_" + r.upper(), "value": "true"})
 '
 }
 
