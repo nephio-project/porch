@@ -14,7 +14,6 @@ The cache is responsible for:
 
 - **Repository Management**: Opening, closing, and tracking repository connections
 - **Data Caching**: Storing repository metadata, package revisions, and package revision resources
-- **Background Synchronization**: Periodically refreshing cached data from external repositories
 - **Repository Abstraction**: Providing a unified interface regardless of storage backend (Git)
 - **Connection Pooling**: Managing connections to external repositories efficiently
 - **Change Detection**: Tracking repository versions to detect when updates are needed
@@ -51,19 +50,13 @@ External Repositories (Git)
    - **CR Cache**: Caches package data in-memory, stores PackageRev CR metadata in Kubernetes
    - **DB Cache**: Stores all package data and metadata in a PostgreSQL database
 
-4. **Background Synchronization**:
-   - Periodically refreshes repository state from Git repositories to maintain cache consistency
-   - Detects new, modified, and deleted package revisions
-   - Sends watch events (Added/Modified/Deleted) to notify watchers
-   - Implements configurable per-repository synchronization frequency as specified in the spec of the Repository CRD
-
-5. **Repository Adapter Integration**:
+4. **Repository Adapter Integration**:
    - Creates repository adapter instances (Git adapter)
    - Wraps adapters with caching logic
    - Delegates actual Git operations to adapters
    - Caches adapter responses
 
-6. **Change Notification**:
+5. **Change Notification**:
    - Sends watch events (Added/Modified/Deleted) when package revisions change
    - Enables real-time watch streams for API clients through the CaDEngine's WatcherManager
    - Propagates changes from direct operations and background synchronizations to all active watchers

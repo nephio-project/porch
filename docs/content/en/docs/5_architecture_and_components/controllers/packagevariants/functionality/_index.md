@@ -1,7 +1,7 @@
 ---
 title: "Functionality"
 type: docs
-weight: 4
+weight: 3
 description: |
   Overview of controller functionality and detailed documentation pages.
 ---
@@ -18,7 +18,7 @@ Implements continuous synchronization between upstream and downstream packages t
 - **Draft Management**: Creates clone, upgrade, or edit drafts based on detected changes
 - **Adoption and Deletion**: Manages ownership and cleanup of downstream packages through policies
 
-For detailed architecture and process flows, see [PackageVariant Reconciliation]({{% relref "/docs/5_architecture_and_components/controllers/functionality/packagevariant-reconciliation.md" %}}).
+For detailed architecture and process flows, see [PackageVariant Reconciliation]({{% relref "packagevariant-reconciliation.md" %}}).
 
 ### PackageVariantSet Reconciliation
 
@@ -28,7 +28,7 @@ Implements declarative fan-out pattern for bulk package instantiation through:
 - **Set-Based Reconciliation**: Ensures desired PackageVariants match actual through create/update/delete operations
 - **Dynamic Discovery**: Automatically adjusts as target repositories or objects change
 
-For detailed architecture and process flows, see [PackageVariantSet Reconciliation]({{% relref "/docs/5_architecture_and_components/controllers/functionality/packagevariantset-reconciliation.md" %}}).
+For detailed architecture and process flows, see [PackageVariantSet Reconciliation]({{% relref "packagevariantset-reconciliation.md" %}}).
 
 ### Mutation Application
 
@@ -38,7 +38,7 @@ Applies systematic transformations to downstream packages through:
 - **Config Injection**: Injects data from in-cluster Kubernetes resources into package resources
 - **Change Detection**: Compares original and modified resources to avoid unnecessary updates
 
-For detailed architecture and process flows, see [Mutation Application]({{% relref "/docs/5_architecture_and_components/controllers/functionality/mutation-application.md" %}}).
+For detailed architecture and process flows, see [Mutation Application]({{% relref "mutation-application.md" %}}).
 
 ## How They Work Together
 

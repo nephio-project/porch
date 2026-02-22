@@ -1,7 +1,7 @@
 ---
 title: "Interactions with Porch APIs"
 type: docs
-weight: 5
+weight: 4
 description: |
   How the Porch controllers interact with Porch APIs.
 ---
@@ -51,7 +51,7 @@ single upstream package revision; PackageVariantSets enable the same behaviour f
 
 **Key architectural characteristics:**
 
-1. **Separate Deployment**: Controllers run independently from Porch server and can be enabled/disabled using [the `--reconcilers` flag]({{% relref "../../6_configuration_and_deployments/configurations/components/porch-controllers-config.md#command-line-arguments" %}}) at deployment time
+1. **Separate Deployment**: Controllers run independently from Porch server and can be enabled/disabled using [the `--reconcilers` flag]({{% relref "../../../6_configuration_and_deployments/configurations/components/porch-controllers-config.md#command-line-arguments" %}}) at deployment time
 
 2. **Standard Kubernetes Patterns**: Uses controller-runtime framework with standard watch/reconcile patterns
 
@@ -259,7 +259,7 @@ The controller creates three types of drafts depending on the situation:
 - Draft remains for human/automation approval
 - Controller does NOT auto-publish (separation of concerns)
 
-**For detailed draft creation flows and characteristics, see [PackageVariant Controller - Draft Management]({{% relref "/docs/5_architecture_and_components/controllers/packagevariants.md#draft-management" %}}).**
+**For detailed draft creation flows and characteristics, see [PackageVariant Controller - Draft Management]({{% relref "packagevariant.md#draft-management" %}}).**
 
 ### Resource Mutations
 
@@ -351,8 +351,8 @@ The controllers update status conditions to reflect reconciliation state:
 - **Conflict handling**: Retries on conflict with exponential backoff
 
 **For detailed condition meanings and update flows, see:**
-- [PackageVariant Controller - Condition Management]({{% relref "/docs/5_architecture_and_components/controllers/packagevariants.md#status-conditions" %}})
-- [PackageVariantSet Controller - Condition Management]({{% relref "/docs/5_architecture_and_components/controllers/packagevariantsets.md#status-conditions" %}})
+- [PackageVariant Controller - Condition Management]({{% relref "packagevariant.md#status-conditions" %}})
+- [PackageVariantSet Controller - Condition Management]({{% relref "packagevariantset.md#status-conditions" %}})
 
 ## API Client Configuration
 

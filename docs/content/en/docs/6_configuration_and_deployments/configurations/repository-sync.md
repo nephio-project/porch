@@ -5,13 +5,9 @@ weight: 1
 description: "Configure repository synchronization for Porch Repositories"
 ---
 
-{{% alert title="Documentation Location" color="info" %}}
-This documentation is currently located in the system configuration section but should be moved to a more logical location as it's about configuring individual Repository resources, not system-wide settings. This may be relocated in future documentation updates.
-{{% /alert %}}
-
 ## Sync Configuration Fields
 
-The `spec.sync` field in a Repository CR controls synchronization behavior with the external repository. Repositories without sync configuration use the system default for periodic synchronization (10 minutes, overridden by RepoSyncFrequency parameter in porch-server deployment).
+The `spec.sync` field in a Repository CR controls synchronization behavior with the external repository. Repositories without sync configuration use the system default for periodic synchronization (default 1 hour, configurable via `--repositories.full-sync-frequency` flag - see [Repository Controller Configuration]({{% relref "/docs/6_configuration_and_deployments/configurations/components/porch-controllers-config.md#repository-controller-configuration" %}}).
 
 ```yaml
 apiVersion: config.porch.kpt.dev/v1alpha1
@@ -95,66 +91,83 @@ spec:
 
 ## Sync Behavior
 
-### Default Behavior
-- Without `spec.sync`: Uses system default sync frequency
-- Empty `schedule`: Falls back to default frequency
-- Invalid cron expression: Falls back to default frequency
+Repository synchronization is managed by the Repository Controller using a dual sync strategy:
 
-**Default frequency**: 10 minutes (overridden by RepoSyncFrequency parameter in porch-server deployment)
+**Health Checks** (default 5 minutes):
+- Lightweight connectivity validation
+- 20-second timeout
+- Only when repository is healthy
 
-### Sync Manager Operation
-Each repository runs two independent goroutines:
+**Full Sync** (default 1 hour or cron schedule):
+- Complete package discovery
+- Git fetch + validation
+- Asynchronous execution
 
-1. **Periodic Sync** (`syncForever`):
-   - Syncs once at startup
-   - Follows cron schedule or default frequency
-   - Updates repository conditions after each sync
-
-2. **One-time Sync** (`handleRunOnceAt`):
-   - Monitors `runOnceAt` field changes
-   - Creates/cancels timers as needed
-   - Executes independently of periodic sync
-
-### Status Updates
+## Status Updates
 Repository sync status is reflected in the Repository CR conditions:
 
 ```yaml
 status:
   conditions:
-  - type: Ready
+  - type: RepositoryReady
     status: "True"
     reason: Ready
-    message: 'Repository Ready (next sync scheduled at: 2025-11-05T11:55:38Z)'
-    lastTransitionTime: "2024-01-15T10:30:00Z"
+    message: "Repository Ready"
+    lastTransitionTime: "2025-01-30T11:00:00Z"
+  lastFullSyncTime: "2025-01-30T11:00:00Z"
+  nextFullSyncTime: "2025-01-30T12:00:00Z"
+  observedGeneration: 5
+  observedRunOnceAt: null
+  packageCount: 42
+  gitCommitHash: "abc123def456..."
 ```
+
+**Status Fields:**
+- `lastFullSyncTime`: Timestamp of last successful full sync (used for cron schedule calculation)
+- `nextFullSyncTime`: Timestamp when next full sync is scheduled
+- `observedGeneration`: Generation of spec that was last reconciled (detects spec changes)
+- `observedRunOnceAt`: (Transient) Tracks last observed runOnceAt value (prevents redundant syncs)
+- `packageCount`: Number of package revisions discovered in repository
+- `gitCommitHash`: Commit hash of configured branch at sync
+
+**Implementation Details:**
+- Status fields are updated after each successful full sync
+- `lastFullSyncTime` is used for cron schedule calculation (not condition timestamps)
+- `nextFullSyncTime` provides explicit visibility into sync schedule
+- `observedRunOnceAt` prevents duplicate syncs when runOnceAt is cleared
+- `gitCommitHash` provides GitOps observability for tracking upstream changes
+- All fields are optional and populated after first successful sync
 
 ## Troubleshooting
 
 ### Common Issues
 
 1. **Invalid Cron Expression**:
-   - Check porch-server logs for parsing errors
+   - Check controller logs for parsing errors
    - Verify 5-field format
    - Repository falls back to default frequency
 
 2. **Past RunOnceAt Time**:
    - One-time sync is skipped
    - Update to future timestamp
-   - Check porch-server logs for details
+   - Check controller logs for details
 
 3. **Sync Failures**:
    - Check repository conditions
    - Verify authentication credentials
    - Review repository accessibility
-   - Check porch-server logs for detailed error information
+   - Check controller logs for detailed error information
 
 ### Monitoring
 - Repository conditions show sync status
-- Porch-server logs contain detailed sync information, next sync times, and any errors
+- Status fields provide structured sync information
+- Check controller logs: `kubectl logs -n porch-system deployment/porch-controllers -f`
+- View status fields: `kubectl get repo my-repo -o yaml`
+- Query next sync time: `kubectl get repo my-repo -o jsonpath='{.status.nextFullSyncTime}'`
 
 ## CLI Commands
 
-For repository registration and sync commands, see the [porchctl CLI guide]({{% relref "/docs/7_cli_api/porchctl.md" %}}):
+For repository registration and sync commands, see the [porchctl repo CLI guide]({{% relref "/docs/7_cli_api/porchctl.md#repo" %}}):
 
 ---
 

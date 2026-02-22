@@ -220,6 +220,66 @@ Read Operation          Write Operation
 
 The cache maintains consistency with external Git repositories through multiple mechanisms:
 
+### Change Detection
+
+The cache detects changes by comparing cached and external package revisions:
+
+**Package Revision Comparison:**
+
+1. Build map of existing cached package revisions by name
+2. Build map of new package revisions from Git by name
+3. Identify three categories:
+   - **Added**: In Git but not in cache (new package revisions)
+   - **Modified**: In both but with different resource versions
+   - **Deleted**: In cache but not in Git (removed from repository)
+
+**Change notification:**
+- Added package revisions trigger `watch.Added` events
+- Modified package revisions trigger `watch.Modified` events
+- Deleted package revisions trigger `watch.Deleted` events
+
+**Sync Scope Differences:**
+
+| Cache Type | Synced Lifecycles | Rationale |
+|------------|-------------------|------------|
+| **CR Cache** | All (Draft, Proposed, Published, DeletionProposed) | Pass-through approach - all states exist in Git |
+| **DB Cache** | Published, DeletionProposed only | Database-first approach - drafts don't exist in Git |
+
+### Latest Revision Tracking
+
+The cache automatically identifies and tracks the latest package revision for each package:
+
+**Identification Logic:**
+
+```
+All Package Revisions
+        ↓
+Filter Published Only
+        ↓
+Compare Revision Numbers
+        ↓
+Highest Number = Latest
+        ↓
+Set Latest Flag/Label
+```
+
+**Rules:**
+- Only Published package revisions considered
+- Highest revision number wins
+- Draft and branch-tracking revisions excluded
+- Recomputed during every sync and cache update
+
+**Latest revision label:**
+- `kpt.dev/latest-revision: "true"` added to latest revision
+- Used for filtering and queries
+- Automatically updated when new revisions published
+- Removed from old latest when new latest identified
+
+**Async notification on deletion:**
+- When latest revision deleted, async goroutine identifies new latest
+- Sends Modified notification for new latest revision
+- Ensures clients see latest revision updates without delay
+
 ### Version-Based Consistency
 
 ```

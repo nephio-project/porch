@@ -5,16 +5,9 @@ weight: 2
 description: "Configure the Porch controllers component"
 ---
 
-The Porch controllers manage the lifecycle of PackageVariants and PackageVariantSets.
+The Porch controllers manage Repository synchronization, PackageVariants, and PackageVariantSets.
 
-## Available Controllers
-
-Porch includes the following controllers:
-
-- **PackageVariant Controller** - Manages PackageVariant resources
-- **PackageVariantSet Controller** - Manages PackageVariantSet resources
-
-## Configuration Options
+## Enabling Controllers
 
 ### Command Line Arguments
 
@@ -22,103 +15,56 @@ The controllers support these command line arguments:
 
 ```bash
 args:
-- --reconcilers=packagevariants,packagevariantsets  # Comma-separated list of controllers to enable
+- --reconcilers=repositories,packagevariants,packagevariantsets  # Comma-separated list
 # OR use --reconcilers=* to enable all controllers
 ```
 
-### Default Configuration
+### Repository Controller Configuration
 
-The controllers use these hardcoded default settings (not configurable):
-
-- **Metrics bind address**: `:8080`
-- **Health probe bind address**: `:8081`
-- **Webhook port**: `9443`
-- **Leader election**: Disabled
-- **Leader election ID**: `porch-operators.config.porch.kpt.dev`
-
-## Resource Limits
-
-```yaml
-resources:
-  requests:
-    memory: "128Mi"
-    cpu: "100m"
-  limits:
-    memory: "512Mi"
-    cpu: "500m"
-```
-
-## Health Checks
-
-```yaml
-livenessProbe:
-  httpGet:
-    path: /healthz
-    port: 8081
-  initialDelaySeconds: 30
-  periodSeconds: 30
-  failureThreshold: 3
-  timeoutSeconds: 5
-
-readinessProbe:
-  httpGet:
-    path: /readyz
-    port: 8081
-  initialDelaySeconds: 5
-  periodSeconds: 5
-  failureThreshold: 3
-  timeoutSeconds: 3
-```
-
-## RBAC Requirements
-
-The controllers require these permissions:
-
-```yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: porch-controllers
-rules:
-# Core Porch resources
-- apiGroups: ["config.porch.kpt.dev"]
-  resources: ["*"]
-  verbs: ["*"]
-- apiGroups: ["porch.kpt.dev"]
-  resources: ["*"]
-  verbs: ["*"]
-# Leader election
-- apiGroups: ["coordination.k8s.io"]
-  resources: ["leases"]
-  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-# Events
-- apiGroups: [""]
-  resources: ["events"]
-  verbs: ["create", "patch"]
-```
-
-## Troubleshooting
-
-### Check Controller Status
+The Repository Controller supports these additional flags:
 
 ```bash
-# Check if controllers are running
-kubectl get pods -n porch-system -l k8s-app=porch-controllers
-
-# Check controller logs
-kubectl logs -n porch-system deployment/porch-controllers
+args:
+- --reconcilers=repositories
+- --repositories.max-concurrent-reconciles=100
+- --repositories.max-concurrent-syncs=50
+- --repositories.health-check-frequency=5m
+- --repositories.full-sync-frequency=1h
+- --repositories.cache-type=CR  # or DB
 ```
 
-### Verify Enabled Controllers
+**Configuration Parameters:**
 
-Check the deployment arguments:
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `max-concurrent-reconciles` | 100 | Parallel reconcile loops |
+| `max-concurrent-syncs` | 50 | Parallel sync operations |
+| `health-check-frequency` | 5m | Lightweight connectivity checks |
+| `full-sync-frequency` | 1h | Complete repository sync |
+| `cache-type` | CR | Cache implementation (CR or DB) - see [Cache Configuration]({{% relref "/docs/6_configuration_and_deployments/configurations/cache.md" %}}) |
 
-```bash
-kubectl get deployment -n porch-system porch-controllers -o yaml | grep -A5 args
-```
+**Cache Type:**
 
-### Common Issues
+The `cache-type` parameter determines how package data is stored:
+- **CR**: Custom Resources for metadata, in-memory caching (simpler, no database required)
+- **DB**: PostgreSQL database for metadata and content (production-grade, scalable)
 
-- **Controllers not starting**: Check RBAC permissions and ensure required CRDs are installed
-- **PackageVariants not reconciling**: Verify `--reconcilers` argument includes `packagevariants`
-- **Leader election conflicts**: Multiple controller instances may cause conflicts if leader election is enabled
+{{% alert title="Note" color="info" %}}
+When using `--repositories.cache-type=DB`, you must also configure database connection settings via environment variables. See [Cache Configuration]({{% relref "/docs/6_configuration_and_deployments/configurations/cache.md" %}}) for complete setup instructions.
+{{% /alert %}}
+
+**Tuning Guidance:**
+
+Adjust these parameters based on your deployment characteristics:
+
+- **Concurrency settings** (`max-concurrent-reconciles`, `max-concurrent-syncs`):
+  - Higher values increase throughput but consume more resources
+  - Start with defaults and adjust based on observed CPU/memory usage
+  - Monitor controller logs for reconciliation delays
+
+- **Frequency settings** (`health-check-frequency`, `full-sync-frequency`):
+  - More frequent checks detect issues faster but increase load
+  - Less frequent checks reduce overhead but delay change detection
+  - Balance based on your tolerance for sync lag vs resource usage
+
+For detailed sync behavior and scheduling, see [Repository Sync Configuration]({{% relref "/docs/6_configuration_and_deployments/configurations/repository-sync.md" %}}).

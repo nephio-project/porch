@@ -1,7 +1,7 @@
 ---
 title: "Design"
 type: docs
-weight: 1
+weight: 2
 description: |
   Architecture and design patterns of the Porch controllers.
 ---
