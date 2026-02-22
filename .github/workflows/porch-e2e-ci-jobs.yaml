@@ -72,12 +72,24 @@ jobs:
           echo "alpine-version=$(make --eval='print: ; @echo $(ALPINE_VERSION)' print)" >> $GITHUB_OUTPUT
       - name: Build images in parallel
         run: |
+          set -e
           export IMAGE_TAG=${IMAGE_TAG:0:8}
           export ALPINE_VERSION=${{ steps.vars.outputs.alpine-version }}
           IMAGE_NAME=${PORCH_FUNCTION_RUNNER_IMAGE} WRAPPER_SERVER_IMAGE_NAME=${PORCH_WRAPPER_SERVER_IMAGE} make -C func/ build-image &
+          pid1=$!
           IMAGE_NAME=${PORCH_SERVER_IMAGE} make -C build/ build-image &
+          pid2=$!
           IMAGE_NAME=${PORCH_CONTROLLERS_IMAGE} make -C controllers/ build-image &
-          wait
+          pid3=$!
+          wait $pid1 && wait $pid2 && wait $pid3
+      - name: Verify images exist
+        run: |
+          export IMAGE_TAG=${IMAGE_TAG:0:8}
+          docker images
+          docker inspect ${IMAGE_REPO}/${PORCH_SERVER_IMAGE}:${IMAGE_TAG}
+          docker inspect ${IMAGE_REPO}/${PORCH_CONTROLLERS_IMAGE}:${IMAGE_TAG}
+          docker inspect ${IMAGE_REPO}/${PORCH_FUNCTION_RUNNER_IMAGE}:${IMAGE_TAG}
+          docker inspect ${IMAGE_REPO}/${PORCH_WRAPPER_SERVER_IMAGE}:${IMAGE_TAG}
       - name: Save all images
         run: |
           export IMAGE_TAG=${IMAGE_TAG:0:8}
