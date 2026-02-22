@@ -76,7 +76,7 @@ func (pr *dbPackageRevision) savePackageRevision(ctx context.Context, saveResour
 	_, span := tracer.Start(ctx, "dbPackageRevision::savePackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	if saveResources && pr.repo.deployment {
+	if saveResources && pr.repo != nil && pr.repo.deployment {
 		pr.updated = time.Now()
 		pr.updatedBy = getCurrentUser()
 	}
@@ -84,7 +84,7 @@ func (pr *dbPackageRevision) savePackageRevision(ctx context.Context, saveResour
 	_, err := pkgRevReadFromDB(ctx, pr.Key(), false)
 	if err == nil {
 		updErr := pkgRevUpdateDB(ctx, pr, saveResources)
-		if updErr == nil && saveResources {
+		if updErr == nil && saveResources && pr.repo != nil {
 			sent := pr.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Modified, pr)
 			klog.Infof("DB cache %+v: sent %d notifications for updated package revision %+v", pr.repo.Key(), sent, pr.Key())
 		}
@@ -94,7 +94,7 @@ func (pr *dbPackageRevision) savePackageRevision(ctx context.Context, saveResour
 	}
 
 	writeErr := pkgRevWriteToDB(ctx, pr)
-	if writeErr == nil {
+	if writeErr == nil && pr.repo != nil {
 		sent := pr.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Added, pr)
 		klog.Infof("DB cache %+v: sent %d notifications for added package revision %+v", pr.repo.Key(), sent, pr.Key())
 	}
@@ -142,6 +142,10 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 	_, span := tracer.Start(ctx, "dbPackageRevision::GetPackageRevision", trace.WithAttributes())
 	defer span.End()
 
+	if pr == nil {
+		return nil, fmt.Errorf("invalid package revision: nil object")
+	}
+
 	readPR, err := pkgRevReadFromDB(ctx, pr.Key(), false)
 	if err != nil {
 		if pr.GetMeta().DeletionTimestamp != nil || strings.Contains(err.Error(), "sql: no rows in result set") {
@@ -152,14 +156,19 @@ func (pr *dbPackageRevision) GetPackageRevision(ctx context.Context) (*porchapi.
 		}
 	}
 
-	_, upstreamLock, _ := pr.GetUpstreamLock(ctx)
-	_, selfLock, _ := pr.GetLock(ctx)
+	_, upstreamLock, _ := readPR.GetUpstreamLock(ctx)
+	_, selfLock, _ := readPR.GetLock(ctx)
 	kf, _ := readPR.GetKptfile(ctx)
+
+	var deployment bool
+	if readPR.repo != nil {
+		deployment = readPR.repo.deployment
+	}
 
 	status := porchapi.PackageRevisionStatus{
 		UpstreamLock: repository.KptUpstreamLock2APIUpstreamLock(upstreamLock),
 		SelfLock:     repository.KptUpstreamLock2APIUpstreamLock(selfLock),
-		Deployment:   pr.repo.deployment,
+		Deployment:   deployment,
 		Conditions:   repository.ToAPIConditions(kf),
 	}
 
@@ -345,7 +354,7 @@ func (pr *dbPackageRevision) Delete(ctx context.Context, deleteExternal bool) er
 	_, span := tracer.Start(ctx, "dbPackageRevision::Delete", trace.WithAttributes())
 	defer span.End()
 
-	if deleteExternal && porchapi.LifecycleIsPublished(pr.lifecycle) {
+	if pr.repo != nil && deleteExternal && porchapi.LifecycleIsPublished(pr.lifecycle) {
 		if err := pr.repo.externalRepo.DeletePackageRevision(ctx, pr); err != nil {
 			// Check if the error indicates the package doesn't exist in external repo
 			if repository.IsNotFoundError(err) {
@@ -362,8 +371,10 @@ func (pr *dbPackageRevision) Delete(ctx context.Context, deleteExternal bool) er
 		klog.Warningf("dbPackage:DeletePackageRevision: deletion of %+v failed on database %q", pr.Key(), err)
 	}
 
-	sent := pr.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Deleted, pr)
-	klog.Infof("DB cache %+v: sent %d notifications for deleted package revision %+v", pr.repo.Key(), sent, pr.Key())
+	if pr.repo != nil {
+		sent := pr.repo.repoPRChangeNotifier.NotifyPackageRevisionChange(watch.Deleted, pr)
+		klog.Infof("DB cache %+v: sent %d notifications for deleted package revision %+v", pr.repo.Key(), sent, pr.Key())
+	}
 
 	return err
 }
