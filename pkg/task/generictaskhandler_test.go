@@ -22,6 +22,7 @@ import (
 
 	kptfilev1 "github.com/kptdev/kpt/pkg/api/kptfile/v1"
 	kptfn "github.com/kptdev/krm-functions-sdk/go/fn"
+	kptfileko "github.com/kptdev/krm-functions-sdk/go/fn/kptfileko"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	fakeextrepo "github.com/nephio-project/porch/pkg/externalrepo/fake"
@@ -332,7 +333,7 @@ info:
 		},
 	}
 
-	kptf, err := kptfn.NewKptfileFromPackage(resources)
+	kptf, err := kptfileko.NewFromPackage(resources)
 	require.NoError(t, err)
 
 	kptf.SetLabels(obj.Spec.PackageMetadata.Labels)
@@ -393,7 +394,7 @@ info:
 			},
 		},
 	}
-	kptf2, err := kptfn.NewKptfileFromPackage(resources2)
+	kptf2, err := kptfileko.NewFromPackage(resources2)
 	require.NoError(t, err)
 
 	labels2 := kptf2.GetLabels()
@@ -411,4 +412,69 @@ info:
 	got2 := resources2["Kptfile"]
 	assert.Contains(t, got2, "foo: bar")
 	assert.Contains(t, got2, "# Top-level comment")
+}
+
+func TestApplyMapMetadata(t *testing.T) {
+	tests := []struct {
+		name    string
+		cur     map[string]string
+		desired map[string]string
+		replace bool
+		want    bool
+		wantMap map[string]string
+	}{
+		{
+			name:    "replace mode - no change",
+			cur:     map[string]string{"a": "1"},
+			desired: map[string]string{"a": "1"},
+			replace: true,
+			want:    false,
+			wantMap: map[string]string{"a": "1"},
+		},
+		{
+			name:    "replace mode - with change",
+			cur:     map[string]string{"a": "1"},
+			desired: map[string]string{"b": "2"},
+			replace: true,
+			want:    true,
+			wantMap: map[string]string{"b": "2"},
+		},
+		{
+			name:    "merge mode - no change",
+			cur:     map[string]string{"a": "1"},
+			desired: map[string]string{"a": "1"},
+			replace: false,
+			want:    false,
+			wantMap: map[string]string{"a": "1"},
+		},
+		{
+			name:    "merge mode - add new key",
+			cur:     map[string]string{"a": "1"},
+			desired: map[string]string{"b": "2"},
+			replace: false,
+			want:    true,
+			wantMap: map[string]string{"a": "1", "b": "2"},
+		},
+		{
+			name:    "merge mode - update existing",
+			cur:     map[string]string{"a": "1"},
+			desired: map[string]string{"a": "2"},
+			replace: false,
+			want:    true,
+			wantMap: map[string]string{"a": "2"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var result map[string]string
+			got := applyMapMetadata(tt.cur, tt.desired, tt.replace, func(m map[string]string) {
+				result = m
+			})
+			assert.Equal(t, tt.want, got)
+			if got {
+				assert.Equal(t, tt.wantMap, result)
+			}
+		})
+	}
 }

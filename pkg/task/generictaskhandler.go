@@ -25,6 +25,7 @@ import (
 	"github.com/kptdev/kpt/pkg/lib/builtins/builtintypes"
 	"github.com/kptdev/kpt/pkg/lib/runneroptions"
 	kptfn "github.com/kptdev/krm-functions-sdk/go/fn"
+	kptfileko "github.com/kptdev/krm-functions-sdk/go/fn/kptfileko"
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	configapi "github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
@@ -91,7 +92,7 @@ func (th *genericTaskHandler) ApplyTask(ctx context.Context, draft repository.Pa
 	}
 
 	// Upsert labels/annotations/readinessGates from obj.Spec.PackageMetadata and obj.Spec.ReadinessGates
-	kptf, err := kptfn.NewKptfileFromPackage(resources.Contents)
+	kptf, err := kptfileko.NewFromPackage(resources.Contents)
 	if err != nil {
 		return pkgerrors.Wrap(err, "failed to parse Kptfile")
 	}
@@ -306,7 +307,7 @@ func PatchKptfile(
 		resourceMap = res.Spec.Resources
 	}
 
-	kptf, err := kptfn.NewKptfileFromPackage(resourceMap)
+	kptf, err := kptfileko.NewFromPackage(resourceMap)
 	if err != nil {
 		return "", false, fmt.Errorf("parse Kptfile: %w", err)
 	}
@@ -389,91 +390,82 @@ func PatchKptfile(
 	return content, true, nil
 }
 
-func applyMetadataToKptfile(kptf *kptfn.Kptfile, obj *porchapi.PackageRevision, replace bool) (bool, error) {
+func applyMetadataToKptfile(kptf *kptfileko.KptfileKubeObject, obj *porchapi.PackageRevision, replace bool) (bool, error) {
 	var changed bool
 
 	if obj.Spec.PackageMetadata != nil {
 		if obj.Spec.PackageMetadata.Labels != nil {
-			cur := kptf.GetLabels()
-			desired := obj.Spec.PackageMetadata.Labels
-			if replace {
-				if !maps.Equal(cur, desired) {
-					changed = true
-					kptf.SetLabels(desired)
-				}
-			} else {
-				didChange := false
-				for k, v := range desired {
-					if cv, ok := cur[k]; !ok || cv != v {
-						cur[k] = v
-						didChange = true
-					}
-				}
-				if didChange {
-					changed = true
-					kptf.SetLabels(cur)
-				}
+			if applyMapMetadata(kptf.GetLabels(), obj.Spec.PackageMetadata.Labels, replace, kptf.SetLabels) {
+				changed = true
 			}
 		}
 		if obj.Spec.PackageMetadata.Annotations != nil {
-			cur := kptf.GetAnnotations()
-			desired := obj.Spec.PackageMetadata.Annotations
-			if replace {
-				if !maps.Equal(cur, desired) {
-					changed = true
-					kptf.SetAnnotations(desired)
-				}
-			} else {
-				didChange := false
-				for k, v := range desired {
-					if cv, ok := cur[k]; !ok || cv != v {
-						cur[k] = v
-						didChange = true
-					}
-				}
-				if didChange {
-					changed = true
-					kptf.SetAnnotations(cur)
-				}
+			if applyMapMetadata(kptf.GetAnnotations(), obj.Spec.PackageMetadata.Annotations, replace, kptf.SetAnnotations) {
+				changed = true
 			}
 		}
 	}
 
 	if obj.Spec.ReadinessGates != nil {
-		desiredGatesMap := make(map[string]porchapi.ReadinessGate)
-		for _, rg := range obj.Spec.ReadinessGates {
-			desiredGatesMap[rg.ConditionType] = rg
-		}
-		existingGates := kptf.ReadinessGates()
-		finalGates := make(kptfn.SliceSubObjects, 0, len(desiredGatesMap))
-		hasChangedInGates := false
-		for _, so := range existingGates {
-			gateType := so.GetString("conditionType")
-			if _, found := desiredGatesMap[gateType]; found {
-				finalGates = append(finalGates, so)
-				delete(desiredGatesMap, gateType)
-			} else {
-				hasChangedInGates = true
-			}
-		}
-		if len(desiredGatesMap) > 0 {
-			hasChangedInGates = true
-			for _, newGate := range desiredGatesMap {
-				ko, err := kptfn.NewFromTypedObject(newGate)
-				if err != nil {
-					return false, fmt.Errorf("convert new readiness gate: %w", err)
-				}
-				finalGates = append(finalGates, &ko.SubObject)
-			}
-		}
-		if hasChangedInGates {
+		if gatesChanged, err := syncReadinessGates(kptf, obj.Spec.ReadinessGates); err != nil {
+			return false, err
+		} else if gatesChanged {
 			changed = true
-			if err := kptf.SetReadinessGates(finalGates); err != nil {
-				return false, fmt.Errorf("set final readiness gates: %w", err)
-			}
 		}
 	}
 
+	return changed, nil
+}
+
+func applyMapMetadata(cur, desired map[string]string, replace bool, setter func(map[string]string)) bool {
+	if replace {
+		if !maps.Equal(cur, desired) {
+			setter(desired)
+			return true
+		}
+		return false
+	}
+	changed := false
+	for k, v := range desired {
+		if cv, ok := cur[k]; !ok || cv != v {
+			cur[k] = v
+			changed = true
+		}
+	}
+	if changed {
+		setter(cur)
+	}
+	return changed
+}
+
+func syncReadinessGates(kptf *kptfileko.KptfileKubeObject, desired []porchapi.ReadinessGate) (bool, error) {
+	desiredMap := make(map[string]porchapi.ReadinessGate, len(desired))
+	for _, rg := range desired {
+		desiredMap[rg.ConditionType] = rg
+	}
+	final := make(kptfn.SliceSubObjects, 0, len(desiredMap))
+	changed := false
+	for _, so := range kptf.ReadinessGates() {
+		if _, found := desiredMap[so.GetString("conditionType")]; found {
+			final = append(final, so)
+			delete(desiredMap, so.GetString("conditionType"))
+		} else {
+			changed = true
+		}
+	}
+	for _, newGate := range desiredMap {
+		changed = true
+		ko, err := kptfn.NewFromTypedObject(newGate)
+		if err != nil {
+			return false, fmt.Errorf("convert new readiness gate: %w", err)
+		}
+		final = append(final, &ko.SubObject)
+	}
+	if changed {
+		if err := kptf.SetReadinessGates(final); err != nil {
+			return false, fmt.Errorf("set final readiness gates: %w", err)
+		}
+	}
 	return changed, nil
 }
 

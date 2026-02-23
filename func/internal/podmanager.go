@@ -33,6 +33,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	containerregistry "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	corev1 "k8s.io/api/core/v1"
@@ -123,6 +124,7 @@ func (pm *podManager) createPodData(ctx context.Context, serviceKey client.Objec
 			grpc.MaxCallSendMsgSize(pm.maxGrpcMessageSize),
 			grpc.WaitForReady(true),
 		),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 	)
 	if err != nil {
 		return podData, fmt.Errorf("failed to dial grpc function evaluator on %q for pod %s/%s: %w", address, serviceKey.Namespace, serviceKey.Name, err)
@@ -522,6 +524,20 @@ func (pm *podManager) getBasePodTemplate(ctx context.Context) (*corev1.Pod, stri
 						Name:    functionContainerName,
 						Image:   "to-be-replaced",
 						Command: []string{filepath.Join(volumeMountPath, wrapperServerBin)},
+						Env: []corev1.EnvVar{
+							{
+								Name:  "OTEL_METRICS_EXPORTER",
+								Value: "prometheus",
+							},
+							{
+								Name:  "OTEL_TRACES_EXPORTER",
+								Value: "none",
+							},
+							{
+								Name:  "OTEL_EXPORTER_PROMETHEUS_HOST",
+								Value: "0.0.0.0",
+							},
+						},
 						ReadinessProbe: &corev1.Probe{
 							ProbeHandler: corev1.ProbeHandler{
 								// TODO: use the k8s native GRPC prober when it has been rolled out in GKE.

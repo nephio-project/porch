@@ -13,8 +13,9 @@
 # limitations under the License.
 
 ARG ALPINE_VERSION=latest
+ARG GOLANG_BOOKWORM_VERSION=latest
 
-FROM golang:1.25.6-bookworm AS builder
+FROM golang:${GOLANG_BOOKWORM_VERSION} AS builder
 
 WORKDIR /go/src
 

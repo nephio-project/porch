@@ -107,7 +107,7 @@ type podReadyResponse struct {
 	err error
 }
 
-func NewPodEvaluator(o PodEvaluatorOptions) (Evaluator, error) {
+func NewPodEvaluator(ctx context.Context, o PodEvaluatorOptions) (Evaluator, error) {
 
 	restCfg, err := config.GetConfig()
 	if err != nil {
@@ -182,7 +182,7 @@ func NewPodEvaluator(o PodEvaluatorOptions) (Evaluator, error) {
 			},
 		},
 	}
-	go pe.podCacheManager.podCacheManager()
+	go pe.podCacheManager.podCacheManager(ctx)
 
 	err = pe.podCacheManager.retrieveFunctionPods(context.Background())
 	if err != nil {

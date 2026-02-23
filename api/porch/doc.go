@@ -16,4 +16,5 @@
 
 // +k8s:deepcopy-gen=package,register
 // +groupName=porch.kpt.dev
+
 package porch

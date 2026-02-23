@@ -110,7 +110,7 @@ func (pcm *podCacheManager) redistributeLoad(image string, fn *functionInfo, con
 // garbage collection synchronously.
 // We must run this method in one single goroutine. Doing it this way simplify
 // design around concurrency.
-func (pcm *podCacheManager) podCacheManager() {
+func (pcm *podCacheManager) podCacheManager(ctx context.Context) {
 	//nolint:staticcheck
 	tick := time.Tick(pcm.gcScanInterval)
 	for {
@@ -195,7 +195,11 @@ func (pcm *podCacheManager) podCacheManager() {
 
 		case <-tick:
 			pcm.garbageCollector()
+		case <-ctx.Done():
+			klog.Info("Pod cache manager shut down")
+			return
 		}
+
 	}
 }
 
