@@ -150,6 +150,7 @@ func TestList(t *testing.T) {
 	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{
 		mockPkgRev,
 	}, nil)
+	mockPkgRev.On("KubeObjectName").Return("test-package").Maybe()
 	mockPkgRev.On("GetPackageRevision", mock.Anything).Return(nil, errors.New("error getting API package revision")).Once()
 	result, err = packagerevisions.List(context.TODO(), &internalversion.ListOptions{})
 	assert.NoError(t, err)

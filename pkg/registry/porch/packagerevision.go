@@ -88,7 +88,9 @@ func (r *packageRevisions) List(ctx context.Context, options *metainternalversio
 	if err := r.listPackageRevisions(ctx, *filter, func(ctx context.Context, p repository.PackageRevision) error {
 		item, err := p.GetPackageRevision(ctx)
 		if err != nil {
-			return err
+			// Skip package revisions that fail to fetch (stale cache, deleted, etc.)
+			klog.Warningf("Failed to fetch package revision %s during list, skipping: %v", p.KubeObjectName(), err)
+			return nil
 		}
 		result.Items = append(result.Items, *item)
 		return nil

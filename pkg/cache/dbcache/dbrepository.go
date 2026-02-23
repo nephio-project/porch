@@ -148,6 +148,10 @@ func (r *dbRepository) ListPackageRevisions(ctx context.Context, filter reposito
 
 	genericPkgRevs := make([]repository.PackageRevision, len(foundPkgRevs))
 	for i, pkgRev := range foundPkgRevs {
+		if pkgRev.repo == nil {
+			klog.V(4).Infof("ListPackageRevisions: skipping package revision %+v with nil repository", pkgRev.Key())
+			continue
+		}
 		genericPkgRev := repository.PackageRevision(pkgRev)
 		if filter.MatchesLabels(ctx, genericPkgRev) {
 			genericPkgRevs[i] = genericPkgRev
