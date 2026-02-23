@@ -311,11 +311,11 @@ func pkgRevScanRowsFromDB(ctx context.Context, rows *sql.Rows) ([]*dbPackageRevi
 				pkgRev.repo = dbRepo
 			} else {
 				klog.Warningf("pkgRevScanRowsFromDB: repository %+v is not a dbRepository for package revision %s", pkgRev.pkgRevKey.PkgKey.RepoKey, prK8SName)
-				pkgRev.repo = nil
+				continue
 			}
 		} else {
 			klog.V(4).Infof("pkgRevScanRowsFromDB: repository %+v not found in cache for package revision %s", pkgRev.pkgRevKey.PkgKey.RepoKey, prK8SName)
-			pkgRev.repo = nil
+			continue
 		}
 		pkgRev.pkgRevKey.PkgKey.Package = repository.K8SName2PkgName(pkgK8SName)
 		pkgRev.pkgRevKey.WorkspaceName = repository.K8SName2PkgRevWSName(pkgK8SName, prK8SName)
