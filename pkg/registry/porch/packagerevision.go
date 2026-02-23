@@ -200,10 +200,12 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 	}
 	defer pkgMutex.Unlock()
 
+	pkgPath, pkgName := repository.SplitPackagePathName(newApiPkgRev.Spec.PackageName)
+
 	prName := util.ComposePkgRevObjName(
-		newApiPkgRev.Spec.RepositoryName,
-		"", // TODO: can manual creation even have a path?
-		newApiPkgRev.Spec.PackageName,
+		repositoryName,
+		pkgPath,
+		pkgName,
 		newApiPkgRev.Spec.WorkspaceName,
 	)
 	ctx = porchcontext.WithPackageRevision(ctx, prName)
