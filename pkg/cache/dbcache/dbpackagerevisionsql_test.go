@@ -692,7 +692,6 @@ func (t *DbTestSuite) TestFindUpstreamDependent() {
 		{name: "no dependent", namespace: "test-ns", wantDep: ""},
 		{name: "clone task", namespace: "test-ns", pkgName: "edge-cluster", wsName: "v1", taskType: "clone", wantDep: "downstream.edge-cluster.v1"},
 		{name: "upgrade task", namespace: "test-ns", pkgName: "edge-cluster", wsName: "v2", taskType: "upgrade", wantDep: "downstream.edge-cluster.v2"},
-		{name: "edit task", namespace: "test-ns", pkgName: "edge-cluster", wsName: "v3", taskType: "edit", wantDep: "downstream.edge-cluster.v3"},
 		{name: "different namespace", namespace: "other-ns", wantDep: ""},
 		{name: "non-existent upstream", namespace: "test-ns", wantDep: ""},
 	}
@@ -712,10 +711,6 @@ func (t *DbTestSuite) TestFindUpstreamDependent() {
 				case "upgrade":
 					task = porchapi.Task{Type: porchapi.TaskTypeUpgrade, Upgrade: &porchapi.PackageUpgradeTaskSpec{
 						NewUpstream: porchapi.PackageRevisionRef{Name: upstreamPR.meta.Name},
-					}}
-				case "edit":
-					task = porchapi.Task{Type: porchapi.TaskTypeEdit, Edit: &porchapi.PackageEditTaskSpec{
-						Source: &porchapi.PackageRevisionRef{Name: upstreamPR.meta.Name},
 					}}
 				}
 				pr := dbPackageRevision{

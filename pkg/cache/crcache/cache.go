@@ -148,8 +148,6 @@ func (c *Cache) FindUpstreamDependent(ctx context.Context, namespace, prName str
 					matched = task.Clone != nil && task.Clone.Upstream.UpstreamRef != nil && task.Clone.Upstream.UpstreamRef.Name == prName
 				case "upgrade":
 					matched = task.Upgrade != nil && task.Upgrade.NewUpstream.Name == prName
-				case "edit":
-					matched = task.Edit != nil && task.Edit.Source != nil && task.Edit.Source.Name == prName
 				}
 				if matched {
 					dependentName = pr.KubeObjectName()

@@ -365,11 +365,6 @@ func TestFindUpstreamDependent(t *testing.T) {
 				Type:    "upgrade",
 				Upgrade: &porchapi.PackageUpgradeTaskSpec{NewUpstream: porchapi.PackageRevisionRef{Name: upstreamRefName}},
 			}
-		case "edit":
-			task = porchapi.Task{
-				Type: "edit",
-				Edit: &porchapi.PackageEditTaskSpec{Source: &porchapi.PackageRevisionRef{Name: upstreamRefName}},
-			}
 		}
 		repo.cachedPackageRevisions[key] = &cachedPackageRevision{
 			PackageRevision: &fake.FakePackageRevision{
@@ -392,7 +387,6 @@ func TestFindUpstreamDependent(t *testing.T) {
 		{name: "no dependent", namespace: "test-ns", upstreamPkgToDelete: "test-repo.upstream.v1", wantDep: ""},
 		{name: "find clone dependent", namespace: "test-ns", upstreamPkgToDelete: "test-repo.upstream.v1", repo: mockRepo, downstreamPkgName: "downstream", upstreamRefName: "test-repo.upstream.v1", taskType: "clone", wantDep: "test-repo.downstream.v1"},
 		{name: "find upgrade dependent", namespace: "test-ns", upstreamPkgToDelete: "test-repo.upstream.v1", repo: mockRepo, downstreamPkgName: "upgrade", upstreamRefName: "test-repo.upstream.v1", taskType: "upgrade", wantDep: "test-repo.upgrade.v1"},
-		{name: "find edit dependent", namespace: "test-ns", upstreamPkgToDelete: "test-repo.upstream.v1", repo: mockRepo, downstreamPkgName: "edit", upstreamRefName: "test-repo.upstream.v1", taskType: "edit", wantDep: "test-repo.edit.v1"},
 		{name: "task without dependent", namespace: "test-ns", upstreamPkgToDelete: "test-repo.upstream.v1", repo: mockRepo, downstreamPkgName: "other", upstreamRefName: "test-repo.different.v1", taskType: "clone", wantDep: ""},
 		{name: "different namespace", namespace: "other-ns", upstreamPkgToDelete: "test-repo.upstream.v1", wantDep: ""},
 		{name: "cross-repo dependent", namespace: "test-ns", upstreamPkgToDelete: "test-repo.base-pkg.v1", repo: mockRepo2, downstreamPkgName: "derived", upstreamRefName: "test-repo.base-pkg.v1", taskType: "clone", wantDep: "test-repo2.derived.v1"},
