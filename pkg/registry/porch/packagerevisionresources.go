@@ -18,12 +18,12 @@ import (
 	"context"
 	"fmt"
 
+	porchcontext "github.com/nephio-project/porch/pkg/util/context"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/api/porchconfig/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
-	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -69,8 +69,10 @@ func (r *packageRevisionResources) NamespaceScoped() bool {
 
 // List selects resources in the storage which match to the selector. 'options' can be nil.
 func (r *packageRevisionResources) List(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::List", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::List")
 	defer span.End()
+
+	ctx = porchcontext.WithNewRequestID(ctx)
 
 	klog.V(3).Infoln("List packageRevisionResources started")
 
@@ -103,9 +105,11 @@ func (r *packageRevisionResources) List(ctx context.Context, options *metaintern
 }
 
 // Get implements the Getter interface
-func (r *packageRevisionResources) Get(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::Get", trace.WithAttributes())
+func (r *packageRevisionResources) Get(ctx context.Context, name string, _ *metav1.GetOptions) (runtime.Object, error) {
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::Get")
 	defer span.End()
+
+	ctx = porchcontext.WithNewRequestIDAndPackageRevision(ctx, name)
 
 	klog.V(3).Infof("Get packageRevisionResources started: %s", name)
 
@@ -127,9 +131,12 @@ func (r *packageRevisionResources) Get(ctx context.Context, name string, options
 // Update finds a resource in the storage and updates it. Some implementations
 // may allow updates creates the object - they should set the created boolean
 // to true.
-func (r *packageRevisionResources) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::Update", trace.WithAttributes())
+func (r *packageRevisionResources) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, _ rest.ValidateObjectFunc,
+	updateValidation rest.ValidateObjectUpdateFunc, _ bool, _ *metav1.UpdateOptions) (runtime.Object, bool, error) {
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::Update")
 	defer span.End()
+
+	ctx = porchcontext.WithNewRequestIDAndPackageRevision(ctx, name)
 
 	namespace, namespaced := genericapirequest.NamespaceFrom(ctx)
 	if !namespaced {
@@ -212,8 +219,10 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 
 // Watch supports watching for PackageRevisionResources changes.
 func (r *packageRevisionResources) Watch(ctx context.Context, options *metainternalversion.ListOptions) (watch.Interface, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::Watch", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisionResources::Watch")
 	defer span.End()
+
+	ctx = porchcontext.WithNewRequestID(ctx)
 
 	filter, err := parsePackageRevisionResourcesFieldSelector(options)
 	if err != nil {

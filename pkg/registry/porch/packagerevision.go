@@ -20,8 +20,9 @@ import (
 
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	"github.com/nephio-project/porch/pkg/repository"
+	"github.com/nephio-project/porch/pkg/util"
+	porchcontext "github.com/nephio-project/porch/pkg/util/context"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/trace"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,8 +71,10 @@ func (r *packageRevisions) NamespaceScoped() bool {
 
 // List selects resources in the storage which match to the selector. 'options' can be nil.
 func (r *packageRevisions) List(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::List", trace.WithAttributes())
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::List")
 	defer span.End()
+
+	ctx = porchcontext.WithNewRequestID(ctx)
 
 	klog.V(3).Infof("[API] List operation started for PackageRevisions")
 
@@ -106,9 +109,11 @@ func (r *packageRevisions) List(ctx context.Context, options *metainternalversio
 }
 
 // Get implements the Getter interface
-func (r *packageRevisions) Get(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Get", trace.WithAttributes())
+func (r *packageRevisions) Get(ctx context.Context, name string, _ *metav1.GetOptions) (runtime.Object, error) {
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Get")
 	defer span.End()
+
+	ctx = porchcontext.WithNewRequestIDAndPackageRevision(ctx, name)
 
 	klog.V(3).Infof("[API] Get operation started for PackageRevision: %s", name)
 
@@ -128,10 +133,12 @@ func (r *packageRevisions) Get(ctx context.Context, name string, options *metav1
 }
 
 // Create implements the Creater interface.
-func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Object, createValidation rest.ValidateObjectFunc,
-	options *metav1.CreateOptions) (runtime.Object, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Create", trace.WithAttributes())
+func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Object, _ rest.ValidateObjectFunc,
+	_ *metav1.CreateOptions) (runtime.Object, error) {
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Create")
 	defer span.End()
+
+	ctx = porchcontext.WithNewRequestID(ctx)
 
 	ns, namespaced := genericapirequest.NamespaceFrom(ctx)
 	if !namespaced {
@@ -192,6 +199,14 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 				conflictError)
 	}
 	defer pkgMutex.Unlock()
+
+	prName := util.ComposePkgRevObjName(
+		newApiPkgRev.Spec.RepositoryName,
+		"", // TODO: can manual creation even have a path?
+		newApiPkgRev.Spec.PackageName,
+		newApiPkgRev.Spec.WorkspaceName,
+	)
+	ctx = porchcontext.WithPackageRevision(ctx, prName)
 
 	createdRepoPkgRev, err := r.cad.CreatePackageRevision(ctx, repositoryObj, newApiPkgRev, parentPackage)
 	if err != nil {
@@ -256,9 +271,11 @@ func createAction(pkgRev *porchapi.PackageRevision) string {
 // may allow updates creates the object - they should set the created boolean
 // to true.
 func (r *packageRevisions) Update(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc,
-	updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Update", trace.WithAttributes())
+	updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, _ *metav1.UpdateOptions) (runtime.Object, bool, error) {
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Update")
 	defer span.End()
+
+	ctx = porchcontext.WithNewRequestIDAndPackageRevision(ctx, name)
 
 	return r.updatePackageRevision(ctx, name, objInfo, createValidation, updateValidation, forceAllowCreate)
 }
@@ -274,9 +291,11 @@ func (r *packageRevisions) Update(ctx context.Context, name string, objInfo rest
 // information about deletion.
 // It also returns a boolean which is set to true if the resource was instantly
 // deleted or false if it will be deleted asynchronously.
-func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
-	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Delete", trace.WithAttributes())
+func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValidation rest.ValidateObjectFunc, _ *metav1.DeleteOptions) (runtime.Object, bool, error) {
+	ctx, span := tracer.Start(ctx, "[START]::packageRevisions::Delete")
 	defer span.End()
+
+	ctx = porchcontext.WithNewRequestIDAndPackageRevision(ctx, name)
 
 	ns, namespaced := genericapirequest.NamespaceFrom(ctx)
 	if !namespaced {
