@@ -157,7 +157,8 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 
 	action := createAction(newApiPkgRev)
 	k8sName := fmt.Sprintf("%s.%s.%s", repositoryName, newApiPkgRev.Spec.PackageName, newApiPkgRev.Spec.WorkspaceName)
-	klog.Infof("[API] %s operation started for PackageRevision: %s", action, k8sName)
+	klog.Infof("[API] %s operation started for package revision for repository %s, package %s, workspace %s",
+		repositoryObj.Name, newPr.Spec.PackageName, newPr.Spec.WorkspaceName)
 
 	repositoryObj, err := r.getRepositoryObj(ctx, types.NamespacedName{Name: repositoryName, Namespace: ns})
 	if err != nil {

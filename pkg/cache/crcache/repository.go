@@ -112,9 +112,9 @@ func (r *cachedRepository) Version(ctx context.Context) (string, error) {
 }
 
 func (r *cachedRepository) ListPackageRevisions(ctx context.Context, filter repository.ListPackageRevisionFilter) ([]repository.PackageRevision, error) {
-	klog.V(3).Infof("[CR Cache] Retrieving cached packages and enriching with PackageRev CR metadata from etcd for repository: %s", r.Key())
+	klog.V(3).Infof("[CR Cache] Retrieving cached package revisions and enriching with PackageRev CR metadata from etcd for repository: %s", r.Key())
 	defer func() {
-		klog.V(3).Infof("[CR Cache] Completed retrieving and enriching packages with PackageRev CR metadata for repository: %s", r.Key())
+		klog.V(3).Infof("[CR Cache] Completed retrieving and enriching package revisions with PackageRev CR metadata for repository: %s", r.Key())
 	}()
 
 	packages, err := r.getPackageRevisions(ctx, filter, false)
