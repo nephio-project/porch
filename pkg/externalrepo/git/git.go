@@ -462,13 +462,8 @@ func (r *gitRepository) CreatePackageRevisionDraft(ctx context.Context, obj *por
 		return nil, err
 	}
 
-	pkgKeyStruct := repository.FromFullPathname(r.Key(), obj.Spec.PackageName)
-	if err := util.ValidPkgRevObjName(r.Key().Name, pkgKeyStruct.Path, pkgKeyStruct.Package, obj.Spec.WorkspaceName); err != nil {
-		return nil, fmt.Errorf("failed to create packagerevision: %w", err)
-	}
-
 	draftKey := repository.PackageRevisionKey{
-		PkgKey:        pkgKeyStruct,
+		PkgKey:        pkgKey,
 		WorkspaceName: obj.Spec.WorkspaceName,
 	}
 
@@ -494,16 +489,16 @@ func (r *gitRepository) UpdatePackageRevision(ctx context.Context, old repositor
 	ctx, span := tracer.Start(ctx, "gitRepository::UpdatePackageRevision", trace.WithAttributes())
 	defer span.End()
 
+	oldGitPackage, ok := old.(*gitPackageRevision)
+	if !ok {
+		return nil, fmt.Errorf("cannot update non-git package %T", old)
+	}
+
 	pkgKey := fmt.Sprintf("%s.%s.%s", r.Key().Name, old.Key().PkgKey.Package, old.Key().WorkspaceName)
 	klog.Infof("[Git] Loading draft for update started for PackageRevision: %s", pkgKey)
 	defer func() {
 		klog.V(3).Infof("[Git] Loading draft for update completed for PackageRevision: %s", pkgKey)
 	}()
-
-	oldGitPackage, ok := old.(*gitPackageRevision)
-	if !ok {
-		return nil, fmt.Errorf("cannot update non-git package %T", old)
-	}
 
 	ref := oldGitPackage.ref
 	if ref == nil {
@@ -549,12 +544,6 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, pr2Delete rep
 	ctx, span := tracer.Start(ctx, "gitRepository::DeletePackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	pkgKey := fmt.Sprintf("%s.%s.%s", r.Key().Name, pr2Delete.Key().PkgKey.Package, pr2Delete.Key().WorkspaceName)
-	klog.Infof("[Git] Deleting draft branch from Git repository started for PackageRevision: %s", pkgKey)
-	defer func() {
-		klog.V(3).Infof("[Git] Deleting draft branch from Git repository completed for PackageRevision: %s", pkgKey)
-	}()
-
 	// Set the default reference name using the PR key and lifecycle
 	referenceName := plumbing.ReferenceName(getReferenceName(ctx, pr2Delete))
 
@@ -567,11 +556,10 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, pr2Delete rep
 			referenceName = ""
 		}
 	}
-	klog.Infof("[Git] Deleting draft branch from Git repository started for PackageRevision: %s", gitPR2Delete.prKey)
+	klog.Infof("[Git] Deleting branch from Git repository started for PackageRevision: %s", gitPR2Delete.prKey)
 	defer func() {
-		klog.V(3).Infof("[Git] Deleting draft branch from Git repository completed for PackageRevision: %s", gitPR2Delete.prKey)
+		klog.V(3).Infof("[Git] Deleting branch from Git repository completed for PackageRevision: %s", gitPR2Delete.prKey)
 	}()
-
 
 	if referenceName == "" {
 		// This is an internal error. In some rare cases (see GetPackageRevision below) we create
@@ -1707,7 +1695,6 @@ func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageR
 	ctx, span := tracer.Start(ctx, "gitRepository::UpdateLifecycle", trace.WithAttributes())
 	defer span.End()
 
-	pkgKey := fmt.Sprintf("%s.%s.%s", r.Key().Name, pkgRev.Key().PkgKey.Package, pkgRev.Key().WorkspaceName)
 	klog.Infof("[Git] Updating lifecycle from %s to %s started for PackageRevision: %s", pkgRev.Lifecycle(ctx), newLifecycle, pkgRev.prKey)
 	defer func() {
 		klog.V(3).Infof("[Git] Updating lifecycle from %s to %s completed for PackageRevision: %s", pkgRev.Lifecycle(ctx), newLifecycle, pkgRev.prKey)
@@ -1821,7 +1808,6 @@ func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 	defer span.End()
 
 	d := prd.(*gitPackageRevisionDraft)
-	pkgKey := fmt.Sprintf("%s.%s.%s", r.Key().Name, d.Key().PkgKey.Package, d.Key().WorkspaceName)
 	klog.Infof("[Git] Changing lifecycle to %s and pushing to Git started for PackageRevision: %s", d.lifecycle, d.prKey)
 	defer func() {
 		klog.V(3).Infof("[Git] Changing lifecycle to %s and pushing to Git completed for PackageRevision: %s", d.lifecycle, d.prKey)

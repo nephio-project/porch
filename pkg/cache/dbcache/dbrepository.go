@@ -181,9 +181,9 @@ func (r *dbRepository) CreatePackageRevisionDraft(ctx context.Context, newPR *po
 		WorkspaceName: newPR.Spec.WorkspaceName,
 	}
 	pkgKey := pkgRevKey.K8SName()
-	klog.Infof("[DB Cache] Creating in-memory draft object for PackageRevision: %s", pkgKey)
+	klog.Infof("[DB Cache] Creating database entry for draft object for PackageRevision: %s", pkgKey)
 	defer func() {
-		klog.V(3).Infof("[DB Cache] In-memory draft object created for PackageRevision: %s", pkgKey)
+		klog.V(3).Infof("[DB Cache] Database entry for draft object created for PackageRevision: %s", pkgKey)
 	}()
 
 	klog.V(5).Infof("dbRepository:CreatePackageRevisionDraft: creating draft for %+v on repo %+v", newPR, r.Key())

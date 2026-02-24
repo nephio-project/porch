@@ -114,12 +114,6 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	ctx, span := tracer.Start(ctx, "cadEngine::CreatePackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	pkgKey := fmt.Sprintf("%s.%s.%s", repositoryObj.Name, newPr.Spec.PackageName, newPr.Spec.WorkspaceName)
-	klog.Infof("[CaD Engine] Validating and preparing package creation for PackageRevision: %s", pkgKey)
-	defer func() {
-		klog.V(3).Infof("[CaD Engine] Package creation delegated to cache for PackageRevision: %s", pkgKey)
-	}()
-
 	packageConfig, err := repository.BuildPackageConfig(ctx, newPr, parent)
 	if err != nil {
 		return nil, err
@@ -158,8 +152,14 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 		return nil, err
 	}
 
-	pkgKeyStruct := repository.FromFullPathname(repo.Key(), newPr.Spec.PackageName)
-	if err := util.ValidPkgRevObjName(repositoryObj.Name, pkgKeyStruct.Path, pkgKeyStruct.Package, newPr.Spec.WorkspaceName); err != nil {
+	pkgKey := repository.FromFullPathname(repo.Key(), newPr.Spec.PackageName)
+	k8sName := fmt.Sprintf("%s.%s.%s", repositoryObj.Name, pkgKey.K8SName(), newPr.Spec.WorkspaceName)
+	klog.Infof("[CaD Engine] Validating and preparing package creation for PackageRevision: %s", k8sName)
+	defer func() {
+		klog.V(3).Infof("[CaD Engine] Package creation delegated to cache for PackageRevision: %s", k8sName)
+	}()
+
+	if err := util.ValidPkgRevObjName(repositoryObj.Name, pkgKey.Path, pkgKey.Package, newPr.Spec.WorkspaceName); err != nil {
 		return nil, fmt.Errorf("failed to create packagerevision: %w", err)
 	}
 
@@ -295,12 +295,6 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version int, re
 	ctx, span := tracer.Start(ctx, "cadEngine::UpdatePackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	pkgKey := fmt.Sprintf("%s.%s.%s", repositoryObj.Name, newObj.Spec.PackageName, newObj.Spec.WorkspaceName)
-	klog.Infof("[CaD Engine] Processing lifecycle change and preparing update for PackageRevision: %s", pkgKey)
-	defer func() {
-		klog.V(3).Infof("[CaD Engine] Lifecycle change processed and delegated to cache for PackageRevision: %s", pkgKey)
-	}()
-
 	newRV := newObj.GetResourceVersion()
 	if len(newRV) == 0 {
 		return nil, fmt.Errorf("resourceVersion must be specified for an update")
@@ -314,6 +308,13 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version int, re
 	if err != nil {
 		return nil, err
 	}
+
+	pkgKeyStruct := repository.FromFullPathname(repo.Key(), newObj.Spec.PackageName)
+	k8sName := fmt.Sprintf("%s.%s.%s", repositoryObj.Name, pkgKeyStruct.K8SName(), newObj.Spec.WorkspaceName)
+	klog.Infof("[CaD Engine] Processing lifecycle change and preparing update for PackageRevision: %s", k8sName)
+	defer func() {
+		klog.V(3).Infof("[CaD Engine] Lifecycle change processed and delegated to cache for PackageRevision: %s", k8sName)
+	}()
 
 	// Check if the PackageRevision is in the terminating state and
 	// and this request removes the last finalizer.
