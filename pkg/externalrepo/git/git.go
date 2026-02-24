@@ -556,9 +556,10 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, pr2Delete rep
 			referenceName = ""
 		}
 	}
-	klog.Infof("[Git] Deleting branch from Git repository started for PackageRevision: %s", gitPR2Delete.prKey)
+	pkgKey := pr2Delete.Key()
+	klog.Infof("[Git] Deleting branch from Git repository started for PackageRevision: %s", pkgKey)
 	defer func() {
-		klog.V(3).Infof("[Git] Deleting branch from Git repository completed for PackageRevision: %s", gitPR2Delete.prKey)
+		klog.V(3).Infof("[Git] Deleting branch from Git repository completed for PackageRevision: %s", pkgKey)
 	}()
 
 	if referenceName == "" {
