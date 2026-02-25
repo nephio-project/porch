@@ -17,6 +17,7 @@ package task
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -267,7 +268,70 @@ func TestDoPrResourceMutations(t *testing.T) {
 		}, draft.Resources.Spec.Resources)
 	})
 
-	// TODO: test rendering
+	t.Run("Render failure persists resources to draft", func(t *testing.T) {
+		kptfileContent := `apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: test-pkg
+pipeline:
+  mutators:
+    - image: nonexistent-fn:v0.0.1
+`
+		draft := &fakeextrepo.FakePackageRevision{
+			Resources: &porchapi.PackageRevisionResources{
+				Spec: porchapi.PackageRevisionResourcesSpec{
+					Resources: map[string]string{},
+				},
+			},
+		}
+		oldRes := &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
+				Resources: map[string]string{
+					"Kptfile": kptfileContent,
+				},
+			},
+		}
+		newRes := oldRes.DeepCopy()
+		newRes.Spec.Resources["configmap.yaml"] = "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: test\n"
+
+		renderStatus, err := th.DoPRResourceMutations(context.TODO(), repoPr, draft, oldRes, newRes)
+		require.Error(t, err)
+		assert.NotNil(t, renderStatus)
+		// Verify resources were written to draft despite render failure
+		require.Contains(t, draft.Ops, "UpdateResources")
+		assert.Contains(t, draft.Resources.Spec.Resources, "configmap.yaml")
+	})
+
+	t.Run("Render failure with draft update error", func(t *testing.T) {
+		kptfileContent := `apiVersion: kpt.dev/v1
+kind: Kptfile
+metadata:
+  name: test-pkg
+pipeline:
+  mutators:
+    - image: nonexistent-fn:v0.0.1
+`
+		draft := &fakeextrepo.FakePackageRevision{
+			Err: fmt.Errorf("draft update failed"),
+			Resources: &porchapi.PackageRevisionResources{
+				Spec: porchapi.PackageRevisionResourcesSpec{
+					Resources: map[string]string{},
+				},
+			},
+		}
+		oldRes := &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
+				Resources: map[string]string{
+					"Kptfile": kptfileContent,
+				},
+			},
+		}
+		newRes := oldRes.DeepCopy()
+
+		renderStatus, err := th.DoPRResourceMutations(context.TODO(), repoPr, draft, oldRes, newRes)
+		require.Error(t, err)
+		assert.NotNil(t, renderStatus)
+	})
 }
 
 func TestRenderError(t *testing.T) {
@@ -278,15 +342,14 @@ func TestRenderError(t *testing.T) {
 		t.Fatal("expected non-nil error")
 	}
 
-	// Check that the error message contains both the base error and the wrapper message
 	got := wrappedErr.Error()
 
 	if !strings.Contains(got, "some base error") {
 		t.Errorf("expected base error message to be included, got: %q", got)
 	}
 
-	if !strings.Contains(got, "Error rendering package in kpt function pipeline") {
-		t.Errorf("expected wrapper message to be included, got: %q", got)
+	if !strings.Contains(got, "Package NOT pushed to remote") {
+		t.Errorf("expected 'NOT pushed' message, got: %q", got)
 	}
 }
 
@@ -478,3 +541,4 @@ func TestApplyMapMetadata(t *testing.T) {
 		})
 	}
 }
+

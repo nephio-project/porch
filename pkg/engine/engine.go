@@ -1,4 +1,4 @@
-// Copyright 2022, 2024-2025 The kpt and Nephio Authors
+// Copyright 2022, 2024-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -515,19 +515,34 @@ func (cad *cadEngine) UpdatePackageResources(ctx context.Context, repositoryObj 
 		return nil, nil, err
 	}
 
-	renderStatus, err := cad.taskHandler.DoPRResourceMutations(ctx, pr2Update, draft, oldRes, newRes)
-	if err != nil {
-		return nil, renderStatus, err
-	}
-	// No lifecycle change when updating package resources; updates are done.
-	repoPkgRev, err := repo.ClosePackageRevisionDraft(ctx, draft, 0)
-	if err != nil {
-		return nil, renderStatus, err
+	renderStatus, renderErr := cad.taskHandler.DoPRResourceMutations(ctx, pr2Update, draft, oldRes, newRes)
+
+	if renderErr != nil && !shouldPushOnRenderFailure(rev) {
+		return nil, renderStatus, fmt.Errorf("error rendering package in kpt function pipeline. "+
+			"Package NOT pushed to remote. Fix locally (until 'kpt fn render' succeeds) and retry. Details: %w", renderErr)
 	}
 
+	// No render error, or annotation allows push on render failure
+	repoPkgRev, closeErr := repo.ClosePackageRevisionDraft(ctx, draft, 0)
+	if closeErr != nil {
+		if renderErr != nil {
+			return nil, renderStatus, fmt.Errorf("failed to push package to remote: %w; render error: %v", closeErr, renderErr)
+		}
+		return nil, renderStatus, closeErr
+	}
+	if renderErr != nil {
+		return nil, renderStatus, fmt.Errorf("error rendering package in kpt function pipeline. "+
+			"Package pushed to remote despite render failure. Details: %w", renderErr)
+	}
 	return repoPkgRev, renderStatus, nil
 }
 
 func (cad *cadEngine) FindAllUpstreamReferencesInRepositories(ctx context.Context, namespace, prName string) (string, error) {
 	return cad.cache.FindAllUpstreamReferencesInRepositories(ctx, namespace, prName)
+}
+
+func shouldPushOnRenderFailure(rev *porchapi.PackageRevision) bool {
+	ann := rev.GetAnnotations()
+	v, ok := ann[porchapi.PushOnRenderFailureAnnotation]
+	return ok && v == "true"
 }

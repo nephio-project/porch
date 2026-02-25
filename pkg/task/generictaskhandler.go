@@ -1,4 +1,4 @@
-// Copyright 2022, 2025 The kpt and Nephio Authors
+// Copyright 2022, 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -196,15 +196,13 @@ func (th *genericTaskHandler) DoPRResourceMutations(
 	// Render failure will fail the overall API operation.
 	// The render error and result are captured as part of renderStatus above
 	// and are returned in the PackageRevisionResources API's status field.
-	// We do not push the package further to remote:
-	// the user's changes are captured on their local package,
-	// and can be amended using the error returned as a reference point to ensure
-	// the package renders properly, before retrying the push.
+	// The renderMutation always returns resources (kpt controls unrendered vs
+	// partially-rendered via the Kptfile annotation kpt.dev/save-on-render-failure).
 	var (
 		renderStatus *porchapi.RenderStatus
 		renderResult *porchapi.TaskResult
 	)
-	appliedResources, renderResult, err = th.renderMutation(oldRes.GetNamespace()).apply(ctx, appliedResources)
+	appliedResources, renderResult, rendErr := th.renderMutation(oldRes.GetNamespace()).apply(ctx, appliedResources)
 	// keep last render result on empty patch
 	if renderResult != nil &&
 		renderResult.RenderStatus != nil &&
@@ -212,9 +210,18 @@ func (th *genericTaskHandler) DoPRResourceMutations(
 			len(renderResult.RenderStatus.Result.Items) != 0) {
 		renderStatus = renderResult.RenderStatus
 	}
-	if err != nil {
-		klog.Error(err)
-		return renderStatus, renderError(err)
+	if rendErr != nil {
+		klog.Error(rendErr)
+		prr := &porchapi.PackageRevisionResources{
+			Spec: porchapi.PackageRevisionResourcesSpec{
+				Resources: appliedResources.Contents,
+			},
+		}
+		err := draft.UpdateResources(ctx, prr, &porchapi.Task{Type: porchapi.TaskTypeRender})
+		if err != nil {
+			klog.Errorf("failed to update resources after render failure: %v", err)
+		}
+		return renderStatus, rendErr
 	}
 
 	prr := &porchapi.PackageRevisionResources{

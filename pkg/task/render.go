@@ -1,4 +1,4 @@
-// Copyright 2022, 2024 The kpt and Nephio Authors
+// Copyright 2022, 2024, 2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -72,7 +72,15 @@ func (m *renderPackageMutation) apply(ctx context.Context, resources repository.
 		}
 		if err != nil {
 			taskResult.RenderStatus.Err = err.Error()
-			return repository.PackageResources{}, taskResult, err
+			// Read back whatever kpt wrote to the filesystem.
+			// If the Kptfile has kpt.dev/save-on-render-failure annotation,
+			// kpt writes partially-rendered resources; otherwise fs has the original unrendered resources.
+			renderedResources, readErr := readResources(fs)
+			if readErr != nil {
+				klog.Warningf("failed to read resources: %v", readErr)
+				return repository.PackageResources{}, taskResult, err
+			}
+			return renderedResources, taskResult, err
 		}
 	}
 

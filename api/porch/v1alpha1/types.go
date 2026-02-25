@@ -36,6 +36,9 @@ type PackageRevision struct {
 const (
 	LatestPackageRevisionKey   = "kpt.dev/latest-revision"
 	LatestPackageRevisionValue = "true"
+
+	// PushOnRenderFailureAnnotation controls whether porch pushes the changes on render failure.
+	PushOnRenderFailureAnnotation = "porch.kpt.dev/push-on-render-failure"
 )
 
 type PkgRevFieldSelector string
