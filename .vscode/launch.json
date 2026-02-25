@@ -36,6 +36,8 @@
                 "CERT_STORAGE_DIR": "${workspaceFolder}/.build/pki/tmp",
                 "WEBHOOK_HOST": "localhost",
                 "GOOGLE_API_GO_EXPERIMENTAL_DISABLE_NEW_AUTH_LIB": "true",
+                "OTEL_TRACES_EXPORTER": "none",
+                "OTEL_METRICS_EXPORTER": "none"
                 // "CGO_ENABLED": "1"   // Enables Race Condition Monitoring
             },
             // "buildFlags": "-race"    // Enables Race Condition Monitoring
@@ -65,6 +67,8 @@
                 "DB_NAME": "porch",
                 "DB_USER": "porch",
                 "DB_PASSWORD": "porch",
+                "OTEL_TRACES_EXPORTER": "none",
+                "OTEL_METRICS_EXPORTER": "none"
             }
         },
         {
