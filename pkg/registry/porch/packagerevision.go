@@ -159,7 +159,6 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 	pkgKeyStruct := repository.FromFullPathname(repository.RepositoryKey{Name: repositoryName}, newApiPkgRev.Spec.PackageName)
 	k8sName := fmt.Sprintf("%s.%s.%s", repositoryName, pkgKeyStruct.K8SName(), newApiPkgRev.Spec.WorkspaceName)
 	klog.Infof("[API] %s operation started for PackageRevision: %s", action, k8sName)
-	// klog.Infof("[API] %s operation started for PackageRevision for repository %s, package %s, workspace %s", repositoryObj.Name, newPr.Spec.PackageName, newPr.Spec.WorkspaceName)
 
 	repositoryObj, err := r.getRepositoryObj(ctx, types.NamespacedName{Name: repositoryName, Namespace: ns})
 	if err != nil {
