@@ -1,4 +1,4 @@
-// Copyright 2025 The kpt and Nephio Authors
+// Copyright 2025-2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,10 +36,10 @@ var (
 )
 
 type MetadataTestCase struct {
-	Name       string
-	RepoName   string
-	Setup      func(*PorchSuite, string) *porchapi.PackageRevision
-	Validate   func(*PorchSuite, *porchapi.PackageRevision)
+	Name     string
+	RepoName string
+	Setup    func(*PorchSuite, string) *porchapi.PackageRevision
+	Validate func(*PorchSuite, *porchapi.PackageRevision)
 }
 
 func (t *PorchSuite) TestPackageRevisionMetadata() {
@@ -80,11 +80,11 @@ func (t *PorchSuite) TestPackageRevisionMetadata() {
 				pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 				t.UpdateF(pr)
 				t.GetF(client.ObjectKey{Namespace: pr.Namespace, Name: pr.Name}, pr)
-				
+
 				t.ValidateLabelsAndAnnos(pr.Name, map[string]string{"kpt.dev/label": "foo"}, map[string]string{"kpt.dev/anno": "foo", "kpt.dev/other-anno": "bar"})
 				pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
 				t.UpdateApprovalF(pr, metav1.UpdateOptions{})
-				
+
 				t.ValidateLabelsAndAnnos(pr.Name, map[string]string{"kpt.dev/label": "foo", porchapi.LatestPackageRevisionKey: porchapi.LatestPackageRevisionValue}, map[string]string{"kpt.dev/anno": "foo", "kpt.dev/other-anno": "bar"})
 				t.GetF(client.ObjectKey{Namespace: pr.Namespace, Name: pr.Name}, pr)
 				delete(pr.Labels, "kpt.dev/label")
@@ -92,7 +92,7 @@ func (t *PorchSuite) TestPackageRevisionMetadata() {
 				delete(pr.Annotations, "kpt.dev/other-anno")
 				pr.Spec.Revision = 1
 				t.UpdateF(pr)
-				
+
 				t.ValidateLabelsAndAnnos(pr.Name, map[string]string{"kpt.dev/other-label": "bar", porchapi.LatestPackageRevisionKey: porchapi.LatestPackageRevisionValue}, map[string]string{"kpt.dev/anno": "foo"})
 				clonedPr := t.CreatePackageSkeleton(pr.Spec.RepositoryName, "cloned-package", defaultWorkspace)
 				clonedPr.Spec.Tasks = []porchapi.Task{{
@@ -100,7 +100,7 @@ func (t *PorchSuite) TestPackageRevisionMetadata() {
 					Clone: &porchapi.PackageCloneTaskSpec{Upstream: porchapi.UpstreamPackage{UpstreamRef: &porchapi.PackageRevisionRef{Name: pr.Name}}},
 				}}
 				t.CreateF(clonedPr)
-				
+
 				t.ValidateLabelsAndAnnos(clonedPr.Name, map[string]string{}, map[string]string{})
 			},
 		},
@@ -152,10 +152,10 @@ func (t *PorchSuite) TestPackageRevisionGarbageCollection() {
 				t.RegisterGitRepositoryF(t.GetPorchTestRepoURL(), repoName, "", suiteutils.GiteaUser, suiteutils.GiteaPassword)
 				pr := t.CreatePackageDraftF(repoName, "empty-package", "test-workspace")
 				cm := &corev1.ConfigMap{
-					TypeMeta:   metav1.TypeMeta{Kind: configMapGVK.Kind, APIVersion: configMapGVK.GroupVersion().String()},
+					TypeMeta: metav1.TypeMeta{Kind: configMapGVK.Kind, APIVersion: configMapGVK.GroupVersion().String()},
 					ObjectMeta: metav1.ObjectMeta{Name: "cm-cascades", Namespace: t.Namespace, OwnerReferences: []metav1.OwnerReference{
 						{APIVersion: porchapi.SchemeGroupVersion.String(), Kind: suiteutils.PackageRevisionGVK.Kind, Name: pr.Name, UID: pr.UID}}},
-					Data:       map[string]string{"foo": "bar"},
+					Data: map[string]string{"foo": "bar"},
 				}
 				t.CreateF(cm)
 				t.DeleteF(pr)
