@@ -439,9 +439,9 @@ func (r *gitRepository) CreatePackageRevisionDraft(ctx context.Context, obj *por
 	if err := util.ValidPkgRevObjName(r.Key().Name, pkgKey.Path, pkgKey.Package, obj.Spec.WorkspaceName); err != nil {
 		return nil, fmt.Errorf("failed to create packagerevision: %w", err)
 	}
-	klog.Infof("[Git] Creating in-memory draft object started for PackageRevision: %s", pkgKey)
+	klog.Infof("[Git] Creating in-memory draft object started for PackageRevision: %s", pkgKey.K8SName())
 	defer func() {
-		klog.V(3).Infof("[Git] Creating in-memory draft object completed for PackageRevision: %s", pkgKey)
+		klog.V(3).Infof("[Git] Creating in-memory draft object completed for PackageRevision: %s", pkgKey.K8SName())
 	}()
 
 	var base plumbing.Hash

@@ -153,10 +153,9 @@ func (cad *cadEngine) CreatePackageRevision(ctx context.Context, repositoryObj *
 	}
 
 	pkgKey := repository.FromFullPathname(repo.Key(), newPr.Spec.PackageName)
-	k8sName := fmt.Sprintf("%s.%s.%s", repositoryObj.Name, pkgKey.K8SName(), newPr.Spec.WorkspaceName)
-	klog.Infof("[CaD Engine] Validating and preparing package creation for PackageRevision: %s", k8sName)
+	klog.Infof("[CaD Engine] Validating and preparing package creation for PackageRevision: %s.%s", pkgKey.K8SName(), newPr.Spec.WorkspaceName)
 	defer func() {
-		klog.V(3).Infof("[CaD Engine] Package creation delegated to cache for PackageRevision: %s", k8sName)
+		klog.V(3).Infof("[CaD Engine] Package creation delegated to cache for PackageRevision: %s.%s", pkgKey.K8SName(), newPr.Spec.WorkspaceName)
 	}()
 
 	if err := util.ValidPkgRevObjName(repositoryObj.Name, pkgKey.Path, pkgKey.Package, newPr.Spec.WorkspaceName); err != nil {
