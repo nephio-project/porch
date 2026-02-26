@@ -10,7 +10,6 @@
 .hugo*
 resources/
 public/*
-go.mod
 go.sum
 
 # nodejs
