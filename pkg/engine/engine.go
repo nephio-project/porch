@@ -418,10 +418,9 @@ func (cad *cadEngine) DeletePackageRevision(ctx context.Context, repositoryObj *
 	ctx, span := tracer.Start(ctx, "cadEngine::DeletePackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	pkgKey := pr2Del.Key().K8SName()
-	klog.Infof("[CaD Engine] Preparing to delete PackageRevision: %s", pkgKey)
+	klog.Infof("[CaD Engine] Preparing to delete PackageRevision: %s", pr2Del.Key().K8SName())
 	defer func() {
-		klog.V(3).Infof("[CaD Engine] PackageRevision deletion delegated to cache: %s", pkgKey)
+		klog.V(3).Infof("[CaD Engine] PackageRevision deletion delegated to cache: %s", pr2Del.Key().K8SName())
 	}()
 
 	repo, err := cad.cache.OpenRepository(ctx, repositoryObj)

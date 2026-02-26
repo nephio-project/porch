@@ -230,18 +230,17 @@ func (r *dbRepository) DeletePackageRevision(ctx context.Context, pr2Delete repo
 	ctx, span := tracer.Start(ctx, "dbRepository::DeletePackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	pkgKey := pr2Delete.Key().K8SName()
 	// Only published packages are deleted from external repo
 	// TODO should be replaced with flag when option for db-cache push to git regardless PR comes in
 	if porchapi.LifecycleIsPublished(pr2Delete.Lifecycle(context.Background())) {
-		klog.Infof("[DB Cache] Deleting PackageRevision from database and external repo for PackageRevision: %s", pkgKey)
+		klog.Infof("[DB Cache] Deleting PackageRevision from database and external repo for PackageRevision: %s", pr2Delete.Key().K8SName())
 		defer func() {
-			klog.V(3).Infof("[DB Cache] PackageRevision deleted from database and external repo for PackageRevision: %s", pkgKey)
+			klog.V(3).Infof("[DB Cache] PackageRevision deleted from database and external repo for PackageRevision: %s", pr2Delete.Key().K8SName())
 		}()
 	} else {
-		klog.Infof("[DB Cache] Deleting PackageRevision from database for PackageRevision: %s", pkgKey)
+		klog.Infof("[DB Cache] Deleting PackageRevision from database for PackageRevision: %s", pr2Delete.Key().K8SName())
 		defer func() {
-			klog.V(3).Infof("[DB Cache] PackageRevision deleted from database for PackageRevision: %s", pkgKey)
+			klog.V(3).Infof("[DB Cache] PackageRevision deleted from database for PackageRevision: %s", pr2Delete.Key().K8SName())
 		}()
 	}
 
@@ -301,10 +300,9 @@ func (r *dbRepository) UpdatePackageRevision(ctx context.Context, updatePR repos
 	ctx, span := tracer.Start(ctx, "dbRepository::UpdatePackageRevision", trace.WithAttributes())
 	defer span.End()
 
-	pkgKey := updatePR.Key().K8SName()
-	klog.Infof("[DB Cache] Loading draft from database for update for PackageRevision: %s", pkgKey)
+	klog.Infof("[DB Cache] Loading draft from database for update for PackageRevision: %s", updatePR.Key().K8SName())
 	defer func() {
-		klog.V(3).Infof("[DB Cache] Draft loaded from database and ready for modifications for PackageRevision: %s", pkgKey)
+		klog.V(3).Infof("[DB Cache] Draft loaded from database and ready for modifications for PackageRevision: %s", updatePR.Key().K8SName())
 	}()
 
 	klog.V(5).Infof("dbRepository:UpdatePackageRevision: updating package revision %+v on repo %+v", updatePR.Key(), r.Key())
@@ -359,10 +357,9 @@ func (r *dbRepository) ClosePackageRevisionDraft(ctx context.Context, prd reposi
 	defer span.End()
 
 	d := prd.(*dbPackageRevision)
-	pkgKey := d.Key().K8SName()
-	klog.Infof("[DB Cache] Saving PackageRevision to database for PackageRevision: %s", pkgKey)
+	klog.Infof("[DB Cache] Saving PackageRevision to database for PackageRevision: %s", d.Key().K8SName())
 	defer func() {
-		klog.V(3).Infof("[DB Cache] PackageRevision saved to database for PackageRevision: %s", pkgKey)
+		klog.V(3).Infof("[DB Cache] PackageRevision saved to database for PackageRevision: %s", d.Key().K8SName())
 	}()
 
 	pr, err := r.savePackageRevisionDraft(ctx, prd, version)

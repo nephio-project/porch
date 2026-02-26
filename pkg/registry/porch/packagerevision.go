@@ -157,8 +157,6 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 
 	action := createAction(newApiPkgRev)
 	pkgKeyStruct := repository.FromFullPathname(repository.RepositoryKey{Name: repositoryName}, newApiPkgRev.Spec.PackageName)
-	k8sName := fmt.Sprintf("%s.%s.%s", repositoryName, pkgKeyStruct.K8SName(), newApiPkgRev.Spec.WorkspaceName)
-	klog.Infof("[API] %s operation started for PackageRevision: %s", action, k8sName)
 
 	repositoryObj, err := r.getRepositoryObj(ctx, types.NamespacedName{Name: repositoryName, Namespace: ns})
 	if err != nil {
@@ -169,6 +167,8 @@ func (r *packageRevisions) Create(ctx context.Context, runtimeObject runtime.Obj
 	if len(fieldErrors) > 0 {
 		return nil, apierrors.NewInvalid(porchapi.SchemeGroupVersion.WithKind("PackageRevision").GroupKind(), newApiPkgRev.Name, fieldErrors)
 	}
+
+	klog.Infof("[API] %s operation started for PackageRevision: %s.%s", action, pkgKeyStruct.K8SName(), newApiPkgRev.Spec.WorkspaceName)
 
 	var parentPackage repository.PackageRevision
 	if newApiPkgRev.Spec.Parent != nil && newApiPkgRev.Spec.Parent.Name != "" {
@@ -283,8 +283,6 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 		return nil, false, apierrors.NewBadRequest("namespace must be specified")
 	}
 
-	klog.Infof("[API] Delete operation started for PackageRevision: %s", name)
-
 	repoPkgRev, err := r.getRepoPkgRev(ctx, name)
 	if err != nil {
 		return nil, false, err
@@ -299,6 +297,8 @@ func (r *packageRevisions) Delete(ctx context.Context, name string, deleteValida
 	if err != nil {
 		return nil, false, err
 	}
+
+	klog.Infof("[API] Delete operation started for PackageRevision: %s", name)
 
 	pkgMutexKey := getPackageMutexKey(ns, name)
 	pkgMutex := getMutexForPackage(pkgMutexKey)

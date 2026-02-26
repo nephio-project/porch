@@ -136,8 +136,6 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 		return nil, false, apierrors.NewBadRequest("namespace must be specified")
 	}
 
-	klog.Infof("[API] Update operation started for packageRevisionResources: %s", name)
-
 	pkgMutexKey := getPackageMutexKey(namespace, name)
 	pkgMutex := getMutexForPackage(pkgMutexKey)
 	locked := pkgMutex.TryLock()
@@ -178,6 +176,7 @@ func (r *packageRevisionResources) Update(ctx context.Context, name string, objI
 			return nil, false, err
 		}
 	}
+	klog.Infof("[API] Update operation started for packageRevisionResources: %s", name)
 
 	prKey, err := repository.PkgRevK8sName2Key(namespace, name)
 	if err != nil {
