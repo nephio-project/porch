@@ -60,7 +60,8 @@ const (
 	LatestPackageRevisionValue = "true"
 )
 
-// PkgRevFieldSelector defines field selectors for PackageRevision
+// PkgRevFieldSelector defines field selectors for PackageRevision.
+// Requires controller-runtime field indexing setup in controller.
 type PkgRevFieldSelector string
 
 const (
