@@ -507,7 +507,6 @@ func (r *cachedRepository) ListPackages(ctx context.Context, filter repository.L
 
 func (r *cachedRepository) Close(ctx context.Context) error {
 	r.refreshWg.Wait()
-	
 	// Query PackageRevs from API server to ensure we delete all of them,
 	// not just those in the in-memory cache
 	pkgRevs, err := r.metadataStore.List(ctx, r.repoSpec)
@@ -538,7 +537,7 @@ func (r *cachedRepository) Close(ctx context.Context) error {
 		}
 		klog.Infof("repo %+v: sent %d notifications for %d package revisions during close", r.Key(), sent, len(pkgRevs))
 	}
-	
+
 	return r.repo.Close(ctx)
 }
 
