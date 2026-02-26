@@ -112,7 +112,7 @@ func TestGetResources(t *testing.T) {
 
 	//=========================================================================================
 
-	// Not found case
+	// PRR Not found case
 	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 	mockEngine.On("ListPackageRevisions", mock.Anything, mock.Anything, mock.Anything).Return([]repository.PackageRevision{}, nil).Once()
 
