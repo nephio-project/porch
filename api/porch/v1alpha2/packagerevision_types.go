@@ -109,9 +109,6 @@ type PackageRevisionSpec struct {
 	// Revision identifies the version of the package.
 	Revision int `json:"revision,omitempty"`
 
-	// Deprecated. Parent references a package that provides resources to us
-	Parent *ParentReference `json:"parent,omitempty"`
-
 	// Lifecycle specifies the lifecycle state of the package revision.
 	Lifecycle PackageRevisionLifecycle `json:"lifecycle,omitempty"`
 
@@ -152,14 +149,6 @@ type PackageMetadata struct {
 // ReadinessGate specifies a condition that must be met
 type ReadinessGate struct {
 	ConditionType string `json:"conditionType,omitempty"`
-}
-
-// Deprecated. ParentReference is a reference to a parent package
-type ParentReference struct {
-	// TODO: Should this be a revision or a package?
-
-	// Name is the name of the parent PackageRevision
-	Name string `json:"name"`
 }
 
 // PackageRevisionStatus defines the observed state of PackageRevision
