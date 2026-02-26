@@ -46,18 +46,6 @@ type PackageRevisionResourcesList struct {
 
 // PackageRevisionResourcesSpec contains the content of a package
 type PackageRevisionResourcesSpec struct {
-	// PackageName identifies the package in the repository.
-	PackageName string `json:"packageName,omitempty"`
-
-	// WorkspaceName identifies the workspace of the package.
-	WorkspaceName string `json:"workspaceName,omitempty"`
-
-	// Revision identifies the version of the package.
-	Revision int `json:"revision,omitempty"`
-
-	// RepositoryName is the name of the Repository object containing this package.
-	RepositoryName string `json:"repository,omitempty"`
-
 	// Resources are the KRM resources in the package (filename -> YAML content).
 	Resources map[string]string `json:"resources,omitempty"`
 }

@@ -182,19 +182,9 @@ spec:
                               - ref
                               - repo
                               type: object
-                            oci:
-                              description: Oci upstream package specification. Required
-                                if type is oci.
-                              properties:
-                                image:
-                                  description: Image is the address of an OCI image.
-                                  type: string
-                              required:
-                              - image
-                              type: object
                             type:
-                              description: Type of the repository (i.e. git, oci).
-                                If empty, upstreamRef will be used.
+                              description: Type of the repository (i.e. git). If empty,
+                                upstreamRef will be used.
                               type: string
                             upstreamRef:
                               description: UpstreamRef is the reference to the package
@@ -376,7 +366,7 @@ spec:
                 description: Deployment is true if this is a deployment package (in
                   a deployment repository).
                 type: boolean
-              publishTimestamp:
+              publishedAt:
                 description: PublishedAt is the time when the packagerevision were
                   approved.
                 format: date-time
