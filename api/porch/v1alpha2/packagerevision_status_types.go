@@ -17,30 +17,6 @@ package v1alpha2
 // This file contains types used in PackageRevision status fields.
 // These types are intentionally duplicated from the kpt library to maintain API independence.
 
-// Condition contains details for the current condition
-type Condition struct {
-	// Type of the condition
-	Type string `json:"type"`
-
-	// Status of the condition (True, False, Unknown)
-	Status ConditionStatus `json:"status"`
-
-	// Reason is a brief machine-readable explanation for the condition's last transition
-	Reason string `json:"reason,omitempty"`
-
-	// Message is a human-readable explanation for the condition's last transition
-	Message string `json:"message,omitempty"`
-}
-
-// ConditionStatus represents the status of a condition
-type ConditionStatus string
-
-const (
-	ConditionTrue    ConditionStatus = "True"
-	ConditionFalse   ConditionStatus = "False"
-	ConditionUnknown ConditionStatus = "Unknown"
-)
-
 // The following types (Locator, OriginType, and GitLock) are intentionally duplicated from the kpt library
 // to maintain API independence and avoid external dependencies in the API package.
 

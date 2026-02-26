@@ -169,5 +169,5 @@ type PackageRevisionStatus struct {
 	Deployment bool `json:"deployment,omitempty"`
 
 	// Conditions describes the reconciliation state of the object.
-	Conditions []Condition `json:"conditions,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
