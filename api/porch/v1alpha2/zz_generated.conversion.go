@@ -190,11 +190,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*porch.PackageRevisionResourcesSpec)(nil), (*PackageRevisionResourcesSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_porch_PackageRevisionResourcesSpec_To_v1alpha2_PackageRevisionResourcesSpec(a.(*porch.PackageRevisionResourcesSpec), b.(*PackageRevisionResourcesSpec), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*PackageRevisionResourcesStatus)(nil), (*porch.PackageRevisionResourcesStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha2_PackageRevisionResourcesStatus_To_porch_PackageRevisionResourcesStatus(a.(*PackageRevisionResourcesStatus), b.(*porch.PackageRevisionResourcesStatus), scope)
 	}); err != nil {
@@ -207,11 +202,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*PackageRevisionSpec)(nil), (*porch.PackageRevisionSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1alpha2_PackageRevisionSpec_To_porch_PackageRevisionSpec(a.(*PackageRevisionSpec), b.(*porch.PackageRevisionSpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*porch.PackageRevisionSpec)(nil), (*PackageRevisionSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_porch_PackageRevisionSpec_To_v1alpha2_PackageRevisionSpec(a.(*porch.PackageRevisionSpec), b.(*PackageRevisionSpec), scope)
 	}); err != nil {
 		return err
 	}
@@ -340,8 +330,28 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*porch.UpstreamPackage)(nil), (*UpstreamPackage)(nil), func(a, b interface{}, scope conversion.Scope) error {
+	if err := s.AddConversionFunc((*porch.Condition)(nil), (*v1.Condition)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_porch_Condition_To_v1_Condition(a.(*porch.Condition), b.(*v1.Condition), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*porch.PackageRevisionResourcesSpec)(nil), (*PackageRevisionResourcesSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_porch_PackageRevisionResourcesSpec_To_v1alpha2_PackageRevisionResourcesSpec(a.(*porch.PackageRevisionResourcesSpec), b.(*PackageRevisionResourcesSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*porch.PackageRevisionSpec)(nil), (*PackageRevisionSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_porch_PackageRevisionSpec_To_v1alpha2_PackageRevisionSpec(a.(*porch.PackageRevisionSpec), b.(*PackageRevisionSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*porch.UpstreamPackage)(nil), (*UpstreamPackage)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_porch_UpstreamPackage_To_v1alpha2_UpstreamPackage(a.(*porch.UpstreamPackage), b.(*UpstreamPackage), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddConversionFunc((*v1.Condition)(nil), (*porch.Condition)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_Condition_To_porch_Condition(a.(*v1.Condition), b.(*porch.Condition), scope)
 	}); err != nil {
 		return err
 	}
@@ -857,8 +867,9 @@ func autoConvert_v1alpha2_PackageRevisionStatus_To_porch_PackageRevisionStatus(i
 		in, out := &in.Conditions, &out.Conditions
 		*out = make([]porch.Condition, len(*in))
 		for i := range *in {
-			// FIXME: Provide conversion function to convert v1.Condition to porch.Condition
-			compileErrorOnMissingConversion()
+			if err := Convert_v1_Condition_To_porch_Condition(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
 		}
 	} else {
 		out.Conditions = nil
@@ -881,8 +892,9 @@ func autoConvert_porch_PackageRevisionStatus_To_v1alpha2_PackageRevisionStatus(i
 		in, out := &in.Conditions, &out.Conditions
 		*out = make([]v1.Condition, len(*in))
 		for i := range *in {
-			// FIXME: Provide conversion function to convert porch.Condition to v1.Condition
-			compileErrorOnMissingConversion()
+			if err := Convert_porch_Condition_To_v1_Condition(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
 		}
 	} else {
 		out.Conditions = nil
