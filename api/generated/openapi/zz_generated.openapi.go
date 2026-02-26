@@ -69,6 +69,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/nephio-project/porch/api/porch/v1alpha1.Task":                           schema_porch_api_porch_v1alpha1_Task(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.TaskResult":                     schema_porch_api_porch_v1alpha1_TaskResult(ref),
 		"github.com/nephio-project/porch/api/porch/v1alpha1.UpstreamPackage":                schema_porch_api_porch_v1alpha1_UpstreamPackage(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevision":                schema_porch_api_porch_v1alpha2_PackageRevision(ref),
+		"github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionResources":       schema_porch_api_porch_v1alpha2_PackageRevisionResources(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroup":                                     schema_pkg_apis_meta_v1_APIGroup(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIGroupList":                                 schema_pkg_apis_meta_v1_APIGroupList(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.APIResource":                                  schema_pkg_apis_meta_v1_APIResource(ref),
@@ -1763,6 +1765,100 @@ func schema_porch_api_porch_v1alpha1_UpstreamPackage(ref common.ReferenceCallbac
 		},
 		Dependencies: []string{
 			"github.com/nephio-project/porch/api/porch/v1alpha1.GitPackage", "github.com/nephio-project/porch/api/porch/v1alpha1.OciPackage", "github.com/nephio-project/porch/api/porch/v1alpha1.PackageRevisionRef"},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_PackageRevision(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PackageRevision represents a package revision. In v1alpha2, PackageRevision is a CRD stored in etcd. Use controller-runtime client to access this resource (no code-gen clients).",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionSpec", "github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_porch_api_porch_v1alpha2_PackageRevisionResources(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PackageRevisionResources represents the contents of a package revision. This resource remains as an aggregated API due to size constraints (1-100MB). Use controller-runtime client to access this resource (no code-gen clients).",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionResourcesSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionResourcesStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionResourcesSpec", "github.com/nephio-project/porch/api/porch/v1alpha2.PackageRevisionResourcesStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
