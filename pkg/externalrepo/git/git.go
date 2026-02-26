@@ -494,10 +494,9 @@ func (r *gitRepository) UpdatePackageRevision(ctx context.Context, old repositor
 		return nil, fmt.Errorf("cannot update non-git package %T", old)
 	}
 
-	pkgKey := fmt.Sprintf("%s.%s.%s", r.Key().Name, old.Key().PkgKey.Package, old.Key().WorkspaceName)
-	klog.Infof("[Git] Loading draft for update started for PackageRevision: %s", pkgKey)
+	klog.Infof("[Git] Loading draft for update started for PackageRevision: %s", old.Key().K8SName())
 	defer func() {
-		klog.V(3).Infof("[Git] Loading draft for update completed for PackageRevision: %s", pkgKey)
+		klog.V(3).Infof("[Git] Loading draft for update completed for PackageRevision: %s", old.Key().K8SName())
 	}()
 
 	ref := oldGitPackage.ref
@@ -556,10 +555,9 @@ func (r *gitRepository) DeletePackageRevision(ctx context.Context, pr2Delete rep
 			referenceName = ""
 		}
 	}
-	pkgKey := pr2Delete.Key()
-	klog.Infof("[Git] Deleting branch from Git repository started for PackageRevision: %s", pkgKey)
+	klog.Infof("[Git] Deleting branch from Git repository started for PackageRevision: %s", pr2Delete.Key().K8SName())
 	defer func() {
-		klog.V(3).Infof("[Git] Deleting branch from Git repository completed for PackageRevision: %s", pkgKey)
+		klog.V(3).Infof("[Git] Deleting branch from Git repository completed for PackageRevision: %s", pr2Delete.Key().K8SName())
 	}()
 
 	if referenceName == "" {
@@ -1696,9 +1694,9 @@ func (r *gitRepository) UpdateLifecycle(ctx context.Context, pkgRev *gitPackageR
 	ctx, span := tracer.Start(ctx, "gitRepository::UpdateLifecycle", trace.WithAttributes())
 	defer span.End()
 
-	klog.Infof("[Git] Updating lifecycle from %s to %s started for PackageRevision: %s", pkgRev.Lifecycle(ctx), newLifecycle, pkgRev.prKey)
+	klog.Infof("[Git] Updating lifecycle from %s to %s started for PackageRevision:  %s", pkgRev.Lifecycle(ctx), newLifecycle, pkgRev.Key().K8SName())
 	defer func() {
-		klog.V(3).Infof("[Git] Updating lifecycle from %s to %s completed for PackageRevision: %s", pkgRev.Lifecycle(ctx), newLifecycle, pkgRev.prKey)
+		klog.V(3).Infof("[Git] Updating lifecycle from %s to %s completed for PackageRevision: %s", pkgRev.Lifecycle(ctx), newLifecycle, pkgRev.Key().K8SName())
 	}()
 
 	r.mutex.Lock()
@@ -1809,9 +1807,9 @@ func (r *gitRepository) ClosePackageRevisionDraft(ctx context.Context, prd repos
 	defer span.End()
 
 	d := prd.(*gitPackageRevisionDraft)
-	klog.Infof("[Git] Changing lifecycle to %s and pushing to Git started for PackageRevision: %s", d.lifecycle, d.prKey)
+	klog.Infof("[Git] Changing lifecycle to %s and pushing to Git started for PackageRevision: %s", d.lifecycle, d.Key().K8SName())
 	defer func() {
-		klog.V(3).Infof("[Git] Changing lifecycle to %s and pushing to Git completed for PackageRevision: %s", d.lifecycle, d.prKey)
+		klog.V(3).Infof("[Git] Changing lifecycle to %s and pushing to Git completed for PackageRevision: %s", d.lifecycle, d.Key().K8SName())
 	}()
 
 	refSpecs := newPushRefSpecBuilder()

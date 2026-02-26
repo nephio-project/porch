@@ -309,11 +309,9 @@ func (cad *cadEngine) UpdatePackageRevision(ctx context.Context, version int, re
 		return nil, err
 	}
 
-	pkgKeyStruct := repository.FromFullPathname(repo.Key(), newObj.Spec.PackageName)
-	k8sName := fmt.Sprintf("%s.%s.%s", repositoryObj.Name, pkgKeyStruct.K8SName(), newObj.Spec.WorkspaceName)
-	klog.Infof("[CaD Engine] Processing lifecycle change and preparing update for PackageRevision: %s", k8sName)
+	klog.Infof("[CaD Engine] Processing lifecycle change and preparing update for PackageRevision: %s", repoPr.Key().K8SName())
 	defer func() {
-		klog.V(3).Infof("[CaD Engine] Lifecycle change processed and delegated to cache for PackageRevision: %s", k8sName)
+		klog.V(3).Infof("[CaD Engine] Lifecycle change processed and delegated to cache for PackageRevision: %s", repoPr.Key().K8SName())
 	}()
 
 	// Check if the PackageRevision is in the terminating state and
