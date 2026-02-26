@@ -61,6 +61,14 @@ kube::codegen::gen_helpers \
 	--extra-peer-dir "k8s.io/apimachinery/pkg/runtime" \
 	--extra-peer-dir "k8s.io/apimachinery/pkg/version"
 
+echo 'gen_helpers for v1alpha2 conversion...'
+
+conversion-gen \
+	--extra-peer-dirs github.com/nephio-project/porch/api/porch \
+	--output-file zz_generated.conversion.go \
+	--go-header-file "$BOILERPLATE" \
+	github.com/nephio-project/porch/api/porch/v1alpha2
+
 echo 'gen_openapi...'
 
 kube::codegen::gen_openapi \

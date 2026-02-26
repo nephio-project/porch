@@ -1,4 +1,4 @@
-// Copyright 2022 The kpt and Nephio Authors
+// Copyright 2026 The kpt and Nephio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,12 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package fuzzer
-
-import (
-	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
-)
-
-var Funcs = func(codecs runtimeserializer.CodecFactory) []any {
-	return []any{}
-}
+// Package v1alpha2 contains API Schema definitions for the porch v1alpha2 API group.
+// +k8s:conversion-gen=github.com/nephio-project/porch/api/porch
+package v1alpha2

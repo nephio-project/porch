@@ -1819,7 +1819,7 @@ func schema_porch_api_porch_v1alpha2_PackageRevisionResources(ref common.Referen
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "PackageRevisionResources represents the contents of a package revision. This resource remains as an aggregated API due to size constraints (1-100MB). Use controller-runtime client to access this resource (no code-gen clients).",
+				Description: "PackageRevisionResources represents the contents of a package revision. This resource remains as an aggregated API due to size constraints (1-100MB). Use controller-runtime client to access this resource.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
