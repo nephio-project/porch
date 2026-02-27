@@ -14,6 +14,7 @@ require (
 	github.com/google/cel-go v0.26.1
 	github.com/google/go-cmp v0.7.0
 	github.com/google/go-containerregistry v0.20.6
+	github.com/google/gofuzz v1.2.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/kptdev/kpt v1.0.0-beta.61.1
