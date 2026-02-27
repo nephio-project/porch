@@ -219,7 +219,7 @@ func (th *genericTaskHandler) DoPRResourceMutations(
 		}
 		err := draft.UpdateResources(ctx, prr, &porchapi.Task{Type: porchapi.TaskTypeRender})
 		if err != nil {
-			klog.Errorf("failed to update resources after render failure: %v", err)
+			return renderStatus, pkgerrors.Wrap(rendErr, fmt.Sprintf("failed to persist resources after render failure: %v", err))
 		}
 		return renderStatus, rendErr
 	}

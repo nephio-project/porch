@@ -77,8 +77,9 @@ func (m *renderPackageMutation) apply(ctx context.Context, resources repository.
 			// kpt writes partially-rendered resources; otherwise fs has the original unrendered resources.
 			renderedResources, readErr := readResources(fs)
 			if readErr != nil {
-				klog.Warningf("failed to read resources: %v", readErr)
-				return repository.PackageResources{}, taskResult, err
+				klog.Warningf("failed to read resources after render: %v", readErr)
+				// Fall back to pre-render resources to avoid wiping package contents
+				return resources, taskResult, err
 			}
 			return renderedResources, taskResult, err
 		}

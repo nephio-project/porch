@@ -331,6 +331,9 @@ pipeline:
 		renderStatus, err := th.DoPRResourceMutations(context.TODO(), repoPr, draft, oldRes, newRes)
 		require.Error(t, err)
 		assert.NotNil(t, renderStatus)
+		// Error should contain both the render error and the persistence error
+		assert.Contains(t, err.Error(), "failed to persist resources after render failure")
+		assert.Contains(t, err.Error(), "draft update failed")
 	})
 }
 
