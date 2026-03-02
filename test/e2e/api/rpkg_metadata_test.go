@@ -83,7 +83,7 @@ func (t *PorchSuite) TestPackageRevisionMetadata() {
 				
 				t.ValidateLabelsAndAnnos(pr.Name, map[string]string{"kpt.dev/label": "foo"}, map[string]string{"kpt.dev/anno": "foo", "kpt.dev/other-anno": "bar"})
 				pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-				t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+				t.UpdateApprovalF(pr)
 				
 				t.ValidateLabelsAndAnnos(pr.Name, map[string]string{"kpt.dev/label": "foo", porchapi.LatestPackageRevisionKey: porchapi.LatestPackageRevisionValue}, map[string]string{"kpt.dev/anno": "foo", "kpt.dev/other-anno": "bar"})
 				t.GetF(client.ObjectKey{Namespace: pr.Namespace, Name: pr.Name}, pr)
@@ -355,7 +355,7 @@ func (t *PorchSuite) TestPackageRevisionLabelSelectors() {
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 	t.UpdateF(&pr)
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(&pr, metav1.UpdateOptions{})
+	t.UpdateApprovalF(&pr)
 
 	cases := []LabelSelectorTestCase{
 		{

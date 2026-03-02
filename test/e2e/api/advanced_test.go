@@ -297,7 +297,7 @@ func (t *PorchSuite) TestMetadataAfterApproveAndBackgroundJob() {
 	t.UpdateF(pr)
 	t.GetF(prKey, pr)
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+	t.UpdateApprovalF(pr)
 	t.GetF(prKey, pr)
 
 	// List package revisions and check they are as expected
@@ -342,7 +342,7 @@ func (t *PorchSuite) TestMetadataAfterDeleteAndBackgroundJob() {
 	t.UpdateF(pr)
 	t.GetF(prKey, pr)
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+	t.UpdateApprovalF(pr)
 	t.GetF(prKey, pr)
 
 	// List package revisions and check they are as expected
@@ -360,7 +360,7 @@ func (t *PorchSuite) TestMetadataAfterDeleteAndBackgroundJob() {
 	//
 	// (henceforth called "the v1 package revision")
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleDeletionProposed
-	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+	t.UpdateApprovalF(pr)
 	t.DeleteE(&porchapi.PackageRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: t.Namespace,

@@ -9,7 +9,6 @@ import (
 	porchapi "github.com/nephio-project/porch/api/porch/v1alpha1"
 	suiteutils "github.com/nephio-project/porch/test/e2e/suiteutils"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -176,17 +175,17 @@ func (t *PerformanceSuite) PatchE(obj client.Object, patch client.Patch, opts ..
 	MeasureAndRecord(OperationPatch, obj, func() { t.TestSuiteWithGit.PatchE(obj, patch, opts...) })
 }
 
-func (t *PerformanceSuite) UpdateApprovalL(pr *porchapi.PackageRevision, opts metav1.UpdateOptions) *porchapi.PackageRevision {
+func (t *PerformanceSuite) UpdateApprovalL(pr *porchapi.PackageRevision) *porchapi.PackageRevision {
 	t.T().Helper()
 	var ret *porchapi.PackageRevision
-	MeasureAndRecord(getUpdateApprovalOperation(pr), pr, func() { ret = t.TestSuiteWithGit.UpdateApprovalL(pr, opts) })
+	MeasureAndRecord(getUpdateApprovalOperation(pr), pr, func() { ret = t.TestSuiteWithGit.UpdateApprovalL(pr) })
 	return ret
 }
 
-func (t *PerformanceSuite) UpdateApprovalF(pr *porchapi.PackageRevision, opts metav1.UpdateOptions) *porchapi.PackageRevision {
+func (t *PerformanceSuite) UpdateApprovalF(pr *porchapi.PackageRevision) *porchapi.PackageRevision {
 	t.T().Helper()
 	var ret *porchapi.PackageRevision
-	MeasureAndRecord(getUpdateApprovalOperation(pr), pr, func() { ret = t.TestSuiteWithGit.UpdateApprovalL(pr, opts) })
+	MeasureAndRecord(getUpdateApprovalOperation(pr), pr, func() { ret = t.TestSuiteWithGit.UpdateApprovalL(pr) })
 	return ret
 }
 

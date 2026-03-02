@@ -82,7 +82,7 @@ func (t *PorchSuite) TestEditPackageRevision() {
 
 	// Approve the package
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+	t.UpdateApprovalF(pr)
 
 	// Changing the workspace of the EditPR to avoid clashing with invalid create negative test above
 	editPR.Spec.WorkspaceName = workspaceToAvoidCreationClash

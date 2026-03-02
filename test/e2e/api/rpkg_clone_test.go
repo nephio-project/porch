@@ -210,7 +210,7 @@ data:
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecycleProposed
 	t.UpdateF(pr)
 	pr.Spec.Lifecycle = porchapi.PackageRevisionLifecyclePublished
-	published := t.UpdateApprovalF(pr, metav1.UpdateOptions{})
+	published := t.UpdateApprovalF(pr)
 
 	// Create new PackageRevision for upgrade workspace
 	upgradePr := t.CreatePackageSkeleton(gitRepository, "testns", testWorkspace+"-upgrade")
