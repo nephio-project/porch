@@ -53,9 +53,9 @@ var (
 
 func TestDisasterRecovery(t *testing.T) {
 	// Skip if not running disaster-recovery tests
-	// if os.Getenv("DISASTER") == "" {
-	// 	t.Skip("Skipping disaster-recovery tests in non-disaster-recovery environment")
-	// }
+	if os.Getenv("DISASTER") == "" {
+		t.Skip("Skipping disaster-recovery tests in non-disaster-recovery environment")
+	}
 
 	suite.Run(t, &PorchDisasterRecoverySuite{
 		skipPackageVariants:    true,
